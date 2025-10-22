@@ -688,6 +688,10 @@ body::before {
   background: rgba(10, 10, 16, 0.85);
   border: 1px solid var(--panel-border);
   box-shadow: var(--shadow);
+  position: sticky;
+  bottom: clamp(12px, 3vw, 24px);
+  z-index: 20;
+  backdrop-filter: blur(18px);
 }
 
 .tab-button {

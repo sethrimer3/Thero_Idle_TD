@@ -65,18 +65,6 @@ const tabHotkeys = new Map([
   ['5', 'options'],
 ]);
 
-function isDesktopEnvironment() {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  if (window.matchMedia) {
-    return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-  }
-
-  return !(navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
-}
-
 function isTextInput(element) {
   if (!element) return false;
   const tagName = element.tagName ? element.tagName.toLowerCase() : '';
@@ -275,9 +263,8 @@ function updateActiveLevelBanner() {
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
   if (!tabs.length) return;
-  const activeElement = document.activeElement;
-  if (!activeElement || !activeElement.closest('.tab-bar')) return;
   if (overlay && overlay.classList.contains('active')) return;
+  if (isTextInput(event.target)) return;
 
   const direction = event.key === 'ArrowRight' ? 1 : -1;
   event.preventDefault();
@@ -286,7 +273,6 @@ document.addEventListener('keydown', (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (!tabs.length) return;
-  if (!isDesktopEnvironment()) return;
   if (overlay && overlay.classList.contains('active')) return;
   if (isTextInput(event.target)) return;
 
