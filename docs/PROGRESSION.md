@@ -139,3 +139,15 @@ Future symbol variants will continue to draw from global mathematical alphabets 
 - Offline/idle time multiplies minutes idle by the number of unlocked achievements. All stored grains are deposited immediately on return.
 - Powder is dropped in the middle top of the screen. The sides of the screen are walls that act like a "container" that the powder will fill higher and higher. The screen will scroll up as the highest fallen powder (the height of the powder) reaches 2/3 or 3/4 to the top of the screen.
 - Powder height (the top *already fallen* sand particle is the powder's height) lights up mystic symbols on the wall etches mystic symbols along the wall. Each reached symbol lit up acts as an upgrade currency for tower research.
+
+### Current Achievement Seals
+| Seal | Trigger | Reward |
+| --- | --- | --- |
+| **First Orbit** | Clear the Lemniscate Hypothesis manual defense at least once. | +1 powder/min and logbook entry. |
+| **Circle Seer** | Maintain three α towers simultaneously (manual or auto-latticed). | +1 powder/min. |
+| **Series Summoner** | Push active powder rituals to a ×1.25 or higher total multiplier. | +1 powder/min. |
+| **Zero Hunter** | Defeat 30 invading glyphs across any battles. | +1 powder/min. |
+| **Golden Mentor** | Use auto-lattice to place all suggested anchors for a stage. | +1 powder/min. |
+| **Powder Archivist** | Illuminate at least three sand sigils along the powder wall. | +1 powder/min. |
+| **Keystone Keeper** | Complete any idle auto-run simulation. | +1 powder/min. |
+| **Temporal Sifter** | Accumulate 10 minutes of active idle simulations (multiple runs stack). | +1 powder/min. |
