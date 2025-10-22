@@ -74,6 +74,13 @@ function App() {
   }, []);
 
   const loadGame = async () => {
+    if (!supabase) {
+      if (import.meta.env.DEV) {
+        console.info('Supabase is not configured. Skipping cloud save restore.');
+      }
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('game_saves')
@@ -87,14 +94,52 @@ function App() {
         return;
       }
 
-      if (data) {
+      if (data?.game_state) {
+        const savedState = data.game_state as Partial<GameState>;
+        const sanitizedTowers = Array.isArray(savedState.towers)
+          ? savedState.towers.filter((tower): tower is Tower => {
+              if (typeof tower !== 'object' || tower === null) {
+                return false;
+              }
+
+              const candidate = tower as Partial<Tower> & {
+                position?: { x?: unknown; y?: unknown };
+              };
+
+              return (
+                typeof candidate.id === 'string' &&
+                typeof candidate.type === 'string' &&
+                typeof candidate.level === 'number' &&
+                typeof candidate.damage === 'number' &&
+                typeof candidate.range === 'number' &&
+                typeof candidate.attackSpeed === 'number' &&
+                typeof candidate.position === 'object' &&
+                candidate.position !== null &&
+                typeof candidate.position.x === 'number' &&
+                typeof candidate.position.y === 'number'
+              );
+            })
+          : [];
+
         setGameState({
-          ...data.game_state,
+          ...INITIAL_GAME_STATE,
+          ...savedState,
+          gold: typeof savedState.gold === 'number' ? savedState.gold : INITIAL_GAME_STATE.gold,
+          wave: typeof savedState.wave === 'number' ? savedState.wave : INITIAL_GAME_STATE.wave,
+          score: typeof savedState.score === 'number' ? savedState.score : INITIAL_GAME_STATE.score,
+          lives: typeof savedState.lives === 'number' ? savedState.lives : INITIAL_GAME_STATE.lives,
+          lastUpdate:
+            typeof savedState.lastUpdate === 'number'
+              ? savedState.lastUpdate
+              : INITIAL_GAME_STATE.lastUpdate,
+          towers: sanitizedTowers,
           enemies: [],
           isPlaying: true,
         });
         setSaveMessage('Σ Game vector restored.');
         setTimeout(() => setSaveMessage(''), 2000);
+      } else if (data) {
+        console.warn('Supabase payload missing game_state. Skipping restore.');
       }
     } catch (error) {
       console.error('Error loading game:', error);
@@ -102,6 +147,12 @@ function App() {
   };
 
   const saveGame = async () => {
+    if (!supabase) {
+      setSaveMessage('⚠ Cloud archives unavailable.');
+      setTimeout(() => setSaveMessage(''), 2000);
+      return;
+    }
+
     try {
       const saveData = {
         game_state: {
