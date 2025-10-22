@@ -344,7 +344,7 @@ body::before {
   padding: 18px;
   box-shadow: var(--shadow);
   display: grid;
-  gap: 10px;
+  gap: 12px;
   cursor: pointer;
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
 }
@@ -385,6 +385,39 @@ body::before {
   margin: 0;
   font-size: 0.9rem;
   color: var(--muted);
+}
+
+.level-metrics {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.level-metrics div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.level-metrics dt {
+  margin: 0;
+  font-family: "Space Mono", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+}
+
+.level-metrics dd {
+  margin: 0;
+  text-align: right;
+}
+
+.level-last-result {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .level-status-pill {
@@ -959,6 +992,41 @@ body::before {
   margin: 0 0 18px;
   font-size: 1rem;
   color: var(--muted);
+}
+
+.overlay-metrics {
+  margin: 0 0 18px;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.overlay-metrics div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.overlay-metrics dt {
+  margin: 0;
+  font-family: "Space Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.overlay-metrics dd {
+  margin: 0;
+  font-size: 0.95rem;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.overlay-last {
+  margin: 0 0 22px;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .overlay-instruction {
