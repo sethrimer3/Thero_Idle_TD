@@ -8,20 +8,68 @@
 
 body {
   margin: 0;
-  background: #050505;
+  min-height: 100vh;
+  background: radial-gradient(circle at 20% 10%, rgba(30, 30, 30, 0.8) 0%, rgba(5, 5, 5, 0.95) 52%, #030303 100%);
   color: #e6e6e6;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  position: relative;
+  overflow: hidden;
+}
+
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+body::before {
+  background-image:
+    radial-gradient(circle at 10% 15%, rgba(255, 255, 255, 0.05) 0, rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 85% 22%, rgba(255, 255, 255, 0.04) 0, rgba(255, 255, 255, 0) 45%),
+    radial-gradient(circle at 42% 78%, rgba(255, 255, 255, 0.03) 0, rgba(255, 255, 255, 0) 50%);
+  filter: blur(0.6px);
+}
+
+body::after {
+  background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 35%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 24px);
+  mix-blend-mode: lighten;
+  opacity: 0.4;
 }
 
 #root {
   min-height: 100vh;
+  width: 100%;
+}
+
+.app-backdrop {
+  width: 100%;
+  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: stretch;
+  padding: 32px 16px 120px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.app-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 24px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 28px;
+  opacity: 0.35;
+  pointer-events: none;
 }
 
 .app-shell {
   width: min(100%, 420px);
-  min-height: 100vh;
+  min-height: calc(100vh - 96px);
   background: radial-gradient(circle at top, rgba(20, 20, 20, 0.92) 0%, rgba(5, 5, 5, 0.96) 55%, #030303 100%);
   border: 1px solid rgba(255, 255, 255, 0.04);
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);

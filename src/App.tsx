@@ -377,31 +377,33 @@ function App() {
   ];
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <h1 className="app-title">Glyph Defense Idle</h1>
-        <p className="app-subtitle">A mystic study in tower calculus</p>
-      </header>
+    <div className="app-backdrop">
+      <div className="app-shell">
+        <header className="app-header">
+          <h1 className="app-title">Glyph Defense Idle</h1>
+          <p className="app-subtitle">A mystic study in tower calculus</p>
+        </header>
 
-      {saveMessage && (
-        <div className="save-toast">{saveMessage}</div>
-      )}
+        {saveMessage && (
+          <div className="save-toast">{saveMessage}</div>
+        )}
 
-      <main className="main-content">{renderActiveTab()}</main>
+        <main className="main-content">{renderActiveTab()}</main>
 
-      <nav className="tab-bar">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            className={`tab-button${activeTab === tab.id ? ' is-active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-            type="button"
-          >
-            <strong>{tab.glyph}</strong>
-            <span>{tab.label}</span>
-          </button>
-        ))}
-      </nav>
+        <nav className="tab-bar">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              className={`tab-button${activeTab === tab.id ? ' is-active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+              type="button"
+            >
+              <strong>{tab.glyph}</strong>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
     </div>
   );
 }
