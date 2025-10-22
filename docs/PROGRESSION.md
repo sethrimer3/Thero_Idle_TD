@@ -7,6 +7,24 @@
 - When a level is entered **for the first time** the screen fades to black and displays a hallmark statement for that set (e.g., Goldbach's Conjecture). Subsequent visits skip the fade.
 - Entered levels continue running when the player navigates to other tabs; use "Leave Current Level" on the Stage tab to reset wave flow.
 
+### Path Landmarks & Visual Rhythm
+- Every level renders a **distinct origin sigil** at the path entrance and a **termination glyph** at the core. These visuals borrow from the set theme (e.g., Conjecture sigils resemble parchment hypotheses; Proof endings resemble sealed Q.E.D. stamps) so players can instantly read both direction and flavor.
+- The lane itself breathes with a **travelling arc-light**—a subtle pulse that sweeps from start to finish every few seconds. The effect highlights curvature, communicates traversal order, and doubles as a timing cue for towers whose attacks key off path position.
+- Special interaction nodes (teleports, reversals, powder vents) echo the arc-light palette so that the sweeping glow stitches all navigation beats together without overpowering the monochrome base.
+
+### Dynamic Formula Spotlight Levels
+Each five-level set designates at least one **spotlight stage** whose path is governed by a live mathematical formula that evolves during play. These maps teach the player to read formula-driven layouts by letting the geometry respond to their actions:
+
+- **Hypothesis – S1 · Chalk Line Primer** uses a straight-line path whose length `ℓ(n)` shortens by `Δℓ = 0.05 · n` for every tower placed (`n =` active towers). The shrinking route teaches players to set up kill-boxes before the entrance collapses onto the core.
+- **Conjecture – 2 · Collatz Cascade** already shortens its descent when players place new towers, mirroring the halving steps of the `3n + 1` routine.
+- **Corollary – S1 · Pascal Circlet** begins as a unit circle (`r = 1`) around the core and decreases its radius by `Δr = 0.02` whenever an enemy is eliminated, gradually exposing shortcut diagonals that reward precise focus fire.
+- **Lemma – 14 · Möbius Rind** tightens its corkscrew by shrinking the radius of its inner loop with every slowed enemy, forcing towers to adapt as the lane collapses inward.
+- **Proof – S1 · Hilbert Flux** rearranges its space-filling turns by applying a discrete Hilbert iteration whenever enemies breach checkpoints, creating new corners that slide toward the exit until the wave is stabilized.
+- **Theorem – 22 · Fourier Aurora** retunes its wavelength after enemies fall, causing the polar path to contract and expand like a living waveform.
+- **Axiom – S1 · Variable Axiom** (new spotlight level) showcases a **shrinking conic spiral** whose radius `r(t)` decreases as enemies are defeated while the endpoint drifts to stay tangent to the moving curve. Tower placement also clips a secondary chord that shortens in proportion to total deployed cost, visually narrating endgame economic pressure.
+
+Future spotlight stages will explore other live formulas (area-minimizing surfaces, Lissajous knots, stochastic walks) so that advanced sets continue to remix traversal shapes in direct response to the player's decisions.
+
 ### Conjecture Set (Levels 1–5)
 1. **Conjecture – 1 · Lemniscate Hypothesis** – Figure-eight path generated from `r² = cos(2θ)`; introduces divisor scouts.
 2. **Conjecture – 2 · Collatz Cascade** – Tiered descent inspired by the `3n + 1` map with teleport risers and hit-count enemies.
