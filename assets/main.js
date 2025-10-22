@@ -56,6 +56,7 @@ let overlayExample = null;
 let activeLevelId = null;
 let pendingLevel = null;
 let activeTabIndex = 0;
+let lastLevelTrigger = null;
 
 const tabHotkeys = new Map([
   ['1', 'tower'],
@@ -161,6 +162,12 @@ function buildLevelCards() {
 
 function handleLevelSelection(level) {
   const state = levelState.get(level.id) || { entered: false, running: false };
+  const activeElement = document.activeElement;
+  if (activeElement && typeof activeElement.focus === 'function') {
+    lastLevelTrigger = activeElement;
+  } else {
+    lastLevelTrigger = null;
+  }
 
   if (!state.entered) {
     pendingLevel = level;
@@ -169,6 +176,8 @@ function handleLevelSelection(level) {
   }
 
   startLevel(level);
+  focusLeaveLevelButton();
+  lastLevelTrigger = null;
 }
 
 function showLevelOverlay(level) {
@@ -177,6 +186,7 @@ function showLevelOverlay(level) {
   overlayTitle.textContent = level.title;
   overlayExample.textContent = level.example;
   overlay.setAttribute('aria-hidden', 'false');
+  overlay.focus();
   requestAnimationFrame(() => {
     overlay.classList.add('active');
   });
@@ -186,6 +196,29 @@ function hideLevelOverlay() {
   if (!overlay) return;
   overlay.classList.remove('active');
   overlay.setAttribute('aria-hidden', 'true');
+}
+
+function cancelPendingLevel() {
+  pendingLevel = null;
+  hideLevelOverlay();
+  if (lastLevelTrigger && typeof lastLevelTrigger.focus === 'function') {
+    lastLevelTrigger.focus();
+  }
+  lastLevelTrigger = null;
+}
+
+function confirmPendingLevel() {
+  if (!pendingLevel) {
+    hideLevelOverlay();
+    return;
+  }
+
+  const levelToStart = pendingLevel;
+  pendingLevel = null;
+  hideLevelOverlay();
+  startLevel(levelToStart);
+  focusLeaveLevelButton();
+  lastLevelTrigger = null;
 }
 
 function startLevel(level) {
@@ -337,11 +370,7 @@ function initializeTabs() {
 function bindOverlayEvents() {
   if (!overlay) return;
   overlay.addEventListener('click', () => {
-    hideLevelOverlay();
-    if (pendingLevel) {
-      startLevel(pendingLevel);
-      pendingLevel = null;
-    }
+    confirmPendingLevel();
   });
 }
 
@@ -352,11 +381,20 @@ function bindLeaveLevelButton() {
   });
 }
 
+function focusLeaveLevelButton() {
+  if (leaveLevelBtn && typeof leaveLevelBtn.focus === 'function') {
+    leaveLevelBtn.focus();
+  }
+}
+
 function init() {
   levelGrid = document.getElementById('level-grid');
   activeLevelEl = document.getElementById('active-level');
   leaveLevelBtn = document.getElementById('leave-level');
   overlay = document.getElementById('level-overlay');
+  if (overlay && !overlay.hasAttribute('tabindex')) {
+    overlay.setAttribute('tabindex', '-1');
+  }
   overlayLabel = document.getElementById('overlay-level');
   overlayTitle = document.getElementById('overlay-title');
   overlayExample = document.getElementById('overlay-example');
@@ -373,3 +411,21 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
+document.addEventListener('keydown', (event) => {
+  if (!overlay) return;
+  const hidden = overlay.getAttribute('aria-hidden');
+  const isActive = overlay.classList.contains('active');
+  if (hidden !== 'false' && !isActive) return;
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    cancelPendingLevel();
+    return;
+  }
+
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    confirmPendingLevel();
+  }
+});
