@@ -1,4 +1,4 @@
-const tabs = document.querySelectorAll('.tab-button');
+const tabs = Array.from(document.querySelectorAll('.tab-button'));
 const panels = document.querySelectorAll('.panel');
 const levelGrid = document.getElementById('level-grid');
 const activeLevelEl = document.getElementById('active-level');
@@ -55,12 +55,19 @@ const levelLookup = new Map(levelBlueprints.map((level) => [level.id, level]));
 const levelState = new Map();
 let activeLevelId = null;
 let pendingLevel = null;
+let activeTabIndex = tabs.findIndex((tab) => tab.classList.contains('active'));
+if (activeTabIndex === -1) {
+  activeTabIndex = 0;
+}
 
 function setActiveTab(target) {
-  tabs.forEach((tab) => {
+  tabs.forEach((tab, index) => {
     const isActive = tab.dataset.tab === target;
     tab.classList.toggle('active', isActive);
     tab.setAttribute('aria-pressed', isActive);
+    if (isActive) {
+      activeTabIndex = index;
+    }
   });
 
   panels.forEach((panel) => {
@@ -70,6 +77,15 @@ function setActiveTab(target) {
   if (target === 'tower') {
     updateActiveLevelBanner();
   }
+}
+
+function focusAndActivateTab(index) {
+  if (!tabs.length) return;
+  const normalizedIndex = (index + tabs.length) % tabs.length;
+  const targetTab = tabs[normalizedIndex];
+  if (!targetTab) return;
+  setActiveTab(targetTab.dataset.tab);
+  targetTab.focus();
 }
 
 function buildLevelCards() {
@@ -207,34 +223,26 @@ function updateActiveLevelBanner() {
   activeLevelEl.textContent = `${level.id} · ${level.title} (${descriptor})`;
 }
 
-tabs.forEach((tab) => {
+tabs.forEach((tab, index) => {
   tab.addEventListener('click', () => {
-    const { tab: target } = tab.dataset;
-    setActiveTab(target);
+    focusAndActivateTab(index);
+  });
+
+  tab.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      focusAndActivateTab(index);
+    }
   });
 });
 
-// keyboard navigation for accessibility
-let focusedIndex = 0;
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+  if (overlay && overlay.classList.contains('active')) return;
 
-tabs.forEach((tab, index) => {
-  tab.addEventListener('keydown', (event) => {
-    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
-      event.preventDefault();
-      focusedIndex = index;
-      if (event.key === 'ArrowRight') {
-        focusedIndex = (focusedIndex + 1) % tabs.length;
-      } else if (event.key === 'ArrowLeft') {
-        focusedIndex = (focusedIndex - 1 + tabs.length) % tabs.length;
-      }
-      tabs[focusedIndex].focus();
-    }
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      const target = tabs[focusedIndex].dataset.tab;
-      setActiveTab(target);
-    }
-  });
+  const direction = event.key === 'ArrowRight' ? 1 : -1;
+  event.preventDefault();
+  focusAndActivateTab(activeTabIndex + direction);
 });
 
 if (overlay) {
