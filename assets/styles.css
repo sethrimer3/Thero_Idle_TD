@@ -685,7 +685,7 @@ body::before {
 }
 
 .tab-button {
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   background: transparent;
   color: var(--muted);
   display: flex;
@@ -695,11 +695,13 @@ body::before {
   padding: 10px 12px;
   border-radius: 12px;
   cursor: pointer;
-  transition: background var(--transition), color var(--transition), transform var(--transition);
+  transition: background var(--transition), color var(--transition), transform var(--transition), border-color var(--transition),
+    box-shadow var(--transition);
   font-family: "Space Mono", monospace;
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .tab-button:focus-visible {
@@ -711,12 +713,14 @@ body::before {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
   transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .tab-button.active {
   background: linear-gradient(120deg, rgba(139, 247, 255, 0.18), rgba(255, 125, 235, 0.18));
   color: var(--text);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+  border-color: rgba(139, 247, 255, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(139, 247, 255, 0.35);
 }
 
 .tab-icon {
