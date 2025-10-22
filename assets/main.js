@@ -299,9 +299,17 @@
       this.resizeObserver = null;
       this.resizeHandler = () => this.syncCanvasSize();
 
+      this.towerIdCounter = 0;
+      this.hoverPlacement = null;
+
+      this.pointerMoveHandler = (event) => this.handleCanvasPointerMove(event);
+      this.pointerLeaveHandler = () => this.clearPlacementPreview();
+      this.pointerClickHandler = (event) => this.handleCanvasClick(event);
+
       this.registerSlots();
       this.bindStartButton();
       this.attachResizeObservers();
+      this.attachCanvasInteractions();
 
       this.disableSlots(true);
       this.updateHud();
@@ -352,6 +360,15 @@
         this.resizeObserver.observe(this.canvas);
       }
       this.syncCanvasSize();
+    }
+
+    attachCanvasInteractions() {
+      if (!this.canvas) {
+        return;
+      }
+      this.canvas.addEventListener('pointermove', this.pointerMoveHandler);
+      this.canvas.addEventListener('pointerleave', this.pointerLeaveHandler);
+      this.canvas.addEventListener('click', this.pointerClickHandler);
     }
 
     syncCanvasSize() {
@@ -426,7 +443,8 @@
       const delta = this.lastTimestamp ? (timestamp - this.lastTimestamp) / 1000 : 0;
       this.lastTimestamp = timestamp;
 
-      this.update(delta);
+      const safeDelta = Math.min(delta, 0.12);
+      this.update(safeDelta);
       this.draw();
 
       this.animationId = requestAnimationFrame((nextTimestamp) => this.tick(nextTimestamp));
@@ -482,7 +500,7 @@
       }
       if (this.messageEl) {
         this.messageEl.textContent =
-          'Deploy α towers on luminous anchors, then commence the wave.';
+          'Sketch α lattices anywhere with adequate space—the anchors are merely suggested glyphs.';
       }
       if (this.progressEl) {
         this.progressEl.textContent = 'Wave prep underway.';
@@ -501,6 +519,7 @@
       this.enemies = [];
       this.projectiles = [];
       this.towers = [];
+      this.hoverPlacement = null;
       this.energy = 0;
       this.lives = 0;
       this.resolvedOutcome = null;
@@ -533,12 +552,14 @@
       this.waveTimer = 0;
       this.activeWave = null;
       this.enemyIdCounter = 0;
+      this.towerIdCounter = 0;
       this.arcPhase = 0;
       this.combatActive = false;
       this.resolvedOutcome = null;
       this.enemies = [];
       this.projectiles = [];
       this.towers = [];
+      this.hoverPlacement = null;
       this.slots.forEach((slot) => {
         slot.tower = null;
         if (slot.button) {
@@ -587,24 +608,121 @@
         tower.y = y;
         tower.range = baseRange;
       });
+      if (this.hoverPlacement) {
+        this.hoverPlacement.position = this.getCanvasPosition(this.hoverPlacement.normalized);
+        this.hoverPlacement.range = baseRange;
+      }
     }
 
-    handleSlotInteraction(slot) {
+    handleCanvasPointerMove(event) {
       if (!this.levelActive || !this.levelConfig) {
-        if (this.messageEl) {
-          this.messageEl.textContent = 'Select Lemniscate Hypothesis to command the defense.';
-        }
+        this.clearPlacementPreview();
         return;
       }
 
-      if (slot.tower) {
-        if (this.combatActive) {
-          if (this.messageEl) {
-            this.messageEl.textContent = 'Hold until the wave ends to reroute anchors.';
-          }
-          return;
+      const normalized = this.getNormalizedFromEvent(event);
+      if (!normalized) {
+        this.clearPlacementPreview();
+        return;
+      }
+
+      const baseRange = Math.min(this.renderWidth, this.renderHeight) * this.levelConfig.tower.range;
+      const position = this.getCanvasPosition(normalized);
+      const hoveredTower = this.findTowerAt(position);
+
+      if (hoveredTower) {
+        this.hoverPlacement = {
+          normalized: { ...hoveredTower.normalized },
+          position: { x: hoveredTower.x, y: hoveredTower.y },
+          range: baseRange,
+          valid: false,
+          target: hoveredTower,
+          reason: 'Select to release lattice.',
+        };
+      } else {
+        const validation = this.validatePlacement(normalized, { allowPathOverlap: false });
+        const energyReady = this.energy >= this.levelConfig.towerCost;
+        this.hoverPlacement = {
+          normalized,
+          position,
+          range: baseRange,
+          valid: energyReady && validation.valid,
+          reason: energyReady ? validation.reason : 'Need additional energy.',
+        };
+      }
+
+      if (!this.shouldAnimate) {
+        this.draw();
+      }
+    }
+
+    handleCanvasClick(event) {
+      if (!this.levelActive || !this.levelConfig) {
+        return;
+      }
+
+      if (typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+
+      const normalized = this.getNormalizedFromEvent(event);
+      if (!normalized) {
+        return;
+      }
+
+      const position = this.getCanvasPosition(normalized);
+      const tower = this.findTowerAt(position);
+      if (tower) {
+        this.sellTower(tower);
+        return;
+      }
+
+      this.addTowerAt(normalized);
+    }
+
+    clearPlacementPreview() {
+      if (!this.hoverPlacement) {
+        return;
+      }
+      this.hoverPlacement = null;
+      if (!this.shouldAnimate) {
+        this.draw();
+      }
+    }
+
+    getNormalizedFromEvent(event) {
+      if (!this.canvas) {
+        return null;
+      }
+      const rect = this.canvas.getBoundingClientRect();
+      const width = rect.width || this.renderWidth;
+      const height = rect.height || this.renderHeight;
+      if (!width || !height) {
+        return null;
+      }
+      const x = (event.clientX - rect.left) / width;
+      const y = (event.clientY - rect.top) / height;
+      if (Number.isNaN(x) || Number.isNaN(y)) {
+        return null;
+      }
+      const clamp = (value) => Math.min(Math.max(value, 0.04), 0.96);
+      return { x: clamp(x), y: clamp(y) };
+    }
+
+    findTowerAt(position) {
+      const hitRadius = Math.max(18, Math.min(this.renderWidth, this.renderHeight) * 0.045);
+      for (let index = this.towers.length - 1; index >= 0; index -= 1) {
+        const tower = this.towers[index];
+        const distance = Math.hypot(position.x - tower.x, position.y - tower.y);
+        if (distance <= hitRadius) {
+          return tower;
         }
-        this.removeTower(slot);
+      }
+      return null;
+    }
+
+    addTowerAt(normalized, options = {}) {
+      if (!this.levelConfig || !normalized) {
         return;
       }
 
@@ -616,33 +734,39 @@
         return;
       }
 
-      this.placeTower(slot);
-    }
+      const placement = this.validatePlacement(normalized, options);
+      if (!placement.valid) {
+        if (this.messageEl && placement.reason) {
+          this.messageEl.textContent = placement.reason;
+        }
+        return;
+      }
 
-    placeTower(slot) {
-      const normalized = { ...slot.normalized };
-      const position = this.getCanvasPosition(normalized);
+      const baseRange = Math.min(this.renderWidth, this.renderHeight) * this.levelConfig.tower.range;
       const tower = {
-        id: `tower-${slot.id}`,
-        slot,
-        normalized,
-        x: position.x,
-        y: position.y,
-        range: Math.min(this.renderWidth, this.renderHeight) * this.levelConfig.tower.range,
+        id: `tower-${(this.towerIdCounter += 1)}`,
+        normalized: { ...normalized },
+        x: placement.position.x,
+        y: placement.position.y,
+        range: baseRange,
         damage: this.levelConfig.tower.damage,
         rate: this.levelConfig.tower.rate,
         cooldown: 0,
+        slot: options.slot || null,
       };
 
       this.towers.push(tower);
-      slot.tower = tower;
 
-      if (slot.button) {
-        slot.button.classList.add('tower-built');
-        slot.button.setAttribute('aria-pressed', 'true');
+      if (options.slot) {
+        options.slot.tower = tower;
+        if (options.slot.button) {
+          options.slot.button.classList.add('tower-built');
+          options.slot.button.setAttribute('aria-pressed', 'true');
+        }
       }
 
       this.energy = Math.max(0, this.energy - this.levelConfig.towerCost);
+      this.hoverPlacement = null;
       if (this.messageEl) {
         this.messageEl.textContent = 'α lattice anchored—harmonics align.';
       }
@@ -650,28 +774,126 @@
       this.draw();
     }
 
-    removeTower(slot) {
-      const tower = slot.tower;
+    sellTower(tower, { slot } = {}) {
       if (!tower) {
         return;
       }
+
       const index = this.towers.indexOf(tower);
       if (index >= 0) {
         this.towers.splice(index, 1);
       }
-      slot.tower = null;
-      if (slot.button) {
-        slot.button.classList.remove('tower-built');
-        slot.button.setAttribute('aria-pressed', 'false');
+
+      const resolvedSlot = slot || tower.slot || null;
+      if (resolvedSlot) {
+        resolvedSlot.tower = null;
+        if (resolvedSlot.button) {
+          resolvedSlot.button.classList.remove('tower-built');
+          resolvedSlot.button.setAttribute('aria-pressed', 'false');
+        }
       }
 
-      const refund = Math.round(this.levelConfig.towerCost * 0.7);
-      this.energy = Math.min(this.levelConfig.energyCap, this.energy + refund);
-      if (this.messageEl) {
-        this.messageEl.textContent = `Anchor released—refunded ${refund} Ξ.`;
+      if (this.levelConfig) {
+        const refund = Math.round(this.levelConfig.towerCost * 0.7);
+        this.energy = Math.min(this.levelConfig.energyCap, this.energy + refund);
+        if (this.messageEl) {
+          this.messageEl.textContent = `Lattice released—refunded ${refund} Ξ.`;
+        }
       }
+
       this.updateHud();
       this.draw();
+    }
+
+    validatePlacement(normalized, options = {}) {
+      const { allowPathOverlap = false } = options;
+      if (!this.levelConfig) {
+        return { valid: false, reason: 'Activate a level first.' };
+      }
+
+      const position = this.getCanvasPosition(normalized);
+      const minDimension = Math.min(this.renderWidth, this.renderHeight) || 1;
+      const minSpacing = minDimension * 0.12;
+
+      for (let index = 0; index < this.towers.length; index += 1) {
+        const tower = this.towers[index];
+        const distance = Math.hypot(position.x - tower.x, position.y - tower.y);
+        if (distance < minSpacing) {
+          return { valid: false, reason: 'Too close to another α lattice.', position };
+        }
+      }
+
+      if (!allowPathOverlap) {
+        const pathBuffer = minDimension * 0.06;
+        const clearance = this.getDistanceToPath(position);
+        if (clearance < pathBuffer) {
+          return { valid: false, reason: 'Maintain clearance from the glyph lane.', position };
+        }
+      }
+
+      return { valid: true, position };
+    }
+
+    getDistanceToPath(point) {
+      if (!this.pathSegments.length) {
+        return Infinity;
+      }
+
+      let shortest = Infinity;
+      for (let index = 0; index < this.pathSegments.length; index += 1) {
+        const segment = this.pathSegments[index];
+        const distance = this.distancePointToSegment(point, segment.start, segment.end);
+        if (distance < shortest) {
+          shortest = distance;
+        }
+      }
+      return shortest;
+    }
+
+    distancePointToSegment(point, start, end) {
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      if (dx === 0 && dy === 0) {
+        return Math.hypot(point.x - start.x, point.y - start.y);
+      }
+      const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy);
+      const clampedT = Math.max(0, Math.min(1, t));
+      const projX = start.x + clampedT * dx;
+      const projY = start.y + clampedT * dy;
+      return Math.hypot(point.x - projX, point.y - projY);
+    }
+
+    handleSlotInteraction(slot) {
+      if (!this.levelActive || !this.levelConfig) {
+        if (this.messageEl) {
+          this.messageEl.textContent =
+            'Select Lemniscate Hypothesis, then etch α lattices directly onto the canvas.';
+        }
+        return;
+      }
+
+      if (slot.tower) {
+        this.sellTower(slot.tower, { slot });
+        return;
+      }
+
+      if (this.energy < this.levelConfig.towerCost) {
+        const needed = Math.ceil(this.levelConfig.towerCost - this.energy);
+        if (this.messageEl) {
+          this.messageEl.textContent = `Need ${needed} Ξ more to lattice an α tower.`;
+        }
+        return;
+      }
+
+      this.addTowerAt(slot.normalized, { slot, allowPathOverlap: true });
+    }
+
+    placeTower(slot) {
+      this.addTowerAt(slot?.normalized || null, { slot, allowPathOverlap: true });
+    }
+
+    removeTower(slot) {
+      this.sellTower(slot?.tower || null, { slot });
     }
 
     handleStartButton() {
@@ -1057,6 +1279,7 @@
       this.drawPath();
       this.drawArcLight();
       this.drawNodes();
+      this.drawPlacementPreview();
       this.drawTowers();
       this.drawEnemies();
       this.drawProjectiles();
@@ -1148,6 +1371,38 @@
           ctx.stroke();
         }
       });
+    }
+
+    drawPlacementPreview() {
+      if (!this.ctx || !this.hoverPlacement || !this.levelConfig) {
+        return;
+      }
+      const { position, range, valid } = this.hoverPlacement;
+      const ctx = this.ctx;
+      const stroke = valid ? 'rgba(139, 247, 255, 0.7)' : 'rgba(255, 108, 140, 0.75)';
+      const fill = valid ? 'rgba(139, 247, 255, 0.12)' : 'rgba(255, 108, 140, 0.14)';
+
+      ctx.save();
+      ctx.setLineDash([6, 6]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = stroke;
+      ctx.beginPath();
+      ctx.arc(position.x, position.y, 18, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const previewRange = range || Math.min(this.renderWidth, this.renderHeight) * this.levelConfig.tower.range;
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = stroke;
+      ctx.beginPath();
+      ctx.arc(position.x, position.y, previewRange, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.arc(position.x, position.y, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
 
     drawEnemies() {
