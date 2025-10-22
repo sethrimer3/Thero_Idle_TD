@@ -630,6 +630,50 @@ body::before {
   gap: 16px;
 }
 
+.stage-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.control-button {
+  font-family: "Space Mono", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.control-button:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.control-button:disabled,
+.control-button[aria-disabled="true"],
+.control-button:disabled:hover {
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(247, 247, 245, 0.5);
+  transform: none;
+}
+
 .progress {
   width: 100%;
   padding: 12px;

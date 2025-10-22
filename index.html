@@ -269,9 +269,19 @@
             <button class="action-button" type="button">Prysmatic!</button>
           </aside>
           <div class="stage-footer">
-            <button class="play-button" type="button" id="playfield-start" disabled>
-              Commence Wave
-            </button>
+            <div class="stage-controls">
+              <button class="play-button" type="button" id="playfield-start" disabled>
+                Commence Wave
+              </button>
+              <div class="control-row" role="group" aria-label="Stage utilities">
+                <button class="control-button" type="button" id="playfield-speed">
+                  Speed ×1
+                </button>
+                <button class="control-button" type="button" id="playfield-auto">
+                  Auto-lattice α
+                </button>
+              </div>
+            </div>
             <div class="progress">
               <span id="playfield-progress">No active level.</span>
             </div>
