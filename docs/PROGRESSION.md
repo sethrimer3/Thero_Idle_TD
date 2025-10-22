@@ -14,6 +14,41 @@
 4. **Conjecture – 4 · Twin Prime Fork** – Dual rails connected by prime gaps; rewards rapid chaining damage.
 5. **Conjecture – 5 · Birch Flow** – Cardioid river influenced by elliptic curve ranks; showcases enemy reversal mechanics.
 
+### Corollary Set (Levels 6–10)
+6. **Corollary – 6 · Eulerian Strand** – Braided Möbius belt that alternates lane parity; introduces parity locks that reward alternating tower types.
+7. **Corollary – 7 · Pascal Bloom** – Expanding binomial petals whose lanes duplicate every seventh wave; binomial buff enemies copy the strongest nearby aura.
+8. **Corollary – 8 · Catalan Grove** – Interlocking lattice walk with branching forks; features Catalan guardians that split into two mirror copies when slowed.
+9. **Corollary – 9 · Fermat Prism** – Three spiraling planes rotating in prime exponents; hypotenuse runners gain shields proportional to remaining path length.
+10. **Corollary – 10 · Sylow Circuit** – Nested group loops that rewire based on tower merges; enemies swap resistances when the player fuses towers mid-wave.
+
+### Lemma Set (Levels 11–15)
+11. **Lemma – 11 · Abel Cascade** – Waterfall descent using commutator switches; river nodes invert projectile order, testing burst versus beam timing.
+12. **Lemma – 12 · Noether Weave** – Symmetry-rich ringroads whose portals preserve DPS sums; enemies trade positions when struck by support glyphs.
+13. **Lemma – 13 · Erdős Drift** – Random-graph tramlines that shuffle lane adjacency; probabilistic smugglers reroute toward the longest surviving enemy.
+14. **Lemma – 14 · Möbius Rind** – Inside-out corkscrew track; sign-flip sentries grant negative armor that amplifies epsilon burn damage.
+15. **Lemma – 15 · Ramanujan Bloom** – Lotus of nested circles keyed to modular forms; resonance echoes cause defeated foes to spawn low-HP harmonic clones.
+
+### Proof Set (Levels 16–20)
+16. **Proof – 16 · Hilbert Fold** – Space-filling fractal corridor; dimensional walkers slip through walls unless slowed by delta caserns.
+17. **Proof – 17 · Gödel Labyrinth** – Self-referencing maze with locked axioms; paradox custodians revive unless struck by three distinct tower classes.
+18. **Proof – 18 · Turing Spire** – Vertical tape ascent with binary toggles; automaton foes flip between vulnerable and immune states based on attack parity.
+19. **Proof – 19 · Cantor Verge** – Fragmented coastline path removing middle thirds; lacuna spirits leap gaps, forcing chained knockback to corral them.
+20. **Proof – 20 · Jordan Curve Bastion** – Contour fortress wrapped around the core; enclosure judges stun towers that let enemies slip past twice.
+
+### Theorem Set (Levels 21–25)
+21. **Theorem – 21 · Gauss Orchard** – Hexagonal orchard aligned to quadratic residues; orchard keepers gain bonus armor on squares, incentivizing splash setups.
+22. **Theorem – 22 · Fourier Aurora** – Polar halo with wavelength lanes; harmonics build up if projectiles lack variety, demanding mixed damage types.
+23. **Theorem – 23 · Nash Spiral** – Competitive spiral with alternating payoff nodes; adversary agents gain buffs if lanes are left unattended for long.
+24. **Theorem – 24 · Riesz Parallax** – Dual parabolic arches with shared intercepts; projection ghosts mirror the lead enemy unless frozen simultaneously.
+25. **Theorem – 25 · Poincaré Bloom** – Hypersphere cross-section with teleport seams; flarebitters detonate when touching seams, punishing clustered defenses.
+
+### Axiom Set (Levels 26–30)
+26. **Axiom – 26 · Zorn Horizon** – Infinite-descending plateau where gravity reverses; maximal chains of foes gain shields until toppled by omega strikes.
+27. **Axiom – 27 · Löwenheim Gate** – Towering quantifier gates that rescale enemy size; shrinking glyphs slip through gaps unless slowed by sigma snares.
+28. **Axiom – 28 · Grothendieck Loom** – Category lattice weaving incoming paths; functor heralds copy the highest-tier tower stats once per wave.
+29. **Axiom – 29 · Tarski Reflection** – Mirror arena with delayed reflections; each enemy spawns a spectral double that retraces steps with inverted resistances.
+30. **Axiom – 30 · Peano Genesis** – Final spiral constructed from recursive integers; successor titans rebuild lost segments unless powderfall seals are lit.
+
 Future sets escalate enemy modifiers and map complexity but follow the same five-level cadence with new example statements.
 
 ## Tower Evolution
