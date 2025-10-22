@@ -211,8 +211,9 @@ body::before {
 
 .playfield {
   position: relative;
-  width: min(560px, 100%);
-  aspect-ratio: 560 / 360;
+  width: min(420px, 100%, calc((100vh - 160px) * 9 / 16));
+  max-height: calc(100vh - 160px);
+  aspect-ratio: 9 / 16;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   overflow: hidden;
@@ -229,6 +230,61 @@ body::before {
   height: 100%;
   display: block;
   cursor: inherit;
+}
+
+.enemy-tooltip {
+  position: absolute;
+  z-index: 2;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(139, 247, 255, 0.45);
+  background: rgba(10, 12, 20, 0.9);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
+  color: var(--text);
+  font-family: "Space Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 12px));
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition), visibility var(--transition), transform var(--transition);
+}
+
+.enemy-tooltip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 14px;
+  height: 14px;
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 2px;
+  background: inherit;
+  border: 1px solid rgba(139, 247, 255, 0.45);
+  border-top-color: transparent;
+  border-left-color: transparent;
+  box-shadow: -3px 3px 8px rgba(0, 0, 0, 0.35);
+}
+
+.enemy-tooltip[data-visible='true'] {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, calc(-100% - 8px));
+}
+
+.enemy-tooltip-name {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.enemy-tooltip-hp {
+  margin-top: 4px;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  text-transform: none;
 }
 
 .tower-slot {
