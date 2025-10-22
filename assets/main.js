@@ -115,6 +115,8 @@
     energy: null,
     progress: null,
     startButton: null,
+    speedButton: null,
+    autoAnchorButton: null,
     slots: [],
   };
 
@@ -268,6 +270,12 @@
       { x: 0.8, y: 0.46 },
       { x: 0.9, y: 0.18 },
     ],
+    autoAnchors: [
+      { x: 0.24, y: 0.68 },
+      { x: 0.44, y: 0.36 },
+      { x: 0.62, y: 0.7 },
+      { x: 0.78, y: 0.38 },
+    ],
   };
 
   const idleLevelConfigs = new Map();
@@ -305,6 +313,14 @@
       this.energyEl = options.energyEl || null;
       this.progressEl = options.progressEl || null;
       this.startButton = options.startButton || null;
+      this.speedButton = options.speedButton || null;
+      this.autoAnchorButton = options.autoAnchorButton || null;
+      this.speedMultipliers =
+        Array.isArray(options.speedMultipliers) && options.speedMultipliers.length
+          ? options.speedMultipliers.slice()
+          : [1, 1.5, 2, 3];
+      this.speedIndex = 0;
+      this.speedMultiplier = this.speedMultipliers[this.speedIndex];
       this.slotButtons = Array.isArray(options.slotButtons) ? options.slotButtons : [];
       this.onVictory = typeof options.onVictory === 'function' ? options.onVictory : null;
       this.onDefeat = typeof options.onDefeat === 'function' ? options.onDefeat : null;
@@ -345,6 +361,7 @@
 
       this.towerIdCounter = 0;
       this.hoverPlacement = null;
+      this.anchorTolerance = 0.06;
 
       this.pointerMoveHandler = (event) => this.handleCanvasPointerMove(event);
       this.pointerLeaveHandler = () => this.clearPlacementPreview();
@@ -352,12 +369,16 @@
 
       this.registerSlots();
       this.bindStartButton();
+      this.bindSpeedButton();
+      this.bindAutoAnchorButton();
       this.attachResizeObservers();
       this.attachCanvasInteractions();
 
       this.disableSlots(true);
       this.updateHud();
       this.updateProgress();
+      this.updateSpeedButton();
+      this.updateAutoAnchorButton();
     }
 
     registerSlots() {
@@ -390,6 +411,38 @@
         return;
       }
       this.startButton.addEventListener('click', () => this.handleStartButton());
+    }
+
+    bindSpeedButton() {
+      if (!this.speedButton) {
+        return;
+      }
+      this.speedButton.addEventListener('click', () => {
+        if (!this.isInteractiveLevelActive()) {
+          if (this.messageEl) {
+            this.messageEl.textContent =
+              'Enter Lemniscate Hypothesis to adjust the simulation speed.';
+          }
+          return;
+        }
+        this.cycleSpeedMultiplier();
+      });
+    }
+
+    bindAutoAnchorButton() {
+      if (!this.autoAnchorButton) {
+        return;
+      }
+      this.autoAnchorButton.addEventListener('click', () => {
+        if (!this.isInteractiveLevelActive()) {
+          if (this.messageEl) {
+            this.messageEl.textContent =
+              'Enter Lemniscate Hypothesis to auto-lattice recommended anchors.';
+          }
+          return;
+        }
+        this.autoAnchorTowers();
+      });
     }
 
     attachResizeObservers() {
@@ -527,6 +580,8 @@
           this.startButton.textContent = 'Preview Only';
           this.startButton.disabled = true;
         }
+        this.updateSpeedButton();
+        this.updateAutoAnchorButton();
         return;
       }
 
@@ -551,6 +606,8 @@
       }
       this.updateHud();
       this.updateProgress();
+      this.updateSpeedButton();
+      this.updateAutoAnchorButton();
     }
 
     leaveLevel() {
@@ -582,6 +639,8 @@
         this.startButton.textContent = 'Commence Wave';
         this.startButton.disabled = true;
       }
+      this.updateSpeedButton();
+      this.updateAutoAnchorButton();
     }
 
     resetState() {
@@ -617,6 +676,8 @@
       if (this.startButton) {
         this.startButton.disabled = !this.levelConfig;
       }
+      this.updateAutoAnchorButton();
+      this.updateSpeedButton();
     }
 
     enableSlots() {
@@ -639,6 +700,169 @@
           slot.button.setAttribute('aria-pressed', 'false');
         }
       });
+    }
+
+    isInteractiveLevelActive() {
+      return Boolean(
+        this.levelActive && this.levelConfig && this.levelConfig.id === firstLevelConfig.id,
+      );
+    }
+
+    formatSpeedMultiplier(value) {
+      if (Number.isInteger(value)) {
+        return String(value);
+      }
+      const formatted = value.toFixed(1);
+      return formatted.endsWith('.0') ? formatted.slice(0, -2) : formatted;
+    }
+
+    cycleSpeedMultiplier() {
+      if (!this.speedMultipliers.length) {
+        return;
+      }
+      this.speedIndex = (this.speedIndex + 1) % this.speedMultipliers.length;
+      this.speedMultiplier = this.speedMultipliers[this.speedIndex];
+      this.updateSpeedButton();
+      if (this.messageEl) {
+        this.messageEl.textContent = `Simulation speed set to ×${this.formatSpeedMultiplier(
+          this.speedMultiplier,
+        )}.`;
+      }
+    }
+
+    updateSpeedButton() {
+      if (!this.speedButton) {
+        return;
+      }
+      const label = this.formatSpeedMultiplier(this.speedMultiplier);
+      this.speedButton.textContent = `Speed ×${label}`;
+      const interactive = this.isInteractiveLevelActive();
+      this.speedButton.disabled = !interactive;
+      this.speedButton.setAttribute('aria-disabled', interactive ? 'false' : 'true');
+      this.speedButton.title = interactive
+        ? 'Cycle the manual defense speed multiplier.'
+        : 'Simulation speed adjusts during the interactive defense.';
+    }
+
+    getAutoAnchorStatus() {
+      const anchors = Array.isArray(this.levelConfig?.autoAnchors)
+        ? this.levelConfig.autoAnchors
+        : [];
+      if (!anchors.length) {
+        return { total: 0, placed: 0 };
+      }
+      const tolerance = this.anchorTolerance;
+      let placed = 0;
+      anchors.forEach((anchor) => {
+        const occupied = this.towers.some((tower) => {
+          const dx = tower.normalized.x - anchor.x;
+          const dy = tower.normalized.y - anchor.y;
+          return Math.hypot(dx, dy) <= tolerance;
+        });
+        if (occupied) {
+          placed += 1;
+        }
+      });
+      return { total: anchors.length, placed };
+    }
+
+    updateAutoAnchorButton() {
+      if (!this.autoAnchorButton) {
+        return;
+      }
+
+      const interactive = this.isInteractiveLevelActive();
+      if (!interactive) {
+        this.autoAnchorButton.textContent = 'Auto-lattice α';
+        this.autoAnchorButton.disabled = true;
+        this.autoAnchorButton.setAttribute('aria-disabled', 'true');
+        this.autoAnchorButton.title = 'Auto placement is available during the interactive defense.';
+        return;
+      }
+
+      const { total, placed } = this.getAutoAnchorStatus();
+      const remaining = Math.max(0, total - placed);
+      if (total === 0) {
+        this.autoAnchorButton.textContent = 'Auto-lattice α';
+        this.autoAnchorButton.disabled = true;
+        this.autoAnchorButton.setAttribute('aria-disabled', 'true');
+        this.autoAnchorButton.title = 'No recommended anchors configured for this stage.';
+        return;
+      }
+
+      const label = remaining
+        ? `Auto-lattice α (${remaining} open)`
+        : 'Auto-lattice α (complete)';
+      this.autoAnchorButton.textContent = label;
+      const disabled = remaining === 0;
+      this.autoAnchorButton.disabled = disabled;
+      this.autoAnchorButton.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+      this.autoAnchorButton.title = `Auto place up to ${total} recommended α lattices (${this.levelConfig.towerCost} Ξ each).`;
+    }
+
+    autoAnchorTowers() {
+      if (!this.isInteractiveLevelActive()) {
+        return;
+      }
+      const anchors = Array.isArray(this.levelConfig?.autoAnchors)
+        ? this.levelConfig.autoAnchors
+        : [];
+      if (!anchors.length) {
+        if (this.messageEl) {
+          this.messageEl.textContent = 'No auto-lattice anchors configured for this level yet.';
+        }
+        return;
+      }
+
+      const tolerance = this.anchorTolerance;
+      let placed = 0;
+      let insufficientEnergy = false;
+
+      for (const anchor of anchors) {
+        const occupied = this.towers.some((tower) => {
+          const dx = tower.normalized.x - anchor.x;
+          const dy = tower.normalized.y - anchor.y;
+          return Math.hypot(dx, dy) <= tolerance;
+        });
+        if (occupied) {
+          continue;
+        }
+        if (this.energy < this.levelConfig.towerCost) {
+          insufficientEnergy = true;
+          break;
+        }
+        const success = this.addTowerAt(anchor, { silent: true });
+        if (success) {
+          placed += 1;
+        }
+      }
+
+      const { total, placed: nowPlaced } = this.getAutoAnchorStatus();
+      const remaining = Math.max(0, total - nowPlaced);
+
+      if (this.messageEl) {
+        if (placed > 0) {
+          let summary = `Auto-latticed ${placed} α anchor${placed === 1 ? '' : 's'}.`;
+          if (remaining > 0) {
+            if (insufficientEnergy) {
+              const shortfall = Math.max(0, Math.ceil(this.levelConfig.towerCost - this.energy));
+              summary += ` ${remaining} anchor${remaining === 1 ? '' : 's'} remain—need ${shortfall} Ξ more.`;
+            } else {
+              summary += ` ${remaining} anchor${remaining === 1 ? '' : 's'} remain.`;
+            }
+          }
+          this.messageEl.textContent = summary;
+        } else if (insufficientEnergy) {
+          const shortfall = Math.max(0, Math.ceil(this.levelConfig.towerCost - this.energy));
+          this.messageEl.textContent = `Need ${shortfall} Ξ more to auto-lattice an α tower.`;
+        } else {
+          this.messageEl.textContent = 'All recommended anchors already sealed.';
+        }
+      }
+
+      this.updateHud();
+      this.draw();
+      this.updateAutoAnchorButton();
     }
 
     updateTowerPositions() {
@@ -767,23 +991,25 @@
 
     addTowerAt(normalized, options = {}) {
       if (!this.levelConfig || !normalized) {
-        return;
+        return false;
       }
+
+      const { slot = null, allowPathOverlap = false, silent = false } = options;
 
       if (this.energy < this.levelConfig.towerCost) {
         const needed = Math.ceil(this.levelConfig.towerCost - this.energy);
-        if (this.messageEl) {
+        if (this.messageEl && !silent) {
           this.messageEl.textContent = `Need ${needed} Ξ more to lattice an α tower.`;
         }
-        return;
+        return false;
       }
 
-      const placement = this.validatePlacement(normalized, options);
+      const placement = this.validatePlacement(normalized, { allowPathOverlap });
       if (!placement.valid) {
-        if (this.messageEl && placement.reason) {
+        if (this.messageEl && placement.reason && !silent) {
           this.messageEl.textContent = placement.reason;
         }
-        return;
+        return false;
       }
 
       const baseRange = Math.min(this.renderWidth, this.renderHeight) * this.levelConfig.tower.range;
@@ -796,26 +1022,27 @@
         damage: this.levelConfig.tower.damage,
         rate: this.levelConfig.tower.rate,
         cooldown: 0,
-        slot: options.slot || null,
+        slot,
       };
 
       this.towers.push(tower);
 
-      if (options.slot) {
-        options.slot.tower = tower;
-        if (options.slot.button) {
-          options.slot.button.classList.add('tower-built');
-          options.slot.button.setAttribute('aria-pressed', 'true');
+      if (slot) {
+        slot.tower = tower;
+        if (slot.button) {
+          slot.button.classList.add('tower-built');
+          slot.button.setAttribute('aria-pressed', 'true');
         }
       }
 
       this.energy = Math.max(0, this.energy - this.levelConfig.towerCost);
       this.hoverPlacement = null;
-      if (this.messageEl) {
+      if (this.messageEl && !silent) {
         this.messageEl.textContent = 'α lattice anchored—harmonics align.';
       }
       this.updateHud();
       this.draw();
+      return true;
     }
 
     sellTower(tower, { slot } = {}) {
@@ -989,23 +1216,25 @@
         return;
       }
 
-      this.arcPhase = (this.arcPhase + delta * (this.levelConfig.arcSpeed || 0.2)) % 1;
+      const speedDelta = delta * this.speedMultiplier;
+
+      this.arcPhase = (this.arcPhase + speedDelta * (this.levelConfig.arcSpeed || 0.2)) % 1;
 
       if (!this.combatActive) {
         this.energy = Math.min(
           this.levelConfig.energyCap,
-          this.energy + this.levelConfig.passiveEnergyPerSecond * delta,
+          this.energy + this.levelConfig.passiveEnergyPerSecond * speedDelta,
         );
         this.updateHud();
         this.updateProgress();
         return;
       }
 
-      this.waveTimer += delta;
+      this.waveTimer += speedDelta;
       this.spawnEnemies();
-      this.updateTowers(delta);
-      this.updateEnemies(delta);
-      this.updateProjectiles(delta);
+      this.updateTowers(speedDelta);
+      this.updateEnemies(speedDelta);
+      this.updateProjectiles(speedDelta);
       this.updateProgress();
       this.updateHud();
     }
@@ -1248,6 +1477,9 @@
           ? `${Math.round(this.energy)} Ξ`
           : '—';
       }
+
+      this.updateSpeedButton();
+      this.updateAutoAnchorButton();
     }
 
     updateProgress() {
@@ -2751,6 +2983,8 @@
     playfieldElements.energy = document.getElementById('playfield-energy');
     playfieldElements.progress = document.getElementById('playfield-progress');
     playfieldElements.startButton = document.getElementById('playfield-start');
+    playfieldElements.speedButton = document.getElementById('playfield-speed');
+    playfieldElements.autoAnchorButton = document.getElementById('playfield-auto');
     playfieldElements.slots = Array.from(document.querySelectorAll('.tower-slot'));
 
     if (leaveLevelBtn) {
@@ -2767,6 +3001,8 @@
         energyEl: playfieldElements.energy,
         progressEl: playfieldElements.progress,
         startButton: playfieldElements.startButton,
+        speedButton: playfieldElements.speedButton,
+        autoAnchorButton: playfieldElements.autoAnchorButton,
         slotButtons: playfieldElements.slots,
         onVictory: handlePlayfieldVictory,
         onDefeat: handlePlayfieldDefeat,
