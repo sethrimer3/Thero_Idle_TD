@@ -7,6 +7,17 @@ import { useGameLoop, spawnWave } from './hooks/useGameLoop';
 import { useIdleProgress } from './hooks/useIdleProgress';
 import { STARTING_GOLD, STARTING_LIVES, TOWER_CONFIGS } from './utils/gameConfig';
 import { supabase } from './utils/supabase';
+import './App.css';
+
+type AppTab = 'level' | 'towers' | 'powder' | 'options';
+
+type LevelBlueprint = {
+  id: number;
+  sigil: string;
+  name: string;
+  formula: string;
+  description: string;
+};
 
 const INITIAL_GAME_STATE: GameState = {
   gold: STARTING_GOLD,
@@ -19,10 +30,41 @@ const INITIAL_GAME_STATE: GameState = {
   lastUpdate: Date.now(),
 };
 
+const LEVEL_BLUEPRINTS: LevelBlueprint[] = [
+  {
+    id: 1,
+    sigil: 'Σ',
+    name: 'Spiral of Sums',
+    formula: 'hpₙ = 12Σₖ₌₁ⁿ k',
+    description: 'Prime-backed runners trace a logarithmic spiral. Each loop advances the wave multiplier by Σ n.',
+  },
+  {
+    id: 2,
+    sigil: 'Φ',
+    name: 'Golden Cascade',
+    formula: 'hpₙ = 34 · φⁿ',
+    description: 'Fibonacci drifters descend twin lanes. Enemies split, recombine, and grow with the golden ratio.',
+  },
+  {
+    id: 3,
+    sigil: 'Π',
+    name: 'Integral Causeway',
+    formula: 'reward(t) = ∫₀ᵗ (1 + ln x) dx',
+    description: 'A looping promenade where powder gusts thicken the reward integral over idle time.',
+  },
+];
+
 function App() {
   const [gameState, setGameState] = useState<GameState>(INITIAL_GAME_STATE);
   const [selectedTower, setSelectedTower] = useState<TowerType | null>(null);
   const [saveMessage, setSaveMessage] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<AppTab>('level');
+  const [selectedLevel, setSelectedLevel] = useState<number>(LEVEL_BLUEPRINTS[0].id);
+  const [optionsState, setOptionsState] = useState({
+    sound: true,
+    notation: true,
+    notifications: false,
+  });
 
   useGameLoop(gameState, setGameState);
   useIdleProgress(gameState, setGameState);
@@ -51,7 +93,7 @@ function App() {
           enemies: [],
           isPlaying: true,
         });
-        setSaveMessage('Game loaded!');
+        setSaveMessage('Σ Game vector restored.');
         setTimeout(() => setSaveMessage(''), 2000);
       }
     } catch (error) {
@@ -78,15 +120,15 @@ function App() {
 
       if (error) {
         console.error('Error saving game:', error);
-        setSaveMessage('Save failed!');
+        setSaveMessage('⚠ Save diverged.');
       } else {
-        setSaveMessage('Game saved!');
+        setSaveMessage('✓ Progress integrated.');
       }
 
       setTimeout(() => setSaveMessage(''), 2000);
     } catch (error) {
       console.error('Error saving game:', error);
-      setSaveMessage('Save failed!');
+      setSaveMessage('⚠ Save diverged.');
       setTimeout(() => setSaveMessage(''), 2000);
     }
   };
@@ -169,62 +211,197 @@ function App() {
     setSelectedTower(null);
   };
 
-  return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#121212', color: '#fff', fontFamily: 'Arial, sans-serif', padding: '20px' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        <header style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <h1 style={{ fontSize: '36px', margin: '0 0 10px 0', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: 'bold' }}>
-            Idle Tower Defense
-          </h1>
-          <p style={{ color: '#aaa', fontSize: '14px', margin: 0 }}>Build towers, defend your base, and earn gold even when idle!</p>
-        </header>
+  const toggleOption = (key: keyof typeof optionsState) => {
+    setOptionsState(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
-        {saveMessage && (
-          <div style={{ position: 'fixed', top: '20px', right: '20px', padding: '15px 25px', backgroundColor: '#4CAF50', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', zIndex: 1000, boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-            {saveMessage}
+  const selectedBlueprint = LEVEL_BLUEPRINTS.find(level => level.id === selectedLevel) ?? LEVEL_BLUEPRINTS[0];
+
+  const renderLevelTab = () => (
+    <div className="tab-section">
+      <div className="panel">
+        <h2 className="panel-title">Level Selection</h2>
+        <div className="level-grid">
+          {LEVEL_BLUEPRINTS.map(level => (
+            <button
+              key={level.id}
+              onClick={() => setSelectedLevel(level.id)}
+              className={`level-card${selectedLevel === level.id ? ' is-active' : ''}`}
+            >
+              <div className="level-name">{`${level.sigil} ${level.name}`}</div>
+              <div className="level-formula">{level.formula}</div>
+              <div className="level-description">{level.description}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel">
+        <h2 className="panel-title">Field Work</h2>
+        <div className="board-wrapper">
+          <div className="board-note">
+            {`${selectedBlueprint.sigil} ${selectedBlueprint.name}`} • Wave scaling: {selectedBlueprint.formula}
           </div>
-        )}
-
-        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <div>
-            <TowerShop
-              gold={gameState.gold}
-              selectedTower={selectedTower}
-              onSelectTower={setSelectedTower}
-            />
-          </div>
-
-          <div>
+          <div className="board-slate">
             <GameBoard
               gameState={gameState}
               selectedTower={selectedTower}
               onCellClick={handleCellClick}
             />
           </div>
+          <div className="board-note">
+            Place towers on empty glyph nodes. Tap a placed tower to elevate its exponent.
+          </div>
+        </div>
+      </div>
 
-          <div>
-            <GameStats
-              gameState={gameState}
-              onStartWave={handleStartWave}
-              onSaveGame={saveGame}
-              onResetGame={handleResetGame}
+      <div className="panel">
+        <h2 className="panel-title">Operations Ledger</h2>
+        <GameStats
+          gameState={gameState}
+          onStartWave={handleStartWave}
+          onSaveGame={saveGame}
+          onResetGame={handleResetGame}
+        />
+      </div>
+    </div>
+  );
+
+  const renderTowerTab = () => (
+    <div className="tab-section">
+      <div className="panel">
+        <h2 className="panel-title">Tower Lexicon</h2>
+        <p className="guide-text">
+          Each structure channels a unique equation. Select a glyph to ready its construction, then return to the field to place it.
+        </p>
+        <TowerShop
+          gold={gameState.gold}
+          selectedTower={selectedTower}
+          onSelectTower={setSelectedTower}
+        />
+      </div>
+    </div>
+  );
+
+  const renderPowderTab = () => (
+    <div className="tab-section">
+      <div className="panel">
+        <h2 className="panel-title">Powder Simulation</h2>
+        <p className="guide-text">
+          The powder crucible operates while idle. Shape dunes, redirect falling sand, and harvest drift integrals to amplify tower coefficients.
+        </p>
+        <div className="powder-grid">
+          <div className="powder-cell">
+            <h3 className="powder-title">Δ Sandfall</h3>
+            <p className="powder-detail">
+              Tilt the device to bias the sand emitter. Capture grains in sigil basins to earn <span className="helper-emphasis">ψ-powder</span>, a multiplier applied to projectile speed.
+            </p>
+          </div>
+          <div className="powder-cell">
+            <h3 className="powder-title">∂ Heat Bloom</h3>
+            <p className="powder-detail">
+              Trace fractal boundaries to heat sand. The temperature integral powers <span className="helper-emphasis">Ω-overflow</span>, spilling bonus gold into the ledger every minute.
+            </p>
+          </div>
+          <div className="powder-cell">
+            <h3 className="powder-title">∇ Resonance</h3>
+            <p className="powder-detail">
+              Align powder streams with active towers. Matching glyphs double the tower&apos;s current exponent for the next wave.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderOptionsTab = () => (
+    <div className="tab-section">
+      <div className="panel">
+        <h2 className="panel-title">Options &amp; Guidance</h2>
+        <div className="option-list">
+          <div className="option-row">
+            <span className="option-label">Sound Sigils</span>
+            <button
+              type="button"
+              className={`toggle${optionsState.sound ? ' is-on' : ''}`}
+              onClick={() => toggleOption('sound')}
+            />
+          </div>
+          <div className="option-row">
+            <span className="option-label">Scientific Notation</span>
+            <button
+              type="button"
+              className={`toggle${optionsState.notation ? ' is-on' : ''}`}
+              onClick={() => toggleOption('notation')}
+            />
+          </div>
+          <div className="option-row">
+            <span className="option-label">Idle Notifications</span>
+            <button
+              type="button"
+              className={`toggle${optionsState.notifications ? ' is-on' : ''}`}
+              onClick={() => toggleOption('notifications')}
             />
           </div>
         </div>
-
-        <div style={{ marginTop: '30px', padding: '20px', backgroundColor: '#2a2a2a', borderRadius: '8px', maxWidth: '800px', margin: '30px auto 0' }}>
-          <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: 'bold' }}>How to Play</h3>
-          <ul style={{ margin: 0, paddingLeft: '20px', color: '#aaa', fontSize: '14px', lineHeight: '1.8' }}>
-            <li>Select a tower from the shop and click on the board to place it</li>
-            <li>Click "Start Next Wave" to begin each wave of enemies</li>
-            <li>Towers automatically attack enemies within range</li>
-            <li>Earn gold by defeating enemies</li>
-            <li>Click on existing towers to upgrade them</li>
-            <li>Your towers generate passive income over time</li>
-            <li>Save your progress and come back later to continue</li>
-          </ul>
-        </div>
       </div>
+
+      <div className="panel">
+        <h2 className="panel-title">Field Notes</h2>
+        <p className="guide-text">
+          Waves scale according to the selected blueprint. Powder earnings cascade into the tower ledger at the start of each wave. Keep the glyph wheel balanced: <span className="helper-emphasis">damage</span>, <span className="helper-emphasis">range</span>, and <span className="helper-emphasis">tempo</span> all draw from the same arcane constant.
+        </p>
+      </div>
+    </div>
+  );
+
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'level':
+        return renderLevelTab();
+      case 'towers':
+        return renderTowerTab();
+      case 'powder':
+        return renderPowderTab();
+      case 'options':
+      default:
+        return renderOptionsTab();
+    }
+  };
+
+  const tabs: { id: AppTab; label: string; glyph: string }[] = [
+    { id: 'level', label: 'Arena', glyph: 'Λ' },
+    { id: 'towers', label: 'Towers', glyph: 'Σ' },
+    { id: 'powder', label: 'Powder', glyph: 'Ψ' },
+    { id: 'options', label: 'Codex', glyph: 'Ω' },
+  ];
+
+  return (
+    <div className="app-shell">
+      <header className="app-header">
+        <h1 className="app-title">Glyph Defense Idle</h1>
+        <p className="app-subtitle">A mystic study in tower calculus</p>
+      </header>
+
+      {saveMessage && (
+        <div className="save-toast">{saveMessage}</div>
+      )}
+
+      <main className="main-content">{renderActiveTab()}</main>
+
+      <nav className="tab-bar">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            className={`tab-button${activeTab === tab.id ? ' is-active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+            type="button"
+          >
+            <strong>{tab.glyph}</strong>
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
