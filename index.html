@@ -3,10 +3,168 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Idle Tower Defense</title>
+    <title>Glyph Defense Idle</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./assets/styles.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="./assets/app.js"></script>
+    <div class="app-shell">
+      <header class="status-bar">
+        <div class="status-group">
+          <span class="status-label">Σ Score</span>
+          <span class="status-value" id="status-score">6.58 QDe</span>
+        </div>
+        <div class="status-group">
+          <span class="status-label">Δ Energy</span>
+          <span class="status-value" id="status-energy">+575 TD/s</span>
+        </div>
+        <div class="status-group">
+          <span class="status-label">λ Flux</span>
+          <span class="status-value" id="status-flux">+375 Powder/min</span>
+        </div>
+      </header>
+
+      <main class="main-stage">
+        <section class="panel active" data-panel="tower">
+          <div class="glyph-ring">
+            <div class="ring-layer layer-1"></div>
+            <div class="ring-layer layer-2"></div>
+            <div class="ring-layer layer-3"></div>
+            <div class="ring-layer layer-4"></div>
+          </div>
+          <aside class="prestige-card">
+            <h2>Prestige Window</h2>
+            <p><strong>Ξ Progress:</strong> 10.2 → 17.3</p>
+            <p><strong>Reward:</strong> +12% Σ damage</p>
+            <button class="action-button" type="button">Prysmatic!</button>
+          </aside>
+          <div class="stage-footer">
+            <button class="play-button" type="button">Play</button>
+            <div class="progress">
+              <span>Progress to Infinity 58.8%</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="towers">
+          <header class="panel-header">Towers &amp; Formulae</header>
+          <div class="panel-grid">
+            <article class="card">
+              <h3>α Apex Tower</h3>
+              <p>Damage formula: <code>D(t) = 3t² + 11</code></p>
+              <button class="action-button ghost" type="button">Upgrade Σ²</button>
+            </article>
+            <article class="card">
+              <h3>β Harmonic Tower</h3>
+              <p>Damage formula: <code>H(n) = 5 ln(n) + 2</code></p>
+              <button class="action-button ghost" type="button">Amplify ln λ</button>
+            </article>
+            <article class="card">
+              <h3>γ Spiral Tower</h3>
+              <p>Damage formula: <code>S(r) = φ · r³</code></p>
+              <button class="action-button ghost" type="button">Imbue φ</button>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="powder">
+          <header class="panel-header">Powder Lab</header>
+          <div class="panel-grid">
+            <article class="card">
+              <h3>Sandfall</h3>
+              <p>Grains per tick: <code>Ψ(g) = 2.7 · sin(t)</code></p>
+              <button class="action-button ghost" type="button">Stabilize Flow</button>
+            </article>
+            <article class="card">
+              <h3>Dune Height</h3>
+              <p>Multiplier: <code>Δm = log₂(h + 1)</code></p>
+              <button class="action-button ghost" type="button">Survey Ridge</button>
+            </article>
+            <article class="card">
+              <h3>Crystal Powder</h3>
+              <p>Powder charge: <code>Q = √(θ · ζ)</code></p>
+              <button class="action-button ghost" type="button">Crystallize</button>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="achievements">
+          <header class="panel-header">Achievements</header>
+          <ul class="achievement-list">
+            <li>
+              <span class="achievement-badge">∞</span>
+              <div>
+                <p class="achievement-title">First Orbit</p>
+                <p class="achievement-sub">Reach loop 10 in the spiral.</p>
+              </div>
+            </li>
+            <li>
+              <span class="achievement-badge">π</span>
+              <div>
+                <p class="achievement-title">Circle Seer</p>
+                <p class="achievement-sub">Unlock 3 concentric glyph rings.</p>
+              </div>
+            </li>
+            <li>
+              <span class="achievement-badge">∑</span>
+              <div>
+                <p class="achievement-title">Series Summoner</p>
+                <p class="achievement-sub">Gain 1,000 sandfold stacks.</p>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <section class="panel" data-panel="options">
+          <header class="panel-header">Options &amp; Codex</header>
+          <div class="panel-grid">
+            <article class="card">
+              <h3>Sound</h3>
+              <p>Adjust harmonic resonance levels.</p>
+              <button class="action-button ghost" type="button">Tune</button>
+            </article>
+            <article class="card">
+              <h3>Visual Theme</h3>
+              <p>Switch between monochrome and aurora accents.</p>
+              <button class="action-button ghost" type="button">Cycle Palette</button>
+            </article>
+            <article class="card">
+              <h3>Codex</h3>
+              <p>Review mathematical lore and formulae.</p>
+              <button class="action-button ghost" type="button">Open Codex</button>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <nav class="tab-bar" aria-label="Primary">
+        <button class="tab-button active" data-tab="tower" aria-label="Tower Stage">
+          <span class="tab-icon">⌘</span>
+          <span class="tab-label">Stage</span>
+        </button>
+        <button class="tab-button" data-tab="towers" aria-label="Towers">
+          <span class="tab-icon">Δ</span>
+          <span class="tab-label">Towers</span>
+        </button>
+        <button class="tab-button" data-tab="powder" aria-label="Powder Lab">
+          <span class="tab-icon">⧖</span>
+          <span class="tab-label">Powder</span>
+        </button>
+        <button class="tab-button" data-tab="achievements" aria-label="Achievements">
+          <span class="tab-icon">★</span>
+          <span class="tab-label">Seals</span>
+        </button>
+        <button class="tab-button" data-tab="options" aria-label="Options">
+          <span class="tab-icon">☰</span>
+          <span class="tab-label">Codex</span>
+        </button>
+      </nav>
+    </div>
+    <script src="./assets/main.js" type="module"></script>
   </body>
 </html>
