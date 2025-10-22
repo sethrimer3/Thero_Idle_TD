@@ -169,6 +169,195 @@ body::before {
   text-transform: uppercase;
 }
 
+.subsection-title {
+  font-size: clamp(1.3rem, 2.3vw, 1.8rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0;
+  text-align: center;
+}
+
+.level-section {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 10, 16, 0.6);
+}
+
+.level-intro {
+  margin: 0;
+  font-size: 0.98rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.level-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.level-card {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(5, 6, 12, 0.8);
+  padding: 18px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 10px;
+  cursor: pointer;
+  transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+
+.level-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 18px 38px rgba(139, 247, 255, 0.2);
+}
+
+.level-card.entered {
+  border-color: rgba(255, 228, 120, 0.5);
+}
+
+.level-card header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.level-card h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.level-id {
+  font-family: "Space Mono", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.level-path,
+.level-hazard {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.level-status-pill {
+  margin: 0;
+  font-family: "Space Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(139, 247, 255, 0.14);
+  justify-self: start;
+}
+
+.level-card.entered .level-status-pill {
+  background: rgba(255, 228, 120, 0.22);
+  color: var(--text);
+}
+
+.level-legend {
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(5, 6, 12, 0.6);
+  display: grid;
+  gap: 12px;
+}
+
+.level-legend h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.set-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.set-card {
+  border-radius: 14px;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(12, 12, 20, 0.7);
+}
+
+.set-card h4 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.set-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.set-card.active-set {
+  border-color: rgba(139, 247, 255, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(139, 247, 255, 0.3);
+}
+
+.level-status {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 9, 14, 0.7);
+}
+
+.level-status-banner {
+  display: grid;
+  gap: 4px;
+}
+
+.level-status-value {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.level-status-note {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.enemy-codex {
+  display: grid;
+  gap: 18px;
+}
+
+.enemy-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.enemy-card {
+  min-height: 180px;
+}
+
 .prestige-card {
   align-self: center;
   max-width: 320px;
@@ -374,6 +563,13 @@ body::before {
   color: var(--muted);
 }
 
+.achievement-note {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+  text-align: center;
+}
+
 .achievement-list {
   list-style: none;
   margin: 0;
@@ -416,6 +612,65 @@ body::before {
   margin: 4px 0 0;
   font-size: 0.9rem;
   color: var(--muted);
+}
+
+.level-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+  z-index: 20;
+}
+
+.level-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.overlay-panel {
+  text-align: center;
+  max-width: 420px;
+  padding: 36px 28px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(12, 12, 20, 0.8);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.55);
+}
+
+.overlay-label {
+  margin: 0 0 10px;
+  font-family: "Space Mono", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.overlay-title {
+  margin: 0 0 16px;
+  font-size: 1.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.overlay-example {
+  margin: 0 0 18px;
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.overlay-instruction {
+  margin: 0;
+  font-family: "Space Mono", monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .tab-bar {
@@ -484,5 +739,15 @@ body::before {
   .tab-bar {
     border-radius: 14px;
     padding: 12px 10px;
+  }
+
+  .level-section,
+  .level-status {
+    padding: 16px;
+  }
+
+  .overlay-panel {
+    margin: 0 16px;
+    padding: 28px 20px;
   }
 }
