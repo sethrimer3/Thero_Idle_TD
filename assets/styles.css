@@ -407,6 +407,16 @@ body::before {
   box-shadow: 0 14px 30px rgba(139, 247, 255, 0.25);
 }
 
+.action-button:disabled,
+.action-button:disabled:hover {
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(247, 247, 245, 0.55);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 .action-button.ghost {
   background: transparent;
   color: var(--text);
@@ -483,6 +493,13 @@ body::before {
   margin: 0;
   font-size: 0.95rem;
   color: var(--muted);
+}
+
+.powder-footnote {
+  font-family: "Space Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: rgba(247, 247, 245, 0.65);
 }
 
 .tower-header {

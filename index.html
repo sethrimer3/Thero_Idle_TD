@@ -333,18 +333,54 @@
           <div class="panel-grid">
             <article class="card">
               <h3>Sandfall</h3>
-              <p>Grains per tick: <code>Ψ(g) = 2.7 · sin(t)</code></p>
-              <button class="action-button ghost" type="button">Stabilize Flow</button>
+              <p>
+                Grains per tick:
+                <code id="powder-sandfall-formula">Ψ(g) = 2.7 · sin(t)</code>
+              </p>
+              <p class="powder-footnote" id="powder-sandfall-note">
+                Crest is unstable—powder drifts off the board.
+              </p>
+              <button
+                class="action-button ghost"
+                type="button"
+                data-powder-action="sandfall"
+              >
+                Stabilize Flow
+              </button>
             </article>
             <article class="card">
               <h3>Dune Height</h3>
-              <p>Multiplier: <code>Δm = log₂(h + 1)</code></p>
-              <button class="action-button ghost" type="button">Survey Ridge</button>
+              <p>
+                Multiplier:
+                <code id="powder-dune-formula">Δm = log₂(h + 1)</code>
+              </p>
+              <p class="powder-footnote" id="powder-dune-note">
+                Survey ridges to raise <em>h</em> and amplify energy lanes.
+              </p>
+              <button
+                class="action-button ghost"
+                type="button"
+                data-powder-action="dune"
+              >
+                Survey Ridge
+              </button>
             </article>
             <article class="card">
               <h3>Crystal Powder</h3>
-              <p>Powder charge: <code>Q = √(θ · ζ)</code></p>
-              <button class="action-button ghost" type="button">Crystallize</button>
+              <p>
+                Powder charge:
+                <code id="powder-crystal-formula">Q = √(θ · ζ)</code>
+              </p>
+              <p class="powder-footnote" id="powder-crystal-note">
+                Crystal resonance is idle—no pulse prepared.
+              </p>
+              <button
+                class="action-button ghost"
+                type="button"
+                data-powder-action="crystal"
+              >
+                Crystallize (0/3)
+              </button>
             </article>
           </div>
         </section>
