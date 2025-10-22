@@ -85,6 +85,92 @@
               </p>
             </div>
           </div>
+          <section class="level-section">
+            <header class="subsection-title">Conjecture Set</header>
+            <p class="level-intro">
+              The opening proofs trace immortal-defense style figure-eights,
+              cardioids, and logarithmic spirals. Each path is derived from a
+              math-graph expression and rewards towers that can flex their
+              formulas mid-curve.
+            </p>
+            <div class="level-grid" id="level-grid" aria-live="polite"></div>
+            <aside class="level-legend">
+              <h3>Proof Roadmap</h3>
+              <ul class="set-timeline">
+                <li class="set-card active-set">
+                  <h4>Conjecture Levels 1-5</h4>
+                  <p>Speculative math under siege. Examples highlight famous unsolved ideas.</p>
+                </li>
+                <li class="set-card">
+                  <h4>Corollary Levels 6-10</h4>
+                  <p>Statements that immediately bloom from the conjecture victories.</p>
+                </li>
+                <li class="set-card">
+                  <h4>Lemma Levels 11-15</h4>
+                  <p>Utility proofs and support tactics that bolster the main argument.</p>
+                </li>
+                <li class="set-card">
+                  <h4>Proposition Levels 16-20</h4>
+                  <p>Solid but modest claims—expect compound paths and multi-route assaults.</p>
+                </li>
+                <li class="set-card">
+                  <h4>Theorem Levels 21-25</h4>
+                  <p>Major revelations guarded by elite enemy archetypes.</p>
+                </li>
+                <li class="set-card">
+                  <h4>Axiom Levels 26-30</h4>
+                  <p>Foundational truths; everything loops back to primal glyph geometry.</p>
+                </li>
+              </ul>
+            </aside>
+          </section>
+          <section class="level-status" aria-live="polite">
+            <div class="level-status-banner">
+              <span class="status-label">Active Level</span>
+              <p class="level-status-value" id="active-level">None selected</p>
+            </div>
+            <p class="level-status-note">
+              Levels persist while you browse other tabs. Return to the Stage to
+              continue defending, or leave the level to reset its wave pattern.
+            </p>
+            <button class="action-button ghost" type="button" id="leave-level" aria-live="off">
+              Leave Current Level
+            </button>
+          </section>
+          <section class="enemy-codex">
+            <header class="subsection-title">Enemy Codex</header>
+            <div class="enemy-grid">
+              <article class="card enemy-card">
+                <h3>E-Type Glyphs</h3>
+                <p>
+                  Core foes labeled by trailing zeros. <strong>E1</strong> carries one
+                  hit point, while <strong>E3</strong> arrives with <code>10³</code> life.
+                  Their waves scale logarithmically between sets.
+                </p>
+              </article>
+              <article class="card enemy-card">
+                <h3>Divisors</h3>
+                <p>
+                  Glyphs that punish high DPS. Damage taken equals
+                  <code>1 / DPS</code>, so precision tuning and debuff towers are key.
+                </p>
+              </article>
+              <article class="card enemy-card">
+                <h3>Prime Counters</h3>
+                <p>
+                  Resistant husks that require a fixed number of hits regardless of
+                  damage dealt—perfect sparring partners for swarm summoners.
+                </p>
+              </article>
+              <article class="card enemy-card">
+                <h3>Reversal Sentinels</h3>
+                <p>
+                  Vanguard units that, when defeated, sprint backward along the
+                  path. Capture them to fight for you with inverted health totals.
+                </p>
+              </article>
+            </div>
+          </section>
           <aside class="prestige-card">
             <h2>Prestige Window</h2>
             <p><strong>Ξ Progress:</strong> 10.2 → 17.3</p>
@@ -146,17 +232,76 @@
             </article>
             <article class="card">
               <header class="tower-header">
+                <span class="tower-tier">Tier III</span>
+                <h3>γ gamma tower</h3>
+              </header>
+              <div class="formula-block">
+                <p class="formula-line"><span class="formula-symbol">γ</span> = α<sup>½</sup> · β</p>
+                <ul class="formula-definition">
+                  <li>α → inherited burst damage pulse</li>
+                  <li>β → sustained beam resonance</li>
+                </ul>
+                <p class="formula-line result">Stacks alpha spikes into beta's beam rhythm.</p>
+              </div>
+              <ul class="upgrade-list">
+                <li>Transpose α surges into chaining lightning arcs</li>
+                <li>Use β harmonics to slow enemies caught mid-beam</li>
+              </ul>
+              <footer class="card-footer">Merges α + β into a tempo-shifting conductor with homing bolts.</footer>
+            </article>
+            <article class="card">
+              <header class="tower-header">
+                <span class="tower-tier">Tier IV</span>
+                <h3>δ delta tower</h3>
+              </header>
+              <div class="formula-block">
+                <p class="formula-line"><span class="formula-symbol">δ</span> = γ · ln(β + 1)</p>
+                <ul class="formula-definition">
+                  <li>γ → summoning strength for glyph soldiers</li>
+                  <li>ln(β + 1) → swarm duration scaling</li>
+                </ul>
+                <p class="formula-line result">Summons glyph cohorts that inherit γ's damage.</p>
+              </div>
+              <ul class="upgrade-list">
+                <li>Empower soldiers with slowing sigils</li>
+                <li>Rally boosts: δ soldiers grant +β% damage to nearby towers</li>
+              </ul>
+              <footer class="card-footer">Does not attack directly—commands spectral fighters to guard the lane.</footer>
+            </article>
+            <article class="card">
+              <header class="tower-header">
+                <span class="tower-tier">Tier V</span>
+                <h3>Ω omega tower</h3>
+              </header>
+              <div class="formula-block">
+                <p class="formula-line"><span class="formula-symbol">Ω</span> = β<sup>α∕10</sup> + δ · β</p>
+                <ul class="formula-definition">
+                  <li>β<sup>α∕10</sup> → range oscillates with total β output</li>
+                  <li>δ · β → damage infused by summoned allies</li>
+                </ul>
+                <p class="formula-line result">Ω draws power from every β tower on the field.</p>
+              </div>
+              <ul class="upgrade-list">
+                <li>Orbital glyphs deal splash damage equal to 15% of β</li>
+                <li>Resonant chant pushes enemies backward when Ω overcharges</li>
+              </ul>
+              <footer class="card-footer">Signature tower—buffs allies, repositions foes, and anchors endgame builds.</footer>
+            </article>
+            <article class="card">
+              <header class="tower-header">
                 <span class="tower-tier">Convergence</span>
                 <h3>Merging Logic</h3>
               </header>
               <p>
                 Two <strong>α</strong> towers lattice together into a <strong>β</strong> tower,
-                unlocking the beam formula. Prestige into uppercase glyphs to repeat the
-                cycle at higher magnitudes.
+                fusing burst DPS with piercing beams. Merge β constructs to access
+                <strong>γ</strong> conductors, then braid γ into <strong>δ</strong> summoners.
+                Ascend every branch to awaken the <strong>Ω</strong> keystone.
               </p>
               <p class="merge-note">
-                Upgrades purchased on this tab rewrite the variables above, letting you
-                sculpt each tower's personal equation.
+                Upgrades rewrite variables dynamically—boost towers grant additive buffs
+                in their radius, splash variants scale with β, and soldier-focused builds
+                inherit δ's battlefield control.
               </p>
               <button class="action-button ghost" type="button">Open Upgrade Matrix</button>
             </article>
@@ -186,26 +331,65 @@
 
         <section class="panel" data-panel="achievements">
           <header class="panel-header">Achievements</header>
+          <p class="achievement-note">
+            Each seal increases powderfall by <strong>+1 grain per minute</strong>.
+            Idle minutes are multiplied by unlocked seals and dumped when you return.
+          </p>
           <ul class="achievement-list">
             <li>
               <span class="achievement-badge">∞</span>
               <div>
                 <p class="achievement-title">First Orbit</p>
-                <p class="achievement-sub">Reach loop 10 in the spiral.</p>
+                <p class="achievement-sub">Reach loop 10 in the spiral for +1 grain/min.</p>
               </div>
             </li>
             <li>
               <span class="achievement-badge">π</span>
               <div>
                 <p class="achievement-title">Circle Seer</p>
-                <p class="achievement-sub">Unlock 3 concentric glyph rings.</p>
+                <p class="achievement-sub">Unlock 3 concentric glyph rings for +1 grain/min.</p>
               </div>
             </li>
             <li>
               <span class="achievement-badge">∑</span>
               <div>
                 <p class="achievement-title">Series Summoner</p>
-                <p class="achievement-sub">Gain 1,000 sandfold stacks.</p>
+                <p class="achievement-sub">Gain 1,000 sandfold stacks and earn +1 grain/min.</p>
+              </div>
+            </li>
+            <li>
+              <span class="achievement-badge">ζ</span>
+              <div>
+                <p class="achievement-title">Zero Hunter</p>
+                <p class="achievement-sub">Defeat 100 divisor enemies while under 10 DPS for +1 grain/min.</p>
+              </div>
+            </li>
+            <li>
+              <span class="achievement-badge">Φ</span>
+              <div>
+                <p class="achievement-title">Golden Mentor</p>
+                <p class="achievement-sub">Buff 20 towers at once with support auras for +1 grain/min.</p>
+              </div>
+            </li>
+            <li>
+              <span class="achievement-badge">Ψ</span>
+              <div>
+                <p class="achievement-title">Powder Archivist</p>
+                <p class="achievement-sub">Reach the fifth sand sigil on the wall and gain +1 grain/min.</p>
+              </div>
+            </li>
+            <li>
+              <span class="achievement-badge">Ω</span>
+              <div>
+                <p class="achievement-title">Keystone Keeper</p>
+                <p class="achievement-sub">Merge into your first Ω tower to unlock +1 grain/min.</p>
+              </div>
+            </li>
+            <li>
+              <span class="achievement-badge">Δ</span>
+              <div>
+                <p class="achievement-title">Temporal Sifter</p>
+                <p class="achievement-sub">Idle for 60 minutes and collect the multiplied powder surge.</p>
               </div>
             </li>
           </ul>
@@ -255,6 +439,14 @@
           <span class="tab-label">Codex</span>
         </button>
       </nav>
+    </div>
+    <div class="level-overlay" id="level-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+      <div class="overlay-panel">
+        <p class="overlay-label" id="overlay-level"></p>
+        <h2 class="overlay-title" id="overlay-title"></h2>
+        <p class="overlay-example" id="overlay-example"></p>
+        <p class="overlay-instruction">Tap to enter</p>
+      </div>
     </div>
     <script src="./assets/main.js" type="module"></script>
   </body>
