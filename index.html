@@ -31,11 +31,59 @@
 
       <main class="main-stage">
         <section class="panel active" data-panel="tower">
-          <div class="glyph-ring">
-            <div class="ring-layer layer-1"></div>
-            <div class="ring-layer layer-2"></div>
-            <div class="ring-layer layer-3"></div>
-            <div class="ring-layer layer-4"></div>
+          <div class="track-stage">
+            <svg
+              class="track-canvas"
+              viewBox="0 0 560 360"
+              role="img"
+              aria-labelledby="track-title track-desc"
+            >
+              <title id="track-title">Whimsical enemy trajectory</title>
+              <desc id="track-desc">
+                Smooth, ribbon-like path inspired by glyph geometry for tower defense
+              </desc>
+              <defs>
+                <linearGradient id="pathGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="rgba(139, 247, 255, 0.85)" />
+                  <stop offset="50%" stop-color="rgba(255, 125, 235, 0.85)" />
+                  <stop offset="100%" stop-color="rgba(255, 228, 120, 0.85)" />
+                </linearGradient>
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="6" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <path
+                class="track-path"
+                d="M30 320 C140 250, 80 120, 200 110 C320 105, 320 260, 420 220 C520 180, 480 60, 340 40"
+              />
+              <path
+                class="track-path secondary"
+                d="M60 300 C150 240, 120 150, 210 140 C320 125, 310 260, 420 230 C520 200, 470 80, 330 70"
+              />
+              <g class="tower-pips">
+                <circle cx="140" cy="210" r="12" />
+                <circle cx="240" cy="150" r="12" />
+                <circle cx="340" cy="200" r="12" />
+                <circle cx="420" cy="150" r="12" />
+              </g>
+              <g class="enemy-orbs">
+                <circle cx="110" cy="250" r="6" />
+                <circle cx="220" cy="190" r="6" />
+                <circle cx="360" cy="160" r="6" />
+              </g>
+            </svg>
+            <div class="track-caption">
+              <h2>Immortal Spiral 01</h2>
+              <p>
+                Each loop is generated from a blended sine and bezier formula,
+                guiding enemies along a silky ribbon of geometry. Merge towers to
+                reshape the curve and bend trajectories.
+              </p>
+            </div>
           </div>
           <aside class="prestige-card">
             <h2>Prestige Window</h2>
@@ -55,19 +103,62 @@
           <header class="panel-header">Towers &amp; Formulae</header>
           <div class="panel-grid">
             <article class="card">
-              <h3>α Apex Tower</h3>
-              <p>Damage formula: <code>D(t) = 3t² + 11</code></p>
-              <button class="action-button ghost" type="button">Upgrade Σ²</button>
+              <header class="tower-header">
+                <span class="tower-tier">Tier I</span>
+                <h3>α alpha tower</h3>
+              </header>
+              <div class="formula-block">
+                <p class="formula-line"><span class="formula-symbol">α</span> = X · Y</p>
+                <ul class="formula-definition">
+                  <li>X → attack power</li>
+                  <li>Y → attack speed</li>
+                </ul>
+                <p class="formula-line result">α = DPS (X × Y)</p>
+              </div>
+              <ul class="upgrade-list">
+                <li>Calibrate X for sharper projectiles (+damage)</li>
+                <li>Accelerate Y through harmonic metronomes (+attack speed)</li>
+              </ul>
+              <footer class="card-footer">Shoots a focused glyph-bullet at the nearest foe.</footer>
             </article>
             <article class="card">
-              <h3>β Harmonic Tower</h3>
-              <p>Damage formula: <code>H(n) = 5 ln(n) + 2</code></p>
-              <button class="action-button ghost" type="button">Amplify ln λ</button>
+              <header class="tower-header">
+                <span class="tower-tier">Tier II</span>
+                <h3>β beta tower</h3>
+              </header>
+              <div class="formula-block">
+                <p class="formula-line"><span class="formula-symbol">β</span> = X · Y · Z</p>
+                <ul class="formula-definition">
+                  <li>X → damage</li>
+                  <li>Y → pulses per second</li>
+                  <li>Z → pierce (targets per beam)</li>
+                </ul>
+                <p class="formula-line result">β = DPS (X × Y × Z)</p>
+              </div>
+              <ul class="upgrade-list">
+                <li>Amplify X with resonance crystals</li>
+                <li>Stabilize Y to extend sustained beams</li>
+                <li>Prism-tune Z to slice through more enemies</li>
+              </ul>
+              <footer class="card-footer">
+                Emits a piercing beam that threads through the ribbon-path.
+              </footer>
             </article>
             <article class="card">
-              <h3>γ Spiral Tower</h3>
-              <p>Damage formula: <code>S(r) = φ · r³</code></p>
-              <button class="action-button ghost" type="button">Imbue φ</button>
+              <header class="tower-header">
+                <span class="tower-tier">Convergence</span>
+                <h3>Merging Logic</h3>
+              </header>
+              <p>
+                Two <strong>α</strong> towers lattice together into a <strong>β</strong> tower,
+                unlocking the beam formula. Prestige into uppercase glyphs to repeat the
+                cycle at higher magnitudes.
+              </p>
+              <p class="merge-note">
+                Upgrades purchased on this tab rewrite the variables above, letting you
+                sculpt each tower's personal equation.
+              </p>
+              <button class="action-button ghost" type="button">Open Upgrade Matrix</button>
             </article>
           </div>
         </section>
