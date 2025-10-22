@@ -61,6 +61,83 @@
   let activeTabIndex = 0;
   let lastLevelTrigger = null;
 
+  const numberSuffixes = [
+    '',
+    'K',
+    'M',
+    'B',
+    'T',
+    'Qa',
+    'Qi',
+    'Sx',
+    'Sp',
+    'Oc',
+    'No',
+    'De',
+    'UDe',
+    'DDe',
+    'TDe',
+    'QDe',
+  ];
+
+  const resourceElements = {
+    score: null,
+    energy: null,
+    flux: null,
+  };
+
+  const baseResources = {
+    score: 6.58 * 10 ** 45,
+    scoreRate: 2.75 * 10 ** 43,
+    energyRate: 575,
+    fluxRate: 375,
+  };
+
+  const resourceState = {
+    score: baseResources.score,
+    scoreRate: baseResources.scoreRate,
+    energyRate: baseResources.energyRate,
+    fluxRate: baseResources.fluxRate,
+    running: false,
+  };
+
+  const powderConfig = {
+    sandOffsetInactive: 0,
+    sandOffsetActive: 1.1,
+    duneHeightBase: 1,
+    duneHeightMax: 6,
+    thetaBase: 1.3,
+    zetaBase: 1.6,
+  };
+
+  const powderState = {
+    sandOffset: powderConfig.sandOffsetInactive,
+    duneHeight: powderConfig.duneHeightBase,
+    charges: 0,
+  };
+
+  let currentPowderBonuses = {
+    sandBonus: 0,
+    duneBonus: 0,
+    crystalBonus: 0,
+    totalMultiplier: 1,
+  };
+
+  const powderElements = {
+    sandfallFormula: null,
+    sandfallNote: null,
+    sandfallButton: null,
+    duneFormula: null,
+    duneNote: null,
+    duneButton: null,
+    crystalFormula: null,
+    crystalNote: null,
+    crystalButton: null,
+  };
+
+  let resourceTicker = null;
+  let lastResourceTick = 0;
+
   const tabHotkeys = new Map([
     ['1', 'tower'],
     ['2', 'towers'],
@@ -238,6 +315,8 @@
     });
 
     activeLevelId = level.id;
+    resourceState.running = true;
+    ensureResourceTicker();
     updateActiveLevelBanner();
     updateLevelCards();
   }
@@ -250,6 +329,7 @@
       levelState.set(activeLevelId, state);
     }
     activeLevelId = null;
+    resourceState.running = false;
     updateActiveLevelBanner();
     updateLevelCards();
   }
@@ -390,6 +470,273 @@
     }
   }
 
+  function formatGameNumber(value) {
+    if (!Number.isFinite(value)) {
+      return '0';
+    }
+
+    const absolute = Math.abs(value);
+    if (absolute < 1) {
+      return value.toFixed(2);
+    }
+
+    const tier = Math.min(
+      Math.floor(Math.log10(absolute) / 3),
+      numberSuffixes.length - 1,
+    );
+    const scaled = value / 10 ** (tier * 3);
+    const precision = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+    const formatted = scaled.toFixed(precision);
+    const suffix = numberSuffixes[tier];
+    return suffix ? `${formatted} ${suffix}` : formatted;
+  }
+
+  function formatDecimal(value, digits = 2) {
+    if (!Number.isFinite(value)) {
+      return '0.00';
+    }
+    return value.toFixed(digits);
+  }
+
+  function formatPercentage(value) {
+    const percent = value * 100;
+    const digits = Math.abs(percent) >= 10 ? 1 : 2;
+    return `${percent.toFixed(digits)}%`;
+  }
+
+  function calculatePowderBonuses() {
+    // Stabilizing the sandfall adds an offset term to Ψ(g) = 2.7 · sin(t), yielding steady grain capture.
+    const sandBonus = powderState.sandOffset > 0 ? 0.15 + powderState.sandOffset * 0.03 : 0;
+    // Surveying dunes raises h inside Δm = log₂(h + 1), boosting energy conduits.
+    const duneBonus = Math.log2(powderState.duneHeight + 1) * 0.04;
+
+    const baseCrystalProduct = powderConfig.thetaBase * powderConfig.zetaBase;
+    const chargedTheta = powderConfig.thetaBase + powderState.charges * 0.6;
+    const chargedZeta = powderConfig.zetaBase + powderState.charges * 0.5;
+    // Crystal resonance follows Q = √(θ · ζ); stored charges lift both parameters before release.
+    const crystalGain = Math.max(
+      0,
+      Math.sqrt(chargedTheta * chargedZeta) - Math.sqrt(baseCrystalProduct),
+    );
+    const crystalBonus = crystalGain * 0.05;
+
+    const totalMultiplier = 1 + sandBonus + duneBonus + crystalBonus;
+
+    return { sandBonus, duneBonus, crystalBonus, totalMultiplier };
+  }
+
+  function updateStatusDisplays() {
+    if (resourceElements.score) {
+      resourceElements.score.textContent = formatGameNumber(resourceState.score);
+    }
+    if (resourceElements.energy) {
+      resourceElements.energy.textContent = `+${formatGameNumber(resourceState.energyRate)} TD/s`;
+    }
+    if (resourceElements.flux) {
+      resourceElements.flux.textContent = `+${formatGameNumber(resourceState.fluxRate)} Powder/min`;
+    }
+  }
+
+  function updateResourceRates() {
+    currentPowderBonuses = calculatePowderBonuses();
+
+    resourceState.scoreRate = baseResources.scoreRate * currentPowderBonuses.totalMultiplier;
+    resourceState.fluxRate =
+      baseResources.fluxRate * (1 + currentPowderBonuses.sandBonus + currentPowderBonuses.crystalBonus);
+    resourceState.energyRate =
+      baseResources.energyRate * (1 + currentPowderBonuses.duneBonus + currentPowderBonuses.crystalBonus * 0.5);
+
+    updateStatusDisplays();
+  }
+
+  function handleResourceTick(timestamp) {
+    if (!resourceTicker) {
+      return;
+    }
+
+    if (!lastResourceTick) {
+      lastResourceTick = timestamp;
+    }
+
+    const elapsed = Math.max(0, timestamp - lastResourceTick);
+    lastResourceTick = timestamp;
+
+    if (resourceState.running) {
+      const seconds = elapsed / 1000;
+      resourceState.score += resourceState.scoreRate * seconds;
+    }
+
+    updateStatusDisplays();
+    resourceTicker = requestAnimationFrame(handleResourceTick);
+  }
+
+  function ensureResourceTicker() {
+    if (resourceTicker) {
+      return;
+    }
+    lastResourceTick = 0;
+    resourceTicker = requestAnimationFrame(handleResourceTick);
+  }
+
+  function bindStatusElements() {
+    resourceElements.score = document.getElementById('status-score');
+    resourceElements.energy = document.getElementById('status-energy');
+    resourceElements.flux = document.getElementById('status-flux');
+    updateStatusDisplays();
+  }
+
+  function bindPowderControls() {
+    powderElements.sandfallFormula = document.getElementById('powder-sandfall-formula');
+    powderElements.sandfallNote = document.getElementById('powder-sandfall-note');
+    powderElements.sandfallButton = document.querySelector('[data-powder-action="sandfall"]');
+
+    powderElements.duneFormula = document.getElementById('powder-dune-formula');
+    powderElements.duneNote = document.getElementById('powder-dune-note');
+    powderElements.duneButton = document.querySelector('[data-powder-action="dune"]');
+
+    powderElements.crystalFormula = document.getElementById('powder-crystal-formula');
+    powderElements.crystalNote = document.getElementById('powder-crystal-note');
+    powderElements.crystalButton = document.querySelector('[data-powder-action="crystal"]');
+
+    if (powderElements.sandfallButton) {
+      powderElements.sandfallButton.addEventListener('click', toggleSandfallStability);
+    }
+
+    if (powderElements.duneButton) {
+      powderElements.duneButton.addEventListener('click', surveyRidgeHeight);
+    }
+
+    if (powderElements.crystalButton) {
+      powderElements.crystalButton.addEventListener('click', chargeCrystalMatrix);
+    }
+  }
+
+  function toggleSandfallStability() {
+    powderState.sandOffset =
+      powderState.sandOffset > 0
+        ? powderConfig.sandOffsetInactive
+        : powderConfig.sandOffsetActive;
+
+    refreshPowderSystems();
+  }
+
+  function surveyRidgeHeight() {
+    if (powderState.duneHeight >= powderConfig.duneHeightMax) {
+      return;
+    }
+
+    powderState.duneHeight += 1;
+    refreshPowderSystems();
+  }
+
+  function chargeCrystalMatrix() {
+    if (powderState.charges < 3) {
+      powderState.charges += 1;
+      refreshPowderSystems();
+      return;
+    }
+
+    const pulseBonus = releaseCrystalPulse(powderState.charges);
+    powderState.charges = 0;
+    refreshPowderSystems(pulseBonus);
+  }
+
+  function releaseCrystalPulse(charges) {
+    const chargedTheta = powderConfig.thetaBase + charges * 0.6;
+    const chargedZeta = powderConfig.zetaBase + charges * 0.5;
+    const resonance = Math.sqrt(chargedTheta * chargedZeta);
+    const pulseBonus = resonance * 0.008;
+
+    // Each pulse injects a burst of Σ score proportional to the amplified resonance term.
+    resourceState.score += resourceState.score * pulseBonus;
+    updateStatusDisplays();
+
+    return pulseBonus;
+  }
+
+  function refreshPowderSystems(pulseBonus) {
+    updateResourceRates();
+    updatePowderDisplay(pulseBonus);
+  }
+
+  function updatePowderDisplay(pulseBonus) {
+    if (powderElements.sandfallFormula) {
+      const offset = powderState.sandOffset;
+      powderElements.sandfallFormula.textContent =
+        offset > 0
+          ? `Ψ(g) = 2.7 · sin(t) + ${formatDecimal(offset, 1)}`
+          : 'Ψ(g) = 2.7 · sin(t)';
+    }
+
+    if (powderElements.sandfallNote) {
+      const bonusText = formatPercentage(currentPowderBonuses.sandBonus);
+      powderElements.sandfallNote.textContent =
+        powderState.sandOffset > 0
+          ? `Flow stabilized—captured grains grant +${bonusText} powder.`
+          : 'Crest is unstable—powder drifts off the board.';
+    }
+
+    if (powderElements.sandfallButton) {
+      powderElements.sandfallButton.textContent =
+        powderState.sandOffset > 0 ? 'Release Flow' : 'Stabilize Flow';
+    }
+
+    if (powderElements.duneFormula) {
+      const height = powderState.duneHeight;
+      const logValue = Math.log2(height + 1);
+      powderElements.duneFormula.textContent = `Δm = log₂(${height} + 1) = ${formatDecimal(
+        logValue,
+        2,
+      )}`;
+    }
+
+    if (powderElements.duneNote) {
+      powderElements.duneNote.textContent = `Channel bonus: +${formatPercentage(
+        currentPowderBonuses.duneBonus,
+      )} to energy gain.`;
+    }
+
+    if (powderElements.duneButton) {
+      const reachedMax = powderState.duneHeight >= powderConfig.duneHeightMax;
+      powderElements.duneButton.disabled = reachedMax;
+      powderElements.duneButton.textContent = reachedMax ? 'Ridge Surveyed' : 'Survey Ridge';
+    }
+
+    if (powderElements.crystalFormula) {
+      const charges = powderState.charges;
+      const theta = powderConfig.thetaBase + charges * 0.6;
+      const zeta = powderConfig.zetaBase + charges * 0.5;
+      const root = Math.sqrt(theta * zeta);
+      powderElements.crystalFormula.textContent = `Q = √(${formatDecimal(theta, 2)} · ${formatDecimal(
+        zeta,
+        2,
+      )}) = ${formatDecimal(root, 2)}`;
+    }
+
+    if (powderElements.crystalButton) {
+      powderElements.crystalButton.textContent =
+        powderState.charges < 3
+          ? `Crystallize (${powderState.charges}/3)`
+          : 'Release Pulse';
+    }
+
+    if (powderElements.crystalNote) {
+      if (typeof pulseBonus === 'number') {
+        powderElements.crystalNote.textContent = `Pulse released! Σ score surged by +${formatPercentage(
+          pulseBonus,
+        )}.`;
+      } else if (powderState.charges >= 3) {
+        powderElements.crystalNote.textContent = 'Pulse ready—channel the matrix to unleash stored Σ energy.';
+      } else if (currentPowderBonuses.crystalBonus <= 0) {
+        powderElements.crystalNote.textContent = 'Crystal resonance is idle—no pulse prepared.';
+      } else {
+        powderElements.crystalNote.textContent = `Stored resonance grants +${formatPercentage(
+          currentPowderBonuses.crystalBonus,
+        )} to all rates.`;
+      }
+    }
+  }
+
   function init() {
     levelGrid = document.getElementById('level-grid');
     activeLevelEl = document.getElementById('active-level');
@@ -401,6 +748,12 @@
     overlayLabel = document.getElementById('overlay-level');
     overlayTitle = document.getElementById('overlay-title');
     overlayExample = document.getElementById('overlay-example');
+
+    bindStatusElements();
+    bindPowderControls();
+    updateResourceRates();
+    updatePowderDisplay();
+    ensureResourceTicker();
 
     initializeTabs();
     buildLevelCards();
