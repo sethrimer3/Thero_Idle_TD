@@ -31,70 +31,71 @@
 
       <main class="main-stage">
         <section class="panel active" data-panel="tower">
-          <div class="track-stage">
-            <svg
-              class="track-canvas"
-              viewBox="0 0 560 360"
-              role="img"
-              aria-labelledby="track-title track-desc"
-            >
-              <title id="track-title">Whimsical enemy trajectory</title>
-              <desc id="track-desc">
-                Smooth, ribbon-like path inspired by glyph geometry for tower defense
-              </desc>
-              <defs>
-                <linearGradient id="pathGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="rgba(139, 247, 255, 0.85)" />
-                  <stop offset="50%" stop-color="rgba(255, 125, 235, 0.85)" />
-                  <stop offset="100%" stop-color="rgba(255, 228, 120, 0.85)" />
-                </linearGradient>
-                <filter id="glow">
-                  <feGaussianBlur stdDeviation="6" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-              <path
-                class="track-path"
-                d="M30 320 C140 250, 80 120, 200 110 C320 105, 320 260, 420 220 C520 180, 480 60, 340 40"
-              />
-              <path
-                class="track-path secondary"
-                d="M60 300 C150 240, 120 150, 210 140 C320 125, 310 260, 420 230 C520 200, 470 80, 330 70"
-              />
-              <g class="tower-pips">
-                <circle cx="140" cy="210" r="12" />
-                <circle cx="240" cy="150" r="12" />
-                <circle cx="340" cy="200" r="12" />
-                <circle cx="420" cy="150" r="12" />
-              </g>
-              <g class="enemy-orbs">
-                <circle cx="110" cy="250" r="6" />
-                <circle cx="220" cy="190" r="6" />
-                <circle cx="360" cy="160" r="6" />
-              </g>
-            </svg>
-            <div class="track-caption">
-              <h2>Immortal Spiral 01</h2>
-              <p>
-                Each loop is generated from a blended sine and bezier formula,
-                guiding enemies along a silky ribbon of geometry. Merge towers to
-                reshape the curve and bend trajectories.
-              </p>
+          <div class="level-stage">
+            <aside class="level-list" id="level-list" aria-label="Level sets and stages"></aside>
+            <div class="level-detail">
+              <div class="track-stage">
+                <svg
+                  class="track-canvas"
+                  viewBox="0 0 560 360"
+                  role="img"
+                  aria-labelledby="track-title track-desc"
+                >
+                  <title id="track-title">Immortal defense trajectory</title>
+                  <desc id="track-desc">
+                    Curated bezier pathways channel enemies through glyph-lined arenas.
+                  </desc>
+                  <defs>
+                    <linearGradient id="pathGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="rgba(139, 247, 255, 0.85)" />
+                      <stop offset="50%" stop-color="rgba(255, 125, 235, 0.85)" />
+                      <stop offset="100%" stop-color="rgba(255, 228, 120, 0.85)" />
+                    </linearGradient>
+                    <filter id="glow">
+                      <feGaussianBlur stdDeviation="6" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+                  <path id="track-path-primary" class="track-path" d="" />
+                  <path id="track-path-secondary" class="track-path secondary" d="" />
+                  <g id="tower-pips" class="tower-pips"></g>
+                  <g id="enemy-orbs" class="enemy-orbs"></g>
+                </svg>
+                <div class="track-caption">
+                  <h2 id="level-title">Immortal Spiral 01</h2>
+                  <p id="level-description">
+                    Each loop is generated from a blended sine and bezier formula,
+                    guiding enemies along a silky ribbon of geometry. Merge towers to
+                    reshape the curve and bend trajectories.
+                  </p>
+                </div>
+              </div>
+              <aside class="prestige-card">
+                <h2 id="prestige-heading">Prestige Window</h2>
+                <p id="prestige-progress"><strong>Ξ Progress:</strong> 10.2 → 17.3</p>
+                <p id="prestige-reward"><strong>Reward:</strong> +12% Σ damage</p>
+                <button class="action-button" type="button">Prysmatic!</button>
+              </aside>
+              <div class="enemy-roster" aria-live="polite">
+                <h3>Enemy Manuscript</h3>
+                <ul id="enemy-roster"></ul>
+              </div>
+              <div class="stage-footer">
+                <button class="play-button" id="level-action" type="button">Enter Level</button>
+                <div class="progress">
+                  <span id="level-status">Select a stage to begin.</span>
+                </div>
+              </div>
             </div>
           </div>
-          <aside class="prestige-card">
-            <h2>Prestige Window</h2>
-            <p><strong>Ξ Progress:</strong> 10.2 → 17.3</p>
-            <p><strong>Reward:</strong> +12% Σ damage</p>
-            <button class="action-button" type="button">Prysmatic!</button>
-          </aside>
-          <div class="stage-footer">
-            <button class="play-button" type="button">Play</button>
-            <div class="progress">
-              <span>Progress to Infinity 58.8%</span>
+          <div class="level-overlay" id="level-overlay" aria-hidden="true" tabindex="0">
+            <div class="overlay-content">
+              <p class="overlay-label" id="overlay-label"></p>
+              <p class="overlay-example" id="overlay-example"></p>
+              <p class="overlay-instruction">Tap anywhere to continue.</p>
             </div>
           </div>
         </section>
@@ -146,17 +147,102 @@
             </article>
             <article class="card">
               <header class="tower-header">
+                <span class="tower-tier">Tier III</span>
+                <h3>γ gamma tower</h3>
+              </header>
+              <div class="formula-block">
+                <p class="formula-line"><span class="formula-symbol">γ</span> = (α<sup>½</sup> + β) · R</p>
+                <ul class="formula-definition">
+                  <li>α → inherited burst cadence</li>
+                  <li>β → sustained beam pressure</li>
+                  <li>R → resonance radius (support aura)</li>
+                </ul>
+                <p class="formula-line result">γ distributes +R% attack speed to allies.</p>
+              </div>
+              <ul class="upgrade-list">
+                <li>Stack α shards to quicken glyph allies in range</li>
+                <li>Fold β energy to extend support duration</li>
+                <li>Spiral R through sine harmonics for larger aura</li>
+              </ul>
+              <footer class="card-footer">Does not attack—empowers nearby towers through harmonic boosts.</footer>
+            </article>
+            <article class="card">
+              <header class="tower-header">
+                <span class="tower-tier">Tier IV</span>
+                <h3>δ delta tower</h3>
+              </header>
+              <div class="formula-block">
+                <p class="formula-line"><span class="formula-symbol">δ</span> = (β / α) · S</p>
+                <ul class="formula-definition">
+                  <li>β / α → glyph imprint strength</li>
+                  <li>S → summoned glyph soldiers per cycle</li>
+                </ul>
+                <p class="formula-line result">δ spawns S soldiers that inherit β / α damage.</p>
+              </div>
+              <ul class="upgrade-list">
+                <li>Carve β beams into autonomous glyph sentries</li>
+                <li>Orchestrate α rhythm for faster summoning</li>
+                <li>Empower soldiers with minor splash crescents</li>
+              </ul>
+              <footer class="card-footer">Delegates combat to glyph soldiers that march along the path.</footer>
+            </article>
+            <article class="card">
+              <header class="tower-header">
+                <span class="tower-tier">Tier V</span>
+                <h3>ε epsilon tower</h3>
+              </header>
+              <div class="formula-block">
+                <p class="formula-line"><span class="formula-symbol">ε</span> = β · log<sub>2</sub>(α + 1)</p>
+                <ul class="formula-definition">
+                  <li>β → beam intensity</li>
+                  <li>log<sub>2</sub>(α + 1) → chaining arcs</li>
+                </ul>
+                <p class="formula-line result">ε yields homing glyphs with chaining splash.</p>
+              </div>
+              <ul class="upgrade-list">
+                <li>Scribe logarithmic arcs for smart homing projectiles</li>
+                <li>Distill β to widen splash crescents</li>
+                <li>Braid α to slow enemies ensnared by the splash</li>
+              </ul>
+              <footer class="card-footer">Launches homing arcs that slow and splash in sigil radii.</footer>
+            </article>
+            <article class="card">
+              <header class="tower-header">
+                <span class="tower-tier">Mythic</span>
+                <h3>Ω omega tower</h3>
+              </header>
+              <div class="formula-block">
+                <p class="formula-line"><span class="formula-symbol">Ω</span> = (β<sup>2</sup> · ω) + α</p>
+                <ul class="formula-definition">
+                  <li>β → merged core damage</li>
+                  <li>ω → orbital glyphs = range scaling factor</li>
+                  <li>α → catalytic feedback when foes reverse</li>
+                </ul>
+                <p class="formula-line result">Ω unleashes recursive blasts; range grows with ω.</p>
+              </div>
+              <ul class="upgrade-list">
+                <li>Channel β beams to create divisive splash barrages</li>
+                <li>Spin ω orbitals to rewind enemies along the path</li>
+                <li>Convert α residue into damage-over-time sigils</li>
+              </ul>
+              <footer class="card-footer">Manipulates space-time, bending enemies backward while detonating.</footer>
+            </article>
+            <article class="card">
+              <header class="tower-header">
                 <span class="tower-tier">Convergence</span>
                 <h3>Merging Logic</h3>
               </header>
               <p>
-                Two <strong>α</strong> towers lattice together into a <strong>β</strong> tower,
-                unlocking the beam formula. Prestige into uppercase glyphs to repeat the
-                cycle at higher magnitudes.
+                Merge two <strong>α</strong> towers into a <strong>β</strong>, intertwine
+                <strong>α</strong> + <strong>β</strong> into <strong>γ</strong> support, weave
+                double <strong>β</strong> into <strong>δ</strong> summoners, and
+                recombine the spectrum into <strong>ε</strong> and mythic
+                <strong>Ω</strong> towers.
               </p>
               <p class="merge-note">
-                Upgrades purchased on this tab rewrite the variables above, letting you
-                sculpt each tower's personal equation.
+                Each merge propagates formulas. Ω towers reference stored α and β values
+                for both damage and range, ensuring late-tier builds are anchored to early
+                math decisions.
               </p>
               <button class="action-button ghost" type="button">Open Upgrade Matrix</button>
             </article>
@@ -186,12 +272,16 @@
 
         <section class="panel" data-panel="achievements">
           <header class="panel-header">Achievements</header>
+          <p class="panel-intro">
+            Each seal increases powder fall by +1 grain per minute. Idle minutes are
+            multiplied by unlocked seals, then the sand rushes in at login.
+          </p>
           <ul class="achievement-list">
             <li>
               <span class="achievement-badge">∞</span>
               <div>
                 <p class="achievement-title">First Orbit</p>
-                <p class="achievement-sub">Reach loop 10 in the spiral.</p>
+                <p class="achievement-sub">Complete Conjecture – 1 and earn your first idle multiplier.</p>
               </div>
             </li>
             <li>
@@ -206,6 +296,41 @@
               <div>
                 <p class="achievement-title">Series Summoner</p>
                 <p class="achievement-sub">Gain 1,000 sandfold stacks.</p>
+              </div>
+            </li>
+            <li>
+              <span class="achievement-badge">φ</span>
+              <div>
+                <p class="achievement-title">Golden Ally</p>
+                <p class="achievement-sub">Summon 100 δ soldiers across any run.</p>
+              </div>
+            </li>
+            <li>
+              <span class="achievement-badge">μ</span>
+              <div>
+                <p class="achievement-title">Divisor Tamer</p>
+                <p class="achievement-sub">Defeat 500 divisor-type enemies with Ω splash rewinds.</p>
+              </div>
+            </li>
+            <li>
+              <span class="achievement-badge">Ψ</span>
+              <div>
+                <p class="achievement-title">Powder Scholar</p>
+                <p class="achievement-sub">Log off for 60 minutes and return to a multiplied sandfall.</p>
+              </div>
+            </li>
+            <li>
+              <span class="achievement-badge">λ</span>
+              <div>
+                <p class="achievement-title">Lambda Lattice</p>
+                <p class="achievement-sub">Boost 10 towers simultaneously with a γ aura.</p>
+              </div>
+            </li>
+            <li>
+              <span class="achievement-badge">Ω</span>
+              <div>
+                <p class="achievement-title">Omega Ascended</p>
+                <p class="achievement-sub">Prestige after clearing the first Corollary set.</p>
               </div>
             </li>
           </ul>
@@ -228,6 +353,22 @@
               <h3>Codex</h3>
               <p>Review mathematical lore and formulae.</p>
               <button class="action-button ghost" type="button">Open Codex</button>
+            </article>
+            <article class="card codex-entry">
+              <h3>Campaign Chronicle</h3>
+              <p>
+                Levels arrive in six sets of five: Conjecture → Corollary → Lemma →
+                Proposition → Theorem → Axiom. Upon first entry the arena fades to black,
+                displays a hallmark example (e.g., “Goldbach's Conjecture”), then resumes
+                the fight when tapped.
+              </p>
+              <p>
+                Once a level is entered it keeps running whenever you revisit the Stage
+                tab until you manually leave. Powder achievements increase sand by
+                +1/min; idle minutes are multiplied by seals and instantly redeemed when
+                you return. Etched symbols track the tallest sand dune—spend them as an
+                upgrade currency on the tower matrix.
+              </p>
             </article>
           </div>
         </section>
