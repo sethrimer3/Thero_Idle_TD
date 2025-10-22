@@ -165,6 +165,8 @@
   const powderLog = [];
   const POWDER_LOG_LIMIT = 6;
 
+  const idleLevelRuns = new Map();
+
   const firstLevelConfig = {
     id: 'Conjecture - 1',
     displayName: 'Lemniscate Hypothesis',
@@ -223,6 +225,30 @@
       { x: 0.9, y: 0.18 },
     ],
   };
+
+  const idleLevelConfigs = new Map();
+
+  levelBlueprints.forEach((level, index) => {
+    if (level.id === firstLevelConfig.id) {
+      return;
+    }
+
+    const levelNumber = index + 1;
+    const runDuration = 90 + levelNumber * 12;
+    const rewardMultiplier = 1 + levelNumber * 0.08;
+
+    const rewardScore =
+      baseResources.scoreRate * (runDuration / 12) * rewardMultiplier;
+    const rewardFlux = 45 + levelNumber * 10;
+    const rewardEnergy = 35 + levelNumber * 8;
+
+    idleLevelConfigs.set(level.id, {
+      runDuration,
+      rewardScore,
+      rewardFlux,
+      rewardEnergy,
+    });
+  });
 
   class SimplePlayfield {
     constructor(options) {
@@ -1175,6 +1201,170 @@
     }
   }
 
+  function beginIdleLevelRun(level) {
+    if (!level || level.id === firstLevelConfig.id) {
+      return;
+    }
+
+    const config = idleLevelConfigs.get(level.id);
+    if (!config) {
+      return;
+    }
+
+    if (!idleLevelRuns.has(level.id)) {
+      idleLevelRuns.set(level.id, {
+        levelId: level.id,
+        duration: config.runDuration,
+        durationMs: config.runDuration * 1000,
+        rewardScore: config.rewardScore,
+        rewardFlux: config.rewardFlux,
+        rewardEnergy: config.rewardEnergy,
+        startTime: null,
+        progress: 0,
+        remainingMs: config.runDuration * 1000,
+      });
+    }
+
+    updateIdleLevelDisplay();
+  }
+
+  function stopIdleLevelRun(levelId) {
+    const runner = idleLevelRuns.get(levelId);
+    if (!runner) {
+      return;
+    }
+
+    idleLevelRuns.delete(levelId);
+
+    const state = levelState.get(levelId);
+    if (state) {
+      levelState.set(levelId, { ...state, running: false });
+    }
+
+    if (levelId === activeLevelId && levelId !== firstLevelConfig.id) {
+      updateIdleLevelDisplay();
+    }
+  }
+
+  function stopAllIdleRuns(exceptId) {
+    const levelIds = Array.from(idleLevelRuns.keys());
+    levelIds.forEach((levelId) => {
+      if (levelId === exceptId) {
+        return;
+      }
+      stopIdleLevelRun(levelId);
+    });
+  }
+
+  function completeIdleLevelRun(levelId, runner) {
+    if (!levelId || levelId === firstLevelConfig.id) {
+      return;
+    }
+
+    const stats = {
+      rewardScore: runner.rewardScore,
+      rewardFlux: runner.rewardFlux,
+      rewardEnergy: runner.rewardEnergy,
+      runDuration: runner.duration,
+    };
+
+    handlePlayfieldVictory(levelId, stats);
+
+    if (activeLevelId === levelId) {
+      updateIdleLevelDisplay();
+    }
+  }
+
+  function updateIdleRuns(timestamp) {
+    if (!idleLevelRuns.size) {
+      if (activeLevelId && activeLevelId !== firstLevelConfig.id) {
+        updateIdleLevelDisplay();
+      }
+      return;
+    }
+
+    const now = typeof timestamp === 'number' ? timestamp : 0;
+
+    idleLevelRuns.forEach((runner, levelId) => {
+      if (runner.startTime === null) {
+        runner.startTime = now;
+      }
+
+      const elapsed = Math.max(0, now - runner.startTime);
+      const total = Math.max(1, runner.durationMs);
+      const clampedElapsed = Math.min(elapsed, total);
+
+      runner.progress = clampedElapsed / total;
+      runner.remainingMs = Math.max(0, total - clampedElapsed);
+
+      if (elapsed >= total) {
+        idleLevelRuns.delete(levelId);
+        runner.progress = 1;
+        runner.remainingMs = 0;
+        completeIdleLevelRun(levelId, runner);
+      }
+    });
+
+    if (activeLevelId && activeLevelId !== firstLevelConfig.id) {
+      updateIdleLevelDisplay(idleLevelRuns.get(activeLevelId) || null);
+    }
+  }
+
+  function updateIdleLevelDisplay(activeRunner = null) {
+    if (!activeLevelId || activeLevelId === firstLevelConfig.id) {
+      return;
+    }
+
+    if (!playfieldElements.message || !playfieldElements.progress) {
+      return;
+    }
+
+    const level = levelLookup.get(activeLevelId);
+    const state = levelState.get(activeLevelId) || {};
+    const runner = activeRunner || idleLevelRuns.get(activeLevelId) || null;
+
+    if (!level) {
+      return;
+    }
+
+    if (runner) {
+      const remainingSeconds = Math.ceil(runner.remainingMs / 1000);
+      const percent = Math.min(100, Math.max(0, Math.round(runner.progress * 100)));
+      playfieldElements.message.textContent = `${level.title} auto-sim running—sigils recalibrating.`;
+      playfieldElements.progress.textContent = `Simulation progress: ${percent}% · ${remainingSeconds}s remaining.`;
+    } else if (state.running) {
+      playfieldElements.message.textContent = `${level.title} is initializing—automated glyphs mobilizing.`;
+      playfieldElements.progress.textContent = 'Auto-run preparing to deploy.';
+    } else if (state.completed) {
+      playfieldElements.message.textContent = `${level.title} sealed—auto-run rewards claimed.`;
+      playfieldElements.progress.textContent = 'Simulation complete. Re-enter to rerun the proof.';
+    } else {
+      playfieldElements.message.textContent = 'Tap the highlighted overlay to begin this automated defense.';
+      playfieldElements.progress.textContent = 'Awaiting confirmation.';
+    }
+
+    if (playfieldElements.wave) {
+      playfieldElements.wave.textContent = '—';
+    }
+    if (playfieldElements.health) {
+      playfieldElements.health.textContent = '—';
+    }
+    if (playfieldElements.energy) {
+      playfieldElements.energy.textContent = '—';
+    }
+
+    if (playfieldElements.startButton) {
+      if (runner || state.running) {
+        playfieldElements.startButton.textContent = runner
+          ? 'Auto-run Active'
+          : 'Auto-run Initializing';
+      } else {
+        playfieldElements.startButton.textContent = 'Preview Only';
+      }
+      playfieldElements.startButton.disabled = true;
+    }
+  }
+
   function handlePlayfieldCombatStart(levelId) {
     if (!levelId) {
       return;
@@ -1429,6 +1619,8 @@
     const updatedState = { ...currentState, entered: true, running: !isInteractive ? true : false };
     levelState.set(level.id, updatedState);
 
+    stopAllIdleRuns(level.id);
+
     levelState.forEach((state, id) => {
       if (id !== level.id) {
         levelState.set(id, { ...state, running: false });
@@ -1444,6 +1636,12 @@
     if (playfield) {
       playfield.enterLevel(level);
     }
+
+    if (!isInteractive) {
+      beginIdleLevelRun(level);
+    } else {
+      updateIdleLevelDisplay();
+    }
   }
 
   function leaveActiveLevel() {
@@ -1452,6 +1650,7 @@
     if (state) {
       levelState.set(activeLevelId, { ...state, running: false });
     }
+    stopIdleLevelRun(activeLevelId);
     if (playfield) {
       playfield.leaveLevel();
     }
@@ -1700,6 +1899,8 @@
     if (!resourceTicker) {
       return;
     }
+
+    updateIdleRuns(timestamp);
 
     if (!lastResourceTick) {
       lastResourceTick = timestamp;
