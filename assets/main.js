@@ -42,6 +42,46 @@
       example:
         'Birch and Swinnerton-Dyer Conjecture: Rational points of elliptic curves link to L-series behavior.',
     },
+    {
+      id: 'Corollary - 6',
+      title: 'Derivative Bloom',
+      path: 'Petal loops bloom where f′(x) = 0 across mirrored cardioids and saddle petals.',
+      focus: 'Flux bursts alternate with brittle shards—steady α lattices prevent overflow collapses.',
+      example:
+        "Rolle's Corollary: If f(a) = f(b) for differentiable f, some c in (a, b) satisfies f′(c) = 0.",
+    },
+    {
+      id: 'Corollary - 7',
+      title: 'Integral Cascade',
+      path: 'Stepped integrator ramps descend in quantized slopes shaped by accumulated area.',
+      focus: 'Energy leeches drift down ramps—δ summons keep Δ energy above zero.',
+      example:
+        'Fundamental Corollary: Integrating a derivative recovers the original function up to constants.',
+    },
+    {
+      id: 'Corollary - 8',
+      title: 'Fibonacci Turnabout',
+      path: 'Interleaved golden spirals shift radius on Fibonacci indices and teleport pads.',
+      focus: 'Prime counters spawn on Fibonacci junctions—γ conductors reset their tally.',
+      example:
+        'Binet Corollary: Fₙ = (φⁿ − ψⁿ)/√5 gives the closed form of Fibonacci growth.',
+    },
+    {
+      id: 'Corollary - 9',
+      title: 'Euler Bridge',
+      path: 'Bridge arcs obey planar graph constraints; parity lanes swap over Euler gaps.',
+      focus: 'Divisors guard the bridges—β beams must stay coherent to pierce.',
+      example:
+        'Euler Characteristic Corollary: For planar graphs, F = E − V + 2 limits feasible crossings.',
+    },
+    {
+      id: 'Corollary - 10',
+      title: 'Modular Bloom',
+      path: 'Modular roses rotate through residue-locked petals with congruence gate warps.',
+      focus: 'Reversal sentinels invert on residue gates—δ rallies convert them mid-arc.',
+      example:
+        'Chinese Remainder Corollary: Congruence systems share synchronized solutions modulo their product.',
+    },
   ];
 
   const levelLookup = new Map(levelBlueprints.map((level) => [level.id, level]));
@@ -56,6 +96,10 @@
   let overlayLabel = null;
   let overlayTitle = null;
   let overlayExample = null;
+  let overlayMode = null;
+  let overlayDuration = null;
+  let overlayRewards = null;
+  let overlayLast = null;
   let activeLevelId = null;
   let pendingLevel = null;
   let activeTabIndex = 0;
@@ -1560,6 +1604,8 @@
       }
     });
 
+    updateLevelCards();
+
     if (activeLevelId && activeLevelId !== firstLevelConfig.id) {
       updateIdleLevelDisplay(idleLevelRuns.get(activeLevelId) || null);
     }
@@ -1789,6 +1835,21 @@
         <p class="level-path"><strong>Path:</strong> ${level.path}</p>
         <p class="level-hazard"><strong>Focus:</strong> ${level.focus}</p>
         <p class="level-status-pill">New</p>
+        <dl class="level-metrics">
+          <div>
+            <dt>Mode</dt>
+            <dd class="level-mode">—</dd>
+          </div>
+          <div>
+            <dt>Run Length</dt>
+            <dd class="level-duration">—</dd>
+          </div>
+          <div>
+            <dt>Rewards</dt>
+            <dd class="level-rewards">—</dd>
+          </div>
+        </dl>
+        <p class="level-last-result">No attempts recorded.</p>
       `;
       card.addEventListener('click', () => handleLevelSelection(level));
       card.addEventListener('keydown', (event) => {
@@ -1828,6 +1889,21 @@
     overlayLabel.textContent = level.id;
     overlayTitle.textContent = level.title;
     overlayExample.textContent = level.example;
+    const summary = getLevelSummary(level);
+    if (overlayMode) {
+      overlayMode.textContent = summary.mode;
+    }
+    if (overlayDuration) {
+      overlayDuration.textContent = summary.duration;
+    }
+    if (overlayRewards) {
+      overlayRewards.textContent = summary.rewards;
+    }
+    if (overlayLast) {
+      const state = levelState.get(level.id) || null;
+      const runner = idleLevelRuns.get(level.id) || null;
+      overlayLast.textContent = describeLevelLastResult(level, state, runner);
+    }
     overlay.setAttribute('aria-hidden', 'false');
     overlay.focus();
     requestAnimationFrame(() => {
@@ -1926,6 +2002,26 @@
       const entered = Boolean(state && state.entered);
       const running = Boolean(state && state.running);
       const completed = Boolean(state && state.completed);
+
+      const summary = getLevelSummary(level);
+      const modeEl = card.querySelector('.level-mode');
+      const durationEl = card.querySelector('.level-duration');
+      const rewardsEl = card.querySelector('.level-rewards');
+      if (modeEl) {
+        modeEl.textContent = summary.mode;
+      }
+      if (durationEl) {
+        durationEl.textContent = summary.duration;
+      }
+      if (rewardsEl) {
+        rewardsEl.textContent = summary.rewards;
+      }
+
+      const runner = idleLevelRuns.get(level.id) || null;
+      const lastResultEl = card.querySelector('.level-last-result');
+      if (lastResultEl) {
+        lastResultEl.textContent = describeLevelLastResult(level, state || null, runner);
+      }
 
       card.classList.toggle('entered', entered);
       card.classList.toggle('completed', completed);
@@ -2062,6 +2158,133 @@
     if (leaveLevelBtn && !leaveLevelBtn.disabled && typeof leaveLevelBtn.focus === 'function') {
       leaveLevelBtn.focus();
     }
+  }
+
+  function formatDuration(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) {
+      return '—';
+    }
+    const totalSeconds = Math.max(0, Math.round(seconds));
+    const minutes = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    if (minutes && secs) {
+      return `${minutes}m ${secs}s`;
+    }
+    if (minutes) {
+      return `${minutes}m`;
+    }
+    return `${secs}s`;
+  }
+
+  function formatRewards(rewardScore, rewardFlux, rewardEnergy) {
+    const parts = [];
+    if (Number.isFinite(rewardScore)) {
+      parts.push(`${formatGameNumber(rewardScore)} Σ`);
+    }
+    if (Number.isFinite(rewardFlux)) {
+      parts.push(`+${Math.round(rewardFlux)} Powder/min`);
+    }
+    if (Number.isFinite(rewardEnergy)) {
+      parts.push(`+${Math.round(rewardEnergy)} TD/s`);
+    }
+    return parts.length ? parts.join(' · ') : '—';
+  }
+
+  function formatRelativeTime(timestamp) {
+    if (!Number.isFinite(timestamp)) {
+      return null;
+    }
+    const diff = Date.now() - timestamp;
+    if (!Number.isFinite(diff)) {
+      return null;
+    }
+    if (diff < 0) {
+      return 'soon';
+    }
+    const seconds = Math.round(diff / 1000);
+    if (seconds < 5) {
+      return 'just now';
+    }
+    if (seconds < 60) {
+      return `${seconds}s ago`;
+    }
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) {
+      return `${minutes}m ago`;
+    }
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) {
+      return `${hours}h ago`;
+    }
+    const days = Math.round(hours / 24);
+    return `${days}d ago`;
+  }
+
+  function getLevelSummary(level) {
+    if (!level) {
+      return { mode: '—', duration: '—', rewards: '—' };
+    }
+    if (level.id === firstLevelConfig.id) {
+      return {
+        mode: 'Active Defense',
+        duration: `${firstLevelConfig.waves.length} waves · manual`,
+        rewards: formatRewards(
+          firstLevelConfig.rewardScore,
+          firstLevelConfig.rewardFlux,
+          firstLevelConfig.rewardEnergy,
+        ),
+      };
+    }
+
+    const config = idleLevelConfigs.get(level.id);
+    return {
+      mode: 'Idle Simulation',
+      duration: config
+        ? `${formatDuration(config.runDuration)} auto-run`
+        : 'Idle simulation',
+      rewards: config
+        ? formatRewards(config.rewardScore, config.rewardFlux, config.rewardEnergy)
+        : '—',
+    };
+  }
+
+  function describeLevelLastResult(level, state, runner) {
+    if (runner) {
+      const percent = Math.min(100, Math.max(0, Math.round((runner.progress || 0) * 100)));
+      const remainingSeconds = Number.isFinite(runner.remainingMs)
+        ? Math.ceil(runner.remainingMs / 1000)
+        : null;
+      const remainingLabel = remainingSeconds === null
+        ? 'Finishing'
+        : `${formatDuration(remainingSeconds)} remaining`;
+      return `Auto-run ${percent}% · ${remainingLabel}.`;
+    }
+
+    if (state?.running) {
+      return level && level.id === firstLevelConfig.id
+        ? 'Manual defense active.'
+        : 'Auto-run initializing.';
+    }
+
+    if (!state || !state.lastResult) {
+      return 'No attempts recorded.';
+    }
+
+    const { outcome, stats = {}, timestamp } = state.lastResult;
+    const relative = formatRelativeTime(timestamp) || 'recently';
+
+    if (outcome === 'victory') {
+      const rewardText = formatRewards(stats.rewardScore, stats.rewardFlux, stats.rewardEnergy);
+      return rewardText && rewardText !== '—'
+        ? `Victory ${relative}. Rewards: ${rewardText}.`
+        : `Victory ${relative}.`;
+    }
+
+    if (outcome === 'defeat') {
+      return `Defense collapsed ${relative}.`;
+    }
+
+    return 'No attempts recorded.';
   }
 
   function formatGameNumber(value) {
@@ -2515,6 +2738,10 @@
     overlayLabel = document.getElementById('overlay-level');
     overlayTitle = document.getElementById('overlay-title');
     overlayExample = document.getElementById('overlay-example');
+    overlayMode = document.getElementById('overlay-mode');
+    overlayDuration = document.getElementById('overlay-duration');
+    overlayRewards = document.getElementById('overlay-rewards');
+    overlayLast = document.getElementById('overlay-last');
 
     playfieldElements.container = document.getElementById('playfield');
     playfieldElements.canvas = document.getElementById('playfield-canvas');
