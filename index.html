@@ -330,7 +330,60 @@
           hidden
         >
           <header class="panel-header">Powder Lab</header>
-          <div class="panel-grid">
+          <p class="powder-intro">
+            Channel falling-sand experiments to braid bonuses back into the tower core.
+            Each ritual manipulates flow rates, dune topology, or crystalline charge to
+            accelerate Σ score, Δ energy, and λ flux.
+          </p>
+          <section class="panel-grid powder-summary">
+            <article class="card powder-overview">
+              <h3>Flux Overview</h3>
+              <dl class="powder-metrics">
+                <div>
+                  <dt>Total Multiplier</dt>
+                  <dd id="powder-total-multiplier">×1.00</dd>
+                </div>
+                <div>
+                  <dt>Sandfall Bonus</dt>
+                  <dd id="powder-sand-bonus">+0.00%</dd>
+                </div>
+                <div>
+                  <dt>Dune Channeling</dt>
+                  <dd id="powder-dune-bonus">+0.00%</dd>
+                </div>
+                <div>
+                  <dt>Crystal Resonance</dt>
+                  <dd id="powder-crystal-bonus">+0.00%</dd>
+                </div>
+              </dl>
+            </article>
+            <article class="card powder-sigils-card">
+              <h3>Sigil Ladder</h3>
+              <p>
+                Powder height illuminates etched glyphs. Each rung unlocks new research rites
+                once the total multiplier meets or exceeds its mark.
+              </p>
+              <ul class="powder-sigil-list" id="powder-sigil-list">
+                <li data-sigil-threshold="1.05">
+                  <span class="sigil-name">Boundary Sigil</span>
+                  <span class="sigil-note">Stabilize the sandfall to breach ×1.05 flow.</span>
+                </li>
+                <li data-sigil-threshold="1.15">
+                  <span class="sigil-name">Dune Crest Sigil</span>
+                  <span class="sigil-note">Raise h to carve channels and reach ×1.15.</span>
+                </li>
+                <li data-sigil-threshold="1.35">
+                  <span class="sigil-name">Crystal Harmonic Sigil</span>
+                  <span class="sigil-note">Store a full lattice of charges to strike ×1.35.</span>
+                </li>
+                <li data-sigil-threshold="1.5">
+                  <span class="sigil-name">Archive Sigil</span>
+                  <span class="sigil-note">Sustain every ritual to engrave ×1.50 and beyond.</span>
+                </li>
+              </ul>
+            </article>
+          </section>
+          <div class="panel-grid powder-grid">
             <article class="card">
               <h3>Sandfall</h3>
               <p>
@@ -381,6 +434,36 @@
               >
                 Crystallize (0/3)
               </button>
+            </article>
+            <article class="card powder-ledger">
+              <h3>Powderfall Ledger</h3>
+              <dl class="powder-ledger-grid">
+                <div>
+                  <dt>Base Σ Rate</dt>
+                  <dd id="powder-ledger-base-score">2.75 QDe/s</dd>
+                </div>
+                <div>
+                  <dt>Current Σ Rate</dt>
+                  <dd id="powder-ledger-current-score">2.75 QDe/s</dd>
+                </div>
+                <div>
+                  <dt>Current Flux</dt>
+                  <dd id="powder-ledger-flux">+375 Powder/min</dd>
+                </div>
+                <div>
+                  <dt>Current Energy</dt>
+                  <dd id="powder-ledger-energy">+575 TD/s</dd>
+                </div>
+              </dl>
+              <p class="powder-footnote">
+                Ledger values account for all active powder rituals and crystal surges.
+              </p>
+            </article>
+            <article class="card powder-log-card">
+              <h3>Lab Chronicle</h3>
+              <p class="powder-footnote">Recent experiments echo here for quick review.</p>
+              <ul class="powder-log" id="powder-log" aria-live="polite" aria-label="Recent powder experiments"></ul>
+              <p class="powder-log-empty" id="powder-log-empty">No experiments recorded yet.</p>
             </article>
           </div>
         </section>

@@ -133,10 +133,24 @@
     crystalFormula: null,
     crystalNote: null,
     crystalButton: null,
+    totalMultiplier: null,
+    sandBonusValue: null,
+    duneBonusValue: null,
+    crystalBonusValue: null,
+    ledgerBaseScore: null,
+    ledgerCurrentScore: null,
+    ledgerFlux: null,
+    ledgerEnergy: null,
+    sigilEntries: [],
+    logList: null,
+    logEmpty: null,
   };
 
   let resourceTicker = null;
   let lastResourceTick = 0;
+
+  const powderLog = [];
+  const POWDER_LOG_LIMIT = 6;
 
   const tabHotkeys = new Map([
     ['1', 'tower'],
@@ -504,6 +518,13 @@
     return `${percent.toFixed(digits)}%`;
   }
 
+  function formatSignedPercentage(value) {
+    const percent = value * 100;
+    const digits = Math.abs(percent) >= 10 ? 1 : 2;
+    const sign = percent >= 0 ? '+' : '';
+    return `${sign}${percent.toFixed(digits)}%`;
+  }
+
   function calculatePowderBonuses() {
     // Stabilizing the sandfall adds an offset term to Ψ(g) = 2.7 · sin(t), yielding steady grain capture.
     const sandBonus = powderState.sandOffset > 0 ? 0.15 + powderState.sandOffset * 0.03 : 0;
@@ -598,6 +619,23 @@
     powderElements.crystalNote = document.getElementById('powder-crystal-note');
     powderElements.crystalButton = document.querySelector('[data-powder-action="crystal"]');
 
+    powderElements.totalMultiplier = document.getElementById('powder-total-multiplier');
+    powderElements.sandBonusValue = document.getElementById('powder-sand-bonus');
+    powderElements.duneBonusValue = document.getElementById('powder-dune-bonus');
+    powderElements.crystalBonusValue = document.getElementById('powder-crystal-bonus');
+
+    powderElements.ledgerBaseScore = document.getElementById('powder-ledger-base-score');
+    powderElements.ledgerCurrentScore = document.getElementById('powder-ledger-current-score');
+    powderElements.ledgerFlux = document.getElementById('powder-ledger-flux');
+    powderElements.ledgerEnergy = document.getElementById('powder-ledger-energy');
+
+    powderElements.sigilEntries = Array.from(
+      document.querySelectorAll('[data-sigil-threshold]'),
+    );
+
+    powderElements.logList = document.getElementById('powder-log');
+    powderElements.logEmpty = document.getElementById('powder-log-empty');
+
     if (powderElements.sandfallButton) {
       powderElements.sandfallButton.addEventListener('click', toggleSandfallStability);
     }
@@ -611,6 +649,106 @@
     }
   }
 
+  function updatePowderLedger() {
+    if (powderElements.ledgerBaseScore) {
+      powderElements.ledgerBaseScore.textContent = `${formatGameNumber(
+        baseResources.scoreRate,
+      )} Σ/s`;
+    }
+
+    if (powderElements.ledgerCurrentScore) {
+      powderElements.ledgerCurrentScore.textContent = `${formatGameNumber(
+        resourceState.scoreRate,
+      )} Σ/s`;
+    }
+
+    if (powderElements.ledgerFlux) {
+      powderElements.ledgerFlux.textContent = `+${formatGameNumber(
+        resourceState.fluxRate,
+      )} Powder/min`;
+    }
+
+    if (powderElements.ledgerEnergy) {
+      powderElements.ledgerEnergy.textContent = `+${formatGameNumber(
+        resourceState.energyRate,
+      )} TD/s`;
+    }
+  }
+
+  function updatePowderLogDisplay() {
+    if (!powderElements.logList || !powderElements.logEmpty) {
+      return;
+    }
+
+    powderElements.logList.innerHTML = '';
+
+    if (!powderLog.length) {
+      powderElements.logList.setAttribute('hidden', '');
+      powderElements.logEmpty.hidden = false;
+      return;
+    }
+
+    powderElements.logList.removeAttribute('hidden');
+    powderElements.logEmpty.hidden = true;
+
+    const fragment = document.createDocumentFragment();
+    powderLog.forEach((entry) => {
+      const item = document.createElement('li');
+      item.textContent = entry;
+      fragment.append(item);
+    });
+    powderElements.logList.append(fragment);
+  }
+
+  function recordPowderEvent(type, context = {}) {
+    let entry = '';
+
+    switch (type) {
+      case 'sand-stabilized': {
+        entry = `Sandfall stabilized · Powder bonus ${formatSignedPercentage(
+          currentPowderBonuses.sandBonus,
+        )}.`;
+        break;
+      }
+      case 'sand-released': {
+        entry = 'Sandfall released · Flow returns to natural drift.';
+        break;
+      }
+      case 'dune-raise': {
+        const { height = powderState.duneHeight } = context;
+        const logValue = Math.log2(height + 1);
+        entry = `Dune surveyed · h = ${height}, Δm = ${formatDecimal(logValue, 2)}.`;
+        break;
+      }
+      case 'dune-max': {
+        entry = 'Dune survey halted · Ridge already at maximum elevation.';
+        break;
+      }
+      case 'crystal-charge': {
+        const { charges = powderState.charges } = context;
+        entry = `Crystal lattice charged (${charges}/3) · Resonance rising.`;
+        break;
+      }
+      case 'crystal-release': {
+        const { pulseBonus = 0 } = context;
+        entry = `Crystal pulse released · Σ surged ${formatSignedPercentage(pulseBonus)}.`;
+        break;
+      }
+      default:
+        break;
+    }
+
+    if (!entry) {
+      return;
+    }
+
+    powderLog.unshift(entry);
+    if (powderLog.length > POWDER_LOG_LIMIT) {
+      powderLog.length = POWDER_LOG_LIMIT;
+    }
+    updatePowderLogDisplay();
+  }
+
   function toggleSandfallStability() {
     powderState.sandOffset =
       powderState.sandOffset > 0
@@ -618,27 +756,32 @@
         : powderConfig.sandOffsetActive;
 
     refreshPowderSystems();
+    recordPowderEvent(powderState.sandOffset > 0 ? 'sand-stabilized' : 'sand-released');
   }
 
   function surveyRidgeHeight() {
     if (powderState.duneHeight >= powderConfig.duneHeightMax) {
+      recordPowderEvent('dune-max');
       return;
     }
 
     powderState.duneHeight += 1;
     refreshPowderSystems();
+    recordPowderEvent('dune-raise', { height: powderState.duneHeight });
   }
 
   function chargeCrystalMatrix() {
     if (powderState.charges < 3) {
       powderState.charges += 1;
       refreshPowderSystems();
+      recordPowderEvent('crystal-charge', { charges: powderState.charges });
       return;
     }
 
     const pulseBonus = releaseCrystalPulse(powderState.charges);
     powderState.charges = 0;
     refreshPowderSystems(pulseBonus);
+    recordPowderEvent('crystal-release', { pulseBonus });
   }
 
   function releaseCrystalPulse(charges) {
@@ -660,6 +803,48 @@
   }
 
   function updatePowderDisplay(pulseBonus) {
+    if (powderElements.totalMultiplier) {
+      powderElements.totalMultiplier.textContent = `×${formatDecimal(
+        currentPowderBonuses.totalMultiplier,
+        2,
+      )}`;
+    }
+
+    if (powderElements.sandBonusValue) {
+      powderElements.sandBonusValue.textContent = formatSignedPercentage(
+        currentPowderBonuses.sandBonus,
+      );
+    }
+
+    if (powderElements.duneBonusValue) {
+      powderElements.duneBonusValue.textContent = formatSignedPercentage(
+        currentPowderBonuses.duneBonus,
+      );
+    }
+
+    if (powderElements.crystalBonusValue) {
+      powderElements.crystalBonusValue.textContent = formatSignedPercentage(
+        currentPowderBonuses.crystalBonus,
+      );
+    }
+
+    if (powderElements.sigilEntries && powderElements.sigilEntries.length) {
+      const total = currentPowderBonuses.totalMultiplier;
+      powderElements.sigilEntries.forEach((sigil) => {
+        const threshold = Number.parseFloat(sigil.dataset.sigilThreshold);
+        if (!Number.isFinite(threshold)) {
+          return;
+        }
+        if (total >= threshold) {
+          sigil.classList.add('sigil-reached');
+        } else {
+          sigil.classList.remove('sigil-reached');
+        }
+      });
+    }
+
+    updatePowderLedger();
+
     if (powderElements.sandfallFormula) {
       const offset = powderState.sandOffset;
       powderElements.sandfallFormula.textContent =
@@ -751,6 +936,7 @@
 
     bindStatusElements();
     bindPowderControls();
+    updatePowderLogDisplay();
     updateResourceRates();
     updatePowderDisplay();
     ensureResourceTicker();

@@ -502,6 +502,131 @@ body::before {
   color: rgba(247, 247, 245, 0.65);
 }
 
+.powder-intro {
+  margin: 0;
+  font-size: 0.98rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.powder-summary {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.powder-metrics {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.powder-metrics div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.powder-metrics dt {
+  font-family: "Space Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.powder-metrics dd {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+}
+
+.powder-sigil-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.powder-sigil-list li {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  display: grid;
+  gap: 6px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.powder-sigil-list li.sigil-reached {
+  border-color: rgba(255, 228, 120, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(255, 228, 120, 0.35);
+}
+
+.sigil-name {
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sigil-note {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.powder-ledger-grid {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.powder-ledger-grid div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.powder-ledger-grid dt {
+  font-family: "Space Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.powder-ledger-grid dd {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+
+.powder-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.powder-log li {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  font-family: "Space Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: rgba(247, 247, 245, 0.78);
+}
+
+.powder-log-empty {
+  margin: 0;
+  font-family: "Space Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: rgba(247, 247, 245, 0.55);
+  text-align: center;
+}
+
 .tower-header {
   display: flex;
   align-items: center;
