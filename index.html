@@ -30,7 +30,13 @@
       </header>
 
       <main class="main-stage">
-        <section class="panel active" data-panel="tower">
+        <section
+          class="panel active"
+          data-panel="tower"
+          id="panel-tower"
+          role="tabpanel"
+          aria-labelledby="tab-tower"
+        >
           <div class="track-stage">
             <svg
               class="track-canvas"
@@ -185,7 +191,14 @@
           </div>
         </section>
 
-        <section class="panel" data-panel="towers">
+        <section
+          class="panel"
+          data-panel="towers"
+          id="panel-towers"
+          role="tabpanel"
+          aria-labelledby="tab-towers"
+          hidden
+        >
           <header class="panel-header">Towers &amp; Formulae</header>
           <div class="panel-grid">
             <article class="card">
@@ -308,7 +321,14 @@
           </div>
         </section>
 
-        <section class="panel" data-panel="powder">
+        <section
+          class="panel"
+          data-panel="powder"
+          id="panel-powder"
+          role="tabpanel"
+          aria-labelledby="tab-powder"
+          hidden
+        >
           <header class="panel-header">Powder Lab</header>
           <div class="panel-grid">
             <article class="card">
@@ -329,7 +349,14 @@
           </div>
         </section>
 
-        <section class="panel" data-panel="achievements">
+        <section
+          class="panel"
+          data-panel="achievements"
+          id="panel-achievements"
+          role="tabpanel"
+          aria-labelledby="tab-achievements"
+          hidden
+        >
           <header class="panel-header">Achievements</header>
           <p class="achievement-note">
             Each seal increases powderfall by <strong>+1 grain per minute</strong>.
@@ -395,7 +422,14 @@
           </ul>
         </section>
 
-        <section class="panel" data-panel="options">
+        <section
+          class="panel"
+          data-panel="options"
+          id="panel-options"
+          role="tabpanel"
+          aria-labelledby="tab-options"
+          hidden
+        >
           <header class="panel-header">Options &amp; Codex</header>
           <div class="panel-grid">
             <article class="card">
@@ -417,24 +451,74 @@
         </section>
       </main>
 
-      <nav class="tab-bar" aria-label="Primary">
-        <button class="tab-button active" data-tab="tower" aria-label="Tower Stage">
+      <nav class="tab-bar" aria-label="Primary" role="tablist">
+        <button
+          class="tab-button active"
+          data-tab="tower"
+          id="tab-tower"
+          type="button"
+          role="tab"
+          aria-label="Tower Stage"
+          aria-controls="panel-tower"
+          aria-selected="true"
+          aria-pressed="true"
+        >
           <span class="tab-icon">⌘</span>
           <span class="tab-label">Stage</span>
         </button>
-        <button class="tab-button" data-tab="towers" aria-label="Towers">
+        <button
+          class="tab-button"
+          data-tab="towers"
+          id="tab-towers"
+          type="button"
+          role="tab"
+          aria-label="Towers"
+          aria-controls="panel-towers"
+          aria-selected="false"
+          aria-pressed="false"
+        >
           <span class="tab-icon">Δ</span>
           <span class="tab-label">Towers</span>
         </button>
-        <button class="tab-button" data-tab="powder" aria-label="Powder Lab">
+        <button
+          class="tab-button"
+          data-tab="powder"
+          id="tab-powder"
+          type="button"
+          role="tab"
+          aria-label="Powder Lab"
+          aria-controls="panel-powder"
+          aria-selected="false"
+          aria-pressed="false"
+        >
           <span class="tab-icon">⧖</span>
           <span class="tab-label">Powder</span>
         </button>
-        <button class="tab-button" data-tab="achievements" aria-label="Achievements">
+        <button
+          class="tab-button"
+          data-tab="achievements"
+          id="tab-achievements"
+          type="button"
+          role="tab"
+          aria-label="Achievements"
+          aria-controls="panel-achievements"
+          aria-selected="false"
+          aria-pressed="false"
+        >
           <span class="tab-icon">★</span>
           <span class="tab-label">Seals</span>
         </button>
-        <button class="tab-button" data-tab="options" aria-label="Options">
+        <button
+          class="tab-button"
+          data-tab="options"
+          id="tab-options"
+          type="button"
+          role="tab"
+          aria-label="Options"
+          aria-controls="panel-options"
+          aria-selected="false"
+          aria-pressed="false"
+        >
           <span class="tab-icon">☰</span>
           <span class="tab-label">Codex</span>
         </button>

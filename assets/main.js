@@ -1,13 +1,3 @@
-const tabs = Array.from(document.querySelectorAll('.tab-button'));
-const panels = document.querySelectorAll('.panel');
-const levelGrid = document.getElementById('level-grid');
-const activeLevelEl = document.getElementById('active-level');
-const leaveLevelBtn = document.getElementById('leave-level');
-const overlay = document.getElementById('level-overlay');
-const overlayLabel = document.getElementById('overlay-level');
-const overlayTitle = document.getElementById('overlay-title');
-const overlayExample = document.getElementById('overlay-example');
-
 const levelBlueprints = [
   {
     id: 'Conjecture - 1',
@@ -53,35 +43,63 @@ const levelBlueprints = [
 
 const levelLookup = new Map(levelBlueprints.map((level) => [level.id, level]));
 const levelState = new Map();
+
+let tabs = [];
+let panels = [];
+let levelGrid = null;
+let activeLevelEl = null;
+let leaveLevelBtn = null;
+let overlay = null;
+let overlayLabel = null;
+let overlayTitle = null;
+let overlayExample = null;
 let activeLevelId = null;
 let pendingLevel = null;
-let activeTabIndex = tabs.findIndex((tab) => tab.classList.contains('active'));
-if (activeTabIndex === -1) {
-  activeTabIndex = 0;
-}
+let activeTabIndex = 0;
 
 function setActiveTab(target) {
+  if (!tabs.length || !panels.length) return;
+
+  let matchedTab = false;
+
   tabs.forEach((tab, index) => {
     const isActive = tab.dataset.tab === target;
-    tab.classList.toggle('active', isActive);
-    tab.setAttribute('aria-pressed', isActive);
     if (isActive) {
+      tab.classList.add('active');
+      tab.setAttribute('aria-pressed', 'true');
+      tab.setAttribute('aria-selected', 'true');
+      tab.setAttribute('tabindex', '0');
       activeTabIndex = index;
+      matchedTab = true;
+    } else {
+      tab.classList.remove('active');
+      tab.setAttribute('aria-pressed', 'false');
+      tab.setAttribute('aria-selected', 'false');
+      tab.setAttribute('tabindex', '-1');
     }
   });
 
   panels.forEach((panel) => {
-    panel.classList.toggle('active', panel.dataset.panel === target);
+    const isActive = panel.dataset.panel === target;
+    if (isActive) {
+      panel.classList.add('active');
+      panel.setAttribute('aria-hidden', 'false');
+      panel.removeAttribute('hidden');
+    } else {
+      panel.classList.remove('active');
+      panel.setAttribute('aria-hidden', 'true');
+      panel.setAttribute('hidden', '');
+    }
   });
 
-  if (target === 'tower') {
+  if (matchedTab && target === 'tower') {
     updateActiveLevelBanner();
   }
 }
 
 function focusAndActivateTab(index) {
   if (!tabs.length) return;
-  const normalizedIndex = (index + tabs.length) % tabs.length;
+  const normalizedIndex = ((index % tabs.length) + tabs.length) % tabs.length;
   const targetTab = tabs[normalizedIndex];
   if (!targetTab) return;
   setActiveTab(targetTab.dataset.tab);
@@ -135,7 +153,7 @@ function handleLevelSelection(level) {
 }
 
 function showLevelOverlay(level) {
-  if (!overlay) return;
+  if (!overlay || !overlayLabel || !overlayTitle || !overlayExample) return;
   overlayLabel.textContent = level.id;
   overlayTitle.textContent = level.title;
   overlayExample.textContent = level.example;
@@ -223,21 +241,11 @@ function updateActiveLevelBanner() {
   activeLevelEl.textContent = `${level.id} · ${level.title} (${descriptor})`;
 }
 
-tabs.forEach((tab, index) => {
-  tab.addEventListener('click', () => {
-    focusAndActivateTab(index);
-  });
-
-  tab.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      focusAndActivateTab(index);
-    }
-  });
-});
-
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+  if (!tabs.length) return;
+  const activeElement = document.activeElement;
+  if (!activeElement || !activeElement.closest('.tab-bar')) return;
   if (overlay && overlay.classList.contains('active')) return;
 
   const direction = event.key === 'ArrowRight' ? 1 : -1;
@@ -245,7 +253,50 @@ document.addEventListener('keydown', (event) => {
   focusAndActivateTab(activeTabIndex + direction);
 });
 
-if (overlay) {
+function initializeTabs() {
+  tabs = Array.from(document.querySelectorAll('.tab-button'));
+  panels = Array.from(document.querySelectorAll('.panel'));
+
+  if (!tabs.length || !panels.length) {
+    return;
+  }
+
+  const existingActiveIndex = tabs.findIndex((tab) => tab.classList.contains('active'));
+  activeTabIndex = existingActiveIndex >= 0 ? existingActiveIndex : 0;
+
+  tabs.forEach((tab, index) => {
+    if (!tab.getAttribute('type')) {
+      tab.setAttribute('type', 'button');
+    }
+
+    tab.addEventListener('click', () => {
+      focusAndActivateTab(index);
+    });
+
+    tab.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        focusAndActivateTab(index);
+      }
+    });
+  });
+
+  panels.forEach((panel) => {
+    const isActive = panel.classList.contains('active');
+    panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    if (!isActive) {
+      panel.setAttribute('hidden', '');
+    }
+  });
+
+  const initialTab = tabs[activeTabIndex];
+  if (initialTab) {
+    setActiveTab(initialTab.dataset.tab);
+  }
+}
+
+function bindOverlayEvents() {
+  if (!overlay) return;
   overlay.addEventListener('click', () => {
     hideLevelOverlay();
     if (pendingLevel) {
@@ -255,12 +306,31 @@ if (overlay) {
   });
 }
 
-if (leaveLevelBtn) {
+function bindLeaveLevelButton() {
+  if (!leaveLevelBtn) return;
   leaveLevelBtn.addEventListener('click', () => {
     leaveActiveLevel();
   });
 }
 
-buildLevelCards();
-updateLevelCards();
-setActiveTab('tower');
+function init() {
+  levelGrid = document.getElementById('level-grid');
+  activeLevelEl = document.getElementById('active-level');
+  leaveLevelBtn = document.getElementById('leave-level');
+  overlay = document.getElementById('level-overlay');
+  overlayLabel = document.getElementById('overlay-level');
+  overlayTitle = document.getElementById('overlay-title');
+  overlayExample = document.getElementById('overlay-example');
+
+  initializeTabs();
+  buildLevelCards();
+  updateLevelCards();
+  bindOverlayEvents();
+  bindLeaveLevelButton();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
