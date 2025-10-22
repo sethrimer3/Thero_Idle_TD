@@ -462,11 +462,17 @@
 
       this.towerIdCounter = 0;
       this.hoverPlacement = null;
+      this.hoverEnemy = null;
+      this.pointerPosition = null;
       this.anchorTolerance = 0.06;
 
       this.pointerMoveHandler = (event) => this.handleCanvasPointerMove(event);
-      this.pointerLeaveHandler = () => this.clearPlacementPreview();
+      this.pointerLeaveHandler = () => this.handleCanvasPointerLeave();
       this.pointerClickHandler = (event) => this.handleCanvasClick(event);
+
+      this.enemyTooltip = null;
+      this.enemyTooltipNameEl = null;
+      this.enemyTooltipHpEl = null;
 
       this.registerSlots();
       this.bindStartButton();
@@ -474,6 +480,7 @@
       this.bindAutoAnchorButton();
       this.attachResizeObservers();
       this.attachCanvasInteractions();
+      this.createEnemyTooltip();
 
       this.disableSlots(true);
       this.updateHud();
@@ -567,6 +574,29 @@
       this.canvas.addEventListener('pointermove', this.pointerMoveHandler);
       this.canvas.addEventListener('pointerleave', this.pointerLeaveHandler);
       this.canvas.addEventListener('click', this.pointerClickHandler);
+    }
+
+    createEnemyTooltip() {
+      if (!this.container || this.enemyTooltip) {
+        return;
+      }
+
+      const tooltip = document.createElement('div');
+      tooltip.className = 'enemy-tooltip';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'enemy-tooltip-name';
+
+      const hpEl = document.createElement('div');
+      hpEl.className = 'enemy-tooltip-hp';
+
+      tooltip.append(nameEl, hpEl);
+      tooltip.setAttribute('aria-hidden', 'true');
+
+      this.container.appendChild(tooltip);
+      this.enemyTooltip = tooltip;
+      this.enemyTooltipNameEl = nameEl;
+      this.enemyTooltipHpEl = hpEl;
     }
 
     syncCanvasSize() {
@@ -988,17 +1018,28 @@
     handleCanvasPointerMove(event) {
       if (!this.levelActive || !this.levelConfig) {
         this.clearPlacementPreview();
+        this.pointerPosition = null;
+        this.clearEnemyHover();
         return;
       }
 
       const normalized = this.getNormalizedFromEvent(event);
       if (!normalized) {
         this.clearPlacementPreview();
+        this.pointerPosition = null;
+        this.clearEnemyHover();
         return;
       }
 
+      this.pointerPosition = normalized;
       const baseRange = Math.min(this.renderWidth, this.renderHeight) * this.levelConfig.tower.range;
       const position = this.getCanvasPosition(normalized);
+      const hoveredEnemy = this.findEnemyAt(position);
+      if (hoveredEnemy) {
+        this.setEnemyHover(hoveredEnemy.enemy);
+      } else {
+        this.clearEnemyHover();
+      }
       const hoveredTower = this.findTowerAt(position);
 
       if (hoveredTower) {
@@ -1025,6 +1066,12 @@
       if (!this.shouldAnimate) {
         this.draw();
       }
+    }
+
+    handleCanvasPointerLeave() {
+      this.pointerPosition = null;
+      this.clearPlacementPreview();
+      this.clearEnemyHover();
     }
 
     handleCanvasClick(event) {
@@ -1061,6 +1108,14 @@
       }
     }
 
+    clearEnemyHover() {
+      this.hoverEnemy = null;
+      if (this.enemyTooltip) {
+        this.enemyTooltip.dataset.visible = 'false';
+        this.enemyTooltip.setAttribute('aria-hidden', 'true');
+      }
+    }
+
     getNormalizedFromEvent(event) {
       if (!this.canvas) {
         return null;
@@ -1090,6 +1145,79 @@
         }
       }
       return null;
+    }
+
+    getEnemyHitRadius() {
+      return Math.max(16, Math.min(this.renderWidth, this.renderHeight) * 0.05);
+    }
+
+    findEnemyAt(position) {
+      if (!this.enemies.length) {
+        return null;
+      }
+      const hitRadius = this.getEnemyHitRadius();
+      for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
+        const enemy = this.enemies[index];
+        const enemyPosition = this.getPointAlongPath(enemy.progress);
+        const distance = Math.hypot(position.x - enemyPosition.x, position.y - enemyPosition.y);
+        if (distance <= hitRadius) {
+          return { enemy, position: enemyPosition };
+        }
+      }
+      return null;
+    }
+
+    setEnemyHover(enemy) {
+      if (!enemy) {
+        this.clearEnemyHover();
+        return;
+      }
+      this.hoverEnemy = { enemyId: enemy.id };
+      this.renderEnemyTooltip(enemy);
+    }
+
+    renderEnemyTooltip(enemy) {
+      if (!this.enemyTooltip || !this.pointerPosition) {
+        this.clearEnemyHover();
+        return;
+      }
+
+      const pointerCanvas = this.getCanvasPosition(this.pointerPosition);
+      const enemyPosition = this.getPointAlongPath(enemy.progress);
+      const distance = Math.hypot(pointerCanvas.x - enemyPosition.x, pointerCanvas.y - enemyPosition.y);
+      if (distance > this.getEnemyHitRadius()) {
+        this.clearEnemyHover();
+        return;
+      }
+
+      if (this.enemyTooltipNameEl) {
+        this.enemyTooltipNameEl.textContent = enemy.label || 'Glyph';
+      }
+      if (this.enemyTooltipHpEl) {
+        this.enemyTooltipHpEl.textContent = `Total HP: ${formatGameNumber(enemy.maxHp)}`;
+      }
+
+      const xPercent = this.renderWidth ? (enemyPosition.x / this.renderWidth) * 100 : 0;
+      const yPercent = this.renderHeight ? (enemyPosition.y / this.renderHeight) * 100 : 0;
+
+      this.enemyTooltip.style.left = `${xPercent}%`;
+      this.enemyTooltip.style.top = `${yPercent}%`;
+      this.enemyTooltip.dataset.visible = 'true';
+      this.enemyTooltip.setAttribute('aria-hidden', 'false');
+    }
+
+    updateEnemyTooltipPosition() {
+      if (!this.hoverEnemy) {
+        return;
+      }
+
+      const enemy = this.enemies.find((candidate) => candidate.id === this.hoverEnemy.enemyId);
+      if (!enemy || !this.pointerPosition) {
+        this.clearEnemyHover();
+        return;
+      }
+
+      this.renderEnemyTooltip(enemy);
     }
 
     addTowerAt(normalized, options = {}) {
@@ -1477,6 +1605,9 @@
       if (this.messageEl) {
         this.messageEl.textContent = `${enemy.label || 'Glyph'} breached the core!`;
       }
+      if (this.hoverEnemy && this.hoverEnemy.enemyId === enemy.id) {
+        this.clearEnemyHover();
+      }
       if (this.lives <= 0) {
         this.handleDefeat();
       }
@@ -1488,6 +1619,9 @@
       const index = this.enemies.indexOf(enemy);
       if (index >= 0) {
         this.enemies.splice(index, 1);
+      }
+      if (this.hoverEnemy && this.hoverEnemy.enemyId === enemy.id) {
+        this.clearEnemyHover();
       }
 
       const energyGain = (this.levelConfig?.energyPerKill || 0) + (enemy.reward || 0);
@@ -1666,6 +1800,7 @@
       this.drawTowers();
       this.drawEnemies();
       this.drawProjectiles();
+      this.updateEnemyTooltipPosition();
     }
 
     drawPath() {
