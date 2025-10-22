@@ -74,6 +74,13 @@ function App() {
   }, []);
 
   const loadGame = async () => {
+    if (!supabase) {
+      if (import.meta.env.DEV) {
+        console.info('Supabase is not configured. Skipping cloud save restore.');
+      }
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('game_saves')
@@ -102,6 +109,12 @@ function App() {
   };
 
   const saveGame = async () => {
+    if (!supabase) {
+      setSaveMessage('⚠ Cloud archives unavailable.');
+      setTimeout(() => setSaveMessage(''), 2000);
+      return;
+    }
+
     try {
       const saveData = {
         game_state: {
