@@ -139,6 +139,107 @@
     'QDe',
   ];
 
+  const gameStats = {
+    manualVictories: 0,
+    idleVictories: 0,
+    towersPlaced: 0,
+    maxTowersSimultaneous: 0,
+    autoAnchorPlacements: 0,
+    powderActions: 0,
+    enemiesDefeated: 0,
+    idleMillisecondsAccumulated: 0,
+    powderSigilsReached: 0,
+    highestPowderMultiplier: 1,
+  };
+
+  const ACHIEVEMENT_REWARD_FLUX = 1;
+
+  const achievementDefinitions = [
+    {
+      id: 'first-orbit',
+      title: 'First Orbit',
+      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
+      condition: () => gameStats.manualVictories >= 1,
+      progress: () => {
+        const sealed = Math.min(gameStats.manualVictories, 1);
+        return `Progress: ${sealed}/1 victories sealed.`;
+      },
+    },
+    {
+      id: 'circle-seer',
+      title: 'Circle Seer',
+      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
+      condition: () => gameStats.maxTowersSimultaneous >= 3,
+      progress: () => {
+        const towers = Math.min(gameStats.maxTowersSimultaneous, 3);
+        return `Progress: ${towers}/3 towers sustained.`;
+      },
+    },
+    {
+      id: 'series-summoner',
+      title: 'Series Summoner',
+      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
+      condition: () => gameStats.highestPowderMultiplier >= 1.25,
+      progress: () => {
+        const current = Math.min(gameStats.highestPowderMultiplier, 1.25);
+        return `Progress: ×${formatDecimal(current, 2)} / ×1.25 multiplier.`;
+      },
+    },
+    {
+      id: 'zero-hunter',
+      title: 'Zero Hunter',
+      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
+      condition: () => gameStats.enemiesDefeated >= 30,
+      progress: () => {
+        const defeated = Math.min(gameStats.enemiesDefeated, 30);
+        return `Progress: ${defeated}/30 glyphs defeated.`;
+      },
+    },
+    {
+      id: 'golden-mentor',
+      title: 'Golden Mentor',
+      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
+      condition: () => gameStats.autoAnchorPlacements >= 4,
+      progress: () => {
+        const placements = Math.min(gameStats.autoAnchorPlacements, 4);
+        return `Progress: ${placements}/4 anchors harmonized.`;
+      },
+    },
+    {
+      id: 'powder-archivist',
+      title: 'Powder Archivist',
+      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
+      condition: () => gameStats.powderSigilsReached >= 3,
+      progress: () => {
+        const sigils = Math.min(gameStats.powderSigilsReached, 3);
+        return `Progress: ${sigils}/3 sigils illuminated.`;
+      },
+    },
+    {
+      id: 'keystone-keeper',
+      title: 'Keystone Keeper',
+      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
+      condition: () => gameStats.idleVictories >= 1,
+      progress: () => {
+        const victories = Math.min(gameStats.idleVictories, 1);
+        return `Progress: ${victories}/1 auto-run sealed.`;
+      },
+    },
+    {
+      id: 'temporal-sifter',
+      title: 'Temporal Sifter',
+      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
+      condition: () => gameStats.idleMillisecondsAccumulated >= 600000,
+      progress: () => {
+        const seconds = Math.min(gameStats.idleMillisecondsAccumulated / 1000, 600);
+        return `Progress: ${formatDuration(seconds)} / 10m idle.`;
+      },
+    },
+  ];
+
+  const achievementState = new Map();
+  const achievementElements = new Map();
+
   const resourceElements = {
     score: null,
     energy: null,
@@ -840,6 +941,8 @@
       const { total, placed: nowPlaced } = this.getAutoAnchorStatus();
       const remaining = Math.max(0, total - nowPlaced);
 
+      notifyAutoAnchorUsed(nowPlaced, total);
+
       if (this.messageEl) {
         if (placed > 0) {
           let summary = `Auto-latticed ${placed} α anchor${placed === 1 ? '' : 's'}.`;
@@ -1026,6 +1129,8 @@
       };
 
       this.towers.push(tower);
+
+      notifyTowerPlaced(this.towers.length);
 
       if (slot) {
         slot.tower = tower;
@@ -1395,6 +1500,8 @@
       }
       this.updateHud();
       this.updateProgress();
+
+      notifyEnemyDefeated();
     }
 
     handleVictory() {
@@ -1935,6 +2042,8 @@
     };
     levelState.set(levelId, updated);
     resourceState.running = false;
+
+    notifyLevelVictory(levelId);
 
     if (!alreadyCompleted) {
       if (typeof stats.rewardScore === 'number') {
@@ -2560,6 +2669,151 @@
     return `${sign}${percent.toFixed(digits)}%`;
   }
 
+  function bindAchievements() {
+    achievementElements.clear();
+    const items = document.querySelectorAll('[data-achievement-id]');
+    items.forEach((item) => {
+      const id = item.getAttribute('data-achievement-id');
+      if (!id) {
+        return;
+      }
+      const status = item.querySelector('.achievement-status');
+      achievementElements.set(id, { container: item, status });
+    });
+    evaluateAchievements();
+  }
+
+  function updateAchievementStatus(definition, element, state) {
+    if (!definition || !element) {
+      return;
+    }
+    const { container, status } = element;
+    if (state?.unlocked) {
+      if (container) {
+        container.classList.add('achievement-unlocked');
+      }
+      if (status) {
+        status.textContent = 'Unlocked · +1 powder/min secured.';
+      }
+      return;
+    }
+
+    if (container) {
+      container.classList.remove('achievement-unlocked');
+    }
+    if (status) {
+      const progress = typeof definition.progress === 'function'
+        ? definition.progress()
+        : 'Locked';
+      status.textContent = progress.startsWith('Locked')
+        ? progress
+        : `Locked — ${progress}`;
+    }
+  }
+
+  function evaluateAchievements() {
+    achievementDefinitions.forEach((definition) => {
+      const state = achievementState.get(definition.id);
+      if (!state?.unlocked && typeof definition.condition === 'function' && definition.condition()) {
+        unlockAchievement(definition);
+      } else {
+        updateAchievementStatus(definition, achievementElements.get(definition.id), state || null);
+      }
+    });
+  }
+
+  function unlockAchievement(definition) {
+    if (!definition) {
+      return;
+    }
+    const existing = achievementState.get(definition.id);
+    if (existing?.unlocked) {
+      updateAchievementStatus(definition, achievementElements.get(definition.id), existing);
+      return;
+    }
+
+    const state = { unlocked: true, unlockedAt: Date.now() };
+    achievementState.set(definition.id, state);
+
+    const element = achievementElements.get(definition.id);
+    updateAchievementStatus(definition, element, state);
+
+    const fluxReward = Number.isFinite(definition.rewardFlux) ? definition.rewardFlux : 0;
+    if (fluxReward) {
+      baseResources.fluxRate += fluxReward;
+      updateResourceRates();
+      updatePowderLedger();
+    }
+
+    recordPowderEvent('achievement-unlocked', { title: definition.title });
+  }
+
+  function notifyTowerPlaced(activeCount) {
+    gameStats.towersPlaced += 1;
+    if (Number.isFinite(activeCount)) {
+      gameStats.maxTowersSimultaneous = Math.max(gameStats.maxTowersSimultaneous, activeCount);
+    }
+    evaluateAchievements();
+  }
+
+  function notifyAutoAnchorUsed(currentPlaced, totalAnchors) {
+    if (!Number.isFinite(currentPlaced)) {
+      return;
+    }
+    const normalizedTotal = Number.isFinite(totalAnchors)
+      ? Math.max(0, totalAnchors)
+      : Math.max(0, currentPlaced);
+    const cappedPlaced = Math.max(0, Math.min(currentPlaced, normalizedTotal));
+    gameStats.autoAnchorPlacements = Math.max(gameStats.autoAnchorPlacements, cappedPlaced);
+    evaluateAchievements();
+  }
+
+  function notifyEnemyDefeated() {
+    gameStats.enemiesDefeated += 1;
+    evaluateAchievements();
+  }
+
+  function notifyLevelVictory(levelId) {
+    if (levelId === firstLevelConfig.id) {
+      gameStats.manualVictories += 1;
+    } else {
+      gameStats.idleVictories += 1;
+    }
+    evaluateAchievements();
+  }
+
+  function notifyPowderAction() {
+    gameStats.powderActions += 1;
+    evaluateAchievements();
+  }
+
+  function notifyPowderSigils(count) {
+    if (!Number.isFinite(count)) {
+      return;
+    }
+    const normalized = Math.max(0, Math.floor(count));
+    gameStats.powderSigilsReached = Math.max(gameStats.powderSigilsReached, normalized);
+    evaluateAchievements();
+  }
+
+  function notifyPowderMultiplier(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    if (value > gameStats.highestPowderMultiplier) {
+      gameStats.highestPowderMultiplier = value;
+    }
+    evaluateAchievements();
+  }
+
+  function notifyIdleTime(elapsedMs) {
+    if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) {
+      return;
+    }
+    gameStats.idleMillisecondsAccumulated += elapsedMs;
+    evaluateAchievements();
+  }
+
   function calculatePowderBonuses() {
     // Stabilizing the sandfall adds an offset term to Ψ(g) = 2.7 · sin(t), yielding steady grain capture.
     const sandBonus = powderState.sandOffset > 0 ? 0.15 + powderState.sandOffset * 0.03 : 0;
@@ -2610,6 +2864,7 @@
       return;
     }
 
+    const activeBeforeUpdate = idleLevelRuns.size;
     updateIdleRuns(timestamp);
 
     if (!lastResourceTick) {
@@ -2618,6 +2873,11 @@
 
     const elapsed = Math.max(0, timestamp - lastResourceTick);
     lastResourceTick = timestamp;
+
+    const effectiveIdleCount = activeBeforeUpdate || idleLevelRuns.size;
+    if (effectiveIdleCount) {
+      notifyIdleTime(elapsed * effectiveIdleCount);
+    }
 
     if (resourceState.running) {
       const seconds = elapsed / 1000;
@@ -2771,6 +3031,11 @@
         entry = `Crystal pulse released · Σ surged ${formatSignedPercentage(pulseBonus)}.`;
         break;
       }
+      case 'achievement-unlocked': {
+        const { title = 'Achievement' } = context;
+        entry = `${title} seal unlocked · +1 powder/min secured.`;
+        break;
+      }
       default:
         break;
     }
@@ -2794,6 +3059,7 @@
 
     refreshPowderSystems();
     recordPowderEvent(powderState.sandOffset > 0 ? 'sand-stabilized' : 'sand-released');
+    notifyPowderAction();
   }
 
   function surveyRidgeHeight() {
@@ -2805,6 +3071,7 @@
     powderState.duneHeight += 1;
     refreshPowderSystems();
     recordPowderEvent('dune-raise', { height: powderState.duneHeight });
+    notifyPowderAction();
   }
 
   function chargeCrystalMatrix() {
@@ -2812,6 +3079,7 @@
       powderState.charges += 1;
       refreshPowderSystems();
       recordPowderEvent('crystal-charge', { charges: powderState.charges });
+      notifyPowderAction();
       return;
     }
 
@@ -2819,6 +3087,7 @@
     powderState.charges = 0;
     refreshPowderSystems(pulseBonus);
     recordPowderEvent('crystal-release', { pulseBonus });
+    notifyPowderAction();
   }
 
   function releaseCrystalPulse(charges) {
@@ -2840,9 +3109,12 @@
   }
 
   function updatePowderDisplay(pulseBonus) {
+    const totalMultiplier = currentPowderBonuses.totalMultiplier;
+    notifyPowderMultiplier(totalMultiplier);
+
     if (powderElements.totalMultiplier) {
       powderElements.totalMultiplier.textContent = `×${formatDecimal(
-        currentPowderBonuses.totalMultiplier,
+        totalMultiplier,
         2,
       )}`;
     }
@@ -2866,18 +3138,22 @@
     }
 
     if (powderElements.sigilEntries && powderElements.sigilEntries.length) {
-      const total = currentPowderBonuses.totalMultiplier;
+      let reached = 0;
       powderElements.sigilEntries.forEach((sigil) => {
         const threshold = Number.parseFloat(sigil.dataset.sigilThreshold);
         if (!Number.isFinite(threshold)) {
           return;
         }
-        if (total >= threshold) {
+        if (totalMultiplier >= threshold) {
           sigil.classList.add('sigil-reached');
+          reached += 1;
         } else {
           sigil.classList.remove('sigil-reached');
         }
       });
+      notifyPowderSigils(reached);
+    } else {
+      notifyPowderSigils(0);
     }
 
     updatePowderLedger();
@@ -3012,6 +3288,7 @@
 
     bindStatusElements();
     bindPowderControls();
+    bindAchievements();
     updatePowderLogDisplay();
     updateResourceRates();
     updatePowderDisplay();

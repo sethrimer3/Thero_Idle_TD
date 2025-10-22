@@ -963,6 +963,7 @@ body::before {
   border: 1px solid var(--panel-border);
   background: rgba(10, 10, 16, 0.7);
   box-shadow: var(--shadow);
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
 
 .achievement-badge {
@@ -986,6 +987,25 @@ body::before {
   margin: 4px 0 0;
   font-size: 0.9rem;
   color: var(--muted);
+}
+
+.achievement-status {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-family: "Space Mono", monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.achievement-list li.achievement-unlocked {
+  border-color: rgba(255, 228, 120, 0.6);
+  background: rgba(32, 28, 12, 0.75);
+  transform: translateY(-2px);
+}
+
+.achievement-list li.achievement-unlocked .achievement-status {
+  color: rgba(255, 228, 120, 0.95);
 }
 
 .level-overlay {
