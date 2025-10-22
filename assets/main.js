@@ -61,6 +61,19 @@
   let activeTabIndex = 0;
   let lastLevelTrigger = null;
 
+  let playfield = null;
+  const playfieldElements = {
+    container: null,
+    canvas: null,
+    message: null,
+    wave: null,
+    health: null,
+    energy: null,
+    progress: null,
+    startButton: null,
+    slots: [],
+  };
+
   const numberSuffixes = [
     '',
     'K',
@@ -151,6 +164,1097 @@
 
   const powderLog = [];
   const POWDER_LOG_LIMIT = 6;
+
+  const firstLevelConfig = {
+    id: 'Conjecture - 1',
+    displayName: 'Lemniscate Hypothesis',
+    startEnergy: 140,
+    energyCap: 360,
+    energyPerKill: 18,
+    passiveEnergyPerSecond: 8,
+    lives: 5,
+    towerCost: 60,
+    tower: {
+      damage: 28,
+      rate: 1.25,
+      range: 0.24,
+    },
+    waves: [
+      {
+        label: 'E glyphs',
+        count: 6,
+        interval: 1.6,
+        hp: 85,
+        speed: 0.082,
+        reward: 12,
+        color: 'rgba(139, 247, 255, 0.9)',
+      },
+      {
+        label: 'divisor scouts',
+        count: 4,
+        interval: 1.9,
+        hp: 130,
+        speed: 0.09,
+        reward: 18,
+        color: 'rgba(255, 125, 235, 0.92)',
+      },
+      {
+        label: 'prime counters',
+        count: 2,
+        interval: 2.4,
+        hp: 220,
+        speed: 0.085,
+        reward: 26,
+        color: 'rgba(255, 228, 120, 0.95)',
+      },
+    ],
+    rewardScore: 1.6 * 10 ** 44,
+    rewardFlux: 45,
+    rewardEnergy: 35,
+    arcSpeed: 0.22,
+    path: [
+      { x: 0.06, y: 0.86 },
+      { x: 0.2, y: 0.68 },
+      { x: 0.32, y: 0.46 },
+      { x: 0.44, y: 0.32 },
+      { x: 0.56, y: 0.38 },
+      { x: 0.68, y: 0.64 },
+      { x: 0.8, y: 0.46 },
+      { x: 0.9, y: 0.18 },
+    ],
+  };
+
+  class SimplePlayfield {
+    constructor(options) {
+      this.canvas = options.canvas || null;
+      this.container = options.container || null;
+      this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+      this.messageEl = options.messageEl || null;
+      this.waveEl = options.waveEl || null;
+      this.healthEl = options.healthEl || null;
+      this.energyEl = options.energyEl || null;
+      this.progressEl = options.progressEl || null;
+      this.startButton = options.startButton || null;
+      this.slotButtons = Array.isArray(options.slotButtons) ? options.slotButtons : [];
+      this.onVictory = typeof options.onVictory === 'function' ? options.onVictory : null;
+      this.onDefeat = typeof options.onDefeat === 'function' ? options.onDefeat : null;
+      this.onCombatStart =
+        typeof options.onCombatStart === 'function' ? options.onCombatStart : null;
+
+      this.levelConfig = null;
+      this.levelActive = false;
+      this.shouldAnimate = false;
+      this.combatActive = false;
+      this.resolvedOutcome = null;
+
+      this.renderWidth = this.canvas ? this.canvas.clientWidth : 0;
+      this.renderHeight = this.canvas ? this.canvas.clientHeight : 0;
+      this.pixelRatio = 1;
+
+      this.arcPhase = 0;
+      this.energy = 0;
+      this.lives = 0;
+      this.waveIndex = 0;
+      this.waveTimer = 0;
+      this.activeWave = null;
+      this.enemyIdCounter = 0;
+
+      this.pathSegments = [];
+      this.pathLength = 0;
+
+      this.slots = new Map();
+      this.towers = [];
+      this.enemies = [];
+      this.projectiles = [];
+
+      this.animationId = null;
+      this.lastTimestamp = 0;
+
+      this.resizeObserver = null;
+      this.resizeHandler = () => this.syncCanvasSize();
+
+      this.registerSlots();
+      this.bindStartButton();
+      this.attachResizeObservers();
+
+      this.disableSlots(true);
+      this.updateHud();
+      this.updateProgress();
+    }
+
+    registerSlots() {
+      this.slotButtons.forEach((button) => {
+        const slotId = button.dataset.slotId;
+        const x = Number.parseFloat(button.dataset.slotX);
+        const y = Number.parseFloat(button.dataset.slotY);
+        if (!slotId || Number.isNaN(x) || Number.isNaN(y)) {
+          return;
+        }
+        const slot = {
+          id: slotId,
+          button,
+          normalized: { x, y },
+          tower: null,
+        };
+        this.slots.set(slotId, slot);
+        button.addEventListener('click', () => this.handleSlotInteraction(slot));
+        button.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            this.handleSlotInteraction(slot);
+          }
+        });
+      });
+    }
+
+    bindStartButton() {
+      if (!this.startButton) {
+        return;
+      }
+      this.startButton.addEventListener('click', () => this.handleStartButton());
+    }
+
+    attachResizeObservers() {
+      if (!this.canvas) {
+        return;
+      }
+      if (typeof window !== 'undefined') {
+        window.addEventListener('resize', this.resizeHandler);
+      }
+      if (typeof ResizeObserver !== 'undefined') {
+        this.resizeObserver = new ResizeObserver(() => this.syncCanvasSize());
+        this.resizeObserver.observe(this.canvas);
+      }
+      this.syncCanvasSize();
+    }
+
+    syncCanvasSize() {
+      if (!this.canvas || !this.ctx) {
+        return;
+      }
+      const rect = this.canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      const width = Math.max(1, Math.floor(rect.width * ratio));
+      const height = Math.max(1, Math.floor(rect.height * ratio));
+      if (this.canvas.width !== width || this.canvas.height !== height) {
+        this.canvas.width = width;
+        this.canvas.height = height;
+      }
+      this.renderWidth = rect.width || 1;
+      this.renderHeight = rect.height || 1;
+      this.pixelRatio = ratio;
+
+      this.buildPathGeometry();
+      this.updateTowerPositions();
+      this.draw();
+    }
+
+    buildPathGeometry() {
+      if (!this.levelConfig || !this.levelConfig.path || !this.ctx) {
+        this.pathSegments = [];
+        this.pathLength = 0;
+        return;
+      }
+
+      const points = this.levelConfig.path.map((node) => ({
+        x: node.x * this.renderWidth,
+        y: node.y * this.renderHeight,
+      }));
+
+      const segments = [];
+      let totalLength = 0;
+      for (let index = 0; index < points.length - 1; index += 1) {
+        const start = points[index];
+        const end = points[index + 1];
+        const length = Math.hypot(end.x - start.x, end.y - start.y);
+        segments.push({ start, end, length });
+        totalLength += length;
+      }
+
+      this.pathSegments = segments;
+      this.pathLength = totalLength || 1;
+    }
+
+    ensureLoop() {
+      if (this.animationId || !this.shouldAnimate) {
+        return;
+      }
+      this.animationId = requestAnimationFrame((timestamp) => this.tick(timestamp));
+    }
+
+    stopLoop() {
+      if (this.animationId) {
+        cancelAnimationFrame(this.animationId);
+        this.animationId = null;
+      }
+      this.lastTimestamp = 0;
+    }
+
+    tick(timestamp) {
+      if (!this.shouldAnimate) {
+        this.animationId = null;
+        this.lastTimestamp = 0;
+        return;
+      }
+
+      const delta = this.lastTimestamp ? (timestamp - this.lastTimestamp) / 1000 : 0;
+      this.lastTimestamp = timestamp;
+
+      this.update(delta);
+      this.draw();
+
+      this.animationId = requestAnimationFrame((nextTimestamp) => this.tick(nextTimestamp));
+    }
+
+    enterLevel(level) {
+      if (!this.container) {
+        return;
+      }
+
+      if (!level || level.id !== firstLevelConfig.id) {
+        this.levelActive = false;
+        this.levelConfig = null;
+        this.combatActive = false;
+        this.shouldAnimate = false;
+        this.stopLoop();
+        this.disableSlots(true);
+        this.enemies = [];
+        this.projectiles = [];
+        this.towers = [];
+        this.energy = 0;
+        this.lives = 0;
+        if (this.ctx) {
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+        if (this.messageEl) {
+          this.messageEl.textContent = 'This level preview is not interactive yet.';
+        }
+        if (this.waveEl) this.waveEl.textContent = '—';
+        if (this.healthEl) this.healthEl.textContent = '—';
+        if (this.energyEl) this.energyEl.textContent = '—';
+        if (this.progressEl) {
+          this.progressEl.textContent = 'Select Lemniscate Hypothesis to battle.';
+        }
+        if (this.startButton) {
+          this.startButton.textContent = 'Preview Only';
+          this.startButton.disabled = true;
+        }
+        return;
+      }
+
+      this.levelActive = true;
+      this.levelConfig = firstLevelConfig;
+      this.shouldAnimate = true;
+      this.resetState();
+      this.enableSlots();
+      this.syncCanvasSize();
+      this.ensureLoop();
+
+      if (this.startButton) {
+        this.startButton.textContent = 'Commence Wave';
+        this.startButton.disabled = false;
+      }
+      if (this.messageEl) {
+        this.messageEl.textContent =
+          'Deploy α towers on luminous anchors, then commence the wave.';
+      }
+      if (this.progressEl) {
+        this.progressEl.textContent = 'Wave prep underway.';
+      }
+      this.updateHud();
+      this.updateProgress();
+    }
+
+    leaveLevel() {
+      this.levelActive = false;
+      this.levelConfig = null;
+      this.combatActive = false;
+      this.shouldAnimate = false;
+      this.stopLoop();
+      this.disableSlots(true);
+      this.enemies = [];
+      this.projectiles = [];
+      this.towers = [];
+      this.energy = 0;
+      this.lives = 0;
+      this.resolvedOutcome = null;
+      this.arcPhase = 0;
+      if (this.ctx) {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      }
+      if (this.messageEl) {
+        this.messageEl.textContent = 'Select a level to command the defense.';
+      }
+      if (this.waveEl) this.waveEl.textContent = '—';
+      if (this.healthEl) this.healthEl.textContent = '—';
+      if (this.energyEl) this.energyEl.textContent = '—';
+      if (this.progressEl) this.progressEl.textContent = 'No active level.';
+      if (this.startButton) {
+        this.startButton.textContent = 'Commence Wave';
+        this.startButton.disabled = true;
+      }
+    }
+
+    resetState() {
+      if (!this.levelConfig) {
+        this.energy = 0;
+        this.lives = 0;
+      } else {
+        this.energy = this.levelConfig.startEnergy;
+        this.lives = this.levelConfig.lives;
+      }
+      this.waveIndex = 0;
+      this.waveTimer = 0;
+      this.activeWave = null;
+      this.enemyIdCounter = 0;
+      this.arcPhase = 0;
+      this.combatActive = false;
+      this.resolvedOutcome = null;
+      this.enemies = [];
+      this.projectiles = [];
+      this.towers = [];
+      this.slots.forEach((slot) => {
+        slot.tower = null;
+        if (slot.button) {
+          slot.button.classList.remove('tower-built');
+          slot.button.setAttribute('aria-pressed', 'false');
+        }
+      });
+      this.updateTowerPositions();
+      this.updateHud();
+      this.updateProgress();
+      if (this.startButton) {
+        this.startButton.disabled = !this.levelConfig;
+      }
+    }
+
+    enableSlots() {
+      this.slots.forEach((slot) => {
+        if (slot.button) {
+          slot.button.disabled = false;
+        }
+      });
+    }
+
+    disableSlots(clear = false) {
+      this.slots.forEach((slot) => {
+        if (!slot.button) {
+          return;
+        }
+        slot.button.disabled = true;
+        if (clear) {
+          slot.tower = null;
+          slot.button.classList.remove('tower-built');
+          slot.button.setAttribute('aria-pressed', 'false');
+        }
+      });
+    }
+
+    updateTowerPositions() {
+      if (!this.levelConfig) {
+        return;
+      }
+      const baseRange = Math.min(this.renderWidth, this.renderHeight) * this.levelConfig.tower.range;
+      this.towers.forEach((tower) => {
+        const { x, y } = this.getCanvasPosition(tower.normalized);
+        tower.x = x;
+        tower.y = y;
+        tower.range = baseRange;
+      });
+    }
+
+    handleSlotInteraction(slot) {
+      if (!this.levelActive || !this.levelConfig) {
+        if (this.messageEl) {
+          this.messageEl.textContent = 'Select Lemniscate Hypothesis to command the defense.';
+        }
+        return;
+      }
+
+      if (slot.tower) {
+        if (this.combatActive) {
+          if (this.messageEl) {
+            this.messageEl.textContent = 'Hold until the wave ends to reroute anchors.';
+          }
+          return;
+        }
+        this.removeTower(slot);
+        return;
+      }
+
+      if (this.energy < this.levelConfig.towerCost) {
+        const needed = Math.ceil(this.levelConfig.towerCost - this.energy);
+        if (this.messageEl) {
+          this.messageEl.textContent = `Need ${needed} Ξ more to lattice an α tower.`;
+        }
+        return;
+      }
+
+      this.placeTower(slot);
+    }
+
+    placeTower(slot) {
+      const normalized = { ...slot.normalized };
+      const position = this.getCanvasPosition(normalized);
+      const tower = {
+        id: `tower-${slot.id}`,
+        slot,
+        normalized,
+        x: position.x,
+        y: position.y,
+        range: Math.min(this.renderWidth, this.renderHeight) * this.levelConfig.tower.range,
+        damage: this.levelConfig.tower.damage,
+        rate: this.levelConfig.tower.rate,
+        cooldown: 0,
+      };
+
+      this.towers.push(tower);
+      slot.tower = tower;
+
+      if (slot.button) {
+        slot.button.classList.add('tower-built');
+        slot.button.setAttribute('aria-pressed', 'true');
+      }
+
+      this.energy = Math.max(0, this.energy - this.levelConfig.towerCost);
+      if (this.messageEl) {
+        this.messageEl.textContent = 'α lattice anchored—harmonics align.';
+      }
+      this.updateHud();
+      this.draw();
+    }
+
+    removeTower(slot) {
+      const tower = slot.tower;
+      if (!tower) {
+        return;
+      }
+      const index = this.towers.indexOf(tower);
+      if (index >= 0) {
+        this.towers.splice(index, 1);
+      }
+      slot.tower = null;
+      if (slot.button) {
+        slot.button.classList.remove('tower-built');
+        slot.button.setAttribute('aria-pressed', 'false');
+      }
+
+      const refund = Math.round(this.levelConfig.towerCost * 0.7);
+      this.energy = Math.min(this.levelConfig.energyCap, this.energy + refund);
+      if (this.messageEl) {
+        this.messageEl.textContent = `Anchor released—refunded ${refund} Ξ.`;
+      }
+      this.updateHud();
+      this.draw();
+    }
+
+    handleStartButton() {
+      if (!this.levelActive || !this.levelConfig || this.combatActive) {
+        return;
+      }
+      if (!this.towers.length) {
+        if (this.messageEl) {
+          this.messageEl.textContent = 'Anchor at least one α tower before commencing.';
+        }
+        return;
+      }
+
+      this.combatActive = true;
+      this.resolvedOutcome = null;
+      this.waveIndex = 0;
+      this.waveTimer = 0;
+      this.enemyIdCounter = 0;
+      this.enemies = [];
+      this.projectiles = [];
+      this.activeWave = this.createWaveState(this.levelConfig.waves[0]);
+      this.lives = this.levelConfig.lives;
+
+      if (this.startButton) {
+        this.startButton.disabled = true;
+        this.startButton.textContent = 'Wave Running';
+      }
+      if (this.messageEl) {
+        this.messageEl.textContent = `Wave 1 — ${this.activeWave.config.label} advance.`;
+      }
+      this.updateHud();
+      this.updateProgress();
+
+      if (this.onCombatStart) {
+        this.onCombatStart(this.levelConfig.id);
+      }
+    }
+
+    createWaveState(config) {
+      return {
+        config,
+        spawned: 0,
+        nextSpawn: 0,
+      };
+    }
+
+    update(delta) {
+      if (!this.levelActive || !this.levelConfig) {
+        return;
+      }
+
+      this.arcPhase = (this.arcPhase + delta * (this.levelConfig.arcSpeed || 0.2)) % 1;
+
+      if (!this.combatActive) {
+        this.energy = Math.min(
+          this.levelConfig.energyCap,
+          this.energy + this.levelConfig.passiveEnergyPerSecond * delta,
+        );
+        this.updateHud();
+        this.updateProgress();
+        return;
+      }
+
+      this.waveTimer += delta;
+      this.spawnEnemies();
+      this.updateTowers(delta);
+      this.updateEnemies(delta);
+      this.updateProjectiles(delta);
+      this.updateProgress();
+      this.updateHud();
+    }
+
+    spawnEnemies() {
+      if (!this.activeWave || !this.levelConfig) {
+        return;
+      }
+
+      const { config } = this.activeWave;
+      if (!config) {
+        return;
+      }
+
+      while (
+        this.activeWave.spawned < config.count &&
+        this.waveTimer >= this.activeWave.nextSpawn
+      ) {
+        const enemy = {
+          id: this.enemyIdCounter += 1,
+          progress: 0,
+          hp: config.hp,
+          maxHp: config.hp,
+          speed: config.speed,
+          reward: config.reward,
+          color: config.color,
+          label: config.label,
+        };
+        this.enemies.push(enemy);
+        this.activeWave.spawned += 1;
+        this.activeWave.nextSpawn += config.interval;
+      }
+    }
+
+    updateTowers(delta) {
+      this.towers.forEach((tower) => {
+        tower.cooldown = Math.max(0, tower.cooldown - delta);
+        if (!this.combatActive || !this.enemies.length) {
+          return;
+        }
+        if (tower.cooldown > 0) {
+          return;
+        }
+        const targetInfo = this.findTarget(tower);
+        if (!targetInfo) {
+          return;
+        }
+        tower.cooldown = 1 / tower.rate;
+        this.fireAtTarget(tower, targetInfo);
+      });
+    }
+
+    findTarget(tower) {
+      let selected = null;
+      let bestProgress = -Infinity;
+      this.enemies.forEach((enemy) => {
+        const position = this.getPointAlongPath(enemy.progress);
+        const distance = Math.hypot(position.x - tower.x, position.y - tower.y);
+        if (distance <= tower.range && enemy.progress > bestProgress) {
+          selected = { enemy, position };
+          bestProgress = enemy.progress;
+        }
+      });
+      return selected;
+    }
+
+    fireAtTarget(tower, targetInfo) {
+      const { enemy } = targetInfo;
+      enemy.hp -= tower.damage;
+      this.projectiles.push({
+        source: { x: tower.x, y: tower.y },
+        targetId: enemy.id,
+        target: this.getPointAlongPath(enemy.progress),
+        lifetime: 0,
+        maxLifetime: 0.24,
+      });
+
+      if (enemy.hp <= 0) {
+        this.processEnemyDefeat(enemy);
+      }
+    }
+
+    updateEnemies(delta) {
+      for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
+        const enemy = this.enemies[index];
+        enemy.progress += enemy.speed * delta;
+        if (enemy.progress >= 1) {
+          this.enemies.splice(index, 1);
+          this.handleEnemyBreach(enemy);
+        }
+      }
+
+      if (
+        this.combatActive &&
+        this.activeWave &&
+        this.activeWave.spawned >= this.activeWave.config.count &&
+        !this.enemies.length
+      ) {
+        this.advanceWave();
+      }
+    }
+
+    updateProjectiles(delta) {
+      for (let index = this.projectiles.length - 1; index >= 0; index -= 1) {
+        const projectile = this.projectiles[index];
+        projectile.lifetime += delta;
+        if (projectile.lifetime >= projectile.maxLifetime) {
+          this.projectiles.splice(index, 1);
+        }
+      }
+    }
+
+    advanceWave() {
+      if (!this.levelConfig) {
+        return;
+      }
+
+      if (this.waveIndex + 1 >= this.levelConfig.waves.length) {
+        this.handleVictory();
+        return;
+      }
+
+      this.waveIndex += 1;
+      this.activeWave = this.createWaveState(this.levelConfig.waves[this.waveIndex]);
+      this.waveTimer = 0;
+      if (this.messageEl) {
+        this.messageEl.textContent = `Wave ${this.waveIndex + 1} — ${this.activeWave.config.label}.`;
+      }
+      this.updateHud();
+      this.updateProgress();
+    }
+
+    handleEnemyBreach(enemy) {
+      this.lives = Math.max(0, this.lives - 1);
+      if (this.messageEl) {
+        this.messageEl.textContent = `${enemy.label || 'Glyph'} breached the core!`;
+      }
+      if (this.lives <= 0) {
+        this.handleDefeat();
+      }
+      this.updateHud();
+      this.updateProgress();
+    }
+
+    processEnemyDefeat(enemy) {
+      const index = this.enemies.indexOf(enemy);
+      if (index >= 0) {
+        this.enemies.splice(index, 1);
+      }
+
+      const energyGain = (this.levelConfig?.energyPerKill || 0) + (enemy.reward || 0);
+      this.energy = Math.min(this.levelConfig.energyCap, this.energy + energyGain);
+
+      if (this.messageEl) {
+        this.messageEl.textContent = `${enemy.label || 'Glyph'} collapsed · +${Math.round(
+          energyGain,
+        )} Ξ.`;
+      }
+      this.updateHud();
+      this.updateProgress();
+    }
+
+    handleVictory() {
+      if (this.resolvedOutcome === 'victory') {
+        return;
+      }
+      this.combatActive = false;
+      this.resolvedOutcome = 'victory';
+      this.activeWave = null;
+      this.energy = Math.min(
+        this.levelConfig.energyCap,
+        this.energy + (this.levelConfig.rewardEnergy || 0),
+      );
+      if (this.startButton) {
+        this.startButton.disabled = false;
+        this.startButton.textContent = 'Run Again';
+      }
+      if (this.messageEl) {
+        this.messageEl.textContent = 'Victory! The lemniscate is sealed.';
+      }
+      this.updateHud();
+      this.updateProgress();
+      if (this.onVictory) {
+        this.onVictory(this.levelConfig.id, {
+          rewardScore: this.levelConfig.rewardScore,
+          rewardFlux: this.levelConfig.rewardFlux,
+          rewardEnergy: this.levelConfig.rewardEnergy,
+          towers: this.towers.length,
+          lives: this.lives,
+        });
+      }
+    }
+
+    handleDefeat() {
+      if (this.resolvedOutcome === 'defeat') {
+        return;
+      }
+      this.combatActive = false;
+      this.resolvedOutcome = 'defeat';
+      this.activeWave = null;
+      this.energy = Math.min(
+        this.levelConfig.energyCap,
+        Math.max(this.energy, this.levelConfig.startEnergy),
+      );
+      if (this.startButton) {
+        this.startButton.disabled = false;
+        this.startButton.textContent = 'Retry Wave';
+      }
+      if (this.messageEl) {
+        this.messageEl.textContent = 'Defense collapsed—recalibrate the anchors and retry.';
+      }
+      this.updateHud();
+      this.updateProgress();
+      if (this.onDefeat) {
+        this.onDefeat(this.levelConfig.id, { towers: this.towers.length });
+      }
+    }
+
+    updateHud() {
+      if (this.waveEl) {
+        if (!this.levelConfig) {
+          this.waveEl.textContent = '—';
+        } else {
+          const total = this.levelConfig.waves.length;
+          const displayWave = this.combatActive
+            ? this.waveIndex + 1
+            : Math.min(this.waveIndex + 1, total);
+          this.waveEl.textContent = `${displayWave}/${total}`;
+        }
+      }
+
+      if (this.healthEl) {
+        this.healthEl.textContent = this.levelConfig
+          ? `${this.lives}/${this.levelConfig.lives}`
+          : '—';
+      }
+
+      if (this.energyEl) {
+        this.energyEl.textContent = this.levelConfig
+          ? `${Math.round(this.energy)} Ξ`
+          : '—';
+      }
+    }
+
+    updateProgress() {
+      if (!this.progressEl) {
+        return;
+      }
+
+      if (!this.levelConfig) {
+        this.progressEl.textContent = 'No active level.';
+        return;
+      }
+
+      if (!this.combatActive) {
+        if (this.resolvedOutcome === 'victory') {
+          this.progressEl.textContent = 'Victory sealed—glyph flux stabilized.';
+        } else if (this.resolvedOutcome === 'defeat') {
+          this.progressEl.textContent = 'Defense collapsed—rebuild the proof lattice.';
+        } else {
+          this.progressEl.textContent = 'Wave prep underway.';
+        }
+        return;
+      }
+
+      const total = this.levelConfig.waves.length;
+      const current = Math.min(this.waveIndex + 1, total);
+      const remainingInWave = this.activeWave
+        ? Math.max(0, this.activeWave.config.count - this.activeWave.spawned)
+        : 0;
+      const remaining = remainingInWave + this.enemies.length;
+      const label = this.levelConfig.waves[this.waveIndex]?.label || 'glyphs';
+      this.progressEl.textContent = `Wave ${current}/${total} — ${remaining} ${label} remaining.`;
+    }
+
+    getCanvasPosition(normalized) {
+      return {
+        x: normalized.x * this.renderWidth,
+        y: normalized.y * this.renderHeight,
+      };
+    }
+
+    getPointAlongPath(progress) {
+      if (!this.pathSegments.length) {
+        return { x: 0, y: 0 };
+      }
+
+      const target = Math.min(progress, 1) * this.pathLength;
+      let traversed = 0;
+
+      for (let index = 0; index < this.pathSegments.length; index += 1) {
+        const segment = this.pathSegments[index];
+        if (traversed + segment.length >= target) {
+          const ratio = segment.length > 0 ? (target - traversed) / segment.length : 0;
+          return {
+            x: segment.start.x + (segment.end.x - segment.start.x) * ratio,
+            y: segment.start.y + (segment.end.y - segment.start.y) * ratio,
+          };
+        }
+        traversed += segment.length;
+      }
+
+      const lastSegment = this.pathSegments[this.pathSegments.length - 1];
+      return lastSegment ? { ...lastSegment.end } : { x: 0, y: 0 };
+    }
+
+    draw() {
+      if (!this.ctx) {
+        return;
+      }
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      this.ctx.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0);
+
+      this.drawPath();
+      this.drawArcLight();
+      this.drawNodes();
+      this.drawTowers();
+      this.drawEnemies();
+      this.drawProjectiles();
+    }
+
+    drawPath() {
+      if (!this.ctx || !this.pathSegments.length) {
+        return;
+      }
+      const ctx = this.ctx;
+      ctx.beginPath();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = 'rgba(139, 247, 255, 0.85)';
+      ctx.moveTo(this.pathSegments[0].start.x, this.pathSegments[0].start.y);
+      this.pathSegments.forEach((segment) => {
+        ctx.lineTo(segment.end.x, segment.end.y);
+      });
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(this.pathSegments[0].start.x, this.pathSegments[0].start.y);
+      this.pathSegments.forEach((segment) => {
+        ctx.lineTo(segment.end.x, segment.end.y);
+      });
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(255, 125, 235, 0.6)';
+      ctx.stroke();
+    }
+
+    drawArcLight() {
+      if (!this.ctx || !this.pathSegments.length) {
+        return;
+      }
+      const ctx = this.ctx;
+      ctx.beginPath();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255, 228, 120, 0.7)';
+      ctx.setLineDash([this.pathLength * 0.12, this.pathLength * 0.16]);
+      ctx.lineDashOffset = -this.arcPhase * this.pathLength;
+      ctx.moveTo(this.pathSegments[0].start.x, this.pathSegments[0].start.y);
+      this.pathSegments.forEach((segment) => {
+        ctx.lineTo(segment.end.x, segment.end.y);
+      });
+      ctx.stroke();
+    }
+
+    drawNodes() {
+      if (!this.ctx || !this.pathSegments.length) {
+        return;
+      }
+      const ctx = this.ctx;
+      const start = this.pathSegments[0].start;
+      const end = this.pathSegments[this.pathSegments.length - 1].end;
+      ctx.fillStyle = 'rgba(139, 247, 255, 0.9)';
+      ctx.beginPath();
+      ctx.arc(start.x, start.y, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 228, 120, 0.9)';
+      ctx.beginPath();
+      ctx.arc(end.x, end.y, 12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    drawTowers() {
+      if (!this.ctx) {
+        return;
+      }
+      const ctx = this.ctx;
+      this.towers.forEach((tower) => {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
+        ctx.lineWidth = 3;
+        ctx.arc(tower.x, tower.y, 16, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(8, 9, 14, 0.9)';
+        ctx.beginPath();
+        ctx.arc(tower.x, tower.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (!this.combatActive) {
+          ctx.beginPath();
+          ctx.strokeStyle = 'rgba(139, 247, 255, 0.18)';
+          ctx.lineWidth = 1;
+          ctx.arc(tower.x, tower.y, tower.range, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      });
+    }
+
+    drawEnemies() {
+      if (!this.ctx) {
+        return;
+      }
+      const ctx = this.ctx;
+      this.enemies.forEach((enemy) => {
+        const position = this.getPointAlongPath(enemy.progress);
+        ctx.beginPath();
+        ctx.fillStyle = enemy.color || 'rgba(139, 247, 255, 0.9)';
+        ctx.arc(position.x, position.y, 9, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = 2;
+        const ratio = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp));
+        ctx.arc(
+          position.x,
+          position.y,
+          12,
+          -Math.PI / 2,
+          -Math.PI / 2 + Math.PI * 2 * ratio,
+        );
+        ctx.stroke();
+      });
+    }
+
+    drawProjectiles() {
+      if (!this.ctx) {
+        return;
+      }
+      const ctx = this.ctx;
+      this.projectiles.forEach((projectile) => {
+        const enemy = this.enemies.find((candidate) => candidate.id === projectile.targetId);
+        if (enemy) {
+          projectile.target = this.getPointAlongPath(enemy.progress);
+        }
+        const target = projectile.target || projectile.source;
+        const alpha = Math.max(0, 1 - projectile.lifetime / projectile.maxLifetime);
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.moveTo(projectile.source.x, projectile.source.y);
+        ctx.lineTo(target.x, target.y);
+        ctx.strokeStyle = 'rgba(139, 247, 255, 0.85)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function handlePlayfieldCombatStart(levelId) {
+    if (!levelId) {
+      return;
+    }
+    const existing = levelState.get(levelId) || {
+      entered: false,
+      running: false,
+      completed: false,
+    };
+    const updated = { ...existing, entered: true, running: true };
+    levelState.set(levelId, updated);
+    activeLevelId = levelId;
+    resourceState.running = true;
+    ensureResourceTicker();
+    updateActiveLevelBanner();
+    updateLevelCards();
+  }
+
+  function handlePlayfieldVictory(levelId, stats = {}) {
+    if (!levelId) {
+      return;
+    }
+    const existing = levelState.get(levelId) || {
+      entered: true,
+      running: false,
+      completed: false,
+    };
+    const alreadyCompleted = Boolean(existing.completed);
+    const updated = {
+      ...existing,
+      entered: true,
+      running: false,
+      completed: true,
+      lastResult: { outcome: 'victory', stats, timestamp: Date.now() },
+    };
+    levelState.set(levelId, updated);
+    resourceState.running = false;
+
+    if (!alreadyCompleted) {
+      if (typeof stats.rewardScore === 'number') {
+        resourceState.score += stats.rewardScore;
+      }
+      if (typeof stats.rewardFlux === 'number') {
+        baseResources.fluxRate += stats.rewardFlux;
+      }
+      if (typeof stats.rewardEnergy === 'number') {
+        baseResources.energyRate += stats.rewardEnergy;
+      }
+      updateResourceRates();
+      updatePowderLedger();
+    } else {
+      updateStatusDisplays();
+      updatePowderLedger();
+    }
+
+    updateActiveLevelBanner();
+    updateLevelCards();
+  }
+
+  function handlePlayfieldDefeat(levelId, stats = {}) {
+    if (!levelId) {
+      return;
+    }
+    const existing = levelState.get(levelId) || {
+      entered: true,
+      running: false,
+      completed: false,
+    };
+    const updated = {
+      ...existing,
+      entered: true,
+      running: false,
+      completed: existing.completed,
+      lastResult: { outcome: 'defeat', stats, timestamp: Date.now() },
+    };
+    levelState.set(levelId, updated);
+    resourceState.running = false;
+    updateActiveLevelBanner();
+    updateLevelCards();
+  }
 
   const tabHotkeys = new Map([
     ['1', 'tower'],
@@ -316,31 +1420,40 @@
   }
 
   function startLevel(level) {
-    const currentState = levelState.get(level.id) || { entered: false, running: false };
-    currentState.entered = true;
-    currentState.running = true;
-    levelState.set(level.id, currentState);
+    const currentState = levelState.get(level.id) || {
+      entered: false,
+      running: false,
+      completed: false,
+    };
+    const isInteractive = level.id === firstLevelConfig.id;
+    const updatedState = { ...currentState, entered: true, running: !isInteractive ? true : false };
+    levelState.set(level.id, updatedState);
 
     levelState.forEach((state, id) => {
       if (id !== level.id) {
-        state.running = false;
-        levelState.set(id, state);
+        levelState.set(id, { ...state, running: false });
       }
     });
 
     activeLevelId = level.id;
-    resourceState.running = true;
+    resourceState.running = !isInteractive;
     ensureResourceTicker();
     updateActiveLevelBanner();
     updateLevelCards();
+
+    if (playfield) {
+      playfield.enterLevel(level);
+    }
   }
 
   function leaveActiveLevel() {
     if (!activeLevelId) return;
     const state = levelState.get(activeLevelId);
     if (state) {
-      state.running = false;
-      levelState.set(activeLevelId, state);
+      levelState.set(activeLevelId, { ...state, running: false });
+    }
+    if (playfield) {
+      playfield.leaveLevel();
     }
     activeLevelId = null;
     resourceState.running = false;
@@ -358,14 +1471,18 @@
 
       const entered = Boolean(state && state.entered);
       const running = Boolean(state && state.running);
+      const completed = Boolean(state && state.completed);
 
       card.classList.toggle('entered', entered);
+      card.classList.toggle('completed', completed);
       card.setAttribute('aria-pressed', running ? 'true' : 'false');
 
       if (!entered) {
         pill.textContent = 'New';
       } else if (running) {
         pill.textContent = 'Running';
+      } else if (completed) {
+        pill.textContent = 'Complete';
       } else {
         pill.textContent = 'Ready';
       }
@@ -373,6 +1490,9 @@
   }
 
   function updateActiveLevelBanner() {
+    if (leaveLevelBtn) {
+      leaveLevelBtn.disabled = !activeLevelId;
+    }
     if (!activeLevelEl) return;
     if (!activeLevelId) {
       activeLevelEl.textContent = 'None selected';
@@ -386,7 +1506,13 @@
       return;
     }
 
-    const descriptor = state.running ? 'Running' : 'Paused';
+    let descriptor = 'Paused';
+    if (state.running) {
+      descriptor = 'Running';
+    } else if (state.completed) {
+      descriptor = 'Complete';
+    }
+
     activeLevelEl.textContent = `${level.id} · ${level.title} (${descriptor})`;
   }
 
@@ -479,7 +1605,7 @@
   }
 
   function focusLeaveLevelButton() {
-    if (leaveLevelBtn && typeof leaveLevelBtn.focus === 'function') {
+    if (leaveLevelBtn && !leaveLevelBtn.disabled && typeof leaveLevelBtn.focus === 'function') {
       leaveLevelBtn.focus();
     }
   }
@@ -933,6 +2059,37 @@
     overlayLabel = document.getElementById('overlay-level');
     overlayTitle = document.getElementById('overlay-title');
     overlayExample = document.getElementById('overlay-example');
+
+    playfieldElements.container = document.getElementById('playfield');
+    playfieldElements.canvas = document.getElementById('playfield-canvas');
+    playfieldElements.message = document.getElementById('playfield-message');
+    playfieldElements.wave = document.getElementById('playfield-wave');
+    playfieldElements.health = document.getElementById('playfield-health');
+    playfieldElements.energy = document.getElementById('playfield-energy');
+    playfieldElements.progress = document.getElementById('playfield-progress');
+    playfieldElements.startButton = document.getElementById('playfield-start');
+    playfieldElements.slots = Array.from(document.querySelectorAll('.tower-slot'));
+
+    if (leaveLevelBtn) {
+      leaveLevelBtn.disabled = true;
+    }
+
+    if (playfieldElements.canvas && playfieldElements.container) {
+      playfield = new SimplePlayfield({
+        canvas: playfieldElements.canvas,
+        container: playfieldElements.container,
+        messageEl: playfieldElements.message,
+        waveEl: playfieldElements.wave,
+        healthEl: playfieldElements.health,
+        energyEl: playfieldElements.energy,
+        progressEl: playfieldElements.progress,
+        startButton: playfieldElements.startButton,
+        slotButtons: playfieldElements.slots,
+        onVictory: handlePlayfieldVictory,
+        onDefeat: handlePlayfieldDefeat,
+        onCombatStart: handlePlayfieldCombatStart,
+      });
+    }
 
     bindStatusElements();
     bindPowderControls();

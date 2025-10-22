@@ -175,6 +175,135 @@ body::before {
   text-transform: uppercase;
 }
 
+.playfield-wrapper {
+  display: grid;
+  gap: 16px;
+  padding: clamp(16px, 4vw, 24px);
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 9, 14, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.playfield-header {
+  text-align: center;
+  display: grid;
+  gap: 6px;
+}
+
+.playfield-header h3 {
+  margin: 0;
+  font-size: clamp(1.2rem, 2.3vw, 1.6rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.playfield-header p {
+  margin: 0;
+  font-size: 0.96rem;
+  color: var(--muted);
+}
+
+.playfield-shell {
+  display: grid;
+  justify-items: center;
+}
+
+.playfield {
+  position: relative;
+  width: min(560px, 100%);
+  aspect-ratio: 560 / 360;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 70%, rgba(139, 247, 255, 0.1), transparent 60%),
+    radial-gradient(circle at 70% 25%, rgba(255, 125, 235, 0.12), transparent 65%),
+    rgba(5, 6, 12, 0.9);
+  box-shadow: inset 0 0 30px rgba(139, 247, 255, 0.12), 0 18px 36px rgba(0, 0, 0, 0.5);
+}
+
+.playfield canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tower-slot {
+  position: absolute;
+  left: calc(var(--slot-x) * 1%);
+  top: calc(var(--slot-y) * 1%);
+  transform: translate(-50%, -50%);
+  width: clamp(42px, 8vw, 54px);
+  height: clamp(42px, 8vw, 54px);
+  border-radius: 50%;
+  border: 1px solid rgba(139, 247, 255, 0.45);
+  background: rgba(10, 12, 20, 0.72);
+  color: var(--text);
+  font-family: "Space Mono", monospace;
+  font-size: 1.1rem;
+  letter-spacing: 0.06em;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+
+.tower-slot span {
+  pointer-events: none;
+}
+
+.tower-slot:hover:not(:disabled),
+.tower-slot:focus-visible {
+  transform: translate(-50%, -50%) scale(1.06);
+  border-color: rgba(255, 228, 120, 0.85);
+  box-shadow: 0 12px 26px rgba(139, 247, 255, 0.25);
+}
+
+.tower-slot:disabled,
+.tower-slot:disabled:hover {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: translate(-50%, -50%);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+}
+
+.tower-slot.tower-built {
+  border-color: rgba(255, 228, 120, 0.85);
+  background: radial-gradient(circle, rgba(255, 228, 120, 0.32), transparent 70%);
+  box-shadow: 0 0 22px rgba(255, 228, 120, 0.4);
+}
+
+.playfield-hud {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  padding: clamp(12px, 3vw, 18px);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(5, 6, 12, 0.78);
+  font-family: "Space Mono", monospace;
+}
+
+.playfield-hud div {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+
+.playfield-hud dt {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.playfield-hud dd {
+  margin: 0;
+  font-size: clamp(1rem, 2vw, 1.2rem);
+}
+
 .subsection-title {
   font-size: clamp(1.3rem, 2.3vw, 1.8rem);
   letter-spacing: 0.06em;
@@ -269,6 +398,16 @@ body::before {
 
 .level-card.entered .level-status-pill {
   background: rgba(255, 228, 120, 0.22);
+  color: var(--text);
+}
+
+.level-card.completed {
+  border-color: rgba(139, 247, 255, 0.35);
+  box-shadow: 0 0 0 1px rgba(139, 247, 255, 0.22), var(--shadow);
+}
+
+.level-card.completed .level-status-pill {
+  background: rgba(139, 247, 255, 0.24);
   color: var(--text);
 }
 
@@ -438,6 +577,13 @@ body::before {
 
 .play-button:hover {
   background: rgba(255, 255, 255, 0.22);
+}
+
+.play-button:disabled,
+.play-button:disabled:hover {
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(247, 247, 245, 0.55);
 }
 
 .stage-footer {

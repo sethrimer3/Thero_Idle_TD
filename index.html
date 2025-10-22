@@ -91,6 +91,88 @@
               </p>
             </div>
           </div>
+          <section class="playfield-wrapper" aria-live="polite">
+            <header class="playfield-header">
+              <h3>Active Defense Simulation</h3>
+              <p id="playfield-message">Select a level to command the defense.</p>
+            </header>
+            <div class="playfield-shell">
+              <div
+                class="playfield"
+                id="playfield"
+                role="img"
+                aria-label="Interactive glyph defense lane"
+              >
+                <canvas id="playfield-canvas" width="560" height="360"></canvas>
+                <button
+                  class="tower-slot"
+                  type="button"
+                  data-slot-id="slot-a"
+                  data-slot-x="0.24"
+                  data-slot-y="0.68"
+                  aria-pressed="false"
+                  aria-label="Anchor α tower at western loop"
+                  style="--slot-x: 24; --slot-y: 68"
+                  disabled
+                >
+                  <span>α</span>
+                </button>
+                <button
+                  class="tower-slot"
+                  type="button"
+                  data-slot-id="slot-b"
+                  data-slot-x="0.44"
+                  data-slot-y="0.36"
+                  aria-pressed="false"
+                  aria-label="Anchor α tower at northern pinch"
+                  style="--slot-x: 44; --slot-y: 36"
+                  disabled
+                >
+                  <span>α</span>
+                </button>
+                <button
+                  class="tower-slot"
+                  type="button"
+                  data-slot-id="slot-c"
+                  data-slot-x="0.62"
+                  data-slot-y="0.70"
+                  aria-pressed="false"
+                  aria-label="Anchor α tower at eastern ribbon"
+                  style="--slot-x: 62; --slot-y: 70"
+                  disabled
+                >
+                  <span>α</span>
+                </button>
+                <button
+                  class="tower-slot"
+                  type="button"
+                  data-slot-id="slot-d"
+                  data-slot-x="0.78"
+                  data-slot-y="0.38"
+                  aria-pressed="false"
+                  aria-label="Anchor α tower at summit bend"
+                  style="--slot-x: 78; --slot-y: 38"
+                  disabled
+                >
+                  <span>α</span>
+                </button>
+              </div>
+            </div>
+            <dl class="playfield-hud">
+              <div>
+                <dt>Wave</dt>
+                <dd id="playfield-wave">—</dd>
+              </div>
+              <div>
+                <dt>Core Integrity</dt>
+                <dd id="playfield-health">—</dd>
+              </div>
+              <div>
+                <dt>Glyph Energy</dt>
+                <dd id="playfield-energy">—</dd>
+              </div>
+            </dl>
+          </section>
           <section class="level-section">
             <header class="subsection-title">Conjecture Set</header>
             <p class="level-intro">
@@ -184,9 +266,11 @@
             <button class="action-button" type="button">Prysmatic!</button>
           </aside>
           <div class="stage-footer">
-            <button class="play-button" type="button">Play</button>
+            <button class="play-button" type="button" id="playfield-start" disabled>
+              Commence Wave
+            </button>
             <div class="progress">
-              <span>Progress to Infinity 58.8%</span>
+              <span id="playfield-progress">No active level.</span>
             </div>
           </div>
         </section>
