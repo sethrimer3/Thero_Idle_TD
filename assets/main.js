@@ -57,6 +57,37 @@ let activeLevelId = null;
 let pendingLevel = null;
 let activeTabIndex = 0;
 
+const tabHotkeys = new Map([
+  ['1', 'tower'],
+  ['2', 'towers'],
+  ['3', 'powder'],
+  ['4', 'achievements'],
+  ['5', 'options'],
+]);
+
+function isDesktopEnvironment() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  if (window.matchMedia) {
+    return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  }
+
+  return !(navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+}
+
+function isTextInput(element) {
+  if (!element) return false;
+  const tagName = element.tagName ? element.tagName.toLowerCase() : '';
+  return (
+    element.isContentEditable ||
+    tagName === 'input' ||
+    tagName === 'textarea' ||
+    tagName === 'select'
+  );
+}
+
 function setActiveTab(target) {
   if (!tabs.length || !panels.length) return;
 
@@ -251,6 +282,23 @@ document.addEventListener('keydown', (event) => {
   const direction = event.key === 'ArrowRight' ? 1 : -1;
   event.preventDefault();
   focusAndActivateTab(activeTabIndex + direction);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (!tabs.length) return;
+  if (!isDesktopEnvironment()) return;
+  if (overlay && overlay.classList.contains('active')) return;
+  if (isTextInput(event.target)) return;
+
+  const targetTabId = tabHotkeys.get(event.key);
+  if (!targetTabId) return;
+
+  event.preventDefault();
+  setActiveTab(targetTabId);
+  const tabToFocus = tabs.find((tab) => tab.dataset.tab === targetTabId);
+  if (tabToFocus) {
+    tabToFocus.focus();
+  }
 });
 
 function initializeTabs() {
