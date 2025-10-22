@@ -93,16 +93,28 @@ Each entry combines three beats: a flavorful formula, a combat mechanic, and a h
 Support variants (slow fields, reversal chants, homing missiles, etc.) remain available for each letter and inherit any prestige bonuses that modify shared mechanics (for example, **Σ** increases the damage budget of homing missiles by summing all allied support damage).
 
 ## Enemy Archetypes
-- **E-Type Glyphs** – Base enemies labeled by trailing zeros (E1 = 1 HP, E3 = 100 HP, etc.) with logarithmic health scaling.
-- **Divisors** – Take damage equal to `1 / DPS`; encourage precision debuffs and tempo play.
-- **Prime Counters** – Require a fixed number of hits regardless of damage; ideal for soldier swarms and rapid-fire towers.
-- **Reversal Sentinels** – Upon defeat they run backward along the path; captured units fight for the player with inverted health totals. These are not an actual enemy but a tower's attack.
-- Enemy symbols will use non-greek math symbols. Some examples are listed below:
-- Hebrew: \(\aleph \) (aleph), \(\beth \) (beth), and \(\gimel \) (gimel) are used for cardinal numbers.
-- Cyrillic: Ш (sha) is used in some areas of number theory and computer science for the shuffle product.
-- Norwegian: The letter Ø is used for the empty set.  Maltese: ħ is used for the reduced Planck constant.
-- Japanese: よ (yo) can be seen in category theory.
-- Latin-based and other symbols: Partial derivative: \(\partial \) (often written with \partial in LaTeX). Infinity: \(\infty \) (often written with \infty in LaTeX). Reduced Planck's constant: \(\hbar \) (often written with \hbar in LaTeX). Real part: \(\Re \) (often written with \Re in LaTeX). Imaginary part: \(\Im \) (often written with \Im in LaTeX). Empty set: \(\emptyset \) (not to be confused with the Norwegian Ø). Combinatorics: Symbols like \({}^{n}P_{k}\) and \({}^{n}C_{k}\). Vector calculus: \(\nabla \) (del) is often used. Weierstrass power function: \(\wp \) (often written with \wp in LaTeX). 
+All enemies manifest using **non-Greek mathematical symbols** so that their silhouettes feel distinct from the tower roster yet still read as scholarly constructs. The connection between symbol and behavior is intentionally indirect, but each foe carries a subtle mathematical echo that observant players can parse.
+
+Every enemy defeat also injects energy into the Powder tab: the fallen symbol fractures into a grain of sand whose **size and hue match its archetype**. Basic fodder releases 2×2 pixel grains, while exotic threats may drop shimmering 6×6 crystals that paint the dune in luminous strata. These drops stack with existing Powderfall rules and make it easy to visualize which waves were conquered recently.
+
+- **E-Type Glyphs** – Base enemies labeled by trailing zeros (E1 = 1 HP, E3 = 100 HP, etc.) with logarithmic health scaling. They disintegrate into neutral 2×2 slate grains that represent textbook ash.
+- **Divisors** – Take damage equal to `1 / DPS`; encourage precision debuffs and tempo play. Their defeat sprinkles 3×3 pale-gold grains, hinting at divisibility charts.
+- **Prime Counters** – Require a fixed number of hits regardless of damage; ideal for soldier swarms and rapid-fire towers. They burst into 3×3 deep-crimson grains that speckle the powder like prime marks.
+- **Reversal Sentinels** – Upon defeat they run backward along the path; captured units fight for the player with inverted health totals. These are not an actual enemy but a tower's attack, and they flip into 2×2 charcoal grains that tumble upstream when reclaimed.
+
+### Symbolic Enemy Gallery
+| Symbol & Name | Encounter Notes | Mathematical Motif | Powderfall Residue |
+| --- | --- | --- | --- |
+| \(\aleph_0\) – **Aleph Swarm** | Floods the lane with countless low-HP clones; the longer they remain unculled, the more spawn simultaneously via a countable-infinity clock. | Cardinality of infinite sets; more time alive means more members drawn from the "smallest" infinity. | Splits into many 2×2 pearl grains that rapidly pile up, visually selling the unending count. |
+| \(\partial\) – **Partial Wraith** | Steals a portion of nearby tower stats, then returns them when the wraith is slowed or stunned. | Partial derivatives react to localized change; halting motion resets the derivative to zero. | Drops 4×4 gradient-teal grains whose edges fade, mirroring differential shading. |
+| \(\nabla\) – **Gradient Sapper** | Accelerates downhill along the path and siphons buffs in the direction of travel, forcing defenses to reposition. | Nabla tracks gradients; this enemy literally follows the steepest descent. | Leaves 4×4 lime grains with arrow etchings that roll toward the lowest powder point. |
+| \(\wp\) – **Weierstrass Prism** | Oscillates between fragile and invulnerable states at fractal intervals, rewarding towers that sync to the rhythm. | The Weierstrass function is continuous yet nowhere differentiable; the enemy jitters unpredictably. | Fragments into 5×5 iridescent grains whose speckled surface resembles fractal noise. |
+| \(\hbar\) – **Planck Shade** | Phase-shifts in and out of the lane every `ħ` seconds, bypassing slow fields unless a tower hits it in perfect rhythm. | Reduced Planck constant anchors quantum cycles; timing is everything. | Emits 6×6 light-blue grains with a soft glow, indicating quantized energy packets. |
+| \(\emptyset\) – **Null Husk** | Appears as a phantom that ignores the path until a tower targets it; once struck, it collapses into nothing and refunds a portion of its health to adjacent foes. | Empty set symbolizes absence; the Husk transfers its "missing" mass to neighbors. | Evaporates into hollow 5×5 translucent grains that leave a faint void outline in the powder. |
+| \(\Im\) – **Imaginary Strider** | Gains evasion stacks whenever damage arrives out of phase; alternating damage types strip stacks and reveal the true form. | Imaginary components pair with real ones; alternating inputs cancel the complex parts. | Shatters into 4×4 indigo grains streaked with silver to suggest complex planes. |
+| \(^{n}C_{k}\) – **Combination Cohort** | Spawns in squads whose health redistributes combinatorially when one member falls, making focus fire risky. | Binomial coefficients enumerate combinations; the enemy constantly recomputes group defenses. | The squad collectively sheds 3×3 bronze grains stamped with Pascal triangle dots. |
+
+Future symbol variants will continue to draw from global mathematical alphabets (Cyrillic, Hebrew, kana, operator glyphs, etc.), ensuring each enemy feels fresh while still harmonizing with Glyph Defense Idle's mystic numeracy.
 
 ## Achievements & Powderfall
 - Each achievement seal grants **+1 grain of powder per minute**.
