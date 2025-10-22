@@ -270,7 +270,12 @@ function initializeTabs() {
     }
 
     tab.addEventListener('click', () => {
-      focusAndActivateTab(index);
+      const target = tab.dataset.tab;
+      if (!target) {
+        return;
+      }
+      setActiveTab(target);
+      tab.focus();
     });
 
     tab.addEventListener('keydown', (event) => {
