@@ -118,6 +118,8 @@
   };
 
   const TOWER_LOADOUT_LIMIT = 4;
+  const BASE_START_THERO = 50;
+  const BASE_CORE_INTEGRITY = 100;
 
   const towerDefinitions = [
     {
@@ -324,6 +326,7 @@
       return false;
     }
     towerUnlockState.unlocked.add(towerId);
+    updateTowerCardVisibility();
     updateTowerSelectionButtons();
     syncLoadoutToPlayfield();
     if (!silent && playfield?.messageEl) {
@@ -347,6 +350,26 @@
   const levelState = new Map();
   let interactiveLevelOrder = [];
   const unlockedLevels = new Set();
+
+  function getCompletedInteractiveLevelCount() {
+    let count = 0;
+    interactiveLevelOrder.forEach((levelId) => {
+      const state = levelState.get(levelId);
+      if (state?.completed) {
+        count += 1;
+      }
+    });
+    return count;
+  }
+
+  function getStartingTheroMultiplier(levelsBeaten = getCompletedInteractiveLevelCount()) {
+    const normalized = Number.isFinite(levelsBeaten) ? Math.max(0, levelsBeaten) : 0;
+    return 2 ** normalized;
+  }
+
+  function calculateStartingThero() {
+    return BASE_START_THERO * getStartingTheroMultiplier();
+  }
 
   let tabs = [];
   let panels = [];
@@ -988,11 +1011,11 @@
   const firstLevelConfig = {
     id: 'Conjecture - 1',
     displayName: 'Lemniscate Hypothesis',
-    startThero: 140,
+    startThero: BASE_START_THERO,
     theroCap: 360,
     theroPerKill: 18,
     passiveTheroPerSecond: 8,
-    lives: 5,
+    lives: BASE_CORE_INTEGRITY,
     waves: [
       {
         label: 'E glyphs',
@@ -1026,9 +1049,9 @@
       },
     ],
     rewardScore: 1.6 * 10 ** 44,
-    rewardFlux: 45,
-    rewardThero: 35,
-    rewardEnergy: 35,
+    rewardFlux: 1,
+    rewardThero: 0,
+    rewardEnergy: 0,
     arcSpeed: 0.22,
     path: [
       { x: 0.06, y: 0.86 },
@@ -1051,11 +1074,11 @@
   const levelTwoConfig = {
     id: 'Conjecture - 2',
     displayName: 'Collatz Cascade',
-    startThero: 180,
+    startThero: BASE_START_THERO,
     theroCap: 420,
     theroPerKill: 22,
     passiveTheroPerSecond: 10,
-    lives: 5,
+    lives: BASE_CORE_INTEGRITY,
     waves: [
       {
         label: 'cascade sparks',
@@ -1099,9 +1122,9 @@
       },
     ],
     rewardScore: 2.4 * 10 ** 44,
-    rewardFlux: 60,
-    rewardThero: 46,
-    rewardEnergy: 46,
+    rewardFlux: 1,
+    rewardThero: 0,
+    rewardEnergy: 0,
     arcSpeed: 0.24,
     path: [
       { x: 0.06, y: 0.86 },
@@ -1126,11 +1149,11 @@
   const levelThreeConfig = {
     id: 'Conjecture - 3',
     displayName: 'Riemann Helix',
-    startThero: 210,
+    startThero: BASE_START_THERO,
     theroCap: 480,
     theroPerKill: 24,
     passiveTheroPerSecond: 11,
-    lives: 6,
+    lives: BASE_CORE_INTEGRITY,
     waves: [
       {
         label: 'ζ scouts',
@@ -1174,9 +1197,9 @@
       },
     ],
     rewardScore: 3.2 * 10 ** 44,
-    rewardFlux: 72,
-    rewardThero: 54,
-    rewardEnergy: 54,
+    rewardFlux: 1,
+    rewardThero: 0,
+    rewardEnergy: 0,
     arcSpeed: 0.26,
     path: [
       { x: 0.08, y: 0.9 },
@@ -1201,11 +1224,11 @@
   const levelFourConfig = {
     id: 'Conjecture - 4',
     displayName: 'Twin Prime Fork',
-    startThero: 240,
+    startThero: BASE_START_THERO,
     theroCap: 520,
     theroPerKill: 28,
     passiveTheroPerSecond: 12,
-    lives: 6,
+    lives: BASE_CORE_INTEGRITY,
     waves: [
       {
         label: 'twin outriders',
@@ -1259,9 +1282,9 @@
       },
     ],
     rewardScore: 4.4 * 10 ** 44,
-    rewardFlux: 86,
-    rewardThero: 62,
-    rewardEnergy: 62,
+    rewardFlux: 1,
+    rewardThero: 0,
+    rewardEnergy: 0,
     arcSpeed: 0.28,
     path: [
       { x: 0.06, y: 0.88 },
@@ -1286,11 +1309,11 @@
   const levelFiveConfig = {
     id: 'Conjecture - 5',
     displayName: 'Birch Flow',
-    startThero: 280,
+    startThero: BASE_START_THERO,
     theroCap: 600,
     theroPerKill: 32,
     passiveTheroPerSecond: 14,
-    lives: 7,
+    lives: BASE_CORE_INTEGRITY,
     waves: [
       {
         label: 'birch scouts',
@@ -1344,9 +1367,9 @@
       },
     ],
     rewardScore: 6 * 10 ** 44,
-    rewardFlux: 102,
-    rewardThero: 70,
-    rewardEnergy: 70,
+    rewardFlux: 1,
+    rewardThero: 0,
+    rewardEnergy: 0,
     arcSpeed: 0.3,
     path: [
       { x: 0.08, y: 0.92 },
@@ -1372,11 +1395,11 @@
   const levelSixConfig = {
     id: 'Corollary - 6',
     displayName: 'Derivative Bloom',
-    startThero: 340,
+    startThero: BASE_START_THERO,
     theroCap: 720,
     theroPerKill: 36,
     passiveTheroPerSecond: 16,
-    lives: 7,
+    lives: BASE_CORE_INTEGRITY,
     waves: [
       {
         label: 'petal sparks',
@@ -1430,9 +1453,9 @@
       },
     ],
     rewardScore: 8.2 * 10 ** 44,
-    rewardFlux: 118,
-    rewardThero: 78,
-    rewardEnergy: 78,
+    rewardFlux: 1,
+    rewardThero: 0,
+    rewardEnergy: 0,
     arcSpeed: 0.3,
     path: [
       { x: 0.08, y: 0.94 },
@@ -1458,11 +1481,11 @@
   const levelSevenConfig = {
     id: 'Corollary - 7',
     displayName: 'Integral Cascade',
-    startThero: 380,
+    startThero: BASE_START_THERO,
     theroCap: 800,
     theroPerKill: 40,
     passiveTheroPerSecond: 18,
-    lives: 8,
+    lives: BASE_CORE_INTEGRITY,
     waves: [
       {
         label: 'quantized drips',
@@ -1516,9 +1539,9 @@
       },
     ],
     rewardScore: 10.1 * 10 ** 44,
-    rewardFlux: 136,
-    rewardThero: 88,
-    rewardEnergy: 88,
+    rewardFlux: 1,
+    rewardThero: 0,
+    rewardEnergy: 0,
     arcSpeed: 0.32,
     path: [
       { x: 0.06, y: 0.92 },
@@ -1545,11 +1568,11 @@
   const levelEightConfig = {
     id: 'Corollary - 8',
     displayName: 'Fibonacci Turnabout',
-    startThero: 420,
+    startThero: BASE_START_THERO,
     theroCap: 880,
     theroPerKill: 44,
     passiveTheroPerSecond: 20,
-    lives: 8,
+    lives: BASE_CORE_INTEGRITY,
     waves: [
       {
         label: 'spiral runners',
@@ -1603,9 +1626,9 @@
       },
     ],
     rewardScore: 12.4 * 10 ** 44,
-    rewardFlux: 158,
-    rewardThero: 98,
-    rewardEnergy: 98,
+    rewardFlux: 1,
+    rewardThero: 0,
+    rewardEnergy: 0,
     arcSpeed: 0.34,
     path: [
       { x: 0.08, y: 0.96 },
@@ -1632,11 +1655,11 @@
   const levelNineConfig = {
     id: 'Corollary - 9',
     displayName: 'Euler Bridge',
-    startThero: 480,
+    startThero: BASE_START_THERO,
     theroCap: 980,
     theroPerKill: 48,
     passiveTheroPerSecond: 22,
-    lives: 9,
+    lives: BASE_CORE_INTEGRITY,
     waves: [
       {
         label: 'bridge runners',
@@ -1690,9 +1713,9 @@
       },
     ],
     rewardScore: 12.6 * 10 ** 44,
-    rewardFlux: 152,
-    rewardThero: 102,
-    rewardEnergy: 102,
+    rewardFlux: 1,
+    rewardThero: 0,
+    rewardEnergy: 0,
     arcSpeed: 0.33,
     path: [
       { x: 0.06, y: 0.94 },
@@ -1719,11 +1742,11 @@
   const levelTenConfig = {
     id: 'Corollary - 10',
     displayName: 'Modular Bloom',
-    startThero: 540,
+    startThero: BASE_START_THERO,
     theroCap: 1100,
     theroPerKill: 52,
     passiveTheroPerSecond: 24,
-    lives: 10,
+    lives: BASE_CORE_INTEGRITY,
     waves: [
       {
         label: 'residue runners',
@@ -1777,9 +1800,9 @@
       },
     ],
     rewardScore: 15.2 * 10 ** 44,
-    rewardFlux: 170,
-    rewardThero: 118,
-    rewardEnergy: 118,
+    rewardFlux: 1,
+    rewardThero: 0,
+    rewardEnergy: 0,
     arcSpeed: 0.35,
     path: [
       { x: 0.08, y: 0.96 },
@@ -3104,6 +3127,12 @@
           : [],
       };
 
+      const dynamicStartThero = calculateStartingThero();
+      clonedConfig.startThero = Number.isFinite(dynamicStartThero)
+        ? dynamicStartThero
+        : BASE_START_THERO;
+      clonedConfig.lives = BASE_CORE_INTEGRITY;
+
       this.levelActive = true;
       this.levelConfig = clonedConfig;
       this.baseWaveCount = clonedConfig.waves.length;
@@ -4245,12 +4274,17 @@
     }
 
     handleEnemyBreach(enemy) {
-      this.lives = Math.max(0, this.lives - 1);
+      const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
+      const fallbackHp = Number.isFinite(enemy.maxHp) ? Math.max(0, enemy.maxHp) : 0;
+      const damageSource = remainingHp > 0 ? remainingHp : fallbackHp;
+      const damage = Math.max(1, Math.ceil(damageSource || 1));
+      this.lives = Math.max(0, this.lives - damage);
       if (this.audio) {
         this.audio.playSfx('enemyBreach');
       }
       if (this.messageEl) {
-        this.messageEl.textContent = `${enemy.label || 'Glyph'} breached the core!`;
+        const label = enemy.label || 'Glyph';
+        this.messageEl.textContent = `${label} breached the core—Integrity −${damage}.`;
       }
       if (this.hoverEnemy && this.hoverEnemy.enemyId === enemy.id) {
         this.clearEnemyHover();
@@ -4328,7 +4362,14 @@
           towers: this.towers.length,
           lives: this.lives,
           maxWave: this.maxWaveReached,
+          startThero: this.levelConfig.startThero,
         });
+      }
+      const refreshedStart = calculateStartingThero();
+      if (Number.isFinite(refreshedStart)) {
+        this.levelConfig.startThero = refreshedStart;
+        this.energy = Math.min(cap, Math.max(this.energy, refreshedStart));
+        this.updateHud();
       }
       updateStatusDisplays();
     }
@@ -5636,6 +5677,15 @@
     return parts.length ? parts.join(' · ') : '—';
   }
 
+  function formatInteractiveLevelRewards() {
+    const levelsBeaten = getCompletedInteractiveLevelCount();
+    const multiplier = getStartingTheroMultiplier(levelsBeaten);
+    const currentStart = BASE_START_THERO * multiplier;
+    const levelLabel = levelsBeaten === 1 ? 'level' : 'levels';
+    const beatenText = `Levels beaten: ${levelsBeaten} ${levelLabel}`;
+    return `+1 Powder/min · Starting Thero = ${BASE_START_THERO} × 2^(levels beaten) (${beatenText} → ${formatWholeNumber(currentStart)} Th)`;
+  }
+
   function formatRelativeTime(timestamp) {
     if (!Number.isFinite(timestamp)) {
       return null;
@@ -5676,11 +5726,7 @@
       return {
         mode: 'Active Defense',
         duration: waves ? `${waves} waves · manual` : 'Active defense',
-        rewards: formatRewards(
-          interactiveConfig.rewardScore,
-          interactiveConfig.rewardFlux,
-          interactiveConfig.rewardEnergy,
-        ),
+        rewards: formatInteractiveLevelRewards(),
       };
     }
 
@@ -5724,11 +5770,17 @@
 
     if (outcome === 'victory') {
       const rewardText = formatRewards(stats.rewardScore, stats.rewardFlux, stats.rewardEnergy);
-      const base =
-        rewardText && rewardText !== '—'
-          ? `Victory ${relative}. Rewards: ${rewardText}.`
-          : `Victory ${relative}.`;
-      return bestWave > 0 ? `${base} Waves cleared: ${bestWave}.` : base;
+      const segments = [`Victory ${relative}.`];
+      if (rewardText && rewardText !== '—') {
+        segments.push(`Rewards: ${rewardText}.`);
+      }
+      if (Number.isFinite(stats.startThero)) {
+        segments.push(`Starting Thero now ${formatWholeNumber(stats.startThero)} Th.`);
+      }
+      if (bestWave > 0) {
+        segments.push(`Waves cleared: ${bestWave}.`);
+      }
+      return segments.join(' ');
     }
 
     if (outcome === 'defeat') {
@@ -6234,6 +6286,19 @@
     }
     updateTowerSelectionButtons();
     syncLoadoutToPlayfield();
+  }
+
+  function updateTowerCardVisibility() {
+    const cards = document.querySelectorAll('[data-tower-id]');
+    cards.forEach((card) => {
+      const towerId = card.dataset.towerId;
+      if (!towerId) {
+        return;
+      }
+      const unlocked = isTowerUnlocked(towerId);
+      card.hidden = !unlocked;
+      card.setAttribute('aria-hidden', unlocked ? 'false' : 'true');
+    });
   }
 
   function annotateTowerCardsWithCost() {
@@ -7340,6 +7405,7 @@
     ensureResourceTicker();
 
     annotateTowerCardsWithCost();
+    updateTowerCardVisibility();
     initializeTowerSelection();
     syncLoadoutToPlayfield();
     renderEnemyCodex();
