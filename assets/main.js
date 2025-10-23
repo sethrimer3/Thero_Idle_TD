@@ -26,6 +26,16 @@
     }
   }
 
+  function createPreviewId(prefix, value) {
+    const slug = String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return `${prefix}-${slug || 'preview'}`;
+  }
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
   const levelBlueprints = [
     {
       set: 'Conjecture',
@@ -975,6 +985,7 @@
   let overlayLabel = null;
   let overlayTitle = null;
   let overlayExample = null;
+  let overlayPreview = null;
   let overlayMode = null;
   let overlayDuration = null;
   let overlayRewards = null;
@@ -6370,6 +6381,396 @@
     lastLevelTrigger = null;
   }
 
+  const PRESET_PREVIEW_PATHS = {
+    lemniscate: [
+      { x: 0.14, y: 0.52 },
+      { x: 0.28, y: 0.28 },
+      { x: 0.46, y: 0.2 },
+      { x: 0.62, y: 0.3 },
+      { x: 0.78, y: 0.5 },
+      { x: 0.62, y: 0.7 },
+      { x: 0.46, y: 0.8 },
+      { x: 0.28, y: 0.72 },
+      { x: 0.14, y: 0.48 },
+    ],
+    spiral: [
+      { x: 0.12, y: 0.82 },
+      { x: 0.28, y: 0.66 },
+      { x: 0.46, y: 0.74 },
+      { x: 0.66, y: 0.58 },
+      { x: 0.54, y: 0.42 },
+      { x: 0.6, y: 0.3 },
+      { x: 0.76, y: 0.36 },
+      { x: 0.88, y: 0.18 },
+    ],
+    cascade: [
+      { x: 0.12, y: 0.8 },
+      { x: 0.24, y: 0.68 },
+      { x: 0.32, y: 0.5 },
+      { x: 0.44, y: 0.6 },
+      { x: 0.56, y: 0.44 },
+      { x: 0.68, y: 0.54 },
+      { x: 0.8, y: 0.36 },
+      { x: 0.9, y: 0.22 },
+    ],
+    fork: [
+      { x: 0.12, y: 0.82 },
+      { x: 0.32, y: 0.58 },
+      { x: 0.44, y: 0.38 },
+      { x: 0.56, y: 0.52 },
+      { x: 0.68, y: 0.32 },
+      { x: 0.78, y: 0.46 },
+      { x: 0.9, y: 0.26 },
+    ],
+    river: [
+      { x: 0.08, y: 0.88 },
+      { x: 0.22, y: 0.74 },
+      { x: 0.38, y: 0.78 },
+      { x: 0.54, y: 0.62 },
+      { x: 0.68, y: 0.66 },
+      { x: 0.82, y: 0.48 },
+      { x: 0.92, y: 0.32 },
+      { x: 0.96, y: 0.16 },
+    ],
+    petals: [
+      { x: 0.14, y: 0.82 },
+      { x: 0.32, y: 0.68 },
+      { x: 0.42, y: 0.5 },
+      { x: 0.36, y: 0.34 },
+      { x: 0.5, y: 0.24 },
+      { x: 0.64, y: 0.34 },
+      { x: 0.6, y: 0.54 },
+      { x: 0.74, y: 0.7 },
+      { x: 0.88, y: 0.56 },
+      { x: 0.92, y: 0.36 },
+    ],
+    lattice: [
+      { x: 0.08, y: 0.84 },
+      { x: 0.2, y: 0.66 },
+      { x: 0.34, y: 0.7 },
+      { x: 0.48, y: 0.5 },
+      { x: 0.6, y: 0.58 },
+      { x: 0.74, y: 0.38 },
+      { x: 0.84, y: 0.46 },
+      { x: 0.94, y: 0.22 },
+    ],
+    bridge: [
+      { x: 0.08, y: 0.78 },
+      { x: 0.26, y: 0.62 },
+      { x: 0.4, y: 0.46 },
+      { x: 0.54, y: 0.38 },
+      { x: 0.7, y: 0.48 },
+      { x: 0.82, y: 0.32 },
+      { x: 0.94, y: 0.18 },
+    ],
+  };
+
+  function clampNormalizedCoordinate(value) {
+    if (!Number.isFinite(value)) {
+      return 0.5;
+    }
+    return Math.min(0.98, Math.max(0.02, value));
+  }
+
+  function buildSeededPreviewPath(seedValue) {
+    const seedString = String(seedValue || 'preview');
+    let hash = 0;
+    for (let index = 0; index < seedString.length; index += 1) {
+      hash = (hash * 33 + seedString.charCodeAt(index)) >>> 0;
+    }
+    let state = hash || 1;
+    const random = () => {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      return state / 0xffffffff;
+    };
+    const points = [];
+    const segments = 8;
+    let x = 0.08 + random() * 0.1;
+    let y = 0.2 + random() * 0.6;
+    for (let step = 0; step < segments; step += 1) {
+      points.push({ x: clampNormalizedCoordinate(x), y: clampNormalizedCoordinate(y) });
+      x += 0.1 + random() * 0.12;
+      y += (random() - 0.5) * 0.24;
+      x = Math.min(0.92, Math.max(0.08, x));
+      y = Math.min(0.88, Math.max(0.12, y));
+    }
+    return points;
+  }
+
+  function createProceduralPreviewPath(level) {
+    if (!level) {
+      return null;
+    }
+    const descriptor = `${level.path || ''} ${level.focus || ''}`.toLowerCase();
+    const matches = [];
+    const addMatch = (key) => {
+      if (key && PRESET_PREVIEW_PATHS[key] && !matches.includes(key)) {
+        matches.push(key);
+      }
+    };
+    if (descriptor.includes('lemniscate') || descriptor.includes('∞') || descriptor.includes('loop')) {
+      addMatch('lemniscate');
+    }
+    if (
+      descriptor.includes('spiral') ||
+      descriptor.includes('helix') ||
+      descriptor.includes('fibonacci') ||
+      descriptor.includes('logarithmic')
+    ) {
+      addMatch('spiral');
+    }
+    if (descriptor.includes('cascade') || descriptor.includes('step') || descriptor.includes('integral')) {
+      addMatch('cascade');
+    }
+    if (descriptor.includes('fork') || descriptor.includes('dual') || descriptor.includes('twin')) {
+      addMatch('fork');
+    }
+    if (descriptor.includes('river') || descriptor.includes('flow') || descriptor.includes('cardioid')) {
+      addMatch('river');
+    }
+    if (descriptor.includes('petal') || descriptor.includes('modular') || descriptor.includes('bloom')) {
+      addMatch('petals');
+    }
+    if (descriptor.includes('portal') || descriptor.includes('teleport') || descriptor.includes('hidden')) {
+      addMatch('lattice');
+    }
+    if (descriptor.includes('bridge') || descriptor.includes('arch')) {
+      addMatch('bridge');
+    }
+    if (matches.length) {
+      const preset = PRESET_PREVIEW_PATHS[matches[0]];
+      if (preset) {
+        return preset.map((point) => ({ x: point.x, y: point.y }));
+      }
+    }
+    return buildSeededPreviewPath(level.id);
+  }
+
+  function getPreviewPointsForLevel(level) {
+    if (!level) {
+      return null;
+    }
+    const config = levelConfigs.get(level.id);
+    if (config && Array.isArray(config.path) && config.path.length >= 2) {
+      return config.path.map((point) => ({ x: point.x, y: point.y }));
+    }
+    return createProceduralPreviewPath(level);
+  }
+
+  function clearOverlayPreview() {
+    if (!overlayPreview) {
+      return;
+    }
+    overlayPreview.innerHTML = '';
+    overlayPreview.setAttribute('aria-hidden', 'true');
+    overlayPreview.hidden = true;
+    overlayPreview.classList.remove('overlay-preview--active');
+  }
+
+  function renderLevelPreview(level) {
+    if (!overlayPreview) {
+      return;
+    }
+    clearOverlayPreview();
+    const points = getPreviewPointsForLevel(level);
+    if (!Array.isArray(points) || points.length < 2) {
+      const placeholder = document.createElement('p');
+      placeholder.className = 'overlay-preview__empty';
+      placeholder.textContent = 'Map preview will unlock once the defense is charted.';
+      overlayPreview.append(placeholder);
+      overlayPreview.hidden = false;
+      overlayPreview.setAttribute('aria-hidden', 'false');
+      overlayPreview.classList.add('overlay-preview--active');
+      return;
+    }
+
+    const viewBoxWidth = 1200;
+    const viewBoxHeight = 720;
+    const margin = 90;
+    const scalePoint = (point) => ({
+      x: margin + clampNormalizedCoordinate(point.x) * (viewBoxWidth - margin * 2),
+      y: margin + clampNormalizedCoordinate(point.y) * (viewBoxHeight - margin * 2),
+    });
+
+    const scaledPoints = points.map((point) =>
+      scalePoint({ x: point?.x ?? 0.5, y: point?.y ?? 0.5 }),
+    );
+    const pathData = scaledPoints
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+      .join(' ');
+
+    const gradientId = createPreviewId('preview-gradient', level?.id || 'level');
+    const haloId = createPreviewId('preview-halo', level?.id || 'level');
+
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${viewBoxWidth} ${viewBoxHeight}`);
+    svg.setAttribute('class', 'overlay-preview__svg');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `${level?.title || 'Defense'} path preview`);
+
+    const defs = document.createElementNS(SVG_NS, 'defs');
+    const gradient = document.createElementNS(SVG_NS, 'linearGradient');
+    gradient.setAttribute('id', gradientId);
+    gradient.setAttribute('x1', '0%');
+    gradient.setAttribute('y1', '0%');
+    gradient.setAttribute('x2', '100%');
+    gradient.setAttribute('y2', '100%');
+    const stopStart = document.createElementNS(SVG_NS, 'stop');
+    stopStart.setAttribute('offset', '0%');
+    stopStart.setAttribute('stop-color', '#76bfff');
+    stopStart.setAttribute('stop-opacity', '0.85');
+    const stopMid = document.createElementNS(SVG_NS, 'stop');
+    stopMid.setAttribute('offset', '52%');
+    stopMid.setAttribute('stop-color', '#ffe4a0');
+    stopMid.setAttribute('stop-opacity', '0.92');
+    const stopEnd = document.createElementNS(SVG_NS, 'stop');
+    stopEnd.setAttribute('offset', '100%');
+    stopEnd.setAttribute('stop-color', '#ffb088');
+    stopEnd.setAttribute('stop-opacity', '0.88');
+    gradient.append(stopStart, stopMid, stopEnd);
+
+    const filter = document.createElementNS(SVG_NS, 'filter');
+    filter.setAttribute('id', haloId);
+    filter.setAttribute('x', '-25%');
+    filter.setAttribute('y', '-25%');
+    filter.setAttribute('width', '150%');
+    filter.setAttribute('height', '150%');
+    const blur = document.createElementNS(SVG_NS, 'feGaussianBlur');
+    blur.setAttribute('stdDeviation', '24');
+    blur.setAttribute('in', 'SourceGraphic');
+    blur.setAttribute('result', 'blurred');
+    const merge = document.createElementNS(SVG_NS, 'feMerge');
+    const mergeBlur = document.createElementNS(SVG_NS, 'feMergeNode');
+    mergeBlur.setAttribute('in', 'blurred');
+    const mergeSource = document.createElementNS(SVG_NS, 'feMergeNode');
+    mergeSource.setAttribute('in', 'SourceGraphic');
+    merge.append(mergeBlur, mergeSource);
+    filter.append(blur, merge);
+
+    defs.append(gradient, filter);
+    svg.append(defs);
+
+    const backdrop = document.createElementNS(SVG_NS, 'rect');
+    backdrop.setAttribute('x', '0');
+    backdrop.setAttribute('y', '0');
+    backdrop.setAttribute('width', viewBoxWidth);
+    backdrop.setAttribute('height', viewBoxHeight);
+    backdrop.setAttribute('fill', 'rgba(6, 10, 18, 0.96)');
+    svg.append(backdrop);
+
+    const frame = document.createElementNS(SVG_NS, 'rect');
+    frame.setAttribute('x', (margin * 2) / 5);
+    frame.setAttribute('y', (margin * 2) / 5);
+    frame.setAttribute('width', viewBoxWidth - (margin * 4) / 5);
+    frame.setAttribute('height', viewBoxHeight - (margin * 4) / 5);
+    frame.setAttribute('rx', '60');
+    frame.setAttribute('fill', 'rgba(12, 16, 30, 0.92)');
+    frame.setAttribute('stroke', 'rgba(255, 255, 255, 0.06)');
+    frame.setAttribute('stroke-width', '8');
+    svg.append(frame);
+
+    const field = document.createElementNS(SVG_NS, 'rect');
+    field.setAttribute('x', margin);
+    field.setAttribute('y', margin);
+    field.setAttribute('width', viewBoxWidth - margin * 2);
+    field.setAttribute('height', viewBoxHeight - margin * 2);
+    field.setAttribute('rx', '48');
+    field.setAttribute('fill', 'rgba(18, 24, 42, 0.92)');
+    field.setAttribute('stroke', 'rgba(255, 255, 255, 0.08)');
+    field.setAttribute('stroke-width', '6');
+    svg.append(field);
+
+    const gridGroup = document.createElementNS(SVG_NS, 'g');
+    gridGroup.setAttribute('stroke', 'rgba(255, 255, 255, 0.04)');
+    gridGroup.setAttribute('stroke-width', '2');
+    const gridSpacing = 140;
+    for (let x = Math.round(margin); x <= viewBoxWidth - margin; x += gridSpacing) {
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', x);
+      line.setAttribute('y1', margin);
+      line.setAttribute('x2', x);
+      line.setAttribute('y2', viewBoxHeight - margin);
+      gridGroup.append(line);
+    }
+    for (let y = Math.round(margin); y <= viewBoxHeight - margin; y += gridSpacing) {
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', margin);
+      line.setAttribute('y1', y);
+      line.setAttribute('x2', viewBoxWidth - margin);
+      line.setAttribute('y2', y);
+      gridGroup.append(line);
+    }
+    svg.append(gridGroup);
+
+    const basePath = document.createElementNS(SVG_NS, 'path');
+    basePath.setAttribute('d', pathData);
+    basePath.setAttribute('fill', 'none');
+    basePath.setAttribute('stroke', 'rgba(94, 134, 220, 0.28)');
+    basePath.setAttribute('stroke-width', '70');
+    basePath.setAttribute('stroke-linecap', 'round');
+    basePath.setAttribute('stroke-linejoin', 'round');
+    svg.append(basePath);
+
+    const lanePath = document.createElementNS(SVG_NS, 'path');
+    lanePath.setAttribute('d', pathData);
+    lanePath.setAttribute('fill', 'none');
+    lanePath.setAttribute('stroke', `url(#${gradientId})`);
+    lanePath.setAttribute('stroke-width', '44');
+    lanePath.setAttribute('stroke-linecap', 'round');
+    lanePath.setAttribute('stroke-linejoin', 'round');
+    lanePath.setAttribute('filter', `url(#${haloId})`);
+    svg.append(lanePath);
+
+    const config = level ? levelConfigs.get(level.id) : null;
+    const anchors = Array.isArray(config?.autoAnchors) ? config.autoAnchors : [];
+    if (anchors.length) {
+      const anchorGroup = document.createElementNS(SVG_NS, 'g');
+      anchors.forEach((anchor) => {
+        const scaled = scalePoint({ x: anchor?.x ?? 0.5, y: anchor?.y ?? 0.5 });
+        const outer = document.createElementNS(SVG_NS, 'circle');
+        outer.setAttribute('cx', scaled.x);
+        outer.setAttribute('cy', scaled.y);
+        outer.setAttribute('r', '28');
+        outer.setAttribute('fill', 'rgba(255, 204, 150, 0.92)');
+        outer.setAttribute('stroke', 'rgba(255, 255, 255, 0.9)');
+        outer.setAttribute('stroke-width', '6');
+        anchorGroup.append(outer);
+        const inner = document.createElementNS(SVG_NS, 'circle');
+        inner.setAttribute('cx', scaled.x);
+        inner.setAttribute('cy', scaled.y);
+        inner.setAttribute('r', '12');
+        inner.setAttribute('fill', 'rgba(255, 255, 255, 0.92)');
+        anchorGroup.append(inner);
+      });
+      svg.append(anchorGroup);
+    }
+
+    const startPoint = scaledPoints[0];
+    const endPoint = scaledPoints[scaledPoints.length - 1];
+    const startMarker = document.createElementNS(SVG_NS, 'circle');
+    startMarker.setAttribute('cx', startPoint.x);
+    startMarker.setAttribute('cy', startPoint.y);
+    startMarker.setAttribute('r', '20');
+    startMarker.setAttribute('fill', 'rgba(120, 210, 255, 0.95)');
+    startMarker.setAttribute('stroke', 'rgba(255, 255, 255, 0.9)');
+    startMarker.setAttribute('stroke-width', '5');
+    svg.append(startMarker);
+
+    const endMarker = document.createElementNS(SVG_NS, 'circle');
+    endMarker.setAttribute('cx', endPoint.x);
+    endMarker.setAttribute('cy', endPoint.y);
+    endMarker.setAttribute('r', '24');
+    endMarker.setAttribute('fill', 'rgba(255, 170, 130, 0.95)');
+    endMarker.setAttribute('stroke', 'rgba(255, 255, 255, 0.9)');
+    endMarker.setAttribute('stroke-width', '6');
+    svg.append(endMarker);
+
+    overlayPreview.append(svg);
+    overlayPreview.hidden = false;
+    overlayPreview.setAttribute('aria-hidden', 'false');
+    overlayPreview.classList.add('overlay-preview--active');
+  }
+
   function showLevelOverlay(level, options = {}) {
     if (!overlay || !overlayLabel || !overlayTitle || !overlayExample) return;
     const { requireExitConfirm = false, exitLevelId = null } = options;
@@ -6377,6 +6778,7 @@
     overlayLabel.textContent = level.id;
     overlayTitle.textContent = level.title;
     overlayExample.textContent = level.example;
+    renderLevelPreview(level);
     const summary = getLevelSummary(level);
     if (overlayMode) {
       overlayMode.textContent = summary.mode;
@@ -6417,6 +6819,7 @@
 
   function hideLevelOverlay() {
     if (!overlay) return;
+    clearOverlayPreview();
     overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
     overlayRequiresLevelExit = false;
@@ -7498,6 +7901,44 @@
       const unlocked = isTowerUnlocked(towerId);
       card.hidden = !unlocked;
       card.setAttribute('aria-hidden', unlocked ? 'false' : 'true');
+    });
+  }
+
+  function injectTowerCardPreviews() {
+    const cards = document.querySelectorAll('[data-tower-id]');
+    cards.forEach((card) => {
+      if (!(card instanceof HTMLElement)) {
+        return;
+      }
+      if (card.querySelector('.tower-preview')) {
+        return;
+      }
+      const towerId = card.dataset.towerId;
+      if (!towerId) {
+        return;
+      }
+      const definition = getTowerDefinition(towerId);
+      const iconPath = definition?.icon;
+      if (!iconPath) {
+        return;
+      }
+      const preview = document.createElement('figure');
+      preview.className = 'tower-preview';
+      const image = document.createElement('img');
+      image.src = iconPath;
+      const labelBase = definition
+        ? `${definition.symbol} ${definition.name}`.trim()
+        : towerId;
+      image.alt = `${labelBase} placement preview`;
+      image.loading = 'lazy';
+      image.decoding = 'async';
+      preview.append(image);
+      const header = card.querySelector('.tower-header');
+      if (header && header.parentNode) {
+        header.parentNode.insertBefore(preview, header.nextSibling);
+      } else {
+        card.insertBefore(preview, card.firstChild);
+      }
     });
   }
 
@@ -8745,6 +9186,7 @@
     overlayLabel = document.getElementById('overlay-level');
     overlayTitle = document.getElementById('overlay-title');
     overlayExample = document.getElementById('overlay-example');
+    overlayPreview = document.getElementById('overlay-preview');
     overlayMode = document.getElementById('overlay-mode');
     overlayDuration = document.getElementById('overlay-duration');
     overlayRewards = document.getElementById('overlay-rewards');
@@ -8839,6 +9281,7 @@
     markLastActive();
     ensureResourceTicker();
 
+    injectTowerCardPreviews();
     annotateTowerCardsWithCost();
     updateTowerCardVisibility();
     initializeTowerSelection();
