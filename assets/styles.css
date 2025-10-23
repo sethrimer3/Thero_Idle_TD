@@ -75,6 +75,22 @@ body::before {
   font-size: clamp(1.1rem, 2vw, 1.4rem);
 }
 
+.status-value--stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.status-multiplier {
+  font-family: "Space Mono", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: var(--accent-3);
+  text-transform: uppercase;
+  text-shadow: 0 0 12px rgba(255, 228, 120, 0.45), 0 0 24px rgba(255, 228, 120, 0.35);
+}
+
 .main-stage {
   position: relative;
   display: grid;
