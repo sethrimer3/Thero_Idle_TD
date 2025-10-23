@@ -731,7 +731,7 @@
   };
 
   const powderState = {
-    sandOffset: powderConfig.sandOffsetInactive,
+    sandOffset: powderConfig.sandOffsetActive,
     duneHeight: powderConfig.duneHeightBase,
     charges: 0,
     simulatedDuneGain: 0,
@@ -769,6 +769,7 @@
     simulationCanvas: null,
     simulationNote: null,
     basin: null,
+    wallMarker: null,
     wallGlyphs: [],
     leftWall: null,
     rightWall: null,
@@ -876,19 +877,19 @@
     constructor(options = {}) {
       this.canvas = options.canvas || null;
       this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
-      this.cellSize = Math.max(2, Math.floor(options.cellSize || 4));
+      this.cellSize = Math.max(1, Math.round(options.cellSize || 1));
       this.grainSizes = Array.isArray(options.grainSizes)
-        ? options.grainSizes.filter((size) => Number.isFinite(size) && size >= 2)
-        : [2, 4, 6];
+        ? options.grainSizes.filter((size) => Number.isFinite(size) && size >= 1)
+        : [1, 2, 3];
       if (!this.grainSizes.length) {
-        this.grainSizes = [2, 4, 6];
+        this.grainSizes = [1, 2, 3];
       }
       this.grainSizes.sort((a, b) => a - b);
 
       this.maxDuneGain = Number.isFinite(options.maxDuneGain)
         ? Math.max(0, options.maxDuneGain)
         : 3;
-      this.maxGrains = options.maxGrains && options.maxGrains > 0 ? options.maxGrains : 220;
+      this.maxGrains = options.maxGrains && options.maxGrains > 0 ? options.maxGrains : 600;
       this.baseSpawnInterval = options.baseSpawnInterval && options.baseSpawnInterval > 0
         ? options.baseSpawnInterval
         : 180;
@@ -902,6 +903,17 @@
       this.grid = [];
       this.grains = [];
       this.heightInfo = { normalizedHeight: 0, duneGain: 0, largestGrain: 0 };
+
+      this.scrollThreshold = Number.isFinite(options.scrollThreshold)
+        ? Math.max(0.2, Math.min(0.95, options.scrollThreshold))
+        : 0.75;
+      this.scrollOffsetCells = 0;
+      this.highestTotalHeightCells = 0;
+
+      this.wallInsetLeftPx = Number.isFinite(options.wallInsetLeft) ? Math.max(0, options.wallInsetLeft) : 0;
+      this.wallInsetRightPx = Number.isFinite(options.wallInsetRight) ? Math.max(0, options.wallInsetRight) : 0;
+      this.wallInsetLeftCells = 0;
+      this.wallInsetRightCells = 0;
 
       this.spawnTimer = 0;
       this.lastFrame = 0;
@@ -951,16 +963,78 @@
       this.cols = Math.max(4, Math.floor(this.width / this.cellSize));
       this.rows = Math.max(4, Math.floor(this.height / this.cellSize));
 
+      this.wallInsetLeftCells = Math.max(0, Math.round(this.wallInsetLeftPx / this.cellSize));
+      this.wallInsetRightCells = Math.max(0, Math.round(this.wallInsetRightPx / this.cellSize));
+      const maxInset = Math.max(0, this.cols - 6);
+      const insetTotal = this.wallInsetLeftCells + this.wallInsetRightCells;
+      if (insetTotal > maxInset && insetTotal > 0) {
+        const scale = maxInset / insetTotal;
+        this.wallInsetLeftCells = Math.floor(this.wallInsetLeftCells * scale);
+        this.wallInsetRightCells = Math.floor(this.wallInsetRightCells * scale);
+      }
+
       this.reset();
     }
 
     reset() {
       this.grid = Array.from({ length: this.rows }, () => new Array(this.cols).fill(0));
+      this.applyWallMask();
       this.grains = [];
       this.spawnTimer = 0;
       this.lastFrame = 0;
+      this.scrollOffsetCells = 0;
+      this.highestTotalHeightCells = 0;
       this.heightInfo = { normalizedHeight: 0, duneGain: 0, largestGrain: 0 };
       this.notifyHeightChange(this.heightInfo, true);
+    }
+
+    applyWallMask() {
+      if (!this.grid.length) {
+        return;
+      }
+      const leftBound = Math.min(this.cols, this.wallInsetLeftCells);
+      const rightStart = Math.max(leftBound, this.cols - this.wallInsetRightCells);
+      for (let row = 0; row < this.grid.length; row += 1) {
+        const gridRow = this.grid[row];
+        for (let col = 0; col < leftBound; col += 1) {
+          gridRow[col] = -1;
+        }
+        for (let col = rightStart; col < this.cols; col += 1) {
+          gridRow[col] = -1;
+        }
+      }
+    }
+
+    clearGridPreserveWalls() {
+      if (!this.grid.length) {
+        return;
+      }
+      for (let row = 0; row < this.grid.length; row += 1) {
+        const gridRow = this.grid[row];
+        for (let col = 0; col < this.cols; col += 1) {
+          if (gridRow[col] !== -1) {
+            gridRow[col] = 0;
+          }
+        }
+      }
+    }
+
+    populateGridFromGrains() {
+      if (!this.grid.length) {
+        return;
+      }
+      for (const grain of this.grains) {
+        if (grain.freefall) {
+          grain.inGrid = false;
+          continue;
+        }
+        if (grain.y >= this.rows || grain.y + grain.size <= 0) {
+          grain.inGrid = false;
+          continue;
+        }
+        this.fillCells(grain);
+        grain.inGrid = true;
+      }
     }
 
     start() {
@@ -1031,10 +1105,12 @@
         return;
       }
       const size = this.chooseGrainSize();
-      const halfWidth = Math.floor(this.cols / 2);
-      const scatter = Math.max(1, Math.floor(this.cols / 6));
+      const minX = this.wallInsetLeftCells;
+      const maxX = Math.max(minX, this.cols - this.wallInsetRightCells - size);
+      const center = Math.floor((minX + maxX) / 2);
+      const scatter = Math.max(1, Math.floor((maxX - minX) / 6));
       const offset = Math.floor(Math.random() * (scatter * 2 + 1)) - scatter;
-      const startX = Math.min(this.cols - size, Math.max(0, halfWidth - Math.floor(size / 2) + offset));
+      const startX = Math.min(maxX, Math.max(minX, center - Math.floor(size / 2) + offset));
 
       const grain = {
         id: this.nextId,
@@ -1045,6 +1121,7 @@
         shade: 195 - size * 5 + Math.floor(Math.random() * 12),
         freefall: !this.stabilized,
         inGrid: false,
+        resting: false,
       };
 
       this.nextId += 1;
@@ -1081,6 +1158,7 @@
         if (!this.stabilized || grain.freefall) {
           grain.freefall = true;
           grain.inGrid = false;
+          grain.resting = false;
           grain.y += freefallSpeed;
           if (grain.y * this.cellSize > this.height + grain.size * this.cellSize) {
             continue;
@@ -1091,6 +1169,7 @@
 
         if (grain.y < 0) {
           grain.y += 1;
+          grain.resting = false;
           survivors.push(grain);
           continue;
         }
@@ -1135,6 +1214,52 @@
       }
 
       this.grains = survivors;
+      this.applyScrollIfNeeded();
+    }
+
+    applyScrollIfNeeded() {
+      if (!this.grains.length) {
+        return;
+      }
+
+      const threshold = Math.max(0.2, Math.min(0.95, this.scrollThreshold));
+      const targetTopRow = Math.max(0, Math.floor(this.rows * (1 - threshold)));
+      if (targetTopRow <= 0) {
+        return;
+      }
+
+      let highestTop = this.rows;
+      for (const grain of this.grains) {
+        if (!grain.inGrid || grain.freefall || !grain.resting) {
+          continue;
+        }
+        highestTop = Math.min(highestTop, grain.y);
+      }
+
+      if (highestTop >= this.rows || highestTop > targetTopRow) {
+        return;
+      }
+
+      const shift = Math.max(0, targetTopRow - highestTop);
+      if (!shift) {
+        return;
+      }
+
+      this.scrollOffsetCells += shift;
+      this.clearGridPreserveWalls();
+
+      const shifted = [];
+      for (const grain of this.grains) {
+        grain.y += shift;
+        if (grain.y >= this.rows) {
+          continue;
+        }
+        grain.inGrid = false;
+        shifted.push(grain);
+      }
+
+      this.grains = shifted;
+      this.populateGridFromGrains();
     }
 
     canPlace(x, y, size) {
@@ -1236,43 +1361,98 @@
     }
 
     updateHeightFromGrains(force = false) {
+      if (!this.rows) {
+        return;
+      }
+
       if (!this.grains.length) {
-        this.notifyHeightChange({ normalizedHeight: 0, duneGain: 0, largestGrain: 0 }, force);
+        this.highestTotalHeightCells = Math.max(this.highestTotalHeightCells, this.scrollOffsetCells);
+        const totalNormalized = this.scrollOffsetCells / this.rows;
+        const info = {
+          normalizedHeight: 0,
+          duneGain: Math.min(this.maxDuneGain, totalNormalized * this.maxDuneGain),
+          largestGrain: 0,
+          scrollOffset: this.scrollOffsetCells,
+          visibleHeight: 0,
+          totalHeight: this.scrollOffsetCells,
+          totalNormalized,
+          crestPosition: 1,
+          rows: this.rows,
+          cols: this.cols,
+          cellSize: this.cellSize,
+          highestNormalized: this.highestTotalHeightCells / this.rows,
+        };
+        this.notifyHeightChange(info, force);
         return;
       }
 
       let highestTop = this.rows;
       let largest = 0;
+      let restingFound = false;
       for (const grain of this.grains) {
-        if (grain.freefall || grain.y < 0) {
+        if (!grain.inGrid || grain.freefall || !grain.resting || grain.y < 0) {
           continue;
         }
+        restingFound = true;
         highestTop = Math.min(highestTop, grain.y);
         largest = Math.max(largest, grain.size);
       }
 
-      if (highestTop === this.rows) {
-        this.notifyHeightChange({ normalizedHeight: 0, duneGain: 0, largestGrain: largest }, force);
-        return;
+      let visibleHeight = 0;
+      let crestPosition = 1;
+      if (restingFound && highestTop < this.rows) {
+        visibleHeight = Math.max(0, this.rows - highestTop);
+        crestPosition = Math.max(0, Math.min(1, highestTop / this.rows));
       }
 
-      const heightCells = Math.max(0, this.rows - highestTop);
-      const normalized = Math.min(1, heightCells / this.rows);
-      const duneGain = Math.min(this.maxDuneGain, normalized * this.maxDuneGain);
+      const totalHeight = this.scrollOffsetCells + visibleHeight;
+      this.highestTotalHeightCells = Math.max(this.highestTotalHeightCells, totalHeight);
 
-      this.notifyHeightChange({ normalizedHeight: normalized, duneGain, largestGrain: largest }, force);
+      const normalized = Math.min(1, visibleHeight / this.rows);
+      const totalNormalized = totalHeight / this.rows;
+      const duneGain = Math.min(this.maxDuneGain, totalNormalized * this.maxDuneGain);
+
+      const info = {
+        normalizedHeight: normalized,
+        duneGain,
+        largestGrain: largest,
+        scrollOffset: this.scrollOffsetCells,
+        visibleHeight,
+        totalHeight,
+        totalNormalized,
+        crestPosition,
+        rows: this.rows,
+        cols: this.cols,
+        cellSize: this.cellSize,
+        highestNormalized: this.highestTotalHeightCells / this.rows,
+      };
+
+      this.notifyHeightChange(info, force);
     }
 
     notifyHeightChange(info, force = false) {
       if (!info) {
         return;
       }
-      const previous = this.heightInfo || { normalizedHeight: 0, duneGain: 0, largestGrain: 0 };
+      const previous =
+        this.heightInfo ||
+        {
+          normalizedHeight: 0,
+          duneGain: 0,
+          largestGrain: 0,
+          scrollOffset: 0,
+          totalHeight: 0,
+        };
       const heightDiff = Math.abs(previous.normalizedHeight - info.normalizedHeight);
       const gainDiff = Math.abs(previous.duneGain - info.duneGain);
       const sizeChanged = previous.largestGrain !== info.largestGrain;
+      const offsetChanged = previous.scrollOffset !== info.scrollOffset;
+      const totalChanged = previous.totalHeight !== info.totalHeight;
       this.heightInfo = info;
-      if (this.onHeightChange && (force || heightDiff > 0.01 || gainDiff > 0.01 || sizeChanged)) {
+      if (
+        this.onHeightChange &&
+        (force || heightDiff > 0.01 || gainDiff > 0.01 || sizeChanged || offsetChanged || totalChanged)
+      ) {
         this.onHeightChange(info);
       }
     }
@@ -1305,12 +1485,15 @@
 
         const alpha = grain.freefall ? 0.55 : 0.9;
 
-        if (grain.size === 2) {
-          this.ctx.fillStyle = `rgba(255, 222, 89, ${alpha})`;
+        if (grain.size <= 2) {
+          const warmAlpha = grain.size === 1 ? alpha * 0.9 : alpha;
+          this.ctx.fillStyle = `rgba(255, 222, 89, ${warmAlpha})`;
           this.ctx.fillRect(px, py, sizePx, sizePx);
-          this.ctx.fillStyle = 'rgba(255, 245, 200, 0.4)';
+          const topHighlight = grain.size === 1 ? 0.6 : 0.4;
+          const bottomShade = grain.size === 1 ? 0.32 : 0.38;
+          this.ctx.fillStyle = `rgba(255, 245, 200, ${topHighlight})`;
           this.ctx.fillRect(px, py, sizePx, 1);
-          this.ctx.fillStyle = 'rgba(255, 178, 70, 0.38)';
+          this.ctx.fillStyle = `rgba(255, 178, 70, ${bottomShade})`;
           this.ctx.fillRect(px, py + sizePx - 1, sizePx, 1);
         } else {
           const shade = Math.max(140, Math.min(235, grain.shade));
@@ -1345,11 +1528,14 @@
     }
 
     releaseAllGrains() {
-      this.grid.forEach((row) => row.fill(0));
+      this.clearGridPreserveWalls();
       this.grains.forEach((grain) => {
         grain.freefall = true;
         grain.inGrid = false;
+        grain.resting = false;
       });
+      this.scrollOffsetCells = 0;
+      this.highestTotalHeightCells = 0;
       this.updateHeightFromGrains(true);
     }
 
@@ -4664,19 +4850,47 @@
       ? Math.max(0, Math.min(powderConfig.simulatedDuneGainMax, info.duneGain))
       : 0;
     const largestGrain = Number.isFinite(info.largestGrain) ? Math.max(0, info.largestGrain) : 0;
+    const scrollOffset = Number.isFinite(info.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
+    const totalNormalized = Number.isFinite(info.totalNormalized)
+      ? Math.max(0, info.totalNormalized)
+      : normalizedHeight;
+    const crestPosition = Number.isFinite(info.crestPosition)
+      ? Math.max(0, Math.min(1, info.crestPosition))
+      : 1;
+    const cellSize = Number.isFinite(info.cellSize) ? Math.max(1, info.cellSize) : 1;
+    const rows = Number.isFinite(info.rows) ? Math.max(1, info.rows) : 1;
+    const highestNormalized = Number.isFinite(info.highestNormalized)
+      ? Math.max(0, info.highestNormalized)
+      : totalNormalized;
 
     powderState.simulatedDuneGain = clampedGain;
 
     if (powderElements.simulationNote) {
       const crestPercent = formatDecimal(normalizedHeight * 100, 1);
       const crestHeight = formatDecimal(powderState.duneHeight + clampedGain, 2);
+      const towerPercent = formatDecimal(totalNormalized * 100, 1);
       const grainLabel = largestGrain ? `${largestGrain}×${largestGrain}` : '—';
       powderElements.simulationNote.textContent =
-        `Captured crest: ${crestPercent}% full · dune height h = ${crestHeight} · largest grain ${grainLabel}.`;
+        `Captured crest: ${crestPercent}% full · tower ascent ${towerPercent}% · dune height h = ${crestHeight} · largest grain ${grainLabel}.`;
     }
 
     if (powderElements.basin) {
       powderElements.basin.style.setProperty('--powder-crest', normalizedHeight.toFixed(3));
+    }
+
+    const wallShiftPx = scrollOffset * cellSize;
+    if (powderElements.leftWall) {
+      powderElements.leftWall.style.transform = `translateY(${wallShiftPx.toFixed(1)}px)`;
+    }
+    if (powderElements.rightWall) {
+      powderElements.rightWall.style.transform = `translateY(${wallShiftPx.toFixed(1)}px)`;
+    }
+
+    if (powderElements.wallMarker) {
+      const basinHeight = rows * cellSize;
+      const markerOffset = Math.min(basinHeight, crestPosition * basinHeight);
+      powderElements.wallMarker.style.transform = `translateY(${markerOffset.toFixed(1)}px)`;
+      powderElements.wallMarker.dataset.height = formatDecimal(highestNormalized, 2);
     }
 
     if (powderElements.wallGlyphs && powderElements.wallGlyphs.length) {
@@ -4838,6 +5052,7 @@
     powderElements.basin = document.getElementById('powder-basin');
     powderElements.leftWall = document.getElementById('powder-wall-left');
     powderElements.rightWall = document.getElementById('powder-wall-right');
+    powderElements.wallMarker = document.getElementById('powder-wall-marker');
     powderElements.wallGlyphs = Array.from(
       document.querySelectorAll('[data-powder-glyph]'),
     );
@@ -4872,9 +5087,20 @@
     }
 
     if (powderElements.simulationCanvas && !powderSimulation) {
+      const leftInset = powderElements.leftWall
+        ? Math.max(68, powderElements.leftWall.offsetWidth)
+        : 68;
+      const rightInset = powderElements.rightWall
+        ? Math.max(68, powderElements.rightWall.offsetWidth)
+        : 68;
       powderSimulation = new PowderSimulation({
         canvas: powderElements.simulationCanvas,
-        grainSizes: [2, 4, 6],
+        cellSize: 1,
+        grainSizes: [1, 2, 3],
+        maxGrains: 640,
+        scrollThreshold: 0.75,
+        wallInsetLeft: leftInset,
+        wallInsetRight: rightInset,
         maxDuneGain: powderConfig.simulatedDuneGainMax,
         onHeightChange: handlePowderHeightChange,
       });

@@ -1096,7 +1096,8 @@ body::before {
   padding: 32px 10px;
   background: linear-gradient(180deg, rgba(10, 12, 18, 0.8) 0%, rgba(12, 14, 20, 0.9) 100%);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  transition: box-shadow var(--transition), filter var(--transition);
+  transition: box-shadow var(--transition), filter var(--transition), transform 0.45s ease-out;
+  will-change: transform;
 }
 
 .powder-wall-left {
@@ -1107,6 +1108,35 @@ body::before {
 .powder-wall-right {
   right: 0;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.powder-wall-marker {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255, 228, 120, 0.8), rgba(255, 255, 255, 0.45));
+  border-radius: 999px;
+  pointer-events: none;
+  box-shadow: 0 0 12px rgba(255, 228, 120, 0.32);
+  opacity: 0.85;
+  transform: translateY(0);
+  transition: transform 0.45s ease-out;
+}
+
+.powder-wall-marker::after {
+  content: attr(data-height);
+  position: absolute;
+  top: -1.2rem;
+  right: -2.2rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 228, 120, 0.75);
+  background: rgba(14, 16, 24, 0.65);
+  box-shadow: 0 0 6px rgba(255, 228, 120, 0.28);
 }
 
 .powder-wall.wall-awake {
