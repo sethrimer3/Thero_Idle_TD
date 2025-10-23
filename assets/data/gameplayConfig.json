@@ -424,6 +424,19 @@
       "lore": "Legend says each sentinel carries a mirrored proof; persuade it to turn the page and the margin glows with your sigil.",
       "formula": "(H_{ally} = lfloor 0.5 H_{foe} \rfloor)",
       "formulaLabel": "Conversion Rule"
+    },
+    {
+      "id": "tunneler",
+      "name": "Quantum Tunnelers",
+      "summary": "Phase-shifted glyphs that refuse to follow etched rails, boring a straight tunnel toward the core regardless of your lattice work.",
+      "traits": [
+        "Advance along the direct vector from spawn gate to core nexus, bypassing every bend, choke point, and slow field etched onto the lane.",
+        "Treat their displacement as (\\vec{r}(t) = \\vec{r}_0 + \\vec{v} t); only raw damage intersecting that ray can arrest their collapse."
+      ],
+      "counter": "Predict the tunnel vector and anchor lattices near the core or directly on that line—positioning, not crowd control, halts their breach.",
+      "lore": "Archivists describe them as qubits gone feral: collapse their waveform before it resolves inside the heart of your proof.",
+      "formula": "(\\vec{r}(t) = \\vec{r}_0 + \\vec{v} t)",
+      "formulaLabel": "Tunnel Vector"
     }
   ],
   "maps": [
@@ -1067,6 +1080,17 @@
           "reward": 168,
           "color": "rgba(220, 255, 214, 0.97)",
           "codexId": "prime"
+        },
+        {
+          "label": "quantum tunnelers",
+          "count": 3,
+          "interval": 2.8,
+          "hp": 3600,
+          "speed": 0.19,
+          "reward": 220,
+          "color": "rgba(120, 255, 232, 0.98)",
+          "codexId": "tunneler",
+          "pathMode": "direct"
         }
       ],
       "rewardScore": 1.9600000000000005e+45,

@@ -3305,7 +3305,7 @@ import {
       const hitRadius = this.getEnemyHitRadius();
       for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
         const enemy = this.enemies[index];
-        const enemyPosition = this.getPointAlongPath(enemy.progress);
+        const enemyPosition = this.getEnemyPosition(enemy);
         const distance = Math.hypot(position.x - enemyPosition.x, position.y - enemyPosition.y);
         if (distance <= hitRadius) {
           return { enemy, position: enemyPosition };
@@ -3330,7 +3330,7 @@ import {
       }
 
       const pointerCanvas = this.getCanvasPosition(this.pointerPosition);
-      const enemyPosition = this.getPointAlongPath(enemy.progress);
+      const enemyPosition = this.getEnemyPosition(enemy);
       const distance = Math.hypot(pointerCanvas.x - enemyPosition.x, pointerCanvas.y - enemyPosition.y);
       if (distance > this.getEnemyHitRadius()) {
         this.clearEnemyHover();
@@ -3888,6 +3888,7 @@ import {
         this.activeWave.spawned < config.count &&
         this.waveTimer >= this.activeWave.nextSpawn
       ) {
+        const pathMode = config.pathMode === 'direct' ? 'direct' : 'path';
         const enemy = {
           id: this.enemyIdCounter += 1,
           progress: 0,
@@ -3898,6 +3899,7 @@ import {
           color: config.color,
           label: config.label,
           typeId: config.codexId || null,
+          pathMode,
           moteFactor: this.calculateMoteFactor(config),
         };
         this.enemies.push(enemy);
@@ -3931,7 +3933,7 @@ import {
       let selected = null;
       let bestProgress = -Infinity;
       this.enemies.forEach((enemy) => {
-        const position = this.getPointAlongPath(enemy.progress);
+        const position = this.getEnemyPosition(enemy);
         const distance = Math.hypot(position.x - tower.x, position.y - tower.y);
         if (distance <= tower.range && enemy.progress > bestProgress) {
           selected = { enemy, position };
@@ -3954,7 +3956,7 @@ import {
       this.projectiles.push({
         source: { x: tower.x, y: tower.y },
         targetId: enemy.id,
-        target: this.getPointAlongPath(enemy.progress),
+        target: this.getEnemyPosition(enemy),
         lifetime: 0,
         maxLifetime: 0.24,
       });
@@ -3988,7 +3990,7 @@ import {
       const visited = new Set();
       const chainTargets = [];
       const firstEnemy = targetInfo.enemy;
-      const firstPosition = targetInfo.position || this.getPointAlongPath(firstEnemy.progress);
+      const firstPosition = targetInfo.position || this.getEnemyPosition(firstEnemy);
       chainTargets.push({ enemy: firstEnemy, position: firstPosition });
       visited.add(firstEnemy.id);
 
@@ -4003,7 +4005,7 @@ import {
           if (!candidate || visited.has(candidate.id)) {
             return;
           }
-          const candidatePosition = this.getPointAlongPath(candidate.progress);
+          const candidatePosition = this.getEnemyPosition(candidate);
           const distance = Math.hypot(
             candidatePosition.x - anchorPosition.x,
             candidatePosition.y - anchorPosition.y,
@@ -4484,6 +4486,26 @@ import {
       return lastSegment ? { ...lastSegment.end } : { x: 0, y: 0 };
     }
 
+    getEnemyPosition(enemy) {
+      if (!enemy) {
+        return { x: 0, y: 0 };
+      }
+
+      if (enemy.pathMode === 'direct' && this.pathSegments.length) {
+        const startSegment = this.pathSegments[0];
+        const endSegment = this.pathSegments[this.pathSegments.length - 1];
+        const start = startSegment ? startSegment.start : { x: 0, y: 0 };
+        const end = endSegment ? endSegment.end : start;
+        const clamped = Math.max(0, Math.min(1, enemy.progress));
+        return {
+          x: start.x + (end.x - start.x) * clamped,
+          y: start.y + (end.y - start.y) * clamped,
+        };
+      }
+
+      return this.getPointAlongPath(enemy.progress);
+    }
+
     draw() {
       if (!this.ctx) {
         return;
@@ -4704,7 +4726,7 @@ import {
       }
       const ctx = this.ctx;
       this.enemies.forEach((enemy) => {
-        const position = this.getPointAlongPath(enemy.progress);
+        const position = this.getEnemyPosition(enemy);
         ctx.beginPath();
         ctx.fillStyle = enemy.color || 'rgba(139, 247, 255, 0.9)';
         ctx.arc(position.x, position.y, 9, 0, Math.PI * 2);
@@ -4768,7 +4790,7 @@ import {
 
         const enemy = this.enemies.find((candidate) => candidate.id === projectile.targetId);
         if (enemy) {
-          projectile.target = this.getPointAlongPath(enemy.progress);
+          projectile.target = this.getEnemyPosition(enemy);
         }
         const target = projectile.target || projectile.source;
         const alpha = Math.max(0, 1 - projectile.lifetime / projectile.maxLifetime);
