@@ -284,6 +284,304 @@
 
   const ACHIEVEMENT_REWARD_FLUX = 1;
 
+  // The audio manifest points to filenames under assets/audio/music and assets/audio/sfx.
+  // Drop encoded tracks with the listed names into those folders to activate playback.
+  const audioManifest = {
+    musicVolume: 0.6,
+    sfxVolume: 0.85,
+    music: {
+      menu: { file: 'menu_theme.ogg', loop: true, volume: 0.55 },
+      preparation: { file: 'lemniscate_preparation.ogg', loop: true, volume: 0.65 },
+      combat: { file: 'lemniscate_combat.ogg', loop: true, volume: 0.75 },
+    },
+    sfx: {
+      uiConfirm: { file: 'ui_confirm.wav', volume: 0.45, maxConcurrent: 2 },
+      uiToggle: { file: 'ui_toggle.wav', volume: 0.4, maxConcurrent: 2 },
+      towerPlace: { file: 'tower_place.wav', volume: 0.7, maxConcurrent: 4 },
+      towerSell: { file: 'tower_sell.wav', volume: 0.6, maxConcurrent: 2 },
+      projectile: { file: 'projectile_launch.wav', volume: 0.45, maxConcurrent: 6 },
+      enemyDefeat: { file: 'enemy_defeat.wav', volume: 0.65, maxConcurrent: 4 },
+      enemyBreach: { file: 'enemy_breach.wav', volume: 0.75, maxConcurrent: 2 },
+      victory: { file: 'victory_sting.wav', volume: 0.8, maxConcurrent: 1 },
+      defeat: { file: 'defeat_sting.wav', volume: 0.8, maxConcurrent: 1 },
+      alphaTowerFire: { file: 'alpha_tower_firing.mp3', volume: 0.55, maxConcurrent: 5 },
+    },
+  };
+
+  class AudioManager {
+    constructor(manifest = {}) {
+      this.musicFolder = 'assets/audio/music';
+      this.sfxFolder = 'assets/audio/sfx';
+      this.musicDefinitions = manifest.music || {};
+      this.sfxDefinitions = manifest.sfx || {};
+      this.musicVolume = this._clampVolume(manifest.musicVolume, 0.5);
+      this.sfxVolume = this._clampVolume(manifest.sfxVolume, 0.8);
+      this.musicElements = new Map();
+      this.sfxPools = new Map();
+      this.currentMusicKey = null;
+      this.pendingUnlockResolvers = [];
+      this.pendingMusicKey = null;
+      this.unlocked = false;
+      this.activationElements = typeof WeakSet === 'function' ? new WeakSet() : { add() {}, has() { return false; } };
+
+      if (typeof document !== 'undefined') {
+        const unlockHandler = () => this.unlock();
+        document.addEventListener('pointerdown', unlockHandler, { once: true });
+        document.addEventListener('keydown', unlockHandler, { once: true });
+      }
+    }
+
+    registerActivationElements(elements) {
+      if (!Array.isArray(elements)) {
+        return;
+      }
+      elements.forEach((element) => this.registerActivationElement(element));
+    }
+
+    registerActivationElement(element) {
+      if (!element || (this.activationElements && this.activationElements.has(element))) {
+        return;
+      }
+
+      const handler = () => {
+        this.unlock();
+        ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach((eventName) => {
+          element.removeEventListener(eventName, handler);
+        });
+      };
+
+      ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach((eventName) => {
+        element.addEventListener(eventName, handler);
+      });
+
+      if (this.activationElements && typeof this.activationElements.add === 'function') {
+        this.activationElements.add(element);
+      }
+    }
+
+    unlock() {
+      if (this.unlocked) {
+        return;
+      }
+      this.unlocked = true;
+      while (this.pendingUnlockResolvers.length) {
+        const resolve = this.pendingUnlockResolvers.shift();
+        if (typeof resolve === 'function') {
+          resolve();
+        }
+      }
+    }
+
+    whenUnlocked() {
+      if (this.unlocked) {
+        return Promise.resolve();
+      }
+      return new Promise((resolve) => {
+        this.pendingUnlockResolvers.push(resolve);
+      });
+    }
+
+    playMusic(key, options = {}) {
+      if (!key) {
+        return;
+      }
+
+      const startPlayback = () => {
+        const entry = this._ensureMusicEntry(key);
+        if (!entry) {
+          return;
+        }
+
+        const { audio, definition } = entry;
+        const restart = options.restart || this.currentMusicKey !== key;
+        const loop = typeof options.loop === 'boolean' ? options.loop : definition.loop !== false;
+        audio.loop = loop;
+        audio.volume = this._resolveMusicVolume(definition, options.volume);
+
+        if (restart) {
+          try {
+            audio.currentTime = 0;
+          } catch (error) {
+            audio.src = audio.src;
+          }
+        }
+
+        if (this.currentMusicKey && this.currentMusicKey !== key) {
+          this.stopMusic(this.currentMusicKey);
+        }
+
+        this.currentMusicKey = key;
+        this.pendingMusicKey = null;
+        const playPromise = audio.play();
+        if (typeof playPromise?.catch === 'function') {
+          playPromise.catch(() => {});
+        }
+      };
+
+      if (!this.unlocked) {
+        this.pendingMusicKey = key;
+        this.whenUnlocked().then(() => {
+          if (this.pendingMusicKey === key) {
+            startPlayback();
+          }
+        });
+        return;
+      }
+
+      startPlayback();
+    }
+
+    stopMusic(key = this.currentMusicKey, options = {}) {
+      if (!key) {
+        return;
+      }
+      const entry = this.musicElements.get(key);
+      if (!entry) {
+        return;
+      }
+      entry.audio.pause();
+      if (options.reset !== false) {
+        try {
+          entry.audio.currentTime = 0;
+        } catch (error) {
+          entry.audio.src = entry.audio.src;
+        }
+      }
+      if (this.currentMusicKey === key) {
+        this.currentMusicKey = null;
+      }
+    }
+
+    playSfx(key, options = {}) {
+      if (!key) {
+        return;
+      }
+
+      const startPlayback = () => {
+        const entry = this._ensureSfxEntry(key);
+        if (!entry) {
+          return;
+        }
+
+        const { definition, pool } = entry;
+        const index = entry.nextIndex;
+        const audio = pool[index];
+        entry.nextIndex = (index + 1) % pool.length;
+
+        audio.loop = false;
+        audio.volume = this._resolveSfxVolume(definition, options.volume);
+
+        try {
+          audio.currentTime = 0;
+        } catch (error) {
+          audio.src = audio.src;
+        }
+
+        const playPromise = audio.play();
+        if (typeof playPromise?.catch === 'function') {
+          playPromise.catch(() => {});
+        }
+      };
+
+      if (!this.unlocked) {
+        this.whenUnlocked().then(() => startPlayback());
+        return;
+      }
+
+      startPlayback();
+    }
+
+    _ensureMusicEntry(key) {
+      let entry = this.musicElements.get(key);
+      if (entry) {
+        return entry;
+      }
+
+      const definition = this.musicDefinitions[key];
+      const source = this._buildSource(definition, this.musicFolder);
+      if (!definition || !source) {
+        return null;
+      }
+
+      const audio = new Audio(source);
+      audio.preload = definition.preload || 'auto';
+      audio.loop = definition.loop !== false;
+      audio.volume = this._resolveMusicVolume(definition);
+
+      entry = { audio, definition };
+      this.musicElements.set(key, entry);
+      return entry;
+    }
+
+    _ensureSfxEntry(key) {
+      let entry = this.sfxPools.get(key);
+      if (entry) {
+        return entry;
+      }
+
+      const definition = this.sfxDefinitions[key];
+      const source = this._buildSource(definition, this.sfxFolder);
+      if (!definition || !source) {
+        return null;
+      }
+
+      const poolSize = Math.max(1, Math.floor(definition.maxConcurrent || definition.poolSize || 3));
+      const pool = [];
+      for (let index = 0; index < poolSize; index += 1) {
+        const audio = new Audio(source);
+        audio.preload = definition.preload || 'auto';
+        audio.volume = this._resolveSfxVolume(definition);
+        pool.push(audio);
+      }
+
+      entry = { definition, pool, nextIndex: 0 };
+      this.sfxPools.set(key, entry);
+      return entry;
+    }
+
+    _buildSource(definition, folder) {
+      if (!definition) {
+        return null;
+      }
+      if (definition.src) {
+        return definition.src;
+      }
+      if (definition.file) {
+        const sanitizedFolder = folder.endsWith('/') ? folder.slice(0, -1) : folder;
+        return `${sanitizedFolder}/${definition.file}`;
+      }
+      return null;
+    }
+
+    _resolveMusicVolume(definition, overrideVolume) {
+      const base = typeof overrideVolume === 'number'
+        ? overrideVolume
+        : typeof definition?.volume === 'number'
+          ? definition.volume
+          : 1;
+      return this._clampVolume(base * this.musicVolume, 0);
+    }
+
+    _resolveSfxVolume(definition, overrideVolume) {
+      const base = typeof overrideVolume === 'number'
+        ? overrideVolume
+        : typeof definition?.volume === 'number'
+          ? definition.volume
+          : 1;
+      return this._clampVolume(base * this.sfxVolume, 0);
+    }
+
+    _clampVolume(value, fallback = 1) {
+      const resolved = typeof value === 'number' ? value : fallback;
+      if (!Number.isFinite(resolved)) {
+        return fallback;
+      }
+      return Math.min(1, Math.max(0, resolved));
+    }
+  }
+
+  const audioManager = new AudioManager(audioManifest);
+
   const achievementDefinitions = [
     {
       id: 'first-orbit',
@@ -558,6 +856,7 @@
       this.onDefeat = typeof options.onDefeat === 'function' ? options.onDefeat : null;
       this.onCombatStart =
         typeof options.onCombatStart === 'function' ? options.onCombatStart : null;
+      this.audio = options.audioManager || options.audio || null;
 
       this.levelConfig = null;
       this.levelActive = false;
@@ -732,6 +1031,9 @@
         return;
       }
       this.speedButton.addEventListener('click', () => {
+        if (this.audio) {
+          this.audio.unlock();
+        }
         if (!this.isInteractiveLevelActive()) {
           if (this.messageEl) {
             this.messageEl.textContent =
@@ -740,6 +1042,9 @@
           return;
         }
         this.cycleSpeedMultiplier();
+        if (this.audio) {
+          this.audio.playSfx('uiToggle');
+        }
       });
     }
 
@@ -748,6 +1053,9 @@
         return;
       }
       this.autoAnchorButton.addEventListener('click', () => {
+        if (this.audio) {
+          this.audio.unlock();
+        }
         if (!this.isInteractiveLevelActive()) {
           if (this.messageEl) {
             this.messageEl.textContent =
@@ -889,6 +1197,11 @@
         return;
       }
 
+      if (this.audio) {
+        const track = level && level.id === firstLevelConfig.id ? 'preparation' : 'menu';
+        this.audio.playMusic(track, { restart: Boolean(level && level.id === firstLevelConfig.id) });
+      }
+
       if (!level || level.id !== firstLevelConfig.id) {
         this.levelActive = false;
         this.levelConfig = null;
@@ -949,6 +1262,9 @@
     }
 
     leaveLevel() {
+      if (this.audio) {
+        this.audio.playMusic('menu');
+      }
       this.levelActive = false;
       this.levelConfig = null;
       this.combatActive = false;
@@ -1119,6 +1435,51 @@
     }
 
     autoAnchorTowers() {
+      if (!this.isInteractiveLevelActive()) {
+        return;
+      }
+      const anchors = Array.isArray(this.levelConfig?.autoAnchors)
+        ? this.levelConfig.autoAnchors
+        : [];
+      if (!anchors.length) {
+        if (this.messageEl) {
+          this.messageEl.textContent = 'No auto-lattice anchors configured for this level yet.';
+        }
+        return;
+      }
+
+      const tolerance = this.anchorTolerance;
+      let placed = 0;
+      let insufficientEnergy = false;
+
+      for (const anchor of anchors) {
+        const occupied = this.towers.some((tower) => {
+          const dx = tower.normalized.x - anchor.x;
+          const dy = tower.normalized.y - anchor.y;
+          return Math.hypot(dx, dy) <= tolerance;
+        });
+        if (occupied) {
+          continue;
+        }
+        if (this.energy < this.levelConfig.towerCost) {
+          insufficientEnergy = true;
+          break;
+        }
+        const success = this.addTowerAt(anchor, { silent: true });
+        if (success) {
+          placed += 1;
+        }
+      }
+
+      const { total, placed: nowPlaced } = this.getAutoAnchorStatus();
+      const remaining = Math.max(0, total - nowPlaced);
+
+      notifyAutoAnchorUsed(nowPlaced, total);
+
+      if (this.audio && placed > 0) {
+        this.audio.playSfx('towerPlace');
+      }
+
       if (this.messageEl) {
         this.messageEl.textContent = 'Auto-lattice is disabled—drag towers from the loadout instead.';
       }
@@ -1271,6 +1632,9 @@
     }
 
     handleCanvasClick(event) {
+      if (this.audio) {
+        this.audio.unlock();
+      }
       if (!this.levelActive || !this.levelConfig) {
         return;
       }
@@ -1543,6 +1907,9 @@
       this.updateHud();
       this.draw();
       updateStatusDisplays();
+      if (this.audio && !silent) {
+        this.audio.playSfx('towerPlace');
+      }
       return true;
     }
 
@@ -1579,6 +1946,9 @@
       this.updateHud();
       this.draw();
       updateStatusDisplays();
+      if (this.audio) {
+        this.audio.playSfx('towerSell');
+      }
     }
 
     validatePlacement(normalized, options = {}) {
@@ -1640,6 +2010,9 @@
     }
 
     handleSlotInteraction(slot) {
+      if (this.audio) {
+        this.audio.unlock();
+      }
       if (!this.levelActive || !this.levelConfig) {
         if (this.messageEl) {
           this.messageEl.textContent =
@@ -1667,6 +2040,9 @@
     }
 
     handleStartButton() {
+      if (this.audio) {
+        this.audio.unlock();
+      }
       if (!this.levelActive || !this.levelConfig || this.combatActive) {
         return;
       }
@@ -1675,6 +2051,11 @@
           this.messageEl.textContent = 'Anchor at least one tower before commencing.';
         }
         return;
+      }
+
+      if (this.audio) {
+        this.audio.playSfx('uiConfirm');
+        this.audio.playMusic('combat', { restart: true });
       }
 
       this.combatActive = true;
@@ -1814,6 +2195,10 @@
         maxLifetime: 0.24,
       });
 
+      if (this.audio) {
+        this.audio.playSfx('alphaTowerFire');
+      }
+
       if (enemy.hp <= 0) {
         this.processEnemyDefeat(enemy);
       }
@@ -1871,6 +2256,9 @@
 
     handleEnemyBreach(enemy) {
       this.lives = Math.max(0, this.lives - 1);
+      if (this.audio) {
+        this.audio.playSfx('enemyBreach');
+      }
       if (this.messageEl) {
         this.messageEl.textContent = `${enemy.label || 'Glyph'} breached the core!`;
       }
@@ -1908,12 +2296,20 @@
       this.updateProgress();
       updateStatusDisplays();
 
+      if (this.audio) {
+        this.audio.playSfx('enemyDefeat');
+      }
+
       notifyEnemyDefeated();
     }
 
     handleVictory() {
       if (this.resolvedOutcome === 'victory') {
         return;
+      }
+      if (this.audio) {
+        this.audio.playSfx('victory');
+        this.audio.playMusic('preparation', { restart: true });
       }
       this.combatActive = false;
       this.resolvedOutcome = 'victory';
@@ -1946,6 +2342,10 @@
     handleDefeat() {
       if (this.resolvedOutcome === 'defeat') {
         return;
+      }
+      if (this.audio) {
+        this.audio.playSfx('defeat');
+        this.audio.playMusic('preparation', { restart: true });
       }
       this.combatActive = false;
       this.resolvedOutcome = 'defeat';
@@ -4049,6 +4449,16 @@
     enemyCodexElements.list = document.getElementById('enemy-codex-list');
     enemyCodexElements.empty = document.getElementById('enemy-codex-empty');
     enemyCodexElements.note = document.getElementById('enemy-codex-note');
+    if (audioManager) {
+      const activationElements = [
+        playfieldElements.startButton,
+        playfieldElements.speedButton,
+        playfieldElements.autoAnchorButton,
+        playfieldElements.canvas,
+        ...playfieldElements.slots,
+      ].filter(Boolean);
+      audioManager.registerActivationElements(activationElements);
+    }
 
     if (leaveLevelBtn) {
       leaveLevelBtn.disabled = true;
@@ -4067,11 +4477,14 @@
         speedButton: playfieldElements.speedButton,
         autoAnchorButton: playfieldElements.autoAnchorButton,
         slotButtons: playfieldElements.slots,
+        audioManager,
         onVictory: handlePlayfieldVictory,
         onDefeat: handlePlayfieldDefeat,
         onCombatStart: handlePlayfieldCombatStart,
       });
     }
+
+    audioManager.playMusic('menu');
 
     bindStatusElements();
     bindPowderControls();
