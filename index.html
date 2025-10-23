@@ -13,6 +13,28 @@
     <link rel="stylesheet" href="./assets/styles.css" />
   </head>
   <body>
+    <div
+      class="offline-overlay"
+      id="offline-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+      hidden
+    >
+      <div class="offline-overlay__content">
+        <p class="offline-overlay__title">Idle Powder Harvest</p>
+        <div class="offline-overlay__equation" aria-live="polite">
+          <span class="offline-number" id="offline-minutes">0</span>
+          <span class="offline-symbol">×</span>
+          <span class="offline-number" id="offline-rate">0</span>
+          <span class="offline-symbol">=</span>
+          <span class="offline-number" id="offline-total">0</span>
+        </div>
+        <button class="action-button offline-overlay__button" type="button" id="offline-continue" hidden>
+          Resume Defense
+        </button>
+      </div>
+    </div>
     <div class="app-shell">
       <header class="status-bar">
         <div class="status-group">
@@ -24,11 +46,17 @@
         </div>
         <div class="status-group">
           <span class="status-label">Ψ Glyphs</span>
-          <span class="status-value" id="status-energy">0</span>
+          <span class="status-value status-value--stacked">
+            <span id="status-glyphs-total">0 Glyphs</span>
+            <span class="status-subvalue status-subvalue--gold" id="status-glyphs-unused">(0 unused)</span>
+          </span>
         </div>
         <div class="status-group">
-          <span class="status-label">★ Achievements</span>
-          <span class="status-value" id="status-flux">0</span>
+          <span class="status-label">Powderfall Rate</span>
+          <span class="status-value status-value--stacked">
+            <span id="status-powder-rate">+0 Powder/min</span>
+            <span class="status-subvalue status-subvalue--gold" id="status-achievement-count">(0 achievements)</span>
+          </span>
         </div>
       </header>
 
@@ -508,6 +536,10 @@
                 <div>
                   <dt>Crystal Resonance</dt>
                   <dd id="powder-crystal-bonus">+0.00%</dd>
+                </div>
+                <div>
+                  <dt>Powder Stockpile</dt>
+                  <dd id="powder-stockpile">0 Powder</dd>
                 </div>
               </dl>
             </article>
