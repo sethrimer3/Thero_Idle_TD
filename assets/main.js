@@ -174,6 +174,7 @@
       enemyBreach: { file: 'enemy_breach.wav', volume: 0.75, maxConcurrent: 2 },
       victory: { file: 'victory_sting.wav', volume: 0.8, maxConcurrent: 1 },
       defeat: { file: 'defeat_sting.wav', volume: 0.8, maxConcurrent: 1 },
+      alphaTowerFire: { file: 'alpha_tower_firing.mp3', volume: 0.55, maxConcurrent: 5 },
     },
   };
 
@@ -1885,7 +1886,7 @@
       });
 
       if (this.audio) {
-        this.audio.playSfx('projectile');
+        this.audio.playSfx('alphaTowerFire');
       }
 
       if (enemy.hp <= 0) {
