@@ -727,12 +727,14 @@
     duneHeightMax: 6,
     thetaBase: 1.3,
     zetaBase: 1.6,
+    simulatedDuneGainMax: 3.4,
   };
 
   const powderState = {
     sandOffset: powderConfig.sandOffsetInactive,
     duneHeight: powderConfig.duneHeightBase,
     charges: 0,
+    simulatedDuneGain: 0,
   };
 
   let currentPowderBonuses = {
@@ -763,6 +765,8 @@
     sigilEntries: [],
     logList: null,
     logEmpty: null,
+    simulationCanvas: null,
+    simulationNote: null,
   };
 
   let resourceTicker = null;
@@ -772,6 +776,8 @@
   const POWDER_LOG_LIMIT = 6;
 
   const idleLevelRuns = new Map();
+
+  let powderSimulation = null;
 
   const firstLevelConfig = {
     id: 'Conjecture - 1',
@@ -860,6 +866,482 @@
       rewardEnergy: rewardThero,
     });
   });
+
+  class PowderSimulation {
+    constructor(options = {}) {
+      this.canvas = options.canvas || null;
+      this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+      this.cellSize = Math.max(2, Math.floor(options.cellSize || 4));
+      this.grainSizes = Array.isArray(options.grainSizes)
+        ? options.grainSizes.filter((size) => Number.isFinite(size) && size >= 2)
+        : [2, 4, 6];
+      if (!this.grainSizes.length) {
+        this.grainSizes = [2, 4, 6];
+      }
+      this.grainSizes.sort((a, b) => a - b);
+
+      this.maxDuneGain = Number.isFinite(options.maxDuneGain)
+        ? Math.max(0, options.maxDuneGain)
+        : 3;
+      this.maxGrains = options.maxGrains && options.maxGrains > 0 ? options.maxGrains : 220;
+      this.baseSpawnInterval = options.baseSpawnInterval && options.baseSpawnInterval > 0
+        ? options.baseSpawnInterval
+        : 180;
+
+      this.onHeightChange = typeof options.onHeightChange === 'function' ? options.onHeightChange : null;
+
+      this.width = 0;
+      this.height = 0;
+      this.cols = 0;
+      this.rows = 0;
+      this.grid = [];
+      this.grains = [];
+      this.heightInfo = { normalizedHeight: 0, duneGain: 0, largestGrain: 0 };
+
+      this.spawnTimer = 0;
+      this.lastFrame = 0;
+      this.loopHandle = null;
+      this.running = false;
+      this.nextId = 1;
+      this.stabilized = true;
+      this.flowOffset = 0;
+
+      this.handleFrame = this.handleFrame.bind(this);
+      this.handleResize = this.handleResize.bind(this);
+
+      if (this.ctx) {
+        this.configureCanvas();
+      }
+    }
+
+    handleResize() {
+      if (!this.canvas || !this.ctx) {
+        return;
+      }
+      const previousRunning = this.running;
+      this.configureCanvas();
+      if (!previousRunning) {
+        this.render();
+        this.updateHeightFromGrains(true);
+      }
+    }
+
+    configureCanvas() {
+      if (!this.canvas || !this.ctx) {
+        return;
+      }
+      const ratio = window.devicePixelRatio || 1;
+      const attrWidth = Number.parseFloat(this.canvas.getAttribute('width')) || 0;
+      const attrHeight = Number.parseFloat(this.canvas.getAttribute('height')) || 0;
+      const displayWidth = Math.max(200, this.canvas.clientWidth || attrWidth || 240);
+      const displayHeight = Math.max(260, this.canvas.clientHeight || attrHeight || 320);
+
+      this.canvas.width = Math.max(1, Math.floor(displayWidth * ratio));
+      this.canvas.height = Math.max(1, Math.floor(displayHeight * ratio));
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.scale(ratio, ratio);
+
+      this.width = displayWidth;
+      this.height = displayHeight;
+      this.cols = Math.max(4, Math.floor(this.width / this.cellSize));
+      this.rows = Math.max(4, Math.floor(this.height / this.cellSize));
+
+      this.reset();
+    }
+
+    reset() {
+      this.grid = Array.from({ length: this.rows }, () => new Array(this.cols).fill(0));
+      this.grains = [];
+      this.spawnTimer = 0;
+      this.lastFrame = 0;
+      this.heightInfo = { normalizedHeight: 0, duneGain: 0, largestGrain: 0 };
+      this.notifyHeightChange(this.heightInfo, true);
+    }
+
+    start() {
+      if (!this.ctx || this.running) {
+        return;
+      }
+      this.running = true;
+      this.lastFrame = 0;
+      this.loopHandle = requestAnimationFrame(this.handleFrame);
+      window.addEventListener('resize', this.handleResize);
+    }
+
+    stop() {
+      if (!this.running) {
+        return;
+      }
+      this.running = false;
+      if (this.loopHandle) {
+        cancelAnimationFrame(this.loopHandle);
+        this.loopHandle = null;
+      }
+      window.removeEventListener('resize', this.handleResize);
+    }
+
+    handleFrame(timestamp) {
+      if (!this.running) {
+        return;
+      }
+      if (!this.lastFrame) {
+        this.lastFrame = timestamp;
+      }
+      const delta = Math.min(100, Math.max(0, timestamp - this.lastFrame));
+      this.lastFrame = timestamp;
+      this.update(delta);
+      this.loopHandle = requestAnimationFrame(this.handleFrame);
+    }
+
+    update(delta) {
+      if (!this.ctx) {
+        return;
+      }
+
+      this.spawnTimer += delta;
+      const spawnInterval = this.getSpawnInterval();
+      if (this.spawnTimer >= spawnInterval && this.grains.length < this.maxGrains) {
+        this.spawnTimer -= spawnInterval;
+        this.spawnGrain();
+      }
+
+      const iterations = Math.max(1, Math.min(4, Math.round(delta / 16)));
+      for (let i = 0; i < iterations; i += 1) {
+        this.updateGrains();
+      }
+
+      this.updateHeightFromGrains();
+      this.render();
+    }
+
+    getSpawnInterval() {
+      if (!this.stabilized) {
+        return this.baseSpawnInterval * 1.25;
+      }
+      return this.baseSpawnInterval / Math.max(0.6, 1 + this.flowOffset * 0.45);
+    }
+
+    spawnGrain() {
+      if (!this.cols || !this.rows) {
+        return;
+      }
+      const size = this.chooseGrainSize();
+      const halfWidth = Math.floor(this.cols / 2);
+      const scatter = Math.max(1, Math.floor(this.cols / 6));
+      const offset = Math.floor(Math.random() * (scatter * 2 + 1)) - scatter;
+      const startX = Math.min(this.cols - size, Math.max(0, halfWidth - Math.floor(size / 2) + offset));
+
+      const grain = {
+        id: this.nextId,
+        x: startX,
+        y: -size,
+        size,
+        bias: Math.random() < 0.5 ? -1 : 1,
+        shade: 195 - size * 5 + Math.floor(Math.random() * 12),
+        freefall: !this.stabilized,
+        inGrid: false,
+      };
+
+      this.nextId += 1;
+      this.grains.push(grain);
+    }
+
+    chooseGrainSize() {
+      if (this.grainSizes.length === 1) {
+        return this.grainSizes[0];
+      }
+      const weights = this.grainSizes.map((size) => 1 / Math.max(1, size - 1));
+      const totalWeight = weights.reduce((sum, value) => sum + value, 0);
+      let pick = Math.random() * totalWeight;
+      for (let i = 0; i < this.grainSizes.length; i += 1) {
+        pick -= weights[i];
+        if (pick <= 0) {
+          return this.grainSizes[i];
+        }
+      }
+      return this.grainSizes[this.grainSizes.length - 1];
+    }
+
+    updateGrains() {
+      if (!this.grains.length) {
+        return;
+      }
+
+      const survivors = [];
+      const freefallSpeed = this.stabilized ? 2 : 3;
+
+      this.grains.sort((a, b) => b.y + b.size - (a.y + a.size));
+
+      for (const grain of this.grains) {
+        if (!this.stabilized || grain.freefall) {
+          grain.freefall = true;
+          grain.inGrid = false;
+          grain.y += freefallSpeed;
+          if (grain.y * this.cellSize > this.height + grain.size * this.cellSize) {
+            continue;
+          }
+          survivors.push(grain);
+          continue;
+        }
+
+        if (grain.y < 0) {
+          grain.y += 1;
+          survivors.push(grain);
+          continue;
+        }
+
+        if (grain.inGrid) {
+          this.clearCells(grain);
+        }
+
+        let moved = false;
+
+        if (this.canPlace(grain.x, grain.y + 1, grain.size)) {
+          grain.y += 1;
+          moved = true;
+        } else {
+          const preferred = grain.bias;
+          const alternate = -preferred;
+          if (this.canPlace(grain.x + preferred, grain.y + 1, grain.size)) {
+            grain.x += preferred;
+            grain.y += 1;
+            moved = true;
+          } else if (this.canPlace(grain.x + alternate, grain.y + 1, grain.size)) {
+            grain.x += alternate;
+            grain.y += 1;
+            moved = true;
+          } else {
+            const slump = this.getSlumpDirection(grain);
+            if (slump && this.canPlace(grain.x + slump, grain.y, grain.size)) {
+              grain.x += slump;
+              moved = true;
+            }
+          }
+        }
+
+        if (grain.y > this.rows - grain.size) {
+          grain.y = this.rows - grain.size;
+        }
+
+        this.fillCells(grain);
+        grain.inGrid = true;
+        grain.resting = !moved;
+        survivors.push(grain);
+      }
+
+      this.grains = survivors;
+    }
+
+    canPlace(x, y, size) {
+      if (x < 0 || y < 0 || x + size > this.cols || y + size > this.rows) {
+        return false;
+      }
+      for (let row = 0; row < size; row += 1) {
+        const gridRow = this.grid[y + row];
+        for (let col = 0; col < size; col += 1) {
+          if (gridRow[x + col]) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    clearCells(grain) {
+      if (!grain.inGrid) {
+        return;
+      }
+      for (let row = 0; row < grain.size; row += 1) {
+        const y = grain.y + row;
+        if (y < 0 || y >= this.rows) {
+          continue;
+        }
+        const gridRow = this.grid[y];
+        for (let col = 0; col < grain.size; col += 1) {
+          const x = grain.x + col;
+          if (x < 0 || x >= this.cols) {
+            continue;
+          }
+          if (gridRow[x] === grain.id) {
+            gridRow[x] = 0;
+          }
+        }
+      }
+      grain.inGrid = false;
+    }
+
+    fillCells(grain) {
+      for (let row = 0; row < grain.size; row += 1) {
+        const y = grain.y + row;
+        if (y < 0 || y >= this.rows) {
+          continue;
+        }
+        const gridRow = this.grid[y];
+        for (let col = 0; col < grain.size; col += 1) {
+          const x = grain.x + col;
+          if (x < 0 || x >= this.cols) {
+            continue;
+          }
+          gridRow[x] = grain.id;
+        }
+      }
+    }
+
+    getSupportDepth(column, startRow) {
+      if (column < 0 || column >= this.cols) {
+        return 0;
+      }
+      let depth = 0;
+      for (let row = startRow; row < this.rows; row += 1) {
+        if (this.grid[row][column]) {
+          break;
+        }
+        depth += 1;
+      }
+      return depth;
+    }
+
+    getAggregateDepth(startColumn, startRow, size) {
+      if (startColumn < 0 || startColumn + size > this.cols) {
+        return 0;
+      }
+      let total = 0;
+      for (let offset = 0; offset < size; offset += 1) {
+        total += this.getSupportDepth(startColumn + offset, startRow);
+      }
+      return total / Math.max(1, size);
+    }
+
+    getSlumpDirection(grain) {
+      const bottom = grain.y + grain.size;
+      if (bottom >= this.rows) {
+        return 0;
+      }
+
+      const leftDepth = this.getAggregateDepth(grain.x - 1, bottom, Math.min(grain.size, this.cols));
+      const rightDepth = this.getAggregateDepth(grain.x + grain.size, bottom, Math.min(grain.size, this.cols));
+
+      if (leftDepth > rightDepth + 0.6) {
+        return -1;
+      }
+      if (rightDepth > leftDepth + 0.6) {
+        return 1;
+      }
+      return 0;
+    }
+
+    updateHeightFromGrains(force = false) {
+      if (!this.grains.length) {
+        this.notifyHeightChange({ normalizedHeight: 0, duneGain: 0, largestGrain: 0 }, force);
+        return;
+      }
+
+      let highestTop = this.rows;
+      let largest = 0;
+      for (const grain of this.grains) {
+        if (grain.freefall || grain.y < 0) {
+          continue;
+        }
+        highestTop = Math.min(highestTop, grain.y);
+        largest = Math.max(largest, grain.size);
+      }
+
+      if (highestTop === this.rows) {
+        this.notifyHeightChange({ normalizedHeight: 0, duneGain: 0, largestGrain: largest }, force);
+        return;
+      }
+
+      const heightCells = Math.max(0, this.rows - highestTop);
+      const normalized = Math.min(1, heightCells / this.rows);
+      const duneGain = Math.min(this.maxDuneGain, normalized * this.maxDuneGain);
+
+      this.notifyHeightChange({ normalizedHeight: normalized, duneGain, largestGrain: largest }, force);
+    }
+
+    notifyHeightChange(info, force = false) {
+      if (!info) {
+        return;
+      }
+      const previous = this.heightInfo || { normalizedHeight: 0, duneGain: 0, largestGrain: 0 };
+      const heightDiff = Math.abs(previous.normalizedHeight - info.normalizedHeight);
+      const gainDiff = Math.abs(previous.duneGain - info.duneGain);
+      const sizeChanged = previous.largestGrain !== info.largestGrain;
+      this.heightInfo = info;
+      if (this.onHeightChange && (force || heightDiff > 0.01 || gainDiff > 0.01 || sizeChanged)) {
+        this.onHeightChange(info);
+      }
+    }
+
+    render() {
+      if (!this.ctx) {
+        return;
+      }
+
+      const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+      gradient.addColorStop(0, '#0f1018');
+      gradient.addColorStop(1, '#171a27');
+      this.ctx.fillStyle = gradient;
+      this.ctx.fillRect(0, 0, this.width, this.height);
+
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      this.ctx.fillRect(0, 0, 2, this.height);
+      this.ctx.fillRect(this.width - 2, 0, 2, this.height);
+      this.ctx.fillRect(0, this.height - 2, this.width, 2);
+
+      const cellSizePx = this.cellSize;
+      for (const grain of this.grains) {
+        const px = grain.x * cellSizePx;
+        const py = grain.y * cellSizePx;
+        const sizePx = grain.size * cellSizePx;
+
+        if (py >= this.height || px >= this.width || py + sizePx <= 0) {
+          continue;
+        }
+
+        const shade = Math.max(140, Math.min(235, grain.shade));
+        const alpha = grain.freefall ? 0.55 : 0.9;
+        this.ctx.fillStyle = `rgba(${shade}, ${shade}, ${shade}, ${alpha})`;
+        this.ctx.fillRect(px, py, sizePx, sizePx);
+
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
+        this.ctx.fillRect(px, py + sizePx - 1, sizePx, 1);
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        this.ctx.fillRect(px, py, sizePx, 1);
+      }
+    }
+
+    setFlowOffset(offset) {
+      const normalized = Number.isFinite(offset) ? Math.max(0, offset) : 0;
+      const stabilized = normalized > 0;
+      this.flowOffset = normalized;
+
+      if (stabilized === this.stabilized) {
+        this.stabilized = stabilized;
+        if (!stabilized) {
+          this.releaseAllGrains();
+        }
+        return;
+      }
+
+      this.stabilized = stabilized;
+      if (!this.stabilized) {
+        this.releaseAllGrains();
+      }
+    }
+
+    releaseAllGrains() {
+      this.grid.forEach((row) => row.fill(0));
+      this.grains.forEach((grain) => {
+        grain.freefall = true;
+        grain.inGrid = false;
+      });
+      this.updateHeightFromGrains(true);
+    }
+
+    getStatus() {
+      return this.heightInfo;
+    }
+  }
 
   class SimplePlayfield {
     constructor(options) {
@@ -4154,6 +4636,35 @@
     evaluateAchievements();
   }
 
+  function handlePowderHeightChange(info) {
+    if (!info) {
+      return;
+    }
+
+    const previousGain = powderState.simulatedDuneGain;
+    const normalizedHeight = Number.isFinite(info.normalizedHeight)
+      ? Math.max(0, Math.min(1, info.normalizedHeight))
+      : 0;
+    const clampedGain = Number.isFinite(info.duneGain)
+      ? Math.max(0, Math.min(powderConfig.simulatedDuneGainMax, info.duneGain))
+      : 0;
+    const largestGrain = Number.isFinite(info.largestGrain) ? Math.max(0, info.largestGrain) : 0;
+
+    powderState.simulatedDuneGain = clampedGain;
+
+    if (powderElements.simulationNote) {
+      const crestPercent = formatDecimal(normalizedHeight * 100, 1);
+      const crestHeight = formatDecimal(powderState.duneHeight + clampedGain, 2);
+      const grainLabel = largestGrain ? `${largestGrain}×${largestGrain}` : '—';
+      powderElements.simulationNote.textContent =
+        `Captured crest: ${crestPercent}% full · dune height h = ${crestHeight} · largest grain ${grainLabel}.`;
+    }
+
+    if (Math.abs(previousGain - clampedGain) > 0.01) {
+      refreshPowderSystems();
+    }
+  }
+
   function notifyIdleTime(elapsedMs) {
     if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) {
       return;
@@ -4165,8 +4676,9 @@
   function calculatePowderBonuses() {
     // Stabilizing the sandfall adds an offset term to Ψ(g) = 2.7 · sin(t), yielding steady grain capture.
     const sandBonus = powderState.sandOffset > 0 ? 0.15 + powderState.sandOffset * 0.03 : 0;
-    // Surveying dunes raises h inside Δm = log₂(h + 1), boosting energy conduits.
-    const duneBonus = Math.log2(powderState.duneHeight + 1) * 0.04;
+    // Surveying dunes raises h inside Δm = log₂(h + 1); dynamic grains extend h beyond the surveyed base.
+    const effectiveDuneHeight = Math.max(1, powderState.duneHeight + powderState.simulatedDuneGain);
+    const duneBonus = Math.log2(effectiveDuneHeight + 1) * 0.04;
 
     const baseCrystalProduct = powderConfig.thetaBase * powderConfig.zetaBase;
     const chargedTheta = powderConfig.thetaBase + powderState.charges * 0.6;
@@ -4270,6 +4782,9 @@
     powderElements.crystalNote = document.getElementById('powder-crystal-note');
     powderElements.crystalButton = document.querySelector('[data-powder-action="crystal"]');
 
+    powderElements.simulationCanvas = document.getElementById('powder-canvas');
+    powderElements.simulationNote = document.getElementById('powder-simulation-note');
+
     powderElements.totalMultiplier = document.getElementById('powder-total-multiplier');
     powderElements.sandBonusValue = document.getElementById('powder-sand-bonus');
     powderElements.duneBonusValue = document.getElementById('powder-dune-bonus');
@@ -4297,6 +4812,18 @@
 
     if (powderElements.crystalButton) {
       powderElements.crystalButton.addEventListener('click', chargeCrystalMatrix);
+    }
+
+    if (powderElements.simulationCanvas && !powderSimulation) {
+      powderSimulation = new PowderSimulation({
+        canvas: powderElements.simulationCanvas,
+        grainSizes: [2, 4, 6],
+        maxDuneGain: powderConfig.simulatedDuneGainMax,
+        onHeightChange: handlePowderHeightChange,
+      });
+      powderSimulation.setFlowOffset(powderState.sandOffset);
+      powderSimulation.start();
+      handlePowderHeightChange(powderSimulation.getStatus());
     }
   }
 
@@ -4410,6 +4937,10 @@
       powderState.sandOffset > 0
         ? powderConfig.sandOffsetInactive
         : powderConfig.sandOffsetActive;
+
+    if (powderSimulation) {
+      powderSimulation.setFlowOffset(powderState.sandOffset);
+    }
 
     refreshPowderSystems();
     recordPowderEvent(powderState.sandOffset > 0 ? 'sand-stabilized' : 'sand-released');
@@ -4534,18 +5065,19 @@
     }
 
     if (powderElements.duneFormula) {
-      const height = powderState.duneHeight;
+      const height = Math.max(1, powderState.duneHeight + powderState.simulatedDuneGain);
       const logValue = Math.log2(height + 1);
-      powderElements.duneFormula.textContent = `Δm = log₂(${height} + 1) = ${formatDecimal(
+      powderElements.duneFormula.textContent = `Δm = log₂(${formatDecimal(height, 2)} + 1) = ${formatDecimal(
         logValue,
         2,
       )}`;
     }
 
     if (powderElements.duneNote) {
+      const crestHeight = Math.max(1, powderState.duneHeight + powderState.simulatedDuneGain);
       powderElements.duneNote.textContent = `Channel bonus: +${formatPercentage(
         currentPowderBonuses.duneBonus,
-      )} to energy gain.`;
+      )} to energy gain · crest h = ${formatDecimal(crestHeight, 2)}.`;
     }
 
     if (powderElements.duneButton) {
