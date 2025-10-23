@@ -345,8 +345,8 @@
 
   const levelLookup = new Map(levelBlueprints.map((level) => [level.id, level]));
   const levelState = new Map();
-  const interactiveLevelOrder = Array.from(levelConfigs.keys());
-  const unlockedLevels = new Set([firstLevelConfig.id]);
+  let interactiveLevelOrder = [];
+  const unlockedLevels = new Set();
 
   let tabs = [];
   let panels = [];
@@ -1784,6 +1784,11 @@
       levelTenConfig,
     ].map((config) => [config.id, config]),
   );
+
+  interactiveLevelOrder = Array.from(levelConfigs.keys());
+  if (interactiveLevelOrder.length) {
+    unlockedLevels.add(interactiveLevelOrder[0]);
+  }
 
   const idleLevelConfigs = new Map();
 
