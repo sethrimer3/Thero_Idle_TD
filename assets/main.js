@@ -234,6 +234,9 @@
   let overlayDuration = null;
   let overlayRewards = null;
   let overlayLast = null;
+  let overlayInstruction = null;
+  let overlayRequiresLevelExit = false;
+  const overlayInstructionDefault = 'Tap to enter';
   let activeLevelId = null;
   let pendingLevel = null;
   let activeTabIndex = 0;
@@ -323,7 +326,7 @@
     sfx: {
       uiConfirm: { file: 'ui_confirm.wav', volume: 0.45, maxConcurrent: 2 },
       uiToggle: { file: 'ui_toggle.wav', volume: 0.4, maxConcurrent: 2 },
-      towerPlace: { file: 'tower_place.wav', volume: 0.7, maxConcurrent: 4 },
+      towerPlace: { file: 'tower_placement.mp3', volume: 0.7, maxConcurrent: 4 },
       towerSell: { file: 'tower_sell.wav', volume: 0.6, maxConcurrent: 2 },
       projectile: { file: 'projectile_launch.wav', volume: 0.45, maxConcurrent: 6 },
       enemyDefeat: { file: 'enemy_defeat.wav', volume: 0.65, maxConcurrent: 4 },
@@ -1024,11 +1027,27 @@
     }
 
     completeTowerPlacement(normalized, { towerType } = {}) {
-      if (!normalized || !towerType) {
+      if (!towerType) {
         this.clearPlacementPreview();
         return false;
       }
-      const placed = this.addTowerAt(normalized, { towerType });
+
+      let targetNormalized = normalized ? { ...normalized } : null;
+      if (
+        this.hoverPlacement &&
+        this.hoverPlacement.towerType === towerType &&
+        this.hoverPlacement.dragging &&
+        this.hoverPlacement.normalized
+      ) {
+        targetNormalized = { ...this.hoverPlacement.normalized };
+      }
+
+      if (!targetNormalized) {
+        this.clearPlacementPreview();
+        return false;
+      }
+
+      const placed = this.addTowerAt(targetNormalized, { towerType });
       if (placed) {
         this.clearPlacementPreview();
       }
@@ -1248,6 +1267,7 @@
         }
         this.updateSpeedButton();
         this.updateAutoAnchorButton();
+        cancelTowerDrag();
         return;
       }
 
@@ -1579,25 +1599,48 @@
 
     updatePlacementPreview(normalized, options = {}) {
       const { towerType, dragging = false } = options;
-      if (!towerType) {
+      if (!towerType || !normalized) {
         this.hoverPlacement = null;
         return;
       }
 
       const definition = getTowerDefinition(towerType);
-      const rawPosition = this.getCanvasPosition(normalized);
-      const existing = this.findTowerAt(rawPosition);
-      let position = rawPosition;
+      let placementNormalized = { ...normalized };
+      const pointerPosition = this.getCanvasPosition(normalized);
+
+      if (dragging) {
+        const offsetX = this.dragPreviewOffset?.x || 0;
+        const offsetY = this.dragPreviewOffset?.y || 0;
+        const adjustedPosition = {
+          x: pointerPosition.x + offsetX,
+          y: pointerPosition.y + offsetY,
+        };
+        const adjustedNormalized = this.getNormalizedFromCanvasPosition(adjustedPosition);
+        if (adjustedNormalized) {
+          placementNormalized = adjustedNormalized;
+        }
+      }
+
+      let position = this.getCanvasPosition(placementNormalized);
+      const existing = this.findTowerAt(position);
       const merging = Boolean(existing && existing.type === towerType);
       const nextId = merging ? getNextTowerId(towerType) : null;
       const nextDefinition = nextId ? getTowerDefinition(nextId) : null;
 
-      const validation = merging
-        ? { valid: Boolean(nextDefinition), reason: nextDefinition ? '' : 'Peak tier reached.' }
-        : this.validatePlacement(normalized, { allowPathOverlap: false });
-
       if (merging && existing) {
         position = { x: existing.x, y: existing.y };
+        const mergeNormalized = this.getNormalizedFromCanvasPosition(position);
+        if (mergeNormalized) {
+          placementNormalized = mergeNormalized;
+        }
+      }
+
+      const validation = merging
+        ? { valid: Boolean(nextDefinition), reason: nextDefinition ? '' : 'Peak tier reached.' }
+        : this.validatePlacement(placementNormalized, { allowPathOverlap: false });
+
+      if (!merging && validation.position) {
+        position = validation.position;
       }
 
       const baseCost = this.getCurrentTowerCost(towerType);
@@ -1627,7 +1670,7 @@
 
       const rangeFactor = definition ? definition.range : 0.24;
       this.hoverPlacement = {
-        normalized: { ...normalized },
+        normalized: { ...placementNormalized },
         position,
         range: Math.min(this.renderWidth, this.renderHeight) * rangeFactor,
         valid,
@@ -2468,6 +2511,21 @@
       };
     }
 
+    getNormalizedFromCanvasPosition(position) {
+      if (!position || !this.canvas) {
+        return null;
+      }
+      const width = this.renderWidth || this.canvas.width || 1;
+      const height = this.renderHeight || this.canvas.height || 1;
+      if (!width || !height) {
+        return null;
+      }
+      const clamp = (value) => Math.min(Math.max(value, 0.04), 0.96);
+      const x = clamp(position.x / width);
+      const y = clamp(position.y / height);
+      return { x, y };
+    }
+
     getPointAlongPath(progress) {
       if (!this.pathSegments.length) {
         return { x: 0, y: 0 };
@@ -2617,9 +2675,8 @@
       const stroke = valid ? 'rgba(139, 247, 255, 0.7)' : 'rgba(120, 132, 150, 0.6)';
       const fill = valid ? 'rgba(139, 247, 255, 0.12)' : 'rgba(120, 132, 150, 0.1)';
 
-      const offsetY = dragging ? this.dragPreviewOffset.y : 0;
       const drawX = position.x;
-      const drawY = position.y + offsetY;
+      const drawY = position.y;
 
       ctx.save();
       ctx.setLineDash([6, 6]);
@@ -3086,9 +3143,15 @@
       lastLevelTrigger = null;
     }
 
-    if (!state.entered) {
+    const otherActiveId = activeLevelId && activeLevelId !== level.id ? activeLevelId : null;
+    const otherActiveState = otherActiveId ? levelState.get(otherActiveId) : null;
+    const requiresExitConfirm = Boolean(
+      otherActiveId && (otherActiveState?.running || otherActiveState?.entered),
+    );
+
+    if (!state.entered || requiresExitConfirm) {
       pendingLevel = level;
-      showLevelOverlay(level);
+      showLevelOverlay(level, { requireExitConfirm: requiresExitConfirm, exitLevelId: otherActiveId });
       return;
     }
 
@@ -3097,8 +3160,10 @@
     lastLevelTrigger = null;
   }
 
-  function showLevelOverlay(level) {
+  function showLevelOverlay(level, options = {}) {
     if (!overlay || !overlayLabel || !overlayTitle || !overlayExample) return;
+    const { requireExitConfirm = false, exitLevelId = null } = options;
+    overlayRequiresLevelExit = Boolean(requireExitConfirm);
     overlayLabel.textContent = level.id;
     overlayTitle.textContent = level.title;
     overlayExample.textContent = level.example;
@@ -3117,6 +3182,22 @@
       const runner = idleLevelRuns.get(level.id) || null;
       overlayLast.textContent = describeLevelLastResult(level, state, runner);
     }
+    if (overlayInstruction) {
+      if (overlayRequiresLevelExit) {
+        const exitLevel = exitLevelId ? levelLookup.get(exitLevelId) : levelLookup.get(activeLevelId);
+        const exitLabel = exitLevel ? `${exitLevel.id} · ${exitLevel.title}` : 'the active level';
+        overlayInstruction.textContent = `Entering will abandon ${exitLabel}. Tap to confirm.`;
+      } else {
+        overlayInstruction.textContent = overlayInstructionDefault;
+      }
+    }
+    if (overlay) {
+      if (overlayRequiresLevelExit) {
+        overlay.setAttribute('data-overlay-mode', 'warning');
+      } else {
+        overlay.removeAttribute('data-overlay-mode');
+      }
+    }
     overlay.setAttribute('aria-hidden', 'false');
     overlay.focus();
     requestAnimationFrame(() => {
@@ -3128,6 +3209,13 @@
     if (!overlay) return;
     overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
+    overlayRequiresLevelExit = false;
+    if (overlayInstruction) {
+      overlayInstruction.textContent = overlayInstructionDefault;
+    }
+    if (overlay) {
+      overlay.removeAttribute('data-overlay-mode');
+    }
   }
 
   function cancelPendingLevel() {
@@ -3186,6 +3274,8 @@
     } else {
       updateIdleLevelDisplay();
     }
+
+    updateTowerSelectionButtons();
   }
 
   function leaveActiveLevel() {
@@ -3202,6 +3292,7 @@
     resourceState.running = false;
     updateActiveLevelBanner();
     updateLevelCards();
+    updateTowerSelectionButtons();
   }
 
   function updateLevelCards() {
@@ -3643,7 +3734,6 @@
   }
 
   function pruneLockedTowersFromLoadout() {
-    pruneLockedTowersFromLoadout();
     const selected = towerLoadoutState.selected;
     let changed = false;
     for (let index = selected.length - 1; index >= 0; index -= 1) {
@@ -3877,6 +3967,11 @@
 
       button.setAttribute('aria-pressed', selected ? 'true' : 'false');
       button.textContent = selected ? `Equipped ${label}` : `Equip ${label}`;
+      if (playfield && playfield.isInteractiveLevelActive()) {
+        button.disabled = true;
+        button.title = 'Leave the active level to adjust your loadout.';
+        return;
+      }
       const atLimit = !selected && towerLoadoutState.selected.length >= TOWER_LOADOUT_LIMIT;
       button.disabled = atLimit;
       button.title = selected
@@ -3887,6 +3982,13 @@
 
   function toggleTowerSelection(towerId) {
     if (!towerDefinitionMap.has(towerId)) {
+      return;
+    }
+    if (playfield && playfield.isInteractiveLevelActive()) {
+      if (loadoutElements.note) {
+        loadoutElements.note.textContent = 'Leave the active level to adjust your loadout.';
+      }
+      updateTowerSelectionButtons();
       return;
     }
     if (!isTowerUnlocked(towerId)) {
@@ -3939,6 +4041,7 @@
       playfield.setAvailableTowers(towerLoadoutState.selected);
     }
     renderTowerLoadout();
+    updateTowerSelectionButtons();
   }
 
   function renderEnemyCodex() {
@@ -4501,6 +4604,10 @@
     overlayDuration = document.getElementById('overlay-duration');
     overlayRewards = document.getElementById('overlay-rewards');
     overlayLast = document.getElementById('overlay-last');
+    overlayInstruction = overlay ? overlay.querySelector('.overlay-instruction') : null;
+    if (overlayInstruction) {
+      overlayInstruction.textContent = overlayInstructionDefault;
+    }
 
     playfieldElements.container = document.getElementById('playfield');
     playfieldElements.canvas = document.getElementById('playfield-canvas');
