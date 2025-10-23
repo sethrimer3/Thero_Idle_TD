@@ -68,60 +68,6 @@
           role="tabpanel"
           aria-labelledby="tab-tower"
         >
-          <div class="track-stage">
-            <svg
-              class="track-canvas"
-              viewBox="0 0 560 360"
-              role="img"
-              aria-labelledby="track-title track-desc"
-            >
-              <title id="track-title">Whimsical enemy trajectory</title>
-              <desc id="track-desc">
-                Smooth, ribbon-like path inspired by glyph geometry for tower defense
-              </desc>
-              <defs>
-                <linearGradient id="pathGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="rgba(80, 160, 255, 0.92)" />
-                  <stop offset="50%" stop-color="rgba(150, 110, 255, 0.9)" />
-                  <stop offset="100%" stop-color="rgba(255, 152, 96, 0.9)" />
-                </linearGradient>
-                <filter id="glow">
-                  <feGaussianBlur stdDeviation="6" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-              <path
-                class="track-path"
-                d="M28 322 C108 294, 156 222, 236 198 S384 152, 426 224 S522 350, 534 132"
-              />
-              <path
-                class="track-path secondary"
-                d="M48 300 C122 276, 168 208, 244 188 S378 148, 418 210 S508 332, 528 136"
-              />
-              <g class="tower-pips">
-                <circle cx="140" cy="210" r="12" />
-                <circle cx="240" cy="150" r="12" />
-                <circle cx="340" cy="200" r="12" />
-                <circle cx="420" cy="150" r="12" />
-              </g>
-              <g class="enemy-orbs">
-                <circle cx="110" cy="250" r="6" />
-                <circle cx="220" cy="190" r="6" />
-                <circle cx="360" cy="160" r="6" />
-              </g>
-            </svg>
-            <div class="track-caption">
-              <h2>Immortal Spiral 01</h2>
-              <p>
-                Each loop is generated from a blended sine and bezier formula,
-                guiding enemies along a silky ribbon of geometry. Merge towers to
-                reshape the curve and bend trajectories.
-              </p>
-            </div>
-          </div>
           <section class="playfield-wrapper" aria-live="polite">
             <header class="playfield-header">
               <h3>Active Defense Simulation</h3>
@@ -214,18 +160,6 @@
               Leave Current Level
             </button>
           </section>
-          <section class="enemy-codex">
-            <header class="subsection-title">Enemy Codex</header>
-            <p class="enemy-codex-note" id="enemy-codex-note">
-              Encounter enemies to reveal their entries within the codex tab.
-            </p>
-          </section>
-          <aside class="prestige-card">
-            <h2>Prestige Window</h2>
-            <p><strong>Ξ Progress:</strong> 10.2 → 17.3</p>
-            <p><strong>Reward:</strong> +12% Σ damage</p>
-            <button class="action-button" type="button">Prysmatic!</button>
-          </aside>
           <div class="stage-footer">
             <div class="stage-controls">
               <button class="play-button" type="button" id="playfield-start" disabled>
