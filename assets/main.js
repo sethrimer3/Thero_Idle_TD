@@ -711,6 +711,8 @@ import {
   let overlayTitle = null;
   let overlayExample = null;
   let overlayPreview = null;
+  let overlayPreviewCanvas = null;
+  let previewPlayfield = null;
   let overlayMode = null;
   let overlayDuration = null;
   let overlayRewards = null;
@@ -2246,6 +2248,7 @@ import {
       this.speedButton = options.speedButton || null;
       this.autoAnchorButton = options.autoAnchorButton || null;
       this.autoWaveCheckbox = options.autoWaveCheckbox || null;
+      this.previewOnly = Boolean(options.previewOnly);
       this.speedMultipliers =
         Array.isArray(options.speedMultipliers) && options.speedMultipliers.length
           ? options.speedMultipliers.slice()
@@ -2321,20 +2324,22 @@ import {
       this.enemyTooltipNameEl = null;
       this.enemyTooltipHpEl = null;
 
-      this.registerSlots();
-      this.bindStartButton();
-      this.bindSpeedButton();
-      this.bindAutoAnchorButton();
-      this.bindAutoWaveCheckbox();
-      this.attachResizeObservers();
-      this.attachCanvasInteractions();
-      this.createEnemyTooltip();
+      if (!this.previewOnly) {
+        this.registerSlots();
+        this.bindStartButton();
+        this.bindSpeedButton();
+        this.bindAutoAnchorButton();
+        this.bindAutoWaveCheckbox();
+        this.attachResizeObservers();
+        this.attachCanvasInteractions();
+        this.createEnemyTooltip();
 
-      this.disableSlots(true);
-      this.updateHud();
-      this.updateProgress();
-      this.updateSpeedButton();
-      this.updateAutoAnchorButton();
+        this.disableSlots(true);
+        this.updateHud();
+        this.updateProgress();
+        this.updateSpeedButton();
+        this.updateAutoAnchorButton();
+      }
     }
 
     registerSlots() {
@@ -2767,6 +2772,18 @@ import {
       const isInteractive = Boolean(config);
       const endlessMode = Boolean(options.endlessMode);
 
+      if (this.previewOnly && !isInteractive) {
+        this.levelActive = false;
+        this.levelConfig = null;
+        this.combatActive = false;
+        this.shouldAnimate = false;
+        this.stopLoop();
+        if (this.ctx) {
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+        return;
+      }
+
       if (this.audio) {
         const track = isInteractive ? 'preparation' : 'menu';
         this.audio.playMusic(track, { restart: isInteractive });
@@ -2839,6 +2856,20 @@ import {
       this.endlessCycle = 0;
       this.currentWaveNumber = 1;
       this.maxWaveReached = 0;
+      if (this.previewOnly) {
+        this.combatActive = false;
+        this.shouldAnimate = false;
+        this.stopLoop();
+        this.arcOffset = 0;
+        this.enemies = [];
+        this.projectiles = [];
+        this.towers = [];
+        this.hoverPlacement = null;
+        this.pointerPosition = null;
+        this.syncCanvasSize();
+        return;
+      }
+
       this.setAvailableTowers(towerLoadoutState.selected);
       this.shouldAnimate = true;
       this.resetState();
@@ -2874,6 +2905,27 @@ import {
     }
 
     leaveLevel() {
+      if (this.previewOnly) {
+        this.levelActive = false;
+        this.levelConfig = null;
+        this.combatActive = false;
+        this.shouldAnimate = false;
+        this.stopLoop();
+        this.enemies = [];
+        this.projectiles = [];
+        this.towers = [];
+        this.pathSegments = [];
+        this.pathPoints = [];
+        this.pathLength = 0;
+        this.arcOffset = 0;
+        this.hoverPlacement = null;
+        this.pointerPosition = null;
+        if (this.ctx) {
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+        return;
+      }
+
       if (this.audio) {
         this.audio.playMusic('menu');
       }
@@ -5576,7 +5628,14 @@ import {
     if (!overlayPreview) {
       return;
     }
+
+    if (previewPlayfield) {
+      previewPlayfield.leaveLevel();
+      previewPlayfield = null;
+    }
+
     overlayPreview.innerHTML = '';
+    overlayPreviewCanvas = null;
     overlayPreview.setAttribute('aria-hidden', 'true');
     overlayPreview.hidden = true;
     overlayPreview.classList.remove('overlay-preview--active');
@@ -5587,6 +5646,36 @@ import {
       return;
     }
     clearOverlayPreview();
+
+    const config = level ? levelConfigs.get(level.id) : null;
+    const hasInteractivePath = Boolean(
+      config && Array.isArray(config.path) && config.path.length >= 2,
+    );
+
+    if (hasInteractivePath) {
+      overlayPreviewCanvas = document.createElement('canvas');
+      overlayPreviewCanvas.className = 'overlay-preview__canvas';
+      overlayPreviewCanvas.setAttribute(
+        'aria-label',
+        `${level?.title || 'Defense'} path preview`,
+      );
+      overlayPreviewCanvas.setAttribute('role', 'img');
+      overlayPreview.append(overlayPreviewCanvas);
+
+      overlayPreview.hidden = false;
+      overlayPreview.setAttribute('aria-hidden', 'false');
+      overlayPreview.classList.add('overlay-preview--active');
+
+      previewPlayfield = new SimplePlayfield({
+        canvas: overlayPreviewCanvas,
+        container: overlayPreview,
+        previewOnly: true,
+      });
+      previewPlayfield.enterLevel(level, { endlessMode: false });
+      previewPlayfield.draw();
+      return;
+    }
+
     const points = getPreviewPointsForLevel(level);
     if (!Array.isArray(points) || points.length < 2) {
       const placeholder = document.createElement('p');
@@ -5736,11 +5825,10 @@ import {
     lanePath.setAttribute('filter', `url(#${haloId})`);
     svg.append(lanePath);
 
-    const config = level ? levelConfigs.get(level.id) : null;
-    const anchors = Array.isArray(config?.autoAnchors) ? config.autoAnchors : [];
-    if (anchors.length) {
+    const anchorsList = Array.isArray(config?.autoAnchors) ? config.autoAnchors : [];
+    if (anchorsList.length) {
       const anchorGroup = document.createElementNS(SVG_NS, 'g');
-      anchors.forEach((anchor) => {
+      anchorsList.forEach((anchor) => {
         const scaled = scalePoint({ x: anchor?.x ?? 0.5, y: anchor?.y ?? 0.5 });
         const outer = document.createElementNS(SVG_NS, 'circle');
         outer.setAttribute('cx', scaled.x);
