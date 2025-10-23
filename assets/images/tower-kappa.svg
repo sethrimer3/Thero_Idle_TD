@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="kappaGlow" cx="48%" cy="38%" r="64%">
+      <stop offset="0%" stop-color="#fffced" stop-opacity="0.92" />
+      <stop offset="66%" stop-color="#ffdba3" stop-opacity="0.84" />
+      <stop offset="100%" stop-color="#17131f" stop-opacity="0.93" />
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0a0b14" />
+  <circle cx="32" cy="30" r="24" fill="url(#kappaGlow)" />
+  <path d="M18 18l28 24" stroke="#ffe0b0" stroke-width="2" stroke-linecap="round" opacity="0.45" />
+  <path d="M18 42l28-24" stroke="#ffe0b0" stroke-width="2" stroke-linecap="round" opacity="0.45" />
+  <text
+    x="32"
+    y="41"
+    font-family="'Cormorant Garamond', 'Times New Roman', serif"
+    font-size="32"
+    text-anchor="middle"
+    fill="#231b14"
+  >κ</text>
+</svg>
