@@ -361,14 +361,14 @@ body::before {
   border-radius: 14px;
   border: 1px solid rgba(139, 247, 255, 0.25);
   background: rgba(6, 7, 12, 0.92);
-  padding: 12px 10px;
+  padding: 14px 10px 12px;
   display: grid;
   justify-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: grab;
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition),
     opacity var(--transition);
-  min-height: 84px;
+  min-height: 116px;
 }
 
 .tower-loadout-item:active {
@@ -396,6 +396,17 @@ body::before {
   font-family: "Cormorant Garamond", serif;
   font-size: 1.6rem;
   letter-spacing: 0.08em;
+}
+
+.tower-loadout-art {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  padding: 6px;
+  background: radial-gradient(circle at 50% 30%, rgba(255, 228, 120, 0.28), rgba(12, 14, 20, 0.85));
+  box-shadow: 0 10px 18px rgba(255, 228, 120, 0.18);
+  object-fit: contain;
+  mix-blend-mode: screen;
 }
 
 .tower-loadout-label {
@@ -1137,6 +1148,19 @@ body::before {
   color: rgba(255, 228, 120, 0.75);
   background: rgba(14, 16, 24, 0.65);
   box-shadow: 0 0 6px rgba(255, 228, 120, 0.28);
+}
+
+.powder-crest-marker {
+  background: linear-gradient(90deg, rgba(139, 247, 255, 0.7), rgba(255, 255, 255, 0.45));
+  box-shadow: 0 0 10px rgba(139, 247, 255, 0.28);
+  opacity: 0.9;
+}
+
+.powder-crest-marker::after {
+  right: auto;
+  left: -2.8rem;
+  color: rgba(139, 247, 255, 0.8);
+  box-shadow: 0 0 6px rgba(139, 247, 255, 0.35);
 }
 
 .powder-wall.wall-awake {

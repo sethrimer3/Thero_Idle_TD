@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="alphaGlow" cx="50%" cy="38%" r="60%">
+      <stop offset="0%" stop-color="#fff3c4" stop-opacity="0.95" />
+      <stop offset="70%" stop-color="#f0c75c" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#1a1724" stop-opacity="0.9" />
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0b0d14" />
+  <circle cx="32" cy="30" r="24" fill="url(#alphaGlow)" />
+  <path d="M14 46h36" stroke="#ffe89a" stroke-width="2" stroke-linecap="round" opacity="0.6" />
+  <text
+    x="32"
+    y="41"
+    font-family="'Cormorant Garamond', 'Times New Roman', serif"
+    font-size="32"
+    text-anchor="middle"
+    fill="#231d14"
+  >α</text>
+</svg>
