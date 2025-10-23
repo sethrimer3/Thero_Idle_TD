@@ -3734,7 +3734,6 @@
   }
 
   function pruneLockedTowersFromLoadout() {
-    pruneLockedTowersFromLoadout();
     const selected = towerLoadoutState.selected;
     let changed = false;
     for (let index = selected.length - 1; index >= 0; index -= 1) {
