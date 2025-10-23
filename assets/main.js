@@ -210,6 +210,293 @@
     encounteredEnemies: new Set(),
   };
 
+  const COLOR_SCHEME_STORAGE_KEY = 'glyph-defense-color-scheme';
+
+  const defaultTowerVisuals = Object.freeze({
+    outerStroke: 'rgba(255, 228, 120, 0.85)',
+    outerShadow: null,
+    innerFill: 'rgba(8, 9, 14, 0.9)',
+    symbolFill: 'rgba(255, 228, 120, 0.85)',
+    symbolShadow: null,
+    rangeStroke: 'rgba(139, 247, 255, 0.18)',
+  });
+
+  const defaultOmegaWaveVisuals = Object.freeze({
+    color: 'rgba(255, 228, 120, 0.6)',
+    trailColor: 'rgba(139, 247, 255, 0.35)',
+    size: 4,
+    glowColor: 'rgba(255, 228, 120, 0.75)',
+    glowBlur: 24,
+  });
+
+  function getTowerTierValue(tower) {
+    if (!tower) {
+      return 1;
+    }
+    if (Number.isFinite(tower.tier)) {
+      return tower.tier;
+    }
+    if (Number.isFinite(tower.definition?.tier)) {
+      return tower.definition.tier;
+    }
+    return 1;
+  }
+
+  function computeChromaticMetrics(tower) {
+    const tier = Math.max(1, getTowerTierValue(tower));
+    const clamped = Math.min(tier, 24);
+    const ratio = clamped > 1 ? (clamped - 1) / 23 : 0;
+    const hue = Math.round(300 * ratio);
+    const baseLightness = Math.max(0, Math.min(100, 100 - ratio * 100));
+    return { tier, clamped, ratio, hue, baseLightness };
+  }
+
+  function computeChromaticTowerVisuals(tower) {
+    const { ratio, hue, baseLightness } = computeChromaticMetrics(tower);
+
+    const outerStroke = `hsl(${hue}, 90%, ${Math.max(0, baseLightness)}%)`;
+    const innerLightness = Math.max(4, baseLightness * 0.55);
+    const innerFill = `hsl(${hue}, 65%, ${innerLightness}%)`;
+    const rangeLightness = Math.min(85, baseLightness + 40);
+    const rangeOpacity = 0.18 + (1 - ratio) * 0.12;
+    const rangeStroke = `hsla(${hue}, 90%, ${rangeLightness}%, ${rangeOpacity.toFixed(2)})`;
+
+    let symbolFill;
+    let symbolShadow = null;
+
+    if (baseLightness > 65) {
+      symbolFill = 'rgba(18, 18, 26, 0.92)';
+      const glowLightness = Math.min(95, baseLightness + 18);
+      symbolShadow = {
+        color: `hsla(${hue}, 85%, ${glowLightness}%, 0.55)`,
+        blur: 10,
+      };
+    } else {
+      const symbolLightness = Math.max(6, baseLightness * 0.5);
+      symbolFill = `hsl(${hue}, 90%, ${symbolLightness}%)`;
+      if (baseLightness < 35) {
+        const glowLightness = Math.min(92, baseLightness + 60);
+        symbolShadow = {
+          color: `hsla(${hue}, 90%, ${glowLightness}%, 0.95)`,
+          blur: 26,
+        };
+      }
+    }
+
+    let outerShadow = null;
+    if (baseLightness < 30) {
+      const haloLightness = Math.min(90, baseLightness + 55);
+      outerShadow = {
+        color: `hsla(${hue}, 90%, ${haloLightness}%, 0.65)`,
+        blur: 24,
+      };
+    }
+
+    return {
+      outerStroke,
+      outerShadow,
+      innerFill,
+      symbolFill,
+      symbolShadow,
+      rangeStroke,
+    };
+  }
+
+  function computeChromaticOmegaWaveVisuals(tower) {
+    const { ratio, hue, baseLightness } = computeChromaticMetrics(tower);
+    const colorLightness = Math.min(78, baseLightness + 55);
+    const colorAlpha = 0.55 + (1 - ratio) * 0.25;
+    const color = `hsla(${hue}, 95%, ${colorLightness}%, ${colorAlpha.toFixed(2)})`;
+    const trailLightness = Math.min(88, colorLightness + 10);
+    const trail = `hsla(${hue}, 90%, ${trailLightness}%, 0.45)`;
+    const glowLightness = Math.min(95, colorLightness + 15);
+    const glow = `hsla(${hue}, 95%, ${glowLightness}%, 0.9)`;
+    const size = 4 + ratio * 3;
+    return {
+      color,
+      trailColor: trail,
+      glowColor: glow,
+      glowBlur: 30,
+      size,
+    };
+  }
+
+  const colorSchemeDefinitions = [
+    {
+      id: 'aurora',
+      label: 'Aurora',
+      className: 'color-scheme-aurora',
+      getTowerVisuals() {
+        return null;
+      },
+      getOmegaWaveVisuals() {
+        return null;
+      },
+    },
+    {
+      id: 'chromatic',
+      label: 'Chromatic',
+      className: 'color-scheme-chromatic',
+      getTowerVisuals: computeChromaticTowerVisuals,
+      getOmegaWaveVisuals: computeChromaticOmegaWaveVisuals,
+    },
+  ];
+
+  const colorSchemeState = {
+    index: 0,
+    button: null,
+  };
+
+  function getActiveColorScheme() {
+    return colorSchemeDefinitions[colorSchemeState.index] || colorSchemeDefinitions[0];
+  }
+
+  function getTowerVisualConfig(tower) {
+    const base = { ...defaultTowerVisuals };
+    const scheme = getActiveColorScheme();
+    if (scheme && typeof scheme.getTowerVisuals === 'function') {
+      try {
+        const override = scheme.getTowerVisuals(tower, { ...base });
+        if (override && typeof override === 'object') {
+          return { ...base, ...override };
+        }
+      } catch (error) {
+        console.warn('Failed to compute tower visuals', error);
+      }
+    }
+    return base;
+  }
+
+  function getOmegaWaveVisualConfig(tower) {
+    const base = { ...defaultOmegaWaveVisuals };
+    const scheme = getActiveColorScheme();
+    if (scheme && typeof scheme.getOmegaWaveVisuals === 'function') {
+      try {
+        const override = scheme.getOmegaWaveVisuals(tower, { ...base });
+        if (override && typeof override === 'object') {
+          return { ...base, ...override };
+        }
+      } catch (error) {
+        console.warn('Failed to compute omega wave visuals', error);
+      }
+    }
+    return base;
+  }
+
+  function updateColorSchemeButton() {
+    const button = colorSchemeState.button;
+    if (!button) {
+      return;
+    }
+    const scheme = getActiveColorScheme();
+    if (scheme) {
+      button.textContent = `Palette · ${scheme.label}`;
+      button.setAttribute('aria-label', `Switch color scheme (current: ${scheme.label})`);
+    }
+  }
+
+  function applyColorScheme() {
+    const scheme = getActiveColorScheme();
+    const body = document.body;
+    if (body) {
+      colorSchemeDefinitions.forEach((definition) => {
+        if (definition.className) {
+          body.classList.toggle(definition.className, definition === scheme);
+        }
+      });
+    }
+
+    updateColorSchemeButton();
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(COLOR_SCHEME_STORAGE_KEY, scheme?.id || 'aurora');
+      } catch (error) {
+        console.warn('Unable to persist color scheme', error);
+      }
+    }
+
+    if (playfield) {
+      playfield.draw();
+    }
+  }
+
+  function setColorSchemeById(id) {
+    const index = colorSchemeDefinitions.findIndex((scheme) => scheme.id === id);
+    if (index < 0) {
+      return false;
+    }
+    colorSchemeState.index = index;
+    applyColorScheme();
+    return true;
+  }
+
+  function cycleColorScheme() {
+    if (!colorSchemeDefinitions.length) {
+      return;
+    }
+    colorSchemeState.index = (colorSchemeState.index + 1) % colorSchemeDefinitions.length;
+    applyColorScheme();
+  }
+
+  function bindColorSchemeButton() {
+    const button = document.getElementById('color-scheme-button');
+    colorSchemeState.button = button || null;
+    if (!button) {
+      return;
+    }
+    button.addEventListener('click', () => {
+      cycleColorScheme();
+    });
+    updateColorSchemeButton();
+  }
+
+  function initializeColorScheme() {
+    let applied = false;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const stored = window.localStorage.getItem(COLOR_SCHEME_STORAGE_KEY);
+        if (stored) {
+          applied = setColorSchemeById(stored);
+        }
+      } catch (error) {
+        console.warn('Unable to read saved color scheme', error);
+      }
+    }
+    if (!applied) {
+      applyColorScheme();
+    }
+  }
+
+  function getOmegaPatternForTier(tier) {
+    const normalized = Number.isFinite(tier) ? Math.max(24, Math.floor(tier)) : 24;
+    const stage = Math.max(0, normalized - 24);
+    const radius = 60 + stage * 18;
+    const loops = 1.6 + stage * 0.45;
+    const ratio = 1.8 + stage * 0.28;
+    const swirl = 0.8 + stage * 0.18;
+    const swirlFrequency = 2.4 + stage * 0.55;
+    const envelopePower = 1.1 + stage * 0.12;
+    const returnCurve = 0.55 + stage * 0.1;
+    const duration = 2 + stage * 0.4;
+    const projectileCount = Math.min(22, 10 + stage * 3);
+    const baseSize = 4 + stage * 0.45;
+    const phaseShift = 0.35 + stage * 0.05;
+    return {
+      radius,
+      loops,
+      ratio,
+      swirl,
+      swirlFrequency,
+      envelopePower,
+      returnCurve,
+      duration,
+      projectileCount,
+      baseSize,
+      phaseShift,
+    };
+  }
+
   const TOWER_LOADOUT_LIMIT = 4;
   const BASE_START_THERO = 50;
   const BASE_CORE_INTEGRITY = 100;
@@ -4878,6 +5165,9 @@
     fireAtTarget(tower, targetInfo) {
       const { enemy } = targetInfo;
       enemy.hp -= tower.damage;
+      if (getTowerTierValue(tower) >= 24) {
+        this.spawnOmegaWave(tower);
+      }
       this.projectiles.push({
         source: { x: tower.x, y: tower.y },
         targetId: enemy.id,
@@ -4892,6 +5182,54 @@
 
       if (enemy.hp <= 0) {
         this.processEnemyDefeat(enemy);
+      }
+    }
+
+    spawnOmegaWave(tower) {
+      if (!tower) {
+        return;
+      }
+      const tier = getTowerTierValue(tower);
+      if (!Number.isFinite(tier) || tier < 24) {
+        return;
+      }
+      const origin = { x: tower.x, y: tower.y };
+      const pattern = getOmegaPatternForTier(tier);
+      const visuals = getOmegaWaveVisualConfig(tower);
+      const count = Math.max(6, Math.floor(pattern.projectileCount || 0));
+      const baseSize = Math.max(3, visuals.size ?? pattern.baseSize ?? 4);
+      const stage = Math.max(0, Math.floor(tier) - 24);
+      const jitterStrength = 0.06 + stage * 0.02;
+      const maxLifetime = Math.max(0.8, pattern.duration || 2);
+
+      for (let index = 0; index < count; index += 1) {
+        const phase = (Math.PI * 2 * index) / count;
+        const ratioJitter = Math.sin(phase) * jitterStrength;
+        const swirlJitter = Math.cos(phase * 1.5) * jitterStrength * 1.2;
+        const radiusJitter = Math.sin(phase * 2) * stage * 4;
+        const parameters = {
+          ...pattern,
+          ratio: pattern.ratio + ratioJitter,
+          swirl: pattern.swirl + swirlJitter,
+          radius: pattern.radius + radiusJitter,
+          phaseShift: pattern.phaseShift + jitterStrength * 0.5,
+        };
+
+        this.projectiles.push({
+          patternType: 'omegaWave',
+          origin,
+          position: { ...origin },
+          previousPosition: { ...origin },
+          lifetime: 0,
+          maxLifetime,
+          parameters,
+          phase,
+          color: visuals.color,
+          trailColor: visuals.trailColor,
+          size: baseSize,
+          glowColor: visuals.glowColor,
+          glowBlur: visuals.glowBlur,
+        });
       }
     }
 
@@ -4919,6 +5257,53 @@
       for (let index = this.projectiles.length - 1; index >= 0; index -= 1) {
         const projectile = this.projectiles[index];
         projectile.lifetime += delta;
+
+        if (projectile.patternType === 'omegaWave') {
+          const maxLifetime = projectile.maxLifetime || 0;
+          if (maxLifetime > 0 && projectile.lifetime >= maxLifetime) {
+            this.projectiles.splice(index, 1);
+            continue;
+          }
+
+          const duration = maxLifetime > 0 ? maxLifetime : 1;
+          const progress = Math.max(0, Math.min(1, projectile.lifetime / duration));
+          const parameters = projectile.parameters || {};
+          const envelopePower = Number.isFinite(parameters.envelopePower)
+            ? parameters.envelopePower
+            : 1;
+          const envelopeBase = Math.sin(Math.PI * progress);
+          const envelope = Math.pow(Math.max(0, envelopeBase), envelopePower);
+          const loops = Number.isFinite(parameters.loops) ? parameters.loops : 1.5;
+          const ratio = Number.isFinite(parameters.ratio) ? parameters.ratio : 1.6;
+          const radius = Number.isFinite(parameters.radius) ? parameters.radius : 60;
+          const swirlFrequency = Number.isFinite(parameters.swirlFrequency)
+            ? parameters.swirlFrequency
+            : 2.5;
+          const returnCurve = Number.isFinite(parameters.returnCurve)
+            ? parameters.returnCurve
+            : 0.6;
+          const swirlStrength = Number.isFinite(parameters.swirl) ? parameters.swirl : 0.8;
+          const phaseShift = Number.isFinite(parameters.phaseShift)
+            ? parameters.phaseShift
+            : 0.3;
+          const baseAngle = projectile.phase || 0;
+          const angle = baseAngle + Math.PI * 2 * loops * progress;
+          const swirlPhase = progress * Math.PI * swirlFrequency + baseAngle * phaseShift;
+          const swirlOffset = Math.sin(swirlPhase) * radius * returnCurve * envelope * swirlStrength;
+          const radial = radius * envelope;
+          const offsetX = (radial + swirlOffset) * Math.cos(angle);
+          const offsetY =
+            (radial - swirlOffset) *
+            Math.sin(angle * ratio + swirlStrength * Math.sin(angle));
+
+          projectile.previousPosition = projectile.position || { ...projectile.origin };
+          projectile.position = {
+            x: (projectile.origin?.x || 0) + offsetX,
+            y: (projectile.origin?.y || 0) + offsetY,
+          };
+          continue;
+        }
+
         if (projectile.lifetime >= projectile.maxLifetime) {
           this.projectiles.splice(index, 1);
         }
@@ -5348,27 +5733,47 @@
       }
       const ctx = this.ctx;
       this.towers.forEach((tower) => {
+        const visuals = getTowerVisualConfig(tower);
+        ctx.save();
+        if (visuals.outerShadow?.color) {
+          ctx.shadowColor = visuals.outerShadow.color;
+          ctx.shadowBlur = visuals.outerShadow.blur ?? 18;
+        }
         ctx.beginPath();
-        ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
+        ctx.strokeStyle = visuals.outerStroke || 'rgba(255, 228, 120, 0.85)';
         ctx.lineWidth = 3;
         ctx.arc(tower.x, tower.y, 16, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.fillStyle = 'rgba(8, 9, 14, 0.9)';
+        ctx.restore();
+
+        ctx.fillStyle = visuals.innerFill || 'rgba(8, 9, 14, 0.9)';
         ctx.beginPath();
         ctx.arc(tower.x, tower.y, 10, 0, Math.PI * 2);
         ctx.fill();
 
         if (tower.symbol) {
-          ctx.fillStyle = 'rgba(255, 228, 120, 0.85)';
+          ctx.save();
+          if (visuals.symbolShadow?.color) {
+            ctx.shadowColor = visuals.symbolShadow.color;
+            ctx.shadowBlur = visuals.symbolShadow.blur ?? 20;
+            if (typeof visuals.symbolShadow.offsetX === 'number') {
+              ctx.shadowOffsetX = visuals.symbolShadow.offsetX;
+            }
+            if (typeof visuals.symbolShadow.offsetY === 'number') {
+              ctx.shadowOffsetY = visuals.symbolShadow.offsetY;
+            }
+          }
+          ctx.fillStyle = visuals.symbolFill || 'rgba(255, 228, 120, 0.85)';
           ctx.font = '18px "Cormorant Garamond", serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(tower.symbol, tower.x, tower.y);
+          ctx.restore();
         }
 
         if (!this.combatActive) {
           ctx.beginPath();
-          ctx.strokeStyle = 'rgba(139, 247, 255, 0.18)';
+          ctx.strokeStyle = visuals.rangeStroke || 'rgba(139, 247, 255, 0.18)';
           ctx.lineWidth = 1;
           ctx.arc(tower.x, tower.y, tower.range, 0, Math.PI * 2);
           ctx.stroke();
@@ -5460,12 +5865,48 @@
       }
       const ctx = this.ctx;
       this.projectiles.forEach((projectile) => {
+        if (projectile.patternType === 'omegaWave') {
+          const duration = projectile.maxLifetime || 1;
+          const progress = Math.max(0, Math.min(1, projectile.lifetime / duration));
+          const alpha = Math.max(0, 1 - progress ** 1.1);
+          const position = projectile.position || projectile.origin;
+          if (!position) {
+            return;
+          }
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          if (projectile.glowColor) {
+            ctx.shadowColor = projectile.glowColor;
+            const blur = projectile.glowBlur ?? (projectile.size || 4) * 3.2;
+            ctx.shadowBlur = blur;
+          }
+          ctx.fillStyle = projectile.color || 'rgba(255, 228, 120, 0.7)';
+          ctx.beginPath();
+          ctx.arc(position.x, position.y, projectile.size || 4, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (projectile.trailColor && projectile.previousPosition) {
+            ctx.globalAlpha = alpha * 0.6;
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = projectile.trailColor;
+            ctx.lineWidth = Math.max(1, (projectile.size || 4) * 0.65);
+            ctx.beginPath();
+            ctx.moveTo(projectile.previousPosition.x, projectile.previousPosition.y);
+            ctx.lineTo(position.x, position.y);
+            ctx.stroke();
+          }
+          ctx.restore();
+          return;
+        }
+
         const enemy = this.enemies.find((candidate) => candidate.id === projectile.targetId);
         if (enemy) {
           projectile.target = this.getPointAlongPath(enemy.progress);
         }
         const target = projectile.target || projectile.source;
         const alpha = Math.max(0, 1 - projectile.lifetime / projectile.maxLifetime);
+        ctx.save();
         ctx.globalAlpha = alpha;
         ctx.beginPath();
         ctx.moveTo(projectile.source.x, projectile.source.y);
@@ -5473,8 +5914,8 @@
         ctx.strokeStyle = 'rgba(139, 247, 255, 0.85)';
         ctx.lineWidth = 2;
         ctx.stroke();
+        ctx.restore();
       });
-      ctx.globalAlpha = 1;
     }
   }
 
@@ -8313,6 +8754,9 @@
       overlayInstruction.textContent = overlayInstructionDefault;
     }
 
+    bindColorSchemeButton();
+    initializeColorScheme();
+
     const towerPanel = document.getElementById('panel-tower');
     const towersPanel = document.getElementById('panel-towers');
     enablePanelWheelScroll(towerPanel);
@@ -8377,6 +8821,7 @@
         onDefeat: handlePlayfieldDefeat,
         onCombatStart: handlePlayfieldCombatStart,
       });
+      playfield.draw();
     }
 
     audioManager.playMusic('menu');
