@@ -1,20 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <radialGradient id="lambdaGlow" cx="50%" cy="40%" r="66%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9" />
-      <stop offset="64%" stop-color="#c8ffcf" stop-opacity="0.8" />
-      <stop offset="100%" stop-color="#14151f" stop-opacity="0.94" />
-    </radialGradient>
+    <linearGradient id="lambdaAura" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.94" />
+      <stop offset="100%" stop-color="#c8ffcf" stop-opacity="0.72" />
+    </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="#070910" />
-  <circle cx="32" cy="30" r="24" fill="url(#lambdaGlow)" />
-  <path d="M16 48h32" stroke="#dfffe6" stroke-width="2" stroke-linecap="round" opacity="0.55" />
-  <path d="M24 18l8 26 8-26" stroke="#dfffe6" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7" />
+  <rect width="64" height="64" rx="14" fill="#0a0c13" />
+  <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
+  <circle cx="32" cy="32" r="16" fill="url(#lambdaAura)" opacity="0.92" />
   <text
     x="32"
-    y="41"
+    y="39"
     font-family="'Cormorant Garamond', 'Times New Roman', serif"
-    font-size="32"
+    font-size="26"
     text-anchor="middle"
     fill="#182322"
   >λ</text>

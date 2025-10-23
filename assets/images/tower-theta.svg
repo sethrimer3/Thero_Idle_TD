@@ -1,27 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <radialGradient id="thetaGlow" cx="52%" cy="38%" r="64%">
-      <stop offset="0%" stop-color="#f0fff5" stop-opacity="0.95" />
-      <stop offset="70%" stop-color="#7df5c6" stop-opacity="0.85" />
-      <stop offset="100%" stop-color="#0f1f18" stop-opacity="0.92" />
-    </radialGradient>
+    <linearGradient id="thetaAura" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f0fff5" stop-opacity="0.94" />
+      <stop offset="100%" stop-color="#7df5c6" stop-opacity="0.72" />
+    </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="#081510" />
-  <circle cx="32" cy="30" r="24" fill="url(#thetaGlow)" />
-  <path
-    d="M16 30c4-10 12-16 16-16s12 6 16 16-12 16-16 16-20-6-16-16z"
-    fill="none"
-    stroke="#c6ffeb"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    opacity="0.65"
-  />
+  <rect width="64" height="64" rx="14" fill="#0a0c13" />
+  <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
+  <circle cx="32" cy="32" r="16" fill="url(#thetaAura)" opacity="0.92" />
   <text
     x="32"
-    y="41"
+    y="39"
     font-family="'Cormorant Garamond', 'Times New Roman', serif"
-    font-size="32"
+    font-size="26"
     text-anchor="middle"
     fill="#0a281c"
   >θ</text>
