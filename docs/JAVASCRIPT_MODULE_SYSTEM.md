@@ -1,6 +1,6 @@
 # JavaScript Module Organization
 
-This guide explains how to grow Glyph Defense Idle's JavaScript codebase while keeping
+This guide explains how to grow Thero Idle's JavaScript codebase while keeping
 files compact, discoverable, and easy for AI or human collaborators to extend. Follow
 these rules whenever you add scripts to the project.
 

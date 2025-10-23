@@ -67,7 +67,7 @@ import {
     encounteredEnemies: new Set(),
   };
 
-  const COLOR_SCHEME_STORAGE_KEY = 'glyph-defense-color-scheme';
+  const COLOR_SCHEME_STORAGE_KEY = 'thero-idle-color-scheme';
 
   const defaultTowerVisuals = Object.freeze({
     outerStroke: 'rgba(255, 228, 120, 0.85)',
@@ -8196,7 +8196,7 @@ import {
     try {
       await ensureGameplayConfigLoaded();
     } catch (error) {
-      console.error('Glyph Defense failed to load gameplay data', error);
+      console.error('Thero Idle failed to load gameplay data', error);
       if (playfieldElements.message) {
         playfieldElements.message.textContent =
           'Unable to load gameplay data—refresh the page to retry.';
@@ -8333,10 +8333,13 @@ import {
     }
   });
 
-  window.glyphDefenseUpgrades = window.glyphDefenseUpgrades || {};
-  window.glyphDefenseUpgrades.alephChain = {
+  const upgradeNamespace =
+    (window.theroIdleUpgrades = window.theroIdleUpgrades || window.glyphDefenseUpgrades || {});
+  upgradeNamespace.alephChain = {
     get: getAlephChainUpgrades,
     set: updateAlephChainUpgrades,
   };
+
+  window.glyphDefenseUpgrades = upgradeNamespace;
 
 })();
