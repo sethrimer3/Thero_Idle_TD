@@ -868,6 +868,7 @@
 
   const resourceElements = {
     score: null,
+    scoreMultiplier: null,
     energy: null,
     flux: null,
   };
@@ -876,7 +877,7 @@
     score: 6.58 * 10 ** 45,
     scoreRate: 2.75 * 10 ** 43,
     energyRate: 575,
-    fluxRate: 375,
+    fluxRate: 0,
   };
 
   const resourceState = {
@@ -886,6 +887,8 @@
     fluxRate: baseResources.fluxRate,
     running: false,
   };
+
+  let achievementPowderRate = 0;
 
   let glyphCurrency = 0;
 
@@ -5545,6 +5548,9 @@
       achievementElements.set(id, { container: item, status });
     });
     evaluateAchievements();
+    refreshAchievementPowderRate();
+    updateResourceRates();
+    updatePowderLedger();
   }
 
   function updateAchievementStatus(definition, element, state) {
@@ -5602,15 +5608,21 @@
     const element = achievementElements.get(definition.id);
     updateAchievementStatus(definition, element, state);
 
-    const fluxReward = Number.isFinite(definition.rewardFlux) ? definition.rewardFlux : 0;
-    if (fluxReward) {
-      baseResources.fluxRate += fluxReward;
-      updateResourceRates();
-      updatePowderLedger();
-    }
+    refreshAchievementPowderRate();
+    updateResourceRates();
+    updatePowderLedger();
 
     recordPowderEvent('achievement-unlocked', { title: definition.title });
     updateStatusDisplays();
+  }
+
+  function getUnlockedAchievementCount() {
+    return Array.from(achievementState.values()).filter((state) => state?.unlocked).length;
+  }
+
+  function refreshAchievementPowderRate() {
+    const unlocked = getUnlockedAchievementCount();
+    achievementPowderRate = unlocked * ACHIEVEMENT_REWARD_FLUX;
   }
 
   function notifyTowerPlaced(activeCount) {
@@ -6202,15 +6214,20 @@
     if (resourceElements.score) {
       const interactive = Boolean(playfield && playfield.isInteractiveLevelActive());
       const theroValue = interactive ? Math.max(0, Math.round(playfield.energy)) : 0;
-      const idleScore = formatGameNumber(resourceState.score);
-      resourceElements.score.textContent = `${theroValue} Th · Σ ${idleScore}`;
+      resourceElements.score.textContent = `${theroValue} Th`;
+    }
+    if (resourceElements.scoreMultiplier) {
+      const glyphsCollected = Math.max(0, gameStats.enemiesDefeated);
+      const glyphsUnused = Math.max(0, glyphsCollected - gameStats.towersPlaced);
+      const multiplier = glyphsCollected && glyphsUnused ? glyphsCollected * glyphsUnused : 0;
+      const display = multiplier ? `×${formatGameNumber(multiplier)}` : '×0';
+      resourceElements.scoreMultiplier.textContent = display;
     }
     if (resourceElements.energy) {
-      const energyRate = formatGameNumber(resourceState.energyRate);
-      resourceElements.energy.textContent = `${glyphCurrency} Glyphs · +${energyRate} TD/s`;
+      resourceElements.energy.textContent = `${glyphCurrency} Glyphs`;
     }
     if (resourceElements.flux) {
-      const unlocked = Array.from(achievementState.values()).filter((state) => state?.unlocked).length;
+      const unlocked = getUnlockedAchievementCount();
       const fluxRate = formatGameNumber(resourceState.fluxRate);
       resourceElements.flux.textContent = `${unlocked} Ach · +${fluxRate} Powder/min`;
     }
@@ -6220,8 +6237,8 @@
     currentPowderBonuses = calculatePowderBonuses();
 
     resourceState.scoreRate = baseResources.scoreRate * currentPowderBonuses.totalMultiplier;
-    resourceState.fluxRate =
-      baseResources.fluxRate * (1 + currentPowderBonuses.sandBonus + currentPowderBonuses.crystalBonus);
+    const fluxMultiplier = 1 + currentPowderBonuses.sandBonus + currentPowderBonuses.crystalBonus;
+    resourceState.fluxRate = baseResources.fluxRate * fluxMultiplier + achievementPowderRate;
     resourceState.energyRate =
       baseResources.energyRate * (1 + currentPowderBonuses.duneBonus + currentPowderBonuses.crystalBonus * 0.5);
 
@@ -6267,6 +6284,7 @@
 
   function bindStatusElements() {
     resourceElements.score = document.getElementById('status-score');
+    resourceElements.scoreMultiplier = document.getElementById('status-score-multiplier');
     resourceElements.energy = document.getElementById('status-energy');
     resourceElements.flux = document.getElementById('status-flux');
     updateStatusDisplays();
