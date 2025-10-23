@@ -1,5 +1,12 @@
+import {
+  ALEPH_CHAIN_DEFAULT_UPGRADES,
+  createAlephChainRegistry,
+} from '../scripts/features/towers/alephChain.js';
+
 (() => {
   'use strict';
+
+  const alephChainUpgradeState = { ...ALEPH_CHAIN_DEFAULT_UPGRADES };
 
   function renderMathElement(element) {
     if (!element) {
@@ -1075,6 +1082,47 @@
   let developerModeActive = false;
 
   let playfield = null;
+
+  function getAlephChainUpgrades() {
+    return { ...alephChainUpgradeState };
+  }
+
+  function updateAlephChainUpgrades(updates = {}) {
+    if (!updates || typeof updates !== 'object') {
+      return getAlephChainUpgrades();
+    }
+
+    const nextState = { ...alephChainUpgradeState };
+    if (Number.isFinite(updates.x) && updates.x > 0) {
+      nextState.x = updates.x;
+    }
+    if (Number.isFinite(updates.y) && updates.y > 0) {
+      nextState.y = updates.y;
+    }
+    if (Number.isFinite(updates.z)) {
+      nextState.z = Math.max(1, Math.floor(updates.z));
+    }
+
+    const changed =
+      nextState.x !== alephChainUpgradeState.x ||
+      nextState.y !== alephChainUpgradeState.y ||
+      nextState.z !== alephChainUpgradeState.z;
+
+    if (!changed) {
+      return getAlephChainUpgrades();
+    }
+
+    alephChainUpgradeState.x = nextState.x;
+    alephChainUpgradeState.y = nextState.y;
+    alephChainUpgradeState.z = nextState.z;
+
+    if (playfield?.alephChain) {
+      playfield.alephChain.setUpgrades(alephChainUpgradeState);
+      playfield.syncAlephChainStats();
+    }
+
+    return getAlephChainUpgrades();
+  }
   const playfieldElements = {
     container: null,
     canvas: null,
@@ -3576,6 +3624,8 @@
       this.draggingTowerType = null;
       this.dragPreviewOffset = { x: 0, y: -34 };
 
+      this.alephChain = createAlephChainRegistry({ upgrades: alephChainUpgradeState });
+
       this.animationId = null;
       this.lastTimestamp = 0;
 
@@ -4162,6 +4212,7 @@
       this.enemies = [];
       this.projectiles = [];
       this.towers = [];
+      this.alephChain.reset();
       this.hoverPlacement = null;
       this.energy = 0;
       this.lives = 0;
@@ -4218,6 +4269,7 @@
       this.enemies = [];
       this.projectiles = [];
       this.towers = [];
+      this.alephChain.reset();
       this.hoverPlacement = null;
       this.slots.forEach((slot) => {
         slot.tower = null;
@@ -4701,6 +4753,83 @@
       this.renderEnemyTooltip(enemy);
     }
 
+    syncAlephChainStats() {
+      if (!this.alephChain) {
+        return;
+      }
+
+      const states = this.alephChain.getAllStates();
+      const rangeMultiplier = this.alephChain.getRangeMultiplier();
+      const speedMultiplier = this.alephChain.getSpeedMultiplier();
+      const linkCount = this.alephChain.getLinkCount();
+
+      this.towers.forEach((tower) => {
+        const baseDamage = Number.isFinite(tower.baseDamage)
+          ? tower.baseDamage
+          : Number.isFinite(tower.definition?.damage)
+          ? tower.definition.damage
+          : tower.damage;
+        const baseRate = Number.isFinite(tower.baseRate)
+          ? tower.baseRate
+          : Number.isFinite(tower.definition?.rate)
+          ? tower.definition.rate
+          : tower.rate;
+        const baseRange = Number.isFinite(tower.baseRange)
+          ? tower.baseRange
+          : Math.min(this.renderWidth, this.renderHeight) * (tower.definition?.range ?? 0.78);
+
+        tower.baseDamage = baseDamage;
+        tower.baseRate = baseRate;
+        tower.baseRange = baseRange;
+
+        if (tower.type !== 'aleph-null') {
+          if (tower.chain) {
+            tower.chain = null;
+            tower.damage = baseDamage;
+            tower.rate = baseRate;
+            tower.range = baseRange;
+          }
+          return;
+        }
+
+        const state = states.get(tower.id) || null;
+        if (!state) {
+          tower.chain = null;
+          tower.damage = baseDamage;
+          tower.rate = baseRate;
+          tower.range = baseRange;
+          return;
+        }
+
+        tower.chain = {
+          index: state.index,
+          totalDamage: state.totalDamage,
+          rangeMultiplier,
+          speedMultiplier,
+          linkCount,
+        };
+        tower.damage = state.totalDamage;
+        tower.rate = baseRate * speedMultiplier;
+        tower.range = baseRange * rangeMultiplier;
+      });
+    }
+
+    handleAlephTowerAdded(tower) {
+      if (!tower || tower.type !== 'aleph-null' || !this.alephChain) {
+        return;
+      }
+      this.alephChain.registerTower(tower.id, tower.baseDamage);
+      this.syncAlephChainStats();
+    }
+
+    handleAlephTowerRemoved(tower) {
+      if (!tower || tower.type !== 'aleph-null' || !this.alephChain) {
+        return;
+      }
+      this.alephChain.unregisterTower(tower.id);
+      this.syncAlephChainStats();
+    }
+
     addTowerAt(normalized, options = {}) {
       if (!this.levelConfig || !normalized) {
         return false;
@@ -4777,15 +4906,32 @@
       this.energy = Math.max(0, this.energy - actionCost);
 
       if (merging && mergeTarget && nextDefinition) {
+        const wasAlephNull = mergeTarget.type === 'aleph-null';
+        if (wasAlephNull) {
+          this.handleAlephTowerRemoved(mergeTarget);
+        }
+
         const range = Math.min(this.renderWidth, this.renderHeight) * nextDefinition.range;
+        const baseDamage = Number.isFinite(nextDefinition.damage) ? nextDefinition.damage : 0;
+        const baseRate = Number.isFinite(nextDefinition.rate) ? nextDefinition.rate : 1;
         mergeTarget.type = nextDefinition.id;
         mergeTarget.definition = nextDefinition;
         mergeTarget.symbol = nextDefinition.symbol;
         mergeTarget.tier = nextDefinition.tier;
-        mergeTarget.damage = nextDefinition.damage;
-        mergeTarget.rate = nextDefinition.rate;
+        mergeTarget.damage = baseDamage;
+        mergeTarget.rate = baseRate;
         mergeTarget.range = range;
+        mergeTarget.baseDamage = baseDamage;
+        mergeTarget.baseRate = baseRate;
+        mergeTarget.baseRange = range;
         mergeTarget.cooldown = 0;
+        mergeTarget.chain = null;
+        const nextIsAlephNull = nextDefinition.id === 'aleph-null';
+        if (nextIsAlephNull) {
+          this.handleAlephTowerAdded(mergeTarget);
+        } else if (wasAlephNull) {
+          this.syncAlephChainStats();
+        }
         const newlyUnlocked = !isTowerUnlocked(nextDefinition.id)
           ? unlockTower(nextDefinition.id, { silent: true })
           : false;
@@ -4802,7 +4948,9 @@
         return true;
       }
 
-      const range = Math.min(this.renderWidth, this.renderHeight) * definition.range;
+      const baseRange = Math.min(this.renderWidth, this.renderHeight) * definition.range;
+      const baseDamage = Number.isFinite(definition.damage) ? definition.damage : 0;
+      const baseRate = Number.isFinite(definition.rate) ? definition.rate : 1;
       const tower = {
         id: `tower-${(this.towerIdCounter += 1)}`,
         type: selectedType,
@@ -4812,14 +4960,18 @@
         normalized: { ...normalized },
         x: placement.position.x,
         y: placement.position.y,
-        range,
-        damage: definition.damage,
-        rate: definition.rate,
+        range: baseRange,
+        damage: baseDamage,
+        rate: baseRate,
+        baseRange,
+        baseDamage,
+        baseRate,
         cooldown: 0,
         slot,
       };
 
       this.towers.push(tower);
+      this.handleAlephTowerAdded(tower);
       notifyTowerPlaced(this.towers.length);
 
       if (slot) {
@@ -4848,6 +5000,8 @@
       if (!tower) {
         return;
       }
+
+      this.handleAlephTowerRemoved(tower);
 
       const index = this.towers.indexOf(tower);
       if (index >= 0) {
@@ -5174,6 +5328,10 @@
     }
 
     fireAtTarget(tower, targetInfo) {
+      if (tower.type === 'aleph-null') {
+        this.fireAlephChain(tower, targetInfo);
+        return;
+      }
       const { enemy } = targetInfo;
       enemy.hp -= tower.damage;
       if (getTowerTierValue(tower) >= 24) {
@@ -5193,6 +5351,89 @@
 
       if (enemy.hp <= 0) {
         this.processEnemyDefeat(enemy);
+      }
+    }
+
+    fireAlephChain(tower, targetInfo) {
+      if (!targetInfo || !targetInfo.enemy) {
+        return;
+      }
+
+      const chainStats =
+        tower.chain || (this.alephChain ? this.alephChain.getState(tower.id) : null);
+      const totalDamage = Number.isFinite(chainStats?.totalDamage)
+        ? chainStats.totalDamage
+        : tower.damage;
+      const range = Number.isFinite(tower.range)
+        ? tower.range
+        : Number.isFinite(tower.baseRange)
+        ? tower.baseRange
+        : 0;
+      const maxLinks = Math.max(1, Math.floor(chainStats?.linkCount ?? 1));
+
+      const visited = new Set();
+      const chainTargets = [];
+      const firstEnemy = targetInfo.enemy;
+      const firstPosition = targetInfo.position || this.getPointAlongPath(firstEnemy.progress);
+      chainTargets.push({ enemy: firstEnemy, position: firstPosition });
+      visited.add(firstEnemy.id);
+
+      let anchorPosition = firstPosition;
+      let hopsRemaining = maxLinks - 1;
+
+      while (hopsRemaining > 0 && anchorPosition) {
+        let nearest = null;
+        let nearestPosition = null;
+        let nearestDistance = Infinity;
+        this.enemies.forEach((candidate) => {
+          if (!candidate || visited.has(candidate.id)) {
+            return;
+          }
+          const candidatePosition = this.getPointAlongPath(candidate.progress);
+          const distance = Math.hypot(
+            candidatePosition.x - anchorPosition.x,
+            candidatePosition.y - anchorPosition.y,
+          );
+          if (distance <= range && distance < nearestDistance) {
+            nearest = candidate;
+            nearestPosition = candidatePosition;
+            nearestDistance = distance;
+          }
+        });
+
+        if (!nearest || !nearestPosition) {
+          break;
+        }
+
+        chainTargets.push({ enemy: nearest, position: nearestPosition });
+        visited.add(nearest.id);
+        anchorPosition = nearestPosition;
+        hopsRemaining -= 1;
+      }
+
+      let origin = { x: tower.x, y: tower.y };
+      chainTargets.forEach((target) => {
+        const enemy = target.enemy;
+        enemy.hp -= totalDamage;
+        this.projectiles.push({
+          source: { ...origin },
+          targetId: enemy.id,
+          target: target.position,
+          lifetime: 0,
+          maxLifetime: 0.24,
+        });
+        if (enemy.hp <= 0) {
+          this.processEnemyDefeat(enemy);
+        }
+        origin = { ...target.position };
+      });
+
+      if (getTowerTierValue(tower) >= 24) {
+        this.spawnOmegaWave(tower);
+      }
+
+      if (this.audio) {
+        this.audio.playSfx('alphaTowerFire');
       }
     }
 
@@ -9350,5 +9591,11 @@
       confirmPendingLevel();
     }
   });
+
+  window.glyphDefenseUpgrades = window.glyphDefenseUpgrades || {};
+  window.glyphDefenseUpgrades.alephChain = {
+    get: getAlephChainUpgrades,
+    set: updateAlephChainUpgrades,
+  };
 
 })();

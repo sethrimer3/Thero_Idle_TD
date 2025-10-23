@@ -92,3 +92,9 @@ Always document the formula or algorithm inline with JSDoc-style comments.
 By following this module system, the JavaScript codebase stays manageable, every file
 remains approachable, and AI assistants can reason about individual subsystems without
 wading through monolithic scripts.
+
+## Live Example
+
+- `scripts/features/towers/alephChain.js` implements the Aleph Null chaining math
+  used by `assets/main.js`. The module stays free of DOM code so the same logic
+  can ship in the future desktop client without changes.
