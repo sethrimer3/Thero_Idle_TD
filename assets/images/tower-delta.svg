@@ -1,12 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#07090f" />
-  <path
-    d="M32 10l22 44H10z"
-    fill="#201824"
-    stroke="#ffb957"
-    stroke-width="2"
-    opacity="0.85"
-  />
-  <path d="M21 42h22" stroke="#ffb957" stroke-width="3" stroke-linecap="round" opacity="0.7" />
-  <path d="M32 26l8 16H24z" fill="#ffdc8f" opacity="0.8" />
+  <defs>
+    <linearGradient id="deltaAura" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffdc8f" stop-opacity="0.94" />
+      <stop offset="100%" stop-color="#ff9b3f" stop-opacity="0.72" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0a0c13" />
+  <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
+  <circle cx="32" cy="32" r="16" fill="url(#deltaAura)" opacity="0.92" />
+  <text
+    x="32"
+    y="39"
+    font-family="'Cormorant Garamond', 'Times New Roman', serif"
+    font-size="26"
+    text-anchor="middle"
+    fill="#2c1604"
+  >δ</text>
 </svg>

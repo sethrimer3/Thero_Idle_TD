@@ -1,20 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <radialGradient id="muGlow" cx="50%" cy="38%" r="68%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.92" />
-      <stop offset="62%" stop-color="#bff0ff" stop-opacity="0.82" />
-      <stop offset="100%" stop-color="#10111a" stop-opacity="0.95" />
-    </radialGradient>
+    <linearGradient id="muAura" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.94" />
+      <stop offset="100%" stop-color="#bff0ff" stop-opacity="0.72" />
+    </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="#060810" />
-  <circle cx="32" cy="30" r="24" fill="url(#muGlow)" />
-  <path d="M18 46h28" stroke="#dff7ff" stroke-width="2" stroke-linecap="round" opacity="0.5" />
-  <path d="M22 20v18c0 6 4 8 10 8s10-2 10-8V20" stroke="#dff7ff" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="0.72" />
+  <rect width="64" height="64" rx="14" fill="#0a0c13" />
+  <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
+  <circle cx="32" cy="32" r="16" fill="url(#muAura)" opacity="0.92" />
   <text
     x="32"
-    y="40.5"
+    y="39"
     font-family="'Cormorant Garamond', 'Times New Roman', serif"
-    font-size="32"
+    font-size="26"
     text-anchor="middle"
     fill="#182026"
   >μ</text>
