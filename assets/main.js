@@ -1127,7 +1127,7 @@
     },
     {
       id: 'powder-archivist',
-      title: 'Powder Archivist',
+      title: 'Mote Archivist',
       rewardFlux: ACHIEVEMENT_REWARD_FLUX,
       condition: () => gameStats.powderSigilsReached >= 3,
       progress: () => {
@@ -1204,6 +1204,8 @@
     charges: 0,
     simulatedDuneGain: 0,
     wallGlyphsLit: 0,
+    idleMoteBank: 0,
+    pendingMoteDrops: [],
   };
 
   let currentPowderBonuses = {
@@ -2402,6 +2404,13 @@
       this.grid = [];
       this.grains = [];
       this.heightInfo = { normalizedHeight: 0, duneGain: 0, largestGrain: 0 };
+      this.pendingDrops = [];
+      this.idleBank = 0;
+      this.idleAccumulator = 0;
+      this.idleDrainRate = Number.isFinite(options.idleDrainRate)
+        ? Math.max(1, options.idleDrainRate)
+        : 120;
+      this.maxDropSize = 1;
 
       this.scrollThreshold = Number.isFinite(options.scrollThreshold)
         ? Math.max(0.2, Math.min(0.95, options.scrollThreshold))
@@ -2474,6 +2483,9 @@
         this.wallInsetLeftCells = Math.floor(this.wallInsetLeftCells * scale);
         this.wallInsetRightCells = Math.floor(this.wallInsetRightCells * scale);
       }
+
+      const usableWidth = Math.max(1, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells);
+      this.maxDropSize = Math.max(1, Math.min(usableWidth, this.rows));
 
       this.reset();
     }
@@ -2579,12 +2591,10 @@
         return;
       }
 
-      this.spawnTimer += delta;
-      const spawnInterval = this.getSpawnInterval();
-      if (this.spawnTimer >= spawnInterval && this.grains.length < this.maxGrains) {
-        this.spawnTimer -= spawnInterval;
-        this.spawnGrain();
-      }
+      this.convertIdleBank(delta);
+
+      const spawnBudget = Math.max(1, Math.ceil(delta / 12));
+      this.spawnPendingDrops(spawnBudget);
 
       const iterations = Math.max(1, Math.min(4, Math.round(delta / 16)));
       for (let i = 0; i < iterations; i += 1) {
@@ -2595,6 +2605,56 @@
       this.render();
     }
 
+    convertIdleBank(delta) {
+      if (this.idleBank <= 0 || !Number.isFinite(delta)) {
+        return 0;
+      }
+      const rate = this.idleDrainRate / 1000;
+      const pending = this.idleAccumulator + delta * rate;
+      const toQueue = Math.min(this.idleBank, Math.floor(pending));
+      this.idleAccumulator = pending - toQueue;
+      if (toQueue <= 0) {
+        return 0;
+      }
+      for (let index = 0; index < toQueue; index += 1) {
+        this.pendingDrops.push({ size: 1 });
+      }
+      this.idleBank = Math.max(0, this.idleBank - toQueue);
+      return toQueue;
+    }
+
+    spawnPendingDrops(limit = 1) {
+      if (!this.pendingDrops.length || !this.cols || !this.rows) {
+        return;
+      }
+      let remaining = Math.max(1, Math.floor(limit));
+      while (remaining > 0 && this.pendingDrops.length && this.grains.length < this.maxGrains) {
+        const drop = this.pendingDrops.shift();
+        this.spawnGrain(drop?.size);
+        remaining -= 1;
+      }
+    }
+
+    queueDrop(size) {
+      if (!Number.isFinite(size) || size <= 0) {
+        return;
+      }
+      const normalized = this.clampGrainSize(size);
+      this.pendingDrops.push({ size: normalized });
+    }
+
+    addIdleMotes(amount) {
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return;
+      }
+      this.idleBank = Math.max(0, this.idleBank + amount);
+    }
+
+    clampGrainSize(size) {
+      const normalized = Number.isFinite(size) ? Math.max(1, Math.round(size)) : 1;
+      return Math.max(1, Math.min(normalized, this.maxDropSize || normalized));
+    }
+
     getSpawnInterval() {
       if (!this.stabilized) {
         return this.baseSpawnInterval * 1.25;
@@ -2602,11 +2662,11 @@
       return this.baseSpawnInterval / Math.max(0.6, 1 + this.flowOffset * 0.45);
     }
 
-    spawnGrain() {
+    spawnGrain(sizeOverride) {
       if (!this.cols || !this.rows) {
         return;
       }
-      const size = this.chooseGrainSize();
+      const size = this.clampGrainSize(typeof sizeOverride === 'number' ? sizeOverride : this.chooseGrainSize());
       const minX = this.wallInsetLeftCells;
       const maxX = Math.max(minX, this.cols - this.wallInsetRightCells - size);
       const center = Math.floor((minX + maxX) / 2);
@@ -3034,6 +3094,45 @@
 
     getStatus() {
       return this.heightInfo;
+    }
+  }
+
+  function queueMoteDrop(size) {
+    if (!Number.isFinite(size) || size <= 0) {
+      return;
+    }
+    const normalized = Math.max(1, Math.round(size));
+    if (powderSimulation) {
+      powderSimulation.queueDrop(normalized);
+      return;
+    }
+    powderState.pendingMoteDrops.push(normalized);
+  }
+
+  function addIdleMoteBank(amount) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return;
+    }
+    if (powderSimulation) {
+      powderSimulation.addIdleMotes(amount);
+      return;
+    }
+    powderState.idleMoteBank = Math.max(0, powderState.idleMoteBank + amount);
+  }
+
+  function flushPendingMoteDrops() {
+    if (!powderSimulation) {
+      return;
+    }
+    if (powderState.pendingMoteDrops.length) {
+      powderState.pendingMoteDrops.forEach((size) => {
+        powderSimulation.queueDrop(size);
+      });
+      powderState.pendingMoteDrops.length = 0;
+    }
+    if (powderState.idleMoteBank > 0) {
+      powderSimulation.addIdleMotes(powderState.idleMoteBank);
+      powderState.idleMoteBank = 0;
     }
   }
 
@@ -4623,6 +4722,17 @@
       this.updateHud();
     }
 
+    calculateMoteFactor(config) {
+      if (!config) {
+        return 1;
+      }
+      if (Number.isFinite(config.moteFactor)) {
+        return Math.max(1, Math.round(config.moteFactor));
+      }
+      const hp = Number.isFinite(config.hp) ? Math.max(1, config.hp) : 60;
+      return Math.max(1, Math.round(hp / 60));
+    }
+
     spawnEnemies() {
       if (!this.activeWave || !this.levelConfig) {
         return;
@@ -4647,6 +4757,7 @@
           color: config.color,
           label: config.label,
           typeId: config.codexId || null,
+          moteFactor: this.calculateMoteFactor(config),
         };
         this.enemies.push(enemy);
         this.activeWave.spawned += 1;
@@ -4824,6 +4935,10 @@
 
       if (this.audio) {
         this.audio.playSfx('enemyDefeat');
+      }
+
+      if (Number.isFinite(enemy.moteFactor) && enemy.moteFactor > 0) {
+        queueMoteDrop(enemy.moteFactor);
       }
 
       notifyEnemyDefeated();
@@ -6212,7 +6327,7 @@
       parts.push(`${formatGameNumber(rewardScore)} Σ`);
     }
     if (Number.isFinite(rewardFlux)) {
-      parts.push(`+${Math.round(rewardFlux)} Powder/min`);
+      parts.push(`+${Math.round(rewardFlux)} Motes/min`);
     }
     if (Number.isFinite(rewardEnergy)) {
       parts.push(`+${Math.round(rewardEnergy)} TD/s`);
@@ -6226,7 +6341,7 @@
     const currentStart = BASE_START_THERO * multiplier;
     const levelLabel = levelsBeaten === 1 ? 'level' : 'levels';
     const beatenText = `Levels beaten: ${levelsBeaten} ${levelLabel}`;
-    return `+1 Powder/min · Starting Thero = ${BASE_START_THERO} × 2^(levels beaten) (${beatenText} → ${formatWholeNumber(currentStart)} Th)`;
+    return `+1 Motes/min · Starting Thero = ${BASE_START_THERO} × 2^(levels beaten) (${beatenText} → ${formatWholeNumber(currentStart)} Th)`;
   }
 
   function formatRelativeTime(timestamp) {
@@ -6452,7 +6567,7 @@
         container.classList.add('achievement-unlocked');
       }
       if (status) {
-        status.textContent = 'Unlocked · +1 powder/min secured.';
+        status.textContent = 'Unlocked · +1 Motes/min secured.';
       }
       return;
     }
@@ -7249,6 +7364,13 @@
       return;
     }
     gameStats.idleMillisecondsAccumulated += elapsedMs;
+    const minutes = elapsedMs / 60000;
+    const achievementsUnlocked = getUnlockedAchievementCount();
+    const levelsBeat = getCompletedInteractiveLevelCount();
+    const idleMotes = minutes * achievementsUnlocked * levelsBeat;
+    if (idleMotes > 0) {
+      addIdleMoteBank(idleMotes);
+    }
     evaluateAchievements();
   }
 
@@ -7278,7 +7400,7 @@
     if (powderElements.stockpile) {
       powderElements.stockpile.textContent = `${formatGameNumber(
         powderCurrency,
-      )} Powder`;
+      )} Motes`;
     }
   }
 
@@ -7482,6 +7604,7 @@
 
     const powderEarned = minutesAway * effectiveRate;
     applyPowderGain(powderEarned, { source: 'offline', minutes: minutesAway, rate: effectiveRate });
+    notifyIdleTime(minutesAway * 60000);
     showOfflineOverlay(minutesAway, effectiveRate, powderEarned);
   }
 
@@ -7515,7 +7638,7 @@
     }
     if (resourceElements.powderRate) {
       const fluxRate = formatGameNumber(resourceState.fluxRate);
-      resourceElements.powderRate.textContent = `+${fluxRate} Powder/min`;
+      resourceElements.powderRate.textContent = `+${fluxRate} Motes/min`;
     }
     if (resourceElements.achievementCount) {
       const unlocked = getUnlockedAchievementCount();
@@ -7670,7 +7793,10 @@
       powderSimulation.setFlowOffset(powderState.sandOffset);
       powderSimulation.start();
       handlePowderHeightChange(powderSimulation.getStatus());
+      flushPendingMoteDrops();
     }
+
+    flushPendingMoteDrops();
 
     updatePowderStockpileDisplay();
   }
@@ -7691,7 +7817,7 @@
     if (powderElements.ledgerFlux) {
       powderElements.ledgerFlux.textContent = `+${formatGameNumber(
         resourceState.fluxRate,
-      )} Powder/min`;
+      )} Motes/min`;
     }
 
     if (powderElements.ledgerEnergy) {
@@ -7731,13 +7857,13 @@
 
     switch (type) {
       case 'sand-stabilized': {
-        entry = `Sandfall stabilized · Powder bonus ${formatSignedPercentage(
+        entry = `Sandfall stabilized · Mote bonus ${formatSignedPercentage(
           currentPowderBonuses.sandBonus,
         )}.`;
         break;
       }
       case 'sand-released': {
-        entry = 'Sandfall released · Flow returns to natural drift.';
+        entry = 'Sandfall released · Flow returns to natural mote drift.';
         break;
       }
       case 'dune-raise': {
@@ -7762,7 +7888,7 @@
       }
       case 'achievement-unlocked': {
         const { title = 'Achievement' } = context;
-        entry = `${title} seal unlocked · +1 powder/min secured.`;
+        entry = `${title} seal unlocked · +1 Motes/min secured.`;
         break;
       }
       case 'offline-reward': {
@@ -7770,7 +7896,7 @@
         const minutesLabel = formatWholeNumber(minutes);
         entry = `Idle harvest · ${minutesLabel}m × ${formatGameNumber(rate)} = +${formatGameNumber(
           powder,
-        )} Powder.`;
+        )} Motes.`;
         break;
       }
       default:
@@ -7912,8 +8038,8 @@
       const bonusText = formatPercentage(currentPowderBonuses.sandBonus);
       powderElements.sandfallNote.textContent =
         powderState.sandOffset > 0
-          ? `Flow stabilized—captured grains grant +${bonusText} powder.`
-          : 'Crest is unstable—powder drifts off the board.';
+          ? `Flow stabilized—captured grains grant +${bonusText} Motes.`
+          : 'Crest is unstable—Motes drift off the board.';
     }
 
     if (powderElements.sandfallButton) {
