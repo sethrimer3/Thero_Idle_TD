@@ -1361,6 +1361,42 @@
         <h2 class="overlay-title" id="overlay-title"></h2>
         <p class="overlay-example" id="overlay-example"></p>
         <figure class="overlay-preview" id="overlay-preview" aria-hidden="true" hidden></figure>
+        <section class="overlay-editor" id="overlay-level-editor" hidden aria-hidden="true">
+          <header class="overlay-editor__header">
+            <h3 class="overlay-editor__title">Level Editor</h3>
+            <button
+              class="overlay-editor__toggle"
+              type="button"
+              id="level-editor-toggle"
+              aria-pressed="false"
+            >
+              Enable Editing
+            </button>
+          </header>
+          <p class="overlay-editor__note" id="level-editor-note">
+            Click the preview to place anchors. Drag markers to adjust, or Shift-click to remove the nearest anchor.
+            <span class="overlay-editor__count" id="level-editor-count">0 points</span>
+          </p>
+          <div class="overlay-editor__actions">
+            <button class="overlay-editor__button" type="button" id="level-editor-clear" disabled>
+              Clear All
+            </button>
+            <button class="overlay-editor__button" type="button" id="level-editor-reset" disabled>
+              Reset to Level Path
+            </button>
+            <button class="overlay-editor__button" type="button" id="level-editor-export" disabled>
+              Copy Path JSON
+            </button>
+          </div>
+          <textarea
+            class="overlay-editor__output"
+            id="level-editor-output"
+            rows="6"
+            readonly
+            placeholder="Enable editing to chart a new path."
+          ></textarea>
+          <p class="overlay-editor__status" id="level-editor-status" role="status" aria-live="polite" hidden></p>
+        </section>
         <dl class="overlay-metrics">
           <div>
             <dt>Mode</dt>

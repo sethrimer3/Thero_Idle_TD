@@ -712,6 +712,7 @@ import {
   let overlayExample = null;
   let overlayPreview = null;
   let overlayPreviewCanvas = null;
+  let overlayPreviewLevel = null;
   let previewPlayfield = null;
   let overlayMode = null;
   let overlayDuration = null;
@@ -719,6 +720,27 @@ import {
   let overlayLast = null;
   let overlayInstruction = null;
   let overlayRequiresLevelExit = false;
+  const levelEditorElements = {
+    container: null,
+    toggle: null,
+    note: null,
+    count: null,
+    clear: null,
+    reset: null,
+    exportButton: null,
+    output: null,
+    status: null,
+  };
+  const levelEditorState = {
+    levelId: null,
+    points: [],
+    originalPoints: [],
+    editing: false,
+    draggingIndex: -1,
+    pointerId: null,
+    canvasListenersAttached: false,
+    statusTimeout: null,
+  };
   let upgradeOverlay = null;
   let upgradeOverlayButton = null;
   let upgradeOverlayClose = null;
@@ -2320,6 +2342,8 @@ import {
       this.pointerLeaveHandler = () => this.handleCanvasPointerLeave();
       this.pointerClickHandler = (event) => this.handleCanvasClick(event);
 
+      this.developerPathMarkers = [];
+
       this.enemyTooltip = null;
       this.enemyTooltipNameEl = null;
       this.enemyTooltipHpEl = null;
@@ -2920,6 +2944,7 @@ import {
         this.arcOffset = 0;
         this.hoverPlacement = null;
         this.pointerPosition = null;
+        this.developerPathMarkers = [];
         if (this.ctx) {
           this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
@@ -4676,6 +4701,7 @@ import {
       this.drawPath();
       this.drawArcLight();
       this.drawNodes();
+      this.drawDeveloperPathMarkers();
       this.drawPlacementPreview();
       this.drawTowers();
       this.drawEnemies();
@@ -4772,6 +4798,75 @@ import {
       ctx.beginPath();
       ctx.arc(endPoint.x, endPoint.y, 12, 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    setDeveloperPathMarkers(markers) {
+      if (!Array.isArray(markers)) {
+        this.developerPathMarkers = [];
+        return;
+      }
+
+      this.developerPathMarkers = markers
+        .map((marker, index) => {
+          if (!marker) {
+            return null;
+          }
+          const x = Number(marker.x);
+          const y = Number(marker.y);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) {
+            return null;
+          }
+          return {
+            x,
+            y,
+            label:
+              marker.label !== undefined && marker.label !== null
+                ? marker.label
+                : index + 1,
+            active: Boolean(marker.active),
+          };
+        })
+        .filter(Boolean);
+    }
+
+    drawDeveloperPathMarkers() {
+      if (!this.ctx || !Array.isArray(this.developerPathMarkers) || !this.developerPathMarkers.length) {
+        return;
+      }
+
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.font = '12px "Space Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      this.developerPathMarkers.forEach((marker, index) => {
+        const radius = marker.active ? 12 : 10;
+        ctx.beginPath();
+        ctx.fillStyle = marker.active ? 'rgba(18, 26, 44, 0.9)' : 'rgba(12, 16, 28, 0.82)';
+        ctx.strokeStyle = marker.active
+          ? 'rgba(139, 247, 255, 0.9)'
+          : 'rgba(139, 247, 255, 0.55)';
+        ctx.lineWidth = marker.active ? 2 : 1.5;
+        if (marker.active) {
+          ctx.shadowColor = 'rgba(139, 247, 255, 0.3)';
+          ctx.shadowBlur = 16;
+        } else {
+          ctx.shadowColor = 'rgba(0, 0, 0, 0)';
+          ctx.shadowBlur = 0;
+        }
+        ctx.arc(marker.x, marker.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        const label = marker.label !== undefined && marker.label !== null ? marker.label : index + 1;
+        if (label !== undefined && label !== null) {
+          ctx.fillStyle = 'rgba(139, 247, 255, 0.9)';
+          ctx.fillText(String(label), marker.x, marker.y);
+        }
+      });
+
+      ctx.restore();
     }
 
     drawTowers() {
@@ -5629,6 +5724,9 @@ import {
       return;
     }
 
+    hideLevelEditorPanel();
+    overlayPreviewLevel = null;
+
     if (previewPlayfield) {
       previewPlayfield.leaveLevel();
       previewPlayfield = null;
@@ -5641,11 +5739,561 @@ import {
     overlayPreview.classList.remove('overlay-preview--active');
   }
 
+  function setLevelEditorStatus(message, options = {}) {
+    if (!levelEditorElements.status) {
+      return;
+    }
+
+    if (levelEditorState.statusTimeout) {
+      clearTimeout(levelEditorState.statusTimeout);
+      levelEditorState.statusTimeout = null;
+    }
+
+    if (!message) {
+      levelEditorElements.status.textContent = '';
+      levelEditorElements.status.hidden = true;
+      delete levelEditorElements.status.dataset.tone;
+      return;
+    }
+
+    const tone = options.tone || 'info';
+    const duration = Number.isFinite(options.duration) ? options.duration : 2400;
+    levelEditorElements.status.dataset.tone = tone;
+    levelEditorElements.status.textContent = message;
+    levelEditorElements.status.hidden = false;
+
+    if (duration > 0 && typeof window !== 'undefined') {
+      levelEditorState.statusTimeout = window.setTimeout(() => {
+        levelEditorState.statusTimeout = null;
+        if (levelEditorElements.status) {
+          levelEditorElements.status.hidden = true;
+        }
+      }, duration);
+    }
+  }
+
+  function endLevelEditorDrag() {
+    if (overlayPreviewCanvas && levelEditorState.pointerId !== null) {
+      try {
+        overlayPreviewCanvas.releasePointerCapture(levelEditorState.pointerId);
+      } catch (error) {
+        // ignore pointer capture release errors
+      }
+    }
+    levelEditorState.pointerId = null;
+    levelEditorState.draggingIndex = -1;
+    if (overlayPreviewCanvas) {
+      overlayPreviewCanvas.classList.remove('overlay-preview__canvas--dragging');
+    }
+  }
+
+  function detachLevelEditorCanvasListeners() {
+    if (!levelEditorState.canvasListenersAttached || !overlayPreviewCanvas) {
+      levelEditorState.canvasListenersAttached = false;
+      return;
+    }
+
+    overlayPreviewCanvas.removeEventListener('pointerdown', handleLevelEditorPointerDown);
+    overlayPreviewCanvas.removeEventListener('pointermove', handleLevelEditorPointerMove);
+    overlayPreviewCanvas.removeEventListener('pointerup', handleLevelEditorPointerUp);
+    overlayPreviewCanvas.removeEventListener('pointercancel', handleLevelEditorPointerUp);
+    overlayPreviewCanvas.removeEventListener('lostpointercapture', handleLevelEditorPointerUp);
+    levelEditorState.canvasListenersAttached = false;
+  }
+
+  function hideLevelEditorPanel() {
+    endLevelEditorDrag();
+    detachLevelEditorCanvasListeners();
+    levelEditorState.levelId = null;
+    levelEditorState.points = [];
+    levelEditorState.originalPoints = [];
+    levelEditorState.editing = false;
+
+    if (previewPlayfield) {
+      previewPlayfield.setDeveloperPathMarkers([]);
+      previewPlayfield.draw();
+    }
+
+    if (overlayPreviewCanvas) {
+      overlayPreviewCanvas.classList.remove('overlay-preview__canvas--editing');
+      overlayPreviewCanvas.classList.remove('overlay-preview__canvas--dragging');
+    }
+
+    if (levelEditorElements.container) {
+      levelEditorElements.container.hidden = true;
+      levelEditorElements.container.setAttribute('aria-hidden', 'true');
+    }
+
+    if (levelEditorElements.toggle) {
+      levelEditorElements.toggle.disabled = true;
+      levelEditorElements.toggle.setAttribute('aria-pressed', 'false');
+      levelEditorElements.toggle.textContent = 'Enable Editing';
+    }
+
+    updateLevelEditorOutput();
+    updateLevelEditorUI();
+    setLevelEditorStatus('');
+  }
+
+  function attachLevelEditorCanvasListeners() {
+    if (!overlayPreviewCanvas || levelEditorState.canvasListenersAttached) {
+      return;
+    }
+
+    overlayPreviewCanvas.addEventListener('pointerdown', handleLevelEditorPointerDown);
+    overlayPreviewCanvas.addEventListener('pointermove', handleLevelEditorPointerMove);
+    overlayPreviewCanvas.addEventListener('pointerup', handleLevelEditorPointerUp);
+    overlayPreviewCanvas.addEventListener('pointercancel', handleLevelEditorPointerUp);
+    overlayPreviewCanvas.addEventListener('lostpointercapture', handleLevelEditorPointerUp);
+    levelEditorState.canvasListenersAttached = true;
+  }
+
+  function updateLevelEditorOutput() {
+    if (!levelEditorElements.output) {
+      return;
+    }
+
+    if (!levelEditorState.points.length) {
+      levelEditorElements.output.value = '';
+      return;
+    }
+
+    const formattedPoints = levelEditorState.points.map((point) => ({
+      x: Number(clampNormalizedCoordinate(point.x).toFixed(4)),
+      y: Number(clampNormalizedCoordinate(point.y).toFixed(4)),
+    }));
+    levelEditorElements.output.value = JSON.stringify(formattedPoints, null, 2);
+  }
+
+  function updateLevelEditorUI() {
+    const points = levelEditorState.points;
+    if (levelEditorElements.count) {
+      const label = points.length === 1 ? 'point' : 'points';
+      levelEditorElements.count.textContent = `${points.length} ${label}`;
+    }
+    if (levelEditorElements.clear) {
+      levelEditorElements.clear.disabled = points.length === 0;
+    }
+    if (levelEditorElements.reset) {
+      levelEditorElements.reset.disabled = levelEditorState.originalPoints.length === 0;
+    }
+    if (levelEditorElements.exportButton) {
+      levelEditorElements.exportButton.disabled = points.length < 2;
+    }
+    if (levelEditorElements.toggle) {
+      levelEditorElements.toggle.disabled = !developerModeActive || !overlayPreviewCanvas;
+      levelEditorElements.toggle.textContent = levelEditorState.editing ? 'Disable Editing' : 'Enable Editing';
+      levelEditorElements.toggle.setAttribute('aria-pressed', levelEditorState.editing ? 'true' : 'false');
+    }
+  }
+
+  function refreshLevelEditorMarkers(options = {}) {
+    if (!previewPlayfield) {
+      return;
+    }
+
+    const { redraw = true } = options;
+
+    if (!overlayPreviewCanvas || !levelEditorState.points.length) {
+      previewPlayfield.setDeveloperPathMarkers([]);
+      if (redraw) {
+        previewPlayfield.draw();
+      }
+      return;
+    }
+
+    let width = previewPlayfield.renderWidth || 0;
+    let height = previewPlayfield.renderHeight || 0;
+    if ((!width || !height) && overlayPreviewCanvas) {
+      const rect = overlayPreviewCanvas.getBoundingClientRect();
+      width = rect.width;
+      height = rect.height;
+    }
+
+    if (!width || !height) {
+      previewPlayfield.setDeveloperPathMarkers([]);
+      if (redraw) {
+        previewPlayfield.draw();
+      }
+      return;
+    }
+
+    const markers = levelEditorState.points.map((point, index) => ({
+      x: clampNormalizedCoordinate(point.x) * width,
+      y: clampNormalizedCoordinate(point.y) * height,
+      label: index + 1,
+      active: levelEditorState.draggingIndex === index,
+    }));
+    previewPlayfield.setDeveloperPathMarkers(markers);
+    if (redraw) {
+      previewPlayfield.draw();
+    }
+  }
+
+  function applyLevelEditorPoints() {
+    if (!previewPlayfield || !previewPlayfield.levelConfig) {
+      updateLevelEditorOutput();
+      updateLevelEditorUI();
+      return;
+    }
+
+    const sanitized = levelEditorState.points.map((point) => ({
+      x: clampNormalizedCoordinate(point.x),
+      y: clampNormalizedCoordinate(point.y),
+    }));
+    levelEditorState.points = sanitized;
+    previewPlayfield.levelConfig.path = sanitized.map((point) => ({ ...point }));
+    previewPlayfield.buildPathGeometry();
+    refreshLevelEditorMarkers({ redraw: false });
+    previewPlayfield.draw();
+    updateLevelEditorOutput();
+    updateLevelEditorUI();
+  }
+
+  function setLevelEditorEditing(active) {
+    const enable = Boolean(active && developerModeActive && overlayPreviewCanvas);
+    if (!enable) {
+      endLevelEditorDrag();
+    }
+    levelEditorState.editing = enable;
+    if (levelEditorElements.container) {
+      levelEditorElements.container.classList.toggle('overlay-editor--active', enable);
+    }
+    if (overlayPreviewCanvas) {
+      overlayPreviewCanvas.classList.toggle('overlay-preview__canvas--editing', enable);
+      if (!enable) {
+        overlayPreviewCanvas.classList.remove('overlay-preview__canvas--dragging');
+      }
+    }
+    updateLevelEditorUI();
+    refreshLevelEditorMarkers();
+  }
+
+  function clearLevelEditorPoints() {
+    levelEditorState.points = [];
+    levelEditorState.draggingIndex = -1;
+    applyLevelEditorPoints();
+    setLevelEditorStatus('Cleared all anchors. Click to plot a new path.', { tone: 'warning' });
+  }
+
+  function resetLevelEditorPoints() {
+    if (!levelEditorState.originalPoints.length) {
+      return;
+    }
+    levelEditorState.points = levelEditorState.originalPoints.map((point) => ({ ...point }));
+    levelEditorState.draggingIndex = -1;
+    applyLevelEditorPoints();
+    setLevelEditorStatus('Restored path from level configuration.');
+  }
+
+  function configureLevelEditorForLevel(level, config) {
+    if (!levelEditorElements.container) {
+      return;
+    }
+
+    if (!developerModeActive || !level || !config || !Array.isArray(config.path) || config.path.length < 2) {
+      hideLevelEditorPanel();
+      return;
+    }
+
+    levelEditorState.levelId = level.id || null;
+    levelEditorState.originalPoints = cloneVectorArray(config.path).map((point) => ({
+      x: clampNormalizedCoordinate(point.x),
+      y: clampNormalizedCoordinate(point.y),
+    }));
+    levelEditorState.points = levelEditorState.originalPoints.map((point) => ({ ...point }));
+    levelEditorState.editing = false;
+    levelEditorState.draggingIndex = -1;
+    levelEditorState.pointerId = null;
+
+    if (overlayPreviewCanvas) {
+      overlayPreviewCanvas.classList.remove('overlay-preview__canvas--dragging');
+      overlayPreviewCanvas.classList.remove('overlay-preview__canvas--editing');
+    }
+
+    attachLevelEditorCanvasListeners();
+    applyLevelEditorPoints();
+
+    levelEditorElements.container.hidden = false;
+    levelEditorElements.container.setAttribute('aria-hidden', 'false');
+    setLevelEditorStatus('Developer editor ready—toggle editing to adjust anchors.', { duration: 2000 });
+  }
+
+  function syncLevelEditorVisibility() {
+    if (!developerModeActive) {
+      hideLevelEditorPanel();
+      return;
+    }
+
+    if (!levelEditorElements.container) {
+      return;
+    }
+
+    if (!overlayPreviewLevel || !previewPlayfield) {
+      return;
+    }
+
+    const config = levelConfigs.get(overlayPreviewLevel.id);
+    if (!config || !Array.isArray(config.path) || config.path.length < 2) {
+      hideLevelEditorPanel();
+      return;
+    }
+
+    if (levelEditorState.levelId !== overlayPreviewLevel.id) {
+      configureLevelEditorForLevel(overlayPreviewLevel, config);
+      return;
+    }
+
+    levelEditorElements.container.hidden = false;
+    levelEditorElements.container.setAttribute('aria-hidden', 'false');
+    updateLevelEditorUI();
+    refreshLevelEditorMarkers();
+  }
+
+  function handleLevelEditorToggle() {
+    if (!developerModeActive) {
+      setLevelEditorStatus('Enable developer mode to use the level editor.', { tone: 'warning' });
+      return;
+    }
+    const nextState = !levelEditorState.editing;
+    setLevelEditorEditing(nextState);
+    if (nextState && !levelEditorState.points.length) {
+      setLevelEditorStatus('Click the preview to place your first anchor.');
+    } else if (!nextState) {
+      setLevelEditorStatus('Editing disabled. Copy the JSON below when ready.');
+    }
+  }
+
+  function handleLevelEditorClear() {
+    clearLevelEditorPoints();
+  }
+
+  function handleLevelEditorReset() {
+    resetLevelEditorPoints();
+  }
+
+  async function handleLevelEditorExport() {
+    if (!levelEditorElements.output) {
+      return;
+    }
+    const text = levelEditorElements.output.value.trim();
+    if (!text) {
+      setLevelEditorStatus('Add at least two anchors before exporting.', { tone: 'warning' });
+      return;
+    }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        setLevelEditorStatus('Copied path JSON to clipboard.');
+      } else {
+        levelEditorElements.output.focus();
+        levelEditorElements.output.select();
+        setLevelEditorStatus('Clipboard unavailable—select and copy manually.', { tone: 'warning' });
+      }
+    } catch (error) {
+      console.warn('Level editor failed to copy path', error);
+      levelEditorElements.output.focus();
+      levelEditorElements.output.select();
+      setLevelEditorStatus('Copy failed—select the JSON manually.', { tone: 'error' });
+    }
+  }
+
+  function getNormalizedPointerPosition(event) {
+    if (!overlayPreviewCanvas) {
+      return null;
+    }
+    const rect = overlayPreviewCanvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      return null;
+    }
+    const x = clampNormalizedCoordinate((event.clientX - rect.left) / rect.width);
+    const y = clampNormalizedCoordinate((event.clientY - rect.top) / rect.height);
+    return { x, y };
+  }
+
+  function findNearestEditorPoint(point) {
+    const points = levelEditorState.points;
+    if (!points.length) {
+      return { index: -1, distance: Infinity };
+    }
+    let bestIndex = -1;
+    let bestDistance = Infinity;
+    points.forEach((candidate, index) => {
+      const dx = candidate.x - point.x;
+      const dy = candidate.y - point.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
+      }
+    });
+    return { index: bestIndex, distance: bestDistance };
+  }
+
+  function distanceSquaredToSegment(point, start, end) {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared === 0) {
+      const diffX = point.x - start.x;
+      const diffY = point.y - start.y;
+      return diffX * diffX + diffY * diffY;
+    }
+    let t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared;
+    t = Math.max(0, Math.min(1, t));
+    const projX = start.x + t * dx;
+    const projY = start.y + t * dy;
+    const diffX = point.x - projX;
+    const diffY = point.y - projY;
+    return diffX * diffX + diffY * diffY;
+  }
+
+  function findInsertionIndex(point) {
+    const points = levelEditorState.points;
+    if (!points.length) {
+      return 0;
+    }
+    if (points.length === 1) {
+      return 1;
+    }
+    let bestIndex = points.length;
+    let bestDistance = Infinity;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      const distance = distanceSquaredToSegment(point, start, end);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index + 1;
+      }
+    }
+    return bestIndex;
+  }
+
+  function handleLevelEditorPointerDown(event) {
+    if (!levelEditorState.editing || !overlayPreviewCanvas || event.button !== 0) {
+      return;
+    }
+    const point = getNormalizedPointerPosition(event);
+    if (!point) {
+      return;
+    }
+
+    const nearest = findNearestEditorPoint(point);
+    const removalThreshold = 0.045;
+    if (event.shiftKey && nearest.index >= 0 && nearest.distance <= removalThreshold) {
+      event.preventDefault();
+      levelEditorState.points.splice(nearest.index, 1);
+      levelEditorState.draggingIndex = -1;
+      applyLevelEditorPoints();
+      setLevelEditorStatus(`Removed anchor ${nearest.index + 1}.`, { tone: 'warning' });
+      return;
+    }
+
+    event.preventDefault();
+
+    const selectionThreshold = 0.04;
+    if (nearest.index >= 0 && nearest.distance <= selectionThreshold) {
+      levelEditorState.draggingIndex = nearest.index;
+      levelEditorState.pointerId = event.pointerId;
+      try {
+        overlayPreviewCanvas.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // ignore pointer capture errors
+      }
+      overlayPreviewCanvas.classList.add('overlay-preview__canvas--dragging');
+      levelEditorState.points[nearest.index] = point;
+      applyLevelEditorPoints();
+      return;
+    }
+
+    const insertionIndex = findInsertionIndex(point);
+    levelEditorState.points.splice(insertionIndex, 0, point);
+    levelEditorState.draggingIndex = insertionIndex;
+    levelEditorState.pointerId = event.pointerId;
+    try {
+      overlayPreviewCanvas.setPointerCapture(event.pointerId);
+    } catch (error) {
+      // ignore pointer capture errors
+    }
+    overlayPreviewCanvas.classList.add('overlay-preview__canvas--dragging');
+    applyLevelEditorPoints();
+    if (levelEditorState.points.length === 1) {
+      setLevelEditorStatus('Anchor placed. Add another anchor to draw the path.');
+    }
+  }
+
+  function handleLevelEditorPointerMove(event) {
+    if (!levelEditorState.editing || levelEditorState.draggingIndex < 0) {
+      return;
+    }
+    if (levelEditorState.pointerId !== null && event.pointerId !== levelEditorState.pointerId) {
+      return;
+    }
+    const point = getNormalizedPointerPosition(event);
+    if (!point) {
+      return;
+    }
+    event.preventDefault();
+    levelEditorState.points[levelEditorState.draggingIndex] = point;
+    applyLevelEditorPoints();
+  }
+
+  function handleLevelEditorPointerUp(event) {
+    if (event && levelEditorState.pointerId !== null && event.pointerId !== levelEditorState.pointerId) {
+      return;
+    }
+    endLevelEditorDrag();
+    refreshLevelEditorMarkers();
+    updateLevelEditorUI();
+  }
+
+  function initializeLevelEditorElements() {
+    levelEditorElements.container = document.getElementById('overlay-level-editor');
+    levelEditorElements.toggle = document.getElementById('level-editor-toggle');
+    levelEditorElements.note = document.getElementById('level-editor-note');
+    levelEditorElements.count = document.getElementById('level-editor-count');
+    levelEditorElements.clear = document.getElementById('level-editor-clear');
+    levelEditorElements.reset = document.getElementById('level-editor-reset');
+    levelEditorElements.exportButton = document.getElementById('level-editor-export');
+    levelEditorElements.output = document.getElementById('level-editor-output');
+    levelEditorElements.status = document.getElementById('level-editor-status');
+
+    if (levelEditorElements.toggle) {
+      levelEditorElements.toggle.addEventListener('click', (event) => {
+        event.preventDefault();
+        handleLevelEditorToggle();
+      });
+    }
+    if (levelEditorElements.clear) {
+      levelEditorElements.clear.addEventListener('click', (event) => {
+        event.preventDefault();
+        handleLevelEditorClear();
+      });
+    }
+    if (levelEditorElements.reset) {
+      levelEditorElements.reset.addEventListener('click', (event) => {
+        event.preventDefault();
+        handleLevelEditorReset();
+      });
+    }
+    if (levelEditorElements.exportButton) {
+      levelEditorElements.exportButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        handleLevelEditorExport();
+      });
+    }
+
+    hideLevelEditorPanel();
+  }
+
   function renderLevelPreview(level) {
     if (!overlayPreview) {
       return;
     }
     clearOverlayPreview();
+
+    overlayPreviewLevel = level || null;
 
     const config = level ? levelConfigs.get(level.id) : null;
     const hasInteractivePath = Boolean(
@@ -5673,6 +6321,7 @@ import {
       });
       previewPlayfield.enterLevel(level, { endlessMode: false });
       previewPlayfield.draw();
+      configureLevelEditorForLevel(level, config);
       return;
     }
 
@@ -7310,6 +7959,8 @@ import {
       developerModeElements.note.hidden = false;
     }
 
+    syncLevelEditorVisibility();
+
     if (playfield?.messageEl) {
       playfield.messageEl.textContent =
         'Developer lattice engaged—every tower, level, and codex entry is unlocked.';
@@ -7354,6 +8005,8 @@ import {
     if (developerModeElements.note) {
       developerModeElements.note.hidden = true;
     }
+
+    hideLevelEditorPanel();
   }
 
   function bindDeveloperModeToggle() {
@@ -8349,6 +9002,8 @@ import {
     if (overlayInstruction) {
       overlayInstruction.textContent = overlayInstructionDefault;
     }
+
+    initializeLevelEditorElements();
 
     bindColorSchemeButton();
     initializeColorScheme();
