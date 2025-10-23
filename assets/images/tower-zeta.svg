@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="zetaGlow" cx="50%" cy="40%" r="64%">
+      <stop offset="0%" stop-color="#fdefff" stop-opacity="0.95" />
+      <stop offset="70%" stop-color="#d68bff" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#190f26" stop-opacity="0.92" />
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0b0716" />
+  <circle cx="32" cy="30" r="24" fill="url(#zetaGlow)" />
+  <path
+    d="M16 24h32l-8 8 8 8H16l8-8z"
+    fill="none"
+    stroke="#f7d2ff"
+    stroke-width="1.6"
+    stroke-linejoin="round"
+    opacity="0.65"
+  />
+  <text
+    x="32"
+    y="41"
+    font-family="'Cormorant Garamond', 'Times New Roman', serif"
+    font-size="32"
+    text-anchor="middle"
+    fill="#200b36"
+  >ζ</text>
+</svg>
