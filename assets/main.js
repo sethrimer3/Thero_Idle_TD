@@ -436,6 +436,78 @@
       rate: 0.4,
       range: 0.74,
       icon: 'assets/images/tower-omega.svg',
+      nextTierId: 'aleph-null',
+    },
+    {
+      id: 'aleph-null',
+      symbol: 'ℵ₀',
+      name: 'Aleph Null Tower',
+      tier: 25,
+      baseCost: 3.1e16,
+      damage: 9600,
+      rate: 0.38,
+      range: 0.78,
+      icon: 'assets/images/tower-aleph-null.svg',
+      nextTierId: 'aleph-one',
+    },
+    {
+      id: 'aleph-one',
+      symbol: 'ℵ₁',
+      name: 'Aleph One Tower',
+      tier: 26,
+      baseCost: 1.1e17,
+      damage: 11500,
+      rate: 0.36,
+      range: 0.8,
+      icon: 'assets/images/tower-aleph-one.svg',
+      nextTierId: 'aleph-two',
+    },
+    {
+      id: 'aleph-two',
+      symbol: 'ℵ₂',
+      name: 'Aleph Two Tower',
+      tier: 27,
+      baseCost: 3.6e17,
+      damage: 13800,
+      rate: 0.34,
+      range: 0.82,
+      icon: 'assets/images/tower-aleph-two.svg',
+      nextTierId: 'aleph-three',
+    },
+    {
+      id: 'aleph-three',
+      symbol: 'ℵ₃',
+      name: 'Aleph Three Tower',
+      tier: 28,
+      baseCost: 1.2e18,
+      damage: 16400,
+      rate: 0.32,
+      range: 0.84,
+      icon: 'assets/images/tower-aleph-three.svg',
+      nextTierId: 'aleph-four',
+    },
+    {
+      id: 'aleph-four',
+      symbol: 'ℵ₄',
+      name: 'Aleph Four Tower',
+      tier: 29,
+      baseCost: 3.9e18,
+      damage: 19300,
+      rate: 0.3,
+      range: 0.86,
+      icon: 'assets/images/tower-aleph-four.svg',
+      nextTierId: 'aleph-five',
+    },
+    {
+      id: 'aleph-five',
+      symbol: 'ℵ₅',
+      name: 'Aleph Five Tower',
+      tier: 30,
+      baseCost: 1.3e19,
+      damage: 22600,
+      rate: 0.28,
+      range: 0.88,
+      icon: 'assets/images/tower-aleph-five.svg',
       nextTierId: null,
     },
   ];
@@ -637,6 +709,32 @@
     'TDe',
     'QDe',
   ];
+
+  const alephSubscriptDigits = {
+    0: '₀',
+    1: '₁',
+    2: '₂',
+    3: '₃',
+    4: '₄',
+    5: '₅',
+    6: '₆',
+    7: '₇',
+    8: '₈',
+    9: '₉',
+  };
+
+  function toSubscriptNumber(value) {
+    const normalized = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+    return `${normalized}`
+      .split('')
+      .map((digit) => alephSubscriptDigits[digit] || digit)
+      .join('');
+  }
+
+  function formatAlephLabel(index) {
+    const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
+    return `ℵ${toSubscriptNumber(normalized)}`;
+  }
 
   const gameStats = {
     manualVictories: 0,
@@ -1117,10 +1215,64 @@
     basin: null,
     wallMarker: null,
     crestMarker: null,
-    wallGlyphs: [],
+    wallGlyphColumns: [],
     leftWall: null,
     rightWall: null,
   };
+
+  const powderGlyphColumns = [];
+
+  function updatePowderGlyphColumns(info = {}) {
+    const rows = Number.isFinite(info.rows) && info.rows > 0 ? info.rows : 1;
+    const cellSize = Number.isFinite(info.cellSize) && info.cellSize > 0 ? info.cellSize : 1;
+    const scrollOffset = Number.isFinite(info.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
+    const highestRawInput = Number.isFinite(info.highestNormalized) ? info.highestNormalized : 0;
+    const totalRawInput = Number.isFinite(info.totalNormalized) ? info.totalNormalized : highestRawInput;
+    const highestRaw = Math.max(0, highestRawInput, totalRawInput);
+    const basinHeight = rows * cellSize;
+    const viewTop = scrollOffset / rows;
+    const viewBottom = (scrollOffset + rows) / rows;
+    const buffer = 2;
+    const minIndex = Math.max(0, Math.floor(viewTop) - buffer);
+    const maxIndex = Math.max(minIndex, Math.floor(viewBottom) + buffer);
+
+    if (powderGlyphColumns.length) {
+      powderGlyphColumns.forEach((column) => {
+        column.glyphs.forEach((glyph, index) => {
+          if (index < minIndex || index > maxIndex) {
+            column.element.removeChild(glyph);
+            column.glyphs.delete(index);
+          }
+        });
+
+        for (let index = minIndex; index <= maxIndex; index += 1) {
+          let glyph = column.glyphs.get(index);
+          if (!glyph) {
+            glyph = document.createElement('span');
+            glyph.className = 'powder-glyph';
+            glyph.dataset.alephIndex = String(index);
+            column.element.appendChild(glyph);
+            column.glyphs.set(index, glyph);
+          }
+          glyph.textContent = formatAlephLabel(index);
+          const relativeRows = index * rows - scrollOffset;
+          const topPx = basinHeight - relativeRows * cellSize;
+          glyph.style.top = `${topPx.toFixed(1)}px`;
+          glyph.classList.toggle('powder-glyph--achieved', highestRaw >= index);
+          glyph.classList.toggle('powder-glyph--target', index === Math.max(1, Math.floor(highestRaw) + 1));
+        }
+      });
+    }
+
+    const achievedCount = Math.max(0, Math.floor(highestRaw));
+    const nextIndex = Math.max(achievedCount + 1, 1);
+
+    return {
+      achievedCount,
+      nextIndex,
+      highestRaw,
+    };
+  }
 
   let resourceTicker = null;
   let lastResourceTick = 0;
@@ -1531,6 +1683,91 @@
       { x: 0.36, y: 0.56 },
       { x: 0.56, y: 0.44 },
       { x: 0.76, y: 0.6 },
+    ],
+  };
+
+  const levelSecretConjectureConfig = {
+    id: 'Conjecture - Secret',
+    displayName: 'Apocrypha Loop',
+    startThero: BASE_START_THERO,
+    theroCap: 1320,
+    theroPerKill: 58,
+    passiveTheroPerSecond: 28,
+    lives: BASE_CORE_INTEGRITY,
+    waves: [
+      {
+        label: 'hidden lemmas',
+        count: 16,
+        interval: 0.85,
+        hp: 520,
+        speed: 0.118,
+        reward: 50,
+        color: 'rgba(162, 248, 255, 0.94)',
+        codexId: 'etype',
+      },
+      {
+        label: 'portal scribes',
+        count: 10,
+        interval: 1.15,
+        hp: 880,
+        speed: 0.135,
+        reward: 68,
+        color: 'rgba(255, 184, 244, 0.95)',
+        codexId: 'divisor',
+      },
+      {
+        label: 'apocrypha husks',
+        count: 7,
+        interval: 1.6,
+        hp: 1340,
+        speed: 0.148,
+        reward: 96,
+        color: 'rgba(255, 226, 188, 0.97)',
+        codexId: 'prime',
+      },
+      {
+        label: 'mirror adepts',
+        count: 6,
+        interval: 2,
+        hp: 1900,
+        speed: 0.16,
+        reward: 132,
+        color: 'rgba(255, 150, 210, 0.97)',
+        codexId: 'reversal',
+      },
+      {
+        label: 'paradox heralds',
+        count: 4,
+        interval: 2.6,
+        hp: 2680,
+        speed: 0.172,
+        reward: 168,
+        color: 'rgba(220, 255, 214, 0.97)',
+        codexId: 'prime',
+      },
+    ],
+    rewardScore: 19.6 * 10 ** 44,
+    rewardFlux: 2,
+    rewardThero: 0,
+    rewardEnergy: 1,
+    arcSpeed: 0.36,
+    path: [
+      { x: 0.06, y: 0.96 },
+      { x: 0.16, y: 0.84 },
+      { x: 0.26, y: 0.66 },
+      { x: 0.36, y: 0.5 },
+      { x: 0.5, y: 0.42 },
+      { x: 0.64, y: 0.54 },
+      { x: 0.74, y: 0.7 },
+      { x: 0.86, y: 0.58 },
+      { x: 0.94, y: 0.34 },
+      { x: 0.88, y: 0.14 },
+    ],
+    autoAnchors: [
+      { x: 0.2, y: 0.78 },
+      { x: 0.38, y: 0.54 },
+      { x: 0.58, y: 0.46 },
+      { x: 0.78, y: 0.64 },
     ],
   };
 
@@ -1967,6 +2204,101 @@
     ],
   };
 
+  const levelSecretCorollaryConfig = {
+    id: 'Corollary - Secret',
+    displayName: 'Shadow Integral',
+    startThero: BASE_START_THERO,
+    theroCap: 1460,
+    theroPerKill: 64,
+    passiveTheroPerSecond: 32,
+    lives: BASE_CORE_INTEGRITY,
+    waves: [
+      {
+        label: 'shadow currents',
+        count: 18,
+        interval: 0.8,
+        hp: 600,
+        speed: 0.125,
+        reward: 54,
+        color: 'rgba(168, 250, 255, 0.94)',
+        codexId: 'etype',
+      },
+      {
+        label: 'integral siphons',
+        count: 12,
+        interval: 1.1,
+        hp: 960,
+        speed: 0.138,
+        reward: 74,
+        color: 'rgba(255, 188, 246, 0.95)',
+        codexId: 'divisor',
+      },
+      {
+        label: 'flux sentinels',
+        count: 8,
+        interval: 1.5,
+        hp: 1480,
+        speed: 0.15,
+        reward: 102,
+        color: 'rgba(255, 228, 192, 0.97)',
+        codexId: 'prime',
+      },
+      {
+        label: 'phase inverters',
+        count: 6,
+        interval: 1.9,
+        hp: 2120,
+        speed: 0.164,
+        reward: 142,
+        color: 'rgba(255, 154, 214, 0.97)',
+        codexId: 'reversal',
+      },
+      {
+        label: 'axiom amalgams',
+        count: 4,
+        interval: 2.4,
+        hp: 2960,
+        speed: 0.176,
+        reward: 184,
+        color: 'rgba(224, 255, 222, 0.97)',
+        codexId: 'prime',
+      },
+      {
+        label: 'archive sovereigns',
+        count: 2,
+        interval: 2.8,
+        hp: 4200,
+        speed: 0.182,
+        reward: 240,
+        color: 'rgba(255, 210, 252, 0.98)',
+        codexId: 'reversal',
+      },
+    ],
+    rewardScore: 24.8 * 10 ** 44,
+    rewardFlux: 2,
+    rewardThero: 0,
+    rewardEnergy: 2,
+    arcSpeed: 0.4,
+    path: [
+      { x: 0.08, y: 0.94 },
+      { x: 0.18, y: 0.78 },
+      { x: 0.28, y: 0.62 },
+      { x: 0.42, y: 0.5 },
+      { x: 0.58, y: 0.64 },
+      { x: 0.72, y: 0.8 },
+      { x: 0.84, y: 0.62 },
+      { x: 0.94, y: 0.44 },
+      { x: 0.9, y: 0.24 },
+      { x: 0.82, y: 0.1 },
+    ],
+    autoAnchors: [
+      { x: 0.24, y: 0.76 },
+      { x: 0.46, y: 0.54 },
+      { x: 0.66, y: 0.72 },
+      { x: 0.82, y: 0.48 },
+    ],
+  };
+
   const levelConfigs = new Map(
     [
       firstLevelConfig,
@@ -1974,11 +2306,13 @@
       levelThreeConfig,
       levelFourConfig,
       levelFiveConfig,
+      levelSecretConjectureConfig,
       levelSixConfig,
       levelSevenConfig,
       levelEightConfig,
       levelNineConfig,
       levelTenConfig,
+      levelSecretCorollaryConfig,
     ].map((config) => [config.id, config]),
   );
 
@@ -6837,41 +7171,46 @@
       powderElements.crestMarker.dataset.height = `Crest ${formatDecimal(normalizedHeight, 2)}`;
     }
 
+    const glyphMetrics = updatePowderGlyphColumns({
+      scrollOffset,
+      rows,
+      cellSize,
+      highestNormalized: highestNormalizedRaw,
+      totalNormalized,
+    });
+
     if (powderElements.wallMarker) {
       const peakOffset = Math.min(basinHeight, (1 - highestNormalized) * basinHeight);
       powderElements.wallMarker.style.transform = `translateY(${peakOffset.toFixed(1)}px)`;
-      powderElements.wallMarker.dataset.height = `Peak ${highestDisplay}`;
+      if (glyphMetrics) {
+        const { achievedCount, nextIndex, highestRaw } = glyphMetrics;
+        const fractional = Math.max(0, highestRaw - achievedCount);
+        const progressPercent = formatDecimal(Math.min(1, fractional) * 100, 1);
+        const remaining = Math.max(0, nextIndex - highestRaw);
+        const currentLabel = formatAlephLabel(achievedCount);
+        const nextLabel = formatAlephLabel(nextIndex);
+        powderElements.wallMarker.dataset.height = `${currentLabel} · ${progressPercent}% to ${nextLabel} (Δh ${formatDecimal(
+          remaining,
+          2,
+        )})`;
+      } else {
+        powderElements.wallMarker.dataset.height = `Peak ${highestDisplay}`;
+      }
     }
 
-    if (powderElements.wallGlyphs && powderElements.wallGlyphs.length) {
-      let litGlyphs = 0;
-      let leftAwake = false;
-      let rightAwake = false;
-
-      powderElements.wallGlyphs.forEach((glyph) => {
-        const threshold = Number.parseFloat(glyph.dataset.heightThreshold);
-        const isLit = Number.isFinite(threshold) && normalizedHeight >= threshold;
-        glyph.classList.toggle('glowing', isLit);
-        if (isLit) {
-          litGlyphs += 1;
-          if (glyph.dataset.wall === 'right') {
-            rightAwake = true;
-          } else {
-            leftAwake = true;
-          }
-        }
-      });
-
+    if (glyphMetrics) {
+      const { achievedCount, highestRaw } = glyphMetrics;
+      const fractional = Math.max(0, highestRaw - achievedCount);
       if (powderElements.leftWall) {
-        powderElements.leftWall.classList.toggle('wall-awake', leftAwake);
+        powderElements.leftWall.classList.toggle('wall-awake', highestRaw > 0);
       }
       if (powderElements.rightWall) {
-        powderElements.rightWall.classList.toggle('wall-awake', rightAwake);
+        powderElements.rightWall.classList.toggle('wall-awake', achievedCount > 0 || fractional >= 0.6);
       }
 
-      if (litGlyphs !== powderState.wallGlyphsLit) {
-        powderState.wallGlyphsLit = litGlyphs;
-        notifyPowderSigils(litGlyphs);
+      if (achievedCount !== powderState.wallGlyphsLit) {
+        powderState.wallGlyphsLit = achievedCount;
+        notifyPowderSigils(achievedCount);
       }
     }
 
@@ -7243,9 +7582,18 @@
     powderElements.rightWall = document.getElementById('powder-wall-right');
     powderElements.wallMarker = document.getElementById('powder-wall-marker');
     powderElements.crestMarker = document.getElementById('powder-crest-marker');
-    powderElements.wallGlyphs = Array.from(
-      document.querySelectorAll('[data-powder-glyph]'),
+    powderElements.wallGlyphColumns = Array.from(
+      document.querySelectorAll('[data-powder-glyph-column]'),
     );
+    powderGlyphColumns.length = 0;
+    powderElements.wallGlyphColumns.forEach((columnEl) => {
+      if (!columnEl) {
+        return;
+      }
+      columnEl.innerHTML = '';
+      powderGlyphColumns.push({ element: columnEl, glyphs: new Map() });
+    });
+    updatePowderGlyphColumns({ rows: 1, cellSize: 1, scrollOffset: 0, highestNormalized: 0, totalNormalized: 0 });
 
     powderElements.totalMultiplier = document.getElementById('powder-total-multiplier');
     powderElements.sandBonusValue = document.getElementById('powder-sand-bonus');
