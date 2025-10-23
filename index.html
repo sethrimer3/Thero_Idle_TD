@@ -422,6 +422,64 @@
               </ul>
             </article>
           </section>
+          <section class="powder-stage" aria-label="Powderfall basin">
+            <article class="card powder-simulation">
+              <h3>Powderfall Basin</h3>
+              <div class="powder-basin" id="powder-basin">
+                <div class="powder-wall powder-wall-left" id="powder-wall-left" aria-hidden="true">
+                  <span
+                    class="powder-glyph"
+                    data-powder-glyph
+                    data-height-threshold="0.2"
+                    data-wall="left"
+                  >∑</span>
+                  <span
+                    class="powder-glyph"
+                    data-powder-glyph
+                    data-height-threshold="0.45"
+                    data-wall="left"
+                  >Δ</span>
+                  <span
+                    class="powder-glyph"
+                    data-powder-glyph
+                    data-height-threshold="0.7"
+                    data-wall="left"
+                  >Φ</span>
+                </div>
+                <canvas
+                  id="powder-canvas"
+                  width="240"
+                  height="320"
+                  role="img"
+                  aria-label="Powderfall basin simulation"
+                ></canvas>
+                <div class="powder-wall powder-wall-right" id="powder-wall-right" aria-hidden="true">
+                  <span
+                    class="powder-glyph"
+                    data-powder-glyph
+                    data-height-threshold="0.33"
+                    data-wall="right"
+                  >Ψ</span>
+                  <span
+                    class="powder-glyph"
+                    data-powder-glyph
+                    data-height-threshold="0.58"
+                    data-wall="right"
+                  >Ω</span>
+                  <span
+                    class="powder-glyph"
+                    data-powder-glyph
+                    data-height-threshold="0.85"
+                    data-wall="right"
+                  >ℵ</span>
+                </div>
+              </div>
+              <p class="powder-footnote" id="powder-simulation-note">
+                Captured crest: 0.0% full · dune height h = 1.00 · largest grain —.
+              </p>
+            </article>
+          </section>
+
           <div class="panel-grid powder-grid">
             <article class="card">
               <h3>Sandfall</h3>
@@ -439,19 +497,6 @@
               >
                 Stabilize Flow
               </button>
-            </article>
-            <article class="card powder-simulation">
-              <h3>Powderfall Basin</h3>
-              <canvas
-                id="powder-canvas"
-                width="240"
-                height="320"
-                role="img"
-                aria-label="Powderfall basin simulation"
-              ></canvas>
-              <p class="powder-footnote" id="powder-simulation-note">
-                Captured crest: 0.0% full · dune height h = 1.00 · largest grain —.
-              </p>
             </article>
             <article class="card">
               <h3>Dune Height</h3>

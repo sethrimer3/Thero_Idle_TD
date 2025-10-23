@@ -735,6 +735,7 @@
     duneHeight: powderConfig.duneHeightBase,
     charges: 0,
     simulatedDuneGain: 0,
+    wallGlyphsLit: 0,
   };
 
   let currentPowderBonuses = {
@@ -767,6 +768,10 @@
     logEmpty: null,
     simulationCanvas: null,
     simulationNote: null,
+    basin: null,
+    wallGlyphs: [],
+    leftWall: null,
+    rightWall: null,
   };
 
   let resourceTicker = null;
@@ -1298,15 +1303,25 @@
           continue;
         }
 
-        const shade = Math.max(140, Math.min(235, grain.shade));
         const alpha = grain.freefall ? 0.55 : 0.9;
-        this.ctx.fillStyle = `rgba(${shade}, ${shade}, ${shade}, ${alpha})`;
-        this.ctx.fillRect(px, py, sizePx, sizePx);
 
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
-        this.ctx.fillRect(px, py + sizePx - 1, sizePx, 1);
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-        this.ctx.fillRect(px, py, sizePx, 1);
+        if (grain.size === 2) {
+          this.ctx.fillStyle = `rgba(255, 222, 89, ${alpha})`;
+          this.ctx.fillRect(px, py, sizePx, sizePx);
+          this.ctx.fillStyle = 'rgba(255, 245, 200, 0.4)';
+          this.ctx.fillRect(px, py, sizePx, 1);
+          this.ctx.fillStyle = 'rgba(255, 178, 70, 0.38)';
+          this.ctx.fillRect(px, py + sizePx - 1, sizePx, 1);
+        } else {
+          const shade = Math.max(140, Math.min(235, grain.shade));
+          this.ctx.fillStyle = `rgba(${shade}, ${shade}, ${shade}, ${alpha})`;
+          this.ctx.fillRect(px, py, sizePx, sizePx);
+
+          this.ctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
+          this.ctx.fillRect(px, py + sizePx - 1, sizePx, 1);
+          this.ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+          this.ctx.fillRect(px, py, sizePx, 1);
+        }
       }
     }
 
@@ -4660,6 +4675,42 @@
         `Captured crest: ${crestPercent}% full · dune height h = ${crestHeight} · largest grain ${grainLabel}.`;
     }
 
+    if (powderElements.basin) {
+      powderElements.basin.style.setProperty('--powder-crest', normalizedHeight.toFixed(3));
+    }
+
+    if (powderElements.wallGlyphs && powderElements.wallGlyphs.length) {
+      let litGlyphs = 0;
+      let leftAwake = false;
+      let rightAwake = false;
+
+      powderElements.wallGlyphs.forEach((glyph) => {
+        const threshold = Number.parseFloat(glyph.dataset.heightThreshold);
+        const isLit = Number.isFinite(threshold) && normalizedHeight >= threshold;
+        glyph.classList.toggle('glowing', isLit);
+        if (isLit) {
+          litGlyphs += 1;
+          if (glyph.dataset.wall === 'right') {
+            rightAwake = true;
+          } else {
+            leftAwake = true;
+          }
+        }
+      });
+
+      if (powderElements.leftWall) {
+        powderElements.leftWall.classList.toggle('wall-awake', leftAwake);
+      }
+      if (powderElements.rightWall) {
+        powderElements.rightWall.classList.toggle('wall-awake', rightAwake);
+      }
+
+      if (litGlyphs !== powderState.wallGlyphsLit) {
+        powderState.wallGlyphsLit = litGlyphs;
+        notifyPowderSigils(litGlyphs);
+      }
+    }
+
     if (Math.abs(previousGain - clampedGain) > 0.01) {
       refreshPowderSystems();
     }
@@ -4784,6 +4835,12 @@
 
     powderElements.simulationCanvas = document.getElementById('powder-canvas');
     powderElements.simulationNote = document.getElementById('powder-simulation-note');
+    powderElements.basin = document.getElementById('powder-basin');
+    powderElements.leftWall = document.getElementById('powder-wall-left');
+    powderElements.rightWall = document.getElementById('powder-wall-right');
+    powderElements.wallGlyphs = Array.from(
+      document.querySelectorAll('[data-powder-glyph]'),
+    );
 
     powderElements.totalMultiplier = document.getElementById('powder-total-multiplier');
     powderElements.sandBonusValue = document.getElementById('powder-sand-bonus');

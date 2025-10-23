@@ -1024,25 +1024,122 @@ body::before {
   text-align: center;
 }
 
+.powder-stage {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin: 0 auto 32px;
+  padding-inline: clamp(12px, 4vw, 36px);
+}
+
 .powder-simulation {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 14px;
+  align-items: stretch;
+  gap: 18px;
+  width: min(520px, 100%);
+  min-height: clamp(440px, 85vh, 760px);
 }
 
-.powder-simulation canvas {
+.powder-simulation h3 {
+  text-align: center;
+}
+
+.powder-basin {
+  position: relative;
+  flex: 1 1 auto;
   width: 100%;
-  max-width: 320px;
-  aspect-ratio: 3 / 4;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-  background: linear-gradient(180deg, rgba(15, 16, 24, 0.96) 0%, rgba(22, 25, 37, 0.96) 100%);
+  min-height: clamp(360px, 70vh, 640px);
+  border-radius: 20px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 10%, rgba(255, 228, 120, 0.08), transparent 60%),
+    linear-gradient(180deg, rgba(15, 16, 24, 0.96) 0%, rgba(22, 25, 37, 0.96) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 -20px 40px rgba(8, 8, 12, 0.6);
+  --powder-crest: 0;
+}
+
+.powder-basin::before,
+.powder-basin::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.powder-basin::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 35%);
+  opacity: 0.2;
+}
+
+.powder-basin::after {
+  background: radial-gradient(circle at 50% 10%, rgba(255, 228, 120, 0.2), transparent 55%);
+  opacity: calc(0.12 + var(--powder-crest, 0) * 0.45);
+  transition: opacity var(--transition);
+}
+
+.powder-basin canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.powder-wall {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: clamp(36px, 14%, 68px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+  padding: 32px 10px;
+  background: linear-gradient(180deg, rgba(10, 12, 18, 0.8) 0%, rgba(12, 14, 20, 0.9) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition: box-shadow var(--transition), filter var(--transition);
+}
+
+.powder-wall-left {
+  left: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.powder-wall-right {
+  right: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.powder-wall.wall-awake {
+  box-shadow: inset 0 0 0 1px rgba(255, 228, 120, 0.35), 0 0 18px rgba(255, 228, 120, 0.28);
+  filter: saturate(1.2);
+}
+
+.powder-glyph {
+  font-family: "Cormorant Garamond", "Space Mono", serif;
+  font-size: clamp(1.4rem, 3vw, 2.1rem);
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.26);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
+  transition: color var(--transition), text-shadow var(--transition), transform var(--transition);
+}
+
+.powder-glyph.glowing {
+  color: var(--accent-3);
+  text-shadow: 0 0 12px rgba(255, 228, 120, 0.75), 0 0 28px rgba(255, 195, 32, 0.45);
+  transform: translateY(-2px);
 }
 
 .powder-simulation .powder-footnote {
   text-align: center;
+}
+
+@media (min-width: 960px) {
+  .powder-stage {
+    padding-inline: clamp(24px, 6vw, 64px);
+  }
+  .powder-simulation {
+    min-height: clamp(500px, 90vh, 820px);
+  }
 }
 
 .tower-header {
