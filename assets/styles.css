@@ -502,6 +502,19 @@ body::before {
   box-shadow: 0 18px 38px rgba(139, 247, 255, 0.2);
 }
 
+.level-card.locked {
+  cursor: not-allowed;
+  opacity: 0.6;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.level-card.locked:hover {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow);
+}
+
 .level-card.entered {
   border-color: rgba(255, 228, 120, 0.5);
 }
@@ -592,6 +605,11 @@ body::before {
 .level-card.completed .level-status-pill {
   background: rgba(139, 247, 255, 0.24);
   color: var(--text);
+}
+
+.level-card.locked .level-status-pill {
+  background: rgba(120, 126, 140, 0.3);
+  color: rgba(247, 247, 245, 0.7);
 }
 
 .level-legend {
@@ -826,6 +844,26 @@ body::before {
   justify-content: center;
   gap: 8px;
   width: 100%;
+}
+
+.auto-wave-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Space Mono", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.auto-wave-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
 }
 
 .control-button {
