@@ -363,6 +363,11 @@
   let overlayLast = null;
   let overlayInstruction = null;
   let overlayRequiresLevelExit = false;
+  let upgradeOverlay = null;
+  let upgradeOverlayButton = null;
+  let upgradeOverlayClose = null;
+  let upgradeOverlayGrid = null;
+  let lastUpgradeTrigger = null;
   const overlayInstructionDefault = 'Tap to enter';
   let activeLevelId = null;
   let pendingLevel = null;
@@ -942,6 +947,7 @@
     simulationNote: null,
     basin: null,
     wallMarker: null,
+    crestMarker: null,
     wallGlyphs: [],
     leftWall: null,
     rightWall: null,
@@ -2540,6 +2546,7 @@
       this.autoStartDeadline = 0;
 
       this.pathSegments = [];
+      this.pathPoints = [];
       this.pathLength = 0;
 
       this.slots = new Map();
@@ -2886,8 +2893,14 @@
     }
 
     buildPathGeometry() {
-      if (!this.levelConfig || !this.levelConfig.path || !this.ctx) {
+      if (
+        !this.levelConfig ||
+        !Array.isArray(this.levelConfig.path) ||
+        this.levelConfig.path.length < 2 ||
+        !this.ctx
+      ) {
         this.pathSegments = [];
+        this.pathPoints = [];
         this.pathLength = 0;
         return;
       }
@@ -2897,18 +2910,75 @@
         y: node.y * this.renderHeight,
       }));
 
+      const smoothPoints = this.generateSmoothPathPoints(points, 14);
+
       const segments = [];
       let totalLength = 0;
-      for (let index = 0; index < points.length - 1; index += 1) {
-        const start = points[index];
-        const end = points[index + 1];
-        const length = Math.hypot(end.x - start.x, end.y - start.y);
+      for (let index = 0; index < smoothPoints.length - 1; index += 1) {
+        const start = smoothPoints[index];
+        const end = smoothPoints[index + 1];
+        const length = this.distanceBetween(start, end);
         segments.push({ start, end, length });
         totalLength += length;
       }
 
+      this.pathPoints = smoothPoints;
       this.pathSegments = segments;
       this.pathLength = totalLength || 1;
+    }
+
+    generateSmoothPathPoints(points, subdivisions = 12) {
+      if (!Array.isArray(points) || points.length < 2) {
+        return Array.isArray(points) ? points.slice() : [];
+      }
+
+      const smooth = [];
+      const steps = Math.max(1, subdivisions);
+
+      for (let index = 0; index < points.length - 1; index += 1) {
+        const previous = index > 0 ? points[index - 1] : points[index];
+        const current = points[index];
+        const next = points[index + 1];
+        const afterNext = index + 2 < points.length ? points[index + 2] : next;
+
+        for (let step = 0; step < steps; step += 1) {
+          const t = step / steps;
+          const x = this.catmullRom(previous.x, current.x, next.x, afterNext.x, t);
+          const y = this.catmullRom(previous.y, current.y, next.y, afterNext.y, t);
+          const point = { x, y };
+          if (!smooth.length || this.distanceBetween(smooth[smooth.length - 1], point) > 0.5) {
+            smooth.push(point);
+          }
+        }
+      }
+
+      const lastPoint = points[points.length - 1];
+      if (!smooth.length || this.distanceBetween(smooth[smooth.length - 1], lastPoint) > 0) {
+        smooth.push({ ...lastPoint });
+      }
+
+      return smooth;
+    }
+
+    catmullRom(p0, p1, p2, p3, t) {
+      const t2 = t * t;
+      const t3 = t2 * t;
+      return (
+        0.5 *
+        ((2 * p1) +
+          (-p0 + p2) * t +
+          (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+          (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+      );
+    }
+
+    distanceBetween(a, b) {
+      if (!a || !b) {
+        return 0;
+      }
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      return Math.hypot(dx, dy);
     }
 
     ensureLoop() {
@@ -4427,33 +4497,57 @@
     }
 
     drawPath() {
-      if (!this.ctx || !this.pathSegments.length) {
+      if (!this.ctx || !this.pathSegments.length || this.pathPoints.length < 2) {
         return;
       }
       const ctx = this.ctx;
+      const points = this.pathPoints;
+      const start = points[0];
+      const end = points[points.length - 1];
+
+      const baseGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+      baseGradient.addColorStop(0, 'rgba(88, 160, 255, 0.95)');
+      baseGradient.addColorStop(0.48, 'rgba(162, 110, 255, 0.92)');
+      baseGradient.addColorStop(1, 'rgba(255, 158, 88, 0.95)');
+
+      ctx.save();
       ctx.beginPath();
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.lineWidth = 8;
-      ctx.strokeStyle = 'rgba(139, 247, 255, 0.85)';
-      ctx.moveTo(this.pathSegments[0].start.x, this.pathSegments[0].start.y);
-      this.pathSegments.forEach((segment) => {
-        ctx.lineTo(segment.end.x, segment.end.y);
-      });
+      ctx.lineWidth = 9;
+      ctx.shadowColor = 'rgba(88, 160, 255, 0.45)';
+      ctx.shadowBlur = 18;
+      ctx.moveTo(start.x, start.y);
+      for (let index = 1; index < points.length; index += 1) {
+        const point = points[index];
+        ctx.lineTo(point.x, point.y);
+      }
+      ctx.strokeStyle = baseGradient;
       ctx.stroke();
+      ctx.restore();
 
+      const highlightGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+      highlightGradient.addColorStop(0, 'rgba(88, 160, 255, 0.38)');
+      highlightGradient.addColorStop(0.52, 'rgba(162, 110, 255, 0.35)');
+      highlightGradient.addColorStop(1, 'rgba(255, 158, 88, 0.4)');
+
+      ctx.save();
       ctx.beginPath();
-      ctx.moveTo(this.pathSegments[0].start.x, this.pathSegments[0].start.y);
-      this.pathSegments.forEach((segment) => {
-        ctx.lineTo(segment.end.x, segment.end.y);
-      });
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = 'rgba(255, 125, 235, 0.6)';
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 5;
+      ctx.moveTo(start.x, start.y);
+      for (let index = 1; index < points.length; index += 1) {
+        const point = points[index];
+        ctx.lineTo(point.x, point.y);
+      }
+      ctx.strokeStyle = highlightGradient;
       ctx.stroke();
+      ctx.restore();
     }
 
     drawArcLight() {
-      if (!this.ctx || !this.pathSegments.length) {
+      if (!this.ctx || !this.pathSegments.length || this.pathPoints.length < 2) {
         return;
       }
       const ctx = this.ctx;
@@ -4462,13 +4556,14 @@
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.lineWidth = 3;
-      ctx.strokeStyle = 'rgba(255, 228, 120, 0.7)';
-      ctx.setLineDash([this.pathLength * 0.12, this.pathLength * 0.16]);
+      ctx.strokeStyle = 'rgba(255, 180, 105, 0.7)';
+      ctx.setLineDash([this.pathLength * 0.12, this.pathLength * 0.18]);
       ctx.lineDashOffset = this.arcOffset;
-      ctx.moveTo(this.pathSegments[0].start.x, this.pathSegments[0].start.y);
-      this.pathSegments.forEach((segment) => {
-        ctx.lineTo(segment.end.x, segment.end.y);
-      });
+      ctx.moveTo(this.pathPoints[0].x, this.pathPoints[0].y);
+      for (let index = 1; index < this.pathPoints.length; index += 1) {
+        const point = this.pathPoints[index];
+        ctx.lineTo(point.x, point.y);
+      }
       ctx.stroke();
       ctx.restore();
     }
@@ -4478,15 +4573,17 @@
         return;
       }
       const ctx = this.ctx;
-      const start = this.pathSegments[0].start;
-      const end = this.pathSegments[this.pathSegments.length - 1].end;
-      ctx.fillStyle = 'rgba(139, 247, 255, 0.9)';
+      const startPoint = this.pathPoints.length ? this.pathPoints[0] : this.pathSegments[0].start;
+      const endPoint = this.pathPoints.length
+        ? this.pathPoints[this.pathPoints.length - 1]
+        : this.pathSegments[this.pathSegments.length - 1].end;
+      ctx.fillStyle = 'rgba(88, 160, 255, 0.9)';
       ctx.beginPath();
-      ctx.arc(start.x, start.y, 10, 0, Math.PI * 2);
+      ctx.arc(startPoint.x, startPoint.y, 10, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = 'rgba(255, 228, 120, 0.9)';
+      ctx.fillStyle = 'rgba(255, 158, 88, 0.95)';
       ctx.beginPath();
-      ctx.arc(end.x, end.y, 12, 0, Math.PI * 2);
+      ctx.arc(endPoint.x, endPoint.y, 12, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -5348,6 +5445,132 @@
     });
   }
 
+  function renderUpgradeMatrix() {
+    if (!upgradeOverlayGrid) {
+      return;
+    }
+
+    upgradeOverlayGrid.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    towerDefinitions.forEach((definition) => {
+      const row = document.createElement('div');
+      row.className = 'upgrade-matrix-row';
+      row.setAttribute('role', 'listitem');
+
+      const tier = document.createElement('span');
+      tier.className = 'upgrade-matrix-tier';
+      tier.textContent = `Tier ${definition.tier}`;
+
+      const name = document.createElement('span');
+      name.className = 'upgrade-matrix-name';
+      const symbol = document.createElement('span');
+      symbol.className = 'upgrade-matrix-symbol';
+      symbol.textContent = definition.symbol;
+      const title = document.createElement('span');
+      title.className = 'upgrade-matrix-title';
+      title.textContent = definition.name;
+      name.append(symbol, document.createTextNode(' '), title);
+
+      const cost = document.createElement('span');
+      cost.className = 'upgrade-matrix-cost';
+      cost.textContent = `${formatGameNumber(definition.baseCost)} Ψ`;
+
+      const nextTier = document.createElement('span');
+      nextTier.className = 'upgrade-matrix-next';
+      const nextDefinition = definition.nextTierId
+        ? getTowerDefinition(definition.nextTierId)
+        : null;
+      nextTier.textContent = nextDefinition
+        ? `→ ${nextDefinition.symbol} ${nextDefinition.name}`
+        : '→ Zenith unlocked';
+
+      row.append(tier, name, cost, nextTier);
+      fragment.append(row);
+    });
+
+    upgradeOverlayGrid.append(fragment);
+  }
+
+  function showUpgradeMatrix() {
+    if (!upgradeOverlay) {
+      return;
+    }
+
+    renderUpgradeMatrix();
+    const activeElement = document.activeElement;
+    lastUpgradeTrigger =
+      activeElement && typeof activeElement.focus === 'function' ? activeElement : null;
+
+    upgradeOverlay.setAttribute('aria-hidden', 'false');
+    if (upgradeOverlayButton) {
+      upgradeOverlayButton.setAttribute('aria-expanded', 'true');
+    }
+    if (!upgradeOverlay.classList.contains('active')) {
+      requestAnimationFrame(() => {
+        upgradeOverlay.classList.add('active');
+      });
+    }
+
+    const focusTarget = upgradeOverlayClose || upgradeOverlay.querySelector('.overlay-panel');
+    if (focusTarget && typeof focusTarget.focus === 'function') {
+      focusTarget.focus();
+    } else if (typeof upgradeOverlay.focus === 'function') {
+      upgradeOverlay.focus();
+    }
+  }
+
+  function hideUpgradeMatrix() {
+    if (!upgradeOverlay) {
+      return;
+    }
+
+    upgradeOverlay.classList.remove('active');
+    upgradeOverlay.setAttribute('aria-hidden', 'true');
+    if (upgradeOverlayButton) {
+      upgradeOverlayButton.setAttribute('aria-expanded', 'false');
+    }
+
+    if (lastUpgradeTrigger && typeof lastUpgradeTrigger.focus === 'function') {
+      lastUpgradeTrigger.focus();
+    }
+    lastUpgradeTrigger = null;
+  }
+
+  function bindUpgradeMatrix() {
+    upgradeOverlayButton = document.getElementById('open-upgrade-matrix');
+    upgradeOverlay = document.getElementById('upgrade-matrix-overlay');
+    upgradeOverlayGrid = document.getElementById('upgrade-matrix-grid');
+    upgradeOverlayClose = upgradeOverlay
+      ? upgradeOverlay.querySelector('[data-overlay-close]')
+      : null;
+
+    if (upgradeOverlay && !upgradeOverlay.hasAttribute('tabindex')) {
+      upgradeOverlay.setAttribute('tabindex', '-1');
+    }
+
+    if (upgradeOverlayButton) {
+      upgradeOverlayButton.setAttribute('aria-expanded', 'false');
+      upgradeOverlayButton.addEventListener('click', () => {
+        showUpgradeMatrix();
+      });
+    }
+
+    if (upgradeOverlayClose) {
+      upgradeOverlayClose.addEventListener('click', () => {
+        hideUpgradeMatrix();
+      });
+    }
+
+    if (upgradeOverlay) {
+      upgradeOverlay.addEventListener('click', (event) => {
+        if (event.target === upgradeOverlay) {
+          hideUpgradeMatrix();
+        }
+      });
+    }
+  }
+
   function bindLeaveLevelButton() {
     if (!leaveLevelBtn) return;
     leaveLevelBtn.addEventListener('click', () => {
@@ -5940,6 +6163,53 @@
     }
     updateTowerSelectionButtons();
     syncLoadoutToPlayfield();
+  }
+
+  function annotateTowerCardsWithCost() {
+    const cards = document.querySelectorAll('[data-tower-id]');
+    cards.forEach((card) => {
+      const towerId = card.dataset.towerId;
+      if (!towerId) {
+        return;
+      }
+      const definition = getTowerDefinition(towerId);
+      if (!definition) {
+        return;
+      }
+
+      const formattedCost = `${formatGameNumber(definition.baseCost)} Ψ`;
+      let costEl = card.querySelector('.tower-cost');
+      if (!costEl) {
+        costEl = document.createElement('p');
+        costEl.className = 'tower-cost';
+        const label = document.createElement('strong');
+        label.textContent = 'Base Cost';
+        const value = document.createElement('span');
+        value.className = 'tower-cost-value';
+        value.textContent = formattedCost;
+        costEl.append(label, document.createTextNode(' '), value);
+
+        const footer = card.querySelector('.card-footer');
+        if (footer) {
+          card.insertBefore(costEl, footer);
+        } else {
+          card.appendChild(costEl);
+        }
+      } else {
+        const value = costEl.querySelector('.tower-cost-value');
+        if (value) {
+          value.textContent = formattedCost;
+        } else {
+          const label = document.createElement('strong');
+          label.textContent = 'Base Cost';
+          const valueSpan = document.createElement('span');
+          valueSpan.className = 'tower-cost-value';
+          valueSpan.textContent = formattedCost;
+          costEl.innerHTML = '';
+          costEl.append(label, document.createTextNode(' '), valueSpan);
+        }
+      }
+    });
   }
 
   function initializeTowerSelection() {
@@ -6747,6 +7017,7 @@
     updatePowderDisplay();
     ensureResourceTicker();
 
+    annotateTowerCardsWithCost();
     initializeTowerSelection();
     syncLoadoutToPlayfield();
     renderEnemyCodex();
@@ -6755,6 +7026,7 @@
     buildLevelCards();
     updateLevelCards();
     bindOverlayEvents();
+    bindUpgradeMatrix();
     bindLeaveLevelButton();
   }
 
@@ -6765,6 +7037,22 @@
   }
 
   document.addEventListener('keydown', (event) => {
+    if (upgradeOverlay && upgradeOverlay.classList.contains('active')) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        hideUpgradeMatrix();
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === ' ') && event.target === upgradeOverlay) {
+        event.preventDefault();
+        hideUpgradeMatrix();
+        return;
+      }
+      if (!overlay || !overlay.classList.contains('active')) {
+        return;
+      }
+    }
+
     if (!overlay) return;
     const hidden = overlay.getAttribute('aria-hidden');
     const isActive = overlay.classList.contains('active');
