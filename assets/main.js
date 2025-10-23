@@ -3337,11 +3337,14 @@ import {
         return;
       }
 
+      const symbol = typeof enemy.symbol === 'string' ? enemy.symbol : this.resolveEnemySymbol(enemy);
+      const exponent = this.calculateHealthExponent(enemy.maxHp);
       if (this.enemyTooltipNameEl) {
-        this.enemyTooltipNameEl.textContent = enemy.label || 'Glyph';
+        this.enemyTooltipNameEl.textContent = `${symbol}^${exponent} — ${enemy.label || 'Glyph'}`;
       }
       if (this.enemyTooltipHpEl) {
-        this.enemyTooltipHpEl.textContent = `Total HP: ${formatGameNumber(enemy.maxHp)}`;
+        const hpText = formatGameNumber(enemy.maxHp);
+        this.enemyTooltipHpEl.textContent = `Total HP: 10^${exponent} (${hpText})`;
       }
 
       const xPercent = this.renderWidth ? (enemyPosition.x / this.renderWidth) * 100 : 0;
@@ -3874,6 +3877,40 @@ import {
       return Math.max(1, Math.round(hp / 60));
     }
 
+    calculateHealthExponent(hp) {
+      if (!Number.isFinite(hp) || hp <= 0) {
+        return 1;
+      }
+      const clampedHp = Math.max(1, hp);
+      const exponent = Math.floor(Math.log10(clampedHp)) + 1;
+      return Math.max(1, exponent);
+    }
+
+    resolveEnemySymbol(config = {}) {
+      if (config && typeof config.symbol === 'string') {
+        const trimmed = config.symbol.trim();
+        if (trimmed) {
+          return trimmed;
+        }
+      }
+      if (config && typeof config.codexId === 'string' && enemyCodexMap.has(config.codexId)) {
+        const codexEntry = enemyCodexMap.get(config.codexId);
+        if (codexEntry && typeof codexEntry.symbol === 'string') {
+          const trimmed = codexEntry.symbol.trim();
+          if (trimmed) {
+            return trimmed;
+          }
+        }
+      }
+      if (config && typeof config.label === 'string') {
+        const trimmed = config.label.trim();
+        if (trimmed) {
+          return trimmed.charAt(0).toUpperCase();
+        }
+      }
+      return '◈';
+    }
+
     spawnEnemies() {
       if (!this.activeWave || !this.levelConfig) {
         return;
@@ -3889,6 +3926,9 @@ import {
         this.waveTimer >= this.activeWave.nextSpawn
       ) {
         const pathMode = config.pathMode === 'direct' ? 'direct' : 'path';
+        const symbol = this.resolveEnemySymbol(config);
+        const maxHp = Number.isFinite(config.hp) ? Math.max(1, config.hp) : 1;
+        const hpExponent = this.calculateHealthExponent(maxHp);
         const enemy = {
           id: this.enemyIdCounter += 1,
           progress: 0,
@@ -3901,6 +3941,8 @@ import {
           typeId: config.codexId || null,
           pathMode,
           moteFactor: this.calculateMoteFactor(config),
+          symbol,
+          hpExponent,
         };
         this.enemies.push(enemy);
         this.activeWave.spawned += 1;
@@ -4727,8 +4769,16 @@ import {
       const ctx = this.ctx;
       this.enemies.forEach((enemy) => {
         const position = this.getEnemyPosition(enemy);
+        if (!position) {
+          return;
+        }
+        const fillColor = enemy.color || 'rgba(139, 247, 255, 0.9)';
+        const exponent = this.calculateHealthExponent(enemy.maxHp);
+        enemy.hpExponent = exponent;
+
+        ctx.save();
         ctx.beginPath();
-        ctx.fillStyle = enemy.color || 'rgba(139, 247, 255, 0.9)';
+        ctx.fillStyle = fillColor;
         ctx.arc(position.x, position.y, 9, 0, Math.PI * 2);
         ctx.fill();
 
@@ -4744,6 +4794,29 @@ import {
           -Math.PI / 2 + Math.PI * 2 * ratio,
         );
         ctx.stroke();
+
+        const symbol = typeof enemy.symbol === 'string' ? enemy.symbol : this.resolveEnemySymbol(enemy);
+        if (symbol) {
+          ctx.font = '17px "Cormorant Garamond", serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+          ctx.shadowColor = fillColor;
+          ctx.shadowBlur = 6;
+          ctx.fillText(symbol, position.x, position.y);
+        }
+
+        ctx.font = '13px "Space Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = '#ff375f';
+        ctx.shadowColor = 'rgba(255, 70, 95, 0.9)';
+        ctx.shadowBlur = 12;
+        const exponentX = position.x + 8;
+        const exponentY = position.y - 6;
+        ctx.fillText(String(exponent), exponentX, exponentY);
+
+        ctx.restore();
       });
     }
 
@@ -6930,6 +7003,27 @@ import {
       const title = document.createElement('h3');
       title.textContent = entry.name;
       card.append(title);
+
+      if (entry.symbol) {
+        const glyphRow = document.createElement('p');
+        glyphRow.className = 'enemy-card-glyph';
+
+        const glyphSymbol = document.createElement('span');
+        glyphSymbol.className = 'enemy-card-symbol';
+        glyphSymbol.textContent = entry.symbol;
+
+        const glyphExponent = document.createElement('sup');
+        glyphExponent.className = 'enemy-card-symbol-exponent';
+        glyphExponent.textContent = 'k';
+        glyphSymbol.append(glyphExponent);
+
+        const glyphNote = document.createElement('span');
+        glyphNote.className = 'enemy-card-glyph-note';
+        glyphNote.textContent = 'HP tiers use 10^k';
+
+        glyphRow.append(glyphSymbol, glyphNote);
+        card.append(glyphRow);
+      }
 
       const summaryText = entry.summary || entry.description || '';
       if (summaryText) {
