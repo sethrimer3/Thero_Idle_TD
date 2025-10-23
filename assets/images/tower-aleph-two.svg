@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="alephTwoAura" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d8fff3" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#71e4c8" stop-opacity="0.6" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0a0c13" />
+  <circle cx="32" cy="32" r="22" fill="#141c2a" stroke="#e9fff6" stroke-width="2" opacity="0.92" />
+  <circle cx="32" cy="32" r="16" fill="url(#alephTwoAura)" opacity="0.9" />
+  <text
+    x="32"
+    y="39"
+    font-family="'Cormorant Garamond', 'Times New Roman', serif"
+    font-size="22"
+    text-anchor="middle"
+    fill="#072220"
+  >ℵ₂</text>
+</svg>
