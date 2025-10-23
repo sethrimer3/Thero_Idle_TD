@@ -587,6 +587,32 @@
     unlocked: new Set(['alpha']),
   };
 
+  const mergeProgressState = {
+    mergingLogicUnlocked: false,
+  };
+
+  const mergingLogicElements = {
+    card: null,
+  };
+
+  function updateMergingLogicVisibility() {
+    if (!mergingLogicElements.card) {
+      return;
+    }
+
+    const visible = mergeProgressState.mergingLogicUnlocked;
+    mergingLogicElements.card.hidden = !visible;
+    mergingLogicElements.card.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+
+  function setMergingLogicUnlocked(value = true) {
+    mergeProgressState.mergingLogicUnlocked = Boolean(value);
+    updateMergingLogicVisibility();
+    if (!mergeProgressState.mergingLogicUnlocked && upgradeOverlay?.classList.contains('active')) {
+      hideUpgradeMatrix();
+    }
+  }
+
   function isTowerUnlocked(towerId) {
     return towerUnlockState.unlocked.has(towerId);
   }
@@ -596,9 +622,15 @@
       return false;
     }
     if (towerUnlockState.unlocked.has(towerId)) {
+      if (towerId === 'beta') {
+        setMergingLogicUnlocked(true);
+      }
       return false;
     }
     towerUnlockState.unlocked.add(towerId);
+    if (towerId === 'beta') {
+      setMergingLogicUnlocked(true);
+    }
     updateTowerCardVisibility();
     updateTowerSelectionButtons();
     syncLoadoutToPlayfield();
@@ -606,6 +638,9 @@
       playfield.messageEl.textContent = `${
         getTowerDefinition(towerId)?.symbol || 'New'
       } lattice discovered—add it to your loadout from the Towers tab.`;
+    }
+    if (upgradeOverlay?.classList.contains('active')) {
+      renderUpgradeMatrix();
     }
     return true;
   }
@@ -6215,6 +6250,9 @@
     const fragment = document.createDocumentFragment();
 
     towerDefinitions.forEach((definition) => {
+      if (!isTowerUnlocked(definition.id)) {
+        return;
+      }
       const row = document.createElement('div');
       row.className = 'upgrade-matrix-row';
       row.setAttribute('role', 'listitem');
@@ -6330,6 +6368,29 @@
         }
       });
     }
+  }
+
+  function enablePanelWheelScroll(panel) {
+    if (!panel || panel.dataset.scrollAssist === 'true') {
+      return;
+    }
+
+    panel.dataset.scrollAssist = 'true';
+    panel.addEventListener(
+      'wheel',
+      (event) => {
+        if (!event || typeof event.deltaY !== 'number') {
+          return;
+        }
+
+        const previous = panel.scrollTop;
+        panel.scrollTop += event.deltaY;
+        if (panel.scrollTop !== previous) {
+          event.preventDefault();
+        }
+      },
+      { passive: false },
+    );
   }
 
   function bindLeaveLevelButton() {
@@ -7241,6 +7302,7 @@
     }
 
     towerUnlockState.unlocked = new Set(['alpha']);
+    setMergingLogicUnlocked(false);
     towerLoadoutState.selected = ['alpha'];
     pruneLockedTowersFromLoadout();
 
@@ -8251,6 +8313,11 @@
       overlayInstruction.textContent = overlayInstructionDefault;
     }
 
+    const towerPanel = document.getElementById('panel-tower');
+    const towersPanel = document.getElementById('panel-towers');
+    enablePanelWheelScroll(towerPanel);
+    enablePanelWheelScroll(towersPanel);
+
     playfieldElements.container = document.getElementById('playfield');
     playfieldElements.canvas = document.getElementById('playfield-canvas');
     playfieldElements.message = document.getElementById('playfield-message');
@@ -8267,6 +8334,9 @@
     loadoutElements.container = document.getElementById('tower-loadout');
     loadoutElements.grid = document.getElementById('tower-loadout-grid');
     loadoutElements.note = document.getElementById('tower-loadout-note');
+
+    mergingLogicElements.card = document.getElementById('merging-logic-card');
+    setMergingLogicUnlocked(isTowerUnlocked('beta'));
 
     enemyCodexElements.list = document.getElementById('enemy-codex-list');
     enemyCodexElements.empty = document.getElementById('enemy-codex-empty');

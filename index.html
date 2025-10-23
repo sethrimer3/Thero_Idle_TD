@@ -23,7 +23,7 @@
           ],
           packages: { '[+]': ['color', 'html'] },
           macros: {
-            glow: '\\class{formula-glow}{\\color{#f9e27d}{#1}}',
+            glow: ['\\class{formula-glow}{\\color{#f9e27d}{#1}}', 1],
           },
         },
         options: {
@@ -889,7 +889,7 @@
               </button>
             </article>
 
-            <article class="card">
+            <article class="card" id="merging-logic-card" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Convergence</span>
                 <h3>Merging Logic</h3>
