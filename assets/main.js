@@ -43,7 +43,51 @@ import {
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
-  const GAMEPLAY_CONFIG_PATH = 'assets/data/gameplayConfig.json';
+  const GAMEPLAY_CONFIG_RELATIVE_PATH = './data/gameplayConfig.json';
+  const GAMEPLAY_CONFIG_URL = new URL(GAMEPLAY_CONFIG_RELATIVE_PATH, import.meta.url);
+  const EMBEDDED_CONFIG_GLOBAL_KEY = '__THERO_EMBEDDED_GAMEPLAY_CONFIG__';
+
+  function getEmbeddedGameplayConfig() {
+    const root =
+      typeof globalThis !== 'undefined'
+        ? globalThis
+        : typeof window !== 'undefined'
+        ? window
+        : typeof self !== 'undefined'
+        ? self
+        : null;
+
+    if (!root) {
+      return null;
+    }
+
+    const embedded = root[EMBEDDED_CONFIG_GLOBAL_KEY];
+    return embedded && typeof embedded === 'object' ? embedded : null;
+  }
+
+  async function loadGameplayConfigViaFetch() {
+    if (typeof fetch !== 'function') {
+      throw new Error('Fetch API is unavailable in this environment.');
+    }
+
+    const response = await fetch(GAMEPLAY_CONFIG_URL.href, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Failed to load gameplay configuration: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  async function loadGameplayConfigViaModule() {
+    try {
+      const module = await import(GAMEPLAY_CONFIG_URL.href, { assert: { type: 'json' } });
+      if (module && module.default) {
+        return module.default;
+      }
+    } catch (error) {
+      throw error;
+    }
+    return null;
+  }
 
   let gameplayConfigData = null;
   let levelBlueprints = [];
@@ -603,17 +647,34 @@ import {
       return gameplayConfigData;
     }
 
+    let lastError = null;
+
     try {
-      const response = await fetch(GAMEPLAY_CONFIG_PATH, { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(`Failed to load gameplay configuration: ${response.status}`);
+      const configFromFetch = await loadGameplayConfigViaFetch();
+      if (configFromFetch) {
+        return applyGameplayConfig(configFromFetch);
       }
-      const config = await response.json();
-      return applyGameplayConfig(config);
     } catch (error) {
-      console.error('Unable to load gameplay configuration', error);
-      throw error;
+      lastError = error;
+      console.warn('Primary gameplay-config fetch failed; falling back to alternate loaders.', error);
     }
+
+    const embeddedConfig = getEmbeddedGameplayConfig();
+    if (embeddedConfig) {
+      return applyGameplayConfig(embeddedConfig);
+    }
+
+    try {
+      const configFromModule = await loadGameplayConfigViaModule();
+      if (configFromModule) {
+        return applyGameplayConfig(configFromModule);
+      }
+    } catch (error) {
+      lastError = error;
+    }
+
+    console.error('Unable to load gameplay configuration', lastError);
+    throw lastError || new Error('Unable to load gameplay configuration');
   }
 
   const levelState = new Map();
