@@ -6242,8 +6242,23 @@ import {
           return;
         }
 
+        const deltaMode = typeof event.deltaMode === 'number' ? event.deltaMode : 0;
+        let deltaY = event.deltaY;
+
+        if (deltaMode === 1) {
+          const computed = window.getComputedStyle(panel);
+          const lineHeight = parseFloat(computed.lineHeight) || 16;
+          deltaY *= lineHeight;
+        } else if (deltaMode === 2) {
+          deltaY *= panel.clientHeight || window.innerHeight || 600;
+        }
+
+        if (!deltaY) {
+          return;
+        }
+
         const previous = panel.scrollTop;
-        panel.scrollTop += event.deltaY;
+        panel.scrollTop += deltaY;
         if (panel.scrollTop !== previous) {
           event.preventDefault();
         }
@@ -7284,11 +7299,26 @@ import {
         if (!codexSection) {
           return;
         }
-        try {
-          codexSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch (error) {
-          codexSection.scrollIntoView(true);
+
+        const codexPanel = codexSection.closest('.panel');
+        if (codexPanel) {
+          const panelRect = codexPanel.getBoundingClientRect();
+          const sectionRect = codexSection.getBoundingClientRect();
+          const targetOffset = sectionRect.top - panelRect.top + codexPanel.scrollTop;
+          const scrollOptions = { top: Math.max(0, targetOffset - 16), behavior: 'smooth' };
+          try {
+            codexPanel.scrollTo(scrollOptions);
+          } catch (error) {
+            codexPanel.scrollTop = scrollOptions.top;
+          }
+        } else {
+          try {
+            codexSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          } catch (error) {
+            codexSection.scrollIntoView(true);
+          }
         }
+
         if (typeof codexSection.focus === 'function') {
           try {
             codexSection.focus({ preventScroll: true });
