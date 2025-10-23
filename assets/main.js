@@ -214,25 +214,13 @@
       rate: 0.98,
       range: 0.34,
       icon: 'assets/images/tower-theta.svg',
-      nextTierId: 'omega',
-    },
-    {
-      id: 'omega',
-      symbol: 'Ω',
-      name: 'Omega Tower',
-      tier: 9,
-      baseCost: 15000000,
-      damage: 180,
-      rate: 0.9,
-      range: 0.36,
-      icon: 'assets/images/tower-omega.svg',
       nextTierId: 'iota',
     },
     {
       id: 'iota',
       symbol: 'ι',
       name: 'Iota Tower',
-      tier: 10,
+      tier: 9,
       baseCost: 60000000,
       damage: 240,
       rate: 0.85,
@@ -244,7 +232,7 @@
       id: 'kappa',
       symbol: 'κ',
       name: 'Kappa Tower',
-      tier: 11,
+      tier: 10,
       baseCost: 200000000,
       damage: 320,
       rate: 0.8,
@@ -256,7 +244,7 @@
       id: 'lambda',
       symbol: 'λ',
       name: 'Lambda Tower',
-      tier: 12,
+      tier: 11,
       baseCost: 700000000,
       damage: 420,
       rate: 0.75,
@@ -268,7 +256,7 @@
       id: 'mu',
       symbol: 'μ',
       name: 'Mu Tower',
-      tier: 13,
+      tier: 12,
       baseCost: 2200000000,
       damage: 540,
       rate: 0.72,
@@ -280,7 +268,7 @@
       id: 'nu',
       symbol: 'ν',
       name: 'Nu Tower',
-      tier: 14,
+      tier: 13,
       baseCost: 7200000000,
       damage: 680,
       rate: 0.68,
@@ -292,12 +280,24 @@
       id: 'xi',
       symbol: 'ξ',
       name: 'Xi Tower',
-      tier: 15,
+      tier: 14,
       baseCost: 23000000000,
       damage: 860,
       rate: 0.64,
       range: 0.48,
       icon: 'assets/images/tower-xi.svg',
+      nextTierId: 'omega',
+    },
+    {
+      id: 'omega',
+      symbol: 'Ω',
+      name: 'Omega Tower',
+      tier: 15,
+      baseCost: 75000000000,
+      damage: 1200,
+      rate: 0.6,
+      range: 0.52,
+      icon: 'assets/images/tower-omega.svg',
       nextTierId: null,
     },
   ];
@@ -874,8 +874,10 @@
   const resourceElements = {
     score: null,
     scoreMultiplier: null,
-    energy: null,
-    flux: null,
+    glyphsTotal: null,
+    glyphsUnused: null,
+    powderRate: null,
+    achievementCount: null,
   };
 
   const baseResources = {
@@ -936,6 +938,7 @@
     sandBonusValue: null,
     duneBonusValue: null,
     crystalBonusValue: null,
+    stockpile: null,
     ledgerBaseScore: null,
     ledgerCurrentScore: null,
     ledgerFlux: null,
@@ -958,6 +961,25 @@
 
   const powderLog = [];
   const POWDER_LOG_LIMIT = 6;
+
+  const storageKeys = {
+    offline: 'glyph-defense-idle:offline',
+    powder: 'glyph-defense-idle:powder',
+  };
+
+  let powderCurrency = 0;
+  let powderSaveHandle = null;
+
+  const offlineOverlayElements = {
+    container: null,
+    minutes: null,
+    rate: null,
+    total: null,
+    button: null,
+  };
+  let offlineOverlayAnimating = false;
+
+  let powderBasinPulseTimer = null;
 
   const idleLevelRuns = new Map();
 
@@ -5739,6 +5761,13 @@
     return suffix ? `${formatted} ${suffix}` : formatted;
   }
 
+  function formatWholeNumber(value) {
+    if (!Number.isFinite(value)) {
+      return '0';
+    }
+    return Math.round(Math.max(0, value)).toLocaleString('en-US');
+  }
+
   function formatDecimal(value, digits = 2) {
     if (!Number.isFinite(value)) {
       return '0.00';
@@ -5757,6 +5786,48 @@
     const digits = Math.abs(percent) >= 10 ? 1 : 2;
     const sign = percent >= 0 ? '+' : '';
     return `${sign}${percent.toFixed(digits)}%`;
+  }
+
+  function readStorage(key) {
+    try {
+      return window?.localStorage?.getItem(key) ?? null;
+    } catch (error) {
+      console.warn('Storage read failed', error);
+      return null;
+    }
+  }
+
+  function writeStorage(key, value) {
+    try {
+      window?.localStorage?.setItem(key, value);
+      return true;
+    } catch (error) {
+      console.warn('Storage write failed', error);
+      return false;
+    }
+  }
+
+  function readStorageJson(key) {
+    const raw = readStorage(key);
+    if (!raw) {
+      return null;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      console.warn('Storage parse failed', error);
+      return null;
+    }
+  }
+
+  function writeStorageJson(key, value) {
+    try {
+      const payload = JSON.stringify(value);
+      return writeStorage(key, payload);
+    } catch (error) {
+      console.warn('Storage serialization failed', error);
+      return false;
+    }
   }
 
   function bindAchievements() {
@@ -6480,26 +6551,252 @@
     return { sandBonus, duneBonus, crystalBonus, totalMultiplier };
   }
 
+  function updatePowderStockpileDisplay() {
+    if (powderElements.stockpile) {
+      powderElements.stockpile.textContent = `${formatGameNumber(
+        powderCurrency,
+      )} Powder`;
+    }
+  }
+
+  function triggerPowderBasinPulse() {
+    if (!powderElements.basin) {
+      return;
+    }
+    powderElements.basin.classList.remove('powder-basin--pulse');
+    if (powderBasinPulseTimer) {
+      clearTimeout(powderBasinPulseTimer);
+    }
+    // Restarting the animation requires a frame to flush styles.
+    requestAnimationFrame(() => {
+      if (!powderElements.basin) {
+        return;
+      }
+      powderElements.basin.classList.add('powder-basin--pulse');
+      powderBasinPulseTimer = setTimeout(() => {
+        if (powderElements.basin) {
+          powderElements.basin.classList.remove('powder-basin--pulse');
+        }
+        powderBasinPulseTimer = null;
+      }, 900);
+    });
+  }
+
+  function savePowderCurrency() {
+    if (powderSaveHandle) {
+      clearTimeout(powderSaveHandle);
+      powderSaveHandle = null;
+    }
+    writeStorageJson(storageKeys.powder, Math.max(0, powderCurrency));
+  }
+
+  function schedulePowderSave() {
+    if (powderSaveHandle) {
+      return;
+    }
+    powderSaveHandle = setTimeout(() => {
+      powderSaveHandle = null;
+      savePowderCurrency();
+    }, 1500);
+  }
+
+  function loadPersistentState() {
+    const storedPowder = readStorageJson(storageKeys.powder);
+    if (Number.isFinite(storedPowder)) {
+      powderCurrency = Math.max(0, storedPowder);
+    }
+  }
+
+  function applyPowderGain(amount, context = {}) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return 0;
+    }
+
+    const { source = 'tick', minutes = 0, rate = 0 } = context;
+    powderCurrency = Math.max(0, powderCurrency + amount);
+    updatePowderStockpileDisplay();
+    schedulePowderSave();
+
+    if (source === 'offline') {
+      recordPowderEvent('offline-reward', { minutes, rate, powder: amount });
+      triggerPowderBasinPulse();
+    }
+
+    return amount;
+  }
+
+  function bindOfflineOverlayElements() {
+    offlineOverlayElements.container = document.getElementById('offline-overlay');
+    if (!offlineOverlayElements.container) {
+      return;
+    }
+    offlineOverlayElements.minutes = document.getElementById('offline-minutes');
+    offlineOverlayElements.rate = document.getElementById('offline-rate');
+    offlineOverlayElements.total = document.getElementById('offline-total');
+    offlineOverlayElements.button = document.getElementById('offline-continue');
+
+    if (offlineOverlayElements.button) {
+      offlineOverlayElements.button.addEventListener('click', () => {
+        if (!offlineOverlayAnimating) {
+          hideOfflineOverlay();
+        }
+      });
+    }
+
+    offlineOverlayElements.container.addEventListener('click', (event) => {
+      if (event.target === offlineOverlayElements.container && !offlineOverlayAnimating) {
+        hideOfflineOverlay();
+      }
+    });
+  }
+
+  function animateOfflineNumber(element, target, options = {}) {
+    if (!element) {
+      return Promise.resolve();
+    }
+
+    const settings = {
+      duration: 720,
+      prefix: '',
+      suffix: '',
+      format: formatGameNumber,
+      ...options,
+    };
+
+    const finalValue = Math.max(0, target);
+
+    return new Promise((resolve) => {
+      const start = performance.now();
+
+      const step = (timestamp) => {
+        const elapsed = timestamp - start;
+        const progress = Math.min(1, elapsed / settings.duration);
+        const eased = 1 - (1 - progress) ** 3;
+        const value = progress >= 1 ? finalValue : finalValue * eased;
+        element.textContent = `${settings.prefix}${settings.format(value)}${settings.suffix}`;
+        if (progress < 1) {
+          requestAnimationFrame(step);
+          return;
+        }
+        resolve();
+      };
+
+      requestAnimationFrame(step);
+    });
+  }
+
+  async function showOfflineOverlay(minutes, rate, powder) {
+    const container = offlineOverlayElements.container;
+    if (!container) {
+      return;
+    }
+
+    offlineOverlayAnimating = true;
+    container.removeAttribute('hidden');
+    container.classList.add('active');
+    container.setAttribute('aria-hidden', 'false');
+
+    const { minutes: minutesEl, rate: rateEl, total: totalEl, button } = offlineOverlayElements;
+    if (button) {
+      button.setAttribute('hidden', '');
+      button.disabled = true;
+    }
+    if (minutesEl) {
+      minutesEl.textContent = '0';
+    }
+    if (rateEl) {
+      rateEl.textContent = '0';
+    }
+    if (totalEl) {
+      totalEl.textContent = '0';
+    }
+
+    await animateOfflineNumber(minutesEl, minutes, { format: formatWholeNumber });
+    await animateOfflineNumber(rateEl, rate, { format: formatGameNumber });
+    await animateOfflineNumber(totalEl, powder, { format: formatGameNumber });
+
+    offlineOverlayAnimating = false;
+    if (button) {
+      button.removeAttribute('hidden');
+      button.disabled = false;
+      button.focus({ preventScroll: true });
+    }
+  }
+
+  function hideOfflineOverlay() {
+    const container = offlineOverlayElements.container;
+    if (!container) {
+      return;
+    }
+    container.classList.remove('active');
+    container.setAttribute('aria-hidden', 'true');
+    container.setAttribute('hidden', '');
+  }
+
+  function checkOfflineRewards() {
+    const savedState = readStorageJson(storageKeys.offline);
+    if (!savedState?.timestamp) {
+      return;
+    }
+
+    const lastActive = Number(savedState.timestamp);
+    if (!Number.isFinite(lastActive)) {
+      return;
+    }
+
+    const now = Date.now();
+    const elapsedMs = Math.max(0, now - lastActive);
+    const minutesAway = Math.floor(elapsedMs / 60000);
+    if (minutesAway <= 0) {
+      return;
+    }
+
+    const storedRate = Number(savedState.powderRate);
+    const effectiveRate = Number.isFinite(storedRate) ? Math.max(0, storedRate) : resourceState.fluxRate;
+    if (effectiveRate <= 0) {
+      return;
+    }
+
+    const powderEarned = minutesAway * effectiveRate;
+    applyPowderGain(powderEarned, { source: 'offline', minutes: minutesAway, rate: effectiveRate });
+    showOfflineOverlay(minutesAway, effectiveRate, powderEarned);
+  }
+
+  function markLastActive() {
+    savePowderCurrency();
+    writeStorageJson(storageKeys.offline, {
+      timestamp: Date.now(),
+      powderRate: resourceState.fluxRate,
+    });
+  }
+
   function updateStatusDisplays() {
     if (resourceElements.score) {
       const interactive = Boolean(playfield && playfield.isInteractiveLevelActive());
       const theroValue = interactive ? Math.max(0, Math.round(playfield.energy)) : 0;
       resourceElements.score.textContent = `${theroValue} Th`;
     }
+    const glyphsCollected = Math.max(0, gameStats.enemiesDefeated);
+    const glyphsUnused = Math.max(0, glyphsCollected - gameStats.towersPlaced);
+
     if (resourceElements.scoreMultiplier) {
-      const glyphsCollected = Math.max(0, gameStats.enemiesDefeated);
-      const glyphsUnused = Math.max(0, glyphsCollected - gameStats.towersPlaced);
       const multiplier = glyphsCollected && glyphsUnused ? glyphsCollected * glyphsUnused : 0;
       const display = multiplier ? `×${formatGameNumber(multiplier)}` : '×0';
       resourceElements.scoreMultiplier.textContent = display;
     }
-    if (resourceElements.energy) {
-      resourceElements.energy.textContent = `${glyphCurrency} Glyphs`;
+    if (resourceElements.glyphsTotal) {
+      resourceElements.glyphsTotal.textContent = `${formatWholeNumber(glyphsCollected)} Glyphs`;
     }
-    if (resourceElements.flux) {
-      const unlocked = getUnlockedAchievementCount();
+    if (resourceElements.glyphsUnused) {
+      resourceElements.glyphsUnused.textContent = `(${formatWholeNumber(glyphsUnused)} unused)`;
+    }
+    if (resourceElements.powderRate) {
       const fluxRate = formatGameNumber(resourceState.fluxRate);
-      resourceElements.flux.textContent = `${unlocked} Ach · +${fluxRate} Powder/min`;
+      resourceElements.powderRate.textContent = `+${fluxRate} Powder/min`;
+    }
+    if (resourceElements.achievementCount) {
+      const unlocked = getUnlockedAchievementCount();
+      resourceElements.achievementCount.textContent = `(${formatWholeNumber(unlocked)} achievements)`;
     }
   }
 
@@ -6535,6 +6832,11 @@
       notifyIdleTime(elapsed * effectiveIdleCount);
     }
 
+    const powderGain = resourceState.fluxRate * (elapsed / 60000);
+    if (powderGain > 0) {
+      applyPowderGain(powderGain);
+    }
+
     if (resourceState.running) {
       const seconds = elapsed / 1000;
       resourceState.score += resourceState.scoreRate * seconds;
@@ -6555,8 +6857,10 @@
   function bindStatusElements() {
     resourceElements.score = document.getElementById('status-score');
     resourceElements.scoreMultiplier = document.getElementById('status-score-multiplier');
-    resourceElements.energy = document.getElementById('status-energy');
-    resourceElements.flux = document.getElementById('status-flux');
+    resourceElements.glyphsTotal = document.getElementById('status-glyphs-total');
+    resourceElements.glyphsUnused = document.getElementById('status-glyphs-unused');
+    resourceElements.powderRate = document.getElementById('status-powder-rate');
+    resourceElements.achievementCount = document.getElementById('status-achievement-count');
     updateStatusDisplays();
   }
 
@@ -6588,6 +6892,7 @@
     powderElements.sandBonusValue = document.getElementById('powder-sand-bonus');
     powderElements.duneBonusValue = document.getElementById('powder-dune-bonus');
     powderElements.crystalBonusValue = document.getElementById('powder-crystal-bonus');
+    powderElements.stockpile = document.getElementById('powder-stockpile');
 
     powderElements.ledgerBaseScore = document.getElementById('powder-ledger-base-score');
     powderElements.ledgerCurrentScore = document.getElementById('powder-ledger-current-score');
@@ -6634,6 +6939,8 @@
       powderSimulation.start();
       handlePowderHeightChange(powderSimulation.getStatus());
     }
+
+    updatePowderStockpileDisplay();
   }
 
   function updatePowderLedger() {
@@ -6724,6 +7031,14 @@
       case 'achievement-unlocked': {
         const { title = 'Achievement' } = context;
         entry = `${title} seal unlocked · +1 powder/min secured.`;
+        break;
+      }
+      case 'offline-reward': {
+        const { minutes = 0, rate = 0, powder = 0 } = context;
+        const minutesLabel = formatWholeNumber(minutes);
+        entry = `Idle harvest · ${minutesLabel}m × ${formatGameNumber(rate)} = +${formatGameNumber(
+          powder,
+        )} Powder.`;
         break;
       }
       default:
@@ -6928,6 +7243,8 @@
         )} to all rates.`;
       }
     }
+
+    updatePowderStockpileDisplay();
   }
 
   function init() {
@@ -7009,12 +7326,17 @@
 
     audioManager.playMusic('menu');
 
+    bindOfflineOverlayElements();
+    loadPersistentState();
+
     bindStatusElements();
     bindPowderControls();
     bindAchievements();
     updatePowderLogDisplay();
     updateResourceRates();
     updatePowderDisplay();
+    checkOfflineRewards();
+    markLastActive();
     ensureResourceTicker();
 
     annotateTowerCardsWithCost();
@@ -7035,6 +7357,20 @@
   } else {
     init();
   }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      markLastActive();
+      return;
+    }
+    if (document.visibilityState === 'visible') {
+      checkOfflineRewards();
+      markLastActive();
+    }
+  });
+
+  window.addEventListener('pagehide', markLastActive);
+  window.addEventListener('beforeunload', markLastActive);
 
   document.addEventListener('keydown', (event) => {
     if (upgradeOverlay && upgradeOverlay.classList.contains('active')) {
