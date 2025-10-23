@@ -660,6 +660,118 @@
   ],
   "levels": [
     {
+      "id": "Conjecture - 1",
+      "displayName": "Lemniscate Hypothesis",
+      "startThero": 45,
+      "theroCap": 360,
+      "theroPerKill": 18,
+      "passiveTheroPerSecond": 8,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "even scouts",
+          "count": 6,
+          "interval": 1.6,
+          "hp": 80,
+          "speed": 0.1,
+          "reward": 12,
+          "color": "rgba(180, 232, 255, 0.88)",
+          "codexId": "etype"
+        },
+        {
+          "label": "lemniscate runners",
+          "count": 4,
+          "interval": 1.9,
+          "hp": 140,
+          "speed": 0.105,
+          "reward": 18,
+          "color": "rgba(255, 180, 240, 0.9)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "prime twins",
+          "count": 3,
+          "interval": 2.3,
+          "hp": 210,
+          "speed": 0.11,
+          "reward": 26,
+          "color": "rgba(255, 204, 160, 0.92)",
+          "codexId": "prime"
+        },
+        {
+          "label": "loop sentries",
+          "count": 2,
+          "interval": 2.8,
+          "hp": 320,
+          "speed": 0.115,
+          "reward": 32,
+          "color": "rgba(255, 138, 186, 0.92)",
+          "codexId": "reversal"
+        }
+      ],
+      "rewardScore": 1.8e+44,
+      "rewardFlux": 1,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.22,
+      "path": [
+        {
+          "x": 0.08,
+          "y": 0.9
+        },
+        {
+          "x": 0.18,
+          "y": 0.74
+        },
+        {
+          "x": 0.3,
+          "y": 0.62
+        },
+        {
+          "x": 0.42,
+          "y": 0.58
+        },
+        {
+          "x": 0.54,
+          "y": 0.68
+        },
+        {
+          "x": 0.66,
+          "y": 0.54
+        },
+        {
+          "x": 0.78,
+          "y": 0.38
+        },
+        {
+          "x": 0.9,
+          "y": 0.32
+        },
+        {
+          "x": 0.96,
+          "y": 0.18
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.2,
+          "y": 0.72
+        },
+        {
+          "x": 0.36,
+          "y": 0.6
+        },
+        {
+          "x": 0.56,
+          "y": 0.64
+        },
+        {
+          "x": 0.76,
+          "y": 0.44
+        }
+      ]
+    },
+    {
       "id": "Conjecture - 2",
       "displayName": "Collatz Cascade",
       "startThero": 50,
