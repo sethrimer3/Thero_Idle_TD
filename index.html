@@ -16,16 +16,16 @@
     <div class="app-shell">
       <header class="status-bar">
         <div class="status-group">
-          <span class="status-label">Σ Score</span>
-          <span class="status-value" id="status-score">6.58 QDe</span>
+          <span class="status-label">Τh Thero</span>
+          <span class="status-value" id="status-score">0</span>
         </div>
         <div class="status-group">
-          <span class="status-label">Δ Energy</span>
-          <span class="status-value" id="status-energy">+575 TD/s</span>
+          <span class="status-label">Ψ Glyphs</span>
+          <span class="status-value" id="status-energy">0</span>
         </div>
         <div class="status-group">
-          <span class="status-label">λ Flux</span>
-          <span class="status-value" id="status-flux">+375 Powder/min</span>
+          <span class="status-label">★ Achievements</span>
+          <span class="status-value" id="status-flux">0</span>
         </div>
       </header>
 
@@ -95,8 +95,8 @@
             <header class="playfield-header">
               <h3>Active Defense Simulation</h3>
               <p id="playfield-message">
-                Select a level to command the defense. Once active, tap or click the glyph plane to
-                lattice α towers.
+                Select a level to command the defense. Drag glyph chips from your loadout onto the
+                plane to lattice towers.
               </p>
             </header>
             <div class="playfield-shell">
@@ -160,6 +160,13 @@
                   <span>α</span>
                 </button>
               </div>
+            </div>
+            <div class="tower-loadout" id="tower-loadout" aria-label="Tower loadout" role="region">
+              <p class="tower-loadout-note" id="tower-loadout-note">
+                Select four towers to bring into the defense. Drag the glyph chips onto the plane to
+                lattice them; drop a chip atop a matching tower to merge into the next tier.
+              </p>
+              <div class="tower-loadout-grid" id="tower-loadout-grid" role="list"></div>
             </div>
             <dl class="playfield-hud">
               <div>
@@ -230,37 +237,9 @@
           </section>
           <section class="enemy-codex">
             <header class="subsection-title">Enemy Codex</header>
-            <div class="enemy-grid">
-              <article class="card enemy-card">
-                <h3>E-Type Glyphs</h3>
-                <p>
-                  Core foes labeled by trailing zeros. <strong>E1</strong> carries one
-                  hit point, while <strong>E3</strong> arrives with <code>10³</code> life.
-                  Their waves scale logarithmically between sets.
-                </p>
-              </article>
-              <article class="card enemy-card">
-                <h3>Divisors</h3>
-                <p>
-                  Glyphs that punish high DPS. Damage taken equals
-                  <code>1 / DPS</code>, so precision tuning and debuff towers are key.
-                </p>
-              </article>
-              <article class="card enemy-card">
-                <h3>Prime Counters</h3>
-                <p>
-                  Resistant husks that require a fixed number of hits regardless of
-                  damage dealt—perfect sparring partners for swarm summoners.
-                </p>
-              </article>
-              <article class="card enemy-card">
-                <h3>Reversal Sentinels</h3>
-                <p>
-                  Vanguard units that, when defeated, sprint backward along the
-                  path. Capture them to fight for you with inverted health totals.
-                </p>
-              </article>
-            </div>
+            <p class="enemy-codex-note" id="enemy-codex-note">
+              Encounter enemies to reveal their entries within the codex tab.
+            </p>
           </section>
           <aside class="prestige-card">
             <h2>Prestige Window</h2>
@@ -298,7 +277,7 @@
         >
           <header class="panel-header">Towers &amp; Formulae</header>
           <div class="panel-grid">
-            <article class="card">
+            <article class="card" data-tower-id="alpha">
               <header class="tower-header">
                 <span class="tower-tier">Tier I</span>
                 <h3>α alpha tower</h3>
@@ -316,8 +295,11 @@
                 <li>Accelerate Y through harmonic metronomes (+attack speed)</li>
               </ul>
               <footer class="card-footer">Shoots a focused glyph-bullet at the nearest foe.</footer>
+              <button class="tower-equip-button" type="button" data-tower-toggle="alpha">
+                Equip α
+              </button>
             </article>
-            <article class="card">
+            <article class="card" data-tower-id="beta">
               <header class="tower-header">
                 <span class="tower-tier">Tier II</span>
                 <h3>β beta tower</h3>
@@ -339,8 +321,11 @@
               <footer class="card-footer">
                 Emits a piercing beam that threads through the ribbon-path.
               </footer>
+              <button class="tower-equip-button" type="button" data-tower-toggle="beta">
+                Equip β
+              </button>
             </article>
-            <article class="card">
+            <article class="card" data-tower-id="gamma">
               <header class="tower-header">
                 <span class="tower-tier">Tier III</span>
                 <h3>γ gamma tower</h3>
@@ -358,8 +343,11 @@
                 <li>Use β harmonics to slow enemies caught mid-beam</li>
               </ul>
               <footer class="card-footer">Merges α + β into a tempo-shifting conductor with homing bolts.</footer>
+              <button class="tower-equip-button" type="button" data-tower-toggle="gamma">
+                Equip γ
+              </button>
             </article>
-            <article class="card">
+            <article class="card" data-tower-id="delta">
               <header class="tower-header">
                 <span class="tower-tier">Tier IV</span>
                 <h3>δ delta tower</h3>
@@ -377,8 +365,11 @@
                 <li>Rally boosts: δ soldiers grant +β% damage to nearby towers</li>
               </ul>
               <footer class="card-footer">Does not attack directly—commands spectral fighters to guard the lane.</footer>
+              <button class="tower-equip-button" type="button" data-tower-toggle="delta">
+                Equip δ
+              </button>
             </article>
-            <article class="card">
+            <article class="card" data-tower-id="omega">
               <header class="tower-header">
                 <span class="tower-tier">Tier V</span>
                 <h3>Ω omega tower</h3>
@@ -396,6 +387,9 @@
                 <li>Resonant chant pushes enemies backward when Ω overcharges</li>
               </ul>
               <footer class="card-footer">Signature tower—buffs allies, repositions foes, and anchors endgame builds.</footer>
+              <button class="tower-equip-button" type="button" data-tower-toggle="omega">
+                Equip Ω
+              </button>
             </article>
             <article class="card">
               <header class="tower-header">
@@ -688,6 +682,11 @@
               <button class="action-button ghost" type="button">Open Codex</button>
             </article>
           </div>
+          <section class="enemy-codex" aria-live="polite">
+            <header class="subsection-title">Enemy Codex</header>
+            <p class="enemy-codex-note" id="enemy-codex-empty">Encounter enemies to unlock their entries.</p>
+            <div class="enemy-grid" id="enemy-codex-list" role="list"></div>
+          </section>
         </section>
       </main>
 

@@ -84,6 +84,114 @@
     },
   ];
 
+  const enemyCodexEntries = [
+    {
+      id: 'etype',
+      name: 'E-Type Glyphs',
+      description:
+        'Core foes labeled by trailing zeros. E₁ carries one hit point, while E₃ arrives with 10³ life. Their waves scale logarithmically between sets.',
+    },
+    {
+      id: 'divisor',
+      name: 'Divisors',
+      description:
+        'Glyphs that punish high DPS. Damage taken equals 1 / DPS, so precision tuning and debuff towers are key.',
+    },
+    {
+      id: 'prime',
+      name: 'Prime Counters',
+      description:
+        'Resistant husks that require a fixed number of hits regardless of damage dealt—perfect sparring partners for swarm summoners.',
+    },
+    {
+      id: 'reversal',
+      name: 'Reversal Sentinels',
+      description:
+        'Vanguard units that, when defeated, sprint backward along the path. Capture them to fight for you with inverted health totals.',
+    },
+  ];
+
+  const enemyCodexMap = new Map(enemyCodexEntries.map((entry) => [entry.id, entry]));
+
+  const codexState = {
+    encounteredEnemies: new Set(),
+  };
+
+  const TOWER_LOADOUT_LIMIT = 4;
+
+  const towerDefinitions = [
+    {
+      id: 'alpha',
+      symbol: 'α',
+      name: 'Alpha Tower',
+      tier: 1,
+      baseCost: 10,
+      damage: 28,
+      rate: 1.25,
+      range: 0.24,
+      nextTierId: 'beta',
+    },
+    {
+      id: 'beta',
+      symbol: 'β',
+      name: 'Beta Tower',
+      tier: 2,
+      baseCost: 100,
+      damage: 48,
+      rate: 1.1,
+      range: 0.26,
+      nextTierId: 'gamma',
+    },
+    {
+      id: 'gamma',
+      symbol: 'γ',
+      name: 'Gamma Tower',
+      tier: 3,
+      baseCost: 1000,
+      damage: 72,
+      rate: 1.2,
+      range: 0.28,
+      nextTierId: 'delta',
+    },
+    {
+      id: 'delta',
+      symbol: 'δ',
+      name: 'Delta Tower',
+      tier: 4,
+      baseCost: 10000,
+      damage: 56,
+      rate: 0.95,
+      range: 0.22,
+      nextTierId: 'omega',
+    },
+    {
+      id: 'omega',
+      symbol: 'Ω',
+      name: 'Omega Tower',
+      tier: 5,
+      baseCost: 100000,
+      damage: 110,
+      rate: 0.85,
+      range: 0.3,
+      nextTierId: null,
+    },
+  ];
+
+  const towerDefinitionMap = new Map(towerDefinitions.map((tower) => [tower.id, tower]));
+
+  const towerLoadoutState = {
+    selected: ['alpha', 'beta', 'gamma', 'delta'],
+  };
+
+  function getTowerDefinition(towerId) {
+    return towerDefinitionMap.get(towerId) || null;
+  }
+
+  function getNextTowerId(towerId) {
+    const definition = getTowerDefinition(towerId);
+    return definition?.nextTierId || null;
+  }
+
   const levelLookup = new Map(levelBlueprints.map((level) => [level.id, level]));
   const levelState = new Map();
 
@@ -104,6 +212,28 @@
   let pendingLevel = null;
   let activeTabIndex = 0;
   let lastLevelTrigger = null;
+
+  const loadoutElements = {
+    container: null,
+    grid: null,
+    note: null,
+  };
+  let renderedLoadoutSignature = null;
+
+  const towerSelectionButtons = new Map();
+
+  const loadoutDragState = {
+    active: false,
+    pointerId: null,
+    towerId: null,
+    element: null,
+  };
+
+  const enemyCodexElements = {
+    list: null,
+    empty: null,
+    note: null,
+  };
 
   let playfield = null;
   const playfieldElements = {
@@ -559,6 +689,8 @@
     running: false,
   };
 
+  let glyphCurrency = 0;
+
   const powderConfig = {
     sandOffsetInactive: 0,
     sandOffsetActive: 1.1,
@@ -615,17 +747,11 @@
   const firstLevelConfig = {
     id: 'Conjecture - 1',
     displayName: 'Lemniscate Hypothesis',
-    startEnergy: 140,
-    energyCap: 360,
-    energyPerKill: 18,
-    passiveEnergyPerSecond: 8,
+    startThero: 140,
+    theroCap: 360,
+    theroPerKill: 18,
+    passiveTheroPerSecond: 8,
     lives: 5,
-    towerCost: 60,
-    tower: {
-      damage: 28,
-      rate: 1.25,
-      range: 0.24,
-    },
     waves: [
       {
         label: 'E glyphs',
@@ -635,6 +761,7 @@
         speed: 0.082,
         reward: 12,
         color: 'rgba(139, 247, 255, 0.9)',
+        codexId: 'etype',
       },
       {
         label: 'divisor scouts',
@@ -644,6 +771,7 @@
         speed: 0.09,
         reward: 18,
         color: 'rgba(255, 125, 235, 0.92)',
+        codexId: 'divisor',
       },
       {
         label: 'prime counters',
@@ -653,10 +781,12 @@
         speed: 0.085,
         reward: 26,
         color: 'rgba(255, 228, 120, 0.95)',
+        codexId: 'prime',
       },
     ],
     rewardScore: 1.6 * 10 ** 44,
     rewardFlux: 45,
+    rewardThero: 35,
     rewardEnergy: 35,
     arcSpeed: 0.22,
     path: [
@@ -691,13 +821,14 @@
     const rewardScore =
       baseResources.scoreRate * (runDuration / 12) * rewardMultiplier;
     const rewardFlux = 45 + levelNumber * 10;
-    const rewardEnergy = 35 + levelNumber * 8;
+    const rewardThero = 35 + levelNumber * 8;
 
     idleLevelConfigs.set(level.id, {
       runDuration,
       rewardScore,
       rewardFlux,
-      rewardEnergy,
+      rewardThero,
+      rewardEnergy: rewardThero,
     });
   });
 
@@ -752,6 +883,10 @@
       this.towers = [];
       this.enemies = [];
       this.projectiles = [];
+      this.availableTowers = [];
+      this.towerEconomy = new Map();
+      this.draggingTowerType = null;
+      this.dragPreviewOffset = { x: 0, y: -34 };
 
       this.animationId = null;
       this.lastTimestamp = 0;
@@ -811,6 +946,77 @@
           }
         });
       });
+    }
+
+    setAvailableTowers(towerIds = []) {
+      if (Array.isArray(towerIds)) {
+        this.availableTowers = towerIds.filter((towerId) => getTowerDefinition(towerId));
+      } else {
+        this.availableTowers = [];
+      }
+      if (!this.levelActive) {
+        this.resetTowerEconomy();
+      }
+    }
+
+    resetTowerEconomy() {
+      this.towerEconomy.clear();
+      towerDefinitions.forEach((definition) => {
+        this.towerEconomy.set(definition.id, definition.baseCost);
+      });
+    }
+
+    getCurrentTowerCost(towerId) {
+      const definition = getTowerDefinition(towerId);
+      if (!definition) {
+        return Number.POSITIVE_INFINITY;
+      }
+      const stored = this.towerEconomy.get(towerId);
+      if (!Number.isFinite(stored) || stored <= 0) {
+        this.towerEconomy.set(towerId, definition.baseCost);
+        return definition.baseCost;
+      }
+      return stored;
+    }
+
+    bumpTowerCost(towerId) {
+      if (!towerId) {
+        return;
+      }
+      const current = this.getCurrentTowerCost(towerId);
+      if (!Number.isFinite(current) || current <= 0) {
+        return;
+      }
+      const next = current * current;
+      this.towerEconomy.set(towerId, next);
+    }
+
+    setDraggingTower(towerId) {
+      this.draggingTowerType = towerId;
+    }
+
+    finishTowerDrag() {
+      this.draggingTowerType = null;
+    }
+
+    previewTowerPlacement(normalized, { towerType, dragging = false } = {}) {
+      if (!normalized || !towerType) {
+        this.clearPlacementPreview();
+        return;
+      }
+      this.updatePlacementPreview(normalized, { towerType, dragging });
+    }
+
+    completeTowerPlacement(normalized, { towerType } = {}) {
+      if (!normalized || !towerType) {
+        this.clearPlacementPreview();
+        return false;
+      }
+      const placed = this.addTowerAt(normalized, { towerType });
+      if (placed) {
+        this.clearPlacementPreview();
+      }
+      return placed;
     }
 
     bindStartButton() {
@@ -1031,6 +1237,7 @@
 
       this.levelActive = true;
       this.levelConfig = firstLevelConfig;
+      this.setAvailableTowers(towerLoadoutState.selected);
       this.shouldAnimate = true;
       this.resetState();
       this.enableSlots();
@@ -1043,7 +1250,7 @@
       }
       if (this.messageEl) {
         this.messageEl.textContent =
-          'Sketch α lattices anywhere with adequate space—the anchors are merely suggested glyphs.';
+          'Drag glyph chips from your loadout with adequate space—the anchors are merely suggested glyphs.';
       }
       if (this.progressEl) {
         this.progressEl.textContent = 'Wave prep underway.';
@@ -1072,6 +1279,8 @@
       this.lives = 0;
       this.resolvedOutcome = null;
       this.arcPhase = 0;
+      this.setAvailableTowers([]);
+      cancelTowerDrag();
       if (this.ctx) {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
       }
@@ -1095,7 +1304,7 @@
         this.energy = 0;
         this.lives = 0;
       } else {
-        this.energy = this.levelConfig.startEnergy;
+        this.energy = this.levelConfig.startThero || 0;
         this.lives = this.levelConfig.lives;
       }
       this.waveIndex = 0;
@@ -1110,6 +1319,7 @@
       this.projectiles = [];
       this.towers = [];
       this.hoverPlacement = null;
+      this.resetTowerEconomy();
       this.slots.forEach((slot) => {
         slot.tower = null;
         if (slot.button) {
@@ -1218,33 +1428,10 @@
         return;
       }
 
-      const interactive = this.isInteractiveLevelActive();
-      if (!interactive) {
-        this.autoAnchorButton.textContent = 'Auto-lattice α';
-        this.autoAnchorButton.disabled = true;
-        this.autoAnchorButton.setAttribute('aria-disabled', 'true');
-        this.autoAnchorButton.title = 'Auto placement is available during the interactive defense.';
-        return;
-      }
-
-      const { total, placed } = this.getAutoAnchorStatus();
-      const remaining = Math.max(0, total - placed);
-      if (total === 0) {
-        this.autoAnchorButton.textContent = 'Auto-lattice α';
-        this.autoAnchorButton.disabled = true;
-        this.autoAnchorButton.setAttribute('aria-disabled', 'true');
-        this.autoAnchorButton.title = 'No recommended anchors configured for this stage.';
-        return;
-      }
-
-      const label = remaining
-        ? `Auto-lattice α (${remaining} open)`
-        : 'Auto-lattice α (complete)';
-      this.autoAnchorButton.textContent = label;
-      const disabled = remaining === 0;
-      this.autoAnchorButton.disabled = disabled;
-      this.autoAnchorButton.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-      this.autoAnchorButton.title = `Auto place up to ${total} recommended α lattices (${this.levelConfig.towerCost} Ξ each).`;
+      this.autoAnchorButton.textContent = 'Loadout Placement';
+      this.autoAnchorButton.disabled = true;
+      this.autoAnchorButton.setAttribute('aria-disabled', 'true');
+      this.autoAnchorButton.title = 'Drag towers from the loadout to lattice them on the field.';
     }
 
     autoAnchorTowers() {
@@ -1294,44 +1481,27 @@
       }
 
       if (this.messageEl) {
-        if (placed > 0) {
-          let summary = `Auto-latticed ${placed} α anchor${placed === 1 ? '' : 's'}.`;
-          if (remaining > 0) {
-            if (insufficientEnergy) {
-              const shortfall = Math.max(0, Math.ceil(this.levelConfig.towerCost - this.energy));
-              summary += ` ${remaining} anchor${remaining === 1 ? '' : 's'} remain—need ${shortfall} Ξ more.`;
-            } else {
-              summary += ` ${remaining} anchor${remaining === 1 ? '' : 's'} remain.`;
-            }
-          }
-          this.messageEl.textContent = summary;
-        } else if (insufficientEnergy) {
-          const shortfall = Math.max(0, Math.ceil(this.levelConfig.towerCost - this.energy));
-          this.messageEl.textContent = `Need ${shortfall} Ξ more to auto-lattice an α tower.`;
-        } else {
-          this.messageEl.textContent = 'All recommended anchors already sealed.';
-        }
+        this.messageEl.textContent = 'Auto-lattice is disabled—drag towers from the loadout instead.';
       }
-
-      this.updateHud();
-      this.draw();
-      this.updateAutoAnchorButton();
     }
 
     updateTowerPositions() {
       if (!this.levelConfig) {
         return;
       }
-      const baseRange = Math.min(this.renderWidth, this.renderHeight) * this.levelConfig.tower.range;
       this.towers.forEach((tower) => {
         const { x, y } = this.getCanvasPosition(tower.normalized);
         tower.x = x;
         tower.y = y;
-        tower.range = baseRange;
+        const definition = getTowerDefinition(tower.type) || tower.definition;
+        const rangeFactor = definition ? definition.range : 0.24;
+        tower.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
       });
       if (this.hoverPlacement) {
         this.hoverPlacement.position = this.getCanvasPosition(this.hoverPlacement.normalized);
-        this.hoverPlacement.range = baseRange;
+        const definition = getTowerDefinition(this.hoverPlacement.towerType);
+        const rangeFactor = definition ? definition.range : 0.24;
+        this.hoverPlacement.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
       }
     }
 
@@ -1352,7 +1522,6 @@
       }
 
       this.pointerPosition = normalized;
-      const baseRange = Math.min(this.renderWidth, this.renderHeight) * this.levelConfig.tower.range;
       const position = this.getCanvasPosition(normalized);
       const hoveredEnemy = this.findEnemyAt(position);
       if (hoveredEnemy) {
@@ -1361,31 +1530,99 @@
         this.clearEnemyHover();
       }
       const hoveredTower = this.findTowerAt(position);
-
-      if (hoveredTower) {
+      if (!this.draggingTowerType && hoveredTower) {
         this.hoverPlacement = {
           normalized: { ...hoveredTower.normalized },
           position: { x: hoveredTower.x, y: hoveredTower.y },
-          range: baseRange,
+          range: hoveredTower.range,
           valid: false,
           target: hoveredTower,
+          towerType: hoveredTower.type,
           reason: 'Select to release lattice.',
         };
+        if (!this.shouldAnimate) {
+          this.draw();
+        }
+        return;
+      }
+
+      const activeType = this.draggingTowerType || this.availableTowers[0] || null;
+      if (activeType) {
+        this.updatePlacementPreview(normalized, {
+          towerType: activeType,
+          dragging: Boolean(this.draggingTowerType),
+        });
       } else {
-        const validation = this.validatePlacement(normalized, { allowPathOverlap: false });
-        const energyReady = this.energy >= this.levelConfig.towerCost;
-        this.hoverPlacement = {
-          normalized,
-          position,
-          range: baseRange,
-          valid: energyReady && validation.valid,
-          reason: energyReady ? validation.reason : 'Need additional energy.',
-        };
+        this.clearPlacementPreview();
       }
 
       if (!this.shouldAnimate) {
         this.draw();
       }
+    }
+
+    updatePlacementPreview(normalized, options = {}) {
+      const { towerType, dragging = false } = options;
+      if (!towerType) {
+        this.hoverPlacement = null;
+        return;
+      }
+
+      const definition = getTowerDefinition(towerType);
+      const rawPosition = this.getCanvasPosition(normalized);
+      const existing = this.findTowerAt(rawPosition);
+      let position = rawPosition;
+      const merging = Boolean(existing && existing.type === towerType);
+      const nextId = merging ? getNextTowerId(towerType) : null;
+      const nextDefinition = nextId ? getTowerDefinition(nextId) : null;
+
+      const validation = merging
+        ? { valid: Boolean(nextDefinition), reason: nextDefinition ? '' : 'Peak tier reached.' }
+        : this.validatePlacement(normalized, { allowPathOverlap: false });
+
+      if (merging && existing) {
+        position = { x: existing.x, y: existing.y };
+      }
+
+      const baseCost = this.getCurrentTowerCost(towerType);
+      const mergeCost = nextDefinition ? this.getCurrentTowerCost(nextDefinition.id) : 0;
+      const actionCost = merging ? Math.max(baseCost, mergeCost) : baseCost;
+      const hasFunds = this.energy >= actionCost;
+
+      let valid = validation.valid && hasFunds;
+      let reason = '';
+      const formattedCost = Math.round(actionCost);
+      if (!validation.valid) {
+        reason = validation.reason || 'Maintain clearance from the glyph lane.';
+      } else if (!hasFunds) {
+        const deficit = Math.ceil(actionCost - this.energy);
+        if (merging && nextDefinition) {
+          reason = `Need ${deficit} Th to merge into ${nextDefinition.symbol}.`;
+        } else if (definition) {
+          reason = `Need ${deficit} Th to lattice ${definition.symbol}.`;
+        } else {
+          reason = `Need ${deficit} Th for this lattice.`;
+        }
+      } else if (merging && nextDefinition) {
+        reason = `Merge into ${nextDefinition.symbol} for ${formattedCost} Th.`;
+      } else if (definition) {
+        reason = `Anchor ${definition.symbol} for ${formattedCost} Th.`;
+      }
+
+      const rangeFactor = definition ? definition.range : 0.24;
+      this.hoverPlacement = {
+        normalized: { ...normalized },
+        position,
+        range: Math.min(this.renderWidth, this.renderHeight) * rangeFactor,
+        valid,
+        reason,
+        towerType,
+        dragging,
+        mergeTarget: merging ? existing : null,
+        merge: merging,
+        cost: actionCost,
+        symbol: definition?.symbol || '·',
+      };
     }
 
     handleCanvasPointerLeave() {
@@ -1417,8 +1654,6 @@
         this.sellTower(tower);
         return;
       }
-
-      this.addTowerAt(normalized);
     }
 
     clearPlacementPreview() {
@@ -1548,39 +1783,113 @@
         return false;
       }
 
-      const { slot = null, allowPathOverlap = false, silent = false } = options;
+      const {
+        slot = null,
+        allowPathOverlap = false,
+        silent = false,
+        towerType = null,
+      } = options;
 
-      if (this.energy < this.levelConfig.towerCost) {
-        const needed = Math.ceil(this.levelConfig.towerCost - this.energy);
+      const selectedType = towerType || this.draggingTowerType || this.availableTowers[0];
+      const definition = getTowerDefinition(selectedType);
+      if (!definition) {
         if (this.messageEl && !silent) {
-          this.messageEl.textContent = `Need ${needed} Ξ more to lattice an α tower.`;
+          this.messageEl.textContent = 'Select a tower from your loadout to lattice it.';
         }
         return false;
       }
 
-      const placement = this.validatePlacement(normalized, { allowPathOverlap });
-      if (!placement.valid) {
-        if (this.messageEl && placement.reason && !silent) {
-          this.messageEl.textContent = placement.reason;
+      if (!this.availableTowers.includes(selectedType)) {
+        if (this.messageEl && !silent) {
+          this.messageEl.textContent = `${definition.symbol} is not prepared in your loadout.`;
         }
         return false;
       }
 
-      const baseRange = Math.min(this.renderWidth, this.renderHeight) * this.levelConfig.tower.range;
+      const canvasPosition = this.getCanvasPosition(normalized);
+      const existingTower = this.findTowerAt(canvasPosition);
+      let placement = { valid: true, position: canvasPosition };
+      let mergeTarget = null;
+      let nextDefinition = null;
+      let merging = false;
+
+      if (existingTower && existingTower.type === selectedType) {
+        const nextId = getNextTowerId(selectedType);
+        if (!nextId) {
+          if (this.messageEl && !silent) {
+            this.messageEl.textContent = `${definition.symbol} already resonates at its peak tier.`;
+          }
+          return false;
+        }
+        nextDefinition = getTowerDefinition(nextId);
+        mergeTarget = existingTower;
+        merging = true;
+        placement.position = { x: mergeTarget.x, y: mergeTarget.y };
+      } else {
+        placement = this.validatePlacement(normalized, { allowPathOverlap });
+        if (!placement.valid) {
+          if (this.messageEl && placement.reason && !silent) {
+            this.messageEl.textContent = placement.reason;
+          }
+          return false;
+        }
+      }
+
+      const baseCost = this.getCurrentTowerCost(selectedType);
+      const mergeCost = nextDefinition ? this.getCurrentTowerCost(nextDefinition.id) : 0;
+      const actionCost = merging ? Math.max(baseCost, mergeCost) : baseCost;
+
+      if (this.energy < actionCost) {
+        const needed = Math.ceil(actionCost - this.energy);
+        if (this.messageEl && !silent) {
+          this.messageEl.textContent = `Need ${needed} Th more to lattice ${definition.symbol}.`;
+        }
+        return false;
+      }
+
+      this.energy = Math.max(0, this.energy - actionCost);
+      this.bumpTowerCost(selectedType);
+
+      if (merging && mergeTarget && nextDefinition) {
+        const range = Math.min(this.renderWidth, this.renderHeight) * nextDefinition.range;
+        mergeTarget.type = nextDefinition.id;
+        mergeTarget.definition = nextDefinition;
+        mergeTarget.symbol = nextDefinition.symbol;
+        mergeTarget.tier = nextDefinition.tier;
+        mergeTarget.damage = nextDefinition.damage;
+        mergeTarget.rate = nextDefinition.rate;
+        mergeTarget.range = range;
+        mergeTarget.cooldown = 0;
+        this.bumpTowerCost(nextDefinition.id);
+        if (this.messageEl && !silent) {
+          this.messageEl.textContent = `${definition.symbol} lattices fused into ${nextDefinition.symbol}.`;
+        }
+        notifyTowerPlaced(this.towers.length);
+        this.updateTowerPositions();
+        this.updateHud();
+        this.draw();
+        updateStatusDisplays();
+        return true;
+      }
+
+      const range = Math.min(this.renderWidth, this.renderHeight) * definition.range;
       const tower = {
         id: `tower-${(this.towerIdCounter += 1)}`,
+        type: selectedType,
+        definition,
+        symbol: definition.symbol,
+        tier: definition.tier,
         normalized: { ...normalized },
         x: placement.position.x,
         y: placement.position.y,
-        range: baseRange,
-        damage: this.levelConfig.tower.damage,
-        rate: this.levelConfig.tower.rate,
+        range,
+        damage: definition.damage,
+        rate: definition.rate,
         cooldown: 0,
         slot,
       };
 
       this.towers.push(tower);
-
       notifyTowerPlaced(this.towers.length);
 
       if (slot) {
@@ -1591,13 +1900,13 @@
         }
       }
 
-      this.energy = Math.max(0, this.energy - this.levelConfig.towerCost);
       this.hoverPlacement = null;
       if (this.messageEl && !silent) {
-        this.messageEl.textContent = 'α lattice anchored—harmonics align.';
+        this.messageEl.textContent = `${definition.symbol} lattice anchored—harmonics align.`;
       }
       this.updateHud();
       this.draw();
+      updateStatusDisplays();
       if (this.audio && !silent) {
         this.audio.playSfx('towerPlace');
       }
@@ -1624,15 +1933,19 @@
       }
 
       if (this.levelConfig) {
-        const refund = Math.round(this.levelConfig.towerCost * 0.7);
-        this.energy = Math.min(this.levelConfig.energyCap, this.energy + refund);
+        const definition = getTowerDefinition(tower.type);
+        const baseRefund = definition ? definition.baseCost : this.getCurrentTowerCost(tower.type);
+        const refund = Math.round(baseRefund * 0.5);
+        const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
+        this.energy = Math.min(cap, this.energy + refund);
         if (this.messageEl) {
-          this.messageEl.textContent = `Lattice released—refunded ${refund} Ξ.`;
+          this.messageEl.textContent = `Lattice released—refunded ${refund} Th.`;
         }
       }
 
       this.updateHud();
       this.draw();
+      updateStatusDisplays();
       if (this.audio) {
         this.audio.playSfx('towerSell');
       }
@@ -1652,7 +1965,7 @@
         const tower = this.towers[index];
         const distance = Math.hypot(position.x - tower.x, position.y - tower.y);
         if (distance < minSpacing) {
-          return { valid: false, reason: 'Too close to another α lattice.', position };
+          return { valid: false, reason: 'Too close to another lattice.', position };
         }
       }
 
@@ -1713,15 +2026,9 @@
         return;
       }
 
-      if (this.energy < this.levelConfig.towerCost) {
-        const needed = Math.ceil(this.levelConfig.towerCost - this.energy);
-        if (this.messageEl) {
-          this.messageEl.textContent = `Need ${needed} Ξ more to lattice an α tower.`;
-        }
-        return;
+      if (this.messageEl) {
+        this.messageEl.textContent = 'Drag a tower chip from the loadout to lattice it here.';
       }
-
-      this.addTowerAt(slot.normalized, { slot, allowPathOverlap: true });
     }
 
     placeTower(slot) {
@@ -1741,7 +2048,7 @@
       }
       if (!this.towers.length) {
         if (this.messageEl) {
-          this.messageEl.textContent = 'Anchor at least one α tower before commencing.';
+          this.messageEl.textContent = 'Anchor at least one tower before commencing.';
         }
         return;
       }
@@ -1794,10 +2101,9 @@
       this.arcPhase = (this.arcPhase + speedDelta * (this.levelConfig.arcSpeed || 0.2)) % 1;
 
       if (!this.combatActive) {
-        this.energy = Math.min(
-          this.levelConfig.energyCap,
-          this.energy + this.levelConfig.passiveEnergyPerSecond * speedDelta,
-        );
+        const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
+        const passiveRate = this.levelConfig.passiveTheroPerSecond ?? 0;
+        this.energy = Math.min(cap, this.energy + passiveRate * speedDelta);
         this.updateHud();
         this.updateProgress();
         return;
@@ -1835,10 +2141,14 @@
           reward: config.reward,
           color: config.color,
           label: config.label,
+          typeId: config.codexId || null,
         };
         this.enemies.push(enemy);
         this.activeWave.spawned += 1;
         this.activeWave.nextSpawn += config.interval;
+        if (config.codexId) {
+          registerEnemyEncounter(config.codexId);
+        }
       }
     }
 
@@ -1971,16 +2281,20 @@
         this.clearEnemyHover();
       }
 
-      const energyGain = (this.levelConfig?.energyPerKill || 0) + (enemy.reward || 0);
-      this.energy = Math.min(this.levelConfig.energyCap, this.energy + energyGain);
+      const baseGain =
+        (this.levelConfig?.theroPerKill ?? this.levelConfig?.energyPerKill ?? 0) +
+        (enemy.reward || 0);
+      const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
+      this.energy = Math.min(cap, this.energy + baseGain);
 
       if (this.messageEl) {
         this.messageEl.textContent = `${enemy.label || 'Glyph'} collapsed · +${Math.round(
-          energyGain,
-        )} Ξ.`;
+          baseGain,
+        )} Th.`;
       }
       this.updateHud();
       this.updateProgress();
+      updateStatusDisplays();
 
       if (this.audio) {
         this.audio.playSfx('enemyDefeat');
@@ -2000,10 +2314,9 @@
       this.combatActive = false;
       this.resolvedOutcome = 'victory';
       this.activeWave = null;
-      this.energy = Math.min(
-        this.levelConfig.energyCap,
-        this.energy + (this.levelConfig.rewardEnergy || 0),
-      );
+      const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
+      const reward = this.levelConfig.rewardThero ?? this.levelConfig.rewardEnergy ?? 0;
+      this.energy = Math.min(cap, this.energy + reward);
       if (this.startButton) {
         this.startButton.disabled = false;
         this.startButton.textContent = 'Run Again';
@@ -2017,11 +2330,13 @@
         this.onVictory(this.levelConfig.id, {
           rewardScore: this.levelConfig.rewardScore,
           rewardFlux: this.levelConfig.rewardFlux,
+          rewardThero: reward,
           rewardEnergy: this.levelConfig.rewardEnergy,
           towers: this.towers.length,
           lives: this.lives,
         });
       }
+      updateStatusDisplays();
     }
 
     handleDefeat() {
@@ -2035,10 +2350,9 @@
       this.combatActive = false;
       this.resolvedOutcome = 'defeat';
       this.activeWave = null;
-      this.energy = Math.min(
-        this.levelConfig.energyCap,
-        Math.max(this.energy, this.levelConfig.startEnergy),
-      );
+      const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
+      const baseline = this.levelConfig.startThero ?? this.levelConfig.startEnergy ?? 0;
+      this.energy = Math.min(cap, Math.max(this.energy, baseline));
       if (this.startButton) {
         this.startButton.disabled = false;
         this.startButton.textContent = 'Retry Wave';
@@ -2048,6 +2362,7 @@
       }
       this.updateHud();
       this.updateProgress();
+      updateStatusDisplays();
       if (this.onDefeat) {
         this.onDefeat(this.levelConfig.id, { towers: this.towers.length });
       }
@@ -2074,12 +2389,14 @@
 
       if (this.energyEl) {
         this.energyEl.textContent = this.levelConfig
-          ? `${Math.round(this.energy)} Ξ`
+          ? `${Math.round(this.energy)} Th`
           : '—';
       }
 
       this.updateSpeedButton();
       this.updateAutoAnchorButton();
+      refreshTowerLoadoutDisplay();
+      updateStatusDisplays();
     }
 
     updateProgress() {
@@ -2240,6 +2557,14 @@
         ctx.arc(tower.x, tower.y, 10, 0, Math.PI * 2);
         ctx.fill();
 
+        if (tower.symbol) {
+          ctx.fillStyle = 'rgba(255, 228, 120, 0.85)';
+          ctx.font = '18px "Cormorant Garamond", serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(tower.symbol, tower.x, tower.y);
+        }
+
         if (!this.combatActive) {
           ctx.beginPath();
           ctx.strokeStyle = 'rgba(139, 247, 255, 0.18)';
@@ -2254,21 +2579,25 @@
       if (!this.ctx || !this.hoverPlacement || !this.levelConfig) {
         return;
       }
-      const { position, range, valid } = this.hoverPlacement;
+      const { position, range, valid, dragging, symbol } = this.hoverPlacement;
       const ctx = this.ctx;
-      const stroke = valid ? 'rgba(139, 247, 255, 0.7)' : 'rgba(255, 108, 140, 0.75)';
-      const fill = valid ? 'rgba(139, 247, 255, 0.12)' : 'rgba(255, 108, 140, 0.14)';
+      const stroke = valid ? 'rgba(139, 247, 255, 0.7)' : 'rgba(120, 132, 150, 0.6)';
+      const fill = valid ? 'rgba(139, 247, 255, 0.12)' : 'rgba(120, 132, 150, 0.1)';
+
+      const offsetY = dragging ? this.dragPreviewOffset.y : 0;
+      const drawX = position.x;
+      const drawY = position.y + offsetY;
 
       ctx.save();
       ctx.setLineDash([6, 6]);
       ctx.lineWidth = 2;
       ctx.strokeStyle = stroke;
       ctx.beginPath();
-      ctx.arc(position.x, position.y, 18, 0, Math.PI * 2);
+      ctx.arc(drawX, drawY, 18, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      const previewRange = range || Math.min(this.renderWidth, this.renderHeight) * this.levelConfig.tower.range;
+      const previewRange = range || Math.min(this.renderWidth, this.renderHeight) * 0.24;
       ctx.lineWidth = 1;
       ctx.strokeStyle = stroke;
       ctx.beginPath();
@@ -2277,8 +2606,24 @@
 
       ctx.fillStyle = fill;
       ctx.beginPath();
-      ctx.arc(position.x, position.y, 18, 0, Math.PI * 2);
+      ctx.arc(drawX, drawY, 18, 0, Math.PI * 2);
       ctx.fill();
+
+      if (symbol) {
+        ctx.fillStyle = valid ? 'rgba(255, 228, 120, 0.85)' : 'rgba(190, 190, 200, 0.75)';
+        ctx.font = `${dragging ? 20 : 18}px "Cormorant Garamond", serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(symbol, drawX, drawY);
+      }
+
+      if (typeof this.hoverPlacement.cost === 'number') {
+        ctx.font = '12px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = valid ? 'rgba(139, 247, 255, 0.75)' : 'rgba(160, 160, 168, 0.6)';
+        ctx.fillText(`${Math.round(this.hoverPlacement.cost)} Th`, drawX, drawY + 20);
+      }
       ctx.restore();
     }
 
@@ -3240,6 +3585,7 @@
     }
 
     recordPowderEvent('achievement-unlocked', { title: definition.title });
+    updateStatusDisplays();
   }
 
   function notifyTowerPlaced(activeCount) {
@@ -3248,6 +3594,337 @@
       gameStats.maxTowersSimultaneous = Math.max(gameStats.maxTowersSimultaneous, activeCount);
     }
     evaluateAchievements();
+  }
+
+  function updateLoadoutNote() {
+    if (!loadoutElements.note) {
+      return;
+    }
+    if (!towerLoadoutState.selected.length) {
+      loadoutElements.note.textContent =
+        'Select towers on the Towers tab to prepare up to four glyphs for this defense.';
+    } else {
+      loadoutElements.note.textContent =
+        'Select four towers to bring into the defense. Drag the glyph chips onto the plane to lattice them; drop a chip atop a matching tower to merge.';
+    }
+  }
+
+  function renderTowerLoadout() {
+    if (!loadoutElements.grid) {
+      renderedLoadoutSignature = null;
+      return;
+    }
+
+    const selected = towerLoadoutState.selected;
+    const signature = selected.join('|');
+    const existingCount = loadoutElements.grid.childElementCount;
+
+    if (signature === renderedLoadoutSignature && existingCount === selected.length) {
+      refreshTowerLoadoutDisplay();
+      updateLoadoutNote();
+      return;
+    }
+
+    loadoutElements.grid.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+    renderedLoadoutSignature = signature;
+
+    if (!selected.length) {
+      updateLoadoutNote();
+      return;
+    }
+
+    selected.forEach((towerId) => {
+      const definition = getTowerDefinition(towerId);
+      if (!definition) {
+        return;
+      }
+
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'tower-loadout-item';
+      item.dataset.towerId = towerId;
+      item.setAttribute('role', 'listitem');
+
+      const symbol = document.createElement('span');
+      symbol.className = 'tower-loadout-symbol';
+      symbol.textContent = definition.symbol;
+
+      const label = document.createElement('span');
+      label.className = 'tower-loadout-label';
+      label.textContent = definition.name;
+
+      const costEl = document.createElement('span');
+      costEl.className = 'tower-loadout-cost';
+      costEl.textContent = '—';
+
+      item.append(symbol, label, costEl);
+
+      item.addEventListener('pointerdown', (event) => startTowerDrag(event, towerId, item));
+
+      fragment.append(item);
+    });
+
+    loadoutElements.grid.append(fragment);
+    refreshTowerLoadoutDisplay();
+    updateLoadoutNote();
+  }
+
+  function refreshTowerLoadoutDisplay() {
+    if (!loadoutElements.grid) {
+      return;
+    }
+    const interactive = Boolean(playfield && playfield.isInteractiveLevelActive());
+    const items = loadoutElements.grid.querySelectorAll('.tower-loadout-item');
+    items.forEach((item) => {
+      const towerId = item.dataset.towerId;
+      const definition = getTowerDefinition(towerId);
+      if (!definition) {
+        return;
+      }
+      const currentCost = playfield ? playfield.getCurrentTowerCost(towerId) : definition.baseCost;
+      const costEl = item.querySelector('.tower-loadout-cost');
+      if (costEl) {
+        costEl.textContent = `${Math.round(currentCost)} Th`;
+      }
+      const affordable = interactive ? playfield.energy >= currentCost : false;
+      item.dataset.valid = affordable ? 'true' : 'false';
+      item.dataset.disabled = interactive ? 'false' : 'true';
+      item.disabled = !interactive;
+    });
+  }
+
+  function cancelTowerDrag() {
+    if (!loadoutDragState.active) {
+      return;
+    }
+    document.removeEventListener('pointermove', handleTowerDragMove);
+    document.removeEventListener('pointerup', handleTowerDragEnd);
+    document.removeEventListener('pointercancel', handleTowerDragEnd);
+    if (loadoutDragState.element) {
+      try {
+        loadoutDragState.element.releasePointerCapture(loadoutDragState.pointerId);
+      } catch (error) {
+        // ignore
+      }
+      loadoutDragState.element.removeAttribute('data-state');
+    }
+    playfield?.finishTowerDrag();
+    playfield?.clearPlacementPreview();
+    loadoutDragState.active = false;
+    loadoutDragState.pointerId = null;
+    loadoutDragState.towerId = null;
+    loadoutDragState.element = null;
+    refreshTowerLoadoutDisplay();
+  }
+
+  function handleTowerDragMove(event) {
+    if (!loadoutDragState.active || event.pointerId !== loadoutDragState.pointerId) {
+      return;
+    }
+    if (!playfield) {
+      return;
+    }
+    const normalized = playfield.getNormalizedFromEvent(event);
+    if (!normalized) {
+      playfield.clearPlacementPreview();
+      return;
+    }
+    playfield.previewTowerPlacement(normalized, {
+      towerType: loadoutDragState.towerId,
+      dragging: true,
+    });
+  }
+
+  function finalizeTowerDrag(event) {
+    if (!loadoutDragState.active || event.pointerId !== loadoutDragState.pointerId) {
+      return;
+    }
+
+    if (loadoutDragState.element) {
+      try {
+        loadoutDragState.element.releasePointerCapture(event.pointerId);
+      } catch (error) {
+        // ignore
+      }
+      loadoutDragState.element.removeAttribute('data-state');
+    }
+
+    document.removeEventListener('pointermove', handleTowerDragMove);
+    document.removeEventListener('pointerup', handleTowerDragEnd);
+    document.removeEventListener('pointercancel', handleTowerDragEnd);
+
+    if (playfield) {
+      const normalized = playfield.getNormalizedFromEvent(event);
+      if (normalized) {
+        playfield.completeTowerPlacement(normalized, { towerType: loadoutDragState.towerId });
+      } else {
+        playfield.clearPlacementPreview();
+      }
+      playfield.finishTowerDrag();
+    }
+
+    loadoutDragState.active = false;
+    loadoutDragState.pointerId = null;
+    loadoutDragState.towerId = null;
+    loadoutDragState.element = null;
+    refreshTowerLoadoutDisplay();
+  }
+
+  function handleTowerDragEnd(event) {
+    finalizeTowerDrag(event);
+  }
+
+  function startTowerDrag(event, towerId, element) {
+    if (!playfield || !playfield.isInteractiveLevelActive()) {
+      if (playfield?.messageEl) {
+        playfield.messageEl.textContent = 'Enter the defense to lattice towers from your loadout.';
+      }
+      return;
+    }
+
+    cancelTowerDrag();
+
+    loadoutDragState.active = true;
+    loadoutDragState.pointerId = event.pointerId;
+    loadoutDragState.towerId = towerId;
+    loadoutDragState.element = element;
+    element.dataset.state = 'dragging';
+
+    playfield.setDraggingTower(towerId);
+
+    try {
+      element.setPointerCapture(event.pointerId);
+    } catch (error) {
+      // Ignore pointer capture errors.
+    }
+
+    if (typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+
+    document.addEventListener('pointermove', handleTowerDragMove);
+    document.addEventListener('pointerup', handleTowerDragEnd);
+    document.addEventListener('pointercancel', handleTowerDragEnd);
+
+    handleTowerDragMove(event);
+  }
+
+  function updateTowerSelectionButtons() {
+    towerSelectionButtons.forEach((button, towerId) => {
+      const definition = getTowerDefinition(towerId);
+      const selected = towerLoadoutState.selected.includes(towerId);
+      const label = definition ? definition.symbol : towerId;
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      button.textContent = selected ? `Equipped ${label}` : `Equip ${label}`;
+      const atLimit = !selected && towerLoadoutState.selected.length >= TOWER_LOADOUT_LIMIT;
+      button.disabled = atLimit;
+    });
+  }
+
+  function toggleTowerSelection(towerId) {
+    if (!towerDefinitionMap.has(towerId)) {
+      return;
+    }
+    const selected = towerLoadoutState.selected;
+    const index = selected.indexOf(towerId);
+    if (index >= 0) {
+      selected.splice(index, 1);
+    } else {
+      if (selected.length >= TOWER_LOADOUT_LIMIT) {
+        if (loadoutElements.note) {
+          loadoutElements.note.textContent = 'Only four towers can be prepared at once.';
+        }
+        updateTowerSelectionButtons();
+        return;
+      }
+      selected.push(towerId);
+    }
+    updateTowerSelectionButtons();
+    syncLoadoutToPlayfield();
+  }
+
+  function initializeTowerSelection() {
+    const buttons = document.querySelectorAll('[data-tower-toggle]');
+    buttons.forEach((button) => {
+      const towerId = button.dataset.towerToggle;
+      if (!towerId) {
+        return;
+      }
+      towerSelectionButtons.set(towerId, button);
+      const definition = getTowerDefinition(towerId);
+      if (definition) {
+        button.textContent = `Equip ${definition.symbol}`;
+      }
+      button.setAttribute('aria-pressed', 'false');
+      button.addEventListener('click', () => toggleTowerSelection(towerId));
+    });
+    updateTowerSelectionButtons();
+  }
+
+  function syncLoadoutToPlayfield() {
+    if (playfield) {
+      playfield.setAvailableTowers(towerLoadoutState.selected);
+    }
+    renderTowerLoadout();
+  }
+
+  function renderEnemyCodex() {
+    if (!enemyCodexElements.list) {
+      return;
+    }
+
+    const encountered = Array.from(codexState.encounteredEnemies)
+      .map((id) => enemyCodexMap.get(id))
+      .filter(Boolean);
+
+    enemyCodexElements.list.innerHTML = '';
+
+    if (enemyCodexElements.note) {
+      enemyCodexElements.note.hidden = encountered.length > 0 ? true : false;
+    }
+
+    if (!encountered.length) {
+      if (enemyCodexElements.empty) {
+        enemyCodexElements.empty.hidden = false;
+      }
+      enemyCodexElements.list.setAttribute('hidden', '');
+      return;
+    }
+
+    enemyCodexElements.list.removeAttribute('hidden');
+    if (enemyCodexElements.empty) {
+      enemyCodexElements.empty.hidden = true;
+    }
+
+    const fragment = document.createDocumentFragment();
+    encountered.forEach((entry) => {
+      const card = document.createElement('article');
+      card.className = 'card enemy-card';
+      card.setAttribute('role', 'listitem');
+
+      const title = document.createElement('h3');
+      title.textContent = entry.name;
+
+      const description = document.createElement('p');
+      description.textContent = entry.description;
+
+      card.append(title, description);
+      fragment.append(card);
+    });
+
+    enemyCodexElements.list.append(fragment);
+  }
+
+  function registerEnemyEncounter(enemyId) {
+    if (!enemyId || codexState.encounteredEnemies.has(enemyId)) {
+      return;
+    }
+    if (!enemyCodexMap.has(enemyId)) {
+      return;
+    }
+    codexState.encounteredEnemies.add(enemyId);
+    renderEnemyCodex();
   }
 
   function notifyAutoAnchorUsed(currentPlaced, totalAnchors) {
@@ -3287,6 +3964,8 @@
     }
     const normalized = Math.max(0, Math.floor(count));
     gameStats.powderSigilsReached = Math.max(gameStats.powderSigilsReached, normalized);
+    glyphCurrency = Math.max(glyphCurrency, normalized);
+    updateStatusDisplays();
     evaluateAchievements();
   }
 
@@ -3331,13 +4010,19 @@
 
   function updateStatusDisplays() {
     if (resourceElements.score) {
-      resourceElements.score.textContent = formatGameNumber(resourceState.score);
+      const interactive = Boolean(playfield && playfield.isInteractiveLevelActive());
+      const theroValue = interactive ? Math.max(0, Math.round(playfield.energy)) : 0;
+      const idleScore = formatGameNumber(resourceState.score);
+      resourceElements.score.textContent = `${theroValue} Th · Σ ${idleScore}`;
     }
     if (resourceElements.energy) {
-      resourceElements.energy.textContent = `+${formatGameNumber(resourceState.energyRate)} TD/s`;
+      const energyRate = formatGameNumber(resourceState.energyRate);
+      resourceElements.energy.textContent = `${glyphCurrency} Glyphs · +${energyRate} TD/s`;
     }
     if (resourceElements.flux) {
-      resourceElements.flux.textContent = `+${formatGameNumber(resourceState.fluxRate)} Powder/min`;
+      const unlocked = Array.from(achievementState.values()).filter((state) => state?.unlocked).length;
+      const fluxRate = formatGameNumber(resourceState.fluxRate);
+      resourceElements.flux.textContent = `${unlocked} Ach · +${fluxRate} Powder/min`;
     }
   }
 
@@ -3757,6 +4442,13 @@
     playfieldElements.autoAnchorButton = document.getElementById('playfield-auto');
     playfieldElements.slots = Array.from(document.querySelectorAll('.tower-slot'));
 
+    loadoutElements.container = document.getElementById('tower-loadout');
+    loadoutElements.grid = document.getElementById('tower-loadout-grid');
+    loadoutElements.note = document.getElementById('tower-loadout-note');
+
+    enemyCodexElements.list = document.getElementById('enemy-codex-list');
+    enemyCodexElements.empty = document.getElementById('enemy-codex-empty');
+    enemyCodexElements.note = document.getElementById('enemy-codex-note');
     if (audioManager) {
       const activationElements = [
         playfieldElements.startButton,
@@ -3801,6 +4493,10 @@
     updateResourceRates();
     updatePowderDisplay();
     ensureResourceTicker();
+
+    initializeTowerSelection();
+    syncLoadoutToPlayfield();
+    renderEnemyCodex();
 
     initializeTabs();
     buildLevelCards();
