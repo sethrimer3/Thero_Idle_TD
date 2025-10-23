@@ -92,13 +92,6 @@
           aria-labelledby="tab-tower"
         >
           <section class="playfield-wrapper" aria-live="polite">
-            <header class="playfield-header">
-              <h3>Active Defense Simulation</h3>
-              <p id="playfield-message">
-                Select a level to command the defense. Drag glyph chips from your loadout onto the
-                plane to lattice towers.
-              </p>
-            </header>
             <div class="playfield-shell">
               <div
                 class="playfield"
@@ -107,6 +100,20 @@
                 aria-label="Interactive glyph defense lane"
               >
                 <canvas id="playfield-canvas" width="560" height="360"></canvas>
+                <dl class="playfield-stats" aria-live="polite">
+                  <div class="playfield-stats__item">
+                    <dt>Wave</dt>
+                    <dd id="playfield-wave">—</dd>
+                  </div>
+                  <div class="playfield-stats__item">
+                    <dt>Core Integrity</dt>
+                    <dd id="playfield-health">—</dd>
+                  </div>
+                  <div class="playfield-stats__item">
+                    <dt>Glyph Energy</dt>
+                    <dd id="playfield-energy">—</dd>
+                  </div>
+                </dl>
               </div>
             </div>
             <div class="tower-loadout" id="tower-loadout" aria-label="Tower loadout" role="region">
@@ -116,21 +123,24 @@
               </p>
               <div class="tower-loadout-grid" id="tower-loadout-grid" role="list"></div>
             </div>
-            <dl class="playfield-hud">
-              <div>
-                <dt>Wave</dt>
-                <dd id="playfield-wave">—</dd>
-              </div>
-              <div>
-                <dt>Core Integrity</dt>
-                <dd id="playfield-health">—</dd>
-              </div>
-              <div>
-                <dt>Glyph Energy</dt>
-                <dd id="playfield-energy">—</dd>
-              </div>
-            </dl>
           </section>
+          <div class="stage-controls" role="group" aria-label="Defense controls">
+            <button class="play-button" type="button" id="playfield-start" disabled>
+              Commence Wave
+            </button>
+            <div class="control-row" role="group" aria-label="Stage utilities">
+              <button class="control-button" type="button" id="playfield-speed">
+                Speed ×1
+              </button>
+              <button class="control-button" type="button" id="playfield-auto">
+                Auto-lattice α
+              </button>
+            </div>
+            <label class="auto-wave-toggle" for="playfield-auto-wave">
+              <input type="checkbox" id="playfield-auto-wave" checked />
+              Auto-send next wave
+            </label>
+          </div>
           <section class="level-section">
             <header class="subsection-title">Conjecture Set</header>
             <p class="level-intro">
@@ -141,7 +151,10 @@
             </p>
             <div class="level-grid" id="level-grid" aria-live="polite"></div>
             <aside class="level-legend">
-              <h3>Proof Roadmap</h3>
+              <header class="codex-header">
+                <span class="codex-label">Codex</span>
+                <h3>Proof Roadmap</h3>
+              </header>
               <ul class="set-timeline">
                 <li class="set-card active-set">
                   <h4>Conjecture Levels 1-5</h4>
@@ -170,41 +183,6 @@
               </ul>
             </aside>
           </section>
-          <section class="level-status" aria-live="polite">
-            <div class="level-status-banner">
-              <span class="status-label">Active Level</span>
-              <p class="level-status-value" id="active-level">None selected</p>
-            </div>
-            <p class="level-status-note">
-              Levels persist while you browse other tabs. Return to the Stage to
-              continue defending, or leave the level to reset its wave pattern.
-            </p>
-            <button class="action-button ghost" type="button" id="leave-level" aria-live="off">
-              Leave Current Level
-            </button>
-          </section>
-          <div class="stage-footer">
-            <div class="stage-controls">
-              <button class="play-button" type="button" id="playfield-start" disabled>
-                Commence Wave
-              </button>
-              <div class="control-row" role="group" aria-label="Stage utilities">
-                <button class="control-button" type="button" id="playfield-speed">
-                  Speed ×1
-                </button>
-                <button class="control-button" type="button" id="playfield-auto">
-                  Auto-lattice α
-                </button>
-              </div>
-              <label class="auto-wave-toggle" for="playfield-auto-wave">
-                <input type="checkbox" id="playfield-auto-wave" checked />
-                Auto-send next wave
-              </label>
-            </div>
-            <div class="progress">
-              <span id="playfield-progress">No active level.</span>
-            </div>
-          </div>
         </section>
 
         <section
