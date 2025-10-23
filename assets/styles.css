@@ -2032,6 +2032,157 @@ body.color-scheme-chromatic::before {
   color: rgba(255, 255, 255, 0.68);
 }
 
+.overlay-preview__canvas--editing {
+  cursor: crosshair;
+}
+
+.overlay-preview__canvas--dragging {
+  cursor: grabbing;
+}
+
+.overlay-editor {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px dashed rgba(139, 247, 255, 0.28);
+  background:
+    linear-gradient(130deg, rgba(12, 18, 32, 0.9), rgba(18, 26, 44, 0.92)),
+    radial-gradient(circle at 12% 8%, rgba(118, 200, 255, 0.12), transparent 70%),
+    radial-gradient(circle at 88% 14%, rgba(255, 184, 124, 0.1), transparent 68%);
+  display: grid;
+  gap: 14px;
+}
+
+.overlay-editor--active {
+  border-style: solid;
+  border-color: rgba(139, 247, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(139, 247, 255, 0.16);
+}
+
+.overlay-editor[hidden] {
+  display: none;
+}
+
+.overlay-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.overlay-editor__title {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.overlay-editor__toggle {
+  border: 1px solid rgba(139, 247, 255, 0.35);
+  border-radius: 999px;
+  padding: 6px 18px;
+  background: rgba(8, 12, 24, 0.88);
+  color: rgba(139, 247, 255, 0.9);
+  font-family: "Space Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.overlay-editor__toggle[aria-pressed='true'] {
+  background: rgba(139, 247, 255, 0.18);
+  border-color: rgba(139, 247, 255, 0.65);
+}
+
+.overlay-editor__note {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.4;
+}
+
+.overlay-editor__count {
+  display: inline-block;
+  margin-left: 12px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(139, 247, 255, 0.14);
+  color: rgba(139, 247, 255, 0.92);
+  font-family: "Space Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.overlay-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.overlay-editor__button {
+  border: 1px solid rgba(139, 247, 255, 0.3);
+  border-radius: 12px;
+  padding: 6px 14px;
+  background: rgba(10, 16, 28, 0.88);
+  color: rgba(220, 236, 255, 0.88);
+  font-family: "Space Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.overlay-editor__button:hover:not(:disabled) {
+  background: rgba(16, 24, 40, 0.92);
+  border-color: rgba(139, 247, 255, 0.55);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.overlay-editor__button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.overlay-editor__output {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 247, 255, 0.24);
+  background: rgba(6, 10, 20, 0.92);
+  color: rgba(205, 228, 255, 0.88);
+  font-family: "Space Mono", monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.overlay-editor__output:focus {
+  outline: none;
+  border-color: rgba(139, 247, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(139, 247, 255, 0.14);
+}
+
+.overlay-editor__status {
+  margin: 0;
+  font-size: 0.82rem;
+  font-family: "Space Mono", monospace;
+  letter-spacing: 0.04em;
+  color: rgba(139, 247, 255, 0.9);
+}
+
+.overlay-editor__status[data-tone='warning'] {
+  color: rgba(255, 188, 120, 0.88);
+}
+
+.overlay-editor__status[data-tone='error'] {
+  color: rgba(255, 128, 152, 0.88);
+}
+
 @keyframes preview-pop {
   from {
     opacity: 0;
