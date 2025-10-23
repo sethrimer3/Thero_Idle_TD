@@ -1764,7 +1764,11 @@ body::before {
 
 .upgrade-overlay .overlay-panel {
   max-width: 520px;
+  max-height: min(85vh, 680px);
   text-align: left;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .upgrade-overlay .overlay-label,
@@ -1783,6 +1787,9 @@ body::before {
   gap: 12px;
   margin: 0 0 22px;
   padding: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .upgrade-matrix-row {
