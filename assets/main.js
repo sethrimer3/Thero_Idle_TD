@@ -43,185 +43,25 @@ import {
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
-  const levelBlueprints = [
-    {
-      set: 'Conjecture',
-      id: 'Conjecture - 1',
-      title: 'Lemniscate Hypothesis',
-      path: '∞ loop traced from r² = cos(2θ); mirrored spawn lanes cross twice.',
-      focus: 'Early E glyphs surge with divisor scouts—tempo control is vital.',
-      example:
-        "Goldbach’s Conjecture: Every even integer greater than 2 is the sum of two primes.",
-    },
-    {
-      set: 'Conjecture',
-      id: 'Conjecture - 2',
-      title: 'Collatz Cascade',
-      path: 'Stepwise descent generated from the 3n + 1 map with teleport risers.',
-      focus: 'Hit-count enemies appear on odd nodes; summon glyph soldiers to stall.',
-      example:
-        'Collatz Conjecture: Iterate n → n/2 or 3n + 1 and every positive integer reaches 1.',
-    },
-    {
-      set: 'Conjecture',
-      id: 'Conjecture - 3',
-      title: 'Riemann Helix',
-      path: 'Logarithmic spiral with harmonic bulges keyed to ζ(s) zero estimates.',
-      focus: 'Divisor elites flank wave bosses—Ω previews excel at splash slows.',
-      example:
-        'Riemann Hypothesis: Every nontrivial zero of ζ(s) lies on the line Re(s) = 1/2.',
-    },
-    {
-      set: 'Conjecture',
-      id: 'Conjecture - 4',
-      title: 'Twin Prime Fork',
-      path: 'Dual lattice rails linked by prime gaps; enemies swap lanes unpredictably.',
-      focus: 'Prime counters demand rapid-fire towers—γ chaining resets their count.',
-      example:
-        'Twin Prime Conjecture: Infinitely many primes p exist such that p + 2 is prime.',
-    },
-    {
-      set: 'Conjecture',
-      id: 'Conjecture - 5',
-      title: 'Birch Flow',
-      path: 'Cardioid river influenced by elliptic curve rank gradients.',
-      focus: 'Reversal sentinels join late waves—δ soldiers can flip them to your side.',
-      example:
-        'Birch and Swinnerton-Dyer Conjecture: Rational points of elliptic curves link to L-series behavior.',
-    },
-    {
-      set: 'Conjecture',
-      id: 'Conjecture - Secret',
-      title: 'Apocrypha Loop',
-      path: 'Hidden lemniscate mirrored through complex planes; portals bloom off-axis.',
-      focus: 'Only reveals during total glyph alignment—expect mixed archetypes in waves.',
-      example:
-        'Secret Lemma: When harmonic sums stabilize, an unseen proof thread emerges from the void.',
-    },
-    {
-      set: 'Corollary',
-      id: 'Corollary - 6',
-      title: 'Derivative Bloom',
-      path: 'Petal loops bloom where f′(x) = 0 across mirrored cardioids and saddle petals.',
-      focus: 'Flux bursts alternate with brittle shards—steady α lattices prevent overflow collapses.',
-      example:
-        "Rolle's Corollary: If f(a) = f(b) for differentiable f, some c in (a, b) satisfies f′(c) = 0.",
-    },
-    {
-      set: 'Corollary',
-      id: 'Corollary - 7',
-      title: 'Integral Cascade',
-      path: 'Stepped integrator ramps descend in quantized slopes shaped by accumulated area.',
-      focus: 'Energy leeches drift down ramps—δ summons keep Δ energy above zero.',
-      example:
-        'Fundamental Corollary: Integrating a derivative recovers the original function up to constants.',
-    },
-    {
-      set: 'Corollary',
-      id: 'Corollary - 8',
-      title: 'Fibonacci Turnabout',
-      path: 'Interleaved golden spirals shift radius on Fibonacci indices and teleport pads.',
-      focus: 'Prime counters spawn on Fibonacci junctions—γ conductors reset their tally.',
-      example:
-        'Binet Corollary: Fₙ = (φⁿ − ψⁿ)/√5 gives the closed form of Fibonacci growth.',
-    },
-    {
-      set: 'Corollary',
-      id: 'Corollary - 9',
-      title: 'Euler Bridge',
-      path: 'Bridge arcs obey planar graph constraints; parity lanes swap over Euler gaps.',
-      focus: 'Divisors guard the bridges—β beams must stay coherent to pierce.',
-      example:
-        'Euler Characteristic Corollary: For planar graphs, F = E − V + 2 limits feasible crossings.',
-    },
-    {
-      set: 'Corollary',
-      id: 'Corollary - 10',
-      title: 'Modular Bloom',
-      path: 'Modular roses rotate through residue-locked petals with congruence gate warps.',
-      focus: 'Reversal sentinels invert on residue gates—δ rallies convert them mid-arc.',
-      example:
-        'Chinese Remainder Corollary: Congruence systems share synchronized solutions modulo their product.',
-    },
-    {
-      set: 'Corollary',
-      id: 'Corollary - Secret',
-      title: 'Shadow Integral',
-      path: 'Phase-shifted archipelago of calculus islands hidden beneath modular petals.',
-      focus: 'Resource siphons and reversal elites stack together—prepare universal counters.',
-      example:
-        'Secret Corollary: The boundary integral of concealed paths equals interior flux you never saw.',
-    },
-  ];
+  const GAMEPLAY_CONFIG_PATH = 'assets/data/gameplayConfig.json';
 
-  const enemyCodexEntries = [
-    {
-      id: 'etype',
-      name: 'E-Type Glyphs',
-      summary:
-        'Baseline constructs minted from exponential residue; the count of trailing zeros reveals the exponent of their vitality.',
-      traits: [
-        'March in geometric platoons whose health resolves to \(H(k) = H_0 \times 10^{k}\) for rank k within the current set.',
-        'Reward Σ motes on defeat using the same multiplier, making them ideal calibration targets for lattice tuning.',
-      ],
-      counter:
-        'Layer multiplicative auras and β/γ towers so burst and splash damage keep pace with the exponential swell before specialist glyphs appear.',
-      lore:
-        'Archivists open every defense proof against E glyphs; when their sigils begin to blur, heavier conjectures are on approach.',
-      formula: '\(H(k) = H_0 \times 10^{k}\)',
-      formulaLabel: 'Growth Law',
-    },
-    {
-      id: 'divisor',
-      name: 'Divisors',
-      summary:
-        'Factor-savvy husks that invert reckless power. They judge every incoming strike by its divisor weight and respond in kind.',
-      traits: [
-        'Damage from one source collapses to \(\\Delta H = 1 / \text{DPS}_{\\text{source}}\), so slower cannons barely scratch the shell.',
-        'Stacked beams add their DPS before inversion, rewarding multi-lane coverage and allied summons.',
-      ],
-      counter:
-        'Deploy swarm emitters, Ω slows, and status lattices to multiply projectile count while letting lingering damage-over-time finish the proof.',
-      lore:
-        'Their chants enumerate divisors as they advance; silence one and the entire column hesitates for a breath.',
-      formula: '\(\\Delta H = 1 / \text{DPS}_{\\text{source}}\)',
-      formulaLabel: 'Mitigation Rule',
-    },
-    {
-      id: 'prime',
-      name: 'Prime Counters',
-      summary:
-        'Inquisitors that audit impact counts against the prime sequence. They do not care about damage—only how often they are struck.',
-      traits: [
-        'Maintain an internal counter η that increases with each hit until \(η = p_n\), the nth prime for their current wave.',
-        'Overflow resets η to the next prime threshold, so wasted barrages delay a collapse.',
-      ],
-      counter:
-        'Favor rapid-fire towers, β resonance buffs, or allied reversals that deal consistent tap damage to meet each prime without overshooting.',
-      lore:
-        'Their whispers recite primes in ascending order; the moment you match their cadence, the husk fractures.',
-      formula: '\(η = p_n\)',
-      formulaLabel: 'Prime Threshold',
-    },
-    {
-      id: 'reversal',
-      name: 'Reversal Sentinels',
-      summary:
-        'Vanguard constructs tuned to flip allegiance. Defeat one and it races backward to join your formation with inverted statistics.',
-      traits: [
-        'Upon collapse they sprint to the start of the path; if unblocked they respawn as allies with \(H_{ally} = \lfloor 0.5 H_{foe} \rfloor\).',
-        'Allied reversals inherit your active tower modifiers and pulse Σ motes while retracing enemy ground.',
-      ],
-      counter:
-        'Catch them near choke points so the conversion occurs within supportive auras, otherwise their retreat might breach the core first.',
-      lore:
-        'Legend says each sentinel carries a mirrored proof; persuade it to turn the page and the margin glows with your sigil.',
-      formula: '\(H_{ally} = \lfloor 0.5 H_{foe} \rfloor\)',
-      formulaLabel: 'Conversion Rule',
-    },
-  ];
+  let gameplayConfigData = null;
+  let levelBlueprints = [];
+  let enemyCodexEntries = [];
+  let enemyCodexMap = new Map();
+  let towerDefinitions = [];
+  let towerDefinitionMap = new Map();
+  let levelLookup = new Map();
+  const levelConfigs = new Map();
+  const idleLevelConfigs = new Map();
 
-  const enemyCodexMap = new Map(enemyCodexEntries.map((entry) => [entry.id, entry]));
+  const FALLBACK_TOWER_LOADOUT_LIMIT = 4;
+  const FALLBACK_BASE_START_THERO = 50;
+  const FALLBACK_BASE_CORE_INTEGRITY = 100;
+
+  let TOWER_LOADOUT_LIMIT = FALLBACK_TOWER_LOADOUT_LIMIT;
+  let BASE_START_THERO = FALLBACK_BASE_START_THERO;
+  let BASE_CORE_INTEGRITY = FALLBACK_BASE_CORE_INTEGRITY;
 
   const codexState = {
     encounteredEnemies: new Set(),
@@ -514,375 +354,6 @@ import {
     };
   }
 
-  const TOWER_LOADOUT_LIMIT = 4;
-  const BASE_START_THERO = 50;
-  const BASE_CORE_INTEGRITY = 100;
-
-  const towerDefinitions = [
-    {
-      id: 'alpha',
-      symbol: 'α',
-      name: 'Alpha Tower',
-      tier: 1,
-      baseCost: 10,
-      damage: 28,
-      rate: 1.25,
-      range: 0.24,
-      icon: 'assets/images/tower-alpha.svg',
-      nextTierId: 'beta',
-    },
-    {
-      id: 'beta',
-      symbol: 'β',
-      name: 'Beta Tower',
-      tier: 2,
-      baseCost: 100,
-      damage: 48,
-      rate: 1.1,
-      range: 0.26,
-      icon: 'assets/images/tower-beta.svg',
-      nextTierId: 'gamma',
-    },
-    {
-      id: 'gamma',
-      symbol: 'γ',
-      name: 'Gamma Tower',
-      tier: 3,
-      baseCost: 1000,
-      damage: 72,
-      rate: 1.2,
-      range: 0.28,
-      icon: 'assets/images/tower-gamma.svg',
-      nextTierId: 'delta',
-    },
-    {
-      id: 'delta',
-      symbol: 'δ',
-      name: 'Delta Tower',
-      tier: 4,
-      baseCost: 10000,
-      damage: 56,
-      rate: 0.95,
-      range: 0.22,
-      icon: 'assets/images/tower-delta.svg',
-      nextTierId: 'epsilon',
-    },
-    {
-      id: 'epsilon',
-      symbol: 'ε',
-      name: 'Epsilon Tower',
-      tier: 5,
-      baseCost: 50000,
-      damage: 44,
-      rate: 1.4,
-      range: 0.26,
-      icon: 'assets/images/tower-epsilon.svg',
-      nextTierId: 'zeta',
-    },
-    {
-      id: 'zeta',
-      symbol: 'ζ',
-      name: 'Zeta Tower',
-      tier: 6,
-      baseCost: 250000,
-      damage: 68,
-      rate: 1.3,
-      range: 0.3,
-      icon: 'assets/images/tower-zeta.svg',
-      nextTierId: 'eta',
-    },
-    {
-      id: 'eta',
-      symbol: 'η',
-      name: 'Eta Tower',
-      tier: 7,
-      baseCost: 1000000,
-      damage: 96,
-      rate: 1.1,
-      range: 0.32,
-      icon: 'assets/images/tower-eta.svg',
-      nextTierId: 'theta',
-    },
-    {
-      id: 'theta',
-      symbol: 'θ',
-      name: 'Theta Tower',
-      tier: 8,
-      baseCost: 4000000,
-      damage: 132,
-      rate: 0.98,
-      range: 0.34,
-      icon: 'assets/images/tower-theta.svg',
-      nextTierId: 'iota',
-    },
-    {
-      id: 'iota',
-      symbol: 'ι',
-      name: 'Iota Tower',
-      tier: 9,
-      baseCost: 60000000,
-      damage: 240,
-      rate: 0.85,
-      range: 0.38,
-      icon: 'assets/images/tower-iota.svg',
-      nextTierId: 'kappa',
-    },
-    {
-      id: 'kappa',
-      symbol: 'κ',
-      name: 'Kappa Tower',
-      tier: 10,
-      baseCost: 200000000,
-      damage: 320,
-      rate: 0.8,
-      range: 0.4,
-      icon: 'assets/images/tower-kappa.svg',
-      nextTierId: 'lambda',
-    },
-    {
-      id: 'lambda',
-      symbol: 'λ',
-      name: 'Lambda Tower',
-      tier: 11,
-      baseCost: 700000000,
-      damage: 420,
-      rate: 0.75,
-      range: 0.42,
-      icon: 'assets/images/tower-lambda.svg',
-      nextTierId: 'mu',
-    },
-    {
-      id: 'mu',
-      symbol: 'μ',
-      name: 'Mu Tower',
-      tier: 12,
-      baseCost: 2200000000,
-      damage: 540,
-      rate: 0.72,
-      range: 0.44,
-      icon: 'assets/images/tower-mu.svg',
-      nextTierId: 'nu',
-    },
-    {
-      id: 'nu',
-      symbol: 'ν',
-      name: 'Nu Tower',
-      tier: 13,
-      baseCost: 7200000000,
-      damage: 680,
-      rate: 0.68,
-      range: 0.46,
-      icon: 'assets/images/tower-nu.svg',
-      nextTierId: 'xi',
-    },
-    {
-      id: 'xi',
-      symbol: 'ξ',
-      name: 'Xi Tower',
-      tier: 14,
-      baseCost: 23000000000,
-      damage: 860,
-      rate: 0.64,
-      range: 0.48,
-      icon: 'assets/images/tower-xi.svg',
-      nextTierId: 'omicron',
-    },
-    {
-      id: 'omicron',
-      symbol: 'ο',
-      name: 'Omicron Tower',
-      tier: 15,
-      baseCost: 240000000000,
-      damage: 1500,
-      rate: 0.58,
-      range: 0.54,
-      icon: 'assets/images/tower-omicron.svg',
-      nextTierId: 'pi',
-    },
-    {
-      id: 'pi',
-      symbol: 'π',
-      name: 'Pi Tower',
-      tier: 16,
-      baseCost: 780000000000,
-      damage: 1900,
-      rate: 0.56,
-      range: 0.56,
-      icon: 'assets/images/tower-pi.svg',
-      nextTierId: 'rho',
-    },
-    {
-      id: 'rho',
-      symbol: 'ρ',
-      name: 'Rho Tower',
-      tier: 17,
-      baseCost: 2500000000000,
-      damage: 2300,
-      rate: 0.54,
-      range: 0.58,
-      icon: 'assets/images/tower-rho.svg',
-      nextTierId: 'sigma',
-    },
-    {
-      id: 'sigma',
-      symbol: 'σ',
-      name: 'Sigma Tower',
-      tier: 18,
-      baseCost: 8000000000000,
-      damage: 2800,
-      rate: 0.52,
-      range: 0.6,
-      icon: 'assets/images/tower-sigma.svg',
-      nextTierId: 'tau',
-    },
-    {
-      id: 'tau',
-      symbol: 'τ',
-      name: 'Tau Tower',
-      tier: 19,
-      baseCost: 26000000000000,
-      damage: 3400,
-      rate: 0.5,
-      range: 0.62,
-      icon: 'assets/images/tower-tau.svg',
-      nextTierId: 'upsilon',
-    },
-    {
-      id: 'upsilon',
-      symbol: 'υ',
-      name: 'Upsilon Tower',
-      tier: 20,
-      baseCost: 85000000000000,
-      damage: 4100,
-      rate: 0.48,
-      range: 0.64,
-      icon: 'assets/images/tower-upsilon.svg',
-      nextTierId: 'phi',
-    },
-    {
-      id: 'phi',
-      symbol: 'φ',
-      name: 'Phi Tower',
-      tier: 21,
-      baseCost: 280000000000000,
-      damage: 4900,
-      rate: 0.46,
-      range: 0.66,
-      icon: 'assets/images/tower-phi.svg',
-      nextTierId: 'chi',
-    },
-    {
-      id: 'chi',
-      symbol: 'χ',
-      name: 'Chi Tower',
-      tier: 22,
-      baseCost: 920000000000000,
-      damage: 5800,
-      rate: 0.44,
-      range: 0.68,
-      icon: 'assets/images/tower-chi.svg',
-      nextTierId: 'psi',
-    },
-    {
-      id: 'psi',
-      symbol: 'ψ',
-      name: 'Psi Tower',
-      tier: 23,
-      baseCost: 3000000000000000,
-      damage: 6800,
-      rate: 0.42,
-      range: 0.7,
-      icon: 'assets/images/tower-psi.svg',
-      nextTierId: 'omega',
-    },
-    {
-      id: 'omega',
-      symbol: 'Ω',
-      name: 'Omega Tower',
-      tier: 24,
-      baseCost: 9600000000000000,
-      damage: 8000,
-      rate: 0.4,
-      range: 0.74,
-      icon: 'assets/images/tower-omega.svg',
-      nextTierId: 'aleph-null',
-    },
-    {
-      id: 'aleph-null',
-      symbol: 'ℵ₀',
-      name: 'Aleph Null Tower',
-      tier: 25,
-      baseCost: 3.1e16,
-      damage: 9600,
-      rate: 0.38,
-      range: 0.78,
-      icon: 'assets/images/tower-aleph-null.svg',
-      nextTierId: 'aleph-one',
-    },
-    {
-      id: 'aleph-one',
-      symbol: 'ℵ₁',
-      name: 'Aleph One Tower',
-      tier: 26,
-      baseCost: 1.1e17,
-      damage: 11500,
-      rate: 0.36,
-      range: 0.8,
-      icon: 'assets/images/tower-aleph-one.svg',
-      nextTierId: 'aleph-two',
-    },
-    {
-      id: 'aleph-two',
-      symbol: 'ℵ₂',
-      name: 'Aleph Two Tower',
-      tier: 27,
-      baseCost: 3.6e17,
-      damage: 13800,
-      rate: 0.34,
-      range: 0.82,
-      icon: 'assets/images/tower-aleph-two.svg',
-      nextTierId: 'aleph-three',
-    },
-    {
-      id: 'aleph-three',
-      symbol: 'ℵ₃',
-      name: 'Aleph Three Tower',
-      tier: 28,
-      baseCost: 1.2e18,
-      damage: 16400,
-      rate: 0.32,
-      range: 0.84,
-      icon: 'assets/images/tower-aleph-three.svg',
-      nextTierId: 'aleph-four',
-    },
-    {
-      id: 'aleph-four',
-      symbol: 'ℵ₄',
-      name: 'Aleph Four Tower',
-      tier: 29,
-      baseCost: 3.9e18,
-      damage: 19300,
-      rate: 0.3,
-      range: 0.86,
-      icon: 'assets/images/tower-aleph-four.svg',
-      nextTierId: 'aleph-five',
-    },
-    {
-      id: 'aleph-five',
-      symbol: 'ℵ₅',
-      name: 'Aleph Five Tower',
-      tier: 30,
-      baseCost: 1.3e19,
-      damage: 22600,
-      rate: 0.28,
-      range: 0.88,
-      icon: 'assets/images/tower-aleph-five.svg',
-      nextTierId: null,
-    },
-  ];
-
-  const towerDefinitionMap = new Map(towerDefinitions.map((tower) => [tower.id, tower]));
-
   const towerLoadoutState = {
     selected: ['alpha'],
   };
@@ -958,7 +429,193 @@ import {
     return definition?.nextTierId || null;
   }
 
-  const levelLookup = new Map(levelBlueprints.map((level) => [level.id, level]));
+  function cloneVectorArray(array) {
+    if (!Array.isArray(array)) {
+      return [];
+    }
+    return array
+      .map((point) => {
+        if (!point || typeof point !== 'object') {
+          return null;
+        }
+        const x = Number(point.x);
+        const y = Number(point.y);
+        return {
+          x: Number.isFinite(x) ? x : 0,
+          y: Number.isFinite(y) ? y : 0,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function cloneWaveArray(array) {
+    if (!Array.isArray(array)) {
+      return [];
+    }
+    return array.map((wave) => {
+      if (!wave || typeof wave !== 'object') {
+        return {
+          count: 0,
+          interval: 1,
+          hp: 0,
+          speed: 0,
+          reward: 0,
+        };
+      }
+      return {
+        ...wave,
+        count: Number.isFinite(wave.count) ? wave.count : 0,
+        interval: Number.isFinite(wave.interval) ? wave.interval : 1,
+        hp: Number.isFinite(wave.hp) ? wave.hp : 0,
+        speed: Number.isFinite(wave.speed) ? wave.speed : 0,
+        reward: Number.isFinite(wave.reward) ? wave.reward : 0,
+      };
+    });
+  }
+
+  function applyGameplayConfig(config = {}) {
+    gameplayConfigData = config || {};
+
+    const defaults = gameplayConfigData.defaults || {};
+
+    TOWER_LOADOUT_LIMIT =
+      Number.isFinite(defaults.towerLoadoutLimit) && defaults.towerLoadoutLimit > 0
+        ? Math.max(1, Math.floor(defaults.towerLoadoutLimit))
+        : FALLBACK_TOWER_LOADOUT_LIMIT;
+
+    BASE_START_THERO =
+      Number.isFinite(defaults.baseStartThero) && defaults.baseStartThero > 0
+        ? defaults.baseStartThero
+        : FALLBACK_BASE_START_THERO;
+
+    BASE_CORE_INTEGRITY =
+      Number.isFinite(defaults.baseCoreIntegrity) && defaults.baseCoreIntegrity > 0
+        ? defaults.baseCoreIntegrity
+        : FALLBACK_BASE_CORE_INTEGRITY;
+
+    towerDefinitions = Array.isArray(gameplayConfigData.towers)
+      ? gameplayConfigData.towers.map((tower) => ({ ...tower }))
+      : [];
+    towerDefinitionMap = new Map(towerDefinitions.map((tower) => [tower.id, tower]));
+
+    const loadoutCandidates = Array.isArray(defaults.initialTowerLoadout)
+      ? defaults.initialTowerLoadout
+      : towerLoadoutState.selected;
+
+    const normalizedLoadout = [];
+    loadoutCandidates.forEach((towerId) => {
+      if (
+        typeof towerId === 'string' &&
+        towerDefinitionMap.has(towerId) &&
+        !normalizedLoadout.includes(towerId) &&
+        normalizedLoadout.length < TOWER_LOADOUT_LIMIT
+      ) {
+        normalizedLoadout.push(towerId);
+      }
+    });
+    if (!normalizedLoadout.length && towerDefinitions.length) {
+      normalizedLoadout.push(towerDefinitions[0].id);
+    }
+    towerLoadoutState.selected = normalizedLoadout;
+
+    const unlocked = new Set(
+      Array.isArray(defaults.initialUnlockedTowers)
+        ? defaults.initialUnlockedTowers.filter((towerId) => towerDefinitionMap.has(towerId))
+        : [],
+    );
+    towerLoadoutState.selected.forEach((towerId) => unlocked.add(towerId));
+    towerUnlockState.unlocked = unlocked;
+
+    mergeProgressState.mergingLogicUnlocked = towerUnlockState.unlocked.has('beta');
+
+    enemyCodexEntries = Array.isArray(gameplayConfigData.enemies)
+      ? gameplayConfigData.enemies.map((entry) => ({
+          ...entry,
+          traits: Array.isArray(entry.traits) ? [...entry.traits] : [],
+        }))
+      : [];
+    enemyCodexMap = new Map(enemyCodexEntries.map((entry) => [entry.id, entry]));
+
+    Array.from(codexState.encounteredEnemies).forEach((enemyId) => {
+      if (!enemyCodexMap.has(enemyId)) {
+        codexState.encounteredEnemies.delete(enemyId);
+      }
+    });
+
+    levelBlueprints = Array.isArray(gameplayConfigData.maps)
+      ? gameplayConfigData.maps.map((map) => ({ ...map }))
+      : [];
+    levelLookup = new Map(levelBlueprints.map((level) => [level.id, level]));
+
+    levelConfigs.clear();
+    if (Array.isArray(gameplayConfigData.levels)) {
+      gameplayConfigData.levels.forEach((level) => {
+        if (!level || !level.id) {
+          return;
+        }
+        levelConfigs.set(level.id, {
+          ...level,
+          waves: cloneWaveArray(level.waves),
+          path: cloneVectorArray(level.path),
+          autoAnchors: cloneVectorArray(level.autoAnchors),
+        });
+      });
+    }
+
+    interactiveLevelOrder = Array.from(levelConfigs.keys());
+    unlockedLevels.clear();
+    if (interactiveLevelOrder.length) {
+      unlockedLevels.add(interactiveLevelOrder[0]);
+    }
+
+    idleLevelConfigs.clear();
+    levelBlueprints.forEach((level, index) => {
+      if (!level || !level.id || levelConfigs.has(level.id)) {
+        return;
+      }
+
+      const levelNumber = index + 1;
+      const runDuration = 90 + levelNumber * 12;
+      const rewardMultiplier = 1 + levelNumber * 0.08;
+      const rewardScore = baseResources.scoreRate * (runDuration / 12) * rewardMultiplier;
+      const rewardFlux = 45 + levelNumber * 10;
+      const rewardThero = 35 + levelNumber * 8;
+
+      idleLevelConfigs.set(level.id, {
+        runDuration,
+        rewardScore,
+        rewardFlux,
+        rewardThero,
+      });
+    });
+
+    Array.from(levelState.keys()).forEach((levelId) => {
+      if (!levelLookup.has(levelId)) {
+        levelState.delete(levelId);
+      }
+    });
+
+    return gameplayConfigData;
+  }
+
+  async function ensureGameplayConfigLoaded() {
+    if (gameplayConfigData) {
+      return gameplayConfigData;
+    }
+
+    try {
+      const response = await fetch(GAMEPLAY_CONFIG_PATH, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`Failed to load gameplay configuration: ${response.status}`);
+      }
+      const config = await response.json();
+      return applyGameplayConfig(config);
+    } catch (error) {
+      console.error('Unable to load gameplay configuration', error);
+      throw error;
+    }
+  }
+
   const levelState = new Map();
   let interactiveLevelOrder = [];
   const unlockedLevels = new Set();
@@ -1750,1049 +1407,6 @@ import {
   const idleLevelRuns = new Map();
 
   let powderSimulation = null;
-
-  const firstLevelConfig = {
-    id: 'Conjecture - 1',
-    displayName: 'Lemniscate Hypothesis',
-    startThero: BASE_START_THERO,
-    theroCap: 360,
-    theroPerKill: 18,
-    passiveTheroPerSecond: 8,
-    lives: BASE_CORE_INTEGRITY,
-    waves: [
-      {
-        label: 'E glyphs',
-        count: 6,
-        interval: 1.6,
-        hp: 85,
-        speed: 0.082,
-        reward: 12,
-        color: 'rgba(139, 247, 255, 0.9)',
-        codexId: 'etype',
-      },
-      {
-        label: 'divisor scouts',
-        count: 4,
-        interval: 1.9,
-        hp: 130,
-        speed: 0.09,
-        reward: 18,
-        color: 'rgba(255, 125, 235, 0.92)',
-        codexId: 'divisor',
-      },
-      {
-        label: 'prime counters',
-        count: 2,
-        interval: 2.4,
-        hp: 220,
-        speed: 0.085,
-        reward: 26,
-        color: 'rgba(255, 228, 120, 0.95)',
-        codexId: 'prime',
-      },
-    ],
-    rewardScore: 1.6 * 10 ** 44,
-    rewardFlux: 1,
-    rewardThero: 0,
-    rewardEnergy: 0,
-    arcSpeed: 0.22,
-    path: [
-      { x: 0.06, y: 0.86 },
-      { x: 0.2, y: 0.68 },
-      { x: 0.32, y: 0.46 },
-      { x: 0.44, y: 0.32 },
-      { x: 0.56, y: 0.38 },
-      { x: 0.68, y: 0.64 },
-      { x: 0.8, y: 0.46 },
-      { x: 0.9, y: 0.18 },
-    ],
-    autoAnchors: [
-      { x: 0.24, y: 0.68 },
-      { x: 0.44, y: 0.36 },
-      { x: 0.62, y: 0.7 },
-      { x: 0.78, y: 0.38 },
-    ],
-  };
-
-  const levelTwoConfig = {
-    id: 'Conjecture - 2',
-    displayName: 'Collatz Cascade',
-    startThero: BASE_START_THERO,
-    theroCap: 420,
-    theroPerKill: 22,
-    passiveTheroPerSecond: 10,
-    lives: BASE_CORE_INTEGRITY,
-    waves: [
-      {
-        label: 'cascade sparks',
-        count: 7,
-        interval: 1.5,
-        hp: 110,
-        speed: 0.09,
-        reward: 14,
-        color: 'rgba(144, 206, 255, 0.9)',
-        codexId: 'etype',
-      },
-      {
-        label: 'odd sentries',
-        count: 5,
-        interval: 1.8,
-        hp: 190,
-        speed: 0.1,
-        reward: 22,
-        color: 'rgba(255, 150, 245, 0.92)',
-        codexId: 'divisor',
-      },
-      {
-        label: 'collatz elites',
-        count: 4,
-        interval: 2.2,
-        hp: 260,
-        speed: 0.11,
-        reward: 30,
-        color: 'rgba(255, 198, 120, 0.95)',
-        codexId: 'prime',
-      },
-      {
-        label: 'hailstone predators',
-        count: 2,
-        interval: 2.8,
-        hp: 420,
-        speed: 0.105,
-        reward: 40,
-        color: 'rgba(255, 102, 154, 0.95)',
-        codexId: 'reversal',
-      },
-    ],
-    rewardScore: 2.4 * 10 ** 44,
-    rewardFlux: 1,
-    rewardThero: 0,
-    rewardEnergy: 0,
-    arcSpeed: 0.24,
-    path: [
-      { x: 0.06, y: 0.86 },
-      { x: 0.16, y: 0.7 },
-      { x: 0.26, y: 0.58 },
-      { x: 0.36, y: 0.64 },
-      { x: 0.46, y: 0.46 },
-      { x: 0.56, y: 0.28 },
-      { x: 0.68, y: 0.34 },
-      { x: 0.78, y: 0.52 },
-      { x: 0.88, y: 0.38 },
-      { x: 0.94, y: 0.16 },
-    ],
-    autoAnchors: [
-      { x: 0.2, y: 0.68 },
-      { x: 0.34, y: 0.54 },
-      { x: 0.54, y: 0.34 },
-      { x: 0.74, y: 0.5 },
-    ],
-  };
-
-  const levelThreeConfig = {
-    id: 'Conjecture - 3',
-    displayName: 'Riemann Helix',
-    startThero: BASE_START_THERO,
-    theroCap: 480,
-    theroPerKill: 24,
-    passiveTheroPerSecond: 11,
-    lives: BASE_CORE_INTEGRITY,
-    waves: [
-      {
-        label: 'ζ scouts',
-        count: 8,
-        interval: 1.4,
-        hp: 150,
-        speed: 0.085,
-        reward: 18,
-        color: 'rgba(130, 235, 255, 0.92)',
-        codexId: 'etype',
-      },
-      {
-        label: 'harmonic drifters',
-        count: 5,
-        interval: 1.7,
-        hp: 240,
-        speed: 0.095,
-        reward: 24,
-        color: 'rgba(255, 170, 235, 0.92)',
-        codexId: 'divisor',
-      },
-      {
-        label: 'zero phantoms',
-        count: 4,
-        interval: 2.1,
-        hp: 360,
-        speed: 0.1,
-        reward: 34,
-        color: 'rgba(255, 210, 140, 0.95)',
-        codexId: 'prime',
-      },
-      {
-        label: 'helical wardens',
-        count: 3,
-        interval: 2.5,
-        hp: 520,
-        speed: 0.11,
-        reward: 46,
-        color: 'rgba(255, 120, 190, 0.95)',
-        codexId: 'reversal',
-      },
-    ],
-    rewardScore: 3.2 * 10 ** 44,
-    rewardFlux: 1,
-    rewardThero: 0,
-    rewardEnergy: 0,
-    arcSpeed: 0.26,
-    path: [
-      { x: 0.08, y: 0.9 },
-      { x: 0.2, y: 0.72 },
-      { x: 0.32, y: 0.58 },
-      { x: 0.44, y: 0.5 },
-      { x: 0.52, y: 0.6 },
-      { x: 0.62, y: 0.78 },
-      { x: 0.74, y: 0.64 },
-      { x: 0.84, y: 0.44 },
-      { x: 0.92, y: 0.26 },
-      { x: 0.96, y: 0.12 },
-    ],
-    autoAnchors: [
-      { x: 0.22, y: 0.68 },
-      { x: 0.4, y: 0.52 },
-      { x: 0.58, y: 0.68 },
-      { x: 0.78, y: 0.46 },
-    ],
-  };
-
-  const levelFourConfig = {
-    id: 'Conjecture - 4',
-    displayName: 'Twin Prime Fork',
-    startThero: BASE_START_THERO,
-    theroCap: 520,
-    theroPerKill: 28,
-    passiveTheroPerSecond: 12,
-    lives: BASE_CORE_INTEGRITY,
-    waves: [
-      {
-        label: 'twin outriders',
-        count: 8,
-        interval: 1.3,
-        hp: 180,
-        speed: 0.09,
-        reward: 20,
-        color: 'rgba(140, 240, 255, 0.92)',
-        codexId: 'etype',
-      },
-      {
-        label: 'gap stalkers',
-        count: 6,
-        interval: 1.6,
-        hp: 280,
-        speed: 0.105,
-        reward: 28,
-        color: 'rgba(255, 155, 240, 0.93)',
-        codexId: 'divisor',
-      },
-      {
-        label: 'prime twisters',
-        count: 4,
-        interval: 2,
-        hp: 420,
-        speed: 0.12,
-        reward: 38,
-        color: 'rgba(255, 210, 130, 0.96)',
-        codexId: 'prime',
-      },
-      {
-        label: 'forked vanguards',
-        count: 3,
-        interval: 2.6,
-        hp: 640,
-        speed: 0.13,
-        reward: 52,
-        color: 'rgba(255, 110, 170, 0.96)',
-        codexId: 'reversal',
-      },
-      {
-        label: 'lane shifters',
-        count: 2,
-        interval: 3,
-        hp: 820,
-        speed: 0.135,
-        reward: 60,
-        color: 'rgba(180, 255, 170, 0.96)',
-        codexId: 'prime',
-      },
-    ],
-    rewardScore: 4.4 * 10 ** 44,
-    rewardFlux: 1,
-    rewardThero: 0,
-    rewardEnergy: 0,
-    arcSpeed: 0.28,
-    path: [
-      { x: 0.06, y: 0.88 },
-      { x: 0.18, y: 0.7 },
-      { x: 0.3, y: 0.78 },
-      { x: 0.42, y: 0.58 },
-      { x: 0.52, y: 0.36 },
-      { x: 0.64, y: 0.5 },
-      { x: 0.76, y: 0.7 },
-      { x: 0.88, y: 0.48 },
-      { x: 0.94, y: 0.26 },
-      { x: 0.88, y: 0.1 },
-    ],
-    autoAnchors: [
-      { x: 0.2, y: 0.74 },
-      { x: 0.38, y: 0.6 },
-      { x: 0.58, y: 0.42 },
-      { x: 0.76, y: 0.62 },
-    ],
-  };
-
-  const levelFiveConfig = {
-    id: 'Conjecture - 5',
-    displayName: 'Birch Flow',
-    startThero: BASE_START_THERO,
-    theroCap: 600,
-    theroPerKill: 32,
-    passiveTheroPerSecond: 14,
-    lives: BASE_CORE_INTEGRITY,
-    waves: [
-      {
-        label: 'birch scouts',
-        count: 9,
-        interval: 1.2,
-        hp: 220,
-        speed: 0.09,
-        reward: 24,
-        color: 'rgba(150, 240, 255, 0.92)',
-        codexId: 'etype',
-      },
-      {
-        label: 'elliptic couriers',
-        count: 7,
-        interval: 1.5,
-        hp: 340,
-        speed: 0.11,
-        reward: 32,
-        color: 'rgba(255, 160, 235, 0.93)',
-        codexId: 'divisor',
-      },
-      {
-        label: 'rank guardians',
-        count: 5,
-        interval: 1.9,
-        hp: 520,
-        speed: 0.12,
-        reward: 44,
-        color: 'rgba(255, 210, 150, 0.96)',
-        codexId: 'prime',
-      },
-      {
-        label: 'river sentries',
-        count: 4,
-        interval: 2.3,
-        hp: 760,
-        speed: 0.13,
-        reward: 58,
-        color: 'rgba(255, 130, 190, 0.96)',
-        codexId: 'reversal',
-      },
-      {
-        label: 'swinnerton lords',
-        count: 2,
-        interval: 2.9,
-        hp: 1100,
-        speed: 0.135,
-        reward: 72,
-        color: 'rgba(200, 255, 190, 0.96)',
-        codexId: 'prime',
-      },
-    ],
-    rewardScore: 6 * 10 ** 44,
-    rewardFlux: 1,
-    rewardThero: 0,
-    rewardEnergy: 0,
-    arcSpeed: 0.3,
-    path: [
-      { x: 0.08, y: 0.92 },
-      { x: 0.18, y: 0.78 },
-      { x: 0.26, y: 0.62 },
-      { x: 0.38, y: 0.5 },
-      { x: 0.5, y: 0.38 },
-      { x: 0.62, y: 0.44 },
-      { x: 0.74, y: 0.64 },
-      { x: 0.84, y: 0.54 },
-      { x: 0.92, y: 0.32 },
-      { x: 0.96, y: 0.16 },
-    ],
-    autoAnchors: [
-      { x: 0.22, y: 0.76 },
-      { x: 0.36, y: 0.56 },
-      { x: 0.56, y: 0.44 },
-      { x: 0.76, y: 0.6 },
-    ],
-  };
-
-  const levelSecretConjectureConfig = {
-    id: 'Conjecture - Secret',
-    displayName: 'Apocrypha Loop',
-    startThero: BASE_START_THERO,
-    theroCap: 1320,
-    theroPerKill: 58,
-    passiveTheroPerSecond: 28,
-    lives: BASE_CORE_INTEGRITY,
-    waves: [
-      {
-        label: 'hidden lemmas',
-        count: 16,
-        interval: 0.85,
-        hp: 520,
-        speed: 0.118,
-        reward: 50,
-        color: 'rgba(162, 248, 255, 0.94)',
-        codexId: 'etype',
-      },
-      {
-        label: 'portal scribes',
-        count: 10,
-        interval: 1.15,
-        hp: 880,
-        speed: 0.135,
-        reward: 68,
-        color: 'rgba(255, 184, 244, 0.95)',
-        codexId: 'divisor',
-      },
-      {
-        label: 'apocrypha husks',
-        count: 7,
-        interval: 1.6,
-        hp: 1340,
-        speed: 0.148,
-        reward: 96,
-        color: 'rgba(255, 226, 188, 0.97)',
-        codexId: 'prime',
-      },
-      {
-        label: 'mirror adepts',
-        count: 6,
-        interval: 2,
-        hp: 1900,
-        speed: 0.16,
-        reward: 132,
-        color: 'rgba(255, 150, 210, 0.97)',
-        codexId: 'reversal',
-      },
-      {
-        label: 'paradox heralds',
-        count: 4,
-        interval: 2.6,
-        hp: 2680,
-        speed: 0.172,
-        reward: 168,
-        color: 'rgba(220, 255, 214, 0.97)',
-        codexId: 'prime',
-      },
-    ],
-    rewardScore: 19.6 * 10 ** 44,
-    rewardFlux: 2,
-    rewardThero: 0,
-    rewardEnergy: 1,
-    arcSpeed: 0.36,
-    path: [
-      { x: 0.06, y: 0.96 },
-      { x: 0.16, y: 0.84 },
-      { x: 0.26, y: 0.66 },
-      { x: 0.36, y: 0.5 },
-      { x: 0.5, y: 0.42 },
-      { x: 0.64, y: 0.54 },
-      { x: 0.74, y: 0.7 },
-      { x: 0.86, y: 0.58 },
-      { x: 0.94, y: 0.34 },
-      { x: 0.88, y: 0.14 },
-    ],
-    autoAnchors: [
-      { x: 0.2, y: 0.78 },
-      { x: 0.38, y: 0.54 },
-      { x: 0.58, y: 0.46 },
-      { x: 0.78, y: 0.64 },
-    ],
-  };
-
-  // Critical points bloom at intervals mirroring f′(x) = 0 solutions for a fourth-degree polynomial.
-  const levelSixConfig = {
-    id: 'Corollary - 6',
-    displayName: 'Derivative Bloom',
-    startThero: BASE_START_THERO,
-    theroCap: 720,
-    theroPerKill: 36,
-    passiveTheroPerSecond: 16,
-    lives: BASE_CORE_INTEGRITY,
-    waves: [
-      {
-        label: 'petal sparks',
-        count: 10,
-        interval: 1.1,
-        hp: 260,
-        speed: 0.095,
-        reward: 28,
-        color: 'rgba(158, 236, 255, 0.92)',
-        codexId: 'etype',
-      },
-      {
-        label: 'slope wardens',
-        count: 7,
-        interval: 1.4,
-        hp: 380,
-        speed: 0.11,
-        reward: 38,
-        color: 'rgba(255, 165, 240, 0.93)',
-        codexId: 'divisor',
-      },
-      {
-        label: 'turning sentries',
-        count: 6,
-        interval: 1.9,
-        hp: 580,
-        speed: 0.12,
-        reward: 52,
-        color: 'rgba(255, 214, 160, 0.96)',
-        codexId: 'prime',
-      },
-      {
-        label: 'critical blooms',
-        count: 4,
-        interval: 2.4,
-        hp: 860,
-        speed: 0.135,
-        reward: 68,
-        color: 'rgba(255, 136, 192, 0.96)',
-        codexId: 'reversal',
-      },
-      {
-        label: 'saddle avatars',
-        count: 2,
-        interval: 3,
-        hp: 1280,
-        speed: 0.14,
-        reward: 86,
-        color: 'rgba(206, 255, 188, 0.96)',
-        codexId: 'prime',
-      },
-    ],
-    rewardScore: 8.2 * 10 ** 44,
-    rewardFlux: 1,
-    rewardThero: 0,
-    rewardEnergy: 0,
-    arcSpeed: 0.3,
-    path: [
-      { x: 0.08, y: 0.94 },
-      { x: 0.18, y: 0.82 },
-      { x: 0.28, y: 0.68 },
-      { x: 0.38, y: 0.54 },
-      { x: 0.5, y: 0.62 },
-      { x: 0.6, y: 0.8 },
-      { x: 0.72, y: 0.66 },
-      { x: 0.82, y: 0.48 },
-      { x: 0.9, y: 0.3 },
-      { x: 0.96, y: 0.12 },
-    ],
-    autoAnchors: [
-      { x: 0.22, y: 0.78 },
-      { x: 0.4, y: 0.58 },
-      { x: 0.58, y: 0.74 },
-      { x: 0.76, y: 0.52 },
-    ],
-  };
-
-  // Integral Cascade ramps rewards using trapezoidal approximations of accumulated area.
-  const levelSevenConfig = {
-    id: 'Corollary - 7',
-    displayName: 'Integral Cascade',
-    startThero: BASE_START_THERO,
-    theroCap: 800,
-    theroPerKill: 40,
-    passiveTheroPerSecond: 18,
-    lives: BASE_CORE_INTEGRITY,
-    waves: [
-      {
-        label: 'quantized drips',
-        count: 11,
-        interval: 1.05,
-        hp: 300,
-        speed: 0.1,
-        reward: 32,
-        color: 'rgba(162, 240, 255, 0.92)',
-        codexId: 'etype',
-      },
-      {
-        label: 'accumulator scouts',
-        count: 8,
-        interval: 1.35,
-        hp: 440,
-        speed: 0.115,
-        reward: 42,
-        color: 'rgba(255, 170, 242, 0.93)',
-        codexId: 'divisor',
-      },
-      {
-        label: 'area wardens',
-        count: 6,
-        interval: 1.8,
-        hp: 660,
-        speed: 0.125,
-        reward: 60,
-        color: 'rgba(255, 218, 170, 0.96)',
-        codexId: 'prime',
-      },
-      {
-        label: 'leech integrals',
-        count: 4,
-        interval: 2.3,
-        hp: 960,
-        speed: 0.14,
-        reward: 78,
-        color: 'rgba(255, 140, 198, 0.96)',
-        codexId: 'reversal',
-      },
-      {
-        label: 'constant phantoms',
-        count: 3,
-        interval: 2.9,
-        hp: 1380,
-        speed: 0.145,
-        reward: 96,
-        color: 'rgba(214, 255, 190, 0.96)',
-        codexId: 'prime',
-      },
-    ],
-    rewardScore: 10.1 * 10 ** 44,
-    rewardFlux: 1,
-    rewardThero: 0,
-    rewardEnergy: 0,
-    arcSpeed: 0.32,
-    path: [
-      { x: 0.06, y: 0.92 },
-      { x: 0.16, y: 0.78 },
-      { x: 0.26, y: 0.66 },
-      { x: 0.36, y: 0.74 },
-      { x: 0.46, y: 0.58 },
-      { x: 0.56, y: 0.44 },
-      { x: 0.68, y: 0.5 },
-      { x: 0.78, y: 0.68 },
-      { x: 0.88, y: 0.5 },
-      { x: 0.94, y: 0.28 },
-      { x: 0.9, y: 0.12 },
-    ],
-    autoAnchors: [
-      { x: 0.2, y: 0.8 },
-      { x: 0.36, y: 0.64 },
-      { x: 0.54, y: 0.48 },
-      { x: 0.74, y: 0.64 },
-    ],
-  };
-
-  // Fibonacci lane swaps follow Fₙ proportions, forcing repositioning on golden-ratio beats.
-  const levelEightConfig = {
-    id: 'Corollary - 8',
-    displayName: 'Fibonacci Turnabout',
-    startThero: BASE_START_THERO,
-    theroCap: 880,
-    theroPerKill: 44,
-    passiveTheroPerSecond: 20,
-    lives: BASE_CORE_INTEGRITY,
-    waves: [
-      {
-        label: 'spiral runners',
-        count: 12,
-        interval: 1,
-        hp: 340,
-        speed: 0.105,
-        reward: 36,
-        color: 'rgba(168, 242, 255, 0.92)',
-        codexId: 'etype',
-      },
-      {
-        label: 'phi drifters',
-        count: 9,
-        interval: 1.3,
-        hp: 500,
-        speed: 0.12,
-        reward: 48,
-        color: 'rgba(255, 176, 244, 0.93)',
-        codexId: 'divisor',
-      },
-      {
-        label: 'junction sentries',
-        count: 7,
-        interval: 1.7,
-        hp: 760,
-        speed: 0.13,
-        reward: 66,
-        color: 'rgba(255, 222, 180, 0.96)',
-        codexId: 'prime',
-      },
-      {
-        label: 'golden wardens',
-        count: 5,
-        interval: 2.2,
-        hp: 1100,
-        speed: 0.145,
-        reward: 90,
-        color: 'rgba(255, 144, 205, 0.96)',
-        codexId: 'reversal',
-      },
-      {
-        label: 'turnabout paragons',
-        count: 3,
-        interval: 2.8,
-        hp: 1640,
-        speed: 0.15,
-        reward: 110,
-        color: 'rgba(222, 255, 196, 0.96)',
-        codexId: 'prime',
-      },
-    ],
-    rewardScore: 12.4 * 10 ** 44,
-    rewardFlux: 1,
-    rewardThero: 0,
-    rewardEnergy: 0,
-    arcSpeed: 0.34,
-    path: [
-      { x: 0.08, y: 0.96 },
-      { x: 0.18, y: 0.84 },
-      { x: 0.3, y: 0.74 },
-      { x: 0.38, y: 0.86 },
-      { x: 0.48, y: 0.7 },
-      { x: 0.6, y: 0.54 },
-      { x: 0.72, y: 0.62 },
-      { x: 0.82, y: 0.8 },
-      { x: 0.9, y: 0.62 },
-      { x: 0.96, y: 0.36 },
-      { x: 0.92, y: 0.16 },
-    ],
-    autoAnchors: [
-      { x: 0.22, y: 0.82 },
-      { x: 0.4, y: 0.72 },
-      { x: 0.58, y: 0.56 },
-      { x: 0.78, y: 0.7 },
-    ],
-  };
-
-  // Euler Bridge weaves alternating parity lanes that force planar repositioning.
-  const levelNineConfig = {
-    id: 'Corollary - 9',
-    displayName: 'Euler Bridge',
-    startThero: BASE_START_THERO,
-    theroCap: 980,
-    theroPerKill: 48,
-    passiveTheroPerSecond: 22,
-    lives: BASE_CORE_INTEGRITY,
-    waves: [
-      {
-        label: 'bridge runners',
-        count: 13,
-        interval: 0.95,
-        hp: 380,
-        speed: 0.11,
-        reward: 38,
-        color: 'rgba(176, 244, 255, 0.92)',
-        codexId: 'etype',
-      },
-      {
-        label: 'parity wardens',
-        count: 9,
-        interval: 1.25,
-        hp: 620,
-        speed: 0.125,
-        reward: 54,
-        color: 'rgba(255, 176, 244, 0.93)',
-        codexId: 'divisor',
-      },
-      {
-        label: 'planar bulwarks',
-        count: 6,
-        interval: 1.8,
-        hp: 940,
-        speed: 0.136,
-        reward: 72,
-        color: 'rgba(255, 220, 164, 0.96)',
-        codexId: 'prime',
-      },
-      {
-        label: 'bridge reversals',
-        count: 4,
-        interval: 2.4,
-        hp: 1380,
-        speed: 0.15,
-        reward: 94,
-        color: 'rgba(255, 138, 202, 0.96)',
-        codexId: 'reversal',
-      },
-      {
-        label: 'euler sentries',
-        count: 3,
-        interval: 2.9,
-        hp: 1860,
-        speed: 0.155,
-        reward: 118,
-        color: 'rgba(214, 255, 202, 0.96)',
-        codexId: 'prime',
-      },
-    ],
-    rewardScore: 12.6 * 10 ** 44,
-    rewardFlux: 1,
-    rewardThero: 0,
-    rewardEnergy: 0,
-    arcSpeed: 0.33,
-    path: [
-      { x: 0.06, y: 0.94 },
-      { x: 0.14, y: 0.82 },
-      { x: 0.22, y: 0.68 },
-      { x: 0.32, y: 0.72 },
-      { x: 0.42, y: 0.56 },
-      { x: 0.5, y: 0.4 },
-      { x: 0.6, y: 0.48 },
-      { x: 0.7, y: 0.68 },
-      { x: 0.82, y: 0.6 },
-      { x: 0.9, y: 0.44 },
-      { x: 0.96, y: 0.2 },
-    ],
-    autoAnchors: [
-      { x: 0.18, y: 0.78 },
-      { x: 0.36, y: 0.64 },
-      { x: 0.54, y: 0.46 },
-      { x: 0.74, y: 0.62 },
-    ],
-  };
-
-  // Modular Bloom rotates residue petals that demand congruent response timings.
-  const levelTenConfig = {
-    id: 'Corollary - 10',
-    displayName: 'Modular Bloom',
-    startThero: BASE_START_THERO,
-    theroCap: 1100,
-    theroPerKill: 52,
-    passiveTheroPerSecond: 24,
-    lives: BASE_CORE_INTEGRITY,
-    waves: [
-      {
-        label: 'residue runners',
-        count: 14,
-        interval: 0.9,
-        hp: 420,
-        speed: 0.112,
-        reward: 42,
-        color: 'rgba(182, 246, 255, 0.92)',
-        codexId: 'etype',
-      },
-      {
-        label: 'congruence scouts',
-        count: 10,
-        interval: 1.2,
-        hp: 700,
-        speed: 0.13,
-        reward: 60,
-        color: 'rgba(255, 182, 246, 0.93)',
-        codexId: 'divisor',
-      },
-      {
-        label: 'modular wardens',
-        count: 7,
-        interval: 1.7,
-        hp: 1080,
-        speed: 0.142,
-        reward: 82,
-        color: 'rgba(255, 224, 170, 0.96)',
-        codexId: 'prime',
-      },
-      {
-        label: 'residue mirrors',
-        count: 5,
-        interval: 2.2,
-        hp: 1540,
-        speed: 0.158,
-        reward: 108,
-        color: 'rgba(255, 146, 208, 0.96)',
-        codexId: 'reversal',
-      },
-      {
-        label: 'synchronized avatars',
-        count: 3,
-        interval: 2.8,
-        hp: 2080,
-        speed: 0.165,
-        reward: 138,
-        color: 'rgba(222, 255, 210, 0.96)',
-        codexId: 'prime',
-      },
-    ],
-    rewardScore: 15.2 * 10 ** 44,
-    rewardFlux: 1,
-    rewardThero: 0,
-    rewardEnergy: 0,
-    arcSpeed: 0.35,
-    path: [
-      { x: 0.08, y: 0.96 },
-      { x: 0.18, y: 0.84 },
-      { x: 0.28, y: 0.74 },
-      { x: 0.38, y: 0.6 },
-      { x: 0.5, y: 0.66 },
-      { x: 0.6, y: 0.82 },
-      { x: 0.7, y: 0.7 },
-      { x: 0.82, y: 0.56 },
-      { x: 0.9, y: 0.4 },
-      { x: 0.96, y: 0.18 },
-    ],
-    autoAnchors: [
-      { x: 0.22, y: 0.82 },
-      { x: 0.4, y: 0.7 },
-      { x: 0.58, y: 0.52 },
-      { x: 0.74, y: 0.68 },
-    ],
-  };
-
-  const levelSecretCorollaryConfig = {
-    id: 'Corollary - Secret',
-    displayName: 'Shadow Integral',
-    startThero: BASE_START_THERO,
-    theroCap: 1460,
-    theroPerKill: 64,
-    passiveTheroPerSecond: 32,
-    lives: BASE_CORE_INTEGRITY,
-    waves: [
-      {
-        label: 'shadow currents',
-        count: 18,
-        interval: 0.8,
-        hp: 600,
-        speed: 0.125,
-        reward: 54,
-        color: 'rgba(168, 250, 255, 0.94)',
-        codexId: 'etype',
-      },
-      {
-        label: 'integral siphons',
-        count: 12,
-        interval: 1.1,
-        hp: 960,
-        speed: 0.138,
-        reward: 74,
-        color: 'rgba(255, 188, 246, 0.95)',
-        codexId: 'divisor',
-      },
-      {
-        label: 'flux sentinels',
-        count: 8,
-        interval: 1.5,
-        hp: 1480,
-        speed: 0.15,
-        reward: 102,
-        color: 'rgba(255, 228, 192, 0.97)',
-        codexId: 'prime',
-      },
-      {
-        label: 'phase inverters',
-        count: 6,
-        interval: 1.9,
-        hp: 2120,
-        speed: 0.164,
-        reward: 142,
-        color: 'rgba(255, 154, 214, 0.97)',
-        codexId: 'reversal',
-      },
-      {
-        label: 'axiom amalgams',
-        count: 4,
-        interval: 2.4,
-        hp: 2960,
-        speed: 0.176,
-        reward: 184,
-        color: 'rgba(224, 255, 222, 0.97)',
-        codexId: 'prime',
-      },
-      {
-        label: 'archive sovereigns',
-        count: 2,
-        interval: 2.8,
-        hp: 4200,
-        speed: 0.182,
-        reward: 240,
-        color: 'rgba(255, 210, 252, 0.98)',
-        codexId: 'reversal',
-      },
-    ],
-    rewardScore: 24.8 * 10 ** 44,
-    rewardFlux: 2,
-    rewardThero: 0,
-    rewardEnergy: 2,
-    arcSpeed: 0.4,
-    path: [
-      { x: 0.08, y: 0.94 },
-      { x: 0.18, y: 0.78 },
-      { x: 0.28, y: 0.62 },
-      { x: 0.42, y: 0.5 },
-      { x: 0.58, y: 0.64 },
-      { x: 0.72, y: 0.8 },
-      { x: 0.84, y: 0.62 },
-      { x: 0.94, y: 0.44 },
-      { x: 0.9, y: 0.24 },
-      { x: 0.82, y: 0.1 },
-    ],
-    autoAnchors: [
-      { x: 0.24, y: 0.76 },
-      { x: 0.46, y: 0.54 },
-      { x: 0.66, y: 0.72 },
-      { x: 0.82, y: 0.48 },
-    ],
-  };
-
-  const levelConfigs = new Map(
-    [
-      firstLevelConfig,
-      levelTwoConfig,
-      levelThreeConfig,
-      levelFourConfig,
-      levelFiveConfig,
-      levelSecretConjectureConfig,
-      levelSixConfig,
-      levelSevenConfig,
-      levelEightConfig,
-      levelNineConfig,
-      levelTenConfig,
-      levelSecretCorollaryConfig,
-    ].map((config) => [config.id, config]),
-  );
-
-  interactiveLevelOrder = Array.from(levelConfigs.keys());
-  if (interactiveLevelOrder.length) {
-    unlockedLevels.add(interactiveLevelOrder[0]);
-  }
-
-  const idleLevelConfigs = new Map();
-
-  levelBlueprints.forEach((level, index) => {
-    if (levelConfigs.has(level.id)) {
-      return;
-    }
-
-    const levelNumber = index + 1;
-    const runDuration = 90 + levelNumber * 12;
-    const rewardMultiplier = 1 + levelNumber * 0.08;
-
-    const rewardScore =
-      baseResources.scoreRate * (runDuration / 12) * rewardMultiplier;
-    const rewardFlux = 45 + levelNumber * 10;
-    const rewardThero = 35 + levelNumber * 8;
-
-    idleLevelConfigs.set(level.id, {
-      runDuration,
-      rewardScore,
-      rewardFlux,
-      rewardThero,
-      rewardEnergy: rewardThero,
-    });
-  });
 
   class PowderSimulation {
     constructor(options = {}) {
@@ -9416,7 +8030,7 @@ import {
     updatePowderStockpileDisplay();
   }
 
-  function init() {
+  async function init() {
     levelGrid = document.getElementById('level-grid');
     activeLevelEl = document.getElementById('active-level');
     leaveLevelBtn = document.getElementById('leave-level');
@@ -9463,7 +8077,18 @@ import {
     loadoutElements.note = document.getElementById('tower-loadout-note');
 
     mergingLogicElements.card = document.getElementById('merging-logic-card');
-    setMergingLogicUnlocked(isTowerUnlocked('beta'));
+    try {
+      await ensureGameplayConfigLoaded();
+    } catch (error) {
+      console.error('Glyph Defense failed to load gameplay data', error);
+      if (playfieldElements.message) {
+        playfieldElements.message.textContent =
+          'Unable to load gameplay data—refresh the page to retry.';
+      }
+      return;
+    }
+
+    setMergingLogicUnlocked(mergeProgressState.mergingLogicUnlocked);
 
     enemyCodexElements.list = document.getElementById('enemy-codex-list');
     enemyCodexElements.empty = document.getElementById('enemy-codex-empty');
