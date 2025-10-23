@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="upsilonGlow" cx="48%" cy="38%" r="60%">
+      <stop offset="0%" stop-color="#dfffe6" stop-opacity="0.95" />
+      <stop offset="70%" stop-color="#7fdc96" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#081a0c" stop-opacity="0.9" />
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#041107" />
+  <circle cx="32" cy="30" r="24" fill="url(#upsilonGlow)" />
+  <path d="M17 48h30" stroke="#b9f7c8" stroke-width="2" stroke-linecap="round" opacity="0.55" />
+  <text
+    x="32"
+    y="41"
+    font-family="'Cormorant Garamond', 'Times New Roman', serif"
+    font-size="32"
+    text-anchor="middle"
+    fill="#12331a"
+  >υ</text>
+</svg>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="sigmaGlow" cx="50%" cy="38%" r="62%">
+      <stop offset="0%" stop-color="#f4e5ff" stop-opacity="0.95" />
+      <stop offset="70%" stop-color="#b57cff" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#1b0f28" stop-opacity="0.9" />
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0f0618" />
+  <circle cx="32" cy="30" r="24" fill="url(#sigmaGlow)" />
+  <path d="M16 49h32" stroke="#e0c3ff" stroke-width="2" stroke-linecap="round" opacity="0.55" />
+  <text
+    x="32"
+    y="40"
+    font-family="'Cormorant Garamond', 'Times New Roman', serif"
+    font-size="32"
+    text-anchor="middle"
+    fill="#231233"
+  >σ</text>
+</svg>

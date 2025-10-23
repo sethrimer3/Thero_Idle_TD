@@ -3,6 +3,7 @@
 
   const levelBlueprints = [
     {
+      set: 'Conjecture',
       id: 'Conjecture - 1',
       title: 'Lemniscate Hypothesis',
       path: '∞ loop traced from r² = cos(2θ); mirrored spawn lanes cross twice.',
@@ -11,6 +12,7 @@
         "Goldbach’s Conjecture: Every even integer greater than 2 is the sum of two primes.",
     },
     {
+      set: 'Conjecture',
       id: 'Conjecture - 2',
       title: 'Collatz Cascade',
       path: 'Stepwise descent generated from the 3n + 1 map with teleport risers.',
@@ -19,6 +21,7 @@
         'Collatz Conjecture: Iterate n → n/2 or 3n + 1 and every positive integer reaches 1.',
     },
     {
+      set: 'Conjecture',
       id: 'Conjecture - 3',
       title: 'Riemann Helix',
       path: 'Logarithmic spiral with harmonic bulges keyed to ζ(s) zero estimates.',
@@ -27,6 +30,7 @@
         'Riemann Hypothesis: Every nontrivial zero of ζ(s) lies on the line Re(s) = 1/2.',
     },
     {
+      set: 'Conjecture',
       id: 'Conjecture - 4',
       title: 'Twin Prime Fork',
       path: 'Dual lattice rails linked by prime gaps; enemies swap lanes unpredictably.',
@@ -35,6 +39,7 @@
         'Twin Prime Conjecture: Infinitely many primes p exist such that p + 2 is prime.',
     },
     {
+      set: 'Conjecture',
       id: 'Conjecture - 5',
       title: 'Birch Flow',
       path: 'Cardioid river influenced by elliptic curve rank gradients.',
@@ -43,6 +48,16 @@
         'Birch and Swinnerton-Dyer Conjecture: Rational points of elliptic curves link to L-series behavior.',
     },
     {
+      set: 'Conjecture',
+      id: 'Conjecture - Secret',
+      title: 'Apocrypha Loop',
+      path: 'Hidden lemniscate mirrored through complex planes; portals bloom off-axis.',
+      focus: 'Only reveals during total glyph alignment—expect mixed archetypes in waves.',
+      example:
+        'Secret Lemma: When harmonic sums stabilize, an unseen proof thread emerges from the void.',
+    },
+    {
+      set: 'Corollary',
       id: 'Corollary - 6',
       title: 'Derivative Bloom',
       path: 'Petal loops bloom where f′(x) = 0 across mirrored cardioids and saddle petals.',
@@ -51,6 +66,7 @@
         "Rolle's Corollary: If f(a) = f(b) for differentiable f, some c in (a, b) satisfies f′(c) = 0.",
     },
     {
+      set: 'Corollary',
       id: 'Corollary - 7',
       title: 'Integral Cascade',
       path: 'Stepped integrator ramps descend in quantized slopes shaped by accumulated area.',
@@ -59,6 +75,7 @@
         'Fundamental Corollary: Integrating a derivative recovers the original function up to constants.',
     },
     {
+      set: 'Corollary',
       id: 'Corollary - 8',
       title: 'Fibonacci Turnabout',
       path: 'Interleaved golden spirals shift radius on Fibonacci indices and teleport pads.',
@@ -67,6 +84,7 @@
         'Binet Corollary: Fₙ = (φⁿ − ψⁿ)/√5 gives the closed form of Fibonacci growth.',
     },
     {
+      set: 'Corollary',
       id: 'Corollary - 9',
       title: 'Euler Bridge',
       path: 'Bridge arcs obey planar graph constraints; parity lanes swap over Euler gaps.',
@@ -75,12 +93,22 @@
         'Euler Characteristic Corollary: For planar graphs, F = E − V + 2 limits feasible crossings.',
     },
     {
+      set: 'Corollary',
       id: 'Corollary - 10',
       title: 'Modular Bloom',
       path: 'Modular roses rotate through residue-locked petals with congruence gate warps.',
       focus: 'Reversal sentinels invert on residue gates—δ rallies convert them mid-arc.',
       example:
         'Chinese Remainder Corollary: Congruence systems share synchronized solutions modulo their product.',
+    },
+    {
+      set: 'Corollary',
+      id: 'Corollary - Secret',
+      title: 'Shadow Integral',
+      path: 'Phase-shifted archipelago of calculus islands hidden beneath modular petals.',
+      focus: 'Resource siphons and reversal elites stack together—prepare universal counters.',
+      example:
+        'Secret Corollary: The boundary integral of concealed paths equals interior flux you never saw.',
     },
   ];
 
@@ -288,17 +316,125 @@
       rate: 0.64,
       range: 0.48,
       icon: 'assets/images/tower-xi.svg',
+      nextTierId: 'omicron',
+    },
+    {
+      id: 'omicron',
+      symbol: 'ο',
+      name: 'Omicron Tower',
+      tier: 15,
+      baseCost: 240000000000,
+      damage: 1500,
+      rate: 0.58,
+      range: 0.54,
+      icon: 'assets/images/tower-omicron.svg',
+      nextTierId: 'pi',
+    },
+    {
+      id: 'pi',
+      symbol: 'π',
+      name: 'Pi Tower',
+      tier: 16,
+      baseCost: 780000000000,
+      damage: 1900,
+      rate: 0.56,
+      range: 0.56,
+      icon: 'assets/images/tower-pi.svg',
+      nextTierId: 'rho',
+    },
+    {
+      id: 'rho',
+      symbol: 'ρ',
+      name: 'Rho Tower',
+      tier: 17,
+      baseCost: 2500000000000,
+      damage: 2300,
+      rate: 0.54,
+      range: 0.58,
+      icon: 'assets/images/tower-rho.svg',
+      nextTierId: 'sigma',
+    },
+    {
+      id: 'sigma',
+      symbol: 'σ',
+      name: 'Sigma Tower',
+      tier: 18,
+      baseCost: 8000000000000,
+      damage: 2800,
+      rate: 0.52,
+      range: 0.6,
+      icon: 'assets/images/tower-sigma.svg',
+      nextTierId: 'tau',
+    },
+    {
+      id: 'tau',
+      symbol: 'τ',
+      name: 'Tau Tower',
+      tier: 19,
+      baseCost: 26000000000000,
+      damage: 3400,
+      rate: 0.5,
+      range: 0.62,
+      icon: 'assets/images/tower-tau.svg',
+      nextTierId: 'upsilon',
+    },
+    {
+      id: 'upsilon',
+      symbol: 'υ',
+      name: 'Upsilon Tower',
+      tier: 20,
+      baseCost: 85000000000000,
+      damage: 4100,
+      rate: 0.48,
+      range: 0.64,
+      icon: 'assets/images/tower-upsilon.svg',
+      nextTierId: 'phi',
+    },
+    {
+      id: 'phi',
+      symbol: 'φ',
+      name: 'Phi Tower',
+      tier: 21,
+      baseCost: 280000000000000,
+      damage: 4900,
+      rate: 0.46,
+      range: 0.66,
+      icon: 'assets/images/tower-phi.svg',
+      nextTierId: 'chi',
+    },
+    {
+      id: 'chi',
+      symbol: 'χ',
+      name: 'Chi Tower',
+      tier: 22,
+      baseCost: 920000000000000,
+      damage: 5800,
+      rate: 0.44,
+      range: 0.68,
+      icon: 'assets/images/tower-chi.svg',
+      nextTierId: 'psi',
+    },
+    {
+      id: 'psi',
+      symbol: 'ψ',
+      name: 'Psi Tower',
+      tier: 23,
+      baseCost: 3000000000000000,
+      damage: 6800,
+      rate: 0.42,
+      range: 0.7,
+      icon: 'assets/images/tower-psi.svg',
       nextTierId: 'omega',
     },
     {
       id: 'omega',
       symbol: 'Ω',
       name: 'Omega Tower',
-      tier: 15,
-      baseCost: 75000000000,
-      damage: 1200,
-      rate: 0.6,
-      range: 0.52,
+      tier: 24,
+      baseCost: 9600000000000000,
+      damage: 8000,
+      rate: 0.4,
+      range: 0.74,
       icon: 'assets/images/tower-omega.svg',
       nextTierId: null,
     },
@@ -460,6 +596,13 @@
     empty: null,
     note: null,
   };
+
+  const developerModeElements = {
+    toggle: null,
+    note: null,
+  };
+
+  let developerModeActive = false;
 
   let playfield = null;
   const playfieldElements = {
@@ -5110,48 +5253,89 @@
 
   function buildLevelCards() {
     if (!levelGrid) return;
+    levelGrid.innerHTML = '';
+
     const fragment = document.createDocumentFragment();
+    const groups = new Map();
 
     levelBlueprints.forEach((level) => {
-      const card = document.createElement('article');
-      card.className = 'level-card';
-      card.dataset.level = level.id;
-      card.setAttribute('role', 'button');
-      card.setAttribute('tabindex', '0');
-      card.setAttribute('aria-pressed', 'false');
-      card.setAttribute('aria-label', `${level.id}: ${level.title}`);
-      card.innerHTML = `
-        <header>
-          <span class="level-id">${level.id}</span>
-          <h3>${level.title}</h3>
-        </header>
-        <p class="level-path"><strong>Path:</strong> ${level.path}</p>
-        <p class="level-hazard"><strong>Focus:</strong> ${level.focus}</p>
-        <p class="level-status-pill">New</p>
-        <dl class="level-metrics">
-          <div>
-            <dt>Mode</dt>
-            <dd class="level-mode">—</dd>
-          </div>
-          <div>
-            <dt>Run Length</dt>
-            <dd class="level-duration">—</dd>
-          </div>
-          <div>
-            <dt>Rewards</dt>
-            <dd class="level-rewards">—</dd>
-          </div>
-        </dl>
-        <p class="level-last-result">No attempts recorded.</p>
-      `;
-      card.addEventListener('click', () => handleLevelSelection(level));
-      card.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          handleLevelSelection(level);
-        }
+      const groupKey = level.set || level.id.split(' - ')[0] || 'Levels';
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, []);
+      }
+      groups.get(groupKey).push(level);
+    });
+
+    let groupIndex = 0;
+    groups.forEach((levels, setName) => {
+      const wrapper = document.createElement('details');
+      wrapper.className = 'level-group';
+      if (groupIndex === 0) {
+        wrapper.open = true;
+      }
+
+      const summary = document.createElement('summary');
+      summary.className = 'level-group-summary';
+
+      const title = document.createElement('span');
+      title.className = 'level-group-title';
+      title.textContent = `${setName} Set`;
+
+      const count = document.createElement('span');
+      count.className = 'level-group-count';
+      count.textContent = `${levels.length} levels`;
+
+      summary.append(title, count);
+      wrapper.append(summary);
+
+      const groupGrid = document.createElement('div');
+      groupGrid.className = 'level-group-grid';
+
+      levels.forEach((level) => {
+        const card = document.createElement('article');
+        card.className = 'level-card';
+        card.dataset.level = level.id;
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('aria-pressed', 'false');
+        card.setAttribute('aria-label', `${level.id}: ${level.title}`);
+        card.innerHTML = `
+          <header>
+            <span class="level-id">${level.id}</span>
+            <h3>${level.title}</h3>
+          </header>
+          <p class="level-path"><strong>Path:</strong> ${level.path}</p>
+          <p class="level-hazard"><strong>Focus:</strong> ${level.focus}</p>
+          <p class="level-status-pill">New</p>
+          <dl class="level-metrics">
+            <div>
+              <dt>Mode</dt>
+              <dd class="level-mode">—</dd>
+            </div>
+            <div>
+              <dt>Run Length</dt>
+              <dd class="level-duration">—</dd>
+            </div>
+            <div>
+              <dt>Rewards</dt>
+              <dd class="level-rewards">—</dd>
+            </div>
+          </dl>
+          <p class="level-last-result">No attempts recorded.</p>
+        `;
+        card.addEventListener('click', () => handleLevelSelection(level));
+        card.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleLevelSelection(level);
+          }
+        });
+        groupGrid.append(card);
       });
-      fragment.append(card);
+
+      wrapper.append(groupGrid);
+      fragment.append(wrapper);
+      groupIndex += 1;
     });
 
     levelGrid.append(fragment);
@@ -5546,7 +5730,7 @@
         : null;
       nextTier.textContent = nextDefinition
         ? `→ ${nextDefinition.symbol} ${nextDefinition.name}`
-        : '→ Zenith unlocked';
+        : '→ Final lattice awakened';
 
       row.append(tier, name, cost, nextTier);
       fragment.append(row);
@@ -6387,7 +6571,7 @@
     enemyCodexElements.list.innerHTML = '';
 
     if (enemyCodexElements.note) {
-      enemyCodexElements.note.hidden = encountered.length > 0 ? true : false;
+      enemyCodexElements.note.hidden = encountered.length > 0 ? false : true;
     }
 
     if (!encountered.length) {
@@ -6431,6 +6615,116 @@
     }
     codexState.encounteredEnemies.add(enemyId);
     renderEnemyCodex();
+  }
+
+  function enableDeveloperMode() {
+    developerModeActive = true;
+    if (developerModeElements.toggle && !developerModeElements.toggle.checked) {
+      developerModeElements.toggle.checked = true;
+    }
+
+    towerDefinitions.forEach((definition) => {
+      unlockTower(definition.id, { silent: true });
+    });
+
+    towerLoadoutState.selected = towerDefinitions
+      .slice(0, TOWER_LOADOUT_LIMIT)
+      .map((definition) => definition.id);
+
+    pruneLockedTowersFromLoadout();
+
+    unlockedLevels.clear();
+    interactiveLevelOrder.forEach((levelId) => {
+      unlockedLevels.add(levelId);
+      const existing = levelState.get(levelId) || {};
+      levelState.set(levelId, {
+        ...existing,
+        entered: true,
+        running: false,
+        completed: true,
+      });
+    });
+
+    levelBlueprints.forEach((level) => {
+      if (!levelState.has(level.id)) {
+        levelState.set(level.id, { entered: true, running: false, completed: true });
+      }
+    });
+
+    codexState.encounteredEnemies = new Set(enemyCodexEntries.map((entry) => entry.id));
+
+    renderEnemyCodex();
+    updateLevelCards();
+    updateActiveLevelBanner();
+    updateTowerCardVisibility();
+    updateTowerSelectionButtons();
+    syncLoadoutToPlayfield();
+    updateStatusDisplays();
+
+    if (developerModeElements.note) {
+      developerModeElements.note.hidden = false;
+    }
+
+    if (playfield?.messageEl) {
+      playfield.messageEl.textContent =
+        'Developer lattice engaged—every tower, level, and codex entry is unlocked.';
+    }
+  }
+
+  function disableDeveloperMode() {
+    developerModeActive = false;
+    if (developerModeElements.toggle && developerModeElements.toggle.checked) {
+      developerModeElements.toggle.checked = false;
+    }
+
+    towerUnlockState.unlocked = new Set(['alpha']);
+    towerLoadoutState.selected = ['alpha'];
+    pruneLockedTowersFromLoadout();
+
+    codexState.encounteredEnemies = new Set();
+
+    levelState.clear();
+    unlockedLevels.clear();
+    if (interactiveLevelOrder.length) {
+      unlockedLevels.add(interactiveLevelOrder[0]);
+    }
+
+    activeLevelId = null;
+    pendingLevel = null;
+    resourceState.running = false;
+
+    if (playfield) {
+      playfield.leaveLevel();
+    }
+
+    renderEnemyCodex();
+    updateLevelCards();
+    updateActiveLevelBanner();
+    updateTowerCardVisibility();
+    updateTowerSelectionButtons();
+    syncLoadoutToPlayfield();
+    updateStatusDisplays();
+
+    if (developerModeElements.note) {
+      developerModeElements.note.hidden = true;
+    }
+  }
+
+  function bindDeveloperModeToggle() {
+    developerModeElements.toggle = document.getElementById('codex-developer-mode');
+    developerModeElements.note = document.getElementById('codex-developer-note');
+
+    if (!developerModeElements.toggle) {
+      return;
+    }
+
+    developerModeElements.toggle.addEventListener('change', (event) => {
+      if (event.target.checked) {
+        enableDeveloperMode();
+      } else {
+        disableDeveloperMode();
+      }
+    });
   }
 
   function notifyAutoAnchorUsed(currentPlaced, totalAnchors) {
@@ -7352,6 +7646,7 @@
     enemyCodexElements.list = document.getElementById('enemy-codex-list');
     enemyCodexElements.empty = document.getElementById('enemy-codex-empty');
     enemyCodexElements.note = document.getElementById('enemy-codex-note');
+    bindDeveloperModeToggle();
     if (audioManager) {
       const activationElements = [
         playfieldElements.startButton,
