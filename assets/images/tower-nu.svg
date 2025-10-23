@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="nuGlow" cx="48%" cy="36%" r="70%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9" />
+      <stop offset="60%" stop-color="#ffe7c0" stop-opacity="0.82" />
+      <stop offset="100%" stop-color="#14130f" stop-opacity="0.95" />
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#09080a" />
+  <circle cx="32" cy="30" r="24" fill="url(#nuGlow)" />
+  <path d="M18 46h28" stroke="#fff4d8" stroke-width="2" stroke-linecap="round" opacity="0.52" />
+  <path d="M22 20l5 22c1 4 3 6 5 6s4-2 5-6l5-22" stroke="#fff4d8" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="0.7" />
+  <text
+    x="32"
+    y="41"
+    font-family="'Cormorant Garamond', 'Times New Roman', serif"
+    font-size="32"
+    text-anchor="middle"
+    fill="#241d12"
+  >ν</text>
+</svg>
