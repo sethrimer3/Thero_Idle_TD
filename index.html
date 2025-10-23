@@ -1221,10 +1221,12 @@
             <article class="card">
               <h3>Codex</h3>
               <p>Review mathematical lore and formulae.</p>
-              <button class="action-button ghost" type="button">Open Codex</button>
+              <button class="action-button ghost" type="button" id="open-codex-button">
+                Open Codex
+              </button>
             </article>
           </div>
-          <section class="enemy-codex" aria-live="polite">
+          <section class="enemy-codex" id="enemy-codex-section" aria-live="polite" tabindex="-1">
             <header class="subsection-title">Enemy Codex</header>
             <div class="codex-controls">
               <label class="developer-mode-toggle" for="codex-developer-mode">

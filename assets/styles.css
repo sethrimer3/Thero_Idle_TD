@@ -893,6 +893,65 @@ body::before {
   min-height: 180px;
 }
 
+.enemy-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+}
+
+.enemy-card-summary {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.enemy-card-formula {
+  margin: 0 0 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--accent-2);
+}
+
+.enemy-card-formula-label {
+  font-family: "Space Mono", monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.enemy-card-equation {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.enemy-card-traits {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.enemy-card-traits li + li {
+  margin-top: 6px;
+}
+
+.enemy-card-counter {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  color: var(--accent-3);
+}
+
+.enemy-card-lore {
+  margin: 0;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--muted);
+}
+
 .prestige-card {
   align-self: center;
   max-width: 320px;
