@@ -8132,8 +8132,8 @@ import {
       const offset = powderState.sandOffset;
       powderElements.sandfallFormula.textContent =
         offset > 0
-          ? `\\( \\glow{\\Psi(g)} = 2.7\\, \\sin(t) + ${formatDecimal(offset, 1)} \\)`
-          : '\\( \\glow{\\Psi(g)} = 2.7\\, \\sin(t) \\)';
+          ? `\\( \\Psi(g) = 2.7\\, \\sin(t) + ${formatDecimal(offset, 1)} \\)`
+          : '\\( \\Psi(g) = 2.7\\, \\sin(t) \\)';
       renderMathElement(powderElements.sandfallFormula);
     }
 
