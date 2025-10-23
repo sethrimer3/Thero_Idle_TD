@@ -454,11 +454,11 @@
       "summary": "Countable-infinity splinters that multiply the longer they survive, overwhelming defenses with relentless recursion.",
       "traits": [
         "Render as (ℵ_0^{k})—their red exponent pulses with each duplication to telegraph the growing (10^{k}) health pool.",
-        "Spawn additional copies at intervals determined by (\\lambda(t) = \lambda_0 + \lfloor t / T \rfloor), so survival time fuels the swarm."
+        "Spawn additional copies at intervals determined by (\\lambda(t) = \\lambda_0 + \\lfloor t / T \rfloor), so survival time fuels the swarm."
       ],
       "counter": "Keep continuous-area effects engaged to prune duplicates before their exponent climbs beyond manageable tiers.",
       "lore": "Pearlescent dust settles wherever they fall, as though infinity itself were being counted grain by grain.",
-      "formula": "(N(t) = N_0 + \lfloor t / T \rfloor)",
+      "formula": "(N(t) = N_0 + \\lfloor t / T \rfloor)",
       "formulaLabel": "Replication Clock"
     },
     {
@@ -468,11 +468,11 @@
       "summary": "Spectral siphons that leech tower stats until slowed, modelling derivatives that refuse to settle.",
       "traits": [
         "Stride in (∂^{k}) forms—the exponent glows fiercely while the wraith hoards stolen power tied to its (10^{k}) reserve.",
-        "Absorb a fraction of nearby tower modifiers as (\\Delta S = \alpha \cdot S_{tower}); rooting them freezes the derivative at zero and returns the loss."
+        "Absorb a fraction of nearby tower modifiers as (\\Delta S = \\alpha \\cdot S_{tower}); rooting them freezes the derivative at zero and returns the loss."
       ],
       "counter": "Leverage stuns or heavy slows to pin the wraith, forcing it to disgorge the stolen bonuses.",
       "lore": "Their edges blur like chalk dust in motion, only resolving when the battlefield stands perfectly still.",
-      "formula": "(\\Delta S = \alpha \cdot S_{tower})",
+      "formula": "(\\Delta S = \\alpha \\cdot S_{tower})",
       "formulaLabel": "Siphon Rate"
     },
     {
@@ -482,11 +482,11 @@
       "summary": "Vector-chasing saboteurs that accelerate toward downhill buffs while draining everything in their path.",
       "traits": [
         "Marked as (∇^{k}); the exponent's red glow tilts in the direction of greatest descent, mirroring the sapper's chosen gradient.",
-        "Gain speed according to (v = v_0 + \beta \|\nabla B\|), with B representing nearby buff intensity."
+        "Gain speed according to (v = v_0 + \beta \\|\nabla B\\|), with B representing nearby buff intensity."
       ],
       "counter": "Rotate support zones or erect knockback fields to flatten the gradient before they sprint through your defenses.",
       "lore": "Powder traces roll downhill after them, sketching the invisible slopes they follow.",
-      "formula": "(v = v_0 + \beta \|\nabla B\|)",
+      "formula": "(v = v_0 + \beta \\|\nabla B\\|)",
       "formulaLabel": "Descent Rule"
     },
     {
@@ -496,11 +496,11 @@
       "summary": "Fractal shifters that jitter between vulnerable and invulnerable states at nowhere-differentiable intervals.",
       "traits": [
         "Manifest as (℘^{k}); the exponent flickers chaotically, hinting at the fractal rhythm governing their (10^{k}) shell.",
-        "Toggle immunity on a schedule approximating (f(t) = \sum_{n=0}^{\infty} a^n \cos(b^n \pi t)) with (0 < a < 1, b \in \mathbb{N})."
+        "Toggle immunity on a schedule approximating (f(t) = \\sum_{n=0}^{\\infty} a^n \\cos(b^n \\pi t)) with (0 < a < 1, b \\in \\mathbb{N})."
       ],
       "counter": "Sync burst damage to the brief windows when the prism's glow steadies, or lock them down with perfectly timed stasis.",
       "lore": "Each shard refracts whole proofs, scattering fragments of color across the monochrome battlefield.",
-      "formula": "(f(t) = \sum_{n=0}^{\infty} a^n \cos(b^n \pi t))",
+      "formula": "(f(t) = \\sum_{n=0}^{\\infty} a^n \\cos(b^n \\pi t))",
       "formulaLabel": "Fractal Pulse"
     },
     {
@@ -510,11 +510,11 @@
       "summary": "Quantum phantoms that phase in and out of reality, respecting only perfectly timed strikes.",
       "traits": [
         "Wink into view as (ħ^{k}); the exponent flashes bright red exactly when they are tangible, revealing the active (10^{k}) reservoir.",
-        "Phase according to (\\tau = 2\pi / \omega); missed beats reset the cycle and restore a slice of their health tier."
+        "Phase according to (\\tau = 2\\pi / \\omega); missed beats reset the cycle and restore a slice of their health tier."
       ],
       "counter": "Coordinate rhythmic towers or metronome buffs to line up hits the instant the shade materializes.",
       "lore": "They shed cold blue motes—quantized echoes of every missed opportunity.",
-      "formula": "(\\tau = 2\pi / \omega)",
+      "formula": "(\\tau = 2\\pi / \\omega)",
       "formulaLabel": "Quantum Cadence"
     },
     {
@@ -524,11 +524,11 @@
       "summary": "Empty-set shells that ignore your lanes until provoked, then redistribute their absence as lethal mass.",
       "traits": [
         "Appear dormant as (∅^{k}); striking them ignites the exponent, signalling the (10^{k}) payload about to spill outward.",
-        "Upon collapse, transfer health (\\Delta H = \gamma H_{∅}) evenly to nearby allies unless contained in a void field."
+        "Upon collapse, transfer health (\\Delta H = \\gamma H_{∅}) evenly to nearby allies unless contained in a void field."
       ],
       "counter": "Ping them with sacrificial shots to control when and where the redistributed mass lands.",
       "lore": "Their translucent powderfall leaves outlines of nothing, framing the foes that absorbed their loss.",
-      "formula": "(\\Delta H = \gamma H_{∅})",
+      "formula": "(\\Delta H = \\gamma H_{∅})",
       "formulaLabel": "Absence Transfer"
     },
     {
@@ -538,11 +538,11 @@
       "summary": "Phase-dancing invaders that stack evasion whenever damage arrives out of phase with their complex stride.",
       "traits": [
         "Stride as (ℑ^{k}); each alternating damage type reduces the glowing exponent, collapsing their complex facade.",
-        "Gain evasion stacks via (E_{new} = E_{old} + \sigma \sin(\\phi_{hit})), rewarding alternating real/imaginary damage inputs."
+        "Gain evasion stacks via (E_{new} = E_{old} + \\sigma \\sin(\\phi_{hit})), rewarding alternating real/imaginary damage inputs."
       ],
       "counter": "Alternate damage schools or use towers that naturally interleave phases to peel away their defenses.",
       "lore": "Indigo grains streak with silver when they fall, sketching complex planes in midair.",
-      "formula": "(E_{new} = E_{old} + \sigma \sin(\\phi_{hit}))",
+      "formula": "(E_{new} = E_{old} + \\sigma \\sin(\\phi_{hit}))",
       "formulaLabel": "Phase Stack"
     },
     {
@@ -551,7 +551,7 @@
       "name": "Combination Cohort",
       "summary": "Squads bound by binomial ties that reshuffle total health every time a member collapses.",
       "traits": [
-        "March as ({}^{n}C_{k}^{\,m}); the superscript (m) glows in red to convey the shared (10^{m}) pool sustaining the entire cohort.",
+        "March as ({}^{n}C_{k}^{\\,m}); the superscript (m) glows in red to convey the shared (10^{m}) pool sustaining the entire cohort.",
         "Redistribute health per (H_{new} = H_{total} / \text{alive}) after each defeat, punishing careless focus fire."
       ],
       "counter": "Spread damage across the squad or deploy simultaneous bursts to overwhelm the redistribution.",

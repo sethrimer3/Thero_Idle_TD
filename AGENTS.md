@@ -1,6 +1,6 @@
-# Glyph Defense Idle – Agent Guide
+# Thero Idle – Agent Guide
 
-Welcome to the Glyph Defense Idle project. This document provides shared context and
+Welcome to the Thero Idle project. This document provides shared context and
 conventions for all AI collaborators working anywhere inside this repository.
 
 ## Vision Snapshot
@@ -55,4 +55,4 @@ conventions for all AI collaborators working anywhere inside this repository.
 - **PR descriptions:** Summarize gameplay effects, math changes, and UI adjustments.
   Highlight new formulas and how they influence balance.
 
-Thank you for contributing to the mystical mathematics of Glyph Defense Idle!
+Thank you for contributing to the mystical mathematics of Thero Idle!

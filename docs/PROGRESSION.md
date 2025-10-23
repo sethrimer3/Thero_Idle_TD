@@ -1,4 +1,4 @@
-# Glyph Defense Idle – Progression Notes
+# Thero Idle – Progression Notes
 
 ## Level Structure
 - The game now features **30 total levels** grouped into six five-level sets.
@@ -135,7 +135,7 @@ All enemies adopt a shared **power-of-ten health notation** that appends a brigh
 | \(\Im^{k}\) – **Imaginary Strider** | Gains evasion stacks whenever damage arrives out of phase; alternating damage types strip stacks and reveal the true form. Each collapsed stack dims the exponent, making progress legible. | Imaginary components pair with real ones; alternating inputs cancel the complex parts. | Shatters into 4×4 indigo grains streaked with silver to suggest complex planes. |
 | \(^{n}C_{k}^{\;m}\) – **Combination Cohort** | Spawns in squads whose health redistributes combinatorially when one member falls, making focus fire risky. A highlighted superscript `m` communicates the shared `10^{m}` pool sustaining the group. | Binomial coefficients enumerate combinations; the enemy constantly recomputes group defenses. | The squad collectively sheds 3×3 bronze grains stamped with Pascal triangle dots. |
 
-Future symbol variants will continue to draw from global mathematical alphabets (Cyrillic, Hebrew, kana, operator glyphs, etc.), ensuring each enemy feels fresh while still harmonizing with Glyph Defense Idle's mystic numeracy.
+Future symbol variants will continue to draw from global mathematical alphabets (Cyrillic, Hebrew, kana, operator glyphs, etc.), ensuring each enemy feels fresh while still harmonizing with Thero Idle's mystic numeracy.
 
 ## Achievements & Powderfall
 - Each achievement seal grants **+1 grain of powder per minute**.

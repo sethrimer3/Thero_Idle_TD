@@ -1,6 +1,6 @@
 # Platform Support Blueprint
 
-Glyph Defense Idle is built as a mobile-first experience, but every new system
+Thero Idle is built as a mobile-first experience, but every new system
 must remain portable to an eventual desktop build. Use the following guidance
 whenever you touch gameplay, UI, or infrastructure code.
 
