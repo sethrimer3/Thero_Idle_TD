@@ -2018,6 +2018,13 @@ body.color-scheme-chromatic::before {
   filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.45));
 }
 
+.overlay-preview__canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.45));
+}
+
 .overlay-preview__empty {
   margin: 0;
   text-align: center;
