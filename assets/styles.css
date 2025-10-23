@@ -8,6 +8,9 @@
   --accent-3: #ffe478;
   --text: #f7f7f5;
   --muted: rgba(247, 247, 245, 0.65);
+  --path-blue: #50a0ff;
+  --path-purple: #9a6bff;
+  --path-orange: #ff9c66;
   --shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
   --transition: 180ms ease;
 }
@@ -130,24 +133,25 @@ body::before {
   justify-self: center;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: radial-gradient(circle at 30% 70%, rgba(139, 247, 255, 0.08), transparent 55%),
-    radial-gradient(circle at 70% 25%, rgba(255, 125, 235, 0.1), transparent 60%),
-    rgba(5, 6, 12, 0.75);
-  box-shadow: inset 0 0 30px rgba(139, 247, 255, 0.08), 0 18px 36px rgba(0, 0, 0, 0.45);
+  background: radial-gradient(circle at 28% 72%, rgba(80, 160, 255, 0.12), transparent 55%),
+    radial-gradient(circle at 68% 28%, rgba(150, 110, 255, 0.12), transparent 58%),
+    radial-gradient(circle at 86% 82%, rgba(255, 152, 96, 0.1), transparent 60%),
+    rgba(5, 6, 12, 0.78);
+  box-shadow: inset 0 0 30px rgba(80, 160, 255, 0.12), 0 18px 36px rgba(0, 0, 0, 0.45);
 }
 
 .track-path {
   fill: none;
   stroke: url(#pathGradient);
-  stroke-width: 8;
+  stroke-width: 9;
   filter: url(#glow);
-  opacity: 0.9;
+  opacity: 1;
   stroke-linecap: round;
 }
 
 .track-path.secondary {
-  stroke-width: 4;
-  opacity: 0.55;
+  stroke-width: 5;
+  opacity: 0.58;
 }
 
 .tower-pips circle,
@@ -1177,16 +1181,18 @@ body::before {
 
 .powder-wall-marker {
   position: absolute;
+  top: 0;
   left: 14%;
   right: 14%;
-  height: 2px;
-  background: linear-gradient(90deg, rgba(255, 228, 120, 0.8), rgba(255, 255, 255, 0.45));
+  height: 3px;
+  background: linear-gradient(90deg, rgba(80, 160, 255, 0.85), rgba(255, 152, 96, 0.85));
   border-radius: 999px;
   pointer-events: none;
-  box-shadow: 0 0 12px rgba(255, 228, 120, 0.32);
-  opacity: 0.85;
+  box-shadow: 0 0 14px rgba(80, 160, 255, 0.32);
+  opacity: 0.9;
   transform: translateY(0);
   transition: transform 0.45s ease-out;
+  z-index: 2;
 }
 
 .powder-wall-marker::after {
@@ -1199,22 +1205,22 @@ body::before {
   font-family: 'Space Mono', monospace;
   font-size: 0.7rem;
   letter-spacing: 0.08em;
-  color: rgba(255, 228, 120, 0.75);
-  background: rgba(14, 16, 24, 0.65);
-  box-shadow: 0 0 6px rgba(255, 228, 120, 0.28);
+  color: rgba(255, 152, 96, 0.78);
+  background: rgba(14, 16, 24, 0.72);
+  box-shadow: 0 0 6px rgba(255, 152, 96, 0.32);
 }
 
 .powder-crest-marker {
-  background: linear-gradient(90deg, rgba(139, 247, 255, 0.7), rgba(255, 255, 255, 0.45));
-  box-shadow: 0 0 10px rgba(139, 247, 255, 0.28);
-  opacity: 0.9;
+  background: linear-gradient(90deg, rgba(150, 110, 255, 0.75), rgba(255, 255, 255, 0.45));
+  box-shadow: 0 0 12px rgba(150, 110, 255, 0.32);
+  opacity: 0.95;
 }
 
 .powder-crest-marker::after {
   right: auto;
   left: -2.8rem;
-  color: rgba(139, 247, 255, 0.8);
-  box-shadow: 0 0 6px rgba(139, 247, 255, 0.35);
+  color: rgba(80, 160, 255, 0.82);
+  box-shadow: 0 0 6px rgba(80, 160, 255, 0.35);
 }
 
 .powder-wall.wall-awake {
@@ -1424,6 +1430,7 @@ body::before {
 }
 
 .overlay-panel {
+  position: relative;
   text-align: center;
   max-width: 420px;
   padding: 36px 28px;
@@ -1431,6 +1438,114 @@ body::before {
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(12, 12, 20, 0.8);
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.55);
+}
+
+.overlay-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+}
+
+.overlay-close:hover,
+.overlay-close:focus-visible {
+  color: var(--path-orange);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.overlay-close:focus-visible {
+  outline: 2px solid var(--path-blue);
+  outline-offset: 2px;
+}
+
+.upgrade-overlay .overlay-panel {
+  max-width: 520px;
+  text-align: left;
+}
+
+.upgrade-overlay .overlay-label,
+.upgrade-overlay .overlay-title,
+.upgrade-overlay .overlay-example,
+.upgrade-overlay .overlay-instruction {
+  text-align: left;
+}
+
+.upgrade-overlay .overlay-instruction {
+  margin-top: 18px;
+}
+
+.upgrade-matrix-grid {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 22px;
+  padding: 0;
+}
+
+.upgrade-matrix-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 120px) minmax(160px, 1fr) minmax(120px, 140px) minmax(140px, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.upgrade-matrix-row:nth-child(even) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.upgrade-matrix-tier,
+.upgrade-matrix-cost,
+.upgrade-matrix-next {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.upgrade-matrix-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.upgrade-matrix-symbol {
+  font-size: 1.35rem;
+  color: var(--path-purple);
+}
+
+.upgrade-matrix-cost {
+  color: var(--path-orange);
+}
+
+.upgrade-matrix-next {
+  justify-self: end;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+@media (max-width: 640px) {
+  .upgrade-matrix-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .upgrade-matrix-next {
+    justify-self: start;
+  }
 }
 
 .overlay-label {
@@ -1594,3 +1709,25 @@ body::before {
     padding: 28px 20px;
   }
 }
+.tower-cost {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 12px 0 10px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.tower-cost strong {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.tower-cost-value {
+  font-weight: 600;
+  color: var(--path-orange);
+}
+
