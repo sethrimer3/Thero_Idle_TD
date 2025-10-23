@@ -531,10 +531,10 @@ body.color-scheme-chromatic::before {
   margin: 0;
   display: flex;
   justify-content: center;
-  gap: clamp(14px, 4vw, 28px);
-  padding: 8px 16px;
+  gap: clamp(10px, 3vw, 22px);
+  padding: 6px 14px;
   font-family: "Space Mono", monospace;
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(247, 247, 245, 0.72);
@@ -546,8 +546,9 @@ body.color-scheme-chromatic::before {
 
 .playfield-stats__item {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 
 .playfield-stats dt {
@@ -555,10 +556,15 @@ body.color-scheme-chromatic::before {
   color: rgba(247, 247, 245, 0.56);
 }
 
+.playfield-stats dt::after {
+  content: ':';
+  margin-inline-start: 2px;
+}
+
 .playfield-stats dd {
   margin: 0;
   color: var(--accent-3);
-  font-size: 0.85rem;
+  font-size: 0.75rem;
 }
 
 .subsection-title {
