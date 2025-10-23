@@ -7304,9 +7304,17 @@
         if (!codexSection) {
           return;
         }
-        codexSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        try {
+          codexSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (error) {
+          codexSection.scrollIntoView(true);
+        }
         if (typeof codexSection.focus === 'function') {
-          codexSection.focus({ preventScroll: true });
+          try {
+            codexSection.focus({ preventScroll: true });
+          } catch (error) {
+            codexSection.focus();
+          }
         }
       });
 
