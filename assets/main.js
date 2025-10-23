@@ -141,26 +141,66 @@
     {
       id: 'etype',
       name: 'E-Type Glyphs',
-      description:
-        'Core foes labeled by trailing zeros. E₁ carries one hit point, while E₃ arrives with 10³ life. Their waves scale logarithmically between sets.',
+      summary:
+        'Baseline constructs minted from exponential residue; the count of trailing zeros reveals the exponent of their vitality.',
+      traits: [
+        'March in geometric platoons whose health resolves to \(H(k) = H_0 \times 10^{k}\) for rank k within the current set.',
+        'Reward Σ motes on defeat using the same multiplier, making them ideal calibration targets for lattice tuning.',
+      ],
+      counter:
+        'Layer multiplicative auras and β/γ towers so burst and splash damage keep pace with the exponential swell before specialist glyphs appear.',
+      lore:
+        'Archivists open every defense proof against E glyphs; when their sigils begin to blur, heavier conjectures are on approach.',
+      formula: '\(H(k) = H_0 \times 10^{k}\)',
+      formulaLabel: 'Growth Law',
     },
     {
       id: 'divisor',
       name: 'Divisors',
-      description:
-        'Glyphs that punish high DPS. Damage taken equals 1 / DPS, so precision tuning and debuff towers are key.',
+      summary:
+        'Factor-savvy husks that invert reckless power. They judge every incoming strike by its divisor weight and respond in kind.',
+      traits: [
+        'Damage from one source collapses to \(\\Delta H = 1 / \text{DPS}_{\\text{source}}\), so slower cannons barely scratch the shell.',
+        'Stacked beams add their DPS before inversion, rewarding multi-lane coverage and allied summons.',
+      ],
+      counter:
+        'Deploy swarm emitters, Ω slows, and status lattices to multiply projectile count while letting lingering damage-over-time finish the proof.',
+      lore:
+        'Their chants enumerate divisors as they advance; silence one and the entire column hesitates for a breath.',
+      formula: '\(\\Delta H = 1 / \text{DPS}_{\\text{source}}\)',
+      formulaLabel: 'Mitigation Rule',
     },
     {
       id: 'prime',
       name: 'Prime Counters',
-      description:
-        'Resistant husks that require a fixed number of hits regardless of damage dealt—perfect sparring partners for swarm summoners.',
+      summary:
+        'Inquisitors that audit impact counts against the prime sequence. They do not care about damage—only how often they are struck.',
+      traits: [
+        'Maintain an internal counter η that increases with each hit until \(η = p_n\), the nth prime for their current wave.',
+        'Overflow resets η to the next prime threshold, so wasted barrages delay a collapse.',
+      ],
+      counter:
+        'Favor rapid-fire towers, β resonance buffs, or allied reversals that deal consistent tap damage to meet each prime without overshooting.',
+      lore:
+        'Their whispers recite primes in ascending order; the moment you match their cadence, the husk fractures.',
+      formula: '\(η = p_n\)',
+      formulaLabel: 'Prime Threshold',
     },
     {
       id: 'reversal',
       name: 'Reversal Sentinels',
-      description:
-        'Vanguard units that, when defeated, sprint backward along the path. Capture them to fight for you with inverted health totals.',
+      summary:
+        'Vanguard constructs tuned to flip allegiance. Defeat one and it races backward to join your formation with inverted statistics.',
+      traits: [
+        'Upon collapse they sprint to the start of the path; if unblocked they respawn as allies with \(H_{ally} = \lfloor 0.5 H_{foe} \rfloor\).',
+        'Allied reversals inherit your active tower modifiers and pulse Σ motes while retracing enemy ground.',
+      ],
+      counter:
+        'Catch them near choke points so the conversion occurs within supportive auras, otherwise their retreat might breach the core first.',
+      lore:
+        'Legend says each sentinel carries a mirrored proof; persuade it to turn the page and the margin glows with your sigil.',
+      formula: '\(H_{ally} = \lfloor 0.5 H_{foe} \rfloor\)',
+      formulaLabel: 'Conversion Rule',
     },
   ];
 
@@ -7069,11 +7109,60 @@
 
       const title = document.createElement('h3');
       title.textContent = entry.name;
+      card.append(title);
 
-      const description = document.createElement('p');
-      description.textContent = entry.description;
+      const summaryText = entry.summary || entry.description || '';
+      if (summaryText) {
+        const summary = document.createElement('p');
+        summary.className = 'enemy-card-summary';
+        summary.textContent = summaryText;
+        card.append(summary);
+        renderMathElement(summary);
+      }
 
-      card.append(title, description);
+      if (entry.formula) {
+        const formulaRow = document.createElement('p');
+        formulaRow.className = 'enemy-card-formula';
+
+        const formulaLabel = document.createElement('span');
+        formulaLabel.className = 'enemy-card-formula-label';
+        formulaLabel.textContent = entry.formulaLabel || 'Key Expression';
+
+        const equation = document.createElement('span');
+        equation.className = 'enemy-card-equation';
+        equation.textContent = entry.formula;
+
+        formulaRow.append(formulaLabel, document.createTextNode(': '), equation);
+        card.append(formulaRow);
+        renderMathElement(equation);
+      }
+
+      if (Array.isArray(entry.traits) && entry.traits.length) {
+        const traitList = document.createElement('ul');
+        traitList.className = 'enemy-card-traits';
+        entry.traits.forEach((trait) => {
+          const item = document.createElement('li');
+          item.textContent = trait;
+          traitList.append(item);
+          renderMathElement(item);
+        });
+        card.append(traitList);
+      }
+
+      if (entry.counter) {
+        const counter = document.createElement('p');
+        counter.className = 'enemy-card-counter';
+        counter.textContent = entry.counter;
+        card.append(counter);
+      }
+
+      if (entry.lore) {
+        const lore = document.createElement('p');
+        lore.className = 'enemy-card-lore';
+        lore.textContent = entry.lore;
+        card.append(lore);
+      }
+
       fragment.append(card);
     });
 
@@ -7197,6 +7286,32 @@
         enableDeveloperMode();
       } else {
         disableDeveloperMode();
+      }
+    });
+  }
+
+  function bindCodexControls() {
+    const openButton = document.getElementById('open-codex-button');
+    if (!openButton) {
+      return;
+    }
+
+    openButton.addEventListener('click', () => {
+      setActiveTab('options');
+
+      window.requestAnimationFrame(() => {
+        const codexSection = document.getElementById('enemy-codex-section');
+        if (!codexSection) {
+          return;
+        }
+        codexSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (typeof codexSection.focus === 'function') {
+          codexSection.focus({ preventScroll: true });
+        }
+      });
+
+      if (document.activeElement === openButton) {
+        openButton.blur();
       }
     });
   }
@@ -8208,6 +8323,7 @@
     renderEnemyCodex();
 
     initializeTabs();
+    bindCodexControls();
     buildLevelCards();
     updateLevelCards();
     bindOverlayEvents();
