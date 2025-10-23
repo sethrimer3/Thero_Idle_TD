@@ -180,8 +180,34 @@
   const towerDefinitionMap = new Map(towerDefinitions.map((tower) => [tower.id, tower]));
 
   const towerLoadoutState = {
-    selected: ['alpha', 'beta', 'gamma', 'delta'],
+    selected: ['alpha'],
   };
+
+  const towerUnlockState = {
+    unlocked: new Set(['alpha']),
+  };
+
+  function isTowerUnlocked(towerId) {
+    return towerUnlockState.unlocked.has(towerId);
+  }
+
+  function unlockTower(towerId, { silent = false } = {}) {
+    if (!towerId || !towerDefinitionMap.has(towerId)) {
+      return false;
+    }
+    if (towerUnlockState.unlocked.has(towerId)) {
+      return false;
+    }
+    towerUnlockState.unlocked.add(towerId);
+    updateTowerSelectionButtons();
+    syncLoadoutToPlayfield();
+    if (!silent && playfield?.messageEl) {
+      playfield.messageEl.textContent = `${
+        getTowerDefinition(towerId)?.symbol || 'New'
+      } lattice discovered—add it to your loadout from the Towers tab.`;
+    }
+    return true;
+  }
 
   function getTowerDefinition(towerId) {
     return towerDefinitionMap.get(towerId) || null;
@@ -868,7 +894,7 @@
       this.renderHeight = this.canvas ? this.canvas.clientHeight : 0;
       this.pixelRatio = 1;
 
-      this.arcPhase = 0;
+      this.arcOffset = 0;
       this.energy = 0;
       this.lives = 0;
       this.waveIndex = 0;
@@ -884,7 +910,6 @@
       this.enemies = [];
       this.projectiles = [];
       this.availableTowers = [];
-      this.towerEconomy = new Map();
       this.draggingTowerType = null;
       this.dragPreviewOffset = { x: 0, y: -34 };
 
@@ -950,20 +975,26 @@
 
     setAvailableTowers(towerIds = []) {
       if (Array.isArray(towerIds)) {
-        this.availableTowers = towerIds.filter((towerId) => getTowerDefinition(towerId));
+        this.availableTowers = towerIds.filter(
+          (towerId) => getTowerDefinition(towerId) && isTowerUnlocked(towerId),
+        );
       } else {
         this.availableTowers = [];
       }
-      if (!this.levelActive) {
-        this.resetTowerEconomy();
-      }
+      refreshTowerLoadoutDisplay();
     }
 
-    resetTowerEconomy() {
-      this.towerEconomy.clear();
-      towerDefinitions.forEach((definition) => {
-        this.towerEconomy.set(definition.id, definition.baseCost);
-      });
+    getActiveTowerCount(towerId) {
+      if (!towerId || !Array.isArray(this.towers)) {
+        return 0;
+      }
+      let count = 0;
+      for (let index = 0; index < this.towers.length; index += 1) {
+        if (this.towers[index]?.type === towerId) {
+          count += 1;
+        }
+      }
+      return count;
     }
 
     getCurrentTowerCost(towerId) {
@@ -971,24 +1002,9 @@
       if (!definition) {
         return Number.POSITIVE_INFINITY;
       }
-      const stored = this.towerEconomy.get(towerId);
-      if (!Number.isFinite(stored) || stored <= 0) {
-        this.towerEconomy.set(towerId, definition.baseCost);
-        return definition.baseCost;
-      }
-      return stored;
-    }
-
-    bumpTowerCost(towerId) {
-      if (!towerId) {
-        return;
-      }
-      const current = this.getCurrentTowerCost(towerId);
-      if (!Number.isFinite(current) || current <= 0) {
-        return;
-      }
-      const next = current * current;
-      this.towerEconomy.set(towerId, next);
+      const activeCount = this.getActiveTowerCount(towerId);
+      const multiplier = 1 + Math.max(0, activeCount);
+      return definition.baseCost * multiplier;
     }
 
     setDraggingTower(towerId) {
@@ -1250,7 +1266,7 @@
       }
       if (this.messageEl) {
         this.messageEl.textContent =
-          'Drag glyph chips from your loadout with adequate space—the anchors are merely suggested glyphs.';
+          'Drag glyph chips from your loadout anywhere on the plane—no fixed anchors required.';
       }
       if (this.progressEl) {
         this.progressEl.textContent = 'Wave prep underway.';
@@ -1278,7 +1294,7 @@
       this.energy = 0;
       this.lives = 0;
       this.resolvedOutcome = null;
-      this.arcPhase = 0;
+      this.arcOffset = 0;
       this.setAvailableTowers([]);
       cancelTowerDrag();
       if (this.ctx) {
@@ -1312,14 +1328,13 @@
       this.activeWave = null;
       this.enemyIdCounter = 0;
       this.towerIdCounter = 0;
-      this.arcPhase = 0;
+      this.arcOffset = 0;
       this.combatActive = false;
       this.resolvedOutcome = null;
       this.enemies = [];
       this.projectiles = [];
       this.towers = [];
       this.hoverPlacement = null;
-      this.resetTowerEconomy();
       this.slots.forEach((slot) => {
         slot.tower = null;
         if (slot.button) {
@@ -1335,6 +1350,7 @@
       }
       this.updateAutoAnchorButton();
       this.updateSpeedButton();
+      refreshTowerLoadoutDisplay();
     }
 
     enableSlots() {
@@ -1835,6 +1851,10 @@
         }
       }
 
+      if (!isTowerUnlocked(selectedType)) {
+        unlockTower(selectedType, { silent: true });
+      }
+
       const baseCost = this.getCurrentTowerCost(selectedType);
       const mergeCost = nextDefinition ? this.getCurrentTowerCost(nextDefinition.id) : 0;
       const actionCost = merging ? Math.max(baseCost, mergeCost) : baseCost;
@@ -1848,7 +1868,6 @@
       }
 
       this.energy = Math.max(0, this.energy - actionCost);
-      this.bumpTowerCost(selectedType);
 
       if (merging && mergeTarget && nextDefinition) {
         const range = Math.min(this.renderWidth, this.renderHeight) * nextDefinition.range;
@@ -1860,14 +1879,18 @@
         mergeTarget.rate = nextDefinition.rate;
         mergeTarget.range = range;
         mergeTarget.cooldown = 0;
-        this.bumpTowerCost(nextDefinition.id);
+        const newlyUnlocked = !isTowerUnlocked(nextDefinition.id)
+          ? unlockTower(nextDefinition.id, { silent: true })
+          : false;
         if (this.messageEl && !silent) {
-          this.messageEl.textContent = `${definition.symbol} lattices fused into ${nextDefinition.symbol}.`;
+          const unlockNote = newlyUnlocked ? ` ${nextDefinition.symbol} is now available in your loadout.` : '';
+          this.messageEl.textContent = `${definition.symbol} lattices fused into ${nextDefinition.symbol}.${unlockNote}`;
         }
         notifyTowerPlaced(this.towers.length);
         this.updateTowerPositions();
         this.updateHud();
         this.draw();
+        refreshTowerLoadoutDisplay();
         updateStatusDisplays();
         return true;
       }
@@ -1906,6 +1929,7 @@
       }
       this.updateHud();
       this.draw();
+      refreshTowerLoadoutDisplay();
       updateStatusDisplays();
       if (this.audio && !silent) {
         this.audio.playSfx('towerPlace');
@@ -1945,6 +1969,7 @@
 
       this.updateHud();
       this.draw();
+      refreshTowerLoadoutDisplay();
       updateStatusDisplays();
       if (this.audio) {
         this.audio.playSfx('towerSell');
@@ -2098,7 +2123,13 @@
 
       const speedDelta = delta * this.speedMultiplier;
 
-      this.arcPhase = (this.arcPhase + speedDelta * (this.levelConfig.arcSpeed || 0.2)) % 1;
+      const arcSpeed = this.levelConfig?.arcSpeed ?? 0.2;
+      const pathLength = this.pathLength || 1;
+      this.arcOffset -= arcSpeed * speedDelta * pathLength;
+      const wrapDistance = pathLength * 1000;
+      if (this.arcOffset <= -wrapDistance) {
+        this.arcOffset += wrapDistance;
+      }
 
       if (!this.combatActive) {
         const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
@@ -2510,18 +2541,20 @@
         return;
       }
       const ctx = this.ctx;
+      ctx.save();
       ctx.beginPath();
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.lineWidth = 3;
       ctx.strokeStyle = 'rgba(255, 228, 120, 0.7)';
       ctx.setLineDash([this.pathLength * 0.12, this.pathLength * 0.16]);
-      ctx.lineDashOffset = -this.arcPhase * this.pathLength;
+      ctx.lineDashOffset = this.arcOffset;
       ctx.moveTo(this.pathSegments[0].start.x, this.pathSegments[0].start.y);
       this.pathSegments.forEach((segment) => {
         ctx.lineTo(segment.end.x, segment.end.y);
       });
       ctx.stroke();
+      ctx.restore();
     }
 
     drawNodes() {
@@ -3609,6 +3642,19 @@
     }
   }
 
+  function pruneLockedTowersFromLoadout() {
+    pruneLockedTowersFromLoadout();
+    const selected = towerLoadoutState.selected;
+    let changed = false;
+    for (let index = selected.length - 1; index >= 0; index -= 1) {
+      if (!isTowerUnlocked(selected[index])) {
+        selected.splice(index, 1);
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
   function renderTowerLoadout() {
     if (!loadoutElements.grid) {
       renderedLoadoutSignature = null;
@@ -3815,15 +3861,40 @@
       const definition = getTowerDefinition(towerId);
       const selected = towerLoadoutState.selected.includes(towerId);
       const label = definition ? definition.symbol : towerId;
+      const unlocked = isTowerUnlocked(towerId);
+      button.dataset.locked = unlocked ? 'false' : 'true';
+      if (!unlocked) {
+        button.disabled = true;
+        button.setAttribute('aria-pressed', 'false');
+        if (definition) {
+          button.textContent = `Locked ${label}`;
+          button.title = `Discover ${definition.name} to unlock this lattice.`;
+        } else {
+          button.textContent = 'Locked';
+        }
+        return;
+      }
+
       button.setAttribute('aria-pressed', selected ? 'true' : 'false');
       button.textContent = selected ? `Equipped ${label}` : `Equip ${label}`;
       const atLimit = !selected && towerLoadoutState.selected.length >= TOWER_LOADOUT_LIMIT;
       button.disabled = atLimit;
+      button.title = selected
+        ? `${definition?.name || 'Tower'} is currently in your loadout.`
+        : `Equip ${definition?.name || 'tower'} for this defense.`;
     });
   }
 
   function toggleTowerSelection(towerId) {
     if (!towerDefinitionMap.has(towerId)) {
+      return;
+    }
+    if (!isTowerUnlocked(towerId)) {
+      const definition = getTowerDefinition(towerId);
+      if (loadoutElements.note && definition) {
+        loadoutElements.note.textContent = `Discover ${definition.name} before equipping it.`;
+      }
+      updateTowerSelectionButtons();
       return;
     }
     const selected = towerLoadoutState.selected;
@@ -3863,6 +3934,7 @@
   }
 
   function syncLoadoutToPlayfield() {
+    pruneLockedTowersFromLoadout();
     if (playfield) {
       playfield.setAvailableTowers(towerLoadoutState.selected);
     }
