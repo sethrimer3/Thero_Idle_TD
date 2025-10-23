@@ -577,8 +577,66 @@ body::before {
 }
 
 .level-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.level-group {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: rgba(5, 6, 12, 0.75);
+  padding: 12px 18px 6px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.level-group[open] {
+  border-color: rgba(139, 247, 255, 0.35);
+  box-shadow: 0 12px 28px rgba(139, 247, 255, 0.18);
+}
+
+.level-group-summary {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-family: "Space Mono", monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.level-group-summary::-webkit-details-marker {
+  display: none;
+}
+
+.level-group-summary::after {
+  content: '\25BC';
+  font-size: 0.75rem;
+  transition: transform var(--transition);
+}
+
+.level-group[open] > .level-group-summary::after {
+  transform: rotate(180deg);
+}
+
+.level-group-title {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.level-group-count {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.level-group-grid {
   display: grid;
   gap: 16px;
+  margin-top: 14px;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
@@ -790,6 +848,35 @@ body::before {
 .enemy-codex {
   display: grid;
   gap: 18px;
+}
+
+.codex-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 2px;
+}
+
+.developer-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.developer-mode-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.developer-mode-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--accent-2);
 }
 
 .enemy-grid {

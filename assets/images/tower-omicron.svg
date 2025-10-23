@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="omicronGlow" cx="48%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#d5fff4" stop-opacity="0.95" />
+      <stop offset="70%" stop-color="#5de3c5" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#0a1e1c" stop-opacity="0.9" />
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#061412" />
+  <circle cx="32" cy="30" r="24" fill="url(#omicronGlow)" />
+  <path d="M16 48h32" stroke="#a9ffe9" stroke-width="2" stroke-linecap="round" opacity="0.55" />
+  <text
+    x="32"
+    y="41"
+    font-family="'Cormorant Garamond', 'Times New Roman', serif"
+    font-size="32"
+    text-anchor="middle"
+    fill="#11231f"
+  >ο</text>
+</svg>

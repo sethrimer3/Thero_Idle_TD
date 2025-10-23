@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="rhoGlow" cx="48%" cy="38%" r="60%">
+      <stop offset="0%" stop-color="#ffdfe3" stop-opacity="0.95" />
+      <stop offset="70%" stop-color="#f26c7f" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#250b11" stop-opacity="0.9" />
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#16060a" />
+  <circle cx="32" cy="30" r="24" fill="url(#rhoGlow)" />
+  <path d="M18 48h28" stroke="#ffc0c8" stroke-width="2" stroke-linecap="round" opacity="0.55" />
+  <text
+    x="32"
+    y="41"
+    font-family="'Cormorant Garamond', 'Times New Roman', serif"
+    font-size="32"
+    text-anchor="middle"
+    fill="#2c0f17"
+  >ρ</text>
+</svg>
