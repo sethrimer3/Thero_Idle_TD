@@ -3236,7 +3236,7 @@ import {
 
       const baseCost = this.getCurrentTowerCost(towerType);
       const mergeCost = nextDefinition ? this.getCurrentTowerCost(nextDefinition.id) : 0;
-      const actionCost = merging ? Math.max(baseCost, mergeCost) : baseCost;
+      const actionCost = merging ? mergeCost : baseCost;
       const hasFunds = this.energy >= actionCost;
 
       let valid = validation.valid && hasFunds;
@@ -3571,12 +3571,16 @@ import {
 
       const baseCost = this.getCurrentTowerCost(selectedType);
       const mergeCost = nextDefinition ? this.getCurrentTowerCost(nextDefinition.id) : 0;
-      const actionCost = merging ? Math.max(baseCost, mergeCost) : baseCost;
+      const actionCost = merging ? mergeCost : baseCost;
 
       if (this.energy < actionCost) {
         const needed = Math.ceil(actionCost - this.energy);
         if (this.messageEl && !silent) {
-          this.messageEl.textContent = `Need ${needed} Th more to lattice ${definition.symbol}.`;
+          if (merging && nextDefinition) {
+            this.messageEl.textContent = `Need ${needed} Th more to merge into ${nextDefinition.symbol}.`;
+          } else {
+            this.messageEl.textContent = `Need ${needed} Th more to lattice ${definition.symbol}.`;
+          }
         }
         return false;
       }
