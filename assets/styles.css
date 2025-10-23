@@ -1024,6 +1024,27 @@ body::before {
   text-align: center;
 }
 
+.powder-simulation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.powder-simulation canvas {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, rgba(15, 16, 24, 0.96) 0%, rgba(22, 25, 37, 0.96) 100%);
+}
+
+.powder-simulation .powder-footnote {
+  text-align: center;
+}
+
 .tower-header {
   display: flex;
   align-items: center;
