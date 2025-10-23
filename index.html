@@ -45,7 +45,7 @@
       hidden
     >
       <div class="offline-overlay__content">
-        <p class="offline-overlay__title">Idle Powder Harvest</p>
+        <p class="offline-overlay__title">Idle Mote Harvest</p>
         <div class="offline-overlay__equation" aria-live="polite">
           <span class="offline-number" id="offline-minutes">0</span>
           <span class="offline-symbol">×</span>
@@ -75,9 +75,9 @@
           </span>
         </div>
         <div class="status-group">
-          <span class="status-label">Powderfall Rate</span>
+          <span class="status-label">Motefall Rate</span>
           <span class="status-value status-value--stacked">
-            <span id="status-powder-rate">+0 Powder/min</span>
+            <span id="status-powder-rate">+0 Motes/min</span>
             <span class="status-subvalue status-subvalue--gold" id="status-achievement-count">(0 achievements)</span>
           </span>
         </div>
@@ -383,7 +383,7 @@
               <div class="formula-block">
                 <p class="formula-line">\( \theta = \sum_{n=-\infty}^{\infty} e^{-\pi n^{2} t} \)</p>
                 <ul class="formula-definition">
-                  <li>t → lane temperature set by enemy speed and powder bonuses</li>
+                  <li>t → lane temperature set by enemy speed and mote bonuses</li>
                   <li>e<sup>−πn²t</sup> → gaussian pulses that warp path geometry</li>
                 </ul>
                 <p class="formula-line result">Theta waves bend the lane, slowing foes caught in the lattice.</p>
@@ -928,9 +928,9 @@
           aria-labelledby="tab-powder"
           hidden
         >
-          <header class="panel-header">Powder Lab</header>
+          <header class="panel-header">Mote Lab</header>
           <p class="powder-intro">
-            Channel falling-sand experiments to braid bonuses back into the tower core.
+            Channel mote cascades to braid bonuses back into the tower core.
             Each ritual manipulates flow rates, dune topology, or crystalline charge to
             accelerate Σ score, Δ energy, and λ flux.
           </p>
@@ -955,16 +955,16 @@
                   <dd id="powder-crystal-bonus">+0.00%</dd>
                 </div>
                 <div>
-                  <dt>Powder Stockpile</dt>
-                  <dd id="powder-stockpile">0 Powder</dd>
+                  <dt>Mote Stockpile</dt>
+                  <dd id="powder-stockpile">0 Motes</dd>
                 </div>
               </dl>
             </article>
             <article class="card powder-sigils-card">
               <h3>Sigil Ladder</h3>
               <p>
-                Powder height illuminates etched glyphs. Each rung unlocks new research rites
-                once the total multiplier meets or exceeds its mark.
+                Mote height illuminates etched glyphs. Each rung unlocks new research rites once
+                the total multiplier meets or exceeds its mark.
               </p>
               <ul class="powder-sigil-list" id="powder-sigil-list">
                 <li data-sigil-threshold="1.05">
@@ -986,12 +986,11 @@
               </ul>
             </article>
           </section>
-          <section class="powder-stage" aria-label="Powderfall basin">
+          <section class="powder-stage" aria-label="Motefall basin">
             <article class="card powder-simulation">
-              <h3>Powderfall Basin</h3>
+              <h3>Motefall Basin</h3>
               <div class="powder-basin" id="powder-basin">
                 <div class="powder-wall powder-wall-left" id="powder-wall-left" aria-hidden="true">
-                  <div class="powder-glyph-column" data-powder-glyph-column="left"></div>
                   <div class="powder-wall-marker" id="powder-wall-marker" data-height="Peak 0.00" aria-hidden="true"></div>
                   <div
                     class="powder-wall-marker powder-crest-marker"
@@ -1005,7 +1004,7 @@
                   width="240"
                   height="320"
                   role="img"
-                  aria-label="Powderfall basin simulation"
+                  aria-label="Motefall basin simulation"
                 ></canvas>
                 <div class="powder-wall powder-wall-right" id="powder-wall-right" aria-hidden="true">
                   <div class="powder-glyph-column" data-powder-glyph-column="right"></div>
@@ -1025,7 +1024,7 @@
                 <code id="powder-sandfall-formula">\( \glow{\Psi(g)} = 2.7\, \sin(t) \)</code>
               </p>
               <p class="powder-footnote" id="powder-sandfall-note">
-                Crest is unstable—powder drifts off the board.
+                Crest is unstable—Motes drift off the board.
               </p>
               <button
                 class="action-button ghost"
@@ -1053,9 +1052,9 @@
               </button>
             </article>
             <article class="card">
-              <h3>Crystal Powder</h3>
+              <h3>Crystal Motes</h3>
               <p>
-                Powder charge:
+                Mote charge:
                 <code id="powder-crystal-formula">\( Q = \sqrt{\theta \cdot \zeta} \)</code>
               </p>
               <p class="powder-footnote" id="powder-crystal-note">
@@ -1070,7 +1069,7 @@
               </button>
             </article>
             <article class="card powder-ledger">
-              <h3>Powderfall Ledger</h3>
+              <h3>Motefall Ledger</h3>
               <dl class="powder-ledger-grid">
                 <div>
                   <dt>Base Σ Rate</dt>
@@ -1082,7 +1081,7 @@
                 </div>
                 <div>
                   <dt>Current Flux</dt>
-                  <dd id="powder-ledger-flux">+375 Powder/min</dd>
+                  <dd id="powder-ledger-flux">+375 Motes/min</dd>
                 </div>
                 <div>
                   <dt>Current Energy</dt>
@@ -1090,13 +1089,13 @@
                 </div>
               </dl>
               <p class="powder-footnote">
-                Ledger values account for all active powder rituals and crystal surges.
+                Ledger values account for all active mote rituals and crystal surges.
               </p>
             </article>
             <article class="card powder-log-card">
               <h3>Lab Chronicle</h3>
               <p class="powder-footnote">Recent experiments echo here for quick review.</p>
-              <ul class="powder-log" id="powder-log" aria-live="polite" aria-label="Recent powder experiments"></ul>
+              <ul class="powder-log" id="powder-log" aria-live="polite" aria-label="Recent mote experiments"></ul>
               <p class="powder-log-empty" id="powder-log-empty">No experiments recorded yet.</p>
             </article>
           </div>
@@ -1112,7 +1111,7 @@
         >
           <header class="panel-header">Achievements</header>
           <p class="achievement-note">
-            Each seal increases powderfall by <strong>+1 grain per minute</strong>.
+            Each seal increases motefall by <strong>+1 grain per minute</strong>.
             Idle minutes are multiplied by unlocked seals and dumped when you return.
           </p>
           <ul class="achievement-list">
@@ -1123,7 +1122,7 @@
                 <p class="achievement-sub">
                   Seal the Lemniscate Hypothesis once to prove you can hold the spiral.
                 </p>
-                <p class="achievement-status">Locked · +1 powder/min on unlock.</p>
+                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
               </div>
             </li>
             <li data-achievement-id="circle-seer">
@@ -1133,7 +1132,7 @@
                 <p class="achievement-sub">
                   Maintain three α towers at once—concentric glyph rings stabilize your vision.
                 </p>
-                <p class="achievement-status">Locked · +1 powder/min on unlock.</p>
+                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
               </div>
             </li>
             <li data-achievement-id="series-summoner">
@@ -1141,9 +1140,9 @@
               <div>
                 <p class="achievement-title">Series Summoner</p>
                 <p class="achievement-sub">
-                  Drive the powder rituals to a ×1.25 total multiplier or higher.
+                  Drive the mote rituals to a ×1.25 total multiplier or higher.
                 </p>
-                <p class="achievement-status">Locked · +1 powder/min on unlock.</p>
+                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
               </div>
             </li>
             <li data-achievement-id="zero-hunter">
@@ -1153,7 +1152,7 @@
                 <p class="achievement-sub">
                   Defeat 30 invading glyphs—zeros fall when persistence converges.
                 </p>
-                <p class="achievement-status">Locked · +1 powder/min on unlock.</p>
+                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
               </div>
             </li>
             <li data-achievement-id="golden-mentor">
@@ -1163,17 +1162,17 @@
                 <p class="achievement-sub">
                   Auto-lattice every suggested anchor to teach the grid your golden ratios.
                 </p>
-                <p class="achievement-status">Locked · +1 powder/min on unlock.</p>
+                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
               </div>
             </li>
             <li data-achievement-id="powder-archivist">
               <span class="achievement-badge">Ψ</span>
               <div>
-                <p class="achievement-title">Powder Archivist</p>
+                <p class="achievement-title">Mote Archivist</p>
                 <p class="achievement-sub">
                   Illuminate three sand sigils on the wall to archive the dunes.
                 </p>
-                <p class="achievement-status">Locked · +1 powder/min on unlock.</p>
+                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
               </div>
             </li>
             <li data-achievement-id="keystone-keeper">
@@ -1183,7 +1182,7 @@
                 <p class="achievement-sub">
                   Complete any idle auto-run to bind a keystone into the archives.
                 </p>
-                <p class="achievement-status">Locked · +1 powder/min on unlock.</p>
+                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
               </div>
             </li>
             <li data-achievement-id="temporal-sifter">
@@ -1191,9 +1190,9 @@
               <div>
                 <p class="achievement-title">Temporal Sifter</p>
                 <p class="achievement-sub">
-                  Maintain idle auto-runs for 10 cumulative minutes and sift the bonus powder.
+                  Maintain idle auto-runs for 10 cumulative minutes and sift the bonus motes.
                 </p>
-                <p class="achievement-status">Locked · +1 powder/min on unlock.</p>
+                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
               </div>
             </li>
           </ul>
@@ -1238,7 +1237,8 @@
             </div>
             <p class="enemy-codex-note" id="enemy-codex-empty">Encounter enemies to unlock their entries.</p>
             <p class="enemy-codex-note" id="enemy-codex-note" hidden>
-              Known enemy glyphs are cataloged below for quick reference.
+              Known enemy glyphs and Scintilla Glyph lore from the Tower of Inspiration are
+              cataloged below for quick reference.
             </p>
             <div class="enemy-grid" id="enemy-codex-list" role="list"></div>
           </section>
@@ -1286,7 +1286,7 @@
           aria-pressed="false"
         >
           <span class="tab-icon">⧖</span>
-          <span class="tab-label">Powder</span>
+          <span class="tab-label">Motes</span>
         </button>
         <button
           class="tab-button"
