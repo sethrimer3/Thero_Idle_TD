@@ -916,6 +916,35 @@ body.color-scheme-chromatic::before {
   letter-spacing: 0.04em;
 }
 
+.enemy-card-glyph {
+  margin: 0 0 8px;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.enemy-card-symbol {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.6rem;
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(139, 247, 255, 0.45);
+}
+
+.enemy-card-symbol-exponent {
+  font-family: "Space Mono", monospace;
+  font-size: 0.9rem;
+  color: #ff375f;
+  text-shadow: 0 0 12px rgba(255, 70, 95, 0.9);
+  margin-left: 3px;
+}
+
+.enemy-card-glyph-note {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+
 .enemy-card-summary {
   margin: 0 0 10px;
   font-size: 0.9rem;
