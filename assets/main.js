@@ -225,6 +225,8 @@
 
   const levelLookup = new Map(levelBlueprints.map((level) => [level.id, level]));
   const levelState = new Map();
+  const interactiveLevelOrder = Array.from(levelConfigs.keys());
+  const unlockedLevels = new Set([firstLevelConfig.id]);
 
   let tabs = [];
   let panels = [];
@@ -262,6 +264,48 @@
     towerId: null,
     element: null,
   };
+
+  function isInteractiveLevel(levelId) {
+    return levelConfigs.has(levelId);
+  }
+
+  function isLevelUnlocked(levelId) {
+    if (!levelId) {
+      return false;
+    }
+    if (!isInteractiveLevel(levelId)) {
+      return true;
+    }
+    return unlockedLevels.has(levelId);
+  }
+
+  function unlockLevel(levelId) {
+    if (!levelId || !isInteractiveLevel(levelId)) {
+      return;
+    }
+    if (!unlockedLevels.has(levelId)) {
+      unlockedLevels.add(levelId);
+    }
+  }
+
+  function unlockNextInteractiveLevel(levelId) {
+    const index = interactiveLevelOrder.indexOf(levelId);
+    if (index < 0) {
+      return;
+    }
+    const nextId = interactiveLevelOrder[index + 1];
+    if (nextId) {
+      unlockLevel(nextId);
+    }
+  }
+
+  function getPreviousInteractiveLevelId(levelId) {
+    const index = interactiveLevelOrder.indexOf(levelId);
+    if (index <= 0) {
+      return null;
+    }
+    return interactiveLevelOrder[index - 1] || null;
+  }
 
   const enemyCodexElements = {
     list: null,
@@ -853,10 +897,336 @@
     ],
   };
 
+  const levelTwoConfig = {
+    id: 'Conjecture - 2',
+    displayName: 'Collatz Cascade',
+    startThero: 180,
+    theroCap: 420,
+    theroPerKill: 22,
+    passiveTheroPerSecond: 10,
+    lives: 5,
+    waves: [
+      {
+        label: 'cascade sparks',
+        count: 7,
+        interval: 1.5,
+        hp: 110,
+        speed: 0.09,
+        reward: 14,
+        color: 'rgba(144, 206, 255, 0.9)',
+        codexId: 'etype',
+      },
+      {
+        label: 'odd sentries',
+        count: 5,
+        interval: 1.8,
+        hp: 190,
+        speed: 0.1,
+        reward: 22,
+        color: 'rgba(255, 150, 245, 0.92)',
+        codexId: 'divisor',
+      },
+      {
+        label: 'collatz elites',
+        count: 4,
+        interval: 2.2,
+        hp: 260,
+        speed: 0.11,
+        reward: 30,
+        color: 'rgba(255, 198, 120, 0.95)',
+        codexId: 'prime',
+      },
+      {
+        label: 'hailstone predators',
+        count: 2,
+        interval: 2.8,
+        hp: 420,
+        speed: 0.105,
+        reward: 40,
+        color: 'rgba(255, 102, 154, 0.95)',
+        codexId: 'reversal',
+      },
+    ],
+    rewardScore: 2.4 * 10 ** 44,
+    rewardFlux: 60,
+    rewardThero: 46,
+    rewardEnergy: 46,
+    arcSpeed: 0.24,
+    path: [
+      { x: 0.06, y: 0.86 },
+      { x: 0.16, y: 0.7 },
+      { x: 0.26, y: 0.58 },
+      { x: 0.36, y: 0.64 },
+      { x: 0.46, y: 0.46 },
+      { x: 0.56, y: 0.28 },
+      { x: 0.68, y: 0.34 },
+      { x: 0.78, y: 0.52 },
+      { x: 0.88, y: 0.38 },
+      { x: 0.94, y: 0.16 },
+    ],
+    autoAnchors: [
+      { x: 0.2, y: 0.68 },
+      { x: 0.34, y: 0.54 },
+      { x: 0.54, y: 0.34 },
+      { x: 0.74, y: 0.5 },
+    ],
+  };
+
+  const levelThreeConfig = {
+    id: 'Conjecture - 3',
+    displayName: 'Riemann Helix',
+    startThero: 210,
+    theroCap: 480,
+    theroPerKill: 24,
+    passiveTheroPerSecond: 11,
+    lives: 6,
+    waves: [
+      {
+        label: 'ζ scouts',
+        count: 8,
+        interval: 1.4,
+        hp: 150,
+        speed: 0.085,
+        reward: 18,
+        color: 'rgba(130, 235, 255, 0.92)',
+        codexId: 'etype',
+      },
+      {
+        label: 'harmonic drifters',
+        count: 5,
+        interval: 1.7,
+        hp: 240,
+        speed: 0.095,
+        reward: 24,
+        color: 'rgba(255, 170, 235, 0.92)',
+        codexId: 'divisor',
+      },
+      {
+        label: 'zero phantoms',
+        count: 4,
+        interval: 2.1,
+        hp: 360,
+        speed: 0.1,
+        reward: 34,
+        color: 'rgba(255, 210, 140, 0.95)',
+        codexId: 'prime',
+      },
+      {
+        label: 'helical wardens',
+        count: 3,
+        interval: 2.5,
+        hp: 520,
+        speed: 0.11,
+        reward: 46,
+        color: 'rgba(255, 120, 190, 0.95)',
+        codexId: 'reversal',
+      },
+    ],
+    rewardScore: 3.2 * 10 ** 44,
+    rewardFlux: 72,
+    rewardThero: 54,
+    rewardEnergy: 54,
+    arcSpeed: 0.26,
+    path: [
+      { x: 0.08, y: 0.9 },
+      { x: 0.2, y: 0.72 },
+      { x: 0.32, y: 0.58 },
+      { x: 0.44, y: 0.5 },
+      { x: 0.52, y: 0.6 },
+      { x: 0.62, y: 0.78 },
+      { x: 0.74, y: 0.64 },
+      { x: 0.84, y: 0.44 },
+      { x: 0.92, y: 0.26 },
+      { x: 0.96, y: 0.12 },
+    ],
+    autoAnchors: [
+      { x: 0.22, y: 0.68 },
+      { x: 0.4, y: 0.52 },
+      { x: 0.58, y: 0.68 },
+      { x: 0.78, y: 0.46 },
+    ],
+  };
+
+  const levelFourConfig = {
+    id: 'Conjecture - 4',
+    displayName: 'Twin Prime Fork',
+    startThero: 240,
+    theroCap: 520,
+    theroPerKill: 28,
+    passiveTheroPerSecond: 12,
+    lives: 6,
+    waves: [
+      {
+        label: 'twin outriders',
+        count: 8,
+        interval: 1.3,
+        hp: 180,
+        speed: 0.09,
+        reward: 20,
+        color: 'rgba(140, 240, 255, 0.92)',
+        codexId: 'etype',
+      },
+      {
+        label: 'gap stalkers',
+        count: 6,
+        interval: 1.6,
+        hp: 280,
+        speed: 0.105,
+        reward: 28,
+        color: 'rgba(255, 155, 240, 0.93)',
+        codexId: 'divisor',
+      },
+      {
+        label: 'prime twisters',
+        count: 4,
+        interval: 2,
+        hp: 420,
+        speed: 0.12,
+        reward: 38,
+        color: 'rgba(255, 210, 130, 0.96)',
+        codexId: 'prime',
+      },
+      {
+        label: 'forked vanguards',
+        count: 3,
+        interval: 2.6,
+        hp: 640,
+        speed: 0.13,
+        reward: 52,
+        color: 'rgba(255, 110, 170, 0.96)',
+        codexId: 'reversal',
+      },
+      {
+        label: 'lane shifters',
+        count: 2,
+        interval: 3,
+        hp: 820,
+        speed: 0.135,
+        reward: 60,
+        color: 'rgba(180, 255, 170, 0.96)',
+        codexId: 'prime',
+      },
+    ],
+    rewardScore: 4.4 * 10 ** 44,
+    rewardFlux: 86,
+    rewardThero: 62,
+    rewardEnergy: 62,
+    arcSpeed: 0.28,
+    path: [
+      { x: 0.06, y: 0.88 },
+      { x: 0.18, y: 0.7 },
+      { x: 0.3, y: 0.78 },
+      { x: 0.42, y: 0.58 },
+      { x: 0.52, y: 0.36 },
+      { x: 0.64, y: 0.5 },
+      { x: 0.76, y: 0.7 },
+      { x: 0.88, y: 0.48 },
+      { x: 0.94, y: 0.26 },
+      { x: 0.88, y: 0.1 },
+    ],
+    autoAnchors: [
+      { x: 0.2, y: 0.74 },
+      { x: 0.38, y: 0.6 },
+      { x: 0.58, y: 0.42 },
+      { x: 0.76, y: 0.62 },
+    ],
+  };
+
+  const levelFiveConfig = {
+    id: 'Conjecture - 5',
+    displayName: 'Birch Flow',
+    startThero: 280,
+    theroCap: 600,
+    theroPerKill: 32,
+    passiveTheroPerSecond: 14,
+    lives: 7,
+    waves: [
+      {
+        label: 'birch scouts',
+        count: 9,
+        interval: 1.2,
+        hp: 220,
+        speed: 0.09,
+        reward: 24,
+        color: 'rgba(150, 240, 255, 0.92)',
+        codexId: 'etype',
+      },
+      {
+        label: 'elliptic couriers',
+        count: 7,
+        interval: 1.5,
+        hp: 340,
+        speed: 0.11,
+        reward: 32,
+        color: 'rgba(255, 160, 235, 0.93)',
+        codexId: 'divisor',
+      },
+      {
+        label: 'rank guardians',
+        count: 5,
+        interval: 1.9,
+        hp: 520,
+        speed: 0.12,
+        reward: 44,
+        color: 'rgba(255, 210, 150, 0.96)',
+        codexId: 'prime',
+      },
+      {
+        label: 'river sentries',
+        count: 4,
+        interval: 2.3,
+        hp: 760,
+        speed: 0.13,
+        reward: 58,
+        color: 'rgba(255, 130, 190, 0.96)',
+        codexId: 'reversal',
+      },
+      {
+        label: 'swinnerton lords',
+        count: 2,
+        interval: 2.9,
+        hp: 1100,
+        speed: 0.135,
+        reward: 72,
+        color: 'rgba(200, 255, 190, 0.96)',
+        codexId: 'prime',
+      },
+    ],
+    rewardScore: 6 * 10 ** 44,
+    rewardFlux: 102,
+    rewardThero: 70,
+    rewardEnergy: 70,
+    arcSpeed: 0.3,
+    path: [
+      { x: 0.08, y: 0.92 },
+      { x: 0.18, y: 0.78 },
+      { x: 0.26, y: 0.62 },
+      { x: 0.38, y: 0.5 },
+      { x: 0.5, y: 0.38 },
+      { x: 0.62, y: 0.44 },
+      { x: 0.74, y: 0.64 },
+      { x: 0.84, y: 0.54 },
+      { x: 0.92, y: 0.32 },
+      { x: 0.96, y: 0.16 },
+    ],
+    autoAnchors: [
+      { x: 0.22, y: 0.76 },
+      { x: 0.36, y: 0.56 },
+      { x: 0.56, y: 0.44 },
+      { x: 0.76, y: 0.6 },
+    ],
+  };
+
+  const levelConfigs = new Map(
+    [firstLevelConfig, levelTwoConfig, levelThreeConfig, levelFourConfig, levelFiveConfig].map(
+      (config) => [config.id, config],
+    ),
+  );
+
   const idleLevelConfigs = new Map();
 
   levelBlueprints.forEach((level, index) => {
-    if (level.id === firstLevelConfig.id) {
+    if (levelConfigs.has(level.id)) {
       return;
     }
 
@@ -1557,6 +1927,7 @@
       this.startButton = options.startButton || null;
       this.speedButton = options.speedButton || null;
       this.autoAnchorButton = options.autoAnchorButton || null;
+      this.autoWaveCheckbox = options.autoWaveCheckbox || null;
       this.speedMultipliers =
         Array.isArray(options.speedMultipliers) && options.speedMultipliers.length
           ? options.speedMultipliers.slice()
@@ -1587,6 +1958,16 @@
       this.waveTimer = 0;
       this.activeWave = null;
       this.enemyIdCounter = 0;
+      this.baseWaveCount = 0;
+      this.currentWaveNumber = 1;
+      this.maxWaveReached = 0;
+      this.isEndlessMode = false;
+      this.endlessCycle = 0;
+      this.initialSpawnDelay = 0;
+      this.autoWaveEnabled = true;
+      this.autoStartLeadTime = 5;
+      this.autoStartTimer = null;
+      this.autoStartDeadline = 0;
 
       this.pathSegments = [];
       this.pathLength = 0;
@@ -1623,6 +2004,7 @@
       this.bindStartButton();
       this.bindSpeedButton();
       this.bindAutoAnchorButton();
+      this.bindAutoWaveCheckbox();
       this.attachResizeObservers();
       this.attachCanvasInteractions();
       this.createEnemyTooltip();
@@ -1755,7 +2137,7 @@
         if (!this.isInteractiveLevelActive()) {
           if (this.messageEl) {
             this.messageEl.textContent =
-              'Enter Lemniscate Hypothesis to adjust the simulation speed.';
+              'Enter an interactive level to adjust the simulation speed.';
           }
           return;
         }
@@ -1777,12 +2159,93 @@
         if (!this.isInteractiveLevelActive()) {
           if (this.messageEl) {
             this.messageEl.textContent =
-              'Enter Lemniscate Hypothesis to auto-lattice recommended anchors.';
+              'Enter an interactive level to auto-lattice recommended anchors.';
           }
           return;
         }
         this.autoAnchorTowers();
       });
+    }
+
+    bindAutoWaveCheckbox() {
+      if (!this.autoWaveCheckbox) {
+        return;
+      }
+      this.autoWaveCheckbox.checked = this.autoWaveEnabled;
+      this.autoWaveCheckbox.disabled = true;
+      this.autoWaveCheckbox.addEventListener('change', () => {
+        if (!this.autoWaveCheckbox) {
+          return;
+        }
+        this.autoWaveEnabled = this.autoWaveCheckbox.checked;
+        if (!this.levelActive || !this.levelConfig || this.combatActive) {
+          if (!this.autoWaveEnabled) {
+            this.cancelAutoStart();
+          }
+          return;
+        }
+        if (this.autoWaveEnabled) {
+          this.scheduleAutoStart({ delay: this.autoStartLeadTime });
+        } else {
+          this.cancelAutoStart();
+          if (this.messageEl) {
+            this.messageEl.textContent =
+              'Auto-start disabled—commence waves when your lattice is ready.';
+          }
+        }
+      });
+    }
+
+    scheduleAutoStart(options = {}) {
+      if (
+        !this.autoWaveEnabled ||
+        !this.levelActive ||
+        !this.levelConfig ||
+        this.combatActive
+      ) {
+        return;
+      }
+      const delay = Number.isFinite(options.delay)
+        ? Math.max(0, options.delay)
+        : this.autoStartLeadTime;
+      this.cancelAutoStart();
+      if (typeof window === 'undefined') {
+        return;
+      }
+      this.autoStartDeadline = Date.now() + delay * 1000;
+      this.autoStartTimer = window.setTimeout(() => {
+        this.autoStartTimer = null;
+        this.tryAutoStart();
+      }, delay * 1000);
+    }
+
+    cancelAutoStart() {
+      if (this.autoStartTimer) {
+        clearTimeout(this.autoStartTimer);
+        this.autoStartTimer = null;
+      }
+      this.autoStartDeadline = 0;
+    }
+
+    tryAutoStart() {
+      if (
+        !this.autoWaveEnabled ||
+        !this.levelActive ||
+        !this.levelConfig ||
+        this.combatActive
+      ) {
+        return;
+      }
+      if (!this.towers.length) {
+        if (this.messageEl) {
+          this.messageEl.textContent =
+            'Awaiting lattice placements—auto-start resumes once towers are in place.';
+        }
+        this.scheduleAutoStart({ delay: 1.5 });
+        return;
+      }
+      this.autoStartDeadline = 0;
+      this.handleStartButton();
     }
 
     attachResizeObservers() {
@@ -1910,21 +2373,33 @@
       this.animationId = requestAnimationFrame((nextTimestamp) => this.tick(nextTimestamp));
     }
 
-    enterLevel(level) {
+    enterLevel(level, options = {}) {
       if (!this.container) {
         return;
       }
 
+      const levelId = level?.id;
+      const config = levelId ? levelConfigs.get(levelId) : null;
+      const isInteractive = Boolean(config);
+      const endlessMode = Boolean(options.endlessMode);
+
       if (this.audio) {
-        const track = level && level.id === firstLevelConfig.id ? 'preparation' : 'menu';
-        this.audio.playMusic(track, { restart: Boolean(level && level.id === firstLevelConfig.id) });
+        const track = isInteractive ? 'preparation' : 'menu';
+        this.audio.playMusic(track, { restart: isInteractive });
       }
 
-      if (!level || level.id !== firstLevelConfig.id) {
+      this.cancelAutoStart();
+
+      if (!isInteractive) {
         this.levelActive = false;
         this.levelConfig = null;
         this.combatActive = false;
         this.shouldAnimate = false;
+        this.isEndlessMode = false;
+        this.endlessCycle = 0;
+        this.baseWaveCount = 0;
+        this.currentWaveNumber = 1;
+        this.maxWaveReached = 0;
         this.stopLoop();
         this.disableSlots(true);
         this.enemies = [];
@@ -1932,6 +2407,10 @@
         this.towers = [];
         this.energy = 0;
         this.lives = 0;
+        if (this.autoWaveCheckbox) {
+          this.autoWaveCheckbox.checked = this.autoWaveEnabled;
+          this.autoWaveCheckbox.disabled = true;
+        }
         if (this.ctx) {
           this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
@@ -1942,7 +2421,7 @@
         if (this.healthEl) this.healthEl.textContent = '—';
         if (this.energyEl) this.energyEl.textContent = '—';
         if (this.progressEl) {
-          this.progressEl.textContent = 'Select Lemniscate Hypothesis to battle.';
+          this.progressEl.textContent = 'Select an unlocked level to battle.';
         }
         if (this.startButton) {
           this.startButton.textContent = 'Preview Only';
@@ -1954,8 +2433,22 @@
         return;
       }
 
+      const clonedConfig = {
+        ...config,
+        waves: config.waves.map((wave) => ({ ...wave })),
+        path: config.path.map((node) => ({ ...node })),
+        autoAnchors: Array.isArray(config.autoAnchors)
+          ? config.autoAnchors.map((anchor) => ({ ...anchor }))
+          : [],
+      };
+
       this.levelActive = true;
-      this.levelConfig = firstLevelConfig;
+      this.levelConfig = clonedConfig;
+      this.baseWaveCount = clonedConfig.waves.length;
+      this.isEndlessMode = endlessMode;
+      this.endlessCycle = 0;
+      this.currentWaveNumber = 1;
+      this.maxWaveReached = 0;
       this.setAvailableTowers(towerLoadoutState.selected);
       this.shouldAnimate = true;
       this.resetState();
@@ -1967,12 +2460,22 @@
         this.startButton.textContent = 'Commence Wave';
         this.startButton.disabled = false;
       }
+      if (this.autoWaveCheckbox) {
+        this.autoWaveCheckbox.disabled = false;
+        this.autoWaveCheckbox.checked = this.autoWaveEnabled;
+      }
       if (this.messageEl) {
-        this.messageEl.textContent =
-          'Drag glyph chips from your loadout anywhere on the plane—no fixed anchors required.';
+        this.messageEl.textContent = this.isEndlessMode
+          ? 'Endless defense unlocked—survive as the waves loop.'
+          : 'Drag glyph chips from your loadout anywhere on the plane—no fixed anchors required.';
       }
       if (this.progressEl) {
-        this.progressEl.textContent = 'Wave prep underway.';
+        this.progressEl.textContent = this.isEndlessMode
+          ? 'Waves loop infinitely. Each completed cycle multiplies enemy strength ×10.'
+          : 'Wave prep underway.';
+      }
+      if (this.autoWaveEnabled) {
+        this.scheduleAutoStart({ delay: this.autoStartLeadTime });
       }
       this.updateHud();
       this.updateProgress();
@@ -1988,6 +2491,7 @@
       this.levelConfig = null;
       this.combatActive = false;
       this.shouldAnimate = false;
+      this.cancelAutoStart();
       this.stopLoop();
       this.disableSlots(true);
       this.enemies = [];
@@ -1998,6 +2502,11 @@
       this.lives = 0;
       this.resolvedOutcome = null;
       this.arcOffset = 0;
+      this.isEndlessMode = false;
+      this.endlessCycle = 0;
+      this.baseWaveCount = 0;
+      this.currentWaveNumber = 1;
+      this.maxWaveReached = 0;
       this.setAvailableTowers([]);
       cancelTowerDrag();
       if (this.ctx) {
@@ -2013,6 +2522,10 @@
       if (this.startButton) {
         this.startButton.textContent = 'Commence Wave';
         this.startButton.disabled = true;
+      }
+      if (this.autoWaveCheckbox) {
+        this.autoWaveCheckbox.checked = this.autoWaveEnabled;
+        this.autoWaveCheckbox.disabled = true;
       }
       this.updateSpeedButton();
       this.updateAutoAnchorButton();
@@ -2034,6 +2547,9 @@
       this.arcOffset = 0;
       this.combatActive = false;
       this.resolvedOutcome = null;
+      this.endlessCycle = 0;
+      this.currentWaveNumber = 1;
+      this.maxWaveReached = 0;
       this.enemies = [];
       this.projectiles = [];
       this.towers = [];
@@ -2080,7 +2596,7 @@
 
     isInteractiveLevelActive() {
       return Boolean(
-        this.levelActive && this.levelConfig && this.levelConfig.id === firstLevelConfig.id,
+        this.levelActive && this.levelConfig && levelConfigs.has(this.levelConfig.id),
       );
     }
 
@@ -2767,7 +3283,7 @@
       if (!this.levelActive || !this.levelConfig) {
         if (this.messageEl) {
           this.messageEl.textContent =
-            'Select Lemniscate Hypothesis, then etch α lattices directly onto the canvas.';
+            'Select an unlocked defense, then etch α lattices directly onto the canvas.';
         }
         return;
       }
@@ -2809,6 +3325,7 @@
         this.audio.playMusic('combat', { restart: true });
       }
 
+      this.cancelAutoStart();
       this.combatActive = true;
       this.resolvedOutcome = null;
       this.waveIndex = 0;
@@ -2816,15 +3333,16 @@
       this.enemyIdCounter = 0;
       this.enemies = [];
       this.projectiles = [];
-      this.activeWave = this.createWaveState(this.levelConfig.waves[0]);
+      this.activeWave = this.createWaveState(this.levelConfig.waves[0], { initialWave: true });
       this.lives = this.levelConfig.lives;
+      this.markWaveStart();
 
       if (this.startButton) {
         this.startButton.disabled = true;
         this.startButton.textContent = 'Wave Running';
       }
       if (this.messageEl) {
-        this.messageEl.textContent = `Wave 1 — ${this.activeWave.config.label} advance.`;
+        this.messageEl.textContent = `Wave ${this.currentWaveNumber} — ${this.activeWave.config.label} advance.`;
       }
       this.updateHud();
       this.updateProgress();
@@ -2834,11 +3352,48 @@
       }
     }
 
-    createWaveState(config) {
+    getCycleMultiplier() {
+      return this.isEndlessMode ? 10 ** this.endlessCycle : 1;
+    }
+
+    computeWaveNumber(index = this.waveIndex) {
+      if (!this.levelConfig) {
+        return 0;
+      }
+      const total = this.baseWaveCount || this.levelConfig.waves.length || 0;
+      if (!this.isEndlessMode) {
+        return index + 1;
+      }
+      return this.endlessCycle * total + index + 1;
+    }
+
+    markWaveStart() {
+      const waveNumber = this.computeWaveNumber();
+      this.currentWaveNumber = waveNumber > 0 ? waveNumber : 1;
+      this.maxWaveReached = Math.max(this.maxWaveReached, this.currentWaveNumber);
+    }
+
+    createWaveState(config, options = {}) {
+      if (!config) {
+        return null;
+      }
+      const { initialWave = false } = options;
+      const multiplier = this.getCycleMultiplier();
+      const scaledHp = Number.isFinite(config.hp) ? config.hp * multiplier : config.hp;
+      const scaledSpeed = Number.isFinite(config.speed) ? config.speed * multiplier : config.speed;
+      const scaledReward = Number.isFinite(config.reward)
+        ? config.reward * multiplier
+        : config.reward;
       return {
-        config,
+        config: {
+          ...config,
+          hp: scaledHp,
+          speed: scaledSpeed,
+          reward: scaledReward,
+        },
         spawned: 0,
-        nextSpawn: 0,
+        nextSpawn: initialWave ? this.initialSpawnDelay : 0,
+        multiplier,
       };
     }
 
@@ -2997,6 +3552,21 @@
       }
 
       if (this.waveIndex + 1 >= this.levelConfig.waves.length) {
+        if (this.isEndlessMode) {
+          this.endlessCycle += 1;
+          this.waveIndex = 0;
+          this.activeWave = this.createWaveState(this.levelConfig.waves[this.waveIndex]);
+          this.waveTimer = 0;
+          this.markWaveStart();
+          if (this.messageEl) {
+            this.messageEl.textContent = `Wave ${this.currentWaveNumber} — ${
+              this.activeWave.config.label
+            }.`;
+          }
+          this.updateHud();
+          this.updateProgress();
+          return;
+        }
         this.handleVictory();
         return;
       }
@@ -3004,8 +3574,9 @@
       this.waveIndex += 1;
       this.activeWave = this.createWaveState(this.levelConfig.waves[this.waveIndex]);
       this.waveTimer = 0;
+      this.markWaveStart();
       if (this.messageEl) {
-        this.messageEl.textContent = `Wave ${this.waveIndex + 1} — ${this.activeWave.config.label}.`;
+        this.messageEl.textContent = `Wave ${this.currentWaveNumber} — ${this.activeWave.config.label}.`;
       }
       this.updateHud();
       this.updateProgress();
@@ -3074,12 +3645,15 @@
       const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
       const reward = this.levelConfig.rewardThero ?? this.levelConfig.rewardEnergy ?? 0;
       this.energy = Math.min(cap, this.energy + reward);
+      this.currentWaveNumber = this.baseWaveCount || this.currentWaveNumber;
+      this.maxWaveReached = Math.max(this.maxWaveReached, this.currentWaveNumber);
       if (this.startButton) {
         this.startButton.disabled = false;
         this.startButton.textContent = 'Run Again';
       }
       if (this.messageEl) {
-        this.messageEl.textContent = 'Victory! The lemniscate is sealed.';
+        const title = this.levelConfig.displayName || 'Defense';
+        this.messageEl.textContent = `Victory! ${title} is sealed.`;
       }
       this.updateHud();
       this.updateProgress();
@@ -3091,6 +3665,7 @@
           rewardEnergy: this.levelConfig.rewardEnergy,
           towers: this.towers.length,
           lives: this.lives,
+          maxWave: this.maxWaveReached,
         });
       }
       updateStatusDisplays();
@@ -3110,18 +3685,23 @@
       const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
       const baseline = this.levelConfig.startThero ?? this.levelConfig.startEnergy ?? 0;
       this.energy = Math.min(cap, Math.max(this.energy, baseline));
+      this.maxWaveReached = Math.max(this.maxWaveReached, this.currentWaveNumber);
       if (this.startButton) {
         this.startButton.disabled = false;
         this.startButton.textContent = 'Retry Wave';
       }
       if (this.messageEl) {
-        this.messageEl.textContent = 'Defense collapsed—recalibrate the anchors and retry.';
+        const waveLabel = this.maxWaveReached > 0 ? ` at wave ${this.maxWaveReached}` : '';
+        this.messageEl.textContent = `Defense collapsed${waveLabel}—recalibrate the anchors and retry.`;
       }
       this.updateHud();
       this.updateProgress();
       updateStatusDisplays();
       if (this.onDefeat) {
-        this.onDefeat(this.levelConfig.id, { towers: this.towers.length });
+        this.onDefeat(this.levelConfig.id, {
+          towers: this.towers.length,
+          maxWave: this.maxWaveReached,
+        });
       }
     }
 
@@ -3130,11 +3710,18 @@
         if (!this.levelConfig) {
           this.waveEl.textContent = '—';
         } else {
-          const total = this.levelConfig.waves.length;
-          const displayWave = this.combatActive
-            ? this.waveIndex + 1
-            : Math.min(this.waveIndex + 1, total);
-          this.waveEl.textContent = `${displayWave}/${total}`;
+          if (this.isEndlessMode) {
+            const displayWave = this.combatActive
+              ? this.currentWaveNumber
+              : Math.max(1, this.currentWaveNumber || 1);
+            this.waveEl.textContent = `Wave ${displayWave}`;
+          } else {
+            const total = this.levelConfig.waves.length;
+            const displayWave = this.combatActive
+              ? this.waveIndex + 1
+              : Math.min(this.waveIndex + 1, total);
+            this.waveEl.textContent = `${displayWave}/${total}`;
+          }
         }
       }
 
@@ -3168,23 +3755,41 @@
 
       if (!this.combatActive) {
         if (this.resolvedOutcome === 'victory') {
-          this.progressEl.textContent = 'Victory sealed—glyph flux stabilized.';
+          const title = this.levelConfig.displayName || 'Defense';
+          this.progressEl.textContent = `${title} stabilized—victory sealed.`;
         } else if (this.resolvedOutcome === 'defeat') {
-          this.progressEl.textContent = 'Defense collapsed—rebuild the proof lattice.';
+          const waveNote = this.maxWaveReached > 0 ? ` Reached wave ${this.maxWaveReached}.` : '';
+          this.progressEl.textContent = `Defense collapsed—rebuild the proof lattice.${waveNote}`;
         } else {
-          this.progressEl.textContent = 'Wave prep underway.';
+          const remainingMs =
+            this.autoWaveEnabled && this.autoStartDeadline
+              ? this.autoStartDeadline - Date.now()
+              : 0;
+          if (remainingMs > 0) {
+            const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
+            const intro = this.isEndlessMode ? 'Endless mode primed' : 'Wave prep underway';
+            this.progressEl.textContent = `${intro}—auto-start in ${seconds}s.`;
+          } else {
+            this.progressEl.textContent = this.isEndlessMode
+              ? 'Endless mode primed—auto-start will trigger after preparations.'
+              : 'Wave prep underway.';
+          }
         }
         return;
       }
 
       const total = this.levelConfig.waves.length;
-      const current = Math.min(this.waveIndex + 1, total);
       const remainingInWave = this.activeWave
         ? Math.max(0, this.activeWave.config.count - this.activeWave.spawned)
         : 0;
       const remaining = remainingInWave + this.enemies.length;
       const label = this.levelConfig.waves[this.waveIndex]?.label || 'glyphs';
-      this.progressEl.textContent = `Wave ${current}/${total} — ${remaining} ${label} remaining.`;
+      if (this.isEndlessMode) {
+        this.progressEl.textContent = `Wave ${this.currentWaveNumber} — ${remaining} ${label} remaining.`;
+      } else {
+        const current = Math.min(this.waveIndex + 1, total);
+        this.progressEl.textContent = `Wave ${current}/${total} — ${remaining} ${label} remaining.`;
+      }
     }
 
     getCanvasPosition(normalized) {
@@ -3452,7 +4057,7 @@
   }
 
   function beginIdleLevelRun(level) {
-    if (!level || level.id === firstLevelConfig.id) {
+    if (!level || isInteractiveLevel(level.id)) {
       return;
     }
 
@@ -3491,7 +4096,7 @@
       levelState.set(levelId, { ...state, running: false });
     }
 
-    if (levelId === activeLevelId && levelId !== firstLevelConfig.id) {
+    if (levelId === activeLevelId && !isInteractiveLevel(levelId)) {
       updateIdleLevelDisplay();
     }
   }
@@ -3507,7 +4112,7 @@
   }
 
   function completeIdleLevelRun(levelId, runner) {
-    if (!levelId || levelId === firstLevelConfig.id) {
+    if (!levelId || isInteractiveLevel(levelId)) {
       return;
     }
 
@@ -3527,7 +4132,7 @@
 
   function updateIdleRuns(timestamp) {
     if (!idleLevelRuns.size) {
-      if (activeLevelId && activeLevelId !== firstLevelConfig.id) {
+      if (activeLevelId && !isInteractiveLevel(activeLevelId)) {
         updateIdleLevelDisplay();
       }
       return;
@@ -3557,13 +4162,13 @@
 
     updateLevelCards();
 
-    if (activeLevelId && activeLevelId !== firstLevelConfig.id) {
+    if (activeLevelId && !isInteractiveLevel(activeLevelId)) {
       updateIdleLevelDisplay(idleLevelRuns.get(activeLevelId) || null);
     }
   }
 
   function updateIdleLevelDisplay(activeRunner = null) {
-    if (!activeLevelId || activeLevelId === firstLevelConfig.id) {
+    if (!activeLevelId || isInteractiveLevel(activeLevelId)) {
       return;
     }
 
@@ -3645,11 +4250,13 @@
       completed: false,
     };
     const alreadyCompleted = Boolean(existing.completed);
+    const bestWave = Math.max(existing.bestWave || 0, stats.maxWave || 0);
     const updated = {
       ...existing,
       entered: true,
       running: false,
       completed: true,
+      bestWave,
       lastResult: { outcome: 'victory', stats, timestamp: Date.now() },
     };
     levelState.set(levelId, updated);
@@ -3667,6 +4274,7 @@
       if (typeof stats.rewardEnergy === 'number') {
         baseResources.energyRate += stats.rewardEnergy;
       }
+      unlockNextInteractiveLevel(levelId);
       updateResourceRates();
       updatePowderLedger();
     } else {
@@ -3687,11 +4295,13 @@
       running: false,
       completed: false,
     };
+    const bestWave = Math.max(existing.bestWave || 0, stats.maxWave || 0);
     const updated = {
       ...existing,
       entered: true,
       running: false,
       completed: existing.completed,
+      bestWave,
       lastResult: { outcome: 'defeat', stats, timestamp: Date.now() },
     };
     levelState.set(levelId, updated);
@@ -3826,6 +4436,19 @@
       lastLevelTrigger = null;
     }
 
+    if (!isLevelUnlocked(level.id)) {
+      const requirementId = getPreviousInteractiveLevelId(level.id);
+      const requirement = requirementId ? levelLookup.get(requirementId) : null;
+      const requirementLabel = requirement
+        ? `${requirement.id} · ${requirement.title}`
+        : 'the preceding defense';
+      if (playfield?.messageEl) {
+        playfield.messageEl.textContent = `Seal ${requirementLabel} to unlock ${level.id}.`;
+      }
+      lastLevelTrigger = null;
+      return;
+    }
+
     const otherActiveId = activeLevelId && activeLevelId !== level.id ? activeLevelId : null;
     const otherActiveState = otherActiveId ? levelState.get(otherActiveId) : null;
     const requiresExitConfirm = Boolean(
@@ -3930,8 +4553,23 @@
       running: false,
       completed: false,
     };
-    const isInteractive = level.id === firstLevelConfig.id;
-    const updatedState = { ...currentState, entered: true, running: !isInteractive ? true : false };
+    const isInteractive = isInteractiveLevel(level.id);
+    if (isInteractive && !isLevelUnlocked(level.id)) {
+      if (playfield?.messageEl) {
+        const requiredId = getPreviousInteractiveLevelId(level.id);
+        const requiredLevel = requiredId ? levelLookup.get(requiredId) : null;
+        const requirementLabel = requiredLevel
+          ? `${requiredLevel.id} · ${requiredLevel.title}`
+          : 'the previous defense';
+        playfield.messageEl.textContent = `Seal ${requirementLabel} to unlock this path.`;
+      }
+      return;
+    }
+    const updatedState = {
+      ...currentState,
+      entered: true,
+      running: !isInteractive,
+    };
     levelState.set(level.id, updatedState);
 
     stopAllIdleRuns(level.id);
@@ -3949,7 +4587,7 @@
     updateLevelCards();
 
     if (playfield) {
-      playfield.enterLevel(level);
+      playfield.enterLevel(level, { endlessMode: Boolean(updatedState.completed) });
     }
 
     if (!isInteractive) {
@@ -3989,6 +4627,7 @@
       const entered = Boolean(state && state.entered);
       const running = Boolean(state && state.running);
       const completed = Boolean(state && state.completed);
+      const unlocked = isLevelUnlocked(level.id);
 
       const summary = getLevelSummary(level);
       const modeEl = card.querySelector('.level-mode');
@@ -4012,9 +4651,14 @@
 
       card.classList.toggle('entered', entered);
       card.classList.toggle('completed', completed);
+      card.classList.toggle('locked', !unlocked);
       card.setAttribute('aria-pressed', running ? 'true' : 'false');
+      card.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
+      card.tabIndex = unlocked ? 0 : -1;
 
-      if (!entered) {
+      if (!unlocked) {
+        pill.textContent = 'Locked';
+      } else if (!entered) {
         pill.textContent = 'New';
       } else if (running) {
         pill.textContent = 'Running';
@@ -4211,14 +4855,16 @@
     if (!level) {
       return { mode: '—', duration: '—', rewards: '—' };
     }
-    if (level.id === firstLevelConfig.id) {
+    const interactiveConfig = levelConfigs.get(level.id);
+    if (interactiveConfig) {
+      const waves = interactiveConfig.waves?.length || 0;
       return {
         mode: 'Active Defense',
-        duration: `${firstLevelConfig.waves.length} waves · manual`,
+        duration: waves ? `${waves} waves · manual` : 'Active defense',
         rewards: formatRewards(
-          firstLevelConfig.rewardScore,
-          firstLevelConfig.rewardFlux,
-          firstLevelConfig.rewardEnergy,
+          interactiveConfig.rewardScore,
+          interactiveConfig.rewardFlux,
+          interactiveConfig.rewardEnergy,
         ),
       };
     }
@@ -4248,7 +4894,7 @@
     }
 
     if (state?.running) {
-      return level && level.id === firstLevelConfig.id
+      return level && isInteractiveLevel(level.id)
         ? 'Manual defense active.'
         : 'Auto-run initializing.';
     }
@@ -4258,17 +4904,22 @@
     }
 
     const { outcome, stats = {}, timestamp } = state.lastResult;
+    const bestWave = Math.max(state.bestWave || 0, stats.maxWave || 0);
     const relative = formatRelativeTime(timestamp) || 'recently';
 
     if (outcome === 'victory') {
       const rewardText = formatRewards(stats.rewardScore, stats.rewardFlux, stats.rewardEnergy);
-      return rewardText && rewardText !== '—'
-        ? `Victory ${relative}. Rewards: ${rewardText}.`
-        : `Victory ${relative}.`;
+      const base =
+        rewardText && rewardText !== '—'
+          ? `Victory ${relative}. Rewards: ${rewardText}.`
+          : `Victory ${relative}.`;
+      return bestWave > 0 ? `${base} Waves cleared: ${bestWave}.` : base;
     }
 
     if (outcome === 'defeat') {
-      return `Defense collapsed ${relative}.`;
+      return bestWave > 0
+        ? `Defense collapsed ${relative}. Reached wave ${bestWave}.`
+        : `Defense collapsed ${relative}.`;
     }
 
     return 'No attempts recorded.';
@@ -4815,7 +5466,7 @@
   }
 
   function notifyLevelVictory(levelId) {
-    if (levelId === firstLevelConfig.id) {
+    if (isInteractiveLevel(levelId)) {
       gameStats.manualVictories += 1;
     } else {
       gameStats.idleVictories += 1;
@@ -5454,6 +6105,7 @@
     playfieldElements.startButton = document.getElementById('playfield-start');
     playfieldElements.speedButton = document.getElementById('playfield-speed');
     playfieldElements.autoAnchorButton = document.getElementById('playfield-auto');
+    playfieldElements.autoWaveCheckbox = document.getElementById('playfield-auto-wave');
     playfieldElements.slots = Array.from(document.querySelectorAll('.tower-slot'));
 
     loadoutElements.container = document.getElementById('tower-loadout');
@@ -5468,6 +6120,7 @@
         playfieldElements.startButton,
         playfieldElements.speedButton,
         playfieldElements.autoAnchorButton,
+        playfieldElements.autoWaveCheckbox,
         playfieldElements.canvas,
         ...playfieldElements.slots,
       ].filter(Boolean);
@@ -5490,6 +6143,7 @@
         startButton: playfieldElements.startButton,
         speedButton: playfieldElements.speedButton,
         autoAnchorButton: playfieldElements.autoAnchorButton,
+        autoWaveCheckbox: playfieldElements.autoWaveCheckbox,
         slotButtons: playfieldElements.slots,
         audioManager,
         onVictory: handlePlayfieldVictory,
