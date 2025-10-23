@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="gammaCore" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#f5e6ff" stop-opacity="0.95" />
+      <stop offset="80%" stop-color="#6d4aa4" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#140d1f" stop-opacity="0.9" />
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#08060d" />
+  <polygon points="32,8 54,32 32,56 10,32" fill="url(#gammaCore)" />
+  <path d="M24 20c10 0 16 10 16 18" stroke="#f6ecff" stroke-width="3" fill="none" />
+  <path d="M24 38h16" stroke="#f6ecff" stroke-width="3" stroke-linecap="round" />
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="omegaAura" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#9ea6ff" stop-opacity="0.65" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0a0c13" />
+  <circle cx="32" cy="32" r="22" fill="#14192b" stroke="#e9edff" stroke-width="2" opacity="0.9" />
+  <path
+    d="M18 25a14 14 0 0 1 28 0c0 6-4 11-9 13l4 7h-18l4-7c-5-2-9-7-9-13z"
+    fill="url(#omegaAura)"
+    stroke="#f8f9ff"
+    stroke-width="2"
+  />
+</svg>

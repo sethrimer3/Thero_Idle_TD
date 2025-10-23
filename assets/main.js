@@ -129,6 +129,7 @@
       damage: 28,
       rate: 1.25,
       range: 0.24,
+      icon: 'assets/images/tower-alpha.svg',
       nextTierId: 'beta',
     },
     {
@@ -140,6 +141,7 @@
       damage: 48,
       rate: 1.1,
       range: 0.26,
+      icon: 'assets/images/tower-beta.svg',
       nextTierId: 'gamma',
     },
     {
@@ -151,6 +153,7 @@
       damage: 72,
       rate: 1.2,
       range: 0.28,
+      icon: 'assets/images/tower-gamma.svg',
       nextTierId: 'delta',
     },
     {
@@ -162,6 +165,7 @@
       damage: 56,
       rate: 0.95,
       range: 0.22,
+      icon: 'assets/images/tower-delta.svg',
       nextTierId: 'omega',
     },
     {
@@ -173,6 +177,7 @@
       damage: 110,
       rate: 0.85,
       range: 0.3,
+      icon: 'assets/images/tower-omega.svg',
       nextTierId: null,
     },
   ];
@@ -889,7 +894,8 @@
       this.maxDuneGain = Number.isFinite(options.maxDuneGain)
         ? Math.max(0, options.maxDuneGain)
         : 3;
-      this.maxGrains = options.maxGrains && options.maxGrains > 0 ? options.maxGrains : 600;
+      this.maxGrainsBase = options.maxGrains && options.maxGrains > 0 ? options.maxGrains : 1600;
+      this.maxGrains = this.maxGrainsBase;
       this.baseSpawnInterval = options.baseSpawnInterval && options.baseSpawnInterval > 0
         ? options.baseSpawnInterval
         : 180;
@@ -962,6 +968,9 @@
       this.height = displayHeight;
       this.cols = Math.max(4, Math.floor(this.width / this.cellSize));
       this.rows = Math.max(4, Math.floor(this.height / this.cellSize));
+
+      const dynamicCapacity = Math.floor((this.cols * this.rows) / 3);
+      this.maxGrains = Math.max(this.maxGrainsBase, dynamicCapacity);
 
       this.wallInsetLeftCells = Math.max(0, Math.round(this.wallInsetLeftPx / this.cellSize));
       this.wallInsetRightCells = Math.max(0, Math.round(this.wallInsetRightPx / this.cellSize));
@@ -1484,27 +1493,18 @@
         }
 
         const alpha = grain.freefall ? 0.55 : 0.9;
+        let fillColor = `rgba(216, 216, 216, ${alpha})`;
 
         if (grain.size <= 2) {
-          const warmAlpha = grain.size === 1 ? alpha * 0.9 : alpha;
-          this.ctx.fillStyle = `rgba(255, 222, 89, ${warmAlpha})`;
-          this.ctx.fillRect(px, py, sizePx, sizePx);
-          const topHighlight = grain.size === 1 ? 0.6 : 0.4;
-          const bottomShade = grain.size === 1 ? 0.32 : 0.38;
-          this.ctx.fillStyle = `rgba(255, 245, 200, ${topHighlight})`;
-          this.ctx.fillRect(px, py, sizePx, 1);
-          this.ctx.fillStyle = `rgba(255, 178, 70, ${bottomShade})`;
-          this.ctx.fillRect(px, py + sizePx - 1, sizePx, 1);
-        } else {
-          const shade = Math.max(140, Math.min(235, grain.shade));
-          this.ctx.fillStyle = `rgba(${shade}, ${shade}, ${shade}, ${alpha})`;
-          this.ctx.fillRect(px, py, sizePx, sizePx);
-
-          this.ctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
-          this.ctx.fillRect(px, py + sizePx - 1, sizePx, 1);
-          this.ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-          this.ctx.fillRect(px, py, sizePx, 1);
+          const warmAlpha = grain.size === 1 ? alpha : alpha * 0.95;
+          fillColor = `rgba(255, 222, 89, ${warmAlpha})`;
+        } else if (grain.size >= 4) {
+          const coolTone = 190 - Math.min(40, grain.size * 6);
+          fillColor = `rgba(${coolTone}, ${coolTone}, ${coolTone}, ${alpha})`;
         }
+
+        this.ctx.fillStyle = fillColor;
+        this.ctx.fillRect(px, py, sizePx, sizePx);
       }
     }
 
@@ -1689,8 +1689,8 @@
         return Number.POSITIVE_INFINITY;
       }
       const activeCount = this.getActiveTowerCount(towerId);
-      const multiplier = 1 + Math.max(0, activeCount);
-      return definition.baseCost * multiplier;
+      const exponent = 1 + Math.max(0, activeCount);
+      return definition.baseCost ** exponent;
     }
 
     setDraggingTower(towerId) {
@@ -2265,7 +2265,7 @@
         return;
       }
 
-      const activeType = this.draggingTowerType || this.availableTowers[0] || null;
+      const activeType = this.draggingTowerType;
       if (activeType) {
         this.updatePlacementPreview(normalized, {
           towerType: activeType,
@@ -4465,6 +4465,18 @@
       item.dataset.towerId = towerId;
       item.setAttribute('role', 'listitem');
 
+      const artwork = document.createElement('img');
+      artwork.className = 'tower-loadout-art';
+      if (definition.icon) {
+        artwork.src = definition.icon;
+        artwork.alt = `${definition.name} sigil`;
+        artwork.decoding = 'async';
+        artwork.loading = 'lazy';
+      } else {
+        artwork.alt = '';
+        artwork.setAttribute('aria-hidden', 'true');
+      }
+
       const symbol = document.createElement('span');
       symbol.className = 'tower-loadout-symbol';
       symbol.textContent = definition.symbol;
@@ -4477,7 +4489,7 @@
       costEl.className = 'tower-loadout-cost';
       costEl.textContent = '—';
 
-      item.append(symbol, label, costEl);
+      item.append(artwork, symbol, label, costEl);
 
       item.addEventListener('pointerdown', (event) => startTowerDrag(event, towerId, item));
 
@@ -4859,9 +4871,11 @@
       : 1;
     const cellSize = Number.isFinite(info.cellSize) ? Math.max(1, info.cellSize) : 1;
     const rows = Number.isFinite(info.rows) ? Math.max(1, info.rows) : 1;
-    const highestNormalized = Number.isFinite(info.highestNormalized)
+    const highestNormalizedRaw = Number.isFinite(info.highestNormalized)
       ? Math.max(0, info.highestNormalized)
       : totalNormalized;
+    const highestNormalized = Math.max(0, Math.min(1, highestNormalizedRaw));
+    const highestDisplay = formatDecimal(Math.max(0, highestNormalizedRaw), 2);
 
     powderState.simulatedDuneGain = clampedGain;
 
@@ -4886,11 +4900,17 @@
       powderElements.rightWall.style.transform = `translateY(${wallShiftPx.toFixed(1)}px)`;
     }
 
+    const basinHeight = rows * cellSize;
+    if (powderElements.crestMarker) {
+      const crestOffset = Math.min(basinHeight, crestPosition * basinHeight);
+      powderElements.crestMarker.style.transform = `translateY(${crestOffset.toFixed(1)}px)`;
+      powderElements.crestMarker.dataset.height = `Crest ${formatDecimal(normalizedHeight, 2)}`;
+    }
+
     if (powderElements.wallMarker) {
-      const basinHeight = rows * cellSize;
-      const markerOffset = Math.min(basinHeight, crestPosition * basinHeight);
-      powderElements.wallMarker.style.transform = `translateY(${markerOffset.toFixed(1)}px)`;
-      powderElements.wallMarker.dataset.height = formatDecimal(highestNormalized, 2);
+      const peakOffset = Math.min(basinHeight, (1 - highestNormalized) * basinHeight);
+      powderElements.wallMarker.style.transform = `translateY(${peakOffset.toFixed(1)}px)`;
+      powderElements.wallMarker.dataset.height = `Peak ${highestDisplay}`;
     }
 
     if (powderElements.wallGlyphs && powderElements.wallGlyphs.length) {
@@ -5053,6 +5073,7 @@
     powderElements.leftWall = document.getElementById('powder-wall-left');
     powderElements.rightWall = document.getElementById('powder-wall-right');
     powderElements.wallMarker = document.getElementById('powder-wall-marker');
+    powderElements.crestMarker = document.getElementById('powder-crest-marker');
     powderElements.wallGlyphs = Array.from(
       document.querySelectorAll('[data-powder-glyph]'),
     );
@@ -5097,7 +5118,6 @@
         canvas: powderElements.simulationCanvas,
         cellSize: 1,
         grainSizes: [1, 2, 3],
-        maxGrains: 640,
         scrollThreshold: 0.75,
         wallInsetLeft: leftInset,
         wallInsetRight: rightInset,
