@@ -1522,24 +1522,27 @@ body::before {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+
 .formula-line {
   margin: 0;
   font-family: "Space Mono", monospace;
   font-size: 0.95rem;
   letter-spacing: 0.04em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  text-align: center;
 }
 
 .formula-line.result {
-  justify-content: center;
   font-size: 0.9rem;
   color: var(--accent-3);
 }
 
-.formula-symbol {
-  font-size: 1.2rem;
+.formula-line mjx-container {
+  display: inline-flex;
+}
+
+.formula-glow {
+  color: #fbe999;
+  text-shadow: 0 0 10px rgba(255, 232, 137, 0.6), 0 0 22px rgba(255, 232, 137, 0.4);
 }
 
 .formula-definition {
