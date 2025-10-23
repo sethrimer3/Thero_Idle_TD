@@ -11,6 +11,29 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./assets/styles.css" />
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [
+            ['\\(', '\\)'],
+            ['$', '$'],
+          ],
+          displayMath: [
+            ['\\[', '\\]'],
+          ],
+          packages: { '[+]': ['color', 'html'] },
+          macros: {
+            glow: '\\class{formula-glow}{\\color{#f9e27d}{#1}}',
+          },
+        },
+        options: {
+          renderActions: {
+            addMenu: [],
+          },
+        },
+      };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </head>
   <body>
     <div
@@ -200,12 +223,12 @@
                 <h3>α alpha tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">α</span> = X · Y</p>
+                <p class="formula-line">\( \alpha = X \cdot Y \)</p>
                 <ul class="formula-definition">
                   <li>X → attack power</li>
                   <li>Y → attack speed</li>
                 </ul>
-                <p class="formula-line result">α = DPS (X × Y)</p>
+                <p class="formula-line result">\( \alpha = \text{DPS} \,(X \times Y) \)</p>
               </div>
               <ul class="upgrade-list">
                 <li>Calibrate X for sharper projectiles (+damage)</li>
@@ -222,13 +245,13 @@
                 <h3>β beta tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">β</span> = X · Y · Z</p>
+                <p class="formula-line">\( \beta = X \cdot Y \cdot Z \)</p>
                 <ul class="formula-definition">
                   <li>X → damage</li>
                   <li>Y → pulses per second</li>
                   <li>Z → pierce (targets per beam)</li>
                 </ul>
-                <p class="formula-line result">β = DPS (X × Y × Z)</p>
+                <p class="formula-line result">\( \beta = \text{DPS} \, (X \times Y \times Z) \)</p>
               </div>
               <ul class="upgrade-list">
                 <li>Amplify X with resonance crystals</li>
@@ -248,7 +271,7 @@
                 <h3>γ gamma tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">γ</span> = α<sup>½</sup> · β</p>
+                <p class="formula-line">\( \gamma = \alpha^{1/2} \cdot \beta \)</p>
                 <ul class="formula-definition">
                   <li>α → inherited burst damage pulse</li>
                   <li>β → sustained beam resonance</li>
@@ -270,7 +293,7 @@
                 <h3>δ delta tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">δ</span> = γ · ln(β + 1)</p>
+                <p class="formula-line">\( \delta = \gamma \cdot \ln(\beta + 1) \)</p>
                 <ul class="formula-definition">
                   <li>γ → summoning strength for glyph soldiers</li>
                   <li>ln(β + 1) → swarm duration scaling</li>
@@ -292,10 +315,7 @@
                 <h3>ε epsilon tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line">
-                  <span class="formula-symbol">ε</span> = lim<sub>h→0</sub>
-                  (σ(t + h) − σ(t)) ∕ h
-                </p>
+                <p class="formula-line">\( \varepsilon = \lim_{h \to 0} \frac{\sigma(t + h) - \sigma(t)}{h} \)</p>
                 <ul class="formula-definition">
                   <li>σ(t) → aura intensity sampled from nearby allies</li>
                   <li>h → infinitesimal stride keyed to enemy motion</li>
@@ -317,9 +337,7 @@
                 <h3>ζ zeta tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line">
-                  <span class="formula-symbol">ζ</span> = Σ<sub>n=1</sub><sup>N</sup> n<sup>−s</sup>
-                </p>
+                <p class="formula-line">\( \glow{\zeta} = \sum_{n = 1}^{N} n^{-s} \)</p>
                 <ul class="formula-definition">
                   <li>N → partial sum length scales with total glyph towers</li>
                   <li>s → 1 + ω<sub>progress</sub>/10 tunes harmonic focus</li>
@@ -341,9 +359,7 @@
                 <h3>η eta tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line">
-                  <span class="formula-symbol">η</span> = (1 − 2<sup>1−s</sup>) · ζ(s)
-                </p>
+                <p class="formula-line">\( \eta = (1 - 2^{1 - s}) \cdot \zeta(s) \)</p>
                 <ul class="formula-definition">
                   <li>1 − 2<sup>1−s</sup> → alternating parity cancels enemy resistances</li>
                   <li>ζ(s) → inherited harmonic pulse from prior zeta lattices</li>
@@ -365,9 +381,7 @@
                 <h3>θ theta tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line">
-                  <span class="formula-symbol">θ</span> = Σ<sub>n=-∞</sub><sup>∞</sup> e<sup>−πn²t</sup>
-                </p>
+                <p class="formula-line">\( \theta = \sum_{n=-\infty}^{\infty} e^{-\pi n^{2} t} \)</p>
                 <ul class="formula-definition">
                   <li>t → lane temperature set by enemy speed and powder bonuses</li>
                   <li>e<sup>−πn²t</sup> → gaussian pulses that warp path geometry</li>
@@ -389,7 +403,7 @@
                 <h3>ι iota tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">ι</span> = ∮ α · dl</p>
+                <p class="formula-line">\( \iota = \oint \alpha \, dl \)</p>
                 <ul class="formula-definition">
                   <li>∮ dl → closed contour tracing the lane geometry</li>
                   <li>α → baseline pulse strength from alpha lattices</li>
@@ -411,7 +425,7 @@
                 <h3>κ kappa tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">κ</span> = dθ ∕ ds</p>
+                <p class="formula-line">\( \kappa = \frac{d\theta}{ds} \)</p>
                 <ul class="formula-definition">
                   <li>dθ → angular velocity harvested from θ slows</li>
                   <li>ds → arc-length scaling with enemy travel distance</li>
@@ -433,7 +447,7 @@
                 <h3>λ lambda tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">λ</span> = eig(A)</p>
+                <p class="formula-line">\( \lambda = \operatorname{eig}(A) \)</p>
                 <ul class="formula-definition">
                   <li>A → adjacency matrix of allied towers</li>
                   <li>eig(A) → dominant eigenvalue dictates aura strength</li>
@@ -455,7 +469,7 @@
                 <h3>μ mu tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">μ</span> = E[X] + σ</p>
+                <p class="formula-line">\( \mu = E[X] + \sigma \)</p>
                 <ul class="formula-definition">
                   <li>E[X] → expected damage averaged over allied fire</li>
                   <li>σ → standard deviation captured from ε derivatives</li>
@@ -477,7 +491,7 @@
                 <h3>ν nu tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">ν</span> = f(ω) = ω<sup>3</sup> · θ</p>
+                <p class="formula-line">\( \nu = f(\omega) = \omega^{3} \cdot \theta \)</p>
                 <ul class="formula-definition">
                   <li>ω → enemy frequency detected by resonance sensors</li>
                   <li>θ → temperature field from theta lattices</li>
@@ -499,7 +513,7 @@
                 <h3>ξ xi tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">ξ</span> = ζ(s) · Γ(s∕2)</p>
+                <p class="formula-line">\( \xi = \zeta(s) \cdot \Gamma\!\left(\frac{s}{2}\right) \)</p>
                 <ul class="formula-definition">
                   <li>ζ(s) → harmonic sum from zeta resonance</li>
                   <li>Γ(s∕2) → gamma folding that thickens splash</li>
@@ -521,7 +535,7 @@
                 <h3>ο omicron tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">ο</span> = (1∕N) · Σ e<sup>iωt</sup></p>
+                <p class="formula-line">\( o = \frac{1}{N} \sum e^{i \omega t} \)</p>
                 <ul class="formula-definition">
                   <li>N → number of active harmonic emitters</li>
                   <li>e<sup>iωt</sup> → rotating phasors borrowed from ν frequency locks</li>
@@ -543,7 +557,7 @@
                 <h3>π pi tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">π</span> = C ∕ (2πr)</p>
+                <p class="formula-line">\( \pi = \frac{C}{2 \pi r} \)</p>
                 <ul class="formula-definition">
                   <li>C → circumference traced by iota's perimeter beams</li>
                   <li>r → radial distance to the tower's focus</li>
@@ -565,7 +579,7 @@
                 <h3>ρ rho tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">ρ</span> = m ∕ V</p>
+                <p class="formula-line">\( \rho = \frac{m}{V} \)</p>
                 <ul class="formula-definition">
                   <li>m → enemy mass accrued from divisor counters</li>
                   <li>V → volume of the defense zone shaped by π rings</li>
@@ -587,7 +601,7 @@
                 <h3>σ sigma tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">σ</span> = Σ Δι</p>
+                <p class="formula-line">\( \sigma = \sum \Delta \iota \)</p>
                 <ul class="formula-definition">
                   <li>Σ → running total of captured iota loops</li>
                   <li>Δι → incremental boost gained whenever loops overlap</li>
@@ -609,7 +623,7 @@
                 <h3>τ tau tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">τ</span> = 2π · r</p>
+                <p class="formula-line">\( \tau = 2 \pi \cdot r \)</p>
                 <ul class="formula-definition">
                   <li>2π → double-angle harmonics from pi rings</li>
                   <li>r → reactive radius tuned by rho density shifts</li>
@@ -631,7 +645,7 @@
                 <h3>υ upsilon tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">υ</span> = ∇ · Φ</p>
+                <p class="formula-line">\( \upsilon = \nabla \cdot \Phi \)</p>
                 <ul class="formula-definition">
                   <li>∇ → divergence operator shaped by θ thermal gradients</li>
                   <li>Φ → vector potential projected from phi towers</li>
@@ -653,7 +667,7 @@
                 <h3>φ phi tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">φ</span> = (1 + √5) ∕ 2</p>
+                <p class="formula-line">\( \varphi = \frac{1 + \sqrt{5}}{2} \)</p>
                 <ul class="formula-definition">
                   <li>(1 + √5) ∕ 2 → golden ratio guiding projectile spacing</li>
                   <li>√5 → determines bonus split shots at harmonic intervals</li>
@@ -675,7 +689,7 @@
                 <h3>χ chi tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">χ</span> = Σ (α<sub>i</sub> · β<sub>i</sub>)</p>
+                <p class="formula-line">\( \chi = \sum (\alpha_{i} \cdot \beta_{i}) \)</p>
                 <ul class="formula-definition">
                   <li>α<sub>i</sub> → burst inputs from alpha-line towers</li>
                   <li>β<sub>i</sub> → beam contributions from beta conduits</li>
@@ -697,7 +711,7 @@
                 <h3>ψ psi tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">ψ</span> = |Ψ(x, t)|<sup>2</sup></p>
+                <p class="formula-line">\( \psi = |\Psi(x, t)|^{2} \)</p>
                 <ul class="formula-definition">
                   <li>Ψ(x, t) → quantum waveform seeded by phi spirals</li>
                   <li>|Ψ|<sup>2</sup> → probability density that collapses into crit chance</li>
@@ -719,7 +733,7 @@
                 <h3>Ω omega tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">Ω</span> = θ · β<sup>α∕10</sup> + δ · ζ + ψ</p>
+                <p class="formula-line">\( \Omega = \theta \cdot \beta^{\alpha / 10} + \delta \cdot \zeta + \psi \)</p>
                 <ul class="formula-definition">
                   <li>θ → modular waves inherited from theta distort path timing</li>
                   <li>β<sup>α∕10</sup> → range oscillates with total β output</li>
@@ -743,7 +757,7 @@
                 <h3>ℵ₀ aleph-null tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">ℵ₀</span> = sup { n ∈ ℕ }</p>
+                <p class="formula-line">\( \aleph_{0} = \sup \{ n \in \mathbb{N} \} \)</p>
                 <ul class="formula-definition">
                   <li>sup { n } → infinite series stabilizes projectile count</li>
                   <li>ℕ → natural-number cadence sets rhythmic burst cadence</li>
@@ -766,7 +780,7 @@
                 <h3>ℵ₁ aleph-one tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">ℵ₁</span> = ω<sub>1</sub> · log ζ(s)</p>
+                <p class="formula-line">\( \aleph_{1} = \omega_{1} \cdot \log \zeta(s) \)</p>
                 <ul class="formula-definition">
                   <li>ω<sub>1</sub> → first uncountable ordinal sweeps entire lanes at once</li>
                   <li>log ζ(s) → primes feed the tower with scaling damage pulses</li>
@@ -789,7 +803,7 @@
                 <h3>ℵ₂ aleph-two tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">ℵ₂</span> = 2<sup>ℵ₁</sup> · Γ(x)</p>
+                <p class="formula-line">\( \aleph_{2} = 2^{\aleph_{1}} \cdot \Gamma(x) \)</p>
                 <ul class="formula-definition">
                   <li>2<sup>ℵ₁</sup> → exponential lift doubles splash layers on every shot</li>
                   <li>Γ(x) → gamma function stabilizes damage over factorial timing</li>
@@ -812,7 +826,7 @@
                 <h3>ℵ₃ aleph-three tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">ℵ₃</span> = ∮ Σ ω<sub>κ</sub> · dl</p>
+                <p class="formula-line">\( \aleph_{3} = \oint \sum \omega_{\kappa} \cdot dl \)</p>
                 <ul class="formula-definition">
                   <li>∮ Σ ω<sub>κ</sub> → contour integral captures every rotation of lower Aleph towers</li>
                   <li>dl → path length sets continuous shielding around the dune</li>
@@ -835,7 +849,7 @@
                 <h3>ℵ₄ aleph-four tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">ℵ₄</span> = lim<sub>κ→ω₄</sub> κ · Φ(κ)</p>
+                <p class="formula-line">\( \aleph_{4} = \lim_{\kappa \to \omega_{4}} \kappa \cdot \Phi(\kappa) \)</p>
                 <ul class="formula-definition">
                   <li>lim<sub>κ→ω₄</sub> → approaching ω₄ unleashes infinite-range pulses</li>
                   <li>Φ(κ) → potential function modulates slow, stun, and siphon effects</li>
@@ -858,7 +872,7 @@
                 <h3>ℵ₅ aleph-five tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line"><span class="formula-symbol">ℵ₅</span> = Ω<sup>ℵ₄</sup> ⊗ ψ</p>
+                <p class="formula-line">\( \aleph_{5} = \Omega^{\aleph_{4}} \otimes \psi \)</p>
                 <ul class="formula-definition">
                   <li>Ω<sup>ℵ₄</sup> → raises the omega keystone into transfinite resonance</li>
                   <li>⊗ ψ → quantum tensor couples every tower into unified burst timing</li>
@@ -1008,7 +1022,7 @@
               <h3>Sandfall</h3>
               <p>
                 Grains per tick:
-                <code id="powder-sandfall-formula">Ψ(g) = 2.7 · sin(t)</code>
+                <code id="powder-sandfall-formula">\( \glow{\Psi(g)} = 2.7\, \sin(t) \)</code>
               </p>
               <p class="powder-footnote" id="powder-sandfall-note">
                 Crest is unstable—powder drifts off the board.
@@ -1025,7 +1039,7 @@
               <h3>Dune Height</h3>
               <p>
                 Multiplier:
-                <code id="powder-dune-formula">Δm = log₂(h + 1)</code>
+                <code id="powder-dune-formula">\( \Delta m = \log_{2}(h + 1) \)</code>
               </p>
               <p class="powder-footnote" id="powder-dune-note">
                 Survey ridges to raise <em>h</em> and amplify energy lanes.
@@ -1042,7 +1056,7 @@
               <h3>Crystal Powder</h3>
               <p>
                 Powder charge:
-                <code id="powder-crystal-formula">Q = √(θ · ζ)</code>
+                <code id="powder-crystal-formula">\( Q = \sqrt{\theta \cdot \zeta} \)</code>
               </p>
               <p class="powder-footnote" id="powder-crystal-note">
                 Crystal resonance is idle—no pulse prepared.

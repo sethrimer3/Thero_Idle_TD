@@ -1,6 +1,31 @@
 (() => {
   'use strict';
 
+  function renderMathElement(element) {
+    if (!element) {
+      return;
+    }
+
+    const mathJax = window.MathJax;
+    if (!mathJax) {
+      return;
+    }
+
+    const typeset = () => {
+      if (typeof mathJax.typesetPromise === 'function') {
+        mathJax.typesetPromise([element]).catch((error) => {
+          console.warn('MathJax typeset failed', error);
+        });
+      }
+    };
+
+    if (mathJax.startup && mathJax.startup.promise) {
+      mathJax.startup.promise.then(typeset);
+    } else {
+      typeset();
+    }
+  }
+
   const levelBlueprints = [
     {
       set: 'Conjecture',
@@ -7878,8 +7903,9 @@
       const offset = powderState.sandOffset;
       powderElements.sandfallFormula.textContent =
         offset > 0
-          ? `Ψ(g) = 2.7 · sin(t) + ${formatDecimal(offset, 1)}`
-          : 'Ψ(g) = 2.7 · sin(t)';
+          ? `\\( \\glow{\\Psi(g)} = 2.7\\, \\sin(t) + ${formatDecimal(offset, 1)} \\)`
+          : '\\( \\glow{\\Psi(g)} = 2.7\\, \\sin(t) \\)';
+      renderMathElement(powderElements.sandfallFormula);
     }
 
     if (powderElements.sandfallNote) {
@@ -7898,10 +7924,11 @@
     if (powderElements.duneFormula) {
       const height = Math.max(1, powderState.duneHeight + powderState.simulatedDuneGain);
       const logValue = Math.log2(height + 1);
-      powderElements.duneFormula.textContent = `Δm = log₂(${formatDecimal(height, 2)} + 1) = ${formatDecimal(
+      powderElements.duneFormula.textContent = `\\( \\Delta m = \\log_{2}(${formatDecimal(height, 2)} + 1) = ${formatDecimal(
         logValue,
         2,
-      )}`;
+      )} \\)`;
+      renderMathElement(powderElements.duneFormula);
     }
 
     if (powderElements.duneNote) {
@@ -7922,10 +7949,11 @@
       const theta = powderConfig.thetaBase + charges * 0.6;
       const zeta = powderConfig.zetaBase + charges * 0.5;
       const root = Math.sqrt(theta * zeta);
-      powderElements.crystalFormula.textContent = `Q = √(${formatDecimal(theta, 2)} · ${formatDecimal(
+      powderElements.crystalFormula.textContent = `\\( Q = \\sqrt{${formatDecimal(theta, 2)} \\cdot ${formatDecimal(
         zeta,
         2,
-      )}) = ${formatDecimal(root, 2)}`;
+      )}} = ${formatDecimal(root, 2)} \\)`;
+      renderMathElement(powderElements.crystalFormula);
     }
 
     if (powderElements.crystalButton) {
