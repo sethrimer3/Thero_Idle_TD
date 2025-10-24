@@ -921,9 +921,132 @@ import {
     note: null,
   };
 
+  const developerUtilityElements = {
+    moteTowerCard: null,
+    moteTowerButton: null,
+    moteTowerStatus: null,
+    moteTowerStatusDefault: '',
+    moteTowerStatusTimeout: null,
+  };
+
+  const DEVELOPER_MOTE_TOWER_DROP_AMOUNT = 1000;
+
   let developerModeActive = false;
 
   let playfield = null;
+
+  function clearDeveloperMoteTowerStatusTimeout() {
+    if (!developerUtilityElements.moteTowerStatusTimeout) {
+      return;
+    }
+    clearTimeout(developerUtilityElements.moteTowerStatusTimeout);
+    developerUtilityElements.moteTowerStatusTimeout = null;
+  }
+
+  function resetDeveloperMoteTowerStatus() {
+    clearDeveloperMoteTowerStatusTimeout();
+    if (!developerUtilityElements.moteTowerStatus) {
+      return;
+    }
+    const fallback =
+      developerUtilityElements.moteTowerStatusDefault && developerUtilityElements.moteTowerStatusDefault.trim()
+        ? developerUtilityElements.moteTowerStatusDefault.trim()
+        : 'Developer mote tower ready—click to release +1,000 motes.';
+    developerUtilityElements.moteTowerStatus.textContent = fallback;
+  }
+
+  function setDeveloperMoteTowerStatus(message, options = {}) {
+    if (!developerUtilityElements.moteTowerStatus) {
+      return;
+    }
+
+    clearDeveloperMoteTowerStatusTimeout();
+    const nextMessage =
+      typeof message === 'string' ? message : String(message !== undefined ? message : '');
+    developerUtilityElements.moteTowerStatus.textContent = nextMessage;
+
+    if (!options.temporary) {
+      return;
+    }
+
+    const duration = Number.isFinite(options.duration) ? Math.max(0, options.duration) : 2400;
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    developerUtilityElements.moteTowerStatusTimeout = window.setTimeout(() => {
+      developerUtilityElements.moteTowerStatusTimeout = null;
+      resetDeveloperMoteTowerStatus();
+    }, duration);
+  }
+
+  function updateDeveloperUtilitiesVisibility() {
+    const active = developerModeActive;
+    const { moteTowerCard, moteTowerButton } = developerUtilityElements;
+    if (moteTowerCard) {
+      moteTowerCard.hidden = !active;
+      moteTowerCard.setAttribute('aria-hidden', active ? 'false' : 'true');
+    }
+    if (moteTowerButton) {
+      moteTowerButton.disabled = !active;
+    }
+    if (!active) {
+      resetDeveloperMoteTowerStatus();
+    }
+  }
+
+  function handleDeveloperMoteTowerClick(event) {
+    if (event?.preventDefault) {
+      event.preventDefault();
+    }
+    if (!developerModeActive) {
+      setDeveloperMoteTowerStatus('Enable developer mode to activate the mote tower.', {
+        temporary: true,
+      });
+      return;
+    }
+
+    const amount = DEVELOPER_MOTE_TOWER_DROP_AMOUNT;
+    queueMoteDrop(amount);
+    flushPendingMoteDrops();
+    recordPowderEvent('developer-mote', { amount });
+    updatePowderDisplay();
+    setDeveloperMoteTowerStatus(`Released +${formatGameNumber(amount)} Motes.`, {
+      temporary: true,
+    });
+  }
+
+  function bindDeveloperUtilities() {
+    developerUtilityElements.moteTowerCard = document.getElementById('developer-mote-tower');
+    developerUtilityElements.moteTowerButton = document.getElementById(
+      'developer-mote-tower-button',
+    );
+    developerUtilityElements.moteTowerStatus = document.getElementById(
+      'developer-mote-tower-status',
+    );
+
+    if (developerUtilityElements.moteTowerStatus) {
+      developerUtilityElements.moteTowerStatusDefault =
+        developerUtilityElements.moteTowerStatus.textContent?.trim() || '';
+      developerUtilityElements.moteTowerStatus.textContent =
+        developerUtilityElements.moteTowerStatusDefault ||
+        'Developer mote tower ready—click to release +1,000 motes.';
+    }
+
+    if (developerUtilityElements.moteTowerButton) {
+      developerUtilityElements.moteTowerButton.addEventListener(
+        'click',
+        handleDeveloperMoteTowerClick,
+      );
+    } else if (developerUtilityElements.moteTowerCard) {
+      developerUtilityElements.moteTowerCard.addEventListener(
+        'click',
+        handleDeveloperMoteTowerClick,
+      );
+    }
+
+    updateDeveloperUtilitiesVisibility();
+  }
 
   function getAlephChainUpgrades() {
     return { ...alephChainUpgradeState };
@@ -8461,6 +8584,9 @@ import {
       developerModeElements.note.hidden = false;
     }
 
+    updateDeveloperUtilitiesVisibility();
+    resetDeveloperMoteTowerStatus();
+
     syncLevelEditorVisibility();
 
     if (playfield?.messageEl) {
@@ -8507,6 +8633,9 @@ import {
     if (developerModeElements.note) {
       developerModeElements.note.hidden = true;
     }
+
+    updateDeveloperUtilitiesVisibility();
+    resetDeveloperMoteTowerStatus();
 
     hideLevelEditorPanel();
   }
@@ -9334,6 +9463,12 @@ import {
         )} Motes.`;
         break;
       }
+      case 'developer-mote': {
+        const { amount = DEVELOPER_MOTE_TOWER_DROP_AMOUNT } = context;
+        const normalizedAmount = Math.max(0, Number(amount) || 0);
+        entry = `Developer mote tower triggered · +${formatGameNumber(normalizedAmount)} Motes dropped.`;
+        break;
+      }
       default:
         break;
     }
@@ -9612,6 +9747,7 @@ import {
     enemyCodexElements.empty = document.getElementById('enemy-codex-empty');
     enemyCodexElements.note = document.getElementById('enemy-codex-note');
     bindDeveloperModeToggle();
+    bindDeveloperUtilities();
     if (audioManager) {
       const activationElements = [
         playfieldElements.startButton,
