@@ -35,6 +35,7 @@ import {
 
   const MATH_SYMBOL_REGEX = /[\\^_=+\-*{}]|[0-9]|[×÷±√∞∑∏∆∇∂→←↺⇥]|[α-ωΑ-Ωℵ℘ℏℙℚℝℤℂℑℜητβγΩΣΨΔφϕλψρμνσπθ]/u;
   const THERO_SYMBOL = 'þ';
+  const COMMUNITY_DISCORD_INVITE = 'https://discord.gg/UzqhfsZQ8n'; // Reserved for future placement.
 
   function isLikelyMathExpression(text) {
     if (!text) {
@@ -3846,7 +3847,7 @@ import {
       const levelId = level?.id;
       const config = levelId ? levelConfigs.get(levelId) : null;
       const isInteractive = Boolean(config);
-      const endlessMode = Boolean(options.endlessMode);
+      const startInEndless = Boolean(options.endlessMode || config?.forceEndlessMode);
 
       if (this.previewOnly && !isInteractive) {
         this.levelActive = false;
@@ -3914,16 +3915,24 @@ import {
           : [],
       };
 
-      const dynamicStartThero = calculateStartingThero();
-      clonedConfig.startThero = Number.isFinite(dynamicStartThero)
-        ? dynamicStartThero
-        : BASE_START_THERO;
+      const forceInfiniteThero = Boolean(config?.infiniteThero);
+      if (forceInfiniteThero) {
+        clonedConfig.infiniteThero = true;
+        clonedConfig.startThero = Number.POSITIVE_INFINITY;
+        clonedConfig.theroCap = Number.POSITIVE_INFINITY;
+      } else {
+        const dynamicStartThero = calculateStartingThero();
+        clonedConfig.startThero = Number.isFinite(dynamicStartThero)
+          ? dynamicStartThero
+          : BASE_START_THERO;
+      }
+      clonedConfig.forceEndlessMode = Boolean(config?.forceEndlessMode);
       clonedConfig.lives = BASE_CORE_INTEGRITY;
 
       this.levelActive = true;
       this.levelConfig = clonedConfig;
       this.baseWaveCount = clonedConfig.waves.length;
-      this.isEndlessMode = endlessMode;
+      this.isEndlessMode = startInEndless;
       this.endlessCycle = 0;
       this.currentWaveNumber = 1;
       this.maxWaveReached = 0;
@@ -6139,9 +6148,13 @@ import {
       }
 
       if (this.energyEl) {
-        this.energyEl.textContent = this.levelConfig
-          ? `${Math.round(this.energy)} ${THERO_SYMBOL}`
-          : '—';
+        if (!this.levelConfig) {
+          this.energyEl.textContent = '—';
+        } else if (!Number.isFinite(this.energy)) {
+          this.energyEl.textContent = `∞ ${THERO_SYMBOL}`;
+        } else {
+          this.energyEl.textContent = `${Math.round(this.energy)} ${THERO_SYMBOL}`;
+        }
       }
 
       this.updateSpeedButton();
@@ -7511,6 +7524,9 @@ import {
     levelSetEntries.length = 0;
 
     levelBlueprints.forEach((level) => {
+      if (level.developerOnly && !developerModeActive) {
+        return;
+      }
       const groupKey = level.set || level.id.split(' - ')[0] || 'Levels';
       if (!groups.has(groupKey)) {
         groups.set(groupKey, []);
@@ -7520,6 +7536,9 @@ import {
 
     let groupIndex = 0;
     groups.forEach((levels, setName) => {
+      if (!levels.length) {
+        return;
+      }
       const setElement = document.createElement('div');
       setElement.className = 'level-set';
       setElement.dataset.set = setName;
@@ -7541,7 +7560,8 @@ import {
 
       const count = document.createElement('span');
       count.className = 'level-set-count';
-      count.textContent = `${levels.length} levels`;
+      const countLabel = levels.length === 1 ? 'level' : 'levels';
+      count.textContent = `${levels.length} ${countLabel}`;
 
       trigger.append(glyph, title, count);
 
@@ -8766,6 +8786,8 @@ import {
       completed: false,
     };
     const isInteractive = isInteractiveLevel(level.id);
+    const levelConfig = levelConfigs.get(level.id);
+    const forceEndlessMode = Boolean(level?.forceEndlessMode || levelConfig?.forceEndlessMode);
     if (isInteractive && !isLevelUnlocked(level.id)) {
       if (playfield?.messageEl) {
         const requiredId = getPreviousInteractiveLevelId(level.id);
@@ -8799,7 +8821,9 @@ import {
     updateLevelCards();
 
     if (playfield) {
-      playfield.enterLevel(level, { endlessMode: Boolean(updatedState.completed) });
+      playfield.enterLevel(level, {
+        endlessMode: forceEndlessMode || Boolean(updatedState.completed),
+      });
     }
 
     if (isInteractive) {
@@ -9275,9 +9299,10 @@ import {
     const interactiveConfig = levelConfigs.get(level.id);
     if (interactiveConfig) {
       const waves = interactiveConfig.waves?.length || 0;
+      const endless = Boolean(interactiveConfig.forceEndlessMode);
       return {
-        mode: 'Active Defense',
-        duration: waves ? `${waves} waves · manual` : 'Active defense',
+        mode: endless ? 'Endless Defense' : 'Active Defense',
+        duration: endless ? 'Endless · manual' : waves ? `${waves} waves · manual` : 'Active defense',
         rewards: formatInteractiveLevelRewards(),
       };
     }
