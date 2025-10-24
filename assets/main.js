@@ -2946,9 +2946,21 @@ import {
       this.focusMarkerAngle = 0;
       this.anchorTolerance = 0.06;
 
+      this.viewScale = 1;
+      this.minViewScale = 0.75;
+      this.maxViewScale = 2.5;
+      this.viewCenterNormalized = { x: 0.5, y: 0.5 };
+
+      this.activePointers = new Map();
+      this.pinchState = null;
+      this.isPinchZooming = false;
+
       this.pointerMoveHandler = (event) => this.handleCanvasPointerMove(event);
       this.pointerLeaveHandler = () => this.handleCanvasPointerLeave();
       this.pointerClickHandler = (event) => this.handleCanvasClick(event);
+      this.pointerDownHandler = (event) => this.handleCanvasPointerDown(event);
+      this.pointerUpHandler = (event) => this.handleCanvasPointerUp(event);
+      this.wheelHandler = (event) => this.handleCanvasWheel(event);
 
       this.developerPathMarkers = [];
 
@@ -3224,9 +3236,14 @@ import {
       if (!this.canvas) {
         return;
       }
+      this.canvas.addEventListener('pointerdown', this.pointerDownHandler);
       this.canvas.addEventListener('pointermove', this.pointerMoveHandler);
       this.canvas.addEventListener('pointerleave', this.pointerLeaveHandler);
       this.canvas.addEventListener('click', this.pointerClickHandler);
+      this.canvas.addEventListener('pointerup', this.pointerUpHandler);
+      this.canvas.addEventListener('pointercancel', this.pointerUpHandler);
+      this.canvas.addEventListener('lostpointercapture', this.pointerUpHandler);
+      this.canvas.addEventListener('wheel', this.wheelHandler, { passive: false });
     }
 
     createEnemyTooltip() {
@@ -3271,6 +3288,7 @@ import {
       this.buildPathGeometry();
       this.updateTowerPositions();
       this.ensureFloatersLayout();
+      this.applyViewConstraints();
       this.draw();
     }
 
@@ -3578,6 +3596,12 @@ import {
       this.endlessCycle = 0;
       this.currentWaveNumber = 1;
       this.maxWaveReached = 0;
+      this.viewScale = 1;
+      this.viewCenterNormalized = { x: 0.5, y: 0.5 };
+      this.applyViewConstraints();
+      this.activePointers.clear();
+      this.pinchState = null;
+      this.isPinchZooming = false;
       if (this.previewOnly) {
         this.combatActive = false;
         this.shouldAnimate = false;
@@ -3645,6 +3669,12 @@ import {
         this.hoverPlacement = null;
         this.pointerPosition = null;
         this.developerPathMarkers = [];
+        this.viewScale = 1;
+        this.viewCenterNormalized = { x: 0.5, y: 0.5 };
+        this.applyViewConstraints();
+        this.activePointers.clear();
+        this.pinchState = null;
+        this.isPinchZooming = false;
         if (this.ctx) {
           this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
@@ -3678,6 +3708,12 @@ import {
       this.maxWaveReached = 0;
       this.setAvailableTowers([]);
       cancelTowerDrag();
+      this.viewScale = 1;
+      this.viewCenterNormalized = { x: 0.5, y: 0.5 };
+      this.applyViewConstraints();
+      this.activePointers.clear();
+      this.pinchState = null;
+      this.isPinchZooming = false;
       if (this.ctx) {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
       }
@@ -3926,6 +3962,24 @@ import {
         return;
       }
 
+      if (event.pointerType === 'touch') {
+        this.activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+        if (this.activePointers.size >= 2) {
+          if (typeof event.preventDefault === 'function') {
+            event.preventDefault();
+          }
+          this.performPinchZoom();
+          this.pointerPosition = null;
+          this.clearPlacementPreview();
+          this.clearEnemyHover();
+          return;
+        }
+      } else {
+        this.activePointers.clear();
+        this.pinchState = null;
+        this.isPinchZooming = false;
+      }
+
       const normalized = this.getNormalizedFromEvent(event);
       if (!normalized) {
         this.clearPlacementPreview();
@@ -3971,6 +4025,75 @@ import {
 
       if (!this.shouldAnimate) {
         this.draw();
+      }
+    }
+
+    performPinchZoom() {
+      const pointers = Array.from(this.activePointers.values());
+      if (pointers.length < 2) {
+        this.pinchState = null;
+        this.isPinchZooming = false;
+        return;
+      }
+      const [first, second] = pointers;
+      const dx = first.clientX - second.clientX;
+      const dy = first.clientY - second.clientY;
+      const distance = Math.hypot(dx, dy);
+      if (!Number.isFinite(distance) || distance <= 0) {
+        return;
+      }
+      const midpoint = {
+        clientX: (first.clientX + second.clientX) / 2,
+        clientY: (first.clientY + second.clientY) / 2,
+      };
+      const anchor = this.getCanvasRelativeFromClient(midpoint);
+      if (!anchor) {
+        return;
+      }
+      this.isPinchZooming = true;
+      if (!this.pinchState || !Number.isFinite(this.pinchState.startDistance) || this.pinchState.startDistance <= 0) {
+        this.pinchState = {
+          startDistance: distance,
+          startScale: this.viewScale,
+        };
+        return;
+      }
+      const baseDistance = this.pinchState.startDistance;
+      const baseScale = this.pinchState.startScale || this.viewScale;
+      if (!Number.isFinite(baseDistance) || baseDistance <= 0) {
+        return;
+      }
+      const targetScale = (distance / baseDistance) * baseScale;
+      this.setZoom(targetScale, anchor);
+      this.pinchState.startScale = this.viewScale;
+      this.pinchState.startDistance = distance;
+    }
+
+    handleCanvasPointerDown(event) {
+      if (event.pointerType === 'touch') {
+        this.activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+        if (this.activePointers.size < 2) {
+          this.pinchState = null;
+          this.isPinchZooming = false;
+        }
+      } else {
+        this.activePointers.clear();
+        this.pinchState = null;
+        this.isPinchZooming = false;
+      }
+    }
+
+    handleCanvasPointerUp(event) {
+      if (event.pointerType === 'touch') {
+        this.activePointers.delete(event.pointerId);
+        if (this.activePointers.size < 2) {
+          this.pinchState = null;
+          this.isPinchZooming = false;
+        }
+      } else {
+        this.activePointers.clear();
+        this.pinchState = null;
+        this.isPinchZooming = false;
       }
     }
 
@@ -4065,6 +4188,9 @@ import {
       this.pointerPosition = null;
       this.clearPlacementPreview();
       this.clearEnemyHover();
+      this.activePointers.clear();
+      this.pinchState = null;
+      this.isPinchZooming = false;
     }
 
     handleCanvasClick(event) {
@@ -4072,6 +4198,10 @@ import {
         this.audio.unlock();
       }
       if (!this.levelActive || !this.levelConfig) {
+        return;
+      }
+
+      if (this.isPinchZooming) {
         return;
       }
 
@@ -4097,6 +4227,58 @@ import {
       }
     }
 
+    handleCanvasWheel(event) {
+      if (!this.levelActive || !this.levelConfig) {
+        return;
+      }
+      if (typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+      const anchor = this.getCanvasRelativeFromClient({ clientX: event.clientX, clientY: event.clientY });
+      if (!anchor) {
+        return;
+      }
+      const delta = Number.isFinite(event.deltaY) ? event.deltaY : 0;
+      const factor = Math.exp(-delta * 0.0015);
+      this.applyZoomFactor(factor, anchor);
+    }
+
+    applyZoomFactor(factor, anchor) {
+      if (!Number.isFinite(factor) || factor <= 0) {
+        return;
+      }
+      const targetScale = this.viewScale * factor;
+      this.setZoom(targetScale, anchor);
+    }
+
+    setZoom(targetScale, anchor) {
+      if (!Number.isFinite(targetScale)) {
+        return false;
+      }
+      const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+      const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+      const screenPoint = anchor || { x: width / 2, y: height / 2 };
+      const anchorWorld = this.screenToWorld(screenPoint);
+      const clampedScale = Math.min(this.maxViewScale, Math.max(this.minViewScale, targetScale));
+      const previousScale = this.viewScale;
+      this.viewScale = clampedScale;
+      this.applyViewConstraints();
+      if (anchorWorld) {
+        const offsetX = (screenPoint.x - width / 2) / this.viewScale;
+        const offsetY = (screenPoint.y - height / 2) / this.viewScale;
+        this.setViewCenterFromWorld({
+          x: anchorWorld.x - offsetX,
+          y: anchorWorld.y - offsetY,
+        });
+      } else {
+        this.applyViewConstraints();
+      }
+      this.applyViewConstraints();
+      const scaleChanged = Math.abs(previousScale - this.viewScale) > 0.0001;
+      this.draw();
+      return scaleChanged;
+    }
+
     clearPlacementPreview() {
       if (!this.hoverPlacement) {
         return;
@@ -4120,18 +4302,27 @@ import {
         return null;
       }
       const rect = this.canvas.getBoundingClientRect();
-      const width = rect.width || this.renderWidth;
-      const height = rect.height || this.renderHeight;
+      const width = rect.width || this.renderWidth || 0;
+      const height = rect.height || this.renderHeight || 0;
       if (!width || !height) {
         return null;
       }
-      const x = (event.clientX - rect.left) / width;
-      const y = (event.clientY - rect.top) / height;
-      if (Number.isNaN(x) || Number.isNaN(y)) {
+      const relative = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      };
+      if (!Number.isFinite(relative.x) || !Number.isFinite(relative.y)) {
         return null;
       }
-      const clamp = (value) => Math.min(Math.max(value, 0.04), 0.96);
-      return { x: clamp(x), y: clamp(y) };
+      const world = this.screenToWorld(relative);
+      if (!world) {
+        return null;
+      }
+      const normalized = {
+        x: world.x / (this.renderWidth || width),
+        y: world.y / (this.renderHeight || height),
+      };
+      return this.clampNormalized(normalized);
     }
 
     findTowerAt(position) {
@@ -4305,11 +4496,24 @@ import {
         this.enemyTooltipHpEl.textContent = `Total HP: 10^${exponent} (${hpText})`;
       }
 
-      const xPercent = this.renderWidth ? (enemyPosition.x / this.renderWidth) * 100 : 0;
-      const yPercent = this.renderHeight ? (enemyPosition.y / this.renderHeight) * 100 : 0;
+      const screenPosition = this.worldToScreen(enemyPosition);
+      const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+      const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
 
-      this.enemyTooltip.style.left = `${xPercent}%`;
-      this.enemyTooltip.style.top = `${yPercent}%`;
+      if (
+        !screenPosition ||
+        screenPosition.x < 0 ||
+        screenPosition.y < 0 ||
+        screenPosition.x > width ||
+        screenPosition.y > height
+      ) {
+        this.enemyTooltip.dataset.visible = 'false';
+        this.enemyTooltip.setAttribute('aria-hidden', 'true');
+        return;
+      }
+
+      this.enemyTooltip.style.left = `${screenPosition.x}px`;
+      this.enemyTooltip.style.top = `${screenPosition.y}px`;
       this.enemyTooltip.dataset.visible = 'true';
       this.enemyTooltip.setAttribute('aria-hidden', 'false');
     }
@@ -5677,10 +5881,126 @@ import {
       if (!width || !height) {
         return null;
       }
-      const clamp = (value) => Math.min(Math.max(value, 0.04), 0.96);
-      const x = clamp(position.x / width);
-      const y = clamp(position.y / height);
+      const normalized = {
+        x: position.x / width,
+        y: position.y / height,
+      };
+      return this.clampNormalized(normalized);
+    }
+
+    clampNormalized(normalized) {
+      if (!normalized) {
+        return null;
+      }
+      const clamp = (value) => {
+        if (!Number.isFinite(value)) {
+          return 0.5;
+        }
+        return Math.min(Math.max(value, 0.04), 0.96);
+      };
+      return {
+        x: clamp(normalized.x),
+        y: clamp(normalized.y),
+      };
+    }
+
+    getCanvasRelativeFromClient(point) {
+      if (!this.canvas || !point) {
+        return null;
+      }
+      const rect = this.canvas.getBoundingClientRect();
+      const x = point.clientX - rect.left;
+      const y = point.clientY - rect.top;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return null;
+      }
       return { x, y };
+    }
+
+    getViewCenter() {
+      const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+      const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+      const normalized = this.viewCenterNormalized || { x: 0.5, y: 0.5 };
+      return {
+        x: width * normalized.x,
+        y: height * normalized.y,
+      };
+    }
+
+    setViewCenterFromWorld(world) {
+      if (!world) {
+        return;
+      }
+      const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+      const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+      if (!width || !height) {
+        this.viewCenterNormalized = { x: 0.5, y: 0.5 };
+        return;
+      }
+      const normalized = {
+        x: world.x / width,
+        y: world.y / height,
+      };
+      this.viewCenterNormalized = this.clampViewCenterNormalized(normalized);
+    }
+
+    clampViewCenterNormalized(normalized) {
+      if (!normalized) {
+        return { x: 0.5, y: 0.5 };
+      }
+      const scale = Math.max(this.viewScale || 1, 0.0001);
+      const halfWidth = Math.min(0.5, 0.5 / scale);
+      const halfHeight = Math.min(0.5, 0.5 / scale);
+      const clamp = (value, min, max) => {
+        if (min > max) {
+          return 0.5;
+        }
+        return Math.min(Math.max(value, min), max);
+      };
+      return {
+        x: clamp(normalized.x, halfWidth, 1 - halfWidth),
+        y: clamp(normalized.y, halfHeight, 1 - halfHeight),
+      };
+    }
+
+    applyViewConstraints() {
+      this.viewCenterNormalized = this.clampViewCenterNormalized(
+        this.viewCenterNormalized || { x: 0.5, y: 0.5 },
+      );
+    }
+
+    screenToWorld(point) {
+      if (!point) {
+        return null;
+      }
+      const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+      const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+      const scale = this.viewScale || 1;
+      if (!width || !height || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+        return null;
+      }
+      const center = this.getViewCenter();
+      return {
+        x: center.x + (point.x - width / 2) / scale,
+        y: center.y + (point.y - height / 2) / scale,
+      };
+    }
+
+    worldToScreen(point) {
+      if (!point) {
+        return null;
+      }
+      const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+      const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+      const scale = this.viewScale || 1;
+      if (!width || !height || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+        return null;
+      }
+      const center = this.getViewCenter();
+      return {
+        x: width / 2 + (point.x - center.x) * scale,
+        y: height / 2 + (point.y - center.y) * scale,
+      };
     }
 
     getPointAlongPath(progress) {
@@ -5731,9 +6051,17 @@ import {
       if (!this.ctx) {
         return;
       }
-      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      this.ctx.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0);
+      const ctx = this.ctx;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0);
+
+      const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+      const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+      const viewCenter = this.getViewCenter();
+      ctx.translate(width / 2, height / 2);
+      ctx.scale(this.viewScale, this.viewScale);
+      ctx.translate(-viewCenter.x, -viewCenter.y);
 
       this.drawFloaters();
       this.drawPath();
