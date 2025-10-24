@@ -1839,11 +1839,12 @@ import {
     rightWall: null,
   };
 
+  const POWDER_CELL_SIZE_PX = 1;
   const powderGlyphColumns = [];
 
   function updatePowderGlyphColumns(info = {}) {
     const rows = Number.isFinite(info.rows) && info.rows > 0 ? info.rows : 1;
-    const cellSize = Number.isFinite(info.cellSize) && info.cellSize > 0 ? info.cellSize : 10;
+    const cellSize = Number.isFinite(info.cellSize) && info.cellSize > 0 ? info.cellSize : POWDER_CELL_SIZE_PX;
     const scrollOffset = Number.isFinite(info.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
     const highestRawInput = Number.isFinite(info.highestNormalized) ? info.highestNormalized : 0;
     const totalRawInput = Number.isFinite(info.totalNormalized) ? info.totalNormalized : highestRawInput;
@@ -1931,8 +1932,8 @@ import {
     constructor(options = {}) {
       this.canvas = options.canvas || null;
       this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
-      this.cellSize = Math.max(1, Math.round(options.cellSize || 10));
-      // One powder unit spans a 10×10 pixel block to keep grains clearly visible.
+      this.cellSize = Math.max(1, Math.round(options.cellSize || POWDER_CELL_SIZE_PX));
+      // One powder unit spans a single pixel to highlight fine-grained mote flow.
       this.grainSizes = Array.isArray(options.grainSizes)
         ? options.grainSizes.filter((size) => Number.isFinite(size) && size >= 1)
         : [1, 2, 3];
@@ -2029,8 +2030,8 @@ import {
       const dynamicCapacity = Math.floor((this.cols * this.rows) / 3);
       this.maxGrains = Math.max(this.maxGrainsBase, dynamicCapacity);
 
-      this.wallInsetLeftCells = Math.max(0, Math.round(this.wallInsetLeftPx / this.cellSize));
-      this.wallInsetRightCells = Math.max(0, Math.round(this.wallInsetRightPx / this.cellSize));
+      this.wallInsetLeftCells = Math.max(0, Math.ceil(this.wallInsetLeftPx / this.cellSize));
+      this.wallInsetRightCells = Math.max(0, Math.ceil(this.wallInsetRightPx / this.cellSize));
       const maxInset = Math.max(0, this.cols - 6);
       const insetTotal = this.wallInsetLeftCells + this.wallInsetRightCells;
       if (insetTotal > maxInset && insetTotal > 0) {
@@ -9037,7 +9038,9 @@ import {
     const crestPosition = Number.isFinite(info.crestPosition)
       ? Math.max(0, Math.min(1, info.crestPosition))
       : 1;
-    const cellSize = Number.isFinite(info.cellSize) ? Math.max(1, info.cellSize) : 10;
+    const cellSize = Number.isFinite(info.cellSize)
+      ? Math.max(1, info.cellSize)
+      : POWDER_CELL_SIZE_PX;
     const rows = Number.isFinite(info.rows) ? Math.max(1, info.rows) : 1;
     const highestNormalizedRaw = Number.isFinite(info.highestNormalized)
       ? Math.max(0, info.highestNormalized)
@@ -9564,7 +9567,13 @@ import {
       columnEl.innerHTML = '';
       powderGlyphColumns.push({ element: columnEl, glyphs: new Map() });
     });
-    updatePowderGlyphColumns({ rows: 1, cellSize: 10, scrollOffset: 0, highestNormalized: 0, totalNormalized: 0 });
+    updatePowderGlyphColumns({
+      rows: 1,
+      cellSize: POWDER_CELL_SIZE_PX,
+      scrollOffset: 0,
+      highestNormalized: 0,
+      totalNormalized: 0,
+    });
 
     powderElements.totalMultiplier = document.getElementById('powder-total-multiplier');
     powderElements.sandBonusValue = document.getElementById('powder-sand-bonus');
@@ -9605,7 +9614,7 @@ import {
         : 68;
       powderSimulation = new PowderSimulation({
         canvas: powderElements.simulationCanvas,
-        cellSize: 10,
+        cellSize: POWDER_CELL_SIZE_PX,
         grainSizes: [1, 2, 3],
         scrollThreshold: 0.75,
         wallInsetLeft: leftInset,
