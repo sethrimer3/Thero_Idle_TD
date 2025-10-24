@@ -39,6 +39,7 @@
       role="dialog"
       aria-modal="true"
       aria-hidden="true"
+      tabindex="-1"
       hidden
     >
       <div class="offline-overlay__content">
@@ -50,9 +51,9 @@
           <span class="offline-symbol">=</span>
           <span class="offline-number" id="offline-total">0</span>
         </div>
-        <button class="action-button offline-overlay__button" type="button" id="offline-continue" hidden>
-          Resume Defense
-        </button>
+        <p class="offline-overlay__prompt" id="offline-prompt" aria-live="polite">
+          <em>Press anywhere to continue.</em>
+        </p>
       </div>
     </div>
     <div class="app-shell">
