@@ -839,13 +839,13 @@
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \Delta m = 1000 \)</p>
-                <p class="formula-line result">Instant mote drop for rapid flux calibration.</p>
+                <p class="formula-line result">Instant mote deposit for rapid flux calibration.</p>
               </div>
               <p class="tower-utility-note" id="developer-mote-tower-status" aria-live="polite">
-                Developer mote tower ready—click to release +1,000 motes.
+                Developer mote tower ready—store +1,000 motes in the idle bank.
               </p>
               <button class="tower-equip-button" type="button" id="developer-mote-tower-button">
-                Release +1,000 motes
+                Store +1,000 motes
               </button>
             </article>
 
@@ -1399,29 +1399,42 @@
         </figure>
         <p class="overlay-label">Field Notes Dispatch</p>
         <h2 class="overlay-title" id="field-notes-title">The Tower of Inspiration Briefing</h2>
-        <div class="field-notes-copy">
-          <p>
-            Welcome, Warden. I am Thero, archivist of the glyph lattice. Your arrival coincides with a surge of
-            <strong>mote turbulence</strong> washing against the tower's perimeter.
-          </p>
-          <p>
-            Our scouts report that rival scholars have animated rogue proofs. Each wave they summon is tuned to unravel the
-            equations binding our defenses. Hold these observations close:
-          </p>
-          <ul class="field-notes-list">
-            <li>The <strong>Scintilla Glyph</strong> at the summit regulates every mote current—lose it and the lattice collapses.</li>
-            <li>
-              <strong>Chronoglyph wards</strong> along the ramparts can bend time briefly. Use their cadence to reset your
-              ordinals and stagger enemy advances.
-            </li>
-            <li>
-              When a wave fractures, sift the motes it leaves behind. Their resonance seeds new towers faster than any quarry.
-            </li>
-          </ul>
-          <p>
-            Return once the next theorem is secured. I will inscribe your progress and prepare the following expedition. The
-            codex grows because of your vigilance.
-          </p>
+        <div class="field-notes-copy" id="field-notes-copy">
+          <article class="field-notes-page field-notes-page--active" data-page-index="0" tabindex="0">
+            <p>
+              Welcome, Warden. I am Thero, archivist of the glyph lattice. Your arrival coincides with a surge of
+              <strong>mote turbulence</strong> washing against the tower's perimeter.
+            </p>
+            <p>
+              Our scouts report that rival scholars have animated rogue proofs. Each wave they summon is tuned to unravel the
+              equations binding our defenses. Hold these observations close:
+            </p>
+          </article>
+          <article class="field-notes-page" data-page-index="1" tabindex="-1" aria-hidden="true">
+            <ul class="field-notes-list">
+              <li>The <strong>Scintilla Glyph</strong> at the summit regulates every mote current—lose it and the lattice collapses.</li>
+              <li>
+                <strong>Chronoglyph wards</strong> along the ramparts can bend time briefly. Use their cadence to reset your
+                ordinals and stagger enemy advances.
+              </li>
+              <li>
+                When a wave fractures, sift the motes it leaves behind. Their resonance seeds new towers faster than any quarry.
+              </li>
+            </ul>
+            <p>
+              Return once the next theorem is secured. I will inscribe your progress and prepare the following expedition. The
+              codex grows because of your vigilance.
+            </p>
+          </article>
+        </div>
+        <div class="field-notes-pagination" id="field-notes-pagination">
+          <button class="field-notes-page-button" type="button" id="field-notes-prev" aria-label="Previous field notes page" disabled>
+            ‹
+          </button>
+          <span class="field-notes-page-indicator" id="field-notes-page-indicator">Page 1 of 2</span>
+          <button class="field-notes-page-button" type="button" id="field-notes-next" aria-label="Next field notes page">
+            ›
+          </button>
         </div>
       </div>
     </div>

@@ -339,6 +339,237 @@ import {
     button: null,
   };
 
+  const DEFAULT_MOTE_PALETTE = {
+    stops: [
+      { r: 255, g: 222, b: 137 },
+      { r: 139, g: 247, b: 255 },
+      { r: 164, g: 182, b: 255 },
+    ],
+    restAlpha: 0.9,
+    freefallAlpha: 0.6,
+    backgroundTop: '#0f1018',
+    backgroundBottom: '#171a27',
+  };
+
+  function clampUnitInterval(value) {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+    return Math.max(0, Math.min(1, value));
+  }
+
+  function parseHexColor(value) {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    let hex = value.trim();
+    if (!hex) {
+      return null;
+    }
+    if (hex.startsWith('#')) {
+      hex = hex.slice(1);
+    }
+    if (hex.length === 3) {
+      hex = hex
+        .split('')
+        .map((char) => char + char)
+        .join('');
+    }
+    if (hex.length !== 6 && hex.length !== 8) {
+      return null;
+    }
+    const int = Number.parseInt(hex.slice(0, 6), 16);
+    if (Number.isNaN(int)) {
+      return null;
+    }
+    return {
+      r: (int >> 16) & 0xff,
+      g: (int >> 8) & 0xff,
+      b: int & 0xff,
+    };
+  }
+
+  function parseRgbColor(value) {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    const match = value
+      .trim()
+      .match(/^rgba?\((\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)(?:[,\s]+([0-9.]+))?\)$/i);
+    if (!match) {
+      return null;
+    }
+    const r = Number.parseFloat(match[1]);
+    const g = Number.parseFloat(match[2]);
+    const b = Number.parseFloat(match[3]);
+    if ([r, g, b].some((component) => Number.isNaN(component))) {
+      return null;
+    }
+    return { r, g, b };
+  }
+
+  function hslToRgbColor(h, s, l) {
+    const hue = ((h % 360) + 360) % 360;
+    const sat = clampUnitInterval(s);
+    const light = clampUnitInterval(l);
+    if (sat === 0) {
+      const value = Math.round(light * 255);
+      return { r: value, g: value, b: value };
+    }
+    const q = light < 0.5 ? light * (1 + sat) : light + sat - light * sat;
+    const p = 2 * light - q;
+    const convert = (t) => {
+      let temp = t;
+      if (temp < 0) {
+        temp += 1;
+      }
+      if (temp > 1) {
+        temp -= 1;
+      }
+      if (temp < 1 / 6) {
+        return p + (q - p) * 6 * temp;
+      }
+      if (temp < 1 / 2) {
+        return q;
+      }
+      if (temp < 2 / 3) {
+        return p + (q - p) * (2 / 3 - temp) * 6;
+      }
+      return p;
+    };
+    const r = convert(hue / 360 + 1 / 3);
+    const g = convert(hue / 360);
+    const b = convert(hue / 360 - 1 / 3);
+    return {
+      r: Math.round(r * 255),
+      g: Math.round(g * 255),
+      b: Math.round(b * 255),
+    };
+  }
+
+  function parseHslColor(value) {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    const match = value
+      .trim()
+      .match(/^hsla?\(([-\d.]+)[,\s]+([\d.]+)%[,\s]+([\d.]+)%(?:[,\s]+([0-9.]+))?\)$/i);
+    if (!match) {
+      return null;
+    }
+    const h = Number.parseFloat(match[1]);
+    const s = Number.parseFloat(match[2]) / 100;
+    const l = Number.parseFloat(match[3]) / 100;
+    if ([h, s, l].some((component) => Number.isNaN(component))) {
+      return null;
+    }
+    return hslToRgbColor(h, s, l);
+  }
+
+  function parseCssColor(value) {
+    return parseHexColor(value) || parseRgbColor(value) || parseHslColor(value);
+  }
+
+  function mixRgbColors(colorA, colorB, ratio) {
+    const t = clampUnitInterval(ratio);
+    const a = colorA || { r: 0, g: 0, b: 0 };
+    const b = colorB || { r: 0, g: 0, b: 0 };
+    return {
+      r: a.r + (b.r - a.r) * t,
+      g: a.g + (b.g - a.g) * t,
+      b: a.b + (b.b - a.b) * t,
+    };
+  }
+
+  function colorToRgbaString(color, alpha = 1) {
+    const safeColor = color || { r: 0, g: 0, b: 0 };
+    const r = Math.round(Math.max(0, Math.min(255, safeColor.r || 0)));
+    const g = Math.round(Math.max(0, Math.min(255, safeColor.g || 0)));
+    const b = Math.round(Math.max(0, Math.min(255, safeColor.b || 0)));
+    const normalizedAlpha = clampUnitInterval(alpha);
+    return `rgba(${r}, ${g}, ${b}, ${normalizedAlpha.toFixed(3)})`;
+  }
+
+  function mergeMotePalette(palette) {
+    if (!palette || typeof palette !== 'object') {
+      return {
+        ...DEFAULT_MOTE_PALETTE,
+        stops: DEFAULT_MOTE_PALETTE.stops.map((stop) => ({ ...stop })),
+      };
+    }
+
+    const stops = Array.isArray(palette.stops) && palette.stops.length
+      ? palette.stops
+          .map((stop) => {
+            if (stop && typeof stop === 'object') {
+              const color = parseCssColor(stop) || stop;
+              if (color && typeof color === 'object' && 'r' in color && 'g' in color && 'b' in color) {
+                return {
+                  r: Number.isFinite(color.r) ? color.r : 0,
+                  g: Number.isFinite(color.g) ? color.g : 0,
+                  b: Number.isFinite(color.b) ? color.b : 0,
+                };
+              }
+            }
+            return null;
+          })
+          .filter(Boolean)
+      : DEFAULT_MOTE_PALETTE.stops.map((stop) => ({ ...stop }));
+
+    if (!stops.length) {
+      stops.push(...DEFAULT_MOTE_PALETTE.stops.map((stop) => ({ ...stop }))); // Fallback
+    }
+
+    return {
+      stops,
+      restAlpha: Number.isFinite(palette.restAlpha) ? palette.restAlpha : DEFAULT_MOTE_PALETTE.restAlpha,
+      freefallAlpha: Number.isFinite(palette.freefallAlpha)
+        ? palette.freefallAlpha
+        : DEFAULT_MOTE_PALETTE.freefallAlpha,
+      backgroundTop: palette.backgroundTop || DEFAULT_MOTE_PALETTE.backgroundTop,
+      backgroundBottom: palette.backgroundBottom || DEFAULT_MOTE_PALETTE.backgroundBottom,
+    };
+  }
+
+  function computeMotePaletteFromTheme() {
+    if (typeof window === 'undefined') {
+      return mergeMotePalette(DEFAULT_MOTE_PALETTE);
+    }
+    const root = document.body || document.documentElement;
+    if (!root) {
+      return mergeMotePalette(DEFAULT_MOTE_PALETTE);
+    }
+    const styles = window.getComputedStyle(root);
+    const accent = parseCssColor(styles.getPropertyValue('--accent')) || DEFAULT_MOTE_PALETTE.stops[1];
+    const accentSecondary =
+      parseCssColor(styles.getPropertyValue('--accent-2')) || DEFAULT_MOTE_PALETTE.stops[2];
+    const accentWarm = parseCssColor(styles.getPropertyValue('--accent-3')) || DEFAULT_MOTE_PALETTE.stops[0];
+    const deepBase = { r: 15, g: 16, b: 24 };
+    const lowBase = { r: 23, g: 26, b: 39 };
+    const stops = [
+      mixRgbColors(accentWarm, { r: 255, g: 255, b: 255 }, 0.12),
+      mixRgbColors(accent, accentSecondary, 0.25),
+      mixRgbColors(accentSecondary, { r: 255, g: 255, b: 255 }, 0.18),
+    ];
+
+    return mergeMotePalette({
+      stops,
+      restAlpha: 0.9,
+      freefallAlpha: 0.62,
+      backgroundTop: colorToRgbaString(mixRgbColors(deepBase, accent, 0.22), 1),
+      backgroundBottom: colorToRgbaString(mixRgbColors(lowBase, accentSecondary, 0.18), 1),
+    });
+  }
+
+  function updateMotePaletteFromTheme() {
+    const palette = computeMotePaletteFromTheme();
+    powderState.motePalette = palette;
+    if (powderSimulation && typeof powderSimulation.setMotePalette === 'function') {
+      powderSimulation.setMotePalette(palette);
+      powderSimulation.render();
+    }
+  }
+
   function getActiveColorScheme() {
     return colorSchemeDefinitions[colorSchemeState.index] || colorSchemeDefinitions[0];
   }
@@ -407,6 +638,8 @@ import {
         console.warn('Unable to persist color scheme', error);
       }
     }
+
+    updateMotePaletteFromTheme();
 
     if (playfield) {
       playfield.draw();
@@ -937,7 +1170,19 @@ import {
     overlay: null,
     closeButton: null,
     openButton: null,
+    copy: null,
+    pagination: null,
+    pages: [],
+    pageIndicator: null,
+    prevButton: null,
+    nextButton: null,
     lastFocus: null,
+  };
+
+  const fieldNotesState = {
+    currentIndex: 0,
+    animating: false,
+    touchStart: null,
   };
 
   const developerUtilityElements = {
@@ -970,7 +1215,7 @@ import {
     const fallback =
       developerUtilityElements.moteTowerStatusDefault && developerUtilityElements.moteTowerStatusDefault.trim()
         ? developerUtilityElements.moteTowerStatusDefault.trim()
-        : 'Developer mote tower ready—click to release +1,000 motes.';
+        : 'Developer mote tower ready—store +1,000 motes in the idle bank.';
     developerUtilityElements.moteTowerStatus.textContent = fallback;
   }
 
@@ -1026,11 +1271,10 @@ import {
     }
 
     const amount = DEVELOPER_MOTE_TOWER_DROP_AMOUNT;
-    queueMoteDrop(amount);
-    flushPendingMoteDrops();
+    addIdleMoteBank(amount);
     recordPowderEvent('developer-mote', { amount });
     updatePowderDisplay();
-    setDeveloperMoteTowerStatus(`Released +${formatGameNumber(amount)} Motes.`, {
+    setDeveloperMoteTowerStatus(`Stored +${formatGameNumber(amount)} Motes in reserve.`, {
       temporary: true,
     });
   }
@@ -1049,7 +1293,7 @@ import {
         developerUtilityElements.moteTowerStatus.textContent?.trim() || '';
       developerUtilityElements.moteTowerStatus.textContent =
         developerUtilityElements.moteTowerStatusDefault ||
-        'Developer mote tower ready—click to release +1,000 motes.';
+        'Developer mote tower ready—store +1,000 motes in the idle bank.';
     }
 
     if (developerUtilityElements.moteTowerButton) {
@@ -1971,6 +2215,7 @@ import {
     idleMoteBank: 0,
     idleDrainRate: 1,
     pendingMoteDrops: [],
+    motePalette: mergeMotePalette(DEFAULT_MOTE_PALETTE),
   };
 
   let currentPowderBonuses = {
@@ -2162,6 +2407,7 @@ import {
       this.nextId = 1;
       this.stabilized = true;
       this.flowOffset = 0;
+      this.motePalette = mergeMotePalette(options.motePalette || powderState.motePalette);
 
       this.handleFrame = this.handleFrame.bind(this);
       this.handleResize = this.handleResize.bind(this);
@@ -2756,9 +3002,10 @@ import {
         return;
       }
 
+      const palette = this.getEffectiveMotePalette();
       const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
-      gradient.addColorStop(0, '#0f1018');
-      gradient.addColorStop(1, '#171a27');
+      gradient.addColorStop(0, palette.backgroundTop || '#0f1018');
+      gradient.addColorStop(1, palette.backgroundBottom || '#171a27');
       this.ctx.fillStyle = gradient;
       this.ctx.fillRect(0, 0, this.width, this.height);
 
@@ -2777,20 +3024,43 @@ import {
           continue;
         }
 
-        const alpha = grain.freefall ? 0.55 : 0.9;
-        let fillColor = `rgba(216, 216, 216, ${alpha})`;
-
-        if (grain.size <= 2) {
-          const warmAlpha = grain.size === 1 ? alpha : alpha * 0.95;
-          fillColor = `rgba(255, 222, 89, ${warmAlpha})`;
-        } else if (grain.size >= 4) {
-          const coolTone = 190 - Math.min(40, grain.size * 6);
-          fillColor = `rgba(${coolTone}, ${coolTone}, ${coolTone}, ${alpha})`;
-        }
-
-        this.ctx.fillStyle = fillColor;
+        this.ctx.fillStyle = this.getMoteColorForSize(grain.size, grain.freefall);
         this.ctx.fillRect(px, py, sizePx, sizePx);
       }
+    }
+
+    getEffectiveMotePalette() {
+      if (!this.motePalette) {
+        this.motePalette = mergeMotePalette(DEFAULT_MOTE_PALETTE);
+      }
+      return this.motePalette;
+    }
+
+    setMotePalette(palette) {
+      this.motePalette = mergeMotePalette(palette);
+    }
+
+    getMoteColorForSize(size, isFreefall) {
+      const palette = this.getEffectiveMotePalette();
+      const stops = palette.stops && palette.stops.length
+        ? palette.stops
+        : DEFAULT_MOTE_PALETTE.stops;
+      const normalizedSize = Number.isFinite(size) ? Math.max(1, size) : 1;
+      const denominator = Math.max(1, (this.maxDropSize || normalizedSize) - 1);
+      const ratio = stops.length === 1 ? 0 : clampUnitInterval((normalizedSize - 1) / denominator);
+      let color = stops[0];
+      if (stops.length > 1) {
+        const scaled = ratio * (stops.length - 1);
+        const index = Math.max(0, Math.min(stops.length - 1, Math.floor(scaled)));
+        const nextIndex = Math.min(stops.length - 1, index + 1);
+        const progress = clampUnitInterval(scaled - index);
+        const start = stops[index] || stops[0];
+        const end = stops[nextIndex] || start;
+        color = mixRgbColors(start, end, progress);
+      }
+      const sheen = mixRgbColors(color, { r: 255, g: 255, b: 255 }, 0.1 + ratio * 0.2);
+      const alpha = isFreefall ? palette.freefallAlpha : palette.restAlpha;
+      return colorToRgbaString(sheen, alpha);
     }
 
     setFlowOffset(offset) {
@@ -9903,6 +10173,231 @@ import {
     }
   }
 
+  function getFieldNotesPages() {
+    return Array.isArray(fieldNotesElements.pages) ? fieldNotesElements.pages : [];
+  }
+
+  function updateFieldNotesControls() {
+    const pages = getFieldNotesPages();
+    const total = pages.length;
+    const current = Math.max(0, Math.min(total - 1, fieldNotesState.currentIndex));
+
+    if (fieldNotesElements.pageIndicator) {
+      const label = total > 0 ? `Page ${current + 1} of ${total}` : 'Page 1 of 1';
+      fieldNotesElements.pageIndicator.textContent = label;
+      fieldNotesElements.pageIndicator.hidden = total <= 1;
+    }
+
+    if (fieldNotesElements.prevButton) {
+      fieldNotesElements.prevButton.disabled = current <= 0 || total <= 1;
+      fieldNotesElements.prevButton.hidden = total <= 1;
+    }
+
+    if (fieldNotesElements.nextButton) {
+      fieldNotesElements.nextButton.disabled = current >= total - 1 || total <= 1;
+      fieldNotesElements.nextButton.hidden = total <= 1;
+    }
+
+    if (fieldNotesElements.pagination) {
+      if (total <= 1) {
+        fieldNotesElements.pagination.setAttribute('hidden', '');
+      } else {
+        fieldNotesElements.pagination.removeAttribute('hidden');
+      }
+    }
+  }
+
+  function setFieldNotesPage(targetIndex, options = {}) {
+    const pages = getFieldNotesPages();
+    if (!pages.length) {
+      fieldNotesState.currentIndex = 0;
+      updateFieldNotesControls();
+      return;
+    }
+
+    const clampedIndex = Math.max(0, Math.min(pages.length - 1, targetIndex));
+    const immediate = Boolean(options.immediate);
+    const currentIndex = Math.max(0, Math.min(pages.length - 1, fieldNotesState.currentIndex));
+    const currentPage = pages[currentIndex];
+    const nextPage = pages[clampedIndex];
+
+    if (!nextPage) {
+      return;
+    }
+
+    if (immediate) {
+      fieldNotesState.animating = false;
+      fieldNotesState.currentIndex = clampedIndex;
+      pages.forEach((page, index) => {
+        const active = index === clampedIndex;
+        page.classList.toggle('field-notes-page--active', active);
+        page.classList.remove(
+          'field-notes-page--from-left',
+          'field-notes-page--from-right',
+          'field-notes-page--to-left',
+          'field-notes-page--to-right',
+        );
+        page.setAttribute('tabindex', active ? '0' : '-1');
+        page.setAttribute('aria-hidden', active ? 'false' : 'true');
+        if (active) {
+          page.scrollTop = 0;
+        }
+      });
+      updateFieldNotesControls();
+      return;
+    }
+
+    if (fieldNotesState.animating || clampedIndex === currentIndex) {
+      return;
+    }
+
+    const direction = Number.isFinite(options.direction)
+      ? Math.sign(options.direction)
+      : clampedIndex > currentIndex
+      ? 1
+      : -1;
+
+    fieldNotesState.animating = true;
+
+    const enterClass = direction >= 0 ? 'field-notes-page--from-right' : 'field-notes-page--from-left';
+    const exitClass = direction >= 0 ? 'field-notes-page--to-left' : 'field-notes-page--to-right';
+
+    if (currentPage && currentPage !== nextPage) {
+      currentPage.classList.remove(
+        'field-notes-page--from-left',
+        'field-notes-page--from-right',
+        'field-notes-page--to-left',
+        'field-notes-page--to-right',
+      );
+      currentPage.classList.add(exitClass);
+      currentPage.setAttribute('aria-hidden', 'true');
+      currentPage.setAttribute('tabindex', '-1');
+    }
+
+    nextPage.classList.remove(
+      'field-notes-page--from-left',
+      'field-notes-page--from-right',
+      'field-notes-page--to-left',
+      'field-notes-page--to-right',
+    );
+    nextPage.classList.add('field-notes-page--active', enterClass);
+    nextPage.setAttribute('aria-hidden', 'false');
+    nextPage.setAttribute('tabindex', '0');
+    nextPage.scrollTop = 0;
+
+    let fallbackHandle = null;
+
+    const finishTransition = (event) => {
+      if (event && event.target !== nextPage) {
+        return;
+      }
+      if (event && event.propertyName && event.propertyName !== 'transform') {
+        return;
+      }
+      nextPage.removeEventListener('transitionend', finishTransition);
+      if (fallbackHandle) {
+        clearTimeout(fallbackHandle);
+        fallbackHandle = null;
+      }
+      nextPage.classList.remove('field-notes-page--from-left', 'field-notes-page--from-right');
+      if (currentPage && currentPage !== nextPage) {
+        currentPage.classList.remove(
+          'field-notes-page--active',
+          'field-notes-page--to-left',
+          'field-notes-page--to-right',
+        );
+      }
+      fieldNotesState.currentIndex = clampedIndex;
+      fieldNotesState.animating = false;
+      updateFieldNotesControls();
+    };
+
+    requestAnimationFrame(() => {
+      nextPage.addEventListener('transitionend', finishTransition);
+      if (typeof window !== 'undefined') {
+        fallbackHandle = window.setTimeout(() => {
+          finishTransition();
+        }, 420);
+      }
+      nextPage.classList.remove(enterClass);
+    });
+  }
+
+  function showNextFieldNotesPage() {
+    const pages = getFieldNotesPages();
+    if (!pages.length) {
+      return;
+    }
+    const nextIndex = Math.min(pages.length - 1, fieldNotesState.currentIndex + 1);
+    setFieldNotesPage(nextIndex, { direction: 1 });
+  }
+
+  function showPreviousFieldNotesPage() {
+    const pages = getFieldNotesPages();
+    if (!pages.length) {
+      return;
+    }
+    const nextIndex = Math.max(0, fieldNotesState.currentIndex - 1);
+    setFieldNotesPage(nextIndex, { direction: -1 });
+  }
+
+  function handleFieldNotesOverlayKeydown(event) {
+    if (!isFieldNotesOverlayVisible()) {
+      return;
+    }
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      showNextFieldNotesPage();
+      return;
+    }
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      showPreviousFieldNotesPage();
+    }
+  }
+
+  function handleFieldNotesPointerDown(event) {
+    if (!event || (event.pointerType !== 'touch' && event.pointerType !== 'pen')) {
+      fieldNotesState.touchStart = null;
+      return;
+    }
+    fieldNotesState.touchStart = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      time: typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now(),
+    };
+  }
+
+  function handleFieldNotesPointerUp(event) {
+    const start = fieldNotesState.touchStart;
+    fieldNotesState.touchStart = null;
+    if (!start || !event || start.pointerId !== event.pointerId || fieldNotesState.animating) {
+      return;
+    }
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    const elapsed = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - start.time;
+    if (Math.abs(dx) < 40) {
+      return;
+    }
+    if (Math.abs(dx) < Math.abs(dy) * 1.2) {
+      return;
+    }
+    if (elapsed > 600) {
+      return;
+    }
+    if (dx < 0) {
+      showNextFieldNotesPage();
+    } else {
+      showPreviousFieldNotesPage();
+    }
+  }
+
+  function clearFieldNotesPointerTracking() {
+    fieldNotesState.touchStart = null;
+  }
+
   function closeFieldNotesOverlay() {
     const { overlay } = fieldNotesElements;
     if (!overlay || !isFieldNotesOverlayVisible()) {
@@ -9911,6 +10406,8 @@ import {
 
     overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
+    fieldNotesState.animating = false;
+    clearFieldNotesPointerTracking();
 
     const focusTarget =
       fieldNotesElements.lastFocus && typeof fieldNotesElements.lastFocus.focus === 'function'
@@ -9932,6 +10429,8 @@ import {
 
     fieldNotesElements.lastFocus = document.activeElement;
     overlay.setAttribute('aria-hidden', 'false');
+    fieldNotesState.touchStart = null;
+    setFieldNotesPage(0, { immediate: true });
 
     requestAnimationFrame(() => {
       overlay.classList.add('active');
@@ -9946,6 +10445,18 @@ import {
   function initializeFieldNotesOverlay() {
     fieldNotesElements.overlay = document.getElementById('field-notes-overlay');
     fieldNotesElements.closeButton = document.getElementById('field-notes-close');
+    fieldNotesElements.copy = document.getElementById('field-notes-copy');
+    fieldNotesElements.pagination = document.getElementById('field-notes-pagination');
+    fieldNotesElements.pageIndicator = document.getElementById('field-notes-page-indicator');
+    fieldNotesElements.prevButton = document.getElementById('field-notes-prev');
+    fieldNotesElements.nextButton = document.getElementById('field-notes-next');
+
+    fieldNotesElements.pages = fieldNotesElements.copy
+      ? Array.from(fieldNotesElements.copy.querySelectorAll('.field-notes-page'))
+      : [];
+    fieldNotesState.currentIndex = 0;
+    setFieldNotesPage(0, { immediate: true });
+    updateFieldNotesControls();
 
     const { overlay, closeButton } = fieldNotesElements;
 
@@ -9960,7 +10471,9 @@ import {
         if (event.key === 'Escape' || event.key === 'Esc') {
           event.preventDefault();
           closeFieldNotesOverlay();
+          return;
         }
+        handleFieldNotesOverlayKeydown(event);
       });
     }
 
@@ -9968,6 +10481,31 @@ import {
       closeButton.addEventListener('click', (event) => {
         event.preventDefault();
         closeFieldNotesOverlay();
+      });
+    }
+
+    if (fieldNotesElements.prevButton) {
+      fieldNotesElements.prevButton.addEventListener('click', () => {
+        showPreviousFieldNotesPage();
+      });
+    }
+
+    if (fieldNotesElements.nextButton) {
+      fieldNotesElements.nextButton.addEventListener('click', () => {
+        showNextFieldNotesPage();
+      });
+    }
+
+    if (fieldNotesElements.copy) {
+      fieldNotesElements.copy.addEventListener('pointerdown', handleFieldNotesPointerDown, {
+        passive: true,
+      });
+      fieldNotesElements.copy.addEventListener('pointerup', handleFieldNotesPointerUp);
+      fieldNotesElements.copy.addEventListener('pointercancel', clearFieldNotesPointerTracking);
+      fieldNotesElements.copy.addEventListener('pointerleave', (event) => {
+        if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+          clearFieldNotesPointerTracking();
+        }
       });
     }
   }
@@ -10717,6 +11255,7 @@ import {
         wallInsetRight: rightInset,
         maxDuneGain: powderConfig.simulatedDuneGainMax,
         idleDrainRate: powderState.idleDrainRate,
+        motePalette: powderState.motePalette,
         onHeightChange: handlePowderHeightChange,
       });
       powderState.idleDrainRate = powderSimulation.idleDrainRate;
@@ -10833,7 +11372,9 @@ import {
       case 'developer-mote': {
         const { amount = DEVELOPER_MOTE_TOWER_DROP_AMOUNT } = context;
         const normalizedAmount = Math.max(0, Number(amount) || 0);
-        entry = `Developer mote tower triggered · +${formatGameNumber(normalizedAmount)} Motes dropped.`;
+        entry = `Developer mote tower triggered · +${formatGameNumber(
+          normalizedAmount,
+        )} Motes stored in the idle bank.`;
         break;
       }
       default:
