@@ -850,6 +850,7 @@ import {
   let pendingLevel = null;
   let activeTabIndex = 0;
   let lastLevelTrigger = null;
+  let expandedLevelSet = null;
 
   const loadoutElements = {
     container: null,
@@ -1051,6 +1052,7 @@ import {
     sfx: {
       uiConfirm: { file: 'ui_confirm.wav', volume: 0.45, maxConcurrent: 2 },
       uiToggle: { file: 'ui_toggle.wav', volume: 0.4, maxConcurrent: 2 },
+      menuSelect: { file: 'menu_selection.mp3', volume: 0.5, maxConcurrent: 3 },
       towerPlace: { file: 'tower_placement.mp3', volume: 0.7, maxConcurrent: 4 },
       towerSell: { file: 'tower_sell.wav', volume: 0.6, maxConcurrent: 2 },
       projectile: { file: 'projectile_launch.wav', volume: 0.45, maxConcurrent: 6 },
@@ -5704,6 +5706,100 @@ import {
     targetTab.focus();
   }
 
+  function collapseLevelSet(element, { focusTrigger = false } = {}) {
+    if (!element) {
+      return;
+    }
+
+    const trigger = element.querySelector('.level-set-trigger');
+    const levelsContainer = element.querySelector('.level-set-levels');
+    element.classList.remove('expanded');
+
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'false');
+      if (focusTrigger && typeof trigger.focus === 'function') {
+        trigger.focus();
+      }
+    }
+
+    if (levelsContainer) {
+      levelsContainer.setAttribute('aria-hidden', 'true');
+      levelsContainer.querySelectorAll('[data-level]').forEach((node) => {
+        node.tabIndex = -1;
+      });
+    }
+
+    if (expandedLevelSet === element) {
+      expandedLevelSet = null;
+    }
+  }
+
+  function expandLevelSet(element) {
+    if (!element) {
+      return;
+    }
+
+    if (expandedLevelSet && expandedLevelSet !== element) {
+      collapseLevelSet(expandedLevelSet);
+    }
+
+    const trigger = element.querySelector('.level-set-trigger');
+    const levelsContainer = element.querySelector('.level-set-levels');
+    element.classList.add('expanded');
+
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'true');
+    }
+
+    if (levelsContainer) {
+      levelsContainer.setAttribute('aria-hidden', 'false');
+      levelsContainer.querySelectorAll('[data-level]').forEach((node) => {
+        const levelId = node.dataset.level;
+        const unlocked = levelId ? isLevelUnlocked(levelId) : false;
+        node.tabIndex = unlocked ? 0 : -1;
+      });
+    }
+
+    expandedLevelSet = element;
+  }
+
+  function handleDocumentPointerDown(event) {
+    if (!expandedLevelSet) {
+      return;
+    }
+
+    if (event && expandedLevelSet.contains(event.target)) {
+      return;
+    }
+
+    if (event && event.target && event.target.closest('.level-set')) {
+      return;
+    }
+
+    collapseLevelSet(expandedLevelSet);
+    if (audioManager) {
+      audioManager.playSfx('menuSelect');
+    }
+  }
+
+  function handleDocumentKeyDown(event) {
+    if (event.key !== 'Escape') {
+      return;
+    }
+
+    if (!expandedLevelSet) {
+      return;
+    }
+
+    collapseLevelSet(expandedLevelSet, { focusTrigger: true });
+    if (audioManager) {
+      audioManager.playSfx('menuSelect');
+    }
+  }
+
+  document.addEventListener('pointerdown', handleDocumentPointerDown);
+  document.addEventListener('keydown', handleDocumentKeyDown);
+
   function triggerLevelClickRipple(card, event) {
     if (!card) {
       return;
@@ -5746,6 +5842,7 @@ import {
 
   function buildLevelCards() {
     if (!levelGrid) return;
+    expandedLevelSet = null;
     levelGrid.innerHTML = '';
 
     const fragment = document.createDocumentFragment();
@@ -5761,60 +5858,79 @@ import {
 
     let groupIndex = 0;
     groups.forEach((levels, setName) => {
-      const wrapper = document.createElement('details');
-      wrapper.className = 'level-group';
-      if (groupIndex === 0) {
-        wrapper.open = true;
-      }
+      const setElement = document.createElement('div');
+      setElement.className = 'level-set';
+      setElement.dataset.set = setName;
 
-      const summary = document.createElement('summary');
-      summary.className = 'level-group-summary';
+      const trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'level-set-trigger';
+      trigger.setAttribute('aria-expanded', 'false');
+
+      const glyph = document.createElement('span');
+      glyph.className = 'level-set-glyph';
+      glyph.setAttribute('aria-hidden', 'true');
+      glyph.textContent = '∷';
 
       const title = document.createElement('span');
-      title.className = 'level-group-title';
-      title.textContent = `${setName} Set`;
+      title.className = 'level-set-title';
+      title.textContent = setName;
 
       const count = document.createElement('span');
-      count.className = 'level-group-count';
+      count.className = 'level-set-count';
       count.textContent = `${levels.length} levels`;
 
-      summary.append(title, count);
-      wrapper.append(summary);
+      trigger.append(glyph, title, count);
 
-      const groupGrid = document.createElement('div');
-      groupGrid.className = 'level-group-grid';
+      const slug = setName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .trim() || `set-${groupIndex + 1}`;
+      const containerId = `level-set-${slug}-${groupIndex}`;
 
-      levels.forEach((level) => {
-        const card = document.createElement('article');
-        card.className = 'level-card';
+      const levelsContainer = document.createElement('div');
+      levelsContainer.className = 'level-set-levels';
+      levelsContainer.id = containerId;
+      levelsContainer.setAttribute('role', 'group');
+      levelsContainer.setAttribute('aria-hidden', 'true');
+
+      trigger.setAttribute('aria-controls', containerId);
+      trigger.addEventListener('click', () => {
+        if (setElement.classList.contains('expanded')) {
+          collapseLevelSet(setElement);
+        } else {
+          expandLevelSet(setElement);
+        }
+        if (audioManager) {
+          audioManager.playSfx('menuSelect');
+        }
+      });
+
+      levels.forEach((level, index) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'level-node';
         card.dataset.level = level.id;
-        card.setAttribute('role', 'button');
-        card.setAttribute('tabindex', '0');
         card.setAttribute('aria-pressed', 'false');
-        card.setAttribute('aria-label', `${level.id}: ${level.title}`);
+        card.setAttribute(
+          'aria-label',
+          `${level.id}: ${level.title}. Path ${level.path}. Focus ${level.focus}.`,
+        );
+        card.tabIndex = -1;
+        card.style.setProperty('--level-delay', `${index * 40}ms`);
         card.innerHTML = `
-          <header>
+          <span class="level-node-core">
+            <span class="level-status-pill">New</span>
             <span class="level-id">${level.id}</span>
-            <h3>${level.title}</h3>
-          </header>
-          <p class="level-path"><strong>Path:</strong> ${level.path}</p>
-          <p class="level-hazard"><strong>Focus:</strong> ${level.focus}</p>
-          <p class="level-status-pill">New</p>
-          <dl class="level-metrics">
-            <div>
-              <dt>Mode</dt>
-              <dd class="level-mode">—</dd>
-            </div>
-            <div>
-              <dt>Run Length</dt>
-              <dd class="level-duration">—</dd>
-            </div>
-            <div>
-              <dt>Rewards</dt>
-              <dd class="level-rewards">—</dd>
-            </div>
-          </dl>
-          <p class="level-last-result">No attempts recorded.</p>
+            <span class="level-node-title">${level.title}</span>
+          </span>
+          <span class="screen-reader-only level-path">Path ${level.path}</span>
+          <span class="screen-reader-only level-focus">Focus ${level.focus}</span>
+          <span class="screen-reader-only level-mode">—</span>
+          <span class="screen-reader-only level-duration">—</span>
+          <span class="screen-reader-only level-rewards">—</span>
+          <span class="screen-reader-only level-last-result">No attempts recorded.</span>
         `;
         card.addEventListener('click', (event) => {
           triggerLevelClickRipple(card, event);
@@ -5826,11 +5942,11 @@ import {
             handleLevelSelection(level);
           }
         });
-        groupGrid.append(card);
+        levelsContainer.append(card);
       });
 
-      wrapper.append(groupGrid);
-      fragment.append(wrapper);
+      setElement.append(trigger, levelsContainer);
+      fragment.append(setElement);
       groupIndex += 1;
     });
 
@@ -7046,7 +7162,9 @@ import {
       card.classList.toggle('locked', !unlocked);
       card.setAttribute('aria-pressed', running ? 'true' : 'false');
       card.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
-      card.tabIndex = unlocked ? 0 : -1;
+      const parentSet = card.closest('.level-set');
+      const setExpanded = Boolean(parentSet && parentSet.classList.contains('expanded'));
+      card.tabIndex = unlocked && setExpanded ? 0 : -1;
 
       if (!unlocked) {
         pill.textContent = 'Locked';
@@ -7110,6 +7228,9 @@ import {
 
     event.preventDefault();
     setActiveTab(targetTabId);
+    if (audioManager) {
+      audioManager.playSfx('menuSelect');
+    }
     const tabToFocus = tabs.find((tab) => tab.dataset.tab === targetTabId);
     if (tabToFocus) {
       tabToFocus.focus();
@@ -7138,12 +7259,18 @@ import {
           return;
         }
         setActiveTab(target);
+        if (audioManager) {
+          audioManager.playSfx('menuSelect');
+        }
         tab.focus();
       });
 
       tab.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
+          if (audioManager) {
+            audioManager.playSfx('menuSelect');
+          }
           focusAndActivateTab(index);
         }
       });
@@ -7197,7 +7324,10 @@ import {
       symbol.textContent = definition.symbol;
       const title = document.createElement('span');
       title.className = 'upgrade-matrix-title';
-      title.textContent = definition.name;
+      const sanitizedName = typeof definition.name === 'string'
+        ? definition.name.replace(/tower/gi, '').replace(/\s{2,}/g, ' ').trim()
+        : '';
+      title.textContent = sanitizedName || definition.name;
       name.append(symbol, document.createTextNode(' '), title);
 
       const cost = document.createElement('span');
@@ -7209,8 +7339,11 @@ import {
       const nextDefinition = definition.nextTierId
         ? getTowerDefinition(definition.nextTierId)
         : null;
+      const nextName = nextDefinition?.name
+        ? nextDefinition.name.replace(/tower/gi, '').replace(/\s{2,}/g, ' ').trim()
+        : '';
       nextTier.textContent = nextDefinition
-        ? `→ ${nextDefinition.symbol} ${nextDefinition.name}`
+        ? `→ ${nextDefinition.symbol} ${nextName || nextDefinition.name}`
         : '→ Final lattice awakened';
 
       row.append(tier, name, cost, nextTier);
