@@ -1208,10 +1208,10 @@
               </button>
             </article>
             <article class="card">
-              <h3>Codex</h3>
-              <p>Review mathematical lore and formulae.</p>
+              <h3>Field Notes</h3>
+              <p>Consult the archivist for a briefing on the current storyline.</p>
               <button class="action-button ghost" type="button" id="open-codex-button">
-                Open Codex
+                Field Notes
               </button>
             </article>
           </div>
@@ -1370,6 +1370,49 @@
         <p class="overlay-instruction">Tap outside or press Esc to close.</p>
       </div>
     </div>
+    <div
+      class="level-overlay field-notes-overlay"
+      id="field-notes-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+      tabindex="-1"
+    >
+      <div class="overlay-panel field-notes-panel" role="document" aria-labelledby="field-notes-title">
+        <button class="overlay-close" type="button" id="field-notes-close" aria-label="Close field notes">×</button>
+        <figure class="field-notes-figure">
+          <img src="./assets/images/field-notes-mentor.svg" alt="Archivist Thero shares the latest codex dispatch." />
+          <figcaption>Archivist Thero</figcaption>
+        </figure>
+        <p class="overlay-label">Field Notes Dispatch</p>
+        <h2 class="overlay-title" id="field-notes-title">The Tower of Inspiration Briefing</h2>
+        <div class="field-notes-copy">
+          <p>
+            Welcome, Warden. I am Thero, archivist of the glyph lattice. Your arrival coincides with a surge of
+            <strong>mote turbulence</strong> washing against the tower's perimeter.
+          </p>
+          <p>
+            Our scouts report that rival scholars have animated rogue proofs. Each wave they summon is tuned to unravel the
+            equations binding our defenses. Hold these observations close:
+          </p>
+          <ul class="field-notes-list">
+            <li>The <strong>Scintilla Glyph</strong> at the summit regulates every mote current—lose it and the lattice collapses.</li>
+            <li>
+              <strong>Chronoglyph wards</strong> along the ramparts can bend time briefly. Use their cadence to reset your
+              ordinals and stagger enemy advances.
+            </li>
+            <li>
+              When a wave fractures, sift the motes it leaves behind. Their resonance seeds new towers faster than any quarry.
+            </li>
+          </ul>
+          <p>
+            Return once the next theorem is secured. I will inscribe your progress and prepare the following expedition. The
+            codex grows because of your vigilance.
+          </p>
+        </div>
+      </div>
+    </div>
+
     <div class="level-overlay" id="level-overlay" role="dialog" aria-modal="true" aria-hidden="true">
       <div class="overlay-panel">
         <p class="overlay-label" id="overlay-level"></p>
