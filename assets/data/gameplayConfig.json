@@ -816,6 +816,16 @@
       "path": "Final spiral built from recursive integers; successor titans rebuild lost segments unless powderfall seals flare.",
       "focus": "Stub focus – axiom-tier encounters will be scripted once late-game math is locked.",
       "example": "Peano axioms characterize the natural numbers through zero and a successor function."
+    },
+    {
+      "set": "Developer",
+      "id": "Developer - Test Range",
+      "title": "Endless Codex Trials",
+      "path": "Developer-only training lattice—direct path reveals every glyph as it approaches.",
+      "focus": "Spawn one exemplar of every enemy archetype to validate balancing and visuals.",
+      "example": "Developer Sandbox: Toggle endless codex trials to rehearse each glyph in slow motion.",
+      "developerOnly": true,
+      "forceEndlessMode": true
     }
   ],
   "levels": [
@@ -3567,6 +3577,199 @@
         {
           "x": 0.78,
           "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Developer - Test Range",
+      "displayName": "Endless Codex Trials",
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "etype calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(240, 240, 255, 0.85)",
+          "codexId": "etype"
+        },
+        {
+          "label": "divisor calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(220, 240, 255, 0.85)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "prime calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(255, 220, 235, 0.85)",
+          "codexId": "prime"
+        },
+        {
+          "label": "reversal calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(255, 200, 220, 0.85)",
+          "codexId": "reversal"
+        },
+        {
+          "label": "tunneler calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(210, 230, 255, 0.85)",
+          "codexId": "tunneler"
+        },
+        {
+          "label": "aleph swarm calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(255, 245, 200, 0.85)",
+          "codexId": "aleph-swarm"
+        },
+        {
+          "label": "partial wraith calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(210, 240, 230, 0.85)",
+          "codexId": "partial-wraith"
+        },
+        {
+          "label": "gradient sapper calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(200, 255, 220, 0.85)",
+          "codexId": "gradient-sapper"
+        },
+        {
+          "label": "weierstrass prism calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(220, 210, 255, 0.85)",
+          "codexId": "weierstrass-prism"
+        },
+        {
+          "label": "planck shade calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(200, 225, 255, 0.85)",
+          "codexId": "planck-shade"
+        },
+        {
+          "label": "null husk calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(235, 235, 255, 0.85)",
+          "codexId": "null-husk"
+        },
+        {
+          "label": "imaginary strider calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(205, 215, 255, 0.85)",
+          "codexId": "imaginary-strider"
+        },
+        {
+          "label": "combination cohort calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(255, 235, 215, 0.85)",
+          "codexId": "combination-cohort"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.12,
+      "developerOnly": true,
+      "forceEndlessMode": true,
+      "infiniteThero": true,
+      "path": [
+        {
+          "x": 0.08,
+          "y": 0.88
+        },
+        {
+          "x": 0.2,
+          "y": 0.72
+        },
+        {
+          "x": 0.36,
+          "y": 0.58
+        },
+        {
+          "x": 0.5,
+          "y": 0.48
+        },
+        {
+          "x": 0.66,
+          "y": 0.36
+        },
+        {
+          "x": 0.82,
+          "y": 0.24
+        },
+        {
+          "x": 0.92,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.7
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.28
         }
       ]
     }
