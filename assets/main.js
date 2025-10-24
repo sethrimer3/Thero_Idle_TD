@@ -8543,12 +8543,20 @@ import {
   function updateTowerCardVisibility() {
     const cards = document.querySelectorAll('[data-tower-id]');
     cards.forEach((card) => {
+      if (!(card instanceof HTMLElement)) {
+        return;
+      }
       const towerId = card.dataset.towerId;
       if (!towerId) {
         return;
       }
       const unlocked = isTowerUnlocked(towerId);
       card.hidden = !unlocked;
+      if (unlocked) {
+        card.style.removeProperty('display');
+      } else {
+        card.style.display = 'none';
+      }
       card.setAttribute('aria-hidden', unlocked ? 'false' : 'true');
     });
   }
