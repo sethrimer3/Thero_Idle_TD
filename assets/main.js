@@ -6176,7 +6176,7 @@ import {
     ripple.className = 'level-card-ripple';
 
     const maxDimension = Math.max(rect.width, rect.height);
-    const size = maxDimension * 1.2;
+    const size = maxDimension * 1.6;
     ripple.style.width = `${size}px`;
     ripple.style.height = `${size}px`;
 
