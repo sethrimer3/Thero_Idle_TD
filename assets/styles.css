@@ -656,6 +656,8 @@ body.color-scheme-chromatic::before {
 }
 
 .level-card {
+  position: relative;
+  overflow: hidden;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(5, 6, 12, 0.8);
@@ -665,6 +667,31 @@ body.color-scheme-chromatic::before {
   gap: 12px;
   cursor: pointer;
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+
+.level-card-ripple {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  transform: translate(-50%, -50%) scale(0.25);
+  opacity: 0.6;
+  animation: levelCardRipple 480ms ease-out forwards;
+  mix-blend-mode: screen;
+}
+
+@keyframes levelCardRipple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0.65;
+  }
+  60% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0;
+  }
 }
 
 .level-card:hover {
