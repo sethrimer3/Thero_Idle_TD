@@ -1513,7 +1513,7 @@ import {
 
   function updatePowderGlyphColumns(info = {}) {
     const rows = Number.isFinite(info.rows) && info.rows > 0 ? info.rows : 1;
-    const cellSize = Number.isFinite(info.cellSize) && info.cellSize > 0 ? info.cellSize : 1;
+    const cellSize = Number.isFinite(info.cellSize) && info.cellSize > 0 ? info.cellSize : 10;
     const scrollOffset = Number.isFinite(info.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
     const highestRawInput = Number.isFinite(info.highestNormalized) ? info.highestNormalized : 0;
     const totalRawInput = Number.isFinite(info.totalNormalized) ? info.totalNormalized : highestRawInput;
@@ -1596,7 +1596,8 @@ import {
     constructor(options = {}) {
       this.canvas = options.canvas || null;
       this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
-      this.cellSize = Math.max(1, Math.round(options.cellSize || 1));
+      this.cellSize = Math.max(1, Math.round(options.cellSize || 10));
+      // One powder unit spans a 10×10 pixel block to keep grains clearly visible.
       this.grainSizes = Array.isArray(options.grainSizes)
         ? options.grainSizes.filter((size) => Number.isFinite(size) && size >= 1)
         : [1, 2, 3];
@@ -8482,7 +8483,7 @@ import {
     const crestPosition = Number.isFinite(info.crestPosition)
       ? Math.max(0, Math.min(1, info.crestPosition))
       : 1;
-    const cellSize = Number.isFinite(info.cellSize) ? Math.max(1, info.cellSize) : 1;
+    const cellSize = Number.isFinite(info.cellSize) ? Math.max(1, info.cellSize) : 10;
     const rows = Number.isFinite(info.rows) ? Math.max(1, info.rows) : 1;
     const highestNormalizedRaw = Number.isFinite(info.highestNormalized)
       ? Math.max(0, info.highestNormalized)
@@ -8950,7 +8951,7 @@ import {
       columnEl.innerHTML = '';
       powderGlyphColumns.push({ element: columnEl, glyphs: new Map() });
     });
-    updatePowderGlyphColumns({ rows: 1, cellSize: 1, scrollOffset: 0, highestNormalized: 0, totalNormalized: 0 });
+    updatePowderGlyphColumns({ rows: 1, cellSize: 10, scrollOffset: 0, highestNormalized: 0, totalNormalized: 0 });
 
     powderElements.totalMultiplier = document.getElementById('powder-total-multiplier');
     powderElements.sandBonusValue = document.getElementById('powder-sand-bonus');
@@ -8991,7 +8992,7 @@ import {
         : 68;
       powderSimulation = new PowderSimulation({
         canvas: powderElements.simulationCanvas,
-        cellSize: 1,
+        cellSize: 10,
         grainSizes: [1, 2, 3],
         scrollThreshold: 0.75,
         wallInsetLeft: leftInset,
