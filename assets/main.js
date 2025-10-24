@@ -1472,6 +1472,7 @@ import {
       this.sfxPools = new Map();
       this.currentMusicKey = null;
       this.activeMusicEntry = null;
+      this.activeMusicFade = null;
       this.pendingUnlockResolvers = [];
       this.pendingMusicKey = null;
       this.unlocked = false;
@@ -1561,7 +1562,7 @@ import {
         const sameTrack = currentKey === key;
         const shouldRestart = Boolean(options.restart) || !sameTrack || audio.paused;
 
-        this._cancelMusicFade();
+        this._cancelMusicFade({ finalize: true });
 
         if (shouldRestart) {
           try {
@@ -1630,7 +1631,7 @@ import {
         return;
       }
       if (this.currentMusicKey === key) {
-        this._cancelMusicFade();
+        this._cancelMusicFade({ finalize: true });
         this.currentMusicKey = null;
         this.activeMusicEntry = null;
       }
@@ -1703,6 +1704,13 @@ import {
         fromAudio = null;
       }
 
+      const fadeState = {
+        fromEntry,
+        toEntry,
+        targetVolume: resolvedTarget,
+      };
+      this.activeMusicFade = fadeState;
+
       if (durationMs <= 0) {
         if (fromAudio) {
           fromAudio.volume = 0;
@@ -1716,6 +1724,7 @@ import {
         toAudio.volume = resolvedTarget;
         this.musicFadeHandle = null;
         this.musicFadeCanceler = null;
+        this.activeMusicFade = null;
         return;
       }
 
@@ -1754,6 +1763,7 @@ import {
           toAudio.volume = resolvedTarget;
           this.musicFadeHandle = null;
           this.musicFadeCanceler = null;
+          this.activeMusicFade = null;
         }
       };
 
@@ -1761,8 +1771,27 @@ import {
       this.musicFadeCanceler = cancel;
     }
 
-    _cancelMusicFade() {
+    _cancelMusicFade(options = {}) {
       if (this.musicFadeHandle === null) {
+        if (options.finalize && this.activeMusicFade) {
+          const { fromEntry, toEntry, targetVolume } = this.activeMusicFade;
+          if (fromEntry?.audio && fromEntry.audio !== toEntry?.audio) {
+            fromEntry.audio.volume = 0;
+            fromEntry.audio.pause();
+            try {
+              fromEntry.audio.currentTime = 0;
+            } catch (error) {
+              fromEntry.audio.src = fromEntry.audio.src;
+            }
+          }
+          if (toEntry?.audio) {
+            const resolved = Number.isFinite(targetVolume)
+              ? targetVolume
+              : this._resolveMusicVolume(toEntry.definition);
+            toEntry.audio.volume = resolved;
+          }
+        }
+        this.activeMusicFade = null;
         return;
       }
       if (typeof this.musicFadeCanceler === 'function') {
@@ -1770,6 +1799,25 @@ import {
       }
       this.musicFadeHandle = null;
       this.musicFadeCanceler = null;
+      if (options.finalize && this.activeMusicFade) {
+        const { fromEntry, toEntry, targetVolume } = this.activeMusicFade;
+        if (fromEntry?.audio && fromEntry.audio !== toEntry?.audio) {
+          fromEntry.audio.volume = 0;
+          fromEntry.audio.pause();
+          try {
+            fromEntry.audio.currentTime = 0;
+          } catch (error) {
+            fromEntry.audio.src = fromEntry.audio.src;
+          }
+        }
+        if (toEntry?.audio) {
+          const resolved = Number.isFinite(targetVolume)
+            ? targetVolume
+            : this._resolveMusicVolume(toEntry.definition);
+          toEntry.audio.volume = resolved;
+        }
+      }
+      this.activeMusicFade = null;
     }
 
     _now() {
@@ -5503,9 +5551,6 @@ import {
       }
 
       if (!this.combatActive) {
-        const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
-        const passiveRate = this.levelConfig.passiveTheroPerSecond ?? 0;
-        this.energy = Math.min(cap, this.energy + passiveRate * speedDelta);
         this.updateHud();
         this.updateProgress();
         return;
@@ -5926,6 +5971,12 @@ import {
       this.lives = Math.max(0, this.lives - damage);
       if (this.audio) {
         this.audio.playSfx('enemyBreach');
+        const maxLives = Number.isFinite(this.levelConfig?.lives)
+          ? Math.max(1, this.levelConfig.lives)
+          : null;
+        if (maxLives && damage / maxLives > 0.05) {
+          this.audio.playSfx('error');
+        }
       }
       if (this.messageEl) {
         const label = enemy.label || 'Glyph';
