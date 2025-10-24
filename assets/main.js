@@ -6247,6 +6247,7 @@ import {
     overlayPreviewCanvas.removeEventListener('pointerup', handleLevelEditorPointerUp);
     overlayPreviewCanvas.removeEventListener('pointercancel', handleLevelEditorPointerUp);
     overlayPreviewCanvas.removeEventListener('lostpointercapture', handleLevelEditorPointerUp);
+    overlayPreviewCanvas.removeEventListener('click', handleLevelEditorCanvasClick);
     levelEditorState.canvasListenersAttached = false;
   }
 
@@ -6294,7 +6295,15 @@ import {
     overlayPreviewCanvas.addEventListener('pointerup', handleLevelEditorPointerUp);
     overlayPreviewCanvas.addEventListener('pointercancel', handleLevelEditorPointerUp);
     overlayPreviewCanvas.addEventListener('lostpointercapture', handleLevelEditorPointerUp);
+    overlayPreviewCanvas.addEventListener('click', handleLevelEditorCanvasClick);
     levelEditorState.canvasListenersAttached = true;
+  }
+
+  function handleLevelEditorCanvasClick(event) {
+    if (!levelEditorState.editing) {
+      return;
+    }
+    event.stopPropagation();
   }
 
   function updateLevelEditorOutput() {
@@ -6623,6 +6632,10 @@ import {
     if (!levelEditorState.editing || !overlayPreviewCanvas || event.button !== 0) {
       return;
     }
+
+    if (event) {
+      event.stopPropagation();
+    }
     const point = getNormalizedPointerPosition(event);
     if (!point) {
       return;
@@ -6632,6 +6645,7 @@ import {
     const removalThreshold = 0.045;
     if (event.shiftKey && nearest.index >= 0 && nearest.distance <= removalThreshold) {
       event.preventDefault();
+      event.stopPropagation();
       levelEditorState.points.splice(nearest.index, 1);
       levelEditorState.draggingIndex = -1;
       applyLevelEditorPoints();
@@ -6640,6 +6654,7 @@ import {
     }
 
     event.preventDefault();
+    event.stopPropagation();
 
     const selectionThreshold = 0.04;
     if (nearest.index >= 0 && nearest.distance <= selectionThreshold) {
@@ -6679,11 +6694,16 @@ import {
     if (levelEditorState.pointerId !== null && event.pointerId !== levelEditorState.pointerId) {
       return;
     }
+
+    if (event) {
+      event.stopPropagation();
+    }
     const point = getNormalizedPointerPosition(event);
     if (!point) {
       return;
     }
     event.preventDefault();
+    event.stopPropagation();
     levelEditorState.points[levelEditorState.draggingIndex] = point;
     applyLevelEditorPoints();
   }
@@ -6691,6 +6711,10 @@ import {
   function handleLevelEditorPointerUp(event) {
     if (event && levelEditorState.pointerId !== null && event.pointerId !== levelEditorState.pointerId) {
       return;
+    }
+
+    if (event) {
+      event.stopPropagation();
     }
     endLevelEditorDrag();
     refreshLevelEditorMarkers();
@@ -6711,24 +6735,28 @@ import {
     if (levelEditorElements.toggle) {
       levelEditorElements.toggle.addEventListener('click', (event) => {
         event.preventDefault();
+        event.stopPropagation();
         handleLevelEditorToggle();
       });
     }
     if (levelEditorElements.clear) {
       levelEditorElements.clear.addEventListener('click', (event) => {
         event.preventDefault();
+        event.stopPropagation();
         handleLevelEditorClear();
       });
     }
     if (levelEditorElements.reset) {
       levelEditorElements.reset.addEventListener('click', (event) => {
         event.preventDefault();
+        event.stopPropagation();
         handleLevelEditorReset();
       });
     }
     if (levelEditorElements.exportButton) {
       levelEditorElements.exportButton.addEventListener('click', (event) => {
         event.preventDefault();
+        event.stopPropagation();
         handleLevelEditorExport();
       });
     }
