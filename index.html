@@ -1162,10 +1162,43 @@
         >
           <header class="panel-header">Options &amp; Codex</header>
           <div class="panel-grid">
-            <article class="card">
-              <h3>Sound</h3>
+            <article class="card" id="sound-card">
+              <h3 id="sound-card-title">Sound</h3>
               <p>Adjust harmonic resonance levels.</p>
-              <button class="action-button ghost" type="button">Tune</button>
+              <div class="slider-group" role="group" aria-labelledby="sound-card-title">
+                <div class="slider-row">
+                  <div class="slider-row-header">
+                    <label class="slider-label" for="music-volume">Music</label>
+                    <span class="slider-value" id="music-volume-value">60%</span>
+                  </div>
+                  <input
+                    class="slider-input"
+                    type="range"
+                    id="music-volume"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="60"
+                    aria-label="Music volume"
+                  />
+                </div>
+                <div class="slider-row">
+                  <div class="slider-row-header">
+                    <label class="slider-label" for="sfx-volume">Sound Effects</label>
+                    <span class="slider-value" id="sfx-volume-value">85%</span>
+                  </div>
+                  <input
+                    class="slider-input"
+                    type="range"
+                    id="sfx-volume"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="85"
+                    aria-label="Sound effects volume"
+                  />
+                </div>
+              </div>
             </article>
             <article class="card">
               <h3>Visual Theme</h3>
@@ -1217,6 +1250,9 @@
           <section class="enemy-codex" id="enemy-codex-section" aria-live="polite" tabindex="-1">
             <header class="subsection-title">Enemy Codex</header>
             <div class="codex-controls">
+              <button class="action-button ghost" type="button" id="codex-options-button">
+                Open Options
+              </button>
               <label class="developer-mode-toggle" for="codex-developer-mode">
                 <input type="checkbox" id="codex-developer-mode" />
                 Developer Mode — unlock all towers, levels, and entries
