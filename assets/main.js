@@ -1607,6 +1607,37 @@ import {
       return this._clampVolume(base * this.sfxVolume, 0);
     }
 
+    setMusicVolume(volume) {
+      this.musicVolume = this._clampVolume(volume, this.musicVolume);
+      this.musicElements.forEach((entry) => {
+        if (!entry || !entry.audio) {
+          return;
+        }
+        entry.audio.volume = this._resolveMusicVolume(entry.definition);
+      });
+      if (this.activeMusicEntry?.audio) {
+        this.activeMusicEntry.audio.volume = this._resolveMusicVolume(
+          this.activeMusicEntry.definition,
+        );
+      }
+      return this.musicVolume;
+    }
+
+    setSfxVolume(volume) {
+      this.sfxVolume = this._clampVolume(volume, this.sfxVolume);
+      this.sfxPools.forEach((entry) => {
+        if (!entry || !entry.pool) {
+          return;
+        }
+        entry.pool.forEach((audio) => {
+          if (audio) {
+            audio.volume = this._resolveSfxVolume(entry.definition);
+          }
+        });
+      });
+      return this.sfxVolume;
+    }
+
     _clampVolume(value, fallback = 1) {
       const resolved = typeof value === 'number' ? value : fallback;
       if (!Number.isFinite(resolved)) {
@@ -1616,7 +1647,130 @@ import {
     }
   }
 
+  const AUDIO_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:audio';
+
   const audioManager = new AudioManager(audioManifest);
+
+  const audioControlElements = {
+    musicSlider: null,
+    musicValue: null,
+    sfxSlider: null,
+    sfxValue: null,
+  };
+
+  function formatVolumeDisplay(volume) {
+    const normalized = Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 0;
+    return `${Math.round(normalized * 100)}%`;
+  }
+
+  function getSliderVolume(slider) {
+    if (!slider) {
+      return 0;
+    }
+    const raw = Number(slider.value);
+    if (!Number.isFinite(raw)) {
+      return 0;
+    }
+    return Math.min(1, Math.max(0, raw / 100));
+  }
+
+  function updateVolumeDisplay(kind, volume) {
+    const text = formatVolumeDisplay(volume);
+    if (kind === 'music' && audioControlElements.musicValue) {
+      audioControlElements.musicValue.textContent = text;
+    }
+    if (kind === 'sfx' && audioControlElements.sfxValue) {
+      audioControlElements.sfxValue.textContent = text;
+    }
+  }
+
+  function syncAudioControlsFromManager() {
+    if (!audioManager) {
+      return;
+    }
+    if (audioControlElements.musicSlider) {
+      audioControlElements.musicSlider.value = String(
+        Math.round(Math.min(1, Math.max(0, audioManager.musicVolume)) * 100),
+      );
+    }
+    if (audioControlElements.sfxSlider) {
+      audioControlElements.sfxSlider.value = String(
+        Math.round(Math.min(1, Math.max(0, audioManager.sfxVolume)) * 100),
+      );
+    }
+    updateVolumeDisplay('music', audioManager.musicVolume);
+    updateVolumeDisplay('sfx', audioManager.sfxVolume);
+  }
+
+  function saveAudioSettings() {
+    if (!audioManager) {
+      return;
+    }
+    writeStorageJson(AUDIO_SETTINGS_STORAGE_KEY, {
+      musicVolume: audioManager.musicVolume,
+      sfxVolume: audioManager.sfxVolume,
+    });
+  }
+
+  function bindAudioControls() {
+    audioControlElements.musicSlider = document.getElementById('music-volume');
+    audioControlElements.musicValue = document.getElementById('music-volume-value');
+    audioControlElements.sfxSlider = document.getElementById('sfx-volume');
+    audioControlElements.sfxValue = document.getElementById('sfx-volume-value');
+
+    const attachSlider = (slider, kind, setter) => {
+      if (!slider) {
+        return;
+      }
+      const handleInput = () => {
+        const volume = getSliderVolume(slider);
+        setter(volume);
+        updateVolumeDisplay(kind, volume);
+      };
+      const handleChange = () => {
+        const volume = getSliderVolume(slider);
+        setter(volume);
+        updateVolumeDisplay(kind, volume);
+        saveAudioSettings();
+      };
+      slider.addEventListener('input', handleInput);
+      slider.addEventListener('change', handleChange);
+    };
+
+    attachSlider(audioControlElements.musicSlider, 'music', (volume) => {
+      if (audioManager) {
+        audioManager.setMusicVolume(volume);
+      }
+    });
+
+    attachSlider(audioControlElements.sfxSlider, 'sfx', (volume) => {
+      if (audioManager) {
+        audioManager.setSfxVolume(volume);
+      }
+    });
+
+    syncAudioControlsFromManager();
+
+    if (audioManager) {
+      const activationElements = [
+        audioControlElements.musicSlider,
+        audioControlElements.sfxSlider,
+      ].filter(Boolean);
+      audioManager.registerActivationElements(activationElements);
+    }
+  }
+
+  function applyStoredAudioSettings(settings) {
+    if (!settings || typeof settings !== 'object') {
+      return;
+    }
+    if (Number.isFinite(settings.musicVolume) && audioManager) {
+      audioManager.setMusicVolume(settings.musicVolume);
+    }
+    if (Number.isFinite(settings.sfxVolume) && audioManager) {
+      audioManager.setSfxVolume(settings.sfxVolume);
+    }
+  }
 
   function playTowerPlacementNotes(audio, count = 1) {
     if (!audio || !Number.isFinite(count) || count <= 0) {
@@ -1914,6 +2068,7 @@ import {
   const storageKeys = {
     offline: 'glyph-defense-idle:offline',
     powder: 'glyph-defense-idle:powder',
+    audio: AUDIO_SETTINGS_STORAGE_KEY,
   };
 
   let powderCurrency = 0;
@@ -9365,53 +9520,84 @@ import {
     });
   }
 
-  function bindCodexControls() {
-    const openButton = document.getElementById('open-codex-button');
-    if (!openButton) {
+  function scrollPanelToElement(target, { offset = 16 } = {}) {
+    if (!target) {
       return;
     }
 
-    openButton.addEventListener('click', () => {
-      setActiveTab('options');
+    const panel = target.closest('.panel');
+    if (panel) {
+      const panelRect = panel.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const desiredTop = targetRect.top - panelRect.top + panel.scrollTop - offset;
+      const top = Math.max(0, desiredTop);
+      const scrollOptions = { top, behavior: 'smooth' };
+      try {
+        panel.scrollTo(scrollOptions);
+      } catch (error) {
+        panel.scrollTop = top;
+      }
+      return;
+    }
 
-      window.requestAnimationFrame(() => {
-        const codexSection = document.getElementById('enemy-codex-section');
-        if (!codexSection) {
-          return;
-        }
+    try {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (error) {
+      target.scrollIntoView(true);
+    }
+  }
 
-        const codexPanel = codexSection.closest('.panel');
-        if (codexPanel) {
-          const panelRect = codexPanel.getBoundingClientRect();
-          const sectionRect = codexSection.getBoundingClientRect();
-          const targetOffset = sectionRect.top - panelRect.top + codexPanel.scrollTop;
-          const scrollOptions = { top: Math.max(0, targetOffset - 16), behavior: 'smooth' };
-          try {
-            codexPanel.scrollTo(scrollOptions);
-          } catch (error) {
-            codexPanel.scrollTop = scrollOptions.top;
-          }
-        } else {
-          try {
-            codexSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          } catch (error) {
-            codexSection.scrollIntoView(true);
-          }
-        }
+  function bindCodexControls() {
+    const openButton = document.getElementById('open-codex-button');
+    if (openButton) {
+      openButton.addEventListener('click', () => {
+        setActiveTab('options');
 
-        if (typeof codexSection.focus === 'function') {
-          try {
-            codexSection.focus({ preventScroll: true });
-          } catch (error) {
-            codexSection.focus();
+        window.requestAnimationFrame(() => {
+          const codexSection = document.getElementById('enemy-codex-section');
+          if (!codexSection) {
+            return;
           }
+
+          scrollPanelToElement(codexSection);
+
+          if (typeof codexSection.focus === 'function') {
+            try {
+              codexSection.focus({ preventScroll: true });
+            } catch (error) {
+              codexSection.focus();
+            }
+          }
+        });
+
+        if (document.activeElement === openButton) {
+          openButton.blur();
         }
       });
+    }
 
-      if (document.activeElement === openButton) {
-        openButton.blur();
-      }
-    });
+    const optionsButton = document.getElementById('codex-options-button');
+    if (optionsButton) {
+      optionsButton.addEventListener('click', () => {
+        setActiveTab('options');
+
+        window.requestAnimationFrame(() => {
+          const soundCard = document.getElementById('sound-card');
+          if (soundCard) {
+            scrollPanelToElement(soundCard);
+          }
+
+          const musicSlider = document.getElementById('music-volume');
+          if (musicSlider && typeof musicSlider.focus === 'function') {
+            try {
+              musicSlider.focus({ preventScroll: true });
+            } catch (error) {
+              musicSlider.focus();
+            }
+          }
+        });
+      });
+    }
   }
 
   function notifyAutoAnchorUsed(currentPlaced, totalAnchors) {
@@ -9664,6 +9850,12 @@ import {
     const storedPowder = readStorageJson(storageKeys.powder);
     if (Number.isFinite(storedPowder)) {
       powderCurrency = Math.max(0, storedPowder);
+    }
+
+    const storedAudio = readStorageJson(AUDIO_SETTINGS_STORAGE_KEY);
+    if (storedAudio) {
+      applyStoredAudioSettings(storedAudio);
+      syncAudioControlsFromManager();
     }
   }
 
@@ -10419,6 +10611,7 @@ import {
 
     bindColorSchemeButton();
     initializeColorScheme();
+    bindAudioControls();
 
     const towerPanel = document.getElementById('panel-tower');
     const towersPanel = document.getElementById('panel-towers');
