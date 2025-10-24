@@ -2135,6 +2135,28 @@ body.color-scheme-chromatic::before {
   opacity: 0;
 }
 
+.field-notes-page-figure {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.field-notes-page-image {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(12, 16, 26, 0.66);
+  border: 1px solid rgba(139, 247, 255, 0.12);
+}
+
+.field-notes-page-caption {
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(139, 247, 255, 0.75);
+}
+
 .field-notes-copy strong {
   color: rgba(255, 228, 160, 0.95);
 }

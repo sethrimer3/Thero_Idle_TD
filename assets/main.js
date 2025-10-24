@@ -1447,6 +1447,7 @@ import {
       towerMerge: { file: 'tower_merge.mp3', volume: 0.75, maxConcurrent: 2 },
       towerSell: { file: 'tower_merge.mp3', volume: 0.7, maxConcurrent: 2 },
       enterLevel: { file: 'enter_level.mp3', volume: 0.75, maxConcurrent: 2 },
+      pageTurn: { file: 'page_turn.mp3', volume: 0.6, maxConcurrent: 2 },
       error: { file: 'error.mp3', volume: 0.8, maxConcurrent: 2 },
       alphaTowerFire: { file: 'alpha_tower_firing.mp3', volume: 0.55, maxConcurrent: 5 },
       noteA: { file: 'note_A.mp3', volume: 0.8, maxConcurrent: 3 },
@@ -10223,6 +10224,10 @@ import {
 
     if (!nextPage) {
       return;
+    }
+
+    if (!immediate && clampedIndex !== currentIndex && audioManager) {
+      audioManager.playSfx('pageTurn');
     }
 
     if (immediate) {
