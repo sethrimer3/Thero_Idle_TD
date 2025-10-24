@@ -33,6 +33,96 @@ import {
     }
   }
 
+  const MATH_SYMBOL_REGEX = /[\\^_=+\-*{}]|[0-9]|[×÷±√∞∑∏∆∇∂→←↺⇥]|[α-ωΑ-Ωℵ℘ℏℙℚℝℤℂℑℜητβγΩΣΨΔφϕλψρμνσπθ]/u;
+
+  function isLikelyMathExpression(text) {
+    if (!text) {
+      return false;
+    }
+    if (text.startsWith('\\(') || text.startsWith('\\[')) {
+      return true;
+    }
+    if (MATH_SYMBOL_REGEX.test(text)) {
+      return true;
+    }
+    if (/\b(?:sin|cos|tan|log|exp|sqrt)\b/i.test(text)) {
+      return true;
+    }
+    return false;
+  }
+
+  function annotateMathText(text) {
+    if (typeof text !== 'string' || text.indexOf('(') === -1) {
+      return text;
+    }
+
+    let output = '';
+    let outsideBuffer = '';
+    let insideBuffer = '';
+    let depth = 0;
+
+    const flushOutside = () => {
+      if (outsideBuffer) {
+        output += outsideBuffer;
+        outsideBuffer = '';
+      }
+    };
+
+    for (let index = 0; index < text.length; index += 1) {
+      const char = text[index];
+
+      if (char === '(') {
+        if (depth === 0) {
+          flushOutside();
+          insideBuffer = '';
+        } else {
+          insideBuffer += char;
+        }
+        depth += 1;
+        continue;
+      }
+
+      if (char === ')') {
+        if (depth === 0) {
+          outsideBuffer += char;
+          continue;
+        }
+        depth -= 1;
+        if (depth === 0) {
+          const content = insideBuffer;
+          const trimmed = content.trim();
+          if (!trimmed) {
+            output += '()';
+          } else if (isLikelyMathExpression(trimmed)) {
+            output += `\\(${trimmed}\\)`;
+          } else {
+            output += `(${content})`;
+          }
+          insideBuffer = '';
+        } else {
+          insideBuffer += char;
+        }
+        continue;
+      }
+
+      if (depth === 0) {
+        outsideBuffer += char;
+      } else {
+        insideBuffer += char;
+      }
+    }
+
+    if (insideBuffer && depth > 0) {
+      output += `(${insideBuffer}`;
+    }
+
+    if (outsideBuffer) {
+      output += outsideBuffer;
+    }
+
+    return output;
+  }
+
   function createPreviewId(prefix, value) {
     const slug = String(value || '')
       .toLowerCase()
@@ -7990,17 +8080,18 @@ import {
 
         const glyphNote = document.createElement('span');
         glyphNote.className = 'enemy-card-glyph-note';
-        glyphNote.textContent = 'HP tiers use 10^k';
+        glyphNote.textContent = annotateMathText('HP tiers use (10^{k}).');
 
         glyphRow.append(glyphSymbol, glyphNote);
         card.append(glyphRow);
+        renderMathElement(glyphNote);
       }
 
       const summaryText = entry.summary || entry.description || '';
       if (summaryText) {
         const summary = document.createElement('p');
         summary.className = 'enemy-card-summary';
-        summary.textContent = summaryText;
+        summary.textContent = annotateMathText(summaryText);
         card.append(summary);
         renderMathElement(summary);
       }
@@ -8015,7 +8106,7 @@ import {
 
         const equation = document.createElement('span');
         equation.className = 'enemy-card-equation';
-        equation.textContent = entry.formula;
+        equation.textContent = annotateMathText(entry.formula);
 
         formulaRow.append(formulaLabel, document.createTextNode(': '), equation);
         card.append(formulaRow);
@@ -8027,7 +8118,7 @@ import {
         traitList.className = 'enemy-card-traits';
         entry.traits.forEach((trait) => {
           const item = document.createElement('li');
-          item.textContent = trait;
+          item.textContent = annotateMathText(trait);
           traitList.append(item);
           renderMathElement(item);
         });
@@ -8037,15 +8128,17 @@ import {
       if (entry.counter) {
         const counter = document.createElement('p');
         counter.className = 'enemy-card-counter';
-        counter.textContent = entry.counter;
+        counter.textContent = annotateMathText(entry.counter);
         card.append(counter);
+        renderMathElement(counter);
       }
 
       if (entry.lore) {
         const lore = document.createElement('p');
         lore.className = 'enemy-card-lore';
-        lore.textContent = entry.lore;
+        lore.textContent = annotateMathText(entry.lore);
         card.append(lore);
+        renderMathElement(lore);
       }
 
       fragment.append(card);
