@@ -1743,6 +1743,14 @@ body.color-scheme-chromatic::before {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.tower-utility-note {
+  margin: 16px 0 12px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--muted);
+}
+
 
 .formula-line {
   margin: 0;
