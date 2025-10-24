@@ -933,6 +933,13 @@ import {
     note: null,
   };
 
+  const fieldNotesElements = {
+    overlay: null,
+    closeButton: null,
+    openButton: null,
+    lastFocus: null,
+  };
+
   const developerUtilityElements = {
     moteTowerCard: null,
     moteTowerButton: null,
@@ -9875,32 +9882,98 @@ import {
     }
   }
 
+  function isFieldNotesOverlayVisible() {
+    return Boolean(fieldNotesElements.overlay?.classList.contains('active'));
+  }
+
+  function focusFieldNotesElement(element) {
+    if (!element || typeof element.focus !== 'function') {
+      return;
+    }
+
+    try {
+      element.focus({ preventScroll: true });
+    } catch (error) {
+      element.focus();
+    }
+  }
+
+  function closeFieldNotesOverlay() {
+    const { overlay } = fieldNotesElements;
+    if (!overlay || !isFieldNotesOverlayVisible()) {
+      return;
+    }
+
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden', 'true');
+
+    const focusTarget =
+      fieldNotesElements.lastFocus && typeof fieldNotesElements.lastFocus.focus === 'function'
+        ? fieldNotesElements.lastFocus
+        : fieldNotesElements.openButton;
+
+    if (focusTarget) {
+      focusFieldNotesElement(focusTarget);
+    }
+
+    fieldNotesElements.lastFocus = null;
+  }
+
+  function openFieldNotesOverlay() {
+    const { overlay, closeButton } = fieldNotesElements;
+    if (!overlay || isFieldNotesOverlayVisible()) {
+      return;
+    }
+
+    fieldNotesElements.lastFocus = document.activeElement;
+    overlay.setAttribute('aria-hidden', 'false');
+
+    requestAnimationFrame(() => {
+      overlay.classList.add('active');
+      if (closeButton) {
+        focusFieldNotesElement(closeButton);
+      } else {
+        focusFieldNotesElement(overlay);
+      }
+    });
+  }
+
+  function initializeFieldNotesOverlay() {
+    fieldNotesElements.overlay = document.getElementById('field-notes-overlay');
+    fieldNotesElements.closeButton = document.getElementById('field-notes-close');
+
+    const { overlay, closeButton } = fieldNotesElements;
+
+    if (overlay) {
+      overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) {
+          closeFieldNotesOverlay();
+        }
+      });
+
+      overlay.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' || event.key === 'Esc') {
+          event.preventDefault();
+          closeFieldNotesOverlay();
+        }
+      });
+    }
+
+    if (closeButton) {
+      closeButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        closeFieldNotesOverlay();
+      });
+    }
+  }
+
   function bindCodexControls() {
     const openButton = document.getElementById('open-codex-button');
     if (openButton) {
+      fieldNotesElements.openButton = openButton;
       openButton.addEventListener('click', () => {
         setActiveTab('options');
-
-        window.requestAnimationFrame(() => {
-          const codexSection = document.getElementById('enemy-codex-section');
-          if (!codexSection) {
-            return;
-          }
-
-          scrollPanelToElement(codexSection);
-
-          if (typeof codexSection.focus === 'function') {
-            try {
-              codexSection.focus({ preventScroll: true });
-            } catch (error) {
-              codexSection.focus();
-            }
-          }
-        });
-
-        if (document.activeElement === openButton) {
-          openButton.blur();
-        }
+        openFieldNotesOverlay();
       });
     }
 
@@ -10966,6 +11039,7 @@ import {
     mergingLogicElements.card = document.getElementById('merging-logic-card');
 
     initializeTabs();
+    initializeFieldNotesOverlay();
     bindCodexControls();
     try {
       await ensureGameplayConfigLoaded();

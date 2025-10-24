@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 220" aria-labelledby="title desc" role="img">
+  <title id="title">Archivist Thero Illustration</title>
+  <desc id="desc">Stylized scholar in flowing robes holding a codex.</desc>
+  <defs>
+    <radialGradient id="robe-glow" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#9fb7ff" stop-opacity="0.55" />
+      <stop offset="45%" stop-color="#5164ff" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#060914" stop-opacity="0.05" />
+    </radialGradient>
+    <linearGradient id="robe-shade" x1="0%" x2="0%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a1f3a" />
+      <stop offset="70%" stop-color="#0c0f1f" />
+      <stop offset="100%" stop-color="#090b18" />
+    </linearGradient>
+    <linearGradient id="codex-light" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe7b0" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#f5c173" stop-opacity="0.85" />
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="80" cy="210" rx="56" ry="9" fill="rgba(16, 22, 46, 0.85)" />
+    <circle cx="80" cy="48" r="30" fill="#161b2f" stroke="#5c6bff" stroke-width="2" />
+    <path
+      d="M56 106c-10 28-16 66-16 94 18 6 36 8 56 8s38-2 56-8c0-28-6-66-16-94"
+      fill="url(#robe-shade)"
+      stroke="rgba(120, 150, 255, 0.4)"
+      stroke-width="2"
+    />
+    <path
+      d="M80 66c-12 20-32 30-36 44 10 10 22 18 36 18s26-8 36-18c-4-14-24-24-36-44z"
+      fill="url(#robe-glow)"
+      stroke="rgba(180, 200, 255, 0.45)"
+      stroke-width="1.5"
+    />
+    <path
+      d="M62 122l34 18"
+      stroke="rgba(255, 227, 168, 0.8)"
+      stroke-width="6"
+    />
+    <path
+      d="M60 118l36 20 6-10-36-20-6 10z"
+      fill="url(#codex-light)"
+      stroke="rgba(60, 40, 20, 0.65)"
+      stroke-width="1.5"
+    />
+    <path
+      d="M74 52c6-4 12-4 12 0"
+      stroke="rgba(230, 235, 255, 0.65)"
+      stroke-width="3"
+    />
+    <circle cx="68" cy="46" r="4" fill="#d4dbff" />
+    <circle cx="92" cy="46" r="4" fill="#d4dbff" />
+    <path d="M72 60c6 6 10 6 16 0" stroke="#d4dbff" stroke-width="2" />
+    <path
+      d="M48 96c8-18 20-32 32-42 12 10 24 24 32 42"
+      stroke="rgba(120, 150, 255, 0.45)"
+      stroke-width="3"
+    />
+    <path
+      d="M46 128c16 12 40 20 68 0"
+      stroke="rgba(90, 130, 255, 0.45)"
+      stroke-width="2"
+    />
+  </g>
+</svg>

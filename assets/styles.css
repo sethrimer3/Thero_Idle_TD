@@ -1648,9 +1648,10 @@ body.color-scheme-chromatic::before {
 .powder-wall-marker::after {
   content: attr(data-height);
   position: absolute;
-  top: -1.45rem;
-  right: -2.4rem;
-  padding: 2px 8px;
+  top: -1.75rem;
+  left: 50%;
+  transform: translate(-50%, 0);
+  padding: 2px 10px;
   border-radius: 12px;
   font-family: 'Space Mono', monospace;
   font-size: 0.7rem;
@@ -1658,6 +1659,7 @@ body.color-scheme-chromatic::before {
   color: rgba(255, 196, 128, 0.92);
   background: rgba(14, 16, 24, 0.82);
   box-shadow: 0 0 8px rgba(255, 196, 128, 0.38);
+  white-space: nowrap;
 }
 
 .powder-crest-marker {
@@ -2020,6 +2022,84 @@ body.color-scheme-chromatic::before {
 .overlay-close:focus-visible {
   outline: 2px solid var(--path-blue);
   outline-offset: 2px;
+}
+
+.field-notes-overlay .overlay-panel {
+  max-width: min(90vw, 520px);
+  width: min(90vw, 520px);
+  text-align: left;
+  gap: 20px;
+  padding: 42px 36px 34px;
+  background:
+    radial-gradient(circle at 22% 12%, rgba(130, 168, 255, 0.18), rgba(130, 168, 255, 0) 55%),
+    radial-gradient(circle at 78% 18%, rgba(255, 196, 148, 0.16), rgba(255, 196, 148, 0) 58%),
+    rgba(12, 12, 20, 0.88);
+}
+
+.field-notes-overlay .overlay-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  color: rgba(200, 210, 255, 0.85);
+}
+
+.field-notes-overlay .overlay-title {
+  font-size: clamp(1.4rem, 2vw + 0.8rem, 1.75rem);
+  margin: 0;
+}
+
+.field-notes-panel {
+  position: relative;
+}
+
+.field-notes-figure {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+
+.field-notes-figure img {
+  width: min(38vw, 180px);
+  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 32px rgba(120, 180, 255, 0.25));
+}
+
+.field-notes-figure figcaption {
+  font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+  font-size: 1rem;
+  color: rgba(255, 228, 180, 0.85);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.field-notes-copy {
+  display: grid;
+  gap: 12px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.field-notes-copy strong {
+  color: rgba(255, 228, 160, 0.95);
+}
+
+.field-notes-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 8px;
+}
+
+.field-notes-list li::marker {
+  color: rgba(120, 180, 255, 0.9);
+}
+
+.field-notes-overlay .overlay-close {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.field-notes-overlay .overlay-close:hover,
+.field-notes-overlay .overlay-close:focus-visible {
+  color: rgba(255, 228, 160, 0.95);
 }
 
 .upgrade-overlay .overlay-panel {
