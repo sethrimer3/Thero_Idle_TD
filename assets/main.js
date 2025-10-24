@@ -2760,6 +2760,10 @@ import {
       this.draggingTowerType = null;
       this.dragPreviewOffset = { x: 0, y: -34 };
 
+      this.floaters = [];
+      this.floaterConnections = [];
+      this.floaterBounds = { width: 0, height: 0 };
+
       this.alephChain = createAlephChainRegistry({ upgrades: alephChainUpgradeState });
 
       this.animationId = null;
@@ -3100,6 +3104,7 @@ import {
 
       this.buildPathGeometry();
       this.updateTowerPositions();
+      this.ensureFloatersLayout();
       this.draw();
     }
 
@@ -3136,6 +3141,100 @@ import {
       this.pathPoints = smoothPoints;
       this.pathSegments = segments;
       this.pathLength = totalLength || 1;
+    }
+
+    computeFloaterCount(width, height) {
+      if (!Number.isFinite(width) || !Number.isFinite(height)) {
+        return 0;
+      }
+      const area = Math.max(0, width * height);
+      const base = Math.round(area / 24000);
+      return Math.max(18, Math.min(64, base));
+    }
+
+    randomFloaterRadiusFactor() {
+      return 0.0075 + Math.random() * 0.0045;
+    }
+
+    createFloater(width, height) {
+      const margin = Math.min(width, height) * 0.08;
+      const usableWidth = Math.max(1, width - margin * 2);
+      const usableHeight = Math.max(1, height - margin * 2);
+      return {
+        x: margin + Math.random() * usableWidth,
+        y: margin + Math.random() * usableHeight,
+        vx: (Math.random() - 0.5) * 12,
+        vy: (Math.random() - 0.5) * 12,
+        ax: 0,
+        ay: 0,
+        radiusFactor: this.randomFloaterRadiusFactor(),
+        opacity: 0,
+        opacityTarget: 0,
+      };
+    }
+
+    ensureFloatersLayout() {
+      const width = this.renderWidth || 0;
+      const height = this.renderHeight || 0;
+
+      if (!this.levelConfig || !width || !height) {
+        this.floaters = [];
+        this.floaterConnections = [];
+        this.floaterBounds = { width, height };
+        return;
+      }
+
+      const previousWidth = this.floaterBounds?.width || width;
+      const previousHeight = this.floaterBounds?.height || height;
+      const scaleX = previousWidth ? width / previousWidth : 1;
+      const scaleY = previousHeight ? height / previousHeight : 1;
+
+      if (this.floaters.length && (scaleX !== 1 || scaleY !== 1)) {
+        this.floaters.forEach((floater) => {
+          floater.x *= scaleX;
+          floater.y *= scaleY;
+          floater.vx *= scaleX;
+          floater.vy *= scaleY;
+        });
+      }
+
+      const desired = this.computeFloaterCount(width, height);
+
+      if (!this.floaters.length) {
+        this.floaters = [];
+      }
+
+      if (this.floaters.length < desired) {
+        const needed = desired - this.floaters.length;
+        for (let index = 0; index < needed; index += 1) {
+          this.floaters.push(this.createFloater(width, height));
+        }
+      } else if (this.floaters.length > desired) {
+        this.floaters.length = desired;
+      }
+
+      const safeMargin = Math.min(width, height) * 0.04;
+      this.floaters.forEach((floater) => {
+        floater.x = Math.min(width - safeMargin, Math.max(safeMargin, floater.x));
+        floater.y = Math.min(height - safeMargin, Math.max(safeMargin, floater.y));
+        if (!Number.isFinite(floater.vx)) {
+          floater.vx = 0;
+        }
+        if (!Number.isFinite(floater.vy)) {
+          floater.vy = 0;
+        }
+        if (!Number.isFinite(floater.radiusFactor)) {
+          floater.radiusFactor = this.randomFloaterRadiusFactor();
+        }
+        floater.opacity = Number.isFinite(floater.opacity) ? floater.opacity : 0;
+        floater.opacityTarget = Number.isFinite(floater.opacityTarget)
+          ? floater.opacityTarget
+          : 0;
+        floater.ax = Number.isFinite(floater.ax) ? floater.ax : 0;
+        floater.ay = Number.isFinite(floater.ay) ? floater.ay : 0;
+      });
+
+      this.floaterBounds = { width, height };
     }
 
     generateSmoothPathPoints(points, subdivisions = 12) {
@@ -3374,6 +3473,8 @@ import {
         this.pathSegments = [];
         this.pathPoints = [];
         this.pathLength = 0;
+        this.floaters = [];
+        this.floaterConnections = [];
         this.arcOffset = 0;
         this.hoverPlacement = null;
         this.pointerPosition = null;
@@ -3393,6 +3494,9 @@ import {
       this.disableSlots(true);
       this.enemies = [];
       this.projectiles = [];
+      this.floaters = [];
+      this.floaterConnections = [];
+      this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
       this.towers = [];
       this.alephChain.reset();
       this.hoverPlacement = null;
@@ -3451,6 +3555,9 @@ import {
       this.maxWaveReached = 0;
       this.enemies = [];
       this.projectiles = [];
+      this.floaters = [];
+      this.floaterConnections = [];
+      this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
       this.towers = [];
       this.alephChain.reset();
       this.hoverPlacement = null;
@@ -4546,12 +4653,192 @@ import {
       };
     }
 
+    updateFloaters(delta) {
+      if (!this.floaters.length || !this.levelConfig) {
+        return;
+      }
+
+      const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+      const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+      if (!width || !height) {
+        return;
+      }
+
+      const dt = Math.max(0, Math.min(delta, 0.05));
+      const minDimension = Math.min(width, height);
+      if (!minDimension) {
+        return;
+      }
+
+      const influenceScale = Math.max(0.6, Math.min(1.4, minDimension / 600));
+      const pairDistance = minDimension * 0.28;
+      const towerInfluence = minDimension * 0.3;
+      const nodeInfluence = minDimension * 0.32;
+      const enemyInfluence = minDimension * 0.26;
+      const edgeMargin = minDimension * 0.12;
+
+      const pairRepelStrength = 18 * influenceScale;
+      const towerRepelStrength = 42 * influenceScale;
+      const enemyRepelStrength = 46 * influenceScale;
+      const edgeRepelStrength = 24 * influenceScale;
+
+      const damping = dt > 0 ? Math.exp(-dt * 1.6) : 1;
+      const smoothing = dt > 0 ? 1 - Math.exp(-dt * 6) : 1;
+      const maxSpeed = minDimension * 0.6;
+
+      const floaters = this.floaters;
+      const connections = [];
+
+      const startPoint = this.pathPoints.length ? this.pathPoints[0] : null;
+      const endPoint =
+        this.pathPoints.length > 1 ? this.pathPoints[this.pathPoints.length - 1] : startPoint;
+
+      const towerPositions = this.towers.map((tower) => ({ x: tower.x, y: tower.y }));
+      const enemyPositions = this.enemies.map((enemy) => this.getEnemyPosition(enemy));
+
+      for (let index = 0; index < floaters.length; index += 1) {
+        const floater = floaters[index];
+        floater.ax = 0;
+        floater.ay = 0;
+        floater.opacityTarget = 0;
+      }
+
+      for (let i = 0; i < floaters.length - 1; i += 1) {
+        const a = floaters[i];
+        for (let j = i + 1; j < floaters.length; j += 1) {
+          const b = floaters[j];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const distance = Math.hypot(dx, dy);
+          if (!distance || distance >= pairDistance) {
+            continue;
+          }
+          const proximity = 1 - distance / pairDistance;
+          const force = pairRepelStrength * proximity;
+          const dirX = dx / distance;
+          const dirY = dy / distance;
+          a.ax -= dirX * force;
+          a.ay -= dirY * force;
+          b.ax += dirX * force;
+          b.ay += dirY * force;
+          const connectionStrength = Math.min(1, proximity);
+          connections.push({ from: i, to: j, strength: connectionStrength });
+          a.opacityTarget = Math.max(a.opacityTarget, proximity);
+          b.opacityTarget = Math.max(b.opacityTarget, proximity);
+        }
+      }
+
+      floaters.forEach((floater) => {
+        if (floater.x < edgeMargin) {
+          const proximity = 1 - floater.x / edgeMargin;
+          floater.ax += edgeRepelStrength * proximity;
+        }
+        if (width - floater.x < edgeMargin) {
+          const proximity = 1 - (width - floater.x) / edgeMargin;
+          floater.ax -= edgeRepelStrength * proximity;
+        }
+        if (floater.y < edgeMargin) {
+          const proximity = 1 - floater.y / edgeMargin;
+          floater.ay += edgeRepelStrength * proximity;
+        }
+        if (height - floater.y < edgeMargin) {
+          const proximity = 1 - (height - floater.y) / edgeMargin;
+          floater.ay -= edgeRepelStrength * proximity;
+        }
+
+        towerPositions.forEach((towerPosition) => {
+          const dx = floater.x - towerPosition.x;
+          const dy = floater.y - towerPosition.y;
+          const distance = Math.hypot(dx, dy);
+          if (!distance || distance >= towerInfluence) {
+            return;
+          }
+          const proximity = 1 - distance / towerInfluence;
+          const force = towerRepelStrength * proximity;
+          floater.ax += (dx / distance) * force;
+          floater.ay += (dy / distance) * force;
+          floater.opacityTarget = Math.max(floater.opacityTarget, proximity);
+        });
+
+        enemyPositions.forEach((enemyPosition) => {
+          if (!enemyPosition) {
+            return;
+          }
+          const dx = floater.x - enemyPosition.x;
+          const dy = floater.y - enemyPosition.y;
+          const distance = Math.hypot(dx, dy);
+          if (!distance || distance >= enemyInfluence) {
+            return;
+          }
+          const proximity = 1 - distance / enemyInfluence;
+          const force = enemyRepelStrength * proximity;
+          floater.ax += (dx / distance) * force;
+          floater.ay += (dy / distance) * force;
+          floater.opacityTarget = Math.max(floater.opacityTarget, proximity);
+        });
+
+        if (startPoint) {
+          const dx = floater.x - startPoint.x;
+          const dy = floater.y - startPoint.y;
+          const distance = Math.hypot(dx, dy);
+          if (distance < nodeInfluence) {
+            const proximity = 1 - distance / nodeInfluence;
+            floater.opacityTarget = Math.max(floater.opacityTarget, proximity);
+          }
+        }
+        if (endPoint && endPoint !== startPoint) {
+          const dx = floater.x - endPoint.x;
+          const dy = floater.y - endPoint.y;
+          const distance = Math.hypot(dx, dy);
+          if (distance < nodeInfluence) {
+            const proximity = 1 - distance / nodeInfluence;
+            floater.opacityTarget = Math.max(floater.opacityTarget, proximity);
+          }
+        }
+      });
+
+      floaters.forEach((floater) => {
+        floater.ax = Number.isFinite(floater.ax) ? floater.ax : 0;
+        floater.ay = Number.isFinite(floater.ay) ? floater.ay : 0;
+        floater.vx = Number.isFinite(floater.vx) ? floater.vx : 0;
+        floater.vy = Number.isFinite(floater.vy) ? floater.vy : 0;
+
+        floater.vx = (floater.vx + floater.ax * dt) * damping;
+        floater.vy = (floater.vy + floater.ay * dt) * damping;
+
+        const speed = Math.hypot(floater.vx, floater.vy);
+        if (speed > maxSpeed && speed > 0) {
+          const scale = maxSpeed / speed;
+          floater.vx *= scale;
+          floater.vy *= scale;
+        }
+
+        floater.x += floater.vx * dt;
+        floater.y += floater.vy * dt;
+
+        const softMargin = Math.min(width, height) * 0.02;
+        floater.x = Math.min(width - softMargin, Math.max(softMargin, floater.x));
+        floater.y = Math.min(height - softMargin, Math.max(softMargin, floater.y));
+
+        floater.opacityTarget = Math.min(1, Math.max(0, floater.opacityTarget));
+        if (!Number.isFinite(floater.opacity)) {
+          floater.opacity = 0;
+        }
+        const blend = smoothing;
+        floater.opacity += (floater.opacityTarget - floater.opacity) * blend;
+        floater.opacity = Math.min(1, Math.max(0, floater.opacity));
+      });
+
+      this.floaterConnections = connections;
+    }
+
     update(delta) {
       if (!this.levelActive || !this.levelConfig) {
         return;
       }
 
       const speedDelta = delta * this.speedMultiplier;
+      this.updateFloaters(speedDelta);
       this.updateFocusIndicator(speedDelta);
 
       const arcSpeed = this.levelConfig?.arcSpeed ?? 0.2;
@@ -5282,6 +5569,7 @@ import {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
       this.ctx.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0);
 
+      this.drawFloaters();
       this.drawPath();
       this.drawArcLight();
       this.drawNodes();
@@ -5291,6 +5579,65 @@ import {
       this.drawEnemies();
       this.drawProjectiles();
       this.updateEnemyTooltipPosition();
+    }
+
+    drawFloaters() {
+      if (!this.ctx || !this.floaters.length || !this.levelConfig) {
+        return;
+      }
+      const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+      const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+      if (!width || !height) {
+        return;
+      }
+      const minDimension = Math.min(width, height) || 1;
+      const connectionWidth = Math.max(0.6, minDimension * 0.0014);
+
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      this.floaterConnections.forEach((connection) => {
+        const from = this.floaters[connection.from];
+        const to = this.floaters[connection.to];
+        if (!from || !to) {
+          return;
+        }
+        const alpha = Math.max(0, Math.min(1, connection.strength || 0)) * 0.25;
+        if (alpha <= 0) {
+          return;
+        }
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.lineWidth = connectionWidth;
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.stroke();
+      });
+
+      this.floaters.forEach((floater) => {
+        const opacity = Math.max(0, Math.min(1, floater.opacity || 0));
+        if (opacity <= 0) {
+          return;
+        }
+        let radiusFactor = Number.isFinite(floater.radiusFactor)
+          ? floater.radiusFactor
+          : null;
+        if (!radiusFactor) {
+          radiusFactor = this.randomFloaterRadiusFactor();
+          floater.radiusFactor = radiusFactor;
+        }
+        const radius = Math.max(2, radiusFactor * minDimension);
+        const strokeWidth = Math.max(0.8, radius * 0.22);
+        ctx.beginPath();
+        ctx.lineWidth = strokeWidth;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.25})`;
+        ctx.arc(floater.x, floater.y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+
+      ctx.restore();
     }
 
     drawPath() {
@@ -5303,17 +5650,17 @@ import {
       const end = points[points.length - 1];
 
       const baseGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
-      baseGradient.addColorStop(0, 'rgba(88, 160, 255, 0.95)');
-      baseGradient.addColorStop(0.48, 'rgba(162, 110, 255, 0.92)');
-      baseGradient.addColorStop(1, 'rgba(255, 158, 88, 0.95)');
+      baseGradient.addColorStop(0, 'rgba(88, 160, 255, 0.5)');
+      baseGradient.addColorStop(0.48, 'rgba(162, 110, 255, 0.48)');
+      baseGradient.addColorStop(1, 'rgba(255, 158, 88, 0.5)');
 
       ctx.save();
       ctx.beginPath();
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.lineWidth = 9;
-      ctx.shadowColor = 'rgba(88, 160, 255, 0.45)';
-      ctx.shadowBlur = 18;
+      ctx.lineWidth = 7;
+      ctx.shadowColor = 'rgba(88, 160, 255, 0.2)';
+      ctx.shadowBlur = 12;
       ctx.moveTo(start.x, start.y);
       for (let index = 1; index < points.length; index += 1) {
         const point = points[index];
@@ -5324,15 +5671,15 @@ import {
       ctx.restore();
 
       const highlightGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
-      highlightGradient.addColorStop(0, 'rgba(88, 160, 255, 0.38)');
-      highlightGradient.addColorStop(0.52, 'rgba(162, 110, 255, 0.35)');
-      highlightGradient.addColorStop(1, 'rgba(255, 158, 88, 0.4)');
+      highlightGradient.addColorStop(0, 'rgba(88, 160, 255, 0.12)');
+      highlightGradient.addColorStop(0.52, 'rgba(162, 110, 255, 0.1)');
+      highlightGradient.addColorStop(1, 'rgba(255, 158, 88, 0.14)');
 
       ctx.save();
       ctx.beginPath();
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.lineWidth = 5;
+      ctx.lineWidth = 2;
       ctx.moveTo(start.x, start.y);
       for (let index = 1; index < points.length; index += 1) {
         const point = points[index];
