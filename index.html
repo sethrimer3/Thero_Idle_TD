@@ -888,7 +888,36 @@
           aria-labelledby="tab-powder"
           hidden
         >
-          <section class="panel-grid powder-summary">
+          <section class="powder-stage" aria-label="Motefall basin">
+            <article class="card powder-simulation">
+              <h3>Motefall Basin</h3>
+              <div class="powder-basin" id="powder-basin">
+                <div class="powder-wall powder-wall-left" id="powder-wall-left" aria-hidden="true">
+                  <div class="powder-wall-marker" id="powder-wall-marker" data-height="Peak 0.00" aria-hidden="true"></div>
+                  <div
+                    class="powder-wall-marker powder-crest-marker"
+                    id="powder-crest-marker"
+                    data-height="Crest 0.00"
+                    aria-hidden="true"
+                  ></div>
+                </div>
+                <canvas
+                  id="powder-canvas"
+                  width="240"
+                  height="320"
+                  role="img"
+                  aria-label="Motefall basin simulation"
+                ></canvas>
+                <div class="powder-wall powder-wall-right" id="powder-wall-right" aria-hidden="true">
+                  <div class="powder-glyph-column" data-powder-glyph-column="right"></div>
+                </div>
+              </div>
+              <p class="powder-footnote" id="powder-simulation-note">
+                Captured crest: 0.0% full · dune height h = 1.00 · largest grain —.
+              </p>
+            </article>
+          </section>
+          <section class="panel-grid powder-summary" aria-label="Flux overview reference">
             <article class="card powder-overview">
               <h3>Flux Overview</h3>
               <dl class="powder-metrics">
@@ -939,73 +968,6 @@
                 </li>
               </ul>
             </article>
-          </section>
-          <section class="powder-stage" aria-label="Motefall basin">
-            <article class="card powder-simulation">
-              <h3>Motefall Basin</h3>
-              <div class="powder-basin" id="powder-basin">
-                <div class="powder-wall powder-wall-left" id="powder-wall-left" aria-hidden="true">
-                  <div class="powder-wall-marker" id="powder-wall-marker" data-height="Peak 0.00" aria-hidden="true"></div>
-                  <div
-                    class="powder-wall-marker powder-crest-marker"
-                    id="powder-crest-marker"
-                    data-height="Crest 0.00"
-                    aria-hidden="true"
-                  ></div>
-                </div>
-                <canvas
-                  id="powder-canvas"
-                  width="240"
-                  height="320"
-                  role="img"
-                  aria-label="Motefall basin simulation"
-                ></canvas>
-                <div class="powder-wall powder-wall-right" id="powder-wall-right" aria-hidden="true">
-                  <div class="powder-glyph-column" data-powder-glyph-column="right"></div>
-                </div>
-              </div>
-              <p class="powder-footnote" id="powder-simulation-note">
-                Captured crest: 0.0% full · dune height h = 1.00 · largest grain —.
-              </p>
-            </article>
-          </section>
-          <section class="card powder-reference" aria-label="Flux overview reference">
-            <h3>Flux Overview</h3>
-            <p>
-              Total Multiplier<br />
-              ×1.22<br />
-              Sandfall Bonus<br />
-              +18.3%<br />
-              Dune Channeling<br />
-              +4.00%<br />
-              Crystal Resonance<br />
-              +0.00%<br />
-              Mote Stockpile<br />
-              0.00 Motes
-            </p>
-            <h3>Sigil Ladder</h3>
-            <p>
-              Mote height illuminates etched glyphs. Each rung unlocks new research rites once the
-              total multiplier meets or exceeds its mark.
-            </p>
-            <ul class="powder-sigil-list">
-              <li>
-                <span class="sigil-name">Boundary Sigil</span>
-                <span class="sigil-note">Stabilize the sandfall to breach ×1.05 flow.</span>
-              </li>
-              <li>
-                <span class="sigil-name">Dune Crest Sigil</span>
-                <span class="sigil-note">Raise h to carve channels and reach ×1.15.</span>
-              </li>
-              <li>
-                <span class="sigil-name">Crystal Harmonic Sigil</span>
-                <span class="sigil-note">Store a full lattice of charges to strike ×1.35.</span>
-              </li>
-              <li>
-                <span class="sigil-name">Archive Sigil</span>
-                <span class="sigil-note">Sustain every ritual to engrave ×1.50 and beyond.</span>
-              </li>
-            </ul>
           </section>
 
           <div class="panel-grid powder-grid">
