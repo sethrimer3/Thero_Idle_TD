@@ -2336,6 +2336,8 @@ import {
       this.hoverPlacement = null;
       this.hoverEnemy = null;
       this.pointerPosition = null;
+      this.focusedEnemyId = null;
+      this.focusMarkerAngle = 0;
       this.anchorTolerance = 0.06;
 
       this.pointerMoveHandler = (event) => this.handleCanvasPointerMove(event);
@@ -2966,6 +2968,7 @@ import {
       this.towers = [];
       this.alephChain.reset();
       this.hoverPlacement = null;
+      this.clearFocusedEnemy({ silent: true });
       this.energy = 0;
       this.lives = 0;
       this.resolvedOutcome = null;
@@ -3023,6 +3026,7 @@ import {
       this.towers = [];
       this.alephChain.reset();
       this.hoverPlacement = null;
+      this.clearFocusedEnemy({ silent: true });
       this.slots.forEach((slot) => {
         slot.tower = null;
         if (slot.button) {
@@ -3376,6 +3380,11 @@ import {
       }
 
       const position = this.getCanvasPosition(normalized);
+      const enemyTarget = this.findEnemyAt(position);
+      if (enemyTarget) {
+        this.toggleEnemyFocus(enemyTarget.enemy);
+        return;
+      }
       const tower = this.findTowerAt(position);
       if (tower) {
         this.sellTower(tower);
@@ -3432,18 +3441,70 @@ import {
       return null;
     }
 
-    getEnemyHitRadius() {
-      return Math.max(16, Math.min(this.renderWidth, this.renderHeight) * 0.05);
+    getEnemyHitRadius(enemy = null, metrics = null) {
+      const baseRadius = Math.max(16, Math.min(this.renderWidth, this.renderHeight) * 0.05);
+      if (!enemy || !metrics) {
+        return baseRadius;
+      }
+      const { focusRadius = 0, ringRadius = 0 } = metrics;
+      return Math.max(baseRadius, focusRadius || ringRadius || baseRadius);
+    }
+
+    getEnemyVisualMetrics(enemy) {
+      if (!enemy) {
+        return {
+          scale: 1,
+          coreRadius: 9,
+          ringRadius: 12,
+          focusRadius: 18,
+          symbolSize: 17,
+          exponentSize: 13,
+        };
+      }
+
+      const moteFactor = Math.max(1, Number.isFinite(enemy.moteFactor) ? enemy.moteFactor : 1);
+      const exponent = Math.max(
+        1,
+        Number.isFinite(enemy.hpExponent)
+          ? enemy.hpExponent
+          : this.calculateHealthExponent(enemy.maxHp),
+      );
+      const sizeFactor = Math.max(moteFactor, exponent);
+      const growth = Number.isFinite(sizeFactor) && sizeFactor > 0 ? Math.log2(sizeFactor) : 0;
+      const clampedGrowth = Math.min(Math.max(growth, 0), 4);
+      const scale = 1 + clampedGrowth * 0.2;
+
+      const coreRadius = 9 * scale;
+      const ringRadius = 12 * scale;
+      const focusRadius = ringRadius + 6 * scale;
+      const symbolSize = Math.round(Math.min(34, Math.max(16, 17 * scale)));
+      const exponentSize = Math.round(Math.min(26, Math.max(11, 13 * scale * 0.9)));
+
+      return { scale, coreRadius, ringRadius, focusRadius, symbolSize, exponentSize };
+    }
+
+    updateFocusIndicator(delta) {
+      if (!Number.isFinite(delta) || delta <= 0) {
+        return;
+      }
+      const focusedEnemy = this.getFocusedEnemy();
+      if (!focusedEnemy) {
+        this.focusMarkerAngle = 0;
+        return;
+      }
+      const spinSpeed = Math.PI * 1.2;
+      this.focusMarkerAngle = (this.focusMarkerAngle + delta * spinSpeed) % (Math.PI * 2);
     }
 
     findEnemyAt(position) {
       if (!this.enemies.length) {
         return null;
       }
-      const hitRadius = this.getEnemyHitRadius();
       for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
         const enemy = this.enemies[index];
         const enemyPosition = this.getEnemyPosition(enemy);
+        const metrics = this.getEnemyVisualMetrics(enemy);
+        const hitRadius = this.getEnemyHitRadius(enemy, metrics);
         const distance = Math.hypot(position.x - enemyPosition.x, position.y - enemyPosition.y);
         if (distance <= hitRadius) {
           return { enemy, position: enemyPosition };
@@ -3461,6 +3522,59 @@ import {
       this.renderEnemyTooltip(enemy);
     }
 
+    getFocusedEnemy() {
+      if (!this.focusedEnemyId) {
+        return null;
+      }
+      const enemy = this.enemies.find((candidate) => candidate?.id === this.focusedEnemyId);
+      if (!enemy || enemy.hp <= 0) {
+        this.clearFocusedEnemy({ silent: true });
+        return null;
+      }
+      return enemy;
+    }
+
+    setFocusedEnemy(enemy, options = {}) {
+      if (!enemy) {
+        this.clearFocusedEnemy(options);
+        return;
+      }
+      const { silent = false } = options;
+      this.focusedEnemyId = enemy.id;
+      const symbol = typeof enemy.symbol === 'string' ? enemy.symbol : this.resolveEnemySymbol(enemy);
+      const descriptor = enemy.label ? enemy.label : symbol;
+      this.focusMarkerAngle = 0;
+      if (!silent && this.messageEl) {
+        this.messageEl.textContent = `All towers focusing on ${descriptor}.`;
+      }
+    }
+
+    clearFocusedEnemy(options = {}) {
+      const { silent = false } = options;
+      if (!this.focusedEnemyId) {
+        this.focusMarkerAngle = 0;
+        return false;
+      }
+      this.focusedEnemyId = null;
+      this.focusMarkerAngle = 0;
+      if (!silent && this.messageEl) {
+        this.messageEl.textContent = 'Focus fire cleared—towers resume optimal targeting.';
+      }
+      return true;
+    }
+
+    toggleEnemyFocus(enemy) {
+      if (!enemy) {
+        this.clearFocusedEnemy();
+        return;
+      }
+      if (this.focusedEnemyId === enemy.id) {
+        this.clearFocusedEnemy();
+      } else {
+        this.setFocusedEnemy(enemy);
+      }
+    }
+
     renderEnemyTooltip(enemy) {
       if (!this.enemyTooltip || !this.pointerPosition) {
         this.clearEnemyHover();
@@ -3469,8 +3583,9 @@ import {
 
       const pointerCanvas = this.getCanvasPosition(this.pointerPosition);
       const enemyPosition = this.getEnemyPosition(enemy);
+      const metrics = this.getEnemyVisualMetrics(enemy);
       const distance = Math.hypot(pointerCanvas.x - enemyPosition.x, pointerCanvas.y - enemyPosition.y);
-      if (distance > this.getEnemyHitRadius()) {
+      if (distance > this.getEnemyHitRadius(enemy, metrics)) {
         this.clearEnemyHover();
         return;
       }
@@ -3981,6 +4096,7 @@ import {
       }
 
       const speedDelta = delta * this.speedMultiplier;
+      this.updateFocusIndicator(speedDelta);
 
       const arcSpeed = this.levelConfig?.arcSpeed ?? 0.2;
       const pathLength = this.pathLength || 1;
@@ -4114,6 +4230,14 @@ import {
     }
 
     findTarget(tower) {
+      const focusedEnemy = this.getFocusedEnemy();
+      if (focusedEnemy) {
+        const position = this.getEnemyPosition(focusedEnemy);
+        const distance = Math.hypot(position.x - tower.x, position.y - tower.y);
+        if (distance <= tower.range) {
+          return { enemy: focusedEnemy, position };
+        }
+      }
       let selected = null;
       let bestProgress = -Infinity;
       this.enemies.forEach((enemy) => {
@@ -4414,6 +4538,9 @@ import {
       if (this.hoverEnemy && this.hoverEnemy.enemyId === enemy.id) {
         this.clearEnemyHover();
       }
+      if (this.focusedEnemyId === enemy.id) {
+        this.clearFocusedEnemy({ silent: true });
+      }
       if (this.lives <= 0) {
         this.handleDefeat();
       }
@@ -4428,6 +4555,9 @@ import {
       }
       if (this.hoverEnemy && this.hoverEnemy.enemyId === enemy.id) {
         this.clearEnemyHover();
+      }
+      if (this.focusedEnemyId === enemy.id) {
+        this.clearFocusedEnemy({ silent: true });
       }
 
       const baseGain =
@@ -4979,11 +5109,15 @@ import {
         return;
       }
       const ctx = this.ctx;
+      const focusedEnemy = this.getFocusedEnemy();
+      const focusedId = focusedEnemy ? focusedEnemy.id : null;
+      const focusAngle = this.focusMarkerAngle;
       this.enemies.forEach((enemy) => {
         const position = this.getEnemyPosition(enemy);
         if (!position) {
           return;
         }
+        const metrics = this.getEnemyVisualMetrics(enemy);
         const fillColor = enemy.color || 'rgba(139, 247, 255, 0.9)';
         const exponent = this.calculateHealthExponent(enemy.maxHp);
         enemy.hpExponent = exponent;
@@ -4991,42 +5125,62 @@ import {
         ctx.save();
         ctx.beginPath();
         ctx.fillStyle = fillColor;
-        ctx.arc(position.x, position.y, 9, 0, Math.PI * 2);
+        ctx.arc(position.x, position.y, metrics.coreRadius, 0, Math.PI * 2);
         ctx.fill();
 
+        const ratio = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp));
         ctx.beginPath();
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-        ctx.lineWidth = 2;
-        const ratio = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp));
-        ctx.arc(
-          position.x,
-          position.y,
-          12,
-          -Math.PI / 2,
-          -Math.PI / 2 + Math.PI * 2 * ratio,
-        );
+        ctx.lineWidth = Math.max(2, metrics.scale * 1.8);
+        ctx.arc(position.x, position.y, metrics.ringRadius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio);
         ctx.stroke();
 
         const symbol = typeof enemy.symbol === 'string' ? enemy.symbol : this.resolveEnemySymbol(enemy);
         if (symbol) {
-          ctx.font = '17px "Cormorant Garamond", serif';
+          ctx.font = `${metrics.symbolSize}px "Cormorant Garamond", serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
           ctx.shadowColor = fillColor;
-          ctx.shadowBlur = 6;
+          ctx.shadowBlur = 6 * metrics.scale;
           ctx.fillText(symbol, position.x, position.y);
         }
 
-        ctx.font = '13px "Space Mono", monospace';
+        ctx.font = `${metrics.exponentSize}px "Space Mono", monospace`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
         ctx.fillStyle = '#ff375f';
         ctx.shadowColor = 'rgba(255, 70, 95, 0.9)';
-        ctx.shadowBlur = 12;
-        const exponentX = position.x + 8;
-        const exponentY = position.y - 6;
+        ctx.shadowBlur = 12 * metrics.scale;
+        const exponentOffset = metrics.coreRadius * 0.68;
+        const exponentX = position.x + exponentOffset;
+        const exponentY = position.y - exponentOffset * 0.8;
         ctx.fillText(String(exponent), exponentX, exponentY);
+
+        if (enemy.id === focusedId) {
+          ctx.save();
+          ctx.translate(position.x, position.y);
+          ctx.rotate(focusAngle);
+          ctx.beginPath();
+          const sides = 6;
+          for (let index = 0; index < sides; index += 1) {
+            const angle = (Math.PI * 2 * index) / sides;
+            const x = Math.cos(angle) * metrics.focusRadius;
+            const y = Math.sin(angle) * metrics.focusRadius;
+            if (index === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+          ctx.closePath();
+          ctx.lineWidth = Math.max(2.4, 2.4 * metrics.scale);
+          ctx.strokeStyle = 'rgba(255, 228, 120, 0.9)';
+          ctx.shadowColor = 'rgba(255, 228, 120, 0.55)';
+          ctx.shadowBlur = 14 * metrics.scale;
+          ctx.stroke();
+          ctx.restore();
+        }
 
         ctx.restore();
       });
