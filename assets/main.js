@@ -6540,6 +6540,64 @@ import {
       ctx.restore();
     }
 
+    drawMindGateSymbol(ctx, position) {
+      if (!ctx || !position) {
+        return;
+      }
+
+      const dimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 0;
+      const baseRadius = dimension ? dimension * 0.035 : 0;
+      const radius = Math.max(14, Math.min(24, baseRadius || 18));
+
+      ctx.save();
+      ctx.translate(position.x, position.y);
+
+      const glow = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius);
+      glow.addColorStop(0, 'rgba(255, 248, 220, 0.9)');
+      glow.addColorStop(0.6, 'rgba(255, 196, 150, 0.35)');
+      glow.addColorStop(1, 'rgba(255, 158, 88, 0.15)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowColor = 'rgba(255, 196, 150, 0.55)';
+      ctx.shadowBlur = radius * 0.9;
+      ctx.strokeStyle = 'rgba(255, 158, 88, 0.88)';
+      ctx.lineWidth = Math.max(2, radius * 0.16);
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.82, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.shadowColor = 'rgba(139, 247, 255, 0.55)';
+      ctx.shadowBlur = radius * 0.7;
+      ctx.strokeStyle = 'rgba(139, 247, 255, 0.85)';
+      ctx.lineWidth = Math.max(1.4, radius * 0.12);
+      ctx.beginPath();
+      ctx.moveTo(0, radius * 0.64);
+      ctx.lineTo(0, -radius * 0.6);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.28, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255, 228, 120, 0.92)';
+      ctx.shadowColor = 'rgba(255, 228, 120, 0.55)';
+      ctx.shadowBlur = radius * 0.8;
+      ctx.lineWidth = Math.max(1.6, radius * 0.14);
+      ctx.beginPath();
+      const gateWidth = radius * 0.58;
+      const gateBase = radius * 0.62;
+      ctx.moveTo(-gateWidth, gateBase);
+      ctx.lineTo(-gateWidth, -radius * 0.18);
+      ctx.quadraticCurveTo(0, -radius * 0.95, gateWidth, -radius * 0.18);
+      ctx.lineTo(gateWidth, gateBase);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
     drawNodes() {
       if (!this.ctx || !this.pathSegments.length) {
         return;
@@ -6553,10 +6611,7 @@ import {
       ctx.beginPath();
       ctx.arc(startPoint.x, startPoint.y, 10, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = 'rgba(255, 158, 88, 0.95)';
-      ctx.beginPath();
-      ctx.arc(endPoint.x, endPoint.y, 12, 0, Math.PI * 2);
-      ctx.fill();
+      this.drawMindGateSymbol(ctx, endPoint);
     }
 
     setDeveloperPathMarkers(markers) {
