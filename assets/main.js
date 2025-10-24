@@ -793,6 +793,7 @@ import {
   }
 
   let tabs = [];
+  let activeTabId = 'tower';
   let panels = [];
   function ensureTabCollections() {
     if (!tabs.length) {
@@ -1167,25 +1168,34 @@ import {
   const audioManifest = {
     musicVolume: 0.6,
     sfxVolume: 0.85,
+    musicCrossfadeSeconds: 3,
     music: {
-      menu: { file: 'menu_theme.ogg', loop: true, volume: 0.55 },
-      preparation: { file: 'lemniscate_preparation.ogg', loop: true, volume: 0.65 },
-      combat: { file: 'lemniscate_combat.ogg', loop: true, volume: 0.75 },
+      levelSelect: { file: 'level_selection_music.mp3', loop: true, volume: 0.65 },
+      levelActive: { file: 'inside_level_music.mp3', loop: true, volume: 0.7 },
+      towers: { file: 'towers_music.mp3', loop: true, volume: 0.65 },
+      powder: { file: 'mote_screen_music.mp3', loop: true, volume: 0.65 },
+      achievements: { file: 'achievements_music.mp3', loop: true, volume: 0.6 },
+      codex: { file: 'codex_music.mp3', loop: true, volume: 0.6 },
     },
     sfx: {
-      uiConfirm: { file: 'ui_confirm.wav', volume: 0.45, maxConcurrent: 2 },
-      uiToggle: { file: 'ui_toggle.wav', volume: 0.4, maxConcurrent: 2 },
-      menuSelect: { file: 'menu_selection.mp3', volume: 0.5, maxConcurrent: 3 },
+      uiConfirm: { file: 'menu_selection_alt.mp3', volume: 0.55, maxConcurrent: 2 },
+      uiToggle: { file: 'menu_selection_OLD.mp3', volume: 0.5, maxConcurrent: 2 },
+      menuSelect: { file: 'menu_selection.mp3', volume: 0.55, maxConcurrent: 4 },
       towerPlace: { file: 'tower_placement.mp3', volume: 0.7, maxConcurrent: 4 },
-      towerSell: { file: 'tower_sell.wav', volume: 0.6, maxConcurrent: 2 },
-      projectile: { file: 'projectile_launch.wav', volume: 0.45, maxConcurrent: 6 },
-      enemyDefeat: { file: 'enemy_defeat.wav', volume: 0.65, maxConcurrent: 4 },
-      enemyBreach: { file: 'enemy_breach.wav', volume: 0.75, maxConcurrent: 2 },
-      victory: { file: 'victory_sting.wav', volume: 0.8, maxConcurrent: 1 },
-      defeat: { file: 'defeat_sting.wav', volume: 0.8, maxConcurrent: 1 },
+      towerMerge: { file: 'tower_merge.mp3', volume: 0.75, maxConcurrent: 2 },
+      towerSell: { file: 'tower_merge.mp3', volume: 0.7, maxConcurrent: 2 },
+      enterLevel: { file: 'enter_level.mp3', volume: 0.75, maxConcurrent: 2 },
+      error: { file: 'error.mp3', volume: 0.8, maxConcurrent: 2 },
       alphaTowerFire: { file: 'alpha_tower_firing.mp3', volume: 0.55, maxConcurrent: 5 },
+      noteA: { file: 'note_A.mp3', volume: 0.8, maxConcurrent: 3 },
+      noteB: { file: 'note_B.mp3', volume: 0.8, maxConcurrent: 3 },
+      noteDSharp: { file: 'note_D#.mp3', volume: 0.8, maxConcurrent: 3 },
+      noteFSharp: { file: 'note_F#.mp3', volume: 0.8, maxConcurrent: 3 },
+      noteG: { file: 'note_G.mp3', volume: 0.8, maxConcurrent: 3 },
     },
   };
+
+  const TOWER_NOTE_SFX_KEYS = ['noteA', 'noteB', 'noteDSharp', 'noteFSharp', 'noteG'];
 
   class AudioManager {
     constructor(manifest = {}) {
@@ -1198,9 +1208,18 @@ import {
       this.musicElements = new Map();
       this.sfxPools = new Map();
       this.currentMusicKey = null;
+      this.activeMusicEntry = null;
       this.pendingUnlockResolvers = [];
       this.pendingMusicKey = null;
       this.unlocked = false;
+      this.musicCrossfadeDuration = Math.max(
+        0,
+        Number.isFinite(manifest.musicCrossfadeSeconds)
+          ? manifest.musicCrossfadeSeconds
+          : 3,
+      );
+      this.musicFadeHandle = null;
+      this.musicFadeCanceler = null;
       this.activationElements = typeof WeakSet === 'function' ? new WeakSet() : { add() {}, has() { return false; } };
 
       if (typeof document !== 'undefined') {
@@ -1272,12 +1291,16 @@ import {
         }
 
         const { audio, definition } = entry;
-        const restart = options.restart || this.currentMusicKey !== key;
         const loop = typeof options.loop === 'boolean' ? options.loop : definition.loop !== false;
         audio.loop = loop;
-        audio.volume = this._resolveMusicVolume(definition, options.volume);
+        const targetVolume = this._resolveMusicVolume(definition, options.volume);
+        const currentKey = this.currentMusicKey;
+        const sameTrack = currentKey === key;
+        const shouldRestart = Boolean(options.restart) || !sameTrack || audio.paused;
 
-        if (restart) {
+        this._cancelMusicFade();
+
+        if (shouldRestart) {
           try {
             audio.currentTime = 0;
           } catch (error) {
@@ -1285,16 +1308,41 @@ import {
           }
         }
 
-        if (this.currentMusicKey && this.currentMusicKey !== key) {
-          this.stopMusic(this.currentMusicKey);
+        const ensurePlayback = () => {
+          const playPromise = audio.play();
+          if (typeof playPromise?.catch === 'function') {
+            playPromise.catch(() => {});
+          }
+        };
+
+        if (!sameTrack) {
+          const previousEntry = currentKey ? this.musicElements.get(currentKey) : null;
+          const fromEntry = previousEntry && previousEntry !== entry ? previousEntry : null;
+
+          this.pendingMusicKey = null;
+          this.currentMusicKey = key;
+          this.activeMusicEntry = entry;
+
+          audio.volume = 0;
+          ensurePlayback();
+
+          this._startMusicFade({
+            fromEntry,
+            toEntry: entry,
+            targetVolume,
+            durationSeconds:
+              typeof options.crossfadeDuration === 'number'
+                ? options.crossfadeDuration
+                : this.musicCrossfadeDuration,
+          });
+          return;
         }
 
-        this.currentMusicKey = key;
         this.pendingMusicKey = null;
-        const playPromise = audio.play();
-        if (typeof playPromise?.catch === 'function') {
-          playPromise.catch(() => {});
-        }
+        this.currentMusicKey = key;
+        this.activeMusicEntry = entry;
+        audio.volume = targetVolume;
+        ensurePlayback();
       };
 
       if (!this.unlocked) {
@@ -1318,6 +1366,11 @@ import {
       if (!entry) {
         return;
       }
+      if (this.currentMusicKey === key) {
+        this._cancelMusicFade();
+        this.currentMusicKey = null;
+        this.activeMusicEntry = null;
+      }
       entry.audio.pause();
       if (options.reset !== false) {
         try {
@@ -1326,9 +1379,7 @@ import {
           entry.audio.src = entry.audio.src;
         }
       }
-      if (this.currentMusicKey === key) {
-        this.currentMusicKey = null;
-      }
+      entry.audio.volume = this._resolveMusicVolume(entry.definition);
     }
 
     playSfx(key, options = {}) {
@@ -1368,6 +1419,101 @@ import {
       }
 
       startPlayback();
+    }
+
+    _startMusicFade({ fromEntry = null, toEntry, targetVolume, durationSeconds }) {
+      if (!toEntry || !toEntry.audio) {
+        return;
+      }
+
+      const toAudio = toEntry.audio;
+      const resolvedTarget = Number.isFinite(targetVolume)
+        ? targetVolume
+        : this._resolveMusicVolume(toEntry.definition);
+      const durationMs = Math.max(
+        0,
+        Number.isFinite(durationSeconds) ? durationSeconds : this.musicCrossfadeDuration,
+      ) * 1000;
+
+      let fromAudio = fromEntry && fromEntry.audio !== toAudio ? fromEntry.audio : null;
+      if (!fromAudio || fromAudio === toAudio) {
+        fromAudio = null;
+      }
+
+      if (durationMs <= 0) {
+        if (fromAudio) {
+          fromAudio.volume = 0;
+          fromAudio.pause();
+          try {
+            fromAudio.currentTime = 0;
+          } catch (error) {
+            fromAudio.src = fromAudio.src;
+          }
+        }
+        toAudio.volume = resolvedTarget;
+        this.musicFadeHandle = null;
+        this.musicFadeCanceler = null;
+        return;
+      }
+
+      const startTime = this._now();
+      const startToVolume = toAudio.volume;
+      const startFromVolume = fromAudio ? fromAudio.volume : 0;
+
+      const schedule = typeof requestAnimationFrame === 'function'
+        ? (fn) => requestAnimationFrame(fn)
+        : (fn) => setTimeout(() => fn(this._now()), 16);
+      const cancel = typeof cancelAnimationFrame === 'function'
+        ? (id) => cancelAnimationFrame(id)
+        : (id) => clearTimeout(id);
+
+      const step = (timestamp) => {
+        const now = typeof timestamp === 'number' ? timestamp : this._now();
+        const elapsed = now - startTime;
+        const progress = durationMs > 0 ? Math.min(1, elapsed / durationMs) : 1;
+        if (fromAudio) {
+          fromAudio.volume = startFromVolume * (1 - progress);
+        }
+        toAudio.volume = startToVolume + (resolvedTarget - startToVolume) * progress;
+        if (progress < 1) {
+          this.musicFadeHandle = schedule(step);
+          this.musicFadeCanceler = cancel;
+        } else {
+          if (fromAudio) {
+            fromAudio.volume = 0;
+            fromAudio.pause();
+            try {
+              fromAudio.currentTime = 0;
+            } catch (error) {
+              fromAudio.src = fromAudio.src;
+            }
+          }
+          toAudio.volume = resolvedTarget;
+          this.musicFadeHandle = null;
+          this.musicFadeCanceler = null;
+        }
+      };
+
+      this.musicFadeHandle = schedule(step);
+      this.musicFadeCanceler = cancel;
+    }
+
+    _cancelMusicFade() {
+      if (this.musicFadeHandle === null) {
+        return;
+      }
+      if (typeof this.musicFadeCanceler === 'function') {
+        this.musicFadeCanceler(this.musicFadeHandle);
+      }
+      this.musicFadeHandle = null;
+      this.musicFadeCanceler = null;
+    }
+
+    _now() {
+      if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+        return performance.now();
+      }
+      return Date.now();
     }
 
     _ensureMusicEntry(key) {
@@ -1460,6 +1606,65 @@ import {
   }
 
   const audioManager = new AudioManager(audioManifest);
+
+  function playTowerPlacementNotes(audio, count = 1) {
+    if (!audio || !Number.isFinite(count) || count <= 0) {
+      return;
+    }
+    const keys = Array.isArray(TOWER_NOTE_SFX_KEYS) ? TOWER_NOTE_SFX_KEYS : [];
+    if (!keys.length) {
+      return;
+    }
+    const hasScheduler = typeof setTimeout === 'function';
+    for (let index = 0; index < count; index += 1) {
+      const noteKey = keys[Math.floor(Math.random() * keys.length)];
+      if (!noteKey) {
+        continue;
+      }
+      const play = () => audio.playSfx(noteKey);
+      if (index > 0 && hasScheduler) {
+        setTimeout(play, index * 120);
+      } else {
+        play();
+      }
+    }
+  }
+
+  function determineMusicKey() {
+    const tab = activeTabId || 'tower';
+    if (tab === 'tower') {
+      const interactive = Boolean(
+        playfield &&
+          typeof playfield.isInteractiveLevelActive === 'function' &&
+          playfield.isInteractiveLevelActive(),
+      );
+      return interactive ? 'levelActive' : 'levelSelect';
+    }
+    if (tab === 'towers') {
+      return 'towers';
+    }
+    if (tab === 'powder') {
+      return 'powder';
+    }
+    if (tab === 'achievements') {
+      return 'achievements';
+    }
+    if (tab === 'options') {
+      return 'codex';
+    }
+    return 'levelSelect';
+  }
+
+  function refreshTabMusic(options = {}) {
+    if (!audioManager) {
+      return;
+    }
+    const key = determineMusicKey();
+    if (!key) {
+      return;
+    }
+    audioManager.playMusic(key, options);
+  }
 
   const achievementDefinitions = [
     {
@@ -3040,11 +3245,6 @@ import {
         return;
       }
 
-      if (this.audio) {
-        const track = isInteractive ? 'preparation' : 'menu';
-        this.audio.playMusic(track, { restart: isInteractive });
-      }
-
       this.cancelAutoStart();
 
       if (!isInteractive) {
@@ -3183,9 +3383,6 @@ import {
         return;
       }
 
-      if (this.audio) {
-        this.audio.playMusic('menu');
-      }
       this.levelActive = false;
       this.levelConfig = null;
       this.combatActive = false;
@@ -3374,6 +3571,9 @@ import {
 
     autoAnchorTowers() {
       if (!this.isInteractiveLevelActive()) {
+        if (this.audio) {
+          this.audio.playSfx('error');
+        }
         return;
       }
       const anchors = Array.isArray(this.levelConfig?.autoAnchors)
@@ -3416,6 +3616,7 @@ import {
 
       if (this.audio && placed > 0) {
         this.audio.playSfx('towerPlace');
+        playTowerPlacementNotes(this.audio, placed);
       }
 
       if (this.messageEl) {
@@ -3931,10 +4132,6 @@ import {
     }
 
     addTowerAt(normalized, options = {}) {
-      if (!this.levelConfig || !normalized) {
-        return false;
-      }
-
       const {
         slot = null,
         allowPathOverlap = false,
@@ -3942,11 +4139,21 @@ import {
         towerType = null,
       } = options;
 
+      if (!this.levelConfig || !normalized) {
+        if (this.audio && !silent) {
+          this.audio.playSfx('error');
+        }
+        return false;
+      }
+
       const selectedType = towerType || this.draggingTowerType || this.availableTowers[0];
       const definition = getTowerDefinition(selectedType);
       if (!definition) {
         if (this.messageEl && !silent) {
           this.messageEl.textContent = 'Select a tower from your loadout to lattice it.';
+        }
+        if (this.audio && !silent) {
+          this.audio.playSfx('error');
         }
         return false;
       }
@@ -3954,6 +4161,9 @@ import {
       if (!this.availableTowers.includes(selectedType)) {
         if (this.messageEl && !silent) {
           this.messageEl.textContent = `${definition.symbol} is not prepared in your loadout.`;
+        }
+        if (this.audio && !silent) {
+          this.audio.playSfx('error');
         }
         return false;
       }
@@ -3971,6 +4181,9 @@ import {
           if (this.messageEl && !silent) {
             this.messageEl.textContent = `${definition.symbol} already resonates at its peak tier.`;
           }
+          if (this.audio && !silent) {
+            this.audio.playSfx('error');
+          }
           return false;
         }
         nextDefinition = getTowerDefinition(nextId);
@@ -3982,6 +4195,9 @@ import {
         if (!placement.valid) {
           if (this.messageEl && placement.reason && !silent) {
             this.messageEl.textContent = placement.reason;
+          }
+          if (this.audio && !silent) {
+            this.audio.playSfx('error');
           }
           return false;
         }
@@ -4003,6 +4219,9 @@ import {
           } else {
             this.messageEl.textContent = `Need ${needed} ${THERO_SYMBOL} more to lattice ${definition.symbol}.`;
           }
+        }
+        if (this.audio && !silent) {
+          this.audio.playSfx('error');
         }
         return false;
       }
@@ -4049,6 +4268,9 @@ import {
         this.draw();
         refreshTowerLoadoutDisplay();
         updateStatusDisplays();
+        if (this.audio && !silent) {
+          this.audio.playSfx('towerMerge');
+        }
         return true;
       }
 
@@ -4096,6 +4318,7 @@ import {
       updateStatusDisplays();
       if (this.audio && !silent) {
         this.audio.playSfx('towerPlace');
+        playTowerPlacementNotes(this.audio, 1);
       }
       return true;
     }
@@ -4204,6 +4427,9 @@ import {
         this.audio.unlock();
       }
       if (!this.levelActive || !this.levelConfig) {
+        if (this.audio) {
+          this.audio.playSfx('error');
+        }
         if (this.messageEl) {
           this.messageEl.textContent =
             'Select an unlocked defense, then etch α lattices directly onto the canvas.';
@@ -4245,7 +4471,6 @@ import {
 
       if (this.audio) {
         this.audio.playSfx('uiConfirm');
-        this.audio.playMusic('combat', { restart: true });
       }
 
       this.cancelAutoStart();
@@ -4822,7 +5047,6 @@ import {
       }
       if (this.audio) {
         this.audio.playSfx('victory');
-        this.audio.playMusic('preparation', { restart: true });
       }
       this.combatActive = false;
       this.resolvedOutcome = 'victory';
@@ -4869,7 +5093,6 @@ import {
       }
       if (this.audio) {
         this.audio.playSfx('defeat');
-        this.audio.playMusic('preparation', { restart: true });
       }
       this.combatActive = false;
       this.resolvedOutcome = 'defeat';
@@ -5785,6 +6008,12 @@ import {
         panels = allPanels;
       }
 
+      const activeTab = allTabs.find((tab) => tab.classList.contains('active'));
+      if (activeTab) {
+        activeTabId = activeTab.dataset.tab || activeTabId;
+        refreshTabMusic();
+      }
+
       return;
     }
 
@@ -5822,6 +6051,11 @@ import {
 
     if (matchedTab && target === 'tower') {
       updateActiveLevelBanner();
+    }
+
+    if (matchedTab) {
+      activeTabId = target;
+      refreshTabMusic();
     }
   }
 
@@ -6098,6 +6332,9 @@ import {
         : 'the preceding defense';
       if (playfield?.messageEl) {
         playfield.messageEl.textContent = `Seal ${requirementLabel} to unlock ${level.id}.`;
+      }
+      if (audioManager) {
+        audioManager.playSfx('error');
       }
       lastLevelTrigger = null;
       return;
@@ -7254,6 +7491,15 @@ import {
       playfield.enterLevel(level, { endlessMode: Boolean(updatedState.completed) });
     }
 
+    if (isInteractive) {
+      if (audioManager) {
+        audioManager.playSfx('enterLevel');
+      }
+      refreshTabMusic({ restart: true });
+    } else {
+      refreshTabMusic();
+    }
+
     if (!isInteractive) {
       beginIdleLevelRun(level);
     } else {
@@ -7273,6 +7519,7 @@ import {
     if (playfield) {
       playfield.leaveLevel();
     }
+    refreshTabMusic({ restart: true });
     activeLevelId = null;
     resourceState.running = false;
     updateActiveLevelBanner();
@@ -8176,6 +8423,9 @@ import {
 
   function startTowerDrag(event, towerId, element) {
     if (!playfield || !playfield.isInteractiveLevelActive()) {
+      if (audioManager) {
+        audioManager.playSfx('error');
+      }
       if (playfield?.messageEl) {
         playfield.messageEl.textContent = 'Enter the defense to lattice towers from your loadout.';
       }
@@ -8248,6 +8498,9 @@ import {
       return;
     }
     if (playfield && playfield.isInteractiveLevelActive()) {
+      if (audioManager) {
+        audioManager.playSfx('error');
+      }
       if (loadoutElements.note) {
         loadoutElements.note.textContent = 'Leave the active level to adjust your loadout.';
       }
@@ -8255,6 +8508,9 @@ import {
       return;
     }
     if (!isTowerUnlocked(towerId)) {
+      if (audioManager) {
+        audioManager.playSfx('error');
+      }
       const definition = getTowerDefinition(towerId);
       if (loadoutElements.note && definition) {
         loadoutElements.note.textContent = `Discover ${definition.name} before equipping it.`;
@@ -8268,6 +8524,9 @@ import {
       selected.splice(index, 1);
     } else {
       if (selected.length >= TOWER_LOADOUT_LIMIT) {
+        if (audioManager) {
+          audioManager.playSfx('error');
+        }
         if (loadoutElements.note) {
           loadoutElements.note.textContent = 'Only four towers can be prepared at once.';
         }
@@ -9786,7 +10045,7 @@ import {
       playfield.draw();
     }
 
-    audioManager.playMusic('menu');
+    refreshTabMusic({ restart: true });
 
     bindOfflineOverlayElements();
     loadPersistentState();
