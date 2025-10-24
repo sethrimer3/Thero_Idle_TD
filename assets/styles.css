@@ -209,8 +209,19 @@ body.color-scheme-chromatic::before {
   font-size: clamp(1.2rem, 3vw, 2.2rem);
 }
 
-.offline-overlay__button {
-  min-width: 220px;
+.offline-overlay__prompt {
+  margin: 0;
+  font-size: clamp(1rem, 2.8vw, 1.5rem);
+  font-style: italic;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.4), 0 0 32px rgba(255, 255, 255, 0.24);
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+
+.offline-overlay__prompt--visible {
+  opacity: 1;
 }
 
 .panel {

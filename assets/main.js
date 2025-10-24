@@ -1584,9 +1584,14 @@ import {
     minutes: null,
     rate: null,
     total: null,
-    button: null,
+    prompt: null,
   };
   let offlineOverlayAnimating = false;
+  let offlineOverlayFadeHandle = null;
+  let offlineOverlayPromptHandle = null;
+  let offlineOverlayLastFocus = null;
+  const OFFLINE_OVERLAY_FADE_MS = 220;
+  const OFFLINE_PROMPT_DELAY_MS = 10000;
 
   let powderBasinPulseTimer = null;
 
@@ -8849,21 +8854,57 @@ import {
     offlineOverlayElements.minutes = document.getElementById('offline-minutes');
     offlineOverlayElements.rate = document.getElementById('offline-rate');
     offlineOverlayElements.total = document.getElementById('offline-total');
-    offlineOverlayElements.button = document.getElementById('offline-continue');
+    offlineOverlayElements.prompt = document.getElementById('offline-prompt');
 
-    if (offlineOverlayElements.button) {
-      offlineOverlayElements.button.addEventListener('click', () => {
-        if (!offlineOverlayAnimating) {
-          hideOfflineOverlay();
-        }
-      });
-    }
+    offlineOverlayElements.container.addEventListener('pointerdown', (event) => {
+      if (offlineOverlayAnimating) {
+        return;
+      }
+      if (event.pointerType === 'mouse' && event.button !== 0) {
+        return;
+      }
+      hideOfflineOverlay();
+    });
 
-    offlineOverlayElements.container.addEventListener('click', (event) => {
-      if (event.target === offlineOverlayElements.container && !offlineOverlayAnimating) {
+    offlineOverlayElements.container.addEventListener('keydown', (event) => {
+      if (offlineOverlayAnimating) {
+        return;
+      }
+      if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar' || event.key === 'Escape') {
+        event.preventDefault();
         hideOfflineOverlay();
       }
     });
+  }
+
+  function clearOfflineOverlayPrompt() {
+    if (offlineOverlayPromptHandle) {
+      clearTimeout(offlineOverlayPromptHandle);
+      offlineOverlayPromptHandle = null;
+    }
+    if (offlineOverlayElements.prompt) {
+      offlineOverlayElements.prompt.classList.remove('offline-overlay__prompt--visible');
+    }
+  }
+
+  function scheduleOfflineOverlayPrompt() {
+    if (!offlineOverlayElements.prompt) {
+      return;
+    }
+    if (offlineOverlayPromptHandle) {
+      clearTimeout(offlineOverlayPromptHandle);
+      offlineOverlayPromptHandle = null;
+    }
+    offlineOverlayPromptHandle = setTimeout(() => {
+      offlineOverlayPromptHandle = null;
+      if (
+        offlineOverlayElements.prompt &&
+        offlineOverlayElements.container &&
+        offlineOverlayElements.container.classList.contains('active')
+      ) {
+        offlineOverlayElements.prompt.classList.add('offline-overlay__prompt--visible');
+      }
+    }, OFFLINE_PROMPT_DELAY_MS);
   }
 
   function animateOfflineNumber(element, target, options = {}) {
@@ -8907,16 +8948,25 @@ import {
       return;
     }
 
+    if (offlineOverlayFadeHandle) {
+      clearTimeout(offlineOverlayFadeHandle);
+      offlineOverlayFadeHandle = null;
+    }
+
     offlineOverlayAnimating = true;
+    const activeElement = document.activeElement;
+    offlineOverlayLastFocus = activeElement instanceof HTMLElement ? activeElement : null;
     container.removeAttribute('hidden');
     container.classList.add('active');
     container.setAttribute('aria-hidden', 'false');
 
-    const { minutes: minutesEl, rate: rateEl, total: totalEl, button } = offlineOverlayElements;
-    if (button) {
-      button.setAttribute('hidden', '');
-      button.disabled = true;
+    clearOfflineOverlayPrompt();
+
+    if (typeof container.focus === 'function') {
+      container.focus({ preventScroll: true });
     }
+
+    const { minutes: minutesEl, rate: rateEl, total: totalEl } = offlineOverlayElements;
     if (minutesEl) {
       minutesEl.textContent = '0';
     }
@@ -8932,11 +8982,7 @@ import {
     await animateOfflineNumber(totalEl, powder, { format: formatGameNumber });
 
     offlineOverlayAnimating = false;
-    if (button) {
-      button.removeAttribute('hidden');
-      button.disabled = false;
-      button.focus({ preventScroll: true });
-    }
+    scheduleOfflineOverlayPrompt();
   }
 
   function hideOfflineOverlay() {
@@ -8944,9 +8990,27 @@ import {
     if (!container) {
       return;
     }
+    clearOfflineOverlayPrompt();
+    if (offlineOverlayFadeHandle) {
+      clearTimeout(offlineOverlayFadeHandle);
+      offlineOverlayFadeHandle = null;
+    }
+    offlineOverlayAnimating = true;
     container.classList.remove('active');
     container.setAttribute('aria-hidden', 'true');
-    container.setAttribute('hidden', '');
+    offlineOverlayFadeHandle = setTimeout(() => {
+      container.setAttribute('hidden', '');
+      offlineOverlayFadeHandle = null;
+      offlineOverlayAnimating = false;
+      if (
+        offlineOverlayLastFocus &&
+        typeof offlineOverlayLastFocus.focus === 'function' &&
+        document.contains(offlineOverlayLastFocus)
+      ) {
+        offlineOverlayLastFocus.focus({ preventScroll: true });
+      }
+      offlineOverlayLastFocus = null;
+    }, OFFLINE_OVERLAY_FADE_MS);
   }
 
   function checkOfflineRewards() {
