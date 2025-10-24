@@ -771,6 +771,7 @@ import {
   const levelState = new Map();
   let interactiveLevelOrder = [];
   const unlockedLevels = new Set();
+  const levelSetEntries = [];
 
   function getCompletedInteractiveLevelCount() {
     let count = 0;
@@ -873,6 +874,10 @@ import {
     return levelConfigs.has(levelId);
   }
 
+  function isSecretLevelId(levelId) {
+    return typeof levelId === 'string' && /secret/i.test(levelId);
+  }
+
   function isLevelUnlocked(levelId) {
     if (!levelId) {
       return false;
@@ -897,9 +902,15 @@ import {
     if (index < 0) {
       return;
     }
-    const nextId = interactiveLevelOrder[index + 1];
-    if (nextId) {
+    for (let offset = index + 1; offset < interactiveLevelOrder.length; offset += 1) {
+      const nextId = interactiveLevelOrder[offset];
+      if (!nextId) {
+        continue;
+      }
       unlockLevel(nextId);
+      if (!isSecretLevelId(nextId)) {
+        break;
+      }
     }
   }
 
@@ -6445,7 +6456,7 @@ import {
   }
 
   function expandLevelSet(element) {
-    if (!element) {
+    if (!element || element.classList.contains('locked') || element.hidden) {
       return;
     }
 
@@ -6507,21 +6518,43 @@ import {
     }
   }
 
+  function handleGlobalButtonPointerDown(event) {
+    if (!event) {
+      return;
+    }
+    if (typeof event.button === 'number' && event.button !== 0) {
+      return;
+    }
+    const target = event.target;
+    if (!target) {
+      return;
+    }
+    const button = target.closest('button');
+    if (!button) {
+      return;
+    }
+    if (button.disabled) {
+      return;
+    }
+    const ariaDisabled = button.getAttribute('aria-disabled');
+    if (ariaDisabled && ariaDisabled !== 'false') {
+      return;
+    }
+    triggerButtonRipple(button, event);
+  }
+
   document.addEventListener('pointerdown', handleDocumentPointerDown);
+  document.addEventListener('pointerdown', handleGlobalButtonPointerDown);
   document.addEventListener('keydown', handleDocumentKeyDown);
 
-  function triggerLevelClickRipple(card, event) {
-    if (!card) {
+  function triggerButtonRipple(button, event) {
+    if (!button) {
       return;
     }
 
-    if (event && typeof event.detail === 'number' && event.detail === 0) {
-      return;
-    }
-
-    const rect = card.getBoundingClientRect();
+    const rect = button.getBoundingClientRect();
     const ripple = document.createElement('span');
-    ripple.className = 'level-card-ripple';
+    ripple.className = 'button-ripple';
 
     const maxDimension = Math.max(rect.width, rect.height);
     const size = maxDimension * 1.6;
@@ -6538,8 +6571,8 @@ import {
     ripple.style.left = `${offsetX}px`;
     ripple.style.top = `${offsetY}px`;
 
-    card.querySelectorAll('.level-card-ripple').forEach((existing) => existing.remove());
-    card.append(ripple);
+    button.querySelectorAll('.button-ripple').forEach((existing) => existing.remove());
+    button.append(ripple);
 
     ripple.addEventListener(
       'animationend',
@@ -6550,6 +6583,51 @@ import {
     );
   }
 
+  function areSetNormalLevelsCompleted(levels = []) {
+    if (!Array.isArray(levels) || levels.length === 0) {
+      return true;
+    }
+    return levels
+      .filter((level) => level && !isSecretLevelId(level.id) && isInteractiveLevel(level.id))
+      .every((level) => {
+        const state = levelState.get(level.id);
+        return Boolean(state && state.completed);
+      });
+  }
+
+  function updateLevelSetLocks() {
+    if (!levelSetEntries.length) {
+      return;
+    }
+
+    levelSetEntries.forEach((entry, index) => {
+      if (!entry || !entry.element || !entry.trigger) {
+        return;
+      }
+
+      const previous = levelSetEntries[index - 1];
+      const unlocked = index === 0 || areSetNormalLevelsCompleted(previous?.levels);
+
+      if (unlocked) {
+        entry.element.hidden = false;
+        entry.element.classList.remove('locked');
+        entry.element.removeAttribute('aria-hidden');
+        entry.trigger.disabled = false;
+        entry.trigger.setAttribute('aria-disabled', 'false');
+        return;
+      }
+
+      if (entry.element.classList.contains('expanded')) {
+        collapseLevelSet(entry.element);
+      }
+      entry.element.hidden = true;
+      entry.element.classList.add('locked');
+      entry.element.setAttribute('aria-hidden', 'true');
+      entry.trigger.disabled = true;
+      entry.trigger.setAttribute('aria-disabled', 'true');
+    });
+  }
+
   function buildLevelCards() {
     if (!levelGrid) return;
     expandedLevelSet = null;
@@ -6557,6 +6635,8 @@ import {
 
     const fragment = document.createDocumentFragment();
     const groups = new Map();
+
+    levelSetEntries.length = 0;
 
     levelBlueprints.forEach((level) => {
       const groupKey = level.set || level.id.split(' - ')[0] || 'Levels';
@@ -6576,6 +6656,7 @@ import {
       trigger.type = 'button';
       trigger.className = 'level-set-trigger';
       trigger.setAttribute('aria-expanded', 'false');
+      trigger.setAttribute('aria-disabled', 'false');
 
       const glyph = document.createElement('span');
       glyph.className = 'level-set-glyph';
@@ -6607,6 +6688,9 @@ import {
 
       trigger.setAttribute('aria-controls', containerId);
       trigger.addEventListener('click', () => {
+        if (setElement.classList.contains('locked') || setElement.hidden) {
+          return;
+        }
         if (setElement.classList.contains('expanded')) {
           collapseLevelSet(setElement);
         } else {
@@ -6642,8 +6726,7 @@ import {
           <span class="screen-reader-only level-rewards">—</span>
           <span class="screen-reader-only level-last-result">No attempts recorded.</span>
         `;
-        card.addEventListener('click', (event) => {
-          triggerLevelClickRipple(card, event);
+        card.addEventListener('click', () => {
           handleLevelSelection(level);
         });
         card.addEventListener('keydown', (event) => {
@@ -6655,12 +6738,20 @@ import {
         levelsContainer.append(card);
       });
 
+      levelSetEntries.push({
+        name: setName,
+        element: setElement,
+        trigger,
+        levels: levels.slice(),
+      });
+
       setElement.append(trigger, levelsContainer);
       fragment.append(setElement);
       groupIndex += 1;
     });
 
     levelGrid.append(fragment);
+    updateLevelSetLocks();
   }
 
   function handleLevelSelection(level) {
@@ -7929,6 +8020,8 @@ import {
         pill.textContent = 'Ready';
       }
     });
+
+    updateLevelSetLocks();
   }
 
   function updateActiveLevelBanner() {
