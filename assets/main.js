@@ -34,6 +34,7 @@ import {
   }
 
   const MATH_SYMBOL_REGEX = /[\\^_=+\-*{}]|[0-9]|[×÷±√∞∑∏∆∇∂→←↺⇥]|[α-ωΑ-Ωℵ℘ℏℙℚℝℤℂℑℜητβγΩΣΨΔφϕλψρμνσπθ]/u;
+  const THERO_SYMBOL = 'þ';
 
   function isLikelyMathExpression(text) {
     if (!text) {
@@ -793,6 +794,14 @@ import {
 
   let tabs = [];
   let panels = [];
+  function ensureTabCollections() {
+    if (!tabs.length) {
+      tabs = Array.from(document.querySelectorAll('.tab-button'));
+    }
+    if (!panels.length) {
+      panels = Array.from(document.querySelectorAll('.panel'));
+    }
+  }
   let levelGrid = null;
   let activeLevelEl = null;
   let leaveLevelBtn = null;
@@ -3418,16 +3427,16 @@ import {
       } else if (!hasFunds) {
         const deficit = Math.ceil(actionCost - this.energy);
         if (merging && nextDefinition) {
-          reason = `Need ${deficit} Th to merge into ${nextDefinition.symbol}.`;
+          reason = `Need ${deficit} ${THERO_SYMBOL} to merge into ${nextDefinition.symbol}.`;
         } else if (definition) {
-          reason = `Need ${deficit} Th to lattice ${definition.symbol}.`;
+          reason = `Need ${deficit} ${THERO_SYMBOL} to lattice ${definition.symbol}.`;
         } else {
-          reason = `Need ${deficit} Th for this lattice.`;
+          reason = `Need ${deficit} ${THERO_SYMBOL} for this lattice.`;
         }
       } else if (merging && nextDefinition) {
-        reason = `Merge into ${nextDefinition.symbol} for ${formattedCost} Th.`;
+        reason = `Merge into ${nextDefinition.symbol} for ${formattedCost} ${THERO_SYMBOL}.`;
       } else if (definition) {
-        reason = `Anchor ${definition.symbol} for ${formattedCost} Th.`;
+        reason = `Anchor ${definition.symbol} for ${formattedCost} ${THERO_SYMBOL}.`;
       }
 
       const rangeFactor = definition ? definition.range : 0.24;
@@ -3859,9 +3868,9 @@ import {
         const needed = Math.ceil(actionCost - this.energy);
         if (this.messageEl && !silent) {
           if (merging && nextDefinition) {
-            this.messageEl.textContent = `Need ${needed} Th more to merge into ${nextDefinition.symbol}.`;
+            this.messageEl.textContent = `Need ${needed} ${THERO_SYMBOL} more to merge into ${nextDefinition.symbol}.`;
           } else {
-            this.messageEl.textContent = `Need ${needed} Th more to lattice ${definition.symbol}.`;
+            this.messageEl.textContent = `Need ${needed} ${THERO_SYMBOL} more to lattice ${definition.symbol}.`;
           }
         }
         return false;
@@ -3988,7 +3997,7 @@ import {
         const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
         this.energy = Math.min(cap, this.energy + refund);
         if (this.messageEl) {
-          this.messageEl.textContent = `Lattice released—refunded ${refund} Th.`;
+          this.messageEl.textContent = `Lattice released—refunded ${refund} ${THERO_SYMBOL}.`;
         }
       }
 
@@ -4659,7 +4668,7 @@ import {
       if (this.messageEl) {
         this.messageEl.textContent = `${enemy.label || 'Glyph'} collapsed · +${Math.round(
           baseGain,
-        )} Th.`;
+        )} ${THERO_SYMBOL}.`;
       }
       this.updateHud();
       this.updateProgress();
@@ -4785,7 +4794,7 @@ import {
 
       if (this.energyEl) {
         this.energyEl.textContent = this.levelConfig
-          ? `${Math.round(this.energy)} Th`
+          ? `${Math.round(this.energy)} ${THERO_SYMBOL}`
           : '—';
       }
 
@@ -5189,7 +5198,7 @@ import {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillStyle = valid ? 'rgba(139, 247, 255, 0.75)' : 'rgba(160, 160, 168, 0.6)';
-        ctx.fillText(`${Math.round(this.hoverPlacement.cost)} Th`, drawX, drawY + 20);
+        ctx.fillText(`${Math.round(this.hoverPlacement.cost)} ${THERO_SYMBOL}`, drawX, drawY + 20);
       }
       ctx.restore();
     }
@@ -5610,7 +5619,43 @@ import {
   }
 
   function setActiveTab(target) {
-    if (!tabs.length || !panels.length) return;
+    ensureTabCollections();
+
+    if (!tabs.length || !panels.length) {
+      const allTabs = Array.from(document.querySelectorAll('.tab-button'));
+      const allPanels = Array.from(document.querySelectorAll('.panel'));
+
+      allTabs.forEach((tab, index) => {
+        const isActive = tab.dataset.tab === target;
+        tab.classList.toggle('active', isActive);
+        tab.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        tab.setAttribute('tabindex', isActive ? '0' : '-1');
+        if (isActive) {
+          activeTabIndex = index;
+        }
+      });
+
+      allPanels.forEach((panel) => {
+        const isActive = panel.dataset.panel === target;
+        panel.classList.toggle('active', isActive);
+        panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+        if (isActive) {
+          panel.removeAttribute('hidden');
+        } else {
+          panel.setAttribute('hidden', '');
+        }
+      });
+
+      if (!tabs.length) {
+        tabs = allTabs;
+      }
+      if (!panels.length) {
+        panels = allPanels;
+      }
+
+      return;
+    }
 
     let matchedTab = false;
 
@@ -5656,6 +5701,46 @@ import {
     if (!targetTab) return;
     setActiveTab(targetTab.dataset.tab);
     targetTab.focus();
+  }
+
+  function triggerLevelClickRipple(card, event) {
+    if (!card) {
+      return;
+    }
+
+    if (event && typeof event.detail === 'number' && event.detail === 0) {
+      return;
+    }
+
+    const rect = card.getBoundingClientRect();
+    const ripple = document.createElement('span');
+    ripple.className = 'level-card-ripple';
+
+    const maxDimension = Math.max(rect.width, rect.height);
+    const size = maxDimension * 1.2;
+    ripple.style.width = `${size}px`;
+    ripple.style.height = `${size}px`;
+
+    let offsetX = rect.width / 2;
+    let offsetY = rect.height / 2;
+    if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+      offsetX = event.clientX - rect.left;
+      offsetY = event.clientY - rect.top;
+    }
+
+    ripple.style.left = `${offsetX}px`;
+    ripple.style.top = `${offsetY}px`;
+
+    card.querySelectorAll('.level-card-ripple').forEach((existing) => existing.remove());
+    card.append(ripple);
+
+    ripple.addEventListener(
+      'animationend',
+      () => {
+        ripple.remove();
+      },
+      { once: true },
+    );
   }
 
   function buildLevelCards() {
@@ -5730,7 +5815,10 @@ import {
           </dl>
           <p class="level-last-result">No attempts recorded.</p>
         `;
-        card.addEventListener('click', () => handleLevelSelection(level));
+        card.addEventListener('click', (event) => {
+          triggerLevelClickRipple(card, event);
+          handleLevelSelection(level);
+        });
         card.addEventListener('keydown', (event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
@@ -7297,7 +7385,7 @@ import {
     const currentStart = BASE_START_THERO * multiplier;
     const levelLabel = levelsBeaten === 1 ? 'level' : 'levels';
     const beatenText = `Levels beaten: ${levelsBeaten} ${levelLabel}`;
-    return `+1 Motes/min · Starting Thero = ${BASE_START_THERO} × 2^(levels beaten) (${beatenText} → ${formatWholeNumber(currentStart)} Th)`;
+    return `+1 Motes/min · Starting Thero = ${BASE_START_THERO} × 2^(levels beaten) (${beatenText} → ${formatWholeNumber(currentStart)} ${THERO_SYMBOL})`;
   }
 
   function formatRelativeTime(timestamp) {
@@ -7389,7 +7477,7 @@ import {
         segments.push(`Rewards: ${rewardText}.`);
       }
       if (Number.isFinite(stats.startThero)) {
-        segments.push(`Starting Thero now ${formatWholeNumber(stats.startThero)} Th.`);
+        segments.push(`Starting Thero now ${formatWholeNumber(stats.startThero)} ${THERO_SYMBOL}.`);
       }
       if (bestWave > 0) {
         segments.push(`Waves cleared: ${bestWave}.`);
@@ -7706,7 +7794,7 @@ import {
       const currentCost = playfield ? playfield.getCurrentTowerCost(towerId) : definition.baseCost;
       const costEl = item.querySelector('.tower-loadout-cost');
       if (costEl) {
-        costEl.textContent = `${Math.round(currentCost)} Th`;
+        costEl.textContent = `${Math.round(currentCost)} ${THERO_SYMBOL}`;
       }
       const affordable = interactive ? playfield.energy >= currentCost : false;
       item.dataset.valid = affordable ? 'true' : 'false';
@@ -8741,7 +8829,7 @@ import {
     if (resourceElements.score) {
       const interactive = Boolean(playfield && playfield.isInteractiveLevelActive());
       const theroValue = interactive ? Math.max(0, Math.round(playfield.energy)) : 0;
-      resourceElements.score.textContent = `${theroValue} Th`;
+      resourceElements.score.textContent = `${theroValue} ${THERO_SYMBOL}`;
     }
     const glyphsCollected = Math.max(0, gameStats.enemiesDefeated);
     const glyphsUnused = Math.max(0, glyphsCollected - gameStats.towersPlaced);
@@ -9278,6 +9366,9 @@ import {
     loadoutElements.note = document.getElementById('tower-loadout-note');
 
     mergingLogicElements.card = document.getElementById('merging-logic-card');
+
+    initializeTabs();
+    bindCodexControls();
     try {
       await ensureGameplayConfigLoaded();
     } catch (error) {
@@ -9355,8 +9446,6 @@ import {
     syncLoadoutToPlayfield();
     renderEnemyCodex();
 
-    initializeTabs();
-    bindCodexControls();
     buildLevelCards();
     updateLevelCards();
     bindOverlayEvents();
