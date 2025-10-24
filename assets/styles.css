@@ -2723,6 +2723,15 @@ body.color-scheme-chromatic::before {
 
 .tab-icon {
   font-size: 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-icon img {
+  display: block;
+  width: 1.75rem;
+  height: auto;
 }
 
 @media (max-width: 720px) {
