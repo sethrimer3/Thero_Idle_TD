@@ -1929,8 +1929,8 @@ import {
     scoreMultiplier: null,
     glyphsTotal: null,
     glyphsUnused: null,
-    powderRate: null,
-    achievementCount: null,
+    moteStorage: null,
+    dispenseRate: null,
   };
 
   const baseResources = {
@@ -1969,6 +1969,7 @@ import {
     simulatedDuneGain: 0,
     wallGlyphsLit: 0,
     idleMoteBank: 0,
+    idleDrainRate: 1,
     pendingMoteDrops: [],
   };
 
@@ -1994,6 +1995,8 @@ import {
     duneBonusValue: null,
     crystalBonusValue: null,
     stockpile: null,
+    idleMultiplier: null,
+    dispenseRate: null,
     ledgerBaseScore: null,
     ledgerCurrentScore: null,
     ledgerFlux: null,
@@ -2138,7 +2141,7 @@ import {
       this.idleAccumulator = 0;
       this.idleDrainRate = Number.isFinite(options.idleDrainRate)
         ? Math.max(1, options.idleDrainRate)
-        : 120;
+        : (powderState.idleDrainRate || 1);
       this.maxDropSize = 1;
 
       this.scrollThreshold = Number.isFinite(options.scrollThreshold)
@@ -2844,9 +2847,10 @@ import {
     }
     if (powderSimulation) {
       powderSimulation.addIdleMotes(amount);
-      return;
+    } else {
+      powderState.idleMoteBank = Math.max(0, powderState.idleMoteBank + amount);
     }
-    powderState.idleMoteBank = Math.max(0, powderState.idleMoteBank + amount);
+    updateStatusDisplays();
   }
 
   function flushPendingMoteDrops() {
@@ -2863,6 +2867,7 @@ import {
       powderSimulation.addIdleMotes(powderState.idleMoteBank);
       powderState.idleMoteBank = 0;
     }
+    updateStatusDisplays();
   }
 
   class SimplePlayfield {
@@ -10483,6 +10488,61 @@ import {
     });
   }
 
+  function getCurrentIdleMoteBank() {
+    if (powderSimulation && Number.isFinite(powderSimulation.idleBank)) {
+      return Math.max(0, powderSimulation.idleBank);
+    }
+    if (Number.isFinite(powderState.idleMoteBank)) {
+      return Math.max(0, powderState.idleMoteBank);
+    }
+    return 0;
+  }
+
+  function getCurrentMoteDispenseRate() {
+    if (powderSimulation && Number.isFinite(powderSimulation.idleDrainRate)) {
+      powderState.idleDrainRate = powderSimulation.idleDrainRate;
+      return Math.max(0, powderSimulation.idleDrainRate);
+    }
+    if (Number.isFinite(powderState.idleDrainRate)) {
+      return Math.max(0, powderState.idleDrainRate);
+    }
+    return 0;
+  }
+
+  function formatMoteDispenseRate(rate) {
+    if (!Number.isFinite(rate)) {
+      return '0.00 Motes/sec';
+    }
+    const safeRate = Math.max(0, rate);
+    const formatted = safeRate >= 1
+      ? (Number.isInteger(safeRate) ? formatWholeNumber(safeRate) : formatDecimal(safeRate, 2))
+      : formatDecimal(safeRate, 2);
+    const unit = safeRate === 1 ? 'Mote' : 'Motes';
+    return `${formatted} ${unit}/sec`;
+  }
+
+  function updateMoteStatsDisplays() {
+    const storedMotes = getCurrentIdleMoteBank();
+    if (resourceElements.moteStorage) {
+      resourceElements.moteStorage.textContent = `${formatGameNumber(storedMotes)} Motes`;
+    }
+
+    const dispenseRate = getCurrentMoteDispenseRate();
+    const dispenseLabel = formatMoteDispenseRate(dispenseRate);
+    if (resourceElements.dispenseRate) {
+      resourceElements.dispenseRate.textContent = dispenseLabel;
+    }
+    if (powderElements.dispenseRate) {
+      powderElements.dispenseRate.textContent = dispenseLabel;
+    }
+
+    if (powderElements.idleMultiplier) {
+      const unlocked = getUnlockedAchievementCount();
+      const noun = unlocked === 1 ? 'achievement' : 'achievements';
+      powderElements.idleMultiplier.textContent = `${formatWholeNumber(unlocked)} ${noun}`;
+    }
+  }
+
   function updateStatusDisplays() {
     if (resourceElements.score) {
       const interactive = Boolean(playfield && playfield.isInteractiveLevelActive());
@@ -10503,14 +10563,7 @@ import {
     if (resourceElements.glyphsUnused) {
       resourceElements.glyphsUnused.textContent = `(${formatWholeNumber(glyphsUnused)} unused)`;
     }
-    if (resourceElements.powderRate) {
-      const fluxRate = formatGameNumber(resourceState.fluxRate);
-      resourceElements.powderRate.textContent = `+${fluxRate} Motes/min`;
-    }
-    if (resourceElements.achievementCount) {
-      const unlocked = getUnlockedAchievementCount();
-      resourceElements.achievementCount.textContent = `(${formatWholeNumber(unlocked)} achievements)`;
-    }
+    updateMoteStatsDisplays();
   }
 
   function updateResourceRates() {
@@ -10572,8 +10625,8 @@ import {
     resourceElements.scoreMultiplier = document.getElementById('status-score-multiplier');
     resourceElements.glyphsTotal = document.getElementById('status-glyphs-total');
     resourceElements.glyphsUnused = document.getElementById('status-glyphs-unused');
-    resourceElements.powderRate = document.getElementById('status-powder-rate');
-    resourceElements.achievementCount = document.getElementById('status-achievement-count');
+    resourceElements.moteStorage = document.getElementById('status-mote-storage');
+    resourceElements.dispenseRate = document.getElementById('status-dispense-rate');
     updateStatusDisplays();
   }
 
@@ -10621,6 +10674,8 @@ import {
     powderElements.duneBonusValue = document.getElementById('powder-dune-bonus');
     powderElements.crystalBonusValue = document.getElementById('powder-crystal-bonus');
     powderElements.stockpile = document.getElementById('powder-stockpile');
+    powderElements.idleMultiplier = document.getElementById('powder-idle-multiplier');
+    powderElements.dispenseRate = document.getElementById('powder-dispense-rate');
 
     powderElements.ledgerBaseScore = document.getElementById('powder-ledger-base-score');
     powderElements.ledgerCurrentScore = document.getElementById('powder-ledger-current-score');
@@ -10661,8 +10716,10 @@ import {
         wallInsetLeft: leftInset,
         wallInsetRight: rightInset,
         maxDuneGain: powderConfig.simulatedDuneGainMax,
+        idleDrainRate: powderState.idleDrainRate,
         onHeightChange: handlePowderHeightChange,
       });
+      powderState.idleDrainRate = powderSimulation.idleDrainRate;
       powderSimulation.setFlowOffset(powderState.sandOffset);
       powderSimulation.start();
       handlePowderHeightChange(powderSimulation.getStatus());
@@ -10672,6 +10729,7 @@ import {
     flushPendingMoteDrops();
 
     updatePowderStockpileDisplay();
+    updateMoteStatsDisplays();
   }
 
   function updatePowderLedger() {
