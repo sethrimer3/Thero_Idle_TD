@@ -369,6 +369,8 @@ import {
 
   const GAMEPLAY_CONFIG_RELATIVE_PATH = './data/gameplayConfig.json';
   const GAMEPLAY_CONFIG_URL = new URL(GAMEPLAY_CONFIG_RELATIVE_PATH, import.meta.url);
+  const FLUID_SIM_CONFIG_RELATIVE_PATH = './data/towerFluidSimulation.json';
+  const FLUID_SIM_CONFIG_URL = new URL(FLUID_SIM_CONFIG_RELATIVE_PATH, import.meta.url);
   const EMBEDDED_CONFIG_GLOBAL_KEY = '__THERO_EMBEDDED_GAMEPLAY_CONFIG__';
 
   function getEmbeddedGameplayConfig() {
@@ -413,11 +415,90 @@ import {
     return null;
   }
 
+  function normalizeFluidSimulationProfile(data) {
+    if (!data || typeof data !== 'object') {
+      return null;
+    }
+
+    const paletteSource =
+      data.palette && typeof data.palette === 'object'
+        ? data.palette
+        : {
+            stops: data.stops,
+            restAlpha: data.restAlpha,
+            freefallAlpha: data.freefallAlpha,
+            backgroundTop: data.backgroundTop,
+            backgroundBottom: data.backgroundBottom,
+          };
+
+    const grainSizes = Array.isArray(data.grainSizes)
+      ? data.grainSizes
+          .map((size) => {
+            const numeric = Number.parseFloat(size);
+            return Number.isFinite(numeric) ? Math.max(1, Math.round(numeric)) : null;
+          })
+          .filter((size) => Number.isFinite(size) && size > 0)
+      : [];
+
+    if (!grainSizes.length) {
+      grainSizes.push(1, 2);
+    }
+
+    return {
+      id: typeof data.id === 'string' && data.id.trim() ? data.id.trim() : 'fluid',
+      label: typeof data.label === 'string' && data.label.trim() ? data.label.trim() : 'Fluid Study',
+      grainSizes,
+      idleDrainRate: Number.isFinite(data.idleDrainRate) ? Math.max(1, data.idleDrainRate) : null,
+      baseSpawnInterval: Number.isFinite(data.baseSpawnInterval) ? Math.max(30, data.baseSpawnInterval) : null,
+      flowOffset: Number.isFinite(data.flowOffset) ? Math.max(0, data.flowOffset) : null,
+      palette: mergeMotePalette(paletteSource || {}),
+    };
+  }
+
+  async function loadFluidSimulationProfile() {
+    if (fluidSimulationProfile) {
+      return fluidSimulationProfile;
+    }
+
+    if (!fluidSimulationLoadPromise) {
+      fluidSimulationLoadPromise = (async () => {
+        try {
+          if (typeof fetch === 'function') {
+            const response = await fetch(FLUID_SIM_CONFIG_URL.href, { cache: 'no-store' });
+            if (response.ok) {
+              return response.json();
+            }
+          }
+        } catch (error) {
+          console.warn('Fluid simulation fetch failed; attempting module import.', error);
+        }
+
+        try {
+          const module = await import(FLUID_SIM_CONFIG_URL.href, { assert: { type: 'json' } });
+          if (module && module.default) {
+            return module.default;
+          }
+        } catch (error) {
+          console.error('Fluid simulation profile import failed.', error);
+        }
+
+        return null;
+      })();
+    }
+
+    const rawProfile = await fluidSimulationLoadPromise;
+    fluidSimulationLoadPromise = null;
+    fluidSimulationProfile = normalizeFluidSimulationProfile(rawProfile);
+    return fluidSimulationProfile;
+  }
+
   let gameplayConfigData = null;
   let levelBlueprints = [];
   let enemyCodexEntries = [];
   let enemyCodexMap = new Map();
   let towerDefinitions = [];
+  let fluidSimulationProfile = null;
+  let fluidSimulationLoadPromise = null;
   let towerDefinitionMap = new Map();
   let levelLookup = new Map();
   const levelConfigs = new Map();
@@ -2486,6 +2567,8 @@ import {
     thetaBase: 1.3,
     zetaBase: 1.6,
     simulatedDuneGainMax: 3.4,
+    wallBaseGapMotes: 15,
+    wallGapPerGlyph: 2,
   };
 
   const powderState = {
@@ -2498,6 +2581,10 @@ import {
     idleDrainRate: 1,
     pendingMoteDrops: [],
     motePalette: mergeMotePalette(DEFAULT_MOTE_PALETTE),
+    simulationMode: 'sand',
+    wallGapTarget: powderConfig.wallBaseGapMotes,
+    modeSwitchPending: false,
+    fluidProfileLabel: 'Fluid Study',
   };
 
   let currentPowderBonuses = {
@@ -2539,10 +2626,14 @@ import {
     wallGlyphColumns: [],
     leftWall: null,
     rightWall: null,
+    leftHitbox: null,
+    rightHitbox: null,
+    modeToggle: null,
   };
 
   const POWDER_CELL_SIZE_PX = 1;
   const powderGlyphColumns = [];
+  let powderWallMetrics = null;
 
   function updatePowderGlyphColumns(info = {}) {
     const rows = Number.isFinite(info.rows) && info.rows > 0 ? info.rows : 1;
@@ -2594,6 +2685,150 @@ import {
       nextIndex,
       highestRaw,
     };
+  }
+
+  function syncPowderWallVisuals(metrics) {
+    const activeMetrics =
+      metrics || powderWallMetrics || (powderSimulation ? powderSimulation.getWallMetrics() : null);
+    if (!activeMetrics) {
+      return;
+    }
+
+    const { leftCells, rightCells, gapCells, cellSize } = activeMetrics;
+    const leftWidth = Math.max(0, leftCells * cellSize);
+    const rightWidth = Math.max(0, rightCells * cellSize);
+    const gapWidth = Math.max(0, gapCells * cellSize);
+
+    if (powderElements.leftWall) {
+      powderElements.leftWall.style.width = `${leftWidth.toFixed(1)}px`;
+    }
+    if (powderElements.rightWall) {
+      powderElements.rightWall.style.width = `${rightWidth.toFixed(1)}px`;
+    }
+    if (powderElements.leftHitbox) {
+      powderElements.leftHitbox.style.width = `${leftWidth.toFixed(1)}px`;
+    }
+    if (powderElements.rightHitbox) {
+      powderElements.rightHitbox.style.width = `${rightWidth.toFixed(1)}px`;
+    }
+    if (powderElements.basin) {
+      powderElements.basin.style.setProperty('--powder-gap-width', `${gapWidth.toFixed(1)}px`);
+    }
+  }
+
+  function updatePowderHitboxVisibility() {
+    const metrics = powderWallMetrics || (powderSimulation ? powderSimulation.getWallMetrics() : null);
+    const showHitboxes = developerModeActive && metrics;
+    if (powderElements.leftHitbox) {
+      powderElements.leftHitbox.classList.toggle(
+        'powder-wall-hitbox--visible',
+        Boolean(showHitboxes && metrics.leftCells > 0),
+      );
+    }
+    if (powderElements.rightHitbox) {
+      powderElements.rightHitbox.classList.toggle(
+        'powder-wall-hitbox--visible',
+        Boolean(showHitboxes && metrics.rightCells > 0),
+      );
+    }
+  }
+
+  function handlePowderWallMetricsChange(metrics) {
+    powderWallMetrics = metrics || null;
+    syncPowderWallVisuals(metrics || undefined);
+    updatePowderHitboxVisibility();
+  }
+
+  function updatePowderWallGapFromGlyphs(glyphCount) {
+    const normalized = Number.isFinite(glyphCount) ? Math.max(0, glyphCount) : 0;
+    const target = powderConfig.wallBaseGapMotes + normalized * powderConfig.wallGapPerGlyph;
+    powderState.wallGapTarget = target;
+    if (!powderSimulation) {
+      return;
+    }
+    powderSimulation.setWallGapTarget(target);
+    powderWallMetrics = powderSimulation.getWallMetrics();
+    syncPowderWallVisuals(powderWallMetrics);
+    updatePowderHitboxVisibility();
+  }
+
+  function updatePowderModeButton() {
+    if (!powderElements.modeToggle) {
+      return;
+    }
+    const mode = powderState.simulationMode;
+    const fluidLabel = powderState.fluidProfileLabel || 'Fluid Study';
+    powderElements.modeToggle.textContent =
+      mode === 'fluid' ? 'Return to Powderfall' : `Switch to ${fluidLabel}`;
+    powderElements.modeToggle.setAttribute('aria-pressed', mode === 'fluid' ? 'true' : 'false');
+  }
+
+  async function applyPowderSimulationMode(mode) {
+    if (mode !== 'sand' && mode !== 'fluid') {
+      return;
+    }
+    if (powderState.modeSwitchPending) {
+      return;
+    }
+
+    powderState.modeSwitchPending = true;
+    if (powderElements.modeToggle) {
+      powderElements.modeToggle.disabled = true;
+    }
+
+    const previousMode = powderState.simulationMode;
+    try {
+      if (mode === 'fluid') {
+        const profile = await loadFluidSimulationProfile();
+        if (!profile) {
+          throw new Error('Fluid simulation profile unavailable.');
+        }
+        powderState.fluidProfileLabel = profile.label || powderState.fluidProfileLabel;
+        if (powderSimulation) {
+          powderSimulation.applyProfile(profile);
+          powderState.motePalette = powderSimulation.getEffectiveMotePalette();
+          powderState.idleDrainRate = powderSimulation.idleDrainRate;
+          powderState.simulationMode = 'fluid';
+          updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
+        } else {
+          powderState.simulationMode = 'fluid';
+        }
+        if (previousMode !== powderState.simulationMode) {
+          recordPowderEvent('mode-switch', { mode: 'fluid', label: profile.label || 'Fluid Study' });
+        }
+      } else {
+        if (powderSimulation) {
+          const baseProfile = powderSimulation.getDefaultProfile();
+          powderSimulation.applyProfile(baseProfile || undefined);
+          powderState.motePalette = powderSimulation.getEffectiveMotePalette();
+          powderState.idleDrainRate = powderSimulation.idleDrainRate;
+        }
+        powderState.simulationMode = 'sand';
+        updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
+        if (previousMode !== powderState.simulationMode) {
+          recordPowderEvent('mode-switch', { mode: 'sand', label: 'Powderfall Study' });
+        }
+      }
+      updateMoteStatsDisplays();
+    } catch (error) {
+      console.error('Unable to switch simulation mode.', error);
+    } finally {
+      powderState.modeSwitchPending = false;
+      if (powderElements.modeToggle) {
+        powderElements.modeToggle.disabled = false;
+      }
+      updatePowderModeButton();
+      syncPowderWallVisuals();
+      updatePowderHitboxVisibility();
+    }
+  }
+
+  async function handlePowderModeToggle() {
+    if (powderState.modeSwitchPending) {
+      return;
+    }
+    const nextMode = powderState.simulationMode === 'fluid' ? 'sand' : 'fluid';
+    await applyPowderSimulationMode(nextMode);
   }
 
   let resourceTicker = null;
@@ -2681,6 +2916,9 @@ import {
       this.wallInsetRightPx = Number.isFinite(options.wallInsetRight) ? Math.max(0, options.wallInsetRight) : 0;
       this.wallInsetLeftCells = 0;
       this.wallInsetRightCells = 0;
+      this.wallGapCellsTarget = Number.isFinite(options.wallGapCells)
+        ? Math.max(1, options.wallGapCells)
+        : null;
 
       this.spawnTimer = 0;
       this.lastFrame = 0;
@@ -2690,6 +2928,20 @@ import {
       this.stabilized = true;
       this.flowOffset = 0;
       this.motePalette = mergeMotePalette(options.motePalette || powderState.motePalette);
+      this.onWallMetricsChange =
+        typeof options.onWallMetricsChange === 'function' ? options.onWallMetricsChange : null;
+
+      this.defaultProfile = {
+        grainSizes: [...this.grainSizes],
+        idleDrainRate: this.idleDrainRate,
+        baseSpawnInterval: this.baseSpawnInterval,
+        palette: {
+          ...this.motePalette,
+          stops: Array.isArray(this.motePalette.stops)
+            ? this.motePalette.stops.map((stop) => ({ ...stop }))
+            : [],
+        },
+      };
 
       this.handleFrame = this.handleFrame.bind(this);
       this.handleResize = this.handleResize.bind(this);
@@ -2744,10 +2996,18 @@ import {
         this.wallInsetRightCells = Math.floor(this.wallInsetRightCells * scale);
       }
 
+      if (Number.isFinite(this.wallGapCellsTarget)) {
+        this.applyWallGapTarget({ skipRebuild: true });
+      } else {
+        this.updateMaxDropSize();
+      }
+      this.reset();
+      this.notifyWallMetricsChange();
+    }
+
+    updateMaxDropSize() {
       const usableWidth = Math.max(1, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells);
       this.maxDropSize = Math.max(1, Math.min(usableWidth, this.rows));
-
-      this.reset();
     }
 
     reset() {
@@ -2791,6 +3051,112 @@ import {
           }
         }
       }
+    }
+
+    rebuildGridAfterWallChange() {
+      if (!this.rows || !this.cols) {
+        return;
+      }
+
+      this.grid = Array.from({ length: this.rows }, () => new Array(this.cols).fill(0));
+      this.applyWallMask();
+
+      const minX = this.wallInsetLeftCells;
+      const maxInterior = Math.max(minX, this.cols - this.wallInsetRightCells);
+
+      for (const grain of this.grains) {
+        const maxOrigin = Math.max(minX, this.cols - this.wallInsetRightCells - grain.size);
+        if (grain.x < minX) {
+          grain.x = minX;
+          grain.freefall = true;
+          grain.resting = false;
+        } else if (grain.x > maxOrigin) {
+          grain.x = maxOrigin;
+          grain.freefall = true;
+          grain.resting = false;
+        }
+        if (grain.x + grain.size > maxInterior) {
+          grain.x = Math.max(minX, maxInterior - grain.size);
+        }
+        grain.inGrid = false;
+      }
+
+      this.populateGridFromGrains();
+      this.updateHeightFromGrains(true);
+      this.render();
+      this.notifyWallMetricsChange();
+    }
+
+    applyWallGapTarget(options = {}) {
+      if (!this.cols) {
+        return false;
+      }
+
+      const { skipRebuild = false } = options;
+      const largestGrain = this.grainSizes.length
+        ? Math.max(1, this.grainSizes[this.grainSizes.length - 1])
+        : 1;
+      const desiredGap = Number.isFinite(this.wallGapCellsTarget)
+        ? Math.max(largestGrain, Math.round(this.wallGapCellsTarget))
+        : Math.max(largestGrain, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells);
+      const clampedGap = Math.max(largestGrain, Math.min(this.cols, desiredGap));
+      const totalInset = Math.max(0, this.cols - clampedGap);
+      let nextLeft = Math.floor(totalInset / 2);
+      let nextRight = totalInset - nextLeft;
+
+      if (nextLeft + nextRight >= this.cols) {
+        nextLeft = Math.max(0, Math.floor((this.cols - largestGrain) / 2));
+        nextRight = Math.max(0, this.cols - largestGrain - nextLeft);
+      }
+
+      const changed = nextLeft !== this.wallInsetLeftCells || nextRight !== this.wallInsetRightCells;
+      this.wallInsetLeftCells = nextLeft;
+      this.wallInsetRightCells = nextRight;
+      this.wallInsetLeftPx = nextLeft * this.cellSize;
+      this.wallInsetRightPx = nextRight * this.cellSize;
+      this.updateMaxDropSize();
+
+      if (changed) {
+        if (skipRebuild) {
+          return true;
+        }
+        this.rebuildGridAfterWallChange();
+      } else if (!skipRebuild) {
+        this.notifyWallMetricsChange();
+      }
+
+      return changed;
+    }
+
+    setWallGapTarget(gapCells) {
+      if (!Number.isFinite(gapCells) || gapCells <= 0) {
+        return false;
+      }
+      this.wallGapCellsTarget = Math.max(1, Math.round(gapCells));
+      if (!this.cols) {
+        return false;
+      }
+      return this.applyWallGapTarget();
+    }
+
+    notifyWallMetricsChange(metrics) {
+      if (typeof this.onWallMetricsChange !== 'function') {
+        return;
+      }
+      this.onWallMetricsChange(metrics || this.getWallMetrics());
+    }
+
+    getWallMetrics() {
+      return {
+        leftCells: this.wallInsetLeftCells,
+        rightCells: this.wallInsetRightCells,
+        gapCells: Math.max(0, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells),
+        cellSize: this.cellSize,
+        rows: this.rows,
+        cols: this.cols,
+        width: this.width,
+        height: this.height,
+      };
     }
 
     populateGridFromGrains() {
@@ -3316,6 +3682,71 @@ import {
         this.motePalette = mergeMotePalette(DEFAULT_MOTE_PALETTE);
       }
       return this.motePalette;
+    }
+
+    getDefaultProfile() {
+      if (!this.defaultProfile) {
+        return null;
+      }
+      const { grainSizes, idleDrainRate, baseSpawnInterval, palette } = this.defaultProfile;
+      return {
+        grainSizes: Array.isArray(grainSizes) ? [...grainSizes] : null,
+        idleDrainRate,
+        baseSpawnInterval,
+        palette: palette
+          ? {
+              ...palette,
+              stops: Array.isArray(palette.stops) ? palette.stops.map((stop) => ({ ...stop })) : [],
+            }
+          : null,
+      };
+    }
+
+    applyProfile(profile = null) {
+      const targetProfile =
+        profile && typeof profile === 'object' ? profile : this.getDefaultProfile();
+      if (!targetProfile) {
+        return;
+      }
+
+      if (Array.isArray(targetProfile.grainSizes) && targetProfile.grainSizes.length) {
+        const normalized = targetProfile.grainSizes
+          .map((size) => {
+            const numeric = Number.isFinite(size) ? size : Number.parseFloat(size);
+            return Number.isFinite(numeric) ? Math.max(1, Math.round(numeric)) : null;
+          })
+          .filter((size) => Number.isFinite(size) && size > 0)
+          .sort((a, b) => a - b);
+        if (normalized.length) {
+          this.grainSizes = normalized;
+        }
+      }
+
+      if (Number.isFinite(targetProfile.idleDrainRate)) {
+        this.idleDrainRate = Math.max(1, targetProfile.idleDrainRate);
+      } else if (targetProfile.idleDrainRate === null && this.defaultProfile) {
+        this.idleDrainRate = this.defaultProfile.idleDrainRate;
+      }
+
+      if (Number.isFinite(targetProfile.baseSpawnInterval) && targetProfile.baseSpawnInterval > 0) {
+        this.baseSpawnInterval = targetProfile.baseSpawnInterval;
+      } else if (targetProfile.baseSpawnInterval === null && this.defaultProfile) {
+        this.baseSpawnInterval = this.defaultProfile.baseSpawnInterval;
+      }
+
+      if (targetProfile.palette) {
+        this.setMotePalette(targetProfile.palette);
+      } else if (targetProfile.palette === null && this.defaultProfile?.palette) {
+        this.setMotePalette(this.defaultProfile.palette);
+      }
+
+      if (Number.isFinite(targetProfile.flowOffset)) {
+        this.setFlowOffset(targetProfile.flowOffset);
+      }
+
+      this.applyWallGapTarget();
+      this.render();
+      this.notifyWallMetricsChange();
     }
 
     setMotePalette(palette) {
@@ -11033,6 +11464,8 @@ import {
       playfield.messageEl.textContent =
         'Developer lattice engaged—every tower, level, and codex entry is unlocked.';
     }
+
+    updatePowderHitboxVisibility();
   }
 
   function disableDeveloperMode() {
@@ -11078,6 +11511,8 @@ import {
     resetDeveloperMoteTowerStatus();
 
     hideLevelEditorPanel();
+
+    updatePowderHitboxVisibility();
   }
 
   function bindDeveloperModeToggle() {
@@ -11665,6 +12100,7 @@ import {
     if (glyphMetrics) {
       const { achievedCount, highestRaw } = glyphMetrics;
       const fractional = Math.max(0, highestRaw - achievedCount);
+      updatePowderWallGapFromGlyphs(achievedCount);
       if (powderElements.leftWall) {
         powderElements.leftWall.classList.toggle('wall-awake', highestRaw > 0);
       }
@@ -12165,6 +12601,8 @@ import {
     powderElements.basin = document.getElementById('powder-basin');
     powderElements.leftWall = document.getElementById('powder-wall-left');
     powderElements.rightWall = document.getElementById('powder-wall-right');
+    powderElements.leftHitbox = document.getElementById('powder-wall-hitbox-left');
+    powderElements.rightHitbox = document.getElementById('powder-wall-hitbox-right');
     powderElements.wallMarker = document.getElementById('powder-wall-marker');
     powderElements.crestMarker = document.getElementById('powder-crest-marker');
     powderElements.wallGlyphColumns = Array.from(
@@ -12205,6 +12643,7 @@ import {
 
     powderElements.logList = document.getElementById('powder-log');
     powderElements.logEmpty = document.getElementById('powder-log-empty');
+    powderElements.modeToggle = document.getElementById('powder-mode-toggle');
 
     if (powderElements.sandfallButton) {
       powderElements.sandfallButton.addEventListener('click', toggleSandfallStability);
@@ -12216,6 +12655,13 @@ import {
 
     if (powderElements.crystalButton) {
       powderElements.crystalButton.addEventListener('click', chargeCrystalMatrix);
+    }
+
+    if (powderElements.modeToggle) {
+      powderElements.modeToggle.addEventListener('click', () => {
+        handlePowderModeToggle();
+      });
+      updatePowderModeButton();
     }
 
     if (powderElements.simulationCanvas && !powderSimulation) {
@@ -12232,15 +12678,20 @@ import {
         scrollThreshold: 0.75,
         wallInsetLeft: leftInset,
         wallInsetRight: rightInset,
+        wallGapCells: powderConfig.wallBaseGapMotes,
         maxDuneGain: powderConfig.simulatedDuneGainMax,
         idleDrainRate: powderState.idleDrainRate,
         motePalette: powderState.motePalette,
         onHeightChange: handlePowderHeightChange,
+        onWallMetricsChange: handlePowderWallMetricsChange,
       });
       powderState.idleDrainRate = powderSimulation.idleDrainRate;
       powderSimulation.setFlowOffset(powderState.sandOffset);
       powderSimulation.start();
       handlePowderHeightChange(powderSimulation.getStatus());
+      updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
+      syncPowderWallVisuals();
+      updatePowderHitboxVisibility();
       flushPendingMoteDrops();
     }
 
@@ -12248,6 +12699,7 @@ import {
 
     updatePowderStockpileDisplay();
     updateMoteStatsDisplays();
+    updatePowderModeButton();
   }
 
   function updatePowderLedger() {
@@ -12354,6 +12806,16 @@ import {
         entry = `Developer mote tower triggered · +${formatGameNumber(
           normalizedAmount,
         )} Motes stored in the idle bank.`;
+        break;
+      }
+      case 'mode-switch': {
+        const { mode = powderState.simulationMode, label } = context;
+        const normalizedMode = mode === 'fluid' ? 'fluid' : 'sand';
+        const modeLabel =
+          normalizedMode === 'fluid'
+            ? label || powderState.fluidProfileLabel || 'Fluid Study'
+            : 'Powderfall Study';
+        entry = `Simulation mode changed · ${modeLabel} engaged.`;
         break;
       }
       default:

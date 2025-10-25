@@ -922,6 +922,11 @@
             <article class="card powder-simulation">
               <h3>Motefall Basin</h3>
               <div class="powder-basin" id="powder-basin">
+                <div
+                  class="powder-wall-hitbox powder-wall-hitbox-left"
+                  id="powder-wall-hitbox-left"
+                  aria-hidden="true"
+                ></div>
                 <div class="powder-wall powder-wall-left" id="powder-wall-left" aria-hidden="true">
                   <div class="powder-wall-marker" id="powder-wall-marker" data-height="Peak 0.00" aria-hidden="true"></div>
                   <div
@@ -938,6 +943,11 @@
                   role="img"
                   aria-label="Motefall basin simulation"
                 ></canvas>
+                <div
+                  class="powder-wall-hitbox powder-wall-hitbox-right"
+                  id="powder-wall-hitbox-right"
+                  aria-hidden="true"
+                ></div>
                 <div class="powder-wall powder-wall-right" id="powder-wall-right" aria-hidden="true">
                   <div class="powder-glyph-column" data-powder-glyph-column="right"></div>
                 </div>
@@ -945,6 +955,9 @@
               <p class="powder-footnote" id="powder-simulation-note">
                 Captured crest: 0.0% full · dune height h = 1.00 · largest grain —.
               </p>
+              <button class="powder-mode-toggle" type="button" id="powder-mode-toggle">
+                Switch to Fluid Study
+              </button>
             </article>
           </section>
           <section class="panel-grid powder-summary" aria-label="Flux overview reference">

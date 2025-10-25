@@ -1,0 +1,14 @@
+{
+  "id": "tower-fluid",
+  "label": "Fluid Resonance Study",
+  "grainSizes": [1, 1, 2],
+  "idleDrainRate": 1.6,
+  "baseSpawnInterval": 150,
+  "palette": {
+    "stops": ["#4fb8ff", "#76d5ff", "#c6f4ff"],
+    "restAlpha": 0.78,
+    "freefallAlpha": 0.5,
+    "backgroundTop": "#0b1324",
+    "backgroundBottom": "#10213a"
+  }
+}
