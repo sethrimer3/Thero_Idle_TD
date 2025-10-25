@@ -1307,6 +1307,23 @@ body.color-scheme-chromatic::before {
   gap: 12px;
 }
 
+.card[data-tower-id][data-locked='false'] {
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.card[data-tower-id][data-locked='false']:hover,
+.card[data-tower-id][data-locked='false']:focus-visible {
+  border-color: rgba(255, 215, 0, 0.35);
+  box-shadow: 0 18px 40px rgba(255, 215, 0, 0.18), var(--shadow);
+  transform: translateY(-4px);
+}
+
+.card[data-tower-id][data-locked='true'] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .card--mind-gate {
   position: relative;
   overflow: hidden;
@@ -2304,6 +2321,211 @@ body.color-scheme-chromatic::before {
 
 .upgrade-overlay .overlay-instruction {
   margin-top: 18px;
+}
+
+.tower-upgrade-overlay .overlay-panel {
+  max-width: 600px;
+  width: min(92vw, 600px);
+  text-align: left;
+}
+
+.tower-upgrade-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.tower-upgrade-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.tower-upgrade-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0;
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.35), transparent 60%),
+    rgba(16, 16, 24, 0.82);
+  border: 1px solid rgba(255, 215, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.tower-upgrade-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.45));
+}
+
+.tower-upgrade-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.tower-upgrade-tier {
+  margin: 4px 0 8px;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.tower-upgrade-glyphs {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(255, 215, 0, 0.85);
+}
+
+.tower-upgrade-equations {
+  display: grid;
+  gap: 20px;
+}
+
+.tower-upgrade-equation {
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(18, 18, 28, 0.88), rgba(26, 26, 40, 0.68));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tower-upgrade-equation--gold {
+  background: linear-gradient(135deg, rgba(48, 32, 0, 0.9), rgba(88, 64, 12, 0.65));
+  border-color: rgba(255, 215, 0, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.tower-upgrade-equation-label {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.tower-upgrade-formula {
+  margin: 0;
+  font-size: 1.15rem;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+}
+
+.tower-upgrade-variables {
+  display: grid;
+  gap: 16px;
+}
+
+.tower-upgrade-variable {
+  display: grid;
+  gap: 12px;
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: rgba(16, 16, 24, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tower-upgrade-variable-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.tower-upgrade-variable-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: rgba(255, 215, 0, 0.18);
+  color: rgba(255, 215, 0, 0.95);
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+}
+
+.tower-upgrade-variable-name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.tower-upgrade-variable-description {
+  margin: 4px 0 0;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.tower-upgrade-variable-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.tower-upgrade-variable-value {
+  font-size: 1.05rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: 'Space Mono', 'Courier New', monospace;
+}
+
+.tower-upgrade-variable-level {
+  font-size: 0.9rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 215, 0, 0.18);
+  color: rgba(255, 215, 0, 0.9);
+}
+
+.tower-upgrade-variable-button {
+  margin-left: auto;
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 215, 0, 0.42);
+  background: rgba(46, 34, 8, 0.75);
+  color: rgba(255, 215, 0, 0.96);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.tower-upgrade-variable-button:hover:not(:disabled),
+.tower-upgrade-variable-button:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 215, 0, 0.28);
+}
+
+.tower-upgrade-variable-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.tower-upgrade-variable-note {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.tower-upgrade-note {
+  margin: -8px 0 0;
+  min-height: 1.25rem;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.tower-upgrade-note[data-tone='warning'] {
+  color: rgba(255, 180, 0, 0.85);
+}
+
+.tower-upgrade-note[data-tone='success'] {
+  color: rgba(108, 255, 208, 0.88);
 }
 
 .upgrade-matrix-grid {
