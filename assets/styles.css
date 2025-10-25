@@ -2174,7 +2174,7 @@ body.color-scheme-chromatic::before {
   overscroll-behavior: contain;
   opacity: 0;
   visibility: hidden;
-  transform: translateX(24px);
+  transform: translateX(0);
   transition: transform 280ms ease, opacity 240ms ease;
   pointer-events: none;
 }
@@ -2199,14 +2199,14 @@ body.color-scheme-chromatic::before {
   pointer-events: auto;
 }
 
-.field-notes-page.field-notes-page--from-right,
-.field-notes-page.field-notes-page--to-right {
+.field-notes-page.field-notes-page--enter-forward,
+.field-notes-page.field-notes-page--exit-backward {
   transform: translateX(42px);
   opacity: 0;
 }
 
-.field-notes-page.field-notes-page--from-left,
-.field-notes-page.field-notes-page--to-left {
+.field-notes-page.field-notes-page--enter-backward,
+.field-notes-page.field-notes-page--exit-forward {
   transform: translateX(-42px);
   opacity: 0;
 }

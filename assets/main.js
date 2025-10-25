@@ -37,6 +37,40 @@ import {
   const THERO_SYMBOL = 'þ';
   const COMMUNITY_DISCORD_INVITE = 'https://discord.gg/UzqhfsZQ8n'; // Reserved for future placement.
 
+  const BETA_BASE_ATTACK = 10;
+  const BETA_BASE_ATTACK_SPEED = 2;
+  const BETA_BASE_RANGE = 5;
+
+  function clampBetaExponent(value) {
+    if (!Number.isFinite(value)) {
+      return 1;
+    }
+    return Math.max(1, value);
+  }
+
+  function calculateBetaAttack(exponent) {
+    const normalized = clampBetaExponent(exponent);
+    const attack = BETA_BASE_ATTACK ** normalized;
+    return Number.isFinite(attack) ? attack : Number.MAX_VALUE;
+  }
+
+  function calculateBetaAttackSpeed(exponent) {
+    const normalized = clampBetaExponent(exponent);
+    const speed = BETA_BASE_ATTACK_SPEED / normalized;
+    return Number.isFinite(speed) ? speed : 0;
+  }
+
+  function calculateBetaRange(exponent) {
+    const normalized = clampBetaExponent(exponent);
+    const range = BETA_BASE_RANGE / normalized;
+    return Number.isFinite(range) ? range : 0;
+  }
+
+  function resolveBetaExponent(towerId) {
+    const exponentValue = computeTowerVariableValue(towerId, 'exponent');
+    return clampBetaExponent(exponentValue);
+  }
+
   const TOWER_EQUATION_BLUEPRINTS = {
     alpha: {
       mathSymbol: '\\alpha',
@@ -88,50 +122,58 @@ import {
     },
     beta: {
       mathSymbol: '\\beta',
-      baseEquation: '\\( \\beta = X \\cdot Y \\cdot Z \\)',
+      baseEquation: `\\( \\beta = ${BETA_BASE_ATTACK}^{X} \\cdot \\frac{${BETA_BASE_ATTACK_SPEED}}{X} \\cdot \\frac{${BETA_BASE_RANGE}}{X} \\)`,
       variables: [
         {
-          key: 'damage',
+          key: 'exponent',
           symbol: 'X',
-          name: 'Beam Harmonics',
-          description: 'Base resonance damage produced per pulse.',
-          stat: 'damage',
-          step: 6,
+          name: 'Exponent Harmonic',
+          description: 'Raises β damage exponentially while constricting tempo and reach.',
+          baseValue: 1,
+          step: 1,
           upgradable: true,
           format: (value) => formatWholeNumber(value),
-          cost: (level) => Math.max(1, 1 + level),
+          cost: (level) => Math.max(1, 2 + level),
         },
         {
-          key: 'rate',
-          symbol: 'Y',
-          name: 'Pulse Frequency',
-          description: 'Sustained pulses emitted each second.',
-          stat: 'rate',
-          step: 0.08,
-          upgradable: true,
-          format: (value) => formatDecimal(value, 2),
-          cost: (level) => Math.max(1, 1 + Math.floor(level / 2)),
+          key: 'attackPower',
+          symbol: 'A',
+          name: 'Attack Power',
+          description: `Damage per beam pulse derived from ${BETA_BASE_ATTACK}^{X}.`,
+          upgradable: false,
+          lockedNote: 'Scales exponentially with X upgrades.',
+          format: (value) => `${formatGameNumber(value)} attack`,
+          getBase: ({ towerId }) => calculateBetaAttack(resolveBetaExponent(towerId)),
         },
         {
-          key: 'pierce',
-          symbol: 'Z',
-          name: 'Prism Pierce',
-          description: 'Targets threaded per beam cycle.',
-          baseValue: 1,
-          step: 0.35,
-          upgradable: true,
-          format: (value) => formatDecimal(value, 2),
-          cost: (level) => Math.max(1, 2 + Math.floor(level / 2)),
+          key: 'attackSpeed',
+          symbol: 'S',
+          name: 'Attack Speed',
+          description: `Beams released per second; divided by X to temper the resonance.`,
+          upgradable: false,
+          lockedNote: 'Divided by the current exponent.',
+          format: (value) => `${formatDecimal(value, 2)} attacks/sec`,
+          getBase: ({ towerId }) => calculateBetaAttackSpeed(resolveBetaExponent(towerId)),
+        },
+        {
+          key: 'range',
+          symbol: 'Λ',
+          name: 'Beam Range',
+          description: `Effective reach of the lattice after dividing the base ${BETA_BASE_RANGE}.`,
+          upgradable: false,
+          lockedNote: 'Shrinks as X grows.',
+          format: (value) => `${formatDecimal(value, 2)} range`,
+          getBase: ({ towerId }) => calculateBetaRange(resolveBetaExponent(towerId)),
         },
       ],
       computeResult(values) {
-        const damage = Number.isFinite(values.damage) ? values.damage : 0;
-        const rate = Number.isFinite(values.rate) ? values.rate : 0;
-        const pierce = Number.isFinite(values.pierce) ? values.pierce : 0;
-        return damage * rate * pierce;
+        const attackPower = Number.isFinite(values.attackPower) ? values.attackPower : 0;
+        const attackSpeed = Number.isFinite(values.attackSpeed) ? values.attackSpeed : 0;
+        const range = Number.isFinite(values.range) ? values.range : 0;
+        return attackPower * attackSpeed * range;
       },
       formatGoldenEquation({ symbol, formatVariable, formatResult }) {
-        return `\\( ${symbol} = ${formatVariable('damage')} \\times ${formatVariable('rate')} \\times ${formatVariable('pierce')} = ${formatResult()} \\)`;
+        return `\\( ${symbol} = ${formatVariable('attackPower')} \\times ${formatVariable('attackSpeed')} \\times ${formatVariable('range')} = ${formatResult()} \\)`;
       },
     },
     gamma: {
@@ -11161,10 +11203,10 @@ import {
         const active = index === clampedIndex;
         page.classList.toggle('field-notes-page--active', active);
         page.classList.remove(
-          'field-notes-page--from-left',
-          'field-notes-page--from-right',
-          'field-notes-page--to-left',
-          'field-notes-page--to-right',
+          'field-notes-page--enter-forward',
+          'field-notes-page--enter-backward',
+          'field-notes-page--exit-forward',
+          'field-notes-page--exit-backward',
         );
         page.setAttribute('tabindex', active ? '0' : '-1');
         page.setAttribute('aria-hidden', active ? 'false' : 'true');
@@ -11188,15 +11230,15 @@ import {
 
     fieldNotesState.animating = true;
 
-    const enterClass = direction >= 0 ? 'field-notes-page--from-right' : 'field-notes-page--from-left';
-    const exitClass = direction >= 0 ? 'field-notes-page--to-left' : 'field-notes-page--to-right';
+    const enterClass = direction >= 0 ? 'field-notes-page--enter-forward' : 'field-notes-page--enter-backward';
+    const exitClass = direction >= 0 ? 'field-notes-page--exit-forward' : 'field-notes-page--exit-backward';
 
     if (currentPage && currentPage !== nextPage) {
       currentPage.classList.remove(
-        'field-notes-page--from-left',
-        'field-notes-page--from-right',
-        'field-notes-page--to-left',
-        'field-notes-page--to-right',
+        'field-notes-page--enter-forward',
+        'field-notes-page--enter-backward',
+        'field-notes-page--exit-forward',
+        'field-notes-page--exit-backward',
       );
       currentPage.classList.add(exitClass);
       currentPage.setAttribute('aria-hidden', 'true');
@@ -11204,10 +11246,10 @@ import {
     }
 
     nextPage.classList.remove(
-      'field-notes-page--from-left',
-      'field-notes-page--from-right',
-      'field-notes-page--to-left',
-      'field-notes-page--to-right',
+      'field-notes-page--enter-forward',
+      'field-notes-page--enter-backward',
+      'field-notes-page--exit-forward',
+      'field-notes-page--exit-backward',
     );
     nextPage.classList.add('field-notes-page--active', enterClass);
     nextPage.setAttribute('aria-hidden', 'false');
@@ -11228,12 +11270,12 @@ import {
         clearTimeout(fallbackHandle);
         fallbackHandle = null;
       }
-      nextPage.classList.remove('field-notes-page--from-left', 'field-notes-page--from-right');
+      nextPage.classList.remove('field-notes-page--enter-forward', 'field-notes-page--enter-backward');
       if (currentPage && currentPage !== nextPage) {
         currentPage.classList.remove(
           'field-notes-page--active',
-          'field-notes-page--to-left',
-          'field-notes-page--to-right',
+          'field-notes-page--exit-forward',
+          'field-notes-page--exit-backward',
         );
       }
       fieldNotesState.currentIndex = clampedIndex;
