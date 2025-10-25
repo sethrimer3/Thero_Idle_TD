@@ -5366,7 +5366,9 @@ import {
         1,
         Number.isFinite(enemy.hpExponent)
           ? enemy.hpExponent
-          : this.calculateHealthExponent(enemy.maxHp),
+          : this.calculateHealthExponent(
+              Number.isFinite(enemy.hp) && enemy.hp > 0 ? enemy.hp : enemy.maxHp,
+            ),
       );
       const sizeFactor = Math.max(moteFactor, exponent);
       const growth = Number.isFinite(sizeFactor) && sizeFactor > 0 ? Math.log2(sizeFactor) : 0;
@@ -5490,13 +5492,14 @@ import {
       }
 
       const symbol = typeof enemy.symbol === 'string' ? enemy.symbol : this.resolveEnemySymbol(enemy);
-      const exponent = this.calculateHealthExponent(enemy.maxHp);
+      const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
+      const exponent = this.calculateHealthExponent(remainingHp);
       if (this.enemyTooltipNameEl) {
         this.enemyTooltipNameEl.textContent = `${symbol}^${exponent} — ${enemy.label || 'Glyph'}`;
       }
       if (this.enemyTooltipHpEl) {
-        const hpText = formatGameNumber(enemy.maxHp);
-        this.enemyTooltipHpEl.textContent = `Total HP: 10^${exponent} (${hpText})`;
+        const hpText = formatGameNumber(remainingHp);
+        this.enemyTooltipHpEl.textContent = `Remaining HP: 10^${exponent} (${hpText})`;
       }
 
       const screenPosition = this.worldToScreen(enemyPosition);
@@ -6253,7 +6256,8 @@ import {
         return 1;
       }
       const clampedHp = Math.max(1, hp);
-      const exponent = Math.floor(Math.log10(clampedHp)) + 1;
+      const flooredHp = Math.max(1, Math.floor(clampedHp));
+      const exponent = Math.floor(Math.log10(flooredHp)) + 1;
       return Math.max(1, exponent);
     }
 
@@ -7271,6 +7275,40 @@ import {
       ctx.lineTo(gateWidth, gateBase);
       ctx.stroke();
 
+      const gateIntegrity = Math.max(0, Math.floor(this.lives || 0));
+      const maxIntegrity = Math.max(
+        gateIntegrity,
+        Math.floor(this.levelConfig?.lives || gateIntegrity || 1),
+      );
+      const gateExponentSource = gateIntegrity > 0 ? gateIntegrity : maxIntegrity || 1;
+      const gateExponent = this.calculateHealthExponent(gateExponentSource);
+      const palette =
+        typeof this.getEffectiveMotePalette === 'function'
+          ? this.getEffectiveMotePalette()
+          : null;
+      const paletteStops =
+        (palette && Array.isArray(palette.stops) && palette.stops.length && palette.stops) ||
+        DEFAULT_MOTE_PALETTE.stops;
+      const gradient = ctx.createLinearGradient(-radius, -radius, radius, radius);
+      if (Array.isArray(paletteStops) && paletteStops.length) {
+        const denominator = Math.max(1, paletteStops.length - 1);
+        paletteStops.forEach((stop, index) => {
+          const offset = Math.max(0, Math.min(1, index / denominator));
+          gradient.addColorStop(offset, colorToRgbaString(stop, 1));
+        });
+      }
+      ctx.font = `${Math.round(Math.max(14, radius * 0.82))}px "Space Mono", monospace`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = gradient;
+      const highlightColor = paletteStops[paletteStops.length - 1] || paletteStops[0];
+      ctx.shadowColor = colorToRgbaString(highlightColor, 0.85);
+      ctx.shadowBlur = Math.max(14, radius * 0.95);
+      const exponentOffset = radius * 0.78;
+      const exponentX = exponentOffset;
+      const exponentY = -exponentOffset * 0.88;
+      ctx.fillText(String(gateExponent), exponentX, exponentY);
+
       ctx.restore();
     }
 
@@ -7477,10 +7515,18 @@ import {
         if (!position) {
           return;
         }
+        const rawHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
+        const fallbackHp = Number.isFinite(enemy.maxHp) ? Math.max(1, enemy.maxHp) : 1;
+        const exponentSource = rawHp > 0 ? rawHp : fallbackHp;
+        const exponent = this.calculateHealthExponent(exponentSource);
+        enemy.hpExponent = exponent;
         const metrics = this.getEnemyVisualMetrics(enemy);
         const fillColor = enemy.color || 'rgba(139, 247, 255, 0.9)';
-        const exponent = this.calculateHealthExponent(enemy.maxHp);
-        enemy.hpExponent = exponent;
+        const projectedDamage = Math.max(1, Math.ceil(exponentSource || 1));
+        const gateIntegrity = Math.max(1, Math.floor(this.lives || 0) || 1);
+        const lethal = projectedDamage >= gateIntegrity;
+        const exponentColor = lethal ? '#ff375f' : '#ff8c42';
+        const exponentGlow = lethal ? 'rgba(255, 70, 95, 0.9)' : 'rgba(255, 140, 66, 0.85)';
 
         ctx.save();
         ctx.beginPath();
@@ -7509,8 +7555,8 @@ import {
         ctx.font = `${metrics.exponentSize}px "Space Mono", monospace`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
-        ctx.fillStyle = '#ff375f';
-        ctx.shadowColor = 'rgba(255, 70, 95, 0.9)';
+        ctx.fillStyle = exponentColor;
+        ctx.shadowColor = exponentGlow;
         ctx.shadowBlur = 12 * metrics.scale;
         const exponentOffset = metrics.coreRadius * 0.68;
         const exponentX = position.x + exponentOffset;
