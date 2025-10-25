@@ -1418,6 +1418,50 @@
       </div>
     </div>
     <div
+      class="level-overlay tower-upgrade-overlay"
+      id="tower-upgrade-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+      aria-labelledby="tower-upgrade-title"
+    >
+      <div class="overlay-panel tower-upgrade-panel">
+        <button
+          class="overlay-close"
+          type="button"
+          data-tower-upgrade-close
+          aria-label="Close tower upgrade menu"
+        >
+          &times;
+        </button>
+        <p class="overlay-label">Glyph Variable Lattice</p>
+        <div class="tower-upgrade-header">
+          <figure class="tower-upgrade-icon" id="tower-upgrade-icon" aria-hidden="true"></figure>
+          <div class="tower-upgrade-heading">
+            <h2 class="overlay-title" id="tower-upgrade-title">Tower Equation</h2>
+            <p class="tower-upgrade-tier" id="tower-upgrade-tier"></p>
+            <p class="tower-upgrade-glyphs" id="tower-upgrade-glyphs">Available Glyphs: 0</p>
+          </div>
+        </div>
+        <div class="tower-upgrade-equations">
+          <section class="tower-upgrade-equation" aria-labelledby="tower-upgrade-base-label">
+            <h3 class="tower-upgrade-equation-label" id="tower-upgrade-base-label">Base Equation</h3>
+            <p class="tower-upgrade-formula" id="tower-upgrade-base"></p>
+          </section>
+          <section
+            class="tower-upgrade-equation tower-upgrade-equation--gold"
+            aria-labelledby="tower-upgrade-golden-label"
+          >
+            <h3 class="tower-upgrade-equation-label" id="tower-upgrade-golden-label">Golden Equation</h3>
+            <p class="tower-upgrade-formula" id="tower-upgrade-golden"></p>
+          </section>
+        </div>
+        <div class="tower-upgrade-variables" id="tower-upgrade-variables" role="list"></div>
+        <p class="tower-upgrade-note" id="tower-upgrade-note"></p>
+        <p class="overlay-instruction">Tap outside or press Esc to close.</p>
+      </div>
+    </div>
+    <div
       class="level-overlay field-notes-overlay"
       id="field-notes-overlay"
       role="dialog"

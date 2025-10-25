@@ -37,6 +37,184 @@ import {
   const THERO_SYMBOL = 'þ';
   const COMMUNITY_DISCORD_INVITE = 'https://discord.gg/UzqhfsZQ8n'; // Reserved for future placement.
 
+  const TOWER_EQUATION_BLUEPRINTS = {
+    alpha: {
+      mathSymbol: '\\alpha',
+      baseEquation: '\\( \\alpha = X \\cdot Y \\)',
+      variables: [
+        {
+          key: 'damage',
+          symbol: 'X',
+          name: 'Attack Power',
+          description: 'Projectile damage carried by each glyph bullet.',
+          stat: 'damage',
+          step: 4,
+          upgradable: true,
+          format: (value) => formatWholeNumber(value),
+          cost: (level) => Math.max(1, 1 + level),
+        },
+        {
+          key: 'rate',
+          symbol: 'Y',
+          name: 'Attack Speed',
+          description: 'Glyph pulses per second channelled through the lattice.',
+          stat: 'rate',
+          step: 0.1,
+          upgradable: true,
+          format: (value) => formatDecimal(value, 2),
+          cost: (level) => Math.max(1, 1 + Math.floor(level / 2)),
+        },
+      ],
+      computeResult(values) {
+        const damage = Number.isFinite(values.damage) ? values.damage : 0;
+        const rate = Number.isFinite(values.rate) ? values.rate : 0;
+        return damage * rate;
+      },
+      formatGoldenEquation({ symbol, formatVariable, formatResult }) {
+        return `\\( ${symbol} = ${formatVariable('damage')} \\times ${formatVariable('rate')} = ${formatResult()} \\)`;
+      },
+    },
+    beta: {
+      mathSymbol: '\\beta',
+      baseEquation: '\\( \\beta = X \\cdot Y \\cdot Z \\)',
+      variables: [
+        {
+          key: 'damage',
+          symbol: 'X',
+          name: 'Beam Harmonics',
+          description: 'Base resonance damage produced per pulse.',
+          stat: 'damage',
+          step: 6,
+          upgradable: true,
+          format: (value) => formatWholeNumber(value),
+          cost: (level) => Math.max(1, 1 + level),
+        },
+        {
+          key: 'rate',
+          symbol: 'Y',
+          name: 'Pulse Frequency',
+          description: 'Sustained pulses emitted each second.',
+          stat: 'rate',
+          step: 0.08,
+          upgradable: true,
+          format: (value) => formatDecimal(value, 2),
+          cost: (level) => Math.max(1, 1 + Math.floor(level / 2)),
+        },
+        {
+          key: 'pierce',
+          symbol: 'Z',
+          name: 'Prism Pierce',
+          description: 'Targets threaded per beam cycle.',
+          baseValue: 1,
+          step: 0.35,
+          upgradable: true,
+          format: (value) => formatDecimal(value, 2),
+          cost: (level) => Math.max(1, 2 + Math.floor(level / 2)),
+        },
+      ],
+      computeResult(values) {
+        const damage = Number.isFinite(values.damage) ? values.damage : 0;
+        const rate = Number.isFinite(values.rate) ? values.rate : 0;
+        const pierce = Number.isFinite(values.pierce) ? values.pierce : 0;
+        return damage * rate * pierce;
+      },
+      formatGoldenEquation({ symbol, formatVariable, formatResult }) {
+        return `\\( ${symbol} = ${formatVariable('damage')} \\times ${formatVariable('rate')} \\times ${formatVariable('pierce')} = ${formatResult()} \\)`;
+      },
+    },
+    gamma: {
+      mathSymbol: '\\gamma',
+      baseEquation: '\\( \\gamma = \\alpha^{1/2} \\cdot \\beta \\)',
+      variables: [
+        {
+          key: 'alpha',
+          symbol: 'α',
+          name: 'Alpha Pulse',
+          description: 'Inherited burst cadence from α lattices.',
+          reference: 'alpha',
+          upgradable: false,
+          lockedNote: 'Upgrade α to raise this value.',
+          format: (value) => formatDecimal(value, 2),
+        },
+        {
+          key: 'beta',
+          symbol: 'β',
+          name: 'Beta Resonance',
+          description: 'Sustained beam resonance carried forward.',
+          reference: 'beta',
+          upgradable: false,
+          lockedNote: 'Upgrade β to amplify this resonance.',
+          format: (value) => formatDecimal(value, 2),
+        },
+      ],
+      computeResult(values) {
+        const alphaValue = Math.max(0, Number.isFinite(values.alpha) ? values.alpha : 0);
+        const betaValue = Math.max(0, Number.isFinite(values.beta) ? values.beta : 0);
+        return Math.sqrt(alphaValue) * betaValue;
+      },
+      formatGoldenEquation({ symbol, formatVariable, formatResult }) {
+        return `\\( ${symbol} = \\sqrt{${formatVariable('alpha')}} \\times ${formatVariable('beta')} = ${formatResult()} \\)`;
+      },
+    },
+    delta: {
+      mathSymbol: '\\delta',
+      baseEquation: '\\( \\delta = \\gamma \\cdot \\ln(\\beta + 1) \\)',
+      variables: [
+        {
+          key: 'gamma',
+          symbol: 'γ',
+          name: 'Gamma Cohort',
+          description: 'Command strength inherited from γ conductors.',
+          reference: 'gamma',
+          upgradable: false,
+          lockedNote: 'Bolster γ to empower this cohort.',
+          format: (value) => formatDecimal(value, 2),
+        },
+        {
+          key: 'beta',
+          symbol: 'β',
+          name: 'Beta Harmonics',
+          description: 'Beam resonance sustaining the summoned legion.',
+          reference: 'beta',
+          upgradable: false,
+          lockedNote: 'Infuse β to widen this harmonic.',
+          format: (value) => formatDecimal(value, 2),
+        },
+      ],
+      computeResult(values) {
+        const gammaValue = Math.max(0, Number.isFinite(values.gamma) ? values.gamma : 0);
+        const betaValue = Math.max(0, Number.isFinite(values.beta) ? values.beta : 0);
+        const lnComponent = Math.log(betaValue + 1);
+        return gammaValue * lnComponent;
+      },
+      formatGoldenEquation({ symbol, formatVariable, formatResult }) {
+        return `\\( ${symbol} = ${formatVariable('gamma')} \\times \\ln(${formatVariable('beta')} + 1) = ${formatResult()} \\)`;
+      },
+    },
+  };
+
+  const fallbackTowerBlueprints = new Map();
+
+  const towerUpgradeElements = {
+    overlay: null,
+    panel: null,
+    close: null,
+    title: null,
+    tier: null,
+    glyphs: null,
+    baseEquation: null,
+    goldenEquation: null,
+    variables: null,
+    note: null,
+    icon: null,
+  };
+
+  const towerUpgradeState = new Map();
+  const towerEquationCache = new Map();
+  let activeTowerUpgradeId = null;
+  let activeTowerUpgradeBaseEquation = '';
+  let lastTowerUpgradeTrigger = null;
+
   function isLikelyMathExpression(text) {
     if (!text) {
       return false;
@@ -9877,6 +10055,607 @@ import {
     syncLoadoutToPlayfield();
   }
 
+  function getTowerEquationBlueprint(towerId) {
+    if (!towerId) {
+      return null;
+    }
+    if (Object.prototype.hasOwnProperty.call(TOWER_EQUATION_BLUEPRINTS, towerId)) {
+      return TOWER_EQUATION_BLUEPRINTS[towerId];
+    }
+    if (fallbackTowerBlueprints.has(towerId)) {
+      return fallbackTowerBlueprints.get(towerId);
+    }
+    const definition = getTowerDefinition(towerId);
+    if (!definition) {
+      return null;
+    }
+
+    const fallbackBlueprint = {
+      mathSymbol: definition.symbol ? definition.symbol : towerId,
+      baseEquation: `\\( ${definition.symbol || towerId} = X \\times Y \\)`,
+      variables: [
+        {
+          key: 'damage',
+          symbol: 'X',
+          name: 'Damage',
+          description: 'Base strike damage coursing through the lattice.',
+          stat: 'damage',
+          upgradable: false,
+          format: (value) => formatWholeNumber(value),
+        },
+        {
+          key: 'rate',
+          symbol: 'Y',
+          name: 'Attack Speed',
+          description: 'Attacks per second released by the glyph.',
+          stat: 'rate',
+          upgradable: false,
+          format: (value) => formatDecimal(value, 2),
+        },
+      ],
+      computeResult(values) {
+        const damage = Number.isFinite(values.damage) ? values.damage : 0;
+        const rate = Number.isFinite(values.rate) ? values.rate : 0;
+        return damage * rate;
+      },
+      formatGoldenEquation({ symbol, formatVariable, formatResult }) {
+        return `\\( ${symbol} = ${formatVariable('damage')} \\times ${formatVariable('rate')} = ${formatResult()} \\)`;
+      },
+    };
+
+    fallbackTowerBlueprints.set(towerId, fallbackBlueprint);
+    return fallbackBlueprint;
+  }
+
+  function getBlueprintVariable(blueprint, key) {
+    if (!blueprint || !key) {
+      return null;
+    }
+    return (blueprint.variables || []).find((variable) => variable.key === key) || null;
+  }
+
+  function ensureTowerUpgradeState(towerId, blueprint = null) {
+    if (!towerId) {
+      return { variables: {} };
+    }
+    const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+    let state = towerUpgradeState.get(towerId);
+    if (!state) {
+      state = { variables: {} };
+      towerUpgradeState.set(towerId, state);
+    }
+    if (!state.variables) {
+      state.variables = {};
+    }
+    const variables = effectiveBlueprint?.variables || [];
+    variables.forEach((variable) => {
+      if (!state.variables[variable.key]) {
+        state.variables[variable.key] = { level: 0 };
+      }
+    });
+    return state;
+  }
+
+  function calculateTowerVariableUpgradeCost(variable, level) {
+    if (!variable) {
+      return 1;
+    }
+    if (typeof variable.cost === 'function') {
+      const value = variable.cost(level);
+      if (Number.isFinite(value) && value > 0) {
+        return Math.max(1, Math.floor(value));
+      }
+    } else if (Number.isFinite(variable.cost)) {
+      return Math.max(1, Math.floor(variable.cost));
+    }
+    return Math.max(1, 1 + level);
+  }
+
+  function computeTowerVariableValue(towerId, variableKey, blueprint = null, visited = new Set()) {
+    if (!towerId || !variableKey) {
+      return 0;
+    }
+    const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+    const variable = getBlueprintVariable(effectiveBlueprint, variableKey);
+    if (!variable) {
+      return 0;
+    }
+
+    if (variable.reference) {
+      const referencedId = variable.reference;
+      const referencedValue = calculateTowerEquationResult(referencedId, visited);
+      if (!Number.isFinite(referencedValue)) {
+        return 0;
+      }
+      if (typeof variable.transform === 'function') {
+        return variable.transform(referencedValue);
+      }
+      if (Number.isFinite(variable.exponent)) {
+        return referencedValue ** variable.exponent;
+      }
+      return referencedValue;
+    }
+
+    const definition = getTowerDefinition(towerId);
+    let baseValue = 0;
+    if (typeof variable.getBase === 'function') {
+      baseValue = variable.getBase({ definition, towerId });
+    } else if (variable.stat && Number.isFinite(definition?.[variable.stat])) {
+      baseValue = definition[variable.stat];
+    } else if (Number.isFinite(variable.baseValue)) {
+      baseValue = variable.baseValue;
+    }
+
+    if (!Number.isFinite(baseValue)) {
+      baseValue = 0;
+    }
+
+    const state = ensureTowerUpgradeState(towerId, effectiveBlueprint);
+    const level = state.variables?.[variableKey]?.level || 0;
+    if (variable.upgradable === false) {
+      return baseValue;
+    }
+
+    const step =
+      typeof variable.getStep === 'function'
+        ? variable.getStep(level, { definition, towerId })
+        : Number.isFinite(variable.step)
+        ? variable.step
+        : 0;
+
+    return baseValue + level * step;
+  }
+
+  function calculateTowerEquationResult(towerId, visited = new Set()) {
+    if (!towerId) {
+      return 0;
+    }
+    if (towerEquationCache.has(towerId)) {
+      return towerEquationCache.get(towerId);
+    }
+    if (visited.has(towerId)) {
+      return 0;
+    }
+    visited.add(towerId);
+
+    const blueprint = getTowerEquationBlueprint(towerId);
+    if (!blueprint) {
+      visited.delete(towerId);
+      return 0;
+    }
+
+    ensureTowerUpgradeState(towerId, blueprint);
+    const values = {};
+    (blueprint.variables || []).forEach((variable) => {
+      values[variable.key] = computeTowerVariableValue(towerId, variable.key, blueprint, visited);
+    });
+
+    let result = 0;
+    if (typeof blueprint.computeResult === 'function') {
+      result = blueprint.computeResult(values, { definition: getTowerDefinition(towerId) });
+    } else {
+      result = Object.values(values).reduce((total, value) => {
+        const contribution = Number.isFinite(value) ? value : 0;
+        return total === 0 ? contribution : total * contribution;
+      }, 0);
+    }
+
+    const safeResult = Number.isFinite(result) ? result : 0;
+    towerEquationCache.set(towerId, safeResult);
+    visited.delete(towerId);
+    return safeResult;
+  }
+
+  function invalidateTowerEquationCache() {
+    towerEquationCache.clear();
+  }
+
+  function formatTowerVariableValue(variable, value) {
+    if (!Number.isFinite(value)) {
+      return '0';
+    }
+    if (variable && typeof variable.format === 'function') {
+      try {
+        const formatted = variable.format(value);
+        if (typeof formatted === 'string') {
+          return formatted;
+        }
+      } catch (error) {
+        // Ignore formatting errors and fall back to default formatting.
+      }
+    }
+    return Number.isInteger(value) ? formatWholeNumber(value) : formatDecimal(value, 2);
+  }
+
+  function formatTowerEquationResultValue(value) {
+    if (!Number.isFinite(value)) {
+      return '0';
+    }
+    if (Math.abs(value) >= 1000) {
+      return formatGameNumber(value);
+    }
+    return formatDecimal(value, 2);
+  }
+
+  function extractTowerCardEquation(card) {
+    if (!(card instanceof HTMLElement)) {
+      return '';
+    }
+    const line = card.querySelector('.formula-block .formula-line');
+    if (!line) {
+      return '';
+    }
+    const text = line.textContent || '';
+    return text.trim();
+  }
+
+  function updateTowerUpgradeGlyphDisplay() {
+    if (!towerUpgradeElements.glyphs) {
+      return;
+    }
+    const available = Math.max(0, Math.floor(glyphCurrency));
+    towerUpgradeElements.glyphs.textContent = `Available Glyphs: ${formatWholeNumber(available)}`;
+  }
+
+  function setTowerUpgradeNote(message, tone = '') {
+    if (!towerUpgradeElements.note) {
+      return;
+    }
+    towerUpgradeElements.note.textContent = message || '';
+    if (tone) {
+      towerUpgradeElements.note.dataset.tone = tone;
+    } else {
+      towerUpgradeElements.note.removeAttribute('data-tone');
+    }
+  }
+
+  function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
+    if (!towerUpgradeElements.variables) {
+      return;
+    }
+    const container = towerUpgradeElements.variables;
+    container.innerHTML = '';
+    const variables = blueprint?.variables || [];
+    const state = ensureTowerUpgradeState(towerId, blueprint);
+
+    if (!variables.length) {
+      const empty = document.createElement('p');
+      empty.className = 'tower-upgrade-variable-note';
+      empty.textContent = 'This lattice has no adjustable variables yet.';
+      container.append(empty);
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    variables.forEach((variable) => {
+      const value = Number.isFinite(values[variable.key]) ? values[variable.key] : 0;
+      const item = document.createElement('div');
+      item.className = 'tower-upgrade-variable';
+      item.setAttribute('role', 'listitem');
+
+      const header = document.createElement('div');
+      header.className = 'tower-upgrade-variable-header';
+
+      const symbol = document.createElement('span');
+      symbol.className = 'tower-upgrade-variable-symbol';
+      symbol.textContent = variable.symbol || variable.key.toUpperCase();
+      header.append(symbol);
+
+      const summary = document.createElement('div');
+      const name = document.createElement('p');
+      name.className = 'tower-upgrade-variable-name';
+      name.textContent = variable.name || `Variable ${variable.symbol || variable.key}`;
+      summary.append(name);
+
+      if (variable.description) {
+        const description = document.createElement('p');
+        description.className = 'tower-upgrade-variable-description';
+        description.textContent = variable.description;
+        summary.append(description);
+      }
+
+      header.append(summary);
+      item.append(header);
+
+      const footer = document.createElement('div');
+      footer.className = 'tower-upgrade-variable-footer';
+
+      const valueEl = document.createElement('span');
+      valueEl.className = 'tower-upgrade-variable-value';
+      valueEl.textContent = formatTowerVariableValue(variable, value);
+      footer.append(valueEl);
+
+      const level = state.variables?.[variable.key]?.level || 0;
+      const levelEl = document.createElement('span');
+      levelEl.className = 'tower-upgrade-variable-level';
+      levelEl.textContent = level ? `+${level}` : 'Base';
+      footer.append(levelEl);
+
+      if (variable.upgradable !== false) {
+        const cost = calculateTowerVariableUpgradeCost(variable, level);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'tower-upgrade-variable-button';
+        button.dataset.upgradeVariable = variable.key;
+        button.textContent = cost === 1 ? 'Upgrade · 1 Glyph' : `Upgrade · ${cost} Glyphs`;
+        button.disabled = glyphCurrency < cost;
+        button.addEventListener('click', () => handleTowerVariableUpgrade(towerId, variable.key));
+        footer.append(button);
+      } else {
+        const note = document.createElement('span');
+        note.className = 'tower-upgrade-variable-note';
+        note.textContent = variable.lockedNote || 'Inherited from allied lattices.';
+        footer.append(note);
+      }
+
+      item.append(footer);
+      fragment.append(item);
+    });
+
+    container.append(fragment);
+  }
+
+  function renderTowerUpgradeOverlay(towerId, options = {}) {
+    if (!towerUpgradeElements.overlay) {
+      return;
+    }
+    const definition = getTowerDefinition(towerId);
+    if (!definition) {
+      return;
+    }
+
+    const blueprint = options.blueprint || getTowerEquationBlueprint(towerId);
+    if (!blueprint) {
+      return;
+    }
+
+    ensureTowerUpgradeState(towerId, blueprint);
+
+    const baseEquationText =
+      typeof options.baseEquationText === 'string' && options.baseEquationText.trim()
+        ? options.baseEquationText.trim()
+        : activeTowerUpgradeBaseEquation || blueprint.baseEquation || '';
+    activeTowerUpgradeBaseEquation = baseEquationText;
+
+    if (towerUpgradeElements.title) {
+      const label = `${definition.symbol ? `${definition.symbol} ` : ''}${definition.name || 'Tower'}`.trim();
+      towerUpgradeElements.title.textContent = label || 'Tower Equation';
+    }
+
+    if (towerUpgradeElements.tier) {
+      const tierLabel = Number.isFinite(definition.tier) ? `Tier ${definition.tier}` : '';
+      towerUpgradeElements.tier.textContent = tierLabel;
+    }
+
+    if (towerUpgradeElements.icon) {
+      towerUpgradeElements.icon.innerHTML = '';
+      if (definition.icon) {
+        const img = document.createElement('img');
+        img.src = definition.icon;
+        const iconLabel = `${definition.symbol ? `${definition.symbol} ` : ''}${definition.name || 'tower'}`.trim();
+        img.alt = iconLabel ? `${iconLabel} icon` : 'Tower icon';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        towerUpgradeElements.icon.hidden = false;
+        towerUpgradeElements.icon.append(img);
+      } else {
+        towerUpgradeElements.icon.hidden = true;
+      }
+    }
+
+    if (towerUpgradeElements.baseEquation) {
+      towerUpgradeElements.baseEquation.textContent = baseEquationText;
+      renderMathElement(towerUpgradeElements.baseEquation);
+    }
+
+    const values = {};
+    (blueprint.variables || []).forEach((variable) => {
+      values[variable.key] = computeTowerVariableValue(towerId, variable.key, blueprint);
+    });
+
+    let result = 0;
+    if (typeof blueprint.computeResult === 'function') {
+      result = blueprint.computeResult(values, { definition });
+    }
+    if (!Number.isFinite(result)) {
+      result = 0;
+    }
+
+    if (towerUpgradeElements.goldenEquation) {
+      const mathSymbol = blueprint.mathSymbol || definition.symbol || towerId;
+      const formatVariable = (key) => formatTowerVariableValue(getBlueprintVariable(blueprint, key), values[key]);
+      const formatResult = () => formatTowerEquationResultValue(result);
+      const goldenEquation =
+        typeof blueprint.formatGoldenEquation === 'function'
+          ? blueprint.formatGoldenEquation({
+              symbol: mathSymbol,
+              values,
+              result,
+              formatVariable,
+              formatResult,
+            })
+          : `\\( ${mathSymbol} = ${formatVariable('damage')} \\times ${formatVariable('rate')} = ${formatResult()} \\)`;
+      towerUpgradeElements.goldenEquation.textContent = goldenEquation;
+      renderMathElement(towerUpgradeElements.goldenEquation);
+    }
+
+    renderTowerUpgradeVariables(towerId, blueprint, values);
+    updateTowerUpgradeGlyphDisplay();
+  }
+
+  function openTowerUpgradeOverlay(towerId, options = {}) {
+    if (!towerId || !towerUpgradeElements.overlay) {
+      return;
+    }
+    const definition = getTowerDefinition(towerId);
+    if (!definition) {
+      return;
+    }
+
+    activeTowerUpgradeId = towerId;
+    invalidateTowerEquationCache();
+
+    const blueprint = getTowerEquationBlueprint(towerId);
+    ensureTowerUpgradeState(towerId, blueprint);
+
+    const sourceCard = options.sourceCard || null;
+    const baseEquationText =
+      blueprint?.baseEquation || (sourceCard ? extractTowerCardEquation(sourceCard) : '') || activeTowerUpgradeBaseEquation;
+    activeTowerUpgradeBaseEquation = baseEquationText;
+
+    const trigger = options.trigger && typeof options.trigger.focus === 'function' ? options.trigger : document.activeElement;
+    lastTowerUpgradeTrigger = trigger && typeof trigger.focus === 'function' ? trigger : null;
+
+    setTowerUpgradeNote('Invest glyphs to sculpt each variable toward your preferred proof.');
+
+    towerUpgradeElements.overlay.setAttribute('aria-hidden', 'false');
+    if (!towerUpgradeElements.overlay.classList.contains('active')) {
+      requestAnimationFrame(() => {
+        towerUpgradeElements.overlay.classList.add('active');
+      });
+    } else {
+      towerUpgradeElements.overlay.classList.add('active');
+    }
+
+    renderTowerUpgradeOverlay(towerId, { blueprint, baseEquationText, sourceCard });
+
+    const focusTarget = towerUpgradeElements.close || towerUpgradeElements.overlay;
+    if (focusTarget && typeof focusTarget.focus === 'function') {
+      try {
+        focusTarget.focus({ preventScroll: true });
+      } catch (error) {
+        focusTarget.focus();
+      }
+    }
+  }
+
+  function closeTowerUpgradeOverlay() {
+    if (!towerUpgradeElements.overlay) {
+      return;
+    }
+    towerUpgradeElements.overlay.classList.remove('active');
+    towerUpgradeElements.overlay.setAttribute('aria-hidden', 'true');
+
+    if (lastTowerUpgradeTrigger && typeof lastTowerUpgradeTrigger.focus === 'function') {
+      try {
+        lastTowerUpgradeTrigger.focus({ preventScroll: true });
+      } catch (error) {
+        lastTowerUpgradeTrigger.focus();
+      }
+    }
+    lastTowerUpgradeTrigger = null;
+    activeTowerUpgradeId = null;
+  }
+
+  function handleTowerVariableUpgrade(towerId, variableKey) {
+    const blueprint = getTowerEquationBlueprint(towerId);
+    if (!blueprint) {
+      return;
+    }
+    const variable = getBlueprintVariable(blueprint, variableKey);
+    if (!variable || variable.upgradable === false) {
+      return;
+    }
+
+    const state = ensureTowerUpgradeState(towerId, blueprint);
+    const currentLevel = state.variables?.[variableKey]?.level || 0;
+    const cost = calculateTowerVariableUpgradeCost(variable, currentLevel);
+    const normalizedCost = Math.max(1, cost);
+
+    if (glyphCurrency < normalizedCost) {
+      setTowerUpgradeNote('Not enough glyphs to reinforce this variable.', 'warning');
+      updateTowerUpgradeGlyphDisplay();
+      renderTowerUpgradeOverlay(towerId, { blueprint });
+      if (audioManager) {
+        audioManager.playSfx?.('error');
+      }
+      return;
+    }
+
+    glyphCurrency -= normalizedCost;
+    state.variables[variableKey].level = currentLevel + 1;
+    invalidateTowerEquationCache();
+    setTowerUpgradeNote(
+      `Invested ${normalizedCost} ${normalizedCost === 1 ? 'glyph' : 'glyphs'} into ${variable.symbol}.`,
+      'success',
+    );
+    if (audioManager) {
+      audioManager.playSfx?.('upgrade');
+    }
+    renderTowerUpgradeOverlay(towerId, { blueprint });
+  }
+
+  function bindTowerUpgradeOverlay() {
+    towerUpgradeElements.overlay = document.getElementById('tower-upgrade-overlay');
+    if (!towerUpgradeElements.overlay) {
+      return;
+    }
+    towerUpgradeElements.panel = towerUpgradeElements.overlay.querySelector('.tower-upgrade-panel');
+    towerUpgradeElements.close = towerUpgradeElements.overlay.querySelector('[data-tower-upgrade-close]');
+    towerUpgradeElements.title = document.getElementById('tower-upgrade-title');
+    towerUpgradeElements.tier = document.getElementById('tower-upgrade-tier');
+    towerUpgradeElements.glyphs = document.getElementById('tower-upgrade-glyphs');
+    towerUpgradeElements.baseEquation = document.getElementById('tower-upgrade-base');
+    towerUpgradeElements.goldenEquation = document.getElementById('tower-upgrade-golden');
+    towerUpgradeElements.variables = document.getElementById('tower-upgrade-variables');
+    towerUpgradeElements.note = document.getElementById('tower-upgrade-note');
+    towerUpgradeElements.icon = document.getElementById('tower-upgrade-icon');
+
+    if (!towerUpgradeElements.overlay.hasAttribute('tabindex')) {
+      towerUpgradeElements.overlay.setAttribute('tabindex', '-1');
+    }
+
+    if (towerUpgradeElements.close) {
+      towerUpgradeElements.close.addEventListener('click', () => {
+        closeTowerUpgradeOverlay();
+      });
+    }
+
+    towerUpgradeElements.overlay.addEventListener('click', (event) => {
+      if (event.target === towerUpgradeElements.overlay) {
+        closeTowerUpgradeOverlay();
+      }
+    });
+  }
+
+  function bindTowerCardUpgradeInteractions() {
+    const cards = document.querySelectorAll('[data-tower-id]');
+    cards.forEach((card) => {
+      if (!(card instanceof HTMLElement)) {
+        return;
+      }
+      if (card.dataset.upgradeBound === 'true') {
+        return;
+      }
+      card.dataset.upgradeBound = 'true';
+
+      card.addEventListener('click', (event) => {
+        if (event.target.closest('button')) {
+          return;
+        }
+        const towerId = card.dataset.towerId;
+        if (!towerId || card.dataset.locked === 'true') {
+          return;
+        }
+        openTowerUpgradeOverlay(towerId, { sourceCard: card, trigger: card });
+      });
+
+      card.addEventListener('keydown', (event) => {
+        if (event.target !== card) {
+          return;
+        }
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          const towerId = card.dataset.towerId;
+          if (!towerId || card.dataset.locked === 'true') {
+            return;
+          }
+          openTowerUpgradeOverlay(towerId, { sourceCard: card, trigger: card });
+        }
+      });
+    });
+  }
+
   function updateTowerCardVisibility() {
     const cards = document.querySelectorAll('[data-tower-id]');
     cards.forEach((card) => {
@@ -9888,6 +10667,8 @@ import {
         return;
       }
       const unlocked = isTowerUnlocked(towerId);
+      card.dataset.locked = unlocked ? 'false' : 'true';
+      card.setAttribute('tabindex', unlocked ? '0' : '-1');
       card.hidden = !unlocked;
       if (unlocked) {
         card.style.removeProperty('display');
@@ -10718,6 +11499,14 @@ import {
     const normalized = Math.max(0, Math.floor(count));
     gameStats.powderSigilsReached = Math.max(gameStats.powderSigilsReached, normalized);
     glyphCurrency = Math.max(glyphCurrency, normalized);
+    updateTowerUpgradeGlyphDisplay();
+    if (
+      activeTowerUpgradeId &&
+      towerUpgradeElements.overlay &&
+      towerUpgradeElements.overlay.classList.contains('active')
+    ) {
+      renderTowerUpgradeOverlay(activeTowerUpgradeId, {});
+    }
     updateStatusDisplays();
     evaluateAchievements();
   }
@@ -11773,6 +12562,8 @@ import {
 
     mergingLogicElements.card = document.getElementById('merging-logic-card');
 
+    bindTowerUpgradeOverlay();
+
     initializeTabs();
     initializeFieldNotesOverlay();
     bindCodexControls();
@@ -11851,6 +12642,7 @@ import {
     annotateTowerCardsWithCost();
     updateTowerCardVisibility();
     initializeTowerSelection();
+    bindTowerCardUpgradeInteractions();
     syncLoadoutToPlayfield();
     renderEnemyCodex();
 
@@ -11882,6 +12674,19 @@ import {
   window.addEventListener('beforeunload', markLastActive);
 
   document.addEventListener('keydown', (event) => {
+    if (towerUpgradeElements.overlay && towerUpgradeElements.overlay.classList.contains('active')) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeTowerUpgradeOverlay();
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === ' ') && event.target === towerUpgradeElements.overlay) {
+        event.preventDefault();
+        closeTowerUpgradeOverlay();
+        return;
+      }
+    }
+
     if (upgradeOverlay && upgradeOverlay.classList.contains('active')) {
       if (event.key === 'Escape') {
         event.preventDefault();
