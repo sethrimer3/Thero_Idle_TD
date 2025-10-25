@@ -40,38 +40,50 @@ import {
   const TOWER_EQUATION_BLUEPRINTS = {
     alpha: {
       mathSymbol: '\\alpha',
-      baseEquation: '\\( \\alpha = X \\cdot Y \\)',
+      baseEquation: '\\( \\alpha = 5X \\cdot YZ \\)',
       variables: [
         {
           key: 'damage',
           symbol: 'X',
           name: 'Attack Power',
           description: 'Projectile damage carried by each glyph bullet.',
-          stat: 'damage',
-          step: 4,
+          baseValue: 1,
+          step: 1,
           upgradable: true,
-          format: (value) => formatWholeNumber(value),
+          format: (value) => `${formatWholeNumber(value)} attack`,
           cost: (level) => Math.max(1, 1 + level),
         },
         {
           key: 'rate',
           symbol: 'Y',
-          name: 'Attack Speed',
+          name: 'Primary Attack Speed',
           description: 'Glyph pulses per second channelled through the lattice.',
-          stat: 'rate',
-          step: 0.1,
+          baseValue: 1,
+          step: 1,
           upgradable: true,
-          format: (value) => formatDecimal(value, 2),
-          cost: (level) => Math.max(1, 1 + Math.floor(level / 2)),
+          format: (value) => `${formatWholeNumber(value)} per second`,
+          cost: (level) => Math.max(1, 1 + level),
+        },
+        {
+          key: 'tempo',
+          symbol: 'Z',
+          name: 'Secondary Attack Speed',
+          description: 'Echo pulses per second braided into alpha tempo.',
+          baseValue: 1,
+          step: 1,
+          upgradable: true,
+          format: (value) => `${formatWholeNumber(value)} per second`,
+          cost: (level) => Math.max(1, 1 + level),
         },
       ],
       computeResult(values) {
         const damage = Number.isFinite(values.damage) ? values.damage : 0;
         const rate = Number.isFinite(values.rate) ? values.rate : 0;
-        return damage * rate;
+        const tempo = Number.isFinite(values.tempo) ? values.tempo : 0;
+        return 5 * damage * rate * tempo;
       },
       formatGoldenEquation({ symbol, formatVariable, formatResult }) {
-        return `\\( ${symbol} = ${formatVariable('damage')} \\times ${formatVariable('rate')} = ${formatResult()} \\)`;
+        return `\\( ${symbol} = 5 \\times ${formatVariable('damage')} \\times ${formatVariable('rate')} \\times ${formatVariable('tempo')} = ${formatResult()} \\)`;
       },
     },
     beta: {
