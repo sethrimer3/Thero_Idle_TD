@@ -177,7 +177,7 @@
                   <li>Y → recovery (glyph-fed renewal)</li>
                 </ul>
                 <p class="formula-line result">
-                  Defaults: \( X = Y = 1 \). Each glyph invested increases a term by +1.
+                  Defaults: \( X = Y = Z = 1 \). Each glyph invested increases a term by +1.
                 </p>
               </div>
               <ul class="upgrade-list">
@@ -194,16 +194,18 @@
                 <h3>α alpha tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line">\( \alpha = X \cdot Y \)</p>
+                <p class="formula-line">\( \alpha = 5X \cdot YZ \)</p>
                 <ul class="formula-definition">
-                  <li>X → attack power</li>
-                  <li>Y → attack speed</li>
+                  <li>X → attack power (attack)</li>
+                  <li>Y → primary attack speed (per second)</li>
+                  <li>Z → secondary attack speed (per second)</li>
                 </ul>
-                <p class="formula-line result">\( \alpha = \text{DPS} \,(X \times Y) \)</p>
+                <p class="formula-line result">\( \alpha = \text{Glyph pressure } (5X \times Y \times Z) \)</p>
               </div>
               <ul class="upgrade-list">
                 <li>Calibrate X for sharper projectiles (+damage)</li>
                 <li>Accelerate Y through harmonic metronomes (+attack speed)</li>
+                <li>Sync Z with temporal echoes (+attack speed)</li>
               </ul>
               <footer class="card-footer">Shoots a focused glyph-bullet at the nearest foe.</footer>
               <button class="tower-equip-button" type="button" data-tower-toggle="alpha">
