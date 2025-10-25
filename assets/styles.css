@@ -381,6 +381,61 @@ body.color-scheme-chromatic::before {
   transition: opacity var(--transition), visibility var(--transition), transform var(--transition);
 }
 
+.tower-equation-scribble {
+  position: absolute;
+  z-index: 6;
+  color: rgba(255, 255, 255, 0.96);
+  font-family: "Great Vibes", "Cormorant Garamond", serif;
+  font-size: clamp(1.1rem, 2.6vw, 1.9rem);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  white-space: nowrap;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6), 0 0 18px rgba(139, 247, 255, 0.45);
+  transform: translate(-50%, -120%);
+  animation: tower-scribble-dissipate 1.6s ease-out 0.7s forwards;
+  filter: drop-shadow(0 6px 18px rgba(139, 247, 255, 0.35));
+}
+
+.tower-equation-scribble__text {
+  display: inline-block;
+  clip-path: inset(0 100% 0 0);
+  animation: tower-scribble-reveal 0.55s ease-out forwards;
+  will-change: clip-path, filter, opacity;
+}
+
+@keyframes tower-scribble-reveal {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+    filter: blur(1.5px);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes tower-scribble-dissipate {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate(-50%, -120%);
+  }
+  60% {
+    opacity: 1;
+    filter: blur(0.5px);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translate(-50%, -150%);
+  }
+}
+
 .enemy-tooltip::after {
   content: "";
   position: absolute;

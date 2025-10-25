@@ -357,6 +357,60 @@ import {
     return output;
   }
 
+  const GREEK_SYMBOL_LOOKUP = new Map([
+    ['\\alpha', 'α'],
+    ['\\beta', 'β'],
+    ['\\gamma', 'γ'],
+    ['\\delta', 'δ'],
+    ['\\epsilon', 'ε'],
+    ['\\theta', 'θ'],
+    ['\\lambda', 'λ'],
+    ['\\mu', 'μ'],
+    ['\\nu', 'ν'],
+    ['\\pi', 'π'],
+    ['\\phi', 'φ'],
+    ['\\psi', 'ψ'],
+    ['\\sigma', 'σ'],
+    ['\\tau', 'τ'],
+    ['\\omega', 'ω'],
+    ['\\Omega', 'Ω'],
+    ['\\Gamma', 'Γ'],
+    ['\\Delta', 'Δ'],
+    ['\\Lambda', 'Λ'],
+    ['\\Phi', 'Φ'],
+    ['\\Psi', 'Ψ'],
+  ]);
+
+  function convertMathExpressionToPlainText(expression) {
+    if (typeof expression !== 'string') {
+      return '';
+    }
+
+    let text = expression;
+    text = text.replace(/\\\(|\\\)|\\\[|\\\]/g, '');
+    text = text.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '$1/$2');
+    text = text.replace(/\\sqrt\{([^}]*)\}/g, '√($1)');
+    text = text.replace(/\\cdot/g, '·');
+    text = text.replace(/\\times/g, '×');
+    text = text.replace(/\\ln/g, 'ln');
+    text = text.replace(/\\log/g, 'log');
+    text = text.replace(/\\left|\\right/g, '');
+    text = text.replace(/\\mathcal\{([^}]*)\}/g, '$1');
+    text = text.replace(/\\text\{([^}]*)\}/g, '$1');
+    text = text.replace(/\\operatorname\{([^}]*)\}/g, '$1');
+    text = text.replace(/\\,|\\!|\\;/g, ' ');
+    text = text.replace(/\\([a-zA-Z]+)/g, (match, command) => {
+      const lookupKey = `\\${command}`;
+      if (GREEK_SYMBOL_LOOKUP.has(lookupKey)) {
+        return GREEK_SYMBOL_LOOKUP.get(lookupKey);
+      }
+      return command;
+    });
+    text = text.replace(/[{}]/g, '');
+    text = text.replace(/\s+/g, ' ').trim();
+    return text;
+  }
+
   function createPreviewId(prefix, value) {
     const slug = String(value || '')
       .toLowerCase()
@@ -5615,6 +5669,66 @@ import {
       this.syncAlephChainStats();
     }
 
+    getTowerEquationScribbleText(towerType) {
+      if (!towerType) {
+        return '';
+      }
+      const blueprint = getTowerEquationBlueprint(towerType);
+      if (!blueprint || !blueprint.baseEquation) {
+        return '';
+      }
+      return convertMathExpressionToPlainText(blueprint.baseEquation);
+    }
+
+    spawnTowerEquationScribble(tower, options = {}) {
+      if (!tower || !this.container) {
+        return;
+      }
+      const { towerType = tower.type, silent = false } = options;
+      if (silent) {
+        return;
+      }
+      const equationText = this.getTowerEquationScribbleText(towerType);
+      if (!equationText) {
+        return;
+      }
+      if (!Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
+        return;
+      }
+
+      const effect = document.createElement('div');
+      effect.className = 'tower-equation-scribble';
+      effect.style.left = `${tower.x}px`;
+      effect.style.top = `${tower.y}px`;
+
+      const text = document.createElement('span');
+      text.className = 'tower-equation-scribble__text';
+      text.textContent = equationText;
+      effect.append(text);
+
+      const cleanup = () => {
+        effect.removeEventListener('animationend', handleAnimationEnd);
+        if (effect.parentNode) {
+          effect.parentNode.removeChild(effect);
+        }
+      };
+
+      const handleAnimationEnd = (event) => {
+        if (event.target === effect && event.animationName === 'tower-scribble-dissipate') {
+          cleanup();
+        }
+      };
+
+      effect.addEventListener('animationend', handleAnimationEnd);
+      this.container.append(effect);
+
+      setTimeout(() => {
+        if (effect.parentNode) {
+          cleanup();
+        }
+      }, 2400);
+    }
+
     addTowerAt(normalized, options = {}) {
       const {
         slot = null,
@@ -5739,6 +5853,10 @@ import {
         } else if (wasAlephNull) {
           this.syncAlephChainStats();
         }
+        this.spawnTowerEquationScribble(mergeTarget, {
+          towerType: nextDefinition.id,
+          silent,
+        });
         const newlyUnlocked = !isTowerUnlocked(nextDefinition.id)
           ? unlockTower(nextDefinition.id, { silent: true })
           : false;
@@ -5796,6 +5914,7 @@ import {
       if (this.messageEl && !silent) {
         this.messageEl.textContent = `${definition.symbol} lattice anchored—harmonics align.`;
       }
+      this.spawnTowerEquationScribble(tower, { towerType: selectedType, silent });
       this.updateHud();
       this.draw();
       refreshTowerLoadoutDisplay();
