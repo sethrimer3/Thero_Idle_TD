@@ -1467,6 +1467,33 @@ body.color-scheme-chromatic::before {
   color: rgba(247, 247, 245, 0.65);
 }
 
+.powder-mode-toggle {
+  align-self: center;
+  padding: 10px 24px;
+  font-family: "Space Mono", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(12, 14, 20, 0.85);
+  border: 1px solid rgba(139, 247, 255, 0.45);
+  border-radius: 999px;
+  transition: transform var(--transition), box-shadow var(--transition), color var(--transition);
+}
+
+.powder-mode-toggle:focus-visible,
+.powder-mode-toggle:hover {
+  color: rgba(255, 228, 120, 0.9);
+  box-shadow: 0 0 20px rgba(139, 247, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.powder-mode-toggle:disabled {
+  opacity: 0.6;
+  cursor: progress;
+  transform: none;
+}
+
 .powder-intro {
   margin: 0;
   font-size: 0.98rem;
@@ -1690,9 +1717,37 @@ body.color-scheme-chromatic::before {
   background-blend-mode: overlay, normal;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   z-index: 1;
-  transition: box-shadow var(--transition), filter var(--transition), transform 0.45s ease-out;
+  transition:
+    width 0.6s ease,
+    box-shadow var(--transition),
+    filter var(--transition),
+    transform 0.45s ease-out;
   will-change: transform;
   overflow: hidden;
+}
+
+.powder-wall-hitbox {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(120, 190, 255, 0.22), rgba(120, 190, 255, 0.04));
+  border: 1px dashed rgba(120, 190, 255, 0.45);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 2;
+}
+
+.powder-wall-hitbox-left {
+  left: 0;
+}
+
+.powder-wall-hitbox-right {
+  right: 0;
+}
+
+.powder-wall-hitbox--visible {
+  opacity: 1;
 }
 
 .powder-wall-left {
