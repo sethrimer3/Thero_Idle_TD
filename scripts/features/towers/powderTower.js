@@ -439,8 +439,25 @@ export class PowderSimulation {
       typeof this.canvas.getBoundingClientRect === 'function'
         ? this.canvas.getBoundingClientRect()
         : null;
-    const measuredWidth = rect && Number.isFinite(rect.width) ? rect.width : this.canvas.clientWidth;
-    const measuredHeight = rect && Number.isFinite(rect.height) ? rect.height : this.canvas.clientHeight;
+    const parent = this.canvas.parentElement;
+    const parentRect =
+      parent && typeof parent.getBoundingClientRect === 'function'
+        ? parent.getBoundingClientRect()
+        : null;
+    // Prefer measuring the basin container so the canvas remains centered within the decorative walls.
+    const measuredWidth =
+      parentRect && Number.isFinite(parentRect.width) && parentRect.width > 0
+        ? parentRect.width
+        : rect && Number.isFinite(rect.width) && rect.width > 0
+          ? rect.width
+          : this.canvas.clientWidth;
+    // Mirror the parent height as well so the motefall column reaches the basin floor after flex resizing.
+    const measuredHeight =
+      parentRect && Number.isFinite(parentRect.height) && parentRect.height > 0
+        ? parentRect.height
+        : rect && Number.isFinite(rect.height) && rect.height > 0
+          ? rect.height
+          : this.canvas.clientHeight;
     const previousWidth = Number.isFinite(this.width) && this.width > 0 ? this.width : 0;
     const previousHeight = Number.isFinite(this.height) && this.height > 0 ? this.height : 0;
     const hasMeasuredWidth = Number.isFinite(measuredWidth) && measuredWidth > 0;
