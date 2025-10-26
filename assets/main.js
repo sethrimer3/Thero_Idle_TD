@@ -265,6 +265,292 @@ import {
 
   const towerUpgradeState = new Map();
   const towerEquationCache = new Map();
+
+  const towerVariableAnimationState = {
+    towerId: null,
+    variableMap: new Map(),
+    variableSpans: new Map(),
+    entryPlayed: false,
+    shouldPlayEntry: false,
+  };
+
+  function resetTowerVariableAnimationState() {
+    towerVariableAnimationState.towerId = null;
+    towerVariableAnimationState.variableMap = new Map();
+    towerVariableAnimationState.variableSpans = new Map();
+    towerVariableAnimationState.entryPlayed = false;
+    towerVariableAnimationState.shouldPlayEntry = false;
+  }
+
+  function escapeRegExp(value) {
+    if (typeof value !== 'string') {
+      return '';
+    }
+    return value.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+  }
+
+  function escapeCssSelector(value) {
+    if (typeof value !== 'string') {
+      return '';
+    }
+    if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+      return CSS.escape(value);
+    }
+    return value.replace(/[^a-zA-Z0-9_-]/g, (char) => `\\${char}`);
+  }
+
+  function tokenizeEquationParts(equationText, variableTokens = []) {
+    if (!equationText || !variableTokens.length) {
+      return [{ text: equationText, variableKey: null }];
+    }
+
+    const tokenLookup = new Map();
+    const patterns = variableTokens
+      .filter((token) => token && token.symbol)
+      .map((token) => {
+        tokenLookup.set(token.symbol, token.key);
+        return escapeRegExp(token.symbol);
+      });
+
+    if (!patterns.length) {
+      return [{ text: equationText, variableKey: null }];
+    }
+
+    const regex = new RegExp(`(${patterns.join('|')})`, 'g');
+    const tokens = [];
+    let lastIndex = 0;
+
+    equationText.replace(regex, (match, _token, offset) => {
+      if (offset > lastIndex) {
+        tokens.push({ text: equationText.slice(lastIndex, offset), variableKey: null });
+      }
+      tokens.push({ text: match, variableKey: tokenLookup.get(match) || null });
+      lastIndex = offset + match.length;
+      return match;
+    });
+
+    if (lastIndex < equationText.length) {
+      tokens.push({ text: equationText.slice(lastIndex), variableKey: null });
+    }
+
+    return tokens;
+  }
+
+  function renderTowerUpgradeEquationParts(baseEquationText, blueprint, options = {}) {
+    if (!towerUpgradeElements.baseEquation) {
+      return;
+    }
+
+    const markDeparted = options.markDeparted === true;
+    const resolvedEquation = convertMathExpressionToPlainText(baseEquationText) || baseEquationText || '';
+    const baseEl = towerUpgradeElements.baseEquation;
+    baseEl.innerHTML = '';
+
+    const upgradableVariables = (blueprint?.variables || []).filter((variable) => variable.upgradable !== false);
+    const tokens = tokenizeEquationParts(
+      resolvedEquation,
+      upgradableVariables.map((variable) => ({
+        key: variable.key,
+        symbol: variable.symbol || variable.key.toUpperCase(),
+      })),
+    );
+
+    const fragment = document.createDocumentFragment();
+    const spanMap = new Map();
+
+    tokens.forEach((token) => {
+      const span = document.createElement('span');
+      span.className = 'tower-upgrade-formula-part';
+      span.textContent = token.text;
+
+      if (token.variableKey) {
+        span.dataset.variable = token.variableKey;
+        span.classList.add('tower-upgrade-formula-part--variable');
+        if (!spanMap.has(token.variableKey)) {
+          spanMap.set(token.variableKey, []);
+        }
+        spanMap.get(token.variableKey).push(span);
+        if (markDeparted) {
+          span.classList.add('is-departed');
+        }
+      }
+
+      fragment.append(span);
+    });
+
+    if (!tokens.length) {
+      const fallback = document.createElement('span');
+      fallback.className = 'tower-upgrade-formula-part';
+      fallback.textContent = resolvedEquation;
+      fragment.append(fallback);
+    }
+
+    baseEl.append(fragment);
+    towerVariableAnimationState.variableSpans = spanMap;
+  }
+
+  function refreshTowerVariableAnimationState(towerId, blueprint) {
+    const spanMap = towerVariableAnimationState.variableSpans || new Map();
+    const nextMap = new Map();
+
+    if (towerUpgradeElements.variables) {
+      const upgradableVariables = (blueprint?.variables || []).filter((variable) => variable.upgradable !== false);
+      upgradableVariables.forEach((variable) => {
+        const key = variable.key;
+        const spans = spanMap.get(key) || [];
+        const selector = `[data-variable="${escapeCssSelector(key)}"]`;
+        const card = towerUpgradeElements.variables.querySelector(selector);
+        if (spans.length && card) {
+          nextMap.set(key, { spans, card, variable });
+        }
+      });
+    }
+
+    towerVariableAnimationState.towerId = towerId;
+    towerVariableAnimationState.variableMap = nextMap;
+    towerVariableAnimationState.variableSpans = new Map();
+  }
+
+  function syncTowerVariableCardVisibility() {
+    if (!towerUpgradeElements.variables) {
+      return;
+    }
+    const cards = towerUpgradeElements.variables.querySelectorAll('.tower-upgrade-variable');
+    cards.forEach((card, index) => {
+      card.style.setProperty('--tower-upgrade-variable-index', index);
+      if (towerVariableAnimationState.entryPlayed) {
+        card.classList.add('is-visible');
+      } else {
+        card.classList.remove('is-visible');
+      }
+    });
+  }
+
+  function playTowerVariableFlight(direction = 'enter') {
+    const panel = towerUpgradeElements.panel;
+    if (!panel) {
+      return Promise.resolve();
+    }
+
+    const variableMap = towerVariableAnimationState.variableMap;
+    if (!variableMap || variableMap.size === 0) {
+      towerVariableAnimationState.entryPlayed = direction === 'enter';
+      syncTowerVariableCardVisibility();
+      return Promise.resolve();
+    }
+
+    const panelRect = panel.getBoundingClientRect();
+    const animations = [];
+    const clones = [];
+    let index = 0;
+
+    variableMap.forEach(({ spans, card }) => {
+      const symbolEl = card.querySelector('.tower-upgrade-variable-symbol');
+      if (!symbolEl) {
+        return;
+      }
+      const targetRect = symbolEl.getBoundingClientRect();
+      const spansToUse = Array.isArray(spans) ? spans : [];
+
+      if (direction === 'enter') {
+        card.classList.remove('is-visible');
+        card.classList.add('is-incoming');
+      } else {
+        card.classList.add('is-outgoing');
+      }
+
+      spansToUse.forEach((span) => {
+        const spanRect = span.getBoundingClientRect();
+        const startRect = direction === 'enter' ? spanRect : targetRect;
+        const endRect = direction === 'enter' ? targetRect : spanRect;
+
+        const clone = document.createElement('span');
+        clone.className = 'tower-upgrade-formula-flight';
+        clone.textContent = span.textContent || symbolEl.textContent || '';
+        clone.style.left = `${startRect.left - panelRect.left}px`;
+        clone.style.top = `${startRect.top - panelRect.top}px`;
+        clone.style.width = `${startRect.width}px`;
+        clone.style.height = `${startRect.height}px`;
+
+        const deltaX = endRect.left + endRect.width / 2 - (startRect.left + startRect.width / 2);
+        const deltaY = endRect.top + endRect.height / 2 - (startRect.top + startRect.height / 2);
+
+        const keyframes =
+          direction === 'enter'
+            ? [
+                { transform: 'translate3d(0, 0, 0)', opacity: 1 },
+                { transform: `translate3d(${deltaX}px, ${deltaY}px, 0)`, opacity: 0 },
+              ]
+            : [
+                { transform: 'translate3d(0, 0, 0)', opacity: 0 },
+                { transform: `translate3d(${deltaX}px, ${deltaY}px, 0)`, opacity: 1 },
+              ];
+
+        panel.append(clone);
+        clones.push(clone);
+
+        const animation = clone.animate(keyframes, {
+          duration: 560,
+          easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+          delay: index * 40,
+          fill: 'forwards',
+        });
+        animations.push(animation.finished.catch(() => {}));
+        animation.addEventListener('finish', () => {
+          clone.remove();
+        });
+
+        index += 1;
+      });
+    });
+
+    if (direction === 'enter') {
+      variableMap.forEach(({ spans }) => {
+        (spans || []).forEach((span) => {
+          span.classList.add('is-departed');
+        });
+      });
+    }
+
+    const finalize = () => {
+      clones.forEach((clone) => {
+        if (clone.parentNode) {
+          clone.parentNode.removeChild(clone);
+        }
+      });
+
+      variableMap.forEach(({ card, spans }) => {
+        card.classList.remove('is-incoming', 'is-outgoing');
+        if (direction === 'exit') {
+          (spans || []).forEach((span) => span.classList.remove('is-departed'));
+        }
+      });
+
+      towerVariableAnimationState.entryPlayed = direction === 'enter';
+      syncTowerVariableCardVisibility();
+    };
+
+    if (!animations.length) {
+      finalize();
+      return Promise.resolve();
+    }
+
+    return Promise.allSettled(animations).then(() => {
+      finalize();
+    });
+  }
+
+  function maybePlayTowerVariableEntry() {
+    if (!towerVariableAnimationState.shouldPlayEntry) {
+      syncTowerVariableCardVisibility();
+      return;
+    }
+
+    towerVariableAnimationState.shouldPlayEntry = false;
+    requestAnimationFrame(() => {
+      playTowerVariableFlight('enter');
+    });
+  }
   let activeTowerUpgradeId = null;
   let activeTowerUpgradeBaseEquation = '';
   let lastTowerUpgradeTrigger = null;
@@ -11388,6 +11674,10 @@ import {
       const item = document.createElement('div');
       item.className = 'tower-upgrade-variable';
       item.setAttribute('role', 'listitem');
+      item.dataset.variable = variable.key;
+      if (variable.upgradable !== false) {
+        item.classList.add('tower-upgrade-variable--upgradable');
+      }
 
       const header = document.createElement('div');
       header.className = 'tower-upgrade-variable-header';
@@ -11416,27 +11706,62 @@ import {
       const footer = document.createElement('div');
       footer.className = 'tower-upgrade-variable-footer';
 
+      const stats = document.createElement('div');
+      stats.className = 'tower-upgrade-variable-stats';
+
       const valueEl = document.createElement('span');
       valueEl.className = 'tower-upgrade-variable-value';
       valueEl.textContent = formatTowerVariableValue(variable, value);
-      footer.append(valueEl);
+      stats.append(valueEl);
 
       const level = state.variables?.[variable.key]?.level || 0;
       const levelEl = document.createElement('span');
       levelEl.className = 'tower-upgrade-variable-level';
       levelEl.textContent = level ? `+${level}` : 'Base';
-      footer.append(levelEl);
+      stats.append(levelEl);
+
+      footer.append(stats);
 
       if (variable.upgradable !== false) {
         const cost = calculateTowerVariableUpgradeCost(variable, level);
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'tower-upgrade-variable-button';
-        button.dataset.upgradeVariable = variable.key;
-        button.textContent = cost === 1 ? 'Upgrade · 1 Glyph' : `Upgrade · ${cost} Glyphs`;
-        button.disabled = glyphCurrency < cost;
-        button.addEventListener('click', () => handleTowerVariableUpgrade(towerId, variable.key));
-        footer.append(button);
+
+        const controls = document.createElement('div');
+        controls.className = 'tower-upgrade-variable-controls';
+
+        const glyphControl = document.createElement('div');
+        glyphControl.className = 'tower-upgrade-variable-glyph-control';
+
+        const decrement = document.createElement('button');
+        decrement.type = 'button';
+        decrement.className = 'tower-upgrade-variable-glyph-button tower-upgrade-variable-glyph-button--decrease';
+        decrement.textContent = '−';
+        decrement.disabled = true;
+        decrement.setAttribute('aria-label', `Withdraw glyphs from ${variable.symbol || variable.key}`);
+        glyphControl.append(decrement);
+
+        const glyphCount = document.createElement('span');
+        glyphCount.className = 'tower-upgrade-variable-glyph-count';
+        glyphCount.textContent = `${level} Ψ`;
+        glyphControl.append(glyphCount);
+
+        const increment = document.createElement('button');
+        increment.type = 'button';
+        increment.className = 'tower-upgrade-variable-glyph-button tower-upgrade-variable-glyph-button--increase';
+        increment.dataset.upgradeVariable = variable.key;
+        increment.textContent = '+';
+        increment.disabled = glyphCurrency < cost;
+        increment.setAttribute('aria-label', `Invest glyph into ${variable.symbol || variable.key}`);
+        increment.addEventListener('click', () => handleTowerVariableUpgrade(towerId, variable.key));
+        glyphControl.append(increment);
+
+        controls.append(glyphControl);
+
+        const costNote = document.createElement('span');
+        costNote.className = 'tower-upgrade-variable-cost';
+        costNote.textContent = cost === 1 ? 'Cost: 1 Glyph' : `Cost: ${cost} Glyphs`;
+        controls.append(costNote);
+
+        footer.append(controls);
       } else {
         const note = document.createElement('span');
         note.className = 'tower-upgrade-variable-note';
@@ -11449,12 +11774,19 @@ import {
     });
 
     container.append(fragment);
+    syncTowerVariableCardVisibility();
   }
 
   function renderTowerUpgradeOverlay(towerId, options = {}) {
     if (!towerUpgradeElements.overlay) {
       return;
     }
+    const animateEntry = Boolean(options.animateEntry);
+    if (animateEntry) {
+      towerVariableAnimationState.entryPlayed = false;
+    }
+    towerVariableAnimationState.shouldPlayEntry = animateEntry;
+
     const definition = getTowerDefinition(towerId);
     if (!definition) {
       return;
@@ -11500,8 +11832,9 @@ import {
     }
 
     if (towerUpgradeElements.baseEquation) {
-      towerUpgradeElements.baseEquation.textContent = baseEquationText;
-      renderMathElement(towerUpgradeElements.baseEquation);
+      renderTowerUpgradeEquationParts(baseEquationText, blueprint, {
+        markDeparted: towerVariableAnimationState.entryPlayed,
+      });
     }
 
     const values = {};
@@ -11536,6 +11869,7 @@ import {
     }
 
     renderTowerUpgradeVariables(towerId, blueprint, values);
+    refreshTowerVariableAnimationState(towerId, blueprint);
     updateTowerUpgradeGlyphDisplay();
   }
 
@@ -11574,7 +11908,8 @@ import {
       towerUpgradeElements.overlay.classList.add('active');
     }
 
-    renderTowerUpgradeOverlay(towerId, { blueprint, baseEquationText, sourceCard });
+    renderTowerUpgradeOverlay(towerId, { blueprint, baseEquationText, sourceCard, animateEntry: true });
+    maybePlayTowerVariableEntry();
 
     const focusTarget = towerUpgradeElements.close || towerUpgradeElements.overlay;
     if (focusTarget && typeof focusTarget.focus === 'function') {
@@ -11590,9 +11925,19 @@ import {
     if (!towerUpgradeElements.overlay) {
       return;
     }
-    towerUpgradeElements.overlay.classList.remove('active');
-    towerUpgradeElements.overlay.setAttribute('aria-hidden', 'true');
-    scheduleOverlayHide(towerUpgradeElements.overlay);
+    const overlay = towerUpgradeElements.overlay;
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden', 'true');
+    towerVariableAnimationState.shouldPlayEntry = false;
+
+    const finalizeClose = () => {
+      scheduleOverlayHide(overlay);
+      resetTowerVariableAnimationState();
+    };
+
+    playTowerVariableFlight('exit').finally(() => {
+      finalizeClose();
+    });
 
     if (lastTowerUpgradeTrigger && typeof lastTowerUpgradeTrigger.focus === 'function') {
       try {
