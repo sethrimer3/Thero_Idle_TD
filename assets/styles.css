@@ -3096,6 +3096,15 @@ body.color-scheme-chromatic::before {
   backdrop-filter: blur(18px);
 }
 
+@media (max-width: 768px) {
+  .tab-bar {
+    /* iOS Safari was crashing while scrolling long panels when compositing the sticky tab bar.
+       Removing the blur on smaller viewports avoids the expensive backdrop filter. */
+    backdrop-filter: none;
+    background: rgba(10, 10, 16, 0.95);
+  }
+}
+
 .tab-button {
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: transparent;
