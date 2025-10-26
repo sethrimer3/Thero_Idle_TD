@@ -2519,12 +2519,17 @@ body.color-scheme-chromatic::before {
   max-width: 600px;
   width: min(92vw, 600px);
   text-align: left;
+  background: rgba(10, 10, 18, 0.42);
+  backdrop-filter: blur(14px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 32px 48px rgba(0, 0, 0, 0.55);
 }
 
 .tower-upgrade-panel {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  position: relative;
 }
 
 .tower-upgrade-header {
@@ -2581,7 +2586,7 @@ body.color-scheme-chromatic::before {
 .tower-upgrade-equation {
   padding: 18px 22px;
   border-radius: 18px;
-  background: linear-gradient(135deg, rgba(18, 18, 28, 0.88), rgba(26, 26, 40, 0.68));
+  background: linear-gradient(135deg, rgba(18, 18, 28, 0.65), rgba(30, 30, 44, 0.4));
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -2601,9 +2606,49 @@ body.color-scheme-chromatic::before {
 
 .tower-upgrade-formula {
   margin: 0;
-  font-size: 1.15rem;
-  color: rgba(255, 255, 255, 0.92);
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 1);
+  font-weight: 600;
   font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35ch;
+  line-height: 1.35;
+}
+
+.tower-upgrade-formula-part {
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  transition: opacity 260ms ease;
+  white-space: pre-wrap;
+}
+
+.tower-upgrade-formula-part--variable {
+  color: rgba(255, 255, 255, 1);
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.65);
+  font-weight: 700;
+}
+
+.tower-upgrade-formula-part--variable.is-departed {
+  opacity: 0.25;
+  text-shadow: none;
+}
+
+.tower-upgrade-formula-flight {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 700;
+  font-size: 1.15rem;
+  pointer-events: none;
+  font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.45));
+  z-index: 2;
 }
 
 .tower-upgrade-variables {
@@ -2616,8 +2661,34 @@ body.color-scheme-chromatic::before {
   gap: 12px;
   padding: 18px 22px;
   border-radius: 18px;
-  background: rgba(16, 16, 24, 0.78);
+  background: rgba(16, 16, 24, 0.68);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 320ms ease, transform 320ms ease;
+  transition-delay: calc(var(--tower-upgrade-variable-index, 0) * 40ms);
+}
+
+.tower-upgrade-variable--upgradable {
+  border-color: rgba(255, 215, 0, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(255, 215, 0, 0.12);
+}
+
+.tower-upgrade-variable.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tower-upgrade-variable.is-incoming {
+  opacity: 0;
+  transform: translateY(18px);
+  transition-delay: 0ms;
+}
+
+.tower-upgrade-variable.is-outgoing {
+  opacity: 0;
+  transform: translateY(-12px);
+  transition-delay: 0ms;
 }
 
 .tower-upgrade-variable-header {
@@ -2660,6 +2731,13 @@ body.color-scheme-chromatic::before {
   gap: 12px;
 }
 
+.tower-upgrade-variable-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .tower-upgrade-variable-value {
   font-size: 1.05rem;
   color: rgba(255, 255, 255, 0.9);
@@ -2674,30 +2752,65 @@ body.color-scheme-chromatic::before {
   color: rgba(255, 215, 0, 0.9);
 }
 
-.tower-upgrade-variable-button {
+.tower-upgrade-variable-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-left: auto;
-  padding: 8px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 215, 0, 0.42);
-  background: rgba(46, 34, 8, 0.75);
-  color: rgba(255, 215, 0, 0.96);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+}
+
+.tower-upgrade-variable-glyph-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 215, 0, 0.45);
+  background: rgba(46, 36, 12, 0.65);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.tower-upgrade-variable-glyph-button {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 215, 0, 0.45);
+  background: rgba(255, 215, 0, 0.12);
+  color: rgba(255, 215, 0, 0.95);
+  font-size: 1.05rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease;
 }
 
-.tower-upgrade-variable-button:hover:not(:disabled),
-.tower-upgrade-variable-button:focus-visible:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(255, 215, 0, 0.28);
-}
-
-.tower-upgrade-variable-button:disabled {
-  opacity: 0.55;
+.tower-upgrade-variable-glyph-button:disabled {
   cursor: not-allowed;
+  opacity: 0.5;
   box-shadow: none;
+}
+
+.tower-upgrade-variable-glyph-button:not(:disabled):hover,
+.tower-upgrade-variable-glyph-button:not(:disabled):focus-visible {
+  transform: translateY(-1px);
+  background: rgba(255, 215, 0, 0.28);
+  box-shadow: 0 6px 14px rgba(255, 215, 0, 0.32);
+}
+
+.tower-upgrade-variable-glyph-count {
+  font-family: 'Space Mono', 'Courier New', monospace;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.05em;
+}
+
+.tower-upgrade-variable-cost {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.68);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .tower-upgrade-variable-note {
