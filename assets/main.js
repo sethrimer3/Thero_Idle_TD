@@ -84,7 +84,7 @@ import {
           baseValue: 1,
           step: 1,
           upgradable: true,
-          format: (value) => `${formatWholeNumber(value)} attack`,
+          format: (value) => `${formatWholeNumber(value)} atk`,
           cost: (level) => Math.max(1, 1 + level),
         },
         {
@@ -95,7 +95,7 @@ import {
           baseValue: 1,
           step: 1,
           upgradable: true,
-          format: (value) => `${formatWholeNumber(value)} per second`,
+          format: (value) => `${formatWholeNumber(value)} /s`,
           cost: (level) => Math.max(1, 1 + level),
         },
         {
@@ -106,7 +106,7 @@ import {
           baseValue: 1,
           step: 1,
           upgradable: true,
-          format: (value) => `${formatWholeNumber(value)} per second`,
+          format: (value) => `${formatWholeNumber(value)} /s`,
           cost: (level) => Math.max(1, 1 + level),
         },
       ],
@@ -116,8 +116,8 @@ import {
         const tempo = Number.isFinite(values.tempo) ? values.tempo : 0;
         return 5 * damage * rate * tempo;
       },
-      formatGoldenEquation({ symbol, formatVariable, formatResult }) {
-        return `\\( ${symbol} = 5 \\times ${formatVariable('damage')} \\times ${formatVariable('rate')} \\times ${formatVariable('tempo')} = ${formatResult()} \\)`;
+      formatGoldenEquation({ formatVariable, formatResult }) {
+        return `\\( ${formatResult()} = 5 \\times ${formatVariable('damage')} \\times ${formatVariable('rate')} \\times ${formatVariable('tempo')} \\)`;
       },
     },
     beta: {
@@ -172,8 +172,8 @@ import {
         const range = Number.isFinite(values.range) ? values.range : 0;
         return attackPower * attackSpeed * range;
       },
-      formatGoldenEquation({ symbol, formatVariable, formatResult }) {
-        return `\\( ${symbol} = ${formatVariable('attackPower')} \\times ${formatVariable('attackSpeed')} \\times ${formatVariable('range')} = ${formatResult()} \\)`;
+      formatGoldenEquation({ formatVariable, formatResult }) {
+        return `\\( ${formatResult()} = ${formatVariable('attackPower')} \\times ${formatVariable('attackSpeed')} \\times ${formatVariable('range')} \\)`;
       },
     },
     gamma: {
@@ -206,8 +206,8 @@ import {
         const betaValue = Math.max(0, Number.isFinite(values.beta) ? values.beta : 0);
         return Math.sqrt(alphaValue) * betaValue;
       },
-      formatGoldenEquation({ symbol, formatVariable, formatResult }) {
-        return `\\( ${symbol} = \\sqrt{${formatVariable('alpha')}} \\times ${formatVariable('beta')} = ${formatResult()} \\)`;
+      formatGoldenEquation({ formatVariable, formatResult }) {
+        return `\\( ${formatResult()} = \\sqrt{${formatVariable('alpha')}} \\times ${formatVariable('beta')} \\)`;
       },
     },
     delta: {
@@ -241,8 +241,8 @@ import {
         const lnComponent = Math.log(betaValue + 1);
         return gammaValue * lnComponent;
       },
-      formatGoldenEquation({ symbol, formatVariable, formatResult }) {
-        return `\\( ${symbol} = ${formatVariable('gamma')} \\times \\ln(${formatVariable('beta')} + 1) = ${formatResult()} \\)`;
+      formatGoldenEquation({ formatVariable, formatResult }) {
+        return `\\( ${formatResult()} = ${formatVariable('gamma')} \\times \\ln(${formatVariable('beta')} + 1) \\)`;
       },
     },
   };
@@ -10901,8 +10901,8 @@ import {
         const rate = Number.isFinite(values.rate) ? values.rate : 0;
         return damage * rate;
       },
-      formatGoldenEquation({ symbol, formatVariable, formatResult }) {
-        return `\\( ${symbol} = ${formatVariable('damage')} \\times ${formatVariable('rate')} = ${formatResult()} \\)`;
+      formatGoldenEquation({ formatVariable, formatResult }) {
+        return `\\( ${formatResult()} = ${formatVariable('damage')} \\times ${formatVariable('rate')} \\)`;
       },
     };
 
