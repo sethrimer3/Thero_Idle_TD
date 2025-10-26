@@ -1590,9 +1590,69 @@ import {
     currentIndex: 0,
     animating: false,
     touchStart: null,
-    hideTimeoutId: null,
-    overlayTransitionHandler: null,
   };
+
+  const overlayHideStates = new WeakMap();
+
+  function cancelOverlayHide(overlay) {
+    if (!overlay) {
+      return;
+    }
+
+    const state = overlayHideStates.get(overlay);
+    if (!state) {
+      return;
+    }
+
+    if (state.transitionHandler) {
+      overlay.removeEventListener('transitionend', state.transitionHandler);
+    }
+
+    if (state.timeoutId !== null && typeof window !== 'undefined') {
+      window.clearTimeout(state.timeoutId);
+    }
+
+    overlayHideStates.delete(overlay);
+  }
+
+  function scheduleOverlayHide(overlay) {
+    if (!overlay) {
+      return;
+    }
+
+    cancelOverlayHide(overlay);
+
+    const finalizeHide = () => {
+      cancelOverlayHide(overlay);
+      overlay.setAttribute('hidden', '');
+    };
+
+    const handleTransitionEnd = (event) => {
+      if (event && event.target !== overlay) {
+        return;
+      }
+      finalizeHide();
+    };
+
+    overlay.addEventListener('transitionend', handleTransitionEnd);
+
+    const timeoutId =
+      typeof window !== 'undefined' ? window.setTimeout(finalizeHide, 320) : null;
+
+    overlayHideStates.set(overlay, {
+      transitionHandler: handleTransitionEnd,
+      timeoutId,
+    });
+  }
+
+  function revealOverlay(overlay) {
+    if (!overlay) {
+      return;
+    }
+
+    cancelOverlayHide(overlay);
+    overlay.removeAttribute('hidden');
+  }
 
   const developerUtilityElements = {
     moteTowerCard: null,
@@ -9641,6 +9701,7 @@ import {
         overlay.removeAttribute('data-overlay-mode');
       }
     }
+    revealOverlay(overlay);
     overlay.setAttribute('aria-hidden', 'false');
     overlay.focus();
     requestAnimationFrame(() => {
@@ -9653,6 +9714,7 @@ import {
     clearOverlayPreview();
     overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
+    scheduleOverlayHide(overlay);
     overlayRequiresLevelExit = false;
     if (overlayInstruction) {
       overlayInstruction.textContent = overlayInstructionDefault;
@@ -10079,6 +10141,7 @@ import {
       return;
     }
 
+    revealOverlay(upgradeOverlay);
     renderUpgradeMatrix();
     const activeElement = document.activeElement;
     lastUpgradeTrigger =
@@ -10109,6 +10172,7 @@ import {
 
     upgradeOverlay.classList.remove('active');
     upgradeOverlay.setAttribute('aria-hidden', 'true');
+    scheduleOverlayHide(upgradeOverlay);
     if (upgradeOverlayButton) {
       upgradeOverlayButton.setAttribute('aria-expanded', 'false');
     }
@@ -11311,6 +11375,7 @@ import {
 
     setTowerUpgradeNote('Invest glyphs to sculpt each variable toward your preferred proof.');
 
+    revealOverlay(towerUpgradeElements.overlay);
     towerUpgradeElements.overlay.setAttribute('aria-hidden', 'false');
     if (!towerUpgradeElements.overlay.classList.contains('active')) {
       requestAnimationFrame(() => {
@@ -11338,6 +11403,7 @@ import {
     }
     towerUpgradeElements.overlay.classList.remove('active');
     towerUpgradeElements.overlay.setAttribute('aria-hidden', 'true');
+    scheduleOverlayHide(towerUpgradeElements.overlay);
 
     if (lastTowerUpgradeTrigger && typeof lastTowerUpgradeTrigger.focus === 'function') {
       try {
@@ -12131,37 +12197,7 @@ import {
     overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
 
-    if (fieldNotesState.overlayTransitionHandler) {
-      overlay.removeEventListener('transitionend', fieldNotesState.overlayTransitionHandler);
-      fieldNotesState.overlayTransitionHandler = null;
-    }
-    if (fieldNotesState.hideTimeoutId !== null) {
-      window.clearTimeout(fieldNotesState.hideTimeoutId);
-      fieldNotesState.hideTimeoutId = null;
-    }
-
-    const finalizeHide = () => {
-      overlay.setAttribute('hidden', '');
-      if (fieldNotesState.overlayTransitionHandler) {
-        overlay.removeEventListener('transitionend', fieldNotesState.overlayTransitionHandler);
-        fieldNotesState.overlayTransitionHandler = null;
-      }
-      if (fieldNotesState.hideTimeoutId !== null) {
-        window.clearTimeout(fieldNotesState.hideTimeoutId);
-        fieldNotesState.hideTimeoutId = null;
-      }
-    };
-
-    function handleTransitionEnd(event) {
-      if (event && event.target !== overlay) {
-        return;
-      }
-      finalizeHide();
-    }
-
-    fieldNotesState.overlayTransitionHandler = handleTransitionEnd;
-    overlay.addEventListener('transitionend', handleTransitionEnd);
-    fieldNotesState.hideTimeoutId = window.setTimeout(finalizeHide, 320);
+    scheduleOverlayHide(overlay);
     fieldNotesState.animating = false;
     clearFieldNotesPointerTracking();
 
@@ -12184,15 +12220,7 @@ import {
     }
 
     fieldNotesElements.lastFocus = document.activeElement;
-    if (fieldNotesState.hideTimeoutId !== null) {
-      window.clearTimeout(fieldNotesState.hideTimeoutId);
-      fieldNotesState.hideTimeoutId = null;
-    }
-    if (fieldNotesState.overlayTransitionHandler) {
-      overlay.removeEventListener('transitionend', fieldNotesState.overlayTransitionHandler);
-      fieldNotesState.overlayTransitionHandler = null;
-    }
-    overlay.removeAttribute('hidden');
+    revealOverlay(overlay);
     overlay.setAttribute('aria-hidden', 'false');
     fieldNotesState.touchStart = null;
     setFieldNotesPage(0, { immediate: true });
