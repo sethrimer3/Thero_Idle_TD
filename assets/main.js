@@ -938,6 +938,68 @@ import {
     };
   }
 
+  function normalizePaletteColorStop(stop) {
+    if (!stop) {
+      return null;
+    }
+
+    let color = null;
+    if (typeof stop === 'string') {
+      color = parseCssColor(stop);
+    } else if (typeof stop === 'object') {
+      if ('r' in stop && 'g' in stop && 'b' in stop) {
+        color = stop;
+      } else {
+        color = parseCssColor(stop);
+      }
+    }
+
+    if (!color || !Number.isFinite(color.r) || !Number.isFinite(color.g) || !Number.isFinite(color.b)) {
+      return null;
+    }
+
+    return {
+      r: Math.max(0, Math.min(255, Math.round(color.r))),
+      g: Math.max(0, Math.min(255, Math.round(color.g))),
+      b: Math.max(0, Math.min(255, Math.round(color.b))),
+    };
+  }
+
+  function resolvePaletteColorStops(palette) {
+    const reference = palette && typeof palette === 'object' ? palette : DEFAULT_MOTE_PALETTE;
+    const stops = [];
+    const pushStop = (candidate) => {
+      const color = normalizePaletteColorStop(candidate);
+      if (!color) {
+        return;
+      }
+      const last = stops[stops.length - 1];
+      if (last && last.r === color.r && last.g === color.g && last.b === color.b) {
+        return;
+      }
+      stops.push(color);
+    };
+
+    pushStop(reference.backgroundTop);
+
+    const baseStops = Array.isArray(reference.stops) && reference.stops.length
+      ? reference.stops
+      : DEFAULT_MOTE_PALETTE.stops;
+    baseStops.forEach((stop) => pushStop(stop));
+
+    pushStop(reference.backgroundBottom);
+
+    if (!stops.length) {
+      DEFAULT_MOTE_PALETTE.stops.forEach((stop) => pushStop(stop));
+    }
+
+    if (stops.length === 1) {
+      stops.push({ ...stops[0] });
+    }
+
+    return stops;
+  }
+
   function computeMotePaletteFromTheme() {
     if (typeof window === 'undefined') {
       return mergeMotePalette(DEFAULT_MOTE_PALETTE);
@@ -1897,8 +1959,8 @@ import {
   // The audio manifest points to filenames under assets/audio/music and assets/audio/sfx.
   // Drop encoded tracks with the listed names into those folders to activate playback.
   const audioManifest = {
-    musicVolume: 0.6,
-    sfxVolume: 0.85,
+    musicVolume: 0.5,
+    sfxVolume: 0.5,
     musicCrossfadeSeconds: 3,
     music: {
       levelSelect: { file: 'level_selection_music.mp3', loop: true, volume: 0.65 },
@@ -1936,7 +1998,7 @@ import {
       this.musicDefinitions = manifest.music || {};
       this.sfxDefinitions = manifest.sfx || {};
       this.musicVolume = this._clampVolume(manifest.musicVolume, 0.5);
-      this.sfxVolume = this._clampVolume(manifest.sfxVolume, 0.8);
+      this.sfxVolume = this._clampVolume(manifest.sfxVolume, 0.5);
       this.musicElements = new Map();
       this.sfxPools = new Map();
       this.currentMusicKey = null;
@@ -2812,7 +2874,7 @@ import {
     charges: 0,
     simulatedDuneGain: 0,
     wallGlyphsLit: 0,
-    idleMoteBank: 0,
+    idleMoteBank: 100,
     idleDrainRate: 1,
     pendingMoteDrops: [],
     motePalette: mergeMotePalette(DEFAULT_MOTE_PALETTE),
@@ -4027,9 +4089,7 @@ import {
 
     getMoteColorForSize(size, isFreefall) {
       const palette = this.getEffectiveMotePalette();
-      const stops = palette.stops && palette.stops.length
-        ? palette.stops
-        : DEFAULT_MOTE_PALETTE.stops;
+      const stops = resolvePaletteColorStops(palette);
       const normalizedSize = Number.isFinite(size) ? Math.max(1, size) : 1;
       const denominator = Math.max(1, (this.maxDropSize || normalizedSize) - 1);
       const ratio = stops.length === 1 ? 0 : clampUnitInterval((normalizedSize - 1) / denominator);
@@ -7623,9 +7683,7 @@ import {
         typeof this.getEffectiveMotePalette === 'function'
           ? this.getEffectiveMotePalette()
           : null;
-      const paletteStops =
-        (palette && Array.isArray(palette.stops) && palette.stops.length && palette.stops) ||
-        DEFAULT_MOTE_PALETTE.stops;
+      const paletteStops = resolvePaletteColorStops(palette);
       const gradient = ctx.createLinearGradient(-radius, -radius, radius, radius);
       if (Array.isArray(paletteStops) && paletteStops.length) {
         const denominator = Math.max(1, paletteStops.length - 1);
