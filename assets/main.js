@@ -3168,8 +3168,13 @@ import {
     constructor(options = {}) {
       this.canvas = options.canvas || null;
       this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
-      this.cellSize = Math.max(1, Math.round(options.cellSize || POWDER_CELL_SIZE_PX));
-      // One powder unit spans a single pixel to highlight fine-grained mote flow.
+      const baseCellSize = Number.isFinite(options.cellSize) && options.cellSize > 0
+        ? options.cellSize
+        : POWDER_CELL_SIZE_PX;
+      const deviceScale = window.devicePixelRatio || 1;
+      this.cellSize = Math.max(1, Math.round(baseCellSize * deviceScale));
+      this.deviceScale = deviceScale;
+      // Scale the base unit by device pixel ratio so motes stay visually consistent across screens.
       this.grainSizes = Array.isArray(options.grainSizes)
         ? options.grainSizes.filter((size) => Number.isFinite(size) && size >= 1)
         : [1, 2, 3];
