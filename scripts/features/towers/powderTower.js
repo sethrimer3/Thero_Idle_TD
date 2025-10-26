@@ -588,48 +588,74 @@ export class PowderSimulation {
   }
 
   rebuildGridAfterWallChange() {
-    if (!this.grains.length || !this.grid.length) {
+    if (!this.rows || !this.cols) {
       return;
     }
-    this.clearGridPreserveWalls();
-    this.grains.forEach((grain) => {
-      grain.inGrid = false;
-    });
-    this.grains.sort((a, b) => a.y - b.y);
+
+    this.grid = Array.from({ length: this.rows }, () => new Array(this.cols).fill(0));
+    this.applyWallMask();
+
+    const minX = this.wallInsetLeftCells;
+    const maxInterior = Math.max(minX, this.cols - this.wallInsetRightCells);
+
     for (const grain of this.grains) {
-      const colliderSize = Number.isFinite(grain.colliderSize) ? Math.max(1, Math.round(grain.colliderSize)) : 1;
-      if (!this.canPlace(grain.x, grain.y, colliderSize)) {
-        grain.y = Math.min(grain.y, Math.max(0, this.rows - colliderSize));
-        if (!this.canPlace(grain.x, grain.y, colliderSize)) {
-          grain.inGrid = false;
-          continue;
-        }
+      if (!Number.isFinite(grain.colliderSize) || grain.colliderSize <= 0) {
+        grain.colliderSize = this.computeColliderSize(grain.size);
       }
-      this.fillCells(grain);
-      grain.inGrid = true;
-      grain.resting = true;
+      const collider = Math.max(1, Math.round(grain.colliderSize));
+      const maxOrigin = Math.max(minX, this.cols - this.wallInsetRightCells - collider);
+      if (grain.x < minX) {
+        grain.x = minX;
+        grain.freefall = true;
+        grain.resting = false;
+      } else if (grain.x > maxOrigin) {
+        grain.x = maxOrigin;
+        grain.freefall = true;
+        grain.resting = false;
+      }
+      if (grain.x + collider > maxInterior) {
+        grain.x = Math.max(minX, maxInterior - collider);
+      }
+      grain.inGrid = false;
     }
-    this.updateMaxDropSize();
-    this.applyScrollIfNeeded();
+
+    this.populateGridFromGrains();
     this.updateHeightFromGrains(true);
+    this.render();
     this.notifyWallMetricsChange();
   }
 
+  populateGridFromGrains() {
+    if (!this.grid.length) {
+      return;
+    }
+    for (const grain of this.grains) {
+      if (grain.freefall) {
+        grain.inGrid = false;
+        continue;
+      }
+      if (!Number.isFinite(grain.colliderSize) || grain.colliderSize <= 0) {
+        grain.colliderSize = this.computeColliderSize(grain.size);
+      }
+      const colliderSize = Math.max(1, Math.round(grain.colliderSize));
+      if (grain.y >= this.rows || grain.y + colliderSize <= 0) {
+        grain.inGrid = false;
+        continue;
+      }
+      this.fillCells(grain);
+      grain.inGrid = true;
+    }
+  }
+
   canPlace(x, y, size) {
-    const normalizedX = Number.isFinite(x) ? Math.floor(x) : 0;
-    const normalizedY = Number.isFinite(y) ? Math.floor(y) : 0;
-    const normalizedSize = Number.isFinite(size) ? Math.max(1, Math.floor(size)) : 1;
-    if (
-      normalizedX < 0 ||
-      normalizedY < 0 ||
-      normalizedX + normalizedSize > this.cols ||
-      normalizedY + normalizedSize > this.rows
-    ) {
+    const normalizedSize = Number.isFinite(size) ? Math.max(1, Math.round(size)) : 1;
+    if (x < 0 || y < 0 || x + normalizedSize > this.cols || y + normalizedSize > this.rows) {
       return false;
     }
-    for (let row = normalizedY; row < normalizedY + normalizedSize; row += 1) {
-      for (let col = normalizedX; col < normalizedX + normalizedSize; col += 1) {
-        if (this.grid[row][col] !== 0) {
+    for (let row = 0; row < normalizedSize; row += 1) {
+      const gridRow = this.grid[y + row];
+      for (let col = 0; col < normalizedSize; col += 1) {
+        if (gridRow[x + col]) {
           return false;
         }
       }
@@ -639,48 +665,97 @@ export class PowderSimulation {
 
   fillCells(grain) {
     const colliderSize = Number.isFinite(grain.colliderSize) ? Math.max(1, Math.round(grain.colliderSize)) : 1;
-    for (let row = grain.y; row < grain.y + colliderSize && row < this.rows; row += 1) {
-      for (let col = grain.x; col < grain.x + colliderSize && col < this.cols; col += 1) {
-        if (row >= 0 && col >= 0) {
-          this.grid[row][col] = grain.id;
+    for (let row = 0; row < colliderSize; row += 1) {
+      const y = grain.y + row;
+      if (y < 0 || y >= this.rows) {
+        continue;
+      }
+      const gridRow = this.grid[y];
+      for (let col = 0; col < colliderSize; col += 1) {
+        const x = grain.x + col;
+        if (x < 0 || x >= this.cols) {
+          continue;
         }
+        gridRow[x] = grain.id;
       }
     }
   }
 
   clearCells(grain) {
+    if (!grain.inGrid) {
+      return;
+    }
     const colliderSize = Number.isFinite(grain.colliderSize) ? Math.max(1, Math.round(grain.colliderSize)) : 1;
-    for (let row = grain.y; row < grain.y + colliderSize && row < this.rows; row += 1) {
-      for (let col = grain.x; col < grain.x + colliderSize && col < this.cols; col += 1) {
-        if (row >= 0 && col >= 0 && this.grid[row][col] === grain.id) {
-          this.grid[row][col] = 0;
+    for (let row = 0; row < colliderSize; row += 1) {
+      const y = grain.y + row;
+      if (y < 0 || y >= this.rows) {
+        continue;
+      }
+      const gridRow = this.grid[y];
+      for (let col = 0; col < colliderSize; col += 1) {
+        const x = grain.x + col;
+        if (x < 0 || x >= this.cols) {
+          continue;
+        }
+        if (gridRow[x] === grain.id) {
+          gridRow[x] = 0;
         }
       }
     }
+    grain.inGrid = false;
+  }
+
+  getSupportDepth(column, startRow) {
+    if (column < 0 || column >= this.cols) {
+      return 0;
+    }
+    let depth = 0;
+    for (let row = startRow; row < this.rows; row += 1) {
+      if (this.grid[row][column]) {
+        break;
+      }
+      depth += 1;
+    }
+    return depth;
+  }
+
+  getAggregateDepth(startColumn, startRow, size) {
+    const normalizedSize = Number.isFinite(size) ? Math.max(1, Math.round(size)) : 1;
+    if (startColumn < 0 || startColumn + normalizedSize > this.cols) {
+      return 0;
+    }
+    let total = 0;
+    for (let offset = 0; offset < normalizedSize; offset += 1) {
+      total += this.getSupportDepth(startColumn + offset, startRow);
+    }
+    return total / Math.max(1, normalizedSize);
   }
 
   getSlumpDirection(grain) {
     const colliderSize = Number.isFinite(grain.colliderSize) ? Math.max(1, Math.round(grain.colliderSize)) : 1;
-    const leftClear = this.canPlace(grain.x - 1, grain.y, colliderSize);
-    const rightClear = this.canPlace(grain.x + 1, grain.y, colliderSize);
-    if (leftClear && rightClear) {
-      return Math.random() < 0.5 ? -1 : 1;
+    const bottom = grain.y + colliderSize;
+    if (bottom >= this.rows) {
+      return 0;
     }
-    if (leftClear) {
+
+    const span = Math.min(colliderSize, this.cols);
+    const leftDepth = this.getAggregateDepth(grain.x - 1, bottom, span);
+    const rightDepth = this.getAggregateDepth(grain.x + colliderSize, bottom, span);
+
+    if (leftDepth > rightDepth + 0.6) {
       return -1;
     }
-    if (rightClear) {
+    if (rightDepth > leftDepth + 0.6) {
       return 1;
     }
     return 0;
   }
 
-  notifyWallMetricsChange() {
-    if (!this.onWallMetricsChange) {
+  notifyWallMetricsChange(metrics) {
+    if (typeof this.onWallMetricsChange !== 'function') {
       return;
     }
-    const metrics = this.getWallMetrics();
-    this.onWallMetricsChange(metrics);
+    this.onWallMetricsChange(metrics || this.getWallMetrics());
   }
 
   getWallMetrics() {
@@ -689,39 +764,97 @@ export class PowderSimulation {
       rightCells: this.wallInsetRightCells,
       gapCells: Math.max(0, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells),
       cellSize: this.cellSize,
+      rows: this.rows,
+      cols: this.cols,
+      width: this.width,
+      height: this.height,
     };
   }
 
-  setWallGapTarget(target, options = {}) {
-    if (!Number.isFinite(target) || target <= 0) {
+  setWallGapTarget(gapCells, options = {}) {
+    if (!Number.isFinite(gapCells) || gapCells <= 0) {
       this.wallGapCellsTarget = null;
       this.updateMaxDropSize();
-      return;
+      return false;
     }
-    this.wallGapCellsTarget = Math.max(1, Math.round(target));
-    this.applyWallGapTarget(options);
+    this.wallGapCellsTarget = Math.max(1, Math.round(gapCells));
+    if (!this.wallGapReferenceCols && this.cols) {
+      this.wallGapReferenceCols = Math.max(1, this.cols);
+    }
+    if (!this.cols) {
+      return false;
+    }
+    return this.applyWallGapTarget(options);
+  }
+
+  resolveScaledWallGap() {
+    if (!Number.isFinite(this.wallGapCellsTarget)) {
+      return null;
+    }
+    if (!this.cols) {
+      return Math.max(1, Math.round(this.wallGapCellsTarget));
+    }
+    const referenceCols = Math.max(1, this.wallGapReferenceCols || this.cols);
+    const ratio = this.wallGapCellsTarget / referenceCols;
+    if (!Number.isFinite(ratio) || ratio <= 0) {
+      return Math.max(1, Math.round(this.wallGapCellsTarget));
+    }
+    const scaled = ratio * this.cols;
+    if (!Number.isFinite(scaled) || scaled <= 0) {
+      return Math.max(1, Math.round(this.wallGapCellsTarget));
+    }
+    return Math.max(1, Math.round(scaled));
   }
 
   applyWallGapTarget(options = {}) {
-    if (!Number.isFinite(this.wallGapCellsTarget) || this.wallGapCellsTarget <= 0) {
-      this.updateMaxDropSize();
-      return;
+    if (!this.cols) {
+      return false;
     }
-    const desired = Math.max(1, this.wallGapCellsTarget);
-    const total = Math.max(0, this.cols);
-    if (total <= 0) {
-      return;
+
+    const { skipRebuild = false } = options;
+    const baseLargest = this.grainSizes.length
+      ? Math.max(1, this.grainSizes[this.grainSizes.length - 1])
+      : 1;
+    const largestGrain = Math.max(1, this.computeColliderSize(baseLargest));
+    let desiredGap = this.resolveScaledWallGap();
+    if (!Number.isFinite(desiredGap)) {
+      desiredGap = this.cols - this.wallInsetLeftCells - this.wallInsetRightCells;
     }
-    const excess = Math.max(0, total - desired);
-    const leftShare = Math.round(excess / 2);
-    const rightShare = excess - leftShare;
-    this.wallInsetLeftCells = Math.max(0, Math.min(leftShare, total));
-    this.wallInsetRightCells = Math.max(0, Math.min(rightShare, total - this.wallInsetLeftCells));
+    if (Number.isFinite(this.wallGapCellsTarget)) {
+      const baseTarget = Math.max(
+        largestGrain,
+        Math.min(this.cols, Math.round(this.wallGapCellsTarget)),
+      );
+      desiredGap = Math.max(desiredGap, baseTarget);
+    }
+    desiredGap = Math.max(largestGrain, Math.min(this.cols, Math.round(desiredGap)));
+    const clampedGap = Math.max(largestGrain, Math.min(this.cols, desiredGap));
+    const totalInset = Math.max(0, this.cols - clampedGap);
+    let nextLeft = Math.floor(totalInset / 2);
+    let nextRight = totalInset - nextLeft;
+
+    if (nextLeft + nextRight >= this.cols) {
+      nextLeft = Math.max(0, Math.floor((this.cols - largestGrain) / 2));
+      nextRight = Math.max(0, this.cols - largestGrain - nextLeft);
+    }
+
+    const changed = nextLeft !== this.wallInsetLeftCells || nextRight !== this.wallInsetRightCells;
+    this.wallInsetLeftCells = nextLeft;
+    this.wallInsetRightCells = nextRight;
+    this.wallInsetLeftPx = nextLeft * this.cellSize;
+    this.wallInsetRightPx = nextRight * this.cellSize;
     this.updateMaxDropSize();
-    if (!options.skipRebuild) {
+
+    if (changed) {
+      if (skipRebuild) {
+        return true;
+      }
       this.rebuildGridAfterWallChange();
+    } else if (!skipRebuild) {
+      this.notifyWallMetricsChange();
     }
-    this.notifyWallMetricsChange();
+
+    return changed;
   }
 
   handleFrame(timestamp) {
@@ -971,65 +1104,93 @@ export class PowderSimulation {
       highestTop = Math.min(highestTop, grain.y);
     }
 
-    if (highestTop >= targetTopRow) {
+    if (highestTop >= this.rows || highestTop > targetTopRow) {
       return;
     }
 
-    const offset = targetTopRow - highestTop;
-    this.scrollOffsetCells += offset;
-    this.grains.forEach((grain) => {
-      if (grain.inGrid) {
-        this.clearCells(grain);
-      }
-      grain.y += offset;
-      if (grain.inGrid) {
-        this.fillCells(grain);
-      }
-    });
-    this.applyWallMask();
-  }
+    const shift = Math.max(0, targetTopRow - highestTop);
+    if (!shift) {
+      return;
+    }
 
-  getSlumpWindow(grain) {
-    const colliderSize = Number.isFinite(grain.colliderSize) ? Math.max(1, Math.round(grain.colliderSize)) : 1;
-    const y = Math.max(0, Math.min(this.rows - colliderSize, grain.y));
-    const left = Math.max(0, grain.x - 2);
-    const right = Math.min(this.cols, grain.x + colliderSize + 2);
-    const bottom = Math.min(this.rows, y + colliderSize + 2);
-    return { left, right, bottom };
+    this.scrollOffsetCells += shift;
+    this.clearGridPreserveWalls();
+
+    const shifted = [];
+    for (const grain of this.grains) {
+      grain.y += shift;
+      if (grain.y >= this.rows) {
+        continue;
+      }
+      grain.inGrid = false;
+      shifted.push(grain);
+    }
+
+    this.grains = shifted;
+    this.populateGridFromGrains();
   }
 
   updateHeightFromGrains(force = false) {
-    if (!this.grains.length) {
-      this.heightInfo = { normalizedHeight: 0, duneGain: 0, largestGrain: 0 };
-      this.notifyHeightChange(this.heightInfo, force);
+    if (!this.rows) {
       return;
     }
 
-    let highest = 0;
-    let totalHeight = 0;
-    let largestGrain = 1;
-    for (const grain of this.grains) {
-      if (!grain.inGrid || grain.freefall) {
-        continue;
-      }
-      const top = Math.max(0, grain.y);
-      const height = Math.max(1, Math.round(grain.colliderSize));
-      const bottom = top + height;
-      highest = Math.max(highest, this.rows - bottom);
-      totalHeight = Math.max(totalHeight, bottom);
-      largestGrain = Math.max(largestGrain, Math.max(1, Math.round(grain.size)));
+    if (!this.grains.length) {
+      this.highestTotalHeightCells = Math.max(this.highestTotalHeightCells, this.scrollOffsetCells);
+      const totalNormalized = this.scrollOffsetCells / this.rows;
+      const info = {
+        normalizedHeight: 0,
+        duneGain: Math.min(this.maxDuneGain, totalNormalized * this.maxDuneGain),
+        largestGrain: 0,
+        scrollOffset: this.scrollOffsetCells,
+        visibleHeight: 0,
+        totalHeight: this.scrollOffsetCells,
+        totalNormalized,
+        crestPosition: 1,
+        rows: this.rows,
+        cols: this.cols,
+        cellSize: this.cellSize,
+        highestNormalized: this.highestTotalHeightCells / this.rows,
+      };
+      this.notifyHeightChange(info, force);
+      return;
     }
 
-    const normalizedHeight = Math.max(0, totalHeight) / Math.max(1, this.rows);
-    const duneGain = Math.min(this.maxDuneGain, normalizedHeight * this.maxDuneGain);
-    this.highestTotalHeightCells = Math.max(this.highestTotalHeightCells, totalHeight + this.scrollOffsetCells);
-    const crestPosition = Math.max(0, this.rows - highest - 1);
-    const totalNormalized = Math.max(0, this.highestTotalHeightCells) / Math.max(1, this.rows);
+    let highestTop = this.rows;
+    let largest = 0;
+    let restingFound = false;
+    for (const grain of this.grains) {
+      if (!grain.inGrid || grain.freefall || !grain.resting || grain.y < 0) {
+        continue;
+      }
+      const colliderSize = Number.isFinite(grain.colliderSize)
+        ? Math.max(1, Math.round(grain.colliderSize))
+        : 1;
+      restingFound = true;
+      highestTop = Math.min(highestTop, grain.y);
+      largest = Math.max(largest, colliderSize);
+    }
+
+    let visibleHeight = 0;
+    let crestPosition = 1;
+    if (restingFound && highestTop < this.rows) {
+      visibleHeight = Math.max(0, this.rows - highestTop);
+      crestPosition = Math.max(0, Math.min(1, highestTop / this.rows));
+    }
+
+    const totalHeight = this.scrollOffsetCells + visibleHeight;
+    this.highestTotalHeightCells = Math.max(this.highestTotalHeightCells, totalHeight);
+
+    const normalized = Math.min(1, visibleHeight / this.rows);
+    const totalNormalized = totalHeight / this.rows;
+    const duneGain = Math.min(this.maxDuneGain, totalNormalized * this.maxDuneGain);
+
     const info = {
-      normalizedHeight,
+      normalizedHeight: normalized,
       duneGain,
-      largestGrain,
+      largestGrain: largest,
       scrollOffset: this.scrollOffsetCells,
+      visibleHeight,
       totalHeight,
       totalNormalized,
       crestPosition,
@@ -1248,12 +1409,13 @@ export class PowderSimulation {
   }
 
   start() {
-    if (this.running) {
+    if (!this.ctx || this.running) {
       return;
     }
     this.running = true;
     this.lastFrame = 0;
     this.loopHandle = requestAnimationFrame(this.handleFrame);
+    window.addEventListener('resize', this.handleResize);
   }
 
   stop() {
@@ -1265,5 +1427,7 @@ export class PowderSimulation {
       cancelAnimationFrame(this.loopHandle);
       this.loopHandle = null;
     }
+    window.removeEventListener('resize', this.handleResize);
   }
 }
+
