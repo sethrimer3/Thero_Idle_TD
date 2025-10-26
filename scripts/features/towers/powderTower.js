@@ -377,9 +377,10 @@ export class PowderSimulation {
     const referenceWidth = Number.isFinite(options.wallReferenceWidth)
       ? Math.max(options.wallReferenceWidth, this.cellSize)
       : attrWidth || 240;
+    this.wallGapReferenceWidth = referenceWidth; // Store the baseline basin width in CSS pixels for later scaling.
     this.wallGapReferenceCols = Math.max(1, Math.round(referenceWidth / this.cellSize));
-    this.wallGapCellsTarget = Number.isFinite(options.wallGapCells)
-      ? Math.max(1, Math.round(options.wallGapCells))
+    this.wallGapTargetUnits = Number.isFinite(options.wallGapCells)
+      ? Math.max(1, options.wallGapCells)
       : null;
 
     this.spawnTimer = 0;
@@ -449,37 +450,27 @@ export class PowderSimulation {
     const normalizedAttrWidth = attrWidth > 0 ? attrWidth / ratio : 0;
     const normalizedAttrHeight = attrHeight > 0 ? attrHeight / ratio : 0;
 
-    if (!hasMeasuredWidth && !hasMeasuredHeight) {
-      if (previousWidth > 0 && previousHeight > 0) {
-        const fallbackWidth = Math.max(1, Math.floor(previousWidth * ratio));
-        const fallbackHeight = Math.max(1, Math.floor(previousHeight * ratio));
-        if (this.canvas.width !== fallbackWidth) {
-          this.canvas.width = fallbackWidth;
-        }
-        if (this.canvas.height !== fallbackHeight) {
-          this.canvas.height = fallbackHeight;
-        }
-        const styleWidth = `${previousWidth}px`;
-        const styleHeight = `${previousHeight}px`;
-        if (this.canvas.style.width !== styleWidth) {
-          this.canvas.style.width = styleWidth;
-        }
-        if (this.canvas.style.height !== styleHeight) {
-          this.canvas.style.height = styleHeight;
-        }
-        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        this.ctx.scale(ratio, ratio);
-      }
-      return;
+    // When layout metrics are unavailable (e.g., hidden tab), reuse cached or attribute sizes so motes keep animating.
+    let displayWidth = hasMeasuredWidth
+      ? measuredWidth
+      : previousWidth || normalizedAttrWidth || 240;
+    let displayHeight = hasMeasuredHeight
+      ? measuredHeight
+      : previousHeight || normalizedAttrHeight || 320;
+
+    if (!hasMeasuredWidth && !hasMeasuredHeight && previousWidth > 0 && previousHeight > 0) {
+      // Keep the previous canvas dimensions when both measurements disappear to avoid collapsing the basin during transitions.
+      displayWidth = previousWidth;
+      displayHeight = previousHeight;
     }
 
-    let displayWidth = hasMeasuredWidth ? measuredWidth : 0;
     if (displayWidth <= 0) {
-      displayWidth = previousWidth || normalizedAttrWidth || 240;
+      // Fall back to the intrinsic canvas width so we still create a viable grid.
+      displayWidth = normalizedAttrWidth || 240;
     }
-    let displayHeight = hasMeasuredHeight ? measuredHeight : 0;
     if (displayHeight <= 0) {
-      displayHeight = previousHeight || normalizedAttrHeight || 320;
+      // Apply the intrinsic canvas height whenever the layout reports zero rows.
+      displayHeight = normalizedAttrHeight || 320;
     }
 
     displayWidth = Math.max(200, displayWidth);
@@ -510,6 +501,14 @@ export class PowderSimulation {
     this.cols = Math.max(4, Math.floor(this.width / this.cellSize));
     this.rows = Math.max(4, Math.floor(this.height / this.cellSize));
 
+    const referenceWidthPx = Number.isFinite(this.wallGapReferenceWidth)
+      ? this.wallGapReferenceWidth
+      : this.width;
+    this.wallGapReferenceCols = Math.max(
+      1,
+      Math.round(referenceWidthPx / this.cellSize),
+    ); // Recalculate how many grid columns the reference layout represents after a resize.
+
     const dynamicCapacity = Math.floor((this.cols * this.rows) / 3);
     this.maxGrains = Math.max(this.maxGrainsBase, dynamicCapacity);
 
@@ -523,7 +522,7 @@ export class PowderSimulation {
       this.wallInsetRightCells = Math.floor(this.wallInsetRightCells * scale);
     }
 
-    if (Number.isFinite(this.wallGapCellsTarget)) {
+    if (Number.isFinite(this.wallGapTargetUnits)) {
       this.applyWallGapTarget({ skipRebuild: true });
     } else {
       this.updateMaxDropSize();
