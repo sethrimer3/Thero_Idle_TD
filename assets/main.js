@@ -5441,6 +5441,24 @@ import {
         this.hoverPlacement = null;
         this.pointerPosition = null;
         this.syncCanvasSize();
+        if (typeof window !== 'undefined') {
+          const activeLevelId = this.levelConfig?.id;
+          const attemptSync = () => {
+            if (!this.previewOnly) {
+              return;
+            }
+            if (!this.levelConfig || this.levelConfig.id !== activeLevelId) {
+              return;
+            }
+            const rect = this.canvas ? this.canvas.getBoundingClientRect() : null;
+            if (!rect || rect.width < 2 || rect.height < 2) {
+              window.requestAnimationFrame(attemptSync);
+              return;
+            }
+            this.syncCanvasSize();
+          };
+          window.requestAnimationFrame(attemptSync);
+        }
         return;
       }
 
