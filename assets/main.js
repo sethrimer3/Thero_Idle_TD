@@ -5574,6 +5574,9 @@ import {
       if (typeof event.preventDefault === 'function') {
         event.preventDefault();
       }
+      if (typeof isFieldNotesOverlayVisible === 'function' && isFieldNotesOverlayVisible()) {
+        return;
+      }
       const anchor = this.getCanvasRelativeFromClient({ clientX: event.clientX, clientY: event.clientY });
       if (!anchor) {
         return;
@@ -10084,9 +10087,6 @@ import {
         } else if (unlocked && running) {
           pillText = 'Running';
           pillVisible = true;
-        } else if (unlocked && completed) {
-          pillText = 'Complete';
-          pillVisible = true;
         }
 
         if (pillVisible) {
@@ -10174,6 +10174,7 @@ import {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
     if (!tabs.length) return;
     if (overlay && overlay.classList.contains('active')) return;
+    if (isFieldNotesOverlayVisible()) return;
     if (isTextInput(event.target)) return;
 
     const direction = event.key === 'ArrowRight' ? 1 : -1;
@@ -10184,6 +10185,7 @@ import {
   document.addEventListener('keydown', (event) => {
     if (!tabs.length) return;
     if (overlay && overlay.classList.contains('active')) return;
+    if (isFieldNotesOverlayVisible()) return;
     if (isTextInput(event.target)) return;
 
     const targetTabId = tabHotkeys.get(event.key);
@@ -10407,6 +10409,13 @@ import {
       'wheel',
       (event) => {
         if (!event || typeof event.deltaY !== 'number') {
+          return;
+        }
+
+        if (isFieldNotesOverlayVisible()) {
+          if (typeof event.preventDefault === 'function') {
+            event.preventDefault();
+          }
           return;
         }
 
@@ -12314,6 +12323,9 @@ import {
   function handleFieldNotesOverlayKeydown(event) {
     if (!isFieldNotesOverlayVisible()) {
       return;
+    }
+    if (typeof event.stopPropagation === 'function') {
+      event.stopPropagation();
     }
     if (event.key === 'ArrowRight') {
       event.preventDefault();
