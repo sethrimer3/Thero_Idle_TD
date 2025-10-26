@@ -425,6 +425,52 @@ import {
   const GAMEPLAY_CONFIG_URL = new URL(GAMEPLAY_CONFIG_RELATIVE_PATH, import.meta.url);
   const FLUID_SIM_CONFIG_RELATIVE_PATH = './data/towerFluidSimulation.json';
   const FLUID_SIM_CONFIG_URL = new URL(FLUID_SIM_CONFIG_RELATIVE_PATH, import.meta.url);
+
+  function resolveFallbackUrl(relativePath) {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      const base = new URL(window.location.href);
+      base.hash = '';
+      base.search = '';
+      return new URL(relativePath.replace(/^\.\//, ''), base).href;
+    } catch (error) {
+      console.warn('Failed to resolve fallback URL for', relativePath, error);
+      return null;
+    }
+  }
+
+  async function fetchJsonWithFallback(urlPrimary, relativePath) {
+    const attempts = [];
+
+    if (urlPrimary) {
+      attempts.push(urlPrimary);
+    }
+
+    const fallbackHref = resolveFallbackUrl(relativePath);
+    if (fallbackHref && !attempts.includes(fallbackHref)) {
+      attempts.push(fallbackHref);
+    }
+
+    let lastError = null;
+
+    for (const url of attempts) {
+      try {
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) {
+          lastError = new Error(`Failed to load JSON from ${url}: ${response.status}`);
+          continue;
+        }
+        return response.json();
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError || new Error('JSON fetch failed');
+  }
   const EMBEDDED_CONFIG_GLOBAL_KEY = '__THERO_EMBEDDED_GAMEPLAY_CONFIG__';
 
   function getEmbeddedGameplayConfig() {
@@ -450,11 +496,7 @@ import {
       throw new Error('Fetch API is unavailable in this environment.');
     }
 
-    const response = await fetch(GAMEPLAY_CONFIG_URL.href, { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`Failed to load gameplay configuration: ${response.status}`);
-    }
-    return response.json();
+    return fetchJsonWithFallback(GAMEPLAY_CONFIG_URL.href, GAMEPLAY_CONFIG_RELATIVE_PATH);
   }
 
   async function loadGameplayConfigViaModule() {
@@ -518,10 +560,7 @@ import {
       fluidSimulationLoadPromise = (async () => {
         try {
           if (typeof fetch === 'function') {
-            const response = await fetch(FLUID_SIM_CONFIG_URL.href, { cache: 'no-store' });
-            if (response.ok) {
-              return response.json();
-            }
+            return fetchJsonWithFallback(FLUID_SIM_CONFIG_URL.href, FLUID_SIM_CONFIG_RELATIVE_PATH);
           }
         } catch (error) {
           console.warn('Fluid simulation fetch failed; attempting module import.', error);
