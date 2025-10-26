@@ -3233,7 +3233,7 @@ import {
     thetaBase: 1.3,
     zetaBase: 1.6,
     simulatedDuneGainMax: 3.4,
-    wallBaseGapMotes: 15,
+    wallBaseGapMotes: 10,
     wallGapPerGlyph: 2,
   };
 
@@ -3299,6 +3299,7 @@ import {
 
   const POWDER_CELL_SIZE_PX = 1;
   const MOTE_RENDER_SCALE = 3;
+  const MOTE_COLLISION_SCALE = MOTE_RENDER_SCALE;
   const powderGlyphColumns = [];
   let powderWallMetrics = null;
 
@@ -3308,13 +3309,34 @@ import {
     const scrollOffset = Number.isFinite(info.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
     const highestRawInput = Number.isFinite(info.highestNormalized) ? info.highestNormalized : 0;
     const totalRawInput = Number.isFinite(info.totalNormalized) ? info.totalNormalized : highestRawInput;
-    const highestRaw = Math.max(0, highestRawInput, totalRawInput);
-    const basinHeight = rows * cellSize;
-    const viewTop = scrollOffset / rows;
-    const viewBottom = (scrollOffset + rows) / rows;
-    const buffer = 2;
-    const minIndex = Math.max(0, Math.floor(viewTop) - buffer);
-    const maxIndex = Math.max(minIndex, Math.floor(viewBottom) + buffer);
+    const highestNormalized = Math.max(0, highestRawInput, totalRawInput);
+    const GLYPH_SPACING_NORMALIZED = 0.5;
+    const GLYPH_BASE_NORMALIZED = GLYPH_SPACING_NORMALIZED;
+    const safeRows = Math.max(1, rows);
+    const basinHeight = safeRows * cellSize;
+    const viewTopNormalized = scrollOffset / safeRows;
+    const viewBottomNormalized = (scrollOffset + safeRows) / safeRows;
+    const bufferGlyphs = 2;
+
+    const normalizeIndex = (value) => {
+      if (!Number.isFinite(value)) {
+        return 0;
+      }
+      return Math.floor((value - GLYPH_BASE_NORMALIZED) / GLYPH_SPACING_NORMALIZED);
+    };
+
+    const rawMinIndex = normalizeIndex(viewTopNormalized);
+    const rawMaxIndex = Math.ceil(
+      (viewBottomNormalized - GLYPH_BASE_NORMALIZED) / GLYPH_SPACING_NORMALIZED,
+    );
+    const minIndex = Math.max(0, (Number.isFinite(rawMinIndex) ? rawMinIndex : 0) - bufferGlyphs);
+    const maxIndex = Math.max(
+      minIndex,
+      (Number.isFinite(rawMaxIndex) ? rawMaxIndex : 0) + bufferGlyphs,
+    );
+
+    const glyphHeightForIndex = (index) =>
+      GLYPH_BASE_NORMALIZED + Math.max(0, index) * GLYPH_SPACING_NORMALIZED;
 
     if (powderGlyphColumns.length) {
       powderGlyphColumns.forEach((column) => {
@@ -3335,22 +3357,52 @@ import {
             column.glyphs.set(index, glyph);
           }
           glyph.textContent = formatAlephLabel(index);
-          const relativeRows = index * rows - scrollOffset;
+          const glyphNormalized = glyphHeightForIndex(index);
+          const relativeRows = glyphNormalized * safeRows - scrollOffset;
           const topPx = basinHeight - relativeRows * cellSize;
           glyph.style.top = `${topPx.toFixed(1)}px`;
-          glyph.classList.toggle('powder-glyph--achieved', highestRaw >= index);
-          glyph.classList.toggle('powder-glyph--target', index === Math.max(1, Math.floor(highestRaw) + 1));
+          const achieved = highestNormalized >= glyphNormalized;
+          glyph.classList.toggle('powder-glyph--achieved', achieved);
         }
       });
     }
 
-    const achievedCount = Math.max(0, Math.floor(highestRaw));
-    const nextIndex = Math.max(achievedCount + 1, 1);
+    const glyphsLit =
+      highestNormalized >= GLYPH_BASE_NORMALIZED
+        ? Math.max(
+            0,
+            Math.floor((highestNormalized - GLYPH_BASE_NORMALIZED) / GLYPH_SPACING_NORMALIZED) + 1,
+          )
+        : 0;
+    const achievedIndex = glyphsLit > 0 ? glyphsLit - 1 : 0;
+    const nextIndex = glyphsLit;
+    const previousThreshold =
+      glyphsLit > 0
+        ? GLYPH_BASE_NORMALIZED + (glyphsLit - 1) * GLYPH_SPACING_NORMALIZED
+        : 0;
+    const nextThreshold = GLYPH_BASE_NORMALIZED + glyphsLit * GLYPH_SPACING_NORMALIZED;
+    const span = Math.max(GLYPH_SPACING_NORMALIZED, nextThreshold - previousThreshold);
+    const progressFraction = clampUnitInterval((highestNormalized - previousThreshold) / span);
+    const remainingToNext = Math.max(0, nextThreshold - highestNormalized);
+
+    if (powderGlyphColumns.length) {
+      powderGlyphColumns.forEach((column) => {
+        column.glyphs.forEach((glyph, index) => {
+          const isTarget = index === nextIndex;
+          const glyphNormalized = glyphHeightForIndex(index);
+          glyph.classList.toggle('powder-glyph--target', isTarget);
+          glyph.classList.toggle('powder-glyph--achieved', highestNormalized >= glyphNormalized);
+        });
+      });
+    }
 
     return {
-      achievedCount,
+      achievedCount: achievedIndex,
       nextIndex,
-      highestRaw,
+      highestRaw: highestNormalized,
+      glyphsLit,
+      progressFraction,
+      remainingToNext,
     };
   }
 
@@ -3544,6 +3596,10 @@ import {
       const deviceScale = window.devicePixelRatio || 1;
       this.cellSize = Math.max(1, Math.round(baseCellSize * deviceScale));
       this.deviceScale = deviceScale;
+      this.collisionScale =
+        Number.isFinite(options.collisionScale) && options.collisionScale > 0
+          ? options.collisionScale
+          : MOTE_COLLISION_SCALE;
       // Scale the base unit by device pixel ratio so motes stay visually consistent across screens.
       this.grainSizes = Array.isArray(options.grainSizes)
         ? options.grainSizes.filter((size) => Number.isFinite(size) && size >= 1)
@@ -3645,6 +3701,7 @@ import {
       if (!this.canvas || !this.ctx) {
         return;
       }
+      const hadGrains = Array.isArray(this.grains) && this.grains.length > 0;
       const ratio = window.devicePixelRatio || 1;
       const attrWidth = Number.parseFloat(this.canvas.getAttribute('width')) || 0;
       const attrHeight = Number.parseFloat(this.canvas.getAttribute('height')) || 0;
@@ -3679,13 +3736,20 @@ import {
       } else {
         this.updateMaxDropSize();
       }
-      this.reset();
-      this.notifyWallMetricsChange();
+
+      if (hadGrains) {
+        this.rebuildGridAfterWallChange();
+      } else {
+        this.reset();
+        this.notifyWallMetricsChange();
+      }
     }
 
     updateMaxDropSize() {
       const usableWidth = Math.max(1, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells);
-      this.maxDropSize = Math.max(1, Math.min(usableWidth, this.rows));
+      const scale = Number.isFinite(this.collisionScale) && this.collisionScale > 0 ? this.collisionScale : 1;
+      const maxVisualWidth = Math.max(1, Math.floor(usableWidth / scale));
+      this.maxDropSize = Math.max(1, Math.min(maxVisualWidth, this.rows));
     }
 
     reset() {
@@ -3743,7 +3807,11 @@ import {
       const maxInterior = Math.max(minX, this.cols - this.wallInsetRightCells);
 
       for (const grain of this.grains) {
-        const maxOrigin = Math.max(minX, this.cols - this.wallInsetRightCells - grain.size);
+        if (!Number.isFinite(grain.colliderSize) || grain.colliderSize <= 0) {
+          grain.colliderSize = this.computeColliderSize(grain.size);
+        }
+        const collider = Math.max(1, Math.round(grain.colliderSize));
+        const maxOrigin = Math.max(minX, this.cols - this.wallInsetRightCells - collider);
         if (grain.x < minX) {
           grain.x = minX;
           grain.freefall = true;
@@ -3753,8 +3821,8 @@ import {
           grain.freefall = true;
           grain.resting = false;
         }
-        if (grain.x + grain.size > maxInterior) {
-          grain.x = Math.max(minX, maxInterior - grain.size);
+        if (grain.x + collider > maxInterior) {
+          grain.x = Math.max(minX, maxInterior - collider);
         }
         grain.inGrid = false;
       }
@@ -3771,9 +3839,10 @@ import {
       }
 
       const { skipRebuild = false } = options;
-      const largestGrain = this.grainSizes.length
+      const baseLargest = this.grainSizes.length
         ? Math.max(1, this.grainSizes[this.grainSizes.length - 1])
         : 1;
+      const largestGrain = Math.max(1, this.computeColliderSize(baseLargest));
       let desiredGap = this.resolveScaledWallGap();
       if (!Number.isFinite(desiredGap)) {
         desiredGap = this.cols - this.wallInsetLeftCells - this.wallInsetRightCells;
@@ -3877,7 +3946,11 @@ import {
           grain.inGrid = false;
           continue;
         }
-        if (grain.y >= this.rows || grain.y + grain.size <= 0) {
+        if (!Number.isFinite(grain.colliderSize) || grain.colliderSize <= 0) {
+          grain.colliderSize = this.computeColliderSize(grain.size);
+        }
+        const colliderSize = Math.max(1, Math.round(grain.colliderSize));
+        if (grain.y >= this.rows || grain.y + colliderSize <= 0) {
           grain.inGrid = false;
           continue;
         }
@@ -3990,6 +4063,13 @@ import {
       return Math.max(1, Math.min(normalized, this.maxDropSize || normalized));
     }
 
+    computeColliderSize(baseSize) {
+      const normalized = Number.isFinite(baseSize) ? Math.max(1, Math.round(baseSize)) : 1;
+      const scale = Number.isFinite(this.collisionScale) && this.collisionScale > 0 ? this.collisionScale : 1;
+      const scaled = normalized * scale;
+      return Math.max(1, Math.round(scaled));
+    }
+
     getSpawnInterval() {
       if (!this.stabilized) {
         return this.baseSpawnInterval * 1.25;
@@ -4001,21 +4081,28 @@ import {
       if (!this.cols || !this.rows) {
         return;
       }
-      const size = this.clampGrainSize(typeof sizeOverride === 'number' ? sizeOverride : this.chooseGrainSize());
+      const visualSize = this.clampGrainSize(
+        typeof sizeOverride === 'number' ? sizeOverride : this.chooseGrainSize(),
+      );
+      const colliderSize = this.computeColliderSize(visualSize);
       const minX = this.wallInsetLeftCells;
-      const maxX = Math.max(minX, this.cols - this.wallInsetRightCells - size);
+      const maxX = Math.max(minX, this.cols - this.wallInsetRightCells - colliderSize);
       const center = Math.floor((minX + maxX) / 2);
       const scatter = Math.max(1, Math.floor((maxX - minX) / 6));
       const offset = Math.floor(Math.random() * (scatter * 2 + 1)) - scatter;
-      const startX = Math.min(maxX, Math.max(minX, center - Math.floor(size / 2) + offset));
+      const startX = Math.min(
+        maxX,
+        Math.max(minX, center - Math.floor(colliderSize / 2) + offset),
+      );
 
       const grain = {
         id: this.nextId,
         x: startX,
-        y: -size,
-        size,
+        y: -colliderSize,
+        size: visualSize,
+        colliderSize,
         bias: Math.random() < 0.5 ? -1 : 1,
-        shade: 195 - size * 5 + Math.floor(Math.random() * 12),
+        shade: 195 - visualSize * 5 + Math.floor(Math.random() * 12),
         freefall: !this.stabilized,
         inGrid: false,
         resting: false,
@@ -4049,15 +4136,23 @@ import {
       const survivors = [];
       const freefallSpeed = this.stabilized ? 2 : 3;
 
-      this.grains.sort((a, b) => b.y + b.size - (a.y + a.size));
+      this.grains.sort((a, b) => {
+        const aSize = Number.isFinite(a.colliderSize) ? Math.max(1, a.colliderSize) : 1;
+        const bSize = Number.isFinite(b.colliderSize) ? Math.max(1, b.colliderSize) : 1;
+        return b.y + bSize - (a.y + aSize);
+      });
 
       for (const grain of this.grains) {
+        if (!Number.isFinite(grain.colliderSize) || grain.colliderSize <= 0) {
+          grain.colliderSize = this.computeColliderSize(grain.size);
+        }
+        const colliderSize = Math.max(1, Math.round(grain.colliderSize));
         if (!this.stabilized || grain.freefall) {
           grain.freefall = true;
           grain.inGrid = false;
           grain.resting = false;
           grain.y += freefallSpeed;
-          if (grain.y * this.cellSize > this.height + grain.size * this.cellSize) {
+          if (grain.y * this.cellSize > this.height + colliderSize * this.cellSize) {
             continue;
           }
           survivors.push(grain);
@@ -4077,31 +4172,31 @@ import {
 
         let moved = false;
 
-        if (this.canPlace(grain.x, grain.y + 1, grain.size)) {
+        if (this.canPlace(grain.x, grain.y + 1, colliderSize)) {
           grain.y += 1;
           moved = true;
         } else {
           const preferred = grain.bias;
           const alternate = -preferred;
-          if (this.canPlace(grain.x + preferred, grain.y + 1, grain.size)) {
+          if (this.canPlace(grain.x + preferred, grain.y + 1, colliderSize)) {
             grain.x += preferred;
             grain.y += 1;
             moved = true;
-          } else if (this.canPlace(grain.x + alternate, grain.y + 1, grain.size)) {
+          } else if (this.canPlace(grain.x + alternate, grain.y + 1, colliderSize)) {
             grain.x += alternate;
             grain.y += 1;
             moved = true;
           } else {
             const slump = this.getSlumpDirection(grain);
-            if (slump && this.canPlace(grain.x + slump, grain.y, grain.size)) {
+            if (slump && this.canPlace(grain.x + slump, grain.y, colliderSize)) {
               grain.x += slump;
               moved = true;
             }
           }
         }
 
-        if (grain.y > this.rows - grain.size) {
-          grain.y = this.rows - grain.size;
+        if (grain.y > this.rows - colliderSize) {
+          grain.y = this.rows - colliderSize;
         }
 
         this.fillCells(grain);
@@ -4160,12 +4255,13 @@ import {
     }
 
     canPlace(x, y, size) {
-      if (x < 0 || y < 0 || x + size > this.cols || y + size > this.rows) {
+      const normalizedSize = Number.isFinite(size) ? Math.max(1, Math.round(size)) : 1;
+      if (x < 0 || y < 0 || x + normalizedSize > this.cols || y + normalizedSize > this.rows) {
         return false;
       }
-      for (let row = 0; row < size; row += 1) {
+      for (let row = 0; row < normalizedSize; row += 1) {
         const gridRow = this.grid[y + row];
-        for (let col = 0; col < size; col += 1) {
+        for (let col = 0; col < normalizedSize; col += 1) {
           if (gridRow[x + col]) {
             return false;
           }
@@ -4178,13 +4274,14 @@ import {
       if (!grain.inGrid) {
         return;
       }
-      for (let row = 0; row < grain.size; row += 1) {
+      const colliderSize = Number.isFinite(grain.colliderSize) ? Math.max(1, Math.round(grain.colliderSize)) : 1;
+      for (let row = 0; row < colliderSize; row += 1) {
         const y = grain.y + row;
         if (y < 0 || y >= this.rows) {
           continue;
         }
         const gridRow = this.grid[y];
-        for (let col = 0; col < grain.size; col += 1) {
+        for (let col = 0; col < colliderSize; col += 1) {
           const x = grain.x + col;
           if (x < 0 || x >= this.cols) {
             continue;
@@ -4198,13 +4295,14 @@ import {
     }
 
     fillCells(grain) {
-      for (let row = 0; row < grain.size; row += 1) {
+      const colliderSize = Number.isFinite(grain.colliderSize) ? Math.max(1, Math.round(grain.colliderSize)) : 1;
+      for (let row = 0; row < colliderSize; row += 1) {
         const y = grain.y + row;
         if (y < 0 || y >= this.rows) {
           continue;
         }
         const gridRow = this.grid[y];
-        for (let col = 0; col < grain.size; col += 1) {
+        for (let col = 0; col < colliderSize; col += 1) {
           const x = grain.x + col;
           if (x < 0 || x >= this.cols) {
             continue;
@@ -4229,24 +4327,27 @@ import {
     }
 
     getAggregateDepth(startColumn, startRow, size) {
-      if (startColumn < 0 || startColumn + size > this.cols) {
+      const normalizedSize = Number.isFinite(size) ? Math.max(1, Math.round(size)) : 1;
+      if (startColumn < 0 || startColumn + normalizedSize > this.cols) {
         return 0;
       }
       let total = 0;
-      for (let offset = 0; offset < size; offset += 1) {
+      for (let offset = 0; offset < normalizedSize; offset += 1) {
         total += this.getSupportDepth(startColumn + offset, startRow);
       }
-      return total / Math.max(1, size);
+      return total / Math.max(1, normalizedSize);
     }
 
     getSlumpDirection(grain) {
-      const bottom = grain.y + grain.size;
+      const colliderSize = Number.isFinite(grain.colliderSize) ? Math.max(1, Math.round(grain.colliderSize)) : 1;
+      const bottom = grain.y + colliderSize;
       if (bottom >= this.rows) {
         return 0;
       }
 
-      const leftDepth = this.getAggregateDepth(grain.x - 1, bottom, Math.min(grain.size, this.cols));
-      const rightDepth = this.getAggregateDepth(grain.x + grain.size, bottom, Math.min(grain.size, this.cols));
+      const span = Math.min(colliderSize, this.cols);
+      const leftDepth = this.getAggregateDepth(grain.x - 1, bottom, span);
+      const rightDepth = this.getAggregateDepth(grain.x + colliderSize, bottom, span);
 
       if (leftDepth > rightDepth + 0.6) {
         return -1;
@@ -4290,9 +4391,12 @@ import {
         if (!grain.inGrid || grain.freefall || !grain.resting || grain.y < 0) {
           continue;
         }
+        const colliderSize = Number.isFinite(grain.colliderSize)
+          ? Math.max(1, Math.round(grain.colliderSize))
+          : 1;
         restingFound = true;
         highestTop = Math.min(highestTop, grain.y);
-        largest = Math.max(largest, grain.size);
+        largest = Math.max(largest, colliderSize);
       }
 
       let visibleHeight = 0;
@@ -4373,9 +4477,14 @@ import {
 
       const cellSizePx = this.cellSize;
       for (const grain of this.grains) {
-        const baseSizePx = grain.size * cellSizePx;
-        const sizePx = baseSizePx * MOTE_RENDER_SCALE;
-        const offsetPx = (sizePx - baseSizePx) / 2;
+        const visualSize = Number.isFinite(grain.size) ? Math.max(1, grain.size) : 1;
+        const colliderSize = Number.isFinite(grain.colliderSize)
+          ? Math.max(1, Math.round(grain.colliderSize))
+          : visualSize;
+        const baseSizePx = visualSize * cellSizePx;
+        const colliderSizePx = colliderSize * cellSizePx;
+        const sizePx = Math.max(colliderSizePx, baseSizePx * MOTE_RENDER_SCALE);
+        const offsetPx = (sizePx - colliderSizePx) / 2;
         const px = grain.x * cellSizePx - offsetPx;
         const py = grain.y * cellSizePx - offsetPx;
 
@@ -4383,7 +4492,7 @@ import {
           continue;
         }
 
-        this.ctx.fillStyle = this.getMoteColorForSize(grain.size, grain.freefall);
+        this.ctx.fillStyle = this.getMoteColorForSize(visualSize, grain.freefall);
         this.ctx.fillRect(px, py, sizePx, sizePx);
       }
     }
@@ -4480,8 +4589,15 @@ import {
         const end = stops[nextIndex] || start;
         color = mixRgbColors(start, end, progress);
       }
-      const sheen = mixRgbColors(color, { r: 255, g: 255, b: 255 }, 0.1 + ratio * 0.2);
-      const alpha = isFreefall ? palette.freefallAlpha : palette.restAlpha;
+      const brightFactor = Math.min(0.85, 0.25 + ratio * 0.35);
+      const brightened = mixRgbColors(color, { r: 255, g: 255, b: 255 }, brightFactor);
+      const accentTarget = stops[Math.min(stops.length - 1, Math.round(ratio * (stops.length - 1)))] || color;
+      const sheen = mixRgbColors(brightened, accentTarget, 0.18);
+      const baseRestAlpha = Number.isFinite(palette.restAlpha) ? palette.restAlpha : 0.9;
+      const baseFreefallAlpha = Number.isFinite(palette.freefallAlpha) ? palette.freefallAlpha : 0.6;
+      const alpha = isFreefall
+        ? Math.min(1, baseFreefallAlpha + 0.08)
+        : Math.min(1, baseRestAlpha + 0.04);
       return colorToRgbaString(sheen, alpha);
     }
 
@@ -13198,35 +13314,41 @@ import {
       const peakOffset = Math.min(basinHeight, (1 - highestNormalized) * basinHeight);
       powderElements.wallMarker.style.transform = `translateY(${peakOffset.toFixed(1)}px)`;
       if (glyphMetrics) {
-        const { achievedCount, nextIndex, highestRaw } = glyphMetrics;
-        const fractional = Math.max(0, highestRaw - achievedCount);
-        const progressPercent = formatDecimal(Math.min(1, fractional) * 100, 1);
-        const remaining = Math.max(0, nextIndex - highestRaw);
-        const currentLabel = formatAlephLabel(achievedCount);
-        const nextLabel = formatAlephLabel(nextIndex);
-        powderElements.wallMarker.dataset.height = `${currentLabel} · ${progressPercent}% to ${nextLabel} (Δh ${formatDecimal(
-          remaining,
-          2,
-        )})`;
+        const {
+          achievedCount,
+          nextIndex,
+          highestRaw,
+          progressFraction,
+          remainingToNext,
+        } = glyphMetrics;
+        const progressPercent = formatDecimal(Math.min(1, progressFraction) * 100, 1);
+        const remaining = formatDecimal(Math.max(0, remainingToNext), 2);
+        const currentLabel = glyphMetrics.glyphsLit > 0
+          ? formatAlephLabel(Math.max(0, achievedCount))
+          : 'Base';
+        const nextLabel = formatAlephLabel(Math.max(0, nextIndex));
+        powderElements.wallMarker.dataset.height = `${currentLabel} · ${progressPercent}% to ${nextLabel} (Δh ${remaining})`;
       } else {
         powderElements.wallMarker.dataset.height = `Peak ${highestDisplay}`;
       }
     }
 
     if (glyphMetrics) {
-      const { achievedCount, highestRaw } = glyphMetrics;
-      const fractional = Math.max(0, highestRaw - achievedCount);
-      updatePowderWallGapFromGlyphs(achievedCount);
+      const { glyphsLit, highestRaw, progressFraction } = glyphMetrics;
+      updatePowderWallGapFromGlyphs(glyphsLit);
       if (powderElements.leftWall) {
         powderElements.leftWall.classList.toggle('wall-awake', highestRaw > 0);
       }
       if (powderElements.rightWall) {
-        powderElements.rightWall.classList.toggle('wall-awake', achievedCount > 0 || fractional >= 0.6);
+        powderElements.rightWall.classList.toggle(
+          'wall-awake',
+          glyphsLit > 0 || progressFraction >= 0.6,
+        );
       }
 
-      if (achievedCount !== powderState.wallGlyphsLit) {
-        powderState.wallGlyphsLit = achievedCount;
-        notifyPowderSigils(achievedCount);
+      if (glyphsLit !== powderState.wallGlyphsLit) {
+        powderState.wallGlyphsLit = glyphsLit;
+        notifyPowderSigils(glyphsLit);
       }
     }
 
