@@ -3711,6 +3711,23 @@ import {
       const measuredHeight = rect && Number.isFinite(rect.height) ? rect.height : this.canvas.clientHeight;
       const previousWidth = Number.isFinite(this.width) ? this.width : 0;
       const previousHeight = Number.isFinite(this.height) ? this.height : 0;
+      const hasMeasuredWidth = Number.isFinite(measuredWidth) && measuredWidth > 0;
+      const hasMeasuredHeight = Number.isFinite(measuredHeight) && measuredHeight > 0;
+
+      if (!hasMeasuredWidth && !hasMeasuredHeight && previousWidth > 0 && previousHeight > 0) {
+        const fallbackWidth = Math.max(1, Math.floor(previousWidth * ratio));
+        const fallbackHeight = Math.max(1, Math.floor(previousHeight * ratio));
+        if (this.canvas.width !== fallbackWidth) {
+          this.canvas.width = fallbackWidth;
+        }
+        if (this.canvas.height !== fallbackHeight) {
+          this.canvas.height = fallbackHeight;
+        }
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this.ctx.scale(ratio, ratio);
+        return;
+      }
+
       const attrWidth = Number.parseFloat(this.canvas.getAttribute('width')) || 0;
       const attrHeight = Number.parseFloat(this.canvas.getAttribute('height')) || 0;
       const normalizedAttrWidth =
@@ -3718,11 +3735,11 @@ import {
       const normalizedAttrHeight =
         attrHeight && previousHeight > 0 ? attrHeight / ratio : attrHeight;
 
-      let displayWidth = Number.isFinite(measuredWidth) && measuredWidth > 0 ? measuredWidth : 0;
+      let displayWidth = hasMeasuredWidth ? measuredWidth : 0;
       if (displayWidth <= 0) {
         displayWidth = previousWidth || normalizedAttrWidth || 240;
       }
-      let displayHeight = Number.isFinite(measuredHeight) && measuredHeight > 0 ? measuredHeight : 0;
+      let displayHeight = hasMeasuredHeight ? measuredHeight : 0;
       if (displayHeight <= 0) {
         displayHeight = previousHeight || normalizedAttrHeight || 320;
       }
