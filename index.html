@@ -859,23 +859,6 @@
               </button>
             </article>
 
-            <article class="card developer-card" id="developer-mote-tower" hidden aria-hidden="true">
-              <header class="tower-header">
-                <span class="tower-tier">Developer Utility</span>
-                <h3>Σ mote tower</h3>
-              </header>
-              <div class="formula-block">
-                <p class="formula-line">\( \Delta m = 1000 \)</p>
-                <p class="formula-line result">Instant mote deposit for rapid flux calibration.</p>
-              </div>
-              <p class="tower-utility-note" id="developer-mote-tower-status" aria-live="polite">
-                Developer mote tower ready—store +1,000 motes in the idle bank.
-              </p>
-              <button class="tower-equip-button" type="button" id="developer-mote-tower-button">
-                Store +1,000 motes
-              </button>
-            </article>
-
             <article class="card" id="merging-logic-card" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Convergence</span>
@@ -1118,91 +1101,10 @@
         >
           <header class="panel-header">Achievements</header>
           <p class="achievement-note">
-            Each seal increases motefall by <strong>+1 grain per minute</strong>.
-            Idle minutes are multiplied by unlocked seals and dumped when you return.
+            Each sealed proof adds <strong>+1 mote per minute</strong> to the idle bank. Tap an icon to
+            review its victory details.
           </p>
-          <ul class="achievement-list">
-            <li data-achievement-id="first-orbit">
-              <span class="achievement-badge">∞</span>
-              <div>
-                <p class="achievement-title">First Orbit</p>
-                <p class="achievement-sub">
-                  Seal the Lemniscate Hypothesis once to prove you can hold the spiral.
-                </p>
-                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
-              </div>
-            </li>
-            <li data-achievement-id="circle-seer">
-              <span class="achievement-badge">π</span>
-              <div>
-                <p class="achievement-title">Circle Seer</p>
-                <p class="achievement-sub">
-                  Maintain three α towers at once—concentric glyph rings stabilize your vision.
-                </p>
-                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
-              </div>
-            </li>
-            <li data-achievement-id="series-summoner">
-              <span class="achievement-badge">∑</span>
-              <div>
-                <p class="achievement-title">Series Summoner</p>
-                <p class="achievement-sub">
-                  Drive the mote rituals to a ×1.25 total multiplier or higher.
-                </p>
-                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
-              </div>
-            </li>
-            <li data-achievement-id="zero-hunter">
-              <span class="achievement-badge">ζ</span>
-              <div>
-                <p class="achievement-title">Zero Hunter</p>
-                <p class="achievement-sub">
-                  Defeat 30 invading glyphs—zeros fall when persistence converges.
-                </p>
-                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
-              </div>
-            </li>
-            <li data-achievement-id="golden-mentor">
-              <span class="achievement-badge">Φ</span>
-              <div>
-                <p class="achievement-title">Golden Mentor</p>
-                <p class="achievement-sub">
-                  Auto-lattice every suggested anchor to teach the grid your golden ratios.
-                </p>
-                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
-              </div>
-            </li>
-            <li data-achievement-id="powder-archivist">
-              <span class="achievement-badge">Ψ</span>
-              <div>
-                <p class="achievement-title">Mote Archivist</p>
-                <p class="achievement-sub">
-                  Illuminate three sand sigils on the wall to archive the dunes.
-                </p>
-                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
-              </div>
-            </li>
-            <li data-achievement-id="keystone-keeper">
-              <span class="achievement-badge">Ω</span>
-              <div>
-                <p class="achievement-title">Keystone Keeper</p>
-                <p class="achievement-sub">
-                  Complete any idle auto-run to bind a keystone into the archives.
-                </p>
-                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
-              </div>
-            </li>
-            <li data-achievement-id="temporal-sifter">
-              <span class="achievement-badge">Δ</span>
-              <div>
-                <p class="achievement-title">Temporal Sifter</p>
-                <p class="achievement-sub">
-                  Maintain idle auto-runs for 10 cumulative minutes and sift the bonus motes.
-                </p>
-                <p class="achievement-status">Locked · +1 Motes/min on unlock.</p>
-              </div>
-            </li>
-          </ul>
+          <div class="achievement-grid" id="achievement-grid" role="list"></div>
         </section>
 
         <section
@@ -1313,6 +1215,56 @@
               <p class="developer-mode-note" id="codex-developer-note" hidden>
                 Developer mode active: all content is unlocked for rapid iteration.
               </p>
+              <div class="developer-control-panel" id="developer-control-panel" hidden aria-hidden="true">
+                <div class="developer-control-field">
+                  <label for="developer-mote-bank">Idle mote bank</label>
+                  <input
+                    type="number"
+                    id="developer-mote-bank"
+                    data-developer-field="moteBank"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                  />
+                  <p class="developer-control-hint">Override the stored mote reserve.</p>
+                </div>
+                <div class="developer-control-field">
+                  <label for="developer-mote-rate">Mote fall rate</label>
+                  <input
+                    type="number"
+                    id="developer-mote-rate"
+                    data-developer-field="moteRate"
+                    min="0"
+                    step="0.01"
+                    inputmode="decimal"
+                  />
+                  <p class="developer-control-hint">Set motes dispensed per second.</p>
+                </div>
+                <div class="developer-control-field">
+                  <label for="developer-start-thero">Base start þ</label>
+                  <input
+                    type="number"
+                    id="developer-start-thero"
+                    data-developer-field="startThero"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                  />
+                  <p class="developer-control-hint">Adjust starting Thero before multipliers.</p>
+                </div>
+                <div class="developer-control-field">
+                  <label for="developer-glyphs">Glyph reserves</label>
+                  <input
+                    type="number"
+                    id="developer-glyphs"
+                    data-developer-field="glyphs"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                  />
+                  <p class="developer-control-hint">Set total glyph currency available.</p>
+                </div>
+              </div>
             </div>
             <p class="enemy-codex-note" id="enemy-codex-empty">Encounter enemies to unlock their entries.</p>
             <p class="enemy-codex-note" id="enemy-codex-note" hidden>
