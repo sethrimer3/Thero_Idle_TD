@@ -10053,7 +10053,7 @@ import {
 
       const cost = document.createElement('span');
       cost.className = 'upgrade-matrix-cost';
-      cost.textContent = `${formatGameNumber(definition.baseCost)} Ψ`;
+      cost.textContent = `${formatGameNumber(definition.baseCost)} ${THERO_SYMBOL}`;
 
       const nextTier = document.createElement('span');
       nextTier.className = 'upgrade-matrix-next';
@@ -11532,7 +11532,7 @@ import {
         return;
       }
 
-      const formattedCost = `${formatGameNumber(definition.baseCost)} Ψ`;
+      const formattedCost = `${formatGameNumber(definition.baseCost)} ${THERO_SYMBOL}`;
       let costEl = card.querySelector('.tower-cost');
       if (!costEl) {
         costEl = document.createElement('p');
