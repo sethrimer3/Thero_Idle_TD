@@ -1718,7 +1718,96 @@ import {
       }
     });
 
+    generateLevelAchievements();
+
     return gameplayConfigData;
+  }
+
+  function describeLevelAchievementProgress(levelId, shortLabel, longLabel) {
+    const state = levelState.get(levelId) || {};
+    if (state.completed) {
+      return 'Victory sealed · +1 Motes/min secured.';
+    }
+
+    const bestWave = Number.isFinite(state.bestWave) ? state.bestWave : 0;
+    const label = shortLabel || longLabel || levelId || 'Level';
+    if (bestWave > 0) {
+      return `Locked — Best wave ${formatWholeNumber(bestWave)}. Seal ${label} to unlock.`;
+    }
+    return `Locked — Seal ${label} to unlock.`;
+  }
+
+  function createLevelAchievementDefinition(levelId, ordinal) {
+    const levelConfig = levelConfigs.get(levelId);
+    if (!levelConfig || levelConfig.developerOnly) {
+      return null;
+    }
+
+    const id = `level-${ordinal}`;
+    const displayName =
+      levelConfig.displayName || levelConfig.title || levelConfig.id || `Level ${ordinal}`;
+    const shortLabel = levelConfig.id || displayName;
+    const icon = String(ordinal);
+
+    const rewardSegments = [];
+    if (Number.isFinite(levelConfig.startThero)) {
+      rewardSegments.push(`Start ${formatWholeNumber(levelConfig.startThero)} ${THERO_SYMBOL}.`);
+    }
+    if (Number.isFinite(levelConfig.rewardFlux)) {
+      rewardSegments.push(`Victory awards +${formatGameNumber(levelConfig.rewardFlux)} Motes.`);
+    }
+    if (Number.isFinite(levelConfig.rewardScore)) {
+      rewardSegments.push(`Score bonus ${formatGameNumber(levelConfig.rewardScore)} Σ.`);
+    }
+    if (Number.isFinite(levelConfig.rewardEnergy)) {
+      rewardSegments.push(`Energy bonus +${formatGameNumber(levelConfig.rewardEnergy)} TD.`);
+    }
+
+    const rewardSummary = rewardSegments.join(' ');
+    const description = `${displayName} — seal ${shortLabel} to claim the idle mote seal. ${rewardSummary}`.trim();
+
+    return {
+      id,
+      levelId,
+      title: displayName,
+      subtitle: shortLabel,
+      icon,
+      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
+      description: `${description} Unlocking adds +${ACHIEVEMENT_REWARD_FLUX} Motes/min to idle reserves.`,
+      condition: () => isLevelCompleted(levelId),
+      progress: () => describeLevelAchievementProgress(levelId, shortLabel, displayName),
+    };
+  }
+
+  function generateLevelAchievements() {
+    let ordinal = 0;
+    const definitions = [];
+
+    interactiveLevelOrder.forEach((levelId) => {
+      const candidate = createLevelAchievementDefinition(levelId, ordinal + 1);
+      if (!candidate) {
+        return;
+      }
+      ordinal += 1;
+      definitions.push(candidate);
+    });
+
+    achievementDefinitions = definitions;
+    const allowedIds = new Set(definitions.map((definition) => definition.id));
+    Array.from(achievementState.keys()).forEach((key) => {
+      if (!allowedIds.has(key)) {
+        achievementState.delete(key);
+      }
+    });
+
+    refreshAchievementPowderRate();
+
+    if (achievementGridEl) {
+      renderAchievementGrid();
+      evaluateAchievements();
+      updateResourceRates();
+      updatePowderLedger();
+    }
   }
 
   async function ensureGameplayConfigLoaded() {
@@ -1876,6 +1965,14 @@ import {
     return unlockedLevels.has(levelId);
   }
 
+  function isLevelCompleted(levelId) {
+    if (!levelId) {
+      return false;
+    }
+    const state = levelState.get(levelId);
+    return Boolean(state && state.completed);
+  }
+
   function unlockLevel(levelId) {
     if (!levelId || !isInteractiveLevel(levelId)) {
       return;
@@ -2002,130 +2099,195 @@ import {
     overlay.removeAttribute('hidden');
   }
 
-  const developerUtilityElements = {
-    moteTowerCard: null,
-    moteTowerButton: null,
-    moteTowerStatus: null,
-    moteTowerStatusDefault: '',
-    moteTowerStatusTimeout: null,
+  const developerControlElements = {
+    container: null,
+    fields: {
+      moteBank: null,
+      moteRate: null,
+      startThero: null,
+      glyphs: null,
+    },
   };
 
-  const DEVELOPER_MOTE_TOWER_DROP_AMOUNT = 1000;
+  const developerFieldHandlers = {
+    moteBank: setDeveloperIdleMoteBank,
+    moteRate: setDeveloperIdleMoteRate,
+    startThero: setDeveloperBaseStartThero,
+    glyphs: setDeveloperGlyphs,
+  };
 
   let developerModeActive = false;
 
   let playfield = null;
 
-  function clearDeveloperMoteTowerStatusTimeout() {
-    if (!developerUtilityElements.moteTowerStatusTimeout) {
-      return;
+  function formatDeveloperInteger(value) {
+    if (!Number.isFinite(value)) {
+      return '';
     }
-    clearTimeout(developerUtilityElements.moteTowerStatusTimeout);
-    developerUtilityElements.moteTowerStatusTimeout = null;
+    return String(Math.max(0, Math.round(value)));
   }
 
-  function resetDeveloperMoteTowerStatus() {
-    clearDeveloperMoteTowerStatusTimeout();
-    if (!developerUtilityElements.moteTowerStatus) {
-      return;
+  function formatDeveloperFloat(value, precision = 2) {
+    if (!Number.isFinite(value)) {
+      return '';
     }
-    const fallback =
-      developerUtilityElements.moteTowerStatusDefault && developerUtilityElements.moteTowerStatusDefault.trim()
-        ? developerUtilityElements.moteTowerStatusDefault.trim()
-        : 'Developer mote tower ready—store +1,000 motes in the idle bank.';
-    developerUtilityElements.moteTowerStatus.textContent = fallback;
+    const normalized = Math.max(0, value);
+    if (Number.isInteger(normalized)) {
+      return String(normalized);
+    }
+    return normalized.toFixed(precision);
   }
 
-  function setDeveloperMoteTowerStatus(message, options = {}) {
-    if (!developerUtilityElements.moteTowerStatus) {
+  function recordDeveloperAdjustment(field, value) {
+    if (!developerModeActive) {
       return;
     }
-
-    clearDeveloperMoteTowerStatusTimeout();
-    const nextMessage =
-      typeof message === 'string' ? message : String(message !== undefined ? message : '');
-    developerUtilityElements.moteTowerStatus.textContent = nextMessage;
-
-    if (!options.temporary) {
-      return;
-    }
-
-    const duration = Number.isFinite(options.duration) ? Math.max(0, options.duration) : 2400;
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    developerUtilityElements.moteTowerStatusTimeout = window.setTimeout(() => {
-      developerUtilityElements.moteTowerStatusTimeout = null;
-      resetDeveloperMoteTowerStatus();
-    }, duration);
+    recordPowderEvent('developer-adjust', { field, value });
   }
 
-  function updateDeveloperUtilitiesVisibility() {
+  function setDeveloperIdleMoteBank(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, Math.floor(value));
+    if (powderSimulation) {
+      powderSimulation.idleBank = normalized;
+    }
+    powderState.idleMoteBank = normalized;
+    recordDeveloperAdjustment('idle-mote-bank', normalized);
+    updatePowderDisplay();
+  }
+
+  function setDeveloperIdleMoteRate(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, value);
+    if (powderSimulation) {
+      powderSimulation.idleDrainRate = normalized;
+    }
+    powderState.idleDrainRate = normalized;
+    recordDeveloperAdjustment('idle-mote-rate', normalized);
+    updatePowderDisplay();
+  }
+
+  function setDeveloperBaseStartThero(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, value);
+    BASE_START_THERO = normalized;
+    recordDeveloperAdjustment('base-start-thero', normalized);
+    updateLevelCards();
+    updatePowderLedger();
+    updateStatusDisplays();
+  }
+
+  function setDeveloperGlyphs(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, Math.floor(value));
+    glyphCurrency = normalized;
+    gameStats.enemiesDefeated = normalized;
+    if (gameStats.towersPlaced > normalized) {
+      gameStats.towersPlaced = normalized;
+    }
+    recordDeveloperAdjustment('glyphs', normalized);
+    updateTowerUpgradeGlyphDisplay();
+    updateStatusDisplays();
+  }
+
+  function syncDeveloperControlValues() {
+    const { fields } = developerControlElements;
+    if (!fields) {
+      return;
+    }
+    if (fields.moteBank) {
+      fields.moteBank.value = formatDeveloperInteger(getCurrentIdleMoteBank());
+    }
+    if (fields.moteRate) {
+      fields.moteRate.value = formatDeveloperFloat(getCurrentMoteDispenseRate());
+    }
+    if (fields.startThero) {
+      fields.startThero.value = formatDeveloperInteger(BASE_START_THERO);
+    }
+    if (fields.glyphs) {
+      fields.glyphs.value = formatDeveloperInteger(glyphCurrency);
+    }
+  }
+
+  function updateDeveloperControlsVisibility() {
     const active = developerModeActive;
-    const { moteTowerCard, moteTowerButton } = developerUtilityElements;
-    if (moteTowerCard) {
-      moteTowerCard.hidden = !active;
-      moteTowerCard.setAttribute('aria-hidden', active ? 'false' : 'true');
+    const { container, fields } = developerControlElements;
+    if (container) {
+      container.hidden = !active;
+      container.setAttribute('aria-hidden', active ? 'false' : 'true');
     }
-    if (moteTowerButton) {
-      moteTowerButton.disabled = !active;
+    if (fields) {
+      Object.values(fields).forEach((input) => {
+        if (input) {
+          input.disabled = !active;
+        }
+      });
     }
-    if (!active) {
-      resetDeveloperMoteTowerStatus();
+    if (active) {
+      syncDeveloperControlValues();
     }
   }
 
-  function handleDeveloperMoteTowerClick(event) {
-    if (event?.preventDefault) {
-      event.preventDefault();
+  function handleDeveloperFieldCommit(event) {
+    const input = event?.target;
+    if (!input || !(input instanceof HTMLInputElement)) {
+      return;
+    }
+    const field = input.dataset?.developerField;
+    if (!field) {
+      return;
     }
     if (!developerModeActive) {
-      setDeveloperMoteTowerStatus('Enable developer mode to activate the mote tower.', {
-        temporary: true,
-      });
+      syncDeveloperControlValues();
       return;
     }
 
-    const amount = DEVELOPER_MOTE_TOWER_DROP_AMOUNT;
-    addIdleMoteBank(amount);
-    recordPowderEvent('developer-mote', { amount });
-    updatePowderDisplay();
-    setDeveloperMoteTowerStatus(`Stored +${formatGameNumber(amount)} Motes in reserve.`, {
-      temporary: true,
-    });
+    const handler = developerFieldHandlers[field];
+    if (!handler) {
+      return;
+    }
+
+    const parsed = Number.parseFloat(input.value);
+    if (!Number.isFinite(parsed)) {
+      syncDeveloperControlValues();
+      return;
+    }
+
+    handler(parsed);
+    syncDeveloperControlValues();
   }
 
-  function bindDeveloperUtilities() {
-    developerUtilityElements.moteTowerCard = document.getElementById('developer-mote-tower');
-    developerUtilityElements.moteTowerButton = document.getElementById(
-      'developer-mote-tower-button',
-    );
-    developerUtilityElements.moteTowerStatus = document.getElementById(
-      'developer-mote-tower-status',
-    );
+  function bindDeveloperControls() {
+    developerControlElements.container = document.getElementById('developer-control-panel');
+    const inputs = document.querySelectorAll('[data-developer-field]');
 
-    if (developerUtilityElements.moteTowerStatus) {
-      developerUtilityElements.moteTowerStatusDefault =
-        developerUtilityElements.moteTowerStatus.textContent?.trim() || '';
-      developerUtilityElements.moteTowerStatus.textContent =
-        developerUtilityElements.moteTowerStatusDefault ||
-        'Developer mote tower ready—store +1,000 motes in the idle bank.';
-    }
+    inputs.forEach((input) => {
+      const field = input.dataset.developerField;
+      if (!field) {
+        return;
+      }
+      developerControlElements.fields[field] = input;
+      input.disabled = true;
+      input.addEventListener('change', handleDeveloperFieldCommit);
+      input.addEventListener('blur', handleDeveloperFieldCommit);
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          handleDeveloperFieldCommit(event);
+        }
+      });
+    });
 
-    if (developerUtilityElements.moteTowerButton) {
-      developerUtilityElements.moteTowerButton.addEventListener(
-        'click',
-        handleDeveloperMoteTowerClick,
-      );
-    } else if (developerUtilityElements.moteTowerCard) {
-      developerUtilityElements.moteTowerCard.addEventListener(
-        'click',
-        handleDeveloperMoteTowerClick,
-      );
-    }
-
-    updateDeveloperUtilitiesVisibility();
+    syncDeveloperControlValues();
+    updateDeveloperControlsVisibility();
   }
 
   function getAlephChainUpgrades() {
@@ -3028,91 +3190,12 @@ import {
     audioManager.playMusic(key, options);
   }
 
-  const achievementDefinitions = [
-    {
-      id: 'first-orbit',
-      title: 'First Orbit',
-      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
-      condition: () => gameStats.manualVictories >= 1,
-      progress: () => {
-        const sealed = Math.min(gameStats.manualVictories, 1);
-        return `Progress: ${sealed}/1 victories sealed.`;
-      },
-    },
-    {
-      id: 'circle-seer',
-      title: 'Circle Seer',
-      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
-      condition: () => gameStats.maxTowersSimultaneous >= 3,
-      progress: () => {
-        const towers = Math.min(gameStats.maxTowersSimultaneous, 3);
-        return `Progress: ${towers}/3 towers sustained.`;
-      },
-    },
-    {
-      id: 'series-summoner',
-      title: 'Series Summoner',
-      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
-      condition: () => gameStats.highestPowderMultiplier >= 1.25,
-      progress: () => {
-        const current = Math.min(gameStats.highestPowderMultiplier, 1.25);
-        return `Progress: ×${formatDecimal(current, 2)} / ×1.25 multiplier.`;
-      },
-    },
-    {
-      id: 'zero-hunter',
-      title: 'Zero Hunter',
-      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
-      condition: () => gameStats.enemiesDefeated >= 30,
-      progress: () => {
-        const defeated = Math.min(gameStats.enemiesDefeated, 30);
-        return `Progress: ${defeated}/30 glyphs defeated.`;
-      },
-    },
-    {
-      id: 'golden-mentor',
-      title: 'Golden Mentor',
-      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
-      condition: () => gameStats.autoAnchorPlacements >= 4,
-      progress: () => {
-        const placements = Math.min(gameStats.autoAnchorPlacements, 4);
-        return `Progress: ${placements}/4 anchors harmonized.`;
-      },
-    },
-    {
-      id: 'powder-archivist',
-      title: 'Mote Archivist',
-      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
-      condition: () => gameStats.powderSigilsReached >= 3,
-      progress: () => {
-        const sigils = Math.min(gameStats.powderSigilsReached, 3);
-        return `Progress: ${sigils}/3 sigils illuminated.`;
-      },
-    },
-    {
-      id: 'keystone-keeper',
-      title: 'Keystone Keeper',
-      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
-      condition: () => gameStats.idleVictories >= 1,
-      progress: () => {
-        const victories = Math.min(gameStats.idleVictories, 1);
-        return `Progress: ${victories}/1 auto-run sealed.`;
-      },
-    },
-    {
-      id: 'temporal-sifter',
-      title: 'Temporal Sifter',
-      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
-      condition: () => gameStats.idleMillisecondsAccumulated >= 600000,
-      progress: () => {
-        const seconds = Math.min(gameStats.idleMillisecondsAccumulated / 1000, 600);
-        return `Progress: ${formatDuration(seconds)} / 10m idle.`;
-      },
-    },
-  ];
+  let achievementDefinitions = [];
 
   const achievementState = new Map();
   const achievementElements = new Map();
+  let achievementGridEl = null;
+  let activeAchievementId = null;
 
   const resourceElements = {
     score: null,
@@ -10979,17 +11062,102 @@ import {
     }
   }
 
-  function bindAchievements() {
-    achievementElements.clear();
-    const items = document.querySelectorAll('[data-achievement-id]');
-    items.forEach((item) => {
-      const id = item.getAttribute('data-achievement-id');
-      if (!id) {
-        return;
+  function setActiveAchievement(id) {
+    const nextId = id && achievementElements.has(id) && activeAchievementId !== id ? id : null;
+    activeAchievementId = nextId;
+
+    achievementElements.forEach((element, elementId) => {
+      const expanded = elementId === activeAchievementId;
+      if (element.container) {
+        element.container.classList.toggle('expanded', expanded);
+        element.container.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       }
-      const status = item.querySelector('.achievement-status');
-      achievementElements.set(id, { container: item, status });
+      if (element.detail) {
+        element.detail.hidden = !expanded;
+      }
     });
+  }
+
+  function renderAchievementGrid() {
+    if (!achievementGridEl) {
+      achievementGridEl = document.getElementById('achievement-grid');
+    }
+    if (!achievementGridEl) {
+      return;
+    }
+
+    achievementElements.clear();
+    achievementGridEl.innerHTML = '';
+
+    if (!achievementDefinitions.length) {
+      achievementGridEl.setAttribute('role', 'list');
+      activeAchievementId = null;
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    achievementDefinitions.forEach((definition, index) => {
+      const tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'achievement-tile';
+      tile.dataset.achievementId = definition.id;
+      tile.setAttribute('role', 'listitem');
+      tile.setAttribute('aria-expanded', 'false');
+      tile.setAttribute('aria-label', `${definition.title} achievement. Activate to view details.`);
+      tile.addEventListener('click', () => {
+        setActiveAchievement(definition.id);
+      });
+
+      const icon = document.createElement('span');
+      icon.className = 'achievement-icon';
+      icon.textContent = definition.icon || String(index + 1);
+      icon.setAttribute('aria-hidden', 'true');
+
+      const label = document.createElement('span');
+      label.className = 'achievement-label';
+      label.textContent = definition.title;
+
+      const detail = document.createElement('div');
+      detail.className = 'achievement-detail';
+      detail.hidden = true;
+
+      if (definition.subtitle && definition.subtitle !== definition.title) {
+        const subtitle = document.createElement('p');
+        subtitle.className = 'achievement-subtitle';
+        subtitle.textContent = definition.subtitle;
+        detail.append(subtitle);
+      }
+
+      if (definition.description) {
+        const description = document.createElement('p');
+        description.className = 'achievement-description';
+        description.textContent = definition.description;
+        detail.append(description);
+      }
+
+      const status = document.createElement('p');
+      status.className = 'achievement-status';
+      status.textContent = 'Locked — Seal this level to unlock.';
+      detail.append(status);
+
+      tile.append(icon, label, detail);
+      fragment.append(tile);
+
+      achievementElements.set(definition.id, {
+        container: tile,
+        status,
+        detail,
+      });
+    });
+
+    achievementGridEl.setAttribute('role', 'list');
+    achievementGridEl.append(fragment);
+    setActiveAchievement(null);
+  }
+
+  function bindAchievements() {
+    renderAchievementGrid();
     evaluateAchievements();
     refreshAchievementPowderRate();
     updateResourceRates();
@@ -11008,6 +11176,12 @@ import {
       if (status) {
         status.textContent = 'Unlocked · +1 Motes/min secured.';
       }
+      if (container && status) {
+        container.setAttribute(
+          'aria-label',
+          `${definition.title} achievement. ${status.textContent} Activate to view details.`,
+        );
+      }
       return;
     }
 
@@ -11021,6 +11195,12 @@ import {
       status.textContent = progress.startsWith('Locked')
         ? progress
         : `Locked — ${progress}`;
+    }
+    if (container && status) {
+      container.setAttribute(
+        'aria-label',
+        `${definition.title} achievement. ${status.textContent} Activate to view details.`,
+      );
     }
   }
 
@@ -12369,12 +12549,17 @@ import {
     syncLoadoutToPlayfield();
     updateStatusDisplays();
 
+    evaluateAchievements();
+    refreshAchievementPowderRate();
+    updateResourceRates();
+    updatePowderLedger();
+
     if (developerModeElements.note) {
       developerModeElements.note.hidden = false;
     }
 
-    updateDeveloperUtilitiesVisibility();
-    resetDeveloperMoteTowerStatus();
+    updateDeveloperControlsVisibility();
+    syncDeveloperControlValues();
 
     syncLevelEditorVisibility();
 
@@ -12421,12 +12606,16 @@ import {
     syncLoadoutToPlayfield();
     updateStatusDisplays();
 
+    evaluateAchievements();
+    refreshAchievementPowderRate();
+    updateResourceRates();
+    updatePowderLedger();
+
     if (developerModeElements.note) {
       developerModeElements.note.hidden = true;
     }
 
-    updateDeveloperUtilitiesVisibility();
-    resetDeveloperMoteTowerStatus();
+    updateDeveloperControlsVisibility();
 
     hideLevelEditorPanel();
 
@@ -13736,12 +13925,16 @@ import {
         )} Motes.`;
         break;
       }
-      case 'developer-mote': {
-        const { amount = DEVELOPER_MOTE_TOWER_DROP_AMOUNT } = context;
-        const normalizedAmount = Math.max(0, Number(amount) || 0);
-        entry = `Developer mote tower triggered · +${formatGameNumber(
-          normalizedAmount,
-        )} Motes stored in the idle bank.`;
+      case 'developer-adjust': {
+        const { field = 'value', value = 0 } = context;
+        const fieldLabels = {
+          'idle-mote-bank': 'Idle mote bank',
+          'idle-mote-rate': 'Idle mote fall rate',
+          'base-start-thero': 'Base start þ',
+          glyphs: 'Glyph reserves',
+        };
+        const label = fieldLabels[field] || field;
+        entry = `Developer adjusted ${label} → ${formatGameNumber(Number(value) || 0)}.`;
         break;
       }
       case 'mode-switch': {
@@ -14036,7 +14229,7 @@ import {
     enemyCodexElements.empty = document.getElementById('enemy-codex-empty');
     enemyCodexElements.note = document.getElementById('enemy-codex-note');
     bindDeveloperModeToggle();
-    bindDeveloperUtilities();
+    bindDeveloperControls();
     if (audioManager) {
       const activationElements = [
         playfieldElements.startButton,
