@@ -2,69 +2,38 @@ import {
   ALEPH_CHAIN_DEFAULT_UPGRADES,
   createAlephChainRegistry,
 } from '../scripts/features/towers/alephChain.js';
+import {
+  MATH_SYMBOL_REGEX,
+  renderMathElement,
+  isLikelyMathExpression,
+  annotateMathText,
+  convertMathExpressionToPlainText,
+} from '../scripts/core/mathText.js';
+import { tokenizeEquationParts } from '../scripts/core/mathTokens.js';
+import {
+  BETA_BASE_ATTACK,
+  BETA_BASE_ATTACK_SPEED,
+  BETA_BASE_RANGE,
+  clampBetaExponent,
+  calculateBetaAttack,
+  calculateBetaAttackSpeed,
+  calculateBetaRange,
+} from '../scripts/features/towers/betaMath.js';
+import {
+  formatGameNumber,
+  formatWholeNumber,
+  formatDecimal,
+  formatPercentage,
+  formatSignedPercentage,
+} from '../scripts/core/formatting.js';
 
 (() => {
   'use strict';
 
   const alephChainUpgradeState = { ...ALEPH_CHAIN_DEFAULT_UPGRADES };
 
-  function renderMathElement(element) {
-    if (!element) {
-      return;
-    }
-
-    const mathJax = window.MathJax;
-    if (!mathJax) {
-      return;
-    }
-
-    const typeset = () => {
-      if (typeof mathJax.typesetPromise === 'function') {
-        mathJax.typesetPromise([element]).catch((error) => {
-          console.warn('MathJax typeset failed', error);
-        });
-      }
-    };
-
-    if (mathJax.startup && mathJax.startup.promise) {
-      mathJax.startup.promise.then(typeset);
-    } else {
-      typeset();
-    }
-  }
-
-  const MATH_SYMBOL_REGEX = /[\\^_=+\-*{}]|[0-9]|[×÷±√∞∑∏∆∇∂→←↺⇥]|[α-ωΑ-Ωℵ℘ℏℙℚℝℤℂℑℜητβγΩΣΨΔφϕλψρμνσπθ]/u;
   const THERO_SYMBOL = 'þ';
   const COMMUNITY_DISCORD_INVITE = 'https://discord.gg/UzqhfsZQ8n'; // Reserved for future placement.
-
-  const BETA_BASE_ATTACK = 10;
-  const BETA_BASE_ATTACK_SPEED = 2;
-  const BETA_BASE_RANGE = 5;
-
-  function clampBetaExponent(value) {
-    if (!Number.isFinite(value)) {
-      return 1;
-    }
-    return Math.max(1, value);
-  }
-
-  function calculateBetaAttack(exponent) {
-    const normalized = clampBetaExponent(exponent);
-    const attack = BETA_BASE_ATTACK ** normalized;
-    return Number.isFinite(attack) ? attack : Number.MAX_VALUE;
-  }
-
-  function calculateBetaAttackSpeed(exponent) {
-    const normalized = clampBetaExponent(exponent);
-    const speed = BETA_BASE_ATTACK_SPEED / normalized;
-    return Number.isFinite(speed) ? speed : 0;
-  }
-
-  function calculateBetaRange(exponent) {
-    const normalized = clampBetaExponent(exponent);
-    const range = BETA_BASE_RANGE / normalized;
-    return Number.isFinite(range) ? range : 0;
-  }
 
   function resolveBetaExponent(towerId) {
     const exponentValue = computeTowerVariableValue(towerId, 'exponent');
@@ -299,43 +268,6 @@ import {
     return value.replace(/[^a-zA-Z0-9_-]/g, (char) => `\\${char}`);
   }
 
-  function tokenizeEquationParts(equationText, variableTokens = []) {
-    if (!equationText || !variableTokens.length) {
-      return [{ text: equationText, variableKey: null }];
-    }
-
-    const tokenLookup = new Map();
-    const patterns = variableTokens
-      .filter((token) => token && token.symbol)
-      .map((token) => {
-        tokenLookup.set(token.symbol, token.key);
-        return escapeRegExp(token.symbol);
-      });
-
-    if (!patterns.length) {
-      return [{ text: equationText, variableKey: null }];
-    }
-
-    const regex = new RegExp(`(${patterns.join('|')})`, 'g');
-    const tokens = [];
-    let lastIndex = 0;
-
-    equationText.replace(regex, (match, _token, offset) => {
-      if (offset > lastIndex) {
-        tokens.push({ text: equationText.slice(lastIndex, offset), variableKey: null });
-      }
-      tokens.push({ text: match, variableKey: tokenLookup.get(match) || null });
-      lastIndex = offset + match.length;
-      return match;
-    });
-
-    if (lastIndex < equationText.length) {
-      tokens.push({ text: equationText.slice(lastIndex), variableKey: null });
-    }
-
-    return tokens;
-  }
-
   function renderTowerUpgradeEquationParts(baseEquationText, blueprint, options = {}) {
     if (!towerUpgradeElements.baseEquation) {
       return;
@@ -554,148 +486,6 @@ import {
   let activeTowerUpgradeId = null;
   let activeTowerUpgradeBaseEquation = '';
   let lastTowerUpgradeTrigger = null;
-
-  function isLikelyMathExpression(text) {
-    if (!text) {
-      return false;
-    }
-    if (text.startsWith('\\(') || text.startsWith('\\[')) {
-      return true;
-    }
-    if (MATH_SYMBOL_REGEX.test(text)) {
-      return true;
-    }
-    if (/\b(?:sin|cos|tan|log|exp|sqrt)\b/i.test(text)) {
-      return true;
-    }
-    return false;
-  }
-
-  function annotateMathText(text) {
-    if (typeof text !== 'string' || text.indexOf('(') === -1) {
-      return text;
-    }
-
-    let output = '';
-    let outsideBuffer = '';
-    let insideBuffer = '';
-    let depth = 0;
-
-    const flushOutside = () => {
-      if (outsideBuffer) {
-        output += outsideBuffer;
-        outsideBuffer = '';
-      }
-    };
-
-    for (let index = 0; index < text.length; index += 1) {
-      const char = text[index];
-
-      if (char === '(') {
-        if (depth === 0) {
-          flushOutside();
-          insideBuffer = '';
-        } else {
-          insideBuffer += char;
-        }
-        depth += 1;
-        continue;
-      }
-
-      if (char === ')') {
-        if (depth === 0) {
-          outsideBuffer += char;
-          continue;
-        }
-        depth -= 1;
-        if (depth === 0) {
-          const content = insideBuffer;
-          const trimmed = content.trim();
-          if (!trimmed) {
-            output += '()';
-          } else if (isLikelyMathExpression(trimmed)) {
-            output += `\\(${trimmed}\\)`;
-          } else {
-            output += `(${content})`;
-          }
-          insideBuffer = '';
-        } else {
-          insideBuffer += char;
-        }
-        continue;
-      }
-
-      if (depth === 0) {
-        outsideBuffer += char;
-      } else {
-        insideBuffer += char;
-      }
-    }
-
-    if (insideBuffer && depth > 0) {
-      output += `(${insideBuffer}`;
-    }
-
-    if (outsideBuffer) {
-      output += outsideBuffer;
-    }
-
-    return output;
-  }
-
-  const GREEK_SYMBOL_LOOKUP = new Map([
-    ['\\alpha', 'α'],
-    ['\\beta', 'β'],
-    ['\\gamma', 'γ'],
-    ['\\delta', 'δ'],
-    ['\\epsilon', 'ε'],
-    ['\\theta', 'θ'],
-    ['\\lambda', 'λ'],
-    ['\\mu', 'μ'],
-    ['\\nu', 'ν'],
-    ['\\pi', 'π'],
-    ['\\phi', 'φ'],
-    ['\\psi', 'ψ'],
-    ['\\sigma', 'σ'],
-    ['\\tau', 'τ'],
-    ['\\omega', 'ω'],
-    ['\\Omega', 'Ω'],
-    ['\\Gamma', 'Γ'],
-    ['\\Delta', 'Δ'],
-    ['\\Lambda', 'Λ'],
-    ['\\Phi', 'Φ'],
-    ['\\Psi', 'Ψ'],
-  ]);
-
-  function convertMathExpressionToPlainText(expression) {
-    if (typeof expression !== 'string') {
-      return '';
-    }
-
-    let text = expression;
-    text = text.replace(/\\\(|\\\)|\\\[|\\\]/g, '');
-    text = text.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '$1/$2');
-    text = text.replace(/\\sqrt\{([^}]*)\}/g, '√($1)');
-    text = text.replace(/\\cdot/g, '·');
-    text = text.replace(/\\times/g, '×');
-    text = text.replace(/\\ln/g, 'ln');
-    text = text.replace(/\\log/g, 'log');
-    text = text.replace(/\\left|\\right/g, '');
-    text = text.replace(/\\mathcal\{([^}]*)\}/g, '$1');
-    text = text.replace(/\\text\{([^}]*)\}/g, '$1');
-    text = text.replace(/\\operatorname\{([^}]*)\}/g, '$1');
-    text = text.replace(/\\,|\\!|\\;/g, ' ');
-    text = text.replace(/\\([a-zA-Z]+)/g, (match, command) => {
-      const lookupKey = `\\${command}`;
-      if (GREEK_SYMBOL_LOOKUP.has(lookupKey)) {
-        return GREEK_SYMBOL_LOOKUP.get(lookupKey);
-      }
-      return command;
-    });
-    text = text.replace(/[{}]/g, '');
-    text = text.replace(/\s+/g, ' ').trim();
-    return text;
-  }
 
   function createPreviewId(prefix, value) {
     const slug = String(value || '')
@@ -2343,25 +2133,6 @@ import {
     autoAnchorButton: null,
     slots: [],
   };
-
-  const numberSuffixes = [
-    '',
-    'K',
-    'M',
-    'B',
-    'T',
-    'Qa',
-    'Qi',
-    'Sx',
-    'Sp',
-    'Oc',
-    'No',
-    'De',
-    'UDe',
-    'DDe',
-    'TDe',
-    'QDe',
-  ];
 
   const alephSubscriptDigits = {
     0: '₀',
@@ -11170,54 +10941,6 @@ import {
     }
 
     return 'No attempts recorded.';
-  }
-
-  function formatGameNumber(value) {
-    if (!Number.isFinite(value)) {
-      return '0';
-    }
-
-    const absolute = Math.abs(value);
-    if (absolute < 1) {
-      return value.toFixed(2);
-    }
-
-    const tier = Math.min(
-      Math.floor(Math.log10(absolute) / 3),
-      numberSuffixes.length - 1,
-    );
-    const scaled = value / 10 ** (tier * 3);
-    const precision = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
-    const formatted = scaled.toFixed(precision);
-    const suffix = numberSuffixes[tier];
-    return suffix ? `${formatted} ${suffix}` : formatted;
-  }
-
-  function formatWholeNumber(value) {
-    if (!Number.isFinite(value)) {
-      return '0';
-    }
-    return Math.round(Math.max(0, value)).toLocaleString('en-US');
-  }
-
-  function formatDecimal(value, digits = 2) {
-    if (!Number.isFinite(value)) {
-      return '0.00';
-    }
-    return value.toFixed(digits);
-  }
-
-  function formatPercentage(value) {
-    const percent = value * 100;
-    const digits = Math.abs(percent) >= 10 ? 1 : 2;
-    return `${percent.toFixed(digits)}%`;
-  }
-
-  function formatSignedPercentage(value) {
-    const percent = value * 100;
-    const digits = Math.abs(percent) >= 10 ? 1 : 2;
-    const sign = percent >= 0 ? '+' : '';
-    return `${sign}${percent.toFixed(digits)}%`;
   }
 
   function readStorage(key) {
