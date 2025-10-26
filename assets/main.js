@@ -1954,6 +1954,7 @@ import {
       this.musicFadeHandle = null;
       this.musicFadeCanceler = null;
       this.activationElements = typeof WeakSet === 'function' ? new WeakSet() : { add() {}, has() { return false; } };
+      this.suspendedMusic = null;
 
       if (typeof document !== 'undefined') {
         const unlockHandler = () => this.unlock();
@@ -2016,6 +2017,8 @@ import {
       if (!key) {
         return;
       }
+
+      this.suspendedMusic = null;
 
       const startPlayback = () => {
         const entry = this._ensureMusicEntry(key);
@@ -2104,6 +2107,9 @@ import {
         this.currentMusicKey = null;
         this.activeMusicEntry = null;
       }
+      if (this.suspendedMusic && this.suspendedMusic.key === key) {
+        this.suspendedMusic = null;
+      }
       entry.audio.pause();
       if (options.reset !== false) {
         try {
@@ -2113,6 +2119,80 @@ import {
         }
       }
       entry.audio.volume = this._resolveMusicVolume(entry.definition);
+    }
+
+    suspendMusic() {
+      if (!this.activeMusicEntry || !this.activeMusicEntry.audio || !this.currentMusicKey) {
+        this.suspendedMusic = null;
+        return;
+      }
+
+      const { audio } = this.activeMusicEntry;
+      this._cancelMusicFade({ finalize: true });
+
+      let time = 0;
+      try {
+        time = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+      } catch (error) {
+        time = 0;
+      }
+
+      audio.pause();
+      this.suspendedMusic = {
+        key: this.currentMusicKey,
+        time,
+        volume: audio.volume,
+      };
+    }
+
+    resumeSuspendedMusic() {
+      if (!this.suspendedMusic || !this.suspendedMusic.key) {
+        return;
+      }
+
+      const { key, time, volume } = this.suspendedMusic;
+      const start = () => {
+        const entry = this._ensureMusicEntry(key);
+        if (!entry) {
+          return;
+        }
+
+        const { audio } = entry;
+
+        try {
+          audio.currentTime = Number.isFinite(time) ? time : 0;
+        } catch (error) {
+          audio.src = audio.src;
+        }
+
+        const targetVolume = Number.isFinite(volume)
+          ? volume
+          : this._resolveMusicVolume(entry.definition);
+
+        audio.volume = targetVolume;
+
+        const playPromise = audio.play();
+        if (typeof playPromise?.catch === 'function') {
+          playPromise.catch(() => {});
+        }
+
+        this.currentMusicKey = key;
+        this.activeMusicEntry = entry;
+      };
+
+      this.suspendedMusic = null;
+
+      if (!this.unlocked) {
+        this.pendingMusicKey = key;
+        this.whenUnlocked().then(() => {
+          if (this.pendingMusicKey === key) {
+            start();
+          }
+        });
+        return;
+      }
+
+      start();
     }
 
     playSfx(key, options = {}) {
@@ -3020,6 +3100,7 @@ import {
   const idleLevelRuns = new Map();
 
   let powderSimulation = null;
+  let powderBasinObserver = null;
 
   class PowderSimulation {
     constructor(options = {}) {
@@ -3071,8 +3152,13 @@ import {
       this.wallInsetRightPx = Number.isFinite(options.wallInsetRight) ? Math.max(0, options.wallInsetRight) : 0;
       this.wallInsetLeftCells = 0;
       this.wallInsetRightCells = 0;
+      const attrWidth = this.canvas ? Number.parseFloat(this.canvas.getAttribute('width')) || 0 : 0;
+      const referenceWidth = Number.isFinite(options.wallReferenceWidth)
+        ? Math.max(options.wallReferenceWidth, this.cellSize)
+        : attrWidth || 240;
+      this.wallGapReferenceCols = Math.max(1, Math.round(referenceWidth / this.cellSize));
       this.wallGapCellsTarget = Number.isFinite(options.wallGapCells)
-        ? Math.max(1, options.wallGapCells)
+        ? Math.max(1, Math.round(options.wallGapCells))
         : null;
 
       this.spawnTimer = 0;
@@ -3251,9 +3337,18 @@ import {
       const largestGrain = this.grainSizes.length
         ? Math.max(1, this.grainSizes[this.grainSizes.length - 1])
         : 1;
-      const desiredGap = Number.isFinite(this.wallGapCellsTarget)
-        ? Math.max(largestGrain, Math.round(this.wallGapCellsTarget))
-        : Math.max(largestGrain, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells);
+      let desiredGap = this.resolveScaledWallGap();
+      if (!Number.isFinite(desiredGap)) {
+        desiredGap = this.cols - this.wallInsetLeftCells - this.wallInsetRightCells;
+      }
+      if (Number.isFinite(this.wallGapCellsTarget)) {
+        const baseTarget = Math.max(
+          largestGrain,
+          Math.min(this.cols, Math.round(this.wallGapCellsTarget)),
+        );
+        desiredGap = Math.max(desiredGap, baseTarget);
+      }
+      desiredGap = Math.max(largestGrain, Math.min(this.cols, Math.round(desiredGap)));
       const clampedGap = Math.max(largestGrain, Math.min(this.cols, desiredGap));
       const totalInset = Math.max(0, this.cols - clampedGap);
       let nextLeft = Math.floor(totalInset / 2);
@@ -3288,10 +3383,32 @@ import {
         return false;
       }
       this.wallGapCellsTarget = Math.max(1, Math.round(gapCells));
+      if (!this.wallGapReferenceCols && this.cols) {
+        this.wallGapReferenceCols = Math.max(1, this.cols);
+      }
       if (!this.cols) {
         return false;
       }
       return this.applyWallGapTarget();
+    }
+
+    resolveScaledWallGap() {
+      if (!Number.isFinite(this.wallGapCellsTarget)) {
+        return null;
+      }
+      if (!this.cols) {
+        return Math.max(1, Math.round(this.wallGapCellsTarget));
+      }
+      const referenceCols = Math.max(1, this.wallGapReferenceCols || this.cols);
+      const ratio = this.wallGapCellsTarget / referenceCols;
+      if (!Number.isFinite(ratio) || ratio <= 0) {
+        return Math.max(1, Math.round(this.wallGapCellsTarget));
+      }
+      const scaled = ratio * this.cols;
+      if (!Number.isFinite(scaled) || scaled <= 0) {
+        return Math.max(1, Math.round(this.wallGapCellsTarget));
+      }
+      return Math.max(1, Math.round(scaled));
     }
 
     notifyWallMetricsChange(metrics) {
@@ -13075,6 +13192,18 @@ import {
       powderState.idleDrainRate = powderSimulation.idleDrainRate;
       powderSimulation.setFlowOffset(powderState.sandOffset);
       powderSimulation.start();
+      if (powderBasinObserver && typeof powderBasinObserver.disconnect === 'function') {
+        powderBasinObserver.disconnect();
+        powderBasinObserver = null;
+      }
+      if (typeof ResizeObserver === 'function' && powderElements.basin) {
+        powderBasinObserver = new ResizeObserver(() => {
+          if (powderSimulation) {
+            powderSimulation.handleResize();
+          }
+        });
+        powderBasinObserver.observe(powderElements.basin);
+      }
       handlePowderHeightChange(powderSimulation.getStatus());
       updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
       syncPowderWallVisuals();
@@ -13565,9 +13694,16 @@ import {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       markLastActive();
+      if (audioManager && typeof audioManager.suspendMusic === 'function') {
+        audioManager.suspendMusic();
+      }
       return;
     }
     if (document.visibilityState === 'visible') {
+      if (audioManager && typeof audioManager.resumeSuspendedMusic === 'function') {
+        audioManager.resumeSuspendedMusic();
+      }
+      refreshTabMusic();
       checkOfflineRewards();
       markLastActive();
     }
