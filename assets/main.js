@@ -38,6 +38,16 @@ import {
   resolvePaletteColorStops,
 } from '../scripts/features/towers/powderTower.js';
 import {
+  configureAchievementsTab,
+  generateLevelAchievements,
+  bindAchievements,
+  evaluateAchievements,
+  refreshAchievementPowderRate,
+  getUnlockedAchievementCount,
+  notifyTowerPlaced,
+  getAchievementPowderRate,
+} from './achievementsTab.js';
+import {
   codexState,
   enemyCodexElements,
   setEnemyCodexEntries,
@@ -1232,93 +1242,6 @@ import {
     return gameplayConfigData;
   }
 
-  function describeLevelAchievementProgress(levelId, shortLabel, longLabel) {
-    const state = levelState.get(levelId) || {};
-    if (state.completed) {
-      return 'Victory sealed · +1 Motes/min secured.';
-    }
-
-    const bestWave = Number.isFinite(state.bestWave) ? state.bestWave : 0;
-    const label = shortLabel || longLabel || levelId || 'Level';
-    if (bestWave > 0) {
-      return `Locked — Best wave ${formatWholeNumber(bestWave)}. Seal ${label} to unlock.`;
-    }
-    return `Locked — Seal ${label} to unlock.`;
-  }
-
-  function createLevelAchievementDefinition(levelId, ordinal) {
-    const levelConfig = levelConfigs.get(levelId);
-    if (!levelConfig || levelConfig.developerOnly) {
-      return null;
-    }
-
-    const id = `level-${ordinal}`;
-    const displayName =
-      levelConfig.displayName || levelConfig.title || levelConfig.id || `Level ${ordinal}`;
-    const shortLabel = levelConfig.id || displayName;
-    const icon = String(ordinal);
-
-    const rewardSegments = [];
-    if (Number.isFinite(levelConfig.startThero)) {
-      rewardSegments.push(`Start ${formatWholeNumber(levelConfig.startThero)} ${THERO_SYMBOL}.`);
-    }
-    if (Number.isFinite(levelConfig.rewardFlux)) {
-      rewardSegments.push(`Victory awards +${formatGameNumber(levelConfig.rewardFlux)} Motes.`);
-    }
-    if (Number.isFinite(levelConfig.rewardScore)) {
-      rewardSegments.push(`Score bonus ${formatGameNumber(levelConfig.rewardScore)} Σ.`);
-    }
-    if (Number.isFinite(levelConfig.rewardEnergy)) {
-      rewardSegments.push(`Energy bonus +${formatGameNumber(levelConfig.rewardEnergy)} TD.`);
-    }
-
-    const rewardSummary = rewardSegments.join(' ');
-    const description = `${displayName} — seal ${shortLabel} to claim the idle mote seal. ${rewardSummary}`.trim();
-
-    return {
-      id,
-      levelId,
-      title: displayName,
-      subtitle: shortLabel,
-      icon,
-      rewardFlux: ACHIEVEMENT_REWARD_FLUX,
-      description: `${description} Unlocking adds +${ACHIEVEMENT_REWARD_FLUX} Motes/min to idle reserves.`,
-      condition: () => isLevelCompleted(levelId),
-      progress: () => describeLevelAchievementProgress(levelId, shortLabel, displayName),
-    };
-  }
-
-  function generateLevelAchievements() {
-    let ordinal = 0;
-    const definitions = [];
-
-    interactiveLevelOrder.forEach((levelId) => {
-      const candidate = createLevelAchievementDefinition(levelId, ordinal + 1);
-      if (!candidate) {
-        return;
-      }
-      ordinal += 1;
-      definitions.push(candidate);
-    });
-
-    achievementDefinitions = definitions;
-    const allowedIds = new Set(definitions.map((definition) => definition.id));
-    Array.from(achievementState.keys()).forEach((key) => {
-      if (!allowedIds.has(key)) {
-        achievementState.delete(key);
-      }
-    });
-
-    refreshAchievementPowderRate();
-
-    if (achievementGridEl) {
-      renderAchievementGrid();
-      evaluateAchievements();
-      updateResourceRates();
-      updatePowderLedger();
-    }
-  }
-
   async function ensureGameplayConfigLoaded() {
     if (gameplayConfigData) {
       return gameplayConfigData;
@@ -1885,8 +1808,6 @@ import {
     powderSigilsReached: 0,
     highestPowderMultiplier: 1,
   };
-
-  const ACHIEVEMENT_REWARD_FLUX = 1;
 
   // The audio manifest points to filenames under assets/audio/music and assets/audio/sfx.
   // Drop encoded tracks with the listed names into those folders to activate playback.
@@ -2674,13 +2595,6 @@ import {
     audioManager.playMusic(key, options);
   }
 
-  let achievementDefinitions = [];
-
-  const achievementState = new Map();
-  const achievementElements = new Map();
-  let achievementGridEl = null;
-  let activeAchievementId = null;
-
   const resourceElements = {
     score: null,
     scoreMultiplier: null,
@@ -2704,8 +2618,6 @@ import {
     fluxRate: baseResources.fluxRate,
     running: false,
   };
-
-  let achievementPowderRate = 0;
 
   let glyphCurrency = 0;
 
@@ -9582,200 +9494,6 @@ import {
     }
   }
 
-  function setActiveAchievement(id) {
-    const nextId = id && achievementElements.has(id) && activeAchievementId !== id ? id : null;
-    activeAchievementId = nextId;
-
-    achievementElements.forEach((element, elementId) => {
-      const expanded = elementId === activeAchievementId;
-      if (element.container) {
-        element.container.classList.toggle('expanded', expanded);
-        element.container.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-      }
-      if (element.detail) {
-        element.detail.hidden = !expanded;
-      }
-    });
-  }
-
-  function renderAchievementGrid() {
-    if (!achievementGridEl) {
-      achievementGridEl = document.getElementById('achievement-grid');
-    }
-    if (!achievementGridEl) {
-      return;
-    }
-
-    achievementElements.clear();
-    achievementGridEl.innerHTML = '';
-
-    if (!achievementDefinitions.length) {
-      achievementGridEl.setAttribute('role', 'list');
-      activeAchievementId = null;
-      return;
-    }
-
-    const fragment = document.createDocumentFragment();
-
-    achievementDefinitions.forEach((definition, index) => {
-      const tile = document.createElement('button');
-      tile.type = 'button';
-      tile.className = 'achievement-tile';
-      tile.dataset.achievementId = definition.id;
-      tile.setAttribute('role', 'listitem');
-      tile.setAttribute('aria-expanded', 'false');
-      tile.setAttribute('aria-label', `${definition.title} achievement. Activate to view details.`);
-      tile.addEventListener('click', () => {
-        setActiveAchievement(definition.id);
-      });
-
-      const icon = document.createElement('span');
-      icon.className = 'achievement-icon';
-      icon.textContent = definition.icon || String(index + 1);
-      icon.setAttribute('aria-hidden', 'true');
-
-      const label = document.createElement('span');
-      label.className = 'achievement-label';
-      label.textContent = definition.title;
-
-      const detail = document.createElement('div');
-      detail.className = 'achievement-detail';
-      detail.hidden = true;
-
-      if (definition.subtitle && definition.subtitle !== definition.title) {
-        const subtitle = document.createElement('p');
-        subtitle.className = 'achievement-subtitle';
-        subtitle.textContent = definition.subtitle;
-        detail.append(subtitle);
-      }
-
-      if (definition.description) {
-        const description = document.createElement('p');
-        description.className = 'achievement-description';
-        description.textContent = definition.description;
-        detail.append(description);
-      }
-
-      const status = document.createElement('p');
-      status.className = 'achievement-status';
-      status.textContent = 'Locked — Seal this level to unlock.';
-      detail.append(status);
-
-      tile.append(icon, label, detail);
-      fragment.append(tile);
-
-      achievementElements.set(definition.id, {
-        container: tile,
-        status,
-        detail,
-      });
-    });
-
-    achievementGridEl.setAttribute('role', 'list');
-    achievementGridEl.append(fragment);
-    setActiveAchievement(null);
-  }
-
-  function bindAchievements() {
-    renderAchievementGrid();
-    evaluateAchievements();
-    refreshAchievementPowderRate();
-    updateResourceRates();
-    updatePowderLedger();
-  }
-
-  function updateAchievementStatus(definition, element, state) {
-    if (!definition || !element) {
-      return;
-    }
-    const { container, status } = element;
-    if (state?.unlocked) {
-      if (container) {
-        container.classList.add('achievement-unlocked');
-      }
-      if (status) {
-        status.textContent = 'Unlocked · +1 Motes/min secured.';
-      }
-      if (container && status) {
-        container.setAttribute(
-          'aria-label',
-          `${definition.title} achievement. ${status.textContent} Activate to view details.`,
-        );
-      }
-      return;
-    }
-
-    if (container) {
-      container.classList.remove('achievement-unlocked');
-    }
-    if (status) {
-      const progress = typeof definition.progress === 'function'
-        ? definition.progress()
-        : 'Locked';
-      status.textContent = progress.startsWith('Locked')
-        ? progress
-        : `Locked — ${progress}`;
-    }
-    if (container && status) {
-      container.setAttribute(
-        'aria-label',
-        `${definition.title} achievement. ${status.textContent} Activate to view details.`,
-      );
-    }
-  }
-
-  function evaluateAchievements() {
-    achievementDefinitions.forEach((definition) => {
-      const state = achievementState.get(definition.id);
-      if (!state?.unlocked && typeof definition.condition === 'function' && definition.condition()) {
-        unlockAchievement(definition);
-      } else {
-        updateAchievementStatus(definition, achievementElements.get(definition.id), state || null);
-      }
-    });
-  }
-
-  function unlockAchievement(definition) {
-    if (!definition) {
-      return;
-    }
-    const existing = achievementState.get(definition.id);
-    if (existing?.unlocked) {
-      updateAchievementStatus(definition, achievementElements.get(definition.id), existing);
-      return;
-    }
-
-    const state = { unlocked: true, unlockedAt: Date.now() };
-    achievementState.set(definition.id, state);
-
-    const element = achievementElements.get(definition.id);
-    updateAchievementStatus(definition, element, state);
-
-    refreshAchievementPowderRate();
-    updateResourceRates();
-    updatePowderLedger();
-
-    recordPowderEvent('achievement-unlocked', { title: definition.title });
-    updateStatusDisplays();
-  }
-
-  function getUnlockedAchievementCount() {
-    return Array.from(achievementState.values()).filter((state) => state?.unlocked).length;
-  }
-
-  function refreshAchievementPowderRate() {
-    const unlocked = getUnlockedAchievementCount();
-    achievementPowderRate = unlocked * ACHIEVEMENT_REWARD_FLUX;
-  }
-
-  function notifyTowerPlaced(activeCount) {
-    gameStats.towersPlaced += 1;
-    if (Number.isFinite(activeCount)) {
-      gameStats.maxTowersSimultaneous = Math.max(gameStats.maxTowersSimultaneous, activeCount);
-    }
-    evaluateAchievements();
-  }
-
   function updateLoadoutNote() {
     if (!loadoutElements.note) {
       return;
@@ -12041,7 +11759,7 @@ import {
 
     resourceState.scoreRate = baseResources.scoreRate * currentPowderBonuses.totalMultiplier;
     const fluxMultiplier = 1 + currentPowderBonuses.sandBonus + currentPowderBonuses.crystalBonus;
-    resourceState.fluxRate = baseResources.fluxRate * fluxMultiplier + achievementPowderRate;
+    resourceState.fluxRate = baseResources.fluxRate * fluxMultiplier + getAchievementPowderRate();
     resourceState.energyRate =
       baseResources.energyRate * (1 + currentPowderBonuses.duneBonus + currentPowderBonuses.crystalBonus * 0.5);
 
@@ -12559,6 +12277,19 @@ import {
 
     updatePowderStockpileDisplay();
   }
+
+  configureAchievementsTab({
+    levelConfigs,
+    levelState,
+    getInteractiveLevelOrder: () => interactiveLevelOrder,
+    isLevelCompleted,
+    THERO_SYMBOL,
+    recordPowderEvent,
+    updateResourceRates,
+    updatePowderLedger,
+    updateStatusDisplays,
+    gameStats,
+  });
 
   async function init() {
     levelGrid = document.getElementById('level-grid');
