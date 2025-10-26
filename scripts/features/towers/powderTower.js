@@ -377,9 +377,10 @@ export class PowderSimulation {
     const referenceWidth = Number.isFinite(options.wallReferenceWidth)
       ? Math.max(options.wallReferenceWidth, this.cellSize)
       : attrWidth || 240;
+    this.wallGapReferenceWidth = referenceWidth; // Store the baseline basin width in CSS pixels for later scaling.
     this.wallGapReferenceCols = Math.max(1, Math.round(referenceWidth / this.cellSize));
-    this.wallGapCellsTarget = Number.isFinite(options.wallGapCells)
-      ? Math.max(1, Math.round(options.wallGapCells))
+    this.wallGapTargetUnits = Number.isFinite(options.wallGapCells)
+      ? Math.max(1, options.wallGapCells)
       : null;
 
     this.spawnTimer = 0;
@@ -510,6 +511,14 @@ export class PowderSimulation {
     this.cols = Math.max(4, Math.floor(this.width / this.cellSize));
     this.rows = Math.max(4, Math.floor(this.height / this.cellSize));
 
+    const referenceWidthPx = Number.isFinite(this.wallGapReferenceWidth)
+      ? this.wallGapReferenceWidth
+      : this.width;
+    this.wallGapReferenceCols = Math.max(
+      1,
+      Math.round(referenceWidthPx / this.cellSize),
+    ); // Recalculate how many grid columns the reference layout represents after a resize.
+
     const dynamicCapacity = Math.floor((this.cols * this.rows) / 3);
     this.maxGrains = Math.max(this.maxGrainsBase, dynamicCapacity);
 
@@ -523,7 +532,7 @@ export class PowderSimulation {
       this.wallInsetRightCells = Math.floor(this.wallInsetRightCells * scale);
     }
 
-    if (Number.isFinite(this.wallGapCellsTarget)) {
+    if (Number.isFinite(this.wallGapTargetUnits)) {
       this.applyWallGapTarget({ skipRebuild: true });
     } else {
       this.updateMaxDropSize();
@@ -694,24 +703,34 @@ export class PowderSimulation {
 
   setWallGapTarget(target, options = {}) {
     if (!Number.isFinite(target) || target <= 0) {
-      this.wallGapCellsTarget = null;
+      this.wallGapTargetUnits = null;
       this.updateMaxDropSize();
       return;
     }
-    this.wallGapCellsTarget = Math.max(1, Math.round(target));
+    this.wallGapTargetUnits = Math.max(1, target); // Preserve the requested gap in design units before scaling to the grid.
     this.applyWallGapTarget(options);
   }
 
   applyWallGapTarget(options = {}) {
-    if (!Number.isFinite(this.wallGapCellsTarget) || this.wallGapCellsTarget <= 0) {
+    if (!Number.isFinite(this.wallGapTargetUnits) || this.wallGapTargetUnits <= 0) {
       this.updateMaxDropSize();
       return;
     }
-    const desired = Math.max(1, this.wallGapCellsTarget);
+    const referenceCols = Math.max(
+      1,
+      Number.isFinite(this.wallGapReferenceCols) ? this.wallGapReferenceCols : this.cols,
+    ); // Determine how many columns correspond to the stored design-space width.
     const total = Math.max(0, this.cols);
     if (total <= 0) {
       return;
     }
+    const desired = Math.max(
+      1,
+      Math.min(
+        total,
+        Math.round((this.wallGapTargetUnits / referenceCols) * total),
+      ),
+    ); // Scale the requested gap from design-space units into live grid columns.
     const excess = Math.max(0, total - desired);
     const leftShare = Math.round(excess / 2);
     const rightShare = excess - leftShare;
