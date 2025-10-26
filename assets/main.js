@@ -3298,6 +3298,7 @@ import {
   };
 
   const POWDER_CELL_SIZE_PX = 1;
+  const MOTE_RENDER_SCALE = 3;
   const powderGlyphColumns = [];
   let powderWallMetrics = null;
 
@@ -4372,11 +4373,13 @@ import {
 
       const cellSizePx = this.cellSize;
       for (const grain of this.grains) {
-        const px = grain.x * cellSizePx;
-        const py = grain.y * cellSizePx;
-        const sizePx = grain.size * cellSizePx;
+        const baseSizePx = grain.size * cellSizePx;
+        const sizePx = baseSizePx * MOTE_RENDER_SCALE;
+        const offsetPx = (sizePx - baseSizePx) / 2;
+        const px = grain.x * cellSizePx - offsetPx;
+        const py = grain.y * cellSizePx - offsetPx;
 
-        if (py >= this.height || px >= this.width || py + sizePx <= 0) {
+        if (py >= this.height || px >= this.width || py + sizePx <= 0 || px + sizePx <= 0) {
           continue;
         }
 
