@@ -677,16 +677,32 @@ body.color-scheme-chromatic::before {
 
 .level-grid {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 24px;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
 }
 
 .level-set {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 18px;
   padding: 6px 0;
+  flex: 0 0 auto;
+  width: var(--level-node-size);
+  transition: width 360ms ease, transform 320ms ease;
+}
+
+.level-set.expanded {
+  width: 100%;
+  flex-direction: row;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .level-set-trigger {
@@ -703,8 +719,8 @@ body.color-scheme-chromatic::before {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-family: "Space Mono", monospace;
-  font-size: 0.78rem;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
@@ -748,17 +764,19 @@ body.color-scheme-chromatic::before {
 }
 
 .level-set-title {
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.92rem;
   letter-spacing: 0.14em;
 }
 
 .level-set-count {
+  font-family: "Space Mono", monospace;
   font-size: 0.7rem;
   opacity: 0.7;
 }
 
 .level-set-levels {
-  flex: 1 1 220px;
+  flex: 1 1 320px;
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
@@ -768,6 +786,12 @@ body.color-scheme-chromatic::before {
   pointer-events: none;
   transform: translateX(-18px);
   transition: max-height 320ms ease, opacity 220ms ease, transform 300ms ease;
+  width: 100%;
+}
+
+.level-set:not(.expanded) .level-set-levels {
+  flex-basis: 0;
+  width: 0;
 }
 
 .level-set.expanded .level-set-levels {
@@ -775,6 +799,37 @@ body.color-scheme-chromatic::before {
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
+}
+
+.level-set.locked .level-set-trigger {
+  border-color: rgba(255, 255, 255, 0.1);
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.level-set.locked .level-set-trigger:hover,
+.level-set.locked .level-set-trigger:focus-visible {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  transform: none;
+}
+
+.level-set.locked .level-set-trigger::after {
+  opacity: 0;
+}
+
+.level-set.locked .level-set-glyph {
+  color: rgba(139, 247, 255, 0.3);
+  text-shadow: none;
+}
+
+.level-set.locked .level-set-title {
+  color: rgba(247, 247, 245, 0.68);
+}
+
+.level-set.locked .level-set-count {
+  opacity: 0.45;
 }
 
 .level-node {
@@ -785,7 +840,7 @@ body.color-scheme-chromatic::before {
   gap: 8px;
   width: var(--level-node-size);
   height: var(--level-node-size);
-  padding: 14px;
+  padding: 18px 14px 46px;
   border-radius: 22px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: linear-gradient(160deg, rgba(12, 16, 28, 0.92), rgba(18, 20, 36, 0.92));
@@ -887,6 +942,25 @@ body.color-scheme-chromatic::before {
 .level-node.locked .level-status-pill {
   background: rgba(120, 126, 140, 0.32);
   color: rgba(247, 247, 245, 0.75);
+}
+
+.level-best-wave {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Space Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 245, 0.82);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.level-node.show-wave .level-best-wave {
+  opacity: 1;
 }
 
 .button-ripple {
