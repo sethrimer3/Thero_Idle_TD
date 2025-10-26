@@ -3110,6 +3110,18 @@ body.color-scheme-chromatic::before {
     backdrop-filter: none;
     background: rgba(10, 10, 16, 0.95);
   }
+
+  .offline-overlay {
+    /* Disable heavy blur layers on mobile Safari to avoid GPU exhaustion when scrolling overlays. */
+    backdrop-filter: none;
+    background: rgba(3, 3, 5, 0.96);
+  }
+
+  .playfield-stats {
+    /* Mirroring the blur removal elsewhere so the mobile renderer keeps compositing costs low. */
+    backdrop-filter: none;
+    background: rgba(10, 10, 16, 0.82);
+  }
 }
 
 .tab-button {
