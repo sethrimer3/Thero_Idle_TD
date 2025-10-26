@@ -1590,6 +1590,8 @@ import {
     currentIndex: 0,
     animating: false,
     touchStart: null,
+    hideTimeoutId: null,
+    overlayTransitionHandler: null,
   };
 
   const developerUtilityElements = {
@@ -12016,6 +12018,38 @@ import {
 
     overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
+
+    if (fieldNotesState.overlayTransitionHandler) {
+      overlay.removeEventListener('transitionend', fieldNotesState.overlayTransitionHandler);
+      fieldNotesState.overlayTransitionHandler = null;
+    }
+    if (fieldNotesState.hideTimeoutId !== null) {
+      window.clearTimeout(fieldNotesState.hideTimeoutId);
+      fieldNotesState.hideTimeoutId = null;
+    }
+
+    const finalizeHide = () => {
+      overlay.setAttribute('hidden', '');
+      if (fieldNotesState.overlayTransitionHandler) {
+        overlay.removeEventListener('transitionend', fieldNotesState.overlayTransitionHandler);
+        fieldNotesState.overlayTransitionHandler = null;
+      }
+      if (fieldNotesState.hideTimeoutId !== null) {
+        window.clearTimeout(fieldNotesState.hideTimeoutId);
+        fieldNotesState.hideTimeoutId = null;
+      }
+    };
+
+    function handleTransitionEnd(event) {
+      if (event && event.target !== overlay) {
+        return;
+      }
+      finalizeHide();
+    }
+
+    fieldNotesState.overlayTransitionHandler = handleTransitionEnd;
+    overlay.addEventListener('transitionend', handleTransitionEnd);
+    fieldNotesState.hideTimeoutId = window.setTimeout(finalizeHide, 320);
     fieldNotesState.animating = false;
     clearFieldNotesPointerTracking();
 
@@ -12038,6 +12072,15 @@ import {
     }
 
     fieldNotesElements.lastFocus = document.activeElement;
+    if (fieldNotesState.hideTimeoutId !== null) {
+      window.clearTimeout(fieldNotesState.hideTimeoutId);
+      fieldNotesState.hideTimeoutId = null;
+    }
+    if (fieldNotesState.overlayTransitionHandler) {
+      overlay.removeEventListener('transitionend', fieldNotesState.overlayTransitionHandler);
+      fieldNotesState.overlayTransitionHandler = null;
+    }
+    overlay.removeAttribute('hidden');
     overlay.setAttribute('aria-hidden', 'false');
     fieldNotesState.touchStart = null;
     setFieldNotesPage(0, { immediate: true });
