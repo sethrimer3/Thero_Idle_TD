@@ -1,5 +1,7 @@
 # Thero Idle – Agent Guide
 
+**Live build:** https://sethrimer3.github.io/Thero_Idle_TD/
+
 Welcome to the Thero Idle project. This document provides shared context and
 conventions for all AI collaborators working anywhere inside this repository.
 
