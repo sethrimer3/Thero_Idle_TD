@@ -8349,6 +8349,21 @@ import {
       });
   }
 
+  function isInfinityModeUnlocked() {
+    if (developerModeActive) {
+      return true;
+    }
+    if (gameStats.manualVictories > 0) {
+      return true;
+    }
+    for (const state of levelState.values()) {
+      if (state?.completed) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function updateLevelSetLocks() {
     if (!levelSetEntries.length) {
       return;
@@ -8362,23 +8377,38 @@ import {
       const previous = levelSetEntries[index - 1];
       const unlocked = index === 0 || areSetNormalLevelsCompleted(previous?.levels);
 
-      if (unlocked) {
-        entry.element.hidden = false;
-        entry.element.classList.remove('locked');
-        entry.element.removeAttribute('aria-hidden');
-        entry.trigger.disabled = false;
-        entry.trigger.setAttribute('aria-disabled', 'false');
-        return;
-      }
-
-      if (entry.element.classList.contains('expanded')) {
+      if (!unlocked && entry.element.classList.contains('expanded')) {
         collapseLevelSet(entry.element);
       }
-      entry.element.hidden = true;
-      entry.element.classList.add('locked');
-      entry.element.setAttribute('aria-hidden', 'true');
-      entry.trigger.disabled = true;
-      entry.trigger.setAttribute('aria-disabled', 'true');
+
+      entry.element.hidden = false;
+      entry.element.setAttribute('aria-hidden', 'false');
+      entry.element.classList.toggle('locked', !unlocked);
+
+      entry.trigger.disabled = !unlocked;
+      entry.trigger.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
+      if (unlocked) {
+        entry.trigger.removeAttribute('tabindex');
+        entry.trigger.setAttribute('aria-label', `${entry.name} level set`);
+        entry.trigger.title = `${entry.name} level set`;
+      } else {
+        entry.trigger.setAttribute('tabindex', '-1');
+        entry.trigger.setAttribute('aria-label', 'Locked level set');
+        entry.trigger.title = 'Locked level set';
+      }
+
+      if (entry.titleEl) {
+        entry.titleEl.textContent = unlocked ? entry.name : 'LOCKED';
+      }
+
+      if (entry.countEl) {
+        if (unlocked) {
+          const countLabel = entry.levels.length === 1 ? 'level' : 'levels';
+          entry.countEl.textContent = `${entry.levels.length} ${countLabel}`;
+        } else {
+          entry.countEl.textContent = 'LOCKED';
+        }
+      }
     });
   }
 
@@ -8474,19 +8504,24 @@ import {
         );
         card.tabIndex = -1;
         card.style.setProperty('--level-delay', `${index * 40}ms`);
+        const pathLabel = typeof level.path === 'string' ? level.path : '—';
+        const focusLabel = typeof level.focus === 'string' ? level.focus : '—';
         card.innerHTML = `
           <span class="level-node-core">
             <span class="level-status-pill">New</span>
             <span class="level-id">${level.id}</span>
             <span class="level-node-title">${level.title}</span>
           </span>
-          <span class="screen-reader-only level-path">Path ${level.path}</span>
-          <span class="screen-reader-only level-focus">Focus ${level.focus}</span>
+          <span class="level-best-wave" aria-hidden="true" hidden>Wave —</span>
+          <span class="screen-reader-only level-path">Path ${pathLabel}</span>
+          <span class="screen-reader-only level-focus">Focus ${focusLabel}</span>
           <span class="screen-reader-only level-mode">—</span>
           <span class="screen-reader-only level-duration">—</span>
           <span class="screen-reader-only level-rewards">—</span>
           <span class="screen-reader-only level-last-result">No attempts recorded.</span>
+          <span class="screen-reader-only level-best-wave-sr">Infinity wave record locked.</span>
         `;
+        card.dataset.ariaLabelBase = `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
         card.addEventListener('click', () => {
           handleLevelSelection(level);
         });
@@ -8503,6 +8538,8 @@ import {
         name: setName,
         element: setElement,
         trigger,
+        titleEl: title,
+        countEl: count,
         levels: levels.slice(),
       });
 
@@ -9733,35 +9770,48 @@ import {
 
   function updateLevelCards() {
     if (!levelGrid) return;
+    const infinityUnlockedOverall = isInfinityModeUnlocked();
     levelBlueprints.forEach((level) => {
       const card = levelGrid.querySelector(`[data-level="${level.id}"]`);
       if (!card) return;
       const pill = card.querySelector('.level-status-pill');
+      const titleEl = card.querySelector('.level-node-title');
+      const pathEl = card.querySelector('.level-path');
+      const focusEl = card.querySelector('.level-focus');
+      const waveEl = card.querySelector('.level-best-wave');
+      const waveSrEl = card.querySelector('.level-best-wave-sr');
       const state = levelState.get(level.id);
 
       const entered = Boolean(state && state.entered);
       const running = Boolean(state && state.running);
       const completed = Boolean(state && state.completed);
       const unlocked = isLevelUnlocked(level.id);
+      const infinityUnlocked = infinityUnlockedOverall;
+      const pathLabel = typeof level.path === 'string' ? level.path : '—';
+      const focusLabel = typeof level.focus === 'string' ? level.focus : '—';
 
       const summary = getLevelSummary(level);
       const modeEl = card.querySelector('.level-mode');
       const durationEl = card.querySelector('.level-duration');
       const rewardsEl = card.querySelector('.level-rewards');
       if (modeEl) {
-        modeEl.textContent = summary.mode;
+        modeEl.textContent = unlocked ? summary.mode : 'Locked';
       }
       if (durationEl) {
-        durationEl.textContent = summary.duration;
+        durationEl.textContent = unlocked ? summary.duration : '—';
       }
       if (rewardsEl) {
-        rewardsEl.textContent = summary.rewards;
+        rewardsEl.textContent = unlocked ? summary.rewards : '—';
       }
 
       const runner = idleLevelRuns.get(level.id) || null;
       const lastResultEl = card.querySelector('.level-last-result');
       if (lastResultEl) {
-        lastResultEl.textContent = describeLevelLastResult(level, state || null, runner);
+        if (unlocked) {
+          lastResultEl.textContent = describeLevelLastResult(level, state || null, runner);
+        } else {
+          lastResultEl.textContent = 'Locked until preceding defenses are sealed.';
+        }
       }
 
       card.classList.toggle('entered', entered);
@@ -9773,16 +9823,78 @@ import {
       const setExpanded = Boolean(parentSet && parentSet.classList.contains('expanded'));
       card.tabIndex = unlocked && setExpanded ? 0 : -1;
 
-      if (!unlocked) {
-        pill.textContent = 'Locked';
-      } else if (!entered) {
-        pill.textContent = 'New';
-      } else if (running) {
-        pill.textContent = 'Running';
-      } else if (completed) {
-        pill.textContent = 'Complete';
+      if (titleEl) {
+        titleEl.textContent = unlocked ? level.title : 'LOCKED';
+      }
+      if (pathEl) {
+        pathEl.textContent = unlocked ? `Path ${pathLabel}` : 'Path details locked.';
+      }
+      if (focusEl) {
+        focusEl.textContent = unlocked ? `Focus ${focusLabel}` : 'Focus details locked.';
+      }
+
+      if (pill) {
+        let pillVisible = false;
+        let pillText = '';
+        if (unlocked && !entered) {
+          pillText = 'New';
+          pillVisible = true;
+        } else if (unlocked && running) {
+          pillText = 'Running';
+          pillVisible = true;
+        } else if (unlocked && completed) {
+          pillText = 'Complete';
+          pillVisible = true;
+        }
+
+        if (pillVisible) {
+          pill.textContent = pillText;
+          pill.removeAttribute('hidden');
+          pill.setAttribute('aria-hidden', 'false');
+        } else {
+          pill.textContent = pillText;
+          pill.setAttribute('aria-hidden', 'true');
+          pill.setAttribute('hidden', '');
+        }
+      }
+
+      const bestWave = Number.isFinite(state?.bestWave) ? state.bestWave : 0;
+      if (waveEl) {
+        if (infinityUnlocked) {
+          const displayWave = bestWave > 0 ? formatWholeNumber(bestWave) : '—';
+          waveEl.textContent = `Wave ${displayWave}`;
+          waveEl.removeAttribute('hidden');
+          card.classList.add('show-wave');
+        } else {
+          waveEl.setAttribute('hidden', '');
+          card.classList.remove('show-wave');
+        }
+      }
+      if (waveSrEl) {
+        if (infinityUnlocked) {
+          if (bestWave > 0) {
+            waveSrEl.textContent = `Infinity mode best wave ${formatWholeNumber(bestWave)}.`;
+          } else {
+            waveSrEl.textContent = 'Infinity mode ready—no wave record yet.';
+          }
+        } else {
+          waveSrEl.textContent = 'Infinity wave record locked.';
+        }
+      }
+
+      const baseLabel = card.dataset.ariaLabelBase || '';
+      if (unlocked) {
+        const waveLabel = infinityUnlocked
+          ? bestWave > 0
+            ? ` Best wave reached: ${formatWholeNumber(bestWave)}.`
+            : ' Infinity mode available—no wave record yet.'
+          : '';
+        card.setAttribute('aria-label', `${baseLabel}${waveLabel}`.trim());
       } else {
-        pill.textContent = 'Ready';
+        card.setAttribute(
+          'aria-label',
+          `${level.id} locked. Seal the preceding defense to reveal details.`,
+        );
       }
     });
 
