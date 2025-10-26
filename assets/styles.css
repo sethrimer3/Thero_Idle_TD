@@ -2233,6 +2233,10 @@ body.color-scheme-chromatic::before {
   z-index: 20;
 }
 
+.level-overlay[hidden] {
+  display: none !important;
+}
+
 .level-overlay:not(.active) .overlay-panel {
   pointer-events: none;
 }
