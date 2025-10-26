@@ -42,9 +42,8 @@ conventions for all AI collaborators working anywhere inside this repository.
 1. **Documentation:** Whenever introducing a new formula or mechanic, leave inline
    comments or docstrings describing the equation and its impact. Use Markdown tables in
    README-like docs when summarizing upgrade trees.
-2. **Scripts:**  Use
-   descriptive, theme-aligned names (e.g., `SigmaTower`, `PhiEnemy`). TO FILL OUT
-3. **Code style:** TO FILL OUT
+2. **Scripts:**  Use descriptive, theme-aligned names (e.g., `SigmaTower`, `PhiEnemy`). TO FILL OUT
+3. **Code style:** Include a descriptive comment for each added piece of code.
 4. **Assets:** Place new art, fonts, or audio inside appropriately named subfolders
    under `MAIN/`. Document licensing info in an accompanying `README` if required.
 5. **Mobile readiness:** Design UI layouts with responsive/touch-friendly controls.
