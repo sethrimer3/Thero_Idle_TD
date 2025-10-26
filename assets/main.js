@@ -37,6 +37,16 @@ import {
   mergeMotePalette,
   resolvePaletteColorStops,
 } from '../scripts/features/towers/powderTower.js';
+import {
+  codexState,
+  enemyCodexElements,
+  setEnemyCodexEntries,
+  getEnemyCodexEntries,
+  getEnemyCodexEntry,
+  renderEnemyCodex,
+  registerEnemyEncounter,
+  bindCodexControls,
+} from './codex.js';
 
 (() => {
   'use strict';
@@ -674,8 +684,6 @@ import {
 
   let gameplayConfigData = null;
   let levelBlueprints = [];
-  let enemyCodexEntries = [];
-  let enemyCodexMap = new Map();
   let towerDefinitions = [];
   let fluidSimulationProfile = null;
   let fluidSimulationLoadPromise = null;
@@ -691,10 +699,6 @@ import {
   let TOWER_LOADOUT_LIMIT = FALLBACK_TOWER_LOADOUT_LIMIT;
   let BASE_START_THERO = FALLBACK_BASE_START_THERO;
   let BASE_CORE_INTEGRITY = FALLBACK_BASE_CORE_INTEGRITY;
-
-  const codexState = {
-    encounteredEnemies: new Set(),
-  };
 
   const COLOR_SCHEME_STORAGE_KEY = 'thero-idle-color-scheme';
 
@@ -1168,19 +1172,7 @@ import {
 
     mergeProgressState.mergingLogicUnlocked = towerUnlockState.unlocked.has('beta');
 
-    enemyCodexEntries = Array.isArray(gameplayConfigData.enemies)
-      ? gameplayConfigData.enemies.map((entry) => ({
-          ...entry,
-          traits: Array.isArray(entry.traits) ? [...entry.traits] : [],
-        }))
-      : [];
-    enemyCodexMap = new Map(enemyCodexEntries.map((entry) => [entry.id, entry]));
-
-    Array.from(codexState.encounteredEnemies).forEach((enemyId) => {
-      if (!enemyCodexMap.has(enemyId)) {
-        codexState.encounteredEnemies.delete(enemyId);
-      }
-    });
+    setEnemyCodexEntries(gameplayConfigData.enemies);
 
     levelBlueprints = Array.isArray(gameplayConfigData.maps)
       ? gameplayConfigData.maps.map((map) => ({ ...map }))
@@ -1523,12 +1515,6 @@ import {
     }
     return interactiveLevelOrder[index - 1] || null;
   }
-
-  const enemyCodexElements = {
-    list: null,
-    empty: null,
-    note: null,
-  };
 
   const developerModeElements = {
     toggle: null,
@@ -5624,8 +5610,8 @@ import {
           return trimmed;
         }
       }
-      if (config && typeof config.codexId === 'string' && enemyCodexMap.has(config.codexId)) {
-        const codexEntry = enemyCodexMap.get(config.codexId);
+      if (config && typeof config.codexId === 'string') {
+        const codexEntry = getEnemyCodexEntry(config.codexId);
         if (codexEntry && typeof codexEntry.symbol === 'string') {
           const trimmed = codexEntry.symbol.trim();
           if (trimmed) {
@@ -10950,137 +10936,6 @@ import {
     updateTowerSelectionButtons();
   }
 
-  function renderEnemyCodex() {
-    if (!enemyCodexElements.list) {
-      return;
-    }
-
-    const encountered = Array.from(codexState.encounteredEnemies)
-      .map((id) => enemyCodexMap.get(id))
-      .filter(Boolean);
-
-    enemyCodexElements.list.innerHTML = '';
-
-    if (enemyCodexElements.note) {
-      enemyCodexElements.note.hidden = encountered.length > 0 ? false : true;
-    }
-
-    if (!encountered.length) {
-      if (enemyCodexElements.empty) {
-        enemyCodexElements.empty.hidden = false;
-      }
-      enemyCodexElements.list.setAttribute('hidden', '');
-      return;
-    }
-
-    enemyCodexElements.list.removeAttribute('hidden');
-    if (enemyCodexElements.empty) {
-      enemyCodexElements.empty.hidden = true;
-    }
-
-    const fragment = document.createDocumentFragment();
-    encountered.forEach((entry) => {
-      const card = document.createElement('article');
-      card.className = 'card enemy-card';
-      card.setAttribute('role', 'listitem');
-
-      const title = document.createElement('h3');
-      title.textContent = entry.name;
-      card.append(title);
-
-      if (entry.symbol) {
-        const glyphRow = document.createElement('p');
-        glyphRow.className = 'enemy-card-glyph';
-
-        const glyphSymbol = document.createElement('span');
-        glyphSymbol.className = 'enemy-card-symbol';
-        glyphSymbol.textContent = entry.symbol;
-
-        const glyphExponent = document.createElement('sup');
-        glyphExponent.className = 'enemy-card-symbol-exponent';
-        glyphExponent.textContent = 'k';
-        glyphSymbol.append(glyphExponent);
-
-        const glyphNote = document.createElement('span');
-        glyphNote.className = 'enemy-card-glyph-note';
-        glyphNote.textContent = annotateMathText('HP tiers use (10^{k}).');
-
-        glyphRow.append(glyphSymbol, glyphNote);
-        card.append(glyphRow);
-        renderMathElement(glyphNote);
-      }
-
-      const summaryText = entry.summary || entry.description || '';
-      if (summaryText) {
-        const summary = document.createElement('p');
-        summary.className = 'enemy-card-summary';
-        summary.textContent = annotateMathText(summaryText);
-        card.append(summary);
-        renderMathElement(summary);
-      }
-
-      if (entry.formula) {
-        const formulaRow = document.createElement('p');
-        formulaRow.className = 'enemy-card-formula';
-
-        const formulaLabel = document.createElement('span');
-        formulaLabel.className = 'enemy-card-formula-label';
-        formulaLabel.textContent = entry.formulaLabel || 'Key Expression';
-
-        const equation = document.createElement('span');
-        equation.className = 'enemy-card-equation';
-        equation.textContent = annotateMathText(entry.formula);
-
-        formulaRow.append(formulaLabel, document.createTextNode(': '), equation);
-        card.append(formulaRow);
-        renderMathElement(equation);
-      }
-
-      if (Array.isArray(entry.traits) && entry.traits.length) {
-        const traitList = document.createElement('ul');
-        traitList.className = 'enemy-card-traits';
-        entry.traits.forEach((trait) => {
-          const item = document.createElement('li');
-          item.textContent = annotateMathText(trait);
-          traitList.append(item);
-          renderMathElement(item);
-        });
-        card.append(traitList);
-      }
-
-      if (entry.counter) {
-        const counter = document.createElement('p');
-        counter.className = 'enemy-card-counter';
-        counter.textContent = annotateMathText(entry.counter);
-        card.append(counter);
-        renderMathElement(counter);
-      }
-
-      if (entry.lore) {
-        const lore = document.createElement('p');
-        lore.className = 'enemy-card-lore';
-        lore.textContent = annotateMathText(entry.lore);
-        card.append(lore);
-        renderMathElement(lore);
-      }
-
-      fragment.append(card);
-    });
-
-    enemyCodexElements.list.append(fragment);
-  }
-
-  function registerEnemyEncounter(enemyId) {
-    if (!enemyId || codexState.encounteredEnemies.has(enemyId)) {
-      return;
-    }
-    if (!enemyCodexMap.has(enemyId)) {
-      return;
-    }
-    codexState.encounteredEnemies.add(enemyId);
-    renderEnemyCodex();
-  }
-
   function enableDeveloperMode() {
     developerModeActive = true;
     if (developerModeElements.toggle && !developerModeElements.toggle.checked) {
@@ -11115,7 +10970,8 @@ import {
       }
     });
 
-    codexState.encounteredEnemies = new Set(enemyCodexEntries.map((entry) => entry.id));
+    const codexEntries = getEnemyCodexEntries();
+    codexState.encounteredEnemies = new Set(codexEntries.map((entry) => entry.id));
 
     renderEnemyCodex();
     updateLevelCards();
@@ -11601,40 +11457,6 @@ import {
         if (event.pointerType === 'touch' || event.pointerType === 'pen') {
           clearFieldNotesPointerTracking();
         }
-      });
-    }
-  }
-
-  function bindCodexControls() {
-    const openButton = document.getElementById('open-codex-button');
-    if (openButton) {
-      fieldNotesElements.openButton = openButton;
-      openButton.addEventListener('click', () => {
-        setActiveTab('options');
-        openFieldNotesOverlay();
-      });
-    }
-
-    const optionsButton = document.getElementById('codex-options-button');
-    if (optionsButton) {
-      optionsButton.addEventListener('click', () => {
-        setActiveTab('options');
-
-        window.requestAnimationFrame(() => {
-          const soundCard = document.getElementById('sound-card');
-          if (soundCard) {
-            scrollPanelToElement(soundCard);
-          }
-
-          const musicSlider = document.getElementById('music-volume');
-          if (musicSlider && typeof musicSlider.focus === 'function') {
-            try {
-              musicSlider.focus({ preventScroll: true });
-            } catch (error) {
-              musicSlider.focus();
-            }
-          }
-        });
       });
     }
   }
@@ -12793,7 +12615,14 @@ import {
 
     initializeTabs();
     initializeFieldNotesOverlay();
-    bindCodexControls();
+    bindCodexControls({
+      setActiveTab,
+      openFieldNotesOverlay,
+      scrollPanelToElement,
+      onOpenButtonReady: (button) => {
+        fieldNotesElements.openButton = button;
+      },
+    });
     try {
       await ensureGameplayConfigLoaded();
     } catch (error) {
