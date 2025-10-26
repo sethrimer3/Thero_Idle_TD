@@ -12091,8 +12091,9 @@ import {
         decrement.type = 'button';
         decrement.className = 'tower-upgrade-variable-glyph-button tower-upgrade-variable-glyph-button--decrease';
         decrement.textContent = '−';
-        decrement.disabled = true;
+        decrement.disabled = level <= 0;
         decrement.setAttribute('aria-label', `Withdraw glyphs from ${variable.symbol || variable.key}`);
+        decrement.addEventListener('click', () => handleTowerVariableDowngrade(towerId, variable.key));
         glyphControl.append(decrement);
 
         const glyphCount = document.createElement('span');
@@ -12341,6 +12342,47 @@ import {
     if (audioManager) {
       audioManager.playSfx?.('upgrade');
     }
+    renderTowerUpgradeOverlay(towerId, { blueprint });
+  }
+
+  function handleTowerVariableDowngrade(towerId, variableKey) {
+    const blueprint = getTowerEquationBlueprint(towerId);
+    if (!blueprint) {
+      return;
+    }
+    const variable = getBlueprintVariable(blueprint, variableKey);
+    if (!variable || variable.upgradable === false) {
+      return;
+    }
+
+    const state = ensureTowerUpgradeState(towerId, blueprint);
+    const currentLevel = state.variables?.[variableKey]?.level || 0;
+
+    if (currentLevel <= 0) {
+      setTowerUpgradeNote(`No glyphs invested in ${variable.symbol || variable.key} yet.`, 'warning');
+      if (audioManager) {
+        audioManager.playSfx?.('error');
+      }
+      renderTowerUpgradeOverlay(towerId, { blueprint });
+      return;
+    }
+
+    const nextLevel = currentLevel - 1;
+    const refundAmount = Math.max(1, calculateTowerVariableUpgradeCost(variable, nextLevel));
+
+    state.variables[variableKey].level = nextLevel;
+    glyphCurrency += refundAmount;
+    invalidateTowerEquationCache();
+
+    setTowerUpgradeNote(
+      `Withdrew ${refundAmount} ${refundAmount === 1 ? 'glyph' : 'glyphs'} from ${variable.symbol || variable.key}.`,
+      'success',
+    );
+
+    if (audioManager) {
+      audioManager.playSfx?.('towerSell');
+    }
+
     renderTowerUpgradeOverlay(towerId, { blueprint });
   }
 
