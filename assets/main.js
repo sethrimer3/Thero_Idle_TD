@@ -3703,10 +3703,49 @@ import {
       }
       const hadGrains = Array.isArray(this.grains) && this.grains.length > 0;
       const ratio = window.devicePixelRatio || 1;
+      const rect =
+        typeof this.canvas.getBoundingClientRect === 'function'
+          ? this.canvas.getBoundingClientRect()
+          : null;
+      const measuredWidth = rect && Number.isFinite(rect.width) ? rect.width : this.canvas.clientWidth;
+      const measuredHeight = rect && Number.isFinite(rect.height) ? rect.height : this.canvas.clientHeight;
+      const previousWidth = Number.isFinite(this.width) ? this.width : 0;
+      const previousHeight = Number.isFinite(this.height) ? this.height : 0;
+      const hasMeasuredWidth = Number.isFinite(measuredWidth) && measuredWidth > 0;
+      const hasMeasuredHeight = Number.isFinite(measuredHeight) && measuredHeight > 0;
+
+      if (!hasMeasuredWidth && !hasMeasuredHeight && previousWidth > 0 && previousHeight > 0) {
+        const fallbackWidth = Math.max(1, Math.floor(previousWidth * ratio));
+        const fallbackHeight = Math.max(1, Math.floor(previousHeight * ratio));
+        if (this.canvas.width !== fallbackWidth) {
+          this.canvas.width = fallbackWidth;
+        }
+        if (this.canvas.height !== fallbackHeight) {
+          this.canvas.height = fallbackHeight;
+        }
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this.ctx.scale(ratio, ratio);
+        return;
+      }
+
       const attrWidth = Number.parseFloat(this.canvas.getAttribute('width')) || 0;
       const attrHeight = Number.parseFloat(this.canvas.getAttribute('height')) || 0;
-      const displayWidth = Math.max(200, this.canvas.clientWidth || attrWidth || 240);
-      const displayHeight = Math.max(260, this.canvas.clientHeight || attrHeight || 320);
+      const normalizedAttrWidth =
+        attrWidth && previousWidth > 0 ? attrWidth / ratio : attrWidth;
+      const normalizedAttrHeight =
+        attrHeight && previousHeight > 0 ? attrHeight / ratio : attrHeight;
+
+      let displayWidth = hasMeasuredWidth ? measuredWidth : 0;
+      if (displayWidth <= 0) {
+        displayWidth = previousWidth || normalizedAttrWidth || 240;
+      }
+      let displayHeight = hasMeasuredHeight ? measuredHeight : 0;
+      if (displayHeight <= 0) {
+        displayHeight = previousHeight || normalizedAttrHeight || 320;
+      }
+
+      displayWidth = Math.max(200, displayWidth);
+      displayHeight = Math.max(260, displayHeight);
 
       this.canvas.width = Math.max(1, Math.floor(displayWidth * ratio));
       this.canvas.height = Math.max(1, Math.floor(displayHeight * ratio));
