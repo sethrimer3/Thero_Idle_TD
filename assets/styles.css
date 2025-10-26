@@ -3103,6 +3103,13 @@ body.color-scheme-chromatic::before {
     backdrop-filter: none;
     background: rgba(10, 10, 16, 0.95);
   }
+
+  .status-bar {
+    /* Matching the tab bar workaround above: iOS Safari was still crashing when
+       long tower/stage/codex panels scrolled behind the blurred status bar. */
+    backdrop-filter: none;
+    background: rgba(10, 10, 16, 0.95);
+  }
 }
 
 .tab-button {
