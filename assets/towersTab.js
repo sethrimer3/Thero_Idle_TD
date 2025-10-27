@@ -49,6 +49,8 @@ const towerTabState = {
     variables: null,
     note: null,
     icon: null,
+    hideTimeoutId: null,
+    hideTransitionHandler: null,
   },
   towerUpgradeState: new Map(),
   towerEquationCache: new Map(),
@@ -1459,6 +1461,68 @@ export function renderTowerUpgradeOverlay(towerId, options = {}) {
   updateTowerUpgradeGlyphDisplay();
 }
 
+// Cancel any queued hide operations so the overlay can be shown immediately again.
+function cancelTowerUpgradeOverlayHide() {
+  const { overlay, hideTimeoutId, hideTransitionHandler } = towerTabState.towerUpgradeElements;
+  if (typeof window !== 'undefined' && typeof hideTimeoutId === 'number') {
+    window.clearTimeout(hideTimeoutId);
+  }
+  towerTabState.towerUpgradeElements.hideTimeoutId = null;
+  if (overlay && typeof hideTransitionHandler === 'function') {
+    overlay.removeEventListener('transitionend', hideTransitionHandler);
+  }
+  towerTabState.towerUpgradeElements.hideTransitionHandler = null;
+}
+
+// Reveal the overlay by removing the hidden state before activating its transition.
+function showTowerUpgradeOverlayElement(overlay) {
+  if (!overlay) {
+    return;
+  }
+  cancelTowerUpgradeOverlayHide();
+  overlay.removeAttribute('hidden');
+  overlay.hidden = false;
+  overlay.setAttribute('aria-hidden', 'false');
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(() => {
+      overlay.classList.add('active');
+    });
+  } else {
+    overlay.classList.add('active');
+  }
+}
+
+// Schedule the overlay to hide after its fade transition completes.
+function scheduleTowerUpgradeOverlayHide(overlay) {
+  if (!overlay) {
+    return;
+  }
+  cancelTowerUpgradeOverlayHide();
+  overlay.setAttribute('aria-hidden', 'true');
+
+  const finalizeHide = () => {
+    cancelTowerUpgradeOverlayHide();
+    overlay.hidden = true;
+    overlay.setAttribute('hidden', '');
+  };
+
+  const handleTransitionEnd = (event) => {
+    if (event.target !== overlay) {
+      return;
+    }
+    finalizeHide();
+  };
+
+  towerTabState.towerUpgradeElements.hideTransitionHandler = handleTransitionEnd;
+  overlay.addEventListener('transitionend', handleTransitionEnd);
+
+  if (typeof window !== 'undefined') {
+    towerTabState.towerUpgradeElements.hideTimeoutId = window.setTimeout(finalizeHide, 320);
+  }
+
+  overlay.classList.remove('active');
+}
+
 export function openTowerUpgradeOverlay(towerId, options = {}) {
   const { overlay } = towerTabState.towerUpgradeElements;
   if (!towerId || !overlay) {
@@ -1481,8 +1545,7 @@ export function openTowerUpgradeOverlay(towerId, options = {}) {
   towerTabState.lastTowerUpgradeTrigger = options.trigger || null;
   renderTowerUpgradeOverlay(towerId, { blueprint: options.blueprint, baseEquationText: options.baseEquationText });
 
-  overlay.classList.add('active');
-  overlay.setAttribute('aria-hidden', 'false');
+  showTowerUpgradeOverlayElement(overlay);
   overlay.focus({ preventScroll: true });
   maybePlayTowerVariableEntry();
 }
@@ -1496,23 +1559,8 @@ export function closeTowerUpgradeOverlay() {
     return;
   }
 
-  const finalizeClose = () => {
-    overlay.classList.remove('active');
-    overlay.setAttribute('aria-hidden', 'true');
-  };
-
-  overlay.addEventListener(
-    'transitionend',
-    (event) => {
-      if (event.target === overlay) {
-        finalizeClose();
-      }
-    },
-    { once: true },
-  );
-
   playTowerVariableFlight('exit').finally(() => {
-    finalizeClose();
+    scheduleTowerUpgradeOverlayHide(overlay);
   });
 
   if (towerTabState.lastTowerUpgradeTrigger && typeof towerTabState.lastTowerUpgradeTrigger.focus === 'function') {
