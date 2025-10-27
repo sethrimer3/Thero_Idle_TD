@@ -395,6 +395,17 @@ export function unlockTower(towerId, { silent = false } = {}) {
     return false;
   }
   towerTabState.unlockState.unlocked.add(towerId);
+  if (typeof document !== 'undefined') {
+    // Notify other systems (such as the tower tree map) that unlock visibility should refresh.
+    document.dispatchEvent(
+      new CustomEvent('tower-unlocked', {
+        detail: {
+          towerId,
+          unlockedTowers: Array.from(towerTabState.unlockState.unlocked),
+        },
+      }),
+    );
+  }
   if (towerId === 'beta') {
     setMergingLogicUnlocked(true);
   }

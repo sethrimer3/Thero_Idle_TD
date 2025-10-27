@@ -1451,6 +1451,187 @@ body.graphics-mode-low .control-button {
   text-align: center;
 }
 
+/* Tower tab: alternate tree map toggle and layout */
+.tower-panel-controls {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.tower-tree-map-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(247, 247, 245, 0.18);
+  background: rgba(10, 10, 16, 0.6);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform var(--transition), background var(--transition), border-color var(--transition);
+}
+
+.tower-tree-map-button:hover,
+.tower-tree-map-button:focus-visible {
+  transform: translateY(-1px);
+  background: rgba(247, 247, 245, 0.12);
+  border-color: rgba(247, 247, 245, 0.3);
+  outline: none;
+}
+
+.tower-tree-map-button[aria-pressed='true'] {
+  background: rgba(247, 247, 245, 0.16);
+  border-color: rgba(255, 228, 120, 0.45);
+  box-shadow: 0 14px 26px rgba(255, 228, 120, 0.18);
+}
+
+.tower-tree-map-icon {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(247, 247, 245, 0.2), transparent 70%);
+  color: rgba(247, 247, 245, 0.88);
+}
+
+.tower-tree-map-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.tower-tree-map-label {
+  white-space: nowrap;
+}
+
+.tower-tree-map {
+  position: relative;
+  border: 1px solid rgba(247, 247, 245, 0.14);
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(5, 5, 12, 0.8), rgba(16, 16, 24, 0.9));
+  padding: 24px;
+  margin-bottom: 18px;
+  min-height: 260px;
+  overflow: hidden;
+}
+
+.tower-tree-map-note {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgba(247, 247, 245, 0.65);
+  width: calc(100% - 48px);
+  pointer-events: none;
+}
+
+.tower-tree-map-links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tower-tree-map-nodes {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.tower-tree-node {
+  position: absolute;
+  width: 130px;
+  height: 130px;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.tower-tree-node-orbit {
+  pointer-events: auto;
+  width: 110px;
+  height: 110px;
+  border-radius: 999px;
+  border: 1px solid rgba(247, 247, 245, 0.14);
+  background: radial-gradient(circle at 50% 45%, rgba(247, 247, 245, 0.12), rgba(10, 10, 16, 0.8));
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  text-align: center;
+  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.28);
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.tower-tree-node-orbit:hover,
+.tower-tree-node-orbit:focus-visible {
+  transform: translateY(-6px);
+  border-color: rgba(255, 228, 120, 0.45);
+  box-shadow: 0 22px 32px rgba(255, 228, 120, 0.18);
+  outline: none;
+}
+
+.tower-tree-node-symbol {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.8rem;
+  color: rgba(255, 228, 120, 0.9);
+  text-shadow: 0 0 14px rgba(255, 228, 120, 0.65);
+}
+
+.tower-tree-node-name {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 245, 0.75);
+}
+
+.tower-tree-node-tier {
+  font-size: 0.7rem;
+  color: rgba(247, 247, 245, 0.6);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tower-tree-node-orbit {
+    animation: tower-tree-float calc(6s + var(--tower-float-variance, 0s)) ease-in-out infinite;
+  }
+}
+
+@keyframes tower-tree-float {
+  0%,
+  100% {
+    transform: translateY(-4px);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+
+.tower-tree-link {
+  stroke: rgba(255, 228, 120, 0.35);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  transition: stroke 220ms ease, stroke-width 220ms ease;
+}
+
+.tower-tree-link[data-active='true'] {
+  stroke: rgba(255, 228, 120, 0.75);
+  stroke-width: 3;
+}
+
 .panel-grid {
   display: grid;
   gap: 18px;
