@@ -25,7 +25,19 @@ import {
   formatDecimal,
   formatPercentage,
   formatSignedPercentage,
+  GAME_NUMBER_NOTATIONS,
+  getGameNumberNotation,
+  setGameNumberNotation,
+  addGameNumberNotationChangeListener,
 } from '../scripts/core/formatting.js';
+import {
+  DEFAULT_AUDIO_MANIFEST,
+  AudioManager,
+  AUDIO_SETTINGS_STORAGE_KEY,
+  applyStoredAudioSettings,
+  bindAudioControls as bindAudioControlElements,
+  playTowerPlacementNotes,
+} from './audioSystem.js';
 // Powder tower palette and simulation helpers.
 import {
   DEFAULT_MOTE_PALETTE,
@@ -571,6 +583,76 @@ import {
       cycleColorScheme();
     });
     updateColorSchemeButton();
+  }
+
+  // Provides a human readable label for the current notation selection.
+  function resolveNotationLabel(notation) {
+    return notation === GAME_NUMBER_NOTATIONS.SCIENTIFIC ? 'Scientific' : 'Letters';
+  }
+
+  // Updates the toggle button text to reflect the active notation.
+  function updateNotationToggleLabel() {
+    if (!notationToggleButton) {
+      return;
+    }
+    const notation = getGameNumberNotation();
+    const label = resolveNotationLabel(notation);
+    notationToggleButton.textContent = `Notation · ${label}`;
+    notationToggleButton.setAttribute('aria-label', `Switch number notation (current: ${label})`);
+  }
+
+  // Re-renders UI panels that depend on the number formatting preference.
+  function refreshNotationDisplays() {
+    updateStatusDisplays();
+    updatePowderStockpileDisplay();
+    updatePowderLedger();
+    refreshTowerLoadoutDisplay();
+    updateTowerSelectionButtons();
+    if (isTowerUpgradeOverlayActive()) {
+      const activeUpgradeId = getActiveTowerUpgradeId();
+      if (activeUpgradeId) {
+        renderTowerUpgradeOverlay(activeUpgradeId);
+      }
+    }
+    generateLevelAchievements();
+  }
+
+  // Shared handler fired whenever the notation preference changes.
+  function handleNotationChange() {
+    updateNotationToggleLabel();
+    refreshNotationDisplays();
+  }
+
+  addGameNumberNotationChangeListener(handleNotationChange);
+
+  // Applies the requested notation and optionally persists the choice.
+  function applyNotationPreference(notation, { persist = true } = {}) {
+    const resolved = setGameNumberNotation(notation);
+    if (persist) {
+      writeStorage(NOTATION_STORAGE_KEY, resolved);
+    }
+    return resolved;
+  }
+
+  // Cycles between letter suffix notation and scientific notation.
+  function toggleNotationPreference() {
+    const current = getGameNumberNotation();
+    const next = current === GAME_NUMBER_NOTATIONS.SCIENTIFIC
+      ? GAME_NUMBER_NOTATIONS.LETTERS
+      : GAME_NUMBER_NOTATIONS.SCIENTIFIC;
+    applyNotationPreference(next);
+  }
+
+  // Wires the notation toggle button to the preference handler.
+  function bindNotationToggle() {
+    notationToggleButton = document.getElementById('notation-toggle-button');
+    if (!notationToggleButton) {
+      return;
+    }
+    notationToggleButton.addEventListener('click', () => {
+      toggleNotationPreference();
+    });
+    updateNotationToggleLabel();
   }
 
   function initializeColorScheme() {
@@ -1159,664 +1241,24 @@ import {
     highestPowderMultiplier: 1,
   };
 
-  // The audio manifest points to filenames under assets/audio/music and assets/audio/sfx.
-  // Drop encoded tracks with the listed names into those folders to activate playback.
-  const audioManifest = {
-    musicVolume: 0.5,
-    sfxVolume: 0.5,
-    musicCrossfadeSeconds: 3,
-    music: {
-      levelSelect: { file: 'level_selection_music.mp3', loop: true, volume: 0.65 },
-      levelActive: { file: 'inside_level_music.mp3', loop: true, volume: 0.7 },
-      towers: { file: 'towers_music.mp3', loop: true, volume: 0.65 },
-      powder: { file: 'mote_screen_music.mp3', loop: true, volume: 0.65 },
-      achievements: { file: 'achievements_music.mp3', loop: true, volume: 0.6 },
-      codex: { file: 'codex_music.mp3', loop: true, volume: 0.6 },
-    },
-    sfx: {
-      uiConfirm: { file: 'menu_selection_alt.mp3', volume: 0.55, maxConcurrent: 2 },
-      uiToggle: { file: 'menu_selection_OLD.mp3', volume: 0.5, maxConcurrent: 2 },
-      menuSelect: { file: 'menu_selection.mp3', volume: 0.55, maxConcurrent: 4 },
-      towerPlace: { file: 'tower_placement.mp3', volume: 0.7, maxConcurrent: 4 },
-      towerMerge: { file: 'tower_merge.mp3', volume: 0.75, maxConcurrent: 2 },
-      towerSell: { file: 'tower_merge.mp3', volume: 0.7, maxConcurrent: 2 },
-      enterLevel: { file: 'enter_level.mp3', volume: 0.75, maxConcurrent: 2 },
-      pageTurn: { file: 'page_turn.mp3', volume: 0.6, maxConcurrent: 2 },
-      error: { file: 'error.mp3', volume: 0.8, maxConcurrent: 2 },
-      alphaTowerFire: { file: 'alpha_tower_firing.mp3', volume: 0.55, maxConcurrent: 5 },
-      noteA: { file: 'note_A.mp3', volume: 0.8, maxConcurrent: 3 },
-      noteB: { file: 'note_B.mp3', volume: 0.8, maxConcurrent: 3 },
-      noteDSharp: { file: 'note_D#.mp3', volume: 0.8, maxConcurrent: 3 },
-      noteFSharp: { file: 'note_F#.mp3', volume: 0.8, maxConcurrent: 3 },
-      noteG: { file: 'note_G.mp3', volume: 0.8, maxConcurrent: 3 },
-    },
-  };
-
-  const TOWER_NOTE_SFX_KEYS = ['noteA', 'noteB', 'noteDSharp', 'noteFSharp', 'noteG'];
-
-  class AudioManager {
-    constructor(manifest = {}) {
-      this.musicFolder = 'assets/audio/music';
-      this.sfxFolder = 'assets/audio/sfx';
-      this.musicDefinitions = manifest.music || {};
-      this.sfxDefinitions = manifest.sfx || {};
-      this.musicVolume = this._clampVolume(manifest.musicVolume, 0.5);
-      this.sfxVolume = this._clampVolume(manifest.sfxVolume, 0.5);
-      this.musicElements = new Map();
-      this.sfxPools = new Map();
-      this.currentMusicKey = null;
-      this.activeMusicEntry = null;
-      this.activeMusicFade = null;
-      this.pendingUnlockResolvers = [];
-      this.pendingMusicKey = null;
-      this.unlocked = false;
-      this.musicCrossfadeDuration = Math.max(
-        0,
-        Number.isFinite(manifest.musicCrossfadeSeconds)
-          ? manifest.musicCrossfadeSeconds
-          : 3,
-      );
-      this.musicFadeHandle = null;
-      this.musicFadeCanceler = null;
-      this.activationElements = typeof WeakSet === 'function' ? new WeakSet() : { add() {}, has() { return false; } };
-      this.suspendedMusic = null;
-
-      if (typeof document !== 'undefined') {
-        const unlockHandler = () => this.unlock();
-        document.addEventListener('pointerdown', unlockHandler, { once: true });
-        document.addEventListener('keydown', unlockHandler, { once: true });
-      }
-    }
-
-    registerActivationElements(elements) {
-      if (!Array.isArray(elements)) {
-        return;
-      }
-      elements.forEach((element) => this.registerActivationElement(element));
-    }
-
-    registerActivationElement(element) {
-      if (!element || (this.activationElements && this.activationElements.has(element))) {
-        return;
-      }
-
-      const handler = () => {
-        this.unlock();
-        ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach((eventName) => {
-          element.removeEventListener(eventName, handler);
-        });
-      };
-
-      ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach((eventName) => {
-        element.addEventListener(eventName, handler);
-      });
-
-      if (this.activationElements && typeof this.activationElements.add === 'function') {
-        this.activationElements.add(element);
-      }
-    }
-
-    unlock() {
-      if (this.unlocked) {
-        return;
-      }
-      this.unlocked = true;
-      while (this.pendingUnlockResolvers.length) {
-        const resolve = this.pendingUnlockResolvers.shift();
-        if (typeof resolve === 'function') {
-          resolve();
-        }
-      }
-    }
-
-    whenUnlocked() {
-      if (this.unlocked) {
-        return Promise.resolve();
-      }
-      return new Promise((resolve) => {
-        this.pendingUnlockResolvers.push(resolve);
-      });
-    }
-
-    playMusic(key, options = {}) {
-      if (!key) {
-        return;
-      }
-
-      this.suspendedMusic = null;
-
-      const startPlayback = () => {
-        const entry = this._ensureMusicEntry(key);
-        if (!entry) {
-          return;
-        }
-
-        const { audio, definition } = entry;
-        const loop = typeof options.loop === 'boolean' ? options.loop : definition.loop !== false;
-        audio.loop = loop;
-        const targetVolume = this._resolveMusicVolume(definition, options.volume);
-        const currentKey = this.currentMusicKey;
-        const sameTrack = currentKey === key;
-        const shouldRestart = Boolean(options.restart) || !sameTrack || audio.paused;
-
-        this._cancelMusicFade({ finalize: true });
-
-        if (shouldRestart) {
-          try {
-            audio.currentTime = 0;
-          } catch (error) {
-            audio.src = audio.src;
-          }
-        }
-
-        const ensurePlayback = () => {
-          const playPromise = audio.play();
-          if (typeof playPromise?.catch === 'function') {
-            playPromise.catch(() => {});
-          }
-        };
-
-        if (!sameTrack) {
-          const previousEntry = currentKey ? this.musicElements.get(currentKey) : null;
-          const fromEntry = previousEntry && previousEntry !== entry ? previousEntry : null;
-
-          this.pendingMusicKey = null;
-          this.currentMusicKey = key;
-          this.activeMusicEntry = entry;
-
-          audio.volume = 0;
-          ensurePlayback();
-
-          this._startMusicFade({
-            fromEntry,
-            toEntry: entry,
-            targetVolume,
-            durationSeconds:
-              typeof options.crossfadeDuration === 'number'
-                ? options.crossfadeDuration
-                : this.musicCrossfadeDuration,
-          });
-          return;
-        }
-
-        this.pendingMusicKey = null;
-        this.currentMusicKey = key;
-        this.activeMusicEntry = entry;
-        audio.volume = targetVolume;
-        ensurePlayback();
-      };
-
-      if (!this.unlocked) {
-        this.pendingMusicKey = key;
-        this.whenUnlocked().then(() => {
-          if (this.pendingMusicKey === key) {
-            startPlayback();
-          }
-        });
-        return;
-      }
-
-      startPlayback();
-    }
-
-    stopMusic(key = this.currentMusicKey, options = {}) {
-      if (!key) {
-        return;
-      }
-      const entry = this.musicElements.get(key);
-      if (!entry) {
-        return;
-      }
-      if (this.currentMusicKey === key) {
-        this._cancelMusicFade({ finalize: true });
-        this.currentMusicKey = null;
-        this.activeMusicEntry = null;
-      }
-      if (this.suspendedMusic && this.suspendedMusic.key === key) {
-        this.suspendedMusic = null;
-      }
-      entry.audio.pause();
-      if (options.reset !== false) {
-        try {
-          entry.audio.currentTime = 0;
-        } catch (error) {
-          entry.audio.src = entry.audio.src;
-        }
-      }
-      entry.audio.volume = this._resolveMusicVolume(entry.definition);
-    }
-
-    suspendMusic() {
-      if (!this.activeMusicEntry || !this.activeMusicEntry.audio || !this.currentMusicKey) {
-        this.suspendedMusic = null;
-        return;
-      }
-
-      const { audio } = this.activeMusicEntry;
-      this._cancelMusicFade({ finalize: true });
-
-      let time = 0;
-      try {
-        time = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
-      } catch (error) {
-        time = 0;
-      }
-
-      audio.pause();
-      this.suspendedMusic = {
-        key: this.currentMusicKey,
-        time,
-        volume: audio.volume,
-      };
-    }
-
-    resumeSuspendedMusic() {
-      if (!this.suspendedMusic || !this.suspendedMusic.key) {
-        return;
-      }
-
-      const { key, time, volume } = this.suspendedMusic;
-      const start = () => {
-        const entry = this._ensureMusicEntry(key);
-        if (!entry) {
-          return;
-        }
-
-        const { audio } = entry;
-
-        try {
-          audio.currentTime = Number.isFinite(time) ? time : 0;
-        } catch (error) {
-          audio.src = audio.src;
-        }
-
-        const targetVolume = Number.isFinite(volume)
-          ? volume
-          : this._resolveMusicVolume(entry.definition);
-
-        audio.volume = targetVolume;
-
-        const playPromise = audio.play();
-        if (typeof playPromise?.catch === 'function') {
-          playPromise.catch(() => {});
-        }
-
-        this.currentMusicKey = key;
-        this.activeMusicEntry = entry;
-      };
-
-      this.suspendedMusic = null;
-
-      if (!this.unlocked) {
-        this.pendingMusicKey = key;
-        this.whenUnlocked().then(() => {
-          if (this.pendingMusicKey === key) {
-            start();
-          }
-        });
-        return;
-      }
-
-      start();
-    }
-
-    playSfx(key, options = {}) {
-      if (!key) {
-        return;
-      }
-
-      const startPlayback = () => {
-        const entry = this._ensureSfxEntry(key);
-        if (!entry) {
-          return;
-        }
-
-        const { definition, pool } = entry;
-        const index = entry.nextIndex;
-        const audio = pool[index];
-        entry.nextIndex = (index + 1) % pool.length;
-
-        audio.loop = false;
-        audio.volume = this._resolveSfxVolume(definition, options.volume);
-
-        try {
-          audio.currentTime = 0;
-        } catch (error) {
-          audio.src = audio.src;
-        }
-
-        const playPromise = audio.play();
-        if (typeof playPromise?.catch === 'function') {
-          playPromise.catch(() => {});
-        }
-      };
-
-      if (!this.unlocked) {
-        this.whenUnlocked().then(() => startPlayback());
-        return;
-      }
-
-      startPlayback();
-    }
-
-    _startMusicFade({ fromEntry = null, toEntry, targetVolume, durationSeconds }) {
-      if (!toEntry || !toEntry.audio) {
-        return;
-      }
-
-      const toAudio = toEntry.audio;
-      const resolvedTarget = Number.isFinite(targetVolume)
-        ? targetVolume
-        : this._resolveMusicVolume(toEntry.definition);
-      const durationMs = Math.max(
-        0,
-        Number.isFinite(durationSeconds) ? durationSeconds : this.musicCrossfadeDuration,
-      ) * 1000;
-
-      let fromAudio = fromEntry && fromEntry.audio !== toAudio ? fromEntry.audio : null;
-      if (!fromAudio || fromAudio === toAudio) {
-        fromAudio = null;
-      }
-
-      const fadeState = {
-        fromEntry,
-        toEntry,
-        targetVolume: resolvedTarget,
-      };
-      this.activeMusicFade = fadeState;
-
-      if (durationMs <= 0) {
-        if (fromAudio) {
-          fromAudio.volume = 0;
-          fromAudio.pause();
-          try {
-            fromAudio.currentTime = 0;
-          } catch (error) {
-            fromAudio.src = fromAudio.src;
-          }
-        }
-        toAudio.volume = resolvedTarget;
-        this.musicFadeHandle = null;
-        this.musicFadeCanceler = null;
-        this.activeMusicFade = null;
-        return;
-      }
-
-      const startTime = this._now();
-      const startToVolume = toAudio.volume;
-      const startFromVolume = fromAudio ? fromAudio.volume : 0;
-
-      const schedule = typeof requestAnimationFrame === 'function'
-        ? (fn) => requestAnimationFrame(fn)
-        : (fn) => setTimeout(() => fn(this._now()), 16);
-      const cancel = typeof cancelAnimationFrame === 'function'
-        ? (id) => cancelAnimationFrame(id)
-        : (id) => clearTimeout(id);
-
-      const step = (timestamp) => {
-        const now = typeof timestamp === 'number' ? timestamp : this._now();
-        const elapsed = now - startTime;
-        const progress = durationMs > 0 ? Math.min(1, elapsed / durationMs) : 1;
-        if (fromAudio) {
-          fromAudio.volume = startFromVolume * (1 - progress);
-        }
-        toAudio.volume = startToVolume + (resolvedTarget - startToVolume) * progress;
-        if (progress < 1) {
-          this.musicFadeHandle = schedule(step);
-          this.musicFadeCanceler = cancel;
-        } else {
-          if (fromAudio) {
-            fromAudio.volume = 0;
-            fromAudio.pause();
-            try {
-              fromAudio.currentTime = 0;
-            } catch (error) {
-              fromAudio.src = fromAudio.src;
-            }
-          }
-          toAudio.volume = resolvedTarget;
-          this.musicFadeHandle = null;
-          this.musicFadeCanceler = null;
-          this.activeMusicFade = null;
-        }
-      };
-
-      this.musicFadeHandle = schedule(step);
-      this.musicFadeCanceler = cancel;
-    }
-
-    _cancelMusicFade(options = {}) {
-      if (this.musicFadeHandle === null) {
-        if (options.finalize && this.activeMusicFade) {
-          const { fromEntry, toEntry, targetVolume } = this.activeMusicFade;
-          if (fromEntry?.audio && fromEntry.audio !== toEntry?.audio) {
-            fromEntry.audio.volume = 0;
-            fromEntry.audio.pause();
-            try {
-              fromEntry.audio.currentTime = 0;
-            } catch (error) {
-              fromEntry.audio.src = fromEntry.audio.src;
-            }
-          }
-          if (toEntry?.audio) {
-            const resolved = Number.isFinite(targetVolume)
-              ? targetVolume
-              : this._resolveMusicVolume(toEntry.definition);
-            toEntry.audio.volume = resolved;
-          }
-        }
-        this.activeMusicFade = null;
-        return;
-      }
-      if (typeof this.musicFadeCanceler === 'function') {
-        this.musicFadeCanceler(this.musicFadeHandle);
-      }
-      this.musicFadeHandle = null;
-      this.musicFadeCanceler = null;
-      if (options.finalize && this.activeMusicFade) {
-        const { fromEntry, toEntry, targetVolume } = this.activeMusicFade;
-        if (fromEntry?.audio && fromEntry.audio !== toEntry?.audio) {
-          fromEntry.audio.volume = 0;
-          fromEntry.audio.pause();
-          try {
-            fromEntry.audio.currentTime = 0;
-          } catch (error) {
-            fromEntry.audio.src = fromEntry.audio.src;
-          }
-        }
-        if (toEntry?.audio) {
-          const resolved = Number.isFinite(targetVolume)
-            ? targetVolume
-            : this._resolveMusicVolume(toEntry.definition);
-          toEntry.audio.volume = resolved;
-        }
-      }
-      this.activeMusicFade = null;
-    }
-
-    _now() {
-      if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
-        return performance.now();
-      }
-      return Date.now();
-    }
-
-    _ensureMusicEntry(key) {
-      let entry = this.musicElements.get(key);
-      if (entry) {
-        return entry;
-      }
-
-      const definition = this.musicDefinitions[key];
-      const source = this._buildSource(definition, this.musicFolder);
-      if (!definition || !source) {
-        return null;
-      }
-
-      const audio = new Audio(source);
-      audio.preload = definition.preload || 'auto';
-      audio.loop = definition.loop !== false;
-      audio.volume = this._resolveMusicVolume(definition);
-
-      entry = { audio, definition };
-      this.musicElements.set(key, entry);
-      return entry;
-    }
-
-    _ensureSfxEntry(key) {
-      let entry = this.sfxPools.get(key);
-      if (entry) {
-        return entry;
-      }
-
-      const definition = this.sfxDefinitions[key];
-      const source = this._buildSource(definition, this.sfxFolder);
-      if (!definition || !source) {
-        return null;
-      }
-
-      const poolSize = Math.max(1, Math.floor(definition.maxConcurrent || definition.poolSize || 3));
-      const pool = [];
-      for (let index = 0; index < poolSize; index += 1) {
-        const audio = new Audio(source);
-        audio.preload = definition.preload || 'auto';
-        audio.volume = this._resolveSfxVolume(definition);
-        pool.push(audio);
-      }
-
-      entry = { definition, pool, nextIndex: 0 };
-      this.sfxPools.set(key, entry);
-      return entry;
-    }
-
-    _buildSource(definition, folder) {
-      if (!definition) {
-        return null;
-      }
-      if (definition.src) {
-        return definition.src;
-      }
-      if (definition.file) {
-        const sanitizedFolder = folder.endsWith('/') ? folder.slice(0, -1) : folder;
-        return `${sanitizedFolder}/${definition.file}`;
-      }
-      return null;
-    }
-
-    _resolveMusicVolume(definition, overrideVolume) {
-      const base = typeof overrideVolume === 'number'
-        ? overrideVolume
-        : typeof definition?.volume === 'number'
-          ? definition.volume
-          : 1;
-      return this._clampVolume(base * this.musicVolume, 0);
-    }
-
-    _resolveSfxVolume(definition, overrideVolume) {
-      const base = typeof overrideVolume === 'number'
-        ? overrideVolume
-        : typeof definition?.volume === 'number'
-          ? definition.volume
-          : 1;
-      return this._clampVolume(base * this.sfxVolume, 0);
-    }
-
-    setMusicVolume(volume) {
-      this.musicVolume = this._clampVolume(volume, this.musicVolume);
-      this.musicElements.forEach((entry) => {
-        if (!entry || !entry.audio) {
-          return;
-        }
-        entry.audio.volume = this._resolveMusicVolume(entry.definition);
-      });
-      if (this.activeMusicEntry?.audio) {
-        this.activeMusicEntry.audio.volume = this._resolveMusicVolume(
-          this.activeMusicEntry.definition,
-        );
-      }
-      return this.musicVolume;
-    }
-
-    setSfxVolume(volume) {
-      this.sfxVolume = this._clampVolume(volume, this.sfxVolume);
-      this.sfxPools.forEach((entry) => {
-        if (!entry || !entry.pool) {
-          return;
-        }
-        entry.pool.forEach((audio) => {
-          if (audio) {
-            audio.volume = this._resolveSfxVolume(entry.definition);
-          }
-        });
-      });
-      return this.sfxVolume;
-    }
-
-    _clampVolume(value, fallback = 1) {
-      const resolved = typeof value === 'number' ? value : fallback;
-      if (!Number.isFinite(resolved)) {
-        return fallback;
-      }
-      return Math.min(1, Math.max(0, resolved));
-    }
-  }
-
-  const AUDIO_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:audio';
-
-  const audioManager = new AudioManager(audioManifest);
+  const audioManager = new AudioManager(DEFAULT_AUDIO_MANIFEST);
   setTowersAudioManager(audioManager);
 
-  const audioControlElements = {
-    musicSlider: null,
-    musicValue: null,
-    sfxSlider: null,
-    sfxValue: null,
-  };
+  // Persists the player's preferred number notation between sessions.
+  const NOTATION_STORAGE_KEY = 'glyph-defense-idle:notation';
 
-  function formatVolumeDisplay(volume) {
-    const normalized = Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 0;
-    return `${Math.round(normalized * 100)}%`;
-  }
+  let audioControlsBinding = null;
+  // Cached reference to the notation toggle control inside the Codex panel.
+  let notationToggleButton = null;
 
-  function getSliderVolume(slider) {
-    if (!slider) {
-      return 0;
-    }
-    const raw = Number(slider.value);
-    if (!Number.isFinite(raw)) {
-      return 0;
-    }
-    return Math.min(1, Math.max(0, raw / 100));
-  }
-
-  function updateVolumeDisplay(kind, volume) {
-    const text = formatVolumeDisplay(volume);
-    if (kind === 'music' && audioControlElements.musicValue) {
-      audioControlElements.musicValue.textContent = text;
-    }
-    if (kind === 'sfx' && audioControlElements.sfxValue) {
-      audioControlElements.sfxValue.textContent = text;
-    }
-  }
-
+  // Keeps the audio slider UI synchronized with the manager state.
   function syncAudioControlsFromManager() {
-    if (!audioManager) {
-      return;
+    if (audioControlsBinding && typeof audioControlsBinding.syncFromManager === 'function') {
+      audioControlsBinding.syncFromManager();
     }
-    if (audioControlElements.musicSlider) {
-      audioControlElements.musicSlider.value = String(
-        Math.round(Math.min(1, Math.max(0, audioManager.musicVolume)) * 100),
-      );
-    }
-    if (audioControlElements.sfxSlider) {
-      audioControlElements.sfxSlider.value = String(
-        Math.round(Math.min(1, Math.max(0, audioManager.sfxVolume)) * 100),
-      );
-    }
-    updateVolumeDisplay('music', audioManager.musicVolume);
-    updateVolumeDisplay('sfx', audioManager.sfxVolume);
   }
 
+  // Persists the current music and sound effect volumes.
   function saveAudioSettings() {
     if (!audioManager) {
       return;
@@ -1827,87 +1269,13 @@ import {
     });
   }
 
+  // Connects DOM slider controls to the shared audio manager instance.
   function bindAudioControls() {
-    audioControlElements.musicSlider = document.getElementById('music-volume');
-    audioControlElements.musicValue = document.getElementById('music-volume-value');
-    audioControlElements.sfxSlider = document.getElementById('sfx-volume');
-    audioControlElements.sfxValue = document.getElementById('sfx-volume-value');
-
-    const attachSlider = (slider, kind, setter) => {
-      if (!slider) {
-        return;
-      }
-      const handleInput = () => {
-        const volume = getSliderVolume(slider);
-        setter(volume);
-        updateVolumeDisplay(kind, volume);
-      };
-      const handleChange = () => {
-        const volume = getSliderVolume(slider);
-        setter(volume);
-        updateVolumeDisplay(kind, volume);
+    audioControlsBinding = bindAudioControlElements(audioManager, {
+      onVolumeCommit: () => {
         saveAudioSettings();
-      };
-      slider.addEventListener('input', handleInput);
-      slider.addEventListener('change', handleChange);
-    };
-
-    attachSlider(audioControlElements.musicSlider, 'music', (volume) => {
-      if (audioManager) {
-        audioManager.setMusicVolume(volume);
-      }
+      },
     });
-
-    attachSlider(audioControlElements.sfxSlider, 'sfx', (volume) => {
-      if (audioManager) {
-        audioManager.setSfxVolume(volume);
-      }
-    });
-
-    syncAudioControlsFromManager();
-
-    if (audioManager) {
-      const activationElements = [
-        audioControlElements.musicSlider,
-        audioControlElements.sfxSlider,
-      ].filter(Boolean);
-      audioManager.registerActivationElements(activationElements);
-    }
-  }
-
-  function applyStoredAudioSettings(settings) {
-    if (!settings || typeof settings !== 'object') {
-      return;
-    }
-    if (Number.isFinite(settings.musicVolume) && audioManager) {
-      audioManager.setMusicVolume(settings.musicVolume);
-    }
-    if (Number.isFinite(settings.sfxVolume) && audioManager) {
-      audioManager.setSfxVolume(settings.sfxVolume);
-    }
-  }
-
-  function playTowerPlacementNotes(audio, count = 1) {
-    if (!audio || !Number.isFinite(count) || count <= 0) {
-      return;
-    }
-    const keys = Array.isArray(TOWER_NOTE_SFX_KEYS) ? TOWER_NOTE_SFX_KEYS : [];
-    if (!keys.length) {
-      return;
-    }
-    const hasScheduler = typeof setTimeout === 'function';
-    for (let index = 0; index < count; index += 1) {
-      const noteKey = keys[Math.floor(Math.random() * keys.length)];
-      if (!noteKey) {
-        continue;
-      }
-      const play = () => audio.playSfx(noteKey);
-      if (index > 0 && hasScheduler) {
-        setTimeout(play, index * 120);
-      } else {
-        play();
-      }
-    }
   }
 
   function determineMusicKey() {
@@ -2303,6 +1671,7 @@ import {
     offline: 'glyph-defense-idle:offline',
     powder: 'glyph-defense-idle:powder',
     audio: AUDIO_SETTINGS_STORAGE_KEY,
+    notation: NOTATION_STORAGE_KEY,
   };
 
   let powderCurrency = 0;
@@ -9728,6 +9097,13 @@ import {
       applyStoredAudioSettings(storedAudio);
       syncAudioControlsFromManager();
     }
+
+    const storedNotation = readStorage(storageKeys.notation);
+    if (storedNotation) {
+      applyNotationPreference(storedNotation, { persist: false });
+    } else {
+      handleNotationChange();
+    }
   }
 
   function applyPowderGain(amount, context = {}) {
@@ -10595,6 +9971,7 @@ import {
     initializeLevelEditorElements();
 
     bindColorSchemeButton();
+    bindNotationToggle();
     initializeColorScheme();
     bindAudioControls();
 
