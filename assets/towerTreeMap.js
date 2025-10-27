@@ -9,12 +9,16 @@ import { convertMathExpressionToPlainText } from '../scripts/core/mathText.js';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const PHYSICS_CONFIG = {
-  /** Diameter of the orbit button in pixels (matches CSS width of 110px). */
-  nodeDiameter: 110,
+  /** Diameter of the orbit button in pixels (matches CSS width of 55px). */
+  nodeDiameter: 55,
   /** Springs try to reach 1.5 × tower diameter per tier of separation. */
   targetLengthMultiplier: 1.5,
   springStrength: 9,
-  anchorStrength: 0.6,
+  anchorStrength: 0.35,
+  /** Boundary force multiplier that keeps nodes within the map gently. */
+  boundaryStrength: 0.4,
+  /** Padding multiplier to determine how close nodes can drift to edges. */
+  boundaryPaddingMultiplier: 0.9,
   repulsionStrength: 60000,
   damping: 0.94,
   maxDelta: 0.05,
@@ -183,6 +187,15 @@ function buildTreeLinks(definitions, edges) {
       targetLength: baseLength * tierDistance,
     };
   });
+
+  updateLinkPositions();
+
+  towerTreeState.animationHandle = window.requestAnimationFrame(stepSimulation);
+}
+
+function startSimulation() {
+  stopSimulation();
+  towerTreeState.animationHandle = window.requestAnimationFrame(stepSimulation);
 }
 
 function applySpringForces() {
@@ -212,6 +225,27 @@ function applyAnchorForces() {
     const anchorY = node.anchor.y;
     node.force.x += (anchorX - node.position.x) * PHYSICS_CONFIG.anchorStrength;
     node.force.y += (anchorY - node.position.y) * PHYSICS_CONFIG.anchorStrength;
+  });
+}
+
+/** Applies a soft push back into the container whenever a node drifts off screen. */
+function applyBoundaryForces(containerWidth, containerHeight) {
+  const padding = PHYSICS_CONFIG.nodeDiameter * PHYSICS_CONFIG.boundaryPaddingMultiplier;
+  const minX = padding;
+  const maxX = Math.max(padding, containerWidth - padding);
+  const minY = padding;
+  const maxY = Math.max(padding, containerHeight - padding);
+  towerTreeState.nodes.forEach((node) => {
+    if (node.position.x < minX) {
+      node.force.x += (minX - node.position.x) * PHYSICS_CONFIG.boundaryStrength;
+    } else if (node.position.x > maxX) {
+      node.force.x -= (node.position.x - maxX) * PHYSICS_CONFIG.boundaryStrength;
+    }
+    if (node.position.y < minY) {
+      node.force.y += (minY - node.position.y) * PHYSICS_CONFIG.boundaryStrength;
+    } else if (node.position.y > maxY) {
+      node.force.y -= (node.position.y - maxY) * PHYSICS_CONFIG.boundaryStrength;
+    }
   });
 }
 
@@ -269,7 +303,6 @@ function stepSimulation(timestamp) {
 
   const containerWidth = towerTreeState.nodeLayer?.offsetWidth || 0;
   const containerHeight = towerTreeState.nodeLayer?.offsetHeight || 0;
-  const boundaryPadding = PHYSICS_CONFIG.nodeDiameter * 0.75;
 
   towerTreeState.nodes.forEach((node) => {
     node.force.x = 0;
@@ -279,6 +312,7 @@ function stepSimulation(timestamp) {
   applySpringForces();
   applyRepulsionForces();
   applyAnchorForces();
+  applyBoundaryForces(containerWidth, containerHeight);
 
   towerTreeState.nodes.forEach((node) => {
     const accelX = node.force.x;
@@ -287,14 +321,6 @@ function stepSimulation(timestamp) {
     node.velocity.y = (node.velocity.y + accelY * delta) * PHYSICS_CONFIG.damping;
     node.position.x += node.velocity.x * delta;
     node.position.y += node.velocity.y * delta;
-    node.position.x = Math.min(
-      Math.max(boundaryPadding, node.position.x),
-      Math.max(boundaryPadding, containerWidth - boundaryPadding),
-    );
-    node.position.y = Math.min(
-      Math.max(boundaryPadding, node.position.y),
-      Math.max(boundaryPadding, containerHeight - boundaryPadding),
-    );
     node.element.style.left = `${node.position.x}px`;
     node.element.style.top = `${node.position.y}px`;
   });
