@@ -45,10 +45,17 @@ import {
   PowderSimulation,
   clampUnitInterval,
   colorToRgbaString,
-  computeMotePaletteFromTheme,
   mergeMotePalette,
   resolvePaletteColorStops,
 } from '../scripts/features/towers/powderTower.js';
+// Shared color palette orchestration utilities.
+import {
+  configureColorSchemeSystem,
+  getTowerVisualConfig,
+  getOmegaWaveVisualConfig,
+  bindColorSchemeButton,
+  initializeColorScheme,
+} from './colorSchemeUtils.js';
 import {
   configureAchievementsTab,
   generateLevelAchievements,
@@ -333,258 +340,6 @@ import {
   let BASE_START_THERO = FALLBACK_BASE_START_THERO;
   let BASE_CORE_INTEGRITY = FALLBACK_BASE_CORE_INTEGRITY;
 
-  const COLOR_SCHEME_STORAGE_KEY = 'thero-idle-color-scheme';
-
-  const defaultTowerVisuals = Object.freeze({
-    outerStroke: 'rgba(255, 228, 120, 0.85)',
-    outerShadow: null,
-    innerFill: 'rgba(8, 9, 14, 0.9)',
-    symbolFill: 'rgba(255, 228, 120, 0.85)',
-    symbolShadow: null,
-    rangeStroke: 'rgba(139, 247, 255, 0.18)',
-  });
-
-  const defaultOmegaWaveVisuals = Object.freeze({
-    color: 'rgba(255, 228, 120, 0.6)',
-    trailColor: 'rgba(139, 247, 255, 0.35)',
-    size: 4,
-    glowColor: 'rgba(255, 228, 120, 0.75)',
-    glowBlur: 24,
-  });
-
-  function getTowerTierValue(tower) {
-    if (!tower) {
-      return 1;
-    }
-    if (Number.isFinite(tower.tier)) {
-      return tower.tier;
-    }
-    if (Number.isFinite(tower.definition?.tier)) {
-      return tower.definition.tier;
-    }
-    return 1;
-  }
-
-  function computeChromaticMetrics(tower) {
-    const tier = Math.max(1, getTowerTierValue(tower));
-    const clamped = Math.min(tier, 24);
-    const ratio = clamped > 1 ? (clamped - 1) / 23 : 0;
-    const hue = Math.round(300 * ratio);
-    const baseLightness = Math.max(0, Math.min(100, 100 - ratio * 100));
-    return { tier, clamped, ratio, hue, baseLightness };
-  }
-
-  function computeChromaticTowerVisuals(tower) {
-    const { ratio, hue, baseLightness } = computeChromaticMetrics(tower);
-
-    const outerStroke = `hsl(${hue}, 90%, ${Math.max(0, baseLightness)}%)`;
-    const innerLightness = Math.max(4, baseLightness * 0.55);
-    const innerFill = `hsl(${hue}, 65%, ${innerLightness}%)`;
-    const rangeLightness = Math.min(85, baseLightness + 40);
-    const rangeOpacity = 0.18 + (1 - ratio) * 0.12;
-    const rangeStroke = `hsla(${hue}, 90%, ${rangeLightness}%, ${rangeOpacity.toFixed(2)})`;
-
-    let symbolFill;
-    let symbolShadow = null;
-
-    if (baseLightness > 65) {
-      symbolFill = 'rgba(18, 18, 26, 0.92)';
-      const glowLightness = Math.min(95, baseLightness + 18);
-      symbolShadow = {
-        color: `hsla(${hue}, 85%, ${glowLightness}%, 0.55)`,
-        blur: 10,
-      };
-    } else {
-      const symbolLightness = Math.max(6, baseLightness * 0.5);
-      symbolFill = `hsl(${hue}, 90%, ${symbolLightness}%)`;
-      if (baseLightness < 35) {
-        const glowLightness = Math.min(92, baseLightness + 60);
-        symbolShadow = {
-          color: `hsla(${hue}, 90%, ${glowLightness}%, 0.95)`,
-          blur: 26,
-        };
-      }
-    }
-
-    let outerShadow = null;
-    if (baseLightness < 30) {
-      const haloLightness = Math.min(90, baseLightness + 55);
-      outerShadow = {
-        color: `hsla(${hue}, 90%, ${haloLightness}%, 0.65)`,
-        blur: 24,
-      };
-    }
-
-    return {
-      outerStroke,
-      outerShadow,
-      innerFill,
-      symbolFill,
-      symbolShadow,
-      rangeStroke,
-    };
-  }
-
-  function computeChromaticOmegaWaveVisuals(tower) {
-    const { ratio, hue, baseLightness } = computeChromaticMetrics(tower);
-    const colorLightness = Math.min(78, baseLightness + 55);
-    const colorAlpha = 0.55 + (1 - ratio) * 0.25;
-    const color = `hsla(${hue}, 95%, ${colorLightness}%, ${colorAlpha.toFixed(2)})`;
-    const trailLightness = Math.min(88, colorLightness + 10);
-    const trail = `hsla(${hue}, 90%, ${trailLightness}%, 0.45)`;
-    const glowLightness = Math.min(95, colorLightness + 15);
-    const glow = `hsla(${hue}, 95%, ${glowLightness}%, 0.9)`;
-    const size = 4 + ratio * 3;
-    return {
-      color,
-      trailColor: trail,
-      glowColor: glow,
-      glowBlur: 30,
-      size,
-    };
-  }
-
-  const colorSchemeDefinitions = [
-    {
-      id: 'aurora',
-      label: 'Aurora',
-      className: 'color-scheme-aurora',
-      getTowerVisuals() {
-        return null;
-      },
-      getOmegaWaveVisuals() {
-        return null;
-      },
-    },
-    {
-      id: 'chromatic',
-      label: 'Chromatic',
-      className: 'color-scheme-chromatic',
-      getTowerVisuals: computeChromaticTowerVisuals,
-      getOmegaWaveVisuals: computeChromaticOmegaWaveVisuals,
-    },
-  ];
-
-  const colorSchemeState = {
-    index: 0,
-    button: null,
-  };
-
-  function updateMotePaletteFromTheme() {
-    const palette = computeMotePaletteFromTheme();
-    powderState.motePalette = palette;
-    if (powderSimulation && typeof powderSimulation.setMotePalette === 'function') {
-      powderSimulation.setMotePalette(palette);
-      powderSimulation.render();
-    }
-  }
-
-  function getActiveColorScheme() {
-    return colorSchemeDefinitions[colorSchemeState.index] || colorSchemeDefinitions[0];
-  }
-
-  function getTowerVisualConfig(tower) {
-    const base = { ...defaultTowerVisuals };
-    const scheme = getActiveColorScheme();
-    if (scheme && typeof scheme.getTowerVisuals === 'function') {
-      try {
-        const override = scheme.getTowerVisuals(tower, { ...base });
-        if (override && typeof override === 'object') {
-          return { ...base, ...override };
-        }
-      } catch (error) {
-        console.warn('Failed to compute tower visuals', error);
-      }
-    }
-    return base;
-  }
-
-  function getOmegaWaveVisualConfig(tower) {
-    const base = { ...defaultOmegaWaveVisuals };
-    const scheme = getActiveColorScheme();
-    if (scheme && typeof scheme.getOmegaWaveVisuals === 'function') {
-      try {
-        const override = scheme.getOmegaWaveVisuals(tower, { ...base });
-        if (override && typeof override === 'object') {
-          return { ...base, ...override };
-        }
-      } catch (error) {
-        console.warn('Failed to compute omega wave visuals', error);
-      }
-    }
-    return base;
-  }
-
-  function updateColorSchemeButton() {
-    const button = colorSchemeState.button;
-    if (!button) {
-      return;
-    }
-    const scheme = getActiveColorScheme();
-    if (scheme) {
-      button.textContent = `Palette · ${scheme.label}`;
-      button.setAttribute('aria-label', `Switch color scheme (current: ${scheme.label})`);
-    }
-  }
-
-  function applyColorScheme() {
-    const scheme = getActiveColorScheme();
-    const body = document.body;
-    if (body) {
-      colorSchemeDefinitions.forEach((definition) => {
-        if (definition.className) {
-          body.classList.toggle(definition.className, definition === scheme);
-        }
-      });
-    }
-
-    updateColorSchemeButton();
-
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(COLOR_SCHEME_STORAGE_KEY, scheme?.id || 'aurora');
-      } catch (error) {
-        console.warn('Unable to persist color scheme', error);
-      }
-    }
-
-    updateMotePaletteFromTheme();
-
-    if (playfield) {
-      playfield.draw();
-    }
-  }
-
-  function setColorSchemeById(id) {
-    const index = colorSchemeDefinitions.findIndex((scheme) => scheme.id === id);
-    if (index < 0) {
-      return false;
-    }
-    colorSchemeState.index = index;
-    applyColorScheme();
-    return true;
-  }
-
-  function cycleColorScheme() {
-    if (!colorSchemeDefinitions.length) {
-      return;
-    }
-    colorSchemeState.index = (colorSchemeState.index + 1) % colorSchemeDefinitions.length;
-    applyColorScheme();
-  }
-
-  function bindColorSchemeButton() {
-    const button = document.getElementById('color-scheme-button');
-    colorSchemeState.button = button || null;
-    if (!button) {
-      return;
-    }
-    button.addEventListener('click', () => {
-      cycleColorScheme();
-    });
-    updateColorSchemeButton();
-  }
-
   // Provides a human readable label for the current notation selection.
   function resolveNotationLabel(notation) {
     return notation === GAME_NUMBER_NOTATIONS.SCIENTIFIC ? 'Scientific' : 'Letters';
@@ -653,23 +408,6 @@ import {
       toggleNotationPreference();
     });
     updateNotationToggleLabel();
-  }
-
-  function initializeColorScheme() {
-    let applied = false;
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        const stored = window.localStorage.getItem(COLOR_SCHEME_STORAGE_KEY);
-        if (stored) {
-          applied = setColorSchemeById(stored);
-        }
-      } catch (error) {
-        console.warn('Unable to read saved color scheme', error);
-      }
-    }
-    if (!applied) {
-      applyColorScheme();
-    }
   }
 
   function getOmegaPatternForTier(tier) {
@@ -1697,6 +1435,22 @@ import {
 
   let powderSimulation = null;
   let powderBasinObserver = null;
+
+  // Synchronize the shared palette module with powder simulation and playfield rendering.
+  configureColorSchemeSystem({
+    onPaletteChange: (palette) => {
+      powderState.motePalette = palette;
+      if (powderSimulation && typeof powderSimulation.setMotePalette === 'function') {
+        powderSimulation.setMotePalette(palette);
+        powderSimulation.render();
+      }
+    },
+    onSchemeApplied: () => {
+      if (playfield) {
+        playfield.draw();
+      }
+    },
+  });
 
   function queueMoteDrop(size) {
     if (!Number.isFinite(size) || size <= 0) {
