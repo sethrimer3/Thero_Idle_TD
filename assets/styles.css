@@ -74,6 +74,38 @@ body.color-scheme-chromatic::before {
   opacity: 0.85;
 }
 
+/* Low graphics mode removes intensive visual effects for performance-limited devices. */
+body.graphics-mode-low {
+  --shadow: none;
+  --transition: 0s;
+  background: var(--bg);
+}
+
+body.graphics-mode-low::before {
+  display: none;
+}
+
+body.graphics-mode-low *,
+body.graphics-mode-low *::before,
+body.graphics-mode-low *::after {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+body.graphics-mode-low .status-bar,
+body.graphics-mode-low .card,
+body.graphics-mode-low .main-stage,
+body.graphics-mode-low .tab-button,
+body.graphics-mode-low .action-button,
+body.graphics-mode-low .play-button,
+body.graphics-mode-low .control-button {
+  background-image: none !important;
+}
+
 .app-shell {
   width: min(960px, 100%);
   min-height: 100vh;

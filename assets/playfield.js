@@ -45,6 +45,8 @@ const defaultDependencies = {
   isFieldNotesOverlayVisible: () => false,
   getBaseStartThero: () => 50,
   getBaseCoreIntegrity: () => 100,
+  // Allows the playfield to respect the global graphics fidelity toggle.
+  isLowGraphicsMode: () => false,
 };
 
 let playfieldDependencies = { ...defaultDependencies };
@@ -185,6 +187,44 @@ export class SimplePlayfield {
       this.updateSpeedButton();
       this.updateAutoAnchorButton();
     }
+  }
+
+  // Reports whether low graphics mode is active for the current render cycle.
+  isLowGraphicsMode() {
+    if (typeof this.dependencies.isLowGraphicsMode === 'function') {
+      try {
+        return Boolean(this.dependencies.isLowGraphicsMode());
+      } catch (error) {
+        return false;
+      }
+    }
+    if (typeof document !== 'undefined' && document.body) {
+      return document.body.classList.contains('graphics-mode-low');
+    }
+    return false;
+  }
+
+  // Applies a canvas shadow when high graphics fidelity is active.
+  applyCanvasShadow(ctx, color, blur) {
+    if (!ctx) {
+      return;
+    }
+    if (this.isLowGraphicsMode()) {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0)';
+      ctx.shadowBlur = 0;
+      return;
+    }
+    ctx.shadowColor = color || 'rgba(0, 0, 0, 0)';
+    ctx.shadowBlur = Number.isFinite(blur) ? blur : 0;
+  }
+
+  // Clears active canvas shadow configuration regardless of the fidelity mode.
+  clearCanvasShadow(ctx) {
+    if (!ctx) {
+      return;
+    }
+    ctx.shadowColor = 'rgba(0, 0, 0, 0)';
+    ctx.shadowBlur = 0;
   }
 
   registerSlots() {
@@ -3552,8 +3592,7 @@ export class SimplePlayfield {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.lineWidth = 7;
-    ctx.shadowColor = 'rgba(88, 160, 255, 0.2)';
-    ctx.shadowBlur = 12;
+    this.applyCanvasShadow(ctx, 'rgba(88, 160, 255, 0.2)', 12);
     ctx.moveTo(start.x, start.y);
     for (let index = 1; index < points.length; index += 1) {
       const point = points[index];
@@ -3626,16 +3665,14 @@ export class SimplePlayfield {
     ctx.arc(0, 0, radius, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.shadowColor = 'rgba(255, 196, 150, 0.55)';
-    ctx.shadowBlur = radius * 0.9;
+    this.applyCanvasShadow(ctx, 'rgba(255, 196, 150, 0.55)', radius * 0.9);
     ctx.strokeStyle = 'rgba(255, 158, 88, 0.88)';
     ctx.lineWidth = Math.max(2, radius * 0.16);
     ctx.beginPath();
     ctx.arc(0, 0, radius * 0.82, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.shadowColor = 'rgba(139, 247, 255, 0.55)';
-    ctx.shadowBlur = radius * 0.7;
+    this.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.55)', radius * 0.7);
     ctx.strokeStyle = 'rgba(139, 247, 255, 0.85)';
     ctx.lineWidth = Math.max(1.4, radius * 0.12);
     ctx.beginPath();
@@ -3648,8 +3685,7 @@ export class SimplePlayfield {
     ctx.stroke();
 
     ctx.strokeStyle = 'rgba(255, 228, 120, 0.92)';
-    ctx.shadowColor = 'rgba(255, 228, 120, 0.55)';
-    ctx.shadowBlur = radius * 0.8;
+    this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', radius * 0.8);
     ctx.lineWidth = Math.max(1.6, radius * 0.14);
     ctx.beginPath();
     const gateWidth = radius * 0.58;
@@ -3685,8 +3721,7 @@ export class SimplePlayfield {
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = gradient;
     const highlightColor = paletteStops[paletteStops.length - 1] || paletteStops[0];
-    ctx.shadowColor = colorToRgbaString(highlightColor, 0.85);
-    ctx.shadowBlur = Math.max(14, radius * 0.95);
+    this.applyCanvasShadow(ctx, colorToRgbaString(highlightColor, 0.85), Math.max(14, radius * 0.95));
     const exponentOffset = radius * 0.78;
     const exponentX = exponentOffset;
     const exponentY = -exponentOffset * 0.88;
@@ -3760,11 +3795,9 @@ export class SimplePlayfield {
         : 'rgba(139, 247, 255, 0.55)';
       ctx.lineWidth = marker.active ? 2 : 1.5;
       if (marker.active) {
-        ctx.shadowColor = 'rgba(139, 247, 255, 0.3)';
-        ctx.shadowBlur = 16;
+        this.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.3)', 16);
       } else {
-        ctx.shadowColor = 'rgba(0, 0, 0, 0)';
-        ctx.shadowBlur = 0;
+        this.clearCanvasShadow(ctx);
       }
       ctx.arc(marker.x, marker.y, radius, 0, Math.PI * 2);
       ctx.fill();
@@ -3882,11 +3915,13 @@ export class SimplePlayfield {
       ctx.save();
       const outerShadow = visuals.outerShadow;
       if (outerShadow?.color) {
-        ctx.shadowColor = outerShadow.color;
-        ctx.shadowBlur = Number.isFinite(outerShadow.blur) ? outerShadow.blur : 18;
+        this.applyCanvasShadow(
+          ctx,
+          outerShadow.color,
+          Number.isFinite(outerShadow.blur) ? outerShadow.blur : 18,
+        );
       } else {
-        ctx.shadowColor = 'rgba(0, 0, 0, 0)';
-        ctx.shadowBlur = 0;
+        this.clearCanvasShadow(ctx);
       }
 
       ctx.beginPath();
@@ -3901,11 +3936,13 @@ export class SimplePlayfield {
       const symbolColor = visuals.symbolFill || 'rgba(255, 228, 120, 0.92)';
       const symbolShadow = visuals.symbolShadow;
       if (symbolShadow?.color) {
-        ctx.shadowColor = symbolShadow.color;
-        ctx.shadowBlur = Number.isFinite(symbolShadow.blur) ? symbolShadow.blur : 18;
+        this.applyCanvasShadow(
+          ctx,
+          symbolShadow.color,
+          Number.isFinite(symbolShadow.blur) ? symbolShadow.blur : 18,
+        );
       } else {
-        ctx.shadowColor = 'rgba(0, 0, 0, 0)';
-        ctx.shadowBlur = 0;
+        this.clearCanvasShadow(ctx);
       }
 
       const glyph = tower.symbol || tower.definition?.symbol || '?';
@@ -3917,13 +3954,13 @@ export class SimplePlayfield {
 
       if (tower.chain) {
         // Highlight Aleph-linked towers with a secondary ring that pulses with the chain state.
-        ctx.shadowColor = 'rgba(255, 228, 120, 0.55)';
-        ctx.shadowBlur = 20;
+        this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', 20);
         ctx.strokeStyle = 'rgba(255, 228, 120, 0.75)';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(tower.x, tower.y, bodyRadius + 6, 0, Math.PI * 2);
         ctx.stroke();
+        this.clearCanvasShadow(ctx);
       }
     });
 
