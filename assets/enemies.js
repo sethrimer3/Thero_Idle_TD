@@ -9,6 +9,29 @@ export const moteGemState = {
   autoCollectUnlocked: false,
 };
 
+// Curated gem profiles used to rename mote drops and provide thematically aligned colors.
+const GEM_PROFILES = [
+  { name: 'Sapphire', color: { hue: 210, saturation: 72, lightness: 52 } },
+  { name: 'Ruby', color: { hue: 350, saturation: 70, lightness: 48 } },
+  { name: 'Emerald', color: { hue: 145, saturation: 60, lightness: 46 } },
+  { name: 'Topaz', color: { hue: 35, saturation: 72, lightness: 55 } },
+  { name: 'Amethyst', color: { hue: 275, saturation: 58, lightness: 58 } },
+  { name: 'Aquamarine', color: { hue: 185, saturation: 54, lightness: 60 } },
+  { name: 'Garnet', color: { hue: 5, saturation: 68, lightness: 42 } },
+  { name: 'Peridot', color: { hue: 95, saturation: 64, lightness: 52 } },
+  { name: 'Citrine', color: { hue: 48, saturation: 70, lightness: 62 } },
+  { name: 'Obsidian', color: { hue: 210, saturation: 16, lightness: 18 } },
+  { name: 'Pearl', color: { hue: 40, saturation: 20, lightness: 86 } },
+  { name: 'Opal', color: { hue: 300, saturation: 36, lightness: 68 } },
+  { name: 'Rose Quartz', color: { hue: 340, saturation: 38, lightness: 72 } },
+  { name: 'Tanzanite', color: { hue: 250, saturation: 56, lightness: 50 } },
+  { name: 'Amber', color: { hue: 30, saturation: 74, lightness: 50 } },
+  { name: 'Jade', color: { hue: 120, saturation: 48, lightness: 50 } },
+];
+
+// Cache assigned gem profiles so each enemy type keeps a stable name and tint.
+const assignedGemProfiles = new Map();
+
 // Radius used when sweeping the battlefield for mote gem pickups.
 export const MOTE_GEM_COLLECTION_RADIUS = 48;
 
@@ -34,15 +57,27 @@ export function resolveMoteGemType(enemy = {}) {
   return { key: normalizedKey, label };
 }
 
-// Derive a deterministic accent color for a mote gem category.
-export function getMoteGemColor(typeKey) {
+// Resolve the gem profile assigned to a mote category, ensuring deterministic reuse.
+export function resolveMoteGemProfile(typeKey) {
   const key = String(typeKey || 'glyph');
   let hash = 0;
   for (let index = 0; index < key.length; index += 1) {
     hash = (hash * 31 + key.charCodeAt(index)) & 0xffffffff;
   }
-  const hue = Math.abs(hash) % 360;
-  return { hue, saturation: 72, lightness: 58 };
+  if (!assignedGemProfiles.has(key)) {
+    const profile = GEM_PROFILES[Math.abs(hash) % GEM_PROFILES.length] || GEM_PROFILES[0];
+    assignedGemProfiles.set(key, {
+      name: profile.name,
+      color: { ...profile.color },
+    });
+  }
+  return assignedGemProfiles.get(key);
+}
+
+// Derive a deterministic accent color for a mote gem category.
+export function getMoteGemColor(typeKey) {
+  const profile = resolveMoteGemProfile(typeKey);
+  return { ...profile.color };
 }
 
 // Spawn a mote gem drop at the supplied battlefield position.
@@ -55,15 +90,16 @@ export function spawnMoteGemDrop(enemy, position) {
     return null;
   }
   const type = resolveMoteGemType(enemy);
+  const profile = resolveMoteGemProfile(type.key);
   const gem = {
     id: moteGemState.nextId,
     x: position.x,
     y: position.y,
     value,
     typeKey: type.key,
-    typeLabel: type.label,
+    typeLabel: profile.name,
     pulse: Math.random() * Math.PI * 2,
-    color: getMoteGemColor(type.key),
+    color: { ...profile.color },
   };
   moteGemState.nextId += 1;
   moteGemState.active.push(gem);
