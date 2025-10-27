@@ -1481,6 +1481,11 @@ export function openTowerUpgradeOverlay(towerId, options = {}) {
   towerTabState.lastTowerUpgradeTrigger = options.trigger || null;
   renderTowerUpgradeOverlay(towerId, { blueprint: options.blueprint, baseEquationText: options.baseEquationText });
 
+  // Ensure the overlay is revealed before attempting to focus it.
+  if (typeof overlay.removeAttribute === 'function') {
+    overlay.removeAttribute('hidden');
+  }
+  overlay.hidden = false;
   overlay.classList.add('active');
   overlay.setAttribute('aria-hidden', 'false');
   overlay.focus({ preventScroll: true });
@@ -1499,6 +1504,8 @@ export function closeTowerUpgradeOverlay() {
   const finalizeClose = () => {
     overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
+    // Hide the overlay so it does not intercept pointer events when closed.
+    overlay.hidden = true;
   };
 
   overlay.addEventListener(
