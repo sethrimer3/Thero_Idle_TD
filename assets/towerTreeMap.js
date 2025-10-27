@@ -8,6 +8,22 @@ import { convertMathExpressionToPlainText } from '../scripts/core/mathText.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+const PHYSICS_CONFIG = {
+  /** Diameter of the orbit button in pixels (matches CSS width of 55px). */
+  nodeDiameter: 55,
+  /** Springs try to reach 1.5 × tower diameter per tier of separation. */
+  targetLengthMultiplier: 1.5,
+  springStrength: 9,
+  anchorStrength: 0.35,
+  /** Boundary force multiplier that keeps nodes within the map gently. */
+  boundaryStrength: 0.4,
+  /** Padding multiplier to determine how close nodes can drift to edges. */
+  boundaryPaddingMultiplier: 0.9,
+  repulsionStrength: 60000,
+  damping: 0.94,
+  maxDelta: 0.05,
+};
+
 const towerTreeState = {
   toggleButton: null,
   mapContainer: null,
@@ -15,7 +31,19 @@ const towerTreeState = {
   linkLayer: null,
   cardGrid: null,
   needsRefresh: false,
+  nodes: new Map(),
+  edges: [],
+  animationHandle: null,
+  lastTimestamp: null,
 };
+
+function stopSimulation() {
+  if (towerTreeState.animationHandle !== null) {
+    cancelAnimationFrame(towerTreeState.animationHandle);
+    towerTreeState.animationHandle = null;
+  }
+  towerTreeState.lastTimestamp = null;
+}
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -87,6 +115,9 @@ function collectTowerDependencies(equation, towers, currentId) {
 }
 
 function clearTreeLayers() {
+  stopSimulation();
+  towerTreeState.nodes.clear();
+  towerTreeState.edges = [];
   if (towerTreeState.nodeLayer) {
     towerTreeState.nodeLayer.innerHTML = '';
   }
@@ -126,35 +157,173 @@ function createTreeNode(definition, position, indexInTier) {
   return { element: node, orbit, position };
 }
 
-function buildTreeLinks(nodes, edges) {
-  if (!towerTreeState.linkLayer) {
-    return;
+function buildTreeLinks(definitions, edges) {
+  if (!towerTreeState.linkLayer || !towerTreeState.mapContainer) {
+    return [];
   }
   const rect = towerTreeState.mapContainer.getBoundingClientRect();
   towerTreeState.linkLayer.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
   towerTreeState.linkLayer.setAttribute('preserveAspectRatio', 'none');
+  const tierById = new Map();
+  definitions.forEach((definition) => {
+    const tierValue = Number.isFinite(definition.tier) ? definition.tier : 0;
+    tierById.set(definition.id, tierValue);
+  });
+  const orbitSample = towerTreeState.nodeLayer?.querySelector('.tower-tree-node-orbit');
+  const measuredDiameter = orbitSample?.offsetWidth || PHYSICS_CONFIG.nodeDiameter;
+  const baseLength = measuredDiameter * PHYSICS_CONFIG.targetLengthMultiplier;
 
-  edges.forEach(([fromId, toId]) => {
-    const fromNode = nodes.get(fromId);
-    const toNode = nodes.get(toId);
+  return edges.map(([fromId, toId]) => {
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.classList.add('tower-tree-link');
+    towerTreeState.linkLayer.append(line);
+    const fromTier = tierById.get(fromId) ?? 0;
+    const toTier = tierById.get(toId) ?? 0;
+    const tierDistance = Math.max(1, Math.abs(fromTier - toTier));
+    return {
+      fromId,
+      toId,
+      element: line,
+      targetLength: baseLength * tierDistance,
+    };
+  });
+}
+
+function applySpringForces() {
+  towerTreeState.edges.forEach((edge) => {
+    const nodeA = towerTreeState.nodes.get(edge.fromId);
+    const nodeB = towerTreeState.nodes.get(edge.toId);
+    if (!nodeA || !nodeB) {
+      return;
+    }
+    const dx = nodeB.position.x - nodeA.position.x;
+    const dy = nodeB.position.y - nodeA.position.y;
+    const distance = Math.hypot(dx, dy) || 0.0001;
+    const difference = distance - edge.targetLength;
+    const strength = PHYSICS_CONFIG.springStrength * difference;
+    const forceX = (dx / distance) * strength;
+    const forceY = (dy / distance) * strength;
+    nodeA.force.x += forceX;
+    nodeA.force.y += forceY;
+    nodeB.force.x -= forceX;
+    nodeB.force.y -= forceY;
+  });
+}
+
+function applyAnchorForces() {
+  towerTreeState.nodes.forEach((node) => {
+    const anchorX = node.anchor.x;
+    const anchorY = node.anchor.y;
+    node.force.x += (anchorX - node.position.x) * PHYSICS_CONFIG.anchorStrength;
+    node.force.y += (anchorY - node.position.y) * PHYSICS_CONFIG.anchorStrength;
+  });
+}
+
+/** Applies a soft push back into the container whenever a node drifts off screen. */
+function applyBoundaryForces(containerWidth, containerHeight) {
+  const padding = PHYSICS_CONFIG.nodeDiameter * PHYSICS_CONFIG.boundaryPaddingMultiplier;
+  const minX = padding;
+  const maxX = Math.max(padding, containerWidth - padding);
+  const minY = padding;
+  const maxY = Math.max(padding, containerHeight - padding);
+  towerTreeState.nodes.forEach((node) => {
+    if (node.position.x < minX) {
+      node.force.x += (minX - node.position.x) * PHYSICS_CONFIG.boundaryStrength;
+    } else if (node.position.x > maxX) {
+      node.force.x -= (node.position.x - maxX) * PHYSICS_CONFIG.boundaryStrength;
+    }
+    if (node.position.y < minY) {
+      node.force.y += (minY - node.position.y) * PHYSICS_CONFIG.boundaryStrength;
+    } else if (node.position.y > maxY) {
+      node.force.y -= (node.position.y - maxY) * PHYSICS_CONFIG.boundaryStrength;
+    }
+  });
+}
+
+function applyRepulsionForces() {
+  const nodeList = [...towerTreeState.nodes.values()];
+  for (let i = 0; i < nodeList.length; i += 1) {
+    for (let j = i + 1; j < nodeList.length; j += 1) {
+      const nodeA = nodeList[i];
+      const nodeB = nodeList[j];
+      const dx = nodeB.position.x - nodeA.position.x;
+      const dy = nodeB.position.y - nodeA.position.y;
+      const distanceSq = dx * dx + dy * dy || 0.0001;
+      const distance = Math.sqrt(distanceSq);
+      const minDistance = PHYSICS_CONFIG.nodeDiameter;
+      const strength = (PHYSICS_CONFIG.repulsionStrength / (distanceSq * Math.max(distance / minDistance, 0.35)));
+      const forceX = (dx / distance) * strength;
+      const forceY = (dy / distance) * strength;
+      nodeA.force.x -= forceX;
+      nodeA.force.y -= forceY;
+      nodeB.force.x += forceX;
+      nodeB.force.y += forceY;
+    }
+  }
+}
+
+function updateLinkPositions() {
+  towerTreeState.edges.forEach((edge) => {
+    const fromNode = towerTreeState.nodes.get(edge.fromId);
+    const toNode = towerTreeState.nodes.get(edge.toId);
     if (!fromNode || !toNode) {
       return;
     }
-    const line = document.createElementNS(SVG_NS, 'line');
-    const fromRect = fromNode.element.getBoundingClientRect();
-    const toRect = toNode.element.getBoundingClientRect();
-    const containerRect = towerTreeState.mapContainer.getBoundingClientRect();
-    const x1 = fromRect.left - containerRect.left + fromRect.width / 2;
-    const y1 = fromRect.top - containerRect.top + fromRect.height / 2;
-    const x2 = toRect.left - containerRect.left + toRect.width / 2;
-    const y2 = toRect.top - containerRect.top + toRect.height / 2;
-    line.setAttribute('x1', String(x1));
-    line.setAttribute('y1', String(y1));
-    line.setAttribute('x2', String(x2));
-    line.setAttribute('y2', String(y2));
-    line.classList.add('tower-tree-link');
-    towerTreeState.linkLayer.append(line);
+    edge.element.setAttribute('x1', String(fromNode.position.x));
+    edge.element.setAttribute('y1', String(fromNode.position.y));
+    edge.element.setAttribute('x2', String(toNode.position.x));
+    edge.element.setAttribute('y2', String(toNode.position.y));
   });
+}
+
+function stepSimulation(timestamp) {
+  if (!towerTreeState.mapContainer || towerTreeState.mapContainer.hidden) {
+    stopSimulation();
+    return;
+  }
+  if (!towerTreeState.nodes.size) {
+    stopSimulation();
+    return;
+  }
+  if (towerTreeState.lastTimestamp === null) {
+    towerTreeState.lastTimestamp = timestamp;
+  }
+  const deltaMs = timestamp - towerTreeState.lastTimestamp;
+  const delta = Math.min(deltaMs / 1000, PHYSICS_CONFIG.maxDelta);
+  towerTreeState.lastTimestamp = timestamp;
+
+  const containerWidth = towerTreeState.nodeLayer?.offsetWidth || 0;
+  const containerHeight = towerTreeState.nodeLayer?.offsetHeight || 0;
+
+  towerTreeState.nodes.forEach((node) => {
+    node.force.x = 0;
+    node.force.y = 0;
+  });
+
+  applySpringForces();
+  applyRepulsionForces();
+  applyAnchorForces();
+  applyBoundaryForces(containerWidth, containerHeight);
+
+  towerTreeState.nodes.forEach((node) => {
+    const accelX = node.force.x;
+    const accelY = node.force.y;
+    node.velocity.x = (node.velocity.x + accelX * delta) * PHYSICS_CONFIG.damping;
+    node.velocity.y = (node.velocity.y + accelY * delta) * PHYSICS_CONFIG.damping;
+    node.position.x += node.velocity.x * delta;
+    node.position.y += node.velocity.y * delta;
+    node.element.style.left = `${node.position.x}px`;
+    node.element.style.top = `${node.position.y}px`;
+  });
+
+  updateLinkPositions();
+
+  towerTreeState.animationHandle = window.requestAnimationFrame(stepSimulation);
+}
+
+function startSimulation() {
+  stopSimulation();
+  towerTreeState.animationHandle = window.requestAnimationFrame(stepSimulation);
 }
 
 function computeNodeLayout(towers) {
@@ -234,11 +403,28 @@ function refreshTreeInternal() {
       return;
     }
     const node = createTreeNode(definition, position, indexCounter++);
-    nodes.set(towerId, node);
+    node.element.style.left = `${position.x}px`;
+    node.element.style.top = `${position.y}px`;
     towerTreeState.nodeLayer.append(node.element);
+    nodes.set(towerId, {
+      id: towerId,
+      definition,
+      element: node.element,
+      orbit: node.orbit,
+      position: { ...position },
+      anchor: { ...position },
+      velocity: {
+        x: (Math.random() - 0.5) * 40,
+        y: (Math.random() - 0.5) * 40,
+      },
+      force: { x: 0, y: 0 },
+    });
   });
 
-  buildTreeLinks(nodes, edges);
+  towerTreeState.nodes = nodes;
+  towerTreeState.edges = buildTreeLinks(definitions, edges);
+  updateLinkPositions();
+  startSimulation();
   towerTreeState.needsRefresh = false;
 }
 
@@ -256,6 +442,8 @@ function toggleTreeVisibility(forceOpen = null) {
   towerTreeState.toggleButton.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
   if (nextOpen) {
     refreshTreeInternal();
+  } else {
+    stopSimulation();
   }
 }
 

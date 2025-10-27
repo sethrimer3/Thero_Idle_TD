@@ -1591,8 +1591,8 @@ body.graphics-mode-low .control-button {
 
 .tower-tree-node {
   position: absolute;
-  width: 130px;
-  height: 130px;
+  width: 90px;
+  height: 90px;
   left: 0;
   top: 0;
   transform: translate(-50%, -50%);
@@ -1604,14 +1604,15 @@ body.graphics-mode-low .control-button {
 
 .tower-tree-node-orbit {
   pointer-events: auto;
-  width: 110px;
-  height: 110px;
+  width: 55px;
+  height: 55px;
   border-radius: 999px;
   border: 1px solid rgba(247, 247, 245, 0.14);
   background: radial-gradient(circle at 50% 45%, rgba(247, 247, 245, 0.12), rgba(10, 10, 16, 0.8));
   display: grid;
   place-items: center;
-  padding: 12px;
+  padding: 6px;
+  box-sizing: border-box;
   text-align: center;
   box-shadow: 0 16px 24px rgba(0, 0, 0, 0.28);
   transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
@@ -1627,20 +1628,20 @@ body.graphics-mode-low .control-button {
 
 .tower-tree-node-symbol {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 1.8rem;
+  font-size: 1.35rem;
   color: rgba(255, 228, 120, 0.9);
   text-shadow: 0 0 14px rgba(255, 228, 120, 0.65);
 }
 
 .tower-tree-node-name {
-  font-size: 0.75rem;
+  font-size: 0.6rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(247, 247, 245, 0.75);
 }
 
 .tower-tree-node-tier {
-  font-size: 0.7rem;
+  font-size: 0.55rem;
   color: rgba(247, 247, 245, 0.6);
 }
 
@@ -1661,15 +1662,15 @@ body.graphics-mode-low .control-button {
 }
 
 .tower-tree-link {
-  stroke: rgba(255, 228, 120, 0.35);
-  stroke-width: 2;
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 3;
   stroke-dasharray: 6 4;
   transition: stroke 220ms ease, stroke-width 220ms ease;
 }
 
 .tower-tree-link[data-active='true'] {
-  stroke: rgba(255, 228, 120, 0.75);
-  stroke-width: 3;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 4;
 }
 
 .panel-grid {
