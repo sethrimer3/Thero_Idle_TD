@@ -1486,3 +1486,710 @@ export class PowderSimulation {
   }
 }
 
+/**
+ * Fluid simulation for the late-game mote basin.
+ *
+ * Rather than rendering discrete sand grains, this variant uses a
+ * shallow-water inspired column model so drops merge into a continuous
+ * surface that ripples and equalizes over time.
+ */
+export class FluidSimulation {
+  constructor(options = {}) {
+    this.canvas = options.canvas || null;
+    this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+    const baseCellSize = Number.isFinite(options.cellSize) && options.cellSize > 0
+      ? options.cellSize
+      : POWDER_CELL_SIZE_PX;
+    const deviceScale = window.devicePixelRatio || 1;
+    this.cellSize = Math.max(1, Math.round(baseCellSize * deviceScale));
+    this.deviceScale = deviceScale;
+
+    this.onHeightChange = typeof options.onHeightChange === 'function' ? options.onHeightChange : null;
+    this.onWallMetricsChange =
+      typeof options.onWallMetricsChange === 'function' ? options.onWallMetricsChange : null;
+
+    this.width = 0;
+    this.height = 0;
+    this.cols = 0;
+    this.rows = 0;
+
+    this.wallInsetLeftPx = Number.isFinite(options.wallInsetLeft) ? Math.max(0, options.wallInsetLeft) : 0;
+    this.wallInsetRightPx = Number.isFinite(options.wallInsetRight) ? Math.max(0, options.wallInsetRight) : 0;
+    this.wallInsetLeftCells = 0;
+    this.wallInsetRightCells = 0;
+    const attrWidth = this.canvas ? Number.parseFloat(this.canvas.getAttribute('width')) || 0 : 0;
+    const referenceWidth = Number.isFinite(options.wallReferenceWidth)
+      ? Math.max(options.wallReferenceWidth, this.cellSize)
+      : attrWidth || 240;
+    this.wallGapReferenceWidth = referenceWidth;
+    this.wallGapReferenceCols = Math.max(1, Math.round(referenceWidth / this.cellSize));
+    this.wallGapTargetUnits = Number.isFinite(options.wallGapCells)
+      ? Math.max(1, options.wallGapCells)
+      : null;
+
+    this.columnHeights = [];
+    this.columnVelocities = [];
+    this.flowBuffer = [];
+    this.drops = [];
+    this.pendingDrops = [];
+    this.idleBank = 0;
+    this.idleAccumulator = 0;
+    this.maxDropSize = 1;
+    this.maxDropRadius = 1;
+    this.largestDrop = 0;
+
+    this.baseSpawnInterval = options.baseSpawnInterval && options.baseSpawnInterval > 0
+      ? options.baseSpawnInterval
+      : 160;
+    this.spawnAccumulator = 0;
+
+    this.waveStiffness = Number.isFinite(options.waveStiffness) ? Math.max(0.001, options.waveStiffness) : 0.18;
+    this.waveDamping = Number.isFinite(options.waveDamping) ? Math.max(0, options.waveDamping) : 0.015;
+    this.sideFlowRate = Number.isFinite(options.sideFlowRate) ? Math.max(0, options.sideFlowRate) : 0.45;
+    this.rippleFrequency = Number.isFinite(options.rippleFrequency) ? Math.max(0, options.rippleFrequency) : 0.9;
+    this.rippleAmplitude = Number.isFinite(options.rippleAmplitude) ? Math.max(0, options.rippleAmplitude) : 0.5;
+    this.rippleTimer = 0;
+
+    this.dropSizes = Array.isArray(options.dropSizes)
+      ? options.dropSizes.filter((size) => Number.isFinite(size) && size > 0)
+      : [1, 1, 2];
+    if (!this.dropSizes.length) {
+      this.dropSizes = [1, 1, 2];
+    }
+    this.dropVolumeScale = Number.isFinite(options.dropVolumeScale) ? Math.max(0.2, options.dropVolumeScale) : 0.75;
+
+    const fallbackPalette = options.fallbackMotePalette || DEFAULT_MOTE_PALETTE;
+    this.motePalette = mergeMotePalette(options.motePalette || fallbackPalette);
+    this.defaultProfile = {
+      dropSizes: [...this.dropSizes],
+      idleDrainRate: Number.isFinite(options.idleDrainRate) ? options.idleDrainRate : 1.2,
+      baseSpawnInterval: this.baseSpawnInterval,
+      waveStiffness: this.waveStiffness,
+      waveDamping: this.waveDamping,
+      sideFlowRate: this.sideFlowRate,
+      rippleFrequency: this.rippleFrequency,
+      rippleAmplitude: this.rippleAmplitude,
+      dropVolumeScale: this.dropVolumeScale,
+      maxDuneGain: this.maxDuneGain,
+      palette: {
+        ...this.motePalette,
+        stops: Array.isArray(this.motePalette.stops)
+          ? this.motePalette.stops.map((stop) => ({ ...stop }))
+          : [],
+      },
+    };
+
+    this.idleDrainRate = Number.isFinite(options.idleDrainRate) ? Math.max(0.1, options.idleDrainRate) : 1.2;
+    this.flowOffset = 0;
+
+    this.heightInfo = {
+      normalizedHeight: 0,
+      duneGain: 0,
+      largestGrain: 0,
+      visibleHeight: 0,
+      totalHeight: 0,
+      totalNormalized: 0,
+      crestPosition: 1,
+    };
+
+    this.running = false;
+    this.lastFrame = 0;
+    this.loopHandle = null;
+
+    this.handleFrame = this.handleFrame.bind(this);
+    this.handleResize = this.handleResize.bind(this);
+
+    if (this.ctx) {
+      this.configureCanvas();
+    }
+  }
+
+  handleResize() {
+    if (!this.canvas || !this.ctx) {
+      return;
+    }
+    const wasRunning = this.running;
+    this.configureCanvas();
+    if (!wasRunning) {
+      this.render();
+      this.updateHeightInfo(true);
+    }
+  }
+
+  configureCanvas() {
+    if (!this.canvas || !this.ctx) {
+      return;
+    }
+
+    const ratio = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
+      ? window.devicePixelRatio
+      : 1;
+    const rect = typeof this.canvas.getBoundingClientRect === 'function'
+      ? this.canvas.getBoundingClientRect()
+      : null;
+    const parent = this.canvas.parentElement;
+    const parentRect = parent && typeof parent.getBoundingClientRect === 'function'
+      ? parent.getBoundingClientRect()
+      : null;
+
+    const measuredWidth = parentRect?.width || rect?.width || this.canvas.clientWidth || 240;
+    const measuredHeight = parentRect?.height || rect?.height || this.canvas.clientHeight || 320;
+
+    const styleWidth = `${Math.max(200, measuredWidth)}px`;
+    const styleHeight = `${Math.max(260, measuredHeight)}px`;
+    if (this.canvas.style.width !== styleWidth) {
+      this.canvas.style.width = styleWidth;
+    }
+    if (this.canvas.style.height !== styleHeight) {
+      this.canvas.style.height = styleHeight;
+    }
+
+    const targetWidth = Math.max(1, Math.floor(measuredWidth * ratio));
+    const targetHeight = Math.max(1, Math.floor(measuredHeight * ratio));
+    if (this.canvas.width !== targetWidth) {
+      this.canvas.width = targetWidth;
+    }
+    if (this.canvas.height !== targetHeight) {
+      this.canvas.height = targetHeight;
+    }
+
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.scale(ratio, ratio);
+
+    this.width = Math.max(200, measuredWidth);
+    this.height = Math.max(260, measuredHeight);
+    this.cols = Math.max(8, Math.floor(this.width / this.cellSize));
+    this.rows = Math.max(8, Math.floor(this.height / this.cellSize));
+
+    const leftUnits = Math.max(0, Math.floor(this.wallInsetLeftPx / this.cellSize));
+    const rightUnits = Math.max(0, Math.floor(this.wallInsetRightPx / this.cellSize));
+    this.wallInsetLeftCells = Math.min(Math.max(0, leftUnits), this.cols - 1);
+    this.wallInsetRightCells = Math.min(Math.max(0, rightUnits), this.cols - 1);
+
+    this.columnHeights = new Array(this.cols).fill(0);
+    this.columnVelocities = new Array(this.cols).fill(0);
+    this.flowBuffer = new Array(this.cols).fill(0);
+
+    this.updateMaxDropSize();
+    this.notifyWallMetricsChange();
+    this.updateHeightInfo(true);
+  }
+
+  notifyWallMetricsChange(metrics) {
+    if (typeof this.onWallMetricsChange !== 'function') {
+      return;
+    }
+    this.onWallMetricsChange(metrics || this.getWallMetrics());
+  }
+
+  getWallMetrics() {
+    return {
+      leftCells: this.wallInsetLeftCells,
+      rightCells: this.wallInsetRightCells,
+      gapCells: Math.max(0, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells),
+      cellSize: this.cellSize,
+      rows: this.rows,
+      cols: this.cols,
+      width: this.width,
+      height: this.height,
+    };
+  }
+
+  setWallGapTarget(gapCells, options = {}) {
+    if (!Number.isFinite(gapCells) || gapCells <= 0) {
+      this.wallGapTargetUnits = null;
+      this.updateMaxDropSize();
+      return false;
+    }
+    this.wallGapTargetUnits = Math.max(1, Math.round(gapCells));
+    if (!this.wallGapReferenceCols && this.cols) {
+      this.wallGapReferenceCols = Math.max(1, this.cols);
+    }
+    if (!this.cols) {
+      return false;
+    }
+
+    const normalizedCols = this.wallGapReferenceCols || this.cols;
+    const scale = this.cols / normalizedCols;
+    const targetGap = Math.max(1, Math.round(this.wallGapTargetUnits * scale));
+    const desiredGap = Math.max(1, Math.min(this.cols - 2, targetGap));
+    const totalInset = Math.max(0, this.cols - desiredGap);
+    const left = Math.floor(totalInset / 2);
+    const right = totalInset - left;
+
+    const changed = left !== this.wallInsetLeftCells || right !== this.wallInsetRightCells;
+    this.wallInsetLeftCells = left;
+    this.wallInsetRightCells = right;
+    this.wallInsetLeftPx = left * this.cellSize;
+    this.wallInsetRightPx = right * this.cellSize;
+    this.updateMaxDropSize();
+
+    if (changed && !options.skipRebuild) {
+      this.notifyWallMetricsChange();
+    }
+
+    return changed;
+  }
+
+  updateMaxDropSize() {
+    const gap = Math.max(1, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells);
+    this.maxDropSize = Math.max(1, Math.floor(gap / 6));
+    this.maxDropRadius = Math.max(1, Math.round(this.maxDropSize * this.cellSize * 0.6));
+  }
+
+  convertIdleBank(delta) {
+    if (this.idleBank <= 0 || !Number.isFinite(delta)) {
+      return 0;
+    }
+    const rate = this.idleDrainRate / 1000;
+    const pending = this.idleAccumulator + delta * rate;
+    const toQueue = Math.min(this.idleBank, Math.floor(pending));
+    this.idleAccumulator = pending - toQueue;
+    if (toQueue <= 0) {
+      return 0;
+    }
+    for (let index = 0; index < toQueue; index += 1) {
+      this.pendingDrops.push({ size: 1 });
+    }
+    this.idleBank = Math.max(0, this.idleBank - toQueue);
+    return toQueue;
+  }
+
+  clampDropSize(size) {
+    const normalized = Number.isFinite(size) ? Math.max(1, Math.round(size)) : 1;
+    return Math.max(1, Math.min(normalized, this.maxDropSize || normalized));
+  }
+
+  chooseDropSize() {
+    if (this.dropSizes.length === 1) {
+      return this.dropSizes[0];
+    }
+    const weights = this.dropSizes.map((size) => 1 / Math.max(1, size - 1));
+    const totalWeight = weights.reduce((sum, value) => sum + value, 0);
+    let pick = Math.random() * totalWeight;
+    for (let index = 0; index < this.dropSizes.length; index += 1) {
+      pick -= weights[index];
+      if (pick <= 0) {
+        return this.dropSizes[index];
+      }
+    }
+    return this.dropSizes[this.dropSizes.length - 1];
+  }
+
+  queueDrop(size) {
+    if (!Number.isFinite(size) || size <= 0) {
+      return;
+    }
+    const normalized = this.clampDropSize(size);
+    this.pendingDrops.push({ size: normalized });
+  }
+
+  addIdleMotes(amount) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return;
+    }
+    this.idleBank = Math.max(0, this.idleBank + amount);
+  }
+
+  spawnPendingDrops(limit = 1) {
+    if (!this.pendingDrops.length || !this.cols) {
+      return;
+    }
+    let remaining = Math.max(1, Math.floor(limit));
+    while (remaining > 0 && this.pendingDrops.length) {
+      const drop = this.pendingDrops.shift();
+      this.spawnDrop(drop?.size);
+      remaining -= 1;
+    }
+  }
+
+  spawnDrop(sizeOverride) {
+    const gapStart = this.wallInsetLeftCells * this.cellSize;
+    const gapEnd = this.width - this.wallInsetRightCells * this.cellSize;
+    if (gapEnd <= gapStart) {
+      return;
+    }
+    const size = this.clampDropSize(typeof sizeOverride === 'number' ? sizeOverride : this.chooseDropSize());
+    const radius = Math.max(2, Math.min(this.maxDropRadius, size * this.cellSize * 0.6));
+    const x = gapStart + Math.random() * (gapEnd - gapStart);
+    const drop = {
+      x,
+      y: -radius,
+      vy: 0,
+      radius,
+      volume: size * this.dropVolumeScale,
+    };
+    this.largestDrop = Math.max(this.largestDrop, drop.radius / this.cellSize);
+    this.drops.push(drop);
+  }
+
+  updateDrops(deltaMs) {
+    if (!this.drops.length) {
+      return;
+    }
+    const gravity = 1200;
+    const dt = Math.max(0.001, deltaMs / 1000);
+    const survivors = [];
+    for (const drop of this.drops) {
+      drop.vy += gravity * dt;
+      drop.y += drop.vy * dt;
+      const surfaceY = this.getSurfaceHeightAt(drop.x);
+      if (drop.y + drop.radius >= surfaceY) {
+        this.mergeDrop(drop);
+        continue;
+      }
+      if (drop.y - drop.radius > this.height) {
+        continue;
+      }
+      survivors.push(drop);
+    }
+    this.drops = survivors;
+  }
+
+  getSurfaceHeightAt(px) {
+    const column = Math.max(0, Math.min(this.cols - 1, Math.floor(px / this.cellSize)));
+    const depth = this.columnHeights[column] || 0;
+    return this.height - depth * this.cellSize;
+  }
+
+  mergeDrop(drop) {
+    const column = Math.max(0, Math.min(this.cols - 1, Math.floor(drop.x / this.cellSize)));
+    this.columnHeights[column] = (this.columnHeights[column] || 0) + drop.volume;
+  }
+
+  simulateFluid(deltaMs) {
+    if (!this.columnHeights.length) {
+      return;
+    }
+    const dt = Math.max(0.001, deltaMs / 1000);
+    const activeStart = this.wallInsetLeftCells;
+    const activeEnd = this.cols - this.wallInsetRightCells - 1;
+    const stiffness = this.waveStiffness;
+    const dampingFactor = Math.max(0, 1 - this.waveDamping * dt);
+    const flowRate = this.sideFlowRate * dt;
+
+    for (let index = 0; index < this.cols; index += 1) {
+      this.flowBuffer[index] = 0;
+    }
+
+    for (let index = activeStart; index <= activeEnd; index += 1) {
+      const height = this.columnHeights[index] || 0;
+      if (height <= 0) {
+        this.columnVelocities[index] = this.columnVelocities[index] * dampingFactor;
+        continue;
+      }
+      const leftHeight = index > activeStart ? this.columnHeights[index - 1] || 0 : height;
+      const rightHeight = index < activeEnd ? this.columnHeights[index + 1] || 0 : height;
+      const average = (leftHeight + rightHeight) / 2;
+      const acceleration = (average - height) * stiffness;
+      this.columnVelocities[index] = (this.columnVelocities[index] + acceleration * dt) * dampingFactor;
+    }
+
+    if (this.rippleAmplitude > 0 && this.rippleFrequency > 0) {
+      this.rippleTimer += dt * this.rippleFrequency;
+      for (let index = activeStart; index <= activeEnd; index += 1) {
+        const phase = (index / Math.max(1, activeEnd - activeStart + 1)) * Math.PI * 2;
+        const ripple = Math.sin(phase + this.rippleTimer * Math.PI * 2) * this.rippleAmplitude * this.flowOffset;
+        this.columnVelocities[index] += ripple * dt;
+      }
+    }
+
+    for (let index = activeStart; index <= activeEnd; index += 1) {
+      const height = this.columnHeights[index] || 0;
+      const velocity = this.columnVelocities[index] || 0;
+      const nextHeight = Math.max(0, height + velocity);
+      const deltaHeight = nextHeight - height;
+      this.columnHeights[index] = nextHeight;
+      const available = Math.max(0, nextHeight);
+      if (available <= 0) {
+        continue;
+      }
+      const leftIndex = index - 1;
+      const rightIndex = index + 1;
+      if (leftIndex >= activeStart) {
+        const diff = nextHeight - (this.columnHeights[leftIndex] || 0);
+        if (diff > 0) {
+          const amount = Math.min(diff * flowRate, available);
+          this.flowBuffer[index] -= amount;
+          this.flowBuffer[leftIndex] += amount;
+        }
+      }
+      if (rightIndex <= activeEnd) {
+        const diff = nextHeight - (this.columnHeights[rightIndex] || 0);
+        if (diff > 0) {
+          const amount = Math.min(diff * flowRate, available);
+          this.flowBuffer[index] -= amount;
+          this.flowBuffer[rightIndex] += amount;
+        }
+      }
+    }
+
+    for (let index = activeStart; index <= activeEnd; index += 1) {
+      this.columnHeights[index] = Math.max(0, (this.columnHeights[index] || 0) + this.flowBuffer[index]);
+    }
+  }
+
+  update(deltaMs) {
+    if (!this.ctx) {
+      return;
+    }
+    this.convertIdleBank(deltaMs);
+    const spawnBudget = Math.max(1, Math.ceil(deltaMs / Math.max(30, this.baseSpawnInterval / 4)));
+    this.spawnPendingDrops(spawnBudget);
+    this.updateDrops(deltaMs);
+    this.simulateFluid(deltaMs);
+    this.updateHeightInfo();
+    this.render();
+  }
+
+  updateHeightInfo(force = false) {
+    const activeStart = this.wallInsetLeftCells;
+    const activeEnd = this.cols - this.wallInsetRightCells - 1;
+    let highest = 0;
+    for (let index = activeStart; index <= activeEnd; index += 1) {
+      highest = Math.max(highest, this.columnHeights[index] || 0);
+    }
+    const visibleHeight = highest;
+    const normalized = this.rows > 0 ? Math.min(1, visibleHeight / this.rows) : 0;
+    const crestIndex = (() => {
+      if (highest <= 0) {
+        return activeEnd;
+      }
+      let candidate = activeStart;
+      let bestHeight = -Infinity;
+      for (let index = activeStart; index <= activeEnd; index += 1) {
+        const height = this.columnHeights[index] || 0;
+        if (height > bestHeight) {
+          bestHeight = height;
+          candidate = index;
+        }
+      }
+      return candidate;
+    })();
+    const crestPosition = this.cols > 0 ? Math.max(0, Math.min(1, crestIndex / this.cols)) : 0;
+
+    const info = {
+      normalizedHeight: normalized,
+      duneGain: Math.min(this.maxDuneGain, normalized * this.maxDuneGain),
+      largestGrain: this.largestDrop,
+      scrollOffset: 0,
+      visibleHeight,
+      totalHeight: visibleHeight,
+      totalNormalized: normalized,
+      crestPosition,
+      rows: this.rows,
+      cols: this.cols,
+      cellSize: this.cellSize,
+      highestNormalized: normalized,
+    };
+
+    const previous = this.heightInfo || {};
+    const changed =
+      previous.normalizedHeight !== info.normalizedHeight ||
+      previous.duneGain !== info.duneGain ||
+      previous.largestGrain !== info.largestGrain ||
+      previous.visibleHeight !== info.visibleHeight;
+    this.heightInfo = info;
+    if (this.onHeightChange && (force || changed)) {
+      this.onHeightChange(info);
+    }
+  }
+
+  render() {
+    if (!this.ctx) {
+      return;
+    }
+    const palette = this.getEffectiveMotePalette();
+    const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+    gradient.addColorStop(0, palette.backgroundTop || '#07111f');
+    gradient.addColorStop(1, palette.backgroundBottom || '#0d1b2e');
+    this.ctx.fillStyle = gradient;
+    this.ctx.fillRect(0, 0, this.width, this.height);
+
+    const gapStart = this.wallInsetLeftCells * this.cellSize;
+    const gapEnd = this.width - this.wallInsetRightCells * this.cellSize;
+    const waterGradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+    const stops = resolvePaletteColorStops(palette);
+    const restAlpha = clampUnitInterval(palette.restAlpha ?? 0.8);
+    const freefallAlpha = clampUnitInterval(palette.freefallAlpha ?? 0.55);
+    waterGradient.addColorStop(0, colorToRgbaString({ ...stops[stops.length - 1], a: restAlpha }));
+    waterGradient.addColorStop(1, colorToRgbaString({ ...stops[0], a: restAlpha }));
+
+    this.ctx.beginPath();
+    this.ctx.moveTo(gapStart, this.height);
+    for (let x = gapStart; x <= gapEnd; x += this.cellSize) {
+      const surfaceY = this.getSurfaceHeightAt(x);
+      this.ctx.lineTo(x, surfaceY);
+    }
+    this.ctx.lineTo(gapEnd, this.height);
+    this.ctx.closePath();
+    this.ctx.fillStyle = waterGradient;
+    this.ctx.fill();
+
+    this.ctx.strokeStyle = colorToRgbaString({ ...stops[stops.length - 1], a: Math.max(restAlpha, 0.85) });
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    let first = true;
+    for (let x = gapStart; x <= gapEnd; x += Math.max(1, this.cellSize / 2)) {
+      const surfaceY = this.getSurfaceHeightAt(x);
+      if (first) {
+        this.ctx.moveTo(x, surfaceY);
+        first = false;
+      } else {
+        this.ctx.lineTo(x, surfaceY);
+      }
+    }
+    this.ctx.stroke();
+
+    const dropColor = colorToRgbaString({ ...stops[stops.length - 1], a: freefallAlpha });
+    for (const drop of this.drops) {
+      if (drop.y - drop.radius > this.height || drop.y + drop.radius < 0) {
+        continue;
+      }
+      this.ctx.beginPath();
+      this.ctx.arc(drop.x, drop.y, drop.radius, 0, Math.PI * 2);
+      this.ctx.fillStyle = dropColor;
+      this.ctx.fill();
+    }
+  }
+
+  getEffectiveMotePalette() {
+    if (!this.motePalette) {
+      this.motePalette = mergeMotePalette(DEFAULT_MOTE_PALETTE);
+    }
+    return this.motePalette;
+  }
+
+  getStatus() {
+    return this.heightInfo;
+  }
+
+  applyProfile(profile = {}) {
+    if (!profile || typeof profile !== 'object') {
+      return;
+    }
+    if (Array.isArray(profile.dropSizes) && profile.dropSizes.length) {
+      this.dropSizes = profile.dropSizes
+        .map((size) => (Number.isFinite(size) && size > 0 ? Math.round(size) : null))
+        .filter((size) => Number.isFinite(size) && size > 0);
+      if (!this.dropSizes.length) {
+        this.dropSizes = [1, 1, 2];
+      }
+    }
+    if (Number.isFinite(profile.dropVolumeScale) && profile.dropVolumeScale > 0) {
+      this.dropVolumeScale = Math.max(0.2, profile.dropVolumeScale);
+    }
+    if (Number.isFinite(profile.idleDrainRate) && profile.idleDrainRate > 0) {
+      this.idleDrainRate = profile.idleDrainRate;
+    }
+    if (Number.isFinite(profile.baseSpawnInterval) && profile.baseSpawnInterval > 0) {
+      this.baseSpawnInterval = profile.baseSpawnInterval;
+    }
+    if (Number.isFinite(profile.maxDuneGain) && profile.maxDuneGain >= 0) {
+      this.maxDuneGain = profile.maxDuneGain;
+    }
+    if (Number.isFinite(profile.waveStiffness) && profile.waveStiffness > 0) {
+      this.waveStiffness = profile.waveStiffness;
+    }
+    if (Number.isFinite(profile.waveDamping) && profile.waveDamping >= 0) {
+      this.waveDamping = profile.waveDamping;
+    }
+    if (Number.isFinite(profile.sideFlowRate) && profile.sideFlowRate >= 0) {
+      this.sideFlowRate = profile.sideFlowRate;
+    }
+    if (Number.isFinite(profile.rippleFrequency) && profile.rippleFrequency >= 0) {
+      this.rippleFrequency = profile.rippleFrequency;
+    }
+    if (Number.isFinite(profile.rippleAmplitude) && profile.rippleAmplitude >= 0) {
+      this.rippleAmplitude = profile.rippleAmplitude;
+    }
+    if (profile.palette) {
+      this.setMotePalette(profile.palette);
+    }
+    this.updateMaxDropSize();
+  }
+
+  getDefaultProfile() {
+    if (!this.defaultProfile) {
+      return null;
+    }
+    const {
+      dropSizes,
+      idleDrainRate,
+      baseSpawnInterval,
+      waveStiffness,
+      waveDamping,
+      sideFlowRate,
+      rippleFrequency,
+      rippleAmplitude,
+      dropVolumeScale,
+      maxDuneGain,
+      palette,
+    } = this.defaultProfile;
+    return {
+      dropSizes: Array.isArray(dropSizes) ? [...dropSizes] : null,
+      idleDrainRate,
+      baseSpawnInterval,
+      waveStiffness,
+      waveDamping,
+      sideFlowRate,
+      rippleFrequency,
+      rippleAmplitude,
+      dropVolumeScale,
+      maxDuneGain,
+      palette: palette
+        ? {
+            ...palette,
+            stops: Array.isArray(palette.stops) ? palette.stops.map((stop) => ({ ...stop })) : [],
+          }
+        : null,
+    };
+  }
+
+  setMotePalette(palette) {
+    this.motePalette = mergeMotePalette(palette);
+  }
+
+  setFlowOffset(offset) {
+    if (!Number.isFinite(offset)) {
+      return;
+    }
+    this.flowOffset = Math.max(0, offset);
+  }
+
+  start() {
+    if (!this.ctx || this.running) {
+      return;
+    }
+    this.running = true;
+    this.lastFrame = 0;
+    this.loopHandle = requestAnimationFrame(this.handleFrame);
+    window.addEventListener('resize', this.handleResize);
+  }
+
+  stop() {
+    if (!this.running) {
+      return;
+    }
+    this.running = false;
+    if (this.loopHandle) {
+      cancelAnimationFrame(this.loopHandle);
+      this.loopHandle = null;
+    }
+    window.removeEventListener('resize', this.handleResize);
+  }
+
+  handleFrame(timestamp) {
+    if (!this.running) {
+      return;
+    }
+    if (!this.lastFrame) {
+      this.lastFrame = timestamp;
+    }
+    const delta = Math.min(100, Math.max(0, timestamp - this.lastFrame));
+    this.lastFrame = timestamp;
+    this.update(delta);
+    this.loopHandle = requestAnimationFrame(this.handleFrame);
+  }
+}
+
