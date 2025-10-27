@@ -18,6 +18,7 @@ import {
   moteGemState,
   MOTE_GEM_COLLECTION_RADIUS,
   collectMoteGemsWithinRadius,
+  collectMoteGemDrop,
   spawnMoteGemDrop,
   resetActiveMoteGems,
 } from './enemies.js';
@@ -3070,18 +3071,63 @@ export class SimplePlayfield {
     }
   }
 
-  // Update the simple pulse animation applied to each mote gem drop.
+  // Update mote gem flight so squares drift away from the lane before entering the mote tower.
   updateMoteGems(delta) {
     if (!moteGemState.active.length || !Number.isFinite(delta)) {
       return;
     }
     const step = Math.max(0, delta);
+    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+    const toCollect = [];
+
     moteGemState.active.forEach((gem) => {
       if (!Number.isFinite(gem.pulse)) {
         gem.pulse = 0;
       }
       gem.pulse += step * 2.4;
+
+      if (!Number.isFinite(gem.lifetime)) {
+        gem.lifetime = 0;
+      }
+      gem.lifetime += step;
+
+      const dt = step;
+      if (!Number.isFinite(gem.vx)) {
+        gem.vx = (Math.random() - 0.5) * 0.08; // Provide a gentle horizontal drift for legacy gems.
+      }
+      if (!Number.isFinite(gem.vy)) {
+        gem.vy = -0.22; // Default to an upward launch if legacy data is missing.
+      }
+      const gravity = Number.isFinite(gem.gravity) ? gem.gravity : 0.00045;
+      gem.vy += gravity * dt;
+      gem.x += gem.vx * dt;
+      gem.y += gem.vy * dt;
+
+      const fadeStart = 720;
+      const fadeDuration = 420;
+      if (!Number.isFinite(gem.opacity)) {
+        gem.opacity = 1;
+      }
+      if (gem.lifetime > fadeStart) {
+        const fadeProgress = Math.min(1, (gem.lifetime - fadeStart) / Math.max(120, fadeDuration));
+        gem.opacity = Math.max(0, 1 - fadeProgress);
+      }
+
+      const offscreenX = width ? gem.x < -64 || gem.x > width + 64 : false;
+      const offscreenY = gem.y < -96 || (height ? gem.y > height + 96 : false);
+      const lifetimeExpired = gem.lifetime > 1400;
+      const invisible = gem.opacity <= 0.01;
+      if (offscreenX || offscreenY || lifetimeExpired || invisible) {
+        toCollect.push(gem);
+      }
     });
+
+    if (toCollect.length) {
+      toCollect.forEach((gem) => {
+        collectMoteGemDrop(gem, { reason: 'flight' });
+      });
+    }
   }
 
   advanceWave() {
@@ -3642,7 +3688,7 @@ export class SimplePlayfield {
     ctx.restore();
   }
 
-  // Render each mote gem drop using a glowing circle keyed to its category color.
+  // Render each mote gem as a drifting square that echoes the mote tower palette.
   drawMoteGems() {
     if (!this.ctx || !moteGemState.active.length) {
       return;
@@ -3653,25 +3699,33 @@ export class SimplePlayfield {
       const hue = gem.color?.hue ?? 48;
       const saturation = gem.color?.saturation ?? 68;
       const lightness = gem.color?.lightness ?? 56;
-      const baseRadius = 12 + Math.log2(gem.value + 1) * 6;
-      const pulse = Math.sin(gem.pulse || 0) * 2.4;
-      const radius = Math.max(8, baseRadius + pulse);
-      const fill = `hsla(${hue}, ${saturation}%, ${lightness}%, 0.88)`;
-      const stroke = `hsla(${hue}, ${saturation}%, ${Math.max(12, lightness - 24)}%, 0.9)`;
-      const sheen = `hsla(${hue}, ${Math.max(30, saturation - 32)}%, 92%, 0.82)`;
+      const size = Math.max(10, 14 + Math.log2(gem.value + 1) * 5);
+      const pulse = Math.sin((gem.pulse || 0) * 0.6) * 3.2;
+      const rotation = Math.sin((gem.pulse || 0) * 0.35) * 0.45;
+      const opacity = Number.isFinite(gem.opacity) ? Math.max(0, Math.min(1, gem.opacity)) : 1;
+      const alphaFill = Math.max(0, Math.min(0.9, 0.6 + opacity * 0.3));
+      const alphaStroke = Math.max(0, Math.min(0.9, 0.5 + opacity * 0.35));
+      const fill = `hsla(${hue}, ${saturation}%, ${lightness}%, ${alphaFill})`;
+      const stroke = `hsla(${hue}, ${Math.max(24, saturation - 18)}%, ${Math.max(18, lightness - 28)}%, ${alphaStroke})`;
+      const sparkle = `hsla(${hue}, ${Math.max(34, saturation - 22)}%, 92%, ${Math.max(0, opacity * 0.65)})`;
 
-      ctx.beginPath();
+      ctx.save();
+      ctx.translate(gem.x, gem.y);
+      ctx.rotate(rotation);
+      const squareSize = size + pulse;
+      const half = squareSize / 2;
       ctx.fillStyle = fill;
       ctx.strokeStyle = stroke;
-      ctx.lineWidth = Math.max(1.6, radius * 0.18);
-      ctx.arc(gem.x, gem.y, radius, 0, Math.PI * 2);
+      ctx.lineWidth = Math.max(1.2, squareSize * 0.16);
+      ctx.beginPath();
+      ctx.rect(-half, -half, squareSize, squareSize);
       ctx.fill();
       ctx.stroke();
 
-      ctx.beginPath();
-      ctx.fillStyle = sheen;
-      ctx.arc(gem.x - radius * 0.28, gem.y - radius * 0.32, radius * 0.35, 0, Math.PI * 2);
-      ctx.fill();
+      const sparkleSize = squareSize * 0.38;
+      ctx.fillStyle = sparkle;
+      ctx.fillRect(-sparkleSize * 0.5, -sparkleSize * 0.8, sparkleSize, sparkleSize);
+      ctx.restore();
     });
     ctx.restore();
   }
