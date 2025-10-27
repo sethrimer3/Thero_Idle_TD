@@ -8818,7 +8818,7 @@ import {
       parts.push(`${formatGameNumber(rewardScore)} Σ`);
     }
     if (Number.isFinite(rewardFlux)) {
-      parts.push(`+${Math.round(rewardFlux)} Motes/min`);
+      parts.push(`+${Math.round(rewardFlux)} Mote Gems/min`);
     }
     if (Number.isFinite(rewardEnergy)) {
       parts.push(`+${Math.round(rewardEnergy)} TD/s`);
@@ -8832,7 +8832,7 @@ import {
     const currentStart = BASE_START_THERO * multiplier;
     const levelLabel = levelsBeaten === 1 ? 'level' : 'levels';
     const beatenText = `Levels beaten: ${levelsBeaten} ${levelLabel}`;
-    return `+1 Motes/min · Starting Thero = ${BASE_START_THERO} × 2^(levels beaten) (${beatenText} → ${formatWholeNumber(currentStart)} ${THERO_SYMBOL})`;
+    return `+1 Mote Gems/min · Starting Thero = ${BASE_START_THERO} × 2^(levels beaten) (${beatenText} → ${formatWholeNumber(currentStart)} ${THERO_SYMBOL})`;
   }
 
   function formatRelativeTime(timestamp) {
@@ -9729,7 +9729,7 @@ import {
     if (powderElements.stockpile) {
       powderElements.stockpile.textContent = `${formatGameNumber(
         powderCurrency,
-      )} Motes`;
+      )} Mote Gems`;
     }
   }
 
@@ -10033,20 +10033,20 @@ import {
 
   function formatMoteDispenseRate(rate) {
     if (!Number.isFinite(rate)) {
-      return '0.00 Motes/sec';
+      return '0.00 Mote Gems/sec'; // Present the mote gem flow rate even when values are invalid.
     }
     const safeRate = Math.max(0, rate);
     const formatted = safeRate >= 1
       ? (Number.isInteger(safeRate) ? formatWholeNumber(safeRate) : formatDecimal(safeRate, 2))
       : formatDecimal(safeRate, 2);
-    const unit = safeRate === 1 ? 'Mote' : 'Motes';
-    return `${formatted} ${unit}/sec`;
+    const unit = safeRate === 1 ? 'Mote Gem' : 'Mote Gems';
+    return `${formatted} ${unit}/sec`; // Display the mote gem label consistently across quantities.
   }
 
   function updateMoteStatsDisplays() {
     const storedMotes = getCurrentIdleMoteBank();
     if (resourceElements.moteStorage) {
-      resourceElements.moteStorage.textContent = `${formatGameNumber(storedMotes)} Motes`;
+      resourceElements.moteStorage.textContent = `${formatGameNumber(storedMotes)} Mote Gems`; // Reflect the mote gem currency in the HUD.
     }
 
     const dispenseRate = getCurrentMoteDispenseRate();
@@ -10299,7 +10299,7 @@ import {
     if (powderElements.ledgerFlux) {
       powderElements.ledgerFlux.textContent = `+${formatGameNumber(
         resourceState.fluxRate,
-      )} Motes/min`;
+      )} Mote Gems/min`;
     }
 
     if (powderElements.ledgerEnergy) {
@@ -10370,7 +10370,7 @@ import {
       }
       case 'achievement-unlocked': {
         const { title = 'Achievement' } = context;
-        entry = `${title} seal unlocked · +1 Motes/min secured.`;
+        entry = `${title} seal unlocked · +1 Mote Gems/min secured.`;
         break;
       }
       case 'offline-reward': {
@@ -10378,7 +10378,7 @@ import {
         const minutesLabel = formatWholeNumber(minutes);
         entry = `Idle harvest · ${minutesLabel}m × ${formatGameNumber(rate)} = +${formatGameNumber(
           powder,
-        )} Motes.`;
+        )} Mote Gems.`;
         break;
       }
       case 'developer-adjust': {
@@ -10542,8 +10542,8 @@ import {
       const bonusText = formatPercentage(currentPowderBonuses.sandBonus);
       powderElements.sandfallNote.textContent =
         powderState.sandOffset > 0
-          ? `Flow stabilized—captured grains grant +${bonusText} Motes.`
-          : 'Crest is unstable—Motes drift off the board.';
+          ? `Flow stabilized—captured grains grant +${bonusText} Mote Gems.`
+          : 'Crest is unstable—Mote Gems drift off the board.';
     }
 
     if (powderElements.sandfallButton) {
