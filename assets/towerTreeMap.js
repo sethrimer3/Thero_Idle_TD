@@ -187,6 +187,15 @@ function buildTreeLinks(definitions, edges) {
       targetLength: baseLength * tierDistance,
     };
   });
+
+  updateLinkPositions();
+
+  towerTreeState.animationHandle = window.requestAnimationFrame(stepSimulation);
+}
+
+function startSimulation() {
+  stopSimulation();
+  towerTreeState.animationHandle = window.requestAnimationFrame(stepSimulation);
 }
 
 function applySpringForces() {
