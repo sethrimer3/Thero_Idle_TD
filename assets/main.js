@@ -5309,7 +5309,9 @@ import {
       const theroValue = interactive ? Math.max(0, Math.round(playfield.energy)) : 0;
       resourceElements.score.textContent = `${theroValue} ${THERO_SYMBOL}`;
     }
-    const glyphsCollected = Math.max(0, gameStats.enemiesDefeated);
+    const mintedGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
+    // Favor the live glyph currency so the HUD mirrors new ℵ progress even if defeat stats lag behind.
+    const glyphsCollected = Math.max(mintedGlyphs, gameStats.enemiesDefeated);
     const glyphsUnused = Math.max(0, glyphsCollected - gameStats.towersPlaced);
 
     if (resourceElements.scoreMultiplier) {
