@@ -2184,7 +2184,7 @@ body.graphics-mode-low .control-button {
     filter var(--transition),
     transform 0.45s ease-out;
   will-change: transform;
-  overflow: hidden;
+  overflow: visible; /* Allow wall annotations to fully render within the basin. */
 }
 
 .powder-wall-hitbox {
@@ -2251,7 +2251,9 @@ body.graphics-mode-low .control-button {
   color: rgba(255, 196, 128, 0.92);
   background: rgba(14, 16, 24, 0.82);
   box-shadow: 0 0 8px rgba(255, 196, 128, 0.38);
-  white-space: nowrap;
+  max-width: 18ch; /* Keep the label compact enough to stay in view. */
+  white-space: normal; /* Permit wrapping so long labels stay within bounds. */
+  line-height: 1.2;
 }
 
 .powder-crest-marker {
@@ -2262,9 +2264,17 @@ body.graphics-mode-low .control-button {
 
 .powder-crest-marker::after {
   right: auto;
-  left: -2.8rem;
+  left: 0.6rem;
+  transform: translate(0, 0); /* Keep the crest label anchored inside the left wall. */
   color: rgba(80, 160, 255, 0.82);
   box-shadow: 0 0 6px rgba(80, 160, 255, 0.35);
+}
+
+.powder-wall-right .powder-wall-marker::after {
+  left: auto;
+  right: 0.6rem;
+  transform: translate(0, 0); /* Align the progress label with the right wall interior. */
+  text-align: right;
 }
 
 .powder-wall.wall-awake {
