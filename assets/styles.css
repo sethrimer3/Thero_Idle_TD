@@ -20,6 +20,33 @@
   box-sizing: border-box;
 }
 
+/* Conceal scrollbars globally so drag-scrolling keeps the interface polished. */
+html,
+body,
+body * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* Collapse WebKit scrollbars so hidden tracks do not consume layout space. */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+body *::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Signal draggable surfaces and suppress text selection while panning. */
+[data-drag-scroll] {
+  cursor: grab;
+}
+
+/* Lock text selection during an active drag-scroll gesture. */
+[data-drag-scroll].drag-scroll-active {
+  cursor: grabbing;
+  user-select: none;
+}
+
 .screen-reader-only {
   border: 0;
   clip: rect(0 0 0 0);
@@ -272,6 +299,9 @@ body.graphics-mode-low .control-button {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable both-edge;
+  /* Hide the panel scrollbar; drag gestures now handle navigation. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .panel.active {
@@ -2823,8 +2853,9 @@ body.graphics-mode-low .control-button {
   line-height: 1.6;
   color: inherit;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(139, 247, 255, 0.3) rgba(12, 16, 26, 0.4);
+  /* Remove the visual scrollbar so drag gestures remain immersive. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   touch-action: pan-y;
   overscroll-behavior: contain;
   opacity: 0;
@@ -2832,19 +2863,6 @@ body.graphics-mode-low .control-button {
   transform: translateX(0);
   transition: transform 280ms ease, opacity 240ms ease;
   pointer-events: none;
-}
-
-.field-notes-page::-webkit-scrollbar {
-  width: 6px;
-}
-
-.field-notes-page::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.field-notes-page::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(139, 247, 255, 0.4), rgba(255, 228, 160, 0.35));
-  border-radius: 999px;
 }
 
 .field-notes-page.field-notes-page--active {
@@ -3304,6 +3322,9 @@ body.graphics-mode-low .control-button {
   flex: 1 1 auto;
   overflow-y: auto;
   padding-right: 4px;
+  /* Hide the upgrade overlay scrollbar to rely on drag-based panning. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .upgrade-matrix-row {
