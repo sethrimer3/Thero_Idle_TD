@@ -102,7 +102,7 @@ export function configureColorSchemeSystem(options = {}) {
 }
 
 // Extracts the tier value from tower metadata to drive chromatic gradients.
-function getTowerTierValue(tower) {
+export function getTowerTierValue(tower) {
   if (!tower) {
     return 1;
   }
