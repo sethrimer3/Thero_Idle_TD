@@ -21,6 +21,75 @@ const numberSuffixes = [
 ];
 
 /**
+ * Enumeration of supported number presentation modes for UI formatting.
+ */
+export const GAME_NUMBER_NOTATIONS = {
+  LETTERS: 'letters',
+  SCIENTIFIC: 'scientific',
+};
+
+/**
+ * Tracks the active notation preference for large number formatting.
+ */
+let currentGameNumberNotation = GAME_NUMBER_NOTATIONS.LETTERS;
+
+/**
+ * Holds listener callbacks that react when the notation preference changes.
+ */
+const notationListeners = new Set();
+
+/**
+ * Updates the notation preference and notifies registered listeners.
+ * @param {string} notation Requested notation identifier.
+ * @returns {string} Resolved notation value after applying the change.
+ */
+export function setGameNumberNotation(notation) {
+  const normalized = notation === GAME_NUMBER_NOTATIONS.SCIENTIFIC
+    ? GAME_NUMBER_NOTATIONS.SCIENTIFIC
+    : GAME_NUMBER_NOTATIONS.LETTERS;
+  if (normalized === currentGameNumberNotation) {
+    return currentGameNumberNotation;
+  }
+  currentGameNumberNotation = normalized;
+  notationListeners.forEach((listener) => {
+    if (typeof listener === 'function') {
+      try {
+        listener(currentGameNumberNotation);
+      } catch (error) {
+        console.warn('Notation listener failed', error);
+      }
+    }
+  });
+  return currentGameNumberNotation;
+}
+
+/**
+ * Retrieves the currently active number notation preference.
+ * @returns {string} Active notation identifier.
+ */
+export function getGameNumberNotation() {
+  return currentGameNumberNotation;
+}
+
+/**
+ * Registers a callback that fires whenever the notation preference changes.
+ * @param {Function} listener Observer invoked with the new notation string.
+ */
+export function addGameNumberNotationChangeListener(listener) {
+  if (typeof listener === 'function') {
+    notationListeners.add(listener);
+  }
+}
+
+/**
+ * Removes a previously registered notation change listener.
+ * @param {Function} listener Observer function to remove from the set.
+ */
+export function removeGameNumberNotationChangeListener(listener) {
+  notationListeners.delete(listener);
+}
+
+/**
  * Formats arbitrary values using the suffix table for readability.
  * @param {number} value Raw value sourced from gameplay stats.
  * @returns {string} Nicely formatted number string.
@@ -33,6 +102,15 @@ export function formatGameNumber(value) {
   const absolute = Math.abs(value);
   if (absolute < 1) {
     return value.toFixed(2);
+  }
+
+  if (currentGameNumberNotation === GAME_NUMBER_NOTATIONS.SCIENTIFIC && absolute >= 1000) {
+    const exponent = Math.floor(Math.log10(absolute));
+    const mantissa = value / 10 ** exponent;
+    const magnitude = Math.abs(mantissa);
+    const precision = magnitude >= 100 ? 0 : magnitude >= 10 ? 1 : 2;
+    const formattedMantissa = mantissa.toFixed(precision);
+    return `${formattedMantissa} × 10^${exponent}`;
   }
 
   const tier = Math.min(
