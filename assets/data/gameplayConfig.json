@@ -381,7 +381,7 @@
       "traits": [
         "Display as (E^{k}) with a crimson exponent tied to (10^{k}) maximum health; even reduced health never hides the power tier.",
         "March in geometric platoons whose health resolves to (H(k) = H_0 \times 10^{k}) for rank k within the current set.",
-        "Reward Σ motes on defeat using the same multiplier, making them ideal calibration targets for lattice tuning."
+        "Reward Σ mote gems on defeat using the same multiplier, making them ideal calibration targets for lattice tuning."
       ],
       "counter": "Layer multiplicative auras and β/γ towers so burst and splash damage keep pace with the exponential swell before specialist glyphs appear.",
       "lore": "Archivists open every defense proof against E glyphs; when their sigils begin to blur, heavier conjectures are on approach.",
@@ -426,7 +426,7 @@
       "traits": [
         "Carry the mark (↺^{k})—the exponent glows brighter after conversion to highlight the retained ten-power health tier.",
         "Upon collapse they sprint to the start of the path; if unblocked they respawn as allies with (H_{ally} = lfloor 0.5 H_{foe} \rfloor).",
-        "Allied reversals inherit your active tower modifiers and pulse Σ motes while retracing enemy ground."
+        "Allied reversals inherit your active tower modifiers and pulse Σ mote gems while retracing enemy ground."
       ],
       "counter": "Catch them near choke points so the conversion occurs within supportive auras, otherwise their retreat might breach the core first.",
       "lore": "Legend says each sentinel carries a mirrored proof; persuade it to turn the page and the margin glows with your sigil.",

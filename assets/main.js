@@ -5111,20 +5111,20 @@ import {
 
   function formatMoteDispenseRate(rate) {
     if (!Number.isFinite(rate)) {
-      return '0.00 Mote Gems/sec'; // Present the mote gem flow rate even when values are invalid.
+      return '0.00 Motes/sec'; // Present the idle mote flow rate even when values are invalid.
     }
     const safeRate = Math.max(0, rate);
     const formatted = safeRate >= 1
       ? (Number.isInteger(safeRate) ? formatWholeNumber(safeRate) : formatDecimal(safeRate, 2))
       : formatDecimal(safeRate, 2);
-    const unit = safeRate === 1 ? 'Mote Gem' : 'Mote Gems';
-    return `${formatted} ${unit}/sec`; // Display the mote gem label consistently across quantities.
+    const unit = safeRate === 1 ? 'Mote' : 'Motes';
+    return `${formatted} ${unit}/sec`; // Display the idle mote label consistently across quantities.
   }
 
   function updateMoteStatsDisplays() {
     const storedMotes = getCurrentIdleMoteBank();
     if (resourceElements.moteStorage) {
-      resourceElements.moteStorage.textContent = `${formatGameNumber(storedMotes)} Mote Gems`; // Reflect the mote gem currency in the HUD.
+      resourceElements.moteStorage.textContent = `${formatGameNumber(storedMotes)} Motes`; // Reflect the idle mote reserves in the HUD.
     }
 
     const dispenseRate = getCurrentMoteDispenseRate();
@@ -5448,7 +5448,7 @@ import {
       }
       case 'achievement-unlocked': {
         const { title = 'Achievement' } = context;
-        entry = `${title} seal unlocked · +1 Mote Gems/min secured.`;
+        entry = `${title} seal unlocked · +1 Motes/min secured.`;
         break;
       }
       case 'offline-reward': {
@@ -5456,7 +5456,7 @@ import {
         const minutesLabel = formatWholeNumber(minutes);
         entry = `Idle harvest · ${minutesLabel}m × ${formatGameNumber(rate)} = +${formatGameNumber(
           powder,
-        )} Mote Gems.`;
+        )} Motes.`;
         break;
       }
       case 'developer-adjust': {
