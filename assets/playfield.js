@@ -12,6 +12,7 @@ import {
   refreshTowerLoadoutDisplay,
   cancelTowerDrag,
   getTowerEquationBlueprint,
+  getTowerLoadoutState,
 } from './towersTab.js';
 import {
   moteGemState,
