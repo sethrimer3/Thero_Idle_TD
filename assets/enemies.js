@@ -91,6 +91,8 @@ export function spawnMoteGemDrop(enemy, position) {
   }
   const type = resolveMoteGemType(enemy);
   const profile = resolveMoteGemProfile(type.key);
+  const launchDirection = Math.random() < 0.5 ? -1 : 1; // Alternate launch sides so the squares drift away from the lane symmetrically.
+  const launchSpeed = 0.12 + Math.random() * 0.08; // Slightly vary the launch impulse so the animation feels organic.
   const gem = {
     id: moteGemState.nextId,
     x: position.x,
@@ -100,6 +102,11 @@ export function spawnMoteGemDrop(enemy, position) {
     typeLabel: profile.name,
     pulse: Math.random() * Math.PI * 2,
     color: { ...profile.color },
+    vx: launchDirection * launchSpeed,
+    vy: -launchSpeed * (1.2 + Math.random() * 0.6),
+    gravity: 0.00045 + Math.random() * 0.0002,
+    lifetime: 0,
+    opacity: 1,
   };
   moteGemState.nextId += 1;
   moteGemState.active.push(gem);
