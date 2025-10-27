@@ -14,6 +14,7 @@ import {
   getTowerEquationBlueprint,
 } from './towersTab.js';
 import {
+  moteGemState,
   MOTE_GEM_COLLECTION_RADIUS,
   collectMoteGemsWithinRadius,
   spawnMoteGemDrop,
@@ -28,9 +29,8 @@ import {
   getTowerVisualConfig,
   getOmegaWaveVisualConfig,
   getTowerTierValue,
-  resolvePaletteColorStops,
 } from './colorSchemeUtils.js';
-import { colorToRgbaString } from '../scripts/features/towers/powderTower.js';
+import { colorToRgbaString, resolvePaletteColorStops } from '../scripts/features/towers/powderTower.js';
 import { notifyTowerPlaced } from './achievementsTab.js';
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
@@ -3777,3 +3777,290 @@ export class SimplePlayfield {
       }
     });
 
+
+    // Restore the canvas state so developer marker styling does not leak into other drawing routines.
+    ctx.restore();
+  }
+
+  drawPlacementPreview() {
+    if (!this.ctx || !this.hoverPlacement || !this.hoverPlacement.position) {
+      return;
+    }
+
+    const ctx = this.ctx;
+    const {
+      position,
+      range,
+      valid,
+      merge,
+      mergeTarget,
+      symbol,
+      reason,
+      dragging,
+    } = this.hoverPlacement;
+
+    ctx.save();
+
+    const radius = Number.isFinite(range) && range > 0 ? range : Math.min(this.renderWidth, this.renderHeight) * 0.18;
+    const fillColor = valid ? 'rgba(139, 247, 255, 0.12)' : 'rgba(255, 112, 112, 0.16)';
+    const strokeColor = valid ? 'rgba(139, 247, 255, 0.85)' : 'rgba(255, 96, 96, 0.9)';
+
+    // Render the projected range circle so players can gauge coverage during placement.
+    ctx.beginPath();
+    ctx.fillStyle = fillColor;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = valid ? 2 : 3;
+    ctx.arc(position.x, position.y, Math.max(12, radius), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (merge && mergeTarget) {
+      // Highlight the merge target to reinforce that the placement will combine towers.
+      ctx.setLineDash([6, 6]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255, 236, 128, 0.85)';
+      ctx.beginPath();
+      ctx.arc(mergeTarget.x, mergeTarget.y, Math.max(16, (radius || 24) * 0.6), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    const glyphSize = Math.round(Math.max(18, (radius || 24) * 0.45));
+    ctx.font = `${glyphSize}px "Space Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = valid ? 'rgba(18, 24, 36, 0.92)' : 'rgba(54, 12, 12, 0.9)';
+    ctx.fillText(symbol || '·', position.x, position.y);
+
+    if (dragging) {
+      // Add a subtle outline while dragging to indicate the pointer anchor.
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(139, 247, 255, 0.4)';
+      ctx.beginPath();
+      ctx.arc(position.x, position.y, Math.max(14, glyphSize * 0.65), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+
+    if (this.messageEl && reason) {
+      // Surface placement feedback in the UI message element for accessibility.
+      this.messageEl.textContent = reason;
+    }
+  }
+
+  drawTowers() {
+    if (!this.ctx || !this.towers.length) {
+      return;
+    }
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    this.towers.forEach((tower) => {
+      if (!tower || !Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
+        return;
+      }
+
+      const visuals = getTowerVisualConfig(tower) || {};
+      const rangeRadius = Number.isFinite(tower.range)
+        ? tower.range
+        : Math.min(this.renderWidth, this.renderHeight) * 0.22;
+      const bodyRadius = Math.max(12, Math.min(this.renderWidth, this.renderHeight) * 0.042);
+
+      // Outline the active coverage radius so players can gauge lattice reach in real time.
+      if (Number.isFinite(rangeRadius) && rangeRadius > 0) {
+        ctx.beginPath();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = visuals.rangeStroke || 'rgba(139, 247, 255, 0.2)';
+        ctx.setLineDash([8, 6]);
+        ctx.arc(tower.x, tower.y, rangeRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      ctx.save();
+      const outerShadow = visuals.outerShadow;
+      if (outerShadow?.color) {
+        ctx.shadowColor = outerShadow.color;
+        ctx.shadowBlur = Number.isFinite(outerShadow.blur) ? outerShadow.blur : 18;
+      } else {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0)';
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.beginPath();
+      ctx.fillStyle = visuals.innerFill || 'rgba(12, 16, 28, 0.9)';
+      ctx.strokeStyle = visuals.outerStroke || 'rgba(139, 247, 255, 0.75)';
+      ctx.lineWidth = 2.4;
+      ctx.arc(tower.x, tower.y, bodyRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      const symbolColor = visuals.symbolFill || 'rgba(255, 228, 120, 0.92)';
+      const symbolShadow = visuals.symbolShadow;
+      if (symbolShadow?.color) {
+        ctx.shadowColor = symbolShadow.color;
+        ctx.shadowBlur = Number.isFinite(symbolShadow.blur) ? symbolShadow.blur : 18;
+      } else {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0)';
+        ctx.shadowBlur = 0;
+      }
+
+      const glyph = tower.symbol || tower.definition?.symbol || '?';
+      ctx.fillStyle = symbolColor;
+      ctx.font = `${Math.round(bodyRadius * 1.4)}px "Space Mono", monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(glyph, tower.x, tower.y);
+
+      if (tower.chain) {
+        // Highlight Aleph-linked towers with a secondary ring that pulses with the chain state.
+        ctx.shadowColor = 'rgba(255, 228, 120, 0.55)';
+        ctx.shadowBlur = 20;
+        ctx.strokeStyle = 'rgba(255, 228, 120, 0.75)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(tower.x, tower.y, bodyRadius + 6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    });
+
+    ctx.restore();
+  }
+
+  drawEnemies() {
+    if (!this.ctx || !this.enemies.length) {
+      return;
+    }
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    this.enemies.forEach((enemy) => {
+      if (!enemy) {
+        return;
+      }
+
+      const position = this.getEnemyPosition(enemy);
+      if (!position) {
+        return;
+      }
+
+      const metrics = this.getEnemyVisualMetrics(enemy);
+      const symbol = typeof enemy.symbol === 'string' ? enemy.symbol : this.resolveEnemySymbol(enemy);
+      const exponent = this.calculateHealthExponent(Math.max(1, enemy.hp ?? enemy.maxHp ?? 1));
+
+      ctx.save();
+      ctx.translate(position.x, position.y);
+
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(12, 16, 24, 0.88)';
+      ctx.strokeStyle = 'rgba(139, 247, 255, 0.45)';
+      ctx.lineWidth = 2;
+      ctx.arc(0, 0, metrics.ringRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(139, 247, 255, 0.28)';
+      ctx.arc(0, 0, metrics.coreRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.font = `${metrics.symbolSize}px "Space Mono", monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(symbol || '?', 0, 0);
+
+      ctx.font = `${metrics.exponentSize}px "Space Mono", monospace`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText('k', metrics.coreRadius * 0.35, -metrics.coreRadius * 0.6);
+
+      if (this.focusedEnemyId === enemy.id) {
+        // Draw a rotating focus marker so players can track the prioritized enemy.
+        const markerRadius = metrics.focusRadius || metrics.ringRadius + 8;
+        const angle = this.focusMarkerAngle || 0;
+        const span = Math.PI / 3;
+        ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, markerRadius, angle, angle + span);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, markerRadius, angle + Math.PI, angle + Math.PI + span);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    });
+
+    ctx.restore();
+  }
+
+  drawProjectiles() {
+    if (!this.ctx || !this.projectiles.length) {
+      return;
+    }
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    this.projectiles.forEach((projectile) => {
+      if (!projectile) {
+        return;
+      }
+
+      if (projectile.patternType === 'omegaWave') {
+        const position = projectile.position || projectile.origin;
+        if (!position) {
+          return;
+        }
+
+        const radius = Number.isFinite(projectile.parameters?.radius)
+          ? projectile.parameters.radius
+          : 40;
+        const gradient = ctx.createRadialGradient(position.x, position.y, 0, position.x, position.y, radius);
+        gradient.addColorStop(0, 'rgba(255, 228, 120, 0.8)');
+        gradient.addColorStop(1, 'rgba(255, 228, 120, 0)');
+
+        // Render swirling omega waves as glowing motes that fade across their path envelope.
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(position.x, position.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+      }
+
+      const source = projectile.source;
+      const targetPosition = projectile.target
+        ? projectile.target
+        : projectile.targetId
+        ? (() => {
+            const enemy = this.enemies.find((candidate) => candidate.id === projectile.targetId);
+            return enemy ? this.getEnemyPosition(enemy) : null;
+          })()
+        : null;
+
+      if (!source || !targetPosition) {
+        return;
+      }
+
+      ctx.strokeStyle = 'rgba(139, 247, 255, 0.72)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(source.x, source.y);
+      ctx.lineTo(targetPosition.x, targetPosition.y);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(139, 247, 255, 0.9)';
+      ctx.beginPath();
+      ctx.arc(targetPosition.x, targetPosition.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.restore();
+  }
+}
