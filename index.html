@@ -1089,6 +1089,18 @@
               <p class="powder-log-empty" id="powder-log-empty">No experiments recorded yet.</p>
             </article>
           </div>
+          <!-- Display the player's mote gem inventory and provide a portal into the crafting overlay. -->
+          <article class="card powder-gem-inventory-card">
+            <h3>Mote Gem Inventory</h3>
+            <p class="powder-footnote">
+              Every collected gem resonates below so crafting blueprints can reference their current stock.
+            </p>
+            <ul class="powder-gem-inventory" id="powder-gem-inventory" aria-live="polite"></ul>
+            <p class="powder-gem-inventory-empty" id="powder-gem-empty">No mote gems catalogued yet.</p>
+            <button class="action-button ghost powder-crafting-button" type="button" id="open-crafting-menu">
+              Crafting Menu
+            </button>
+          </article>
         </section>
 
         <section
@@ -1520,6 +1532,28 @@
             ›
           </button>
         </div>
+      </div>
+    </div>
+    <!-- Crafting overlay mirrors tower pop-ups while outlining gem-driven fabrication stubs. -->
+    <div
+      class="level-overlay crafting-overlay"
+      id="crafting-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+      tabindex="-1"
+      hidden
+    >
+      <div class="overlay-panel crafting-panel" role="document" aria-labelledby="crafting-title">
+        <button class="overlay-close" type="button" id="crafting-close" aria-label="Close crafting menu">×</button>
+        <p class="overlay-label">Arcane Fabrication</p>
+        <h2 class="overlay-title" id="crafting-title">Gemcraft Assembly</h2>
+        <p class="crafting-intro">
+          Forge amplifiers and pylons by channeling mote gems into latent tower schematics. Recipes below are
+          prototypes awaiting balance.
+        </p>
+        <ul class="crafting-list" id="crafting-list" role="list"></ul>
+        <p class="overlay-instruction">Tap outside or press Esc to close.</p>
       </div>
     </div>
 

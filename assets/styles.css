@@ -1748,6 +1748,85 @@ body.color-scheme-chromatic::before {
   text-align: center;
 }
 
+/* Present the mote gem inventory card as a grid that mirrors other powder summaries. */
+.powder-gem-inventory-card {
+  display: grid;
+  gap: 16px;
+}
+
+/* Arrange mote gem entries with color swatches and totals. */
+.powder-gem-inventory {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+/* Align the gem swatch, label, and quantity for quick scanning. */
+.powder-gem-inventory__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Anchor the swatch and label grouping on the left side. */
+.powder-gem-inventory__label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Emphasize the gem name so entries remain legible against the monochrome card. */
+.powder-gem-inventory__name {
+  font-weight: 600;
+  color: rgba(247, 247, 245, 0.9);
+}
+
+/* Render gem colors using HSL so hues can match the mote palette. */
+.powder-gem-inventory__swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: hsl(var(--gem-hue, 210), var(--gem-saturation, 60%), var(--gem-lightness, 50%));
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.18);
+}
+
+/* Highlight the gem quantity with the same mono font used in powder logs. */
+.powder-gem-inventory__count {
+  font-family: "Space Mono", monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  color: rgba(247, 247, 245, 0.85);
+}
+
+/* Style the empty state so it mirrors other powder footnotes. */
+.powder-gem-inventory-empty {
+  margin: 0;
+  font-family: "Space Mono", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  color: rgba(247, 247, 245, 0.58);
+  text-align: center;
+}
+
+/* Emphasize the crafting entry button with broader spacing. */
+.powder-crafting-button {
+  justify-self: center;
+  padding: 12px 28px;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+}
+
 .powder-stage {
   width: 100%;
   display: flex;
@@ -2406,6 +2485,88 @@ body.color-scheme-chromatic::before {
 
 .field-notes-panel {
   position: relative;
+}
+
+/* Shape the crafting overlay so it inherits the level overlay mood with added glints. */
+.crafting-overlay .overlay-panel {
+  gap: 18px;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(137, 236, 255, 0.16), rgba(137, 236, 255, 0) 55%),
+    radial-gradient(circle at 82% 18%, rgba(255, 214, 153, 0.18), rgba(255, 214, 153, 0) 54%),
+    rgba(12, 12, 20, 0.88);
+}
+
+/* Introduce the crafting narrative with softer typography. */
+.crafting-intro {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(247, 247, 245, 0.8);
+}
+
+/* Stack stub recipes vertically so each blueprint remains readable. */
+.crafting-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+
+/* Outline each recipe entry with a subtle border reminiscent of tower cards. */
+.crafting-item {
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(9, 12, 20, 0.65);
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+/* Pair the recipe title with its upgrade effect summary. */
+.crafting-item__header {
+  display: grid;
+  gap: 4px;
+}
+
+/* Style the stub crafting labels for quick scanning. */
+.crafting-item__title {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Present the effect copy with the same muted tone as powder notes. */
+.crafting-item__effect {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(247, 247, 245, 0.72);
+}
+
+/* Arrange gem requirements as a compact column. */
+.crafting-cost {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+/* Highlight each requirement by mixing mono numerals with gem names. */
+.crafting-cost__item {
+  font-family: "Space Mono", monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  color: rgba(247, 247, 245, 0.82);
+}
+
+/* Append the owned count in a softer tone to indicate its reference nature. */
+.crafting-cost__owned {
+  display: inline-block;
+  margin-left: 6px;
+  color: rgba(247, 247, 245, 0.58);
+  font-size: 0.75rem;
 }
 
 .field-notes-figure {
