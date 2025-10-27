@@ -2204,13 +2204,19 @@ body.color-scheme-chromatic::before {
   text-transform: uppercase;
 }
 
+/* Hide achievement details by default so only icons and titles are visible. */
 .achievement-detail {
   width: 100%;
   text-align: left;
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 8px;
   margin-top: 4px;
+}
+
+/* Reveal the full achievement detail block when the tile is expanded. */
+.achievement-tile.expanded .achievement-detail {
+  display: flex;
 }
 
 .achievement-subtitle {

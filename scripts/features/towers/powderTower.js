@@ -1412,31 +1412,20 @@ export class PowderSimulation {
   }
 
   getMoteColorForSize(size, isFreefall) {
+    // Always render idle motes as bright golden sand regardless of palette accents.
     const palette = this.getEffectiveMotePalette();
-    const stops = resolvePaletteColorStops(palette);
     const normalizedSize = Number.isFinite(size) ? Math.max(1, size) : 1;
-    const denominator = Math.max(1, (this.maxDropSize || normalizedSize) - 1);
-    const ratio = stops.length === 1 ? 0 : clampUnitInterval((normalizedSize - 1) / denominator);
-    let color = stops[0];
-    if (stops.length > 1) {
-      const scaled = ratio * (stops.length - 1);
-      const index = Math.max(0, Math.min(stops.length - 1, Math.floor(scaled)));
-      const nextIndex = Math.min(stops.length - 1, index + 1);
-      const progress = clampUnitInterval(scaled - index);
-      const start = stops[index] || stops[0];
-      const end = stops[nextIndex] || start;
-      color = mixRgbColors(start, end, progress);
-    }
-    const brightFactor = Math.min(0.85, 0.25 + ratio * 0.35);
-    const brightened = mixRgbColors(color, { r: 255, g: 255, b: 255 }, brightFactor);
-    const accentTarget = stops[Math.min(stops.length - 1, Math.round(ratio * (stops.length - 1)))] || color;
-    const sheen = mixRgbColors(brightened, accentTarget, 0.18);
-    const baseRestAlpha = Number.isFinite(palette.restAlpha) ? palette.restAlpha : 0.9;
-    const baseFreefallAlpha = Number.isFinite(palette.freefallAlpha) ? palette.freefallAlpha : 0.6;
+    const sizeRatio = clampUnitInterval((normalizedSize - 1) / Math.max(1, (this.maxDropSize || normalizedSize) - 1));
+    const baseSand = { r: 255, g: 222, b: 137 };
+    const shadowSand = { r: 204, g: 170, b: 82 };
+    const highlight = mixRgbColors(baseSand, { r: 255, g: 255, b: 255 }, 0.35 + sizeRatio * 0.15);
+    const body = mixRgbColors(shadowSand, highlight, 0.68 + sizeRatio * 0.2);
+    const baseRestAlpha = Number.isFinite(palette?.restAlpha) ? palette.restAlpha : 0.9;
+    const baseFreefallAlpha = Number.isFinite(palette?.freefallAlpha) ? palette.freefallAlpha : 0.6;
     const alpha = isFreefall
       ? Math.min(1, baseFreefallAlpha + 0.08)
       : Math.min(1, baseRestAlpha + 0.04);
-    return colorToRgbaString(sheen, alpha);
+    return colorToRgbaString(body, alpha);
   }
 
   setFlowOffset(offset) {

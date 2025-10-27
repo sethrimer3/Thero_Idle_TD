@@ -2138,6 +2138,14 @@ import {
     fluidProfileLabel: 'Fluid Study',
   };
 
+  // Track mote gem drops, inventory totals, and the upgrade-driven auto collector.
+  const moteGemState = {
+    active: [],
+    nextId: 1,
+    inventory: new Map(),
+    autoCollectUnlocked: false,
+  };
+
   let currentPowderBonuses = {
     sandBonus: 0,
     duneBonus: 0,
@@ -2185,6 +2193,114 @@ import {
   // Powder simulation metrics are supplied via the powder tower module.
   const powderGlyphColumns = [];
   let powderWallMetrics = null;
+
+  const MOTE_GEM_COLLECTION_RADIUS = 48;
+
+  // Clear any mote gem drops lingering from previous battles.
+  function resetActiveMoteGems() {
+    moteGemState.active.length = 0;
+  }
+
+  // Resolve a stable type key and label for categorizing mote gem drops.
+  function resolveMoteGemType(enemy = {}) {
+    const rawKey = enemy.typeId || enemy.codexId || enemy.id || enemy.symbol || 'glyph';
+    const normalizedKey = String(rawKey).trim().toLowerCase() || 'glyph';
+    const label = enemy.label || enemy.name || enemy.symbol || 'Glyph';
+    return { key: normalizedKey, label };
+  }
+
+  // Derive a deterministic accent color for a mote gem category.
+  function getMoteGemColor(typeKey) {
+    const key = String(typeKey || 'glyph');
+    let hash = 0;
+    for (let index = 0; index < key.length; index += 1) {
+      hash = (hash * 31 + key.charCodeAt(index)) & 0xffffffff;
+    }
+    const hue = Math.abs(hash) % 360;
+    return { hue, saturation: 72, lightness: 58 };
+  }
+
+  // Spawn a mote gem drop at the supplied battlefield position.
+  function spawnMoteGemDrop(enemy, position) {
+    if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+      return null;
+    }
+    const value = Number.isFinite(enemy?.moteFactor) ? Math.max(1, Math.round(enemy.moteFactor)) : 1;
+    if (value <= 0) {
+      return null;
+    }
+    const type = resolveMoteGemType(enemy);
+    const gem = {
+      id: moteGemState.nextId,
+      x: position.x,
+      y: position.y,
+      value,
+      typeKey: type.key,
+      typeLabel: type.label,
+      pulse: Math.random() * Math.PI * 2,
+      color: getMoteGemColor(type.key),
+    };
+    moteGemState.nextId += 1;
+    moteGemState.active.push(gem);
+    return gem;
+  }
+
+  // Transfer a mote gem into the player's reserves and remove it from the field.
+  function collectMoteGemDrop(gem, context = {}) {
+    if (!gem) {
+      return false;
+    }
+    const index = moteGemState.active.findIndex((candidate) => candidate && candidate.id === gem.id);
+    if (index === -1) {
+      return false;
+    }
+    moteGemState.active.splice(index, 1);
+
+    const record = moteGemState.inventory.get(gem.typeKey) || { label: gem.typeLabel, total: 0 };
+    record.total += gem.value;
+    record.label = gem.typeLabel || record.label;
+    moteGemState.inventory.set(gem.typeKey, record);
+
+    queueMoteDrop(gem.value);
+    if (typeof recordPowderEvent === 'function') {
+      recordPowderEvent('mote-gem-collected', {
+        type: gem.typeLabel,
+        value: gem.value,
+        reason: context.reason || 'manual',
+      });
+    }
+    return true;
+  }
+
+  // Collect any mote gems within a radius of the provided battlefield point.
+  function collectMoteGemsWithinRadius(center, radius, context = {}) {
+    if (!center || !Number.isFinite(center.x) || !Number.isFinite(center.y)) {
+      return 0;
+    }
+    const effectiveRadius = Number.isFinite(radius) ? Math.max(1, radius) : MOTE_GEM_COLLECTION_RADIUS;
+    const radiusSquared = effectiveRadius * effectiveRadius;
+    const harvested = moteGemState.active.filter((gem) => {
+      const dx = gem.x - center.x;
+      const dy = gem.y - center.y;
+      return dx * dx + dy * dy <= radiusSquared;
+    });
+    harvested.forEach((gem) => collectMoteGemDrop(gem, context));
+    return harvested.length;
+  }
+
+  // Automatically collect every mote gem currently active on the field.
+  function autoCollectActiveMoteGems(reason = 'auto') {
+    const pending = [...moteGemState.active];
+    pending.forEach((gem) => {
+      collectMoteGemDrop(gem, { reason });
+    });
+    return pending.length;
+  }
+
+  // Update the auto-collect upgrade flag so glyph completions can sweep gems.
+  function setMoteGemAutoCollectUnlocked(unlocked) {
+    moteGemState.autoCollectUnlocked = Boolean(unlocked);
+  }
 
   function updatePowderGlyphColumns(info = {}) {
     const rows = Number.isFinite(info.rows) && info.rows > 0 ? info.rows : 1;
@@ -3371,6 +3487,8 @@ import {
       this.floaters = [];
       this.floaterConnections = [];
       this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
+      // Clear mote gem drops whenever the battlefield resets.
+      resetActiveMoteGems();
       this.towers = [];
       this.alephChain.reset();
       this.hoverPlacement = null;
@@ -3871,6 +3989,20 @@ import {
       this.isPinchZooming = false;
     }
 
+    // Attempt to gather any mote gems located near the pointer position.
+    collectMoteGemsNear(position) {
+      if (!position) {
+        return 0;
+      }
+      const collected = collectMoteGemsWithinRadius(position, MOTE_GEM_COLLECTION_RADIUS, {
+        reason: 'manual',
+      });
+      if (collected > 0 && this.audio) {
+        this.audio.playSfx('uiConfirm');
+      }
+      return collected;
+    }
+
     handleCanvasClick(event) {
       if (this.audio) {
         this.audio.unlock();
@@ -3896,6 +4028,9 @@ import {
       const enemyTarget = this.findEnemyAt(position);
       if (enemyTarget) {
         this.toggleEnemyFocus(enemyTarget.enemy);
+        return;
+      }
+      if (this.collectMoteGemsNear(position)) {
         return;
       }
       const tower = this.findTowerAt(position);
@@ -4979,6 +5114,8 @@ import {
       this.updateTowers(speedDelta);
       this.updateEnemies(speedDelta);
       this.updateProjectiles(speedDelta);
+      // Animate mote gems so they pulse gently while waiting to be collected.
+      this.updateMoteGems(speedDelta);
       this.updateProgress();
       this.updateHud();
     }
@@ -5346,6 +5483,20 @@ import {
       }
     }
 
+    // Update the simple pulse animation applied to each mote gem drop.
+    updateMoteGems(delta) {
+      if (!moteGemState.active.length || !Number.isFinite(delta)) {
+        return;
+      }
+      const step = Math.max(0, delta);
+      moteGemState.active.forEach((gem) => {
+        if (!Number.isFinite(gem.pulse)) {
+          gem.pulse = 0;
+        }
+        gem.pulse += step * 2.4;
+      });
+    }
+
     advanceWave() {
       if (!this.levelConfig) {
         return;
@@ -5414,6 +5565,18 @@ import {
       this.updateProgress();
     }
 
+    // Create a mote gem at the fallen enemy's position so it can be collected later.
+    spawnMoteGemFromEnemy(enemy) {
+      if (!enemy) {
+        return;
+      }
+      const position = this.getEnemyPosition(enemy);
+      if (!position) {
+        return;
+      }
+      spawnMoteGemDrop(enemy, position);
+    }
+
     processEnemyDefeat(enemy) {
       const index = this.enemies.indexOf(enemy);
       if (index >= 0) {
@@ -5445,9 +5608,7 @@ import {
         this.audio.playSfx('enemyDefeat');
       }
 
-      if (Number.isFinite(enemy.moteFactor) && enemy.moteFactor > 0) {
-        queueMoteDrop(enemy.moteFactor);
-      }
+      this.spawnMoteGemFromEnemy(enemy);
 
       notifyEnemyDefeated();
     }
@@ -5822,6 +5983,7 @@ import {
 
       this.drawFloaters();
       this.drawPath();
+      this.drawMoteGems();
       this.drawArcLight();
       this.drawNodes();
       this.drawDeveloperPathMarkers();
@@ -5888,6 +6050,40 @@ import {
         ctx.stroke();
       });
 
+      ctx.restore();
+    }
+
+    // Render each mote gem drop using a glowing circle keyed to its category color.
+    drawMoteGems() {
+      if (!this.ctx || !moteGemState.active.length) {
+        return;
+      }
+      const ctx = this.ctx;
+      ctx.save();
+      moteGemState.active.forEach((gem) => {
+        const hue = gem.color?.hue ?? 48;
+        const saturation = gem.color?.saturation ?? 68;
+        const lightness = gem.color?.lightness ?? 56;
+        const baseRadius = 12 + Math.log2(gem.value + 1) * 6;
+        const pulse = Math.sin(gem.pulse || 0) * 2.4;
+        const radius = Math.max(8, baseRadius + pulse);
+        const fill = `hsla(${hue}, ${saturation}%, ${lightness}%, 0.88)`;
+        const stroke = `hsla(${hue}, ${saturation}%, ${Math.max(12, lightness - 24)}%, 0.9)`;
+        const sheen = `hsla(${hue}, ${Math.max(30, saturation - 32)}%, 92%, 0.82)`;
+
+        ctx.beginPath();
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = Math.max(1.6, radius * 0.18);
+        ctx.arc(gem.x, gem.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.fillStyle = sheen;
+        ctx.arc(gem.x - radius * 0.28, gem.y - radius * 0.32, radius * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      });
       ctx.restore();
     }
 
@@ -9553,6 +9749,9 @@ import {
     gameStats.powderSigilsReached = Math.max(gameStats.powderSigilsReached, normalized);
     const updatedGlyphs = Math.max(getGlyphCurrency(), normalized);
     setGlyphCurrency(updatedGlyphs);
+    if (moteGemState.autoCollectUnlocked) {
+      autoCollectActiveMoteGems('glyph');
+    }
     if (isTowerUpgradeOverlayActive()) {
       const activeTower = getActiveTowerUpgradeId();
       if (activeTower) {
@@ -10853,6 +11052,11 @@ import {
       confirmPendingLevel();
     }
   });
+
+  // Expose a helper for upgrade scripts to toggle mote gem auto collection when unlocked.
+  window.unlockMoteGemAutoCollector = () => {
+    setMoteGemAutoCollectUnlocked(true);
+  };
 
   const upgradeNamespace =
     (window.theroIdleUpgrades = window.theroIdleUpgrades || window.glyphDefenseUpgrades || {});
