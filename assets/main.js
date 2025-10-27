@@ -127,6 +127,11 @@ import {
   getMoteGemColor,
 } from './enemies.js';
 import {
+  initializeCraftingOverlay,
+  openCraftingOverlay,
+  refreshCraftingRecipesDisplay,
+} from './crafting.js';
+import {
   cloneVectorArray,
   cloneWaveArray,
   setLevelBlueprints,
@@ -1105,42 +1110,6 @@ import {
     fluidProfileLabel: 'Fluid Study',
   };
 
-  // Stub crafting recipes bridging gem counts to amplifier and pylon prototypes for future systems.
-  const CRAFTING_RECIPES = [
-    {
-      id: 'lens-amplifier',
-      name: 'Lens Amplifier',
-      type: 'Amplifier',
-      effect: 'Increase tower range by 10% when slotted.',
-      requirements: [
-        { label: 'Amethyst', amount: 100 },
-        { label: 'Topaz', amount: 5000 },
-      ],
-    },
-    {
-      id: 'resonant-pylon',
-      name: 'Resonant Pylon',
-      type: 'Pylon',
-      effect: 'Channel 12% bonus damage to linked towers.',
-      requirements: [
-        { label: 'Ruby', amount: 250 },
-        { label: 'Sapphire', amount: 2500 },
-        { label: 'Emerald', amount: 1250 },
-      ],
-    },
-    {
-      id: 'prism-harmonic',
-      name: 'Prism Harmonic',
-      type: 'Amplifier',
-      effect: 'Adds 8% attack speed and 5% mote drop rate to an equipped tower.',
-      requirements: [
-        { label: 'Opal', amount: 180 },
-        { label: 'Citrine', amount: 900 },
-        { label: 'Pearl', amount: 60 },
-      ],
-    },
-  ];
-
   let currentPowderBonuses = {
     sandBonus: 0,
     duneBonus: 0,
@@ -1186,14 +1155,6 @@ import {
     leftHitbox: null,
     rightHitbox: null,
     modeToggle: null,
-  };
-
-  // Store crafting overlay references so the motes tab can summon and dismiss the menu gracefully.
-  const craftingElements = {
-    overlay: null,
-    closeButton: null,
-    list: null,
-    lastFocus: null,
   };
 
   // Powder simulation metrics are supplied via the powder tower module.
@@ -5278,81 +5239,6 @@ import {
     updateStatusDisplays();
   }
 
-  // Resolve a mote gem total by label so crafting recipes can show owned amounts.
-  function getMoteGemCountByLabel(label) {
-    if (!label) {
-      return 0;
-    }
-
-    let total = 0;
-    moteGemState.inventory.forEach((record) => {
-      if (record && record.label === label && Number.isFinite(record.total)) {
-        total += Math.max(0, record.total);
-      }
-    });
-    return Math.max(0, total);
-  }
-
-  // Render the stub crafting recipes so the overlay mirrors the latest gem reserves.
-  function renderCraftingRecipes() {
-    if (!craftingElements.list) {
-      return;
-    }
-
-    craftingElements.list.innerHTML = '';
-    if (!CRAFTING_RECIPES.length) {
-      return;
-    }
-
-    const fragment = document.createDocumentFragment();
-    CRAFTING_RECIPES.forEach((recipe) => {
-      const item = document.createElement('li');
-      item.className = 'crafting-item';
-      item.setAttribute('data-crafting-id', recipe.id);
-
-      const header = document.createElement('div');
-      header.className = 'crafting-item__header';
-
-      const title = document.createElement('h3');
-      title.className = 'crafting-item__title';
-      title.textContent = recipe.name;
-
-      const effect = document.createElement('p');
-      effect.className = 'crafting-item__effect';
-      effect.textContent = `${recipe.type} — ${recipe.effect}`;
-
-      header.append(title, effect);
-      item.append(header);
-
-      if (Array.isArray(recipe.requirements) && recipe.requirements.length) {
-        const costList = document.createElement('ul');
-        costList.className = 'crafting-cost';
-
-        recipe.requirements.forEach((requirement) => {
-          const costItem = document.createElement('li');
-          costItem.className = 'crafting-cost__item';
-          const amountLabel = `${formatGameNumber(Math.max(0, requirement.amount || 0))} ${
-            requirement.label || 'Motes'
-          } Motes`;
-          costItem.textContent = amountLabel;
-
-          const owned = document.createElement('span');
-          owned.className = 'crafting-cost__owned';
-          owned.textContent = `(Owned: ${formatGameNumber(getMoteGemCountByLabel(requirement.label))})`;
-          costItem.append(owned);
-
-          costList.append(costItem);
-        });
-
-        item.append(costList);
-      }
-
-      fragment.append(item);
-    });
-
-    craftingElements.list.append(fragment);
-  }
-
   // Render the mote gem ledger so the motes tab reflects current drop totals.
   function updateMoteGemInventoryDisplay() {
     const list = powderElements.gemInventoryList;
@@ -5368,7 +5254,7 @@ import {
       list.setAttribute('aria-hidden', 'true');
       emptyState.hidden = false;
       emptyState.setAttribute('aria-hidden', 'false');
-      renderCraftingRecipes();
+      refreshCraftingRecipesDisplay();
       return;
     }
 
@@ -5424,81 +5310,7 @@ import {
     emptyState.hidden = true;
     emptyState.setAttribute('aria-hidden', 'true');
     list.append(fragment);
-    renderCraftingRecipes();
-  }
-
-  // Prepare the crafting overlay markup and interactions.
-  function bindCraftingOverlayElements() {
-    craftingElements.overlay = document.getElementById('crafting-overlay');
-    craftingElements.closeButton = document.getElementById('crafting-close');
-    craftingElements.list = document.getElementById('crafting-list');
-
-    renderCraftingRecipes();
-
-    const { overlay, closeButton } = craftingElements;
-
-    if (overlay) {
-      overlay.addEventListener('click', (event) => {
-        if (event.target === overlay) {
-          closeCraftingOverlay();
-        }
-      });
-
-      overlay.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' || event.key === 'Esc') {
-          event.preventDefault();
-          closeCraftingOverlay();
-        }
-      });
-    }
-
-    if (closeButton) {
-      closeButton.addEventListener('click', () => {
-        closeCraftingOverlay();
-      });
-    }
-  }
-
-  // Reveal the crafting overlay and focus its dismiss control for accessibility.
-  function openCraftingOverlay() {
-    const { overlay, closeButton } = craftingElements;
-    if (!overlay || overlay.classList.contains('active')) {
-      return;
-    }
-
-    craftingElements.lastFocus = document.activeElement;
-    updateMoteGemInventoryDisplay();
-    renderCraftingRecipes();
-
-    revealOverlay(overlay);
-    overlay.setAttribute('aria-hidden', 'false');
-
-    requestAnimationFrame(() => {
-      overlay.classList.add('active');
-      if (closeButton && typeof closeButton.focus === 'function') {
-        closeButton.focus({ preventScroll: true });
-      } else if (typeof overlay.focus === 'function') {
-        overlay.focus({ preventScroll: true });
-      }
-    });
-  }
-
-  // Hide the crafting overlay and restore focus to the launcher button.
-  function closeCraftingOverlay() {
-    const { overlay } = craftingElements;
-    if (!overlay || !overlay.classList.contains('active')) {
-      return;
-    }
-
-    overlay.classList.remove('active');
-    overlay.setAttribute('aria-hidden', 'true');
-    scheduleOverlayHide(overlay);
-
-    const focusTarget = craftingElements.lastFocus;
-    craftingElements.lastFocus = null;
-    if (focusTarget && typeof focusTarget.focus === 'function') {
-      focusTarget.focus({ preventScroll: true });
-    }
+    refreshCraftingRecipesDisplay();
   }
 
   function bindPowderControls() {
@@ -6129,7 +5941,11 @@ import {
 
     bindStatusElements();
     bindPowderControls();
-    bindCraftingOverlayElements();
+    initializeCraftingOverlay({
+      revealOverlay,
+      scheduleOverlayHide,
+      onRequestInventoryRefresh: updateMoteGemInventoryDisplay,
+    });
     bindAchievements();
     updatePowderLogDisplay();
     updateResourceRates();
