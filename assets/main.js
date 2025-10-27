@@ -96,6 +96,42 @@ import {
   unlockTower,
   isTowerUnlocked,
 } from './towersTab.js';
+import {
+  moteGemState,
+  MOTE_GEM_COLLECTION_RADIUS,
+  configureEnemyHandlers,
+  resetActiveMoteGems,
+  spawnMoteGemDrop,
+  collectMoteGemsWithinRadius,
+  autoCollectActiveMoteGems,
+  setMoteGemAutoCollectUnlocked,
+} from './enemies.js';
+import {
+  cloneVectorArray,
+  cloneWaveArray,
+  setLevelBlueprints,
+  setLevelConfigs,
+  initializeInteractiveLevelProgression,
+  populateIdleLevelConfigs,
+  pruneLevelState,
+  getCompletedInteractiveLevelCount,
+  getStartingTheroMultiplier,
+  isInteractiveLevel,
+  isSecretLevelId,
+  isLevelUnlocked,
+  isLevelCompleted,
+  unlockLevel,
+  unlockNextInteractiveLevel,
+  getPreviousInteractiveLevelId,
+  levelBlueprints,
+  levelLookup,
+  levelConfigs,
+  idleLevelConfigs,
+  levelState,
+  interactiveLevelOrder,
+  unlockedLevels,
+  levelSetEntries,
+} from './levels.js';
 
 (() => {
   'use strict';
@@ -274,12 +310,8 @@ import {
   }
 
   let gameplayConfigData = null;
-  let levelBlueprints = [];
   let fluidSimulationProfile = null;
   let fluidSimulationLoadPromise = null;
-  let levelLookup = new Map();
-  const levelConfigs = new Map();
-  const idleLevelConfigs = new Map();
 
   const FALLBACK_TOWER_LOADOUT_LIMIT = 4;
   const FALLBACK_BASE_START_THERO = 50;
@@ -587,50 +619,6 @@ import {
     };
   }
 
-  function cloneVectorArray(array) {
-    if (!Array.isArray(array)) {
-      return [];
-    }
-    return array
-      .map((point) => {
-        if (!point || typeof point !== 'object') {
-          return null;
-        }
-        const x = Number(point.x);
-        const y = Number(point.y);
-        return {
-          x: Number.isFinite(x) ? x : 0,
-          y: Number.isFinite(y) ? y : 0,
-        };
-      })
-      .filter(Boolean);
-  }
-
-  function cloneWaveArray(array) {
-    if (!Array.isArray(array)) {
-      return [];
-    }
-    return array.map((wave) => {
-      if (!wave || typeof wave !== 'object') {
-        return {
-          count: 0,
-          interval: 1,
-          hp: 0,
-          speed: 0,
-          reward: 0,
-        };
-      }
-      return {
-        ...wave,
-        count: Number.isFinite(wave.count) ? wave.count : 0,
-        interval: Number.isFinite(wave.interval) ? wave.interval : 1,
-        hp: Number.isFinite(wave.hp) ? wave.hp : 0,
-        speed: Number.isFinite(wave.speed) ? wave.speed : 0,
-        reward: Number.isFinite(wave.reward) ? wave.reward : 0,
-      };
-    });
-  }
-
   function applyGameplayConfig(config = {}) {
     gameplayConfigData = config || {};
 
@@ -691,58 +679,11 @@ import {
 
     setEnemyCodexEntries(gameplayConfigData.enemies);
 
-    levelBlueprints = Array.isArray(gameplayConfigData.maps)
-      ? gameplayConfigData.maps.map((map) => ({ ...map }))
-      : [];
-    levelLookup = new Map(levelBlueprints.map((level) => [level.id, level]));
-
-    levelConfigs.clear();
-    if (Array.isArray(gameplayConfigData.levels)) {
-      gameplayConfigData.levels.forEach((level) => {
-        if (!level || !level.id) {
-          return;
-        }
-        levelConfigs.set(level.id, {
-          ...level,
-          waves: cloneWaveArray(level.waves),
-          path: cloneVectorArray(level.path),
-          autoAnchors: cloneVectorArray(level.autoAnchors),
-        });
-      });
-    }
-
-    interactiveLevelOrder = Array.from(levelConfigs.keys());
-    unlockedLevels.clear();
-    if (interactiveLevelOrder.length) {
-      unlockedLevels.add(interactiveLevelOrder[0]);
-    }
-
-    idleLevelConfigs.clear();
-    levelBlueprints.forEach((level, index) => {
-      if (!level || !level.id || levelConfigs.has(level.id)) {
-        return;
-      }
-
-      const levelNumber = index + 1;
-      const runDuration = 90 + levelNumber * 12;
-      const rewardMultiplier = 1 + levelNumber * 0.08;
-      const rewardScore = baseResources.scoreRate * (runDuration / 12) * rewardMultiplier;
-      const rewardFlux = 45 + levelNumber * 10;
-      const rewardThero = 35 + levelNumber * 8;
-
-      idleLevelConfigs.set(level.id, {
-        runDuration,
-        rewardScore,
-        rewardFlux,
-        rewardThero,
-      });
-    });
-
-    Array.from(levelState.keys()).forEach((levelId) => {
-      if (!levelLookup.has(levelId)) {
-        levelState.delete(levelId);
-      }
-    });
+    setLevelBlueprints(gameplayConfigData.maps);
+    setLevelConfigs(gameplayConfigData.levels);
+    initializeInteractiveLevelProgression();
+    populateIdleLevelConfigs(baseResources);
+    pruneLevelState();
 
     generateLevelAchievements();
 
@@ -782,27 +723,6 @@ import {
 
     console.error('Unable to load gameplay configuration', lastError);
     throw lastError || new Error('Unable to load gameplay configuration');
-  }
-
-  const levelState = new Map();
-  let interactiveLevelOrder = [];
-  const unlockedLevels = new Set();
-  const levelSetEntries = [];
-
-  function getCompletedInteractiveLevelCount() {
-    let count = 0;
-    interactiveLevelOrder.forEach((levelId) => {
-      const state = levelState.get(levelId);
-      if (state?.completed) {
-        count += 1;
-      }
-    });
-    return count;
-  }
-
-  function getStartingTheroMultiplier(levelsBeaten = getCompletedInteractiveLevelCount()) {
-    const normalized = Number.isFinite(levelsBeaten) ? Math.max(0, levelsBeaten) : 0;
-    return 2 ** normalized;
   }
 
   function calculateStartingThero() {
@@ -869,66 +789,6 @@ import {
   let activeTabIndex = 0;
   let lastLevelTrigger = null;
   let expandedLevelSet = null;
-
-  function isInteractiveLevel(levelId) {
-    return levelConfigs.has(levelId);
-  }
-
-  function isSecretLevelId(levelId) {
-    return typeof levelId === 'string' && /secret/i.test(levelId);
-  }
-
-  function isLevelUnlocked(levelId) {
-    if (!levelId) {
-      return false;
-    }
-    if (!isInteractiveLevel(levelId)) {
-      return true;
-    }
-    return unlockedLevels.has(levelId);
-  }
-
-  function isLevelCompleted(levelId) {
-    if (!levelId) {
-      return false;
-    }
-    const state = levelState.get(levelId);
-    return Boolean(state && state.completed);
-  }
-
-  function unlockLevel(levelId) {
-    if (!levelId || !isInteractiveLevel(levelId)) {
-      return;
-    }
-    if (!unlockedLevels.has(levelId)) {
-      unlockedLevels.add(levelId);
-    }
-  }
-
-  function unlockNextInteractiveLevel(levelId) {
-    const index = interactiveLevelOrder.indexOf(levelId);
-    if (index < 0) {
-      return;
-    }
-    for (let offset = index + 1; offset < interactiveLevelOrder.length; offset += 1) {
-      const nextId = interactiveLevelOrder[offset];
-      if (!nextId) {
-        continue;
-      }
-      unlockLevel(nextId);
-      if (!isSecretLevelId(nextId)) {
-        break;
-      }
-    }
-  }
-
-  function getPreviousInteractiveLevelId(levelId) {
-    const index = interactiveLevelOrder.indexOf(levelId);
-    if (index <= 0) {
-      return null;
-    }
-    return interactiveLevelOrder[index - 1] || null;
-  }
 
   const developerModeElements = {
     toggle: null,
@@ -2138,14 +1998,6 @@ import {
     fluidProfileLabel: 'Fluid Study',
   };
 
-  // Track mote gem drops, inventory totals, and the upgrade-driven auto collector.
-  const moteGemState = {
-    active: [],
-    nextId: 1,
-    inventory: new Map(),
-    autoCollectUnlocked: false,
-  };
-
   let currentPowderBonuses = {
     sandBonus: 0,
     duneBonus: 0,
@@ -2193,114 +2045,6 @@ import {
   // Powder simulation metrics are supplied via the powder tower module.
   const powderGlyphColumns = [];
   let powderWallMetrics = null;
-
-  const MOTE_GEM_COLLECTION_RADIUS = 48;
-
-  // Clear any mote gem drops lingering from previous battles.
-  function resetActiveMoteGems() {
-    moteGemState.active.length = 0;
-  }
-
-  // Resolve a stable type key and label for categorizing mote gem drops.
-  function resolveMoteGemType(enemy = {}) {
-    const rawKey = enemy.typeId || enemy.codexId || enemy.id || enemy.symbol || 'glyph';
-    const normalizedKey = String(rawKey).trim().toLowerCase() || 'glyph';
-    const label = enemy.label || enemy.name || enemy.symbol || 'Glyph';
-    return { key: normalizedKey, label };
-  }
-
-  // Derive a deterministic accent color for a mote gem category.
-  function getMoteGemColor(typeKey) {
-    const key = String(typeKey || 'glyph');
-    let hash = 0;
-    for (let index = 0; index < key.length; index += 1) {
-      hash = (hash * 31 + key.charCodeAt(index)) & 0xffffffff;
-    }
-    const hue = Math.abs(hash) % 360;
-    return { hue, saturation: 72, lightness: 58 };
-  }
-
-  // Spawn a mote gem drop at the supplied battlefield position.
-  function spawnMoteGemDrop(enemy, position) {
-    if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) {
-      return null;
-    }
-    const value = Number.isFinite(enemy?.moteFactor) ? Math.max(1, Math.round(enemy.moteFactor)) : 1;
-    if (value <= 0) {
-      return null;
-    }
-    const type = resolveMoteGemType(enemy);
-    const gem = {
-      id: moteGemState.nextId,
-      x: position.x,
-      y: position.y,
-      value,
-      typeKey: type.key,
-      typeLabel: type.label,
-      pulse: Math.random() * Math.PI * 2,
-      color: getMoteGemColor(type.key),
-    };
-    moteGemState.nextId += 1;
-    moteGemState.active.push(gem);
-    return gem;
-  }
-
-  // Transfer a mote gem into the player's reserves and remove it from the field.
-  function collectMoteGemDrop(gem, context = {}) {
-    if (!gem) {
-      return false;
-    }
-    const index = moteGemState.active.findIndex((candidate) => candidate && candidate.id === gem.id);
-    if (index === -1) {
-      return false;
-    }
-    moteGemState.active.splice(index, 1);
-
-    const record = moteGemState.inventory.get(gem.typeKey) || { label: gem.typeLabel, total: 0 };
-    record.total += gem.value;
-    record.label = gem.typeLabel || record.label;
-    moteGemState.inventory.set(gem.typeKey, record);
-
-    queueMoteDrop(gem.value);
-    if (typeof recordPowderEvent === 'function') {
-      recordPowderEvent('mote-gem-collected', {
-        type: gem.typeLabel,
-        value: gem.value,
-        reason: context.reason || 'manual',
-      });
-    }
-    return true;
-  }
-
-  // Collect any mote gems within a radius of the provided battlefield point.
-  function collectMoteGemsWithinRadius(center, radius, context = {}) {
-    if (!center || !Number.isFinite(center.x) || !Number.isFinite(center.y)) {
-      return 0;
-    }
-    const effectiveRadius = Number.isFinite(radius) ? Math.max(1, radius) : MOTE_GEM_COLLECTION_RADIUS;
-    const radiusSquared = effectiveRadius * effectiveRadius;
-    const harvested = moteGemState.active.filter((gem) => {
-      const dx = gem.x - center.x;
-      const dy = gem.y - center.y;
-      return dx * dx + dy * dy <= radiusSquared;
-    });
-    harvested.forEach((gem) => collectMoteGemDrop(gem, context));
-    return harvested.length;
-  }
-
-  // Automatically collect every mote gem currently active on the field.
-  function autoCollectActiveMoteGems(reason = 'auto') {
-    const pending = [...moteGemState.active];
-    pending.forEach((gem) => {
-      collectMoteGemDrop(gem, { reason });
-    });
-    return pending.length;
-  }
-
-  // Update the auto-collect upgrade flag so glyph completions can sweep gems.
-  function setMoteGemAutoCollectUnlocked(unlocked) {
-    moteGemState.autoCollectUnlocked = Boolean(unlocked);
-  }
 
   function updatePowderGlyphColumns(info = {}) {
     const rows = Number.isFinite(info.rows) && info.rows > 0 ? info.rows : 1;
@@ -10616,6 +10360,9 @@ import {
     }
     updatePowderLogDisplay();
   }
+
+  // Connect mote gem logging to the powder handlers once both helpers are defined.
+  configureEnemyHandlers({ queueMoteDrop, recordPowderEvent });
 
   function toggleSandfallStability() {
     powderState.sandOffset =
