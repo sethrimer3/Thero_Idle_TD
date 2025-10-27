@@ -1543,9 +1543,13 @@ export function openTowerUpgradeOverlay(towerId, options = {}) {
 
   towerTabState.activeTowerUpgradeId = towerId;
   towerTabState.lastTowerUpgradeTrigger = options.trigger || null;
-  renderTowerUpgradeOverlay(towerId, { blueprint: options.blueprint, baseEquationText: options.baseEquationText });
-
+  // Reveal the overlay first so MathJax can typeset golden equations reliably.
   showTowerUpgradeOverlayElement(overlay);
+
+  renderTowerUpgradeOverlay(towerId, {
+    blueprint: options.blueprint,
+    baseEquationText: options.baseEquationText,
+  });
   overlay.focus({ preventScroll: true });
   maybePlayTowerVariableEntry();
 }
