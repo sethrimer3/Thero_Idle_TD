@@ -117,6 +117,7 @@ import {
   unlockTower,
   isTowerUnlocked,
 } from './towersTab.js';
+import { initializeTowerTreeMap, refreshTowerTreeMap } from './towerTreeMap.js';
 import {
   moteGemState,
   MOTE_GEM_COLLECTION_RADIUS,
@@ -6240,6 +6241,12 @@ import {
     injectTowerCardPreviews();
     annotateTowerCardsWithCost();
     updateTowerCardVisibility();
+    initializeTowerTreeMap({
+      toggleButton: document.getElementById('tower-tree-map-toggle'),
+      mapContainer: document.getElementById('tower-tree-map'),
+      cardGrid: document.getElementById('tower-card-grid'),
+    });
+    refreshTowerTreeMap();
     initializeTowerSelection();
     bindTowerCardUpgradeInteractions();
     syncLoadoutToPlayfield();
