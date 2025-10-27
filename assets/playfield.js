@@ -116,6 +116,10 @@ export class SimplePlayfield {
     this.autoStartTimer = null;
     this.autoStartDeadline = 0;
 
+    this.layoutOrientation = 'portrait';
+    this.basePathPoints = [];
+    this.baseAutoAnchors = [];
+
     this.pathSegments = [];
     this.pathPoints = [];
     this.pathLength = 0;
@@ -202,6 +206,84 @@ export class SimplePlayfield {
       return document.body.classList.contains('graphics-mode-low');
     }
     return false;
+  }
+
+  // Determine whether the current viewport favors a portrait or landscape layout.
+  determinePreferredOrientation() {
+    if (typeof window === 'undefined') {
+      return 'portrait';
+    }
+    const width = Number.isFinite(window.innerWidth) ? window.innerWidth : 0;
+    const height = Number.isFinite(window.innerHeight) ? window.innerHeight : 0;
+    if (width > 0 && height > 0 && width > height) {
+      return 'landscape';
+    }
+    return 'portrait';
+  }
+
+  // Update playfield container classes so CSS can size the canvas per orientation.
+  applyContainerOrientationClass() {
+    if (!this.container || !this.container.classList) {
+      return;
+    }
+    if (!this.container.classList.contains('playfield')) {
+      return;
+    }
+    if (this.layoutOrientation === 'landscape') {
+      this.container.classList.add('playfield--landscape');
+      this.container.classList.remove('playfield--portrait');
+    } else {
+      this.container.classList.add('playfield--portrait');
+      this.container.classList.remove('playfield--landscape');
+    }
+  }
+
+  // Clone a normalized point while constraining it to the valid 0–1 range.
+  cloneNormalizedPoint(point) {
+    if (!point || typeof point !== 'object') {
+      return { x: 0, y: 0 };
+    }
+    const x = Number.isFinite(point.x) ? point.x : 0;
+    const y = Number.isFinite(point.y) ? point.y : 0;
+    return {
+      x: Math.max(0, Math.min(1, x)),
+      y: Math.max(0, Math.min(1, y)),
+    };
+  }
+
+  // Rotate a normalized point 90° clockwise around the playfield center.
+  rotateNormalizedPointClockwise(point) {
+    const base = this.cloneNormalizedPoint(point);
+    const rotated = {
+      x: base.y,
+      y: 1 - base.x,
+    };
+    return {
+      x: Math.max(0, Math.min(1, rotated.x)),
+      y: Math.max(0, Math.min(1, rotated.y)),
+    };
+  }
+
+  // Apply the active orientation to the level's path and auto-anchor geometry.
+  applyLevelOrientation() {
+    if (!this.levelConfig) {
+      return;
+    }
+    const basePath = Array.isArray(this.basePathPoints) && this.basePathPoints.length
+      ? this.basePathPoints
+      : Array.isArray(this.levelConfig.path)
+      ? this.levelConfig.path
+      : [];
+    const baseAnchors = Array.isArray(this.baseAutoAnchors) ? this.baseAutoAnchors : [];
+    const transform =
+      this.layoutOrientation === 'landscape'
+        ? (point) => this.rotateNormalizedPointClockwise(point)
+        : (point) => this.cloneNormalizedPoint(point);
+
+    this.levelConfig.path = basePath.map((point) => transform(point));
+    this.levelConfig.autoAnchors = baseAnchors.length
+      ? baseAnchors.map((anchor) => transform(anchor))
+      : [];
   }
 
   // Applies a canvas shadow when high graphics fidelity is active.
@@ -796,6 +878,8 @@ export class SimplePlayfield {
       if (this.ctx) {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
       }
+      this.basePathPoints = [];
+      this.baseAutoAnchors = [];
       if (this.messageEl) {
         this.messageEl.textContent = 'This level preview is not interactive yet.';
       }
@@ -845,6 +929,16 @@ export class SimplePlayfield {
     clonedConfig.lives =
       typeof getBaseCoreIntegrity === 'function' ? getBaseCoreIntegrity() : 0;
 
+    const basePathPoints = Array.isArray(clonedConfig.path)
+      ? clonedConfig.path.map((node) => this.cloneNormalizedPoint(node))
+      : [];
+    const baseAutoAnchors = Array.isArray(clonedConfig.autoAnchors)
+      ? clonedConfig.autoAnchors.map((anchor) => this.cloneNormalizedPoint(anchor))
+      : [];
+    this.basePathPoints = basePathPoints;
+    this.baseAutoAnchors = baseAutoAnchors;
+    this.layoutOrientation = this.determinePreferredOrientation();
+
     this.levelActive = true;
     this.levelConfig = clonedConfig;
     this.baseWaveCount = clonedConfig.waves.length;
@@ -858,6 +952,8 @@ export class SimplePlayfield {
     this.activePointers.clear();
     this.pinchState = null;
     this.isPinchZooming = false;
+    this.applyLevelOrientation();
+    this.applyContainerOrientationClass();
     if (this.previewOnly) {
       this.combatActive = false;
       this.shouldAnimate = false;
@@ -949,6 +1045,9 @@ export class SimplePlayfield {
       this.activePointers.clear();
       this.pinchState = null;
       this.isPinchZooming = false;
+      // Reset stored geometry when leaving the preview renderer.
+      this.basePathPoints = [];
+      this.baseAutoAnchors = [];
       if (this.ctx) {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
       }
@@ -982,6 +1081,9 @@ export class SimplePlayfield {
     this.baseWaveCount = 0;
     this.currentWaveNumber = 1;
     this.maxWaveReached = 0;
+    // Clear cached portrait geometry so the next level can determine orientation anew.
+    this.basePathPoints = [];
+    this.baseAutoAnchors = [];
     this.setAvailableTowers([]);
     cancelTowerDrag();
     this.viewScale = 1;
