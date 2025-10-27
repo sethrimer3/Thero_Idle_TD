@@ -1,9 +1,15 @@
 {
   "id": "tower-fluid",
   "label": "Fluid Resonance Study",
-  "grainSizes": [1, 1, 2],
+  "dropSizes": [1, 1, 2, 3],
+  "dropVolumeScale": 0.85,
   "idleDrainRate": 1.6,
   "baseSpawnInterval": 150,
+  "waveStiffness": 0.22,
+  "waveDamping": 0.012,
+  "sideFlowRate": 0.6,
+  "rippleFrequency": 0.8,
+  "rippleAmplitude": 0.55,
   "palette": {
     "stops": ["#4fb8ff", "#76d5ff", "#c6f4ff"],
     "restAlpha": 0.78,

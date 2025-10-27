@@ -43,6 +43,7 @@ import {
   DEFAULT_MOTE_PALETTE,
   POWDER_CELL_SIZE_PX,
   PowderSimulation,
+  FluidSimulation,
   clampUnitInterval,
   colorToRgbaString,
   mergeMotePalette,
@@ -276,26 +277,45 @@ import {
             backgroundBottom: data.backgroundBottom,
           };
 
-    const grainSizes = Array.isArray(data.grainSizes)
-      ? data.grainSizes
+    const dropSizes = Array.isArray(data.dropSizes)
+      ? data.dropSizes
           .map((size) => {
             const numeric = Number.parseFloat(size);
             return Number.isFinite(numeric) ? Math.max(1, Math.round(numeric)) : null;
           })
           .filter((size) => Number.isFinite(size) && size > 0)
-      : [];
+      : Array.isArray(data.grainSizes)
+        ? data.grainSizes
+            .map((size) => {
+              const numeric = Number.parseFloat(size);
+              return Number.isFinite(numeric) ? Math.max(1, Math.round(numeric)) : null;
+            })
+            .filter((size) => Number.isFinite(size) && size > 0)
+        : [];
 
-    if (!grainSizes.length) {
-      grainSizes.push(1, 2);
+    if (!dropSizes.length) {
+      dropSizes.push(1, 1, 2);
     }
 
     return {
       id: typeof data.id === 'string' && data.id.trim() ? data.id.trim() : 'fluid',
       label: typeof data.label === 'string' && data.label.trim() ? data.label.trim() : 'Fluid Study',
-      grainSizes,
+      dropSizes,
+      dropVolumeScale: Number.isFinite(data.dropVolumeScale) && data.dropVolumeScale > 0
+        ? data.dropVolumeScale
+        : null,
       idleDrainRate: Number.isFinite(data.idleDrainRate) ? Math.max(1, data.idleDrainRate) : null,
       baseSpawnInterval: Number.isFinite(data.baseSpawnInterval) ? Math.max(30, data.baseSpawnInterval) : null,
       flowOffset: Number.isFinite(data.flowOffset) ? Math.max(0, data.flowOffset) : null,
+      waveStiffness: Number.isFinite(data.waveStiffness) && data.waveStiffness > 0 ? data.waveStiffness : null,
+      waveDamping: Number.isFinite(data.waveDamping) && data.waveDamping >= 0 ? data.waveDamping : null,
+      sideFlowRate: Number.isFinite(data.sideFlowRate) && data.sideFlowRate >= 0 ? data.sideFlowRate : null,
+      rippleFrequency: Number.isFinite(data.rippleFrequency) && data.rippleFrequency >= 0
+        ? data.rippleFrequency
+        : null,
+      rippleAmplitude: Number.isFinite(data.rippleAmplitude) && data.rippleAmplitude >= 0
+        ? data.rippleAmplitude
+        : null,
       palette: mergeMotePalette(paletteSource || {}),
     };
   }
@@ -1092,6 +1112,7 @@ import {
     simulatedDuneGainMax: 3.4,
     wallBaseGapMotes: 10,
     wallGapPerGlyph: 2,
+    fluidUnlockSigils: 12,
   };
 
   const powderState = {
@@ -1108,6 +1129,7 @@ import {
     wallGapTarget: powderConfig.wallBaseGapMotes,
     modeSwitchPending: false,
     fluidProfileLabel: 'Fluid Study',
+    fluidUnlocked: false,
   };
 
   let currentPowderBonuses = {
@@ -1333,6 +1355,17 @@ import {
     if (!powderElements.modeToggle) {
       return;
     }
+    const unlockSigils = powderConfig.fluidUnlockSigils || 0;
+    if (!powderState.fluidUnlocked) {
+      const requirementLabel = unlockSigils > 0 ? `${unlockSigils}` : '???';
+      powderElements.modeToggle.textContent = `Unlock Fluid Study (Sigils ${requirementLabel})`;
+      powderElements.modeToggle.setAttribute('aria-pressed', 'false');
+      powderElements.modeToggle.setAttribute('aria-disabled', 'true');
+      powderElements.modeToggle.disabled = true;
+      return;
+    }
+    powderElements.modeToggle.removeAttribute('aria-disabled');
+    powderElements.modeToggle.disabled = false;
     const mode = powderState.simulationMode;
     const fluidLabel = powderState.fluidProfileLabel || 'Fluid Study';
     powderElements.modeToggle.textContent =
@@ -1345,6 +1378,10 @@ import {
       return;
     }
     if (powderState.modeSwitchPending) {
+      return;
+    }
+    if (mode === 'fluid' && !powderState.fluidUnlocked) {
+      updatePowderModeButton();
       return;
     }
 
@@ -1361,31 +1398,112 @@ import {
           throw new Error('Fluid simulation profile unavailable.');
         }
         powderState.fluidProfileLabel = profile.label || powderState.fluidProfileLabel;
-        if (powderSimulation) {
-          powderSimulation.applyProfile(profile);
-          powderState.motePalette = powderSimulation.getEffectiveMotePalette();
-          powderState.idleDrainRate = powderSimulation.idleDrainRate;
-          powderState.simulationMode = 'fluid';
-          updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
-        } else {
-          powderState.simulationMode = 'fluid';
+
+        if (!fluidSimulationInstance && powderElements.simulationCanvas) {
+          const { left: leftInset, right: rightInset } = getPowderWallInsets();
+          fluidSimulationInstance = new FluidSimulation({
+            canvas: powderElements.simulationCanvas,
+            cellSize: POWDER_CELL_SIZE_PX,
+            wallInsetLeft: leftInset,
+            wallInsetRight: rightInset,
+            wallGapCells: powderConfig.wallBaseGapMotes,
+            idleDrainRate: powderState.idleDrainRate,
+            motePalette: powderState.motePalette,
+            dropSizes: profile.dropSizes,
+            dropVolumeScale: profile.dropVolumeScale ?? undefined,
+            waveStiffness: profile.waveStiffness ?? undefined,
+            waveDamping: profile.waveDamping ?? undefined,
+            sideFlowRate: profile.sideFlowRate ?? undefined,
+            rippleFrequency: profile.rippleFrequency ?? undefined,
+            rippleAmplitude: profile.rippleAmplitude ?? undefined,
+            maxDuneGain: powderConfig.simulatedDuneGainMax,
+            onHeightChange: handlePowderHeightChange,
+            onWallMetricsChange: handlePowderWallMetricsChange,
+          });
         }
+
+        if (!fluidSimulationInstance) {
+          throw new Error('Fluid simulation could not be created.');
+        }
+
+        if (powderSimulation && powderSimulation !== fluidSimulationInstance) {
+          captureSimulationState(powderSimulation);
+          powderSimulation.stop();
+        }
+
+        powderSimulation = fluidSimulationInstance;
+        powderSimulation.applyProfile(profile);
+        if (Number.isFinite(profile.flowOffset) && typeof powderSimulation.setFlowOffset === 'function') {
+          powderSimulation.setFlowOffset(profile.flowOffset);
+        } else if (typeof powderSimulation.setFlowOffset === 'function') {
+          powderSimulation.setFlowOffset(powderState.sandOffset);
+        }
+        powderState.motePalette = powderSimulation.getEffectiveMotePalette();
+        powderState.idleDrainRate = powderSimulation.idleDrainRate;
+        powderState.simulationMode = 'fluid';
+        powderSimulation.setWallGapTarget(powderState.wallGapTarget || powderConfig.wallBaseGapMotes, {
+          skipRebuild: true,
+        });
+        powderSimulation.handleResize();
+        flushPendingMoteDrops();
+        powderSimulation.start();
         if (previousMode !== powderState.simulationMode) {
           recordPowderEvent('mode-switch', { mode: 'fluid', label: profile.label || 'Fluid Study' });
         }
       } else {
-        if (powderSimulation) {
-          const baseProfile = powderSimulation.getDefaultProfile();
-          powderSimulation.applyProfile(baseProfile || undefined);
-          powderState.motePalette = powderSimulation.getEffectiveMotePalette();
-          powderState.idleDrainRate = powderSimulation.idleDrainRate;
+        if (!sandSimulation && powderSimulation instanceof PowderSimulation) {
+          sandSimulation = powderSimulation;
         }
+        if (!sandSimulation && powderElements.simulationCanvas) {
+          const { left: leftInset, right: rightInset } = getPowderWallInsets();
+          sandSimulation = new PowderSimulation({
+            canvas: powderElements.simulationCanvas,
+            cellSize: POWDER_CELL_SIZE_PX,
+            grainSizes: [1, 2, 3],
+            scrollThreshold: 0.75,
+            wallInsetLeft: leftInset,
+            wallInsetRight: rightInset,
+            wallGapCells: powderConfig.wallBaseGapMotes,
+            maxDuneGain: powderConfig.simulatedDuneGainMax,
+            idleDrainRate: powderState.idleDrainRate,
+            motePalette: powderState.motePalette,
+            onHeightChange: handlePowderHeightChange,
+            onWallMetricsChange: handlePowderWallMetricsChange,
+          });
+        }
+
+        if (powderSimulation && powderSimulation !== sandSimulation) {
+          captureSimulationState(powderSimulation);
+          powderSimulation.stop();
+        }
+
+        if (!sandSimulation) {
+          throw new Error('Powder simulation unavailable.');
+        }
+
+        powderSimulation = sandSimulation;
+        const baseProfile = powderSimulation.getDefaultProfile();
+        powderSimulation.applyProfile(baseProfile || undefined);
+        powderSimulation.setFlowOffset(powderState.sandOffset);
+        powderState.motePalette = powderSimulation.getEffectiveMotePalette();
+        powderState.idleDrainRate = powderSimulation.idleDrainRate;
         powderState.simulationMode = 'sand';
-        updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
+        powderSimulation.setWallGapTarget(powderState.wallGapTarget || powderConfig.wallBaseGapMotes, {
+          skipRebuild: true,
+        });
+        powderSimulation.handleResize();
+        flushPendingMoteDrops();
+        powderSimulation.start();
         if (previousMode !== powderState.simulationMode) {
           recordPowderEvent('mode-switch', { mode: 'sand', label: 'Powderfall Study' });
         }
       }
+
+      powderWallMetrics = powderSimulation ? powderSimulation.getWallMetrics() : null;
+      syncPowderWallVisuals(powderWallMetrics || undefined);
+      updatePowderHitboxVisibility();
+      handlePowderHeightChange(powderSimulation ? powderSimulation.getStatus() : undefined);
+      updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
       updateMoteStatsDisplays();
     } catch (error) {
       console.error('Unable to switch simulation mode.', error);
@@ -1443,6 +1561,8 @@ import {
   const idleLevelRuns = new Map();
 
   let powderSimulation = null;
+  let sandSimulation = null;
+  let fluidSimulationInstance = null;
   let powderBasinObserver = null;
 
   // Synchronize the shared palette module with powder simulation and playfield rendering.
@@ -1473,6 +1593,31 @@ import {
     getBaseStartThero: () => BASE_START_THERO,
     getBaseCoreIntegrity: () => BASE_CORE_INTEGRITY,
   });
+
+  function captureSimulationState(simulation) {
+    if (!simulation) {
+      return;
+    }
+    if (Array.isArray(simulation.pendingDrops) && simulation.pendingDrops.length) {
+      simulation.pendingDrops.forEach((drop) => {
+        const size = Number.isFinite(drop?.size) ? Math.max(1, Math.round(drop.size)) : 1;
+        powderState.pendingMoteDrops.push(size);
+      });
+      simulation.pendingDrops.length = 0;
+    }
+    if (Number.isFinite(simulation.idleBank)) {
+      powderState.idleMoteBank = Math.max(0, simulation.idleBank);
+    }
+    if (typeof simulation.getEffectiveMotePalette === 'function') {
+      powderState.motePalette = simulation.getEffectiveMotePalette();
+    }
+  }
+
+  function getPowderWallInsets() {
+    const left = powderElements.leftWall ? Math.max(68, powderElements.leftWall.offsetWidth) : 68;
+    const right = powderElements.rightWall ? Math.max(68, powderElements.rightWall.offsetWidth) : 68;
+    return { left, right };
+  }
 
   function queueMoteDrop(size) {
     if (!Number.isFinite(size) || size <= 0) {
@@ -4630,6 +4775,11 @@ import {
     gameStats.powderSigilsReached = Math.max(gameStats.powderSigilsReached, normalized);
     const updatedGlyphs = Math.max(getGlyphCurrency(), normalized);
     setGlyphCurrency(updatedGlyphs);
+    if (!powderState.fluidUnlocked && normalized >= (powderConfig.fluidUnlockSigils || Infinity)) {
+      powderState.fluidUnlocked = true;
+      recordPowderEvent('fluid-unlocked', { threshold: powderConfig.fluidUnlockSigils || 0 });
+      updatePowderModeButton();
+    }
     if (moteGemState.autoCollectUnlocked) {
       autoCollectActiveMoteGems('glyph');
     }
@@ -5314,6 +5464,9 @@ import {
   }
 
   function bindPowderControls() {
+    if (!powderState.fluidUnlocked && gameStats.powderSigilsReached >= (powderConfig.fluidUnlockSigils || Infinity)) {
+      powderState.fluidUnlocked = true;
+    }
     powderElements.sandfallFormula = document.getElementById('powder-sandfall-formula');
     powderElements.sandfallNote = document.getElementById('powder-sandfall-note');
     powderElements.sandfallButton = document.querySelector('[data-powder-action="sandfall"]');
@@ -5408,12 +5561,7 @@ import {
     }
 
     if (powderElements.simulationCanvas && !powderSimulation) {
-      const leftInset = powderElements.leftWall
-        ? Math.max(68, powderElements.leftWall.offsetWidth)
-        : 68;
-      const rightInset = powderElements.rightWall
-        ? Math.max(68, powderElements.rightWall.offsetWidth)
-        : 68;
+      const { left: leftInset, right: rightInset } = getPowderWallInsets();
       powderSimulation = new PowderSimulation({
         canvas: powderElements.simulationCanvas,
         cellSize: POWDER_CELL_SIZE_PX,
@@ -5428,6 +5576,7 @@ import {
         onHeightChange: handlePowderHeightChange,
         onWallMetricsChange: handlePowderWallMetricsChange,
       });
+      sandSimulation = powderSimulation;
       powderState.idleDrainRate = powderSimulation.idleDrainRate;
       powderSimulation.setFlowOffset(powderState.sandOffset);
       powderSimulation.start();
@@ -5582,6 +5731,11 @@ import {
             ? label || powderState.fluidProfileLabel || 'Fluid Study'
             : 'Powderfall Study';
         entry = `Simulation mode changed · ${modeLabel} engaged.`;
+        break;
+      }
+      case 'fluid-unlocked': {
+        const { threshold = powderConfig.fluidUnlockSigils || 0 } = context;
+        entry = `Fluid resonance unlocked · Requires ${threshold} sigils.`;
         break;
       }
       default:
