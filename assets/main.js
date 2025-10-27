@@ -43,12 +43,13 @@ import {
   DEFAULT_MOTE_PALETTE,
   POWDER_CELL_SIZE_PX,
   PowderSimulation,
-  FluidSimulation,
   clampUnitInterval,
   colorToRgbaString,
   mergeMotePalette,
   resolvePaletteColorStops,
 } from '../scripts/features/towers/powderTower.js';
+// Fluid tower shallow-water simulation extracted into a dedicated module.
+import { FluidSimulation } from '../scripts/features/towers/fluidTower.js';
 // Shared color palette orchestration utilities.
 import {
   configureColorSchemeSystem,
