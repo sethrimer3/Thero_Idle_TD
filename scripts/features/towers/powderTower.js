@@ -981,7 +981,8 @@ export class PowderSimulation {
     const maxX = Math.max(minX, this.cols - this.wallInsetRightCells - colliderSize);
     const center = Math.floor((minX + maxX) / 2);
     const scatter = Math.max(1, Math.floor((maxX - minX) / 6));
-    const offset = Math.floor(Math.random() * (scatter * 2 + 1)) - scatter;
+    const triangle = Math.random() - Math.random(); // Favor center-heavy mote spawns with a simple triangular distribution.
+    const offset = Math.round(triangle * scatter);
     const startX = Math.min(
       maxX,
       Math.max(minX, center - Math.floor(colliderSize / 2) + offset),
@@ -999,9 +1000,58 @@ export class PowderSimulation {
       inGrid: false,
       resting: false,
     };
-
     this.nextId += 1;
+    this.resolveSpawnOverlap(grain); // Push the fresh mote away from conflicts so it cannot freeze in place.
     this.grains.push(grain);
+  }
+
+  resolveSpawnOverlap(grain) {
+    // Separate a newly spawned mote from nearby grains so none occupy the exact same launch cell.
+    if (!grain || !this.grains.length) {
+      return;
+    }
+    const colliderSize = Number.isFinite(grain.colliderSize)
+      ? Math.max(1, Math.round(grain.colliderSize))
+      : this.computeColliderSize(grain.size);
+    const minX = this.wallInsetLeftCells;
+    const maxX = Math.max(minX, this.cols - this.wallInsetRightCells - colliderSize);
+    const limit = Math.max(1, this.cols);
+    for (let attempt = 0; attempt < limit; attempt += 1) {
+      const overlap = this.findSpawnOverlap(grain, colliderSize); // Detect conflicting grains sharing the spawn column.
+      if (!overlap) {
+        break;
+      }
+      const otherCollider = Number.isFinite(overlap.colliderSize)
+        ? Math.max(1, Math.round(overlap.colliderSize))
+        : this.computeColliderSize(overlap.size);
+      const grainCenter = grain.x + colliderSize / 2;
+      const otherCenter = overlap.x + otherCollider / 2;
+      const direction = grainCenter >= otherCenter ? 1 : -1;
+      grain.x = Math.min(maxX, Math.max(minX, grain.x + direction)); // Push the mote horizontally while respecting wall bounds.
+      grain.freefall = true; // Force a freefall tick so the mote drifts apart before settling into the grid.
+    }
+  }
+
+  findSpawnOverlap(grain, colliderSize) {
+    // Compare bounding boxes to locate the closest grain that still overlaps our spawn candidate.
+    const top = grain.y;
+    const bottom = grain.y + colliderSize;
+    for (const other of this.grains) {
+      if (other === grain) {
+        continue;
+      }
+      const otherCollider = Number.isFinite(other.colliderSize)
+        ? Math.max(1, Math.round(other.colliderSize))
+        : this.computeColliderSize(other.size);
+      const otherTop = other.y;
+      const otherBottom = other.y + otherCollider;
+      const verticalOverlap = bottom > otherTop && top < otherBottom; // Track if grains share the same vertical band.
+      const horizontalOverlap = grain.x < other.x + otherCollider && grain.x + colliderSize > other.x; // Track horizontal overlap for the same band.
+      if (verticalOverlap && horizontalOverlap) {
+        return other;
+      }
+    }
+    return null;
   }
 
   chooseGrainSize() {
