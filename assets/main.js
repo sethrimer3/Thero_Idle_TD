@@ -367,6 +367,21 @@ import {
   let BASE_START_THERO = FALLBACK_BASE_START_THERO;
   let BASE_CORE_INTEGRITY = FALLBACK_BASE_CORE_INTEGRITY;
 
+  // Storage key tracks the player's chosen graphics fidelity across sessions.
+  const GRAPHICS_MODE_STORAGE_KEY = 'glyph-defense-idle:graphics-mode';
+
+  // Enumerated graphics modes allow the UI to cycle between fidelity tiers.
+  const GRAPHICS_MODES = Object.freeze({
+    LOW: 'low',
+    HIGH: 'high',
+  });
+
+  // Cached reference to the graphics fidelity toggle control.
+  let graphicsModeButton = null;
+
+  // Active graphics fidelity so dependent systems can query the current mode.
+  let activeGraphicsMode = GRAPHICS_MODES.HIGH;
+
   // Provides a human readable label for the current notation selection.
   function resolveNotationLabel(notation) {
     return notation === GAME_NUMBER_NOTATIONS.SCIENTIFIC ? 'Scientific' : 'Letters';
@@ -435,6 +450,110 @@ import {
       toggleNotationPreference();
     });
     updateNotationToggleLabel();
+  }
+
+  // Provides an accessible label for the graphics fidelity control.
+  function resolveGraphicsModeLabel(mode = activeGraphicsMode) {
+    return mode === GRAPHICS_MODES.LOW ? 'Low' : 'High';
+  }
+
+  // Synchronizes the graphics toggle button label with the active fidelity state.
+  function updateGraphicsModeButton() {
+    if (!graphicsModeButton) {
+      return;
+    }
+    const label = resolveGraphicsModeLabel();
+    graphicsModeButton.textContent = `Graphics · ${label}`;
+    graphicsModeButton.setAttribute('aria-label', `Switch graphics quality (current: ${label})`);
+  }
+
+  // Detects whether the current device should default to low graphics rendering.
+  function prefersLowGraphicsByDefault() {
+    if (typeof window !== 'undefined') {
+      try {
+        const matcher = typeof window.matchMedia === 'function' ? window.matchMedia.bind(window) : null;
+        const coarsePointer = matcher ? matcher('(pointer: coarse)').matches : false;
+        const hoverNone = matcher ? matcher('(hover: none)').matches : false;
+        const width = Number.isFinite(window.innerWidth) ? window.innerWidth : null;
+        const smallViewport = width !== null && width <= 900;
+        if ((coarsePointer && hoverNone) || (coarsePointer && smallViewport)) {
+          return true;
+        }
+        if (width !== null && width <= 768) {
+          return true;
+        }
+      } catch (error) {
+        console.warn('Graphics mode heuristic failed; falling back to user agent detection.', error);
+      }
+    }
+
+    if (typeof navigator !== 'undefined') {
+      const userAgent = navigator.userAgent || '';
+      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // Applies the requested graphics fidelity, updating DOM classes and persistence.
+  function applyGraphicsMode(mode, { persist = true } = {}) {
+    const normalized = mode === GRAPHICS_MODES.LOW ? GRAPHICS_MODES.LOW : GRAPHICS_MODES.HIGH;
+    activeGraphicsMode = normalized;
+
+    const body = typeof document !== 'undefined' ? document.body : null;
+    if (body) {
+      body.classList.toggle('graphics-mode-low', normalized === GRAPHICS_MODES.LOW);
+      body.classList.toggle('graphics-mode-high', normalized === GRAPHICS_MODES.HIGH);
+    }
+
+    updateGraphicsModeButton();
+
+    if (persist) {
+      writeStorage(GRAPHICS_MODE_STORAGE_KEY, normalized);
+    }
+
+    if (powderSimulation && typeof powderSimulation.render === 'function') {
+      powderSimulation.render();
+    }
+
+    if (playfield && typeof playfield.draw === 'function') {
+      playfield.draw();
+    }
+
+    return normalized;
+  }
+
+  // Allows dependent systems to query the active graphics fidelity.
+  function isLowGraphicsModeActive() {
+    return activeGraphicsMode === GRAPHICS_MODES.LOW;
+  }
+
+  // Toggles between the available graphics fidelity presets.
+  function toggleGraphicsMode() {
+    const next = activeGraphicsMode === GRAPHICS_MODES.LOW ? GRAPHICS_MODES.HIGH : GRAPHICS_MODES.LOW;
+    applyGraphicsMode(next);
+  }
+
+  // Wires the graphics fidelity button to the toggle handler.
+  function bindGraphicsModeToggle() {
+    graphicsModeButton = document.getElementById('graphics-mode-button');
+    if (!graphicsModeButton) {
+      return;
+    }
+    graphicsModeButton.addEventListener('click', () => {
+      toggleGraphicsMode();
+    });
+    updateGraphicsModeButton();
+  }
+
+  // Initializes graphics fidelity from storage or device heuristics.
+  function initializeGraphicsMode() {
+    const stored = readStorage(GRAPHICS_MODE_STORAGE_KEY);
+    const normalized = stored === GRAPHICS_MODES.LOW || stored === GRAPHICS_MODES.HIGH ? stored : null;
+    const fallback = prefersLowGraphicsByDefault() ? GRAPHICS_MODES.LOW : GRAPHICS_MODES.HIGH;
+    applyGraphicsMode(normalized || fallback, { persist: !normalized });
   }
 
   function getOmegaPatternForTier(tier) {
@@ -1538,6 +1657,8 @@ import {
     powder: 'glyph-defense-idle:powder',
     audio: AUDIO_SETTINGS_STORAGE_KEY,
     notation: NOTATION_STORAGE_KEY,
+    // Persisted graphics fidelity preference.
+    graphics: GRAPHICS_MODE_STORAGE_KEY,
   };
 
   let powderCurrency = 0;
@@ -1593,6 +1714,8 @@ import {
     isFieldNotesOverlayVisible,
     getBaseStartThero: () => BASE_START_THERO,
     getBaseCoreIntegrity: () => BASE_CORE_INTEGRITY,
+    // Provide the playfield with the active graphics mode to prune visual effects.
+    isLowGraphicsMode: () => isLowGraphicsModeActive(),
   });
 
   function captureSimulationState(simulation) {
@@ -5989,6 +6112,9 @@ import {
 
     initializeLevelEditorElements();
 
+    // Apply the preferred graphics fidelity before other controls render.
+    initializeGraphicsMode();
+    bindGraphicsModeToggle();
     bindColorSchemeButton();
     bindNotationToggle();
     initializeColorScheme();
