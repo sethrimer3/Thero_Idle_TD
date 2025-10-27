@@ -118,6 +118,8 @@ import {
   isTowerUnlocked,
 } from './towersTab.js';
 import { initializeTowerTreeMap, refreshTowerTreeMap } from './towerTreeMap.js';
+// Bring in drag-scroll support so hidden scrollbars remain usable.
+import { enableDragScroll } from './dragScroll.js';
 import {
   moteGemState,
   MOTE_GEM_COLLECTION_RADIUS,
@@ -6110,6 +6112,11 @@ import {
     if (overlayInstruction) {
       overlayInstruction.textContent = overlayInstructionDefault;
     }
+
+    // Enable drag gestures on scrollable shells to replace the hidden scrollbars.
+    enableDragScroll({
+      selectors: ['.panel', '.field-notes-page', '.upgrade-matrix-grid'],
+    });
 
     initializeLevelEditorElements();
 
