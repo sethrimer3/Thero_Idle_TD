@@ -1,5 +1,5 @@
 // Shared enemy utilities and mote gem state management for Thero Idle.
-// This module centralizes enemy drop handling so the main game loop can remain focused on orchestration.
+// Enemy defeats mint mote gems—a special, color-coded currency distinct from idle motes—while this module centralizes drop handling so the main game loop can remain focused on orchestration.
 
 // Track mote gem drops, inventory totals, and the upgrade-driven auto collector.
 export const moteGemState = {
