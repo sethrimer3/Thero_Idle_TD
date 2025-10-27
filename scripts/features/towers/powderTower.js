@@ -308,8 +308,9 @@ export function computeMotePaletteFromTheme() {
 }
 
 export const POWDER_CELL_SIZE_PX = 1;
-export const MOTE_RENDER_SCALE = 3;
-export const MOTE_COLLISION_SCALE = MOTE_RENDER_SCALE;
+// Render and collide motes at their base cell footprint so each grain appears one-third the previous size.
+export const MOTE_RENDER_SCALE = 1;
+export const MOTE_COLLISION_SCALE = 1;
 
 export class PowderSimulation {
   constructor(options = {}) {
