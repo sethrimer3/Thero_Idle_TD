@@ -1683,6 +1683,8 @@ import {
 
   let powderBasinPulseTimer = null;
 
+  const POWDER_WALL_TEXTURE_REPEAT_PX = 192; // Mirror the tower wall sprite tile height so loops stay seamless.
+
   const idleLevelRuns = new Map();
 
   let powderSimulation = null;
@@ -4976,11 +4978,19 @@ import {
     }
 
     const wallShiftPx = scrollOffset * cellSize;
+    const textureRepeat = POWDER_WALL_TEXTURE_REPEAT_PX > 0 ? POWDER_WALL_TEXTURE_REPEAT_PX : null;
+    const rawTextureOffset = textureRepeat ? wallShiftPx % textureRepeat : wallShiftPx;
+    const wallTextureOffset = Number.isFinite(rawTextureOffset) ? rawTextureOffset : 0;
+    const wallOffsetValue = `${wallTextureOffset.toFixed(1)}px`;
+
     if (powderElements.leftWall) {
-      powderElements.leftWall.style.transform = `translateY(${wallShiftPx.toFixed(1)}px)`;
+      powderElements.leftWall.style.transform = '';
+      // Apply the offset via a CSS variable so the wall texture scrolls without breaking crest markers.
+      powderElements.leftWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
     }
     if (powderElements.rightWall) {
-      powderElements.rightWall.style.transform = `translateY(${wallShiftPx.toFixed(1)}px)`;
+      powderElements.rightWall.style.transform = '';
+      powderElements.rightWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
     }
 
     const basinHeight = rows * cellSize;
