@@ -368,6 +368,52 @@ const TOWER_EQUATION_BLUEPRINTS = {
       return `\\( ${formatResult()} = ${formatVariable('gamma')} \\times \\ln(${formatVariable('gamma')} + 1) \\)`;
     },
   },
+  omicron: {
+    mathSymbol: 'ο',
+    baseEquation: '\\( ο = \\ln(ξ + 1) \\)',
+    variables: [
+      {
+        key: 'xi',
+        symbol: 'ξ',
+        name: 'Xi Scarcity Flux',
+        description: 'Stabilized phasor current inherited from ξ lattices.',
+        reference: 'xi',
+        upgradable: false,
+        lockedNote: 'Tune ξ to channel energy into ο.',
+        format: (value) => formatDecimal(value, 2),
+      },
+    ],
+    computeResult(values) {
+      const xiValue = Math.max(0, Number.isFinite(values.xi) ? values.xi : 0);
+      return Math.log(xiValue + 1);
+    },
+    formatGoldenEquation({ formatVariable, formatResult }) {
+      return `\\( ${formatResult()} = \\ln(${formatVariable('xi')} + 1) \\)`;
+    },
+  },
+  pi: {
+    mathSymbol: '\\pi',
+    baseEquation: '\\( \\pi = ο^{2} \\)',
+    variables: [
+      {
+        key: 'omicron',
+        symbol: 'ο',
+        name: 'Omicron Phasor',
+        description: 'Squared shockwave amplitude sourced from ο stabilizers.',
+        reference: 'omicron',
+        upgradable: false,
+        lockedNote: 'Channel ο to prime Π with stabilized flux.',
+        format: (value) => formatDecimal(value, 2),
+      },
+    ],
+    computeResult(values) {
+      const omicronValue = Math.max(0, Number.isFinite(values.omicron) ? values.omicron : 0);
+      return omicronValue ** 2;
+    },
+    formatGoldenEquation({ formatVariable, formatResult }) {
+      return `\\( ${formatResult()} = ${formatVariable('omicron')}^{2} \\)`;
+    },
+  },
 };
 
 export function getTowerDefinition(towerId) {
