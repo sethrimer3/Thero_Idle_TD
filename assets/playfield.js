@@ -2737,17 +2737,13 @@ export class SimplePlayfield {
 
   calculateHealthExponent(hp) {
     if (!Number.isFinite(hp) || hp <= 0) {
-      return 1;
+      return 0;
     }
     const clampedHp = Math.max(1, hp);
-    const flooredHp = Math.max(1, Math.floor(clampedHp));
-    const digitCount = Math.floor(Math.log10(flooredHp));
-    const decadeBase = 10 ** digitCount;
-    const remainder = Math.max(0, flooredHp - decadeBase);
-    const segmentSize = Math.max(1, decadeBase / 10);
-    const decimalStep = Math.min(9, Math.floor(remainder / segmentSize));
-    const exponent = digitCount + 1 + decimalStep / 10;
-    return Number.isFinite(exponent) ? exponent : digitCount + 1;
+    const rawExponent = Math.log10(clampedHp);
+    // Floor the exponent to the nearest tenth so scientific-notation tiers only advance after surpassing the threshold.
+    const flooredExponent = Math.floor(rawExponent * 10) / 10;
+    return Number.isFinite(flooredExponent) ? flooredExponent : 0;
   }
 
   // Estimate how much integrity the enemy will strip if it breaches so exponent colors telegraph threat level.
