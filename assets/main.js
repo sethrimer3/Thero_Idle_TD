@@ -1405,7 +1405,7 @@ import {
     simulatedDuneGainMax: 3.4,
     wallBaseGapMotes: 10,
     wallGapPerGlyph: 2,
-    fluidUnlockSigils: 12,
+    fluidUnlockSigils: 1,
   };
 
   const powderState = {
@@ -1653,7 +1653,8 @@ import {
     const unlockSigils = powderConfig.fluidUnlockSigils || 0;
     if (!powderState.fluidUnlocked) {
       const requirementLabel = unlockSigils > 0 ? `${unlockSigils}` : '???';
-      powderElements.modeToggle.textContent = `Unlock Fluid Study (Sigils ${requirementLabel})`;
+      const unitLabel = unlockSigils === 1 ? 'Glyph' : 'Glyphs';
+      powderElements.modeToggle.textContent = `Unlock Fluid Study (${unitLabel} ${requirementLabel})`;
       powderElements.modeToggle.setAttribute('aria-pressed', 'false');
       powderElements.modeToggle.setAttribute('aria-disabled', 'true');
       powderElements.modeToggle.disabled = true;
@@ -1903,8 +1904,16 @@ import {
     }
     if (Array.isArray(simulation.pendingDrops) && simulation.pendingDrops.length) {
       simulation.pendingDrops.forEach((drop) => {
-        const size = Number.isFinite(drop?.size) ? Math.max(1, Math.round(drop.size)) : 1;
-        powderState.pendingMoteDrops.push(size);
+        const sizeValue = Number.isFinite(drop?.size) ? drop.size : drop;
+        if (!Number.isFinite(sizeValue)) {
+          return;
+        }
+        const size = Math.max(1, Math.round(sizeValue));
+        const pendingDrop = { size };
+        if (drop && typeof drop === 'object' && drop.color && typeof drop.color === 'object') {
+          pendingDrop.color = { ...drop.color };
+        }
+        powderState.pendingMoteDrops.push(pendingDrop);
       });
       simulation.pendingDrops.length = 0;
     }
@@ -1922,16 +1931,27 @@ import {
     return { left, right };
   }
 
-  function queueMoteDrop(size) {
+  function queueMoteDrop(dropLike, color) {
+    let drop = null;
+    if (dropLike && typeof dropLike === 'object' && !Array.isArray(dropLike)) {
+      drop = { ...dropLike };
+    } else {
+      drop = { size: dropLike, color };
+    }
+    const { size } = drop;
     if (!Number.isFinite(size) || size <= 0) {
       return;
     }
     const normalized = Math.max(1, Math.round(size));
-    if (powderSimulation) {
-      powderSimulation.queueDrop(normalized);
+    const payload = { size: normalized };
+    if (drop.color && typeof drop.color === 'object') {
+      payload.color = { ...drop.color };
+    }
+    if (powderSimulation && typeof powderSimulation.queueDrop === 'function') {
+      powderSimulation.queueDrop(payload);
       return;
     }
-    powderState.pendingMoteDrops.push(normalized);
+    powderState.pendingMoteDrops.push(payload);
   }
 
   function addIdleMoteBank(amount) {
@@ -1947,12 +1967,20 @@ import {
   }
 
   function flushPendingMoteDrops() {
-    if (!powderSimulation) {
+    if (!powderSimulation || typeof powderSimulation.queueDrop !== 'function') {
       return;
     }
     if (powderState.pendingMoteDrops.length) {
-      powderState.pendingMoteDrops.forEach((size) => {
-        powderSimulation.queueDrop(size);
+      powderState.pendingMoteDrops.forEach((drop) => {
+        const sizeValue = Number.isFinite(drop?.size) ? drop.size : drop;
+        if (!Number.isFinite(sizeValue)) {
+          return;
+        }
+        const normalized = Math.max(1, Math.round(sizeValue));
+        const payload = drop && typeof drop === 'object' && drop.color && typeof drop.color === 'object'
+          ? { size: normalized, color: { ...drop.color } }
+          : { size: normalized };
+        powderSimulation.queueDrop(payload);
       });
       powderState.pendingMoteDrops.length = 0;
     }
@@ -6262,7 +6290,8 @@ import {
       }
       case 'fluid-unlocked': {
         const { threshold = powderConfig.fluidUnlockSigils || 0 } = context;
-        entry = `Fluid resonance unlocked · Requires ${threshold} sigils.`;
+        const unitLabel = threshold === 1 ? 'Glyph' : 'Glyphs';
+        entry = `Fluid resonance unlocked · Requires ${threshold} ${unitLabel}.`;
         break;
       }
       default:

@@ -1007,17 +1007,28 @@ export class PowderSimulation {
     let remaining = Math.max(1, Math.floor(limit));
     while (remaining > 0 && this.pendingDrops.length && this.grains.length < this.maxGrains) {
       const drop = this.pendingDrops.shift();
-      this.spawnGrain(drop?.size);
+      this.spawnGrain(drop);
       remaining -= 1;
     }
   }
 
-  queueDrop(size) {
-    if (!Number.isFinite(size) || size <= 0) {
+  queueDrop(dropLike) {
+    let drop = null;
+    if (dropLike && typeof dropLike === 'object' && !Array.isArray(dropLike)) {
+      drop = { ...dropLike };
+    } else {
+      drop = { size: dropLike };
+    }
+    if (!Number.isFinite(drop.size) || drop.size <= 0) {
       return;
     }
-    const normalized = this.clampGrainSize(size);
-    this.pendingDrops.push({ size: normalized });
+    const normalized = this.clampGrainSize(drop.size);
+    const pendingDrop = { size: normalized };
+    const color = this.normalizeDropColor(drop.color);
+    if (color) {
+      pendingDrop.color = color;
+    }
+    this.pendingDrops.push(pendingDrop);
   }
 
   addIdleMotes(amount) {
@@ -1046,12 +1057,18 @@ export class PowderSimulation {
     return this.baseSpawnInterval / Math.max(0.6, 1 + this.flowOffset * 0.45);
   }
 
-  spawnGrain(sizeOverride) {
+  spawnGrain(dropLike) {
     if (!this.cols || !this.rows) {
       return;
     }
+    let drop = null;
+    if (dropLike && typeof dropLike === 'object' && !Array.isArray(dropLike)) {
+      drop = { ...dropLike };
+    } else {
+      drop = { size: dropLike };
+    }
     const visualSize = this.clampGrainSize(
-      typeof sizeOverride === 'number' ? sizeOverride : this.chooseGrainSize(),
+      typeof drop.size === 'number' ? drop.size : this.chooseGrainSize(),
     );
     const colliderSize = this.computeColliderSize(visualSize);
     const minX = this.wallInsetLeftCells;
@@ -1076,6 +1093,7 @@ export class PowderSimulation {
       freefall: !this.stabilized,
       inGrid: false,
       resting: false,
+      color: this.normalizeDropColor(drop.color),
     };
     this.nextId += 1;
     this.resolveSpawnOverlap(grain); // Push the fresh mote away from conflicts so it cannot freeze in place.
@@ -1550,7 +1568,7 @@ export class PowderSimulation {
         continue;
       }
 
-      this.ctx.fillStyle = this.getMoteColorForSize(visualSize, grain.freefall);
+      this.ctx.fillStyle = this.getMoteColorForSize(visualSize, grain.freefall, grain.color);
       this.ctx.fillRect(px, py, sizePx, sizePx);
     }
 
@@ -1633,20 +1651,59 @@ export class PowderSimulation {
     this.motePalette = mergeMotePalette(palette);
   }
 
-  getMoteColorForSize(size, isFreefall) {
-    // Always render idle motes as bright golden sand regardless of palette accents.
+  normalizeDropColor(color) {
+    if (!color) {
+      return null;
+    }
+    if (typeof color === 'string') {
+      return parseCssColor(color);
+    }
+    if (typeof color === 'object') {
+      if (Number.isFinite(color.r) && Number.isFinite(color.g) && Number.isFinite(color.b)) {
+        return {
+          r: Math.max(0, Math.min(255, color.r)),
+          g: Math.max(0, Math.min(255, color.g)),
+          b: Math.max(0, Math.min(255, color.b)),
+        };
+      }
+      if (
+        Number.isFinite(color.hue) &&
+        Number.isFinite(color.saturation) &&
+        Number.isFinite(color.lightness)
+      ) {
+        return hslToRgbColor(
+          color.hue,
+          clampUnitInterval(color.saturation / 100),
+          clampUnitInterval(color.lightness / 100),
+        );
+      }
+      if (Number.isFinite(color.h) && Number.isFinite(color.s) && Number.isFinite(color.l)) {
+        return hslToRgbColor(color.h, clampUnitInterval(color.s), clampUnitInterval(color.l));
+      }
+    }
+    return null;
+  }
+
+  getMoteColorForSize(size, isFreefall, baseColor) {
     const palette = this.getEffectiveMotePalette();
     const normalizedSize = Number.isFinite(size) ? Math.max(1, size) : 1;
     const sizeRatio = clampUnitInterval((normalizedSize - 1) / Math.max(1, (this.maxDropSize || normalizedSize) - 1));
-    const baseSand = { r: 255, g: 222, b: 137 };
-    const shadowSand = { r: 204, g: 170, b: 82 };
-    const highlight = mixRgbColors(baseSand, { r: 255, g: 255, b: 255 }, 0.35 + sizeRatio * 0.15);
-    const body = mixRgbColors(shadowSand, highlight, 0.68 + sizeRatio * 0.2);
     const baseRestAlpha = Number.isFinite(palette?.restAlpha) ? palette.restAlpha : 0.9;
     const baseFreefallAlpha = Number.isFinite(palette?.freefallAlpha) ? palette.freefallAlpha : 0.6;
     const alpha = isFreefall
       ? Math.min(1, baseFreefallAlpha + 0.08)
       : Math.min(1, baseRestAlpha + 0.04);
+    const resolvedColor = this.normalizeDropColor(baseColor);
+    if (resolvedColor) {
+      const highlight = mixRgbColors(resolvedColor, { r: 255, g: 255, b: 255 }, 0.28 + sizeRatio * 0.22);
+      const shadowAnchor = mixRgbColors(resolvedColor, { r: 12, g: 8, b: 4 }, 0.35 + sizeRatio * 0.2);
+      const body = mixRgbColors(shadowAnchor, highlight, 0.6 + sizeRatio * 0.25);
+      return colorToRgbaString(body, alpha);
+    }
+    const baseSand = { r: 255, g: 222, b: 137 };
+    const shadowSand = { r: 204, g: 170, b: 82 };
+    const highlight = mixRgbColors(baseSand, { r: 255, g: 255, b: 255 }, 0.35 + sizeRatio * 0.15);
+    const body = mixRgbColors(shadowSand, highlight, 0.68 + sizeRatio * 0.2);
     return colorToRgbaString(body, alpha);
   }
 
