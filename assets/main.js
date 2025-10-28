@@ -6913,7 +6913,6 @@ import {
       note: document.getElementById('tower-loadout-note'),
     });
 
-    setMergingLogicCard(document.getElementById('merging-logic-card'));
     setHideUpgradeMatrixCallback(hideUpgradeMatrix);
     setRenderUpgradeMatrixCallback(renderUpgradeMatrix);
 
