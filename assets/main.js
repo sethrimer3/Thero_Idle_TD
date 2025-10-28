@@ -845,6 +845,166 @@ import {
     overlay.removeAttribute('hidden');
   }
 
+  function setElementVisibility(element, visible) {
+    // Toggle layout fragments while preserving any pre-existing accessibility hints.
+    if (!element) {
+      return;
+    }
+
+    if (visible) {
+      element.classList.remove('is-hidden');
+      element.removeAttribute('hidden');
+      element.removeAttribute('aria-hidden');
+      return;
+    }
+
+    element.classList.add('is-hidden');
+    element.setAttribute('hidden', '');
+    element.setAttribute('aria-hidden', 'true');
+  }
+
+  function closePlayfieldMenu(options = {}) {
+    // Ensure the quick menu hides and returns focus control to the battlefield trigger.
+    const { restoreFocus = false } = options;
+
+    if (playfieldMenuButton) {
+      playfieldMenuButton.setAttribute('aria-expanded', 'false');
+    }
+    if (playfieldMenuPanel) {
+      playfieldMenuPanel.setAttribute('hidden', '');
+    }
+
+    if (!playfieldMenuOpen) {
+      return;
+    }
+
+    playfieldMenuOpen = false;
+    document.removeEventListener('pointerdown', handlePlayfieldMenuPointerDown);
+    document.removeEventListener('keydown', handlePlayfieldMenuKeydown);
+
+    if (restoreFocus && playfieldMenuButton && typeof playfieldMenuButton.focus === 'function') {
+      try {
+        playfieldMenuButton.focus({ preventScroll: true });
+      } catch (error) {
+        playfieldMenuButton.focus();
+      }
+    }
+  }
+
+  function handlePlayfieldMenuPointerDown(event) {
+    // Collapse the menu whenever the player interacts outside of the panel bounds.
+    if (!playfieldMenuOpen) {
+      return;
+    }
+
+    const target = event?.target || null;
+    if (!playfieldMenuPanel) {
+      return;
+    }
+
+    if (playfieldMenuPanel.contains(target)) {
+      return;
+    }
+
+    if (playfieldMenuButton && target === playfieldMenuButton) {
+      return;
+    }
+
+    closePlayfieldMenu();
+  }
+
+  function handlePlayfieldMenuKeydown(event) {
+    // Allow players to dismiss the battlefield menu with the Escape key.
+    if (!playfieldMenuOpen) {
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closePlayfieldMenu({ restoreFocus: true });
+    }
+  }
+
+  function openPlayfieldMenu() {
+    // Reveal the battlefield actions panel only while an interactive level is active.
+    if (!playfieldMenuButton || !playfieldMenuPanel) {
+      return;
+    }
+    if (!activeLevelId || !activeLevelIsInteractive) {
+      return;
+    }
+    if (playfieldMenuOpen) {
+      return;
+    }
+
+    playfieldMenuOpen = true;
+    playfieldMenuButton.setAttribute('aria-expanded', 'true');
+    playfieldMenuPanel.removeAttribute('hidden');
+
+    document.addEventListener('pointerdown', handlePlayfieldMenuPointerDown);
+    document.addEventListener('keydown', handlePlayfieldMenuKeydown);
+
+    const focusTarget = playfieldMenuPanel.querySelector('[role="menuitem"], button');
+    if (focusTarget && typeof focusTarget.focus === 'function') {
+      try {
+        focusTarget.focus({ preventScroll: true });
+      } catch (error) {
+        focusTarget.focus();
+      }
+    }
+  }
+
+  function togglePlayfieldMenu() {
+    // Switch the menu state with a single button tap.
+    if (playfieldMenuOpen) {
+      closePlayfieldMenu();
+    } else {
+      openPlayfieldMenu();
+    }
+  }
+
+  function updateLayoutVisibility() {
+    // Hide the battlefield until an interactive level is in progress.
+    const shouldShowPlayfield = Boolean(activeLevelId && activeLevelIsInteractive);
+    setElementVisibility(playfieldWrapper, shouldShowPlayfield);
+    setElementVisibility(stageControls, shouldShowPlayfield);
+    setElementVisibility(levelSelectionSection, !shouldShowPlayfield);
+
+    if (!shouldShowPlayfield) {
+      closePlayfieldMenu();
+      return;
+    }
+
+    if (playfield && typeof playfield.syncCanvasSize === 'function') {
+      // Refresh the canvas geometry once the battlefield becomes visible again.
+      playfield.syncCanvasSize();
+    }
+  }
+
+  function handleReturnToLevelSelection() {
+    // Confirm whether players truly want to abandon the current battle.
+    closePlayfieldMenu();
+
+    if (!activeLevelId) {
+      updateLayoutVisibility();
+      return;
+    }
+
+    const confirmed = window.confirm('Are you sure? Your progress in the current level will be lost.');
+    if (!confirmed) {
+      if (playfieldMenuButton && typeof playfieldMenuButton.focus === 'function') {
+        try {
+          playfieldMenuButton.focus({ preventScroll: true });
+        } catch (error) {
+          playfieldMenuButton.focus();
+        }
+      }
+      return;
+    }
+
+    leaveActiveLevel();
+  }
+
   const developerControlElements = {
     container: null,
     fields: {
@@ -865,6 +1025,16 @@ import {
   let developerModeActive = false;
 
   let playfield = null;
+  // Track layout elements so the UI can swap between the battlefield and level grid.
+  let playfieldWrapper = null;
+  let stageControls = null;
+  let levelSelectionSection = null;
+  // Store quick menu controls for leaving an active level.
+  let playfieldMenuButton = null;
+  let playfieldMenuPanel = null;
+  let playfieldMenuLevelSelect = null;
+  let playfieldMenuOpen = false;
+  let activeLevelIsInteractive = false;
 
   function formatDeveloperInteger(value) {
     if (!Number.isFinite(value)) {
@@ -3659,6 +3829,8 @@ import {
     });
 
     activeLevelId = level.id;
+    // Remember whether the active map uses the live battlefield.
+    activeLevelIsInteractive = isInteractive;
     resourceState.running = !isInteractive;
     ensureResourceTicker();
     updateActiveLevelBanner();
@@ -3686,6 +3858,8 @@ import {
     }
 
     updateTowerSelectionButtons();
+    // Swap the visible UI surfaces to match the new level state.
+    updateLayoutVisibility();
   }
 
   function leaveActiveLevel() {
@@ -3700,9 +3874,13 @@ import {
     }
     refreshTabMusic({ restart: true });
     activeLevelId = null;
+    // Reset the interaction flag so the level grid is visible again.
+    activeLevelIsInteractive = false;
     resourceState.running = false;
     updateActiveLevelBanner();
     updateLevelCards();
+    // Ensure the battlefield stays hidden until another level begins.
+    updateLayoutVisibility();
     updateTowerSelectionButtons();
   }
 
@@ -6320,6 +6498,27 @@ import {
     if (overlay && !overlay.hasAttribute('tabindex')) {
       overlay.setAttribute('tabindex', '-1');
     }
+    // Cache layout toggles for switching between the level grid and battlefield.
+    playfieldWrapper = document.getElementById('playfield-wrapper');
+    stageControls = document.getElementById('stage-controls');
+    levelSelectionSection = document.getElementById('level-selection');
+    // Store quick menu controls that surface the level selection confirmation.
+    playfieldMenuButton = document.getElementById('playfield-menu-button');
+    playfieldMenuPanel = document.getElementById('playfield-menu-panel');
+    playfieldMenuLevelSelect = document.getElementById('playfield-menu-level-select');
+    if (playfieldMenuButton) {
+      playfieldMenuButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        togglePlayfieldMenu();
+      });
+    }
+    if (playfieldMenuLevelSelect) {
+      playfieldMenuLevelSelect.addEventListener('click', () => {
+        handleReturnToLevelSelection();
+      });
+    }
+    // Default to the level selection view until a combat encounter begins.
+    updateLayoutVisibility();
     overlayLabel = document.getElementById('overlay-level');
     overlayTitle = document.getElementById('overlay-title');
     overlayExample = document.getElementById('overlay-example');

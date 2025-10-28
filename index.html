@@ -89,7 +89,7 @@
           role="tabpanel"
           aria-labelledby="tab-tower"
         >
-          <section class="playfield-wrapper" aria-live="polite">
+          <section class="playfield-wrapper" id="playfield-wrapper" aria-live="polite">
             <div class="playfield-shell">
               <div
                 class="playfield"
@@ -97,6 +97,27 @@
                 role="img"
                 aria-label="Interactive glyph defense lane"
               >
+                <!-- Playfield menu surfaces layout toggles when a level is active. -->
+                <button
+                  class="playfield-menu-button"
+                  type="button"
+                  id="playfield-menu-button"
+                  aria-label="Open playfield menu"
+                  aria-controls="playfield-menu-panel"
+                  aria-expanded="false"
+                >
+                  ☰
+                </button>
+                <div class="playfield-menu-panel" id="playfield-menu-panel" role="menu" hidden>
+                  <button
+                    class="playfield-menu-item"
+                    type="button"
+                    id="playfield-menu-level-select"
+                    role="menuitem"
+                  >
+                    Level Selection
+                  </button>
+                </div>
                 <canvas id="playfield-canvas" width="560" height="360"></canvas>
                 <dl class="playfield-stats" aria-live="polite">
                   <div class="playfield-stats__item">
@@ -122,7 +143,7 @@
               <div class="tower-loadout-grid" id="tower-loadout-grid" role="list"></div>
             </div>
           </section>
-          <div class="stage-controls" role="group" aria-label="Defense controls">
+          <div class="stage-controls" id="stage-controls" role="group" aria-label="Defense controls">
             <button class="play-button" type="button" id="playfield-start" disabled>
               Commence Wave
             </button>
@@ -139,7 +160,7 @@
               Auto-send next wave
             </label>
           </div>
-          <section class="level-section">
+          <section class="level-section" id="level-selection">
             <header class="subsection-title">Conjecture Set</header>
             <p class="level-intro">
               The opening proofs trace immortal-defense style figure-eights,
