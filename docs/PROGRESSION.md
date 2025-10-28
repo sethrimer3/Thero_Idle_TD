@@ -78,15 +78,32 @@ The tower roster now explicitly runs through the entire Greek alphabet from **α
 - **Merge ladder:** Players may still merge adjacent lowercase towers alphabetically (α into β, β into γ, and so on), but the prestige path offers a sideways option that preserves the flavor of the lowercase while unlocking late-game power spikes.
 - **Cost cadence:** Tower costs escalate exponentially with simultaneous copies. Building the `k`‑th instance of a given lowercase letter costs `(base cost)^k`. Fusing or prestiging refunds the cost pressure because active tower counts drop by four when five become one.
 
+### Universal Variable Glossary
+To keep formulas readable across the roster, every tower draws from a shared set of variable glyphs. The table below catalogs the evergreen symbols now surfaced in the in-game glossary. As new lattices unlock, additional situational variables (such as tempo `Tmp`) may join, but the core abbreviations will not change meaning from tower to tower.
+
+| Symbol | Name | Description | First Appears |
+| --- | --- | --- | --- |
+| **Atk** | Attack | Base damage delivered per strike. | α tower primary stat |
+| **m** | Range | Effective attack radius measured in meters. | Global tower stats |
+| **Spd** | Attack Speed | Primary attack cadence (attacks per second). | α tower primary stat |
+| **Dod** | Damage over Distance | Bonus damage accumulated as projectiles travel. | Soldier-focused upgrades |
+| **Def** | Defense | Flat protection applied to delta-style cohorts. | δ tower schematics |
+| **Def%** | Defense Percent | Percentage-based defense modifier for cohorts. | Soldier research trees |
+| **Atk%** | Attack Percent | Percentage multiplier applied to base attack. | Offensive upgrade suites |
+| **Prc** | Pierce | Number of enemies a strike can pierce before dissipating. | Beam-oriented towers |
+| **Chn** | Chaining | Additional enemies a projectile can arc toward. | Chain lightning variants |
+| **Slw%** | Slow Percent | Percentage slow applied to enemies within an effect. | Control-focused towers |
+| **Tot** | Total | Maximum allied units a command lattice fields simultaneously. | δ delta tower |
+
 ### Lowercase and Uppercase Glyph Index
 Each entry combines three beats: a flavorful formula, a combat mechanic, and a hidden nod to the mathematical symbol from which the glyph draws power. The uppercase prestige upgrade reiterates the same formula and layers on one decisive bonus.
 
 | Letter Pair | Lowercase Formula & Core Behavior | Symbolic Parallel & Combat Quirk | Uppercase Prestige Mutation |
 | --- | --- | --- | --- |
-| Α / α | `α = 5X · YZ` combines base damage with dual tempo controls. | Alpha launches the first strike with calibratable pulses. | **Α** keeps the triple-product core and layers a bonus burst whenever the secondary tempo levels up. |
-| Β / β | `β = α^{X}` channels α into an exponent beam. | Beta feeds on α's output, focusing it into piercing light. | **Β** locks the exponent and adds a mirrored return beam after each shot. |
+| Α / α | `α = 5 · Atk · Spd · Tmp` combines base damage with dual tempo controls. | Alpha launches the first strike with calibratable pulses. | **Α** keeps the triple-product core and layers a bonus burst whenever the secondary tempo levels up. |
+| Β / β | `β = α^{Exp}` channels α into an exponent beam. | Beta feeds on α's output, focusing it into piercing light. | **Β** locks the exponent and adds a mirrored return beam after each shot. |
 | Γ / γ | `γ = √β` tempers beta resonance into homing arcs. | Gamma softens β into agile lightning conductors. | **Γ** preserves the root pulse and fires an aftershock equal to 25% of the rooted damage. |
-| Δ / δ | `δ = γ · ln(γ + 1)` summons cohorts scaled by γ alone. | Delta embodies change, commanding glyph soldiers from pure γ strength. | **Δ** keeps the logarithmic command and leaves a slowing field keyed to the same γ value. |
+| Δ / δ | `δ = γ · ln(γ + 1)` summons cohorts scaled by γ alone. | Delta embodies change, commanding glyph soldiers from pure γ strength while `Tot` governs how many specters rally at once. | **Δ** keeps the logarithmic command and leaves a slowing field keyed to the same γ value. |
 | Ε / ε | `ε = δ^{2}` squares delta into needle storms. | Epsilon erupts when δ squads collide, doubling their force. | **Ε** sustains the squared storm and freezes enemy armor at the lowest sampled value for three seconds. |
 | Ζ / ζ | `ζ = √ε` roots the needle storm into harmonic splash. | Zeta reshapes ε's frenzy into controlled cascades. | **Ζ** reflects the rooted splash as a harmonic echo every fourth shot. |
 | Η / η | `η = ln(ζ + 1)` condenses zeta into alternating veils. | Eta flips between burn and chill as ζ rises. | **Η** doubles the duration of whichever status just triggered. |

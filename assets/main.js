@@ -116,6 +116,9 @@ import {
   pruneLockedTowersFromLoadout,
   unlockTower,
   isTowerUnlocked,
+  initializeDiscoveredVariablesFromUnlocks,
+  addDiscoveredVariablesListener,
+  getDiscoveredVariables,
 } from './towersTab.js';
 import { initializeTowerTreeMap, refreshTowerTreeMap } from './towerTreeMap.js';
 // Bring in drag-scroll support so hidden scrollbars remain usable.
@@ -645,6 +648,7 @@ import {
     loadoutState.selected.forEach((towerId) => unlocked.add(towerId));
     unlockState.unlocked = unlocked;
     setMergingLogicUnlocked(unlocked.has('beta'));
+    initializeDiscoveredVariablesFromUnlocks(unlocked);
 
     setEnemyCodexEntries(gameplayConfigData.enemies);
 
@@ -748,10 +752,18 @@ import {
     statusTimeout: null,
   };
   let upgradeOverlay = null;
-  let upgradeOverlayButton = null;
+  let upgradeOverlayButtons = [];
+  let upgradeOverlayTriggerSet = null;
   let upgradeOverlayClose = null;
   let upgradeOverlayGrid = null;
   let lastUpgradeTrigger = null;
+  let variableLibraryButton = null;
+  let variableLibraryOverlay = null;
+  let variableLibraryClose = null;
+  let variableLibraryList = null;
+  let variableLibraryLabel = null;
+  let lastVariableLibraryTrigger = null;
+  let removeVariableListener = null;
   const overlayInstructionDefault = 'Tap to enter';
   let activeLevelId = null;
   let pendingLevel = null;
@@ -4317,13 +4329,15 @@ import {
 
     revealOverlay(upgradeOverlay);
     renderUpgradeMatrix();
-    const activeElement = document.activeElement;
-    lastUpgradeTrigger =
-      activeElement && typeof activeElement.focus === 'function' ? activeElement : null;
+    if (!lastUpgradeTrigger || !(upgradeOverlayTriggerSet?.has(lastUpgradeTrigger))) {
+      const activeElement = document.activeElement;
+      lastUpgradeTrigger =
+        activeElement && typeof activeElement.focus === 'function' ? activeElement : null;
+    }
 
     upgradeOverlay.setAttribute('aria-hidden', 'false');
-    if (upgradeOverlayButton) {
-      upgradeOverlayButton.setAttribute('aria-expanded', 'true');
+    if (lastUpgradeTrigger && upgradeOverlayTriggerSet?.has(lastUpgradeTrigger)) {
+      lastUpgradeTrigger.setAttribute('aria-expanded', 'true');
     }
     if (!upgradeOverlay.classList.contains('active')) {
       requestAnimationFrame(() => {
@@ -4347,8 +4361,12 @@ import {
     upgradeOverlay.classList.remove('active');
     upgradeOverlay.setAttribute('aria-hidden', 'true');
     scheduleOverlayHide(upgradeOverlay);
-    if (upgradeOverlayButton) {
-      upgradeOverlayButton.setAttribute('aria-expanded', 'false');
+    if (upgradeOverlayButtons.length) {
+      upgradeOverlayButtons.forEach((button) => {
+        if (button) {
+          button.setAttribute('aria-expanded', 'false');
+        }
+      });
     }
 
     if (lastUpgradeTrigger && typeof lastUpgradeTrigger.focus === 'function') {
@@ -4357,8 +4375,134 @@ import {
     lastUpgradeTrigger = null;
   }
 
+  function updateVariableLibraryButton(count = null) {
+    if (!variableLibraryButton) {
+      return;
+    }
+    const total = Number.isFinite(count) ? count : getDiscoveredVariables().length;
+    const label =
+      total > 1 ? `Variables (${total})` : total === 1 ? 'Variable (1)' : 'Variables';
+    if (variableLibraryLabel) {
+      variableLibraryLabel.textContent = label;
+    }
+    variableLibraryButton.setAttribute(
+      'aria-label',
+      `${label} — open variable glossary`,
+    );
+  }
+
+  function renderVariableLibrary(variableList = null) {
+    if (!variableLibraryList) {
+      return;
+    }
+    const variables = Array.isArray(variableList) ? variableList : getDiscoveredVariables();
+    updateVariableLibraryButton(variables.length);
+    variableLibraryList.innerHTML = '';
+
+    if (!variables.length) {
+      const empty = document.createElement('li');
+      empty.className = 'variable-library-empty';
+      empty.textContent = 'Discover towers to reveal their variables.';
+      variableLibraryList.append(empty);
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    variables.forEach((entry) => {
+      const item = document.createElement('li');
+      item.className = 'variable-library-item';
+      const summaryPieces = [entry.symbol, entry.name, entry.description]
+        .filter((value) => typeof value === 'string' && value.trim().length)
+        .join(' — ');
+      if (summaryPieces) {
+        item.title = summaryPieces;
+      }
+
+      const header = document.createElement('div');
+      header.className = 'variable-library-header';
+
+      const symbol = document.createElement('span');
+      symbol.className = 'variable-library-symbol';
+      symbol.textContent = entry.symbol;
+
+      const name = document.createElement('span');
+      name.className = 'variable-library-name';
+      name.textContent = entry.name;
+
+      header.append(symbol, name);
+      item.append(header);
+
+      if (entry.description) {
+        const description = document.createElement('p');
+        description.className = 'variable-library-description';
+        description.textContent = entry.description;
+        item.append(description);
+      }
+
+      if (entry.sources && entry.sources.length) {
+        const source = document.createElement('p');
+        source.className = 'variable-library-source';
+        const label =
+          entry.sources.length > 1 ? 'Revealed by towers' : 'Revealed by tower';
+        source.textContent = `${label} ${entry.sources.join(', ')}`;
+        item.append(source);
+      }
+
+      fragment.append(item);
+    });
+
+    variableLibraryList.append(fragment);
+  }
+
+  function showVariableLibrary() {
+    if (!variableLibraryOverlay) {
+      return;
+    }
+
+    revealOverlay(variableLibraryOverlay);
+    renderVariableLibrary();
+    variableLibraryOverlay.setAttribute('aria-hidden', 'false');
+    if (!variableLibraryOverlay.classList.contains('active')) {
+      requestAnimationFrame(() => {
+        variableLibraryOverlay.classList.add('active');
+      });
+    }
+
+    if (variableLibraryButton) {
+      variableLibraryButton.setAttribute('aria-expanded', 'true');
+    }
+
+    const focusTarget =
+      variableLibraryClose || variableLibraryOverlay.querySelector('.overlay-panel');
+    if (focusTarget && typeof focusTarget.focus === 'function') {
+      focusTarget.focus();
+    } else if (typeof variableLibraryOverlay.focus === 'function') {
+      variableLibraryOverlay.focus();
+    }
+  }
+
+  function hideVariableLibrary() {
+    if (!variableLibraryOverlay) {
+      return;
+    }
+
+    variableLibraryOverlay.classList.remove('active');
+    variableLibraryOverlay.setAttribute('aria-hidden', 'true');
+    scheduleOverlayHide(variableLibraryOverlay);
+    if (variableLibraryButton) {
+      variableLibraryButton.setAttribute('aria-expanded', 'false');
+    }
+    if (lastVariableLibraryTrigger && typeof lastVariableLibraryTrigger.focus === 'function') {
+      lastVariableLibraryTrigger.focus();
+    }
+    lastVariableLibraryTrigger = null;
+  }
+
   function bindUpgradeMatrix() {
-    upgradeOverlayButton = document.getElementById('open-upgrade-matrix');
+    upgradeOverlayButtons = Array.from(
+      document.querySelectorAll('[data-upgrade-matrix-trigger]'),
+    );
+    upgradeOverlayTriggerSet = new WeakSet(upgradeOverlayButtons);
     upgradeOverlay = document.getElementById('upgrade-matrix-overlay');
     upgradeOverlayGrid = document.getElementById('upgrade-matrix-grid');
     upgradeOverlayClose = upgradeOverlay
@@ -4369,12 +4513,16 @@ import {
       upgradeOverlay.setAttribute('tabindex', '-1');
     }
 
-    if (upgradeOverlayButton) {
-      upgradeOverlayButton.setAttribute('aria-expanded', 'false');
-      upgradeOverlayButton.addEventListener('click', () => {
+    upgradeOverlayButtons.forEach((button) => {
+      if (!button) {
+        return;
+      }
+      button.setAttribute('aria-expanded', 'false');
+      button.addEventListener('click', () => {
+        lastUpgradeTrigger = button;
         showUpgradeMatrix();
       });
-    }
+    });
 
     if (upgradeOverlayClose) {
       upgradeOverlayClose.addEventListener('click', () => {
@@ -4389,6 +4537,59 @@ import {
         }
       });
     }
+  }
+
+  function bindVariableLibrary() {
+    if (typeof removeVariableListener === 'function') {
+      removeVariableListener();
+      removeVariableListener = null;
+    }
+
+    variableLibraryButton = document.getElementById('tower-variable-library');
+    variableLibraryOverlay = document.getElementById('variable-library-overlay');
+    variableLibraryList = document.getElementById('variable-library-list');
+    variableLibraryLabel = variableLibraryButton
+      ? variableLibraryButton.querySelector('.tower-panel-button-label')
+      : null;
+    variableLibraryClose = variableLibraryOverlay
+      ? variableLibraryOverlay.querySelector('[data-variable-library-close]')
+      : null;
+
+    if (variableLibraryOverlay && !variableLibraryOverlay.hasAttribute('tabindex')) {
+      variableLibraryOverlay.setAttribute('tabindex', '-1');
+    }
+
+    if (variableLibraryButton) {
+      variableLibraryButton.setAttribute('aria-expanded', 'false');
+      variableLibraryButton.addEventListener('click', () => {
+        lastVariableLibraryTrigger = variableLibraryButton;
+        showVariableLibrary();
+      });
+    }
+
+    if (variableLibraryClose) {
+      variableLibraryClose.addEventListener('click', () => {
+        hideVariableLibrary();
+      });
+    }
+
+    if (variableLibraryOverlay) {
+      variableLibraryOverlay.addEventListener('click', (event) => {
+        if (event.target === variableLibraryOverlay) {
+          hideVariableLibrary();
+        }
+      });
+    }
+
+    const handleVariablesChanged = (variables) => {
+      if (variableLibraryOverlay?.classList.contains('active')) {
+        renderVariableLibrary(variables);
+        return;
+      }
+      updateVariableLibraryButton(Array.isArray(variables) ? variables.length : null);
+    };
+
+    removeVariableListener = addDiscoveredVariablesListener(handleVariablesChanged);
   }
 
   function enablePanelWheelScroll(panel) {
@@ -4650,6 +4851,10 @@ import {
       unlockTower(definition.id, { silent: true });
     });
 
+    initializeDiscoveredVariablesFromUnlocks(
+      towers.map((definition) => definition.id),
+    );
+
     loadoutState.selected = towers
       .slice(0, TOWER_LOADOUT_LIMIT)
       .map((definition) => definition.id);
@@ -4716,6 +4921,7 @@ import {
     const unlockState = getTowerUnlockState();
     unlockState.unlocked = new Set(['alpha']);
     setMergingLogicUnlocked(false);
+    initializeDiscoveredVariablesFromUnlocks(unlockState.unlocked);
     const loadoutState = getTowerLoadoutState();
     loadoutState.selected = ['alpha'];
     pruneLockedTowersFromLoadout();
@@ -6818,6 +7024,7 @@ import {
     buildLevelCards();
     updateLevelCards();
     bindOverlayEvents();
+    bindVariableLibrary();
     bindUpgradeMatrix();
     bindLeaveLevelButton();
   }
@@ -6876,6 +7083,22 @@ import {
         return;
       }
       if (!overlay || !overlay.classList.contains('active')) {
+        return;
+      }
+    }
+
+    if (variableLibraryOverlay && variableLibraryOverlay.classList.contains('active')) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        hideVariableLibrary();
+        return;
+      }
+      if (
+        (event.key === 'Enter' || event.key === ' ') &&
+        event.target === variableLibraryOverlay
+      ) {
+        event.preventDefault();
+        hideVariableLibrary();
         return;
       }
     }
