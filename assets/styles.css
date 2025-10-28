@@ -1681,6 +1681,8 @@ body.graphics-mode-low .control-button {
   width: min(420px, 100%, calc((100vh - 160px) * 9 / 16));
   aspect-ratio: 9 / 16;
   overflow: hidden;
+  /* Let custom JS manage panning and zooming gestures within the map. */
+  touch-action: none;
 }
 
 .tower-tree-map-note {
@@ -1742,6 +1744,8 @@ body.graphics-mode-low .control-button {
   /* Animate a gentle drift so the tower constellation feels alive. */
   animation: tower-tree-node-float calc(7s + var(--tower-float-variance, 0s)) ease-in-out infinite;
   transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+  /* Allow node drags to override native scrolling and zooming on touch devices. */
+  touch-action: none;
 }
 
 .tower-tree-node-orbit:hover,

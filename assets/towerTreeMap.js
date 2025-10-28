@@ -33,6 +33,8 @@ const towerTreeState = {
   nodeLayer: null,
   linkLayer: null,
   cardGrid: null,
+  // Preserve the randomly generated horizontal offsets while the map is open.
+  randomOffsets: new Map(),
   needsRefresh: false,
   nodes: new Map(),
   edges: [],
@@ -147,6 +149,7 @@ function clampViewCenterNormalized(normalized) {
   if (!normalized) {
     return { x: 0.5, y: 0.5 };
   }
+  // Sample the viewport dimensions so drag distance converts into normalized offsets.
   const metrics = getMapMetrics();
   const viewportWidth = Math.max(metrics.viewportWidth || 0, 0);
   const viewportHeight = Math.max(metrics.viewportHeight || 0, 0);
@@ -675,6 +678,10 @@ function handleTreePointerDown(event) {
   if (event.pointerType !== 'touch' && event.button !== 0) {
     return;
   }
+  if (event.pointerType === 'touch' && typeof event.preventDefault === 'function') {
+    // Stop the browser from hijacking touch gestures so the constellation can pan instead.
+    event.preventDefault();
+  }
   const view = towerTreeState.view;
   if (event.pointerType === 'touch') {
     view.activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
@@ -732,7 +739,10 @@ function handleTreePointerMove(event) {
   if (typeof event.preventDefault === 'function') {
     event.preventDefault();
   }
-  const { width, height } = getMapMetrics();
+  // Read the active viewport to translate pixel deltas into constellation movement.
+  const metrics = getMapMetrics();
+  const width = metrics.viewportWidth;
+  const height = metrics.viewportHeight;
   if (!width || !height) {
     return;
   }
@@ -1041,7 +1051,11 @@ function computeNodeLayout(towers) {
     group.forEach((tower, index) => {
       const baseX = group.length > 1 ? horizontalPadding + index * step : containerWidth / 2;
       // Introduce a gentle horizontal jitter so icons feel organic without drifting off-grid.
-      const horizontalVariance = (Math.random() * 2 - 1) * PHYSICS_CONFIG.nodeDiameter;
+      let horizontalVariance = towerTreeState.randomOffsets.get(tower.id);
+      if (!Number.isFinite(horizontalVariance)) {
+        horizontalVariance = (Math.random() * 2 - 1) * PHYSICS_CONFIG.nodeDiameter;
+        towerTreeState.randomOffsets.set(tower.id, horizontalVariance);
+      }
       const x = Math.max(
         horizontalPadding,
         Math.min(containerWidth - horizontalPadding, baseX + horizontalVariance),
@@ -1148,12 +1162,35 @@ function toggleTreeVisibility(forceOpen = null) {
   }
   const currentlyOpen = !towerTreeState.mapContainer.hidden;
   const nextOpen = forceOpen === null ? !currentlyOpen : Boolean(forceOpen);
+  if (!currentlyOpen && nextOpen) {
+    // Reset variance on fresh openings so each visit gets a new constellation drift.
+    towerTreeState.randomOffsets.clear();
+  }
+  if (currentlyOpen && !nextOpen) {
+    // Release stored offsets when closing so memory stays tidy between sessions.
+    towerTreeState.randomOffsets.clear();
+  }
   towerTreeState.mapContainer.hidden = !nextOpen;
   towerTreeState.mapContainer.setAttribute('aria-hidden', nextOpen ? 'false' : 'true');
   towerTreeState.cardGrid.hidden = nextOpen;
   towerTreeState.cardGrid.setAttribute('aria-hidden', nextOpen ? 'true' : 'false');
   towerTreeState.toggleButton.setAttribute('aria-pressed', nextOpen ? 'true' : 'false');
   towerTreeState.toggleButton.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+  const buttonLabel = towerTreeState.toggleButton.querySelector('.tower-tree-map-label');
+  if (buttonLabel) {
+    // Communicate the current action clearly so players know how to return to cards.
+    buttonLabel.textContent = nextOpen ? 'Back to Tower Cards' : 'Tower Tree Map';
+  }
+  if (towerTreeState.toggleButton) {
+    // Keep the button tooltip and announcement aligned with the current view for accessibility.
+    towerTreeState.toggleButton.title = nextOpen
+      ? 'Return to the tower card menu'
+      : 'Open the Tower Tree Map';
+    towerTreeState.toggleButton.setAttribute(
+      'aria-label',
+      nextOpen ? 'Return to the tower card menu' : 'Open the Tower Tree Map',
+    );
+  }
   if (nextOpen) {
     // Delay the refresh until the next frame so layout metrics are reliable when building links.
     window.requestAnimationFrame(() => {
