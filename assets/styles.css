@@ -2441,17 +2441,9 @@ body.graphics-mode-low .control-button {
   justify-content: flex-end;
   align-items: center;
   padding: 32px 10px;
-  background-image:
-    linear-gradient(180deg, rgba(10, 12, 18, 0.82) 0%, rgba(12, 14, 20, 0.94) 100%),
-    url('./sprites/inspiration_tower_wall.png');
-  background-repeat: no-repeat, repeat-y;
-  background-size: 100% 100%, 100% 192px;
   /* Offset the repeating tower texture so it can scroll smoothly with the dune crest. */
   --powder-wall-shift: 0px;
-  background-position:
-    center center,
-    center var(--powder-wall-shift, 0px);
-  background-blend-mode: overlay, normal;
+  background: none;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   z-index: 1;
   transition:
@@ -2463,18 +2455,32 @@ body.graphics-mode-low .control-button {
   overflow: visible; /* Allow wall annotations to fully render within the basin. */
 }
 
-/* Extend each wall's texture outward so zoomed-out views never expose empty gaps. */
-.powder-wall::before {
+/* Extend each wall's texture and shading outward so zoomed-out views never expose empty gaps. */
+.powder-wall::before,
+.powder-wall::after {
   content: "";
   position: absolute;
-  top: 0;
-  bottom: 0;
   width: 100%;
+  pointer-events: none;
+}
+
+.powder-wall::before {
+  top: -200%;
+  bottom: -200%;
   background-image: url('./sprites/inspiration_tower_wall.png');
   background-repeat: repeat-y;
   background-size: 100% 192px;
   background-position: center var(--powder-wall-shift, 0px);
   opacity: 0.92;
+  z-index: -2;
+}
+
+.powder-wall::after {
+  top: -200%;
+  bottom: -200%;
+  background: linear-gradient(180deg, rgba(10, 12, 18, 0.82) 0%, rgba(12, 14, 20, 0.94) 100%);
+  opacity: 0.86;
+  mix-blend-mode: overlay;
   z-index: -1;
 }
 
