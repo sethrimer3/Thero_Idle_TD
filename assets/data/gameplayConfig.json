@@ -55,7 +55,7 @@
       "baseCost": 10000,
       "damage": 56,
       "rate": 0.95,
-      "range": 0.22,
+      "range": 0.44,
       "icon": "assets/images/tower-delta.svg",
       "nextTierId": "epsilon"
     },
