@@ -401,6 +401,9 @@ export class PowderSimulation {
     this.motePalette = mergeMotePalette(options.motePalette || fallbackPalette);
     this.onWallMetricsChange =
       typeof options.onWallMetricsChange === 'function' ? options.onWallMetricsChange : null;
+    // Surface camera changes so UI overlays can mirror the simulation transform.
+    this.onViewTransformChange =
+      typeof options.onViewTransformChange === 'function' ? options.onViewTransformChange : null;
 
     this.defaultProfile = {
       grainSizes: [...this.grainSizes],
@@ -569,6 +572,7 @@ export class PowderSimulation {
       this.notifyWallMetricsChange();
     }
     this.applyViewConstraints();
+    this.notifyViewTransformChange();
   }
 
   updateMaxDropSize() {
@@ -1414,7 +1418,9 @@ export class PowderSimulation {
     };
     return {
       x: clamp(normalized.x, halfX, 1 - halfX),
-      y: clamp(normalized.y, halfY, 1 - halfY),
+      // Allow the camera to drift upward to reveal the tower summit while capping the
+      // lower bound so the floor never scrolls into view when zoomed out.
+      y: clamp(normalized.y, 0, Math.max(0, 1 - halfY)),
     };
   }
 
@@ -1429,10 +1435,34 @@ export class PowderSimulation {
     };
   }
 
+  // Provide the active view transform so host UIs can synchronize overlay elements.
+  getViewTransform() {
+    const width = this.width || this.canvas?.clientWidth || 0;
+    const height = this.height || this.canvas?.clientHeight || 0;
+    const scale = Number.isFinite(this.viewScale) && this.viewScale > 0 ? this.viewScale : 1;
+    const center = this.getViewCenterWorld();
+    const normalized = this.viewCenterNormalized || { x: 0.5, y: 0.5 };
+    return {
+      width,
+      height,
+      scale,
+      center,
+      normalizedCenter: { ...normalized },
+    };
+  }
+
+  // Notify listeners when the camera transform changes so overlays stay aligned.
+  notifyViewTransformChange() {
+    if (typeof this.onViewTransformChange === 'function') {
+      this.onViewTransformChange(this.getViewTransform());
+    }
+  }
+
   // Apply a new normalized camera center and immediately redraw the basin.
   setViewCenterNormalized(normalized) {
     this.viewCenterNormalized = this.clampViewCenterNormalized(normalized);
     this.render();
+    this.notifyViewTransformChange();
   }
 
   // Update the camera center using world-space coordinates measured in simulation pixels.
@@ -1511,6 +1541,7 @@ export class PowderSimulation {
     }
     this.applyViewConstraints();
     this.render();
+    this.notifyViewTransformChange();
     return Math.abs(previousScale - this.viewScale) > 0.0001;
   }
 
