@@ -1346,6 +1346,65 @@ export class SimplePlayfield {
     }
   }
 
+  canRetryCurrentWave() {
+    return this.isInteractiveLevelActive();
+  }
+
+  retryCurrentWave() {
+    if (!this.isInteractiveLevelActive()) {
+      if (this.messageEl) {
+        this.messageEl.textContent = 'Enter an interactive level to retry the defense.';
+      }
+      return false;
+    }
+
+    if (this.audio) {
+      this.audio.unlock();
+    }
+
+    if (!this.towers.length) {
+      if (this.messageEl) {
+        this.messageEl.textContent = 'Anchor at least one tower before retrying the wave.';
+      }
+      return false;
+    }
+
+    this.cancelAutoStart();
+    this.combatActive = false;
+    this.resolvedOutcome = null;
+    this.waveIndex = 0;
+    this.waveTimer = 0;
+    this.enemyIdCounter = 0;
+    this.activeWave = null;
+    this.enemies = [];
+    this.projectiles = [];
+    this.floaters = [];
+    this.floaterConnections = [];
+    this.currentWaveNumber = 1;
+    this.maxWaveReached = 0;
+
+    if (this.startButton) {
+      this.startButton.disabled = false;
+      this.startButton.textContent = 'Commence Wave';
+    }
+    if (this.autoWaveCheckbox) {
+      this.autoWaveCheckbox.disabled = false;
+      this.autoWaveCheckbox.checked = this.autoWaveEnabled;
+    }
+
+    this.updateHud();
+    this.updateProgress();
+    this.updateSpeedButton();
+    this.updateAutoAnchorButton();
+
+    if (this.audio) {
+      this.audio.playSfx('uiToggle');
+    }
+
+    this.handleStartButton();
+    return true;
+  }
+
   updateTowerPositions() {
     if (!this.levelConfig) {
       return;

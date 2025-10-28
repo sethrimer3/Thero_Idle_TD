@@ -117,6 +117,34 @@
                   >
                     Level Selection
                   </button>
+                  <button
+                    class="playfield-menu-item"
+                    type="button"
+                    id="playfield-menu-retry-wave"
+                    role="menuitem"
+                  >
+                    Retry Wave
+                  </button>
+                  <button
+                    class="playfield-menu-item"
+                    type="button"
+                    id="playfield-speed"
+                    role="menuitem"
+                  >
+                    Speed ×1
+                  </button>
+                  <button
+                    class="playfield-menu-item"
+                    type="button"
+                    id="playfield-auto"
+                    role="menuitem"
+                  >
+                    Loadout Placement
+                  </button>
+                  <label class="playfield-menu-toggle" for="playfield-auto-wave">
+                    <input type="checkbox" id="playfield-auto-wave" checked />
+                    <span>Auto-send next wave</span>
+                  </label>
                 </div>
                 <canvas id="playfield-canvas" width="560" height="360"></canvas>
                 <dl class="playfield-stats" aria-live="polite">
@@ -133,32 +161,20 @@
                     <dd id="playfield-energy">—</dd>
                   </div>
                 </dl>
+                <div class="tower-loadout" id="tower-loadout" aria-label="Tower loadout" role="region">
+                  <p class="tower-loadout-note screen-reader-only" id="tower-loadout-note">
+                    Select four towers to bring into the defense. Drag the glyph chips onto the plane to
+                    lattice them; drop a chip atop a matching tower to merge into the next tier.
+                  </p>
+                  <div class="tower-loadout-grid" id="tower-loadout-grid" role="list"></div>
+                </div>
               </div>
-            </div>
-            <div class="tower-loadout" id="tower-loadout" aria-label="Tower loadout" role="region">
-              <p class="tower-loadout-note" id="tower-loadout-note">
-                Select four towers to bring into the defense. Drag the glyph chips onto the plane to
-                lattice them; drop a chip atop a matching tower to merge into the next tier.
-              </p>
-              <div class="tower-loadout-grid" id="tower-loadout-grid" role="list"></div>
             </div>
           </section>
           <div class="stage-controls" id="stage-controls" role="group" aria-label="Defense controls">
             <button class="play-button" type="button" id="playfield-start" disabled>
               Commence Wave
             </button>
-            <div class="control-row" role="group" aria-label="Stage utilities">
-              <button class="control-button" type="button" id="playfield-speed">
-                Speed ×1
-              </button>
-              <button class="control-button" type="button" id="playfield-auto">
-                Auto-lattice α
-              </button>
-            </div>
-            <label class="auto-wave-toggle" for="playfield-auto-wave">
-              <input type="checkbox" id="playfield-auto-wave" checked />
-              Auto-send next wave
-            </label>
           </div>
           <section class="level-section" id="level-selection">
             <header class="subsection-title">Conjecture Set</header>

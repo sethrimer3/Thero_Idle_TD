@@ -863,6 +863,36 @@ import {
     element.setAttribute('aria-hidden', 'true');
   }
 
+  function resetPlayfieldMenuLevelSelect() {
+    playfieldMenuLevelSelectConfirming = false;
+    if (!playfieldMenuLevelSelect) {
+      return;
+    }
+    playfieldMenuLevelSelect.textContent = playfieldMenuLevelSelectDefaultLabel;
+    playfieldMenuLevelSelect.classList.remove('playfield-menu-item--warning');
+    playfieldMenuLevelSelect.removeAttribute('data-confirming');
+  }
+
+  function updatePlayfieldMenuState() {
+    const interactive = Boolean(activeLevelId && activeLevelIsInteractive);
+    if (playfieldMenuLevelSelect) {
+      playfieldMenuLevelSelect.disabled = !interactive && !activeLevelId;
+      playfieldMenuLevelSelect.setAttribute(
+        'aria-disabled',
+        playfieldMenuLevelSelect.disabled ? 'true' : 'false',
+      );
+    }
+    if (playfieldMenuRetryWave) {
+      const canRetry = Boolean(
+        playfield && typeof playfield.canRetryCurrentWave === 'function'
+          ? playfield.canRetryCurrentWave()
+          : interactive,
+      );
+      playfieldMenuRetryWave.disabled = !canRetry;
+      playfieldMenuRetryWave.setAttribute('aria-disabled', canRetry ? 'false' : 'true');
+    }
+  }
+
   function closePlayfieldMenu(options = {}) {
     // Ensure the quick menu hides and returns focus control to the battlefield trigger.
     const { restoreFocus = false } = options;
@@ -873,6 +903,8 @@ import {
     if (playfieldMenuPanel) {
       playfieldMenuPanel.setAttribute('hidden', '');
     }
+
+    resetPlayfieldMenuLevelSelect();
 
     if (!playfieldMenuOpen) {
       return;
@@ -941,6 +973,8 @@ import {
     playfieldMenuButton.setAttribute('aria-expanded', 'true');
     playfieldMenuPanel.removeAttribute('hidden');
 
+    updatePlayfieldMenuState();
+
     document.addEventListener('pointerdown', handlePlayfieldMenuPointerDown);
     document.addEventListener('keydown', handlePlayfieldMenuKeydown);
 
@@ -972,6 +1006,7 @@ import {
 
     if (!shouldShowPlayfield) {
       closePlayfieldMenu();
+      updatePlayfieldMenuState();
       return;
     }
 
@@ -979,30 +1014,46 @@ import {
       // Refresh the canvas geometry once the battlefield becomes visible again.
       playfield.syncCanvasSize();
     }
+
+    updatePlayfieldMenuState();
   }
 
   function handleReturnToLevelSelection() {
     // Confirm whether players truly want to abandon the current battle.
-    closePlayfieldMenu();
-
-    if (!activeLevelId) {
+    if (!activeLevelId || !activeLevelIsInteractive) {
+      resetPlayfieldMenuLevelSelect();
+      closePlayfieldMenu();
       updateLayoutVisibility();
       return;
     }
 
-    const confirmed = window.confirm('Are you sure? Your progress in the current level will be lost.');
-    if (!confirmed) {
-      if (playfieldMenuButton && typeof playfieldMenuButton.focus === 'function') {
-        try {
-          playfieldMenuButton.focus({ preventScroll: true });
-        } catch (error) {
-          playfieldMenuButton.focus();
-        }
+    if (!playfieldMenuLevelSelectConfirming) {
+      playfieldMenuLevelSelectConfirming = true;
+      if (playfieldMenuLevelSelect) {
+        playfieldMenuLevelSelect.textContent = 'Are you sure?';
+        playfieldMenuLevelSelect.classList.add('playfield-menu-item--warning');
+        playfieldMenuLevelSelect.setAttribute('data-confirming', 'true');
       }
       return;
     }
 
+    resetPlayfieldMenuLevelSelect();
+    closePlayfieldMenu();
     leaveActiveLevel();
+  }
+
+  function handleRetryCurrentWave() {
+    resetPlayfieldMenuLevelSelect();
+
+    if (!playfield || typeof playfield.retryCurrentWave !== 'function') {
+      return;
+    }
+
+    const retried = playfield.retryCurrentWave();
+    updatePlayfieldMenuState();
+    if (retried) {
+      closePlayfieldMenu();
+    }
   }
 
   const developerControlElements = {
@@ -1033,6 +1084,9 @@ import {
   let playfieldMenuButton = null;
   let playfieldMenuPanel = null;
   let playfieldMenuLevelSelect = null;
+  let playfieldMenuRetryWave = null;
+  let playfieldMenuLevelSelectConfirming = false;
+  const playfieldMenuLevelSelectDefaultLabel = 'Level Selection';
   let playfieldMenuOpen = false;
   let activeLevelIsInteractive = false;
 
@@ -6535,6 +6589,10 @@ import {
     playfieldMenuButton = document.getElementById('playfield-menu-button');
     playfieldMenuPanel = document.getElementById('playfield-menu-panel');
     playfieldMenuLevelSelect = document.getElementById('playfield-menu-level-select');
+    playfieldMenuRetryWave = document.getElementById('playfield-menu-retry-wave');
+    if (playfieldMenuLevelSelect) {
+      playfieldMenuLevelSelect.textContent = playfieldMenuLevelSelectDefaultLabel;
+    }
     if (playfieldMenuButton) {
       playfieldMenuButton.addEventListener('click', (event) => {
         event.preventDefault();
@@ -6542,8 +6600,15 @@ import {
       });
     }
     if (playfieldMenuLevelSelect) {
-      playfieldMenuLevelSelect.addEventListener('click', () => {
+      playfieldMenuLevelSelect.addEventListener('click', (event) => {
+        event.preventDefault();
         handleReturnToLevelSelection();
+      });
+    }
+    if (playfieldMenuRetryWave) {
+      playfieldMenuRetryWave.addEventListener('click', (event) => {
+        event.preventDefault();
+        handleRetryCurrentWave();
       });
     }
     // Default to the level selection view until a combat encounter begins.
@@ -6671,6 +6736,7 @@ import {
       });
       setTowersPlayfield(playfield);
       playfield.draw();
+      updatePlayfieldMenuState();
     }
 
     refreshTabMusic({ restart: true });
