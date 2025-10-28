@@ -1595,7 +1595,6 @@ body.graphics-mode-low .control-button {
   height: 90px;
   left: 0;
   top: 0;
-  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1654,14 +1653,14 @@ body.graphics-mode-low .control-button {
 }
 
 .tower-tree-link {
-  stroke: rgba(255, 228, 120, 0.65);
+  stroke: rgba(255, 228, 120, 0.25);
   stroke-width: 3;
   stroke-dasharray: 0;
   transition: stroke 220ms ease, stroke-width 220ms ease;
 }
 
 .tower-tree-link[data-active='true'] {
-  stroke: rgba(255, 255, 255, 0.85);
+  stroke: rgba(255, 255, 255, 0.45);
   stroke-width: 4;
 }
 
