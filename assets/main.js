@@ -4493,15 +4493,6 @@ import {
         item.append(description);
       }
 
-      if (entry.sources && entry.sources.length) {
-        const source = document.createElement('p');
-        source.className = 'variable-library-source';
-        const label =
-          entry.sources.length > 1 ? 'Revealed by towers' : 'Revealed by tower';
-        source.textContent = `${label} ${entry.sources.join(', ')}`;
-        item.append(source);
-      }
-
       fragment.append(item);
     });
 
