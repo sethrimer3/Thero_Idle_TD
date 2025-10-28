@@ -1618,12 +1618,17 @@ body.graphics-mode-low .control-button {
   box-shadow: 0 16px 24px rgba(0, 0, 0, 0.28);
   /* Indicate that constellation nodes can be grabbed and rearranged. */
   cursor: grab;
+  /* Keep a baseline float offset so animation and hover can blend smoothly. */
+  --tower-float-offset: 0px;
+  transform: translateY(var(--tower-float-offset));
+  /* Animate a gentle drift so the tower constellation feels alive. */
+  animation: tower-tree-node-float calc(7s + var(--tower-float-variance, 0s)) ease-in-out infinite;
   transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
 }
 
 .tower-tree-node-orbit:hover,
 .tower-tree-node-orbit:focus-visible {
-  transform: translateY(-6px);
+  transform: translateY(calc(var(--tower-float-offset) - 6px));
   border-color: rgba(255, 228, 120, 0.45);
   box-shadow: 0 22px 32px rgba(255, 228, 120, 0.18);
   outline: none;
@@ -1632,7 +1637,9 @@ body.graphics-mode-low .control-button {
 /* Present a grabbing cursor while the player is dragging a node. */
 .tower-tree-node-orbit[data-dragging='true'] {
   cursor: grabbing;
-  transform: none;
+  /* Pause the idle float while actively dragging for predictable control. */
+  animation-play-state: paused;
+  transform: translateY(var(--tower-float-offset));
 }
 
 .tower-tree-node-symbol {
@@ -1652,6 +1659,24 @@ body.graphics-mode-low .control-button {
 .tower-tree-node-tier {
   font-size: 0.55rem;
   color: rgba(247, 247, 245, 0.6);
+}
+
+/* Register a smooth, animatable offset so custom properties can drive the float keyframes. */
+@property --tower-float-offset {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+/* Oscillate the float offset slowly to recreate the original orbit-like motion. */
+@keyframes tower-tree-node-float {
+  0%,
+  100% {
+    --tower-float-offset: -2px;
+  }
+  50% {
+    --tower-float-offset: 4px;
+  }
 }
 
 .tower-tree-link {
