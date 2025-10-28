@@ -634,7 +634,13 @@ function computeNodeLayout(towers) {
     const usableWidth = Math.max(200, containerWidth - horizontalPadding * 2);
     const step = group.length > 1 ? usableWidth / (group.length - 1) : 0;
     group.forEach((tower, index) => {
-      const x = group.length > 1 ? horizontalPadding + index * step : containerWidth / 2;
+      const baseX = group.length > 1 ? horizontalPadding + index * step : containerWidth / 2;
+      // Introduce a gentle horizontal jitter so icons feel organic without drifting off-grid.
+      const horizontalVariance = (Math.random() * 2 - 1) * PHYSICS_CONFIG.nodeDiameter;
+      const x = Math.max(
+        horizontalPadding,
+        Math.min(containerWidth - horizontalPadding, baseX + horizontalVariance),
+      );
       positions.set(tower.id, { x, y });
       equations.set(tower.id, extractTowerEquation(tower.id));
     });
