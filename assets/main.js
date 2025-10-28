@@ -1571,7 +1571,6 @@ import {
     logList: null,
     logEmpty: null,
     simulationCanvas: null,
-    simulationNote: null,
     basin: null,
     viewport: null,
     wallMarker: null,
@@ -5527,15 +5526,6 @@ import {
 
     powderState.simulatedDuneGain = clampedGain;
 
-    if (powderElements.simulationNote) {
-      const crestPercent = formatDecimal(normalizedHeight * 100, 1);
-      const crestHeight = formatDecimal(powderState.duneHeight + clampedGain, 2);
-      const towerPercent = formatDecimal(totalNormalized * 100, 1);
-      const grainLabel = largestGrain ? `${largestGrain}×${largestGrain}` : '—';
-      powderElements.simulationNote.textContent =
-        `Captured crest: ${crestPercent}% full · tower ascent ${towerPercent}% · dune height h = ${crestHeight} · largest grain ${grainLabel}.`;
-    }
-
     if (powderElements.basin) {
       powderElements.basin.style.setProperty('--powder-crest', normalizedHeight.toFixed(3));
     }
@@ -6182,7 +6172,6 @@ import {
     powderElements.crystalButton = document.querySelector('[data-powder-action="crystal"]');
 
     powderElements.simulationCanvas = document.getElementById('powder-canvas');
-    powderElements.simulationNote = document.getElementById('powder-simulation-note');
     powderElements.basin = document.getElementById('powder-basin');
     powderElements.viewport = document.getElementById('powder-viewport');
     powderElements.leftWall = document.getElementById('powder-wall-left');

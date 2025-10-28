@@ -1086,10 +1086,12 @@ export class PowderSimulation {
       Math.max(minX, center - Math.floor(colliderSize / 2) + offset),
     );
 
+    const spawnCeilingCells = Math.max(colliderSize, Math.round(this.rows * 0.7));
+    // Raise the spawn point so motes originate above the furthest zoom range and cascade through the entire visible tower.
     const grain = {
       id: this.nextId,
       x: startX,
-      y: -colliderSize,
+      y: -spawnCeilingCells,
       size: visualSize,
       colliderSize,
       bias: Math.random() < 0.5 ? -1 : 1,
@@ -1201,7 +1203,9 @@ export class PowderSimulation {
       }
 
       if (grain.y < 0) {
-        grain.y += 1;
+        // Accelerate grains that are still above the basin so the higher spawn point keeps the stream feeling continuous.
+        const descent = Math.max(2, freefallSpeed);
+        grain.y = Math.min(grain.y + descent, 0);
         grain.resting = false;
         survivors.push(grain);
         continue;
@@ -1571,15 +1575,19 @@ export class PowderSimulation {
     this.ctx.scale(this.viewScale, this.viewScale);
     this.ctx.translate(-center.x, -center.y);
 
-    const gradient = this.ctx.createLinearGradient(0, 0, 0, height);
+    const gradientTop = -height;
+    const gradientHeight = height * 3;
+    // Extend the tower's background gradient well above the basin so zoomed-out views never expose empty space.
+    const gradient = this.ctx.createLinearGradient(0, gradientTop, 0, gradientTop + gradientHeight);
     gradient.addColorStop(0, palette.backgroundTop || '#0f1018');
     gradient.addColorStop(1, palette.backgroundBottom || '#171a27');
     this.ctx.fillStyle = gradient;
-    this.ctx.fillRect(0, 0, width, height);
+    this.ctx.fillRect(-width, gradientTop, width * 3, gradientHeight);
 
+    // Carry the wall edge highlights upward alongside the extended gradient to avoid abrupt seams at the zoom ceiling.
     this.ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-    this.ctx.fillRect(0, 0, 2, height);
-    this.ctx.fillRect(width - 2, 0, 2, height);
+    this.ctx.fillRect(0, gradientTop, 2, gradientHeight);
+    this.ctx.fillRect(width - 2, gradientTop, 2, gradientHeight);
     this.ctx.fillRect(0, height - 2, width, 2);
 
     const cellSizePx = this.cellSize;
