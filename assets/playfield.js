@@ -124,6 +124,12 @@ export class SimplePlayfield {
     this.autoStartTimer = null;
     this.autoStartDeadline = 0;
 
+    // Allow callers (such as preview renderers) to override the natural orientation choice.
+    this.preferredOrientationOverride =
+      typeof options?.preferredOrientation === 'string'
+        ? options.preferredOrientation
+        : null;
+
     this.layoutOrientation = 'portrait';
     this.basePathPoints = [];
     this.baseAutoAnchors = [];
@@ -234,6 +240,14 @@ export class SimplePlayfield {
 
   // Determine whether the current viewport favors a portrait or landscape layout.
   determinePreferredOrientation() {
+    if (this.preferredOrientationOverride === 'landscape') {
+      // Respect explicit landscape requests supplied by wrapper modules.
+      return 'landscape';
+    }
+    if (this.preferredOrientationOverride === 'portrait') {
+      // Respect explicit portrait requests supplied by wrapper modules.
+      return 'portrait';
+    }
     if (typeof window === 'undefined') {
       return 'portrait';
     }
@@ -243,6 +257,23 @@ export class SimplePlayfield {
       return 'landscape';
     }
     return 'portrait';
+  }
+
+  // Update the override and immediately re-evaluate the level orientation if active.
+  setPreferredOrientation(orientation) {
+    const normalized =
+      orientation === 'landscape' || orientation === 'portrait' ? orientation : null;
+    if (this.preferredOrientationOverride === normalized) {
+      return;
+    }
+    this.preferredOrientationOverride = normalized;
+    if (!this.levelActive) {
+      return;
+    }
+    this.layoutOrientation = this.determinePreferredOrientation();
+    this.applyLevelOrientation();
+    this.applyContainerOrientationClass();
+    this.syncCanvasSize();
   }
 
   // Update playfield container classes so CSS can size the canvas per orientation.

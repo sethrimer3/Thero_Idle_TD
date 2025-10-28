@@ -887,6 +887,17 @@ import {
 
   function updatePlayfieldMenuState() {
     const interactive = Boolean(activeLevelId && activeLevelIsInteractive);
+    if (playfieldMenuCommence) {
+      // Mirror the primary commence button label/state inside the quick menu.
+      const startButton = playfieldElements.startButton;
+      const disabled = !startButton || startButton.disabled;
+      playfieldMenuCommence.disabled = disabled;
+      playfieldMenuCommence.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+      const label = startButton?.textContent?.trim();
+      if (label) {
+        playfieldMenuCommence.textContent = label;
+      }
+    }
     if (playfieldMenuLevelSelect) {
       playfieldMenuLevelSelect.disabled = !interactive && !activeLevelId;
       playfieldMenuLevelSelect.setAttribute(
@@ -1054,6 +1065,17 @@ import {
     leaveActiveLevel();
   }
 
+  function handleCommenceWaveFromMenu() {
+    // Trigger the main commence button from the quick menu while respecting its state.
+    const startButton = playfieldElements.startButton;
+    if (!startButton || startButton.disabled) {
+      return;
+    }
+    startButton.click();
+    closePlayfieldMenu();
+    updatePlayfieldMenuState();
+  }
+
   function handleRetryCurrentWave() {
     resetPlayfieldMenuLevelSelect();
 
@@ -1095,6 +1117,7 @@ import {
   // Store quick menu controls for leaving an active level.
   let playfieldMenuButton = null;
   let playfieldMenuPanel = null;
+  let playfieldMenuCommence = null;
   let playfieldMenuLevelSelect = null;
   let playfieldMenuRetryWave = null;
   let playfieldMenuLevelSelectConfirming = false;
@@ -3631,10 +3654,16 @@ import {
       overlayPreview.setAttribute('aria-hidden', 'false');
       overlayPreview.classList.add('overlay-preview--active');
 
+      const preferredOrientation =
+        playfield && typeof playfield.layoutOrientation === 'string'
+          ? playfield.layoutOrientation
+          : null;
       previewPlayfield = new SimplePlayfield({
         canvas: overlayPreviewCanvas,
         container: overlayPreview,
         previewOnly: true,
+        // Align the preview orientation with the active battlefield when available.
+        preferredOrientation,
       });
       previewPlayfield.enterLevel(level, { endlessMode: false });
       previewPlayfield.draw();
@@ -6836,6 +6865,7 @@ import {
     // Store quick menu controls that surface the level selection confirmation.
     playfieldMenuButton = document.getElementById('playfield-menu-button');
     playfieldMenuPanel = document.getElementById('playfield-menu-panel');
+    playfieldMenuCommence = document.getElementById('playfield-menu-commence');
     playfieldMenuLevelSelect = document.getElementById('playfield-menu-level-select');
     playfieldMenuRetryWave = document.getElementById('playfield-menu-retry-wave');
     if (playfieldMenuLevelSelect) {
@@ -6851,6 +6881,12 @@ import {
       playfieldMenuLevelSelect.addEventListener('click', (event) => {
         event.preventDefault();
         handleReturnToLevelSelection();
+      });
+    }
+    if (playfieldMenuCommence) {
+      playfieldMenuCommence.addEventListener('click', (event) => {
+        event.preventDefault();
+        handleCommenceWaveFromMenu();
       });
     }
     if (playfieldMenuRetryWave) {
