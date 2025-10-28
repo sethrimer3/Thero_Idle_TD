@@ -23,6 +23,8 @@ const PHYSICS_CONFIG = {
   repulsionStrength: 60000,
   damping: 0.94,
   maxDelta: 0.05,
+  /** Maximum velocity (in px/s) imparted when flinging a node. */
+  maxDragVelocity: 1400,
 };
 
 const towerTreeState = {
@@ -46,6 +48,12 @@ const towerTreeState = {
     startPointer: { x: 0, y: 0 },
     startPosition: { x: 0, y: 0 },
     moved: false,
+    /** Last pointer sample captured while dragging to calculate fling velocity. */
+    lastPointer: { x: 0, y: 0, time: 0 },
+    /** Last clamped node position to smooth velocity calculations. */
+    lastPosition: { x: 0, y: 0 },
+    /** Pointer velocity preserved between move events for fling behavior. */
+    velocity: { x: 0, y: 0 },
   },
 };
 
@@ -82,6 +90,17 @@ function normalizeEquationText(rawEquation) {
     .replace(/[{}]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** Normalizes an event timestamp into a numeric value for drag velocity math. */
+function resolveTimestamp(event) {
+  if (event && Number.isFinite(event.timeStamp)) {
+    return event.timeStamp;
+  }
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now();
+  }
+  return Date.now();
 }
 
 function extractTowerEquation(towerId) {
@@ -263,13 +282,21 @@ function clampNodePosition(x, y) {
 }
 
 /** Updates a node's stored position, anchor, and DOM placement in one step. */
-function setNodePosition(node, x, y) {
+function setNodePosition(node, x, y, options = {}) {
+  if (!node) {
+    return;
+  }
+  const { updateAnchor = true, resetVelocity = true } = options;
   node.position.x = x;
   node.position.y = y;
-  node.anchor.x = x;
-  node.anchor.y = y;
-  node.velocity.x = 0;
-  node.velocity.y = 0;
+  if (updateAnchor) {
+    node.anchor.x = x;
+    node.anchor.y = y;
+  }
+  if (resetVelocity) {
+    node.velocity.x = 0;
+    node.velocity.y = 0;
+  }
   applyNodeDomPosition(node);
 }
 
@@ -286,6 +313,15 @@ function beginNodeDrag(event, nodeRecord) {
   towerTreeState.dragState.startPointer = { x: event.clientX, y: event.clientY };
   towerTreeState.dragState.startPosition = { ...nodeRecord.position };
   towerTreeState.dragState.moved = false;
+  towerTreeState.dragState.lastPointer = {
+    x: event.clientX,
+    y: event.clientY,
+    time: resolveTimestamp(event),
+  };
+  towerTreeState.dragState.lastPosition = { ...nodeRecord.position };
+  towerTreeState.dragState.velocity = { x: 0, y: 0 };
+  nodeRecord.velocity.x = 0;
+  nodeRecord.velocity.y = 0;
   nodeRecord.orbit.setPointerCapture(event.pointerId);
   nodeRecord.orbit.dataset.dragging = 'true';
 }
@@ -310,7 +346,24 @@ function handleNodePointerMove(event) {
   const unclampedX = dragState.startPosition.x + dx;
   const unclampedY = dragState.startPosition.y + dy;
   const { x, y } = clampNodePosition(unclampedX, unclampedY);
-  setNodePosition(nodeRecord, x, y);
+  setNodePosition(nodeRecord, x, y, { updateAnchor: true, resetVelocity: false });
+
+  const lastPointer =
+    dragState.lastPointer || { x: event.clientX, y: event.clientY, time: resolveTimestamp(event) };
+  const lastPosition = dragState.lastPosition || { x, y };
+  const now = resolveTimestamp(event);
+  const dt = Math.max(0, (now - (lastPointer.time || now)) / 1000);
+  if (dt > 0) {
+    const vx = (x - lastPosition.x) / dt;
+    const vy = (y - lastPosition.y) / dt;
+    const maxSpeed = PHYSICS_CONFIG.maxDragVelocity;
+    // Clamp the fling speed so the constellation never snaps off screen.
+    const clampedVx = Math.max(-maxSpeed, Math.min(maxSpeed, vx));
+    const clampedVy = Math.max(-maxSpeed, Math.min(maxSpeed, vy));
+    dragState.velocity = { x: clampedVx, y: clampedVy };
+  }
+  dragState.lastPointer = { x: event.clientX, y: event.clientY, time: now };
+  dragState.lastPosition = { x, y };
   updateLinkPositions();
 }
 
@@ -322,6 +375,7 @@ function endNodeDrag(event) {
   }
   const nodeRecord = towerTreeState.nodes.get(dragState.nodeId);
   const movedDuringDrag = dragState.moved;
+  const flingVelocity = movedDuringDrag ? { ...dragState.velocity } : { x: 0, y: 0 };
   dragState.active = false;
   dragState.pointerId = null;
   dragState.nodeId = null;
@@ -329,12 +383,25 @@ function endNodeDrag(event) {
   if (nodeRecord) {
     nodeRecord.orbit.releasePointerCapture(event.pointerId);
     nodeRecord.orbit.removeAttribute('data-dragging');
+    const clamped = clampNodePosition(nodeRecord.position.x, nodeRecord.position.y);
+    setNodePosition(nodeRecord, clamped.x, clamped.y, { updateAnchor: true, resetVelocity: false });
+    if (movedDuringDrag) {
+      // Apply the preserved pointer velocity so the node keeps gliding after release.
+      nodeRecord.velocity.x = flingVelocity.x;
+      nodeRecord.velocity.y = flingVelocity.y;
+    }
   }
+  dragState.velocity = { x: 0, y: 0 };
+  dragState.lastPointer = { x: 0, y: 0, time: 0 };
+  dragState.lastPosition = { x: 0, y: 0 };
   if (!nodeRecord) {
     return;
   }
   if (!movedDuringDrag) {
     openTowerOverlayFromTree(nodeRecord.id, nodeRecord.orbit);
+  }
+  if (!towerTreeState.animationHandle) {
+    startSimulation();
   }
   updateLinkPositions();
 }
@@ -349,6 +416,9 @@ function cancelNodeDrag(event) {
   towerTreeState.dragState.pointerId = null;
   towerTreeState.dragState.nodeId = null;
   towerTreeState.dragState.moved = false;
+  towerTreeState.dragState.velocity = { x: 0, y: 0 };
+  towerTreeState.dragState.lastPointer = { x: 0, y: 0, time: 0 };
+  towerTreeState.dragState.lastPosition = { x: 0, y: 0 };
   if (nodeRecord) {
     try {
       // Release any lingering capture so the cursor state resets cleanly.
@@ -497,7 +567,18 @@ function stepSimulation(timestamp) {
   applyAnchorForces();
   applyBoundaryForces(containerWidth, containerHeight);
 
-  towerTreeState.nodes.forEach((node) => {
+  const draggedNodeId = towerTreeState.dragState.active
+    ? towerTreeState.dragState.nodeId
+    : null;
+
+  towerTreeState.nodes.forEach((node, nodeId) => {
+    if (nodeId === draggedNodeId) {
+      // Skip integration for the actively dragged node so pointer control feels precise.
+      node.velocity.x = 0;
+      node.velocity.y = 0;
+      applyNodeDomPosition(node);
+      return;
+    }
     const accelX = node.force.x;
     const accelY = node.force.y;
     node.velocity.x = (node.velocity.x + accelX * delta) * PHYSICS_CONFIG.damping;
@@ -629,21 +710,12 @@ function refreshTreeInternal() {
       // Prevent duplicate focus-triggered clicks after the drag handlers finish.
       event.preventDefault();
     });
-    // Attach pointer and keyboard handlers so players can drag and inspect nodes.
-    node.orbit.addEventListener('pointerdown', (event) => beginNodeDrag(event, nodes.get(towerId)));
-    node.orbit.addEventListener('pointermove', handleNodePointerMove);
-    node.orbit.addEventListener('pointerup', endNodeDrag);
-    node.orbit.addEventListener('pointercancel', cancelNodeDrag);
-    node.orbit.addEventListener('keydown', (event) => handleNodeKeyDown(event, nodes.get(towerId)));
-    node.orbit.addEventListener('click', (event) => {
-      // Prevent duplicate focus-triggered clicks after the drag handlers finish.
-      event.preventDefault();
-    });
   });
 
   towerTreeState.nodes = nodes;
   towerTreeState.edges = buildTreeLinks(definitions, edges);
   updateLinkPositions();
+  startSimulation();
   towerTreeState.needsRefresh = false;
 }
 
