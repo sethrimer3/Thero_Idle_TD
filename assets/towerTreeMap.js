@@ -40,6 +40,8 @@ const towerTreeState = {
   lastTimestamp: null,
   // Stores the current half-width of nodes so bounds and forces respect their size.
   nodeRadius: PHYSICS_CONFIG.nodeDiameter / 2,
+  /** Tracks the offset between the viewport container and the node/link layers. */
+  linkOrigin: { x: 0, y: 0 },
   /** Tracks the drag interaction currently being performed on the tree. */
   dragState: {
     active: false,
@@ -100,15 +102,44 @@ function stopSimulation() {
 // Resolve the current map dimensions so camera transforms have reliable measurements.
 function getMapMetrics() {
   const container = towerTreeState.mapContainer;
+  const nodeLayer = towerTreeState.nodeLayer;
   if (!container) {
-    return { width: 0, height: 0, rect: null };
+    return {
+      viewportWidth: 0,
+      viewportHeight: 0,
+      worldWidth: 0,
+      worldHeight: 0,
+      rect: null,
+      nodeRect: null,
+    };
   }
   const rect = typeof container.getBoundingClientRect === 'function'
     ? container.getBoundingClientRect()
     : null;
-  const width = container.clientWidth || rect?.width || 0;
-  const height = container.clientHeight || rect?.height || 0;
-  return { width, height, rect };
+  // Sample both the viewport (visible area) and the physics canvas so panning math stays in sync.
+  const nodeRect = typeof nodeLayer?.getBoundingClientRect === 'function'
+    ? nodeLayer.getBoundingClientRect()
+    : null;
+  const viewportWidth = nodeRect?.width
+    || nodeLayer?.offsetWidth
+    || container.clientWidth
+    || rect?.width
+    || 0;
+  const viewportHeight = nodeRect?.height
+    || nodeLayer?.offsetHeight
+    || container.clientHeight
+    || rect?.height
+    || 0;
+  const worldWidth = nodeLayer?.offsetWidth || viewportWidth;
+  const worldHeight = nodeLayer?.offsetHeight || viewportHeight;
+  return {
+    viewportWidth,
+    viewportHeight,
+    worldWidth,
+    worldHeight,
+    rect,
+    nodeRect,
+  };
 }
 
 // Clamp the camera center so zoomed views never drift beyond the constellation bounds.
@@ -116,9 +147,16 @@ function clampViewCenterNormalized(normalized) {
   if (!normalized) {
     return { x: 0.5, y: 0.5 };
   }
+  const metrics = getMapMetrics();
+  const viewportWidth = Math.max(metrics.viewportWidth || 0, 0);
+  const viewportHeight = Math.max(metrics.viewportHeight || 0, 0);
+  const worldWidth = Math.max(metrics.worldWidth || 0, 0);
+  const worldHeight = Math.max(metrics.worldHeight || 0, 0);
   const scale = Math.max(towerTreeState.view.scale || 1, 0.0001);
-  const halfX = Math.min(0.5, 0.5 / scale);
-  const halfY = Math.min(0.5, 0.5 / scale);
+  const viewportRatioX = worldWidth > 0 ? viewportWidth / worldWidth : 1;
+  const viewportRatioY = worldHeight > 0 ? viewportHeight / worldHeight : 1;
+  const halfX = Math.min(0.5, (viewportRatioX / (2 * scale)) || 0.5);
+  const halfY = Math.min(0.5, (viewportRatioY / (2 * scale)) || 0.5);
   const clamp = (value, min, max) => {
     if (min > max) {
       return 0.5;
@@ -133,22 +171,22 @@ function clampViewCenterNormalized(normalized) {
 
 // Apply the stored camera transform to the DOM layers so nodes and links move in sync.
 function applyViewTransform() {
-  const { width, height } = getMapMetrics();
-  if (!width || !height) {
+  const { viewportWidth, viewportHeight, worldWidth, worldHeight } = getMapMetrics();
+  if (!viewportWidth || !viewportHeight || !worldWidth || !worldHeight) {
     return;
   }
   const scale = towerTreeState.view.scale || 1;
   const center = towerTreeState.view.center || { x: 0.5, y: 0.5 };
-  const centerWorld = { x: width * center.x, y: height * center.y };
-  const translateX = width / 2 - scale * centerWorld.x;
-  const translateY = height / 2 - scale * centerWorld.y;
+  const centerWorld = { x: worldWidth * center.x, y: worldHeight * center.y };
+  const translateX = viewportWidth / 2 - scale * centerWorld.x;
+  const translateY = viewportHeight / 2 - scale * centerWorld.y;
   const transform = `matrix(${scale}, 0, 0, ${scale}, ${translateX}, ${translateY})`;
   if (towerTreeState.nodeLayer) {
-    towerTreeState.nodeLayer.style.transformOrigin = '0 0';
+    towerTreeState.nodeLayer.style.transformOrigin = '0px 0px';
     towerTreeState.nodeLayer.style.transform = transform;
   }
   if (towerTreeState.linkLayer) {
-    towerTreeState.linkLayer.style.transformOrigin = '0 0';
+    towerTreeState.linkLayer.style.transformOrigin = '0px 0px';
     towerTreeState.linkLayer.style.transformBox = 'fill-box';
     towerTreeState.linkLayer.style.transform = transform;
   }
@@ -166,17 +204,20 @@ function getTreeWorldPoint(point) {
     return null;
   }
   const metrics = getMapMetrics();
-  const { width, height, rect } = metrics;
-  if (!width || !height || !rect) {
+  const { viewportWidth, viewportHeight, worldWidth, worldHeight, rect } = metrics;
+  if (!viewportWidth || !viewportHeight || !rect) {
     return null;
   }
   const scale = towerTreeState.view.scale || 1;
   const center = towerTreeState.view.center || { x: 0.5, y: 0.5 };
-  const centerWorld = { x: width * center.x, y: height * center.y };
-  const offsetX = width / 2 - scale * centerWorld.x;
-  const offsetY = height / 2 - scale * centerWorld.y;
-  const localX = point.clientX - rect.left;
-  const localY = point.clientY - rect.top;
+  const centerWorld = { x: worldWidth * center.x, y: worldHeight * center.y };
+  const offsetX = viewportWidth / 2 - scale * centerWorld.x;
+  const offsetY = viewportHeight / 2 - scale * centerWorld.y;
+  // Compensate for the panel padding so pointer math maps to the world origin.
+  const originX = towerTreeState.linkOrigin?.x || 0;
+  const originY = towerTreeState.linkOrigin?.y || 0;
+  const localX = point.clientX - rect.left - originX;
+  const localY = point.clientY - rect.top - originY;
   if (!Number.isFinite(localX) || !Number.isFinite(localY)) {
     return null;
   }
@@ -185,8 +226,8 @@ function getTreeWorldPoint(point) {
   return {
     x: worldX,
     y: worldY,
-    normalizedX: worldX / width,
-    normalizedY: worldY / height,
+    normalizedX: worldWidth ? worldX / worldWidth : 0.5,
+    normalizedY: worldHeight ? worldY / worldHeight : 0.5,
   };
 }
 
@@ -203,16 +244,28 @@ function setTreeZoom(targetScale, anchorPoint = null) {
     : 2.4;
   const clampedScale = Math.min(maxScale, Math.max(minScale, targetScale));
   const metrics = getMapMetrics();
-  const { width, height, rect } = metrics;
+  const {
+    viewportWidth,
+    viewportHeight,
+    worldWidth,
+    worldHeight,
+    rect,
+  } = metrics;
   towerTreeState.view.scale = clampedScale;
-  if (anchorPoint && width && height && rect) {
+  if (anchorPoint && viewportWidth && viewportHeight && rect) {
     const anchorWorld = getTreeWorldPoint(anchorPoint);
     if (anchorWorld) {
-      const localX = anchorPoint.clientX - rect.left;
-      const localY = anchorPoint.clientY - rect.top;
-      const centerWorldX = (width / 2 - localX) / clampedScale + anchorWorld.x;
-      const centerWorldY = (height / 2 - localY) / clampedScale + anchorWorld.y;
-      setViewCenterNormalized({ x: centerWorldX / width, y: centerWorldY / height });
+      // Preserve the pointer's world position by removing the static padding offset first.
+      const originX = towerTreeState.linkOrigin?.x || 0;
+      const originY = towerTreeState.linkOrigin?.y || 0;
+      const localX = anchorPoint.clientX - rect.left - originX;
+      const localY = anchorPoint.clientY - rect.top - originY;
+      const centerWorldX = (viewportWidth / 2 - localX) / clampedScale + anchorWorld.x;
+      const centerWorldY = (viewportHeight / 2 - localY) / clampedScale + anchorWorld.y;
+      setViewCenterNormalized({
+        x: worldWidth ? centerWorldX / worldWidth : 0.5,
+        y: worldHeight ? centerWorldY / worldHeight : 0.5,
+      });
       return;
     }
   }
@@ -318,13 +371,25 @@ function clearTreeLayers() {
   towerTreeState.dragState.pointerId = null;
   towerTreeState.dragState.nodeId = null;
   towerTreeState.dragState.moved = false;
+  // Reset the viewport offset cache so pointer math recalculates accurately on rebuild.
+  towerTreeState.linkOrigin = { x: 0, y: 0 };
   if (towerTreeState.nodeLayer) {
     towerTreeState.nodeLayer.innerHTML = '';
+    towerTreeState.nodeLayer.style.width = '';
+    towerTreeState.nodeLayer.style.height = '';
   }
   if (towerTreeState.linkLayer) {
     while (towerTreeState.linkLayer.firstChild) {
       towerTreeState.linkLayer.removeChild(towerTreeState.linkLayer.firstChild);
     }
+    towerTreeState.linkLayer.setAttribute('viewBox', '0 0 0 0');
+    towerTreeState.linkLayer.removeAttribute('width');
+    towerTreeState.linkLayer.removeAttribute('height');
+    towerTreeState.linkLayer.style.width = '';
+    towerTreeState.linkLayer.style.height = '';
+  }
+  if (towerTreeState.mapContainer) {
+    towerTreeState.mapContainer.style.minHeight = '';
   }
 }
 
@@ -374,6 +439,17 @@ function buildTreeLinks(definitions, edges) {
   towerTreeState.linkLayer.setAttribute('width', String(width));
   towerTreeState.linkLayer.setAttribute('height', String(height));
   towerTreeState.linkLayer.setAttribute('preserveAspectRatio', 'none');
+  // Mirror the node layer's physical canvas so link transforms stay pixel-aligned.
+  towerTreeState.linkLayer.style.width = `${width}px`;
+  towerTreeState.linkLayer.style.height = `${height}px`;
+  const offsetX = layerRect && containerRect
+    ? layerRect.left - containerRect.left
+    : (towerTreeState.nodeLayer?.offsetLeft || 0);
+  const offsetY = layerRect && containerRect
+    ? layerRect.top - containerRect.top
+    : (towerTreeState.nodeLayer?.offsetTop || 0);
+  // Store how far the world canvas sits inside the padded container for pointer math.
+  towerTreeState.linkOrigin = { x: offsetX, y: offsetY };
   const tierById = new Map();
   definitions.forEach((definition) => {
     const tierValue = Number.isFinite(definition.tier) ? definition.tier : 0;
@@ -944,10 +1020,11 @@ function computeNodeLayout(towers) {
   });
   const tierOrder = [...unlockedTiers.keys()].sort((a, b) => a - b);
   const mapHeight = Math.max(260, tierOrder.length * 180);
-  towerTreeState.mapContainer.style.minHeight = `${mapHeight}px`;
   const paddingBottom = 72;
   const availableHeight = mapHeight - paddingBottom;
-  const containerWidth = towerTreeState.nodeLayer?.offsetWidth || towerTreeState.mapContainer.clientWidth || 600;
+  const containerWidth = towerTreeState.nodeLayer?.offsetWidth
+    || towerTreeState.mapContainer.clientWidth
+    || 600;
   const positions = new Map();
   const equations = new Map();
 
@@ -986,6 +1063,16 @@ function computeNodeLayout(towers) {
       }
     });
   });
+
+  if (towerTreeState.nodeLayer) {
+    // Resize the physics canvas so the viewport can pan across the entire layout.
+    towerTreeState.nodeLayer.style.width = `${Math.max(1, containerWidth)}px`;
+    towerTreeState.nodeLayer.style.height = `${Math.max(1, mapHeight)}px`;
+  }
+  if (towerTreeState.linkLayer) {
+    towerTreeState.linkLayer.style.width = `${Math.max(1, containerWidth)}px`;
+    towerTreeState.linkLayer.style.height = `${Math.max(1, mapHeight)}px`;
+  }
 
   return { positions, edges };
 }
@@ -1049,6 +1136,7 @@ function refreshTreeInternal() {
   towerTreeState.nodes = nodes;
   towerTreeState.edges = buildTreeLinks(definitions, edges);
   updateLinkPositions();
+  towerTreeState.view.center = clampViewCenterNormalized(towerTreeState.view.center);
   applyViewTransform();
   startSimulation();
   towerTreeState.needsRefresh = false;
