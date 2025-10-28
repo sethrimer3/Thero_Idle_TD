@@ -629,12 +629,21 @@ function refreshTreeInternal() {
       // Prevent duplicate focus-triggered clicks after the drag handlers finish.
       event.preventDefault();
     });
+    // Attach pointer and keyboard handlers so players can drag and inspect nodes.
+    node.orbit.addEventListener('pointerdown', (event) => beginNodeDrag(event, nodes.get(towerId)));
+    node.orbit.addEventListener('pointermove', handleNodePointerMove);
+    node.orbit.addEventListener('pointerup', endNodeDrag);
+    node.orbit.addEventListener('pointercancel', cancelNodeDrag);
+    node.orbit.addEventListener('keydown', (event) => handleNodeKeyDown(event, nodes.get(towerId)));
+    node.orbit.addEventListener('click', (event) => {
+      // Prevent duplicate focus-triggered clicks after the drag handlers finish.
+      event.preventDefault();
+    });
   });
 
   towerTreeState.nodes = nodes;
   towerTreeState.edges = buildTreeLinks(definitions, edges);
   updateLinkPositions();
-  startSimulation();
   towerTreeState.needsRefresh = false;
 }
 
