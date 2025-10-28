@@ -2343,7 +2343,7 @@ export class SimplePlayfield {
     const ringRadius = 12 * scale;
     const focusRadius = ringRadius + 6 * scale;
     const symbolSize = Math.round(Math.min(34, Math.max(16, 17 * scale)));
-    const exponentSize = Math.round(Math.min(26, Math.max(11, 13 * scale * 0.9)));
+    const exponentSize = Math.round(Math.min(22, Math.max(9, 12 * scale * 0.62)));
 
     return { scale, coreRadius, ringRadius, focusRadius, symbolSize, exponentSize };
   }
@@ -5225,15 +5225,18 @@ export class SimplePlayfield {
       ctx.textBaseline = 'middle';
       ctx.fillText(symbol || '?', 0, 0);
 
-      ctx.font = `${metrics.exponentSize}px "Space Mono", monospace`;
-      ctx.textAlign = 'left';
+      ctx.font = `${metrics.exponentSize}px "Cormorant Garamond", serif`;
+      ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
       const exponentLabel = exponent.toFixed(1);
       const exponentColor = this.resolveEnemyExponentColor(enemy);
       // Paint the exponent with the threat-informed palette so players grasp incoming danger immediately.
       ctx.fillStyle = exponentColor;
       // Display the precise exponent so each glyph telegraphs its ten-power health tier.
-      ctx.fillText(exponentLabel, metrics.coreRadius * 0.35, -metrics.coreRadius * 0.6);
+      const exponentOffsetX = metrics.ringRadius * 0.94;
+      const exponentOffsetY = -metrics.ringRadius * 0.98;
+      // Anchor the exponent to the enemy's top-right quadrant so the scientific notation reads cleanly above the glyph.
+      ctx.fillText(exponentLabel, exponentOffsetX, exponentOffsetY);
 
       if (this.focusedEnemyId === enemy.id) {
         // Draw a rotating focus marker so players can track the prioritized enemy.
