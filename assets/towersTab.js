@@ -304,50 +304,33 @@ function resolveBetaExponent(towerId) {
 const TOWER_EQUATION_BLUEPRINTS = {
   alpha: {
     mathSymbol: '\\alpha',
-    baseEquation: '\\( \\alpha = 5 \\times Atk \\times Spd \\times Tmp \\)',
+    baseEquation: '\\( \\alpha = Atk \\)',
     variables: [
       {
-        key: 'damage',
+        key: 'atk',
         symbol: 'Atk',
         name: 'Attack',
         description: 'Projectile damage carried by each glyph bullet.',
-        baseValue: 1,
-        step: 1,
+        baseValue: 5,
+        step: 5,
         upgradable: true,
         format: (value) => `${formatWholeNumber(value)} Atk`,
         cost: (level) => Math.max(1, 1 + level),
-      },
-      {
-        key: 'rate',
-        symbol: 'Spd',
-        name: 'Attack Speed',
-        description: 'Glyph pulses per second channelled through the lattice.',
-        baseValue: 1,
-        step: 1,
-        upgradable: true,
-        format: (value) => `${formatWholeNumber(value)} Spd`,
-        cost: (level) => Math.max(1, 1 + level),
-      },
-      {
-        key: 'tempo',
-        symbol: 'Tmp',
-        name: 'Tempo',
-        description: 'Echo pulses per second braided into α tempo.',
-        baseValue: 1,
-        step: 1,
-        upgradable: true,
-        format: (value) => `${formatWholeNumber(value)} Tmp`,
-        cost: (level) => Math.max(1, 1 + level),
+        getSubEquations({ level, value }) {
+          const glyphRank = Math.max(1, Number.isFinite(level) ? level + 1 : 1);
+          const attackValue = formatWholeNumber(Number.isFinite(value) ? value : 0);
+          return [
+            `\\( Atk = 5 \\times Glyph_{1} = 5 \\times ${formatWholeNumber(glyphRank)} = ${attackValue} \\)`,
+          ];
+        },
       },
     ],
     computeResult(values) {
-      const damage = Number.isFinite(values.damage) ? values.damage : 0;
-      const rate = Number.isFinite(values.rate) ? values.rate : 0;
-      const tempo = Number.isFinite(values.tempo) ? values.tempo : 0;
-      return 5 * damage * rate * tempo;
+      const attack = Number.isFinite(values.atk) ? values.atk : 0;
+      return attack;
     },
     formatGoldenEquation({ formatVariable, formatResult }) {
-      return `\\( ${formatResult()} = 5 \\times ${formatVariable('damage')} \\times ${formatVariable('rate')} \\times ${formatVariable('tempo')} \\)`;
+      return `\\( ${formatResult()} = ${formatVariable('atk')} \\)`;
     },
   },
   beta: {
@@ -1865,6 +1848,48 @@ function formatTowerVariableValue(variable, value) {
   return Number.isInteger(value) ? formatWholeNumber(value) : formatDecimal(value, 2);
 }
 
+function resolveTowerVariableSubEquations(variable, context = {}) {
+  if (!variable) {
+    return [];
+  }
+
+  const lines = [];
+  const collect = (entry) => {
+    if (!entry) {
+      return;
+    }
+    if (Array.isArray(entry)) {
+      entry.forEach((value) => collect(value));
+      return;
+    }
+    if (typeof entry === 'function') {
+      try {
+        collect(entry(context));
+      } catch (error) {
+        console.warn('Failed to evaluate tower variable sub-equation', error);
+      }
+      return;
+    }
+    if (typeof entry === 'string') {
+      const trimmed = entry.trim();
+      if (trimmed) {
+        lines.push(trimmed);
+      }
+    }
+  };
+
+  if (typeof variable.getSubEquations === 'function') {
+    collect(variable.getSubEquations(context));
+  }
+  collect(variable.subEquations);
+  collect(variable.subEquation);
+  if (typeof variable.getSubEquation === 'function') {
+    collect(variable.getSubEquation(context));
+  }
+
+  return lines;
+}
+
 function formatTowerEquationResultValue(value) {
   if (!Number.isFinite(value)) {
     return '0';
@@ -1928,8 +1953,10 @@ function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
   }
 
   const fragment = document.createDocumentFragment();
+  const mathElements = [];
   blueprintVariables.forEach((variable) => {
     const value = Number.isFinite(values[variable.key]) ? values[variable.key] : 0;
+    const level = state.variables?.[variable.key]?.level || 0;
     const item = document.createElement('div');
     item.className = 'tower-upgrade-variable';
     item.setAttribute('role', 'listitem');
@@ -1962,6 +1989,32 @@ function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
     header.append(summary);
     item.append(header);
 
+    const subEquationLines = resolveTowerVariableSubEquations(variable, {
+      level,
+      value,
+      variable,
+      towerId,
+      blueprint,
+      values,
+      formatValue: () => formatTowerVariableValue(variable, value),
+      formatWholeNumber,
+      formatDecimal,
+      formatGameNumber,
+    });
+
+    if (subEquationLines.length) {
+      const equations = document.createElement('div');
+      equations.className = 'tower-upgrade-variable-equations';
+      subEquationLines.forEach((line) => {
+        const lineEl = document.createElement('p');
+        lineEl.className = 'tower-upgrade-variable-equation-line';
+        lineEl.textContent = line;
+        equations.append(lineEl);
+      });
+      item.append(equations);
+      mathElements.push(equations);
+    }
+
     const footer = document.createElement('div');
     footer.className = 'tower-upgrade-variable-footer';
 
@@ -1973,7 +2026,6 @@ function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
     valueEl.textContent = formatTowerVariableValue(variable, value);
     stats.append(valueEl);
 
-    const level = state.variables?.[variable.key]?.level || 0;
     const levelEl = document.createElement('span');
     levelEl.className = 'tower-upgrade-variable-level';
     levelEl.textContent = level ? `+${level}` : 'Base';
@@ -2034,6 +2086,7 @@ function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
   });
 
   container.append(fragment);
+  mathElements.forEach((element) => renderMathElement(element));
   syncTowerVariableCardVisibility();
 }
 export function renderTowerUpgradeOverlay(towerId, options = {}) {
