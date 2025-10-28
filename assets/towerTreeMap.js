@@ -3,6 +3,7 @@ import {
   getTowerDefinitions,
   getTowerUnlockState,
   getTowerEquationBlueprint,
+  openTowerUpgradeOverlay,
 } from './towersTab.js';
 import { convertMathExpressionToPlainText } from '../scripts/core/mathText.js';
 
@@ -35,7 +36,29 @@ const towerTreeState = {
   edges: [],
   animationHandle: null,
   lastTimestamp: null,
+  // Stores the current half-width of nodes so bounds and forces respect their size.
+  nodeRadius: PHYSICS_CONFIG.nodeDiameter / 2,
+  /** Tracks the drag interaction currently being performed on the tree. */
+  dragState: {
+    active: false,
+    pointerId: null,
+    nodeId: null,
+    startPointer: { x: 0, y: 0 },
+    startPosition: { x: 0, y: 0 },
+    moved: false,
+  },
 };
+
+/** Positions a DOM node so its mathematical center matches the physics coordinates. */
+function applyNodeDomPosition(node) {
+  if (!node?.element) {
+    return;
+  }
+  const halfWidth = (node.size?.width ?? PHYSICS_CONFIG.nodeDiameter) / 2;
+  const halfHeight = (node.size?.height ?? PHYSICS_CONFIG.nodeDiameter) / 2;
+  node.element.style.left = `${node.position.x - halfWidth}px`;
+  node.element.style.top = `${node.position.y - halfHeight}px`;
+}
 
 function stopSimulation() {
   if (towerTreeState.animationHandle !== null) {
@@ -118,6 +141,12 @@ function clearTreeLayers() {
   stopSimulation();
   towerTreeState.nodes.clear();
   towerTreeState.edges = [];
+  towerTreeState.nodeRadius = PHYSICS_CONFIG.nodeDiameter / 2;
+  // Reset drag tracking so stale references do not linger between refreshes.
+  towerTreeState.dragState.active = false;
+  towerTreeState.dragState.pointerId = null;
+  towerTreeState.dragState.nodeId = null;
+  towerTreeState.dragState.moved = false;
   if (towerTreeState.nodeLayer) {
     towerTreeState.nodeLayer.innerHTML = '';
   }
@@ -131,8 +160,6 @@ function clearTreeLayers() {
 function createTreeNode(definition, position, indexInTier) {
   const node = document.createElement('div');
   node.className = 'tower-tree-node';
-  node.style.left = `${position.x}px`;
-  node.style.top = `${position.y}px`;
 
   const orbit = document.createElement('div');
   orbit.className = 'tower-tree-node-orbit';
@@ -161,8 +188,20 @@ function buildTreeLinks(definitions, edges) {
   if (!towerTreeState.linkLayer || !towerTreeState.mapContainer) {
     return [];
   }
-  const rect = towerTreeState.mapContainer.getBoundingClientRect();
-  towerTreeState.linkLayer.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+  const layerRect = towerTreeState.nodeLayer?.getBoundingClientRect();
+  const containerRect = towerTreeState.mapContainer.getBoundingClientRect();
+  // Fallback dimensions keep the SVG scalable even before layout settles on first open.
+  const width = Math.max(
+    1,
+    layerRect?.width || containerRect.width || towerTreeState.mapContainer.clientWidth || 0,
+  );
+  const height = Math.max(
+    1,
+    layerRect?.height || containerRect.height || towerTreeState.mapContainer.clientHeight || 0,
+  );
+  towerTreeState.linkLayer.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  towerTreeState.linkLayer.setAttribute('width', String(width));
+  towerTreeState.linkLayer.setAttribute('height', String(height));
   towerTreeState.linkLayer.setAttribute('preserveAspectRatio', 'none');
   const tierById = new Map();
   definitions.forEach((definition) => {
@@ -176,6 +215,9 @@ function buildTreeLinks(definitions, edges) {
   return edges.map(([fromId, toId]) => {
     const line = document.createElementNS(SVG_NS, 'line');
     line.classList.add('tower-tree-link');
+    // Ensure map links remain smooth and rounded for better visibility.
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('stroke-linejoin', 'round');
     towerTreeState.linkLayer.append(line);
     const fromTier = tierById.get(fromId) ?? 0;
     const toTier = tierById.get(toId) ?? 0;
@@ -187,6 +229,149 @@ function buildTreeLinks(definitions, edges) {
       targetLength: baseLength * tierDistance,
     };
   });
+}
+
+/** Returns the tower card element that corresponds with a given node. */
+function getTowerCardElement(towerId) {
+  return (
+    towerTreeState.cardGrid?.querySelector(`.card[data-tower-id="${towerId}"]`) || null
+  );
+}
+
+/** Opens the tower upgrade overlay using the data connected to a map node. */
+function openTowerOverlayFromTree(towerId, triggerElement) {
+  const sourceCard = getTowerCardElement(towerId);
+  openTowerUpgradeOverlay(towerId, { sourceCard, trigger: triggerElement });
+}
+
+/** Clamps a node position so it stays inside the visible tree canvas. */
+function clampNodePosition(x, y) {
+  const containerWidth = towerTreeState.nodeLayer?.offsetWidth || 0;
+  const containerHeight = towerTreeState.nodeLayer?.offsetHeight || 0;
+  const padding = Math.max(
+    towerTreeState.nodeRadius,
+    PHYSICS_CONFIG.nodeDiameter * PHYSICS_CONFIG.boundaryPaddingMultiplier,
+  );
+  const minX = padding;
+  const maxX = Math.max(padding, containerWidth - padding);
+  const minY = padding;
+  const maxY = Math.max(padding, containerHeight - padding);
+  return {
+    x: Math.min(Math.max(x, minX), maxX),
+    y: Math.min(Math.max(y, minY), maxY),
+  };
+}
+
+/** Updates a node's stored position, anchor, and DOM placement in one step. */
+function setNodePosition(node, x, y) {
+  node.position.x = x;
+  node.position.y = y;
+  node.anchor.x = x;
+  node.anchor.y = y;
+  node.velocity.x = 0;
+  node.velocity.y = 0;
+  applyNodeDomPosition(node);
+}
+
+/** Begins a drag interaction when the player presses a node with the pointer. */
+function beginNodeDrag(event, nodeRecord) {
+  if (!nodeRecord || event.button !== 0) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  towerTreeState.dragState.active = true;
+  towerTreeState.dragState.pointerId = event.pointerId;
+  towerTreeState.dragState.nodeId = nodeRecord.id;
+  towerTreeState.dragState.startPointer = { x: event.clientX, y: event.clientY };
+  towerTreeState.dragState.startPosition = { ...nodeRecord.position };
+  towerTreeState.dragState.moved = false;
+  nodeRecord.orbit.setPointerCapture(event.pointerId);
+  nodeRecord.orbit.dataset.dragging = 'true';
+}
+
+/** Moves the active node while the pointer is dragged across the tree. */
+function handleNodePointerMove(event) {
+  const { dragState } = towerTreeState;
+  if (!dragState.active || dragState.pointerId !== event.pointerId) {
+    return;
+  }
+  event.preventDefault();
+  const nodeRecord = towerTreeState.nodes.get(dragState.nodeId);
+  if (!nodeRecord) {
+    return;
+  }
+  const dx = event.clientX - dragState.startPointer.x;
+  const dy = event.clientY - dragState.startPointer.y;
+  const distance = Math.hypot(dx, dy);
+  if (!dragState.moved && distance > 4) {
+    dragState.moved = true;
+  }
+  const unclampedX = dragState.startPosition.x + dx;
+  const unclampedY = dragState.startPosition.y + dy;
+  const { x, y } = clampNodePosition(unclampedX, unclampedY);
+  setNodePosition(nodeRecord, x, y);
+  updateLinkPositions();
+}
+
+/** Ends the drag interaction and opens the overlay if no movement occurred. */
+function endNodeDrag(event) {
+  const { dragState } = towerTreeState;
+  if (!dragState.active || dragState.pointerId !== event.pointerId) {
+    return;
+  }
+  const nodeRecord = towerTreeState.nodes.get(dragState.nodeId);
+  const movedDuringDrag = dragState.moved;
+  dragState.active = false;
+  dragState.pointerId = null;
+  dragState.nodeId = null;
+  dragState.moved = false;
+  if (nodeRecord) {
+    nodeRecord.orbit.releasePointerCapture(event.pointerId);
+    nodeRecord.orbit.removeAttribute('data-dragging');
+  }
+  if (!nodeRecord) {
+    return;
+  }
+  if (!movedDuringDrag) {
+    openTowerOverlayFromTree(nodeRecord.id, nodeRecord.orbit);
+  }
+  updateLinkPositions();
+}
+
+/** Cancels a drag interaction if the pointer capture is lost abruptly. */
+function cancelNodeDrag(event) {
+  if (towerTreeState.dragState.pointerId !== event.pointerId) {
+    return;
+  }
+  const nodeRecord = towerTreeState.nodes.get(towerTreeState.dragState.nodeId);
+  towerTreeState.dragState.active = false;
+  towerTreeState.dragState.pointerId = null;
+  towerTreeState.dragState.nodeId = null;
+  towerTreeState.dragState.moved = false;
+  if (nodeRecord) {
+    try {
+      // Release any lingering capture so the cursor state resets cleanly.
+      nodeRecord.orbit.releasePointerCapture(event.pointerId);
+    } catch (error) {
+      // Ignore browsers that throw when the capture is already cleared.
+    }
+    nodeRecord.orbit.removeAttribute('data-dragging');
+  }
+  // Re-sync constellation lines when a drag is cancelled mid-gesture.
+  updateLinkPositions();
+}
+
+/** Allows keyboard users to trigger the upgrade overlay from the constellation. */
+function handleNodeKeyDown(event, nodeRecord) {
+  if (!nodeRecord) {
+    return;
+  }
+  const key = event.key?.toLowerCase();
+  if (key === 'enter' || key === ' ') {
+    event.preventDefault();
+    openTowerOverlayFromTree(nodeRecord.id, nodeRecord.orbit);
+  }
 }
 
 function applySpringForces() {
@@ -221,7 +406,10 @@ function applyAnchorForces() {
 
 /** Applies a soft push back into the container whenever a node drifts off screen. */
 function applyBoundaryForces(containerWidth, containerHeight) {
-  const padding = PHYSICS_CONFIG.nodeDiameter * PHYSICS_CONFIG.boundaryPaddingMultiplier;
+  const padding = Math.max(
+    towerTreeState.nodeRadius,
+    PHYSICS_CONFIG.nodeDiameter * PHYSICS_CONFIG.boundaryPaddingMultiplier,
+  );
   const minX = padding;
   const maxX = Math.max(padding, containerWidth - padding);
   const minY = padding;
@@ -250,7 +438,11 @@ function applyRepulsionForces() {
       const dy = nodeB.position.y - nodeA.position.y;
       const distanceSq = dx * dx + dy * dy || 0.0001;
       const distance = Math.sqrt(distanceSq);
-      const minDistance = PHYSICS_CONFIG.nodeDiameter;
+      // Use the larger physical diameter so circles never overlap visually.
+      const minDistance = Math.max(
+        PHYSICS_CONFIG.nodeDiameter,
+        towerTreeState.nodeRadius * 2,
+      );
       const strength = (PHYSICS_CONFIG.repulsionStrength / (distanceSq * Math.max(distance / minDistance, 0.35)));
       const forceX = (dx / distance) * strength;
       const forceY = (dy / distance) * strength;
@@ -312,8 +504,7 @@ function stepSimulation(timestamp) {
     node.velocity.y = (node.velocity.y + accelY * delta) * PHYSICS_CONFIG.damping;
     node.position.x += node.velocity.x * delta;
     node.position.y += node.velocity.y * delta;
-    node.element.style.left = `${node.position.x}px`;
-    node.element.style.top = `${node.position.y}px`;
+    applyNodeDomPosition(node);
   });
 
   updateLinkPositions();
@@ -323,6 +514,10 @@ function stepSimulation(timestamp) {
 
 function startSimulation() {
   stopSimulation();
+  if (!towerTreeState.nodes.size) {
+    // Skip scheduling frames until nodes exist to animate.
+    return;
+  }
   towerTreeState.animationHandle = window.requestAnimationFrame(stepSimulation);
 }
 
@@ -403,10 +598,10 @@ function refreshTreeInternal() {
       return;
     }
     const node = createTreeNode(definition, position, indexCounter++);
-    node.element.style.left = `${position.x}px`;
-    node.element.style.top = `${position.y}px`;
     towerTreeState.nodeLayer.append(node.element);
-    nodes.set(towerId, {
+    const width = node.element.offsetWidth || PHYSICS_CONFIG.nodeDiameter;
+    const height = node.element.offsetHeight || PHYSICS_CONFIG.nodeDiameter;
+    const nodeRecord = {
       id: towerId,
       definition,
       element: node.element,
@@ -414,10 +609,25 @@ function refreshTreeInternal() {
       position: { ...position },
       anchor: { ...position },
       velocity: {
-        x: (Math.random() - 0.5) * 40,
-        y: (Math.random() - 0.5) * 40,
+        x: 0,
+        y: 0,
       },
       force: { x: 0, y: 0 },
+      size: { width, height },
+    };
+    // Track the largest radius so boundary forces and dragging stay accurate.
+    towerTreeState.nodeRadius = Math.max(towerTreeState.nodeRadius, width / 2);
+    applyNodeDomPosition(nodeRecord);
+    nodes.set(towerId, nodeRecord);
+    // Attach pointer and keyboard handlers so players can drag and inspect nodes.
+    node.orbit.addEventListener('pointerdown', (event) => beginNodeDrag(event, nodes.get(towerId)));
+    node.orbit.addEventListener('pointermove', handleNodePointerMove);
+    node.orbit.addEventListener('pointerup', endNodeDrag);
+    node.orbit.addEventListener('pointercancel', cancelNodeDrag);
+    node.orbit.addEventListener('keydown', (event) => handleNodeKeyDown(event, nodes.get(towerId)));
+    node.orbit.addEventListener('click', (event) => {
+      // Prevent duplicate focus-triggered clicks after the drag handlers finish.
+      event.preventDefault();
     });
   });
 
@@ -441,7 +651,10 @@ function toggleTreeVisibility(forceOpen = null) {
   towerTreeState.toggleButton.setAttribute('aria-pressed', nextOpen ? 'true' : 'false');
   towerTreeState.toggleButton.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
   if (nextOpen) {
-    refreshTreeInternal();
+    // Delay the refresh until the next frame so layout metrics are reliable when building links.
+    window.requestAnimationFrame(() => {
+      refreshTreeInternal();
+    });
   } else {
     stopSimulation();
   }

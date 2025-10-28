@@ -1595,7 +1595,6 @@ body.graphics-mode-low .control-button {
   height: 90px;
   left: 0;
   top: 0;
-  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1615,6 +1614,8 @@ body.graphics-mode-low .control-button {
   box-sizing: border-box;
   text-align: center;
   box-shadow: 0 16px 24px rgba(0, 0, 0, 0.28);
+  /* Indicate that constellation nodes can be grabbed and rearranged. */
+  cursor: grab;
   transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
 }
 
@@ -1624,6 +1625,12 @@ body.graphics-mode-low .control-button {
   border-color: rgba(255, 228, 120, 0.45);
   box-shadow: 0 22px 32px rgba(255, 228, 120, 0.18);
   outline: none;
+}
+
+/* Present a grabbing cursor while the player is dragging a node. */
+.tower-tree-node-orbit[data-dragging='true'] {
+  cursor: grabbing;
+  transform: none;
 }
 
 .tower-tree-node-symbol {
@@ -1645,31 +1652,15 @@ body.graphics-mode-low .control-button {
   color: rgba(247, 247, 245, 0.6);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .tower-tree-node-orbit {
-    animation: tower-tree-float calc(6s + var(--tower-float-variance, 0s)) ease-in-out infinite;
-  }
-}
-
-@keyframes tower-tree-float {
-  0%,
-  100% {
-    transform: translateY(-4px);
-  }
-  50% {
-    transform: translateY(6px);
-  }
-}
-
 .tower-tree-link {
-  stroke: rgba(255, 255, 255, 0.55);
+  stroke: rgba(255, 228, 120, 0.25);
   stroke-width: 3;
-  stroke-dasharray: 6 4;
+  stroke-dasharray: 0;
   transition: stroke 220ms ease, stroke-width 220ms ease;
 }
 
 .tower-tree-link[data-active='true'] {
-  stroke: rgba(255, 255, 255, 0.85);
+  stroke: rgba(255, 255, 255, 0.45);
   stroke-width: 4;
 }
 
