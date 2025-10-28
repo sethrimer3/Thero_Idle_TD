@@ -7,9 +7,6 @@ import {
 } from '../scripts/core/mathText.js';
 import { tokenizeEquationParts } from '../scripts/core/mathTokens.js';
 import {
-  BETA_BASE_ATTACK,
-  BETA_BASE_ATTACK_SPEED,
-  BETA_BASE_RANGE,
   clampBetaExponent,
   calculateBetaAttack,
   calculateBetaAttackSpeed,
@@ -246,13 +243,13 @@ const TOWER_EQUATION_BLUEPRINTS = {
   },
   beta: {
     mathSymbol: '\\beta',
-    baseEquation: `\\( \\beta = ${BETA_BASE_ATTACK}^{X} \\cdot \\frac{${BETA_BASE_ATTACK_SPEED}}{X} \\cdot \\frac{${BETA_BASE_RANGE}}{X} \\)`,
+    baseEquation: '\\( \\beta = \\alpha^{X} \\)',
     variables: [
       {
         key: 'exponent',
         symbol: 'X',
         name: 'Exponent Harmonic',
-        description: 'Raises β damage exponentially while constricting tempo and reach.',
+        description: 'Shapes how strongly β amplifies the inherited α flux.',
         baseValue: 1,
         step: 1,
         upgradable: true,
@@ -260,65 +257,79 @@ const TOWER_EQUATION_BLUEPRINTS = {
         cost: (level) => Math.max(1, 2 + level),
       },
       {
+        key: 'alpha',
+        symbol: 'α',
+        name: 'Alpha Flux',
+        description: 'Total energy ferried forward from α lattices.',
+        reference: 'alpha',
+        upgradable: false,
+        lockedNote: 'Upgrade α to amplify this feed.',
+        format: (value) => formatDecimal(value, 2),
+      },
+      {
         key: 'attackPower',
         symbol: 'A',
         name: 'Attack Power',
-        description: `Damage per beam pulse derived from ${BETA_BASE_ATTACK}^{X}.`,
+        description: 'Damage per beam pulse drawn from α^{X}.',
         upgradable: false,
-        lockedNote: 'Scales exponentially with X upgrades.',
+        lockedNote: 'Scales with α and exponent upgrades.',
         format: (value) => `${formatGameNumber(value)} attack`,
-        getBase: ({ towerId }) => calculateBetaAttack(resolveBetaExponent(towerId)),
+        getBase: ({ towerId }) => {
+          // Pull the latest α total so the chained Beta stats stay in sync with upstream upgrades.
+          const alphaResult = calculateTowerEquationResult('alpha');
+          return calculateBetaAttack(resolveBetaExponent(towerId), alphaResult);
+        },
       },
       {
         key: 'attackSpeed',
-        symbol: 'S',
-        name: 'Attack Speed',
-        description: `Beams released per second; divided by X to temper the resonance.`,
+        symbol: 'ν',
+        name: 'Beam Tempo',
+        description: 'Attacks per second after tempering α through the exponent.',
         upgradable: false,
-        lockedNote: 'Divided by the current exponent.',
+        lockedNote: 'Slows as α and X surge together.',
         format: (value) => `${formatDecimal(value, 2)} attacks/sec`,
-        getBase: ({ towerId }) => calculateBetaAttackSpeed(resolveBetaExponent(towerId)),
+        getBase: ({ towerId }) => {
+          // Reuse the same α pull so tempo reflects the chained relationship.
+          const alphaResult = calculateTowerEquationResult('alpha');
+          return calculateBetaAttackSpeed(resolveBetaExponent(towerId), alphaResult);
+        },
       },
       {
         key: 'range',
         symbol: 'Λ',
         name: 'Beam Range',
-        description: `Effective reach of the lattice after dividing the base ${BETA_BASE_RANGE}.`,
+        description: 'Effective reach stretched logarithmically from α.',
         upgradable: false,
-        lockedNote: 'Shrinks as X grows.',
+        lockedNote: 'Extends gently with stronger α lattices.',
         format: (value) => `${formatDecimal(value, 2)} range`,
-        getBase: ({ towerId }) => calculateBetaRange(resolveBetaExponent(towerId)),
+        getBase: ({ towerId }) => {
+          // Apply the chained α input so range bloom mirrors upstream growth.
+          const alphaResult = calculateTowerEquationResult('alpha');
+          return calculateBetaRange(resolveBetaExponent(towerId), alphaResult);
+        },
       },
     ],
     computeResult(values) {
-      const attackPower = Number.isFinite(values.attackPower) ? values.attackPower : 0;
-      const attackSpeed = Number.isFinite(values.attackSpeed) ? values.attackSpeed : 0;
-      const range = Number.isFinite(values.range) ? values.range : 0;
-      return attackPower * attackSpeed * range;
+      const exponent = clampBetaExponent(values.exponent);
+      const alphaValue = Math.max(0, Number.isFinite(values.alpha) ? values.alpha : 0);
+      if (alphaValue <= 0) {
+        return 0;
+      }
+      return calculateBetaAttack(exponent, alphaValue);
     },
     formatGoldenEquation({ formatVariable, formatResult }) {
-      return `\\( ${formatResult()} = ${formatVariable('attackPower')} \\times ${formatVariable('attackSpeed')} \\times ${formatVariable('range')} \\)`;
+      return `\\( ${formatResult()} = ${formatVariable('alpha')}^{${formatVariable('exponent')}} \\)`;
     },
   },
   gamma: {
     mathSymbol: '\\gamma',
-    baseEquation: '\\( \\gamma = \\alpha^{1/2} \\cdot \\beta \\)',
+    baseEquation: '\\( \\gamma = \\sqrt{\\beta} \\)',
     variables: [
-      {
-        key: 'alpha',
-        symbol: 'α',
-        name: 'Alpha Pulse',
-        description: 'Inherited burst cadence from α lattices.',
-        reference: 'alpha',
-        upgradable: false,
-        lockedNote: 'Upgrade α to raise this value.',
-        format: (value) => formatDecimal(value, 2),
-      },
       {
         key: 'beta',
         symbol: 'β',
         name: 'Beta Resonance',
-        description: 'Sustained beam resonance carried forward.',
+        description: 'Channeled beam resonance inherited directly from β.',
         reference: 'beta',
         upgradable: false,
         lockedNote: 'Upgrade β to amplify this resonance.',
@@ -326,47 +337,35 @@ const TOWER_EQUATION_BLUEPRINTS = {
       },
     ],
     computeResult(values) {
-      const alphaValue = Math.max(0, Number.isFinite(values.alpha) ? values.alpha : 0);
       const betaValue = Math.max(0, Number.isFinite(values.beta) ? values.beta : 0);
-      return Math.sqrt(alphaValue) * betaValue;
+      return Math.sqrt(betaValue);
     },
     formatGoldenEquation({ formatVariable, formatResult }) {
-      return `\\( ${formatResult()} = \\sqrt{${formatVariable('alpha')}} \\times ${formatVariable('beta')} \\)`;
+      return `\\( ${formatResult()} = \\sqrt{${formatVariable('beta')}} \\)`;
     },
   },
   delta: {
     mathSymbol: '\\delta',
-    baseEquation: '\\( \\delta = \\gamma \\cdot \\ln(\\beta + 1) \\)',
+    baseEquation: '\\( \\delta = \\gamma \\cdot \\ln(\\gamma + 1) \\)',
     variables: [
       {
         key: 'gamma',
         symbol: 'γ',
         name: 'Gamma Cohort',
-        description: 'Command strength inherited from γ conductors.',
+        description: 'Command strength inherited entirely from γ conductors.',
         reference: 'gamma',
         upgradable: false,
         lockedNote: 'Bolster γ to empower this cohort.',
         format: (value) => formatDecimal(value, 2),
       },
-      {
-        key: 'beta',
-        symbol: 'β',
-        name: 'Beta Harmonics',
-        description: 'Beam resonance sustaining the summoned legion.',
-        reference: 'beta',
-        upgradable: false,
-        lockedNote: 'Infuse β to widen this harmonic.',
-        format: (value) => formatDecimal(value, 2),
-      },
     ],
     computeResult(values) {
       const gammaValue = Math.max(0, Number.isFinite(values.gamma) ? values.gamma : 0);
-      const betaValue = Math.max(0, Number.isFinite(values.beta) ? values.beta : 0);
-      const lnComponent = Math.log(betaValue + 1);
+      const lnComponent = Math.log(gammaValue + 1);
       return gammaValue * lnComponent;
     },
     formatGoldenEquation({ formatVariable, formatResult }) {
-      return `\\( ${formatResult()} = ${formatVariable('gamma')} \\times \\ln(${formatVariable('beta')} + 1) \\)`;
+      return `\\( ${formatResult()} = ${formatVariable('gamma')} \\times \\ln(${formatVariable('gamma')} + 1) \\)`;
     },
   },
 };
