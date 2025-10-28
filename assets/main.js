@@ -1253,6 +1253,8 @@ import {
     modeSwitchPending: false,
     fluidProfileLabel: 'Fluid Study',
     fluidUnlocked: false,
+    // Track pointer gestures for the powder basin camera controls.
+    viewInteraction: null,
   };
 
   let currentPowderBonuses = {
@@ -1570,6 +1572,7 @@ import {
         powderSimulation.handleResize();
         flushPendingMoteDrops();
         powderSimulation.start();
+        initializePowderViewInteraction();
         if (previousMode !== powderState.simulationMode) {
           recordPowderEvent('mode-switch', { mode: 'fluid', label: profile.label || 'Fluid Study' });
         }
@@ -1617,6 +1620,7 @@ import {
         powderSimulation.handleResize();
         flushPendingMoteDrops();
         powderSimulation.start();
+        initializePowderViewInteraction();
         if (previousMode !== powderState.simulationMode) {
           recordPowderEvent('mode-switch', { mode: 'sand', label: 'Powderfall Study' });
         }
@@ -5638,6 +5642,210 @@ import {
       columnEl.innerHTML = '';
       powderGlyphColumns.push({ element: columnEl, glyphs: new Map() });
     });
+
+    function initializePowderViewInteraction() {
+      const canvas = powderElements.simulationCanvas;
+      if (!canvas) {
+        return;
+      }
+      if (!powderState.viewInteraction) {
+        powderState.viewInteraction = {
+          pointerId: null,
+          startX: 0,
+          startY: 0,
+          startCenter: { x: 0.5, y: 0.5 },
+          dragging: false,
+          suppressClick: false,
+          activePointers: new Map(),
+          pinchState: null,
+          isPinchZooming: false,
+          handlers: null,
+        };
+      }
+      const viewInteraction = powderState.viewInteraction;
+      viewInteraction.activePointers = new Map();
+      viewInteraction.pinchState = null;
+      viewInteraction.isPinchZooming = false;
+      if (!viewInteraction.handlers) {
+        const performPinchZoom = () => {
+          const pointers = Array.from(viewInteraction.activePointers.values());
+          if (pointers.length < 2 || !powderSimulation) {
+            viewInteraction.pinchState = null;
+            viewInteraction.isPinchZooming = false;
+            return;
+          }
+          const [first, second] = pointers;
+          const dx = first.clientX - second.clientX;
+          const dy = first.clientY - second.clientY;
+          const distance = Math.hypot(dx, dy);
+          if (!Number.isFinite(distance) || distance <= 0) {
+            return;
+          }
+          const midpoint = {
+            clientX: (first.clientX + second.clientX) / 2,
+            clientY: (first.clientY + second.clientY) / 2,
+          };
+          if (!viewInteraction.pinchState || !Number.isFinite(viewInteraction.pinchState.startDistance) || viewInteraction.pinchState.startDistance <= 0) {
+            viewInteraction.pinchState = {
+              startDistance: distance,
+              startScale: powderSimulation.viewScale || 1,
+            };
+            return;
+          }
+          const baseDistance = viewInteraction.pinchState.startDistance;
+          const baseScale = viewInteraction.pinchState.startScale || powderSimulation.viewScale || 1;
+          if (!Number.isFinite(baseDistance) || baseDistance <= 0) {
+            return;
+          }
+          const targetScale = (distance / baseDistance) * baseScale;
+          powderSimulation.setZoom(targetScale, midpoint);
+          viewInteraction.pinchState.startScale = powderSimulation.viewScale;
+          viewInteraction.pinchState.startDistance = distance;
+          viewInteraction.isPinchZooming = true;
+          viewInteraction.suppressClick = true;
+        };
+
+        viewInteraction.handlers = {
+          pointerDown: (event) => {
+            if (!powderSimulation) {
+              return;
+            }
+            if (event.pointerType === 'touch') {
+              viewInteraction.activePointers.set(event.pointerId, {
+                clientX: event.clientX,
+                clientY: event.clientY,
+              });
+              if (viewInteraction.activePointers.size >= 2) {
+                viewInteraction.pointerId = null;
+                viewInteraction.dragging = false;
+                viewInteraction.pinchState = null;
+                return;
+              }
+            }
+            if (event.pointerType !== 'touch' && event.button !== 0) {
+              return;
+            }
+            viewInteraction.pointerId = event.pointerId;
+            viewInteraction.startX = event.clientX;
+            viewInteraction.startY = event.clientY;
+            viewInteraction.startCenter = {
+              ...(powderSimulation.viewCenterNormalized || { x: 0.5, y: 0.5 }),
+            };
+            viewInteraction.dragging = false;
+            viewInteraction.suppressClick = false;
+            viewInteraction.pinchState = null;
+            viewInteraction.isPinchZooming = false;
+            if (typeof canvas.setPointerCapture === 'function') {
+              try {
+                canvas.setPointerCapture(event.pointerId);
+              } catch (error) {
+                // Ignore capture errors so gestures still proceed without it.
+              }
+            }
+          },
+          pointerMove: (event) => {
+            if (!powderSimulation) {
+              return;
+            }
+            if (event.pointerType === 'touch') {
+              viewInteraction.activePointers.set(event.pointerId, {
+                clientX: event.clientX,
+                clientY: event.clientY,
+              });
+              if (viewInteraction.activePointers.size >= 2) {
+                if (typeof event.preventDefault === 'function') {
+                  event.preventDefault();
+                }
+                performPinchZoom();
+                return;
+              }
+            }
+            if (viewInteraction.pointerId !== event.pointerId) {
+              return;
+            }
+            const dx = event.clientX - viewInteraction.startX;
+            const dy = event.clientY - viewInteraction.startY;
+            const distance = Math.hypot(dx, dy);
+            if (!viewInteraction.dragging && distance > 6) {
+              viewInteraction.dragging = true;
+              viewInteraction.suppressClick = true;
+            }
+            if (!viewInteraction.dragging) {
+              return;
+            }
+            if (typeof event.preventDefault === 'function') {
+              event.preventDefault();
+            }
+            const width = powderSimulation.width || powderSimulation.canvas?.clientWidth || 0;
+            const height = powderSimulation.height || powderSimulation.canvas?.clientHeight || 0;
+            const scale = powderSimulation.viewScale || 1;
+            if (!width || !height) {
+              return;
+            }
+            const nextCenter = {
+              x: viewInteraction.startCenter.x - dx / (scale * width),
+              y: viewInteraction.startCenter.y - dy / (scale * height),
+            };
+            powderSimulation.setViewCenterNormalized(nextCenter);
+          },
+          pointerUp: (event) => {
+            if (event.pointerType === 'touch') {
+              viewInteraction.activePointers.delete(event.pointerId);
+              if (viewInteraction.activePointers.size < 2) {
+                viewInteraction.pinchState = null;
+                viewInteraction.isPinchZooming = false;
+              }
+            }
+            if (viewInteraction.pointerId === event.pointerId) {
+              if (viewInteraction.dragging || viewInteraction.isPinchZooming) {
+                viewInteraction.suppressClick = true;
+              }
+              viewInteraction.pointerId = null;
+              viewInteraction.dragging = false;
+            }
+            if (typeof canvas.releasePointerCapture === 'function') {
+              try {
+                canvas.releasePointerCapture(event.pointerId);
+              } catch (error) {
+                // Ignore browsers that throw if the pointer was not captured.
+              }
+            }
+          },
+          wheel: (event) => {
+            if (!powderSimulation) {
+              return;
+            }
+            if (typeof event.preventDefault === 'function') {
+              event.preventDefault();
+            }
+            const delta = Number.isFinite(event.deltaY) ? event.deltaY : 0;
+            const factor = Math.exp(-delta * 0.0015);
+            powderSimulation.applyZoomFactor(factor, event);
+            viewInteraction.suppressClick = true;
+          },
+          click: (event) => {
+            if (!viewInteraction.suppressClick) {
+              return;
+            }
+            viewInteraction.suppressClick = false;
+            event.preventDefault();
+            event.stopPropagation();
+          },
+        };
+      }
+
+      if (!canvas.dataset.powderViewBound) {
+        canvas.addEventListener('pointerdown', viewInteraction.handlers.pointerDown);
+        canvas.addEventListener('pointermove', viewInteraction.handlers.pointerMove);
+        canvas.addEventListener('pointerup', viewInteraction.handlers.pointerUp);
+        canvas.addEventListener('pointercancel', viewInteraction.handlers.pointerUp);
+        canvas.addEventListener('lostpointercapture', viewInteraction.handlers.pointerUp);
+        canvas.addEventListener('wheel', viewInteraction.handlers.wheel, { passive: false });
+        canvas.addEventListener('click', viewInteraction.handlers.click, true);
+        canvas.dataset.powderViewBound = 'true';
+      }
+    }
+
     updatePowderGlyphColumns({
       rows: 1,
       cellSize: POWDER_CELL_SIZE_PX,
@@ -5719,6 +5927,7 @@ import {
       powderState.idleDrainRate = powderSimulation.idleDrainRate;
       powderSimulation.setFlowOffset(powderState.sandOffset);
       powderSimulation.start();
+      initializePowderViewInteraction();
       if (powderBasinObserver && typeof powderBasinObserver.disconnect === 'function') {
         powderBasinObserver.disconnect();
         powderBasinObserver = null;
@@ -5733,6 +5942,7 @@ import {
       }
       handlePowderHeightChange(powderSimulation.getStatus());
       updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
+      initializePowderViewInteraction();
       syncPowderWallVisuals();
       updatePowderHitboxVisibility();
       flushPendingMoteDrops();

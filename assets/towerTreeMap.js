@@ -47,6 +47,7 @@ const towerTreeState = {
     nodeId: null,
     startPointer: { x: 0, y: 0 },
     startPosition: { x: 0, y: 0 },
+    startWorld: { x: 0, y: 0 },
     moved: false,
     /** Last pointer sample captured while dragging to calculate fling velocity. */
     lastPointer: { x: 0, y: 0, time: 0 },
@@ -55,6 +56,26 @@ const towerTreeState = {
     /** Pointer velocity preserved between move events for fling behavior. */
     velocity: { x: 0, y: 0 },
   },
+  // Store the current camera transform so the constellation view supports panning and zooming.
+  view: {
+    scale: 1,
+    minScale: 0.6,
+    maxScale: 2.4,
+    center: { x: 0.5, y: 0.5 },
+    pointer: {
+      active: false,
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      startCenter: { x: 0.5, y: 0.5 },
+      moved: false,
+    },
+    activePointers: new Map(),
+    pinchState: null,
+    isPinchZooming: false,
+  },
+  // Prevent background clicks from firing after a pan or pinch gesture completes.
+  suppressClick: false,
 };
 
 /** Positions a DOM node so its mathematical center matches the physics coordinates. */
@@ -74,6 +95,137 @@ function stopSimulation() {
     towerTreeState.animationHandle = null;
   }
   towerTreeState.lastTimestamp = null;
+}
+
+// Resolve the current map dimensions so camera transforms have reliable measurements.
+function getMapMetrics() {
+  const container = towerTreeState.mapContainer;
+  if (!container) {
+    return { width: 0, height: 0, rect: null };
+  }
+  const rect = typeof container.getBoundingClientRect === 'function'
+    ? container.getBoundingClientRect()
+    : null;
+  const width = container.clientWidth || rect?.width || 0;
+  const height = container.clientHeight || rect?.height || 0;
+  return { width, height, rect };
+}
+
+// Clamp the camera center so zoomed views never drift beyond the constellation bounds.
+function clampViewCenterNormalized(normalized) {
+  if (!normalized) {
+    return { x: 0.5, y: 0.5 };
+  }
+  const scale = Math.max(towerTreeState.view.scale || 1, 0.0001);
+  const halfX = Math.min(0.5, 0.5 / scale);
+  const halfY = Math.min(0.5, 0.5 / scale);
+  const clamp = (value, min, max) => {
+    if (min > max) {
+      return 0.5;
+    }
+    return Math.min(Math.max(value, min), max);
+  };
+  return {
+    x: clamp(normalized.x, halfX, 1 - halfX),
+    y: clamp(normalized.y, halfY, 1 - halfY),
+  };
+}
+
+// Apply the stored camera transform to the DOM layers so nodes and links move in sync.
+function applyViewTransform() {
+  const { width, height } = getMapMetrics();
+  if (!width || !height) {
+    return;
+  }
+  const scale = towerTreeState.view.scale || 1;
+  const center = towerTreeState.view.center || { x: 0.5, y: 0.5 };
+  const centerWorld = { x: width * center.x, y: height * center.y };
+  const translateX = width / 2 - scale * centerWorld.x;
+  const translateY = height / 2 - scale * centerWorld.y;
+  const transform = `matrix(${scale}, 0, 0, ${scale}, ${translateX}, ${translateY})`;
+  if (towerTreeState.nodeLayer) {
+    towerTreeState.nodeLayer.style.transformOrigin = '0 0';
+    towerTreeState.nodeLayer.style.transform = transform;
+  }
+  if (towerTreeState.linkLayer) {
+    towerTreeState.linkLayer.style.transformOrigin = '0 0';
+    towerTreeState.linkLayer.style.transformBox = 'fill-box';
+    towerTreeState.linkLayer.style.transform = transform;
+  }
+}
+
+// Update the stored camera center using normalized coordinates.
+function setViewCenterNormalized(normalized) {
+  towerTreeState.view.center = clampViewCenterNormalized(normalized);
+  applyViewTransform();
+}
+
+// Convert a client coordinate into the constellation's world space.
+function getTreeWorldPoint(point) {
+  if (!point) {
+    return null;
+  }
+  const metrics = getMapMetrics();
+  const { width, height, rect } = metrics;
+  if (!width || !height || !rect) {
+    return null;
+  }
+  const scale = towerTreeState.view.scale || 1;
+  const center = towerTreeState.view.center || { x: 0.5, y: 0.5 };
+  const centerWorld = { x: width * center.x, y: height * center.y };
+  const offsetX = width / 2 - scale * centerWorld.x;
+  const offsetY = height / 2 - scale * centerWorld.y;
+  const localX = point.clientX - rect.left;
+  const localY = point.clientY - rect.top;
+  if (!Number.isFinite(localX) || !Number.isFinite(localY)) {
+    return null;
+  }
+  const worldX = (localX - offsetX) / scale;
+  const worldY = (localY - offsetY) / scale;
+  return {
+    x: worldX,
+    y: worldY,
+    normalizedX: worldX / width,
+    normalizedY: worldY / height,
+  };
+}
+
+// Adjust the zoom level while keeping an optional anchor point locked under the pointer.
+function setTreeZoom(targetScale, anchorPoint = null) {
+  if (!Number.isFinite(targetScale)) {
+    return;
+  }
+  const minScale = Number.isFinite(towerTreeState.view.minScale)
+    ? towerTreeState.view.minScale
+    : 0.6;
+  const maxScale = Number.isFinite(towerTreeState.view.maxScale)
+    ? towerTreeState.view.maxScale
+    : 2.4;
+  const clampedScale = Math.min(maxScale, Math.max(minScale, targetScale));
+  const metrics = getMapMetrics();
+  const { width, height, rect } = metrics;
+  towerTreeState.view.scale = clampedScale;
+  if (anchorPoint && width && height && rect) {
+    const anchorWorld = getTreeWorldPoint(anchorPoint);
+    if (anchorWorld) {
+      const localX = anchorPoint.clientX - rect.left;
+      const localY = anchorPoint.clientY - rect.top;
+      const centerWorldX = (width / 2 - localX) / clampedScale + anchorWorld.x;
+      const centerWorldY = (height / 2 - localY) / clampedScale + anchorWorld.y;
+      setViewCenterNormalized({ x: centerWorldX / width, y: centerWorldY / height });
+      return;
+    }
+  }
+  setViewCenterNormalized(towerTreeState.view.center);
+}
+
+// Convenience helper to apply a zoom multiplier with optional pointer anchoring.
+function applyTreeZoomFactor(factor, anchorPoint = null) {
+  if (!Number.isFinite(factor) || factor <= 0) {
+    return;
+  }
+  const nextScale = (towerTreeState.view.scale || 1) * factor;
+  setTreeZoom(nextScale, anchorPoint);
 }
 
 function escapeRegExp(value) {
@@ -312,6 +464,10 @@ function beginNodeDrag(event, nodeRecord) {
   towerTreeState.dragState.nodeId = nodeRecord.id;
   towerTreeState.dragState.startPointer = { x: event.clientX, y: event.clientY };
   towerTreeState.dragState.startPosition = { ...nodeRecord.position };
+  const startWorld = getTreeWorldPoint(event);
+  towerTreeState.dragState.startWorld = startWorld
+    ? { x: startWorld.x, y: startWorld.y }
+    : { ...nodeRecord.position };
   towerTreeState.dragState.moved = false;
   towerTreeState.dragState.lastPointer = {
     x: event.clientX,
@@ -343,8 +499,11 @@ function handleNodePointerMove(event) {
   if (!dragState.moved && distance > 4) {
     dragState.moved = true;
   }
-  const unclampedX = dragState.startPosition.x + dx;
-  const unclampedY = dragState.startPosition.y + dy;
+  const pointerWorld = getTreeWorldPoint(event);
+  const dxWorld = pointerWorld ? pointerWorld.x - dragState.startWorld.x : dx;
+  const dyWorld = pointerWorld ? pointerWorld.y - dragState.startWorld.y : dy;
+  const unclampedX = dragState.startPosition.x + dxWorld;
+  const unclampedY = dragState.startPosition.y + dyWorld;
   const { x, y } = clampNodePosition(unclampedX, unclampedY);
   setNodePosition(nodeRecord, x, y, { updateAnchor: true, resetVelocity: false });
 
@@ -430,6 +589,175 @@ function cancelNodeDrag(event) {
   }
   // Re-sync constellation lines when a drag is cancelled mid-gesture.
   updateLinkPositions();
+}
+
+// Handle background pointer presses so the player can begin panning the tree view.
+function handleTreePointerDown(event) {
+  if (!towerTreeState.mapContainer) {
+    return;
+  }
+  if (event.pointerType !== 'touch' && event.button !== 0) {
+    return;
+  }
+  const view = towerTreeState.view;
+  if (event.pointerType === 'touch') {
+    view.activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+    if (view.activePointers.size >= 2) {
+      view.pointer.active = false;
+      view.pointer.pointerId = null;
+      view.pointer.moved = false;
+      view.pinchState = null;
+      return;
+    }
+  }
+  view.pointer.active = true;
+  view.pointer.pointerId = event.pointerId;
+  view.pointer.startX = event.clientX;
+  view.pointer.startY = event.clientY;
+  view.pointer.startCenter = { ...(view.center || { x: 0.5, y: 0.5 }) };
+  view.pointer.moved = false;
+  towerTreeState.suppressClick = false;
+  if (typeof towerTreeState.mapContainer.setPointerCapture === 'function') {
+    try {
+      towerTreeState.mapContainer.setPointerCapture(event.pointerId);
+    } catch (error) {
+      // Ignore pointer capture failures so panning continues smoothly without it.
+    }
+  }
+}
+
+// Translate pointer drags into camera movement across the constellation map.
+function handleTreePointerMove(event) {
+  const view = towerTreeState.view;
+  if (event.pointerType === 'touch') {
+    view.activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+    if (view.activePointers.size >= 2) {
+      if (typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+      performTreePinchZoom();
+      towerTreeState.suppressClick = true;
+      return;
+    }
+  }
+  if (!view.pointer.active || view.pointer.pointerId !== event.pointerId) {
+    return;
+  }
+  const dx = event.clientX - view.pointer.startX;
+  const dy = event.clientY - view.pointer.startY;
+  const dragDistance = Math.hypot(dx, dy);
+  if (!view.pointer.moved && dragDistance > 6) {
+    view.pointer.moved = true;
+    towerTreeState.suppressClick = true;
+  }
+  if (!view.pointer.moved) {
+    return;
+  }
+  if (typeof event.preventDefault === 'function') {
+    event.preventDefault();
+  }
+  const { width, height } = getMapMetrics();
+  if (!width || !height) {
+    return;
+  }
+  const scale = view.scale || 1;
+  const startCenter = view.pointer.startCenter || view.center || { x: 0.5, y: 0.5 };
+  const nextCenter = {
+    x: startCenter.x - dx / (scale * width),
+    y: startCenter.y - dy / (scale * height),
+  };
+  setViewCenterNormalized(nextCenter);
+}
+
+// Reset panning state when the background pointer gesture completes.
+function handleTreePointerUp(event) {
+  const view = towerTreeState.view;
+  if (event.pointerType === 'touch') {
+    view.activePointers.delete(event.pointerId);
+    if (view.activePointers.size < 2) {
+      view.pinchState = null;
+      view.isPinchZooming = false;
+    }
+  }
+  if (view.pointer.pointerId === event.pointerId) {
+    if (view.pointer.moved) {
+      towerTreeState.suppressClick = true;
+    }
+    view.pointer.active = false;
+    view.pointer.pointerId = null;
+    view.pointer.moved = false;
+  }
+  if (typeof towerTreeState.mapContainer?.releasePointerCapture === 'function') {
+    try {
+      towerTreeState.mapContainer.releasePointerCapture(event.pointerId);
+    } catch (error) {
+      // Ignore release errors so cleanup continues even if capture was not set.
+    }
+  }
+}
+
+// Apply pinch gestures to zoom the tree while keeping the midpoint anchored.
+function performTreePinchZoom() {
+  const pointers = Array.from(towerTreeState.view.activePointers.values());
+  if (pointers.length < 2) {
+    towerTreeState.view.pinchState = null;
+    towerTreeState.view.isPinchZooming = false;
+    return;
+  }
+  const [first, second] = pointers;
+  const dx = first.clientX - second.clientX;
+  const dy = first.clientY - second.clientY;
+  const distance = Math.hypot(dx, dy);
+  if (!Number.isFinite(distance) || distance <= 0) {
+    return;
+  }
+  const midpoint = {
+    clientX: (first.clientX + second.clientX) / 2,
+    clientY: (first.clientY + second.clientY) / 2,
+  };
+  const pinchState = towerTreeState.view.pinchState;
+  if (!pinchState || !Number.isFinite(pinchState.startDistance) || pinchState.startDistance <= 0) {
+    towerTreeState.view.pinchState = {
+      startDistance: distance,
+      startScale: towerTreeState.view.scale,
+    };
+    return;
+  }
+  const baseDistance = pinchState.startDistance;
+  const baseScale = pinchState.startScale || towerTreeState.view.scale || 1;
+  if (!Number.isFinite(baseDistance) || baseDistance <= 0) {
+    return;
+  }
+  const targetScale = (distance / baseDistance) * baseScale;
+  setTreeZoom(targetScale, midpoint);
+  towerTreeState.view.pinchState.startScale = towerTreeState.view.scale;
+  towerTreeState.view.pinchState.startDistance = distance;
+  towerTreeState.view.isPinchZooming = true;
+  towerTreeState.suppressClick = true;
+}
+
+// Consume click events that immediately follow a drag or pinch gesture on the map.
+function handleTreeClick(event) {
+  if (!towerTreeState.suppressClick) {
+    return;
+  }
+  towerTreeState.suppressClick = false;
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+// Map scroll wheel input onto zoom adjustments to mirror the playfield controls.
+function handleTreeWheel(event) {
+  if (!towerTreeState.mapContainer || towerTreeState.mapContainer.hidden) {
+    return;
+  }
+  if (typeof event.preventDefault === 'function') {
+    event.preventDefault();
+  }
+  const delta = Number.isFinite(event.deltaY) ? event.deltaY : 0;
+  const factor = Math.exp(-delta * 0.0015);
+  applyTreeZoomFactor(factor, event);
+  towerTreeState.suppressClick = true;
 }
 
 /** Allows keyboard users to trigger the upgrade overlay from the constellation. */
@@ -721,6 +1049,7 @@ function refreshTreeInternal() {
   towerTreeState.nodes = nodes;
   towerTreeState.edges = buildTreeLinks(definitions, edges);
   updateLinkPositions();
+  applyViewTransform();
   startSimulation();
   towerTreeState.needsRefresh = false;
 }
@@ -768,8 +1097,23 @@ export function initializeTowerTreeMap({ toggleButton = null, mapContainer = nul
   towerTreeState.nodeLayer = mapContainer?.querySelector('[data-tree-node-layer]') || null;
   towerTreeState.linkLayer = mapContainer?.querySelector('svg') || null;
 
+  towerTreeState.view.activePointers = new Map();
+  towerTreeState.view.pinchState = null;
+  applyViewTransform();
+
   if (towerTreeState.toggleButton) {
     towerTreeState.toggleButton.addEventListener('click', () => toggleTreeVisibility());
+  }
+
+  if (towerTreeState.mapContainer && !towerTreeState.mapContainer.dataset.treeViewBound) {
+    towerTreeState.mapContainer.addEventListener('pointerdown', handleTreePointerDown);
+    towerTreeState.mapContainer.addEventListener('pointermove', handleTreePointerMove);
+    towerTreeState.mapContainer.addEventListener('pointerup', handleTreePointerUp);
+    towerTreeState.mapContainer.addEventListener('pointercancel', handleTreePointerUp);
+    towerTreeState.mapContainer.addEventListener('lostpointercapture', handleTreePointerUp);
+    towerTreeState.mapContainer.addEventListener('wheel', handleTreeWheel, { passive: false });
+    towerTreeState.mapContainer.addEventListener('click', handleTreeClick, true);
+    towerTreeState.mapContainer.dataset.treeViewBound = 'true';
   }
 
   document.addEventListener('tower-unlocked', scheduleTreeRefresh);
