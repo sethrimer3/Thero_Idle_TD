@@ -433,6 +433,15 @@ export class PowderSimulation {
       return;
     }
     const hadGrains = Array.isArray(this.grains) && this.grains.length > 0;
+    const previousMetrics = hadGrains
+      ? {
+          cols: this.cols,
+          rows: this.rows,
+          wallInsetLeftCells: this.wallInsetLeftCells,
+          wallInsetRightCells: this.wallInsetRightCells,
+          scrollOffsetCells: this.scrollOffsetCells,
+        }
+      : null; // Cache the previous grid metrics so we can rescale grains after the resize.
     const ratio = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
       ? window.devicePixelRatio
       : 1;
@@ -547,7 +556,7 @@ export class PowderSimulation {
     }
 
     if (hadGrains) {
-      this.rebuildGridAfterWallChange();
+      this.rebuildGridAfterWallChange(previousMetrics);
     } else {
       this.reset();
       this.notifyWallMetricsChange();
@@ -604,13 +613,51 @@ export class PowderSimulation {
     }
   }
 
-  rebuildGridAfterWallChange() {
+  rebuildGridAfterWallChange(previousMetrics = null) {
     if (!this.rows || !this.cols) {
       return;
     }
 
     this.grid = Array.from({ length: this.rows }, () => new Array(this.cols).fill(0));
     this.applyWallMask();
+
+    // Normalize the previous grid footprint so we can map grains into the resized interior.
+    const previousCols = Number.isFinite(previousMetrics?.cols)
+      ? Math.max(1, Math.round(previousMetrics.cols))
+      : null;
+    const previousRows = Number.isFinite(previousMetrics?.rows)
+      ? Math.max(1, Math.round(previousMetrics.rows))
+      : null;
+    const previousLeftInset = Number.isFinite(previousMetrics?.wallInsetLeftCells)
+      ? Math.max(0, Math.round(previousMetrics.wallInsetLeftCells))
+      : null;
+    const previousRightInset = Number.isFinite(previousMetrics?.wallInsetRightCells)
+      ? Math.max(0, Math.round(previousMetrics.wallInsetRightCells))
+      : null;
+    const previousScrollOffset = Number.isFinite(previousMetrics?.scrollOffsetCells)
+      ? Math.max(0, Math.round(previousMetrics.scrollOffsetCells))
+      : null;
+
+    const previousInteriorStart = previousLeftInset !== null ? previousLeftInset : this.wallInsetLeftCells;
+    const previousInteriorEnd = previousCols !== null
+      ? Math.max(
+          previousInteriorStart,
+          previousCols - (previousRightInset !== null ? previousRightInset : this.wallInsetRightCells),
+        )
+      : Math.max(previousInteriorStart, this.cols - this.wallInsetRightCells);
+    const previousInteriorWidth = Math.max(1, previousInteriorEnd - previousInteriorStart);
+    const interiorStart = this.wallInsetLeftCells;
+    const interiorEnd = Math.max(interiorStart, this.cols - this.wallInsetRightCells);
+    const interiorWidth = Math.max(1, interiorEnd - interiorStart);
+
+    // Derive scale factors that preserve horizontal and vertical positions across the resize.
+    const columnScale = previousCols ? interiorWidth / previousInteriorWidth : 1;
+    const rowScale = previousRows ? this.rows / previousRows : 1;
+
+    if (previousScrollOffset !== null && rowScale !== 1) {
+      // Preserve the crest offset so the visible powder height does not jump after the resize.
+      this.scrollOffsetCells = Math.round(previousScrollOffset * rowScale);
+    }
 
     const minX = this.wallInsetLeftCells;
     const maxInterior = Math.max(minX, this.cols - this.wallInsetRightCells);
@@ -620,6 +667,27 @@ export class PowderSimulation {
         grain.colliderSize = this.computeColliderSize(grain.size);
       }
       const collider = Math.max(1, Math.round(grain.colliderSize));
+
+      if (previousCols && (columnScale !== 1 || previousInteriorStart !== interiorStart)) {
+        const previousAvailable = Math.max(0, previousInteriorWidth - collider);
+        const newAvailable = Math.max(0, interiorWidth - collider);
+        const normalized = Math.max(0, Math.min(previousAvailable, grain.x - previousInteriorStart));
+        const scaled = newAvailable > 0
+          ? (normalized / (previousAvailable || 1)) * newAvailable
+          : 0; // Scale the horizontal offset so grains stay centered between the new walls.
+        grain.x = Math.round(interiorStart + scaled);
+      }
+
+      if (previousRows && rowScale !== 1) {
+        const previousAvailable = Math.max(0, previousRows - collider);
+        const newAvailable = Math.max(0, this.rows - collider);
+        const normalizedY = Math.max(0, Math.min(previousAvailable, grain.y));
+        const scaledY = newAvailable > 0
+          ? (normalizedY / (previousAvailable || 1)) * newAvailable
+          : 0; // Scale the vertical offset so resting grains keep their relative height.
+        grain.y = Math.round(scaledY);
+      }
+
       const maxOrigin = Math.max(minX, this.cols - this.wallInsetRightCells - collider);
       if (grain.x < minX) {
         grain.x = minX;
