@@ -198,7 +198,7 @@
         >
           <div class="tower-panel-controls" id="tower-panel-controls">
             <button
-              class="tower-tree-map-button"
+              class="tower-panel-button tower-tree-map-button"
               type="button"
               id="tower-tree-map-toggle"
               aria-pressed="false"
@@ -229,7 +229,29 @@
                   </g>
                 </svg>
               </span>
-              <span class="tower-tree-map-label">Tower Tree Map</span>
+              <span class="tower-tree-map-label tower-panel-button-label">Tower Tree Map</span>
+            </button>
+            <button
+              class="tower-panel-button tower-panel-button--variables"
+              type="button"
+              id="tower-variable-library"
+              aria-haspopup="dialog"
+              aria-controls="variable-library-overlay"
+              aria-expanded="false"
+            >
+              <span class="tower-panel-button-icon" aria-hidden="true">Var</span>
+              <span class="tower-panel-button-label">Variables</span>
+            </button>
+            <button
+              class="tower-panel-button tower-panel-button--matrix"
+              type="button"
+              data-upgrade-matrix-trigger
+              aria-haspopup="dialog"
+              aria-controls="upgrade-matrix-overlay"
+              aria-expanded="false"
+            >
+              <span class="tower-panel-button-icon" aria-hidden="true">⧉</span>
+              <span class="tower-panel-button-label">Upgrade Matrix</span>
             </button>
           </div>
           <div
@@ -276,18 +298,18 @@
                 <h3>α alpha tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line">\( \alpha = 5X \cdot YZ \)</p>
+                <p class="formula-line">\( \alpha = 5 \times Atk \times Spd \times Tmp \)</p>
                 <ul class="formula-definition">
-                  <li>X → attack power (atk)</li>
-                  <li>Y → primary attack speed (/s)</li>
-                  <li>Z → secondary attack speed (/s)</li>
+                  <li>Atk → attack power (base glyph damage)</li>
+                  <li>Spd → primary attack speed (strikes per second)</li>
+                  <li>Tmp → tempo metronome (secondary cadence)</li>
                 </ul>
-                <p class="formula-line result">\( \alpha = 5X \times Y \times Z \)</p>
+                <p class="formula-line result">\( \alpha = 5 \times Atk \times Spd \times Tmp \)</p>
               </div>
               <ul class="upgrade-list">
-                <li>Calibrate X for sharper projectiles (+damage)</li>
-                <li>Accelerate Y through harmonic metronomes (+attack speed)</li>
-                <li>Sync Z with temporal echoes (+attack speed)</li>
+                <li>Calibrate Atk for sharper projectiles (+damage)</li>
+                <li>Accelerate Spd through harmonic metronomes (+attack speed)</li>
+                <li>Sync Tmp with temporal echoes (+tempo)</li>
               </ul>
               <footer class="card-footer">Shoots a focused glyph-bullet at the nearest foe.</footer>
               <button class="tower-equip-button" type="button" data-tower-toggle="alpha">
@@ -300,15 +322,15 @@
                 <h3>β beta tower</h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line">\( \beta = \alpha^{X} \)</p>
+                <p class="formula-line">\( \beta = \alpha^{Exp} \)</p>
                 <ul class="formula-definition">
                   <li>α → flux inherited from alpha lattices</li>
-                  <li>X → exponent focus from β upgrades</li>
+                  <li>Exp → exponent focus from β upgrades</li>
                 </ul>
                 <p class="formula-line result">Refines α into a concentrated piercing beam.</p>
               </div>
               <ul class="upgrade-list">
-                <li>Sharpen X to raise the inherited α power</li>
+                <li>Sharpen Exp to raise the inherited α power</li>
                 <li>Stabilize the beam to hold α's pulse steady</li>
                 <li>Stretch the lattice to guide α farther downlane</li>
               </ul>
@@ -349,6 +371,7 @@
                 <p class="formula-line">\( \delta = \gamma \cdot \ln(\gamma + 1) \)</p>
                 <ul class="formula-definition">
                   <li>γ → conductor strength inherited from the gamma lattice</li>
+                  <li>Tot → total spectral soldiers δ can field concurrently</li>
                 </ul>
                 <p class="formula-line result">Commands spectral cohorts scaled purely by γ.</p>
               </div>
@@ -936,7 +959,7 @@
               <button
                 class="action-button ghost"
                 type="button"
-                id="open-upgrade-matrix"
+                data-upgrade-matrix-trigger
                 aria-haspopup="dialog"
                 aria-controls="upgrade-matrix-overlay"
               >
@@ -1355,6 +1378,33 @@
           <span class="tab-label">Codex</span>
         </button>
       </nav>
+    </div>
+    <div
+      class="level-overlay variable-library-overlay"
+      id="variable-library-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+      hidden
+      aria-labelledby="variable-library-title"
+    >
+      <div class="overlay-panel">
+        <button
+          class="overlay-close"
+          type="button"
+          data-variable-library-close
+          aria-label="Close variable glossary"
+        >
+          &times;
+        </button>
+        <p class="overlay-label">Glyph Variables</p>
+        <h2 class="overlay-title" id="variable-library-title">Variable Glossary</h2>
+        <p class="overlay-example">
+          Review every symbol unlocked across your towers and spectral cohorts.
+        </p>
+        <ul class="variable-library-list" id="variable-library-list" role="list"></ul>
+        <p class="overlay-instruction">Tap outside or press Esc to close.</p>
+      </div>
     </div>
     <div
       class="level-overlay upgrade-overlay"

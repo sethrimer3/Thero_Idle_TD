@@ -20,6 +20,97 @@ import {
   formatSignedPercentage,
 } from '../scripts/core/formatting.js';
 
+const UNIVERSAL_VARIABLE_LIBRARY = new Map([
+  [
+    'atk',
+    {
+      symbol: 'Atk',
+      name: 'Attack',
+      description: 'Base damage dealt per strike.',
+    },
+  ],
+  [
+    'm',
+    {
+      symbol: 'm',
+      name: 'Range',
+      description: 'Effective reach of the lattice (meters).',
+    },
+  ],
+  [
+    'spd',
+    {
+      symbol: 'Spd',
+      name: 'Attack Speed',
+      description: 'Primary attack cadence measured per second.',
+    },
+  ],
+  [
+    'dod',
+    {
+      symbol: 'Dod',
+      name: 'Damage over Distance',
+      description: 'Damage contribution that scales with travel distance.',
+    },
+  ],
+  [
+    'def',
+    {
+      symbol: 'Def',
+      name: 'Defense',
+      description: 'Flat protection granted to soldier cohorts.',
+    },
+  ],
+  [
+    'def%',
+    {
+      symbol: 'Def%',
+      name: 'Defense Percent',
+      description: 'Percentage-based defense granted to soldier cohorts.',
+    },
+  ],
+  [
+    'atk%',
+    {
+      symbol: 'Atk%',
+      name: 'Attack Percent',
+      description: 'Percentage-based increase to attack power.',
+    },
+  ],
+  [
+    'prc',
+    {
+      symbol: 'Prc',
+      name: 'Pierce',
+      description: 'How many enemies a projectile can pass through.',
+    },
+  ],
+  [
+    'chn',
+    {
+      symbol: 'Chn',
+      name: 'Chaining',
+      description: 'Number of additional targets a strike can arc toward.',
+    },
+  ],
+  [
+    'slw%',
+    {
+      symbol: 'Slw%',
+      name: 'Slow Percent',
+      description: 'Percentage-based slow applied to enemies.',
+    },
+  ],
+  [
+    'tot',
+    {
+      symbol: 'Tot',
+      name: 'Total',
+      description: 'Maximum allied units commanded simultaneously.',
+    },
+  ],
+]);
+
 // State container for all Towers tab systems.
 const towerTabState = {
   towerDefinitions: [],
@@ -66,6 +157,8 @@ const towerTabState = {
   glyphCurrency: 0,
   hideUpgradeMatrix: null,
   renderUpgradeMatrix: null,
+  discoveredVariables: new Map(),
+  discoveredVariableListeners: new Set(),
 };
 
 const fallbackTowerBlueprints = new Map();
@@ -195,39 +288,39 @@ function resolveBetaExponent(towerId) {
 const TOWER_EQUATION_BLUEPRINTS = {
   alpha: {
     mathSymbol: '\\alpha',
-    baseEquation: '\\( \\alpha = 5X \\cdot YZ \\)',
+    baseEquation: '\\( \\alpha = 5 \\times Atk \\times Spd \\times Tmp \\)',
     variables: [
       {
         key: 'damage',
-        symbol: 'X',
-        name: 'Attack Power',
+        symbol: 'Atk',
+        name: 'Attack',
         description: 'Projectile damage carried by each glyph bullet.',
         baseValue: 1,
         step: 1,
         upgradable: true,
-        format: (value) => `${formatWholeNumber(value)} atk`,
+        format: (value) => `${formatWholeNumber(value)} Atk`,
         cost: (level) => Math.max(1, 1 + level),
       },
       {
         key: 'rate',
-        symbol: 'Y',
-        name: 'Primary Attack Speed',
+        symbol: 'Spd',
+        name: 'Attack Speed',
         description: 'Glyph pulses per second channelled through the lattice.',
         baseValue: 1,
         step: 1,
         upgradable: true,
-        format: (value) => `${formatWholeNumber(value)} /s`,
+        format: (value) => `${formatWholeNumber(value)} Spd`,
         cost: (level) => Math.max(1, 1 + level),
       },
       {
         key: 'tempo',
-        symbol: 'Z',
-        name: 'Secondary Attack Speed',
-        description: 'Echo pulses per second braided into alpha tempo.',
+        symbol: 'Tmp',
+        name: 'Tempo',
+        description: 'Echo pulses per second braided into α tempo.',
         baseValue: 1,
         step: 1,
         upgradable: true,
-        format: (value) => `${formatWholeNumber(value)} /s`,
+        format: (value) => `${formatWholeNumber(value)} Tmp`,
         cost: (level) => Math.max(1, 1 + level),
       },
     ],
@@ -243,11 +336,11 @@ const TOWER_EQUATION_BLUEPRINTS = {
   },
   beta: {
     mathSymbol: '\\beta',
-    baseEquation: '\\( \\beta = \\alpha^{X} \\)',
+    baseEquation: '\\( \\beta = \\alpha^{Exp} \\)',
     variables: [
       {
         key: 'exponent',
-        symbol: 'X',
+        symbol: 'Exp',
         name: 'Exponent Harmonic',
         description: 'Shapes how strongly β amplifies the inherited α flux.',
         baseValue: 1,
@@ -358,6 +451,20 @@ const TOWER_EQUATION_BLUEPRINTS = {
         lockedNote: 'Bolster γ to empower this cohort.',
         format: (value) => formatDecimal(value, 2),
       },
+      {
+        key: 'tot',
+        symbol: 'Tot',
+        name: 'Total Cohort',
+        description: 'Maximum spectral soldiers δ can field simultaneously.',
+        upgradable: false,
+        getBase: ({ definition }) => {
+          if (Number.isFinite(definition?.tot)) {
+            return Math.max(1, Math.round(definition.tot));
+          }
+          return 5;
+        },
+        format: (value) => `${formatWholeNumber(value)} soldiers`,
+      },
     ],
     computeResult(values) {
       const gammaValue = Math.max(0, Number.isFinite(values.gamma) ? values.gamma : 0);
@@ -440,6 +547,7 @@ export function unlockTower(towerId, { silent = false } = {}) {
     return false;
   }
   towerTabState.unlockState.unlocked.add(towerId);
+  discoverTowerVariables(towerId);
   if (typeof document !== 'undefined') {
     // Notify other systems (such as the tower tree map) that unlock visibility should refresh.
     document.dispatchEvent(
@@ -1115,6 +1223,177 @@ export function ensureTowerUpgradeState(towerId, blueprint = null) {
     }
   });
   return state;
+}
+
+function normalizeVariableKey(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.trim().toLowerCase();
+}
+
+function getUniversalVariableMetadata(variable) {
+  if (!variable) {
+    return null;
+  }
+  const symbolKey = normalizeVariableKey(variable.symbol);
+  const keyKey = normalizeVariableKey(variable.key);
+  return (
+    UNIVERSAL_VARIABLE_LIBRARY.get(symbolKey) || UNIVERSAL_VARIABLE_LIBRARY.get(keyKey) || null
+  );
+}
+
+function getDiscoveredVariableId(variable) {
+  if (!variable) {
+    return '';
+  }
+  const symbol =
+    typeof variable.symbol === 'string' && variable.symbol.trim().length > 0
+      ? variable.symbol.trim()
+      : typeof variable.key === 'string' && variable.key.trim().length > 0
+      ? variable.key.trim().toUpperCase()
+      : '';
+  return normalizeVariableKey(symbol) || normalizeVariableKey(variable.key);
+}
+
+function getTowerSourceLabel(towerId) {
+  const definition = getTowerDefinition(towerId);
+  if (!definition) {
+    return towerId;
+  }
+  const symbol = typeof definition.symbol === 'string' ? definition.symbol.trim() : '';
+  const name = typeof definition.name === 'string' ? definition.name.trim() : towerId;
+  return symbol ? `${symbol} ${name}` : name;
+}
+
+function notifyDiscoveredVariablesChanged() {
+  const snapshot = getDiscoveredVariables();
+  towerTabState.discoveredVariableListeners.forEach((listener) => {
+    try {
+      listener(snapshot);
+    } catch (error) {
+      console.warn('Failed to notify discovered variable listener', error);
+    }
+  });
+  if (typeof document !== 'undefined') {
+    document.dispatchEvent(
+      new CustomEvent('tower-variables-changed', {
+        detail: { variables: snapshot },
+      }),
+    );
+  }
+}
+
+function discoverTowerVariables(towerId, blueprint = null) {
+  if (!towerId) {
+    return;
+  }
+  const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+  if (!effectiveBlueprint) {
+    return;
+  }
+  const variables = effectiveBlueprint.variables || [];
+  if (!variables.length) {
+    return;
+  }
+
+  const sourceLabel = getTowerSourceLabel(towerId);
+  let changed = false;
+
+  variables.forEach((variable) => {
+    if (!variable) {
+      return;
+    }
+    const id = getDiscoveredVariableId(variable);
+    if (!id) {
+      return;
+    }
+
+    const universal = getUniversalVariableMetadata(variable);
+    const symbol = universal?.symbol
+      ? universal.symbol
+      : typeof variable.symbol === 'string' && variable.symbol.trim().length
+      ? variable.symbol.trim()
+      : typeof variable.key === 'string' && variable.key.trim().length
+      ? variable.key.trim().toUpperCase()
+      : id.toUpperCase();
+    const name = universal?.name || variable.name || `Variable ${symbol}`;
+    const description = universal?.description || variable.description || '';
+
+    let entry = towerTabState.discoveredVariables.get(id);
+    if (!entry) {
+      entry = {
+        id,
+        symbol,
+        name,
+        description,
+        sources: new Set(),
+      };
+      towerTabState.discoveredVariables.set(id, entry);
+      changed = true;
+    } else {
+      if (universal && (entry.symbol !== universal.symbol || entry.name !== universal.name)) {
+        entry.symbol = universal.symbol;
+        entry.name = universal.name;
+        entry.description = universal.description;
+        changed = true;
+      } else if (!entry.description && description) {
+        entry.description = description;
+        changed = true;
+      }
+    }
+
+    if (sourceLabel && !entry.sources.has(sourceLabel)) {
+      entry.sources.add(sourceLabel);
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    notifyDiscoveredVariablesChanged();
+  }
+}
+
+export function initializeDiscoveredVariablesFromUnlocks(unlockedTowers = []) {
+  towerTabState.discoveredVariables = new Map();
+  const towerList = Array.isArray(unlockedTowers)
+    ? unlockedTowers
+    : Array.from(unlockedTowers || []);
+  towerList.forEach((towerId) => {
+    discoverTowerVariables(towerId);
+  });
+  notifyDiscoveredVariablesChanged();
+}
+
+export function addDiscoveredVariablesListener(listener) {
+  if (typeof listener !== 'function') {
+    return () => {};
+  }
+  towerTabState.discoveredVariableListeners.add(listener);
+  try {
+    listener(getDiscoveredVariables());
+  } catch (error) {
+    console.warn('Failed to invoke discovered variable listener', error);
+  }
+  return () => {
+    towerTabState.discoveredVariableListeners.delete(listener);
+  };
+}
+
+export function getDiscoveredVariables() {
+  const entries = Array.from(towerTabState.discoveredVariables.values()).map((entry) => ({
+    id: entry.id,
+    symbol: entry.symbol,
+    name: entry.name,
+    description: entry.description,
+    sources: Array.from(entry.sources).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' }),
+    ),
+  }));
+
+  return entries.sort((a, b) =>
+    a.symbol.localeCompare(b.symbol, undefined, { sensitivity: 'base' }),
+  );
 }
 
 export function calculateTowerVariableUpgradeCost(variable, level) {
