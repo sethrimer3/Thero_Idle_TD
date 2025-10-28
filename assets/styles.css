@@ -1784,15 +1784,6 @@ body.graphics-mode-low .control-button {
   line-height: 1.4;
 }
 
-.variable-library-source {
-  margin: 0;
-  font-family: 'Space Mono', monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(247, 247, 245, 0.7);
-}
-
 .variable-library-empty {
   margin: 32px 0 12px;
   text-align: center;
