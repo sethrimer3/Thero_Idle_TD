@@ -1538,11 +1538,13 @@ body.graphics-mode-low .control-button {
   gap: 6px;
   justify-items: center;
   align-content: center;
-  border: 1px solid rgba(139, 247, 255, 0.3);
+  border: 1px solid rgba(255, 228, 120, 0.45);
   background: linear-gradient(140deg, rgba(8, 10, 16, 0.92), rgba(20, 26, 40, 0.92));
   color: var(--text);
   clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
   cursor: pointer;
+  /* Surround the octagon with a gentle amber glow to emphasize its energized state. */
+  box-shadow: 0 0 24px rgba(255, 228, 120, 0.28), 0 0 0 2px rgba(255, 228, 120, 0.22) inset;
   transition: border-color var(--transition), box-shadow var(--transition), color var(--transition);
 }
 
@@ -1554,12 +1556,14 @@ body.graphics-mode-low .control-button {
 .tower-equipment-slot[data-filled='true'] .tower-equipment-button {
   border-color: rgba(255, 228, 120, 0.72);
   color: rgba(255, 228, 120, 0.92);
-  box-shadow: 0 12px 26px rgba(255, 228, 120, 0.18);
+  /* Intensify the glow for infused relics so active gear feels radiant. */
+  box-shadow: 0 0 28px rgba(255, 228, 120, 0.38), 0 12px 26px rgba(255, 228, 120, 0.24);
 }
 
 .tower-equipment-slot[data-menu-open='true'] .tower-equipment-button {
   border-color: rgba(139, 247, 255, 0.6);
-  box-shadow: 0 12px 28px rgba(139, 247, 255, 0.22);
+  /* Blend the cyan selection halo with the baseline amber aura for better focus cues. */
+  box-shadow: 0 0 30px rgba(255, 228, 120, 0.32), 0 12px 28px rgba(139, 247, 255, 0.28);
 }
 
 .tower-equipment-button__icon {

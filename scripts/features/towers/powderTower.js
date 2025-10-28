@@ -1065,6 +1065,25 @@ export class PowderSimulation {
     return this.baseSpawnInterval / Math.max(0.6, 1 + this.flowOffset * 0.45);
   }
 
+  getTopOverscanCells(minimum = 1) {
+    // Calculate how many grid cells sit above the visible viewport so motes spawn at the true zoom ceiling.
+    const fallbackMinimum = Number.isFinite(minimum) ? Math.max(1, Math.round(minimum)) : 1;
+    if (!this.rows) {
+      return fallbackMinimum;
+    }
+    const scale = Math.max(this.viewScale || 1, 0.0001);
+    const verticalHalfNormalized = Math.min(0.5 / scale, 1);
+    const center = this.viewCenterNormalized || { x: 0.5, y: 0.5 };
+    const topNormalized = center.y - verticalHalfNormalized;
+    const availableOverscan = Math.max(0, -topNormalized);
+    const maxOverscan = Number.isFinite(this.maxViewTopOverscanNormalized)
+      ? Math.max(0, this.maxViewTopOverscanNormalized)
+      : availableOverscan;
+    const normalized = Math.min(availableOverscan, maxOverscan);
+    const overscanCells = Math.round(this.rows * normalized);
+    return Math.max(fallbackMinimum, overscanCells);
+  }
+
   spawnGrain(dropLike) {
     if (!this.cols || !this.rows) {
       return;
@@ -1091,11 +1110,7 @@ export class PowderSimulation {
     );
 
     // Mirror the camera overscan so drop origins line up with the hidden ledge above the play area.
-    const overscanNormalized = Number.isFinite(this.maxViewTopOverscanNormalized)
-      ? Math.max(0, this.maxViewTopOverscanNormalized)
-      : 0.5;
-    const overscanCells = Math.max(1, Math.round(this.rows * overscanNormalized));
-    const spawnCeilingCells = Math.max(colliderSize, overscanCells);
+    const spawnCeilingCells = this.getTopOverscanCells(colliderSize);
     // Raise the spawn point so motes originate at the overscan ceiling and cascade through the entire visible tower.
     const grain = {
       id: this.nextId,
