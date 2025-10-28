@@ -3413,12 +3413,30 @@ body.graphics-mode-low .control-button {
   gap: 6px;
 }
 
-/* Highlight each requirement by mixing mono numerals with gem names. */
+/* Highlight each requirement with a color swatch while preserving mono numerals. */
 .crafting-cost__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
   font-family: "Space Mono", monospace;
   font-size: 0.82rem;
   letter-spacing: 0.05em;
   color: rgba(247, 247, 245, 0.82);
+}
+
+/* Render a small gem-colored square ahead of the requirement amount. */
+.crafting-cost__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--crafting-cost-swatch-color, rgba(247, 247, 245, 0.82));
+  box-shadow: 0 0 0 1px rgba(14, 18, 28, 0.6), 0 0 6px rgba(247, 247, 245, 0.32);
+}
+
+/* Isolate the numeric amount so the owned count can remain secondary. */
+.crafting-cost__amount {
+  color: inherit;
 }
 
 /* Append the owned count in a softer tone to indicate its reference nature. */
@@ -3427,6 +3445,14 @@ body.graphics-mode-low .control-button {
   margin-left: 6px;
   color: rgba(247, 247, 245, 0.58);
   font-size: 0.75rem;
+}
+
+/* Present a concise completion note when every tier is forged. */
+.crafting-tier-complete {
+  margin-top: 12px;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: rgba(247, 247, 245, 0.62);
 }
 
 /* Style the empty-state entry when no variables are yet unlocked. */

@@ -35,6 +35,196 @@ const BASE_TIER_REQUIREMENTS = [
 // Track how large the nullstone requirement should become before halting the tier generator.
 const MAX_NULLSTONE_REQUIREMENT = 100;
 
+// Establish the visible tier naming order so recipe labels match the gem rarity cadence.
+const CRAFTING_TIER_NAME_SEQUENCE = [
+  'quartz',
+  'ruby',
+  'sunstone',
+  'citrine',
+  'emerald',
+  'sapphire',
+  'iolite',
+  'amethyst',
+  'diamond',
+  'nullstone',
+];
+
+// Persist crafted tier milestones per recipe so the overlay can reveal the correct stage.
+const CRAFTING_TIER_STORAGE_KEY = 'glyph-defense-idle:crafting-tier-progress';
+
+// Cache crafting tier completions and listeners to avoid repeated storage hits.
+const craftingTierProgressState = {
+  initialized: false,
+  levelByRecipe: new Map(),
+  listeners: new Set(),
+};
+
+// Compose a readable tier title from a gem id, falling back to the numbered tier when needed.
+function formatCraftingTierNameFromGem(gemId, fallbackTierNumber) {
+  const gem = resolveGemDefinition(gemId);
+  const rawName = typeof gem?.name === 'string' && gem.name.trim().length
+    ? gem.name.trim()
+    : typeof gemId === 'string'
+      ? gemId
+      : '';
+  if (!rawName) {
+    return `Tier ${fallbackTierNumber}`;
+  }
+  const normalized = rawName.slice(0, 1).toUpperCase() + rawName.slice(1);
+  return `${normalized} Tier`;
+}
+
+// Resolve which tier title to show by matching the configured sequence with the current ledger.
+function determineTierNameForLedger(tierIndex, ledger) {
+  const preferredGemId = CRAFTING_TIER_NAME_SEQUENCE[tierIndex];
+  if (preferredGemId) {
+    return formatCraftingTierNameFromGem(preferredGemId, tierIndex + 1);
+  }
+  const fallbackGemId = ledger?.find((entry) => entry && typeof entry.gemId === 'string')?.gemId;
+  return formatCraftingTierNameFromGem(fallbackGemId, tierIndex + 1);
+}
+
+// Attempt to hydrate crafting tier completions from persistent storage.
+function readStoredCraftingTierProgress() {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(CRAFTING_TIER_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.levels)) {
+      return null;
+    }
+    return parsed.levels
+      .map((entry) => {
+        if (!entry || typeof entry !== 'object') {
+          return null;
+        }
+        const recipeId = typeof entry.recipeId === 'string' ? entry.recipeId.trim() : '';
+        const tier = Number.isFinite(entry.tier) ? Math.max(0, Math.floor(entry.tier)) : 0;
+        if (!recipeId) {
+          return null;
+        }
+        return [recipeId, tier];
+      })
+      .filter(Boolean);
+  } catch (error) {
+    console.warn('Failed to parse stored crafting tier progress.', error);
+    return null;
+  }
+}
+
+// Persist the crafting tier ledger so future sessions keep the reveal cadence intact.
+function writeStoredCraftingTierProgress() {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+  try {
+    const payload = {
+      levels: Array.from(craftingTierProgressState.levelByRecipe.entries()).map(
+        ([recipeId, tier]) => ({ recipeId, tier }),
+      ),
+    };
+    window.localStorage.setItem(CRAFTING_TIER_STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    console.warn('Failed to persist crafting tier progress.', error);
+  }
+}
+
+// Ensure the crafting tier cache is populated from storage before it is queried.
+function ensureCraftingTierProgressInitialized() {
+  if (craftingTierProgressState.initialized) {
+    return;
+  }
+  craftingTierProgressState.initialized = true;
+  const stored = readStoredCraftingTierProgress();
+  if (Array.isArray(stored)) {
+    stored.forEach(([recipeId, tier]) => {
+      craftingTierProgressState.levelByRecipe.set(recipeId, tier);
+    });
+  }
+}
+
+// Create a snapshot payload describing current crafting tier completions.
+function getCraftingTierProgressSnapshot() {
+  ensureCraftingTierProgressInitialized();
+  return {
+    levels: Array.from(craftingTierProgressState.levelByRecipe.entries()).map(
+      ([recipeId, tier]) => ({ recipeId, tier }),
+    ),
+  };
+}
+
+// Notify subscribed listeners and the DOM event bus when tier progress changes.
+function notifyCraftingTierProgressListeners() {
+  const snapshot = getCraftingTierProgressSnapshot();
+  craftingTierProgressState.listeners.forEach((listener) => {
+    try {
+      listener(snapshot);
+    } catch (error) {
+      console.warn('Failed to notify crafting tier progress listener.', error);
+    }
+  });
+  if (typeof document !== 'undefined' && typeof CustomEvent === 'function') {
+    document.dispatchEvent(
+      new CustomEvent('crafting-tier-progress-changed', {
+        detail: snapshot,
+      }),
+    );
+  }
+}
+
+// Retrieve the number of completed tiers for the supplied recipe identifier.
+export function getCraftedTierLevel(recipeId) {
+  ensureCraftingTierProgressInitialized();
+  const id = typeof recipeId === 'string' ? recipeId.trim() : '';
+  if (!id) {
+    return 0;
+  }
+  const tier = craftingTierProgressState.levelByRecipe.get(id);
+  return Number.isFinite(tier) ? Math.max(0, tier) : 0;
+}
+
+// Record a freshly forged tier and optionally persist the update.
+export function setCraftedTierLevel(recipeId, tier, { persist = true } = {}) {
+  ensureCraftingTierProgressInitialized();
+  const id = typeof recipeId === 'string' ? recipeId.trim() : '';
+  if (!id) {
+    return false;
+  }
+  const sanitizedTier = Number.isFinite(tier) ? Math.max(0, Math.floor(tier)) : 0;
+  const current = craftingTierProgressState.levelByRecipe.get(id) || 0;
+  if (current === sanitizedTier) {
+    return false;
+  }
+  craftingTierProgressState.levelByRecipe.set(id, sanitizedTier);
+  if (persist) {
+    writeStoredCraftingTierProgress();
+  }
+  notifyCraftingTierProgressListeners();
+  return true;
+}
+
+// Allow external systems to subscribe to crafting tier progress changes.
+export function addCraftingTierProgressListener(listener) {
+  ensureCraftingTierProgressInitialized();
+  if (typeof listener !== 'function') {
+    return () => {};
+  }
+  craftingTierProgressState.listeners.add(listener);
+  try {
+    listener(getCraftingTierProgressSnapshot());
+  } catch (error) {
+    console.warn('Failed to invoke crafting tier progress listener immediately.', error);
+  }
+  return () => {
+    craftingTierProgressState.listeners.delete(listener);
+  };
+}
+
 // Cache the computed tier array so rendering can reuse the deterministic blueprint.
 const VARIABLE_TIER_BLUEPRINTS = buildVariableTierBlueprints();
 
@@ -52,6 +242,7 @@ let revealOverlayCallback = null;
 let scheduleOverlayHideCallback = null;
 let requestInventoryRefresh = null;
 let removeEquipmentListener = null;
+let removeCraftingProgressListener = null;
 
 // Format a tower label using its symbol and name for assignment summaries.
 function getTowerLabel(towerId) {
@@ -203,6 +394,36 @@ function getMoteGemCountById(gemId) {
   return 0;
 }
 
+// Determine which tier index should be shown next for the provided recipe id.
+function resolveNextCraftingTierIndex(recipeId, totalTiers) {
+  const completed = getCraftedTierLevel(recipeId);
+  const tierCount = Number.isFinite(totalTiers) ? Math.max(0, Math.floor(totalTiers)) : 0;
+  if (tierCount <= 0) {
+    return null;
+  }
+  const sanitizedCompleted = Number.isFinite(completed) ? Math.max(0, Math.floor(completed)) : 0;
+  if (sanitizedCompleted >= tierCount) {
+    return null;
+  }
+  return sanitizedCompleted;
+}
+
+// Create a decorative color swatch representing the required gem hue.
+function createGemColorSwatch(gemId) {
+  const swatch = document.createElement('span');
+  swatch.className = 'crafting-cost__swatch';
+  swatch.setAttribute('aria-hidden', 'true');
+  const gem = resolveGemDefinition(gemId);
+  if (gem?.color) {
+    const { hue, saturation, lightness } = gem.color;
+    swatch.style.setProperty(
+      '--crafting-cost-swatch-color',
+      `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+    );
+  }
+  return swatch;
+}
+
 // Build the deterministic tier ledger that escalates costs and bonuses per specification.
 function buildVariableTierBlueprints() {
   const tiers = [];
@@ -212,6 +433,7 @@ function buildVariableTierBlueprints() {
   while (true) {
     tiers.push({
       tier: tiers.length + 1,
+      name: determineTierNameForLedger(tiers.length, ledger),
       bonusPercent: bonus,
       requirements: ledger.map((entry) => ({ ...entry })),
     });
@@ -254,6 +476,7 @@ function buildVariableCraftingRecipes(variableList) {
       description: variable.description || '',
       tiers: VARIABLE_TIER_BLUEPRINTS.map((tier) => ({
         tier: tier.tier,
+        name: tier.name,
         bonusPercent: tier.bonusPercent,
         requirements: tier.requirements.map((requirement) => ({
           ...requirement,
@@ -310,20 +533,22 @@ function renderCraftingRecipes() {
     header.append(title, effect);
     item.append(header);
 
-    // Enumerate each tier so the overlay can showcase future upgrade thresholds.
+    // Reveal only the next eligible tier so crafted stages stay hidden until forged.
+    const nextTierIndex = resolveNextCraftingTierIndex(recipe.id, recipe.tiers.length);
     const tierList = document.createElement('ol');
     tierList.className = 'crafting-tier-list';
 
-    recipe.tiers.forEach((tier) => {
+    if (nextTierIndex !== null) {
+      const tier = recipe.tiers[nextTierIndex];
       const tierItem = document.createElement('li');
       tierItem.className = 'crafting-tier';
 
-      // Communicate the tier rank alongside the resulting bonus percentage.
+      // Communicate the tier label alongside the resulting bonus percentage.
       const tierHeader = document.createElement('div');
       tierHeader.className = 'crafting-tier__header';
       const tierLabel = document.createElement('span');
       tierLabel.className = 'crafting-tier__label';
-      tierLabel.textContent = `Tier ${tier.tier}`;
+      tierLabel.textContent = tier.name || `Tier ${tier.tier}`;
 
       const tierBonus = document.createElement('span');
       tierBonus.className = 'crafting-tier__bonus';
@@ -340,7 +565,14 @@ function renderCraftingRecipes() {
         const amountLabel = `${formatGameNumber(Math.max(0, requirement.amount || 0))} ${
           requirement.label || 'Motes'
         }`;
-        costItem.textContent = amountLabel;
+
+        const swatch = createGemColorSwatch(requirement.gemId);
+        costItem.append(swatch);
+
+        const amount = document.createElement('span');
+        amount.className = 'crafting-cost__amount';
+        amount.textContent = amountLabel;
+        costItem.append(amount);
 
         const owned = document.createElement('span');
         owned.className = 'crafting-cost__owned';
@@ -352,9 +584,17 @@ function renderCraftingRecipes() {
 
       tierItem.append(tierHeader, costList);
       tierList.append(tierItem);
-    });
+    } else {
+      // Signal completion when all tiers are forged so the ledger stays concise.
+      const complete = document.createElement('p');
+      complete.className = 'crafting-tier-complete';
+      complete.textContent = 'All tiers forged.';
+      item.append(complete);
+    }
 
-    item.append(tierList);
+    if (tierList.childElementCount > 0) {
+      item.append(tierList);
+    }
 
     fragment.append(item);
   });
@@ -376,6 +616,13 @@ function bindCraftingOverlayElements() {
   if (!removeEquipmentListener) {
     removeEquipmentListener = addEquipmentListener(() => {
       renderCraftedEquipmentList();
+    });
+  }
+
+  if (!removeCraftingProgressListener) {
+    removeCraftingProgressListener = addCraftingTierProgressListener(() => {
+      // Refresh the recipe list whenever a tier milestone is recorded.
+      renderCraftingRecipes();
     });
   }
 
