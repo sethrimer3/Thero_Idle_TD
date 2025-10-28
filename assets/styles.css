@@ -622,6 +622,8 @@ body.graphics-mode-low .control-button {
   justify-items: center;
   gap: 10px;
   cursor: grab;
+  /* Disable default touch scrolling so drag gestures focus on lattice placement. */
+  touch-action: none;
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition),
     opacity var(--transition);
   min-height: 116px;
