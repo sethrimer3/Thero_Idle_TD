@@ -2363,6 +2363,7 @@ body.graphics-mode-low .control-button {
     linear-gradient(180deg, rgba(15, 16, 24, 0.96) 0%, rgba(22, 25, 37, 0.96) 100%);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 -20px 40px rgba(8, 8, 12, 0.6);
   --powder-crest: 0;
+  touch-action: none;
 }
 
 .powder-basin--pulse {
@@ -2408,6 +2409,7 @@ body.graphics-mode-low .control-button {
   width: 100%;
   height: 100%;
   display: block;
+  touch-action: none;
 }
 
 /* Overlay container that tracks the simulation transform so walls follow the zoomed view. */
@@ -2438,7 +2440,7 @@ body.graphics-mode-low .control-button {
     linear-gradient(180deg, rgba(10, 12, 18, 0.82) 0%, rgba(12, 14, 20, 0.94) 100%),
     url('./sprites/inspiration_tower_wall.png');
   background-repeat: no-repeat, repeat-y;
-  background-size: 100% 100%, 128px 192px;
+  background-size: 100% 100%, 100% 192px;
   /* Offset the repeating tower texture so it can scroll smoothly with the dune crest. */
   --powder-wall-shift: 0px;
   background-position:
@@ -2465,7 +2467,7 @@ body.graphics-mode-low .control-button {
   width: 100%;
   background-image: url('./sprites/inspiration_tower_wall.png');
   background-repeat: repeat-y;
-  background-size: 128px 192px;
+  background-size: 100% 192px;
   background-position: center var(--powder-wall-shift, 0px);
   opacity: 0.92;
   z-index: -1;
@@ -2775,12 +2777,6 @@ body.graphics-mode-low .control-button {
   font-size: 0.85rem;
   color: rgba(247, 247, 245, 0.7);
   font-style: italic;
-}
-
-.merge-note {
-  margin: 12px 0 18px;
-  font-size: 0.9rem;
-  color: var(--muted);
 }
 
 .achievement-note {
