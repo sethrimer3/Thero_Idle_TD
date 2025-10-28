@@ -5256,17 +5256,26 @@ export class SimplePlayfield {
       ctx.textBaseline = 'middle';
       ctx.fillText(symbol || '?', 0, 0);
 
-      ctx.font = `${metrics.exponentSize}px "Cormorant Garamond", serif`;
+      ctx.font = `700 ${metrics.exponentSize}px "Cormorant Garamond", serif`;
       ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
       const exponentLabel = exponent.toFixed(1);
       const exponentColor = this.resolveEnemyExponentColor(enemy);
-      // Paint the exponent with the threat-informed palette so players grasp incoming danger immediately.
-      ctx.fillStyle = exponentColor;
+      // Match the outline width to a single CSS pixel so exponents stay crisp on high-DPI displays.
+      const pixelRatio = Number.isFinite(this.pixelRatio) && this.pixelRatio > 0 ? this.pixelRatio : 1;
+      const outlineWidth = Math.max(1, Math.round(pixelRatio));
+      ctx.lineJoin = 'round';
+      ctx.miterLimit = 2;
+      ctx.strokeStyle = 'rgba(6, 8, 14, 0.85)';
+      ctx.lineWidth = outlineWidth;
       // Display the precise exponent so each glyph telegraphs its ten-power health tier.
       const exponentOffsetX = metrics.ringRadius * 0.94;
       const exponentOffsetY = -metrics.ringRadius * 0.98;
       // Anchor the exponent to the enemy's top-right quadrant so the scientific notation reads cleanly above the glyph.
+      // Outline the exponent before filling so it remains legible over bright projectile bursts.
+      ctx.strokeText(exponentLabel, exponentOffsetX, exponentOffsetY);
+      // Paint the exponent with the threat-informed palette so players grasp incoming danger immediately.
+      ctx.fillStyle = exponentColor;
       ctx.fillText(exponentLabel, exponentOffsetX, exponentOffsetY);
 
       if (this.focusedEnemyId === enemy.id) {

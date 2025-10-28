@@ -1043,14 +1043,17 @@ import {
 
   function handleReturnToLevelSelection() {
     // Confirm whether players truly want to abandon the current battle.
-    if (!activeLevelId || !activeLevelIsInteractive) {
+    const hasActiveLevel = Boolean(activeLevelId);
+    const requiresConfirm = Boolean(activeLevelId && activeLevelIsInteractive);
+
+    if (!hasActiveLevel) {
       resetPlayfieldMenuLevelSelect();
       closePlayfieldMenu();
       updateLayoutVisibility();
       return;
     }
 
-    if (!playfieldMenuLevelSelectConfirming) {
+    if (requiresConfirm && !playfieldMenuLevelSelectConfirming) {
       playfieldMenuLevelSelectConfirming = true;
       if (playfieldMenuLevelSelect) {
         playfieldMenuLevelSelect.textContent = 'Are you sure?';
@@ -1071,6 +1074,21 @@ import {
     if (!startButton || startButton.disabled) {
       return;
     }
+
+    if (startButton === playfieldMenuCommence) {
+      // When the quick menu button doubles as the start control, close the sheet after it fires.
+      const finalizeClose = () => {
+        closePlayfieldMenu();
+        updatePlayfieldMenuState();
+      };
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(finalizeClose);
+      } else {
+        finalizeClose();
+      }
+      return;
+    }
+
     startButton.click();
     closePlayfieldMenu();
     updatePlayfieldMenuState();
@@ -3654,10 +3672,17 @@ import {
       overlayPreview.setAttribute('aria-hidden', 'false');
       overlayPreview.classList.add('overlay-preview--active');
 
-      const preferredOrientation =
-        playfield && typeof playfield.layoutOrientation === 'string'
-          ? playfield.layoutOrientation
-          : null;
+      let preferredOrientation = null;
+      if (playfield && typeof playfield.layoutOrientation === 'string') {
+        preferredOrientation = playfield.layoutOrientation;
+      } else if (typeof window !== 'undefined') {
+        // Fall back to the viewport aspect ratio so desktop previews rotate alongside the battlefield layout.
+        const width = Number.isFinite(window.innerWidth) ? window.innerWidth : 0;
+        const height = Number.isFinite(window.innerHeight) ? window.innerHeight : 0;
+        if (width > 0 && height > 0) {
+          preferredOrientation = width > height ? 'landscape' : 'portrait';
+        }
+      }
       previewPlayfield = new SimplePlayfield({
         canvas: overlayPreviewCanvas,
         container: overlayPreview,
@@ -4043,6 +4068,7 @@ import {
     // Ensure the battlefield stays hidden until another level begins.
     updateLayoutVisibility();
     updateTowerSelectionButtons();
+    updatePlayfieldMenuState();
   }
 
   function updateLevelCards() {
@@ -6937,7 +6963,9 @@ import {
     playfieldElements.health = document.getElementById('playfield-health');
     playfieldElements.energy = document.getElementById('playfield-energy');
     playfieldElements.progress = document.getElementById('playfield-progress');
-    playfieldElements.startButton = document.getElementById('playfield-start');
+    playfieldElements.startButton =
+      document.getElementById('playfield-menu-commence') ||
+      document.getElementById('playfield-start');
     playfieldElements.speedButton = document.getElementById('playfield-speed');
     playfieldElements.autoAnchorButton = document.getElementById('playfield-auto');
     playfieldElements.autoWaveCheckbox = document.getElementById('playfield-auto-wave');
