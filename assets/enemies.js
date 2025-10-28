@@ -231,7 +231,10 @@ export function collectMoteGemDrop(gem, context = {}) {
   moteGemState.inventory.set(gem.typeKey, record);
 
   if (queueMoteDropHandler) {
-    queueMoteDropHandler(gem.value);
+    queueMoteDropHandler({
+      size: gem.value,
+      color: gem.color ? { ...gem.color } : null,
+    });
   }
   if (recordPowderEventHandler) {
     recordPowderEventHandler('mote-gem-collected', {

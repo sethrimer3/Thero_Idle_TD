@@ -1047,89 +1047,6 @@
             </article>
           </section>
 
-          <div class="panel-grid powder-grid">
-            <article class="card">
-              <h3>Sandfall</h3>
-              <p>
-                Grains per tick:
-                <code id="powder-sandfall-formula">\( \Psi(g) = 2.7\, \sin(t) \)</code>
-              </p>
-              <p class="powder-footnote" id="powder-sandfall-note">
-                Crest is unstable—Mote Gems drift off the board.
-              </p>
-              <button
-                class="action-button ghost"
-                type="button"
-                data-powder-action="sandfall"
-              >
-                Stabilize Flow
-              </button>
-            </article>
-            <article class="card">
-              <h3>Dune Height</h3>
-              <p>
-                Multiplier:
-                <code id="powder-dune-formula">\( \Delta m = \log_{2}(h + 1) \)</code>
-              </p>
-              <p class="powder-footnote" id="powder-dune-note">
-                Survey ridges to raise <em>h</em> and amplify energy lanes.
-              </p>
-              <button
-                class="action-button ghost"
-                type="button"
-                data-powder-action="dune"
-              >
-                Survey Ridge
-              </button>
-            </article>
-            <article class="card">
-              <h3>Crystal Mote Gems</h3>
-              <p>
-                Mote charge:
-                <code id="powder-crystal-formula">\( Q = \sqrt{\theta \cdot \zeta} \)</code>
-              </p>
-              <p class="powder-footnote" id="powder-crystal-note">
-                Crystal resonance is idle—no pulse prepared.
-              </p>
-              <button
-                class="action-button ghost"
-                type="button"
-                data-powder-action="crystal"
-              >
-                Crystallize (0/3)
-              </button>
-            </article>
-            <article class="card powder-ledger">
-              <h3>Motefall Ledger</h3>
-              <dl class="powder-ledger-grid">
-                <div>
-                  <dt>Base Σ Rate</dt>
-                  <dd id="powder-ledger-base-score">2.75 QDe/s</dd>
-                </div>
-                <div>
-                  <dt>Current Σ Rate</dt>
-                  <dd id="powder-ledger-current-score">2.75 QDe/s</dd>
-                </div>
-                <div>
-                  <dt>Current Flux</dt>
-                  <dd id="powder-ledger-flux">+375 Mote Gems/min</dd>
-                </div>
-                <div>
-                  <dt>Current Energy</dt>
-                  <dd id="powder-ledger-energy">+575 TD/s</dd>
-                </div>
-              </dl>
-              <p class="powder-footnote">
-                Ledger values account for all active mote rituals and crystal surges.
-              </p>
-            </article>
-            <article class="card powder-log-card">
-              <h3>Lab Chronicle</h3>
-              <p class="powder-footnote">Recent experiments echo here for quick review.</p>
-              <ul class="powder-log" id="powder-log" aria-live="polite" aria-label="Recent mote experiments"></ul>
-              <p class="powder-log-empty" id="powder-log-empty">No experiments recorded yet.</p>
-            </article>
-          </div>
           <!-- Display the player's mote gem inventory and provide a portal into the crafting overlay. -->
           <article class="card powder-gem-inventory-card">
             <h3>Mote Gem Inventory</h3>
@@ -1262,6 +1179,12 @@
               </li>
             </ul>
           </section>
+          <article class="card powder-log-card codex-lab-chronicle">
+            <h3>Lab Chronicle</h3>
+            <p class="powder-footnote">Recent experiments echo here for quick review.</p>
+            <ul class="powder-log" id="powder-log" aria-live="polite" aria-label="Recent mote experiments"></ul>
+            <p class="powder-log-empty" id="powder-log-empty">No experiments recorded yet.</p>
+          </article>
           <section class="enemy-codex" id="enemy-codex-section" aria-live="polite" tabindex="-1">
             <header class="subsection-title">Enemy Codex</header>
             <div class="codex-controls">
