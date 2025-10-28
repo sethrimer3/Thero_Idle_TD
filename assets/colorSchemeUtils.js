@@ -60,12 +60,37 @@ const colorSchemeDefinitions = [
       return null;
     },
   },
+  // CoolingEmbers palette keeps backward compatibility with legacy saves while updating the player-facing label.
   {
     id: 'chromatic',
-    label: 'Chromatic',
+    label: 'CoolingEmbers',
     className: 'color-scheme-chromatic',
     getTowerVisuals: computeChromaticTowerVisuals,
     getOmegaWaveVisuals: computeChromaticOmegaWaveVisuals,
+  },
+  // FractalBloom palette shifts hues from teal to magenta as towers climb tiers.
+  {
+    id: 'fractal-bloom',
+    label: 'FractalBloom',
+    className: 'color-scheme-fractal-bloom',
+    getTowerVisuals: computeFractalBloomTowerVisuals,
+    getOmegaWaveVisuals: computeFractalBloomOmegaWaveVisuals,
+  },
+  // ObsidianPulse palette accentuates deep violet towers with electric highlights for high tiers.
+  {
+    id: 'obsidian-pulse',
+    label: 'ObsidianPulse',
+    className: 'color-scheme-obsidian-pulse',
+    getTowerVisuals: computeObsidianPulseTowerVisuals,
+    getOmegaWaveVisuals: computeObsidianPulseOmegaWaveVisuals,
+  },
+  // SolarScribe palette blends ember oranges with academic parchment tones for radiant builds.
+  {
+    id: 'solar-scribe',
+    label: 'SolarScribe',
+    className: 'color-scheme-solar-scribe',
+    getTowerVisuals: computeSolarScribeTowerVisuals,
+    getOmegaWaveVisuals: computeSolarScribeOmegaWaveVisuals,
   },
 ];
 
@@ -193,6 +218,159 @@ function computeChromaticOmegaWaveVisuals(tower) {
     trailColor: trail,
     glowColor: glow,
     glowBlur: 30,
+    size,
+  };
+}
+
+// Maps tower tiers to a teal-magenta gradient for the FractalBloom palette.
+function computeFractalBloomMetrics(tower) {
+  const tier = Math.max(1, getTowerTierValue(tower));
+  const clamped = Math.min(tier, 18);
+  const ratio = clamped > 1 ? (clamped - 1) / 17 : 0;
+  const hue = 170 + ratio * 110;
+  const saturation = 70 + ratio * 20;
+  return { tier, clamped, ratio, hue, saturation };
+}
+
+// Crafts tower visuals for FractalBloom by blending teal cores with magenta glows.
+function computeFractalBloomTowerVisuals(tower) {
+  const { ratio, hue, saturation } = computeFractalBloomMetrics(tower);
+  const outerStroke = `hsl(${hue}, ${Math.round(saturation)}%, ${Math.round(30 + ratio * 40)}%)`;
+  const innerFill = `hsl(${hue}, ${Math.round(saturation * 0.9)}%, ${Math.round(12 + ratio * 35)}%)`;
+  const symbolFill = `hsl(${hue + 25}, ${Math.round(saturation)}%, ${Math.round(70 - ratio * 20)}%)`;
+  const rangeStroke = `hsla(${hue - 12}, ${Math.round(saturation)}%, ${Math.round(60 + ratio * 25)}%, ${0.28 + ratio * 0.14})`;
+  const symbolShadow = {
+    color: `hsla(${hue + 16}, ${Math.round(saturation)}%, ${Math.round(78 + ratio * 10)}%, 0.75)`,
+    blur: 18,
+  };
+  const outerShadow = {
+    color: `hsla(${hue - 18}, ${Math.round(saturation)}%, ${Math.round(55 + ratio * 25)}%, 0.6)`,
+    blur: 28,
+  };
+  return {
+    outerStroke,
+    outerShadow,
+    innerFill,
+    symbolFill,
+    symbolShadow,
+    rangeStroke,
+  };
+}
+
+// Keeps omega waves cohesive with FractalBloom tower highlights.
+function computeFractalBloomOmegaWaveVisuals(tower) {
+  const { ratio, hue, saturation } = computeFractalBloomMetrics(tower);
+  const color = `hsla(${hue}, ${Math.round(saturation)}%, ${Math.round(64 + ratio * 20)}%, ${0.6 + ratio * 0.25})`;
+  const trailColor = `hsla(${hue + 18}, ${Math.round(saturation)}%, ${Math.round(70 + ratio * 18)}%, 0.5)`;
+  const glowColor = `hsla(${hue - 14}, ${Math.round(saturation)}%, ${Math.round(85 + ratio * 10)}%, 0.85)`;
+  const size = 4.5 + ratio * 3.5;
+  return {
+    color,
+    trailColor,
+    glowColor,
+    glowBlur: 34,
+    size,
+  };
+}
+
+// Measures tier growth for ObsidianPulse to emphasize deep violet saturation.
+function computeObsidianPulseMetrics(tower) {
+  const tier = Math.max(1, getTowerTierValue(tower));
+  const clamped = Math.min(tier, 30);
+  const ratio = clamped > 1 ? (clamped - 1) / 29 : 0;
+  const hue = 260 - ratio * 40;
+  return { tier, clamped, ratio, hue };
+}
+
+// Shapes ObsidianPulse tower renders using shadowy violets and electric outlines.
+function computeObsidianPulseTowerVisuals(tower) {
+  const { ratio, hue } = computeObsidianPulseMetrics(tower);
+  const outerStroke = `hsl(${hue}, 80%, ${Math.round(22 + ratio * 18)}%)`;
+  const innerFill = `hsl(${hue - 14}, 65%, ${Math.round(8 + ratio * 20)}%)`;
+  const symbolFill = `hsl(${hue + 18}, 95%, ${Math.round(68 + ratio * 18)}%)`;
+  const rangeStroke = `hsla(${hue + 6}, 85%, ${Math.round(46 + ratio * 30)}%, ${0.32 + ratio * 0.18})`;
+  const symbolShadow = {
+    color: `hsla(${hue + 22}, 95%, ${Math.round(78 + ratio * 12)}%, 0.88)`,
+    blur: 30,
+  };
+  const outerShadow = {
+    color: `hsla(${hue - 18}, 75%, ${Math.round(38 + ratio * 20)}%, 0.55)`,
+    blur: 24,
+  };
+  return {
+    outerStroke,
+    outerShadow,
+    innerFill,
+    symbolFill,
+    symbolShadow,
+    rangeStroke,
+  };
+}
+
+// Aligns ObsidianPulse omega waves with the tower's neon edges.
+function computeObsidianPulseOmegaWaveVisuals(tower) {
+  const { ratio, hue } = computeObsidianPulseMetrics(tower);
+  const color = `hsla(${hue + 12}, 88%, ${Math.round(58 + ratio * 16)}%, ${0.55 + ratio * 0.3})`;
+  const trailColor = `hsla(${hue - 6}, 70%, ${Math.round(48 + ratio * 16)}%, 0.48)`;
+  const glowColor = `hsla(${hue + 24}, 95%, ${Math.round(72 + ratio * 18)}%, 0.92)`;
+  const size = 4 + ratio * 4;
+  return {
+    color,
+    trailColor,
+    glowColor,
+    glowBlur: 36,
+    size,
+  };
+}
+
+// Computes brightness ramps for SolarScribe to mimic parchment catching ember light.
+function computeSolarScribeMetrics(tower) {
+  const tier = Math.max(1, getTowerTierValue(tower));
+  const clamped = Math.min(tier, 20);
+  const ratio = clamped > 1 ? (clamped - 1) / 19 : 0;
+  return { tier, clamped, ratio };
+}
+
+// Applies parchment-inspired oranges to SolarScribe tower visuals.
+function computeSolarScribeTowerVisuals(tower) {
+  const { ratio } = computeSolarScribeMetrics(tower);
+  const emberHue = 34 + ratio * 16;
+  const emberSaturation = 78 + ratio * 12;
+  const outerStroke = `hsl(${emberHue}, ${Math.round(emberSaturation)}%, ${Math.round(40 + ratio * 20)}%)`;
+  const innerFill = `hsl(${emberHue - 8}, ${Math.round(emberSaturation * 0.85)}%, ${Math.round(18 + ratio * 24)}%)`;
+  const symbolFill = `hsl(${emberHue + 12}, 90%, ${Math.round(78 - ratio * 8)}%)`;
+  const rangeStroke = `hsla(${emberHue + 4}, ${Math.round(emberSaturation)}%, ${Math.round(60 + ratio * 18)}%, ${0.3 + ratio * 0.16})`;
+  const symbolShadow = {
+    color: `hsla(${emberHue + 20}, 95%, ${Math.round(82 + ratio * 10)}%, 0.8)`,
+    blur: 20,
+  };
+  const outerShadow = {
+    color: `hsla(${emberHue - 18}, 80%, ${Math.round(55 + ratio * 18)}%, 0.5)`,
+    blur: 26,
+  };
+  return {
+    outerStroke,
+    outerShadow,
+    innerFill,
+    symbolFill,
+    symbolShadow,
+    rangeStroke,
+  };
+}
+
+// Generates SolarScribe omega waves so trails glow like cooling embers.
+function computeSolarScribeOmegaWaveVisuals(tower) {
+  const { ratio } = computeSolarScribeMetrics(tower);
+  const emberHue = 30 + ratio * 18;
+  const color = `hsla(${emberHue}, 90%, ${Math.round(66 + ratio * 18)}%, ${0.58 + ratio * 0.26})`;
+  const trailColor = `hsla(${emberHue + 10}, 85%, ${Math.round(72 + ratio * 16)}%, 0.48)`;
+  const glowColor = `hsla(${emberHue + 4}, 95%, ${Math.round(80 + ratio * 14)}%, 0.9)`;
+  const size = 4.2 + ratio * 3.2;
+  return {
+    color,
+    trailColor,
+    glowColor,
+    glowBlur: 32,
     size,
   };
 }
