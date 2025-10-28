@@ -368,6 +368,10 @@ export class PowderSimulation {
     this.viewScale = Number.isFinite(options.viewScale) && options.viewScale > 0 ? options.viewScale : 1;
     this.minViewScale = Number.isFinite(options.minViewScale) && options.minViewScale > 0 ? options.minViewScale : 0.75;
     this.maxViewScale = Number.isFinite(options.maxViewScale) && options.maxViewScale > 0 ? options.maxViewScale : 2.5;
+    // Limit how far the camera may scroll above the tower so zoomed-out views only reveal 50% extra height.
+    this.maxViewTopOverscanNormalized = Number.isFinite(options.maxViewTopOverscanNormalized)
+      ? Math.max(0, options.maxViewTopOverscanNormalized)
+      : 0.5;
     this.viewCenterNormalized = { x: 0.5, y: 0.5 };
 
     this.scrollThreshold = Number.isFinite(options.scrollThreshold)
@@ -1086,8 +1090,13 @@ export class PowderSimulation {
       Math.max(minX, center - Math.floor(colliderSize / 2) + offset),
     );
 
-    const spawnCeilingCells = Math.max(colliderSize, Math.round(this.rows * 0.7));
-    // Raise the spawn point so motes originate above the furthest zoom range and cascade through the entire visible tower.
+    // Mirror the camera overscan so drop origins line up with the hidden ledge above the play area.
+    const overscanNormalized = Number.isFinite(this.maxViewTopOverscanNormalized)
+      ? Math.max(0, this.maxViewTopOverscanNormalized)
+      : 0.5;
+    const overscanCells = Math.max(1, Math.round(this.rows * overscanNormalized));
+    const spawnCeilingCells = Math.max(colliderSize, overscanCells);
+    // Raise the spawn point so motes originate at the overscan ceiling and cascade through the entire visible tower.
     const grain = {
       id: this.nextId,
       x: startX,
@@ -1413,18 +1422,30 @@ export class PowderSimulation {
     }
     const scale = Math.max(this.viewScale || 1, 0.0001);
     const halfX = Math.min(0.5, 0.5 / scale);
-    const halfY = Math.min(0.5, 0.5 / scale);
+    // Measure half of the visible height in normalized tower units so zoom changes keep the floor anchored.
+    const verticalHalfNormalized = Math.min(0.5 / scale, 1);
+    // Reuse the overscan budget when clamping so both camera limits and spawn logic stay in sync.
+    const overscanNormalized = Number.isFinite(this.maxViewTopOverscanNormalized)
+      ? Math.max(0, this.maxViewTopOverscanNormalized)
+      : 0;
     const clamp = (value, min, max) => {
       if (min > max) {
         return 0.5;
       }
       return Math.min(Math.max(value, min), max);
     };
+    let minY = -overscanNormalized + verticalHalfNormalized;
+    let maxY = 1 - verticalHalfNormalized;
+    if (minY > maxY) {
+      // Collapse impossible ranges (e.g., extreme debug zoom) to the midpoint so the camera stays stable.
+      const midpoint = (minY + maxY) / 2;
+      minY = midpoint;
+      maxY = midpoint;
+    }
     return {
       x: clamp(normalized.x, halfX, 1 - halfX),
-      // Allow the camera to drift upward to reveal the tower summit while capping the
-      // lower bound so the floor never scrolls into view when zoomed out.
-      y: clamp(normalized.y, 0, Math.max(0, 1 - halfY)),
+      // Restrict the vertical camera range so the floor stays visible and the zoom ceiling matches the overscan budget.
+      y: clamp(normalized.y, minY, maxY),
     };
   }
 
