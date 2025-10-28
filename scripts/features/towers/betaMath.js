@@ -8,7 +8,7 @@
  */
 export const BETA_BASE_ATTACK = 10;
 export const BETA_BASE_ATTACK_SPEED = 2;
-export const BETA_BASE_RANGE = 5;
+export const BETA_BASE_RANGE = 0.36;
 
 /**
  * Ensures the exponent can never drop below one or become `NaN`.

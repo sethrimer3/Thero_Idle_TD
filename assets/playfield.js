@@ -4171,7 +4171,9 @@ export class SimplePlayfield {
       ctx.font = `${metrics.exponentSize}px "Space Mono", monospace`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText('k', metrics.coreRadius * 0.35, -metrics.coreRadius * 0.6);
+      const exponentLabel = String(exponent);
+      // Display the precise exponent so each glyph telegraphs its ten-power health tier.
+      ctx.fillText(exponentLabel, metrics.coreRadius * 0.35, -metrics.coreRadius * 0.6);
 
       if (this.focusedEnemyId === enemy.id) {
         // Draw a rotating focus marker so players can track the prioritized enemy.
