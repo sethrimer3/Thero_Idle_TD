@@ -3062,7 +3062,7 @@ body.graphics-mode-low .control-button {
   color: rgba(247, 247, 245, 0.8);
 }
 
-/* Stack stub recipes vertically so each blueprint remains readable. */
+/* Stack discovered variable recipes vertically so each blueprint remains readable. */
 .crafting-list {
   list-style: none;
   margin: 0;
@@ -3088,7 +3088,7 @@ body.graphics-mode-low .control-button {
   gap: 4px;
 }
 
-/* Style the stub crafting labels for quick scanning. */
+/* Style the crafting labels for quick scanning. */
 .crafting-item__title {
   margin: 0;
   font-size: 1.05rem;
@@ -3101,6 +3101,54 @@ body.graphics-mode-low .control-button {
   margin: 0;
   font-size: 0.85rem;
   color: rgba(247, 247, 245, 0.72);
+}
+
+/* Carry the variable codex detail inline so crafting lore stays visible. */
+.crafting-item__detail {
+  display: inline;
+  color: rgba(247, 247, 245, 0.62);
+}
+
+/* Nest tier ladders so each upgrade stage remains clearly separated. */
+.crafting-tier-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+/* Frame individual tiers with subtle dividers to guide scanning. */
+.crafting-tier {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(14, 18, 28, 0.55);
+  display: grid;
+  gap: 8px;
+}
+
+/* Align the tier label and projected bonus for at-a-glance comparisons. */
+.crafting-tier__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+/* Style the tier label with condensed uppercase glyphs. */
+.crafting-tier__label {
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 245, 0.74);
+}
+
+/* Emphasize the bonus percentage with accent golds. */
+.crafting-tier__bonus {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: rgba(255, 224, 180, 0.86);
 }
 
 /* Arrange gem requirements as a compact column. */
@@ -3126,6 +3174,15 @@ body.graphics-mode-low .control-button {
   margin-left: 6px;
   color: rgba(247, 247, 245, 0.58);
   font-size: 0.75rem;
+}
+
+/* Style the empty-state entry when no variables are yet unlocked. */
+.crafting-item--empty {
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgba(247, 247, 245, 0.62);
+  border-style: dashed;
+  border-color: rgba(247, 247, 245, 0.25);
 }
 
 .field-notes-figure {
