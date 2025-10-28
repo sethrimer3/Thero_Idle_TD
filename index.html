@@ -958,19 +958,6 @@
             <article class="card powder-simulation">
               <h3>Motefall Basin</h3>
               <div class="powder-basin" id="powder-basin">
-                <div
-                  class="powder-wall-hitbox powder-wall-hitbox-left"
-                  id="powder-wall-hitbox-left"
-                  aria-hidden="true"
-                ></div>
-                <div class="powder-wall powder-wall-left" id="powder-wall-left" aria-hidden="true">
-                  <div
-                    class="powder-wall-marker powder-crest-marker"
-                    id="powder-crest-marker"
-                    data-height="Crest 0.00"
-                    aria-hidden="true"
-                  ></div>
-                </div>
                 <canvas
                   id="powder-canvas"
                   width="240"
@@ -978,15 +965,30 @@
                   role="img"
                   aria-label="Motefall basin simulation"
                 ></canvas>
-                <div
-                  class="powder-wall-hitbox powder-wall-hitbox-right"
-                  id="powder-wall-hitbox-right"
-                  aria-hidden="true"
-                ></div>
-                <div class="powder-wall powder-wall-right" id="powder-wall-right" aria-hidden="true">
-                  <div class="powder-wall-marker" id="powder-wall-marker" data-height="Peak 0.00" aria-hidden="true"></div>
-                  <!-- Display the progress marker on the right wall so it no longer overlaps the crest label. -->
-                  <div class="powder-glyph-column" data-powder-glyph-column="right"></div>
+                <div class="powder-viewport" id="powder-viewport">
+                  <div
+                    class="powder-wall-hitbox powder-wall-hitbox-left"
+                    id="powder-wall-hitbox-left"
+                    aria-hidden="true"
+                  ></div>
+                  <div class="powder-wall powder-wall-left" id="powder-wall-left" aria-hidden="true">
+                    <div
+                      class="powder-wall-marker powder-crest-marker"
+                      id="powder-crest-marker"
+                      data-height="Crest 0.00"
+                      aria-hidden="true"
+                    ></div>
+                  </div>
+                  <div
+                    class="powder-wall-hitbox powder-wall-hitbox-right"
+                    id="powder-wall-hitbox-right"
+                    aria-hidden="true"
+                  ></div>
+                  <div class="powder-wall powder-wall-right" id="powder-wall-right" aria-hidden="true">
+                    <div class="powder-wall-marker" id="powder-wall-marker" data-height="Peak 0.00" aria-hidden="true"></div>
+                    <!-- Display the progress marker on the right wall so it no longer overlaps the crest label. -->
+                    <div class="powder-glyph-column" data-powder-glyph-column="right"></div>
+                  </div>
                 </div>
               </div>
               <p class="powder-footnote" id="powder-simulation-note">

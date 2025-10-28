@@ -1479,6 +1479,8 @@ import {
     fluidUnlocked: false,
     // Track pointer gestures for the powder basin camera controls.
     viewInteraction: null,
+    // Cache the latest camera transform so overlays sync even before the simulation emits.
+    viewTransform: null,
   };
 
   let currentPowderBonuses = {
@@ -1518,6 +1520,7 @@ import {
     simulationCanvas: null,
     simulationNote: null,
     basin: null,
+    viewport: null,
     wallMarker: null,
     crestMarker: null,
     wallGlyphColumns: [],
@@ -1633,6 +1636,37 @@ import {
       progressFraction,
       remainingToNext,
     };
+  }
+
+  // Apply the active camera transform to the overlay container so the decorative walls
+  // match the powder simulation's zoom and pan state.
+  function applyPowderViewportTransform(transform) {
+    if (!powderElements.viewport) {
+      return;
+    }
+    if (!transform) {
+      powderElements.viewport.style.transform = '';
+      return;
+    }
+    const width = Number.isFinite(transform.width) ? transform.width : 0;
+    const height = Number.isFinite(transform.height) ? transform.height : 0;
+    const scale = Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1;
+    if (!width || !height) {
+      powderElements.viewport.style.transform = '';
+      return;
+    }
+    const centerX = Number.isFinite(transform.center?.x) ? transform.center.x : width / 2;
+    const centerY = Number.isFinite(transform.center?.y) ? transform.center.y : height / 2;
+    const translateToCenter = `translate(${(width / 2).toFixed(3)}px, ${(height / 2).toFixed(3)}px)`;
+    const scalePart = `scale(${scale.toFixed(5)})`;
+    const translateToOrigin = `translate(${(-centerX).toFixed(3)}px, ${(-centerY).toFixed(3)}px)`;
+    powderElements.viewport.style.transform = `${translateToCenter} ${scalePart} ${translateToOrigin}`;
+  }
+
+  // Store and broadcast camera transform updates emitted by the powder simulation.
+  function handlePowderViewTransformChange(transform) {
+    powderState.viewTransform = transform || null;
+    applyPowderViewportTransform(transform || null);
   }
 
   function syncPowderWallVisuals(metrics) {
@@ -1769,6 +1803,7 @@ import {
             maxDuneGain: powderConfig.simulatedDuneGainMax,
             onHeightChange: handlePowderHeightChange,
             onWallMetricsChange: handlePowderWallMetricsChange,
+            onViewTransformChange: handlePowderViewTransformChange,
           });
         }
 
@@ -1798,6 +1833,7 @@ import {
         flushPendingMoteDrops();
         powderSimulation.start();
         initializePowderViewInteraction();
+        handlePowderViewTransformChange(powderSimulation.getViewTransform());
         if (previousMode !== powderState.simulationMode) {
           recordPowderEvent('mode-switch', { mode: 'fluid', label: profile.label || 'Fluid Study' });
         }
@@ -1820,6 +1856,7 @@ import {
             motePalette: powderState.motePalette,
             onHeightChange: handlePowderHeightChange,
             onWallMetricsChange: handlePowderWallMetricsChange,
+            onViewTransformChange: handlePowderViewTransformChange,
           });
         }
 
@@ -1846,6 +1883,7 @@ import {
         flushPendingMoteDrops();
         powderSimulation.start();
         initializePowderViewInteraction();
+        handlePowderViewTransformChange(powderSimulation.getViewTransform());
         if (previousMode !== powderState.simulationMode) {
           recordPowderEvent('mode-switch', { mode: 'sand', label: 'Powderfall Study' });
         }
@@ -5885,6 +5923,7 @@ import {
     powderElements.simulationCanvas = document.getElementById('powder-canvas');
     powderElements.simulationNote = document.getElementById('powder-simulation-note');
     powderElements.basin = document.getElementById('powder-basin');
+    powderElements.viewport = document.getElementById('powder-viewport');
     powderElements.leftWall = document.getElementById('powder-wall-left');
     powderElements.rightWall = document.getElementById('powder-wall-right');
     powderElements.leftHitbox = document.getElementById('powder-wall-hitbox-left');
@@ -5902,6 +5941,7 @@ import {
       columnEl.innerHTML = '';
       powderGlyphColumns.push({ element: columnEl, glyphs: new Map() });
     });
+    applyPowderViewportTransform(powderState.viewTransform);
 
     function initializePowderViewInteraction() {
       const canvas = powderElements.simulationCanvas;
@@ -6182,6 +6222,7 @@ import {
         motePalette: powderState.motePalette,
         onHeightChange: handlePowderHeightChange,
         onWallMetricsChange: handlePowderWallMetricsChange,
+        onViewTransformChange: handlePowderViewTransformChange,
       });
       sandSimulation = powderSimulation;
       powderState.idleDrainRate = powderSimulation.idleDrainRate;
@@ -6203,6 +6244,7 @@ import {
       handlePowderHeightChange(powderSimulation.getStatus());
       updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
       initializePowderViewInteraction();
+      handlePowderViewTransformChange(powderSimulation.getViewTransform());
       syncPowderWallVisuals();
       updatePowderHitboxVisibility();
       flushPendingMoteDrops();
