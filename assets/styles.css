@@ -494,8 +494,8 @@ body.graphics-mode-low .control-button {
   z-index: 4;
   display: grid;
   gap: 10px;
-  padding: 14px 16px;
-  min-width: 180px;
+  padding: 16px;
+  min-width: 220px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(10, 12, 20, 0.96);
@@ -513,7 +513,7 @@ body.graphics-mode-low .control-button {
   background: rgba(20, 24, 38, 0.92);
   color: rgba(255, 255, 255, 0.9);
   font-family: 'Space Mono', monospace;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
@@ -525,6 +525,37 @@ body.graphics-mode-low .control-button {
   /* Elevate the menu command when players highlight it. */
   background: rgba(36, 40, 60, 0.96);
   color: rgba(139, 247, 255, 0.92);
+}
+
+.playfield-menu-item--warning {
+  color: rgba(255, 107, 107, 0.92);
+}
+
+.playfield-menu-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(20, 24, 38, 0.92);
+  color: rgba(255, 255, 255, 0.85);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.playfield-menu-toggle:hover,
+.playfield-menu-toggle:focus-within {
+  background: rgba(36, 40, 60, 0.96);
+  color: rgba(139, 247, 255, 0.92);
+}
+
+.playfield-menu-toggle input {
+  accent-color: var(--accent-3);
 }
 
 .playfield:not(.playfield--landscape),
@@ -707,44 +738,41 @@ body.graphics-mode-low .control-button {
   box-shadow: 0 0 22px rgba(255, 228, 120, 0.4);
 }
 
-.tower-loadout {
-  margin-top: 18px;
-  padding: clamp(12px, 3vw, 18px);
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(8, 9, 14, 0.78);
-  display: grid;
-  gap: 14px;
-}
 
-.tower-loadout-note {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--muted);
-  text-align: center;
+.tower-loadout {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  width: min(90%, 420px);
+  pointer-events: none;
 }
 
 .tower-loadout-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+  pointer-events: auto;
 }
 
 .tower-loadout-item {
   position: relative;
-  border-radius: 14px;
-  border: 1px solid rgba(139, 247, 255, 0.25);
-  background: rgba(6, 7, 12, 0.92);
-  padding: 14px 10px 12px;
   display: grid;
   justify-items: center;
-  gap: 10px;
+  gap: 6px;
+  padding: 8px 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 247, 255, 0.3);
+  background: rgba(6, 7, 12, 0.8);
   cursor: grab;
-  /* Disable default touch scrolling so drag gestures focus on lattice placement. */
   touch-action: none;
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition),
     opacity var(--transition);
-  min-height: 116px;
+  min-height: 0;
 }
 
 .tower-loadout-item:active {
@@ -770,16 +798,16 @@ body.graphics-mode-low .control-button {
 
 .tower-loadout-symbol {
   font-family: "Cormorant Garamond", serif;
-  font-size: 1.6rem;
-  letter-spacing: 0.08em;
+  font-size: 1.2rem;
+  letter-spacing: 0.06em;
 }
 
 .tower-loadout-art {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  padding: 6px;
-  background: radial-gradient(circle at 50% 30%, rgba(255, 228, 120, 0.28), rgba(12, 14, 20, 0.85));
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  padding: 4px;
+  background: radial-gradient(circle at 50% 30%, rgba(255, 228, 120, 0.25), rgba(12, 14, 20, 0.82));
   box-shadow: 0 10px 18px rgba(255, 228, 120, 0.18);
   object-fit: contain;
   mix-blend-mode: screen;
@@ -787,44 +815,37 @@ body.graphics-mode-low .control-button {
 
 .tower-loadout-label {
   margin: 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .tower-loadout-cost {
   margin: 0;
-  font-size: 0.7rem;
+  font-size: 0.6rem;
   letter-spacing: 0.06em;
   color: rgba(255, 228, 120, 0.75);
 }
 
 .playfield-stats {
   position: absolute;
-  inset-inline: 0;
-  bottom: 12px;
+  top: 16px;
+  left: 16px;
   margin: 0;
-  display: flex;
-  justify-content: center;
-  gap: clamp(10px, 3vw, 22px);
-  padding: 6px 14px;
+  display: grid;
+  gap: 4px;
   font-family: "Space Mono", monospace;
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
+  font-size: 0.55rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(247, 247, 245, 0.72);
-  background: linear-gradient(90deg, rgba(10, 10, 16, 0.6), rgba(10, 10, 16, 0.2));
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  backdrop-filter: blur(6px);
 }
 
 .playfield-stats__item {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
+  align-items: baseline;
+  gap: 4px;
 }
 
 .playfield-stats dt {
@@ -832,15 +853,10 @@ body.graphics-mode-low .control-button {
   color: rgba(247, 247, 245, 0.56);
 }
 
-.playfield-stats dt::after {
-  content: ':';
-  margin-inline-start: 2px;
-}
-
 .playfield-stats dd {
   margin: 0;
   color: var(--accent-3);
-  font-size: 0.75rem;
+  font-size: 0.65rem;
 }
 
 .subsection-title {
