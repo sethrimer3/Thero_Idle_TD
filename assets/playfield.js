@@ -140,6 +140,11 @@ export class SimplePlayfield {
     this.draggingTowerType = null;
     this.dragPreviewOffset = { x: 0, y: -34 };
 
+    // Track which lattice menu is active so clicks open option rings instead of instant selling.
+    this.activeTowerMenu = null;
+    // Provide stable identifiers for Delta soldiers as they spawn from multiple towers.
+    this.deltaSoldierIdCounter = 0;
+
     this.floaters = [];
     this.floaterConnections = [];
     this.floaterBounds = { width: 0, height: 0 };
@@ -1084,6 +1089,8 @@ export class SimplePlayfield {
     this.disableSlots(true);
     this.enemies = [];
     this.projectiles = [];
+    this.activeTowerMenu = null;
+    this.deltaSoldierIdCounter = 0;
     this.floaters = [];
     this.floaterConnections = [];
     this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
@@ -1416,6 +1423,9 @@ export class SimplePlayfield {
       const definition = getTowerDefinition(tower.type) || tower.definition;
       const rangeFactor = definition ? definition.range : 0.24;
       tower.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
+      if (tower.type === 'delta') {
+        this.updateDeltaAnchors(tower);
+      }
     });
     if (this.hoverPlacement) {
       this.hoverPlacement.position = this.getCanvasPosition(this.hoverPlacement.normalized);
@@ -1513,7 +1523,7 @@ export class SimplePlayfield {
         valid: false,
         target: hoveredTower,
         towerType: hoveredTower.type,
-        reason: 'Select to release lattice.',
+        reason: 'Open lattice menu.',
       };
       if (!this.shouldAnimate) {
         this.draw();
@@ -1794,17 +1804,35 @@ export class SimplePlayfield {
 
     const position = this.getCanvasPosition(normalized);
     const enemyTarget = this.findEnemyAt(position);
+    const menuTower = this.getActiveMenuTower();
     if (enemyTarget) {
+      if (menuTower && this.handleTowerMenuEnemySelection(menuTower, enemyTarget.enemy)) {
+        return;
+      }
       this.toggleEnemyFocus(enemyTarget.enemy);
       return;
     }
+
+    if (this.activeTowerMenu && this.handleTowerMenuClick(position)) {
+      return;
+    }
+
     if (this.collectMoteGemsNear(position)) {
       return;
     }
+
     const tower = this.findTowerAt(position);
     if (tower) {
-      this.sellTower(tower);
+      if (this.activeTowerMenu?.towerId === tower.id) {
+        this.closeTowerMenu();
+      } else {
+        this.openTowerMenu(tower);
+      }
       return;
+    }
+
+    if (this.activeTowerMenu) {
+      this.closeTowerMenu();
     }
   }
 
@@ -1930,6 +1958,361 @@ export class SimplePlayfield {
     return Math.max(baseRadius, focusRadius || ringRadius || baseRadius);
   }
 
+  /**
+   * Locate the currently selected tower so option clicks can mutate its settings.
+   */
+  getActiveMenuTower() {
+    if (!this.activeTowerMenu?.towerId) {
+      return null;
+    }
+    const tower = this.towers.find((candidate) => candidate?.id === this.activeTowerMenu.towerId);
+    if (!tower) {
+      this.activeTowerMenu = null;
+    }
+    return tower || null;
+  }
+
+  /**
+   * Present the radial command menu for the supplied tower.
+   */
+  openTowerMenu(tower, options = {}) {
+    if (!tower) {
+      return;
+    }
+    const timestamp =
+      typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
+    this.activeTowerMenu = { towerId: tower.id, openedAt: timestamp };
+    if (this.messageEl && !options.silent) {
+      const label = tower.definition?.name || `${tower.symbol || 'Tower'}`;
+      this.messageEl.textContent = `${label} command lattice ready.`;
+    }
+  }
+
+  /**
+   * Hide any open radial tower menu.
+   */
+  closeTowerMenu() {
+    this.activeTowerMenu = null;
+  }
+
+  /**
+   * Generate option metadata for the active tower menu.
+   */
+  buildTowerMenuOptions(tower) {
+    if (!tower) {
+      return [];
+    }
+    const options = [];
+    options.push({
+      id: 'sell',
+      type: 'action',
+      icon: '$þ',
+      label: 'Sell lattice',
+    });
+    const priority = tower.targetPriority || 'first';
+    options.push({
+      id: 'priority-first',
+      type: 'priority',
+      value: 'first',
+      icon: '1st',
+      label: 'First priority',
+      selected: priority === 'first',
+    });
+    options.push({
+      id: 'priority-strongest',
+      type: 'priority',
+      value: 'strongest',
+      icon: 'Str',
+      label: 'Strongest priority',
+      selected: priority === 'strongest',
+    });
+    if (tower.type === 'delta') {
+      const mode = tower.behaviorMode || 'pursuit';
+      options.push({
+        id: 'delta-pursuit',
+        type: 'mode',
+        value: 'pursuit',
+        icon: 'Δ→',
+        label: 'Pursue target',
+        selected: mode === 'pursuit',
+      });
+      options.push({
+        id: 'delta-track',
+        type: 'mode',
+        value: 'trackHold',
+        icon: 'Δ∥',
+        label: 'Hold track',
+        selected: mode === 'trackHold',
+      });
+      options.push({
+        id: 'delta-guard',
+        type: 'mode',
+        value: 'sentinel',
+        icon: 'Δ◎',
+        label: 'Guard tower',
+        selected: mode === 'sentinel',
+      });
+    }
+    return options;
+  }
+
+  /**
+   * Compute the world-space layout for the radial menu options.
+   */
+  getTowerMenuGeometry(tower) {
+    const options = this.buildTowerMenuOptions(tower);
+    if (!tower || !options.length) {
+      return null;
+    }
+    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
+    const optionRadius = Math.max(22, minDimension * 0.04);
+    const ringRadius = Math.max(optionRadius * 2.4, minDimension * 0.12);
+    const startAngle = -Math.PI / 2;
+    const angleStep = (Math.PI * 2) / options.length;
+    const layout = options.map((option, index) => {
+      const angle = startAngle + index * angleStep;
+      return {
+        ...option,
+        angle,
+        center: {
+          x: tower.x + Math.cos(angle) * ringRadius,
+          y: tower.y + Math.sin(angle) * ringRadius,
+        },
+      };
+    });
+    return { options: layout, optionRadius, ringRadius };
+  }
+
+  /**
+   * Handle clicks on the radial tower command menu.
+   */
+  handleTowerMenuClick(position) {
+    const tower = this.getActiveMenuTower();
+    if (!tower) {
+      return false;
+    }
+    const geometry = this.getTowerMenuGeometry(tower);
+    if (!geometry) {
+      return false;
+    }
+    const { options, optionRadius } = geometry;
+    const hitRadius = optionRadius * 1.1;
+    for (let index = 0; index < options.length; index += 1) {
+      const option = options[index];
+      const dx = position.x - option.center.x;
+      const dy = position.y - option.center.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance > hitRadius) {
+        continue;
+      }
+      this.executeTowerMenuOption(tower, option);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Apply the effect of a selected tower option.
+   */
+  executeTowerMenuOption(tower, option) {
+    if (!tower || !option) {
+      return;
+    }
+    if (option.type === 'action' && option.id === 'sell') {
+      this.sellTower(tower);
+      return;
+    }
+    if (option.type === 'priority' && option.value) {
+      if (tower.targetPriority !== option.value) {
+        tower.targetPriority = option.value;
+        if (this.messageEl) {
+          this.messageEl.textContent = `Target priority set to ${
+            option.value === 'strongest' ? 'strongest' : 'first'
+          }.`;
+        }
+      }
+      this.openTowerMenu(tower, { silent: true });
+      return;
+    }
+    if (option.type === 'mode' && tower.type === 'delta' && option.value) {
+      if (tower.behaviorMode !== option.value) {
+        this.configureDeltaBehavior(tower, option.value);
+        if (this.messageEl) {
+          const descriptor =
+            option.value === 'trackHold'
+              ? 'Holding the glyph lane.'
+              : option.value === 'sentinel'
+              ? 'Guarding the lattice.'
+              : 'Pursuing threats.';
+          this.messageEl.textContent = `Δ cohort stance updated—${descriptor}`;
+        }
+      }
+      this.openTowerMenu(tower, { silent: true });
+    }
+  }
+
+  /**
+   * Allow the player to mark a manual target for sentry mode Delta soldiers.
+   */
+  handleTowerMenuEnemySelection(tower, enemy) {
+    if (!tower || tower.type !== 'delta' || tower.behaviorMode !== 'sentinel' || !enemy) {
+      return false;
+    }
+    const state = this.ensureDeltaState(tower);
+    if (!state) {
+      return false;
+    }
+    state.manualTargetId = enemy.id;
+    if (this.messageEl) {
+      const label = enemy.label || this.resolveEnemySymbol(enemy) || 'glyph';
+      this.messageEl.textContent = `Δ cohort assigned to ${label}.`;
+    }
+    this.openTowerMenu(tower, { silent: true });
+    return true;
+  }
+
+  /**
+   * Ensure every tower starts with sensible defaults and required state containers.
+   */
+  applyTowerBehaviorDefaults(tower) {
+    if (!tower) {
+      return;
+    }
+    if (!tower.targetPriority) {
+      tower.targetPriority = 'first';
+    }
+    if (!tower.behaviorMode) {
+      tower.behaviorMode = 'pursuit';
+    }
+    if (tower.type === 'delta') {
+      this.ensureDeltaState(tower);
+      this.configureDeltaBehavior(tower, tower.behaviorMode);
+    } else if (tower.deltaState) {
+      this.teardownDeltaTower(tower);
+    }
+  }
+
+  /**
+   * Create or update the Delta state container so soldiers can be simulated.
+   */
+  ensureDeltaState(tower) {
+    if (!tower || tower.type !== 'delta') {
+      return null;
+    }
+    const gamma = getTowerDefinition('gamma') || {};
+    const alpha = getTowerDefinition('alpha') || {};
+    const rawAtk = Number.isFinite(tower.definition?.atk)
+      ? tower.definition.atk
+      : Number.isFinite(gamma.damage)
+      ? gamma.damage
+      : Math.max(1, tower.baseDamage || 0);
+    const atk = Math.max(1, rawAtk);
+    const rawReg = Number.isFinite(tower.definition?.reg) ? tower.definition.reg : 0.01;
+    const regenPercent = rawReg > 1 ? rawReg / 100 : Math.max(0, rawReg);
+    const rawTot = Number.isFinite(tower.definition?.tot) ? tower.definition.tot : 5;
+    const maxSoldiers = Math.max(1, Math.round(rawTot));
+    const rawDefense = Number.isFinite(tower.definition?.def)
+      ? tower.definition.def
+      : Number.isFinite(alpha.damage)
+      ? alpha.damage
+      : 0;
+    const defense = Math.max(0, rawDefense);
+    const deltaProduct = atk * Math.max(regenPercent, 0.0001) * maxSoldiers * Math.max(defense, 1);
+
+    if (!tower.deltaState) {
+      tower.deltaState = {
+        atk,
+        regenPercent,
+        maxSoldiers,
+        defense,
+        product: deltaProduct,
+        soldiers: [],
+        manualTargetId: null,
+        soldierCounter: 0,
+        trackHoldPoint: null,
+        mode: tower.behaviorMode || 'pursuit',
+      };
+    } else {
+      tower.deltaState.atk = atk;
+      tower.deltaState.regenPercent = regenPercent;
+      tower.deltaState.maxSoldiers = maxSoldiers;
+      tower.deltaState.defense = defense;
+      tower.deltaState.product = deltaProduct;
+    }
+    return tower.deltaState;
+  }
+
+  /**
+   * Update Delta soldier stance and anchor points when the player changes modes.
+   */
+  configureDeltaBehavior(tower, mode) {
+    if (!tower || tower.type !== 'delta') {
+      tower.behaviorMode = mode;
+      return;
+    }
+    const state = this.ensureDeltaState(tower);
+    const nextMode = mode || 'pursuit';
+    tower.behaviorMode = nextMode;
+    state.mode = nextMode;
+    if (nextMode !== 'sentinel') {
+      this.clearTowerManualTarget(tower);
+    }
+    this.updateDeltaAnchors(tower);
+  }
+
+  /**
+   * Remove any lingering Delta data once a tower is dismantled or upgraded away.
+   */
+  teardownDeltaTower(tower) {
+    if (!tower?.deltaState) {
+      return;
+    }
+    tower.deltaState.soldiers = [];
+    tower.deltaState.manualTargetId = null;
+    tower.deltaState = null;
+  }
+
+  /**
+   * Keep the cached track-hold anchor aligned with the latest path layout.
+   */
+  updateDeltaAnchors(tower) {
+    if (!tower || tower.type !== 'delta') {
+      return;
+    }
+    const state = this.ensureDeltaState(tower);
+    if (tower.behaviorMode === 'trackHold') {
+      const anchor = this.getClosestPointOnPath({ x: tower.x, y: tower.y });
+      state.trackHoldPoint = anchor?.point || { x: tower.x, y: tower.y };
+    }
+  }
+
+  /**
+   * Clear any manual Delta target.
+   */
+  clearTowerManualTarget(tower) {
+    if (!tower?.deltaState?.manualTargetId) {
+      return false;
+    }
+    tower.deltaState.manualTargetId = null;
+    return true;
+  }
+
+  /**
+   * Retrieve the live enemy chosen for manual Delta focus.
+   */
+  getTowerManualTarget(tower) {
+    if (!tower?.deltaState?.manualTargetId) {
+      return null;
+    }
+    const enemy = this.enemies.find((candidate) => candidate?.id === tower.deltaState.manualTargetId);
+    if (!enemy || enemy.hp <= 0) {
+      this.clearTowerManualTarget(tower);
+      return null;
+    }
+    return enemy;
+  }
   getEnemyVisualMetrics(enemy) {
     if (!enemy) {
       return {
@@ -2377,6 +2760,7 @@ export class SimplePlayfield {
       mergeTarget.baseRange = range;
       mergeTarget.cooldown = 0;
       mergeTarget.chain = null;
+      this.applyTowerBehaviorDefaults(mergeTarget);
       const nextIsAlephNull = nextDefinition.id === 'aleph-null';
       if (nextIsAlephNull) {
         this.handleAlephTowerAdded(mergeTarget);
@@ -2428,6 +2812,7 @@ export class SimplePlayfield {
       slot,
     };
 
+    this.applyTowerBehaviorDefaults(tower);
     this.towers.push(tower);
     this.handleAlephTowerAdded(tower);
     notifyTowerPlaced(this.towers.length);
@@ -2461,6 +2846,11 @@ export class SimplePlayfield {
       return;
     }
 
+    if (this.activeTowerMenu?.towerId === tower.id) {
+      this.closeTowerMenu();
+    }
+
+    this.teardownDeltaTower(tower);
     this.handleAlephTowerRemoved(tower);
 
     const index = this.towers.indexOf(tower);
@@ -2555,6 +2945,54 @@ export class SimplePlayfield {
     return Math.hypot(point.x - projX, point.y - projY);
   }
 
+  /**
+   * Project a point onto a path segment and expose the ratio along that segment.
+   */
+  projectPointOntoSegment(point, start, end) {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    if (dx === 0 && dy === 0) {
+      return { point: { x: start.x, y: start.y }, ratio: 0 };
+    }
+    const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy);
+    const clamped = Math.max(0, Math.min(1, t));
+    return {
+      point: {
+        x: start.x + clamped * dx,
+        y: start.y + clamped * dy,
+      },
+      ratio: clamped,
+    };
+  }
+
+  /**
+   * Find the closest point along the glyph path to the provided coordinate.
+   */
+  getClosestPointOnPath(point) {
+    if (!point || !this.pathSegments.length) {
+      return { point: point ? { ...point } : { x: 0, y: 0 }, progress: 0 };
+    }
+    let best = null;
+    let bestDistance = Infinity;
+    let traversed = 0;
+    let bestProgress = 0;
+    for (let index = 0; index < this.pathSegments.length; index += 1) {
+      const segment = this.pathSegments[index];
+      const projection = this.projectPointOntoSegment(point, segment.start, segment.end);
+      const distance = Math.hypot(point.x - projection.point.x, point.y - projection.point.y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = projection.point;
+        const segmentLength = segment.length || Math.hypot(segment.end.x - segment.start.x, segment.end.y - segment.start.y);
+        bestProgress = this.pathLength
+          ? (traversed + segmentLength * projection.ratio) / this.pathLength
+          : 0;
+      }
+      traversed += segment.length || 0;
+    }
+    return { point: best || { ...point }, progress: Math.max(0, Math.min(1, bestProgress)) };
+  }
+
   handleSlotInteraction(slot) {
     if (this.audio) {
       this.audio.unlock();
@@ -2571,7 +3009,7 @@ export class SimplePlayfield {
     }
 
     if (slot.tower) {
-      this.sellTower(slot.tower, { slot });
+      this.openTowerMenu(slot.tower, { viaSlot: true });
       return;
     }
 
@@ -2875,6 +3313,14 @@ export class SimplePlayfield {
     }
 
     if (!this.combatActive) {
+      // Keep Delta garrisons alive even while waves are paused.
+      this.towers.forEach((tower) => {
+        if (tower.type !== 'delta') {
+          return;
+        }
+        tower.cooldown = Math.max(0, tower.cooldown - speedDelta);
+        this.updateDeltaTower(tower, speedDelta);
+      });
       this.updateHud();
       this.updateProgress();
       return;
@@ -3035,6 +3481,10 @@ export class SimplePlayfield {
   updateTowers(delta) {
     this.towers.forEach((tower) => {
       tower.cooldown = Math.max(0, tower.cooldown - delta);
+      if (tower.type === 'delta') {
+        this.updateDeltaTower(tower, delta);
+        return;
+      }
       if (!this.combatActive || !this.enemies.length) {
         return;
       }
@@ -3050,7 +3500,242 @@ export class SimplePlayfield {
     });
   }
 
+  /**
+   * Advance Delta soldier timers, spawn replacements, and manage cohort AI.
+   */
+  updateDeltaTower(tower, delta) {
+    const state = this.ensureDeltaState(tower);
+    if (!state) {
+      return;
+    }
+
+    state.mode = tower.behaviorMode || state.mode || 'pursuit';
+
+    const survivors = [];
+    for (let index = 0; index < state.soldiers.length; index += 1) {
+      const soldier = state.soldiers[index];
+      if (this.updateDeltaSoldier(tower, soldier, delta, state)) {
+        survivors.push(soldier);
+      }
+    }
+    state.soldiers = survivors;
+
+    const spawnCap = Math.max(1, state.maxSoldiers || 1);
+    if (state.soldiers.length > spawnCap) {
+      // Trim excess soldiers if upgrades reduce the allowed cohort size.
+      state.soldiers.length = spawnCap;
+    }
+    if (state.soldiers.length >= spawnCap) {
+      return;
+    }
+
+    if (tower.cooldown <= 0) {
+      const targetInfo = this.combatActive ? this.findTarget(tower) : null;
+      this.deployDeltaSoldier(tower, targetInfo);
+      const rate = Math.max(Number.isFinite(tower.rate) ? tower.rate : 1, 0.05);
+      tower.cooldown = 1 / rate;
+    }
+  }
+
+  /**
+   * Spawn a fresh Delta soldier, optionally primed with a target assignment.
+   */
+  deployDeltaSoldier(tower, targetInfo = null) {
+    const state = this.ensureDeltaState(tower);
+    if (!state) {
+      return;
+    }
+    const limit = Math.max(1, state.maxSoldiers || 1);
+    if (state.soldiers.length >= limit) {
+      return;
+    }
+    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
+    const spawnRadius = Math.max(12, minDimension * 0.035);
+    const collisionRadius = Math.max(12, minDimension * 0.03);
+    const spawnIndex = state.soldierCounter % limit;
+    state.soldierCounter += 1;
+    const angle = -Math.PI / 2 + (Math.PI * 2 * spawnIndex) / limit;
+    const spawnX = tower.x + Math.cos(angle) * spawnRadius;
+    const spawnY = tower.y + Math.sin(angle) * spawnRadius;
+
+    const soldier = {
+      id: `delta-soldier-${(this.deltaSoldierIdCounter += 1)}`,
+      towerId: tower.id,
+      slotIndex: spawnIndex,
+      x: spawnX,
+      y: spawnY,
+      vx: 0,
+      vy: 0,
+      heading: angle,
+      maxHealth: state.atk,
+      health: state.atk,
+      regenPercent: state.regenPercent,
+      defense: state.defense,
+      targetId: targetInfo?.enemy?.id || null,
+      collisionRadius,
+      mode: tower.behaviorMode || 'pursuit',
+    };
+
+    state.soldiers.push(soldier);
+  }
+
+  /**
+   * Resolve an idle waypoint for a Delta soldier based on the active stance.
+   */
+  resolveDeltaHoldPosition(tower, soldier, state) {
+    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
+    const index = Number.isFinite(soldier.slotIndex) ? soldier.slotIndex : 0;
+    const count = Math.max(1, state.maxSoldiers || 1);
+    const baseAngle = -Math.PI / 2 + (Math.PI * 2 * index) / count;
+    if (tower.behaviorMode === 'trackHold' && state.trackHoldPoint) {
+      const radius = Math.max(18, minDimension * 0.05);
+      return {
+        x: state.trackHoldPoint.x + Math.cos(baseAngle) * radius,
+        y: state.trackHoldPoint.y + Math.sin(baseAngle) * radius,
+      };
+    }
+    const sentinelRadius = tower.behaviorMode === 'sentinel'
+      ? Math.max(28, minDimension * 0.07)
+      : Math.max(18, minDimension * 0.045);
+    return {
+      x: tower.x + Math.cos(baseAngle) * sentinelRadius,
+      y: tower.y + Math.sin(baseAngle) * sentinelRadius,
+    };
+  }
+
+  /**
+   * Step an individual Delta soldier and return whether it survives the frame.
+   */
+  updateDeltaSoldier(tower, soldier, delta, state) {
+    if (!soldier || soldier.health <= 0) {
+      return false;
+    }
+
+    const regen = Math.max(0, state.regenPercent || soldier.regenPercent || 0);
+    if (regen > 0 && soldier.health < soldier.maxHealth) {
+      const gain = soldier.maxHealth * regen * delta;
+      soldier.health = Math.min(soldier.maxHealth, soldier.health + gain);
+    }
+
+    let target = null;
+    if (soldier.targetId) {
+      target = this.enemies.find((candidate) => candidate?.id === soldier.targetId) || null;
+      if (!target || target.hp <= 0) {
+        soldier.targetId = null;
+        target = null;
+      }
+    }
+
+    if (!target && this.combatActive && this.enemies.length) {
+      if (tower.behaviorMode === 'sentinel') {
+        const manual = this.getTowerManualTarget(tower);
+        if (manual) {
+          soldier.targetId = manual.id;
+          target = manual;
+        }
+      } else {
+        const candidate = this.findTarget(tower);
+        if (candidate?.enemy) {
+          if (tower.behaviorMode !== 'trackHold') {
+            soldier.targetId = candidate.enemy.id;
+            target = candidate.enemy;
+          } else {
+            const anchor = state.trackHoldPoint || { x: tower.x, y: tower.y };
+            const targetPosition = candidate.position || this.getEnemyPosition(candidate.enemy);
+            const interceptRadius = Math.max(tower.range * 0.55, soldier.collisionRadius * 6);
+            const distance = targetPosition
+              ? Math.hypot(targetPosition.x - anchor.x, targetPosition.y - anchor.y)
+              : Infinity;
+            if (distance <= interceptRadius) {
+              soldier.targetId = candidate.enemy.id;
+              target = candidate.enemy;
+            }
+          }
+        }
+      }
+    }
+
+    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
+    const speed = Math.max(90, minDimension * 0.22);
+
+    let destination = null;
+    if (target) {
+      destination = this.getEnemyPosition(target);
+    }
+    if (!destination) {
+      destination = this.resolveDeltaHoldPosition(tower, soldier, state);
+    }
+    if (!destination) {
+      destination = { x: tower.x, y: tower.y };
+    }
+
+    const dx = destination.x - soldier.x;
+    const dy = destination.y - soldier.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance > 1) {
+      const travel = Math.min(distance, speed * delta);
+      const nx = dx / distance;
+      const ny = dy / distance;
+      soldier.vx = nx * speed;
+      soldier.vy = ny * speed;
+      soldier.x += nx * travel;
+      soldier.y += ny * travel;
+      if (Number.isFinite(soldier.vx) && Number.isFinite(soldier.vy)) {
+        soldier.heading = Math.atan2(soldier.vy, soldier.vx);
+      }
+    } else {
+      soldier.vx *= 0.5;
+      soldier.vy *= 0.5;
+    }
+
+    if (target) {
+      const targetPosition = this.getEnemyPosition(target);
+      if (targetPosition) {
+        const metrics = this.getEnemyVisualMetrics(target);
+        const enemyRadius = this.getEnemyHitRadius(target, metrics);
+        const contactRadius = enemyRadius + (soldier.collisionRadius || 12);
+        const separation = Math.hypot(soldier.x - targetPosition.x, soldier.y - targetPosition.y);
+        if (separation <= contactRadius) {
+          const enemyHp = Number.isFinite(target.hp) ? Math.max(0, target.hp) : 0;
+          const inflicted = Math.min(soldier.health, enemyHp);
+          target.hp = Math.max(0, enemyHp - inflicted);
+          const loss = Math.max(0, inflicted - (state.defense || 0));
+          soldier.health = Math.max(0, soldier.health - loss);
+          if (target.hp <= 0) {
+            this.processEnemyDefeat(target);
+            soldier.targetId = null;
+          }
+          if (soldier.health <= 0) {
+            return false;
+          }
+        }
+      }
+    }
+
+    return soldier.health > 0;
+  }
+
   findTarget(tower) {
+    if (!tower) {
+      return null;
+    }
+    const manual = this.getTowerManualTarget(tower);
+    if (manual) {
+      const position = this.getEnemyPosition(manual);
+      const distance = position
+        ? Math.hypot(position.x - tower.x, position.y - tower.y)
+        : Infinity;
+      if (!position || distance > tower.range) {
+        this.clearTowerManualTarget(tower);
+      } else {
+        return { enemy: manual, position };
+      }
+    }
+
+    if (tower.type === 'delta' && tower.behaviorMode === 'sentinel') {
+      return null;
+    }
+
     const focusedEnemy = this.getFocusedEnemy();
     if (focusedEnemy) {
       const position = this.getEnemyPosition(focusedEnemy);
@@ -3060,11 +3745,25 @@ export class SimplePlayfield {
       }
     }
     let selected = null;
+    const priority = tower.targetPriority || 'first';
     let bestProgress = -Infinity;
+    let bestStrength = -Infinity;
     this.enemies.forEach((enemy) => {
       const position = this.getEnemyPosition(enemy);
       const distance = Math.hypot(position.x - tower.x, position.y - tower.y);
-      if (distance <= tower.range && enemy.progress > bestProgress) {
+      if (distance > tower.range) {
+        return;
+      }
+      if (priority === 'strongest') {
+        const strength = Number.isFinite(enemy.hp) ? enemy.hp : enemy.maxHp || 0;
+        if (strength > bestStrength || (strength === bestStrength && enemy.progress > bestProgress)) {
+          selected = { enemy, position };
+          bestStrength = strength;
+          bestProgress = enemy.progress;
+        }
+        return;
+      }
+      if (enemy.progress > bestProgress) {
         selected = { enemy, position };
         bestProgress = enemy.progress;
       }
@@ -3073,6 +3772,10 @@ export class SimplePlayfield {
   }
 
   fireAtTarget(tower, targetInfo) {
+    if (tower.type === 'delta') {
+      this.deployDeltaSoldier(tower, targetInfo);
+      return;
+    }
     if (tower.type === 'aleph-null') {
       this.fireAlephChain(tower, targetInfo);
       return;
@@ -3863,8 +4566,10 @@ export class SimplePlayfield {
     this.drawDeveloperPathMarkers();
     this.drawPlacementPreview();
     this.drawTowers();
+    this.drawDeltaSoldiers();
     this.drawEnemies();
     this.drawProjectiles();
+    this.drawTowerMenu();
     this.updateEnemyTooltipPosition();
   }
 
@@ -4413,8 +5118,66 @@ export class SimplePlayfield {
         ctx.stroke();
         this.clearCanvasShadow(ctx);
       }
+
+      if (this.activeTowerMenu?.towerId === tower.id) {
+        // Outline the selected lattice so the menu context is clear.
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(139, 247, 255, 0.9)';
+        ctx.lineWidth = 2.6;
+        ctx.arc(tower.x, tower.y, bodyRadius + 10, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     });
 
+    ctx.restore();
+  }
+
+  /**
+   * Render the roaming Delta soldiers as luminous triangles circling the battlefield.
+   */
+  drawDeltaSoldiers() {
+    if (!this.ctx) {
+      return;
+    }
+    const ctx = this.ctx;
+    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
+    const baseSize = Math.max(12, minDimension * 0.03);
+
+    ctx.save();
+    this.towers.forEach((tower) => {
+      if (tower.type !== 'delta' || !tower.deltaState?.soldiers?.length) {
+        return;
+      }
+      tower.deltaState.soldiers.forEach((soldier) => {
+        if (!Number.isFinite(soldier.x) || !Number.isFinite(soldier.y)) {
+          return;
+        }
+        const size = Number.isFinite(soldier.collisionRadius)
+          ? Math.max(8, soldier.collisionRadius)
+          : baseSize;
+        const angle = Number.isFinite(soldier.heading) ? soldier.heading : -Math.PI / 2;
+        const healthRatio = soldier.maxHealth > 0 ? Math.max(0, Math.min(1, soldier.health / soldier.maxHealth)) : 0;
+        ctx.save();
+        ctx.translate(soldier.x, soldier.y);
+        ctx.rotate(angle - Math.PI / 2);
+        ctx.beginPath();
+        ctx.moveTo(0, -size);
+        ctx.lineTo(-size * 0.6, size * 0.9);
+        ctx.lineTo(size * 0.6, size * 0.9);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(139, 247, 255, ${0.35 + healthRatio * 0.45})`;
+        ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
+        ctx.lineWidth = Math.max(1.2, size * 0.12);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(12, 16, 26, ${0.45 + (1 - healthRatio) * 0.3})`;
+        ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    });
     ctx.restore();
   }
 
@@ -4552,6 +5315,51 @@ export class SimplePlayfield {
       ctx.beginPath();
       ctx.arc(targetPosition.x, targetPosition.y, 4, 0, Math.PI * 2);
       ctx.fill();
+    });
+
+    ctx.restore();
+  }
+
+  /**
+   * Paint the active radial tower command menu around the selected lattice.
+   */
+  drawTowerMenu() {
+    if (!this.ctx || !this.activeTowerMenu) {
+      return;
+    }
+    const tower = this.getActiveMenuTower();
+    if (!tower) {
+      return;
+    }
+    const geometry = this.getTowerMenuGeometry(tower);
+    if (!geometry) {
+      return;
+    }
+    const { options, optionRadius, ringRadius } = geometry;
+    const ctx = this.ctx;
+    ctx.save();
+
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(139, 247, 255, 0.35)';
+    ctx.lineWidth = Math.max(1.2, optionRadius * 0.14);
+    ctx.arc(tower.x, tower.y, ringRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    options.forEach((option) => {
+      const selected = Boolean(option.selected);
+      ctx.beginPath();
+      ctx.fillStyle = selected ? 'rgba(255, 228, 120, 0.32)' : 'rgba(12, 16, 26, 0.88)';
+      ctx.strokeStyle = selected ? 'rgba(255, 228, 120, 0.9)' : 'rgba(139, 247, 255, 0.75)';
+      ctx.lineWidth = Math.max(1.4, optionRadius * 0.16);
+      ctx.arc(option.center.x, option.center.y, optionRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.font = `${Math.round(optionRadius * 0.95)}px "Space Mono", monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(option.icon || '?', option.center.x, option.center.y);
     });
 
     ctx.restore();
