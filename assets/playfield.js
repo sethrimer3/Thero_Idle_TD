@@ -35,6 +35,9 @@ import {
 import { colorToRgbaString, resolvePaletteColorStops } from '../scripts/features/towers/powderTower.js';
 import { notifyTowerPlaced } from './achievementsTab.js';
 
+// Minimum pointer distance before the playfield interprets input as a camera drag.
+const PLAYFIELD_VIEW_DRAG_THRESHOLD = 6;
+
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
   alephChainUpgrades: {},
@@ -172,6 +175,17 @@ export class SimplePlayfield {
     this.pointerDownHandler = (event) => this.handleCanvasPointerDown(event);
     this.pointerUpHandler = (event) => this.handleCanvasPointerUp(event);
     this.wheelHandler = (event) => this.handleCanvasWheel(event);
+
+    // Track pointer-driven camera gestures so the player can pan the battlefield.
+    this.viewDragState = {
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      startCenter: { x: 0.5, y: 0.5 },
+      isDragging: false,
+    };
+    // Remember when a drag gesture should block the follow-up click event.
+    this.suppressNextCanvasClick = false;
 
     this.developerPathMarkers = [];
 
@@ -1359,7 +1373,9 @@ export class SimplePlayfield {
       return;
     }
 
-    if (event.pointerType === 'touch') {
+    const isTouchPointer = event.pointerType === 'touch';
+    // Track touch samples so the same movement logic supports both pinch and one-finger pans.
+    if (isTouchPointer) {
       this.activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
       if (this.activePointers.size >= 2) {
         if (typeof event.preventDefault === 'function') {
@@ -1375,6 +1391,41 @@ export class SimplePlayfield {
       this.activePointers.clear();
       this.pinchState = null;
       this.isPinchZooming = false;
+    }
+
+    const isPanPointer =
+      this.viewDragState.pointerId !== null &&
+      event.pointerId === this.viewDragState.pointerId &&
+      (!isTouchPointer || this.activePointers.size < 2);
+    if (isPanPointer) {
+      // Translate pointer movement into a clamped camera offset while dragging.
+      const dx = event.clientX - this.viewDragState.startX;
+      const dy = event.clientY - this.viewDragState.startY;
+      const dragDistance = Math.hypot(dx, dy);
+      if (!this.viewDragState.isDragging && dragDistance >= PLAYFIELD_VIEW_DRAG_THRESHOLD) {
+        this.viewDragState.isDragging = true;
+        this.suppressNextCanvasClick = true;
+      }
+      if (this.viewDragState.isDragging) {
+        if (typeof event.preventDefault === 'function') {
+          event.preventDefault();
+        }
+        this.pointerPosition = null;
+        this.clearPlacementPreview();
+        this.clearEnemyHover();
+        const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 1;
+        const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 1;
+        const scale = this.viewScale || 1;
+        const startCenter = this.viewDragState.startCenter || { x: 0.5, y: 0.5 };
+        const nextCenter = {
+          x: startCenter.x - dx / (scale * width),
+          y: startCenter.y - dy / (scale * height),
+        };
+        this.viewCenterNormalized = this.clampViewCenterNormalized(nextCenter);
+        this.applyViewConstraints();
+        this.draw();
+        return;
+      }
     }
 
     const normalized = this.getNormalizedFromEvent(event);
@@ -1467,21 +1518,51 @@ export class SimplePlayfield {
   }
 
   handleCanvasPointerDown(event) {
-    if (event.pointerType === 'touch') {
+    const isTouchPointer = event.pointerType === 'touch';
+    if (isTouchPointer) {
       this.activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
       if (this.activePointers.size < 2) {
         this.pinchState = null;
         this.isPinchZooming = false;
+      } else {
+        // Cancel any in-progress pan when a second touch begins a pinch gesture.
+        this.viewDragState.pointerId = null;
+        this.viewDragState.isDragging = false;
+        this.suppressNextCanvasClick = true;
       }
     } else {
       this.activePointers.clear();
       this.pinchState = null;
       this.isPinchZooming = false;
     }
+
+    if (!this.levelConfig) {
+      return;
+    }
+
+    const isPrimaryMouseDrag = !isTouchPointer && event.button === 0;
+    const isSingleTouchDrag = isTouchPointer && this.activePointers.size < 2;
+    if (!this.draggingTowerType && (isPrimaryMouseDrag || isSingleTouchDrag)) {
+      // Allow both mouse input and single-finger touches to initiate camera panning.
+      this.viewDragState.pointerId = event.pointerId;
+      this.viewDragState.startX = event.clientX;
+      this.viewDragState.startY = event.clientY;
+      this.viewDragState.startCenter = { ...(this.viewCenterNormalized || { x: 0.5, y: 0.5 }) };
+      this.viewDragState.isDragging = false;
+      this.suppressNextCanvasClick = false;
+      if (!isTouchPointer && typeof this.canvas?.setPointerCapture === 'function') {
+        try {
+          this.canvas.setPointerCapture(event.pointerId);
+        } catch (error) {
+          // Ignore pointer capture failures so mouse dragging still functions.
+        }
+      }
+    }
   }
 
   handleCanvasPointerUp(event) {
-    if (event.pointerType === 'touch') {
+    const isTouchPointer = event.pointerType === 'touch';
+    if (isTouchPointer) {
       this.activePointers.delete(event.pointerId);
       if (this.activePointers.size < 2) {
         this.pinchState = null;
@@ -1491,6 +1572,23 @@ export class SimplePlayfield {
       this.activePointers.clear();
       this.pinchState = null;
       this.isPinchZooming = false;
+    }
+
+    if (this.viewDragState.pointerId === event.pointerId) {
+      if (this.viewDragState.isDragging) {
+        this.suppressNextCanvasClick = true;
+      }
+      this.viewDragState.pointerId = null;
+      this.viewDragState.isDragging = false;
+    }
+
+    if (!isTouchPointer && typeof this.canvas?.releasePointerCapture === 'function') {
+      try {
+        // Release mouse pointer capture so future drags start from a clean state.
+        this.canvas.releasePointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore browsers that throw if the pointer was not previously captured.
+      }
     }
   }
 
@@ -1588,6 +1686,8 @@ export class SimplePlayfield {
     this.activePointers.clear();
     this.pinchState = null;
     this.isPinchZooming = false;
+    this.viewDragState.pointerId = null;
+    this.viewDragState.isDragging = false;
   }
 
   // Attempt to gather any mote gems located near the pointer position.
@@ -1609,6 +1709,11 @@ export class SimplePlayfield {
       this.audio.unlock();
     }
     if (!this.levelActive || !this.levelConfig) {
+      return;
+    }
+
+    if (this.suppressNextCanvasClick) {
+      this.suppressNextCanvasClick = false;
       return;
     }
 

@@ -364,6 +364,12 @@ export class PowderSimulation {
       : fallbackIdleDrainRate;
     this.maxDropSize = 1;
 
+    // Track the camera transform so the basin view can pan and zoom smoothly.
+    this.viewScale = Number.isFinite(options.viewScale) && options.viewScale > 0 ? options.viewScale : 1;
+    this.minViewScale = Number.isFinite(options.minViewScale) && options.minViewScale > 0 ? options.minViewScale : 0.75;
+    this.maxViewScale = Number.isFinite(options.maxViewScale) && options.maxViewScale > 0 ? options.maxViewScale : 2.5;
+    this.viewCenterNormalized = { x: 0.5, y: 0.5 };
+
     this.scrollThreshold = Number.isFinite(options.scrollThreshold)
       ? Math.max(0.2, Math.min(0.95, options.scrollThreshold))
       : 0.75;
@@ -522,6 +528,7 @@ export class PowderSimulation {
     }
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(ratio, ratio);
+    this.deviceScale = ratio;
 
     this.width = displayWidth;
     this.height = displayHeight;
@@ -561,6 +568,7 @@ export class PowderSimulation {
       this.reset();
       this.notifyWallMetricsChange();
     }
+    this.applyViewConstraints();
   }
 
   updateMaxDropSize() {
@@ -1365,22 +1373,165 @@ export class PowderSimulation {
     }
   }
 
+  // Ensure the stored camera center stays within the basin bounds for the active zoom level.
+  applyViewConstraints() {
+    this.viewCenterNormalized = this.clampViewCenterNormalized(
+      this.viewCenterNormalized || { x: 0.5, y: 0.5 },
+    );
+  }
+
+  // Restrict camera centers so zoomed views never leave the simulated basin.
+  clampViewCenterNormalized(normalized) {
+    if (!normalized) {
+      return { x: 0.5, y: 0.5 };
+    }
+    const scale = Math.max(this.viewScale || 1, 0.0001);
+    const halfX = Math.min(0.5, 0.5 / scale);
+    const halfY = Math.min(0.5, 0.5 / scale);
+    const clamp = (value, min, max) => {
+      if (min > max) {
+        return 0.5;
+      }
+      return Math.min(Math.max(value, min), max);
+    };
+    return {
+      x: clamp(normalized.x, halfX, 1 - halfX),
+      y: clamp(normalized.y, halfY, 1 - halfY),
+    };
+  }
+
+  // Convert the normalized camera center into basin coordinates measured in simulation units.
+  getViewCenterWorld() {
+    const width = this.width || this.canvas?.clientWidth || 0;
+    const height = this.height || this.canvas?.clientHeight || 0;
+    const center = this.viewCenterNormalized || { x: 0.5, y: 0.5 };
+    return {
+      x: width * center.x,
+      y: height * center.y,
+    };
+  }
+
+  // Apply a new normalized camera center and immediately redraw the basin.
+  setViewCenterNormalized(normalized) {
+    this.viewCenterNormalized = this.clampViewCenterNormalized(normalized);
+    this.render();
+  }
+
+  // Update the camera center using world-space coordinates measured in simulation pixels.
+  setViewCenterFromWorld(world) {
+    if (!world) {
+      return;
+    }
+    const width = this.width || this.canvas?.clientWidth || 0;
+    const height = this.height || this.canvas?.clientHeight || 0;
+    if (!width || !height) {
+      this.setViewCenterNormalized({ x: 0.5, y: 0.5 });
+      return;
+    }
+    this.setViewCenterNormalized({ x: world.x / width, y: world.y / height });
+  }
+
+  // Translate client pointer coordinates into basin world coordinates for camera gestures.
+  getWorldPointFromClient(point) {
+    if (!point || !this.canvas) {
+      return null;
+    }
+    const rect = typeof this.canvas.getBoundingClientRect === 'function'
+      ? this.canvas.getBoundingClientRect()
+      : null;
+    const width = this.width || rect?.width || this.canvas.clientWidth || 0;
+    const height = this.height || rect?.height || this.canvas.clientHeight || 0;
+    if (!width || !height || !rect) {
+      return null;
+    }
+    const scale = this.viewScale || 1;
+    const center = this.getViewCenterWorld();
+    const localX = point.clientX - rect.left;
+    const localY = point.clientY - rect.top;
+    if (!Number.isFinite(localX) || !Number.isFinite(localY)) {
+      return null;
+    }
+    return {
+      x: (localX - width / 2) / scale + center.x,
+      y: (localY - height / 2) / scale + center.y,
+    };
+  }
+
+  // Apply a multiplicative zoom change anchored around an optional client coordinate.
+  applyZoomFactor(factor, anchorPoint = null) {
+    if (!Number.isFinite(factor) || factor <= 0) {
+      return false;
+    }
+    return this.setZoom((this.viewScale || 1) * factor, anchorPoint);
+  }
+
+  // Update the zoom level while keeping the chosen anchor locked beneath the pointer.
+  setZoom(targetScale, anchorPoint = null) {
+    if (!Number.isFinite(targetScale)) {
+      return false;
+    }
+    const minScale = Number.isFinite(this.minViewScale) && this.minViewScale > 0 ? this.minViewScale : 0.75;
+    const maxScale = Number.isFinite(this.maxViewScale) && this.maxViewScale > 0 ? this.maxViewScale : 2.5;
+    const clamped = Math.min(maxScale, Math.max(minScale, targetScale));
+    const previousScale = this.viewScale;
+    this.viewScale = clamped;
+    this.applyViewConstraints();
+    if (anchorPoint) {
+      const anchorWorld = this.getWorldPointFromClient(anchorPoint);
+      if (anchorWorld) {
+        const rect = this.canvas?.getBoundingClientRect();
+        const width = this.width || rect?.width || this.canvas?.clientWidth || 0;
+        const height = this.height || rect?.height || this.canvas?.clientHeight || 0;
+        if (width && height && rect) {
+          const localX = anchorPoint.clientX - rect.left;
+          const localY = anchorPoint.clientY - rect.top;
+          const centerWorldX = (width / 2 - localX) / clamped + anchorWorld.x;
+          const centerWorldY = (height / 2 - localY) / clamped + anchorWorld.y;
+          this.setViewCenterFromWorld({ x: centerWorldX, y: centerWorldY });
+        }
+      }
+    }
+    this.applyViewConstraints();
+    this.render();
+    return Math.abs(previousScale - this.viewScale) > 0.0001;
+  }
+
   render() {
     if (!this.ctx) {
       return;
     }
 
+    const ratio = Number.isFinite(this.deviceScale) && this.deviceScale > 0 ? this.deviceScale : 1;
+    const width = this.width || this.canvas?.clientWidth || 0;
+    const height = this.height || this.canvas?.clientHeight || 0;
+    if (!width || !height) {
+      return;
+    }
+
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
     const palette = this.getEffectiveMotePalette();
-    const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+    this.ctx.fillStyle = palette.backgroundBottom || '#171a27';
+    this.ctx.fillRect(0, 0, width, height);
+
+    const center = this.getViewCenterWorld();
+    this.ctx.save();
+    this.ctx.translate(width / 2, height / 2);
+    this.ctx.scale(this.viewScale, this.viewScale);
+    this.ctx.translate(-center.x, -center.y);
+
+    const gradient = this.ctx.createLinearGradient(0, 0, 0, height);
     gradient.addColorStop(0, palette.backgroundTop || '#0f1018');
     gradient.addColorStop(1, palette.backgroundBottom || '#171a27');
     this.ctx.fillStyle = gradient;
-    this.ctx.fillRect(0, 0, this.width, this.height);
+    this.ctx.fillRect(0, 0, width, height);
 
     this.ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-    this.ctx.fillRect(0, 0, 2, this.height);
-    this.ctx.fillRect(this.width - 2, 0, 2, this.height);
-    this.ctx.fillRect(0, this.height - 2, this.width, 2);
+    this.ctx.fillRect(0, 0, 2, height);
+    this.ctx.fillRect(width - 2, 0, 2, height);
+    this.ctx.fillRect(0, height - 2, width, 2);
 
     const cellSizePx = this.cellSize;
     for (const grain of this.grains) {
@@ -1395,13 +1546,15 @@ export class PowderSimulation {
       const px = grain.x * cellSizePx - offsetPx;
       const py = grain.y * cellSizePx - offsetPx;
 
-      if (py >= this.height || px >= this.width || py + sizePx <= 0 || px + sizePx <= 0) {
+      if (py >= height || px >= width || py + sizePx <= 0 || px + sizePx <= 0) {
         continue;
       }
 
       this.ctx.fillStyle = this.getMoteColorForSize(visualSize, grain.freefall);
       this.ctx.fillRect(px, py, sizePx, sizePx);
     }
+
+    this.ctx.restore();
   }
 
   getEffectiveMotePalette() {
