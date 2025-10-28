@@ -1,5 +1,8 @@
 // Shared enemy utilities and mote gem state management for Thero Idle.
-// Enemy defeats mint mote gems—a special, color-coded currency distinct from idle motes—while this module centralizes drop handling so the main game loop can remain focused on orchestration.
+// Enemy defeats now have a chance to mint crystalline mote gems, each with its own
+// rarity tier, palette, and mote payload. This module centralizes the rarity rolls
+// so the playfield can focus on orchestration while keeping the powder bridge
+// informed about how many motes to dispense when the crystals are collected.
 
 // Track mote gem drops, inventory totals, and the upgrade-driven auto collector.
 export const moteGemState = {
@@ -9,28 +12,102 @@ export const moteGemState = {
   autoCollectUnlocked: false,
 };
 
-// Curated gem profiles used to rename mote drops and provide thematically aligned colors.
-const GEM_PROFILES = [
-  { name: 'Sapphire', color: { hue: 210, saturation: 72, lightness: 52 } },
-  { name: 'Ruby', color: { hue: 350, saturation: 70, lightness: 48 } },
-  { name: 'Emerald', color: { hue: 145, saturation: 60, lightness: 46 } },
-  { name: 'Topaz', color: { hue: 35, saturation: 72, lightness: 55 } },
-  { name: 'Amethyst', color: { hue: 275, saturation: 58, lightness: 58 } },
-  { name: 'Aquamarine', color: { hue: 185, saturation: 54, lightness: 60 } },
-  { name: 'Garnet', color: { hue: 5, saturation: 68, lightness: 42 } },
-  { name: 'Peridot', color: { hue: 95, saturation: 64, lightness: 52 } },
-  { name: 'Citrine', color: { hue: 48, saturation: 70, lightness: 62 } },
-  { name: 'Obsidian', color: { hue: 210, saturation: 16, lightness: 18 } },
-  { name: 'Pearl', color: { hue: 40, saturation: 20, lightness: 86 } },
-  { name: 'Opal', color: { hue: 300, saturation: 36, lightness: 68 } },
-  { name: 'Rose Quartz', color: { hue: 340, saturation: 38, lightness: 72 } },
-  { name: 'Tanzanite', color: { hue: 250, saturation: 56, lightness: 50 } },
-  { name: 'Amber', color: { hue: 30, saturation: 74, lightness: 50 } },
-  { name: 'Jade', color: { hue: 120, saturation: 48, lightness: 50 } },
+// Gem definitions ordered from most common to rarest. Each entry includes the
+// base drop probability, mote size multiplier, and display palette so that the
+// powder view and inventory can stay perfectly synchronized.
+export const GEM_DEFINITIONS = [
+  {
+    id: 'quartz',
+    name: 'Quartz',
+    dropChance: 0.1,
+    moteSize: 2,
+    color: { hue: 18, saturation: 16, lightness: 86 },
+  },
+  {
+    id: 'ruby',
+    name: 'Ruby',
+    dropChance: 0.01,
+    moteSize: 3,
+    color: { hue: 350, saturation: 74, lightness: 48 },
+  },
+  {
+    id: 'sunstone',
+    name: 'Sunstone',
+    dropChance: 0.001,
+    moteSize: 4,
+    color: { hue: 28, saturation: 78, lightness: 56 },
+  },
+  {
+    id: 'citrine',
+    name: 'Citrine',
+    dropChance: 0.0001,
+    moteSize: 5,
+    color: { hue: 48, saturation: 78, lightness: 60 },
+  },
+  {
+    id: 'emerald',
+    name: 'Emerald',
+    dropChance: 0.00001,
+    moteSize: 6,
+    color: { hue: 140, saturation: 64, lightness: 44 },
+  },
+  {
+    id: 'sapphire',
+    name: 'Sapphire',
+    dropChance: 0.000001,
+    moteSize: 7,
+    color: { hue: 210, saturation: 72, lightness: 52 },
+  },
+  {
+    id: 'iolite',
+    name: 'Iolite',
+    dropChance: 0.0000001,
+    moteSize: 8,
+    color: { hue: 255, saturation: 52, lightness: 50 },
+  },
+  {
+    id: 'amethyst',
+    name: 'Amethyst',
+    dropChance: 0.00000001,
+    moteSize: 9,
+    color: { hue: 280, saturation: 60, lightness: 55 },
+  },
+  {
+    id: 'diamond',
+    name: 'Diamond',
+    dropChance: 0.000000001,
+    moteSize: 10,
+    color: { hue: 200, saturation: 12, lightness: 92 },
+  },
+  {
+    id: 'nullstone',
+    name: 'Nullstone',
+    dropChance: 0.0000000001,
+    moteSize: 11,
+    color: { hue: 210, saturation: 10, lightness: 14 },
+  },
 ];
 
-// Cache assigned gem profiles so each enemy type keeps a stable name and tint.
-const assignedGemProfiles = new Map();
+const GEM_LOOKUP = new Map(GEM_DEFINITIONS.map((gem) => [gem.id, gem]));
+
+// Static rarity multipliers arranged by archetype difficulty. Higher values
+// make crystal drops more common for late-game threats while still allowing the
+// most coveted stones to remain appropriately rare.
+const ENEMY_GEM_MULTIPLIERS = new Map([
+  ['etype', 1],
+  ['divisor', 2],
+  ['prime', 2.5],
+  ['reversal', 3],
+  ['tunneler', 3.4],
+  ['aleph-swarm', 3.8],
+  ['partial-wraith', 4.1],
+  ['gradient-sapper', 4.4],
+  ['weierstrass-prism', 4.7],
+  ['planck-shade', 5],
+  ['null-husk', 5.2],
+  ['imaginary-strider', 5.4],
+  ['combination-cohort', 5.6],
+]);
 
 // Radius used when sweeping the battlefield for mote gem pickups.
 export const MOTE_GEM_COLLECTION_RADIUS = 48;
@@ -49,35 +126,56 @@ export function resetActiveMoteGems() {
   moteGemState.active.length = 0;
 }
 
-// Resolve a stable type key and label for categorizing mote gem drops.
-export function resolveMoteGemType(enemy = {}) {
-  const rawKey = enemy.typeId || enemy.codexId || enemy.id || enemy.symbol || 'glyph';
-  const normalizedKey = String(rawKey).trim().toLowerCase() || 'glyph';
-  const label = enemy.label || enemy.name || enemy.symbol || 'Glyph';
-  return { key: normalizedKey, label };
+// Resolve the rarity multiplier for an enemy based on explicit overrides or codex id.
+export function resolveEnemyGemDropMultiplier(source = {}) {
+  if (Number.isFinite(source.gemDropMultiplier)) {
+    return Math.max(0, source.gemDropMultiplier);
+  }
+  if (Number.isFinite(source.rarityMultiplier)) {
+    return Math.max(0, source.rarityMultiplier);
+  }
+  const key = String(source.typeId || source.codexId || source.id || '').toLowerCase();
+  if (ENEMY_GEM_MULTIPLIERS.has(key)) {
+    return ENEMY_GEM_MULTIPLIERS.get(key);
+  }
+  const hp = Number.isFinite(source.hp) ? Math.max(1, source.hp) : null;
+  if (hp) {
+    const inferred = 1 + Math.log10(hp) * 0.12;
+    return Math.max(1, inferred);
+  }
+  return 1;
 }
 
-// Resolve the gem profile assigned to a mote category, ensuring deterministic reuse.
-export function resolveMoteGemProfile(typeKey) {
-  const key = String(typeKey || 'glyph');
-  let hash = 0;
-  for (let index = 0; index < key.length; index += 1) {
-    hash = (hash * 31 + key.charCodeAt(index)) & 0xffffffff;
+// Roll against the gem hierarchy to determine which crystal, if any, drops.
+export function rollGemDropDefinition(enemy = {}, rng = Math.random) {
+  const multiplier = resolveEnemyGemDropMultiplier(enemy);
+  if (!Number.isFinite(multiplier) || multiplier <= 0) {
+    return null;
   }
-  if (!assignedGemProfiles.has(key)) {
-    const profile = GEM_PROFILES[Math.abs(hash) % GEM_PROFILES.length] || GEM_PROFILES[0];
-    assignedGemProfiles.set(key, {
-      name: profile.name,
-      color: { ...profile.color },
-    });
+  const random = typeof rng === 'function' ? rng : Math.random;
+  for (let index = GEM_DEFINITIONS.length - 1; index >= 0; index -= 1) {
+    const gem = GEM_DEFINITIONS[index];
+    const chance = Math.min(0.999, gem.dropChance * multiplier);
+    if (chance > 0 && random() < chance) {
+      return gem;
+    }
   }
-  return assignedGemProfiles.get(key);
+  return null;
+}
+
+// Resolve the gem definition from the collection for UI lookups.
+export function resolveGemDefinition(typeKey) {
+  const key = String(typeKey || '').toLowerCase();
+  return GEM_LOOKUP.get(key) || null;
 }
 
 // Derive a deterministic accent color for a mote gem category.
 export function getMoteGemColor(typeKey) {
-  const profile = resolveMoteGemProfile(typeKey);
-  return { ...profile.color };
+  const gem = resolveGemDefinition(typeKey);
+  if (!gem) {
+    return { hue: 48, saturation: 68, lightness: 56 };
+  }
+  return { ...gem.color };
 }
 
 // Spawn a mote gem drop at the supplied battlefield position.
@@ -85,28 +183,28 @@ export function spawnMoteGemDrop(enemy, position) {
   if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) {
     return null;
   }
-  const value = Number.isFinite(enemy?.moteFactor) ? Math.max(1, Math.round(enemy.moteFactor)) : 1;
-  if (value <= 0) {
+  const gemDefinition = rollGemDropDefinition(enemy);
+  if (!gemDefinition) {
     return null;
   }
-  const type = resolveMoteGemType(enemy);
-  const profile = resolveMoteGemProfile(type.key);
+  const moteSize = Math.max(1, Math.round(gemDefinition.moteSize || 1));
   const launchDirection = Math.random() < 0.5 ? -1 : 1; // Alternate launch sides so the squares drift away from the lane symmetrically.
   const launchSpeed = 0.12 + Math.random() * 0.08; // Slightly vary the launch impulse so the animation feels organic.
   const gem = {
     id: moteGemState.nextId,
     x: position.x,
     y: position.y,
-    value,
-    typeKey: type.key,
-    typeLabel: profile.name,
+    value: moteSize,
+    typeKey: gemDefinition.id,
+    typeLabel: gemDefinition.name,
     pulse: Math.random() * Math.PI * 2,
-    color: { ...profile.color },
+    color: { ...gemDefinition.color },
     vx: launchDirection * launchSpeed,
     vy: -launchSpeed * (1.2 + Math.random() * 0.6),
     gravity: 0.00045 + Math.random() * 0.0002,
     lifetime: 0,
     opacity: 1,
+    moteSize,
   };
   moteGemState.nextId += 1;
   moteGemState.active.push(gem);
@@ -124,8 +222,11 @@ export function collectMoteGemDrop(gem, context = {}) {
   }
   moteGemState.active.splice(index, 1);
 
-  const record = moteGemState.inventory.get(gem.typeKey) || { label: gem.typeLabel, total: 0 };
+  const record =
+    moteGemState.inventory.get(gem.typeKey) ||
+    { label: gem.typeLabel, total: 0, count: 0 };
   record.total += gem.value;
+  record.count = (record.count || 0) + 1;
   record.label = gem.typeLabel || record.label;
   moteGemState.inventory.set(gem.typeKey, record);
 
