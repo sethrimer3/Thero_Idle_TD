@@ -112,6 +112,7 @@ import {
   injectTowerCardPreviews,
   annotateTowerCardsWithCost,
   initializeTowerSelection,
+  initializeTowerEquipmentInterface,
   syncLoadoutToPlayfield,
   pruneLockedTowersFromLoadout,
   unlockTower,
@@ -120,6 +121,7 @@ import {
   addDiscoveredVariablesListener,
   getDiscoveredVariables,
 } from './towersTab.js';
+import { initializeEquipmentState } from './equipment.js';
 import { initializeTowerTreeMap, refreshTowerTreeMap } from './towerTreeMap.js';
 // Bring in drag-scroll support so hidden scrollbars remain usable.
 import { enableDragScroll } from './dragScroll.js';
@@ -7037,6 +7039,7 @@ import {
 
     bindStatusElements();
     bindPowderControls();
+    initializeEquipmentState();
     initializeCraftingOverlay({
       revealOverlay,
       scheduleOverlayHide,
@@ -7052,6 +7055,7 @@ import {
 
     injectTowerCardPreviews();
     annotateTowerCardsWithCost();
+    initializeTowerEquipmentInterface();
     updateTowerCardVisibility();
     initializeTowerTreeMap({
       toggleButton: document.getElementById('tower-tree-map-toggle'),

@@ -1,6 +1,17 @@
 import { formatGameNumber, formatWholeNumber } from '../scripts/core/formatting.js';
 import { moteGemState, resolveGemDefinition } from './enemies.js';
-import { getDiscoveredVariables } from './towersTab.js';
+import {
+  getTowerDefinitions,
+  getTowerDefinition,
+  getTowerUnlockState,
+  getDiscoveredVariables,
+} from './towersTab.js';
+import {
+  getCraftedEquipment,
+  getEquipmentAssignment,
+  assignEquipmentToTower,
+  addEquipmentListener,
+} from './equipment.js';
 
 // Establish the ordered rarity tiers so the tier builder can follow the droptable cadence.
 const GEM_TIER_SEQUENCE = [
@@ -32,12 +43,152 @@ const craftingElements = {
   overlay: null,
   closeButton: null,
   list: null,
+  equipmentList: null,
+  equipmentEmpty: null,
   lastFocus: null,
 };
 
 let revealOverlayCallback = null;
 let scheduleOverlayHideCallback = null;
 let requestInventoryRefresh = null;
+let removeEquipmentListener = null;
+
+// Format a tower label using its symbol and name for assignment summaries.
+function getTowerLabel(towerId) {
+  const definition = getTowerDefinition(towerId);
+  if (!definition) {
+    return towerId;
+  }
+  const symbol = typeof definition.symbol === 'string' ? definition.symbol.trim() : '';
+  const name = typeof definition.name === 'string' ? definition.name.trim() : towerId;
+  return symbol ? `${symbol} ${name}` : name;
+}
+
+// Render the crafted equipment roster with assignment controls.
+function renderCraftedEquipmentList() {
+  const { equipmentList, equipmentEmpty } = craftingElements;
+  if (!equipmentList || !equipmentEmpty) {
+    return;
+  }
+
+  equipmentList.innerHTML = '';
+  const crafted = getCraftedEquipment();
+  if (!crafted.length) {
+    equipmentList.hidden = true;
+    equipmentList.setAttribute('aria-hidden', 'true');
+    equipmentEmpty.hidden = false;
+    equipmentEmpty.setAttribute('aria-hidden', 'false');
+    return;
+  }
+
+  equipmentList.hidden = false;
+  equipmentList.setAttribute('aria-hidden', 'false');
+  equipmentEmpty.hidden = true;
+  equipmentEmpty.setAttribute('aria-hidden', 'true');
+
+  const unlockState = getTowerUnlockState();
+  const unlockedSet = unlockState?.unlocked instanceof Set ? unlockState.unlocked : new Set();
+  const allDefinitions = getTowerDefinitions();
+  const unlockedTowers = allDefinitions.filter((definition) => unlockedSet.has(definition.id));
+
+  const fragment = document.createDocumentFragment();
+  crafted.forEach((equipment) => {
+    const item = document.createElement('li');
+    item.className = 'crafted-equipment-item';
+    item.setAttribute('data-equipment-id', equipment.id);
+
+    const header = document.createElement('div');
+    header.className = 'crafted-equipment-item__header';
+
+    const title = document.createElement('h3');
+    title.className = 'crafted-equipment-item__title';
+    title.textContent = equipment.name;
+
+    header.append(title);
+
+    if (equipment.type) {
+      const type = document.createElement('span');
+      type.className = 'crafted-equipment-item__type';
+      type.textContent = equipment.type;
+      header.append(type);
+    }
+
+    item.append(header);
+
+    if (equipment.description) {
+      const description = document.createElement('p');
+      description.className = 'crafted-equipment-item__description';
+      description.textContent = equipment.description;
+      item.append(description);
+    }
+
+    const assignmentId = getEquipmentAssignment(equipment.id);
+    const assignedLabel = assignmentId ? getTowerLabel(assignmentId) : null;
+
+    const summary = document.createElement('p');
+    summary.className = 'crafted-equipment-item__summary';
+    summary.textContent = assignmentId
+      ? `Equipped to ${assignedLabel}`
+      : 'Not equipped';
+    item.append(summary);
+
+    const select = document.createElement('select');
+    select.className = 'crafted-equipment-item__select';
+    select.setAttribute('aria-label', `Assign ${equipment.name} to a tower`);
+
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = '— Empty Slot —';
+    select.append(emptyOption);
+
+    const optionDefinitions = [...unlockedTowers];
+    if (assignmentId && !optionDefinitions.some((definition) => definition.id === assignmentId)) {
+      const definition = getTowerDefinition(assignmentId);
+      if (definition) {
+        optionDefinitions.push(definition);
+      } else {
+        optionDefinitions.push({ id: assignmentId, name: assignmentId, symbol: '' });
+      }
+    }
+
+    optionDefinitions
+      .sort((a, b) => {
+        const labelA = getTowerLabel(a.id);
+        const labelB = getTowerLabel(b.id);
+        return labelA.localeCompare(labelB);
+      })
+      .forEach((definition) => {
+        const option = document.createElement('option');
+        option.value = definition.id;
+        option.textContent = getTowerLabel(definition.id);
+        select.append(option);
+      });
+
+    if (assignmentId) {
+      select.value = assignmentId;
+    } else {
+      select.value = '';
+    }
+
+    select.addEventListener('change', () => {
+      const targetTower = select.value;
+      if (targetTower) {
+        assignEquipmentToTower(equipment.id, targetTower);
+      } else {
+        // Clearing the slot removes the equipment from its current tower.
+        assignEquipmentToTower(equipment.id, null);
+      }
+    });
+
+    select.disabled = optionDefinitions.length === 0;
+
+    item.append(select);
+
+    fragment.append(item);
+  });
+
+  equipmentList.append(fragment);
+}
 
 // Resolve a mote gem total by id so crafting recipes can show owned amounts.
 function getMoteGemCountById(gemId) {
@@ -216,8 +367,21 @@ function bindCraftingOverlayElements() {
   craftingElements.overlay = document.getElementById('crafting-overlay');
   craftingElements.closeButton = document.getElementById('crafting-close');
   craftingElements.list = document.getElementById('crafting-list');
+  craftingElements.equipmentList = document.getElementById('crafted-equipment-list');
+  craftingElements.equipmentEmpty = document.getElementById('crafted-equipment-empty');
 
   renderCraftingRecipes();
+  renderCraftedEquipmentList();
+
+  if (!removeEquipmentListener) {
+    removeEquipmentListener = addEquipmentListener(() => {
+      renderCraftedEquipmentList();
+    });
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('tower-unlocked', renderCraftedEquipmentList);
+  }
 
   // Listen for variable discovery broadcasts so the crafting ledger refreshes immediately.
   if (typeof document !== 'undefined') {
@@ -260,6 +424,7 @@ export function openCraftingOverlay() {
     requestInventoryRefresh();
   }
   renderCraftingRecipes();
+  renderCraftedEquipmentList();
 
   if (typeof revealOverlayCallback === 'function') {
     revealOverlayCallback(overlay);
