@@ -21,6 +21,7 @@ import {
   collectMoteGemDrop,
   spawnMoteGemDrop,
   resetActiveMoteGems,
+  resolveEnemyGemDropMultiplier,
 } from './enemies.js';
 import {
   registerEnemyEncounter,
@@ -2946,6 +2947,7 @@ export class SimplePlayfield {
       const symbol = this.resolveEnemySymbol(config);
       const maxHp = Number.isFinite(config.hp) ? Math.max(1, config.hp) : 1;
       const hpExponent = this.calculateHealthExponent(maxHp);
+      const gemDropMultiplier = resolveEnemyGemDropMultiplier(config);
       const enemy = {
         id: this.enemyIdCounter += 1,
         progress: 0,
@@ -2960,6 +2962,7 @@ export class SimplePlayfield {
         moteFactor: this.calculateMoteFactor(config),
         symbol,
         hpExponent,
+        gemDropMultiplier,
       };
       this.enemies.push(enemy);
       this.activeWave.spawned += 1;
@@ -3876,7 +3879,8 @@ export class SimplePlayfield {
       const hue = gem.color?.hue ?? 48;
       const saturation = gem.color?.saturation ?? 68;
       const lightness = gem.color?.lightness ?? 56;
-      const size = Math.max(10, 14 + Math.log2(gem.value + 1) * 5);
+      const moteSize = Number.isFinite(gem.moteSize) ? Math.max(1, gem.moteSize) : Math.max(1, gem.value);
+      const size = 10 + moteSize * 4.2;
       const pulse = Math.sin((gem.pulse || 0) * 0.6) * 3.2;
       const rotation = Math.sin((gem.pulse || 0) * 0.35) * 0.45;
       const opacity = Number.isFinite(gem.opacity) ? Math.max(0, Math.min(1, gem.opacity)) : 1;
