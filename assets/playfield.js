@@ -103,6 +103,8 @@ export class SimplePlayfield {
     this.arcOffset = 0;
     this.energy = 0;
     this.lives = 0;
+    // Track baseline gate defense so breach previews can factor in mitigation.
+    this.gateDefense = 0;
     this.waveIndex = 0;
     this.waveTimer = 0;
     this.activeWave = null;
@@ -873,6 +875,8 @@ export class SimplePlayfield {
       this.towers = [];
       this.energy = 0;
       this.lives = 0;
+      // Reset gate defense while previewing non-interactive layouts.
+      this.gateDefense = 0;
       if (this.autoWaveCheckbox) {
         this.autoWaveCheckbox.checked = this.autoWaveEnabled;
         this.autoWaveCheckbox.disabled = true;
@@ -1076,6 +1080,8 @@ export class SimplePlayfield {
     this.clearFocusedEnemy({ silent: true });
     this.energy = 0;
     this.lives = 0;
+    // Drop any cached gate defense when the battlefield fully resets.
+    this.gateDefense = 0;
     this.resolvedOutcome = null;
     this.arcOffset = 0;
     this.isEndlessMode = false;
@@ -1120,9 +1126,18 @@ export class SimplePlayfield {
     if (!this.levelConfig) {
       this.energy = 0;
       this.lives = 0;
+      // Clear defense when no active level is attached to the playfield.
+      this.gateDefense = 0;
     } else {
       this.energy = this.levelConfig.startThero || 0;
       this.lives = this.levelConfig.lives;
+      // Normalize any gate defense value supplied by the level configuration.
+      const configuredDefense = Number.isFinite(this.levelConfig.gateDefense)
+        ? this.levelConfig.gateDefense
+        : Number.isFinite(this.levelConfig.coreDefense)
+        ? this.levelConfig.coreDefense
+        : 0;
+      this.gateDefense = Math.max(0, configuredDefense);
     }
     this.waveIndex = 0;
     this.waveTimer = 0;
@@ -1894,11 +1909,14 @@ export class SimplePlayfield {
     const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
     const exponent = this.calculateHealthExponent(remainingHp);
     if (this.enemyTooltipNameEl) {
-      this.enemyTooltipNameEl.textContent = `${symbol}^${exponent} — ${enemy.label || 'Glyph'}`;
+      // Surface the decimal exponent in the tooltip so hover details mirror the battlefield indicators.
+      this.enemyTooltipNameEl.textContent = `${symbol}^${exponent.toFixed(1)} — ${
+        enemy.label || 'Glyph'
+      }`;
     }
     if (this.enemyTooltipHpEl) {
       const hpText = formatGameNumber(remainingHp);
-      this.enemyTooltipHpEl.textContent = `Remaining HP: 10^${exponent} (${hpText})`;
+      this.enemyTooltipHpEl.textContent = `Remaining HP: 10^${exponent.toFixed(1)} (${hpText})`;
     }
 
     const screenPosition = this.worldToScreen(enemyPosition);
@@ -2719,12 +2737,63 @@ export class SimplePlayfield {
 
   calculateHealthExponent(hp) {
     if (!Number.isFinite(hp) || hp <= 0) {
-      return 1;
+      return 0;
     }
     const clampedHp = Math.max(1, hp);
-    const flooredHp = Math.max(1, Math.floor(clampedHp));
-    const exponent = Math.floor(Math.log10(flooredHp)) + 1;
-    return Math.max(1, exponent);
+    const rawExponent = Math.log10(clampedHp);
+    // Floor the exponent to the nearest tenth so scientific-notation tiers only advance after surpassing the threshold.
+    const flooredExponent = Math.floor(rawExponent * 10) / 10;
+    return Number.isFinite(flooredExponent) ? flooredExponent : 0;
+  }
+
+  // Estimate how much integrity the enemy will strip if it breaches so exponent colors telegraph threat level.
+  estimateEnemyBreachDamage(enemy) {
+    if (!enemy) {
+      return 0;
+    }
+    const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
+    const fallbackHp = Number.isFinite(enemy.maxHp) ? Math.max(0, enemy.maxHp) : 0;
+    const damageSource = remainingHp > 0 ? remainingHp : fallbackHp;
+    const baseDamage = Math.max(0, Math.ceil(damageSource || 0));
+    const defenseSources = [
+      Number.isFinite(enemy.coreDefense) ? enemy.coreDefense : null,
+      Number.isFinite(enemy.defense) ? enemy.defense : null,
+      Number.isFinite(this.gateDefense) ? this.gateDefense : null,
+    ];
+    let defenseValue = 0;
+    let defenseResolved = false;
+    // Resolve the first configured defense value so breach math can respect shields or future upgrades.
+    defenseSources.forEach((candidate) => {
+      if (defenseResolved || candidate === null) {
+        return;
+      }
+      defenseValue = Math.max(0, candidate);
+      defenseResolved = true;
+    });
+    const mitigatedDamage = Math.max(0, baseDamage - defenseValue);
+    if (mitigatedDamage <= 0) {
+      return 0;
+    }
+    return Math.max(1, mitigatedDamage);
+  }
+
+  // Map breach damage to palette cues so players instantly read whether a glyph is lethal, dangerous, or harmless.
+  resolveEnemyExponentColor(enemy) {
+    const damage = this.estimateEnemyBreachDamage(enemy);
+    if (damage <= 0) {
+      return 'rgba(120, 235, 255, 0.95)';
+    }
+    const currentLives = Number.isFinite(this.lives) ? Math.max(0, this.lives) : 0;
+    if (currentLives > 0 && damage >= currentLives) {
+      return 'rgba(255, 70, 95, 0.95)';
+    }
+    const maxLives = Number.isFinite(this.levelConfig?.lives)
+      ? Math.max(1, this.levelConfig.lives)
+      : currentLives;
+    if (maxLives > 0 && damage / maxLives < 0.05) {
+      return 'rgba(110, 255, 176, 0.95)';
+    }
+    return 'rgba(255, 168, 92, 0.95)';
   }
 
   resolveEnemySymbol(config = {}) {
@@ -3167,10 +3236,7 @@ export class SimplePlayfield {
   }
 
   handleEnemyBreach(enemy) {
-    const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
-    const fallbackHp = Number.isFinite(enemy.maxHp) ? Math.max(0, enemy.maxHp) : 0;
-    const damageSource = remainingHp > 0 ? remainingHp : fallbackHp;
-    const damage = Math.max(1, Math.ceil(damageSource || 1));
+    const damage = this.estimateEnemyBreachDamage(enemy);
     this.lives = Math.max(0, this.lives - damage);
     if (this.audio) {
       this.audio.playSfx('enemyBreach');
@@ -3183,7 +3249,11 @@ export class SimplePlayfield {
     }
     if (this.messageEl) {
       const label = enemy.label || 'Glyph';
-      this.messageEl.textContent = `${label} breached the core—Integrity −${damage}.`;
+      // Clarify whether a breach actually removed integrity or was fully absorbed by defenses.
+      this.messageEl.textContent =
+        damage > 0
+          ? `${label} breached the core—Integrity −${damage}.`
+          : `${label} breached the core, but the gate held firm.`;
     }
     if (this.hoverEnemy && this.hoverEnemy.enemyId === enemy.id) {
       this.clearEnemyHover();
@@ -3882,7 +3952,8 @@ export class SimplePlayfield {
     const exponentOffset = radius * 0.78;
     const exponentX = exponentOffset;
     const exponentY = -exponentOffset * 0.88;
-    ctx.fillText(String(gateExponent), exponentX, exponentY);
+    // Show the core's exponent with the same decimal precision used for enemy glyphs.
+    ctx.fillText(gateExponent.toFixed(1), exponentX, exponentY);
 
     ctx.restore();
   }
@@ -4163,7 +4234,7 @@ export class SimplePlayfield {
       ctx.fill();
 
       ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-      ctx.font = `${metrics.symbolSize}px "Space Mono", monospace`;
+      ctx.font = `${metrics.symbolSize}px "Cormorant Garamond", serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(symbol || '?', 0, 0);
@@ -4171,7 +4242,10 @@ export class SimplePlayfield {
       ctx.font = `${metrics.exponentSize}px "Space Mono", monospace`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      const exponentLabel = String(exponent);
+      const exponentLabel = exponent.toFixed(1);
+      const exponentColor = this.resolveEnemyExponentColor(enemy);
+      // Paint the exponent with the threat-informed palette so players grasp incoming danger immediately.
+      ctx.fillStyle = exponentColor;
       // Display the precise exponent so each glyph telegraphs its ten-power health tier.
       ctx.fillText(exponentLabel, metrics.coreRadius * 0.35, -metrics.coreRadius * 0.6);
 
