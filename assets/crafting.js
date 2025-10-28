@@ -1,41 +1,31 @@
-import { formatGameNumber } from '../scripts/core/formatting.js';
-import { moteGemState } from './enemies.js';
+import { formatGameNumber, formatWholeNumber } from '../scripts/core/formatting.js';
+import { moteGemState, resolveGemDefinition } from './enemies.js';
+import { getDiscoveredVariables } from './towersTab.js';
 
-// Stub crafting recipes bridging gem counts to amplifier and pylon prototypes for future systems.
-const CRAFTING_RECIPES = [
-  {
-    id: 'lens-amplifier',
-    name: 'Lens Amplifier',
-    type: 'Amplifier',
-    effect: 'Increase tower range by 10% when slotted.',
-    requirements: [
-      { label: 'Amethyst', amount: 100 },
-      { label: 'Topaz', amount: 5000 },
-    ],
-  },
-  {
-    id: 'resonant-pylon',
-    name: 'Resonant Pylon',
-    type: 'Pylon',
-    effect: 'Channel 12% bonus damage to linked towers.',
-    requirements: [
-      { label: 'Ruby', amount: 250 },
-      { label: 'Sapphire', amount: 2500 },
-      { label: 'Emerald', amount: 1250 },
-    ],
-  },
-  {
-    id: 'prism-harmonic',
-    name: 'Prism Harmonic',
-    type: 'Amplifier',
-    effect: 'Adds 8% attack speed and 5% mote drop rate to an equipped tower.',
-    requirements: [
-      { label: 'Opal', amount: 180 },
-      { label: 'Citrine', amount: 900 },
-      { label: 'Pearl', amount: 60 },
-    ],
-  },
+// Establish the ordered rarity tiers so the tier builder can follow the droptable cadence.
+const GEM_TIER_SEQUENCE = [
+  'sunstone',
+  'citrine',
+  'emerald',
+  'sapphire',
+  'iolite',
+  'amethyst',
+  'diamond',
+  'nullstone',
 ];
+
+// Encode the base tier pricing before subsequent tiers multiply the ledger.
+const BASE_TIER_REQUIREMENTS = [
+  { gemId: 'sunstone', amount: 1 },
+  { gemId: 'ruby', amount: 10 },
+  { gemId: 'quartz', amount: 100 },
+];
+
+// Track how large the nullstone requirement should become before halting the tier generator.
+const MAX_NULLSTONE_REQUIREMENT = 100;
+
+// Cache the computed tier array so rendering can reuse the deterministic blueprint.
+const VARIABLE_TIER_BLUEPRINTS = buildVariableTierBlueprints();
 
 // Store crafting overlay references so the motes tab can summon and dismiss the menu gracefully.
 const craftingElements = {
@@ -49,34 +39,100 @@ let revealOverlayCallback = null;
 let scheduleOverlayHideCallback = null;
 let requestInventoryRefresh = null;
 
-// Resolve a mote gem total by label so crafting recipes can show owned amounts.
-function getMoteGemCountByLabel(label) {
-  if (!label) {
+// Resolve a mote gem total by id so crafting recipes can show owned amounts.
+function getMoteGemCountById(gemId) {
+  if (!gemId) {
     return 0;
   }
 
-  let total = 0;
-  moteGemState.inventory.forEach((record) => {
-    if (record && record.label === label && Number.isFinite(record.total)) {
-      total += Math.max(0, record.total);
-    }
-  });
-  return Math.max(0, total);
+  const record = moteGemState.inventory.get(gemId);
+  if (record && Number.isFinite(record.total)) {
+    return Math.max(0, record.total);
+  }
+  return 0;
 }
 
-// Render the stub crafting recipes so the overlay mirrors the latest gem reserves.
+// Build the deterministic tier ledger that escalates costs and bonuses per specification.
+function buildVariableTierBlueprints() {
+  const tiers = [];
+  const ledger = BASE_TIER_REQUIREMENTS.map((entry) => ({ ...entry }));
+  let bonus = 5;
+
+  while (true) {
+    tiers.push({
+      tier: tiers.length + 1,
+      bonusPercent: bonus,
+      requirements: ledger.map((entry) => ({ ...entry })),
+    });
+
+    const nullstoneRequirement = ledger.find((entry) => entry.gemId === 'nullstone');
+    if (nullstoneRequirement && nullstoneRequirement.amount >= MAX_NULLSTONE_REQUIREMENT) {
+      break;
+    }
+
+    ledger.forEach((entry) => {
+      entry.amount *= 10;
+    });
+
+    const nextGemId = GEM_TIER_SEQUENCE[tiers.length];
+    if (nextGemId && !ledger.some((entry) => entry.gemId === nextGemId)) {
+      ledger.unshift({ gemId: nextGemId, amount: 1 });
+    }
+
+    bonus *= 10;
+  }
+
+  return tiers;
+}
+
+// Translate the discovered variable registry into crafting recipe metadata.
+function buildVariableCraftingRecipes(variableList) {
+  if (!Array.isArray(variableList) || !variableList.length) {
+    return [];
+  }
+
+  return variableList.map((variable) => {
+    // Derive the display label for the crafting item so variable glyphs stay recognizable.
+    const symbol = variable.symbol || variable.name || variable.id;
+    const variableName = variable.name || symbol || 'Variable';
+    const maxBonus = VARIABLE_TIER_BLUEPRINTS[VARIABLE_TIER_BLUEPRINTS.length - 1]?.bonusPercent || 0;
+    return {
+      id: `variable-${variable.id}`,
+      name: `${symbol} Resonance`,
+      type: variableName,
+      description: variable.description || '',
+      tiers: VARIABLE_TIER_BLUEPRINTS.map((tier) => ({
+        tier: tier.tier,
+        bonusPercent: tier.bonusPercent,
+        requirements: tier.requirements.map((requirement) => ({
+          ...requirement,
+          label: resolveGemDefinition(requirement.gemId)?.name || requirement.gemId,
+        })),
+      })),
+      maxBonus,
+    };
+  });
+}
+
+// Render the variable crafting recipes so the overlay mirrors the latest gem reserves.
 function renderCraftingRecipes() {
   if (!craftingElements.list) {
     return;
   }
 
   craftingElements.list.innerHTML = '';
-  if (!CRAFTING_RECIPES.length) {
+  const variables = getDiscoveredVariables();
+  const recipes = buildVariableCraftingRecipes(variables);
+  if (!recipes.length) {
+    const empty = document.createElement('li');
+    empty.className = 'crafting-item crafting-item--empty';
+    empty.textContent = 'Discover tower variables to unlock their gemcraft blueprints.';
+    craftingElements.list.append(empty);
     return;
   }
 
   const fragment = document.createDocumentFragment();
-  CRAFTING_RECIPES.forEach((recipe) => {
+  recipes.forEach((recipe) => {
     const item = document.createElement('li');
     item.className = 'crafting-item';
     item.setAttribute('data-crafting-id', recipe.id);
@@ -90,33 +146,64 @@ function renderCraftingRecipes() {
 
     const effect = document.createElement('p');
     effect.className = 'crafting-item__effect';
-    effect.textContent = `${recipe.type} — ${recipe.effect}`;
+    const bonusSummary = formatWholeNumber(recipe.maxBonus);
+    effect.textContent = `Unique ${recipe.type} focus — Tiered gemcraft amplifies this variable up to +${bonusSummary}%`;
+    if (recipe.description) {
+      // Append the lore snippet so players recall how the variable behaves in its home equation.
+      const description = document.createElement('span');
+      description.className = 'crafting-item__detail';
+      description.textContent = ` ${recipe.description}`;
+      effect.append(description);
+    }
 
     header.append(title, effect);
     item.append(header);
 
-    if (Array.isArray(recipe.requirements) && recipe.requirements.length) {
+    // Enumerate each tier so the overlay can showcase future upgrade thresholds.
+    const tierList = document.createElement('ol');
+    tierList.className = 'crafting-tier-list';
+
+    recipe.tiers.forEach((tier) => {
+      const tierItem = document.createElement('li');
+      tierItem.className = 'crafting-tier';
+
+      // Communicate the tier rank alongside the resulting bonus percentage.
+      const tierHeader = document.createElement('div');
+      tierHeader.className = 'crafting-tier__header';
+      const tierLabel = document.createElement('span');
+      tierLabel.className = 'crafting-tier__label';
+      tierLabel.textContent = `Tier ${tier.tier}`;
+
+      const tierBonus = document.createElement('span');
+      tierBonus.className = 'crafting-tier__bonus';
+      tierBonus.textContent = `+${formatWholeNumber(tier.bonusPercent)}% ${recipe.type}`;
+      tierHeader.append(tierLabel, tierBonus);
+
+      // Summarize the gem ledger for this tier using the shared cost styling.
       const costList = document.createElement('ul');
       costList.className = 'crafting-cost';
 
-      recipe.requirements.forEach((requirement) => {
+      tier.requirements.forEach((requirement) => {
         const costItem = document.createElement('li');
         costItem.className = 'crafting-cost__item';
         const amountLabel = `${formatGameNumber(Math.max(0, requirement.amount || 0))} ${
           requirement.label || 'Motes'
-        } Motes`;
+        }`;
         costItem.textContent = amountLabel;
 
         const owned = document.createElement('span');
         owned.className = 'crafting-cost__owned';
-        owned.textContent = `(Owned: ${formatGameNumber(getMoteGemCountByLabel(requirement.label))})`;
+        owned.textContent = `(Owned: ${formatGameNumber(getMoteGemCountById(requirement.gemId))})`;
         costItem.append(owned);
 
         costList.append(costItem);
       });
 
-      item.append(costList);
-    }
+      tierItem.append(tierHeader, costList);
+      tierList.append(tierItem);
+    });
+
+    item.append(tierList);
 
     fragment.append(item);
   });
@@ -131,6 +218,11 @@ function bindCraftingOverlayElements() {
   craftingElements.list = document.getElementById('crafting-list');
 
   renderCraftingRecipes();
+
+  // Listen for variable discovery broadcasts so the crafting ledger refreshes immediately.
+  if (typeof document !== 'undefined') {
+    document.addEventListener('tower-variables-changed', renderCraftingRecipes);
+  }
 
   const { overlay, closeButton } = craftingElements;
 
