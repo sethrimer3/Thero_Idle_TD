@@ -1676,6 +1676,8 @@ export class SimplePlayfield {
       merge: merging,
       cost: actionCost,
       symbol: definition?.symbol || '·',
+      definition: definition || null,
+      tier: Number.isFinite(definition?.tier) ? definition.tier : null,
     };
   }
 
@@ -4163,6 +4165,9 @@ export class SimplePlayfield {
       symbol,
       reason,
       dragging,
+      towerType,
+      definition,
+      tier,
     } = this.hoverPlacement;
 
     ctx.save();
@@ -4191,19 +4196,69 @@ export class SimplePlayfield {
       ctx.setLineDash([]);
     }
 
-    const glyphSize = Math.round(Math.max(18, (radius || 24) * 0.45));
-    ctx.font = `${glyphSize}px "Space Mono", monospace`;
+    const previewDefinition = definition || getTowerDefinition(towerType);
+    const previewTower = {
+      type: towerType,
+      definition: previewDefinition || undefined,
+      tier: Number.isFinite(tier) ? tier : previewDefinition?.tier,
+      symbol,
+    };
+    const visuals = getTowerVisualConfig(previewTower) || {};
+    const bodyRadius = Math.max(12, Math.min(this.renderWidth, this.renderHeight) * 0.042);
+    const bodyStroke = valid
+      ? visuals.outerStroke || 'rgba(139, 247, 255, 0.85)'
+      : 'rgba(255, 96, 96, 0.85)';
+    const bodyFill = valid
+      ? visuals.innerFill || 'rgba(12, 16, 28, 0.9)'
+      : 'rgba(60, 16, 16, 0.88)';
+    const symbolFill = valid
+      ? visuals.symbolFill || 'rgba(255, 228, 120, 0.85)'
+      : 'rgba(255, 200, 200, 0.92)';
+
+    ctx.save();
+    if (valid && visuals.outerShadow?.color) {
+      this.applyCanvasShadow(
+        ctx,
+        visuals.outerShadow.color,
+        Number.isFinite(visuals.outerShadow.blur) ? visuals.outerShadow.blur : 18,
+      );
+    } else {
+      this.clearCanvasShadow(ctx);
+    }
+    ctx.beginPath();
+    ctx.fillStyle = bodyFill;
+    ctx.strokeStyle = bodyStroke;
+    ctx.lineWidth = valid ? 2.4 : 2.6;
+    ctx.arc(position.x, position.y, bodyRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    if (valid && visuals.symbolShadow?.color) {
+      this.applyCanvasShadow(
+        ctx,
+        visuals.symbolShadow.color,
+        Number.isFinite(visuals.symbolShadow.blur) ? visuals.symbolShadow.blur : 18,
+      );
+    } else {
+      this.clearCanvasShadow(ctx);
+    }
+    const glyph = symbol || '·';
+    ctx.font = `${Math.round(bodyRadius * 1.4)}px "Space Mono", monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = valid ? 'rgba(18, 24, 36, 0.92)' : 'rgba(54, 12, 12, 0.9)';
-    ctx.fillText(symbol || '·', position.x, position.y);
+    ctx.fillStyle = symbolFill;
+    ctx.fillText(glyph, position.x, position.y);
+    ctx.restore();
 
     if (dragging) {
       // Add a subtle outline while dragging to indicate the pointer anchor.
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = 'rgba(139, 247, 255, 0.4)';
       ctx.beginPath();
-      ctx.arc(position.x, position.y, Math.max(14, glyphSize * 0.65), 0, Math.PI * 2);
+      const anchorRadius = Math.max(bodyRadius * 1.15, bodyRadius + 4, 16);
+      ctx.arc(position.x, position.y, anchorRadius, 0, Math.PI * 2);
       ctx.stroke();
     }
 
