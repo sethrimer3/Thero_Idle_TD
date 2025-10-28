@@ -19,6 +19,15 @@ import {
   formatPercentage,
   formatSignedPercentage,
 } from '../scripts/core/formatting.js';
+import {
+  getCraftedEquipment,
+  getEquipmentAssignment,
+  getTowerEquipmentId,
+  getTowerEquipment,
+  assignEquipmentToTower,
+  clearTowerEquipment,
+  addEquipmentListener as addEquipmentStateListener,
+} from './equipment.js';
 
 const UNIVERSAL_VARIABLE_LIBRARY = new Map([
   [
@@ -148,6 +157,13 @@ const towerTabState = {
     variableSpans: new Map(),
     entryPlayed: false,
     shouldPlayEntry: false,
+  },
+  equipmentUi: {
+    slots: new Map(),
+    activeTowerId: null,
+    unsubscribe: null,
+    closeHandlersBound: false,
+    documentListenerBound: false,
   },
   activeTowerUpgradeId: null,
   activeTowerUpgradeBaseEquation: '',
@@ -1024,6 +1040,328 @@ function finalizeTowerDrag(event) {
 
 function handleTowerDragEnd(event) {
   finalizeTowerDrag(event);
+}
+
+// ---------- Tower equipment slot helpers ----------
+
+const EMPTY_EQUIPMENT_SYMBOL = '∅';
+
+function getEquipmentSlotRecord(towerId) {
+  return towerTabState.equipmentUi.slots.get(towerId) || null;
+}
+
+function createTowerEquipmentSlot(towerId, card) {
+  if (towerTabState.equipmentUi.slots.has(towerId)) {
+    return;
+  }
+
+  const container = document.createElement('div');
+  container.className = 'tower-equipment-slot';
+  container.dataset.towerId = towerId;
+  container.dataset.menuOpen = 'false';
+
+  const baseLabel = getTowerSourceLabel(towerId);
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'tower-equipment-button';
+  button.dataset.towerEquipmentButton = towerId;
+  button.setAttribute('aria-haspopup', 'listbox');
+  button.setAttribute('aria-expanded', 'false');
+  button.setAttribute('aria-label', `Select equipment for ${baseLabel}`);
+  button.title = `Empty slot for ${baseLabel}`;
+
+  const icon = document.createElement('span');
+  icon.className = 'tower-equipment-button__icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.textContent = EMPTY_EQUIPMENT_SYMBOL;
+
+  const label = document.createElement('span');
+  label.className = 'tower-equipment-button__label';
+  label.textContent = 'Equipment';
+
+  const name = document.createElement('span');
+  name.className = 'tower-equipment-button__name';
+  name.textContent = 'Empty';
+
+  button.append(icon, label, name);
+
+  const menu = document.createElement('div');
+  menu.className = 'tower-equipment-menu';
+  menu.setAttribute('role', 'listbox');
+  menu.setAttribute('aria-hidden', 'true');
+  menu.hidden = true;
+  menu.dataset.towerEquipmentMenu = towerId;
+
+  const list = document.createElement('ul');
+  list.className = 'tower-equipment-menu__list';
+  menu.append(list);
+
+  container.append(button, menu);
+
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    toggleTowerEquipmentMenu(towerId);
+  });
+
+  button.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleTowerEquipmentMenu(towerId);
+    }
+  });
+
+  menu.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' || event.key === 'Esc') {
+      event.preventDefault();
+      closeTowerEquipmentMenu({ restoreFocus: true });
+    }
+  });
+
+  const slotRecord = {
+    container,
+    button,
+    icon,
+    name,
+    menu,
+    list,
+    baseLabel,
+  };
+
+  towerTabState.equipmentUi.slots.set(towerId, slotRecord);
+
+  const equipButton = card.querySelector('.tower-equip-button');
+  if (equipButton && equipButton.parentNode) {
+    equipButton.parentNode.insertBefore(container, equipButton);
+  } else {
+    const footer = card.querySelector('.card-footer');
+    if (footer && footer.parentNode) {
+      footer.parentNode.insertBefore(container, footer);
+    } else {
+      card.append(container);
+    }
+  }
+
+  updateTowerEquipmentSlot(towerId);
+}
+
+function ensureTowerEquipmentSlots() {
+  const cards = document.querySelectorAll('[data-tower-id]');
+  cards.forEach((card) => {
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+    const towerId = card.dataset.towerId;
+    if (!towerId) {
+      return;
+    }
+    createTowerEquipmentSlot(towerId, card);
+  });
+}
+
+function updateTowerEquipmentSlot(towerId) {
+  const slot = getEquipmentSlotRecord(towerId);
+  if (!slot) {
+    return;
+  }
+  const equipment = getTowerEquipment(towerId);
+  if (equipment) {
+    const displaySymbol = equipment.symbol || equipment.name?.charAt(0) || '?';
+    slot.container.dataset.filled = 'true';
+    slot.icon.textContent = displaySymbol;
+    slot.name.textContent = equipment.name;
+    slot.button.setAttribute(
+      'aria-label',
+      `Change equipment for ${slot.baseLabel} (${equipment.name})`,
+    );
+    slot.button.title = `${equipment.name} equipped to ${slot.baseLabel}`;
+  } else {
+    slot.container.dataset.filled = 'false';
+    slot.icon.textContent = EMPTY_EQUIPMENT_SYMBOL;
+    slot.name.textContent = 'Empty';
+    slot.button.setAttribute('aria-label', `Select equipment for ${slot.baseLabel}`);
+    slot.button.title = `Empty slot for ${slot.baseLabel}`;
+  }
+}
+
+function createEquipmentMenuButton(towerId, equipment) {
+  const item = document.createElement('li');
+  item.className = 'tower-equipment-menu__item-wrapper';
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'tower-equipment-menu__item';
+  button.dataset.equipmentOption = equipment ? equipment.id : 'empty';
+  button.setAttribute('role', 'option');
+
+  if (!equipment) {
+    button.textContent = 'Empty Slot';
+    const assignedId = getTowerEquipmentId(towerId);
+    button.setAttribute('aria-selected', assignedId ? 'false' : 'true');
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      clearTowerEquipment(towerId);
+      closeTowerEquipmentMenu({ restoreFocus: true });
+    });
+    item.append(button);
+    return item;
+  }
+
+  const symbol = document.createElement('span');
+  symbol.className = 'tower-equipment-menu__symbol';
+  symbol.textContent = equipment.symbol || equipment.name?.charAt(0) || '?';
+  symbol.setAttribute('aria-hidden', 'true');
+
+  const label = document.createElement('span');
+  label.className = 'tower-equipment-menu__label';
+  label.textContent = equipment.name;
+
+  button.append(symbol, label);
+
+  const assignmentId = getEquipmentAssignment(equipment.id);
+  const assignedHere = assignmentId === towerId;
+  button.setAttribute('aria-selected', assignedHere ? 'true' : 'false');
+
+  if (assignmentId && assignmentId !== towerId) {
+    const note = document.createElement('span');
+    note.className = 'tower-equipment-menu__note';
+    note.textContent = `Equipped to ${getTowerSourceLabel(assignmentId)}`;
+    button.append(note);
+  }
+
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    assignEquipmentToTower(equipment.id, towerId);
+    closeTowerEquipmentMenu({ restoreFocus: true });
+  });
+
+  item.append(button);
+  return item;
+}
+
+function populateTowerEquipmentMenu(towerId) {
+  const slot = getEquipmentSlotRecord(towerId);
+  if (!slot) {
+    return;
+  }
+  slot.list.innerHTML = '';
+  const fragment = document.createDocumentFragment();
+
+  fragment.append(createEquipmentMenuButton(towerId, null));
+
+  const craftedEquipment = getCraftedEquipment();
+  if (!craftedEquipment.length) {
+    const emptyNote = document.createElement('li');
+    emptyNote.className = 'tower-equipment-menu__empty';
+    emptyNote.textContent = 'No crafted equipment available.';
+    fragment.append(emptyNote);
+  } else {
+    craftedEquipment.forEach((equipment) => {
+      fragment.append(createEquipmentMenuButton(towerId, equipment));
+    });
+  }
+
+  slot.list.append(fragment);
+}
+
+function handleEquipmentPointerDown(event) {
+  const activeTowerId = towerTabState.equipmentUi.activeTowerId;
+  if (!activeTowerId) {
+    return;
+  }
+  const slot = getEquipmentSlotRecord(activeTowerId);
+  if (!slot) {
+    closeTowerEquipmentMenu();
+    return;
+  }
+  if (slot.container.contains(event.target)) {
+    return;
+  }
+  closeTowerEquipmentMenu();
+}
+
+function handleEquipmentKeyDown(event) {
+  if (event.key === 'Escape' || event.key === 'Esc') {
+    event.preventDefault();
+    closeTowerEquipmentMenu({ restoreFocus: true });
+  }
+}
+
+function bindEquipmentCloseHandlers() {
+  if (towerTabState.equipmentUi.closeHandlersBound) {
+    return;
+  }
+  document.addEventListener('pointerdown', handleEquipmentPointerDown, true);
+  document.addEventListener('keydown', handleEquipmentKeyDown, true);
+  towerTabState.equipmentUi.closeHandlersBound = true;
+}
+
+function unbindEquipmentCloseHandlers() {
+  if (!towerTabState.equipmentUi.closeHandlersBound) {
+    return;
+  }
+  document.removeEventListener('pointerdown', handleEquipmentPointerDown, true);
+  document.removeEventListener('keydown', handleEquipmentKeyDown, true);
+  towerTabState.equipmentUi.closeHandlersBound = false;
+}
+
+function openTowerEquipmentMenu(towerId) {
+  const slot = getEquipmentSlotRecord(towerId);
+  if (!slot) {
+    return;
+  }
+  populateTowerEquipmentMenu(towerId);
+  slot.menu.hidden = false;
+  slot.menu.setAttribute('aria-hidden', 'false');
+  slot.container.dataset.menuOpen = 'true';
+  slot.button.setAttribute('aria-expanded', 'true');
+  towerTabState.equipmentUi.activeTowerId = towerId;
+  bindEquipmentCloseHandlers();
+
+  const firstOption = slot.menu.querySelector('[data-equipment-option]');
+  if (firstOption && typeof firstOption.focus === 'function') {
+    firstOption.focus({ preventScroll: true });
+  }
+}
+
+function closeTowerEquipmentMenu({ restoreFocus = false } = {}) {
+  const activeTowerId = towerTabState.equipmentUi.activeTowerId;
+  if (!activeTowerId) {
+    return;
+  }
+  const slot = getEquipmentSlotRecord(activeTowerId);
+  towerTabState.equipmentUi.activeTowerId = null;
+  if (slot) {
+    slot.menu.hidden = true;
+    slot.menu.setAttribute('aria-hidden', 'true');
+    slot.container.dataset.menuOpen = 'false';
+    slot.button.setAttribute('aria-expanded', 'false');
+    if (restoreFocus && typeof slot.button.focus === 'function') {
+      slot.button.focus({ preventScroll: true });
+    }
+  }
+  unbindEquipmentCloseHandlers();
+}
+
+function toggleTowerEquipmentMenu(towerId) {
+  if (towerTabState.equipmentUi.activeTowerId === towerId) {
+    closeTowerEquipmentMenu({ restoreFocus: true });
+    return;
+  }
+  closeTowerEquipmentMenu();
+  openTowerEquipmentMenu(towerId);
+}
+
+function handleEquipmentStateUpdate() {
+  towerTabState.equipmentUi.slots.forEach((_, towerId) => {
+    updateTowerEquipmentSlot(towerId);
+  });
+  const activeTowerId = towerTabState.equipmentUi.activeTowerId;
+  if (activeTowerId) {
+    populateTowerEquipmentMenu(activeTowerId);
+  }
 }
 
 export function startTowerDrag(event, towerId, element) {
@@ -2096,6 +2434,12 @@ export function updateTowerCardVisibility() {
       card.style.display = 'none';
     }
     card.setAttribute('aria-hidden', unlocked ? 'false' : 'true');
+
+    const slot = getEquipmentSlotRecord(towerId);
+    if (slot) {
+      slot.button.disabled = !unlocked;
+      slot.container.dataset.locked = unlocked ? 'false' : 'true';
+    }
   });
 }
 
@@ -2198,6 +2542,23 @@ export function initializeTowerSelection() {
     button.addEventListener('click', () => toggleTowerSelection(towerId));
   });
   updateTowerSelectionButtons();
+}
+
+export function initializeTowerEquipmentInterface() {
+  ensureTowerEquipmentSlots();
+  handleEquipmentStateUpdate();
+  if (!towerTabState.equipmentUi.unsubscribe) {
+    towerTabState.equipmentUi.unsubscribe = addEquipmentStateListener(() => {
+      handleEquipmentStateUpdate();
+    });
+  }
+  if (!towerTabState.equipmentUi.documentListenerBound && typeof document !== 'undefined') {
+    document.addEventListener('tower-unlocked', () => {
+      ensureTowerEquipmentSlots();
+      handleEquipmentStateUpdate();
+    });
+    towerTabState.equipmentUi.documentListenerBound = true;
+  }
 }
 
 export function syncLoadoutToPlayfield() {

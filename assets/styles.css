@@ -1517,6 +1517,149 @@ body.graphics-mode-low .control-button {
   border-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Introduce an octagonal socket for crafted relics beneath each tower card. */
+.tower-equipment-slot {
+  position: relative;
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+
+.tower-equipment-slot[data-locked='true'] {
+  opacity: 0.55;
+}
+
+.tower-equipment-button {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  align-content: center;
+  border: 1px solid rgba(139, 247, 255, 0.3);
+  background: linear-gradient(140deg, rgba(8, 10, 16, 0.92), rgba(20, 26, 40, 0.92));
+  color: var(--text);
+  clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+  cursor: pointer;
+  transition: border-color var(--transition), box-shadow var(--transition), color var(--transition);
+}
+
+.tower-equipment-button:focus-visible {
+  outline: 2px solid rgba(139, 247, 255, 0.75);
+  outline-offset: 4px;
+}
+
+.tower-equipment-slot[data-filled='true'] .tower-equipment-button {
+  border-color: rgba(255, 228, 120, 0.72);
+  color: rgba(255, 228, 120, 0.92);
+  box-shadow: 0 12px 26px rgba(255, 228, 120, 0.18);
+}
+
+.tower-equipment-slot[data-menu-open='true'] .tower-equipment-button {
+  border-color: rgba(139, 247, 255, 0.6);
+  box-shadow: 0 12px 28px rgba(139, 247, 255, 0.22);
+}
+
+.tower-equipment-button__icon {
+  font-size: 1.6rem;
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.18em;
+}
+
+.tower-equipment-button__label {
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 245, 0.68);
+}
+
+.tower-equipment-button__name {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tower-equipment-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  z-index: 5;
+  width: max(220px, 88%);
+  border-radius: 16px;
+  border: 1px solid rgba(139, 247, 255, 0.25);
+  background: rgba(8, 10, 16, 0.96);
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.45);
+  padding: 12px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.tower-equipment-menu[hidden] {
+  display: none;
+}
+
+.tower-equipment-menu__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.tower-equipment-menu__item {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.tower-equipment-menu__item:hover,
+.tower-equipment-menu__item:focus-visible {
+  border-color: rgba(139, 247, 255, 0.35);
+  background: rgba(139, 247, 255, 0.12);
+  outline: none;
+}
+
+.tower-equipment-menu__item[aria-selected='true'] {
+  border-color: rgba(255, 228, 120, 0.7);
+  background: rgba(255, 228, 120, 0.16);
+}
+
+.tower-equipment-menu__symbol {
+  font-size: 1.2rem;
+}
+
+.tower-equipment-menu__label {
+  display: block;
+}
+
+.tower-equipment-menu__note {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  color: rgba(247, 247, 245, 0.65);
+}
+
+.tower-equipment-menu__empty {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px dashed rgba(247, 247, 245, 0.25);
+  font-size: 0.76rem;
+  text-align: center;
+  color: rgba(247, 247, 245, 0.6);
+}
+
 .play-button {
   font-size: 0.9rem;
   padding: 12px 42px;
@@ -3060,6 +3203,112 @@ body.graphics-mode-low .control-button {
   margin: 0;
   font-size: 0.9rem;
   color: rgba(247, 247, 245, 0.8);
+}
+
+/* Present crafted equipment management controls above the recipe ledger. */
+.crafted-equipment-section {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(139, 247, 255, 0.18);
+  background: rgba(10, 14, 22, 0.72);
+}
+
+/* Align the crafted equipment heading with its descriptive note. */
+.crafted-equipment-header {
+  display: grid;
+  gap: 6px;
+}
+
+.crafted-equipment-title {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.crafted-equipment-note {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(247, 247, 245, 0.7);
+}
+
+/* Display crafted relics in a vertical stack for quick assignment. */
+.crafted-equipment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.crafted-equipment-item {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(6, 8, 14, 0.72);
+  display: grid;
+  gap: 8px;
+}
+
+.crafted-equipment-item__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.crafted-equipment-item__title {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.crafted-equipment-item__type {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(139, 247, 255, 0.85);
+}
+
+.crafted-equipment-item__description {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(247, 247, 245, 0.7);
+}
+
+.crafted-equipment-item__summary {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: rgba(255, 228, 120, 0.78);
+}
+
+.crafted-equipment-item__select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 247, 255, 0.28);
+  background: rgba(3, 5, 10, 0.9);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.crafted-equipment-item__select:focus-visible {
+  outline: 2px solid rgba(139, 247, 255, 0.75);
+  outline-offset: 2px;
+}
+
+.crafted-equipment-empty {
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgba(247, 247, 245, 0.62);
 }
 
 /* Stack discovered variable recipes vertically so each blueprint remains readable. */
