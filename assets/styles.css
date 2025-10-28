@@ -845,6 +845,7 @@ body.graphics-mode-low .control-button {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(247, 247, 245, 0.72);
+  background: transparent;
 }
 
 .playfield-stats__item {
@@ -4044,7 +4045,7 @@ body.graphics-mode-low .control-button {
   .playfield-stats {
     /* Mirroring the blur removal elsewhere so the mobile renderer keeps compositing costs low. */
     backdrop-filter: none;
-    background: rgba(10, 10, 16, 0.82);
+    background: transparent;
   }
 }
 

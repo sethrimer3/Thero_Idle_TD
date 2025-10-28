@@ -3703,20 +3703,58 @@ export class SimplePlayfield {
     const dx = destination.x - soldier.x;
     const dy = destination.y - soldier.y;
     const distance = Math.hypot(dx, dy);
-    if (distance > 1) {
-      const travel = Math.min(distance, speed * delta);
-      const nx = dx / distance;
-      const ny = dy / distance;
-      soldier.vx = nx * speed;
-      soldier.vy = ny * speed;
-      soldier.x += nx * travel;
-      soldier.y += ny * travel;
-      if (Number.isFinite(soldier.vx) && Number.isFinite(soldier.vy)) {
-        soldier.heading = Math.atan2(soldier.vy, soldier.vx);
+    const acceleration = Math.max(200, minDimension * 0.5); // Ease soldier velocity to smooth acceleration and deceleration.
+    let nx = 0;
+    let ny = 0;
+    if (distance > 0.0001) {
+      nx = dx / distance;
+      ny = dy / distance;
+    }
+    const desiredSpeed = distance > 1 ? speed : 0;
+    const desiredVx = nx * desiredSpeed;
+    const desiredVy = ny * desiredSpeed;
+    const deltaVx = desiredVx - soldier.vx;
+    const deltaVy = desiredVy - soldier.vy;
+    const deltaMagnitude = Math.hypot(deltaVx, deltaVy);
+    const maxVelocityChange = acceleration * delta;
+    if (deltaMagnitude > maxVelocityChange && deltaMagnitude > 0) {
+      const blend = maxVelocityChange / deltaMagnitude;
+      soldier.vx += deltaVx * blend;
+      soldier.vy += deltaVy * blend;
+    } else {
+      soldier.vx = desiredVx;
+      soldier.vy = desiredVy;
+    }
+
+    if (distance <= 0.0001) {
+      soldier.x = destination.x;
+      soldier.y = destination.y;
+      if (Math.abs(soldier.vx) < 0.01) {
+        soldier.vx = 0;
+      }
+      if (Math.abs(soldier.vy) < 0.01) {
+        soldier.vy = 0;
       }
     } else {
-      soldier.vx *= 0.5;
-      soldier.vy *= 0.5;
+      const stepX = soldier.vx * delta;
+      const stepY = soldier.vy * delta;
+      const forwardTravel = stepX * nx + stepY * ny;
+      if (forwardTravel > distance) {
+        soldier.x = destination.x;
+        soldier.y = destination.y;
+        soldier.vx = 0;
+        soldier.vy = 0;
+      } else {
+        soldier.x += stepX;
+        soldier.y += stepY;
+      }
+    }
+
+    if (Number.isFinite(soldier.vx) && Number.isFinite(soldier.vy)) {
+      const velocityMagnitude = Math.hypot(soldier.vx, soldier.vy);
+      if (velocityMagnitude > 0.01) {
+        soldier.heading = Math.atan2(soldier.vy, soldier.vx);
+      }
     }
 
     if (target) {
