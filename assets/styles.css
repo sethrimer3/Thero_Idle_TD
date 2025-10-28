@@ -2918,6 +2918,11 @@ body.graphics-mode-low .control-button {
     radial-gradient(circle at 20% 0%, rgba(137, 236, 255, 0.16), rgba(137, 236, 255, 0) 55%),
     radial-gradient(circle at 82% 18%, rgba(255, 214, 153, 0.18), rgba(255, 214, 153, 0) 54%),
     rgba(12, 12, 20, 0.88);
+  /* Contain scroll input within the crafting recipes so the main app shell stays stationary. */
+  max-height: min(92vh, 640px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
 }
 
 /* Introduce the crafting narrative with softer typography. */
@@ -3192,6 +3197,11 @@ body.graphics-mode-low .control-button {
   flex-direction: column;
   gap: 24px;
   position: relative;
+  /* Allow the upgrade sheet to scroll independently so wheel gestures do not reach the tab view. */
+  max-height: min(92vh, 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
 }
 
 .tower-upgrade-header {
