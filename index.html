@@ -335,17 +335,6 @@
               </div>
               <footer class="card-footer">Channels stored motes directly into the tower lattice.</footer>
             </article>
-            <!-- Mote bank readout sits beneath the dedicated motes tower entry. -->
-            <div class="tower-mote-summary" id="tower-mote-summary" aria-live="polite">
-              <div class="tower-mote-line">
-                <span class="tower-mote-label">Mote Bank</span>
-                <span class="tower-mote-value" id="tower-mote-bank">0 Motes</span>
-              </div>
-              <div class="tower-mote-line">
-                <span class="tower-mote-label">Fall Rate</span>
-                <span class="tower-mote-value" id="tower-mote-rate">1.00 Motes/sec</span>
-              </div>
-            </div>
             <article class="card" data-tower-id="alpha" aria-hidden="false">
               <header class="tower-header">
                 <span class="tower-tier">Tier I</span>
@@ -991,10 +980,6 @@
             </article>
 
           </div>
-          <div class="tower-panel-badges" id="tower-panel-badges" aria-live="polite">
-            <span class="tower-badge tower-badge--glyphs" id="tower-glyph-badge">0</span>
-            <span class="tower-badge tower-badge--motes" id="tower-mote-badge">0</span>
-          </div>
         </section>
 
         <section
@@ -1075,13 +1060,19 @@
             <article class="card powder-mote-stats">
               <h3>Mote Bank Stats</h3>
               <dl class="powder-metrics">
+                <!-- Idle mote bank readout relocated from the towers tab to centralize mote tracking. -->
+                <div>
+                  <dt>Mote Bank</dt>
+                  <dd id="powder-mote-bank">0 Motes</dd>
+                </div>
+                <!-- Fall rate display migrated alongside the bank so both mote flows live in one tab. -->
+                <div>
+                  <dt>Fall Rate</dt>
+                  <dd id="powder-mote-rate">1.00 Motes/sec</dd>
+                </div>
                 <div>
                   <dt>Idle Multiplier</dt>
                   <dd id="powder-idle-multiplier">0 achievements</dd>
-                </div>
-                <div>
-                    <dt>Dispensing Rate</dt>
-                    <dd id="powder-dispense-rate">1 Mote/sec</dd>
                 </div>
               </dl>
             </article>
