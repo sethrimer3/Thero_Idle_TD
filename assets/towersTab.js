@@ -143,7 +143,7 @@ const towerTabState = {
     tier: null,
     glyphs: null,
     baseEquation: null,
-    goldenEquation: null,
+    baseEquationValues: null,
     variables: null,
     note: null,
     icon: null,
@@ -176,6 +176,7 @@ const towerTabState = {
   renderUpgradeMatrix: null,
   discoveredVariables: new Map(),
   discoveredVariableListeners: new Set(),
+  dynamicContext: null,
 };
 
 const fallbackTowerBlueprints = new Map();
@@ -343,6 +344,100 @@ function getGlyphSubscriptRank(subscriptIndex = 1) {
   return tailBase + (normalizedIndex - 2);
 }
 
+function sanitizeTowerContextEntry(entry) {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+  const id = typeof entry.id === 'string' && entry.id.trim() ? entry.id.trim() : null;
+  if (!id) {
+    return null;
+  }
+  const type = typeof entry.type === 'string' && entry.type.trim() ? entry.type.trim() : null;
+  const x = Number(entry.x);
+  const y = Number(entry.y);
+  const range = Number(entry.range);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return null;
+  }
+  return {
+    id,
+    type,
+    x,
+    y,
+    range: Number.isFinite(range) && range > 0 ? range : 0,
+  };
+}
+
+function buildTowerDynamicContext(options = {}) {
+  const collection = [];
+  const providedTowers = Array.isArray(options.contextTowers) ? options.contextTowers : [];
+  providedTowers.forEach((entry) => {
+    const sanitized = sanitizeTowerContextEntry(entry);
+    if (sanitized) {
+      collection.push(sanitized);
+    }
+  });
+
+  const targetCandidate = sanitizeTowerContextEntry(options.contextTower);
+  if (targetCandidate && !collection.some((tower) => tower.id === targetCandidate.id)) {
+    collection.push(targetCandidate);
+  }
+
+  const contextTowerId = typeof options.contextTowerId === 'string' && options.contextTowerId.trim()
+    ? options.contextTowerId.trim()
+    : targetCandidate?.id || null;
+
+  if (!contextTowerId) {
+    return null;
+  }
+
+  const target = collection.find((tower) => tower.id === contextTowerId);
+  if (!target) {
+    return null;
+  }
+
+  const counts = new Map();
+  collection.forEach((candidate) => {
+    if (!candidate || candidate.id === target.id) {
+      return;
+    }
+    const dx = candidate.x - target.x;
+    const dy = candidate.y - target.y;
+    const distance = Math.hypot(dx, dy);
+    const targetRange = Number.isFinite(target.range) ? Math.max(0, target.range) : 0;
+    const candidateRange = Number.isFinite(candidate.range) ? Math.max(0, candidate.range) : 0;
+    if (!Number.isFinite(distance) || distance === 0) {
+      if (distance === 0 && candidateRange > 0 && targetRange > 0) {
+        const key = candidate.type || 'unknown';
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      return;
+    }
+    if (distance > targetRange || distance > candidateRange) {
+      return;
+    }
+    const key = candidate.type || 'unknown';
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  return {
+    towerId: target.id,
+    towerType: target.type || null,
+    counts,
+  };
+}
+
+function getDynamicConnectionCount(towerType) {
+  if (!towerType) {
+    return 0;
+  }
+  const context = towerTabState.dynamicContext;
+  if (!context || !(context.counts instanceof Map)) {
+    return 0;
+  }
+  return context.counts.get(towerType) || 0;
+}
+
 const TOWER_EQUATION_BLUEPRINTS = {
   // Model the Mind Gate's two glyph conduits so it can accept upgrades directly.
   'mind-gate': {
@@ -393,131 +488,269 @@ const TOWER_EQUATION_BLUEPRINTS = {
   },
   alpha: {
     mathSymbol: '\\alpha',
-    baseEquation: '\\( \\alpha = Atk \\)',
+    baseEquation: 'α = Attack × Speed',
     variables: [
       {
         key: 'atk',
-        symbol: 'Atk',
+        symbol: 'A',
+        equationSymbol: 'Attack',
         name: 'Attack',
         description: 'Projectile damage carried by each glyph bullet.',
         baseValue: 5,
         step: 5,
         upgradable: true,
-        format: (value) => `${formatWholeNumber(value)} Atk`,
+        format: (value) => `${formatWholeNumber(value)} Attack`,
         cost: (level) => Math.max(1, 1 + level),
-      getSubEquations({ level, value }) {
-        const glyphRank = Math.max(1, Number.isFinite(level) ? level + 1 : 1);
-        const attackValue = formatWholeNumber(Number.isFinite(value) ? value : 0);
-        return [`\\( Atk = 5 \\times \\Psi_{1} = 5 \\times ${formatWholeNumber(glyphRank)} = ${attackValue} \\)`];
+        getSubEquations({ level, value }) {
+          const glyphRank = Math.max(1, Number.isFinite(level) ? level + 1 : 1);
+          const attackValue = Number.isFinite(value) ? value : 0;
+          return [
+            {
+              expression: '\\( A_{\\text{ttack}} = 5 \\left( G_{\\text{lyph1}} \\right) \\)',
+              values: `\\( = 5 \\left( ${formatWholeNumber(glyphRank)} \\right) = ${formatWholeNumber(attackValue)} \\)`,
+            },
+          ];
+        },
       },
+      {
+        key: 'speed',
+        symbol: 'S',
+        equationSymbol: 'Speed',
+        name: 'Speed',
+        description: 'Glyph oscillation frequency braided from the second glyph conduit.',
+        upgradable: false,
+        computeValue() {
+          const glyphRank = getGlyphSubscriptRank(2);
+          return glyphRank / 2;
+        },
+        format: (value) => `${formatDecimal(value, 2)} speed`,
+        getSubEquations() {
+          const glyphRank = getGlyphSubscriptRank(2);
+          const speedValue = glyphRank / 2;
+          return [
+            {
+              expression: '\\( S_{\\text{peed}} = 1 \\left( \\frac{G_{\\text{lyph2}}}{2} \\right) \\)',
+              values: `\\( = 1 \\left( \\frac{${formatDecimal(glyphRank, 2)}}{2} \\right) = ${formatDecimal(speedValue, 2)} \\)`,
+            },
+          ];
+        },
       },
     ],
     computeResult(values) {
       const attack = Number.isFinite(values.atk) ? values.atk : 0;
-      return attack;
+      const speed = Number.isFinite(values.speed) ? values.speed : 0;
+      return attack * speed;
     },
-    formatGoldenEquation({ formatVariable, formatResult }) {
-      return `\\( ${formatResult()} = ${formatVariable('atk')} \\)`;
+    formatBaseEquationValues({ values, result, formatComponent }) {
+      const attack = Number.isFinite(values.atk) ? values.atk : 0;
+      const speed = Number.isFinite(values.speed) ? values.speed : 0;
+      return `= ${formatComponent(attack)} × ${formatComponent(speed)} = ${formatComponent(result)}`;
     },
   },
   beta: {
     mathSymbol: '\\beta',
-    baseEquation: '\\( \\beta : Atk = \\alpha, Rng = \\Psi_{1} \\)',
+    baseEquation: 'β = Attack × Speed × Range',
     variables: [
       {
         key: 'attack',
-        symbol: 'Atk',
+        symbol: 'A',
+        equationSymbol: 'Attack',
         name: 'Attack',
         description: 'Direct strike power mirrored from α.',
-        reference: 'alpha',
         upgradable: false,
         lockedNote: 'Strengthens exactly as α does.',
+        computeValue() {
+          const glyphRank = getGlyphSubscriptRank(1);
+          const alphaValue = calculateTowerEquationResult('alpha');
+          return alphaValue * glyphRank;
+        },
         format: (value) => `${formatGameNumber(value)} attack`,
+        getSubEquations() {
+          const glyphRank = getGlyphSubscriptRank(1);
+          const alphaValue = calculateTowerEquationResult('alpha');
+          const attackValue = alphaValue * glyphRank;
+          return [
+            {
+              expression: '\\( A_{\\text{ttack}} = \\alpha \\left( G_{\\text{lyph1}} \\right) \\)',
+              values: `\\( = ${formatDecimal(alphaValue, 2)} \\left( ${formatWholeNumber(glyphRank)} \\right) = ${formatDecimal(attackValue, 2)} \\)`,
+            },
+          ];
+        },
+      },
+      {
+        key: 'speed',
+        symbol: 'S',
+        equationSymbol: 'Speed',
+        name: 'Speed',
+        description: 'Cadence accelerated by neighbouring α lattices.',
+        upgradable: false,
+        lockedNote: 'Connect α lattices to accelerate β cadence.',
+        computeValue() {
+          const alphaConnections = getDynamicConnectionCount('alpha');
+          return 0.5 + 1.5 * alphaConnections;
+        },
+        format: (value) => `${formatDecimal(value, 2)} speed`,
+        getSubEquations() {
+          const alphaConnections = getDynamicConnectionCount('alpha');
+          const speedValue = 0.5 + 1.5 * alphaConnections;
+          return [
+            {
+              expression: '\\( S_{\\text{peed}} = 0.5 + 1.5 \\left( {\\color{#8fd2ff}{\\#\\alpha}} \\right) \\)',
+              values: `\\( = 0.5 + 1.5 \\left( ${formatWholeNumber(alphaConnections)} \\right) = ${formatDecimal(speedValue, 2)} \\)`,
+            },
+          ];
+        },
       },
       {
         key: 'range',
-        symbol: 'Ψ₁',
+        symbol: 'R',
+        equationSymbol: 'Range',
         name: 'Range',
-        description: 'Baseline reach anchored to the first glyph tier.',
+        description: 'Coverage extended by α lattice entanglement.',
         upgradable: false,
-        format: (value) => `${formatWholeNumber(value)} range`,
-        getBase: () => getGlyphSubscriptRank(1),
+        lockedNote: 'Entangle α lattices to extend β reach.',
+        computeValue() {
+          return getDynamicConnectionCount('alpha');
+        },
+        format: (value) => `${formatDecimal(value, 2)} range`,
         getSubEquations() {
-          const glyphRank = getGlyphSubscriptRank(1);
-          return [`\\( \\Psi_{1} = ${formatWholeNumber(glyphRank)} \\)`];
+          const alphaConnections = getDynamicConnectionCount('alpha');
+          return [
+            {
+              expression: '\\( R_{\\text{ange}} = 1 \\left( {\\color{#8fd2ff}{\\#\\alpha}} \\right) \\)',
+              values: `\\( = 1 \\left( ${formatWholeNumber(alphaConnections)} \\right) = ${formatDecimal(alphaConnections, 2)} \\)`,
+            },
+          ];
         },
       },
     ],
     computeResult(values) {
       const attack = Number.isFinite(values.attack) ? values.attack : 0;
-      return attack;
+      const speed = Number.isFinite(values.speed) ? values.speed : 0;
+      const range = Number.isFinite(values.range) ? values.range : 0;
+      return attack * speed * range;
     },
-    formatGoldenEquation({ formatVariable }) {
-      return `\\( \\beta : Atk = ${formatVariable('attack')}, Rng = ${formatVariable('range')} \\)`;
+    formatBaseEquationValues({ values, result, formatComponent }) {
+      const attack = Number.isFinite(values.attack) ? values.attack : 0;
+      const speed = Number.isFinite(values.speed) ? values.speed : 0;
+      const range = Number.isFinite(values.range) ? values.range : 0;
+      return `= ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} = ${formatComponent(result)}`;
     },
   },
   gamma: {
     mathSymbol: '\\gamma',
-    baseEquation: '\\( \\gamma : Atk = \\beta, Spd = \\Psi_{1}, Rng = \\Psi_{2}, Prc = \\Psi_{3} \\)',
+    baseEquation: 'γ = Attack × Speed × Range × Pierce',
     variables: [
       {
         key: 'attack',
-        symbol: 'Atk',
+        symbol: 'A',
+        equationSymbol: 'Attack',
         name: 'Attack',
         description: 'Strike intensity carried forward from β.',
-        reference: 'beta',
         upgradable: false,
         lockedNote: 'Bolster β to amplify γ attack.',
+        computeValue() {
+          const glyphRank = getGlyphSubscriptRank(1);
+          const betaValue = calculateTowerEquationResult('beta');
+          return betaValue * glyphRank;
+        },
         format: (value) => `${formatGameNumber(value)} attack`,
-      },
-      {
-        key: 'attackSpeed',
-        symbol: 'Ψ₁',
-        name: 'Attack Speed',
-        description: 'Cadence keyed to the first glyph subscript.',
-        upgradable: false,
-        format: (value) => `${formatDecimal(value, 2)} attacks/sec`,
-        getBase: () => getGlyphSubscriptRank(1),
         getSubEquations() {
           const glyphRank = getGlyphSubscriptRank(1);
-          return [`\\( \\Psi_{1} = ${formatWholeNumber(glyphRank)} \\)`];
+          const betaValue = calculateTowerEquationResult('beta');
+          const attackValue = betaValue * glyphRank;
+          return [
+            {
+              expression: '\\( A_{\\text{ttack}} = \\beta \\left( G_{\\text{lyph1}} \\right) \\)',
+              values: `\\( = ${formatDecimal(betaValue, 2)} \\left( ${formatWholeNumber(glyphRank)} \\right) = ${formatDecimal(attackValue, 2)} \\)`,
+            },
+          ];
+        },
+      },
+      {
+        key: 'speed',
+        symbol: 'S',
+        equationSymbol: 'Speed',
+        name: 'Speed',
+        description: 'Cadence tuned by neighbouring α lattices.',
+        upgradable: false,
+        lockedNote: 'Link α lattices to accelerate γ cadence.',
+        computeValue() {
+          const alphaConnections = getDynamicConnectionCount('alpha');
+          return 0.5 + 0.25 * alphaConnections;
+        },
+        format: (value) => `${formatDecimal(value, 2)} speed`,
+        getSubEquations() {
+          const alphaConnections = getDynamicConnectionCount('alpha');
+          const speedValue = 0.5 + 0.25 * alphaConnections;
+          return [
+            {
+              expression: '\\( S_{\\text{peed}} = 0.5 + 0.25 \\left( {\\color{#8fd2ff}{\\#\\alpha}} \\right) \\)',
+              values: `\\( = 0.5 + 0.25 \\left( ${formatWholeNumber(alphaConnections)} \\right) = ${formatDecimal(speedValue, 2)} \\)`,
+            },
+          ];
         },
       },
       {
         key: 'range',
-        symbol: 'Ψ₂',
+        symbol: 'R',
+        equationSymbol: 'Range',
         name: 'Range',
-        description: 'Arc reach tethered to the second glyph subscript.',
+        description: 'Arc reach extended by neighbouring β conductors.',
         upgradable: false,
-        format: (value) => `${formatWholeNumber(value)} range`,
-        getBase: () => getGlyphSubscriptRank(2),
+        lockedNote: 'Bind β lattices to extend γ reach.',
+        computeValue() {
+          const betaConnections = getDynamicConnectionCount('beta');
+          return 1 + 2 * betaConnections;
+        },
+        format: (value) => `${formatDecimal(value, 2)} range`,
         getSubEquations() {
-          const glyphRank = getGlyphSubscriptRank(2);
-          return [`\\( \\Psi_{2} = ${formatWholeNumber(glyphRank)} \\)`];
+          const betaConnections = getDynamicConnectionCount('beta');
+          const rangeValue = 1 + 2 * betaConnections;
+          return [
+            {
+              expression: '\\( R_{\\text{ange}} = 1 + 2 \\left( {\\color{#8fd2ff}{\\#\\beta}} \\right) \\)',
+              values: `\\( = 1 + 2 \\left( ${formatWholeNumber(betaConnections)} \\right) = ${formatDecimal(rangeValue, 2)} \\)`,
+            },
+          ];
         },
       },
       {
         key: 'pierce',
-        symbol: 'Ψ₃',
+        symbol: 'P',
+        equationSymbol: 'Pierce',
         name: 'Pierce',
-        description: 'Piercing depth guided by the third glyph subscript.',
+        description: 'Piercing depth braided from the second glyph conduit.',
         upgradable: false,
+        lockedNote: 'Channel glyph energy to sharpen pierce.',
+        computeValue() {
+          return getGlyphSubscriptRank(2);
+        },
         format: (value) => `${formatWholeNumber(value)} pierce`,
-        getBase: () => getGlyphSubscriptRank(3),
         getSubEquations() {
-          const glyphRank = getGlyphSubscriptRank(3);
-          return [`\\( \\Psi_{3} = ${formatWholeNumber(glyphRank)} \\)`];
+          const glyphRank = getGlyphSubscriptRank(2);
+          return [
+            {
+              expression: '\\( P_{\\text{ierce}} = 1 \\left( G_{\\text{lyph2}} \\right) \\)',
+              values: `\\( = 1 \\left( ${formatWholeNumber(glyphRank)} \\right) = ${formatWholeNumber(glyphRank)} \\)`,
+            },
+          ];
         },
       },
     ],
     computeResult(values) {
       const attack = Number.isFinite(values.attack) ? values.attack : 0;
-      return attack;
+      const speed = Number.isFinite(values.speed) ? values.speed : 0;
+      const range = Number.isFinite(values.range) ? values.range : 0;
+      const pierce = Number.isFinite(values.pierce) ? values.pierce : 0;
+      return attack * speed * range * pierce;
     },
-    formatGoldenEquation({ formatVariable }) {
-      return `\\( \\gamma : Atk = ${formatVariable('attack')}, Spd = ${formatVariable(
-        'attackSpeed'
-      )}, Rng = ${formatVariable('range')}, Prc = ${formatVariable('pierce')} \\)`;
+    formatBaseEquationValues({ values, result, formatComponent }) {
+      const attack = Number.isFinite(values.attack) ? values.attack : 0;
+      const speed = Number.isFinite(values.speed) ? values.speed : 0;
+      const range = Number.isFinite(values.range) ? values.range : 0;
+      const pierce = Number.isFinite(values.pierce) ? values.pierce : 0;
+      return `= ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${formatComponent(pierce)} = ${formatComponent(result)}`;
     },
   },
   delta: {
@@ -688,6 +921,47 @@ function resetTowerVariableAnimationState() {
   towerTabState.towerVariableAnimation.shouldPlayEntry = false;
 }
 
+const DYNAMIC_EQUATION_PATTERN = /(#α|#β)/g;
+
+function appendEquationText(target, text) {
+  if (!target) {
+    return;
+  }
+  const segments = String(text ?? '').split(DYNAMIC_EQUATION_PATTERN);
+  segments.forEach((segment) => {
+    if (!segment) {
+      return;
+    }
+    if (segment === '#α' || segment === '#β') {
+      const dynamic = document.createElement('span');
+      dynamic.classList.add('tower-upgrade-formula-part--dynamic', 'dynamic-variable');
+      dynamic.textContent = segment;
+      target.append(dynamic);
+    } else {
+      target.append(document.createTextNode(segment));
+    }
+  });
+}
+
+function appendEquationVariable(target, label) {
+  if (!target) {
+    return;
+  }
+  const text = typeof label === 'string' && label.trim() ? label.trim() : '';
+  if (!text) {
+    appendEquationText(target, label);
+    return;
+  }
+  const [firstChar, ...restChars] = Array.from(text);
+  appendEquationText(target, firstChar);
+  if (restChars.length) {
+    const subscript = document.createElement('span');
+    subscript.className = 'tower-upgrade-formula-part-subscript';
+    appendEquationText(subscript, restChars.join(''));
+    target.append(subscript);
+  }
+}
+
 function renderTowerUpgradeEquationParts(baseEquationText, blueprint, options = {}) {
   const baseEquationEl = towerTabState.towerUpgradeElements.baseEquation;
   if (!baseEquationEl) {
@@ -697,12 +971,12 @@ function renderTowerUpgradeEquationParts(baseEquationText, blueprint, options = 
   const resolvedEquation = convertMathExpressionToPlainText(baseEquationText) || baseEquationText || '';
   baseEquationEl.innerHTML = '';
 
-  const upgradableVariables = (blueprint?.variables || []).filter((variable) => variable.upgradable !== false);
+  const blueprintVariables = Array.isArray(blueprint?.variables) ? blueprint.variables : [];
   const tokens = tokenizeEquationParts(
     resolvedEquation,
-    upgradableVariables.map((variable) => ({
+    blueprintVariables.map((variable) => ({
       key: variable.key,
-      symbol: variable.symbol || variable.key.toUpperCase(),
+      symbol: variable.equationSymbol || variable.symbol || variable.key.toUpperCase(),
     })),
   );
 
@@ -712,11 +986,12 @@ function renderTowerUpgradeEquationParts(baseEquationText, blueprint, options = 
   tokens.forEach((token) => {
     const span = document.createElement('span');
     span.className = 'tower-upgrade-formula-part';
-    span.textContent = token.text;
+    span.textContent = '';
 
     if (token.variableKey) {
       span.dataset.variable = token.variableKey;
       span.classList.add('tower-upgrade-formula-part--variable');
+      const variable = getBlueprintVariable(blueprint, token.variableKey);
       if (!spanMap.has(token.variableKey)) {
         spanMap.set(token.variableKey, []);
       }
@@ -724,6 +999,13 @@ function renderTowerUpgradeEquationParts(baseEquationText, blueprint, options = 
       if (markDeparted) {
         span.classList.add('is-departed');
       }
+      if (variable && typeof variable.equationSymbol === 'string') {
+        appendEquationVariable(span, variable.equationSymbol);
+      } else {
+        appendEquationText(span, token.text);
+      }
+    } else {
+      appendEquationText(span, token.text);
     }
 
     fragment.append(span);
@@ -732,7 +1014,7 @@ function renderTowerUpgradeEquationParts(baseEquationText, blueprint, options = 
   if (!tokens.length) {
     const fallback = document.createElement('span');
     fallback.className = 'tower-upgrade-formula-part';
-    fallback.textContent = resolvedEquation;
+    appendEquationText(fallback, resolvedEquation);
     fragment.append(fallback);
   }
 
@@ -1842,6 +2124,23 @@ export function computeTowerVariableValue(towerId, variableKey, blueprint = null
   }
 
   const definition = getTowerDefinition(towerId);
+
+  if (typeof variable.computeValue === 'function') {
+    try {
+      const computedValue = variable.computeValue({
+        definition,
+        towerId,
+        blueprint: effectiveBlueprint,
+        dynamicContext: towerTabState.dynamicContext,
+      });
+      if (Number.isFinite(computedValue)) {
+        return computedValue;
+      }
+    } catch (error) {
+      console.warn('Failed to evaluate custom tower variable computeValue', error);
+    }
+  }
+
   let baseValue = 0;
   if (typeof variable.getBase === 'function') {
     baseValue = variable.getBase({ definition, towerId });
@@ -1957,7 +2256,19 @@ function resolveTowerVariableSubEquations(variable, context = {}) {
     if (typeof entry === 'string') {
       const trimmed = entry.trim();
       if (trimmed) {
-        lines.push(trimmed);
+        lines.push({ text: trimmed, variant: 'expression' });
+      }
+      return;
+    }
+    if (entry && typeof entry === 'object') {
+      if (typeof entry.text === 'string' && entry.text.trim()) {
+        lines.push({ text: entry.text.trim(), variant: entry.variant === 'values' ? 'values' : 'expression' });
+      }
+      if (typeof entry.expression === 'string' && entry.expression.trim()) {
+        lines.push({ text: entry.expression.trim(), variant: 'expression' });
+      }
+      if (typeof entry.values === 'string' && entry.values.trim()) {
+        lines.push({ text: entry.values.trim(), variant: 'values' });
       }
     }
   };
@@ -2084,15 +2395,40 @@ function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
       formatWholeNumber,
       formatDecimal,
       formatGameNumber,
+      dynamicContext: towerTabState.dynamicContext,
     });
 
     if (subEquationLines.length) {
       const equations = document.createElement('div');
       equations.className = 'tower-upgrade-variable-equations';
-      subEquationLines.forEach((line) => {
+      subEquationLines.forEach((entry) => {
+        let text = '';
+        let variant = 'expression';
+        if (entry && typeof entry === 'object') {
+          if (typeof entry.text === 'string') {
+            text = entry.text.trim();
+            if (entry.variant === 'values') {
+              variant = 'values';
+            }
+          } else if (typeof entry.expression === 'string') {
+            text = entry.expression.trim();
+          }
+          if (!text && typeof entry.values === 'string') {
+            text = entry.values.trim();
+            variant = 'values';
+          }
+        } else if (typeof entry === 'string') {
+          text = entry.trim();
+        }
+        if (!text) {
+          return;
+        }
         const lineEl = document.createElement('p');
         lineEl.className = 'tower-upgrade-variable-equation-line';
-        lineEl.textContent = line;
+        if (variant === 'values') {
+          lineEl.classList.add('tower-upgrade-variable-equation-line--values');
+        }
+        lineEl.textContent = text;
         equations.append(lineEl);
       });
       item.append(equations);
@@ -2253,22 +2589,48 @@ export function renderTowerUpgradeOverlay(towerId, options = {}) {
     result = 0;
   }
 
-  if (towerTabState.towerUpgradeElements.goldenEquation) {
-    const mathSymbol = blueprint.mathSymbol || definition.symbol || towerId;
-    const formatVariable = (key) => formatTowerVariableValue(getBlueprintVariable(blueprint, key), values[key]);
-    const formatResult = () => formatTowerEquationResultValue(result);
-    const goldenEquation =
-      typeof blueprint.formatGoldenEquation === 'function'
-        ? blueprint.formatGoldenEquation({
-            symbol: mathSymbol,
-            values,
-            result,
-            formatVariable,
-            formatResult,
-          })
-        : `\\( ${mathSymbol} = ${formatVariable('damage')} \\times ${formatVariable('rate')} = ${formatResult()} \\)`;
-    towerTabState.towerUpgradeElements.goldenEquation.textContent = goldenEquation;
-    renderMathElement(towerTabState.towerUpgradeElements.goldenEquation);
+  if (towerTabState.towerUpgradeElements.baseEquationValues) {
+    const baseValuesEl = towerTabState.towerUpgradeElements.baseEquationValues;
+    const formatComponent = (value) => {
+      if (!Number.isFinite(value)) {
+        return '0';
+      }
+      if (Math.abs(value) >= 1000) {
+        return formatGameNumber(value);
+      }
+      return formatDecimal(value, 2);
+    };
+
+    let equationLine = '';
+    if (typeof blueprint.formatBaseEquationValues === 'function') {
+      try {
+        equationLine = blueprint.formatBaseEquationValues({
+          values,
+          result,
+          formatComponent,
+        });
+      } catch (error) {
+        console.warn('Failed to format base equation values', error);
+      }
+    }
+
+    if (typeof equationLine !== 'string' || !equationLine.trim()) {
+      const keys = Object.keys(values);
+      if (keys.length) {
+        const parts = keys.map((key) => formatComponent(values[key]));
+        equationLine = `= ${parts.join(' × ')}`;
+        if (Number.isFinite(result)) {
+          equationLine += ` = ${formatComponent(result)}`;
+        }
+      } else if (Number.isFinite(result)) {
+        equationLine = `= ${formatComponent(result)}`;
+      } else {
+        equationLine = '';
+      }
+    }
+
+    baseValuesEl.textContent = equationLine || '';
+    renderMathElement(baseValuesEl);
   }
 
   renderTowerUpgradeVariables(towerId, blueprint, values);
@@ -2348,6 +2710,13 @@ export function openTowerUpgradeOverlay(towerId, options = {}) {
     return;
   }
 
+  towerTabState.dynamicContext = buildTowerDynamicContext({
+    contextTowerId: options.contextTowerId,
+    contextTower: options.contextTower,
+    contextTowers: options.contextTowers,
+  });
+  invalidateTowerEquationCache();
+
   const sourceCard = options.sourceCard || null;
   if (sourceCard) {
     const existingEquation = extractTowerCardEquation(sourceCard);
@@ -2358,7 +2727,7 @@ export function openTowerUpgradeOverlay(towerId, options = {}) {
 
   towerTabState.activeTowerUpgradeId = towerId;
   towerTabState.lastTowerUpgradeTrigger = options.trigger || null;
-  // Reveal the overlay first so MathJax can typeset golden equations reliably.
+  // Reveal the overlay first so MathJax can typeset updated equations reliably.
   showTowerUpgradeOverlayElement(overlay);
 
   renderTowerUpgradeOverlay(towerId, {
@@ -2392,6 +2761,8 @@ export function closeTowerUpgradeOverlay() {
   }
   towerTabState.lastTowerUpgradeTrigger = null;
   towerTabState.activeTowerUpgradeId = null;
+  towerTabState.dynamicContext = null;
+  invalidateTowerEquationCache();
 }
 
 export function getTowerUpgradeOverlayElement() {
@@ -2498,7 +2869,7 @@ export function bindTowerUpgradeOverlay() {
   elements.tier = document.getElementById('tower-upgrade-tier');
   elements.glyphs = document.getElementById('tower-upgrade-glyphs');
   elements.baseEquation = document.getElementById('tower-upgrade-base');
-  elements.goldenEquation = document.getElementById('tower-upgrade-golden');
+  elements.baseEquationValues = document.getElementById('tower-upgrade-base-values');
   elements.variables = document.getElementById('tower-upgrade-variables');
   elements.note = document.getElementById('tower-upgrade-note');
   elements.icon = document.getElementById('tower-upgrade-icon');

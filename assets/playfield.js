@@ -2176,7 +2176,26 @@ export class SimplePlayfield {
     if (option.type === 'info') {
       // Route the command to the tower overlay so players can review formulas mid-combat.
       if (tower?.type) {
-        openTowerUpgradeOverlay(tower.type);
+        const contextTowers = this.towers
+          .map((candidate) => ({
+            id: candidate?.id,
+            type: candidate?.type,
+            x: candidate?.x,
+            y: candidate?.y,
+            range: candidate?.range,
+          }))
+          .filter((entry) => entry.id && Number.isFinite(entry.x) && Number.isFinite(entry.y));
+        openTowerUpgradeOverlay(tower.type, {
+          contextTowerId: tower.id,
+          contextTower: {
+            id: tower.id,
+            type: tower.type,
+            x: tower.x,
+            y: tower.y,
+            range: tower.range,
+          },
+          contextTowers,
+        });
       }
       if (this.messageEl) {
         const label = tower.definition?.name || `${tower.symbol || 'Tower'}`;
@@ -5403,6 +5422,49 @@ export class SimplePlayfield {
 
     const ctx = this.ctx;
     ctx.save();
+
+    const connections = [];
+    for (let i = 0; i < this.towers.length; i += 1) {
+      const a = this.towers[i];
+      if (!a || !Number.isFinite(a.x) || !Number.isFinite(a.y)) {
+        continue;
+      }
+      const rangeA = Number.isFinite(a.range) ? Math.max(0, a.range) : 0;
+      for (let j = i + 1; j < this.towers.length; j += 1) {
+        const b = this.towers[j];
+        if (!b || !Number.isFinite(b.x) || !Number.isFinite(b.y)) {
+          continue;
+        }
+        const rangeB = Number.isFinite(b.range) ? Math.max(0, b.range) : 0;
+        if (rangeA <= 0 || rangeB <= 0) {
+          continue;
+        }
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const distance = Math.hypot(dx, dy);
+        if (!Number.isFinite(distance)) {
+          continue;
+        }
+        if (distance <= rangeA && distance <= rangeB) {
+          connections.push({ from: a, to: b });
+        }
+      }
+    }
+
+    if (connections.length) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(143, 210, 255, 0.42)';
+      ctx.lineWidth = 1.4;
+      ctx.setLineDash([4, 6]);
+      connections.forEach((link) => {
+        ctx.beginPath();
+        ctx.moveTo(link.from.x, link.from.y);
+        ctx.lineTo(link.to.x, link.to.y);
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
 
     this.towers.forEach((tower) => {
       if (!tower || !Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
