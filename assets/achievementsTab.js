@@ -373,6 +373,8 @@ function presentAchievementCinematic(id) {
   overlayEls.floatingIcon.style.width = `${originRect.width}px`;
   overlayEls.floatingIcon.style.height = `${originRect.height}px`;
   overlayEls.floatingIcon.style.transform = 'translate(0px, 0px) scale(1)';
+  // Ensure the traveling icon starts fully opaque before the forward flight fades out.
+  overlayEls.floatingIcon.style.opacity = '1';
 
   iconSource.classList.add('achievement-icon-hidden');
 
@@ -388,6 +390,8 @@ function presentAchievementCinematic(id) {
     const deltaY = targetRect.top - originRect.top;
     const scale = originRect.width ? targetRect.width / originRect.width : 1;
     overlayEls.floatingIcon.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scale})`;
+    // Fade the icon towards transparent as it reaches the overlay center.
+    overlayEls.floatingIcon.style.opacity = '0';
   });
 }
 
@@ -419,9 +423,13 @@ function dismissAchievementCinematic() {
   overlayEls.floatingIcon.style.height = `${originRect.height}px`;
   const targetScale = originRect.width ? targetRect.width / originRect.width : 1;
   overlayEls.floatingIcon.style.transform = `translate(${targetRect.left - originRect.left}px, ${targetRect.top - originRect.top}px) scale(${targetScale})`;
+  // Start the return flight transparent so the tile fade-in masks alignment.
+  overlayEls.floatingIcon.style.opacity = '0';
 
   requestAnimationFrame(() => {
     overlayEls.floatingIcon.style.transform = 'translate(0px, 0px) scale(1)';
+    // Restore opacity as the icon settles back into the achievements grid.
+    overlayEls.floatingIcon.style.opacity = '1';
   });
 }
 
