@@ -7,6 +7,8 @@ export const GRAPHICS_MODE_STORAGE_KEY = 'glyph-defense-idle:graphics-mode';
 export const NOTATION_STORAGE_KEY = 'glyph-defense-idle:notation';
 const POWDER_STORAGE_KEY = 'glyph-defense-idle:powder';
 const GAME_STATS_STORAGE_KEY = 'glyph-defense-idle:stats';
+// Storage key used to persist the active Motefall basin snapshot.
+const POWDER_BASIN_STORAGE_KEY = 'glyph-defense-idle:powder-basin';
 
 const DEFAULT_AUTOSAVE_INTERVAL_MS = 30000;
 const MIN_AUTOSAVE_INTERVAL_MS = 5000;
@@ -22,6 +24,8 @@ const dependencies = {
   mergeLoadedGameStats: null,
   getPreferenceSnapshot: null,
   audioStorageKey: null,
+  getPowderBasinSnapshot: null,
+  applyPowderBasinSnapshot: null,
 };
 
 let statKeys = [];
@@ -146,6 +150,13 @@ export function loadPersistentState() {
     dependencies.onPowderCurrencyLoaded(Math.max(0, storedPowder));
   }
 
+  if (typeof dependencies.applyPowderBasinSnapshot === 'function') {
+    const storedBasin = readStorageJson(POWDER_BASIN_STORAGE_KEY);
+    if (storedBasin && typeof storedBasin === 'object') {
+      dependencies.applyPowderBasinSnapshot(storedBasin);
+    }
+  }
+
   if (dependencies.audioStorageKey && typeof dependencies.applyStoredAudioSettings === 'function') {
     const storedAudio = readStorageJson(dependencies.audioStorageKey);
     if (storedAudio) {
@@ -218,6 +229,7 @@ function persistPreferences() {
 
 function performAutoSave() {
   savePowderCurrency();
+  persistPowderBasin();
   persistGameStats();
   persistPreferences();
 }
@@ -252,4 +264,16 @@ export function stopAutoSaveLoop() {
  */
 export function commitAutoSave() {
   performAutoSave();
+}
+
+// Persist the current Motefall basin layout alongside player stats.
+function persistPowderBasin() {
+  if (typeof dependencies.getPowderBasinSnapshot !== 'function') {
+    return;
+  }
+  const snapshot = dependencies.getPowderBasinSnapshot();
+  if (!snapshot || typeof snapshot !== 'object') {
+    return;
+  }
+  writeStorageJson(POWDER_BASIN_STORAGE_KEY, snapshot);
 }

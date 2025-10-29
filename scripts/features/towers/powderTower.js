@@ -24,6 +24,37 @@ export function clampUnitInterval(value) {
   return Math.max(0, Math.min(1, value));
 }
 
+// Normalize a floating-point value so serialized powder state never stores NaN or Infinity artifacts.
+function normalizeFiniteNumber(value, fallback = 0) {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return value;
+}
+
+// Normalize an integer value while guaranteeing a deterministic rounding strategy for persistence.
+function normalizeFiniteInteger(value, fallback = 0) {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.round(value);
+}
+
+// Clone an RGB color payload so serialization never mutates the original mote palette references.
+function cloneMoteColor(color) {
+  if (!color || typeof color !== 'object') {
+    return null;
+  }
+  if (!Number.isFinite(color.r) || !Number.isFinite(color.g) || !Number.isFinite(color.b)) {
+    return null;
+  }
+  return {
+    r: Math.max(0, Math.min(255, Math.round(color.r))),
+    g: Math.max(0, Math.min(255, Math.round(color.g))),
+    b: Math.max(0, Math.min(255, Math.round(color.b))),
+  };
+}
+
 function parseHexColor(value) {
   if (typeof value !== 'string') {
     return null;
@@ -1871,6 +1902,271 @@ export class PowderSimulation {
 
   getStatus() {
     return this.heightInfo;
+  }
+
+  // Provide a serializable snapshot so autosave routines can persist active mote positions and camera state.
+  exportState() {
+    const palette = mergeMotePalette(this.getEffectiveMotePalette());
+    const serializeGrain = (grain) => {
+      if (!grain || typeof grain !== 'object') {
+        return null;
+      }
+      const size = Math.max(1, normalizeFiniteInteger(grain.size, 1));
+      const colliderSize = Math.max(1, normalizeFiniteInteger(grain.colliderSize || size, size));
+      const id = Math.max(1, normalizeFiniteInteger(grain.id, 1));
+      const biasRaw = normalizeFiniteInteger(grain.bias, 1);
+      const bias = biasRaw < 0 ? -1 : 1;
+      const shade = Math.max(0, Math.min(255, normalizeFiniteInteger(grain.shade, 180)));
+      const x = normalizeFiniteInteger(grain.x, 0);
+      const y = normalizeFiniteInteger(grain.y, 0);
+      const color = cloneMoteColor(grain.color);
+      return {
+        id,
+        x,
+        y,
+        size,
+        colliderSize,
+        bias,
+        shade,
+        freefall: !!grain.freefall,
+        inGrid: !!grain.inGrid,
+        resting: !!grain.resting,
+        color,
+      };
+    };
+
+    const serializeDrop = (drop) => {
+      if (drop && typeof drop === 'object') {
+        const size = Math.max(1, normalizeFiniteInteger(drop.size, 1));
+        const color = cloneMoteColor(drop.color);
+        return color ? { size, color } : { size };
+      }
+      if (Number.isFinite(drop)) {
+        return { size: Math.max(1, Math.round(drop)) };
+      }
+      return null;
+    };
+
+    const grains = Array.isArray(this.grains)
+      ? this.grains
+          .slice(0, this.maxGrains || this.grains.length)
+          .map(serializeGrain)
+          .filter(Boolean)
+      : [];
+    const pendingDrops = Array.isArray(this.pendingDrops)
+      ? this.pendingDrops
+          .slice(0, this.maxGrains || this.pendingDrops.length)
+          .map(serializeDrop)
+          .filter(Boolean)
+      : [];
+
+    const viewCenter = this.viewCenterNormalized || { x: 0.5, y: 0.5 };
+    const heightInfo = this.heightInfo
+      ? {
+          normalizedHeight: normalizeFiniteNumber(this.heightInfo.normalizedHeight, 0),
+          duneGain: normalizeFiniteNumber(this.heightInfo.duneGain, 0),
+          largestGrain: normalizeFiniteInteger(this.heightInfo.largestGrain, 0),
+          scrollOffset: normalizeFiniteInteger(this.heightInfo.scrollOffset, 0),
+          visibleHeight: normalizeFiniteInteger(this.heightInfo.visibleHeight, 0),
+          totalHeight: normalizeFiniteInteger(this.heightInfo.totalHeight, 0),
+          totalNormalized: normalizeFiniteNumber(this.heightInfo.totalNormalized, 0),
+          crestPosition: normalizeFiniteNumber(this.heightInfo.crestPosition, 1),
+          rows: normalizeFiniteInteger(this.heightInfo.rows, this.rows),
+          cols: normalizeFiniteInteger(this.heightInfo.cols, this.cols),
+          cellSize: normalizeFiniteInteger(this.heightInfo.cellSize, this.cellSize),
+          highestNormalized: normalizeFiniteNumber(this.heightInfo.highestNormalized, 0),
+        }
+      : null;
+
+    return {
+      grains,
+      pendingDrops,
+      idleBank: Math.max(0, normalizeFiniteNumber(this.idleBank, 0)),
+      idleAccumulator: Math.max(0, normalizeFiniteNumber(this.idleAccumulator, 0)),
+      spawnTimer: Math.max(0, normalizeFiniteNumber(this.spawnTimer, 0)),
+      scrollOffsetCells: Math.max(0, normalizeFiniteInteger(this.scrollOffsetCells, 0)),
+      highestTotalHeightCells: Math.max(0, normalizeFiniteInteger(this.highestTotalHeightCells, 0)),
+      viewScale: Math.max(0.1, normalizeFiniteNumber(this.viewScale, 1)),
+      viewCenterNormalized: {
+        x: normalizeFiniteNumber(viewCenter.x, 0.5),
+        y: normalizeFiniteNumber(viewCenter.y, 0.5),
+      },
+      flowOffset: Math.max(0, normalizeFiniteNumber(this.flowOffset, 0)),
+      stabilized: !!this.stabilized,
+      nextId: Math.max(1, normalizeFiniteInteger(this.nextId, grains.length + 1)),
+      idleDrainRate: Math.max(0.1, normalizeFiniteNumber(this.idleDrainRate, 1)),
+      baseSpawnInterval: Math.max(16, normalizeFiniteNumber(this.baseSpawnInterval, 180)),
+      grainSizes: Array.isArray(this.grainSizes)
+        ? this.grainSizes.map((size) => Math.max(1, normalizeFiniteInteger(size, 1)))
+        : [],
+      wallGapCellsTarget: Number.isFinite(this.wallGapCellsTarget)
+        ? Math.max(1, normalizeFiniteInteger(this.wallGapCellsTarget, 1))
+        : null,
+      wallGapTargetUnits: Number.isFinite(this.wallGapTargetUnits)
+        ? Math.max(1, normalizeFiniteInteger(this.wallGapTargetUnits, 1))
+        : null,
+      motePalette: palette,
+      heightInfo,
+    };
+  }
+
+  // Rehydrate a previously serialized state so reloaded sessions resume from the same mote arrangement.
+  importState(state = {}) {
+    if (!state || typeof state !== 'object') {
+      return false;
+    }
+
+    if (!this.cols || !this.rows) {
+      this.handleResize();
+    }
+
+    if (!this.cols || !this.rows) {
+      return false;
+    }
+
+    if (Array.isArray(state.grainSizes) && state.grainSizes.length) {
+      const sizes = state.grainSizes
+        .map((size) => Math.max(1, normalizeFiniteInteger(size, 1)))
+        .filter((size) => Number.isFinite(size) && size > 0)
+        .sort((a, b) => a - b);
+      if (sizes.length) {
+        this.grainSizes = sizes;
+      }
+    }
+
+    if (Number.isFinite(state.idleDrainRate) && state.idleDrainRate > 0) {
+      this.idleDrainRate = Math.max(0.1, state.idleDrainRate);
+    }
+
+    if (Number.isFinite(state.baseSpawnInterval) && state.baseSpawnInterval > 0) {
+      this.baseSpawnInterval = Math.max(16, state.baseSpawnInterval);
+    }
+
+    if (Number.isFinite(state.wallGapCellsTarget) && state.wallGapCellsTarget > 0) {
+      this.wallGapCellsTarget = Math.max(1, Math.round(state.wallGapCellsTarget));
+    }
+    if (Number.isFinite(state.wallGapTargetUnits) && state.wallGapTargetUnits > 0) {
+      this.wallGapTargetUnits = Math.max(1, Math.round(state.wallGapTargetUnits));
+    }
+    this.applyWallGapTarget({ skipRebuild: true });
+    this.updateMaxDropSize();
+
+    const deserializeDrop = (drop) => {
+      if (!drop) {
+        return null;
+      }
+      if (typeof drop === 'object') {
+        const size = Math.max(1, normalizeFiniteInteger(drop.size, 1));
+        if (!Number.isFinite(size) || size <= 0) {
+          return null;
+        }
+        const color = cloneMoteColor(drop.color);
+        return color ? { size, color } : { size };
+      }
+      if (Number.isFinite(drop)) {
+        const size = Math.max(1, Math.round(drop));
+        return { size };
+      }
+      return null;
+    };
+
+    const deserializeGrain = (grain) => {
+      if (!grain || typeof grain !== 'object') {
+        return null;
+      }
+      const size = Math.max(1, normalizeFiniteInteger(grain.size, 1));
+      const colliderSize = Math.max(1, normalizeFiniteInteger(grain.colliderSize || size, size));
+      const x = normalizeFiniteInteger(grain.x, 0);
+      const y = normalizeFiniteInteger(grain.y, 0);
+      const id = Math.max(1, normalizeFiniteInteger(grain.id, 1));
+      const biasRaw = normalizeFiniteInteger(grain.bias, 1);
+      const bias = biasRaw < 0 ? -1 : 1;
+      const shade = Math.max(0, Math.min(255, normalizeFiniteInteger(grain.shade, 180)));
+      const color = cloneMoteColor(grain.color);
+      return {
+        id,
+        x,
+        y,
+        size,
+        colliderSize,
+        bias,
+        shade,
+        freefall: !!grain.freefall,
+        inGrid: !!grain.inGrid,
+        resting: !!grain.resting,
+        color,
+      };
+    };
+
+    const grains = Array.isArray(state.grains)
+      ? state.grains.map(deserializeGrain).filter(Boolean)
+      : [];
+    const pendingDrops = Array.isArray(state.pendingDrops)
+      ? state.pendingDrops.map(deserializeDrop).filter(Boolean)
+      : [];
+
+    if (this.maxGrains && grains.length > this.maxGrains) {
+      grains.length = this.maxGrains;
+    }
+    if (this.maxGrains && pendingDrops.length > this.maxGrains) {
+      pendingDrops.length = this.maxGrains;
+    }
+
+    this.grains = grains;
+    this.pendingDrops = pendingDrops;
+
+    this.idleBank = Math.max(0, normalizeFiniteNumber(state.idleBank, 0));
+    this.idleAccumulator = Math.max(0, normalizeFiniteNumber(state.idleAccumulator, 0));
+    this.spawnTimer = Math.max(0, normalizeFiniteNumber(state.spawnTimer, 0));
+    this.scrollOffsetCells = Math.max(0, normalizeFiniteInteger(state.scrollOffsetCells, 0));
+    this.highestTotalHeightCells = Math.max(
+      this.scrollOffsetCells,
+      normalizeFiniteInteger(state.highestTotalHeightCells, this.scrollOffsetCells),
+    );
+
+    if (Number.isFinite(state.flowOffset) && state.flowOffset >= 0) {
+      this.flowOffset = Math.max(0, state.flowOffset);
+      if (typeof state.stabilized === 'boolean') {
+        this.stabilized = state.stabilized;
+      } else {
+        this.stabilized = this.flowOffset > 0;
+      }
+    }
+
+    const viewScale = Number.isFinite(state.viewScale) && state.viewScale > 0 ? state.viewScale : this.viewScale;
+    if (Number.isFinite(viewScale) && viewScale > 0) {
+      const minScale = Number.isFinite(this.minViewScale) && this.minViewScale > 0 ? this.minViewScale : 0.75;
+      const maxScale = Number.isFinite(this.maxViewScale) && this.maxViewScale > 0 ? this.maxViewScale : 2.5;
+      this.viewScale = Math.min(maxScale, Math.max(minScale, viewScale));
+    }
+
+    if (state.viewCenterNormalized && typeof state.viewCenterNormalized === 'object') {
+      this.viewCenterNormalized = {
+        x: normalizeFiniteNumber(state.viewCenterNormalized.x, 0.5),
+        y: normalizeFiniteNumber(state.viewCenterNormalized.y, 0.5),
+      };
+    }
+    this.applyViewConstraints();
+
+    if (state.motePalette) {
+      this.motePalette = mergeMotePalette(state.motePalette);
+    }
+
+    if (Number.isFinite(state.nextId) && state.nextId > 0) {
+      this.nextId = Math.max(1, Math.round(state.nextId));
+    } else {
+      const maxId = this.grains.reduce((max, grain) => Math.max(max, grain.id || 0), 0);
+      this.nextId = Math.max(maxId + 1, 1);
+    }
+
+    this.clearGridPreserveWalls();
+    this.populateGridFromGrains();
+    this.applyScrollIfNeeded();
+    this.updateHeightFromGrains(true);
+    this.render();
+    this.notifyWallMetricsChange();
+    this.notifyViewTransformChange();
+    return true;
   }
 
   start() {
