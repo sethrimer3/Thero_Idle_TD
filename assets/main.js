@@ -1066,8 +1066,15 @@ import {
     }
 
     resetPlayfieldMenuLevelSelect();
-    closePlayfieldMenu();
-    leaveActiveLevel();
+    const finalizeExit = () => {
+      leaveActiveLevel();
+      closePlayfieldMenu({ restoreFocus: true }); // Ensure the quick menu collapses after returning to level selection.
+    };
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(finalizeExit);
+    } else {
+      finalizeExit();
+    }
   }
 
   function handleCommenceWaveFromMenu() {
