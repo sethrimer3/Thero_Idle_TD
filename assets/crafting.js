@@ -1,5 +1,5 @@
 import { formatGameNumber, formatWholeNumber } from '../scripts/core/formatting.js';
-import { moteGemState, resolveGemDefinition } from './enemies.js';
+import { moteGemState, resolveGemDefinition, getGemSpriteAssetPath } from './enemies.js';
 import {
   getTowerDefinitions,
   getTowerDefinition,
@@ -408,11 +408,24 @@ function resolveNextCraftingTierIndex(recipeId, totalTiers) {
   return sanitizedCompleted;
 }
 
-// Create a decorative color swatch representing the required gem hue.
+// Create a decorative swatch or sprite representing the required gem.
 function createGemColorSwatch(gemId) {
   const swatch = document.createElement('span');
   swatch.className = 'crafting-cost__swatch';
   swatch.setAttribute('aria-hidden', 'true');
+  const spritePath = getGemSpriteAssetPath(gemId);
+  if (spritePath) {
+    // Embed the gem sprite so crafting requirements match the collectible art style.
+    swatch.classList.add('crafting-cost__swatch--sprite');
+    const spriteImg = document.createElement('img');
+    spriteImg.className = 'crafting-cost__sprite';
+    spriteImg.decoding = 'async';
+    spriteImg.loading = 'lazy';
+    spriteImg.alt = '';
+    spriteImg.src = spritePath;
+    swatch.appendChild(spriteImg);
+    return swatch;
+  }
   const gem = resolveGemDefinition(gemId);
   if (gem?.color) {
     const { hue, saturation, lightness } = gem.color;

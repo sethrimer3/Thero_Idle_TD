@@ -157,6 +157,7 @@ import {
   autoCollectActiveMoteGems,
   setMoteGemAutoCollectUnlocked,
   getMoteGemColor,
+  getGemSpriteAssetPath,
 } from './enemies.js';
 import {
   initializeCraftingOverlay,
@@ -337,6 +338,12 @@ import {
   // Cached reference to the graphics fidelity toggle control.
   let graphicsModeButton = null;
 
+  // Track the desktop cursor media query so the gem pointer can react to device changes.
+  let desktopCursorMediaQuery = null;
+
+  // Remember whether the gem cursor class is currently applied to the document body.
+  let desktopCursorActive = false;
+
   // Active graphics fidelity so dependent systems can query the current mode.
   let activeGraphicsMode = GRAPHICS_MODES.HIGH;
 
@@ -453,6 +460,55 @@ import {
     }
 
     return false;
+  }
+
+  // Apply or remove the gem cursor class depending on the detected pointer support.
+  function updateDesktopCursorClass(enabled) {
+    const body = typeof document !== 'undefined' ? document.body : null;
+    if (!body) {
+      return;
+    }
+    const nextState = Boolean(enabled);
+    if (nextState === desktopCursorActive) {
+      return;
+    }
+    desktopCursorActive = nextState;
+    body.classList.toggle('mouse-cursor-gem', desktopCursorActive);
+  }
+
+  // Fall back to user agent heuristics when matchMedia support is unavailable.
+  function evaluateDesktopCursorPreferenceFallback() {
+    if (typeof navigator === 'undefined') {
+      updateDesktopCursorClass(false);
+      return;
+    }
+    const userAgent = navigator.userAgent || '';
+    const mobilePattern = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i;
+    updateDesktopCursorClass(!mobilePattern.test(userAgent));
+  }
+
+  // Initialize the gem cursor preference and react to pointer capability changes over time.
+  function initializeDesktopCursorPreference() {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      evaluateDesktopCursorPreferenceFallback();
+      return;
+    }
+    try {
+      desktopCursorMediaQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
+      updateDesktopCursorClass(desktopCursorMediaQuery.matches);
+      const listener = (event) => {
+        // Reflect pointer precision changes (e.g., tablet keyboard attachments) in real time.
+        updateDesktopCursorClass(event.matches);
+      };
+      if (typeof desktopCursorMediaQuery.addEventListener === 'function') {
+        desktopCursorMediaQuery.addEventListener('change', listener);
+      } else if (typeof desktopCursorMediaQuery.addListener === 'function') {
+        desktopCursorMediaQuery.addListener(listener);
+      }
+    } catch (error) {
+      console.warn('Desktop cursor media query failed; falling back to user agent detection.', error);
+      evaluateDesktopCursorPreferenceFallback();
+    }
   }
 
   // Applies the requested graphics fidelity, updating DOM classes and persistence.
@@ -1639,16 +1695,30 @@ import {
 
       const swatch = document.createElement('span');
       swatch.className = 'powder-gem-inventory__swatch';
-      const color = getMoteGemColor(entry.typeKey);
-      if (color && typeof swatch.style?.setProperty === 'function') {
-        if (Number.isFinite(color.hue)) {
-          swatch.style.setProperty('--gem-hue', `${Math.round(color.hue)}`);
-        }
-        if (Number.isFinite(color.saturation)) {
-          swatch.style.setProperty('--gem-saturation', `${Math.round(color.saturation)}%`);
-        }
-        if (Number.isFinite(color.lightness)) {
-          swatch.style.setProperty('--gem-lightness', `${Math.round(color.lightness)}%`);
+      const spritePath = getGemSpriteAssetPath(entry.typeKey);
+      if (spritePath) {
+        // Embed the gem sprite so the inventory mirrors the drop art one-to-one.
+        swatch.classList.add('powder-gem-inventory__swatch--sprite');
+        const spriteImg = document.createElement('img');
+        spriteImg.className = 'powder-gem-inventory__sprite';
+        spriteImg.decoding = 'async';
+        spriteImg.loading = 'lazy';
+        spriteImg.alt = '';
+        spriteImg.src = spritePath;
+        swatch.appendChild(spriteImg);
+      } else {
+        // Fall back to the procedural color when the sprite asset is unavailable.
+        const color = getMoteGemColor(entry.typeKey);
+        if (color && typeof swatch.style?.setProperty === 'function') {
+          if (Number.isFinite(color.hue)) {
+            swatch.style.setProperty('--gem-hue', `${Math.round(color.hue)}`);
+          }
+          if (Number.isFinite(color.saturation)) {
+            swatch.style.setProperty('--gem-saturation', `${Math.round(color.saturation)}%`);
+          }
+          if (Number.isFinite(color.lightness)) {
+            swatch.style.setProperty('--gem-lightness', `${Math.round(color.lightness)}%`);
+          }
         }
       }
 
@@ -6047,6 +6117,9 @@ import {
     if (overlayInstruction) {
       overlayInstruction.textContent = overlayInstructionDefault;
     }
+
+    // Activate the gem cursor when a desktop pointer is detected.
+    initializeDesktopCursorPreference();
 
     // Enable drag gestures on scrollable shells to replace the hidden scrollbars.
     enableDragScroll({
