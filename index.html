@@ -57,30 +57,6 @@
       </div>
     </div>
     <div class="app-shell">
-      <header class="status-bar">
-        <div class="status-group">
-          <span class="status-label">þ Thero</span>
-          <span class="status-value status-value--stacked">
-            <span id="status-score">0 þ</span>
-            <span class="status-multiplier" id="status-score-multiplier">×0</span>
-          </span>
-        </div>
-        <div class="status-group">
-          <span class="status-label">Ψ Glyphs</span>
-          <span class="status-value status-value--stacked">
-            <span id="status-glyphs-total">0 Glyphs</span>
-            <span class="status-subvalue status-subvalue--gold" id="status-glyphs-unused">(0 unused)</span>
-          </span>
-        </div>
-        <div class="status-group">
-          <span class="status-label">Motes Stored</span>
-          <span class="status-value status-value--stacked">
-            <span id="status-mote-storage">0 Motes</span>
-            <span class="status-subvalue status-subvalue--gold" id="status-dispense-rate">1 Mote/sec</span>
-          </span>
-        </div>
-      </header>
-
       <main class="main-stage">
         <section
           class="panel active"
@@ -211,6 +187,27 @@
             </div>
           </section>
           <section class="level-section" id="level-selection">
+            <!-- Surface the live thero multiplier and starting equation at the top of the level list. -->
+            <div class="level-thero-banner" id="level-thero-banner" aria-live="polite">
+              <div class="level-thero-row">
+                <span class="level-thero-label">Thero Multiplier</span>
+                <span class="level-thero-value" id="level-thero-multiplier">×0.00</span>
+              </div>
+              <div class="level-thero-row level-thero-row--equation">
+                <span class="level-thero-label">Starting Thero</span>
+                <span class="level-thero-equation" id="level-thero-equation">
+                  <span id="level-thero-base">0 þ</span>
+                  <span aria-hidden="true" class="level-thero-symbol">×</span>
+                  <span id="level-thero-equation-multiplier">0.00</span>
+                  <span aria-hidden="true" class="level-thero-symbol">=</span>
+                  <span id="level-thero-total">0 þ</span>
+                </span>
+              </div>
+              <div class="level-thero-row level-thero-row--reserve">
+                <span class="level-thero-label">Current Reserve</span>
+                <span class="level-thero-value" id="level-thero-score">0 þ</span>
+              </div>
+            </div>
             <header class="subsection-title">Conjecture Set</header>
             <p class="level-intro">
               The opening proofs trace immortal-defense style figure-eights,
@@ -230,6 +227,17 @@
           aria-labelledby="tab-towers"
           hidden
         >
+          <!-- Present tower resource summaries near the top of the Towers tab. -->
+          <div class="tower-glyph-summary" id="tower-glyph-summary" aria-live="polite">
+            <div class="tower-glyph-item">
+              <span class="tower-glyph-label">Total Glyphs</span>
+              <span class="tower-glyph-value" id="tower-glyphs-total">0</span>
+            </div>
+            <div class="tower-glyph-item">
+              <span class="tower-glyph-label">Unused Glyphs</span>
+              <span class="tower-glyph-value" id="tower-glyphs-unused">0</span>
+            </div>
+          </div>
           <div class="tower-panel-controls" id="tower-panel-controls">
             <button
               class="tower-panel-button tower-tree-map-button"
@@ -326,6 +334,32 @@
                 The original tower—anchoring the lane's finale. When the Mind Gate collapses, inspiration runs dry.
               </footer>
             </article>
+            <article class="card card--motes">
+              <header class="tower-header">
+                <span class="tower-tier">Resource</span>
+                <h3>motes tower</h3>
+              </header>
+              <div class="formula-block">
+                <p class="formula-line">\( \mathcal{M} = B_{\text{idle}} + R_{\text{fall}} \)</p>
+                <ul class="formula-definition">
+                  <li>B<sub>idle</sub> → idle mote bank harvested between waves</li>
+                  <li>R<sub>fall</sub> → live fall rate siphoned from the motefall basin</li>
+                </ul>
+                <p class="formula-line result">Tracks idle motes fueling powder-forged upgrades.</p>
+              </div>
+              <footer class="card-footer">Channels stored motes directly into the tower lattice.</footer>
+            </article>
+            <!-- Mote bank readout sits beneath the dedicated motes tower entry. -->
+            <div class="tower-mote-summary" id="tower-mote-summary" aria-live="polite">
+              <div class="tower-mote-line">
+                <span class="tower-mote-label">Mote Bank</span>
+                <span class="tower-mote-value" id="tower-mote-bank">0 Motes</span>
+              </div>
+              <div class="tower-mote-line">
+                <span class="tower-mote-label">Fall Rate</span>
+                <span class="tower-mote-value" id="tower-mote-rate">1.00 Motes/sec</span>
+              </div>
+            </div>
             <article class="card" data-tower-id="alpha" aria-hidden="false">
               <header class="tower-header">
                 <span class="tower-tier">Tier I</span>
@@ -970,6 +1004,10 @@
               </button>
             </article>
 
+          </div>
+          <div class="tower-panel-badges" id="tower-panel-badges" aria-live="polite">
+            <span class="tower-badge tower-badge--glyphs" id="tower-glyph-badge">0</span>
+            <span class="tower-badge tower-badge--motes" id="tower-mote-badge">0</span>
           </div>
         </section>
 

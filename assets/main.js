@@ -1658,56 +1658,96 @@ import {
   }
 
   const resourceElements = {
-    score: null,
-    scoreMultiplier: null,
+    theroReserve: null,
+    theroMultiplier: null,
+    theroBase: null,
+    theroEquationMultiplier: null,
+    theroEquationTotal: null,
+    theroEquationContainer: null,
     glyphsTotal: null,
     glyphsUnused: null,
-    moteStorage: null,
-    dispenseRate: null,
+    glyphBadge: null,
+    moteBank: null,
+    moteRate: null,
+    moteBadge: null,
   };
 
-  // Cache the status bar DOM nodes so resource updates only perform lightweight text swaps.
+  // Cache the relocated resource nodes so status updates only swap text content.
   function bindStatusElements() {
-    resourceElements.score = document.getElementById('status-score');
-    resourceElements.scoreMultiplier = document.getElementById('status-score-multiplier');
-    resourceElements.glyphsTotal = document.getElementById('status-glyphs-total');
-    resourceElements.glyphsUnused = document.getElementById('status-glyphs-unused');
-    resourceElements.moteStorage = document.getElementById('status-mote-storage');
-    resourceElements.dispenseRate = document.getElementById('status-dispense-rate');
+    resourceElements.theroReserve = document.getElementById('level-thero-score');
+    resourceElements.theroMultiplier = document.getElementById('level-thero-multiplier');
+    resourceElements.theroBase = document.getElementById('level-thero-base');
+    resourceElements.theroEquationMultiplier = document.getElementById('level-thero-equation-multiplier');
+    resourceElements.theroEquationTotal = document.getElementById('level-thero-total');
+    resourceElements.theroEquationContainer = document.getElementById('level-thero-equation');
+    resourceElements.glyphsTotal = document.getElementById('tower-glyphs-total');
+    resourceElements.glyphsUnused = document.getElementById('tower-glyphs-unused');
+    resourceElements.glyphBadge = document.getElementById('tower-glyph-badge');
+    resourceElements.moteBank = document.getElementById('tower-mote-bank');
+    resourceElements.moteRate = document.getElementById('tower-mote-rate');
+    resourceElements.moteBadge = document.getElementById('tower-mote-badge');
     updateStatusDisplays();
   }
 
-  // Render the header status bar using the latest score, glyph, and mote reserves.
+  // Render the relocated resource panels using the latest score, glyph, and mote reserves.
   function updateStatusDisplays() {
     const scoreValue = Number.isFinite(resourceState.score) ? Math.max(0, resourceState.score) : 0;
-    if (resourceElements.score) {
-      resourceElements.score.textContent = `${formatGameNumber(scoreValue)} ${THERO_SYMBOL}`;
+    if (resourceElements.theroReserve) {
+      resourceElements.theroReserve.textContent = `${formatGameNumber(scoreValue)} ${THERO_SYMBOL}`;
     }
 
     const theroMultiplier = getStartingTheroMultiplier();
-    if (resourceElements.scoreMultiplier) {
-      resourceElements.scoreMultiplier.textContent = `×${formatDecimal(theroMultiplier, 2)}`;
+    if (resourceElements.theroMultiplier) {
+      resourceElements.theroMultiplier.textContent = `×${formatDecimal(theroMultiplier, 2)}`;
+    }
+    if (resourceElements.theroBase) {
+      resourceElements.theroBase.textContent = `${formatGameNumber(BASE_START_THERO)} ${THERO_SYMBOL}`;
+    }
+    if (resourceElements.theroEquationMultiplier) {
+      resourceElements.theroEquationMultiplier.textContent = `${formatDecimal(theroMultiplier, 2)}`;
+    }
+    const startingThero = Math.max(0, BASE_START_THERO * theroMultiplier);
+    if (resourceElements.theroEquationTotal) {
+      resourceElements.theroEquationTotal.textContent = `${formatGameNumber(startingThero)} ${THERO_SYMBOL}`;
+    }
+    if (resourceElements.theroEquationContainer) {
+      resourceElements.theroEquationContainer.setAttribute(
+        'aria-label',
+        `Starting Thero equals ${formatGameNumber(BASE_START_THERO)} ${THERO_SYMBOL} times ${formatDecimal(
+          theroMultiplier,
+          2,
+        )} equals ${formatGameNumber(startingThero)} ${THERO_SYMBOL}`,
+      );
     }
 
     const totalGlyphs = Math.max(0, Math.floor(gameStats.enemiesDefeated || 0));
     const unusedGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
     if (resourceElements.glyphsTotal) {
-      const glyphLabel = totalGlyphs === 1 ? 'Glyph' : 'Glyphs';
-      resourceElements.glyphsTotal.textContent = `${formatWholeNumber(totalGlyphs)} ${glyphLabel}`;
+      resourceElements.glyphsTotal.textContent = formatWholeNumber(totalGlyphs);
     }
     if (resourceElements.glyphsUnused) {
-      resourceElements.glyphsUnused.textContent = `(${formatWholeNumber(unusedGlyphs)} unused)`;
+      resourceElements.glyphsUnused.textContent = formatWholeNumber(unusedGlyphs);
+    }
+    if (resourceElements.glyphBadge) {
+      const unusedGlyphLabel = formatWholeNumber(unusedGlyphs);
+      resourceElements.glyphBadge.textContent = unusedGlyphLabel;
+      resourceElements.glyphBadge.setAttribute('aria-label', `${unusedGlyphLabel} unused glyphs`);
     }
 
     const storedMotes = Math.max(0, powderCurrency + (powderState.idleMoteBank || 0));
-    if (resourceElements.moteStorage) {
-      resourceElements.moteStorage.textContent = `${formatGameNumber(storedMotes)} Motes`;
+    if (resourceElements.moteBank) {
+      resourceElements.moteBank.textContent = `${formatGameNumber(storedMotes)} Motes`;
+    }
+    if (resourceElements.moteBadge) {
+      const storedLabel = formatGameNumber(storedMotes);
+      resourceElements.moteBadge.textContent = storedLabel;
+      resourceElements.moteBadge.setAttribute('aria-label', `${storedLabel} motes in bank`);
     }
 
     const dispenseRate = Number.isFinite(powderState.idleDrainRate) ? Math.max(0, powderState.idleDrainRate) : 0;
-    if (resourceElements.dispenseRate) {
+    if (resourceElements.moteRate) {
       const moteLabel = dispenseRate === 1 ? 'Mote/sec' : 'Motes/sec';
-      resourceElements.dispenseRate.textContent = `${formatDecimal(dispenseRate, 2)} ${moteLabel}`;
+      resourceElements.moteRate.textContent = `${formatDecimal(dispenseRate, 2)} ${moteLabel}`;
     }
   }
 
