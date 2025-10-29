@@ -326,14 +326,71 @@ function getGlyphSubscriptRank(subscriptIndex = 1) {
   const normalizedIndex = Number.isFinite(subscriptIndex)
     ? Math.max(1, Math.floor(subscriptIndex))
     : 1;
-  const alphaBlueprint = getTowerEquationBlueprint('alpha');
-  const alphaState = ensureTowerUpgradeState('alpha', alphaBlueprint);
-  const alphaLevel = alphaState?.variables?.atk?.level ?? 0;
-  const baseRank = Math.max(1, Number.isFinite(alphaLevel) ? alphaLevel + 1 : 1);
-  return baseRank + (normalizedIndex - 1);
+  // Anchor glyph ranks to the Mind Gate so Ψ₁/Ψ₂ mirror its upgrade reservoirs.
+  const mindGateBlueprint = getTowerEquationBlueprint('mind-gate');
+  ensureTowerUpgradeState('mind-gate', mindGateBlueprint);
+  const lifeValue = computeTowerVariableValue('mind-gate', 'life', mindGateBlueprint);
+  const recoveryValue = computeTowerVariableValue('mind-gate', 'recovery', mindGateBlueprint);
+  const lifeRank = Math.max(1, Number.isFinite(lifeValue) ? lifeValue : 1);
+  const recoveryRank = Math.max(1, Number.isFinite(recoveryValue) ? recoveryValue : 1);
+  if (normalizedIndex === 1) {
+    return lifeRank;
+  }
+  if (normalizedIndex === 2) {
+    return recoveryRank;
+  }
+  const tailBase = Math.max(lifeRank, recoveryRank);
+  return tailBase + (normalizedIndex - 2);
 }
 
 const TOWER_EQUATION_BLUEPRINTS = {
+  // Model the Mind Gate's two glyph conduits so it can accept upgrades directly.
+  'mind-gate': {
+    mathSymbol: '\\mathcal{G}_{\\text{Mind}}',
+    baseEquation: '\\( \\mathcal{G}_{\\text{Mind}} = 10 \\times \\Psi_{1} + \\frac{\\Psi_{2}}{1 / \\Psi_{1}} \\)',
+    variables: [
+      {
+        key: 'life',
+        symbol: 'Ψ₁',
+        name: 'Ψ₁ Life Reservoir',
+        description: 'Glyph lifeforce braided into the Mind Gate core.',
+        baseValue: 1,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(value)} Ψ₁`,
+        cost: (level) => Math.max(1, 1 + level),
+        getSubEquations({ level, value }) {
+          const invested = Math.max(0, Number.isFinite(level) ? level : 0);
+          const rank = Math.max(1, Number.isFinite(value) ? value : 1);
+          return [`\\( \\Psi_{1} = 1 + ${formatWholeNumber(invested)} = ${formatWholeNumber(rank)} \\)`];
+        },
+      },
+      {
+        key: 'recovery',
+        symbol: 'Ψ₂',
+        name: 'Ψ₂ Recovery Surge',
+        description: 'Restorative glyph cadence that rethreads the gate between waves.',
+        baseValue: 2,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(value)} Ψ₂`,
+        cost: (level) => Math.max(1, 2 + level),
+        getSubEquations({ level, value }) {
+          const invested = Math.max(0, Number.isFinite(level) ? level : 0);
+          const rank = Math.max(1, Number.isFinite(value) ? value : 2);
+          return [`\\( \\Psi_{2} = 2 + ${formatWholeNumber(invested)} = ${formatWholeNumber(rank)} \\)`];
+        },
+      },
+    ],
+    computeResult(values) {
+      const life = Math.max(1, Number.isFinite(values.life) ? values.life : 1);
+      const recovery = Math.max(0, Number.isFinite(values.recovery) ? values.recovery : 0);
+      return 10 * life + recovery * life;
+    },
+    formatGoldenEquation({ formatVariable, formatResult }) {
+      return `\\( ${formatResult()} = 10 \\times ${formatVariable('life')} + ${formatVariable('recovery')} \\times ${formatVariable('life')} \\)`;
+    },
+  },
   alpha: {
     mathSymbol: '\\alpha',
     baseEquation: '\\( \\alpha = Atk \\)',
@@ -2152,7 +2209,12 @@ export function renderTowerUpgradeOverlay(towerId, options = {}) {
   }
 
   if (towerTabState.towerUpgradeElements.tier) {
-    const tierLabel = Number.isFinite(definition.tier) ? `Tier ${definition.tier}` : '';
+    let tierLabel = '';
+    if (typeof definition.tierLabel === 'string' && definition.tierLabel.trim()) {
+      tierLabel = definition.tierLabel.trim();
+    } else if (Number.isFinite(definition.tier)) {
+      tierLabel = `Tier ${definition.tier}`;
+    }
     towerTabState.towerUpgradeElements.tier.textContent = tierLabel;
   }
 

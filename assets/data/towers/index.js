@@ -1,6 +1,7 @@
 /**
  * Tower definition registry composed of individually sourced tower modules.
  */
+import MIND_GATE_TOWER from './mind-gate.js';
 import ALPHA_TOWER from './alpha.js';
 import BETA_TOWER from './beta.js';
 import GAMMA_TOWER from './gamma.js';
@@ -33,6 +34,7 @@ import ALEPH_FOUR_TOWER from './aleph-four.js';
 import ALEPH_FIVE_TOWER from './aleph-five.js';
 
 export {
+  MIND_GATE_TOWER as mind_gateTower,
   ALPHA_TOWER as alphaTower,
   BETA_TOWER as betaTower,
   GAMMA_TOWER as gammaTower,
@@ -66,6 +68,8 @@ export {
 };
 
 export const towers = [
+  // Surface the Mind Gate first so upgrade systems can treat it as the foundation lattice.
+  MIND_GATE_TOWER,
   ALPHA_TOWER,
   BETA_TOWER,
   GAMMA_TOWER,

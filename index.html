@@ -295,7 +295,7 @@
             <p class="tower-tree-map-note">Only discovered towers appear in this constellation.</p>
           </div>
           <div class="panel-grid" id="tower-card-grid">
-            <article class="card card--mind-gate" aria-hidden="false">
+            <article class="card card--mind-gate" data-tower-id="mind-gate" aria-hidden="false">
               <header class="tower-header">
                 <span class="tower-tier">Origin</span>
                 <h3>
@@ -305,16 +305,16 @@
               </header>
               <div class="formula-block">
                 <p class="formula-line">
-                  \( \mathcal{G}_{\text{Mind}} = 10 \times X_{\text{life}} + \frac{Y_{\text{recovery}}}{1 / X_{\text{life}}} \)
+                  \( \mathcal{G}_{\text{Mind}} = 10 \times \Psi_{1} + \frac{\Psi_{2}}{1 / \Psi_{1}} \)
                 </p>
                 <ul class="formula-definition">
-                  <li>X → life (inspiration reservoir)</li>
-                  <li>Y → recovery (glyph-fed renewal)</li>
+                  <li>Ψ₁ → life (inspiration reservoir)</li>
+                  <li>Ψ₂ → recovery (glyph-fed renewal)</li>
                 </ul>
               </div>
               <ul class="upgrade-list">
-                <li>Fortify X to deepen the Mind Gate's stores of fading inspiration.</li>
-                <li>Amplify Y so recovery surges restore the gate between waves.</li>
+                <li>Fortify Ψ₁ to deepen the Mind Gate's stores of fading inspiration.</li>
+                <li>Amplify Ψ₂ so recovery surges restore the gate between waves.</li>
               </ul>
               <footer class="card-footer">
                 The original tower—anchoring the lane's finale. When the Mind Gate collapses, inspiration runs dry.

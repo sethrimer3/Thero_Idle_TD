@@ -113,6 +113,7 @@ import {
   setAudioManager as setTowersAudioManager,
   setPlayfield as setTowersPlayfield,
   setGlyphCurrency,
+  addGlyphCurrency,
   getGlyphCurrency,
   setTheroSymbol,
   setTowerLoadoutLimit,
@@ -1751,6 +1752,7 @@ import {
     charges: 0,
     simulatedDuneGain: 0,
     wallGlyphsLit: 0,
+    glyphsAwarded: 0, // Highest Aleph index already translated into glyph currency.
     idleMoteBank: 100,
     idleDrainRate: 1,
     pendingMoteDrops: [],
@@ -6109,6 +6111,17 @@ import {
 
     if (glyphMetrics) {
       const { glyphsLit, highestRaw, progressFraction } = glyphMetrics;
+      // Award glyph currency the moment a new Aleph threshold is illuminated.
+      const previousAwarded = Number.isFinite(powderState.glyphsAwarded)
+        ? Math.max(0, powderState.glyphsAwarded)
+        : 0;
+      if (glyphsLit > previousAwarded) {
+        const newlyEarned = glyphsLit - previousAwarded;
+        addGlyphCurrency(newlyEarned);
+        powderState.glyphsAwarded = glyphsLit;
+      } else if (!Number.isFinite(powderState.glyphsAwarded) || powderState.glyphsAwarded < glyphsLit) {
+        powderState.glyphsAwarded = Math.max(previousAwarded, glyphsLit);
+      }
       updatePowderWallGapFromGlyphs(glyphsLit);
       if (powderElements.leftWall) {
         powderElements.leftWall.classList.toggle('wall-awake', highestRaw > 0);
