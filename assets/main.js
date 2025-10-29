@@ -319,6 +319,10 @@ import {
   const FALLBACK_TOWER_LOADOUT_LIMIT = 4;
   const FALLBACK_BASE_START_THERO = 50;
   const FALLBACK_BASE_CORE_INTEGRITY = 100;
+  // Baseline idle resource production rates so the ledger starts at grounded values.
+  const FALLBACK_BASE_SCORE_RATE = 1;
+  const FALLBACK_BASE_ENERGY_RATE = 0;
+  const FALLBACK_BASE_FLUX_RATE = 0;
 
   let TOWER_LOADOUT_LIMIT = FALLBACK_TOWER_LOADOUT_LIMIT;
   let BASE_START_THERO = FALLBACK_BASE_START_THERO;
@@ -559,6 +563,16 @@ import {
       Number.isFinite(defaults.baseCoreIntegrity) && defaults.baseCoreIntegrity > 0
         ? defaults.baseCoreIntegrity
         : FALLBACK_BASE_CORE_INTEGRITY;
+
+    const startingThero = calculateStartingThero();
+    baseResources.score = startingThero;
+    resourceState.score = startingThero;
+    baseResources.scoreRate = FALLBACK_BASE_SCORE_RATE;
+    baseResources.energyRate = FALLBACK_BASE_ENERGY_RATE;
+    baseResources.fluxRate = FALLBACK_BASE_FLUX_RATE;
+    resourceState.scoreRate = baseResources.scoreRate;
+    resourceState.energyRate = baseResources.energyRate;
+    resourceState.fluxRate = baseResources.fluxRate;
 
     const towerDefinitions = Array.isArray(gameplayConfigData.towers)
       ? gameplayConfigData.towers.map((tower) => ({ ...tower }))
@@ -1476,10 +1490,10 @@ import {
   }
 
   const baseResources = {
-    score: 6.58 * 10 ** 45,
-    scoreRate: 2.75 * 10 ** 43,
-    energyRate: 575,
-    fluxRate: 0,
+    score: calculateStartingThero(),
+    scoreRate: FALLBACK_BASE_SCORE_RATE,
+    energyRate: FALLBACK_BASE_ENERGY_RATE,
+    fluxRate: FALLBACK_BASE_FLUX_RATE,
   };
 
   const resourceState = {
@@ -6172,6 +6186,7 @@ import {
 
     bindStatusElements();
     bindPowderControls();
+    await applyPowderSimulationMode(powderState.simulationMode);
     initializeEquipmentState();
     initializeCraftingOverlay({
       revealOverlay,
