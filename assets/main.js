@@ -5800,8 +5800,6 @@ import {
     }
     const normalized = Math.max(0, Math.floor(count));
     gameStats.powderSigilsReached = Math.max(gameStats.powderSigilsReached, normalized);
-    const updatedGlyphs = Math.max(getGlyphCurrency(), normalized);
-    setGlyphCurrency(updatedGlyphs);
     if (!powderState.fluidUnlocked && normalized >= (powderConfig.fluidUnlockSigils || Infinity)) {
       powderState.fluidUnlocked = true;
       recordPowderEvent('fluid-unlocked', { threshold: powderConfig.fluidUnlockSigils || 0 });
