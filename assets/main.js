@@ -1430,6 +1430,51 @@ import {
     dispenseRate: null,
   };
 
+  // Cache the status bar DOM nodes so resource updates only perform lightweight text swaps.
+  function bindStatusElements() {
+    resourceElements.score = document.getElementById('status-score');
+    resourceElements.scoreMultiplier = document.getElementById('status-score-multiplier');
+    resourceElements.glyphsTotal = document.getElementById('status-glyphs-total');
+    resourceElements.glyphsUnused = document.getElementById('status-glyphs-unused');
+    resourceElements.moteStorage = document.getElementById('status-mote-storage');
+    resourceElements.dispenseRate = document.getElementById('status-dispense-rate');
+    updateStatusDisplays();
+  }
+
+  // Render the header status bar using the latest score, glyph, and mote reserves.
+  function updateStatusDisplays() {
+    const scoreValue = Number.isFinite(resourceState.score) ? Math.max(0, resourceState.score) : 0;
+    if (resourceElements.score) {
+      resourceElements.score.textContent = `${formatGameNumber(scoreValue)} ${THERO_SYMBOL}`;
+    }
+
+    const theroMultiplier = getStartingTheroMultiplier();
+    if (resourceElements.scoreMultiplier) {
+      resourceElements.scoreMultiplier.textContent = `×${formatDecimal(theroMultiplier, 2)}`;
+    }
+
+    const totalGlyphs = Math.max(0, Math.floor(gameStats.enemiesDefeated || 0));
+    const unusedGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
+    if (resourceElements.glyphsTotal) {
+      const glyphLabel = totalGlyphs === 1 ? 'Glyph' : 'Glyphs';
+      resourceElements.glyphsTotal.textContent = `${formatWholeNumber(totalGlyphs)} ${glyphLabel}`;
+    }
+    if (resourceElements.glyphsUnused) {
+      resourceElements.glyphsUnused.textContent = `(${formatWholeNumber(unusedGlyphs)} unused)`;
+    }
+
+    const storedMotes = Math.max(0, powderCurrency + (powderState.idleMoteBank || 0));
+    if (resourceElements.moteStorage) {
+      resourceElements.moteStorage.textContent = `${formatGameNumber(storedMotes)} Motes`;
+    }
+
+    const dispenseRate = Number.isFinite(powderState.idleDrainRate) ? Math.max(0, powderState.idleDrainRate) : 0;
+    if (resourceElements.dispenseRate) {
+      const moteLabel = dispenseRate === 1 ? 'Mote/sec' : 'Motes/sec';
+      resourceElements.dispenseRate.textContent = `${formatDecimal(dispenseRate, 2)} ${moteLabel}`;
+    }
+  }
+
   const baseResources = {
     score: 6.58 * 10 ** 45,
     scoreRate: 2.75 * 10 ** 43,
@@ -1525,6 +1570,108 @@ import {
     rightHitbox: null,
     modeToggle: null,
   };
+
+  // Refresh the mote gem inventory card so collected crystals mirror the latest drop ledger.
+  function updateMoteGemInventoryDisplay() {
+    const { gemInventoryList, gemInventoryEmpty, craftingButton } = powderElements;
+    if (!gemInventoryList) {
+      return;
+    }
+
+    const entries = Array.from(moteGemState.inventory.entries())
+      .map(([typeKey, record = {}]) => {
+        const label = typeof record.label === 'string' && record.label.trim().length
+          ? record.label.trim()
+          : typeKey;
+        const total = Number.isFinite(record.total) ? Math.max(0, record.total) : 0;
+        const count = Number.isFinite(record.count) ? Math.max(0, Math.floor(record.count)) : 0;
+        return { typeKey, label, total, count };
+      })
+      .filter((entry) => entry.total > 0 || entry.count > 0)
+      .sort((a, b) => {
+        if (b.total !== a.total) {
+          return b.total - a.total;
+        }
+        if (b.count !== a.count) {
+          return b.count - a.count;
+        }
+        return a.label.localeCompare(b.label);
+      });
+
+    gemInventoryList.textContent = '';
+
+    if (!entries.length) {
+      gemInventoryList.setAttribute('aria-hidden', 'true');
+      gemInventoryList.hidden = true;
+      if (gemInventoryEmpty) {
+        gemInventoryEmpty.hidden = false;
+        gemInventoryEmpty.setAttribute('aria-hidden', 'false');
+      }
+      if (craftingButton) {
+        craftingButton.disabled = false;
+        craftingButton.removeAttribute('aria-disabled');
+      }
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    entries.forEach((entry) => {
+      const item = document.createElement('li');
+      item.className = 'powder-gem-inventory__item';
+      item.dataset.gemId = entry.typeKey;
+
+      const labelContainer = document.createElement('span');
+      labelContainer.className = 'powder-gem-inventory__label';
+
+      const swatch = document.createElement('span');
+      swatch.className = 'powder-gem-inventory__swatch';
+      const color = getMoteGemColor(entry.typeKey);
+      if (color && typeof swatch.style?.setProperty === 'function') {
+        if (Number.isFinite(color.hue)) {
+          swatch.style.setProperty('--gem-hue', `${Math.round(color.hue)}`);
+        }
+        if (Number.isFinite(color.saturation)) {
+          swatch.style.setProperty('--gem-saturation', `${Math.round(color.saturation)}%`);
+        }
+        if (Number.isFinite(color.lightness)) {
+          swatch.style.setProperty('--gem-lightness', `${Math.round(color.lightness)}%`);
+        }
+      }
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'powder-gem-inventory__name';
+      nameEl.textContent = entry.label || entry.typeKey;
+
+      labelContainer.appendChild(swatch);
+      labelContainer.appendChild(nameEl);
+
+      const countEl = document.createElement('span');
+      countEl.className = 'powder-gem-inventory__count';
+      const clusterLabel = entry.count === 1 ? 'cluster' : 'clusters';
+      const moteLabel = entry.total === 1 ? 'Mote' : 'Motes';
+      countEl.textContent = `${formatWholeNumber(entry.count)} ${clusterLabel} · ${formatGameNumber(
+        entry.total,
+      )} ${moteLabel}`;
+
+      item.appendChild(labelContainer);
+      item.appendChild(countEl);
+      fragment.appendChild(item);
+    });
+
+    gemInventoryList.hidden = false;
+    gemInventoryList.setAttribute('aria-hidden', 'false');
+    gemInventoryList.appendChild(fragment);
+
+    if (gemInventoryEmpty) {
+      gemInventoryEmpty.hidden = true;
+      gemInventoryEmpty.setAttribute('aria-hidden', 'true');
+    }
+
+    if (craftingButton) {
+      craftingButton.disabled = false;
+      craftingButton.removeAttribute('aria-disabled');
+    }
+  }
 
   // Powder simulation metrics are supplied via the powder tower module.
   const powderGlyphColumns = [];
@@ -2063,6 +2210,70 @@ import {
       return;
     }
     powderState.pendingMoteDrops.push(payload);
+  }
+
+  function stopResourceTicker() {
+    if (resourceTicker) {
+      clearInterval(resourceTicker);
+      resourceTicker = null;
+    }
+  }
+
+  // Maintain a lightweight ticker so idle resources trickle in during auto-run defenses.
+  function ensureResourceTicker() {
+    if (!resourceState.running) {
+      stopResourceTicker();
+      return;
+    }
+
+    if (resourceTicker || typeof window === 'undefined') {
+      return;
+    }
+
+    lastResourceTick =
+      typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
+
+    resourceTicker = window.setInterval(() => {
+      if (!resourceState.running) {
+        stopResourceTicker();
+        return;
+      }
+
+      const now =
+        typeof performance !== 'undefined' && typeof performance.now === 'function'
+          ? performance.now()
+          : Date.now();
+      const deltaSeconds = Math.max(0, (now - lastResourceTick) / 1000);
+      lastResourceTick = now;
+      if (deltaSeconds <= 0) {
+        return;
+      }
+
+      const scoreGain = resourceState.scoreRate * deltaSeconds;
+      if (Number.isFinite(scoreGain) && scoreGain > 0) {
+        resourceState.score += scoreGain;
+      }
+
+      updateStatusDisplays();
+    }, 1000 / 30);
+  }
+
+  // Surface the live idle mote bank so developer controls and HUD panels can sync immediately.
+  function getCurrentIdleMoteBank() {
+    if (powderSimulation && Number.isFinite(powderSimulation.idleBank)) {
+      return Math.max(0, powderSimulation.idleBank);
+    }
+    return Math.max(0, powderState.idleMoteBank || 0);
+  }
+
+  // Provide the active mote dispense rate exposed by the current simulation profile or powder state.
+  function getCurrentMoteDispenseRate() {
+    if (powderSimulation && Number.isFinite(powderSimulation.idleDrainRate)) {
+      return Math.max(0, powderSimulation.idleDrainRate);
+    }
+    return Math.max(0, powderState.idleDrainRate || 0);
   }
 
   function addIdleMoteBank(amount) {
@@ -5365,12 +5576,150 @@ import {
     return { sandBonus, duneBonus, crystalBonus, totalMultiplier };
   }
 
+  // Recompute base resource rates so powder multipliers and flux gains stay in sync with the HUD.
+  function updateResourceRates() {
+    currentPowderBonuses = calculatePowderBonuses();
+    const totalMultiplier = Math.max(0, currentPowderBonuses.totalMultiplier || 1);
+    resourceState.scoreRate = baseResources.scoreRate * totalMultiplier;
+    resourceState.energyRate = baseResources.energyRate * totalMultiplier;
+    resourceState.fluxRate = baseResources.fluxRate * totalMultiplier;
+    updateStatusDisplays();
+  }
+
+  // Refresh idle mote stats so the Powder summary reflects current achievement and rate data.
+  function updateMoteStatsDisplays() {
+    if (powderElements.idleMultiplier) {
+      const achievements = getUnlockedAchievementCount();
+      const rate = getAchievementPowderRate();
+      const achievementLabel = achievements === 1 ? 'achievement' : 'achievements';
+      const rateLabel = rate === 1 ? 'Mote/min' : 'Motes/min';
+      powderElements.idleMultiplier.textContent = `${formatWholeNumber(achievements)} ${achievementLabel} · +${formatGameNumber(
+        rate,
+      )} ${rateLabel}`;
+    }
+
+    if (powderElements.dispenseRate) {
+      const dispenseRate = getCurrentMoteDispenseRate();
+      const moteLabel = dispenseRate === 1 ? 'Mote/sec' : 'Motes/sec';
+      powderElements.dispenseRate.textContent = `${formatDecimal(dispenseRate, 2)} ${moteLabel}`;
+    }
+  }
+
   function updatePowderStockpileDisplay() {
     if (powderElements.stockpile) {
       powderElements.stockpile.textContent = `${formatGameNumber(
         powderCurrency,
       )} Mote Gems`;
     }
+  }
+
+  // Summarize the core powder ledger so flux readouts and Σ gains stay visible in the Powder tab.
+  function updatePowderLedger() {
+    if (powderElements.ledgerBaseScore) {
+      powderElements.ledgerBaseScore.textContent = `${formatGameNumber(BASE_START_THERO)} ${THERO_SYMBOL}`;
+    }
+    if (powderElements.ledgerCurrentScore) {
+      powderElements.ledgerCurrentScore.textContent = `${formatGameNumber(resourceState.score)} ${THERO_SYMBOL}`;
+    }
+    if (powderElements.ledgerFlux) {
+      powderElements.ledgerFlux.textContent = `${formatGameNumber(resourceState.fluxRate)} Flux/sec`;
+    }
+    if (powderElements.ledgerEnergy) {
+      powderElements.ledgerEnergy.textContent = `${formatGameNumber(resourceState.energyRate)} Energy/sec`;
+    }
+    updatePowderLogDisplay();
+  }
+
+  // Bind Powder tab controls to shared handlers and hydrate element caches for later updates.
+  function bindPowderControls() {
+    powderElements.totalMultiplier = document.getElementById('powder-total-multiplier');
+    powderElements.sandBonusValue = document.getElementById('powder-sand-bonus');
+    powderElements.duneBonusValue = document.getElementById('powder-dune-bonus');
+    powderElements.crystalBonusValue = document.getElementById('powder-crystal-bonus');
+    powderElements.stockpile = document.getElementById('powder-stockpile');
+    powderElements.idleMultiplier = document.getElementById('powder-idle-multiplier');
+    powderElements.dispenseRate = document.getElementById('powder-dispense-rate');
+    powderElements.gemInventoryList = document.getElementById('powder-gem-inventory');
+    powderElements.gemInventoryEmpty = document.getElementById('powder-gem-empty');
+    powderElements.craftingButton = document.getElementById('open-crafting-menu');
+    powderElements.ledgerBaseScore =
+      document.getElementById('powder-ledger-base-score') || document.getElementById('powder-ledger-base');
+    powderElements.ledgerCurrentScore =
+      document.getElementById('powder-ledger-current-score') || document.getElementById('powder-ledger-score');
+    powderElements.ledgerFlux = document.getElementById('powder-ledger-flux');
+    powderElements.ledgerEnergy = document.getElementById('powder-ledger-energy');
+    powderElements.logList = document.getElementById('powder-log');
+    powderElements.logEmpty = document.getElementById('powder-log-empty');
+    powderElements.simulationCanvas = document.getElementById('powder-canvas');
+    powderElements.basin = document.getElementById('powder-basin');
+    powderElements.viewport = document.getElementById('powder-viewport');
+    powderElements.wallMarker = document.getElementById('powder-wall-marker');
+    powderElements.crestMarker = document.getElementById('powder-crest-marker');
+    powderElements.leftWall = document.getElementById('powder-wall-left');
+    powderElements.rightWall = document.getElementById('powder-wall-right');
+    powderElements.leftHitbox = document.getElementById('powder-wall-hitbox-left');
+    powderElements.rightHitbox = document.getElementById('powder-wall-hitbox-right');
+    powderElements.modeToggle = document.getElementById('powder-mode-toggle');
+    powderElements.sandfallFormula = document.getElementById('powder-sandfall-formula');
+    powderElements.sandfallNote = document.getElementById('powder-sandfall-note');
+    powderElements.sandfallButton = document.getElementById('powder-sandfall-button');
+    powderElements.duneFormula = document.getElementById('powder-dune-formula');
+    powderElements.duneNote = document.getElementById('powder-dune-note');
+    powderElements.duneButton = document.getElementById('powder-dune-button');
+    powderElements.crystalFormula = document.getElementById('powder-crystal-formula');
+    powderElements.crystalNote = document.getElementById('powder-crystal-note');
+    powderElements.crystalButton = document.getElementById('powder-crystal-button');
+
+    const glyphColumnNodes = document.querySelectorAll('[data-powder-glyph-column]');
+    powderElements.wallGlyphColumns = Array.from(glyphColumnNodes);
+    powderGlyphColumns.length = 0;
+    powderElements.wallGlyphColumns.forEach((element) => {
+      powderGlyphColumns.push({ element, glyphs: new Map() });
+    });
+
+    const sigilList = document.getElementById('powder-sigil-list');
+    powderElements.sigilEntries = sigilList ? Array.from(sigilList.querySelectorAll('li')) : [];
+
+    if (powderElements.modeToggle) {
+      powderElements.modeToggle.addEventListener('click', (event) => {
+        event.preventDefault();
+        handlePowderModeToggle();
+      });
+    }
+
+    if (powderElements.sandfallButton) {
+      powderElements.sandfallButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        toggleSandfallStability();
+      });
+    }
+
+    if (powderElements.duneButton) {
+      powderElements.duneButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        surveyRidgeHeight();
+      });
+    }
+
+    if (powderElements.crystalButton) {
+      powderElements.crystalButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        chargeCrystalMatrix();
+      });
+    }
+
+    if (powderElements.craftingButton) {
+      powderElements.craftingButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        openCraftingOverlay();
+      });
+    }
+
+    updateMoteGemInventoryDisplay();
+    updatePowderLogDisplay();
+    updatePowderLedger();
+    updatePowderDisplay();
+    updateMoteStatsDisplays();
   }
 
   function triggerPowderBasinPulse() {
@@ -5476,6 +5825,7 @@ import {
   function refreshPowderSystems(pulseBonus) {
     updateResourceRates();
     updatePowderDisplay(pulseBonus);
+    updateMoteStatsDisplays();
   }
 
   function updatePowderDisplay(pulseBonus) {
