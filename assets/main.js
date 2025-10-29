@@ -2203,6 +2203,8 @@ import {
   });
 
   const idleLevelRuns = new Map();
+  // Track the animation frame id that advances idle simulations so we can pause the loop when idle.
+  let idleRunAnimationHandle = null;
 
   let powderSimulation = null;
   let sandSimulation = null;
@@ -2395,6 +2397,112 @@ import {
       powderState.idleMoteBank = 0;
     }
     updateStatusDisplays();
+  }
+
+  // Cancel the animation frame loop that advances idle level simulations once no runs remain active.
+  function stopIdleRunLoop() {
+    if (idleRunAnimationHandle === null) {
+      return;
+    }
+    if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(idleRunAnimationHandle);
+    }
+    idleRunAnimationHandle = null;
+  }
+
+  // Ensure an animation frame is queued so idle level simulations continue ticking while runs exist.
+  function ensureIdleRunLoop() {
+    if (idleRunAnimationHandle !== null) {
+      return;
+    }
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      return;
+    }
+
+    const step = (timestamp) => {
+      // Clear the stored handle before processing so subsequent frames can be scheduled as needed.
+      idleRunAnimationHandle = null;
+      updateIdleRuns(timestamp);
+      if (idleLevelRuns.size) {
+        ensureIdleRunLoop();
+      }
+    };
+
+    idleRunAnimationHandle = window.requestAnimationFrame(step);
+  }
+
+  // Begin tracking the automated progress for an idle level encounter.
+  function beginIdleLevelRun(level) {
+    if (!level || !level.id || isInteractiveLevel(level.id)) {
+      return;
+    }
+
+    const config = idleLevelConfigs.get(level.id) || null;
+    const durationSeconds = Number.isFinite(config?.runDuration) ? Math.max(1, config.runDuration) : 90;
+    const rewardScore = Number.isFinite(config?.rewardScore) ? Math.max(0, config.rewardScore) : 0;
+    const rewardFlux = Number.isFinite(config?.rewardFlux) ? Math.max(0, config.rewardFlux) : 0;
+    const rewardEnergy = Number.isFinite(config?.rewardEnergy)
+      ? Math.max(0, config.rewardEnergy)
+      : Number.isFinite(config?.rewardThero)
+        ? Math.max(0, config.rewardThero)
+        : 0;
+    const durationMs = durationSeconds * 1000;
+
+    // Store the canonical progress state so UI components can report remaining duration and rewards.
+    const runner = {
+      levelId: level.id,
+      startTime: null,
+      duration: durationSeconds,
+      durationMs,
+      progress: 0,
+      remainingMs: durationMs,
+      rewardScore,
+      rewardFlux,
+      rewardEnergy,
+    };
+
+    idleLevelRuns.set(level.id, runner);
+
+    const existingState = levelState.get(level.id) || null;
+    if (existingState && !existingState.running) {
+      levelState.set(level.id, { ...existingState, running: true });
+    }
+
+    updateLevelCards();
+    if (activeLevelId === level.id) {
+      updateIdleLevelDisplay(runner);
+    }
+
+    ensureIdleRunLoop();
+  }
+
+  // Halt an active idle simulation and refresh related UI surfaces.
+  function stopIdleLevelRun(levelId) {
+    if (!levelId || isInteractiveLevel(levelId)) {
+      return;
+    }
+
+    const runnerActive = idleLevelRuns.has(levelId);
+    if (runnerActive) {
+      idleLevelRuns.delete(levelId);
+    }
+
+    const state = levelState.get(levelId) || null;
+    if (state && state.running) {
+      levelState.set(levelId, { ...state, running: false });
+    }
+
+    if (runnerActive) {
+      updateLevelCards();
+    }
+
+    if (activeLevelId === levelId) {
+      updateIdleLevelDisplay();
+    }
+
+    if (!idleLevelRuns.size) {
+      stopIdleRunLoop();
+    }
   }
 
   function stopAllIdleRuns(exceptId) {
