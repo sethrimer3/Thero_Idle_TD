@@ -13,8 +13,8 @@ export const moteGemState = {
 };
 
 // Gem definitions ordered from most common to rarest. Each entry includes the
-// base drop probability, mote size multiplier, and display palette so that the
-// powder view and inventory can stay perfectly synchronized.
+// base drop probability, mote size multiplier, display palette, and sprite path
+// so every system can render the bespoke crystal artwork consistently.
 export const GEM_DEFINITIONS = [
   {
     id: 'quartz',
@@ -22,6 +22,7 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.1,
     moteSize: 2,
     color: { hue: 18, saturation: 16, lightness: 86 },
+    sprite: './sprites/quartz.png', // Provide the quartz sprite so UI elements can mirror the drop art.
   },
   {
     id: 'ruby',
@@ -29,6 +30,7 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.01,
     moteSize: 3,
     color: { hue: 350, saturation: 74, lightness: 48 },
+    sprite: './sprites/ruby.png', // Supply the ruby sprite for crafting menus and battlefield drops.
   },
   {
     id: 'sunstone',
@@ -36,6 +38,7 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.001,
     moteSize: 4,
     color: { hue: 28, saturation: 78, lightness: 56 },
+    sprite: './sprites/sunstone.png', // Reference the sunstone sprite so rarer drops look unique.
   },
   {
     id: 'citrine',
@@ -43,6 +46,7 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.0001,
     moteSize: 5,
     color: { hue: 48, saturation: 78, lightness: 60 },
+    sprite: './sprites/citrine.png', // Link the citrine sprite to keep inventory icons consistent.
   },
   {
     id: 'emerald',
@@ -50,6 +54,7 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.00001,
     moteSize: 6,
     color: { hue: 140, saturation: 64, lightness: 44 },
+    sprite: './sprites/emerald.png', // Attach the emerald sprite to highlight its deep green facets.
   },
   {
     id: 'sapphire',
@@ -57,6 +62,7 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.000001,
     moteSize: 7,
     color: { hue: 210, saturation: 72, lightness: 52 },
+    sprite: './sprites/sapphire.png', // Provide the sapphire sprite for powder logs and loot icons.
   },
   {
     id: 'iolite',
@@ -64,6 +70,7 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.0000001,
     moteSize: 8,
     color: { hue: 255, saturation: 52, lightness: 50 },
+    sprite: './sprites/iolite.png', // Include the iolite sprite so late-game drops showcase their hue.
   },
   {
     id: 'amethyst',
@@ -71,13 +78,7 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.00000001,
     moteSize: 9,
     color: { hue: 280, saturation: 60, lightness: 55 },
-  },
-  {
-    id: 'diamond',
-    name: 'Diamond',
-    dropChance: 0.000000001,
-    moteSize: 10,
-    color: { hue: 200, saturation: 12, lightness: 92 },
+    sprite: './sprites/amethyst.png', // Point to the amethyst sprite for the violet-tier presentation.
   },
   {
     id: 'nullstone',
@@ -85,10 +86,14 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.0000000001,
     moteSize: 11,
     color: { hue: 210, saturation: 10, lightness: 14 },
+    sprite: './sprites/nullstone.png', // Assign the nullstone sprite so the rarest drop is unmistakable.
   },
 ];
 
 const GEM_LOOKUP = new Map(GEM_DEFINITIONS.map((gem) => [gem.id, gem]));
+
+// Cache gem sprite elements so repeated lookups reuse the same browser image resource.
+const gemSpriteCache = new Map();
 
 // Static rarity multipliers arranged by archetype difficulty. Higher values
 // make crystal drops more common for late-game threats while still allowing the
@@ -167,6 +172,56 @@ export function rollGemDropDefinition(enemy = {}, rng = Math.random) {
 export function resolveGemDefinition(typeKey) {
   const key = String(typeKey || '').toLowerCase();
   return GEM_LOOKUP.get(key) || null;
+}
+
+// Resolve the sprite source path for a gem so UI consumers can render the new artwork.
+export function getMoteGemSpriteSource(typeKey) {
+  const gem = resolveGemDefinition(typeKey);
+  return gem?.sprite || null;
+}
+
+// Load and cache the gem sprite image so the playfield can draw textured drops efficiently.
+export function getMoteGemSpriteAsset(typeKey) {
+  const key = String(typeKey || '').toLowerCase();
+  if (gemSpriteCache.has(key)) {
+    return gemSpriteCache.get(key);
+  }
+
+  const source = getMoteGemSpriteSource(key);
+  if (!source || typeof Image === 'undefined') {
+    gemSpriteCache.set(key, null);
+    return null;
+  }
+
+  const image = new Image();
+  // Hint the browser to decode the sprite off the main thread when possible.
+  if ('decoding' in image) {
+    image.decoding = 'async';
+  }
+  // Request eager loading so rare drops have their art ready before rendering.
+  if ('loading' in image) {
+    image.loading = 'eager';
+  }
+  image.src = source;
+
+  const record = {
+    image,
+    loaded: image.complete,
+    errored: false,
+  };
+
+  // Track load completion so draw routines can fall back until the sprite is ready.
+  image.addEventListener('load', () => {
+    record.loaded = true;
+  });
+
+  // Flag load failures so consumers can keep using the procedural fallback square.
+  image.addEventListener('error', () => {
+    record.errored = true;
+  });
+
+  gemSpriteCache.set(key, record);
+  return record;
 }
 
 // Derive a deterministic accent color for a mote gem category.
