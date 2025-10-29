@@ -329,9 +329,9 @@ export class PowderSimulation {
     // Scale the base unit by device pixel ratio so motes stay visually consistent across screens.
     this.grainSizes = Array.isArray(options.grainSizes)
       ? options.grainSizes.filter((size) => Number.isFinite(size) && size >= 1)
-      : [1, 2, 3];
+      : [1]; // Default to uniform grains so ambient motes always share the same footprint.
     if (!this.grainSizes.length) {
-      this.grainSizes = [1, 2, 3];
+      this.grainSizes = [1]; // Fall back to a single grain size if inputs collapse during filtering.
     }
     this.grainSizes.sort((a, b) => a - b);
 
