@@ -1,0 +1,18 @@
+/**
+ * Eta Tower definition extracted from the gameplay configuration.
+ */
+export const ETA_TOWER = Object.freeze({
+  id: 'eta',
+  symbol: 'η',
+  name: 'Eta Tower',
+  tier: 7,
+  baseCost: 1000000,
+  damage: 96,
+  rate: 1.1,
+  range: 0.32,
+  icon: 'assets/images/tower-eta.svg',
+  nextTierId: 'theta',
+});
+
+export default ETA_TOWER;
+

@@ -143,6 +143,7 @@ import {
   addDiscoveredVariablesListener,
   getDiscoveredVariables,
 } from './towersTab.js';
+import towers from './data/towers/index.js'; // Modular tower definitions sourced from dedicated files.
 import { initializeEquipmentState } from './equipment.js';
 import { initializeTowerTreeMap, refreshTowerTreeMap } from './towerTreeMap.js';
 // Bring in drag-scroll support so hidden scrollbars remain usable.
@@ -630,9 +631,9 @@ import {
     resourceState.energyRate = baseResources.energyRate;
     resourceState.fluxRate = baseResources.fluxRate;
 
-    const towerDefinitions = Array.isArray(gameplayConfigData.towers)
-      ? gameplayConfigData.towers.map((tower) => ({ ...tower }))
-      : [];
+    // Assemble tower definitions from modular tower sources to keep stats centralized per file.
+    const towerDefinitions = towers.map((tower) => ({ ...tower }));
+    gameplayConfigData.towers = towerDefinitions;
     setTowerDefinitions(towerDefinitions);
 
     const loadoutState = getTowerLoadoutState();
