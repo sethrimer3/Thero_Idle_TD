@@ -25,6 +25,12 @@ const PHYSICS_CONFIG = {
   maxDelta: 0.05,
   /** Maximum velocity (in px/s) imparted when flinging a node. */
   maxDragVelocity: 1400,
+  /** Normalized translation factor applied to viewport drags to calm scrolling. */
+  panTranslationFactor: 0.42,
+  /** Strength of the upward tether that keeps the alpha node aligned with the tree top. */
+  alphaOrientationStrength: 0.55,
+  /** Target vertical ratio that anchors alpha near the upper band of the map. */
+  alphaTopNormalized: 0.16,
 };
 
 const towerTreeState = {
@@ -751,9 +757,13 @@ function handleTreePointerMove(event) {
   }
   const scale = view.scale || 1;
   const startCenter = view.pointer.startCenter || view.center || { x: 0.5, y: 0.5 };
+  const translationFactor = Number.isFinite(PHYSICS_CONFIG.panTranslationFactor)
+    ? PHYSICS_CONFIG.panTranslationFactor
+    : 1;
   const nextCenter = {
-    x: startCenter.x - dx / (scale * width),
-    y: startCenter.y - dy / (scale * height),
+    // Soften pointer translation so short drags produce graceful camera motion.
+    x: startCenter.x - (dx / (scale * width)) * translationFactor,
+    y: startCenter.y - (dy / (scale * height)) * translationFactor,
   };
   setViewCenterNormalized(nextCenter);
 }
@@ -891,6 +901,28 @@ function applyAnchorForces() {
   });
 }
 
+/** Keeps the alpha tower gently oriented near the constellation's crown. */
+function applyAlphaOrientationForce() {
+  const alphaNode = towerTreeState.nodes.get('alpha');
+  if (!alphaNode) {
+    return;
+  }
+  const layerHeight = towerTreeState.nodeLayer?.offsetHeight
+    || towerTreeState.mapContainer?.clientHeight
+    || 0;
+  const targetRatio = Number.isFinite(PHYSICS_CONFIG.alphaTopNormalized)
+    ? Math.max(0, PHYSICS_CONFIG.alphaTopNormalized)
+    : 0.16;
+  const preferredY = layerHeight > 0
+    ? Math.min(alphaNode.anchor.y, layerHeight * targetRatio)
+    : alphaNode.anchor.y;
+  const orientationStrength = Number.isFinite(PHYSICS_CONFIG.alphaOrientationStrength)
+    ? PHYSICS_CONFIG.alphaOrientationStrength
+    : PHYSICS_CONFIG.anchorStrength;
+  const displacement = preferredY - alphaNode.position.y;
+  alphaNode.force.y += displacement * orientationStrength;
+}
+
 /** Applies a soft push back into the container whenever a node drifts off screen. */
 function applyBoundaryForces(containerWidth, containerHeight) {
   const padding = Math.max(
@@ -982,6 +1014,7 @@ function stepSimulation(timestamp) {
   applySpringForces();
   applyRepulsionForces();
   applyAnchorForces();
+  applyAlphaOrientationForce();
   applyBoundaryForces(containerWidth, containerHeight);
 
   const draggedNodeId = towerTreeState.dragState.active
