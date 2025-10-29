@@ -2203,6 +2203,126 @@ import {
     powderElements.modeToggle.setAttribute('aria-pressed', mode === 'fluid' ? 'true' : 'false');
   }
 
+  /**
+   * Lazily binds pointer and wheel interactions that let players pan and zoom the powder viewport.
+   * The handlers reuse the active powder simulation instance so mode switches keep gestures intact.
+   */
+  function initializePowderViewInteraction() {
+    const viewport = powderElements.viewport;
+    if (!viewport) {
+      return;
+    }
+
+    if (powderState.viewInteraction?.initialized) {
+      return;
+    }
+
+    const interaction = {
+      initialized: true,
+      pointerId: null,
+      lastPoint: null,
+      destroy: null,
+    };
+
+    const getSimulation = () => powderSimulation;
+
+    const clearPointerState = () => {
+      if (interaction.pointerId !== null && typeof viewport.releasePointerCapture === 'function') {
+        viewport.releasePointerCapture(interaction.pointerId);
+      }
+      interaction.pointerId = null;
+      interaction.lastPoint = null;
+    };
+
+    const handlePointerDown = (event) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) {
+        return;
+      }
+      const simulation = getSimulation();
+      if (!simulation) {
+        return;
+      }
+      interaction.pointerId = event.pointerId;
+      interaction.lastPoint = { x: event.clientX, y: event.clientY };
+      if (typeof viewport.setPointerCapture === 'function') {
+        try {
+          viewport.setPointerCapture(event.pointerId);
+        } catch (error) {
+          console.warn('Unable to capture powder viewport pointer', error);
+        }
+      }
+    };
+
+    const handlePointerMove = (event) => {
+      if (interaction.pointerId === null || event.pointerId !== interaction.pointerId) {
+        return;
+      }
+      const simulation = getSimulation();
+      if (!simulation || !interaction.lastPoint) {
+        return;
+      }
+
+      const dx = event.clientX - interaction.lastPoint.x;
+      const dy = event.clientY - interaction.lastPoint.y;
+      interaction.lastPoint = { x: event.clientX, y: event.clientY };
+
+      const transform = simulation.getViewTransform();
+      if (!transform || !transform.center) {
+        return;
+      }
+
+      const scale = Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1;
+      const nextCenter = {
+        x: transform.center.x - dx / scale,
+        y: transform.center.y - dy / scale,
+      };
+      simulation.setViewCenterFromWorld(nextCenter);
+    };
+
+    const handlePointerUp = (event) => {
+      if (event.pointerId !== interaction.pointerId) {
+        return;
+      }
+      clearPointerState();
+    };
+
+    const handleWheel = (event) => {
+      const simulation = getSimulation();
+      if (!simulation) {
+        return;
+      }
+      const delta = Number.isFinite(event.deltaY) ? event.deltaY : 0;
+      if (!delta) {
+        return;
+      }
+      const factor = delta > 0 ? 0.9 : 1.1;
+      const anchorPoint = { clientX: event.clientX, clientY: event.clientY };
+      const changed = simulation.applyZoomFactor(factor, anchorPoint);
+      if (changed) {
+        event.preventDefault();
+      }
+    };
+
+    viewport.addEventListener('pointerdown', handlePointerDown);
+    viewport.addEventListener('pointermove', handlePointerMove);
+    viewport.addEventListener('pointerup', handlePointerUp);
+    viewport.addEventListener('pointercancel', handlePointerUp);
+    viewport.addEventListener('pointerleave', handlePointerUp);
+    viewport.addEventListener('wheel', handleWheel, { passive: false });
+
+    interaction.destroy = () => {
+      viewport.removeEventListener('pointerdown', handlePointerDown);
+      viewport.removeEventListener('pointermove', handlePointerMove);
+      viewport.removeEventListener('pointerup', handlePointerUp);
+      viewport.removeEventListener('pointercancel', handlePointerUp);
+      viewport.removeEventListener('pointerleave', handlePointerUp);
+      viewport.removeEventListener('wheel', handleWheel);
+      clearPointerState();
+    };
+
+    powderState.viewInteraction = interaction;
+  }
+
   async function applyPowderSimulationMode(mode) {
     if (mode !== 'sand' && mode !== 'fluid') {
       return;
