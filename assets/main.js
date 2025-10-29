@@ -1663,11 +1663,7 @@ import {
     theroMultiplier: null,
     glyphsTotal: null,
     glyphsUnused: null,
-    glyphBadge: null,
     tabGlyphBadge: null,
-    moteBank: null,
-    moteRate: null,
-    moteBadge: null,
     tabMoteBadge: null,
   };
 
@@ -1676,11 +1672,7 @@ import {
     resourceElements.theroMultiplier = document.getElementById('level-thero-multiplier');
     resourceElements.glyphsTotal = document.getElementById('tower-glyphs-total');
     resourceElements.glyphsUnused = document.getElementById('tower-glyphs-unused');
-    resourceElements.glyphBadge = document.getElementById('tower-glyph-badge');
     resourceElements.tabGlyphBadge = document.getElementById('tab-glyph-badge');
-    resourceElements.moteBank = document.getElementById('tower-mote-bank');
-    resourceElements.moteRate = document.getElementById('tower-mote-rate');
-    resourceElements.moteBadge = document.getElementById('tower-mote-badge');
     resourceElements.tabMoteBadge = document.getElementById('tab-mote-badge');
     updateStatusDisplays();
   }
@@ -1700,12 +1692,6 @@ import {
     if (resourceElements.glyphsUnused) {
       resourceElements.glyphsUnused.textContent = formatWholeNumber(unusedGlyphs);
     }
-    if (resourceElements.glyphBadge) {
-      const unusedGlyphLabel = formatWholeNumber(unusedGlyphs);
-      resourceElements.glyphBadge.textContent = unusedGlyphLabel;
-      resourceElements.glyphBadge.setAttribute('aria-label', `${unusedGlyphLabel} unused glyphs`);
-    }
-
     if (resourceElements.tabGlyphBadge) {
       const tabGlyphLabel = formatWholeNumber(unusedGlyphs);
       resourceElements.tabGlyphBadge.textContent = tabGlyphLabel;
@@ -1722,27 +1708,12 @@ import {
     }
 
     const storedMotes = Math.max(0, powderCurrency + (powderState.idleMoteBank || 0));
-    if (resourceElements.moteBank) {
-      resourceElements.moteBank.textContent = `${formatGameNumber(storedMotes)} Motes`;
-    }
-    if (resourceElements.moteBadge) {
-      const storedLabel = formatGameNumber(storedMotes);
-      resourceElements.moteBadge.textContent = storedLabel;
-      resourceElements.moteBadge.setAttribute('aria-label', `${storedLabel} motes in bank`);
-    }
-
     if (resourceElements.tabMoteBadge) {
       const tabStoredLabel = formatGameNumber(storedMotes);
       resourceElements.tabMoteBadge.textContent = tabStoredLabel;
       resourceElements.tabMoteBadge.setAttribute('aria-label', `${tabStoredLabel} motes in bank`);
       resourceElements.tabMoteBadge.removeAttribute('hidden');
       resourceElements.tabMoteBadge.setAttribute('aria-hidden', 'false');
-    }
-
-    const dispenseRate = Number.isFinite(powderState.idleDrainRate) ? Math.max(0, powderState.idleDrainRate) : 0;
-    if (resourceElements.moteRate) {
-      const moteLabel = dispenseRate === 1 ? 'Mote/sec' : 'Motes/sec';
-      resourceElements.moteRate.textContent = `${formatDecimal(dispenseRate, 2)} ${moteLabel}`;
     }
   }
 
@@ -1818,7 +1789,8 @@ import {
     crystalBonusValue: null,
     stockpile: null,
     idleMultiplier: null,
-    dispenseRate: null,
+    moteBank: null,
+    moteRate: null,
     gemInventoryList: null,
     gemInventoryEmpty: null,
     craftingButton: null,
@@ -6218,10 +6190,18 @@ import {
       )} ${rateLabel}`;
     }
 
-    if (powderElements.dispenseRate) {
+    // Display the relocated idle mote bank readout inside the mote gems tab.
+    if (powderElements.moteBank) {
+      const storedMotes = Math.max(0, powderCurrency + getCurrentIdleMoteBank());
+      const moteLabel = storedMotes === 1 ? 'Mote' : 'Motes';
+      powderElements.moteBank.textContent = `${formatGameNumber(storedMotes)} ${moteLabel}`;
+    }
+
+    // Surface the current fall rate so the mote gems tab mirrors the basin flow.
+    if (powderElements.moteRate) {
       const dispenseRate = getCurrentMoteDispenseRate();
       const moteLabel = dispenseRate === 1 ? 'Mote/sec' : 'Motes/sec';
-      powderElements.dispenseRate.textContent = `${formatDecimal(dispenseRate, 2)} ${moteLabel}`;
+      powderElements.moteRate.textContent = `${formatDecimal(dispenseRate, 2)} ${moteLabel}`;
     }
   }
 
@@ -6257,8 +6237,11 @@ import {
     powderElements.duneBonusValue = document.getElementById('powder-dune-bonus');
     powderElements.crystalBonusValue = document.getElementById('powder-crystal-bonus');
     powderElements.stockpile = document.getElementById('powder-stockpile');
+    // Relocated mote bank indicator now anchors to the mote gems tab summary.
+    powderElements.moteBank = document.getElementById('powder-mote-bank');
+    // Fall rate display follows the bank so both mote flows surface together.
+    powderElements.moteRate = document.getElementById('powder-mote-rate');
     powderElements.idleMultiplier = document.getElementById('powder-idle-multiplier');
-    powderElements.dispenseRate = document.getElementById('powder-dispense-rate');
     powderElements.gemInventoryList = document.getElementById('powder-gem-inventory');
     powderElements.gemInventoryEmpty = document.getElementById('powder-gem-empty');
     powderElements.craftingButton = document.getElementById('open-crafting-menu');
