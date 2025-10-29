@@ -10,369 +10,7 @@
       "alpha"
     ]
   },
-  "towers": [
-    {
-      "id": "alpha",
-      "symbol": "α",
-      "name": "Alpha Tower",
-      "tier": 1,
-      "baseCost": 10,
-      "damage": 28,
-      "rate": 1.25,
-      "range": 0.24,
-      "diameterMeters": 1,
-      "icon": "assets/images/tower-alpha.svg",
-      "nextTierId": "beta"
-    },
-    {
-      "id": "beta",
-      "symbol": "β",
-      "name": "Beta Tower",
-      "tier": 2,
-      "baseCost": 100,
-      "damage": 10,
-      "rate": 2,
-      "range": 0.36,
-      "icon": "assets/images/tower-beta.svg",
-      "nextTierId": "gamma"
-    },
-    {
-      "id": "gamma",
-      "symbol": "γ",
-      "name": "Gamma Tower",
-      "tier": 3,
-      "baseCost": 1000,
-      "damage": 72,
-      "rate": 1.2,
-      "range": 0.28,
-      "icon": "assets/images/tower-gamma.svg",
-      "nextTierId": "delta"
-    },
-    {
-      "id": "delta",
-      "symbol": "δ",
-      "name": "Delta Tower",
-      "tier": 4,
-      "baseCost": 10000,
-      "damage": 56,
-      "rate": 0.95,
-      "range": 0.44,
-      "icon": "assets/images/tower-delta.svg",
-      "nextTierId": "epsilon"
-    },
-    {
-      "id": "epsilon",
-      "symbol": "ε",
-      "name": "Epsilon Tower",
-      "tier": 5,
-      "baseCost": 50000,
-      "damage": 44,
-      "rate": 1.4,
-      "range": 0.26,
-      "icon": "assets/images/tower-epsilon.svg",
-      "nextTierId": "zeta"
-    },
-    {
-      "id": "zeta",
-      "symbol": "ζ",
-      "name": "Zeta Tower",
-      "tier": 6,
-      "baseCost": 250000,
-      "damage": 68,
-      "rate": 1.3,
-      "range": 0.3,
-      "icon": "assets/images/tower-zeta.svg",
-      "nextTierId": "eta"
-    },
-    {
-      "id": "eta",
-      "symbol": "η",
-      "name": "Eta Tower",
-      "tier": 7,
-      "baseCost": 1000000,
-      "damage": 96,
-      "rate": 1.1,
-      "range": 0.32,
-      "icon": "assets/images/tower-eta.svg",
-      "nextTierId": "theta"
-    },
-    {
-      "id": "theta",
-      "symbol": "θ",
-      "name": "Theta Tower",
-      "tier": 8,
-      "baseCost": 4000000,
-      "damage": 132,
-      "rate": 0.98,
-      "range": 0.34,
-      "icon": "assets/images/tower-theta.svg",
-      "nextTierId": "iota"
-    },
-    {
-      "id": "iota",
-      "symbol": "ι",
-      "name": "Iota Tower",
-      "tier": 9,
-      "baseCost": 60000000,
-      "damage": 240,
-      "rate": 0.85,
-      "range": 0.38,
-      "icon": "assets/images/tower-iota.svg",
-      "nextTierId": "kappa"
-    },
-    {
-      "id": "kappa",
-      "symbol": "κ",
-      "name": "Kappa Tower",
-      "tier": 10,
-      "baseCost": 200000000,
-      "damage": 320,
-      "rate": 0.8,
-      "range": 0.4,
-      "icon": "assets/images/tower-kappa.svg",
-      "nextTierId": "lambda"
-    },
-    {
-      "id": "lambda",
-      "symbol": "λ",
-      "name": "Lambda Tower",
-      "tier": 11,
-      "baseCost": 700000000,
-      "damage": 420,
-      "rate": 0.75,
-      "range": 0.42,
-      "icon": "assets/images/tower-lambda.svg",
-      "nextTierId": "mu"
-    },
-    {
-      "id": "mu",
-      "symbol": "μ",
-      "name": "Mu Tower",
-      "tier": 12,
-      "baseCost": 2200000000,
-      "damage": 540,
-      "rate": 0.72,
-      "range": 0.44,
-      "icon": "assets/images/tower-mu.svg",
-      "nextTierId": "nu"
-    },
-    {
-      "id": "nu",
-      "symbol": "ν",
-      "name": "Nu Tower",
-      "tier": 13,
-      "baseCost": 7200000000,
-      "damage": 680,
-      "rate": 0.68,
-      "range": 0.46,
-      "icon": "assets/images/tower-nu.svg",
-      "nextTierId": "xi"
-    },
-    {
-      "id": "xi",
-      "symbol": "ξ",
-      "name": "Xi Tower",
-      "tier": 14,
-      "baseCost": 23000000000,
-      "damage": 860,
-      "rate": 0.64,
-      "range": 0.48,
-      "icon": "assets/images/tower-xi.svg",
-      "nextTierId": "omicron"
-    },
-    {
-      "id": "omicron",
-      "symbol": "ο",
-      "name": "Omicron Tower",
-      "tier": 15,
-      "baseCost": 240000000000,
-      "damage": 1500,
-      "rate": 0.58,
-      "range": 0.54,
-      "icon": "assets/images/tower-omicron.svg",
-      "nextTierId": "pi"
-    },
-    {
-      "id": "pi",
-      "symbol": "π",
-      "name": "Pi Tower",
-      "tier": 16,
-      "baseCost": 780000000000,
-      "damage": 1900,
-      "rate": 0.56,
-      "range": 0.56,
-      "icon": "assets/images/tower-pi.svg",
-      "nextTierId": "rho"
-    },
-    {
-      "id": "rho",
-      "symbol": "ρ",
-      "name": "Rho Tower",
-      "tier": 17,
-      "baseCost": 2500000000000,
-      "damage": 2300,
-      "rate": 0.54,
-      "range": 0.58,
-      "icon": "assets/images/tower-rho.svg",
-      "nextTierId": "sigma"
-    },
-    {
-      "id": "sigma",
-      "symbol": "σ",
-      "name": "Sigma Tower",
-      "tier": 18,
-      "baseCost": 8000000000000,
-      "damage": 2800,
-      "rate": 0.52,
-      "range": 0.6,
-      "icon": "assets/images/tower-sigma.svg",
-      "nextTierId": "tau"
-    },
-    {
-      "id": "tau",
-      "symbol": "τ",
-      "name": "Tau Tower",
-      "tier": 19,
-      "baseCost": 26000000000000,
-      "damage": 3400,
-      "rate": 0.5,
-      "range": 0.62,
-      "icon": "assets/images/tower-tau.svg",
-      "nextTierId": "upsilon"
-    },
-    {
-      "id": "upsilon",
-      "symbol": "υ",
-      "name": "Upsilon Tower",
-      "tier": 20,
-      "baseCost": 85000000000000,
-      "damage": 4100,
-      "rate": 0.48,
-      "range": 0.64,
-      "icon": "assets/images/tower-upsilon.svg",
-      "nextTierId": "phi"
-    },
-    {
-      "id": "phi",
-      "symbol": "φ",
-      "name": "Phi Tower",
-      "tier": 21,
-      "baseCost": 280000000000000,
-      "damage": 4900,
-      "rate": 0.46,
-      "range": 0.66,
-      "icon": "assets/images/tower-phi.svg",
-      "nextTierId": "chi"
-    },
-    {
-      "id": "chi",
-      "symbol": "χ",
-      "name": "Chi Tower",
-      "tier": 22,
-      "baseCost": 920000000000000,
-      "damage": 5800,
-      "rate": 0.44,
-      "range": 0.68,
-      "icon": "assets/images/tower-chi.svg",
-      "nextTierId": "psi"
-    },
-    {
-      "id": "psi",
-      "symbol": "ψ",
-      "name": "Psi Tower",
-      "tier": 23,
-      "baseCost": 3000000000000000,
-      "damage": 6800,
-      "rate": 0.42,
-      "range": 0.7,
-      "icon": "assets/images/tower-psi.svg",
-      "nextTierId": "omega"
-    },
-    {
-      "id": "omega",
-      "symbol": "Ω",
-      "name": "Omega Tower",
-      "tier": 24,
-      "baseCost": 9600000000000000,
-      "damage": 8000,
-      "rate": 0.4,
-      "range": 0.74,
-      "icon": "assets/images/tower-omega.svg",
-      "nextTierId": "aleph-null"
-    },
-    {
-      "id": "aleph-null",
-      "symbol": "ℵ₀",
-      "name": "Aleph Null Tower",
-      "tier": 25,
-      "baseCost": 31000000000000000,
-      "damage": 9600,
-      "rate": 0.38,
-      "range": 0.78,
-      "icon": "assets/images/tower-aleph-null.svg",
-      "nextTierId": "aleph-one"
-    },
-    {
-      "id": "aleph-one",
-      "symbol": "ℵ₁",
-      "name": "Aleph One Tower",
-      "tier": 26,
-      "baseCost": 110000000000000000,
-      "damage": 11500,
-      "rate": 0.36,
-      "range": 0.8,
-      "icon": "assets/images/tower-aleph-one.svg",
-      "nextTierId": "aleph-two"
-    },
-    {
-      "id": "aleph-two",
-      "symbol": "ℵ₂",
-      "name": "Aleph Two Tower",
-      "tier": 27,
-      "baseCost": 360000000000000000,
-      "damage": 13800,
-      "rate": 0.34,
-      "range": 0.82,
-      "icon": "assets/images/tower-aleph-two.svg",
-      "nextTierId": "aleph-three"
-    },
-    {
-      "id": "aleph-three",
-      "symbol": "ℵ₃",
-      "name": "Aleph Three Tower",
-      "tier": 28,
-      "baseCost": 1200000000000000000,
-      "damage": 16400,
-      "rate": 0.32,
-      "range": 0.84,
-      "icon": "assets/images/tower-aleph-three.svg",
-      "nextTierId": "aleph-four"
-    },
-    {
-      "id": "aleph-four",
-      "symbol": "ℵ₄",
-      "name": "Aleph Four Tower",
-      "tier": 29,
-      "baseCost": 3900000000000000000,
-      "damage": 19300,
-      "rate": 0.3,
-      "range": 0.86,
-      "icon": "assets/images/tower-aleph-four.svg",
-      "nextTierId": "aleph-five"
-    },
-    {
-      "id": "aleph-five",
-      "symbol": "ℵ₅",
-      "name": "Aleph Five Tower",
-      "tier": 30,
-      "baseCost": 13000000000000000000,
-      "damage": 22600,
-      "rate": 0.28,
-      "range": 0.88,
-      "icon": "assets/images/tower-aleph-five.svg",
-      "nextTierId": null
-    }
-  ],
+  "towers": [],
   "enemies": [
     {
       "id": "etype",
@@ -382,52 +20,52 @@
       "traits": [
         "Display as (E^{k}) with a crimson exponent tied to (10^{k}) maximum health; even reduced health never hides the power tier.",
         "March in geometric platoons whose health resolves to (H(k) = H_0 \times 10^{k}) for rank k within the current set.",
-        "Reward Σ mote gems on defeat using the same multiplier, making them ideal calibration targets for lattice tuning."
+        "Reward \u03a3 mote gems on defeat using the same multiplier, making them ideal calibration targets for lattice tuning."
       ],
-      "counter": "Layer multiplicative auras and β/γ towers so burst and splash damage keep pace with the exponential swell before specialist glyphs appear.",
+      "counter": "Layer multiplicative auras and \u03b2/\u03b3 towers so burst and splash damage keep pace with the exponential swell before specialist glyphs appear.",
       "lore": "Archivists open every defense proof against E glyphs; when their sigils begin to blur, heavier conjectures are on approach.",
       "formula": "(H(k) = H_0 \times 10^{k})",
       "formulaLabel": "Growth Law"
     },
     {
       "id": "divisor",
-      "symbol": "÷",
+      "symbol": "\u00f7",
       "name": "Divisors",
       "summary": "Factor-savvy husks that invert reckless power. They judge every incoming strike by its divisor weight and respond in kind.",
       "traits": [
-        "Appear as (÷^{k})—their glowing red exponent advertises the precise ten-power plateaus they occupy.",
+        "Appear as (\u00f7^{k})\u2014their glowing red exponent advertises the precise ten-power plateaus they occupy.",
         "Damage from one source collapses to (\\Delta H = 1 / \text{DPS}_{\\text{source}}), so slower cannons barely scratch the shell.",
         "Stacked beams add their DPS before inversion, rewarding multi-lane coverage and allied summons."
       ],
-      "counter": "Deploy swarm emitters, Ω slows, and status lattices to multiply projectile count while letting lingering damage-over-time finish the proof.",
+      "counter": "Deploy swarm emitters, \u03a9 slows, and status lattices to multiply projectile count while letting lingering damage-over-time finish the proof.",
       "lore": "Their chants enumerate divisors as they advance; silence one and the entire column hesitates for a breath.",
       "formula": "(\\Delta H = 1 / \text{DPS}_{\\text{source}})",
       "formulaLabel": "Mitigation Rule"
     },
     {
       "id": "prime",
-      "symbol": "ℙ",
+      "symbol": "\u2119",
       "name": "Prime Counters",
-      "summary": "Inquisitors that audit impact counts against the prime sequence. They do not care about damage—only how often they are struck.",
+      "summary": "Inquisitors that audit impact counts against the prime sequence. They do not care about damage\u2014only how often they are struck.",
       "traits": [
-        "Broadcast as (ℙ^{k}), letting you spot at a glance which prime threshold—scaled by (10^{k}) health—they are testing.",
-        "Maintain an internal counter η that increases with each hit until (η = p_n), the nth prime for their current wave.",
-        "Overflow resets η to the next prime threshold, so wasted barrages delay a collapse."
+        "Broadcast as (\u2119^{k}), letting you spot at a glance which prime threshold\u2014scaled by (10^{k}) health\u2014they are testing.",
+        "Maintain an internal counter \u03b7 that increases with each hit until (\u03b7 = p_n), the nth prime for their current wave.",
+        "Overflow resets \u03b7 to the next prime threshold, so wasted barrages delay a collapse."
       ],
-      "counter": "Favor rapid-fire towers, β resonance buffs, or allied reversals that deal consistent tap damage to meet each prime without overshooting.",
+      "counter": "Favor rapid-fire towers, \u03b2 resonance buffs, or allied reversals that deal consistent tap damage to meet each prime without overshooting.",
       "lore": "Their whispers recite primes in ascending order; the moment you match their cadence, the husk fractures.",
-      "formula": "(η = p_n)",
+      "formula": "(\u03b7 = p_n)",
       "formulaLabel": "Prime Threshold"
     },
     {
       "id": "reversal",
-      "symbol": "↺",
+      "symbol": "\u21ba",
       "name": "Reversal Sentinels",
       "summary": "Vanguard constructs tuned to flip allegiance. Defeat one and it races backward to join your formation with inverted statistics.",
       "traits": [
-        "Carry the mark (↺^{k})—the exponent glows brighter after conversion to highlight the retained ten-power health tier.",
+        "Carry the mark (\u21ba^{k})\u2014the exponent glows brighter after conversion to highlight the retained ten-power health tier.",
         "Upon collapse they sprint to the start of the path; if unblocked they respawn as allies with (H_{ally} = lfloor 0.5 H_{foe} \rfloor).",
-        "Allied reversals inherit your active tower modifiers and pulse Σ mote gems while retracing enemy ground."
+        "Allied reversals inherit your active tower modifiers and pulse \u03a3 mote gems while retracing enemy ground."
       ],
       "counter": "Catch them near choke points so the conversion occurs within supportive auras, otherwise their retreat might breach the core first.",
       "lore": "Legend says each sentinel carries a mirrored proof; persuade it to turn the page and the margin glows with your sigil.",
@@ -436,25 +74,25 @@
     },
     {
       "id": "tunneler",
-      "symbol": "⇥",
+      "symbol": "\u21e5",
       "name": "Quantum Tunnelers",
       "summary": "Phase-shifted glyphs that refuse to follow etched rails, boring a straight tunnel toward the core regardless of your lattice work.",
       "traits": [
         "Advance along the direct vector from spawn gate to core nexus, bypassing every bend, choke point, and slow field etched onto the lane.",
         "Treat their displacement as (\\vec{r}(t) = \\vec{r}_0 + \\vec{v} t); only raw damage intersecting that ray can arrest their collapse."
       ],
-      "counter": "Predict the tunnel vector and anchor lattices near the core or directly on that line—positioning, not crowd control, halts their breach.",
+      "counter": "Predict the tunnel vector and anchor lattices near the core or directly on that line\u2014positioning, not crowd control, halts their breach.",
       "lore": "Archivists describe them as qubits gone feral: collapse their waveform before it resolves inside the heart of your proof.",
       "formula": "(\\vec{r}(t) = \\vec{r}_0 + \\vec{v} t)",
       "formulaLabel": "Tunnel Vector"
     },
     {
       "id": "aleph-swarm",
-      "symbol": "ℵ₀",
+      "symbol": "\u2135\u2080",
       "name": "Aleph Swarm",
       "summary": "Countable-infinity splinters that multiply the longer they survive, overwhelming defenses with relentless recursion.",
       "traits": [
-        "Render as (ℵ_0^{k})—their red exponent pulses with each duplication to telegraph the growing (10^{k}) health pool.",
+        "Render as (\u2135_0^{k})\u2014their red exponent pulses with each duplication to telegraph the growing (10^{k}) health pool.",
         "Spawn additional copies at intervals determined by (\\lambda(t) = \\lambda_0 + \\lfloor t / T \rfloor), so survival time fuels the swarm."
       ],
       "counter": "Keep continuous-area effects engaged to prune duplicates before their exponent climbs beyond manageable tiers.",
@@ -464,11 +102,11 @@
     },
     {
       "id": "partial-wraith",
-      "symbol": "∂",
+      "symbol": "\u2202",
       "name": "Partial Wraith",
       "summary": "Spectral siphons that leech tower stats until slowed, modelling derivatives that refuse to settle.",
       "traits": [
-        "Stride in (∂^{k}) forms—the exponent glows fiercely while the wraith hoards stolen power tied to its (10^{k}) reserve.",
+        "Stride in (\u2202^{k}) forms\u2014the exponent glows fiercely while the wraith hoards stolen power tied to its (10^{k}) reserve.",
         "Absorb a fraction of nearby tower modifiers as (\\Delta S = \\alpha \\cdot S_{tower}); rooting them freezes the derivative at zero and returns the loss."
       ],
       "counter": "Leverage stuns or heavy slows to pin the wraith, forcing it to disgorge the stolen bonuses.",
@@ -478,11 +116,11 @@
     },
     {
       "id": "gradient-sapper",
-      "symbol": "∇",
+      "symbol": "\u2207",
       "name": "Gradient Sapper",
       "summary": "Vector-chasing saboteurs that accelerate toward downhill buffs while draining everything in their path.",
       "traits": [
-        "Marked as (∇^{k}); the exponent's red glow tilts in the direction of greatest descent, mirroring the sapper's chosen gradient.",
+        "Marked as (\u2207^{k}); the exponent's red glow tilts in the direction of greatest descent, mirroring the sapper's chosen gradient.",
         "Gain speed according to (v = v_0 + \beta \\|\nabla B\\|), with B representing nearby buff intensity."
       ],
       "counter": "Rotate support zones or erect knockback fields to flatten the gradient before they sprint through your defenses.",
@@ -492,11 +130,11 @@
     },
     {
       "id": "weierstrass-prism",
-      "symbol": "℘",
+      "symbol": "\u2118",
       "name": "Weierstrass Prism",
       "summary": "Fractal shifters that jitter between vulnerable and invulnerable states at nowhere-differentiable intervals.",
       "traits": [
-        "Manifest as (℘^{k}); the exponent flickers chaotically, hinting at the fractal rhythm governing their (10^{k}) shell.",
+        "Manifest as (\u2118^{k}); the exponent flickers chaotically, hinting at the fractal rhythm governing their (10^{k}) shell.",
         "Toggle immunity on a schedule approximating (f(t) = \\sum_{n=0}^{\\infty} a^n \\cos(b^n \\pi t)) with (0 < a < 1, b \\in \\mathbb{N})."
       ],
       "counter": "Sync burst damage to the brief windows when the prism's glow steadies, or lock them down with perfectly timed stasis.",
@@ -506,39 +144,39 @@
     },
     {
       "id": "planck-shade",
-      "symbol": "ħ",
+      "symbol": "\u0127",
       "name": "Planck Shade",
       "summary": "Quantum phantoms that phase in and out of reality, respecting only perfectly timed strikes.",
       "traits": [
-        "Wink into view as (ħ^{k}); the exponent flashes bright red exactly when they are tangible, revealing the active (10^{k}) reservoir.",
+        "Wink into view as (\u0127^{k}); the exponent flashes bright red exactly when they are tangible, revealing the active (10^{k}) reservoir.",
         "Phase according to (\\tau = 2\\pi / \\omega); missed beats reset the cycle and restore a slice of their health tier."
       ],
       "counter": "Coordinate rhythmic towers or metronome buffs to line up hits the instant the shade materializes.",
-      "lore": "They shed cold blue motes—quantized echoes of every missed opportunity.",
+      "lore": "They shed cold blue motes\u2014quantized echoes of every missed opportunity.",
       "formula": "(\\tau = 2\\pi / \\omega)",
       "formulaLabel": "Quantum Cadence"
     },
     {
       "id": "null-husk",
-      "symbol": "∅",
+      "symbol": "\u2205",
       "name": "Null Husk",
       "summary": "Empty-set shells that ignore your lanes until provoked, then redistribute their absence as lethal mass.",
       "traits": [
-        "Appear dormant as (∅^{k}); striking them ignites the exponent, signalling the (10^{k}) payload about to spill outward.",
-        "Upon collapse, transfer health (\\Delta H = \\gamma H_{∅}) evenly to nearby allies unless contained in a void field."
+        "Appear dormant as (\u2205^{k}); striking them ignites the exponent, signalling the (10^{k}) payload about to spill outward.",
+        "Upon collapse, transfer health (\\Delta H = \\gamma H_{\u2205}) evenly to nearby allies unless contained in a void field."
       ],
       "counter": "Ping them with sacrificial shots to control when and where the redistributed mass lands.",
       "lore": "Their translucent powderfall leaves outlines of nothing, framing the foes that absorbed their loss.",
-      "formula": "(\\Delta H = \\gamma H_{∅})",
+      "formula": "(\\Delta H = \\gamma H_{\u2205})",
       "formulaLabel": "Absence Transfer"
     },
     {
       "id": "imaginary-strider",
-      "symbol": "ℑ",
+      "symbol": "\u2111",
       "name": "Imaginary Strider",
       "summary": "Phase-dancing invaders that stack evasion whenever damage arrives out of phase with their complex stride.",
       "traits": [
-        "Stride as (ℑ^{k}); each alternating damage type reduces the glowing exponent, collapsing their complex facade.",
+        "Stride as (\u2111^{k}); each alternating damage type reduces the glowing exponent, collapsing their complex facade.",
         "Gain evasion stacks via (E_{new} = E_{old} + \\sigma \\sin(\\phi_{hit})), rewarding alternating real/imaginary damage inputs."
       ],
       "counter": "Alternate damage schools or use towers that naturally interleave phases to peel away their defenses.",
@@ -548,7 +186,7 @@
     },
     {
       "id": "combination-cohort",
-      "symbol": "ⁿCₖ",
+      "symbol": "\u207fC\u2096",
       "name": "Combination Cohort",
       "summary": "Squads bound by binomial ties that reshuffle total health every time a member collapses.",
       "traits": [
@@ -566,9 +204,9 @@
       "set": "Conjecture",
       "id": "Conjecture - 1",
       "title": "Lemniscate Hypothesis",
-      "path": "∞ loop traced from r² = cos(2θ); mirrored spawn lanes cross twice.",
-      "focus": "Early E glyphs surge with divisor scouts—tempo control is vital.",
-      "example": "Goldbach’s Conjecture: Every even integer greater than 2 is the sum of two primes."
+      "path": "\u221e loop traced from r\u00b2 = cos(2\u03b8); mirrored spawn lanes cross twice.",
+      "focus": "Early E glyphs surge with divisor scouts\u2014tempo control is vital.",
+      "example": "Goldbach\u2019s Conjecture: Every even integer greater than 2 is the sum of two primes."
     },
     {
       "set": "Conjecture",
@@ -576,22 +214,22 @@
       "title": "Collatz Cascade",
       "path": "Stepwise descent generated from the 3n + 1 map with teleport risers.",
       "focus": "Hit-count enemies appear on odd nodes; summon glyph soldiers to stall.",
-      "example": "Collatz Conjecture: Iterate n → n/2 or 3n + 1 and every positive integer reaches 1."
+      "example": "Collatz Conjecture: Iterate n \u2192 n/2 or 3n + 1 and every positive integer reaches 1."
     },
     {
       "set": "Conjecture",
       "id": "Conjecture - 3",
       "title": "Riemann Helix",
-      "path": "Logarithmic spiral with harmonic bulges keyed to ζ(s) zero estimates.",
-      "focus": "Divisor elites flank wave bosses—Ω previews excel at splash slows.",
-      "example": "Riemann Hypothesis: Every nontrivial zero of ζ(s) lies on the line Re(s) = 1/2."
+      "path": "Logarithmic spiral with harmonic bulges keyed to \u03b6(s) zero estimates.",
+      "focus": "Divisor elites flank wave bosses\u2014\u03a9 previews excel at splash slows.",
+      "example": "Riemann Hypothesis: Every nontrivial zero of \u03b6(s) lies on the line Re(s) = 1/2."
     },
     {
       "set": "Conjecture",
       "id": "Conjecture - 4",
       "title": "Twin Prime Fork",
       "path": "Dual lattice rails linked by prime gaps; enemies swap lanes unpredictably.",
-      "focus": "Prime counters demand rapid-fire towers—γ chaining resets their count.",
+      "focus": "Prime counters demand rapid-fire towers\u2014\u03b3 chaining resets their count.",
       "example": "Twin Prime Conjecture: Infinitely many primes p exist such that p + 2 is prime."
     },
     {
@@ -599,7 +237,7 @@
       "id": "Conjecture - 5",
       "title": "Birch Flow",
       "path": "Cardioid river influenced by elliptic curve rank gradients.",
-      "focus": "Reversal sentinels join late waves—δ soldiers can flip them to your side.",
+      "focus": "Reversal sentinels join late waves\u2014\u03b4 soldiers can flip them to your side.",
       "example": "Birch and Swinnerton-Dyer Conjecture: Rational points of elliptic curves link to L-series behavior."
     },
     {
@@ -607,23 +245,23 @@
       "id": "Conjecture - Secret",
       "title": "Apocrypha Loop",
       "path": "Hidden lemniscate mirrored through complex planes; portals bloom off-axis.",
-      "focus": "Only reveals during total glyph alignment—expect mixed archetypes in waves.",
+      "focus": "Only reveals during total glyph alignment\u2014expect mixed archetypes in waves.",
       "example": "Secret Lemma: When harmonic sums stabilize, an unseen proof thread emerges from the void."
     },
     {
       "set": "Corollary",
       "id": "Corollary - 6",
       "title": "Derivative Bloom",
-      "path": "Petal loops bloom where f′(x) = 0 across mirrored cardioids and saddle petals.",
-      "focus": "Flux bursts alternate with brittle shards—steady α lattices prevent overflow collapses.",
-      "example": "Rolle's Corollary: If f(a) = f(b) for differentiable f, some c in (a, b) satisfies f′(c) = 0."
+      "path": "Petal loops bloom where f\u2032(x) = 0 across mirrored cardioids and saddle petals.",
+      "focus": "Flux bursts alternate with brittle shards\u2014steady \u03b1 lattices prevent overflow collapses.",
+      "example": "Rolle's Corollary: If f(a) = f(b) for differentiable f, some c in (a, b) satisfies f\u2032(c) = 0."
     },
     {
       "set": "Corollary",
       "id": "Corollary - 7",
       "title": "Integral Cascade",
       "path": "Stepped integrator ramps descend in quantized slopes shaped by accumulated area.",
-      "focus": "Energy leeches drift down ramps—δ summons keep Δ energy above zero.",
+      "focus": "Energy leeches drift down ramps\u2014\u03b4 summons keep \u0394 energy above zero.",
       "example": "Fundamental Corollary: Integrating a derivative recovers the original function up to constants."
     },
     {
@@ -631,23 +269,23 @@
       "id": "Corollary - 8",
       "title": "Fibonacci Turnabout",
       "path": "Interleaved golden spirals shift radius on Fibonacci indices and teleport pads.",
-      "focus": "Prime counters spawn on Fibonacci junctions—γ conductors reset their tally.",
-      "example": "Binet Corollary: Fₙ = (φⁿ − ψⁿ)/√5 gives the closed form of Fibonacci growth."
+      "focus": "Prime counters spawn on Fibonacci junctions\u2014\u03b3 conductors reset their tally.",
+      "example": "Binet Corollary: F\u2099 = (\u03c6\u207f \u2212 \u03c8\u207f)/\u221a5 gives the closed form of Fibonacci growth."
     },
     {
       "set": "Corollary",
       "id": "Corollary - 9",
       "title": "Euler Bridge",
       "path": "Bridge arcs obey planar graph constraints; parity lanes swap over Euler gaps.",
-      "focus": "Divisors guard the bridges—β beams must stay coherent to pierce.",
-      "example": "Euler Characteristic Corollary: For planar graphs, F = E − V + 2 limits feasible crossings."
+      "focus": "Divisors guard the bridges\u2014\u03b2 beams must stay coherent to pierce.",
+      "example": "Euler Characteristic Corollary: For planar graphs, F = E \u2212 V + 2 limits feasible crossings."
     },
     {
       "set": "Corollary",
       "id": "Corollary - 10",
       "title": "Modular Bloom",
       "path": "Modular roses rotate through residue-locked petals with congruence gate warps.",
-      "focus": "Reversal sentinels invert on residue gates—δ rallies convert them mid-arc.",
+      "focus": "Reversal sentinels invert on residue gates\u2014\u03b4 rallies convert them mid-arc.",
       "example": "Chinese Remainder Corollary: Congruence systems share synchronized solutions modulo their product."
     },
     {
@@ -655,7 +293,7 @@
       "id": "Corollary - Secret",
       "title": "Shadow Integral",
       "path": "Phase-shifted archipelago of calculus islands hidden beneath modular petals.",
-      "focus": "Resource siphons and reversal elites stack together—prepare universal counters.",
+      "focus": "Resource siphons and reversal elites stack together\u2014prepare universal counters.",
       "example": "Secret Corollary: The boundary integral of concealed paths equals interior flux you never saw."
     },
     {
@@ -663,7 +301,7 @@
       "id": "Lemma - 11",
       "title": "Abel Cascade",
       "path": "Waterfall descent using commutator switches; river nodes invert projectile order, testing burst versus beam timing.",
-      "focus": "Stub focus – finalize lemma-tier enemy pacing once behaviors are scripted.",
+      "focus": "Stub focus \u2013 finalize lemma-tier enemy pacing once behaviors are scripted.",
       "example": "Abel summation lemma: bounded partial sums paired with monotone factors keep the transformed series convergent."
     },
     {
@@ -671,31 +309,31 @@
       "id": "Lemma - 12",
       "title": "Noether Weave",
       "path": "Symmetry-rich ringroads whose portals preserve DPS sums; enemies trade positions when struck by support glyphs.",
-      "focus": "Stub focus – finalize lemma-tier enemy pacing once behaviors are scripted.",
+      "focus": "Stub focus \u2013 finalize lemma-tier enemy pacing once behaviors are scripted.",
       "example": "Noether's theorem ties continuous symmetries to conserved quantities in dynamical systems."
     },
     {
       "set": "Lemma",
       "id": "Lemma - 13",
-      "title": "Erdős Drift",
+      "title": "Erd\u0151s Drift",
       "path": "Random-graph tramlines that shuffle lane adjacency; probabilistic smugglers reroute toward the longest surviving enemy.",
-      "focus": "Stub focus – finalize lemma-tier enemy pacing once behaviors are scripted.",
-      "example": "Erdős–Rényi random graphs undergo a giant-component phase transition near edge probability p = 1/n."
+      "focus": "Stub focus \u2013 finalize lemma-tier enemy pacing once behaviors are scripted.",
+      "example": "Erd\u0151s\u2013R\u00e9nyi random graphs undergo a giant-component phase transition near edge probability p = 1/n."
     },
     {
       "set": "Lemma",
       "id": "Lemma - 14",
-      "title": "Möbius Rind",
+      "title": "M\u00f6bius Rind",
       "path": "Inside-out corkscrew track; sign-flip sentries grant negative armor that amplifies epsilon burn damage.",
-      "focus": "Stub focus – finalize lemma-tier enemy pacing once behaviors are scripted.",
-      "example": "Möbius inversion retrieves arithmetic functions from their summatory transforms."
+      "focus": "Stub focus \u2013 finalize lemma-tier enemy pacing once behaviors are scripted.",
+      "example": "M\u00f6bius inversion retrieves arithmetic functions from their summatory transforms."
     },
     {
       "set": "Lemma",
       "id": "Lemma - 15",
       "title": "Ramanujan Bloom",
       "path": "Lotus of nested circles keyed to modular forms; resonance echoes cause defeated foes to spawn low-HP harmonic clones.",
-      "focus": "Stub focus – finalize lemma-tier enemy pacing once behaviors are scripted.",
+      "focus": "Stub focus \u2013 finalize lemma-tier enemy pacing once behaviors are scripted.",
       "example": "Ramanujan's mock theta functions encode hidden q-series symmetries across modular sectors."
     },
     {
@@ -703,23 +341,23 @@
       "id": "Proof - 16",
       "title": "Hilbert Fold",
       "path": "Space-filling fractal corridor; dimensional walkers slip through walls unless slowed by delta caserns.",
-      "focus": "Stub focus – stage goals will follow once proof-tier hazards are tuned.",
+      "focus": "Stub focus \u2013 stage goals will follow once proof-tier hazards are tuned.",
       "example": "Hilbert's space-filling curve maps the unit interval continuously onto the unit square."
     },
     {
       "set": "Proof",
       "id": "Proof - 17",
-      "title": "Gödel Labyrinth",
+      "title": "G\u00f6del Labyrinth",
       "path": "Self-referencing maze with locked axioms; paradox custodians revive unless struck by three distinct tower classes.",
-      "focus": "Stub focus – stage goals will follow once proof-tier hazards are tuned.",
-      "example": "Gödel's incompleteness theorem shows consistent formal systems cannot prove every arithmetic truth."
+      "focus": "Stub focus \u2013 stage goals will follow once proof-tier hazards are tuned.",
+      "example": "G\u00f6del's incompleteness theorem shows consistent formal systems cannot prove every arithmetic truth."
     },
     {
       "set": "Proof",
       "id": "Proof - 18",
       "title": "Turing Spire",
       "path": "Vertical tape ascent with binary toggles; automaton foes flip between vulnerable and immune states based on attack parity.",
-      "focus": "Stub focus – stage goals will follow once proof-tier hazards are tuned.",
+      "focus": "Stub focus \u2013 stage goals will follow once proof-tier hazards are tuned.",
       "example": "Turing proved no algorithm decides the halting of arbitrary programs."
     },
     {
@@ -727,7 +365,7 @@
       "id": "Proof - 19",
       "title": "Cantor Verge",
       "path": "Fragmented coastline path removing middle thirds; lacuna spirits leap gaps, forcing chained knockback to corral them.",
-      "focus": "Stub focus – stage goals will follow once proof-tier hazards are tuned.",
+      "focus": "Stub focus \u2013 stage goals will follow once proof-tier hazards are tuned.",
       "example": "Cantor's middle-third set is uncountable despite having zero Lebesgue measure."
     },
     {
@@ -735,7 +373,7 @@
       "id": "Proof - 20",
       "title": "Jordan Curve Bastion",
       "path": "Contour fortress wrapped around the core; enclosure judges stun towers that let enemies slip past twice.",
-      "focus": "Stub focus – stage goals will follow once proof-tier hazards are tuned.",
+      "focus": "Stub focus \u2013 stage goals will follow once proof-tier hazards are tuned.",
       "example": "Jordan curve theorem: every simple closed plane curve separates the plane into interior and exterior regions."
     },
     {
@@ -743,15 +381,15 @@
       "id": "Theorem - 21",
       "title": "Gauss Orchard",
       "path": "Hexagonal orchard aligned to quadratic residues; orchard keepers gain bonus armor on perfect squares.",
-      "focus": "Stub focus – theorem-tier balancing will be added alongside enemy rosters.",
-      "example": "Gauss circle problem counts lattice points beneath x² + y² ≤ r² with error on the order of r."
+      "focus": "Stub focus \u2013 theorem-tier balancing will be added alongside enemy rosters.",
+      "example": "Gauss circle problem counts lattice points beneath x\u00b2 + y\u00b2 \u2264 r\u00b2 with error on the order of r."
     },
     {
       "set": "Theorem",
       "id": "Theorem - 22",
       "title": "Fourier Aurora",
       "path": "Polar halo with wavelength lanes; harmonics build up unless projectile types stay varied.",
-      "focus": "Stub focus – theorem-tier balancing will be added alongside enemy rosters.",
+      "focus": "Stub focus \u2013 theorem-tier balancing will be added alongside enemy rosters.",
       "example": "Fourier series decompose periodic signals into sums of sine and cosine harmonics."
     },
     {
@@ -759,7 +397,7 @@
       "id": "Theorem - 23",
       "title": "Nash Spiral",
       "path": "Competitive spiral with alternating payoff nodes; adversary agents buff themselves when lanes sit undefended.",
-      "focus": "Stub focus – theorem-tier balancing will be added alongside enemy rosters.",
+      "focus": "Stub focus \u2013 theorem-tier balancing will be added alongside enemy rosters.",
       "example": "Nash equilibrium marks strategy profiles where no player benefits from unilateral deviation."
     },
     {
@@ -767,39 +405,39 @@
       "id": "Theorem - 24",
       "title": "Riesz Parallax",
       "path": "Dual parabolic arches sharing intercepts; projection ghosts mirror the lead enemy unless frozen in tandem.",
-      "focus": "Stub focus – theorem-tier balancing will be added alongside enemy rosters.",
+      "focus": "Stub focus \u2013 theorem-tier balancing will be added alongside enemy rosters.",
       "example": "Riesz representation theorem identifies continuous linear functionals with measures."
     },
     {
       "set": "Theorem",
       "id": "Theorem - 25",
-      "title": "Poincaré Bloom",
+      "title": "Poincar\u00e9 Bloom",
       "path": "Hypersphere cross-section with teleport seams; flarebitters detonate when they contact the seams.",
-      "focus": "Stub focus – theorem-tier balancing will be added alongside enemy rosters.",
-      "example": "Poincaré conjecture states that any simply connected closed 3-manifold is homeomorphic to the 3-sphere."
+      "focus": "Stub focus \u2013 theorem-tier balancing will be added alongside enemy rosters.",
+      "example": "Poincar\u00e9 conjecture states that any simply connected closed 3-manifold is homeomorphic to the 3-sphere."
     },
     {
       "set": "Axiom",
       "id": "Axiom - 26",
       "title": "Zorn Horizon",
       "path": "Infinite-descending plateau where gravity reverses; maximal chain wardens swell until omega strikes topple them.",
-      "focus": "Stub focus – axiom-tier encounters will be scripted once late-game math is locked.",
+      "focus": "Stub focus \u2013 axiom-tier encounters will be scripted once late-game math is locked.",
       "example": "Zorn's Lemma ensures partially ordered sets with chain upper bounds contain maximal elements."
     },
     {
       "set": "Axiom",
       "id": "Axiom - 27",
-      "title": "Löwenheim Gate",
+      "title": "L\u00f6wenheim Gate",
       "path": "Quantifier gates that rescale enemy size; shrinking glyphs slip through gaps unless sigma snares hold them.",
-      "focus": "Stub focus – axiom-tier encounters will be scripted once late-game math is locked.",
-      "example": "Löwenheim–Skolem theorem guarantees countable models for any first-order theory with an infinite model."
+      "focus": "Stub focus \u2013 axiom-tier encounters will be scripted once late-game math is locked.",
+      "example": "L\u00f6wenheim\u2013Skolem theorem guarantees countable models for any first-order theory with an infinite model."
     },
     {
       "set": "Axiom",
       "id": "Axiom - 28",
       "title": "Grothendieck Loom",
       "path": "Category lattice weaving incoming paths; functor heralds copy the highest-tier tower stats once per wave.",
-      "focus": "Stub focus – axiom-tier encounters will be scripted once late-game math is locked.",
+      "focus": "Stub focus \u2013 axiom-tier encounters will be scripted once late-game math is locked.",
       "example": "Grothendieck topoi generalize spaces via sheaves and geometric morphisms."
     },
     {
@@ -807,7 +445,7 @@
       "id": "Axiom - 29",
       "title": "Tarski Reflection",
       "path": "Mirror arena with delayed reflections; spectral doubles retrace steps with inverted resistances.",
-      "focus": "Stub focus – axiom-tier encounters will be scripted once late-game math is locked.",
+      "focus": "Stub focus \u2013 axiom-tier encounters will be scripted once late-game math is locked.",
       "example": "Tarski's fixed point theorem ensures monotone functions on complete lattices admit fixed points."
     },
     {
@@ -815,14 +453,14 @@
       "id": "Axiom - 30",
       "title": "Peano Genesis",
       "path": "Final spiral built from recursive integers; successor titans rebuild lost segments unless powderfall seals flare.",
-      "focus": "Stub focus – axiom-tier encounters will be scripted once late-game math is locked.",
+      "focus": "Stub focus \u2013 axiom-tier encounters will be scripted once late-game math is locked.",
       "example": "Peano axioms characterize the natural numbers through zero and a successor function."
     },
     {
       "set": "Developer",
       "id": "Developer - Test Range",
       "title": "Endless Codex Trials",
-      "path": "Developer-only training lattice—direct path reveals every glyph as it approaches.",
+      "path": "Developer-only training lattice\u2014direct path reveals every glyph as it approaches.",
       "focus": "Spawn one exemplar of every enemy archetype to validate balancing and visuals.",
       "example": "Developer Sandbox: Toggle endless codex trials to rehearse each glyph in slow motion.",
       "developerOnly": true,
@@ -1068,7 +706,7 @@
       "lives": 100,
       "waves": [
         {
-          "label": "ζ scouts",
+          "label": "\u03b6 scouts",
           "count": 8,
           "interval": 1.4,
           "hp": 150,
@@ -2467,7 +2105,7 @@
     },
     {
       "id": "Lemma - 13",
-      "displayName": "Erdős Drift",
+      "displayName": "Erd\u0151s Drift",
       "startThero": 55,
       "theroCap": 1880,
       "theroPerKill": 80,
@@ -2475,7 +2113,7 @@
       "lives": 100,
       "waves": [
         {
-          "label": "erdős drift placeholders",
+          "label": "erd\u0151s drift placeholders",
           "count": 8,
           "interval": 1.5,
           "hp": 320,
@@ -2529,7 +2167,7 @@
     },
     {
       "id": "Lemma - 14",
-      "displayName": "Möbius Rind",
+      "displayName": "M\u00f6bius Rind",
       "startThero": 55,
       "theroCap": 2020,
       "theroPerKill": 85,
@@ -2537,7 +2175,7 @@
       "lives": 100,
       "waves": [
         {
-          "label": "möbius rind placeholders",
+          "label": "m\u00f6bius rind placeholders",
           "count": 9,
           "interval": 1.5,
           "hp": 380,
@@ -2715,7 +2353,7 @@
     },
     {
       "id": "Proof - 17",
-      "displayName": "Gödel Labyrinth",
+      "displayName": "G\u00f6del Labyrinth",
       "startThero": 60,
       "theroCap": 2440,
       "theroPerKill": 100,
@@ -2723,7 +2361,7 @@
       "lives": 100,
       "waves": [
         {
-          "label": "gödel labyrinth placeholders",
+          "label": "g\u00f6del labyrinth placeholders",
           "count": 12,
           "interval": 1.5,
           "hp": 560,
@@ -3211,7 +2849,7 @@
     },
     {
       "id": "Theorem - 25",
-      "displayName": "Poincaré Bloom",
+      "displayName": "Poincar\u00e9 Bloom",
       "startThero": 65,
       "theroCap": 3560,
       "theroPerKill": 140,
@@ -3219,7 +2857,7 @@
       "lives": 100,
       "waves": [
         {
-          "label": "poincaré bloom placeholders",
+          "label": "poincar\u00e9 bloom placeholders",
           "count": 20,
           "interval": 1.5,
           "hp": 1040,
@@ -3335,7 +2973,7 @@
     },
     {
       "id": "Axiom - 27",
-      "displayName": "Löwenheim Gate",
+      "displayName": "L\u00f6wenheim Gate",
       "startThero": 70,
       "theroCap": 3840,
       "theroPerKill": 150,
@@ -3343,7 +2981,7 @@
       "lives": 100,
       "waves": [
         {
-          "label": "löwenheim gate placeholders",
+          "label": "l\u00f6wenheim gate placeholders",
           "count": 22,
           "interval": 1.5,
           "hp": 1160,
