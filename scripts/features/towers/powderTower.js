@@ -977,6 +977,7 @@ export class PowderSimulation {
     }
 
     this.convertIdleBank(delta);
+    this.advanceSpawnTimer(delta); // Continuously queue natural mote drops so the basin never starves between enemy events.
 
     const spawnBudget = Math.max(1, Math.ceil(delta / 12));
     this.spawnPendingDrops(spawnBudget);
@@ -1006,6 +1007,39 @@ export class PowderSimulation {
     }
     this.idleBank = Math.max(0, this.idleBank - toQueue);
     return toQueue;
+  }
+
+  advanceSpawnTimer(delta) {
+    // Advance the ambient spawn clock so motes trickle into the basin even without combat drops.
+    if (!Number.isFinite(delta) || delta <= 0) {
+      return 0;
+    }
+    this.spawnTimer += delta;
+
+    const interval = Math.max(16, this.getSpawnInterval());
+    if (interval <= 0) {
+      this.spawnTimer = 0;
+      return 0;
+    }
+
+    const capacity = Math.max(0, this.maxGrains - this.grains.length - this.pendingDrops.length);
+    if (capacity <= 0) {
+      this.spawnTimer = Math.min(this.spawnTimer, interval);
+      return 0;
+    }
+
+    let spawned = 0;
+    while (this.spawnTimer >= interval && spawned < capacity) {
+      this.spawnTimer -= interval;
+      this.pendingDrops.push({ size: this.chooseGrainSize() }); // Seed natural motes using the weighted grain distribution.
+      spawned += 1;
+    }
+
+    if (spawned >= capacity) {
+      this.spawnTimer = Math.min(this.spawnTimer, interval);
+    }
+
+    return spawned;
   }
 
   spawnPendingDrops(limit = 1) {
