@@ -2021,7 +2021,7 @@ import {
           sandSimulation = new PowderSimulation({
             canvas: powderElements.simulationCanvas,
             cellSize: POWDER_CELL_SIZE_PX,
-            grainSizes: [1, 2, 3],
+            grainSizes: [1], // Keep the sandfall motes uniform while preserving external drop sizing.
             scrollThreshold: 0.75,
             wallInsetLeft: leftInset,
             wallInsetRight: rightInset,
