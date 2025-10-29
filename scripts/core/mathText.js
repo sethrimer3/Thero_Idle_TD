@@ -13,6 +13,13 @@ export const MATH_SYMBOL_REGEX = /[\\^_=+\-*{}]|[0-9]|[×÷±√∞∑∏∆∇�
  * Sends a DOM element through MathJax so TeX expressions render elegantly.
  * @param {HTMLElement|null} element Element that potentially contains TeX text.
  */
+// Track render attempts so we can safely retry once MathJax initialises on slower devices.
+const mathElementRenderAttempts = new WeakMap();
+// Cap retries to avoid runaway timers if MathJax fails to load entirely.
+const MAX_MATH_RENDER_ATTEMPTS = 10;
+// Small delay between retries gives MathJax time to attach its typeset helpers.
+const MATH_RENDER_RETRY_DELAY_MS = 80;
+
 export function renderMathElement(element) {
   if (!element) {
     return;
@@ -25,10 +32,20 @@ export function renderMathElement(element) {
 
   const typeset = () => {
     if (typeof mathJax.typesetPromise === 'function') {
+      mathElementRenderAttempts.delete(element);
       mathJax.typesetPromise([element]).catch((error) => {
         console.warn('MathJax typeset failed', error);
       });
+      return;
     }
+
+    // Defer rendering until MathJax attaches its typesetting helpers during load.
+    const attempt = (mathElementRenderAttempts.get(element) || 0) + 1;
+    if (attempt > MAX_MATH_RENDER_ATTEMPTS) {
+      return;
+    }
+    mathElementRenderAttempts.set(element, attempt);
+    setTimeout(() => typeset(), MATH_RENDER_RETRY_DELAY_MS);
   };
 
   if (mathJax.startup && mathJax.startup.promise) {
