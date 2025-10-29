@@ -1766,6 +1766,8 @@ import {
     viewInteraction: null,
     // Cache the latest camera transform so overlays sync even before the simulation emits.
     viewTransform: null,
+    // Preserve serialized simulation payloads until the active basin is ready to restore them.
+    loadedSimulationState: null,
   };
 
   let currentPowderBonuses = {
@@ -1815,6 +1817,184 @@ import {
     rightHitbox: null,
     modeToggle: null,
   };
+
+  // Clamp arbitrary numeric input so persistence never records NaN or Infinity.
+  function clampFiniteNumber(value, fallback = 0) {
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  // Normalize integer values for storage while enforcing deterministic rounding.
+  function clampFiniteInteger(value, fallback = 0) {
+    return Number.isFinite(value) ? Math.round(value) : fallback;
+  }
+
+  // Copy a single mote drop payload into a storage-safe representation.
+  function cloneStoredMoteDrop(drop) {
+    if (!drop) {
+      return null;
+    }
+    if (typeof drop === 'object') {
+      const size = Math.max(1, clampFiniteInteger(drop.size, 1));
+      if (!Number.isFinite(size) || size <= 0) {
+        return null;
+      }
+      const payload = { size };
+      if (drop.color && typeof drop.color === 'object') {
+        const { r, g, b } = drop.color;
+        if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
+          payload.color = {
+            r: Math.max(0, Math.min(255, Math.round(r))),
+            g: Math.max(0, Math.min(255, Math.round(g))),
+            b: Math.max(0, Math.min(255, Math.round(b))),
+          };
+        }
+      }
+      return payload;
+    }
+    if (Number.isFinite(drop)) {
+      return { size: Math.max(1, Math.round(drop)) };
+    }
+    return null;
+  }
+
+  // Compose a basin snapshot so autosave can persist mote placement and climb progress.
+  function getPowderBasinSnapshot() {
+    const pendingDrops = Array.isArray(powderState.pendingMoteDrops)
+      ? powderState.pendingMoteDrops.map(cloneStoredMoteDrop).filter(Boolean)
+      : [];
+    const palette = mergeMotePalette(powderState.motePalette);
+
+    const liveTransform =
+      (powderSimulation && typeof powderSimulation.getViewTransform === 'function'
+        ? powderSimulation.getViewTransform()
+        : null) || powderState.viewTransform;
+    let viewTransform = null;
+    if (liveTransform && typeof liveTransform === 'object') {
+      const normalizedCenter = liveTransform.normalizedCenter || liveTransform.normalized || {};
+      viewTransform = {
+        scale: Math.max(0.1, clampFiniteNumber(liveTransform.scale, 1)),
+        normalizedCenter: {
+          x: clampFiniteNumber(normalizedCenter.x ?? 0.5, 0.5),
+          y: clampFiniteNumber(normalizedCenter.y ?? 0.5, 0.5),
+        },
+      };
+    }
+
+    const liveStatus =
+      powderSimulation && typeof powderSimulation.getStatus === 'function'
+        ? powderSimulation.getStatus()
+        : null;
+    const fallbackStatus =
+      powderState.loadedSimulationState && typeof powderState.loadedSimulationState === 'object'
+        ? powderState.loadedSimulationState.heightInfo
+        : null;
+    const status = liveStatus || fallbackStatus || null;
+
+    const simulationSnapshot =
+      powderSimulation && typeof powderSimulation.exportState === 'function'
+        ? powderSimulation.exportState()
+        : powderState.loadedSimulationState && typeof powderState.loadedSimulationState === 'object'
+          ? powderState.loadedSimulationState
+          : null;
+
+    const powderSnapshot = {
+      sandOffset: Math.max(0, clampFiniteNumber(powderState.sandOffset, powderConfig.sandOffsetActive)),
+      duneHeight: Math.max(powderConfig.duneHeightBase, clampFiniteInteger(powderState.duneHeight, powderConfig.duneHeightBase)),
+      charges: Math.max(0, clampFiniteInteger(powderState.charges, 0)),
+      simulatedDuneGain: Math.max(0, clampFiniteNumber(powderState.simulatedDuneGain, 0)),
+      wallGlyphsLit: Math.max(0, clampFiniteInteger(powderState.wallGlyphsLit, 0)),
+      glyphsAwarded: Math.max(0, clampFiniteInteger(powderState.glyphsAwarded, 0)),
+      idleMoteBank: Math.max(0, clampFiniteNumber(powderState.idleMoteBank, 0)),
+      idleDrainRate: Math.max(0, clampFiniteNumber(powderState.idleDrainRate, 0)),
+      pendingMoteDrops,
+      motePalette: palette,
+      simulationMode: powderState.simulationMode === 'fluid' ? 'fluid' : 'sand',
+      wallGapTarget: Number.isFinite(powderState.wallGapTarget)
+        ? Math.max(1, Math.round(powderState.wallGapTarget))
+        : null,
+      fluidUnlocked: !!powderState.fluidUnlocked,
+      viewTransform,
+      heightInfo: status
+        ? {
+            normalizedHeight: clampFiniteNumber(status.normalizedHeight, 0),
+            duneGain: clampFiniteNumber(status.duneGain, 0),
+            totalHeight: Math.max(0, clampFiniteInteger(status.totalHeight ?? 0, 0)),
+            highestNormalized: clampFiniteNumber(status.highestNormalized ?? status.totalNormalized ?? 0, 0),
+          }
+        : null,
+    };
+
+    return {
+      powder: powderSnapshot,
+      simulation: simulationSnapshot,
+    };
+  }
+
+  // Merge a stored basin snapshot back into runtime state during load or resume flows.
+  function applyPowderBasinSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') {
+      return;
+    }
+    const base = snapshot.powder || snapshot.state || null;
+    if (base && typeof base === 'object') {
+      if (Number.isFinite(base.sandOffset)) {
+        powderState.sandOffset = Math.max(0, base.sandOffset);
+      }
+      if (Number.isFinite(base.duneHeight)) {
+        powderState.duneHeight = Math.max(powderConfig.duneHeightBase, Math.round(base.duneHeight));
+      }
+      if (Number.isFinite(base.charges)) {
+        powderState.charges = Math.max(0, Math.round(base.charges));
+      }
+      if (Number.isFinite(base.simulatedDuneGain)) {
+        powderState.simulatedDuneGain = Math.max(0, base.simulatedDuneGain);
+      }
+      if (Number.isFinite(base.wallGlyphsLit)) {
+        powderState.wallGlyphsLit = Math.max(0, Math.round(base.wallGlyphsLit));
+      }
+      if (Number.isFinite(base.glyphsAwarded)) {
+        powderState.glyphsAwarded = Math.max(0, Math.round(base.glyphsAwarded));
+      }
+      if (Number.isFinite(base.idleMoteBank)) {
+        powderState.idleMoteBank = Math.max(0, base.idleMoteBank);
+      }
+      if (Number.isFinite(base.idleDrainRate)) {
+        powderState.idleDrainRate = Math.max(0, base.idleDrainRate);
+      }
+      if (Array.isArray(base.pendingMoteDrops)) {
+        powderState.pendingMoteDrops = base.pendingMoteDrops.map(cloneStoredMoteDrop).filter(Boolean);
+      } else {
+        powderState.pendingMoteDrops = [];
+      }
+      if (base.motePalette) {
+        powderState.motePalette = mergeMotePalette(base.motePalette);
+      }
+      if (typeof base.simulationMode === 'string') {
+        powderState.simulationMode = base.simulationMode === 'fluid' ? 'fluid' : 'sand';
+      }
+      if (Number.isFinite(base.wallGapTarget) && base.wallGapTarget > 0) {
+        powderState.wallGapTarget = Math.max(1, Math.round(base.wallGapTarget));
+      }
+      powderState.fluidUnlocked = !!base.fluidUnlocked;
+      if (base.viewTransform && typeof base.viewTransform === 'object') {
+        const center = base.viewTransform.normalizedCenter || {};
+        powderState.viewTransform = {
+          scale: Math.max(0.1, clampFiniteNumber(base.viewTransform.scale, 1)),
+          normalizedCenter: {
+            x: clampFiniteNumber(center.x ?? 0.5, 0.5),
+            y: clampFiniteNumber(center.y ?? 0.5, 0.5),
+          },
+        };
+      }
+      if (base.heightInfo && typeof base.heightInfo === 'object' && Number.isFinite(base.heightInfo.duneGain)) {
+        powderState.simulatedDuneGain = Math.max(0, base.heightInfo.duneGain);
+      }
+    }
+    const simulationState = snapshot.simulation || snapshot.loadedSimulationState || null;
+    if (simulationState && typeof simulationState === 'object') {
+      powderState.loadedSimulationState = simulationState;
+    }
+  }
 
   // Refresh the mote gem inventory card so collected crystals mirror the latest drop ledger.
   function updateMoteGemInventoryDisplay() {
@@ -2370,6 +2550,7 @@ import {
           skipRebuild: true,
         });
         powderSimulation.handleResize();
+        applyLoadedPowderSimulationState(powderSimulation);
         flushPendingMoteDrops();
         powderSimulation.start();
         initializePowderViewInteraction();
@@ -2420,6 +2601,7 @@ import {
           skipRebuild: true,
         });
         powderSimulation.handleResize();
+        applyLoadedPowderSimulationState(powderSimulation);
         flushPendingMoteDrops();
         powderSimulation.start();
         initializePowderViewInteraction();
@@ -2473,6 +2655,8 @@ import {
       powderCurrency = value;
       updatePowderStockpileDisplay();
     },
+    getPowderBasinSnapshot,
+    applyPowderBasinSnapshot,
     applyStoredAudioSettings,
     syncAudioControlsFromManager,
     applyNotationPreference,
@@ -2541,7 +2725,18 @@ import {
     if (!simulation) {
       return;
     }
-    if (Array.isArray(simulation.pendingDrops) && simulation.pendingDrops.length) {
+    let snapshotCaptured = false;
+    if (typeof simulation.exportState === 'function') {
+      const snapshot = simulation.exportState();
+      if (snapshot && typeof snapshot === 'object') {
+        powderState.loadedSimulationState = snapshot;
+        snapshotCaptured = true;
+        if (Array.isArray(powderState.pendingMoteDrops)) {
+          powderState.pendingMoteDrops.length = 0;
+        }
+      }
+    }
+    if (!snapshotCaptured && Array.isArray(simulation.pendingDrops) && simulation.pendingDrops.length) {
       simulation.pendingDrops.forEach((drop) => {
         const sizeValue = Number.isFinite(drop?.size) ? drop.size : drop;
         if (!Number.isFinite(sizeValue)) {
@@ -2561,6 +2756,31 @@ import {
     }
     if (typeof simulation.getEffectiveMotePalette === 'function') {
       powderState.motePalette = simulation.getEffectiveMotePalette();
+    }
+  }
+
+  // Restore a serialized sand simulation once the canvas has been configured.
+  function applyLoadedPowderSimulationState(simulation) {
+    if (!simulation || typeof simulation.importState !== 'function') {
+      return;
+    }
+    const snapshot = powderState.loadedSimulationState;
+    if (!snapshot || typeof snapshot !== 'object') {
+      return;
+    }
+    const applied = simulation.importState(snapshot);
+    if (!applied) {
+      return;
+    }
+    powderState.loadedSimulationState = null;
+    powderState.idleMoteBank = Math.max(
+      0,
+      Number.isFinite(snapshot.idleBank) ? snapshot.idleBank : simulation.idleBank || 0,
+    );
+    powderState.idleDrainRate = simulation.idleDrainRate;
+    powderState.motePalette = simulation.getEffectiveMotePalette();
+    if (Array.isArray(powderState.pendingMoteDrops)) {
+      powderState.pendingMoteDrops.length = 0;
     }
   }
 
