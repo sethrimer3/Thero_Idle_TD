@@ -100,9 +100,9 @@ Each entry combines three beats: a flavorful formula, a combat mechanic, and a h
 
 | Letter Pair | Lowercase Formula & Core Behavior | Symbolic Parallel & Combat Quirk | Uppercase Prestige Mutation |
 | --- | --- | --- | --- |
-| Α / α | `α = Atk` channels a glyph-forged baseline where `Atk = 5·Glyph₁`. | Alpha launches the first strike with calibratable pulses. | **Α** channels the same glyph surge and layers a bonus burst whenever Glyph₁ levels up. |
-| Β / β | `β = α^{Exp}` channels α into an exponent beam. | Beta feeds on α's output, focusing it into piercing light. | **Β** locks the exponent and adds a mirrored return beam after each shot. |
-| Γ / γ | `γ = √β` tempers beta resonance into homing arcs. | Gamma softens β into agile lightning conductors. | **Γ** preserves the root pulse and fires an aftershock equal to 25% of the rooted damage. |
+| Α / α | `α = Atk` channels a glyph-forged baseline where `Atk = 5·Ψ₁`. | Alpha launches the first strike with calibratable pulses. | **Α** channels the same glyph surge and layers a bonus burst whenever Ψ₁ levels up. |
+| Β / β | `β : Atk = α, Rng = Ψ₁` braids α's force with the opening glyph tier. | Beta mirrors α's attack while extending its reach by the first Ψ lattice. | **Β** keeps the mirrored strike and folds the Ψ₁ reach into a reflected beam on return. |
+| Γ / γ | `γ : Atk = β, Spd = Ψ₁, Rng = Ψ₂, Prc = Ψ₃` orchestrates layered glyph pacing. | Gamma inherits β's bite, attacks at Ψ₁ tempo, ranges by Ψ₂, and pierces through Ψ₃ strata. | **Γ** maintains the full glyph cadence and adds an aftershock equal to 25% of the carried Ψ throughput. |
 | Δ / δ | `δ = γ · ln(γ + 1)` summons cohorts scaled by γ alone. | Delta embodies change, commanding glyph soldiers from pure γ strength while `Tot` governs how many specters rally at once. | **Δ** keeps the logarithmic command and leaves a slowing field keyed to the same γ value. |
 | Ε / ε | `ε = δ^{2}` squares delta into needle storms. | Epsilon erupts when δ squads collide, doubling their force. | **Ε** sustains the squared storm and freezes enemy armor at the lowest sampled value for three seconds. |
 | Ζ / ζ | `ζ = √ε` roots the needle storm into harmonic splash. | Zeta reshapes ε's frenzy into controlled cascades. | **Ζ** reflects the rooted splash as a harmonic echo every fourth shot. |

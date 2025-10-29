@@ -7,12 +7,6 @@ import {
 } from '../scripts/core/mathText.js';
 import { tokenizeEquationParts } from '../scripts/core/mathTokens.js';
 import {
-  clampBetaExponent,
-  calculateBetaAttack,
-  calculateBetaAttackSpeed,
-  calculateBetaRange,
-} from '../scripts/features/towers/betaMath.js';
-import {
   formatGameNumber,
   formatWholeNumber,
   formatDecimal,
@@ -296,9 +290,15 @@ function updateLoadoutNote() {
   }
 }
 
-function resolveBetaExponent(towerId) {
-  const exponentValue = computeTowerVariableValue(towerId, 'exponent');
-  return clampBetaExponent(exponentValue);
+function getGlyphSubscriptRank(subscriptIndex = 1) {
+  const normalizedIndex = Number.isFinite(subscriptIndex)
+    ? Math.max(1, Math.floor(subscriptIndex))
+    : 1;
+  const alphaBlueprint = getTowerEquationBlueprint('alpha');
+  const alphaState = ensureTowerUpgradeState('alpha', alphaBlueprint);
+  const alphaLevel = alphaState?.variables?.atk?.level ?? 0;
+  const baseRank = Math.max(1, Number.isFinite(alphaLevel) ? alphaLevel + 1 : 1);
+  return baseRank + (normalizedIndex - 1);
 }
 
 const TOWER_EQUATION_BLUEPRINTS = {
@@ -316,13 +316,11 @@ const TOWER_EQUATION_BLUEPRINTS = {
         upgradable: true,
         format: (value) => `${formatWholeNumber(value)} Atk`,
         cost: (level) => Math.max(1, 1 + level),
-        getSubEquations({ level, value }) {
-          const glyphRank = Math.max(1, Number.isFinite(level) ? level + 1 : 1);
-          const attackValue = formatWholeNumber(Number.isFinite(value) ? value : 0);
-          return [
-            `\\( Atk = 5 \\times Glyph_{1} = 5 \\times ${formatWholeNumber(glyphRank)} = ${attackValue} \\)`,
-          ];
-        },
+      getSubEquations({ level, value }) {
+        const glyphRank = Math.max(1, Number.isFinite(level) ? level + 1 : 1);
+        const attackValue = formatWholeNumber(Number.isFinite(value) ? value : 0);
+        return [`\\( Atk = 5 \\times \\Psi_{1} = 5 \\times ${formatWholeNumber(glyphRank)} = ${attackValue} \\)`];
+      },
       },
     ],
     computeResult(values) {
@@ -335,105 +333,102 @@ const TOWER_EQUATION_BLUEPRINTS = {
   },
   beta: {
     mathSymbol: '\\beta',
-    baseEquation: '\\( \\beta = \\alpha^{Exp} \\)',
+    baseEquation: '\\( \\beta : Atk = \\alpha, Rng = \\Psi_{1} \\)',
     variables: [
       {
-        key: 'exponent',
-        symbol: 'Exp',
-        name: 'Exponent Harmonic',
-        description: 'Shapes how strongly β amplifies the inherited α flux.',
-        baseValue: 1,
-        step: 1,
-        upgradable: true,
-        format: (value) => formatWholeNumber(value),
-        cost: (level) => Math.max(1, 2 + level),
-      },
-      {
-        key: 'alpha',
-        symbol: 'α',
-        name: 'Alpha Flux',
-        description: 'Total energy ferried forward from α lattices.',
+        key: 'attack',
+        symbol: 'Atk',
+        name: 'Attack',
+        description: 'Direct strike power mirrored from α.',
         reference: 'alpha',
         upgradable: false,
-        lockedNote: 'Upgrade α to amplify this feed.',
-        format: (value) => formatDecimal(value, 2),
-      },
-      {
-        key: 'attackPower',
-        symbol: 'A',
-        name: 'Attack Power',
-        description: 'Damage per beam pulse drawn from α^{X}.',
-        upgradable: false,
-        lockedNote: 'Scales with α and exponent upgrades.',
+        lockedNote: 'Strengthens exactly as α does.',
         format: (value) => `${formatGameNumber(value)} attack`,
-        getBase: ({ towerId }) => {
-          // Pull the latest α total so the chained Beta stats stay in sync with upstream upgrades.
-          const alphaResult = calculateTowerEquationResult('alpha');
-          return calculateBetaAttack(resolveBetaExponent(towerId), alphaResult);
-        },
-      },
-      {
-        key: 'attackSpeed',
-        symbol: 'ν',
-        name: 'Beam Tempo',
-        description: 'Attacks per second after tempering α through the exponent.',
-        upgradable: false,
-        lockedNote: 'Slows as α and X surge together.',
-        format: (value) => `${formatDecimal(value, 2)} attacks/sec`,
-        getBase: ({ towerId }) => {
-          // Reuse the same α pull so tempo reflects the chained relationship.
-          const alphaResult = calculateTowerEquationResult('alpha');
-          return calculateBetaAttackSpeed(resolveBetaExponent(towerId), alphaResult);
-        },
       },
       {
         key: 'range',
-        symbol: 'Λ',
-        name: 'Beam Range',
-        description: 'Effective reach stretched logarithmically from α.',
+        symbol: 'Ψ₁',
+        name: 'Range',
+        description: 'Baseline reach anchored to the first glyph tier.',
         upgradable: false,
-        lockedNote: 'Extends gently with stronger α lattices.',
-        format: (value) => `${formatDecimal(value, 2)} range`,
-        getBase: ({ towerId }) => {
-          // Apply the chained α input so range bloom mirrors upstream growth.
-          const alphaResult = calculateTowerEquationResult('alpha');
-          return calculateBetaRange(resolveBetaExponent(towerId), alphaResult);
+        format: (value) => `${formatWholeNumber(value)} range`,
+        getBase: () => getGlyphSubscriptRank(1),
+        getSubEquations() {
+          const glyphRank = getGlyphSubscriptRank(1);
+          return [`\\( \\Psi_{1} = ${formatWholeNumber(glyphRank)} \\)`];
         },
       },
     ],
     computeResult(values) {
-      const exponent = clampBetaExponent(values.exponent);
-      const alphaValue = Math.max(0, Number.isFinite(values.alpha) ? values.alpha : 0);
-      if (alphaValue <= 0) {
-        return 0;
-      }
-      return calculateBetaAttack(exponent, alphaValue);
+      const attack = Number.isFinite(values.attack) ? values.attack : 0;
+      return attack;
     },
-    formatGoldenEquation({ formatVariable, formatResult }) {
-      return `\\( ${formatResult()} = ${formatVariable('alpha')}^{${formatVariable('exponent')}} \\)`;
+    formatGoldenEquation({ formatVariable }) {
+      return `\\( \\beta : Atk = ${formatVariable('attack')}, Rng = ${formatVariable('range')} \\)`;
     },
   },
   gamma: {
     mathSymbol: '\\gamma',
-    baseEquation: '\\( \\gamma = \\sqrt{\\beta} \\)',
+    baseEquation: '\\( \\gamma : Atk = \\beta, Spd = \\Psi_{1}, Rng = \\Psi_{2}, Prc = \\Psi_{3} \\)',
     variables: [
       {
-        key: 'beta',
-        symbol: 'β',
-        name: 'Beta Resonance',
-        description: 'Channeled beam resonance inherited directly from β.',
+        key: 'attack',
+        symbol: 'Atk',
+        name: 'Attack',
+        description: 'Strike intensity carried forward from β.',
         reference: 'beta',
         upgradable: false,
-        lockedNote: 'Upgrade β to amplify this resonance.',
-        format: (value) => formatDecimal(value, 2),
+        lockedNote: 'Bolster β to amplify γ attack.',
+        format: (value) => `${formatGameNumber(value)} attack`,
+      },
+      {
+        key: 'attackSpeed',
+        symbol: 'Ψ₁',
+        name: 'Attack Speed',
+        description: 'Cadence keyed to the first glyph subscript.',
+        upgradable: false,
+        format: (value) => `${formatDecimal(value, 2)} attacks/sec`,
+        getBase: () => getGlyphSubscriptRank(1),
+        getSubEquations() {
+          const glyphRank = getGlyphSubscriptRank(1);
+          return [`\\( \\Psi_{1} = ${formatWholeNumber(glyphRank)} \\)`];
+        },
+      },
+      {
+        key: 'range',
+        symbol: 'Ψ₂',
+        name: 'Range',
+        description: 'Arc reach tethered to the second glyph subscript.',
+        upgradable: false,
+        format: (value) => `${formatWholeNumber(value)} range`,
+        getBase: () => getGlyphSubscriptRank(2),
+        getSubEquations() {
+          const glyphRank = getGlyphSubscriptRank(2);
+          return [`\\( \\Psi_{2} = ${formatWholeNumber(glyphRank)} \\)`];
+        },
+      },
+      {
+        key: 'pierce',
+        symbol: 'Ψ₃',
+        name: 'Pierce',
+        description: 'Piercing depth guided by the third glyph subscript.',
+        upgradable: false,
+        format: (value) => `${formatWholeNumber(value)} pierce`,
+        getBase: () => getGlyphSubscriptRank(3),
+        getSubEquations() {
+          const glyphRank = getGlyphSubscriptRank(3);
+          return [`\\( \\Psi_{3} = ${formatWholeNumber(glyphRank)} \\)`];
+        },
       },
     ],
     computeResult(values) {
-      const betaValue = Math.max(0, Number.isFinite(values.beta) ? values.beta : 0);
-      return Math.sqrt(betaValue);
+      const attack = Number.isFinite(values.attack) ? values.attack : 0;
+      return attack;
     },
-    formatGoldenEquation({ formatVariable, formatResult }) {
-      return `\\( ${formatResult()} = \\sqrt{${formatVariable('beta')}} \\)`;
+    formatGoldenEquation({ formatVariable }) {
+      return `\\( \\gamma : Atk = ${formatVariable('attack')}, Spd = ${formatVariable(
+        'attackSpeed'
+      )}, Rng = ${formatVariable('range')}, Prc = ${formatVariable('pierce')} \\)`;
     },
   },
   delta: {
