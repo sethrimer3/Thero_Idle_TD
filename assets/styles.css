@@ -70,6 +70,16 @@ body {
   justify-content: center;
 }
 
+/* Activate the gem cursor on desktop pointers without affecting touch targets. */
+body.mouse-cursor-gem {
+  cursor: url('./sprites/mouse_cursor.png') 4 2, auto;
+}
+
+/* Mirror the gem cursor on common interactive elements while respecting disabled states. */
+body.mouse-cursor-gem :is(button, a, [role='button']):not([disabled]):not([aria-disabled='true']) {
+  cursor: url('./sprites/mouse_cursor.png') 4 2, pointer;
+}
+
 button {
   position: relative;
   overflow: hidden;
@@ -2428,12 +2438,29 @@ body.graphics-mode-low .control-button {
 
 /* Render gem colors using HSL so hues can match the mote palette. */
 .powder-gem-inventory__swatch {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: hsl(var(--gem-hue, 210), var(--gem-saturation, 60%), var(--gem-lightness, 50%));
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.18);
+}
+
+/* Present gem sprites inside the inventory swatch without breaking the circular framing. */
+.powder-gem-inventory__swatch--sprite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: rgba(14, 18, 28, 0.68);
+}
+
+/* Ensure gem icons stay crisp while fitting within the swatch circle. */
+.powder-gem-inventory__sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: crisp-edges;
 }
 
 /* Highlight the gem quantity with the same mono font used in powder logs. */
@@ -3426,6 +3453,26 @@ body.graphics-mode-low .control-button {
   border-radius: 3px;
   background: var(--crafting-cost-swatch-color, rgba(247, 247, 245, 0.82));
   box-shadow: 0 0 0 1px rgba(14, 18, 28, 0.6), 0 0 6px rgba(247, 247, 245, 0.32);
+}
+
+/* Display gem sprites within crafting cost swatches while maintaining legibility. */
+.crafting-cost__swatch--sprite {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: rgba(14, 18, 28, 0.68);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 1px rgba(14, 18, 28, 0.6), 0 0 6px rgba(247, 247, 245, 0.32);
+}
+
+/* Keep crafting sprites sharp without stretching beyond the swatch bounds. */
+.crafting-cost__sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: crisp-edges;
 }
 
 /* Isolate the numeric amount so the owned count can remain secondary. */
