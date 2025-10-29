@@ -164,6 +164,12 @@ import {
   refreshCraftingRecipesDisplay,
 } from './crafting.js';
 import {
+  configureTabManager,
+  getActiveTabId,
+  initializeTabs,
+  setActiveTab,
+} from './uiTabManager.js';
+import {
   fetchJsonWithFallback,
   getEmbeddedGameplayConfig,
   loadGameplayConfigViaFetch,
@@ -647,17 +653,6 @@ import {
     return BASE_START_THERO * getStartingTheroMultiplier();
   }
 
-  let tabs = [];
-  let activeTabId = 'tower';
-  let panels = [];
-  function ensureTabCollections() {
-    if (!tabs.length) {
-      tabs = Array.from(document.querySelectorAll('.tab-button'));
-    }
-    if (!panels.length) {
-      panels = Array.from(document.querySelectorAll('.panel'));
-    }
-  }
   let levelGrid = null;
   let activeLevelEl = null;
   let leaveLevelBtn = null;
@@ -712,7 +707,6 @@ import {
   const overlayInstructionDefault = 'Tap to enter';
   let activeLevelId = null;
   let pendingLevel = null;
-  let activeTabIndex = 0;
   let lastLevelTrigger = null;
   let expandedLevelSet = null;
 
@@ -1392,7 +1386,7 @@ import {
   }
 
   function determineMusicKey() {
-    const tab = activeTabId || 'tower';
+    const tab = getActiveTabId() || 'tower';
     if (tab === 'tower') {
       const interactive = Boolean(
         playfield &&
@@ -2317,120 +2311,7 @@ import {
     updateLevelCards();
   }
 
-  const tabHotkeys = new Map([
-    ['1', 'tower'],
-    ['2', 'towers'],
-    ['3', 'powder'],
-    ['4', 'achievements'],
-    ['5', 'options'],
-  ]);
-
-  function isTextInput(element) {
-    if (!element) return false;
-    const tagName = element.tagName ? element.tagName.toLowerCase() : '';
-    return (
-      element.isContentEditable ||
-      tagName === 'input' ||
-      tagName === 'textarea' ||
-      tagName === 'select'
-    );
-  }
-
-  function setActiveTab(target) {
-    ensureTabCollections();
-
-    if (!tabs.length || !panels.length) {
-      const allTabs = Array.from(document.querySelectorAll('.tab-button'));
-      const allPanels = Array.from(document.querySelectorAll('.panel'));
-
-      allTabs.forEach((tab, index) => {
-        const isActive = tab.dataset.tab === target;
-        tab.classList.toggle('active', isActive);
-        tab.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
-        tab.setAttribute('tabindex', isActive ? '0' : '-1');
-        if (isActive) {
-          activeTabIndex = index;
-        }
-      });
-
-      allPanels.forEach((panel) => {
-        const isActive = panel.dataset.panel === target;
-        panel.classList.toggle('active', isActive);
-        panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
-        if (isActive) {
-          panel.removeAttribute('hidden');
-        } else {
-          panel.setAttribute('hidden', '');
-        }
-      });
-
-      if (!tabs.length) {
-        tabs = allTabs;
-      }
-      if (!panels.length) {
-        panels = allPanels;
-      }
-
-      const activeTab = allTabs.find((tab) => tab.classList.contains('active'));
-      if (activeTab) {
-        activeTabId = activeTab.dataset.tab || activeTabId;
-        refreshTabMusic();
-      }
-
-      return;
-    }
-
-    let matchedTab = false;
-
-    tabs.forEach((tab, index) => {
-      const isActive = tab.dataset.tab === target;
-      if (isActive) {
-        tab.classList.add('active');
-        tab.setAttribute('aria-pressed', 'true');
-        tab.setAttribute('aria-selected', 'true');
-        tab.setAttribute('tabindex', '0');
-        activeTabIndex = index;
-        matchedTab = true;
-      } else {
-        tab.classList.remove('active');
-        tab.setAttribute('aria-pressed', 'false');
-        tab.setAttribute('aria-selected', 'false');
-        tab.setAttribute('tabindex', '-1');
-      }
-    });
-
-    panels.forEach((panel) => {
-      const isActive = panel.dataset.panel === target;
-      if (isActive) {
-        panel.classList.add('active');
-        panel.setAttribute('aria-hidden', 'false');
-        panel.removeAttribute('hidden');
-      } else {
-        panel.classList.remove('active');
-        panel.setAttribute('aria-hidden', 'true');
-        panel.setAttribute('hidden', '');
-      }
-    });
-
-    if (matchedTab && target === 'tower') {
-      updateActiveLevelBanner();
-    }
-
-    if (matchedTab) {
-      activeTabId = target;
-      refreshTabMusic();
-    }
-  }
-
-  function focusAndActivateTab(index) {
-    if (!tabs.length) return;
-    const normalizedIndex = ((index % tabs.length) + tabs.length) % tabs.length;
-    const targetTab = tabs[normalizedIndex];
-    if (!targetTab) return;
-    setActiveTab(targetTab.dataset.tab);
-    targetTab.focus();
-  }
+  
 
   function collapseLevelSet(element, { focusTrigger = false } = {}) {
     if (!element) {
@@ -4200,90 +4081,7 @@ import {
     activeLevelEl.textContent = `${level.id} · ${level.title} (${descriptor})`;
   }
 
-  document.addEventListener('keydown', (event) => {
-    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
-    if (!tabs.length) return;
-    if (overlay && overlay.classList.contains('active')) return;
-    if (isFieldNotesOverlayVisible()) return;
-    if (isTextInput(event.target)) return;
-
-    const direction = event.key === 'ArrowRight' ? 1 : -1;
-    event.preventDefault();
-    focusAndActivateTab(activeTabIndex + direction);
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (!tabs.length) return;
-    if (overlay && overlay.classList.contains('active')) return;
-    if (isFieldNotesOverlayVisible()) return;
-    if (isTextInput(event.target)) return;
-
-    const targetTabId = tabHotkeys.get(event.key);
-    if (!targetTabId) return;
-
-    event.preventDefault();
-    setActiveTab(targetTabId);
-    if (audioManager) {
-      audioManager.playSfx('menuSelect');
-    }
-    const tabToFocus = tabs.find((tab) => tab.dataset.tab === targetTabId);
-    if (tabToFocus) {
-      tabToFocus.focus();
-    }
-  });
-
-  function initializeTabs() {
-    tabs = Array.from(document.querySelectorAll('.tab-button'));
-    panels = Array.from(document.querySelectorAll('.panel'));
-
-    if (!tabs.length || !panels.length) {
-      return;
-    }
-
-    const existingActiveIndex = tabs.findIndex((tab) => tab.classList.contains('active'));
-    activeTabIndex = existingActiveIndex >= 0 ? existingActiveIndex : 0;
-
-    tabs.forEach((tab, index) => {
-      if (!tab.getAttribute('type')) {
-        tab.setAttribute('type', 'button');
-      }
-
-      tab.addEventListener('click', () => {
-        const target = tab.dataset.tab;
-        if (!target) {
-          return;
-        }
-        setActiveTab(target);
-        if (audioManager) {
-          audioManager.playSfx('menuSelect');
-        }
-        tab.focus();
-      });
-
-      tab.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          if (audioManager) {
-            audioManager.playSfx('menuSelect');
-          }
-          focusAndActivateTab(index);
-        }
-      });
-    });
-
-    panels.forEach((panel) => {
-      const isActive = panel.classList.contains('active');
-      panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
-      if (!isActive) {
-        panel.setAttribute('hidden', '');
-      }
-    });
-
-    const initialTab = tabs[activeTabIndex];
-    if (initialTab) {
-      setActiveTab(initialTab.dataset.tab);
-    }
-  }
+  
 
   function bindOverlayEvents() {
     if (!overlay) return;
@@ -5931,6 +5729,23 @@ import {
     setRenderUpgradeMatrixCallback(renderUpgradeMatrix);
 
     bindTowerUpgradeOverlay();
+
+    // Synchronize tab interactions with overlay state, audio cues, and banner refreshes.
+    configureTabManager({
+      getOverlayActiveState: () => Boolean(overlay && overlay.classList.contains('active')), 
+      isFieldNotesOverlayVisible,
+      onTabChange: () => {
+        refreshTabMusic();
+      },
+      onTowerTabActivated: () => {
+        updateActiveLevelBanner();
+      },
+      playTabSelectSfx: () => {
+        if (audioManager) {
+          audioManager.playSfx('menuSelect');
+        }
+      },
+    });
 
     initializeTabs();
     initializeFieldNotesOverlay();
