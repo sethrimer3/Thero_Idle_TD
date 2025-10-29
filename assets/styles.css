@@ -3844,8 +3844,16 @@ body.graphics-mode-low .control-button {
   text-align: left;
 }
 
+/* Ensure MathJax breakdown lines stay readable against the dark lattice card. */
 .tower-upgrade-variable-equations mjx-container {
+  display: flex;
   justify-content: flex-start;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.28);
+}
+
+.tower-upgrade-variable-equations mjx-container mjx-math {
+  color: inherit;
 }
 
 .tower-upgrade-variable.is-visible {
