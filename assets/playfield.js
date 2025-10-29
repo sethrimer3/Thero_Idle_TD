@@ -4104,6 +4104,10 @@ export class SimplePlayfield {
     const step = Math.max(0, delta);
     const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
     const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+    const minDimension =
+      width > 0 && height > 0
+        ? Math.max(1, Math.min(width, height))
+        : Math.max(1, Math.max(width, height)); // Resolve the active scale so launch distances measured in meters stay accurate after resizes.
     const toCollect = [];
 
     moteGemState.active.forEach((gem) => {
@@ -4139,10 +4143,38 @@ export class SimplePlayfield {
         gem.opacity = Math.max(0, 1 - fadeProgress);
       }
 
+      const invisible = gem.opacity <= 0.01;
+
+      const launchData = gem.launch;
+      const hasDirectedLaunch =
+        launchData &&
+        Number.isFinite(launchData.distanceMeters) &&
+        Number.isFinite(launchData.angle); // Confirm that the gem originated from the new fling system before applying the ballistic override.
+      if (hasDirectedLaunch) {
+        const travelDistance = metersToPixels(launchData.distanceMeters, minDimension); // Translate the stored travel distance into on-screen pixels each frame.
+        launchData.elapsed = (launchData.elapsed || 0) + step;
+        const duration = Number.isFinite(launchData.duration) ? Math.max(1, launchData.duration) : 600;
+        const progress = Math.min(1, launchData.elapsed / duration); // Convert the elapsed travel time into a normalized flight progress value.
+        const directionX = Math.cos(launchData.angle);
+        const directionY = Math.sin(launchData.angle);
+        const displacement = travelDistance * progress;
+        const originX = Number.isFinite(launchData.startX) ? launchData.startX : gem.x;
+        const originY = Number.isFinite(launchData.startY) ? launchData.startY : gem.y;
+        gem.x = originX + directionX * displacement;
+        gem.y = originY + directionY * displacement;
+
+        const offscreenX = width ? gem.x < -64 || gem.x > width + 64 : false;
+        const offscreenY = height ? gem.y < -96 || gem.y > height + 96 : gem.y < -96;
+        const travelComplete = progress >= 1;
+        if (offscreenX || offscreenY || travelComplete || invisible) {
+          toCollect.push(gem);
+        }
+        return;
+      }
+
       const offscreenX = width ? gem.x < -64 || gem.x > width + 64 : false;
       const offscreenY = gem.y < -96 || (height ? gem.y > height + 96 : false);
       const lifetimeExpired = gem.lifetime > 1400;
-      const invisible = gem.opacity <= 0.01;
       if (offscreenX || offscreenY || lifetimeExpired || invisible) {
         toCollect.push(gem);
       }
@@ -4941,7 +4973,7 @@ export class SimplePlayfield {
       const saturation = gem.color?.saturation ?? 68;
       const lightness = gem.color?.lightness ?? 56;
       const moteSize = Number.isFinite(gem.moteSize) ? Math.max(1, gem.moteSize) : Math.max(1, gem.value);
-      const size = 10 + moteSize * 4.2;
+      const size = (10 + moteSize * 4.2) * 0.5; // Shrink the render footprint so battlefield gems appear at half their previous scale.
       const pulse = Math.sin((gem.pulse || 0) * 0.6) * 3.2;
       const rotation = Math.sin((gem.pulse || 0) * 0.35) * 0.45;
       const opacity = Number.isFinite(gem.opacity) ? Math.max(0, Math.min(1, gem.opacity)) : 1;
