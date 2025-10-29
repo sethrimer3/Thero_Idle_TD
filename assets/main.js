@@ -142,6 +142,12 @@ import {
   refreshCraftingRecipesDisplay,
 } from './crafting.js';
 import {
+  fetchJsonWithFallback,
+  getEmbeddedGameplayConfig,
+  loadGameplayConfigViaFetch,
+  loadGameplayConfigViaModule,
+} from './gameplayConfigLoaders.js';
+import {
   cloneVectorArray,
   cloneWaveArray,
   setLevelBlueprints,
@@ -184,91 +190,6 @@ import {
   const GAMEPLAY_CONFIG_URL = new URL(GAMEPLAY_CONFIG_RELATIVE_PATH, import.meta.url);
   const FLUID_SIM_CONFIG_RELATIVE_PATH = './data/towerFluidSimulation.json';
   const FLUID_SIM_CONFIG_URL = new URL(FLUID_SIM_CONFIG_RELATIVE_PATH, import.meta.url);
-
-  function resolveFallbackUrl(relativePath) {
-    if (typeof window === 'undefined') {
-      return null;
-    }
-
-    try {
-      const base = new URL(window.location.href);
-      base.hash = '';
-      base.search = '';
-      return new URL(relativePath.replace(/^\.\//, ''), base).href;
-    } catch (error) {
-      console.warn('Failed to resolve fallback URL for', relativePath, error);
-      return null;
-    }
-  }
-
-  async function fetchJsonWithFallback(urlPrimary, relativePath) {
-    const attempts = [];
-
-    if (urlPrimary) {
-      attempts.push(urlPrimary);
-    }
-
-    const fallbackHref = resolveFallbackUrl(relativePath);
-    if (fallbackHref && !attempts.includes(fallbackHref)) {
-      attempts.push(fallbackHref);
-    }
-
-    let lastError = null;
-
-    for (const url of attempts) {
-      try {
-        const response = await fetch(url, { cache: 'no-store' });
-        if (!response.ok) {
-          lastError = new Error(`Failed to load JSON from ${url}: ${response.status}`);
-          continue;
-        }
-        return response.json();
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    throw lastError || new Error('JSON fetch failed');
-  }
-  const EMBEDDED_CONFIG_GLOBAL_KEY = '__THERO_EMBEDDED_GAMEPLAY_CONFIG__';
-
-  function getEmbeddedGameplayConfig() {
-    const root =
-      typeof globalThis !== 'undefined'
-        ? globalThis
-        : typeof window !== 'undefined'
-        ? window
-        : typeof self !== 'undefined'
-        ? self
-        : null;
-
-    if (!root) {
-      return null;
-    }
-
-    const embedded = root[EMBEDDED_CONFIG_GLOBAL_KEY];
-    return embedded && typeof embedded === 'object' ? embedded : null;
-  }
-
-  async function loadGameplayConfigViaFetch() {
-    if (typeof fetch !== 'function') {
-      throw new Error('Fetch API is unavailable in this environment.');
-    }
-
-    return fetchJsonWithFallback(GAMEPLAY_CONFIG_URL.href, GAMEPLAY_CONFIG_RELATIVE_PATH);
-  }
-
-  async function loadGameplayConfigViaModule() {
-    try {
-      const module = await import(GAMEPLAY_CONFIG_URL.href, { assert: { type: 'json' } });
-      if (module && module.default) {
-        return module.default;
-      }
-    } catch (error) {
-      throw error;
-    }
-    return null;
-  }
 
   function normalizeFluidSimulationProfile(data) {
     if (!data || typeof data !== 'object') {
@@ -673,7 +594,10 @@ import {
     let lastError = null;
 
     try {
-      const configFromFetch = await loadGameplayConfigViaFetch();
+      const configFromFetch = await loadGameplayConfigViaFetch(
+        GAMEPLAY_CONFIG_URL.href,
+        GAMEPLAY_CONFIG_RELATIVE_PATH,
+      );
       if (configFromFetch) {
         return applyGameplayConfig(configFromFetch);
       }
@@ -688,7 +612,7 @@ import {
     }
 
     try {
-      const configFromModule = await loadGameplayConfigViaModule();
+      const configFromModule = await loadGameplayConfigViaModule(GAMEPLAY_CONFIG_URL.href);
       if (configFromModule) {
         return applyGameplayConfig(configFromModule);
       }
