@@ -924,7 +924,7 @@ body.graphics-mode-low .control-button {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   width: 100%;
-  pointer-events: auto;
+  pointer-events: none; /* Allow empty portions of the loadout tray to pass clicks through to the battlefield. */
 }
 
 .tower-loadout-item {
@@ -941,6 +941,7 @@ body.graphics-mode-low .control-button {
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition),
     opacity var(--transition);
   min-height: 0;
+  pointer-events: auto; /* Re-enable interaction on actual loadout items while leaving gaps transparent to input. */
 }
 
 .tower-loadout-item:active {

@@ -149,7 +149,7 @@ export class SimplePlayfield {
     this.projectiles = [];
     this.availableTowers = [];
     this.draggingTowerType = null;
-    this.dragPreviewOffset = { x: 0, y: -34 };
+    this.dragPreviewOffset = { x: 0, y: 0 }; // Allow callers to nudge the preview in addition to the standardized elevation.
 
     // Track which lattice menu is active so clicks open option rings instead of instant selling.
     this.activeTowerMenu = null;
@@ -436,12 +436,12 @@ export class SimplePlayfield {
     this.draggingTowerType = null;
   }
 
-  previewTowerPlacement(normalized, { towerType, dragging = false, pointerType = null } = {}) {
+  previewTowerPlacement(normalized, { towerType, dragging = false } = {}) {
     if (!normalized || !towerType) {
       this.clearPlacementPreview();
       return;
     }
-    this.updatePlacementPreview(normalized, { towerType, dragging, pointerType });
+    this.updatePlacementPreview(normalized, { towerType, dragging });
   }
 
   completeTowerPlacement(normalized, { towerType } = {}) {
@@ -466,9 +466,7 @@ export class SimplePlayfield {
     }
 
     const placed = this.addTowerAt(targetNormalized, { towerType });
-    if (placed) {
-      this.clearPlacementPreview();
-    }
+    this.clearPlacementPreview(); // Always reset the preview once placement resolves so invalid drops do not persist.
     return placed;
   }
 
@@ -1578,7 +1576,6 @@ export class SimplePlayfield {
       this.updatePlacementPreview(normalized, {
         towerType: activeType,
         dragging: Boolean(this.draggingTowerType),
-        pointerType: event.pointerType, // Forward pointer context so touch drags remain elevated by one meter above the finger.
       });
     } else {
       this.clearPlacementPreview();
@@ -1706,7 +1703,7 @@ export class SimplePlayfield {
   }
 
   updatePlacementPreview(normalized, options = {}) {
-    const { towerType, dragging = false, pointerType = null } = options;
+    const { towerType, dragging = false } = options;
     if (!towerType || !normalized) {
       this.hoverPlacement = null;
       return;
@@ -1718,10 +1715,8 @@ export class SimplePlayfield {
 
     if (dragging) {
       const offsetX = this.dragPreviewOffset?.x || 0;
-      let offsetY = this.dragPreviewOffset?.y || 0;
-      if (pointerType === 'touch') {
-        offsetY = -this.getPixelsForMeters(1); // Lift touch drags exactly one meter above the active finger.
-      }
+      const dragElevation = this.getPixelsForMeters(2); // Keep tower previews suspended two meters above the pointer.
+      const offsetY = (this.dragPreviewOffset?.y || 0) - dragElevation;
       const adjustedPosition = {
         x: pointerPosition.x + offsetX,
         y: pointerPosition.y + offsetY,

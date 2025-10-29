@@ -1066,8 +1066,7 @@ function handleTowerDragMove(event) {
     towerTabState.playfield.previewTowerPlacement(normalized, {
       towerType: drag.towerId,
       dragging: true,
-      pointerType: event.pointerType,
-    }); // Pass pointer context so touch drags can offset the preview by one meter.
+    }); // Maintain a floating preview while the tower is dragged across the battlefield.
   }
 }
 
