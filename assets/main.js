@@ -157,7 +157,6 @@ import {
   autoCollectActiveMoteGems,
   setMoteGemAutoCollectUnlocked,
   getMoteGemColor,
-  getMoteGemSpriteSource,
 } from './enemies.js';
 import {
   initializeCraftingOverlay,
@@ -1586,23 +1585,6 @@ import {
     modeToggle: null,
   };
 
-  // Create an inventory icon element so the mote gem list can showcase the sprite artwork.
-  function createGemInventoryIcon(gemId) {
-    const source = getMoteGemSpriteSource(gemId);
-    if (!source) {
-      return null;
-    }
-
-    const icon = document.createElement('img');
-    icon.className = 'powder-gem-inventory__icon';
-    icon.src = source;
-    icon.alt = '';
-    icon.decoding = 'async';
-    icon.loading = 'lazy';
-    icon.setAttribute('aria-hidden', 'true');
-    return icon;
-  }
-
   // Refresh the mote gem inventory card so collected crystals mirror the latest drop ledger.
   function updateMoteGemInventoryDisplay() {
     const { gemInventoryList, gemInventoryEmpty, craftingButton } = powderElements;
@@ -1655,31 +1637,26 @@ import {
       const labelContainer = document.createElement('span');
       labelContainer.className = 'powder-gem-inventory__label';
 
-      const icon = createGemInventoryIcon(entry.typeKey);
-      if (icon) {
-        labelContainer.appendChild(icon);
-      } else {
-        const swatch = document.createElement('span');
-        swatch.className = 'powder-gem-inventory__swatch';
-        const color = getMoteGemColor(entry.typeKey);
-        if (color && typeof swatch.style?.setProperty === 'function') {
-          if (Number.isFinite(color.hue)) {
-            swatch.style.setProperty('--gem-hue', `${Math.round(color.hue)}`);
-          }
-          if (Number.isFinite(color.saturation)) {
-            swatch.style.setProperty('--gem-saturation', `${Math.round(color.saturation)}%`);
-          }
-          if (Number.isFinite(color.lightness)) {
-            swatch.style.setProperty('--gem-lightness', `${Math.round(color.lightness)}%`);
-          }
+      const swatch = document.createElement('span');
+      swatch.className = 'powder-gem-inventory__swatch';
+      const color = getMoteGemColor(entry.typeKey);
+      if (color && typeof swatch.style?.setProperty === 'function') {
+        if (Number.isFinite(color.hue)) {
+          swatch.style.setProperty('--gem-hue', `${Math.round(color.hue)}`);
         }
-        labelContainer.appendChild(swatch);
+        if (Number.isFinite(color.saturation)) {
+          swatch.style.setProperty('--gem-saturation', `${Math.round(color.saturation)}%`);
+        }
+        if (Number.isFinite(color.lightness)) {
+          swatch.style.setProperty('--gem-lightness', `${Math.round(color.lightness)}%`);
+        }
       }
 
       const nameEl = document.createElement('span');
       nameEl.className = 'powder-gem-inventory__name';
       nameEl.textContent = entry.label || entry.typeKey;
 
+      labelContainer.appendChild(swatch);
       labelContainer.appendChild(nameEl);
 
       const countEl = document.createElement('span');

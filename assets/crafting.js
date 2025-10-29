@@ -1,5 +1,5 @@
 import { formatGameNumber, formatWholeNumber } from '../scripts/core/formatting.js';
-import { moteGemState, resolveGemDefinition, getMoteGemSpriteSource } from './enemies.js';
+import { moteGemState, resolveGemDefinition } from './enemies.js';
 import {
   getTowerDefinitions,
   getTowerDefinition,
@@ -21,7 +21,7 @@ const GEM_TIER_SEQUENCE = [
   'sapphire',
   'iolite',
   'amethyst',
-  'diamond', // Keep the prismatic diamond tier ahead of the void-touched nullstone.
+  'diamond',
   'nullstone',
 ];
 
@@ -45,7 +45,7 @@ const CRAFTING_TIER_NAME_SEQUENCE = [
   'sapphire',
   'iolite',
   'amethyst',
-  'diamond', // Surface the diamond title between amethyst and nullstone.
+  'diamond',
   'nullstone',
 ];
 
@@ -408,20 +408,8 @@ function resolveNextCraftingTierIndex(recipeId, totalTiers) {
   return sanitizedCompleted;
 }
 
-// Create a gem icon for crafting costs while falling back to the legacy swatch if needed.
-function createGemCostIcon(gemId) {
-  const source = getMoteGemSpriteSource(gemId);
-  if (source) {
-    const icon = document.createElement('img');
-    icon.className = 'crafting-cost__icon';
-    icon.src = source;
-    icon.alt = '';
-    icon.decoding = 'async';
-    icon.loading = 'lazy';
-    icon.setAttribute('aria-hidden', 'true');
-    return icon;
-  }
-
+// Create a decorative color swatch representing the required gem hue.
+function createGemColorSwatch(gemId) {
   const swatch = document.createElement('span');
   swatch.className = 'crafting-cost__swatch';
   swatch.setAttribute('aria-hidden', 'true');
@@ -578,8 +566,8 @@ function renderCraftingRecipes() {
           requirement.label || 'Motes'
         }`;
 
-        const icon = createGemCostIcon(requirement.gemId);
-        costItem.append(icon);
+        const swatch = createGemColorSwatch(requirement.gemId);
+        costItem.append(swatch);
 
         const amount = document.createElement('span');
         amount.className = 'crafting-cost__amount';
