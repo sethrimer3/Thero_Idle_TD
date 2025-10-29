@@ -22,6 +22,7 @@ import {
   spawnMoteGemDrop,
   resetActiveMoteGems,
   resolveEnemyGemDropMultiplier,
+  getMoteGemSpriteAsset,
 } from './enemies.js';
 import {
   registerEnemyEncounter,
@@ -4711,7 +4712,7 @@ export class SimplePlayfield {
     ctx.restore();
   }
 
-  // Render each mote gem as a drifting square that echoes the mote tower palette.
+  // Render each mote gem with its sprite art, falling back to the legacy square when needed.
   drawMoteGems() {
     if (!this.ctx || !moteGemState.active.length) {
       return;
@@ -4719,6 +4720,11 @@ export class SimplePlayfield {
     const ctx = this.ctx;
     ctx.save();
     moteGemState.active.forEach((gem) => {
+      const spriteRecord = getMoteGemSpriteAsset(gem.typeKey);
+      const spriteReady =
+        spriteRecord?.image &&
+        !spriteRecord.errored &&
+        (spriteRecord.loaded || spriteRecord.image.complete);
       const hue = gem.color?.hue ?? 48;
       const saturation = gem.color?.saturation ?? 68;
       const lightness = gem.color?.lightness ?? 56;
@@ -4727,28 +4733,34 @@ export class SimplePlayfield {
       const pulse = Math.sin((gem.pulse || 0) * 0.6) * 3.2;
       const rotation = Math.sin((gem.pulse || 0) * 0.35) * 0.45;
       const opacity = Number.isFinite(gem.opacity) ? Math.max(0, Math.min(1, gem.opacity)) : 1;
-      const alphaFill = Math.max(0, Math.min(0.9, 0.6 + opacity * 0.3));
-      const alphaStroke = Math.max(0, Math.min(0.9, 0.5 + opacity * 0.35));
-      const fill = `hsla(${hue}, ${saturation}%, ${lightness}%, ${alphaFill})`;
-      const stroke = `hsla(${hue}, ${Math.max(24, saturation - 18)}%, ${Math.max(18, lightness - 28)}%, ${alphaStroke})`;
-      const sparkle = `hsla(${hue}, ${Math.max(34, saturation - 22)}%, 92%, ${Math.max(0, opacity * 0.65)})`;
-
       ctx.save();
       ctx.translate(gem.x, gem.y);
       ctx.rotate(rotation);
       const squareSize = size + pulse;
       const half = squareSize / 2;
-      ctx.fillStyle = fill;
-      ctx.strokeStyle = stroke;
-      ctx.lineWidth = Math.max(1.2, squareSize * 0.16);
-      ctx.beginPath();
-      ctx.rect(-half, -half, squareSize, squareSize);
-      ctx.fill();
-      ctx.stroke();
+      if (spriteReady) {
+        // Apply the sprite artwork while preserving the gem fade animation.
+        ctx.globalAlpha = opacity;
+        ctx.drawImage(spriteRecord.image, -half, -half, squareSize, squareSize);
+      } else {
+        const alphaFill = Math.max(0, Math.min(0.9, 0.6 + opacity * 0.3));
+        const alphaStroke = Math.max(0, Math.min(0.9, 0.5 + opacity * 0.35));
+        const fill = `hsla(${hue}, ${saturation}%, ${lightness}%, ${alphaFill})`;
+        const stroke = `hsla(${hue}, ${Math.max(24, saturation - 18)}%, ${Math.max(18, lightness - 28)}%, ${alphaStroke})`;
+        const sparkle = `hsla(${hue}, ${Math.max(34, saturation - 22)}%, 92%, ${Math.max(0, opacity * 0.65)})`;
 
-      const sparkleSize = squareSize * 0.38;
-      ctx.fillStyle = sparkle;
-      ctx.fillRect(-sparkleSize * 0.5, -sparkleSize * 0.8, sparkleSize, sparkleSize);
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = Math.max(1.2, squareSize * 0.16);
+        ctx.beginPath();
+        ctx.rect(-half, -half, squareSize, squareSize);
+        ctx.fill();
+        ctx.stroke();
+
+        const sparkleSize = squareSize * 0.38;
+        ctx.fillStyle = sparkle;
+        ctx.fillRect(-sparkleSize * 0.5, -sparkleSize * 0.8, sparkleSize, sparkleSize);
+      }
       ctx.restore();
     });
     ctx.restore();
