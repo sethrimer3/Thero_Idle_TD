@@ -2398,7 +2398,7 @@ body.graphics-mode-low .control-button {
   gap: 12px;
 }
 
-/* Align the gem icon, label, and quantity for quick scanning. */
+/* Align the gem swatch, label, and quantity for quick scanning. */
 .powder-gem-inventory__item {
   display: flex;
   align-items: center;
@@ -2410,7 +2410,7 @@ body.graphics-mode-low .control-button {
   background: rgba(255, 255, 255, 0.03);
 }
 
-/* Anchor the icon and label grouping on the left side. */
+/* Anchor the swatch and label grouping on the left side. */
 .powder-gem-inventory__label {
   display: flex;
   align-items: center;
@@ -2420,23 +2420,13 @@ body.graphics-mode-low .control-button {
   text-transform: uppercase;
 }
 
-/* Display the new gem sprite while echoing the powder card glow. */
-.powder-gem-inventory__icon {
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  filter: drop-shadow(0 0 6px rgba(247, 247, 245, 0.36));
-  image-rendering: crisp-edges;
-  object-fit: contain;
-}
-
 /* Emphasize the gem name so entries remain legible against the monochrome card. */
 .powder-gem-inventory__name {
   font-weight: 600;
   color: rgba(247, 247, 245, 0.9);
 }
 
-/* Render gem colors using HSL so hues can match the mote palette when sprites are unavailable. */
+/* Render gem colors using HSL so hues can match the mote palette. */
 .powder-gem-inventory__swatch {
   width: 18px;
   height: 18px;
@@ -3417,7 +3407,7 @@ body.graphics-mode-low .control-button {
   gap: 6px;
 }
 
-/* Highlight each requirement with a gem icon while preserving mono numerals. */
+/* Highlight each requirement with a color swatch while preserving mono numerals. */
 .crafting-cost__item {
   display: flex;
   align-items: center;
@@ -3429,17 +3419,7 @@ body.graphics-mode-low .control-button {
   color: rgba(247, 247, 245, 0.82);
 }
 
-/* Present the gem sprite for each requirement with a subtle glow. */
-.crafting-cost__icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  filter: drop-shadow(0 0 6px rgba(247, 247, 245, 0.36));
-  image-rendering: crisp-edges;
-  object-fit: contain;
-}
-
-/* Render a small gem-colored square ahead of the requirement amount as a graceful fallback. */
+/* Render a small gem-colored square ahead of the requirement amount. */
 .crafting-cost__swatch {
   width: 10px;
   height: 10px;
