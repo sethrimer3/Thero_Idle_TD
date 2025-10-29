@@ -8,9 +8,10 @@ const achievementState = new Map();
 const achievementElements = new Map();
 let achievementDefinitions = [];
 let achievementGridEl = null;
-let activeAchievementId = null;
 let achievementPowderRate = 0;
 let context = null;
+let overlayElements = null; // Stores the lazily created overlay nodes for cinematic reveals.
+let overlayState = null; // Tracks the currently animating achievement so it can return home.
 
 function getContext() {
   if (!context) {
@@ -121,23 +122,6 @@ export function generateLevelAchievements() {
   }
 }
 
-// Marks one achievement tile as expanded for accessibility and detail visibility.
-function setActiveAchievement(id) {
-  const nextId = id && achievementElements.has(id) && activeAchievementId !== id ? id : null;
-  activeAchievementId = nextId;
-
-  achievementElements.forEach((element, elementId) => {
-    const expanded = elementId === activeAchievementId;
-    if (element.container) {
-      element.container.classList.toggle('expanded', expanded);
-      element.container.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    }
-    if (element.detail) {
-      element.detail.hidden = !expanded;
-    }
-  });
-}
-
 // Renders the tile grid for the achievements tab.
 function renderAchievementGrid() {
   if (!achievementGridEl) {
@@ -164,10 +148,11 @@ function renderAchievementGrid() {
     tile.className = 'achievement-tile';
     tile.dataset.achievementId = definition.id;
     tile.setAttribute('role', 'listitem');
-    tile.setAttribute('aria-expanded', 'false');
-    tile.setAttribute('aria-label', `${definition.title} achievement. Activate to view details.`);
+    tile.setAttribute('aria-haspopup', 'dialog');
+    tile.setAttribute('aria-label', `${definition.title} achievement. Activate to view reward details.`);
     tile.addEventListener('click', () => {
-      setActiveAchievement(definition.id);
+      // Launch the cinematic overlay describing this achievement.
+      presentAchievementCinematic(definition.id);
     });
 
     const icon = document.createElement('span');
@@ -209,12 +194,235 @@ function renderAchievementGrid() {
       container: tile,
       status,
       detail,
+      icon,
     });
   });
 
   achievementGridEl.setAttribute('role', 'list');
   achievementGridEl.append(fragment);
-  setActiveAchievement(null);
+}
+
+// Lazily creates the overlay elements that provide the cinematic achievement reveal.
+function ensureAchievementOverlay() {
+  if (overlayElements) {
+    return overlayElements;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'achievement-overlay';
+  overlay.hidden = true;
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.setAttribute('tabindex', '-1'); // Allow the overlay to receive focus for keyboard dismissal.
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'achievement-overlay__backdrop';
+
+  const content = document.createElement('div');
+  content.className = 'achievement-overlay__content';
+
+  const iconTarget = document.createElement('div');
+  iconTarget.className = 'achievement-overlay__icon';
+
+  const title = document.createElement('h3');
+  title.className = 'achievement-overlay__title';
+
+  const subtitle = document.createElement('p');
+  subtitle.className = 'achievement-overlay__subtitle';
+
+  const description = document.createElement('p');
+  description.className = 'achievement-overlay__description';
+
+  const status = document.createElement('p');
+  status.className = 'achievement-overlay__status';
+
+  const reward = document.createElement('p');
+  reward.className = 'achievement-overlay__reward';
+
+  const hint = document.createElement('p');
+  hint.className = 'achievement-overlay__hint';
+  hint.textContent = 'Tap anywhere to continue.';
+
+  content.append(iconTarget, title, subtitle, description, status, reward, hint);
+
+  const floatingIcon = document.createElement('div');
+  floatingIcon.className = 'achievement-overlay__icon-floating';
+  floatingIcon.hidden = true;
+
+  overlay.append(backdrop, content, floatingIcon);
+
+  overlay.addEventListener('click', () => {
+    // Allow tapping the dimmed screen to close the cinematic overlay.
+    dismissAchievementCinematic();
+  });
+
+  overlay.addEventListener('keydown', (event) => {
+    // Support pressing Escape to close the cinematic overlay.
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      dismissAchievementCinematic();
+    }
+  });
+
+  floatingIcon.addEventListener('transitionend', (event) => {
+    // Handle the end of the icon flight to reveal or hide the supporting text.
+    if (event.propertyName !== 'transform') {
+      return;
+    }
+
+    if (!overlayElements) {
+      return;
+    }
+
+    const { overlay: overlayEl, iconTarget: iconEl, content: contentEl } = overlayElements;
+    if (overlayEl.classList.contains('closing')) {
+      const focusTarget = overlayState?.trigger || null;
+      if (overlayState?.originIcon) {
+        overlayState.originIcon.classList.remove('achievement-icon-hidden');
+      }
+      overlayEl.hidden = true;
+      overlayEl.setAttribute('aria-hidden', 'true');
+      overlayEl.classList.remove('closing');
+      iconEl.classList.remove('visible');
+      contentEl.classList.remove('text-visible');
+      floatingIcon.hidden = true;
+      overlayState = null;
+      if (focusTarget && typeof focusTarget.focus === 'function') {
+        focusTarget.focus();
+      }
+      return;
+    }
+
+    floatingIcon.hidden = true;
+    iconEl.classList.add('visible');
+    contentEl.classList.add('text-visible');
+  });
+
+  document.body.append(overlay);
+
+  overlayElements = {
+    overlay,
+    backdrop,
+    content,
+    iconTarget,
+    title,
+    subtitle,
+    description,
+    status,
+    reward,
+    hint,
+    floatingIcon,
+  };
+
+  return overlayElements;
+}
+
+// Animates the tapped achievement icon into the overlay and reveals its supporting text.
+function presentAchievementCinematic(id) {
+  if (overlayState) {
+    return;
+  }
+
+  const definition = achievementDefinitions.find((candidate) => candidate.id === id);
+  const elements = achievementElements.get(id);
+  if (!definition || !elements?.container || !elements.icon) {
+    return;
+  }
+
+  const { icon: iconSource } = elements;
+  const originRect = iconSource.getBoundingClientRect();
+  if (!originRect?.width || !originRect?.height) {
+    return;
+  }
+
+  const overlayEls = ensureAchievementOverlay();
+
+  overlayEls.iconTarget.textContent = iconSource.textContent || definition.icon || '';
+  overlayEls.iconTarget.classList.remove('visible');
+
+  overlayEls.title.textContent = definition.title || '';
+
+  const subtitleText = definition.subtitle && definition.subtitle !== definition.title ? definition.subtitle : '';
+  overlayEls.subtitle.textContent = subtitleText;
+  overlayEls.subtitle.hidden = !subtitleText;
+
+  overlayEls.description.textContent = definition.description || '';
+  overlayEls.description.hidden = !definition.description;
+
+  const statusText = elements.status?.textContent || '';
+  overlayEls.status.textContent = statusText;
+  overlayEls.status.hidden = !statusText;
+
+  const rewardFlux = Number.isFinite(definition.rewardFlux) ? definition.rewardFlux : ACHIEVEMENT_REWARD_FLUX;
+  overlayEls.reward.textContent = `Reward · +${formatGameNumber(rewardFlux)} Motes/min idle.`;
+
+  overlayEls.content.classList.remove('text-visible');
+  overlayEls.hint.hidden = false;
+
+  overlayEls.overlay.hidden = false;
+  overlayEls.overlay.setAttribute('aria-hidden', 'false');
+  overlayEls.overlay.classList.remove('closing');
+  overlayEls.overlay.classList.add('visible');
+  overlayEls.overlay.focus(); // Move focus to the dialog so keyboard users can dismiss it.
+
+  overlayEls.floatingIcon.hidden = false;
+  overlayEls.floatingIcon.textContent = iconSource.textContent || definition.icon || '';
+  overlayEls.floatingIcon.style.left = `${originRect.left}px`;
+  overlayEls.floatingIcon.style.top = `${originRect.top}px`;
+  overlayEls.floatingIcon.style.width = `${originRect.width}px`;
+  overlayEls.floatingIcon.style.height = `${originRect.height}px`;
+  overlayEls.floatingIcon.style.transform = 'translate(0px, 0px) scale(1)';
+
+  iconSource.classList.add('achievement-icon-hidden');
+
+  overlayState = {
+    id,
+    originIcon: iconSource,
+    trigger: elements.container,
+  };
+
+  requestAnimationFrame(() => {
+    const targetRect = overlayEls.iconTarget.getBoundingClientRect();
+    const deltaX = targetRect.left - originRect.left;
+    const deltaY = targetRect.top - originRect.top;
+    const scale = originRect.width ? targetRect.width / originRect.width : 1;
+    overlayEls.floatingIcon.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scale})`;
+  });
+}
+
+// Returns the overlay icon to its original tile and clears the cinematic overlay state.
+function dismissAchievementCinematic() {
+  if (!overlayState) {
+    return;
+  }
+
+  const overlayEls = ensureAchievementOverlay();
+  if (overlayEls.overlay.classList.contains('closing')) {
+    return;
+  }
+
+  overlayEls.overlay.classList.remove('visible');
+  overlayEls.overlay.classList.add('closing');
+  overlayEls.content.classList.remove('text-visible');
+  overlayEls.iconTarget.classList.remove('visible');
+
+  const originIcon = overlayState.originIcon;
+  const originRect = originIcon.getBoundingClientRect();
+  const targetRect = overlayEls.iconTarget.getBoundingClientRect();
+
+  overlayEls.floatingIcon.hidden = false;
+  overlayEls.floatingIcon.textContent = overlayEls.iconTarget.textContent;
+  overlayEls.floatingIcon.style.left = `${originRect.left}px`;
+  overlayEls.floatingIcon.style.top = `${originRect.top}px`;
+  overlayEls.floatingIcon.style.width = `${originRect.width}px`;
+  overlayEls.floatingIcon.style.height = `${originRect.height}px`;
+  const targetScale = originRect.width ? targetRect.width / originRect.width : 1;
+  overlayEls.floatingIcon.style.transform = `translate(${targetRect.left - originRect.left}px, ${targetRect.top - originRect.top}px) scale(${targetScale})`;
+
+  requestAnimationFrame(() => {
+    overlayEls.floatingIcon.style.transform = 'translate(0px, 0px) scale(1)';
+  });
 }
 
 // Initializes the achievements tab when the interface binds event handlers.
@@ -245,7 +453,7 @@ function updateAchievementStatus(definition, element, state) {
       status.textContent = 'Unlocked · +1 Motes/min secured.';
     }
     if (container && status) {
-      container.setAttribute('aria-label', `${definition.title} achievement. ${status.textContent} Activate to view details.`);
+      container.setAttribute('aria-label', `${definition.title} achievement. ${status.textContent} Activate to view reward details.`);
     }
     return;
   }
@@ -258,7 +466,7 @@ function updateAchievementStatus(definition, element, state) {
     status.textContent = progress.startsWith('Locked') ? progress : `Locked — ${progress}`;
   }
   if (container && status) {
-    container.setAttribute('aria-label', `${definition.title} achievement. ${status.textContent} Activate to view details.`);
+    container.setAttribute('aria-label', `${definition.title} achievement. ${status.textContent} Activate to view reward details.`);
   }
 }
 

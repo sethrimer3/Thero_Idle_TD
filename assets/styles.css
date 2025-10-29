@@ -3175,6 +3175,169 @@ body.graphics-mode-low .control-button {
   text-align: left;
 }
 
+/* Hide the source icon while the floating clone animates. */
+.achievement-icon-hidden {
+  visibility: hidden;
+}
+
+/* Fullscreen overlay for the cinematic achievement reveal. */
+.achievement-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 280ms ease;
+  z-index: 1200;
+}
+
+/* Enable interaction and visibility once the overlay is active. */
+.achievement-overlay.visible {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+/* Fade the overlay away during the closing animation. */
+.achievement-overlay.closing {
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* Dim the application background when an achievement is focused. */
+.achievement-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 6, 12, 0.85);
+  opacity: 0;
+  transition: opacity 280ms ease;
+}
+
+/* Reveal the dimmer alongside the overlay fade-in. */
+.achievement-overlay.visible .achievement-overlay__backdrop {
+  opacity: 1;
+}
+
+/* Restore the playfield lighting while the overlay closes. */
+.achievement-overlay.closing .achievement-overlay__backdrop {
+  opacity: 0;
+}
+
+/* Container for the descriptive text beneath the centered icon. */
+.achievement-overlay__content {
+  position: relative;
+  z-index: 1;
+  width: min(90vw, 420px);
+  padding: 32px 28px 36px;
+  border-radius: 24px;
+  background: rgba(12, 12, 20, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+/* Fade and elevate the descriptive text once the icon lands. */
+.achievement-overlay__content.text-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Target resting position for the traveling achievement icon. */
+.achievement-overlay__icon {
+  width: 108px;
+  height: 108px;
+  margin: 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: "Space Mono", monospace;
+  font-size: 2.6rem;
+  background: linear-gradient(140deg, var(--accent), var(--accent-2));
+  color: var(--bg);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+/* Make the centered icon visible after the flight is complete. */
+.achievement-overlay__icon.visible {
+  opacity: 1;
+}
+
+/* Animated clone that flies from the source tile into the overlay. */
+.achievement-overlay__icon-floating {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--accent), var(--accent-2));
+  color: var(--bg);
+  font-family: "Space Mono", monospace;
+  font-size: 1.5rem;
+  z-index: 1300;
+  transition: transform 320ms cubic-bezier(0.23, 1, 0.32, 1);
+  will-change: transform;
+}
+
+/* Headline styling for the achievement title. */
+.achievement-overlay__title {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Accent the optional subtitle with a softer tone. */
+.achievement-overlay__subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 245, 0.65);
+}
+
+/* Body copy for the descriptive achievement flavor text. */
+.achievement-overlay__description {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+/* Status line communicates locked or unlocked progress cues. */
+.achievement-overlay__status {
+  margin: 0;
+  font-size: 0.85rem;
+  font-family: "Space Mono", monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 245, 0.75);
+}
+
+/* Reward copy highlights the idle mote bonus for the seal. */
+.achievement-overlay__reward {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(255, 228, 120, 0.95);
+  font-family: "Space Mono", monospace;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Provide a subtle hint that the overlay dismisses with any tap. */
+.achievement-overlay__hint {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 245, 0.4);
+}
+
 .developer-control-panel {
   margin-top: 12px;
   padding: 16px;
