@@ -156,6 +156,36 @@
                   </label>
                 </div>
                 <canvas id="playfield-canvas" width="560" height="360"></canvas>
+                <!-- Outcome overlay dims the battlefield and surfaces victory or defeat messaging. -->
+                <div
+                  class="playfield-outcome"
+                  id="playfield-outcome"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-hidden="true"
+                  tabindex="-1"
+                  hidden
+                >
+                  <div class="playfield-outcome__panel">
+                    <p class="playfield-outcome__title" id="playfield-outcome-title"></p>
+                    <p class="playfield-outcome__subtitle" id="playfield-outcome-subtitle"></p>
+                    <div class="playfield-outcome__actions">
+                      <button
+                        class="playfield-outcome__button"
+                        type="button"
+                        id="playfield-outcome-primary"
+                      >
+                        Back to Level Selection
+                      </button>
+                      <button
+                        class="playfield-outcome__button playfield-outcome__button--secondary"
+                        type="button"
+                        id="playfield-outcome-secondary"
+                        hidden
+                      ></button>
+                    </div>
+                  </div>
+                </div>
                 <dl class="playfield-stats" aria-live="polite">
                   <div class="playfield-stats__item">
                     <dt>Wave</dt>
