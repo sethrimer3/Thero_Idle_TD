@@ -22,6 +22,7 @@ import {
   spawnMoteGemDrop,
   resetActiveMoteGems,
   resolveEnemyGemDropMultiplier,
+  getGemSpriteImage,
 } from './enemies.js';
 import {
   registerEnemyEncounter,
@@ -4711,7 +4712,7 @@ export class SimplePlayfield {
     ctx.restore();
   }
 
-  // Render each mote gem as a drifting square that echoes the mote tower palette.
+  // Render each mote gem using its sprite when available so drops mirror the inventory art.
   drawMoteGems() {
     if (!this.ctx || !moteGemState.active.length) {
       return;
@@ -4732,23 +4733,37 @@ export class SimplePlayfield {
       const fill = `hsla(${hue}, ${saturation}%, ${lightness}%, ${alphaFill})`;
       const stroke = `hsla(${hue}, ${Math.max(24, saturation - 18)}%, ${Math.max(18, lightness - 28)}%, ${alphaStroke})`;
       const sparkle = `hsla(${hue}, ${Math.max(34, saturation - 22)}%, 92%, ${Math.max(0, opacity * 0.65)})`;
+      const sprite = getGemSpriteImage(gem.typeKey);
 
       ctx.save();
       ctx.translate(gem.x, gem.y);
       ctx.rotate(rotation);
-      const squareSize = size + pulse;
-      const half = squareSize / 2;
-      ctx.fillStyle = fill;
-      ctx.strokeStyle = stroke;
-      ctx.lineWidth = Math.max(1.2, squareSize * 0.16);
-      ctx.beginPath();
-      ctx.rect(-half, -half, squareSize, squareSize);
-      ctx.fill();
-      ctx.stroke();
+      if (sprite) {
+        // Scale the sprite according to mote size so drops stay legible on the battlefield.
+        const baseSize = size + pulse;
+        const reference = Math.max(1, Math.max(sprite.width || 1, sprite.height || 1));
+        const renderSize = baseSize;
+        const scale = renderSize / reference;
+        const width = (sprite.width || reference) * scale;
+        const height = (sprite.height || reference) * scale;
+        ctx.globalAlpha = opacity;
+        ctx.drawImage(sprite, -width / 2, -height / 2, width, height);
+      } else {
+        // Fall back to the square rendering when the sprite has not finished loading yet.
+        const squareSize = size + pulse;
+        const half = squareSize / 2;
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = Math.max(1.2, squareSize * 0.16);
+        ctx.beginPath();
+        ctx.rect(-half, -half, squareSize, squareSize);
+        ctx.fill();
+        ctx.stroke();
 
-      const sparkleSize = squareSize * 0.38;
-      ctx.fillStyle = sparkle;
-      ctx.fillRect(-sparkleSize * 0.5, -sparkleSize * 0.8, sparkleSize, sparkleSize);
+        const sparkleSize = squareSize * 0.38;
+        ctx.fillStyle = sparkle;
+        ctx.fillRect(-sparkleSize * 0.5, -sparkleSize * 0.8, sparkleSize, sparkleSize);
+      }
       ctx.restore();
     });
     ctx.restore();
