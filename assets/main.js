@@ -737,6 +737,7 @@ import {
   let overlayMode = null;
   let overlayDuration = null;
   let overlayRewards = null;
+  let overlayStartThero = null;
   let overlayLast = null;
   let overlayInstruction = null;
   let overlayRequiresLevelExit = false;
@@ -1658,12 +1659,7 @@ import {
   }
 
   const resourceElements = {
-    theroReserve: null,
     theroMultiplier: null,
-    theroBase: null,
-    theroEquationMultiplier: null,
-    theroEquationTotal: null,
-    theroEquationContainer: null,
     glyphsTotal: null,
     glyphsUnused: null,
     glyphBadge: null,
@@ -1676,12 +1672,7 @@ import {
 
   // Cache the relocated resource nodes so status updates only swap text content.
   function bindStatusElements() {
-    resourceElements.theroReserve = document.getElementById('level-thero-score');
     resourceElements.theroMultiplier = document.getElementById('level-thero-multiplier');
-    resourceElements.theroBase = document.getElementById('level-thero-base');
-    resourceElements.theroEquationMultiplier = document.getElementById('level-thero-equation-multiplier');
-    resourceElements.theroEquationTotal = document.getElementById('level-thero-total');
-    resourceElements.theroEquationContainer = document.getElementById('level-thero-equation');
     resourceElements.glyphsTotal = document.getElementById('tower-glyphs-total');
     resourceElements.glyphsUnused = document.getElementById('tower-glyphs-unused');
     resourceElements.glyphBadge = document.getElementById('tower-glyph-badge');
@@ -1695,33 +1686,9 @@ import {
 
   // Render the relocated resource panels using the latest score, glyph, and mote reserves.
   function updateStatusDisplays() {
-    const scoreValue = Number.isFinite(resourceState.score) ? Math.max(0, resourceState.score) : 0;
-    if (resourceElements.theroReserve) {
-      resourceElements.theroReserve.textContent = `${formatGameNumber(scoreValue)} ${THERO_SYMBOL}`;
-    }
-
     const theroMultiplier = getStartingTheroMultiplier();
     if (resourceElements.theroMultiplier) {
       resourceElements.theroMultiplier.textContent = `×${formatDecimal(theroMultiplier, 2)}`;
-    }
-    if (resourceElements.theroBase) {
-      resourceElements.theroBase.textContent = `${formatGameNumber(BASE_START_THERO)} ${THERO_SYMBOL}`;
-    }
-    if (resourceElements.theroEquationMultiplier) {
-      resourceElements.theroEquationMultiplier.textContent = `${formatDecimal(theroMultiplier, 2)}`;
-    }
-    const startingThero = Math.max(0, BASE_START_THERO * theroMultiplier);
-    if (resourceElements.theroEquationTotal) {
-      resourceElements.theroEquationTotal.textContent = `${formatGameNumber(startingThero)} ${THERO_SYMBOL}`;
-    }
-    if (resourceElements.theroEquationContainer) {
-      resourceElements.theroEquationContainer.setAttribute(
-        'aria-label',
-        `Starting Thero equals ${formatGameNumber(BASE_START_THERO)} ${THERO_SYMBOL} times ${formatDecimal(
-          theroMultiplier,
-          2,
-        )} equals ${formatGameNumber(startingThero)} ${THERO_SYMBOL}`,
-      );
     }
 
     const totalGlyphs = Math.max(0, Math.floor(gameStats.enemiesDefeated || 0));
@@ -3332,6 +3299,7 @@ import {
           <span class="screen-reader-only level-mode">—</span>
           <span class="screen-reader-only level-duration">—</span>
           <span class="screen-reader-only level-rewards">—</span>
+          <span class="screen-reader-only level-start-thero">Starting Thero —.</span>
           <span class="screen-reader-only level-last-result">No attempts recorded.</span>
           <span class="screen-reader-only level-best-wave-sr">Infinity wave record locked.</span>
         `;
@@ -4447,6 +4415,16 @@ import {
     if (overlayRewards) {
       overlayRewards.textContent = summary.rewards;
     }
+    // Surface the stage-specific starting Thero within the preview metrics.
+    if (overlayStartThero) {
+      const startLabel = summary.start || '—';
+      overlayStartThero.textContent = startLabel;
+      overlayStartThero.setAttribute(
+        'aria-label',
+        summary.startAria ||
+          (startLabel === '—' ? 'Starting Thero not applicable.' : `Starting Thero ${startLabel}`),
+      );
+    }
     if (overlayLast) {
       const state = levelState.get(level.id) || null;
       const runner = idleLevelRuns.get(level.id) || null;
@@ -4633,6 +4611,7 @@ import {
       const modeEl = card.querySelector('.level-mode');
       const durationEl = card.querySelector('.level-duration');
       const rewardsEl = card.querySelector('.level-rewards');
+      const startEl = card.querySelector('.level-start-thero');
       if (modeEl) {
         modeEl.textContent = unlocked ? summary.mode : 'Locked';
       }
@@ -4641,6 +4620,18 @@ import {
       }
       if (rewardsEl) {
         rewardsEl.textContent = unlocked ? summary.rewards : '—';
+      }
+      // Announce the effective starting Thero for assistive technologies.
+      if (startEl) {
+        if (unlocked) {
+          if (summary.start && summary.start !== '—') {
+            startEl.textContent = summary.startAria || `Starting Thero ${summary.start}.`;
+          } else {
+            startEl.textContent = summary.startAria || 'Starting Thero —.';
+          }
+        } else {
+          startEl.textContent = 'Starting Thero locked.';
+        }
       }
 
       const runner = idleLevelRuns.get(level.id) || null;
@@ -4720,12 +4711,15 @@ import {
 
       const baseLabel = card.dataset.ariaLabelBase || '';
       if (unlocked) {
+        const startLabel = summary.startAria ? ` ${summary.startAria}` : summary.start && summary.start !== '—'
+          ? ` Starting Thero ${summary.start}.`
+          : '';
         const waveLabel = infinityUnlocked
           ? bestWave > 0
             ? ` Best wave reached: ${formatWholeNumber(bestWave)}.`
             : ' Infinity mode available—no wave record yet.'
           : '';
-        card.setAttribute('aria-label', `${baseLabel}${waveLabel}`.trim());
+        card.setAttribute('aria-label', `${baseLabel}${startLabel}${waveLabel}`.trim());
       } else {
         card.setAttribute(
           'aria-label',
@@ -5182,10 +5176,34 @@ import {
   function formatInteractiveLevelRewards() {
     const levelsBeaten = getCompletedInteractiveLevelCount();
     const multiplier = getStartingTheroMultiplier(levelsBeaten);
-    const currentStart = BASE_START_THERO * multiplier;
     const levelLabel = levelsBeaten === 1 ? 'level' : 'levels';
-    const beatenText = `Levels beaten: ${levelsBeaten} ${levelLabel}`;
-    return `+1 Mote Gems/min · Starting Thero = ${BASE_START_THERO} × 2^(levels beaten) (${beatenText} → ${formatWholeNumber(currentStart)} ${THERO_SYMBOL})`;
+    const beatenText = `${levelsBeaten} ${levelLabel} sealed`;
+    return `+1 Mote Gems/min · Thero Multiplier ×${formatDecimal(multiplier, 2)} (${beatenText})`;
+  }
+
+  // Summarize the stage-specific starting Thero after applying the current multiplier.
+  function describeLevelStartingThero(level, configOverride = null) {
+    const config = configOverride || (level ? levelConfigs.get(level.id) : null);
+    if (!config) {
+      return { text: '—', aria: 'Starting Thero not applicable.' };
+    }
+    if (config.infiniteThero) {
+      return { text: `∞ ${THERO_SYMBOL}`, aria: 'Starting Thero is infinite.' };
+    }
+
+    const baseStart = Number.isFinite(config.startThero)
+      ? Math.max(0, config.startThero)
+      : BASE_START_THERO;
+    const multiplier = getStartingTheroMultiplier();
+    const totalStart = Math.max(0, baseStart * multiplier);
+    const baseLabel = formatGameNumber(baseStart);
+    const multiplierLabel = formatDecimal(multiplier, 2);
+    const totalLabel = formatGameNumber(totalStart);
+
+    return {
+      text: `${baseLabel} ${THERO_SYMBOL} × ${multiplierLabel} = ${totalLabel} ${THERO_SYMBOL}`,
+      aria: `Starting Thero equals ${baseLabel} ${THERO_SYMBOL} times ${multiplierLabel}, totaling ${totalLabel} ${THERO_SYMBOL}.`,
+    };
   }
 
   function formatRelativeTime(timestamp) {
@@ -5220,16 +5238,25 @@ import {
 
   function getLevelSummary(level) {
     if (!level) {
-      return { mode: '—', duration: '—', rewards: '—' };
+      return {
+        mode: '—',
+        duration: '—',
+        rewards: '—',
+        start: '—',
+        startAria: 'Starting Thero not applicable.',
+      };
     }
     const interactiveConfig = levelConfigs.get(level.id);
     if (interactiveConfig) {
       const waves = interactiveConfig.waves?.length || 0;
       const endless = Boolean(interactiveConfig.forceEndlessMode);
+      const startSummary = describeLevelStartingThero(level, interactiveConfig);
       return {
         mode: endless ? 'Endless Defense' : 'Active Defense',
         duration: endless ? 'Endless · manual' : waves ? `${waves} waves · manual` : 'Active defense',
         rewards: formatInteractiveLevelRewards(),
+        start: startSummary.text,
+        startAria: startSummary.aria,
       };
     }
 
@@ -5242,6 +5269,8 @@ import {
       rewards: config
         ? formatRewards(config.rewardScore, config.rewardFlux, config.rewardEnergy)
         : '—',
+      start: '—',
+      startAria: 'Starting Thero not applicable.',
     };
   }
 
@@ -6498,6 +6527,7 @@ import {
     overlayMode = document.getElementById('overlay-mode');
     overlayDuration = document.getElementById('overlay-duration');
     overlayRewards = document.getElementById('overlay-rewards');
+    overlayStartThero = document.getElementById('overlay-start-thero');
     overlayLast = document.getElementById('overlay-last');
     overlayInstruction = overlay ? overlay.querySelector('.overlay-instruction') : null;
     if (overlayInstruction) {

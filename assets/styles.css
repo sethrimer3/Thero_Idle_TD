@@ -218,12 +218,6 @@ body.graphics-mode-low .control-button {
   gap: 12px;
 }
 
-.level-thero-row--equation {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 8px 0;
-}
-
 .level-thero-label {
   font-family: "Space Mono", monospace;
   text-transform: uppercase;
@@ -236,24 +230,9 @@ body.graphics-mode-low .control-button {
   font-size: clamp(1.1rem, 2.4vw, 1.5rem);
 }
 
-.level-thero-equation {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-size: clamp(1rem, 2vw, 1.35rem);
-}
-
-.level-thero-symbol {
-  color: var(--muted);
-}
-
 @media (max-width: 640px) {
   .level-thero-banner {
     gap: 10px;
-  }
-
-  .level-thero-equation {
-    flex-wrap: wrap;
   }
 }
 
@@ -1062,10 +1041,9 @@ body.graphics-mode-low .control-button {
 
 .level-grid {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 24px;
-  justify-content: center;
-  align-items: flex-start;
+  align-items: stretch;
   width: 100%;
 }
 
@@ -1078,8 +1056,9 @@ body.graphics-mode-low .control-button {
   gap: 18px;
   padding: 6px 0;
   flex: 0 0 auto;
-  width: var(--level-node-size);
-  transition: width 360ms ease, transform 320ms ease;
+  width: 100%;
+  max-width: 100%;
+  transition: transform 320ms ease;
 }
 
 .level-set.expanded {
