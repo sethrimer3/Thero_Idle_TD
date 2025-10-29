@@ -22,6 +22,8 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.1,
     moteSize: 2,
     color: { hue: 18, saturation: 16, lightness: 86 },
+    // Reference the quartz sprite so UI surfaces can render the correct crystal art.
+    sprite: './assets/sprites/quartz.png',
   },
   {
     id: 'ruby',
@@ -29,6 +31,8 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.01,
     moteSize: 3,
     color: { hue: 350, saturation: 74, lightness: 48 },
+    // Reference the ruby sprite so UI surfaces can render the correct crystal art.
+    sprite: './assets/sprites/ruby.png',
   },
   {
     id: 'sunstone',
@@ -36,6 +40,8 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.001,
     moteSize: 4,
     color: { hue: 28, saturation: 78, lightness: 56 },
+    // Reference the sunstone sprite so UI surfaces can render the correct crystal art.
+    sprite: './assets/sprites/sunstone.png',
   },
   {
     id: 'citrine',
@@ -43,6 +49,8 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.0001,
     moteSize: 5,
     color: { hue: 48, saturation: 78, lightness: 60 },
+    // Reference the citrine sprite so UI surfaces can render the correct crystal art.
+    sprite: './assets/sprites/citrine.png',
   },
   {
     id: 'emerald',
@@ -50,6 +58,8 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.00001,
     moteSize: 6,
     color: { hue: 140, saturation: 64, lightness: 44 },
+    // Reference the emerald sprite so UI surfaces can render the correct crystal art.
+    sprite: './assets/sprites/emerald.png',
   },
   {
     id: 'sapphire',
@@ -57,6 +67,8 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.000001,
     moteSize: 7,
     color: { hue: 210, saturation: 72, lightness: 52 },
+    // Reference the sapphire sprite so UI surfaces can render the correct crystal art.
+    sprite: './assets/sprites/sapphire.png',
   },
   {
     id: 'iolite',
@@ -64,6 +76,8 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.0000001,
     moteSize: 8,
     color: { hue: 255, saturation: 52, lightness: 50 },
+    // Reference the iolite sprite so UI surfaces can render the correct crystal art.
+    sprite: './assets/sprites/iolite.png',
   },
   {
     id: 'amethyst',
@@ -71,6 +85,8 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.00000001,
     moteSize: 9,
     color: { hue: 280, saturation: 60, lightness: 55 },
+    // Reference the amethyst sprite so UI surfaces can render the correct crystal art.
+    sprite: './assets/sprites/amethyst.png',
   },
   {
     id: 'diamond',
@@ -78,6 +94,8 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.000000001,
     moteSize: 10,
     color: { hue: 200, saturation: 12, lightness: 92 },
+    // Reference the diamond sprite so UI surfaces can render the correct crystal art.
+    sprite: './assets/sprites/diamond.png',
   },
   {
     id: 'nullstone',
@@ -85,10 +103,20 @@ export const GEM_DEFINITIONS = [
     dropChance: 0.0000000001,
     moteSize: 11,
     color: { hue: 210, saturation: 10, lightness: 14 },
+    // Reference the nullstone sprite so UI surfaces can render the correct crystal art.
+    sprite: './assets/sprites/nullstone.png',
   },
 ];
 
 const GEM_LOOKUP = new Map(GEM_DEFINITIONS.map((gem) => [gem.id, gem]));
+
+// Maintain a direct lookup so modules can access gem sprite paths without duplicating strings.
+const GEM_SPRITE_LOOKUP = new Map(
+  GEM_DEFINITIONS.filter((gem) => gem.sprite).map((gem) => [gem.id, gem.sprite])
+);
+
+// Cache gem image elements so animation systems can reuse decoded sprites efficiently.
+const GEM_SPRITE_CACHE = new Map();
 
 // Static rarity multipliers arranged by archetype difficulty. Higher values
 // make crystal drops more common for late-game threats while still allowing the
@@ -169,6 +197,40 @@ export function resolveGemDefinition(typeKey) {
   return GEM_LOOKUP.get(key) || null;
 }
 
+// Surface the sprite path for a gem id so DOM renderers can attach the correct artwork.
+export function getGemSpriteAssetPath(typeKey) {
+  const key = String(typeKey || '').toLowerCase();
+  return GEM_SPRITE_LOOKUP.get(key) || null;
+}
+
+// Provide a memoized Image instance so canvas renderers can draw gem sprites once loaded.
+export function getGemSpriteImage(typeKey) {
+  const key = String(typeKey || '').toLowerCase();
+  if (!GEM_SPRITE_LOOKUP.has(key)) {
+    return null;
+  }
+  const cached = GEM_SPRITE_CACHE.get(key);
+  if (cached && cached.loaded && !cached.error) {
+    return cached.image;
+  }
+  if (cached && cached.error) {
+    return null;
+  }
+  if (typeof Image !== 'undefined') {
+    const image = new Image();
+    const record = { image, loaded: false, error: false };
+    image.addEventListener('load', () => {
+      record.loaded = true;
+    });
+    image.addEventListener('error', () => {
+      record.error = true;
+    });
+    image.src = GEM_SPRITE_LOOKUP.get(key);
+    GEM_SPRITE_CACHE.set(key, record);
+  }
+  return null;
+}
+
 // Derive a deterministic accent color for a mote gem category.
 export function getMoteGemColor(typeKey) {
   const gem = resolveGemDefinition(typeKey);
@@ -199,6 +261,8 @@ export function spawnMoteGemDrop(enemy, position) {
     typeLabel: gemDefinition.name,
     pulse: Math.random() * Math.PI * 2,
     color: { ...gemDefinition.color },
+    // Persist the sprite path on the gem so the playfield can render the matching artwork.
+    spritePath: gemDefinition.sprite || null,
     vx: launchDirection * launchSpeed,
     vy: -launchSpeed * (1.2 + Math.random() * 0.6),
     gravity: 0.00045 + Math.random() * 0.0002,
