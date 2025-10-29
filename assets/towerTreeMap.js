@@ -122,18 +122,21 @@ function getMapMetrics() {
   const nodeRect = typeof nodeLayer?.getBoundingClientRect === 'function'
     ? nodeLayer.getBoundingClientRect()
     : null;
-  const viewportWidth = nodeRect?.width
-    || nodeLayer?.offsetWidth
-    || container.clientWidth
+  // Sample the untransformed container bounds so zoom scaling does not inflate viewport math.
+  const viewportWidth = container?.clientWidth
     || rect?.width
     || 0;
-  const viewportHeight = nodeRect?.height
-    || nodeLayer?.offsetHeight
-    || container.clientHeight
+  const viewportHeight = container?.clientHeight
     || rect?.height
     || 0;
-  const worldWidth = nodeLayer?.offsetWidth || viewportWidth;
-  const worldHeight = nodeLayer?.offsetHeight || viewportHeight;
+  // Preserve the true constellation canvas size so panning can extend beyond the viewport.
+  const worldWidth = nodeLayer?.offsetWidth
+    || nodeRect?.width
+    || viewportWidth;
+  // Mirror the vertical canvas measurement so drag clamps honor the full constellation height.
+  const worldHeight = nodeLayer?.offsetHeight
+    || nodeRect?.height
+    || viewportHeight;
   return {
     viewportWidth,
     viewportHeight,
