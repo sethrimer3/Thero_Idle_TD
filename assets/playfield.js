@@ -125,6 +125,9 @@ export class SimplePlayfield {
     this.autoStartLeadTime = 5;
     this.autoStartTimer = null;
     this.autoStartDeadline = 0;
+    // Track the most recent endless checkpoint so defeat screens can offer a retry.
+    this.endlessCheckpoint = null;
+    this.endlessCheckpointUsed = false;
 
     // Allow callers (such as preview renderers) to override the natural orientation choice.
     this.preferredOrientationOverride =
@@ -1005,6 +1008,9 @@ export class SimplePlayfield {
     this.endlessCycle = 0;
     this.currentWaveNumber = 1;
     this.maxWaveReached = 0;
+    // Clear any stored checkpoint when a fresh state is requested.
+    this.endlessCheckpoint = null;
+    this.endlessCheckpointUsed = false;
     this.viewScale = 1;
     this.viewCenterNormalized = { x: 0.5, y: 0.5 };
     this.applyViewConstraints();
@@ -1118,6 +1124,9 @@ export class SimplePlayfield {
     this.combatActive = false;
     this.shouldAnimate = false;
     this.cancelAutoStart();
+    // Leaving the level invalidates any stored endless checkpoint data.
+    this.endlessCheckpoint = null;
+    this.endlessCheckpointUsed = false;
     this.stopLoop();
     this.disableSlots(true);
     this.enemies = [];
@@ -4146,6 +4155,213 @@ export class SimplePlayfield {
     }
   }
 
+  // Snapshot the minimal tower data required to rebuild a checkpoint state.
+  serializeTowerForCheckpoint(tower) {
+    if (!tower) {
+      return null;
+    }
+    return {
+      type: tower.type,
+      normalized: this.cloneNormalizedPoint(tower.normalized),
+      targetPriority: tower.targetPriority || 'first',
+      behaviorMode: tower.behaviorMode || null,
+      baseDamage: Number.isFinite(tower.baseDamage) ? tower.baseDamage : null,
+      baseRate: Number.isFinite(tower.baseRate) ? tower.baseRate : null,
+      baseRange: Number.isFinite(tower.baseRange) ? tower.baseRange : null,
+      damage: Number.isFinite(tower.damage) ? tower.damage : null,
+      rate: Number.isFinite(tower.rate) ? tower.rate : null,
+      range: Number.isFinite(tower.range) ? tower.range : null,
+      cooldown: Number.isFinite(tower.cooldown) ? tower.cooldown : 0,
+      slotId: tower.slot?.id || null,
+      deltaState:
+        tower.type === 'delta' && tower.deltaState
+          ? { manualTargetId: tower.deltaState.manualTargetId || null }
+          : null,
+    };
+  }
+
+  // Rebuild tower placements and behavior from a stored checkpoint snapshot.
+  restoreTowersFromCheckpoint(towerSnapshots = []) {
+    const snapshots = Array.isArray(towerSnapshots) ? towerSnapshots : [];
+    this.towers.forEach((tower) => {
+      this.teardownDeltaTower(tower);
+      this.handleAlephTowerRemoved(tower);
+    });
+    this.towers = [];
+    this.slots.forEach((slot) => {
+      slot.tower = null;
+      if (slot.button) {
+        slot.button.classList.remove('tower-built');
+        slot.button.setAttribute('aria-pressed', 'false');
+      }
+    });
+    this.towerIdCounter = 0;
+
+    snapshots.forEach((snapshot) => {
+      if (!snapshot || !snapshot.type) {
+        return;
+      }
+      const definition = getTowerDefinition(snapshot.type);
+      if (!definition) {
+        return;
+      }
+      const normalized = this.cloneNormalizedPoint(snapshot.normalized || {});
+      const position = this.getCanvasPosition(normalized);
+      const fallbackDamage = Number.isFinite(definition.damage) ? definition.damage : 0;
+      const fallbackRate = Number.isFinite(definition.rate) ? definition.rate : 1;
+      const fallbackRange = Math.min(this.renderWidth, this.renderHeight) * (definition.range ?? 0.24);
+      const tower = {
+        id: `tower-${(this.towerIdCounter += 1)}`,
+        type: snapshot.type,
+        definition,
+        symbol: definition.symbol,
+        tier: definition.tier,
+        normalized,
+        x: position.x,
+        y: position.y,
+        baseDamage: Number.isFinite(snapshot.baseDamage) ? snapshot.baseDamage : fallbackDamage,
+        baseRate: Number.isFinite(snapshot.baseRate) ? snapshot.baseRate : fallbackRate,
+        baseRange: Number.isFinite(snapshot.baseRange) ? snapshot.baseRange : fallbackRange,
+        damage: Number.isFinite(snapshot.damage) ? snapshot.damage : fallbackDamage,
+        rate: Number.isFinite(snapshot.rate) ? snapshot.rate : fallbackRate,
+        range: Number.isFinite(snapshot.range) ? snapshot.range : fallbackRange,
+        cooldown: Number.isFinite(snapshot.cooldown) ? snapshot.cooldown : 0,
+        slot: null,
+      };
+      if (snapshot.slotId && this.slots.has(snapshot.slotId)) {
+        const slot = this.slots.get(snapshot.slotId);
+        tower.slot = slot;
+        slot.tower = tower;
+        if (slot.button) {
+          slot.button.classList.add('tower-built');
+          slot.button.setAttribute('aria-pressed', 'true');
+        }
+      }
+      tower.targetPriority = snapshot.targetPriority || 'first';
+      tower.behaviorMode = snapshot.behaviorMode || tower.behaviorMode;
+      this.applyTowerBehaviorDefaults(tower);
+      if (snapshot.behaviorMode && tower.type === 'delta') {
+        this.configureDeltaBehavior(tower, snapshot.behaviorMode);
+      }
+      if (tower.type === 'delta' && snapshot.deltaState?.manualTargetId) {
+        const state = this.ensureDeltaState(tower);
+        if (state) {
+          state.manualTargetId = snapshot.deltaState.manualTargetId;
+        }
+      }
+      this.towers.push(tower);
+      this.handleAlephTowerAdded(tower);
+    });
+
+    refreshTowerLoadoutDisplay();
+  }
+
+  // Record a fresh endless checkpoint whenever a cycle of waves concludes.
+  captureEndlessCheckpoint() {
+    if (!this.isEndlessMode || !this.levelConfig || !Array.isArray(this.levelConfig.waves)) {
+      return;
+    }
+    const snapshot = {
+      waveIndex: this.waveIndex,
+      waveNumber: this.currentWaveNumber,
+      endlessCycle: this.endlessCycle,
+      energy: this.energy,
+      lives: this.lives,
+      autoWaveEnabled: this.autoWaveEnabled,
+      availableTowers: Array.isArray(this.availableTowers)
+        ? this.availableTowers.slice()
+        : [],
+      towers: this.towers.map((tower) => this.serializeTowerForCheckpoint(tower)).filter(Boolean),
+    };
+    this.endlessCheckpoint = snapshot;
+    this.endlessCheckpointUsed = false;
+  }
+
+  // Surface whether a retry is available along with the stored wave number.
+  getEndlessCheckpointInfo() {
+    if (!this.isEndlessMode || !this.endlessCheckpoint) {
+      return { available: false, waveNumber: null };
+    }
+    return {
+      available: !this.endlessCheckpointUsed,
+      waveNumber: this.endlessCheckpoint.waveNumber || null,
+    };
+  }
+
+  // Restore the battlefield to the last saved checkpoint and resume combat immediately.
+  retryFromEndlessCheckpoint() {
+    if (
+      !this.isEndlessMode ||
+      !this.endlessCheckpoint ||
+      this.endlessCheckpointUsed ||
+      !this.levelConfig ||
+      !Array.isArray(this.levelConfig.waves) ||
+      !this.levelConfig.waves.length
+    ) {
+      return false;
+    }
+
+    const snapshot = this.endlessCheckpoint;
+    const totalWaves = this.levelConfig.waves.length;
+    const targetIndex = Math.max(0, Math.min(totalWaves - 1, Number(snapshot.waveIndex) || 0));
+
+    this.cancelAutoStart();
+    this.combatActive = true;
+    this.resolvedOutcome = null;
+    this.shouldAnimate = true;
+    this.ensureLoop();
+
+    this.waveIndex = targetIndex;
+    this.waveTimer = 0;
+    this.enemyIdCounter = 0;
+    this.enemies = [];
+    this.projectiles = [];
+    this.floaters = [];
+    this.floaterConnections = [];
+    this.endlessCycle = Math.max(0, Number(snapshot.endlessCycle) || 0);
+    this.currentWaveNumber = snapshot.waveNumber || this.computeWaveNumber(targetIndex);
+    this.maxWaveReached = Math.max(this.maxWaveReached, this.currentWaveNumber);
+    this.energy = Number.isFinite(snapshot.energy) ? snapshot.energy : this.energy;
+    this.lives = Number.isFinite(snapshot.lives) ? snapshot.lives : this.lives;
+    this.autoWaveEnabled = snapshot.autoWaveEnabled ?? this.autoWaveEnabled;
+    if (this.autoWaveCheckbox) {
+      this.autoWaveCheckbox.checked = this.autoWaveEnabled;
+    }
+    if (Array.isArray(snapshot.availableTowers)) {
+      this.availableTowers = snapshot.availableTowers.slice();
+    }
+
+    this.alephChain.reset();
+    this.restoreTowersFromCheckpoint(snapshot.towers);
+
+    const waveConfig = this.levelConfig.waves[targetIndex];
+    this.activeWave = this.createWaveState(waveConfig);
+    this.markWaveStart();
+    this.currentWaveNumber = snapshot.waveNumber || this.currentWaveNumber;
+    this.maxWaveReached = Math.max(this.maxWaveReached, this.currentWaveNumber);
+
+    if (this.startButton) {
+      this.startButton.disabled = true;
+      this.startButton.textContent = 'Wave Running';
+    }
+    if (this.messageEl && this.activeWave?.config?.label) {
+      this.messageEl.textContent = `Wave ${this.currentWaveNumber} — ${this.activeWave.config.label}.`;
+    }
+
+    this.updateHud();
+    this.updateProgress();
+    this.updateSpeedButton();
+    this.updateAutoAnchorButton();
+    this.dependencies.updateStatusDisplays();
+    this.endlessCheckpointUsed = true;
+
+    if (this.onCombatStart && this.levelConfig?.id) {
+      this.onCombatStart(this.levelConfig.id);
+    }
+
+    return true;
+  }
+
   advanceWave() {
     if (!this.levelConfig) {
       return;
@@ -4158,6 +4374,7 @@ export class SimplePlayfield {
         this.activeWave = this.createWaveState(this.levelConfig.waves[this.waveIndex]);
         this.waveTimer = 0;
         this.markWaveStart();
+        this.captureEndlessCheckpoint();
         if (this.messageEl) {
           this.messageEl.textContent = `Wave ${this.currentWaveNumber} — ${
             this.activeWave.config.label
