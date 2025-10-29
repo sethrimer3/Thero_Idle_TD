@@ -1667,9 +1667,11 @@ import {
     glyphsTotal: null,
     glyphsUnused: null,
     glyphBadge: null,
+    tabGlyphBadge: null,
     moteBank: null,
     moteRate: null,
     moteBadge: null,
+    tabMoteBadge: null,
   };
 
   // Cache the relocated resource nodes so status updates only swap text content.
@@ -1683,9 +1685,11 @@ import {
     resourceElements.glyphsTotal = document.getElementById('tower-glyphs-total');
     resourceElements.glyphsUnused = document.getElementById('tower-glyphs-unused');
     resourceElements.glyphBadge = document.getElementById('tower-glyph-badge');
+    resourceElements.tabGlyphBadge = document.getElementById('tab-glyph-badge');
     resourceElements.moteBank = document.getElementById('tower-mote-bank');
     resourceElements.moteRate = document.getElementById('tower-mote-rate');
     resourceElements.moteBadge = document.getElementById('tower-mote-badge');
+    resourceElements.tabMoteBadge = document.getElementById('tab-mote-badge');
     updateStatusDisplays();
   }
 
@@ -1734,6 +1738,21 @@ import {
       resourceElements.glyphBadge.setAttribute('aria-label', `${unusedGlyphLabel} unused glyphs`);
     }
 
+    if (resourceElements.tabGlyphBadge) {
+      const tabGlyphLabel = formatWholeNumber(unusedGlyphs);
+      resourceElements.tabGlyphBadge.textContent = tabGlyphLabel;
+      resourceElements.tabGlyphBadge.setAttribute('aria-label', `${tabGlyphLabel} unused glyphs`);
+      const hasUnusedGlyphs = unusedGlyphs > 0;
+      // Mirror the glow badge visibility on the towers tab so idle glyphs stand out immediately.
+      if (hasUnusedGlyphs) {
+        resourceElements.tabGlyphBadge.removeAttribute('hidden');
+        resourceElements.tabGlyphBadge.setAttribute('aria-hidden', 'false');
+      } else {
+        resourceElements.tabGlyphBadge.setAttribute('hidden', '');
+        resourceElements.tabGlyphBadge.setAttribute('aria-hidden', 'true');
+      }
+    }
+
     const storedMotes = Math.max(0, powderCurrency + (powderState.idleMoteBank || 0));
     if (resourceElements.moteBank) {
       resourceElements.moteBank.textContent = `${formatGameNumber(storedMotes)} Motes`;
@@ -1742,6 +1761,14 @@ import {
       const storedLabel = formatGameNumber(storedMotes);
       resourceElements.moteBadge.textContent = storedLabel;
       resourceElements.moteBadge.setAttribute('aria-label', `${storedLabel} motes in bank`);
+    }
+
+    if (resourceElements.tabMoteBadge) {
+      const tabStoredLabel = formatGameNumber(storedMotes);
+      resourceElements.tabMoteBadge.textContent = tabStoredLabel;
+      resourceElements.tabMoteBadge.setAttribute('aria-label', `${tabStoredLabel} motes in bank`);
+      resourceElements.tabMoteBadge.removeAttribute('hidden');
+      resourceElements.tabMoteBadge.setAttribute('aria-hidden', 'false');
     }
 
     const dispenseRate = Number.isFinite(powderState.idleDrainRate) ? Math.max(0, powderState.idleDrainRate) : 0;

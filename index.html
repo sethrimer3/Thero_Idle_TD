@@ -1364,7 +1364,11 @@
           aria-selected="false"
           aria-pressed="false"
         >
-          <span class="tab-icon">Δ</span>
+          <span class="tab-icon">
+            Δ
+            <!-- Indicator for unused glyph currency within the towers tab icon. -->
+            <span class="tab-icon-badge tab-icon-badge--glyphs" id="tab-glyph-badge" hidden>0</span>
+          </span>
           <span class="tab-label">Towers</span>
         </button>
         <button
@@ -1378,7 +1382,11 @@
           aria-selected="false"
           aria-pressed="false"
         >
-          <span class="tab-icon">⧖</span>
+          <span class="tab-icon">
+            ⧖
+            <!-- Persistent mote bank indicator within the powder tab icon. -->
+            <span class="tab-icon-badge tab-icon-badge--motes" id="tab-mote-badge">0.00</span>
+          </span>
           <span class="tab-label">Mote Gems</span>
         </button>
         <button
