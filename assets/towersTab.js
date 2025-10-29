@@ -2303,6 +2303,7 @@ export function openTowerUpgradeOverlay(towerId, options = {}) {
   renderTowerUpgradeOverlay(towerId, {
     blueprint: options.blueprint,
     baseEquationText: options.baseEquationText,
+    animateEntry: true,
   });
   overlay.focus({ preventScroll: true });
   maybePlayTowerVariableEntry();
