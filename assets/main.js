@@ -39,6 +39,20 @@ import {
 } from './audioSystem.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
 import {
+  configureAutoSave,
+  loadPersistentState,
+  schedulePowderSave,
+  savePowderCurrency,
+  startAutoSaveLoop,
+  commitAutoSave,
+  readStorage,
+  writeStorage,
+  readStorageJson,
+  writeStorageJson,
+  GRAPHICS_MODE_STORAGE_KEY,
+  NOTATION_STORAGE_KEY,
+} from './autoSave.js';
+import {
   configureOfflinePersistence,
   bindOfflineOverlayElements,
   updatePowderLogDisplay,
@@ -303,9 +317,6 @@ import {
   let TOWER_LOADOUT_LIMIT = FALLBACK_TOWER_LOADOUT_LIMIT;
   let BASE_START_THERO = FALLBACK_BASE_START_THERO;
   let BASE_CORE_INTEGRITY = FALLBACK_BASE_CORE_INTEGRITY;
-
-  // Storage key tracks the player's chosen graphics fidelity across sessions.
-  const GRAPHICS_MODE_STORAGE_KEY = 'glyph-defense-idle:graphics-mode';
 
   // Enumerated graphics modes allow the UI to cycle between fidelity tiers.
   const GRAPHICS_MODES = Object.freeze({
@@ -1349,9 +1360,6 @@ import {
   const audioManager = new AudioManager(DEFAULT_AUDIO_MANIFEST);
   setTowersAudioManager(audioManager);
 
-  // Persists the player's preferred number notation between sessions.
-  const NOTATION_STORAGE_KEY = 'glyph-defense-idle:notation';
-
   let audioControlsBinding = null;
   // Cached reference to the notation toggle control inside the Codex panel.
   let notationToggleButton = null;
@@ -1931,20 +1939,43 @@ import {
   let resourceTicker = null;
   let lastResourceTick = 0;
 
-  const storageKeys = {
-    powder: 'glyph-defense-idle:powder',
-    audio: AUDIO_SETTINGS_STORAGE_KEY,
-    notation: NOTATION_STORAGE_KEY,
-    // Persisted graphics fidelity preference.
-    graphics: GRAPHICS_MODE_STORAGE_KEY,
-  };
-
   let powderCurrency = 0;
-  let powderSaveHandle = null;
 
   let powderBasinPulseTimer = null;
 
   const POWDER_WALL_TEXTURE_REPEAT_PX = 192; // Mirror the tower wall sprite tile height so loops stay seamless.
+
+  // Configure the autosave helpers so they can persist powder, stats, and preference state.
+  configureAutoSave({
+    audioStorageKey: AUDIO_SETTINGS_STORAGE_KEY,
+    getPowderCurrency: () => powderCurrency,
+    onPowderCurrencyLoaded: (value) => {
+      powderCurrency = value;
+      updatePowderStockpileDisplay();
+    },
+    applyStoredAudioSettings,
+    syncAudioControlsFromManager,
+    applyNotationPreference,
+    handleNotationFallback: handleNotationChange,
+    getGameStatsSnapshot: () => gameStats,
+    mergeLoadedGameStats: (stored) => {
+      if (!stored) {
+        return;
+      }
+      Object.entries(stored).forEach(([key, value]) => {
+        if (Object.prototype.hasOwnProperty.call(gameStats, key) && Number.isFinite(value)) {
+          gameStats[key] = value;
+        }
+      });
+      // Recompute achievement thresholds after loading persisted statistics.
+      evaluateAchievements();
+    },
+    statKeys: Object.keys(gameStats),
+    getPreferenceSnapshot: () => ({
+      notation: getGameNumberNotation(),
+      graphics: activeGraphicsMode,
+    }),
+  });
 
   const idleLevelRuns = new Map();
 
@@ -4783,48 +4814,6 @@ import {
     return 'No attempts recorded.';
   }
 
-  function readStorage(key) {
-    try {
-      return window?.localStorage?.getItem(key) ?? null;
-    } catch (error) {
-      console.warn('Storage read failed', error);
-      return null;
-    }
-  }
-
-  function writeStorage(key, value) {
-    try {
-      window?.localStorage?.setItem(key, value);
-      return true;
-    } catch (error) {
-      console.warn('Storage write failed', error);
-      return false;
-    }
-  }
-
-  function readStorageJson(key) {
-    const raw = readStorage(key);
-    if (!raw) {
-      return null;
-    }
-    try {
-      return JSON.parse(raw);
-    } catch (error) {
-      console.warn('Storage parse failed', error);
-      return null;
-    }
-  }
-
-  function writeStorageJson(key, value) {
-    try {
-      const payload = JSON.stringify(value);
-      return writeStorage(key, payload);
-    } catch (error) {
-      console.warn('Storage serialization failed', error);
-      return false;
-    }
-  }
-
   function enableDeveloperMode() {
     developerModeActive = true;
     if (developerModeElements.toggle && !developerModeElements.toggle.checked) {
@@ -5609,44 +5598,6 @@ import {
     });
   }
 
-  function savePowderCurrency() {
-    if (powderSaveHandle) {
-      clearTimeout(powderSaveHandle);
-      powderSaveHandle = null;
-    }
-    writeStorageJson(storageKeys.powder, Math.max(0, powderCurrency));
-  }
-
-  function schedulePowderSave() {
-    if (powderSaveHandle) {
-      return;
-    }
-    powderSaveHandle = setTimeout(() => {
-      powderSaveHandle = null;
-      savePowderCurrency();
-    }, 1500);
-  }
-
-  function loadPersistentState() {
-    const storedPowder = readStorageJson(storageKeys.powder);
-    if (Number.isFinite(storedPowder)) {
-      powderCurrency = Math.max(0, storedPowder);
-    }
-
-    const storedAudio = readStorageJson(AUDIO_SETTINGS_STORAGE_KEY);
-    if (storedAudio) {
-      applyStoredAudioSettings(storedAudio);
-      syncAudioControlsFromManager();
-    }
-
-    const storedNotation = readStorage(storageKeys.notation);
-    if (storedNotation) {
-      applyNotationPreference(storedNotation, { persist: false });
-    } else {
-      handleNotationChange();
-    }
-  }
-
   function applyPowderGain(amount, context = {}) {
     if (!Number.isFinite(amount) || amount <= 0) {
       return 0;
@@ -6069,6 +6020,8 @@ import {
     checkOfflineRewards();
     markLastActive();
     ensureResourceTicker();
+    // Begin the recurring autosave cadence once the core systems are initialized.
+    startAutoSaveLoop();
 
     injectTowerCardPreviews();
     annotateTowerCardsWithCost();
@@ -6101,6 +6054,8 @@ import {
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
+      // Flush an autosave before the tab suspends so recent actions persist.
+      commitAutoSave();
       markLastActive();
       if (audioManager && typeof audioManager.suspendMusic === 'function') {
         audioManager.suspendMusic();
@@ -6117,8 +6072,16 @@ import {
     }
   });
 
-  window.addEventListener('pagehide', markLastActive);
-  window.addEventListener('beforeunload', markLastActive);
+  window.addEventListener('pagehide', () => {
+    // Commit the latest autosave snapshot when the page transitions away.
+    commitAutoSave();
+    markLastActive();
+  });
+  window.addEventListener('beforeunload', () => {
+    // Ensure progress persists even if the browser closes abruptly.
+    commitAutoSave();
+    markLastActive();
+  });
 
   document.addEventListener('keydown', (event) => {
     const towerUpgradeOverlay = getTowerUpgradeOverlayElement();
