@@ -6096,10 +6096,19 @@ import {
 
     // Synchronize tab interactions with overlay state, audio cues, and banner refreshes.
     configureTabManager({
-      getOverlayActiveState: () => Boolean(overlay && overlay.classList.contains('active')), 
+      getOverlayActiveState: () => Boolean(overlay && overlay.classList.contains('active')),
       isFieldNotesOverlayVisible,
-      onTabChange: () => {
+      onTabChange: (tabId) => {
         refreshTabMusic();
+        if (tabId === 'powder') {
+          // Realign the powder basin after the tab becomes visible so layout metrics refresh.
+          requestAnimationFrame(() => {
+            if (powderSimulation && typeof powderSimulation.handleResize === 'function') {
+              powderSimulation.handleResize();
+              handlePowderViewTransformChange(powderSimulation.getViewTransform());
+            }
+          });
+        }
       },
       onTowerTabActivated: () => {
         updateActiveLevelBanner();
