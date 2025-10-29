@@ -13,6 +13,7 @@ import {
   cancelTowerDrag,
   getTowerEquationBlueprint,
   getTowerLoadoutState,
+  openTowerUpgradeOverlay,
 } from './towersTab.js';
 import {
   moteGemState,
@@ -2052,6 +2053,13 @@ export class SimplePlayfield {
       icon: '$þ',
       label: 'Sell lattice',
     });
+    // Surface the tower dossier overlay entry point directly inside the radial menu.
+    options.push({
+      id: 'info',
+      type: 'info',
+      icon: 'ℹ',
+      label: 'Tower information',
+    });
     const priority = tower.targetPriority || 'first';
     options.push({
       id: 'priority-first',
@@ -2163,6 +2171,18 @@ export class SimplePlayfield {
     }
     if (option.type === 'action' && option.id === 'sell') {
       this.sellTower(tower);
+      return;
+    }
+    if (option.type === 'info') {
+      // Route the command to the tower overlay so players can review formulas mid-combat.
+      if (tower?.type) {
+        openTowerUpgradeOverlay(tower.type);
+      }
+      if (this.messageEl) {
+        const label = tower.definition?.name || `${tower.symbol || 'Tower'}`;
+        this.messageEl.textContent = `${label} dossier projected over the field.`;
+      }
+      this.closeTowerMenu();
       return;
     }
     if (option.type === 'priority' && option.value) {
