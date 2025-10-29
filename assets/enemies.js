@@ -250,8 +250,9 @@ export function spawnMoteGemDrop(enemy, position) {
     return null;
   }
   const moteSize = Math.max(1, Math.round(gemDefinition.moteSize || 1));
-  const launchDirection = Math.random() < 0.5 ? -1 : 1; // Alternate launch sides so the squares drift away from the lane symmetrically.
-  const launchSpeed = 0.12 + Math.random() * 0.08; // Slightly vary the launch impulse so the animation feels organic.
+  const launchDistanceMeters = 1 + Math.random() * 2; // Propel the gem between one and three meters away from the defeat point.
+  const launchAngle = Math.random() * Math.PI * 2; // Scatter the gem in a uniformly random direction so flights cover the entire arena.
+  const launchDuration = 520 + Math.random() * 240; // Allow the fling animation to complete within roughly half a second for a crisp exit.
   const gem = {
     id: moteGemState.nextId,
     x: position.x,
@@ -263,12 +264,20 @@ export function spawnMoteGemDrop(enemy, position) {
     color: { ...gemDefinition.color },
     // Persist the sprite path on the gem so the playfield can render the matching artwork.
     spritePath: gemDefinition.sprite || null,
-    vx: launchDirection * launchSpeed,
-    vy: -launchSpeed * (1.2 + Math.random() * 0.6),
-    gravity: 0.00045 + Math.random() * 0.0002,
+    vx: 0,
+    vy: 0,
+    gravity: 0,
     lifetime: 0,
     opacity: 1,
     moteSize,
+    launch: {
+      startX: position.x,
+      startY: position.y,
+      angle: launchAngle,
+      distanceMeters: launchDistanceMeters,
+      duration: launchDuration,
+      elapsed: 0,
+    }, // Track the fling vector so the playfield can translate meters into screen motion.
   };
   moteGemState.nextId += 1;
   moteGemState.active.push(gem);
