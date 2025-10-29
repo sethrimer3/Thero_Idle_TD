@@ -801,12 +801,6 @@ body.graphics-mode-low .control-button {
   box-shadow: 0 16px 32px rgba(255, 228, 120, 0.28);
 }
 
-.tower-loadout-symbol {
-  font-family: "Cormorant Garamond", serif;
-  font-size: 1.2rem;
-  letter-spacing: 0.06em;
-}
-
 .tower-loadout-art {
   width: 44px;
   height: 44px;
@@ -818,15 +812,8 @@ body.graphics-mode-low .control-button {
   mix-blend-mode: screen;
 }
 
-.tower-loadout-label {
-  margin: 0;
-  font-size: 0.6rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.72);
-}
-
 .tower-loadout-cost {
+  /* Stack the cost beneath the icon with enough contrast to remain legible in the compact layout. */
   margin: 0;
   font-size: 0.6rem;
   letter-spacing: 0.06em;

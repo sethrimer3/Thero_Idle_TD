@@ -14,6 +14,11 @@ import {
   formatSignedPercentage,
 } from '../scripts/core/formatting.js';
 import {
+  canvasFractionToMeters,
+  metersToCanvasFraction,
+  DEFAULT_TOWER_DIAMETER_METERS,
+} from './gameUnits.js'; // Provide unit conversion helpers so tower data can use meters.
+import {
   getCraftedEquipment,
   getEquipmentAssignment,
   getTowerEquipmentId,
@@ -115,6 +120,8 @@ const UNIVERSAL_VARIABLE_LIBRARY = new Map([
 ]);
 
 // State container for all Towers tab systems.
+const FALLBACK_RANGE_FRACTION = 0.24; // Preserve historic gameplay balance when range data is missing.
+
 const towerTabState = {
   towerDefinitions: [],
   towerDefinitionMap: new Map(),
@@ -173,8 +180,33 @@ const towerTabState = {
 
 const fallbackTowerBlueprints = new Map();
 
+// Ensure tower definitions expose meter-calibrated sizing and range data.
+function normalizeTowerDefinition(definition = {}) {
+  const clone = { ...definition };
+  const explicitDiameter = Number.isFinite(clone.diameterMeters)
+    ? Math.max(clone.diameterMeters, 0)
+    : null;
+  const diameterMeters = explicitDiameter && explicitDiameter > 0
+    ? explicitDiameter
+    : DEFAULT_TOWER_DIAMETER_METERS;
+  clone.diameterMeters = diameterMeters;
+  clone.radiusMeters = diameterMeters / 2;
+
+  const explicitRangeMeters = Number.isFinite(clone.rangeMeters) ? clone.rangeMeters : null;
+  const fallbackFraction = Number.isFinite(clone.range) ? clone.range : FALLBACK_RANGE_FRACTION;
+  const rangeMeters = explicitRangeMeters && explicitRangeMeters > 0
+    ? explicitRangeMeters
+    : canvasFractionToMeters(fallbackFraction);
+  clone.rangeMeters = Math.max(rangeMeters, 0);
+  clone.range = metersToCanvasFraction(clone.rangeMeters);
+  return clone;
+}
+
 export function setTowerDefinitions(definitions = []) {
-  towerTabState.towerDefinitions = Array.isArray(definitions) ? [...definitions] : [];
+  const normalizedDefinitions = Array.isArray(definitions)
+    ? definitions.map((tower) => normalizeTowerDefinition(tower))
+    : []; // Normalize raw tower entries so each one includes meter-aware values.
+  towerTabState.towerDefinitions = normalizedDefinitions;
   towerTabState.towerDefinitionMap = new Map(
     towerTabState.towerDefinitions.map((tower) => [tower.id, tower]),
   );
@@ -857,6 +889,10 @@ export function refreshTowerLoadoutDisplay() {
     if (costEl) {
       costEl.textContent = `${Math.round(currentCost)} ${towerTabState.theroSymbol}`;
     }
+    if (definition && item) {
+      const label = `${definition.name} — ${Math.round(currentCost)} ${towerTabState.theroSymbol}`;
+      item.setAttribute('aria-label', label); // Surface name and price for assistive tech now that the text label is hidden.
+    }
     const affordable = interactive ? towerTabState.playfield.energy >= currentCost : false;
     item.dataset.valid = affordable ? 'true' : 'false';
     item.dataset.disabled = interactive ? 'false' : 'true';
@@ -901,6 +937,7 @@ function renderTowerLoadout() {
     item.className = 'tower-loadout-item';
     item.dataset.towerId = towerId;
     item.setAttribute('role', 'listitem');
+    item.setAttribute('aria-label', definition.name); // Seed an accessible label until the live cost is calculated.
 
     const artwork = document.createElement('img');
     artwork.className = 'tower-loadout-art';
@@ -914,19 +951,11 @@ function renderTowerLoadout() {
       artwork.setAttribute('aria-hidden', 'true');
     }
 
-    const symbol = document.createElement('span');
-    symbol.className = 'tower-loadout-symbol';
-    symbol.textContent = definition.symbol;
-
-    const label = document.createElement('span');
-    label.className = 'tower-loadout-label';
-    label.textContent = definition.name;
-
     const costEl = document.createElement('span');
     costEl.className = 'tower-loadout-cost';
     costEl.textContent = '—';
 
-    item.append(artwork, symbol, label, costEl);
+    item.append(artwork, costEl); // Present only the icon with the cost stacked below it to save vertical space.
 
     item.addEventListener('pointerdown', (event) => startTowerDrag(event, towerId, item));
 
@@ -977,7 +1006,11 @@ function handleTowerDragMove(event) {
   }
   const normalized = towerTabState.playfield.getNormalizedFromEvent(event);
   if (normalized) {
-    towerTabState.playfield.previewTowerPlacement(normalized, { towerType: drag.towerId });
+    towerTabState.playfield.previewTowerPlacement(normalized, {
+      towerType: drag.towerId,
+      dragging: true,
+      pointerType: event.pointerType,
+    }); // Pass pointer context so touch drags can offset the preview by one meter.
   }
 }
 

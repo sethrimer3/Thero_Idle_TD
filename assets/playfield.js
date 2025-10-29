@@ -35,6 +35,7 @@ import {
 } from './colorSchemeUtils.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../scripts/features/towers/powderTower.js';
 import { notifyTowerPlaced } from './achievementsTab.js';
+import { metersToPixels } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 
 // Minimum pointer distance before the playfield interprets input as a camera drag.
 const PLAYFIELD_VIEW_DRAG_THRESHOLD = 6;
@@ -431,12 +432,12 @@ export class SimplePlayfield {
     this.draggingTowerType = null;
   }
 
-  previewTowerPlacement(normalized, { towerType, dragging = false } = {}) {
+  previewTowerPlacement(normalized, { towerType, dragging = false, pointerType = null } = {}) {
     if (!normalized || !towerType) {
       this.clearPlacementPreview();
       return;
     }
-    this.updatePlacementPreview(normalized, { towerType, dragging });
+    this.updatePlacementPreview(normalized, { towerType, dragging, pointerType });
   }
 
   completeTowerPlacement(normalized, { towerType } = {}) {
@@ -1567,6 +1568,7 @@ export class SimplePlayfield {
       this.updatePlacementPreview(normalized, {
         towerType: activeType,
         dragging: Boolean(this.draggingTowerType),
+        pointerType: event.pointerType, // Forward pointer context so touch drags remain elevated by one meter above the finger.
       });
     } else {
       this.clearPlacementPreview();
@@ -1694,7 +1696,7 @@ export class SimplePlayfield {
   }
 
   updatePlacementPreview(normalized, options = {}) {
-    const { towerType, dragging = false } = options;
+    const { towerType, dragging = false, pointerType = null } = options;
     if (!towerType || !normalized) {
       this.hoverPlacement = null;
       return;
@@ -1706,7 +1708,10 @@ export class SimplePlayfield {
 
     if (dragging) {
       const offsetX = this.dragPreviewOffset?.x || 0;
-      const offsetY = this.dragPreviewOffset?.y || 0;
+      let offsetY = this.dragPreviewOffset?.y || 0;
+      if (pointerType === 'touch') {
+        offsetY = -this.getPixelsForMeters(1); // Lift touch drags exactly one meter above the active finger.
+      }
       const adjustedPosition = {
         x: pointerPosition.x + offsetX,
         y: pointerPosition.y + offsetY,
@@ -4434,6 +4439,11 @@ export class SimplePlayfield {
       x: normalized.x * this.renderWidth,
       y: normalized.y * this.renderHeight,
     };
+  }
+
+  getPixelsForMeters(meters) {
+    const minDimension = Math.min(this.renderWidth, this.renderHeight) || 0;
+    return metersToPixels(meters, minDimension); // Translate standardized meters into on-screen pixels using the current viewport.
   }
 
   getNormalizedFromCanvasPosition(position) {

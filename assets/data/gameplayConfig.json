@@ -20,6 +20,7 @@
       "damage": 28,
       "rate": 1.25,
       "range": 0.24,
+      "diameterMeters": 1,
       "icon": "assets/images/tower-alpha.svg",
       "nextTierId": "beta"
     },
