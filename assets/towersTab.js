@@ -980,7 +980,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const denominator = aleph2 + aleph3 + aleph4 + aleph5;
           const values = [
             {
-              expression: String.raw`\( \text{SpdRing1} = \frac{1}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5}} \)`,
+              expression: String.raw`\( \text{SpdRing1} = \frac{1}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5} + 10} \)`,
             },
             {
               values: String.raw`\( ${formatDecimal(1 / denominator, 3)} = \frac{1}{${formatWholeNumber(
@@ -991,7 +991,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
               variant: 'values',
             },
             {
-              expression: String.raw`\( \text{SpdRing2} = \frac{1 + \aleph_{2}}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5}} \)`,
+              expression: String.raw`\( \text{SpdRing2} = \frac{1 + \aleph_{2}}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5} + 10} \)`,
             },
             {
               values: String.raw`\( ${formatDecimal((1 + aleph2) / denominator, 3)} = \frac{1 + ${formatWholeNumber(
@@ -1002,7 +1002,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
               variant: 'values',
             },
             {
-              expression: String.raw`\( \text{SpdRing3} = \frac{1 + 2 \cdot \aleph_{3}}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5}} \)`,
+              expression: String.raw`\( \text{SpdRing3} = \frac{1 + 2 \cdot \aleph_{3}}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5} + 10} \)`,
             },
             {
               values: String.raw`\( ${formatDecimal((1 + 2 * aleph3) / denominator, 3)} = \frac{1 + 2 \cdot ${formatWholeNumber(
@@ -1013,7 +1013,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
               variant: 'values',
             },
             {
-              expression: String.raw`\( \text{SpdRing4} = \frac{2 + 3 \cdot \aleph_{4}}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5}} \)`,
+              expression: String.raw`\( \text{SpdRing4} = \frac{2 + 3 \cdot \aleph_{4}}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5} + 10} \)`,
             },
             {
               values: String.raw`\( ${formatDecimal((2 + 3 * aleph4) / denominator, 3)} = \frac{2 + 3 \cdot ${formatWholeNumber(
@@ -1024,7 +1024,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
               variant: 'values',
             },
             {
-              expression: String.raw`\( \text{SpdRing5} = \frac{1 + 2^{\aleph_{5}}}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5}} \)`,
+              expression: String.raw`\( \text{SpdRing5} = \frac{1 + 2^{\aleph_{5}}}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5} + 10} \)`,
             },
             {
               values: String.raw`\( ${formatDecimal((1 + 2 ** aleph5) / denominator, 3)} = \frac{1 + 2^{${formatWholeNumber(

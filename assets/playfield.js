@@ -77,6 +77,17 @@ import {
   drawEtaOrbits as drawEtaOrbitsHelper,
   ETA_MAX_PRESTIGE_MERGES,
 } from '../scripts/features/towers/etaTower.js';
+import {
+  ensureDeltaState as ensureDeltaStateHelper,
+  configureDeltaBehavior as configureDeltaBehaviorHelper,
+  teardownDeltaTower as teardownDeltaTowerHelper,
+  updateDeltaAnchors as updateDeltaAnchorsHelper,
+  clearTowerManualTarget as clearTowerManualTargetHelper,
+  getTowerManualTarget as getTowerManualTargetHelper,
+  deployDeltaSoldier as deployDeltaSoldierHelper,
+  updateDeltaTower as updateDeltaTowerHelper,
+  drawDeltaSoldiers as drawDeltaSoldiersHelper,
+} from '../scripts/features/towers/deltaTower.js';
 
 // Minimum pointer distance before the playfield interprets input as a camera drag.
 const PLAYFIELD_VIEW_DRAG_THRESHOLD = 6;
@@ -2512,120 +2523,42 @@ export class SimplePlayfield {
    * Create or update the Delta state container so soldiers can be simulated.
    */
   ensureDeltaState(tower) {
-    if (!tower || tower.type !== 'delta') {
-      return null;
-    }
-    const gamma = getTowerDefinition('gamma') || {};
-    const alpha = getTowerDefinition('alpha') || {};
-    const rawAtk = Number.isFinite(tower.definition?.atk)
-      ? tower.definition.atk
-      : Number.isFinite(gamma.damage)
-      ? gamma.damage
-      : Math.max(1, tower.baseDamage || 0);
-    const atk = Math.max(1, rawAtk);
-    const rawReg = Number.isFinite(tower.definition?.reg) ? tower.definition.reg : 0.01;
-    const regenPercent = rawReg > 1 ? rawReg / 100 : Math.max(0, rawReg);
-    const rawTot = Number.isFinite(tower.definition?.tot) ? tower.definition.tot : 5;
-    const maxSoldiers = Math.max(1, Math.round(rawTot));
-    const rawDefense = Number.isFinite(tower.definition?.def)
-      ? tower.definition.def
-      : Number.isFinite(alpha.damage)
-      ? alpha.damage
-      : 0;
-    const defense = Math.max(0, rawDefense);
-    const deltaProduct = atk * Math.max(regenPercent, 0.0001) * maxSoldiers * Math.max(defense, 1);
-
-    if (!tower.deltaState) {
-      tower.deltaState = {
-        atk,
-        regenPercent,
-        maxSoldiers,
-        defense,
-        product: deltaProduct,
-        soldiers: [],
-        manualTargetId: null,
-        soldierCounter: 0,
-        trackHoldPoint: null,
-        mode: tower.behaviorMode || 'pursuit',
-      };
-    } else {
-      tower.deltaState.atk = atk;
-      tower.deltaState.regenPercent = regenPercent;
-      tower.deltaState.maxSoldiers = maxSoldiers;
-      tower.deltaState.defense = defense;
-      tower.deltaState.product = deltaProduct;
-    }
-    return tower.deltaState;
+    return ensureDeltaStateHelper(this, tower);
   }
 
   /**
    * Update Delta soldier stance and anchor points when the player changes modes.
    */
   configureDeltaBehavior(tower, mode) {
-    if (!tower || tower.type !== 'delta') {
-      tower.behaviorMode = mode;
-      return;
-    }
-    const state = this.ensureDeltaState(tower);
-    const nextMode = mode || 'pursuit';
-    tower.behaviorMode = nextMode;
-    state.mode = nextMode;
-    if (nextMode !== 'sentinel') {
-      this.clearTowerManualTarget(tower);
-    }
-    this.updateDeltaAnchors(tower);
+    configureDeltaBehaviorHelper(this, tower, mode);
   }
 
   /**
    * Remove any lingering Delta data once a tower is dismantled or upgraded away.
    */
   teardownDeltaTower(tower) {
-    if (!tower?.deltaState) {
-      return;
-    }
-    tower.deltaState.soldiers = [];
-    tower.deltaState.manualTargetId = null;
-    tower.deltaState = null;
+    teardownDeltaTowerHelper(this, tower);
   }
 
   /**
    * Keep the cached track-hold anchor aligned with the latest path layout.
    */
   updateDeltaAnchors(tower) {
-    if (!tower || tower.type !== 'delta') {
-      return;
-    }
-    const state = this.ensureDeltaState(tower);
-    if (tower.behaviorMode === 'trackHold') {
-      const anchor = this.getClosestPointOnPath({ x: tower.x, y: tower.y });
-      state.trackHoldPoint = anchor?.point || { x: tower.x, y: tower.y };
-    }
+    updateDeltaAnchorsHelper(this, tower);
   }
 
   /**
    * Clear any manual Delta target.
    */
   clearTowerManualTarget(tower) {
-    if (!tower?.deltaState?.manualTargetId) {
-      return false;
-    }
-    tower.deltaState.manualTargetId = null;
-    return true;
+    return clearTowerManualTargetHelper(this, tower);
   }
 
   /**
    * Retrieve the live enemy chosen for manual Delta focus.
    */
   getTowerManualTarget(tower) {
-    if (!tower?.deltaState?.manualTargetId) {
-      return null;
-    }
-    const enemy = this.enemies.find((candidate) => candidate?.id === tower.deltaState.manualTargetId);
-    if (!enemy || enemy.hp <= 0) {
-      this.clearTowerManualTarget(tower);
-      return null;
-    }
-    return enemy;
+    return getTowerManualTargetHelper(this, tower);
   }
   getEnemyVisualMetrics(enemy) {
     if (!enemy) {
@@ -3907,37 +3840,7 @@ export class SimplePlayfield {
    * Advance Delta soldier timers, spawn replacements, and manage cohort AI.
    */
   updateDeltaTower(tower, delta) {
-    const state = this.ensureDeltaState(tower);
-    if (!state) {
-      return;
-    }
-
-    state.mode = tower.behaviorMode || state.mode || 'pursuit';
-
-    const survivors = [];
-    for (let index = 0; index < state.soldiers.length; index += 1) {
-      const soldier = state.soldiers[index];
-      if (this.updateDeltaSoldier(tower, soldier, delta, state)) {
-        survivors.push(soldier);
-      }
-    }
-    state.soldiers = survivors;
-
-    const spawnCap = Math.max(1, state.maxSoldiers || 1);
-    if (state.soldiers.length > spawnCap) {
-      // Trim excess soldiers if upgrades reduce the allowed cohort size.
-      state.soldiers.length = spawnCap;
-    }
-    if (state.soldiers.length >= spawnCap) {
-      return;
-    }
-
-    if (tower.cooldown <= 0) {
-      const targetInfo = this.combatActive ? this.findTarget(tower) : null;
-      this.deployDeltaSoldier(tower, targetInfo);
-      const rate = Math.max(Number.isFinite(tower.rate) ? tower.rate : 1, 0.05);
-      tower.cooldown = 1 / rate;
-    }
+    updateDeltaTowerHelper(this, tower, delta);
   }
 
   /**
@@ -4000,216 +3903,7 @@ export class SimplePlayfield {
    * Spawn a fresh Delta soldier, optionally primed with a target assignment.
    */
   deployDeltaSoldier(tower, targetInfo = null) {
-    const state = this.ensureDeltaState(tower);
-    if (!state) {
-      return;
-    }
-    const limit = Math.max(1, state.maxSoldiers || 1);
-    if (state.soldiers.length >= limit) {
-      return;
-    }
-    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
-    const spawnRadius = Math.max(12, minDimension * 0.035);
-    const collisionRadius = Math.max(12, minDimension * 0.03);
-    const spawnIndex = state.soldierCounter % limit;
-    state.soldierCounter += 1;
-    const angle = -Math.PI / 2 + (Math.PI * 2 * spawnIndex) / limit;
-    const spawnX = tower.x + Math.cos(angle) * spawnRadius;
-    const spawnY = tower.y + Math.sin(angle) * spawnRadius;
-
-    const soldier = {
-      id: `delta-soldier-${(this.deltaSoldierIdCounter += 1)}`,
-      towerId: tower.id,
-      slotIndex: spawnIndex,
-      x: spawnX,
-      y: spawnY,
-      vx: 0,
-      vy: 0,
-      heading: angle,
-      maxHealth: state.atk,
-      health: state.atk,
-      regenPercent: state.regenPercent,
-      defense: state.defense,
-      targetId: targetInfo?.enemy?.id || null,
-      collisionRadius,
-      mode: tower.behaviorMode || 'pursuit',
-    };
-
-    state.soldiers.push(soldier);
-  }
-
-  /**
-   * Resolve an idle waypoint for a Delta soldier based on the active stance.
-   */
-  resolveDeltaHoldPosition(tower, soldier, state) {
-    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
-    const index = Number.isFinite(soldier.slotIndex) ? soldier.slotIndex : 0;
-    const count = Math.max(1, state.maxSoldiers || 1);
-    const baseAngle = -Math.PI / 2 + (Math.PI * 2 * index) / count;
-    if (tower.behaviorMode === 'trackHold' && state.trackHoldPoint) {
-      const radius = Math.max(18, minDimension * 0.05);
-      return {
-        x: state.trackHoldPoint.x + Math.cos(baseAngle) * radius,
-        y: state.trackHoldPoint.y + Math.sin(baseAngle) * radius,
-      };
-    }
-    const sentinelRadius = tower.behaviorMode === 'sentinel'
-      ? Math.max(28, minDimension * 0.07)
-      : Math.max(18, minDimension * 0.045);
-    return {
-      x: tower.x + Math.cos(baseAngle) * sentinelRadius,
-      y: tower.y + Math.sin(baseAngle) * sentinelRadius,
-    };
-  }
-
-  /**
-   * Step an individual Delta soldier and return whether it survives the frame.
-   */
-  updateDeltaSoldier(tower, soldier, delta, state) {
-    if (!soldier || soldier.health <= 0) {
-      return false;
-    }
-
-    const regen = Math.max(0, state.regenPercent || soldier.regenPercent || 0);
-    if (regen > 0 && soldier.health < soldier.maxHealth) {
-      const gain = soldier.maxHealth * regen * delta;
-      soldier.health = Math.min(soldier.maxHealth, soldier.health + gain);
-    }
-
-    let target = null;
-    if (soldier.targetId) {
-      target = this.enemies.find((candidate) => candidate?.id === soldier.targetId) || null;
-      if (!target || target.hp <= 0) {
-        soldier.targetId = null;
-        target = null;
-      }
-    }
-
-    if (!target && this.combatActive && this.enemies.length) {
-      if (tower.behaviorMode === 'sentinel') {
-        const manual = this.getTowerManualTarget(tower);
-        if (manual) {
-          soldier.targetId = manual.id;
-          target = manual;
-        }
-      } else {
-        const candidate = this.findTarget(tower);
-        if (candidate?.enemy) {
-          if (tower.behaviorMode !== 'trackHold') {
-            soldier.targetId = candidate.enemy.id;
-            target = candidate.enemy;
-          } else {
-            const anchor = state.trackHoldPoint || { x: tower.x, y: tower.y };
-            const targetPosition = candidate.position || this.getEnemyPosition(candidate.enemy);
-            const interceptRadius = Math.max(tower.range * 0.55, soldier.collisionRadius * 6);
-            const distance = targetPosition
-              ? Math.hypot(targetPosition.x - anchor.x, targetPosition.y - anchor.y)
-              : Infinity;
-            if (distance <= interceptRadius) {
-              soldier.targetId = candidate.enemy.id;
-              target = candidate.enemy;
-            }
-          }
-        }
-      }
-    }
-
-    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
-    const speed = Math.max(90, minDimension * 0.22);
-
-    let destination = null;
-    if (target) {
-      destination = this.getEnemyPosition(target);
-    }
-    if (!destination) {
-      destination = this.resolveDeltaHoldPosition(tower, soldier, state);
-    }
-    if (!destination) {
-      destination = { x: tower.x, y: tower.y };
-    }
-
-    const dx = destination.x - soldier.x;
-    const dy = destination.y - soldier.y;
-    const distance = Math.hypot(dx, dy);
-    const acceleration = Math.max(200, minDimension * 0.5); // Ease soldier velocity to smooth acceleration and deceleration.
-    let nx = 0;
-    let ny = 0;
-    if (distance > 0.0001) {
-      nx = dx / distance;
-      ny = dy / distance;
-    }
-    const desiredSpeed = distance > 1 ? speed : 0;
-    const desiredVx = nx * desiredSpeed;
-    const desiredVy = ny * desiredSpeed;
-    const deltaVx = desiredVx - soldier.vx;
-    const deltaVy = desiredVy - soldier.vy;
-    const deltaMagnitude = Math.hypot(deltaVx, deltaVy);
-    const maxVelocityChange = acceleration * delta;
-    if (deltaMagnitude > maxVelocityChange && deltaMagnitude > 0) {
-      const blend = maxVelocityChange / deltaMagnitude;
-      soldier.vx += deltaVx * blend;
-      soldier.vy += deltaVy * blend;
-    } else {
-      soldier.vx = desiredVx;
-      soldier.vy = desiredVy;
-    }
-
-    if (distance <= 0.0001) {
-      soldier.x = destination.x;
-      soldier.y = destination.y;
-      if (Math.abs(soldier.vx) < 0.01) {
-        soldier.vx = 0;
-      }
-      if (Math.abs(soldier.vy) < 0.01) {
-        soldier.vy = 0;
-      }
-    } else {
-      const stepX = soldier.vx * delta;
-      const stepY = soldier.vy * delta;
-      const forwardTravel = stepX * nx + stepY * ny;
-      if (forwardTravel > distance) {
-        soldier.x = destination.x;
-        soldier.y = destination.y;
-        soldier.vx = 0;
-        soldier.vy = 0;
-      } else {
-        soldier.x += stepX;
-        soldier.y += stepY;
-      }
-    }
-
-    if (Number.isFinite(soldier.vx) && Number.isFinite(soldier.vy)) {
-      const velocityMagnitude = Math.hypot(soldier.vx, soldier.vy);
-      if (velocityMagnitude > 0.01) {
-        soldier.heading = Math.atan2(soldier.vy, soldier.vx);
-      }
-    }
-
-    if (target) {
-      const targetPosition = this.getEnemyPosition(target);
-      if (targetPosition) {
-        const metrics = this.getEnemyVisualMetrics(target);
-        const enemyRadius = this.getEnemyHitRadius(target, metrics);
-        const contactRadius = enemyRadius + (soldier.collisionRadius || 12);
-        const separation = Math.hypot(soldier.x - targetPosition.x, soldier.y - targetPosition.y);
-        if (separation <= contactRadius) {
-          const enemyHp = Number.isFinite(target.hp) ? Math.max(0, target.hp) : 0;
-          const inflicted = Math.min(soldier.health, enemyHp);
-          target.hp = Math.max(0, enemyHp - inflicted);
-          const loss = Math.max(0, inflicted - (state.defense || 0));
-          soldier.health = Math.max(0, soldier.health - loss);
-          if (target.hp <= 0) {
-            this.processEnemyDefeat(target);
-            soldier.targetId = null;
-          }
-          if (soldier.health <= 0) {
-            return false;
-          }
-        }
-      }
-    }
-
-    return soldier.health > 0;
+    deployDeltaSoldierHelper(this, tower, targetInfo);
   }
 
   findTarget(tower) {
@@ -6009,49 +5703,7 @@ export class SimplePlayfield {
    * Render the roaming Delta soldiers as luminous triangles circling the battlefield.
    */
   drawDeltaSoldiers() {
-    if (!this.ctx) {
-      return;
-    }
-    const ctx = this.ctx;
-    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
-    const baseSize = Math.max(12, minDimension * 0.03);
-
-    ctx.save();
-    this.towers.forEach((tower) => {
-      if (tower.type !== 'delta' || !tower.deltaState?.soldiers?.length) {
-        return;
-      }
-      tower.deltaState.soldiers.forEach((soldier) => {
-        if (!Number.isFinite(soldier.x) || !Number.isFinite(soldier.y)) {
-          return;
-        }
-        const size = Number.isFinite(soldier.collisionRadius)
-          ? Math.max(8, soldier.collisionRadius)
-          : baseSize;
-        const angle = Number.isFinite(soldier.heading) ? soldier.heading : -Math.PI / 2;
-        const healthRatio = soldier.maxHealth > 0 ? Math.max(0, Math.min(1, soldier.health / soldier.maxHealth)) : 0;
-        ctx.save();
-        ctx.translate(soldier.x, soldier.y);
-        ctx.rotate(angle - Math.PI / 2);
-        ctx.beginPath();
-        ctx.moveTo(0, -size);
-        ctx.lineTo(-size * 0.6, size * 0.9);
-        ctx.lineTo(size * 0.6, size * 0.9);
-        ctx.closePath();
-        ctx.fillStyle = `rgba(139, 247, 255, ${0.35 + healthRatio * 0.45})`;
-        ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
-        ctx.lineWidth = Math.max(1.2, size * 0.12);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(12, 16, 26, ${0.45 + (1 - healthRatio) * 0.3})`;
-        ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      });
-    });
-    ctx.restore();
+    drawDeltaSoldiersHelper(this);
   }
 
   drawEnemies() {
