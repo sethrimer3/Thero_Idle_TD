@@ -7098,11 +7098,19 @@ import {
     // Commit the latest autosave snapshot when the page transitions away.
     commitAutoSave();
     markLastActive();
+    if (audioManager && typeof audioManager.stopMusic === 'function') {
+      // Halt any lingering music so tracks do not continue after the session closes.
+      audioManager.stopMusic();
+    }
   });
   window.addEventListener('beforeunload', () => {
     // Ensure progress persists even if the browser closes abruptly.
     commitAutoSave();
     markLastActive();
+    if (audioManager && typeof audioManager.stopMusic === 'function') {
+      // Ensure the soundtrack fully stops before the tab exits.
+      audioManager.stopMusic();
+    }
   });
 
   document.addEventListener('keydown', (event) => {

@@ -174,7 +174,8 @@ export class AudioManager {
       this._cancelMusicFade({ finalize: true });
 
       if (!sameTrack || !this.activeMusicEntry || this.activeMusicEntry.audio !== audio) {
-        const fromEntry = sameTrack ? this.activeMusicEntry : this.activeMusicEntry;
+        // Only fade from an existing track when the requested key actually changes.
+        const fromEntry = sameTrack ? null : this.activeMusicEntry;
         const fadeDuration = Number.isFinite(options.fadeSeconds)
           ? options.fadeSeconds
           : this.musicCrossfadeDuration;
@@ -394,36 +395,33 @@ export class AudioManager {
    * Cancels any active music fade, optionally forcing final state application.
    */
   _cancelMusicFade(options = {}) {
-    if (this.musicFadeHandle === null) {
-      if (options.finalize && this.activeMusicFade) {
-        const { fromEntry, toEntry, targetVolume } = this.activeMusicFade;
-        if (fromEntry?.audio && fromEntry.audio !== toEntry?.audio) {
-          fromEntry.audio.volume = 0;
-          fromEntry.audio.pause();
-          try {
-            fromEntry.audio.currentTime = 0;
-          } catch (error) {
-            fromEntry.audio.src = fromEntry.audio.src;
-          }
-        }
-        if (toEntry?.audio) {
-          toEntry.audio.volume = Number.isFinite(targetVolume)
-            ? targetVolume
-            : this._resolveMusicVolume(toEntry.definition);
-        }
-        this.activeMusicFade = null;
-      }
-      return;
-    }
+    const finalize = Boolean(options.finalize);
 
-    if (this.musicFadeCanceler) {
+    if (this.musicFadeHandle !== null && this.musicFadeCanceler) {
       this.musicFadeCanceler(this.musicFadeHandle);
     }
     this.musicFadeHandle = null;
     this.musicFadeCanceler = null;
 
-    if (options.finalize && this.activeMusicFade?.toEntry?.audio) {
-      const { toEntry, targetVolume } = this.activeMusicFade;
+    if (!this.activeMusicFade) {
+      return;
+    }
+
+    const { fromEntry, toEntry, targetVolume } = this.activeMusicFade;
+
+    if (fromEntry?.audio && (!toEntry || fromEntry.audio !== toEntry.audio)) {
+      // Guarantee the previous track is fully silenced whenever a fade is interrupted.
+      fromEntry.audio.volume = 0;
+      fromEntry.audio.pause();
+      try {
+        fromEntry.audio.currentTime = 0;
+      } catch (error) {
+        fromEntry.audio.src = fromEntry.audio.src;
+      }
+    }
+
+    if (finalize && toEntry?.audio) {
+      // Snap the destination track to its intended volume when finishing immediately.
       toEntry.audio.volume = Number.isFinite(targetVolume)
         ? targetVolume
         : this._resolveMusicVolume(toEntry.definition);
@@ -450,11 +448,13 @@ export class AudioManager {
       audio.preload = definition.preload || 'auto';
       audio.loop = Boolean(definition.loop !== false);
       audio.volume = this._resolveMusicVolume(definition);
-      this.musicElements.set(key, { definition, audio });
+      // Track the entry key so suspended playback can resume the correct song.
+      this.musicElements.set(key, { key, definition, audio });
     }
 
     const entry = this.musicElements.get(key);
     if (entry) {
+      entry.key = key;
       entry.definition = this.musicDefinitions[key];
     }
     return entry;
