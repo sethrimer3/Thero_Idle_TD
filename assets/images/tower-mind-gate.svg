@@ -11,14 +11,20 @@
   <circle cx="40" cy="40" r="35" fill="url(#mindGateAura)" opacity="1" />
   
   <text
-    x="40"
-    y="44"
+    x="42"
+    y="49"
     font-family="'Cormorant Garamond', 'Times New Roman', serif"
     font-size="26"
     text-anchor="middle"
     fill="#fffed6"
     stroke="#06063b"
-    stroke-width="0.5"
+    stroke-width="0.6"
     filter="url(#glow)"
-  >℘</text>
+    >𝔊<tspan
+    font-size="11"
+    stroke-width="0.3"
+    dx="-2"
+    dy="0"
+  >℘</tspan>
+  </text>
 </svg>
