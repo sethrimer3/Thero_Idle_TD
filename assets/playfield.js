@@ -58,6 +58,13 @@ const defaultDependencies = {
   isLowGraphicsMode: () => false,
 };
 
+// Preload the Mind Gate sprite so the path finale mirrors the Towers tab art.
+const MIND_GATE_SPRITE_URL = 'assets/images/tower-aleph-null.svg';
+const mindGateSprite = new Image();
+mindGateSprite.src = MIND_GATE_SPRITE_URL;
+mindGateSprite.decoding = 'async';
+mindGateSprite.loading = 'eager';
+
 let playfieldDependencies = { ...defaultDependencies };
 
 export function configurePlayfieldSystem(options = {}) {
@@ -5135,45 +5142,63 @@ export class SimplePlayfield {
     ctx.save();
     ctx.translate(position.x, position.y);
 
-    const glow = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius);
+    const glow = ctx.createRadialGradient(0, 0, radius * 0.22, 0, 0, radius);
     glow.addColorStop(0, 'rgba(255, 248, 220, 0.9)');
-    glow.addColorStop(0.6, 'rgba(255, 196, 150, 0.35)');
-    glow.addColorStop(1, 'rgba(255, 158, 88, 0.15)');
+    glow.addColorStop(0.55, 'rgba(255, 196, 150, 0.35)');
+    glow.addColorStop(1, 'rgba(139, 247, 255, 0.18)');
     ctx.fillStyle = glow;
     ctx.beginPath();
     ctx.arc(0, 0, radius, 0, Math.PI * 2);
     ctx.fill();
 
-    this.applyCanvasShadow(ctx, 'rgba(255, 196, 150, 0.55)', radius * 0.9);
-    ctx.strokeStyle = 'rgba(255, 158, 88, 0.88)';
-    ctx.lineWidth = Math.max(2, radius * 0.16);
+    this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', radius);
+    ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
+    ctx.lineWidth = Math.max(2, radius * 0.12);
     ctx.beginPath();
-    ctx.arc(0, 0, radius * 0.82, 0, Math.PI * 2);
+    ctx.arc(0, 0, radius * 0.88, 0, Math.PI * 2);
     ctx.stroke();
 
-    this.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.55)', radius * 0.7);
-    ctx.strokeStyle = 'rgba(139, 247, 255, 0.85)';
-    ctx.lineWidth = Math.max(1.4, radius * 0.12);
-    ctx.beginPath();
-    ctx.moveTo(0, radius * 0.64);
-    ctx.lineTo(0, -radius * 0.6);
-    ctx.stroke();
+    const spriteReady = mindGateSprite?.complete && mindGateSprite.naturalWidth > 0;
+    if (spriteReady) {
+      // Draw the Aleph-null sprite scaled to the battlefield finale.
+      const spriteSize = Math.max(radius * 2.1, 46);
+      ctx.save();
+      ctx.globalAlpha = 0.96;
+      ctx.drawImage(mindGateSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+      ctx.restore();
 
-    ctx.beginPath();
-    ctx.arc(0, 0, radius * 0.28, 0, Math.PI * 2);
-    ctx.stroke();
+      this.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.45)', radius * 0.9);
+      ctx.strokeStyle = 'rgba(139, 247, 255, 0.6)';
+      ctx.lineWidth = Math.max(1.2, radius * 0.1);
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.6, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      // Fall back to the legacy geometric rendering until the sprite finishes loading.
+      this.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.55)', radius * 0.7);
+      ctx.strokeStyle = 'rgba(139, 247, 255, 0.85)';
+      ctx.lineWidth = Math.max(1.4, radius * 0.12);
+      ctx.beginPath();
+      ctx.moveTo(0, radius * 0.64);
+      ctx.lineTo(0, -radius * 0.6);
+      ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(255, 228, 120, 0.92)';
-    this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', radius * 0.8);
-    ctx.lineWidth = Math.max(1.6, radius * 0.14);
-    ctx.beginPath();
-    const gateWidth = radius * 0.58;
-    const gateBase = radius * 0.62;
-    ctx.moveTo(-gateWidth, gateBase);
-    ctx.lineTo(-gateWidth, -radius * 0.18);
-    ctx.quadraticCurveTo(0, -radius * 0.95, gateWidth, -radius * 0.18);
-    ctx.lineTo(gateWidth, gateBase);
-    ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.28, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255, 228, 120, 0.92)';
+      this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', radius * 0.8);
+      ctx.lineWidth = Math.max(1.6, radius * 0.14);
+      ctx.beginPath();
+      const gateWidth = radius * 0.58;
+      const gateBase = radius * 0.62;
+      ctx.moveTo(-gateWidth, gateBase);
+      ctx.lineTo(-gateWidth, -radius * 0.18);
+      ctx.quadraticCurveTo(0, -radius * 0.95, gateWidth, -radius * 0.18);
+      ctx.lineTo(gateWidth, gateBase);
+      ctx.stroke();
+    }
 
     const gateIntegrity = Math.max(0, Math.floor(this.lives || 0));
     const maxIntegrity = Math.max(
