@@ -3407,8 +3407,17 @@ export class SimplePlayfield {
     }
   }
 
-  getCycleMultiplier() {
-    return this.isEndlessMode ? 10 ** this.endlessCycle : 1;
+  getCycleScaling() {
+    // Document the endless scaling math so balance tweaks are easy to audit later.
+    if (!this.isEndlessMode) {
+      return { hp: 1, speed: 1, reward: 1 };
+    }
+    const cycle = Math.max(0, this.endlessCycle);
+    const hpMultiplier = 10 ** cycle;
+    // Each endless cycle adds a flat 10% speed bonus so pacing rises linearly instead of exponentially.
+    const speedMultiplier = 1 + 0.1 * cycle;
+    // Match endless mote rewards to HP growth so income keeps pace with the threat increase.
+    return { hp: hpMultiplier, speed: speedMultiplier, reward: hpMultiplier };
   }
 
   computeWaveNumber(index = this.waveIndex) {
@@ -3433,11 +3442,11 @@ export class SimplePlayfield {
       return null;
     }
     const { initialWave = false } = options;
-    const multiplier = this.getCycleMultiplier();
-    const scaledHp = Number.isFinite(config.hp) ? config.hp * multiplier : config.hp;
-    const scaledSpeed = Number.isFinite(config.speed) ? config.speed * multiplier : config.speed;
+    const scaling = this.getCycleScaling();
+    const scaledHp = Number.isFinite(config.hp) ? config.hp * scaling.hp : config.hp;
+    const scaledSpeed = Number.isFinite(config.speed) ? config.speed * scaling.speed : config.speed;
     const scaledReward = Number.isFinite(config.reward)
-      ? config.reward * multiplier
+      ? config.reward * scaling.reward
       : config.reward;
     return {
       config: {
@@ -3448,7 +3457,7 @@ export class SimplePlayfield {
       },
       spawned: 0,
       nextSpawn: initialWave ? this.initialSpawnDelay : 0,
-      multiplier,
+      multiplier: scaling.reward,
     };
   }
 
