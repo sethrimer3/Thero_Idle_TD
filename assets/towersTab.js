@@ -3169,14 +3169,19 @@ function resolveTowerVariableSubEquations(variable, context = {}) {
       return;
     }
     if (entry && typeof entry === 'object') {
+      const glyphEquation = entry.glyphEquation === true || entry.category === 'glyph';
       if (typeof entry.text === 'string' && entry.text.trim()) {
-        lines.push({ text: entry.text.trim(), variant: entry.variant === 'values' ? 'values' : 'expression' });
+        lines.push({
+          text: entry.text.trim(),
+          variant: entry.variant === 'values' ? 'values' : 'expression',
+          glyphEquation,
+        });
       }
       if (typeof entry.expression === 'string' && entry.expression.trim()) {
-        lines.push({ text: entry.expression.trim(), variant: 'expression' });
+        lines.push({ text: entry.expression.trim(), variant: 'expression', glyphEquation });
       }
       if (typeof entry.values === 'string' && entry.values.trim()) {
-        lines.push({ text: entry.values.trim(), variant: 'values' });
+        lines.push({ text: entry.values.trim(), variant: 'values', glyphEquation });
       }
     }
   };
@@ -3348,7 +3353,21 @@ function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
         formatDecimal,
         formatGameNumber,
         dynamicContext: towerTabState.dynamicContext,
-      }).map((entry) => ({ ...entry, attachmentKey: attachment.key }));
+      }).map((entry) => {
+        if (!entry || typeof entry !== 'object') {
+          return {
+            text: typeof entry === 'string' ? entry : '',
+            variant: 'expression',
+            attachmentKey: attachment.key,
+            glyphEquation: true,
+          };
+        }
+        return {
+          ...entry,
+          attachmentKey: attachment.key,
+          glyphEquation: true,
+        };
+      });
       return {
         variable: attachment,
         level: attachmentLevel,
@@ -3388,6 +3407,12 @@ function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
         }
         const lineEl = document.createElement('p');
         lineEl.className = 'tower-upgrade-variable-equation-line';
+        const isGlyphEquation = Boolean(entry && typeof entry === 'object' && entry.glyphEquation);
+        if (isGlyphEquation) {
+          lineEl.classList.add('tower-upgrade-variable-equation-line--glyph');
+        } else {
+          lineEl.classList.add('tower-upgrade-variable-equation-line--sub');
+        }
         if (variant === 'values') {
           lineEl.classList.add('tower-upgrade-variable-equation-line--values');
         }

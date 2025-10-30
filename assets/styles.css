@@ -4269,11 +4269,21 @@ body.graphics-mode-low .control-button {
   transform-origin: left center;
 }
 
-.tower-upgrade-formula-part--dynamic,
-.tower-upgrade-variable-equation-line .dynamic-variable,
-.tower-upgrade-variable-equation-line--values .dynamic-variable {
+.tower-upgrade-formula-part--dynamic {
   color: rgb(143, 210, 255);
   text-shadow: 0 0 12px rgba(143, 210, 255, 0.6);
+}
+
+.tower-upgrade-variable-equation-line .dynamic-variable,
+.tower-upgrade-variable-equation-line--values .dynamic-variable {
+  color: #fffad6;
+  text-shadow: 0 0 10px rgba(255, 246, 180, 0.55);
+}
+
+.tower-upgrade-variable-equation-line--glyph .dynamic-variable,
+.tower-upgrade-variable-equation-line--glyph.tower-upgrade-variable-equation-line--values .dynamic-variable {
+  color: #ffe4b5;
+  text-shadow: 0 0 12px rgba(255, 180, 80, 0.6);
 }
 
 .tower-upgrade-formula-part--variable.is-departed {
@@ -4350,46 +4360,55 @@ body.graphics-mode-low .control-button {
   font-size: 0.92rem;
   letter-spacing: 0.04em;
   text-align: left;
+  color: #ffe769;
+  text-shadow: 0 0 10px rgba(255, 246, 140, 0.4);
 }
 
 .tower-upgrade-variable-equation-line--values {
-  color: rgba(177, 212, 255, 0.9);
   font-size: 0.9rem;
 }
 
-/* Codex option: reveal glyph equations in a vibrant orange when enabled. */
-body:not(.show-glyph-equations) .tower-upgrade-variable-equations {
-  display: none;
+.tower-upgrade-variable-equation-line--sub {
+  color: #ffe769;
+  text-shadow: 0 0 10px rgba(255, 246, 140, 0.4);
 }
 
-body.show-glyph-equations .tower-upgrade-variable-equations {
-  display: grid;
+.tower-upgrade-variable-equation-line--sub.tower-upgrade-variable-equation-line--values {
+  color: #fff6b3;
+  text-shadow: 0 0 8px rgba(255, 246, 140, 0.35);
+}
+
+.tower-upgrade-variable-equation-line--glyph {
   color: #ff9433;
-  border-left-color: rgba(255, 168, 0, 0.55);
-  background: rgba(255, 158, 0, 0.12);
-}
-
-body.show-glyph-equations .tower-upgrade-variable-equation-line--values {
-  color: #ffd28c;
-}
-
-body.show-glyph-equations .tower-upgrade-variable-equation-line .dynamic-variable,
-body.show-glyph-equations .tower-upgrade-variable-equation-line--values .dynamic-variable {
-  color: #ffe4b5;
   text-shadow: 0 0 12px rgba(255, 180, 80, 0.6);
 }
 
-body.show-glyph-equations .tower-upgrade-variable-equations mjx-container {
-  color: #ffd7a0;
-  text-shadow: 0 0 10px rgba(255, 180, 80, 0.35);
+.tower-upgrade-variable-equation-line--glyph.tower-upgrade-variable-equation-line--values {
+  color: #ffd28c;
+  text-shadow: 0 0 10px rgba(255, 168, 64, 0.45);
+}
+
+body:not(.show-glyph-equations) .tower-upgrade-variable-equation-line--glyph {
+  display: none;
+}
+
+/* Codex option: reveal glyph equations in a vibrant orange when enabled. */
+body.show-glyph-equations .tower-upgrade-variable-equations {
+  display: grid;
+  border-left-color: rgba(255, 168, 0, 0.55);
+  background: rgba(255, 158, 0, 0.12);
 }
 
 /* Ensure MathJax breakdown lines stay readable against the dark lattice card. */
 .tower-upgrade-variable-equations mjx-container {
   display: flex;
   justify-content: flex-start;
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.28);
+  color: inherit;
+  text-shadow: 0 0 8px rgba(255, 246, 180, 0.35);
+}
+
+.tower-upgrade-variable-equation-line--glyph mjx-container {
+  text-shadow: 0 0 10px rgba(255, 180, 80, 0.35);
 }
 
 .tower-upgrade-variable-equations mjx-container mjx-math {
