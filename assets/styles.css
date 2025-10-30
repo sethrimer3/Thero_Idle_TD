@@ -2295,8 +2295,8 @@ body.graphics-mode-low .control-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.65em;
-  height: 1.65em;
+  width: 2.1em;
+  height: 2.1em;
   margin-right: 0.4em;
   border-radius: 999px;
   font-family: 'Cormorant Garamond', serif;
@@ -2306,6 +2306,15 @@ body.graphics-mode-low .control-button {
   color: rgba(255, 228, 120, 0.92);
   box-shadow: 0 0 18px rgba(255, 228, 120, 0.55), 0 0 32px rgba(139, 247, 255, 0.3);
   text-shadow: 0 0 20px rgba(255, 228, 120, 0.65);
+}
+
+/* Render the Mind Gate sprite with a contained glow inside the tower header. */
+.mind-gate-symbol img {
+  display: block;
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px rgba(255, 228, 120, 0.55));
 }
 
 @media (prefers-reduced-motion: no-preference) {
