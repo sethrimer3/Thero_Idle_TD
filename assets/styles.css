@@ -4312,6 +4312,11 @@ body.graphics-mode-low .control-button {
   gap: 16px;
 }
 
+.tower-upgrade-variables[data-tower-id='mind-gate'] {
+  grid-template-columns: 1fr;
+  justify-items: stretch;
+}
+
 .tower-upgrade-variable { 
   display: grid;
   gap: 12px;
