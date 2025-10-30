@@ -14,6 +14,10 @@ import {
   getTowerEquationBlueprint,
   getTowerLoadoutState,
   openTowerUpgradeOverlay,
+  buildTowerDynamicContext,
+  withTowerDynamicContext,
+  computeTowerVariableValue,
+  calculateTowerEquationResult,
 } from './towersTab.js';
 import {
   moteGemState,
@@ -1469,17 +1473,44 @@ export class SimplePlayfield {
       tower.x = x;
       tower.y = y;
       const definition = getTowerDefinition(tower.type) || tower.definition;
-      const rangeFactor = definition ? definition.range : 0.24;
-      tower.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
-      if (tower.type === 'delta') {
-        this.updateDeltaAnchors(tower);
+      if (tower.type === 'zeta') {
+        // Keep ζ pendulum geometry aligned with the tower's new coordinates.
+        this.ensureZetaState(tower);
+      } else {
+        const rangeFactor = definition ? definition.range : 0.24;
+        tower.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
+        if (tower.type === 'delta') {
+          this.updateDeltaAnchors(tower);
+        }
       }
     });
     if (this.hoverPlacement) {
       this.hoverPlacement.position = this.getCanvasPosition(this.hoverPlacement.normalized);
       const definition = getTowerDefinition(this.hoverPlacement.towerType);
-      const rangeFactor = definition ? definition.range : 0.24;
-      this.hoverPlacement.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
+      if (this.hoverPlacement.towerType === 'zeta') {
+        // Simulate ζ’s metrics so the placement preview reflects pendulum reach.
+        const baseRangeFactor = definition ? definition.range : 0.3;
+        const baseRange = Math.min(this.renderWidth, this.renderHeight) * baseRangeFactor;
+        const previewTower = {
+          id: 'zeta-preview',
+          type: 'zeta',
+          definition: definition || null,
+          normalized: { ...this.hoverPlacement.normalized },
+          x: this.hoverPlacement.position.x,
+          y: this.hoverPlacement.position.y,
+          range: baseRange,
+          baseRange,
+          baseDamage: 0,
+          baseRate: 0,
+        };
+        this.ensureZetaState(previewTower);
+        this.hoverPlacement.range = Number.isFinite(previewTower.range)
+          ? previewTower.range
+          : baseRange;
+      } else {
+        const rangeFactor = definition ? definition.range : 0.24;
+        this.hoverPlacement.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
+      }
     }
   }
 
@@ -2263,6 +2294,176 @@ export class SimplePlayfield {
   /**
    * Ensure every tower starts with sensible defaults and required state containers.
    */
+  /**
+   * Evaluate ζ’s upgrade-driven math by temporarily mirroring the Towers tab
+   * dynamic-context logic. This keeps battlefield stats in sync with the
+   * upgrade overlay without duplicating the underlying formulas.
+   */
+  evaluateZetaMetrics(tower) {
+    if (!tower || tower.type !== 'zeta') {
+      return null;
+    }
+
+    const contextEntries = [];
+    this.towers.forEach((entry) => {
+      if (!entry) {
+        return;
+      }
+      contextEntries.push({
+        id: entry.id,
+        type: entry.type,
+        x: entry.x,
+        y: entry.y,
+        range: Number.isFinite(entry.range) ? entry.range : 0,
+      });
+    });
+
+    if (!contextEntries.some((entry) => entry.id === tower.id)) {
+      contextEntries.push({
+        id: tower.id,
+        type: tower.type,
+        x: tower.x,
+        y: tower.y,
+        range: Number.isFinite(tower.range) ? tower.range : 0,
+      });
+    }
+
+    const context = buildTowerDynamicContext({
+      contextTowerId: tower.id,
+      contextTower: contextEntries.find((entry) => entry.id === tower.id) || null,
+      contextTowers: contextEntries,
+    });
+
+    return withTowerDynamicContext(context, () => ({
+      attack: computeTowerVariableValue('zeta', 'atk'),
+      critical: computeTowerVariableValue('zeta', 'crt'),
+      speed: computeTowerVariableValue('zeta', 'spd'),
+      range: computeTowerVariableValue('zeta', 'rng'),
+      total: computeTowerVariableValue('zeta', 'tot'),
+    }));
+  }
+
+  /**
+   * Clear cached ζ pendulum data when the tower is removed or retuned.
+   */
+  teardownZetaTower(tower) {
+    if (!tower || !tower.zetaState) {
+      return;
+    }
+    if (Array.isArray(tower.zetaState.pendulums)) {
+      tower.zetaState.pendulums.forEach((pendulum) => {
+        if (pendulum?.trail) {
+          pendulum.trail.length = 0;
+        }
+      });
+    }
+    tower.zetaState = null;
+  }
+
+  /**
+   * Ensure ζ towers maintain their double-pendulum state and derived stats.
+   */
+  ensureZetaState(tower) {
+    if (!tower || tower.type !== 'zeta') {
+      return null;
+    }
+
+    const metrics = this.evaluateZetaMetrics(tower);
+    if (!metrics) {
+      return null;
+    }
+
+    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
+    const attackValue = Number.isFinite(metrics.attack) ? Math.max(0, metrics.attack) : 0;
+    const criticalMultiplier = Math.max(1, Number.isFinite(metrics.critical) ? metrics.critical : 1);
+    const baseDamage = criticalMultiplier > 0 ? attackValue / criticalMultiplier : attackValue;
+    const speedValue = Math.max(0.05, Number.isFinite(metrics.speed) ? metrics.speed : 0.25);
+    const rangeScalar = Math.max(1.5, Number.isFinite(metrics.range) ? metrics.range : 1.5);
+    const totalPendulums = Math.max(1, Math.round(Number.isFinite(metrics.total) ? metrics.total : 1));
+    const baseRangeFraction = Number.isFinite(tower.definition?.range)
+      ? tower.definition.range
+      : 0.3;
+    const normalizedRangeFraction = baseRangeFraction * (rangeScalar / 1.5);
+    const effectiveRangeFraction = Math.max(0.05, normalizedRangeFraction);
+    const detectionRadius = effectiveRangeFraction * minDimension;
+
+    tower.damage = baseDamage;
+    tower.baseDamage = baseDamage;
+    tower.rate = speedValue;
+    tower.baseRate = speedValue;
+    tower.range = detectionRadius;
+    tower.baseRange = detectionRadius;
+
+    let state = tower.zetaState;
+    if (!state) {
+      state = { pendulums: [], elapsed: 0 };
+      tower.zetaState = state;
+    }
+
+    state.attack = attackValue;
+    state.baseDamage = baseDamage;
+    state.criticalMultiplier = criticalMultiplier;
+    state.criticalDamage = baseDamage * criticalMultiplier;
+    state.speed = speedValue;
+    state.rangeFraction = effectiveRangeFraction;
+    state.total = totalPendulums;
+    state.directCooldown = 0.28;
+    state.trailCooldown = 0.34;
+    state.trailDuration = 0.75;
+
+    const baseLength = Math.max(18, detectionRadius);
+    const pendulums = state.pendulums;
+    if (pendulums.length > totalPendulums) {
+      pendulums.length = totalPendulums;
+    }
+
+    for (let index = 0; index < totalPendulums; index += 1) {
+      const length = baseLength * 0.5 ** index;
+      const headRadius = Math.max(10, length * 0.16);
+      const trailWidth = Math.max(6, headRadius * 0.65);
+      let pendulum = pendulums[index];
+      if (!pendulum) {
+        const baseAngle = -Math.PI / 2 + (Math.PI / Math.max(1, totalPendulums)) * index;
+        pendulum = {
+          angle: baseAngle,
+          angularVelocity: 0,
+          head: { x: tower.x, y: tower.y },
+          trail: [],
+          hitMap: new Map(),
+        };
+        pendulums[index] = pendulum;
+      }
+      if (!(pendulum.hitMap instanceof Map)) {
+        pendulum.hitMap = new Map();
+      }
+      if (!Array.isArray(pendulum.trail)) {
+        pendulum.trail = [];
+      }
+      const direction = index % 2 === 0 ? 1 : -1;
+      pendulum.length = Math.max(14, length);
+      pendulum.headRadius = headRadius;
+      pendulum.trailWidth = trailWidth;
+      pendulum.angularVelocity = speedValue * Math.PI * 2 * (index + 1) * direction;
+    }
+
+    let pivot = { x: tower.x, y: tower.y };
+    for (let index = 0; index < pendulums.length; index += 1) {
+      const pendulum = pendulums[index];
+      if (!Number.isFinite(pendulum.angle)) {
+        pendulum.angle = -Math.PI / 2 + (Math.PI / Math.max(1, totalPendulums)) * index;
+      }
+      const headX = pivot.x + Math.cos(pendulum.angle) * pendulum.length;
+      const headY = pivot.y + Math.sin(pendulum.angle) * pendulum.length;
+      pendulum.head = { x: headX, y: headY };
+      if (!pendulum.trail.length) {
+        pendulum.trail.push({ x: headX, y: headY, age: 0 });
+      }
+      pivot = pendulum.head;
+    }
+
+    return state;
+  }
+
   applyTowerBehaviorDefaults(tower) {
     if (!tower) {
       return;
@@ -2278,6 +2479,13 @@ export class SimplePlayfield {
       this.configureDeltaBehavior(tower, tower.behaviorMode);
     } else if (tower.deltaState) {
       this.teardownDeltaTower(tower);
+    }
+    if (tower.type === 'zeta') {
+      // Activate ζ pendulum state so orbit physics stay ready for combat or idle motion.
+      this.ensureZetaState(tower);
+    } else if (tower.zetaState) {
+      // Clean up ζ caches if the lattice retunes into another form.
+      this.teardownZetaTower(tower);
     }
   }
 
@@ -2938,6 +3146,7 @@ export class SimplePlayfield {
     }
 
     this.teardownDeltaTower(tower);
+    this.teardownZetaTower(tower);
     this.handleAlephTowerRemoved(tower);
 
     const index = this.towers.indexOf(tower);
@@ -3400,8 +3609,12 @@ export class SimplePlayfield {
     }
 
     if (!this.combatActive) {
-      // Keep Delta garrisons alive even while waves are paused.
+      // Keep unique tower behaviors alive even while waves are paused.
       this.towers.forEach((tower) => {
+        if (tower.type === 'zeta') {
+          this.updateZetaTower(tower, speedDelta);
+          return;
+        }
         if (tower.type !== 'delta') {
           return;
         }
@@ -3568,6 +3781,10 @@ export class SimplePlayfield {
   updateTowers(delta) {
     this.towers.forEach((tower) => {
       tower.cooldown = Math.max(0, tower.cooldown - delta);
+      if (tower.type === 'zeta') {
+        this.updateZetaTower(tower, delta);
+        return;
+      }
       if (tower.type === 'delta') {
         this.updateDeltaTower(tower, delta);
         return;
@@ -3621,6 +3838,142 @@ export class SimplePlayfield {
       this.deployDeltaSoldier(tower, targetInfo);
       const rate = Math.max(Number.isFinite(tower.rate) ? tower.rate : 1, 0.05);
       tower.cooldown = 1 / rate;
+    }
+  }
+
+  /**
+   * Advance ζ pendulum physics, maintain trail history, and apply collision damage.
+   */
+  updateZetaTower(tower, delta) {
+    const state = this.ensureZetaState(tower);
+    if (!state) {
+      return;
+    }
+
+    const step = Math.max(0, Number.isFinite(delta) ? delta : 0);
+    state.elapsed = Number.isFinite(state.elapsed) ? state.elapsed + step : step;
+
+    const pendulums = Array.isArray(state.pendulums) ? state.pendulums : [];
+    let pivot = { x: tower.x, y: tower.y };
+    const maxTrailPoints = 48;
+
+    pendulums.forEach((pendulum) => {
+      if (!pendulum) {
+        return;
+      }
+      const angularVelocity = Number.isFinite(pendulum.angularVelocity)
+        ? pendulum.angularVelocity
+        : 0;
+      const angle = Number.isFinite(pendulum.angle) ? pendulum.angle : -Math.PI / 2;
+      pendulum.angle = angle + angularVelocity * step;
+      const length = Math.max(14, Number.isFinite(pendulum.length) ? pendulum.length : 14);
+      const headX = pivot.x + Math.cos(pendulum.angle) * length;
+      const headY = pivot.y + Math.sin(pendulum.angle) * length;
+      pendulum.length = length;
+      pendulum.head = { x: headX, y: headY };
+
+      const trail = Array.isArray(pendulum.trail) ? pendulum.trail : [];
+      pendulum.trail = trail;
+      trail.push({ x: headX, y: headY, age: 0 });
+      for (let index = trail.length - 1; index >= 0; index -= 1) {
+        const point = trail[index];
+        if (!point) {
+          trail.splice(index, 1);
+          continue;
+        }
+        point.age = (Number.isFinite(point.age) ? point.age : 0) + step;
+        const expired = point.age > (state.trailDuration || 0.75);
+        const overflow = index < trail.length - maxTrailPoints;
+        if (expired || overflow) {
+          trail.splice(index, 1);
+        }
+      }
+
+      pivot = pendulum.head;
+    });
+
+    if (!this.combatActive || !this.enemies.length || state.baseDamage <= 0) {
+      return;
+    }
+
+    const enemyInfo = this.enemies.map((enemy) => ({ enemy, position: this.getEnemyPosition(enemy) }));
+    const activeEnemyIds = new Set(enemyInfo.map(({ enemy }) => enemy.id));
+    const directCooldown = Number.isFinite(state.directCooldown) ? state.directCooldown : 0.28;
+    const trailCooldown = Number.isFinite(state.trailCooldown) ? state.trailCooldown : 0.34;
+
+    pendulums.forEach((pendulum) => {
+      if (!pendulum || !pendulum.head) {
+        return;
+      }
+      const hitMap = pendulum.hitMap instanceof Map ? pendulum.hitMap : new Map();
+      if (pendulum.hitMap !== hitMap) {
+        pendulum.hitMap = hitMap;
+      }
+
+      hitMap.forEach((_, enemyId) => {
+        if (!activeEnemyIds.has(enemyId)) {
+          hitMap.delete(enemyId);
+        }
+      });
+
+      const headRadius = Math.max(6, Number.isFinite(pendulum.headRadius) ? pendulum.headRadius : 10);
+      const trail = Array.isArray(pendulum.trail) ? pendulum.trail : [];
+      const trailWidth = Math.max(4, Number.isFinite(pendulum.trailWidth) ? pendulum.trailWidth : headRadius * 0.6);
+
+      enemyInfo.forEach(({ enemy, position }) => {
+        if (!enemy || enemy.hp <= 0 || !position) {
+          return;
+        }
+        const entry = hitMap.get(enemy.id) || { nextDirect: 0, nextTrail: 0 };
+        let directApplied = false;
+
+        const distanceToHead = Math.hypot(position.x - pendulum.head.x, position.y - pendulum.head.y);
+        if (distanceToHead <= headRadius && state.elapsed >= entry.nextDirect) {
+          this.applyZetaDamage(enemy, state.criticalDamage);
+          entry.nextDirect = state.elapsed + directCooldown;
+          entry.nextTrail = Math.max(entry.nextTrail, state.elapsed + trailCooldown * 0.5);
+          hitMap.set(enemy.id, entry);
+          directApplied = true;
+        }
+
+        if (directApplied || state.elapsed < entry.nextTrail) {
+          hitMap.set(enemy.id, entry);
+          return;
+        }
+
+        let nearTrail = false;
+        for (let index = trail.length - 1, segments = 0; index > 0 && segments < 32; index -= 1, segments += 1) {
+          const point = trail[index];
+          const previous = trail[index - 1];
+          if (!point || !previous) {
+            continue;
+          }
+          const distance = this.distancePointToSegment(position, previous, point);
+          if (distance <= trailWidth) {
+            nearTrail = true;
+            break;
+          }
+        }
+
+        if (nearTrail) {
+          this.applyZetaDamage(enemy, state.baseDamage);
+          entry.nextTrail = state.elapsed + trailCooldown;
+        }
+        hitMap.set(enemy.id, entry);
+      });
+    });
+  }
+
+  /**
+   * Apply ζ damage and cleanly remove defeated enemies from the playfield.
+   */
+  applyZetaDamage(enemy, damage) {
+    if (!enemy || !Number.isFinite(damage) || damage <= 0) {
+      return;
+    }
+    enemy.hp -= damage;
+    if (enemy.hp <= 0) {
+      this.processEnemyDefeat(enemy);
     }
   }
 
@@ -5513,6 +5866,10 @@ export class SimplePlayfield {
         ctx.setLineDash([]);
       }
 
+      if (tower.type === 'zeta') {
+        this.drawZetaPendulums(tower);
+      }
+
       ctx.save();
       const outerShadow = visuals.outerShadow;
       if (outerShadow?.color) {
@@ -5572,6 +5929,73 @@ export class SimplePlayfield {
         ctx.arc(tower.x, tower.y, bodyRadius + 10, 0, Math.PI * 2);
         ctx.stroke();
       }
+    });
+
+    ctx.restore();
+  }
+
+  /**
+   * Render ζ pendulum arms and trails so the battlefield reflects their orbit.
+   */
+  drawZetaPendulums(tower) {
+    if (!this.ctx || !tower?.zetaState) {
+      return;
+    }
+    const state = tower.zetaState;
+    const pendulums = Array.isArray(state.pendulums) ? state.pendulums : [];
+    if (!pendulums.length) {
+      return;
+    }
+
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    pendulums.forEach((pendulum, index) => {
+      if (!pendulum?.head) {
+        return;
+      }
+
+      const trail = Array.isArray(pendulum.trail) ? pendulum.trail : [];
+      const trailWidth = Math.max(1.5, Number.isFinite(pendulum.trailWidth) ? pendulum.trailWidth : 6);
+      for (let i = Math.max(1, trail.length - 32); i < trail.length; i += 1) {
+        const point = trail[i];
+        const previous = trail[i - 1];
+        if (!point || !previous) {
+          continue;
+        }
+        const age = Number.isFinite(point.age) ? point.age : 0;
+        const fadeDuration = Number.isFinite(state.trailDuration) ? state.trailDuration : 0.75;
+        const alpha = fadeDuration > 0 ? Math.max(0, 1 - age / fadeDuration) : 0.5;
+        if (alpha <= 0) {
+          continue;
+        }
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(139, 247, 255, ${alpha * 0.5})`;
+        ctx.lineWidth = trailWidth;
+        ctx.moveTo(previous.x, previous.y);
+        ctx.lineTo(point.x, point.y);
+        ctx.stroke();
+      }
+
+      const pivot = index === 0 ? { x: tower.x, y: tower.y } : pendulums[index - 1]?.head;
+      if (pivot) {
+        this.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.35)', (pendulum.headRadius || 12) * 1.6);
+        ctx.strokeStyle = 'rgba(139, 247, 255, 0.75)';
+        ctx.lineWidth = Math.max(1.2, (pendulum.headRadius || 12) * 0.45);
+        ctx.beginPath();
+        ctx.moveTo(pivot.x, pivot.y);
+        ctx.lineTo(pendulum.head.x, pendulum.head.y);
+        ctx.stroke();
+      }
+
+      this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.85)', (pendulum.headRadius || 12) * 2.1);
+      ctx.fillStyle = 'rgba(255, 228, 120, 0.92)';
+      ctx.beginPath();
+      ctx.arc(pendulum.head.x, pendulum.head.y, pendulum.headRadius || 12, 0, Math.PI * 2);
+      ctx.fill();
+      this.clearCanvasShadow(ctx);
     });
 
     ctx.restore();
