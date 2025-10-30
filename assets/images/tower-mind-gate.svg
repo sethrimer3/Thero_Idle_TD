@@ -9,7 +9,7 @@
   <circle cx="32" cy="32" r="50" fill="url(#mindGateAura)" opacity="1" />
   <text
     x="32"
-    y="35"
+    y="36"
     font-family="'Cormorant Garamond', 'Times New Roman', serif"
     font-size="26"
     text-anchor="middle"
