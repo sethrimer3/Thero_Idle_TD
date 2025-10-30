@@ -116,11 +116,16 @@ export function ensureZetaState(playfield, tower) {
   state.speed = speedValue;
   state.rangeFraction = effectiveRangeFraction;
   state.total = totalPendulums;
-  state.directCooldown = 0.28;
-  state.trailCooldown = 0.34;
-  state.trailDuration = 0.75;
+  // Range upgrades extend the trail lifetime/length multiplier without stretching the arms.
+  const rangeMultiplier = Math.max(1, rangeScalar / 1.5);
+  state.trailDuration = 0.55 + 0.45 * rangeMultiplier;
 
-  const baseLength = Math.max(18, detectionRadius);
+  // Keep arm length anchored to arena size so pendulums feel consistent while range grows.
+  const baseArmLength = Math.max(48, Math.min(playfield.renderWidth || 0, playfield.renderHeight || 0) * 0.16);
+  // Precompute the default spawn position for each pendulum head.
+  const baseHeadOffset = { x: tower.x, y: tower.y - baseArmLength };
+  // Seed each pendulum with a distinct glow palette to emphasize individual trails.
+  const pendulumPalette = ['#8bf7ff', '#d89aff', '#ff9ecd', '#ffe28c', '#9effa9', '#ffb7ff'];
   const pendulums = state.pendulums;
   if (pendulums.length > totalPendulums) {
     pendulums.length = totalPendulums;
@@ -131,12 +136,13 @@ export function ensureZetaState(playfield, tower) {
       pendulum = {
         angle: -Math.PI / 2,
         angularVelocity: 0,
-        length: baseLength,
-        head: { x: tower.x, y: tower.y - baseLength },
+        length: baseArmLength,
+        head: { ...baseHeadOffset },
         trail: [],
         trailWidth: Math.max(4, detectionRadius * 0.15),
         headRadius: Math.max(12, detectionRadius * 0.07),
         hitMap: new Map(),
+        color: pendulumPalette[index % pendulumPalette.length], // Store the trail/head color for rendering and effects.
       };
       pendulums[index] = pendulum;
     }
@@ -144,7 +150,7 @@ export function ensureZetaState(playfield, tower) {
     const normalizedIndex = index / Math.max(1, totalPendulums - 1);
     const angularVelocity = speedValue * (0.6 + 0.4 * normalizedIndex);
     pendulum.angularVelocity = angularVelocity * Math.PI * 2;
-    pendulum.length = baseLength * (1 + normalizedIndex * 0.15);
+    pendulum.length = baseArmLength * (1 + normalizedIndex * 0.08); // Small offsets keep the double pendulum silhouette dynamic.
     pendulum.headRadius = Math.max(12, detectionRadius * (0.06 + normalizedIndex * 0.02));
     pendulum.trailWidth = Math.max(4, detectionRadius * (0.12 + normalizedIndex * 0.05));
     if (!Array.isArray(pendulum.trail)) {
@@ -152,6 +158,9 @@ export function ensureZetaState(playfield, tower) {
     }
     if (!(pendulum.hitMap instanceof Map)) {
       pendulum.hitMap = new Map();
+    }
+    if (!pendulum.color) {
+      pendulum.color = pendulumPalette[index % pendulumPalette.length]; // Recover the palette if the state was cached without color.
     }
   }
 
@@ -161,12 +170,12 @@ export function ensureZetaState(playfield, tower) {
     }
     const normalizedIndex = index / Math.max(1, totalPendulums - 1);
     pendulum.angularVelocity = speedValue * (0.6 + 0.4 * normalizedIndex) * Math.PI * 2;
-    pendulum.length = baseLength * (1 + normalizedIndex * 0.15);
+    pendulum.length = baseArmLength * (1 + normalizedIndex * 0.08); // Maintain variation without scaling with range upgrades.
     pendulum.headRadius = Math.max(12, detectionRadius * (0.06 + normalizedIndex * 0.02));
     pendulum.trailWidth = Math.max(4, detectionRadius * (0.12 + normalizedIndex * 0.05));
+    pendulum.color = pendulumPalette[index % pendulumPalette.length]; // Refresh color when pendulum count changes.
   });
-
-  state.maxTrailPoints = 48;
+  state.maxTrailPoints = Math.round(36 * rangeMultiplier); // Longer trails mirror higher range investments.
   return state;
 }
 
@@ -241,8 +250,6 @@ export function updateZetaTower(playfield, tower, delta) {
 
   const enemyInfo = playfield.enemies.map((enemy) => ({ enemy, position: playfield.getEnemyPosition(enemy) }));
   const activeEnemyIds = new Set(enemyInfo.map(({ enemy }) => enemy.id));
-  const directCooldown = Number.isFinite(state.directCooldown) ? state.directCooldown : 0.28;
-  const trailCooldown = Number.isFinite(state.trailCooldown) ? state.trailCooldown : 0.34;
 
   pendulums.forEach((pendulum) => {
     if (!pendulum || !pendulum.head) {
@@ -267,25 +274,19 @@ export function updateZetaTower(playfield, tower, delta) {
       if (!enemy || enemy.hp <= 0 || !position) {
         return;
       }
-      const entry = hitMap.get(enemy.id) || { nextDirect: 0, nextTrail: 0 };
-      let directApplied = false;
+      const entry = hitMap.get(enemy.id) || { headContact: false, trailContact: false }; // Track continuous contact per enemy.
 
       const distanceToHead = Math.hypot(position.x - pendulum.head.x, position.y - pendulum.head.y);
-      if (distanceToHead <= headRadius && state.elapsed >= entry.nextDirect) {
+      const headContact = distanceToHead <= headRadius;
+      if (headContact && !entry.headContact) { // Deal critical damage when the head first touches an enemy.
         applyZetaDamage(playfield, enemy, state.criticalDamage);
-        entry.nextDirect = state.elapsed + directCooldown;
-        entry.nextTrail = Math.max(entry.nextTrail, state.elapsed + trailCooldown * 0.5);
-        hitMap.set(enemy.id, entry);
-        directApplied = true;
-      }
-
-      if (directApplied || state.elapsed < entry.nextTrail) {
-        hitMap.set(enemy.id, entry);
-        return;
+        entry.headContact = true;
+      } else if (!headContact) {
+        entry.headContact = false;
       }
 
       let nearTrail = false;
-      for (let index = trail.length - 1, segments = 0; index > 0 && segments < 32; index -= 1, segments += 1) {
+      for (let index = trail.length - 1, segments = 0; index > 0 && segments < maxTrailPoints; index -= 1, segments += 1) { // Sweep back through recent trail segments for contact checks.
         const point = trail[index];
         const previous = trail[index - 1];
         if (!point || !previous) {
@@ -298,9 +299,11 @@ export function updateZetaTower(playfield, tower, delta) {
         }
       }
 
-      if (nearTrail) {
+      if (nearTrail && !entry.trailContact) { // Apply base damage when the trail is freshly re-entered.
         applyZetaDamage(playfield, enemy, state.baseDamage);
-        entry.nextTrail = state.elapsed + trailCooldown;
+        entry.trailContact = true;
+      } else if (!nearTrail) {
+        entry.trailContact = false;
       }
       hitMap.set(enemy.id, entry);
     });
@@ -332,7 +335,9 @@ export function drawZetaPendulums(playfield, tower) {
 
     const trail = Array.isArray(pendulum.trail) ? pendulum.trail : [];
     const trailWidth = Math.max(1.5, Number.isFinite(pendulum.trailWidth) ? pendulum.trailWidth : 6);
-    for (let i = Math.max(1, trail.length - 32); i < trail.length; i += 1) {
+    const rgbColor = hexToRgb(pendulum.color || '#8bf7ff'); // Use the stored palette to sync head and trail glow.
+    const visibleTrailStart = Math.max(1, trail.length - Math.max(12, Math.round((state.maxTrailPoints || 32) * 0.9))); // Render most of the stored trail while keeping batching tight.
+    for (let i = visibleTrailStart; i < trail.length; i += 1) {
       const point = trail[i];
       const previous = trail[i - 1];
       if (!point || !previous) {
@@ -345,7 +350,7 @@ export function drawZetaPendulums(playfield, tower) {
         continue;
       }
       ctx.beginPath();
-      ctx.strokeStyle = `rgba(139, 247, 255, ${alpha * 0.5})`;
+      ctx.strokeStyle = `rgba(${rgbColor}, ${alpha * 0.55})`;
       ctx.lineWidth = trailWidth;
       ctx.moveTo(previous.x, previous.y);
       ctx.lineTo(point.x, point.y);
@@ -354,22 +359,43 @@ export function drawZetaPendulums(playfield, tower) {
 
     const pivot = index === 0 ? { x: tower.x, y: tower.y } : pendulums[index - 1]?.head;
     if (pivot) {
-      playfield.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.35)', (pendulum.headRadius || 12) * 1.6);
-      ctx.strokeStyle = 'rgba(139, 247, 255, 0.75)';
-      ctx.lineWidth = Math.max(1.2, (pendulum.headRadius || 12) * 0.45);
+      playfield.applyCanvasShadow(ctx, `rgba(${rgbColor}, 0.25)`, (pendulum.headRadius || 12) * 1.4); // Slim, glowing arms echo the head hue.
+      ctx.strokeStyle = `rgba(${rgbColor}, 0.6)`;
+      ctx.lineWidth = Math.max(0.8, (pendulum.headRadius || 12) * 0.2);
       ctx.beginPath();
       ctx.moveTo(pivot.x, pivot.y);
       ctx.lineTo(pendulum.head.x, pendulum.head.y);
       ctx.stroke();
     }
 
-    playfield.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.85)', (pendulum.headRadius || 12) * 2.1);
-    ctx.fillStyle = 'rgba(255, 228, 120, 0.92)';
+    const radius = pendulum.headRadius || 12;
+    // Radial gradient softens the head edges to mimic a glowing particle.
+    const gradient = ctx.createRadialGradient(pendulum.head.x, pendulum.head.y, radius * 0.1, pendulum.head.x, pendulum.head.y, radius);
+    gradient.addColorStop(0, `rgba(${rgbColor}, 0.95)`);
+    gradient.addColorStop(0.6, `rgba(${rgbColor}, 0.4)`);
+    gradient.addColorStop(1, `rgba(${rgbColor}, 0)`);
+    playfield.applyCanvasShadow(ctx, `rgba(${rgbColor}, 0.7)`, radius * 2.1); // Bloom matches gradient color to amplify the glow.
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(pendulum.head.x, pendulum.head.y, pendulum.headRadius || 12, 0, Math.PI * 2);
+    ctx.arc(pendulum.head.x, pendulum.head.y, radius, 0, Math.PI * 2);
     ctx.fill();
     playfield.clearCanvasShadow(ctx);
   });
 
   ctx.restore();
+}
+
+/**
+ * Translate a hex color string into an RGB triplet so we can build rgba strings.
+ */
+function hexToRgb(hexColor) {
+  const hex = String(hexColor).replace('#', '').trim();
+  const normalized = hex.length === 3
+    ? hex.split('').map((char) => char + char).join('')
+    : hex.padEnd(6, '0');
+  const intVal = parseInt(normalized.slice(0, 6), 16);
+  const r = (intVal >> 16) & 255;
+  const g = (intVal >> 8) & 255;
+  const b = intVal & 255;
+  return `${r}, ${g}, ${b}`;
 }
