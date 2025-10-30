@@ -815,18 +815,68 @@ const TOWER_EQUATION_BLUEPRINTS = {
   // alignment thresholds, and range when planets line up.
   eta: {
     mathSymbol: String.raw`\eta`,
-    baseEquation: String.raw`\( \eta = (\Gamma \cdot \aleph_{1})^{(\text{OrbitAlign} - 1)} \)`,
+    baseEquation: String.raw`\( \text{Eta} = \dots \)`,
     variables: [
       {
+        key: 'atk',
+        symbol: 'Atk',
+        equationSymbol: 'Atk',
+        name: 'Atk',
+        description: null,
+        upgradable: false,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const gammaValue = Math.max(0, calculateTowerEquationResult('gamma'));
+          const aleph1 = Math.max(
+            1,
+            computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint),
+          );
+          const critical = Math.max(
+            0,
+            computeTowerVariableValue(towerId, 'crt', effectiveBlueprint),
+          );
+          const base = Math.max(0, gammaValue * aleph1);
+          const attack = critical === 0 ? 1 : base ** critical;
+          return Number.isFinite(attack) ? attack : 0;
+        },
+        format: (value) => formatGameNumber(Math.max(0, value)),
+        getSubEquations({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const gammaValue = Math.max(0, calculateTowerEquationResult('gamma'));
+          const aleph1 = Math.max(
+            1,
+            computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint),
+          );
+          const critical = Math.max(
+            0,
+            computeTowerVariableValue(towerId, 'crt', effectiveBlueprint),
+          );
+          const base = Math.max(0, gammaValue * aleph1);
+          const attack = critical === 0 ? 1 : base ** critical;
+          return [
+            {
+              expression: String.raw`\( \text{Atk} = (\Gamma \cdot \aleph_{1})^{\text{Crt}} \)`,
+            },
+            {
+              values: String.raw`\( ${formatGameNumber(attack)} = (${formatDecimal(
+                gammaValue,
+                2,
+              )} \cdot ${formatWholeNumber(aleph1)})^{${formatDecimal(critical, 2)}} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
         key: 'aleph1',
-        symbol: 'ℵ₁',
-        equationSymbol: 'ℵ₁',
-        name: 'Aleph One Harmonics',
-        description: 'Sets the base laser power amplified whenever η rings align.',
+        symbol: 'Aleph1',
+        equationSymbol: 'Aleph1',
+        name: 'Aleph1',
+        description: null,
         baseValue: 1,
         step: 1,
         upgradable: true,
-        format: (value) => `${formatWholeNumber(Math.max(1, value))} focus`,
+        format: (value) => formatWholeNumber(Math.max(1, value)),
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
           const resolved = Number.isFinite(value) ? value : 1 + rank;
@@ -842,15 +892,154 @@ const TOWER_EQUATION_BLUEPRINTS = {
         },
       },
       {
+        key: 'crt',
+        symbol: 'Crt',
+        equationSymbol: 'Crt',
+        name: 'Crt',
+        description: null,
+        baseValue: 1,
+        upgradable: false,
+        format: (value) => formatDecimal(Math.max(0, value), 2),
+        getSubEquations() {
+          return [
+            {
+              expression: String.raw`\( \text{Crt} = \text{OrbitAlign} - 1 \)`,
+            },
+          ];
+        },
+      },
+      {
+        key: 'totRing',
+        symbol: 'TotRing',
+        equationSymbol: 'TotRing',
+        name: 'TotRing',
+        description: null,
+        baseValue: 2,
+        upgradable: false,
+        format: (value) => formatWholeNumber(Math.max(0, value)),
+        getSubEquations() {
+          return [
+            {
+              expression: String.raw`\( \text{TotRing} = 2 + \eta' \)`,
+            },
+          ];
+        },
+      },
+      {
+        key: 'totOrb',
+        symbol: 'TotOrb',
+        equationSymbol: 'TotOrb',
+        name: 'TotOrb',
+        description: null,
+        baseValue: 1,
+        upgradable: false,
+        format: (value) => formatWholeNumber(Math.max(0, value)),
+        getSubEquations() {
+          return [
+            {
+              expression: String.raw`\( \text{TotOrb} = \frac{n_{\text{Ring}} (n_{\text{Ring}} - 1)}{2} + 1 \)`,
+            },
+          ];
+        },
+      },
+      {
+        key: 'spdRing',
+        symbol: 'SpdRing',
+        equationSymbol: 'SpdRing',
+        name: 'SpdRing',
+        description: null,
+        baseValue: 0,
+        upgradable: false,
+        format: () => '',
+        getSubEquations({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph2 = Math.max(
+            1,
+            computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint),
+          );
+          const aleph3 = Math.max(
+            1,
+            computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint),
+          );
+          const aleph4 = Math.max(
+            1,
+            computeTowerVariableValue(towerId, 'aleph4', effectiveBlueprint),
+          );
+          const aleph5 = Math.max(
+            1,
+            computeTowerVariableValue(towerId, 'aleph5', effectiveBlueprint),
+          );
+          const denominator = aleph2 + aleph3 + aleph4 + aleph5;
+          const values = [
+            {
+              expression: String.raw`\( \text{SpdRing1} = \frac{1}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5}} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(1 / denominator, 3)} = \frac{1}{${formatWholeNumber(
+                aleph2,
+              )} + ${formatWholeNumber(aleph3)} + ${formatWholeNumber(aleph4)} + ${formatWholeNumber(
+                aleph5,
+              )}} \)`,
+              variant: 'values',
+            },
+            {
+              expression: String.raw`\( \text{SpdRing2} = \frac{1 + \aleph_{2}}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5}} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal((1 + aleph2) / denominator, 3)} = \frac{1 + ${formatWholeNumber(
+                aleph2,
+              )}}{${formatWholeNumber(aleph2)} + ${formatWholeNumber(aleph3)} + ${formatWholeNumber(
+                aleph4,
+              )} + ${formatWholeNumber(aleph5)}} \)`,
+              variant: 'values',
+            },
+            {
+              expression: String.raw`\( \text{SpdRing3} = \frac{1 + 2 \cdot \aleph_{3}}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5}} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal((1 + 2 * aleph3) / denominator, 3)} = \frac{1 + 2 \cdot ${formatWholeNumber(
+                aleph3,
+              )}}{${formatWholeNumber(aleph2)} + ${formatWholeNumber(aleph3)} + ${formatWholeNumber(
+                aleph4,
+              )} + ${formatWholeNumber(aleph5)}} \)`,
+              variant: 'values',
+            },
+            {
+              expression: String.raw`\( \text{SpdRing4} = \frac{2 + 3 \cdot \aleph_{4}}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5}} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal((2 + 3 * aleph4) / denominator, 3)} = \frac{2 + 3 \cdot ${formatWholeNumber(
+                aleph4,
+              )}}{${formatWholeNumber(aleph2)} + ${formatWholeNumber(aleph3)} + ${formatWholeNumber(
+                aleph4,
+              )} + ${formatWholeNumber(aleph5)}} \)`,
+              variant: 'values',
+            },
+            {
+              expression: String.raw`\( \text{SpdRing5} = \frac{1 + 2^{\aleph_{5}}}{\aleph_{2} + \aleph_{3} + \aleph_{4} + \aleph_{5}} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal((1 + 2 ** aleph5) / denominator, 3)} = \frac{1 + 2^{${formatWholeNumber(
+                aleph5,
+              )}}}{${formatWholeNumber(aleph2)} + ${formatWholeNumber(aleph3)} + ${formatWholeNumber(
+                aleph4,
+              )} + ${formatWholeNumber(aleph5)}} \)`,
+              variant: 'values',
+            },
+          ];
+          return values;
+        },
+      },
+      {
         key: 'aleph2',
-        symbol: 'ℵ₂',
-        equationSymbol: 'ℵ₂',
-        name: 'Aleph Two Denominator',
-        description: 'Feeds the shared orbital denominator that paces outer ring rotation.',
+        symbol: 'Aleph2',
+        equationSymbol: 'Aleph2',
+        name: 'Aleph2',
+        description: null,
         baseValue: 1,
         step: 1,
         upgradable: true,
-        format: (value) => `${formatWholeNumber(Math.max(1, value))} cadence`,
+        format: (value) => formatWholeNumber(Math.max(1, value)),
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
           const resolved = Number.isFinite(value) ? value : 1 + rank;
@@ -867,14 +1056,14 @@ const TOWER_EQUATION_BLUEPRINTS = {
       },
       {
         key: 'aleph3',
-        symbol: 'ℵ₃',
-        equationSymbol: 'ℵ₃',
-        name: 'Aleph Three Expansion',
-        description: 'Extends the rotational denominator for the second orbital ring.',
+        symbol: 'Aleph3',
+        equationSymbol: 'Aleph3',
+        name: 'Aleph3',
+        description: null,
         baseValue: 1,
         step: 1,
         upgradable: true,
-        format: (value) => `${formatWholeNumber(Math.max(1, value))} span`,
+        format: (value) => formatWholeNumber(Math.max(1, value)),
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
           const resolved = Number.isFinite(value) ? value : 1 + rank;
@@ -891,14 +1080,14 @@ const TOWER_EQUATION_BLUEPRINTS = {
       },
       {
         key: 'aleph4',
-        symbol: 'ℵ₄',
-        equationSymbol: 'ℵ₄',
-        name: 'Aleph Four Resonance',
-        description: 'Shapes the pacing for the fourth ring’s orbital cadence.',
+        symbol: 'Aleph4',
+        equationSymbol: 'Aleph4',
+        name: 'Aleph4',
+        description: null,
         baseValue: 1,
         step: 1,
         upgradable: true,
-        format: (value) => `${formatWholeNumber(Math.max(1, value))} resonance`,
+        format: (value) => formatWholeNumber(Math.max(1, value)),
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
           const resolved = Number.isFinite(value) ? value : 1 + rank;
@@ -915,14 +1104,14 @@ const TOWER_EQUATION_BLUEPRINTS = {
       },
       {
         key: 'aleph5',
-        symbol: 'ℵ₅',
-        equationSymbol: 'ℵ₅',
-        name: 'Aleph Five Sparks',
-        description: 'Feeds the exponential term that accelerates the innermost orbit.',
+        symbol: 'Aleph5',
+        equationSymbol: 'Aleph5',
+        name: 'Aleph5',
+        description: null,
         baseValue: 1,
         step: 1,
         upgradable: true,
-        format: (value) => `${formatWholeNumber(Math.max(1, value))} sparks`,
+        format: (value) => formatWholeNumber(Math.max(1, value)),
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
           const resolved = Number.isFinite(value) ? value : 1 + rank;
@@ -938,16 +1127,55 @@ const TOWER_EQUATION_BLUEPRINTS = {
         },
       },
       {
+        key: 'rng',
+        symbol: 'Rng',
+        equationSymbol: 'Rng',
+        name: 'Rng',
+        description: null,
+        upgradable: false,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph6 = Math.max(
+            1,
+            computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint),
+          );
+          const clamped = Math.min(5, aleph6);
+          return 5 + clamped;
+        },
+        format: (value) => formatDecimal(Math.max(0, value), 2),
+        getSubEquations({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph6 = Math.max(
+            1,
+            computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint),
+          );
+          const clamped = Math.min(5, aleph6);
+          const total = 5 + clamped;
+          return [
+            {
+              expression: String.raw`\( \text{Rng} = 5 + \aleph_{6} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(total, 2)} = 5 + ${formatDecimal(clamped, 2)} \)`,
+              variant: 'values',
+            },
+            {
+              expression: String.raw`\( \aleph_{6} \leq 5 \)`,
+            },
+          ];
+        },
+      },
+      {
         key: 'aleph6',
-        symbol: 'ℵ₆',
-        equationSymbol: 'ℵ₆',
-        name: 'Aleph Six Lens',
-        description: 'Extends laser reach by focusing η’s orbital alignment.',
+        symbol: 'Aleph6',
+        equationSymbol: 'Aleph6',
+        name: 'Aleph6',
+        description: null,
         baseValue: 1,
         step: 1,
         upgradable: true,
         maxLevel: 4,
-        format: (value) => `${formatWholeNumber(Math.max(1, value))} focus`,
+        format: (value) => formatWholeNumber(Math.max(1, value)),
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
           const resolved = Number.isFinite(value) ? value : 1 + rank;
@@ -962,52 +1190,13 @@ const TOWER_EQUATION_BLUEPRINTS = {
           ];
         },
       },
-      {
-        key: 'rng',
-        symbol: 'Rng',
-        equationSymbol: 'Rng',
-        name: 'Laser Range',
-        description: 'Meters η’s beam can travel once rings align.',
-        upgradable: false,
-        computeValue({ blueprint, towerId }) {
-          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
-          const aleph6 = Math.max(
-            1,
-            computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint),
-          );
-          const clamped = Math.min(5, aleph6);
-          return 5 + clamped;
-        },
-        format: (value) => `${formatDecimal(Math.max(0, value), 2)} m`,
-        getSubEquations({ blueprint, towerId }) {
-          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
-          const aleph6 = Math.max(
-            1,
-            computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint),
-          );
-          const clamped = Math.min(5, aleph6);
-          const total = 5 + clamped;
-          return [
-            {
-              expression: String.raw`\( \text{Rng} = 5 + \min(5, \aleph_{6}) \)`,
-            },
-            {
-              values: String.raw`\( ${formatDecimal(total, 2)} = 5 + \min(5, ${formatDecimal(aleph6, 2)}) \)`,
-              variant: 'values',
-            },
-          ];
-        },
-      },
     ],
     computeResult(values) {
-      const productKeys = ['aleph1', 'aleph2', 'aleph3', 'aleph4', 'aleph5', 'aleph6'];
-      return productKeys.reduce((total, key) => {
-        const contribution = Number.isFinite(values[key]) ? Math.max(1, values[key]) : 1;
-        return total * contribution;
-      }, 1);
+      const attack = Number.isFinite(values.atk) ? values.atk : 0;
+      return attack;
     },
-    formatGoldenEquation({ formatVariable, formatResult }) {
-      return String.raw`\( ${formatResult()} = ${formatVariable('aleph1')} \times ${formatVariable('aleph2')} \times ${formatVariable('aleph3')} \times ${formatVariable('aleph4')} \times ${formatVariable('aleph5')} \times ${formatVariable('aleph6')} \)`;
+    formatGoldenEquation() {
+      return String.raw`\( \text{Eta} = \dots \)`;
     },
   },
   // ζ tower channels a double-pendulum equation that references multiple Aleph
