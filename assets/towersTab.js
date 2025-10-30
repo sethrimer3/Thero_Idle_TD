@@ -513,6 +513,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         key: 'atk',
         symbol: 'A',
         equationSymbol: 'Attack',
+        glyphLabel: 'ℵ₁',
         name: 'Attack',
         description: 'Projectile damage carried by each glyph bullet.',
         baseValue: 5,
@@ -535,6 +536,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         key: 'speed',
         symbol: 'S',
         equationSymbol: 'Speed',
+        glyphLabel: 'ℵ₂',
         name: 'Speed',
         description: 'Oscillation cadence braided from the second glyph conduit.',
         baseValue: 0.5,
@@ -572,6 +574,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         key: 'attack',
         symbol: 'A',
         equationSymbol: 'Attack',
+        glyphLabel: 'ℵ₁',
         name: 'Attack',
         description: 'Direct strike power mirrored from α.',
         upgradable: true,
@@ -614,7 +617,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = 0.5 + 1.5 * alphaConnections;
           return [
             {
-              expression: String.raw`\( \text{Speed} = 0.5 + 1.5 \left( {\color{#8fd2ff}{\alpha_{\beta}}} \right) \)`,
+              expression: String.raw`\( \text{Speed} = 0.5 + 1.5 \left( {\color[HTML]{8FD2FF}{\alpha_{\beta}}} \right) \)`,
               values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 + 1.5 \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
             },
           ];
@@ -636,7 +639,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const alphaConnections = getDynamicConnectionCount('alpha');
           return [
             {
-              expression: String.raw`\( \text{Range} = 1 \times \left( {\color{#8fd2ff}{\alpha_{\beta}}} \right) \)`,
+              expression: String.raw`\( \text{Range} = 1 \times \left( {\color[HTML]{8FD2FF}{\alpha_{\beta}}} \right) \)`,
               values: String.raw`\( ${formatDecimal(alphaConnections, 2)} = 1 \times \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
             },
           ];
@@ -664,6 +667,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         key: 'attack',
         symbol: 'A',
         equationSymbol: 'Attack',
+        glyphLabel: 'ℵ₁',
         name: 'Attack',
         description: 'Strike intensity carried forward from β.',
         upgradable: true,
@@ -706,7 +710,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = 0.5 + 0.25 * alphaConnections;
           return [
             {
-              expression: String.raw`\( \text{Speed} = 0.5 + 0.25 \left( {\color{#8fd2ff}{\alpha_{\gamma}}} \right) \)`,
+              expression: String.raw`\( \text{Speed} = 0.5 + 0.25 \left( {\color[HTML]{8FD2FF}{\alpha_{\gamma}}} \right) \)`,
               values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 + 0.25 \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
             },
           ];
@@ -730,7 +734,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const rangeValue = 1 + 2 * betaConnections;
           return [
             {
-              expression: String.raw`\( \text{Range} = 1 + 2 \left( {\color{#8fd2ff}{\beta_{\gamma}}} \right) \)`,
+              expression: String.raw`\( \text{Range} = 1 + 2 \left( {\color[HTML]{8FD2FF}{\beta_{\gamma}}} \right) \)`,
               values: String.raw`\( ${formatDecimal(rangeValue, 2)} = 1 + 2 \left( ${formatWholeNumber(betaConnections)} \right) \)`,
             },
           ];
@@ -740,6 +744,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         key: 'pierce',
         symbol: 'P',
         equationSymbol: 'Pierce',
+        glyphLabel: 'ℵ₂',
         name: 'Pierce',
         description: 'Piercing depth braided from the second glyph conduit.',
         baseValue: 1,
