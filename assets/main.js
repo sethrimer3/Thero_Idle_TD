@@ -51,6 +51,7 @@ import {
   writeStorageJson,
   GRAPHICS_MODE_STORAGE_KEY,
   NOTATION_STORAGE_KEY,
+  GLYPH_EQUATIONS_STORAGE_KEY,
 } from './autoSave.js';
 import {
   configureOfflinePersistence,
@@ -417,6 +418,72 @@ import {
       toggleNotationPreference();
     });
     updateNotationToggleLabel();
+  }
+
+  // Tracks whether glyph equations should render inside tower upgrade cards.
+  let glyphEquationsVisible = false;
+  // Cache DOM nodes associated with the glyph equation toggle control.
+  let glyphEquationToggleInput = null;
+  let glyphEquationToggleStateLabel = null;
+
+  // Normalizes persisted glyph equation values into a boolean flag.
+  function normalizeGlyphEquationPreference(value) {
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on') {
+        return true;
+      }
+      if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off') {
+        return false;
+      }
+    }
+    if (typeof value === 'number') {
+      return Number.isFinite(value) && value > 0;
+    }
+    return Boolean(value);
+  }
+
+  // Synchronizes the slider UI and aria attributes with the active preference.
+  function updateGlyphEquationToggleUi() {
+    if (glyphEquationToggleInput) {
+      glyphEquationToggleInput.checked = glyphEquationsVisible;
+      glyphEquationToggleInput.setAttribute('aria-checked', glyphEquationsVisible ? 'true' : 'false');
+      const controlShell = glyphEquationToggleInput.closest('.settings-toggle-control');
+      if (controlShell) {
+        controlShell.classList.toggle('is-active', glyphEquationsVisible);
+      }
+    }
+    if (glyphEquationToggleStateLabel) {
+      glyphEquationToggleStateLabel.textContent = glyphEquationsVisible ? 'On' : 'Off';
+    }
+  }
+
+  // Applies the glyph equation visibility state and optionally persists the choice.
+  function applyGlyphEquationPreference(preference, { persist = true } = {}) {
+    const enabled = normalizeGlyphEquationPreference(preference);
+    glyphEquationsVisible = enabled;
+    const body = typeof document !== 'undefined' ? document.body : null;
+    if (body) {
+      body.classList.toggle('show-glyph-equations', glyphEquationsVisible);
+    }
+    updateGlyphEquationToggleUi();
+    if (persist) {
+      writeStorage(GLYPH_EQUATIONS_STORAGE_KEY, glyphEquationsVisible ? '1' : '0');
+    }
+    return glyphEquationsVisible;
+  }
+
+  // Binds the glyph equation slider to the preference handler.
+  function bindGlyphEquationToggle() {
+    glyphEquationToggleInput = document.getElementById('glyph-equation-toggle');
+    glyphEquationToggleStateLabel = document.getElementById('glyph-equation-toggle-state');
+    if (!glyphEquationToggleInput) {
+      return;
+    }
+    glyphEquationToggleInput.addEventListener('change', (event) => {
+      applyGlyphEquationPreference(event?.target?.checked);
+    });
+    updateGlyphEquationToggleUi();
   }
 
   // Provides an accessible label for the graphics fidelity control.
@@ -2661,6 +2728,7 @@ import {
     syncAudioControlsFromManager,
     applyNotationPreference,
     handleNotationFallback: handleNotationChange,
+    applyGlyphEquationPreference,
     getGameStatsSnapshot: () => gameStats,
     mergeLoadedGameStats: (stored) => {
       if (!stored) {
@@ -2678,6 +2746,7 @@ import {
     getPreferenceSnapshot: () => ({
       notation: getGameNumberNotation(),
       graphics: activeGraphicsMode,
+      glyphEquations: glyphEquationsVisible ? '1' : '0',
     }),
   });
 
@@ -6886,6 +6955,7 @@ import {
     bindGraphicsModeToggle();
     bindColorSchemeButton();
     bindNotationToggle();
+    bindGlyphEquationToggle();
     initializeColorScheme();
     bindAudioControls();
 

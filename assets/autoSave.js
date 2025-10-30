@@ -5,6 +5,8 @@
 
 export const GRAPHICS_MODE_STORAGE_KEY = 'glyph-defense-idle:graphics-mode';
 export const NOTATION_STORAGE_KEY = 'glyph-defense-idle:notation';
+// Storage key used to persist the glyph equation visibility toggle.
+export const GLYPH_EQUATIONS_STORAGE_KEY = 'glyph-defense-idle:glyph-equations';
 const POWDER_STORAGE_KEY = 'glyph-defense-idle:powder';
 const GAME_STATS_STORAGE_KEY = 'glyph-defense-idle:stats';
 // Storage key used to persist the active Motefall basin snapshot.
@@ -20,6 +22,7 @@ const dependencies = {
   syncAudioControlsFromManager: null,
   applyNotationPreference: null,
   handleNotationFallback: null,
+  applyGlyphEquationPreference: null,
   getGameStatsSnapshot: null,
   mergeLoadedGameStats: null,
   getPreferenceSnapshot: null,
@@ -176,6 +179,13 @@ export function loadPersistentState() {
     }
   }
 
+  if (typeof dependencies.applyGlyphEquationPreference === 'function') {
+    const storedGlyphEquations = readStorage(GLYPH_EQUATIONS_STORAGE_KEY);
+    if (storedGlyphEquations !== null) {
+      dependencies.applyGlyphEquationPreference(storedGlyphEquations, { persist: false });
+    }
+  }
+
   if (statKeys.length && typeof dependencies.mergeLoadedGameStats === 'function') {
     const storedStats = readStorageJson(GAME_STATS_STORAGE_KEY);
     if (storedStats && typeof storedStats === 'object') {
@@ -224,6 +234,9 @@ function persistPreferences() {
   }
   if (snapshot.graphics !== undefined && snapshot.graphics !== null) {
     writeStorage(GRAPHICS_MODE_STORAGE_KEY, snapshot.graphics);
+  }
+  if (snapshot.glyphEquations !== undefined && snapshot.glyphEquations !== null) {
+    writeStorage(GLYPH_EQUATIONS_STORAGE_KEY, snapshot.glyphEquations);
   }
 }
 
