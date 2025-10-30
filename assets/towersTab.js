@@ -869,13 +869,14 @@ const TOWER_EQUATION_BLUEPRINTS = {
       },
       {
         key: 'aleph1',
-        symbol: 'Aleph1',
-        equationSymbol: 'Aleph1',
-        name: 'Aleph1',
+        symbol: 'ℵ₁',
+        equationSymbol: 'ℵ₁',
+        name: 'Aleph₁',
         description: null,
         baseValue: 1,
         step: 1,
         upgradable: true,
+        attachedToVariable: 'atk',
         format: (value) => formatWholeNumber(Math.max(1, value)),
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
@@ -1209,11 +1210,12 @@ const TOWER_EQUATION_BLUEPRINTS = {
         key: 'aleph1',
         symbol: 'ℵ₁',
         equationSymbol: 'ℵ₁',
-        name: 'Aleph One Focus',
+        name: 'Aleph₁ Focus',
         description: 'Amplifies ζ’s base damage by threading additional glyph focus.',
         baseValue: 1,
         step: 1,
         upgradable: true,
+        attachedToVariable: 'atk',
         format: (value) => `${formatWholeNumber(value)} focus`,
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
@@ -1233,11 +1235,12 @@ const TOWER_EQUATION_BLUEPRINTS = {
         key: 'aleph2',
         symbol: 'ℵ₂',
         equationSymbol: 'ℵ₂',
-        name: 'Aleph Two Velocity',
+        name: 'Aleph₂ Velocity',
         description: 'Determines revolutions per second for each pendulum tier.',
         baseValue: 0,
         step: 1,
         upgradable: true,
+        attachedToVariable: 'spd',
         format: (value) => `${formatWholeNumber(Math.max(0, value))} tempo`,
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
@@ -1257,12 +1260,13 @@ const TOWER_EQUATION_BLUEPRINTS = {
         key: 'aleph3',
         symbol: 'ℵ₃',
         equationSymbol: 'ℵ₃',
-        name: 'Aleph Three Radius',
+        name: 'Aleph₃ Radius',
         description: 'Extends the arm length for the cascading pendulum links.',
         baseValue: 0,
         step: 1,
         upgradable: true,
         maxLevel: 3,
+        attachedToVariable: 'rng',
         format: (value) => `${formatWholeNumber(Math.max(0, value))} reach`,
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
@@ -1282,12 +1286,13 @@ const TOWER_EQUATION_BLUEPRINTS = {
         key: 'aleph4',
         symbol: 'ℵ₄',
         equationSymbol: 'ℵ₄',
-        name: 'Aleph Four Cascade',
+        name: 'Aleph₄ Cascade',
         description: 'Unlocks additional pendulums trailing from ζ’s core.',
         baseValue: 0,
         step: 1,
         upgradable: true,
         maxLevel: 2,
+        attachedToVariable: 'tot',
         cost: (level) => {
           if (level === 0) {
             return 10;
@@ -1316,11 +1321,12 @@ const TOWER_EQUATION_BLUEPRINTS = {
         key: 'aleph5',
         symbol: 'ℵ₅',
         equationSymbol: 'ℵ₅',
-        name: 'Aleph Five Spark',
+        name: 'Aleph₅ Spark',
         description: 'Feeds critical light into the pendulum strike zone.',
         baseValue: 1,
         step: 0.5,
         upgradable: true,
+        attachedToVariable: 'crt',
         format: (value) => `×${formatDecimal(Math.max(0, value), 2)}`,
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
@@ -1340,11 +1346,12 @@ const TOWER_EQUATION_BLUEPRINTS = {
         key: 'aleph6',
         symbol: 'ℵ₆',
         equationSymbol: 'ℵ₆',
-        name: 'Aleph Six Lens',
+        name: 'Aleph₆ Lens',
         description: 'Focuses the pendulum heads for sharper critical impacts.',
         baseValue: 1,
         step: 0.5,
         upgradable: true,
+        attachedToVariable: 'crt',
         format: (value) => `×${formatDecimal(Math.max(0, value), 2)}`,
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
@@ -3000,6 +3007,128 @@ function formatTowerVariableValue(variable, value) {
   return Number.isInteger(value) ? formatWholeNumber(value) : formatDecimal(value, 2);
 }
 
+const ALEPH_SUBSCRIPT_DIGITS = {
+  0: '₀',
+  1: '₁',
+  2: '₂',
+  3: '₃',
+  4: '₄',
+  5: '₅',
+  6: '₆',
+  7: '₇',
+  8: '₈',
+  9: '₉',
+};
+
+function toAlephSubscript(value) {
+  const normalized = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  return `${normalized}`
+    .split('')
+    .map((digit) => ALEPH_SUBSCRIPT_DIGITS[digit] || digit)
+    .join('');
+}
+
+function formatAlephGlyphLabelFromString(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (trimmed.startsWith('ℵ')) {
+    return trimmed;
+  }
+  const match = trimmed.match(/aleph\s*(\d+)/i);
+  if (match) {
+    const index = Number.parseInt(match[1], 10);
+    if (Number.isFinite(index)) {
+      return `ℵ${toAlephSubscript(index)}`;
+    }
+  }
+  return '';
+}
+
+function getVariableGlyphLabel(variable) {
+  if (!variable) {
+    return 'ℵ';
+  }
+
+  if (typeof variable.glyphLabel === 'string' && variable.glyphLabel.trim()) {
+    return variable.glyphLabel.trim();
+  }
+
+  const candidates = [variable.symbol, variable.equationSymbol, variable.name, variable.key];
+  for (const candidate of candidates) {
+    const label = formatAlephGlyphLabelFromString(candidate);
+    if (label) {
+      return label;
+    }
+  }
+
+  return 'ℵ';
+}
+
+function buildVariableGlyphControls(variable, towerId, level, options = {}) {
+  const { asAttachment = false } = options;
+  const controls = document.createElement('div');
+  controls.className = 'tower-upgrade-variable-controls';
+  if (asAttachment) {
+    controls.classList.add('tower-upgrade-variable-controls--attachment');
+  }
+
+  const glyphControl = document.createElement('div');
+  glyphControl.className = 'tower-upgrade-variable-glyph-control';
+  if (asAttachment) {
+    glyphControl.classList.add('tower-upgrade-variable-glyph-control--attachment');
+  }
+
+  const cost = calculateTowerVariableUpgradeCost(variable, level);
+  const maxLevel =
+    Number.isFinite(variable.maxLevel) && variable.maxLevel >= 0 ? Math.floor(variable.maxLevel) : null;
+  const reachedMax = maxLevel !== null && level >= maxLevel;
+
+  const decrement = document.createElement('button');
+  decrement.type = 'button';
+  decrement.className = 'tower-upgrade-variable-glyph-button tower-upgrade-variable-glyph-button--decrease';
+  decrement.textContent = '−';
+  decrement.disabled = level <= 0;
+  decrement.setAttribute('aria-label', `Withdraw glyphs from ${variable.symbol || variable.key}`);
+  decrement.addEventListener('click', () => handleTowerVariableDowngrade(towerId, variable.key));
+  glyphControl.append(decrement);
+
+  const glyphCount = document.createElement('span');
+  glyphCount.className = 'tower-upgrade-variable-glyph-count';
+  glyphCount.textContent = `${level} ${getVariableGlyphLabel(variable)}`;
+  glyphControl.append(glyphCount);
+
+  const increment = document.createElement('button');
+  increment.type = 'button';
+  increment.className = 'tower-upgrade-variable-glyph-button tower-upgrade-variable-glyph-button--increase';
+  increment.dataset.upgradeVariable = variable.key;
+  increment.textContent = '+';
+  increment.disabled = towerTabState.glyphCurrency < cost || reachedMax;
+  increment.setAttribute('aria-label', `Invest glyph into ${variable.symbol || variable.key}`);
+  increment.addEventListener('click', () => handleTowerVariableUpgrade(towerId, variable.key));
+  glyphControl.append(increment);
+
+  controls.append(glyphControl);
+
+  const costNote = document.createElement('span');
+  costNote.className = 'tower-upgrade-variable-cost';
+  costNote.textContent = cost === 1 ? 'COST: 1 GLYPH' : `COST: ${cost} GLYPHS`;
+  controls.append(costNote);
+
+  if (maxLevel !== null) {
+    const maxNote = document.createElement('span');
+    maxNote.className = 'tower-upgrade-variable-max';
+    maxNote.textContent = `MAX: ${formatWholeNumber(maxLevel)}`;
+    controls.append(maxNote);
+  }
+
+  return controls;
+}
+
 function resolveTowerVariableSubEquations(variable, context = {}) {
   if (!variable) {
     return [];
@@ -3118,14 +3247,40 @@ function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
 
   const fragment = document.createDocumentFragment();
   const mathElements = [];
+  const attachmentMap = new Map();
+
   blueprintVariables.forEach((variable) => {
+    const parentKey =
+      typeof variable.attachedToVariable === 'string' && variable.attachedToVariable.trim()
+        ? variable.attachedToVariable.trim()
+        : '';
+    if (parentKey) {
+      if (!attachmentMap.has(parentKey)) {
+        attachmentMap.set(parentKey, []);
+      }
+      attachmentMap.get(parentKey).push(variable);
+    }
+  });
+
+  blueprintVariables.forEach((variable) => {
+    const attachmentParent =
+      typeof variable.attachedToVariable === 'string' && variable.attachedToVariable.trim()
+        ? variable.attachedToVariable.trim()
+        : '';
+    if (attachmentParent) {
+      return;
+    }
+
+    const attachments = attachmentMap.get(variable.key) || [];
     const value = Number.isFinite(values[variable.key]) ? values[variable.key] : 0;
     const level = state.variables?.[variable.key]?.level || 0;
+
     const item = document.createElement('div');
     item.className = 'tower-upgrade-variable';
     item.setAttribute('role', 'listitem');
     item.dataset.variable = variable.key;
-    if (variable.upgradable !== false) {
+    const hasAttachmentUpgrade = attachments.some((attachment) => attachment.upgradable !== false);
+    if (variable.upgradable !== false || hasAttachmentUpgrade) {
       item.classList.add('tower-upgrade-variable--upgradable');
     }
 
@@ -3167,6 +3322,35 @@ function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
       dynamicContext: towerTabState.dynamicContext,
     });
 
+    const attachmentDetails = attachments.map((attachment) => {
+      const attachmentLevel = state.variables?.[attachment.key]?.level || 0;
+      const attachmentValue = Number.isFinite(values[attachment.key]) ? values[attachment.key] : 0;
+      const attachmentLines = resolveTowerVariableSubEquations(attachment, {
+        level: attachmentLevel,
+        value: attachmentValue,
+        variable: attachment,
+        towerId,
+        blueprint,
+        values,
+        parentVariable: variable,
+        formatValue: () => formatTowerVariableValue(attachment, attachmentValue),
+        formatWholeNumber,
+        formatDecimal,
+        formatGameNumber,
+        dynamicContext: towerTabState.dynamicContext,
+      }).map((entry) => ({ ...entry, attachmentKey: attachment.key }));
+      return {
+        variable: attachment,
+        level: attachmentLevel,
+        value: attachmentValue,
+        lines: attachmentLines,
+      };
+    });
+
+    attachmentDetails.forEach((detail) => {
+      subEquationLines.push(...detail.lines);
+    });
+
     if (subEquationLines.length) {
       const equations = document.createElement('div');
       equations.className = 'tower-upgrade-variable-equations';
@@ -3197,6 +3381,10 @@ function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
         if (variant === 'values') {
           lineEl.classList.add('tower-upgrade-variable-equation-line--values');
         }
+        if (entry && typeof entry === 'object' && entry.attachmentKey) {
+          lineEl.dataset.attachment = entry.attachmentKey;
+          lineEl.classList.add('tower-upgrade-variable-equation-line--attachment');
+        }
         lineEl.textContent = text;
         equations.append(lineEl);
       });
@@ -3223,51 +3411,46 @@ function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
     footer.append(stats);
 
     if (variable.upgradable !== false) {
-      const cost = calculateTowerVariableUpgradeCost(variable, level);
-
-      const controls = document.createElement('div');
-      controls.className = 'tower-upgrade-variable-controls';
-
-      const glyphControl = document.createElement('div');
-      glyphControl.className = 'tower-upgrade-variable-glyph-control';
-
-      const decrement = document.createElement('button');
-      decrement.type = 'button';
-      decrement.className = 'tower-upgrade-variable-glyph-button tower-upgrade-variable-glyph-button--decrease';
-      decrement.textContent = '−';
-      decrement.disabled = level <= 0;
-      decrement.setAttribute('aria-label', `Withdraw glyphs from ${variable.symbol || variable.key}`);
-      decrement.addEventListener('click', () => handleTowerVariableDowngrade(towerId, variable.key));
-      glyphControl.append(decrement);
-
-      const glyphCount = document.createElement('span');
-      glyphCount.className = 'tower-upgrade-variable-glyph-count';
-      glyphCount.textContent = `${level} ℵ`;
-      glyphControl.append(glyphCount);
-
-      const increment = document.createElement('button');
-      increment.type = 'button';
-      increment.className = 'tower-upgrade-variable-glyph-button tower-upgrade-variable-glyph-button--increase';
-      increment.dataset.upgradeVariable = variable.key;
-      increment.textContent = '+';
-      increment.disabled = towerTabState.glyphCurrency < cost;
-      increment.setAttribute('aria-label', `Invest glyph into ${variable.symbol || variable.key}`);
-      increment.addEventListener('click', () => handleTowerVariableUpgrade(towerId, variable.key));
-      glyphControl.append(increment);
-
-      controls.append(glyphControl);
-
-      const costNote = document.createElement('span');
-      costNote.className = 'tower-upgrade-variable-cost';
-      costNote.textContent = cost === 1 ? 'Cost: 1 Glyph' : `Cost: ${cost} Glyphs`;
-      controls.append(costNote);
-
+      const controls = buildVariableGlyphControls(variable, towerId, level);
       footer.append(controls);
-    } else {
+    } else if (!attachmentDetails.length) {
       const note = document.createElement('span');
       note.className = 'tower-upgrade-variable-note';
       note.textContent = variable.lockedNote || 'Inherited from allied lattices.';
       footer.append(note);
+    }
+
+    if (attachmentDetails.length) {
+      const attachmentContainer = document.createElement('div');
+      attachmentContainer.className = 'tower-upgrade-variable-attachments';
+      attachmentDetails.forEach((detail) => {
+        const attachmentVariable = detail.variable;
+        const attachmentRow = document.createElement('div');
+        attachmentRow.className = 'tower-upgrade-variable-attachment';
+        attachmentRow.dataset.attachment = attachmentVariable.key;
+
+        const attachmentLabel = document.createElement('span');
+        attachmentLabel.className = 'tower-upgrade-variable-attachment-label';
+        attachmentLabel.textContent =
+          attachmentVariable.name || attachmentVariable.symbol || attachmentVariable.key.toUpperCase();
+        attachmentRow.append(attachmentLabel);
+
+        if (attachmentVariable.upgradable !== false) {
+          const attachmentControls = buildVariableGlyphControls(attachmentVariable, towerId, detail.level, {
+            asAttachment: true,
+          });
+          attachmentRow.append(attachmentControls);
+        } else {
+          const attachmentNote = document.createElement('span');
+          attachmentNote.className = 'tower-upgrade-variable-note';
+          attachmentNote.textContent =
+            attachmentVariable.lockedNote || variable.lockedNote || 'Inherited from allied lattices.';
+          attachmentRow.append(attachmentNote);
+        }
+
+        attachmentContainer.append(attachmentRow);
+      });
+      footer.append(attachmentContainer);
     }
 
     item.append(footer);
