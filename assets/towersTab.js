@@ -450,7 +450,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
       {
         key: 'life',
         symbol: 'ℵ₁',
-        name: 'ℵ₁ Life Reservoir',
+        name: 'Life',
         description: 'Glyph lifeforce braided into the Mind Gate core.',
         baseValue: 1,
         step: 1,
@@ -462,11 +462,12 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const rank = Math.max(1, Number.isFinite(value) ? value : 1);
           return [
             {
-              expression: String.raw`\( \text{Life} \rightarrow 100^{\aleph_{1} / \aleph_{2}} \)`,
+              expression: String.raw`\( \text{Life} = 100^{\aleph_{1} / \aleph_{2}} \)`,
             },
             {
               values: String.raw`\( ${formatWholeNumber(rank)} = 1 + ${formatWholeNumber(invested)} \)`,
               variant: 'values',
+              glyphEquation: true,
             },
           ];
         },
@@ -474,7 +475,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
       {
         key: 'recovery',
         symbol: 'ℵ₂',
-        name: 'ℵ₂ Recovery Surge',
+        name: 'Regeneration',
         description: 'Restorative glyph cadence that rethreads the gate between waves.',
         baseValue: 2,
         step: 1,
@@ -486,11 +487,12 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const rank = Math.max(1, Number.isFinite(value) ? value : 2);
           return [
             {
-              expression: String.raw`\( \text{Regeneration} \rightarrow \frac{100 \times \aleph_{2}}{\aleph_{1}} \)`,
+              expression: String.raw`\( \text{Reg} = \frac{100 \times \aleph_{2}}{\aleph_{1}} \)`,
             },
             {
               values: String.raw`\( ${formatWholeNumber(rank)} = 2 + ${formatWholeNumber(invested)} \)`,
               variant: 'values',
+              glyphEquation: true,
             },
           ];
         },
@@ -3248,6 +3250,11 @@ function renderTowerUpgradeVariables(towerId, blueprint, values = {}) {
     return;
   }
   const container = variables;
+  if (towerId) {
+    container.dataset.towerId = towerId;
+  } else {
+    container.removeAttribute('data-tower-id');
+  }
   container.innerHTML = '';
   const blueprintVariables = blueprint?.variables || [];
   const state = ensureTowerUpgradeState(towerId, blueprint);
