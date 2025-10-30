@@ -1,0 +1,59 @@
+// γ tower particle orchestration isolates piercing laser math logic for clarity.
+import {
+  ensureTowerBurstState,
+  teardownTowerBurst,
+  spawnTowerAttackBurst,
+  updateTowerBursts,
+  drawTowerBursts,
+} from './alphaTower.js';
+
+// Γ tower particles glow with verdant energy to telegraph piercing precision.
+const GAMMA_PARTICLE_COLORS = [
+  { r: 176, g: 255, b: 193 },
+  { r: 120, g: 219, b: 255 },
+];
+
+// Configuration retains legacy γ laser parameters so gameplay cadence is preserved.
+const GAMMA_PARTICLE_CONFIG = {
+  towerType: 'gamma',
+  stateKey: 'gammaState',
+  burstListKey: 'gammaBursts',
+  idPrefix: 'gamma',
+  colors: GAMMA_PARTICLE_COLORS,
+  behavior: 'pierceLaser',
+  particleCountRange: { min: 5, max: 10 },
+  dashDelayRange: 0.02,
+  timings: {
+    swirl: { base: 0.26, variance: 0.12 },
+    charge: { base: 0.08, variance: 0.06 },
+    dash: { base: 0.2, variance: 0.1 },
+  },
+  laser: {
+    minExtension: 160,
+    maxExtension: 320,
+    speed: 760,
+    fadeDuration: 0.22,
+  },
+};
+
+export function ensureGammaState(playfield, tower) {
+  return ensureTowerBurstState(playfield, tower, GAMMA_PARTICLE_CONFIG);
+}
+
+export function teardownGammaTower(playfield, tower) {
+  teardownTowerBurst(playfield, tower, GAMMA_PARTICLE_CONFIG);
+}
+
+export function spawnGammaAttackBurst(playfield, tower, targetInfo = {}, options = {}) {
+  return spawnTowerAttackBurst(playfield, tower, targetInfo, options, GAMMA_PARTICLE_CONFIG);
+}
+
+export function updateGammaBursts(playfield, delta) {
+  updateTowerBursts(playfield, delta, GAMMA_PARTICLE_CONFIG);
+}
+
+export function drawGammaBursts(playfield) {
+  drawTowerBursts(playfield, GAMMA_PARTICLE_CONFIG);
+}
+
+export { GAMMA_PARTICLE_CONFIG };
