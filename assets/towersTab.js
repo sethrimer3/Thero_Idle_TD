@@ -426,8 +426,8 @@ function getDynamicConnectionCount(towerType) {
 const TOWER_EQUATION_BLUEPRINTS = {
   // Model the Mind Gate's two glyph conduits so it can accept upgrades directly.
   'mind-gate': {
-    mathSymbol: '\\aleph_{\\text{Mind}}',
-    baseEquation: '\\( \\aleph_{\\text{Mind}} = 10 \\times \\Psi_{1} + \\frac{\\Psi_{2}}{1 / \\Psi_{1}} \\)',
+    mathSymbol: String.raw`\aleph_{\text{Mind}}`,
+    baseEquation: String.raw`\( \aleph_{\text{Mind}} = 10 \times \Psi_{1} + \frac{\Psi_{2}}{1 / \Psi_{1}} \)`,
     variables: [
       {
         key: 'life',
@@ -442,7 +442,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         getSubEquations({ level, value }) {
           const invested = Math.max(0, Number.isFinite(level) ? level : 0);
           const rank = Math.max(1, Number.isFinite(value) ? value : 1);
-          return [`\\( ${formatWholeNumber(rank)} = 1 + ${formatWholeNumber(invested)} \\)`];
+          return [String.raw`\( ${formatWholeNumber(rank)} = 1 + ${formatWholeNumber(invested)} \)`];
         },
       },
       {
@@ -458,7 +458,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         getSubEquations({ level, value }) {
           const invested = Math.max(0, Number.isFinite(level) ? level : 0);
           const rank = Math.max(1, Number.isFinite(value) ? value : 2);
-          return [`\\( ${formatWholeNumber(rank)} = 2 + ${formatWholeNumber(invested)} \\)`];
+          return [String.raw`\( ${formatWholeNumber(rank)} = 2 + ${formatWholeNumber(invested)} \)`];
         },
       },
     ],
@@ -468,11 +468,11 @@ const TOWER_EQUATION_BLUEPRINTS = {
       return 10 * life + recovery * life;
     },
     formatGoldenEquation({ formatVariable, formatResult }) {
-      return `\\( ${formatResult()} = 10 \\times ${formatVariable('life')} + ${formatVariable('recovery')} \\times ${formatVariable('life')} \\)`;
+      return String.raw`\( ${formatResult()} = 10 \times ${formatVariable('life')} + ${formatVariable('recovery')} \times ${formatVariable('life')} \)`;
     },
   },
   alpha: {
-    mathSymbol: '\\alpha',
+    mathSymbol: String.raw`\alpha`,
     baseEquation: 'α = Attack × Speed',
     variables: [
       {
@@ -491,8 +491,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const attackValue = Number.isFinite(value) ? value : 0;
           return [
             {
-              expression: '\( \text{Attack} = 5 \times \aleph_{1} \)',
-              values: `\( ${formatWholeNumber(attackValue)} = 5 \times ${formatWholeNumber(glyphRank)} \)`,
+              expression: String.raw`\( \text{Attack} = 5 \times \aleph_{1} \)`,
+              values: String.raw`\( ${formatWholeNumber(attackValue)} = 5 \times ${formatWholeNumber(glyphRank)} \)`,
             },
           ];
         },
@@ -512,8 +512,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = Number.isFinite(value) ? value : glyphRank * 0.5;
           return [
             {
-              expression: '\( \text{Speed} = 0.5 \times \aleph_{2} \)',
-              values: `\( ${formatDecimal(speedValue, 2)} = 0.5 \times ${formatDecimal(glyphRank, 2)} \)`,
+              expression: String.raw`\( \text{Speed} = 0.5 \times \aleph_{2} \)`,
+              values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 \times ${formatDecimal(glyphRank, 2)} \)`,
             },
           ];
         },
@@ -531,7 +531,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
     },
   },
   beta: {
-    mathSymbol: '\\beta',
+    mathSymbol: String.raw`\beta`,
     baseEquation: 'β = Attack × Speed × Range',
     variables: [
       {
@@ -556,8 +556,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const attackValue = alphaValue * glyphRank;
           return [
             {
-              expression: '\( \text{Attack} = \alpha \times \aleph_{1} \)',
-              values: `\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(alphaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
+              expression: String.raw`\( \text{Attack} = \alpha \times \aleph_{1} \)`,
+              values: String.raw`\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(alphaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
             },
           ];
         },
@@ -580,8 +580,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = 0.5 + 1.5 * alphaConnections;
           return [
             {
-              expression: '\\( \\text{Speed} = 0.5 + 1.5 \\left( {\\color{#8fd2ff}{\\alpha_{\\beta}}} \\right) \\)',
-              values: `\\( ${formatDecimal(speedValue, 2)} = 0.5 + 1.5 \\left( ${formatWholeNumber(alphaConnections)} \\right) \\)`,
+              expression: String.raw`\( \text{Speed} = 0.5 + 1.5 \left( {\color{#8fd2ff}{\alpha_{\beta}}} \right) \)`,
+              values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 + 1.5 \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
             },
           ];
         },
@@ -602,8 +602,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const alphaConnections = getDynamicConnectionCount('alpha');
           return [
             {
-              expression: '\\( \\text{Range} = 1 \\times \\left( {\\color{#8fd2ff}{\\alpha_{\\beta}}} \\right) \\)',
-              values: `\\( ${formatDecimal(alphaConnections, 2)} = 1 \\times \\left( ${formatWholeNumber(alphaConnections)} \\right) \\)`,
+              expression: String.raw`\( \text{Range} = 1 \times \left( {\color{#8fd2ff}{\alpha_{\beta}}} \right) \)`,
+              values: String.raw`\( ${formatDecimal(alphaConnections, 2)} = 1 \times \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
             },
           ];
         },
@@ -623,7 +623,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
     },
   },
   gamma: {
-    mathSymbol: '\\gamma',
+    mathSymbol: String.raw`\gamma`,
     baseEquation: 'γ = Attack × Speed × Range × Pierce',
     variables: [
       {
@@ -648,8 +648,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const attackValue = betaValue * glyphRank;
           return [
             {
-              expression: '\( \text{Attack} = \beta \times \aleph_{1} \)',
-              values: `\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(betaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
+              expression: String.raw`\( \text{Attack} = \beta \times \aleph_{1} \)`,
+              values: String.raw`\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(betaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
             },
           ];
         },
@@ -672,8 +672,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = 0.5 + 0.25 * alphaConnections;
           return [
             {
-              expression: '\\( \\text{Speed} = 0.5 + 0.25 \\left( {\\color{#8fd2ff}{\\alpha_{\\gamma}}} \\right) \\)',
-              values: `\\( ${formatDecimal(speedValue, 2)} = 0.5 + 0.25 \\left( ${formatWholeNumber(alphaConnections)} \\right) \\)`,
+              expression: String.raw`\( \text{Speed} = 0.5 + 0.25 \left( {\color{#8fd2ff}{\alpha_{\gamma}}} \right) \)`,
+              values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 + 0.25 \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
             },
           ];
         },
@@ -696,8 +696,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const rangeValue = 1 + 2 * betaConnections;
           return [
             {
-              expression: '\\( \\text{Range} = 1 + 2 \\left( {\\color{#8fd2ff}{\\beta_{\\gamma}}} \\right) \\)',
-              values: `\\( ${formatDecimal(rangeValue, 2)} = 1 + 2 \\left( ${formatWholeNumber(betaConnections)} \\right) \\)`,
+              expression: String.raw`\( \text{Range} = 1 + 2 \left( {\color{#8fd2ff}{\beta_{\gamma}}} \right) \)`,
+              values: String.raw`\( ${formatDecimal(rangeValue, 2)} = 1 + 2 \left( ${formatWholeNumber(betaConnections)} \right) \)`,
             },
           ];
         },
@@ -717,8 +717,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const pierceValue = Number.isFinite(value) ? value : glyphRank;
           return [
             {
-              expression: '\( \text{Pierce} = \aleph_{2} \)',
-              values: `\( ${formatWholeNumber(pierceValue)} = ${formatWholeNumber(glyphRank)} \)`,
+              expression: String.raw`\( \text{Pierce} = \aleph_{2} \)`,
+              values: String.raw`\( ${formatWholeNumber(pierceValue)} = ${formatWholeNumber(glyphRank)} \)`,
             },
           ];
         },
@@ -740,8 +740,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
     },
   },
   delta: {
-    mathSymbol: '\\delta',
-    baseEquation: '\\( \\delta = \\gamma \\cdot \\ln(\\gamma + 1) \\)',
+    mathSymbol: String.raw`\delta`,
+    baseEquation: String.raw`\( \delta = \gamma \cdot \ln(\gamma + 1) \)`,
     variables: [
       {
         key: 'gamma',
@@ -779,7 +779,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
   },
   omicron: {
     mathSymbol: 'ο',
-    baseEquation: '\\( ο = \\ln(ξ + 1) \\)',
+    baseEquation: String.raw`\( ο = \ln(ξ + 1) \)`,
     variables: [
       {
         key: 'xi',
@@ -801,8 +801,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
     },
   },
   pi: {
-    mathSymbol: '\\pi',
-    baseEquation: '\\( \\pi = ο^{2} \\)',
+    mathSymbol: String.raw`\pi`,
+    baseEquation: String.raw`\( \pi = ο^{2} \)`,
     variables: [
       {
         key: 'omicron',
