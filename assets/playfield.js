@@ -39,6 +39,13 @@ import { colorToRgbaString, resolvePaletteColorStops } from '../scripts/features
 import { notifyTowerPlaced } from './achievementsTab.js';
 import { metersToPixels } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import {
+  ensureAlphaState as ensureAlphaStateHelper,
+  teardownAlphaTower as teardownAlphaTowerHelper,
+  spawnAlphaAttackBurst as spawnAlphaAttackBurstHelper,
+  updateAlphaBursts as updateAlphaBurstsHelper,
+  drawAlphaBursts as drawAlphaBurstsHelper,
+} from '../scripts/features/towers/alphaTower.js';
+import {
   evaluateZetaMetrics as evaluateZetaMetricsHelper,
   teardownZetaTower as teardownZetaTowerHelper,
   ensureZetaState as ensureZetaStateHelper,
@@ -173,6 +180,7 @@ export class SimplePlayfield {
     this.towers = [];
     this.enemies = [];
     this.projectiles = [];
+    this.alphaBursts = [];
     this.availableTowers = [];
     this.draggingTowerType = null;
     this.dragPreviewOffset = { x: 0, y: 0 }; // Allow callers to nudge the preview in addition to the standardized elevation.
@@ -952,6 +960,7 @@ export class SimplePlayfield {
       this.disableSlots(true);
       this.enemies = [];
       this.projectiles = [];
+      this.alphaBursts = [];
       this.towers = [];
       this.energy = 0;
       this.lives = 0;
@@ -1050,6 +1059,7 @@ export class SimplePlayfield {
       this.arcOffset = 0;
       this.enemies = [];
       this.projectiles = [];
+      this.alphaBursts = [];
       this.towers = [];
       this.hoverPlacement = null;
       this.pointerPosition = null;
@@ -1240,6 +1250,7 @@ export class SimplePlayfield {
     this.maxWaveReached = 0;
     this.enemies = [];
     this.projectiles = [];
+    this.alphaBursts = [];
     this.floaters = [];
     this.floaterConnections = [];
     this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
@@ -1451,6 +1462,7 @@ export class SimplePlayfield {
     this.activeWave = null;
     this.enemies = [];
     this.projectiles = [];
+    this.alphaBursts = [];
     this.floaters = [];
     this.floaterConnections = [];
     this.currentWaveNumber = 1;
@@ -1487,6 +1499,9 @@ export class SimplePlayfield {
       tower.x = x;
       tower.y = y;
       const definition = getTowerDefinition(tower.type) || tower.definition;
+      if (tower.type === 'alpha') {
+        this.ensureAlphaState(tower);
+      }
       if (tower.type === 'zeta') {
         // Keep ζ pendulum geometry aligned with the tower's new coordinates.
         this.ensureZetaState(tower);
@@ -2318,6 +2333,27 @@ export class SimplePlayfield {
   }
 
   /**
+   * Clear cached α particle data when the tower departs or retunes.
+   */
+  teardownAlphaTower(tower) {
+    teardownAlphaTowerHelper(this, tower);
+  }
+
+  /**
+   * Ensure α towers keep their particle calibration in sync with canvas scale.
+   */
+  ensureAlphaState(tower) {
+    return ensureAlphaStateHelper(this, tower);
+  }
+
+  /**
+   * Emit α particle swarms whenever the lattice releases an attack.
+   */
+  spawnAlphaAttackBurst(tower, targetInfo, options = {}) {
+    return spawnAlphaAttackBurstHelper(this, tower, targetInfo, options);
+  }
+
+  /**
    * Clear cached ζ pendulum data when the tower is removed or retuned.
    */
   teardownZetaTower(tower) {
@@ -2361,6 +2397,11 @@ export class SimplePlayfield {
     }
     if (!tower.behaviorMode) {
       tower.behaviorMode = 'pursuit';
+    }
+    if (tower.type === 'alpha') {
+      this.ensureAlphaState(tower);
+    } else if (tower.alphaState) {
+      this.teardownAlphaTower(tower);
     }
     if (tower.type === 'delta') {
       this.ensureDeltaState(tower);
@@ -3075,6 +3116,7 @@ export class SimplePlayfield {
       this.closeTowerMenu();
     }
 
+    this.teardownAlphaTower(tower);
     this.teardownDeltaTower(tower);
     this.teardownZetaTower(tower);
     this.teardownEtaTower(tower);
@@ -3306,6 +3348,7 @@ export class SimplePlayfield {
     this.enemyIdCounter = 0;
     this.enemies = [];
     this.projectiles = [];
+    this.alphaBursts = [];
     this.activeWave = this.createWaveState(this.levelConfig.waves[0], { initialWave: true });
     this.lives = this.levelConfig.lives;
     this.markWaveStart();
@@ -3557,6 +3600,7 @@ export class SimplePlayfield {
     const speedDelta = delta * this.speedMultiplier;
     this.updateFloaters(speedDelta);
     this.updateFocusIndicator(speedDelta);
+    this.updateAlphaBursts(speedDelta);
 
     const arcSpeed = this.levelConfig?.arcSpeed ?? 0.2;
     const pathLength = this.pathLength || 1;
@@ -3805,6 +3849,13 @@ export class SimplePlayfield {
       const rate = Math.max(Number.isFinite(tower.rate) ? tower.rate : 1, 0.05);
       tower.cooldown = 1 / rate;
     }
+  }
+
+  /**
+   * Advance α particle bursts so energy motes stay synchronized with attack timing.
+   */
+  updateAlphaBursts(delta) {
+    updateAlphaBurstsHelper(this, delta);
   }
 
   /**
@@ -4124,23 +4175,31 @@ export class SimplePlayfield {
       return;
     }
     const { enemy } = targetInfo;
+    const enemyPosition = this.getEnemyPosition(enemy);
+    const resolvedPosition = enemyPosition || targetInfo.position;
+    const attackPosition = resolvedPosition ? { ...resolvedPosition } : null;
     enemy.hp -= tower.damage;
+    const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
+    if (tower.type === 'alpha') {
+      this.spawnAlphaAttackBurst(tower, { enemy, position: attackPosition }, { enemyId: enemy.id });
+    } else {
+      this.projectiles.push({
+        source: { x: tower.x, y: tower.y },
+        targetId: enemy.id,
+        target: attackPosition,
+        lifetime: 0,
+        maxLifetime: 0.24,
+      });
+    }
     if (getTowerTierValue(tower) >= 24) {
       this.spawnOmegaWave(tower);
     }
-    this.projectiles.push({
-      source: { x: tower.x, y: tower.y },
-      targetId: enemy.id,
-      target: this.getEnemyPosition(enemy),
-      lifetime: 0,
-      maxLifetime: 0.24,
-    });
 
     if (this.audio) {
       this.audio.playSfx('alphaTowerFire');
     }
 
-    if (enemy.hp <= 0) {
+    if (remainingHp <= 0) {
       this.processEnemyDefeat(enemy);
     }
   }
@@ -4627,6 +4686,7 @@ export class SimplePlayfield {
     this.enemyIdCounter = 0;
     this.enemies = [];
     this.projectiles = [];
+    this.alphaBursts = [];
     this.floaters = [];
     this.floaterConnections = [];
     this.endlessCycle = Math.max(0, Number(snapshot.endlessCycle) || 0);
@@ -5973,12 +6033,14 @@ export class SimplePlayfield {
   }
 
   drawProjectiles() {
-    if (!this.ctx || !this.projectiles.length) {
+    if (!this.ctx) {
       return;
     }
 
     const ctx = this.ctx;
-    ctx.save();
+    if (this.projectiles.length) {
+      ctx.save();
+    }
 
     this.projectiles.forEach((projectile) => {
       if (!projectile) {
@@ -6062,7 +6124,18 @@ export class SimplePlayfield {
       ctx.fill();
     });
 
-    ctx.restore();
+    if (this.projectiles.length) {
+      ctx.restore();
+    }
+
+    this.drawAlphaBursts();
+  }
+
+  /**
+   * Render α particle bursts as soft-glow motes swirling around the lattice.
+   */
+  drawAlphaBursts() {
+    drawAlphaBurstsHelper(this);
   }
 
   /**
