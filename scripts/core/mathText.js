@@ -27,6 +27,12 @@ export function renderMathElement(element) {
 
   const mathJax = window.MathJax;
   if (!mathJax) {
+    const attempt = (mathElementRenderAttempts.get(element) || 0) + 1;
+    if (attempt > MAX_MATH_RENDER_ATTEMPTS) {
+      return;
+    }
+    mathElementRenderAttempts.set(element, attempt);
+    setTimeout(() => renderMathElement(element), MATH_RENDER_RETRY_DELAY_MS);
     return;
   }
 

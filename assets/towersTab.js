@@ -1045,6 +1045,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         baseValue: 1,
         step: 1,
         upgradable: true,
+        attachedToVariable: 'spdRing',
         format: (value) => formatWholeNumber(Math.max(1, value)),
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
@@ -1069,6 +1070,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         baseValue: 1,
         step: 1,
         upgradable: true,
+        attachedToVariable: 'spdRing',
         format: (value) => formatWholeNumber(Math.max(1, value)),
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
@@ -1093,6 +1095,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         baseValue: 1,
         step: 1,
         upgradable: true,
+        attachedToVariable: 'spdRing',
         format: (value) => formatWholeNumber(Math.max(1, value)),
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
@@ -1117,6 +1120,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         baseValue: 1,
         step: 1,
         upgradable: true,
+        attachedToVariable: 'spdRing',
         format: (value) => formatWholeNumber(Math.max(1, value)),
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
@@ -1181,6 +1185,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         step: 1,
         upgradable: true,
         maxLevel: 4,
+        attachedToVariable: 'rng',
         format: (value) => formatWholeNumber(Math.max(1, value)),
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
