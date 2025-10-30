@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="enemyGateCore" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#0a0b1e" stop-opacity="1" />
+      <stop offset="55%" stop-color="#0f1b3f" stop-opacity="0.92" />
+      <stop offset="100%" stop-color="#04040d" stop-opacity="0.65" />
+    </radialGradient>
+    <radialGradient id="enemyGateAura" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#6af8ff" stop-opacity="0.7" />
+      <stop offset="45%" stop-color="#3a9fe0" stop-opacity="0.32" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="enemyGateRings" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#caf5ff" stop-opacity="0.8" />
+      <stop offset="60%" stop-color="#8ec9ff" stop-opacity="0.7" />
+      <stop offset="100%" stop-color="#4a6bff" stop-opacity="0.85" />
+    </linearGradient>
+    <filter id="enemyGateGlow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="32" cy="32" r="30" fill="url(#enemyGateAura)" />
+  <circle cx="32" cy="32" r="22" fill="url(#enemyGateCore)" stroke="#2bd4ff" stroke-width="1.6" />
+
+  <g filter="url(#enemyGateGlow)">
+    <path
+      d="M16 28 C22 18 42 18 48 28"
+      fill="none"
+      stroke="url(#enemyGateRings)"
+      stroke-width="2.8"
+      stroke-linecap="round"
+    />
+    <path
+      d="M18 36 C24 46 40 46 46 36"
+      fill="none"
+      stroke="url(#enemyGateRings)"
+      stroke-width="2.2"
+      stroke-linecap="round"
+    />
+    <circle cx="32" cy="32" r="10" fill="none" stroke="#9be7ff" stroke-width="1.6" stroke-dasharray="6 4" />
+    <text
+      x="32"
+      y="36"
+      font-family="'Cormorant Garamond', 'Times New Roman', serif"
+      font-size="20"
+      text-anchor="middle"
+      fill="#e9f6ff"
+    >∃</text>
+  </g>
+
+  <path
+    d="M8 32 Q32 12 56 32"
+    fill="none"
+    stroke="#4af0ff"
+    stroke-width="1.4"
+    stroke-linecap="round"
+    stroke-dasharray="3 5"
+    opacity="0.6"
+  />
+  <path
+    d="M8 34 Q32 54 56 34"
+    fill="none"
+    stroke="#52b4ff"
+    stroke-width="1"
+    stroke-linecap="round"
+    stroke-dasharray="2 6"
+    opacity="0.45"
+  />
+</svg>
