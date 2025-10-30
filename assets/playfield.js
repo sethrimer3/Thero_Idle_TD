@@ -59,7 +59,7 @@ const defaultDependencies = {
 };
 
 // Preload the Mind Gate sprite so the path finale mirrors the Towers tab art.
-const MIND_GATE_SPRITE_URL = 'assets/images/tower-aleph-null.svg';
+const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
 const mindGateSprite = new Image();
 mindGateSprite.src = MIND_GATE_SPRITE_URL;
 mindGateSprite.decoding = 'async';
@@ -5160,7 +5160,7 @@ export class SimplePlayfield {
 
     const spriteReady = mindGateSprite?.complete && mindGateSprite.naturalWidth > 0;
     if (spriteReady) {
-      // Draw the Aleph-null sprite scaled to the battlefield finale.
+      // Draw the Mind Gate rune sprite scaled to the battlefield finale.
       const spriteSize = Math.max(radius * 2.1, 46);
       ctx.save();
       ctx.globalAlpha = 0.96;

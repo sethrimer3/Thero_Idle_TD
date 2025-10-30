@@ -417,7 +417,7 @@ function createTreeNode(definition, position, indexInTier) {
   const symbolEl = document.createElement('span');
   symbolEl.className = 'tower-tree-node-symbol';
   if (definition && definition.id === 'mind-gate' && definition.icon) {
-    // Use the Mind Gate's card sprite so the constellation node mirrors the tower card art.
+    // Use the Mind Gate's rune sprite so the constellation node mirrors the tower finale.
     symbolEl.classList.add('tower-tree-node-symbol--icon');
     const iconEl = document.createElement('img');
     iconEl.className = 'tower-tree-node-icon';

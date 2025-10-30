@@ -2299,6 +2299,9 @@ body.graphics-mode-low .control-button {
   height: 2.1em;
   margin-right: 0.4em;
   border-radius: 999px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem;
+  line-height: 1;
   background: linear-gradient(140deg, rgba(255, 228, 120, 0.26), rgba(139, 247, 255, 0.18));
   color: rgba(255, 228, 120, 0.92);
   box-shadow: 0 0 18px rgba(255, 228, 120, 0.55), 0 0 32px rgba(139, 247, 255, 0.3);

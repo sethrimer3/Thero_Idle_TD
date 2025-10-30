@@ -426,14 +426,14 @@ function getDynamicConnectionCount(towerType) {
 const TOWER_EQUATION_BLUEPRINTS = {
   // Model the Mind Gate's two glyph conduits so it can accept upgrades directly.
   'mind-gate': {
-    mathSymbol: String.raw`\aleph_{\text{Mind}}`,
-    baseEquation: String.raw`\( \aleph_{\text{Mind}} = 10 \times \aleph_{1} + \frac{\aleph_{2}}{1 / \aleph_{1}} \)`,
+    mathSymbol: String.raw`\wp`,
+    baseEquation: String.raw`\( \wp = \text{Life} \times \text{Regeneration} \)`,
     variables: [
       {
         key: 'life',
         symbol: 'ℵ₁',
         name: 'ℵ₁ Life Reservoir',
-        description: 'Aleph lifeforce braided into the Mind Gate core.',
+        description: 'Glyph lifeforce braided into the Mind Gate core.',
         baseValue: 1,
         step: 1,
         upgradable: true,
@@ -442,14 +442,22 @@ const TOWER_EQUATION_BLUEPRINTS = {
         getSubEquations({ level, value }) {
           const invested = Math.max(0, Number.isFinite(level) ? level : 0);
           const rank = Math.max(1, Number.isFinite(value) ? value : 1);
-          return [String.raw`\( ${formatWholeNumber(rank)} = 1 + ${formatWholeNumber(invested)} \)`];
+          return [
+            {
+              expression: String.raw`\( \text{Life} \rightarrow 100^{\aleph_{1} / \aleph_{2}} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(rank)} = 1 + ${formatWholeNumber(invested)} \)`,
+              variant: 'values',
+            },
+          ];
         },
       },
       {
         key: 'recovery',
         symbol: 'ℵ₂',
         name: 'ℵ₂ Recovery Surge',
-        description: 'Restorative Aleph cadence that rethreads the gate between waves.',
+        description: 'Restorative glyph cadence that rethreads the gate between waves.',
         baseValue: 2,
         step: 1,
         upgradable: true,
@@ -458,17 +466,25 @@ const TOWER_EQUATION_BLUEPRINTS = {
         getSubEquations({ level, value }) {
           const invested = Math.max(0, Number.isFinite(level) ? level : 0);
           const rank = Math.max(1, Number.isFinite(value) ? value : 2);
-          return [String.raw`\( ${formatWholeNumber(rank)} = 2 + ${formatWholeNumber(invested)} \)`];
+          return [
+            {
+              expression: String.raw`\( \text{Regeneration} \rightarrow \frac{100 \times \aleph_{2}}{\aleph_{1}} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(rank)} = 2 + ${formatWholeNumber(invested)} \)`,
+              variant: 'values',
+            },
+          ];
         },
       },
     ],
     computeResult(values) {
       const life = Math.max(1, Number.isFinite(values.life) ? values.life : 1);
-      const recovery = Math.max(0, Number.isFinite(values.recovery) ? values.recovery : 0);
-      return 10 * life + recovery * life;
+      const recovery = Math.max(1, Number.isFinite(values.recovery) ? values.recovery : 1);
+      return life * recovery;
     },
     formatGoldenEquation({ formatVariable, formatResult }) {
-      return String.raw`\( ${formatResult()} = 10 \times ${formatVariable('life')} + ${formatVariable('recovery')} \times ${formatVariable('life')} \)`;
+      return String.raw`\( ${formatResult()} = ${formatVariable('life')} \times ${formatVariable('recovery')} \)`;
     },
   },
   alpha: {
