@@ -491,7 +491,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const attackValue = Number.isFinite(value) ? value : 0;
           return [
             {
-              expression: '\( A_{\text{ttack}} = 5 \times \aleph_{1} \)',
+              expression: '\( \text{Attack} = 5 \times \aleph_{1} \)',
               values: `\( ${formatWholeNumber(attackValue)} = 5 \times ${formatWholeNumber(glyphRank)} \)`,
             },
           ];
@@ -512,7 +512,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = Number.isFinite(value) ? value : glyphRank * 0.5;
           return [
             {
-              expression: '\( S_{\text{peed}} = 0.5 \times \aleph_{2} \)',
+              expression: '\( \text{Speed} = 0.5 \times \aleph_{2} \)',
               values: `\( ${formatDecimal(speedValue, 2)} = 0.5 \times ${formatDecimal(glyphRank, 2)} \)`,
             },
           ];
@@ -556,7 +556,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const attackValue = alphaValue * glyphRank;
           return [
             {
-              expression: '\( A_{\text{ttack}} = \alpha \times \aleph_{1} \)',
+              expression: '\( \text{Attack} = \alpha \times \aleph_{1} \)',
               values: `\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(alphaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
             },
           ];
@@ -580,7 +580,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = 0.5 + 1.5 * alphaConnections;
           return [
             {
-              expression: '\\( S_{\\text{peed}} = 0.5 + 1.5 \\left( {\\color{#8fd2ff}{\\alpha_{\\beta}}} \\right) \\)',
+              expression: '\\( \\text{Speed} = 0.5 + 1.5 \\left( {\\color{#8fd2ff}{\\alpha_{\\beta}}} \\right) \\)',
               values: `\\( ${formatDecimal(speedValue, 2)} = 0.5 + 1.5 \\left( ${formatWholeNumber(alphaConnections)} \\right) \\)`,
             },
           ];
@@ -602,7 +602,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const alphaConnections = getDynamicConnectionCount('alpha');
           return [
             {
-              expression: '\\( R_{\\text{ange}} = 1 \\times \\left( {\\color{#8fd2ff}{\\alpha_{\\beta}}} \\right) \\)',
+              expression: '\\( \\text{Range} = 1 \\times \\left( {\\color{#8fd2ff}{\\alpha_{\\beta}}} \\right) \\)',
               values: `\\( ${formatDecimal(alphaConnections, 2)} = 1 \\times \\left( ${formatWholeNumber(alphaConnections)} \\right) \\)`,
             },
           ];
@@ -648,7 +648,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const attackValue = betaValue * glyphRank;
           return [
             {
-              expression: '\( A_{\text{ttack}} = \beta \times \aleph_{1} \)',
+              expression: '\( \text{Attack} = \beta \times \aleph_{1} \)',
               values: `\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(betaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
             },
           ];
@@ -672,7 +672,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = 0.5 + 0.25 * alphaConnections;
           return [
             {
-              expression: '\\( S_{\\text{peed}} = 0.5 + 0.25 \\left( {\\color{#8fd2ff}{\\alpha_{\\gamma}}} \\right) \\)',
+              expression: '\\( \\text{Speed} = 0.5 + 0.25 \\left( {\\color{#8fd2ff}{\\alpha_{\\gamma}}} \\right) \\)',
               values: `\\( ${formatDecimal(speedValue, 2)} = 0.5 + 0.25 \\left( ${formatWholeNumber(alphaConnections)} \\right) \\)`,
             },
           ];
@@ -696,7 +696,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const rangeValue = 1 + 2 * betaConnections;
           return [
             {
-              expression: '\\( R_{\\text{ange}} = 1 + 2 \\left( {\\color{#8fd2ff}{\\beta_{\\gamma}}} \\right) \\)',
+              expression: '\\( \\text{Range} = 1 + 2 \\left( {\\color{#8fd2ff}{\\beta_{\\gamma}}} \\right) \\)',
               values: `\\( ${formatDecimal(rangeValue, 2)} = 1 + 2 \\left( ${formatWholeNumber(betaConnections)} \\right) \\)`,
             },
           ];
@@ -717,7 +717,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const pierceValue = Number.isFinite(value) ? value : glyphRank;
           return [
             {
-              expression: '\( P_{\text{ierce}} = \aleph_{2} \)',
+              expression: '\( \text{Pierce} = \aleph_{2} \)',
               values: `\( ${formatWholeNumber(pierceValue)} = ${formatWholeNumber(glyphRank)} \)`,
             },
           ];
