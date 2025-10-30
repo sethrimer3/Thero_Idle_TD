@@ -134,6 +134,13 @@ mindGateSprite.src = MIND_GATE_SPRITE_URL;
 mindGateSprite.decoding = 'async';
 mindGateSprite.loading = 'eager';
 
+// Preload the Enemy Gate sprite so the spawn origin echoes the Codex depiction.
+const ENEMY_GATE_SPRITE_URL = 'assets/images/enemy-gate.svg';
+const enemyGateSprite = new Image();
+enemyGateSprite.src = ENEMY_GATE_SPRITE_URL;
+enemyGateSprite.decoding = 'async';
+enemyGateSprite.loading = 'eager';
+
 let playfieldDependencies = { ...defaultDependencies };
 
 export function configurePlayfieldSystem(options = {}) {
@@ -3411,6 +3418,11 @@ export class SimplePlayfield {
     return this.isEndlessMode ? 10 ** this.endlessCycle : 1;
   }
 
+  // Derive an additive 10% speed scalar for each endless cycle to keep pacing approachable.
+  getCycleSpeedScalar() {
+    return this.isEndlessMode ? 1 + this.endlessCycle * 0.1 : 1;
+  }
+
   computeWaveNumber(index = this.waveIndex) {
     if (!this.levelConfig) {
       return 0;
@@ -3434,8 +3446,10 @@ export class SimplePlayfield {
     }
     const { initialWave = false } = options;
     const multiplier = this.getCycleMultiplier();
+    // Apply a 10× health jump per endless cycle while boosting speed by 10% additively.
+    const speedScalar = this.getCycleSpeedScalar();
     const scaledHp = Number.isFinite(config.hp) ? config.hp * multiplier : config.hp;
-    const scaledSpeed = Number.isFinite(config.speed) ? config.speed * multiplier : config.speed;
+    const scaledSpeed = Number.isFinite(config.speed) ? config.speed * speedScalar : config.speed;
     const scaledReward = Number.isFinite(config.reward)
       ? config.reward * multiplier
       : config.reward;
@@ -5250,6 +5264,50 @@ export class SimplePlayfield {
     ctx.restore();
   }
 
+  // Render the enemy spawn gate using the dedicated sprite with a fallback glyph ring.
+  drawEnemyGateSymbol(ctx, position) {
+    if (!ctx || !position) {
+      return;
+    }
+
+    const dimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 0;
+    const baseRadius = dimension ? dimension * 0.028 : 0;
+    const radius = Math.max(12, Math.min(20, baseRadius || 16));
+
+    ctx.save();
+    ctx.translate(position.x, position.y);
+
+    const glow = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.2);
+    glow.addColorStop(0, 'rgba(74, 240, 255, 0.42)');
+    glow.addColorStop(1, 'rgba(15, 27, 63, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    const spriteReady = enemyGateSprite?.complete && enemyGateSprite.naturalWidth > 0;
+    if (spriteReady) {
+      // Anchor the enemy gate sprite at the path origin to match the Endless codex art.
+      const spriteSize = Math.max(radius * 2, 40);
+      ctx.save();
+      ctx.globalAlpha = 0.95;
+      ctx.drawImage(enemyGateSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+      ctx.restore();
+    } else {
+      // Fallback portal composed of mirrored bezier arcs while the sprite loads.
+      this.applyCanvasShadow(ctx, 'rgba(74, 240, 255, 0.6)', radius * 0.6);
+      ctx.strokeStyle = 'rgba(202, 245, 255, 0.8)';
+      ctx.lineWidth = Math.max(1.6, radius * 0.14);
+      ctx.beginPath();
+      ctx.moveTo(-radius * 0.72, -radius * 0.1);
+      ctx.quadraticCurveTo(0, -radius * 0.8, radius * 0.72, -radius * 0.1);
+      ctx.quadraticCurveTo(0, radius * 0.6, -radius * 0.72, -radius * 0.1);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
   drawMindGateSymbol(ctx, position) {
     if (!ctx || !position) {
       return;
@@ -5364,10 +5422,7 @@ export class SimplePlayfield {
     const endPoint = this.pathPoints.length
       ? this.pathPoints[this.pathPoints.length - 1]
       : this.pathSegments[this.pathSegments.length - 1].end;
-    ctx.fillStyle = 'rgba(88, 160, 255, 0.9)';
-    ctx.beginPath();
-    ctx.arc(startPoint.x, startPoint.y, 10, 0, Math.PI * 2);
-    ctx.fill();
+    this.drawEnemyGateSymbol(ctx, startPoint);
     this.drawMindGateSymbol(ctx, endPoint);
   }
 
