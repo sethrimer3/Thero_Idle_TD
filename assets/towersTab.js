@@ -1203,7 +1203,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
   // upgrade threads to determine attack, speed, range, and pendulum count.
   zeta: {
     mathSymbol: String.raw`\zeta`,
-    baseEquation: String.raw`\( \zeta = \text{Atk} \times \text{Spd} \times \text{Rng} \times \text{Tot} \)`,
+    baseEquation: String.raw`\( \zeta = \text{Atk} \times \text{Crt} \times \text{Spd} \times \text{Rng} \times \text{Tot} \)`,
     variables: [
       {
         key: 'aleph1',
@@ -1262,6 +1262,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         baseValue: 0,
         step: 1,
         upgradable: true,
+        maxLevel: 3,
         format: (value) => `${formatWholeNumber(Math.max(0, value))} reach`,
         getSubEquations({ level, value }) {
           const rank = Math.max(0, Number.isFinite(level) ? level : 0);
@@ -1286,16 +1287,13 @@ const TOWER_EQUATION_BLUEPRINTS = {
         baseValue: 0,
         step: 1,
         upgradable: true,
-        maxLevel: 3,
+        maxLevel: 2,
         cost: (level) => {
           if (level === 0) {
-            return 5;
+            return 10;
           }
           if (level === 1) {
             return 10;
-          }
-          if (level === 2) {
-            return 15;
           }
           return Infinity;
         },
@@ -1405,7 +1403,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const gammaValue = Math.max(0, calculateTowerEquationResult('gamma'));
           const aleph1 = Math.max(1, computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
           const critical = Math.max(1, computeTowerVariableValue(towerId, 'crt', effectiveBlueprint));
-          const attack = gammaValue * aleph1 * critical;
+          const attack = gammaValue * critical * aleph1;
           return Number.isFinite(attack) ? attack : 0;
         },
         format: (value) => `${formatGameNumber(Math.max(0, value))} attack`,
@@ -1414,14 +1412,14 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const gammaValue = Math.max(0, calculateTowerEquationResult('gamma'));
           const aleph1 = Math.max(1, computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
           const critical = Math.max(1, computeTowerVariableValue(towerId, 'crt', effectiveBlueprint));
-          const base = gammaValue * aleph1;
-          const attack = base * critical;
+          const base = gammaValue * critical;
+          const attack = base * aleph1;
           return [
             {
-              expression: String.raw`\( \text{Atk} = \gamma \times \aleph_{1} \times \text{Crt} \)`,
+              expression: String.raw`\( \text{Atk} = \Gamma \times \text{Crt} \times \aleph_{1} \)`,
             },
             {
-              values: String.raw`\( ${formatDecimal(attack, 2)} = ${formatDecimal(gammaValue, 2)} \times ${formatDecimal(aleph1, 2)} \times ${formatDecimal(critical, 2)} \)`,
+              values: String.raw`\( ${formatDecimal(attack, 2)} = ${formatDecimal(gammaValue, 2)} \times ${formatDecimal(critical, 2)} \times ${formatDecimal(aleph1, 2)} \)`,
               variant: 'values',
             },
           ];
@@ -1468,22 +1466,20 @@ const TOWER_EQUATION_BLUEPRINTS = {
         computeValue({ blueprint, towerId }) {
           const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
           const aleph3 = Math.max(0, computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
-          const raw = 1.5 + 0.5 * aleph3;
-          const clamped = Math.min(3, Math.max(1.5, raw));
-          return Number.isFinite(clamped) ? clamped : 1.5;
+          const result = 1.5 + 0.5 * aleph3;
+          return Number.isFinite(result) ? result : 1.5;
         },
         format: (value) => `${formatDecimal(Math.max(0, value), 2)} units`,
         getSubEquations({ blueprint, towerId }) {
           const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
           const aleph3 = Math.max(0, computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
-          const raw = 1.5 + 0.5 * aleph3;
-          const clamped = Math.min(3, Math.max(1.5, raw));
+          const result = 1.5 + 0.5 * aleph3;
           return [
             {
-              expression: String.raw`\( \text{Rng} = \min(3,\; 1.5 + 0.5 \times \aleph_{3}) \)`,
+              expression: String.raw`\( \text{Rng} = 1.5 + 0.5 \times \aleph_{3} \)`,
             },
             {
-              values: String.raw`\( ${formatDecimal(clamped, 2)} = \min(3,\; 1.5 + 0.5 \times ${formatDecimal(aleph3, 2)}) \)`,
+              values: String.raw`\( ${formatDecimal(result, 2)} = 1.5 + 0.5 \times ${formatDecimal(aleph3, 2)} \)`,
               variant: 'values',
             },
           ];
@@ -1499,20 +1495,22 @@ const TOWER_EQUATION_BLUEPRINTS = {
         computeValue({ blueprint, towerId }) {
           const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
           const aleph4 = Math.max(0, computeTowerVariableValue(towerId, 'aleph4', effectiveBlueprint));
-          const total = 1 + Math.min(3, aleph4);
-          return Number.isFinite(total) ? total : 1;
+          const clampedAleph4 = Math.min(2, aleph4);
+          const total = 2 + clampedAleph4;
+          return Number.isFinite(total) ? total : 2;
         },
-        format: (value) => `${formatWholeNumber(Math.max(1, Math.round(value)))} pendulums`,
+        format: (value) => `${formatWholeNumber(Math.max(2, Math.round(value)))} pendulums`,
         getSubEquations({ blueprint, towerId }) {
           const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
           const aleph4 = Math.max(0, computeTowerVariableValue(towerId, 'aleph4', effectiveBlueprint));
-          const total = 1 + Math.min(3, aleph4);
+          const clampedAleph4 = Math.min(2, aleph4);
+          const total = 2 + clampedAleph4;
           return [
             {
-              expression: String.raw`\( \text{Tot} = 1 + \min(3, \aleph_{4}) \)`,
+              expression: String.raw`\( \text{Tot} = 2 + \aleph_{4} \)`,
             },
             {
-              values: String.raw`\( ${formatWholeNumber(total)} = 1 + \min(3, ${formatWholeNumber(aleph4)}) \)`,
+              values: String.raw`\( ${formatWholeNumber(total)} = 2 + ${formatWholeNumber(clampedAleph4)} \)`,
               variant: 'values',
             },
           ];
@@ -1521,17 +1519,19 @@ const TOWER_EQUATION_BLUEPRINTS = {
     ],
     computeResult(values) {
       const attack = Number.isFinite(values.atk) ? values.atk : 0;
+      const critical = Number.isFinite(values.crt) ? values.crt : 1;
       const speed = Number.isFinite(values.spd) ? values.spd : 0;
       const range = Number.isFinite(values.rng) ? values.rng : 0;
       const total = Number.isFinite(values.tot) ? values.tot : 0;
-      return attack * speed * range * total;
+      return attack * critical * speed * range * total;
     },
     formatBaseEquationValues({ values, result, formatComponent }) {
       const attack = Number.isFinite(values.atk) ? values.atk : 0;
+      const critical = Number.isFinite(values.crt) ? values.crt : 1;
       const speed = Number.isFinite(values.spd) ? values.spd : 0;
       const range = Number.isFinite(values.rng) ? values.rng : 0;
       const total = Number.isFinite(values.tot) ? values.tot : 0;
-      return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${formatComponent(total)}`;
+      return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(critical)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${formatComponent(total)}`;
     },
   },
   omicron: {
