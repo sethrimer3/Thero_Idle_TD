@@ -65,7 +65,9 @@ export function ensureEtaState(playfield, tower, options = {}) {
   const aleph6 = Math.min(5, aleph6Raw);
 
   const gammaValue = Math.max(0, calculateTowerEquationResult('gamma'));
-  const baseAttackFactor = Math.max(0, gammaValue * aleph1);
+  // Guarantee a non-zero laser pulse so aligned orbits always emit a beam even if γ has not
+  // been unlocked yet. The η lattice still respects γ scaling once it becomes available.
+  const baseAttackFactor = Math.max(1, gammaValue * aleph1);
   const denominator = Math.max(0.0001, aleph2 * aleph3 * aleph4 * aleph5);
 
   const isPrestige = Boolean(tower.isPrestigeEta);
