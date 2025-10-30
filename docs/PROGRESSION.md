@@ -72,6 +72,9 @@ Future sets escalate enemy modifiers and map complexity but follow the same five
 ## Tower Evolution
 The tower roster now explicitly runs through the entire Greek alphabet from **α** to **ω**, with each lowercase glyph defining a unique tactical role and an evocative mathematical formula. Core rules for collecting, merging, and prestiging towers now follow these tenets:
 
+- **Connection notation:** Dynamic connection counts use the source tower's lowercase letter with a subscript denoting the lattice that consumes it (e.g., `α_γ` tallies α lattices linked to γ).
+- **Equation evaluation layout:** Numeric evaluations beneath formulas place the computed result on the left (e.g., `2.50 = 5.00 × 0.50`).
+
 - **Five-of-a-kind prestige:** Once the player can simultaneously afford and field **five matching lowercase towers**, they may perform a *tower prestige* to fuse them into the corresponding uppercase glyph. The prestige keeps the lowercase formula but adds one powerful, easy-to-track mutation described below.
 - **Uppercase uniqueness:** Only **one uppercase tower of each letter** may exist on the field at a time. While an uppercase tower is deployed, the player may not place additional lowercase towers of that letter.
 - **Population accounting:** For all mechanics that scale with tower counts (including formulas that reference `n`, adjacency checks, or synergies), a single uppercase tower counts as **five lowercase towers of its letter**.
