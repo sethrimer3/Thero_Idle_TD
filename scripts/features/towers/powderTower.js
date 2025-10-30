@@ -387,6 +387,8 @@ export class PowderSimulation {
     this.pendingDrops = [];
     this.idleBank = 0;
     this.idleAccumulator = 0;
+    this.idleDropBuffer = 0; // Track how many idle conversions still need to spawn into the basin.
+    this.idleDropAccumulator = 0; // Retain fractional idle releases so drops respect the configured rate.
     const fallbackIdleDrainRate = Number.isFinite(options.fallbackIdleDrainRate)
       ? Math.max(1, options.fallbackIdleDrainRate)
       : 1;
@@ -621,8 +623,11 @@ export class PowderSimulation {
     this.grid = Array.from({ length: this.rows }, () => new Array(this.cols).fill(0));
     this.applyWallMask();
     this.grains = [];
+    this.pendingDrops = [];
     this.spawnTimer = 0;
     this.lastFrame = 0;
+    this.idleDropBuffer = 0; // Remove any leftover idle conversions when the basin resets.
+    this.idleDropAccumulator = 0; // Reset the idle cadence so fresh runs start cleanly.
     this.scrollOffsetCells = 0;
     this.highestTotalHeightCells = 0;
     this.heightInfo = { normalizedHeight: 0, duneGain: 0, largestGrain: 0 };
@@ -1011,7 +1016,9 @@ export class PowderSimulation {
     this.advanceSpawnTimer(delta); // Continuously queue natural mote drops so the basin never starves between enemy events.
 
     const spawnBudget = Math.max(1, Math.ceil(delta / 12));
-    this.spawnPendingDrops(spawnBudget);
+    const idleReleased = this.releaseIdleDrops(delta, spawnBudget); // Emit idle conversions using the earned rate budget.
+    const remainingBudget = Math.max(0, spawnBudget - idleReleased); // Preserve headroom for combat or ambient drops.
+    this.spawnPendingDrops(remainingBudget);
 
     const iterations = Math.max(1, Math.min(4, Math.round(delta / 16)));
     for (let i = 0; i < iterations; i += 1) {
@@ -1023,21 +1030,56 @@ export class PowderSimulation {
   }
 
   convertIdleBank(delta) {
-    if (this.idleBank <= 0 || !Number.isFinite(delta)) {
+    if (this.idleBank <= 0 || !Number.isFinite(delta) || delta <= 0) {
+      if (this.idleBank <= 0 && this.idleDropBuffer <= 0) {
+        this.idleAccumulator = 0; // Clear fractional progress so the counter stops when the bank is empty.
+      }
       return 0;
     }
-    const rate = this.idleDrainRate / 1000;
+    const rate = Math.max(0, this.idleDrainRate) / 1000;
+    if (rate <= 0) {
+      return 0;
+    }
     const pending = this.idleAccumulator + delta * rate;
     const toQueue = Math.min(this.idleBank, Math.floor(pending));
     this.idleAccumulator = pending - toQueue;
     if (toQueue <= 0) {
       return 0;
     }
-    for (let index = 0; index < toQueue; index += 1) {
-      this.pendingDrops.push({ size: 1 });
-    }
     this.idleBank = Math.max(0, this.idleBank - toQueue);
+    this.idleDropBuffer += toQueue; // Store the converted motes until the release cadence emits them.
     return toQueue;
+  }
+
+  releaseIdleDrops(delta, limit = Infinity) {
+    if (!Number.isFinite(delta) || delta <= 0 || this.idleDropBuffer <= 0) {
+      if (this.idleDropBuffer <= 0 && this.idleBank <= 0) {
+        this.idleDropAccumulator = 0; // Reset the release timer once all idle motes have been dispatched.
+      }
+      return 0;
+    }
+
+    const rate = Math.max(0, this.idleDrainRate) / 1000;
+    if (rate <= 0) {
+      return 0;
+    }
+
+    this.idleDropAccumulator += delta * rate;
+    const allowed = Math.max(0, Math.min(limit, this.idleDropBuffer));
+    let released = 0;
+
+    while (released < allowed && this.idleDropAccumulator >= 1 && this.grains.length < this.maxGrains) {
+      this.spawnGrain({ size: 1, source: 'idle' }); // Spawn idle motes through the normal grain generator for consistency.
+      this.idleDropBuffer -= 1;
+      this.idleDropAccumulator -= 1;
+      released += 1;
+    }
+
+    if (this.idleDropBuffer <= 0 && this.idleBank <= 0) {
+      this.idleDropAccumulator = 0; // Prevent runaway accumulation when the bank is exhausted.
+    }
+
+    return released;
   }
 
   advanceSpawnTimer(delta) {
@@ -1059,10 +1101,18 @@ export class PowderSimulation {
       return 0;
     }
 
+    const idleActive = this.idleBank > 0 || this.idleDropBuffer > 0;
+    const ambientEnabled = this.flowOffset > 0 && !idleActive; // Only allow ambient motes when the basin is in an active flow state.
+
+    if (!ambientEnabled) {
+      this.spawnTimer = Math.min(this.spawnTimer, interval);
+      return 0;
+    }
+
     let spawned = 0;
     while (this.spawnTimer >= interval && spawned < capacity) {
       this.spawnTimer -= interval;
-      this.pendingDrops.push({ size: this.chooseGrainSize() }); // Seed natural motes using the weighted grain distribution.
+      this.pendingDrops.push({ size: this.chooseGrainSize(), source: 'ambient' }); // Seed natural motes using the weighted grain distribution.
       spawned += 1;
     }
 
@@ -1077,9 +1127,18 @@ export class PowderSimulation {
     if (!this.pendingDrops.length || !this.cols || !this.rows) {
       return;
     }
-    let remaining = Math.max(1, Math.floor(limit));
+    let remaining = Math.max(0, Math.floor(limit));
+    if (remaining <= 0) {
+      return;
+    }
+    const allowAmbient = this.flowOffset > 0 && !(this.idleBank > 0 || this.idleDropBuffer > 0);
     while (remaining > 0 && this.pendingDrops.length && this.grains.length < this.maxGrains) {
-      const drop = this.pendingDrops.shift();
+      const drop = this.pendingDrops[0];
+      if (drop && drop.source === 'ambient' && !allowAmbient) {
+        this.pendingDrops.shift(); // Discard stale ambient drops so idle pacing stays accurate.
+        continue;
+      }
+      this.pendingDrops.shift();
       this.spawnGrain(drop);
       remaining -= 1;
     }
@@ -1097,6 +1156,9 @@ export class PowderSimulation {
     }
     const normalized = this.clampGrainSize(drop.size);
     const pendingDrop = { size: normalized };
+    if (typeof drop.source === 'string') {
+      pendingDrop.source = drop.source; // Preserve source metadata so ambient queues can be filtered downstream.
+    }
     const color = this.normalizeDropColor(drop.color);
     if (color) {
       pendingDrop.color = color;
@@ -1939,7 +2001,11 @@ export class PowderSimulation {
       if (drop && typeof drop === 'object') {
         const size = Math.max(1, normalizeFiniteInteger(drop.size, 1));
         const color = cloneMoteColor(drop.color);
-        return color ? { size, color } : { size };
+        const payload = color ? { size, color } : { size };
+        if (typeof drop.source === 'string') {
+          payload.source = drop.source; // Persist the drop origin so reloads can rebuild the ambient filter.
+        }
+        return payload;
       }
       if (Number.isFinite(drop)) {
         return { size: Math.max(1, Math.round(drop)) };
@@ -1983,6 +2049,8 @@ export class PowderSimulation {
       pendingDrops,
       idleBank: Math.max(0, normalizeFiniteNumber(this.idleBank, 0)),
       idleAccumulator: Math.max(0, normalizeFiniteNumber(this.idleAccumulator, 0)),
+      idleDropBuffer: Math.max(0, normalizeFiniteInteger(this.idleDropBuffer, 0)),
+      idleDropAccumulator: Math.max(0, normalizeFiniteNumber(this.idleDropAccumulator, 0)),
       spawnTimer: Math.max(0, normalizeFiniteNumber(this.spawnTimer, 0)),
       scrollOffsetCells: Math.max(0, normalizeFiniteInteger(this.scrollOffsetCells, 0)),
       highestTotalHeightCells: Math.max(0, normalizeFiniteInteger(this.highestTotalHeightCells, 0)),
@@ -2061,7 +2129,11 @@ export class PowderSimulation {
           return null;
         }
         const color = cloneMoteColor(drop.color);
-        return color ? { size, color } : { size };
+        const payload = color ? { size, color } : { size };
+        if (typeof drop.source === 'string') {
+          payload.source = drop.source; // Restore the drop origin tag so the queue can filter ambient entries on load.
+        }
+        return payload;
       }
       if (Number.isFinite(drop)) {
         const size = Math.max(1, Math.round(drop));
@@ -2117,6 +2189,8 @@ export class PowderSimulation {
 
     this.idleBank = Math.max(0, normalizeFiniteNumber(state.idleBank, 0));
     this.idleAccumulator = Math.max(0, normalizeFiniteNumber(state.idleAccumulator, 0));
+    this.idleDropBuffer = Math.max(0, normalizeFiniteInteger(state.idleDropBuffer, 0));
+    this.idleDropAccumulator = Math.max(0, normalizeFiniteNumber(state.idleDropAccumulator, 0));
     this.spawnTimer = Math.max(0, normalizeFiniteNumber(state.spawnTimer, 0));
     this.scrollOffsetCells = Math.max(0, normalizeFiniteInteger(state.scrollOffsetCells, 0));
     this.highestTotalHeightCells = Math.max(
