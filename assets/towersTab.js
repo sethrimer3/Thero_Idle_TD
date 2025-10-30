@@ -353,7 +353,11 @@ function sanitizeTowerContextEntry(entry) {
   };
 }
 
-function buildTowerDynamicContext(options = {}) {
+/**
+ * Construct an adjacency context describing which towers share overlapping range
+ * so dynamic equation variables (e.g., connection counts) can be evaluated.
+ */
+export function buildTowerDynamicContext(options = {}) {
   const collection = [];
   const providedTowers = Array.isArray(options.contextTowers) ? options.contextTowers : [];
   providedTowers.forEach((entry) => {
@@ -421,6 +425,20 @@ function getDynamicConnectionCount(towerType) {
     return 0;
   }
   return context.counts.get(towerType) || 0;
+}
+
+/**
+ * Temporarily apply a dynamic-context snapshot while evaluating a callback so
+ * equation math can query the correct adjacency counts without mutating global state.
+ */
+export function withTowerDynamicContext(context, evaluator) {
+  const previousContext = towerTabState.dynamicContext;
+  towerTabState.dynamicContext = context || null;
+  try {
+    return typeof evaluator === 'function' ? evaluator() : null;
+  } finally {
+    towerTabState.dynamicContext = previousContext;
+  }
 }
 
 const TOWER_EQUATION_BLUEPRINTS = {
@@ -791,6 +809,341 @@ const TOWER_EQUATION_BLUEPRINTS = {
     },
     formatGoldenEquation({ formatVariable, formatResult }) {
       return `\\( ${formatResult()} = ${formatVariable('gamma')} \\times \\ln(${formatVariable('gamma')} + 1) \\)`;
+    },
+  },
+  // ζ tower channels a double-pendulum equation that references multiple Aleph
+  // upgrade threads to determine attack, speed, range, and pendulum count.
+  zeta: {
+    mathSymbol: String.raw`\zeta`,
+    baseEquation: String.raw`\( \zeta = \text{Atk} \times \text{Spd} \times \text{Rng} \times \text{Tot} \)`,
+    variables: [
+      {
+        key: 'aleph1',
+        symbol: 'ℵ₁',
+        equationSymbol: 'ℵ₁',
+        name: 'Aleph One Focus',
+        description: 'Amplifies ζ’s base damage by threading additional glyph focus.',
+        baseValue: 1,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(value)} focus`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : 1 + rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{1} = 1 + \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = 1 + ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph2',
+        symbol: 'ℵ₂',
+        equationSymbol: 'ℵ₂',
+        name: 'Aleph Two Velocity',
+        description: 'Determines revolutions per second for each pendulum tier.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(Math.max(0, value))} tempo`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{2} = \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph3',
+        symbol: 'ℵ₃',
+        equationSymbol: 'ℵ₃',
+        name: 'Aleph Three Radius',
+        description: 'Extends the arm length for the cascading pendulum links.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(Math.max(0, value))} reach`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{3} = \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph4',
+        symbol: 'ℵ₄',
+        equationSymbol: 'ℵ₄',
+        name: 'Aleph Four Cascade',
+        description: 'Unlocks additional pendulums trailing from ζ’s core.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        maxLevel: 3,
+        cost: (level) => {
+          if (level === 0) {
+            return 5;
+          }
+          if (level === 1) {
+            return 10;
+          }
+          if (level === 2) {
+            return 15;
+          }
+          return Infinity;
+        },
+        format: (value) => `${formatWholeNumber(Math.max(0, value))} links`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{4} = \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph5',
+        symbol: 'ℵ₅',
+        equationSymbol: 'ℵ₅',
+        name: 'Aleph Five Spark',
+        description: 'Feeds critical light into the pendulum strike zone.',
+        baseValue: 1,
+        step: 0.5,
+        upgradable: true,
+        format: (value) => `×${formatDecimal(Math.max(0, value), 2)}`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : 1 + rank * 0.5;
+          return [
+            {
+              expression: String.raw`\( \aleph_{5} = 1 + 0.5 \times \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(resolved, 2)} = 1 + 0.5 \times ${formatDecimal(rank, 2)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph6',
+        symbol: 'ℵ₆',
+        equationSymbol: 'ℵ₆',
+        name: 'Aleph Six Lens',
+        description: 'Focuses the pendulum heads for sharper critical impacts.',
+        baseValue: 1,
+        step: 0.5,
+        upgradable: true,
+        format: (value) => `×${formatDecimal(Math.max(0, value), 2)}`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : 1 + rank * 0.5;
+          return [
+            {
+              expression: String.raw`\( \aleph_{6} = 1 + 0.5 \times \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(resolved, 2)} = 1 + 0.5 \times ${formatDecimal(rank, 2)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'crt',
+        symbol: 'Crt',
+        equationSymbol: 'Crt',
+        name: 'Critical Multiplier',
+        description: 'Applies when a pendulum head collides directly with an enemy.',
+        upgradable: false,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph5 = computeTowerVariableValue(towerId, 'aleph5', effectiveBlueprint);
+          const aleph6 = computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint);
+          const product = Math.max(1, aleph5 * aleph6);
+          return Number.isFinite(product) ? product : 1;
+        },
+        format: (value) => `×${formatDecimal(Math.max(1, value), 2)}`,
+        getSubEquations({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph5 = computeTowerVariableValue(towerId, 'aleph5', effectiveBlueprint);
+          const aleph6 = computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint);
+          const product = Math.max(1, aleph5 * aleph6);
+          return [
+            {
+              expression: String.raw`\( \text{Crt} = \aleph_{5} \times \aleph_{6} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(product, 2)} = ${formatDecimal(aleph5, 2)} \times ${formatDecimal(aleph6, 2)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'atk',
+        symbol: 'Atk',
+        equationSymbol: 'Atk',
+        name: 'Attack',
+        description: 'Critical strike output woven from γ, ℵ₁, and the Crt multiplier.',
+        upgradable: false,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const gammaValue = Math.max(0, calculateTowerEquationResult('gamma'));
+          const aleph1 = Math.max(1, computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
+          const critical = Math.max(1, computeTowerVariableValue(towerId, 'crt', effectiveBlueprint));
+          const attack = gammaValue * aleph1 * critical;
+          return Number.isFinite(attack) ? attack : 0;
+        },
+        format: (value) => `${formatGameNumber(Math.max(0, value))} attack`,
+        getSubEquations({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const gammaValue = Math.max(0, calculateTowerEquationResult('gamma'));
+          const aleph1 = Math.max(1, computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
+          const critical = Math.max(1, computeTowerVariableValue(towerId, 'crt', effectiveBlueprint));
+          const base = gammaValue * aleph1;
+          const attack = base * critical;
+          return [
+            {
+              expression: String.raw`\( \text{Atk} = \gamma \times \aleph_{1} \times \text{Crt} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(attack, 2)} = ${formatDecimal(gammaValue, 2)} \times ${formatDecimal(aleph1, 2)} \times ${formatDecimal(critical, 2)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'spd',
+        symbol: 'Spd',
+        equationSymbol: 'Spd',
+        name: 'Speed',
+        description: 'Revolutions per second of the lead pendulum.',
+        upgradable: false,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph2 = Math.max(0, computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
+          const raw = 0.25 + 0.25 * aleph2;
+          const clamped = Math.min(7, Math.max(0.25, raw));
+          return Number.isFinite(clamped) ? clamped : 0.25;
+        },
+        format: (value) => `${formatDecimal(Math.max(0, value), 2)} rps`,
+        getSubEquations({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph2 = Math.max(0, computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
+          const raw = 0.25 + 0.25 * aleph2;
+          const clamped = Math.min(7, Math.max(0.25, raw));
+          return [
+            {
+              expression: String.raw`\( \text{Spd} = \min(7,\; 0.25 + 0.25 \times \aleph_{2}) \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(clamped, 2)} = \min(7,\; 0.25 + 0.25 \times ${formatDecimal(aleph2, 2)}) \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'rng',
+        symbol: 'Rng',
+        equationSymbol: 'Rng',
+        name: 'Range',
+        description: 'Normalized arm length shared by each pendulum tier.',
+        upgradable: false,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph3 = Math.max(0, computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
+          const raw = 1.5 + 0.5 * aleph3;
+          const clamped = Math.min(3, Math.max(1.5, raw));
+          return Number.isFinite(clamped) ? clamped : 1.5;
+        },
+        format: (value) => `${formatDecimal(Math.max(0, value), 2)} units`,
+        getSubEquations({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph3 = Math.max(0, computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
+          const raw = 1.5 + 0.5 * aleph3;
+          const clamped = Math.min(3, Math.max(1.5, raw));
+          return [
+            {
+              expression: String.raw`\( \text{Rng} = \min(3,\; 1.5 + 0.5 \times \aleph_{3}) \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(clamped, 2)} = \min(3,\; 1.5 + 0.5 \times ${formatDecimal(aleph3, 2)}) \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'tot',
+        symbol: 'Tot',
+        equationSymbol: 'Tot',
+        name: 'Total Pendulums',
+        description: 'Number of cascading pendulums orbiting ζ.',
+        upgradable: false,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph4 = Math.max(0, computeTowerVariableValue(towerId, 'aleph4', effectiveBlueprint));
+          const total = 1 + Math.min(3, aleph4);
+          return Number.isFinite(total) ? total : 1;
+        },
+        format: (value) => `${formatWholeNumber(Math.max(1, Math.round(value)))} pendulums`,
+        getSubEquations({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph4 = Math.max(0, computeTowerVariableValue(towerId, 'aleph4', effectiveBlueprint));
+          const total = 1 + Math.min(3, aleph4);
+          return [
+            {
+              expression: String.raw`\( \text{Tot} = 1 + \min(3, \aleph_{4}) \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(total)} = 1 + \min(3, ${formatWholeNumber(aleph4)}) \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+    ],
+    computeResult(values) {
+      const attack = Number.isFinite(values.atk) ? values.atk : 0;
+      const speed = Number.isFinite(values.spd) ? values.spd : 0;
+      const range = Number.isFinite(values.rng) ? values.rng : 0;
+      const total = Number.isFinite(values.tot) ? values.tot : 0;
+      return attack * speed * range * total;
+    },
+    formatBaseEquationValues({ values, result, formatComponent }) {
+      const attack = Number.isFinite(values.atk) ? values.atk : 0;
+      const speed = Number.isFinite(values.spd) ? values.spd : 0;
+      const range = Number.isFinite(values.rng) ? values.rng : 0;
+      const total = Number.isFinite(values.tot) ? values.tot : 0;
+      return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${formatComponent(total)}`;
     },
   },
   omicron: {
@@ -2818,6 +3171,17 @@ export function handleTowerVariableUpgrade(towerId, variableKey) {
 
   const state = ensureTowerUpgradeState(towerId, blueprint);
   const currentLevel = state.variables?.[variableKey]?.level || 0;
+  // Prevent investing glyphs when the variable already reached its upgrade ceiling.
+  const maxLevel = Number.isFinite(variable.maxLevel) ? Math.max(0, variable.maxLevel) : null;
+  if (maxLevel !== null && currentLevel >= maxLevel) {
+    setTowerUpgradeNote('This variable has already reached its maximum rank.', 'warning');
+    updateTowerUpgradeGlyphDisplay();
+    renderTowerUpgradeOverlay(towerId, { blueprint });
+    if (towerTabState.audioManager) {
+      towerTabState.audioManager.playSfx?.('error');
+    }
+    return;
+  }
   const cost = calculateTowerVariableUpgradeCost(variable, currentLevel);
   const normalizedCost = Math.max(1, cost);
 
