@@ -1688,7 +1688,7 @@ import {
     const totalGlyphs = Math.max(0, Math.floor(gameStats.enemiesDefeated || 0));
     const unusedGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
     if (resourceElements.glyphsTotal) {
-      resourceElements.glyphsTotal.textContent = formatWholeNumber(totalGlyphs);
+      resourceElements.glyphsTotal.textContent = `${formatWholeNumber(totalGlyphs)} ℵ`;
     }
     if (resourceElements.glyphsUnused) {
       resourceElements.glyphsUnused.textContent = formatWholeNumber(unusedGlyphs);

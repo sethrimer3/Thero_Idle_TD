@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="mindGateAura" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#fff4d0" stop-opacity="0.9" />
+      <stop offset="45%" stop-color="#ffeab0" stop-opacity="0.75" />
+      <stop offset="100%" stop-color="#7fd9ff" stop-opacity="0.4" />
+    </radialGradient>
+    <linearGradient id="mindGateFrame" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b1324" />
+      <stop offset="100%" stop-color="#0c1726" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#080a12" />
+  <circle cx="32" cy="30" r="21" fill="url(#mindGateAura)" opacity="0.92" />
+  <g opacity="0.8" stroke="url(#mindGateFrame)" stroke-width="2.2" fill="none">
+    <path d="M16 46c3-8 8-12 16-12s13 4 16 12" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M20 21c3-6 7-9 12-9s9 3 12 9" stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="32" cy="30" r="9" />
+  </g>
+  <text
+    x="32"
+    y="38"
+    font-family="'Cormorant Garamond', 'Times New Roman', serif"
+    font-size="26"
+    text-anchor="middle"
+    fill="#152034"
+  >℘</text>
+</svg>

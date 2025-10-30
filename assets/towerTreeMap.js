@@ -416,7 +416,19 @@ function createTreeNode(definition, position, indexInTier) {
 
   const symbolEl = document.createElement('span');
   symbolEl.className = 'tower-tree-node-symbol';
-  symbolEl.textContent = definition.symbol || definition.id;
+  if (definition && definition.id === 'mind-gate' && definition.icon) {
+    // Use the Mind Gate's rune sprite so the constellation node mirrors the tower finale.
+    symbolEl.classList.add('tower-tree-node-symbol--icon');
+    const iconEl = document.createElement('img');
+    iconEl.className = 'tower-tree-node-icon';
+    iconEl.src = definition.icon;
+    iconEl.alt = definition.name || 'Mind Gate';
+    iconEl.loading = 'lazy';
+    iconEl.decoding = 'async';
+    symbolEl.append(iconEl);
+  } else {
+    symbolEl.textContent = definition.symbol || definition.id;
+  }
 
   const nameEl = document.createElement('span');
   nameEl.className = 'tower-tree-node-name';
@@ -1113,6 +1125,17 @@ function computeNodeLayout(towers) {
       }
     });
   });
+
+  const hasMindGate = towers.some((tower) => tower.id === 'mind-gate');
+  const hasAlpha = towers.some((tower) => tower.id === 'alpha');
+  if (hasMindGate && hasAlpha) {
+    // Explicitly anchor the Mind Gate to Alpha so the tree highlights the foundational link.
+    const key = ['mind-gate', 'alpha'].sort().join('::');
+    if (!edgeSet.has(key) && positions.has('mind-gate') && positions.has('alpha')) {
+      edgeSet.add(key);
+      edges.push(['mind-gate', 'alpha']);
+    }
+  }
 
   if (towerTreeState.nodeLayer) {
     // Resize the physics canvas so the viewport can pan across the entire layout.
