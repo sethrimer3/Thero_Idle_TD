@@ -69,6 +69,21 @@ mindGateSprite.src = MIND_GATE_SPRITE_URL;
 mindGateSprite.decoding = 'async';
 mindGateSprite.loading = 'eager';
 
+// RGB palettes for η orbital trails so each ring keeps a distinct hue.
+const ETA_RING_RGB = [
+  [255, 138, 216],
+  [138, 230, 255],
+  [255, 226, 138],
+  [157, 255, 181],
+  [208, 162, 255],
+];
+// Alignment tolerance of three degrees expressed in radians for η ring checks.
+const ETA_ALIGNMENT_THRESHOLD_RADIANS = (3 * Math.PI) / 180;
+// Number of merges required before η ascends into its prestige form Η.
+const ETA_MAX_PRESTIGE_MERGES = 5;
+// Fixed prestige rotation rates (rotations per second) for each η ring.
+const ETA_PRESTIGE_RING_SPEEDS = [0.1, 0.2, 0.4, 0.8, 1.6];
+
 let playfieldDependencies = { ...defaultDependencies };
 
 export function configurePlayfieldSystem(options = {}) {
@@ -2464,6 +2479,218 @@ export class SimplePlayfield {
     return state;
   }
 
+  /**
+   * Clear cached η orbital data when the tower is removed or retuned.
+   */
+  teardownEtaTower(tower) {
+    if (!tower || !tower.etaState) {
+      return;
+    }
+    const rings = Array.isArray(tower.etaState.rings) ? tower.etaState.rings : [];
+    rings.forEach((ring) => {
+      if (!ring || !Array.isArray(ring.orbs)) {
+        return;
+      }
+      ring.orbs.forEach((orb) => {
+        if (orb && Array.isArray(orb.trail)) {
+          orb.trail.length = 0;
+        }
+      });
+    });
+    tower.etaState = null;
+  }
+
+  /**
+   * Ensure η towers maintain their orbital ring state and derived stats.
+   */
+  ensureEtaState(tower, options = {}) {
+    if (!tower || tower.type !== 'eta') {
+      return null;
+    }
+
+    const { forceResync = false } = options;
+    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
+
+    const aleph1 = Math.max(1, computeTowerVariableValue('eta', 'aleph1'));
+    const aleph2 = Math.max(1, computeTowerVariableValue('eta', 'aleph2'));
+    const aleph3 = Math.max(1, computeTowerVariableValue('eta', 'aleph3'));
+    const aleph4 = Math.max(1, computeTowerVariableValue('eta', 'aleph4'));
+    const aleph5 = Math.max(1, computeTowerVariableValue('eta', 'aleph5'));
+    const aleph6Raw = Math.max(1, computeTowerVariableValue('eta', 'aleph6'));
+    const aleph6 = Math.min(5, aleph6Raw);
+
+    const gammaValue = Math.max(0, calculateTowerEquationResult('gamma'));
+    const baseAttackFactor = Math.max(0, gammaValue * aleph1);
+    const denominator = Math.max(0.0001, aleph2 * aleph3 * aleph4 * aleph5);
+
+    const isPrestige = Boolean(tower.isPrestigeEta);
+    const prime = Number.isFinite(tower.etaPrime) ? Math.max(0, tower.etaPrime) : 0;
+    const totalRings = isPrestige ? 5 : Math.min(5, 2 + prime);
+    const rangeMeters = 5 + aleph6;
+    const rangePixels = metersToPixels(rangeMeters, minDimension);
+
+    tower.range = rangePixels;
+    tower.baseRange = rangePixels;
+    tower.damage = 0;
+    tower.baseDamage = 0;
+    tower.rate = 1;
+    tower.baseRate = 1;
+    tower.symbol = isPrestige ? 'Η' : tower.definition?.symbol || 'η';
+
+    let state = tower.etaState;
+    if (!state) {
+      state = {
+        rings: [],
+        alignmentStatus: new Map(),
+        elapsed: 0,
+      };
+      tower.etaState = state;
+    }
+
+    const configurationSignature = [
+      isPrestige ? 'prestige' : 'standard',
+      `prime:${prime}`,
+      `rings:${totalRings}`,
+      `a1:${aleph1.toFixed(4)}`,
+      `a2:${aleph2.toFixed(4)}`,
+      `a3:${aleph3.toFixed(4)}`,
+      `a4:${aleph4.toFixed(4)}`,
+      `a5:${aleph5.toFixed(4)}`,
+      `a6:${aleph6.toFixed(4)}`,
+    ].join('|');
+
+    const baseSpeeds = [
+      1 / denominator,
+      (1 + aleph2) / denominator,
+      (1 + 2 * aleph3) / denominator,
+      (2 + 3 * aleph4) / denominator,
+      (1 + 2 ** aleph5) / denominator,
+    ];
+
+    if (forceResync || state.configurationSignature !== configurationSignature) {
+      const rings = [];
+      for (let index = 0; index < totalRings; index += 1) {
+        const ringNumber = index + 1;
+        const stepsFromInner = totalRings - ringNumber;
+        const radiusMeters = 1 + 0.5 * stepsFromInner;
+        const radiusPixels = metersToPixels(radiusMeters, minDimension);
+        const baseSpeed = isPrestige
+          ? ETA_PRESTIGE_RING_SPEEDS[index] ?? ETA_PRESTIGE_RING_SPEEDS[ETA_PRESTIGE_RING_SPEEDS.length - 1]
+          : baseSpeeds[index] ?? baseSpeeds[baseSpeeds.length - 1];
+        const safeSpeed = Number.isFinite(baseSpeed) ? Math.max(0, baseSpeed) : 0;
+        const angularVelocity = safeSpeed * Math.PI * 2;
+        const rgb = ETA_RING_RGB[index % ETA_RING_RGB.length];
+        const orbCount = isPrestige
+          ? 2
+          : Math.max(1, Math.round((ringNumber * (ringNumber - 1)) / 2 + 1));
+        const orbs = [];
+        for (let orbIndex = 0; orbIndex < orbCount; orbIndex += 1) {
+          const angle = (Math.PI * 2 * orbIndex) / orbCount;
+          const position = {
+            x: tower.x + Math.cos(angle) * radiusPixels,
+            y: tower.y + Math.sin(angle) * radiusPixels,
+          };
+          orbs.push({
+            id: `${ringNumber}-${orbIndex}`,
+            index: orbIndex,
+            angle,
+            position,
+            trail: [{ ...position, age: 0 }],
+          });
+        }
+        const orbRadius = Math.max(6, Math.min(18, radiusPixels * 0.08));
+        rings.push({
+          ringNumber,
+          radiusMeters,
+          radiusPixels,
+          speedRps: safeSpeed,
+          angularVelocity,
+          rgb,
+          orbs,
+          orbRadius,
+          maxTrailPoints: 72,
+        });
+      }
+      state.rings = rings;
+      state.alignmentStatus = new Map();
+      state.elapsed = 0;
+    }
+
+    state.rings.forEach((ring, index) => {
+      if (!ring) {
+        return;
+      }
+      const stepsFromInner = totalRings - ring.ringNumber;
+      const radiusMeters = 1 + 0.5 * stepsFromInner;
+      const radiusPixels = metersToPixels(radiusMeters, minDimension);
+      const baseSpeed = isPrestige
+        ? ETA_PRESTIGE_RING_SPEEDS[index] ?? ETA_PRESTIGE_RING_SPEEDS[ETA_PRESTIGE_RING_SPEEDS.length - 1]
+        : baseSpeeds[index] ?? baseSpeeds[baseSpeeds.length - 1];
+      const safeSpeed = Number.isFinite(baseSpeed) ? Math.max(0, baseSpeed) : 0;
+      ring.radiusMeters = radiusMeters;
+      ring.radiusPixels = radiusPixels;
+      ring.speedRps = safeSpeed;
+      ring.angularVelocity = safeSpeed * Math.PI * 2;
+      ring.rgb = ETA_RING_RGB[index % ETA_RING_RGB.length];
+      ring.orbRadius = Math.max(6, Math.min(18, radiusPixels * 0.08));
+      ring.maxTrailPoints = Number.isFinite(ring.maxTrailPoints) ? ring.maxTrailPoints : 72;
+    });
+
+    state.configurationSignature = configurationSignature;
+    state.baseAttackFactor = baseAttackFactor;
+    state.rangePixels = rangePixels;
+    state.rangeMeters = rangeMeters;
+    state.denominator = denominator;
+    state.totalRings = totalRings;
+    state.isPrestige = isPrestige;
+    state.trailDuration = isPrestige ? 1.1 : 0.9;
+    state.angleThreshold = ETA_ALIGNMENT_THRESHOLD_RADIANS;
+    state.laserWidthBase = Math.max(6, rangePixels * 0.02);
+    state.alephValues = { aleph1, aleph2, aleph3, aleph4, aleph5, aleph6 };
+    state.maxTrailPoints = Number.isFinite(state.maxTrailPoints) ? state.maxTrailPoints : 72;
+
+    return state;
+  }
+
+  /**
+   * Merge η towers to unfold rings and handle prestige transitions.
+   */
+  mergeEtaTower(tower, { silent = false } = {}) {
+    if (!tower || tower.type !== 'eta') {
+      return false;
+    }
+
+    const nextPrime = (Number.isFinite(tower.etaPrime) ? tower.etaPrime : 0) + 1;
+    const prestigeActivated = nextPrime >= ETA_MAX_PRESTIGE_MERGES;
+    tower.etaPrime = Math.min(nextPrime, ETA_MAX_PRESTIGE_MERGES);
+    if (prestigeActivated) {
+      tower.isPrestigeEta = true;
+    }
+
+    this.teardownEtaTower(tower);
+    this.ensureEtaState(tower, { forceResync: true });
+    tower.cooldown = 0;
+
+    const totalRings = tower.etaState?.totalRings || Math.min(5, 2 + tower.etaPrime);
+    if (this.messageEl && !silent) {
+      if (tower.isPrestigeEta) {
+        this.messageEl.textContent = 'η lattice ascended into Η—five rings ignite in harmony.';
+      } else {
+        this.messageEl.textContent = `η resonance deepens—${totalRings} orbital rings align.`;
+      }
+    }
+
+    this.spawnTowerEquationScribble(tower, { towerType: 'eta', silent });
+    this.updateHud();
+    this.draw();
+    refreshTowerLoadoutDisplay();
+    this.dependencies.updateStatusDisplays();
+    if (this.audio && !silent) {
+      this.audio.playSfx('towerMerge');
+    }
+    return true;
+  }
+
   applyTowerBehaviorDefaults(tower) {
     if (!tower) {
       return;
@@ -2486,6 +2713,13 @@ export class SimplePlayfield {
     } else if (tower.zetaState) {
       // Clean up ζ caches if the lattice retunes into another form.
       this.teardownZetaTower(tower);
+    }
+    if (tower.type === 'eta') {
+      // Maintain η orbital state so rings stay synchronized while idle.
+      this.ensureEtaState(tower);
+    } else if (tower.etaState) {
+      // Clear η caches when the lattice shifts into another configuration.
+      this.teardownEtaTower(tower);
     }
   }
 
@@ -2980,22 +3214,40 @@ export class SimplePlayfield {
     let mergeTarget = null;
     let nextDefinition = null;
     let merging = false;
+    let mergeCost = 0;
 
     if (existingTower && existingTower.type === selectedType) {
-      const nextId = getNextTowerId(selectedType);
-      if (!nextId) {
-        if (this.messageEl && !silent) {
-          this.messageEl.textContent = `${definition.symbol} already resonates at its peak tier.`;
+      if (selectedType === 'eta') {
+        if (existingTower.isPrestigeEta) {
+          if (this.messageEl && !silent) {
+            this.messageEl.textContent = 'Η lattice already crowned—no further fusion possible.';
+          }
+          if (this.audio && !silent) {
+            this.audio.playSfx('error');
+          }
+          return false;
         }
-        if (this.audio && !silent) {
-          this.audio.playSfx('error');
+        mergeTarget = existingTower;
+        merging = true;
+        placement.position = { x: mergeTarget.x, y: mergeTarget.y };
+        mergeCost = this.getCurrentTowerCost(selectedType);
+      } else {
+        const nextId = getNextTowerId(selectedType);
+        if (!nextId) {
+          if (this.messageEl && !silent) {
+            this.messageEl.textContent = `${definition.symbol} already resonates at its peak tier.`;
+          }
+          if (this.audio && !silent) {
+            this.audio.playSfx('error');
+          }
+          return false;
         }
-        return false;
+        nextDefinition = getTowerDefinition(nextId);
+        mergeTarget = existingTower;
+        merging = true;
+        placement.position = { x: mergeTarget.x, y: mergeTarget.y };
+        mergeCost = this.getCurrentTowerCost(nextDefinition.id);
       }
-      nextDefinition = getTowerDefinition(nextId);
-      mergeTarget = existingTower;
-      merging = true;
-      placement.position = { x: mergeTarget.x, y: mergeTarget.y };
     } else {
       placement = this.validatePlacement(normalized, { allowPathOverlap });
       if (!placement.valid) {
@@ -3014,7 +3266,9 @@ export class SimplePlayfield {
     }
 
     const baseCost = this.getCurrentTowerCost(selectedType);
-    const mergeCost = nextDefinition ? this.getCurrentTowerCost(nextDefinition.id) : 0;
+    if (!merging && nextDefinition) {
+      mergeCost = this.getCurrentTowerCost(nextDefinition.id);
+    }
     const actionCost = merging ? mergeCost : baseCost;
 
     if (this.energy < actionCost) {
@@ -3033,6 +3287,17 @@ export class SimplePlayfield {
     }
 
     this.energy = Math.max(0, this.energy - actionCost);
+
+    if (merging && mergeTarget && selectedType === 'eta') {
+      const merged = this.mergeEtaTower(mergeTarget, { silent });
+      if (merged) {
+        notifyTowerPlaced(this.towers.length);
+        return true;
+      }
+      const cap = this.levelConfig?.theroCap ?? this.levelConfig?.energyCap ?? Infinity;
+      this.energy = Math.min(cap, this.energy + actionCost);
+      return false;
+    }
 
     if (merging && mergeTarget && nextDefinition) {
       const wasAlephNull = mergeTarget.type === 'aleph-null';
@@ -3105,6 +3370,10 @@ export class SimplePlayfield {
       baseRate,
       cooldown: 0,
       slot,
+      // Track η merge progress so the lattice can unfold additional rings.
+      etaPrime: 0,
+      // Flag prestige status when η ascends into Η.
+      isPrestigeEta: false,
     };
 
     this.applyTowerBehaviorDefaults(tower);
@@ -3147,6 +3416,7 @@ export class SimplePlayfield {
 
     this.teardownDeltaTower(tower);
     this.teardownZetaTower(tower);
+    this.teardownEtaTower(tower);
     this.handleAlephTowerRemoved(tower);
 
     const index = this.towers.indexOf(tower);
@@ -3259,6 +3529,33 @@ export class SimplePlayfield {
       },
       ratio: clamped,
     };
+  }
+
+  /**
+   * Normalize an angle into the [0, 2π) range for consistent orbital math.
+   */
+  normalizeAngle(angle) {
+    if (!Number.isFinite(angle)) {
+      return 0;
+    }
+    let normalized = angle % (Math.PI * 2);
+    if (normalized < 0) {
+      normalized += Math.PI * 2;
+    }
+    return normalized;
+  }
+
+  /**
+   * Measure the smallest angular difference between two radians values.
+   */
+  angularDifference(a, b) {
+    const angleA = this.normalizeAngle(a);
+    const angleB = this.normalizeAngle(b);
+    let diff = Math.abs(angleA - angleB);
+    if (diff > Math.PI) {
+      diff = Math.abs(diff - Math.PI * 2);
+    }
+    return diff;
   }
 
   /**
@@ -3615,6 +3912,10 @@ export class SimplePlayfield {
           this.updateZetaTower(tower, speedDelta);
           return;
         }
+        if (tower.type === 'eta') {
+          this.updateEtaTower(tower, speedDelta);
+          return;
+        }
         if (tower.type !== 'delta') {
           return;
         }
@@ -3782,13 +4083,17 @@ export class SimplePlayfield {
     this.towers.forEach((tower) => {
       tower.cooldown = Math.max(0, tower.cooldown - delta);
       if (tower.type === 'zeta') {
-        this.updateZetaTower(tower, delta);
-        return;
-      }
-      if (tower.type === 'delta') {
-        this.updateDeltaTower(tower, delta);
-        return;
-      }
+      this.updateZetaTower(tower, delta);
+      return;
+    }
+    if (tower.type === 'eta') {
+      this.updateEtaTower(tower, delta);
+      return;
+    }
+    if (tower.type === 'delta') {
+      this.updateDeltaTower(tower, delta);
+      return;
+    }
       if (!this.combatActive || !this.enemies.length) {
         return;
       }
@@ -3962,6 +4267,298 @@ export class SimplePlayfield {
         hitMap.set(enemy.id, entry);
       });
     });
+  }
+
+  /**
+   * Advance η orbital motion, maintain trails, and trigger alignment lasers.
+   */
+  updateEtaTower(tower, delta) {
+    const state = this.ensureEtaState(tower);
+    if (!state) {
+      return;
+    }
+
+    const step = Math.max(0, Number.isFinite(delta) ? delta : 0);
+    state.elapsed = Number.isFinite(state.elapsed) ? state.elapsed + step : step;
+
+    const rings = Array.isArray(state.rings) ? state.rings : [];
+    const maxTrailPoints = Number.isFinite(state.maxTrailPoints) ? state.maxTrailPoints : 72;
+
+    rings.forEach((ring) => {
+      if (!ring) {
+        return;
+      }
+      const orbs = Array.isArray(ring.orbs) ? ring.orbs : [];
+      const radius = Number.isFinite(ring.radiusPixels) ? ring.radiusPixels : 0;
+      const angularVelocity = Number.isFinite(ring.angularVelocity) ? ring.angularVelocity : 0;
+      const ringMaxTrail = Number.isFinite(ring.maxTrailPoints) ? ring.maxTrailPoints : maxTrailPoints;
+      const trailLimit = Math.max(8, ringMaxTrail);
+      const trailDuration = Number.isFinite(state.trailDuration) ? state.trailDuration : 0.9;
+
+      orbs.forEach((orb, index) => {
+        if (!orb) {
+          return;
+        }
+        const baseAngle = Number.isFinite(orb.angle) ? orb.angle : (Math.PI * 2 * index) / Math.max(1, orbs.length);
+        const nextAngle = baseAngle + angularVelocity * step;
+        orb.angle = this.normalizeAngle(nextAngle);
+        const position = {
+          x: tower.x + Math.cos(orb.angle) * radius,
+          y: tower.y + Math.sin(orb.angle) * radius,
+        };
+        orb.position = position;
+        if (!Array.isArray(orb.trail)) {
+          orb.trail = [];
+        }
+        orb.trail.push({ x: position.x, y: position.y, age: 0 });
+        for (let i = orb.trail.length - 1; i >= 0; i -= 1) {
+          const point = orb.trail[i];
+          if (!point) {
+            orb.trail.splice(i, 1);
+            continue;
+          }
+          point.age = (Number.isFinite(point.age) ? point.age : 0) + step;
+          const expired = trailDuration > 0 && point.age > trailDuration;
+          const overflow = orb.trail.length > trailLimit && i < orb.trail.length - trailLimit;
+          if (expired || overflow) {
+            orb.trail.splice(i, 1);
+          }
+        }
+        if (!orb.id) {
+          orb.id = `${ring.ringNumber}-${index}`;
+        }
+      });
+    });
+
+    if (!this.combatActive || !this.enemies.length || state.baseAttackFactor <= 0 || state.rangePixels <= 0) {
+      return;
+    }
+
+    const orbEntries = [];
+    const orbById = new Map();
+    rings.forEach((ring, ringIndex) => {
+      if (!ring) {
+        return;
+      }
+      const orbs = Array.isArray(ring.orbs) ? ring.orbs : [];
+      orbs.forEach((orb, orbIndex) => {
+        if (!orb || !orb.position) {
+          return;
+        }
+        const id = typeof orb.id === 'string' ? orb.id : `${ring.ringNumber}-${orbIndex}`;
+        orb.id = id;
+        const angle = this.normalizeAngle(orb.angle);
+        const entry = {
+          id,
+          ringIndex,
+          ringNumber: ring.ringNumber,
+          orbIndex,
+          angle,
+          position: { x: orb.position.x, y: orb.position.y },
+        };
+        orbEntries.push(entry);
+        orbById.set(id, entry);
+      });
+    });
+
+    if (orbEntries.length < 2) {
+      return;
+    }
+
+    if (!(state.alignmentStatus instanceof Map)) {
+      state.alignmentStatus = new Map();
+    }
+
+    const threshold = Number.isFinite(state.angleThreshold)
+      ? state.angleThreshold
+      : ETA_ALIGNMENT_THRESHOLD_RADIANS;
+    const clusterMap = new Map();
+
+    for (let i = 0; i < orbEntries.length; i += 1) {
+      const base = orbEntries[i];
+      if (!base) {
+        continue;
+      }
+      const members = [base];
+      const uniqueIds = new Set([base.id]);
+      for (let j = 0; j < orbEntries.length; j += 1) {
+        if (i === j) {
+          continue;
+        }
+        const candidate = orbEntries[j];
+        if (!candidate) {
+          continue;
+        }
+        if (candidate.ringNumber === base.ringNumber) {
+          continue;
+        }
+        const diff = this.angularDifference(base.angle, candidate.angle);
+        if (diff > threshold) {
+          continue;
+        }
+        let aligns = true;
+        for (let k = 0; k < members.length; k += 1) {
+          const other = members[k];
+          if (this.angularDifference(other.angle, candidate.angle) > threshold) {
+            aligns = false;
+            break;
+          }
+        }
+        if (!aligns) {
+          continue;
+        }
+        if (!uniqueIds.has(candidate.id)) {
+          members.push(candidate);
+          uniqueIds.add(candidate.id);
+        }
+      }
+      if (members.length < 2) {
+        continue;
+      }
+      const ringSet = new Set(members.map((entry) => entry.ringNumber));
+      if (ringSet.size < 2) {
+        continue;
+      }
+      const ids = Array.from(uniqueIds).sort((a, b) => a.localeCompare(b));
+      const key = ids.join('|');
+      if (!clusterMap.has(key)) {
+        const resolvedMembers = ids
+          .map((identifier) => orbById.get(identifier))
+          .filter(Boolean);
+        if (resolvedMembers.length >= 2) {
+          clusterMap.set(key, { key, members: resolvedMembers });
+        }
+      }
+    }
+
+    if (!clusterMap.size) {
+      state.alignmentStatus.forEach((status, key) => {
+        if (status) {
+          status.active = false;
+          state.alignmentStatus.set(key, status);
+        }
+      });
+      return;
+    }
+
+    const currentlyAligning = new Set();
+    clusterMap.forEach((cluster, key) => {
+      const members = Array.isArray(cluster.members) ? cluster.members : [];
+      if (members.length < 2) {
+        return;
+      }
+      currentlyAligning.add(key);
+      const status = state.alignmentStatus.get(key) || { active: false };
+      if (!status.active) {
+        const orbitAlign = members.length;
+        const exponent = Math.max(1, orbitAlign - 1);
+        const baseFactor = Math.max(0, state.baseAttackFactor || 0);
+        const damage = orbitAlign >= 2 ? Math.pow(baseFactor, exponent) : 0;
+        if (damage > 0) {
+          let sumX = 0;
+          let sumY = 0;
+          members.forEach((entry) => {
+            sumX += Math.cos(entry.angle);
+            sumY += Math.sin(entry.angle);
+          });
+          const angle = Math.atan2(sumY, sumX);
+          this.fireEtaLaser(tower, state, { angle, orbitAlign, damage });
+        }
+        status.active = true;
+        status.lastTrigger = state.elapsed;
+        state.alignmentStatus.set(key, status);
+      } else {
+        status.lastTrigger = state.elapsed;
+        state.alignmentStatus.set(key, status);
+      }
+    });
+
+    state.alignmentStatus.forEach((status, key) => {
+      if (!currentlyAligning.has(key) && status) {
+        status.active = false;
+        state.alignmentStatus.set(key, status);
+      }
+    });
+  }
+
+  /**
+   * Emit an η laser and apply damage to enemies along its beam.
+   */
+  fireEtaLaser(tower, state, { angle = 0, orbitAlign = 2, damage = 0 } = {}) {
+    if (!tower || !state) {
+      return;
+    }
+    const range = Math.max(0, Number.isFinite(state.rangePixels) ? state.rangePixels : 0);
+    if (range <= 0 || !Number.isFinite(damage) || damage <= 0) {
+      return;
+    }
+
+    const origin = { x: tower.x, y: tower.y };
+    const end = {
+      x: origin.x + Math.cos(angle) * range,
+      y: origin.y + Math.sin(angle) * range,
+    };
+    const baseWidth = Number.isFinite(state.laserWidthBase) ? state.laserWidthBase : Math.max(6, range * 0.02);
+    const beamHalfWidth = baseWidth * (1 + Math.max(0, orbitAlign - 2) * 0.25);
+
+    const dx = end.x - origin.x;
+    const dy = end.y - origin.y;
+    const length = Math.hypot(dx, dy);
+    if (length <= 0.0001) {
+      return;
+    }
+    const nx = dx / length;
+    const ny = dy / length;
+
+    this.enemies.forEach((enemy) => {
+      if (!enemy || enemy.hp <= 0) {
+        return;
+      }
+      const position = this.getEnemyPosition(enemy);
+      if (!position) {
+        return;
+      }
+      const metrics = this.getEnemyVisualMetrics(enemy);
+      const radius = this.getEnemyHitRadius(enemy, metrics);
+      const px = position.x - origin.x;
+      const py = position.y - origin.y;
+      const projection = px * nx + py * ny;
+      const tolerance = radius + beamHalfWidth;
+      if (projection < -tolerance || projection > length + tolerance) {
+        return;
+      }
+      const perpendicular = Math.abs(px * ny - py * nx);
+      if (perpendicular > tolerance) {
+        return;
+      }
+      this.applyEtaDamage(enemy, damage);
+    });
+
+    const projectile = {
+      patternType: 'etaLaser',
+      origin,
+      angle,
+      length,
+      width: beamHalfWidth * 2,
+      orbitAlign,
+      lifetime: 0,
+      maxLifetime: 0.18,
+      alpha: 1,
+    };
+    this.projectiles.push(projectile);
+  }
+
+  /**
+   * Apply η laser damage and remove defeated enemies from play.
+   */
+  applyEtaDamage(enemy, damage) {
+    if (!enemy || !Number.isFinite(damage) || damage <= 0) {
+      return;
+    }
+    enemy.hp -= damage;
+    if (enemy.hp <= 0) {
+      this.processEnemyDefeat(enemy);
+    }
   }
 
   /**
@@ -4484,6 +5081,17 @@ export class SimplePlayfield {
         continue;
       }
 
+      if (projectile.patternType === 'etaLaser') {
+        const maxLifetime = Number.isFinite(projectile.maxLifetime) ? projectile.maxLifetime : 0.18;
+        if (maxLifetime > 0 && projectile.lifetime >= maxLifetime) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        const progress = maxLifetime > 0 ? projectile.lifetime / maxLifetime : 1;
+        projectile.alpha = Math.max(0, 1 - progress);
+        continue;
+      }
+
       if (projectile.lifetime >= projectile.maxLifetime) {
         this.projectiles.splice(index, 1);
       }
@@ -4591,6 +5199,9 @@ export class SimplePlayfield {
       normalized: this.cloneNormalizedPoint(tower.normalized),
       targetPriority: tower.targetPriority || 'first',
       behaviorMode: tower.behaviorMode || null,
+      // Preserve η lattice progression so restored checkpoints maintain unlocked rings and prestige state.
+      etaPrime: tower.type === 'eta' && Number.isFinite(tower.etaPrime) ? tower.etaPrime : null,
+      isPrestigeEta: tower.type === 'eta' ? Boolean(tower.isPrestigeEta) : null,
       baseDamage: Number.isFinite(tower.baseDamage) ? tower.baseDamage : null,
       baseRate: Number.isFinite(tower.baseRate) ? tower.baseRate : null,
       baseRange: Number.isFinite(tower.baseRange) ? tower.baseRange : null,
@@ -4654,6 +5265,12 @@ export class SimplePlayfield {
         cooldown: Number.isFinite(snapshot.cooldown) ? snapshot.cooldown : 0,
         slot: null,
       };
+      if (tower.type === 'eta') {
+        // Restore η lattice metadata before behavior defaults so orbital rings rebuild with the correct configuration.
+        const rawPrime = Number.isFinite(snapshot.etaPrime) ? snapshot.etaPrime : 0;
+        tower.etaPrime = Math.max(0, Math.min(rawPrime, ETA_MAX_PRESTIGE_MERGES));
+        tower.isPrestigeEta = snapshot.isPrestigeEta ? true : tower.etaPrime >= ETA_MAX_PRESTIGE_MERGES;
+      }
       if (snapshot.slotId && this.slots.has(snapshot.slotId)) {
         const slot = this.slots.get(snapshot.slotId);
         tower.slot = slot;
@@ -5869,6 +6486,9 @@ export class SimplePlayfield {
       if (tower.type === 'zeta') {
         this.drawZetaPendulums(tower);
       }
+      if (tower.type === 'eta') {
+        this.drawEtaOrbits(tower);
+      }
 
       ctx.save();
       const outerShadow = visuals.outerShadow;
@@ -5996,6 +6616,85 @@ export class SimplePlayfield {
       ctx.arc(pendulum.head.x, pendulum.head.y, pendulum.headRadius || 12, 0, Math.PI * 2);
       ctx.fill();
       this.clearCanvasShadow(ctx);
+    });
+
+    ctx.restore();
+  }
+
+  /**
+   * Render η orbital rings and trailing motes for the planetary lattice.
+   */
+  drawEtaOrbits(tower) {
+    if (!this.ctx || !tower?.etaState) {
+      return;
+    }
+    const state = tower.etaState;
+    const rings = Array.isArray(state.rings) ? state.rings : [];
+    if (!rings.length) {
+      return;
+    }
+
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const trailDuration = Number.isFinite(state.trailDuration) ? state.trailDuration : 0.9;
+    const maxTrailPoints = Number.isFinite(state.maxTrailPoints) ? state.maxTrailPoints : 72;
+
+    rings.forEach((ring) => {
+      if (!ring) {
+        return;
+      }
+      const [r, g, b] = Array.isArray(ring.rgb) ? ring.rgb : [139, 247, 255];
+      const radius = Number.isFinite(ring.radiusPixels) ? ring.radiusPixels : 0;
+      if (radius > 0) {
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.35)`;
+        ctx.lineWidth = Math.max(1, radius * 0.015);
+        ctx.arc(tower.x, tower.y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      const orbs = Array.isArray(ring.orbs) ? ring.orbs : [];
+      const trailLimit = Number.isFinite(ring.maxTrailPoints) ? ring.maxTrailPoints : maxTrailPoints;
+      const orbRadius = Number.isFinite(ring.orbRadius) ? ring.orbRadius : 8;
+
+      orbs.forEach((orb) => {
+        if (!orb || !orb.position) {
+          return;
+        }
+        const trail = Array.isArray(orb.trail) ? orb.trail : [];
+        const start = Math.max(1, trail.length - trailLimit);
+        for (let index = start; index < trail.length; index += 1) {
+          const point = trail[index];
+          const previous = trail[index - 1];
+          if (!point || !previous) {
+            continue;
+          }
+          const age = Number.isFinite(point.age) ? point.age : 0;
+          const alpha = trailDuration > 0 ? Math.max(0, 1 - age / trailDuration) : 0.5;
+          if (alpha <= 0) {
+            continue;
+          }
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.6})`;
+          ctx.lineWidth = Math.max(1.2, orbRadius * 0.5);
+          ctx.moveTo(previous.x, previous.y);
+          ctx.lineTo(point.x, point.y);
+          ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.92)`;
+        ctx.arc(orb.position.x, orb.position.y, orbRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(12, 16, 28, 0.6)';
+        ctx.arc(orb.position.x, orb.position.y, orbRadius * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      });
     });
 
     ctx.restore();
@@ -6168,6 +6867,35 @@ export class SimplePlayfield {
         ctx.beginPath();
         ctx.arc(position.x, position.y, radius, 0, Math.PI * 2);
         ctx.fill();
+        return;
+      }
+
+      if (projectile.patternType === 'etaLaser') {
+        const origin = projectile.origin;
+        if (!origin) {
+          return;
+        }
+        const angle = Number.isFinite(projectile.angle) ? projectile.angle : 0;
+        const length = Number.isFinite(projectile.length) ? projectile.length : 0;
+        if (length <= 0) {
+          return;
+        }
+        const width = Math.max(2, Number.isFinite(projectile.width) ? projectile.width : 8);
+        const alpha = Number.isFinite(projectile.alpha) ? Math.max(0, Math.min(1, projectile.alpha)) : 1;
+        ctx.save();
+        ctx.translate(origin.x, origin.y);
+        ctx.rotate(angle);
+        const gradient = ctx.createLinearGradient(0, 0, length, 0);
+        gradient.addColorStop(0, `rgba(255, 138, 216, ${alpha})`);
+        gradient.addColorStop(0.5, `rgba(138, 247, 255, ${alpha})`);
+        gradient.addColorStop(1, 'rgba(255, 226, 138, 0)');
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(length, 0);
+        ctx.stroke();
+        ctx.restore();
         return;
       }
 

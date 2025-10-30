@@ -11,7 +11,7 @@ export const ETA_TOWER = Object.freeze({
   rate: 1.1,
   range: 0.32,
   icon: 'assets/images/tower-eta.svg',
-  nextTierId: 'theta',
+  nextTierId: null,
 });
 
 export default ETA_TOWER;
