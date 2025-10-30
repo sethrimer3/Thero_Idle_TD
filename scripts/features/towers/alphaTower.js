@@ -7,6 +7,73 @@ const ALPHA_PARTICLE_COLORS = [
   { r: 138, g: 247, b: 255 },
 ];
 
+// Β tower tones lean into amber math light so shared particles still read uniquely.
+const BETA_PARTICLE_COLORS = [
+  { r: 255, g: 214, b: 112 },
+  { r: 118, g: 189, b: 255 },
+];
+
+// Γ tower particles glow with verdant energy to telegraph piercing precision.
+const GAMMA_PARTICLE_COLORS = [
+  { r: 176, g: 255, b: 193 },
+  { r: 120, g: 219, b: 255 },
+];
+
+// Configuration map keeps burst behavior, particle palettes, and timing tuned per tower.
+const TOWER_PARTICLE_CONFIGS = {
+  alpha: {
+    towerType: 'alpha',
+    stateKey: 'alphaState',
+    burstListKey: 'alphaBursts',
+    idPrefix: 'alpha',
+    colors: ALPHA_PARTICLE_COLORS,
+    behavior: 'swirlBounce',
+    particleCountRange: { min: 5, max: 10 },
+    dashDelayRange: 0.08,
+    timings: {
+      swirl: { base: 0.32, variance: 0.18 },
+      charge: { base: 0.1, variance: 0.08 },
+      dash: { base: 0.26, variance: 0.14 },
+    },
+  },
+  beta: {
+    towerType: 'beta',
+    stateKey: 'betaState',
+    burstListKey: 'betaBursts',
+    idPrefix: 'beta',
+    colors: BETA_PARTICLE_COLORS,
+    behavior: 'swirlBounce',
+    particleCountRange: { min: 5, max: 10 },
+    dashDelayRange: 0.06,
+    timings: {
+      swirl: { base: 0.28, variance: 0.16 },
+      charge: { base: 0.1, variance: 0.06 },
+      dash: { base: 0.22, variance: 0.12 },
+    },
+  },
+  gamma: {
+    towerType: 'gamma',
+    stateKey: 'gammaState',
+    burstListKey: 'gammaBursts',
+    idPrefix: 'gamma',
+    colors: GAMMA_PARTICLE_COLORS,
+    behavior: 'pierceLaser',
+    particleCountRange: { min: 5, max: 10 },
+    dashDelayRange: 0.02,
+    timings: {
+      swirl: { base: 0.26, variance: 0.12 },
+      charge: { base: 0.08, variance: 0.06 },
+      dash: { base: 0.2, variance: 0.1 },
+    },
+    laser: {
+      minExtension: 160,
+      maxExtension: 320,
+      speed: 760,
+      fadeDuration: 0.22,
+    },
+  },
+};
+
 // Ease helpers keep the spiral motion feeling fluid and controlled.
 const easeInCubic = (value) => value * value * value;
 const easeOutCubic = (value) => {
@@ -19,6 +86,23 @@ let burstIdCounter = 0;
 // Clamp helper keeps eased transitions within the unit interval.
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+// Random integer helper keeps particle count ranges declarative per tower.
+function randomInt(min, max) {
+  const safeMin = Number.isFinite(min) ? Math.floor(min) : 0;
+  const safeMax = Number.isFinite(max) ? Math.floor(max) : safeMin;
+  if (safeMax <= safeMin) {
+    return safeMin;
+  }
+  return safeMin + Math.floor(Math.random() * (safeMax - safeMin + 1));
+}
+
+// Timing helper samples burst phase durations from the configured ranges.
+function resolveTiming(range = {}) {
+  const base = Number.isFinite(range.base) ? range.base : 0;
+  const variance = Number.isFinite(range.variance) ? Math.max(0, range.variance) : 0;
+  return base + Math.random() * variance;
 }
 
 // Convert α tower radius from meters to pixels so particle envelopes track canvas scale.
@@ -38,11 +122,21 @@ function resolveTowerRadiusPixels(playfield, tower) {
 // Spawn soft energy motes along the tower circumference to seed the swirl animation.
 function createParticleCloud(playfield, tower, burst) {
   const baseRadius = resolveTowerRadiusPixels(playfield, tower);
-  const particleCount = Math.max(10, Math.floor(10 + Math.random() * 11));
+  const config = burst?.config || TOWER_PARTICLE_CONFIGS.alpha;
+  const range = config.particleCountRange || {};
+  const minCount = Number.isFinite(range.min) ? range.min : 5;
+  const maxCount = Number.isFinite(range.max) ? range.max : Math.max(minCount, 10);
+  const particleCount = Math.max(1, randomInt(minCount, maxCount));
   const particles = [];
   for (let index = 0; index < particleCount; index += 1) {
     const angle = Math.random() * Math.PI * 2;
-    const color = ALPHA_PARTICLE_COLORS[index % ALPHA_PARTICLE_COLORS.length];
+    const palette = Array.isArray(config.colors) && config.colors.length
+      ? config.colors
+      : ALPHA_PARTICLE_COLORS;
+    const color = palette[index % palette.length];
+    const dashDelayCap = Number.isFinite(config.dashDelayRange)
+      ? Math.max(0, config.dashDelayRange)
+      : 0.08;
     particles.push({
       angle,
       initialAngle: angle,
@@ -54,10 +148,12 @@ function createParticleCloud(playfield, tower, burst) {
       size: baseRadius * (0.18 + Math.random() * 0.08),
       opacity: 0,
       state: 'swirl',
-      dashDelay: Math.random() * 0.08,
+      dashDelay: Math.random() * dashDelayCap,
       bounceDuration: 0.32 + Math.random() * 0.18,
       fadeDuration: 0.18 + Math.random() * 0.12,
       color,
+      lineIndex: index,
+      totalParticles: particleCount,
       position: {
         x: burst.origin.x + Math.cos(angle) * baseRadius,
         y: burst.origin.y + Math.sin(angle) * baseRadius,
@@ -164,6 +260,35 @@ function enterBounceState(particle, targetPosition, pathAngle) {
   };
 }
 
+// Laser pierce state keeps Γ motes marching straight through their targets.
+function enterPierceState(particle, targetPosition, pathAngle, burst) {
+  const config = burst?.config || {};
+  const laser = config.laser || {};
+  const minExtension = Number.isFinite(laser.minExtension) ? laser.minExtension : 160;
+  const maxExtension = Number.isFinite(laser.maxExtension) ? laser.maxExtension : minExtension;
+  const extraDistance = Math.max(minExtension, randomInt(minExtension, maxExtension));
+  const speed = Number.isFinite(laser.speed) ? Math.max(0, laser.speed) : 720;
+  particle.state = speed > 0 ? 'pierce' : 'fade';
+  particle.position = { ...(targetPosition || particle.position || { x: 0, y: 0 }) };
+  particle.opacity = 1;
+  particle.renderSize = particle.size * 1.2;
+  particle.pierceTime = 0;
+  particle.pierceDistance = extraDistance;
+  particle.pierceSpeed = speed;
+  particle.pierceDirection = {
+    x: Math.cos(pathAngle),
+    y: Math.sin(pathAngle),
+  };
+  const fadeDuration = Number.isFinite(laser.fadeDuration) ? laser.fadeDuration : particle.fadeDuration;
+  particle.fadeDuration = Number.isFinite(fadeDuration) ? fadeDuration : 0.22;
+  if (speed <= 0) {
+    particle.state = 'fade';
+    particle.fadeTime = 0;
+  } else {
+    particle.pierceDuration = speed > 0 ? extraDistance / speed : 0;
+  }
+}
+
 // Advance ricocheting motes while damping their velocity for a soft dissipation.
 function updateBounceParticle(particle, delta) {
   particle.bounceTime += delta;
@@ -195,9 +320,30 @@ function updateFadeParticle(particle, delta) {
   }
 }
 
+// Maintain Γ laser motes so their line continues beyond the enemy hitbox.
+function updatePierceParticle(particle, delta) {
+  particle.pierceTime = (particle.pierceTime || 0) + delta;
+  const duration = particle.pierceDuration || 0;
+  const speed = Number.isFinite(particle.pierceSpeed) ? particle.pierceSpeed : 0;
+  const direction = particle.pierceDirection || { x: 1, y: 0 };
+  if (speed > 0) {
+    particle.position.x += direction.x * speed * delta;
+    particle.position.y += direction.y * speed * delta;
+  }
+  const progress = duration > 0 ? clamp(particle.pierceTime / duration, 0, 1) : 1;
+  particle.opacity = clamp(0.9 - progress * 0.5, 0, 1);
+  particle.renderSize = particle.size * (1.25 - progress * 0.25);
+  if (progress >= 1 || particle.opacity <= 0) {
+    particle.state = 'fade';
+    particle.fadeTime = 0;
+  }
+}
+
 // Guide particles from the tower core toward the target and hand off to bounce/fade states.
 function updateDashPhase(playfield, burst, delta) {
-  const { position: targetPosition, alive } = resolveTarget(playfield, burst);
+  const { position: resolvedTarget, alive } = resolveTarget(playfield, burst);
+  const targetPosition = resolvedTarget || burst.fallbackTarget || burst.origin || { x: 0, y: 0 };
+  const behavior = burst?.config?.behavior || 'swirlBounce';
   let unfinished = false;
   burst.particles.forEach((particle) => {
     if (particle.state === 'dash') {
@@ -208,13 +354,31 @@ function updateDashPhase(playfield, burst, delta) {
         unfinished = true;
         return;
       }
-      const eased = easeInCubic(progress);
-      const start = particle.start || burst.origin;
-      const baseX = start.x + (targetPosition.x - start.x) * eased;
-      const baseY = start.y + (targetPosition.y - start.y) * eased;
+      const start = particle.start || burst.origin || targetPosition;
       const dx = targetPosition.x - start.x;
       const dy = targetPosition.y - start.y;
       const pathAngle = Math.atan2(dy, dx);
+      if (behavior === 'pierceLaser') {
+        const distance = Math.hypot(dx, dy);
+        const eased = easeInCubic(progress);
+        const directionX = distance > 0 ? dx / distance : Math.cos(pathAngle);
+        const directionY = distance > 0 ? dy / distance : Math.sin(pathAngle);
+        const travel = distance * eased;
+        particle.position = {
+          x: start.x + directionX * travel,
+          y: start.y + directionY * travel,
+        };
+        particle.opacity = 1;
+        particle.renderSize = particle.size * (1 + eased * 0.6);
+        if (progress >= 1) {
+          enterPierceState(particle, targetPosition, pathAngle, burst);
+        }
+        unfinished = true;
+        return;
+      }
+      const eased = easeInCubic(progress);
+      const baseX = start.x + dx * eased;
+      const baseY = start.y + dy * eased;
       const spin = Math.sin((progress + particle.swirlSeed) * Math.PI * 2) * particle.size * 0.9;
       const offsetAngle = pathAngle + Math.PI / 2;
       const offsetMagnitude = (1 - eased) * particle.size * 2.2 + spin;
@@ -231,6 +395,13 @@ function updateDashPhase(playfield, burst, delta) {
           enterFadeState(particle, targetPosition);
         }
       } else {
+        unfinished = true;
+      }
+      return;
+    }
+    if (particle.state === 'pierce') {
+      updatePierceParticle(particle, delta);
+      if (particle.state !== 'done') {
         unfinished = true;
       }
       return;
@@ -318,38 +489,41 @@ function drawParticle(ctx, particle) {
   ctx.fill();
 }
 
-export function ensureAlphaState(playfield, tower) {
-  if (!playfield || !tower || tower.type !== 'alpha') {
+// Ensure the correct burst container is ready for the requesting tower type.
+function ensureTowerBurstState(playfield, tower, config) {
+  if (!playfield || !tower || !config || tower.type !== config.towerType) {
     return null;
   }
-  const state = tower.alphaState || {};
+  const state = tower[config.stateKey] || {};
   state.radiusPixels = resolveTowerRadiusPixels(playfield, tower);
-  tower.alphaState = state;
-  if (!Array.isArray(playfield.alphaBursts)) {
-    playfield.alphaBursts = [];
+  tower[config.stateKey] = state;
+  if (!Array.isArray(playfield[config.burstListKey])) {
+    playfield[config.burstListKey] = [];
   }
   return state;
 }
 
-export function teardownAlphaTower(playfield, tower) {
-  if (tower) {
-    tower.alphaState = null;
+// Shared teardown clears cached state and removes lingering bursts for any tower.
+function teardownTowerBurst(playfield, tower, config) {
+  if (tower && config?.stateKey) {
+    tower[config.stateKey] = null;
   }
-  if (!playfield) {
+  if (!playfield || !config?.burstListKey) {
     return;
   }
-  if (Array.isArray(playfield.alphaBursts)) {
-    playfield.alphaBursts = playfield.alphaBursts.filter(
+  if (Array.isArray(playfield[config.burstListKey])) {
+    playfield[config.burstListKey] = playfield[config.burstListKey].filter(
       (burst) => burst && burst.towerId !== tower?.id,
     );
   }
 }
 
-export function spawnAlphaAttackBurst(playfield, tower, targetInfo = {}, options = {}) {
-  if (!playfield || !tower || tower.type !== 'alpha') {
+// Spawn helper wires tower-specific configs into the shared particle system.
+function spawnTowerAttackBurst(playfield, tower, targetInfo = {}, options = {}, config) {
+  if (!playfield || !tower || !config || tower.type !== config.towerType) {
     return null;
   }
-  ensureAlphaState(playfield, tower);
+  ensureTowerBurstState(playfield, tower, config);
   const enemy = targetInfo.enemy || null;
   const enemyId = enemy ? enemy.id : options.enemyId || null;
   const targetPosition = targetInfo.position
@@ -358,32 +532,40 @@ export function spawnAlphaAttackBurst(playfield, tower, targetInfo = {}, options
     ? playfield.getEnemyPosition(enemy)
     : { x: tower.x, y: tower.y };
   const burst = {
-    id: `alpha-burst-${(burstIdCounter += 1)}`,
+    id: `${config.idPrefix || config.towerType || 'burst'}-${(burstIdCounter += 1)}`,
     towerId: tower.id,
     targetId: enemyId,
     fallbackTarget: targetPosition,
     origin: { x: tower.x, y: tower.y },
-    swirlDuration: 0.32 + Math.random() * 0.18,
-    chargeDuration: 0.1 + Math.random() * 0.08,
-    dashDuration: 0.26 + Math.random() * 0.14,
+    swirlDuration: resolveTiming(config.timings?.swirl),
+    chargeDuration: resolveTiming(config.timings?.charge),
+    dashDuration: resolveTiming(config.timings?.dash),
     lifetime: 0,
     phase: 'swirl',
     phaseTime: 0,
+    config,
   };
   burst.particles = createParticleCloud(playfield, tower, burst);
-  if (!Array.isArray(playfield.alphaBursts)) {
-    playfield.alphaBursts = [];
+  if (!Array.isArray(playfield[config.burstListKey])) {
+    playfield[config.burstListKey] = [];
   }
-  playfield.alphaBursts.push(burst);
+  playfield[config.burstListKey].push(burst);
   return burst;
 }
 
-export function updateAlphaBursts(playfield, delta) {
-  if (!playfield || !Array.isArray(playfield.alphaBursts) || !Number.isFinite(delta) || delta <= 0) {
+// Update helper advances burst lifecycles while pruning finished motes.
+function updateTowerBursts(playfield, delta, config) {
+  if (
+    !playfield ||
+    !config?.burstListKey ||
+    !Array.isArray(playfield[config.burstListKey]) ||
+    !Number.isFinite(delta) ||
+    delta <= 0
+  ) {
     return;
   }
   const survivors = [];
-  playfield.alphaBursts.forEach((burst) => {
+  playfield[config.burstListKey].forEach((burst) => {
     if (!burst) {
       return;
     }
@@ -392,21 +574,82 @@ export function updateAlphaBursts(playfield, delta) {
       survivors.push(burst);
     }
   });
-  playfield.alphaBursts = survivors;
+  playfield[config.burstListKey] = survivors;
 }
 
-export function drawAlphaBursts(playfield) {
+// Drawing helper keeps additive blending consistent between the tower families.
+function drawTowerBursts(playfield, config) {
   const ctx = playfield?.ctx;
-  if (!ctx || !Array.isArray(playfield.alphaBursts) || !playfield.alphaBursts.length) {
+  if (!ctx || !config?.burstListKey || !Array.isArray(playfield[config.burstListKey]) || !playfield[config.burstListKey].length) {
     return;
   }
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  playfield.alphaBursts.forEach((burst) => {
+  playfield[config.burstListKey].forEach((burst) => {
     if (!burst || !Array.isArray(burst.particles)) {
       return;
     }
     burst.particles.forEach((particle) => drawParticle(ctx, particle));
   });
   ctx.restore();
+}
+
+export function ensureAlphaState(playfield, tower) {
+  return ensureTowerBurstState(playfield, tower, TOWER_PARTICLE_CONFIGS.alpha);
+}
+
+export function ensureBetaState(playfield, tower) {
+  return ensureTowerBurstState(playfield, tower, TOWER_PARTICLE_CONFIGS.beta);
+}
+
+export function ensureGammaState(playfield, tower) {
+  return ensureTowerBurstState(playfield, tower, TOWER_PARTICLE_CONFIGS.gamma);
+}
+
+export function teardownAlphaTower(playfield, tower) {
+  teardownTowerBurst(playfield, tower, TOWER_PARTICLE_CONFIGS.alpha);
+}
+
+export function teardownBetaTower(playfield, tower) {
+  teardownTowerBurst(playfield, tower, TOWER_PARTICLE_CONFIGS.beta);
+}
+
+export function teardownGammaTower(playfield, tower) {
+  teardownTowerBurst(playfield, tower, TOWER_PARTICLE_CONFIGS.gamma);
+}
+
+export function spawnAlphaAttackBurst(playfield, tower, targetInfo = {}, options = {}) {
+  return spawnTowerAttackBurst(playfield, tower, targetInfo, options, TOWER_PARTICLE_CONFIGS.alpha);
+}
+
+export function spawnBetaAttackBurst(playfield, tower, targetInfo = {}, options = {}) {
+  return spawnTowerAttackBurst(playfield, tower, targetInfo, options, TOWER_PARTICLE_CONFIGS.beta);
+}
+
+export function spawnGammaAttackBurst(playfield, tower, targetInfo = {}, options = {}) {
+  return spawnTowerAttackBurst(playfield, tower, targetInfo, options, TOWER_PARTICLE_CONFIGS.gamma);
+}
+
+export function updateAlphaBursts(playfield, delta) {
+  updateTowerBursts(playfield, delta, TOWER_PARTICLE_CONFIGS.alpha);
+}
+
+export function updateBetaBursts(playfield, delta) {
+  updateTowerBursts(playfield, delta, TOWER_PARTICLE_CONFIGS.beta);
+}
+
+export function updateGammaBursts(playfield, delta) {
+  updateTowerBursts(playfield, delta, TOWER_PARTICLE_CONFIGS.gamma);
+}
+
+export function drawAlphaBursts(playfield) {
+  drawTowerBursts(playfield, TOWER_PARTICLE_CONFIGS.alpha);
+}
+
+export function drawBetaBursts(playfield) {
+  drawTowerBursts(playfield, TOWER_PARTICLE_CONFIGS.beta);
+}
+
+export function drawGammaBursts(playfield) {
+  drawTowerBursts(playfield, TOWER_PARTICLE_CONFIGS.gamma);
 }
