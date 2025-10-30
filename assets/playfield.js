@@ -14,10 +14,6 @@ import {
   getTowerEquationBlueprint,
   getTowerLoadoutState,
   openTowerUpgradeOverlay,
-  buildTowerDynamicContext,
-  withTowerDynamicContext,
-  computeTowerVariableValue,
-  calculateTowerEquationResult,
 } from './towersTab.js';
 import {
   moteGemState,
@@ -42,6 +38,24 @@ import {
 import { colorToRgbaString, resolvePaletteColorStops } from '../scripts/features/towers/powderTower.js';
 import { notifyTowerPlaced } from './achievementsTab.js';
 import { metersToPixels } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
+import {
+  evaluateZetaMetrics as evaluateZetaMetricsHelper,
+  teardownZetaTower as teardownZetaTowerHelper,
+  ensureZetaState as ensureZetaStateHelper,
+  updateZetaTower as updateZetaTowerHelper,
+  applyZetaDamage as applyZetaDamageHelper,
+  drawZetaPendulums as drawZetaPendulumsHelper,
+} from '../scripts/features/towers/zetaTower.js';
+import {
+  teardownEtaTower as teardownEtaTowerHelper,
+  ensureEtaState as ensureEtaStateHelper,
+  mergeEtaTower as mergeEtaTowerHelper,
+  updateEtaTower as updateEtaTowerHelper,
+  fireEtaLaser as fireEtaLaserHelper,
+  applyEtaDamage as applyEtaDamageHelper,
+  drawEtaOrbits as drawEtaOrbitsHelper,
+  ETA_MAX_PRESTIGE_MERGES,
+} from '../scripts/features/towers/etaTower.js';
 
 // Minimum pointer distance before the playfield interprets input as a camera drag.
 const PLAYFIELD_VIEW_DRAG_THRESHOLD = 6;
@@ -68,21 +82,6 @@ const mindGateSprite = new Image();
 mindGateSprite.src = MIND_GATE_SPRITE_URL;
 mindGateSprite.decoding = 'async';
 mindGateSprite.loading = 'eager';
-
-// RGB palettes for η orbital trails so each ring keeps a distinct hue.
-const ETA_RING_RGB = [
-  [255, 138, 216],
-  [138, 230, 255],
-  [255, 226, 138],
-  [157, 255, 181],
-  [208, 162, 255],
-];
-// Alignment tolerance of three degrees expressed in radians for η ring checks.
-const ETA_ALIGNMENT_THRESHOLD_RADIANS = (3 * Math.PI) / 180;
-// Number of merges required before η ascends into its prestige form Η.
-const ETA_MAX_PRESTIGE_MERGES = 5;
-// Fixed prestige rotation rates (rotations per second) for each η ring.
-const ETA_PRESTIGE_RING_SPEEDS = [0.1, 0.2, 0.4, 0.8, 1.6];
 
 let playfieldDependencies = { ...defaultDependencies };
 
@@ -2315,380 +2314,42 @@ export class SimplePlayfield {
    * upgrade overlay without duplicating the underlying formulas.
    */
   evaluateZetaMetrics(tower) {
-    if (!tower || tower.type !== 'zeta') {
-      return null;
-    }
-
-    const contextEntries = [];
-    this.towers.forEach((entry) => {
-      if (!entry) {
-        return;
-      }
-      contextEntries.push({
-        id: entry.id,
-        type: entry.type,
-        x: entry.x,
-        y: entry.y,
-        range: Number.isFinite(entry.range) ? entry.range : 0,
-      });
-    });
-
-    if (!contextEntries.some((entry) => entry.id === tower.id)) {
-      contextEntries.push({
-        id: tower.id,
-        type: tower.type,
-        x: tower.x,
-        y: tower.y,
-        range: Number.isFinite(tower.range) ? tower.range : 0,
-      });
-    }
-
-    const context = buildTowerDynamicContext({
-      contextTowerId: tower.id,
-      contextTower: contextEntries.find((entry) => entry.id === tower.id) || null,
-      contextTowers: contextEntries,
-    });
-
-    return withTowerDynamicContext(context, () => ({
-      attack: computeTowerVariableValue('zeta', 'atk'),
-      critical: computeTowerVariableValue('zeta', 'crt'),
-      speed: computeTowerVariableValue('zeta', 'spd'),
-      range: computeTowerVariableValue('zeta', 'rng'),
-      total: computeTowerVariableValue('zeta', 'tot'),
-    }));
+    return evaluateZetaMetricsHelper(this, tower);
   }
 
   /**
    * Clear cached ζ pendulum data when the tower is removed or retuned.
    */
   teardownZetaTower(tower) {
-    if (!tower || !tower.zetaState) {
-      return;
-    }
-    if (Array.isArray(tower.zetaState.pendulums)) {
-      tower.zetaState.pendulums.forEach((pendulum) => {
-        if (pendulum?.trail) {
-          pendulum.trail.length = 0;
-        }
-      });
-    }
-    tower.zetaState = null;
+    teardownZetaTowerHelper(this, tower);
   }
 
   /**
    * Ensure ζ towers maintain their double-pendulum state and derived stats.
    */
   ensureZetaState(tower) {
-    if (!tower || tower.type !== 'zeta') {
-      return null;
-    }
-
-    const metrics = this.evaluateZetaMetrics(tower);
-    if (!metrics) {
-      return null;
-    }
-
-    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
-    const attackValue = Number.isFinite(metrics.attack) ? Math.max(0, metrics.attack) : 0;
-    const criticalMultiplier = Math.max(1, Number.isFinite(metrics.critical) ? metrics.critical : 1);
-    const baseDamage = criticalMultiplier > 0 ? attackValue / criticalMultiplier : attackValue;
-    const speedValue = Math.max(0.05, Number.isFinite(metrics.speed) ? metrics.speed : 0.25);
-    const rangeScalar = Math.max(1.5, Number.isFinite(metrics.range) ? metrics.range : 1.5);
-    const totalPendulums = Math.max(1, Math.round(Number.isFinite(metrics.total) ? metrics.total : 1));
-    const baseRangeFraction = Number.isFinite(tower.definition?.range)
-      ? tower.definition.range
-      : 0.3;
-    const normalizedRangeFraction = baseRangeFraction * (rangeScalar / 1.5);
-    const effectiveRangeFraction = Math.max(0.05, normalizedRangeFraction);
-    const detectionRadius = effectiveRangeFraction * minDimension;
-
-    tower.damage = baseDamage;
-    tower.baseDamage = baseDamage;
-    tower.rate = speedValue;
-    tower.baseRate = speedValue;
-    tower.range = detectionRadius;
-    tower.baseRange = detectionRadius;
-
-    let state = tower.zetaState;
-    if (!state) {
-      state = { pendulums: [], elapsed: 0 };
-      tower.zetaState = state;
-    }
-
-    state.attack = attackValue;
-    state.baseDamage = baseDamage;
-    state.criticalMultiplier = criticalMultiplier;
-    state.criticalDamage = baseDamage * criticalMultiplier;
-    state.speed = speedValue;
-    state.rangeFraction = effectiveRangeFraction;
-    state.total = totalPendulums;
-    state.directCooldown = 0.28;
-    state.trailCooldown = 0.34;
-    state.trailDuration = 0.75;
-
-    const baseLength = Math.max(18, detectionRadius);
-    const pendulums = state.pendulums;
-    if (pendulums.length > totalPendulums) {
-      pendulums.length = totalPendulums;
-    }
-
-    for (let index = 0; index < totalPendulums; index += 1) {
-      const length = baseLength * 0.5 ** index;
-      const headRadius = Math.max(10, length * 0.16);
-      const trailWidth = Math.max(6, headRadius * 0.65);
-      let pendulum = pendulums[index];
-      if (!pendulum) {
-        const baseAngle = -Math.PI / 2 + (Math.PI / Math.max(1, totalPendulums)) * index;
-        pendulum = {
-          angle: baseAngle,
-          angularVelocity: 0,
-          head: { x: tower.x, y: tower.y },
-          trail: [],
-          hitMap: new Map(),
-        };
-        pendulums[index] = pendulum;
-      }
-      if (!(pendulum.hitMap instanceof Map)) {
-        pendulum.hitMap = new Map();
-      }
-      if (!Array.isArray(pendulum.trail)) {
-        pendulum.trail = [];
-      }
-      const direction = index % 2 === 0 ? 1 : -1;
-      pendulum.length = Math.max(14, length);
-      pendulum.headRadius = headRadius;
-      pendulum.trailWidth = trailWidth;
-      pendulum.angularVelocity = speedValue * Math.PI * 2 * (index + 1) * direction;
-    }
-
-    let pivot = { x: tower.x, y: tower.y };
-    for (let index = 0; index < pendulums.length; index += 1) {
-      const pendulum = pendulums[index];
-      if (!Number.isFinite(pendulum.angle)) {
-        pendulum.angle = -Math.PI / 2 + (Math.PI / Math.max(1, totalPendulums)) * index;
-      }
-      const headX = pivot.x + Math.cos(pendulum.angle) * pendulum.length;
-      const headY = pivot.y + Math.sin(pendulum.angle) * pendulum.length;
-      pendulum.head = { x: headX, y: headY };
-      if (!pendulum.trail.length) {
-        pendulum.trail.push({ x: headX, y: headY, age: 0 });
-      }
-      pivot = pendulum.head;
-    }
-
-    return state;
+    return ensureZetaStateHelper(this, tower);
   }
 
   /**
    * Clear cached η orbital data when the tower is removed or retuned.
    */
   teardownEtaTower(tower) {
-    if (!tower || !tower.etaState) {
-      return;
-    }
-    const rings = Array.isArray(tower.etaState.rings) ? tower.etaState.rings : [];
-    rings.forEach((ring) => {
-      if (!ring || !Array.isArray(ring.orbs)) {
-        return;
-      }
-      ring.orbs.forEach((orb) => {
-        if (orb && Array.isArray(orb.trail)) {
-          orb.trail.length = 0;
-        }
-      });
-    });
-    tower.etaState = null;
+    teardownEtaTowerHelper(this, tower);
   }
 
   /**
    * Ensure η towers maintain their orbital ring state and derived stats.
    */
   ensureEtaState(tower, options = {}) {
-    if (!tower || tower.type !== 'eta') {
-      return null;
-    }
-
-    const { forceResync = false } = options;
-    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
-
-    const aleph1 = Math.max(1, computeTowerVariableValue('eta', 'aleph1'));
-    const aleph2 = Math.max(1, computeTowerVariableValue('eta', 'aleph2'));
-    const aleph3 = Math.max(1, computeTowerVariableValue('eta', 'aleph3'));
-    const aleph4 = Math.max(1, computeTowerVariableValue('eta', 'aleph4'));
-    const aleph5 = Math.max(1, computeTowerVariableValue('eta', 'aleph5'));
-    const aleph6Raw = Math.max(1, computeTowerVariableValue('eta', 'aleph6'));
-    const aleph6 = Math.min(5, aleph6Raw);
-
-    const gammaValue = Math.max(0, calculateTowerEquationResult('gamma'));
-    const baseAttackFactor = Math.max(0, gammaValue * aleph1);
-    const denominator = Math.max(0.0001, aleph2 * aleph3 * aleph4 * aleph5);
-
-    const isPrestige = Boolean(tower.isPrestigeEta);
-    const prime = Number.isFinite(tower.etaPrime) ? Math.max(0, tower.etaPrime) : 0;
-    const totalRings = isPrestige ? 5 : Math.min(5, 2 + prime);
-    const rangeMeters = 5 + aleph6;
-    const rangePixels = metersToPixels(rangeMeters, minDimension);
-
-    tower.range = rangePixels;
-    tower.baseRange = rangePixels;
-    tower.damage = 0;
-    tower.baseDamage = 0;
-    tower.rate = 1;
-    tower.baseRate = 1;
-    tower.symbol = isPrestige ? 'Η' : tower.definition?.symbol || 'η';
-
-    let state = tower.etaState;
-    if (!state) {
-      state = {
-        rings: [],
-        alignmentStatus: new Map(),
-        elapsed: 0,
-      };
-      tower.etaState = state;
-    }
-
-    const configurationSignature = [
-      isPrestige ? 'prestige' : 'standard',
-      `prime:${prime}`,
-      `rings:${totalRings}`,
-      `a1:${aleph1.toFixed(4)}`,
-      `a2:${aleph2.toFixed(4)}`,
-      `a3:${aleph3.toFixed(4)}`,
-      `a4:${aleph4.toFixed(4)}`,
-      `a5:${aleph5.toFixed(4)}`,
-      `a6:${aleph6.toFixed(4)}`,
-    ].join('|');
-
-    const baseSpeeds = [
-      1 / denominator,
-      (1 + aleph2) / denominator,
-      (1 + 2 * aleph3) / denominator,
-      (2 + 3 * aleph4) / denominator,
-      (1 + 2 ** aleph5) / denominator,
-    ];
-
-    if (forceResync || state.configurationSignature !== configurationSignature) {
-      const rings = [];
-      for (let index = 0; index < totalRings; index += 1) {
-        const ringNumber = index + 1;
-        const stepsFromInner = totalRings - ringNumber;
-        const radiusMeters = 1 + 0.5 * stepsFromInner;
-        const radiusPixels = metersToPixels(radiusMeters, minDimension);
-        const baseSpeed = isPrestige
-          ? ETA_PRESTIGE_RING_SPEEDS[index] ?? ETA_PRESTIGE_RING_SPEEDS[ETA_PRESTIGE_RING_SPEEDS.length - 1]
-          : baseSpeeds[index] ?? baseSpeeds[baseSpeeds.length - 1];
-        const safeSpeed = Number.isFinite(baseSpeed) ? Math.max(0, baseSpeed) : 0;
-        const angularVelocity = safeSpeed * Math.PI * 2;
-        const rgb = ETA_RING_RGB[index % ETA_RING_RGB.length];
-        const orbCount = isPrestige
-          ? 2
-          : Math.max(1, Math.round((ringNumber * (ringNumber - 1)) / 2 + 1));
-        const orbs = [];
-        for (let orbIndex = 0; orbIndex < orbCount; orbIndex += 1) {
-          const angle = (Math.PI * 2 * orbIndex) / orbCount;
-          const position = {
-            x: tower.x + Math.cos(angle) * radiusPixels,
-            y: tower.y + Math.sin(angle) * radiusPixels,
-          };
-          orbs.push({
-            id: `${ringNumber}-${orbIndex}`,
-            index: orbIndex,
-            angle,
-            position,
-            trail: [{ ...position, age: 0 }],
-          });
-        }
-        const orbRadius = Math.max(6, Math.min(18, radiusPixels * 0.08));
-        rings.push({
-          ringNumber,
-          radiusMeters,
-          radiusPixels,
-          speedRps: safeSpeed,
-          angularVelocity,
-          rgb,
-          orbs,
-          orbRadius,
-          maxTrailPoints: 72,
-        });
-      }
-      state.rings = rings;
-      state.alignmentStatus = new Map();
-      state.elapsed = 0;
-    }
-
-    state.rings.forEach((ring, index) => {
-      if (!ring) {
-        return;
-      }
-      const stepsFromInner = totalRings - ring.ringNumber;
-      const radiusMeters = 1 + 0.5 * stepsFromInner;
-      const radiusPixels = metersToPixels(radiusMeters, minDimension);
-      const baseSpeed = isPrestige
-        ? ETA_PRESTIGE_RING_SPEEDS[index] ?? ETA_PRESTIGE_RING_SPEEDS[ETA_PRESTIGE_RING_SPEEDS.length - 1]
-        : baseSpeeds[index] ?? baseSpeeds[baseSpeeds.length - 1];
-      const safeSpeed = Number.isFinite(baseSpeed) ? Math.max(0, baseSpeed) : 0;
-      ring.radiusMeters = radiusMeters;
-      ring.radiusPixels = radiusPixels;
-      ring.speedRps = safeSpeed;
-      ring.angularVelocity = safeSpeed * Math.PI * 2;
-      ring.rgb = ETA_RING_RGB[index % ETA_RING_RGB.length];
-      ring.orbRadius = Math.max(6, Math.min(18, radiusPixels * 0.08));
-      ring.maxTrailPoints = Number.isFinite(ring.maxTrailPoints) ? ring.maxTrailPoints : 72;
-    });
-
-    state.configurationSignature = configurationSignature;
-    state.baseAttackFactor = baseAttackFactor;
-    state.rangePixels = rangePixels;
-    state.rangeMeters = rangeMeters;
-    state.denominator = denominator;
-    state.totalRings = totalRings;
-    state.isPrestige = isPrestige;
-    state.trailDuration = isPrestige ? 1.1 : 0.9;
-    state.angleThreshold = ETA_ALIGNMENT_THRESHOLD_RADIANS;
-    state.laserWidthBase = Math.max(6, rangePixels * 0.02);
-    state.alephValues = { aleph1, aleph2, aleph3, aleph4, aleph5, aleph6 };
-    state.maxTrailPoints = Number.isFinite(state.maxTrailPoints) ? state.maxTrailPoints : 72;
-
-    return state;
+    return ensureEtaStateHelper(this, tower, options);
   }
 
   /**
    * Merge η towers to unfold rings and handle prestige transitions.
    */
   mergeEtaTower(tower, { silent = false } = {}) {
-    if (!tower || tower.type !== 'eta') {
-      return false;
-    }
-
-    const nextPrime = (Number.isFinite(tower.etaPrime) ? tower.etaPrime : 0) + 1;
-    const prestigeActivated = nextPrime >= ETA_MAX_PRESTIGE_MERGES;
-    tower.etaPrime = Math.min(nextPrime, ETA_MAX_PRESTIGE_MERGES);
-    if (prestigeActivated) {
-      tower.isPrestigeEta = true;
-    }
-
-    this.teardownEtaTower(tower);
-    this.ensureEtaState(tower, { forceResync: true });
-    tower.cooldown = 0;
-
-    const totalRings = tower.etaState?.totalRings || Math.min(5, 2 + tower.etaPrime);
-    if (this.messageEl && !silent) {
-      if (tower.isPrestigeEta) {
-        this.messageEl.textContent = 'η lattice ascended into Η—five rings ignite in harmony.';
-      } else {
-        this.messageEl.textContent = `η resonance deepens—${totalRings} orbital rings align.`;
-      }
-    }
-
-    this.spawnTowerEquationScribble(tower, { towerType: 'eta', silent });
-    this.updateHud();
-    this.draw();
-    refreshTowerLoadoutDisplay();
-    this.dependencies.updateStatusDisplays();
-    if (this.audio && !silent) {
-      this.audio.playSfx('towerMerge');
-    }
-    return true;
+    return mergeEtaTowerHelper(this, tower, { silent });
   }
 
   applyTowerBehaviorDefaults(tower) {
@@ -4150,428 +3811,35 @@ export class SimplePlayfield {
    * Advance ζ pendulum physics, maintain trail history, and apply collision damage.
    */
   updateZetaTower(tower, delta) {
-    const state = this.ensureZetaState(tower);
-    if (!state) {
-      return;
-    }
-
-    const step = Math.max(0, Number.isFinite(delta) ? delta : 0);
-    state.elapsed = Number.isFinite(state.elapsed) ? state.elapsed + step : step;
-
-    const pendulums = Array.isArray(state.pendulums) ? state.pendulums : [];
-    let pivot = { x: tower.x, y: tower.y };
-    const maxTrailPoints = 48;
-
-    pendulums.forEach((pendulum) => {
-      if (!pendulum) {
-        return;
-      }
-      const angularVelocity = Number.isFinite(pendulum.angularVelocity)
-        ? pendulum.angularVelocity
-        : 0;
-      const angle = Number.isFinite(pendulum.angle) ? pendulum.angle : -Math.PI / 2;
-      pendulum.angle = angle + angularVelocity * step;
-      const length = Math.max(14, Number.isFinite(pendulum.length) ? pendulum.length : 14);
-      const headX = pivot.x + Math.cos(pendulum.angle) * length;
-      const headY = pivot.y + Math.sin(pendulum.angle) * length;
-      pendulum.length = length;
-      pendulum.head = { x: headX, y: headY };
-
-      const trail = Array.isArray(pendulum.trail) ? pendulum.trail : [];
-      pendulum.trail = trail;
-      trail.push({ x: headX, y: headY, age: 0 });
-      for (let index = trail.length - 1; index >= 0; index -= 1) {
-        const point = trail[index];
-        if (!point) {
-          trail.splice(index, 1);
-          continue;
-        }
-        point.age = (Number.isFinite(point.age) ? point.age : 0) + step;
-        const expired = point.age > (state.trailDuration || 0.75);
-        const overflow = index < trail.length - maxTrailPoints;
-        if (expired || overflow) {
-          trail.splice(index, 1);
-        }
-      }
-
-      pivot = pendulum.head;
-    });
-
-    if (!this.combatActive || !this.enemies.length || state.baseDamage <= 0) {
-      return;
-    }
-
-    const enemyInfo = this.enemies.map((enemy) => ({ enemy, position: this.getEnemyPosition(enemy) }));
-    const activeEnemyIds = new Set(enemyInfo.map(({ enemy }) => enemy.id));
-    const directCooldown = Number.isFinite(state.directCooldown) ? state.directCooldown : 0.28;
-    const trailCooldown = Number.isFinite(state.trailCooldown) ? state.trailCooldown : 0.34;
-
-    pendulums.forEach((pendulum) => {
-      if (!pendulum || !pendulum.head) {
-        return;
-      }
-      const hitMap = pendulum.hitMap instanceof Map ? pendulum.hitMap : new Map();
-      if (pendulum.hitMap !== hitMap) {
-        pendulum.hitMap = hitMap;
-      }
-
-      hitMap.forEach((_, enemyId) => {
-        if (!activeEnemyIds.has(enemyId)) {
-          hitMap.delete(enemyId);
-        }
-      });
-
-      const headRadius = Math.max(6, Number.isFinite(pendulum.headRadius) ? pendulum.headRadius : 10);
-      const trail = Array.isArray(pendulum.trail) ? pendulum.trail : [];
-      const trailWidth = Math.max(4, Number.isFinite(pendulum.trailWidth) ? pendulum.trailWidth : headRadius * 0.6);
-
-      enemyInfo.forEach(({ enemy, position }) => {
-        if (!enemy || enemy.hp <= 0 || !position) {
-          return;
-        }
-        const entry = hitMap.get(enemy.id) || { nextDirect: 0, nextTrail: 0 };
-        let directApplied = false;
-
-        const distanceToHead = Math.hypot(position.x - pendulum.head.x, position.y - pendulum.head.y);
-        if (distanceToHead <= headRadius && state.elapsed >= entry.nextDirect) {
-          this.applyZetaDamage(enemy, state.criticalDamage);
-          entry.nextDirect = state.elapsed + directCooldown;
-          entry.nextTrail = Math.max(entry.nextTrail, state.elapsed + trailCooldown * 0.5);
-          hitMap.set(enemy.id, entry);
-          directApplied = true;
-        }
-
-        if (directApplied || state.elapsed < entry.nextTrail) {
-          hitMap.set(enemy.id, entry);
-          return;
-        }
-
-        let nearTrail = false;
-        for (let index = trail.length - 1, segments = 0; index > 0 && segments < 32; index -= 1, segments += 1) {
-          const point = trail[index];
-          const previous = trail[index - 1];
-          if (!point || !previous) {
-            continue;
-          }
-          const distance = this.distancePointToSegment(position, previous, point);
-          if (distance <= trailWidth) {
-            nearTrail = true;
-            break;
-          }
-        }
-
-        if (nearTrail) {
-          this.applyZetaDamage(enemy, state.baseDamage);
-          entry.nextTrail = state.elapsed + trailCooldown;
-        }
-        hitMap.set(enemy.id, entry);
-      });
-    });
+    updateZetaTowerHelper(this, tower, delta);
   }
 
   /**
    * Advance η orbital motion, maintain trails, and trigger alignment lasers.
    */
   updateEtaTower(tower, delta) {
-    const state = this.ensureEtaState(tower);
-    if (!state) {
-      return;
-    }
-
-    const step = Math.max(0, Number.isFinite(delta) ? delta : 0);
-    state.elapsed = Number.isFinite(state.elapsed) ? state.elapsed + step : step;
-
-    const rings = Array.isArray(state.rings) ? state.rings : [];
-    const maxTrailPoints = Number.isFinite(state.maxTrailPoints) ? state.maxTrailPoints : 72;
-
-    rings.forEach((ring) => {
-      if (!ring) {
-        return;
-      }
-      const orbs = Array.isArray(ring.orbs) ? ring.orbs : [];
-      const radius = Number.isFinite(ring.radiusPixels) ? ring.radiusPixels : 0;
-      const angularVelocity = Number.isFinite(ring.angularVelocity) ? ring.angularVelocity : 0;
-      const ringMaxTrail = Number.isFinite(ring.maxTrailPoints) ? ring.maxTrailPoints : maxTrailPoints;
-      const trailLimit = Math.max(8, ringMaxTrail);
-      const trailDuration = Number.isFinite(state.trailDuration) ? state.trailDuration : 0.9;
-
-      orbs.forEach((orb, index) => {
-        if (!orb) {
-          return;
-        }
-        const baseAngle = Number.isFinite(orb.angle) ? orb.angle : (Math.PI * 2 * index) / Math.max(1, orbs.length);
-        const nextAngle = baseAngle + angularVelocity * step;
-        orb.angle = this.normalizeAngle(nextAngle);
-        const position = {
-          x: tower.x + Math.cos(orb.angle) * radius,
-          y: tower.y + Math.sin(orb.angle) * radius,
-        };
-        orb.position = position;
-        if (!Array.isArray(orb.trail)) {
-          orb.trail = [];
-        }
-        orb.trail.push({ x: position.x, y: position.y, age: 0 });
-        for (let i = orb.trail.length - 1; i >= 0; i -= 1) {
-          const point = orb.trail[i];
-          if (!point) {
-            orb.trail.splice(i, 1);
-            continue;
-          }
-          point.age = (Number.isFinite(point.age) ? point.age : 0) + step;
-          const expired = trailDuration > 0 && point.age > trailDuration;
-          const overflow = orb.trail.length > trailLimit && i < orb.trail.length - trailLimit;
-          if (expired || overflow) {
-            orb.trail.splice(i, 1);
-          }
-        }
-        if (!orb.id) {
-          orb.id = `${ring.ringNumber}-${index}`;
-        }
-      });
-    });
-
-    if (!this.combatActive || !this.enemies.length || state.baseAttackFactor <= 0 || state.rangePixels <= 0) {
-      return;
-    }
-
-    const orbEntries = [];
-    const orbById = new Map();
-    rings.forEach((ring, ringIndex) => {
-      if (!ring) {
-        return;
-      }
-      const orbs = Array.isArray(ring.orbs) ? ring.orbs : [];
-      orbs.forEach((orb, orbIndex) => {
-        if (!orb || !orb.position) {
-          return;
-        }
-        const id = typeof orb.id === 'string' ? orb.id : `${ring.ringNumber}-${orbIndex}`;
-        orb.id = id;
-        const angle = this.normalizeAngle(orb.angle);
-        const entry = {
-          id,
-          ringIndex,
-          ringNumber: ring.ringNumber,
-          orbIndex,
-          angle,
-          position: { x: orb.position.x, y: orb.position.y },
-        };
-        orbEntries.push(entry);
-        orbById.set(id, entry);
-      });
-    });
-
-    if (orbEntries.length < 2) {
-      return;
-    }
-
-    if (!(state.alignmentStatus instanceof Map)) {
-      state.alignmentStatus = new Map();
-    }
-
-    const threshold = Number.isFinite(state.angleThreshold)
-      ? state.angleThreshold
-      : ETA_ALIGNMENT_THRESHOLD_RADIANS;
-    const clusterMap = new Map();
-
-    for (let i = 0; i < orbEntries.length; i += 1) {
-      const base = orbEntries[i];
-      if (!base) {
-        continue;
-      }
-      const members = [base];
-      const uniqueIds = new Set([base.id]);
-      for (let j = 0; j < orbEntries.length; j += 1) {
-        if (i === j) {
-          continue;
-        }
-        const candidate = orbEntries[j];
-        if (!candidate) {
-          continue;
-        }
-        if (candidate.ringNumber === base.ringNumber) {
-          continue;
-        }
-        const diff = this.angularDifference(base.angle, candidate.angle);
-        if (diff > threshold) {
-          continue;
-        }
-        let aligns = true;
-        for (let k = 0; k < members.length; k += 1) {
-          const other = members[k];
-          if (this.angularDifference(other.angle, candidate.angle) > threshold) {
-            aligns = false;
-            break;
-          }
-        }
-        if (!aligns) {
-          continue;
-        }
-        if (!uniqueIds.has(candidate.id)) {
-          members.push(candidate);
-          uniqueIds.add(candidate.id);
-        }
-      }
-      if (members.length < 2) {
-        continue;
-      }
-      const ringSet = new Set(members.map((entry) => entry.ringNumber));
-      if (ringSet.size < 2) {
-        continue;
-      }
-      const ids = Array.from(uniqueIds).sort((a, b) => a.localeCompare(b));
-      const key = ids.join('|');
-      if (!clusterMap.has(key)) {
-        const resolvedMembers = ids
-          .map((identifier) => orbById.get(identifier))
-          .filter(Boolean);
-        if (resolvedMembers.length >= 2) {
-          clusterMap.set(key, { key, members: resolvedMembers });
-        }
-      }
-    }
-
-    if (!clusterMap.size) {
-      state.alignmentStatus.forEach((status, key) => {
-        if (status) {
-          status.active = false;
-          state.alignmentStatus.set(key, status);
-        }
-      });
-      return;
-    }
-
-    const currentlyAligning = new Set();
-    clusterMap.forEach((cluster, key) => {
-      const members = Array.isArray(cluster.members) ? cluster.members : [];
-      if (members.length < 2) {
-        return;
-      }
-      currentlyAligning.add(key);
-      const status = state.alignmentStatus.get(key) || { active: false };
-      if (!status.active) {
-        const orbitAlign = members.length;
-        const exponent = Math.max(1, orbitAlign - 1);
-        const baseFactor = Math.max(0, state.baseAttackFactor || 0);
-        const damage = orbitAlign >= 2 ? Math.pow(baseFactor, exponent) : 0;
-        if (damage > 0) {
-          let sumX = 0;
-          let sumY = 0;
-          members.forEach((entry) => {
-            sumX += Math.cos(entry.angle);
-            sumY += Math.sin(entry.angle);
-          });
-          const angle = Math.atan2(sumY, sumX);
-          this.fireEtaLaser(tower, state, { angle, orbitAlign, damage });
-        }
-        status.active = true;
-        status.lastTrigger = state.elapsed;
-        state.alignmentStatus.set(key, status);
-      } else {
-        status.lastTrigger = state.elapsed;
-        state.alignmentStatus.set(key, status);
-      }
-    });
-
-    state.alignmentStatus.forEach((status, key) => {
-      if (!currentlyAligning.has(key) && status) {
-        status.active = false;
-        state.alignmentStatus.set(key, status);
-      }
-    });
+    updateEtaTowerHelper(this, tower, delta);
   }
 
   /**
    * Emit an η laser and apply damage to enemies along its beam.
    */
   fireEtaLaser(tower, state, { angle = 0, orbitAlign = 2, damage = 0 } = {}) {
-    if (!tower || !state) {
-      return;
-    }
-    const range = Math.max(0, Number.isFinite(state.rangePixels) ? state.rangePixels : 0);
-    if (range <= 0 || !Number.isFinite(damage) || damage <= 0) {
-      return;
-    }
-
-    const origin = { x: tower.x, y: tower.y };
-    const end = {
-      x: origin.x + Math.cos(angle) * range,
-      y: origin.y + Math.sin(angle) * range,
-    };
-    const baseWidth = Number.isFinite(state.laserWidthBase) ? state.laserWidthBase : Math.max(6, range * 0.02);
-    const beamHalfWidth = baseWidth * (1 + Math.max(0, orbitAlign - 2) * 0.25);
-
-    const dx = end.x - origin.x;
-    const dy = end.y - origin.y;
-    const length = Math.hypot(dx, dy);
-    if (length <= 0.0001) {
-      return;
-    }
-    const nx = dx / length;
-    const ny = dy / length;
-
-    this.enemies.forEach((enemy) => {
-      if (!enemy || enemy.hp <= 0) {
-        return;
-      }
-      const position = this.getEnemyPosition(enemy);
-      if (!position) {
-        return;
-      }
-      const metrics = this.getEnemyVisualMetrics(enemy);
-      const radius = this.getEnemyHitRadius(enemy, metrics);
-      const px = position.x - origin.x;
-      const py = position.y - origin.y;
-      const projection = px * nx + py * ny;
-      const tolerance = radius + beamHalfWidth;
-      if (projection < -tolerance || projection > length + tolerance) {
-        return;
-      }
-      const perpendicular = Math.abs(px * ny - py * nx);
-      if (perpendicular > tolerance) {
-        return;
-      }
-      this.applyEtaDamage(enemy, damage);
-    });
-
-    const projectile = {
-      patternType: 'etaLaser',
-      origin,
-      angle,
-      length,
-      width: beamHalfWidth * 2,
-      orbitAlign,
-      lifetime: 0,
-      maxLifetime: 0.18,
-      alpha: 1,
-    };
-    this.projectiles.push(projectile);
+    fireEtaLaserHelper(this, tower, state, { angle, orbitAlign, damage });
   }
 
   /**
    * Apply η laser damage and remove defeated enemies from play.
    */
   applyEtaDamage(enemy, damage) {
-    if (!enemy || !Number.isFinite(damage) || damage <= 0) {
-      return;
-    }
-    enemy.hp -= damage;
-    if (enemy.hp <= 0) {
-      this.processEnemyDefeat(enemy);
-    }
+    applyEtaDamageHelper(this, enemy, damage);
   }
 
   /**
    * Apply ζ damage and cleanly remove defeated enemies from the playfield.
    */
   applyZetaDamage(enemy, damage) {
-    if (!enemy || !Number.isFinite(damage) || damage <= 0) {
-      return;
-    }
-    enemy.hp -= damage;
-    if (enemy.hp <= 0) {
-      this.processEnemyDefeat(enemy);
-    }
+    applyZetaDamageHelper(this, enemy, damage);
   }
 
   /**
@@ -6558,146 +5826,14 @@ export class SimplePlayfield {
    * Render ζ pendulum arms and trails so the battlefield reflects their orbit.
    */
   drawZetaPendulums(tower) {
-    if (!this.ctx || !tower?.zetaState) {
-      return;
-    }
-    const state = tower.zetaState;
-    const pendulums = Array.isArray(state.pendulums) ? state.pendulums : [];
-    if (!pendulums.length) {
-      return;
-    }
-
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    pendulums.forEach((pendulum, index) => {
-      if (!pendulum?.head) {
-        return;
-      }
-
-      const trail = Array.isArray(pendulum.trail) ? pendulum.trail : [];
-      const trailWidth = Math.max(1.5, Number.isFinite(pendulum.trailWidth) ? pendulum.trailWidth : 6);
-      for (let i = Math.max(1, trail.length - 32); i < trail.length; i += 1) {
-        const point = trail[i];
-        const previous = trail[i - 1];
-        if (!point || !previous) {
-          continue;
-        }
-        const age = Number.isFinite(point.age) ? point.age : 0;
-        const fadeDuration = Number.isFinite(state.trailDuration) ? state.trailDuration : 0.75;
-        const alpha = fadeDuration > 0 ? Math.max(0, 1 - age / fadeDuration) : 0.5;
-        if (alpha <= 0) {
-          continue;
-        }
-        ctx.beginPath();
-        ctx.strokeStyle = `rgba(139, 247, 255, ${alpha * 0.5})`;
-        ctx.lineWidth = trailWidth;
-        ctx.moveTo(previous.x, previous.y);
-        ctx.lineTo(point.x, point.y);
-        ctx.stroke();
-      }
-
-      const pivot = index === 0 ? { x: tower.x, y: tower.y } : pendulums[index - 1]?.head;
-      if (pivot) {
-        this.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.35)', (pendulum.headRadius || 12) * 1.6);
-        ctx.strokeStyle = 'rgba(139, 247, 255, 0.75)';
-        ctx.lineWidth = Math.max(1.2, (pendulum.headRadius || 12) * 0.45);
-        ctx.beginPath();
-        ctx.moveTo(pivot.x, pivot.y);
-        ctx.lineTo(pendulum.head.x, pendulum.head.y);
-        ctx.stroke();
-      }
-
-      this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.85)', (pendulum.headRadius || 12) * 2.1);
-      ctx.fillStyle = 'rgba(255, 228, 120, 0.92)';
-      ctx.beginPath();
-      ctx.arc(pendulum.head.x, pendulum.head.y, pendulum.headRadius || 12, 0, Math.PI * 2);
-      ctx.fill();
-      this.clearCanvasShadow(ctx);
-    });
-
-    ctx.restore();
+    drawZetaPendulumsHelper(this, tower);
   }
 
   /**
    * Render η orbital rings and trailing motes for the planetary lattice.
    */
   drawEtaOrbits(tower) {
-    if (!this.ctx || !tower?.etaState) {
-      return;
-    }
-    const state = tower.etaState;
-    const rings = Array.isArray(state.rings) ? state.rings : [];
-    if (!rings.length) {
-      return;
-    }
-
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    const trailDuration = Number.isFinite(state.trailDuration) ? state.trailDuration : 0.9;
-    const maxTrailPoints = Number.isFinite(state.maxTrailPoints) ? state.maxTrailPoints : 72;
-
-    rings.forEach((ring) => {
-      if (!ring) {
-        return;
-      }
-      const [r, g, b] = Array.isArray(ring.rgb) ? ring.rgb : [139, 247, 255];
-      const radius = Number.isFinite(ring.radiusPixels) ? ring.radiusPixels : 0;
-      if (radius > 0) {
-        ctx.beginPath();
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.35)`;
-        ctx.lineWidth = Math.max(1, radius * 0.015);
-        ctx.arc(tower.x, tower.y, radius, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-
-      const orbs = Array.isArray(ring.orbs) ? ring.orbs : [];
-      const trailLimit = Number.isFinite(ring.maxTrailPoints) ? ring.maxTrailPoints : maxTrailPoints;
-      const orbRadius = Number.isFinite(ring.orbRadius) ? ring.orbRadius : 8;
-
-      orbs.forEach((orb) => {
-        if (!orb || !orb.position) {
-          return;
-        }
-        const trail = Array.isArray(orb.trail) ? orb.trail : [];
-        const start = Math.max(1, trail.length - trailLimit);
-        for (let index = start; index < trail.length; index += 1) {
-          const point = trail[index];
-          const previous = trail[index - 1];
-          if (!point || !previous) {
-            continue;
-          }
-          const age = Number.isFinite(point.age) ? point.age : 0;
-          const alpha = trailDuration > 0 ? Math.max(0, 1 - age / trailDuration) : 0.5;
-          if (alpha <= 0) {
-            continue;
-          }
-          ctx.beginPath();
-          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.6})`;
-          ctx.lineWidth = Math.max(1.2, orbRadius * 0.5);
-          ctx.moveTo(previous.x, previous.y);
-          ctx.lineTo(point.x, point.y);
-          ctx.stroke();
-        }
-
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.92)`;
-        ctx.arc(orb.position.x, orb.position.y, orbRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.fillStyle = 'rgba(12, 16, 28, 0.6)';
-        ctx.arc(orb.position.x, orb.position.y, orbRadius * 0.45, 0, Math.PI * 2);
-        ctx.fill();
-      });
-    });
-
-    ctx.restore();
+    drawEtaOrbitsHelper(this, tower);
   }
 
   /**
