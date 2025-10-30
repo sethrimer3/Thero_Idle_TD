@@ -24,6 +24,77 @@ const defaultOmegaWaveVisuals = Object.freeze({
   glowBlur: 24,
 });
 
+// Default projectile gradient preserves the historical cyan-to-magenta beam when no palette metadata is available.
+const defaultProjectileGradient = Object.freeze({
+  start: { r: 139, g: 247, b: 255 },
+  end: { r: 255, g: 138, b: 216 },
+});
+
+// Clamp helper keeps gradient interpolation within the unit interval for consistent blending.
+const clampUnitInterval = (value) => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  if (value <= 0) {
+    return 0;
+  }
+  if (value >= 1) {
+    return 1;
+  }
+  return value;
+};
+
+// Convert CSS-like color inputs into normalized RGB objects so palette definitions can stay ergonomic.
+function parseGradientColor(input, fallback = defaultProjectileGradient.start) {
+  if (input && typeof input === 'object' && Number.isFinite(input.r) && Number.isFinite(input.g) && Number.isFinite(input.b)) {
+    return {
+      r: Math.max(0, Math.min(255, Math.round(input.r))),
+      g: Math.max(0, Math.min(255, Math.round(input.g))),
+      b: Math.max(0, Math.min(255, Math.round(input.b))),
+    };
+  }
+
+  if (typeof input === 'string') {
+    const hex = input.trim().replace('#', '');
+    if (hex.length === 3 || hex.length === 6) {
+      const normalized = hex.length === 3
+        ? hex
+            .split('')
+            .map((char) => char + char)
+            .join('')
+        : hex.slice(0, 6);
+      const value = Number.parseInt(normalized, 16);
+      if (Number.isFinite(value)) {
+        return {
+          r: (value >> 16) & 255,
+          g: (value >> 8) & 255,
+          b: value & 255,
+        };
+      }
+    }
+  }
+
+  return { ...fallback };
+}
+
+// Normalize palette gradient descriptors so downstream consumers always receive a predictable shape.
+function normalizeGradient(gradient) {
+  if (!gradient || typeof gradient !== 'object') {
+    return { ...defaultProjectileGradient };
+  }
+  const start = parseGradientColor(gradient.start, defaultProjectileGradient.start);
+  const end = parseGradientColor(gradient.end, defaultProjectileGradient.end);
+  return { start, end };
+}
+
+// Helper builds gradients from convenient hex inputs without duplicating normalization logic inside each palette.
+function gradientFromHex(startHex, endHex) {
+  return normalizeGradient({
+    start: parseGradientColor(startHex, defaultProjectileGradient.start),
+    end: parseGradientColor(endHex, defaultProjectileGradient.end),
+  });
+}
+
 // Centralized palette state tracks active scheme metadata and associated DOM bindings.
 const colorSchemeState = {
   index: 0,
@@ -59,6 +130,9 @@ const colorSchemeDefinitions = [
     getOmegaWaveVisuals() {
       return null;
     },
+    getProjectileGradient() {
+      return gradientFromHex('#8bf7ff', '#ff8ad8');
+    },
   },
   // CoolingEmbers palette keeps backward compatibility with legacy saves while updating the player-facing label.
   {
@@ -67,6 +141,9 @@ const colorSchemeDefinitions = [
     className: 'color-scheme-chromatic',
     getTowerVisuals: computeChromaticTowerVisuals,
     getOmegaWaveVisuals: computeChromaticOmegaWaveVisuals,
+    getProjectileGradient() {
+      return gradientFromHex('#ff6b6b', '#8e54e9');
+    },
   },
   // FractalBloom palette shifts hues from teal to magenta as towers climb tiers.
   {
@@ -75,6 +152,9 @@ const colorSchemeDefinitions = [
     className: 'color-scheme-fractal-bloom',
     getTowerVisuals: computeFractalBloomTowerVisuals,
     getOmegaWaveVisuals: computeFractalBloomOmegaWaveVisuals,
+    getProjectileGradient() {
+      return gradientFromHex('#4ed1c5', '#a86bff');
+    },
   },
   // ObsidianPulse palette accentuates deep violet towers with electric highlights for high tiers.
   {
@@ -83,6 +163,9 @@ const colorSchemeDefinitions = [
     className: 'color-scheme-obsidian-pulse',
     getTowerVisuals: computeObsidianPulseTowerVisuals,
     getOmegaWaveVisuals: computeObsidianPulseOmegaWaveVisuals,
+    getProjectileGradient() {
+      return gradientFromHex('#5de0ff', '#ff9dff');
+    },
   },
   // SolarScribe palette blends ember oranges with academic parchment tones for radiant builds.
   {
@@ -91,6 +174,9 @@ const colorSchemeDefinitions = [
     className: 'color-scheme-solar-scribe',
     getTowerVisuals: computeSolarScribeTowerVisuals,
     getOmegaWaveVisuals: computeSolarScribeOmegaWaveVisuals,
+    getProjectileGradient() {
+      return gradientFromHex('#ffb347', '#fff1c1');
+    },
   },
 ];
 
@@ -412,6 +498,43 @@ export function getOmegaWaveVisualConfig(tower) {
     }
   }
   return base;
+}
+
+// Resolve the active projectile gradient so tower beams and motes stay synchronized with palette swaps.
+export function getActiveProjectileGradient() {
+  const scheme = getActiveColorScheme();
+  if (scheme && typeof scheme.getProjectileGradient === 'function') {
+    try {
+      const override = scheme.getProjectileGradient();
+      if (override && typeof override === 'object') {
+        const normalized = normalizeGradient(override);
+        return {
+          start: { ...normalized.start },
+          end: { ...normalized.end },
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to compute projectile gradient', error);
+    }
+  }
+  return {
+    start: { ...defaultProjectileGradient.start },
+    end: { ...defaultProjectileGradient.end },
+  };
+}
+
+// Sample the active gradient at the provided ratio to drive per-entity hues across the battlefield.
+export function samplePaletteGradient(position = 0) {
+  const gradient = getActiveProjectileGradient();
+  const t = clampUnitInterval(position);
+  const start = gradient.start || defaultProjectileGradient.start;
+  const end = gradient.end || defaultProjectileGradient.end;
+  const lerp = (a, b) => Math.round(a + (b - a) * t);
+  return {
+    r: lerp(start.r, end.r),
+    g: lerp(start.g, end.g),
+    b: lerp(start.b, end.b),
+  };
 }
 
 // Updates the toggle button label so assistive tech reflects the current palette.

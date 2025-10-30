@@ -34,6 +34,7 @@ import {
   getTowerVisualConfig,
   getOmegaWaveVisualConfig,
   getTowerTierValue,
+  samplePaletteGradient,
 } from './colorSchemeUtils.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../scripts/features/towers/powderTower.js';
 import { notifyTowerPlaced } from './achievementsTab.js';
@@ -107,6 +108,24 @@ const defaultDependencies = {
   // Allows the playfield to respect the global graphics fidelity toggle.
   isLowGraphicsMode: () => false,
 };
+
+// Normalize projectile color data so beam rendering can rely on palette-aware RGB objects.
+function normalizeProjectileColor(candidate, fallbackPosition = 1) {
+  if (candidate && typeof candidate === 'object' && Number.isFinite(candidate.r) && Number.isFinite(candidate.g) && Number.isFinite(candidate.b)) {
+    return {
+      r: Math.max(0, Math.min(255, Math.round(candidate.r))),
+      g: Math.max(0, Math.min(255, Math.round(candidate.g))),
+      b: Math.max(0, Math.min(255, Math.round(candidate.b))),
+    };
+  }
+  const ratio = Math.max(0, Math.min(1, fallbackPosition));
+  const fallback = samplePaletteGradient(ratio) || { r: 139, g: 247, b: 255 };
+  return {
+    r: Math.max(0, Math.min(255, Math.round(fallback.r))),
+    g: Math.max(0, Math.min(255, Math.round(fallback.g))),
+    b: Math.max(0, Math.min(255, Math.round(fallback.b))),
+  };
+}
 
 // Preload the Mind Gate sprite so the path finale mirrors the Towers tab art.
 const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
@@ -5844,10 +5863,11 @@ export class SimplePlayfield {
         ctx.save();
         ctx.translate(origin.x, origin.y);
         ctx.rotate(angle);
+        const beamColor = normalizeProjectileColor(projectile.color, 1);
         const gradient = ctx.createLinearGradient(0, 0, length, 0);
-        gradient.addColorStop(0, `rgba(255, 138, 216, ${alpha})`);
-        gradient.addColorStop(0.5, `rgba(138, 247, 255, ${alpha})`);
-        gradient.addColorStop(1, 'rgba(255, 226, 138, 0)');
+        gradient.addColorStop(0, colorToRgbaString(beamColor, alpha));
+        gradient.addColorStop(0.6, colorToRgbaString(beamColor, alpha * 0.6));
+        gradient.addColorStop(1, colorToRgbaString(beamColor, 0));
         ctx.strokeStyle = gradient;
         ctx.lineWidth = width;
         ctx.beginPath();
@@ -5872,14 +5892,19 @@ export class SimplePlayfield {
         return;
       }
 
-      ctx.strokeStyle = 'rgba(139, 247, 255, 0.72)';
+      const beamStart = normalizeProjectileColor(projectile.color, 0);
+      const beamEnd = normalizeProjectileColor(projectile.color, 1);
+      const beamGradient = ctx.createLinearGradient(source.x, source.y, targetPosition.x, targetPosition.y);
+      beamGradient.addColorStop(0, colorToRgbaString(beamStart, 0.72));
+      beamGradient.addColorStop(1, colorToRgbaString(beamEnd, 0.78));
+      ctx.strokeStyle = beamGradient;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(source.x, source.y);
       ctx.lineTo(targetPosition.x, targetPosition.y);
       ctx.stroke();
 
-      ctx.fillStyle = 'rgba(139, 247, 255, 0.9)';
+      ctx.fillStyle = colorToRgbaString(beamEnd, 0.9);
       ctx.beginPath();
       ctx.arc(targetPosition.x, targetPosition.y, 4, 0, Math.PI * 2);
       ctx.fill();

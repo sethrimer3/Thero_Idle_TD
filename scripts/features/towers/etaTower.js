@@ -5,15 +5,43 @@ import {
   refreshTowerLoadoutDisplay,
 } from '../../../assets/towersTab.js';
 import { metersToPixels } from '../../../assets/gameUnits.js';
+import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 
-// RGB palettes for η orbital trails so each ring keeps a distinct hue.
-const ETA_RING_RGB = [
-  [255, 138, 216],
-  [138, 230, 255],
-  [255, 226, 138],
-  [157, 255, 181],
-  [208, 162, 255],
-];
+// Resolve η ring colors by sampling the active palette gradient across the lattice radius.
+function resolveEtaRingRgb(index, totalRings) {
+  const clampedTotal = Math.max(1, totalRings);
+  const position = clampedTotal > 1 ? index / (clampedTotal - 1) : 0;
+  const color = samplePaletteGradient(position) || { r: 139, g: 247, b: 255 };
+  return [
+    Math.max(0, Math.min(255, Math.round(color.r))),
+    Math.max(0, Math.min(255, Math.round(color.g))),
+    Math.max(0, Math.min(255, Math.round(color.b))),
+  ];
+}
+
+// Normalize an η color input into an RGB object for lasers and orbit rendering fallbacks.
+function normalizeEtaColor(color, state) {
+  if (Array.isArray(color) && color.length >= 3) {
+    return {
+      r: Math.max(0, Math.min(255, Math.round(color[0]))),
+      g: Math.max(0, Math.min(255, Math.round(color[1]))),
+      b: Math.max(0, Math.min(255, Math.round(color[2]))),
+    };
+  }
+  if (color && typeof color === 'object' && Number.isFinite(color.r) && Number.isFinite(color.g) && Number.isFinite(color.b)) {
+    return {
+      r: Math.max(0, Math.min(255, Math.round(color.r))),
+      g: Math.max(0, Math.min(255, Math.round(color.g))),
+      b: Math.max(0, Math.min(255, Math.round(color.b))),
+    };
+  }
+  const fallbackArray = resolveEtaRingRgb(0, state?.totalRings || 1);
+  return {
+    r: fallbackArray[0],
+    g: fallbackArray[1],
+    b: fallbackArray[2],
+  };
+}
 // Alignment tolerance of five degrees expressed in radians for η ring checks.
 const ETA_ALIGNMENT_THRESHOLD_RADIANS = (5 * Math.PI) / 180;
 // Number of merges required before η ascends into its prestige form Η.
@@ -126,7 +154,7 @@ export function ensureEtaState(playfield, tower, options = {}) {
         : baseSpeeds[index] ?? baseSpeeds[baseSpeeds.length - 1];
       const safeSpeed = Number.isFinite(baseSpeed) ? Math.max(0, baseSpeed) : 0;
       const angularVelocity = safeSpeed * Math.PI * 2;
-      const rgb = ETA_RING_RGB[index % ETA_RING_RGB.length];
+      const rgb = resolveEtaRingRgb(index, totalRings);
       const orbCount = isPrestige
         ? 2
         : Math.max(1, Math.round((ringNumber * (ringNumber - 1)) / 2 + 1));
@@ -178,7 +206,7 @@ export function ensureEtaState(playfield, tower, options = {}) {
     ring.radiusPixels = radiusPixels;
     ring.speedRps = safeSpeed;
     ring.angularVelocity = safeSpeed * Math.PI * 2;
-    ring.rgb = ETA_RING_RGB[index % ETA_RING_RGB.length];
+    ring.rgb = resolveEtaRingRgb(index, totalRings);
     ring.orbRadius = Math.max(6, Math.min(18, radiusPixels * 0.08));
     ring.maxTrailPoints = Number.isFinite(ring.maxTrailPoints) ? ring.maxTrailPoints : 72;
   });
@@ -369,10 +397,20 @@ export function updateEtaTower(playfield, tower, delta) {
     const orbitAlign = members.reduce((sum, member) => sum + member.orbitAlign, 0) / members.length;
     if (!status.active || state.elapsed >= status.nextFire) {
       const baseAngle = members.reduce((sum, member) => sum + member.angle, 0) / members.length;
+      const outermost = members.reduce((best, candidate) => {
+        if (!best) {
+          return candidate;
+        }
+        return candidate.ringNumber < best.ringNumber ? candidate : best;
+      }, null);
+      const laserColor = outermost?.rgb
+        || members[0]?.rgb
+        || resolveEtaRingRgb(0, state.totalRings || members.length);
       fireEtaLaser(playfield, tower, state, {
         angle: baseAngle,
         orbitAlign,
         damage,
+        color: laserColor,
       });
       status.active = true;
       status.nextFire = state.elapsed + Math.max(0.25, 1 / Math.max(0.0001, state.denominator));
@@ -392,7 +430,7 @@ export function updateEtaTower(playfield, tower, delta) {
 /**
  * Emit an η laser and apply damage to enemies along its beam.
  */
-export function fireEtaLaser(playfield, tower, state, { angle = 0, orbitAlign = 2, damage = 0 } = {}) {
+export function fireEtaLaser(playfield, tower, state, { angle = 0, orbitAlign = 2, damage = 0, color = null } = {}) {
   if (!playfield || !tower || !state) {
     return;
   }
@@ -408,6 +446,7 @@ export function fireEtaLaser(playfield, tower, state, { angle = 0, orbitAlign = 
   };
   const baseWidth = Number.isFinite(state.laserWidthBase) ? state.laserWidthBase : Math.max(6, range * 0.02);
   const beamHalfWidth = baseWidth * (1 + Math.max(0, orbitAlign - 2) * 0.25);
+  const beamColor = normalizeEtaColor(color, state);
 
   const dx = end.x - origin.x;
   const dy = end.y - origin.y;
@@ -452,6 +491,7 @@ export function fireEtaLaser(playfield, tower, state, { angle = 0, orbitAlign = 
     lifetime: 0,
     maxLifetime: 0.18,
     alpha: 1,
+    color: beamColor,
   };
   playfield.projectiles.push(projectile);
 }

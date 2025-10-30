@@ -1,11 +1,11 @@
 // Δ tower helper module centralizes cohort AI, visuals, and math away from the playfield.
 import { getTowerDefinition } from '../../../assets/towersTab.js';
+import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 
-// Gradient palette sweeps from aqua through amber into magenta to color each soldier uniquely.
-const DELTA_GRADIENT_STOPS = [
-  { stop: 0, color: { r: 139, g: 247, b: 255 } },
-  { stop: 0.45, color: { r: 255, g: 228, b: 120 } },
-  { stop: 1, color: { r: 255, g: 138, b: 216 } },
+// Fallback gradient anchors Delta colors when palette metadata is unavailable.
+const DELTA_FALLBACK_GRADIENT = [
+  { r: 139, g: 247, b: 255 },
+  { r: 255, g: 138, b: 216 },
 ];
 
 // Particle trail tuning keeps luminous footprints lingering just long enough to feel ethereal.
@@ -19,27 +19,19 @@ const DELTA_TRAIL_CONFIG = {
 // Clamp helper ensures math stays within bounds even when towers feed edge cases.
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
-// Linear interpolation keeps color channel blending smooth as we walk the gradient stops.
+// Linear interpolation keeps color channel blending smooth while sampling palette endpoints.
 const lerp = (start, end, t) => start + (end - start) * t;
 
-// Resolve a gradient color for the provided progress value using the configured stop list.
-function sampleGradientColor(progress) {
+// Resolve a gradient color for the provided progress value using the active palette metadata.
+function sampleDeltaGradientColor(progress) {
   const t = clamp(Number.isFinite(progress) ? progress : 0, 0, 1);
-  for (let index = 0; index < DELTA_GRADIENT_STOPS.length - 1; index += 1) {
-    const current = DELTA_GRADIENT_STOPS[index];
-    const next = DELTA_GRADIENT_STOPS[index + 1];
-    if (t >= current.stop && t <= next.stop) {
-      const localSpan = next.stop - current.stop || 1;
-      const localT = clamp((t - current.stop) / localSpan, 0, 1);
-      return {
-        r: Math.round(lerp(current.color.r, next.color.r, localT)),
-        g: Math.round(lerp(current.color.g, next.color.g, localT)),
-        b: Math.round(lerp(current.color.b, next.color.b, localT)),
-      };
-    }
-  }
-  const last = DELTA_GRADIENT_STOPS[DELTA_GRADIENT_STOPS.length - 1];
-  return { ...last.color };
+  const start = samplePaletteGradient(0) || DELTA_FALLBACK_GRADIENT[0];
+  const end = samplePaletteGradient(1) || DELTA_FALLBACK_GRADIENT[DELTA_FALLBACK_GRADIENT.length - 1];
+  return {
+    r: Math.round(lerp(start.r, end.r, t)),
+    g: Math.round(lerp(start.g, end.g, t)),
+    b: Math.round(lerp(start.b, end.b, t)),
+  };
 }
 
 // Convert a color object into an rgba string with caller supplied alpha control.
@@ -229,7 +221,7 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
   const spawnX = tower.x + Math.cos(angle) * spawnRadius;
   const spawnY = tower.y + Math.sin(angle) * spawnRadius;
   const gradientProgress = limit > 1 ? spawnIndex / (limit - 1) : 0;
-  const color = sampleGradientColor(gradientProgress);
+  const color = sampleDeltaGradientColor(gradientProgress);
 
   const soldier = {
     id: `delta-soldier-${(playfield.deltaSoldierIdCounter += 1)}`,
@@ -253,6 +245,7 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
     trailAccumulator: 0,
     lastTrailSample: { x: spawnX, y: spawnY },
     color,
+    gradientProgress,
   };
 
   state.soldiers.push(soldier);
@@ -485,7 +478,8 @@ export function drawDeltaSoldiers(playfield) {
       const size = Number.isFinite(soldier.collisionRadius) ? Math.max(8, soldier.collisionRadius) : baseSize;
       const angle = Number.isFinite(soldier.heading) ? soldier.heading : -Math.PI / 2;
       const healthRatio = soldier.maxHealth > 0 ? clamp(soldier.health / soldier.maxHealth, 0, 1) : 0;
-      const color = soldier.color || sampleGradientColor(0);
+      const color = sampleDeltaGradientColor(soldier.gradientProgress ?? 0);
+      soldier.color = color;
 
       if (Array.isArray(soldier.trailPoints) && soldier.trailPoints.length) {
         ctx.save();

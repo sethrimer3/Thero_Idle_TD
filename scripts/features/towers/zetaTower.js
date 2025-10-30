@@ -4,6 +4,24 @@ import {
   withTowerDynamicContext,
   computeTowerVariableValue,
 } from '../../../assets/towersTab.js';
+import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
+
+// Generate a color list for ζ pendulums by sampling the active palette gradient across their index range.
+function computePendulumPalette(count) {
+  const total = Math.max(1, count);
+  const palette = [];
+  for (let index = 0; index < total; index += 1) {
+    const position = total > 1 ? index / (total - 1) : 0;
+    palette.push(samplePaletteGradient(position));
+  }
+  if (palette.length) {
+    return palette;
+  }
+  return [
+    { r: 139, g: 247, b: 255 },
+    { r: 255, g: 138, b: 216 },
+  ];
+}
 
 /**
  * Evaluate ζ’s upgrade-driven math by temporarily mirroring the Towers tab
@@ -125,7 +143,7 @@ export function ensureZetaState(playfield, tower) {
   // Precompute the default spawn position for each pendulum head.
   const baseHeadOffset = { x: tower.x, y: tower.y - baseArmLength };
   // Seed each pendulum with a distinct glow palette to emphasize individual trails.
-  const pendulumPalette = ['#8bf7ff', '#d89aff', '#ff9ecd', '#ffe28c', '#9effa9', '#ffb7ff'];
+  const pendulumPalette = computePendulumPalette(totalPendulums);
   const pendulums = state.pendulums;
   if (pendulums.length > totalPendulums) {
     pendulums.length = totalPendulums;
@@ -142,7 +160,7 @@ export function ensureZetaState(playfield, tower) {
         trailWidth: Math.max(4, detectionRadius * 0.15),
         headRadius: Math.max(12, detectionRadius * 0.07),
         hitMap: new Map(),
-        color: pendulumPalette[index % pendulumPalette.length], // Store the trail/head color for rendering and effects.
+        color: { ...pendulumPalette[index % pendulumPalette.length] }, // Store the trail/head color for rendering and effects.
       };
       pendulums[index] = pendulum;
     }
@@ -173,7 +191,7 @@ export function ensureZetaState(playfield, tower) {
     pendulum.length = baseArmLength * (1 + normalizedIndex * 0.08); // Maintain variation without scaling with range upgrades.
     pendulum.headRadius = Math.max(12, detectionRadius * (0.06 + normalizedIndex * 0.02));
     pendulum.trailWidth = Math.max(4, detectionRadius * (0.12 + normalizedIndex * 0.05));
-    pendulum.color = pendulumPalette[index % pendulumPalette.length]; // Refresh color when pendulum count changes.
+    pendulum.color = { ...pendulumPalette[index % pendulumPalette.length] }; // Refresh color when pendulum count changes.
   });
   state.maxTrailPoints = Math.round(36 * rangeMultiplier); // Longer trails mirror higher range investments.
   return state;
@@ -335,7 +353,7 @@ export function drawZetaPendulums(playfield, tower) {
 
     const trail = Array.isArray(pendulum.trail) ? pendulum.trail : [];
     const trailWidth = Math.max(1.5, Number.isFinite(pendulum.trailWidth) ? pendulum.trailWidth : 6);
-    const rgbColor = hexToRgb(pendulum.color || '#8bf7ff'); // Use the stored palette to sync head and trail glow.
+    const rgbColor = resolvePendulumRgb(pendulum.color); // Use the stored palette to sync head and trail glow.
     const visibleTrailStart = Math.max(1, trail.length - Math.max(12, Math.round((state.maxTrailPoints || 32) * 0.9))); // Render most of the stored trail while keeping batching tight.
     for (let i = visibleTrailStart; i < trail.length; i += 1) {
       const point = trail[i];
@@ -398,4 +416,19 @@ function hexToRgb(hexColor) {
   const g = (intVal >> 8) & 255;
   const b = intVal & 255;
   return `${r}, ${g}, ${b}`;
+}
+
+// Resolve stored pendulum color data into a formatted RGB string, supporting both objects and hex fallbacks.
+function resolvePendulumRgb(color) {
+  if (color && typeof color === 'object' && Number.isFinite(color.r) && Number.isFinite(color.g) && Number.isFinite(color.b)) {
+    const r = Math.max(0, Math.min(255, Math.round(color.r)));
+    const g = Math.max(0, Math.min(255, Math.round(color.g)));
+    const b = Math.max(0, Math.min(255, Math.round(color.b)));
+    return `${r}, ${g}, ${b}`;
+  }
+  if (typeof color === 'string') {
+    return hexToRgb(color);
+  }
+  const fallback = samplePaletteGradient(0);
+  return `${fallback.r}, ${fallback.g}, ${fallback.b}`;
 }
