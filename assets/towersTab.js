@@ -323,25 +323,10 @@ function updateLoadoutNote() {
   }
 }
 
-function getGlyphSubscriptRank(subscriptIndex = 1) {
-  const normalizedIndex = Number.isFinite(subscriptIndex)
-    ? Math.max(1, Math.floor(subscriptIndex))
-    : 1;
-  // Anchor glyph ranks to the Mind Gate so Ψ₁/Ψ₂ mirror its upgrade reservoirs.
-  const mindGateBlueprint = getTowerEquationBlueprint('mind-gate');
-  ensureTowerUpgradeState('mind-gate', mindGateBlueprint);
-  const lifeValue = computeTowerVariableValue('mind-gate', 'life', mindGateBlueprint);
-  const recoveryValue = computeTowerVariableValue('mind-gate', 'recovery', mindGateBlueprint);
-  const lifeRank = Math.max(1, Number.isFinite(lifeValue) ? lifeValue : 1);
-  const recoveryRank = Math.max(1, Number.isFinite(recoveryValue) ? recoveryValue : 1);
-  if (normalizedIndex === 1) {
-    return lifeRank;
-  }
-  if (normalizedIndex === 2) {
-    return recoveryRank;
-  }
-  const tailBase = Math.max(lifeRank, recoveryRank);
-  return tailBase + (normalizedIndex - 2);
+function deriveGlyphRankFromLevel(level, minimum = 1) {
+  const normalizedLevel = Number.isFinite(level) ? Math.max(0, Math.floor(level)) : 0;
+  const normalizedMinimum = Number.isFinite(minimum) ? Math.max(1, Math.floor(minimum)) : 1;
+  return normalizedMinimum + normalizedLevel;
 }
 
 function sanitizeTowerContextEntry(entry) {
@@ -502,12 +487,12 @@ const TOWER_EQUATION_BLUEPRINTS = {
         format: (value) => `${formatWholeNumber(value)} Attack`,
         cost: (level) => Math.max(1, 1 + level),
         getSubEquations({ level, value }) {
-          const glyphRank = Math.max(1, Number.isFinite(level) ? level + 1 : 1);
+          const glyphRank = deriveGlyphRankFromLevel(level, 1);
           const attackValue = Number.isFinite(value) ? value : 0;
           return [
             {
-              expression: '\\( A_{\\text{ttack}} = 5 \\left( G_{\\text{lyph1}} \\right) \\)',
-              values: `\\( = 5 \\left( ${formatWholeNumber(glyphRank)} \\right) = ${formatWholeNumber(attackValue)} \\)`,
+              expression: '\( A_{\text{ttack}} = 5 \times \mathcal{G}_{1} \)',
+              values: `\( = 5 \times ${formatWholeNumber(glyphRank)} = ${formatWholeNumber(attackValue)} \)`,
             },
           ];
         },
@@ -517,20 +502,18 @@ const TOWER_EQUATION_BLUEPRINTS = {
         symbol: 'S',
         equationSymbol: 'Speed',
         name: 'Speed',
-        description: 'Glyph oscillation frequency braided from the second glyph conduit.',
-        upgradable: false,
-        computeValue() {
-          const glyphRank = getGlyphSubscriptRank(2);
-          return glyphRank / 2;
-        },
+        description: 'Oscillation cadence braided from the second glyph conduit.',
+        baseValue: 0.5,
+        step: 0.5,
+        upgradable: true,
         format: (value) => `${formatDecimal(value, 2)} speed`,
-        getSubEquations() {
-          const glyphRank = getGlyphSubscriptRank(2);
-          const speedValue = glyphRank / 2;
+        getSubEquations({ level, value }) {
+          const glyphRank = deriveGlyphRankFromLevel(level, 1);
+          const speedValue = Number.isFinite(value) ? value : glyphRank * 0.5;
           return [
             {
-              expression: '\\( S_{\\text{peed}} = 1 \\left( \\frac{G_{\\text{lyph2}}}{2} \\right) \\)',
-              values: `\\( = 1 \\left( \\frac{${formatDecimal(glyphRank, 2)}}{2} \\right) = ${formatDecimal(speedValue, 2)} \\)`,
+              expression: '\( S_{\text{peed}} = 0.5 \times \mathcal{G}_{2} \)',
+              values: `\( = 0.5 \times ${formatDecimal(glyphRank, 2)} = ${formatDecimal(speedValue, 2)} \)`,
             },
           ];
         },
@@ -557,22 +540,24 @@ const TOWER_EQUATION_BLUEPRINTS = {
         equationSymbol: 'Attack',
         name: 'Attack',
         description: 'Direct strike power mirrored from α.',
-        upgradable: false,
-        lockedNote: 'Strengthens exactly as α does.',
-        computeValue() {
-          const glyphRank = getGlyphSubscriptRank(1);
+        upgradable: true,
+        format: (value) => `${formatGameNumber(value)} attack`,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const state = ensureTowerUpgradeState(towerId, effectiveBlueprint);
+          const level = state.variables?.attack?.level || 0;
+          const glyphRank = deriveGlyphRankFromLevel(level, 1);
           const alphaValue = calculateTowerEquationResult('alpha');
           return alphaValue * glyphRank;
         },
-        format: (value) => `${formatGameNumber(value)} attack`,
-        getSubEquations() {
-          const glyphRank = getGlyphSubscriptRank(1);
+        getSubEquations({ level }) {
+          const glyphRank = deriveGlyphRankFromLevel(level, 1);
           const alphaValue = calculateTowerEquationResult('alpha');
           const attackValue = alphaValue * glyphRank;
           return [
             {
-              expression: '\\( A_{\\text{ttack}} = \\alpha \\left( G_{\\text{lyph1}} \\right) \\)',
-              values: `\\( = ${formatDecimal(alphaValue, 2)} \\left( ${formatWholeNumber(glyphRank)} \\right) = ${formatDecimal(attackValue, 2)} \\)`,
+              expression: '\( A_{\text{ttack}} = \alpha \times \mathcal{G}_{1} \)',
+              values: `\( = ${formatDecimal(alphaValue, 2)} \times ${formatWholeNumber(glyphRank)} = ${formatDecimal(attackValue, 2)} \)`,
             },
           ];
         },
@@ -647,22 +632,24 @@ const TOWER_EQUATION_BLUEPRINTS = {
         equationSymbol: 'Attack',
         name: 'Attack',
         description: 'Strike intensity carried forward from β.',
-        upgradable: false,
-        lockedNote: 'Bolster β to amplify γ attack.',
-        computeValue() {
-          const glyphRank = getGlyphSubscriptRank(1);
+        upgradable: true,
+        format: (value) => `${formatGameNumber(value)} attack`,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const state = ensureTowerUpgradeState(towerId, effectiveBlueprint);
+          const level = state.variables?.attack?.level || 0;
+          const glyphRank = deriveGlyphRankFromLevel(level, 1);
           const betaValue = calculateTowerEquationResult('beta');
           return betaValue * glyphRank;
         },
-        format: (value) => `${formatGameNumber(value)} attack`,
-        getSubEquations() {
-          const glyphRank = getGlyphSubscriptRank(1);
+        getSubEquations({ level }) {
+          const glyphRank = deriveGlyphRankFromLevel(level, 1);
           const betaValue = calculateTowerEquationResult('beta');
           const attackValue = betaValue * glyphRank;
           return [
             {
-              expression: '\\( A_{\\text{ttack}} = \\beta \\left( G_{\\text{lyph1}} \\right) \\)',
-              values: `\\( = ${formatDecimal(betaValue, 2)} \\left( ${formatWholeNumber(glyphRank)} \\right) = ${formatDecimal(attackValue, 2)} \\)`,
+              expression: '\( A_{\text{ttack}} = \beta \times \mathcal{G}_{1} \)',
+              values: `\( = ${formatDecimal(betaValue, 2)} \times ${formatWholeNumber(glyphRank)} = ${formatDecimal(attackValue, 2)} \)`,
             },
           ];
         },
@@ -721,18 +708,17 @@ const TOWER_EQUATION_BLUEPRINTS = {
         equationSymbol: 'Pierce',
         name: 'Pierce',
         description: 'Piercing depth braided from the second glyph conduit.',
-        upgradable: false,
-        lockedNote: 'Channel glyph energy to sharpen pierce.',
-        computeValue() {
-          return getGlyphSubscriptRank(2);
-        },
+        baseValue: 1,
+        step: 1,
+        upgradable: true,
         format: (value) => `${formatWholeNumber(value)} pierce`,
-        getSubEquations() {
-          const glyphRank = getGlyphSubscriptRank(2);
+        getSubEquations({ level, value }) {
+          const glyphRank = deriveGlyphRankFromLevel(level, 1);
+          const pierceValue = Number.isFinite(value) ? value : glyphRank;
           return [
             {
-              expression: '\\( P_{\\text{ierce}} = 1 \\left( G_{\\text{lyph2}} \\right) \\)',
-              values: `\\( = 1 \\left( ${formatWholeNumber(glyphRank)} \\right) = ${formatWholeNumber(glyphRank)} \\)`,
+              expression: '\( P_{\text{ierce}} = \mathcal{G}_{2} \)',
+              values: `\( = ${formatWholeNumber(glyphRank)} = ${formatWholeNumber(pierceValue)} \)`,
             },
           ];
         },
@@ -955,10 +941,10 @@ function appendEquationVariable(target, label) {
   const [firstChar, ...restChars] = Array.from(text);
   appendEquationText(target, firstChar);
   if (restChars.length) {
-    const subscript = document.createElement('span');
-    subscript.className = 'tower-upgrade-formula-part-subscript';
-    appendEquationText(subscript, restChars.join(''));
-    target.append(subscript);
+    const tail = document.createElement('span');
+    tail.className = 'tower-upgrade-formula-part-tail';
+    appendEquationText(tail, restChars.join(''));
+    target.append(tail);
   }
 }
 
