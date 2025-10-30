@@ -7,70 +7,20 @@ const ALPHA_PARTICLE_COLORS = [
   { r: 138, g: 247, b: 255 },
 ];
 
-// Β tower tones lean into amber math light so shared particles still read uniquely.
-const BETA_PARTICLE_COLORS = [
-  { r: 255, g: 214, b: 112 },
-  { r: 118, g: 189, b: 255 },
-];
-
-// Γ tower particles glow with verdant energy to telegraph piercing precision.
-const GAMMA_PARTICLE_COLORS = [
-  { r: 176, g: 255, b: 193 },
-  { r: 120, g: 219, b: 255 },
-];
-
-// Configuration map keeps burst behavior, particle palettes, and timing tuned per tower.
-const TOWER_PARTICLE_CONFIGS = {
-  alpha: {
-    towerType: 'alpha',
-    stateKey: 'alphaState',
-    burstListKey: 'alphaBursts',
-    idPrefix: 'alpha',
-    colors: ALPHA_PARTICLE_COLORS,
-    behavior: 'swirlBounce',
-    particleCountRange: { min: 5, max: 10 },
-    dashDelayRange: 0.08,
-    timings: {
-      swirl: { base: 0.32, variance: 0.18 },
-      charge: { base: 0.1, variance: 0.08 },
-      dash: { base: 0.26, variance: 0.14 },
-    },
-  },
-  beta: {
-    towerType: 'beta',
-    stateKey: 'betaState',
-    burstListKey: 'betaBursts',
-    idPrefix: 'beta',
-    colors: BETA_PARTICLE_COLORS,
-    behavior: 'swirlBounce',
-    particleCountRange: { min: 5, max: 10 },
-    dashDelayRange: 0.06,
-    timings: {
-      swirl: { base: 0.28, variance: 0.16 },
-      charge: { base: 0.1, variance: 0.06 },
-      dash: { base: 0.22, variance: 0.12 },
-    },
-  },
-  gamma: {
-    towerType: 'gamma',
-    stateKey: 'gammaState',
-    burstListKey: 'gammaBursts',
-    idPrefix: 'gamma',
-    colors: GAMMA_PARTICLE_COLORS,
-    behavior: 'pierceLaser',
-    particleCountRange: { min: 5, max: 10 },
-    dashDelayRange: 0.02,
-    timings: {
-      swirl: { base: 0.26, variance: 0.12 },
-      charge: { base: 0.08, variance: 0.06 },
-      dash: { base: 0.2, variance: 0.1 },
-    },
-    laser: {
-      minExtension: 160,
-      maxExtension: 320,
-      speed: 760,
-      fadeDuration: 0.22,
-    },
+// Configuration block keeps α burst behavior, particle palette, and timing tuned.
+const ALPHA_PARTICLE_CONFIG = {
+  towerType: 'alpha',
+  stateKey: 'alphaState',
+  burstListKey: 'alphaBursts',
+  idPrefix: 'alpha',
+  colors: ALPHA_PARTICLE_COLORS,
+  behavior: 'swirlBounce',
+  particleCountRange: { min: 5, max: 10 },
+  dashDelayRange: 0.08,
+  timings: {
+    swirl: { base: 0.32, variance: 0.18 },
+    charge: { base: 0.1, variance: 0.08 },
+    dash: { base: 0.26, variance: 0.14 },
   },
 };
 
@@ -122,7 +72,7 @@ function resolveTowerRadiusPixels(playfield, tower) {
 // Spawn soft energy motes along the tower circumference to seed the swirl animation.
 function createParticleCloud(playfield, tower, burst) {
   const baseRadius = resolveTowerRadiusPixels(playfield, tower);
-  const config = burst?.config || TOWER_PARTICLE_CONFIGS.alpha;
+  const config = burst?.config || ALPHA_PARTICLE_CONFIG;
   const range = config.particleCountRange || {};
   const minCount = Number.isFinite(range.min) ? range.min : 5;
   const maxCount = Number.isFinite(range.max) ? range.max : Math.max(minCount, 10);
@@ -490,7 +440,7 @@ function drawParticle(ctx, particle) {
 }
 
 // Ensure the correct burst container is ready for the requesting tower type.
-function ensureTowerBurstState(playfield, tower, config) {
+export function ensureTowerBurstState(playfield, tower, config) {
   if (!playfield || !tower || !config || tower.type !== config.towerType) {
     return null;
   }
@@ -504,7 +454,7 @@ function ensureTowerBurstState(playfield, tower, config) {
 }
 
 // Shared teardown clears cached state and removes lingering bursts for any tower.
-function teardownTowerBurst(playfield, tower, config) {
+export function teardownTowerBurst(playfield, tower, config) {
   if (tower && config?.stateKey) {
     tower[config.stateKey] = null;
   }
@@ -519,7 +469,7 @@ function teardownTowerBurst(playfield, tower, config) {
 }
 
 // Spawn helper wires tower-specific configs into the shared particle system.
-function spawnTowerAttackBurst(playfield, tower, targetInfo = {}, options = {}, config) {
+export function spawnTowerAttackBurst(playfield, tower, targetInfo = {}, options = {}, config) {
   if (!playfield || !tower || !config || tower.type !== config.towerType) {
     return null;
   }
@@ -554,7 +504,7 @@ function spawnTowerAttackBurst(playfield, tower, targetInfo = {}, options = {}, 
 }
 
 // Update helper advances burst lifecycles while pruning finished motes.
-function updateTowerBursts(playfield, delta, config) {
+export function updateTowerBursts(playfield, delta, config) {
   if (
     !playfield ||
     !config?.burstListKey ||
@@ -578,7 +528,7 @@ function updateTowerBursts(playfield, delta, config) {
 }
 
 // Drawing helper keeps additive blending consistent between the tower families.
-function drawTowerBursts(playfield, config) {
+export function drawTowerBursts(playfield, config) {
   const ctx = playfield?.ctx;
   if (!ctx || !config?.burstListKey || !Array.isArray(playfield[config.burstListKey]) || !playfield[config.burstListKey].length) {
     return;
@@ -595,61 +545,21 @@ function drawTowerBursts(playfield, config) {
 }
 
 export function ensureAlphaState(playfield, tower) {
-  return ensureTowerBurstState(playfield, tower, TOWER_PARTICLE_CONFIGS.alpha);
-}
-
-export function ensureBetaState(playfield, tower) {
-  return ensureTowerBurstState(playfield, tower, TOWER_PARTICLE_CONFIGS.beta);
-}
-
-export function ensureGammaState(playfield, tower) {
-  return ensureTowerBurstState(playfield, tower, TOWER_PARTICLE_CONFIGS.gamma);
+  return ensureTowerBurstState(playfield, tower, ALPHA_PARTICLE_CONFIG);
 }
 
 export function teardownAlphaTower(playfield, tower) {
-  teardownTowerBurst(playfield, tower, TOWER_PARTICLE_CONFIGS.alpha);
-}
-
-export function teardownBetaTower(playfield, tower) {
-  teardownTowerBurst(playfield, tower, TOWER_PARTICLE_CONFIGS.beta);
-}
-
-export function teardownGammaTower(playfield, tower) {
-  teardownTowerBurst(playfield, tower, TOWER_PARTICLE_CONFIGS.gamma);
+  teardownTowerBurst(playfield, tower, ALPHA_PARTICLE_CONFIG);
 }
 
 export function spawnAlphaAttackBurst(playfield, tower, targetInfo = {}, options = {}) {
-  return spawnTowerAttackBurst(playfield, tower, targetInfo, options, TOWER_PARTICLE_CONFIGS.alpha);
-}
-
-export function spawnBetaAttackBurst(playfield, tower, targetInfo = {}, options = {}) {
-  return spawnTowerAttackBurst(playfield, tower, targetInfo, options, TOWER_PARTICLE_CONFIGS.beta);
-}
-
-export function spawnGammaAttackBurst(playfield, tower, targetInfo = {}, options = {}) {
-  return spawnTowerAttackBurst(playfield, tower, targetInfo, options, TOWER_PARTICLE_CONFIGS.gamma);
+  return spawnTowerAttackBurst(playfield, tower, targetInfo, options, ALPHA_PARTICLE_CONFIG);
 }
 
 export function updateAlphaBursts(playfield, delta) {
-  updateTowerBursts(playfield, delta, TOWER_PARTICLE_CONFIGS.alpha);
-}
-
-export function updateBetaBursts(playfield, delta) {
-  updateTowerBursts(playfield, delta, TOWER_PARTICLE_CONFIGS.beta);
-}
-
-export function updateGammaBursts(playfield, delta) {
-  updateTowerBursts(playfield, delta, TOWER_PARTICLE_CONFIGS.gamma);
+  updateTowerBursts(playfield, delta, ALPHA_PARTICLE_CONFIG);
 }
 
 export function drawAlphaBursts(playfield) {
-  drawTowerBursts(playfield, TOWER_PARTICLE_CONFIGS.alpha);
-}
-
-export function drawBetaBursts(playfield) {
-  drawTowerBursts(playfield, TOWER_PARTICLE_CONFIGS.beta);
-}
-
-export function drawGammaBursts(playfield) {
-  drawTowerBursts(playfield, TOWER_PARTICLE_CONFIGS.gamma);
+  drawTowerBursts(playfield, ALPHA_PARTICLE_CONFIG);
 }

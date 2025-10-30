@@ -40,21 +40,25 @@ import { notifyTowerPlaced } from './achievementsTab.js';
 import { metersToPixels } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import {
   ensureAlphaState as ensureAlphaStateHelper,
-  ensureBetaState as ensureBetaStateHelper,
-  ensureGammaState as ensureGammaStateHelper,
   teardownAlphaTower as teardownAlphaTowerHelper,
-  teardownBetaTower as teardownBetaTowerHelper,
-  teardownGammaTower as teardownGammaTowerHelper,
   spawnAlphaAttackBurst as spawnAlphaAttackBurstHelper,
-  spawnBetaAttackBurst as spawnBetaAttackBurstHelper,
-  spawnGammaAttackBurst as spawnGammaAttackBurstHelper,
   updateAlphaBursts as updateAlphaBurstsHelper,
-  updateBetaBursts as updateBetaBurstsHelper,
-  updateGammaBursts as updateGammaBurstsHelper,
   drawAlphaBursts as drawAlphaBurstsHelper,
-  drawBetaBursts as drawBetaBurstsHelper,
-  drawGammaBursts as drawGammaBurstsHelper,
 } from '../scripts/features/towers/alphaTower.js';
+import {
+  ensureBetaState as ensureBetaStateHelper,
+  teardownBetaTower as teardownBetaTowerHelper,
+  spawnBetaAttackBurst as spawnBetaAttackBurstHelper,
+  updateBetaBursts as updateBetaBurstsHelper,
+  drawBetaBursts as drawBetaBurstsHelper,
+} from '../scripts/features/towers/betaTower.js';
+import {
+  ensureGammaState as ensureGammaStateHelper,
+  teardownGammaTower as teardownGammaTowerHelper,
+  spawnGammaAttackBurst as spawnGammaAttackBurstHelper,
+  updateGammaBursts as updateGammaBurstsHelper,
+  drawGammaBursts as drawGammaBurstsHelper,
+} from '../scripts/features/towers/gammaTower.js';
 import {
   evaluateZetaMetrics as evaluateZetaMetricsHelper,
   teardownZetaTower as teardownZetaTowerHelper,
