@@ -619,7 +619,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = 0.5 + 1.5 * alphaConnections;
           return [
             {
-              expression: String.raw`\( \text{Speed} = 0.5 + 1.5 \left( {\color[HTML]{8FD2FF}{\alpha_{\beta}}} \right) \)`,
+              expression: String.raw`\( \text{Speed} = 0.5 + 1.5 \left( \alpha_{\beta} \right) \)`,
               values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 + 1.5 \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
             },
           ];
@@ -634,15 +634,16 @@ const TOWER_EQUATION_BLUEPRINTS = {
         upgradable: false,
         lockedNote: 'Entangle α lattices to extend β reach.',
         computeValue() {
-          return getDynamicConnectionCount('alpha');
+          return 1 + getDynamicConnectionCount('alpha');
         },
         format: (value) => `${formatDecimal(value, 2)} range`,
         getSubEquations() {
           const alphaConnections = getDynamicConnectionCount('alpha');
+          const rangeValue = 1 + alphaConnections;
           return [
             {
-              expression: String.raw`\( \text{Range} = 1 \times \left( {\color[HTML]{8FD2FF}{\alpha_{\beta}}} \right) \)`,
-              values: String.raw`\( ${formatDecimal(alphaConnections, 2)} = 1 \times \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
+              expression: String.raw`\( \text{Range} = 1 + \left( \alpha_{\beta} \right) \)`,
+              values: String.raw`\( ${formatDecimal(rangeValue, 2)} = 1 + \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
             },
           ];
         },
@@ -712,7 +713,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = 0.5 + 0.25 * alphaConnections;
           return [
             {
-              expression: String.raw`\( \text{Speed} = 0.5 + 0.25 \left( {\color[HTML]{8FD2FF}{\alpha_{\gamma}}} \right) \)`,
+              expression: String.raw`\( \text{Speed} = 0.5 + 0.25 \left( \alpha_{\gamma} \right) \)`,
               values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 + 0.25 \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
             },
           ];
@@ -736,7 +737,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const rangeValue = 1 + 2 * betaConnections;
           return [
             {
-              expression: String.raw`\( \text{Range} = 1 + 2 \left( {\color[HTML]{8FD2FF}{\beta_{\gamma}}} \right) \)`,
+              expression: String.raw`\( \text{Range} = 1 + 2 \left( \beta_{\gamma} \right) \)`,
               values: String.raw`\( ${formatDecimal(rangeValue, 2)} = 1 + 2 \left( ${formatWholeNumber(betaConnections)} \right) \)`,
             },
           ];
