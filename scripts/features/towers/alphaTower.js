@@ -1,11 +1,40 @@
 // α tower particle system isolates visual math so playfield orchestration stays lean.
 import { metersToPixels } from '../../../assets/gameUnits.js';
+import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 
 // Soft energy palette alternates between magenta and cyan to keep α resonant.
 const ALPHA_PARTICLE_COLORS = [
   { r: 255, g: 138, b: 216 },
   { r: 138, g: 247, b: 255 },
 ];
+
+// Offsets define where α samples the active palette gradient so bursts pick up both endpoints.
+const ALPHA_COLOR_OFFSETS = [0.18, 0.82];
+
+// Normalize palette-derived colors to particle-friendly RGB objects.
+function normalizeParticleColor(color) {
+  if (!color || typeof color !== 'object') {
+    return null;
+  }
+  const { r, g, b } = color;
+  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) {
+    return null;
+  }
+  return {
+    r: Math.max(0, Math.min(255, Math.round(r))),
+    g: Math.max(0, Math.min(255, Math.round(g))),
+    b: Math.max(0, Math.min(255, Math.round(b))),
+  };
+}
+
+// Pull two hues from the shared gradient so α motes echo the global palette while retaining a fallback.
+function resolveAlphaParticleColors() {
+  const colors = ALPHA_COLOR_OFFSETS.map((offset) => normalizeParticleColor(samplePaletteGradient(offset))).filter(Boolean);
+  if (colors.length >= 2) {
+    return colors;
+  }
+  return ALPHA_PARTICLE_COLORS.map((entry) => ({ ...entry }));
+}
 
 // Configuration block keeps α burst behavior, particle palette, and timing tuned.
 const ALPHA_PARTICLE_CONFIG = {
@@ -14,6 +43,7 @@ const ALPHA_PARTICLE_CONFIG = {
   burstListKey: 'alphaBursts',
   idPrefix: 'alpha',
   colors: ALPHA_PARTICLE_COLORS,
+  colorResolver: resolveAlphaParticleColors,
   behavior: 'swirlBounce',
   particleCountRange: { min: 5, max: 10 },
   dashDelayRange: 0.08,
@@ -69,6 +99,28 @@ function resolveTowerRadiusPixels(playfield, tower) {
   return Math.max(12, resolved);
 }
 
+// Resolve the palette to use for the next burst, falling back to the legacy cyan-magenta pairing when needed.
+function resolveBurstPalette(playfield, tower, burst, config, particleCount) {
+  let palette = null;
+  if (config && typeof config.colorResolver === 'function') {
+    try {
+      palette = config.colorResolver({ playfield, tower, burst, particleCount });
+    } catch (error) {
+      console.warn('Failed to resolve particle colors for tower burst', error);
+    }
+  }
+  if (!Array.isArray(palette) || !palette.length) {
+    palette = Array.isArray(config?.colors) && config.colors.length ? config.colors : ALPHA_PARTICLE_COLORS;
+  }
+  const normalized = palette
+    .map((entry) => normalizeParticleColor(entry))
+    .filter(Boolean);
+  if (normalized.length) {
+    return normalized;
+  }
+  return ALPHA_PARTICLE_COLORS.map((entry) => ({ ...entry }));
+}
+
 // Spawn soft energy motes along the tower circumference to seed the swirl animation.
 function createParticleCloud(playfield, tower, burst) {
   const baseRadius = resolveTowerRadiusPixels(playfield, tower);
@@ -77,12 +129,10 @@ function createParticleCloud(playfield, tower, burst) {
   const minCount = Number.isFinite(range.min) ? range.min : 5;
   const maxCount = Number.isFinite(range.max) ? range.max : Math.max(minCount, 10);
   const particleCount = Math.max(1, randomInt(minCount, maxCount));
+  const palette = resolveBurstPalette(playfield, tower, burst, config, particleCount);
   const particles = [];
   for (let index = 0; index < particleCount; index += 1) {
     const angle = Math.random() * Math.PI * 2;
-    const palette = Array.isArray(config.colors) && config.colors.length
-      ? config.colors
-      : ALPHA_PARTICLE_COLORS;
     const color = palette[index % palette.length];
     const dashDelayCap = Number.isFinite(config.dashDelayRange)
       ? Math.max(0, config.dashDelayRange)
