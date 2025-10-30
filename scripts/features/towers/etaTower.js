@@ -14,8 +14,8 @@ const ETA_RING_RGB = [
   [157, 255, 181],
   [208, 162, 255],
 ];
-// Alignment tolerance of three degrees expressed in radians for η ring checks.
-const ETA_ALIGNMENT_THRESHOLD_RADIANS = (3 * Math.PI) / 180;
+// Alignment tolerance of five degrees expressed in radians for η ring checks.
+const ETA_ALIGNMENT_THRESHOLD_RADIANS = (5 * Math.PI) / 180;
 // Number of merges required before η ascends into its prestige form Η.
 export const ETA_MAX_PRESTIGE_MERGES = 5;
 // Fixed prestige rotation rates (rotations per second) for each η ring.
