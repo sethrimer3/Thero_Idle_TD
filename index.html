@@ -299,14 +299,14 @@
               <header class="tower-header">
                 <span class="tower-tier">Tier 0</span>
                 <h3>
-                  <span class="mind-gate-symbol" aria-hidden="true">℘</span>
-                  mind gate
+                  <span class="mind-gate-symbol" aria-hidden="true">
+                    <img src="assets/images/tower-aleph-null.svg" alt="" />
+                  </span>
+                  Mind Gate
                 </h3>
               </header>
               <div class="formula-block">
-                <p class="formula-line">
-                  \( \wp = \text{Life} \times \text{Regeneration} \)
-                </p>
+                <p class="formula-line">\( \aleph_{\text{Mind}} = \text{Life} \times \text{Regeneration} \)</p>
                 <ul class="formula-definition">
                   <li>Life → \( 100^{\aleph_{1} / \aleph_{2}} \)</li>
                   <li>Regeneration → \( \frac{100 \times \aleph_{2}}{\aleph_{1}} \)</li>
@@ -1332,12 +1332,10 @@
           aria-selected="false"
           aria-pressed="false"
         >
-          <span class="tab-icon">
-            Δ
-            <!-- Indicator for unused glyph currency within the towers tab icon. -->
-            <span class="tab-icon-badge tab-icon-badge--glyphs" id="tab-glyph-badge" hidden>0</span>
-          </span>
+          <span class="tab-icon">Δ</span>
           <span class="tab-label">Towers</span>
+          <!-- Indicator for unused glyph currency relocated beneath the tab title. -->
+          <span class="tab-icon-badge tab-icon-badge--glyphs" id="tab-glyph-badge" hidden>0</span>
         </button>
         <button
           class="tab-button"
@@ -1350,12 +1348,10 @@
           aria-selected="false"
           aria-pressed="false"
         >
-          <span class="tab-icon">
-            ⧖
-            <!-- Persistent mote bank indicator within the powder tab icon. -->
-            <span class="tab-icon-badge tab-icon-badge--motes" id="tab-mote-badge">0.00</span>
-          </span>
+          <span class="tab-icon">⧖</span>
           <span class="tab-label">Mote Gems</span>
+          <!-- Persistent mote bank indicator relocated beneath the tab title. -->
+          <span class="tab-icon-badge tab-icon-badge--motes" id="tab-mote-badge">0.00</span>
         </button>
         <button
           class="tab-button"
