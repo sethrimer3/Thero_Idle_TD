@@ -4133,13 +4133,12 @@ body.graphics-mode-low .control-button {
   font-weight: 700;
 }
 
-.tower-upgrade-formula-part-subscript {
-  font-size: 0.68em;
+.tower-upgrade-formula-part-tail {
+  font-size: 0.5em;
   line-height: 1;
-  margin-left: 0.12ch;
-  position: relative;
-  top: 0.45em;
+  margin-left: 0.14ch;
   letter-spacing: 0.08em;
+  transform-origin: left center;
 }
 
 .tower-upgrade-formula-part--dynamic,

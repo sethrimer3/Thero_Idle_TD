@@ -48,6 +48,10 @@ conventions for all AI collaborators working anywhere inside this repository.
    under `MAIN/`. Document licensing info in an accompanying `README` if required.
 5. **Mobile readiness:** Design UI layouts with responsive/touch-friendly controls.
    Verify that new input schemes work for both portrait and landscape if relevant (prioritize portrait).
+6. **Glyph variable language:** When the design specifies a variable such as `Glyph1`, interpret it as the
+   collectible glyph symbol used for upgrades (rendered as the glyph icon with an index like `𝔊₁`). The
+   lowercase form (e.g., `glyph1`) refers to the same glyph symbol with the index styled as a subscript.
+   Treat all glyph variables as upgradeable slots within the tower menus.
 
 ## Workflow Expectations
 - **Branching:** Work on feature branches; keep commits atomic with clear messages.
