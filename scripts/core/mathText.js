@@ -194,6 +194,7 @@ export function convertMathExpressionToPlainText(expression) {
 const GREEK_SYMBOL_LOOKUP = new Map([
   ['\\alpha', 'α'],
   ['\\beta', 'β'],
+  ['\\aleph', 'ℵ'],
   ['\\gamma', 'γ'],
   ['\\delta', 'δ'],
   ['\\epsilon', 'ε'],

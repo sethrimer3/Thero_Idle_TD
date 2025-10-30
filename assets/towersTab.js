@@ -426,8 +426,8 @@ function getDynamicConnectionCount(towerType) {
 const TOWER_EQUATION_BLUEPRINTS = {
   // Model the Mind Gate's two glyph conduits so it can accept upgrades directly.
   'mind-gate': {
-    mathSymbol: '\\mathcal{G}_{\\text{Mind}}',
-    baseEquation: '\\( \\mathcal{G}_{\\text{Mind}} = 10 \\times \\Psi_{1} + \\frac{\\Psi_{2}}{1 / \\Psi_{1}} \\)',
+    mathSymbol: '\\aleph_{\\text{Mind}}',
+    baseEquation: '\\( \\aleph_{\\text{Mind}} = 10 \\times \\Psi_{1} + \\frac{\\Psi_{2}}{1 / \\Psi_{1}} \\)',
     variables: [
       {
         key: 'life',
@@ -442,7 +442,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         getSubEquations({ level, value }) {
           const invested = Math.max(0, Number.isFinite(level) ? level : 0);
           const rank = Math.max(1, Number.isFinite(value) ? value : 1);
-          return [`\\( \\Psi_{1} = 1 + ${formatWholeNumber(invested)} = ${formatWholeNumber(rank)} \\)`];
+          return [`\\( ${formatWholeNumber(rank)} = 1 + ${formatWholeNumber(invested)} \\)`];
         },
       },
       {
@@ -458,7 +458,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
         getSubEquations({ level, value }) {
           const invested = Math.max(0, Number.isFinite(level) ? level : 0);
           const rank = Math.max(1, Number.isFinite(value) ? value : 2);
-          return [`\\( \\Psi_{2} = 2 + ${formatWholeNumber(invested)} = ${formatWholeNumber(rank)} \\)`];
+          return [`\\( ${formatWholeNumber(rank)} = 2 + ${formatWholeNumber(invested)} \\)`];
         },
       },
     ],
@@ -491,8 +491,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const attackValue = Number.isFinite(value) ? value : 0;
           return [
             {
-              expression: '\( A_{\text{ttack}} = 5 \times \mathcal{G}_{1} \)',
-              values: `\( = 5 \times ${formatWholeNumber(glyphRank)} = ${formatWholeNumber(attackValue)} \)`,
+              expression: '\( A_{\text{ttack}} = 5 \times \aleph_{1} \)',
+              values: `\( ${formatWholeNumber(attackValue)} = 5 \times ${formatWholeNumber(glyphRank)} \)`,
             },
           ];
         },
@@ -512,8 +512,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = Number.isFinite(value) ? value : glyphRank * 0.5;
           return [
             {
-              expression: '\( S_{\text{peed}} = 0.5 \times \mathcal{G}_{2} \)',
-              values: `\( = 0.5 \times ${formatDecimal(glyphRank, 2)} = ${formatDecimal(speedValue, 2)} \)`,
+              expression: '\( S_{\text{peed}} = 0.5 \times \aleph_{2} \)',
+              values: `\( ${formatDecimal(speedValue, 2)} = 0.5 \times ${formatDecimal(glyphRank, 2)} \)`,
             },
           ];
         },
@@ -527,7 +527,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
     formatBaseEquationValues({ values, result, formatComponent }) {
       const attack = Number.isFinite(values.atk) ? values.atk : 0;
       const speed = Number.isFinite(values.speed) ? values.speed : 0;
-      return `= ${formatComponent(attack)} × ${formatComponent(speed)} = ${formatComponent(result)}`;
+      return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)}`;
     },
   },
   beta: {
@@ -556,8 +556,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const attackValue = alphaValue * glyphRank;
           return [
             {
-              expression: '\( A_{\text{ttack}} = \alpha \times \mathcal{G}_{1} \)',
-              values: `\( = ${formatDecimal(alphaValue, 2)} \times ${formatWholeNumber(glyphRank)} = ${formatDecimal(attackValue, 2)} \)`,
+              expression: '\( A_{\text{ttack}} = \alpha \times \aleph_{1} \)',
+              values: `\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(alphaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
             },
           ];
         },
@@ -580,8 +580,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = 0.5 + 1.5 * alphaConnections;
           return [
             {
-              expression: '\\( S_{\\text{peed}} = 0.5 + 1.5 \\left( {\\color{#8fd2ff}{\\#\\alpha}} \\right) \\)',
-              values: `\\( = 0.5 + 1.5 \\left( ${formatWholeNumber(alphaConnections)} \\right) = ${formatDecimal(speedValue, 2)} \\)`,
+              expression: '\\( S_{\\text{peed}} = 0.5 + 1.5 \\left( {\\color{#8fd2ff}{\\alpha_{\\beta}}} \\right) \\)',
+              values: `\\( ${formatDecimal(speedValue, 2)} = 0.5 + 1.5 \\left( ${formatWholeNumber(alphaConnections)} \\right) \\)`,
             },
           ];
         },
@@ -602,8 +602,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const alphaConnections = getDynamicConnectionCount('alpha');
           return [
             {
-              expression: '\\( R_{\\text{ange}} = 1 \\left( {\\color{#8fd2ff}{\\#\\alpha}} \\right) \\)',
-              values: `\\( = 1 \\left( ${formatWholeNumber(alphaConnections)} \\right) = ${formatDecimal(alphaConnections, 2)} \\)`,
+              expression: '\\( R_{\\text{ange}} = 1 \\times \\left( {\\color{#8fd2ff}{\\alpha_{\\beta}}} \\right) \\)',
+              values: `\\( ${formatDecimal(alphaConnections, 2)} = 1 \\times \\left( ${formatWholeNumber(alphaConnections)} \\right) \\)`,
             },
           ];
         },
@@ -619,7 +619,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
       const attack = Number.isFinite(values.attack) ? values.attack : 0;
       const speed = Number.isFinite(values.speed) ? values.speed : 0;
       const range = Number.isFinite(values.range) ? values.range : 0;
-      return `= ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} = ${formatComponent(result)}`;
+      return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)}`;
     },
   },
   gamma: {
@@ -648,8 +648,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const attackValue = betaValue * glyphRank;
           return [
             {
-              expression: '\( A_{\text{ttack}} = \beta \times \mathcal{G}_{1} \)',
-              values: `\( = ${formatDecimal(betaValue, 2)} \times ${formatWholeNumber(glyphRank)} = ${formatDecimal(attackValue, 2)} \)`,
+              expression: '\( A_{\text{ttack}} = \beta \times \aleph_{1} \)',
+              values: `\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(betaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
             },
           ];
         },
@@ -672,8 +672,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const speedValue = 0.5 + 0.25 * alphaConnections;
           return [
             {
-              expression: '\\( S_{\\text{peed}} = 0.5 + 0.25 \\left( {\\color{#8fd2ff}{\\#\\alpha}} \\right) \\)',
-              values: `\\( = 0.5 + 0.25 \\left( ${formatWholeNumber(alphaConnections)} \\right) = ${formatDecimal(speedValue, 2)} \\)`,
+              expression: '\\( S_{\\text{peed}} = 0.5 + 0.25 \\left( {\\color{#8fd2ff}{\\alpha_{\\gamma}}} \\right) \\)',
+              values: `\\( ${formatDecimal(speedValue, 2)} = 0.5 + 0.25 \\left( ${formatWholeNumber(alphaConnections)} \\right) \\)`,
             },
           ];
         },
@@ -696,8 +696,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const rangeValue = 1 + 2 * betaConnections;
           return [
             {
-              expression: '\\( R_{\\text{ange}} = 1 + 2 \\left( {\\color{#8fd2ff}{\\#\\beta}} \\right) \\)',
-              values: `\\( = 1 + 2 \\left( ${formatWholeNumber(betaConnections)} \\right) = ${formatDecimal(rangeValue, 2)} \\)`,
+              expression: '\\( R_{\\text{ange}} = 1 + 2 \\left( {\\color{#8fd2ff}{\\beta_{\\gamma}}} \\right) \\)',
+              values: `\\( ${formatDecimal(rangeValue, 2)} = 1 + 2 \\left( ${formatWholeNumber(betaConnections)} \\right) \\)`,
             },
           ];
         },
@@ -717,8 +717,8 @@ const TOWER_EQUATION_BLUEPRINTS = {
           const pierceValue = Number.isFinite(value) ? value : glyphRank;
           return [
             {
-              expression: '\( P_{\text{ierce}} = \mathcal{G}_{2} \)',
-              values: `\( = ${formatWholeNumber(glyphRank)} = ${formatWholeNumber(pierceValue)} \)`,
+              expression: '\( P_{\text{ierce}} = \aleph_{2} \)',
+              values: `\( ${formatWholeNumber(pierceValue)} = ${formatWholeNumber(glyphRank)} \)`,
             },
           ];
         },
@@ -736,7 +736,7 @@ const TOWER_EQUATION_BLUEPRINTS = {
       const speed = Number.isFinite(values.speed) ? values.speed : 0;
       const range = Number.isFinite(values.range) ? values.range : 0;
       const pierce = Number.isFinite(values.pierce) ? values.pierce : 0;
-      return `= ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${formatComponent(pierce)} = ${formatComponent(result)}`;
+      return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${formatComponent(pierce)}`;
     },
   },
   delta: {
@@ -838,6 +838,14 @@ export function isTowerUnlocked(towerId) {
   return towerTabState.unlockState.unlocked.has(towerId);
 }
 
+export function isTowerPlaceable(towerId) {
+  const definition = getTowerDefinition(towerId);
+  if (!definition) {
+    return false;
+  }
+  return definition.placeable !== false;
+}
+
 export function unlockTower(towerId, { silent = false } = {}) {
   if (!towerId || !towerTabState.towerDefinitionMap.has(towerId)) {
     return false;
@@ -907,7 +915,8 @@ function resetTowerVariableAnimationState() {
   towerTabState.towerVariableAnimation.shouldPlayEntry = false;
 }
 
-const DYNAMIC_EQUATION_PATTERN = /(#α|#β)/g;
+const DYNAMIC_EQUATION_PATTERN = /([α-ω]_[α-ω])/gu;
+const DYNAMIC_VARIABLE_TOKEN = /^[α-ω]_[α-ω]$/u;
 
 function appendEquationText(target, text) {
   if (!target) {
@@ -918,7 +927,7 @@ function appendEquationText(target, text) {
     if (!segment) {
       return;
     }
-    if (segment === '#α' || segment === '#β') {
+    if (DYNAMIC_VARIABLE_TOKEN.test(segment)) {
       const dynamic = document.createElement('span');
       dynamic.classList.add('tower-upgrade-formula-part--dynamic', 'dynamic-variable');
       dynamic.textContent = segment;
@@ -1186,7 +1195,8 @@ export function pruneLockedTowersFromLoadout() {
   const selected = towerTabState.loadoutState.selected;
   let changed = false;
   for (let index = selected.length - 1; index >= 0; index -= 1) {
-    if (!isTowerUnlocked(selected[index])) {
+    const towerId = selected[index];
+    if (!isTowerUnlocked(towerId) || !isTowerPlaceable(towerId)) {
       selected.splice(index, 1);
       changed = true;
     }
@@ -1253,7 +1263,7 @@ function renderTowerLoadout() {
 
   selected.forEach((towerId) => {
     const definition = getTowerDefinition(towerId);
-    if (!definition) {
+    if (!definition || definition.placeable === false) {
       return;
     }
 
@@ -1744,7 +1754,20 @@ export function updateTowerSelectionButtons() {
     const selected = towerTabState.loadoutState.selected.includes(towerId);
     const label = definition ? definition.symbol : towerId;
     const unlocked = isTowerUnlocked(towerId);
-    button.dataset.locked = unlocked ? 'false' : 'true';
+    const placeable = isTowerPlaceable(towerId);
+    button.dataset.locked = unlocked && placeable ? 'false' : 'true';
+    if (!placeable) {
+      button.disabled = true;
+      button.setAttribute('aria-pressed', 'false');
+      if (definition) {
+        button.textContent = `${definition.symbol || 'Static'} anchored`;
+        button.title = `${definition.name || 'This lattice'} cannot be placed on the battlefield.`;
+      } else {
+        button.textContent = 'Unavailable';
+        button.title = 'This lattice cannot be placed on the battlefield.';
+      }
+      return;
+    }
     if (!unlocked) {
       button.disabled = true;
       button.setAttribute('aria-pressed', 'false');
@@ -1774,6 +1797,9 @@ export function updateTowerSelectionButtons() {
 
 export function toggleTowerSelection(towerId) {
   if (!towerTabState.towerDefinitionMap.has(towerId)) {
+    return;
+  }
+  if (!isTowerPlaceable(towerId)) {
     return;
   }
   if (towerTabState.playfield && towerTabState.playfield.isInteractiveLevelActive()) {
@@ -3063,8 +3089,9 @@ export function initializeTowerEquipmentInterface() {
 
 export function syncLoadoutToPlayfield() {
   pruneLockedTowersFromLoadout();
+  const placeableSelection = towerTabState.loadoutState.selected.filter((towerId) => isTowerPlaceable(towerId));
   if (towerTabState.playfield) {
-    towerTabState.playfield.setAvailableTowers(towerTabState.loadoutState.selected);
+    towerTabState.playfield.setAvailableTowers(placeableSelection);
   }
   renderTowerLoadout();
   updateTowerSelectionButtons();

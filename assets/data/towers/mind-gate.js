@@ -6,6 +6,7 @@ export const MIND_GATE_TOWER = Object.freeze({
   symbol: '⟟',
   name: 'Mind Gate',
   tierLabel: 'Origin',
+  placeable: false,
   baseCost: 0,
   damage: 0,
   rate: 0,
