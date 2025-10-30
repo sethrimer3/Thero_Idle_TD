@@ -40,10 +40,20 @@ import { notifyTowerPlaced } from './achievementsTab.js';
 import { metersToPixels } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import {
   ensureAlphaState as ensureAlphaStateHelper,
+  ensureBetaState as ensureBetaStateHelper,
+  ensureGammaState as ensureGammaStateHelper,
   teardownAlphaTower as teardownAlphaTowerHelper,
+  teardownBetaTower as teardownBetaTowerHelper,
+  teardownGammaTower as teardownGammaTowerHelper,
   spawnAlphaAttackBurst as spawnAlphaAttackBurstHelper,
+  spawnBetaAttackBurst as spawnBetaAttackBurstHelper,
+  spawnGammaAttackBurst as spawnGammaAttackBurstHelper,
   updateAlphaBursts as updateAlphaBurstsHelper,
+  updateBetaBursts as updateBetaBurstsHelper,
+  updateGammaBursts as updateGammaBurstsHelper,
   drawAlphaBursts as drawAlphaBurstsHelper,
+  drawBetaBursts as drawBetaBurstsHelper,
+  drawGammaBursts as drawGammaBurstsHelper,
 } from '../scripts/features/towers/alphaTower.js';
 import {
   evaluateZetaMetrics as evaluateZetaMetricsHelper,
@@ -180,7 +190,10 @@ export class SimplePlayfield {
     this.towers = [];
     this.enemies = [];
     this.projectiles = [];
+    // Maintain per-tower particle burst queues so α/β/γ visuals can update independently.
     this.alphaBursts = [];
+    this.betaBursts = [];
+    this.gammaBursts = [];
     this.availableTowers = [];
     this.draggingTowerType = null;
     this.dragPreviewOffset = { x: 0, y: 0 }; // Allow callers to nudge the preview in addition to the standardized elevation.
@@ -961,6 +974,8 @@ export class SimplePlayfield {
       this.enemies = [];
       this.projectiles = [];
       this.alphaBursts = [];
+      this.betaBursts = [];
+      this.gammaBursts = [];
       this.towers = [];
       this.energy = 0;
       this.lives = 0;
@@ -1060,6 +1075,8 @@ export class SimplePlayfield {
       this.enemies = [];
       this.projectiles = [];
       this.alphaBursts = [];
+      this.betaBursts = [];
+      this.gammaBursts = [];
       this.towers = [];
       this.hoverPlacement = null;
       this.pointerPosition = null;
@@ -1251,6 +1268,8 @@ export class SimplePlayfield {
     this.enemies = [];
     this.projectiles = [];
     this.alphaBursts = [];
+    this.betaBursts = [];
+    this.gammaBursts = [];
     this.floaters = [];
     this.floaterConnections = [];
     this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
@@ -1463,6 +1482,8 @@ export class SimplePlayfield {
     this.enemies = [];
     this.projectiles = [];
     this.alphaBursts = [];
+    this.betaBursts = [];
+    this.gammaBursts = [];
     this.floaters = [];
     this.floaterConnections = [];
     this.currentWaveNumber = 1;
@@ -1501,6 +1522,12 @@ export class SimplePlayfield {
       const definition = getTowerDefinition(tower.type) || tower.definition;
       if (tower.type === 'alpha') {
         this.ensureAlphaState(tower);
+      }
+      if (tower.type === 'beta') {
+        this.ensureBetaState(tower);
+      }
+      if (tower.type === 'gamma') {
+        this.ensureGammaState(tower);
       }
       if (tower.type === 'zeta') {
         // Keep ζ pendulum geometry aligned with the tower's new coordinates.
@@ -2354,6 +2381,48 @@ export class SimplePlayfield {
   }
 
   /**
+   * Clear cached β particle data when the lattice retunes or is removed.
+   */
+  teardownBetaTower(tower) {
+    teardownBetaTowerHelper(this, tower);
+  }
+
+  /**
+   * Keep β tower particle scaling aligned with the active canvas resolution.
+   */
+  ensureBetaState(tower) {
+    return ensureBetaStateHelper(this, tower);
+  }
+
+  /**
+   * Emit β particle bursts using the shared lattice particle system.
+   */
+  spawnBetaAttackBurst(tower, targetInfo, options = {}) {
+    return spawnBetaAttackBurstHelper(this, tower, targetInfo, options);
+  }
+
+  /**
+   * Clear cached γ particle data when the lattice retunes or leaves the field.
+   */
+  teardownGammaTower(tower) {
+    teardownGammaTowerHelper(this, tower);
+  }
+
+  /**
+   * Maintain γ particle scaling so laser visuals stay anchored to the field.
+   */
+  ensureGammaState(tower) {
+    return ensureGammaStateHelper(this, tower);
+  }
+
+  /**
+   * Emit γ piercing laser bursts that reuse the shared particle animation stack.
+   */
+  spawnGammaAttackBurst(tower, targetInfo, options = {}) {
+    return spawnGammaAttackBurstHelper(this, tower, targetInfo, options);
+  }
+
+  /**
    * Clear cached ζ pendulum data when the tower is removed or retuned.
    */
   teardownZetaTower(tower) {
@@ -2402,6 +2471,16 @@ export class SimplePlayfield {
       this.ensureAlphaState(tower);
     } else if (tower.alphaState) {
       this.teardownAlphaTower(tower);
+    }
+    if (tower.type === 'beta') {
+      this.ensureBetaState(tower);
+    } else if (tower.betaState) {
+      this.teardownBetaTower(tower);
+    }
+    if (tower.type === 'gamma') {
+      this.ensureGammaState(tower);
+    } else if (tower.gammaState) {
+      this.teardownGammaTower(tower);
     }
     if (tower.type === 'delta') {
       this.ensureDeltaState(tower);
@@ -3117,6 +3196,8 @@ export class SimplePlayfield {
     }
 
     this.teardownAlphaTower(tower);
+    this.teardownBetaTower(tower);
+    this.teardownGammaTower(tower);
     this.teardownDeltaTower(tower);
     this.teardownZetaTower(tower);
     this.teardownEtaTower(tower);
@@ -3349,6 +3430,8 @@ export class SimplePlayfield {
     this.enemies = [];
     this.projectiles = [];
     this.alphaBursts = [];
+    this.betaBursts = [];
+    this.gammaBursts = [];
     this.activeWave = this.createWaveState(this.levelConfig.waves[0], { initialWave: true });
     this.lives = this.levelConfig.lives;
     this.markWaveStart();
@@ -3601,6 +3684,8 @@ export class SimplePlayfield {
     this.updateFloaters(speedDelta);
     this.updateFocusIndicator(speedDelta);
     this.updateAlphaBursts(speedDelta);
+    this.updateBetaBursts(speedDelta);
+    this.updateGammaBursts(speedDelta);
 
     const arcSpeed = this.levelConfig?.arcSpeed ?? 0.2;
     const pathLength = this.pathLength || 1;
@@ -3856,6 +3941,20 @@ export class SimplePlayfield {
    */
   updateAlphaBursts(delta) {
     updateAlphaBurstsHelper(this, delta);
+  }
+
+  /**
+   * Advance β particle bursts so exponent beams stay visually coherent.
+   */
+  updateBetaBursts(delta) {
+    updateBetaBurstsHelper(this, delta);
+  }
+
+  /**
+   * Advance γ particle bursts so piercing lasers animate smoothly.
+   */
+  updateGammaBursts(delta) {
+    updateGammaBurstsHelper(this, delta);
   }
 
   /**
@@ -4182,6 +4281,10 @@ export class SimplePlayfield {
     const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
     if (tower.type === 'alpha') {
       this.spawnAlphaAttackBurst(tower, { enemy, position: attackPosition }, { enemyId: enemy.id });
+    } else if (tower.type === 'beta') {
+      this.spawnBetaAttackBurst(tower, { enemy, position: attackPosition }, { enemyId: enemy.id });
+    } else if (tower.type === 'gamma') {
+      this.spawnGammaAttackBurst(tower, { enemy, position: attackPosition }, { enemyId: enemy.id });
     } else {
       this.projectiles.push({
         source: { x: tower.x, y: tower.y },
@@ -4687,6 +4790,8 @@ export class SimplePlayfield {
     this.enemies = [];
     this.projectiles = [];
     this.alphaBursts = [];
+    this.betaBursts = [];
+    this.gammaBursts = [];
     this.floaters = [];
     this.floaterConnections = [];
     this.endlessCycle = Math.max(0, Number(snapshot.endlessCycle) || 0);
@@ -6128,7 +6233,9 @@ export class SimplePlayfield {
       ctx.restore();
     }
 
+    this.drawBetaBursts();
     this.drawAlphaBursts();
+    this.drawGammaBursts();
   }
 
   /**
@@ -6136,6 +6243,20 @@ export class SimplePlayfield {
    */
   drawAlphaBursts() {
     drawAlphaBurstsHelper(this);
+  }
+
+  /**
+   * Render β particle bursts to visualize mirrored exponential energy.
+   */
+  drawBetaBursts() {
+    drawBetaBurstsHelper(this);
+  }
+
+  /**
+   * Render γ particle bursts so piercing lasers remain visible in combat.
+   */
+  drawGammaBursts() {
+    drawGammaBurstsHelper(this);
   }
 
   /**
