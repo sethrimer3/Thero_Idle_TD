@@ -2,8 +2,8 @@
   <defs>
     <radialGradient id="mindGateAura">
       <stop offset="0%" stop-color="#fbffb0" stop-opacity="1" />
-      <stop offset="25%" stop-color="#ffb82b" stop-opacity=".6" />
-      <stop offset="50%" stop-color="#ffc145" stop-opacity=".4" />
+      <stop offset="30%" stop-color="#ffb82b" stop-opacity=".8" />
+      <stop offset="60%" stop-color="#ffc145" stop-opacity=".4" />
       <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
     </radialGradient>
   </defs>
@@ -18,7 +18,7 @@
     text-anchor="middle"
     fill="#fffed6"
     stroke="#06063b"
-    stroke-width="0.6"
+    stroke-width="0.7"
     filter="url(#glow)"
     >𝔊<tspan
     font-size="11"
