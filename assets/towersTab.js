@@ -811,6 +811,205 @@ const TOWER_EQUATION_BLUEPRINTS = {
       return `\\( ${formatResult()} = ${formatVariable('gamma')} \\times \\ln(${formatVariable('gamma')} + 1) \\)`;
     },
   },
+  // η tower channels synchronized orbital upgrades that determine laser cadence,
+  // alignment thresholds, and range when planets line up.
+  eta: {
+    mathSymbol: String.raw`\eta`,
+    baseEquation: String.raw`\( \eta = (\Gamma \cdot \aleph_{1})^{(\text{OrbitAlign} - 1)} \)`,
+    variables: [
+      {
+        key: 'aleph1',
+        symbol: 'ℵ₁',
+        equationSymbol: 'ℵ₁',
+        name: 'Aleph One Harmonics',
+        description: 'Sets the base laser power amplified whenever η rings align.',
+        baseValue: 1,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(Math.max(1, value))} focus`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : 1 + rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{1} = 1 + \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = 1 + ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph2',
+        symbol: 'ℵ₂',
+        equationSymbol: 'ℵ₂',
+        name: 'Aleph Two Denominator',
+        description: 'Feeds the shared orbital denominator that paces outer ring rotation.',
+        baseValue: 1,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(Math.max(1, value))} cadence`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : 1 + rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{2} = 1 + \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = 1 + ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph3',
+        symbol: 'ℵ₃',
+        equationSymbol: 'ℵ₃',
+        name: 'Aleph Three Expansion',
+        description: 'Extends the rotational denominator for the second orbital ring.',
+        baseValue: 1,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(Math.max(1, value))} span`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : 1 + rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{3} = 1 + \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = 1 + ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph4',
+        symbol: 'ℵ₄',
+        equationSymbol: 'ℵ₄',
+        name: 'Aleph Four Resonance',
+        description: 'Shapes the pacing for the fourth ring’s orbital cadence.',
+        baseValue: 1,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(Math.max(1, value))} resonance`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : 1 + rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{4} = 1 + \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = 1 + ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph5',
+        symbol: 'ℵ₅',
+        equationSymbol: 'ℵ₅',
+        name: 'Aleph Five Sparks',
+        description: 'Feeds the exponential term that accelerates the innermost orbit.',
+        baseValue: 1,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(Math.max(1, value))} sparks`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : 1 + rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{5} = 1 + \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = 1 + ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph6',
+        symbol: 'ℵ₆',
+        equationSymbol: 'ℵ₆',
+        name: 'Aleph Six Lens',
+        description: 'Extends laser reach by focusing η’s orbital alignment.',
+        baseValue: 1,
+        step: 1,
+        upgradable: true,
+        maxLevel: 4,
+        format: (value) => `${formatWholeNumber(Math.max(1, value))} focus`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : 1 + rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{6} = 1 + \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = 1 + ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'rng',
+        symbol: 'Rng',
+        equationSymbol: 'Rng',
+        name: 'Laser Range',
+        description: 'Meters η’s beam can travel once rings align.',
+        upgradable: false,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph6 = Math.max(
+            1,
+            computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint),
+          );
+          const clamped = Math.min(5, aleph6);
+          return 5 + clamped;
+        },
+        format: (value) => `${formatDecimal(Math.max(0, value), 2)} m`,
+        getSubEquations({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph6 = Math.max(
+            1,
+            computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint),
+          );
+          const clamped = Math.min(5, aleph6);
+          const total = 5 + clamped;
+          return [
+            {
+              expression: String.raw`\( \text{Rng} = 5 + \min(5, \aleph_{6}) \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(total, 2)} = 5 + \min(5, ${formatDecimal(aleph6, 2)}) \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+    ],
+    computeResult(values) {
+      const productKeys = ['aleph1', 'aleph2', 'aleph3', 'aleph4', 'aleph5', 'aleph6'];
+      return productKeys.reduce((total, key) => {
+        const contribution = Number.isFinite(values[key]) ? Math.max(1, values[key]) : 1;
+        return total * contribution;
+      }, 1);
+    },
+    formatGoldenEquation({ formatVariable, formatResult }) {
+      return String.raw`\( ${formatResult()} = ${formatVariable('aleph1')} \times ${formatVariable('aleph2')} \times ${formatVariable('aleph3')} \times ${formatVariable('aleph4')} \times ${formatVariable('aleph5')} \times ${formatVariable('aleph6')} \)`;
+    },
+  },
   // ζ tower channels a double-pendulum equation that references multiple Aleph
   // upgrade threads to determine attack, speed, range, and pendulum count.
   zeta: {
