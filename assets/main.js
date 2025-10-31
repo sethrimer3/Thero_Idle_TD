@@ -2077,6 +2077,7 @@ import {
     simulatedDuneGainMax: 3.4,
     wallBaseGapMotes: 15,
     wallGapPerGlyph: 2,
+    wallGapViewportRatio: 0.15, // Narrow the tower walls so the visible mote lane is roughly one-fifth of the previous span.
     fluidUnlockSigils: 1,
   };
 
@@ -2953,6 +2954,7 @@ import {
             wallInsetLeft: leftInset,
             wallInsetRight: rightInset,
             wallGapCells: powderConfig.wallBaseGapMotes,
+            gapWidthRatio: powderConfig.wallGapViewportRatio,
             idleDrainRate: powderState.idleDrainRate,
             motePalette: powderState.motePalette,
             dropSizes: profile.dropSizes,
@@ -3017,6 +3019,7 @@ import {
             wallInsetLeft: leftInset,
             wallInsetRight: rightInset,
             wallGapCells: powderConfig.wallBaseGapMotes,
+            gapWidthRatio: powderConfig.wallGapViewportRatio,
             maxDuneGain: powderConfig.simulatedDuneGainMax,
             idleDrainRate: powderState.idleDrainRate,
             motePalette: powderState.motePalette,

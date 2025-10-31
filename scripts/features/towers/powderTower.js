@@ -1162,8 +1162,8 @@ export class PowderSimulation {
       return 0;
     }
 
-    const idleActive = this.idleBank > 0 || this.idleDropBuffer > 0;
-    const ambientEnabled = this.flowOffset > 0 && !idleActive; // Only allow ambient motes when the basin is in an active flow state.
+    const idleBankPositive = Number.isFinite(this.idleBank) && this.idleBank > 1e-6;
+    const ambientEnabled = this.flowOffset > 0 && idleBankPositive; // Only allow ambient motes when the mote bank still holds reserves.
 
     if (!ambientEnabled) {
       this.spawnTimer = Math.min(this.spawnTimer, interval);
@@ -1192,7 +1192,7 @@ export class PowderSimulation {
     if (remaining <= 0) {
       return;
     }
-    const allowAmbient = this.flowOffset > 0 && !(this.idleBank > 0 || this.idleDropBuffer > 0);
+    const allowAmbient = this.flowOffset > 0 && Number.isFinite(this.idleBank) && this.idleBank > 1e-6;
     while (remaining > 0 && this.pendingDrops.length && this.grains.length < this.maxGrains) {
       const drop = this.pendingDrops[0];
       if (drop && drop.source === 'ambient' && !allowAmbient) {
