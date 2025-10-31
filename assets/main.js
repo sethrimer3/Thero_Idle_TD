@@ -2162,7 +2162,7 @@ import {
       glyphsAwarded: Math.max(0, clampFiniteInteger(powderState.glyphsAwarded, 0)),
       idleMoteBank: Math.max(0, clampFiniteNumber(powderState.idleMoteBank, 0)),
       idleDrainRate: Math.max(0, clampFiniteNumber(powderState.idleDrainRate, 0)),
-      pendingMoteDrops,
+      pendingMoteDrops: pendingDrops,
       motePalette: palette,
       simulationMode: powderState.simulationMode === 'fluid' ? 'fluid' : 'sand',
       wallGapTarget: Number.isFinite(powderState.wallGapTarget)
