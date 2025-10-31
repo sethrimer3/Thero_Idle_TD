@@ -10,6 +10,8 @@ export let interactiveLevelOrder = [];
 export const unlockedLevels = new Set();
 export const levelSetEntries = [];
 
+let developerTheroMultiplierOverride = null;
+
 // Clone a vector array so callers never mutate the original level blueprints.
 export function cloneVectorArray(array) {
   if (!Array.isArray(array)) {
@@ -134,10 +136,39 @@ export function getCompletedInteractiveLevelCount() {
   return count;
 }
 
-// Determine the multiplier applied to starting Thero based on completed levels.
-export function getStartingTheroMultiplier(levelsBeaten = getCompletedInteractiveLevelCount()) {
+// Capture the baseline multiplier progression without any overrides.
+export function getBaseStartingTheroMultiplier(levelsBeaten = getCompletedInteractiveLevelCount()) {
   const normalized = Number.isFinite(levelsBeaten) ? Math.max(0, levelsBeaten) : 0;
   return 2 ** normalized;
+}
+
+// Determine the multiplier applied to starting Thero based on completed levels and overrides.
+export function getStartingTheroMultiplier(levelsBeaten = getCompletedInteractiveLevelCount()) {
+  if (Number.isFinite(developerTheroMultiplierOverride) && developerTheroMultiplierOverride >= 0) {
+    return developerTheroMultiplierOverride;
+  }
+  return getBaseStartingTheroMultiplier(levelsBeaten);
+}
+
+// Allow developer tooling to override the starting Thero multiplier directly.
+export function setDeveloperTheroMultiplierOverride(multiplier) {
+  if (!Number.isFinite(multiplier) || multiplier < 0) {
+    developerTheroMultiplierOverride = null;
+    return developerTheroMultiplierOverride;
+  }
+  developerTheroMultiplierOverride = multiplier;
+  return developerTheroMultiplierOverride;
+}
+
+// Surface the active developer override for UI sync.
+export function getDeveloperTheroMultiplierOverride() {
+  return developerTheroMultiplierOverride;
+}
+
+// Clear any developer override so progression-based multipliers take effect again.
+export function clearDeveloperTheroMultiplierOverride() {
+  developerTheroMultiplierOverride = null;
+  return developerTheroMultiplierOverride;
 }
 
 // Check whether a level id corresponds to an interactive configuration.

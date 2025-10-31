@@ -1306,6 +1306,20 @@
                   <p class="developer-control-hint">Adjust starting Thero before multipliers.</p>
                 </div>
                 <div class="developer-control-field">
+                  <label for="developer-thero-multiplier">Thero multiplier</label>
+                  <input
+                    type="number"
+                    id="developer-thero-multiplier"
+                    data-developer-field="theroMultiplier"
+                    min="0"
+                    step="0.01"
+                    inputmode="decimal"
+                  />
+                  <p class="developer-control-hint">
+                    Override the starting Thero multiplier. Leave blank to follow progression.
+                  </p>
+                </div>
+                <div class="developer-control-field">
                   <label for="developer-glyphs">Glyph reserves</label>
                   <input
                     type="number"
