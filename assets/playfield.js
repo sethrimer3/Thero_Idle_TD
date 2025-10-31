@@ -133,6 +133,24 @@ function normalizeProjectileColor(candidate, fallbackPosition = 1) {
   };
 }
 
+// Render an additive gradient blob so shared connection motes inherit the α burst glow.
+function drawConnectionMoteGlow(ctx, x, y, radius, color, opacity = 1) {
+  if (!ctx || !color) {
+    return;
+  }
+  const baseRadius = Math.max(1.6, radius || 2.4);
+  const glowRadius = baseRadius * 2.4;
+  const gradient = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
+  const alpha = Math.max(0, Math.min(1, opacity));
+  gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`);
+  gradient.addColorStop(0.45, `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha * 0.45})`);
+  gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 // Preload the Mind Gate sprite so the path finale mirrors the Towers tab art.
 const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
 const mindGateSprite = new Image();
@@ -3682,6 +3700,8 @@ export class SimplePlayfield {
     if (!particles.length) {
       return;
     }
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter'; // Blend motes additively to mirror α burst luminosity.
     particles.forEach((particle) => {
       const orbitRadius = bodyRadius + 6 + (particle.distance || 18);
       const angle = particle.angle || 0;
@@ -3692,11 +3712,10 @@ export class SimplePlayfield {
         ? { r: 255, g: 214, b: 112 }
         : { r: 255, g: 138, b: 216 };
       const color = normalizeProjectileColor(baseColor, 1);
-      ctx.beginPath();
-      ctx.fillStyle = colorToRgbaString(color, 0.78);
-      ctx.arc(x, y, particle.size || 2.6, 0, Math.PI * 2);
-      ctx.fill();
+      // Drop a glowing mote to match the additive α particle rendering.
+      drawConnectionMoteGlow(ctx, x, y, particle.size || 2.6, color, 0.85);
     });
+    ctx.restore();
   }
 
   /**
@@ -3707,6 +3726,7 @@ export class SimplePlayfield {
       return;
     }
     ctx.save();
+    ctx.globalCompositeOperation = 'lighter'; // Keep link motes luminous like α burst particles.
     this.connectionEffects.forEach((effect) => {
       const source = effect.source || this.getTowerById(effect.sourceId);
       const target = effect.target || this.getTowerById(effect.targetId);
@@ -3717,15 +3737,12 @@ export class SimplePlayfield {
         ? { r: 255, g: 214, b: 112 }
         : { r: 255, g: 138, b: 216 };
       const color = normalizeProjectileColor(baseColor, 1);
-      const glow = colorToRgbaString(color, 0.48);
       effect.particles.forEach((particle) => {
         const progress = Math.max(0, Math.min(1, particle.progress || 0));
         const x = source.x + (target.x - source.x) * progress;
         const y = source.y + (target.y - source.y) * progress;
-        ctx.beginPath();
-        ctx.fillStyle = glow;
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
-        ctx.fill();
+        // Render the travelling mote with the shared glow helper for consistency.
+        drawConnectionMoteGlow(ctx, x, y, 3.2, color, 0.7);
       });
     });
     ctx.restore();
