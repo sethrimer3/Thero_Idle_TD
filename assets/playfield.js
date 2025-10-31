@@ -6265,7 +6265,7 @@ export class SimplePlayfield {
         gradient.addColorStop(offset, colorToRgbaString(stop, 1));
       });
     }
-    ctx.font = `${Math.round(Math.max(14, radius * 0.82))}px "Space Mono", monospace`;
+    ctx.font = `${Math.round(Math.max(14, radius * 0.82))}px "Cormorant Garamond", serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = gradient;
@@ -6329,7 +6329,7 @@ export class SimplePlayfield {
 
     const ctx = this.ctx;
     ctx.save();
-    ctx.font = '12px "Space Mono", monospace';
+    ctx.font = '12px "Cormorant Garamond", serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -6460,7 +6460,7 @@ export class SimplePlayfield {
       this.clearCanvasShadow(ctx);
     }
     const glyph = symbol || '·';
-    ctx.font = `${Math.round(bodyRadius * 1.4)}px "Space Mono", monospace`;
+    ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = symbolFill;
@@ -6597,7 +6597,7 @@ export class SimplePlayfield {
 
       const glyph = tower.symbol || tower.definition?.symbol || '?';
       ctx.fillStyle = symbolColor;
-      ctx.font = `${Math.round(bodyRadius * 1.4)}px "Space Mono", monospace`;
+      ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(glyph, tower.x, tower.y);
@@ -6607,7 +6607,7 @@ export class SimplePlayfield {
         if (alphaShots > 0) {
           ctx.save();
           ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-          ctx.font = `${Math.round(bodyRadius * 0.75)}px "Space Mono", monospace`;
+          ctx.font = `${Math.round(bodyRadius * 0.75)}px "Cormorant Garamond", serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
           ctx.fillText(`α × ${alphaShots}`, tower.x, tower.y + bodyRadius + 6);
@@ -6619,7 +6619,7 @@ export class SimplePlayfield {
         if (betaShots > 0 || alphaShots > 0) {
           ctx.save();
           ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-          ctx.font = `${Math.round(bodyRadius * 0.7)}px "Space Mono", monospace`;
+          ctx.font = `${Math.round(bodyRadius * 0.7)}px "Cormorant Garamond", serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
           let labelY = tower.y + bodyRadius + 6;
@@ -6969,7 +6969,7 @@ export class SimplePlayfield {
       ctx.stroke();
 
       ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-      ctx.font = `${Math.round(optionRadius * 0.95)}px "Space Mono", monospace`;
+      ctx.font = `${Math.round(optionRadius * 0.95)}px "Cormorant Garamond", serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(option.icon || '?', option.center.x, option.center.y);

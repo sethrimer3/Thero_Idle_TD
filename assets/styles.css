@@ -219,7 +219,7 @@ body.graphics-mode-low .control-button {
 }
 
 .level-thero-label {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.75rem;
@@ -255,7 +255,7 @@ body.graphics-mode-low .control-button {
 }
 
 .status-label {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -274,7 +274,7 @@ body.graphics-mode-low .control-button {
 }
 
 .status-multiplier {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.8rem;
   letter-spacing: 0.08em;
   color: var(--accent-3);
@@ -283,7 +283,7 @@ body.graphics-mode-low .control-button {
 }
 
 .status-subvalue {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -351,7 +351,7 @@ body.graphics-mode-low .control-button {
   grid-auto-flow: column;
   align-items: baseline;
   gap: clamp(10px, 2.5vw, 18px);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: clamp(1.6rem, 4.5vw, 3.4rem);
 }
 
@@ -680,7 +680,7 @@ body.graphics-mode-low .control-button {
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: rgba(20, 24, 38, 0.92);
   color: rgba(255, 255, 255, 0.9);
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -708,7 +708,7 @@ body.graphics-mode-low .control-button {
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: rgba(20, 24, 38, 0.92);
   color: rgba(255, 255, 255, 0.85);
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -759,7 +759,7 @@ body.graphics-mode-low .control-button {
   background: rgba(10, 12, 20, 0.9);
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
   color: var(--text);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.75rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -774,7 +774,7 @@ body.graphics-mode-low .control-button {
   position: absolute;
   z-index: 6;
   color: rgba(255, 255, 255, 0.96);
-  font-family: "Great Vibes", "Cormorant Garamond", serif;
+  font-family: "Cormorant Garamond", serif;
   font-size: clamp(1.1rem, 2.6vw, 1.9rem);
   letter-spacing: 0.04em;
   pointer-events: none;
@@ -871,7 +871,7 @@ body.graphics-mode-low .control-button {
   border: 1px solid rgba(139, 247, 255, 0.45);
   background: rgba(10, 12, 20, 0.72);
   color: var(--text);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 1.1rem;
   letter-spacing: 0.06em;
   display: grid;
@@ -991,7 +991,7 @@ body.graphics-mode-low .control-button {
   margin: 0;
   display: grid;
   gap: 4px;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.55rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1135,7 +1135,7 @@ body.graphics-mode-low .control-button {
 }
 
 .level-set-count {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.7rem;
   opacity: 0.7;
 }
@@ -1211,7 +1211,7 @@ body.graphics-mode-low .control-button {
   background: linear-gradient(160deg, rgba(12, 16, 28, 0.92), rgba(18, 20, 36, 0.92));
   color: var(--text);
   text-align: left;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   letter-spacing: 0.06em;
   cursor: pointer;
   transform: translateX(-24px);
@@ -1265,7 +1265,7 @@ body.graphics-mode-low .control-button {
 }
 
 .level-id {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1283,7 +1283,7 @@ body.graphics-mode-low .control-button {
   position: absolute;
   top: 10px;
   right: 10px;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.68rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1314,7 +1314,7 @@ body.graphics-mode-low .control-button {
   bottom: 14px;
   left: 50%;
   transform: translateX(-50%);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1476,7 +1476,7 @@ body.graphics-mode-low .control-button {
   border-radius: 999px;
   border: 1px solid rgba(139, 247, 255, 0.45);
   background: transparent;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1549,7 +1549,7 @@ body.graphics-mode-low .control-button {
 }
 
 .enemy-card-symbol-exponent {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.9rem;
   color: #ff375f;
   text-shadow: 0 0 12px rgba(255, 70, 95, 0.9);
@@ -1579,7 +1579,7 @@ body.graphics-mode-low .control-button {
 }
 
 .enemy-card-formula-label {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.65rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1641,7 +1641,7 @@ body.graphics-mode-low .control-button {
 }
 
 .action-button {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.78rem;
@@ -1683,7 +1683,7 @@ body.graphics-mode-low .control-button {
   border: 1px solid rgba(139, 247, 255, 0.28);
   background: rgba(8, 9, 14, 0.82);
   color: var(--text);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1766,7 +1766,7 @@ body.graphics-mode-low .control-button {
 
 .tower-equipment-button__icon {
   font-size: 1.6rem;
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   letter-spacing: 0.18em;
 }
 
@@ -1819,7 +1819,7 @@ body.graphics-mode-low .control-button {
   text-align: left;
   display: grid;
   gap: 4px;
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1869,7 +1869,7 @@ body.graphics-mode-low .control-button {
   border: 1px solid rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.12);
   color: var(--text);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   letter-spacing: 0.1em;
   cursor: pointer;
   transition: background var(--transition);
@@ -1907,7 +1907,7 @@ body.graphics-mode-low .control-button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.8rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1924,7 +1924,7 @@ body.graphics-mode-low .control-button {
 }
 
 .control-button {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1964,7 +1964,7 @@ body.graphics-mode-low .control-button {
 }
 
 .codex-label {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1996,7 +1996,7 @@ body.graphics-mode-low .control-button {
   border: 1px solid rgba(247, 247, 245, 0.18);
   background: rgba(10, 10, 16, 0.6);
   color: var(--text);
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.75rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -2026,7 +2026,7 @@ body.graphics-mode-low .control-button {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.8rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -2107,7 +2107,7 @@ body.graphics-mode-low .control-button {
 }
 
 .variable-library-symbol {
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.75rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -2428,7 +2428,7 @@ body.graphics-mode-low .control-button {
 }
 
 .slider-value {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.85rem;
   color: var(--accent);
 }
@@ -2506,7 +2506,7 @@ body.graphics-mode-low .control-button {
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.75rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2568,7 +2568,7 @@ body.graphics-mode-low .control-button {
 }
 
 .powder-footnote {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.75rem;
   letter-spacing: 0.06em;
   color: rgba(247, 247, 245, 0.65);
@@ -2577,7 +2577,7 @@ body.graphics-mode-low .control-button {
 .powder-mode-toggle {
   align-self: center;
   padding: 10px 24px;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.78rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -2625,7 +2625,7 @@ body.graphics-mode-low .control-button {
 }
 
 .powder-metrics dt {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2685,7 +2685,7 @@ body.graphics-mode-low .control-button {
 }
 
 .powder-ledger-grid dt {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2711,7 +2711,7 @@ body.graphics-mode-low .control-button {
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.75rem;
   letter-spacing: 0.04em;
   color: rgba(247, 247, 245, 0.78);
@@ -2719,7 +2719,7 @@ body.graphics-mode-low .control-button {
 
 .powder-log-empty {
   margin: 0;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.75rem;
   letter-spacing: 0.04em;
   color: rgba(247, 247, 245, 0.55);
@@ -2798,7 +2798,7 @@ body.graphics-mode-low .control-button {
 
 /* Highlight the gem quantity with the same mono font used in powder logs. */
 .powder-gem-inventory__count {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.85rem;
   letter-spacing: 0.05em;
   color: rgba(247, 247, 245, 0.85);
@@ -2807,7 +2807,7 @@ body.graphics-mode-low .control-button {
 /* Style the empty state so it mirrors other powder footnotes. */
 .powder-gem-inventory-empty {
   margin: 0;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.78rem;
   letter-spacing: 0.06em;
   color: rgba(247, 247, 245, 0.58);
@@ -3043,7 +3043,7 @@ body.graphics-mode-low .control-button {
   transform: translate(-50%, 0);
   padding: 2px 10px;
   border-radius: 12px;
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.7rem;
   letter-spacing: 0.08em;
   color: rgba(255, 196, 128, 0.92);
@@ -3093,7 +3093,7 @@ body.graphics-mode-low .control-button {
   width: 100%;
   display: block;
   text-align: center;
-  font-family: 'Cormorant Garamond', 'Space Mono', serif;
+  font-family: 'Cormorant Garamond', serif;
   font-size: clamp(1.3rem, 2.6vw, 2rem);
   letter-spacing: 0.14em;
   color: rgba(255, 255, 255, 0.28);
@@ -3208,7 +3208,7 @@ body.graphics-mode-low .control-button {
 }
 
 .tower-tier {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.7rem;
   padding: 4px 12px;
   border-radius: 999px;
@@ -3238,7 +3238,7 @@ body.graphics-mode-low .control-button {
 
 .formula-line {
   margin: 0;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.95rem;
   letter-spacing: 0.04em;
   text-align: center;
@@ -3327,7 +3327,7 @@ body.graphics-mode-low .control-button {
   place-items: center;
   background: linear-gradient(120deg, var(--accent), var(--accent-2));
   color: var(--bg);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 1.5rem;
 }
 
@@ -3371,7 +3371,7 @@ body.graphics-mode-low .control-button {
   margin: 0;
   font-size: 0.85rem;
   color: var(--muted);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -3474,7 +3474,7 @@ body.graphics-mode-low .control-button {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 2.6rem;
   background: linear-gradient(140deg, var(--accent), var(--accent-2));
   color: var(--bg);
@@ -3495,7 +3495,7 @@ body.graphics-mode-low .control-button {
   border-radius: 50%;
   background: linear-gradient(140deg, var(--accent), var(--accent-2));
   color: var(--bg);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 1.5rem;
   z-index: 1300;
   /* Keep the traveling icon visible by default while enabling fade transitions. */
@@ -3535,7 +3535,7 @@ body.graphics-mode-low .control-button {
 .achievement-overlay__status {
   margin: 0;
   font-size: 0.85rem;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(247, 247, 245, 0.75);
@@ -3546,7 +3546,7 @@ body.graphics-mode-low .control-button {
   margin: 0;
   font-size: 0.9rem;
   color: rgba(255, 228, 120, 0.95);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -3591,7 +3591,7 @@ body.graphics-mode-low .control-button {
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(6, 6, 10, 0.8);
   color: inherit;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.95rem;
 }
 
@@ -3819,7 +3819,7 @@ body.graphics-mode-low .control-button {
   border: 1px solid rgba(139, 247, 255, 0.28);
   background: rgba(3, 5, 10, 0.9);
   color: var(--text);
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3941,7 +3941,7 @@ body.graphics-mode-low .control-button {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.82rem;
   letter-spacing: 0.05em;
   color: rgba(247, 247, 245, 0.82);
@@ -4019,7 +4019,7 @@ body.graphics-mode-low .control-button {
 }
 
 .field-notes-figure figcaption {
-  font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 1rem;
   color: rgba(255, 228, 180, 0.85);
   letter-spacing: 0.08em;
@@ -4130,7 +4130,7 @@ body.graphics-mode-low .control-button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -4283,7 +4283,7 @@ body.graphics-mode-low .control-button {
   font-size: 1.2rem;
   color: rgba(255, 255, 255, 1);
   font-weight: 600;
-  font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+  font-family: 'Cormorant Garamond', serif;
   display: flex;
   flex-wrap: wrap;
   gap: 0.35ch;
@@ -4353,7 +4353,7 @@ body.graphics-mode-low .control-button {
   font-weight: 700;
   font-size: 1.15rem;
   pointer-events: none;
-  font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+  font-family: 'Cormorant Garamond', serif;
   filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.45));
   z-index: 2;
 }
@@ -4393,7 +4393,7 @@ body.graphics-mode-low .control-button {
   border-radius: 14px;
   border-left: 3px solid rgba(255, 215, 0, 0.28);
   background: rgba(255, 255, 255, 0.04);
-  font-family: 'Space Mono', 'Courier New', monospace;
+  font-family: 'Cormorant Garamond', serif;
   color: rgba(255, 255, 255, 0.82);
   opacity: 0;
   transform: translateY(8px);
@@ -4505,7 +4505,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: rgba(255, 215, 0, 0.95);
   font-size: 1.1rem;
   font-weight: 600;
-  font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+  font-family: 'Cormorant Garamond', serif;
 }
 
 .tower-upgrade-variable-name {
@@ -4538,7 +4538,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .tower-upgrade-variable-value {
   font-size: 1.05rem;
   color: rgba(255, 255, 255, 0.9);
-  font-family: 'Space Mono', 'Courier New', monospace;
+  font-family: 'Cormorant Garamond', serif;
 }
 
 .tower-upgrade-variable-level {
@@ -4597,7 +4597,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 .tower-upgrade-variable-glyph-count {
-  font-family: 'Space Mono', 'Courier New', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.95rem;
   color: rgba(255, 255, 255, 0.9);
   letter-spacing: 0.05em;
@@ -4662,7 +4662,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .upgrade-matrix-tier,
 .upgrade-matrix-cost,
 .upgrade-matrix-next {
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -4703,7 +4703,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .overlay-label {
   margin: 0 0 10px;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.8rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -4842,7 +4842,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   padding: 6px 18px;
   background: rgba(8, 12, 24, 0.88);
   color: rgba(139, 247, 255, 0.9);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -4869,7 +4869,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   border-radius: 999px;
   background: rgba(139, 247, 255, 0.14);
   color: rgba(139, 247, 255, 0.92);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -4887,7 +4887,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   padding: 6px 14px;
   background: rgba(10, 16, 28, 0.88);
   color: rgba(220, 236, 255, 0.88);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -4914,7 +4914,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   border: 1px solid rgba(139, 247, 255, 0.24);
   background: rgba(6, 10, 20, 0.92);
   color: rgba(205, 228, 255, 0.88);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.78rem;
   line-height: 1.55;
   resize: vertical;
@@ -4929,7 +4929,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .overlay-editor__status {
   margin: 0;
   font-size: 0.82rem;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   letter-spacing: 0.04em;
   color: rgba(139, 247, 255, 0.9);
 }
@@ -4968,7 +4968,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .overlay-metrics dt {
   margin: 0;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.75rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -4990,7 +4990,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .overlay-instruction {
   margin: 0;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.85rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -5057,7 +5057,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   cursor: pointer;
   transition: background var(--transition), color var(--transition), transform var(--transition), border-color var(--transition),
     box-shadow var(--transition);
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -5098,7 +5098,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   min-width: 36px;
   padding: 2px 8px;
   margin-top: 2px;
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   font-size: 0.62rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -5170,7 +5170,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   justify-content: space-between;
   align-items: center;
   margin: 12px 0 10px;
-  font-family: 'Space Mono', monospace;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 0.88rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -5212,7 +5212,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 .tower-glyph-label {
-  font-family: "Space Mono", monospace;
+  font-family: "Cormorant Garamond", serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.75rem;

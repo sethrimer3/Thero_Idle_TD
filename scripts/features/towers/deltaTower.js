@@ -578,7 +578,7 @@ export function drawDeltaSoldiers(playfield) {
       }
 
       ctx.fillStyle = toRgba({ r: 240, g: 244, b: 255 }, 0.88);
-      ctx.font = `${Math.max(10, barHeight * 1.6)}px 'Cormorant Garamond', 'Times New Roman', serif`;
+      ctx.font = `${Math.max(10, barHeight * 1.6)}px 'Cormorant Garamond', serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(healthLabel, soldier.x, barY + barHeight / 2);
