@@ -425,7 +425,14 @@ export class PowderSimulation {
     this.wallGapReferenceWidth = referenceWidth; // Store the baseline basin width in CSS pixels for later scaling.
     this.wallGapReferenceCols = Math.max(1, Math.round(referenceWidth / this.cellSize));
     this.wallGapTargetUnits = Number.isFinite(options.wallGapCells)
-      ? Math.max(1, options.wallGapCells)
+      ? Math.max(1, Math.round(options.wallGapCells))
+      : null;
+    const normalizedBaseGap = Number.isFinite(options.wallGapCells)
+      ? Math.max(1, Math.round(options.wallGapCells))
+      : 15;
+    this.baseGapUnits = normalizedBaseGap;
+    this.gapWidthRatio = Number.isFinite(options.gapWidthRatio) && options.gapWidthRatio > 0
+      ? Math.max(0.05, Math.min(0.95, options.gapWidthRatio))
       : null;
 
     this.spawnTimer = 0;
@@ -549,6 +556,27 @@ export class PowderSimulation {
 
     displayWidth = Math.max(200, displayWidth);
     displayHeight = Math.max(260, displayHeight);
+
+    if (!Number.isFinite(this.baseGapUnits) || this.baseGapUnits <= 0) {
+      const fallbackGapUnits = Number.isFinite(this.wallGapTargetUnits)
+        ? Math.max(1, Math.round(this.wallGapTargetUnits))
+        : Number.isFinite(this.wallGapCellsTarget)
+          ? Math.max(1, Math.round(this.wallGapCellsTarget))
+          : 15;
+      this.baseGapUnits = fallbackGapUnits;
+    }
+
+    if (!Number.isFinite(this.gapWidthRatio) || this.gapWidthRatio <= 0) {
+      const inferredGapWidth = Math.max(0, displayWidth - this.wallInsetLeftPx - this.wallInsetRightPx);
+      const ratioCandidate = displayWidth > 0 ? inferredGapWidth / displayWidth : 0;
+      this.gapWidthRatio = Math.max(0.1, Math.min(0.9, ratioCandidate || 0.6));
+    }
+
+    const walkwayWidth = Math.max(1, displayWidth * this.gapWidthRatio);
+    const desiredCellSize = Math.max(1, Math.round(walkwayWidth / this.baseGapUnits));
+    this.cellSize = desiredCellSize;
+    this.wallGapReferenceWidth = walkwayWidth;
+    this.wallGapReferenceCols = Math.max(1, Math.round(this.wallGapReferenceWidth / this.cellSize));
 
     const styleWidth = `${displayWidth}px`;
     const styleHeight = `${displayHeight}px`;
