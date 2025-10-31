@@ -39,7 +39,7 @@ import {
 } from './colorSchemeUtils.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../scripts/features/towers/powderTower.js';
 import { notifyTowerPlaced } from './achievementsTab.js';
-import { metersToPixels } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
+import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import {
   ensureAlphaState as ensureAlphaStateHelper,
   teardownAlphaTower as teardownAlphaTowerHelper,
@@ -6414,7 +6414,10 @@ export class SimplePlayfield {
       symbol,
     };
     const visuals = getTowerVisualConfig(previewTower) || {};
-    const bodyRadius = Math.max(12, Math.min(this.renderWidth, this.renderHeight) * 0.042);
+    const bodyRadius = Math.max(
+      12,
+      Math.min(this.renderWidth, this.renderHeight) * ALPHA_BASE_RADIUS_FACTOR,
+    );
     const bodyStroke = valid
       ? visuals.outerStroke || 'rgba(139, 247, 255, 0.85)'
       : 'rgba(255, 96, 96, 0.85)';
@@ -6511,7 +6514,10 @@ export class SimplePlayfield {
       const rangeRadius = Number.isFinite(tower.range)
         ? tower.range
         : Math.min(this.renderWidth, this.renderHeight) * 0.22;
-      const bodyRadius = Math.max(12, Math.min(this.renderWidth, this.renderHeight) * 0.042);
+      const bodyRadius = Math.max(
+        12,
+        Math.min(this.renderWidth, this.renderHeight) * ALPHA_BASE_RADIUS_FACTOR,
+      );
 
       const highlightEntry = highlightMap.get(tower.id) || null;
       if (highlightEntry) {
