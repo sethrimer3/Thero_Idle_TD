@@ -2349,10 +2349,18 @@ body.graphics-mode-low .control-button {
   font-family: 'Cormorant Garamond', serif;
   font-size: 1.5rem;
   line-height: 1;
-  background: linear-gradient(140deg, rgba(255, 228, 120, 0.26), rgba(139, 247, 255, 0.18));
-  color: rgba(255, 228, 120, 0.92);
-  box-shadow: 0 0 18px rgba(255, 228, 120, 0.55), 0 0 32px rgba(139, 247, 255, 0.3);
-  text-shadow: 0 0 20px rgba(255, 228, 120, 0.65);
+  /* Tie the badge fill to the live mote gradient with a CSS variable fallback. */
+  background: var(
+    --mind-gate-gradient,
+    linear-gradient(140deg, rgba(255, 228, 120, 0.26), rgba(139, 247, 255, 0.18))
+  );
+  /* Mirror the exponent's highlight tint while retaining a warm default. */
+  color: var(--mind-gate-highlight, rgba(255, 228, 120, 0.92));
+  box-shadow:
+    0 0 18px var(--mind-gate-glow-primary, rgba(255, 228, 120, 0.55)),
+    0 0 32px var(--mind-gate-glow-secondary, rgba(139, 247, 255, 0.3));
+  /* Carry the glow color into the text shadow so the rune pulses consistently. */
+  text-shadow: 0 0 20px var(--mind-gate-text-glow, rgba(255, 228, 120, 0.65));
 }
 
 /* Render the Mind Gate sprite with a contained glow inside the tower header. */
@@ -2361,7 +2369,8 @@ body.graphics-mode-low .control-button {
   width: 78%;
   height: 78%;
   object-fit: contain;
-  filter: drop-shadow(0 0 10px rgba(255, 228, 120, 0.55));
+  /* Drive the sprite glow from the same highlight used by the exponent gradient. */
+  filter: drop-shadow(0 0 10px var(--mind-gate-icon-glow, rgba(255, 228, 120, 0.55)));
 }
 
 @media (prefers-reduced-motion: no-preference) {

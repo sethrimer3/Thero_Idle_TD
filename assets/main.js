@@ -1878,6 +1878,9 @@ import {
     loadedSimulationState: null,
   };
 
+  // Initialize the Towers tab emblem to the default mote palette before any theme swaps occur.
+  applyMindGatePaletteToDom(powderState.motePalette);
+
   let currentPowderBonuses = {
     sandBonus: 0,
     duneBonus: 0,
@@ -1925,6 +1928,47 @@ import {
     rightHitbox: null,
     modeToggle: null,
   };
+
+  // Align the Towers tab Mind Gate emblem with the active mote palette so the UI mirrors the canvas exponent glow.
+  function applyMindGatePaletteToDom(palette) {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    const root = document.documentElement;
+    if (!root || typeof root.style?.setProperty !== 'function') {
+      return;
+    }
+    const stops = resolvePaletteColorStops(palette);
+    if (!Array.isArray(stops) || stops.length === 0) {
+      return;
+    }
+
+    const denominator = Math.max(1, stops.length - 1);
+    const maxAlpha = 0.32;
+    const minAlpha = 0.18;
+    const gradientParts = [];
+    stops.forEach((stop, index) => {
+      const offset = denominator === 0 ? 0 : index / denominator;
+      const alpha = maxAlpha - (maxAlpha - minAlpha) * offset;
+      const color = colorToRgbaString(stop, alpha);
+      const percent = Math.round(offset * 100);
+      gradientParts.push(`${color} ${percent}%`);
+    });
+    if (gradientParts.length === 1) {
+      gradientParts.push(`${colorToRgbaString(stops[0], minAlpha)} 100%`);
+    }
+
+    const gradientValue = `linear-gradient(140deg, ${gradientParts.join(', ')})`;
+    root.style.setProperty('--mind-gate-gradient', gradientValue);
+
+    const primaryStop = stops[stops.length - 1];
+    const secondaryStop = stops[0];
+    root.style.setProperty('--mind-gate-highlight', colorToRgbaString(primaryStop, 0.92));
+    root.style.setProperty('--mind-gate-glow-primary', colorToRgbaString(primaryStop, 0.55));
+    root.style.setProperty('--mind-gate-icon-glow', colorToRgbaString(primaryStop, 0.55));
+    root.style.setProperty('--mind-gate-text-glow', colorToRgbaString(primaryStop, 0.65));
+    root.style.setProperty('--mind-gate-glow-secondary', colorToRgbaString(secondaryStop, 0.3));
+  }
 
   // Clamp arbitrary numeric input so persistence never records NaN or Infinity.
   function clampFiniteNumber(value, fallback = 0) {
@@ -2093,6 +2137,8 @@ import {
       }
       if (base.motePalette) {
         powderState.motePalette = mergeMotePalette(base.motePalette);
+        // Refresh the Mind Gate accent so restored saves inherit the stored palette instantly.
+        applyMindGatePaletteToDom(powderState.motePalette);
       }
       if (typeof base.simulationMode === 'string') {
         powderState.simulationMode = base.simulationMode === 'fluid' ? 'fluid' : 'sand';
@@ -2698,6 +2744,8 @@ import {
           powderSimulation.setFlowOffset(powderState.sandOffset);
         }
         powderState.motePalette = powderSimulation.getEffectiveMotePalette();
+        // Update the Mind Gate UI badge so fluid-mode palettes propagate outside the canvas.
+        applyMindGatePaletteToDom(powderState.motePalette);
         powderState.idleDrainRate = powderSimulation.idleDrainRate;
         powderState.simulationMode = 'fluid';
         powderSimulation.setWallGapTarget(powderState.wallGapTarget || powderConfig.wallBaseGapMotes, {
@@ -2749,6 +2797,8 @@ import {
         powderSimulation.applyProfile(baseProfile || undefined);
         powderSimulation.setFlowOffset(powderState.sandOffset);
         powderState.motePalette = powderSimulation.getEffectiveMotePalette();
+        // Sync the emblem glow when returning to the sand simulation baseline palette.
+        applyMindGatePaletteToDom(powderState.motePalette);
         powderState.idleDrainRate = powderSimulation.idleDrainRate;
         powderState.simulationMode = 'sand';
         powderSimulation.setWallGapTarget(powderState.wallGapTarget || powderConfig.wallBaseGapMotes, {
@@ -2852,6 +2902,8 @@ import {
   configureColorSchemeSystem({
     onPaletteChange: (palette) => {
       powderState.motePalette = palette;
+      // Broadcast palette swaps to the Mind Gate badge so theme toggles remain cohesive.
+      applyMindGatePaletteToDom(powderState.motePalette);
       if (powderSimulation && typeof powderSimulation.setMotePalette === 'function') {
         powderSimulation.setMotePalette(palette);
         powderSimulation.render();
@@ -2914,6 +2966,8 @@ import {
     }
     if (typeof simulation.getEffectiveMotePalette === 'function') {
       powderState.motePalette = simulation.getEffectiveMotePalette();
+      // Preserve palette continuity when exporting the active basin state.
+      applyMindGatePaletteToDom(powderState.motePalette);
     }
     // Snapshotting occurs before mode swaps, so ensure the captured state persists immediately.
     schedulePowderBasinSave();
@@ -2939,6 +2993,8 @@ import {
     );
     powderState.idleDrainRate = simulation.idleDrainRate;
     powderState.motePalette = simulation.getEffectiveMotePalette();
+    // Apply the restored palette so the Towers tab matches the revived basin state.
+    applyMindGatePaletteToDom(powderState.motePalette);
     if (Array.isArray(powderState.pendingMoteDrops)) {
       powderState.pendingMoteDrops.length = 0;
     }

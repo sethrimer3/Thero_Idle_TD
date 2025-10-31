@@ -6,6 +6,16 @@
       <stop offset="60%" stop-color="#ffc145" stop-opacity=".4" />
       <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
     </radialGradient>
+
+    <!-- Soft glow filter keeps the rune visible on mobile Safari implementations. -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.2" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
   </defs>
 
   <circle cx="40" cy="40" r="35" fill="url(#mindGateAura)" opacity="1" />
