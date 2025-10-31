@@ -507,7 +507,7 @@ export class PowderSimulation {
         : rect && Number.isFinite(rect.width) && rect.width > 0
           ? rect.width
           : this.canvas.clientWidth;
-    // Mirror the parent height as well so the motefall column reaches the basin floor after flex resizing.
+    // Mirror the parent height as well so the Spire column reaches the basin floor after flex resizing.
     const measuredHeight =
       parentRect && Number.isFinite(parentRect.height) && parentRect.height > 0
         ? parentRect.height

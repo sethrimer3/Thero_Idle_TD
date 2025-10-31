@@ -6144,7 +6144,8 @@ export class SimplePlayfield {
 
     const dimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 0;
     const baseRadius = dimension ? dimension * 0.028 : 0;
-    const radius = Math.max(12, Math.min(20, baseRadius || 16));
+    const baseSize = Math.max(12, Math.min(20, baseRadius || 16));
+    const radius = baseSize * 2;
 
     ctx.save();
     ctx.translate(position.x, position.y);
@@ -6160,7 +6161,7 @@ export class SimplePlayfield {
     const spriteReady = enemyGateSprite?.complete && enemyGateSprite.naturalWidth > 0;
     if (spriteReady) {
       // Anchor the enemy gate sprite at the path origin to match the Endless codex art.
-      const spriteSize = Math.max(radius * 2, 40);
+      const spriteSize = Math.max(baseSize * 2, 40) * 2;
       ctx.save();
       ctx.globalAlpha = 0.95;
       ctx.drawImage(enemyGateSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
@@ -6187,7 +6188,8 @@ export class SimplePlayfield {
 
     const dimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 0;
     const baseRadius = dimension ? dimension * 0.035 : 0;
-    const radius = Math.max(14, Math.min(24, baseRadius || 18));
+    const baseSize = Math.max(14, Math.min(24, baseRadius || 18));
+    const radius = baseSize * 2;
 
     ctx.save();
     ctx.translate(position.x, position.y);
@@ -6211,7 +6213,7 @@ export class SimplePlayfield {
     const spriteReady = mindGateSprite?.complete && mindGateSprite.naturalWidth > 0;
     if (spriteReady) {
       // Draw the Mind Gate rune sprite scaled to the battlefield finale.
-      const spriteSize = Math.max(radius * 2.1, 46);
+      const spriteSize = Math.max(baseSize * 2.1, 46) * 2;
       ctx.save();
       ctx.globalAlpha = 0.96;
       ctx.drawImage(mindGateSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);

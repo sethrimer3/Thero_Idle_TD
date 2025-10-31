@@ -6891,14 +6891,14 @@ import {
       )} ${rateLabel}`;
     }
 
-    // Display the relocated idle mote bank readout inside the mote gems tab.
+    // Display the relocated idle mote bank readout inside the Spire tab.
     if (powderElements.moteBank) {
       const storedMotes = Math.max(0, powderCurrency + getCurrentIdleMoteBank());
       const moteLabel = storedMotes === 1 ? 'Mote' : 'Motes';
       powderElements.moteBank.textContent = `${formatGameNumber(storedMotes)} ${moteLabel}`;
     }
 
-    // Surface the current fall rate so the mote gems tab mirrors the basin flow.
+    // Surface the current fall rate so the Spire tab mirrors the basin flow.
     if (powderElements.moteRate) {
       const dispenseRate = getCurrentMoteDispenseRate();
       const moteLabel = dispenseRate === 1 ? 'Mote/sec' : 'Motes/sec';
@@ -6938,7 +6938,7 @@ import {
     powderElements.duneBonusValue = document.getElementById('powder-dune-bonus');
     powderElements.crystalBonusValue = document.getElementById('powder-crystal-bonus');
     powderElements.stockpile = document.getElementById('powder-stockpile');
-    // Relocated mote bank indicator now anchors to the mote gems tab summary.
+    // Relocated mote bank indicator now anchors to the Spire tab summary.
     powderElements.moteBank = document.getElementById('powder-mote-bank');
     // Fall rate display follows the bank so both mote flows surface together.
     powderElements.moteRate = document.getElementById('powder-mote-rate');
