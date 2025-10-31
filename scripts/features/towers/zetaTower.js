@@ -44,6 +44,10 @@ export function evaluateZetaMetrics(playfield, tower) {
       x: entry.x,
       y: entry.y,
       range: Number.isFinite(entry.range) ? entry.range : 0,
+      // Preserve manual link targets so dynamic math only counts explicit resource chains.
+      connections: entry.linkTargetId ? [entry.linkTargetId] : [],
+      // Surface upstream suppliers to keep linked-source counts accurate for overlays.
+      sources: entry.linkSources instanceof Set ? Array.from(entry.linkSources) : [],
     });
   });
 
@@ -54,6 +58,10 @@ export function evaluateZetaMetrics(playfield, tower) {
       x: tower.x,
       y: tower.y,
       range: Number.isFinite(tower.range) ? tower.range : 0,
+      // Mirror the tower's outgoing link so downstream counts remain consistent when evaluating ζ.
+      connections: tower.linkTargetId ? [tower.linkTargetId] : [],
+      // Include inbound suppliers when ζ recalculates its battlefield context snapshot.
+      sources: tower.linkSources instanceof Set ? Array.from(tower.linkSources) : [],
     });
   }
 

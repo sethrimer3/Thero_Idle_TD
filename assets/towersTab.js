@@ -344,12 +344,20 @@ function sanitizeTowerContextEntry(entry) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
     return null;
   }
+  const connections = Array.isArray(entry.connections)
+    ? entry.connections.map((value) => (typeof value === 'string' ? value : String(value))).filter(Boolean)
+    : [];
+  const sources = Array.isArray(entry.sources)
+    ? entry.sources.map((value) => (typeof value === 'string' ? value : String(value))).filter(Boolean)
+    : [];
   return {
     id,
     type,
     x,
     y,
     range: Number.isFinite(range) && range > 0 ? range : 0,
+    connections,
+    sources,
   };
 }
 
@@ -386,28 +394,41 @@ export function buildTowerDynamicContext(options = {}) {
   }
 
   const counts = new Map();
-  collection.forEach((candidate) => {
-    if (!candidate || candidate.id === target.id) {
-      return;
-    }
-    const dx = candidate.x - target.x;
-    const dy = candidate.y - target.y;
-    const distance = Math.hypot(dx, dy);
-    const targetRange = Number.isFinite(target.range) ? Math.max(0, target.range) : 0;
-    const candidateRange = Number.isFinite(candidate.range) ? Math.max(0, candidate.range) : 0;
-    if (!Number.isFinite(distance) || distance === 0) {
-      if (distance === 0 && candidateRange > 0 && targetRange > 0) {
-        const key = candidate.type || 'unknown';
-        counts.set(key, (counts.get(key) || 0) + 1);
+  const idMap = new Map(collection.map((entry) => [entry.id, entry]));
+  const explicitSources = Array.isArray(target.sources) ? target.sources : [];
+  if (explicitSources.length) {
+    explicitSources.forEach((sourceId) => {
+      const candidate = idMap.get(sourceId);
+      if (!candidate || candidate.id === target.id) {
+        return;
       }
-      return;
-    }
-    if (distance > targetRange || distance > candidateRange) {
-      return;
-    }
-    const key = candidate.type || 'unknown';
-    counts.set(key, (counts.get(key) || 0) + 1);
-  });
+      const key = candidate.type || 'unknown';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+  } else {
+    collection.forEach((candidate) => {
+      if (!candidate || candidate.id === target.id) {
+        return;
+      }
+      const dx = candidate.x - target.x;
+      const dy = candidate.y - target.y;
+      const distance = Math.hypot(dx, dy);
+      const targetRange = Number.isFinite(target.range) ? Math.max(0, target.range) : 0;
+      const candidateRange = Number.isFinite(candidate.range) ? Math.max(0, candidate.range) : 0;
+      if (!Number.isFinite(distance) || distance === 0) {
+        if (distance === 0 && candidateRange > 0 && targetRange > 0) {
+          const key = candidate.type || 'unknown';
+          counts.set(key, (counts.get(key) || 0) + 1);
+        }
+        return;
+      }
+      if (distance > targetRange || distance > candidateRange) {
+        return;
+      }
+      const key = candidate.type || 'unknown';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+  }
 
   return {
     towerId: target.id,
