@@ -1,0 +1,638 @@
+.sprite-frame (101) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -0px -0px;
+ }
+ .sprite-frame (102) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -300px -0px;
+ }
+ .sprite-frame (103) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -600px -0px;
+ }
+ .sprite-frame (104) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -900px -0px;
+ }
+ .sprite-frame (105) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -1200px -0px;
+ }
+ .sprite-frame (106) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -1500px -0px;
+ }
+ .sprite-frame (107) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -1800px -0px;
+ }
+ .sprite-frame (108) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -2100px -0px;
+ }
+ .sprite-frame (109) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -2400px -0px;
+ }
+ .sprite-frame (110) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -2700px -0px;
+ }
+ .sprite-frame (111) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -3000px -0px;
+ }
+ .sprite-frame (112) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -3300px -0px;
+ }
+ .sprite-frame (113) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -3600px -0px;
+ }
+ .sprite-frame (114) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -3900px -0px;
+ }
+ .sprite-frame (115) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -4200px -0px;
+ }
+ .sprite-frame (116) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -4500px -0px;
+ }
+ .sprite-frame (117) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -4800px -0px;
+ }
+ .sprite-frame (118) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -5100px -0px;
+ }
+ .sprite-frame (119) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -5400px -0px;
+ }
+ .sprite-frame (120) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -5700px -0px;
+ }
+ .sprite-frame (121) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -6000px -0px;
+ }
+ .sprite-frame (122) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -6300px -0px;
+ }
+ .sprite-frame (123) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -6600px -0px;
+ }
+ .sprite-frame (124) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -6900px -0px;
+ }
+ .sprite-frame (125) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -7200px -0px;
+ }
+ .sprite-frame (126) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -7500px -0px;
+ }
+ .sprite-frame (127) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -7800px -0px;
+ }
+ .sprite-frame (128) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -8100px -0px;
+ }
+ .sprite-frame (129) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -8400px -0px;
+ }
+ .sprite-frame (130) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -8700px -0px;
+ }
+ .sprite-frame (131) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -9000px -0px;
+ }
+ .sprite-frame (132) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -9300px -0px;
+ }
+ .sprite-frame (133) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -9600px -0px;
+ }
+ .sprite-frame (134) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -9900px -0px;
+ }
+ .sprite-frame (135) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -10200px -0px;
+ }
+ .sprite-frame (136) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -10500px -0px;
+ }
+ .sprite-frame (137) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -10800px -0px;
+ }
+ .sprite-frame (138) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -11100px -0px;
+ }
+ .sprite-frame (139) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -11400px -0px;
+ }
+ .sprite-frame (140) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -11700px -0px;
+ }
+ .sprite-frame (141) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -12000px -0px;
+ }
+ .sprite-frame (142) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -12300px -0px;
+ }
+ .sprite-frame (143) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -12600px -0px;
+ }
+ .sprite-frame (144) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -12900px -0px;
+ }
+ .sprite-frame (145) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -13200px -0px;
+ }
+ .sprite-frame (146) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -13500px -0px;
+ }
+ .sprite-frame (147) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -13800px -0px;
+ }
+ .sprite-frame (148) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -14100px -0px;
+ }
+ .sprite-frame (149) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -14400px -0px;
+ }
+ .sprite-frame (150) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -14700px -0px;
+ }
+ .sprite-frame (151) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -15000px -0px;
+ }
+ .sprite-frame (152) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -15300px -0px;
+ }
+ .sprite-frame (153) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -15600px -0px;
+ }
+ .sprite-frame (154) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -15900px -0px;
+ }
+ .sprite-frame (155) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -16200px -0px;
+ }
+ .sprite-frame (156) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -16500px -0px;
+ }
+ .sprite-frame (157) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -16800px -0px;
+ }
+ .sprite-frame (158) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -17100px -0px;
+ }
+ .sprite-frame (159) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -17400px -0px;
+ }
+ .sprite-frame (160) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -17700px -0px;
+ }
+ .sprite-frame (161) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -18000px -0px;
+ }
+ .sprite-frame (162) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -18300px -0px;
+ }
+ .sprite-frame (163) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -18600px -0px;
+ }
+ .sprite-frame (164) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -18900px -0px;
+ }
+ .sprite-frame (165) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -19200px -0px;
+ }
+ .sprite-frame (166) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -19500px -0px;
+ }
+ .sprite-frame (167) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -19800px -0px;
+ }
+ .sprite-frame (168) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -20100px -0px;
+ }
+ .sprite-frame (169) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -20400px -0px;
+ }
+ .sprite-frame (170) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -20700px -0px;
+ }
+ .sprite-frame (171) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -21000px -0px;
+ }
+ .sprite-frame (172) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -21300px -0px;
+ }
+ .sprite-frame (173) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -21600px -0px;
+ }
+ .sprite-frame (174) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -21900px -0px;
+ }
+ .sprite-frame (175) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -22200px -0px;
+ }
+ .sprite-frame (176) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -22500px -0px;
+ }
+ .sprite-frame (177) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -22800px -0px;
+ }
+ .sprite-frame (178) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -23100px -0px;
+ }
+ .sprite-frame (179) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -23400px -0px;
+ }
+ .sprite-frame (180) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -23700px -0px;
+ }
+ .sprite-frame (181) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -24000px -0px;
+ }
+ .sprite-frame (182) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -24300px -0px;
+ }
+ .sprite-frame (183) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -24600px -0px;
+ }
+ .sprite-frame (184) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -24900px -0px;
+ }
+ .sprite-frame (185) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -25200px -0px;
+ }
+ .sprite-frame (186) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -25500px -0px;
+ }
+ .sprite-frame (187) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -25800px -0px;
+ }
+ .sprite-frame (188) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -26100px -0px;
+ }
+ .sprite-frame (189) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -26400px -0px;
+ }
+ .sprite-frame (190) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -26700px -0px;
+ }
+ .sprite-frame (191) {
+     background: url(sprite_sheet.png);
+     display: inline-block;
+     height: 300px;
+     width: 300px;
+     background-position: -27000px -0px;
+ }
+ 
