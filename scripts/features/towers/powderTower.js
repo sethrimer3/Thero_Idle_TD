@@ -1039,39 +1039,47 @@ export class PowderSimulation {
   }
 
   convertIdleBank(delta) {
-    if (this.idleBank <= 0 || !Number.isFinite(delta) || delta <= 0) {
+    if (!Number.isFinite(delta) || delta <= 0 || this.idleBank <= 0) {
       if (this.idleBank <= 0 && this.idleDropBuffer <= 0) {
         this.idleAccumulator = 0; // Clear fractional progress so the counter stops when the bank is empty.
       }
       return 0;
     }
+
     const rate = Math.max(0, this.idleDrainRate) / 1000;
     if (rate <= 0) {
       return 0;
     }
+
     const pending = this.idleAccumulator + delta * rate;
-    const toQueue = Math.min(this.idleBank, Math.floor(pending));
+    const availableBank = Math.floor(Math.max(0, this.idleBank)); // Only convert whole motes so fractional rewards remain banked.
+    const toQueue = Math.max(0, Math.min(availableBank, Math.floor(pending)));
     this.idleAccumulator = pending - toQueue;
+
     if (toQueue <= 0) {
       return 0;
     }
+
     this.idleBank = Math.max(0, this.idleBank - toQueue);
+    if (this.idleBank < 1e-6) {
+      this.idleBank = 0;
+    }
     this.notifyIdleBankChange();
-    this.idleDropBuffer += toQueue; // Store the converted motes until the release cadence emits them.
+    this.idleDropBuffer = Math.max(0, this.idleDropBuffer + toQueue); // Store the converted motes until the release cadence emits them.
     return toQueue;
   }
 
   releaseIdleDrops(delta, limit = Infinity) {
-    if (!Number.isFinite(delta) || delta <= 0 || this.idleDropBuffer <= 0) {
-      if (this.idleDropBuffer <= 0 && this.idleBank <= 0) {
-        this.idleDropAccumulator = 0; // Reset the release timer once all idle motes have been dispatched.
-      }
+    if (!Number.isFinite(delta) || delta <= 0) {
       return 0;
     }
 
-    // Do not accumulate or release if both bank and buffer are exhausted.
-    if (this.idleBank <= 0 && this.idleDropBuffer <= 0) {
-      this.idleDropAccumulator = 0;
+    const availableBuffer = Math.floor(Math.max(0, this.idleDropBuffer)); // Respect integer release counts to avoid over-spawning.
+    if (availableBuffer <= 0) {
+      if (this.idleDropBuffer <= 0 && this.idleBank <= 0) {
+        this.idleDropAccumulator = 0; // Reset the release timer once all idle motes have been dispatched.
+        this.idleDropBuffer = 0;
+      }
       return 0;
     }
 
@@ -1080,24 +1088,28 @@ export class PowderSimulation {
       return 0;
     }
 
-    // Only accumulate if there's actual motes to release (either in buffer or bank).
-    if (this.idleDropBuffer > 0) {
-      this.idleDropAccumulator += delta * rate;
-    } else {
-      this.idleDropAccumulator = 0; // Reset accumulator when buffer is empty to prevent runaway accumulation.
-    }
-    const allowed = Math.max(0, Math.min(limit, this.idleDropBuffer));
+    this.idleDropAccumulator += delta * rate;
+
+    const allowedLimit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : availableBuffer; // Clamp to finite release budgets while honouring the buffer.
+    const allowed = Math.max(0, Math.min(availableBuffer, allowedLimit));
     let released = 0;
 
     while (released < allowed && this.idleDropAccumulator >= 1 && this.grains.length < this.maxGrains) {
       this.spawnGrain({ size: 1, source: 'idle' }); // Spawn idle motes through the normal grain generator for consistency.
-      this.idleDropBuffer -= 1;
       this.idleDropAccumulator -= 1;
       released += 1;
     }
 
+    if (released > 0) {
+      this.idleDropBuffer = Math.max(0, this.idleDropBuffer - released);
+      if (this.idleDropBuffer < 1e-6) {
+        this.idleDropBuffer = 0;
+      }
+    }
+
     if (this.idleDropBuffer <= 0 && this.idleBank <= 0) {
       this.idleDropAccumulator = 0; // Prevent runaway accumulation when the bank is exhausted.
+      this.idleDropBuffer = 0;
     }
 
     return released;
