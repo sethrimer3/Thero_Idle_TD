@@ -52,6 +52,13 @@ export class FluidSimulation {
     this.wallGapTargetUnits = Number.isFinite(options.wallGapCells)
       ? Math.max(1, options.wallGapCells)
       : null;
+    const normalizedBaseGap = Number.isFinite(options.wallGapCells)
+      ? Math.max(1, Math.round(options.wallGapCells))
+      : 15;
+    this.baseGapUnits = normalizedBaseGap;
+    this.gapWidthRatio = Number.isFinite(options.gapWidthRatio) && options.gapWidthRatio > 0
+      ? Math.max(0.05, Math.min(0.95, options.gapWidthRatio))
+      : null;
 
     this.columnHeights = [];
     this.columnVelocities = [];
@@ -184,6 +191,26 @@ export class FluidSimulation {
 
     this.width = Math.max(200, measuredWidth);
     this.height = Math.max(260, measuredHeight);
+
+    if (!Number.isFinite(this.baseGapUnits) || this.baseGapUnits <= 0) {
+      const fallbackGapUnits = Number.isFinite(this.wallGapTargetUnits)
+        ? Math.max(1, Math.round(this.wallGapTargetUnits))
+        : 15;
+      this.baseGapUnits = fallbackGapUnits;
+    }
+
+    if (!Number.isFinite(this.gapWidthRatio) || this.gapWidthRatio <= 0) {
+      const inferredGapWidth = Math.max(0, this.width - this.wallInsetLeftPx - this.wallInsetRightPx);
+      const ratioCandidate = this.width > 0 ? inferredGapWidth / this.width : 0;
+      this.gapWidthRatio = Math.max(0.1, Math.min(0.9, ratioCandidate || 0.6));
+    }
+
+    const walkwayWidth = Math.max(1, this.width * this.gapWidthRatio);
+    const desiredCellSize = Math.max(1, Math.round(walkwayWidth / this.baseGapUnits));
+    this.cellSize = desiredCellSize;
+    this.wallGapReferenceWidth = walkwayWidth;
+    this.wallGapReferenceCols = Math.max(1, Math.round(this.wallGapReferenceWidth / this.cellSize));
+
     this.cols = Math.max(8, Math.floor(this.width / this.cellSize));
     this.rows = Math.max(8, Math.floor(this.height / this.cellSize));
 

@@ -100,6 +100,8 @@ import {
 const PLAYFIELD_VIEW_DRAG_THRESHOLD = 6;
 // Allow the camera to pan beyond the level edges by a fixed 4 meter buffer regardless of zoom.
 const PLAYFIELD_VIEW_PAN_MARGIN_METERS = 4;
+// Scale battlefield mote gem rendering relative to the canvas so drop sizes stay consistent across devices.
+const GEM_MOTE_BASE_RATIO = 0.02;
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -6030,13 +6032,29 @@ export class SimplePlayfield {
     }
     const ctx = this.ctx;
     ctx.save();
+    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+    const dimensionCandidates = [];
+    if (Number.isFinite(width) && width > 0) {
+      dimensionCandidates.push(width);
+    }
+    if (Number.isFinite(height) && height > 0) {
+      dimensionCandidates.push(height);
+    }
+    const minDimension = Math.max(
+      1,
+      dimensionCandidates.length ? Math.min(...dimensionCandidates) : 320,
+    );
+    const moteUnit = Math.max(6, minDimension * GEM_MOTE_BASE_RATIO);
+    const pulseMagnitude = moteUnit * 0.35;
+
     moteGemState.active.forEach((gem) => {
       const hue = gem.color?.hue ?? 48;
       const saturation = gem.color?.saturation ?? 68;
       const lightness = gem.color?.lightness ?? 56;
       const moteSize = Number.isFinite(gem.moteSize) ? Math.max(1, gem.moteSize) : Math.max(1, gem.value);
-      const size = (10 + moteSize * 4.2) * 0.5; // Shrink the render footprint so battlefield gems appear at half their previous scale.
-      const pulse = Math.sin((gem.pulse || 0) * 0.6) * 3.2;
+      const size = moteSize * moteUnit;
+      const pulse = Math.sin((gem.pulse || 0) * 0.6) * pulseMagnitude;
       const rotation = Math.sin((gem.pulse || 0) * 0.35) * 0.45;
       const opacity = Number.isFinite(gem.opacity) ? Math.max(0, Math.min(1, gem.opacity)) : 1;
       const alphaFill = Math.max(0, Math.min(0.9, 0.6 + opacity * 0.3));
@@ -6051,7 +6069,7 @@ export class SimplePlayfield {
       ctx.rotate(rotation);
       if (sprite) {
         // Scale the sprite according to mote size so drops stay legible on the battlefield.
-        const baseSize = size + pulse;
+        const baseSize = Math.max(moteUnit * 0.6, size + pulse);
         const reference = Math.max(1, Math.max(sprite.width || 1, sprite.height || 1));
         const renderSize = baseSize;
         const scale = renderSize / reference;
@@ -6061,17 +6079,17 @@ export class SimplePlayfield {
         ctx.drawImage(sprite, -width / 2, -height / 2, width, height);
       } else {
         // Fall back to the square rendering when the sprite has not finished loading yet.
-        const squareSize = size + pulse;
+        const squareSize = Math.max(moteUnit * 0.6, size + pulse);
         const half = squareSize / 2;
         ctx.fillStyle = fill;
         ctx.strokeStyle = stroke;
-        ctx.lineWidth = Math.max(1.2, squareSize * 0.16);
+        ctx.lineWidth = Math.max(moteUnit * 0.12, 1.2);
         ctx.beginPath();
         ctx.rect(-half, -half, squareSize, squareSize);
         ctx.fill();
         ctx.stroke();
 
-        const sparkleSize = squareSize * 0.38;
+        const sparkleSize = Math.max(moteUnit * 0.3, squareSize * 0.38);
         ctx.fillStyle = sparkle;
         ctx.fillRect(-sparkleSize * 0.5, -sparkleSize * 0.8, sparkleSize, sparkleSize);
       }

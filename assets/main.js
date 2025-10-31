@@ -2075,7 +2075,7 @@ import {
     thetaBase: 1.3,
     zetaBase: 1.6,
     simulatedDuneGainMax: 3.4,
-    wallBaseGapMotes: 10,
+    wallBaseGapMotes: 15,
     wallGapPerGlyph: 2,
     fluidUnlockSigils: 1,
   };
