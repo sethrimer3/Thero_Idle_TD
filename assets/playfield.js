@@ -14,6 +14,7 @@ import {
   getTowerEquationBlueprint,
   getTowerLoadoutState,
   openTowerUpgradeOverlay,
+  calculateTowerEquationResult,
 } from './towersTab.js';
 import {
   moteGemState,
@@ -247,6 +248,21 @@ export class SimplePlayfield {
     this.floaters = [];
     this.floaterConnections = [];
     this.floaterBounds = { width: 0, height: 0 };
+
+    // Track explicit lattice connections so only linked towers share resources.
+    this.towerConnectionMap = new Map(); // sourceId -> targetId
+    this.towerConnectionSources = new Map(); // targetId -> Set<sourceId>
+    this.connectionEffects = [];
+    this.connectionDragState = {
+      pointerId: null,
+      originTowerId: null,
+      startPosition: null,
+      currentPosition: null,
+      active: false,
+      hasMoved: false,
+      highlightEntries: [],
+      hoverEntry: null,
+    };
 
     const upgrades = this.dependencies.alephChainUpgrades || {};
     this.alephChain = createAlephChainRegistry({ upgrades });
@@ -1315,6 +1331,10 @@ export class SimplePlayfield {
     this.floaterConnections = [];
     this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
     this.towers = [];
+    this.towerConnectionMap.clear();
+    this.towerConnectionSources.clear();
+    this.connectionEffects = [];
+    this.clearConnectionDragState();
     this.alephChain.reset();
     this.hoverPlacement = null;
     this.clearFocusedEnemy({ silent: true });
@@ -1639,6 +1659,40 @@ export class SimplePlayfield {
       this.isPinchZooming = false;
     }
 
+    if (this.connectionDragState.pointerId === event.pointerId) {
+      if (typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+      const normalized = this.getNormalizedFromEvent(event);
+      if (!normalized) {
+        this.connectionDragState.currentPosition = null;
+        this.connectionDragState.hoverEntry = null;
+        if (!this.shouldAnimate) {
+          this.draw();
+        }
+        return;
+      }
+      const position = this.getCanvasPosition(normalized);
+      this.connectionDragState.currentPosition = position ? { ...position } : null;
+      if (this.connectionDragState.startPosition && !this.connectionDragState.active && position) {
+        const dx = position.x - this.connectionDragState.startPosition.x;
+        const dy = position.y - this.connectionDragState.startPosition.y;
+        const distance = Math.hypot(dx, dy);
+        if (Number.isFinite(distance) && distance >= PLAYFIELD_VIEW_DRAG_THRESHOLD) {
+          this.connectionDragState.active = true;
+          this.connectionDragState.hasMoved = true;
+          this.suppressNextCanvasClick = true;
+        }
+      }
+      if (this.connectionDragState.active && position) {
+        this.updateConnectionDragHighlights(position);
+      }
+      if (!this.shouldAnimate) {
+        this.draw();
+      }
+      return;
+    }
+
     const isPanPointer =
       this.viewDragState.pointerId !== null &&
       event.pointerId === this.viewDragState.pointerId &&
@@ -1788,7 +1842,32 @@ export class SimplePlayfield {
 
     const isPrimaryMouseDrag = !isTouchPointer && event.button === 0;
     const isSingleTouchDrag = isTouchPointer && this.activePointers.size < 2;
-    if (!this.draggingTowerType && (isPrimaryMouseDrag || isSingleTouchDrag)) {
+    const canInitiateDrag = !this.draggingTowerType && (isPrimaryMouseDrag || isSingleTouchDrag);
+    if (canInitiateDrag) {
+      const normalized = this.getNormalizedFromEvent(event);
+      const position = normalized ? this.getCanvasPosition(normalized) : null;
+      const tower = position ? this.findTowerAt(position) : null;
+      if (tower && (tower.type === 'alpha' || tower.type === 'beta' || tower.type === 'gamma')) {
+        this.clearConnectionDragState();
+        this.connectionDragState.pointerId = event.pointerId;
+        this.connectionDragState.originTowerId = tower.id;
+        this.connectionDragState.startPosition = position ? { ...position } : null;
+        this.connectionDragState.currentPosition = position ? { ...position } : null;
+        this.connectionDragState.highlightEntries = [];
+        this.connectionDragState.hoverEntry = null;
+        this.suppressNextCanvasClick = false;
+        if (!isTouchPointer && typeof this.canvas?.setPointerCapture === 'function') {
+          try {
+            this.canvas.setPointerCapture(event.pointerId);
+          } catch (error) {
+            // Ignore pointer capture errors—connection drags still function without it.
+          }
+        }
+        return;
+      }
+    }
+
+    if (canInitiateDrag) {
       // Allow both mouse input and single-finger touches to initiate camera panning.
       this.viewDragState.pointerId = event.pointerId;
       this.viewDragState.startX = event.clientX;
@@ -1818,6 +1897,41 @@ export class SimplePlayfield {
       this.activePointers.clear();
       this.pinchState = null;
       this.isPinchZooming = false;
+    }
+
+    if (this.connectionDragState.pointerId === event.pointerId) {
+      const dragState = this.connectionDragState;
+      const entry = dragState.hoverEntry;
+      if (dragState.active && entry) {
+        if (entry.action === 'connect') {
+          const connected = this.addTowerConnection(entry.sourceId, entry.targetId);
+          if (connected) {
+            this.suppressNextCanvasClick = true;
+          }
+        } else if (entry.action === 'disconnect') {
+          const removed = this.removeTowerConnection(entry.sourceId, entry.targetId);
+          if (removed) {
+            this.suppressNextCanvasClick = true;
+          }
+        }
+        if (!this.shouldAnimate) {
+          this.draw();
+        }
+      } else if (dragState.hasMoved) {
+        this.suppressNextCanvasClick = true;
+        if (!this.shouldAnimate) {
+          this.draw();
+        }
+      }
+      this.clearConnectionDragState();
+      if (!isTouchPointer && typeof this.canvas?.releasePointerCapture === 'function') {
+        try {
+          this.canvas.releasePointerCapture(event.pointerId);
+        } catch (error) {
+          // Ignore browsers that throw if the pointer was not previously captured.
+        }
+      }
+      return;
     }
 
     if (this.viewDragState.pointerId === event.pointerId) {
@@ -1937,6 +2051,7 @@ export class SimplePlayfield {
     this.isPinchZooming = false;
     this.viewDragState.pointerId = null;
     this.viewDragState.isDragging = false;
+    this.clearConnectionDragState();
   }
 
   // Attempt to gather any mote gems located near the pointer position.
@@ -2318,6 +2433,8 @@ export class SimplePlayfield {
             x: candidate?.x,
             y: candidate?.y,
             range: candidate?.range,
+            connections: candidate?.linkTargetId ? [candidate.linkTargetId] : [],
+            sources: candidate?.linkSources instanceof Set ? Array.from(candidate.linkSources) : [],
           }))
           .filter((entry) => entry.id && Number.isFinite(entry.x) && Number.isFinite(entry.y));
         openTowerUpgradeOverlay(tower.type, {
@@ -2328,6 +2445,8 @@ export class SimplePlayfield {
             x: tower.x,
             y: tower.y,
             range: tower.range,
+            connections: tower.linkTargetId ? [tower.linkTargetId] : [],
+            sources: tower.linkSources instanceof Set ? Array.from(tower.linkSources) : [],
           },
           contextTowers,
         });
@@ -3118,6 +3237,13 @@ export class SimplePlayfield {
       etaPrime: 0,
       // Flag prestige status when η ascends into Η.
       isPrestigeEta: false,
+      linkTargetId: null,
+      linkSources: new Set(),
+      storedAlphaShots: 0,
+      storedBetaShots: 0,
+      storedAlphaSwirl: 0,
+      storedBetaSwirl: 0,
+      connectionParticles: [],
     };
 
     this.applyTowerBehaviorDefaults(tower);
@@ -3153,6 +3279,8 @@ export class SimplePlayfield {
     if (!tower) {
       return;
     }
+
+    this.removeAllConnectionsForTower(tower);
 
     if (this.activeTowerMenu?.towerId === tower.id) {
       this.closeTowerMenu();
@@ -3198,6 +3326,404 @@ export class SimplePlayfield {
     if (this.audio) {
       this.audio.playSfx('towerSell');
     }
+  }
+
+  /**
+   * Retrieve a lattice reference by identifier.
+   */
+  getTowerById(towerId) {
+    if (!towerId) {
+      return null;
+    }
+    return this.towers.find((candidate) => candidate?.id === towerId) || null;
+  }
+
+  /**
+   * Reset the active connection drag state back to an idle configuration.
+   */
+  clearConnectionDragState() {
+    this.connectionDragState = {
+      pointerId: null,
+      originTowerId: null,
+      startPosition: null,
+      currentPosition: null,
+      active: false,
+      hasMoved: false,
+      highlightEntries: [],
+      hoverEntry: null,
+    };
+  }
+
+  /**
+   * Evaluate whether two towers can share a connection based on tier rules and range.
+   */
+  areTowersConnectionCompatible(source, target) {
+    if (!source || !target || source.id === target.id) {
+      return false;
+    }
+    const pairingKey = `${source.type}->${target.type}`;
+    if (pairingKey !== 'alpha->beta' && pairingKey !== 'beta->gamma') {
+      return false;
+    }
+    const sourceRange = Number.isFinite(source.range) ? Math.max(0, source.range) : 0;
+    const targetRange = Number.isFinite(target.range) ? Math.max(0, target.range) : 0;
+    if (!sourceRange || !targetRange) {
+      return false;
+    }
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const distance = Math.hypot(dx, dy);
+    if (!Number.isFinite(distance)) {
+      return false;
+    }
+    return distance <= sourceRange && distance <= targetRange;
+  }
+
+  /**
+   * Remove every connection touching the provided lattice.
+   */
+  removeAllConnectionsForTower(tower) {
+    if (!tower) {
+      return;
+    }
+    if (tower.linkTargetId) {
+      this.removeTowerConnection(tower.id, tower.linkTargetId);
+    }
+    const incoming = this.towerConnectionSources.get(tower.id);
+    if (incoming && incoming.size) {
+      Array.from(incoming).forEach((sourceId) => {
+        this.removeTowerConnection(sourceId, tower.id);
+      });
+    }
+    tower.linkSources?.clear?.();
+  }
+
+  /**
+   * Register a directed resource link between two lattices.
+   */
+  addTowerConnection(source, target) {
+    const resolvedSource = typeof source === 'string' ? this.getTowerById(source) : source;
+    const resolvedTarget = typeof target === 'string' ? this.getTowerById(target) : target;
+    if (!this.areTowersConnectionCompatible(resolvedSource, resolvedTarget)) {
+      return false;
+    }
+    if (resolvedSource.linkTargetId === resolvedTarget.id) {
+      return true;
+    }
+    if (resolvedSource.linkTargetId && resolvedSource.linkTargetId !== resolvedTarget.id) {
+      this.removeTowerConnection(resolvedSource.id, resolvedSource.linkTargetId);
+    }
+    this.towerConnectionMap.set(resolvedSource.id, resolvedTarget.id);
+    resolvedSource.linkTargetId = resolvedTarget.id;
+    if (!resolvedTarget.linkSources) {
+      resolvedTarget.linkSources = new Set();
+    }
+    resolvedTarget.linkSources.add(resolvedSource.id);
+    if (!this.towerConnectionSources.has(resolvedTarget.id)) {
+      this.towerConnectionSources.set(resolvedTarget.id, new Set());
+    }
+    this.towerConnectionSources.get(resolvedTarget.id).add(resolvedSource.id);
+    resolvedSource.cooldown = 0;
+    if (resolvedTarget.type === 'beta') {
+      this.ensureBetaState(resolvedTarget);
+    } else if (resolvedTarget.type === 'gamma') {
+      this.ensureGammaState(resolvedTarget);
+    }
+    return true;
+  }
+
+  /**
+   * Tear down an existing resource link between two lattices.
+   */
+  removeTowerConnection(source, target) {
+    const resolvedSource = typeof source === 'string' ? this.getTowerById(source) : source;
+    const resolvedTarget = typeof target === 'string' ? this.getTowerById(target) : target;
+    if (!resolvedSource || !resolvedTarget) {
+      return false;
+    }
+    if (resolvedSource.linkTargetId !== resolvedTarget.id) {
+      return false;
+    }
+    this.towerConnectionMap.delete(resolvedSource.id);
+    resolvedSource.linkTargetId = null;
+    resolvedSource.cooldown = 0;
+    if (resolvedTarget.linkSources instanceof Set) {
+      resolvedTarget.linkSources.delete(resolvedSource.id);
+    }
+    const sourceSet = this.towerConnectionSources.get(resolvedTarget.id);
+    if (sourceSet) {
+      sourceSet.delete(resolvedSource.id);
+      if (!sourceSet.size) {
+        this.towerConnectionSources.delete(resolvedTarget.id);
+      }
+    }
+    if (resolvedTarget.type === 'beta') {
+      this.ensureBetaState(resolvedTarget);
+    } else if (resolvedTarget.type === 'gamma') {
+      this.ensureGammaState(resolvedTarget);
+    }
+    return true;
+  }
+
+  /**
+   * Refresh connection drag highlights so compatible towers glow while the cursor moves.
+   */
+  updateConnectionDragHighlights(position) {
+    const dragState = this.connectionDragState;
+    if (!dragState || !dragState.originTowerId) {
+      return;
+    }
+    const origin = this.getTowerById(dragState.originTowerId);
+    if (!origin) {
+      this.clearConnectionDragState();
+      return;
+    }
+    const entries = [];
+    if (origin.linkTargetId) {
+      entries.push({
+        action: 'disconnect',
+        sourceId: origin.id,
+        targetId: origin.linkTargetId,
+        towerId: origin.linkTargetId,
+        role: 'existingTarget',
+      });
+    }
+    if (origin.linkSources instanceof Set) {
+      origin.linkSources.forEach((sourceId) => {
+        entries.push({
+          action: 'disconnect',
+          sourceId,
+          targetId: origin.id,
+          towerId: sourceId,
+          role: 'linkedSource',
+        });
+      });
+    }
+    this.towers.forEach((candidate) => {
+      if (!candidate || candidate.id === origin.id) {
+        return;
+      }
+      if (this.areTowersConnectionCompatible(origin, candidate)) {
+        entries.push({
+          action: 'connect',
+          sourceId: origin.id,
+          targetId: candidate.id,
+          towerId: candidate.id,
+          role: 'candidate',
+        });
+      }
+    });
+    dragState.highlightEntries = entries;
+    dragState.hoverEntry = this.resolveConnectionHoverEntry(entries, position);
+  }
+
+  /**
+   * Select the highlight entry the pointer is currently hovering.
+   */
+  resolveConnectionHoverEntry(entries, position) {
+    if (!Array.isArray(entries) || !entries.length || !position) {
+      return null;
+    }
+    const hoverRadius = Math.max(18, Math.min(this.renderWidth || 0, this.renderHeight || 0) * 0.045);
+    let best = null;
+    let bestDistance = Infinity;
+    entries.forEach((entry) => {
+      const tower = this.getTowerById(entry.towerId);
+      if (!tower) {
+        return;
+      }
+      const dx = position.x - tower.x;
+      const dy = position.y - tower.y;
+      const distance = Math.hypot(dx, dy);
+      if (!Number.isFinite(distance)) {
+        return;
+      }
+      if (distance <= hoverRadius && distance < bestDistance) {
+        best = entry;
+        bestDistance = distance;
+      }
+    });
+    return best;
+  }
+
+  /**
+   * Animate swirling supply motes around lattices based on stored shot counts.
+   */
+  updateConnectionParticles(delta) {
+    const step = Math.max(0, delta);
+    this.towers.forEach((tower) => {
+      if (!tower) {
+        return;
+      }
+      const desiredAlpha = Math.max(0, Math.floor(tower.storedAlphaSwirl || 0));
+      const desiredBeta = Math.max(0, Math.floor(tower.storedBetaSwirl || 0));
+      this.syncTowerConnectionParticles(tower, 'alpha', desiredAlpha);
+      this.syncTowerConnectionParticles(tower, 'beta', desiredBeta);
+      if (!Array.isArray(tower.connectionParticles)) {
+        return;
+      }
+      tower.connectionParticles.forEach((particle) => {
+        particle.angle = (particle.angle || 0) + (particle.speed || 1) * step;
+        particle.pulse = (particle.pulse || 0) + step;
+      });
+    });
+
+    const activeKeys = new Set();
+    this.towerConnectionMap.forEach((targetId, sourceId) => {
+      activeKeys.add(`${sourceId}->${targetId}`);
+      const existing = this.connectionEffects.find((effect) => effect.key === `${sourceId}->${targetId}`);
+      if (!existing) {
+        const source = this.getTowerById(sourceId);
+        const target = this.getTowerById(targetId);
+        if (source && target) {
+          this.connectionEffects.push(this.createConnectionEffect(source, target));
+        }
+      }
+    });
+    this.connectionEffects = this.connectionEffects.filter((effect) => {
+      if (!effect || !activeKeys.has(effect.key)) {
+        return false;
+      }
+      const source = this.getTowerById(effect.sourceId);
+      const target = this.getTowerById(effect.targetId);
+      if (!source || !target) {
+        return false;
+      }
+      effect.source = source;
+      effect.target = target;
+      effect.particles.forEach((particle) => {
+        particle.progress = (particle.progress || 0) + (particle.speed || 0.35) * step;
+        if (particle.progress >= 1) {
+          particle.progress -= 1;
+        }
+      });
+      return true;
+    });
+  }
+
+  /**
+   * Ensure a tower maintains the desired number of swirling motes per resource type.
+   */
+  syncTowerConnectionParticles(tower, type, desiredCount) {
+    if (!tower) {
+      return;
+    }
+    if (!Array.isArray(tower.connectionParticles)) {
+      tower.connectionParticles = [];
+    }
+    const particles = tower.connectionParticles.filter((particle) => particle.type === type);
+    if (particles.length > desiredCount) {
+      let toCull = particles.length - desiredCount;
+      tower.connectionParticles = tower.connectionParticles.filter((particle) => {
+        if (particle.type !== type) {
+          return true;
+        }
+        if (toCull > 0) {
+          toCull -= 1;
+          return false;
+        }
+        return true;
+      });
+      return;
+    }
+    if (particles.length < desiredCount) {
+      const toAdd = Math.min(desiredCount - particles.length, 60);
+      for (let index = 0; index < toAdd; index += 1) {
+        tower.connectionParticles.push(this.createConnectionParticle(tower, type));
+      }
+    }
+  }
+
+  /**
+   * Create a fresh swirling mote configuration for a lattice.
+   */
+  createConnectionParticle(tower, type) {
+    const baseRange = Number.isFinite(tower.range) ? Math.max(20, tower.range * 0.06) : 24;
+    return {
+      type,
+      angle: Math.random() * Math.PI * 2,
+      speed: 1.6 + Math.random() * 0.7,
+      distance: baseRange + Math.random() * baseRange * 0.35,
+      size: type === 'beta' ? 3.4 : 2.6,
+      pulse: Math.random() * Math.PI * 2,
+    };
+  }
+
+  /**
+   * Initialize a connection link effect between two lattices.
+   */
+  createConnectionEffect(source, target) {
+    return {
+      key: `${source.id}->${target.id}`,
+      sourceId: source.id,
+      targetId: target.id,
+      source,
+      target,
+      particles: Array.from({ length: 3 }, () => ({
+        progress: Math.random(),
+        speed: 0.35 + Math.random() * 0.25,
+      })),
+    };
+  }
+
+  /**
+   * Render swirling supply motes around a lattice.
+   */
+  drawTowerConnectionParticles(ctx, tower, bodyRadius) {
+    if (!ctx || !tower) {
+      return;
+    }
+    const particles = Array.isArray(tower.connectionParticles) ? tower.connectionParticles : [];
+    if (!particles.length) {
+      return;
+    }
+    particles.forEach((particle) => {
+      const orbitRadius = bodyRadius + 6 + (particle.distance || 18);
+      const angle = particle.angle || 0;
+      const pulse = Math.sin((particle.pulse || 0) * 2) * 2.2;
+      const x = tower.x + Math.cos(angle) * (orbitRadius + pulse);
+      const y = tower.y + Math.sin(angle) * (orbitRadius + pulse);
+      const baseColor = particle.type === 'beta'
+        ? { r: 255, g: 214, b: 112 }
+        : { r: 255, g: 138, b: 216 };
+      const color = normalizeProjectileColor(baseColor, 1);
+      ctx.beginPath();
+      ctx.fillStyle = colorToRgbaString(color, 0.78);
+      ctx.arc(x, y, particle.size || 2.6, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  /**
+   * Render flowing motes along each established connection link.
+   */
+  drawConnectionEffects(ctx) {
+    if (!ctx || !Array.isArray(this.connectionEffects) || !this.connectionEffects.length) {
+      return;
+    }
+    ctx.save();
+    this.connectionEffects.forEach((effect) => {
+      const source = effect.source || this.getTowerById(effect.sourceId);
+      const target = effect.target || this.getTowerById(effect.targetId);
+      if (!source || !target) {
+        return;
+      }
+      const baseColor = source.type === 'beta'
+        ? { r: 255, g: 214, b: 112 }
+        : { r: 255, g: 138, b: 216 };
+      const color = normalizeProjectileColor(baseColor, 1);
+      const glow = colorToRgbaString(color, 0.48);
+      effect.particles.forEach((particle) => {
+        const progress = Math.max(0, Math.min(1, particle.progress || 0));
+        const x = source.x + (target.x - source.x) * progress;
+        const y = source.y + (target.y - source.y) * progress;
+        ctx.beginPath();
+        ctx.fillStyle = glow;
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    });
+    ctx.restore();
   }
 
   validatePlacement(normalized, options = {}) {
@@ -3656,6 +4182,7 @@ export class SimplePlayfield {
     this.updateAlphaBursts(speedDelta);
     this.updateBetaBursts(speedDelta);
     this.updateGammaBursts(speedDelta);
+    this.updateConnectionParticles(speedDelta);
 
     const arcSpeed = this.levelConfig?.arcSpeed ?? 0.2;
     const pathLength = this.pathLength || 1;
@@ -3842,18 +4369,22 @@ export class SimplePlayfield {
   updateTowers(delta) {
     this.towers.forEach((tower) => {
       tower.cooldown = Math.max(0, tower.cooldown - delta);
+      if (tower.linkTargetId) {
+        this.updateConnectionSupplier(tower, delta);
+        return;
+      }
       if (tower.type === 'zeta') {
-      this.updateZetaTower(tower, delta);
-      return;
-    }
-    if (tower.type === 'eta') {
-      this.updateEtaTower(tower, delta);
-      return;
-    }
-    if (tower.type === 'delta') {
-      this.updateDeltaTower(tower, delta);
-      return;
-    }
+        this.updateZetaTower(tower, delta);
+        return;
+      }
+      if (tower.type === 'eta') {
+        this.updateEtaTower(tower, delta);
+        return;
+      }
+      if (tower.type === 'delta') {
+        this.updateDeltaTower(tower, delta);
+        return;
+      }
       if (!this.combatActive || !this.enemies.length) {
         return;
       }
@@ -3867,6 +4398,49 @@ export class SimplePlayfield {
       tower.cooldown = 1 / tower.rate;
       this.fireAtTarget(tower, targetInfo);
     });
+  }
+
+  /**
+   * Route a connected lattice's cadence into its downstream partner instead of enemies.
+   */
+  updateConnectionSupplier(tower, delta) {
+    if (!tower || !tower.linkTargetId) {
+      return;
+    }
+    const target = this.getTowerById(tower.linkTargetId);
+    if (!target) {
+      this.removeTowerConnection(tower.id, tower.linkTargetId);
+      return;
+    }
+    if (!this.combatActive) {
+      return;
+    }
+    if (tower.cooldown > 0) {
+      return;
+    }
+    const rate = Number.isFinite(tower.rate) ? Math.max(0, tower.rate) : 0;
+    if (rate <= 0) {
+      tower.cooldown = 0;
+      return;
+    }
+    const baseCooldown = 1 / Math.max(0.0001, rate);
+    if (tower.type === 'alpha' && target.type === 'beta') {
+      this.spawnSupplyProjectile(tower, target, { payload: { type: 'alpha' } });
+      tower.cooldown = baseCooldown;
+      return;
+    }
+    if (tower.type === 'beta' && target.type === 'gamma') {
+      const payload = {
+        type: 'beta',
+        alphaShots: Math.max(0, tower.storedAlphaShots || 0),
+      };
+      tower.storedAlphaShots = 0;
+      tower.storedAlphaSwirl = 0;
+      this.spawnSupplyProjectile(tower, target, { payload });
+      tower.cooldown = baseCooldown;
+      return;
+    }
+    this.removeTowerConnection(tower.id, target.id);
   }
 
   /**
@@ -3995,6 +4569,67 @@ export class SimplePlayfield {
     return selected;
   }
 
+  /**
+   * Emit a supply mote traveling between linked lattices.
+   */
+  spawnSupplyProjectile(sourceTower, targetTower, options = {}) {
+    if (!sourceTower || !targetTower) {
+      return;
+    }
+    const payload = options.payload || {};
+    const sourcePosition = { x: sourceTower.x, y: sourceTower.y };
+    const targetPosition = { x: targetTower.x, y: targetTower.y };
+    const dx = targetPosition.x - sourcePosition.x;
+    const dy = targetPosition.y - sourcePosition.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const projectile = {
+      patternType: 'supply',
+      sourceId: sourceTower.id,
+      targetTowerId: targetTower.id,
+      source: sourcePosition,
+      target: targetPosition,
+      currentPosition: { ...sourcePosition },
+      distance,
+      speed: Number.isFinite(options.speed) ? options.speed : 260,
+      progress: 0,
+      payload,
+    };
+    if (payload.type === 'beta') {
+      projectile.color = { r: 255, g: 214, b: 112 };
+    } else {
+      projectile.color = { r: 255, g: 138, b: 216 };
+    }
+    this.projectiles.push(projectile);
+  }
+
+  /**
+   * Apply a delivered supply shot to its destination lattice.
+   */
+  handleSupplyImpact(projectile) {
+    if (!projectile || !projectile.targetTowerId) {
+      return;
+    }
+    const target = this.getTowerById(projectile.targetTowerId);
+    if (!target) {
+      return;
+    }
+    const payload = projectile.payload || {};
+    if (payload.type === 'alpha') {
+      target.storedAlphaShots = Math.min(999, (target.storedAlphaShots || 0) + 1);
+      target.storedAlphaSwirl = Math.min(30, (target.storedAlphaSwirl || 0) + 3);
+      return;
+    }
+    if (payload.type === 'beta') {
+      target.storedBetaShots = Math.min(999, (target.storedBetaShots || 0) + 1);
+      target.storedBetaSwirl = Math.min(30, (target.storedBetaSwirl || 0) + 3);
+      const alphaShots = Math.max(0, payload.alphaShots || 0);
+      if (alphaShots > 0) {
+        target.storedAlphaShots = Math.min(999, (target.storedAlphaShots || 0) + alphaShots);
+        target.storedAlphaSwirl = Math.min(30, (target.storedAlphaSwirl || 0) + alphaShots * 3);
+      }
+    }
+  }
+
   fireAtTarget(tower, targetInfo) {
     if (tower.type === 'delta') {
       this.deployDeltaSoldier(tower, targetInfo);
@@ -4008,7 +4643,29 @@ export class SimplePlayfield {
     const enemyPosition = this.getEnemyPosition(enemy);
     const resolvedPosition = enemyPosition || targetInfo.position;
     const attackPosition = resolvedPosition ? { ...resolvedPosition } : null;
-    enemy.hp -= tower.damage;
+    let damage = tower.damage;
+    if (tower.type === 'beta') {
+      const alphaShots = Math.max(0, tower.storedAlphaShots || 0);
+      if (alphaShots > 0) {
+        const alphaValue = calculateTowerEquationResult('alpha');
+        damage += alphaValue * alphaShots;
+        tower.storedAlphaShots = 0;
+        tower.storedAlphaSwirl = 0;
+      }
+    } else if (tower.type === 'gamma') {
+      const betaShots = Math.max(0, tower.storedBetaShots || 0);
+      const alphaShots = Math.max(0, tower.storedAlphaShots || 0);
+      if (betaShots > 0 || alphaShots > 0) {
+        const betaValue = calculateTowerEquationResult('beta');
+        const alphaValue = calculateTowerEquationResult('alpha');
+        damage += betaValue * betaShots + alphaValue * alphaShots;
+        tower.storedBetaShots = 0;
+        tower.storedAlphaShots = 0;
+        tower.storedBetaSwirl = 0;
+        tower.storedAlphaSwirl = 0;
+      }
+    }
+    enemy.hp -= damage;
     const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
     if (tower.type === 'alpha') {
       this.spawnAlphaAttackBurst(tower, { enemy, position: attackPosition }, { enemyId: enemy.id });
@@ -4196,6 +4853,25 @@ export class SimplePlayfield {
       const projectile = this.projectiles[index];
       projectile.lifetime += delta;
 
+      if (projectile.patternType === 'supply') {
+        const distance = Number.isFinite(projectile.distance) ? Math.max(1, projectile.distance) : 1;
+        const speed = Number.isFinite(projectile.speed) ? Math.max(10, projectile.speed) : 260;
+        const increment = (speed * delta) / distance;
+        projectile.progress = (projectile.progress || 0) + increment;
+        if (projectile.source && projectile.target) {
+          const clamped = Math.min(1, projectile.progress || 0);
+          projectile.currentPosition = {
+            x: projectile.source.x + (projectile.target.x - projectile.source.x) * clamped,
+            y: projectile.source.y + (projectile.target.y - projectile.source.y) * clamped,
+          };
+        }
+        if (projectile.progress >= 1) {
+          this.handleSupplyImpact(projectile);
+          this.projectiles.splice(index, 1);
+        }
+        continue;
+      }
+
       if (projectile.patternType === 'omegaWave') {
         const maxLifetime = projectile.maxLifetime || 0;
         if (maxLifetime > 0 && projectile.lifetime >= maxLifetime) {
@@ -4356,6 +5032,7 @@ export class SimplePlayfield {
       return null;
     }
     return {
+      id: tower.id,
       type: tower.type,
       normalized: this.cloneNormalizedPoint(tower.normalized),
       targetPriority: tower.targetPriority || 'first',
@@ -4375,6 +5052,12 @@ export class SimplePlayfield {
         tower.type === 'delta' && tower.deltaState
           ? { manualTargetId: tower.deltaState.manualTargetId || null }
           : null,
+      linkTargetId: tower.linkTargetId || null,
+      linkSources: tower.linkSources instanceof Set ? Array.from(tower.linkSources) : [],
+      storedAlphaShots: Number.isFinite(tower.storedAlphaShots) ? tower.storedAlphaShots : 0,
+      storedBetaShots: Number.isFinite(tower.storedBetaShots) ? tower.storedBetaShots : 0,
+      storedAlphaSwirl: Number.isFinite(tower.storedAlphaSwirl) ? tower.storedAlphaSwirl : 0,
+      storedBetaSwirl: Number.isFinite(tower.storedBetaSwirl) ? tower.storedBetaSwirl : 0,
     };
   }
 
@@ -4386,6 +5069,10 @@ export class SimplePlayfield {
       this.handleAlephTowerRemoved(tower);
     });
     this.towers = [];
+    this.towerConnectionMap.clear();
+    this.towerConnectionSources.clear();
+    this.connectionEffects = [];
+    this.clearConnectionDragState();
     this.slots.forEach((slot) => {
       slot.tower = null;
       if (slot.button) {
@@ -4394,6 +5081,8 @@ export class SimplePlayfield {
       }
     });
     this.towerIdCounter = 0;
+
+    const restoredTowerMap = new Map();
 
     snapshots.forEach((snapshot) => {
       if (!snapshot || !snapshot.type) {
@@ -4408,8 +5097,21 @@ export class SimplePlayfield {
       const fallbackDamage = Number.isFinite(definition.damage) ? definition.damage : 0;
       const fallbackRate = Number.isFinite(definition.rate) ? definition.rate : 1;
       const fallbackRange = Math.min(this.renderWidth, this.renderHeight) * (definition.range ?? 0.24);
+      let towerId = typeof snapshot.id === 'string' && snapshot.id.trim() ? snapshot.id.trim() : null;
+      if (towerId) {
+        const match = towerId.match(/tower-(\d+)/);
+        if (match) {
+          const numeric = Number(match[1]);
+          if (Number.isFinite(numeric)) {
+            this.towerIdCounter = Math.max(this.towerIdCounter, numeric);
+          }
+        }
+      } else {
+        this.towerIdCounter += 1;
+        towerId = `tower-${this.towerIdCounter}`;
+      }
       const tower = {
-        id: `tower-${(this.towerIdCounter += 1)}`,
+        id: towerId,
         type: snapshot.type,
         definition,
         symbol: definition.symbol,
@@ -4426,6 +5128,25 @@ export class SimplePlayfield {
         cooldown: Number.isFinite(snapshot.cooldown) ? snapshot.cooldown : 0,
         slot: null,
       };
+      tower.linkTargetId = null;
+      tower.linkSources = new Set();
+      tower.storedAlphaShots = 0;
+      tower.storedBetaShots = 0;
+      tower.storedAlphaSwirl = 0;
+      tower.storedBetaSwirl = 0;
+      tower.connectionParticles = [];
+      if (Number.isFinite(snapshot.storedAlphaShots)) {
+        tower.storedAlphaShots = Math.max(0, Math.floor(snapshot.storedAlphaShots));
+      }
+      if (Number.isFinite(snapshot.storedBetaShots)) {
+        tower.storedBetaShots = Math.max(0, Math.floor(snapshot.storedBetaShots));
+      }
+      if (Number.isFinite(snapshot.storedAlphaSwirl)) {
+        tower.storedAlphaSwirl = Math.max(0, Math.floor(snapshot.storedAlphaSwirl));
+      }
+      if (Number.isFinite(snapshot.storedBetaSwirl)) {
+        tower.storedBetaSwirl = Math.max(0, Math.floor(snapshot.storedBetaSwirl));
+      }
       if (tower.type === 'eta') {
         // Restore η lattice metadata before behavior defaults so orbital rings rebuild with the correct configuration.
         const rawPrime = Number.isFinite(snapshot.etaPrime) ? snapshot.etaPrime : 0;
@@ -4454,7 +5175,35 @@ export class SimplePlayfield {
         }
       }
       this.towers.push(tower);
+      restoredTowerMap.set(tower.id, tower);
       this.handleAlephTowerAdded(tower);
+    });
+
+    snapshots.forEach((snapshot) => {
+      if (!snapshot || !snapshot.id || !snapshot.linkTargetId) {
+        return;
+      }
+      const source = restoredTowerMap.get(snapshot.id);
+      const target = restoredTowerMap.get(snapshot.linkTargetId);
+      if (source && target) {
+        this.addTowerConnection(source, target);
+      }
+    });
+
+    snapshots.forEach((snapshot) => {
+      if (!snapshot || !snapshot.id || !Array.isArray(snapshot.linkSources)) {
+        return;
+      }
+      const target = restoredTowerMap.get(snapshot.id);
+      if (!target) {
+        return;
+      }
+      snapshot.linkSources.forEach((sourceId) => {
+        const source = restoredTowerMap.get(sourceId);
+        if (source && source !== target) {
+          this.addTowerConnection(source, target);
+        }
+      });
     });
 
     refreshTowerLoadoutDisplay();
@@ -5623,48 +6372,19 @@ export class SimplePlayfield {
     const ctx = this.ctx;
     ctx.save();
 
-    const connections = [];
-    for (let i = 0; i < this.towers.length; i += 1) {
-      const a = this.towers[i];
-      if (!a || !Number.isFinite(a.x) || !Number.isFinite(a.y)) {
-        continue;
-      }
-      const rangeA = Number.isFinite(a.range) ? Math.max(0, a.range) : 0;
-      for (let j = i + 1; j < this.towers.length; j += 1) {
-        const b = this.towers[j];
-        if (!b || !Number.isFinite(b.x) || !Number.isFinite(b.y)) {
-          continue;
-        }
-        const rangeB = Number.isFinite(b.range) ? Math.max(0, b.range) : 0;
-        if (rangeA <= 0 || rangeB <= 0) {
-          continue;
-        }
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const distance = Math.hypot(dx, dy);
-        if (!Number.isFinite(distance)) {
-          continue;
-        }
-        if (distance <= rangeA && distance <= rangeB) {
-          connections.push({ from: a, to: b });
-        }
-      }
-    }
+    this.drawConnectionEffects(ctx);
 
-    if (connections.length) {
-      ctx.save();
-      ctx.strokeStyle = 'rgba(143, 210, 255, 0.42)';
-      ctx.lineWidth = 1.4;
-      ctx.setLineDash([4, 6]);
-      connections.forEach((link) => {
-        ctx.beginPath();
-        ctx.moveTo(link.from.x, link.from.y);
-        ctx.lineTo(link.to.x, link.to.y);
-        ctx.stroke();
-      });
-      ctx.setLineDash([]);
-      ctx.restore();
-    }
+    const activeDrag = this.connectionDragState.active ? this.connectionDragState : null;
+    const highlightEntries = activeDrag && Array.isArray(activeDrag.highlightEntries)
+      ? activeDrag.highlightEntries
+      : [];
+    const highlightMap = new Map();
+    highlightEntries.forEach((entry) => {
+      if (!highlightMap.has(entry.towerId)) {
+        highlightMap.set(entry.towerId, entry);
+      }
+    });
+    const hoveredHighlight = activeDrag ? activeDrag.hoverEntry : null;
 
     this.towers.forEach((tower) => {
       if (!tower || !Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
@@ -5676,6 +6396,27 @@ export class SimplePlayfield {
         ? tower.range
         : Math.min(this.renderWidth, this.renderHeight) * 0.22;
       const bodyRadius = Math.max(12, Math.min(this.renderWidth, this.renderHeight) * 0.042);
+
+      const highlightEntry = highlightMap.get(tower.id) || null;
+      if (highlightEntry) {
+        ctx.save();
+        const isHovered = hoveredHighlight && hoveredHighlight.towerId === tower.id;
+        const strokeColor = highlightEntry.action === 'connect'
+          ? isHovered
+            ? 'rgba(139, 247, 255, 0.85)'
+            : 'rgba(139, 247, 255, 0.45)'
+          : isHovered
+          ? 'rgba(255, 214, 112, 0.85)'
+          : 'rgba(255, 214, 112, 0.45)';
+        ctx.lineWidth = isHovered ? 3.2 : 2;
+        ctx.strokeStyle = strokeColor;
+        ctx.setLineDash([isHovered ? 6 : 4, isHovered ? 6 : 8]);
+        ctx.beginPath();
+        ctx.arc(tower.x, tower.y, bodyRadius + 10, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
 
       // Outline the active coverage radius so players can gauge lattice reach in real time.
       if (Number.isFinite(rangeRadius) && rangeRadius > 0) {
@@ -5716,6 +6457,8 @@ export class SimplePlayfield {
       ctx.stroke();
       ctx.restore();
 
+      this.drawTowerConnectionParticles(ctx, tower, bodyRadius);
+
       const symbolColor = visuals.symbolFill || 'rgba(255, 228, 120, 0.92)';
       const symbolShadow = visuals.symbolShadow;
       if (symbolShadow?.color) {
@@ -5734,6 +6477,38 @@ export class SimplePlayfield {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(glyph, tower.x, tower.y);
+
+      if (tower.type === 'beta') {
+        const alphaShots = Math.max(0, Math.floor(tower.storedAlphaShots || 0));
+        if (alphaShots > 0) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.font = `${Math.round(bodyRadius * 0.75)}px "Space Mono", monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText(`α × ${alphaShots}`, tower.x, tower.y + bodyRadius + 6);
+          ctx.restore();
+        }
+      } else if (tower.type === 'gamma') {
+        const betaShots = Math.max(0, Math.floor(tower.storedBetaShots || 0));
+        const alphaShots = Math.max(0, Math.floor(tower.storedAlphaShots || 0));
+        if (betaShots > 0 || alphaShots > 0) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.font = `${Math.round(bodyRadius * 0.7)}px "Space Mono", monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          let labelY = tower.y + bodyRadius + 6;
+          if (betaShots > 0) {
+            ctx.fillText(`β × ${betaShots}`, tower.x, labelY);
+            labelY += Math.round(bodyRadius * 0.7) + 4;
+          }
+          if (alphaShots > 0) {
+            ctx.fillText(`α × ${alphaShots}`, tower.x, labelY);
+          }
+          ctx.restore();
+        }
+      }
 
       if (tower.chain) {
         // Highlight Aleph-linked towers with a secondary ring that pulses with the chain state.
@@ -5879,6 +6654,19 @@ export class SimplePlayfield {
 
     this.projectiles.forEach((projectile) => {
       if (!projectile) {
+        return;
+      }
+
+      if (projectile.patternType === 'supply') {
+        const position = projectile.currentPosition || projectile.target || projectile.source;
+        if (!position) {
+          return;
+        }
+        const color = normalizeProjectileColor(projectile.color, 1);
+        ctx.fillStyle = colorToRgbaString(color, 0.85);
+        ctx.beginPath();
+        ctx.arc(position.x, position.y, 4, 0, Math.PI * 2);
+        ctx.fill();
         return;
       }
 
