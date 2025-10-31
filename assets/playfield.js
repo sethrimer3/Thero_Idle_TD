@@ -6094,12 +6094,7 @@ export class SimplePlayfield {
       ctx.drawImage(mindGateSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
       ctx.restore();
 
-      this.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.45)', radius * 0.9);
-      ctx.strokeStyle = 'rgba(139, 247, 255, 0.6)';
-      ctx.lineWidth = Math.max(1.2, radius * 0.1);
-      ctx.beginPath();
-      ctx.arc(0, 0, radius * 0.6, 0, Math.PI * 2);
-      ctx.stroke();
+      // Removed inner blue ring to avoid small light-blue circle at the track end.
     } else {
       // Fall back to the legacy geometric rendering until the sprite finishes loading.
       this.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.55)', radius * 0.7);
@@ -6110,9 +6105,7 @@ export class SimplePlayfield {
       ctx.lineTo(0, -radius * 0.6);
       ctx.stroke();
 
-      ctx.beginPath();
-      ctx.arc(0, 0, radius * 0.28, 0, Math.PI * 2);
-      ctx.stroke();
+      // Removed inner blue ring to avoid small light-blue circle at the track end.
 
       ctx.strokeStyle = 'rgba(255, 228, 120, 0.92)';
       this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', radius * 0.8);
