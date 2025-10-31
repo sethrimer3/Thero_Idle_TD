@@ -376,6 +376,7 @@ export class PowderSimulation {
       : 180;
 
     this.onHeightChange = typeof options.onHeightChange === 'function' ? options.onHeightChange : null;
+    this.onIdleBankChange = typeof options.onIdleBankChange === 'function' ? options.onIdleBankChange : null;
 
     this.width = 0;
     this.height = 0;
@@ -895,6 +896,14 @@ export class PowderSimulation {
     this.onWallMetricsChange(metrics || this.getWallMetrics());
   }
 
+  notifyIdleBankChange() {
+    if (typeof this.onIdleBankChange !== 'function') {
+      return;
+    }
+    const bank = Number.isFinite(this.idleBank) ? Math.max(0, this.idleBank) : 0;
+    this.onIdleBankChange(bank);
+  }
+
   getWallMetrics() {
     return {
       leftCells: this.wallInsetLeftCells,
@@ -1047,6 +1056,7 @@ export class PowderSimulation {
       return 0;
     }
     this.idleBank = Math.max(0, this.idleBank - toQueue);
+    this.notifyIdleBankChange();
     this.idleDropBuffer += toQueue; // Store the converted motes until the release cadence emits them.
     return toQueue;
   }
@@ -1182,6 +1192,7 @@ export class PowderSimulation {
       return;
     }
     this.idleBank = Math.max(0, this.idleBank + amount);
+    this.notifyIdleBankChange();
   }
 
   clampGrainSize(size) {
@@ -2270,6 +2281,7 @@ export class PowderSimulation {
     this.updateHeightFromGrains(true);
     this.render();
     this.notifyWallMetricsChange();
+    this.notifyIdleBankChange();
     this.notifyViewTransformChange();
     return true;
   }

@@ -30,6 +30,7 @@ export class FluidSimulation {
     this.deviceScale = deviceScale;
 
     this.onHeightChange = typeof options.onHeightChange === 'function' ? options.onHeightChange : null;
+    this.onIdleBankChange = typeof options.onIdleBankChange === 'function' ? options.onIdleBankChange : null;
     this.onWallMetricsChange =
       typeof options.onWallMetricsChange === 'function' ? options.onWallMetricsChange : null;
 
@@ -207,6 +208,14 @@ export class FluidSimulation {
     this.onWallMetricsChange(metrics || this.getWallMetrics());
   }
 
+  notifyIdleBankChange() {
+    if (typeof this.onIdleBankChange !== 'function') {
+      return;
+    }
+    const bank = Number.isFinite(this.idleBank) ? Math.max(0, this.idleBank) : 0;
+    this.onIdleBankChange(bank);
+  }
+
   getWallMetrics() {
     return {
       leftCells: this.wallInsetLeftCells,
@@ -298,7 +307,10 @@ export class FluidSimulation {
     }
     const drainRate = Math.max(0.1, this.idleDrainRate);
     const drainAmount = Math.min(this.idleBank, (drainRate * deltaMs) / 1000);
-    this.idleBank -= drainAmount;
+    if (drainAmount > 0) {
+      this.idleBank -= drainAmount;
+      this.notifyIdleBankChange();
+    }
     const spawnInterval = Math.max(30, this.baseSpawnInterval * 0.8);
     const dropCount = Math.max(1, Math.round((drainAmount * 1000) / spawnInterval));
     for (let index = 0; index < dropCount; index += 1) {
@@ -313,6 +325,7 @@ export class FluidSimulation {
       return;
     }
     this.idleBank += amount;
+    this.notifyIdleBankChange();
   }
 
   updateDrops(deltaMs) {
