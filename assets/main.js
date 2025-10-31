@@ -1905,14 +1905,17 @@ import {
       }
     }
 
-    const storedMotes = Math.max(0, powderCurrency + (powderState.idleMoteBank || 0));
+    const bankedMotes = getCurrentIdleMoteBank();
     if (resourceElements.tabMoteBadge) {
-      const tabStoredLabel = formatGameNumber(storedMotes);
+      const tabStoredLabel = formatGameNumber(bankedMotes);
       resourceElements.tabMoteBadge.textContent = tabStoredLabel;
       resourceElements.tabMoteBadge.setAttribute('aria-label', `${tabStoredLabel} motes in bank`);
       resourceElements.tabMoteBadge.removeAttribute('hidden');
       resourceElements.tabMoteBadge.setAttribute('aria-hidden', 'false');
     }
+
+    // Refresh mote-specific HUD elements whenever core status displays tick.
+    updateMoteStatsDisplays();
   }
 
   const baseResources = {
@@ -3179,7 +3182,9 @@ import {
   // Surface the live idle mote bank so developer controls and HUD panels can sync immediately.
   function getCurrentIdleMoteBank() {
     if (powderSimulation && Number.isFinite(powderSimulation.idleBank)) {
-      return Math.max(0, powderSimulation.idleBank);
+      const bank = Math.max(0, powderSimulation.idleBank);
+      powderState.idleMoteBank = bank;
+      return bank;
     }
     return Math.max(0, powderState.idleMoteBank || 0);
   }
@@ -3187,7 +3192,9 @@ import {
   // Provide the active mote dispense rate exposed by the current simulation profile or powder state.
   function getCurrentMoteDispenseRate() {
     if (powderSimulation && Number.isFinite(powderSimulation.idleDrainRate)) {
-      return Math.max(0, powderSimulation.idleDrainRate);
+      const rate = Math.max(0, powderSimulation.idleDrainRate);
+      powderState.idleDrainRate = rate;
+      return rate;
     }
     return Math.max(0, powderState.idleDrainRate || 0);
   }
@@ -6893,9 +6900,9 @@ import {
 
     // Display the relocated idle mote bank readout inside the Spire tab.
     if (powderElements.moteBank) {
-      const storedMotes = Math.max(0, powderCurrency + getCurrentIdleMoteBank());
-      const moteLabel = storedMotes === 1 ? 'Mote' : 'Motes';
-      powderElements.moteBank.textContent = `${formatGameNumber(storedMotes)} ${moteLabel}`;
+      const bankedMotes = getCurrentIdleMoteBank();
+      const moteLabel = bankedMotes === 1 ? 'Mote' : 'Motes';
+      powderElements.moteBank.textContent = `${formatGameNumber(bankedMotes)} ${moteLabel}`;
     }
 
     // Surface the current fall rate so the Spire tab mirrors the basin flow.
