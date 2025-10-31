@@ -9,7 +9,7 @@ export const NOTATION_STORAGE_KEY = 'glyph-defense-idle:notation';
 export const GLYPH_EQUATIONS_STORAGE_KEY = 'glyph-defense-idle:glyph-equations';
 export const POWDER_STORAGE_KEY = 'glyph-defense-idle:powder';
 export const GAME_STATS_STORAGE_KEY = 'glyph-defense-idle:stats';
-// Storage key used to persist the active Motefall basin snapshot.
+// Storage key used to persist the active Spire snapshot.
 export const POWDER_BASIN_STORAGE_KEY = 'glyph-defense-idle:powder-basin';
 // Storage key used to persist tower upgrade progress (glyph allocations).
 export const TOWER_UPGRADE_STORAGE_KEY = 'glyph-defense-idle:tower-upgrades';
@@ -307,7 +307,7 @@ export function commitAutoSave() {
   performAutoSave();
 }
 
-// Persist the current Motefall basin layout alongside player stats.
+// Persist the current Spire layout alongside player stats.
 function persistPowderBasin() {
   if (typeof dependencies.getPowderBasinSnapshot !== 'function') {
     return;
