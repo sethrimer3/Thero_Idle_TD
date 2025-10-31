@@ -1307,8 +1307,7 @@ import {
     if (powderSimulation) {
       powderSimulation.idleBank = normalized;
     }
-    powderState.idleMoteBank = normalized;
-    powderState.idleBankHydrated = !!powderSimulation;
+    handlePowderIdleBankChange(powderSimulation ? powderSimulation.idleBank : normalized);
     recordDeveloperAdjustment('idle-mote-bank', normalized);
     // Developer tweaks should persist so debugging sessions survive reloads.
     schedulePowderBasinSave();
@@ -2831,6 +2830,7 @@ import {
             rippleFrequency: profile.rippleFrequency ?? undefined,
             rippleAmplitude: profile.rippleAmplitude ?? undefined,
             maxDuneGain: powderConfig.simulatedDuneGainMax,
+            onIdleBankChange: handlePowderIdleBankChange,
             onHeightChange: handlePowderHeightChange,
             onWallMetricsChange: handlePowderWallMetricsChange,
             onViewTransformChange: handlePowderViewTransformChange,
@@ -2887,6 +2887,7 @@ import {
             maxDuneGain: powderConfig.simulatedDuneGainMax,
             idleDrainRate: powderState.idleDrainRate,
             motePalette: powderState.motePalette,
+            onIdleBankChange: handlePowderIdleBankChange,
             onHeightChange: handlePowderHeightChange,
             onWallMetricsChange: handlePowderWallMetricsChange,
             onViewTransformChange: handlePowderViewTransformChange,
@@ -6853,6 +6854,30 @@ import {
       gameStats.highestPowderMultiplier = value;
     }
     evaluateAchievements();
+  }
+
+  function handlePowderIdleBankChange(bankValue) {
+    const normalized = Number.isFinite(bankValue) ? Math.max(0, bankValue) : 0;
+    const previous = Number.isFinite(powderState.idleMoteBank) ? powderState.idleMoteBank : 0;
+    powderState.idleMoteBank = normalized;
+    powderState.idleBankHydrated = !!powderSimulation;
+
+    if (Math.abs(previous - normalized) < 0.0001) {
+      return;
+    }
+
+    if (powderElements.moteBank) {
+      const moteLabel = normalized === 1 ? 'Mote' : 'Motes';
+      powderElements.moteBank.textContent = `${formatGameNumber(normalized)} ${moteLabel}`;
+    }
+
+    if (resourceElements.tabMoteBadge) {
+      const tabStoredLabel = formatGameNumber(normalized);
+      resourceElements.tabMoteBadge.textContent = tabStoredLabel;
+      resourceElements.tabMoteBadge.setAttribute('aria-label', `${tabStoredLabel} motes in bank`);
+      resourceElements.tabMoteBadge.removeAttribute('hidden');
+      resourceElements.tabMoteBadge.setAttribute('aria-hidden', 'false');
+    }
   }
 
   function handlePowderHeightChange(info) {
