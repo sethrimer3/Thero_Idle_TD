@@ -5224,3 +5224,105 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   font-size: clamp(1rem, 2vw, 1.4rem);
 }
 
+/* Startup overlay orchestrates the logo reveal and glyph loading animation. */
+.startup-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #040507;
+  color: rgba(240, 240, 246, 0.82);
+  z-index: 9999;
+  transition: opacity 320ms ease;
+}
+
+.startup-overlay--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.startup-overlay__content {
+  display: grid;
+  gap: 24px;
+  justify-items: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.startup-overlay__logo {
+  width: min(48vw, 360px);
+  max-width: 360px;
+  filter: drop-shadow(0 18px 36px rgba(0, 0, 0, 0.6));
+  opacity: 0;
+  animation: startupLogoReveal 5s ease-in-out forwards;
+}
+
+.startup-overlay__loading {
+  width: min(48vw, 300px);
+  max-width: 300px;
+  aspect-ratio: 1;
+  background-image: url('./animations/p_elliptic_function/sprite_sheet.png');
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: 27300px 300px;
+  image-rendering: pixelated;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.startup-overlay__loading--active {
+  opacity: 1;
+  animation: pEllipticLoading 3.5167s steps(90) infinite;
+}
+
+.startup-overlay__hint {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(240, 240, 246, 0.6);
+}
+
+@keyframes startupLogoReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(1.02);
+  }
+}
+
+@keyframes pEllipticLoading {
+  0% {
+    background-position: 0 0;
+  }
+  43.14% {
+    background-position: -27000px 0;
+  }
+  100% {
+    background-position: -27000px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .startup-overlay__logo {
+    animation-duration: 1ms;
+    animation-fill-mode: forwards;
+  }
+
+  .startup-overlay__loading--active {
+    animation-duration: 2.5s;
+  }
+}
+

@@ -41,6 +41,7 @@ const dependencies = {
   powderConfig: null,
   powderElements: null,
   updateMoteGemInventoryDisplay: () => {},
+  setActiveTab: () => {},
 };
 
 /**
@@ -186,6 +187,9 @@ function hideOfflineOverlay() {
       offlineOverlayLastFocus.focus({ preventScroll: true });
     }
     offlineOverlayLastFocus = null;
+    if (typeof dependencies.setActiveTab === 'function') {
+      dependencies.setActiveTab('powder');
+    }
   }, OFFLINE_OVERLAY_FADE_MS);
 }
 
@@ -267,43 +271,43 @@ export function recordPowderEvent(type, context = {}) {
 
   switch (type) {
     case 'sand-stabilized': {
-      entry = `Sandfall stabilized · Mote bonus ${dependencies.formatSignedPercentage(powderBonuses.sandBonus)}.`;
+      entry = `Sandfall stabilized ? Mote bonus ${dependencies.formatSignedPercentage(powderBonuses.sandBonus)}.`;
       break;
     }
     case 'sand-released': {
-      entry = 'Sandfall released · Flow returns to natural mote drift.';
+      entry = 'Sandfall released ? Flow returns to natural mote drift.';
       break;
     }
     case 'dune-raise': {
       const { height = powderState.duneHeight } = context;
       const safeHeight = Number.isFinite(height) ? height : 0;
       const logValue = Math.log2(Math.max(0, safeHeight) + 1);
-      entry = `Dune surveyed · h = ${safeHeight}, Δm = ${dependencies.formatDecimal(logValue, 2)}.`;
+      entry = `Dune surveyed ? h = ${safeHeight}, ?m = ${dependencies.formatDecimal(logValue, 2)}.`;
       break;
     }
     case 'dune-max': {
-      entry = 'Dune survey halted · Ridge already at maximum elevation.';
+      entry = 'Dune survey halted ? Ridge already at maximum elevation.';
       break;
     }
     case 'crystal-charge': {
       const { charges = powderState.charges } = context;
-      entry = `Crystal lattice charged (${charges}/3) · Resonance rising.`;
+      entry = `Crystal lattice charged (${charges}/3) ? Resonance rising.`;
       break;
     }
     case 'crystal-release': {
       const { pulseBonus = 0 } = context;
-      entry = `Crystal pulse released · Σ surged ${dependencies.formatSignedPercentage(pulseBonus)}.`;
+      entry = `Crystal pulse released ? ? surged ${dependencies.formatSignedPercentage(pulseBonus)}.`;
       break;
     }
     case 'achievement-unlocked': {
       const { title = 'Achievement' } = context;
-      entry = `${title} seal unlocked · +1 Motes/min secured.`;
+      entry = `${title} seal unlocked ? +1 Motes/min secured.`;
       break;
     }
     case 'offline-reward': {
       const { minutes = 0, rate = 0, powder = 0 } = context;
       const minutesLabel = dependencies.formatWholeNumber(minutes);
-      entry = `Idle harvest · ${minutesLabel}m × ${dependencies.formatGameNumber(rate)} = +${dependencies.formatGameNumber(powder)} Motes.`;
+      entry = `Idle harvest ? ${minutesLabel}m ? ${dependencies.formatGameNumber(rate)} = +${dependencies.formatGameNumber(powder)} Motes.`;
       break;
     }
     case 'developer-adjust': {
@@ -311,17 +315,17 @@ export function recordPowderEvent(type, context = {}) {
       const fieldLabels = {
         'idle-mote-bank': 'Idle mote bank',
         'idle-mote-rate': 'Idle mote fall rate',
-        'base-start-thero': 'Base start þ',
+        'base-start-thero': 'Base start ?',
         glyphs: 'Glyph reserves',
       };
       const label = fieldLabels[field] || field;
-      entry = `Developer adjusted ${label} → ${dependencies.formatGameNumber(Number(value) || 0)}.`;
+      entry = `Developer adjusted ${label} ? ${dependencies.formatGameNumber(Number(value) || 0)}.`;
       break;
     }
     case 'mote-gem-collected': {
       const { type = 'Mote Gem', value = 0 } = context;
       dependencies.updateMoteGemInventoryDisplay();
-      entry = `${type} cluster secured · +${dependencies.formatGameNumber(Math.max(0, value || 0))}.`;
+      entry = `${type} cluster secured ? +${dependencies.formatGameNumber(Math.max(0, value || 0))}.`;
       break;
     }
     case 'mode-switch': {
@@ -331,13 +335,13 @@ export function recordPowderEvent(type, context = {}) {
         normalizedMode === 'fluid'
           ? label || powderState.fluidProfileLabel || 'Fluid Study'
           : 'Powderfall Study';
-      entry = `Simulation mode changed · ${modeLabel} engaged.`;
+      entry = `Simulation mode changed ? ${modeLabel} engaged.`;
       break;
     }
     case 'fluid-unlocked': {
       const { threshold = powderConfig.fluidUnlockSigils || 0 } = context;
       const unitLabel = threshold === 1 ? 'Glyph' : 'Glyphs';
-      entry = `Fluid resonance unlocked · Requires ${threshold} ${unitLabel}.`;
+      entry = `Fluid resonance unlocked ? Requires ${threshold} ${unitLabel}.`;
       break;
     }
     default:
