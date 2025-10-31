@@ -37,6 +37,7 @@ const dependencies = {
 
 let statKeys = [];
 let powderSaveHandle = null;
+let powderBasinSaveHandle = null;
 let autoSaveHandle = null;
 
 /**
@@ -264,6 +265,10 @@ function persistTowerUpgrades() {
 
 function performAutoSave() {
   savePowderCurrency();
+  if (powderBasinSaveHandle) {
+    clearTimeout(powderBasinSaveHandle);
+    powderBasinSaveHandle = null;
+  }
   persistPowderBasin();
   persistGameStats();
   persistPreferences();
@@ -312,4 +317,18 @@ function persistPowderBasin() {
     return;
   }
   writeStorageJson(POWDER_BASIN_STORAGE_KEY, snapshot);
+}
+
+/**
+ * Debounces basin writes so rapid simulation updates still persist without
+ * overwhelming localStorage with large payloads.
+ */
+export function schedulePowderBasinSave() {
+  if (powderBasinSaveHandle) {
+    return;
+  }
+  powderBasinSaveHandle = setTimeout(() => {
+    powderBasinSaveHandle = null;
+    persistPowderBasin();
+  }, 1000);
 }
