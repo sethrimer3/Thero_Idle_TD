@@ -33,6 +33,24 @@
     <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </head>
   <body>
+    <div class="startup-overlay" id="startup-overlay" role="status" aria-live="polite">
+      <div class="startup-overlay__content" role="presentation">
+        <img
+          class="startup-overlay__logo"
+          src="./assets/sprites/gravy_thyme_logo.png"
+          alt="Thero Idle sigil"
+          data-startup-logo
+        />
+        <div
+          class="startup-overlay__loading"
+          data-startup-loading
+          role="img"
+          aria-label="Loading glyph animation"
+          hidden
+        ></div>
+        <p class="startup-overlay__hint">Calibrating glyph lattice…</p>
+      </div>
+    </div>
     <div
       class="offline-overlay"
       id="offline-overlay"

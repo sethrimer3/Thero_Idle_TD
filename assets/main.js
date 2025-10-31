@@ -226,6 +226,138 @@ import {
 (() => {
   'use strict';
 
+  const STARTUP_LOGO_DURATION_MS = 5000; // 2s fade-in + 1s hold + 2s fade-out.
+  const STARTUP_OVERLAY_FADE_MS = 320;
+
+  const startupOverlay = document.getElementById('startup-overlay');
+  const startupLogo = startupOverlay ? startupOverlay.querySelector('[data-startup-logo]') : null;
+  const startupLoading = startupOverlay ? startupOverlay.querySelector('[data-startup-loading]') : null;
+  const startupHint = startupOverlay ? startupOverlay.querySelector('.startup-overlay__hint') : null;
+  const startupHintDefaultText = startupHint ? startupHint.textContent : '';
+
+  let startupLoadingActivated = false;
+  let startupOverlayFadeHandle = null;
+
+  function activateStartupLoadingSpinner() {
+    if (!startupOverlay || !startupLoading) {
+      return;
+    }
+    if (startupLoadingActivated) {
+      return;
+    }
+    startupLoadingActivated = true;
+    if (startupLoading.hasAttribute('hidden')) {
+      startupLoading.removeAttribute('hidden');
+    }
+    requestAnimationFrame(() => {
+      startupLoading.classList.add('startup-overlay__loading--active');
+    });
+    if (startupHint) {
+      startupHint.textContent = 'Summoning motes…';
+    }
+  }
+
+  function initializeStartupOverlay() {
+    if (!startupOverlay) {
+      return;
+    }
+    startupOverlay.classList.remove('startup-overlay--hidden');
+    startupOverlay.removeAttribute('hidden');
+    startupOverlay.setAttribute('aria-hidden', 'false');
+
+    if (!startupLogo) {
+      activateStartupLoadingSpinner();
+      return;
+    }
+
+    let fallbackTimer = null;
+
+    const finalizeLogo = () => {
+      if (fallbackTimer) {
+        window.clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
+      startupLogo.setAttribute('hidden', '');
+      activateStartupLoadingSpinner();
+    };
+
+    const logoAnimationHandler = () => {
+      startupLogo.removeEventListener('animationend', logoAnimationHandler);
+      finalizeLogo();
+    };
+
+    fallbackTimer = window.setTimeout(() => {
+      startupLogo.removeEventListener('animationend', logoAnimationHandler);
+      finalizeLogo();
+    }, STARTUP_LOGO_DURATION_MS + 120);
+
+    startupLogo.addEventListener('animationend', logoAnimationHandler);
+  }
+
+  function dismissStartupOverlay() {
+    if (!startupOverlay) {
+      return Promise.resolve();
+    }
+
+    activateStartupLoadingSpinner();
+
+    if (startupOverlay.classList.contains('startup-overlay--hidden')) {
+      if (!startupOverlay.hasAttribute('hidden')) {
+        startupOverlay.setAttribute('hidden', '');
+      }
+      startupOverlay.setAttribute('aria-hidden', 'true');
+      if (startupHint && startupHintDefaultText) {
+        startupHint.textContent = startupHintDefaultText;
+      }
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      const complete = () => {
+        if (startupOverlayFadeHandle) {
+          window.clearTimeout(startupOverlayFadeHandle);
+          startupOverlayFadeHandle = null;
+        }
+        startupOverlay.removeEventListener('transitionend', handleTransitionEnd);
+        if (!startupOverlay.classList.contains('startup-overlay--hidden')) {
+          startupOverlay.classList.add('startup-overlay--hidden');
+        }
+        startupOverlay.setAttribute('hidden', '');
+        startupOverlay.setAttribute('aria-hidden', 'true');
+        if (startupHint && startupHintDefaultText) {
+          startupHint.textContent = startupHintDefaultText;
+        }
+        resolve();
+      };
+
+      const handleTransitionEnd = (event) => {
+        if (event.target !== startupOverlay || event.propertyName !== 'opacity') {
+          return;
+        }
+        complete();
+      };
+
+      if (startupOverlayFadeHandle) {
+        window.clearTimeout(startupOverlayFadeHandle);
+        startupOverlayFadeHandle = null;
+      }
+
+      startupOverlayFadeHandle = window.setTimeout(() => {
+        startupOverlayFadeHandle = null;
+        complete();
+      }, STARTUP_OVERLAY_FADE_MS + 160);
+
+      startupOverlay.addEventListener('transitionend', handleTransitionEnd);
+
+      requestAnimationFrame(() => {
+        startupOverlay.classList.add('startup-overlay--hidden');
+        startupOverlay.setAttribute('aria-hidden', 'true');
+      });
+    });
+  }
+
+  initializeStartupOverlay();
+
   const alephChainUpgradeState = { ...ALEPH_CHAIN_DEFAULT_UPGRADES };
 
   const THERO_SYMBOL = 'þ';
@@ -2434,6 +2566,7 @@ import {
     powderConfig,
     powderElements,
     updateMoteGemInventoryDisplay,
+    setActiveTab,
   });
 
   function updatePowderGlyphColumns(info = {}) {
@@ -7637,6 +7770,7 @@ import {
         playfieldElements.message.textContent =
           'Unable to load gameplay data—refresh the page to retry.';
       }
+      await dismissStartupOverlay();
       return;
     }
 
@@ -7706,11 +7840,13 @@ import {
     updatePowderLogDisplay();
     updateResourceRates();
     updatePowderDisplay();
-    checkOfflineRewards();
-    markLastActive();
     ensureResourceTicker();
     // Begin the recurring autosave cadence once the core systems are initialized.
     startAutoSaveLoop();
+
+    await dismissStartupOverlay();
+    checkOfflineRewards();
+    markLastActive();
 
     injectTowerCardPreviews();
     annotateTowerCardsWithCost();
