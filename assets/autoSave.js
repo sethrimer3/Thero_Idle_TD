@@ -7,12 +7,12 @@ export const GRAPHICS_MODE_STORAGE_KEY = 'glyph-defense-idle:graphics-mode';
 export const NOTATION_STORAGE_KEY = 'glyph-defense-idle:notation';
 // Storage key used to persist the glyph equation visibility toggle.
 export const GLYPH_EQUATIONS_STORAGE_KEY = 'glyph-defense-idle:glyph-equations';
-const POWDER_STORAGE_KEY = 'glyph-defense-idle:powder';
-const GAME_STATS_STORAGE_KEY = 'glyph-defense-idle:stats';
+export const POWDER_STORAGE_KEY = 'glyph-defense-idle:powder';
+export const GAME_STATS_STORAGE_KEY = 'glyph-defense-idle:stats';
 // Storage key used to persist the active Motefall basin snapshot.
-const POWDER_BASIN_STORAGE_KEY = 'glyph-defense-idle:powder-basin';
+export const POWDER_BASIN_STORAGE_KEY = 'glyph-defense-idle:powder-basin';
 // Storage key used to persist tower upgrade progress (glyph allocations).
-const TOWER_UPGRADE_STORAGE_KEY = 'glyph-defense-idle:tower-upgrades';
+export const TOWER_UPGRADE_STORAGE_KEY = 'glyph-defense-idle:tower-upgrades';
 
 const DEFAULT_AUTOSAVE_INTERVAL_MS = 30000;
 const MIN_AUTOSAVE_INTERVAL_MS = 5000;

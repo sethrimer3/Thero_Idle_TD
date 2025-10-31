@@ -50,7 +50,7 @@ const CRAFTING_TIER_NAME_SEQUENCE = [
 ];
 
 // Persist crafted tier milestones per recipe so the overlay can reveal the correct stage.
-const CRAFTING_TIER_STORAGE_KEY = 'glyph-defense-idle:crafting-tier-progress';
+export const CRAFTING_TIER_STORAGE_KEY = 'glyph-defense-idle:crafting-tier-progress';
 
 // Cache crafting tier completions and listeners to avoid repeated storage hits.
 const craftingTierProgressState = {

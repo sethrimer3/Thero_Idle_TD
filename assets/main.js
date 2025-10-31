@@ -44,6 +44,7 @@ import {
   schedulePowderSave,
   savePowderCurrency,
   startAutoSaveLoop,
+  stopAutoSaveLoop,
   commitAutoSave,
   readStorage,
   writeStorage,
@@ -52,6 +53,10 @@ import {
   GRAPHICS_MODE_STORAGE_KEY,
   NOTATION_STORAGE_KEY,
   GLYPH_EQUATIONS_STORAGE_KEY,
+  POWDER_STORAGE_KEY,
+  GAME_STATS_STORAGE_KEY,
+  POWDER_BASIN_STORAGE_KEY,
+  TOWER_UPGRADE_STORAGE_KEY,
 } from './autoSave.js';
 import {
   configureOfflinePersistence,
@@ -60,6 +65,7 @@ import {
   recordPowderEvent,
   checkOfflineRewards,
   markLastActive,
+  OFFLINE_STORAGE_KEY,
 } from './offlinePersistence.js';
 // Powder tower palette and simulation helpers.
 import {
@@ -80,6 +86,7 @@ import {
   getOmegaWaveVisualConfig,
   bindColorSchemeButton,
   initializeColorScheme,
+  COLOR_SCHEME_STORAGE_KEY,
 } from './colorSchemeUtils.js';
 import {
   configureAchievementsTab,
@@ -148,7 +155,7 @@ import {
   applyTowerUpgradeStateSnapshot,
 } from './towersTab.js';
 import towers from './data/towers/index.js'; // Modular tower definitions sourced from dedicated files.
-import { initializeEquipmentState } from './equipment.js';
+import { initializeEquipmentState, EQUIPMENT_STORAGE_KEY } from './equipment.js';
 import { initializeTowerTreeMap, refreshTowerTreeMap } from './towerTreeMap.js';
 // Bring in drag-scroll support so hidden scrollbars remain usable.
 import { enableDragScroll } from './dragScroll.js';
@@ -168,6 +175,7 @@ import {
   initializeCraftingOverlay,
   openCraftingOverlay,
   refreshCraftingRecipesDisplay,
+  CRAFTING_TIER_STORAGE_KEY,
 } from './crafting.js';
 import {
   configureTabManager,
@@ -855,7 +863,33 @@ import {
   const developerModeElements = {
     toggle: null,
     note: null,
+    resetButton: null,
   };
+
+  const DEVELOPER_RESET_DEFAULT_LABEL = 'Delete Player Data';
+  const DEVELOPER_RESET_CONFIRM_LABEL = 'Are you sure?';
+  const DEVELOPER_RESET_CONFIRM_WINDOW_MS = 5000;
+  const DEVELOPER_RESET_RELOAD_DELAY_MS = 900;
+
+  const developerResetState = {
+    confirming: false,
+    timeoutId: null,
+  };
+
+  const PERSISTENT_STORAGE_KEYS = [
+    GRAPHICS_MODE_STORAGE_KEY,
+    NOTATION_STORAGE_KEY,
+    GLYPH_EQUATIONS_STORAGE_KEY,
+    POWDER_STORAGE_KEY,
+    GAME_STATS_STORAGE_KEY,
+    POWDER_BASIN_STORAGE_KEY,
+    TOWER_UPGRADE_STORAGE_KEY,
+    AUDIO_SETTINGS_STORAGE_KEY,
+    CRAFTING_TIER_STORAGE_KEY,
+    EQUIPMENT_STORAGE_KEY,
+    OFFLINE_STORAGE_KEY,
+    COLOR_SCHEME_STORAGE_KEY,
+  ].filter(Boolean);
 
   const fieldNotesElements = {
     overlay: null,
@@ -5880,9 +5914,152 @@ import {
     updatePowderHitboxVisibility();
   }
 
+  function resetDeveloperResetButtonConfirmation({ label = DEVELOPER_RESET_DEFAULT_LABEL, warning = false } = {}) {
+    developerResetState.confirming = false;
+    if (developerResetState.timeoutId) {
+      clearTimeout(developerResetState.timeoutId);
+      developerResetState.timeoutId = null;
+    }
+    const button = developerModeElements.resetButton;
+    if (!button) {
+      return;
+    }
+    button.disabled = false;
+    button.textContent = label;
+    if (warning) {
+      button.classList.add('developer-reset-button--warning');
+    } else {
+      button.classList.remove('developer-reset-button--warning');
+    }
+  }
+
+  function clearPersistentStorageKeys() {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return true;
+    }
+
+    const storage = window.localStorage;
+    let success = true;
+
+    PERSISTENT_STORAGE_KEYS.forEach((key) => {
+      if (!key || typeof key !== 'string') {
+        return;
+      }
+      try {
+        storage.removeItem(key);
+      } catch (error) {
+        success = false;
+        console.warn(`Failed to remove storage key "${key}" while deleting player data.`, error);
+      }
+    });
+
+    return success;
+  }
+
+  function executePlayerDataReset() {
+    try {
+      stopAutoSaveLoop();
+    } catch (error) {
+      console.warn('Autosave loop did not stop cleanly before deleting player data.', error);
+    }
+
+    let encounteredError = false;
+    const storageCleared = clearPersistentStorageKeys();
+    if (!storageCleared) {
+      encounteredError = true;
+    }
+
+    try {
+      disableDeveloperMode();
+    } catch (error) {
+      encounteredError = true;
+      console.error('Failed to disable developer mode while deleting player data.', error);
+    }
+
+    try {
+      pruneLevelState();
+    } catch (error) {
+      encounteredError = true;
+      console.error('Failed to prune level state after deleting player data.', error);
+    }
+
+    try {
+      resetActiveMoteGems();
+    } catch (error) {
+      encounteredError = true;
+      console.error('Failed to reset mote gems after deleting player data.', error);
+    }
+
+    if (Array.isArray(powderState.pendingMoteDrops)) {
+      powderState.pendingMoteDrops.length = 0;
+    }
+
+    const button = developerModeElements.resetButton;
+
+    if (encounteredError) {
+      if (button) {
+        resetDeveloperResetButtonConfirmation({
+          label: 'Deletion failed · Retry',
+          warning: true,
+        });
+      }
+      return;
+    }
+
+    if (button) {
+      button.textContent = 'Player data deleted · Reloading…';
+    }
+
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        window.location.reload();
+      }, DEVELOPER_RESET_RELOAD_DELAY_MS);
+    }
+  }
+
+  function handleDeveloperResetClick() {
+    const button = developerModeElements.resetButton;
+    if (!button) {
+      return;
+    }
+
+    if (!developerResetState.confirming) {
+      developerResetState.confirming = true;
+      button.textContent = DEVELOPER_RESET_CONFIRM_LABEL;
+      button.classList.add('developer-reset-button--warning');
+      if (developerResetState.timeoutId) {
+        clearTimeout(developerResetState.timeoutId);
+      }
+      if (typeof window !== 'undefined') {
+        developerResetState.timeoutId = window.setTimeout(() => {
+          resetDeveloperResetButtonConfirmation();
+        }, DEVELOPER_RESET_CONFIRM_WINDOW_MS);
+      }
+      return;
+    }
+
+    developerResetState.confirming = false;
+    if (developerResetState.timeoutId) {
+      clearTimeout(developerResetState.timeoutId);
+      developerResetState.timeoutId = null;
+    }
+
+    button.disabled = true;
+    button.classList.remove('developer-reset-button--warning');
+    button.textContent = 'Wiping save data…';
+
+    executePlayerDataReset();
+  }
+
   function bindDeveloperModeToggle() {
     developerModeElements.toggle = document.getElementById('codex-developer-mode');
     developerModeElements.note = document.getElementById('codex-developer-note');
+    developerModeElements.resetButton = document.getElementById('developer-reset-button');
+
+    if (developerModeElements.resetButton) {
+      developerModeElements.resetButton.addEventListener('click', handleDeveloperResetClick);
+      resetDeveloperResetButtonConfirmation();
+    }
 
     if (!developerModeElements.toggle) {
       return;

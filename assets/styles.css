@@ -1470,6 +1470,48 @@ body.graphics-mode-low .control-button {
   accent-color: var(--accent);
 }
 
+.developer-reset-button {
+  align-self: flex-start;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 247, 255, 0.45);
+  background: transparent;
+  font-family: "Space Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  cursor: pointer;
+  transition:
+    color var(--transition),
+    border-color var(--transition),
+    background var(--transition),
+    transform var(--transition);
+}
+
+.developer-reset-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 247, 255, 0.72);
+  color: rgba(139, 247, 255, 0.88);
+}
+
+.developer-reset-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+  transform: none;
+}
+
+.developer-reset-button--warning {
+  color: #ff6b81;
+  border-color: rgba(255, 107, 129, 0.72);
+  text-shadow: 0 0 8px rgba(255, 107, 129, 0.35);
+}
+
+.developer-reset-button--warning:hover {
+  color: #ff8da1;
+  border-color: rgba(255, 141, 161, 0.9);
+}
+
 .developer-mode-note {
   margin: 0;
   font-size: 0.8rem;
