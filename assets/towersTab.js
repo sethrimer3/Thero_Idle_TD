@@ -817,18 +817,129 @@ const TOWER_EQUATION_BLUEPRINTS = {
         format: (value) => formatDecimal(value, 2),
       },
       {
-        key: 'tot',
-        symbol: 'Tot',
-        name: 'Total Cohort',
-        description: 'Maximum spectral soldiers δ can field simultaneously.',
-        upgradable: false,
-        getBase: ({ definition }) => {
-          if (Number.isFinite(definition?.tot)) {
-            return Math.max(1, Math.round(definition.tot));
-          }
-          return 5;
+        key: 'aleph1',
+        symbol: 'ℵ₁',
+        equationSymbol: 'ℵ₁',
+        name: 'Aleph₁ Phalanx',
+        description:
+          'Allocates ℵ₁ glyphs to Δ soldiers, amplifying vitality, muster, and training cadence.',
+        baseValue: 1,
+        step: 1,
+        upgradable: true,
+        maxLevel: 4,
+        cost: (level) => {
+          const normalizedLevel = Number.isFinite(level) ? Math.max(0, Math.floor(level)) : 0;
+          return 5 * 2 ** normalizedLevel;
         },
-        format: (value) => `${formatWholeNumber(value)} soldiers`,
+        format: (value) => {
+          const rank = Number.isFinite(value) ? Math.max(1, Math.round(value)) : 1;
+          return `${formatWholeNumber(rank)} ℵ₁`;
+        },
+        getSubEquations({ value }) {
+          const alephRank = Number.isFinite(value) ? Math.max(1, Math.round(value)) : 1;
+          const gammaDefinition = getTowerDefinition('gamma');
+          const gammaEquation = calculateTowerEquationResult('gamma');
+          const fallbackGamma = Number.isFinite(gammaDefinition?.damage)
+            ? Math.max(1, gammaDefinition.damage)
+            : 1;
+          const gammaValue = Number.isFinite(gammaEquation) && gammaEquation > 0
+            ? gammaEquation
+            : fallbackGamma;
+          const rawHealth = gammaValue ** alephRank;
+          const health = Number.isFinite(rawHealth) ? Math.max(1, rawHealth) : Number.MAX_SAFE_INTEGER;
+          const rawTrainingSeconds = 5 ** alephRank;
+          const trainingSeconds = Number.isFinite(rawTrainingSeconds)
+            ? Math.max(1, rawTrainingSeconds)
+            : Number.MAX_SAFE_INTEGER;
+          const totalSoldiers = 3 + alephRank;
+          const formattedHealth = Number.isFinite(health)
+            ? formatGameNumber(health)
+            : formatGameNumber(Number.MAX_SAFE_INTEGER);
+          const formattedGamma = Number.isFinite(gammaValue)
+            ? formatGameNumber(gammaValue)
+            : formatGameNumber(fallbackGamma);
+          const formattedSpeed = Number.isFinite(trainingSeconds)
+            ? formatGameNumber(trainingSeconds)
+            : formatGameNumber(Number.MAX_SAFE_INTEGER);
+          const formattedAleph = formatWholeNumber(alephRank);
+          const formattedTotal = formatWholeNumber(totalSoldiers);
+          return [
+            { expression: String.raw`\( \text{Hlth} = \gamma^{\aleph_{1}} \)` },
+            {
+              values: String.raw`\( ${formattedHealth} = ${formattedGamma}^{${formattedAleph}} \)`,
+              variant: 'values',
+            },
+            { expression: String.raw`\( \text{Spd} = 5^{\aleph_{1}} \)` },
+            {
+              values: String.raw`\( ${formattedSpeed}\,\text{s} = 5^{${formattedAleph}} \)`,
+              variant: 'values',
+            },
+            { expression: String.raw`\( \text{Tot} = 3 + \aleph_{1} \)` },
+            {
+              values: String.raw`\( ${formattedTotal} = 3 + ${formattedAleph} \)`,
+              variant: 'values',
+            },
+            {
+              expression: String.raw`\( \aleph_{1} = ${formattedAleph} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'regen',
+        symbol: 'Reg',
+        equationSymbol: 'Reg',
+        name: 'Regeneration',
+        description: 'Health restored by each Δ soldier every second.',
+        upgradable: false,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const alephValue = computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint);
+          const alephRank = Number.isFinite(alephValue) ? Math.max(1, Math.round(alephValue)) : 1;
+          const gammaDefinition = getTowerDefinition('gamma');
+          const gammaEquation = calculateTowerEquationResult('gamma');
+          const fallbackGamma = Number.isFinite(gammaDefinition?.damage)
+            ? Math.max(1, gammaDefinition.damage)
+            : 1;
+          const gammaValue = Number.isFinite(gammaEquation) && gammaEquation > 0
+            ? gammaEquation
+            : fallbackGamma;
+          const rawHealth = gammaValue ** alephRank;
+          const health = Number.isFinite(rawHealth) ? Math.max(1, rawHealth) : Number.MAX_SAFE_INTEGER;
+          const regen = health / 20;
+          return Number.isFinite(regen) ? regen : Number.MAX_SAFE_INTEGER;
+        },
+        format: (value) => `${formatGameNumber(Math.max(0, value))} hp/s`,
+        getSubEquations({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const alephValue = computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint);
+          const alephRank = Number.isFinite(alephValue) ? Math.max(1, Math.round(alephValue)) : 1;
+          const gammaDefinition = getTowerDefinition('gamma');
+          const gammaEquation = calculateTowerEquationResult('gamma');
+          const fallbackGamma = Number.isFinite(gammaDefinition?.damage)
+            ? Math.max(1, gammaDefinition.damage)
+            : 1;
+          const gammaValue = Number.isFinite(gammaEquation) && gammaEquation > 0
+            ? gammaEquation
+            : fallbackGamma;
+          const rawHealth = gammaValue ** alephRank;
+          const health = Number.isFinite(rawHealth) ? Math.max(1, rawHealth) : Number.MAX_SAFE_INTEGER;
+          const regen = health / 20;
+          const formattedRegen = Number.isFinite(regen)
+            ? formatGameNumber(regen)
+            : formatGameNumber(Number.MAX_SAFE_INTEGER);
+          const formattedHealth = Number.isFinite(health)
+            ? formatGameNumber(health)
+            : formatGameNumber(Number.MAX_SAFE_INTEGER);
+          return [
+            { expression: String.raw`\( \text{Reg} = \text{Hlth} / 20 \)` },
+            {
+              values: String.raw`\( ${formattedRegen} = ${formattedHealth} / 20 \)`,
+              variant: 'values',
+            },
+          ];
+        },
       },
     ],
     computeResult(values) {

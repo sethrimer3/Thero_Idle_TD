@@ -1,6 +1,12 @@
 // Δ tower helper module centralizes cohort AI, visuals, and math away from the playfield.
-import { getTowerDefinition } from '../../../assets/towersTab.js';
+import {
+  getTowerDefinition,
+  getTowerEquationBlueprint,
+  computeTowerVariableValue,
+  calculateTowerEquationResult,
+} from '../../../assets/towersTab.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
+import { formatGameNumber } from '../../core/formatting.js';
 
 // Fallback gradient anchors Delta colors when palette metadata is unavailable.
 const DELTA_FALLBACK_GRADIENT = [
@@ -48,32 +54,52 @@ export function ensureDeltaState(playfield, tower) {
   if (!tower || tower.type !== 'delta') {
     return null;
   }
-  const gamma = getTowerDefinition('gamma') || {};
-  const alpha = getTowerDefinition('alpha') || {};
-  const rawAtk = Number.isFinite(tower.definition?.atk)
-    ? tower.definition.atk
-    : Number.isFinite(gamma.damage)
-    ? gamma.damage
-    : Math.max(1, tower.baseDamage || 0);
-  const atk = Math.max(1, rawAtk);
-  const rawReg = Number.isFinite(tower.definition?.reg) ? tower.definition.reg : 0.01;
-  const regenPercent = rawReg > 1 ? rawReg / 100 : Math.max(0, rawReg);
-  const rawTot = Number.isFinite(tower.definition?.tot) ? tower.definition.tot : 5;
-  const maxSoldiers = Math.max(1, Math.round(rawTot));
+  const gammaDefinition = getTowerDefinition('gamma') || {};
+  const alphaDefinition = getTowerDefinition('alpha') || {};
+  const blueprint = getTowerEquationBlueprint('delta');
+  const alephValue = computeTowerVariableValue('delta', 'aleph1', blueprint);
+  const alephRank = Number.isFinite(alephValue) ? Math.max(1, Math.round(alephValue)) : 1;
+
+  const gammaEquation = calculateTowerEquationResult('gamma');
+  const fallbackGamma = Number.isFinite(gammaDefinition.damage)
+    ? Math.max(1, gammaDefinition.damage)
+    : Math.max(1, tower.baseDamage || 1);
+  const gammaPower = Number.isFinite(gammaEquation) && gammaEquation > 0 ? gammaEquation : fallbackGamma;
+
+  const rawHealth = gammaPower ** alephRank;
+  const maxHealth = Number.isFinite(rawHealth) ? Math.max(1, rawHealth) : Number.MAX_SAFE_INTEGER;
+
+  const rawTrainingSeconds = 5 ** alephRank;
+  const trainingSeconds = Number.isFinite(rawTrainingSeconds)
+    ? Math.max(1, rawTrainingSeconds)
+    : Number.MAX_SAFE_INTEGER;
+  const spawnRate = trainingSeconds > 0 && Number.isFinite(trainingSeconds) ? 1 / trainingSeconds : 0;
+  const regenPerSecond = Number.isFinite(maxHealth) ? maxHealth / 20 : Number.MAX_SAFE_INTEGER;
+
+  const totalSoldiers = 3 + alephRank;
+  const maxSoldiers = Number.isFinite(totalSoldiers)
+    ? Math.max(1, Math.round(totalSoldiers))
+    : 1;
+
   const rawDefense = Number.isFinite(tower.definition?.def)
     ? tower.definition.def
-    : Number.isFinite(alpha.damage)
-    ? alpha.damage
+    : Number.isFinite(alphaDefinition.damage)
+    ? alphaDefinition.damage
     : 0;
   const defense = Math.max(0, rawDefense);
-  const deltaProduct = atk * Math.max(regenPercent, 0.0001) * maxSoldiers * Math.max(defense, 1);
+
+  const deltaProduct =
+    maxHealth * Math.max(regenPerSecond, 0.0001) * maxSoldiers * Math.max(defense, 1);
 
   if (!tower.deltaState) {
     tower.deltaState = {
-      atk,
-      regenPercent,
+      alephRank,
+      maxHealth,
+      regenPerSecond,
       maxSoldiers,
       defense,
+      trainingSeconds,
+      spawnRate,
       product: deltaProduct,
       soldiers: [],
       manualTargetId: null,
@@ -82,11 +108,38 @@ export function ensureDeltaState(playfield, tower) {
       mode: tower.behaviorMode || 'pursuit',
     };
   } else {
-    tower.deltaState.atk = atk;
-    tower.deltaState.regenPercent = regenPercent;
+    const previousMaxHealth = tower.deltaState.maxHealth;
+    tower.deltaState.alephRank = alephRank;
+    tower.deltaState.maxHealth = maxHealth;
+    tower.deltaState.regenPerSecond = regenPerSecond;
     tower.deltaState.maxSoldiers = maxSoldiers;
     tower.deltaState.defense = defense;
     tower.deltaState.product = deltaProduct;
+    tower.deltaState.trainingSeconds = trainingSeconds;
+    tower.deltaState.spawnRate = spawnRate;
+    const previousBaseline = Number.isFinite(previousMaxHealth) ? previousMaxHealth : maxHealth;
+    tower.deltaState.soldiers.forEach((soldier) => {
+      if (!soldier) {
+        return;
+      }
+      soldier.maxHealth = maxHealth;
+      if (previousBaseline > 0 && Number.isFinite(previousBaseline) && Number.isFinite(maxHealth)) {
+        const ratio = Math.max(0, soldier.health) / previousBaseline;
+        soldier.health = Math.min(maxHealth, Math.max(0, ratio * maxHealth));
+      } else {
+        soldier.health = Math.min(maxHealth, Math.max(0, soldier.health));
+      }
+      soldier.regenPerSecond = regenPerSecond;
+      soldier.defense = defense;
+    });
+  }
+
+  if (Number.isFinite(spawnRate) && spawnRate >= 0) {
+    tower.rate = spawnRate;
+    tower.baseRate = spawnRate;
+  }
+  if (Number.isFinite(trainingSeconds) && trainingSeconds >= 0 && Number.isFinite(tower.cooldown)) {
+    tower.cooldown = Math.min(tower.cooldown, trainingSeconds);
   }
   return tower.deltaState;
 }
@@ -234,9 +287,9 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
     vx: 0,
     vy: 0,
     heading: angle,
-    maxHealth: state.atk,
-    health: state.atk,
-    regenPercent: state.regenPercent,
+    maxHealth: state.maxHealth,
+    health: state.maxHealth,
+    regenPerSecond: state.regenPerSecond,
     defense: state.defense,
     targetId: targetInfo?.enemy?.id || null,
     collisionRadius,
@@ -257,9 +310,13 @@ function updateDeltaSoldier(playfield, tower, soldier, delta, state) {
     return false;
   }
 
-  const regen = Math.max(0, state.regenPercent || soldier.regenPercent || 0);
-  if (regen > 0 && soldier.health < soldier.maxHealth) {
-    const gain = soldier.maxHealth * regen * delta;
+  const regenRate = Number.isFinite(state.regenPerSecond)
+    ? state.regenPerSecond
+    : Number.isFinite(soldier.regenPerSecond)
+    ? soldier.regenPerSecond
+    : 0;
+  if (regenRate > 0 && soldier.health < soldier.maxHealth) {
+    const gain = regenRate * delta;
     soldier.health = Math.min(soldier.maxHealth, soldier.health + gain);
   }
 
@@ -452,8 +509,18 @@ export function updateDeltaTower(playfield, tower, delta) {
   if (tower.cooldown <= 0) {
     const targetInfo = playfield.combatActive ? playfield.findTarget(tower) : null;
     deployDeltaSoldier(playfield, tower, targetInfo);
-    const rate = Math.max(Number.isFinite(tower.rate) ? tower.rate : 1, 0.05);
-    tower.cooldown = 1 / rate;
+    const rate = Number.isFinite(state.spawnRate)
+      ? Math.max(0, state.spawnRate)
+      : Number.isFinite(tower.rate)
+      ? Math.max(0, tower.rate)
+      : 0;
+    if (rate > 0) {
+      tower.cooldown = 1 / rate;
+    } else if (Number.isFinite(state.trainingSeconds) && state.trainingSeconds > 0) {
+      tower.cooldown = state.trainingSeconds;
+    } else {
+      tower.cooldown = 1;
+    }
   }
 }
 
@@ -480,6 +547,42 @@ export function drawDeltaSoldiers(playfield) {
       const healthRatio = soldier.maxHealth > 0 ? clamp(soldier.health / soldier.maxHealth, 0, 1) : 0;
       const color = sampleDeltaGradientColor(soldier.gradientProgress ?? 0);
       soldier.color = color;
+
+      const barWidth = Math.max(36, size * 1.6);
+      const barHeight = Math.max(6, size * 0.22);
+      const barPadding = Math.max(4, size * 0.35);
+      const barX = soldier.x - barWidth / 2;
+      const barY = soldier.y - size - barPadding - barHeight;
+      const safeHealth = Number.isFinite(soldier.health)
+        ? Math.max(0, soldier.health)
+        : Number.MAX_SAFE_INTEGER;
+      const healthLabel = formatGameNumber(safeHealth);
+
+      ctx.save();
+      ctx.fillStyle = toRgba({ r: 6, g: 8, b: 14 }, 0.9);
+      ctx.strokeStyle = toRgba({ r: 240, g: 244, b: 255 }, 0.18);
+      ctx.lineWidth = Math.max(1, barHeight * 0.18);
+      ctx.beginPath();
+      ctx.rect(barX, barY, barWidth, barHeight);
+      ctx.fill();
+      ctx.stroke();
+
+      const innerX = barX + Math.max(1, ctx.lineWidth * 0.6);
+      const innerY = barY + Math.max(1, ctx.lineWidth * 0.6);
+      const innerWidth = barWidth - Math.max(2, ctx.lineWidth * 1.2);
+      const innerHeight = barHeight - Math.max(2, ctx.lineWidth * 1.2);
+      const fillWidth = Math.max(0, innerWidth * healthRatio);
+      if (fillWidth > 0) {
+        ctx.fillStyle = toRgba(color, 0.75);
+        ctx.fillRect(innerX, innerY, fillWidth, innerHeight);
+      }
+
+      ctx.fillStyle = toRgba({ r: 240, g: 244, b: 255 }, 0.88);
+      ctx.font = `${Math.max(10, barHeight * 1.6)}px 'Cormorant Garamond', 'Times New Roman', serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(healthLabel, soldier.x, barY + barHeight / 2);
+      ctx.restore();
 
       if (Array.isArray(soldier.trailPoints) && soldier.trailPoints.length) {
         ctx.save();
