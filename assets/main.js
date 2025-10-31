@@ -1701,6 +1701,47 @@ import {
   const audioManager = new AudioManager(DEFAULT_AUDIO_MANIFEST);
   setTowersAudioManager(audioManager);
 
+  const audioSuppressionReasons = new Set();
+
+  function suppressAudioPlayback(reason = 'unspecified') {
+    if (!audioManager) {
+      return;
+    }
+    const initialSize = audioSuppressionReasons.size;
+    audioSuppressionReasons.add(reason);
+    if (initialSize === 0) {
+      if (typeof audioManager.suspendMusic === 'function') {
+        audioManager.suspendMusic();
+      } else if (typeof audioManager.stopMusic === 'function') {
+        audioManager.stopMusic();
+      }
+    }
+  }
+
+  function releaseAudioSuppression(reason) {
+    if (!audioManager) {
+      return;
+    }
+    if (reason) {
+      audioSuppressionReasons.delete(reason);
+    } else {
+      audioSuppressionReasons.clear();
+    }
+    if (audioSuppressionReasons.size === 0 && typeof audioManager.resumeSuspendedMusic === 'function') {
+      audioManager.resumeSuspendedMusic();
+    }
+  }
+
+  function isAudioSuppressed() {
+    if (audioSuppressionReasons.size > 0) {
+      return true;
+    }
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      return true;
+    }
+    return false;
+  }
+
   let audioControlsBinding = null;
   // Cached reference to the notation toggle control inside the Codex panel.
   let notationToggleButton = null;
@@ -1759,6 +1800,9 @@ import {
 
   function refreshTabMusic(options = {}) {
     if (!audioManager) {
+      return;
+    }
+    if (isAudioSuppressed()) {
       return;
     }
     const key = determineMusicKey();
@@ -7455,29 +7499,39 @@ import {
       // Flush an autosave before the tab suspends so recent actions persist.
       commitAutoSave();
       markLastActive();
-      if (audioManager && typeof audioManager.suspendMusic === 'function') {
-        audioManager.suspendMusic();
-      }
+      suppressAudioPlayback('document-hidden');
       return;
     }
     if (document.visibilityState === 'visible') {
-      if (audioManager && typeof audioManager.resumeSuspendedMusic === 'function') {
-        audioManager.resumeSuspendedMusic();
-      }
+      releaseAudioSuppression('document-hidden');
       refreshTabMusic();
       checkOfflineRewards();
       markLastActive();
     }
   });
 
+  window.addEventListener('blur', () => {
+    suppressAudioPlayback('window-blur');
+  });
+
+  window.addEventListener('focus', () => {
+    releaseAudioSuppression('window-blur');
+    refreshTabMusic();
+  });
+
   window.addEventListener('pagehide', () => {
     // Commit the latest autosave snapshot when the page transitions away.
     commitAutoSave();
     markLastActive();
+    suppressAudioPlayback('pagehide');
     if (audioManager && typeof audioManager.stopMusic === 'function') {
       // Halt any lingering music so tracks do not continue after the session closes.
       audioManager.stopMusic();
     }
+  });
+  window.addEventListener('pageshow', () => {
+    releaseAudioSuppression('pagehide');
+    refreshTabMusic();
   });
   window.addEventListener('beforeunload', () => {
     // Ensure progress persists even if the browser closes abruptly.
