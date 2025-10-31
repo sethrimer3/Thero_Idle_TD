@@ -2794,6 +2794,55 @@ export function ensureTowerUpgradeState(towerId, blueprint = null) {
   return state;
 }
 
+/**
+ * Get a serializable snapshot of all tower upgrade states for persistence.
+ */
+export function getTowerUpgradeStateSnapshot() {
+  const snapshot = {};
+  towerTabState.towerUpgradeState.forEach((state, towerId) => {
+    if (!state || !state.variables) {
+      return;
+    }
+    const variables = {};
+    Object.keys(state.variables).forEach((key) => {
+      const variableState = state.variables[key];
+      if (variableState && Number.isFinite(variableState.level)) {
+        variables[key] = { level: Math.max(0, variableState.level) };
+      }
+    });
+    if (Object.keys(variables).length > 0) {
+      snapshot[towerId] = { variables };
+    }
+  });
+  return snapshot;
+}
+
+/**
+ * Apply a saved tower upgrade state snapshot, restoring glyph allocations.
+ */
+export function applyTowerUpgradeStateSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return;
+  }
+  Object.keys(snapshot).forEach((towerId) => {
+    const savedState = snapshot[towerId];
+    if (!savedState || !savedState.variables || typeof savedState.variables !== 'object') {
+      return;
+    }
+    const blueprint = getTowerEquationBlueprint(towerId);
+    const state = ensureTowerUpgradeState(towerId, blueprint);
+    Object.keys(savedState.variables).forEach((variableKey) => {
+      const savedVariable = savedState.variables[variableKey];
+      if (savedVariable && Number.isFinite(savedVariable.level) && savedVariable.level > 0) {
+        if (!state.variables[variableKey]) {
+          state.variables[variableKey] = { level: 0 };
+        }
+        state.variables[variableKey].level = Math.max(0, savedVariable.level);
+      }
+    });
+  });
+}
+
 function normalizeVariableKey(value) {
   if (typeof value !== 'string') {
     return '';

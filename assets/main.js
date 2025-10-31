@@ -144,6 +144,8 @@ import {
   initializeDiscoveredVariablesFromUnlocks,
   addDiscoveredVariablesListener,
   getDiscoveredVariables,
+  getTowerUpgradeStateSnapshot,
+  applyTowerUpgradeStateSnapshot,
 } from './towersTab.js';
 import towers from './data/towers/index.js'; // Modular tower definitions sourced from dedicated files.
 import { initializeEquipmentState } from './equipment.js';
@@ -1964,12 +1966,27 @@ import {
           ? powderState.loadedSimulationState
           : null;
 
+    // Calculate current aleph glyph number from height for accurate restoration
+    const currentGlyphsLit = Number.isFinite(status?.highestNormalized) || Number.isFinite(status?.totalNormalized)
+      ? (() => {
+          const highestNormalized = Math.max(
+            0,
+            status.highestNormalized ?? status.totalNormalized ?? 0,
+          );
+          const GLYPH_SPACING_NORMALIZED = 0.5;
+          const GLYPH_BASE_NORMALIZED = GLYPH_SPACING_NORMALIZED;
+          return highestNormalized >= GLYPH_BASE_NORMALIZED
+            ? Math.max(0, Math.floor((highestNormalized - GLYPH_BASE_NORMALIZED) / GLYPH_SPACING_NORMALIZED) + 1)
+            : 0;
+        })()
+      : powderState.wallGlyphsLit;
+
     const powderSnapshot = {
       sandOffset: Math.max(0, clampFiniteNumber(powderState.sandOffset, powderConfig.sandOffsetActive)),
       duneHeight: Math.max(powderConfig.duneHeightBase, clampFiniteInteger(powderState.duneHeight, powderConfig.duneHeightBase)),
       charges: Math.max(0, clampFiniteInteger(powderState.charges, 0)),
       simulatedDuneGain: Math.max(0, clampFiniteNumber(powderState.simulatedDuneGain, 0)),
-      wallGlyphsLit: Math.max(0, clampFiniteInteger(powderState.wallGlyphsLit, 0)),
+      wallGlyphsLit: Math.max(0, Math.max(clampFiniteInteger(powderState.wallGlyphsLit, 0), currentGlyphsLit)),
       glyphsAwarded: Math.max(0, clampFiniteInteger(powderState.glyphsAwarded, 0)),
       idleMoteBank: Math.max(0, clampFiniteNumber(powderState.idleMoteBank, 0)),
       idleDrainRate: Math.max(0, clampFiniteNumber(powderState.idleDrainRate, 0)),
@@ -1987,6 +2004,8 @@ import {
             duneGain: clampFiniteNumber(status.duneGain, 0),
             totalHeight: Math.max(0, clampFiniteInteger(status.totalHeight ?? 0, 0)),
             highestNormalized: clampFiniteNumber(status.highestNormalized ?? status.totalNormalized ?? 0, 0),
+            scrollOffset: Math.max(0, clampFiniteInteger(status.scrollOffset ?? 0, 0)),
+            highestTotalHeightCells: Math.max(0, clampFiniteInteger(status.highestTotalHeightCells ?? status.totalHeight ?? 0, 0)),
           }
         : null,
     };
@@ -2053,12 +2072,31 @@ import {
           },
         };
       }
-      if (base.heightInfo && typeof base.heightInfo === 'object' && Number.isFinite(base.heightInfo.duneGain)) {
-        powderState.simulatedDuneGain = Math.max(0, base.heightInfo.duneGain);
+      if (base.heightInfo && typeof base.heightInfo === 'object') {
+        if (Number.isFinite(base.heightInfo.duneGain)) {
+          powderState.simulatedDuneGain = Math.max(0, base.heightInfo.duneGain);
+        }
+        // Preserve height info so wall glyph calculations can resume correctly.
+        if (!powderState.loadedSimulationState) {
+          powderState.loadedSimulationState = {};
+        }
+        powderState.loadedSimulationState.heightInfo = {
+          normalizedHeight: Number.isFinite(base.heightInfo.normalizedHeight) ? Math.max(0, base.heightInfo.normalizedHeight) : 0,
+          duneGain: Number.isFinite(base.heightInfo.duneGain) ? Math.max(0, base.heightInfo.duneGain) : 0,
+          totalHeight: Number.isFinite(base.heightInfo.totalHeight) ? Math.max(0, base.heightInfo.totalHeight) : 0,
+          highestNormalized: Number.isFinite(base.heightInfo.highestNormalized) ? Math.max(0, base.heightInfo.highestNormalized) : 0,
+        };
       }
     }
     const simulationState = snapshot.simulation || snapshot.loadedSimulationState || null;
     if (simulationState && typeof simulationState === 'object') {
+      // Merge saved heightInfo into simulation state if present in powder snapshot but not in simulation state.
+      if (powderState.loadedSimulationState?.heightInfo && (!simulationState.heightInfo || !Number.isFinite(simulationState.heightInfo.highestNormalized))) {
+        simulationState.heightInfo = {
+          ...simulationState.heightInfo,
+          ...powderState.loadedSimulationState.heightInfo,
+        };
+      }
       powderState.loadedSimulationState = simulationState;
     }
   }
@@ -2724,6 +2762,8 @@ import {
     },
     getPowderBasinSnapshot,
     applyPowderBasinSnapshot,
+    getTowerUpgradeStateSnapshot,
+    applyTowerUpgradeStateSnapshot,
     applyStoredAudioSettings,
     syncAudioControlsFromManager,
     applyNotationPreference,
@@ -2850,6 +2890,10 @@ import {
     powderState.motePalette = simulation.getEffectiveMotePalette();
     if (Array.isArray(powderState.pendingMoteDrops)) {
       powderState.pendingMoteDrops.length = 0;
+    }
+    // Restore wall gap from saved glyph number to ensure wall width matches saved progress
+    if (Number.isFinite(powderState.wallGlyphsLit)) {
+      updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit);
     }
   }
 

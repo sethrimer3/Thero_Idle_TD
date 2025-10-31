@@ -1059,12 +1059,23 @@ export class PowderSimulation {
       return 0;
     }
 
+    // Do not accumulate or release if both bank and buffer are exhausted.
+    if (this.idleBank <= 0 && this.idleDropBuffer <= 0) {
+      this.idleDropAccumulator = 0;
+      return 0;
+    }
+
     const rate = Math.max(0, this.idleDrainRate) / 1000;
     if (rate <= 0) {
       return 0;
     }
 
-    this.idleDropAccumulator += delta * rate;
+    // Only accumulate if there's actual motes to release (either in buffer or bank).
+    if (this.idleDropBuffer > 0) {
+      this.idleDropAccumulator += delta * rate;
+    } else {
+      this.idleDropAccumulator = 0; // Reset accumulator when buffer is empty to prevent runaway accumulation.
+    }
     const allowed = Math.max(0, Math.min(limit, this.idleDropBuffer));
     let released = 0;
 
@@ -2115,6 +2126,26 @@ export class PowderSimulation {
     }
     if (Number.isFinite(state.wallGapTargetUnits) && state.wallGapTargetUnits > 0) {
       this.wallGapTargetUnits = Math.max(1, Math.round(state.wallGapTargetUnits));
+    }
+    // Restore heightInfo if present so glyph calculations can resume accurately
+    if (state.heightInfo && typeof state.heightInfo === 'object') {
+      this.heightInfo = {
+        normalizedHeight: Math.max(0, normalizeFiniteNumber(state.heightInfo.normalizedHeight, 0)),
+        duneGain: Math.max(0, normalizeFiniteNumber(state.heightInfo.duneGain, 0)),
+        largestGrain: Math.max(0, normalizeFiniteInteger(state.heightInfo.largestGrain, 0)),
+        scrollOffset: Math.max(0, normalizeFiniteInteger(state.heightInfo.scrollOffset, 0)),
+        visibleHeight: Math.max(0, normalizeFiniteInteger(state.heightInfo.visibleHeight, 0)),
+        totalHeight: Math.max(0, normalizeFiniteInteger(state.heightInfo.totalHeight, 0)),
+        totalNormalized: Math.max(0, normalizeFiniteNumber(state.heightInfo.totalNormalized ?? state.heightInfo.highestNormalized ?? 0, 0)),
+        crestPosition: normalizeFiniteNumber(state.heightInfo.crestPosition, 1),
+        rows: Math.max(1, normalizeFiniteInteger(state.heightInfo.rows, this.rows)),
+        cols: Math.max(1, normalizeFiniteInteger(state.heightInfo.cols, this.cols)),
+        cellSize: Math.max(1, normalizeFiniteInteger(state.heightInfo.cellSize, this.cellSize)),
+        highestNormalized: Math.max(0, normalizeFiniteNumber(state.heightInfo.highestNormalized ?? state.heightInfo.totalNormalized ?? 0, 0)),
+      };
+    }
+    if (Number.isFinite(state.highestTotalHeightCells) && state.highestTotalHeightCells > 0) {
+      this.highestTotalHeightCells = Math.max(0, normalizeFiniteInteger(state.highestTotalHeightCells, this.scrollOffsetCells));
     }
     this.applyWallGapTarget({ skipRebuild: true });
     this.updateMaxDropSize();

@@ -11,6 +11,8 @@ const POWDER_STORAGE_KEY = 'glyph-defense-idle:powder';
 const GAME_STATS_STORAGE_KEY = 'glyph-defense-idle:stats';
 // Storage key used to persist the active Motefall basin snapshot.
 const POWDER_BASIN_STORAGE_KEY = 'glyph-defense-idle:powder-basin';
+// Storage key used to persist tower upgrade progress (glyph allocations).
+const TOWER_UPGRADE_STORAGE_KEY = 'glyph-defense-idle:tower-upgrades';
 
 const DEFAULT_AUTOSAVE_INTERVAL_MS = 30000;
 const MIN_AUTOSAVE_INTERVAL_MS = 5000;
@@ -29,6 +31,8 @@ const dependencies = {
   audioStorageKey: null,
   getPowderBasinSnapshot: null,
   applyPowderBasinSnapshot: null,
+  getTowerUpgradeStateSnapshot: null,
+  applyTowerUpgradeStateSnapshot: null,
 };
 
 let statKeys = [];
@@ -160,6 +164,13 @@ export function loadPersistentState() {
     }
   }
 
+  if (typeof dependencies.applyTowerUpgradeStateSnapshot === 'function') {
+    const storedUpgrades = readStorageJson(TOWER_UPGRADE_STORAGE_KEY);
+    if (storedUpgrades && typeof storedUpgrades === 'object') {
+      dependencies.applyTowerUpgradeStateSnapshot(storedUpgrades);
+    }
+  }
+
   if (dependencies.audioStorageKey && typeof dependencies.applyStoredAudioSettings === 'function') {
     const storedAudio = readStorageJson(dependencies.audioStorageKey);
     if (storedAudio) {
@@ -240,11 +251,23 @@ function persistPreferences() {
   }
 }
 
+function persistTowerUpgrades() {
+  if (typeof dependencies.getTowerUpgradeStateSnapshot !== 'function') {
+    return;
+  }
+  const snapshot = dependencies.getTowerUpgradeStateSnapshot();
+  if (!snapshot || typeof snapshot !== 'object') {
+    return;
+  }
+  writeStorageJson(TOWER_UPGRADE_STORAGE_KEY, snapshot);
+}
+
 function performAutoSave() {
   savePowderCurrency();
   persistPowderBasin();
   persistGameStats();
   persistPreferences();
+  persistTowerUpgrades();
 }
 
 /**
