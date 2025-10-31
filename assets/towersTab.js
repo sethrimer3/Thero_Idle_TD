@@ -857,10 +857,10 @@ const TOWER_EQUATION_BLUEPRINTS = {
         getSubEquations({ blueprint, towerId, level, value }) {
           const effective = blueprint || getTowerEquationBlueprint(towerId);
           const rank = Math.max(0, Number.isFinite(value) ? value : 0);
-          const spd = 10 * (rank + 1);
+          const spd = 10 * Math.log(rank + 1);
           return [
-            { expression: String.raw`\( \text{Spd} = 10 (\aleph_{1} + 1) \)` },
-            { values: String.raw`\( ${formatDecimal(spd, 2)} = 10 ( ${formatWholeNumber(rank)} + 1 ) \)`, variant: 'values', glyphEquation: true },
+            { expression: String.raw`\( \text{Spd} = 10 \cdot \log(\aleph_{1} + 1) \)` },
+            { values: String.raw`\( ${formatDecimal(spd, 2)} = 10 \cdot \log( ${formatWholeNumber(rank)} + 1 ) \)`, variant: 'values', glyphEquation: true },
           ];
         },
       },
@@ -876,10 +876,10 @@ const TOWER_EQUATION_BLUEPRINTS = {
         cost: (level) => Math.max(1, 1 + level),
         getSubEquations({ blueprint, towerId, level, value }) {
           const rank = Math.max(0, Number.isFinite(value) ? value : 0);
-          const rng = 5 * (rank + 2);
+          const rng = 5 * Math.log(rank + 2);
           return [
-            { expression: String.raw`\( \text{Rng} = 5 (\aleph_{2} + 2) \)` },
-            { values: String.raw`\( ${formatDecimal(rng, 2)} = 5 ( ${formatWholeNumber(rank)} + 2 ) \)`, variant: 'values', glyphEquation: true },
+            { expression: String.raw`\( \text{Rng} = 5 \cdot \log(\aleph_{2} + 2) \)` },
+            { values: String.raw`\( ${formatDecimal(rng, 2)} = 5 \cdot \log( ${formatWholeNumber(rank)} + 2 ) \)`, variant: 'values', glyphEquation: true },
           ];
         },
       },

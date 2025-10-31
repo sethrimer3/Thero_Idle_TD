@@ -12,11 +12,11 @@ export function ensureEpsilonState(playfield, tower) {
   const aleph2 = Math.max(0, computeTowerVariableValue('epsilon', 'aleph2'));
   const aleph3 = Math.max(1e-6, computeTowerVariableValue('epsilon', 'aleph3'));
 
-  // Spd = 10(aleph1 + 1) shots per second
-  const rate = Math.max(0.2, 10 * (aleph1 + 1));
+  // Spd = 10 · log(aleph1 + 1) shots per second
+  const rate = Math.max(0.2, 10 * Math.log(aleph1 + 1));
   const minDim = Math.min(playfield.renderWidth || 0, playfield.renderHeight || 0) || 1;
-  // Rng = 5(aleph2 + 2) meters
-  const rangeMeters = 5 * (aleph2 + 2);
+  // Rng = 5 · log(aleph2 + 2) meters
+  const rangeMeters = 5 * Math.log(aleph2 + 2);
   const rangePixels = metersToPixels(rangeMeters, minDim);
   // Spr = 2(10 - aleph3 * log(aleph3)) in degrees
   const spreadDegrees = 2 * (10 - aleph3 * Math.log(aleph3));
