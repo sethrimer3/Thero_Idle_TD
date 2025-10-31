@@ -62,6 +62,11 @@ import {
   drawGammaBursts as drawGammaBurstsHelper,
 } from '../scripts/features/towers/gammaTower.js';
 import {
+  ensureEpsilonState as ensureEpsilonStateHelper,
+  updateEpsilonTower as updateEpsilonTowerHelper,
+  applyEpsilonHit as applyEpsilonHitHelper,
+} from '../scripts/features/towers/epsilonTower.js';
+import {
   evaluateZetaMetrics as evaluateZetaMetricsHelper,
   teardownZetaTower as teardownZetaTowerHelper,
   ensureZetaState as ensureZetaStateHelper,
@@ -4385,6 +4390,10 @@ export class SimplePlayfield {
         this.updateDeltaTower(tower, delta);
         return;
       }
+      if (tower.type === 'epsilon') {
+        this.updateEpsilonTower(tower, delta);
+        return;
+      }
       if (!this.combatActive || !this.enemies.length) {
         return;
       }
@@ -4448,6 +4457,10 @@ export class SimplePlayfield {
    */
   updateDeltaTower(tower, delta) {
     updateDeltaTowerHelper(this, tower, delta);
+  }
+
+  updateEpsilonTower(tower, delta) {
+    updateEpsilonTowerHelper(this, tower, delta);
   }
 
   /**
@@ -4926,6 +4939,79 @@ export class SimplePlayfield {
         }
         const progress = maxLifetime > 0 ? projectile.lifetime / maxLifetime : 1;
         projectile.alpha = Math.max(0, 1 - progress);
+        continue;
+      }
+
+      if (projectile.patternType === 'epsilonNeedle') {
+        const maxLifetime = Number.isFinite(projectile.maxLifetime) ? projectile.maxLifetime : 3.5;
+        if (projectile.lifetime >= maxLifetime) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        const enemy = this.enemies.find((e) => e && e.id === projectile.enemyId);
+        if (!enemy) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        const position = this.getEnemyPosition(enemy);
+        if (!position) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        const px = projectile.position?.x ?? projectile.origin?.x ?? 0;
+        const py = projectile.position?.y ?? projectile.origin?.y ?? 0;
+        const dx = position.x - px;
+        const dy = position.y - py;
+        const distance = Math.hypot(dx, dy) || 1;
+        const nx = dx / distance;
+        const ny = dy / distance;
+        const speed = Math.max(60, Number.isFinite(projectile.speed) ? projectile.speed : 280);
+        const vx = projectile.velocity?.x ?? nx * speed;
+        const vy = projectile.velocity?.y ?? ny * speed;
+        // steer towards target
+        const desiredVx = nx * speed;
+        const desiredVy = ny * speed;
+        const dvx = desiredVx - vx;
+        const dvy = desiredVy - vy;
+        const dmag = Math.hypot(dvx, dvy);
+        const maxTurn = Math.max(0, Number.isFinite(projectile.turnRate) ? projectile.turnRate : Math.PI * 2) * delta * speed / Math.max(1, speed);
+        let nextVx = vx;
+        let nextVy = vy;
+        if (dmag > maxTurn && dmag > 0) {
+          const blend = maxTurn / dmag;
+          nextVx = vx + dvx * blend;
+          nextVy = vy + dvy * blend;
+        } else {
+          nextVx = desiredVx;
+          nextVy = desiredVy;
+        }
+        const stepX = nextVx * delta;
+        const stepY = nextVy * delta;
+        projectile.previousPosition = { x: px, y: py };
+        projectile.position = { x: px + stepX, y: py + stepY };
+        projectile.velocity = { x: nextVx, y: nextVy };
+
+        // collision with enemy
+        const metrics = this.getEnemyVisualMetrics(enemy);
+        const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
+        const hitRadius = Math.max(2, Number.isFinite(projectile.hitRadius) ? projectile.hitRadius : 6);
+        const sep = Math.hypot(projectile.position.x - position.x, projectile.position.y - position.y);
+        if (sep <= enemyRadius + hitRadius) {
+          // find source tower for stacking
+          const tower = this.towers.find((t) => t && t.id === projectile.towerId);
+          let stacks = 0;
+          if (tower) {
+            stacks = applyEpsilonHitHelper(this, tower, enemy.id) || 0;
+          }
+          const damageBase = Number.isFinite(projectile.damage) ? projectile.damage : 1;
+          const totalDamage = Math.max(0, damageBase * (1 + stacks));
+          enemy.hp = Math.max(0, (Number.isFinite(enemy.hp) ? enemy.hp : 0) - totalDamage);
+          if (enemy.hp <= 0) {
+            this.processEnemyDefeat(enemy);
+          }
+          this.projectiles.splice(index, 1);
+          continue;
+        }
         continue;
       }
 
@@ -6709,6 +6795,32 @@ export class SimplePlayfield {
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.lineTo(length, 0);
+        ctx.stroke();
+        ctx.restore();
+        return;
+      }
+
+      if (projectile.patternType === 'epsilonNeedle') {
+        const position = projectile.position || projectile.origin;
+        if (!position) {
+          return;
+        }
+        const prev = projectile.previousPosition || position;
+        const heading = Math.atan2((position.y - prev.y) || 0.0001, (position.x - prev.x) || 0.0001);
+        const length = 10;
+        const width = 2.2;
+        ctx.save();
+        ctx.translate(position.x, position.y);
+        ctx.rotate(heading);
+        ctx.fillStyle = 'rgba(139, 247, 255, 0.9)';
+        ctx.strokeStyle = 'rgba(12, 16, 26, 0.9)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(length, 0);
+        ctx.lineTo(-length * 0.6, width);
+        ctx.lineTo(-length * 0.6, -width);
+        ctx.closePath();
+        ctx.fill();
         ctx.stroke();
         ctx.restore();
         return;
