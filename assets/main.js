@@ -42,6 +42,7 @@ import {
   configureAutoSave,
   loadPersistentState,
   schedulePowderSave,
+  schedulePowderBasinSave,
   savePowderCurrency,
   startAutoSaveLoop,
   stopAutoSaveLoop,
@@ -1300,6 +1301,8 @@ import {
     }
     powderState.idleMoteBank = normalized;
     recordDeveloperAdjustment('idle-mote-bank', normalized);
+    // Developer tweaks should persist so debugging sessions survive reloads.
+    schedulePowderBasinSave();
     updatePowderDisplay();
   }
 
@@ -1313,6 +1316,8 @@ import {
     }
     powderState.idleDrainRate = normalized;
     recordDeveloperAdjustment('idle-mote-rate', normalized);
+    // Persist idle rate overrides to keep testing scenarios reproducible.
+    schedulePowderBasinSave();
     updatePowderDisplay();
   }
 
@@ -2133,6 +2138,8 @@ import {
       }
       powderState.loadedSimulationState = simulationState;
     }
+    // After reconciling persisted data, schedule a save so the sanitized snapshot replaces stale copies.
+    schedulePowderBasinSave();
   }
 
   // Refresh the mote gem inventory card so collected crystals mirror the latest drop ledger.
@@ -2406,6 +2413,8 @@ import {
   function handlePowderViewTransformChange(transform) {
     powderState.viewTransform = transform || null;
     applyPowderViewportTransform(transform || null);
+    // Schedule a basin save so camera adjustments persist across reloads.
+    schedulePowderBasinSave();
   }
 
   function syncPowderWallVisuals(metrics) {
@@ -2458,6 +2467,8 @@ import {
     powderWallMetrics = metrics || null;
     syncPowderWallVisuals(metrics || undefined);
     updatePowderHitboxVisibility();
+    // Queue a basin snapshot so wall spacing changes survive future sessions.
+    schedulePowderBasinSave();
   }
 
   function updatePowderWallGapFromGlyphs(glyphCount) {
@@ -2465,12 +2476,16 @@ import {
     const target = powderConfig.wallBaseGapMotes + normalized * powderConfig.wallGapPerGlyph;
     powderState.wallGapTarget = target;
     if (!powderSimulation) {
+      // Persist glyph-driven wall targets even if the simulation is paused.
+      schedulePowderBasinSave();
       return;
     }
     powderSimulation.setWallGapTarget(target);
     powderWallMetrics = powderSimulation.getWallMetrics();
     syncPowderWallVisuals(powderWallMetrics);
     updatePowderHitboxVisibility();
+    // Record the updated gap so reloads mirror the active glyph bonus.
+    schedulePowderBasinSave();
   }
 
   function updatePowderModeButton() {
@@ -2900,6 +2915,8 @@ import {
     if (typeof simulation.getEffectiveMotePalette === 'function') {
       powderState.motePalette = simulation.getEffectiveMotePalette();
     }
+    // Snapshotting occurs before mode swaps, so ensure the captured state persists immediately.
+    schedulePowderBasinSave();
   }
 
   // Restore a serialized sand simulation once the canvas has been configured.
@@ -2929,6 +2946,8 @@ import {
     if (Number.isFinite(powderState.wallGlyphsLit)) {
       updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit);
     }
+    // Writing back the hydrated state keeps restored motes available for the next session.
+    schedulePowderBasinSave();
   }
 
   function getPowderWallInsets() {
@@ -2955,9 +2974,13 @@ import {
     }
     if (powderSimulation && typeof powderSimulation.queueDrop === 'function') {
       powderSimulation.queueDrop(payload);
+      // Request a save so newly queued motes persist if the session ends abruptly.
+      schedulePowderBasinSave();
       return;
     }
     powderState.pendingMoteDrops.push(payload);
+    // Persist pending drops so they spawn correctly after a reload.
+    schedulePowderBasinSave();
   }
 
   function stopResourceTicker() {
@@ -3033,6 +3056,8 @@ import {
     } else {
       powderState.idleMoteBank = Math.max(0, powderState.idleMoteBank + amount);
     }
+    // Persist idle bank adjustments so offline rewards survive tab closures.
+    schedulePowderBasinSave();
     updateStatusDisplays();
   }
 
@@ -3058,6 +3083,8 @@ import {
       powderSimulation.addIdleMotes(powderState.idleMoteBank);
       powderState.idleMoteBank = 0;
     }
+    // Flushes change the basin layout, so capture them for the next resume.
+    schedulePowderBasinSave();
     updateStatusDisplays();
   }
 
@@ -6560,6 +6587,8 @@ import {
     const highestDisplay = formatDecimal(Math.max(0, highestNormalizedRaw), 2);
 
     powderState.simulatedDuneGain = clampedGain;
+    // Capture the current height profile so dune progress resumes accurately after reloads.
+    schedulePowderBasinSave();
 
     if (powderElements.basin) {
       powderElements.basin.style.setProperty('--powder-crest', normalizedHeight.toFixed(3));
