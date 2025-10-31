@@ -133,6 +133,19 @@ function normalizeProjectileColor(candidate, fallbackPosition = 1) {
   };
 }
 
+// Present combat-facing numbers with trimmed trailing zeros while respecting notation preferences.
+function formatCombatNumber(value) {
+  const label = formatGameNumber(value);
+  if (typeof label !== 'string') {
+    return label;
+  }
+  const trimmedDecimals = label.replace(/(\.\d*?)(0+)(?=(?:\s| ×|$))/g, (match, decimals) => {
+    const stripped = decimals.replace(/0+$/, '');
+    return stripped;
+  });
+  return trimmedDecimals.replace(/\.($|(?=\s)|(?= ×))/g, '');
+}
+
 // Render an additive gradient blob so shared connection motes inherit the α burst glow.
 function drawConnectionMoteGlow(ctx, x, y, radius, color, opacity = 1) {
   if (!ctx || !color) {
@@ -2029,17 +2042,18 @@ export class SimplePlayfield {
 
     let valid = validation.valid && hasFunds;
     let reason = '';
-    const formattedCost = Math.round(actionCost);
+    const formattedCost = formatCombatNumber(Math.max(0, actionCost));
     if (!validation.valid) {
       reason = validation.reason || 'Maintain clearance from the glyph lane.';
     } else if (!hasFunds) {
-      const deficit = Math.ceil(actionCost - this.energy);
+      const deficit = Math.max(0, actionCost - this.energy);
+      const deficitLabel = formatCombatNumber(deficit);
       if (merging && nextDefinition) {
-        reason = `Need ${deficit} ${this.theroSymbol} to merge into ${nextDefinition.symbol}.`;
+        reason = `Need ${deficitLabel} ${this.theroSymbol} to merge into ${nextDefinition.symbol}.`;
       } else if (definition) {
-        reason = `Need ${deficit} ${this.theroSymbol} to lattice ${definition.symbol}.`;
+        reason = `Need ${deficitLabel} ${this.theroSymbol} to lattice ${definition.symbol}.`;
       } else {
-        reason = `Need ${deficit} ${this.theroSymbol} for this lattice.`;
+        reason = `Need ${deficitLabel} ${this.theroSymbol} for this lattice.`;
       }
     } else if (merging && nextDefinition) {
       reason = `Merge into ${nextDefinition.symbol} for ${formattedCost} ${this.theroSymbol}.`;
@@ -2880,7 +2894,7 @@ export class SimplePlayfield {
       }`;
     }
     if (this.enemyTooltipHpEl) {
-      const hpText = formatGameNumber(remainingHp);
+      const hpText = formatCombatNumber(remainingHp);
       this.enemyTooltipHpEl.textContent = `Remaining HP: 10^${exponent.toFixed(1)} (${hpText})`;
     }
 
@@ -3158,12 +3172,13 @@ export class SimplePlayfield {
     const actionCost = merging ? mergeCost : baseCost;
 
     if (this.energy < actionCost) {
-      const needed = Math.ceil(actionCost - this.energy);
+      const needed = Math.max(0, actionCost - this.energy);
+      const neededLabel = formatCombatNumber(needed);
       if (this.messageEl && !silent) {
         if (merging && nextDefinition) {
-          this.messageEl.textContent = `Need ${needed} ${this.theroSymbol} more to merge into ${nextDefinition.symbol}.`;
+          this.messageEl.textContent = `Need ${neededLabel} ${this.theroSymbol} more to merge into ${nextDefinition.symbol}.`;
         } else {
-          this.messageEl.textContent = `Need ${needed} ${this.theroSymbol} more to lattice ${definition.symbol}.`;
+          this.messageEl.textContent = `Need ${neededLabel} ${this.theroSymbol} more to lattice ${definition.symbol}.`;
         }
       }
       if (this.audio && !silent) {
@@ -3338,7 +3353,8 @@ export class SimplePlayfield {
       const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
       this.energy = Math.min(cap, this.energy + refund);
       if (this.messageEl) {
-        this.messageEl.textContent = `Lattice released—refunded ${refund} ${this.theroSymbol}.`;
+        const refundLabel = formatCombatNumber(refund);
+        this.messageEl.textContent = `Lattice released—refunded ${refundLabel} ${this.theroSymbol}.`;
       }
     }
 
@@ -5522,9 +5538,8 @@ export class SimplePlayfield {
     this.energy = Math.min(cap, this.energy + baseGain);
 
     if (this.messageEl) {
-      this.messageEl.textContent = `${enemy.label || 'Glyph'} collapsed · +${Math.round(
-        baseGain,
-      )} ${this.theroSymbol}.`;
+      const gainLabel = formatCombatNumber(baseGain);
+      this.messageEl.textContent = `${enemy.label || 'Glyph'} collapsed · +${gainLabel} ${this.theroSymbol}.`;
     }
     this.updateHud();
     this.updateProgress();
@@ -5641,9 +5656,13 @@ export class SimplePlayfield {
     }
 
     if (this.healthEl) {
-      this.healthEl.textContent = this.levelConfig
-        ? `${this.lives}/${this.levelConfig.lives}`
-        : '—';
+      if (!this.levelConfig) {
+        this.healthEl.textContent = '—';
+      } else {
+        const currentLives = formatCombatNumber(this.lives);
+        const totalLives = formatCombatNumber(this.levelConfig.lives);
+        this.healthEl.textContent = `${currentLives}/${totalLives}`;
+      }
     }
 
     if (this.energyEl) {
@@ -5652,7 +5671,8 @@ export class SimplePlayfield {
       } else if (!Number.isFinite(this.energy)) {
         this.energyEl.textContent = `∞ ${this.theroSymbol}`;
       } else {
-        this.energyEl.textContent = `${Math.round(this.energy)} ${this.theroSymbol}`;
+        const energyLabel = formatCombatNumber(this.energy);
+        this.energyEl.textContent = `${energyLabel} ${this.theroSymbol}`;
       }
     }
 

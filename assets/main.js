@@ -199,7 +199,11 @@ import {
   populateIdleLevelConfigs,
   pruneLevelState,
   getCompletedInteractiveLevelCount,
+  getBaseStartingTheroMultiplier,
   getStartingTheroMultiplier,
+  setDeveloperTheroMultiplierOverride,
+  getDeveloperTheroMultiplierOverride,
+  clearDeveloperTheroMultiplierOverride,
   isInteractiveLevel,
   isSecretLevelId,
   isLevelUnlocked,
@@ -1237,6 +1241,7 @@ import {
       moteBank: null,
       moteRate: null,
       startThero: null,
+      theroMultiplier: null,
       glyphs: null,
     },
   };
@@ -1245,6 +1250,7 @@ import {
     moteBank: setDeveloperIdleMoteBank,
     moteRate: setDeveloperIdleMoteRate,
     startThero: setDeveloperBaseStartThero,
+    theroMultiplier: setDeveloperTheroMultiplier,
     glyphs: setDeveloperGlyphs,
   };
 
@@ -1333,6 +1339,28 @@ import {
     updateStatusDisplays();
   }
 
+  function setDeveloperTheroMultiplier(value) {
+    if (value === null || value === undefined) {
+      clearDeveloperTheroMultiplierOverride();
+      recordDeveloperAdjustment('thero-multiplier', 'default');
+      updateLevelCards();
+      updatePowderLedger();
+      updateStatusDisplays();
+      return;
+    }
+
+    if (!Number.isFinite(value)) {
+      return;
+    }
+
+    const normalized = Math.max(0, value);
+    setDeveloperTheroMultiplierOverride(normalized);
+    recordDeveloperAdjustment('thero-multiplier', normalized);
+    updateLevelCards();
+    updatePowderLedger();
+    updateStatusDisplays();
+  }
+
   function setDeveloperGlyphs(value) {
     if (!Number.isFinite(value)) {
       return;
@@ -1360,6 +1388,14 @@ import {
     }
     if (fields.startThero) {
       fields.startThero.value = formatDeveloperInteger(BASE_START_THERO);
+    }
+    if (fields.theroMultiplier) {
+      const override = getDeveloperTheroMultiplierOverride();
+      const baseMultiplier = getBaseStartingTheroMultiplier();
+      fields.theroMultiplier.placeholder = formatDeveloperFloat(baseMultiplier, 2);
+      fields.theroMultiplier.value = Number.isFinite(override) && override >= 0
+        ? formatDeveloperFloat(override, 2)
+        : '';
     }
     if (fields.glyphs) {
       fields.glyphs.value = formatDeveloperInteger(getGlyphCurrency());
@@ -1404,7 +1440,14 @@ import {
       return;
     }
 
-    const parsed = Number.parseFloat(input.value);
+    const rawValue = typeof input.value === 'string' ? input.value.trim() : '';
+    if (rawValue === '') {
+      handler(null);
+      syncDeveloperControlValues();
+      return;
+    }
+
+    const parsed = Number.parseFloat(rawValue);
     if (!Number.isFinite(parsed)) {
       syncDeveloperControlValues();
       return;
@@ -1834,7 +1877,9 @@ import {
   function updateStatusDisplays() {
     const theroMultiplier = getStartingTheroMultiplier();
     if (resourceElements.theroMultiplier) {
-      resourceElements.theroMultiplier.textContent = `×${formatDecimal(theroMultiplier, 2)}`;
+      const multiplierLabel = formatGameNumber(theroMultiplier);
+      resourceElements.theroMultiplier.textContent = `×${multiplierLabel}`;
+      resourceElements.theroMultiplier.setAttribute('aria-label', `Thero multiplier ×${multiplierLabel}`);
     }
 
     const totalGlyphs = Math.max(0, Math.floor(gameStats.enemiesDefeated || 0));
@@ -5767,7 +5812,8 @@ import {
     const multiplier = getStartingTheroMultiplier(levelsBeaten);
     const levelLabel = levelsBeaten === 1 ? 'level' : 'levels';
     const beatenText = `${levelsBeaten} ${levelLabel} sealed`;
-    return `+1 Mote Gems/min · Thero Multiplier ×${formatDecimal(multiplier, 2)} (${beatenText})`;
+    const multiplierLabel = formatGameNumber(multiplier);
+    return `+1 Mote Gems/min · Thero Multiplier ×${multiplierLabel} (${beatenText})`;
   }
 
   // Summarize the stage-specific starting Thero after applying the current multiplier.
@@ -5786,7 +5832,7 @@ import {
     const multiplier = getStartingTheroMultiplier();
     const totalStart = Math.max(0, baseStart * multiplier);
     const baseLabel = formatGameNumber(baseStart);
-    const multiplierLabel = formatDecimal(multiplier, 2);
+    const multiplierLabel = formatGameNumber(multiplier);
     const totalLabel = formatGameNumber(totalStart);
 
     return {
@@ -5896,7 +5942,7 @@ import {
         segments.push(`Rewards: ${rewardText}.`);
       }
       if (Number.isFinite(stats.startThero)) {
-        segments.push(`Starting Thero now ${formatWholeNumber(stats.startThero)} ${THERO_SYMBOL}.`);
+        segments.push(`Starting Thero now ${formatGameNumber(stats.startThero)} ${THERO_SYMBOL}.`);
       }
       if (bestWave > 0) {
         segments.push(`Waves cleared: ${bestWave}.`);
@@ -6013,6 +6059,8 @@ import {
     pendingLevel = null;
     resourceState.running = false;
 
+    clearDeveloperTheroMultiplierOverride();
+
     if (playfield) {
       playfield.leaveLevel();
     }
@@ -6035,6 +6083,7 @@ import {
     }
 
     updateDeveloperControlsVisibility();
+    syncDeveloperControlValues();
 
     hideLevelEditorPanel();
 
