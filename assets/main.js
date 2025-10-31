@@ -154,6 +154,8 @@ import {
   getDiscoveredVariables,
   getTowerUpgradeStateSnapshot,
   applyTowerUpgradeStateSnapshot,
+  calculateInvestedGlyphs,
+  clearTowerUpgradeState,
 } from './towersTab.js';
 import towers from './data/towers/index.js'; // Modular tower definitions sourced from dedicated files.
 import { initializeEquipmentState, EQUIPMENT_STORAGE_KEY } from './equipment.js';
@@ -1974,6 +1976,16 @@ import {
 
   // Initialize the Towers tab emblem to the default mote palette before any theme swaps occur.
   applyMindGatePaletteToDom(powderState.motePalette);
+
+  function reconcileGlyphCurrencyFromState() {
+    const awarded = Number.isFinite(powderState.glyphsAwarded)
+      ? Math.max(0, Math.floor(powderState.glyphsAwarded))
+      : 0;
+    const invested = Math.max(0, calculateInvestedGlyphs());
+    const available = Math.max(0, awarded - invested);
+    setGlyphCurrency(available);
+    return { awarded, invested, available };
+  }
 
   let currentPowderBonuses = {
     sandBonus: 0,
@@ -6161,6 +6173,119 @@ import {
     return success;
   }
 
+  function resetPlayerProgressState() {
+    gameStats.manualVictories = 0;
+    gameStats.idleVictories = 0;
+    gameStats.towersPlaced = 0;
+    gameStats.maxTowersSimultaneous = 0;
+    gameStats.autoAnchorPlacements = 0;
+    gameStats.powderActions = 0;
+    gameStats.enemiesDefeated = 0;
+    gameStats.idleMillisecondsAccumulated = 0;
+    gameStats.powderSigilsReached = 0;
+    gameStats.highestPowderMultiplier = 1;
+
+    resourceState.score = baseResources.score;
+    resourceState.scoreRate = baseResources.scoreRate;
+    resourceState.energyRate = baseResources.energyRate;
+    resourceState.fluxRate = baseResources.fluxRate;
+    resourceState.running = false;
+
+    powderCurrency = 0;
+    updatePowderStockpileDisplay();
+
+    if (idleLevelRuns) {
+      idleLevelRuns.clear();
+    }
+
+    if (powderState.viewInteraction?.destroy) {
+      try {
+        powderState.viewInteraction.destroy();
+      } catch (error) {
+        console.warn('Failed to destroy powder interaction while resetting player data.', error);
+      }
+    }
+    powderState.viewInteraction = null;
+
+    if (powderSimulation?.stop) {
+      try {
+        powderSimulation.stop();
+      } catch (error) {
+        console.warn('Failed to stop powder simulation while resetting player data.', error);
+      }
+    }
+    if (fluidSimulationInstance?.stop) {
+      try {
+        fluidSimulationInstance.stop();
+      } catch (error) {
+        console.warn('Failed to stop fluid simulation while resetting player data.', error);
+      }
+    }
+
+    powderSimulation = null;
+    sandSimulation = null;
+    fluidSimulationInstance = null;
+
+    if (powderBasinObserver?.disconnect) {
+      try {
+        powderBasinObserver.disconnect();
+      } catch (error) {
+        console.warn('Failed to disconnect powder observer while resetting player data.', error);
+      }
+    }
+    powderBasinObserver = null;
+
+    powderState.sandOffset = powderConfig.sandOffsetActive;
+    powderState.duneHeight = powderConfig.duneHeightBase;
+    powderState.charges = 0;
+    powderState.simulatedDuneGain = 0;
+    powderState.wallGlyphsLit = 0;
+    powderState.glyphsAwarded = 0;
+    powderState.idleMoteBank = 100;
+    powderState.idleDrainRate = 1;
+    powderState.pendingMoteDrops = [];
+    powderState.idleBankHydrated = false;
+    powderState.motePalette = mergeMotePalette(DEFAULT_MOTE_PALETTE);
+    applyMindGatePaletteToDom(powderState.motePalette);
+    powderState.simulationMode = 'sand';
+    powderState.wallGapTarget = powderConfig.wallBaseGapMotes;
+    powderState.modeSwitchPending = false;
+    powderState.fluidProfileLabel = 'Fluid Study';
+    powderState.fluidUnlocked = false;
+    powderState.viewTransform = null;
+    powderState.loadedSimulationState = null;
+
+    currentPowderBonuses = {
+      sandBonus: 0,
+      duneBonus: 0,
+      crystalBonus: 0,
+      totalMultiplier: 1,
+    };
+    powderWallMetrics = null;
+
+    clearTowerUpgradeState();
+    reconcileGlyphCurrencyFromState();
+
+    resetActiveMoteGems();
+    moteGemState.active.length = 0;
+    if (typeof moteGemState.nextId === 'number') {
+      moteGemState.nextId = 1;
+    }
+    if (moteGemState.inventory?.clear) {
+      moteGemState.inventory.clear();
+    }
+    moteGemState.autoCollectUnlocked = false;
+    updateMoteGemInventoryDisplay();
+
+    updatePowderWallGapFromGlyphs(0);
+    syncPowderWallVisuals();
+    updatePowderHitboxVisibility();
+    refreshPowderSystems();
+    updatePowderModeButton();
+    updateStatusDisplays();
+    updatePowderLogDisplay();
+  }
+
   function executePlayerDataReset() {
     try {
       stopAutoSaveLoop();
@@ -6175,6 +6300,13 @@ import {
     }
 
     try {
+      resetPlayerProgressState();
+    } catch (error) {
+      encounteredError = true;
+      console.error('Failed to reset runtime state after deleting player data.', error);
+    }
+
+    try {
       disableDeveloperMode();
     } catch (error) {
       encounteredError = true;
@@ -6186,17 +6318,6 @@ import {
     } catch (error) {
       encounteredError = true;
       console.error('Failed to prune level state after deleting player data.', error);
-    }
-
-    try {
-      resetActiveMoteGems();
-    } catch (error) {
-      encounteredError = true;
-      console.error('Failed to reset mote gems after deleting player data.', error);
-    }
-
-    if (Array.isArray(powderState.pendingMoteDrops)) {
-      powderState.pendingMoteDrops.length = 0;
     }
 
     const button = developerModeElements.resetButton;
@@ -7545,6 +7666,7 @@ import {
 
     bindOfflineOverlayElements();
     loadPersistentState();
+    reconcileGlyphCurrencyFromState();
 
     bindStatusElements();
     bindPowderControls();

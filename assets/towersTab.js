@@ -2954,6 +2954,40 @@ export function applyTowerUpgradeStateSnapshot(snapshot) {
   });
 }
 
+/**
+ * Computes the total number of glyphs invested across all tower variables.
+ */
+export function calculateInvestedGlyphs() {
+  let total = 0;
+  towerTabState.towerUpgradeState.forEach((state, towerId) => {
+    if (!state || !state.variables) {
+      return;
+    }
+    const blueprint = getTowerEquationBlueprint(towerId);
+    Object.entries(state.variables).forEach(([variableKey, variableState]) => {
+      const levels = Number.isFinite(variableState?.level) ? Math.max(0, variableState.level) : 0;
+      if (levels <= 0) {
+        return;
+      }
+      const variable = getBlueprintVariable(blueprint, variableKey);
+      for (let levelIndex = 0; levelIndex < levels; levelIndex += 1) {
+        const cost = calculateTowerVariableUpgradeCost(variable, levelIndex);
+        total += Math.max(1, cost);
+      }
+    });
+  });
+  return total;
+}
+
+/**
+ * Clears all stored tower upgrade progress and resets available glyph currency.
+ */
+export function clearTowerUpgradeState() {
+  towerTabState.towerUpgradeState.clear();
+  towerTabState.glyphCurrency = 0;
+  updateTowerUpgradeGlyphDisplay();
+}
+
 function normalizeVariableKey(value) {
   if (typeof value !== 'string') {
     return '';
