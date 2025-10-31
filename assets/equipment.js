@@ -1,5 +1,5 @@
 // Manage crafted equipment records and tower socket assignments with persistence helpers.
-const EQUIPMENT_STORAGE_KEY = 'glyph-defense-idle:equipment';
+export const EQUIPMENT_STORAGE_KEY = 'glyph-defense-idle:equipment';
 
 // Local cache of crafted equipment and their tower assignments.
 const equipmentState = {
