@@ -1306,6 +1306,7 @@ import {
       powderSimulation.idleBank = normalized;
     }
     powderState.idleMoteBank = normalized;
+    powderState.idleBankHydrated = !!powderSimulation;
     recordDeveloperAdjustment('idle-mote-bank', normalized);
     // Developer tweaks should persist so debugging sessions survive reloads.
     schedulePowderBasinSave();
@@ -1956,6 +1957,7 @@ import {
     idleMoteBank: 100,
     idleDrainRate: 1,
     pendingMoteDrops: [],
+    idleBankHydrated: false, // Tracks whether the active simulation already holds the saved idle motes.
     motePalette: mergeMotePalette(DEFAULT_MOTE_PALETTE),
     simulationMode: 'sand',
     wallGapTarget: powderConfig.wallBaseGapMotes,
@@ -2020,6 +2022,9 @@ import {
     rightHitbox: null,
     modeToggle: null,
   };
+
+  const FLUX_OVERVIEW_IS_STUB = true;
+  const SIGIL_LADDER_IS_STUB = true;
 
   // Align the Towers tab Mind Gate emblem with the active mote palette so the UI mirrors the canvas exponent glow.
   function applyMindGatePaletteToDom(palette) {
@@ -2218,6 +2223,7 @@ import {
       }
       if (Number.isFinite(base.idleMoteBank)) {
         powderState.idleMoteBank = Math.max(0, base.idleMoteBank);
+        powderState.idleBankHydrated = false;
       }
       if (Number.isFinite(base.idleDrainRate)) {
         powderState.idleDrainRate = Math.max(0, base.idleDrainRate);
@@ -3055,6 +3061,7 @@ import {
     }
     if (Number.isFinite(simulation.idleBank)) {
       powderState.idleMoteBank = Math.max(0, simulation.idleBank);
+      powderState.idleBankHydrated = false;
     }
     if (typeof simulation.getEffectiveMotePalette === 'function') {
       powderState.motePalette = simulation.getEffectiveMotePalette();
@@ -3083,6 +3090,7 @@ import {
       0,
       Number.isFinite(snapshot.idleBank) ? snapshot.idleBank : simulation.idleBank || 0,
     );
+    powderState.idleBankHydrated = true;
     powderState.idleDrainRate = simulation.idleDrainRate;
     powderState.motePalette = simulation.getEffectiveMotePalette();
     // Apply the restored palette so the Towers tab matches the revived basin state.
@@ -3184,6 +3192,7 @@ import {
     if (powderSimulation && Number.isFinite(powderSimulation.idleBank)) {
       const bank = Math.max(0, powderSimulation.idleBank);
       powderState.idleMoteBank = bank;
+      powderState.idleBankHydrated = true;
       return bank;
     }
     return Math.max(0, powderState.idleMoteBank || 0);
@@ -3205,8 +3214,11 @@ import {
     }
     if (powderSimulation) {
       powderSimulation.addIdleMotes(amount);
+      powderState.idleMoteBank = Math.max(0, powderSimulation.idleBank);
+      powderState.idleBankHydrated = true;
     } else {
       powderState.idleMoteBank = Math.max(0, powderState.idleMoteBank + amount);
+      powderState.idleBankHydrated = false;
     }
     // Persist idle bank adjustments so offline rewards survive tab closures.
     schedulePowderBasinSave();
@@ -3231,9 +3243,19 @@ import {
       });
       powderState.pendingMoteDrops.length = 0;
     }
-    if (powderState.idleMoteBank > 0) {
-      powderSimulation.addIdleMotes(powderState.idleMoteBank);
-      powderState.idleMoteBank = 0;
+    const pendingBank = Math.max(0, Number.isFinite(powderState.idleMoteBank) ? powderState.idleMoteBank : 0);
+    if (pendingBank > 0) {
+      const simulationBank = Number.isFinite(powderSimulation.idleBank)
+        ? Math.max(0, powderSimulation.idleBank)
+        : 0;
+      const shouldInject = !powderState.idleBankHydrated || Math.abs(simulationBank - pendingBank) > 0.5;
+      if (shouldInject) {
+        powderSimulation.addIdleMotes(pendingBank);
+        powderState.idleMoteBank = 0;
+      } else {
+        powderState.idleMoteBank = simulationBank;
+      }
+      powderState.idleBankHydrated = true;
     }
     // Flushes change the basin layout, so capture them for the next resume.
     schedulePowderBasinSave();
@@ -7143,32 +7165,54 @@ import {
     const totalMultiplier = currentPowderBonuses.totalMultiplier;
     notifyPowderMultiplier(totalMultiplier);
 
-    if (powderElements.totalMultiplier) {
-      powderElements.totalMultiplier.textContent = `×${formatDecimal(
-        totalMultiplier,
-        2,
-      )}`;
+    if (FLUX_OVERVIEW_IS_STUB) {
+      if (powderElements.totalMultiplier) {
+        powderElements.totalMultiplier.textContent = '×—.—';
+      }
+      if (powderElements.sandBonusValue) {
+        powderElements.sandBonusValue.textContent = '—%';
+      }
+      if (powderElements.duneBonusValue) {
+        powderElements.duneBonusValue.textContent = '—%';
+      }
+      if (powderElements.crystalBonusValue) {
+        powderElements.crystalBonusValue.textContent = '—%';
+      }
+    } else {
+      if (powderElements.totalMultiplier) {
+        powderElements.totalMultiplier.textContent = `×${formatDecimal(
+          totalMultiplier,
+          2,
+        )}`;
+      }
+
+      if (powderElements.sandBonusValue) {
+        powderElements.sandBonusValue.textContent = formatSignedPercentage(
+          currentPowderBonuses.sandBonus,
+        );
+      }
+
+      if (powderElements.duneBonusValue) {
+        powderElements.duneBonusValue.textContent = formatSignedPercentage(
+          currentPowderBonuses.duneBonus,
+        );
+      }
+
+      if (powderElements.crystalBonusValue) {
+        powderElements.crystalBonusValue.textContent = formatSignedPercentage(
+          currentPowderBonuses.crystalBonus,
+        );
+      }
     }
 
-    if (powderElements.sandBonusValue) {
-      powderElements.sandBonusValue.textContent = formatSignedPercentage(
-        currentPowderBonuses.sandBonus,
-      );
-    }
-
-    if (powderElements.duneBonusValue) {
-      powderElements.duneBonusValue.textContent = formatSignedPercentage(
-        currentPowderBonuses.duneBonus,
-      );
-    }
-
-    if (powderElements.crystalBonusValue) {
-      powderElements.crystalBonusValue.textContent = formatSignedPercentage(
-        currentPowderBonuses.crystalBonus,
-      );
-    }
-
-    if (powderElements.sigilEntries && powderElements.sigilEntries.length) {
+    if (SIGIL_LADDER_IS_STUB) {
+      if (powderElements.sigilEntries && powderElements.sigilEntries.length) {
+        powderElements.sigilEntries.forEach((sigil) => {
+          sigil.classList.remove('sigil-reached');
+        });
+      }
+      notifyPowderSigils(0);
+    } else if (powderElements.sigilEntries && powderElements.sigilEntries.length) {
       let reached = 0;
       powderElements.sigilEntries.forEach((sigil) => {
         const threshold = Number.parseFloat(sigil.dataset.sigilThreshold);
