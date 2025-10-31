@@ -98,6 +98,8 @@ import {
 
 // Minimum pointer distance before the playfield interprets input as a camera drag.
 const PLAYFIELD_VIEW_DRAG_THRESHOLD = 6;
+// Allow the camera to pan beyond the level edges by a fixed 4 meter buffer regardless of zoom.
+const PLAYFIELD_VIEW_PAN_MARGIN_METERS = 4;
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -5822,6 +5824,19 @@ export class SimplePlayfield {
     const scale = Math.max(this.viewScale || 1, 0.0001);
     const halfWidth = Math.min(0.5, 0.5 / scale);
     const halfHeight = Math.min(0.5, 0.5 / scale);
+    const width =
+      this.renderWidth ||
+      (this.canvas ? this.canvas.clientWidth || this.canvas.width || 0 : 0);
+    const height =
+      this.renderHeight ||
+      (this.canvas ? this.canvas.clientHeight || this.canvas.height || 0 : 0);
+    const minDimension = width && height ? Math.min(width, height) : 0;
+    const marginPixels =
+      minDimension > 0 && PLAYFIELD_VIEW_PAN_MARGIN_METERS > 0
+        ? metersToPixels(PLAYFIELD_VIEW_PAN_MARGIN_METERS, minDimension)
+        : 0;
+    const marginNormalizedX = width > 0 ? Math.max(0, marginPixels / width) : 0;
+    const marginNormalizedY = height > 0 ? Math.max(0, marginPixels / height) : 0;
     const clamp = (value, min, max) => {
       if (min > max) {
         return 0.5;
@@ -5829,8 +5844,8 @@ export class SimplePlayfield {
       return Math.min(Math.max(value, min), max);
     };
     return {
-      x: clamp(normalized.x, halfWidth, 1 - halfWidth),
-      y: clamp(normalized.y, halfHeight, 1 - halfHeight),
+      x: clamp(normalized.x, halfWidth - marginNormalizedX, 1 - halfWidth + marginNormalizedX),
+      y: clamp(normalized.y, halfHeight - marginNormalizedY, 1 - halfHeight + marginNormalizedY),
     };
   }
 
