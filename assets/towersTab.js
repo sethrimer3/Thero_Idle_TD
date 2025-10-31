@@ -840,6 +840,78 @@ const TOWER_EQUATION_BLUEPRINTS = {
       return `\\( ${formatResult()} = ${formatVariable('gamma')} \\times \\ln(${formatVariable('gamma')} + 1) \\)`;
     },
   },
+  epsilon: {
+    mathSymbol: String.raw`\varepsilon`,
+    baseEquation: String.raw`\( \text{Atk} = (\text{NumHits})^{2} \)`,
+    variables: [
+      {
+        key: 'aleph1',
+        symbol: 'ℵ₁',
+        name: 'Speed Aleph',
+        description: 'Controls volley cadence for ε needles.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(value)} ℵ₁`,
+        cost: (level) => Math.max(1, 1 + level),
+        getSubEquations({ blueprint, towerId, level, value }) {
+          const effective = blueprint || getTowerEquationBlueprint(towerId);
+          const rank = Math.max(0, Number.isFinite(value) ? value : 0);
+          const spd = 10 * (rank + 1);
+          return [
+            { expression: String.raw`\( \text{Spd} = 10 (\aleph_{1} + 1) \)` },
+            { values: String.raw`\( ${formatDecimal(spd, 2)} = 10 ( ${formatWholeNumber(rank)} + 1 ) \)`, variant: 'values', glyphEquation: true },
+          ];
+        },
+      },
+      {
+        key: 'aleph2',
+        symbol: 'ℵ₂',
+        name: 'Range Aleph',
+        description: 'Expands ε homing range in meters.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(value)} ℵ₂`,
+        cost: (level) => Math.max(1, 1 + level),
+        getSubEquations({ blueprint, towerId, level, value }) {
+          const rank = Math.max(0, Number.isFinite(value) ? value : 0);
+          const rng = 5 * (rank + 2);
+          return [
+            { expression: String.raw`\( \text{Rng} = 5 (\aleph_{2} + 2) \)` },
+            { values: String.raw`\( ${formatDecimal(rng, 2)} = 5 ( ${formatWholeNumber(rank)} + 2 ) \)`, variant: 'values', glyphEquation: true },
+          ];
+        },
+      },
+      {
+        key: 'aleph3',
+        symbol: 'ℵ₃',
+        name: 'Spread Aleph',
+        description: 'Adjusts ε aim spread in degrees.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatWholeNumber(value)} ℵ₃`,
+        cost: (level) => Math.max(1, 1 + level),
+        getSubEquations({ blueprint, towerId, level, value }) {
+          const rank = Math.max(0, Number.isFinite(value) ? value : 0);
+          const component = rank <= 0 ? 0 : rank * Math.log(rank);
+          const spr = 2 * (10 - component);
+          return [
+            { expression: String.raw`\( \text{Spr} = 2 ( 10 - \aleph_{3} \cdot \log(\aleph_{3}) ) \)` },
+            { values: String.raw`\( ${formatDecimal(spr, 2)} = 2 ( 10 - ${formatWholeNumber(rank)} \cdot ${formatDecimal(rank > 0 ? Math.log(rank) : 0, 2)} ) \)`, variant: 'values', glyphEquation: true },
+          ];
+        },
+      },
+    ],
+    computeResult(values) {
+      // Not a simple multiplicative base; leave as 0 to avoid misleading total.
+      return 0;
+    },
+    formatGoldenEquation() {
+      return String.raw`\( \text{Atk} = (\text{NumHits})^{2} \)`;
+    },
+  },
   // η tower channels synchronized orbital upgrades that determine laser cadence,
   // alignment thresholds, and range when planets line up.
   eta: {

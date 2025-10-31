@@ -1,39 +1,38 @@
 // ε tower: fires a continuous volley of homing needles that ramp damage per target.
-import { getTowerDefinition } from '../../../assets/towersTab.js';
-
-function metersToPixels(meters, minDimension) {
-  const base = Math.max(1, Number.isFinite(minDimension) ? minDimension : 1);
-  // Playfield meters map proportionally to minDimension; reuse same convention as other towers.
-  return meters * (base / 10);
-}
+import { getTowerDefinition, computeTowerVariableValue } from '../../../assets/towersTab.js';
+import { metersToPixels } from '../../../assets/gameUnits.js';
 
 export function ensureEpsilonState(playfield, tower) {
   if (!tower || tower.type !== 'epsilon') {
     return null;
   }
   const def = tower.definition || getTowerDefinition('epsilon') || {};
-  const baseDamage = Math.max(1, Number.isFinite(tower.baseDamage) ? tower.baseDamage : def.damage || 1);
-  const rate = Math.max(0.2, Number.isFinite(tower.rate) ? tower.rate : def.rate || 1);
+  // Aleph variables controlled by glyph upgrades
+  const aleph1 = Math.max(0, computeTowerVariableValue('epsilon', 'aleph1'));
+  const aleph2 = Math.max(0, computeTowerVariableValue('epsilon', 'aleph2'));
+  const aleph3 = Math.max(1e-6, computeTowerVariableValue('epsilon', 'aleph3'));
+
+  // Spd = 10(aleph1 + 1) shots per second
+  const rate = Math.max(0.2, 10 * (aleph1 + 1));
   const minDim = Math.min(playfield.renderWidth || 0, playfield.renderHeight || 0) || 1;
-  const rangeMeters = Number.isFinite(tower.rangeMeters)
-    ? tower.rangeMeters
-    : Number.isFinite(def.range)
-    ? def.range * 10
-    : 3;
+  // Rng = 5(aleph2 + 2) meters
+  const rangeMeters = 5 * (aleph2 + 2);
   const rangePixels = metersToPixels(rangeMeters, minDim);
+  // Spr = 2(10 - aleph3 * log(aleph3)) in degrees
+  const spreadDegrees = 2 * (10 - aleph3 * Math.log(aleph3));
 
   if (!tower.epsilonState) {
     tower.epsilonState = {
-      baseDamage,
       rate,
       rangePixels,
+      spreadDegrees,
       fireCooldown: 0,
-      stacks: new Map(), // enemyId -> hit count
+      stacks: new Map(), // enemyId -> consecutive hit count
     };
   } else {
-    tower.epsilonState.baseDamage = baseDamage;
     tower.epsilonState.rate = rate;
     tower.epsilonState.rangePixels = rangePixels;
+    tower.epsilonState.spreadDegrees = spreadDegrees;
   }
   return tower.epsilonState;
 }
@@ -58,20 +57,30 @@ export function updateEpsilonTower(playfield, tower, delta) {
     return;
   }
 
-  // Spawn a homing needle projectile
+  // Spawn a homing needle projectile with spread
   const origin = { x: tower.x, y: tower.y };
-  const projectileSpeed = Math.max(180, Math.min(520, state.rangePixels * 2));
+  const projectileSpeed = Math.max(220, Math.min(560, state.rangePixels * 2));
+  // aim direction to enemy
+  const targetPos = playfield.getEnemyPosition(enemy);
+  const dx = (targetPos?.x || origin.x) - origin.x;
+  const dy = (targetPos?.y || origin.y) - origin.y;
+  const baseAngle = Math.atan2(dy, dx);
+  const spreadRad = (Math.max(0, state.spreadDegrees || 0) * Math.PI) / 180;
+  const offset = (Math.random() - 0.5) * spreadRad; // symmetric spread
+  const angle = baseAngle + offset;
+  const vx = Math.cos(angle) * projectileSpeed;
+  const vy = Math.sin(angle) * projectileSpeed;
   playfield.projectiles.push({
     patternType: 'epsilonNeedle',
     origin,
     position: { ...origin },
-    velocity: { x: 0, y: -projectileSpeed },
+    velocity: { x: vx, y: vy },
     speed: projectileSpeed,
     maxLifetime: 3.5,
     lifetime: 0,
     towerId: tower.id,
     enemyId: enemy.id,
-    damage: state.baseDamage,
+    damage: 1,
     turnRate: Math.PI * 2.2, // radians per second steering
     hitRadius: 6,
   });

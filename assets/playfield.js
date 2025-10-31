@@ -5003,8 +5003,8 @@ export class SimplePlayfield {
           if (tower) {
             stacks = applyEpsilonHitHelper(this, tower, enemy.id) || 0;
           }
-          const damageBase = Number.isFinite(projectile.damage) ? projectile.damage : 1;
-          const totalDamage = Math.max(0, damageBase * (1 + stacks));
+          // Atk = (NumHits)^2, where stacks is NumHits after applying this hit
+          const totalDamage = Math.max(0, stacks * stacks);
           enemy.hp = Math.max(0, (Number.isFinite(enemy.hp) ? enemy.hp : 0) - totalDamage);
           if (enemy.hp <= 0) {
             this.processEnemyDefeat(enemy);
