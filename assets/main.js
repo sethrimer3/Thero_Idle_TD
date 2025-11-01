@@ -142,6 +142,7 @@ import {
   bindTowerCardUpgradeInteractions,
   updateTowerCardVisibility,
   injectTowerCardPreviews,
+  simplifyTowerCards,
   annotateTowerCardsWithCost,
   initializeTowerSelection,
   initializeTowerEquipmentInterface,
@@ -7852,6 +7853,7 @@ import {
     markLastActive();
 
     injectTowerCardPreviews();
+    simplifyTowerCards();
     annotateTowerCardsWithCost();
     initializeTowerEquipmentInterface();
     updateTowerCardVisibility();

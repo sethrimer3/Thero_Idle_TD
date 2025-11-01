@@ -4286,6 +4286,30 @@ export function injectTowerCardPreviews() {
   });
 }
 
+export function simplifyTowerCards() {
+  const cards = document.querySelectorAll('[data-tower-id]');
+  cards.forEach((card) => {
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+
+    const formulaBlock = card.querySelector('.formula-block');
+    if (formulaBlock instanceof HTMLElement) {
+      const primaryEquation = formulaBlock.querySelector('.formula-line');
+      const allowedNodes = new Set(primaryEquation ? [primaryEquation] : []);
+      Array.from(formulaBlock.children).forEach((child) => {
+        if (!allowedNodes.has(child)) {
+          child.remove();
+        }
+      });
+    }
+
+    card.querySelectorAll('.formula-definition, .formula-line.result, .upgrade-list').forEach((element) => {
+      element.remove();
+    });
+  });
+}
+
 export function annotateTowerCardsWithCost() {
   const cards = document.querySelectorAll('[data-tower-id]');
   cards.forEach((card) => {
