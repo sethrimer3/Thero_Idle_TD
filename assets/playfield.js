@@ -35,7 +35,6 @@ import {
   getTowerVisualConfig,
   getOmegaWaveVisualConfig,
   getTowerTierValue,
-  samplePaletteGradient,
 } from './colorSchemeUtils.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../scripts/features/towers/powderTower.js';
 import { notifyTowerPlaced } from './achievementsTab.js';
@@ -95,105 +94,40 @@ import {
   updateDeltaTower as updateDeltaTowerHelper,
   drawDeltaSoldiers as drawDeltaSoldiersHelper,
 } from '../scripts/features/towers/deltaTower.js';
-
-// Minimum pointer distance before the playfield interprets input as a camera drag.
-const PLAYFIELD_VIEW_DRAG_THRESHOLD = 6;
-// Allow the camera to pan beyond the level edges by a fixed 4 meter buffer regardless of zoom.
-const PLAYFIELD_VIEW_PAN_MARGIN_METERS = 4;
-// Scale battlefield mote gem rendering relative to the canvas so drop sizes stay consistent across devices.
-const GEM_MOTE_BASE_RATIO = 0.02;
-
-// Dependency container allows the main module to provide shared helpers without creating circular imports.
-const defaultDependencies = {
-  alephChainUpgrades: {},
-  theroSymbol: 'þ',
-  calculateStartingThero: () => 0,
-  updateStatusDisplays: () => {},
-  notifyEnemyDefeated: () => {},
-  notifyAutoAnchorUsed: () => {},
-  getOmegaPatternForTier: () => [],
-  isFieldNotesOverlayVisible: () => false,
-  getBaseStartThero: () => 50,
-  getBaseCoreIntegrity: () => 100,
-  handleDeveloperMapPlacement: () => false,
-  // Allows the playfield to respect the global graphics fidelity toggle.
-  isLowGraphicsMode: () => false,
-};
-
-// Normalize projectile color data so beam rendering can rely on palette-aware RGB objects.
-function normalizeProjectileColor(candidate, fallbackPosition = 1) {
-  if (candidate && typeof candidate === 'object' && Number.isFinite(candidate.r) && Number.isFinite(candidate.g) && Number.isFinite(candidate.b)) {
-    return {
-      r: Math.max(0, Math.min(255, Math.round(candidate.r))),
-      g: Math.max(0, Math.min(255, Math.round(candidate.g))),
-      b: Math.max(0, Math.min(255, Math.round(candidate.b))),
-    };
-  }
-  const ratio = Math.max(0, Math.min(1, fallbackPosition));
-  const fallback = samplePaletteGradient(ratio) || { r: 139, g: 247, b: 255 };
-  return {
-    r: Math.max(0, Math.min(255, Math.round(fallback.r))),
-    g: Math.max(0, Math.min(255, Math.round(fallback.g))),
-    b: Math.max(0, Math.min(255, Math.round(fallback.b))),
-  };
-}
-
-// Present combat-facing numbers with trimmed trailing zeros while respecting notation preferences.
-function formatCombatNumber(value) {
-  const label = formatGameNumber(value);
-  if (typeof label !== 'string') {
-    return label;
-  }
-  const trimmedDecimals = label.replace(/(\.\d*?)(0+)(?=(?:\s| ×|$))/g, (match, decimals) => {
-    const stripped = decimals.replace(/0+$/, '');
-    return stripped;
-  });
-  return trimmedDecimals.replace(/\.($|(?=\s)|(?= ×))/g, '');
-}
-
-// Render an additive gradient blob so shared connection motes inherit the α burst glow.
-function drawConnectionMoteGlow(ctx, x, y, radius, color, opacity = 1) {
-  if (!ctx || !color) {
-    return;
-  }
-  const baseRadius = Math.max(1.6, radius || 2.4);
-  const glowRadius = baseRadius * 2.4;
-  const gradient = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
-  const alpha = Math.max(0, Math.min(1, opacity));
-  gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`);
-  gradient.addColorStop(0.45, `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha * 0.45})`);
-  gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
-  ctx.fillStyle = gradient;
-  ctx.beginPath();
-  ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-// Cubic easing helpers keep supply motes and swirl launches smooth and consistent with tower bursts.
-const easeInCubic = (value) => {
-  const clamped = Math.max(0, Math.min(1, value));
-  return clamped * clamped * clamped;
-};
-
-const easeOutCubic = (value) => {
-  const clamped = Math.max(0, Math.min(1, value));
-  const inverted = 1 - clamped;
-  return 1 - inverted * inverted * inverted;
-};
-
-// Preload the Mind Gate sprite so the path finale mirrors the Towers tab art.
-const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
-const mindGateSprite = new Image();
-mindGateSprite.src = MIND_GATE_SPRITE_URL;
-mindGateSprite.decoding = 'async';
-mindGateSprite.loading = 'eager';
-
-// Preload the Enemy Gate sprite so the spawn origin echoes the Codex depiction.
-const ENEMY_GATE_SPRITE_URL = 'assets/images/enemy-gate.svg';
-const enemyGateSprite = new Image();
-enemyGateSprite.src = ENEMY_GATE_SPRITE_URL;
-enemyGateSprite.decoding = 'async';
-enemyGateSprite.loading = 'eager';
+// Import utility modules
+import {
+  PLAYFIELD_VIEW_DRAG_THRESHOLD,
+  PLAYFIELD_VIEW_PAN_MARGIN_METERS,
+  GEM_MOTE_BASE_RATIO,
+  defaultDependencies,
+  mindGateSprite,
+  enemyGateSprite,
+} from './playfield/utils/constants.js';
+import {
+  normalizeProjectileColor,
+  drawConnectionMoteGlow,
+} from './playfield/utils/colorUtils.js';
+import {
+  formatCombatNumber,
+  formatSpeedMultiplier,
+} from './playfield/utils/formattingUtils.js';
+import {
+  easeInCubic,
+  easeOutCubic,
+  normalizeAngle,
+  angularDifference,
+  distanceBetween,
+  distancePointToSegment,
+  projectPointOntoSegment,
+  catmullRom,
+} from './playfield/utils/mathUtils.js';
+import {
+  cloneNormalizedPoint,
+  rotateNormalizedPointClockwise,
+  computeFloaterCount,
+  randomFloaterRadiusFactor,
+  createFloater,
+} from './playfield/utils/geometryUtils.js';
 
 let playfieldDependencies = { ...defaultDependencies };
 
@@ -463,28 +397,12 @@ export class SimplePlayfield {
 
   // Clone a normalized point while constraining it to the valid 0–1 range.
   cloneNormalizedPoint(point) {
-    if (!point || typeof point !== 'object') {
-      return { x: 0, y: 0 };
-    }
-    const x = Number.isFinite(point.x) ? point.x : 0;
-    const y = Number.isFinite(point.y) ? point.y : 0;
-    return {
-      x: Math.max(0, Math.min(1, x)),
-      y: Math.max(0, Math.min(1, y)),
-    };
+    return cloneNormalizedPoint(point);
   }
 
   // Rotate a normalized point 90° clockwise around the playfield center.
   rotateNormalizedPointClockwise(point) {
-    const base = this.cloneNormalizedPoint(point);
-    const rotated = {
-      x: base.y,
-      y: 1 - base.x,
-    };
-    return {
-      x: Math.max(0, Math.min(1, rotated.x)),
-      y: Math.max(0, Math.min(1, rotated.y)),
-    };
+    return rotateNormalizedPointClockwise(point);
   }
 
   // Apply the active orientation to the level's path and auto-anchor geometry.
@@ -872,33 +790,15 @@ export class SimplePlayfield {
   }
 
   computeFloaterCount(width, height) {
-    if (!Number.isFinite(width) || !Number.isFinite(height)) {
-      return 0;
-    }
-    const area = Math.max(0, width * height);
-    const base = Math.round(area / 24000);
-    return Math.max(18, Math.min(64, base));
+    return computeFloaterCount(width, height);
   }
 
   randomFloaterRadiusFactor() {
-    return 0.0075 + Math.random() * 0.0045;
+    return randomFloaterRadiusFactor();
   }
 
   createFloater(width, height) {
-    const margin = Math.min(width, height) * 0.08;
-    const usableWidth = Math.max(1, width - margin * 2);
-    const usableHeight = Math.max(1, height - margin * 2);
-    return {
-      x: margin + Math.random() * usableWidth,
-      y: margin + Math.random() * usableHeight,
-      vx: (Math.random() - 0.5) * 12,
-      vy: (Math.random() - 0.5) * 12,
-      ax: 0,
-      ay: 0,
-      radiusFactor: this.randomFloaterRadiusFactor(),
-      opacity: 0,
-      opacityTarget: 0,
-    };
+    return createFloater(width, height);
   }
 
   ensureFloatersLayout() {
@@ -999,24 +899,11 @@ export class SimplePlayfield {
   }
 
   catmullRom(p0, p1, p2, p3, t) {
-    const t2 = t * t;
-    const t3 = t2 * t;
-    return (
-      0.5 *
-      ((2 * p1) +
-        (-p0 + p2) * t +
-        (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
-        (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
-    );
+    return catmullRom(p0, p1, p2, p3, t);
   }
 
   distanceBetween(a, b) {
-    if (!a || !b) {
-      return 0;
-    }
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    return Math.hypot(dx, dy);
+    return distanceBetween(a, b);
   }
 
   ensureLoop() {
@@ -1446,11 +1333,7 @@ export class SimplePlayfield {
   }
 
   formatSpeedMultiplier(value) {
-    if (Number.isInteger(value)) {
-      return String(value);
-    }
-    const formatted = value.toFixed(1);
-    return formatted.endsWith('.0') ? formatted.slice(0, -2) : formatted;
+    return formatSpeedMultiplier(value);
   }
 
   cycleSpeedMultiplier() {
@@ -4179,35 +4062,18 @@ export class SimplePlayfield {
   }
 
   distancePointToSegment(point, start, end) {
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    if (dx === 0 && dy === 0) {
-      return Math.hypot(point.x - start.x, point.y - start.y);
-    }
-    const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy);
-    const clampedT = Math.max(0, Math.min(1, t));
-    const projX = start.x + clampedT * dx;
-    const projY = start.y + clampedT * dy;
-    return Math.hypot(point.x - projX, point.y - projY);
+    return distancePointToSegment(point, start, end);
   }
 
   /**
    * Project a point onto a path segment and expose the ratio along that segment.
    */
   projectPointOntoSegment(point, start, end) {
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    if (dx === 0 && dy === 0) {
-      return { point: { x: start.x, y: start.y }, ratio: 0 };
-    }
-    const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy);
-    const clamped = Math.max(0, Math.min(1, t));
+    const result = projectPointOntoSegment(point, start, end);
+    // Adapt utility function output to match expected class API (point + ratio vs x + y + t)
     return {
-      point: {
-        x: start.x + clamped * dx,
-        y: start.y + clamped * dy,
-      },
-      ratio: clamped,
+      point: { x: result.x, y: result.y },
+      ratio: result.t,
     };
   }
 
@@ -4215,27 +4081,14 @@ export class SimplePlayfield {
    * Normalize an angle into the [0, 2π) range for consistent orbital math.
    */
   normalizeAngle(angle) {
-    if (!Number.isFinite(angle)) {
-      return 0;
-    }
-    let normalized = angle % (Math.PI * 2);
-    if (normalized < 0) {
-      normalized += Math.PI * 2;
-    }
-    return normalized;
+    return normalizeAngle(angle);
   }
 
   /**
    * Measure the smallest angular difference between two radians values.
    */
   angularDifference(a, b) {
-    const angleA = this.normalizeAngle(a);
-    const angleB = this.normalizeAngle(b);
-    let diff = Math.abs(angleA - angleB);
-    if (diff > Math.PI) {
-      diff = Math.abs(diff - Math.PI * 2);
-    }
-    return diff;
+    return angularDifference(a, b);
   }
 
   /**
