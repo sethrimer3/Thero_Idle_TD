@@ -45,6 +45,7 @@ const ALPHA_PARTICLE_CONFIG = {
   colors: ALPHA_PARTICLE_COLORS,
   colorResolver: resolveAlphaParticleColors,
   behavior: 'swirlBounce',
+  homing: true,
   particleCountRange: { min: 5, max: 10 },
   dashDelayRange: 0.08,
   timings: {
@@ -166,17 +167,33 @@ function createParticleCloud(playfield, tower, burst) {
 // Resolve an enemy's latest position so particles know where to converge or ricochet.
 function resolveTarget(playfield, burst) {
   if (!playfield || !burst) {
-    return { position: burst?.fallbackTarget || burst?.origin, alive: false };
+    return { position: burst?.fallbackTarget || burst?.origin, alive: false, retargeted: false };
   }
   if (burst.targetId) {
     const enemy = playfield.enemies.find((candidate) => candidate.id === burst.targetId);
     if (enemy) {
       const position = playfield.getEnemyPosition(enemy);
       const alive = Number.isFinite(enemy.hp) ? enemy.hp > 0 : true;
-      return { position, alive };
+      return { position, alive, enemy, retargeted: false };
     }
   }
-  return { position: burst.fallbackTarget || burst.origin, alive: false };
+  const config = burst.config || {};
+  const allowHoming = Boolean(config.homing);
+  if (allowHoming && typeof playfield.getTowerById === 'function' && typeof playfield.findTarget === 'function') {
+    const tower = playfield.getTowerById(burst.towerId);
+    if (tower) {
+      const nextTarget = playfield.findTarget(tower);
+      const enemy = nextTarget?.enemy;
+      const position = nextTarget?.position || (enemy ? playfield.getEnemyPosition(enemy) : null);
+      const alive = enemy ? (Number.isFinite(enemy.hp) ? enemy.hp > 0 : true) : false;
+      if (enemy && position && alive) {
+        burst.targetId = enemy.id;
+        burst.fallbackTarget = { ...position };
+        return { position, alive: true, enemy, retargeted: true };
+      }
+    }
+  }
+  return { position: burst.fallbackTarget || burst.origin, alive: false, retargeted: false };
 }
 
 // Drive the initial circular swirl that collapses particles toward α's core.
@@ -234,6 +251,7 @@ function updateChargePhase(burst, delta) {
       particle.state = 'dash';
       particle.dashProgress = 0;
       particle.start = { ...particle.position };
+      particle.dashRetargetTime = particle.dashDelay;
       particle.renderSize = particle.size;
     });
   }
@@ -341,13 +359,19 @@ function updatePierceParticle(particle, delta) {
 
 // Guide particles from the tower core toward the target and hand off to bounce/fade states.
 function updateDashPhase(playfield, burst, delta) {
-  const { position: resolvedTarget, alive } = resolveTarget(playfield, burst);
+  const { position: resolvedTarget, alive, retargeted } = resolveTarget(playfield, burst);
   const targetPosition = resolvedTarget || burst.fallbackTarget || burst.origin || { x: 0, y: 0 };
   const behavior = burst?.config?.behavior || 'swirlBounce';
+  if (retargeted) {
+    retargetBurstParticles(burst, targetPosition);
+  }
   let unfinished = false;
   burst.particles.forEach((particle) => {
     if (particle.state === 'dash') {
-      const elapsed = Math.max(0, burst.phaseTime - particle.dashDelay);
+      const dashAnchor = Number.isFinite(particle.dashRetargetTime)
+        ? particle.dashRetargetTime
+        : particle.dashDelay;
+      const elapsed = Math.max(0, burst.phaseTime - dashAnchor);
       const progress = burst.dashDuration > 0 ? clamp(elapsed / burst.dashDuration, 0, 1) : 1;
       particle.dashProgress = progress;
       if (progress <= 0) {
@@ -428,6 +452,22 @@ function updateDashPhase(playfield, burst, delta) {
     burst.phase = 'resolve';
     burst.phaseTime = 0;
   }
+}
+
+// Reset dash anchors so retargeted motes arc smoothly toward their new objective.
+function retargetBurstParticles(burst, targetPosition) {
+  if (!burst || !Array.isArray(burst.particles)) {
+    return;
+  }
+  burst.particles.forEach((particle) => {
+    if (particle.state !== 'dash') {
+      return;
+    }
+    const current = particle.position || targetPosition || burst.origin || { x: 0, y: 0 };
+    particle.start = { ...current };
+    particle.dashRetargetTime = burst.phaseTime;
+    particle.dashProgress = 0;
+  });
 }
 
 // Sweep remaining particles through their terminal animations and retire finished bursts.
