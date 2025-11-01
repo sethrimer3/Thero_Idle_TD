@@ -169,6 +169,18 @@ function drawConnectionMoteGlow(ctx, x, y, radius, color, opacity = 1) {
   ctx.fill();
 }
 
+// Cubic easing helpers keep supply motes and swirl launches smooth and consistent with tower bursts.
+const easeInCubic = (value) => {
+  const clamped = Math.max(0, Math.min(1, value));
+  return clamped * clamped * clamped;
+};
+
+const easeOutCubic = (value) => {
+  const clamped = Math.max(0, Math.min(1, value));
+  const inverted = 1 - clamped;
+  return 1 - inverted * inverted * inverted;
+};
+
 // Preload the Mind Gate sprite so the path finale mirrors the Towers tab art.
 const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
 const mindGateSprite = new Image();
@@ -3633,10 +3645,19 @@ export class SimplePlayfield {
       if (!Array.isArray(tower.connectionParticles)) {
         return;
       }
-      tower.connectionParticles.forEach((particle) => {
-        particle.angle = (particle.angle || 0) + (particle.speed || 1) * step;
-        particle.pulse = (particle.pulse || 0) + step;
+      const particles = tower.connectionParticles.filter((particle) => particle && particle.state !== 'done');
+      particles.forEach((particle) => {
+        if (particle.state === 'launch') {
+          this.updateConnectionLaunchParticle(particle, step);
+          return;
+        }
+        if (particle.state === 'arrive') {
+          this.updateConnectionArriveParticle(tower, particle, step);
+          return;
+        }
+        this.updateConnectionOrbitParticle(particle, step);
       });
+      tower.connectionParticles = particles.filter((particle) => particle && particle.state !== 'done');
     });
 
     const activeKeys = new Set();
@@ -3682,25 +3703,35 @@ export class SimplePlayfield {
     if (!Array.isArray(tower.connectionParticles)) {
       tower.connectionParticles = [];
     }
-    const particles = tower.connectionParticles.filter((particle) => particle.type === type);
-    if (particles.length > desiredCount) {
-      let toCull = particles.length - desiredCount;
+    const particles = tower.connectionParticles.filter(
+      (particle) => particle.type === type && particle.state !== 'done',
+    );
+    const activeParticles = particles.filter((particle) => particle.state === 'orbit' || particle.state === 'arrive');
+    if (activeParticles.length > desiredCount) {
+      let toCull = activeParticles.length - desiredCount;
       tower.connectionParticles = tower.connectionParticles.filter((particle) => {
         if (particle.type !== type) {
           return true;
         }
-        if (toCull > 0) {
-          toCull -= 1;
-          return false;
+        if (particle.state === 'launch') {
+          return true;
+        }
+        if (particle.state === 'orbit' || particle.state === 'arrive') {
+          if (toCull > 0) {
+            toCull -= 1;
+            return false;
+          }
         }
         return true;
       });
       return;
     }
-    if (particles.length < desiredCount) {
-      const toAdd = Math.min(desiredCount - particles.length, 60);
+    if (activeParticles.length < desiredCount) {
+      const toAdd = Math.min(desiredCount - activeParticles.length, 60);
       for (let index = 0; index < toAdd; index += 1) {
-        tower.connectionParticles.push(this.createConnectionParticle(tower, type));
+        tower.connectionParticles.push(
+          this.createConnectionParticle(tower, type, { state: 'arrive' }),
+        );
       }
     }
   }
@@ -3708,16 +3739,315 @@ export class SimplePlayfield {
   /**
    * Create a fresh swirling mote configuration for a lattice.
    */
-  createConnectionParticle(tower, type) {
+  createConnectionParticle(tower, type, options = {}) {
     const baseRange = Number.isFinite(tower.range) ? Math.max(20, tower.range * 0.06) : 24;
-    return {
+    const bodyRadius = this.resolveTowerBodyRadius(tower);
+    const defaultOrbit = bodyRadius + 6 + baseRange;
+    const orbitRadius = Number.isFinite(options.orbitRadius)
+      ? options.orbitRadius
+      : defaultOrbit + Math.random() * baseRange * 0.35;
+    const particle = {
       type,
-      angle: Math.random() * Math.PI * 2,
-      speed: 1.6 + Math.random() * 0.7,
-      distance: baseRange + Math.random() * baseRange * 0.35,
-      size: type === 'beta' ? 3.4 : 2.6,
+      angle: Number.isFinite(options.angle) ? options.angle : Math.random() * Math.PI * 2,
+      speed: Number.isFinite(options.speed) ? options.speed : 1.6 + Math.random() * 0.7,
+      distance: orbitRadius - (bodyRadius + 6),
+      orbitRadius,
+      size: Number.isFinite(options.size) ? options.size : type === 'beta' ? 3.4 : 2.6,
       pulse: Math.random() * Math.PI * 2,
+      state: options.state || 'orbit',
     };
+    if (particle.state === 'arrive') {
+      const startPosition = options.startPosition || { x: tower.x, y: tower.y };
+      particle.position = { ...startPosition };
+      particle.arriveStart = { ...startPosition };
+      particle.arriveDuration = Number.isFinite(options.arriveDuration)
+        ? options.arriveDuration
+        : 0.32 + Math.random() * 0.12;
+      particle.arriveTime = 0;
+    }
+    return particle;
+  }
+
+  /**
+   * Resolve the baseline body radius so orbit math can stay consistent across render scales.
+   */
+  resolveTowerBodyRadius(tower) {
+    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+    const minDimension = width > 0 && height > 0 ? Math.min(width, height) : Math.max(width, height);
+    const scale = Math.max(1, minDimension);
+    return Math.max(12, scale * ALPHA_BASE_RADIUS_FACTOR);
+  }
+
+  /**
+   * Keep idle orbit particles spinning in sync with tower cadence.
+   */
+  updateConnectionOrbitParticle(particle, step) {
+    particle.angle = (particle.angle || 0) + (particle.speed || 1) * step;
+    particle.pulse = (particle.pulse || 0) + step;
+  }
+
+  /**
+   * Blend arriving motes from supply shots into the standard orbit radius.
+   */
+  updateConnectionArriveParticle(tower, particle, step) {
+    particle.arriveTime = (particle.arriveTime || 0) + step;
+    const duration = Number.isFinite(particle.arriveDuration) ? particle.arriveDuration : 0.32;
+    const progress = duration > 0 ? Math.min(1, particle.arriveTime / duration) : 1;
+    const eased = easeOutCubic(progress);
+    const start = particle.arriveStart || { x: tower.x, y: tower.y };
+    const target = this.resolveConnectionOrbitAnchor(tower, particle);
+    particle.position = {
+      x: start.x + (target.x - start.x) * eased,
+      y: start.y + (target.y - start.y) * eased,
+    };
+    particle.pulse = (particle.pulse || 0) + step;
+    if (progress >= 1) {
+      particle.state = 'orbit';
+      particle.position = null;
+      particle.arriveStart = null;
+      particle.arriveTime = 0;
+    }
+  }
+
+  /**
+   * Propel spent motes toward their target so stored shots visually discharge.
+   */
+  updateConnectionLaunchParticle(particle, step) {
+    particle.launchTime = (particle.launchTime || 0) + step;
+    const duration = Number.isFinite(particle.launchDuration) ? particle.launchDuration : 0.28;
+    const progress = duration > 0 ? Math.min(1, particle.launchTime / duration) : 1;
+    const eased = easeInCubic(progress);
+    const start = particle.launchStart || particle.position || { x: 0, y: 0 };
+    const target = particle.targetPosition || start;
+    particle.position = {
+      x: start.x + (target.x - start.x) * eased,
+      y: start.y + (target.y - start.y) * eased,
+    };
+    particle.pulse = (particle.pulse || 0) + step * 1.5;
+    if (progress >= 1) {
+      particle.state = 'done';
+    }
+  }
+
+  /**
+   * Compute the stable orbit anchor without the animated pulse offset.
+   */
+  resolveConnectionOrbitAnchor(tower, particle) {
+    if (!tower || !particle) {
+      return null;
+    }
+    const bodyRadius = this.resolveTowerBodyRadius(tower);
+    const orbitRadius = Number.isFinite(particle.orbitRadius)
+      ? particle.orbitRadius
+      : bodyRadius + 6 + (particle.distance || 18);
+    const angle = particle.angle || 0;
+    return {
+      x: tower.x + Math.cos(angle) * orbitRadius,
+      y: tower.y + Math.sin(angle) * orbitRadius,
+    };
+  }
+
+  /**
+   * Resolve the animated orbit position including the pulsing offset.
+   */
+  resolveConnectionOrbitPosition(tower, particle, bodyRadius) {
+    if (!tower || !particle) {
+      return null;
+    }
+    const baseRadius = Number.isFinite(bodyRadius) ? bodyRadius : this.resolveTowerBodyRadius(tower);
+    const orbitRadius = Number.isFinite(particle.orbitRadius)
+      ? particle.orbitRadius
+      : baseRadius + 6 + (particle.distance || 18);
+    const angle = particle.angle || 0;
+    const pulse = Math.sin((particle.pulse || 0) * 2) * 2.2;
+    const offset = orbitRadius + pulse;
+    return {
+      x: tower.x + Math.cos(angle) * offset,
+      y: tower.y + Math.sin(angle) * offset,
+    };
+  }
+
+  /**
+   * Queue a swirl launch so we can animate the motes once the tower fires.
+   */
+  queueTowerSwirlLaunch(tower, type, count) {
+    if (!tower || !type || !Number.isFinite(count) || count <= 0) {
+      return;
+    }
+    if (!Array.isArray(tower.pendingSwirlLaunches)) {
+      tower.pendingSwirlLaunches = [];
+    }
+    const existing = tower.pendingSwirlLaunches.find((entry) => entry.type === type);
+    if (existing) {
+      existing.count += count;
+    } else {
+      tower.pendingSwirlLaunches.push({ type, count });
+    }
+  }
+
+  /**
+   * Trigger any queued swirl launches toward the resolved attack position.
+   */
+  triggerQueuedSwirlLaunches(tower, targetPosition) {
+    if (!tower || !Array.isArray(tower.pendingSwirlLaunches) || !tower.pendingSwirlLaunches.length) {
+      return;
+    }
+    if (!targetPosition) {
+      tower.pendingSwirlLaunches = [];
+      return;
+    }
+    this.launchTowerConnectionParticles(tower, tower.pendingSwirlLaunches, targetPosition);
+    tower.pendingSwirlLaunches = [];
+  }
+
+  /**
+   * Convert orbiting motes into travelling bursts aimed at the provided target.
+   */
+  launchTowerConnectionParticles(tower, entries, targetPosition) {
+    if (!tower || !Array.isArray(tower.connectionParticles) || !Array.isArray(entries) || !targetPosition) {
+      return;
+    }
+    entries.forEach((entry) => {
+      let remaining = Math.max(0, Math.floor(entry?.count || 0));
+      if (remaining <= 0) {
+        return;
+      }
+      tower.connectionParticles.forEach((particle) => {
+        if (remaining <= 0 || !particle || particle.type !== entry.type) {
+          return;
+        }
+        if (particle.state === 'launch') {
+          return;
+        }
+        if (particle.state === 'orbit' || particle.state === 'arrive') {
+          const startPosition =
+            particle.state === 'arrive' && particle.position
+              ? { ...particle.position }
+              : this.resolveConnectionOrbitPosition(tower, particle);
+          if (!startPosition) {
+            return;
+          }
+          particle.state = 'launch';
+          particle.launchStart = startPosition;
+          particle.position = { ...startPosition };
+          particle.targetPosition = { ...targetPosition };
+          particle.launchTime = 0;
+          particle.launchDuration = 0.28 + Math.random() * 0.14;
+          remaining -= 1;
+        }
+      });
+    });
+  }
+
+  /**
+   * Seed supply projectiles with motes that can blend into orbit upon arrival.
+   */
+  createSupplySeeds(source, target, payload = {}) {
+    if (!source || !target) {
+      return [];
+    }
+    const seeds = [];
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const nx = dx / distance;
+    const ny = dy / distance;
+    const appendSeeds = (count, type) => {
+      for (let index = 0; index < count; index += 1) {
+        seeds.push({
+          type,
+          progressOffset: Math.random() * 0.18 + (index / Math.max(1, count)) * 0.1,
+          perpendicular: (Math.random() - 0.5) * 10,
+          phaseOffset: Math.random() * Math.PI * 2,
+          sway: 3 + Math.random() * 2,
+          size: type === 'beta' ? 2.8 : 2.2,
+        });
+      }
+    };
+
+    if (payload.type === 'alpha') {
+      appendSeeds(3, 'alpha');
+    } else if (payload.type === 'beta') {
+      appendSeeds(3, 'beta');
+      const alphaShots = Math.max(0, Math.floor(payload.alphaShots || 0));
+      if (alphaShots > 0) {
+        appendSeeds(Math.min(3 * alphaShots, 12), 'alpha');
+      }
+    }
+
+    seeds.forEach((seed) => {
+      seed.position = { ...source };
+    });
+
+    return seeds;
+  }
+
+  /**
+   * Update supply seed positions so they trail the projectile during flight.
+   */
+  updateSupplySeeds(projectile) {
+    if (!projectile || !Array.isArray(projectile.seeds) || !projectile.seeds.length) {
+      return;
+    }
+    const { source, target } = projectile;
+    if (!source || !target) {
+      return;
+    }
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const nx = dx / distance;
+    const ny = dy / distance;
+    const px = -ny;
+    const py = nx;
+    const baseProgress = Math.max(0, projectile.progress || 0);
+    projectile.seeds.forEach((seed) => {
+      if (!seed) {
+        return;
+      }
+      const offsetProgress = Math.max(0, Math.min(1, baseProgress + (seed.progressOffset || 0)));
+      const eased = easeOutCubic(offsetProgress);
+      const baseX = source.x + dx * eased;
+      const baseY = source.y + dy * eased;
+      const sway = Math.sin(baseProgress * 8 + (seed.phaseOffset || 0)) * (seed.sway || 3);
+      const lateral = (seed.perpendicular || 0) + sway;
+      seed.position = {
+        x: baseX + px * lateral,
+        y: baseY + py * lateral,
+      };
+    });
+  }
+
+  /**
+   * Convert supply projectile seeds into arriving orbit motes at the destination tower.
+   */
+  transferSupplySeedsToOrbit(tower, projectile) {
+    if (!tower || !projectile || !Array.isArray(projectile.seeds) || !projectile.seeds.length) {
+      return;
+    }
+    if (!Array.isArray(tower.connectionParticles)) {
+      tower.connectionParticles = [];
+    }
+    const bodyRadius = this.resolveTowerBodyRadius(tower);
+    projectile.seeds.forEach((seed) => {
+      if (!seed) {
+        return;
+      }
+      const type = seed.type === 'beta' ? 'beta' : 'alpha';
+      const startPosition = seed.position || projectile.target || { x: tower.x, y: tower.y };
+      const angle = Math.atan2(startPosition.y - tower.y, startPosition.x - tower.x);
+      const orbitRadius = bodyRadius + 6 + Math.random() * Math.max(18, Number.isFinite(tower.range) ? tower.range * 0.06 : 24);
+      const particle = this.createConnectionParticle(tower, type, {
+        state: 'arrive',
+        startPosition,
+        angle,
+        orbitRadius,
+        arriveDuration: 0.28 + Math.random() * 0.12,
+        size: seed.size,
+      });
+      tower.connectionParticles.push(particle);
+    });
   }
 
   /**
@@ -3751,17 +4081,24 @@ export class SimplePlayfield {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter'; // Blend motes additively to mirror α burst luminosity.
     particles.forEach((particle) => {
-      const orbitRadius = bodyRadius + 6 + (particle.distance || 18);
-      const angle = particle.angle || 0;
-      const pulse = Math.sin((particle.pulse || 0) * 2) * 2.2;
-      const x = tower.x + Math.cos(angle) * (orbitRadius + pulse);
-      const y = tower.y + Math.sin(angle) * (orbitRadius + pulse);
+      if (!particle || particle.state === 'done') {
+        return;
+      }
       const baseColor = particle.type === 'beta'
         ? { r: 255, g: 214, b: 112 }
         : { r: 255, g: 138, b: 216 };
       const color = normalizeProjectileColor(baseColor, 1);
-      // Drop a glowing mote to match the additive α particle rendering.
-      drawConnectionMoteGlow(ctx, x, y, particle.size || 2.6, color, 0.85);
+      const size = particle.size || 2.6;
+      let position = null;
+      if (particle.state === 'launch' || particle.state === 'arrive') {
+        position = particle.position || this.resolveConnectionOrbitAnchor(tower, particle);
+      } else {
+        position = this.resolveConnectionOrbitPosition(tower, particle, bodyRadius);
+      }
+      if (!position) {
+        return;
+      }
+      drawConnectionMoteGlow(ctx, position.x, position.y, size, color, particle.state === 'launch' ? 0.9 : 0.85);
     });
     ctx.restore();
   }
@@ -4684,6 +5021,7 @@ export class SimplePlayfield {
       progress: 0,
       payload,
     };
+    projectile.seeds = this.createSupplySeeds(sourcePosition, targetPosition, payload);
     if (payload.type === 'beta') {
       projectile.color = { r: 255, g: 214, b: 112 };
     } else {
@@ -4707,6 +5045,7 @@ export class SimplePlayfield {
     if (payload.type === 'alpha') {
       target.storedAlphaShots = Math.min(999, (target.storedAlphaShots || 0) + 1);
       target.storedAlphaSwirl = Math.min(30, (target.storedAlphaSwirl || 0) + 3);
+      this.transferSupplySeedsToOrbit(target, projectile);
       return;
     }
     if (payload.type === 'beta') {
@@ -4717,6 +5056,7 @@ export class SimplePlayfield {
         target.storedAlphaShots = Math.min(999, (target.storedAlphaShots || 0) + alphaShots);
         target.storedAlphaSwirl = Math.min(30, (target.storedAlphaSwirl || 0) + alphaShots * 3);
       }
+      this.transferSupplySeedsToOrbit(target, projectile);
     }
   }
 
@@ -4730,6 +5070,8 @@ export class SimplePlayfield {
       if (alphaShots > 0) {
         const alphaValue = calculateTowerEquationResult('alpha');
         damage += alphaValue * alphaShots;
+        const swirlCount = Math.max(0, Math.floor(tower.storedAlphaSwirl || alphaShots * 3));
+        this.queueTowerSwirlLaunch(tower, 'alpha', swirlCount);
         tower.storedAlphaShots = 0;
         tower.storedAlphaSwirl = 0;
       }
@@ -4740,6 +5082,10 @@ export class SimplePlayfield {
         const betaValue = calculateTowerEquationResult('beta');
         const alphaValue = calculateTowerEquationResult('alpha');
         damage += betaValue * betaShots + alphaValue * alphaShots;
+        const betaSwirlCount = Math.max(0, Math.floor(tower.storedBetaSwirl || betaShots * 3));
+        const alphaSwirlCount = Math.max(0, Math.floor(tower.storedAlphaSwirl || alphaShots * 3));
+        this.queueTowerSwirlLaunch(tower, 'beta', betaSwirlCount);
+        this.queueTowerSwirlLaunch(tower, 'alpha', alphaSwirlCount);
         tower.storedBetaShots = 0;
         tower.storedAlphaShots = 0;
         tower.storedBetaSwirl = 0;
@@ -4773,6 +5119,9 @@ export class SimplePlayfield {
         lifetime: 0,
         maxLifetime: 0.24,
       });
+    }
+    if ((tower.type === 'beta' || tower.type === 'gamma')) {
+      this.triggerQueuedSwirlLaunches(tower, effectPosition);
     }
     if (getTowerTierValue(tower) >= 24) {
       this.spawnOmegaWave(tower);
@@ -5008,6 +5357,7 @@ export class SimplePlayfield {
             x: projectile.source.x + (projectile.target.x - projectile.source.x) * clamped,
             y: projectile.source.y + (projectile.target.y - projectile.source.y) * clamped,
           };
+          this.updateSupplySeeds(projectile);
         }
         if (projectile.progress >= 1) {
           this.handleSupplyImpact(projectile);
@@ -7320,11 +7670,29 @@ export class SimplePlayfield {
         if (!position) {
           return;
         }
-        const color = normalizeProjectileColor(projectile.color, 1);
-        ctx.fillStyle = colorToRgbaString(color, 0.85);
-        ctx.beginPath();
-        ctx.arc(position.x, position.y, 4, 0, Math.PI * 2);
-        ctx.fill();
+        const seeds = Array.isArray(projectile.seeds) ? projectile.seeds : [];
+        if (seeds.length) {
+          seeds.forEach((seed) => {
+            if (!seed || !seed.position) {
+              return;
+            }
+            const baseColor = seed.type === 'beta'
+              ? { r: 255, g: 214, b: 112 }
+              : { r: 255, g: 138, b: 216 };
+            const glowColor = normalizeProjectileColor(baseColor, 1);
+            const size = Number.isFinite(seed.size) ? seed.size : 2.2;
+            ctx.fillStyle = colorToRgbaString(glowColor, 0.85);
+            ctx.beginPath();
+            ctx.arc(seed.position.x, seed.position.y, size, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        } else {
+          const color = normalizeProjectileColor(projectile.color, 1);
+          ctx.fillStyle = colorToRgbaString(color, 0.85);
+          ctx.beginPath();
+          ctx.arc(position.x, position.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
         return;
       }
 

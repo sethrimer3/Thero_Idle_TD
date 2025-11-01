@@ -35,6 +35,7 @@ const BETA_PARTICLE_CONFIG = {
   colors: BETA_PARTICLE_COLORS,
   colorResolver: resolveBetaParticleColors,
   behavior: 'swirlBounce',
+  homing: true,
   particleCountRange: { min: 5, max: 10 },
   dashDelayRange: 0.06,
   timings: {
