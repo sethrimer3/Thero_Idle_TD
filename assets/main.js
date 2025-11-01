@@ -228,6 +228,7 @@ import {
   'use strict';
 
   const STARTUP_LOGO_DURATION_MS = 5000; // 2s fade-in + 1s hold + 2s fade-out.
+  const STARTUP_OVERLAY_MIN_VISIBLE_MS = 4000; // Guarantee the startup overlay lingers long enough to be seen.
   const STARTUP_OVERLAY_FADE_MS = 320;
 
   const startupOverlay = document.getElementById('startup-overlay');
@@ -238,6 +239,7 @@ import {
 
   let startupLoadingActivated = false;
   let startupOverlayFadeHandle = null;
+  let startupOverlayVisibleAt = null; // Track when the overlay became visible so the minimum duration can be enforced.
 
   function activateStartupLoadingSpinner() {
     if (!startupOverlay || !startupLoading) {
@@ -265,6 +267,7 @@ import {
     startupOverlay.classList.remove('startup-overlay--hidden');
     startupOverlay.removeAttribute('hidden');
     startupOverlay.setAttribute('aria-hidden', 'false');
+    startupOverlayVisibleAt = performance.now(); // Record the reveal timestamp for minimum-duration calculations.
 
     activateStartupLoadingSpinner();
 
@@ -296,12 +299,22 @@ import {
     startupLogo.addEventListener('animationend', logoAnimationHandler);
   }
 
-  function dismissStartupOverlay() {
+  async function dismissStartupOverlay() {
     if (!startupOverlay) {
-      return Promise.resolve();
+      return;
     }
 
     activateStartupLoadingSpinner();
+
+    if (Number.isFinite(startupOverlayVisibleAt)) {
+      const elapsed = performance.now() - startupOverlayVisibleAt;
+      if (elapsed < STARTUP_OVERLAY_MIN_VISIBLE_MS) {
+        // Wait out the remaining time so the intro animation never flashes too quickly.
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, STARTUP_OVERLAY_MIN_VISIBLE_MS - elapsed);
+        });
+      }
+    }
 
     if (startupOverlay.classList.contains('startup-overlay--hidden')) {
       if (!startupOverlay.hasAttribute('hidden')) {
@@ -311,10 +324,11 @@ import {
       if (startupHint && startupHintDefaultText) {
         startupHint.textContent = startupHintDefaultText;
       }
-      return Promise.resolve();
+      startupOverlayVisibleAt = null; // Clear the timestamp once dismissal completes so subsequent calls skip the delay.
+      return;
     }
 
-    return new Promise((resolve) => {
+    await new Promise((resolve) => {
       const complete = () => {
         if (startupOverlayFadeHandle) {
           window.clearTimeout(startupOverlayFadeHandle);
@@ -329,6 +343,7 @@ import {
         if (startupHint && startupHintDefaultText) {
           startupHint.textContent = startupHintDefaultText;
         }
+        startupOverlayVisibleAt = null; // Reset the visibility marker so retries do not wait unnecessarily.
         resolve();
       };
 
