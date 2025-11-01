@@ -2824,16 +2824,16 @@ body.graphics-mode-low .control-button {
   display: flex;
   justify-content: center;
   margin: 0 auto 32px;
-  padding-inline: clamp(12px, 4vw, 36px);
+  padding-inline: clamp(6px, 2vw, 18px);
 }
 
 .powder-simulation {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 18px;
-  width: min(520px, 100%);
-  min-height: clamp(440px, 85vh, 760px);
+  gap: 9px;
+  width: min(260px, 50%);
+  min-height: clamp(220px, 42.5vh, 380px);
 }
 
 .powder-simulation h3 {
@@ -2844,7 +2844,7 @@ body.graphics-mode-low .control-button {
   position: relative;
   flex: 1 1 auto;
   width: 100%;
-  min-height: clamp(360px, 70vh, 640px);
+  min-height: clamp(180px, 35vh, 320px);
   border-radius: 20px;
   overflow: hidden;
   background: radial-gradient(circle at 50% 10%, rgba(255, 228, 120, 0.08), transparent 60%),
@@ -3142,10 +3142,10 @@ body.graphics-mode-low .control-button {
 
 @media (min-width: 960px) {
   .powder-stage {
-    padding-inline: clamp(24px, 6vw, 64px);
+    padding-inline: clamp(12px, 3vw, 32px);
   }
   .powder-simulation {
-    min-height: clamp(500px, 90vh, 820px);
+    min-height: clamp(250px, 45vh, 410px);
   }
 }
 
