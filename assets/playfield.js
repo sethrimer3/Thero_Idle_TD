@@ -4899,6 +4899,29 @@ export class SimplePlayfield {
   }
 
   updateProjectiles(delta) {
+    // Compute squared distance from a point to a line segment so we can catch fast projectiles that would otherwise tunnel past an enemy between frames.
+    const distanceSquaredToSegment = (point, start, end) => {
+      if (!point || !start || !end) {
+        return Infinity;
+      }
+      const abx = end.x - start.x;
+      const aby = end.y - start.y;
+      const abLengthSquared = abx * abx + aby * aby;
+      if (abLengthSquared <= 0) {
+        const dx = point.x - start.x;
+        const dy = point.y - start.y;
+        return dx * dx + dy * dy;
+      }
+      const apx = point.x - start.x;
+      const apy = point.y - start.y;
+      const t = Math.max(0, Math.min(1, (apx * abx + apy * aby) / abLengthSquared));
+      const closestX = start.x + abx * t;
+      const closestY = start.y + aby * t;
+      const dx = point.x - closestX;
+      const dy = point.y - closestY;
+      return dx * dx + dy * dy;
+    };
+
     for (let index = this.projectiles.length - 1; index >= 0; index -= 1) {
       const projectile = this.projectiles[index];
       projectile.lifetime += delta;
@@ -5032,8 +5055,19 @@ export class SimplePlayfield {
         const metrics = this.getEnemyVisualMetrics(enemy);
         const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
         const hitRadius = Math.max(2, Number.isFinite(projectile.hitRadius) ? projectile.hitRadius : 6);
-        const sep = Math.hypot(projectile.position.x - position.x, projectile.position.y - position.y);
-        if (sep <= enemyRadius + hitRadius) {
+        const combinedRadius = enemyRadius + hitRadius;
+        const currentSeparation = Math.hypot(projectile.position.x - position.x, projectile.position.y - position.y);
+        let didHit = currentSeparation <= combinedRadius;
+
+        if (!didHit) {
+          const previous = projectile.previousPosition || { x: px, y: py };
+          const segmentDistanceSquared = distanceSquaredToSegment(position, previous, projectile.position);
+          if (segmentDistanceSquared <= combinedRadius * combinedRadius) {
+            didHit = true;
+          }
+        }
+
+        if (didHit) {
           // find source tower for stacking
           const tower = this.towers.find((t) => t && t.id === projectile.towerId);
           let stacks = 0;
