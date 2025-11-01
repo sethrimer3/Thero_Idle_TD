@@ -5352,13 +5352,13 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 .startup-overlay__loading {
-  width: min(48vw, 300px);
-  max-width: 300px;
+  width: min(48vw, 80px);
+  max-width: 80px; /* Constrain the glyph to render at 80px tall so it aligns with the startup logo stack. */
   aspect-ratio: 1;
   background-image: url('./animations/p_elliptic_function/sprite_sheet.png');
   background-repeat: no-repeat;
   background-position: 0 0;
-  background-size: 9000% 100%; /* Scale the 90-frame sprite sheet to whatever width the container resolves to. */
+  background-size: 9100% 100%; /* Scale the 91-frame sprite sheet to whatever width the container resolves to. */
   image-rendering: pixelated;
   opacity: 0;
   place-self: center; /* Keep the animation centered within the startup overlay grid. */
@@ -5367,7 +5367,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .startup-overlay__loading--active {
   opacity: 1;
-  animation: pEllipticLoading 3.5167s steps(89) infinite;
+  animation: pEllipticLoading 3.5167s steps(90) infinite; /* Advance through all 91 frames without sliding past the texture. */
 }
 
 .startup-overlay__hint {
@@ -5402,15 +5402,15 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     background-position: 0% 0;
   }
   100% {
-    background-position: 100% 0; /* Traverse all 89 frame offsets relative to the scaled sprite width. */
+    background-position: 100% 0; /* Traverse all 90 frame offsets relative to the scaled sprite width. */
   }
 }
 
 @media (max-width: 600px) {
   /* Present a much smaller loading glyph on phones so it no longer overwhelms the viewport. */
   .startup-overlay__loading {
-    width: min(32vw, 96px); /* Shrink the animation to roughly one-fifth of its previous footprint on narrow screens. */
-    max-width: 96px; /* Cap the sprite display size for consistent mobile framing. */
+    width: min(32vw, 80px); /* Maintain the 80px glyph size while still allowing narrow screens to shrink proportionally. */
+    max-width: 80px; /* Match the desktop cap so the animation height stays consistent across devices. */
   }
 }
 
