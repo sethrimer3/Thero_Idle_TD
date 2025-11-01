@@ -1169,6 +1169,21 @@ import {
       playfieldMenuRetryWave.disabled = !canRetry;
       playfieldMenuRetryWave.setAttribute('aria-disabled', canRetry ? 'false' : 'true');
     }
+    if (playfieldMenuDevTools) {
+      const devAvailable = Boolean(developerModeActive && activeLevelId && interactive);
+      playfieldMenuDevTools.disabled = !devAvailable;
+      playfieldMenuDevTools.setAttribute('aria-disabled', devAvailable ? 'false' : 'true');
+      if (!devAvailable) {
+        const hint = developerModeActive
+          ? 'Enter an interactive defense to access Dev Map Tools.'
+          : 'Enable developer mode in the Codex tab to access Dev Map Tools.';
+        playfieldMenuDevTools.setAttribute('title', hint);
+        playfieldMenuDevTools.setAttribute('aria-description', hint);
+      } else {
+        playfieldMenuDevTools.removeAttribute('title');
+        playfieldMenuDevTools.removeAttribute('aria-description');
+      }
+    }
   }
 
   function closePlayfieldMenu(options = {}) {
@@ -1370,6 +1385,55 @@ import {
     }
   }
 
+  function handleOpenDevMapTools() {
+    resetPlayfieldMenuLevelSelect();
+
+    if (!developerModeActive) {
+      if (playfield?.messageEl) {
+        playfield.messageEl.textContent =
+          'Enable developer mode in the Codex tab to open Dev Map Tools.';
+      }
+      if (audioManager) {
+        audioManager.playSfx('error');
+      }
+      closePlayfieldMenu();
+      return;
+    }
+
+    if (!activeLevelId || !activeLevelIsInteractive) {
+      if (playfield?.messageEl) {
+        playfield.messageEl.textContent = 'Enter an interactive defense before opening Dev Map Tools.';
+      }
+      if (audioManager) {
+        audioManager.playSfx('error');
+      }
+      closePlayfieldMenu();
+      return;
+    }
+
+    const level = levelLookup.get(activeLevelId);
+    if (!level) {
+      if (playfield?.messageEl) {
+        playfield.messageEl.textContent =
+          'Active level data unavailable—restart the defense to refresh developer tools.';
+      }
+      closePlayfieldMenu();
+      return;
+    }
+
+    pendingLevel = null;
+    showLevelOverlay(level, { requireExitConfirm: false });
+    if (overlay) {
+      overlay.setAttribute('data-overlay-mode', 'developer');
+    }
+    if (overlayInstruction) {
+      overlayInstruction.textContent =
+        'Developer map tools active—adjust anchors, waves, or enemy schedules. Tap outside or press Esc to close.';
+    }
+    syncLevelEditorVisibility();
+    closePlayfieldMenu();
+  }
+
   const developerControlElements = {
     container: null,
     fields: {
@@ -1402,6 +1466,7 @@ import {
   let playfieldMenuCommence = null;
   let playfieldMenuLevelSelect = null;
   let playfieldMenuRetryWave = null;
+  let playfieldMenuDevTools = null;
   let playfieldMenuLevelSelectConfirming = false;
   const playfieldMenuLevelSelectDefaultLabel = 'Level Selection';
   let playfieldMenuOpen = false;
@@ -6204,6 +6269,8 @@ import {
 
     syncLevelEditorVisibility();
 
+    updatePlayfieldMenuState();
+
     if (playfield?.messageEl) {
       playfield.messageEl.textContent =
         'Developer lattice engaged—every tower, level, and codex entry is unlocked.';
@@ -6265,6 +6332,8 @@ import {
     syncDeveloperControlValues();
 
     hideLevelEditorPanel();
+
+    updatePlayfieldMenuState();
 
     updatePowderHitboxVisibility();
   }
@@ -7630,6 +7699,7 @@ import {
     playfieldMenuCommence = document.getElementById('playfield-menu-commence');
     playfieldMenuLevelSelect = document.getElementById('playfield-menu-level-select');
     playfieldMenuRetryWave = document.getElementById('playfield-menu-retry-wave');
+    playfieldMenuDevTools = document.getElementById('playfield-menu-dev-tools');
     if (playfieldMenuLevelSelect) {
       playfieldMenuLevelSelect.textContent = playfieldMenuLevelSelectDefaultLabel;
     }
@@ -7655,6 +7725,12 @@ import {
       playfieldMenuRetryWave.addEventListener('click', (event) => {
         event.preventDefault();
         handleRetryCurrentWave();
+      });
+    }
+    if (playfieldMenuDevTools) {
+      playfieldMenuDevTools.addEventListener('click', (event) => {
+        event.preventDefault();
+        handleOpenDevMapTools();
       });
     }
     // Default to the level selection view until a combat encounter begins.
