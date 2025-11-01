@@ -5358,9 +5358,10 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   background-image: url('./animations/p_elliptic_function/sprite_sheet.png');
   background-repeat: no-repeat;
   background-position: 0 0;
-  background-size: 27300px 300px;
+  background-size: 9000% 100%; /* Scale the 90-frame sprite sheet to whatever width the container resolves to. */
   image-rendering: pixelated;
   opacity: 0;
+  place-self: center; /* Keep the animation centered within the startup overlay grid. */
   transition: opacity 220ms ease;
 }
 
@@ -5400,11 +5401,16 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   0% {
     background-position: 0 0;
   }
-  43.14% {
-    background-position: -27000px 0;
-  }
   100% {
-    background-position: -27000px 0;
+    background-position: -8900% 0; /* Sweep through the remaining 89 frames at the scaled width. */
+  }
+}
+
+@media (max-width: 600px) {
+  /* Present a much smaller loading glyph on phones so it no longer overwhelms the viewport. */
+  .startup-overlay__loading {
+    width: min(32vw, 96px); /* Shrink the animation to roughly one-fifth of its previous footprint on narrow screens. */
+    max-width: 96px; /* Cap the sprite display size for consistent mobile framing. */
   }
 }
 
