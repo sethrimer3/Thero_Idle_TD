@@ -1478,6 +1478,19 @@ import {
     },
   };
 
+  // Developer map element references allow quick toggles for spawning and clearing obstacles.
+  const developerMapElements = {
+    container: null,
+    addCrystalButton: null,
+    clearButton: null,
+    note: null,
+  };
+
+  // Placement state tracks which experimental element should capture the next battlefield click.
+  const developerMapPlacementState = {
+    mode: null,
+  };
+
   const developerFieldHandlers = {
     moteBank: setDeveloperIdleMoteBank,
     moteRate: setDeveloperIdleMoteRate,
@@ -1652,6 +1665,7 @@ import {
     if (active) {
       syncDeveloperControlValues();
     }
+    updateDeveloperMapElementsVisibility();
   }
 
   function handleDeveloperFieldCommit(event) {
@@ -3273,6 +3287,7 @@ import {
     isFieldNotesOverlayVisible,
     getBaseStartThero: () => BASE_START_THERO,
     getBaseCoreIntegrity: () => BASE_CORE_INTEGRITY,
+    handleDeveloperMapPlacement: handleDeveloperMapPlacementRequest,
     // Provide the playfield with the active graphics mode to prune visual effects.
     isLowGraphicsMode: () => isLowGraphicsModeActive(),
   });
@@ -4618,6 +4633,9 @@ import {
       levelEditorElements.container.setAttribute('aria-hidden', 'true');
     }
 
+    setDeveloperMapPlacementMode(null);
+    updateDeveloperMapElementsVisibility();
+
     if (levelEditorElements.toggle) {
       levelEditorElements.toggle.disabled = true;
       levelEditorElements.toggle.setAttribute('aria-pressed', 'false');
@@ -4915,6 +4933,7 @@ import {
     levelEditorElements.container.setAttribute('aria-hidden', 'false');
     updateLevelEditorUI();
     refreshLevelEditorMarkers();
+    updateDeveloperMapElementsVisibility();
   }
 
   function handleLevelEditorToggle() {
@@ -5143,6 +5162,133 @@ import {
     endLevelEditorDrag();
     refreshLevelEditorMarkers();
     updateLevelEditorUI();
+  }
+
+  // Update visibility whenever developer tools, overlay mode, or playfield state changes.
+  function updateDeveloperMapElementsVisibility() {
+    const container = developerMapElements.container;
+    if (!container) {
+      return;
+    }
+    const overlayActive = overlay?.dataset?.overlayMode === 'developer';
+    const canUseBattlefield = Boolean(
+      developerModeActive &&
+        overlayActive &&
+        playfield &&
+        playfield.levelActive &&
+        playfield.levelConfig &&
+        isPlayfieldEditorSurface(),
+    );
+    container.hidden = !canUseBattlefield;
+    container.setAttribute('aria-hidden', canUseBattlefield ? 'false' : 'true');
+    if (!canUseBattlefield) {
+      setDeveloperMapPlacementMode(null);
+      if (developerMapElements.note) {
+        developerMapElements.note.hidden = true;
+        developerMapElements.note.textContent = '';
+      }
+    }
+  }
+
+  // Toggle the active placement mode so developers can drop repeated crystals or exit the tool.
+  function setDeveloperMapPlacementMode(mode) {
+    const nextMode = mode && developerMapPlacementState.mode === mode ? null : mode;
+    developerMapPlacementState.mode = nextMode;
+    if (developerMapElements.addCrystalButton) {
+      developerMapElements.addCrystalButton.classList.toggle(
+        'overlay-editor__button--active',
+        nextMode === 'crystal',
+      );
+    }
+    if (developerMapElements.note) {
+      if (nextMode === 'crystal') {
+        developerMapElements.note.hidden = false;
+        developerMapElements.note.textContent =
+          'Click the battlefield to anchor a solid crystal obstruction.';
+      } else {
+        developerMapElements.note.hidden = true;
+        developerMapElements.note.textContent = '';
+      }
+    }
+  }
+
+  // Handle battlefield clicks routed from the playfield when the crystal tool is active.
+  function handleDeveloperMapPlacementRequest(context = {}) {
+    if (developerMapPlacementState.mode !== 'crystal' || !developerModeActive) {
+      return false;
+    }
+    if (!context || !context.normalized) {
+      return false;
+    }
+    const overlayActive = overlay?.dataset?.overlayMode === 'developer';
+    if (!overlayActive) {
+      return false;
+    }
+    return placeDeveloperCrystal(context.normalized);
+  }
+
+  // Place a developer crystal at the provided normalized position and surface feedback.
+  function placeDeveloperCrystal(normalized) {
+    if (!playfield || typeof playfield.addDeveloperCrystal !== 'function') {
+      setLevelEditorStatus('Active battlefield required before placing crystals.', { tone: 'warning' });
+      return false;
+    }
+    const placed = playfield.addDeveloperCrystal(normalized);
+    if (!placed) {
+      setLevelEditorStatus('Crystal placement failed—ensure the click stays within the battlefield.', { tone: 'error' });
+      return false;
+    }
+    setLevelEditorStatus('Solid crystal anchored—focus towers on it to stress-test fractures.', { tone: 'info', duration: 2800 });
+    if (developerMapElements.note && developerMapPlacementState.mode === 'crystal') {
+      developerMapElements.note.hidden = false;
+      developerMapElements.note.textContent =
+        'Crystal anchored. Click again to place another or toggle the tool to finish.';
+    }
+    return true;
+  }
+
+  // Clear any developer crystals that remain on the battlefield and reset placement hints.
+  function clearDeveloperCrystalsFromUI() {
+    if (!playfield || typeof playfield.clearDeveloperCrystals !== 'function') {
+      setLevelEditorStatus('Enter an interactive defense to clear developer crystals.', { tone: 'warning' });
+      return;
+    }
+    const removed = playfield.clearDeveloperCrystals({ silent: false });
+    if (removed > 0) {
+      const suffix = removed === 1 ? '' : 's';
+      setLevelEditorStatus(`Cleared ${removed} developer crystal${suffix}.`, { tone: 'info' });
+    } else {
+      setLevelEditorStatus('No developer crystals to clear.', { tone: 'warning' });
+    }
+    setDeveloperMapPlacementMode(null);
+  }
+
+  // Bind the developer map element controls surfaced inside the overlay editor.
+  function initializeDeveloperMapElements() {
+    developerMapElements.container = document.getElementById('developer-map-elements');
+    developerMapElements.addCrystalButton = document.getElementById('developer-add-crystal');
+    developerMapElements.clearButton = document.getElementById('developer-clear-crystals');
+    developerMapElements.note = document.getElementById('developer-map-elements-note');
+
+    if (developerMapElements.addCrystalButton) {
+      developerMapElements.addCrystalButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        if (!developerModeActive) {
+          setLevelEditorStatus('Enable developer mode to place map elements.', { tone: 'warning' });
+          return;
+        }
+        setDeveloperMapPlacementMode('crystal');
+      });
+    }
+
+    if (developerMapElements.clearButton) {
+      developerMapElements.clearButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        clearDeveloperCrystalsFromUI();
+      });
+    }
+
+    updateDeveloperMapElementsVisibility();
   }
 
   function initializeLevelEditorElements() {
@@ -6491,6 +6637,7 @@ import {
     syncLevelEditorVisibility();
 
     updatePlayfieldMenuState();
+    updateDeveloperMapElementsVisibility();
 
     if (playfield?.messageEl) {
       playfield.messageEl.textContent =
@@ -6505,6 +6652,9 @@ import {
     if (developerModeElements.toggle && developerModeElements.toggle.checked) {
       developerModeElements.toggle.checked = false;
     }
+
+    setDeveloperMapPlacementMode(null);
+    updateDeveloperMapElementsVisibility();
 
     const unlockState = getTowerUnlockState();
     unlockState.unlocked = new Set(['alpha']);
@@ -7979,6 +8129,7 @@ import {
     });
 
     initializeLevelEditorElements();
+    initializeDeveloperMapElements();
 
     // Apply the preferred graphics fidelity before other controls render.
     initializeGraphicsMode();
