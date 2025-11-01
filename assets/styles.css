@@ -2862,6 +2862,13 @@ body.graphics-mode-low .control-button {
   min-height: clamp(220px, 42.5vh, 380px);
 }
 
+@media (max-width: 640px) {
+  /* Allow the Spire basin to use the full mobile width so walls no longer overlap. */
+  .powder-simulation {
+    width: min(100%, 360px);
+  }
+}
+
 .powder-simulation h3 {
   text-align: center;
 }
