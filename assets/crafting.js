@@ -49,6 +49,27 @@ const CRAFTING_TIER_NAME_SEQUENCE = [
   'nullstone',
 ];
 
+const EQUIPMENT_LENS_SPRITE_LOOKUP = new Map([
+  ['quartz', './assets/sprites/equipment/lens-quartz.svg'],
+  ['ruby', './assets/sprites/equipment/lens-ruby.svg'],
+  ['sunstone', './assets/sprites/equipment/lens-sunstone.svg'],
+  ['citrine', './assets/sprites/equipment/lens-citrine.svg'],
+  ['emerald', './assets/sprites/equipment/lens-emerald.svg'],
+  ['sapphire', './assets/sprites/equipment/lens-sapphire.svg'],
+  ['iolite', './assets/sprites/equipment/lens-iolite.svg'],
+  ['amethyst', './assets/sprites/equipment/lens-amethyst.svg'],
+  ['diamond', './assets/sprites/equipment/lens-diamond.svg'],
+  ['nullstone', './assets/sprites/equipment/lens-nullstone.svg'],
+]);
+
+function getEquipmentLensSpritePath(materialId) {
+  const key = typeof materialId === 'string' ? materialId.trim().toLowerCase() : '';
+  if (key && EQUIPMENT_LENS_SPRITE_LOOKUP.has(key)) {
+    return EQUIPMENT_LENS_SPRITE_LOOKUP.get(key);
+  }
+  return EQUIPMENT_LENS_SPRITE_LOOKUP.get('quartz') || null;
+}
+
 // Persist crafted tier milestones per recipe so the overlay can reveal the correct stage.
 export const CRAFTING_TIER_STORAGE_KEY = 'glyph-defense-idle:crafting-tier-progress';
 
@@ -306,13 +327,6 @@ function renderCraftedEquipmentList() {
 
     item.append(header);
 
-    if (equipment.description) {
-      const description = document.createElement('p');
-      description.className = 'crafted-equipment-item__description';
-      description.textContent = equipment.description;
-      item.append(description);
-    }
-
     const assignmentId = getEquipmentAssignment(equipment.id);
     const assignedLabel = assignmentId ? getTowerLabel(assignmentId) : null;
 
@@ -329,7 +343,7 @@ function renderCraftedEquipmentList() {
 
     const emptyOption = document.createElement('option');
     emptyOption.value = '';
-    emptyOption.textContent = '— Empty Slot —';
+    emptyOption.textContent = '? Empty Slot ?';
     select.append(emptyOption);
 
     const optionDefinitions = [...unlockedTowers];
@@ -444,10 +458,17 @@ function buildVariableTierBlueprints() {
   let bonus = 5;
 
   while (true) {
+    const tierIndex = tiers.length;
+    const materialId =
+      CRAFTING_TIER_NAME_SEQUENCE[tierIndex] ||
+      ledger.find((entry) => entry && typeof entry.gemId === 'string')?.gemId ||
+      'quartz';
     tiers.push({
-      tier: tiers.length + 1,
-      name: determineTierNameForLedger(tiers.length, ledger),
+      tier: tierIndex + 1,
+      name: determineTierNameForLedger(tierIndex, ledger),
       bonusPercent: bonus,
+      materialId,
+      lensSprite: getEquipmentLensSpritePath(materialId),
       requirements: ledger.map((entry) => ({ ...entry })),
     });
 
@@ -486,11 +507,13 @@ function buildVariableCraftingRecipes(variableList) {
       id: `variable-${variable.id}`,
       name: `${symbol} Resonance`,
       type: variableName,
-      description: variable.description || '',
+      description: '',
       tiers: VARIABLE_TIER_BLUEPRINTS.map((tier) => ({
         tier: tier.tier,
         name: tier.name,
         bonusPercent: tier.bonusPercent,
+        materialId: tier.materialId,
+        lensSprite: tier.lensSprite,
         requirements: tier.requirements.map((requirement) => ({
           ...requirement,
           label: resolveGemDefinition(requirement.gemId)?.name || requirement.gemId,
@@ -531,19 +554,7 @@ function renderCraftingRecipes() {
     title.className = 'crafting-item__title';
     title.textContent = recipe.name;
 
-    const effect = document.createElement('p');
-    effect.className = 'crafting-item__effect';
-    const bonusSummary = formatWholeNumber(recipe.maxBonus);
-    effect.textContent = `Unique ${recipe.type} focus — Tiered gemcraft amplifies this variable up to +${bonusSummary}%`;
-    if (recipe.description) {
-      // Append the lore snippet so players recall how the variable behaves in its home equation.
-      const description = document.createElement('span');
-      description.className = 'crafting-item__detail';
-      description.textContent = ` ${recipe.description}`;
-      effect.append(description);
-    }
-
-    header.append(title, effect);
+    header.append(title);
     item.append(header);
 
     // Reveal only the next eligible tier so crafted stages stay hidden until forged.
@@ -559,14 +570,29 @@ function renderCraftingRecipes() {
       // Communicate the tier label alongside the resulting bonus percentage.
       const tierHeader = document.createElement('div');
       tierHeader.className = 'crafting-tier__header';
+      const labelWrap = document.createElement('span');
+      labelWrap.className = 'crafting-tier__label-wrap';
+
+      const lensSpritePath = tier.lensSprite || getEquipmentLensSpritePath(tier.materialId);
+      if (lensSpritePath) {
+        const icon = document.createElement('img');
+        icon.className = 'crafting-tier__icon';
+        icon.src = lensSpritePath;
+        icon.alt = '';
+        icon.decoding = 'async';
+        icon.loading = 'lazy';
+        labelWrap.append(icon);
+      }
+
       const tierLabel = document.createElement('span');
       tierLabel.className = 'crafting-tier__label';
       tierLabel.textContent = tier.name || `Tier ${tier.tier}`;
+      labelWrap.append(tierLabel);
 
       const tierBonus = document.createElement('span');
       tierBonus.className = 'crafting-tier__bonus';
       tierBonus.textContent = `+${formatWholeNumber(tier.bonusPercent)}% ${recipe.type}`;
-      tierHeader.append(tierLabel, tierBonus);
+      tierHeader.append(labelWrap, tierBonus);
 
       // Summarize the gem ledger for this tier using the shared cost styling.
       const costList = document.createElement('ul');

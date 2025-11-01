@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="lensDiamondCore" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.96" />
+      <stop offset="45%" stop-color="#e8f9ff" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#7aa0c8" stop-opacity="1" />
+    </radialGradient>
+    <linearGradient id="lensDiamondRim" x1="12%" y1="8%" x2="88%" y2="92%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.92" />
+      <stop offset="100%" stop-color="#58769a" stop-opacity="0.95" />
+    </linearGradient>
+    <radialGradient id="lensDiamondHighlight" cx="34%" cy="28%" r="26%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.96" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="32" r="22" fill="url(#lensDiamondCore)" stroke="url(#lensDiamondRim)" stroke-width="3" />
+  <circle cx="26" cy="22" r="9" fill="url(#lensDiamondHighlight)" />
+  <path d="M16 43c6 4 26 4 32 0" fill="none" stroke="rgba(222, 240, 255, 0.7)" stroke-width="2.4" stroke-linecap="round" />
+</svg>

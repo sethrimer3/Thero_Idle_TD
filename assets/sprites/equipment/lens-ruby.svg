@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="lensRubyCore" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#ffe5eb" stop-opacity="0.95" />
+      <stop offset="42%" stop-color="#f45b69" stop-opacity="0.88" />
+      <stop offset="100%" stop-color="#7f1a1a" stop-opacity="1" />
+    </radialGradient>
+    <linearGradient id="lensRubyRim" x1="15%" y1="12%" x2="85%" y2="88%">
+      <stop offset="0%" stop-color="#ffb4c0" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#5c0c14" stop-opacity="0.95" />
+    </linearGradient>
+    <radialGradient id="lensRubyHighlight" cx="34%" cy="28%" r="26%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.96" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="32" r="22" fill="url(#lensRubyCore)" stroke="url(#lensRubyRim)" stroke-width="3" />
+  <circle cx="26" cy="22" r="9" fill="url(#lensRubyHighlight)" />
+  <path d="M16 43c6 4 26 4 32 0" fill="none" stroke="rgba(255, 204, 214, 0.7)" stroke-width="2.4" stroke-linecap="round" />
+</svg>

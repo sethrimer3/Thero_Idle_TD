@@ -2402,15 +2402,11 @@ function createTowerEquipmentSlot(towerId, card) {
   icon.setAttribute('aria-hidden', 'true');
   icon.textContent = EMPTY_EQUIPMENT_SYMBOL;
 
-  const label = document.createElement('span');
-  label.className = 'tower-equipment-button__label';
-  label.textContent = 'Equipment';
+  button.append(icon);
 
-  const name = document.createElement('span');
-  name.className = 'tower-equipment-button__name';
-  name.textContent = 'Empty';
-
-  button.append(icon, label, name);
+  const caption = document.createElement('span');
+  caption.className = 'tower-equipment-slot__caption';
+  caption.textContent = 'Empty';
 
   const menu = document.createElement('div');
   menu.className = 'tower-equipment-menu';
@@ -2423,7 +2419,7 @@ function createTowerEquipmentSlot(towerId, card) {
   list.className = 'tower-equipment-menu__list';
   menu.append(list);
 
-  container.append(button, menu);
+  container.append(button, caption, menu);
 
   button.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -2448,7 +2444,7 @@ function createTowerEquipmentSlot(towerId, card) {
     container,
     button,
     icon,
-    name,
+    name: caption,
     menu,
     list,
     baseLabel,
