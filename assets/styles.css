@@ -4944,6 +4944,55 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   cursor: default;
 }
 
+/* Developer map element controls mirror the level editor styling so new obstacles feel integrated. */
+.overlay-editor__elements {
+  border-top: 1px solid rgba(139, 247, 255, 0.18);
+  padding-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.overlay-editor__elements[hidden] {
+  display: none;
+}
+
+.overlay-editor__elements-title {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(139, 247, 255, 0.85);
+}
+
+.overlay-editor__elements-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.overlay-editor__button--primary {
+  border-color: rgba(255, 228, 120, 0.55);
+  background: rgba(255, 228, 120, 0.12);
+  color: rgba(255, 228, 120, 0.9);
+}
+
+.overlay-editor__button--primary:hover:not(:disabled) {
+  background: rgba(255, 228, 120, 0.18);
+  border-color: rgba(255, 228, 120, 0.75);
+  color: rgba(255, 244, 212, 0.95);
+}
+
+.overlay-editor__button--active {
+  box-shadow: 0 0 0 1px rgba(255, 228, 120, 0.5);
+}
+
+.overlay-editor__elements-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.4;
+}
+
 .overlay-editor__output {
   width: 100%;
   min-height: 120px;

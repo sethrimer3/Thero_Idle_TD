@@ -115,6 +115,7 @@ const defaultDependencies = {
   isFieldNotesOverlayVisible: () => false,
   getBaseStartThero: () => 50,
   getBaseCoreIntegrity: () => 100,
+  handleDeveloperMapPlacement: () => false,
   // Allows the playfield to respect the global graphics fidelity toggle.
   isLowGraphicsMode: () => false,
 };
@@ -349,6 +350,12 @@ export class SimplePlayfield {
     this.suppressNextCanvasClick = false;
 
     this.developerPathMarkers = [];
+    // Developer crystals are sandbox obstacles that towers can chip away during testing.
+    this.developerCrystals = [];
+    this.crystalShards = [];
+    this.crystalIdCounter = 0;
+    this.focusedCrystalId = null;
+
 
     this.enemyTooltip = null;
     this.enemyTooltipNameEl = null;
@@ -1055,6 +1062,8 @@ export class SimplePlayfield {
     }
 
     this.cancelAutoStart();
+
+    this.clearDeveloperCrystals({ silent: true });
 
     if (!isInteractive) {
       this.levelActive = false;
@@ -2136,6 +2145,19 @@ export class SimplePlayfield {
     }
 
     const position = this.getCanvasPosition(normalized);
+
+    if (
+      typeof this.dependencies.handleDeveloperMapPlacement === 'function' &&
+      this.dependencies.handleDeveloperMapPlacement({
+        normalized,
+        position,
+        playfield: this,
+        event,
+      })
+    ) {
+      return;
+    }
+
     const enemyTarget = this.findEnemyAt(position);
     const menuTower = this.getActiveMenuTower();
     if (enemyTarget) {
@@ -2143,6 +2165,12 @@ export class SimplePlayfield {
         return;
       }
       this.toggleEnemyFocus(enemyTarget.enemy);
+      return;
+    }
+
+    const crystalTarget = this.findCrystalAt(position);
+    if (crystalTarget) {
+      this.toggleCrystalFocus(crystalTarget);
       return;
     }
 
@@ -4224,6 +4252,7 @@ export class SimplePlayfield {
     this.updateAlphaBursts(speedDelta);
     this.updateBetaBursts(speedDelta);
     this.updateGammaBursts(speedDelta);
+    this.updateCrystals(speedDelta);
     this.updateConnectionParticles(speedDelta);
 
     const arcSpeed = this.levelConfig?.arcSpeed ?? 0.2;
@@ -4592,6 +4621,17 @@ export class SimplePlayfield {
         return { enemy: focusedEnemy, position };
       }
     }
+
+    const focusedCrystal = this.getFocusedCrystal();
+    if (focusedCrystal) {
+      const crystalPosition = this.getCrystalPosition(focusedCrystal);
+      if (crystalPosition) {
+        const crystalDistance = Math.hypot(crystalPosition.x - tower.x, crystalPosition.y - tower.y);
+        if (crystalDistance <= tower.range) {
+          return { crystal: focusedCrystal, position: crystalPosition };
+        }
+      }
+    }
     let selected = null;
     const priority = tower.targetPriority || 'first';
     let bestProgress = -Infinity;
@@ -4680,20 +4720,11 @@ export class SimplePlayfield {
     }
   }
 
-  fireAtTarget(tower, targetInfo) {
-    if (tower.type === 'delta') {
-      this.deployDeltaSoldier(tower, targetInfo);
-      return;
+  resolveTowerShotDamage(tower) {
+    if (!tower) {
+      return 0;
     }
-    if (tower.type === 'aleph-null') {
-      this.fireAlephChain(tower, targetInfo);
-      return;
-    }
-    const { enemy } = targetInfo;
-    const enemyPosition = this.getEnemyPosition(enemy);
-    const resolvedPosition = enemyPosition || targetInfo.position;
-    const attackPosition = resolvedPosition ? { ...resolvedPosition } : null;
-    let damage = tower.damage;
+    let damage = Number.isFinite(tower.damage) ? tower.damage : 0;
     if (tower.type === 'beta') {
       const alphaShots = Math.max(0, tower.storedAlphaShots || 0);
       if (alphaShots > 0) {
@@ -4715,19 +4746,30 @@ export class SimplePlayfield {
         tower.storedAlphaSwirl = 0;
       }
     }
-    enemy.hp -= damage;
-    const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
+    return damage;
+  }
+
+  emitTowerAttackVisuals(tower, targetInfo = {}) {
+    if (!tower) {
+      return;
+    }
+    const enemy = targetInfo.enemy || null;
+    const crystal = targetInfo.crystal || null;
+    const effectPosition =
+      targetInfo.position ||
+      (enemy ? this.getEnemyPosition(enemy) : crystal ? this.getCrystalPosition(crystal) : null);
     if (tower.type === 'alpha') {
-      this.spawnAlphaAttackBurst(tower, { enemy, position: attackPosition }, { enemyId: enemy.id });
+      this.spawnAlphaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
     } else if (tower.type === 'beta') {
-      this.spawnBetaAttackBurst(tower, { enemy, position: attackPosition }, { enemyId: enemy.id });
+      this.spawnBetaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
     } else if (tower.type === 'gamma') {
-      this.spawnGammaAttackBurst(tower, { enemy, position: attackPosition }, { enemyId: enemy.id });
+      this.spawnGammaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
     } else {
       this.projectiles.push({
         source: { x: tower.x, y: tower.y },
-        targetId: enemy.id,
-        target: attackPosition,
+        targetId: enemy ? enemy.id : null,
+        targetCrystalId: crystal ? crystal.id : null,
+        target: effectPosition,
         lifetime: 0,
         maxLifetime: 0.24,
       });
@@ -4735,11 +4777,40 @@ export class SimplePlayfield {
     if (getTowerTierValue(tower) >= 24) {
       this.spawnOmegaWave(tower);
     }
-
     if (this.audio) {
       this.audio.playSfx('alphaTowerFire');
     }
+  }
 
+  fireAtTarget(tower, targetInfo) {
+    if (tower.type === 'delta') {
+      this.deployDeltaSoldier(tower, targetInfo);
+      return;
+    }
+    if (tower.type === 'aleph-null') {
+      this.fireAlephChain(tower, targetInfo);
+      return;
+    }
+    if (!targetInfo) {
+      return;
+    }
+    const enemy = targetInfo.enemy || null;
+    const crystal = targetInfo.crystal || null;
+    const attackPosition =
+      targetInfo.position ||
+      (enemy ? this.getEnemyPosition(enemy) : crystal ? this.getCrystalPosition(crystal) : null);
+    const damage = this.resolveTowerShotDamage(tower);
+    if (crystal) {
+      this.emitTowerAttackVisuals(tower, { crystal, position: attackPosition });
+      this.applyCrystalHit(crystal, damage, { position: attackPosition });
+      return;
+    }
+    if (!enemy) {
+      return;
+    }
+    enemy.hp -= damage;
+    const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
+    this.emitTowerAttackVisuals(tower, { enemy, position: attackPosition });
     if (remainingHp <= 0) {
       this.processEnemyDefeat(enemy);
     }
@@ -5989,6 +6060,7 @@ export class SimplePlayfield {
     this.drawPath();
     this.drawMoteGems();
     this.drawArcLight();
+    this.drawDeveloperCrystals();
     this.drawNodes();
     this.drawDeveloperPathMarkers();
     this.drawPlacementPreview();
@@ -6427,6 +6499,401 @@ export class SimplePlayfield {
 
     // Restore the canvas state so developer marker styling does not leak into other drawing routines.
     ctx.restore();
+  }
+
+  // Resolve a developer crystal's radius relative to the active render dimensions.
+  getCrystalRadius(crystal) {
+    if (!crystal) {
+      return 0;
+    }
+    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 0;
+    const baseRadius = minDimension ? minDimension * 0.08 : 0;
+    return Math.max(32, baseRadius);
+  }
+
+  // Convert a developer crystal's normalized coordinates into canvas space.
+  getCrystalPosition(crystal) {
+    if (!crystal || !crystal.normalized) {
+      return null;
+    }
+    return this.getCanvasPosition(crystal.normalized);
+  }
+
+  // Spawn a solid crystal obstacle for developer testing and return whether placement succeeded.
+  addDeveloperCrystal(normalized) {
+    const clamped = this.clampNormalized(normalized);
+    if (!clamped) {
+      return false;
+    }
+    const position = this.getCanvasPosition(clamped);
+    if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+      return false;
+    }
+    this.crystalIdCounter += 1;
+    const id = `developer-crystal-${this.crystalIdCounter}`;
+    const paletteRatio = Math.random();
+    const outline = Array.from({ length: 7 }, () => 0.72 + Math.random() * 0.28);
+    const integrity = 900;
+    const crystal = {
+      id,
+      normalized: clamped,
+      paletteRatio,
+      outline,
+      fractures: [],
+      integrity,
+      maxIntegrity: integrity,
+      orientation: Math.random() * Math.PI * 2,
+    };
+    this.developerCrystals.push(crystal);
+    if (this.messageEl) {
+      this.messageEl.textContent = 'Developer crystal anchored—towers can now chip through it.';
+    }
+    this.draw();
+    return true;
+  }
+
+  // Remove all developer crystals and optional shards from the battlefield.
+  clearDeveloperCrystals(options = {}) {
+    const { silent = true } = options;
+    const removed = this.developerCrystals.length;
+    if (!removed && !this.crystalShards.length) {
+      return 0;
+    }
+    this.developerCrystals = [];
+    this.crystalShards = [];
+    this.focusedCrystalId = null;
+    if (!silent && this.messageEl) {
+      this.messageEl.textContent = removed > 0
+        ? 'Developer crystals cleared from the battlefield.'
+        : 'No developer crystals to clear.';
+    }
+    this.draw();
+    return removed;
+  }
+
+  // Fetch the currently focused developer crystal, clearing stale ids automatically.
+  getFocusedCrystal() {
+    if (!this.focusedCrystalId) {
+      return null;
+    }
+    const crystal = this.developerCrystals.find((entry) => entry?.id === this.focusedCrystalId) || null;
+    if (!crystal) {
+      this.focusedCrystalId = null;
+    }
+    return crystal;
+  }
+
+  // Mark a developer crystal as the global focus target so towers prioritize it.
+  setFocusedCrystal(crystal, options = {}) {
+    if (!crystal) {
+      this.clearFocusedCrystal(options);
+      return;
+    }
+    const { silent = false } = options;
+    this.focusedCrystalId = crystal.id;
+    if (!silent && this.messageEl) {
+      this.messageEl.textContent = 'All towers focusing on the developer crystal.';
+    }
+  }
+
+  // Clear any developer crystal focus and optionally surface a HUD message.
+  clearFocusedCrystal(options = {}) {
+    const { silent = false } = options;
+    if (!this.focusedCrystalId) {
+      return false;
+    }
+    this.focusedCrystalId = null;
+    if (!silent && this.messageEl) {
+      this.messageEl.textContent = 'Crystal focus cleared—towers resume optimal targeting.';
+    }
+    return true;
+  }
+
+  // Toggle focus targeting on the supplied developer crystal.
+  toggleCrystalFocus(crystal) {
+    if (!crystal) {
+      this.clearFocusedCrystal();
+      return;
+    }
+    if (this.focusedCrystalId === crystal.id) {
+      this.clearFocusedCrystal();
+    } else {
+      this.setFocusedCrystal(crystal);
+    }
+  }
+
+  // Locate a developer crystal that intersects the supplied canvas position.
+  findCrystalAt(position) {
+    if (!position) {
+      return null;
+    }
+    for (let index = this.developerCrystals.length - 1; index >= 0; index -= 1) {
+      const crystal = this.developerCrystals[index];
+      const center = this.getCrystalPosition(crystal);
+      const radius = this.getCrystalRadius(crystal);
+      if (!center || radius <= 0) {
+        continue;
+      }
+      const distance = Math.hypot(position.x - center.x, position.y - center.y);
+      if (distance <= radius * 0.95) {
+        return crystal;
+      }
+    }
+    return null;
+  }
+
+  // Spawn a new fracture wedge on the supplied crystal to visualize chip damage.
+  createCrystalFracture(crystal, options = {}) {
+    if (!crystal) {
+      return;
+    }
+    if (!Array.isArray(crystal.fractures)) {
+      crystal.fractures = [];
+    }
+    const maxFractures = 18;
+    if (crystal.fractures.length >= maxFractures) {
+      return;
+    }
+    const angle = Number.isFinite(options.angle) ? options.angle : Math.random() * Math.PI * 2;
+    const width = 0.35 + Math.random() * 0.55;
+    const depth = 0.25 + Math.random() * 0.45;
+    const segments = 5;
+    const jagged = Array.from({ length: segments + 1 }, () => 0.4 + Math.random() * 0.6);
+    const fracture = {
+      id: `${crystal.id}-fracture-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      angle,
+      width,
+      depth,
+      progress: 0,
+      jagged,
+    };
+    crystal.fractures.push(fracture);
+  }
+
+  // Launch a shower of shards whenever a crystal is struck.
+  spawnCrystalShards(origin, baseRadius, options = {}) {
+    if (!origin) {
+      return;
+    }
+    const intensity = Number.isFinite(options.intensity) ? Math.max(0.2, options.intensity) : 0.4;
+    const count = Math.max(4, Math.round(intensity * 6));
+    const palette = samplePaletteGradient(options.paletteRatio ?? 0.5) || { r: 188, g: 236, b: 255 };
+    for (let index = 0; index < count; index += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 120 + Math.random() * 90;
+      const shard = {
+        id: `crystal-shard-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        x: origin.x + Math.cos(angle) * baseRadius * 0.6,
+        y: origin.y + Math.sin(angle) * baseRadius * 0.6,
+        vx: Math.cos(angle) * speed * 0.6,
+        vy: Math.sin(angle) * speed * 0.4 - 40,
+        rotation: Math.random() * Math.PI * 2,
+        spin: (Math.random() - 0.5) * 6,
+        size: 5 + Math.random() * 6,
+        life: 0,
+        maxLife: 0.6 + Math.random() * 0.4,
+        color: palette,
+      };
+      this.crystalShards.push(shard);
+    }
+  }
+
+  // Apply damage to a developer crystal and trigger visual feedback.
+  applyCrystalHit(crystal, damage, options = {}) {
+    if (!crystal || !Number.isFinite(damage) || damage <= 0) {
+      return;
+    }
+    const position = options.position || this.getCrystalPosition(crystal);
+    const radius = this.getCrystalRadius(crystal);
+    const intensity = Math.min(1, damage / Math.max(1, crystal.maxIntegrity || 1));
+    const fractureCount = Math.max(1, Math.round(intensity * 3));
+    for (let index = 0; index < fractureCount; index += 1) {
+      this.createCrystalFracture(crystal, { angle: Math.random() * Math.PI * 2 });
+    }
+    if (position && radius) {
+      this.spawnCrystalShards(position, radius, {
+        intensity: Math.max(0.25, intensity),
+        paletteRatio: crystal.paletteRatio,
+      });
+    }
+    const currentIntegrity = Number.isFinite(crystal.integrity) ? crystal.integrity : 0;
+    crystal.integrity = Math.max(0, currentIntegrity - damage);
+    if (crystal.integrity <= 0) {
+      this.developerCrystals = this.developerCrystals.filter((entry) => entry?.id !== crystal.id);
+      if (this.focusedCrystalId === crystal.id) {
+        this.focusedCrystalId = null;
+      }
+      if (this.messageEl) {
+        this.messageEl.textContent = 'Developer crystal shattered—shards scatter across the lane.';
+      }
+    }
+  }
+
+  // Advance fracture animations and shard debris for developer crystals.
+  updateCrystals(delta) {
+    if (!Number.isFinite(delta) || delta <= 0) {
+      return;
+    }
+    this.developerCrystals.forEach((crystal) => {
+      if (!Array.isArray(crystal.fractures)) {
+        crystal.fractures = [];
+      }
+      crystal.fractures.forEach((fracture) => {
+        if (!fracture) {
+          return;
+        }
+        const current = Number.isFinite(fracture.progress) ? fracture.progress : 0;
+        fracture.progress = Math.min(1, current + delta * 2.6);
+      });
+    });
+    const gravity = 420;
+    const damping = 0.9;
+    const survivors = [];
+    this.crystalShards.forEach((shard) => {
+      if (!shard) {
+        return;
+      }
+      shard.life = (shard.life || 0) + delta;
+      shard.rotation = (shard.rotation || 0) + (shard.spin || 0) * delta;
+      shard.vy = (shard.vy || 0) + gravity * delta * 0.3;
+      shard.vx = (shard.vx || 0) * damping;
+      shard.vy *= damping;
+      shard.x = (shard.x || 0) + shard.vx * delta;
+      shard.y = (shard.y || 0) + shard.vy * delta;
+      if (shard.life < (shard.maxLife || 0.8)) {
+        survivors.push(shard);
+      }
+    });
+    this.crystalShards = survivors;
+  }
+
+  // Render developer crystals and their shard debris above the lane.
+  drawDeveloperCrystals() {
+    if (!this.ctx) {
+      return;
+    }
+    const ctx = this.ctx;
+    if (this.developerCrystals.length) {
+      ctx.save();
+      this.developerCrystals.forEach((crystal) => {
+        if (!crystal) {
+          return;
+        }
+        const position = this.getCrystalPosition(crystal);
+        const radius = this.getCrystalRadius(crystal);
+        if (!position || radius <= 0) {
+          return;
+        }
+        ctx.save();
+        ctx.translate(position.x, position.y);
+        ctx.rotate(crystal.orientation || 0);
+        const outline = Array.isArray(crystal.outline) && crystal.outline.length
+          ? crystal.outline
+          : [1, 1, 1, 1, 1, 1];
+        ctx.beginPath();
+        outline.forEach((scale, index) => {
+          const ratio = index / outline.length;
+          const angle = ratio * Math.PI * 2;
+          const radial = radius * (0.72 + scale * 0.28);
+          const x = Math.cos(angle) * radial;
+          const y = Math.sin(angle) * radial;
+          if (index === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.closePath();
+        const baseColor = samplePaletteGradient(crystal.paletteRatio ?? 0.5) || { r: 160, g: 220, b: 255 };
+        const highlightColor = samplePaletteGradient(Math.min(1, (crystal.paletteRatio ?? 0.5) + 0.18)) || baseColor;
+        const gradient = ctx.createLinearGradient(-radius, -radius, radius, radius);
+        gradient.addColorStop(0, colorToRgbaString(baseColor, 0.88));
+        gradient.addColorStop(1, colorToRgbaString(highlightColor, 0.82));
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        ctx.lineWidth = Math.max(2, radius * 0.08);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.stroke();
+        if (Array.isArray(crystal.fractures)) {
+          crystal.fractures.forEach((fracture) => {
+            if (!fracture) {
+              return;
+            }
+            const width = Number.isFinite(fracture.width) ? fracture.width : 0.6;
+            const depth = Number.isFinite(fracture.depth) ? fracture.depth : 0.4;
+            const progress = Number.isFinite(fracture.progress) ? fracture.progress : 0;
+            const jagged = Array.isArray(fracture.jagged) && fracture.jagged.length
+              ? fracture.jagged
+              : [1, 0.7, 0.85, 0.7, 1];
+            const segments = Math.max(3, jagged.length - 1);
+            const outerRadius = radius * 0.98;
+            ctx.save();
+            const anchor = Number.isFinite(fracture.angle) ? fracture.angle : 0;
+            ctx.rotate(anchor);
+            ctx.beginPath();
+            for (let index = 0; index <= segments; index += 1) {
+              const t = index / segments;
+              const angle = (t - 0.5) * width;
+              const x = Math.cos(angle) * outerRadius;
+              const y = Math.sin(angle) * outerRadius;
+              if (index === 0) {
+                ctx.moveTo(x, y);
+              } else {
+                ctx.lineTo(x, y);
+              }
+            }
+            for (let index = segments; index >= 0; index -= 1) {
+              const t = index / segments;
+              const angle = (t - 0.5) * width;
+              const jaggedScale = jagged[index] ?? 1;
+              const inset = Math.min(0.9, depth * progress * jaggedScale);
+              const radial = outerRadius * (1 - inset);
+              const x = Math.cos(angle) * radial;
+              const y = Math.sin(angle) * radial;
+              ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(8, 12, 24, 0.9)';
+            ctx.fill();
+            ctx.restore();
+          });
+        }
+        if (this.focusedCrystalId === crystal.id) {
+          ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
+          ctx.setLineDash([6, 6]);
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, radius * 1.12, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        ctx.restore();
+      });
+      ctx.restore();
+    }
+    if (this.crystalShards.length) {
+      ctx.save();
+      this.crystalShards.forEach((shard) => {
+        if (!shard) {
+          return;
+        }
+        const lifeRatio = shard.maxLife ? Math.max(0, 1 - shard.life / shard.maxLife) : 1;
+        const shardColor = colorToRgbaString(shard.color || { r: 188, g: 236, b: 255 }, lifeRatio);
+        ctx.save();
+        ctx.translate(shard.x || 0, shard.y || 0);
+        ctx.rotate(shard.rotation || 0);
+        ctx.fillStyle = shardColor;
+        const size = Math.max(2, shard.size || 5);
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 0.4);
+        ctx.lineTo(size * 0.6, 0);
+        ctx.lineTo(0, size * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      });
+      ctx.restore();
+    }
   }
 
   drawPlacementPreview() {
@@ -6945,6 +7412,11 @@ export class SimplePlayfield {
         ? (() => {
             const enemy = this.enemies.find((candidate) => candidate.id === projectile.targetId);
             return enemy ? this.getEnemyPosition(enemy) : null;
+          })()
+        : projectile.targetCrystalId
+        ? (() => {
+            const crystal = this.developerCrystals.find((entry) => entry?.id === projectile.targetCrystalId);
+            return crystal ? this.getCrystalPosition(crystal) : null;
           })()
         : null;
 
