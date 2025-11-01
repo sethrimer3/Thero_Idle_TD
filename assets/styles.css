@@ -1713,9 +1713,9 @@ body.graphics-mode-low .control-button {
 /* Introduce an octagonal socket for crafted relics beneath each tower card. */
 .tower-equipment-slot {
   position: relative;
-  margin-top: 14px;
+  margin-top: 12px;
   display: grid;
-  gap: 10px;
+  gap: 6px;
   justify-items: center;
 }
 
@@ -1726,10 +1726,9 @@ body.graphics-mode-low .control-button {
 .tower-equipment-button {
   --equipment-slot-border: rgba(255, 228, 120, 0.45);
   position: relative;
-  width: 96px;
-  height: 96px;
+  width: 48px;
+  height: 48px;
   display: grid;
-  gap: 6px;
   justify-items: center;
   align-content: center;
   box-sizing: border-box;
@@ -1742,7 +1741,7 @@ body.graphics-mode-low .control-button {
   clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
   cursor: pointer;
   /* Surround the octagon with a gentle amber glow to emphasize its energized state. */
-  box-shadow: 0 0 24px rgba(255, 228, 120, 0.28), 0 0 0 2px rgba(255, 228, 120, 0.22) inset;
+  box-shadow: 0 0 16px rgba(255, 228, 120, 0.28), 0 0 0 1.5px rgba(255, 228, 120, 0.22) inset;
   transition: box-shadow var(--transition), color var(--transition), background var(--transition);
 }
 
@@ -1755,32 +1754,30 @@ body.graphics-mode-low .control-button {
   --equipment-slot-border: rgba(255, 228, 120, 0.72);
   color: rgba(255, 228, 120, 0.92);
   /* Intensify the glow for infused relics so active gear feels radiant. */
-  box-shadow: 0 0 28px rgba(255, 228, 120, 0.38), 0 12px 26px rgba(255, 228, 120, 0.24);
+  box-shadow: 0 0 20px rgba(255, 228, 120, 0.38), 0 8px 18px rgba(255, 228, 120, 0.24);
 }
 
 .tower-equipment-slot[data-menu-open='true'] .tower-equipment-button {
   --equipment-slot-border: rgba(139, 247, 255, 0.6);
   /* Blend the cyan selection halo with the baseline amber aura for better focus cues. */
-  box-shadow: 0 0 30px rgba(255, 228, 120, 0.32), 0 12px 28px rgba(139, 247, 255, 0.28);
+  box-shadow: 0 0 24px rgba(255, 228, 120, 0.32), 0 10px 22px rgba(139, 247, 255, 0.28);
 }
 
 .tower-equipment-button__icon {
-  font-size: 1.6rem;
+  font-size: 1.3rem;
   font-family: 'Cormorant Garamond', serif;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.12em;
 }
 
-.tower-equipment-button__label {
-  font-size: 0.62rem;
+.tower-equipment-slot__caption {
+  font-size: 0.6rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(247, 247, 245, 0.68);
-}
-
-.tower-equipment-button__name {
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  color: rgba(247, 247, 245, 0.72);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 88px;
+  word-break: break-word;
 }
 
 .tower-equipment-menu {
@@ -3908,8 +3905,22 @@ body.graphics-mode-low .control-button {
 .crafting-tier__header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
+}
+
+.crafting-tier__label-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.crafting-tier__icon {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0 6px rgba(255, 224, 180, 0.35));
 }
 
 /* Style the tier label with condensed uppercase glyphs. */

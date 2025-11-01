@@ -84,8 +84,7 @@ function normalizeEquipmentEntry(entry) {
   const name =
     typeof entry.name === 'string' && entry.name.trim().length > 0 ? entry.name.trim() : 'Equipment';
   const type = typeof entry.type === 'string' ? entry.type.trim() : '';
-  const description =
-    typeof entry.description === 'string' ? entry.description.trim() : '';
+  const description = '';
   const symbol = typeof entry.symbol === 'string' ? entry.symbol.trim() : '';
   const rarity = typeof entry.rarity === 'string' ? entry.rarity.trim().toLowerCase() : 'common';
   return {
