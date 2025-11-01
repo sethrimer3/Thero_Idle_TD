@@ -384,9 +384,6 @@ export function checkOfflineRewards() {
   const storedRate = Number(savedState.powderRate);
   const fallbackRate = dependencies.getCurrentFluxRate();
   const effectiveRate = Number.isFinite(storedRate) ? Math.max(0, storedRate) : Math.max(0, fallbackRate);
-  if (effectiveRate <= 0) {
-    return;
-  }
 
   const powderEarned = minutesAway * effectiveRate;
   dependencies.applyPowderGain(powderEarned, { source: 'offline', minutes: minutesAway, rate: effectiveRate });
