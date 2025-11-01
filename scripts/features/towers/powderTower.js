@@ -2138,6 +2138,8 @@ export class PowderSimulation {
       grainSizes: Array.isArray(this.grainSizes)
         ? this.grainSizes.map((size) => Math.max(1, normalizeFiniteInteger(size, 1)))
         : [],
+      wallInsetLeftCells: Math.max(0, normalizeFiniteInteger(this.wallInsetLeftCells, 0)),
+      wallInsetRightCells: Math.max(0, normalizeFiniteInteger(this.wallInsetRightCells, 0)),
       wallGapCellsTarget: Number.isFinite(this.wallGapCellsTarget)
         ? Math.max(1, normalizeFiniteInteger(this.wallGapCellsTarget, 1))
         : null,
@@ -2277,6 +2279,89 @@ export class PowderSimulation {
 
     this.grains = grains;
     this.pendingDrops = pendingDrops;
+
+    // Restore captured wall offsets so the basin interior aligns with serialized grain positions.
+    const savedLeftInset = Number.isFinite(state.wallInsetLeftCells)
+      ? Math.max(0, Math.round(state.wallInsetLeftCells))
+      : null;
+    const savedRightInset = Number.isFinite(state.wallInsetRightCells)
+      ? Math.max(0, Math.round(state.wallInsetRightCells))
+      : null;
+
+    let gapTarget = Number.isFinite(this.wallGapCellsTarget)
+      ? Math.max(1, Math.round(this.wallGapCellsTarget))
+      : null;
+    if (!Number.isFinite(gapTarget) || gapTarget <= 0) {
+      gapTarget = Math.max(1, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells);
+    }
+    gapTarget = Math.min(gapTarget, Math.max(1, this.cols));
+
+    let targetLeft = savedLeftInset;
+    let targetRight = savedRightInset;
+
+    if ((targetLeft === null || targetRight === null) && this.grains.length) {
+      // Infer wall spacing from the loaded grain footprint when legacy saves lack explicit inset data.
+      let minColumn = Infinity;
+      let maxRightEdge = 0;
+      for (const grain of this.grains) {
+        if (!grain || !Number.isFinite(grain.x)) {
+          continue;
+        }
+        const column = Math.round(grain.x);
+        if (Number.isFinite(column)) {
+          minColumn = Math.min(minColumn, column);
+        }
+        const collider = Number.isFinite(grain.colliderSize)
+          ? Math.max(1, Math.round(grain.colliderSize))
+          : 1;
+        const rightEdge = Math.round(grain.x + collider);
+        if (Number.isFinite(rightEdge)) {
+          maxRightEdge = Math.max(maxRightEdge, rightEdge);
+        }
+      }
+
+      if (targetLeft === null && Number.isFinite(minColumn)) {
+        const maxAllowedLeft = Math.max(0, this.cols - gapTarget);
+        const minAllowedLeft = Math.max(0, maxRightEdge - gapTarget);
+        targetLeft = Math.max(minAllowedLeft, Math.min(minColumn, maxAllowedLeft));
+      }
+
+      if (targetRight === null && Number.isFinite(maxRightEdge)) {
+        const resolvedLeft = Number.isFinite(targetLeft)
+          ? targetLeft
+          : Math.max(0, Math.min(maxRightEdge - gapTarget, this.cols - gapTarget));
+        targetRight = Math.max(0, this.cols - gapTarget - resolvedLeft);
+      }
+    }
+
+    if (targetLeft !== null || targetRight !== null) {
+      // Clamp and apply the resolved wall offsets so the saved basin footprint is respected.
+      let nextLeft = Number.isFinite(targetLeft)
+        ? Math.max(0, Math.min(Math.round(targetLeft), Math.max(0, this.cols - gapTarget)))
+        : this.wallInsetLeftCells;
+      let nextRight = Number.isFinite(targetRight)
+        ? Math.max(0, Math.round(targetRight))
+        : this.wallInsetRightCells;
+      const maxRightInset = Math.max(0, this.cols - nextLeft - 1);
+      nextRight = Math.min(nextRight, maxRightInset);
+
+      let resolvedGap = Math.max(1, this.cols - nextLeft - nextRight);
+      if (!Number.isFinite(targetRight)) {
+        nextRight = Math.max(0, this.cols - gapTarget - nextLeft);
+        resolvedGap = Math.max(1, this.cols - nextLeft - nextRight);
+      }
+
+      const insetsChanged = nextLeft !== this.wallInsetLeftCells || nextRight !== this.wallInsetRightCells;
+      this.wallInsetLeftCells = nextLeft;
+      this.wallInsetRightCells = nextRight;
+      this.wallInsetLeftPx = this.wallInsetLeftCells * this.cellSize;
+      this.wallInsetRightPx = this.wallInsetRightCells * this.cellSize;
+      if (insetsChanged) {
+        this.applyWallMask(); // Reapply the static wall mask now that the inset bounds have shifted.
+      }
+      this.wallGapCellsTarget = resolvedGap;
+      this.updateMaxDropSize();
+    }
 
     this.idleBank = Math.max(0, normalizeFiniteNumber(state.idleBank, 0));
     this.idleAccumulator = Math.max(0, normalizeFiniteNumber(state.idleAccumulator, 0));
