@@ -266,8 +266,9 @@ import {
     startupOverlay.removeAttribute('hidden');
     startupOverlay.setAttribute('aria-hidden', 'false');
 
+    activateStartupLoadingSpinner();
+
     if (!startupLogo) {
-      activateStartupLoadingSpinner();
       return;
     }
 
