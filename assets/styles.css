@@ -5367,7 +5367,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .startup-overlay__loading--active {
   opacity: 1;
-  animation: pEllipticLoading 3.5167s steps(90) infinite;
+  animation: pEllipticLoading 3.5167s steps(89) infinite;
 }
 
 .startup-overlay__hint {
@@ -5399,10 +5399,10 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 @keyframes pEllipticLoading {
   0% {
-    background-position: 0 0;
+    background-position: 0% 0;
   }
   100% {
-    background-position: -8900% 0; /* Sweep through the remaining 89 frames at the scaled width. */
+    background-position: 100% 0; /* Traverse all 89 frame offsets relative to the scaled sprite width. */
   }
 }
 
