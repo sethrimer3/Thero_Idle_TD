@@ -965,19 +965,12 @@ export class PowderSimulation {
     if (!Number.isFinite(this.wallGapCellsTarget)) {
       return null;
     }
+    const target = Math.max(1, Math.round(this.wallGapCellsTarget));
     if (!this.cols) {
-      return Math.max(1, Math.round(this.wallGapCellsTarget));
+      return target;
     }
-    const referenceCols = Math.max(1, this.wallGapReferenceCols || this.cols);
-    const ratio = this.wallGapCellsTarget / referenceCols;
-    if (!Number.isFinite(ratio) || ratio <= 0) {
-      return Math.max(1, Math.round(this.wallGapCellsTarget));
-    }
-    const scaled = ratio * this.cols;
-    if (!Number.isFinite(scaled) || scaled <= 0) {
-      return Math.max(1, Math.round(this.wallGapCellsTarget));
-    }
-    return Math.max(1, Math.round(scaled));
+    const available = Math.max(1, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells);
+    return Math.max(1, Math.min(target, available));
   }
 
   applyWallGapTarget(options = {}) {
@@ -1163,7 +1156,9 @@ export class PowderSimulation {
     }
 
     const idleBankPositive = Number.isFinite(this.idleBank) && this.idleBank > 1e-6;
-    const ambientEnabled = this.flowOffset > 0 && idleBankPositive; // Only allow ambient motes when the mote bank still holds reserves.
+    const ambientEnabled =
+      this.flowOffset > 0 && idleBankPositive && (!Number.isFinite(this.idleDrainRate) || this.idleDrainRate <= 0);
+    // Restrict ambient motes to scenarios where the idle drain is disabled so the fall rate mirrors the mote bank.
 
     if (!ambientEnabled) {
       this.spawnTimer = Math.min(this.spawnTimer, interval);
