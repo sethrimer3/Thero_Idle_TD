@@ -37,6 +37,34 @@ import {
   applyStoredAudioSettings,
   bindAudioControls as bindAudioControlElements,
 } from './audioSystem.js';
+import { initializeStartupOverlay, dismissStartupOverlay } from './startupOverlay.js';
+import {
+  FALLBACK_BASE_SCORE_RATE,
+  FALLBACK_BASE_ENERGY_RATE,
+  FALLBACK_BASE_FLUX_RATE,
+  ensureGameplayConfigLoaded,
+  loadFluidSimulationProfile,
+  calculateStartingThero,
+  getTowerLoadoutLimit,
+  getBaseStartThero,
+  registerResourceContainers,
+  setBaseStartThero,
+  getBaseCoreIntegrity,
+} from './configuration.js';
+import {
+  setNotationRefreshHandler,
+  bindNotationToggle,
+  applyNotationPreference,
+  bindGlyphEquationToggle,
+  applyGlyphEquationPreference,
+  initializeDesktopCursorPreference,
+  initializeGraphicsMode,
+  bindGraphicsModeToggle,
+  isLowGraphicsModeActive,
+  setGraphicsModeContext,
+  areGlyphEquationsVisible,
+  getActiveGraphicsMode,
+} from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
 import {
   configureAutoSave,
@@ -99,6 +127,13 @@ import {
   notifyTowerPlaced,
   getAchievementPowderRate,
 } from './achievementsTab.js';
+import {
+  configureFieldNotesOverlay,
+  initializeFieldNotesOverlay,
+  openFieldNotesOverlay,
+  isFieldNotesOverlayVisible,
+  setFieldNotesOpenButton,
+} from './fieldNotesOverlay.js';
 import {
   codexState,
   enemyCodexElements,
@@ -227,152 +262,6 @@ import {
 (() => {
   'use strict';
 
-  const STARTUP_LOGO_DURATION_MS = 5000; // 2s fade-in + 1s hold + 2s fade-out.
-  const STARTUP_OVERLAY_MIN_VISIBLE_MS = 4000; // Guarantee the startup overlay lingers long enough to be seen.
-  const STARTUP_OVERLAY_FADE_MS = 320;
-
-  const startupOverlay = document.getElementById('startup-overlay');
-  const startupLogo = startupOverlay ? startupOverlay.querySelector('[data-startup-logo]') : null;
-  const startupLoading = startupOverlay ? startupOverlay.querySelector('[data-startup-loading]') : null;
-  const startupHint = startupOverlay ? startupOverlay.querySelector('.startup-overlay__hint') : null;
-  const startupHintDefaultText = startupHint ? startupHint.textContent : '';
-
-  let startupLoadingActivated = false;
-  let startupOverlayFadeHandle = null;
-  let startupOverlayVisibleAt = null; // Track when the overlay became visible so the minimum duration can be enforced.
-
-  function activateStartupLoadingSpinner() {
-    if (!startupOverlay || !startupLoading) {
-      return;
-    }
-    if (startupLoadingActivated) {
-      return;
-    }
-    startupLoadingActivated = true;
-    if (startupLoading.hasAttribute('hidden')) {
-      startupLoading.removeAttribute('hidden');
-    }
-    requestAnimationFrame(() => {
-      startupLoading.classList.add('startup-overlay__loading--active');
-    });
-    if (startupHint) {
-      startupHint.textContent = 'Summoning motes…';
-    }
-  }
-
-  function initializeStartupOverlay() {
-    if (!startupOverlay) {
-      return;
-    }
-    startupOverlay.classList.remove('startup-overlay--hidden');
-    startupOverlay.removeAttribute('hidden');
-    startupOverlay.setAttribute('aria-hidden', 'false');
-    startupOverlayVisibleAt = performance.now(); // Record the reveal timestamp for minimum-duration calculations.
-
-    activateStartupLoadingSpinner();
-
-    if (!startupLogo) {
-      return;
-    }
-
-    let fallbackTimer = null;
-
-    const finalizeLogo = () => {
-      if (fallbackTimer) {
-        window.clearTimeout(fallbackTimer);
-        fallbackTimer = null;
-      }
-      startupLogo.setAttribute('hidden', '');
-      activateStartupLoadingSpinner();
-    };
-
-    const logoAnimationHandler = () => {
-      startupLogo.removeEventListener('animationend', logoAnimationHandler);
-      finalizeLogo();
-    };
-
-    fallbackTimer = window.setTimeout(() => {
-      startupLogo.removeEventListener('animationend', logoAnimationHandler);
-      finalizeLogo();
-    }, STARTUP_LOGO_DURATION_MS + 120);
-
-    startupLogo.addEventListener('animationend', logoAnimationHandler);
-  }
-
-  async function dismissStartupOverlay() {
-    if (!startupOverlay) {
-      return;
-    }
-
-    activateStartupLoadingSpinner();
-
-    if (Number.isFinite(startupOverlayVisibleAt)) {
-      const elapsed = performance.now() - startupOverlayVisibleAt;
-      if (elapsed < STARTUP_OVERLAY_MIN_VISIBLE_MS) {
-        // Wait out the remaining time so the intro animation never flashes too quickly.
-        await new Promise((resolve) => {
-          window.setTimeout(resolve, STARTUP_OVERLAY_MIN_VISIBLE_MS - elapsed);
-        });
-      }
-    }
-
-    if (startupOverlay.classList.contains('startup-overlay--hidden')) {
-      if (!startupOverlay.hasAttribute('hidden')) {
-        startupOverlay.setAttribute('hidden', '');
-      }
-      startupOverlay.setAttribute('aria-hidden', 'true');
-      if (startupHint && startupHintDefaultText) {
-        startupHint.textContent = startupHintDefaultText;
-      }
-      startupOverlayVisibleAt = null; // Clear the timestamp once dismissal completes so subsequent calls skip the delay.
-      return;
-    }
-
-    await new Promise((resolve) => {
-      const complete = () => {
-        if (startupOverlayFadeHandle) {
-          window.clearTimeout(startupOverlayFadeHandle);
-          startupOverlayFadeHandle = null;
-        }
-        startupOverlay.removeEventListener('transitionend', handleTransitionEnd);
-        if (!startupOverlay.classList.contains('startup-overlay--hidden')) {
-          startupOverlay.classList.add('startup-overlay--hidden');
-        }
-        startupOverlay.setAttribute('hidden', '');
-        startupOverlay.setAttribute('aria-hidden', 'true');
-        if (startupHint && startupHintDefaultText) {
-          startupHint.textContent = startupHintDefaultText;
-        }
-        startupOverlayVisibleAt = null; // Reset the visibility marker so retries do not wait unnecessarily.
-        resolve();
-      };
-
-      const handleTransitionEnd = (event) => {
-        if (event.target !== startupOverlay || event.propertyName !== 'opacity') {
-          return;
-        }
-        complete();
-      };
-
-      if (startupOverlayFadeHandle) {
-        window.clearTimeout(startupOverlayFadeHandle);
-        startupOverlayFadeHandle = null;
-      }
-
-      startupOverlayFadeHandle = window.setTimeout(() => {
-        startupOverlayFadeHandle = null;
-        complete();
-      }, STARTUP_OVERLAY_FADE_MS + 160);
-
-      startupOverlay.addEventListener('transitionend', handleTransitionEnd);
-
-      requestAnimationFrame(() => {
-        startupOverlay.classList.add('startup-overlay--hidden');
-        startupOverlay.setAttribute('aria-hidden', 'true');
-      });
-    });
-  }
-
   initializeStartupOverlay();
 
   const alephChainUpgradeState = { ...ALEPH_CHAIN_DEFAULT_UPGRADES };
@@ -384,153 +273,7 @@ import {
 
   setTheroSymbol(THERO_SYMBOL);
 
-  const GAMEPLAY_CONFIG_RELATIVE_PATH = './data/gameplayConfig.json';
-  const GAMEPLAY_CONFIG_URL = new URL(GAMEPLAY_CONFIG_RELATIVE_PATH, import.meta.url);
-  const FLUID_SIM_CONFIG_RELATIVE_PATH = './data/towerFluidSimulation.json';
-  const FLUID_SIM_CONFIG_URL = new URL(FLUID_SIM_CONFIG_RELATIVE_PATH, import.meta.url);
-
-  function normalizeFluidSimulationProfile(data) {
-    if (!data || typeof data !== 'object') {
-      return null;
-    }
-
-    const paletteSource =
-      data.palette && typeof data.palette === 'object'
-        ? data.palette
-        : {
-            stops: data.stops,
-            restAlpha: data.restAlpha,
-            freefallAlpha: data.freefallAlpha,
-            backgroundTop: data.backgroundTop,
-            backgroundBottom: data.backgroundBottom,
-          };
-
-    const dropSizes = Array.isArray(data.dropSizes)
-      ? data.dropSizes
-          .map((size) => {
-            const numeric = Number.parseFloat(size);
-            return Number.isFinite(numeric) ? Math.max(1, Math.round(numeric)) : null;
-          })
-          .filter((size) => Number.isFinite(size) && size > 0)
-      : Array.isArray(data.grainSizes)
-        ? data.grainSizes
-            .map((size) => {
-              const numeric = Number.parseFloat(size);
-              return Number.isFinite(numeric) ? Math.max(1, Math.round(numeric)) : null;
-            })
-            .filter((size) => Number.isFinite(size) && size > 0)
-        : [];
-
-    if (!dropSizes.length) {
-      dropSizes.push(1, 1, 2);
-    }
-
-    return {
-      id: typeof data.id === 'string' && data.id.trim() ? data.id.trim() : 'fluid',
-      label: typeof data.label === 'string' && data.label.trim() ? data.label.trim() : 'Fluid Study',
-      dropSizes,
-      dropVolumeScale: Number.isFinite(data.dropVolumeScale) && data.dropVolumeScale > 0
-        ? data.dropVolumeScale
-        : null,
-      idleDrainRate: Number.isFinite(data.idleDrainRate) ? Math.max(1, data.idleDrainRate) : null,
-      baseSpawnInterval: Number.isFinite(data.baseSpawnInterval) ? Math.max(30, data.baseSpawnInterval) : null,
-      flowOffset: Number.isFinite(data.flowOffset) ? Math.max(0, data.flowOffset) : null,
-      waveStiffness: Number.isFinite(data.waveStiffness) && data.waveStiffness > 0 ? data.waveStiffness : null,
-      waveDamping: Number.isFinite(data.waveDamping) && data.waveDamping >= 0 ? data.waveDamping : null,
-      sideFlowRate: Number.isFinite(data.sideFlowRate) && data.sideFlowRate >= 0 ? data.sideFlowRate : null,
-      rippleFrequency: Number.isFinite(data.rippleFrequency) && data.rippleFrequency >= 0
-        ? data.rippleFrequency
-        : null,
-      rippleAmplitude: Number.isFinite(data.rippleAmplitude) && data.rippleAmplitude >= 0
-        ? data.rippleAmplitude
-        : null,
-      palette: mergeMotePalette(paletteSource || {}),
-    };
-  }
-
-  async function loadFluidSimulationProfile() {
-    if (fluidSimulationProfile) {
-      return fluidSimulationProfile;
-    }
-
-    if (!fluidSimulationLoadPromise) {
-      fluidSimulationLoadPromise = (async () => {
-        try {
-          if (typeof fetch === 'function') {
-            return fetchJsonWithFallback(FLUID_SIM_CONFIG_URL.href, FLUID_SIM_CONFIG_RELATIVE_PATH);
-          }
-        } catch (error) {
-          console.warn('Fluid simulation fetch failed; attempting module import.', error);
-        }
-
-        try {
-          const module = await import(FLUID_SIM_CONFIG_URL.href, { assert: { type: 'json' } });
-          if (module && module.default) {
-            return module.default;
-          }
-        } catch (error) {
-          console.error('Fluid simulation profile import failed.', error);
-        }
-
-        return null;
-      })();
-    }
-
-    const rawProfile = await fluidSimulationLoadPromise;
-    fluidSimulationLoadPromise = null;
-    fluidSimulationProfile = normalizeFluidSimulationProfile(rawProfile);
-    return fluidSimulationProfile;
-  }
-
-  let gameplayConfigData = null;
-  let fluidSimulationProfile = null;
-  let fluidSimulationLoadPromise = null;
-
-  const FALLBACK_TOWER_LOADOUT_LIMIT = 4;
-  const FALLBACK_BASE_START_THERO = 50;
-  const FALLBACK_BASE_CORE_INTEGRITY = 100;
-  // Baseline idle resource production rates so the ledger starts at grounded values.
-  const FALLBACK_BASE_SCORE_RATE = 1;
-  const FALLBACK_BASE_ENERGY_RATE = 0;
-  const FALLBACK_BASE_FLUX_RATE = 0;
-
-  let TOWER_LOADOUT_LIMIT = FALLBACK_TOWER_LOADOUT_LIMIT;
-  let BASE_START_THERO = FALLBACK_BASE_START_THERO;
-  let BASE_CORE_INTEGRITY = FALLBACK_BASE_CORE_INTEGRITY;
-
-  // Enumerated graphics modes allow the UI to cycle between fidelity tiers.
-  const GRAPHICS_MODES = Object.freeze({
-    LOW: 'low',
-    HIGH: 'high',
-  });
-
-  // Cached reference to the graphics fidelity toggle control.
-  let graphicsModeButton = null;
-
-  // Track the desktop cursor media query so the gem pointer can react to device changes.
-  let desktopCursorMediaQuery = null;
-
-  // Remember whether the gem cursor class is currently applied to the document body.
-  let desktopCursorActive = false;
-
-  // Active graphics fidelity so dependent systems can query the current mode.
-  let activeGraphicsMode = GRAPHICS_MODES.HIGH;
-
-  // Provides a human readable label for the current notation selection.
-  function resolveNotationLabel(notation) {
-    return notation === GAME_NUMBER_NOTATIONS.SCIENTIFIC ? 'Scientific' : 'Letters';
-  }
-
-  // Updates the toggle button text to reflect the active notation.
-  function updateNotationToggleLabel() {
-    if (!notationToggleButton) {
-      return;
-    }
-    const notation = getGameNumberNotation();
-    const label = resolveNotationLabel(notation);
-    notationToggleButton.textContent = `Notation · ${label}`;
-    notationToggleButton.setAttribute('aria-label', `Switch number notation (current: ${label})`);
-  }
+  // Gameplay configuration, resource baselines, and fluid profile loading now reside in configuration.js.
 
   // Re-renders UI panels that depend on the number formatting preference.
   function refreshNotationDisplays() {
@@ -548,262 +291,7 @@ import {
     generateLevelAchievements();
   }
 
-  // Shared handler fired whenever the notation preference changes.
-  function handleNotationChange() {
-    updateNotationToggleLabel();
-    refreshNotationDisplays();
-  }
-
-  addGameNumberNotationChangeListener(handleNotationChange);
-
-  // Applies the requested notation and optionally persists the choice.
-  function applyNotationPreference(notation, { persist = true } = {}) {
-    const resolved = setGameNumberNotation(notation);
-    if (persist) {
-      writeStorage(NOTATION_STORAGE_KEY, resolved);
-    }
-    return resolved;
-  }
-
-  // Cycles between letter suffix notation and scientific notation.
-  function toggleNotationPreference() {
-    const current = getGameNumberNotation();
-    const next = current === GAME_NUMBER_NOTATIONS.SCIENTIFIC
-      ? GAME_NUMBER_NOTATIONS.LETTERS
-      : GAME_NUMBER_NOTATIONS.SCIENTIFIC;
-    applyNotationPreference(next);
-  }
-
-  // Wires the notation toggle button to the preference handler.
-  function bindNotationToggle() {
-    notationToggleButton = document.getElementById('notation-toggle-button');
-    if (!notationToggleButton) {
-      return;
-    }
-    notationToggleButton.addEventListener('click', () => {
-      toggleNotationPreference();
-    });
-    updateNotationToggleLabel();
-  }
-
-  // Tracks whether glyph equations should render inside tower upgrade cards.
-  let glyphEquationsVisible = false;
-  // Cache DOM nodes associated with the glyph equation toggle control.
-  let glyphEquationToggleInput = null;
-  let glyphEquationToggleStateLabel = null;
-
-  // Normalizes persisted glyph equation values into a boolean flag.
-  function normalizeGlyphEquationPreference(value) {
-    if (typeof value === 'string') {
-      const normalized = value.trim().toLowerCase();
-      if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on') {
-        return true;
-      }
-      if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off') {
-        return false;
-      }
-    }
-    if (typeof value === 'number') {
-      return Number.isFinite(value) && value > 0;
-    }
-    return Boolean(value);
-  }
-
-  // Synchronizes the slider UI and aria attributes with the active preference.
-  function updateGlyphEquationToggleUi() {
-    if (glyphEquationToggleInput) {
-      glyphEquationToggleInput.checked = glyphEquationsVisible;
-      glyphEquationToggleInput.setAttribute('aria-checked', glyphEquationsVisible ? 'true' : 'false');
-      const controlShell = glyphEquationToggleInput.closest('.settings-toggle-control');
-      if (controlShell) {
-        controlShell.classList.toggle('is-active', glyphEquationsVisible);
-      }
-    }
-    if (glyphEquationToggleStateLabel) {
-      glyphEquationToggleStateLabel.textContent = glyphEquationsVisible ? 'On' : 'Off';
-    }
-  }
-
-  // Applies the glyph equation visibility state and optionally persists the choice.
-  function applyGlyphEquationPreference(preference, { persist = true } = {}) {
-    const enabled = normalizeGlyphEquationPreference(preference);
-    glyphEquationsVisible = enabled;
-    const body = typeof document !== 'undefined' ? document.body : null;
-    if (body) {
-      body.classList.toggle('show-glyph-equations', glyphEquationsVisible);
-    }
-    updateGlyphEquationToggleUi();
-    if (persist) {
-      writeStorage(GLYPH_EQUATIONS_STORAGE_KEY, glyphEquationsVisible ? '1' : '0');
-    }
-    return glyphEquationsVisible;
-  }
-
-  // Binds the glyph equation slider to the preference handler.
-  function bindGlyphEquationToggle() {
-    glyphEquationToggleInput = document.getElementById('glyph-equation-toggle');
-    glyphEquationToggleStateLabel = document.getElementById('glyph-equation-toggle-state');
-    if (!glyphEquationToggleInput) {
-      return;
-    }
-    glyphEquationToggleInput.addEventListener('change', (event) => {
-      applyGlyphEquationPreference(event?.target?.checked);
-    });
-    updateGlyphEquationToggleUi();
-  }
-
-  // Provides an accessible label for the graphics fidelity control.
-  function resolveGraphicsModeLabel(mode = activeGraphicsMode) {
-    return mode === GRAPHICS_MODES.LOW ? 'Low' : 'High';
-  }
-
-  // Synchronizes the graphics toggle button label with the active fidelity state.
-  function updateGraphicsModeButton() {
-    if (!graphicsModeButton) {
-      return;
-    }
-    const label = resolveGraphicsModeLabel();
-    graphicsModeButton.textContent = `Graphics · ${label}`;
-    graphicsModeButton.setAttribute('aria-label', `Switch graphics quality (current: ${label})`);
-  }
-
-  // Detects whether the current device should default to low graphics rendering.
-  function prefersLowGraphicsByDefault() {
-    if (typeof window !== 'undefined') {
-      try {
-        const matcher = typeof window.matchMedia === 'function' ? window.matchMedia.bind(window) : null;
-        const coarsePointer = matcher ? matcher('(pointer: coarse)').matches : false;
-        const hoverNone = matcher ? matcher('(hover: none)').matches : false;
-        const width = Number.isFinite(window.innerWidth) ? window.innerWidth : null;
-        const smallViewport = width !== null && width <= 900;
-        if ((coarsePointer && hoverNone) || (coarsePointer && smallViewport)) {
-          return true;
-        }
-        if (width !== null && width <= 768) {
-          return true;
-        }
-      } catch (error) {
-        console.warn('Graphics mode heuristic failed; falling back to user agent detection.', error);
-      }
-    }
-
-    if (typeof navigator !== 'undefined') {
-      const userAgent = navigator.userAgent || '';
-      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  // Apply or remove the gem cursor class depending on the detected pointer support.
-  function updateDesktopCursorClass(enabled) {
-    const body = typeof document !== 'undefined' ? document.body : null;
-    if (!body) {
-      return;
-    }
-    const nextState = Boolean(enabled);
-    if (nextState === desktopCursorActive) {
-      return;
-    }
-    desktopCursorActive = nextState;
-    body.classList.toggle('mouse-cursor-gem', desktopCursorActive);
-  }
-
-  // Fall back to user agent heuristics when matchMedia support is unavailable.
-  function evaluateDesktopCursorPreferenceFallback() {
-    if (typeof navigator === 'undefined') {
-      updateDesktopCursorClass(false);
-      return;
-    }
-    const userAgent = navigator.userAgent || '';
-    const mobilePattern = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i;
-    updateDesktopCursorClass(!mobilePattern.test(userAgent));
-  }
-
-  // Initialize the gem cursor preference and react to pointer capability changes over time.
-  function initializeDesktopCursorPreference() {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      evaluateDesktopCursorPreferenceFallback();
-      return;
-    }
-    try {
-      desktopCursorMediaQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
-      updateDesktopCursorClass(desktopCursorMediaQuery.matches);
-      const listener = (event) => {
-        // Reflect pointer precision changes (e.g., tablet keyboard attachments) in real time.
-        updateDesktopCursorClass(event.matches);
-      };
-      if (typeof desktopCursorMediaQuery.addEventListener === 'function') {
-        desktopCursorMediaQuery.addEventListener('change', listener);
-      } else if (typeof desktopCursorMediaQuery.addListener === 'function') {
-        desktopCursorMediaQuery.addListener(listener);
-      }
-    } catch (error) {
-      console.warn('Desktop cursor media query failed; falling back to user agent detection.', error);
-      evaluateDesktopCursorPreferenceFallback();
-    }
-  }
-
-  // Applies the requested graphics fidelity, updating DOM classes and persistence.
-  function applyGraphicsMode(mode, { persist = true } = {}) {
-    const normalized = mode === GRAPHICS_MODES.LOW ? GRAPHICS_MODES.LOW : GRAPHICS_MODES.HIGH;
-    activeGraphicsMode = normalized;
-
-    const body = typeof document !== 'undefined' ? document.body : null;
-    if (body) {
-      body.classList.toggle('graphics-mode-low', normalized === GRAPHICS_MODES.LOW);
-      body.classList.toggle('graphics-mode-high', normalized === GRAPHICS_MODES.HIGH);
-    }
-
-    updateGraphicsModeButton();
-
-    if (persist) {
-      writeStorage(GRAPHICS_MODE_STORAGE_KEY, normalized);
-    }
-
-    if (powderSimulation && typeof powderSimulation.render === 'function') {
-      powderSimulation.render();
-    }
-
-    if (playfield && typeof playfield.draw === 'function') {
-      playfield.draw();
-    }
-
-    return normalized;
-  }
-
-  // Allows dependent systems to query the active graphics fidelity.
-  function isLowGraphicsModeActive() {
-    return activeGraphicsMode === GRAPHICS_MODES.LOW;
-  }
-
-  // Toggles between the available graphics fidelity presets.
-  function toggleGraphicsMode() {
-    const next = activeGraphicsMode === GRAPHICS_MODES.LOW ? GRAPHICS_MODES.HIGH : GRAPHICS_MODES.LOW;
-    applyGraphicsMode(next);
-  }
-
-  // Wires the graphics fidelity button to the toggle handler.
-  function bindGraphicsModeToggle() {
-    graphicsModeButton = document.getElementById('graphics-mode-button');
-    if (!graphicsModeButton) {
-      return;
-    }
-    graphicsModeButton.addEventListener('click', () => {
-      toggleGraphicsMode();
-    });
-    updateGraphicsModeButton();
-  }
-
-  // Initializes graphics fidelity from storage or device heuristics.
-  function initializeGraphicsMode() {
-    const stored = readStorage(GRAPHICS_MODE_STORAGE_KEY);
-    const normalized = stored === GRAPHICS_MODES.LOW || stored === GRAPHICS_MODES.HIGH ? stored : null;
-    const fallback = prefersLowGraphicsByDefault() ? GRAPHICS_MODES.LOW : GRAPHICS_MODES.HIGH;
-    applyGraphicsMode(normalized || fallback, { persist: !normalized });
-  }
+  setNotationRefreshHandler(refreshNotationDisplays);
 
   function getOmegaPatternForTier(tier) {
     const normalized = Number.isFinite(tier) ? Math.max(24, Math.floor(tier)) : 24;
@@ -834,129 +322,7 @@ import {
     };
   }
 
-  function applyGameplayConfig(config = {}) {
-    gameplayConfigData = config || {};
-
-    const defaults = gameplayConfigData.defaults || {};
-
-    TOWER_LOADOUT_LIMIT =
-      Number.isFinite(defaults.towerLoadoutLimit) && defaults.towerLoadoutLimit > 0
-        ? Math.max(1, Math.floor(defaults.towerLoadoutLimit))
-        : FALLBACK_TOWER_LOADOUT_LIMIT;
-    setTowerLoadoutLimit(TOWER_LOADOUT_LIMIT);
-
-    BASE_START_THERO =
-      Number.isFinite(defaults.baseStartThero) && defaults.baseStartThero > 0
-        ? defaults.baseStartThero
-        : FALLBACK_BASE_START_THERO;
-
-    BASE_CORE_INTEGRITY =
-      Number.isFinite(defaults.baseCoreIntegrity) && defaults.baseCoreIntegrity > 0
-        ? defaults.baseCoreIntegrity
-        : FALLBACK_BASE_CORE_INTEGRITY;
-
-    const startingThero = calculateStartingThero();
-    baseResources.score = startingThero;
-    resourceState.score = startingThero;
-    baseResources.scoreRate = FALLBACK_BASE_SCORE_RATE;
-    baseResources.energyRate = FALLBACK_BASE_ENERGY_RATE;
-    baseResources.fluxRate = FALLBACK_BASE_FLUX_RATE;
-    resourceState.scoreRate = baseResources.scoreRate;
-    resourceState.energyRate = baseResources.energyRate;
-    resourceState.fluxRate = baseResources.fluxRate;
-
-    // Assemble tower definitions from modular tower sources to keep stats centralized per file.
-    const towerDefinitions = towers.map((tower) => ({ ...tower }));
-    gameplayConfigData.towers = towerDefinitions;
-    setTowerDefinitions(towerDefinitions);
-
-    const loadoutState = getTowerLoadoutState();
-    const unlockState = getTowerUnlockState();
-
-    const loadoutCandidates = Array.isArray(defaults.initialTowerLoadout)
-      ? defaults.initialTowerLoadout
-      : loadoutState.selected;
-
-    const normalizedLoadout = [];
-    loadoutCandidates.forEach((towerId) => {
-      if (
-        typeof towerId === 'string' &&
-        getTowerDefinition(towerId) &&
-        !normalizedLoadout.includes(towerId) &&
-        normalizedLoadout.length < TOWER_LOADOUT_LIMIT
-      ) {
-        normalizedLoadout.push(towerId);
-      }
-    });
-    if (!normalizedLoadout.length && towerDefinitions.length) {
-      normalizedLoadout.push(towerDefinitions[0].id);
-    }
-    loadoutState.selected = normalizedLoadout;
-
-    const unlocked = new Set(
-      Array.isArray(defaults.initialUnlockedTowers)
-        ? defaults.initialUnlockedTowers.filter((towerId) => getTowerDefinition(towerId))
-        : [],
-    );
-    loadoutState.selected.forEach((towerId) => unlocked.add(towerId));
-    unlockState.unlocked = unlocked;
-    setMergingLogicUnlocked(unlocked.has('beta'));
-    initializeDiscoveredVariablesFromUnlocks(unlocked);
-
-    setEnemyCodexEntries(gameplayConfigData.enemies);
-
-    setLevelBlueprints(gameplayConfigData.maps);
-    setLevelConfigs(gameplayConfigData.levels);
-    initializeInteractiveLevelProgression();
-    populateIdleLevelConfigs(baseResources);
-    pruneLevelState();
-
-    generateLevelAchievements();
-
-    return gameplayConfigData;
-  }
-
-  async function ensureGameplayConfigLoaded() {
-    if (gameplayConfigData) {
-      return gameplayConfigData;
-    }
-
-    let lastError = null;
-
-    try {
-      const configFromFetch = await loadGameplayConfigViaFetch(
-        GAMEPLAY_CONFIG_URL.href,
-        GAMEPLAY_CONFIG_RELATIVE_PATH,
-      );
-      if (configFromFetch) {
-        return applyGameplayConfig(configFromFetch);
-      }
-    } catch (error) {
-      lastError = error;
-      console.warn('Primary gameplay-config fetch failed; falling back to alternate loaders.', error);
-    }
-
-    const embeddedConfig = getEmbeddedGameplayConfig();
-    if (embeddedConfig) {
-      return applyGameplayConfig(embeddedConfig);
-    }
-
-    try {
-      const configFromModule = await loadGameplayConfigViaModule(GAMEPLAY_CONFIG_URL.href);
-      if (configFromModule) {
-        return applyGameplayConfig(configFromModule);
-      }
-    } catch (error) {
-      lastError = error;
-    }
-
-    console.error('Unable to load gameplay configuration', lastError);
-    throw lastError || new Error('Unable to load gameplay configuration');
-  }
-
-  function calculateStartingThero() {
-    return BASE_START_THERO * getStartingTheroMultiplier();
-  }
+  // applyGameplayConfig, ensureGameplayConfigLoaded, and calculateStartingThero are provided by configuration.js.
 
   let levelGrid = null;
   let activeLevelEl = null;
@@ -1078,25 +444,6 @@ import {
     OFFLINE_STORAGE_KEY,
     COLOR_SCHEME_STORAGE_KEY,
   ].filter(Boolean);
-
-  const fieldNotesElements = {
-    overlay: null,
-    closeButton: null,
-    openButton: null,
-    copy: null,
-    pagination: null,
-    pages: [],
-    pageIndicator: null,
-    prevButton: null,
-    nextButton: null,
-    lastFocus: null,
-  };
-
-  const fieldNotesState = {
-    currentIndex: 0,
-    animating: false,
-    touchStart: null,
-  };
 
   const overlayHideStates = new WeakMap();
 
@@ -1593,7 +940,7 @@ import {
       return;
     }
     const normalized = Math.max(0, value);
-    BASE_START_THERO = normalized;
+    setBaseStartThero(normalized);
     recordDeveloperAdjustment('base-start-thero', normalized);
     updateLevelCards();
     updatePowderLedger();
@@ -1648,7 +995,7 @@ import {
       fields.moteRate.value = formatDeveloperFloat(getCurrentMoteDispenseRate());
     }
     if (fields.startThero) {
-      fields.startThero.value = formatDeveloperInteger(BASE_START_THERO);
+      fields.startThero.value = formatDeveloperInteger(getBaseStartThero());
     }
     if (fields.theroMultiplier) {
       const override = getDeveloperTheroMultiplierOverride();
@@ -2006,6 +1353,12 @@ import {
   const audioManager = new AudioManager(DEFAULT_AUDIO_MANIFEST);
   setTowersAudioManager(audioManager);
 
+  configureFieldNotesOverlay({
+    revealOverlay,
+    scheduleOverlayHide,
+    audioManager,
+  });
+
   const audioSuppressionReasons = new Set();
 
   function suppressAudioPlayback(reason = 'unspecified') {
@@ -2194,6 +1547,8 @@ import {
     fluxRate: baseResources.fluxRate,
     running: false,
   };
+
+  registerResourceContainers({ baseResources, resourceState });
 
   const powderConfig = {
     sandOffsetInactive: 0,
@@ -3241,7 +2596,7 @@ import {
     applyStoredAudioSettings,
     syncAudioControlsFromManager,
     applyNotationPreference,
-    handleNotationFallback: handleNotationChange,
+    handleNotationFallback: refreshNotationDisplays,
     applyGlyphEquationPreference,
     getGameStatsSnapshot: () => gameStats,
     mergeLoadedGameStats: (stored) => {
@@ -3259,8 +2614,8 @@ import {
     statKeys: Object.keys(gameStats),
     getPreferenceSnapshot: () => ({
       notation: getGameNumberNotation(),
-      graphics: activeGraphicsMode,
-      glyphEquations: glyphEquationsVisible ? '1' : '0',
+      graphics: getActiveGraphicsMode(),
+      glyphEquations: areGlyphEquationsVisible() ? '1' : '0',
     }),
   });
 
@@ -3272,6 +2627,11 @@ import {
   let sandSimulation = null;
   let fluidSimulationInstance = null;
   let powderBasinObserver = null;
+
+  setGraphicsModeContext({
+    getPowderSimulation: () => powderSimulation,
+    getPlayfield: () => playfield,
+  });
 
   // Synchronize the shared palette module with powder simulation and playfield rendering.
   configureColorSchemeSystem({
@@ -3300,8 +2660,8 @@ import {
     notifyAutoAnchorUsed,
     getOmegaPatternForTier,
     isFieldNotesOverlayVisible,
-    getBaseStartThero: () => BASE_START_THERO,
-    getBaseCoreIntegrity: () => BASE_CORE_INTEGRITY,
+    getBaseStartThero,
+    getBaseCoreIntegrity,
     handleDeveloperMapPlacement: handleDeveloperMapPlacementRequest,
     // Provide the playfield with the active graphics mode to prune visual effects.
     isLowGraphicsMode: () => isLowGraphicsModeActive(),
@@ -6603,7 +5963,7 @@ import {
     );
 
     loadoutState.selected = towers
-      .slice(0, TOWER_LOADOUT_LIMIT)
+      .slice(0, getTowerLoadoutLimit())
       .map((definition) => definition.id);
 
     pruneLockedTowersFromLoadout();
@@ -7020,368 +6380,7 @@ import {
     }
   }
 
-  function isFieldNotesOverlayVisible() {
-    return Boolean(fieldNotesElements.overlay?.classList.contains('active'));
-  }
-
-  function focusFieldNotesElement(element) {
-    if (!element || typeof element.focus !== 'function') {
-      return;
-    }
-
-    try {
-      element.focus({ preventScroll: true });
-    } catch (error) {
-      element.focus();
-    }
-  }
-
-  function getFieldNotesPages() {
-    return Array.isArray(fieldNotesElements.pages) ? fieldNotesElements.pages : [];
-  }
-
-  function updateFieldNotesControls() {
-    const pages = getFieldNotesPages();
-    const total = pages.length;
-    const current = Math.max(0, Math.min(total - 1, fieldNotesState.currentIndex));
-
-    if (fieldNotesElements.pageIndicator) {
-      const label = total > 0 ? `Page ${current + 1} of ${total}` : 'Page 1 of 1';
-      fieldNotesElements.pageIndicator.textContent = label;
-      fieldNotesElements.pageIndicator.hidden = total <= 1;
-    }
-
-    if (fieldNotesElements.prevButton) {
-      fieldNotesElements.prevButton.disabled = current <= 0 || total <= 1;
-      fieldNotesElements.prevButton.hidden = total <= 1;
-    }
-
-    if (fieldNotesElements.nextButton) {
-      fieldNotesElements.nextButton.disabled = current >= total - 1 || total <= 1;
-      fieldNotesElements.nextButton.hidden = total <= 1;
-    }
-
-    if (fieldNotesElements.pagination) {
-      if (total <= 1) {
-        fieldNotesElements.pagination.setAttribute('hidden', '');
-      } else {
-        fieldNotesElements.pagination.removeAttribute('hidden');
-      }
-    }
-  }
-
-  function setFieldNotesPage(targetIndex, options = {}) {
-    const pages = getFieldNotesPages();
-    if (!pages.length) {
-      fieldNotesState.currentIndex = 0;
-      updateFieldNotesControls();
-      return;
-    }
-
-    const clampedIndex = Math.max(0, Math.min(pages.length - 1, targetIndex));
-    const immediate = Boolean(options.immediate);
-    const currentIndex = Math.max(0, Math.min(pages.length - 1, fieldNotesState.currentIndex));
-    const currentPage = pages[currentIndex];
-    const nextPage = pages[clampedIndex];
-
-    if (!nextPage) {
-      return;
-    }
-
-    if (!immediate && clampedIndex !== currentIndex && audioManager) {
-      audioManager.playSfx('pageTurn');
-    }
-
-    if (immediate) {
-      fieldNotesState.animating = false;
-      fieldNotesState.currentIndex = clampedIndex;
-      pages.forEach((page, index) => {
-        const active = index === clampedIndex;
-        page.classList.toggle('field-notes-page--active', active);
-        page.classList.remove(
-          'field-notes-page--enter-forward',
-          'field-notes-page--enter-backward',
-          'field-notes-page--exit-forward',
-          'field-notes-page--exit-backward',
-        );
-        page.setAttribute('tabindex', active ? '0' : '-1');
-        page.setAttribute('aria-hidden', active ? 'false' : 'true');
-        if (active) {
-          page.scrollTop = 0;
-        }
-      });
-      updateFieldNotesControls();
-      return;
-    }
-
-    if (fieldNotesState.animating || clampedIndex === currentIndex) {
-      return;
-    }
-
-    const direction = Number.isFinite(options.direction)
-      ? Math.sign(options.direction)
-      : clampedIndex > currentIndex
-      ? 1
-      : -1;
-
-    fieldNotesState.animating = true;
-
-    const enterClass = direction >= 0 ? 'field-notes-page--enter-forward' : 'field-notes-page--enter-backward';
-    const exitClass = direction >= 0 ? 'field-notes-page--exit-forward' : 'field-notes-page--exit-backward';
-
-    if (currentPage && currentPage !== nextPage) {
-      currentPage.classList.remove(
-        'field-notes-page--enter-forward',
-        'field-notes-page--enter-backward',
-        'field-notes-page--exit-forward',
-        'field-notes-page--exit-backward',
-      );
-      currentPage.classList.add(exitClass);
-      currentPage.setAttribute('aria-hidden', 'true');
-      currentPage.setAttribute('tabindex', '-1');
-    }
-
-    nextPage.classList.remove(
-      'field-notes-page--enter-forward',
-      'field-notes-page--enter-backward',
-      'field-notes-page--exit-forward',
-      'field-notes-page--exit-backward',
-    );
-    nextPage.classList.add('field-notes-page--active', enterClass);
-    nextPage.setAttribute('aria-hidden', 'false');
-    nextPage.setAttribute('tabindex', '0');
-    nextPage.scrollTop = 0;
-
-    let fallbackHandle = null;
-
-    const finishTransition = (event) => {
-      if (event && event.target !== nextPage) {
-        return;
-      }
-      if (event && event.propertyName && event.propertyName !== 'transform') {
-        return;
-      }
-      nextPage.removeEventListener('transitionend', finishTransition);
-      if (fallbackHandle) {
-        clearTimeout(fallbackHandle);
-        fallbackHandle = null;
-      }
-      nextPage.classList.remove('field-notes-page--enter-forward', 'field-notes-page--enter-backward');
-      if (currentPage && currentPage !== nextPage) {
-        currentPage.classList.remove(
-          'field-notes-page--active',
-          'field-notes-page--exit-forward',
-          'field-notes-page--exit-backward',
-        );
-      }
-      fieldNotesState.currentIndex = clampedIndex;
-      fieldNotesState.animating = false;
-      updateFieldNotesControls();
-    };
-
-    requestAnimationFrame(() => {
-      nextPage.addEventListener('transitionend', finishTransition);
-      if (typeof window !== 'undefined') {
-        fallbackHandle = window.setTimeout(() => {
-          finishTransition();
-        }, 420);
-      }
-      nextPage.classList.remove(enterClass);
-    });
-  }
-
-  function showNextFieldNotesPage() {
-    const pages = getFieldNotesPages();
-    if (!pages.length) {
-      return;
-    }
-    const nextIndex = Math.min(pages.length - 1, fieldNotesState.currentIndex + 1);
-    setFieldNotesPage(nextIndex, { direction: 1 });
-  }
-
-  function showPreviousFieldNotesPage() {
-    const pages = getFieldNotesPages();
-    if (!pages.length) {
-      return;
-    }
-    const nextIndex = Math.max(0, fieldNotesState.currentIndex - 1);
-    setFieldNotesPage(nextIndex, { direction: -1 });
-  }
-
-  function handleFieldNotesOverlayKeydown(event) {
-    if (!isFieldNotesOverlayVisible()) {
-      return;
-    }
-    if (typeof event.stopPropagation === 'function') {
-      event.stopPropagation();
-    }
-    if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      showNextFieldNotesPage();
-      return;
-    }
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      showPreviousFieldNotesPage();
-    }
-  }
-
-  function handleFieldNotesPointerDown(event) {
-    if (!event || (event.pointerType !== 'touch' && event.pointerType !== 'pen')) {
-      fieldNotesState.touchStart = null;
-      return;
-    }
-    fieldNotesState.touchStart = {
-      pointerId: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      time: typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now(),
-    };
-  }
-
-  function handleFieldNotesPointerUp(event) {
-    const start = fieldNotesState.touchStart;
-    fieldNotesState.touchStart = null;
-    if (!start || !event || start.pointerId !== event.pointerId || fieldNotesState.animating) {
-      return;
-    }
-    const dx = event.clientX - start.x;
-    const dy = event.clientY - start.y;
-    const elapsed = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - start.time;
-    if (Math.abs(dx) < 40) {
-      return;
-    }
-    if (Math.abs(dx) < Math.abs(dy) * 1.2) {
-      return;
-    }
-    if (elapsed > 600) {
-      return;
-    }
-    if (dx < 0) {
-      showNextFieldNotesPage();
-    } else {
-      showPreviousFieldNotesPage();
-    }
-  }
-
-  function clearFieldNotesPointerTracking() {
-    fieldNotesState.touchStart = null;
-  }
-
-  function closeFieldNotesOverlay() {
-    const { overlay } = fieldNotesElements;
-    if (!overlay || !isFieldNotesOverlayVisible()) {
-      return;
-    }
-
-    overlay.classList.remove('active');
-    overlay.setAttribute('aria-hidden', 'true');
-
-    scheduleOverlayHide(overlay);
-    fieldNotesState.animating = false;
-    clearFieldNotesPointerTracking();
-
-    const focusTarget =
-      fieldNotesElements.lastFocus && typeof fieldNotesElements.lastFocus.focus === 'function'
-        ? fieldNotesElements.lastFocus
-        : fieldNotesElements.openButton;
-
-    if (focusTarget) {
-      focusFieldNotesElement(focusTarget);
-    }
-
-    fieldNotesElements.lastFocus = null;
-  }
-
-  function openFieldNotesOverlay() {
-    const { overlay, closeButton } = fieldNotesElements;
-    if (!overlay || isFieldNotesOverlayVisible()) {
-      return;
-    }
-
-    fieldNotesElements.lastFocus = document.activeElement;
-    revealOverlay(overlay);
-    overlay.setAttribute('aria-hidden', 'false');
-    fieldNotesState.touchStart = null;
-    setFieldNotesPage(0, { immediate: true });
-
-    requestAnimationFrame(() => {
-      overlay.classList.add('active');
-      if (closeButton) {
-        focusFieldNotesElement(closeButton);
-      } else {
-        focusFieldNotesElement(overlay);
-      }
-    });
-  }
-
-  function initializeFieldNotesOverlay() {
-    fieldNotesElements.overlay = document.getElementById('field-notes-overlay');
-    fieldNotesElements.closeButton = document.getElementById('field-notes-close');
-    fieldNotesElements.copy = document.getElementById('field-notes-copy');
-    fieldNotesElements.pagination = document.getElementById('field-notes-pagination');
-    fieldNotesElements.pageIndicator = document.getElementById('field-notes-page-indicator');
-    fieldNotesElements.prevButton = document.getElementById('field-notes-prev');
-    fieldNotesElements.nextButton = document.getElementById('field-notes-next');
-
-    fieldNotesElements.pages = fieldNotesElements.copy
-      ? Array.from(fieldNotesElements.copy.querySelectorAll('.field-notes-page'))
-      : [];
-    fieldNotesState.currentIndex = 0;
-    setFieldNotesPage(0, { immediate: true });
-    updateFieldNotesControls();
-
-    const { overlay, closeButton } = fieldNotesElements;
-
-    if (overlay) {
-      overlay.addEventListener('click', (event) => {
-        if (event.target === overlay) {
-          closeFieldNotesOverlay();
-        }
-      });
-
-      overlay.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' || event.key === 'Esc') {
-          event.preventDefault();
-          closeFieldNotesOverlay();
-          return;
-        }
-        handleFieldNotesOverlayKeydown(event);
-      });
-    }
-
-    if (closeButton) {
-      closeButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        closeFieldNotesOverlay();
-      });
-    }
-
-    if (fieldNotesElements.prevButton) {
-      fieldNotesElements.prevButton.addEventListener('click', () => {
-        showPreviousFieldNotesPage();
-      });
-    }
-
-    if (fieldNotesElements.nextButton) {
-      fieldNotesElements.nextButton.addEventListener('click', () => {
-        showNextFieldNotesPage();
-      });
-    }
-
-    if (fieldNotesElements.copy) {
-      fieldNotesElements.copy.addEventListener('pointerdown', handleFieldNotesPointerDown, {
-        passive: true,
-      });
-      fieldNotesElements.copy.addEventListener('pointerup', handleFieldNotesPointerUp);
-      fieldNotesElements.copy.addEventListener('pointercancel', clearFieldNotesPointerTracking);
-      fieldNotesElements.copy.addEventListener('pointerleave', (event) => {
-        if (event.pointerType === 'touch' || event.pointerType === 'pen') {
-          clearFieldNotesPointerTracking();
-        }
-      });
-    }
-  }
+  // Field notes overlay logic handled by fieldNotesOverlay.js.
 
   function notifyAutoAnchorUsed(currentPlaced, totalAnchors) {
     if (!Number.isFinite(currentPlaced)) {
@@ -7684,7 +6683,7 @@ import {
   // Summarize the core powder ledger so flux readouts and Σ gains stay visible in the Powder tab.
   function updatePowderLedger() {
     if (powderElements.ledgerBaseScore) {
-      powderElements.ledgerBaseScore.textContent = `${formatGameNumber(BASE_START_THERO)} ${THERO_SYMBOL}`;
+      powderElements.ledgerBaseScore.textContent = `${formatGameNumber(getBaseStartThero())} ${THERO_SYMBOL}`;
     }
     if (powderElements.ledgerCurrentScore) {
       powderElements.ledgerCurrentScore.textContent = `${formatGameNumber(resourceState.score)} ${THERO_SYMBOL}`;
@@ -8225,9 +7224,7 @@ import {
       setActiveTab,
       openFieldNotesOverlay,
       scrollPanelToElement,
-      onOpenButtonReady: (button) => {
-        fieldNotesElements.openButton = button;
-      },
+      onOpenButtonReady: setFieldNotesOpenButton,
     });
     try {
       await ensureGameplayConfigLoaded();
