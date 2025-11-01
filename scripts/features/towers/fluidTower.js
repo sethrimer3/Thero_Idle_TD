@@ -4,6 +4,7 @@
  */
 import {
   DEFAULT_MOTE_PALETTE,
+  MIN_MOTE_LANE_CELL_PX,
   POWDER_CELL_SIZE_PX,
   clampUnitInterval,
   colorToRgbaString,
@@ -205,8 +206,19 @@ export class FluidSimulation {
       this.gapWidthRatio = Math.max(0.1, Math.min(0.9, ratioCandidate || 0.6));
     }
 
-    const walkwayWidth = Math.max(1, this.width * this.gapWidthRatio);
-    const desiredCellSize = Math.max(1, Math.round(walkwayWidth / this.baseGapUnits));
+    // Keep the fluid mote lane consistent with the sand view by enforcing the shared cell floor.
+    const minimumGapCellSize = MIN_MOTE_LANE_CELL_PX;
+    // Scale the lane using the viewport ratio but never shrink below the readable width threshold.
+    const ratioDerivedCellSize = Math.max(
+      1,
+      Math.round((this.width * this.gapWidthRatio) / Math.max(1, this.baseGapUnits)),
+    );
+    let desiredCellSize = Math.max(minimumGapCellSize, ratioDerivedCellSize);
+    // Avoid overflowing the viewport when the widened gap approaches the canvas bounds.
+    const maximumCellSize = Math.max(1, Math.floor(this.width / Math.max(1, this.baseGapUnits)));
+    desiredCellSize = Math.min(desiredCellSize, maximumCellSize);
+    // Synchronize the walkway width with the resolved cell size so the DOM walls stay aligned.
+    const walkwayWidth = Math.max(1, desiredCellSize * this.baseGapUnits);
     this.cellSize = desiredCellSize;
     this.wallGapReferenceWidth = walkwayWidth;
     this.wallGapReferenceCols = Math.max(1, Math.round(this.wallGapReferenceWidth / this.cellSize));

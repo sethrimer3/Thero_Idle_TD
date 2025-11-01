@@ -17,6 +17,9 @@ export const DEFAULT_MOTE_PALETTE = {
   backgroundBottom: '#171a27',
 };
 
+// Guarantee each mote lane cell remains legible on compact viewports.
+export const MIN_MOTE_LANE_CELL_PX = 4;
+
 export function clampUnitInterval(value) {
   if (!Number.isFinite(value)) {
     return 0;
@@ -572,8 +575,19 @@ export class PowderSimulation {
       this.gapWidthRatio = Math.max(0.1, Math.min(0.9, ratioCandidate || 0.6));
     }
 
-    const walkwayWidth = Math.max(1, displayWidth * this.gapWidthRatio);
-    const desiredCellSize = Math.max(1, Math.round(walkwayWidth / this.baseGapUnits));
+    // Prevent the simulated mote lane from collapsing by enforcing a minimum pixel footprint per cell.
+    const minimumGapCellSize = MIN_MOTE_LANE_CELL_PX;
+    // Derive the base cell size from the viewport ratio while respecting the minimum readable width.
+    const ratioDerivedCellSize = Math.max(
+      1,
+      Math.round((displayWidth * this.gapWidthRatio) / Math.max(1, this.baseGapUnits)),
+    );
+    let desiredCellSize = Math.max(minimumGapCellSize, ratioDerivedCellSize);
+    // Ensure the widened lane never exceeds the available viewport width.
+    const maximumCellSize = Math.max(1, Math.floor(displayWidth / Math.max(1, this.baseGapUnits)));
+    desiredCellSize = Math.min(desiredCellSize, maximumCellSize);
+    // Mirror the resolved cell size back into the walkway width so overlays align with the simulation.
+    const walkwayWidth = Math.max(1, desiredCellSize * this.baseGapUnits);
     this.cellSize = desiredCellSize;
     this.wallGapReferenceWidth = walkwayWidth;
     this.wallGapReferenceCols = Math.max(1, Math.round(this.wallGapReferenceWidth / this.cellSize));
