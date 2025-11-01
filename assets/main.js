@@ -953,6 +953,37 @@ import {
   let overlayPreviewCanvas = null;
   let overlayPreviewLevel = null;
   let previewPlayfield = null;
+  const levelEditorSurface = {
+    type: 'none',
+    canvas: null,
+    playfield: null,
+    orientation: 'portrait',
+    listenerOptions: false,
+  };
+  function setLevelEditorSurface(options = {}) {
+    const nextType = options.type === 'playfield' ? 'playfield' : 'overlay';
+    levelEditorSurface.type = nextType;
+    levelEditorSurface.canvas = options.canvas || null;
+    levelEditorSurface.playfield = options.playfield || null;
+    levelEditorSurface.orientation = options.orientation === 'landscape' ? 'landscape' : 'portrait';
+    levelEditorSurface.listenerOptions = Boolean(options.listenerOptions);
+    if (levelEditorSurface.type === 'playfield' && levelEditorSurface.listenerOptions === false) {
+      levelEditorSurface.listenerOptions = true;
+    }
+  }
+  function resetLevelEditorSurface() {
+    levelEditorSurface.type = 'none';
+    levelEditorSurface.canvas = null;
+    levelEditorSurface.playfield = null;
+    levelEditorSurface.orientation = 'portrait';
+    levelEditorSurface.listenerOptions = false;
+  }
+  function isOverlayEditorSurface() {
+    return levelEditorSurface.type === 'overlay';
+  }
+  function isPlayfieldEditorSurface() {
+    return levelEditorSurface.type === 'playfield';
+  }
   let overlayMode = null;
   let overlayDuration = null;
   let overlayRewards = null;
@@ -979,6 +1010,7 @@ import {
     draggingIndex: -1,
     pointerId: null,
     canvasListenersAttached: false,
+    listenerOptions: false,
     statusTimeout: null,
   };
   let upgradeOverlay = null;
@@ -4345,6 +4377,40 @@ import {
     return Math.min(0.98, Math.max(0.02, value));
   }
 
+  function sanitizeNormalizedPoint(point) {
+    if (!point || typeof point !== 'object') {
+      return { x: 0.5, y: 0.5 };
+    }
+    const rawX = Number.isFinite(point.x) ? point.x : 0.5;
+    const rawY = Number.isFinite(point.y) ? point.y : 0.5;
+    return {
+      x: clampNormalizedCoordinate(rawX),
+      y: clampNormalizedCoordinate(rawY),
+    };
+  }
+
+  function transformPointForOrientation(point, orientation) {
+    const normalized = sanitizeNormalizedPoint(point);
+    if (orientation === 'landscape') {
+      return {
+        x: clampNormalizedCoordinate(normalized.y),
+        y: clampNormalizedCoordinate(1 - normalized.x),
+      };
+    }
+    return normalized;
+  }
+
+  function transformPointFromOrientation(point, orientation) {
+    const normalized = sanitizeNormalizedPoint(point);
+    if (orientation === 'landscape') {
+      return {
+        x: clampNormalizedCoordinate(1 - normalized.y),
+        y: clampNormalizedCoordinate(normalized.x),
+      };
+    }
+    return normalized;
+  }
+
   function buildSeededPreviewPath(seedValue) {
     const seedString = String(seedValue || 'preview');
     let hash = 0;
@@ -4437,6 +4503,7 @@ import {
 
     hideLevelEditorPanel();
     overlayPreviewLevel = null;
+    resetLevelEditorSurface();
 
     if (previewPlayfield) {
       previewPlayfield.leaveLevel();
@@ -4484,36 +4551,44 @@ import {
   }
 
   function endLevelEditorDrag() {
-    if (overlayPreviewCanvas && levelEditorState.pointerId !== null) {
+    const canvas = levelEditorSurface.canvas;
+    if (canvas && levelEditorState.pointerId !== null) {
       try {
-        overlayPreviewCanvas.releasePointerCapture(levelEditorState.pointerId);
+        canvas.releasePointerCapture(levelEditorState.pointerId);
       } catch (error) {
         // ignore pointer capture release errors
       }
     }
     levelEditorState.pointerId = null;
     levelEditorState.draggingIndex = -1;
-    if (overlayPreviewCanvas) {
-      overlayPreviewCanvas.classList.remove('overlay-preview__canvas--dragging');
+    if (canvas && isOverlayEditorSurface() && canvas.classList) {
+      canvas.classList.remove('overlay-preview__canvas--dragging');
     }
   }
 
   function detachLevelEditorCanvasListeners() {
-    if (!levelEditorState.canvasListenersAttached || !overlayPreviewCanvas) {
+    const canvas = levelEditorSurface.canvas;
+    if (!levelEditorState.canvasListenersAttached || !canvas) {
       levelEditorState.canvasListenersAttached = false;
       return;
     }
 
-    overlayPreviewCanvas.removeEventListener('pointerdown', handleLevelEditorPointerDown);
-    overlayPreviewCanvas.removeEventListener('pointermove', handleLevelEditorPointerMove);
-    overlayPreviewCanvas.removeEventListener('pointerup', handleLevelEditorPointerUp);
-    overlayPreviewCanvas.removeEventListener('pointercancel', handleLevelEditorPointerUp);
-    overlayPreviewCanvas.removeEventListener('lostpointercapture', handleLevelEditorPointerUp);
-    overlayPreviewCanvas.removeEventListener('click', handleLevelEditorCanvasClick);
+    const useCapture = Boolean(levelEditorState.listenerOptions);
+    canvas.removeEventListener('pointerdown', handleLevelEditorPointerDown, useCapture);
+    canvas.removeEventListener('pointermove', handleLevelEditorPointerMove, useCapture);
+    canvas.removeEventListener('pointerup', handleLevelEditorPointerUp, useCapture);
+    canvas.removeEventListener('pointercancel', handleLevelEditorPointerUp, useCapture);
+    canvas.removeEventListener('lostpointercapture', handleLevelEditorPointerUp, useCapture);
+    canvas.removeEventListener('click', handleLevelEditorCanvasClick, useCapture);
     levelEditorState.canvasListenersAttached = false;
+    levelEditorState.listenerOptions = false;
   }
 
   function hideLevelEditorPanel() {
+    const surfaceType = levelEditorSurface.type;
+    const canvas = levelEditorSurface.canvas;
+    const surfacePlayfield = levelEditorSurface.playfield;
+
     endLevelEditorDrag();
     detachLevelEditorCanvasListeners();
     levelEditorState.levelId = null;
@@ -4521,14 +4596,20 @@ import {
     levelEditorState.originalPoints = [];
     levelEditorState.editing = false;
 
-    if (previewPlayfield) {
-      previewPlayfield.setDeveloperPathMarkers([]);
-      previewPlayfield.draw();
+    if (surfacePlayfield && typeof surfacePlayfield.setDeveloperPathMarkers === 'function') {
+      surfacePlayfield.setDeveloperPathMarkers([]);
+      if (typeof surfacePlayfield.draw === 'function') {
+        surfacePlayfield.draw();
+      }
     }
 
-    if (overlayPreviewCanvas) {
-      overlayPreviewCanvas.classList.remove('overlay-preview__canvas--editing');
-      overlayPreviewCanvas.classList.remove('overlay-preview__canvas--dragging');
+    if (surfaceType === 'overlay' && canvas && canvas.classList) {
+      canvas.classList.remove('overlay-preview__canvas--editing');
+      canvas.classList.remove('overlay-preview__canvas--dragging');
+    }
+
+    if (surfaceType === 'playfield' && playfieldElements?.container?.classList) {
+      playfieldElements.container.classList.remove('playfield--developer-editing');
     }
 
     if (levelEditorElements.container) {
@@ -4548,22 +4629,28 @@ import {
   }
 
   function attachLevelEditorCanvasListeners() {
-    if (!overlayPreviewCanvas || levelEditorState.canvasListenersAttached) {
+    const canvas = levelEditorSurface.canvas;
+    if (!canvas || levelEditorState.canvasListenersAttached) {
       return;
     }
 
-    overlayPreviewCanvas.addEventListener('pointerdown', handleLevelEditorPointerDown);
-    overlayPreviewCanvas.addEventListener('pointermove', handleLevelEditorPointerMove);
-    overlayPreviewCanvas.addEventListener('pointerup', handleLevelEditorPointerUp);
-    overlayPreviewCanvas.addEventListener('pointercancel', handleLevelEditorPointerUp);
-    overlayPreviewCanvas.addEventListener('lostpointercapture', handleLevelEditorPointerUp);
-    overlayPreviewCanvas.addEventListener('click', handleLevelEditorCanvasClick);
+    const useCapture = isPlayfieldEditorSurface();
+    canvas.addEventListener('pointerdown', handleLevelEditorPointerDown, useCapture);
+    canvas.addEventListener('pointermove', handleLevelEditorPointerMove, useCapture);
+    canvas.addEventListener('pointerup', handleLevelEditorPointerUp, useCapture);
+    canvas.addEventListener('pointercancel', handleLevelEditorPointerUp, useCapture);
+    canvas.addEventListener('lostpointercapture', handleLevelEditorPointerUp, useCapture);
+    canvas.addEventListener('click', handleLevelEditorCanvasClick, useCapture);
     levelEditorState.canvasListenersAttached = true;
+    levelEditorState.listenerOptions = useCapture;
   }
 
   function handleLevelEditorCanvasClick(event) {
     if (!levelEditorState.editing) {
       return;
+    }
+    if (event) {
+      event.preventDefault();
     }
     event.stopPropagation();
   }
@@ -4601,77 +4688,91 @@ import {
       levelEditorElements.exportButton.disabled = points.length < 2;
     }
     if (levelEditorElements.toggle) {
-      levelEditorElements.toggle.disabled = !developerModeActive || !overlayPreviewCanvas;
+      levelEditorElements.toggle.disabled = !developerModeActive || !levelEditorSurface.canvas;
       levelEditorElements.toggle.textContent = levelEditorState.editing ? 'Disable Editing' : 'Enable Editing';
       levelEditorElements.toggle.setAttribute('aria-pressed', levelEditorState.editing ? 'true' : 'false');
     }
   }
 
   function refreshLevelEditorMarkers(options = {}) {
-    if (!previewPlayfield) {
+    const targetPlayfield = levelEditorSurface.playfield;
+    if (!targetPlayfield) {
       return;
     }
 
     const { redraw = true } = options;
+    const canvas = levelEditorSurface.canvas;
 
-    if (!overlayPreviewCanvas || !levelEditorState.points.length) {
-      previewPlayfield.setDeveloperPathMarkers([]);
-      if (redraw) {
-        previewPlayfield.draw();
+    if (!canvas || !levelEditorState.points.length) {
+      targetPlayfield.setDeveloperPathMarkers([]);
+      if (redraw && typeof targetPlayfield.draw === 'function') {
+        targetPlayfield.draw();
       }
       return;
     }
 
-    let width = previewPlayfield.renderWidth || 0;
-    let height = previewPlayfield.renderHeight || 0;
-    if ((!width || !height) && overlayPreviewCanvas) {
-      const rect = overlayPreviewCanvas.getBoundingClientRect();
+    let width = targetPlayfield.renderWidth || 0;
+    let height = targetPlayfield.renderHeight || 0;
+    if ((!width || !height) && canvas) {
+      const rect = canvas.getBoundingClientRect();
       width = rect.width;
       height = rect.height;
     }
 
     if (!width || !height) {
-      previewPlayfield.setDeveloperPathMarkers([]);
-      if (redraw) {
-        previewPlayfield.draw();
+      targetPlayfield.setDeveloperPathMarkers([]);
+      if (redraw && typeof targetPlayfield.draw === 'function') {
+        targetPlayfield.draw();
       }
       return;
     }
 
-    const markers = levelEditorState.points.map((point, index) => ({
-      x: clampNormalizedCoordinate(point.x) * width,
-      y: clampNormalizedCoordinate(point.y) * height,
-      label: index + 1,
-      active: levelEditorState.draggingIndex === index,
-    }));
-    previewPlayfield.setDeveloperPathMarkers(markers);
-    if (redraw) {
-      previewPlayfield.draw();
+    const orientation = levelEditorSurface.orientation || targetPlayfield.layoutOrientation || 'portrait';
+    const markers = levelEditorState.points.map((point, index) => {
+      const oriented = transformPointForOrientation(point, orientation);
+      return {
+        x: oriented.x * width,
+        y: oriented.y * height,
+        label: index + 1,
+        active: levelEditorState.draggingIndex === index,
+      };
+    });
+    targetPlayfield.setDeveloperPathMarkers(markers);
+    if (redraw && typeof targetPlayfield.draw === 'function') {
+      targetPlayfield.draw();
     }
   }
 
   function applyLevelEditorPoints() {
-    if (!previewPlayfield || !previewPlayfield.levelConfig) {
+    const targetPlayfield = levelEditorSurface.playfield;
+    if (!targetPlayfield || !targetPlayfield.levelConfig) {
       updateLevelEditorOutput();
       updateLevelEditorUI();
       return;
     }
 
-    const sanitized = levelEditorState.points.map((point) => ({
-      x: clampNormalizedCoordinate(point.x),
-      y: clampNormalizedCoordinate(point.y),
-    }));
-    levelEditorState.points = sanitized;
-    previewPlayfield.levelConfig.path = sanitized.map((point) => ({ ...point }));
-    previewPlayfield.buildPathGeometry();
+    const orientation = levelEditorSurface.orientation || targetPlayfield.layoutOrientation || 'portrait';
+    const sanitized = levelEditorState.points.map((point) => sanitizeNormalizedPoint(point));
+    levelEditorState.points = sanitized.map((point) => ({ ...point }));
+
+    if (Array.isArray(targetPlayfield.basePathPoints)) {
+      targetPlayfield.basePathPoints = sanitized.map((point) => ({ ...point }));
+    }
+
+    const orientedPath = sanitized.map((point) => transformPointForOrientation(point, orientation));
+    targetPlayfield.levelConfig.path = orientedPath.map((point) => ({ ...point }));
+    targetPlayfield.buildPathGeometry();
     refreshLevelEditorMarkers({ redraw: false });
-    previewPlayfield.draw();
+    if (typeof targetPlayfield.draw === 'function') {
+      targetPlayfield.draw();
+    }
     updateLevelEditorOutput();
     updateLevelEditorUI();
   }
 
   function setLevelEditorEditing(active) {
-    const enable = Boolean(active && developerModeActive && overlayPreviewCanvas);
+    const canvas = levelEditorSurface.canvas;
+    const enable = Boolean(active && developerModeActive && canvas);
     if (!enable) {
       endLevelEditorDrag();
     }
@@ -4679,11 +4780,14 @@ import {
     if (levelEditorElements.container) {
       levelEditorElements.container.classList.toggle('overlay-editor--active', enable);
     }
-    if (overlayPreviewCanvas) {
-      overlayPreviewCanvas.classList.toggle('overlay-preview__canvas--editing', enable);
+    if (isOverlayEditorSurface() && canvas && canvas.classList) {
+      canvas.classList.toggle('overlay-preview__canvas--editing', enable);
       if (!enable) {
-        overlayPreviewCanvas.classList.remove('overlay-preview__canvas--dragging');
+        canvas.classList.remove('overlay-preview__canvas--dragging');
       }
+    }
+    if (isPlayfieldEditorSurface() && playfieldElements?.container?.classList) {
+      playfieldElements.container.classList.toggle('playfield--developer-editing', enable);
     }
     updateLevelEditorUI();
     refreshLevelEditorMarkers();
@@ -4706,29 +4810,36 @@ import {
     setLevelEditorStatus('Restored path from level configuration.');
   }
 
-  function configureLevelEditorForLevel(level, config) {
+  function configureLevelEditorForLevel(level, config, options = {}) {
     if (!levelEditorElements.container) {
       return;
     }
 
-    if (!developerModeActive || !level || !config || !Array.isArray(config.path) || config.path.length < 2) {
+    const basePathSource = Array.isArray(options.basePath) ? options.basePath : config?.path;
+    const hasPath = Array.isArray(basePathSource) && basePathSource.length >= 2;
+    if (!developerModeActive || !level || !hasPath) {
       hideLevelEditorPanel();
       return;
     }
 
+    const orientation = options.orientation === 'landscape' ? 'landscape' : 'portrait';
+    levelEditorSurface.orientation = orientation;
+
     levelEditorState.levelId = level.id || null;
-    levelEditorState.originalPoints = cloneVectorArray(config.path).map((point) => ({
-      x: clampNormalizedCoordinate(point.x),
-      y: clampNormalizedCoordinate(point.y),
-    }));
+    levelEditorState.originalPoints = basePathSource.map((point) => sanitizeNormalizedPoint(point));
     levelEditorState.points = levelEditorState.originalPoints.map((point) => ({ ...point }));
     levelEditorState.editing = false;
     levelEditorState.draggingIndex = -1;
     levelEditorState.pointerId = null;
 
-    if (overlayPreviewCanvas) {
-      overlayPreviewCanvas.classList.remove('overlay-preview__canvas--dragging');
-      overlayPreviewCanvas.classList.remove('overlay-preview__canvas--editing');
+    const canvas = levelEditorSurface.canvas;
+    if (isOverlayEditorSurface() && canvas && canvas.classList) {
+      canvas.classList.remove('overlay-preview__canvas--dragging');
+      canvas.classList.remove('overlay-preview__canvas--editing');
+    }
+
+    if (isPlayfieldEditorSurface() && playfieldElements?.container?.classList) {
+      playfieldElements.container.classList.remove('playfield--developer-editing');
     }
 
     attachLevelEditorCanvasListeners();
@@ -4736,7 +4847,19 @@ import {
 
     levelEditorElements.container.hidden = false;
     levelEditorElements.container.setAttribute('aria-hidden', 'false');
-    setLevelEditorStatus('Developer editor ready—toggle editing to adjust anchors.', { duration: 2000 });
+    if (levelEditorElements.note) {
+      if (isPlayfieldEditorSurface()) {
+        levelEditorElements.note.textContent =
+          'Click the battlefield to place anchors. Drag markers to adjust, or Shift-click to remove the nearest anchor.';
+      } else {
+        levelEditorElements.note.textContent =
+          'Click the preview to place anchors. Drag markers to adjust, or Shift-click to remove the nearest anchor.';
+      }
+    }
+    const readyMessage = isPlayfieldEditorSurface()
+      ? 'Battlefield editing ready—toggle editing to adjust anchors live.'
+      : 'Developer editor ready—toggle editing to adjust anchors.';
+    setLevelEditorStatus(readyMessage, { duration: 2000 });
   }
 
   function syncLevelEditorVisibility() {
@@ -4749,18 +4872,41 @@ import {
       return;
     }
 
-    if (!overlayPreviewLevel || !previewPlayfield) {
+    if (!overlayPreviewLevel || !levelEditorSurface.playfield) {
       return;
     }
 
-    const config = levelConfigs.get(overlayPreviewLevel.id);
-    if (!config || !Array.isArray(config.path) || config.path.length < 2) {
+    const targetPlayfield = levelEditorSurface.playfield;
+    const isActivePlayfieldSurface = isPlayfieldEditorSurface();
+    let basePath = null;
+    let orientation = levelEditorSurface.orientation || targetPlayfield.layoutOrientation || 'portrait';
+
+    if (isActivePlayfieldSurface) {
+      if (!targetPlayfield.levelConfig) {
+        hideLevelEditorPanel();
+        return;
+      }
+      if (Array.isArray(targetPlayfield.basePathPoints) && targetPlayfield.basePathPoints.length >= 2) {
+        basePath = targetPlayfield.basePathPoints;
+      } else if (Array.isArray(targetPlayfield.levelConfig.path) && targetPlayfield.levelConfig.path.length >= 2) {
+        basePath = targetPlayfield.levelConfig.path.map((point) => transformPointFromOrientation(point, orientation));
+      }
+    } else {
+      const config = levelConfigs.get(overlayPreviewLevel.id);
+      if (!config || !Array.isArray(config.path) || config.path.length < 2) {
+        hideLevelEditorPanel();
+        return;
+      }
+      basePath = config.path;
+    }
+
+    if (!Array.isArray(basePath) || basePath.length < 2) {
       hideLevelEditorPanel();
       return;
     }
 
     if (levelEditorState.levelId !== overlayPreviewLevel.id) {
-      configureLevelEditorForLevel(overlayPreviewLevel, config);
+      configureLevelEditorForLevel(overlayPreviewLevel, { path: basePath }, { orientation, basePath });
       return;
     }
 
@@ -4778,7 +4924,10 @@ import {
     const nextState = !levelEditorState.editing;
     setLevelEditorEditing(nextState);
     if (nextState && !levelEditorState.points.length) {
-      setLevelEditorStatus('Click the preview to place your first anchor.');
+      const prompt = isPlayfieldEditorSurface()
+        ? 'Click the battlefield to place your first anchor.'
+        : 'Click the preview to place your first anchor.';
+      setLevelEditorStatus(prompt);
     } else if (!nextState) {
       setLevelEditorStatus('Editing disabled. Copy the JSON below when ready.');
     }
@@ -4819,16 +4968,20 @@ import {
   }
 
   function getNormalizedPointerPosition(event) {
-    if (!overlayPreviewCanvas) {
+    const canvas = levelEditorSurface.canvas;
+    if (!canvas) {
       return null;
     }
-    const rect = overlayPreviewCanvas.getBoundingClientRect();
+    const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) {
       return null;
     }
-    const x = clampNormalizedCoordinate((event.clientX - rect.left) / rect.width);
-    const y = clampNormalizedCoordinate((event.clientY - rect.top) / rect.height);
-    return { x, y };
+    const pointer = {
+      x: clampNormalizedCoordinate((event.clientX - rect.left) / rect.width),
+      y: clampNormalizedCoordinate((event.clientY - rect.top) / rect.height),
+    };
+    const orientation = levelEditorSurface.orientation;
+    return transformPointFromOrientation(pointer, orientation);
   }
 
   function findNearestEditorPoint(point) {
@@ -4891,11 +5044,13 @@ import {
   }
 
   function handleLevelEditorPointerDown(event) {
-    if (!levelEditorState.editing || !overlayPreviewCanvas || event.button !== 0) {
+    const canvas = levelEditorSurface.canvas;
+    if (!levelEditorState.editing || !canvas || event.button !== 0) {
       return;
     }
 
     if (event) {
+      event.preventDefault();
       event.stopPropagation();
     }
     const point = getNormalizedPointerPosition(event);
@@ -4906,28 +5061,29 @@ import {
     const nearest = findNearestEditorPoint(point);
     const removalThreshold = 0.045;
     if (event.shiftKey && nearest.index >= 0 && nearest.distance <= removalThreshold) {
-      event.preventDefault();
-      event.stopPropagation();
       levelEditorState.points.splice(nearest.index, 1);
       levelEditorState.draggingIndex = -1;
+      levelEditorState.pointerId = null;
       applyLevelEditorPoints();
-      setLevelEditorStatus(`Removed anchor ${nearest.index + 1}.`, { tone: 'warning' });
+      const removalMessage = isPlayfieldEditorSurface()
+        ? `Removed anchor ${nearest.index + 1} from the battlefield.`
+        : `Removed anchor ${nearest.index + 1}.`;
+      setLevelEditorStatus(removalMessage, { tone: 'warning' });
       return;
     }
-
-    event.preventDefault();
-    event.stopPropagation();
 
     const selectionThreshold = 0.04;
     if (nearest.index >= 0 && nearest.distance <= selectionThreshold) {
       levelEditorState.draggingIndex = nearest.index;
       levelEditorState.pointerId = event.pointerId;
       try {
-        overlayPreviewCanvas.setPointerCapture(event.pointerId);
+        canvas.setPointerCapture(event.pointerId);
       } catch (error) {
         // ignore pointer capture errors
       }
-      overlayPreviewCanvas.classList.add('overlay-preview__canvas--dragging');
+      if (isOverlayEditorSurface() && canvas.classList) {
+        canvas.classList.add('overlay-preview__canvas--dragging');
+      }
       levelEditorState.points[nearest.index] = point;
       applyLevelEditorPoints();
       return;
@@ -4938,14 +5094,19 @@ import {
     levelEditorState.draggingIndex = insertionIndex;
     levelEditorState.pointerId = event.pointerId;
     try {
-      overlayPreviewCanvas.setPointerCapture(event.pointerId);
+      canvas.setPointerCapture(event.pointerId);
     } catch (error) {
       // ignore pointer capture errors
     }
-    overlayPreviewCanvas.classList.add('overlay-preview__canvas--dragging');
+    if (isOverlayEditorSurface() && canvas.classList) {
+      canvas.classList.add('overlay-preview__canvas--dragging');
+    }
     applyLevelEditorPoints();
     if (levelEditorState.points.length === 1) {
-      setLevelEditorStatus('Anchor placed. Add another anchor to draw the path.');
+      const placementMessage = isPlayfieldEditorSurface()
+        ? 'Anchor placed. Add another anchor on the battlefield to draw the path.'
+        : 'Anchor placed. Add another anchor to draw the path.';
+      setLevelEditorStatus(placementMessage);
     }
   }
 
@@ -4958,14 +5119,13 @@ import {
     }
 
     if (event) {
+      event.preventDefault();
       event.stopPropagation();
     }
     const point = getNormalizedPointerPosition(event);
     if (!point) {
       return;
     }
-    event.preventDefault();
-    event.stopPropagation();
     levelEditorState.points[levelEditorState.draggingIndex] = point;
     applyLevelEditorPoints();
   }
@@ -4976,6 +5136,7 @@ import {
     }
 
     if (event) {
+      event.preventDefault();
       event.stopPropagation();
     }
     endLevelEditorDrag();
@@ -5039,6 +5200,58 @@ import {
       config && Array.isArray(config.path) && config.path.length >= 2,
     );
 
+    const developerOverlayActive = overlay?.dataset?.overlayMode === 'developer';
+    const canUseActiveBattlefield = Boolean(
+      developerOverlayActive &&
+        developerModeActive &&
+        hasInteractivePath &&
+        playfield &&
+        playfield.levelActive &&
+        playfield.levelConfig &&
+        level &&
+        level.id === activeLevelId &&
+        playfieldElements?.canvas,
+    );
+
+    if (canUseActiveBattlefield) {
+      const battlefieldCanvas = playfieldElements?.canvas || playfield?.canvas || null;
+      const orientation = playfield.layoutOrientation || 'portrait';
+      setLevelEditorSurface({
+        type: 'playfield',
+        canvas: battlefieldCanvas,
+        playfield,
+        orientation,
+        listenerOptions: true,
+      });
+
+      overlayPreview.hidden = false;
+      overlayPreview.setAttribute('aria-hidden', 'false');
+      overlayPreview.classList.add('overlay-preview--active');
+
+      const message = document.createElement('p');
+      message.className = 'overlay-preview__empty';
+      message.textContent =
+        'Developer map tools active—adjust anchors directly on the battlefield. Shift-click to remove the nearest anchor.';
+      overlayPreview.append(message);
+
+      let basePath = Array.isArray(playfield.basePathPoints) && playfield.basePathPoints.length >= 2
+        ? playfield.basePathPoints
+        : null;
+      if (!basePath && Array.isArray(playfield.levelConfig?.path) && playfield.levelConfig.path.length >= 2) {
+        basePath = playfield.levelConfig.path.map((point) => transformPointFromOrientation(point, orientation));
+      }
+      if (!basePath && hasInteractivePath) {
+        basePath = config.path;
+      }
+
+      if (Array.isArray(basePath) && basePath.length >= 2) {
+        configureLevelEditorForLevel(level, { path: basePath }, { orientation, basePath });
+      } else {
+        hideLevelEditorPanel();
+      }
+      return;
+    }
+
     if (hasInteractivePath) {
       overlayPreviewCanvas = document.createElement('canvas');
       overlayPreviewCanvas.className = 'overlay-preview__canvas';
@@ -5073,6 +5286,13 @@ import {
       });
       previewPlayfield.enterLevel(level, { endlessMode: false });
       previewPlayfield.draw();
+      setLevelEditorSurface({
+        type: 'overlay',
+        canvas: overlayPreviewCanvas,
+        playfield: previewPlayfield,
+        orientation: previewPlayfield.layoutOrientation || preferredOrientation || 'portrait',
+        listenerOptions: false,
+      });
       configureLevelEditorForLevel(level, config);
       return;
     }

@@ -508,6 +508,32 @@ body.graphics-mode-low .control-button {
   touch-action: none;
 }
 
+.playfield.playfield--developer-editing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px dashed rgba(139, 247, 255, 0.4);
+  pointer-events: none;
+  box-shadow: 0 0 24px rgba(139, 247, 255, 0.28);
+  animation: playfield-developer-editing-pulse 2s ease-in-out infinite;
+}
+
+@keyframes playfield-developer-editing-pulse {
+  0% {
+    opacity: 0.7;
+    box-shadow: 0 0 18px rgba(139, 247, 255, 0.3);
+  }
+  50% {
+    opacity: 0.3;
+    box-shadow: 0 0 30px rgba(139, 247, 255, 0.12);
+  }
+  100% {
+    opacity: 0.7;
+    box-shadow: 0 0 18px rgba(139, 247, 255, 0.3);
+  }
+}
+
 /* Fade-in overlay that announces victory or defeat outcomes without leaving the battlefield context. */
 .playfield-outcome {
   position: absolute;
