@@ -135,6 +135,7 @@ function draw() {
 
   this.drawFloaters();
   this.drawPath();
+  this.drawDeltaCommandPreview();
   this.drawMoteGems();
   this.drawArcLight();
   this.drawDeveloperCrystals();
@@ -346,6 +347,63 @@ function drawArcLight() {
     ctx.lineTo(point.x, point.y);
   }
   ctx.stroke();
+  ctx.restore();
+}
+
+function drawDeltaCommandPreview() {
+  if (!this.ctx) {
+    return;
+  }
+  const dragState = this.deltaCommandDragState;
+  if (!dragState || !dragState.pointerId || !dragState.active) {
+    return;
+  }
+  const tower = this.getTowerById(dragState.towerId);
+  if (!tower) {
+    return;
+  }
+
+  const ctx = this.ctx;
+  const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
+  const anchorRadius = Math.max(22, minDimension * 0.06);
+  const target = dragState.trackAnchor?.point || dragState.currentPosition;
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (target) {
+    ctx.setLineDash([6, 6]);
+    ctx.strokeStyle = dragState.trackAnchor
+      ? 'rgba(139, 247, 255, 0.68)'
+      : 'rgba(139, 247, 255, 0.38)';
+    ctx.lineWidth = Math.max(1.6, anchorRadius * 0.1);
+    ctx.beginPath();
+    ctx.moveTo(tower.x, tower.y);
+    ctx.lineTo(target.x, target.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  if (dragState.trackAnchor?.point) {
+    const anchor = dragState.trackAnchor.point;
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(139, 247, 255, 0.16)';
+    ctx.strokeStyle = 'rgba(139, 247, 255, 0.85)';
+    ctx.lineWidth = Math.max(2.4, anchorRadius * 0.14);
+    ctx.arc(anchor.x, anchor.y, anchorRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (target) {
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(139, 247, 255, 0.42)';
+    ctx.lineWidth = Math.max(1.2, anchorRadius * 0.08);
+    ctx.setLineDash([4, 4]);
+    ctx.arc(target.x, target.y, anchorRadius * 0.55, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   ctx.restore();
 }
 
@@ -1314,6 +1372,7 @@ export {
   drawFloaters,
   drawMoteGems,
   drawPath,
+  drawDeltaCommandPreview,
   drawArcLight,
   drawEnemyGateSymbol,
   drawMindGateSymbol,

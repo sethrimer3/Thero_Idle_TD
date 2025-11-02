@@ -22,6 +22,9 @@ const DELTA_TRAIL_CONFIG = {
   maxPoints: 45,
 };
 
+// Default angular velocity (radians per second) for Δ sentries orbiting a track anchor.
+const DELTA_ORBIT_DEFAULT_SPEED = Math.PI * 0.35;
+
 // Clamp helper ensures math stays within bounds even when towers feed edge cases.
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -105,6 +108,10 @@ export function ensureDeltaState(playfield, tower) {
       manualTargetId: null,
       soldierCounter: 0,
       trackHoldPoint: null,
+      trackHoldManual: false,
+      trackHoldProgress: 0,
+      orbitPhase: 0,
+      orbitAngularSpeed: DELTA_ORBIT_DEFAULT_SPEED,
       mode: tower.behaviorMode || 'pursuit',
     };
   } else {
@@ -117,6 +124,9 @@ export function ensureDeltaState(playfield, tower) {
     tower.deltaState.product = deltaProduct;
     tower.deltaState.trainingSeconds = trainingSeconds;
     tower.deltaState.spawnRate = spawnRate;
+    if (!Number.isFinite(tower.deltaState.orbitAngularSpeed) || tower.deltaState.orbitAngularSpeed <= 0) {
+      tower.deltaState.orbitAngularSpeed = DELTA_ORBIT_DEFAULT_SPEED;
+    }
     const previousBaseline = Number.isFinite(previousMaxHealth) ? previousMaxHealth : maxHealth;
     tower.deltaState.soldiers.forEach((soldier) => {
       if (!soldier) {
@@ -179,9 +189,60 @@ export function updateDeltaAnchors(playfield, tower) {
   }
   const state = ensureDeltaState(playfield, tower);
   if (tower.behaviorMode === 'trackHold') {
-    const anchor = playfield.getClosestPointOnPath({ x: tower.x, y: tower.y });
-    state.trackHoldPoint = anchor?.point || { x: tower.x, y: tower.y };
+    if (state.trackHoldManual && Number.isFinite(state.trackHoldProgress)) {
+      const clampedProgress = Math.max(0, Math.min(1, state.trackHoldProgress));
+      const manualAnchor = playfield.getPointAlongPath(clampedProgress);
+      if (manualAnchor) {
+        state.trackHoldPoint = { x: manualAnchor.x, y: manualAnchor.y };
+      }
+    } else {
+      const anchor = playfield.getClosestPointOnPath({ x: tower.x, y: tower.y });
+      if (anchor?.point) {
+        state.trackHoldPoint = { x: anchor.point.x, y: anchor.point.y };
+      } else {
+        state.trackHoldPoint = { x: tower.x, y: tower.y };
+      }
+      state.trackHoldProgress = Number.isFinite(anchor?.progress) ? anchor.progress : 0;
+      state.trackHoldManual = false;
+    }
   }
+}
+
+// Anchor Δ cohorts to a specific point along the glyph lane selected by the player.
+export function assignDeltaTrackHoldAnchor(playfield, tower, anchor) {
+  if (!playfield || !tower || tower.type !== 'delta' || !anchor) {
+    return false;
+  }
+  configureDeltaBehavior(playfield, tower, 'trackHold');
+  const state = ensureDeltaState(playfield, tower);
+  if (!state) {
+    return false;
+  }
+
+  const resolved = {
+    x: Number.isFinite(anchor.x) ? anchor.x : tower.x,
+    y: Number.isFinite(anchor.y) ? anchor.y : tower.y,
+  };
+  let progress = Number.isFinite(anchor.progress) ? anchor.progress : null;
+  if (!Number.isFinite(progress)) {
+    const projection = playfield.getClosestPointOnPath(resolved);
+    if (projection?.point) {
+      resolved.x = projection.point.x;
+      resolved.y = projection.point.y;
+    }
+    progress = Number.isFinite(projection?.progress) ? projection.progress : 0;
+  }
+
+  const clampedProgress = Math.max(0, Math.min(1, progress));
+  state.trackHoldManual = true;
+  state.trackHoldProgress = clampedProgress;
+  state.trackHoldPoint = { x: resolved.x, y: resolved.y };
+  state.orbitPhase = 0;
+  if (!Number.isFinite(state.orbitAngularSpeed) || state.orbitAngularSpeed <= 0) {
+    state.orbitAngularSpeed = DELTA_ORBIT_DEFAULT_SPEED;
+  }
+  updateDeltaAnchors(playfield, tower);
+  return true;
 }
 
 // Reset the manual sentry target when players retune the tower into other stances.
@@ -211,12 +272,18 @@ function resolveDeltaHoldPosition(playfield, tower, soldier, state) {
   const minDimension = Math.min(playfield.renderWidth || 0, playfield.renderHeight || 0) || 1;
   const index = Number.isFinite(soldier.slotIndex) ? soldier.slotIndex : 0;
   const count = Math.max(1, state.maxSoldiers || 1);
-  const baseAngle = -Math.PI / 2 + (Math.PI * 2 * index) / count;
+  const defaultAngle = -Math.PI / 2 + (Math.PI * 2 * index) / count;
+  if (!Number.isFinite(soldier.idleAngleOffset)) {
+    soldier.idleAngleOffset = defaultAngle;
+  }
+  const baseAngle = Number.isFinite(soldier.idleAngleOffset) ? soldier.idleAngleOffset : defaultAngle;
   if (tower.behaviorMode === 'trackHold' && state.trackHoldPoint) {
-    const radius = Math.max(18, minDimension * 0.05);
+    const radius = Math.max(22, minDimension * 0.055);
+    const orbitPhase = Number.isFinite(state.orbitPhase) ? state.orbitPhase : 0;
+    const angle = baseAngle + orbitPhase;
     return {
-      x: state.trackHoldPoint.x + Math.cos(baseAngle) * radius,
-      y: state.trackHoldPoint.y + Math.sin(baseAngle) * radius,
+      x: state.trackHoldPoint.x + Math.cos(angle) * radius,
+      y: state.trackHoldPoint.y + Math.sin(angle) * radius,
     };
   }
   const sentinelRadius = tower.behaviorMode === 'sentinel'
@@ -287,6 +354,7 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
     vx: 0,
     vy: 0,
     heading: angle,
+    idleAngleOffset: angle,
     maxHealth: state.maxHealth,
     health: state.maxHealth,
     regenPerSecond: state.regenPerSecond,
@@ -488,6 +556,22 @@ export function updateDeltaTower(playfield, tower, delta) {
   }
 
   state.mode = tower.behaviorMode || state.mode || 'pursuit';
+
+  const orbitSpeed = Number.isFinite(state.orbitAngularSpeed) && state.orbitAngularSpeed > 0
+    ? state.orbitAngularSpeed
+    : DELTA_ORBIT_DEFAULT_SPEED;
+  const tau = Math.PI * 2;
+  if (tower.behaviorMode === 'trackHold') {
+    state.orbitPhase = Number.isFinite(state.orbitPhase) ? state.orbitPhase : 0;
+    state.orbitPhase += delta * orbitSpeed;
+    if (state.orbitPhase > tau || state.orbitPhase < -tau) {
+      state.orbitPhase %= tau;
+    }
+  } else if (Number.isFinite(state.orbitPhase)) {
+    state.orbitPhase %= tau;
+  } else {
+    state.orbitPhase = 0;
+  }
 
   const survivors = [];
   for (let index = 0; index < state.soldiers.length; index += 1) {

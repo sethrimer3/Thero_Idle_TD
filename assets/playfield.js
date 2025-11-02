@@ -223,6 +223,19 @@ export class SimplePlayfield {
       highlightEntries: [],
       hoverEntry: null,
     };
+    this.deltaCommandDragState = {
+      pointerId: null,
+      towerId: null,
+      startPosition: null,
+      currentPosition: null,
+      startNormalized: null,
+      currentNormalized: null,
+      active: false,
+      hasMoved: false,
+      trackAnchor: null,
+      trackDistance: Infinity,
+      anchorAvailable: false,
+    };
 
     const upgrades = this.dependencies.alephChainUpgrades || {};
     this.alephChain = createAlephChainRegistry({ upgrades });
@@ -1983,6 +1996,10 @@ export class SimplePlayfield {
     return TowerManager.getTowerManualTarget.call(this, tower);
   }
 
+  assignDeltaTrackHoldAnchor(tower, anchor) {
+    return TowerManager.assignDeltaTrackHoldAnchor.call(this, tower, anchor);
+  }
+
   /**
    * Ensure ι towers keep their splash metrics synchronized with active links.
    */
@@ -2657,6 +2674,22 @@ export class SimplePlayfield {
     };
   }
 
+  clearDeltaCommandDragState() {
+    this.deltaCommandDragState = {
+      pointerId: null,
+      towerId: null,
+      startPosition: null,
+      currentPosition: null,
+      startNormalized: null,
+      currentNormalized: null,
+      active: false,
+      hasMoved: false,
+      trackAnchor: null,
+      trackDistance: Infinity,
+      anchorAvailable: false,
+    };
+  }
+
   /**
    * Evaluate whether two towers can share a connection based on tier rules and range.
    */
@@ -2852,6 +2885,92 @@ export class SimplePlayfield {
       }
     });
     return best;
+  }
+
+  updateDeltaCommandDrag(position) {
+    const dragState = this.deltaCommandDragState;
+    if (!dragState || !dragState.towerId) {
+      return;
+    }
+    const tower = this.getTowerById(dragState.towerId);
+    if (!tower) {
+      this.clearDeltaCommandDragState();
+      return;
+    }
+    dragState.currentPosition = position ? { x: position.x, y: position.y } : null;
+    if (!position) {
+      if (dragState.anchorAvailable && this.messageEl) {
+        this.messageEl.textContent = 'Drag onto the glyph lane to position the Δ cohort.';
+      }
+      dragState.trackAnchor = null;
+      dragState.anchorAvailable = false;
+      dragState.trackDistance = Infinity;
+      return;
+    }
+
+    const projection = this.getClosestPointOnPath(position);
+    if (!projection?.point) {
+      if (dragState.anchorAvailable && this.messageEl) {
+        this.messageEl.textContent = 'Drag onto the glyph lane to position the Δ cohort.';
+      }
+      dragState.trackAnchor = null;
+      dragState.anchorAvailable = false;
+      dragState.trackDistance = Infinity;
+      return;
+    }
+
+    const distance = Math.hypot(position.x - projection.point.x, position.y - projection.point.y);
+    dragState.trackDistance = distance;
+    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
+    const tolerance = Math.max(24, minDimension * 0.05);
+    const withinTrack = Number.isFinite(distance) && distance <= tolerance;
+    if (withinTrack) {
+      dragState.trackAnchor = {
+        point: { x: projection.point.x, y: projection.point.y },
+        progress: Number.isFinite(projection.progress)
+          ? Math.max(0, Math.min(1, projection.progress))
+          : 0,
+      };
+      if (!dragState.anchorAvailable && this.messageEl) {
+        this.messageEl.textContent = 'Release to anchor Δ cohort to the glyph lane.';
+      }
+      dragState.anchorAvailable = true;
+    } else {
+      if (dragState.anchorAvailable && this.messageEl) {
+        this.messageEl.textContent = 'Drag onto the glyph lane to position the Δ cohort.';
+      }
+      dragState.trackAnchor = null;
+      dragState.anchorAvailable = false;
+    }
+  }
+
+  commitDeltaCommandDrag() {
+    const dragState = this.deltaCommandDragState;
+    if (!dragState?.towerId || !dragState.trackAnchor) {
+      return false;
+    }
+    const tower = this.getTowerById(dragState.towerId);
+    if (!tower) {
+      return false;
+    }
+    const anchor = {
+      x: dragState.trackAnchor.point.x,
+      y: dragState.trackAnchor.point.y,
+      progress: dragState.trackAnchor.progress,
+    };
+    const assigned = this.assignDeltaTrackHoldAnchor(tower, anchor);
+    if (assigned) {
+      if (this.audio && typeof this.audio.playSfx === 'function') {
+        this.audio.playSfx('uiConfirm');
+      }
+      if (this.messageEl) {
+        this.messageEl.textContent = 'Δ cohort orbit anchored to the glyph lane.';
+      }
+      if (!this.shouldAnimate) {
+        this.draw();
+      }
+    }
+    return assigned;
   }
 
   /**
@@ -5736,6 +5855,10 @@ export class SimplePlayfield {
 
   drawArcLight() {
     return CanvasRenderer.drawArcLight.call(this);
+  }
+
+  drawDeltaCommandPreview() {
+    return CanvasRenderer.drawDeltaCommandPreview.call(this);
   }
 
   // Render the enemy spawn gate using the dedicated sprite with a fallback glyph ring.
