@@ -4358,6 +4358,33 @@ body.graphics-mode-low .control-button {
   font-weight: 700;
 }
 
+/* Floating tooltip that decodes equation abbreviations for hovered variables. */
+.tower-upgrade-formula-tooltip {
+  position: absolute;
+  pointer-events: none;
+  max-width: 280px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(22, 26, 40, 0.92), rgba(58, 70, 102, 0.78));
+  border: 1px solid rgba(173, 208, 255, 0.28);
+  box-shadow: 0 18px 32px rgba(8, 10, 20, 0.55);
+  color: rgba(223, 238, 255, 0.98);
+  font-size: 0.95rem;
+  line-height: 1.35;
+  letter-spacing: 0.015em;
+  opacity: 0;
+  transform: translate3d(0, 6px, 0);
+  transition: opacity 160ms ease, transform 160ms ease;
+  z-index: 40;
+  white-space: normal;
+}
+
+/* Fade the tooltip into view while snapping it to the anchored variable. */
+.tower-upgrade-formula-tooltip[data-visible='true'] {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
 .tower-upgrade-formula-part-tail {
   font-size: 0.5em;
   line-height: 1;

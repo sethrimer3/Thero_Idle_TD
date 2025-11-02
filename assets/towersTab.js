@@ -28,6 +28,10 @@ import {
   addEquipmentListener as addEquipmentStateListener,
 } from './equipment.js';
 
+const HAS_POINTER_EVENTS = typeof window !== 'undefined' && 'PointerEvent' in window; // Detect pointer support for tooltip listeners.
+const EQUATION_TOOLTIP_MARGIN_PX = 12; // Maintain consistent spacing between the tooltip and the hovered variable.
+const EQUATION_TOOLTIP_ID = 'tower-upgrade-equation-tooltip'; // Stable id so aria-describedby wiring stays deterministic.
+
 const UNIVERSAL_VARIABLE_LIBRARY = new Map([
   [
     'atk',
@@ -35,6 +39,7 @@ const UNIVERSAL_VARIABLE_LIBRARY = new Map([
       symbol: 'Atk',
       name: 'Attack',
       description: 'Base damage dealt per strike.',
+      units: 'damage/strike', // Clarify core damage units for tooltips.
     },
   ],
   [
@@ -43,6 +48,7 @@ const UNIVERSAL_VARIABLE_LIBRARY = new Map([
       symbol: 'm',
       name: 'Range',
       description: 'Effective reach of the lattice (meters).',
+      units: 'meters', // Surface range units for hover tooltips.
     },
   ],
   [
@@ -51,6 +57,7 @@ const UNIVERSAL_VARIABLE_LIBRARY = new Map([
       symbol: 'Spd',
       name: 'Attack Speed',
       description: 'Primary attack cadence measured per second.',
+      units: 'shots/second', // Provide explicit cadence units for equation tooltips.
     },
   ],
   [
@@ -59,6 +66,7 @@ const UNIVERSAL_VARIABLE_LIBRARY = new Map([
       symbol: 'Dod',
       name: 'Damage over Distance',
       description: 'Damage contribution that scales with travel distance.',
+      units: 'damage/meter', // Highlight distance-scaling units for overlays.
     },
   ],
   [
@@ -67,6 +75,7 @@ const UNIVERSAL_VARIABLE_LIBRARY = new Map([
       symbol: 'Def',
       name: 'Defense',
       description: 'Flat protection granted to soldier cohorts.',
+      units: 'barrier points', // Communicate defensive units in hover popups.
     },
   ],
   [
@@ -75,6 +84,7 @@ const UNIVERSAL_VARIABLE_LIBRARY = new Map([
       symbol: 'Def%',
       name: 'Defense Percent',
       description: 'Percentage-based defense granted to soldier cohorts.',
+      units: 'percent', // Mark percentage-based modifiers for consistency.
     },
   ],
   [
@@ -83,6 +93,7 @@ const UNIVERSAL_VARIABLE_LIBRARY = new Map([
       symbol: 'Atk%',
       name: 'Attack Percent',
       description: 'Percentage-based increase to attack power.',
+      units: 'percent', // Annotate attack percentage modifiers for clarity.
     },
   ],
   [
@@ -91,6 +102,7 @@ const UNIVERSAL_VARIABLE_LIBRARY = new Map([
       symbol: 'Prc',
       name: 'Pierce',
       description: 'How many enemies a projectile can pass through.',
+      units: 'targets', // Indicate piercing targets for tooltips.
     },
   ],
   [
@@ -99,6 +111,7 @@ const UNIVERSAL_VARIABLE_LIBRARY = new Map([
       symbol: 'Chn',
       name: 'Chaining',
       description: 'Number of additional targets a strike can arc toward.',
+      units: 'targets', // Specify chaining reach count for tooltips.
     },
   ],
   [
@@ -107,6 +120,7 @@ const UNIVERSAL_VARIABLE_LIBRARY = new Map([
       symbol: 'Slw%',
       name: 'Slow Percent',
       description: 'Percentage-based slow applied to enemies.',
+      units: 'percent', // Reinforce slow potency units.
     },
   ],
   [
@@ -115,6 +129,7 @@ const UNIVERSAL_VARIABLE_LIBRARY = new Map([
       symbol: 'Tot',
       name: 'Total',
       description: 'Maximum allied units commanded simultaneously.',
+      units: 'units', // Identify population capacity for tooltips.
     },
   ],
 ]);
@@ -158,6 +173,11 @@ const towerTabState = {
     variableSpans: new Map(),
     entryPlayed: false,
     shouldPlayEntry: false,
+  },
+  equationTooltip: {
+    element: null, // Cache the tooltip element so we only build it once per session.
+    currentTarget: null, // Track which variable currently anchors the tooltip for cleanup.
+    hideTimeoutId: null, // Delay hiding briefly to prevent flicker between adjacent variables.
   },
   equipmentUi: {
     slots: new Map(),
@@ -2131,11 +2151,248 @@ function appendEquationVariable(target, label) {
   }
 }
 
+/**
+ * Builds or reuses the tooltip container that floats above the tower equation panel.
+ * @returns {HTMLDivElement|null} Tooltip element that annotates hovered variables.
+ */
+function ensureEquationTooltipElement() {
+  const state = towerTabState.equationTooltip;
+  if (state.element && state.element.isConnected) {
+    return state.element;
+  }
+  const panel = towerTabState.towerUpgradeElements.panel;
+  if (!panel) {
+    return null;
+  }
+  const tooltip = document.createElement('div');
+  tooltip.className = 'tower-upgrade-formula-tooltip';
+  tooltip.id = EQUATION_TOOLTIP_ID;
+  tooltip.setAttribute('role', 'tooltip');
+  tooltip.setAttribute('aria-hidden', 'true');
+  tooltip.hidden = true;
+  panel.append(tooltip);
+  state.element = tooltip;
+  return tooltip;
+}
+
+/**
+ * Derives a rich tooltip string that describes the provided equation variable.
+ * @param {object|null} variable Blueprint metadata linked to the hovered variable.
+ * @param {string} fallbackSymbol Symbol captured from the equation text when metadata is missing.
+ * @returns {string} Human readable tooltip string.
+ */
+function buildEquationVariableTooltip(variable, fallbackSymbol = '') {
+  if (!variable) {
+    const fallback = typeof fallbackSymbol === 'string' ? fallbackSymbol.trim() : '';
+    return fallback;
+  }
+
+  const universal = getUniversalVariableMetadata(variable);
+  const symbol =
+    (typeof variable.equationSymbol === 'string' && variable.equationSymbol.trim()) ||
+    (typeof variable.symbol === 'string' && variable.symbol.trim()) ||
+    (universal?.symbol && typeof universal.symbol === 'string' ? universal.symbol : '') ||
+    (typeof variable.key === 'string' && variable.key.trim() ? variable.key.trim().toUpperCase() : '') ||
+    (typeof fallbackSymbol === 'string' ? fallbackSymbol.trim() : '');
+  const name =
+    (typeof variable.tooltipName === 'string' && variable.tooltipName.trim()) ||
+    (typeof variable.name === 'string' && variable.name.trim()) ||
+    (universal?.name && typeof universal.name === 'string' ? universal.name : '');
+  const units =
+    (typeof variable.units === 'string' && variable.units.trim()) ||
+    (universal?.units && typeof universal.units === 'string' ? universal.units : '');
+  const description =
+    (typeof variable.tooltipDescription === 'string' && variable.tooltipDescription.trim()) ||
+    (typeof variable.description === 'string' && variable.description.trim()) ||
+    (universal?.description && typeof universal.description === 'string' ? universal.description : '');
+
+  if (!symbol && !name && !units && !description) {
+    return '';
+  }
+
+  const header = symbol && name ? `${symbol}: ${name}` : symbol || name || '';
+  const headerWithUnits = header
+    ? `${header}${units ? ` (${units})` : ''}`
+    : units
+    ? `(${units})`
+    : '';
+  if (description) {
+    return headerWithUnits ? `${headerWithUnits} ${description}` : description;
+  }
+  return headerWithUnits;
+}
+
+/**
+ * Positions the tooltip near the hovered variable while clamping inside the panel bounds.
+ * @param {HTMLElement} target Element that anchors the tooltip.
+ * @param {HTMLElement} tooltip Tooltip element that will be repositioned.
+ */
+function positionEquationTooltip(target, tooltip) {
+  if (!target || !tooltip) {
+    return;
+  }
+
+  const panel = towerTabState.towerUpgradeElements.panel;
+  if (!panel) {
+    return;
+  }
+
+  const panelRect = panel.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+
+  tooltip.style.maxWidth = `${Math.max(220, panelRect.width - EQUATION_TOOLTIP_MARGIN_PX * 2)}px`;
+  tooltip.style.left = `${EQUATION_TOOLTIP_MARGIN_PX}px`;
+  tooltip.style.top = `${EQUATION_TOOLTIP_MARGIN_PX}px`;
+
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const centerOffset = targetRect.left + targetRect.width / 2 - panelRect.left;
+  const idealLeft = centerOffset - tooltipRect.width / 2;
+  const maxLeft = panelRect.width - tooltipRect.width - EQUATION_TOOLTIP_MARGIN_PX;
+  const clampedLeft = Math.min(
+    Math.max(idealLeft, EQUATION_TOOLTIP_MARGIN_PX),
+    Math.max(maxLeft, EQUATION_TOOLTIP_MARGIN_PX),
+  );
+
+  const spaceBelow = panelRect.bottom - targetRect.bottom;
+  const spaceAbove = targetRect.top - panelRect.top;
+  let top;
+  if (spaceBelow >= tooltipRect.height + EQUATION_TOOLTIP_MARGIN_PX || spaceBelow >= spaceAbove) {
+    top = targetRect.bottom - panelRect.top + EQUATION_TOOLTIP_MARGIN_PX;
+  } else {
+    top = targetRect.top - panelRect.top - tooltipRect.height - EQUATION_TOOLTIP_MARGIN_PX;
+  }
+  const maxTop = panelRect.height - tooltipRect.height - EQUATION_TOOLTIP_MARGIN_PX;
+  const clampedTop = Math.min(
+    Math.max(top, EQUATION_TOOLTIP_MARGIN_PX),
+    Math.max(maxTop, EQUATION_TOOLTIP_MARGIN_PX),
+  );
+
+  tooltip.style.left = `${clampedLeft}px`;
+  tooltip.style.top = `${clampedTop}px`;
+}
+
+/**
+ * Hides the tooltip, optionally waiting a beat to soften transitions.
+ * @param {{ immediate?: boolean }} [options] Control whether the tooltip hides instantly.
+ */
+function hideEquationTooltip(options = {}) {
+  const { immediate = false } = options;
+  const state = towerTabState.equationTooltip;
+  const tooltip = state.element;
+
+  if (state.hideTimeoutId) {
+    window.clearTimeout(state.hideTimeoutId);
+    state.hideTimeoutId = null;
+  }
+
+  if (!tooltip) {
+    if (state.currentTarget) {
+      state.currentTarget.removeAttribute('aria-describedby');
+      state.currentTarget = null;
+    }
+    return;
+  }
+
+  const finalize = () => {
+    tooltip.dataset.visible = 'false';
+    tooltip.setAttribute('aria-hidden', 'true');
+    tooltip.hidden = true;
+    tooltip.textContent = '';
+    state.hideTimeoutId = null;
+    if (state.currentTarget) {
+      state.currentTarget.removeAttribute('aria-describedby');
+      state.currentTarget = null;
+    }
+  };
+
+  if (immediate) {
+    finalize();
+    return;
+  }
+
+  tooltip.dataset.visible = 'false';
+  tooltip.setAttribute('aria-hidden', 'true');
+  state.hideTimeoutId = window.setTimeout(finalize, 160);
+}
+
+/**
+ * Displays the tooltip for the provided equation variable span.
+ * @param {HTMLElement} target Span element representing an equation variable.
+ */
+function showEquationTooltip(target) {
+  if (!target) {
+    return;
+  }
+  const tooltipText = typeof target.dataset.tooltip === 'string' ? target.dataset.tooltip : '';
+  if (!tooltipText) {
+    return;
+  }
+
+  const tooltip = ensureEquationTooltipElement();
+  if (!tooltip) {
+    return;
+  }
+
+  const state = towerTabState.equationTooltip;
+  if (state.hideTimeoutId) {
+    window.clearTimeout(state.hideTimeoutId);
+    state.hideTimeoutId = null;
+  }
+
+  tooltip.textContent = tooltipText;
+  tooltip.hidden = false;
+  tooltip.dataset.visible = 'true';
+  tooltip.setAttribute('aria-hidden', 'false');
+  state.currentTarget = target;
+  target.setAttribute('aria-describedby', EQUATION_TOOLTIP_ID);
+
+  requestAnimationFrame(() => {
+    positionEquationTooltip(target, tooltip);
+  });
+}
+
+/**
+ * Pointer enter handler that wires equation spans to the tooltip system.
+ * @param {PointerEvent|MouseEvent} event Native pointer event fired by the browser.
+ */
+function handleEquationVariablePointerEnter(event) {
+  const target = event.currentTarget;
+  if (target instanceof HTMLElement) {
+    showEquationTooltip(target);
+  }
+}
+
+/**
+ * Pointer leave handler that gracefully hides the tooltip when exiting a span.
+ */
+function handleEquationVariablePointerLeave() {
+  hideEquationTooltip();
+}
+
+/**
+ * Focus handler so keyboard navigation also reveals the tooltip description.
+ * @param {FocusEvent} event Browser focus event triggered when a span gains focus.
+ */
+function handleEquationVariableFocus(event) {
+  const target = event.currentTarget;
+  if (target instanceof HTMLElement) {
+    showEquationTooltip(target);
+  }
+}
+
+/**
+ * Blur handler that clears the tooltip after keyboard navigation moves away.
+ */
+function handleEquationVariableBlur() {
+  hideEquationTooltip({ immediate: true });
+}
+
 function renderTowerUpgradeEquationParts(baseEquationText, blueprint, options = {}) {
   const baseEquationEl = towerTabState.towerUpgradeElements.baseEquation;
   if (!baseEquationEl) {
     return;
   }
+  hideEquationTooltip({ immediate: true }); // Clear lingering tooltips when the equation re-renders.
   const markDeparted = options.markDeparted === true;
   const resolvedEquation = convertMathExpressionToPlainText(baseEquationText) || baseEquationText || '';
   baseEquationEl.innerHTML = '';
@@ -2161,6 +2418,23 @@ function renderTowerUpgradeEquationParts(baseEquationText, blueprint, options = 
       span.dataset.variable = token.variableKey;
       span.classList.add('tower-upgrade-formula-part--variable');
       const variable = getBlueprintVariable(blueprint, token.variableKey);
+      // Attach hover and focus tooltips so abbreviations surface their meaning in context.
+      const tooltipText = buildEquationVariableTooltip(variable, token.text);
+      if (tooltipText) {
+        span.dataset.tooltip = tooltipText;
+        span.setAttribute('aria-label', tooltipText);
+        span.tabIndex = 0;
+        if (HAS_POINTER_EVENTS) {
+          span.addEventListener('pointerenter', handleEquationVariablePointerEnter);
+          span.addEventListener('pointerleave', handleEquationVariablePointerLeave);
+          span.addEventListener('pointercancel', handleEquationVariablePointerLeave);
+        } else {
+          span.addEventListener('mouseenter', handleEquationVariablePointerEnter);
+          span.addEventListener('mouseleave', handleEquationVariablePointerLeave);
+        }
+        span.addEventListener('focus', handleEquationVariableFocus);
+        span.addEventListener('blur', handleEquationVariableBlur);
+      }
       if (!spanMap.has(token.variableKey)) {
         spanMap.set(token.variableKey, []);
       }
@@ -4219,6 +4493,7 @@ export function closeTowerUpgradeOverlay() {
     return;
   }
 
+  hideEquationTooltip({ immediate: true }); // Ensure equation tooltips do not linger after closing the overlay.
   playTowerVariableFlight('exit').finally(() => {
     scheduleTowerUpgradeOverlayHide(overlay);
   });
@@ -4346,6 +4621,12 @@ export function bindTowerUpgradeOverlay() {
     return;
   }
   elements.panel = elements.overlay.querySelector('.tower-upgrade-panel');
+  if (elements.panel) {
+    ensureEquationTooltipElement(); // Prepare the floating tooltip container now that the panel exists.
+    elements.panel.addEventListener('scroll', () => {
+      hideEquationTooltip({ immediate: true }); // Hide tooltips when the panel scrolls to avoid positional drift.
+    });
+  }
   elements.close = elements.overlay.querySelector('[data-tower-upgrade-close]');
   elements.title = document.getElementById('tower-upgrade-title');
   elements.tier = document.getElementById('tower-upgrade-tier');
