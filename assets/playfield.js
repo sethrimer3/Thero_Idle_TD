@@ -56,6 +56,7 @@ import {
 import {
   updateGammaBursts as updateGammaBurstsHelper,
 } from '../scripts/features/towers/gammaTower.js';
+import { updateKappaTower as updateKappaTowerHelper } from '../scripts/features/towers/kappaTower.js';
 import {
   ensureThetaState as ensureThetaStateHelper,
   updateThetaTower as updateThetaTowerHelper,
@@ -1310,6 +1311,9 @@ export class SimplePlayfield {
       if (tower.type === 'gamma') {
         this.ensureGammaState(tower);
       }
+      if (tower.type === 'kappa') {
+        this.ensureKappaState(tower);
+      }
       if (tower.type === 'iota') {
         this.ensureIotaState(tower);
       }
@@ -1318,7 +1322,7 @@ export class SimplePlayfield {
         this.ensureZetaState(tower);
       } else {
         const rangeFactor = definition ? definition.range : 0.24;
-        if (tower.type !== 'iota') {
+        if (tower.type !== 'iota' && tower.type !== 'kappa') {
           tower.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
         }
         if (tower.type === 'delta') {
@@ -1857,6 +1861,20 @@ export class SimplePlayfield {
   }
 
   /**
+   * Clear cached κ tripwire data when the lattice retunes or leaves the field.
+   */
+  teardownKappaTower(tower) {
+    return TowerManager.teardownKappaTower.call(this, tower);
+  }
+
+  /**
+   * Ensure κ tripwire state stays synchronized with the battlefield layout.
+   */
+  ensureKappaState(tower) {
+    return TowerManager.ensureKappaState.call(this, tower);
+  }
+
+  /**
    * Clear cached θ field data when the lattice retunes or is dismantled.
    */
   teardownThetaTower(tower) {
@@ -1875,6 +1893,13 @@ export class SimplePlayfield {
    */
   updateThetaTower(tower, delta) {
     updateThetaTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Evolve κ tripwire charge, manage collisions, and refresh linked targets.
+   */
+  updateKappaTower(tower, delta) {
+    updateKappaTowerHelper(this, tower, delta);
   }
 
   /**
@@ -2564,6 +2589,7 @@ export class SimplePlayfield {
     this.teardownAlphaTower(tower);
     this.teardownBetaTower(tower);
     this.teardownGammaTower(tower);
+    this.teardownKappaTower(tower);
     this.teardownIotaTower(tower);
     this.teardownDeltaTower(tower);
     this.teardownZetaTower(tower);
@@ -3959,6 +3985,10 @@ export class SimplePlayfield {
       }
       if (tower.type === 'theta') {
         this.updateThetaTower(tower, delta);
+        return;
+      }
+      if (tower.type === 'kappa') {
+        this.updateKappaTower(tower, delta);
         return;
       }
       if (!this.combatActive || !this.enemies.length) {

@@ -8,6 +8,7 @@ import {
 } from '../../../scripts/features/towers/alphaTower.js';
 import { drawBetaBursts as drawBetaBurstsHelper } from '../../../scripts/features/towers/betaTower.js';
 import { drawGammaBursts as drawGammaBurstsHelper } from '../../../scripts/features/towers/gammaTower.js';
+import { drawKappaTripwires as drawKappaTripwiresHelper } from '../../../scripts/features/towers/kappaTower.js';
 import { drawZetaPendulums as drawZetaPendulumsHelper } from '../../../scripts/features/towers/zetaTower.js';
 import { drawEtaOrbits as drawEtaOrbitsHelper } from '../../../scripts/features/towers/etaTower.js';
 import { drawDeltaSoldiers as drawDeltaSoldiersHelper } from '../../../scripts/features/towers/deltaTower.js';
@@ -858,6 +859,9 @@ function drawTowers() {
     }
     if (tower.type === 'eta') {
       this.drawEtaOrbits(tower);
+    }
+    if (tower.type === 'kappa') {
+      drawKappaTripwiresHelper(this, tower);
     }
 
     ctx.save();
