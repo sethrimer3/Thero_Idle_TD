@@ -14,6 +14,10 @@ import {
   spawnGammaAttackBurst as spawnGammaAttackBurstHelper,
 } from '../../../scripts/features/towers/gammaTower.js';
 import {
+  ensureThetaState as ensureThetaStateHelper,
+  teardownThetaTower as teardownThetaTowerHelper,
+} from '../../../scripts/features/towers/thetaTower.js';
+import {
   evaluateZetaMetrics as evaluateZetaMetricsHelper,
   teardownZetaTower as teardownZetaTowerHelper,
   ensureZetaState as ensureZetaStateHelper,
@@ -74,6 +78,14 @@ function spawnGammaAttackBurst(tower, targetInfo, options = {}) {
   return spawnGammaAttackBurstHelper(this, tower, targetInfo, options);
 }
 
+function teardownThetaTower(tower) {
+  teardownThetaTowerHelper(this, tower);
+}
+
+function ensureThetaState(tower) {
+  return ensureThetaStateHelper(this, tower);
+}
+
 function teardownZetaTower(tower) {
   teardownZetaTowerHelper(this, tower);
 }
@@ -118,6 +130,11 @@ function applyTowerBehaviorDefaults(tower) {
     this.ensureGammaState(tower);
   } else if (tower.gammaState) {
     this.teardownGammaTower(tower);
+  }
+  if (tower.type === 'theta') {
+    this.ensureThetaState(tower);
+  } else if (tower.thetaState) {
+    this.teardownThetaTower(tower);
   }
   if (tower.type === 'delta') {
     this.ensureDeltaState(tower);
@@ -176,6 +193,8 @@ export {
   teardownGammaTower,
   ensureGammaState,
   spawnGammaAttackBurst,
+  teardownThetaTower,
+  ensureThetaState,
   teardownZetaTower,
   ensureZetaState,
   teardownEtaTower,

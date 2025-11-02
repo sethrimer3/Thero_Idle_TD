@@ -1417,6 +1417,199 @@ const TOWER_EQUATION_BLUEPRINTS = {
       return String.raw`\( \text{Eta} = \dots \)`;
     },
   },
+  theta: {
+    mathSymbol: String.raw`\theta`,
+    baseEquation: String.raw`\( \Theta = \text{Rng} \times \text{Slw} \)`,
+    variables: [
+      {
+        key: 'rng',
+        symbol: 'Rng',
+        equationSymbol: 'Range',
+        name: 'Range',
+        description: 'Range of the slowing field.',
+        upgradable: false,
+        baseValue: 0.5,
+        format: (value) => `${formatDecimal(Math.max(0, value), 2)} range`,
+        getSubEquations() {
+          return [
+            {
+              expression: String.raw`\( \text{Rng} = 0.5 \)`,
+            },
+            {
+              values: String.raw`\( 0.5 = 0.5 \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'slw',
+        symbol: 'Slw',
+        equationSymbol: 'Slow',
+        name: 'Slow',
+        description: 'Percentage of enemy speed removed while within θ’s field.',
+        upgradable: false,
+        format: (value) => `${formatDecimal(Math.max(0, value), 2)}% slow`,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph1 = Math.max(0, computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
+          const exponent = Math.exp(-0.1 * aleph1);
+          const sinusoid = 1 + 0.1 * Math.sin(aleph1);
+          const slowPercent = 95 * (1 - exponent * sinusoid) + 5;
+          return Math.max(0, Math.min(100, slowPercent));
+        },
+        getSubEquations({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph1 = Math.max(0, computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
+          const exponent = Math.exp(-0.1 * aleph1);
+          const sinusoid = 1 + 0.1 * Math.sin(aleph1);
+          const slowPercent = 95 * (1 - exponent * sinusoid) + 5;
+          const clamped = Math.max(0, Math.min(100, slowPercent));
+          return [
+            {
+              expression: String.raw`\( \text{Slw} = 95 \left( 1 - e^{-0.1 \aleph_{1}} \left( 1 + 0.1 \sin(\aleph_{1}) \right) \right) + 5 \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(clamped, 2)}\% = 95 \left( 1 - e^{-0.1 \cdot ${formatDecimal(
+                aleph1,
+                2,
+              )}} \left( 1 + 0.1 \sin(${formatDecimal(aleph1, 2)}) \right) \right) + 5 \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph1',
+        symbol: 'ℵ₁',
+        equationSymbol: 'ℵ₁',
+        glyphLabel: 'ℵ₁',
+        name: 'Aleph₁ Drift',
+        description: 'Invest Aleph₁ glyphs to deepen θ’s initial slow potency.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        attachedToVariable: 'slw',
+        cost: (level) => Math.max(1, 1 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0))),
+        format: (value) => `${formatWholeNumber(Math.max(0, value))} ℵ₁`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? Math.floor(level) : 0);
+          const resolved = Number.isFinite(value) ? Math.max(0, value) : rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{1} = \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+              glyphEquation: true,
+            },
+          ];
+        },
+      },
+      {
+        key: 'eff',
+        symbol: 'Eff',
+        equationSymbol: 'Eff',
+        name: 'Efficacy',
+        description: 'Remaining slow efficacy as enemies linger within the θ field.',
+        upgradable: false,
+        format: (value) => `${formatPercentage(Math.max(0, Math.min(1, value)))} @ entry`,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph2 = Math.max(1, computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
+          const aleph3 = Math.max(0, computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
+          const raw = 100 * Math.exp(1 / aleph2) * (1 + (1 / (1.1 + aleph3)) * Math.sin(0));
+          return Math.max(0, raw) / 100;
+        },
+        getSubEquations({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const aleph2 = Math.max(1, computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
+          const aleph3 = Math.max(0, computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
+          const entryPercent = Math.max(0, 100 * Math.exp(1 / aleph2));
+          return [
+            {
+              expression: String.raw`\( \text{Eff}(s) = 100\, e^{\left( \frac{1}{\aleph_{2}} \right) - s} \left( 1 + \frac{1}{1.1 + \aleph_{3}} \sin(4 s) \right) \)`,
+            },
+            {
+              values: String.raw`\( \text{Eff}(0) = ${formatDecimal(entryPercent, 1)}\% \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph2',
+        symbol: 'ℵ₂',
+        equationSymbol: 'ℵ₂',
+        glyphLabel: 'ℵ₂',
+        name: 'Aleph₂ Persistence',
+        description: 'Extends how long θ retains full slow potency.',
+        baseValue: 1,
+        step: 1,
+        upgradable: true,
+        attachedToVariable: 'eff',
+        cost: (level) => Math.max(1, 1 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0))),
+        format: (value) => `${formatWholeNumber(Math.max(1, value))} ℵ₂`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? Math.floor(level) : 0);
+          const resolved = Number.isFinite(value) ? Math.max(1, value) : 1 + rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{2} = 1 + \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = 1 + ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+              glyphEquation: true,
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph3',
+        symbol: 'ℵ₃',
+        equationSymbol: 'ℵ₃',
+        glyphLabel: 'ℵ₃',
+        name: 'Aleph₃ Resonance',
+        description: 'Stabilizes θ’s gravity well to reduce efficacy oscillation.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        attachedToVariable: 'eff',
+        cost: (level) => Math.max(1, 1 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0))),
+        format: (value) => `${formatWholeNumber(Math.max(0, value))} ℵ₃`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? Math.floor(level) : 0);
+          const resolved = Number.isFinite(value) ? Math.max(0, value) : rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{3} = \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+              glyphEquation: true,
+            },
+          ];
+        },
+      },
+    ],
+    computeResult(values) {
+      const range = Number.isFinite(values.rng) ? values.rng : 0;
+      const slow = Number.isFinite(values.slw) ? values.slw : 0;
+      return range * slow;
+    },
+    formatBaseEquationValues({ values }) {
+      const range = Number.isFinite(values.rng) ? values.rng : 0;
+      const slow = Number.isFinite(values.slw) ? values.slw : 0;
+      const result = range * slow;
+      const rangeText = formatDecimal(range, 2);
+      const slowText = `${formatDecimal(slow, 2)}%`;
+      const resultText = formatDecimal(result, 2);
+      return `${resultText} = ${rangeText} × ${slowText}`;
+    },
+  },
   // ζ tower channels a double-pendulum equation that references multiple Aleph
   // upgrade threads to determine attack, speed, range, and pendulum count.
   zeta: {

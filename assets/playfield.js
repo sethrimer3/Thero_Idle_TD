@@ -57,6 +57,11 @@ import {
   updateGammaBursts as updateGammaBurstsHelper,
 } from '../scripts/features/towers/gammaTower.js';
 import {
+  ensureThetaState as ensureThetaStateHelper,
+  updateThetaTower as updateThetaTowerHelper,
+  teardownThetaTower as teardownThetaTowerHelper,
+} from '../scripts/features/towers/thetaTower.js';
+import {
   ensureEpsilonState as ensureEpsilonStateHelper,
   updateEpsilonTower as updateEpsilonTowerHelper,
   applyEpsilonHit as applyEpsilonHitHelper,
@@ -1251,6 +1256,7 @@ export class SimplePlayfield {
     this.waveTimer = 0;
     this.enemyIdCounter = 0;
     this.activeWave = null;
+    this.enemies.forEach((enemy) => this.clearEnemySlowEffects(enemy));
     this.enemies = [];
     this.projectiles = [];
     this.alphaBursts = [];
@@ -1309,6 +1315,9 @@ export class SimplePlayfield {
         tower.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
         if (tower.type === 'delta') {
           this.updateDeltaAnchors(tower);
+        }
+        if (tower.type === 'theta') {
+          this.ensureThetaState(tower);
         }
       }
     });
@@ -1837,6 +1846,27 @@ export class SimplePlayfield {
    */
   spawnGammaAttackBurst(tower, targetInfo, options = {}) {
     return TowerManager.spawnGammaAttackBurst.call(this, tower, targetInfo, options);
+  }
+
+  /**
+   * Clear cached θ field data when the lattice retunes or is dismantled.
+   */
+  teardownThetaTower(tower) {
+    return TowerManager.teardownThetaTower.call(this, tower);
+  }
+
+  /**
+   * Maintain θ slow field state so range and potency stay synchronized.
+   */
+  ensureThetaState(tower) {
+    return TowerManager.ensureThetaState.call(this, tower);
+  }
+
+  /**
+   * Update θ slow field efficacy and apply slow stacks to nearby enemies.
+   */
+  updateThetaTower(tower, delta) {
+    updateThetaTowerHelper(this, tower, delta);
   }
 
   /**
@@ -3836,6 +3866,7 @@ export class SimplePlayfield {
         hp: config.hp,
         maxHp: config.hp,
         speed: config.speed,
+        baseSpeed: config.speed,
         reward: config.reward,
         color: config.color,
         label: config.label,
@@ -3876,6 +3907,10 @@ export class SimplePlayfield {
       }
       if (tower.type === 'epsilon') {
         this.updateEpsilonTower(tower, delta);
+        return;
+      }
+      if (tower.type === 'theta') {
+        this.updateThetaTower(tower, delta);
         return;
       }
       if (!this.combatActive || !this.enemies.length) {
@@ -4379,11 +4414,84 @@ export class SimplePlayfield {
     }
   }
 
+  resolveEnemySlowMultiplier(enemy) {
+    if (!enemy) {
+      return 1;
+    }
+    const slowEffects = enemy.slowEffects;
+    if (slowEffects instanceof Map) {
+      let multiplier = 1;
+      const stale = [];
+      slowEffects.forEach((effect, key) => {
+        if (!effect || !Number.isFinite(effect.multiplier)) {
+          stale.push(key);
+          return;
+        }
+        const clamped = Math.max(0, Math.min(1, effect.multiplier));
+        multiplier = Math.min(multiplier, clamped);
+      });
+      stale.forEach((key) => slowEffects.delete(key));
+      if (slowEffects.size === 0) {
+        delete enemy.slowEffects;
+      }
+      return multiplier;
+    }
+    if (!slowEffects || typeof slowEffects !== 'object') {
+      return 1;
+    }
+    let multiplier = 1;
+    Object.keys(slowEffects).forEach((key) => {
+      const effect = slowEffects[key];
+      if (!effect || !Number.isFinite(effect.multiplier)) {
+        delete slowEffects[key];
+        return;
+      }
+      const clamped = Math.max(0, Math.min(1, effect.multiplier));
+      multiplier = Math.min(multiplier, clamped);
+    });
+    if (!Object.keys(slowEffects).length) {
+      delete enemy.slowEffects;
+    }
+    return multiplier;
+  }
+
+  clearEnemySlowEffects(enemy) {
+    if (!enemy) {
+      return;
+    }
+    const slowEffects = enemy.slowEffects;
+    if (slowEffects instanceof Map) {
+      slowEffects.forEach((_, towerId) => {
+        const tower = this.getTowerById(towerId);
+        if (tower?.thetaState?.enemyTimers instanceof Map) {
+          tower.thetaState.enemyTimers.delete(enemy.id);
+        }
+      });
+      slowEffects.clear();
+    } else if (slowEffects && typeof slowEffects === 'object') {
+      Object.keys(slowEffects).forEach((towerId) => {
+        const tower = this.getTowerById(towerId);
+        if (tower?.thetaState?.enemyTimers instanceof Map) {
+          tower.thetaState.enemyTimers.delete(enemy.id);
+        }
+      });
+    }
+    delete enemy.slowEffects;
+  }
+
   updateEnemies(delta) {
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       const enemy = this.enemies[index];
+      if (!Number.isFinite(enemy.baseSpeed)) {
+        enemy.baseSpeed = Number.isFinite(enemy.speed) ? enemy.speed : 0;
+      }
+      const baseSpeed = Number.isFinite(enemy.baseSpeed) ? enemy.baseSpeed : 0;
+      const speedMultiplier = this.resolveEnemySlowMultiplier(enemy);
+      const effectiveSpeed = Math.max(0, baseSpeed * speedMultiplier);
+      enemy.speed = effectiveSpeed;
       enemy.progress += enemy.speed * delta;
       if (enemy.progress >= 1) {
+        this.clearEnemySlowEffects(enemy);
         this.enemies.splice(index, 1);
         this.handleEnemyBreach(enemy);
       }
@@ -5015,6 +5123,7 @@ export class SimplePlayfield {
   }
 
   handleEnemyBreach(enemy) {
+    this.clearEnemySlowEffects(enemy);
     const damage = this.estimateEnemyBreachDamage(enemy);
     this.lives = Math.max(0, this.lives - damage);
     if (this.audio) {
@@ -5060,6 +5169,7 @@ export class SimplePlayfield {
   }
 
   processEnemyDefeat(enemy) {
+    this.clearEnemySlowEffects(enemy);
     const index = this.enemies.indexOf(enemy);
     if (index >= 0) {
       this.enemies.splice(index, 1);
