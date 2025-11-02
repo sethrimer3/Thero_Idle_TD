@@ -1630,6 +1630,7 @@ import {
 
     // Refresh mote-specific HUD elements whenever core status displays tick.
     updateMoteStatsDisplays();
+    updatePowderModeButton();
   }
 
   const baseResources = {
@@ -1660,7 +1661,8 @@ import {
     wallBaseGapMotes: 15,
     wallGapPerGlyph: 1,
     wallGapViewportRatio: 0.15, // Narrow the tower walls so the visible mote lane is roughly one-fifth of the previous span.
-    fluidUnlockSigils: 1,
+    fluidUnlockSigils: 0, // Sigil rungs no longer gate the fluid study while glyph costs handle the unlock.
+    fluidUnlockGlyphCost: 0, // Aleph glyph tithe required to unlock the fluid study (temporarily waived).
   };
 
   const powderState = {
@@ -2482,18 +2484,32 @@ import {
     updateSimulationCardPlacement();
   }
 
+  // Normalize the aleph glyph tithe before using it for unlock checks or logs.
+  function getFluidUnlockGlyphCost() {
+    const rawCost = Number.isFinite(powderConfig.fluidUnlockGlyphCost)
+      ? powderConfig.fluidUnlockGlyphCost
+      : 0;
+    return Math.max(0, Math.floor(rawCost));
+  }
+
   function updatePowderModeButton() {
     if (!powderElements.modeToggle) {
       return;
     }
-    const unlockSigils = powderConfig.fluidUnlockSigils || 0;
     if (!powderState.fluidUnlocked) {
-      const requirementLabel = unlockSigils > 0 ? `${unlockSigils}` : '???';
-      const unitLabel = unlockSigils === 1 ? 'Glyph' : 'Glyphs';
-      powderElements.modeToggle.textContent = `Unlock Fluid Study (${unitLabel} ${requirementLabel})`;
+      const glyphCost = getFluidUnlockGlyphCost();
+      const costLabel = glyphCost > 0 ? `ℵ ${formatWholeNumber(glyphCost)}` : 'ℵ 0';
+      powderElements.modeToggle.textContent = `Unlock Fluid Study (${costLabel})`;
       powderElements.modeToggle.setAttribute('aria-pressed', 'false');
-      powderElements.modeToggle.setAttribute('aria-disabled', 'true');
-      powderElements.modeToggle.disabled = true;
+      const availableGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
+      const affordable = availableGlyphs >= glyphCost;
+      if (affordable) {
+        powderElements.modeToggle.removeAttribute('aria-disabled');
+        powderElements.modeToggle.disabled = false;
+      } else {
+        powderElements.modeToggle.setAttribute('aria-disabled', 'true');
+        powderElements.modeToggle.disabled = true;
+      }
       return;
     }
     powderElements.modeToggle.removeAttribute('aria-disabled');
@@ -2792,6 +2808,42 @@ import {
     }
   }
 
+  function unlockFluidStudy({ reason = 'purchase', threshold = null, glyphCost = null } = {}) {
+    if (powderState.fluidUnlocked) {
+      return false;
+    }
+    powderState.fluidUnlocked = true;
+    updateFluidTabAvailability();
+    updatePowderModeButton();
+    const normalizedCost = Number.isFinite(glyphCost) ? Math.max(0, Math.floor(glyphCost)) : getFluidUnlockGlyphCost();
+    const normalizedThreshold = Number.isFinite(threshold) ? Math.max(0, threshold) : undefined;
+    const context = {
+      reason,
+      glyphCost: normalizedCost,
+    };
+    if (typeof normalizedThreshold !== 'undefined') {
+      context.threshold = normalizedThreshold;
+    }
+    recordPowderEvent('fluid-unlocked', context);
+    schedulePowderSave();
+    return true;
+  }
+
+  function attemptFluidUnlock() {
+    const glyphCost = getFluidUnlockGlyphCost();
+    const availableGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
+    if (availableGlyphs < glyphCost) {
+      updatePowderModeButton();
+      return false;
+    }
+    if (glyphCost > 0) {
+      addGlyphCurrency(-glyphCost);
+    }
+    const unlocked = unlockFluidStudy({ reason: 'purchase', glyphCost });
+    updateStatusDisplays();
+    return unlocked;
+  }
+
   function enterFluidStudy() {
     if (powderState.modeSwitchPending) {
       return;
@@ -2818,6 +2870,13 @@ import {
   }
 
   function handlePowderModeToggle() {
+    if (!powderState.fluidUnlocked) {
+      const unlocked = attemptFluidUnlock();
+      if (unlocked) {
+        enterFluidStudy();
+      }
+      return;
+    }
     if (getActiveTabId() === 'fluid') {
       exitFluidStudy();
     } else {
@@ -6669,11 +6728,11 @@ import {
     }
     const normalized = Math.max(0, Math.floor(count));
     gameStats.powderSigilsReached = Math.max(gameStats.powderSigilsReached, normalized);
-    if (!powderState.fluidUnlocked && normalized >= (powderConfig.fluidUnlockSigils || Infinity)) {
-      powderState.fluidUnlocked = true;
-      recordPowderEvent('fluid-unlocked', { threshold: powderConfig.fluidUnlockSigils || 0 });
-      updateFluidTabAvailability();
-      updatePowderModeButton();
+    const sigilThreshold = Number.isFinite(powderConfig.fluidUnlockSigils)
+      ? Math.max(0, powderConfig.fluidUnlockSigils)
+      : Infinity;
+    if (!powderState.fluidUnlocked && sigilThreshold > 0 && normalized >= sigilThreshold) {
+      unlockFluidStudy({ reason: 'sigil', threshold: sigilThreshold, glyphCost: 0 });
     }
     if (moteGemState.autoCollectUnlocked) {
       autoCollectActiveMoteGems('glyph');
