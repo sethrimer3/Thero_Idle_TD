@@ -1245,13 +1245,15 @@ function drawProjectiles() {
       const prev = projectile.previousPosition || position;
       const heading = Math.atan2((position.y - prev.y) || 0.0001, (position.x - prev.x) || 0.0001);
       const length = 10;
-      const width = 2.2;
+      const width = 1.2;
+      // Fade embedded thorns by honoring the projectile alpha computed in the simulation.
+      const alpha = Number.isFinite(projectile.alpha) ? Math.max(0, Math.min(1, projectile.alpha)) : 1;
       ctx.save();
       ctx.translate(position.x, position.y);
       ctx.rotate(heading);
-      ctx.fillStyle = 'rgba(139, 247, 255, 0.9)';
-      ctx.strokeStyle = 'rgba(12, 16, 26, 0.9)';
-      ctx.lineWidth = 1.2;
+      ctx.fillStyle = `rgba(139, 247, 255, ${0.85 * alpha})`;
+      ctx.strokeStyle = `rgba(12, 16, 26, ${0.9 * alpha})`;
+      ctx.lineWidth = 0.9;
       ctx.beginPath();
       ctx.moveTo(length, 0);
       ctx.lineTo(-length * 0.6, width);

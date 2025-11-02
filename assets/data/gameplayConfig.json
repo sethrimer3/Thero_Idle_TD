@@ -510,13 +510,21 @@
         },
         {
           "label": "loop sentries",
-          "count": 2,
+          "count": 3,
           "interval": 2.8,
           "hp": 320,
           "speed": 0.115,
           "reward": 32,
           "color": "rgba(255, 138, 186, 0.92)",
-          "codexId": "reversal"
+          "codexId": "reversal",
+          "boss": {
+            "label": "giant Aleph",
+            "hp": 1000,
+            "speed": 0.02,
+            "reward": 120,
+            "color": "rgba(200, 236, 255, 0.95)",
+            "symbol": "Α"
+          }
         }
       ],
       "rewardScore": 1.8e+44,
