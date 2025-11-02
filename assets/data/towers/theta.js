@@ -9,7 +9,7 @@ export const THETA_TOWER = Object.freeze({
   baseCost: 4000000,
   damage: 132,
   rate: 0.98,
-  range: 0.5,
+  range: 0.1,
   icon: 'assets/images/tower-theta.svg',
   nextTierId: 'iota',
 });

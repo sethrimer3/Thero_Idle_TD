@@ -3252,7 +3252,9 @@ export class SimplePlayfield {
 
     const position = this.getCanvasPosition(normalized);
     const minDimension = Math.min(this.renderWidth, this.renderHeight) || 1;
-    const minSpacing = minDimension * 0.12;
+    const towerBodyRadius = this.resolveTowerBodyRadius();
+    // Require at least a full body diameter plus a small buffer so lattices do not visually overlap.
+    const minSpacing = Math.max(towerBodyRadius * 2.1, 24);
 
     for (let index = 0; index < this.towers.length; index += 1) {
       const tower = this.towers[index];
