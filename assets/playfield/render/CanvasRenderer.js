@@ -993,20 +993,30 @@ function drawEnemies() {
     ctx.save();
     ctx.translate(position.x, position.y);
 
+    const inversionActive = Number.isFinite(enemy.iotaInversionTimer) && enemy.iotaInversionTimer > 0;
+    const ringFillStyle = inversionActive ? 'rgba(240, 244, 255, 0.88)' : 'rgba(12, 16, 24, 0.88)';
+    const ringStrokeStyle = inversionActive ? 'rgba(12, 16, 24, 0.55)' : 'rgba(139, 247, 255, 0.45)';
+    const coreFillStyle = inversionActive ? 'rgba(12, 18, 28, 0.42)' : 'rgba(139, 247, 255, 0.28)';
+    const symbolFillStyle = inversionActive ? 'rgba(16, 20, 30, 0.92)' : 'rgba(255, 255, 255, 0.92)';
+    const exponentFillStyle = inversionActive
+      ? 'rgba(24, 34, 46, 0.9)'
+      : this.resolveEnemyExponentColor(enemy);
+    const exponentStrokeStyle = inversionActive ? 'rgba(236, 240, 248, 0.85)' : 'rgba(6, 8, 14, 0.85)';
+
     ctx.beginPath();
-    ctx.fillStyle = 'rgba(12, 16, 24, 0.88)';
-    ctx.strokeStyle = 'rgba(139, 247, 255, 0.45)';
+    ctx.fillStyle = ringFillStyle;
+    ctx.strokeStyle = ringStrokeStyle;
     ctx.lineWidth = 2;
     ctx.arc(0, 0, metrics.ringRadius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.fillStyle = 'rgba(139, 247, 255, 0.28)';
+    ctx.fillStyle = coreFillStyle;
     ctx.arc(0, 0, metrics.coreRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.fillStyle = symbolFillStyle;
     ctx.font = `${metrics.symbolSize}px "Cormorant Garamond", serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -1016,17 +1026,16 @@ function drawEnemies() {
     ctx.textAlign = 'right';
     ctx.textBaseline = 'top';
     const exponentLabel = exponent.toFixed(1);
-    const exponentColor = this.resolveEnemyExponentColor(enemy);
     const pixelRatio = Number.isFinite(this.pixelRatio) && this.pixelRatio > 0 ? this.pixelRatio : 1;
     const outlineWidth = Math.max(1, Math.round(pixelRatio));
     ctx.lineJoin = 'round';
     ctx.miterLimit = 2;
-    ctx.strokeStyle = 'rgba(6, 8, 14, 0.85)';
+    ctx.strokeStyle = exponentStrokeStyle;
     ctx.lineWidth = outlineWidth;
     const exponentOffsetX = metrics.ringRadius * 0.94;
     const exponentOffsetY = -metrics.ringRadius * 0.98;
     ctx.strokeText(exponentLabel, exponentOffsetX, exponentOffsetY);
-    ctx.fillStyle = exponentColor;
+    ctx.fillStyle = exponentFillStyle;
     ctx.fillText(exponentLabel, exponentOffsetX, exponentOffsetY);
 
     if (this.focusedEnemyId === enemy.id) {
@@ -1140,6 +1149,27 @@ function drawProjectiles() {
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(length, 0);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+
+    if (projectile.patternType === 'iotaPulse') {
+      const origin = projectile.origin;
+      if (!origin) {
+        return;
+      }
+      const maxLifetime = Number.isFinite(projectile.maxLifetime) ? projectile.maxLifetime : 0.32;
+      const progress = Math.max(0, Math.min(1, projectile.lifetime / maxLifetime));
+      const baseRadius = Number.isFinite(projectile.radius) ? projectile.radius : 60;
+      const currentRadius = baseRadius * (0.4 + 0.6 * progress);
+      const color = normalizeProjectileColor(projectile.color || { r: 180, g: 240, b: 255 }, 1);
+      const alpha = Math.max(0, 0.55 * (1 - progress));
+      ctx.save();
+      ctx.lineWidth = 2.6;
+      ctx.strokeStyle = colorToRgbaString(color, alpha);
+      ctx.beginPath();
+      ctx.arc(origin.x, origin.y, currentRadius, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
       return;

@@ -35,6 +35,11 @@ import {
   clearTowerManualTarget as clearTowerManualTargetHelper,
   getTowerManualTarget as getTowerManualTargetHelper,
 } from '../../../scripts/features/towers/deltaTower.js';
+import {
+  ensureIotaState as ensureIotaStateHelper,
+  teardownIotaTower as teardownIotaTowerHelper,
+  fireIotaPulse as fireIotaPulseHelper,
+} from '../../../scripts/features/towers/iotaTower.js';
 
 // Tower management routines extracted from SimplePlayfield.
 
@@ -142,6 +147,11 @@ function applyTowerBehaviorDefaults(tower) {
   } else if (tower.deltaState) {
     this.teardownDeltaTower(tower);
   }
+  if (tower.type === 'iota') {
+    this.ensureIotaState(tower);
+  } else if (tower.iotaState) {
+    this.teardownIotaTower(tower);
+  }
   if (tower.type === 'zeta') {
     // Activate ζ pendulum state so orbit physics stay ready for combat or idle motion.
     this.ensureZetaState(tower);
@@ -182,6 +192,18 @@ function getTowerManualTarget(tower) {
   return getTowerManualTargetHelper(this, tower);
 }
 
+function ensureIotaState(tower) {
+  return ensureIotaStateHelper(this, tower);
+}
+
+function teardownIotaTower(tower) {
+  teardownIotaTowerHelper(this, tower);
+}
+
+function fireIotaPulse(tower, targetInfo = {}) {
+  fireIotaPulseHelper(this, tower, targetInfo);
+}
+
 export {
   evaluateZetaMetrics,
   teardownAlphaTower,
@@ -207,4 +229,7 @@ export {
   updateDeltaAnchors,
   clearTowerManualTarget,
   getTowerManualTarget,
+  ensureIotaState,
+  teardownIotaTower,
+  fireIotaPulse,
 };

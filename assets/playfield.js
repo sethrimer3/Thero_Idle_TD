@@ -80,6 +80,9 @@ import {
   deployDeltaSoldier as deployDeltaSoldierHelper,
   updateDeltaTower as updateDeltaTowerHelper,
 } from '../scripts/features/towers/deltaTower.js';
+import {
+  collectIotaChargeBonus as collectIotaChargeBonusHelper,
+} from '../scripts/features/towers/iotaTower.js';
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -1307,12 +1310,17 @@ export class SimplePlayfield {
       if (tower.type === 'gamma') {
         this.ensureGammaState(tower);
       }
+      if (tower.type === 'iota') {
+        this.ensureIotaState(tower);
+      }
       if (tower.type === 'zeta') {
         // Keep ζ pendulum geometry aligned with the tower's new coordinates.
         this.ensureZetaState(tower);
       } else {
         const rangeFactor = definition ? definition.range : 0.24;
-        tower.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
+        if (tower.type !== 'iota') {
+          tower.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
+        }
         if (tower.type === 'delta') {
           this.updateDeltaAnchors(tower);
         }
@@ -1949,6 +1957,27 @@ export class SimplePlayfield {
   getTowerManualTarget(tower) {
     return TowerManager.getTowerManualTarget.call(this, tower);
   }
+
+  /**
+   * Ensure ι towers keep their splash metrics synchronized with active links.
+   */
+  ensureIotaState(tower) {
+    return TowerManager.ensureIotaState.call(this, tower);
+  }
+
+  /**
+   * Clear cached ι state when dismantled or retuned.
+   */
+  teardownIotaTower(tower) {
+    TowerManager.teardownIotaTower.call(this, tower);
+  }
+
+  /**
+   * Trigger Iota's area pulse using precomputed splash state.
+   */
+  fireIotaPulse(tower, targetInfo = {}) {
+    TowerManager.fireIotaPulse.call(this, tower, targetInfo);
+  }
   getEnemyVisualMetrics(enemy) {
     if (!enemy) {
       return {
@@ -2488,6 +2517,7 @@ export class SimplePlayfield {
       storedBetaShots: 0,
       storedAlphaSwirl: 0,
       storedBetaSwirl: 0,
+      storedGammaShots: 0,
       connectionParticles: [],
     };
 
@@ -2534,6 +2564,7 @@ export class SimplePlayfield {
     this.teardownAlphaTower(tower);
     this.teardownBetaTower(tower);
     this.teardownGammaTower(tower);
+    this.teardownIotaTower(tower);
     this.teardownDeltaTower(tower);
     this.teardownZetaTower(tower);
     this.teardownEtaTower(tower);
@@ -2608,7 +2639,8 @@ export class SimplePlayfield {
       return false;
     }
     const pairingKey = `${source.type}->${target.type}`;
-    if (pairingKey !== 'alpha->beta' && pairingKey !== 'beta->gamma') {
+    const allowedPairings = ['alpha->beta', 'beta->gamma', 'alpha->iota', 'beta->iota', 'gamma->iota'];
+    if (!allowedPairings.includes(pairingKey)) {
       return false;
     }
     const sourceRange = Number.isFinite(source.range) ? Math.max(0, source.range) : 0;
@@ -2674,6 +2706,8 @@ export class SimplePlayfield {
       this.ensureBetaState(resolvedTarget);
     } else if (resolvedTarget.type === 'gamma') {
       this.ensureGammaState(resolvedTarget);
+    } else if (resolvedTarget.type === 'iota') {
+      this.ensureIotaState(resolvedTarget);
     }
     return true;
   }
@@ -2707,6 +2741,8 @@ export class SimplePlayfield {
       this.ensureBetaState(resolvedTarget);
     } else if (resolvedTarget.type === 'gamma') {
       this.ensureGammaState(resolvedTarget);
+    } else if (resolvedTarget.type === 'iota') {
+      this.ensureIotaState(resolvedTarget);
     }
     return true;
   }
@@ -3133,6 +3169,16 @@ export class SimplePlayfield {
       appendSeeds(3, 'alpha');
     } else if (payload.type === 'beta') {
       appendSeeds(3, 'beta');
+      const alphaShots = Math.max(0, Math.floor(payload.alphaShots || 0));
+      if (alphaShots > 0) {
+        appendSeeds(Math.min(3 * alphaShots, 12), 'alpha');
+      }
+    } else if (payload.type === 'gamma') {
+      appendSeeds(4, 'beta');
+      const betaShots = Math.max(0, Math.floor(payload.betaShots || 0));
+      if (betaShots > 0) {
+        appendSeeds(Math.min(3 * betaShots, 12), 'beta');
+      }
       const alphaShots = Math.max(0, Math.floor(payload.alphaShots || 0));
       if (alphaShots > 0) {
         appendSeeds(Math.min(3 * alphaShots, 12), 'alpha');
@@ -3970,6 +4016,36 @@ export class SimplePlayfield {
       tower.cooldown = baseCooldown;
       return;
     }
+    if (tower.type === 'alpha' && target.type === 'iota') {
+      this.spawnSupplyProjectile(tower, target, { payload: { type: 'alpha' } });
+      tower.cooldown = baseCooldown;
+      return;
+    }
+    if (tower.type === 'beta' && target.type === 'iota') {
+      const payload = {
+        type: 'beta',
+        alphaShots: Math.max(0, tower.storedAlphaShots || 0),
+      };
+      tower.storedAlphaShots = 0;
+      tower.storedAlphaSwirl = 0;
+      this.spawnSupplyProjectile(tower, target, { payload });
+      tower.cooldown = baseCooldown;
+      return;
+    }
+    if (tower.type === 'gamma' && target.type === 'iota') {
+      const payload = {
+        type: 'gamma',
+        alphaShots: Math.max(0, tower.storedAlphaShots || 0),
+        betaShots: Math.max(0, tower.storedBetaShots || 0),
+      };
+      tower.storedAlphaShots = 0;
+      tower.storedBetaShots = 0;
+      tower.storedAlphaSwirl = 0;
+      tower.storedBetaSwirl = 0;
+      this.spawnSupplyProjectile(tower, target, { payload });
+      tower.cooldown = baseCooldown;
+      return;
+    }
     this.removeTowerConnection(tower.id, target.id);
   }
 
@@ -4142,6 +4218,8 @@ export class SimplePlayfield {
     projectile.seeds = this.createSupplySeeds(sourcePosition, targetPosition, payload);
     if (payload.type === 'beta') {
       projectile.color = { r: 255, g: 214, b: 112 };
+    } else if (payload.type === 'gamma') {
+      projectile.color = { r: 180, g: 240, b: 255 };
     } else {
       projectile.color = { r: 255, g: 138, b: 216 };
     }
@@ -4169,6 +4247,21 @@ export class SimplePlayfield {
     if (payload.type === 'beta') {
       target.storedBetaShots = Math.min(999, (target.storedBetaShots || 0) + 1);
       target.storedBetaSwirl = Math.min(30, (target.storedBetaSwirl || 0) + 3);
+      const alphaShots = Math.max(0, payload.alphaShots || 0);
+      if (alphaShots > 0) {
+        target.storedAlphaShots = Math.min(999, (target.storedAlphaShots || 0) + alphaShots);
+        target.storedAlphaSwirl = Math.min(30, (target.storedAlphaSwirl || 0) + alphaShots * 3);
+      }
+      this.transferSupplySeedsToOrbit(target, projectile);
+      return;
+    }
+    if (payload.type === 'gamma') {
+      target.storedGammaShots = Math.min(999, (target.storedGammaShots || 0) + 1);
+      const betaShots = Math.max(0, payload.betaShots || 0);
+      if (betaShots > 0) {
+        target.storedBetaShots = Math.min(999, (target.storedBetaShots || 0) + betaShots);
+        target.storedBetaSwirl = Math.min(30, (target.storedBetaSwirl || 0) + betaShots * 3);
+      }
       const alphaShots = Math.max(0, payload.alphaShots || 0);
       if (alphaShots > 0) {
         target.storedAlphaShots = Math.min(999, (target.storedAlphaShots || 0) + alphaShots);
@@ -4209,8 +4302,58 @@ export class SimplePlayfield {
         tower.storedBetaSwirl = 0;
         tower.storedAlphaSwirl = 0;
       }
+    } else if (tower.type === 'iota') {
+      const betaShots = Math.max(0, tower.storedBetaShots || 0);
+      const alphaShots = Math.max(0, tower.storedAlphaShots || 0);
+      if (betaShots > 0 || alphaShots > 0) {
+        const betaValue = calculateTowerEquationResult('beta');
+        const alphaValue = calculateTowerEquationResult('alpha');
+        damage += betaValue * betaShots + alphaValue * alphaShots;
+        tower.storedBetaShots = 0;
+        tower.storedAlphaShots = 0;
+        tower.storedBetaSwirl = 0;
+        tower.storedAlphaSwirl = 0;
+      }
+      const gammaBonus = collectIotaChargeBonusHelper(tower);
+      if (gammaBonus > 0) {
+        damage += gammaBonus;
+      }
     }
     return damage;
+  }
+
+  computeEnemyDamageMultiplier(enemy) {
+    if (!enemy) {
+      return 1;
+    }
+    let additive = 0;
+    if (enemy.damageAmplifiers instanceof Map) {
+      enemy.damageAmplifiers.forEach((effect) => {
+        if (!effect) {
+          return;
+        }
+        const strength = Number.isFinite(effect.strength) ? Math.max(0, effect.strength) : 0;
+        additive += strength;
+      });
+    }
+    return Math.max(0, 1 + additive);
+  }
+
+  applyDamageToEnemy(enemy, baseDamage, { sourceTower } = {}) {
+    if (!enemy || !Number.isFinite(baseDamage) || baseDamage <= 0) {
+      return 0;
+    }
+    const multiplier = this.computeEnemyDamageMultiplier(enemy);
+    const applied = baseDamage * multiplier;
+    if (Number.isFinite(enemy.hp)) {
+      enemy.hp -= applied;
+    } else {
+      enemy.hp = -applied;
+    }
+    if (enemy.hp <= 0) {
+      this.processEnemyDefeat(enemy);
+    }
+    return applied;
   }
 
   emitTowerAttackVisuals(tower, targetInfo = {}) {
@@ -4258,6 +4401,10 @@ export class SimplePlayfield {
       this.fireAlephChain(tower, targetInfo);
       return;
     }
+    if (tower.type === 'iota') {
+      this.fireIotaPulse(tower, targetInfo);
+      return;
+    }
     if (!targetInfo) {
       return;
     }
@@ -4275,12 +4422,8 @@ export class SimplePlayfield {
     if (!enemy) {
       return;
     }
-    enemy.hp -= damage;
-    const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
+    this.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
     this.emitTowerAttackVisuals(tower, { enemy, position: attackPosition });
-    if (remainingHp <= 0) {
-      this.processEnemyDefeat(enemy);
-    }
   }
 
   fireAlephChain(tower, targetInfo) {
@@ -4343,7 +4486,7 @@ export class SimplePlayfield {
     let origin = { x: tower.x, y: tower.y };
     chainTargets.forEach((target) => {
       const enemy = target.enemy;
-      enemy.hp -= totalDamage;
+      this.applyDamageToEnemy(enemy, totalDamage, { sourceTower: tower });
       this.projectiles.push({
         source: { ...origin },
         targetId: enemy.id,
@@ -4351,9 +4494,6 @@ export class SimplePlayfield {
         lifetime: 0,
         maxLifetime: 0.24,
       });
-      if (enemy.hp <= 0) {
-        this.processEnemyDefeat(enemy);
-      }
       origin = { ...target.position };
     });
 
@@ -4481,11 +4621,51 @@ export class SimplePlayfield {
     delete enemy.slowEffects;
   }
 
+  clearEnemyDamageAmplifiers(enemy) {
+    if (!enemy) {
+      return;
+    }
+    if (enemy.damageAmplifiers instanceof Map) {
+      enemy.damageAmplifiers.clear();
+    } else if (enemy.damageAmplifiers && typeof enemy.damageAmplifiers === 'object') {
+      Object.keys(enemy.damageAmplifiers).forEach((key) => {
+        delete enemy.damageAmplifiers[key];
+      });
+    }
+    delete enemy.damageAmplifiers;
+    delete enemy.iotaInversionTimer;
+  }
+
   updateEnemies(delta) {
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       const enemy = this.enemies[index];
       if (!Number.isFinite(enemy.baseSpeed)) {
         enemy.baseSpeed = Number.isFinite(enemy.speed) ? enemy.speed : 0;
+      }
+      if (enemy.damageAmplifiers instanceof Map) {
+        const expired = [];
+        enemy.damageAmplifiers.forEach((effect, key) => {
+          if (!effect) {
+            expired.push(key);
+            return;
+          }
+          if (Number.isFinite(effect.remaining)) {
+            effect.remaining -= delta;
+            if (effect.remaining <= 0) {
+              expired.push(key);
+            }
+          }
+        });
+        expired.forEach((key) => enemy.damageAmplifiers.delete(key));
+        if (enemy.damageAmplifiers.size === 0) {
+          delete enemy.damageAmplifiers;
+        }
+      }
+      if (Number.isFinite(enemy.iotaInversionTimer)) {
+        enemy.iotaInversionTimer = Math.max(0, enemy.iotaInversionTimer - delta);
+        if (enemy.iotaInversionTimer <= 0) {
+          delete enemy.iotaInversionTimer;
+        }
       }
       const baseSpeed = Number.isFinite(enemy.baseSpeed) ? enemy.baseSpeed : 0;
       const speedMultiplier = this.resolveEnemySlowMultiplier(enemy);
@@ -4614,6 +4794,14 @@ export class SimplePlayfield {
         continue;
       }
 
+      if (projectile.patternType === 'iotaPulse') {
+        const maxLifetime = Number.isFinite(projectile.maxLifetime) ? projectile.maxLifetime : 0.32;
+        if (maxLifetime > 0 && projectile.lifetime >= maxLifetime) {
+          this.projectiles.splice(index, 1);
+        }
+        continue;
+      }
+
       if (projectile.patternType === 'epsilonNeedle') {
         const maxLifetime = Number.isFinite(projectile.maxLifetime) ? projectile.maxLifetime : 3.5;
         if (projectile.lifetime >= maxLifetime) {
@@ -4688,10 +4876,7 @@ export class SimplePlayfield {
           }
           // Atk = (NumHits)^2, where stacks is NumHits after applying this hit
           const totalDamage = Math.max(0, stacks * stacks);
-          enemy.hp = Math.max(0, (Number.isFinite(enemy.hp) ? enemy.hp : 0) - totalDamage);
-          if (enemy.hp <= 0) {
-            this.processEnemyDefeat(enemy);
-          }
+          this.applyDamageToEnemy(enemy, totalDamage, { sourceTower: tower || null });
           this.projectiles.splice(index, 1);
           continue;
         }
@@ -4827,6 +5012,7 @@ export class SimplePlayfield {
       storedBetaShots: Number.isFinite(tower.storedBetaShots) ? tower.storedBetaShots : 0,
       storedAlphaSwirl: Number.isFinite(tower.storedAlphaSwirl) ? tower.storedAlphaSwirl : 0,
       storedBetaSwirl: Number.isFinite(tower.storedBetaSwirl) ? tower.storedBetaSwirl : 0,
+      storedGammaShots: Number.isFinite(tower.storedGammaShots) ? tower.storedGammaShots : 0,
     };
   }
 
@@ -4903,6 +5089,7 @@ export class SimplePlayfield {
       tower.storedBetaShots = 0;
       tower.storedAlphaSwirl = 0;
       tower.storedBetaSwirl = 0;
+      tower.storedGammaShots = 0;
       tower.connectionParticles = [];
       if (Number.isFinite(snapshot.storedAlphaShots)) {
         tower.storedAlphaShots = Math.max(0, Math.floor(snapshot.storedAlphaShots));
@@ -4915,6 +5102,9 @@ export class SimplePlayfield {
       }
       if (Number.isFinite(snapshot.storedBetaSwirl)) {
         tower.storedBetaSwirl = Math.max(0, Math.floor(snapshot.storedBetaSwirl));
+      }
+      if (Number.isFinite(snapshot.storedGammaShots)) {
+        tower.storedGammaShots = Math.max(0, Math.floor(snapshot.storedGammaShots));
       }
       if (tower.type === 'eta') {
         // Restore η lattice metadata before behavior defaults so orbital rings rebuild with the correct configuration.
@@ -5126,6 +5316,7 @@ export class SimplePlayfield {
 
   handleEnemyBreach(enemy) {
     this.clearEnemySlowEffects(enemy);
+    this.clearEnemyDamageAmplifiers(enemy);
     const damage = this.estimateEnemyBreachDamage(enemy);
     this.lives = Math.max(0, this.lives - damage);
     if (this.audio) {
@@ -5172,6 +5363,7 @@ export class SimplePlayfield {
 
   processEnemyDefeat(enemy) {
     this.clearEnemySlowEffects(enemy);
+    this.clearEnemyDamageAmplifiers(enemy);
     const index = this.enemies.indexOf(enemy);
     if (index >= 0) {
       this.enemies.splice(index, 1);
