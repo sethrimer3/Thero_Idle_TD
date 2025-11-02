@@ -339,9 +339,25 @@ export function recordPowderEvent(type, context = {}) {
       break;
     }
     case 'fluid-unlocked': {
-      const { threshold = powderConfig.fluidUnlockSigils || 0 } = context;
-      const unitLabel = threshold === 1 ? 'Glyph' : 'Glyphs';
-      entry = `Fluid resonance unlocked ? Requires ${threshold} ${unitLabel}.`;
+      const reason = context && context.reason === 'sigil' ? 'sigil' : 'purchase';
+      const glyphCostSource =
+        context && Number.isFinite(context.glyphCost)
+          ? context.glyphCost
+          : dependencies.powderConfig?.fluidUnlockGlyphCost || 0;
+      const glyphCost = Math.max(0, Math.floor(Number(glyphCostSource) || 0));
+      if (reason === 'sigil') {
+        const thresholdSource =
+          context && Number.isFinite(context.threshold)
+            ? context.threshold
+            : dependencies.powderConfig?.fluidUnlockSigils || 0;
+        const threshold = Math.max(0, Math.floor(Number(thresholdSource) || 0));
+        const unitLabel = threshold === 1 ? 'Sigil' : 'Sigils';
+        entry = `Fluid resonance unlocked ? ${dependencies.formatWholeNumber(threshold)} ${unitLabel} ascended.`;
+      } else if (glyphCost > 0) {
+        entry = `Fluid resonance unlocked ? ℵ ${dependencies.formatWholeNumber(glyphCost)} tithed.`;
+      } else {
+        entry = 'Fluid resonance unlocked ? Aleph tithe waived.';
+      }
       break;
     }
     default:
