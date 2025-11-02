@@ -1191,7 +1191,33 @@
         >
           <header class="panel-header">Fluid Study</header>
           <section class="fluid-grid" aria-label="Fluid Spire Overview">
-            <div class="fluid-simulation-slot" id="fluid-simulation-host"></div>
+            <div class="fluid-simulation-slot" id="fluid-simulation-host">
+              <article class="card powder-simulation fluid-simulation-card" id="fluid-simulation-card">
+                <div class="powder-basin fluid-basin" id="fluid-basin">
+                  <canvas
+                    id="fluid-canvas"
+                    width="240"
+                    height="320"
+                    role="img"
+                    aria-label="Fluid resonance channel"
+                  ></canvas>
+                  <div class="powder-viewport fluid-viewport" id="fluid-viewport">
+                    <div
+                      class="powder-wall-hitbox fluid-wall-hitbox fluid-wall-hitbox-left"
+                      id="fluid-wall-hitbox-left"
+                      aria-hidden="true"
+                    ></div>
+                    <div class="powder-wall fluid-wall fluid-wall-left" id="fluid-wall-left" aria-hidden="true"></div>
+                    <div
+                      class="powder-wall-hitbox fluid-wall-hitbox fluid-wall-hitbox-right"
+                      id="fluid-wall-hitbox-right"
+                      aria-hidden="true"
+                    ></div>
+                    <div class="powder-wall fluid-wall fluid-wall-right" id="fluid-wall-right" aria-hidden="true"></div>
+                  </div>
+                </div>
+              </article>
+            </div>
             <article class="card fluid-metrics-card">
               <h3>Reservoir Metrics</h3>
               <dl class="fluid-metrics">
@@ -1200,24 +1226,16 @@
                   <dd id="fluid-depth">0.00% full</dd>
                 </div>
                 <div>
-                  <dt>Crest Drift</dt>
-                  <dd id="fluid-crest">0.00% span</dd>
-                </div>
-                <div>
-                  <dt>Largest Drop</dt>
-                  <dd id="fluid-largest-drop">0.00 motes</dd>
-                </div>
-                <div>
-                  <dt>Idle Reservoir</dt>
-                  <dd id="fluid-reservoir">0 Motes</dd>
+                  <dt>Idle Drop Reservoir</dt>
+                  <dd id="fluid-reservoir">0 Drops</dd>
                 </div>
                 <div>
                   <dt>Condensation Rate</dt>
-                  <dd id="fluid-drip-rate">0.00 motes/sec</dd>
+                  <dd id="fluid-drip-rate">0.00 drops/sec</dd>
                 </div>
               </dl>
               <p class="fluid-status-note" id="fluid-status-note">
-                Water motes seep from idle reserves and collect within the study.
+                Water drops seep from idle reserves and collect within the study.
               </p>
             </article>
             <article class="card fluid-briefing-card">
@@ -1226,7 +1244,7 @@
                 <span class="fluid-state-label" id="fluid-state-label">Forming</span>
               </h3>
               <p class="fluid-briefing">
-                Observe condensed motes cascading into the spire. Guide the flow to stabilize the lattice and feed the idle
+                Observe condensed drops cascading into the spire. Guide the flow to stabilize the lattice and feed the idle
                 bank.
               </p>
               <button class="action-button ghost fluid-return-button" type="button" id="fluid-return-button">

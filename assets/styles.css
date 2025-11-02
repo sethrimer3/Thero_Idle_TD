@@ -2864,32 +2864,56 @@ body.graphics-mode-low .control-button {
   display: contents;
 }
 
-.powder-simulation--fluid {
+.fluid-simulation-card {
   width: min(340px, 100%);
   min-height: clamp(240px, 46vh, 400px);
   backdrop-filter: blur(4px);
   box-shadow: inset 0 0 0 1px rgba(120, 190, 255, 0.2), 0 16px 48px rgba(4, 15, 28, 0.4);
 }
 
-.powder-basin--fluid {
+.fluid-basin {
   background: radial-gradient(circle at 50% 5%, rgba(126, 196, 255, 0.18), transparent 58%),
-    linear-gradient(180deg, rgba(6, 18, 32, 0.95) 0%, rgba(4, 12, 24, 0.95) 100%);
-  box-shadow: inset 0 0 0 1px rgba(138, 207, 255, 0.18), inset 0 -28px 60px rgba(8, 32, 54, 0.65);
+    linear-gradient(180deg, rgba(20, 28, 36, 0.96) 0%, rgba(12, 18, 26, 0.96) 100%);
+  box-shadow: inset 0 0 0 1px rgba(138, 207, 255, 0.18), inset 0 -28px 60px rgba(10, 28, 48, 0.65);
 }
 
-.powder-basin--fluid::before {
+.fluid-basin::before {
   background: radial-gradient(circle at 50% -10%, rgba(140, 200, 255, 0.24), transparent 60%);
   mix-blend-mode: screen;
 }
 
-.powder-basin--fluid::after {
-  background: linear-gradient(180deg, transparent 65%, rgba(6, 18, 32, 0.85) 100%);
+.fluid-basin::after {
+  background: linear-gradient(180deg, transparent 65%, rgba(10, 22, 36, 0.85) 100%);
 }
 
-.powder-viewport--fluid .powder-glyph-column,
-.powder-viewport--fluid .powder-wall-marker,
-.powder-viewport--fluid .powder-crest-marker {
-  opacity: 0;
+.fluid-viewport {
+  pointer-events: none;
+}
+
+.fluid-wall {
+  background-image: none;
+  background: linear-gradient(180deg, rgba(58, 62, 72, 0.96) 0%, rgba(28, 30, 38, 0.98) 100%);
+  box-shadow: inset 0 0 0 1px rgba(164, 186, 210, 0.18);
+}
+
+.fluid-wall::before {
+  background-image: none;
+  background: linear-gradient(180deg, rgba(70, 74, 86, 0.94) 0%, rgba(34, 36, 44, 0.98) 100%);
+  opacity: 0.9;
+}
+
+.fluid-wall::after {
+  background: radial-gradient(circle at 50% 20%, rgba(164, 192, 220, 0.22), transparent 60%);
+  opacity: 0.6;
+  mix-blend-mode: screen;
+}
+
+.fluid-wall-left {
+  border-right: 1px solid rgba(180, 198, 216, 0.16);
+}
+
+.fluid-wall-right {
+  border-left: 1px solid rgba(180, 198, 216, 0.16);
 }
 
 .fluid-metrics-card,
@@ -2991,7 +3015,7 @@ body.graphics-mode-low .control-button {
     grid-template-columns: 1fr;
   }
 
-  .powder-simulation--fluid {
+  .fluid-simulation-card {
     width: 100%;
   }
 

@@ -1759,11 +1759,17 @@ import {
     tabButton: null,
     panel: null,
     host: null,
+    simulationCard: null,
+    canvas: null,
+    basin: null,
+    viewport: null,
+    leftWall: null,
+    rightWall: null,
+    leftHitbox: null,
+    rightHitbox: null,
     profileLabel: null,
     stateLabel: null,
     depthValue: null,
-    crestValue: null,
-    dropValue: null,
     reservoirValue: null,
     dripRateValue: null,
     statusNote: null,
@@ -2277,21 +2283,30 @@ import {
     };
   }
 
+  function getElementsForSimulation(simulation) {
+    if (simulation && simulation === fluidSimulationInstance) {
+      return fluidElements;
+    }
+    return powderElements;
+  }
+
   // Apply the active camera transform to the overlay container so the decorative walls
   // match the powder simulation's zoom and pan state.
-  function applyPowderViewportTransform(transform) {
-    if (!powderElements.viewport) {
+  function applyPowderViewportTransform(transform, simulation = powderSimulation) {
+    const elements = getElementsForSimulation(simulation);
+    const viewport = elements?.viewport;
+    if (!viewport) {
       return;
     }
     if (!transform) {
-      powderElements.viewport.style.transform = '';
+      viewport.style.transform = '';
       return;
     }
     const width = Number.isFinite(transform.width) ? transform.width : 0;
     const height = Number.isFinite(transform.height) ? transform.height : 0;
     const scale = Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1;
     if (!width || !height) {
-      powderElements.viewport.style.transform = '';
+      viewport.style.transform = '';
       return;
     }
     const centerX = Number.isFinite(transform.center?.x) ? transform.center.x : width / 2;
@@ -2299,13 +2314,13 @@ import {
     const translateToCenter = `translate(${(width / 2).toFixed(3)}px, ${(height / 2).toFixed(3)}px)`;
     const scalePart = `scale(${scale.toFixed(5)})`;
     const translateToOrigin = `translate(${(-centerX).toFixed(3)}px, ${(-centerY).toFixed(3)}px)`;
-    powderElements.viewport.style.transform = `${translateToCenter} ${scalePart} ${translateToOrigin}`;
+    viewport.style.transform = `${translateToCenter} ${scalePart} ${translateToOrigin}`;
   }
 
   // Store and broadcast camera transform updates emitted by the powder simulation.
   function handlePowderViewTransformChange(transform) {
     powderState.viewTransform = transform || null;
-    applyPowderViewportTransform(transform || null);
+    applyPowderViewportTransform(transform || null, powderSimulation);
     // Schedule a basin save so camera adjustments persist across reloads.
     schedulePowderBasinSave();
   }
@@ -2322,37 +2337,62 @@ import {
     const rightWidth = Math.max(0, rightCells * cellSize);
     const gapWidth = Math.max(0, gapCells * cellSize);
 
-    if (powderElements.leftWall) {
-      powderElements.leftWall.style.width = `${leftWidth.toFixed(1)}px`;
+    const activeElements = getElementsForSimulation(powderSimulation);
+    const inactiveElements = activeElements === powderElements ? fluidElements : powderElements;
+
+    if (activeElements.leftWall) {
+      activeElements.leftWall.style.width = `${leftWidth.toFixed(1)}px`;
     }
-    if (powderElements.rightWall) {
-      powderElements.rightWall.style.width = `${rightWidth.toFixed(1)}px`;
+    if (activeElements.rightWall) {
+      activeElements.rightWall.style.width = `${rightWidth.toFixed(1)}px`;
     }
-    if (powderElements.leftHitbox) {
-      powderElements.leftHitbox.style.width = `${leftWidth.toFixed(1)}px`;
+    if (activeElements.leftHitbox) {
+      activeElements.leftHitbox.style.width = `${leftWidth.toFixed(1)}px`;
     }
-    if (powderElements.rightHitbox) {
-      powderElements.rightHitbox.style.width = `${rightWidth.toFixed(1)}px`;
+    if (activeElements.rightHitbox) {
+      activeElements.rightHitbox.style.width = `${rightWidth.toFixed(1)}px`;
     }
-    if (powderElements.basin) {
-      powderElements.basin.style.setProperty('--powder-gap-width', `${gapWidth.toFixed(1)}px`);
+    if (activeElements.basin) {
+      activeElements.basin.style.setProperty('--powder-gap-width', `${gapWidth.toFixed(1)}px`);
+    }
+
+    if (inactiveElements.leftWall) {
+      inactiveElements.leftWall.style.removeProperty('width');
+    }
+    if (inactiveElements.rightWall) {
+      inactiveElements.rightWall.style.removeProperty('width');
+    }
+    if (inactiveElements.leftHitbox) {
+      inactiveElements.leftHitbox.style.removeProperty('width');
+    }
+    if (inactiveElements.rightHitbox) {
+      inactiveElements.rightHitbox.style.removeProperty('width');
     }
   }
 
   function updatePowderHitboxVisibility() {
     const metrics = powderWallMetrics || (powderSimulation ? powderSimulation.getWallMetrics() : null);
     const showHitboxes = developerModeActive && metrics;
-    if (powderElements.leftHitbox) {
-      powderElements.leftHitbox.classList.toggle(
+    const activeElements = getElementsForSimulation(powderSimulation);
+    const inactiveElements = activeElements === powderElements ? fluidElements : powderElements;
+
+    if (activeElements.leftHitbox) {
+      activeElements.leftHitbox.classList.toggle(
         'powder-wall-hitbox--visible',
-        Boolean(showHitboxes && metrics.leftCells > 0),
+        Boolean(showHitboxes && metrics?.leftCells > 0),
       );
     }
-    if (powderElements.rightHitbox) {
-      powderElements.rightHitbox.classList.toggle(
+    if (activeElements.rightHitbox) {
+      activeElements.rightHitbox.classList.toggle(
         'powder-wall-hitbox--visible',
-        Boolean(showHitboxes && metrics.rightCells > 0),
+        Boolean(showHitboxes && metrics?.rightCells > 0),
       );
+    }
+    if (inactiveElements.leftHitbox) {
+      inactiveElements.leftHitbox.classList.remove('powder-wall-hitbox--visible');
+    }
+    if (inactiveElements.rightHitbox) {
+      inactiveElements.rightHitbox.classList.remove('powder-wall-hitbox--visible');
     }
   }
 
@@ -2441,49 +2481,6 @@ import {
     }
   }
 
-  function updateSimulationCardPlacement() {
-    const inFluid = Boolean(
-      fluidElements.host && powderElements.simulationCard
-        ? fluidElements.host.contains(powderElements.simulationCard)
-        : false,
-    );
-    if (powderElements.simulationCard) {
-      powderElements.simulationCard.classList.toggle('powder-simulation--fluid', inFluid);
-    }
-    if (powderElements.basin) {
-      powderElements.basin.classList.toggle('powder-basin--fluid', inFluid);
-    }
-    if (powderElements.viewport) {
-      powderElements.viewport.classList.toggle('powder-viewport--fluid', inFluid);
-    }
-  }
-
-  function mountPowderSimulationToFluidTab() {
-    if (!fluidElements.host) {
-      fluidElements.host = document.getElementById('fluid-simulation-host');
-    }
-    if (!fluidElements.host || !powderElements.simulationCard) {
-      return;
-    }
-    if (!fluidElements.host.contains(powderElements.simulationCard)) {
-      fluidElements.host.appendChild(powderElements.simulationCard);
-    }
-    updateSimulationCardPlacement();
-  }
-
-  function mountPowderSimulationToPowderTab() {
-    if (!powderElements.stage) {
-      powderElements.stage = document.getElementById('powder-stage');
-    }
-    if (!powderElements.stage || !powderElements.simulationCard) {
-      return;
-    }
-    if (!powderElements.stage.contains(powderElements.simulationCard)) {
-      powderElements.stage.prepend(powderElements.simulationCard);
-    }
-    updateSimulationCardPlacement();
-  }
-
   // Normalize the aleph glyph tithe before using it for unlock checks or logs.
   function getFluidUnlockGlyphCost() {
     const rawCost = Number.isFinite(powderConfig.fluidUnlockGlyphCost)
@@ -2527,19 +2524,29 @@ import {
    * The handlers reuse the active powder simulation instance so mode switches keep gestures intact.
    */
   function initializePowderViewInteraction() {
-    const viewport = powderElements.viewport;
+    const simulation = powderSimulation;
+    if (!simulation) {
+      return;
+    }
+
+    const viewport = simulation === fluidSimulationInstance ? fluidElements.viewport : powderElements.viewport;
     if (!viewport) {
       return;
     }
 
-    if (powderState.viewInteraction?.initialized) {
+    if (powderState.viewInteraction?.viewport === viewport && powderState.viewInteraction.initialized) {
       return;
+    }
+
+    if (powderState.viewInteraction?.destroy) {
+      powderState.viewInteraction.destroy();
     }
 
     const interaction = {
       initialized: true,
       pointerId: null,
       lastPoint: null,
+      viewport,
       destroy: null,
     };
 
@@ -2557,8 +2564,8 @@ import {
       if (event.pointerType === 'mouse' && event.button !== 0) {
         return;
       }
-      const simulation = getSimulation();
-      if (!simulation) {
+      const activeSimulation = getSimulation();
+      if (!activeSimulation) {
         return;
       }
       interaction.pointerId = event.pointerId;
@@ -2576,8 +2583,8 @@ import {
       if (interaction.pointerId === null || event.pointerId !== interaction.pointerId) {
         return;
       }
-      const simulation = getSimulation();
-      if (!simulation || !interaction.lastPoint) {
+      const activeSimulation = getSimulation();
+      if (!activeSimulation || !interaction.lastPoint) {
         return;
       }
 
@@ -2585,7 +2592,7 @@ import {
       const dy = event.clientY - interaction.lastPoint.y;
       interaction.lastPoint = { x: event.clientX, y: event.clientY };
 
-      const transform = simulation.getViewTransform();
+      const transform = activeSimulation.getViewTransform();
       if (!transform || !transform.center) {
         return;
       }
@@ -2595,7 +2602,7 @@ import {
         x: transform.center.x - dx / scale,
         y: transform.center.y - dy / scale,
       };
-      simulation.setViewCenterFromWorld(nextCenter);
+      activeSimulation.setViewCenterFromWorld(nextCenter);
     };
 
     const handlePointerUp = (event) => {
@@ -2606,8 +2613,8 @@ import {
     };
 
     const handleWheel = (event) => {
-      const simulation = getSimulation();
-      if (!simulation) {
+      const activeSimulation = getSimulation();
+      if (!activeSimulation) {
         return;
       }
       const delta = Number.isFinite(event.deltaY) ? event.deltaY : 0;
@@ -2616,7 +2623,7 @@ import {
       }
       const factor = delta > 0 ? 0.9 : 1.1;
       const anchorPoint = { clientX: event.clientX, clientY: event.clientY };
-      const changed = simulation.applyZoomFactor(factor, anchorPoint);
+      const changed = activeSimulation.applyZoomFactor(factor, anchorPoint);
       if (changed) {
         event.preventDefault();
       }
@@ -2668,12 +2675,10 @@ import {
         }
         powderState.fluidProfileLabel = profile.label || powderState.fluidProfileLabel;
 
-        mountPowderSimulationToFluidTab();
-
-        if (!fluidSimulationInstance && powderElements.simulationCanvas) {
-          const { left: leftInset, right: rightInset } = getPowderWallInsets();
+        if (!fluidSimulationInstance && fluidElements.canvas) {
+          const { left: leftInset, right: rightInset } = getSimulationWallInsets('fluid');
           fluidSimulationInstance = new FluidSimulation({
-            canvas: powderElements.simulationCanvas,
+            canvas: fluidElements.canvas,
             cellSize: POWDER_CELL_SIZE_PX,
             wallInsetLeft: leftInset,
             wallInsetRight: rightInset,
@@ -2734,7 +2739,7 @@ import {
           sandSimulation = powderSimulation;
         }
         if (!sandSimulation && powderElements.simulationCanvas) {
-          const { left: leftInset, right: rightInset } = getPowderWallInsets();
+          const { left: leftInset, right: rightInset } = getSimulationWallInsets('sand');
           sandSimulation = new PowderSimulation({
             canvas: powderElements.simulationCanvas,
             cellSize: POWDER_CELL_SIZE_PX,
@@ -2762,8 +2767,6 @@ import {
         if (!sandSimulation) {
           throw new Error('Powder simulation unavailable.');
         }
-
-        mountPowderSimulationToPowderTab();
 
         powderSimulation = sandSimulation;
         const baseProfile = powderSimulation.getDefaultProfile();
@@ -2794,7 +2797,11 @@ import {
       handlePowderHeightChange(powderSimulation ? powderSimulation.getStatus() : undefined);
       updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
       updateMoteStatsDisplays();
-      updateFluidDisplay(powderSimulation ? powderSimulation.getStatus() : null);
+      const fluidStatus =
+        fluidSimulationInstance && typeof fluidSimulationInstance.getStatus === 'function'
+          ? fluidSimulationInstance.getStatus()
+          : null;
+      updateFluidDisplay(fluidStatus);
     } catch (error) {
       console.error('Unable to switch simulation mode.', error);
     } finally {
@@ -3056,9 +3063,11 @@ import {
     schedulePowderBasinSave();
   }
 
-  function getPowderWallInsets() {
-    const left = powderElements.leftWall ? Math.max(68, powderElements.leftWall.offsetWidth) : 68;
-    const right = powderElements.rightWall ? Math.max(68, powderElements.rightWall.offsetWidth) : 68;
+  function getSimulationWallInsets(mode = powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand') {
+    const elements = mode === 'fluid' ? fluidElements : powderElements;
+    const fallback = 68;
+    const left = elements.leftWall ? Math.max(fallback, elements.leftWall.offsetWidth || 0) : fallback;
+    const right = elements.rightWall ? Math.max(fallback, elements.rightWall.offsetWidth || 0) : fallback;
     return { left, right };
   }
 
@@ -6758,38 +6767,34 @@ import {
   }
 
   function updateFluidDisplay(status) {
-    const info =
-      status ||
-      (powderSimulation && typeof powderSimulation.getStatus === 'function'
-        ? powderSimulation.getStatus()
-        : null);
+    const activeSimulation =
+      fluidSimulationInstance && typeof fluidSimulationInstance.getStatus === 'function'
+        ? fluidSimulationInstance
+        : null;
+    let info = null;
+    if (powderSimulation === fluidSimulationInstance && status) {
+      info = status;
+    } else if (activeSimulation) {
+      info = activeSimulation.getStatus();
+    }
+
     const normalizedHeight = Number.isFinite(info?.normalizedHeight)
       ? Math.max(0, Math.min(1, info.normalizedHeight))
       : 0;
-    const crestPosition = Number.isFinite(info?.crestPosition)
-      ? Math.max(0, Math.min(1, info.crestPosition))
-      : 0;
-    const largestDrop = Number.isFinite(info?.largestGrain) ? Math.max(0, info.largestGrain) : 0;
 
     if (fluidElements.depthValue) {
       fluidElements.depthValue.textContent = `${formatDecimal(normalizedHeight * 100, 1)}% full`;
     }
-    if (fluidElements.crestValue) {
-      fluidElements.crestValue.textContent = `${formatDecimal(crestPosition * 100, 1)}% span`;
-    }
-    if (fluidElements.dropValue) {
-      fluidElements.dropValue.textContent = `${formatDecimal(largestDrop, 2)} motes`;
-    }
 
     const idleBank = Number.isFinite(powderState.idleMoteBank) ? Math.max(0, powderState.idleMoteBank) : 0;
     if (fluidElements.reservoirValue) {
-      const moteLabel = idleBank === 1 ? 'Mote' : 'Motes';
-      fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} ${moteLabel}`;
+      const dropLabel = idleBank === 1 ? 'Drop' : 'Drops';
+      fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} ${dropLabel}`;
     }
 
     const drainRate = Number.isFinite(powderState.idleDrainRate) ? Math.max(0, powderState.idleDrainRate) : 0;
     if (fluidElements.dripRateValue) {
-      fluidElements.dripRateValue.textContent = `${formatDecimal(drainRate, 2)} motes/sec`;
+      fluidElements.dripRateValue.textContent = `${formatDecimal(drainRate, 2)} drops/sec`;
     }
 
     if (fluidElements.profileLabel) {
@@ -6807,11 +6812,11 @@ import {
     if (fluidElements.statusNote) {
       let message;
       if (normalizedHeight >= 0.9) {
-        message = 'Reservoir crest stabilized—idle motes condense rapidly.';
+        message = 'Reservoir plane stabilized—idle drops condense rapidly.';
       } else if (normalizedHeight >= 0.5) {
-        message = 'Flow is balanced. Drips weave a mirrored surface across the channel.';
+        message = 'Flow is balanced. Drops weave a mirrored surface across the channel.';
       } else {
-        message = 'Channel remains shallow. Allow more motes to condense into the study.';
+        message = 'Channel remains shallow. Allow more drops to condense into the study.';
       }
       fluidElements.statusNote.textContent = message;
     }
@@ -7075,11 +7080,17 @@ import {
     fluidElements.tabButton = document.getElementById('tab-fluid');
     fluidElements.panel = document.getElementById('panel-fluid');
     fluidElements.host = document.getElementById('fluid-simulation-host');
+    fluidElements.simulationCard = document.getElementById('fluid-simulation-card');
+    fluidElements.canvas = document.getElementById('fluid-canvas');
+    fluidElements.basin = document.getElementById('fluid-basin');
+    fluidElements.viewport = document.getElementById('fluid-viewport');
+    fluidElements.leftWall = document.getElementById('fluid-wall-left');
+    fluidElements.rightWall = document.getElementById('fluid-wall-right');
+    fluidElements.leftHitbox = document.getElementById('fluid-wall-hitbox-left');
+    fluidElements.rightHitbox = document.getElementById('fluid-wall-hitbox-right');
     fluidElements.profileLabel = document.getElementById('fluid-profile-label');
     fluidElements.stateLabel = document.getElementById('fluid-state-label');
     fluidElements.depthValue = document.getElementById('fluid-depth');
-    fluidElements.crestValue = document.getElementById('fluid-crest');
-    fluidElements.dropValue = document.getElementById('fluid-largest-drop');
     fluidElements.reservoirValue = document.getElementById('fluid-reservoir');
     fluidElements.dripRateValue = document.getElementById('fluid-drip-rate');
     fluidElements.statusNote = document.getElementById('fluid-status-note');
@@ -7186,7 +7197,6 @@ import {
     }
 
     bindFluidControls();
-    updateSimulationCardPlacement();
     updateFluidDisplay();
 
     updateMoteGemInventoryDisplay();
@@ -7605,17 +7615,28 @@ import {
         // Keep the split spire button frame in sync with whichever half is active.
         syncFluidTabStackState();
         if (tabId === 'fluid') {
-          mountPowderSimulationToFluidTab();
           updateFluidTabAvailability();
           if (powderState.simulationMode !== 'fluid') {
             applyPowderSimulationMode('fluid');
           } else {
-            updateFluidDisplay(powderSimulation ? powderSimulation.getStatus() : null);
+            if (fluidSimulationInstance && typeof fluidSimulationInstance.handleResize === 'function') {
+              fluidSimulationInstance.handleResize();
+            }
+            initializePowderViewInteraction();
+            const fluidStatus =
+              fluidSimulationInstance && typeof fluidSimulationInstance.getStatus === 'function'
+                ? fluidSimulationInstance.getStatus()
+                : null;
+            updateFluidDisplay(fluidStatus);
           }
         } else if (tabId === 'powder') {
-          mountPowderSimulationToPowderTab();
           if (powderState.simulationMode !== 'sand') {
             applyPowderSimulationMode('sand');
+          } else {
+            if (sandSimulation && typeof sandSimulation.handleResize === 'function') {
+              sandSimulation.handleResize();
+            }
+            initializePowderViewInteraction();
           }
         }
 
