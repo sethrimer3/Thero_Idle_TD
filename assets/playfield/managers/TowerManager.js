@@ -45,6 +45,10 @@ import {
   teardownIotaTower as teardownIotaTowerHelper,
   fireIotaPulse as fireIotaPulseHelper,
 } from '../../../scripts/features/towers/iotaTower.js';
+import {
+  ensureLambdaState as ensureLambdaStateHelper,
+  teardownLambdaTower as teardownLambdaTowerHelper,
+} from '../../../scripts/features/towers/lambdaTower.js';
 
 // Tower management routines extracted from SimplePlayfield.
 
@@ -82,6 +86,14 @@ function teardownGammaTower(tower) {
 
 function ensureGammaState(tower) {
   return ensureGammaStateHelper(this, tower);
+}
+
+function teardownLambdaTower(tower) {
+  teardownLambdaTowerHelper(this, tower);
+}
+
+function ensureLambdaState(tower) {
+  return ensureLambdaStateHelper(this, tower);
 }
 
 function teardownKappaTower(tower) {
@@ -158,6 +170,11 @@ function applyTowerBehaviorDefaults(tower) {
     this.ensureThetaState(tower);
   } else if (tower.thetaState) {
     this.teardownThetaTower(tower);
+  }
+  if (tower.type === 'lambda') {
+    this.ensureLambdaState(tower);
+  } else if (tower.lambdaState) {
+    this.teardownLambdaTower(tower);
   }
   if (tower.type === 'delta') {
     this.ensureDeltaState(tower);
@@ -241,6 +258,8 @@ export {
   ensureKappaState,
   teardownThetaTower,
   ensureThetaState,
+  teardownLambdaTower,
+  ensureLambdaState,
   teardownZetaTower,
   ensureZetaState,
   teardownEtaTower,
