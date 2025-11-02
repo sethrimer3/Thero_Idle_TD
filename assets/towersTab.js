@@ -1630,6 +1630,359 @@ const TOWER_EQUATION_BLUEPRINTS = {
       return `${resultText} = ${rangeText} × ${slowText}`;
     },
   },
+  iota: {
+    mathSymbol: String.raw`\iota`,
+    baseEquation: String.raw`\( \iota = \text{Atk} \times \text{Spd} \times m \)`,
+    variables: [
+      {
+        key: 'aleph0',
+        symbol: 'ℵ₀',
+        equationSymbol: 'ℵ₀',
+        glyphLabel: 'ℵ₀',
+        name: 'Aleph₀ Reservoir',
+        description: 'Baseline imaginary charge thickening the pulse radius.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        attachedToVariable: 'rangeMeters',
+        cost: (level) => Math.max(1, 2 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0))),
+        format: (value) => `${formatWholeNumber(Math.max(0, value))} ℵ₀`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? Math.floor(level) : 0);
+          const resolved = Number.isFinite(value) ? Math.max(0, value) : rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{0} = \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+              glyphEquation: true,
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph1',
+        symbol: 'ℵ₁',
+        equationSymbol: 'ℵ₁',
+        glyphLabel: 'ℵ₁',
+        name: 'Aleph₁ Harmonics',
+        description: 'Infuses the pulse with additional attack tempo and residue strength.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        attachedToVariable: 'spd',
+        cost: (level) => Math.max(1, 3 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0))),
+        format: (value) => `${formatWholeNumber(Math.max(0, value))} ℵ₁`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? Math.floor(level) : 0);
+          const resolved = Number.isFinite(value) ? Math.max(0, value) : rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{1} = \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+              glyphEquation: true,
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph2',
+        symbol: 'ℵ₂',
+        equationSymbol: 'ℵ₂',
+        glyphLabel: 'ℵ₂',
+        name: 'Aleph₂ Diffusion',
+        description: 'Stretches the pulse cadence while amplifying residue potency.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        attachedToVariable: 'spd',
+        cost: (level) => Math.max(1, 4 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0))),
+        format: (value) => `${formatWholeNumber(Math.max(0, value))} ℵ₂`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? Math.floor(level) : 0);
+          const resolved = Number.isFinite(value) ? Math.max(0, value) : rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{2} = \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+              glyphEquation: true,
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph3',
+        symbol: 'ℵ₃',
+        equationSymbol: 'ℵ₃',
+        glyphLabel: 'ℵ₃',
+        name: 'Aleph₃ Echoes',
+        description: 'Encodes deeper residue strength into the pulse falloff.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        attachedToVariable: 'debuff',
+        cost: (level) => Math.max(1, 5 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0))),
+        format: (value) => `${formatWholeNumber(Math.max(0, value))} ℵ₃`,
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? Math.floor(level) : 0);
+          const resolved = Number.isFinite(value) ? Math.max(0, value) : rank;
+          return [
+            {
+              expression: String.raw`\( \aleph_{3} = \text{Level} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = ${formatWholeNumber(rank)} \)`,
+              variant: 'values',
+              glyphEquation: true,
+            },
+          ];
+        },
+      },
+      {
+        key: 'attack',
+        symbol: 'Atk',
+        equationSymbol: 'Atk',
+        name: 'Pulse Attack',
+        description: 'Total damage inverted across the splash radius before division among targets.',
+        upgradable: false,
+        format: (value) => `${formatGameNumber(Math.max(0, value))} damage`,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const alphaLinks = Math.max(0, getDynamicConnectionCount('alpha'));
+          const betaLinks = Math.max(0, getDynamicConnectionCount('beta'));
+          const gammaLinks = Math.max(0, getDynamicConnectionCount('gamma'));
+          const aleph0 = Math.max(0, computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
+          const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+          const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+          const aleph3 = Math.max(0, computeTowerVariableValue('iota', 'aleph3', effectiveBlueprint));
+          const connectionMultiplier = 1 + 0.18 * alphaLinks + 0.24 * betaLinks;
+          const gammaMultiplier = 1 + 0.45 * Math.sqrt(gammaLinks);
+          const alephMultiplier = 1 + 0.35 * aleph0 + 0.25 * aleph1 + 0.2 * aleph2 + 0.15 * aleph3;
+          const attack = 240 * connectionMultiplier * gammaMultiplier * alephMultiplier;
+          return Math.max(0, attack);
+        },
+        getSubEquations({ blueprint, towerId, value }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const alphaLinks = Math.max(0, getDynamicConnectionCount('alpha'));
+          const betaLinks = Math.max(0, getDynamicConnectionCount('beta'));
+          const gammaLinks = Math.max(0, getDynamicConnectionCount('gamma'));
+          const aleph0 = Math.max(0, computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
+          const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+          const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+          const aleph3 = Math.max(0, computeTowerVariableValue('iota', 'aleph3', effectiveBlueprint));
+          const connectionMultiplier = 1 + 0.18 * alphaLinks + 0.24 * betaLinks;
+          const gammaMultiplier = 1 + 0.45 * Math.sqrt(gammaLinks);
+          const alephMultiplier = 1 + 0.35 * aleph0 + 0.25 * aleph1 + 0.2 * aleph2 + 0.15 * aleph3;
+          const attack = Number.isFinite(value)
+            ? Math.max(0, value)
+            : 240 * connectionMultiplier * gammaMultiplier * alephMultiplier;
+          const estimatedTargets = Math.max(1, alphaLinks + betaLinks + gammaLinks || 1);
+          return [
+            {
+              expression: String.raw`\( \text{Atk} = 240 \cdot (1 + 0.18\,\alpha_{\iota} + 0.24\,\beta_{\iota}) \cdot (1 + 0.45 \sqrt{\gamma_{\iota}}) \cdot (1 + 0.35\,\aleph_{0} + 0.25\,\aleph_{1} + 0.20\,\aleph_{2} + 0.15\,\aleph_{3}) \)`,
+            },
+            {
+              values: String.raw`\( ${formatGameNumber(attack)} = 240 \times ${formatDecimal(connectionMultiplier, 2)} \times ${formatDecimal(gammaMultiplier, 2)} \times ${formatDecimal(alephMultiplier, 2)} \)`,
+              variant: 'values',
+            },
+            {
+              expression: String.raw`\( \text{Atk}_{\text{per target}} = \frac{\text{Atk}}{\max(1, N_{\text{hit}})} \)`,
+            },
+            {
+              values: String.raw`\( ${formatGameNumber(attack / estimatedTargets)} = \frac{${formatGameNumber(attack)}}{${formatWholeNumber(estimatedTargets)}} \)` ,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'spd',
+        symbol: 'Spd',
+        equationSymbol: 'Spd',
+        name: 'Pulse Speed',
+        description: 'Attacks per second; starts slow but accelerates with Aleph harmonics and lattice links.',
+        upgradable: false,
+        format: (value) => `${formatDecimal(Math.max(0, value), 2)} pulses/s`,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const betaLinks = Math.max(0, getDynamicConnectionCount('beta'));
+          const gammaLinks = Math.max(0, getDynamicConnectionCount('gamma'));
+          const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+          const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+          const base = 0.22;
+          const alephComponent = 0.05 * (1 - Math.exp(-0.6 * aleph1)) + 0.03 * (1 - Math.exp(-0.4 * aleph2));
+          const linkComponent = 0.01 * (betaLinks + 0.5 * gammaLinks);
+          const speed = base + alephComponent + linkComponent;
+          return Math.max(0, speed);
+        },
+        getSubEquations({ blueprint, towerId, value }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const betaLinks = Math.max(0, getDynamicConnectionCount('beta'));
+          const gammaLinks = Math.max(0, getDynamicConnectionCount('gamma'));
+          const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+          const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+          const speed = Number.isFinite(value)
+            ? Math.max(0, value)
+            : 0.22 + 0.05 * (1 - Math.exp(-0.6 * aleph1)) + 0.03 * (1 - Math.exp(-0.4 * aleph2)) + 0.01 * (betaLinks + 0.5 * gammaLinks);
+          return [
+            {
+              expression: String.raw`\( \text{Spd} = 0.22 + 0.05 \left( 1 - e^{-0.6 \aleph_{1}} \right) + 0.03 \left( 1 - e^{-0.4 \aleph_{2}} \right) + 0.01 \left( \beta_{\iota} + 0.5\,\gamma_{\iota} \right) \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(speed, 3)} = 0.22 + 0.05 \left( 1 - e^{-0.6 \cdot ${formatDecimal(aleph1, 2)}} \right) + 0.03 \left( 1 - e^{-0.4 \cdot ${formatDecimal(aleph2, 2)}} \right) + 0.01 \left( ${formatWholeNumber(betaLinks)} + 0.5 \cdot ${formatWholeNumber(gammaLinks)} \right) \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'rangeMeters',
+        symbol: 'm',
+        equationSymbol: 'Range',
+        name: 'Splash Radius',
+        description: 'Imaginary inversion radius measured in meters.',
+        upgradable: false,
+        format: (value) => `${formatDecimal(Math.max(0, value), 2)} m`,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const alphaLinks = Math.max(0, getDynamicConnectionCount('alpha'));
+          const betaLinks = Math.max(0, getDynamicConnectionCount('beta'));
+          const gammaLinks = Math.max(0, getDynamicConnectionCount('gamma'));
+          const aleph0 = Math.max(0, computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
+          const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+          const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+          const alephTerm = 1.1 * Math.log(1 + aleph0 + 0.5 * aleph1 + 0.25 * aleph2);
+          const linkTerm = 0.35 * Math.log(1 + alphaLinks + betaLinks + 0.5 * gammaLinks);
+          const rangeMeters = 4.2 + alephTerm + linkTerm;
+          return Math.max(0, rangeMeters);
+        },
+        getSubEquations({ blueprint, towerId, value }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const alphaLinks = Math.max(0, getDynamicConnectionCount('alpha'));
+          const betaLinks = Math.max(0, getDynamicConnectionCount('beta'));
+          const gammaLinks = Math.max(0, getDynamicConnectionCount('gamma'));
+          const aleph0 = Math.max(0, computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
+          const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+          const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+          const rangeMeters = Number.isFinite(value)
+            ? Math.max(0, value)
+            : 4.2 + 1.1 * Math.log(1 + aleph0 + 0.5 * aleph1 + 0.25 * aleph2) + 0.35 * Math.log(1 + alphaLinks + betaLinks + 0.5 * gammaLinks);
+          return [
+            {
+              expression: String.raw`\( m = 4.2 + 1.1 \ln\bigl(1 + \aleph_{0} + 0.5 \aleph_{1} + 0.25 \aleph_{2}\bigr) + 0.35 \ln\bigl(1 + \alpha_{\iota} + \beta_{\iota} + 0.5 \gamma_{\iota}\bigr) \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(rangeMeters, 2)}\,\text{m} = 4.2 + 1.1 \ln\bigl(1 + ${formatDecimal(aleph0, 2)} + 0.5 \cdot ${formatDecimal(aleph1, 2)} + 0.25 \cdot ${formatDecimal(aleph2, 2)}\bigr) + 0.35 \ln\bigl(1 + ${formatWholeNumber(alphaLinks)} + ${formatWholeNumber(betaLinks)} + 0.5 \cdot ${formatWholeNumber(gammaLinks)}\bigr) \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'debuff',
+        symbol: 'ΔD%',
+        equationSymbol: 'Debuff',
+        name: 'Imaginary Residue',
+        description: 'Additional damage enemies suffer after the pulse inverts their colors.',
+        upgradable: false,
+        format: (value) => formatPercentage(Math.max(0, value)),
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const alphaLinks = Math.max(0, getDynamicConnectionCount('alpha'));
+          const betaLinks = Math.max(0, getDynamicConnectionCount('beta'));
+          const gammaLinks = Math.max(0, getDynamicConnectionCount('gamma'));
+          const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+          const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+          const aleph3 = Math.max(0, computeTowerVariableValue('iota', 'aleph3', effectiveBlueprint));
+          const residue = 0.30 + 0.05 * alphaLinks + 0.06 * betaLinks + 0.08 * gammaLinks + 0.12 * aleph1 + 0.08 * aleph2 + 0.06 * aleph3;
+          return Math.max(0, residue);
+        },
+        getSubEquations({ blueprint, towerId, value }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const alphaLinks = Math.max(0, getDynamicConnectionCount('alpha'));
+          const betaLinks = Math.max(0, getDynamicConnectionCount('beta'));
+          const gammaLinks = Math.max(0, getDynamicConnectionCount('gamma'));
+          const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+          const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+          const aleph3 = Math.max(0, computeTowerVariableValue('iota', 'aleph3', effectiveBlueprint));
+          const residue = Number.isFinite(value)
+            ? Math.max(0, value)
+            : 0.30 + 0.05 * alphaLinks + 0.06 * betaLinks + 0.08 * gammaLinks + 0.12 * aleph1 + 0.08 * aleph2 + 0.06 * aleph3;
+          return [
+            {
+              expression: String.raw`\( \Delta D\% = 0.30 + 0.05\,\alpha_{\iota} + 0.06\,\beta_{\iota} + 0.08\,\gamma_{\iota} + 0.12\,\aleph_{1} + 0.08\,\aleph_{2} + 0.06\,\aleph_{3} \)`,
+            },
+            {
+              values: String.raw`\( ${formatPercentage(residue)} = 0.30 + 0.05 \cdot ${formatWholeNumber(alphaLinks)} + 0.06 \cdot ${formatWholeNumber(betaLinks)} + 0.08 \cdot ${formatWholeNumber(gammaLinks)} + 0.12 \cdot ${formatWholeNumber(aleph1)} + 0.08 \cdot ${formatWholeNumber(aleph2)} + 0.06 \cdot ${formatWholeNumber(aleph3)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'debuffDuration',
+        symbol: 'τ',
+        equationSymbol: 'Duration',
+        name: 'Residue Duration',
+        description: 'Seconds that enemies remain weakened after being struck.',
+        upgradable: false,
+        format: (value) => `${formatDecimal(Math.max(0, value), 2)} s`,
+        computeValue({ blueprint, towerId }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const alphaLinks = Math.max(0, getDynamicConnectionCount('alpha'));
+          const betaLinks = Math.max(0, getDynamicConnectionCount('beta'));
+          const gammaLinks = Math.max(0, getDynamicConnectionCount('gamma'));
+          const aleph0 = Math.max(0, computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
+          const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+          const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+          const duration = 3.5 + 0.5 * alphaLinks + 0.25 * betaLinks + 0.35 * Math.sqrt(gammaLinks) + 0.8 * Math.sqrt(aleph0) + 0.6 * aleph1 + 0.4 * aleph2;
+          return Math.max(0, duration);
+        },
+        getSubEquations({ blueprint, towerId, value }) {
+          const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
+          const alphaLinks = Math.max(0, getDynamicConnectionCount('alpha'));
+          const betaLinks = Math.max(0, getDynamicConnectionCount('beta'));
+          const gammaLinks = Math.max(0, getDynamicConnectionCount('gamma'));
+          const aleph0 = Math.max(0, computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
+          const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+          const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+          const duration = Number.isFinite(value)
+            ? Math.max(0, value)
+            : 3.5 + 0.5 * alphaLinks + 0.25 * betaLinks + 0.35 * Math.sqrt(gammaLinks) + 0.8 * Math.sqrt(aleph0) + 0.6 * aleph1 + 0.4 * aleph2;
+          return [
+            {
+              expression: String.raw`\( \tau = 3.5 + 0.5\,\alpha_{\iota} + 0.25\,\beta_{\iota} + 0.35\sqrt{\gamma_{\iota}} + 0.8\sqrt{\aleph_{0}} + 0.6\,\aleph_{1} + 0.4\,\aleph_{2} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(duration, 2)}\,\text{s} = 3.5 + 0.5 \cdot ${formatWholeNumber(alphaLinks)} + 0.25 \cdot ${formatWholeNumber(betaLinks)} + 0.35 \sqrt{${formatWholeNumber(gammaLinks)}} + 0.8 \sqrt{${formatWholeNumber(aleph0)}} + 0.6 \cdot ${formatWholeNumber(aleph1)} + 0.4 \cdot ${formatWholeNumber(aleph2)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+    ],
+    computeResult(values) {
+      const attack = Number.isFinite(values.attack) ? values.attack : 0;
+      const speed = Number.isFinite(values.spd) ? values.spd : 0;
+      const rangeMeters = Number.isFinite(values.rangeMeters) ? values.rangeMeters : 0;
+      return attack * speed * rangeMeters;
+    },
+    formatBaseEquationValues({ values, formatComponent }) {
+      const attack = Number.isFinite(values.attack) ? values.attack : 0;
+      const speed = Number.isFinite(values.spd) ? values.spd : 0;
+      const rangeMeters = Number.isFinite(values.rangeMeters) ? values.rangeMeters : 0;
+      const result = attack * speed * rangeMeters;
+      return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(rangeMeters)}`;
+    },
+  },
   // ζ tower channels a double-pendulum equation that references multiple Aleph
   // upgrade threads to determine attack, speed, range, and pendulum count.
   zeta: {
