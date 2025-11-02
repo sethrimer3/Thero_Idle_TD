@@ -82,7 +82,9 @@ export function updateEpsilonTower(playfield, tower, delta) {
     enemyId: enemy.id,
     damage: 1,
     turnRate: Math.PI * 2.2, // radians per second steering
-    hitRadius: 6,
+    hitRadius: 4.2,
+    stickDuration: 5 + Math.random() * 5, // linger between 5-10s when embedded
+    alpha: 1,
   });
 
   const shotsPerSecond = Math.max(0.2, state.rate);

@@ -3690,12 +3690,27 @@ export class SimplePlayfield {
     const scaledReward = Number.isFinite(config.reward)
       ? config.reward * multiplier
       : config.reward;
+    // Mirror the cycle scaling onto any boss variant attached to the wave.
+    let scaledBoss = null;
+    if (config.boss && typeof config.boss === 'object') {
+      scaledBoss = { ...config.boss };
+      if (Number.isFinite(scaledBoss.hp)) {
+        scaledBoss.hp *= multiplier;
+      }
+      if (Number.isFinite(scaledBoss.speed)) {
+        scaledBoss.speed *= speedScalar;
+      }
+      if (Number.isFinite(scaledBoss.reward)) {
+        scaledBoss.reward *= multiplier;
+      }
+    }
     return {
       config: {
         ...config,
         hp: scaledHp,
         speed: scaledSpeed,
         reward: scaledReward,
+        boss: scaledBoss || null,
       },
       spawned: 0,
       nextSpawn: initialWave ? this.initialSpawnDelay : 0,
@@ -4048,33 +4063,44 @@ export class SimplePlayfield {
       this.activeWave.spawned < config.count &&
       this.waveTimer >= this.activeWave.nextSpawn
     ) {
-      const pathMode = config.pathMode === 'direct' ? 'direct' : 'path';
-      const symbol = this.resolveEnemySymbol(config);
-      const maxHp = Number.isFinite(config.hp) ? Math.max(1, config.hp) : 1;
+      // Reserve the final spawn slot for an optional boss profile.
+      const spawnIndex = this.activeWave.spawned;
+      const bossConfig =
+        config.boss && config.count - spawnIndex === 1 && typeof config.boss === 'object'
+          ? config.boss
+          : null;
+      const spawnConfig = bossConfig ? { ...config, ...bossConfig } : config;
+      const pathMode = (spawnConfig.pathMode === 'direct' ? 'direct' : 'path');
+      const symbol = this.resolveEnemySymbol(spawnConfig);
+      const maxHp = Number.isFinite(spawnConfig.hp) ? Math.max(1, spawnConfig.hp) : 1;
       const hpExponent = this.calculateHealthExponent(maxHp);
-      const gemDropMultiplier = resolveEnemyGemDropMultiplier(config);
+      const gemDropMultiplier = resolveEnemyGemDropMultiplier(spawnConfig);
       const enemy = {
         id: this.enemyIdCounter += 1,
         progress: 0,
-        hp: config.hp,
-        maxHp: config.hp,
-        speed: config.speed,
-        baseSpeed: config.speed,
-        reward: config.reward,
-        color: config.color,
-        label: config.label,
-        typeId: config.codexId || null,
+        hp: spawnConfig.hp,
+        maxHp: spawnConfig.hp,
+        speed: spawnConfig.speed,
+        baseSpeed: spawnConfig.speed,
+        reward: spawnConfig.reward,
+        color: spawnConfig.color,
+        label: spawnConfig.label,
+        typeId: spawnConfig.codexId || null,
         pathMode,
-        moteFactor: this.calculateMoteFactor(config),
+        moteFactor: this.calculateMoteFactor(spawnConfig),
         symbol,
         hpExponent,
         gemDropMultiplier,
       };
+      if (bossConfig) {
+        enemy.isBoss = true;
+      }
       this.enemies.push(enemy);
       this.activeWave.spawned += 1;
-      this.activeWave.nextSpawn += config.interval;
-      if (config.codexId) {
-        registerEnemyEncounter(config.codexId);
+      const interval = Number.isFinite(spawnConfig.interval) ? spawnConfig.interval : config.interval;
+      this.activeWave.nextSpawn += interval;
+      if (spawnConfig.codexId) {
+        registerEnemyEncounter(spawnConfig.codexId);
       }
     }
   }
@@ -4952,12 +4978,27 @@ export class SimplePlayfield {
       }
 
       if (projectile.patternType === 'epsilonNeedle') {
-        const maxLifetime = Number.isFinite(projectile.maxLifetime) ? projectile.maxLifetime : 3.5;
-        if (projectile.lifetime >= maxLifetime) {
+        // Extend the lifetime window when a needle embeds itself in a target.
+        const recordedLifetime = Number.isFinite(projectile.maxLifetime) ? projectile.maxLifetime : 3.5;
+        let allowedLifetime = recordedLifetime;
+        if (projectile.attachedToEnemyId) {
+          const attachStart = Number.isFinite(projectile.attachStartTime)
+            ? projectile.attachStartTime
+            : (projectile.attachStartTime = projectile.lifetime);
+          const stickDuration = Number.isFinite(projectile.stickDuration) ? projectile.stickDuration : 5;
+          const extendedLifetime = attachStart + stickDuration;
+          if (!Number.isFinite(projectile.maxLifetime) || projectile.maxLifetime < extendedLifetime) {
+            projectile.maxLifetime = extendedLifetime;
+          }
+          allowedLifetime = projectile.maxLifetime;
+        }
+        if (allowedLifetime > 0 && projectile.lifetime >= allowedLifetime) {
           this.projectiles.splice(index, 1);
           continue;
         }
-        const enemy = this.enemies.find((e) => e && e.id === projectile.enemyId);
+
+        const targetEnemyId = projectile.attachedToEnemyId || projectile.enemyId;
+        const enemy = this.enemies.find((candidate) => candidate && candidate.id === targetEnemyId);
         if (!enemy) {
           this.projectiles.splice(index, 1);
           continue;
@@ -4967,6 +5008,29 @@ export class SimplePlayfield {
           this.projectiles.splice(index, 1);
           continue;
         }
+
+        if (projectile.attachedToEnemyId) {
+          // Stick to the enemy and drift with its movement while fading out.
+          const offset = projectile.attachOffset || { x: 0, y: 0 };
+          const previous = projectile.position
+            ? { ...projectile.position }
+            : { x: position.x + offset.x, y: position.y + offset.y };
+          projectile.previousPosition = previous;
+          projectile.position = { x: position.x + offset.x, y: position.y + offset.y };
+          projectile.velocity = { x: 0, y: 0 };
+          const attachStart = Number.isFinite(projectile.attachStartTime)
+            ? projectile.attachStartTime
+            : (projectile.attachStartTime = projectile.lifetime);
+          const stickDuration = Number.isFinite(projectile.stickDuration) ? projectile.stickDuration : 5;
+          const elapsed = Math.max(0, projectile.lifetime - attachStart);
+          const progress = stickDuration > 0 ? Math.min(1, elapsed / stickDuration) : 1;
+          projectile.alpha = Math.max(0, 1 - progress);
+          if (elapsed >= stickDuration) {
+            this.projectiles.splice(index, 1);
+          }
+          continue;
+        }
+
         const px = projectile.position?.x ?? projectile.origin?.x ?? 0;
         const py = projectile.position?.y ?? projectile.origin?.y ?? 0;
         const dx = position.x - px;
@@ -4983,7 +5047,9 @@ export class SimplePlayfield {
         const dvx = desiredVx - vx;
         const dvy = desiredVy - vy;
         const dmag = Math.hypot(dvx, dvy);
-        const maxTurn = Math.max(0, Number.isFinite(projectile.turnRate) ? projectile.turnRate : Math.PI * 2) * delta * speed / Math.max(1, speed);
+        const maxTurn =
+          Math.max(0, Number.isFinite(projectile.turnRate) ? projectile.turnRate : Math.PI * 2) * delta * speed /
+          Math.max(1, speed);
         let nextVx = vx;
         let nextVy = vy;
         if (dmag > maxTurn && dmag > 0) {
@@ -5026,7 +5092,22 @@ export class SimplePlayfield {
           // Atk = (NumHits)^2, where stacks is NumHits after applying this hit
           const totalDamage = Math.max(0, stacks * stacks);
           this.applyDamageToEnemy(enemy, totalDamage, { sourceTower: tower || null });
-          this.projectiles.splice(index, 1);
+          const enemyStillActive = this.enemies.some((candidate) => candidate && candidate.id === enemy.id);
+          if (!enemyStillActive) {
+            this.projectiles.splice(index, 1);
+            continue;
+          }
+          // Convert the projectile into an embedded thorn instead of despawning immediately.
+          projectile.attachedToEnemyId = enemy.id;
+          projectile.attachOffset = {
+            x: projectile.position.x - position.x,
+            y: projectile.position.y - position.y,
+          };
+          projectile.attachStartTime = projectile.lifetime;
+          const stickDuration = Number.isFinite(projectile.stickDuration) ? projectile.stickDuration : 5;
+          projectile.maxLifetime = projectile.attachStartTime + stickDuration;
+          projectile.alpha = 1;
+          projectile.velocity = { x: 0, y: 0 };
           continue;
         }
         continue;
