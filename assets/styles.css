@@ -169,9 +169,10 @@ body.graphics-mode-low::before {
   display: none;
 }
 
-body.graphics-mode-low *,
-body.graphics-mode-low *::before,
-body.graphics-mode-low *::after {
+/* Preserve specific animations by opting elements into data-allow-animation. */
+body.graphics-mode-low *:not([data-allow-animation]),
+body.graphics-mode-low *:not([data-allow-animation])::before,
+body.graphics-mode-low *:not([data-allow-animation])::after {
   box-shadow: none !important;
   text-shadow: none !important;
   filter: none !important;
