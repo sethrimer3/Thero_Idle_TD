@@ -27,7 +27,8 @@ function activateStartupLoadingSpinner() {
     startupLoading.classList.add('startup-overlay__loading--active');
   });
   if (startupHint) {
-    startupHint.textContent = 'Summoning motes?';
+    // Replace the interrogative hint with an ellipsis to convey ongoing progress.
+    startupHint.textContent = 'Summoning motes…';
   }
 }
 

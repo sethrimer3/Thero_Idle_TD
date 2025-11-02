@@ -46,7 +46,8 @@ function updateNotationToggleLabel() {
   }
   const notation = getGameNumberNotation();
   const label = resolveNotationLabel(notation);
-  notationToggleButton.textContent = `Notation ? ${label}`;
+  // Use a centered dot to separate the label from the current notation, matching the UI spec.
+  notationToggleButton.textContent = `Notation · ${label}`;
   notationToggleButton.setAttribute('aria-label', `Switch number notation (current: ${label})`);
 }
 
@@ -149,7 +150,8 @@ function updateGraphicsModeButton() {
     return;
   }
   const label = resolveGraphicsModeLabel();
-  graphicsModeButton.textContent = `Graphics ? ${label}`;
+  // Mirror the centered dot separator for the graphics button label as well.
+  graphicsModeButton.textContent = `Graphics · ${label}`;
   graphicsModeButton.setAttribute('aria-label', `Switch graphics quality (current: ${label})`);
 }
 
