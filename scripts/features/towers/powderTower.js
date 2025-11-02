@@ -993,6 +993,15 @@ export class PowderSimulation {
     }
 
     const { skipRebuild = false } = options;
+    const previousMetrics = skipRebuild
+      ? null
+      : {
+          cols: this.cols,
+          rows: this.rows,
+          wallInsetLeftCells: this.wallInsetLeftCells,
+          wallInsetRightCells: this.wallInsetRightCells,
+          scrollOffsetCells: this.scrollOffsetCells,
+        }; // Cache the current layout so restored saves can realign grains after wall spacing updates.
     const baseLargest = this.grainSizes.length
       ? Math.max(1, this.grainSizes[this.grainSizes.length - 1])
       : 1;
@@ -1030,7 +1039,7 @@ export class PowderSimulation {
       if (skipRebuild) {
         return true;
       }
-      this.rebuildGridAfterWallChange();
+      this.rebuildGridAfterWallChange(previousMetrics);
     } else if (!skipRebuild) {
       this.notifyWallMetricsChange();
     }
