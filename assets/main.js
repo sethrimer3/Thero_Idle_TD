@@ -1752,6 +1752,8 @@ import {
   };
 
   const fluidElements = {
+    tabStack: null, // Container that hosts the split spire tab controls.
+    powderTabButton: null, // Reference to the mote spire trigger that occupies the top half of the split button.
     tabButton: null,
     panel: null,
     host: null,
@@ -2378,20 +2380,62 @@ import {
   }
 
   function updateFluidTabAvailability() {
+    if (!fluidElements.tabStack) {
+      // Cache the split tab wrapper so we can toggle stacked layout states when the fluid study unlocks.
+      fluidElements.tabStack = document.getElementById('tab-powder-stack');
+    }
+    if (!fluidElements.powderTabButton) {
+      // Store the top-half button reference so focus/disable states can stay synchronized with the stack.
+      fluidElements.powderTabButton = document.getElementById('tab-powder');
+    }
     if (!fluidElements.tabButton) {
       fluidElements.tabButton = document.getElementById('tab-fluid');
     }
+    const tabStack = fluidElements.tabStack;
+    const powderTab = fluidElements.powderTabButton;
     const tabButton = fluidElements.tabButton;
-    if (!tabButton) {
+    if (!powderTab || !tabButton) {
       return;
     }
     if (powderState.fluidUnlocked) {
+      if (tabStack) {
+        // Fluid unlock splits the tab so the lower half can be targeted separately.
+        tabStack.classList.add('tab-button-stack--split');
+        tabStack.setAttribute('aria-hidden', 'false');
+      }
       tabButton.removeAttribute('hidden');
       tabButton.setAttribute('aria-hidden', 'false');
       tabButton.disabled = false;
     } else {
+      if (tabStack) {
+        // Collapse the stack back into a single button while the fluid study remains locked.
+        tabStack.classList.remove('tab-button-stack--split');
+        tabStack.classList.remove('tab-button-stack--active');
+        tabStack.setAttribute('aria-hidden', 'false');
+      }
       tabButton.setAttribute('hidden', '');
       tabButton.setAttribute('aria-hidden', 'true');
+      tabButton.disabled = true;
+    }
+    syncFluidTabStackState();
+  }
+
+  function syncFluidTabStackState() {
+    if (!fluidElements.tabStack) {
+      fluidElements.tabStack = document.getElementById('tab-powder-stack');
+    }
+    const tabStack = fluidElements.tabStack;
+    if (!tabStack) {
+      return;
+    }
+    const activeId = getActiveTabId();
+    const stackActive = activeId === 'powder' || activeId === 'fluid';
+    // Highlight the shared frame whenever either half of the split tab is active.
+    tabStack.classList.toggle('tab-button-stack--active', stackActive);
+    if (stackActive) {
+      tabStack.setAttribute('data-active-tab', activeId);
+    } else {
+      tabStack.removeAttribute('data-active-tab');
     }
   }
 
@@ -7499,6 +7543,8 @@ import {
       isFieldNotesOverlayVisible,
       onTabChange: (tabId) => {
         refreshTabMusic();
+        // Keep the split spire button frame in sync with whichever half is active.
+        syncFluidTabStackState();
         if (tabId === 'fluid') {
           mountPowderSimulationToFluidTab();
           updateFluidTabAvailability();
@@ -7535,6 +7581,9 @@ import {
     });
 
     initializeTabs();
+    // Ensure the stacked spire tab reflects the initial active panel and unlock status on load.
+    syncFluidTabStackState();
+    updateFluidTabAvailability();
     initializeFieldNotesOverlay();
     bindCodexControls({
       setActiveTab,

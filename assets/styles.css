@@ -5359,6 +5359,98 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   box-shadow: inset 0 0 0 1px rgba(139, 247, 255, 0.35);
 }
 
+/* Split spire tab styles ensure the button can host separate powder/fluid triggers without expanding the layout. */
+.tab-button-stack {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  grid-template-rows: 1fr;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  position: relative;
+  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+  height: 100%;
+}
+
+/* Expand the wrapper into two equal rows whenever fluid study access is unlocked. */
+.tab-button-stack--split {
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+/* Highlight the shared outline when either stacked tab is active. */
+.tab-button-stack--active {
+  border-color: rgba(139, 247, 255, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(139, 247, 255, 0.35);
+}
+
+/* Half-height tab presentation for each split trigger. */
+.tab-button--stacked {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  width: 100%;
+  margin: 0;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: transparent;
+  color: inherit;
+  transition: background var(--transition), color var(--transition);
+  font-size: 0.62rem;
+  height: 100%;
+}
+
+/* Maintain hover feedback without shifting the reduced-height buttons. */
+.tab-button--stacked:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  transform: none;
+}
+
+.tab-button--stacked:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Mirror the active gradient used by primary tabs while preventing vertical shift. */
+.tab-button--stacked.active {
+  background: linear-gradient(120deg, rgba(139, 247, 255, 0.18), rgba(255, 125, 235, 0.18));
+  color: var(--text);
+  transform: none;
+}
+
+/* Introduce a subtle divider between the two stacked triggers. */
+.tab-button-stack--split .tab-button--stacked + .tab-button--stacked {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Reduce icon scale so both halves remain legible within the shared frame. */
+.tab-button--stacked .tab-icon {
+  font-size: 1rem;
+}
+
+/* Keep the mote badge tucked against the compact layout. */
+.tab-button--stacked .tab-icon-badge {
+  margin-top: 2px;
+}
+
+/* Preserve the original single-button proportions while the fluid study remains locked. */
+.tab-button-stack:not(.tab-button-stack--split) .tab-button--stacked {
+  padding: 10px 12px;
+  gap: 4px;
+  font-size: 0.72rem;
+}
+
+/* Restore the full-size icon when the tab collapses back to a single control. */
+.tab-button-stack:not(.tab-button-stack--split) .tab-button--stacked .tab-icon {
+  font-size: 1.4rem;
+}
+
 .tab-icon {
   font-size: 1.4rem;
   display: inline-flex;
