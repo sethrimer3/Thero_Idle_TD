@@ -5395,7 +5395,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .startup-overlay__loading--active {
   opacity: 1;
-  animation: pEllipticLoading 3.5167s steps(90) infinite; /* Advance through all 91 frames without sliding past the texture. */
+  animation: pEllipticLoading 1.75835s steps(90) infinite; /* Advance through all 91 frames at twice the previous playback speed without sliding past the texture. */
 }
 
 .startup-overlay__hint {
