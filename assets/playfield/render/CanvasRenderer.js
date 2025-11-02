@@ -11,6 +11,7 @@ import { drawGammaBursts as drawGammaBurstsHelper } from '../../../scripts/featu
 import { drawZetaPendulums as drawZetaPendulumsHelper } from '../../../scripts/features/towers/zetaTower.js';
 import { drawEtaOrbits as drawEtaOrbitsHelper } from '../../../scripts/features/towers/etaTower.js';
 import { drawDeltaSoldiers as drawDeltaSoldiersHelper } from '../../../scripts/features/towers/deltaTower.js';
+import { drawThetaContours as drawThetaContoursHelper } from '../../../scripts/features/towers/thetaTower.js';
 
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rendering.js';
 
@@ -846,6 +847,10 @@ function drawTowers() {
       ctx.arc(tower.x, tower.y, rangeRadius, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
+    }
+
+    if (tower.type === 'theta') {
+      drawThetaContoursHelper(this, tower);
     }
 
     if (tower.type === 'zeta') {
