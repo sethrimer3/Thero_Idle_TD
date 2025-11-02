@@ -57,6 +57,7 @@ import {
   updateGammaBursts as updateGammaBurstsHelper,
 } from '../scripts/features/towers/gammaTower.js';
 import { updateKappaTower as updateKappaTowerHelper } from '../scripts/features/towers/kappaTower.js';
+import { updateLambdaTower as updateLambdaTowerHelper } from '../scripts/features/towers/lambdaTower.js';
 import {
   ensureThetaState as ensureThetaStateHelper,
   updateThetaTower as updateThetaTowerHelper,
@@ -1902,6 +1903,20 @@ export class SimplePlayfield {
   }
 
   /**
+   * Clear cached λ beam data when the lattice retunes or is dismantled.
+   */
+  teardownLambdaTower(tower) {
+    return TowerManager.teardownLambdaTower.call(this, tower);
+  }
+
+  /**
+   * Ensure λ laser state stays synchronized with upgrades and canvas scale.
+   */
+  ensureLambdaState(tower) {
+    return TowerManager.ensureLambdaState.call(this, tower);
+  }
+
+  /**
    * Update θ slow field efficacy and apply slow stacks to nearby enemies.
    */
   updateThetaTower(tower, delta) {
@@ -1913,6 +1928,13 @@ export class SimplePlayfield {
    */
   updateKappaTower(tower, delta) {
     updateKappaTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Fire λ piercing lasers, scale damage with enemy density, and animate dissipation.
+   */
+  updateLambdaTower(tower, delta) {
+    updateLambdaTowerHelper(this, tower, delta);
   }
 
   /**
@@ -2607,6 +2629,7 @@ export class SimplePlayfield {
     this.teardownBetaTower(tower);
     this.teardownGammaTower(tower);
     this.teardownKappaTower(tower);
+    this.teardownLambdaTower(tower);
     this.teardownIotaTower(tower);
     this.teardownDeltaTower(tower);
     this.teardownZetaTower(tower);
@@ -3930,6 +3953,10 @@ export class SimplePlayfield {
           this.updateEtaTower(tower, speedDelta);
           return;
         }
+        if (tower.type === 'lambda') {
+          this.updateLambdaTower(tower, speedDelta);
+          return;
+        }
         if (tower.type !== 'delta') {
           return;
         }
@@ -4134,6 +4161,10 @@ export class SimplePlayfield {
       }
       if (tower.type === 'kappa') {
         this.updateKappaTower(tower, delta);
+        return;
+      }
+      if (tower.type === 'lambda') {
+        this.updateLambdaTower(tower, delta);
         return;
       }
       if (!this.combatActive || !this.enemies.length) {
