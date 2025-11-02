@@ -1737,6 +1737,7 @@ import {
     logList: null,
     logEmpty: null,
     simulationCanvas: null,
+    simulationCard: null,
     basin: null,
     viewport: null,
     wallMarker: null,
@@ -1747,6 +1748,22 @@ import {
     leftHitbox: null,
     rightHitbox: null,
     modeToggle: null,
+    stage: null,
+  };
+
+  const fluidElements = {
+    tabButton: null,
+    panel: null,
+    host: null,
+    profileLabel: null,
+    stateLabel: null,
+    depthValue: null,
+    crestValue: null,
+    dropValue: null,
+    reservoirValue: null,
+    dripRateValue: null,
+    statusNote: null,
+    returnButton: null,
   };
 
   const FLUX_OVERVIEW_IS_STUB = true;
@@ -1971,6 +1988,7 @@ import {
         powderState.wallGapTarget = Math.max(1, Math.round(base.wallGapTarget));
       }
       powderState.fluidUnlocked = !!base.fluidUnlocked;
+      updateFluidTabAvailability();
       if (base.viewTransform && typeof base.viewTransform === 'object') {
         const center = base.viewTransform.normalizedCenter || {};
         powderState.viewTransform = {
@@ -2359,6 +2377,67 @@ import {
     schedulePowderBasinSave();
   }
 
+  function updateFluidTabAvailability() {
+    if (!fluidElements.tabButton) {
+      fluidElements.tabButton = document.getElementById('tab-fluid');
+    }
+    const tabButton = fluidElements.tabButton;
+    if (!tabButton) {
+      return;
+    }
+    if (powderState.fluidUnlocked) {
+      tabButton.removeAttribute('hidden');
+      tabButton.setAttribute('aria-hidden', 'false');
+      tabButton.disabled = false;
+    } else {
+      tabButton.setAttribute('hidden', '');
+      tabButton.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function updateSimulationCardPlacement() {
+    const inFluid = Boolean(
+      fluidElements.host && powderElements.simulationCard
+        ? fluidElements.host.contains(powderElements.simulationCard)
+        : false,
+    );
+    if (powderElements.simulationCard) {
+      powderElements.simulationCard.classList.toggle('powder-simulation--fluid', inFluid);
+    }
+    if (powderElements.basin) {
+      powderElements.basin.classList.toggle('powder-basin--fluid', inFluid);
+    }
+    if (powderElements.viewport) {
+      powderElements.viewport.classList.toggle('powder-viewport--fluid', inFluid);
+    }
+  }
+
+  function mountPowderSimulationToFluidTab() {
+    if (!fluidElements.host) {
+      fluidElements.host = document.getElementById('fluid-simulation-host');
+    }
+    if (!fluidElements.host || !powderElements.simulationCard) {
+      return;
+    }
+    if (!fluidElements.host.contains(powderElements.simulationCard)) {
+      fluidElements.host.appendChild(powderElements.simulationCard);
+    }
+    updateSimulationCardPlacement();
+  }
+
+  function mountPowderSimulationToPowderTab() {
+    if (!powderElements.stage) {
+      powderElements.stage = document.getElementById('powder-stage');
+    }
+    if (!powderElements.stage || !powderElements.simulationCard) {
+      return;
+    }
+    if (!powderElements.stage.contains(powderElements.simulationCard)) {
+      powderElements.stage.prepend(powderElements.simulationCard);
+    }
+    updateSimulationCardPlacement();
+  }
+
   function updatePowderModeButton() {
     if (!powderElements.modeToggle) {
       return;
@@ -2378,8 +2457,9 @@ import {
     const mode = powderState.simulationMode;
     const fluidLabel = powderState.fluidProfileLabel || 'Fluid Study';
     powderElements.modeToggle.textContent =
-      mode === 'fluid' ? 'Return to Powderfall' : `Switch to ${fluidLabel}`;
+      mode === 'fluid' ? 'Return to Powderfall' : `Enter ${fluidLabel}`;
     powderElements.modeToggle.setAttribute('aria-pressed', mode === 'fluid' ? 'true' : 'false');
+    updateFluidTabAvailability();
   }
 
   /**
@@ -2528,6 +2608,8 @@ import {
         }
         powderState.fluidProfileLabel = profile.label || powderState.fluidProfileLabel;
 
+        mountPowderSimulationToFluidTab();
+
         if (!fluidSimulationInstance && powderElements.simulationCanvas) {
           const { left: leftInset, right: rightInset } = getPowderWallInsets();
           fluidSimulationInstance = new FluidSimulation({
@@ -2621,6 +2703,8 @@ import {
           throw new Error('Powder simulation unavailable.');
         }
 
+        mountPowderSimulationToPowderTab();
+
         powderSimulation = sandSimulation;
         const baseProfile = powderSimulation.getDefaultProfile();
         powderSimulation.applyProfile(baseProfile || undefined);
@@ -2650,6 +2734,7 @@ import {
       handlePowderHeightChange(powderSimulation ? powderSimulation.getStatus() : undefined);
       updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
       updateMoteStatsDisplays();
+      updateFluidDisplay(powderSimulation ? powderSimulation.getStatus() : null);
     } catch (error) {
       console.error('Unable to switch simulation mode.', error);
     } finally {
@@ -2663,12 +2748,37 @@ import {
     }
   }
 
-  async function handlePowderModeToggle() {
+  function enterFluidStudy() {
     if (powderState.modeSwitchPending) {
       return;
     }
-    const nextMode = powderState.simulationMode === 'fluid' ? 'sand' : 'fluid';
-    await applyPowderSimulationMode(nextMode);
+    if (!powderState.fluidUnlocked) {
+      updatePowderModeButton();
+      return;
+    }
+    if (getActiveTabId() === 'fluid') {
+      return;
+    }
+    updateFluidTabAvailability();
+    setActiveTab('fluid');
+  }
+
+  function exitFluidStudy() {
+    if (powderState.modeSwitchPending) {
+      return;
+    }
+    if (getActiveTabId() === 'powder') {
+      return;
+    }
+    setActiveTab('powder');
+  }
+
+  function handlePowderModeToggle() {
+    if (getActiveTabId() === 'fluid') {
+      exitFluidStudy();
+    } else {
+      enterFluidStudy();
+    }
   }
 
   let resourceTicker = null;
@@ -6300,6 +6410,7 @@ import {
     powderState.modeSwitchPending = false;
     powderState.fluidProfileLabel = 'Fluid Study';
     powderState.fluidUnlocked = false;
+    updateFluidTabAvailability();
     powderState.viewTransform = null;
     powderState.loadedSimulationState = null;
 
@@ -6517,6 +6628,7 @@ import {
     if (!powderState.fluidUnlocked && normalized >= (powderConfig.fluidUnlockSigils || Infinity)) {
       powderState.fluidUnlocked = true;
       recordPowderEvent('fluid-unlocked', { threshold: powderConfig.fluidUnlockSigils || 0 });
+      updateFluidTabAvailability();
       updatePowderModeButton();
     }
     if (moteGemState.autoCollectUnlocked) {
@@ -6542,6 +6654,66 @@ import {
     evaluateAchievements();
   }
 
+  function updateFluidDisplay(status) {
+    const info =
+      status ||
+      (powderSimulation && typeof powderSimulation.getStatus === 'function'
+        ? powderSimulation.getStatus()
+        : null);
+    const normalizedHeight = Number.isFinite(info?.normalizedHeight)
+      ? Math.max(0, Math.min(1, info.normalizedHeight))
+      : 0;
+    const crestPosition = Number.isFinite(info?.crestPosition)
+      ? Math.max(0, Math.min(1, info.crestPosition))
+      : 0;
+    const largestDrop = Number.isFinite(info?.largestGrain) ? Math.max(0, info.largestGrain) : 0;
+
+    if (fluidElements.depthValue) {
+      fluidElements.depthValue.textContent = `${formatDecimal(normalizedHeight * 100, 1)}% full`;
+    }
+    if (fluidElements.crestValue) {
+      fluidElements.crestValue.textContent = `${formatDecimal(crestPosition * 100, 1)}% span`;
+    }
+    if (fluidElements.dropValue) {
+      fluidElements.dropValue.textContent = `${formatDecimal(largestDrop, 2)} motes`;
+    }
+
+    const idleBank = Number.isFinite(powderState.idleMoteBank) ? Math.max(0, powderState.idleMoteBank) : 0;
+    if (fluidElements.reservoirValue) {
+      const moteLabel = idleBank === 1 ? 'Mote' : 'Motes';
+      fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} ${moteLabel}`;
+    }
+
+    const drainRate = Number.isFinite(powderState.idleDrainRate) ? Math.max(0, powderState.idleDrainRate) : 0;
+    if (fluidElements.dripRateValue) {
+      fluidElements.dripRateValue.textContent = `${formatDecimal(drainRate, 2)} motes/sec`;
+    }
+
+    if (fluidElements.profileLabel) {
+      fluidElements.profileLabel.textContent = powderState.fluidProfileLabel || 'Fluid Study';
+    }
+
+    if (fluidElements.stateLabel) {
+      const crestState = normalizedHeight >= 0.9 ? 'ready' : normalizedHeight < 0.5 ? 'forming' : 'steady';
+      fluidElements.stateLabel.textContent =
+        crestState === 'ready' ? 'Stabilized' : crestState === 'forming' ? 'Forming' : 'Balanced';
+      fluidElements.stateLabel.classList.toggle('fluid-state-label--ready', crestState === 'ready');
+      fluidElements.stateLabel.classList.toggle('fluid-state-label--forming', crestState === 'forming');
+    }
+
+    if (fluidElements.statusNote) {
+      let message;
+      if (normalizedHeight >= 0.9) {
+        message = 'Reservoir crest stabilized—idle motes condense rapidly.';
+      } else if (normalizedHeight >= 0.5) {
+        message = 'Flow is balanced. Drips weave a mirrored surface across the channel.';
+      } else {
+        message = 'Channel remains shallow. Allow more motes to condense into the study.';
+      }
+      fluidElements.statusNote.textContent = message;
+    }
+  }
+
   function handlePowderIdleBankChange(bankValue) {
     const normalized = Number.isFinite(bankValue) ? Math.max(0, bankValue) : 0;
     const previous = Number.isFinite(powderState.idleMoteBank) ? powderState.idleMoteBank : 0;
@@ -6564,6 +6736,8 @@ import {
       resourceElements.tabMoteBadge.removeAttribute('hidden');
       resourceElements.tabMoteBadge.setAttribute('aria-hidden', 'false');
     }
+
+    updateFluidDisplay();
   }
 
   function handlePowderHeightChange(info) {
@@ -6691,6 +6865,8 @@ import {
     if (Math.abs(previousGain - clampedGain) > 0.01) {
       refreshPowderSystems();
     }
+
+    updateFluidDisplay(info);
   }
 
   function notifyIdleTime(elapsedMs) {
@@ -6792,6 +6968,30 @@ import {
     updatePowderLogDisplay();
   }
 
+  function bindFluidControls() {
+    fluidElements.tabButton = document.getElementById('tab-fluid');
+    fluidElements.panel = document.getElementById('panel-fluid');
+    fluidElements.host = document.getElementById('fluid-simulation-host');
+    fluidElements.profileLabel = document.getElementById('fluid-profile-label');
+    fluidElements.stateLabel = document.getElementById('fluid-state-label');
+    fluidElements.depthValue = document.getElementById('fluid-depth');
+    fluidElements.crestValue = document.getElementById('fluid-crest');
+    fluidElements.dropValue = document.getElementById('fluid-largest-drop');
+    fluidElements.reservoirValue = document.getElementById('fluid-reservoir');
+    fluidElements.dripRateValue = document.getElementById('fluid-drip-rate');
+    fluidElements.statusNote = document.getElementById('fluid-status-note');
+    fluidElements.returnButton = document.getElementById('fluid-return-button');
+
+    if (fluidElements.returnButton) {
+      fluidElements.returnButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        exitFluidStudy();
+      });
+    }
+
+    updateFluidTabAvailability();
+  }
+
   // Bind Powder tab controls to shared handlers and hydrate element caches for later updates.
   function bindPowderControls() {
     powderElements.totalMultiplier = document.getElementById('powder-total-multiplier');
@@ -6816,6 +7016,8 @@ import {
     powderElements.logList = document.getElementById('powder-log');
     powderElements.logEmpty = document.getElementById('powder-log-empty');
     powderElements.simulationCanvas = document.getElementById('powder-canvas');
+    powderElements.simulationCard = document.getElementById('powder-simulation-card');
+    powderElements.stage = document.getElementById('powder-stage');
     powderElements.basin = document.getElementById('powder-basin');
     powderElements.viewport = document.getElementById('powder-viewport');
     powderElements.wallMarker = document.getElementById('powder-wall-marker');
@@ -6879,6 +7081,10 @@ import {
         openCraftingOverlay();
       });
     }
+
+    bindFluidControls();
+    updateSimulationCardPlacement();
+    updateFluidDisplay();
 
     updateMoteGemInventoryDisplay();
     updatePowderLogDisplay();
@@ -7293,8 +7499,23 @@ import {
       isFieldNotesOverlayVisible,
       onTabChange: (tabId) => {
         refreshTabMusic();
-        if (tabId === 'powder') {
-          // Realign the powder basin after the tab becomes visible so layout metrics refresh.
+        if (tabId === 'fluid') {
+          mountPowderSimulationToFluidTab();
+          updateFluidTabAvailability();
+          if (powderState.simulationMode !== 'fluid') {
+            applyPowderSimulationMode('fluid');
+          } else {
+            updateFluidDisplay(powderSimulation ? powderSimulation.getStatus() : null);
+          }
+        } else if (tabId === 'powder') {
+          mountPowderSimulationToPowderTab();
+          if (powderState.simulationMode !== 'sand') {
+            applyPowderSimulationMode('sand');
+          }
+        }
+
+        if (tabId === 'powder' || tabId === 'fluid') {
+          // Realign the basin after the tab becomes visible so layout metrics refresh.
           requestAnimationFrame(() => {
             if (powderSimulation && typeof powderSimulation.handleResize === 'function') {
               powderSimulation.handleResize();
