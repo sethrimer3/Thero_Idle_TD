@@ -1053,8 +1053,8 @@
           aria-labelledby="tab-powder"
           hidden
         >
-          <section class="powder-stage" aria-label="Spire">
-            <article class="card powder-simulation">
+          <section class="powder-stage" id="powder-stage" aria-label="Spire">
+            <article class="card powder-simulation" id="powder-simulation-card">
               <div class="powder-basin" id="powder-basin">
                 <canvas
                   id="powder-canvas"
@@ -1089,8 +1089,13 @@
                   </div>
                 </div>
               </div>
-              <button class="powder-mode-toggle" type="button" id="powder-mode-toggle">
-                Switch to Fluid Study
+              <button
+                class="powder-mode-toggle"
+                type="button"
+                id="powder-mode-toggle"
+                aria-controls="panel-fluid"
+              >
+                Enter Fluid Study
               </button>
             </article>
           </section>
@@ -1174,6 +1179,61 @@
               Crafting Menu
             </button>
           </article>
+        </section>
+
+        <section
+          class="panel"
+          data-panel="fluid"
+          id="panel-fluid"
+          role="tabpanel"
+          aria-labelledby="tab-fluid"
+          hidden
+        >
+          <header class="panel-header">Fluid Study</header>
+          <section class="fluid-grid" aria-label="Fluid Spire Overview">
+            <div class="fluid-simulation-slot" id="fluid-simulation-host"></div>
+            <article class="card fluid-metrics-card">
+              <h3>Reservoir Metrics</h3>
+              <dl class="fluid-metrics">
+                <div>
+                  <dt>Reservoir Depth</dt>
+                  <dd id="fluid-depth">0.00% full</dd>
+                </div>
+                <div>
+                  <dt>Crest Drift</dt>
+                  <dd id="fluid-crest">0.00% span</dd>
+                </div>
+                <div>
+                  <dt>Largest Drop</dt>
+                  <dd id="fluid-largest-drop">0.00 motes</dd>
+                </div>
+                <div>
+                  <dt>Idle Reservoir</dt>
+                  <dd id="fluid-reservoir">0 Motes</dd>
+                </div>
+                <div>
+                  <dt>Condensation Rate</dt>
+                  <dd id="fluid-drip-rate">0.00 motes/sec</dd>
+                </div>
+              </dl>
+              <p class="fluid-status-note" id="fluid-status-note">
+                Water motes seep from idle reserves and collect within the study.
+              </p>
+            </article>
+            <article class="card fluid-briefing-card">
+              <h3>
+                <span id="fluid-profile-label">Fluid Study</span>
+                <span class="fluid-state-label" id="fluid-state-label">Forming</span>
+              </h3>
+              <p class="fluid-briefing">
+                Observe condensed motes cascading into the spire. Guide the flow to stabilize the lattice and feed the idle
+                bank.
+              </p>
+              <button class="action-button ghost fluid-return-button" type="button" id="fluid-return-button">
+                Return to Powderfall
+              </button>
+            </article>
+          </section>
         </section>
 
         <section
@@ -1457,6 +1517,21 @@
           <span class="tab-label">Spire</span>
           <!-- Persistent mote bank indicator relocated beneath the tab title. -->
           <span class="tab-icon-badge tab-icon-badge--motes" id="tab-mote-badge">0.00</span>
+        </button>
+        <button
+          class="tab-button"
+          data-tab="fluid"
+          id="tab-fluid"
+          type="button"
+          role="tab"
+          aria-label="Fluid Study"
+          aria-controls="panel-fluid"
+          aria-selected="false"
+          aria-pressed="false"
+          hidden
+        >
+          <span class="tab-icon">∇</span>
+          <span class="tab-label">Fluid</span>
         </button>
         <button
           class="tab-button"
