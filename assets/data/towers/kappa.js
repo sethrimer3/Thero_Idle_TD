@@ -7,9 +7,10 @@ export const KAPPA_TOWER = Object.freeze({
   name: 'Kappa Tower',
   tier: 10,
   baseCost: 200000000,
-  damage: 320,
-  rate: 0.8,
-  range: 0.4,
+  damage: 0,
+  rate: 0,
+  range: 0.1,
+  diameterMeters: 1.2,
   icon: 'assets/images/tower-kappa.svg',
   nextTierId: 'lambda',
 });

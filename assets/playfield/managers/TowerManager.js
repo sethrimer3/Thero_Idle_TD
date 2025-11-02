@@ -14,6 +14,10 @@ import {
   spawnGammaAttackBurst as spawnGammaAttackBurstHelper,
 } from '../../../scripts/features/towers/gammaTower.js';
 import {
+  ensureKappaState as ensureKappaStateHelper,
+  teardownKappaTower as teardownKappaTowerHelper,
+} from '../../../scripts/features/towers/kappaTower.js';
+import {
   ensureThetaState as ensureThetaStateHelper,
   teardownThetaTower as teardownThetaTowerHelper,
 } from '../../../scripts/features/towers/thetaTower.js';
@@ -79,6 +83,14 @@ function ensureGammaState(tower) {
   return ensureGammaStateHelper(this, tower);
 }
 
+function teardownKappaTower(tower) {
+  teardownKappaTowerHelper(this, tower);
+}
+
+function ensureKappaState(tower) {
+  return ensureKappaStateHelper(this, tower);
+}
+
 function spawnGammaAttackBurst(tower, targetInfo, options = {}) {
   return spawnGammaAttackBurstHelper(this, tower, targetInfo, options);
 }
@@ -135,6 +147,11 @@ function applyTowerBehaviorDefaults(tower) {
     this.ensureGammaState(tower);
   } else if (tower.gammaState) {
     this.teardownGammaTower(tower);
+  }
+  if (tower.type === 'kappa') {
+    this.ensureKappaState(tower);
+  } else if (tower.kappaState) {
+    this.teardownKappaTower(tower);
   }
   if (tower.type === 'theta') {
     this.ensureThetaState(tower);
@@ -215,6 +232,8 @@ export {
   teardownGammaTower,
   ensureGammaState,
   spawnGammaAttackBurst,
+  teardownKappaTower,
+  ensureKappaState,
   teardownThetaTower,
   ensureThetaState,
   teardownZetaTower,
