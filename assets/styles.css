@@ -494,6 +494,11 @@ body.graphics-mode-low .control-button {
 .playfield-shell {
   display: grid;
   justify-items: center;
+  gap: 20px;
+}
+
+.playfield-shell > .overlay-editor {
+  width: min(560px, 100%);
 }
 
 .playfield {

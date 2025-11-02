@@ -568,6 +568,8 @@ import {
       const devAvailable = Boolean(developerModeActive && activeLevelId && interactive);
       playfieldMenuDevTools.disabled = !devAvailable;
       playfieldMenuDevTools.setAttribute('aria-disabled', devAvailable ? 'false' : 'true');
+      playfieldMenuDevTools.textContent = developerMapToolsActive ? 'Close Dev Map Tools' : 'Dev Map Tools';
+      playfieldMenuDevTools.setAttribute('aria-pressed', developerMapToolsActive ? 'true' : 'false');
       if (!devAvailable) {
         const hint = developerModeActive
           ? 'Enter an interactive defense to access Dev Map Tools.'
@@ -780,6 +782,79 @@ import {
     }
   }
 
+  function activateDeveloperMapToolsForLevel(level) {
+    if (
+      !developerModeActive ||
+      !level ||
+      !playfield ||
+      !playfieldElements?.canvas ||
+      !playfield.levelActive ||
+      !playfield.levelConfig
+    ) {
+      return false;
+    }
+
+    const battlefieldCanvas = playfieldElements.canvas || playfield.canvas || null;
+    if (!battlefieldCanvas) {
+      return false;
+    }
+
+    const orientation = playfield.layoutOrientation || 'portrait';
+    setLevelEditorSurface({
+      type: 'playfield',
+      canvas: battlefieldCanvas,
+      playfield,
+      orientation,
+      listenerOptions: true,
+    });
+
+    const config = levelConfigs.get(level.id) || null;
+    let basePath = Array.isArray(playfield.basePathPoints) && playfield.basePathPoints.length >= 2
+      ? playfield.basePathPoints
+      : null;
+
+    if (!basePath && Array.isArray(playfield.levelConfig?.path) && playfield.levelConfig.path.length >= 2) {
+      basePath = playfield.levelConfig.path.map((point) => transformPointFromOrientation(point, orientation));
+    }
+
+    if (!basePath && Array.isArray(config?.path) && config.path.length >= 2) {
+      basePath = config.path;
+    }
+
+    if (!Array.isArray(basePath) || basePath.length < 2) {
+      return false;
+    }
+
+    developerMapToolsActive = true;
+    overlayPreviewLevel = level;
+
+    configureLevelEditorForLevel(level, { path: basePath }, { orientation, basePath });
+    setLevelEditorEditing(true);
+    setLevelEditorStatus('Editing active—drag anchors or Shift-click to remove.', { duration: 2600 });
+    updateDeveloperMapElementsVisibility();
+
+    return true;
+  }
+
+  function deactivateDeveloperMapTools(options = {}) {
+    const { force = false, silent = false } = options;
+    if (!developerMapToolsActive && !force) {
+      return false;
+    }
+
+    developerMapToolsActive = false;
+    overlayPreviewLevel = null;
+    hideLevelEditorPanel();
+    resetLevelEditorSurface();
+    updateDeveloperMapElementsVisibility();
+
+    if (!silent && playfield?.messageEl) {
+      playfield.messageEl.textContent = 'Developer map tools closed.';
+    }
+
+    return true;
+  }
+
   function handleOpenDevMapTools() {
     resetPlayfieldMenuLevelSelect();
 
@@ -816,16 +891,38 @@ import {
       return;
     }
 
+    if (developerMapToolsActive) {
+      deactivateDeveloperMapTools({ force: true, silent: false });
+      updatePlayfieldMenuState();
+      if (audioManager) {
+        audioManager.playSfx('menuSelect');
+      }
+      closePlayfieldMenu();
+      return;
+    }
+
     pendingLevel = null;
-    showLevelOverlay(level, { requireExitConfirm: false });
-    if (overlay) {
-      overlay.setAttribute('data-overlay-mode', 'developer');
+    const activated = activateDeveloperMapToolsForLevel(level);
+    if (!activated) {
+      if (playfield?.messageEl) {
+        playfield.messageEl.textContent =
+          'Unable to activate developer map tools—verify the level path is loaded.';
+      }
+      if (audioManager) {
+        audioManager.playSfx('error');
+      }
+      closePlayfieldMenu();
+      return;
     }
-    if (overlayInstruction) {
-      overlayInstruction.textContent =
-        'Developer map tools active—adjust anchors, waves, or enemy schedules. Tap outside or press Esc to close.';
+
+    if (playfield?.messageEl) {
+      playfield.messageEl.textContent =
+        'Developer map tools active—drag anchors or Shift-click to remove points directly on the battlefield.';
     }
-    syncLevelEditorVisibility();
+    if (audioManager) {
+      audioManager.playSfx('menuSelect');
+    }
+    updatePlayfieldMenuState();
     closePlayfieldMenu();
   }
 
@@ -852,6 +949,8 @@ import {
   const developerMapPlacementState = {
     mode: null,
   };
+
+  let developerMapToolsActive = false;
 
   const developerFieldHandlers = {
     moteBank: setDeveloperIdleMoteBank,
@@ -4266,6 +4365,11 @@ import {
       return;
     }
 
+    if (!developerMapToolsActive || !isPlayfieldEditorSurface()) {
+      hideLevelEditorPanel();
+      return;
+    }
+
     if (!overlayPreviewLevel || !levelEditorSurface.playfield) {
       return;
     }
@@ -4545,14 +4649,13 @@ import {
     if (!container) {
       return;
     }
-    const overlayActive = overlay?.dataset?.overlayMode === 'developer';
+    const toolsActive = developerMapToolsActive && isPlayfieldEditorSurface();
     const canUseBattlefield = Boolean(
       developerModeActive &&
-        overlayActive &&
+        toolsActive &&
         playfield &&
         playfield.levelActive &&
-        playfield.levelConfig &&
-        isPlayfieldEditorSurface(),
+        playfield.levelConfig,
     );
     container.hidden = !canUseBattlefield;
     container.setAttribute('aria-hidden', canUseBattlefield ? 'false' : 'true');
@@ -4595,8 +4698,7 @@ import {
     if (!context || !context.normalized) {
       return false;
     }
-    const overlayActive = overlay?.dataset?.overlayMode === 'developer';
-    if (!overlayActive) {
+    if (!developerMapToolsActive) {
       return false;
     }
     return placeDeveloperCrystal(context.normalized);
@@ -4808,14 +4910,6 @@ import {
       });
       previewPlayfield.enterLevel(level, { endlessMode: false });
       previewPlayfield.draw();
-      setLevelEditorSurface({
-        type: 'overlay',
-        canvas: overlayPreviewCanvas,
-        playfield: previewPlayfield,
-        orientation: previewPlayfield.layoutOrientation || preferredOrientation || 'portrait',
-        listenerOptions: false,
-      });
-      configureLevelEditorForLevel(level, config);
       return;
     }
 
@@ -5113,6 +5207,7 @@ import {
   }
 
   function startLevel(level) {
+    deactivateDeveloperMapTools({ force: true, silent: true });
     const currentState = levelState.get(level.id) || {
       entered: false,
       running: false,
@@ -5183,6 +5278,7 @@ import {
 
   function leaveActiveLevel() {
     if (!activeLevelId) return;
+    deactivateDeveloperMapTools({ force: true, silent: true });
     hidePlayfieldOutcome();
     const state = levelState.get(activeLevelId);
     if (state) {
@@ -6028,6 +6124,7 @@ import {
       developerModeElements.toggle.checked = false;
     }
 
+    deactivateDeveloperMapTools({ force: true, silent: true });
     setDeveloperMapPlacementMode(null);
     updateDeveloperMapElementsVisibility();
 
@@ -6076,8 +6173,6 @@ import {
 
     updateDeveloperControlsVisibility();
     syncDeveloperControlValues();
-
-    hideLevelEditorPanel();
 
     updatePlayfieldMenuState();
 
