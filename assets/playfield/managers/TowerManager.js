@@ -38,6 +38,7 @@ import {
   updateDeltaAnchors as updateDeltaAnchorsHelper,
   clearTowerManualTarget as clearTowerManualTargetHelper,
   getTowerManualTarget as getTowerManualTargetHelper,
+  assignDeltaTrackHoldAnchor as assignDeltaTrackHoldAnchorHelper,
 } from '../../../scripts/features/towers/deltaTower.js';
 import {
   ensureIotaState as ensureIotaStateHelper,
@@ -209,6 +210,10 @@ function getTowerManualTarget(tower) {
   return getTowerManualTargetHelper(this, tower);
 }
 
+function assignDeltaTrackHoldAnchor(tower, anchor) {
+  return assignDeltaTrackHoldAnchorHelper(this, tower, anchor);
+}
+
 function ensureIotaState(tower) {
   return ensureIotaStateHelper(this, tower);
 }
@@ -248,6 +253,7 @@ export {
   updateDeltaAnchors,
   clearTowerManualTarget,
   getTowerManualTarget,
+  assignDeltaTrackHoldAnchor,
   ensureIotaState,
   teardownIotaTower,
   fireIotaPulse,

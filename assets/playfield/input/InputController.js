@@ -82,6 +82,50 @@ function handleCanvasPointerMove(event) {
     return;
   }
 
+  if (this.deltaCommandDragState.pointerId === event.pointerId) {
+    if (typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+    const normalized = this.getNormalizedFromEvent(event);
+    const dragState = this.deltaCommandDragState;
+    if (!normalized) {
+      dragState.currentPosition = null;
+      dragState.currentNormalized = null;
+      dragState.trackAnchor = null;
+      dragState.anchorAvailable = false;
+      if (!this.shouldAnimate) {
+        this.draw();
+      }
+      return;
+    }
+    const position = this.getCanvasPosition(normalized);
+    dragState.currentNormalized = { ...normalized };
+    dragState.currentPosition = position ? { ...position } : null;
+    if (dragState.startPosition && !dragState.active && position) {
+      const dx = position.x - dragState.startPosition.x;
+      const dy = position.y - dragState.startPosition.y;
+      const distance = Math.hypot(dx, dy);
+      if (Number.isFinite(distance) && distance >= PLAYFIELD_VIEW_DRAG_THRESHOLD) {
+        dragState.active = true;
+        dragState.hasMoved = true;
+        this.suppressNextCanvasClick = true;
+      }
+    }
+    if (dragState.active && position) {
+      this.updateDeltaCommandDrag(position);
+    } else if (!dragState.active) {
+      dragState.trackAnchor = null;
+      dragState.anchorAvailable = false;
+    }
+    if (dragState.active) {
+      dragState.hasMoved = true;
+    }
+    if (!this.shouldAnimate) {
+      this.draw();
+    }
+    return;
+  }
+
   const isPanPointer =
     this.viewDragState.pointerId !== null &&
     event.pointerId === this.viewDragState.pointerId &&
@@ -254,6 +298,30 @@ function handleCanvasPointerDown(event) {
       }
       return;
     }
+    if (tower && tower.type === 'delta') {
+      this.clearDeltaCommandDragState();
+      const dragState = this.deltaCommandDragState;
+      dragState.pointerId = event.pointerId;
+      dragState.towerId = tower.id;
+      dragState.startPosition = position ? { ...position } : null;
+      dragState.currentPosition = position ? { ...position } : null;
+      dragState.startNormalized = normalized ? { ...normalized } : null;
+      dragState.currentNormalized = normalized ? { ...normalized } : null;
+      dragState.active = false;
+      dragState.hasMoved = false;
+      dragState.trackAnchor = null;
+      dragState.trackDistance = Infinity;
+      dragState.anchorAvailable = false;
+      this.suppressNextCanvasClick = false;
+      if (!isTouchPointer && typeof this.canvas?.setPointerCapture === 'function') {
+        try {
+          this.canvas.setPointerCapture(event.pointerId);
+        } catch (error) {
+          // Ignore pointer capture errors; dragging still functions without capture.
+        }
+      }
+      return;
+    }
   }
 
   if (canInitiateDrag) {
@@ -323,6 +391,31 @@ function handleCanvasPointerUp(event) {
     return;
   }
 
+  if (this.deltaCommandDragState.pointerId === event.pointerId) {
+    const dragState = this.deltaCommandDragState;
+    let committed = false;
+    if (dragState.active && dragState.trackAnchor) {
+      committed = this.commitDeltaCommandDrag();
+      if (committed) {
+        this.suppressNextCanvasClick = true;
+      }
+    } else if (dragState.hasMoved) {
+      this.suppressNextCanvasClick = true;
+    }
+    this.clearDeltaCommandDragState();
+    if (!isTouchPointer && typeof this.canvas?.releasePointerCapture === 'function') {
+      try {
+        this.canvas.releasePointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore browsers that throw if the pointer was not previously captured.
+      }
+    }
+    if (!this.shouldAnimate) {
+      this.draw();
+    }
+    return;
+  }
+
   if (this.viewDragState.pointerId === event.pointerId) {
     if (this.viewDragState.isDragging) {
       this.suppressNextCanvasClick = true;
@@ -351,6 +444,7 @@ function handleCanvasPointerLeave() {
   this.viewDragState.pointerId = null;
   this.viewDragState.isDragging = false;
   this.clearConnectionDragState();
+  this.clearDeltaCommandDragState();
 }
 
 function collectMoteGemsNear(position) {
