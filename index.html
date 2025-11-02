@@ -1502,37 +1502,40 @@
           <!-- Indicator for unused glyph currency relocated beneath the tab title. -->
           <span class="tab-icon-badge tab-icon-badge--glyphs" id="tab-glyph-badge" hidden>0</span>
         </button>
-        <button
-          class="tab-button"
-          data-tab="powder"
-          id="tab-powder"
-          type="button"
-          role="tab"
-          aria-label="Spire"
-          aria-controls="panel-powder"
-          aria-selected="false"
-          aria-pressed="false"
-        >
-          <span class="tab-icon">ℵ</span>
-          <span class="tab-label">Spire</span>
-          <!-- Persistent mote bank indicator relocated beneath the tab title. -->
-          <span class="tab-icon-badge tab-icon-badge--motes" id="tab-mote-badge">0.00</span>
-        </button>
-        <button
-          class="tab-button"
-          data-tab="fluid"
-          id="tab-fluid"
-          type="button"
-          role="tab"
-          aria-label="Fluid Study"
-          aria-controls="panel-fluid"
-          aria-selected="false"
-          aria-pressed="false"
-          hidden
-        >
-          <span class="tab-icon">∇</span>
-          <span class="tab-label">Fluid</span>
-        </button>
+        <!-- Split the spire tab so the lower half routes to the fluid study once unlocked. -->
+        <div class="tab-button-stack" id="tab-powder-stack" role="presentation" aria-hidden="false">
+          <button
+            class="tab-button tab-button--stacked"
+            data-tab="powder"
+            id="tab-powder"
+            type="button"
+            role="tab"
+            aria-label="Mote Spire"
+            aria-controls="panel-powder"
+            aria-selected="false"
+            aria-pressed="false"
+          >
+            <span class="tab-icon">ℵ</span>
+            <span class="tab-label">Spire</span>
+            <!-- Persistent mote bank indicator relocated beneath the tab title. -->
+            <span class="tab-icon-badge tab-icon-badge--motes" id="tab-mote-badge">0.00</span>
+          </button>
+          <button
+            class="tab-button tab-button--stacked tab-button--stacked-fluid"
+            data-tab="fluid"
+            id="tab-fluid"
+            type="button"
+            role="tab"
+            aria-label="Fluid Study"
+            aria-controls="panel-fluid"
+            aria-selected="false"
+            aria-pressed="false"
+            hidden
+          >
+            <span class="tab-icon">∇</span>
+            <span class="tab-label">Fluid</span>
+          </button>
+        </div>
         <button
           class="tab-button"
           data-tab="achievements"
