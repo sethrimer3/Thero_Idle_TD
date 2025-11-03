@@ -5531,6 +5531,14 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   box-shadow: 0 0 20px rgba(139, 247, 255, 0.35), 0 12px 20px rgba(0, 0, 0, 0.28);
 }
 
+/* Illuminate the fluid badge with a violet glow inspired by the fluid resonance palette. */
+.tab-icon-badge--fluid {
+  color: var(--accent-2);
+  border-color: rgba(168, 107, 255, 0.4);
+  text-shadow: 0 0 12px rgba(168, 107, 255, 0.6);
+  box-shadow: 0 0 20px rgba(168, 107, 255, 0.35), 0 12px 20px rgba(0, 0, 0, 0.28);
+}
+
 .tab-icon img {
   display: block;
   width: 1.75rem;
