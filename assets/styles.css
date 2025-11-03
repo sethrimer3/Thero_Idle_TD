@@ -1016,6 +1016,19 @@ body.graphics-mode-low .control-button {
   color: rgba(255, 228, 120, 0.75);
 }
 
+.tower-loadout-merge-cost {
+  /* Style the merge cost as a secondary line so players can distinguish it from the anchor price at a glance. */
+  margin: 0;
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+  color: rgba(139, 247, 255, 0.62);
+}
+
+.tower-loadout-merge-cost[data-available='true'] {
+  /* Brighten the merge cost when a higher tier is available to emphasize the actionable price. */
+  color: rgba(255, 228, 120, 0.68);
+}
+
 .playfield-stats {
   position: absolute;
   top: 16px;

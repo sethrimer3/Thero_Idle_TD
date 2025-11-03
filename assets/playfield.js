@@ -2492,6 +2492,8 @@ export class SimplePlayfield {
     if (merging && mergeTarget && selectedType === 'eta') {
       const merged = this.mergeEtaTower(mergeTarget, { silent });
       if (merged) {
+        // Clear the placement preview so η fusions do not leave a ghost icon tethered to the pointer.
+        this.clearPlacementPreview();
         notifyTowerPlaced(this.towers.length);
         return true;
       }
@@ -2548,6 +2550,8 @@ export class SimplePlayfield {
       if (this.audio && !silent) {
         this.audio.playSfx('towerMerge');
       }
+      // Clear the placement preview so successful tier merges do not keep the placement reticle active.
+      this.clearPlacementPreview();
       return true;
     }
 
