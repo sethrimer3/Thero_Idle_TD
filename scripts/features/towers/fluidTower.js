@@ -34,6 +34,8 @@ export class FluidSimulation {
     this.onIdleBankChange = typeof options.onIdleBankChange === 'function' ? options.onIdleBankChange : null;
     this.onWallMetricsChange =
       typeof options.onWallMetricsChange === 'function' ? options.onWallMetricsChange : null;
+    this.onViewTransformChange =
+      typeof options.onViewTransformChange === 'function' ? options.onViewTransformChange : null;
 
     this.width = 0;
     this.height = 0;
@@ -92,6 +94,8 @@ export class FluidSimulation {
     }
     this.dropVolumeScale = Number.isFinite(options.dropVolumeScale) ? Math.max(0.2, options.dropVolumeScale) : 0.75;
 
+    this.maxDuneGain = Number.isFinite(options.maxDuneGain) ? Math.max(0, options.maxDuneGain) : 1;
+
     const fallbackPalette = options.fallbackMotePalette || DEFAULT_MOTE_PALETTE;
     this.motePalette = mergeMotePalette(options.motePalette || fallbackPalette);
     this.defaultProfile = {
@@ -125,6 +129,9 @@ export class FluidSimulation {
       totalNormalized: 0,
       crestPosition: 1,
     };
+
+    this.viewScale = 1;
+    this.viewCenterNormalized = { x: 0.5, y: 0.5 };
 
     this.running = false;
     this.lastFrame = 0;
@@ -238,6 +245,7 @@ export class FluidSimulation {
     this.updateMaxDropSize();
     this.notifyWallMetricsChange();
     this.updateHeightInfo(true);
+    this.notifyViewTransformChange();
   }
 
   notifyWallMetricsChange(metrics) {
@@ -263,6 +271,11 @@ export class FluidSimulation {
       gapPixels: Math.max(0, this.width - this.wallInsetLeftCells * this.cellSize - this.wallInsetRightCells * this.cellSize),
       wallGapReferenceWidth: this.wallGapReferenceWidth,
       wallGapReferenceCols: this.wallGapReferenceCols,
+      cellSize: this.cellSize,
+      rows: this.rows,
+      cols: this.cols,
+      width: this.width,
+      height: this.height,
     };
   }
 
@@ -293,13 +306,61 @@ export class FluidSimulation {
       this.notifyWallMetricsChange();
       return;
     }
-    this.wallGapTargetUnits = Math.max(1, Math.round(units));
+    this.setWallGapTarget(units);
+  }
+
+  // Re-balance the interior lane so DOM walls track the simulation gap.
+  setWallGapTarget(gapCells, options = {}) {
+    if (!Number.isFinite(gapCells) || gapCells <= 0) {
+      this.wallGapTargetUnits = null;
+      return false;
+    }
+
+    const targetUnits = Math.max(1, Math.round(gapCells));
+    const previousLeft = this.wallInsetLeftCells;
+    const previousRight = this.wallInsetRightCells;
+
+    const activeCols = Math.max(1, this.cols || Math.round(this.width / Math.max(1, this.cellSize)) || targetUnits);
+    const clampedGap = Math.max(1, Math.min(targetUnits, activeCols));
+    const totalInset = Math.max(0, activeCols - clampedGap);
+    const nextLeft = Math.floor(totalInset / 2);
+    const nextRight = totalInset - nextLeft;
+
+    this.wallGapTargetUnits = clampedGap;
+    this.baseGapUnits = clampedGap;
+    this.wallGapReferenceCols = clampedGap;
+    this.wallGapReferenceWidth = clampedGap * this.cellSize;
+
+    this.wallInsetLeftCells = nextLeft;
+    this.wallInsetRightCells = nextRight;
+    this.wallInsetLeftPx = nextLeft * this.cellSize;
+    this.wallInsetRightPx = nextRight * this.cellSize;
+
+    this.updateMaxDropSize();
+
+    const changed = nextLeft !== previousLeft || nextRight !== previousRight;
+
+    if (options?.skipRebuild) {
+      this.notifyWallMetricsChange();
+      return changed;
+    }
+
+    this.updateHeightInfo(true);
+    this.render();
     this.notifyWallMetricsChange();
+    return changed;
   }
 
   updateMaxDropSize() {
     this.maxDropSize = Math.max(1, Math.floor(Math.max(this.width, this.height) / 40));
     this.maxDropRadius = this.maxDropSize;
+  }
+
+  // Compute the pixel span between the inner walls for spawning droplets.
+  getGapBounds() {
+    const start = this.wallInsetLeftCells * this.cellSize;
+    const end = Math.max(start, this.width - this.wallInsetRightCells * this.cellSize);
+    return { start, end };
   }
 
   addDrop(x, size = 1) {
@@ -312,6 +373,28 @@ export class FluidSimulation {
       velocity: 0,
     };
     this.pendingDrops.push(drop);
+  }
+
+  // Accept queued drops from the host UI and translate them into falling droplets.
+  queueDrop(dropLike) {
+    if (dropLike === null || dropLike === undefined) {
+      return;
+    }
+    const sizeValue = typeof dropLike === 'number'
+      ? dropLike
+      : Number.isFinite(dropLike.size)
+        ? dropLike.size
+        : 1;
+    const size = Math.max(1, Math.round(sizeValue));
+    const bounds = this.getGapBounds();
+    const span = Math.max(1, bounds.end - bounds.start);
+    const requestedX = typeof dropLike === 'object' && dropLike !== null && Number.isFinite(dropLike.x)
+      ? dropLike.x
+      : null;
+    const dropX = requestedX === null
+      ? bounds.start + Math.random() * span
+      : Math.max(bounds.start, Math.min(bounds.end, requestedX));
+    this.addDrop(dropX, size);
   }
 
   spawnPendingDrops(limit = Infinity) {
@@ -359,12 +442,37 @@ export class FluidSimulation {
     }
   }
 
+  // Emit natural droplets so the reservoir animates even without idle income.
+  spawnAmbientDrops(deltaMs) {
+    if (!Number.isFinite(deltaMs) || deltaMs <= 0) {
+      return;
+    }
+    this.spawnAccumulator += deltaMs;
+    const interval = Math.max(480, this.baseSpawnInterval * 2);
+    if (this.spawnAccumulator < interval) {
+      return;
+    }
+    const bounds = this.getGapBounds();
+    while (this.spawnAccumulator >= interval) {
+      this.spawnAccumulator -= interval;
+      const dropSize = this.dropSizes[Math.floor(Math.random() * this.dropSizes.length)] || 1;
+      const span = Math.max(1, bounds.end - bounds.start);
+      const dropX = bounds.start + Math.random() * span;
+      this.addDrop(dropX, dropSize);
+    }
+  }
+
   addIdleVolume(amount) {
     if (!Number.isFinite(amount) || amount <= 0) {
       return;
     }
     this.idleBank += amount;
     this.notifyIdleBankChange();
+  }
+
+  // Mirror the sand simulation API so idle banks hydrate the fluid study.
+  addIdleMotes(amount) {
+    this.addIdleVolume(amount);
   }
 
   updateDrops(deltaMs) {
@@ -461,6 +569,7 @@ export class FluidSimulation {
       return;
     }
     this.convertIdleBank(deltaMs);
+    this.spawnAmbientDrops(deltaMs);
     const spawnBudget = Math.max(1, Math.ceil(deltaMs / Math.max(30, this.baseSpawnInterval / 4)));
     this.spawnPendingDrops(spawnBudget);
     this.updateDrops(deltaMs);
@@ -578,6 +687,187 @@ export class FluidSimulation {
       this.ctx.fillStyle = dropColor;
       this.ctx.fill();
     }
+  }
+
+  // Provide a stable camera interface so powder UI overlays can reuse shared gestures.
+  getViewCenterWorld() {
+    const width = this.width || this.canvas?.clientWidth || 0;
+    const height = this.height || this.canvas?.clientHeight || 0;
+    const center = this.viewCenterNormalized || { x: 0.5, y: 0.5 };
+    return {
+      x: width * center.x,
+      y: height * center.y,
+    };
+  }
+
+  // Report the active camera transform (static for the fluid study) to the host UI.
+  getViewTransform() {
+    const width = this.width || this.canvas?.clientWidth || 0;
+    const height = this.height || this.canvas?.clientHeight || 0;
+    return {
+      width,
+      height,
+      scale: this.viewScale,
+      center: this.getViewCenterWorld(),
+      normalizedCenter: { ...(this.viewCenterNormalized || { x: 0.5, y: 0.5 }) },
+    };
+  }
+
+  // Synchronize transform updates with the powder UI bridge.
+  notifyViewTransformChange() {
+    if (typeof this.onViewTransformChange === 'function') {
+      this.onViewTransformChange(this.getViewTransform());
+    }
+  }
+
+  // Accept normalized camera centers even though the fluid study keeps a static viewpoint.
+  setViewCenterNormalized(normalized) {
+    const next = {
+      x: Number.isFinite(normalized?.x) ? Math.max(0, Math.min(1, normalized.x)) : 0.5,
+      y: Number.isFinite(normalized?.y) ? Math.max(0, Math.min(1, normalized.y)) : 0.5,
+    };
+    if (
+      this.viewCenterNormalized &&
+      Math.abs(this.viewCenterNormalized.x - next.x) < 0.0001 &&
+      Math.abs(this.viewCenterNormalized.y - next.y) < 0.0001
+    ) {
+      return;
+    }
+    this.viewCenterNormalized = next;
+    this.notifyViewTransformChange();
+  }
+
+  // Translate world-space coordinates into normalized camera positions.
+  setViewCenterFromWorld(world) {
+    if (!world) {
+      return;
+    }
+    const width = this.width || this.canvas?.clientWidth || 0;
+    const height = this.height || this.canvas?.clientHeight || 0;
+    if (!width || !height) {
+      this.setViewCenterNormalized({ x: 0.5, y: 0.5 });
+      return;
+    }
+    this.setViewCenterNormalized({ x: world.x / width, y: world.y / height });
+  }
+
+  // Maintain API parity with the sand basin while clamping to a limited zoom window.
+  applyZoomFactor(factor) {
+    if (!Number.isFinite(factor) || factor <= 0) {
+      return false;
+    }
+    const previous = Number.isFinite(this.viewScale) && this.viewScale > 0 ? this.viewScale : 1;
+    const next = Math.max(0.5, Math.min(1.5, previous * factor));
+    if (Math.abs(next - previous) < 0.0001) {
+      return false;
+    }
+    this.viewScale = next;
+    this.notifyViewTransformChange();
+    return true;
+  }
+
+  // Persist reservoir state so mode switches and reloads restore the water profile.
+  exportState() {
+    return {
+      version: 1,
+      columns: Array.isArray(this.columnHeights) ? [...this.columnHeights] : [],
+      velocities: Array.isArray(this.columnVelocities) ? [...this.columnVelocities] : [],
+      idleBank: Math.max(0, this.idleBank || 0),
+      pendingDrops: Array.isArray(this.pendingDrops)
+        ? this.pendingDrops.map((drop) => ({ ...drop }))
+        : [],
+      drops: Array.isArray(this.drops) ? this.drops.map((drop) => ({ ...drop })) : [],
+      baseGapUnits: this.baseGapUnits,
+      wallInsetLeftCells: this.wallInsetLeftCells,
+      wallInsetRightCells: this.wallInsetRightCells,
+      motePalette: this.motePalette
+        ? {
+            ...this.motePalette,
+            stops: Array.isArray(this.motePalette.stops)
+              ? this.motePalette.stops.map((stop) => ({ ...stop }))
+              : [],
+          }
+        : null,
+    };
+  }
+
+  // Restore a serialized reservoir snapshot captured during mode swaps or saves.
+  importState(state) {
+    if (!state || typeof state !== 'object') {
+      return false;
+    }
+
+    let applied = false;
+
+    if (Array.isArray(state.columns) && state.columns.length && Array.isArray(this.columnHeights)) {
+      const limit = Math.min(this.columnHeights.length, state.columns.length);
+      for (let index = 0; index < limit; index += 1) {
+        this.columnHeights[index] = Math.max(0, state.columns[index] || 0);
+      }
+      for (let index = limit; index < this.columnHeights.length; index += 1) {
+        this.columnHeights[index] = Math.max(0, this.columnHeights[index] || 0);
+      }
+      applied = true;
+    }
+
+    if (Array.isArray(state.velocities) && state.velocities.length && Array.isArray(this.columnVelocities)) {
+      const limit = Math.min(this.columnVelocities.length, state.velocities.length);
+      for (let index = 0; index < limit; index += 1) {
+        this.columnVelocities[index] = Number.isFinite(state.velocities[index])
+          ? state.velocities[index]
+          : this.columnVelocities[index];
+      }
+      applied = true;
+    }
+
+    if (Array.isArray(state.pendingDrops)) {
+      this.pendingDrops = state.pendingDrops
+        .map((drop) => ({ ...drop }))
+        .filter((drop) => Number.isFinite(drop?.size) && drop.size > 0);
+      applied = true;
+    }
+
+    if (Array.isArray(state.drops)) {
+      this.drops = state.drops
+        .map((drop) => ({ ...drop }))
+        .filter((drop) => Number.isFinite(drop?.size) && drop.size > 0);
+      applied = true;
+    }
+
+    if (Number.isFinite(state.idleBank)) {
+      this.idleBank = Math.max(0, state.idleBank);
+      this.notifyIdleBankChange();
+      applied = true;
+    }
+
+    if (Number.isFinite(state.baseGapUnits) && state.baseGapUnits > 0) {
+      this.setWallGapTarget(state.baseGapUnits, { skipRebuild: true });
+      applied = true;
+    }
+
+    if (Number.isFinite(state.wallInsetLeftCells) || Number.isFinite(state.wallInsetRightCells)) {
+      const left = Number.isFinite(state.wallInsetLeftCells) ? Math.max(0, state.wallInsetLeftCells) : this.wallInsetLeftCells;
+      const right = Number.isFinite(state.wallInsetRightCells) ? Math.max(0, state.wallInsetRightCells) : this.wallInsetRightCells;
+      this.wallInsetLeftCells = left;
+      this.wallInsetRightCells = right;
+      this.wallInsetLeftPx = left * this.cellSize;
+      this.wallInsetRightPx = right * this.cellSize;
+      applied = true;
+    }
+
+    if (state.motePalette) {
+      this.setMotePalette(state.motePalette);
+      applied = true;
+    }
+
+    if (applied) {
+      this.notifyWallMetricsChange();
+      this.updateHeightInfo(true);
+      this.render();
+      this.notifyViewTransformChange();
+    }
+
+    return applied;
   }
 
   getEffectiveMotePalette() {
