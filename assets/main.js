@@ -1012,7 +1012,14 @@ import {
     if (powderSimulation) {
       powderSimulation.idleBank = normalized;
     }
-    handlePowderIdleBankChange(powderSimulation ? powderSimulation.idleBank : normalized);
+    const origin = powderSimulation
+      ? powderSimulation === fluidSimulationInstance
+        ? 'fluid'
+        : 'sand'
+      : powderState.simulationMode === 'fluid'
+        ? 'fluid'
+        : 'sand';
+    handlePowderIdleBankChange(powderSimulation ? powderSimulation.idleBank : normalized, origin);
     recordDeveloperAdjustment('idle-mote-bank', normalized);
     // Developer tweaks should persist so debugging sessions survive reloads.
     schedulePowderBasinSave();
@@ -1027,7 +1034,14 @@ import {
     if (powderSimulation) {
       powderSimulation.idleDrainRate = normalized;
     }
-    powderState.idleDrainRate = normalized;
+    if (
+      powderSimulation === fluidSimulationInstance ||
+      (!powderSimulation && powderState.simulationMode === 'fluid')
+    ) {
+      powderState.fluidIdleDrainRate = normalized;
+    } else {
+      powderState.idleDrainRate = normalized;
+    }
     recordDeveloperAdjustment('idle-mote-rate', normalized);
     // Persist idle rate overrides to keep testing scenarios reproducible.
     schedulePowderBasinSave();
@@ -1575,6 +1589,7 @@ import {
     glyphsUnused: null,
     tabGlyphBadge: null,
     tabMoteBadge: null,
+    tabFluidBadge: null,
   };
 
   // Cache the relocated resource nodes so status updates only swap text content.
@@ -1584,6 +1599,7 @@ import {
     resourceElements.glyphsUnused = document.getElementById('tower-glyphs-unused');
     resourceElements.tabGlyphBadge = document.getElementById('tab-glyph-badge');
     resourceElements.tabMoteBadge = document.getElementById('tab-mote-badge');
+    resourceElements.tabFluidBadge = document.getElementById('tab-fluid-badge');
     updateStatusDisplays();
   }
 
@@ -1628,9 +1644,24 @@ import {
       resourceElements.tabMoteBadge.setAttribute('aria-hidden', 'false');
     }
 
+    const bankedDrops = getCurrentFluidDropBank();
+    if (resourceElements.tabFluidBadge) {
+      const tabStoredLabel = formatGameNumber(bankedDrops);
+      resourceElements.tabFluidBadge.textContent = tabStoredLabel;
+      resourceElements.tabFluidBadge.setAttribute('aria-label', `${tabStoredLabel} drops in bank`);
+      if (powderState.fluidUnlocked) {
+        resourceElements.tabFluidBadge.removeAttribute('hidden');
+        resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'false');
+      } else {
+        resourceElements.tabFluidBadge.setAttribute('hidden', '');
+        resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'true');
+      }
+    }
+
     // Refresh mote-specific HUD elements whenever core status displays tick.
     updateMoteStatsDisplays();
     updatePowderModeButton();
+    updateFluidDisplay();
   }
 
   const baseResources = {
@@ -1676,6 +1707,10 @@ import {
     idleDrainRate: 1,
     pendingMoteDrops: [],
     idleBankHydrated: false, // Tracks whether the active simulation already holds the saved idle motes.
+    fluidIdleBank: 0,
+    fluidIdleDrainRate: 1,
+    pendingFluidDrops: [],
+    fluidBankHydrated: false,
     motePalette: mergeMotePalette(DEFAULT_MOTE_PALETTE),
     simulationMode: 'sand',
     wallGapTarget: powderConfig.wallBaseGapMotes,
@@ -1688,6 +1723,7 @@ import {
     viewTransform: null,
     // Preserve serialized simulation payloads until the active basin is ready to restore them.
     loadedSimulationState: null,
+    loadedFluidState: null,
   };
 
   // Initialize the Towers tab emblem to the default mote palette before any theme swaps occur.
@@ -1864,6 +1900,9 @@ import {
     const pendingDrops = Array.isArray(powderState.pendingMoteDrops)
       ? powderState.pendingMoteDrops.map(cloneStoredMoteDrop).filter(Boolean)
       : [];
+    const pendingFluidDrops = Array.isArray(powderState.pendingFluidDrops)
+      ? powderState.pendingFluidDrops.map(cloneStoredMoteDrop).filter(Boolean)
+      : [];
     const palette = mergeMotePalette(powderState.motePalette);
 
     const liveTransform =
@@ -1898,6 +1937,12 @@ import {
         : powderState.loadedSimulationState && typeof powderState.loadedSimulationState === 'object'
           ? powderState.loadedSimulationState
           : null;
+    const fluidSimulationSnapshot =
+      fluidSimulationInstance && typeof fluidSimulationInstance.exportState === 'function'
+        ? fluidSimulationInstance.exportState()
+        : powderState.loadedFluidState && typeof powderState.loadedFluidState === 'object'
+          ? powderState.loadedFluidState
+          : null;
 
     // Calculate current aleph glyph number from height for accurate restoration
     const currentGlyphsLit = Number.isFinite(status?.highestNormalized) || Number.isFinite(status?.totalNormalized)
@@ -1924,6 +1969,9 @@ import {
       idleMoteBank: Math.max(0, clampFiniteNumber(powderState.idleMoteBank, 0)),
       idleDrainRate: Math.max(0, clampFiniteNumber(powderState.idleDrainRate, 0)),
       pendingMoteDrops: pendingDrops,
+      fluidIdleBank: Math.max(0, clampFiniteNumber(powderState.fluidIdleBank, 0)),
+      fluidIdleDrainRate: Math.max(0, clampFiniteNumber(powderState.fluidIdleDrainRate, 0)),
+      pendingFluidDrops,
       motePalette: palette,
       simulationMode: powderState.simulationMode === 'fluid' ? 'fluid' : 'sand',
       wallGapTarget: Number.isFinite(powderState.wallGapTarget)
@@ -1946,6 +1994,7 @@ import {
     return {
       powder: powderSnapshot,
       simulation: simulationSnapshot,
+      fluidSimulation: fluidSimulationSnapshot,
     };
   }
 
@@ -1985,6 +2034,18 @@ import {
         powderState.pendingMoteDrops = base.pendingMoteDrops.map(cloneStoredMoteDrop).filter(Boolean);
       } else {
         powderState.pendingMoteDrops = [];
+      }
+      if (Number.isFinite(base.fluidIdleBank)) {
+        powderState.fluidIdleBank = Math.max(0, base.fluidIdleBank);
+        powderState.fluidBankHydrated = false;
+      }
+      if (Number.isFinite(base.fluidIdleDrainRate)) {
+        powderState.fluidIdleDrainRate = Math.max(0, base.fluidIdleDrainRate);
+      }
+      if (Array.isArray(base.pendingFluidDrops)) {
+        powderState.pendingFluidDrops = base.pendingFluidDrops.map(cloneStoredMoteDrop).filter(Boolean);
+      } else {
+        powderState.pendingFluidDrops = [];
       }
       if (base.motePalette) {
         powderState.motePalette = mergeMotePalette(base.motePalette);
@@ -2035,6 +2096,10 @@ import {
         };
       }
       powderState.loadedSimulationState = simulationState;
+    }
+    const storedFluidState = snapshot.fluidSimulation || snapshot.loadedFluidState || null;
+    if (storedFluidState && typeof storedFluidState === 'object') {
+      powderState.loadedFluidState = storedFluidState;
     }
     // After reconciling persisted data, schedule a save so the sanitized snapshot replaces stale copies.
     schedulePowderBasinSave();
@@ -2159,6 +2224,7 @@ import {
   // Powder simulation metrics are supplied via the powder tower module.
   const powderGlyphColumns = [];
   let powderWallMetrics = null;
+  let fluidWallMetrics = null;
 
   // Wire the standalone offline persistence helpers to the shared gameplay state and utilities.
   configureOfflinePersistence({
@@ -2326,8 +2392,10 @@ import {
   }
 
   function syncPowderWallVisuals(metrics) {
+    const isFluidActive = powderSimulation === fluidSimulationInstance;
+    const cachedMetrics = isFluidActive ? fluidWallMetrics : powderWallMetrics;
     const activeMetrics =
-      metrics || powderWallMetrics || (powderSimulation ? powderSimulation.getWallMetrics() : null);
+      metrics || cachedMetrics || (powderSimulation ? powderSimulation.getWallMetrics() : null);
     if (!activeMetrics) {
       return;
     }
@@ -2371,7 +2439,9 @@ import {
   }
 
   function updatePowderHitboxVisibility() {
-    const metrics = powderWallMetrics || (powderSimulation ? powderSimulation.getWallMetrics() : null);
+    const isFluidActive = powderSimulation === fluidSimulationInstance;
+    const cachedMetrics = isFluidActive ? fluidWallMetrics : powderWallMetrics;
+    const metrics = cachedMetrics || (powderSimulation ? powderSimulation.getWallMetrics() : null);
     const showHitboxes = developerModeActive && metrics;
     const activeElements = getElementsForSimulation(powderSimulation);
     const inactiveElements = activeElements === powderElements ? fluidElements : powderElements;
@@ -2396,8 +2466,13 @@ import {
     }
   }
 
-  function handlePowderWallMetricsChange(metrics) {
-    powderWallMetrics = metrics || null;
+  function handlePowderWallMetricsChange(metrics, source) {
+    const origin = source || (powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand');
+    if (origin === 'fluid') {
+      fluidWallMetrics = metrics || null;
+    } else {
+      powderWallMetrics = metrics || null;
+    }
     syncPowderWallVisuals(metrics || undefined);
     updatePowderHitboxVisibility();
     // Queue a basin snapshot so wall spacing changes survive future sessions.
@@ -2448,6 +2523,10 @@ import {
       tabButton.removeAttribute('hidden');
       tabButton.setAttribute('aria-hidden', 'false');
       tabButton.disabled = false;
+      if (resourceElements.tabFluidBadge) {
+        resourceElements.tabFluidBadge.removeAttribute('hidden');
+        resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'false');
+      }
     } else {
       if (tabStack) {
         // Collapse the stack back into a single button while the fluid study remains locked.
@@ -2458,6 +2537,10 @@ import {
       tabButton.setAttribute('hidden', '');
       tabButton.setAttribute('aria-hidden', 'true');
       tabButton.disabled = true;
+      if (resourceElements.tabFluidBadge) {
+        resourceElements.tabFluidBadge.setAttribute('hidden', '');
+        resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'true');
+      }
     }
     syncFluidTabStackState();
   }
@@ -2694,9 +2777,9 @@ import {
             rippleFrequency: profile.rippleFrequency ?? undefined,
             rippleAmplitude: profile.rippleAmplitude ?? undefined,
             maxDuneGain: powderConfig.simulatedDuneGainMax,
-            onIdleBankChange: handlePowderIdleBankChange,
-            onHeightChange: handlePowderHeightChange,
-            onWallMetricsChange: handlePowderWallMetricsChange,
+            onIdleBankChange: (value) => handlePowderIdleBankChange(value, 'fluid'),
+            onHeightChange: (info) => handlePowderHeightChange(info, 'fluid'),
+            onWallMetricsChange: (metrics) => handlePowderWallMetricsChange(metrics, 'fluid'),
             onViewTransformChange: handlePowderViewTransformChange,
           });
         }
@@ -2720,7 +2803,7 @@ import {
         powderState.motePalette = powderSimulation.getEffectiveMotePalette();
         // Update the Mind Gate UI badge so fluid-mode palettes propagate outside the canvas.
         applyMindGatePaletteToDom(powderState.motePalette);
-        powderState.idleDrainRate = powderSimulation.idleDrainRate;
+        powderState.fluidIdleDrainRate = powderSimulation.idleDrainRate;
         powderState.simulationMode = 'fluid';
         powderSimulation.setWallGapTarget(powderState.wallGapTarget || powderConfig.wallBaseGapMotes, {
           skipRebuild: true,
@@ -2752,9 +2835,9 @@ import {
             maxDuneGain: powderConfig.simulatedDuneGainMax,
             idleDrainRate: powderState.idleDrainRate,
             motePalette: powderState.motePalette,
-            onIdleBankChange: handlePowderIdleBankChange,
-            onHeightChange: handlePowderHeightChange,
-            onWallMetricsChange: handlePowderWallMetricsChange,
+            onIdleBankChange: (value) => handlePowderIdleBankChange(value, 'sand'),
+            onHeightChange: (info) => handlePowderHeightChange(info, 'sand'),
+            onWallMetricsChange: (metrics) => handlePowderWallMetricsChange(metrics, 'sand'),
             onViewTransformChange: handlePowderViewTransformChange,
           });
         }
@@ -2791,8 +2874,12 @@ import {
         }
       }
 
-      powderWallMetrics = powderSimulation ? powderSimulation.getWallMetrics() : null;
-      syncPowderWallVisuals(powderWallMetrics || undefined);
+      if (powderSimulation === fluidSimulationInstance) {
+        fluidWallMetrics = powderSimulation ? powderSimulation.getWallMetrics() : null;
+      } else {
+        powderWallMetrics = powderSimulation ? powderSimulation.getWallMetrics() : null;
+      }
+      syncPowderWallVisuals((powderSimulation === fluidSimulationInstance ? fluidWallMetrics : powderWallMetrics) || undefined);
       updatePowderHitboxVisibility();
       handlePowderHeightChange(powderSimulation ? powderSimulation.getStatus() : undefined);
       updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
@@ -2990,14 +3077,19 @@ import {
     if (!simulation) {
       return;
     }
+    const isFluid = simulation === fluidSimulationInstance;
+    const stateKey = isFluid ? 'loadedFluidState' : 'loadedSimulationState';
+    const pendingKey = isFluid ? 'pendingFluidDrops' : 'pendingMoteDrops';
+    const bankKey = isFluid ? 'fluidIdleBank' : 'idleMoteBank';
+    const hydratedKey = isFluid ? 'fluidBankHydrated' : 'idleBankHydrated';
     let snapshotCaptured = false;
     if (typeof simulation.exportState === 'function') {
       const snapshot = simulation.exportState();
       if (snapshot && typeof snapshot === 'object') {
-        powderState.loadedSimulationState = snapshot;
+        powderState[stateKey] = snapshot;
         snapshotCaptured = true;
-        if (Array.isArray(powderState.pendingMoteDrops)) {
-          powderState.pendingMoteDrops.length = 0;
+        if (Array.isArray(powderState[pendingKey])) {
+          powderState[pendingKey].length = 0;
         }
       }
     }
@@ -3012,13 +3104,20 @@ import {
         if (drop && typeof drop === 'object' && drop.color && typeof drop.color === 'object') {
           pendingDrop.color = { ...drop.color };
         }
-        powderState.pendingMoteDrops.push(pendingDrop);
+        powderState[pendingKey].push(pendingDrop);
       });
       simulation.pendingDrops.length = 0;
     }
     if (Number.isFinite(simulation.idleBank)) {
-      powderState.idleMoteBank = Math.max(0, simulation.idleBank);
-      powderState.idleBankHydrated = false;
+      powderState[bankKey] = Math.max(0, simulation.idleBank);
+      powderState[hydratedKey] = false;
+    }
+    if (Number.isFinite(simulation.idleDrainRate)) {
+      if (isFluid) {
+        powderState.fluidIdleDrainRate = Math.max(0, simulation.idleDrainRate);
+      } else {
+        powderState.idleDrainRate = Math.max(0, simulation.idleDrainRate);
+      }
     }
     if (typeof simulation.getEffectiveMotePalette === 'function') {
       powderState.motePalette = simulation.getEffectiveMotePalette();
@@ -3034,7 +3133,13 @@ import {
     if (!simulation || typeof simulation.importState !== 'function') {
       return;
     }
-    const snapshot = powderState.loadedSimulationState;
+    const isFluid = simulation === fluidSimulationInstance;
+    const stateKey = isFluid ? 'loadedFluidState' : 'loadedSimulationState';
+    const pendingKey = isFluid ? 'pendingFluidDrops' : 'pendingMoteDrops';
+    const bankKey = isFluid ? 'fluidIdleBank' : 'idleMoteBank';
+    const hydratedKey = isFluid ? 'fluidBankHydrated' : 'idleBankHydrated';
+    const drainKey = isFluid ? 'fluidIdleDrainRate' : 'idleDrainRate';
+    const snapshot = powderState[stateKey];
     if (!snapshot || typeof snapshot !== 'object') {
       return;
     }
@@ -3042,18 +3147,18 @@ import {
     if (!applied) {
       return;
     }
-    powderState.loadedSimulationState = null;
-    powderState.idleMoteBank = Math.max(
+    powderState[stateKey] = null;
+    powderState[bankKey] = Math.max(
       0,
       Number.isFinite(snapshot.idleBank) ? snapshot.idleBank : simulation.idleBank || 0,
     );
-    powderState.idleBankHydrated = true;
-    powderState.idleDrainRate = simulation.idleDrainRate;
+    powderState[hydratedKey] = true;
+    powderState[drainKey] = simulation.idleDrainRate;
     powderState.motePalette = simulation.getEffectiveMotePalette();
     // Apply the restored palette so the Towers tab matches the revived basin state.
     applyMindGatePaletteToDom(powderState.motePalette);
-    if (Array.isArray(powderState.pendingMoteDrops)) {
-      powderState.pendingMoteDrops.length = 0;
+    if (Array.isArray(powderState[pendingKey])) {
+      powderState[pendingKey].length = 0;
     }
     // Restore wall gap from saved glyph number to ensure wall width matches saved progress
     if (Number.isFinite(powderState.wallGlyphsLit)) {
@@ -3093,7 +3198,11 @@ import {
       schedulePowderBasinSave();
       return;
     }
-    powderState.pendingMoteDrops.push(payload);
+    const targetIsFluid =
+      powderSimulation === fluidSimulationInstance ||
+      (!powderSimulation && powderState.simulationMode === 'fluid');
+    const pendingList = targetIsFluid ? powderState.pendingFluidDrops : powderState.pendingMoteDrops;
+    pendingList.push(payload);
     // Persist pending drops so they spawn correctly after a reload.
     schedulePowderBasinSave();
   }
@@ -3148,8 +3257,8 @@ import {
 
   // Surface the live idle mote bank so developer controls and HUD panels can sync immediately.
   function getCurrentIdleMoteBank() {
-    if (powderSimulation && Number.isFinite(powderSimulation.idleBank)) {
-      const bank = Math.max(0, powderSimulation.idleBank);
+    if (powderSimulation === sandSimulation && sandSimulation && Number.isFinite(sandSimulation.idleBank)) {
+      const bank = Math.max(0, sandSimulation.idleBank);
       powderState.idleMoteBank = bank;
       powderState.idleBankHydrated = true;
       return bank;
@@ -3159,25 +3268,57 @@ import {
 
   // Provide the active mote dispense rate exposed by the current simulation profile or powder state.
   function getCurrentMoteDispenseRate() {
-    if (powderSimulation && Number.isFinite(powderSimulation.idleDrainRate)) {
-      const rate = Math.max(0, powderSimulation.idleDrainRate);
+    if (powderSimulation === sandSimulation && sandSimulation && Number.isFinite(sandSimulation.idleDrainRate)) {
+      const rate = Math.max(0, sandSimulation.idleDrainRate);
       powderState.idleDrainRate = rate;
       return rate;
     }
     return Math.max(0, powderState.idleDrainRate || 0);
   }
 
+  function getCurrentFluidDropBank() {
+    if (fluidSimulationInstance && Number.isFinite(fluidSimulationInstance.idleBank)) {
+      const bank = Math.max(0, fluidSimulationInstance.idleBank);
+      powderState.fluidIdleBank = bank;
+      powderState.fluidBankHydrated = true;
+      return bank;
+    }
+    return Math.max(0, powderState.fluidIdleBank || 0);
+  }
+
+  function getCurrentFluidDispenseRate() {
+    if (fluidSimulationInstance && Number.isFinite(fluidSimulationInstance.idleDrainRate)) {
+      const rate = Math.max(0, fluidSimulationInstance.idleDrainRate);
+      powderState.fluidIdleDrainRate = rate;
+      return rate;
+    }
+    return Math.max(0, powderState.fluidIdleDrainRate || 0);
+  }
+
   function addIdleMoteBank(amount) {
     if (!Number.isFinite(amount) || amount <= 0) {
       return;
     }
+    const targetIsFluid =
+      powderSimulation === fluidSimulationInstance ||
+      (!powderSimulation && powderState.simulationMode === 'fluid');
     if (powderSimulation) {
       powderSimulation.addIdleMotes(amount);
-      powderState.idleMoteBank = Math.max(0, powderSimulation.idleBank);
-      powderState.idleBankHydrated = true;
+      if (targetIsFluid) {
+        powderState.fluidIdleBank = Math.max(0, powderSimulation.idleBank);
+        powderState.fluidBankHydrated = true;
+      } else {
+        powderState.idleMoteBank = Math.max(0, powderSimulation.idleBank);
+        powderState.idleBankHydrated = true;
+      }
     } else {
-      powderState.idleMoteBank = Math.max(0, powderState.idleMoteBank + amount);
-      powderState.idleBankHydrated = false;
+      if (targetIsFluid) {
+        powderState.fluidIdleBank = Math.max(0, powderState.fluidIdleBank + amount);
+        powderState.fluidBankHydrated = false;
+      } else {
+        powderState.idleMoteBank = Math.max(0, powderState.idleMoteBank + amount);
+        powderState.idleBankHydrated = false;
+      }
     }
     // Persist idle bank adjustments so offline rewards survive tab closures.
     schedulePowderBasinSave();
@@ -3188,8 +3329,10 @@ import {
     if (!powderSimulation || typeof powderSimulation.queueDrop !== 'function') {
       return;
     }
-    if (powderState.pendingMoteDrops.length) {
-      powderState.pendingMoteDrops.forEach((drop) => {
+    const isFluid = powderSimulation === fluidSimulationInstance;
+    const pendingDrops = isFluid ? powderState.pendingFluidDrops : powderState.pendingMoteDrops;
+    if (pendingDrops.length) {
+      pendingDrops.forEach((drop) => {
         const sizeValue = Number.isFinite(drop?.size) ? drop.size : drop;
         if (!Number.isFinite(sizeValue)) {
           return;
@@ -3200,21 +3343,23 @@ import {
           : { size: normalized };
         powderSimulation.queueDrop(payload);
       });
-      powderState.pendingMoteDrops.length = 0;
+      pendingDrops.length = 0;
     }
-    const pendingBank = Math.max(0, Number.isFinite(powderState.idleMoteBank) ? powderState.idleMoteBank : 0);
+    const bankKey = isFluid ? 'fluidIdleBank' : 'idleMoteBank';
+    const hydratedKey = isFluid ? 'fluidBankHydrated' : 'idleBankHydrated';
+    const pendingBank = Math.max(0, Number.isFinite(powderState[bankKey]) ? powderState[bankKey] : 0);
     if (pendingBank > 0) {
       const simulationBank = Number.isFinite(powderSimulation.idleBank)
         ? Math.max(0, powderSimulation.idleBank)
         : 0;
-      const shouldInject = !powderState.idleBankHydrated || Math.abs(simulationBank - pendingBank) > 0.5;
+      const shouldInject = !powderState[hydratedKey] || Math.abs(simulationBank - pendingBank) > 0.5;
       if (shouldInject) {
         powderSimulation.addIdleMotes(pendingBank);
-        powderState.idleMoteBank = 0;
+        powderState[bankKey] = 0;
       } else {
-        powderState.idleMoteBank = simulationBank;
+        powderState[bankKey] = simulationBank;
       }
-      powderState.idleBankHydrated = true;
+      powderState[hydratedKey] = true;
     }
     // Flushes change the basin layout, so capture them for the next resume.
     schedulePowderBasinSave();
@@ -6515,6 +6660,10 @@ import {
     powderState.idleDrainRate = 1;
     powderState.pendingMoteDrops = [];
     powderState.idleBankHydrated = false;
+    powderState.fluidIdleBank = 0;
+    powderState.fluidIdleDrainRate = 1;
+    powderState.pendingFluidDrops = [];
+    powderState.fluidBankHydrated = false;
     powderState.motePalette = mergeMotePalette(DEFAULT_MOTE_PALETTE);
     applyMindGatePaletteToDom(powderState.motePalette);
     powderState.simulationMode = 'sand';
@@ -6525,6 +6674,7 @@ import {
     updateFluidTabAvailability();
     powderState.viewTransform = null;
     powderState.loadedSimulationState = null;
+    powderState.loadedFluidState = null;
 
     currentPowderBonuses = {
       sandBonus: 0,
@@ -6533,6 +6683,7 @@ import {
       totalMultiplier: 1,
     };
     powderWallMetrics = null;
+    fluidWallMetrics = null;
 
     clearTowerUpgradeState();
     reconcileGlyphCurrencyFromState();
@@ -6786,13 +6937,15 @@ import {
       fluidElements.depthValue.textContent = `${formatDecimal(normalizedHeight * 100, 1)}% full`;
     }
 
-    const idleBank = Number.isFinite(powderState.idleMoteBank) ? Math.max(0, powderState.idleMoteBank) : 0;
+    const idleBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
     if (fluidElements.reservoirValue) {
       const dropLabel = idleBank === 1 ? 'Drop' : 'Drops';
       fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} ${dropLabel}`;
     }
 
-    const drainRate = Number.isFinite(powderState.idleDrainRate) ? Math.max(0, powderState.idleDrainRate) : 0;
+    const drainRate = Number.isFinite(powderState.fluidIdleDrainRate)
+      ? Math.max(0, powderState.fluidIdleDrainRate)
+      : 0;
     if (fluidElements.dripRateValue) {
       fluidElements.dripRateValue.textContent = `${formatDecimal(drainRate, 2)} drops/sec`;
     }
@@ -6822,13 +6975,35 @@ import {
     }
   }
 
-  function handlePowderIdleBankChange(bankValue) {
+  function handlePowderIdleBankChange(bankValue, source) {
     const normalized = Number.isFinite(bankValue) ? Math.max(0, bankValue) : 0;
+    const origin = source || (powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand');
+    if (origin === 'fluid') {
+      const previous = Number.isFinite(powderState.fluidIdleBank) ? powderState.fluidIdleBank : 0;
+      powderState.fluidIdleBank = normalized;
+      powderState.fluidBankHydrated = powderSimulation === fluidSimulationInstance;
+      if (resourceElements.tabFluidBadge) {
+        const tabStoredLabel = formatGameNumber(normalized);
+        resourceElements.tabFluidBadge.textContent = tabStoredLabel;
+        resourceElements.tabFluidBadge.setAttribute('aria-label', `${tabStoredLabel} drops in bank`);
+        if (powderState.fluidUnlocked) {
+          resourceElements.tabFluidBadge.removeAttribute('hidden');
+          resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'false');
+        }
+      }
+      if (Math.abs(previous - normalized) >= 0.0001) {
+        schedulePowderBasinSave();
+      }
+      updateFluidDisplay();
+      return;
+    }
+
     const previous = Number.isFinite(powderState.idleMoteBank) ? powderState.idleMoteBank : 0;
     powderState.idleMoteBank = normalized;
-    powderState.idleBankHydrated = !!powderSimulation;
+    powderState.idleBankHydrated = powderSimulation === sandSimulation && !!sandSimulation;
 
     if (Math.abs(previous - normalized) < 0.0001) {
+      updateFluidDisplay();
       return;
     }
 
@@ -6848,8 +7023,15 @@ import {
     updateFluidDisplay();
   }
 
-  function handlePowderHeightChange(info) {
+  function handlePowderHeightChange(info, source) {
     if (!info) {
+      return;
+    }
+
+    const origin = source || (powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand');
+    if (origin === 'fluid') {
+      updateFluidDisplay(info);
+      schedulePowderBasinSave();
       return;
     }
 
