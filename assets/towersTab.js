@@ -27,6 +27,7 @@ import {
   clearTowerEquipment,
   addEquipmentListener as addEquipmentStateListener,
 } from './equipment.js';
+import { formatCombatNumber } from './playfield/utils/formatting.js'; // Format tower costs with the same notation used in combat messaging.
 
 const HAS_POINTER_EVENTS = typeof window !== 'undefined' && 'PointerEvent' in window; // Detect pointer support for tooltip listeners.
 const EQUATION_TOOLTIP_MARGIN_PX = 12; // Maintain consistent spacing between the tooltip and the hovered variable.
@@ -3279,24 +3280,62 @@ export function refreshTowerLoadoutDisplay() {
   }
   const interactive = Boolean(towerTabState.playfield && towerTabState.playfield.isInteractiveLevelActive());
   const items = grid.querySelectorAll('.tower-loadout-item');
+  // Format loadout cost readouts using the combat formatter while guarding against infinite numbers.
+  const formatCostLabel = (value) => {
+    if (!Number.isFinite(value)) {
+      return '∞';
+    }
+    return formatCombatNumber(Math.max(0, value));
+  };
   items.forEach((item) => {
     const towerId = item.dataset.towerId;
     const definition = getTowerDefinition(towerId);
     if (!definition) {
       return;
     }
-    const currentCost = towerTabState.playfield
+    const anchorCostValue = towerTabState.playfield
       ? towerTabState.playfield.getCurrentTowerCost(towerId)
-      : definition.baseCost;
+      : Number.isFinite(definition.baseCost)
+      ? definition.baseCost
+      : 0;
+    const anchorCostLabel = formatCostLabel(anchorCostValue);
     const costEl = item.querySelector('.tower-loadout-cost');
     if (costEl) {
-      costEl.textContent = `${Math.round(currentCost)} ${towerTabState.theroSymbol}`;
+      // Surface the current anchoring cost directly beneath the tower icon for quick scanning.
+      costEl.textContent = `Anchor: ${anchorCostLabel} ${towerTabState.theroSymbol}`;
+    }
+    const mergeCostEl = item.querySelector('.tower-loadout-merge-cost');
+    const nextTowerId = getNextTowerId(towerId);
+    const nextDefinition = nextTowerId ? getTowerDefinition(nextTowerId) : null;
+    let mergeAriaLabel = 'Merge unavailable';
+    if (mergeCostEl) {
+      if (nextDefinition) {
+        const mergeCostValue = towerTabState.playfield
+          ? towerTabState.playfield.getCurrentTowerCost(nextTowerId)
+          : Number.isFinite(nextDefinition.baseCost)
+          ? nextDefinition.baseCost
+          : 0;
+        const mergeCostLabel = formatCostLabel(mergeCostValue);
+        // Highlight the energy required to fuse into the next tier so players can budget merges.
+        mergeCostEl.textContent = `Merge: ${mergeCostLabel} ${towerTabState.theroSymbol}`;
+        mergeCostEl.dataset.available = 'true';
+        mergeAriaLabel = `Merge ${mergeCostLabel} ${towerTabState.theroSymbol}`;
+      } else {
+        // Make it clear when no higher tier exists, keeping the layout stable.
+        mergeCostEl.textContent = 'Merge: —';
+        mergeCostEl.dataset.available = 'false';
+        mergeAriaLabel = 'Merge unavailable';
+      }
     }
     if (definition && item) {
-      const label = `${definition.name} — ${Math.round(currentCost)} ${towerTabState.theroSymbol}`;
-      item.setAttribute('aria-label', label); // Surface name and price for assistive tech now that the text label is hidden.
+      const labelParts = [
+        definition.name,
+        `Anchor ${anchorCostLabel} ${towerTabState.theroSymbol}`,
+        mergeAriaLabel,
+      ];
+      item.setAttribute('aria-label', labelParts.join(' — ')); // Surface name, base cost, and merge cost for screen readers.
     }
-    const affordable = interactive ? towerTabState.playfield.energy >= currentCost : false;
+    const affordable = interactive ? towerTabState.playfield.energy >= anchorCostValue : false;
     item.dataset.valid = affordable ? 'true' : 'false';
     item.dataset.disabled = interactive ? 'false' : 'true';
     item.disabled = !interactive;
@@ -3356,9 +3395,14 @@ function renderTowerLoadout() {
 
     const costEl = document.createElement('span');
     costEl.className = 'tower-loadout-cost';
-    costEl.textContent = '—';
+    costEl.textContent = 'Anchor: —'; // Seed the anchor cost label so the slot never flashes empty during initialization.
 
-    item.append(artwork, costEl); // Present only the icon with the cost stacked below it to save vertical space.
+    const mergeCostEl = document.createElement('span');
+    mergeCostEl.className = 'tower-loadout-merge-cost';
+    mergeCostEl.dataset.available = 'false';
+    mergeCostEl.textContent = 'Merge: —'; // Seed the merge cost line so layout stays stable during updates.
+
+    item.append(artwork, costEl, mergeCostEl); // Present the icon with both anchor and merge costs stacked below it for quick scanning.
 
     item.addEventListener('pointerdown', (event) => startTowerDrag(event, towerId, item));
 
