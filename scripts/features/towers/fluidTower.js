@@ -69,7 +69,9 @@ export class FluidSimulation {
     this.drops = [];
     this.pendingDrops = [];
     this.idleBank = 0;
-    this.idleAccumulator = 0;
+    this.idleAccumulator = 0; // Track fractional idle drain progress so 1/sec stays 1/sec instead of 60/sec.
+    this.idleDropBuffer = 0; // Converted idle volume waiting to be emitted as visible droplets.
+    this.idleDropAccumulator = 0; // Release cadence timer for buffered droplets.
     this.maxDropSize = 1;
     this.maxDropRadius = 1;
     this.largestDrop = 0;
@@ -424,22 +426,81 @@ export class FluidSimulation {
   }
 
   convertIdleBank(deltaMs) {
-    if (this.idleBank <= 0 || deltaMs <= 0) {
-      return;
+    if (!Number.isFinite(deltaMs) || deltaMs <= 0) {
+      return 0;
     }
-    const drainRate = Math.max(0.1, this.idleDrainRate);
-    const drainAmount = Math.min(this.idleBank, (drainRate * deltaMs) / 1000);
-    if (drainAmount > 0) {
-      this.idleBank -= drainAmount;
-      this.notifyIdleBankChange();
+    if (this.idleBank <= 0) {
+      if (this.idleDropBuffer <= 0) {
+        this.idleAccumulator = 0;
+      }
+      return 0;
     }
-    const spawnInterval = Math.max(30, this.baseSpawnInterval * 0.8);
-    const dropCount = Math.max(1, Math.round((drainAmount * 1000) / spawnInterval));
-    for (let index = 0; index < dropCount; index += 1) {
+
+    const ratePerMs = Math.max(0, this.idleDrainRate) / 1000;
+    if (ratePerMs <= 0) {
+      return 0;
+    }
+
+    this.idleAccumulator += deltaMs * ratePerMs;
+    const availableBank = Math.floor(Math.max(0, this.idleBank));
+    const toQueue = Math.max(0, Math.min(availableBank, Math.floor(this.idleAccumulator)));
+
+    if (toQueue <= 0) {
+      return 0;
+    }
+
+    this.idleAccumulator -= toQueue;
+    this.idleBank = Math.max(0, this.idleBank - toQueue);
+    if (this.idleBank < 1e-6) {
+      this.idleBank = 0;
+    }
+    this.notifyIdleBankChange();
+    this.idleDropBuffer = Math.max(0, this.idleDropBuffer + toQueue);
+    return toQueue;
+  }
+
+  releaseIdleDrops(deltaMs) {
+    if (!Number.isFinite(deltaMs) || deltaMs <= 0) {
+      return 0;
+    }
+
+    const availableBuffer = Math.floor(Math.max(0, this.idleDropBuffer));
+    if (availableBuffer <= 0) {
+      if (this.idleDropBuffer <= 0 && this.idleBank <= 0) {
+        this.idleDropAccumulator = 0;
+      }
+      return 0;
+    }
+
+    const ratePerMs = Math.max(0, this.idleDrainRate) / 1000;
+    if (ratePerMs <= 0) {
+      return 0;
+    }
+
+    this.idleDropAccumulator += deltaMs * ratePerMs;
+    const toRelease = Math.max(0, Math.min(availableBuffer, Math.floor(this.idleDropAccumulator)));
+
+    if (toRelease <= 0) {
+      return 0;
+    }
+
+    this.idleDropAccumulator -= toRelease;
+    this.idleDropBuffer = Math.max(0, this.idleDropBuffer - toRelease);
+
+    const bounds = this.getGapBounds();
+    const span = Math.max(1, bounds.end - bounds.start);
+    const center = bounds.start + span / 2;
+    const jitterRange = span * 0.3;
+
+    for (let index = 0; index < toRelease; index += 1) {
       const dropSize = this.dropSizes[Math.floor(Math.random() * this.dropSizes.length)] || 1;
-      const offset = (index / dropCount - 0.5) * this.width * 0.3;
-      this.addDrop(this.width / 2 + offset, dropSize);
+      const normalizedIndex = toRelease > 1 ? index / (toRelease - 1) : 0.5;
+      const jitter = (normalizedIndex - 0.5) * jitterRange + (Math.random() - 0.5) * jitterRange * 0.2;
+      const dropX = Math.max(bounds.start, Math.min(bounds.end, center + jitter));
+      this.addDrop(dropX, dropSize);
     }
+
+    return toRelease;
   }
 
   // Emit natural droplets so the reservoir animates even without idle income.
@@ -569,6 +630,7 @@ export class FluidSimulation {
       return;
     }
     this.convertIdleBank(deltaMs);
+    this.releaseIdleDrops(deltaMs);
     this.spawnAmbientDrops(deltaMs);
     const spawnBudget = Math.max(1, Math.ceil(deltaMs / Math.max(30, this.baseSpawnInterval / 4)));
     this.spawnPendingDrops(spawnBudget);
