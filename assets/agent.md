@@ -1,5 +1,22 @@
 # Assets Directory - Agent Guide
 
+## Executive Summary
+
+**What:** Integration hub for game loop, UI, state management, and visual/audio resources  
+**Key File:** `main.js` - orchestrates all systems (do NOT add logic here, only wiring)  
+**Testing:** Open `index.html` in browser, check console, test on mobile viewport  
+**Common Tasks:** Configuration in `configuration.js`, preferences in `preferences.js`, save/load in `autoSave.js`
+
+**Quick Lookup:**
+- Game loop orchestration → `main.js`
+- Playfield/tower systems → `playfield.js` + `playfield/` subdirectory
+- Game settings → `configuration.js`, `data/gameplayConfig.json`
+- User preferences → `preferences.js`
+- Save/load → `autoSave.js`
+- Tower selection UI → `towersTab.js`
+
+---
+
 ## Purpose
 The assets directory contains the main game loop, UI systems, game state management, and all visual/audio resources. This is the primary integration point where core systems come together.
 
