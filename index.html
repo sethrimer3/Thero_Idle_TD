@@ -1428,6 +1428,18 @@
                   <p class="developer-control-hint">Override the stored mote reserve.</p>
                 </div>
                 <div class="developer-control-field">
+                  <label for="developer-compact-basin">Compact basin autosave (smaller saves)</label>
+                  <input
+                    type="checkbox"
+                    id="developer-compact-basin"
+                    data-developer-field="compactBasin"
+                  />
+                  <p class="developer-control-note">
+                    When enabled (default), the game saves a compact baseline + dune descriptor
+                    for the mote basin to reduce storage size. Disable to preserve full grain positions.
+                  </p>
+                </div>
+                <div class="developer-control-field">
                   <label for="developer-mote-rate">Mote fall rate</label>
                   <input
                     type="number"

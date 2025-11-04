@@ -1004,6 +1004,55 @@ import {
     recordPowderEvent('developer-adjust', { field, value });
   }
 
+  // Developer preference key for compact basin autosave
+  const COMPACT_BASIN_STORAGE_KEY = 'glyph-defense-idle:compact-basin';
+
+  function readCompactBasinPreference() {
+    try {
+      const raw = window?.localStorage?.getItem(COMPACT_BASIN_STORAGE_KEY);
+      if (raw === null || raw === undefined) return true;
+      return raw === 'true';
+    } catch (e) {
+      return true;
+    }
+  }
+
+  function persistCompactBasinPreference(enabled) {
+    try {
+      window?.localStorage?.setItem(COMPACT_BASIN_STORAGE_KEY, String(!!enabled));
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  function wireDeveloperCompactBasinToggle() {
+    const el = document.getElementById('developer-compact-basin');
+    if (!el) return;
+    const enabled = readCompactBasinPreference();
+    el.checked = !!enabled;
+    el.addEventListener('change', (ev) => {
+      const checked = !!el.checked;
+      persistCompactBasinPreference(checked);
+      try {
+        if (window.powderSimulation) window.powderSimulation.useCompactAutosave = checked;
+        if (window.fluidSimulationInstance) window.fluidSimulationInstance.useCompactAutosave = checked;
+      } catch (e) {}
+      recordDeveloperAdjustment('compact-basin-toggle', checked);
+      try {
+        if (typeof schedulePowderBasinSave === 'function') schedulePowderBasinSave();
+      } catch (e) {}
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    wireDeveloperCompactBasinToggle();
+    const pref = readCompactBasinPreference();
+    try {
+      if (window.powderSimulation) window.powderSimulation.useCompactAutosave = pref;
+      if (window.fluidSimulationInstance) window.fluidSimulationInstance.useCompactAutosave = pref;
+    } catch (e) {}
+  });
+
   function setDeveloperIdleMoteBank(value) {
     if (!Number.isFinite(value)) {
       return;
