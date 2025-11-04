@@ -5,6 +5,30 @@
 Welcome to the Thero Idle project. This document provides shared context and
 conventions for all AI collaborators working anywhere inside this repository.
 
+## Quick Start for Agents
+
+**New to this project?** Read this file first, then navigate to context-specific agent.md files:
+
+- **Working in `/scripts/`?** → Read `/scripts/agent.md` for module organization
+- **Creating/modifying towers?** → Read `/scripts/features/towers/agent.md` for tower patterns
+- **Working with core utilities?** → Read `/scripts/core/agent.md` for formatting and math text
+- **Modifying main game loop?** → Read `/assets/agent.md` for integration patterns
+- **Working on playfield systems?** → Read `/assets/playfield/agent.md` for subsystem architecture
+- **Updating documentation?** → Read `/docs/agent.md` for documentation standards
+
+**Key architectural docs:**
+- `/docs/JAVASCRIPT_MODULE_SYSTEM.md` - Module organization rules
+- `/docs/PROGRESSION.md` - Game progression, levels, formulas
+- `/docs/PLATFORM_SUPPORT.md` - Mobile-first development approach
+- `.github/copilot-instructions.md` - GitHub Copilot specific guidelines
+
+**Quick Navigation Rules:**
+- Number formatting → `scripts/core/formatting.js`
+- Math text rendering → `scripts/core/mathText.js`
+- Tower formulas → `scripts/features/towers/<TowerName>.js`
+- Game configuration → `assets/configuration.js`
+- Main orchestration → `assets/main.js`
+
 ## Vision Snapshot
 - **Platform targets:** iOS and Android builds 
 - **Core loop:** A tower-defense idle hybrid inspired by titles such as *The Tower*,
@@ -59,5 +83,35 @@ conventions for all AI collaborators working anywhere inside this repository.
   changes. Mention any manual playtesting performed on desktop/mobile targets.
 - **PR descriptions:** Summarize gameplay effects, math changes, and UI adjustments.
   Highlight new formulas and how they influence balance.
+
+## Agent.md File System
+
+This repository uses a distributed agent.md system for context-specific guidance:
+
+**Root level:**
+- `/AGENTS.md` (this file) - Project vision, aesthetics, general conventions
+
+**Directory-specific guides:**
+- `/scripts/agent.md` - Module organization, import patterns
+- `/scripts/core/agent.md` - Core utilities (formatting, math text, tokens)
+- `/scripts/features/agent.md` - Feature module patterns
+- `/scripts/features/towers/agent.md` - Tower implementation details
+- `/assets/agent.md` - Main game integration, UI systems
+- `/assets/playfield/agent.md` - Playfield subsystem architecture
+- `/docs/agent.md` - Documentation standards and update workflow
+
+**Token efficiency strategy:**
+Each agent.md file is optimized for its scope:
+- **Quick reference patterns** from existing code
+- **Common pitfalls** specific to that area
+- **Import path examples** with correct relative paths
+- **When to read** guidelines for efficient navigation
+- **Integration points** with other systems
+
+**How to use:**
+1. Read root `/AGENTS.md` for project vision and theme
+2. Navigate to specific agent.md for detailed context
+3. Follow patterns and avoid documented mistakes
+4. Update agent.md when adding new patterns or conventions
 
 Thank you for contributing to the mystical mathematics of Thero Idle!
