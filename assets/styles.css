@@ -5753,20 +5753,18 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 #playfield-outcome.playfield-outcome .playfield-outcome__title,
 #playfield-outcome.playfield-outcome .playfield-outcome__subtitle,
 #playfield-outcome.playfield-outcome .playfield-outcome__button {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: "Cormorant Garamond", serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* Keep title large but ensure it uses the game font */
 #playfield-outcome.playfield-outcome .playfield-outcome__title {
-  font-family: 'Cormorant Garamond', serif;
   letter-spacing: 0.10em; /* matches existing title spacing */
 }
 
 /* Buttons inside the playfield outcome overlay should match game typography */
 #playfield-outcome.playfield-outcome .playfield-outcome__button {
-  font-family: 'Cormorant Garamond', serif;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -5781,7 +5779,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 #level-overlay .overlay-panel .overlay-metrics dd,
 #level-overlay .overlay-panel .overlay-instruction,
 #level-overlay .overlay-panel .overlay-last {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: "Cormorant Garamond", serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -5793,7 +5791,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .achievement-overlay .achievement-overlay__status,
 .achievement-overlay .achievement-overlay__reward,
 .achievement-overlay .achievement-overlay__hint {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: "Cormorant Garamond", serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -5802,7 +5800,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .tower-cost,
 .tower-cost strong,
 .tower-cost-value {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: "Cormorant Garamond", serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: 0.04em;
