@@ -75,7 +75,9 @@ There are currently no automated linters configured. Follow these conventions:
 - **New features:** Create in `scripts/features/<name>/` with an `index.js` entry point
 - **Core utilities:** Add to appropriate `scripts/core/` module
 - **Tower implementations:** Place in `scripts/features/towers/<TowerName>.js`
-- **File size limit:** Keep modules under 200 lines; split if approaching this limit
+- **File size guideline:** Aim to keep modules under 200 lines when practical; split if approaching this limit
+  - Note: Some existing tower files exceed this guideline due to complex mechanics
+  - Prioritize readability and maintainability over strict line counts
 
 ### Naming Conventions
 
