@@ -102,7 +102,7 @@ function normalizeFluidSimulationProfile(data) {
     dropSizes,
     dropVolumeScale:
       Number.isFinite(data.dropVolumeScale) && data.dropVolumeScale > 0 ? data.dropVolumeScale : null,
-    idleDrainRate: Number.isFinite(data.idleDrainRate) ? Math.max(1, data.idleDrainRate) : null,
+    idleDrainRate: Number.isFinite(data.idleDrainRate) ? Math.max(0.1, data.idleDrainRate) : null,
     baseSpawnInterval:
       Number.isFinite(data.baseSpawnInterval) && data.baseSpawnInterval > 0
         ? Math.max(30, data.baseSpawnInterval)

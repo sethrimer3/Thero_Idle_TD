@@ -1710,7 +1710,7 @@ import {
     pendingMoteDrops: [],
     idleBankHydrated: false, // Tracks whether the active simulation already holds the saved idle motes.
     fluidIdleBank: 0,
-    fluidIdleDrainRate: 1,
+    fluidIdleDrainRate: 0.1,
     pendingFluidDrops: [],
     fluidBankHydrated: false,
     motePalette: mergeMotePalette(DEFAULT_MOTE_PALETTE),
@@ -2769,7 +2769,7 @@ import {
             wallInsetRight: rightInset,
             wallGapCells: powderConfig.wallBaseGapMotes,
             gapWidthRatio: powderConfig.wallGapViewportRatio,
-            idleDrainRate: powderState.idleDrainRate,
+            idleDrainRate: powderState.fluidIdleDrainRate || powderState.idleDrainRate,
             motePalette: powderState.motePalette,
             dropSizes: profile.dropSizes,
             dropVolumeScale: profile.dropVolumeScale ?? undefined,
@@ -6675,7 +6675,7 @@ import {
     powderState.pendingMoteDrops = [];
     powderState.idleBankHydrated = false;
     powderState.fluidIdleBank = 0;
-    powderState.fluidIdleDrainRate = 1;
+    powderState.fluidIdleDrainRate = 0.1;
     powderState.pendingFluidDrops = [];
     powderState.fluidBankHydrated = false;
     powderState.motePalette = mergeMotePalette(DEFAULT_MOTE_PALETTE);
