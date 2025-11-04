@@ -5744,3 +5744,68 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   }
 }
 
+/* ===== Overlay font consistency fixes =====
+   Target exact overlay classes/IDs found in markup so only the
+   playfield outcome, level overlay, and achievement overlays are affected.
+*/
+
+/* Playfield outcome (victory / defeat) overlay */
+#playfield-outcome.playfield-outcome .playfield-outcome__title,
+#playfield-outcome.playfield-outcome .playfield-outcome__subtitle,
+#playfield-outcome.playfield-outcome .playfield-outcome__button {
+  font-family: 'Cormorant Garamond', serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Keep title large but ensure it uses the game font */
+#playfield-outcome.playfield-outcome .playfield-outcome__title {
+  font-family: 'Cormorant Garamond', serif;
+  letter-spacing: 0.10em; /* matches existing title spacing */
+}
+
+/* Buttons inside the playfield outcome overlay should match game typography */
+#playfield-outcome.playfield-outcome .playfield-outcome__button {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Level overlay (level selection / level details) */
+#level-overlay .overlay-panel,
+#level-overlay .overlay-panel .overlay-title,
+#level-overlay .overlay-panel .overlay-label,
+#level-overlay .overlay-panel .overlay-example,
+#level-overlay .overlay-panel .overlay-metrics dt,
+#level-overlay .overlay-panel .overlay-metrics dd,
+#level-overlay .overlay-panel .overlay-instruction,
+#level-overlay .overlay-panel .overlay-last {
+  font-family: 'Cormorant Garamond', serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Achievement cinematic overlay */
+.achievement-overlay .achievement-overlay__title,
+.achievement-overlay .achievement-overlay__subtitle,
+.achievement-overlay .achievement-overlay__description,
+.achievement-overlay .achievement-overlay__status,
+.achievement-overlay .achievement-overlay__reward,
+.achievement-overlay .achievement-overlay__hint {
+  font-family: 'Cormorant Garamond', serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tower cost displays (explicitly target the components used in markup) */
+.tower-cost,
+.tower-cost strong,
+.tower-cost-value {
+  font-family: 'Cormorant Garamond', serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.9);
+}
+
