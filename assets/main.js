@@ -1681,6 +1681,8 @@ import {
 
   registerResourceContainers({ baseResources, resourceState });
 
+  const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the fluid study with a base reservoir of drops upon unlock.
+
   const powderConfig = {
     sandOffsetInactive: 0,
     sandOffsetActive: 1.1,
@@ -2907,6 +2909,18 @@ import {
       return false;
     }
     powderState.fluidUnlocked = true;
+    const startingReservoir = FLUID_UNLOCK_BASE_RESERVOIR_DROPS; // Base reservoir grant for the newly unlocked study.
+    const currentFluidBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
+    if (currentFluidBank < startingReservoir) {
+      handlePowderIdleBankChange(startingReservoir, 'fluid'); // Surface the seeded reservoir through the shared idle handler.
+      if (fluidSimulationInstance) {
+        const simulationBank = Number.isFinite(fluidSimulationInstance.idleBank) ? Math.max(0, fluidSimulationInstance.idleBank) : 0;
+        if (simulationBank < startingReservoir) {
+          fluidSimulationInstance.idleBank = startingReservoir;
+          fluidSimulationInstance.notifyIdleBankChange(); // Sync the live simulation with the seeded reservoir total.
+        }
+      }
+    }
     updateFluidTabAvailability();
     updatePowderModeButton();
     const normalizedCost = Number.isFinite(glyphCost) ? Math.max(0, Math.floor(glyphCost)) : getFluidUnlockGlyphCost();
