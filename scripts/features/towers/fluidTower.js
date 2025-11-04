@@ -503,24 +503,42 @@ export class FluidSimulation {
     return toRelease;
   }
 
-  // Emit natural droplets so the reservoir animates even without idle income.
-  spawnAmbientDrops(deltaMs) {
+  // Emit natural droplets using the reservoir buffer without exceeding the idle drain cadence.
+  spawnAmbientDrops(deltaMs, releasedThisFrame = 0) {
     if (!Number.isFinite(deltaMs) || deltaMs <= 0) {
       return;
     }
+
+    const availableReservoir = Math.floor(Math.max(0, this.idleDropBuffer));
+    if (availableReservoir <= 0 || releasedThisFrame > 0) {
+      this.spawnAccumulator = 0;
+      return;
+    }
+
+    const drainRate = Math.max(0, this.idleDrainRate);
+    if (drainRate <= 0) {
+      return;
+    }
+
+    const baseInterval = Math.max(480, this.baseSpawnInterval * 2);
+    const rateInterval = 1000 / drainRate;
+    const interval = Math.max(baseInterval, rateInterval);
+
     this.spawnAccumulator += deltaMs;
-    const interval = Math.max(480, this.baseSpawnInterval * 2);
     if (this.spawnAccumulator < interval) {
       return;
     }
+
+    this.spawnAccumulator -= interval;
+
     const bounds = this.getGapBounds();
-    while (this.spawnAccumulator >= interval) {
-      this.spawnAccumulator -= interval;
-      const dropSize = this.dropSizes[Math.floor(Math.random() * this.dropSizes.length)] || 1;
-      const span = Math.max(1, bounds.end - bounds.start);
-      const dropX = bounds.start + Math.random() * span;
-      this.addDrop(dropX, dropSize);
-    }
+    const dropSize = this.dropSizes[Math.floor(Math.random() * this.dropSizes.length)] || 1;
+    const span = Math.max(1, bounds.end - bounds.start);
+    const dropX = bounds.start + Math.random() * span;
+    this.addDrop(dropX, dropSize);
+
+    this.idleDropBuffer = Math.max(0, this.idleDropBuffer - 1);
+    this.idleDropAccumulator = Math.max(0, this.idleDropAccumulator - 1);
   }
 
   addIdleVolume(amount) {
@@ -630,8 +648,8 @@ export class FluidSimulation {
       return;
     }
     this.convertIdleBank(deltaMs);
-    this.releaseIdleDrops(deltaMs);
-    this.spawnAmbientDrops(deltaMs);
+    const releasedDrops = this.releaseIdleDrops(deltaMs);
+    this.spawnAmbientDrops(deltaMs, releasedDrops);
     const spawnBudget = Math.max(1, Math.ceil(deltaMs / Math.max(30, this.baseSpawnInterval / 4)));
     this.spawnPendingDrops(spawnBudget);
     this.updateDrops(deltaMs);
