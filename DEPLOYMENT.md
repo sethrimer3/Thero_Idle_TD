@@ -40,9 +40,9 @@ If you've merged changes to `main` but don't see them on the live site, the issu
 #### Option 3: Force Cache Bypass with URL Parameter
 Add a timestamp query parameter to force fresh downloads:
 ```
-https://sethrimer3.github.io/Thero_Idle_TD/?v=20251104
+https://sethrimer3.github.io/Thero_Idle_TD/?v=YYYYMMDD
 ```
-Change the number each time to bust the cache.
+Replace `YYYYMMDD` with today's date (e.g., `20251104`) and change it each time to bust the cache.
 
 ### Verify Changes Loaded
 
