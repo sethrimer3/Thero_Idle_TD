@@ -2046,13 +2046,156 @@ export class PowderSimulation {
     return this.heightInfo;
   }
 
-  // Provide a serializable snapshot so autosave routines can persist active mote positions and camera state.
+  // Compact autosave helpers and compact-aware exportState/importState
+  // Default: prefer compact autosaves (baseline + dune). Instances can override useCompactAutosave.
+  useCompactAutosave = true;
+  MAX_GRAINS_TO_STORE = 1500;
+
+  computeColumnTopHeights() {
+    const cols = Math.max(1, this.cols || 0);
+    const tops = new Array(cols).fill(-1);
+    if (Array.isArray(this.grains) && this.grains.length) {
+      for (const g of this.grains) {
+        const x = Number.isFinite(g.x) ? Math.round(g.x) : null;
+        const y = Number.isFinite(g.y) ? Math.round(g.y) : null;
+        if (x !== null && y !== null && x >= 0 && x < cols) {
+          tops[x] = Math.max(tops[x], y);
+        }
+      }
+      return tops;
+    }
+    if (Array.isArray(this.grid) && this.grid.length && Number.isFinite(this.rows)) {
+      for (let col = 0; col < cols; col++) {
+        for (let row = 0; row < (this.rows || this.grid.length); row++) {
+          const cell = this.grid[row] && this.grid[row][col];
+          if (cell) {
+            tops[col] = Math.max(tops[col], (this.rows - row - 1));
+            break;
+          }
+        }
+      }
+      return tops;
+    }
+    return tops;
+  }
+
+  computeBaselineLineFromTops(tops) {
+    const n = tops.length;
+    const points = [];
+    for (let x = 0; x < n; x++) {
+      if (tops[x] >= 0) points.push([x, tops[x]]);
+    }
+    if (!points.length) return { a: 0, b: 0 };
+
+    let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0;
+    points.forEach(([x, y]) => { sumX += x; sumY += y; sumXX += x * x; sumXY += x * y; });
+    const m = points.length;
+    const denom = m * sumXX - sumX * sumX;
+    let b = 0;
+    if (Math.abs(denom) > 1e-6) {
+      b = (m * sumXY - sumX * sumY) / denom;
+    }
+    const a = (sumY - b * sumX) / m;
+
+    let baselineA = a;
+    for (let iter = 0; iter < 10; iter++) {
+      let maxViolation = 0;
+      for (let x = 0; x < n; x++) {
+        if (tops[x] < 0) continue;
+        const lineY = baselineA + b * x;
+        if (lineY > tops[x]) maxViolation = Math.max(maxViolation, lineY - tops[x]);
+      }
+      if (maxViolation <= 1e-6) break;
+      baselineA -= maxViolation;
+    }
+    return { a: Math.floor(baselineA), b };
+  }
+
+  computeCompactHeightLine() {
+    const tops = this.computeColumnTopHeights();
+    const cols = tops.length;
+    const line = this.computeBaselineLineFromTops(tops);
+    const leftBaseline = Math.round(line.a);
+    const rightBaseline = Math.round(line.a + line.b * Math.max(0, cols - 1));
+    let dunePeak = 0, peakCol = 0;
+    for (let x = 0; x < cols; x++) {
+      const t = tops[x] >= 0 ? tops[x] : leftBaseline;
+      const baselineAtX = Math.floor(line.a + line.b * x);
+      const diff = Math.max(0, t - baselineAtX);
+      if (diff > dunePeak) { dunePeak = Math.round(diff); peakCol = x; }
+    }
+    return {
+      leftBaseline: Math.max(0, leftBaseline),
+      rightBaseline: Math.max(0, rightBaseline),
+      dunePeak: Math.max(0, Math.round(dunePeak)),
+      peakCol: Math.max(0, Math.round(peakCol)),
+      cols
+    };
+  }
+
+  _synthesizeStateFromCompact(state) {
+    if (!state || typeof state !== 'object' || !state.compactHeightLine) return null;
+    const c = state.compactHeightLine;
+    const cols = c.cols || this.cols || 0;
+    const left = Number.isFinite(c.leftBaseline) ? Math.max(0, Math.round(c.leftBaseline)) : 0;
+    const right = Number.isFinite(c.rightBaseline) ? Math.max(0, Math.round(c.rightBaseline)) : left;
+    const dunePeak = Number.isFinite(c.dunePeak) ? Math.max(0, Math.round(c.dunePeak)) : 0;
+    const peakCol = Number.isFinite(c.peakCol) ? Math.max(0, Math.min(cols - 1, Math.round(c.peakCol))) : Math.floor(cols / 2);
+
+    const baseline = new Array(cols).fill(0);
+    for (let x = 0; x < cols; x++) {
+      const t = cols > 1 ? x / (cols - 1) : 0;
+      baseline[x] = Math.round(left * (1 - t) + right * t);
+    }
+
+    const grains = [];
+    for (let x = 0; x < cols; x++) {
+      const h = baseline[x];
+      for (let y = 0; y <= h; y++) {
+        grains.push({
+          id: null,
+          x: x,
+          y: y,
+          size: 1,
+          colliderSize: 1,
+          bias: 1,
+          shade: 180,
+          freefall: false,
+          inGrid: true,
+          resting: true
+        });
+      }
+    }
+
+    if (dunePeak > 0) {
+      for (let layer = 1; layer <= dunePeak; layer++) {
+        const radius = layer - 1;
+        const h = baseline[peakCol] + layer;
+        for (let x = Math.max(0, peakCol - radius); x <= Math.min(cols - 1, peakCol + radius); x++) {
+          grains.push({
+            id: null,
+            x: x,
+            y: h,
+            size: 1,
+            colliderSize: 1,
+            bias: 1,
+            shade: 180,
+            freefall: false,
+            inGrid: true,
+            resting: true
+          });
+        }
+      }
+    }
+
+    const synthetic = { ...state, grains: grains.slice(0, this.maxGrains || grains.length), pendingDrops: [] };
+    return synthetic;
+  }
+
   exportState() {
     const palette = mergeMotePalette(this.getEffectiveMotePalette());
     const serializeGrain = (grain) => {
-      if (!grain || typeof grain !== 'object') {
-        return null;
-      }
+      if (!grain || typeof grain !== 'object') return null;
       const size = Math.max(1, normalizeFiniteInteger(grain.size, 1));
       const colliderSize = Math.max(1, normalizeFiniteInteger(grain.colliderSize || size, size));
       const id = Math.max(1, normalizeFiniteInteger(grain.id, 1));
@@ -2082,47 +2225,64 @@ export class PowderSimulation {
         const size = Math.max(1, normalizeFiniteInteger(drop.size, 1));
         const color = cloneMoteColor(drop.color);
         const payload = color ? { size, color } : { size };
-        if (typeof drop.source === 'string') {
-          payload.source = drop.source; // Persist the drop origin so reloads can rebuild the ambient filter.
-        }
+        if (typeof drop.source === 'string') payload.source = drop.source;
         return payload;
       }
-      if (Number.isFinite(drop)) {
-        return { size: Math.max(1, Math.round(drop)) };
-      }
+      if (Number.isFinite(drop)) return { size: Math.max(1, Math.round(drop)) };
       return null;
     };
 
     const grains = Array.isArray(this.grains)
-      ? this.grains
-          .slice(0, this.maxGrains || this.grains.length)
-          .map(serializeGrain)
-          .filter(Boolean)
+      ? this.grains.slice(0, this.maxGrains || this.grains.length).map(serializeGrain).filter(Boolean)
       : [];
     const pendingDrops = Array.isArray(this.pendingDrops)
-      ? this.pendingDrops
-          .slice(0, this.maxGrains || this.pendingDrops.length)
-          .map(serializeDrop)
-          .filter(Boolean)
+      ? this.pendingDrops.slice(0, this.maxGrains || this.pendingDrops.length).map(serializeDrop).filter(Boolean)
       : [];
 
     const viewCenter = this.viewCenterNormalized || { x: 0.5, y: 0.5 };
-    const heightInfo = this.heightInfo
-      ? {
-          normalizedHeight: normalizeFiniteNumber(this.heightInfo.normalizedHeight, 0),
-          duneGain: normalizeFiniteNumber(this.heightInfo.duneGain, 0),
-          largestGrain: normalizeFiniteInteger(this.heightInfo.largestGrain, 0),
-          scrollOffset: normalizeFiniteInteger(this.heightInfo.scrollOffset, 0),
-          visibleHeight: normalizeFiniteInteger(this.heightInfo.visibleHeight, 0),
-          totalHeight: normalizeFiniteInteger(this.heightInfo.totalHeight, 0),
-          totalNormalized: normalizeFiniteNumber(this.heightInfo.totalNormalized, 0),
-          crestPosition: normalizeFiniteNumber(this.heightInfo.crestPosition, 1),
-          rows: normalizeFiniteInteger(this.heightInfo.rows, this.rows),
-          cols: normalizeFiniteInteger(this.heightInfo.cols, this.cols),
-          cellSize: normalizeFiniteInteger(this.heightInfo.cellSize, this.cellSize),
-          highestNormalized: normalizeFiniteNumber(this.heightInfo.highestNormalized, 0),
-        }
-      : null;
+    const heightInfo = this.heightInfo ? {
+      normalizedHeight: normalizeFiniteNumber(this.heightInfo.normalizedHeight, 0),
+      duneGain: normalizeFiniteNumber(this.heightInfo.duneGain, 0),
+      largestGrain: normalizeFiniteInteger(this.heightInfo.largestGrain, 0),
+      scrollOffset: normalizeFiniteInteger(this.heightInfo.scrollOffset, 0),
+      visibleHeight: normalizeFiniteInteger(this.heightInfo.visibleHeight, 0),
+      totalHeight: normalizeFiniteInteger(this.heightInfo.totalHeight, 0),
+      totalNormalized: normalizeFiniteNumber(this.heightInfo.totalNormalized, 0),
+      crestPosition: normalizeFiniteNumber(this.heightInfo.crestPosition, 1),
+      rows: normalizeFiniteInteger(this.heightInfo.rows, this.rows),
+      cols: normalizeFiniteInteger(this.heightInfo.cols, this.cols),
+      cellSize: normalizeFiniteInteger(this.heightInfo.cellSize, this.cellSize),
+      highestNormalized: normalizeFiniteNumber(this.heightInfo.highestNormalized, 0),
+    } : null;
+
+    const shouldCompact = !!this.useCompactAutosave || (grains.length > (this.MAX_GRAINS_TO_STORE || 1500));
+    if (shouldCompact) {
+      const compact = this.computeCompactHeightLine();
+      return {
+        idleBank: Math.max(0, normalizeFiniteNumber(this.idleBank, 0)),
+        idleAccumulator: Math.max(0, normalizeFiniteNumber(this.idleAccumulator, 0)),
+        idleDropBuffer: Math.max(0, normalizeFiniteInteger(this.idleDropBuffer, 0)),
+        idleDropAccumulator: Math.max(0, normalizeFiniteNumber(this.idleDropAccumulator, 0)),
+        spawnTimer: Math.max(0, normalizeFiniteNumber(this.spawnTimer, 0)),
+        scrollOffsetCells: Math.max(0, normalizeFiniteInteger(this.scrollOffsetCells, 0)),
+        highestTotalHeightCells: Math.max(0, normalizeFiniteInteger(this.highestTotalHeightCells ?? 0, 0)),
+        viewScale: Math.max(0.1, normalizeFiniteNumber(this.viewScale, 1)),
+        viewCenterNormalized: { x: normalizeFiniteNumber(viewCenter.x, 0.5), y: normalizeFiniteNumber(viewCenter.y, 0.5) },
+        flowOffset: Math.max(0, normalizeFiniteNumber(this.flowOffset, 0)),
+        stabilized: !!this.stabilized,
+        nextId: Math.max(1, normalizeFiniteInteger(this.nextId, 1)),
+        idleDrainRate: Math.max(0.1, normalizeFiniteNumber(this.idleDrainRate, 1)),
+        baseSpawnInterval: Math.max(16, normalizeFiniteNumber(this.baseSpawnInterval, 180)),
+        grainSizes: Array.isArray(this.grainSizes) ? this.grainSizes.map((size) => Math.max(1, normalizeFiniteInteger(size, 1))) : [],
+        wallInsetLeftCells: Math.max(0, normalizeFiniteInteger(this.wallInsetLeftCells, 0)),
+        wallInsetRightCells: Math.max(0, normalizeFiniteInteger(this.wallInsetRightCells, 0)),
+        wallGapCellsTarget: Number.isFinite(this.wallGapCellsTarget) ? Math.max(1, normalizeFiniteInteger(this.wallGapCellsTarget, 1)) : null,
+        wallGapTargetUnits: Number.isFinite(this.wallGapTargetUnits) ? Math.max(1, normalizeFiniteInteger(this.wallGapTargetUnits, 1)) : null,
+        motePalette: palette,
+        heightInfo,
+        compactHeightLine: compact,
+      };
+    }
 
     return {
       grains,
@@ -2133,28 +2293,19 @@ export class PowderSimulation {
       idleDropAccumulator: Math.max(0, normalizeFiniteNumber(this.idleDropAccumulator, 0)),
       spawnTimer: Math.max(0, normalizeFiniteNumber(this.spawnTimer, 0)),
       scrollOffsetCells: Math.max(0, normalizeFiniteInteger(this.scrollOffsetCells, 0)),
-      highestTotalHeightCells: Math.max(0, normalizeFiniteInteger(this.highestTotalHeightCells, 0)),
+      highestTotalHeightCells: Math.max(0, normalizeFiniteInteger(this.highestTotalHeightCells ?? 0, 0)),
       viewScale: Math.max(0.1, normalizeFiniteNumber(this.viewScale, 1)),
-      viewCenterNormalized: {
-        x: normalizeFiniteNumber(viewCenter.x, 0.5),
-        y: normalizeFiniteNumber(viewCenter.y, 0.5),
-      },
+      viewCenterNormalized: { x: normalizeFiniteNumber(viewCenter.x, 0.5), y: normalizeFiniteNumber(viewCenter.y, 0.5) },
       flowOffset: Math.max(0, normalizeFiniteNumber(this.flowOffset, 0)),
       stabilized: !!this.stabilized,
       nextId: Math.max(1, normalizeFiniteInteger(this.nextId, grains.length + 1)),
       idleDrainRate: Math.max(0.1, normalizeFiniteNumber(this.idleDrainRate, 1)),
       baseSpawnInterval: Math.max(16, normalizeFiniteNumber(this.baseSpawnInterval, 180)),
-      grainSizes: Array.isArray(this.grainSizes)
-        ? this.grainSizes.map((size) => Math.max(1, normalizeFiniteInteger(size, 1)))
-        : [],
+      grainSizes: Array.isArray(this.grainSizes) ? this.grainSizes.map((size) => Math.max(1, normalizeFiniteInteger(size, 1))) : [],
       wallInsetLeftCells: Math.max(0, normalizeFiniteInteger(this.wallInsetLeftCells, 0)),
       wallInsetRightCells: Math.max(0, normalizeFiniteInteger(this.wallInsetRightCells, 0)),
-      wallGapCellsTarget: Number.isFinite(this.wallGapCellsTarget)
-        ? Math.max(1, normalizeFiniteInteger(this.wallGapCellsTarget, 1))
-        : null,
-      wallGapTargetUnits: Number.isFinite(this.wallGapTargetUnits)
-        ? Math.max(1, normalizeFiniteInteger(this.wallGapTargetUnits, 1))
-        : null,
+      wallGapCellsTarget: Number.isFinite(this.wallGapCellsTarget) ? Math.max(1, normalizeFiniteInteger(this.wallGapCellsTarget, 1)) : null,
+      wallGapTargetUnits: Number.isFinite(this.wallGapTargetUnits) ? Math.max(1, normalizeFiniteInteger(this.wallGapTargetUnits, 1)) : null,
       motePalette: palette,
       heightInfo,
     };
@@ -2164,6 +2315,15 @@ export class PowderSimulation {
   importState(state = {}) {
     if (!state || typeof state !== 'object') {
       return false;
+    }
+
+    // If we received a compact descriptor, synthesize a conservative grains/pendingDrops state
+    // so the regular import logic (which expects grains/pendingDrops) can proceed.
+    if (state && typeof state === 'object' && state.compactHeightLine) {
+      const synthetic = this._synthesizeStateFromCompact(state);
+      if (synthetic) {
+        state = synthetic;
+      }
     }
 
     if (!this.cols || !this.rows) {
