@@ -2148,12 +2148,14 @@ export class PowderSimulation {
       baseline[x] = Math.round(left * (1 - t) + right * t);
     }
 
+    // Ensure synthesized grains receive unique identifiers so grid collision tracking remains consistent.
     const grains = [];
+    let synthesizedId = Number.isFinite(state?.nextId) ? Math.max(1, Math.round(state.nextId)) : Math.max(1, this.nextId || 1);
     for (let x = 0; x < cols; x++) {
       const h = baseline[x];
       for (let y = 0; y <= h; y++) {
         grains.push({
-          id: null,
+          id: synthesizedId++,
           x: x,
           y: y,
           size: 1,
@@ -2173,7 +2175,7 @@ export class PowderSimulation {
         const h = baseline[peakCol] + layer;
         for (let x = Math.max(0, peakCol - radius); x <= Math.min(cols - 1, peakCol + radius); x++) {
           grains.push({
-            id: null,
+            id: synthesizedId++,
             x: x,
             y: h,
             size: 1,
@@ -2188,7 +2190,13 @@ export class PowderSimulation {
       }
     }
 
-    const synthetic = { ...state, grains: grains.slice(0, this.maxGrains || grains.length), pendingDrops: [] };
+    const synthetic = {
+      ...state,
+      grains: grains.slice(0, this.maxGrains || grains.length),
+      pendingDrops: [],
+      // Propagate the advanced identifier so future grains avoid ID reuse collisions.
+      nextId: Math.max(synthesizedId, this.nextId || synthesizedId)
+    };
     return synthetic;
   }
 
