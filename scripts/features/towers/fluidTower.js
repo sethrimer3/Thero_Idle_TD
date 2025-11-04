@@ -72,6 +72,7 @@ export class FluidSimulation {
     this.idleAccumulator = 0; // Track fractional idle drain progress so 1/sec stays 1/sec instead of 60/sec.
     this.idleDropBuffer = 0; // Converted idle volume waiting to be emitted as visible droplets.
     this.idleDropAccumulator = 0; // Release cadence timer for buffered droplets.
+    this.rippleCarryover = 0; // Preserve fractional ripple volume so splash loops eventually settle.
     this.maxDropSize = 1;
     this.maxDropRadius = 1;
     this.largestDrop = 0;
@@ -102,7 +103,7 @@ export class FluidSimulation {
     this.motePalette = mergeMotePalette(options.motePalette || fallbackPalette);
     this.defaultProfile = {
       dropSizes: [...this.dropSizes],
-      idleDrainRate: Number.isFinite(options.idleDrainRate) ? options.idleDrainRate : 1.2,
+      idleDrainRate: Number.isFinite(options.idleDrainRate) ? options.idleDrainRate : 0.1,
       baseSpawnInterval: this.baseSpawnInterval,
       waveStiffness: this.waveStiffness,
       waveDamping: this.waveDamping,
@@ -119,7 +120,7 @@ export class FluidSimulation {
       },
     };
 
-    this.idleDrainRate = Number.isFinite(options.idleDrainRate) ? Math.max(0.1, options.idleDrainRate) : 1.2;
+    this.idleDrainRate = Number.isFinite(options.idleDrainRate) ? Math.max(0.1, options.idleDrainRate) : 0.1;
     this.flowOffset = 0;
 
     this.heightInfo = {
@@ -423,6 +424,7 @@ export class FluidSimulation {
   clearDrops() {
     this.drops.length = 0;
     this.pendingDrops.length = 0;
+    this.rippleCarryover = 0; // Flush splash residue so new runs start with a calm surface.
   }
 
   convertIdleBank(deltaMs) {
@@ -588,13 +590,22 @@ export class FluidSimulation {
     this.columnHeights[index] = Math.max(0, (this.columnHeights[index] || 0) + amount);
     this.columnVelocities[index] = Math.max(0, this.columnVelocities[index] || 0);
     this.largestDrop = Math.max(this.largestDrop, amount);
-    this.pendingDrops.push({
-      x: drop.x + (Math.random() - 0.5) * this.cellSize,
-      y: -drop.radius * 0.5,
-      size: Math.max(1, Math.round(amount * 0.7)),
-      radius: drop.radius * 0.7,
-      velocity: 0,
-    });
+
+    const rippleVolume = Math.max(0, amount * 0.7); // Treat the splash as fractional volume that may not form a full drop.
+    const rippleTotal = rippleVolume + this.rippleCarryover;
+    const rippleSize = Math.floor(rippleTotal);
+    this.rippleCarryover = rippleTotal - rippleSize;
+
+    if (rippleSize >= 1) {
+      const radius = Math.max(1, Math.min(this.maxDropRadius, drop.radius * 0.7));
+      this.pendingDrops.push({
+        x: drop.x + (Math.random() - 0.5) * this.cellSize,
+        y: -radius * 0.5,
+        size: Math.max(1, Math.min(this.maxDropSize, rippleSize)),
+        radius,
+        velocity: 0,
+      });
+    }
   }
 
   simulateFluid(deltaMs) {
