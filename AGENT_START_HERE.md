@@ -111,7 +111,7 @@ Thero_Idle_TD/
 ❌ Skip reading context-specific agent.md before editing  
 ❌ Create circular dependencies between features  
 ❌ Hardcode values (use `configuration.js`)  
-❌ Test on desktop only (mobile-first!)  
+❌ Test on desktop only (mobile-first)  
 ❌ Skip documenting mathematical formulas  
 
 ## Token Efficiency Tips

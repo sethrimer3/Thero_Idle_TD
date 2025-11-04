@@ -59,6 +59,6 @@ const text = annotateMathText("Increases α damage by β²");
 ## Design Principles
 
 - Core modules are **dependency-free** (or depend only on other core modules)
-- Features import from core (never reverse)
+- Features import from core (never reverse - prevents circular dependencies)
 - All formatting is backward-compatible
 - Test with edge cases: 0, negative, infinity, NaN

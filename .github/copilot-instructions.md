@@ -19,4 +19,4 @@ This project is a mobile-first tower-defense idle game with vanilla JavaScript. 
 - **No build step:** Open `index.html` directly to test
 - **ES6 modules:** Explicit imports, no globals
 
-Navigate to context-specific agent.md files for detailed guidance on any subsystem.
+Navigate to context-specific agent.md files (e.g., `scripts/core/agent.md` for utilities) for detailed guidance on any subsystem.

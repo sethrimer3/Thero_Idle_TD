@@ -34,7 +34,7 @@ Quick lookup table for all implemented towers in Thero Idle.
 
 ## Common Tower Patterns
 
-**See `agent.md` in this directory for:**
+**See `scripts/features/towers/agent.md` for:**
 - Tower implementation template
 - Damage formula patterns
 - Particle behavior types
@@ -44,7 +44,7 @@ Quick lookup table for all implemented towers in Thero Idle.
 ## Creating New Towers
 
 1. Choose next Greek letter in sequence (or special symbol)
-2. Create `<name>Tower.js` following template in `agent.md`
+2. Create `<name>Tower.js` following template in `scripts/features/towers/agent.md`
 3. Document formulas with JSDoc comments
 4. Add entry to this index
 5. Update `/docs/PROGRESSION.md` with upgrade paths
