@@ -1499,6 +1499,34 @@ import {
     return `ℵ${toSubscriptNumber(normalized)}`;
   }
 
+  /**
+   * Format a Bet glyph label using Hebrew letter Bet (ב) with subscript numbering.
+   * Bet glyphs are the second type of upgrade currency, exclusive to the Fluid Study,
+   * appearing on the right wall and complementing Aleph glyphs on the left.
+   * @param {number} index - The glyph index (0-based)
+   * @returns {string} Formatted label like "ב₀", "ב₁", "ב₂", etc.
+   */
+  function formatBetLabel(index) {
+    const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
+    return `ב${toSubscriptNumber(normalized)}`;
+  }
+
+  /**
+   * Award Bet glyph currency when fluid study water reaches height milestones.
+   * Bet glyphs (ב) are the second type of upgrade currency, exclusive to the Fluid Study
+   * and unlocked at the same height thresholds as Aleph glyphs but tracked independently.
+   * @param {number} count - Number of Bet glyphs to award
+   */
+  function awardBetGlyphs(count) {
+    if (!Number.isFinite(count) || count <= 0) {
+      return;
+    }
+    // For now, just log the award. In future, this will be integrated with a Bet glyph currency system
+    // similar to Aleph glyphs, but as a second type of upgrade currency.
+    console.log(`Awarded ${count} Bet glyph${count !== 1 ? 's' : ''} (ב)`);
+    recordPowderEvent('bet-glyph-award', { count });
+  }
+
   const gameStats = {
     manualVictories: 0,
     idleVictories: 0,
@@ -1754,6 +1782,8 @@ import {
     simulatedDuneGain: 0,
     wallGlyphsLit: 0,
     glyphsAwarded: 0, // Highest Aleph index already translated into glyph currency.
+    fluidGlyphsLit: 0,
+    fluidGlyphsAwarded: 0, // Highest Bet index already translated into Bet glyph currency.
     idleMoteBank: 100,
     idleDrainRate: 1,
     pendingMoteDrops: [],
@@ -1861,6 +1891,7 @@ import {
     dripRateValue: null,
     statusNote: null,
     returnButton: null,
+    wallGlyphColumns: [],
   };
 
   const FLUX_OVERVIEW_IS_STUB = true;
@@ -2017,6 +2048,8 @@ import {
       simulatedDuneGain: Math.max(0, clampFiniteNumber(powderState.simulatedDuneGain, 0)),
       wallGlyphsLit: Math.max(0, Math.max(clampFiniteInteger(powderState.wallGlyphsLit, 0), currentGlyphsLit)),
       glyphsAwarded: Math.max(0, clampFiniteInteger(powderState.glyphsAwarded, 0)),
+      fluidGlyphsLit: Math.max(0, clampFiniteInteger(powderState.fluidGlyphsLit, 0)),
+      fluidGlyphsAwarded: Math.max(0, clampFiniteInteger(powderState.fluidGlyphsAwarded, 0)),
       idleMoteBank: Math.max(0, clampFiniteNumber(powderState.idleMoteBank, 0)),
       idleDrainRate: Math.max(0, clampFiniteNumber(powderState.idleDrainRate, 0)),
       pendingMoteDrops: pendingDrops,
@@ -2073,6 +2106,12 @@ import {
       }
       if (Number.isFinite(base.glyphsAwarded)) {
         powderState.glyphsAwarded = Math.max(0, Math.round(base.glyphsAwarded));
+      }
+      if (Number.isFinite(base.fluidGlyphsLit)) {
+        powderState.fluidGlyphsLit = Math.max(0, Math.round(base.fluidGlyphsLit));
+      }
+      if (Number.isFinite(base.fluidGlyphsAwarded)) {
+        powderState.fluidGlyphsAwarded = Math.max(0, Math.round(base.fluidGlyphsAwarded));
       }
       if (Number.isFinite(base.idleMoteBank)) {
         powderState.idleMoteBank = Math.max(0, base.idleMoteBank);
@@ -2274,6 +2313,7 @@ import {
 
   // Powder simulation metrics are supplied via the powder tower module.
   const powderGlyphColumns = [];
+  const fluidGlyphColumns = [];
   let powderWallMetrics = null;
   let fluidWallMetrics = null;
 
@@ -2381,6 +2421,122 @@ import {
 
     if (powderGlyphColumns.length) {
       powderGlyphColumns.forEach((column) => {
+        column.glyphs.forEach((glyph, index) => {
+          const isTarget = index === nextIndex;
+          const glyphNormalized = glyphHeightForIndex(index);
+          glyph.classList.toggle('powder-glyph--target', isTarget);
+          glyph.classList.toggle('powder-glyph--achieved', highestNormalized >= glyphNormalized);
+        });
+      });
+    }
+
+    return {
+      achievedCount: achievedIndex,
+      nextIndex,
+      highestRaw: highestNormalized,
+      glyphsLit,
+      progressFraction,
+      remainingToNext,
+    };
+  }
+
+  function updateFluidGlyphColumns(info = {}) {
+    const rows = Number.isFinite(info.rows) && info.rows > 0 ? info.rows : 1;
+    const cellSize = Number.isFinite(info.cellSize) && info.cellSize > 0 ? info.cellSize : POWDER_CELL_SIZE_PX;
+    const scrollOffset = Number.isFinite(info.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
+    const highestRawInput = Number.isFinite(info.highestNormalized) ? info.highestNormalized : 0;
+    const totalRawInput = Number.isFinite(info.totalNormalized) ? info.totalNormalized : highestRawInput;
+    const highestNormalized = Math.max(0, highestRawInput, totalRawInput);
+    const GLYPH_SPACING_NORMALIZED = 0.5;
+    const GLYPH_BASE_NORMALIZED = GLYPH_SPACING_NORMALIZED;
+    const safeRows = Math.max(1, rows);
+    const basinHeight = safeRows * cellSize;
+    const viewTopNormalized = scrollOffset / safeRows;
+    const viewBottomNormalized = (scrollOffset + safeRows) / safeRows;
+    const bufferGlyphs = 2;
+
+    const normalizeIndex = (value) => {
+      if (!Number.isFinite(value)) {
+        return 0;
+      }
+      return Math.floor((value - GLYPH_BASE_NORMALIZED) / GLYPH_SPACING_NORMALIZED);
+    };
+
+    const rawMinIndex = normalizeIndex(viewTopNormalized);
+    const rawMaxIndex = Math.ceil(
+      (viewBottomNormalized - GLYPH_BASE_NORMALIZED) / GLYPH_SPACING_NORMALIZED,
+    );
+    const minIndex = Math.max(0, (Number.isFinite(rawMinIndex) ? rawMinIndex : 0) - bufferGlyphs);
+    const maxIndex = Math.max(
+      minIndex,
+      (Number.isFinite(rawMaxIndex) ? rawMaxIndex : 0) + bufferGlyphs,
+    );
+
+    const glyphHeightForIndex = (index) =>
+      GLYPH_BASE_NORMALIZED + Math.max(0, index) * GLYPH_SPACING_NORMALIZED;
+
+    if (fluidGlyphColumns.length) {
+      fluidGlyphColumns.forEach((column) => {
+        const isLeftWall = column.side === 'left';
+        
+        // Collect indices to delete before modifying the Map
+        const indicesToDelete = [];
+        column.glyphs.forEach((glyph, index) => {
+          if (index < minIndex || index > maxIndex) {
+            indicesToDelete.push(index);
+          }
+        });
+        
+        // Remove out-of-range glyphs
+        indicesToDelete.forEach((index) => {
+          const glyph = column.glyphs.get(index);
+          if (glyph) {
+            column.element.removeChild(glyph);
+            column.glyphs.delete(index);
+          }
+        });
+
+        // Create or update glyphs in the visible range
+        for (let index = minIndex; index <= maxIndex; index += 1) {
+          let glyph = column.glyphs.get(index);
+          if (!glyph) {
+            glyph = document.createElement('span');
+            glyph.className = 'powder-glyph';
+            glyph.dataset[isLeftWall ? 'alephIndex' : 'betIndex'] = String(index);
+            column.element.appendChild(glyph);
+            column.glyphs.set(index, glyph);
+          }
+          glyph.textContent = isLeftWall ? formatAlephLabel(index) : formatBetLabel(index);
+          const glyphNormalized = glyphHeightForIndex(index);
+          const relativeRows = glyphNormalized * safeRows - scrollOffset;
+          const topPx = basinHeight - relativeRows * cellSize;
+          glyph.style.top = `${topPx.toFixed(1)}px`;
+          const achieved = highestNormalized >= glyphNormalized;
+          glyph.classList.toggle('powder-glyph--achieved', achieved);
+        }
+      });
+    }
+
+    const glyphsLit =
+      highestNormalized >= GLYPH_BASE_NORMALIZED
+        ? Math.max(
+            0,
+            Math.floor((highestNormalized - GLYPH_BASE_NORMALIZED) / GLYPH_SPACING_NORMALIZED) + 1,
+          )
+        : 0;
+    const achievedIndex = glyphsLit > 0 ? glyphsLit - 1 : 0;
+    const nextIndex = glyphsLit;
+    const previousThreshold =
+      glyphsLit > 0
+        ? GLYPH_BASE_NORMALIZED + (glyphsLit - 1) * GLYPH_SPACING_NORMALIZED
+        : 0;
+    const nextThreshold = GLYPH_BASE_NORMALIZED + glyphsLit * GLYPH_SPACING_NORMALIZED;
+    const span = Math.max(GLYPH_SPACING_NORMALIZED, nextThreshold - previousThreshold);
+    const progressFraction = clampUnitInterval((highestNormalized - previousThreshold) / span);
+    const remainingToNext = Math.max(0, nextThreshold - highestNormalized);
+
+    if (fluidGlyphColumns.length) {
+      fluidGlyphColumns.forEach((column) => {
         column.glyphs.forEach((glyph, index) => {
           const isTarget = index === nextIndex;
           const glyphNormalized = glyphHeightForIndex(index);
@@ -2814,6 +2970,7 @@ import {
           fluidSimulationInstance = new FluidSimulation({
             canvas: fluidElements.canvas,
             cellSize: POWDER_CELL_SIZE_PX,
+            scrollThreshold: 0.5,
             wallInsetLeft: leftInset,
             wallInsetRight: rightInset,
             wallGapCells: powderConfig.wallBaseGapMotes,
@@ -6995,6 +7152,62 @@ import {
     const normalizedHeight = Number.isFinite(info?.normalizedHeight)
       ? Math.max(0, Math.min(1, info.normalizedHeight))
       : 0;
+    const scrollOffset = Number.isFinite(info?.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
+    const totalNormalized = Number.isFinite(info?.totalNormalized)
+      ? Math.max(0, info.totalNormalized)
+      : normalizedHeight;
+    const cellSize = Number.isFinite(info?.cellSize)
+      ? Math.max(1, info.cellSize)
+      : POWDER_CELL_SIZE_PX;
+    const rows = Number.isFinite(info?.rows) ? Math.max(1, info.rows) : 1;
+    const highestNormalizedRaw = Number.isFinite(info?.highestNormalized)
+      ? Math.max(0, info.highestNormalized)
+      : totalNormalized;
+
+    // Update glyph columns and track Bet glyph awards
+    const glyphMetrics = updateFluidGlyphColumns({
+      scrollOffset,
+      rows,
+      cellSize,
+      highestNormalized: highestNormalizedRaw,
+      totalNormalized,
+    });
+
+    if (glyphMetrics) {
+      const { glyphsLit } = glyphMetrics;
+      const previousAwarded = Number.isFinite(powderState.fluidGlyphsAwarded)
+        ? Math.max(0, powderState.fluidGlyphsAwarded)
+        : 0;
+
+      if (glyphsLit > previousAwarded) {
+        const newlyEarned = glyphsLit - previousAwarded;
+        awardBetGlyphs(newlyEarned);
+        powderState.fluidGlyphsAwarded = glyphsLit;
+      } else if (!Number.isFinite(powderState.fluidGlyphsAwarded) || powderState.fluidGlyphsAwarded < glyphsLit) {
+        powderState.fluidGlyphsAwarded = Math.max(previousAwarded, glyphsLit);
+      }
+
+      if (glyphsLit !== powderState.fluidGlyphsLit) {
+        powderState.fluidGlyphsLit = glyphsLit;
+        schedulePowderBasinSave();
+      }
+    }
+
+    // Apply wall offset for scrolling texture
+    const wallShiftPx = scrollOffset * cellSize;
+    const textureRepeat = POWDER_WALL_TEXTURE_REPEAT_PX > 0 ? POWDER_WALL_TEXTURE_REPEAT_PX : null;
+    const rawTextureOffset = textureRepeat ? wallShiftPx % textureRepeat : wallShiftPx;
+    const wallTextureOffset = Number.isFinite(rawTextureOffset) ? rawTextureOffset : 0;
+    const wallOffsetValue = `${wallTextureOffset.toFixed(1)}px`;
+
+    if (fluidElements.leftWall) {
+      fluidElements.leftWall.style.transform = '';
+      fluidElements.leftWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
+    }
+    if (fluidElements.rightWall) {
+      fluidElements.rightWall.style.transform = '';
+      fluidElements.rightWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
+    }
 
     if (fluidElements.depthValue) {
       fluidElements.depthValue.textContent = `${formatDecimal(normalizedHeight * 100, 1)}% full`;
@@ -7340,6 +7553,14 @@ import {
     fluidElements.dripRateValue = document.getElementById('fluid-drip-rate');
     fluidElements.statusNote = document.getElementById('fluid-status-note');
     fluidElements.returnButton = document.getElementById('fluid-return-button');
+
+    const fluidGlyphColumnNodes = document.querySelectorAll('[data-fluid-glyph-column]');
+    fluidElements.wallGlyphColumns = Array.from(fluidGlyphColumnNodes);
+    fluidGlyphColumns.length = 0;
+    fluidElements.wallGlyphColumns.forEach((element) => {
+      const side = element.getAttribute('data-fluid-glyph-column');
+      fluidGlyphColumns.push({ element, glyphs: new Map(), side });
+    });
 
     if (fluidElements.returnButton) {
       fluidElements.returnButton.addEventListener('click', (event) => {

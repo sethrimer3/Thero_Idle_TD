@@ -123,6 +123,11 @@ export class FluidSimulation {
     this.idleDrainRate = Number.isFinite(options.idleDrainRate) ? Math.max(0.2, options.idleDrainRate) : 0.2;
     this.flowOffset = 0;
 
+    this.scrollThreshold = Number.isFinite(options.scrollThreshold)
+      ? Math.max(0.2, Math.min(0.95, options.scrollThreshold))
+      : 0.5;
+    this.scrollOffset = 0;
+
     this.heightInfo = {
       normalizedHeight: 0,
       duneGain: 0,
@@ -666,8 +671,35 @@ export class FluidSimulation {
     this.spawnPendingDrops(spawnBudget);
     this.updateDrops(deltaMs);
     this.simulateFluid(deltaMs);
+    this.applyScrollIfNeeded();
     this.updateHeightInfo();
     this.render();
+  }
+
+  applyScrollIfNeeded() {
+    const activeStart = this.wallInsetLeftCells;
+    const activeEnd = this.cols - this.wallInsetRightCells - 1;
+    if (activeEnd <= activeStart) {
+      return;
+    }
+
+    let highest = 0;
+    for (let index = activeStart; index <= activeEnd; index += 1) {
+      highest = Math.max(highest, this.columnHeights[index] || 0);
+    }
+
+    if (highest <= 0 || this.rows <= 0) {
+      return;
+    }
+
+    const threshold = Math.max(0.2, Math.min(0.95, this.scrollThreshold));
+    const targetFromTop = this.rows * (1 - threshold);
+    const currentFromTop = this.rows - highest;
+
+    if (currentFromTop < targetFromTop) {
+      const shift = targetFromTop - currentFromTop;
+      this.scrollOffset = Math.max(0, this.scrollOffset + shift);
+    }
   }
 
   updateHeightInfo(force = false) {
@@ -696,19 +728,22 @@ export class FluidSimulation {
     })();
     const crestPosition = this.cols > 0 ? Math.max(0, Math.min(1, crestIndex / this.cols)) : 0;
 
+    const totalHeight = visibleHeight + this.scrollOffset;
+    const totalNormalized = this.rows > 0 ? Math.min(2, totalHeight / this.rows) : 0;
+
     const info = {
       normalizedHeight: normalized,
       duneGain: Math.min(this.maxDuneGain, normalized * this.maxDuneGain),
       largestGrain: this.largestDrop,
-      scrollOffset: 0,
+      scrollOffset: this.scrollOffset,
       visibleHeight,
-      totalHeight: visibleHeight,
-      totalNormalized: normalized,
+      totalHeight,
+      totalNormalized,
       crestPosition,
       rows: this.rows,
       cols: this.cols,
       cellSize: this.cellSize,
-      highestNormalized: normalized,
+      highestNormalized: totalNormalized,
     };
 
     const previous = this.heightInfo || {};
@@ -872,6 +907,7 @@ export class FluidSimulation {
       baseGapUnits: this.baseGapUnits,
       wallInsetLeftCells: this.wallInsetLeftCells,
       wallInsetRightCells: this.wallInsetRightCells,
+      scrollOffset: this.scrollOffset || 0,
       motePalette: this.motePalette
         ? {
             ...this.motePalette,
@@ -949,6 +985,11 @@ export class FluidSimulation {
 
     if (state.motePalette) {
       this.setMotePalette(state.motePalette);
+      applied = true;
+    }
+
+    if (Number.isFinite(state.scrollOffset)) {
+      this.scrollOffset = Math.max(0, state.scrollOffset);
       applied = true;
     }
 
