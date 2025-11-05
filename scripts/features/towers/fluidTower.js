@@ -187,6 +187,7 @@ export class FluidSimulation {
     // Make the simulation square by using the smaller dimension for both width and height
     const squareDimension = Math.min(measuredWidth, measuredHeight);
 
+    // Use consistent minimum of 200px for both dimensions to maintain square aspect ratio
     const styleWidth = `${Math.max(200, squareDimension)}px`;
     const styleHeight = `${Math.max(200, squareDimension)}px`;
     if (this.canvas.style.width !== styleWidth) {
@@ -208,6 +209,7 @@ export class FluidSimulation {
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(ratio, ratio);
 
+    // Both dimensions use the same minimum (200px) to maintain square canvas
     this.width = Math.max(200, squareDimension);
     this.height = Math.max(200, squareDimension);
 
