@@ -5402,7 +5402,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   background: transparent;
   color: var(--muted);
   display: grid;
-  grid-template-rows: 1fr;
+  grid-template-columns: 1fr;
   border-radius: 12px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   overflow: hidden;
@@ -5411,9 +5411,9 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   height: 100%;
 }
 
-/* Expand the wrapper into two equal rows whenever fluid study access is unlocked. */
+/* Expand the wrapper into two equal columns whenever fluid study access is unlocked. */
 .tab-button-stack--split {
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 /* Highlight the shared outline when either stacked tab is active. */
@@ -5463,7 +5463,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 /* Introduce a subtle divider between the two stacked triggers. */
 .tab-button-stack--split .tab-button--stacked + .tab-button--stacked {
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 /* Reduce icon scale so both halves remain legible within the shared frame. */
@@ -5486,6 +5486,11 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 /* Restore the full-size icon when the tab collapses back to a single control. */
 .tab-button-stack:not(.tab-button-stack--split) .tab-button--stacked .tab-icon {
   font-size: 1.4rem;
+}
+
+/* Hide the fluid tab completely when it's not unlocked (before split) */
+.tab-button-stack:not(.tab-button-stack--split) .tab-button--stacked-fluid {
+  display: none;
 }
 
 .tab-icon {
