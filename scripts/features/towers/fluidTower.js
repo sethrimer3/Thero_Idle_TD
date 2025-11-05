@@ -1181,6 +1181,10 @@ export class FluidSimulation {
       cancelAnimationFrame(this.loopHandle);
       this.loopHandle = null;
     }
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+      this.resizeTimeout = null;
+    }
     window.removeEventListener('resize', this.handleResize);
   }
 
