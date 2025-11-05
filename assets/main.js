@@ -1499,12 +1499,24 @@ import {
     return `ℵ${toSubscriptNumber(normalized)}`;
   }
 
+  /**
+   * Format a Bet glyph label using Hebrew letter Bet (ב) with subscript numbering.
+   * Bet glyphs are the second type of upgrade currency, exclusive to the Fluid Study,
+   * appearing on the right wall and complementing Aleph glyphs on the left.
+   * @param {number} index - The glyph index (0-based)
+   * @returns {string} Formatted label like "ב₀", "ב₁", "ב₂", etc.
+   */
   function formatBetLabel(index) {
     const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
     return `ב${toSubscriptNumber(normalized)}`;
   }
 
-  // Award Bet glyph currency when fluid study reaches height milestones
+  /**
+   * Award Bet glyph currency when fluid study water reaches height milestones.
+   * Bet glyphs (ב) are the second type of upgrade currency, exclusive to the Fluid Study
+   * and unlocked at the same height thresholds as Aleph glyphs but tracked independently.
+   * @param {number} count - Number of Bet glyphs to award
+   */
   function awardBetGlyphs(count) {
     if (!Number.isFinite(count) || count <= 0) {
       return;
@@ -2465,25 +2477,35 @@ import {
 
     if (fluidGlyphColumns.length) {
       fluidGlyphColumns.forEach((column) => {
+        const isLeftWall = column.side === 'left';
+        
+        // Collect indices to delete before modifying the Map
+        const indicesToDelete = [];
         column.glyphs.forEach((glyph, index) => {
           if (index < minIndex || index > maxIndex) {
+            indicesToDelete.push(index);
+          }
+        });
+        
+        // Remove out-of-range glyphs
+        indicesToDelete.forEach((index) => {
+          const glyph = column.glyphs.get(index);
+          if (glyph) {
             column.element.removeChild(glyph);
             column.glyphs.delete(index);
           }
         });
 
+        // Create or update glyphs in the visible range
         for (let index = minIndex; index <= maxIndex; index += 1) {
           let glyph = column.glyphs.get(index);
           if (!glyph) {
             glyph = document.createElement('span');
             glyph.className = 'powder-glyph';
-            // Use appropriate label based on which wall (left = Aleph, right = Bet)
-            const isLeftWall = column.side === 'left';
             glyph.dataset[isLeftWall ? 'alephIndex' : 'betIndex'] = String(index);
             column.element.appendChild(glyph);
             column.glyphs.set(index, glyph);
           }
-          const isLeftWall = column.side === 'left';
           glyph.textContent = isLeftWall ? formatAlephLabel(index) : formatBetLabel(index);
           const glyphNormalized = glyphHeightForIndex(index);
           const relativeRows = glyphNormalized * safeRows - scrollOffset;
