@@ -611,8 +611,9 @@ export class FluidSimulation {
     this.largestDrop = Math.max(this.largestDrop, drop.size);
 
     // Ripple drop spawning disabled to prevent exponential multiplication
-    // The ripple effect is handled through wave physics in simulateFluid()
-    // instead of spawning new drops that would create feedback loops
+    // The ripple effect is handled through wave physics in simulateFluid() which uses
+    // column height differences, velocities, stiffness, and damping to create realistic
+    // water surface waves - no need to spawn new drops for visual ripples
   }
 
   simulateFluid(deltaMs) {
@@ -774,16 +775,16 @@ export class FluidSimulation {
     const gapStart = this.wallInsetLeftCells * this.cellSize;
     const gapEnd = this.width - this.wallInsetRightCells * this.cellSize;
 
-    // Draw visible walls on left and right sides
-    const wallColor = 'rgba(180, 180, 180, 0.3)'; // Light gray chalk-like color
+    // Draw visible walls on left and right sides with chalk-like aesthetic
+    const WALL_COLOR = 'rgba(180, 180, 180, 0.3)'; // Light gray to match theme palette
     // Left wall
     if (this.wallInsetLeftCells > 0) {
-      this.ctx.fillStyle = wallColor;
+      this.ctx.fillStyle = WALL_COLOR;
       this.ctx.fillRect(0, 0, gapStart, this.height);
     }
     // Right wall
     if (this.wallInsetRightCells > 0) {
-      this.ctx.fillStyle = wallColor;
+      this.ctx.fillStyle = WALL_COLOR;
       this.ctx.fillRect(gapEnd, 0, this.width - gapEnd, this.height);
     }
     const waterGradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
