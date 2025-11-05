@@ -273,7 +273,7 @@ export class FluidSimulation {
     // Preserve water data if columns changed but dimensions are similar
     const savedHeights = Array.isArray(this.columnHeights) ? [...this.columnHeights] : null;
     const savedVelocities = Array.isArray(this.columnVelocities) ? [...this.columnVelocities] : null;
-    const shouldPreserveWater = savedHeights && previousCols > 0 && 
+    const shouldPreserveWater = savedHeights && previousCols > 0 && this.cols > 0 && 
                                 Math.abs(this.width - previousWidth) < this.minorResizeThresholdPx && 
                                 Math.abs(this.height - previousHeight) < this.minorResizeThresholdPx;
 
@@ -286,7 +286,10 @@ export class FluidSimulation {
       // Rescale water data to fit new column count by sampling from the old array
       for (let i = 0; i < this.cols; i++) {
         // Map new column position to corresponding position in old array
-        const oldPosition = (i / Math.max(1, this.cols - 1)) * Math.max(1, previousCols - 1);
+        // Handle single column case by using the entire range
+        const newRange = this.cols > 1 ? this.cols - 1 : 1;
+        const oldRange = previousCols > 1 ? previousCols - 1 : 1;
+        const oldPosition = (i / newRange) * oldRange;
         const sourceIndex = Math.max(0, Math.min(previousCols - 1, Math.round(oldPosition)));
         if (sourceIndex >= 0 && sourceIndex < savedHeights.length) {
           this.columnHeights[i] = savedHeights[sourceIndex] || 0;
