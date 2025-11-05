@@ -333,7 +333,7 @@ export function recordPowderEvent(type, context = {}) {
       const normalizedMode = mode === 'fluid' ? 'fluid' : 'sand';
       const modeLabel =
         normalizedMode === 'fluid'
-          ? label || powderState.fluidProfileLabel || 'Fluid Study'
+          ? label || powderState.fluidProfileLabel || 'Bet Spire'
           : 'Powderfall Study';
       entry = `Simulation mode changed ? ${modeLabel} engaged.`;
       break;
