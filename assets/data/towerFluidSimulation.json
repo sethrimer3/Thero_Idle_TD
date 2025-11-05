@@ -1,6 +1,6 @@
 {
   "id": "tower-fluid",
-  "label": "Fluid Resonance Study",
+  "label": "Bet Spire",
   "dropSizes": [1, 1, 2, 3],
   "dropVolumeScale": 0.85,
   "idleDrainRate": 0.2,

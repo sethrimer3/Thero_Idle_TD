@@ -1,6 +1,6 @@
 /**
  * Fluid tower simulation module extracted from the powder tower bundle.
- * Provides the shallow-water style drop simulation used by the Fluid Study.
+ * Provides the shallow-water style drop simulation used by the Bet Spire.
  */
 import {
   DEFAULT_MOTE_PALETTE,
@@ -556,7 +556,7 @@ export class FluidSimulation {
     this.notifyIdleBankChange();
   }
 
-  // Mirror the sand simulation API so idle banks hydrate the fluid study.
+  // Mirror the sand simulation API so idle banks hydrate the Bet Spire.
   addIdleMotes(amount) {
     this.addIdleVolume(amount);
   }
@@ -591,10 +591,11 @@ export class FluidSimulation {
       return;
     }
     const index = Math.max(0, Math.min(this.cols - 1, Math.floor(drop.x / this.cellSize)));
-    const amount = Math.max(1, drop.size);
+    // Apply dropVolumeScale to prevent exponential growth from ripple feedback
+    const amount = Math.max(0.1, drop.size * this.dropVolumeScale);
     this.columnHeights[index] = Math.max(0, (this.columnHeights[index] || 0) + amount);
     this.columnVelocities[index] = Math.max(0, this.columnVelocities[index] || 0);
-    this.largestDrop = Math.max(this.largestDrop, amount);
+    this.largestDrop = Math.max(this.largestDrop, drop.size);
 
     const rippleVolume = Math.max(0, amount * 0.7); // Treat the splash as fractional volume that may not form a full drop.
     const rippleTotal = rippleVolume + this.rippleCarryover;
@@ -827,7 +828,7 @@ export class FluidSimulation {
     };
   }
 
-  // Report the active camera transform (static for the fluid study) to the host UI.
+  // Report the active camera transform (static for the Bet Spire) to the host UI.
   getViewTransform() {
     const width = this.width || this.canvas?.clientWidth || 0;
     const height = this.height || this.canvas?.clientHeight || 0;
@@ -847,7 +848,7 @@ export class FluidSimulation {
     }
   }
 
-  // Accept normalized camera centers even though the fluid study keeps a static viewpoint.
+  // Accept normalized camera centers even though the Bet Spire keeps a static viewpoint.
   setViewCenterNormalized(normalized) {
     const next = {
       x: Number.isFinite(normalized?.x) ? Math.max(0, Math.min(1, normalized.x)) : 0.5,

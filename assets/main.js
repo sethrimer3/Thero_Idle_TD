@@ -1501,7 +1501,7 @@ import {
 
   /**
    * Format a Bet glyph label using Hebrew letter Bet (ב) with subscript numbering.
-   * Bet glyphs are the second type of upgrade currency, exclusive to the Fluid Study,
+   * Bet glyphs are the second type of upgrade currency, exclusive to the Bet Spire,
    * appearing on the right wall and complementing Aleph glyphs on the left.
    * @param {number} index - The glyph index (0-based)
    * @returns {string} Formatted label like "ב₀", "ב₁", "ב₂", etc.
@@ -1512,8 +1512,8 @@ import {
   }
 
   /**
-   * Award Bet glyph currency when fluid study water reaches height milestones.
-   * Bet glyphs (ב) are the second type of upgrade currency, exclusive to the Fluid Study
+   * Award Bet glyph currency when Bet Spire water reaches height milestones.
+   * Bet glyphs (ב) are the second type of upgrade currency, exclusive to the Bet Spire
    * and unlocked at the same height thresholds as Aleph glyphs but tracked independently.
    * @param {number} count - Number of Bet glyphs to award
    */
@@ -1796,7 +1796,7 @@ import {
     simulationMode: 'sand',
     wallGapTarget: powderConfig.wallBaseGapMotes,
     modeSwitchPending: false,
-    fluidProfileLabel: 'Fluid Study',
+    fluidProfileLabel: 'Bet Spire',
     fluidUnlocked: false,
     // Track pointer gestures for the powder basin camera controls.
     viewInteraction: null,
@@ -2786,7 +2786,7 @@ import {
     if (!powderState.fluidUnlocked) {
       const glyphCost = getFluidUnlockGlyphCost();
       const costLabel = glyphCost > 0 ? `ℵ ${formatWholeNumber(glyphCost)}` : 'ℵ 0';
-      powderElements.modeToggle.textContent = `Unlock Fluid Study (${costLabel})`;
+      powderElements.modeToggle.textContent = `Unlock Bet Spire (${costLabel})`;
       powderElements.modeToggle.setAttribute('aria-pressed', 'false');
       const availableGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
       const affordable = availableGlyphs >= glyphCost;
@@ -2802,7 +2802,7 @@ import {
     powderElements.modeToggle.removeAttribute('aria-disabled');
     powderElements.modeToggle.disabled = false;
     const mode = powderState.simulationMode;
-    const fluidLabel = powderState.fluidProfileLabel || 'Fluid Study';
+    const fluidLabel = powderState.fluidProfileLabel || 'Bet Spire';
     powderElements.modeToggle.textContent =
       mode === 'fluid' ? 'Return to Powderfall' : `Enter ${fluidLabel}`;
     powderElements.modeToggle.setAttribute('aria-pressed', mode === 'fluid' ? 'true' : 'false');
@@ -3023,7 +3023,7 @@ import {
         initializePowderViewInteraction();
         handlePowderViewTransformChange(powderSimulation.getViewTransform());
         if (previousMode !== powderState.simulationMode) {
-          recordPowderEvent('mode-switch', { mode: 'fluid', label: profile.label || 'Fluid Study' });
+          recordPowderEvent('mode-switch', { mode: 'fluid', label: profile.label || 'Bet Spire' });
         }
       } else {
         if (!sandSimulation && powderSimulation instanceof PowderSimulation) {
@@ -6889,7 +6889,7 @@ import {
     powderState.simulationMode = 'sand';
     powderState.wallGapTarget = powderConfig.wallBaseGapMotes;
     powderState.modeSwitchPending = false;
-    powderState.fluidProfileLabel = 'Fluid Study';
+    powderState.fluidProfileLabel = 'Bet Spire';
     powderState.fluidUnlocked = false;
     updateFluidTabAvailability();
     powderState.viewTransform = null;
@@ -7227,7 +7227,7 @@ import {
     }
 
     if (fluidElements.profileLabel) {
-      fluidElements.profileLabel.textContent = powderState.fluidProfileLabel || 'Fluid Study';
+      fluidElements.profileLabel.textContent = powderState.fluidProfileLabel || 'Bet Spire';
     }
 
     if (fluidElements.stateLabel) {
