@@ -103,7 +103,7 @@ export class FluidSimulation {
     this.motePalette = mergeMotePalette(options.motePalette || fallbackPalette);
     this.defaultProfile = {
       dropSizes: [...this.dropSizes],
-      idleDrainRate: Number.isFinite(options.idleDrainRate) ? options.idleDrainRate : 0.1,
+      idleDrainRate: Number.isFinite(options.idleDrainRate) ? options.idleDrainRate : 0.2,
       baseSpawnInterval: this.baseSpawnInterval,
       waveStiffness: this.waveStiffness,
       waveDamping: this.waveDamping,
@@ -120,7 +120,7 @@ export class FluidSimulation {
       },
     };
 
-    this.idleDrainRate = Number.isFinite(options.idleDrainRate) ? Math.max(0.1, options.idleDrainRate) : 0.1;
+    this.idleDrainRate = Number.isFinite(options.idleDrainRate) ? Math.max(0.1, options.idleDrainRate) : 0.2;
     this.flowOffset = 0;
 
     this.heightInfo = {
@@ -660,7 +660,8 @@ export class FluidSimulation {
     }
     this.convertIdleBank(deltaMs);
     const releasedDrops = this.releaseIdleDrops(deltaMs);
-    this.spawnAmbientDrops(deltaMs, releasedDrops);
+    // Disabled spawnAmbientDrops as it creates duplicate drops beyond the configured rate
+    // this.spawnAmbientDrops(deltaMs, releasedDrops);
     const spawnBudget = Math.max(1, Math.ceil(deltaMs / Math.max(30, this.baseSpawnInterval / 4)));
     this.spawnPendingDrops(spawnBudget);
     this.updateDrops(deltaMs);
