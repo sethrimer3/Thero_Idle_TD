@@ -146,6 +146,7 @@ export class FluidSimulation {
     this.loopHandle = null;
     this.resizeTimeout = null;
     this.resizeDebounceMs = 150;
+    this.minorResizeThresholdPx = 50;
 
     this.handleFrame = this.handleFrame.bind(this);
     this.handleResize = this.handleResize.bind(this);
@@ -273,8 +274,8 @@ export class FluidSimulation {
     const savedHeights = Array.isArray(this.columnHeights) ? [...this.columnHeights] : null;
     const savedVelocities = Array.isArray(this.columnVelocities) ? [...this.columnVelocities] : null;
     const shouldPreserveWater = savedHeights && previousCols > 0 && 
-                                Math.abs(this.width - previousWidth) < 50 && 
-                                Math.abs(this.height - previousHeight) < 50;
+                                Math.abs(this.width - previousWidth) < this.minorResizeThresholdPx && 
+                                Math.abs(this.height - previousHeight) < this.minorResizeThresholdPx;
 
     this.columnHeights = new Array(this.cols).fill(0);
     this.columnVelocities = new Array(this.cols).fill(0);
@@ -282,9 +283,11 @@ export class FluidSimulation {
 
     // Restore water data if this is a minor resize (e.g., from scrolling/viewport changes)
     if (shouldPreserveWater && savedHeights) {
-      // Rescale water data to fit new column count
+      // Rescale water data to fit new column count by sampling from the old array
       for (let i = 0; i < this.cols; i++) {
-        const sourceIndex = Math.min(previousCols - 1, Math.floor((i / this.cols) * previousCols));
+        // Map new column position to corresponding position in old array
+        const oldPosition = (i / Math.max(1, this.cols - 1)) * Math.max(1, previousCols - 1);
+        const sourceIndex = Math.max(0, Math.min(previousCols - 1, Math.round(oldPosition)));
         if (sourceIndex >= 0 && sourceIndex < savedHeights.length) {
           this.columnHeights[i] = savedHeights[sourceIndex] || 0;
           if (savedVelocities && sourceIndex < savedVelocities.length) {
