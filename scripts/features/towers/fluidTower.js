@@ -592,8 +592,7 @@ export class FluidSimulation {
     }
     const index = Math.max(0, Math.min(this.cols - 1, Math.floor(drop.x / this.cellSize)));
     // Apply dropVolumeScale to prevent exponential growth from ripple feedback
-    const scaledAmount = Math.max(0.1, drop.size * this.dropVolumeScale);
-    const amount = Math.max(0.1, scaledAmount);
+    const amount = Math.max(0.1, drop.size * this.dropVolumeScale);
     this.columnHeights[index] = Math.max(0, (this.columnHeights[index] || 0) + amount);
     this.columnVelocities[index] = Math.max(0, this.columnVelocities[index] || 0);
     this.largestDrop = Math.max(this.largestDrop, drop.size);
