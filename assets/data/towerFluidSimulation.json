@@ -3,11 +3,11 @@
   "label": "Fluid Resonance Study",
   "dropSizes": [1, 1, 2, 3],
   "dropVolumeScale": 0.85,
-  "idleDrainRate": 1.6,
+  "idleDrainRate": 0.2,
   "baseSpawnInterval": 150,
   "waveStiffness": 0.22,
   "waveDamping": 0.012,
-  "sideFlowRate": 0.6,
+  "sideFlowRate": 0.85,
   "rippleFrequency": 0.8,
   "rippleAmplitude": 0.55,
   "palette": {
