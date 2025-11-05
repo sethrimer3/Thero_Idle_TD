@@ -144,6 +144,8 @@ export class FluidSimulation {
     this.running = false;
     this.lastFrame = 0;
     this.loopHandle = null;
+    this.resizeTimeout = null;
+    this.resizeDebounceMs = 150;
 
     this.handleFrame = this.handleFrame.bind(this);
     this.handleResize = this.handleResize.bind(this);
@@ -157,12 +159,21 @@ export class FluidSimulation {
     if (!this.canvas || !this.ctx) {
       return;
     }
-    const wasRunning = this.running;
-    this.configureCanvas();
-    if (!wasRunning) {
-      this.render();
-      this.updateHeightInfo(true);
+    
+    // Debounce resize events to prevent water reset during scrolling
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
     }
+    
+    this.resizeTimeout = setTimeout(() => {
+      const wasRunning = this.running;
+      this.configureCanvas();
+      if (!wasRunning) {
+        this.render();
+        this.updateHeightInfo(true);
+      }
+      this.resizeTimeout = null;
+    }, this.resizeDebounceMs);
   }
 
   configureCanvas() {
@@ -184,12 +195,14 @@ export class FluidSimulation {
     const measuredWidth = parentRect?.width || rect?.width || this.canvas.clientWidth || 240;
     const measuredHeight = parentRect?.height || rect?.height || this.canvas.clientHeight || 320;
 
-    // Make the simulation square by using the smaller dimension for both width and height
-    const squareDimension = Math.min(measuredWidth, measuredHeight);
+    // Maintain 3:4 aspect ratio (width:height) for the simulation canvas
+    // Calculate dimensions based on container width as the constraint
+    const aspectRatio = 3 / 4;
+    const constrainedWidth = Math.max(150, measuredWidth);
+    const constrainedHeight = Math.max(200, constrainedWidth / aspectRatio);
 
-    // Use consistent minimum of 200px for both dimensions to maintain square aspect ratio
-    const styleWidth = `${Math.max(200, squareDimension)}px`;
-    const styleHeight = `${Math.max(200, squareDimension)}px`;
+    const styleWidth = `${constrainedWidth}px`;
+    const styleHeight = `${constrainedHeight}px`;
     if (this.canvas.style.width !== styleWidth) {
       this.canvas.style.width = styleWidth;
     }
@@ -197,8 +210,8 @@ export class FluidSimulation {
       this.canvas.style.height = styleHeight;
     }
 
-    const targetWidth = Math.max(1, Math.floor(squareDimension * ratio));
-    const targetHeight = Math.max(1, Math.floor(squareDimension * ratio));
+    const targetWidth = Math.max(1, Math.floor(constrainedWidth * ratio));
+    const targetHeight = Math.max(1, Math.floor(constrainedHeight * ratio));
     if (this.canvas.width !== targetWidth) {
       this.canvas.width = targetWidth;
     }
@@ -209,9 +222,14 @@ export class FluidSimulation {
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(ratio, ratio);
 
-    // Both dimensions use the same minimum (200px) to maintain square canvas
-    this.width = Math.max(200, squareDimension);
-    this.height = Math.max(200, squareDimension);
+    // Store previous dimensions to detect if resize is significant
+    const previousWidth = this.width;
+    const previousHeight = this.height;
+    const previousCols = this.cols;
+
+    // Use the constrained dimensions that maintain 3:4 aspect ratio
+    this.width = constrainedWidth;
+    this.height = constrainedHeight;
 
     if (!Number.isFinite(this.baseGapUnits) || this.baseGapUnits <= 0) {
       const fallbackGapUnits = Number.isFinite(this.wallGapTargetUnits)
@@ -251,9 +269,30 @@ export class FluidSimulation {
     this.wallInsetLeftCells = Math.min(Math.max(0, leftUnits), this.cols - 1);
     this.wallInsetRightCells = Math.min(Math.max(0, rightUnits), this.cols - 1);
 
+    // Preserve water data if columns changed but dimensions are similar
+    const savedHeights = Array.isArray(this.columnHeights) ? [...this.columnHeights] : null;
+    const savedVelocities = Array.isArray(this.columnVelocities) ? [...this.columnVelocities] : null;
+    const shouldPreserveWater = savedHeights && previousCols > 0 && 
+                                Math.abs(this.width - previousWidth) < 50 && 
+                                Math.abs(this.height - previousHeight) < 50;
+
     this.columnHeights = new Array(this.cols).fill(0);
     this.columnVelocities = new Array(this.cols).fill(0);
     this.flowBuffer = new Array(this.cols).fill(0);
+
+    // Restore water data if this is a minor resize (e.g., from scrolling/viewport changes)
+    if (shouldPreserveWater && savedHeights) {
+      // Rescale water data to fit new column count
+      for (let i = 0; i < this.cols; i++) {
+        const sourceIndex = Math.min(previousCols - 1, Math.floor((i / this.cols) * previousCols));
+        if (sourceIndex >= 0 && sourceIndex < savedHeights.length) {
+          this.columnHeights[i] = savedHeights[sourceIndex] || 0;
+          if (savedVelocities && sourceIndex < savedVelocities.length) {
+            this.columnVelocities[i] = savedVelocities[sourceIndex] || 0;
+          }
+        }
+      }
+    }
 
     this.updateMaxDropSize();
     this.notifyWallMetricsChange();
