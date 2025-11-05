@@ -175,3 +175,41 @@ Future symbol variants will continue to draw from global mathematical alphabets 
 | **Powder Archivist** | Illuminate at least three sand sigils along the powder wall. | +1 powder/min. |
 | **Keystone Keeper** | Complete any idle auto-run simulation. | +1 powder/min. |
 | **Temporal Sifter** | Accumulate 10 minutes of active idle simulations (multiple runs stack). | +1 powder/min. |
+
+## Fluid Study & Dual Glyph Currency
+
+The **Fluid Study** is an advanced progression system that unlocks after reaching milestones in the Mote Spire. Instead of falling sand grains, it features a continuous water simulation with shallow-water physics, creating a rippling, reflective surface.
+
+### Fluid Study Mechanics
+- **Dual Wall System:** The Fluid Study features walls on both the left and right sides of the channel, creating a contained basin for the water to accumulate.
+- **Camera Panning:** As the water depth reaches **50% of the viewport height**, the camera smoothly pans upward, similar to the Mote Spire's 75% threshold, allowing the player to see higher glyphs as they progress.
+- **Water Dynamics:** Drops merge into a continuous surface that ripples and equalizes over time, creating more organic wave patterns than the discrete sand grains.
+- **Idle Drop Reservoir:** Like the Mote Spire's idle bank, accumulated idle drops continuously drain into the basin at a configurable rate.
+
+### Dual Glyph System: Aleph (ℵ) & Bet (ב)
+
+The Fluid Study introduces a second type of upgrade currency through **Bet glyphs**, complementing the existing **Aleph glyph** system from the Mote Spire.
+
+#### Aleph Glyphs (ℵ) – Left Wall
+- Appear on the **left wall** of the Fluid Study
+- Use the Hebrew letter **Aleph (ℵ)** with subscript numbering: ℵ₀, ℵ₁, ℵ₂, etc.
+- Also collected from the Mote Spire (sand simulation)
+- Serve as the primary tower upgrade currency
+- Thresholds occur every **50% of viewport height** (0.5 normalized height intervals)
+
+#### Bet Glyphs (ב) – Right Wall
+- Appear on the **right wall** of the Fluid Study
+- Use the Hebrew letter **Bet (ב)** with subscript numbering: ב₁, ב₂, ב₃, etc.
+- **Exclusive to the Fluid Study** – cannot be collected from the Mote Spire
+- Serve as a **second type of upgrade currency** for specialized tower research
+- Share the same height threshold intervals as Aleph glyphs (50% normalized height)
+- Numbering starts at **ב₁** (index 1), distinguishing them from Aleph's ℵ₀ start
+
+### Glyph Collection Rules
+- Both Aleph and Bet glyphs are earned automatically as the water depth crosses their threshold heights
+- Glyphs remain lit permanently once achieved, even if water level drops
+- The camera pans to keep upcoming glyphs visible as the basin fills
+- Progress is saved and persists across sessions and simulation mode switches
+- Each glyph type maintains independent currency tracking for specialized upgrade paths
+
+This dual-currency system allows for deeper strategic choices in tower development, with Bet glyphs unlocking research branches unique to the Fluid Study's advanced progression tier.
