@@ -184,8 +184,11 @@ export class FluidSimulation {
     const measuredWidth = parentRect?.width || rect?.width || this.canvas.clientWidth || 240;
     const measuredHeight = parentRect?.height || rect?.height || this.canvas.clientHeight || 320;
 
-    const styleWidth = `${Math.max(200, measuredWidth)}px`;
-    const styleHeight = `${Math.max(260, measuredHeight)}px`;
+    // Make the simulation square by using the smaller dimension for both width and height
+    const squareDimension = Math.min(measuredWidth, measuredHeight);
+
+    const styleWidth = `${Math.max(200, squareDimension)}px`;
+    const styleHeight = `${Math.max(200, squareDimension)}px`;
     if (this.canvas.style.width !== styleWidth) {
       this.canvas.style.width = styleWidth;
     }
@@ -193,8 +196,8 @@ export class FluidSimulation {
       this.canvas.style.height = styleHeight;
     }
 
-    const targetWidth = Math.max(1, Math.floor(measuredWidth * ratio));
-    const targetHeight = Math.max(1, Math.floor(measuredHeight * ratio));
+    const targetWidth = Math.max(1, Math.floor(squareDimension * ratio));
+    const targetHeight = Math.max(1, Math.floor(squareDimension * ratio));
     if (this.canvas.width !== targetWidth) {
       this.canvas.width = targetWidth;
     }
@@ -205,8 +208,8 @@ export class FluidSimulation {
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(ratio, ratio);
 
-    this.width = Math.max(200, measuredWidth);
-    this.height = Math.max(260, measuredHeight);
+    this.width = Math.max(200, squareDimension);
+    this.height = Math.max(200, squareDimension);
 
     if (!Number.isFinite(this.baseGapUnits) || this.baseGapUnits <= 0) {
       const fallbackGapUnits = Number.isFinite(this.wallGapTargetUnits)
@@ -599,27 +602,15 @@ export class FluidSimulation {
       return;
     }
     const index = Math.max(0, Math.min(this.cols - 1, Math.floor(drop.x / this.cellSize)));
-    // Apply dropVolumeScale to prevent exponential growth from ripple feedback
+    // Add the drop's volume to the water column exactly once
     const amount = Math.max(0.1, drop.size * this.dropVolumeScale);
     this.columnHeights[index] = Math.max(0, (this.columnHeights[index] || 0) + amount);
     this.columnVelocities[index] = Math.max(0, this.columnVelocities[index] || 0);
     this.largestDrop = Math.max(this.largestDrop, drop.size);
 
-    const rippleVolume = Math.max(0, amount * 0.7); // Treat the splash as fractional volume that may not form a full drop.
-    const rippleTotal = rippleVolume + this.rippleCarryover;
-    const rippleSize = Math.floor(rippleTotal);
-    this.rippleCarryover = rippleTotal - rippleSize;
-
-    if (rippleSize >= 1) {
-      const radius = Math.max(1, Math.min(this.maxDropRadius, drop.radius * 0.7));
-      this.pendingDrops.push({
-        x: drop.x + (Math.random() - 0.5) * this.cellSize,
-        y: -radius * 0.5,
-        size: Math.max(1, Math.min(this.maxDropSize, rippleSize)),
-        radius,
-        velocity: 0,
-      });
-    }
+    // Ripple drop spawning disabled to prevent exponential multiplication
+    // The ripple effect is handled through wave physics in simulateFluid()
+    // instead of spawning new drops that would create feedback loops
   }
 
   simulateFluid(deltaMs) {
@@ -780,6 +771,19 @@ export class FluidSimulation {
 
     const gapStart = this.wallInsetLeftCells * this.cellSize;
     const gapEnd = this.width - this.wallInsetRightCells * this.cellSize;
+
+    // Draw visible walls on left and right sides
+    const wallColor = 'rgba(180, 180, 180, 0.3)'; // Light gray chalk-like color
+    // Left wall
+    if (this.wallInsetLeftCells > 0) {
+      this.ctx.fillStyle = wallColor;
+      this.ctx.fillRect(0, 0, gapStart, this.height);
+    }
+    // Right wall
+    if (this.wallInsetRightCells > 0) {
+      this.ctx.fillStyle = wallColor;
+      this.ctx.fillRect(gapEnd, 0, this.width - gapEnd, this.height);
+    }
     const waterGradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
     const stops = resolvePaletteColorStops(palette);
     const restAlpha = clampUnitInterval(palette.restAlpha ?? 0.8);
