@@ -120,7 +120,7 @@ export class FluidSimulation {
       },
     };
 
-    this.idleDrainRate = Number.isFinite(options.idleDrainRate) ? Math.max(0.1, options.idleDrainRate) : 0.2;
+    this.idleDrainRate = Number.isFinite(options.idleDrainRate) ? Math.max(0.2, options.idleDrainRate) : 0.2;
     this.flowOffset = 0;
 
     this.heightInfo = {
