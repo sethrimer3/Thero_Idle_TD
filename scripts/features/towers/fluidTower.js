@@ -479,19 +479,27 @@ export class FluidSimulation {
       return 0;
     }
 
-    const ratePerMs = Math.max(0, this.idleDrainRate) / 1000;
-    if (ratePerMs <= 0) {
+    // Use a fixed slower release interval to prevent exponential spawn from double rate application
+    // Calculate interval from idleDrainRate: if rate is 0.2 drops/sec, interval is 5000ms per drop
+    const drainRate = Math.max(0.05, this.idleDrainRate);
+    const baseReleaseInterval = Math.max(1000, 1000 / drainRate);
+    
+    this.idleDropAccumulator += deltaMs;
+    
+    if (this.idleDropAccumulator < baseReleaseInterval) {
       return 0;
     }
 
-    this.idleDropAccumulator += deltaMs * ratePerMs;
-    const toRelease = Math.max(0, Math.min(availableBuffer, Math.floor(this.idleDropAccumulator)));
+    // Release one drop per interval
+    const intervalsElapsed = Math.floor(this.idleDropAccumulator / baseReleaseInterval);
+    const toRelease = Math.max(0, Math.min(availableBuffer, intervalsElapsed));
 
     if (toRelease <= 0) {
       return 0;
     }
 
-    this.idleDropAccumulator -= toRelease;
+    // Use modulo to prevent timing drift across multiple intervals
+    this.idleDropAccumulator %= baseReleaseInterval;
     this.idleDropBuffer = Math.max(0, this.idleDropBuffer - toRelease);
 
     const bounds = this.getGapBounds();
