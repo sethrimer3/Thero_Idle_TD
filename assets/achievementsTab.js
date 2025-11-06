@@ -1,20 +1,34 @@
-function loadAchievementsFromJSON(jsonData) {
-    // Parse the JSON data and load achievements
-   
+'Original code from the main branch'
+
+let jsonAchievements = [];  // New variable added
+
+// Function to fetch and parse achievements from JSON
+export async function loadAchievementsFromJSON() {
+    const response = await fetch('data/achievements.json');
+    if (!response.ok) throw new Error('Network response was not ok');
+    jsonAchievements = await response.json();
 }
 
-function createConditionChecker(condition) {
-    // Map the condition type to appropriate game state checks
+// Helper functions
+function createConditionChecker(achievement) {
+    // Implementation...
 }
 
-function createProgressChecker() {
-    // Logic to display progress text
+function createProgressChecker(achievement) {
+    // Implementation...
 }
 
-function createJSONAchievementDefinition(achievement) {
-    // Convert JSON achievement definitions to internal format
+function createJSONAchievementDefinition(jsonAch) {
+    // Implementation...
 }
 
+// Modified generateLevelAchievements function
 function generateLevelAchievements() {
-    // Merge JSON achievements with level-based achievements
+    // First add JSON achievements
+    jsonAchievements.forEach(achievement => {
+        // Implement adding json achievements...
+    });
+    
+    // Then level-based achievements
+    // Original existing logic...
 }
