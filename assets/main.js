@@ -3461,7 +3461,6 @@ import {
       // Rectangle restoration will be handled by _synthesizeRectangleState in importState
     } else if (!isInitialLoad && snapshot.compactHeightLine && Number.isFinite(snapshot.moteCount)) {
       // For tab switches, temporarily remove moteCount to force full grain restoration from compactHeightLine
-      const moteCount = snapshot.moteCount;
       snapshot.moteCount = undefined;
     }
     

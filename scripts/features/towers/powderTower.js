@@ -2350,7 +2350,7 @@ export class PowderSimulation {
         motePalette: palette,
         heightInfo,
         compactHeightLine: compact,
-        moteCount: Math.max(0, normalizeFiniteInteger(grains.length, 0)),
+        moteCount: grains.length,
       };
     }
 
@@ -2378,7 +2378,7 @@ export class PowderSimulation {
       wallGapTargetUnits: Number.isFinite(this.wallGapTargetUnits) ? Math.max(1, normalizeFiniteInteger(this.wallGapTargetUnits, 1)) : null,
       motePalette: palette,
       heightInfo,
-      moteCount: Math.max(0, normalizeFiniteInteger(grains.length, 0)),
+      moteCount: grains.length,
     };
   }
 
