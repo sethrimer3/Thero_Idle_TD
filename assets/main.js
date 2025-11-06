@@ -1753,7 +1753,7 @@ import {
   }
 
   // Render the relocated resource panels using the latest score, glyph, and mote reserves.
-  function updateStatusDisplays() {
+  export function updateStatusDisplays() {
     const theroMultiplier = getStartingTheroMultiplier();
     if (resourceElements.theroMultiplier) {
       const multiplierLabel = formatGameNumber(theroMultiplier);
