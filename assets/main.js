@@ -1762,7 +1762,7 @@ import {
     }
 
     // Aleph glyphs (ℵ) are earned from defeating enemies in the main game
-    const totalAlephGlyphs = Math.max(0, Math.floor(gameStats.enemiesDefeated || 0));
+    const totalAlephGlyphs = Math.max(0, Math.floor(powderState.glyphsAwarded || 0));
     const unusedAlephGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
     if (resourceElements.glyphsAlephTotal) {
       resourceElements.glyphsAlephTotal.textContent = `${formatWholeNumber(totalAlephGlyphs)} ℵ`;
