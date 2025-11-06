@@ -2137,6 +2137,12 @@ export class PowderSimulation {
 
   _synthesizeStateFromCompact(state) {
     if (!state || typeof state !== 'object' || !state.compactHeightLine) return null;
+    
+    // If moteCount is available, use efficient rectangle restoration
+    if (Number.isFinite(state.moteCount) && state.moteCount > 0) {
+      return this._synthesizeRectangleState(state);
+    }
+    
     const c = state.compactHeightLine;
     const cols = c.cols || this.cols || 0;
     const left = Number.isFinite(c.leftBaseline) ? Math.max(0, Math.round(c.leftBaseline)) : 0;
@@ -2200,6 +2206,59 @@ export class PowderSimulation {
       nextId: Math.max(synthesizedId, this.nextId || synthesizedId)
     };
     return synthetic;
+  }
+
+  _synthesizeRectangleState(state) {
+    // Rectangle-based mote restoration: Fill from bottom with a rectangle of motes
+    const savedMoteCount = Math.max(0, Math.round(state.moteCount || 0));
+    const cols = (state.compactHeightLine && state.compactHeightLine.cols) || this.cols || 0;
+    
+    if (cols <= 0 || savedMoteCount <= 0) {
+      return {
+        ...state,
+        grains: [],
+        pendingDrops: [],
+        idleBank: Math.max(0, normalizeFiniteNumber(state.idleBank, 0)),
+      };
+    }
+    
+    // Calculate how many complete rows we can fill
+    const completeRows = Math.floor(savedMoteCount / cols);
+    const remainderMotes = savedMoteCount % cols;
+    
+    // Generate grains for the rectangle
+    const grains = [];
+    let synthesizedId = Number.isFinite(state?.nextId) ? Math.max(1, Math.round(state.nextId)) : Math.max(1, this.nextId || 1);
+    
+    // Fill complete rows from bottom
+    for (let y = 0; y < completeRows; y++) {
+      for (let x = 0; x < cols; x++) {
+        grains.push({
+          id: synthesizedId++,
+          x: x,
+          y: y,
+          size: 1,
+          colliderSize: 1,
+          bias: 1,
+          shade: 180,
+          freefall: false,
+          inGrid: true,
+          resting: true
+        });
+      }
+    }
+    
+    // The remainder motes will be added to the idle bank instead of partially filling a row
+    // This prevents visual artifacts and ensures predictable behavior
+    const adjustedIdleBank = Math.max(0, normalizeFiniteNumber(state.idleBank, 0)) + remainderMotes;
+    
+    return {
+      ...state,
+      grains: grains.slice(0, this.maxGrains || grains.length),
+      pendingDrops: [],
+      idleBank: adjustedIdleBank,
+      nextId: Math.max(synthesizedId, this.nextId || synthesizedId),
+    };
   }
 
   exportState() {
@@ -2291,6 +2350,7 @@ export class PowderSimulation {
         motePalette: palette,
         heightInfo,
         compactHeightLine: compact,
+        moteCount: grains.length,
       };
     }
 
@@ -2318,6 +2378,7 @@ export class PowderSimulation {
       wallGapTargetUnits: Number.isFinite(this.wallGapTargetUnits) ? Math.max(1, normalizeFiniteInteger(this.wallGapTargetUnits, 1)) : null,
       motePalette: palette,
       heightInfo,
+      moteCount: grains.length,
     };
   }
 
