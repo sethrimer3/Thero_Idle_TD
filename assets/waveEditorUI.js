@@ -3,6 +3,9 @@
 
 import { ENEMY_TYPES, encodeWavesToCompact, parseCompactWaveString, validateWaveString } from './waveEncoder.js';
 
+// Speed normalization factor for converting from 0-100 scale to 0-1 game scale
+const SPEED_NORMALIZATION_FACTOR = 1000;
+
 // Wave editor state
 const waveEditorState = {
   waves: [],
@@ -406,7 +409,7 @@ export function exportWavesFromEditor() {
       return null;
     }
 
-    const normalizedSpeed = enemyData.speed / 1000;
+    const normalizedSpeed = enemyData.speed / SPEED_NORMALIZATION_FACTOR;
     const reward = wave.hp * 0.1;
 
     const verboseWave = {
@@ -498,7 +501,8 @@ function formatHpForInput(hp) {
     return '0';
   }
 
-  const exponent = Math.floor(Math.log10(Math.abs(hp)));
+  // Use Math.log with LN10 for broader browser compatibility
+  const exponent = Math.floor(Math.log(Math.abs(hp)) / Math.LN10);
   if (exponent < 3) {
     return String(hp);
   }

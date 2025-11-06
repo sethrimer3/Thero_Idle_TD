@@ -1,6 +1,9 @@
 // Wave encoding and decoding system for compact level configuration.
 // Converts verbose wave arrays to/from compact string format to reduce JSON file sizes by ~90%.
 
+// Speed normalization factor for converting from 0-100 scale to 0-1 game scale
+const SPEED_NORMALIZATION_FACTOR = 1000;
+
 // Enemy type mapping - each letter represents a specific enemy with predefined stats
 export const ENEMY_TYPES = {
   'A': { id: 'etype', speed: 50, color: '#4a90e2', label: 'Epsilon Type' },
@@ -85,7 +88,7 @@ function parseWaveSegment(segment) {
   const reward = hp * 0.1; // 10% of HP as reward
 
   // Convert normalized speed to game speed (0-1 range)
-  const normalizedSpeed = enemyData.speed / 1000;
+  const normalizedSpeed = enemyData.speed / SPEED_NORMALIZATION_FACTOR;
 
   const wave = {
     count: parseInt(count, 10),
@@ -160,7 +163,7 @@ function encodeWave(wave, waveNumber) {
   let waveStr = `${waveNumber}:${wave.count}${enemyType}${mantissa}e${exponent}/${wave.interval}`;
 
   // Add delay if present
-  if (wave.delay && wave.delay > 0) {
+  if ('delay' in wave && wave.delay > 0) {
     waveStr += `/${wave.delay}`;
   } else if (wave.boss) {
     // Need empty delay slot if boss present but no delay
@@ -188,7 +191,8 @@ function encodeWave(wave, waveNumber) {
 function toScientificNotation(value) {
   if (value === 0) return { mantissa: 0, exponent: 0 };
   
-  const exponent = Math.floor(Math.log10(Math.abs(value)));
+  // Use Math.log with LN10 for broader browser compatibility
+  const exponent = Math.floor(Math.log(Math.abs(value)) / Math.LN10);
   const mantissa = value / Math.pow(10, exponent);
   
   // Round mantissa to 2 decimal places for cleaner output
