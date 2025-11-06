@@ -1157,8 +1157,13 @@ import {
       return;
     }
     const normalized = Math.max(0, value);
-    if (fluidSimulation && typeof fluidSimulation.idleDrainRate !== 'undefined') {
-      fluidSimulation.idleDrainRate = normalized;
+    // Access fluidSimulationInstance only if it exists (defined later in file)
+    try {
+      if (typeof fluidSimulationInstance !== 'undefined' && fluidSimulationInstance && typeof fluidSimulationInstance.idleDrainRate !== 'undefined') {
+        fluidSimulationInstance.idleDrainRate = normalized;
+      }
+    } catch (e) {
+      // fluidSimulationInstance not yet initialized
     }
     recordDeveloperAdjustment('betDropRate', normalized);
   }
@@ -1168,11 +1173,16 @@ import {
       return;
     }
     const normalized = Math.max(0, Math.floor(value));
-    if (fluidSimulation && typeof fluidSimulation.idleBank !== 'undefined') {
-      fluidSimulation.idleBank = normalized;
-      if (typeof fluidSimulation.notifyIdleBankChange === 'function') {
-        fluidSimulation.notifyIdleBankChange();
+    // Access fluidSimulationInstance only if it exists (defined later in file)
+    try {
+      if (typeof fluidSimulationInstance !== 'undefined' && fluidSimulationInstance && typeof fluidSimulationInstance.idleBank !== 'undefined') {
+        fluidSimulationInstance.idleBank = normalized;
+        if (typeof fluidSimulationInstance.notifyIdleBankChange === 'function') {
+          fluidSimulationInstance.notifyIdleBankChange();
+        }
       }
+    } catch (e) {
+      // fluidSimulationInstance not yet initialized
     }
     recordDeveloperAdjustment('betDropBank', normalized);
   }
@@ -1202,11 +1212,15 @@ import {
     if (fields.glyphs) {
       fields.glyphs.value = formatDeveloperInteger(getGlyphCurrency());
     }
-    if (fields.betDropRate && fluidSimulation) {
-      fields.betDropRate.value = formatDeveloperFloat(fluidSimulation.idleDrainRate || 0, 2);
-    }
-    if (fields.betDropBank && fluidSimulation) {
-      fields.betDropBank.value = formatDeveloperInteger(fluidSimulation.idleBank || 0);
+    try {
+      if (fields.betDropRate && typeof fluidSimulationInstance !== 'undefined' && fluidSimulationInstance) {
+        fields.betDropRate.value = formatDeveloperFloat(fluidSimulationInstance.idleDrainRate || 0, 2);
+      }
+      if (fields.betDropBank && typeof fluidSimulationInstance !== 'undefined' && fluidSimulationInstance) {
+        fields.betDropBank.value = formatDeveloperInteger(fluidSimulationInstance.idleBank || 0);
+      }
+    } catch (e) {
+      // fluidSimulationInstance not yet initialized
     }
   }
 
