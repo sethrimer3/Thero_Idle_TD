@@ -11,9 +11,14 @@ const powderLog = []; // Maintain the in-memory powder ledger for quick display 
 // Track the live DOM elements for the overlay so focus handling and animations stay coordinated.
 const offlineOverlayElements = {
   container: null,
-  minutes: null,
-  rate: null,
-  total: null,
+  alephRow: null,
+  alephMinutes: null,
+  alephMultiplier: null,
+  alephTotal: null,
+  betRow: null,
+  betMinutes: null,
+  betMultiplier: null,
+  betTotal: null,
   prompt: null,
 };
 
@@ -119,7 +124,7 @@ function animateOfflineNumber(element, target, options = {}) {
   });
 }
 
-async function showOfflineOverlay(minutes, rate, powder) {
+async function showOfflineOverlay(summary = {}) {
   const container = offlineOverlayElements.container;
   if (!container) {
     return;
@@ -143,20 +148,74 @@ async function showOfflineOverlay(minutes, rate, powder) {
     container.focus({ preventScroll: true });
   }
 
-  const { minutes: minutesEl, rate: rateEl, total: totalEl } = offlineOverlayElements;
-  if (minutesEl) {
-    minutesEl.textContent = '0';
-  }
-  if (rateEl) {
-    rateEl.textContent = '0';
-  }
-  if (totalEl) {
-    totalEl.textContent = '0';
+  const {
+    alephRow,
+    alephMinutes,
+    alephMultiplier,
+    alephTotal,
+    betRow,
+    betMinutes,
+    betMultiplier,
+    betTotal,
+  } = offlineOverlayElements;
+
+  const minutesValue = Math.max(0, Number(summary.minutes) || 0);
+  const alephSummary = summary.aleph || {};
+  const betSummary = summary.bet || {};
+
+  const alephMultiplierValue = Math.max(0, Number(alephSummary.multiplier) || 0);
+  const alephTotalValue = Math.max(0, Number(alephSummary.total) || 0);
+  const betUnlocked = Boolean(betSummary.unlocked);
+  const betMultiplierValue = Math.max(0, Number(betSummary.multiplier) || 0);
+  const betTotalValue = Math.max(0, Number(betSummary.total) || 0);
+
+  if (betRow) {
+    betRow.classList.toggle('offline-overlay__equation-row--inactive', !betUnlocked);
+    if (betUnlocked) {
+      betRow.removeAttribute('aria-hidden');
+    } else {
+      betRow.setAttribute('aria-hidden', 'true');
+    }
   }
 
-  await animateOfflineNumber(minutesEl, minutes, { format: dependencies.formatWholeNumber });
-  await animateOfflineNumber(rateEl, rate, { format: dependencies.formatGameNumber });
-  await animateOfflineNumber(totalEl, powder, { format: dependencies.formatGameNumber });
+  [
+    alephMinutes,
+    alephMultiplier,
+    alephTotal,
+    betMinutes,
+    betMultiplier,
+    betTotal,
+  ].forEach((element) => {
+    if (element) {
+      element.textContent = '0';
+    }
+  });
+
+  await Promise.all([
+    animateOfflineNumber(alephMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
+    animateOfflineNumber(betMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
+  ]);
+
+  await Promise.all([
+    animateOfflineNumber(alephMultiplier, alephMultiplierValue, { format: dependencies.formatWholeNumber }),
+    animateOfflineNumber(betMultiplier, betUnlocked ? betMultiplierValue : 0, {
+      format: dependencies.formatWholeNumber,
+    }),
+  ]);
+
+  const alephSuffix = alephTotalValue === 1 ? ' Mote' : ' Motes';
+  const betSuffix = betTotalValue === 1 ? ' Drop' : ' Drops';
+
+  await Promise.all([
+    animateOfflineNumber(alephTotal, alephTotalValue, {
+      format: dependencies.formatGameNumber,
+      suffix: alephSuffix,
+    }),
+    animateOfflineNumber(betTotal, betUnlocked ? betTotalValue : 0, {
+      format: dependencies.formatGameNumber,
+      suffix: betSuffix,
+    }),
+  ]);
 
   offlineOverlayAnimating = false;
   scheduleOfflineOverlayPrompt();
@@ -202,9 +261,14 @@ export function bindOfflineOverlayElements() {
   if (!offlineOverlayElements.container) {
     return;
   }
-  offlineOverlayElements.minutes = document.getElementById('offline-minutes');
-  offlineOverlayElements.rate = document.getElementById('offline-rate');
-  offlineOverlayElements.total = document.getElementById('offline-total');
+  offlineOverlayElements.alephRow = document.getElementById('offline-aleph-row');
+  offlineOverlayElements.alephMinutes = document.getElementById('offline-aleph-minutes');
+  offlineOverlayElements.alephMultiplier = document.getElementById('offline-aleph-multiplier');
+  offlineOverlayElements.alephTotal = document.getElementById('offline-aleph-total');
+  offlineOverlayElements.betRow = document.getElementById('offline-bet-row');
+  offlineOverlayElements.betMinutes = document.getElementById('offline-bet-minutes');
+  offlineOverlayElements.betMultiplier = document.getElementById('offline-bet-multiplier');
+  offlineOverlayElements.betTotal = document.getElementById('offline-bet-total');
   offlineOverlayElements.prompt = document.getElementById('offline-prompt');
 
   offlineOverlayElements.container.addEventListener('pointerdown', (event) => {
@@ -305,9 +369,38 @@ export function recordPowderEvent(type, context = {}) {
       break;
     }
     case 'offline-reward': {
-      const { minutes = 0, rate = 0, powder = 0 } = context;
+      const { minutes = 0, powder = 0, idleSummary = null } = context;
       const minutesLabel = dependencies.formatWholeNumber(minutes);
-      entry = `Idle harvest ? ${minutesLabel}m ? ${dependencies.formatGameNumber(rate)} = +${dependencies.formatGameNumber(powder)} Motes.`;
+      const alephMultiplier = idleSummary?.aleph?.multiplier;
+      const alephTotal = idleSummary?.aleph?.total;
+      const betUnlocked = Boolean(idleSummary?.bet?.unlocked);
+      const betMultiplier = idleSummary?.bet?.multiplier;
+      const betTotal = idleSummary?.bet?.total;
+
+      const safeAlephMultiplier = Number.isFinite(alephMultiplier) ? Math.max(0, alephMultiplier) : 0;
+      const safeAlephTotal = Number.isFinite(alephTotal) ? Math.max(0, alephTotal) : 0;
+      const alephRateLabel = dependencies.formatGameNumber(safeAlephMultiplier);
+      const alephGainLabel = dependencies.formatGameNumber(safeAlephTotal);
+
+      const betPieces = [];
+      if (betUnlocked) {
+        const safeBetMultiplier = Number.isFinite(betMultiplier) ? Math.max(0, betMultiplier) : 0;
+        const safeBetTotal = Number.isFinite(betTotal) ? Math.max(0, betTotal) : 0;
+        const betRateLabel = dependencies.formatGameNumber(safeBetMultiplier);
+        const betGainLabel = dependencies.formatGameNumber(safeBetTotal);
+        betPieces.push(`ב × ${betRateLabel} = +${betGainLabel} Drops`);
+      }
+
+      const powderLabel = dependencies.formatGameNumber(Math.max(0, powder));
+      const fragments = [
+        `ℵ × ${alephRateLabel} = +${alephGainLabel} Motes`,
+      ];
+      if (betPieces.length) {
+        fragments.push(...betPieces);
+      }
+      fragments.push(`${powderLabel} Powder recaptured`);
+
+      entry = `While away ? ${minutesLabel}m · ${fragments.join(' ? ')}.`;
       break;
     }
     case 'developer-adjust': {
@@ -402,9 +495,24 @@ export function checkOfflineRewards() {
   const effectiveRate = Number.isFinite(storedRate) ? Math.max(0, storedRate) : Math.max(0, fallbackRate);
 
   const powderEarned = minutesAway * effectiveRate;
-  dependencies.applyPowderGain(powderEarned, { source: 'offline', minutes: minutesAway, rate: effectiveRate });
-  dependencies.notifyIdleTime(minutesAway * 60000);
-  showOfflineOverlay(minutesAway, effectiveRate, powderEarned);
+  const idleSummary =
+    dependencies.notifyIdleTime(minutesAway * 60000) || {
+      minutes: minutesAway,
+      aleph: { multiplier: 0, total: 0, unlocked: true },
+      bet: { multiplier: 0, total: 0, unlocked: false },
+    };
+  dependencies.applyPowderGain(powderEarned, {
+    source: 'offline',
+    minutes: minutesAway,
+    rate: effectiveRate,
+    powder: powderEarned,
+    idleSummary,
+  });
+  showOfflineOverlay({
+    minutes: minutesAway,
+    aleph: idleSummary.aleph,
+    bet: idleSummary.bet,
+  });
 }
 
 /**

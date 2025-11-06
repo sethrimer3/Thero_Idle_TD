@@ -64,13 +64,34 @@
       hidden
     >
       <div class="offline-overlay__content">
-        <p class="offline-overlay__title">Idle Mote Harvest</p>
-        <div class="offline-overlay__equation" aria-live="polite">
-          <span class="offline-number" id="offline-minutes">0</span>
-          <span class="offline-symbol">×</span>
-          <span class="offline-number" id="offline-rate">0</span>
-          <span class="offline-symbol">=</span>
-          <span class="offline-number" id="offline-total">0</span>
+        <p class="offline-overlay__title">While asleep…</p>
+        <div class="offline-overlay__equation-group" aria-live="polite">
+          <div class="offline-overlay__equation-row" id="offline-aleph-row" aria-label="Aleph Spire idle gains">
+            <span class="offline-overlay__label" aria-label="Aleph Spire">
+              <span class="offline-symbol offline-symbol--glyph" aria-hidden="true">ℵ</span>
+              <span class="offline-overlay__label-text" aria-hidden="true">Spire</span>
+            </span>
+            <div class="offline-overlay__equation">
+              <span class="offline-number" id="offline-aleph-minutes">0</span>
+              <span class="offline-symbol">×</span>
+              <span class="offline-number" id="offline-aleph-multiplier">0</span>
+              <span class="offline-symbol">=</span>
+              <span class="offline-number" id="offline-aleph-total">0 Motes</span>
+            </div>
+          </div>
+          <div class="offline-overlay__equation-row" id="offline-bet-row" aria-label="Bet Spire idle gains">
+            <span class="offline-overlay__label" aria-label="Bet Spire">
+              <span class="offline-symbol offline-symbol--glyph" aria-hidden="true">ב</span>
+              <span class="offline-overlay__label-text" aria-hidden="true">Spire</span>
+            </span>
+            <div class="offline-overlay__equation">
+              <span class="offline-number" id="offline-bet-minutes">0</span>
+              <span class="offline-symbol">×</span>
+              <span class="offline-number" id="offline-bet-multiplier">0</span>
+              <span class="offline-symbol">=</span>
+              <span class="offline-number" id="offline-bet-total">0 Drops</span>
+            </div>
+          </div>
         </div>
         <p class="offline-overlay__prompt" id="offline-prompt" aria-live="polite">
           <em>Press anywhere to continue.</em>
