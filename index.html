@@ -272,6 +272,36 @@
                   placeholder="Enable editing to chart a new path."
                 ></textarea>
                 <p class="overlay-editor__status" id="level-editor-status" role="status" aria-live="polite" hidden></p>
+                <!-- Wave editor for configuring enemy waves in developer mode -->
+                <section class="overlay-editor__wave-editor" id="wave-editor-section" hidden aria-hidden="true">
+                  <h4 class="overlay-editor__subtitle">Wave Configuration</h4>
+                  <div class="overlay-editor__wave-controls">
+                    <button class="overlay-editor__button" type="button" id="wave-editor-add-wave">
+                      Add Wave
+                    </button>
+                    <button class="overlay-editor__button" type="button" id="wave-editor-clear">
+                      Clear All Waves
+                    </button>
+                  </div>
+                  <div class="overlay-editor__wave-list" id="wave-editor-list" aria-live="polite">
+                    <!-- Wave items populated dynamically -->
+                  </div>
+                  <div class="overlay-editor__wave-export">
+                    <button class="overlay-editor__button overlay-editor__button--primary" type="button" id="wave-editor-export">
+                      Export Compact Wave String
+                    </button>
+                    <button class="overlay-editor__button" type="button" id="wave-editor-import">
+                      Import Wave String
+                    </button>
+                  </div>
+                  <textarea
+                    class="overlay-editor__output"
+                    id="wave-editor-output"
+                    rows="3"
+                    readonly
+                    placeholder="Compact wave string will appear here..."
+                  ></textarea>
+                </section>
               </section>
             </div>
           </section>

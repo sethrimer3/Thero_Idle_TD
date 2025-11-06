@@ -5251,6 +5251,150 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: rgba(255, 128, 152, 0.88);
 }
 
+/* Wave editor styles */
+.overlay-editor__wave-editor {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(139, 247, 255, 0.14);
+}
+
+.overlay-editor__wave-editor[hidden] {
+  display: none;
+}
+
+.overlay-editor__subtitle {
+  margin: 0 0 0.75rem 0;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 244, 212, 0.88);
+}
+
+.overlay-editor__wave-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.overlay-editor__wave-list {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  padding-right: 4px;
+}
+
+.overlay-editor__wave-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overlay-editor__wave-list::-webkit-scrollbar-track {
+  background: rgba(6, 10, 20, 0.5);
+  border-radius: 3px;
+}
+
+.overlay-editor__wave-list::-webkit-scrollbar-thumb {
+  background: rgba(139, 247, 255, 0.3);
+  border-radius: 3px;
+}
+
+.overlay-editor__wave-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 247, 255, 0.5);
+}
+
+.wave-editor-item {
+  display: grid;
+  grid-template-columns: 2.5rem 3rem 3rem 4.5rem 4rem 4rem 1fr 2.5rem;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(6, 10, 20, 0.8);
+  border: 1px solid rgba(139, 247, 255, 0.12);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+
+.wave-editor-item__label {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 244, 212, 0.75);
+  text-align: center;
+}
+
+.wave-editor-item__input {
+  padding: 0.35rem 0.5rem;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.85rem;
+  border: 1px solid rgba(139, 247, 255, 0.24);
+  border-radius: 6px;
+  background: rgba(6, 10, 20, 0.92);
+  color: rgba(205, 228, 255, 0.88);
+}
+
+.wave-editor-item__input:focus {
+  outline: none;
+  border-color: rgba(139, 247, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(139, 247, 255, 0.14);
+}
+
+.wave-editor-item__select {
+  padding: 0.35rem 0.5rem;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.85rem;
+  border: 1px solid rgba(139, 247, 255, 0.24);
+  border-radius: 6px;
+  background: rgba(6, 10, 20, 0.92);
+  color: rgba(205, 228, 255, 0.88);
+  cursor: pointer;
+}
+
+.wave-editor-item__select:focus {
+  outline: none;
+  border-color: rgba(139, 247, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(139, 247, 255, 0.14);
+}
+
+.wave-editor-item__checkbox {
+  width: 1.2rem;
+  height: 1.2rem;
+  cursor: pointer;
+  accent-color: rgba(139, 247, 255, 0.8);
+}
+
+.wave-editor-item__delete {
+  padding: 0.35rem 0.5rem;
+  background: rgba(255, 128, 152, 0.25);
+  color: rgba(255, 244, 212, 0.88);
+  border: 1px solid rgba(255, 128, 152, 0.4);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.wave-editor-item__delete:hover {
+  background: rgba(255, 128, 152, 0.4);
+  border-color: rgba(255, 128, 152, 0.6);
+}
+
+.wave-editor-item__boss-controls {
+  display: grid;
+  grid-template-columns: 1fr 4.5rem;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(139, 247, 255, 0.08);
+}
+
+.overlay-editor__wave-export {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
 @keyframes preview-pop {
   from {
     opacity: 0;

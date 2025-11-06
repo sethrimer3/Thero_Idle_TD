@@ -450,6 +450,171 @@ function gameLoop(timestamp) {
 - UI elements use DOM for accessibility
 - Particle systems optimized for mobile
 
+## Wave Encoding System
+
+### Overview
+The wave encoding system provides a compact format for storing level wave data, reducing JSON file sizes by ~90% compared to verbose format.
+
+### Files
+- `waveEncoder.js` - Core encoding/decoding functions
+- `waveEditorUI.js` - Developer mode UI for wave editing
+- `levels.js` - Updated to support both compact and verbose wave formats
+- `data/levels/` - Directory for level JSON stub files
+
+### Compact Wave Format
+Format: `[WaveNumber]:[Count][EnemyType][Mantissa]e[Exponent]/[Interval]/[Delay]/[BossHP]`
+
+**Example:**
+```
+1:10A1e2/1.5|2:15B5e3/1.2/0.5|3:20C1e4/1.0/0.3/1e5
+```
+
+**Components:**
+- Waves separated by `|`
+- Wave number prefix (e.g., `1:`)
+- Enemy count (e.g., `10`)
+- Enemy type letter A-M (see enemy type mapping below)
+- HP in scientific notation (e.g., `1e2` = 100 HP)
+- Spawn interval in seconds (e.g., `1.5`)
+- Optional: Pre-wave delay in seconds (e.g., `0.5`)
+- Optional: Boss HP in scientific notation (e.g., `1e5`)
+
+### Enemy Type Mapping
+```
+A = Epsilon Type (etype)
+B = Divisor (divisor)
+C = Prime (prime)
+D = Reversal (reversal)
+E = Tunneler (tunneler)
+F = Aleph Swarm (aleph-swarm)
+G = Partial Wraith (partial-wraith)
+H = Gradient Sapper (gradient-sapper)
+I = Weierstrass Prism (weierstrass-prism)
+J = Planck Shade (planck-shade)
+K = Null Husk (null-husk)
+L = Imaginary Strider (imaginary-strider)
+M = Combination Cohort (combination-cohort)
+```
+
+### Developer Mode Wave Editor
+
+**Activation:**
+1. Enable Developer Mode in Codex tab
+2. Enter any level
+3. Open Dev Map Tools from playfield menu
+4. Wave editor appears below path editor
+
+**Features:**
+- Add/remove waves dynamically
+- Edit wave properties: count, enemy type, HP, interval, delay
+- Toggle boss for final wave
+- Export to compact string (auto-copies to clipboard)
+- Import from compact string
+- Real-time validation
+
+**UI Controls:**
+- Add Wave: Create new wave at end
+- Clear All Waves: Remove all waves (with confirmation)
+- Export: Generate compact string and copy to clipboard
+- Import: Parse compact string and populate editor
+
+### API Functions
+
+**waveEncoder.js:**
+```javascript
+// Parse compact string to verbose wave array
+parseCompactWaveString(waveString)
+
+// Encode verbose waves to compact string
+encodeWavesToCompact(waves)
+
+// Generate default waves for a level number
+createDefaultWaveString(levelNumber)
+
+// Validate wave string format
+validateWaveString(waveString)
+```
+
+**waveEditorUI.js:**
+```javascript
+// Initialize wave editor UI
+initializeWaveEditor()
+
+// Show/hide wave editor
+showWaveEditor()
+hideWaveEditor()
+
+// Load waves into editor
+loadWavesIntoEditor(waves)
+
+// Sync editor with level
+syncWaveEditorWithLevel(level)
+
+// Export waves from editor
+exportWavesFromEditor()
+
+// Import wave string to editor
+importWaveStringToEditor(waveString)
+```
+
+### Usage Examples
+
+**Creating a level JSON file:**
+```json
+{
+  "id": "level-01-epsilon-loop",
+  "name": "Epsilon Loop",
+  "description": "First conjecture proof",
+  "waves": "1:8A1e2/1.5|2:10B5e2/1.4|3:12C2e4/1.3|4:14C2.5e5/1.2/0.8|5:16C3e6/1.1/0.9",
+  "path": [],
+  "autoAnchors": [],
+  "startThero": 120,
+  "lives": 10,
+  "gateDefense": 0
+}
+```
+
+**Backward compatibility:**
+Levels.js automatically detects and parses compact wave strings. Existing levels with verbose wave arrays continue to work without modification.
+
+### Common Wave Patterns
+
+**Early levels (1-5):**
+```
+1:8A1e2/1.5|2:10A1.5e3/1.4|3:12B2e4/1.3|4:14C2.5e5/1.2/0.8|5:16C3e6/1.1/0.9/3e9
+```
+
+**Mid levels (10-15):**
+```
+1:8C1e8/1.5|2:10D1.5e9/1.4/0.5|3:12E2e10/1.3/0.6|4:14F2.5e11/1.2/0.7|5:16G3e12/1.1/0.8|6:18H3.5e13/1.0/0.9|7:20H4e14/0.9/1.0/4e17
+```
+
+**Boss waves:**
+Add boss HP as 4th parameter: `5:16C3e6/1.1/2.0/3e9` (wave 5 with 3e9 HP boss after 2s delay)
+
+### File Size Comparison
+
+**Verbose format (single wave):**
+```json
+{
+  "count": 10,
+  "interval": 1.5,
+  "hp": 100,
+  "speed": 0.05,
+  "reward": 10,
+  "color": "#4a90e2",
+  "codexId": "etype",
+  "label": "Epsilon Type"
+}
+```
+~170 bytes
+
+**Compact format (same wave):**
+```
+1:10A1e2/1.5
+```
+~13 bytes (~92% reduction)
+
 ## Token Efficiency Tips
 
 **For agents reading this:**
@@ -462,3 +627,4 @@ function gameLoop(timestamp) {
 - Mathematical rendering uses `scripts/core/mathText.js`
 - Save/load is fully handled by `autoSave.js`
 - Mobile-first means test portrait viewport FIRST, always
+- Wave encoding system reduces level JSON sizes by ~90% - use compact format for new levels
