@@ -1889,6 +1889,9 @@ import {
     // Preserve serialized simulation payloads until the active basin is ready to restore them.
     loadedSimulationState: null,
     loadedFluidState: null,
+    // Track whether initial page load restoration has been completed (once per session)
+    initialLoadRestored: false,
+    fluidInitialLoadRestored: false,
   };
 
   // Initialize the Towers tab emblem to the default mote palette before any theme swaps occur.
@@ -3443,10 +3446,25 @@ import {
     const bankKey = isFluid ? 'fluidIdleBank' : 'idleMoteBank';
     const hydratedKey = isFluid ? 'fluidBankHydrated' : 'idleBankHydrated';
     const drainKey = isFluid ? 'fluidIdleDrainRate' : 'idleDrainRate';
+    const initialLoadKey = isFluid ? 'fluidInitialLoadRestored' : 'initialLoadRestored';
     const snapshot = powderState[stateKey];
     if (!snapshot || typeof snapshot !== 'object') {
       return;
     }
+    
+    // On initial page load, use rectangle restoration if available
+    // On subsequent tab switches, use full grain restoration
+    const isInitialLoad = !powderState[initialLoadKey];
+    if (isInitialLoad && snapshot.compactHeightLine && Number.isFinite(snapshot.moteCount)) {
+      // Mark that initial load restoration has been completed
+      powderState[initialLoadKey] = true;
+      // Rectangle restoration will be handled by _synthesizeRectangleState in importState
+    } else if (!isInitialLoad && snapshot.compactHeightLine && Number.isFinite(snapshot.moteCount)) {
+      // For tab switches, temporarily remove moteCount to force full grain restoration from compactHeightLine
+      const moteCount = snapshot.moteCount;
+      snapshot.moteCount = undefined;
+    }
+    
     const applied = simulation.importState(snapshot);
     if (!applied) {
       return;
