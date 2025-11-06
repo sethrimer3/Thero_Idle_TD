@@ -2138,74 +2138,8 @@ export class PowderSimulation {
   _synthesizeStateFromCompact(state) {
     if (!state || typeof state !== 'object' || !state.compactHeightLine) return null;
     
-    // If moteCount is available, use efficient rectangle restoration
-    if (Number.isFinite(state.moteCount) && state.moteCount > 0) {
-      return this._synthesizeRectangleState(state);
-    }
-    
-    const c = state.compactHeightLine;
-    const cols = c.cols || this.cols || 0;
-    const left = Number.isFinite(c.leftBaseline) ? Math.max(0, Math.round(c.leftBaseline)) : 0;
-    const right = Number.isFinite(c.rightBaseline) ? Math.max(0, Math.round(c.rightBaseline)) : left;
-    const dunePeak = Number.isFinite(c.dunePeak) ? Math.max(0, Math.round(c.dunePeak)) : 0;
-    const peakCol = Number.isFinite(c.peakCol) ? Math.max(0, Math.min(cols - 1, Math.round(c.peakCol))) : Math.floor(cols / 2);
-
-    const baseline = new Array(cols).fill(0);
-    for (let x = 0; x < cols; x++) {
-      const t = cols > 1 ? x / (cols - 1) : 0;
-      baseline[x] = Math.round(left * (1 - t) + right * t);
-    }
-
-    // Ensure synthesized grains receive unique identifiers so grid collision tracking remains consistent.
-    const grains = [];
-    let synthesizedId = Number.isFinite(state?.nextId) ? Math.max(1, Math.round(state.nextId)) : Math.max(1, this.nextId || 1);
-    for (let x = 0; x < cols; x++) {
-      const h = baseline[x];
-      for (let y = 0; y <= h; y++) {
-        grains.push({
-          id: synthesizedId++,
-          x: x,
-          y: y,
-          size: 1,
-          colliderSize: 1,
-          bias: 1,
-          shade: 180,
-          freefall: false,
-          inGrid: true,
-          resting: true
-        });
-      }
-    }
-
-    if (dunePeak > 0) {
-      for (let layer = 1; layer <= dunePeak; layer++) {
-        const radius = layer - 1;
-        const h = baseline[peakCol] + layer;
-        for (let x = Math.max(0, peakCol - radius); x <= Math.min(cols - 1, peakCol + radius); x++) {
-          grains.push({
-            id: synthesizedId++,
-            x: x,
-            y: h,
-            size: 1,
-            colliderSize: 1,
-            bias: 1,
-            shade: 180,
-            freefall: false,
-            inGrid: true,
-            resting: true
-          });
-        }
-      }
-    }
-
-    const synthetic = {
-      ...state,
-      grains: grains.slice(0, this.maxGrains || grains.length),
-      pendingDrops: [],
-      // Propagate the advanced identifier so future grains avoid ID reuse collisions.
-      nextId: Math.max(synthesizedId, this.nextId || synthesizedId)
-    };
-    return synthetic;
+    // Always use efficient rectangle restoration method (disable old mound/dune synthesis)
+    return this._synthesizeRectangleState(state);
   }
 
   _synthesizeRectangleState(state) {
