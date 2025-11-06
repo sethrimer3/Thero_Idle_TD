@@ -159,6 +159,9 @@ import {
   setGlyphCurrency,
   addGlyphCurrency,
   getGlyphCurrency,
+  setBetGlyphCurrency,
+  addBetGlyphCurrency,
+  getBetGlyphCurrency,
   setTheroSymbol,
   setTowerLoadoutLimit,
   setHideUpgradeMatrixCallback,
@@ -934,6 +937,8 @@ import {
       startThero: null,
       theroMultiplier: null,
       glyphs: null,
+      betDropRate: null,
+      betDropBank: null,
     },
   };
 
@@ -958,6 +963,8 @@ import {
     startThero: setDeveloperBaseStartThero,
     theroMultiplier: setDeveloperTheroMultiplier,
     glyphs: setDeveloperGlyphs,
+    betDropRate: setDeveloperBetDropRate,
+    betDropBank: setDeveloperBetDropBank,
   };
 
   let developerModeActive = false;
@@ -1145,6 +1152,31 @@ import {
     updateStatusDisplays();
   }
 
+  function setDeveloperBetDropRate(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, value);
+    if (fluidSimulation && typeof fluidSimulation.idleDrainRate !== 'undefined') {
+      fluidSimulation.idleDrainRate = normalized;
+    }
+    recordDeveloperAdjustment('betDropRate', normalized);
+  }
+
+  function setDeveloperBetDropBank(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, Math.floor(value));
+    if (fluidSimulation && typeof fluidSimulation.idleBank !== 'undefined') {
+      fluidSimulation.idleBank = normalized;
+      if (typeof fluidSimulation.notifyIdleBankChange === 'function') {
+        fluidSimulation.notifyIdleBankChange();
+      }
+    }
+    recordDeveloperAdjustment('betDropBank', normalized);
+  }
+
   function syncDeveloperControlValues() {
     const { fields } = developerControlElements;
     if (!fields) {
@@ -1169,6 +1201,12 @@ import {
     }
     if (fields.glyphs) {
       fields.glyphs.value = formatDeveloperInteger(getGlyphCurrency());
+    }
+    if (fields.betDropRate && fluidSimulation) {
+      fields.betDropRate.value = formatDeveloperFloat(fluidSimulation.idleDrainRate || 0, 2);
+    }
+    if (fields.betDropBank && fluidSimulation) {
+      fields.betDropBank.value = formatDeveloperInteger(fluidSimulation.idleBank || 0);
     }
   }
 
@@ -1662,8 +1700,10 @@ import {
 
   const resourceElements = {
     theroMultiplier: null,
-    glyphsTotal: null,
-    glyphsUnused: null,
+    glyphsAlephTotal: null,
+    glyphsAlephUnused: null,
+    glyphsBetTotal: null,
+    glyphsBetUnused: null,
     tabGlyphBadge: null,
     tabMoteBadge: null,
     tabFluidBadge: null,
@@ -1672,8 +1712,10 @@ import {
   // Cache the relocated resource nodes so status updates only swap text content.
   function bindStatusElements() {
     resourceElements.theroMultiplier = document.getElementById('level-thero-multiplier');
-    resourceElements.glyphsTotal = document.getElementById('tower-glyphs-total');
-    resourceElements.glyphsUnused = document.getElementById('tower-glyphs-unused');
+    resourceElements.glyphsAlephTotal = document.getElementById('tower-glyphs-aleph-total');
+    resourceElements.glyphsAlephUnused = document.getElementById('tower-glyphs-aleph-unused');
+    resourceElements.glyphsBetTotal = document.getElementById('tower-glyphs-bet-total');
+    resourceElements.glyphsBetUnused = document.getElementById('tower-glyphs-bet-unused');
     resourceElements.tabGlyphBadge = document.getElementById('tab-glyph-badge');
     resourceElements.tabMoteBadge = document.getElementById('tab-mote-badge');
     resourceElements.tabFluidBadge = document.getElementById('tab-fluid-badge');
@@ -1689,19 +1731,30 @@ import {
       resourceElements.theroMultiplier.setAttribute('aria-label', `Thero multiplier ×${multiplierLabel}`);
     }
 
-    const totalGlyphs = Math.max(0, Math.floor(gameStats.enemiesDefeated || 0));
-    const unusedGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
-    if (resourceElements.glyphsTotal) {
-      resourceElements.glyphsTotal.textContent = `${formatWholeNumber(totalGlyphs)} ℵ`;
+    // Aleph glyphs (ℵ) are earned from defeating enemies in the main game
+    const totalAlephGlyphs = Math.max(0, Math.floor(gameStats.enemiesDefeated || 0));
+    const unusedAlephGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
+    if (resourceElements.glyphsAlephTotal) {
+      resourceElements.glyphsAlephTotal.textContent = `${formatWholeNumber(totalAlephGlyphs)} ℵ`;
     }
-    if (resourceElements.glyphsUnused) {
-      resourceElements.glyphsUnused.textContent = formatWholeNumber(unusedGlyphs);
+    if (resourceElements.glyphsAlephUnused) {
+      resourceElements.glyphsAlephUnused.textContent = formatWholeNumber(unusedAlephGlyphs);
+    }
+    
+    // Bet glyphs (ב) are earned from the Bet Spire progression
+    const totalBetGlyphs = Math.max(0, Math.floor(getBetGlyphCurrency()));
+    const unusedBetGlyphs = totalBetGlyphs; // For now, all Bet glyphs are unallocated
+    if (resourceElements.glyphsBetTotal) {
+      resourceElements.glyphsBetTotal.textContent = `${formatWholeNumber(totalBetGlyphs)} ב`;
+    }
+    if (resourceElements.glyphsBetUnused) {
+      resourceElements.glyphsBetUnused.textContent = formatWholeNumber(unusedBetGlyphs);
     }
     if (resourceElements.tabGlyphBadge) {
-      const tabGlyphLabel = formatWholeNumber(unusedGlyphs);
+      const tabGlyphLabel = formatWholeNumber(unusedAlephGlyphs);
       resourceElements.tabGlyphBadge.textContent = tabGlyphLabel;
-      resourceElements.tabGlyphBadge.setAttribute('aria-label', `${tabGlyphLabel} unused glyphs`);
-      const hasUnusedGlyphs = unusedGlyphs > 0;
+      resourceElements.tabGlyphBadge.setAttribute('aria-label', `${tabGlyphLabel} unused Aleph glyphs`);
+      const hasUnusedGlyphs = unusedAlephGlyphs > 0;
       // Mirror the glow badge visibility on the towers tab so idle glyphs stand out immediately.
       if (hasUnusedGlyphs) {
         resourceElements.tabGlyphBadge.removeAttribute('hidden');

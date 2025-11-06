@@ -196,10 +196,10 @@ export class FluidSimulation {
     const measuredWidth = parentRect?.width || rect?.width || this.canvas.clientWidth || 240;
     const measuredHeight = parentRect?.height || rect?.height || this.canvas.clientHeight || 320;
 
-    // Maintain 1:1 aspect ratio (square) for the simulation canvas
+    // Maintain 3:4 aspect ratio for the simulation canvas (same as Aleph Spire)
     // Calculate dimensions based on container width as the constraint
     const constrainedWidth = Math.max(150, measuredWidth);
-    const constrainedHeight = constrainedWidth; // Square: height matches width
+    const constrainedHeight = Math.floor(constrainedWidth * (4 / 3)); // 3:4 ratio (240:320)
 
     const styleWidth = `${constrainedWidth}px`;
     const styleHeight = `${constrainedHeight}px`;
