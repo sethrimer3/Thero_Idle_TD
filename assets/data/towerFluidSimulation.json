@@ -7,9 +7,9 @@
   "baseSpawnInterval": 150,
   "waveStiffness": 0.01,
   "waveDamping": 0.2,
-  "sideFlowRate": 0.05,
-  "rippleFrequency": 0.3,
-  "rippleAmplitude": 0.15,
+  "sideFlowRate": 0.9,
+  "rippleFrequency": 0.2,
+  "rippleAmplitude": 0.1,
   "palette": {
     "stops": ["#4fb8ff", "#76d5ff", "#c6f4ff"],
     "restAlpha": 0.78,
