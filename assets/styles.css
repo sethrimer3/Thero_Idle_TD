@@ -342,9 +342,35 @@ body.graphics-mode-low .control-button {
   margin: 0;
   font-size: clamp(1.4rem, 3vw, 2.2rem);
   letter-spacing: 0.12em;
-  text-transform: uppercase;
   color: var(--accent-3);
   text-shadow: 0 0 18px rgba(255, 228, 120, 0.35);
+}
+
+.offline-overlay__equation-group {
+  display: grid;
+  gap: clamp(12px, 3vw, 18px);
+}
+
+.offline-overlay__equation-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: clamp(12px, 3vw, 24px);
+}
+
+.offline-overlay__label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35em;
+  font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.72);
+  font-family: "Cormorant Garamond", serif;
+}
+
+.offline-overlay__label-text {
+  display: inline-block;
+  text-transform: uppercase;
 }
 
 .offline-overlay__equation {
@@ -353,7 +379,7 @@ body.graphics-mode-low .control-button {
   align-items: baseline;
   gap: clamp(10px, 2.5vw, 18px);
   font-family: "Cormorant Garamond", serif;
-  font-size: clamp(1.6rem, 4.5vw, 3.4rem);
+  font-size: clamp(1.6rem, 4.5vw, 3.2rem);
 }
 
 .offline-number {
@@ -366,6 +392,23 @@ body.graphics-mode-low .control-button {
 .offline-symbol {
   color: rgba(255, 255, 255, 0.68);
   font-size: clamp(1.2rem, 3vw, 2.2rem);
+}
+
+.offline-symbol--glyph {
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  color: var(--accent-3);
+  text-shadow: 0 0 18px rgba(255, 228, 120, 0.4);
+}
+
+.offline-overlay__equation-row--inactive .offline-number,
+.offline-overlay__equation-row--inactive .offline-symbol {
+  color: rgba(255, 255, 255, 0.35);
+  text-shadow: none;
+}
+
+.offline-overlay__equation-row--inactive .offline-symbol--glyph {
+  color: rgba(255, 255, 255, 0.45);
+  text-shadow: none;
 }
 
 .offline-overlay__prompt {

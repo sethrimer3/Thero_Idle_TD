@@ -3646,31 +3646,44 @@ import {
     return Math.max(0, powderState.fluidIdleDrainRate || 0);
   }
 
-  function addIdleMoteBank(amount) {
+  function addIdleMoteBank(amount, options = {}) {
     if (!Number.isFinite(amount) || amount <= 0) {
       return;
     }
-    const targetIsFluid =
-      powderSimulation === fluidSimulationInstance ||
-      (!powderSimulation && powderState.simulationMode === 'fluid');
-    if (powderSimulation) {
-      powderSimulation.addIdleMotes(amount);
-      if (targetIsFluid) {
-        powderState.fluidIdleBank = Math.max(0, powderSimulation.idleBank);
-        powderState.fluidBankHydrated = true;
-      } else {
-        powderState.idleMoteBank = Math.max(0, powderSimulation.idleBank);
-        powderState.idleBankHydrated = true;
-      }
+
+    const target = options && typeof options === 'object' ? options.target : undefined;
+    let targetIsFluid;
+    if (target === 'bet') {
+      targetIsFluid = true;
+    } else if (target === 'aleph') {
+      targetIsFluid = false;
     } else {
-      if (targetIsFluid) {
-        powderState.fluidIdleBank = Math.max(0, powderState.fluidIdleBank + amount);
-        powderState.fluidBankHydrated = false;
-      } else {
-        powderState.idleMoteBank = Math.max(0, powderState.idleMoteBank + amount);
-        powderState.idleBankHydrated = false;
-      }
+      targetIsFluid =
+        powderSimulation === fluidSimulationInstance ||
+        (!powderSimulation && powderState.simulationMode === 'fluid');
     }
+
+    const simulationTarget = targetIsFluid ? fluidSimulationInstance : sandSimulation;
+
+    if (simulationTarget && typeof simulationTarget.addIdleMotes === 'function') {
+      simulationTarget.addIdleMotes(amount);
+      if (targetIsFluid) {
+        powderState.fluidIdleBank = Math.max(0, simulationTarget.idleBank);
+        powderState.fluidBankHydrated = simulationTarget === powderSimulation;
+      } else {
+        powderState.idleMoteBank = Math.max(0, simulationTarget.idleBank);
+        powderState.idleBankHydrated = simulationTarget === powderSimulation;
+      }
+    } else if (targetIsFluid) {
+      const current = Number.isFinite(powderState.fluidIdleBank) ? powderState.fluidIdleBank : 0;
+      powderState.fluidIdleBank = Math.max(0, current + amount);
+      powderState.fluidBankHydrated = false;
+    } else {
+      const current = Number.isFinite(powderState.idleMoteBank) ? powderState.idleMoteBank : 0;
+      powderState.idleMoteBank = Math.max(0, current + amount);
+      powderState.idleBankHydrated = false;
+    }
+
     // Persist idle bank adjustments so offline rewards survive tab closures.
     schedulePowderBasinSave();
     updateStatusDisplays();
@@ -7570,18 +7583,52 @@ import {
   }
 
   function notifyIdleTime(elapsedMs) {
+    const defaultSummary = {
+      minutes: 0,
+      aleph: { multiplier: 0, total: 0, unlocked: true },
+      bet: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
+    };
     if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) {
-      return;
+      return defaultSummary;
     }
+
     gameStats.idleMillisecondsAccumulated += elapsedMs;
-    const minutes = elapsedMs / 60000;
-    const achievementsUnlocked = getUnlockedAchievementCount();
-    const levelsBeat = getCompletedInteractiveLevelCount();
-    const idleMotes = minutes * achievementsUnlocked * levelsBeat;
-    if (idleMotes > 0) {
-      addIdleMoteBank(idleMotes);
+    const minutes = Math.max(0, elapsedMs / 60000);
+    const achievementsUnlocked = Math.max(
+      0,
+      Math.floor(getUnlockedAchievementCount()),
+    );
+    const levelsBeat = Math.max(
+      0,
+      Math.floor(getCompletedInteractiveLevelCount()),
+    );
+
+    const alephTotal = minutes * achievementsUnlocked;
+    const betUnlocked = Boolean(powderState.fluidUnlocked);
+    const betTotal = betUnlocked ? minutes * levelsBeat : 0;
+
+    if (alephTotal > 0) {
+      addIdleMoteBank(alephTotal, { target: 'aleph' });
     }
+    if (betTotal > 0) {
+      addIdleMoteBank(betTotal, { target: 'bet' });
+    }
+
     evaluateAchievements();
+
+    return {
+      minutes,
+      aleph: {
+        multiplier: achievementsUnlocked,
+        total: alephTotal,
+        unlocked: true,
+      },
+      bet: {
+        multiplier: betUnlocked ? levelsBeat : 0,
+        total: betTotal,
+        unlocked: betUnlocked,
+      },
+    };
   }
 
   function calculatePowderBonuses() {
@@ -7834,13 +7881,13 @@ import {
       return 0;
     }
 
-    const { source = 'tick', minutes = 0, rate = 0 } = context;
+    const { source = 'tick', minutes = 0, rate = 0, idleSummary = null, powder = amount } = context;
     powderCurrency = Math.max(0, powderCurrency + amount);
     updatePowderStockpileDisplay();
     schedulePowderSave();
 
     if (source === 'offline') {
-      recordPowderEvent('offline-reward', { minutes, rate, powder: amount });
+      recordPowderEvent('offline-reward', { minutes, rate, powder, idleSummary });
       triggerPowderBasinPulse();
     }
 
