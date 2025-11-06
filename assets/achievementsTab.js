@@ -1,34 +1,30 @@
-'Original code from the main branch'
+// Original Code from main branch goes here...
 
-let jsonAchievements = [];  // New variable added
+let jsonAchievements = [];
 
-// Function to fetch and parse achievements from JSON
-export async function loadAchievementsFromJSON() {
-    const response = await fetch('data/achievements.json');
-    if (!response.ok) throw new Error('Network response was not ok');
-    jsonAchievements = await response.json();
+async function loadAchievementsFromJSON() {
+    const response = await fetch('../data/achievements.json');
+    const data = await response.json();
+    jsonAchievements = data.sort((a, b) => a.order - b.order);
 }
 
-// Helper functions
 function createConditionChecker(achievement) {
-    // Implementation...
+    // Logic for checking conditions
 }
 
 function createProgressChecker(achievement) {
-    // Implementation...
+    // Logic for checking progress
 }
 
 function createJSONAchievementDefinition(jsonAch) {
-    // Implementation...
+    // Logic for creating JSON achievement definitions
 }
 
-// Modified generateLevelAchievements function
 function generateLevelAchievements() {
-    // First add JSON achievements
     jsonAchievements.forEach(achievement => {
-        // Implement adding json achievements...
+        // Logic for adding JSON achievements
     });
-    
-    // Then level-based achievements
-    // Original existing logic...
+    // Existing logic for adding level-based achievements
 }
+
+// More original code...
