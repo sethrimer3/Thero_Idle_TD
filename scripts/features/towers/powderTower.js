@@ -559,8 +559,8 @@ export class PowderSimulation {
 
     displayWidth = Math.max(200, displayWidth);
     
-    // Maintain 1:1 aspect ratio (square) for the simulation canvas with width as the constraint
-    displayHeight = displayWidth;
+    // Maintain 3:4 aspect ratio for the simulation canvas (240:320)
+    displayHeight = Math.floor(displayWidth * (4 / 3));
 
     if (!Number.isFinite(this.baseGapUnits) || this.baseGapUnits <= 0) {
       const fallbackGapUnits = Number.isFinite(this.wallGapTargetUnits)

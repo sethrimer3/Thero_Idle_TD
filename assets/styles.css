@@ -2866,15 +2866,17 @@ body.graphics-mode-low .control-button {
 
 /* Fluid Study layout mirrors the powder basin while adopting a liquid-inspired palette. */
 .fluid-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 18px;
   padding: clamp(8px, 2vw, 20px);
-  align-items: start;
 }
 
 .fluid-simulation-slot {
-  display: contents;
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 
 .fluid-simulation-card {
@@ -2932,6 +2934,8 @@ body.graphics-mode-low .control-button {
 .fluid-metrics-card,
 .fluid-briefing-card {
   min-height: 0;
+  width: 100%;
+  max-width: 800px;
 }
 
 .fluid-metrics {
@@ -3024,16 +3028,8 @@ body.graphics-mode-low .control-button {
 }
 
 @media (max-width: 720px) {
-  .fluid-grid {
-    grid-template-columns: 1fr;
-  }
-
   .fluid-simulation-card {
     width: 100%;
-  }
-
-  .fluid-briefing-card {
-    order: 3;
   }
 }
 

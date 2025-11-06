@@ -305,12 +305,20 @@
           <!-- Present tower resource summaries near the top of the Towers tab. -->
           <div class="tower-glyph-summary" id="tower-glyph-summary" aria-live="polite">
             <div class="tower-glyph-item">
-              <span class="tower-glyph-label">Total Glyphs</span>
-              <span class="tower-glyph-value" id="tower-glyphs-total">0</span>
+              <span class="tower-glyph-label">Aleph Glyph Total</span>
+              <span class="tower-glyph-value" id="tower-glyphs-aleph-total">0 ℵ</span>
             </div>
             <div class="tower-glyph-item">
-              <span class="tower-glyph-label">Unused Glyphs</span>
-              <span class="tower-glyph-value" id="tower-glyphs-unused">0</span>
+              <span class="tower-glyph-label">Aleph Glyph Unallocated</span>
+              <span class="tower-glyph-value" id="tower-glyphs-aleph-unused">0</span>
+            </div>
+            <div class="tower-glyph-item">
+              <span class="tower-glyph-label">Bet Glyph Total</span>
+              <span class="tower-glyph-value" id="tower-glyphs-bet-total">0 ב</span>
+            </div>
+            <div class="tower-glyph-item">
+              <span class="tower-glyph-label">Bet Glyph Unallocated</span>
+              <span class="tower-glyph-value" id="tower-glyphs-bet-unused">0</span>
             </div>
           </div>
           <div class="tower-panel-controls" id="tower-panel-controls">
@@ -1492,6 +1500,30 @@
                     inputmode="numeric"
                   />
                   <p class="developer-control-hint">Set total glyph currency available.</p>
+                </div>
+                <div class="developer-control-field">
+                  <label for="developer-bet-drop-rate">Bet tower drop rate</label>
+                  <input
+                    type="number"
+                    id="developer-bet-drop-rate"
+                    data-developer-field="betDropRate"
+                    min="0"
+                    step="0.01"
+                    inputmode="decimal"
+                  />
+                  <p class="developer-control-hint">Set drops per second for Bet Spire.</p>
+                </div>
+                <div class="developer-control-field">
+                  <label for="developer-bet-bank">Bet tower drop bank</label>
+                  <input
+                    type="number"
+                    id="developer-bet-bank"
+                    data-developer-field="betDropBank"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                  />
+                  <p class="developer-control-hint">Override the stored drop reserve for Bet Spire.</p>
                 </div>
               </div>
             </div>

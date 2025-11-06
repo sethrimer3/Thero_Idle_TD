@@ -193,6 +193,7 @@ const towerTabState = {
   audioManager: null,
   playfield: null,
   glyphCurrency: 0,
+  betGlyphCurrency: 0,
   hideUpgradeMatrix: null,
   renderUpgradeMatrix: null,
   discoveredVariables: new Map(),
@@ -291,6 +292,23 @@ export function addGlyphCurrency(delta) {
 
 export function getGlyphCurrency() {
   return towerTabState.glyphCurrency;
+}
+
+export function setBetGlyphCurrency(value) {
+  if (Number.isFinite(value)) {
+    towerTabState.betGlyphCurrency = Math.max(0, Math.floor(value));
+    updateTowerUpgradeGlyphDisplay();
+  }
+}
+
+export function addBetGlyphCurrency(delta) {
+  if (Number.isFinite(delta)) {
+    setBetGlyphCurrency(towerTabState.betGlyphCurrency + delta);
+  }
+}
+
+export function getBetGlyphCurrency() {
+  return towerTabState.betGlyphCurrency;
 }
 
 export function setTheroSymbol(symbol = 'þ') {
