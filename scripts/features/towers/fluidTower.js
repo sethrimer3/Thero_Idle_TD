@@ -196,11 +196,10 @@ export class FluidSimulation {
     const measuredWidth = parentRect?.width || rect?.width || this.canvas.clientWidth || 240;
     const measuredHeight = parentRect?.height || rect?.height || this.canvas.clientHeight || 320;
 
-    // Maintain 3:4 aspect ratio (width:height) for the simulation canvas
+    // Maintain 1:1 aspect ratio (square) for the simulation canvas
     // Calculate dimensions based on container width as the constraint
-    const aspectRatio = 3 / 4;
     const constrainedWidth = Math.max(150, measuredWidth);
-    const constrainedHeight = Math.max(200, constrainedWidth / aspectRatio);
+    const constrainedHeight = constrainedWidth; // Square: height matches width
 
     const styleWidth = `${constrainedWidth}px`;
     const styleHeight = `${constrainedHeight}px`;
