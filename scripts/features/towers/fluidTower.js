@@ -747,6 +747,17 @@ export class FluidSimulation {
     if (currentFromTop < targetFromTop) {
       const shift = targetFromTop - currentFromTop;
       this.scrollOffset = Math.max(0, this.scrollOffset + shift);
+      if (currentFromTop < targetFromTop) {
+        const shift = targetFromTop - currentFromTop;
+        this.scrollOffset = Math.max(0, this.scrollOffset + shift);
+  
+      // Shift water down by reducing all column heights by the scroll amount
+      const activeStart = this.wallInsetLeftCells;
+      const activeEnd = this.cols - this.wallInsetRightCells - 1;
+    for (let index = activeStart; index <= activeEnd; index += 1) {
+      this.columnHeights[index] = Math.max(0, (this.columnHeights[index] || 0) - shift);
+    }
+  }
     }
   }
 
