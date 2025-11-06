@@ -1,20 +1,36 @@
 {
   "id": "tower-fluid",
+  "_comment_id": "Unique identifier used by the game to reference the fluid tower configuration.",
   "label": "Bet Spire",
+  "_comment_label": "Player-facing name shown in menus for this tower.",
   "dropSizes": [1, 1, 2, 3],
+  "_comment_dropSizes": "Weighted list of droplet magnitudes; repeated values make smaller drops spawn more often.",
   "dropVolumeScale": 0.85,
+  "_comment_dropVolumeScale": "Multiplier that converts drop size into the volume added to the reservoir.",
   "idleDrainRate": 0.2,
+  "_comment_idleDrainRate": "Per-tick rate at which idle fluid reserves are consumed to create drops.",
   "baseSpawnInterval": 150,
+  "_comment_baseSpawnInterval": "Baseline number of ticks between naturally spawning droplets before modifiers.",
   "waveStiffness": 0.01,
+  "_comment_waveStiffness": "Restoring-force factor governing how quickly fluid surface oscillations rebound to center.",
   "waveDamping": 0.2,
+  "_comment_waveDamping": "Damping coefficient that reduces wave amplitude over time to keep motion stable.",
   "sideFlowRate": 2,
+  "_comment_sideFlowRate": "Speed at which water equalizes between columns, smoothing lateral height differences.",
   "rippleFrequency": 0.2,
+  "_comment_rippleFrequency": "Frequency of ambient ripple noise injected into the simulation for visual motion.",
   "rippleAmplitude": 0.1,
+  "_comment_rippleAmplitude": "Maximum displacement applied by ripple noise to create subtle surface variation.",
   "palette": {
     "stops": ["#4fb8ff", "#76d5ff", "#c6f4ff"],
+    "_comment_stops": "Gradient colors used to shade the tower's fluid from darkest to lightest.",
     "restAlpha": 0.78,
+    "_comment_restAlpha": "Opacity for fluid particles when they are idle or resting inside the reservoir.",
     "freefallAlpha": 0.5,
+    "_comment_freefallAlpha": "Opacity applied to droplets while they are falling through the air.",
     "backgroundTop": "#0b1324",
-    "backgroundBottom": "#10213a"
+    "_comment_backgroundTop": "Top color of the background gradient rendered behind the fluid tower.",
+    "backgroundBottom": "#10213a",
+    "_comment_backgroundBottom": "Bottom color of the background gradient that transitions from the top shade."
   }
 }
