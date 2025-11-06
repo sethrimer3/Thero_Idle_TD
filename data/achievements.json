@@ -1,0 +1,82 @@
+[
+  {
+    "id": "first-orbit",
+    "order": 1,
+    "title": "First Orbit",
+    "description": "Clear the Lemniscate Hypothesis manual defense at least once.",
+    "icon": "🌀",
+    "reward": 1,
+    "conditionType": "level-complete",
+    "conditionValue": "lemniscate"
+  },
+  {
+    "id": "circle-seer",
+    "order": 2,
+    "title": "Circle Seer",
+    "description": "Maintain three α towers simultaneously (manual or auto-latticed).",
+    "icon": "👁️",
+    "reward": 1,
+    "conditionType": "towers-simultaneous",
+    "conditionValue": 3
+  },
+  {
+    "id": "series-summoner",
+    "order": 3,
+    "title": "Series Summoner",
+    "description": "Push active powder rituals to a ×1.25 or higher total multiplier.",
+    "icon": "∑",
+    "reward": 1,
+    "conditionType": "powder-multiplier",
+    "conditionValue": 1.25
+  },
+  {
+    "id": "zero-hunter",
+    "order": 4,
+    "title": "Zero Hunter",
+    "description": "Defeat 30 invading glyphs across any battles.",
+    "icon": "⚔️",
+    "reward": 1,
+    "conditionType": "enemies-defeated",
+    "conditionValue": 30
+  },
+  {
+    "id": "golden-mentor",
+    "order": 5,
+    "title": "Golden Mentor",
+    "description": "Use auto-lattice to place all suggested anchors for a stage.",
+    "icon": "✨",
+    "reward": 1,
+    "conditionType": "auto-anchor-complete",
+    "conditionValue": true
+  },
+  {
+    "id": "powder-archivist",
+    "order": 6,
+    "title": "Powder Archivist",
+    "description": "Illuminate at least three sand sigils along the powder wall.",
+    "icon": "📜",
+    "reward": 1,
+    "conditionType": "sigils-illuminated",
+    "conditionValue": 3
+  },
+  {
+    "id": "keystone-keeper",
+    "order": 7,
+    "title": "Keystone Keeper",
+    "description": "Complete any idle auto-run simulation.",
+    "icon": "🔑",
+    "reward": 1,
+    "conditionType": "idle-victories",
+    "conditionValue": 1
+  },
+  {
+    "id": "temporal-sifter",
+    "order": 8,
+    "title": "Temporal Sifter",
+    "description": "Accumulate 10 minutes of active idle simulations (multiple runs stack).",
+    "icon": "⏳",
+    "reward": 1,
+    "conditionType": "idle-time-minutes",
+    "conditionValue": 10
+  }
+]
