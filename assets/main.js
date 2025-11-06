@@ -202,6 +202,7 @@ import {
   applyTowerUpgradeStateSnapshot,
   calculateInvestedGlyphs,
   clearTowerUpgradeState,
+  configureTowersTabCallbacks,
 } from './towersTab.js';
 import towers from './data/towers/index.js'; // Modular tower definitions sourced from dedicated files.
 import { initializeEquipmentState, EQUIPMENT_STORAGE_KEY } from './equipment.js';
@@ -1753,7 +1754,7 @@ import {
   }
 
   // Render the relocated resource panels using the latest score, glyph, and mote reserves.
-  export function updateStatusDisplays() {
+  function updateStatusDisplays() {
     const theroMultiplier = getStartingTheroMultiplier();
     if (resourceElements.theroMultiplier) {
       const multiplierLabel = formatGameNumber(theroMultiplier);
@@ -3294,6 +3295,35 @@ import {
 
   const POWDER_WALL_TEXTURE_REPEAT_PX = 192; // Mirror the tower wall sprite tile height so loops stay seamless.
 
+  // Wrapper functions to include alephChainUpgrades in tower upgrade persistence.
+  function getTowerUpgradeStateSnapshotWithAleph() {
+    const towerSnapshot = getTowerUpgradeStateSnapshot();
+    return {
+      ...towerSnapshot,
+      alephChainUpgrades: { ...alephChainUpgradeState },
+    };
+  }
+
+  function applyTowerUpgradeStateSnapshotWithAleph(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') {
+      return;
+    }
+    // Restore tower variable upgrades
+    applyTowerUpgradeStateSnapshot(snapshot);
+    // Restore alephChainUpgrades if present
+    if (snapshot.alephChainUpgrades && typeof snapshot.alephChainUpgrades === 'object') {
+      if (Number.isFinite(snapshot.alephChainUpgrades.x) && snapshot.alephChainUpgrades.x > 0) {
+        alephChainUpgradeState.x = snapshot.alephChainUpgrades.x;
+      }
+      if (Number.isFinite(snapshot.alephChainUpgrades.y) && snapshot.alephChainUpgrades.y > 0) {
+        alephChainUpgradeState.y = snapshot.alephChainUpgrades.y;
+      }
+      if (Number.isFinite(snapshot.alephChainUpgrades.z)) {
+        alephChainUpgradeState.z = Math.max(1, Math.floor(snapshot.alephChainUpgrades.z));
+      }
+    }
+  }
+
   // Configure the autosave helpers so they can persist powder, stats, and preference state.
   configureAutoSave({
     audioStorageKey: AUDIO_SETTINGS_STORAGE_KEY,
@@ -3304,8 +3334,8 @@ import {
     },
     getPowderBasinSnapshot,
     applyPowderBasinSnapshot,
-    getTowerUpgradeStateSnapshot,
-    applyTowerUpgradeStateSnapshot,
+    getTowerUpgradeStateSnapshot: getTowerUpgradeStateSnapshotWithAleph,
+    applyTowerUpgradeStateSnapshot: applyTowerUpgradeStateSnapshotWithAleph,
     applyStoredAudioSettings,
     syncAudioControlsFromManager,
     applyNotationPreference,
@@ -8051,6 +8081,11 @@ import {
   });
 
   async function init() {
+    // Configure towersTab callbacks to avoid circular dependency
+    configureTowersTabCallbacks({
+      updateStatusDisplays,
+    });
+
     levelGrid = document.getElementById('level-grid');
     activeLevelEl = document.getElementById('active-level');
     leaveLevelBtn = document.getElementById('leave-level');

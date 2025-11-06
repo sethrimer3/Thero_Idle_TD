@@ -28,7 +28,18 @@ import {
   addEquipmentListener as addEquipmentStateListener,
 } from './equipment.js';
 import { formatCombatNumber } from './playfield/utils/formatting.js'; // Format tower costs with the same notation used in combat messaging.
-import { updateStatusDisplays } from './main.js'; // Import to trigger tower tab resource updates when glyphs change.
+
+// Callback to update status displays when glyphs change. Set via configureTowersTabCallbacks.
+let updateStatusDisplaysCallback = null;
+
+/**
+ * Configure callback dependencies to avoid circular imports.
+ */
+export function configureTowersTabCallbacks(callbacks = {}) {
+  if (typeof callbacks.updateStatusDisplays === 'function') {
+    updateStatusDisplaysCallback = callbacks.updateStatusDisplays;
+  }
+}
 
 const HAS_POINTER_EVENTS = typeof window !== 'undefined' && 'PointerEvent' in window; // Detect pointer support for tooltip listeners.
 const EQUATION_TOOLTIP_MARGIN_PX = 12; // Maintain consistent spacing between the tooltip and the hovered variable.
@@ -282,7 +293,7 @@ export function setGlyphCurrency(value) {
   if (Number.isFinite(value)) {
     towerTabState.glyphCurrency = Math.max(0, Math.floor(value));
     updateTowerUpgradeGlyphDisplay();
-    updateStatusDisplays(); // Update tower tab resource summary to reflect glyph changes.
+    updateStatusDisplaysCallback?.(); // Update tower tab resource summary to reflect glyph changes.
   }
 }
 
@@ -300,7 +311,7 @@ export function setBetGlyphCurrency(value) {
   if (Number.isFinite(value)) {
     towerTabState.betGlyphCurrency = Math.max(0, Math.floor(value));
     updateTowerUpgradeGlyphDisplay();
-    updateStatusDisplays(); // Update tower tab resource summary to reflect Bet glyph changes.
+    updateStatusDisplaysCallback?.(); // Update tower tab resource summary to reflect Bet glyph changes.
   }
 }
 
