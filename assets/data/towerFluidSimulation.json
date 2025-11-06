@@ -5,9 +5,9 @@
   "dropVolumeScale": 0.85,
   "idleDrainRate": 0.2,
   "baseSpawnInterval": 150,
-  "waveStiffness": 0.03,
+  "waveStiffness": 0.01,
   "waveDamping": 0.2,
-  "sideFlowRate": 0.1,
+  "sideFlowRate": 0.05,
   "rippleFrequency": 0.3,
   "rippleAmplitude": 0.15,
   "palette": {
