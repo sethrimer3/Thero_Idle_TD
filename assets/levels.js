@@ -1,6 +1,8 @@
 // Shared level configuration helpers for Thero Idle.
 // This module stores the interactive and idle level blueprints alongside utility functions for progression logic.
 
+import { parseCompactWaveString } from './waveEncoder.js';
+
 export let levelBlueprints = [];
 export let levelLookup = new Map();
 export const levelConfigs = new Map();
@@ -72,9 +74,16 @@ export function setLevelConfigs(levels = []) {
     if (!level || !level.id) {
       return;
     }
+    
+    // Support compact wave format - if waves is a string, parse it
+    let waves = level.waves;
+    if (typeof waves === 'string') {
+      waves = parseCompactWaveString(waves);
+    }
+    
     levelConfigs.set(level.id, {
       ...level,
-      waves: cloneWaveArray(level.waves),
+      waves: cloneWaveArray(waves),
       path: cloneVectorArray(level.path),
       autoAnchors: cloneVectorArray(level.autoAnchors),
     });

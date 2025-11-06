@@ -135,6 +135,13 @@ import {
   setFieldNotesOpenButton,
 } from './fieldNotesOverlay.js';
 import {
+  initializeWaveEditor,
+  showWaveEditor,
+  hideWaveEditor,
+  loadWavesIntoEditor,
+  syncWaveEditorWithLevel,
+} from './waveEditorUI.js';
+import {
   codexState,
   enemyCodexElements,
   setEnemyCodexEntries,
@@ -835,6 +842,12 @@ import {
     setLevelEditorEditing(true);
     setLevelEditorStatus('Editing active—drag anchors or Shift-click to remove.', { duration: 2600 });
     updateDeveloperMapElementsVisibility();
+    
+    // Show and sync wave editor with current level
+    showWaveEditor();
+    if (config && config.waves) {
+      loadWavesIntoEditor(config.waves);
+    }
 
     return true;
   }
@@ -850,6 +863,9 @@ import {
     hideLevelEditorPanel();
     resetLevelEditorSurface();
     updateDeveloperMapElementsVisibility();
+    
+    // Hide wave editor
+    hideWaveEditor();
 
     if (!silent && playfield?.messageEl) {
       playfield.messageEl.textContent = 'Developer map tools closed.';
@@ -5464,6 +5480,9 @@ import {
     }
 
     hideLevelEditorPanel();
+    
+    // Initialize wave editor for developer mode
+    initializeWaveEditor();
   }
 
   function renderLevelPreview(level) {

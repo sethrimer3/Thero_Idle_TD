@@ -1,0 +1,11 @@
+{
+  "id": "level-04-spiral",
+  "name": "Spiral",
+  "description": "Expanding spiral toward the core",
+  "waves": "1:8A1.0e2/1.5|2:10B1.5e3/1.4|3:12C2.0e4/1.3|4:14C2.5e5/1.2/0.8|5:16C3.0e6/1.1/0.9",
+  "path": [],
+  "autoAnchors": [],
+  "startThero": 180,
+  "lives": 10,
+  "gateDefense": 0
+}
