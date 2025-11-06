@@ -558,7 +558,6 @@ export class PowderSimulation {
     }
 
     displayWidth = Math.max(200, displayWidth);
-    displayHeight = Math.max(200, displayHeight);
     
     // Maintain 1:1 aspect ratio (square) for the simulation canvas with width as the constraint
     displayHeight = displayWidth;
