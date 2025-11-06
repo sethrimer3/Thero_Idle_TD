@@ -1757,6 +1757,7 @@ import {
     
     // Bet glyphs (ב) are earned from the Bet Spire progression
     const totalBetGlyphs = Math.max(0, Math.floor(getBetGlyphCurrency()));
+    // TODO: Implement Bet glyph allocation system (similar to Aleph glyph upgrades)
     const unusedBetGlyphs = totalBetGlyphs; // For now, all Bet glyphs are unallocated
     if (resourceElements.glyphsBetTotal) {
       resourceElements.glyphsBetTotal.textContent = `${formatWholeNumber(totalBetGlyphs)} ב`;
