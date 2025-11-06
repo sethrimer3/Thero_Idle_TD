@@ -194,12 +194,17 @@ export class FluidSimulation {
       : null;
 
     const measuredWidth = parentRect?.width || rect?.width || this.canvas.clientWidth || 240;
-    const measuredHeight = parentRect?.height || rect?.height || this.canvas.clientHeight || 320;
+    const attrWidth = Number.parseFloat(this.canvas.getAttribute('width')) || 0;
+    const attrHeight = Number.parseFloat(this.canvas.getAttribute('height')) || 0;
+    const intrinsicWidth = attrWidth > 0 ? attrWidth : measuredWidth;
 
-    // Maintain 3:4 aspect ratio for the simulation canvas (same as Aleph Spire)
-    // Calculate dimensions based on container width as the constraint
-    const constrainedWidth = Math.max(150, measuredWidth);
-    const constrainedHeight = Math.floor(constrainedWidth * (4 / 3)); // 3:4 ratio (240:320)
+    // Lock the Bet Spire viewport to its intrinsic canvas size so window resizes
+    // do not stretch or compress the simulation state.
+    const previousWidth = Number.isFinite(this.width) && this.width > 0 ? this.width : 0;
+    const baseWidth = previousWidth || intrinsicWidth || 240;
+    const constrainedWidth = Math.max(150, baseWidth);
+    const aspectRatio = attrWidth > 0 && attrHeight > 0 ? attrHeight / Math.max(1, attrWidth) : 4 / 3;
+    const constrainedHeight = Math.max(200, Math.floor(constrainedWidth * aspectRatio));
 
     const styleWidth = `${constrainedWidth}px`;
     const styleHeight = `${constrainedHeight}px`;
@@ -223,7 +228,6 @@ export class FluidSimulation {
     this.ctx.scale(ratio, ratio);
 
     // Store previous dimensions to detect if resize is significant
-    const previousWidth = this.width;
     const previousHeight = this.height;
     const previousCols = this.cols;
 
