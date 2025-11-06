@@ -638,16 +638,42 @@ export class FluidSimulation {
     if (this.cols <= 0) {
       return this.height;
     }
-    const index = Math.max(0, Math.min(this.cols - 1, Math.floor(x / this.cellSize)));
-    const height = this.columnHeights[index] || 0;
+    // Clamp the sample to the interior lane so surface queries respect the virtual walls.
+    const activeStart = Math.max(0, Math.min(this.cols - 1, this.wallInsetLeftCells));
+    const activeEnd = Math.max(activeStart, this.cols - this.wallInsetRightCells - 1);
+    const normalizedX = Number.isFinite(x) ? Math.max(0, x) : 0;
+    const index = Math.floor(normalizedX / this.cellSize);
+    const clampedIndex = Math.max(activeStart, Math.min(activeEnd, index));
+    const height = this.columnHeights[clampedIndex] || 0;
     return Math.max(0, this.height - height * this.cellSize);
+  }
+
+  // Report the inclusive column indices that sit between the simulated walls.
+  getActiveColumnBounds() {
+    if (this.cols <= 0) {
+      return { start: 0, end: 0 };
+    }
+    const start = Math.max(0, Math.min(this.cols - 1, this.wallInsetLeftCells));
+    const end = Math.max(start, this.cols - this.wallInsetRightCells - 1);
+    return { start, end };
+  }
+
+  // Resolve the nearest water column index for a world-space x coordinate.
+  getActiveColumnIndex(x) {
+    const bounds = this.getActiveColumnBounds();
+    if (bounds.end <= bounds.start) {
+      return bounds.start;
+    }
+    const normalizedX = Number.isFinite(x) ? Math.max(0, x) : 0;
+    const index = Math.floor(normalizedX / this.cellSize);
+    return Math.max(bounds.start, Math.min(bounds.end, index));
   }
 
   depositDrop(drop) {
     if (!drop || !Number.isFinite(drop.x)) {
       return;
     }
-    const index = Math.max(0, Math.min(this.cols - 1, Math.floor(drop.x / this.cellSize)));
+    const index = this.getActiveColumnIndex(drop.x);
     // Add the drop's volume to the water column exactly once
     const amount = Math.max(0.1, drop.size * this.dropVolumeScale);
     this.columnHeights[index] = Math.max(0, (this.columnHeights[index] || 0) + amount);
