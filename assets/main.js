@@ -2846,7 +2846,6 @@ import {
         resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'true');
       }
     }
-    // syncFluidTabStackState() - No longer needed with compact tab design
   }
 
   // Initialize the floating spire menu navigation in the top-right of spire panels
