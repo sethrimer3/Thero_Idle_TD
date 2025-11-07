@@ -7,6 +7,11 @@
  */
 
 /**
+ * Number of iterons required in a fractal before the next fractal unlocks
+ */
+const FRACTAL_UNLOCK_THRESHOLD = 100;
+
+/**
  * State for the Shin Spire system
  */
 const shinState = {
@@ -61,7 +66,7 @@ export function initializeShinState(savedState = {}) {
  */
 export async function loadFractalDefinitions() {
   try {
-    const response = await fetch('/assets/data/shinFractals.json');
+    const response = await fetch('./assets/data/shinFractals.json');
     if (!response.ok) {
       throw new Error(`Failed to load fractal definitions: ${response.status}`);
     }
@@ -165,8 +170,8 @@ export function allocateIterons(fractalId, amount) {
     shinState.shinGlyphs += newLayersCompleted;
   }
   
-  // Check if the next fractal should be unlocked (100 iterons threshold)
-  if (fractalState.allocated >= 100) {
+  // Check if the next fractal should be unlocked
+  if (fractalState.allocated >= FRACTAL_UNLOCK_THRESHOLD) {
     const currentIndex = fractalDefinitions.findIndex(f => f.id === fractalId);
     if (currentIndex >= 0 && currentIndex < fractalDefinitions.length - 1) {
       const nextFractal = fractalDefinitions[currentIndex + 1];

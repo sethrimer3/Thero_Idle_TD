@@ -173,17 +173,25 @@ function renderFractalContent(fractal, state) {
   
   const allocatedStat = document.createElement('div');
   allocatedStat.className = 'shin-fractal-stat';
-  allocatedStat.innerHTML = `
-    <span class="shin-fractal-stat-label">Iterons Allocated</span>
-    <span class="shin-fractal-stat-value">${formatGameNumber(state.allocated)}</span>
-  `;
+  const allocatedLabel = document.createElement('span');
+  allocatedLabel.className = 'shin-fractal-stat-label';
+  allocatedLabel.textContent = 'Iterons Allocated';
+  const allocatedValue = document.createElement('span');
+  allocatedValue.className = 'shin-fractal-stat-value';
+  allocatedValue.textContent = formatGameNumber(state.allocated);
+  allocatedStat.appendChild(allocatedLabel);
+  allocatedStat.appendChild(allocatedValue);
   
   const layersStat = document.createElement('div');
   layersStat.className = 'shin-fractal-stat';
-  layersStat.innerHTML = `
-    <span class="shin-fractal-stat-label">Layers Completed</span>
-    <span class="shin-fractal-stat-value">${state.layersCompleted} / ${fractal.layerThresholds.length}</span>
-  `;
+  const layersLabel = document.createElement('span');
+  layersLabel.className = 'shin-fractal-stat-label';
+  layersLabel.textContent = 'Layers Completed';
+  const layersValue = document.createElement('span');
+  layersValue.className = 'shin-fractal-stat-value';
+  layersValue.textContent = `${state.layersCompleted} / ${fractal.layerThresholds.length}`;
+  layersStat.appendChild(layersLabel);
+  layersStat.appendChild(layersValue);
   
   stats.appendChild(allocatedStat);
   stats.appendChild(layersStat);
