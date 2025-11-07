@@ -6131,3 +6131,188 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     font-size: 0.65rem;
   }
 }
+
+/* Stacked spire tabs in the tab bar */
+.spire-tab-stack {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  padding: 6px;
+  min-height: 100%;
+}
+
+.spire-tab-stack .tab-button--stacked {
+  min-width: 0;
+  padding: 8px 4px;
+  font-size: 0.6rem;
+}
+
+.spire-tab-stack .tab-icon {
+  font-size: 1.2rem;
+}
+
+/* When fewer spire tabs are visible, adjust the grid */
+.spire-tab-stack:has(.tab-button--stacked:nth-child(1):not([hidden])):has(.tab-button--stacked:nth-child(2)[hidden]) {
+  grid-template-columns: 1fr;
+}
+
+.spire-tab-stack:has(.tab-button--stacked:nth-child(2):not([hidden])):has(.tab-button--stacked:nth-child(3)[hidden]) {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.spire-tab-stack:has(.tab-button--stacked:nth-child(3):not([hidden])):has(.tab-button--stacked:nth-child(4)[hidden]) {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.spire-tab-stack:has(.tab-button--stacked:nth-child(4):not([hidden])):has(.tab-button--stacked:nth-child(5)[hidden]) {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Mobile adjustments for stacked spire tabs */
+@media (max-width: 768px) {
+  .spire-tab-stack {
+    gap: 3px;
+    padding: 4px;
+  }
+  
+  .spire-tab-stack .tab-button--stacked {
+    padding: 6px 2px;
+  }
+  
+  .spire-tab-stack .tab-icon {
+    font-size: 1rem;
+  }
+}
+
+/* Lamed Spire gravity simulation styles */
+.lamed-basin {
+  background: #000000; /* Pure black space */
+  box-shadow: inset 0 0 0 1px rgba(139, 247, 255, 0.15), inset 0 0 40px rgba(0, 0, 0, 0.9);
+}
+
+.lamed-basin::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(139, 247, 255, 0.08), transparent 70%);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.lamed-basin::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.6) 100%);
+  pointer-events: none;
+}
+
+.lamed-viewport {
+  pointer-events: none;
+}
+
+/* Remove walls from lamed simulation since it's open space */
+.lamed-basin .powder-wall {
+  display: none;
+}
+
+.lamed-basin .powder-wall-hitbox {
+  display: none;
+}
+
+/* Canvas should fill the basin */
+#lamed-canvas {
+  position: relative;
+  z-index: 1;
+}
+
+/* Lamed metrics styling */
+.lamed-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lamed-metrics > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(247, 247, 245, 0.1);
+}
+
+.lamed-metrics dt {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-family: 'Cormorant Garamond', serif;
+  letter-spacing: 0.05em;
+}
+
+.lamed-metrics dd {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+}
+
+.lamed-state-label {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(139, 247, 255, 0.12);
+  border: 1px solid rgba(139, 247, 255, 0.25);
+  border-radius: 999px;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(139, 247, 255, 0.95);
+  margin-left: 12px;
+}
+
+.lamed-status-note {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* Grid layout for lamed spire overview */
+.lamed-grid {
+  display: grid;
+  gap: 20px;
+  padding: 20px;
+}
+
+@media (min-width: 769px) {
+  .lamed-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .lamed-simulation-slot {
+    grid-row: 1 / 3;
+  }
+}
+
+.lamed-simulation-card {
+  height: auto;
+  min-height: 400px;
+}
+
+.lamed-briefing-card h3 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.lamed-return-button {
+  margin-top: 16px;
+  width: 100%;
+}

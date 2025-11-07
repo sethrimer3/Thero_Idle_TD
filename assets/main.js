@@ -108,6 +108,8 @@ import {
 } from '../scripts/features/towers/powderTower.js';
 // Fluid tower shallow-water simulation extracted into a dedicated module.
 import { FluidSimulation } from '../scripts/features/towers/fluidTower.js';
+// Lamed tower gravity simulation for orbital mechanics with sparks.
+import { GravitySimulation } from '../scripts/features/towers/lamedTower.js';
 // Shared color palette orchestration utilities.
 import {
   configureColorSchemeSystem,
@@ -2871,11 +2873,15 @@ import {
   function updateSpireMenuCounts() {
     const bankedMotes = getCurrentIdleMoteBank();
     const bankedDrops = getCurrentFluidDropBank();
+    const bankedSparks = lamedSimulationInstance ? lamedSimulationInstance.sparkBank : 0;
     
     // Update all mote count displays
     const moteCountElements = [
       document.getElementById('spire-menu-mote-count'),
-      document.getElementById('spire-menu-mote-count-fluid')
+      document.getElementById('spire-menu-mote-count-fluid'),
+      document.getElementById('spire-menu-mote-count-lamed'),
+      document.getElementById('spire-menu-mote-count-tsadi'),
+      document.getElementById('spire-menu-mote-count-shin')
     ];
     moteCountElements.forEach(element => {
       if (element) {
@@ -2886,11 +2892,28 @@ import {
     // Update all fluid count displays
     const fluidCountElements = [
       document.getElementById('spire-menu-fluid-count'),
-      document.getElementById('spire-menu-fluid-count-fluid')
+      document.getElementById('spire-menu-fluid-count-fluid'),
+      document.getElementById('spire-menu-fluid-count-lamed'),
+      document.getElementById('spire-menu-fluid-count-tsadi'),
+      document.getElementById('spire-menu-fluid-count-shin')
     ];
     fluidCountElements.forEach(element => {
       if (element) {
         element.textContent = formatGameNumber(bankedDrops);
+      }
+    });
+    
+    // Update all lamed count displays
+    const lamedCountElements = [
+      document.getElementById('spire-menu-lamed-count'),
+      document.getElementById('spire-menu-lamed-count-powder'),
+      document.getElementById('spire-menu-lamed-count-fluid'),
+      document.getElementById('spire-menu-lamed-count-tsadi'),
+      document.getElementById('spire-menu-lamed-count-shin')
+    ];
+    lamedCountElements.forEach(element => {
+      if (element) {
+        element.textContent = formatGameNumber(bankedSparks);
       }
     });
     
@@ -2903,6 +2926,27 @@ import {
         item.setAttribute('hidden', '');
       }
     });
+    
+    // Show/hide Lamed spire menu items
+    // Currently uses fluid unlock as a placeholder; will be replaced with dedicated unlock logic
+    const lamedMenuItems = document.querySelectorAll('.spire-menu-item--lamed');
+    lamedMenuItems.forEach(item => {
+      if (powderState.fluidUnlocked) {
+        item.removeAttribute('hidden');
+      } else {
+        item.setAttribute('hidden', '');
+      }
+    });
+    
+    // Also update the tab bar button visibility
+    const lamedTabButton = document.getElementById('tab-lamed');
+    if (lamedTabButton) {
+      if (powderState.fluidUnlocked) {
+        lamedTabButton.removeAttribute('hidden');
+      } else {
+        lamedTabButton.setAttribute('hidden', '');
+      }
+    }
   }
 
   // Normalize the aleph glyph tithe before using it for unlock checks or logs.
@@ -3415,6 +3459,7 @@ import {
   let powderSimulation = null;
   let sandSimulation = null;
   let fluidSimulationInstance = null;
+  let lamedSimulationInstance = null;
   let powderBasinObserver = null;
 
   setGraphicsModeContext({
@@ -8338,6 +8383,35 @@ import {
               sandSimulation.handleResize();
             }
             initializePowderViewInteraction();
+          }
+        } else if (tabId === 'lamed') {
+          // Initialize and start Lamed gravity simulation
+          if (!lamedSimulationInstance) {
+            const lamedCanvas = document.getElementById('lamed-canvas');
+            if (lamedCanvas) {
+              lamedSimulationInstance = new GravitySimulation({
+                canvas: lamedCanvas,
+                onSparkBankChange: (value) => {
+                  const reservoirEl = document.getElementById('lamed-reservoir');
+                  if (reservoirEl) {
+                    reservoirEl.textContent = `${Math.floor(value)} Sparks`;
+                  }
+                },
+                onStarMassChange: (value) => {
+                  const starMassEl = document.getElementById('lamed-star-mass');
+                  if (starMassEl) {
+                    starMassEl.textContent = value.toFixed(2);
+                  }
+                },
+              });
+              lamedSimulationInstance.resize();
+              lamedSimulationInstance.start();
+            }
+          } else {
+            lamedSimulationInstance.resize();
+            if (!lamedSimulationInstance.running) {
+              lamedSimulationInstance.start();
+            }
           }
         }
 

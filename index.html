@@ -1491,7 +1491,7 @@
                     width="240"
                     height="320"
                     role="img"
-                    aria-label="Crystal lattice formation"
+                    aria-label="Gravitational spark simulation"
                   ></canvas>
                   <div class="powder-viewport lamed-viewport" id="lamed-viewport">
                     <div class="powder-glyph-column" data-lamed-glyph-column="center"></div>
@@ -1500,33 +1500,33 @@
               </article>
             </div>
             <article class="card lamed-metrics-card">
-              <h3>Crystallization Metrics</h3>
+              <h3>Gravitational Metrics</h3>
               <dl class="lamed-metrics">
                 <div>
-                  <dt>Crystal Formation</dt>
-                  <dd id="lamed-formation">0.00% complete</dd>
+                  <dt>Star Mass</dt>
+                  <dd id="lamed-star-mass">100.00</dd>
                 </div>
                 <div>
-                  <dt>Idle Crystal Bank</dt>
-                  <dd id="lamed-reservoir">0 Crystals</dd>
+                  <dt>Idle Spark Bank</dt>
+                  <dd id="lamed-reservoir">0 Sparks</dd>
                 </div>
                 <div>
-                  <dt>Formation Rate</dt>
-                  <dd id="lamed-growth-rate">0.00 crystals/sec</dd>
+                  <dt>Spark Generation Rate</dt>
+                  <dd id="lamed-growth-rate">1.00 sparks/sec</dd>
                 </div>
               </dl>
               <p class="lamed-status-note" id="lamed-status-note">
-                Particles crystallize into stable lattice structures as they settle.
+                Sparks orbit the central gravity well before being absorbed into the star.
               </p>
             </article>
             <article class="card lamed-briefing-card">
               <h3>
                 <span id="lamed-profile-label">Lamed Spire</span>
-                <span class="lamed-state-label" id="lamed-state-label">Nucleating</span>
+                <span class="lamed-state-label" id="lamed-state-label">Orbiting</span>
               </h3>
               <p class="lamed-briefing">
-                Watch geometric crystal formations grow from the foundation. Arrange crystallized patterns to enhance
-                tower modifications.
+                Observe sparks entering from the void, swirling around the central gravity well in orbital patterns.
+                As sparks are absorbed, the star's mass grows, intensifying its gravitational pull.
               </p>
               <button class="action-button ghost lamed-return-button" type="button" id="lamed-return-button">
                 Return to Powderfall
@@ -2059,76 +2059,78 @@
           <!-- Indicator for unused glyph currency relocated beneath the tab title. -->
           <span class="tab-icon-badge tab-icon-badge--glyphs" id="tab-glyph-badge" hidden>0</span>
         </button>
-        <!-- Multiple compact spire tabs showing only Hebrew letters -->
-        <button
-          class="tab-button tab-button--compact"
-          data-tab="powder"
-          id="tab-powder"
-          type="button"
-          role="tab"
-          aria-label="Aleph Spire"
-          aria-controls="panel-powder"
-          aria-selected="false"
-          aria-pressed="false"
-        >
-          <span class="tab-icon">ℵ</span>
-        </button>
-        <button
-          class="tab-button tab-button--compact"
-          data-tab="fluid"
-          id="tab-fluid"
-          type="button"
-          role="tab"
-          aria-label="Tet Spire"
-          aria-controls="panel-fluid"
-          aria-selected="false"
-          aria-pressed="false"
-          hidden
-        >
-          <span class="tab-icon">ט</span>
-        </button>
-        <button
-          class="tab-button tab-button--compact"
-          data-tab="lamed"
-          id="tab-lamed"
-          type="button"
-          role="tab"
-          aria-label="Lamed Spire"
-          aria-controls="panel-lamed"
-          aria-selected="false"
-          aria-pressed="false"
-          hidden
-        >
-          <span class="tab-icon">ל</span>
-        </button>
-        <button
-          class="tab-button tab-button--compact"
-          data-tab="tsadi"
-          id="tab-tsadi"
-          type="button"
-          role="tab"
-          aria-label="Tsadi Spire"
-          aria-controls="panel-tsadi"
-          aria-selected="false"
-          aria-pressed="false"
-          hidden
-        >
-          <span class="tab-icon">צ</span>
-        </button>
-        <button
-          class="tab-button tab-button--compact"
-          data-tab="shin"
-          id="tab-shin"
-          type="button"
-          role="tab"
-          aria-label="Shin Spire"
-          aria-controls="panel-shin"
-          aria-selected="false"
-          aria-pressed="false"
-          hidden
-        >
-          <span class="tab-icon">ש</span>
-        </button>
+        <!-- Multiple compact spire tabs stacked together in middle slot -->
+        <div class="tab-button-stack spire-tab-stack" id="spire-tab-stack">
+          <button
+            class="tab-button tab-button--stacked tab-button--stacked-aleph"
+            data-tab="powder"
+            id="tab-powder"
+            type="button"
+            role="tab"
+            aria-label="Aleph Spire"
+            aria-controls="panel-powder"
+            aria-selected="false"
+            aria-pressed="false"
+          >
+            <span class="tab-icon">ℵ</span>
+          </button>
+          <button
+            class="tab-button tab-button--stacked tab-button--stacked-tet"
+            data-tab="fluid"
+            id="tab-fluid"
+            type="button"
+            role="tab"
+            aria-label="Tet Spire"
+            aria-controls="panel-fluid"
+            aria-selected="false"
+            aria-pressed="false"
+            hidden
+          >
+            <span class="tab-icon">ט</span>
+          </button>
+          <button
+            class="tab-button tab-button--stacked tab-button--stacked-lamed"
+            data-tab="lamed"
+            id="tab-lamed"
+            type="button"
+            role="tab"
+            aria-label="Lamed Spire"
+            aria-controls="panel-lamed"
+            aria-selected="false"
+            aria-pressed="false"
+            hidden
+          >
+            <span class="tab-icon">ל</span>
+          </button>
+          <button
+            class="tab-button tab-button--stacked tab-button--stacked-tsadi"
+            data-tab="tsadi"
+            id="tab-tsadi"
+            type="button"
+            role="tab"
+            aria-label="Tsadi Spire"
+            aria-controls="panel-tsadi"
+            aria-selected="false"
+            aria-pressed="false"
+            hidden
+          >
+            <span class="tab-icon">צ</span>
+          </button>
+          <button
+            class="tab-button tab-button--stacked tab-button--stacked-shin"
+            data-tab="shin"
+            id="tab-shin"
+            type="button"
+            role="tab"
+            aria-label="Shin Spire"
+            aria-controls="panel-shin"
+            aria-selected="false"
+            aria-pressed="false"
+            hidden
+          >
+            <span class="tab-icon">ש</span>
+          </button>
+        </div>
         <button
           class="tab-button"
           data-tab="achievements"
