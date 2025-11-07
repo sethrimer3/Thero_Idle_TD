@@ -2143,54 +2143,123 @@ export class PowderSimulation {
   }
 
   _synthesizeRectangleState(state) {
-    // Rectangle-based mote restoration: Fill from bottom with a rectangle of motes
+    // Rectangle-based mote restoration: Fill from the basin floor and respect wall insets.
     const savedMoteCount = Math.max(0, Math.round(state.moteCount || 0));
-    const cols = (state.compactHeightLine && state.compactHeightLine.cols) || this.cols || 0;
-    
-    if (cols <= 0 || savedMoteCount <= 0) {
+    const normalizedIdleBank = Math.max(0, normalizeFiniteNumber(state.idleBank, 0));
+    const compactCols = Number.isFinite(state?.compactHeightLine?.cols)
+      ? Math.max(0, Math.round(state.compactHeightLine.cols))
+      : 0;
+    const totalCols = compactCols > 0 ? compactCols : Math.max(0, Math.round(this.cols || 0));
+
+    if (totalCols <= 0 || savedMoteCount <= 0) {
       return {
         ...state,
         grains: [],
         pendingDrops: [],
-        idleBank: Math.max(0, normalizeFiniteNumber(state.idleBank, 0)),
+        idleBank: normalizedIdleBank,
+        moteCount: 0,
       };
     }
-    
-    // Calculate how many complete rows we can fill
-    const completeRows = Math.floor(savedMoteCount / cols);
-    const remainderMotes = savedMoteCount % cols;
-    
-    // Generate grains for the rectangle
+
+    let leftInset = Number.isFinite(state.wallInsetLeftCells)
+      ? Math.max(0, Math.round(state.wallInsetLeftCells))
+      : Math.max(0, Math.round(this.wallInsetLeftCells || 0));
+    let rightInset = Number.isFinite(state.wallInsetRightCells)
+      ? Math.max(0, Math.round(state.wallInsetRightCells))
+      : Math.max(0, Math.round(this.wallInsetRightCells || 0));
+
+    leftInset = Math.min(leftInset, totalCols);
+    rightInset = Math.min(rightInset, Math.max(0, totalCols - leftInset));
+
+    let gapWidth = Math.max(0, totalCols - leftInset - rightInset);
+    if (Number.isFinite(state.wallGapCellsTarget) && state.wallGapCellsTarget > 0) {
+      gapWidth = Math.min(Math.max(1, Math.round(state.wallGapCellsTarget)), totalCols);
+    }
+    if (gapWidth <= 0) {
+      gapWidth = totalCols;
+      leftInset = 0;
+    }
+    const startColumn = Math.max(0, Math.min(leftInset, Math.max(0, totalCols - gapWidth)));
+    const fillWidth = Math.max(0, Math.min(gapWidth, totalCols - startColumn));
+    if (fillWidth <= 0) {
+      return {
+        ...state,
+        grains: [],
+        pendingDrops: [],
+        idleBank: normalizedIdleBank,
+        moteCount: 0,
+      };
+    }
+
+    const fullRowsFromCount = Math.floor(savedMoteCount / fillWidth);
+    if (fullRowsFromCount <= 0) {
+      return {
+        ...state,
+        grains: [],
+        pendingDrops: [],
+        idleBank: normalizedIdleBank,
+        moteCount: 0,
+      };
+    }
+
+    let totalRows = Number.isFinite(this.rows) && this.rows > 0 ? Math.round(this.rows) : 0;
+    if (totalRows <= 0 && Number.isFinite(state?.heightInfo?.rows)) {
+      totalRows = Math.max(1, Math.round(state.heightInfo.rows));
+    }
+    if (totalRows <= 0) {
+      totalRows = fullRowsFromCount;
+    }
+    totalRows = Math.max(totalRows, fullRowsFromCount);
+
+    const rowsToFill = Math.min(fullRowsFromCount, totalRows);
+    if (rowsToFill <= 0) {
+      return {
+        ...state,
+        grains: [],
+        pendingDrops: [],
+        idleBank: normalizedIdleBank,
+        moteCount: 0,
+      };
+    }
+
+    const firstRow = Math.max(0, totalRows - rowsToFill);
     const grains = [];
-    let synthesizedId = Number.isFinite(state?.nextId) ? Math.max(1, Math.round(state.nextId)) : Math.max(1, this.nextId || 1);
-    
-    // Fill complete rows from bottom
-    for (let y = 0; y < completeRows; y++) {
-      for (let x = 0; x < cols; x++) {
+    let synthesizedId = Number.isFinite(state?.nextId)
+      ? Math.max(1, Math.round(state.nextId))
+      : Math.max(1, this.nextId || 1);
+
+    for (let rowOffset = 0; rowOffset < rowsToFill; rowOffset += 1) {
+      const y = firstRow + rowOffset;
+      for (let colOffset = 0; colOffset < fillWidth; colOffset += 1) {
+        const x = startColumn + colOffset;
+        if (x < 0 || x >= totalCols) {
+          continue;
+        }
         grains.push({
           id: synthesizedId++,
-          x: x,
-          y: y,
+          x,
+          y,
           size: 1,
           colliderSize: 1,
           bias: 1,
           shade: 180,
           freefall: false,
           inGrid: true,
-          resting: true
+          resting: true,
         });
       }
     }
-    
-    // The remainder motes will be added to the idle bank instead of partially filling a row
-    // This prevents visual artifacts and ensures predictable behavior
-    const adjustedIdleBank = Math.max(0, normalizeFiniteNumber(state.idleBank, 0)) + remainderMotes;
-    
+
+    const hasCapacity = Number.isFinite(this.maxGrains) && this.maxGrains > 0;
+    const capacity = hasCapacity ? Math.max(1, Math.round(this.maxGrains)) : null;
+    const limitedGrains = capacity ? grains.slice(0, capacity) : grains;
+
     return {
       ...state,
-      grains: grains.slice(0, this.maxGrains || grains.length),
+      grains: limitedGrains,
       pendingDrops: [],
-      idleBank: adjustedIdleBank,
+      idleBank: normalizedIdleBank,
+      moteCount: limitedGrains.length,
       nextId: Math.max(synthesizedId, this.nextId || synthesizedId),
     };
   }
