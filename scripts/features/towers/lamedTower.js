@@ -33,7 +33,7 @@ export class GravitySimulation {
     
     // Spark management
     this.sparks = [];
-    this.sparkBank = 0; // Idle currency
+    this.sparkBank = 0; // Idle currency reserve that spawns sparks into the simulation
     this.maxSparks = 50; // Maximum number of active sparks
     this.sparkSpawnRate = 1; // Sparks per second
     this.spawnAccumulator = 0;
@@ -54,6 +54,10 @@ export class GravitySimulation {
     this.lastFrame = 0;
     this.loopHandle = null;
     
+    // Seed the spark bank with any provided initial reserve so UI callbacks hydrate immediately.
+    const initialSparkBank = Number.isFinite(options.initialSparkBank) ? options.initialSparkBank : 0;
+    this.setSparkBank(initialSparkBank);
+
     // Initialize if canvas is provided
     if (this.canvas) {
       this.resize();
@@ -87,8 +91,9 @@ export class GravitySimulation {
    * Spawn a new spark from a random edge
    */
   spawnSpark() {
-    if (this.sparks.length >= this.maxSparks) return;
-    
+    if (this.sparks.length >= this.maxSparks) return false;
+    if (this.sparkBank <= 0) return false;
+
     // Choose random edge (0=top, 1=right, 2=bottom, 3=left)
     const edge = Math.floor(Math.random() * 4);
     let x, y, vx, vy;
@@ -131,18 +136,26 @@ export class GravitySimulation {
       trail: [], // Array of {x, y, alpha} points
       life: 1.0, // For fade-out effect
     });
+
+    // Deduct from the idle bank when a new spark is introduced to the simulation.
+    this.setSparkBank(this.sparkBank - 1);
+
+    return true;
   }
-  
+
   /**
    * Update physics for all sparks
    */
   updateSparks(deltaTime) {
     const dt = deltaTime / 1000; // Convert to seconds
-    
+
     // Spawn new sparks
     this.spawnAccumulator += dt * this.sparkSpawnRate;
-    while (this.spawnAccumulator >= 1) {
-      this.spawnSpark();
+    while (this.spawnAccumulator >= 1 && this.sparkBank > 0) {
+      const spawned = this.spawnSpark();
+      if (!spawned) {
+        break;
+      }
       this.spawnAccumulator -= 1;
     }
     
@@ -161,15 +174,11 @@ export class GravitySimulation {
         // Increase star mass
         const massGain = 1;
         this.starMass = Math.min(this.starMass + massGain, this.maxStarMass);
-        this.sparkBank += 1;
-        
+
         if (this.onStarMassChange) {
           this.onStarMassChange(this.starMass);
         }
-        if (this.onSparkBankChange) {
-          this.onSparkBankChange(this.sparkBank);
-        }
-        
+
         // Remove spark
         this.sparks.splice(i, 1);
         continue;
@@ -363,12 +372,27 @@ export class GravitySimulation {
    * Add sparks to the bank
    */
   addToSparkBank(amount) {
-    this.sparkBank += amount;
+    if (!Number.isFinite(amount)) {
+      return;
+    }
+    this.setSparkBank(this.sparkBank + amount);
+  }
+
+  /**
+   * Overwrite the spark bank and notify listeners when the value changes.
+   * @param {number} amount - New spark reserve value
+   */
+  setSparkBank(amount) {
+    const normalized = Number.isFinite(amount) ? Math.max(0, amount) : 0;
+    if (normalized === this.sparkBank) {
+      return;
+    }
+    this.sparkBank = normalized;
     if (this.onSparkBankChange) {
       this.onSparkBankChange(this.sparkBank);
     }
   }
-  
+
   /**
    * Get current state for serialization
    */
@@ -389,10 +413,7 @@ export class GravitySimulation {
         this.starMass = Math.max(0, Math.min(state.starMass, this.maxStarMass));
       }
       if (Number.isFinite(state.sparkBank)) {
-        this.sparkBank = Math.max(0, state.sparkBank);
-        if (this.onSparkBankChange) {
-          this.onSparkBankChange(this.sparkBank);
-        }
+        this.setSparkBank(state.sparkBank);
       }
     }
   }

@@ -182,6 +182,9 @@ export class ParticleFusionSimulation {
     this.onTierChange = typeof options.onTierChange === 'function' ? options.onTierChange : null;
     this.onParticleCountChange = typeof options.onParticleCountChange === 'function' ? options.onParticleCountChange : null;
     this.onGlyphChange = typeof options.onGlyphChange === 'function' ? options.onGlyphChange : null;
+    this.onParticleBankChange = typeof options.onParticleBankChange === 'function'
+      ? options.onParticleBankChange
+      : null;
     
     // Dimensions
     this.width = 0;
@@ -195,10 +198,11 @@ export class ParticleFusionSimulation {
     // Particle management
     this.particles = [];
     this.maxParticles = 100;
-    this.spawnRate = 2; // Particles per second
+    this.spawnRate = 2; // Particles per second (consumes particle bank)
     this.spawnAccumulator = 0;
     this.baseMass = 1; // Base mass for tier 0 particles
     this.baseRadius = 5; // Visual base radius (recalculated on resize)
+    this.particleBank = 0; // Reserve that feeds the simulation with new particles
     
     // Glyph tracking
     this.highestTierReached = 0; // Tracks the highest tier ever reached
@@ -222,8 +226,14 @@ export class ParticleFusionSimulation {
     // Initialize if canvas is provided
     if (this.canvas) {
       this.resize();
-      this.spawnInitialParticles();
     }
+
+    // Hydrate the simulation with any preloaded particle reserve before seeding the initial swarm.
+    const initialParticleBank = Number.isFinite(options.initialParticleBank)
+      ? options.initialParticleBank
+      : 0;
+    this.setParticleBank(initialParticleBank);
+    this.spawnInitialParticles();
   }
   
   /**
@@ -278,7 +288,9 @@ export class ParticleFusionSimulation {
   spawnInitialParticles() {
     const initialCount = 10;
     for (let i = 0; i < initialCount; i++) {
-      this.spawnParticle();
+      if (!this.spawnParticle()) {
+        break;
+      }
     }
   }
   
@@ -286,7 +298,8 @@ export class ParticleFusionSimulation {
    * Spawn a new particle with random position and velocity
    */
   spawnParticle(tier = 0) {
-    if (this.particles.length >= this.maxParticles) return;
+    if (this.particles.length >= this.maxParticles) return false;
+    if (this.particleBank <= 0) return false;
 
     const mass = this.getMassForTier(tier);
     const radius = this.getRadiusFromMass(mass);
@@ -315,10 +328,14 @@ export class ParticleFusionSimulation {
       label: tierInfo.letter,
       id: Math.random(), // Unique ID for tracking
     });
-    
+
+    // Deduct a particle from the idle bank when it materializes inside the simulation.
+    this.setParticleBank(this.particleBank - 1);
+
     if (this.onParticleCountChange) {
       this.onParticleCountChange(this.particles.length);
     }
+    return true;
   }
   
   /**
@@ -331,8 +348,11 @@ export class ParticleFusionSimulation {
     
     // Spawn new particles
     this.spawnAccumulator += dt * this.spawnRate;
-    while (this.spawnAccumulator >= 1 && this.particles.length < this.maxParticles) {
-      this.spawnParticle(0);
+    while (this.spawnAccumulator >= 1 && this.particles.length < this.maxParticles && this.particleBank > 0) {
+      const spawned = this.spawnParticle(0);
+      if (!spawned) {
+        break;
+      }
       this.spawnAccumulator -= 1;
     }
     
@@ -378,17 +398,43 @@ export class ParticleFusionSimulation {
     for (let i = this.fusionEffects.length - 1; i >= 0; i--) {
       const effect = this.fusionEffects[i];
       effect.alpha -= dt * 3; // Fade out over ~0.33 seconds
-      
+
       if (effect.type === 'ring') {
         effect.radius += dt * 100; // Expand ring
       }
-      
+
       if (effect.alpha <= 0) {
         this.fusionEffects.splice(i, 1);
       }
     }
   }
-  
+
+  /**
+   * Add particles to the idle bank that feeds the simulation.
+   * @param {number} amount - Number of particles to add
+   */
+  addToParticleBank(amount) {
+    if (!Number.isFinite(amount)) {
+      return;
+    }
+    this.setParticleBank(this.particleBank + amount);
+  }
+
+  /**
+   * Overwrite the particle bank and notify observers when it changes.
+   * @param {number} amount - New particle reserve value
+   */
+  setParticleBank(amount) {
+    const normalized = Number.isFinite(amount) ? Math.max(0, amount) : 0;
+    if (normalized === this.particleBank) {
+      return;
+    }
+    this.particleBank = normalized;
+    if (this.onParticleBankChange) {
+      this.onParticleBankChange(this.particleBank);
+    }
+  }
+
   /**
    * Handle particle-particle collisions and fusion
    */
@@ -692,6 +738,7 @@ export class ParticleFusionSimulation {
       })),
       highestTierReached: this.highestTierReached,
       glyphCount: this.glyphCount,
+      particleBank: this.particleBank,
     };
   }
   
@@ -726,7 +773,11 @@ export class ParticleFusionSimulation {
       this.highestTierReached = state.highestTierReached;
       this.glyphCount = state.highestTierReached;
     }
-    
+
+    if (Number.isFinite(state.particleBank)) {
+      this.setParticleBank(state.particleBank);
+    }
+
     if (this.onParticleCountChange) {
       this.onParticleCountChange(this.particles.length);
     }

@@ -1961,6 +1961,98 @@ import {
     fluidInitialLoadRestored: false,
   };
 
+  // Track idle reserves for advanced spires so their banks persist outside of active simulations.
+  const spireResourceState = {
+    lamed: {
+      sparkBank: 0,
+      unlocked: false,
+    },
+    tsadi: {
+      particleBank: 0,
+      unlocked: false,
+    },
+  };
+
+  /**
+   * Retrieve the current spark reserve for the Lamed Spire.
+   * @returns {number}
+   */
+  function getLamedSparkBank() {
+    const bank = spireResourceState.lamed?.sparkBank;
+    return Number.isFinite(bank) ? Math.max(0, bank) : 0;
+  }
+
+  /**
+   * Persist a new spark reserve total and refresh connected UI readouts.
+   * @param {number} value - Updated spark bank
+   * @returns {number} Normalized spark bank value
+   */
+  function setLamedSparkBank(value) {
+    const normalized = Number.isFinite(value) ? Math.max(0, value) : 0;
+    const current = getLamedSparkBank();
+    if (normalized === current) {
+      return current;
+    }
+    spireResourceState.lamed.sparkBank = normalized;
+    updateSpireMenuCounts();
+    return normalized;
+  }
+
+  /**
+   * Ensure the Lamed bank starts with a seed reserve the first time the spire unlocks.
+   */
+  function ensureLamedBankSeeded() {
+    if (spireResourceState.lamed.unlocked) {
+      return;
+    }
+    spireResourceState.lamed.unlocked = true;
+    if (getLamedSparkBank() < 100) {
+      setLamedSparkBank(100);
+    } else {
+      updateSpireMenuCounts();
+    }
+  }
+
+  /**
+   * Retrieve the current particle reserve for the Tsadi Spire.
+   * @returns {number}
+   */
+  function getTsadiParticleBank() {
+    const bank = spireResourceState.tsadi?.particleBank;
+    return Number.isFinite(bank) ? Math.max(0, bank) : 0;
+  }
+
+  /**
+   * Persist a new particle reserve total and refresh connected UI readouts.
+   * @param {number} value - Updated particle bank
+   * @returns {number} Normalized particle bank value
+   */
+  function setTsadiParticleBank(value) {
+    const normalized = Number.isFinite(value) ? Math.max(0, value) : 0;
+    const current = getTsadiParticleBank();
+    if (normalized === current) {
+      return current;
+    }
+    spireResourceState.tsadi.particleBank = normalized;
+    updateSpireMenuCounts();
+    return normalized;
+  }
+
+  /**
+   * Seed the Tsadi bank when the spire is first unlocked so particles can spawn immediately.
+   */
+  function ensureTsadiBankSeeded() {
+    if (spireResourceState.tsadi.unlocked) {
+      return;
+    }
+    spireResourceState.tsadi.unlocked = true;
+    if (getTsadiParticleBank() < 100) {
+      setTsadiParticleBank(100);
+    } else {
+      updateSpireMenuCounts();
+    }
+  }
+
   // Initialize the Towers tab emblem to the default mote palette before any theme swaps occur.
   applyMindGatePaletteToDom(powderState.motePalette);
 
@@ -2928,7 +3020,8 @@ import {
   function updateSpireMenuCounts() {
     const bankedMotes = getCurrentIdleMoteBank();
     const bankedDrops = getCurrentFluidDropBank();
-    const bankedSparks = lamedSimulationInstance ? lamedSimulationInstance.sparkBank : 0;
+    const bankedSparks = getLamedSparkBank();
+    const bankedTsadiParticles = getTsadiParticleBank();
     
     // Update all mote count displays
     const moteCountElements = [
@@ -2971,6 +3064,32 @@ import {
         element.textContent = formatGameNumber(bankedSparks);
       }
     });
+
+    const lamedReservoir = document.getElementById('lamed-reservoir');
+    if (lamedReservoir) {
+      const sparkLabel = formatWholeNumber(Math.floor(bankedSparks));
+      lamedReservoir.textContent = `${sparkLabel} Sparks`;
+    }
+
+    // Update all tsadi count displays
+    const tsadiCountElements = [
+      document.getElementById('spire-menu-tsadi-count'),
+      document.getElementById('spire-menu-tsadi-count-powder'),
+      document.getElementById('spire-menu-tsadi-count-fluid'),
+      document.getElementById('spire-menu-tsadi-count-lamed'),
+      document.getElementById('spire-menu-tsadi-count-shin')
+    ];
+    tsadiCountElements.forEach(element => {
+      if (element) {
+        element.textContent = formatGameNumber(bankedTsadiParticles);
+      }
+    });
+
+    const tsadiBankEl = document.getElementById('tsadi-bank');
+    if (tsadiBankEl) {
+      const particleLabel = formatWholeNumber(Math.floor(bankedTsadiParticles));
+      tsadiBankEl.textContent = `${particleLabel} Particles`;
+    }
     
     // Show/hide Tet menu items based on unlock status
     const tetMenuItems = document.querySelectorAll('.spire-menu-item--tet');
@@ -8455,13 +8574,12 @@ import {
           if (!lamedSimulationInstance) {
             const lamedCanvas = document.getElementById('lamed-canvas');
             if (lamedCanvas) {
+              ensureLamedBankSeeded();
               lamedSimulationInstance = new GravitySimulation({
                 canvas: lamedCanvas,
+                initialSparkBank: getLamedSparkBank(),
                 onSparkBankChange: (value) => {
-                  const reservoirEl = document.getElementById('lamed-reservoir');
-                  if (reservoirEl) {
-                    reservoirEl.textContent = `${Math.floor(value)} Sparks`;
-                  }
+                  setLamedSparkBank(value);
                 },
                 onStarMassChange: (value) => {
                   const starMassEl = document.getElementById('lamed-star-mass');
@@ -8471,6 +8589,15 @@ import {
                 },
               });
               lamedSimulationInstance.resize();
+              const growthRateEl = document.getElementById('lamed-growth-rate');
+              if (growthRateEl) {
+                growthRateEl.textContent = `${lamedSimulationInstance.sparkSpawnRate.toFixed(2)} sparks/sec`;
+              }
+              const starMassEl = document.getElementById('lamed-star-mass');
+              if (starMassEl) {
+                starMassEl.textContent = lamedSimulationInstance.starMass.toFixed(2);
+              }
+              updateSpireMenuCounts();
               lamedSimulationInstance.start();
             }
           } else {
@@ -8484,8 +8611,13 @@ import {
           if (!tsadiSimulationInstance) {
             const tsadiCanvas = document.getElementById('tsadi-canvas');
             if (tsadiCanvas) {
+              ensureTsadiBankSeeded();
               tsadiSimulationInstance = new ParticleFusionSimulation({
                 canvas: tsadiCanvas,
+                initialParticleBank: getTsadiParticleBank(),
+                onParticleBankChange: (value) => {
+                  setTsadiParticleBank(value);
+                },
                 onTierChange: (tierInfo) => {
                   const tierEl = document.getElementById('tsadi-highest-tier');
                   if (tierEl) {
@@ -8517,6 +8649,11 @@ import {
                 },
               });
               tsadiSimulationInstance.resize();
+              const generationRateEl = document.getElementById('tsadi-generation-rate');
+              if (generationRateEl) {
+                generationRateEl.textContent = `${tsadiSimulationInstance.spawnRate.toFixed(2)} particles/sec`;
+              }
+              updateSpireMenuCounts();
               tsadiSimulationInstance.start();
             }
           } else {
