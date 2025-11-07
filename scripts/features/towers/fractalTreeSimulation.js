@@ -44,7 +44,7 @@ class SeededRandom {
  * Represents a single branch segment in the fractal tree.
  */
 class BranchSegment {
-  constructor(x, y, angle, length, depth, width, parentId = null) {
+  constructor(x, y, angle, length, depth, width, parentId = null, bezierOffset = { x: 0, y: 0 }) {
     this.id = BranchSegment.nextId++;
     this.x = x; // Start x position
     this.y = y; // Start y position
@@ -57,6 +57,7 @@ class BranchSegment {
     this.endY = y + Math.sin(angle) * length;
     this.hasGrown = false; // Whether this segment has been rendered
     this.age = 0; // Frames since this segment was grown
+    this.bezierOffset = bezierOffset; // Cached Bézier control point offset for consistent rendering
   }
 }
 BranchSegment.nextId = 0;
@@ -172,7 +173,9 @@ export class FractalTreeSimulation {
       rootAngle,
       this.rootLength,
       0,
-      rootWidth
+      rootWidth,
+      null,
+      { x: 0, y: 0 } // Root has no curve offset
     );
 
     this.segments.push(root);
@@ -248,6 +251,10 @@ export class FractalTreeSimulation {
       // Apply gravity bend (adds downward component proportional to depth)
       const gravityAdjustment = this.gravityBend * childDepth * 0.1;
 
+      // Generate consistent Bézier control point offset for this segment
+      const bezierOffsetX = (this.rng.next() - 0.5);
+      const bezierOffsetY = (this.rng.next() - 0.5);
+
       const child = new BranchSegment(
         parent.endX,
         parent.endY,
@@ -255,7 +262,8 @@ export class FractalTreeSimulation {
         childLength,
         childDepth,
         childWidth,
-        parent.id
+        parent.id,
+        { x: bezierOffsetX, y: bezierOffsetY }
       );
 
       this.segments.push(child);
@@ -329,15 +337,15 @@ export class FractalTreeSimulation {
     this.ctx.lineJoin = 'round';
     this.ctx.globalAlpha = 0.9;
 
-    // Calculate control point with slight perpendicular offset
+    // Calculate control point with slight perpendicular offset using cached values
     const midX = (segment.x + segment.endX) / 2;
     const midY = (segment.y + segment.endY) / 2;
     
-    // Perpendicular offset for curve (10% of length)
+    // Perpendicular offset for curve (10% of length) using cached bezierOffset
     const perpAngle = segment.angle + Math.PI / 2;
     const offsetMag = segment.length * 0.1;
-    const controlX = midX + Math.cos(perpAngle) * offsetMag * (this.rng.next() - 0.5);
-    const controlY = midY + Math.sin(perpAngle) * offsetMag * (this.rng.next() - 0.5);
+    const controlX = midX + Math.cos(perpAngle) * offsetMag * segment.bezierOffset.x;
+    const controlY = midY + Math.sin(perpAngle) * offsetMag * segment.bezierOffset.y;
 
     this.ctx.beginPath();
     this.ctx.moveTo(segment.x, segment.y);
