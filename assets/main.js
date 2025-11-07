@@ -8399,6 +8399,7 @@ import {
       onRequestInventoryRefresh: updateMoteGemInventoryDisplay,
     });
     await loadAchievementsFromJSON();
+    generateLevelAchievements();
     bindAchievements();
     updatePowderLogDisplay();
     updateResourceRates();
