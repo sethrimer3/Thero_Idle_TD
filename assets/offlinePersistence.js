@@ -388,7 +388,7 @@ export function recordPowderEvent(type, context = {}) {
         const safeBetTotal = Number.isFinite(betTotal) ? Math.max(0, betTotal) : 0;
         const betRateLabel = dependencies.formatGameNumber(safeBetMultiplier);
         const betGainLabel = dependencies.formatGameNumber(safeBetTotal);
-        betPieces.push(`ב × ${betRateLabel} = +${betGainLabel} Drops`);
+        betPieces.push(`ט × ${betRateLabel} = +${betGainLabel} Drops`);
       }
 
       const powderLabel = dependencies.formatGameNumber(Math.max(0, powder));
@@ -426,7 +426,7 @@ export function recordPowderEvent(type, context = {}) {
       const normalizedMode = mode === 'fluid' ? 'fluid' : 'sand';
       const modeLabel =
         normalizedMode === 'fluid'
-          ? label || powderState.fluidProfileLabel || 'Bet Spire'
+          ? label || powderState.fluidProfileLabel || 'Tet Spire'
           : 'Powderfall Study';
       entry = `Simulation mode changed ? ${modeLabel} engaged.`;
       break;

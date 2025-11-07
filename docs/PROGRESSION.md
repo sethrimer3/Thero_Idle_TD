@@ -186,9 +186,9 @@ The **Fluid Study** is an advanced progression system that unlocks after reachin
 - **Water Dynamics:** Drops merge into a continuous surface that ripples and equalizes over time, creating more organic wave patterns than the discrete sand grains.
 - **Idle Drop Reservoir:** Like the Mote Spire's idle bank, accumulated idle drops continuously drain into the basin at a configurable rate.
 
-### Dual Glyph System: Aleph (ℵ) & Bet (ב)
+### Dual Glyph System: Aleph (ℵ) & Tet (ט)
 
-The Fluid Study introduces a second type of upgrade currency through **Bet glyphs**, complementing the existing **Aleph glyph** system from the Mote Spire.
+The Fluid Study introduces a second type of upgrade currency through **Tet glyphs**, complementing the existing **Aleph glyph** system from the Mote Spire.
 
 #### Aleph Glyphs (ℵ) – Left Wall
 - Appear on the **left wall** of the Fluid Study
@@ -197,19 +197,76 @@ The Fluid Study introduces a second type of upgrade currency through **Bet glyph
 - Serve as the primary tower upgrade currency
 - Thresholds occur every **50% of viewport height** (0.5 normalized height intervals)
 
-#### Bet Glyphs (ב) – Right Wall
+#### Tet Glyphs (ט) – Right Wall
 - Appear on the **right wall** of the Fluid Study
-- Use the Hebrew letter **Bet (ב)** with subscript numbering: ב₁, ב₂, ב₃, etc.
+- Use the Hebrew letter **Tet (ט)** with subscript numbering: ט₁, ט₂, ט₃, etc.
 - **Exclusive to the Fluid Study** – cannot be collected from the Mote Spire
 - Serve as a **second type of upgrade currency** for specialized tower research
 - Share the same height threshold intervals as Aleph glyphs (50% normalized height)
-- Numbering starts at **ב₁** (index 1), distinguishing them from Aleph's ℵ₀ start
+- Numbering starts at **ט₁** (index 1), distinguishing them from Aleph's ℵ₀ start
 
 ### Glyph Collection Rules
-- Both Aleph and Bet glyphs are earned automatically as the water depth crosses their threshold heights
+- Both Aleph and Tet glyphs are earned automatically as the water depth crosses their threshold heights
 - Glyphs remain lit permanently once achieved, even if water level drops
 - The camera pans to keep upcoming glyphs visible as the basin fills
 - Progress is saved and persists across sessions and simulation mode switches
 - Each glyph type maintains independent currency tracking for specialized upgrade paths
 
-This dual-currency system allows for deeper strategic choices in tower development, with Bet glyphs unlocking research branches unique to the Fluid Study's advanced progression tier.
+This dual-currency system allows for deeper strategic choices in tower development, with Tet glyphs unlocking research branches unique to the Fluid Study's advanced progression tier.
+
+## Planned Future Spires
+
+### Lamed Spire (ל)
+
+The **Lamed Spire** is planned as a third progression system featuring **Lamed glyphs (ל)**.
+
+**Concept:**
+- Focused on **crystallization mechanics** - particles that solidify into lattice structures
+- Visual theme: Geometric crystal formations growing from a base foundation
+- **Lamed glyphs (ל)** would appear on the **center axis** of the spire as crystallization progresses
+- Currency earned: **Lamed glyphs** used for unlocking crystal-based tower modifications
+- Numbering: ל₀, ל₁, ל₂, etc.
+
+**Planned Mechanics:**
+- Particles crystallize into stable formations when they settle
+- Crystal structures can be arranged into different patterns affecting bonus multipliers
+- Progressive vertical growth with crystallization milestones triggering glyph awards
+- Idle mechanic: Gradual crystallization continues while offline
+
+### Tsadi Spire (צ)
+
+The **Tsadi Spire** is envisioned as a fourth progression system with **Tsadi glyphs (צ)**.
+
+**Concept:**
+- Based on **energy flow mechanics** - directed currents that must be balanced
+- Visual theme: Flowing energy streams with node connections creating circuit-like patterns
+- **Tsadi glyphs (צ)** positioned at **energy nodes** throughout the circuit network
+- Currency earned: **Tsadi glyphs** for unlocking energy-channeling tower upgrades
+- Numbering: צ₀, צ₁, צ₂, etc.
+
+**Planned Mechanics:**
+- Energy flows between nodes, requiring strategic routing to maximize output
+- Balancing multiple energy streams to prevent overload or depletion
+- Circuit completion milestones award glyphs
+- Idle mechanic: Background energy accumulation with periodic discharge events
+
+### Shin Spire (ש)
+
+The **Shin Spire** represents the planned fifth progression system featuring **Shin glyphs (ש)**.
+
+**Concept:**
+- Centered on **harmonic resonance** - oscillating waves that interact and combine
+- Visual theme: Wave interference patterns with standing waves and resonance nodes
+- **Shin glyphs (ש)** appear at **resonance peaks** when harmonic thresholds are reached
+- Currency earned: **Shin glyphs** to unlock resonance-based tower enhancements
+- Numbering: ש₀, ש₁, ש₂, etc.
+
+**Planned Mechanics:**
+- Multiple wave sources creating interference patterns
+- Constructive and destructive interference affecting glyph visibility
+- Tuning wave frequencies to create stable resonance points
+- Idle mechanic: Passive wave propagation with periodic harmonic convergences
+
+---
+
+**Note:** The Lamed, Tsadi, and Shin Spires are planned features for future development. Implementation details, mechanics, and exact progression formulas are subject to refinement during development.
