@@ -5828,6 +5828,14 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   font-size: clamp(1rem, 2vw, 1.4rem);
 }
 
+.tower-glyph-unallocated {
+  font-size: 0.85rem;
+  color: var(--accent-3);
+  font-family: "Cormorant Garamond", serif;
+  margin-top: 2px;
+  font-style: italic;
+}
+
 /* Startup overlay orchestrates the logo reveal and glyph loading animation. */
 .startup-overlay {
   position: fixed;

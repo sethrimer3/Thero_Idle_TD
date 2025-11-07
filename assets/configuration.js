@@ -98,7 +98,7 @@ function normalizeFluidSimulationProfile(data) {
 
   return {
     id: typeof data.id === 'string' && data.id.trim() ? data.id.trim() : 'fluid',
-    label: typeof data.label === 'string' && data.label.trim() ? data.label.trim() : 'Bet Spire',
+    label: typeof data.label === 'string' && data.label.trim() ? data.label.trim() : 'Tet Spire',
     dropSizes,
     dropVolumeScale:
       Number.isFinite(data.dropVolumeScale) && data.dropVolumeScale > 0 ? data.dropVolumeScale : null,
