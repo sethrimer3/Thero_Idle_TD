@@ -6165,20 +6165,25 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 /* Stacked spire tabs in the tab bar */
 .spire-tab-stack {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 0;
-  padding: 6px;
+  padding: 3px;
   min-height: 100%;
 }
 
 .spire-tab-stack .tab-button--stacked {
   min-width: 0;
-  padding: 8px 4px;
+  padding: 4px 2px;
   font-size: 0.6rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.spire-tab-stack .tab-button--stacked:last-child {
+  border-right: none;
 }
 
 .spire-tab-stack .tab-icon {
-  font-size: 0.9rem;
+  font-size: 0.54rem;
 }
 
 /* When fewer spire tabs are visible, adjust the grid */
@@ -6198,19 +6203,23 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   grid-template-columns: repeat(4, 1fr);
 }
 
+.spire-tab-stack:has(.tab-button--stacked:nth-child(5):not([hidden])):has(.tab-button--stacked:nth-child(6)[hidden]) {
+  grid-template-columns: repeat(5, 1fr);
+}
+
 /* Mobile adjustments for stacked spire tabs */
 @media (max-width: 768px) {
   .spire-tab-stack {
     gap: 0;
-    padding: 4px;
+    padding: 2px;
   }
   
   .spire-tab-stack .tab-button--stacked {
-    padding: 6px 2px;
+    padding: 3px 1px;
   }
   
   .spire-tab-stack .tab-icon {
-    font-size: 0.8rem;
+    font-size: 0.5rem;
   }
 }
 
