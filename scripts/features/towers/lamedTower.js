@@ -175,14 +175,16 @@ export class GravitySimulation {
         continue;
       }
       
-      // Calculate gravitational acceleration
-      const force = (this.gravitationalConstant * this.starMass) / distSq;
-      const ax = (dx / dist) * force;
-      const ay = (dy / dist) * force;
-      
-      // Update velocity
-      spark.vx += ax * dt;
-      spark.vy += ay * dt;
+      // Calculate gravitational acceleration (guard against division by zero)
+      if (dist > 0.1) {
+        const force = (this.gravitationalConstant * this.starMass) / distSq;
+        const ax = (dx / dist) * force;
+        const ay = (dy / dist) * force;
+        
+        // Update velocity
+        spark.vx += ax * dt;
+        spark.vy += ay * dt;
+      }
       
       // Update position
       spark.x += spark.vx * dt;
@@ -319,7 +321,8 @@ export class GravitySimulation {
       this.lastFrame = timestamp;
     }
     
-    const deltaTime = Math.min(timestamp - this.lastFrame, 100); // Cap at 100ms
+    const MAX_FRAME_DELTA_MS = 100; // Prevent physics instability on frame drops
+    const deltaTime = Math.min(timestamp - this.lastFrame, MAX_FRAME_DELTA_MS);
     this.lastFrame = timestamp;
     
     this.updateSparks(deltaTime);

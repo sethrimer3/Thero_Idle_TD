@@ -2927,8 +2927,8 @@ import {
       }
     });
     
-    // TODO: Add unlock logic for Lamed spire
-    // For now, show it if fluid is unlocked (placeholder)
+    // Show/hide Lamed spire menu items
+    // Currently uses fluid unlock as a placeholder; will be replaced with dedicated unlock logic
     const lamedMenuItems = document.querySelectorAll('.spire-menu-item--lamed');
     lamedMenuItems.forEach(item => {
       if (powderState.fluidUnlocked) {
