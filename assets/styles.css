@@ -6136,7 +6136,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .spire-tab-stack {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 4px;
+  gap: 0;
   padding: 6px;
   min-height: 100%;
 }
@@ -6148,7 +6148,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 .spire-tab-stack .tab-icon {
-  font-size: 1.2rem;
+  font-size: 0.9rem;
 }
 
 /* When fewer spire tabs are visible, adjust the grid */
@@ -6171,7 +6171,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 /* Mobile adjustments for stacked spire tabs */
 @media (max-width: 768px) {
   .spire-tab-stack {
-    gap: 3px;
+    gap: 0;
     padding: 4px;
   }
   
@@ -6180,7 +6180,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   }
   
   .spire-tab-stack .tab-icon {
-    font-size: 1rem;
+    font-size: 0.8rem;
   }
 }
 
