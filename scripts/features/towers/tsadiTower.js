@@ -284,6 +284,8 @@ export class ParticleFusionSimulation {
   updateParticles(deltaTime) {
     const dt = deltaTime / 1000; // Convert to seconds
     const dpr = window.devicePixelRatio || 1;
+    const canvasWidth = this.width / dpr;
+    const canvasHeight = this.height / dpr;
     
     // Spawn new particles
     this.spawnAccumulator += dt * this.spawnRate;
@@ -301,16 +303,16 @@ export class ParticleFusionSimulation {
       if (particle.x - particle.radius < 0) {
         particle.x = particle.radius;
         particle.vx = Math.abs(particle.vx);
-      } else if (particle.x + particle.radius > this.width / dpr) {
-        particle.x = this.width / dpr - particle.radius;
+      } else if (particle.x + particle.radius > canvasWidth) {
+        particle.x = canvasWidth - particle.radius;
         particle.vx = -Math.abs(particle.vx);
       }
       
       if (particle.y - particle.radius < 0) {
         particle.y = particle.radius;
         particle.vy = Math.abs(particle.vy);
-      } else if (particle.y + particle.radius > this.height / dpr) {
-        particle.y = this.height / dpr - particle.radius;
+      } else if (particle.y + particle.radius > canvasHeight) {
+        particle.y = canvasHeight - particle.radius;
         particle.vy = -Math.abs(particle.vy);
       }
     }
@@ -319,8 +321,8 @@ export class ParticleFusionSimulation {
     this.quadtree = new Quadtree({
       x: 0,
       y: 0,
-      width: this.width / dpr,
-      height: this.height / dpr,
+      width: canvasWidth,
+      height: canvasHeight,
     });
     
     for (const particle of this.particles) {
