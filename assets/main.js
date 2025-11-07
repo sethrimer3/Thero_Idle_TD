@@ -2846,7 +2846,7 @@ import {
         resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'true');
       }
     }
-    syncFluidTabStackState();
+    // syncFluidTabStackState() - No longer needed with compact tab design
   }
 
   function syncFluidTabStackState() {
@@ -7842,7 +7842,7 @@ import {
     powderElements.idleMultiplier = document.getElementById('powder-idle-multiplier');
     powderElements.gemInventoryList = document.getElementById('powder-gem-inventory');
     powderElements.gemInventoryEmpty = document.getElementById('powder-gem-empty');
-    powderElements.craftingButton = document.getElementById('open-crafting-menu');
+    // Crafting button moved to Towers tab as Equipment button
     powderElements.ledgerBaseScore =
       document.getElementById('powder-ledger-base-score') || document.getElementById('powder-ledger-base');
     powderElements.ledgerCurrentScore =
@@ -8334,8 +8334,7 @@ import {
       isFieldNotesOverlayVisible,
       onTabChange: (tabId) => {
         refreshTabMusic();
-        // Keep the split spire button frame in sync with whichever half is active.
-        syncFluidTabStackState();
+        // Compact spire tabs no longer need stack state synchronization
         if (tabId === 'fluid') {
           updateFluidTabAvailability();
           if (powderState.simulationMode !== 'fluid') {
