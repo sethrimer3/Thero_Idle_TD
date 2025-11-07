@@ -25,6 +25,8 @@ Quick lookup table for all implemented towers in Thero Idle.
 |------|------|-------------|
 | Fluid | `fluidTower.js` | Fluid dynamics simulation |
 | Powder | `powderTower.js` | Powder game integration |
+| Lamed (ל) | `lamedTower.js` | Gravity simulation with orbital sparks |
+| Tsadi (צ) | `tsadiTower.js` | Particle fusion simulation with tier merging |
 
 ## Math Modules
 
