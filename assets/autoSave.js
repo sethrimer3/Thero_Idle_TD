@@ -13,6 +13,8 @@ export const GAME_STATS_STORAGE_KEY = 'glyph-defense-idle:stats';
 export const POWDER_BASIN_STORAGE_KEY = 'glyph-defense-idle:powder-basin';
 // Storage key used to persist tower upgrade progress (glyph allocations).
 export const TOWER_UPGRADE_STORAGE_KEY = 'glyph-defense-idle:tower-upgrades';
+// Storage key used to persist Shin Spire state (iterons, fractals, glyphs).
+export const SHIN_STATE_STORAGE_KEY = 'glyph-defense-idle:shin-state';
 
 const DEFAULT_AUTOSAVE_INTERVAL_MS = 30000;
 const MIN_AUTOSAVE_INTERVAL_MS = 5000;
@@ -33,6 +35,7 @@ const dependencies = {
   applyPowderBasinSnapshot: null,
   getTowerUpgradeStateSnapshot: null,
   applyTowerUpgradeStateSnapshot: null,
+  getShinStateSnapshot: null,
 };
 
 let statKeys = [];
@@ -263,6 +266,17 @@ function persistTowerUpgrades() {
   writeStorageJson(TOWER_UPGRADE_STORAGE_KEY, snapshot);
 }
 
+function persistShinState() {
+  if (typeof dependencies.getShinStateSnapshot !== 'function') {
+    return;
+  }
+  const snapshot = dependencies.getShinStateSnapshot();
+  if (!snapshot || typeof snapshot !== 'object') {
+    return;
+  }
+  writeStorageJson(SHIN_STATE_STORAGE_KEY, snapshot);
+}
+
 function performAutoSave() {
   savePowderCurrency();
   if (powderBasinSaveHandle) {
@@ -273,6 +287,7 @@ function performAutoSave() {
   persistGameStats();
   persistPreferences();
   persistTowerUpgrades();
+  persistShinState();
 }
 
 /**

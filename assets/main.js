@@ -86,6 +86,7 @@ import {
   GAME_STATS_STORAGE_KEY,
   POWDER_BASIN_STORAGE_KEY,
   TOWER_UPGRADE_STORAGE_KEY,
+  SHIN_STATE_STORAGE_KEY,
 } from './autoSave.js';
 import {
   configureOfflinePersistence,
@@ -114,6 +115,24 @@ import { GravitySimulation } from '../scripts/features/towers/lamedTower.js';
 import { ParticleFusionSimulation, getGreekTierInfo } from '../scripts/features/towers/tsadiTower.js';
 // Shin tower fractal tree simulation with incremental growth.
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
+// Shin state management for Iteron allocation and fractal progression.
+import {
+  initializeShinState,
+  loadFractalDefinitions,
+  getShinStateSnapshot,
+  updateShinState,
+  addIterons,
+  getIteronBank,
+  getShinGlyphs,
+  setIterationRate,
+} from './shinState.js';
+// Shin UI components for fractal tab management and display.
+import {
+  initializeShinUI,
+  updateShinDisplay,
+  refreshFractalTabs,
+  setShinUIUpdateCallback,
+} from './shinUI.js';
 // Shared color palette orchestration utilities.
 import {
   configureColorSchemeSystem,
@@ -988,6 +1007,8 @@ import {
     glyphs: setDeveloperGlyphs,
     tetDropRate: setDeveloperTetDropRate,
     tetDropBank: setDeveloperTetDropBank,
+    iteronBank: setDeveloperIteronBank,
+    iterationRate: setDeveloperIterationRate,
   };
 
   let developerModeActive = false;
@@ -1208,6 +1229,36 @@ import {
       // fluidSimulationInstance not yet initialized
     }
     recordDeveloperAdjustment('tetDropBank', normalized);
+  }
+
+  function setDeveloperIteronBank(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, Math.floor(value));
+    try {
+      // Add the difference between target and current to set the bank to the desired value
+      // This allows the developer control to work correctly even if the bank already has iterons
+      addIterons(normalized - getIteronBank());
+      updateShinDisplay();
+    } catch (e) {
+      console.error('Failed to set iteron bank:', e);
+    }
+    recordDeveloperAdjustment('iteronBank', normalized);
+  }
+
+  function setDeveloperIterationRate(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, value);
+    try {
+      setIterationRate(normalized);
+      updateShinDisplay();
+    } catch (e) {
+      console.error('Failed to set iteration rate:', e);
+    }
+    recordDeveloperAdjustment('iterationRate', normalized);
   }
 
   function syncDeveloperControlValues() {
@@ -3430,6 +3481,7 @@ import {
     applyPowderBasinSnapshot,
     getTowerUpgradeStateSnapshot: getTowerUpgradeStateSnapshotWithAleph,
     applyTowerUpgradeStateSnapshot: applyTowerUpgradeStateSnapshotWithAleph,
+    getShinStateSnapshot,
     applyStoredAudioSettings,
     syncAudioControlsFromManager,
     applyNotationPreference,
@@ -3697,6 +3749,14 @@ import {
       const scoreGain = resourceState.scoreRate * deltaSeconds;
       if (Number.isFinite(scoreGain) && scoreGain > 0) {
         resourceState.score += scoreGain;
+      }
+
+      // Update Shin Spire state (Iteron allocation)
+      try {
+        const deltaMs = deltaSeconds * 1000;
+        updateShinState(deltaMs);
+      } catch (error) {
+        console.error('Error updating Shin state:', error);
       }
 
       updateStatusDisplays();
@@ -8466,64 +8526,16 @@ import {
             }
           }
         } else if (tabId === 'shin') {
-          // Initialize and start Shin fractal tree simulation
+          // Initialize Shin Spire UI when tab is first opened
           if (!shinSimulationInstance) {
-            const shinCanvas = document.getElementById('shin-canvas');
-            if (shinCanvas) {
-              // Define animation loop function once
-              const animateShin = () => {
-                if (shinSimulationInstance) {
-                  shinSimulationInstance.update();
-                  shinSimulationInstance.render();
-                  requestAnimationFrame(animateShin);
-                }
-              };
-
-              // Load configuration from JSON
-              fetch('/assets/data/shinFractalTree.json')
-                .then(response => response.json())
-                .then(config => {
-                  shinSimulationInstance = new FractalTreeSimulation({
-                    canvas: shinCanvas,
-                    branchFactor: config.branchFactor || 2,
-                    baseSpreadDeg: config.baseSpreadDeg || 25,
-                    lengthDecay: config.lengthDecay || 0.7,
-                    maxDepth: config.maxDepth || 9,
-                    angleJitterDeg: config.angleJitterDeg || 3,
-                    gravityBend: config.gravityBend || 0.08,
-                    growthRate: config.growthRate || 3,
-                    renderStyle: config.renderStyle || 'bezier',
-                    showLeaves: config.showLeaves || false,
-                    bgColor: config.bgColor || '#0f1116',
-                    trunkColor: config.trunkColor || '#e6e6ea',
-                    twigColor: config.twigColor || '#a2e3f5',
-                    leafColor: config.leafColor || '#a2e3f5',
-                    leafAlpha: config.leafAlpha || 0.3,
-                    baseWidth: config.baseWidth || 8,
-                    minWidth: config.minWidth || 0.5,
-                    rootLength: config.rootLength || 80,
-                    rootX: config.rootX || 0.5,
-                    rootY: config.rootY || 0.9,
-                  });
-                  shinSimulationInstance.resize(shinCanvas.width, shinCanvas.height);
-                  animateShin();
-                })
-                .catch(error => {
-                  console.error('Failed to load Shin config:', error);
-                  // Fallback with defaults
-                  shinSimulationInstance = new FractalTreeSimulation({
-                    canvas: shinCanvas,
-                  });
-                  shinSimulationInstance.resize(shinCanvas.width, shinCanvas.height);
-                  animateShin();
-                });
-            }
-          } else {
-            const shinCanvas = document.getElementById('shin-canvas');
-            if (shinCanvas && shinSimulationInstance) {
-              shinSimulationInstance.resize(shinCanvas.width, shinCanvas.height);
+            try {
+              initializeShinUI();
+            } catch (error) {
+              console.error('Failed to initialize Shin UI:', error);
             }
           }
+          // Update display with current state
+          updateShinDisplay();
         }
 
         if (tabId === 'powder' || tabId === 'fluid') {
@@ -8570,6 +8582,20 @@ import {
     }
 
     setMergingLogicUnlocked(getMergeProgressState().mergingLogicUnlocked);
+
+    // Initialize Shin Spire fractal system
+    try {
+      await loadFractalDefinitions();
+      // Load saved state from storage
+      const savedShinState = readStorageJson(SHIN_STATE_STORAGE_KEY);
+      initializeShinState(savedShinState || {});
+      setShinUIUpdateCallback(() => {
+        updateShinDisplay();
+        commitAutoSave();
+      });
+    } catch (error) {
+      console.error('Failed to initialize Shin Spire system:', error);
+    }
 
     enemyCodexElements.list = document.getElementById('enemy-codex-list');
     enemyCodexElements.empty = document.getElementById('enemy-codex-empty');
