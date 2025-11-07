@@ -34,6 +34,9 @@ let fractalDefinitions = [];
 export function initializeShinState(savedState = {}) {
   if (savedState.iteronBank !== undefined) {
     shinState.iteronBank = savedState.iteronBank;
+  } else {
+    // Start with 100 Iterons in the bank for new games
+    shinState.iteronBank = 100;
   }
   if (savedState.iterationRate !== undefined) {
     shinState.iterationRate = savedState.iterationRate;
@@ -107,8 +110,8 @@ export function getShinStateSnapshot() {
 
 /**
  * Update the Shin Spire system (called on each frame or tick)
- * Note: Iterons are automatically generated at the iteration rate and allocated to the active fractal.
- * The iteron bank is available for future features where iterons might be manually allocated.
+ * Iterons are generated at the iteration rate and added to the bank,
+ * then allocated from the bank to the active fractal.
  */
 export function updateShinState(deltaTime) {
   if (!shinState.activeFractalId) {
@@ -120,13 +123,23 @@ export function updateShinState(deltaTime) {
     return;
   }
   
-  // Calculate iterons to allocate based on iteration rate and time elapsed
-  // These are generated automatically, not consumed from the iteron bank
-  const iteronsToAllocate = shinState.iterationRate * (deltaTime / 1000);
-  const wholIterons = Math.floor(iteronsToAllocate);
+  // Generate iterons and add to bank based on iteration rate and time elapsed
+  const iteronsGenerated = shinState.iterationRate * (deltaTime / 1000);
+  const wholIterons = Math.floor(iteronsGenerated);
   
   if (wholIterons > 0) {
-    allocateIterons(shinState.activeFractalId, wholIterons);
+    shinState.iteronBank += wholIterons;
+  }
+  
+  // Allocate iterons from the bank to the active fractal
+  if (shinState.iteronBank > 0) {
+    const iteronsToAllocate = Math.min(shinState.iteronBank, wholIterons > 0 ? wholIterons : 1);
+    if (iteronsToAllocate > 0) {
+      const result = allocateIterons(shinState.activeFractalId, iteronsToAllocate);
+      if (result.success) {
+        shinState.iteronBank -= iteronsToAllocate;
+      }
+    }
   }
   
   shinState.lastUpdateTime = Date.now();
