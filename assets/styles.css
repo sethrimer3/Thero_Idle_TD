@@ -5522,6 +5522,36 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
        Removing the blur on smaller viewports avoids the expensive backdrop filter. */
     backdrop-filter: none;
     background: rgba(10, 10, 16, 0.95);
+    /* Compress the edge padding so the wider spire column fits comfortably on small screens. */
+    padding: 12px clamp(10px, 4vw, 18px);
+    /* Allocate additional width to the spire stack so its nested buttons remain legible. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2.5fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  /* Tighten button padding so icons dominate the mobile tab presentation. */
+  .tab-bar .tab-button {
+    min-width: 0;
+    padding: 8px 6px;
+    gap: 2px;
+    font-size: 0.6rem;
+  }
+
+  /* Enlarge the glyph on compact buttons to keep the symbol legible without text. */
+  .tab-bar .tab-button .tab-icon {
+    font-size: 1.3rem;
+  }
+
+  /* Collapse text captions on mobile so the buttons can shrink without crowding. */
+  .tab-bar .tab-button .tab-label {
+    display: none;
+  }
+
+  /* Scale down badges to match the slimmer mobile button footprint. */
+  .tab-bar .tab-button .tab-icon-badge {
+    min-width: 28px;
+    padding: 2px 6px;
+    font-size: 0.58rem;
   }
 
   .status-bar {
