@@ -2889,8 +2889,8 @@ import {
 
   // Update the floating spire menu counts
   function updateSpireMenuCounts() {
-    const bankedMotes = Math.max(0, Math.floor(powderState.moteBank || 0));
-    const bankedDrops = Math.max(0, Math.floor(fluidSimulation ? fluidSimulation.getIdleBank() : 0));
+    const bankedMotes = getCurrentIdleMoteBank();
+    const bankedDrops = getCurrentFluidDropBank();
     
     // Update all mote count displays
     const moteCountElements = [
