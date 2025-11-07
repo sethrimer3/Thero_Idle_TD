@@ -6009,3 +6009,125 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: rgba(255,255,255,0.9);
 }
 
+
+/* Compact tab button variant for spire tabs (just Hebrew letters) */
+.tab-button--compact {
+  min-width: 60px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-button--compact .tab-icon {
+  font-size: 1.6rem;
+}
+
+.tab-button--compact .tab-label {
+  display: none;
+}
+
+/* Floating vertical spire menu in top-right corner of spire panels */
+.spire-floating-menu {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(10, 10, 16, 0.85);
+  border: 1px solid rgba(247, 247, 245, 0.2);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+}
+
+.spire-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 16px;
+  min-width: 80px;
+  border: 1px solid rgba(247, 247, 245, 0.18);
+  border-radius: 8px;
+  background: rgba(247, 247, 245, 0.06);
+  color: var(--muted);
+  font-family: 'Cormorant Garamond', serif;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.spire-menu-item:hover {
+  background: rgba(247, 247, 245, 0.12);
+  border-color: rgba(247, 247, 245, 0.35);
+  transform: translateX(-2px);
+  color: var(--text);
+}
+
+.spire-menu-item[aria-current="page"] {
+  background: linear-gradient(120deg, rgba(139, 247, 255, 0.18), rgba(255, 125, 235, 0.18));
+  border-color: rgba(139, 247, 255, 0.45);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(139, 247, 255, 0.25);
+}
+
+.spire-menu-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: inherit;
+}
+
+.spire-menu-count {
+  font-size: 0.7rem;
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.02em;
+  color: rgba(247, 247, 245, 0.7);
+  white-space: nowrap;
+}
+
+.spire-menu-item[aria-current="page"] .spire-menu-count {
+  color: rgba(247, 247, 245, 0.95);
+}
+
+/* Equipment button styling to match other tower panel buttons */
+.tower-panel-button--equipment .tower-panel-button-icon {
+  font-size: 1.2rem;
+}
+
+/* Mobile adjustments for compact tabs and floating menu */
+@media (max-width: 768px) {
+  .tab-button--compact {
+    min-width: 50px;
+    padding: 10px 12px;
+  }
+  
+  .tab-button--compact .tab-icon {
+    font-size: 1.4rem;
+  }
+  
+  .spire-floating-menu {
+    top: 10px;
+    right: 10px;
+    padding: 8px;
+    gap: 8px;
+  }
+  
+  .spire-menu-item {
+    min-width: 70px;
+    padding: 10px 12px;
+    gap: 4px;
+  }
+  
+  .spire-menu-icon {
+    font-size: 1.5rem;
+  }
+  
+  .spire-menu-count {
+    font-size: 0.65rem;
+  }
+}

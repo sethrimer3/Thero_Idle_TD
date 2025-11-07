@@ -423,6 +423,17 @@
               <span class="tower-panel-button-icon" aria-hidden="true">⧉</span>
               <span class="tower-panel-button-label">Upgrade Matrix</span>
             </button>
+            <button
+              class="tower-panel-button tower-panel-button--equipment"
+              type="button"
+              id="tower-equipment-button"
+              aria-haspopup="dialog"
+              aria-controls="crafting-overlay"
+              aria-expanded="false"
+            >
+              <span class="tower-panel-button-icon" aria-hidden="true">⚒</span>
+              <span class="tower-panel-button-label">Equipment</span>
+            </button>
           </div>
           <div
             class="tower-tree-map"
@@ -1106,6 +1117,29 @@
           aria-labelledby="tab-powder"
           hidden
         >
+          <!-- Floating vertical spire menu in top-right corner -->
+          <nav class="spire-floating-menu" id="spire-floating-menu-powder" aria-label="Spire Navigation">
+            <button
+              class="spire-menu-item spire-menu-item--aleph"
+              data-tab="powder"
+              type="button"
+              aria-label="Aleph Spire"
+              aria-current="page"
+            >
+              <span class="spire-menu-icon">ℵ</span>
+              <span class="spire-menu-count" id="spire-menu-mote-count">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--tet"
+              data-tab="fluid"
+              type="button"
+              aria-label="Tet Spire"
+              hidden
+            >
+              <span class="spire-menu-icon">ט</span>
+              <span class="spire-menu-count" id="spire-menu-fluid-count">0</span>
+            </button>
+          </nav>
           <section class="powder-stage" id="powder-stage" aria-label="Spire">
             <article class="card powder-simulation" id="powder-simulation-card">
               <div class="powder-basin" id="powder-basin">
@@ -1220,9 +1254,6 @@
             </p>
             <ul class="powder-gem-inventory" id="powder-gem-inventory" aria-live="polite"></ul>
             <p class="powder-gem-inventory-empty" id="powder-gem-empty">No mote gems catalogued yet.</p>
-            <button class="action-button ghost powder-crafting-button" type="button" id="open-crafting-menu">
-              Crafting Menu
-            </button>
             <button
               class="powder-mode-toggle"
               type="button"
@@ -1242,6 +1273,28 @@
           aria-labelledby="tab-fluid"
           hidden
         >
+          <!-- Floating vertical spire menu in top-right corner -->
+          <nav class="spire-floating-menu" id="spire-floating-menu-fluid" aria-label="Spire Navigation">
+            <button
+              class="spire-menu-item spire-menu-item--aleph"
+              data-tab="powder"
+              type="button"
+              aria-label="Aleph Spire"
+            >
+              <span class="spire-menu-icon">ℵ</span>
+              <span class="spire-menu-count" id="spire-menu-mote-count-fluid">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--tet"
+              data-tab="fluid"
+              type="button"
+              aria-label="Tet Spire"
+              aria-current="page"
+            >
+              <span class="spire-menu-icon">ט</span>
+              <span class="spire-menu-count" id="spire-menu-fluid-count-fluid">0</span>
+            </button>
+          </nav>
           <header class="panel-header">Tet Spire</header>
           <section class="fluid-grid" aria-label="Tet Spire Overview">
             <div class="fluid-simulation-slot" id="fluid-simulation-host">
@@ -1613,41 +1666,34 @@
           <!-- Indicator for unused glyph currency relocated beneath the tab title. -->
           <span class="tab-icon-badge tab-icon-badge--glyphs" id="tab-glyph-badge" hidden>0</span>
         </button>
-        <!-- Split the spire tab so the lower half routes to the Tet Spire once unlocked. -->
-        <div class="tab-button-stack" id="tab-powder-stack" role="presentation" aria-hidden="false">
-          <button
-            class="tab-button tab-button--stacked"
-            data-tab="powder"
-            id="tab-powder"
-            type="button"
-            role="tab"
-            aria-label="Aleph Spire"
-            aria-controls="panel-powder"
-            aria-selected="false"
-            aria-pressed="false"
-          >
-            <span class="tab-icon">ℵ</span>
-            <span class="tab-label">Spire</span>
-            <!-- Persistent mote bank indicator relocated beneath the tab title. -->
-            <span class="tab-icon-badge tab-icon-badge--motes" id="tab-mote-badge">0.00</span>
-          </button>
-          <button
-            class="tab-button tab-button--stacked tab-button--stacked-fluid"
-            data-tab="fluid"
-            id="tab-fluid"
-            type="button"
-            role="tab"
-            aria-label="Tet Spire"
-            aria-controls="panel-fluid"
-            aria-selected="false"
-            aria-pressed="false"
-            hidden
-          >
-            <span class="tab-icon">ט</span>
-            <span class="tab-label">Tet</span>
-            <span class="tab-icon-badge tab-icon-badge--fluid" id="tab-fluid-badge" hidden>0</span>
-          </button>
-        </div>
+        <!-- Multiple compact spire tabs showing only Hebrew letters -->
+        <button
+          class="tab-button tab-button--compact"
+          data-tab="powder"
+          id="tab-powder"
+          type="button"
+          role="tab"
+          aria-label="Aleph Spire"
+          aria-controls="panel-powder"
+          aria-selected="false"
+          aria-pressed="false"
+        >
+          <span class="tab-icon">ℵ</span>
+        </button>
+        <button
+          class="tab-button tab-button--compact"
+          data-tab="fluid"
+          id="tab-fluid"
+          type="button"
+          role="tab"
+          aria-label="Tet Spire"
+          aria-controls="panel-fluid"
+          aria-selected="false"
+          aria-pressed="false"
+          hidden
+        >
+          <span class="tab-icon">ט</span>
+        </button>
         <button
           class="tab-button"
           data-tab="achievements"
