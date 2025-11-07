@@ -19,3 +19,10 @@ Iota pulses a slow, color-inverting splash whose total damage is divided evenly 
 | **Debuff Duration** | `?_? = 3.5 + 0.5 ?_? + 0.25 ?_? + 0.35 ??_? + 0.8 ??? + 0.6?? + 0.4??` | Seconds that struck enemies remain weakened. Aleph ranks extend the lingering vulnerability, and ? links pull the duration along a square-root curve to reflect charge diffusion. |
 
 These expressions keep Iota?s pulses deliberate yet rewarding to charge: ? and ? lend breadth and consistency, ? injects raw pulse magnitude, and the Aleph staircase uses pleasant diminishing returns so each tier feels meaningful without runaway growth.
+
+## Aleph Spire Autosave Notes
+
+- **Mote counting:** Autosave snapshots now record the exact number of motes rendered inside the Aleph Spire. Only this count and the tower height baseline are required to rebuild the basin geometry.
+- **Rectangle restoration:** When an autosave is loaded, the captured mote count is reconstituted as a bottom-aligned rectangle that spans the active wall gap. The routine respects saved wall insets so restored motes occupy only the playable shaft rather than bleeding into the masonry.
+- **Remainder handling:** Any motes that cannot fill an entire row are discarded during restoration. This keeps the autosave result visually clean and prevents the leftover motes from being silently moved into the idle mote bank.
+- **Fix applied:** Earlier saves produced rectangles that started at the tower ceiling and pushed leftovers into the bank, which left the Spire half-empty and over-credited the bank. The reconstruction pipeline now anchors rows to the floor and leaves the bank unchanged, restoring the expected filled column.
