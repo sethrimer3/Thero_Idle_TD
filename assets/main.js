@@ -112,6 +112,8 @@ import { FluidSimulation } from '../scripts/features/towers/fluidTower.js';
 import { GravitySimulation } from '../scripts/features/towers/lamedTower.js';
 // Tsadi tower particle fusion simulation with tier-based merging.
 import { ParticleFusionSimulation } from '../scripts/features/towers/tsadiTower.js';
+// Shin tower fractal tree simulation with incremental growth.
+import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
 // Shared color palette orchestration utilities.
 import {
   configureColorSchemeSystem,
@@ -3463,6 +3465,7 @@ import {
   let fluidSimulationInstance = null;
   let lamedSimulationInstance = null;
   let tsadiSimulationInstance = null;
+  let shinSimulationInstance = null;
   let powderBasinObserver = null;
 
   setGraphicsModeContext({
@@ -8449,6 +8452,65 @@ import {
             tsadiSimulationInstance.resize();
             if (!tsadiSimulationInstance.running) {
               tsadiSimulationInstance.start();
+            }
+          }
+        } else if (tabId === 'shin') {
+          // Initialize and start Shin fractal tree simulation
+          if (!shinSimulationInstance) {
+            const shinCanvas = document.getElementById('shin-canvas');
+            if (shinCanvas) {
+              // Define animation loop function once
+              const animateShin = () => {
+                if (shinSimulationInstance) {
+                  shinSimulationInstance.update();
+                  shinSimulationInstance.render();
+                  requestAnimationFrame(animateShin);
+                }
+              };
+
+              // Load configuration from JSON
+              fetch('/assets/data/shinFractalTree.json')
+                .then(response => response.json())
+                .then(config => {
+                  shinSimulationInstance = new FractalTreeSimulation({
+                    canvas: shinCanvas,
+                    branchFactor: config.branchFactor || 2,
+                    baseSpreadDeg: config.baseSpreadDeg || 25,
+                    lengthDecay: config.lengthDecay || 0.7,
+                    maxDepth: config.maxDepth || 9,
+                    angleJitterDeg: config.angleJitterDeg || 3,
+                    gravityBend: config.gravityBend || 0.08,
+                    growthRate: config.growthRate || 3,
+                    renderStyle: config.renderStyle || 'bezier',
+                    showLeaves: config.showLeaves || false,
+                    bgColor: config.bgColor || '#0f1116',
+                    trunkColor: config.trunkColor || '#e6e6ea',
+                    twigColor: config.twigColor || '#a2e3f5',
+                    leafColor: config.leafColor || '#a2e3f5',
+                    leafAlpha: config.leafAlpha || 0.3,
+                    baseWidth: config.baseWidth || 8,
+                    minWidth: config.minWidth || 0.5,
+                    rootLength: config.rootLength || 80,
+                    rootX: config.rootX || 0.5,
+                    rootY: config.rootY || 0.9,
+                  });
+                  shinSimulationInstance.resize(shinCanvas.width, shinCanvas.height);
+                  animateShin();
+                })
+                .catch(error => {
+                  console.error('Failed to load Shin config:', error);
+                  // Fallback with defaults
+                  shinSimulationInstance = new FractalTreeSimulation({
+                    canvas: shinCanvas,
+                  });
+                  shinSimulationInstance.resize(shinCanvas.width, shinCanvas.height);
+                  animateShin();
+                });
+            }
+          } else {
+            const shinCanvas = document.getElementById('shin-canvas');
+            if (shinCanvas && shinSimulationInstance) {
+              shinSimulationInstance.resize(shinCanvas.width, shinCanvas.height);
             }
           }
         }
