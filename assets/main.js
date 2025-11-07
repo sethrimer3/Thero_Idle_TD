@@ -110,6 +110,8 @@ import {
 import { FluidSimulation } from '../scripts/features/towers/fluidTower.js';
 // Lamed tower gravity simulation for orbital mechanics with sparks.
 import { GravitySimulation } from '../scripts/features/towers/lamedTower.js';
+// Tsadi tower particle fusion simulation with tier-based merging.
+import { ParticleFusionSimulation } from '../scripts/features/towers/tsadiTower.js';
 // Shared color palette orchestration utilities.
 import {
   configureColorSchemeSystem,
@@ -3460,6 +3462,7 @@ import {
   let sandSimulation = null;
   let fluidSimulationInstance = null;
   let lamedSimulationInstance = null;
+  let tsadiSimulationInstance = null;
   let powderBasinObserver = null;
 
   setGraphicsModeContext({
@@ -8411,6 +8414,41 @@ import {
             lamedSimulationInstance.resize();
             if (!lamedSimulationInstance.running) {
               lamedSimulationInstance.start();
+            }
+          }
+        } else if (tabId === 'tsadi') {
+          // Initialize and start Tsadi particle fusion simulation
+          if (!tsadiSimulationInstance) {
+            const tsadiCanvas = document.getElementById('tsadi-canvas');
+            if (tsadiCanvas) {
+              tsadiSimulationInstance = new ParticleFusionSimulation({
+                canvas: tsadiCanvas,
+                onTierChange: (tier) => {
+                  const tierEl = document.getElementById('tsadi-highest-tier');
+                  if (tierEl) {
+                    tierEl.textContent = `Tier ${tier}`;
+                  }
+                },
+                onParticleCountChange: (count) => {
+                  const countEl = document.getElementById('tsadi-particle-count');
+                  if (countEl) {
+                    countEl.textContent = `${count} particles`;
+                  }
+                },
+                onGlyphChange: (glyphCount) => {
+                  const glyphEl = document.getElementById('tsadi-reservoir');
+                  if (glyphEl) {
+                    glyphEl.textContent = `${glyphCount} Tsadi Glyphs`;
+                  }
+                },
+              });
+              tsadiSimulationInstance.resize();
+              tsadiSimulationInstance.start();
+            }
+          } else {
+            tsadiSimulationInstance.resize();
+            if (!tsadiSimulationInstance.running) {
+              tsadiSimulationInstance.start();
             }
           }
         }
