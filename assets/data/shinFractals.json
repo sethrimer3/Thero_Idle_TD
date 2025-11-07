@@ -1,0 +1,127 @@
+{
+  "fractals": [
+    {
+      "id": "tree",
+      "name": "Tree Fractal",
+      "description": "A binary branching pattern inspired by natural growth.",
+      "unlockCost": 0,
+      "layerThresholds": [1, 3, 7, 15, 31, 63, 127, 255, 511],
+      "renderType": "tree",
+      "config": {
+        "branchFactor": 2,
+        "baseSpreadDeg": 25,
+        "lengthDecay": 0.7,
+        "maxDepth": 9,
+        "angleJitterDeg": 3,
+        "gravityBend": 0.08,
+        "renderStyle": "bezier"
+      }
+    },
+    {
+      "id": "koch-snowflake",
+      "name": "Koch Snowflake",
+      "description": "A classic fractal formed by recursive triangular divisions.",
+      "unlockCost": 100,
+      "layerThresholds": [1, 4, 13, 40, 121, 364, 1093, 3280, 9841],
+      "renderType": "koch",
+      "config": {
+        "iterations": 6,
+        "initialSize": 120,
+        "angleStep": 60
+      }
+    },
+    {
+      "id": "barnsley-fern",
+      "name": "Barnsley Fern",
+      "description": "A beautiful fern-like pattern generated through iterative transformations.",
+      "unlockCost": 100,
+      "layerThresholds": [100, 500, 1500, 3500, 7000, 12000, 20000, 30000, 45000],
+      "renderType": "barnsley",
+      "config": {
+        "pointDensity": 50000,
+        "scale": 40
+      }
+    },
+    {
+      "id": "dragon-curve",
+      "name": "Dragon Curve",
+      "description": "A self-similar curve that folds into itself endlessly.",
+      "unlockCost": 100,
+      "layerThresholds": [1, 3, 7, 15, 31, 63, 127, 255, 511],
+      "renderType": "dragon",
+      "config": {
+        "iterations": 14,
+        "segmentLength": 4
+      }
+    },
+    {
+      "id": "phoenix-fractal",
+      "name": "Phoenix Fractal",
+      "description": "A dynamic fractal with flame-like patterns emerging from chaos.",
+      "unlockCost": 100,
+      "layerThresholds": [100, 300, 700, 1500, 3000, 6000, 11000, 18000, 28000],
+      "renderType": "phoenix",
+      "config": {
+        "width": 240,
+        "height": 320,
+        "maxIterations": 50,
+        "colorShift": 0.5
+      }
+    },
+    {
+      "id": "cloud-fractal",
+      "name": "Cloud Fractal",
+      "description": "Organic, cloud-like formations through fractal noise.",
+      "unlockCost": 100,
+      "layerThresholds": [50, 150, 400, 900, 1800, 3500, 6500, 11000, 17500],
+      "renderType": "cloud",
+      "config": {
+        "octaves": 6,
+        "persistence": 0.5,
+        "scale": 0.03
+      }
+    },
+    {
+      "id": "newton-fractal",
+      "name": "Newton Fractal",
+      "description": "Complex roots visualized through Newton's method iterations.",
+      "unlockCost": 100,
+      "layerThresholds": [100, 250, 600, 1300, 2600, 5000, 9000, 15000, 23000],
+      "renderType": "newton",
+      "config": {
+        "width": 240,
+        "height": 320,
+        "maxIterations": 30,
+        "polynomial": "z^3-1"
+      }
+    },
+    {
+      "id": "burning-ship",
+      "name": "Burning Ship Fractal",
+      "description": "A Mandelbrot variant with absolute values creating ship-like forms.",
+      "unlockCost": 100,
+      "layerThresholds": [100, 300, 700, 1500, 3000, 6000, 11000, 18000, 28000],
+      "renderType": "burning-ship",
+      "config": {
+        "width": 240,
+        "height": 320,
+        "maxIterations": 50,
+        "zoom": 1.0
+      }
+    },
+    {
+      "id": "lyapunov-fractal",
+      "name": "Lyapunov Fractal",
+      "description": "Stability patterns emerging from chaotic dynamical systems.",
+      "unlockCost": 100,
+      "layerThresholds": [100, 300, 700, 1500, 3000, 6000, 11000, 18000, 28000],
+      "renderType": "lyapunov",
+      "config": {
+        "width": 240,
+        "height": 320,
+        "sequence": "AABAB",
+        "iterations": 100
+      }
+    }
+  ]
+}

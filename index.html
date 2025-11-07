@@ -1704,58 +1704,61 @@
               <span class="spire-menu-count" id="spire-menu-shin-count">0</span>
             </button>
           </nav>
-          <header class="panel-header">Shin Spire</header>
-          <section class="shin-grid" aria-label="Shin Spire Overview">
-            <div class="shin-simulation-slot" id="shin-simulation-host">
-              <article class="card powder-simulation shin-simulation-card" id="shin-simulation-card">
-                <div class="powder-basin shin-basin" id="shin-basin">
-                  <canvas
-                    id="shin-canvas"
-                    width="240"
-                    height="320"
-                    role="img"
-                    aria-label="Harmonic resonance patterns"
-                  ></canvas>
-                  <div class="powder-viewport shin-viewport" id="shin-viewport">
-                    <div class="powder-glyph-column" data-shin-glyph-column="peaks"></div>
-                  </div>
-                </div>
-              </article>
+          <header class="panel-header">Shin Spire — Fractal Complexity</header>
+          
+          <!-- Iteron Resource Display -->
+          <article class="card shin-resource-card">
+            <h3>Iteron Bank</h3>
+            <dl class="shin-metrics">
+              <div>
+                <dt>Available Iterons</dt>
+                <dd id="shin-iteron-bank">0</dd>
+              </div>
+              <div>
+                <dt>Iteration Rate</dt>
+                <dd id="shin-iteration-rate">1.00/sec</dd>
+              </div>
+              <div>
+                <dt>Shin Glyphs Earned</dt>
+                <dd id="shin-glyph-count">0 ש</dd>
+              </div>
+            </dl>
+            <p class="shin-status-note">
+              Iterons are automatically allocated to the selected fractal at the iteration rate.
+              Each completed layer awards 1 Shin glyph.
+            </p>
+          </article>
+
+          <!-- Fractal Tab Selection -->
+          <div class="shin-fractal-tabs-wrapper">
+            <h3 class="shin-section-title">Select Fractal</h3>
+            <div class="shin-fractal-tabs" id="shin-fractal-tabs" role="tablist" aria-label="Fractal selection">
+              <!-- Tabs will be dynamically generated -->
             </div>
-            <article class="card shin-metrics-card">
-              <h3>Resonance Metrics</h3>
-              <dl class="shin-metrics">
-                <div>
-                  <dt>Harmonic Stability</dt>
-                  <dd id="shin-stability">0.00% stable</dd>
-                </div>
-                <div>
-                  <dt>Idle Resonance Bank</dt>
-                  <dd id="shin-reservoir">0 Harmonics</dd>
-                </div>
-                <div>
-                  <dt>Wave Frequency</dt>
-                  <dd id="shin-frequency">0.00 Hz</dd>
-                </div>
-              </dl>
-              <p class="shin-status-note" id="shin-status-note">
-                Oscillating waves interact and combine, creating interference patterns throughout the spire.
-              </p>
-            </article>
-            <article class="card shin-briefing-card">
-              <h3>
-                <span id="shin-profile-label">Shin Spire</span>
-                <span class="shin-state-label" id="shin-state-label">Oscillating</span>
-              </h3>
-              <p class="shin-briefing">
-                Tune wave frequencies to create stable resonance points. Constructive and destructive interference
-                unlock resonance-based tower enhancements.
-              </p>
-              <button class="action-button ghost shin-return-button" type="button" id="shin-return-button">
-                Return to Powderfall
-              </button>
-            </article>
+          </div>
+
+          <!-- Layer Progress Display -->
+          <article class="card shin-progress-card">
+            <h3>Layer Progress</h3>
+            <div class="shin-layer-progress" id="shin-layer-progress">
+              <div class="shin-layer-progress-bar-wrapper">
+                <div class="shin-layer-progress-bar" id="shin-layer-progress-bar" style="width: 0%"></div>
+              </div>
+              <p class="shin-layer-progress-text" id="shin-layer-progress-text">Select a fractal to begin</p>
+            </div>
+          </article>
+
+          <!-- Fractal Content Area -->
+          <section class="shin-fractal-content" id="shin-fractal-content" aria-label="Active fractal visualization">
+            <!-- Content will be dynamically generated -->
           </section>
+
+          <!-- Return Button -->
+          <article class="card shin-navigation-card">
+            <button class="action-button ghost shin-return-button" type="button" id="shin-return-button">
+              Return to Powderfall
+            </button>
+          </article>
         </section>
 
         <section
