@@ -22,7 +22,7 @@ import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSim
 let shinElements = {};
 let activeFractalTabId = null;
 let updateCallback = null;
-let fractalSimulations = {}; // Store simulation instances keyed by fractal ID
+let fractalSimulations = new Map(); // Store simulation instances keyed by fractal ID
 let animationFrameId = null;
 
 /**
@@ -224,11 +224,11 @@ function renderFractalContent(fractal, state) {
   contentContainer.appendChild(canvasWrapper);
   
   // Create fractal simulation after canvas is in DOM
-  setTimeout(() => {
+  requestAnimationFrame(() => {
     if (fractal.renderType === 'tree') {
       getOrCreateFractalSimulation(fractal);
     }
-  }, 0);
+  });
 }
 
 /**
@@ -301,8 +301,8 @@ export function refreshFractalTabs() {
  * Create or get a fractal simulation for a given fractal
  */
 function getOrCreateFractalSimulation(fractal) {
-  if (fractalSimulations[fractal.id]) {
-    return fractalSimulations[fractal.id];
+  if (fractalSimulations.has(fractal.id)) {
+    return fractalSimulations.get(fractal.id);
   }
   
   // Only create simulation for tree fractal type (others not implemented yet)
@@ -319,7 +319,7 @@ function getOrCreateFractalSimulation(fractal) {
       maxDepth: Math.min(fractal.config.maxDepth, 6 + getFractalState(fractal.id).layersCompleted)
     });
     
-    fractalSimulations[fractal.id] = simulation;
+    fractalSimulations.set(fractal.id, simulation);
     return simulation;
   }
   
@@ -378,7 +378,7 @@ export function updateFractalSimulation() {
     return;
   }
   
-  const simulation = fractalSimulations[activeFractalTabId];
+  const simulation = fractalSimulations.get(activeFractalTabId);
   if (simulation && fractal.renderType === 'tree') {
     // Update tree depth based on layers completed
     const newMaxDepth = Math.min(fractal.config.maxDepth, 6 + state.layersCompleted);
