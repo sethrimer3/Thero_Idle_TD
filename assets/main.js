@@ -119,6 +119,7 @@ import {
 } from './colorSchemeUtils.js';
 import {
   configureAchievementsTab,
+  loadAchievementsFromJSON,
   generateLevelAchievements,
   bindAchievements,
   evaluateAchievements,
@@ -8397,6 +8398,7 @@ import {
       scheduleOverlayHide,
       onRequestInventoryRefresh: updateMoteGemInventoryDisplay,
     });
+    await loadAchievementsFromJSON();
     bindAchievements();
     updatePowderLogDisplay();
     updateResourceRates();
