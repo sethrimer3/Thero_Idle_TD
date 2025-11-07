@@ -1589,6 +1589,24 @@ export class SimplePlayfield {
       return [];
     }
     const options = [];
+    const nextId = getNextTowerId(tower.type);
+    const nextDefinition = nextId ? getTowerDefinition(nextId) : null;
+    const upgradeCost = nextDefinition ? this.getCurrentTowerCost(nextDefinition.id) : 0;
+    const upgradeAffordable = nextDefinition ? this.energy >= upgradeCost : false;
+    const upgradeCostLabel = nextDefinition
+      ? `${formatCombatNumber(Math.max(0, upgradeCost))} ${this.theroSymbol}`
+      : '—';
+    // Surface an upgrade command that mirrors the merge flow and displays the next tier cost inside the radial lattice.
+    options.push({
+      id: 'upgrade',
+      type: 'upgrade',
+      icon: nextDefinition?.symbol || '·',
+      label: nextDefinition ? `Upgrade to ${nextDefinition.symbol}` : 'Upgrade unavailable',
+      costLabel: upgradeCostLabel,
+      disabled: !nextDefinition || !upgradeAffordable,
+      upgradeCost,
+      nextTowerId: nextDefinition?.id || null,
+    });
     options.push({
       id: 'sell',
       type: 'action',
@@ -1709,6 +1727,15 @@ export class SimplePlayfield {
    */
   executeTowerMenuOption(tower, option) {
     if (!tower || !option) {
+      return;
+    }
+    if (option.type === 'upgrade') {
+      // Route upgrade taps through the merge routine so single-tower ascensions mirror drag-and-drop merges.
+      this.upgradeTowerTier(tower, {
+        silent: Boolean(option.silent),
+        expectedNextId: option.nextTowerId || null,
+        quotedCost: Number.isFinite(option.upgradeCost) ? option.upgradeCost : null,
+      });
       return;
     }
     if (option.type === 'action' && option.id === 'sell') {
@@ -2615,6 +2642,97 @@ export class SimplePlayfield {
       this.audio.playSfx('towerPlace');
       playTowerPlacementNotes(this.audio, 1);
     }
+    return true;
+  }
+
+  /**
+   * Promote a lattice to its next tier while mirroring the merge flow’s cost and unlock handling.
+   */
+  upgradeTowerTier(tower, { silent = false, expectedNextId = null, quotedCost = null } = {}) {
+    if (!tower) {
+      return false;
+    }
+
+    const nextId = expectedNextId || getNextTowerId(tower.type);
+    const nextDefinition = nextId ? getTowerDefinition(nextId) : null;
+    if (!nextDefinition) {
+      if (this.messageEl && !silent) {
+        this.messageEl.textContent = 'Peak lattice tier reached—further upgrades unavailable.';
+      }
+      if (this.audio && !silent) {
+        this.audio.playSfx('error');
+      }
+      return false;
+    }
+
+    const cost = Number.isFinite(quotedCost) ? quotedCost : this.getCurrentTowerCost(nextDefinition.id);
+    if (this.energy < cost) {
+      if (this.messageEl && !silent) {
+        const deficit = Math.max(0, cost - this.energy);
+        const deficitLabel = formatCombatNumber(deficit);
+        this.messageEl.textContent = `Need ${deficitLabel} ${this.theroSymbol} more to merge into ${nextDefinition.symbol}.`;
+      }
+      if (this.audio && !silent) {
+        this.audio.playSfx('error');
+      }
+      return false;
+    }
+
+    this.energy = Math.max(0, this.energy - cost);
+
+    const previousSymbol = tower.symbol || tower.definition?.symbol || 'Tower';
+    const wasAlephNull = tower.type === 'aleph-null';
+    if (wasAlephNull) {
+      this.handleAlephTowerRemoved(tower);
+    }
+
+    const range = Math.min(this.renderWidth, this.renderHeight) * nextDefinition.range;
+    const baseDamage = Number.isFinite(nextDefinition.damage) ? nextDefinition.damage : 0;
+    const baseRate = Number.isFinite(nextDefinition.rate) ? nextDefinition.rate : 1;
+
+    tower.type = nextDefinition.id;
+    tower.definition = nextDefinition;
+    tower.symbol = nextDefinition.symbol;
+    tower.tier = nextDefinition.tier;
+    tower.damage = baseDamage;
+    tower.rate = baseRate;
+    tower.range = range;
+    tower.baseDamage = baseDamage;
+    tower.baseRate = baseRate;
+    tower.baseRange = range;
+    tower.cooldown = 0;
+    tower.chain = null;
+
+    this.applyTowerBehaviorDefaults(tower);
+
+    const nextIsAlephNull = nextDefinition.id === 'aleph-null';
+    if (nextIsAlephNull) {
+      this.handleAlephTowerAdded(tower);
+    } else if (wasAlephNull) {
+      this.syncAlephChainStats();
+    }
+
+    this.spawnTowerEquationScribble(tower, { towerType: nextDefinition.id, silent });
+    const newlyUnlocked = !isTowerUnlocked(nextDefinition.id)
+      ? unlockTower(nextDefinition.id, { silent: true })
+      : false;
+
+    if (this.messageEl && !silent) {
+      const costLabel = formatCombatNumber(Math.max(0, cost));
+      const unlockNote = newlyUnlocked ? ` ${nextDefinition.symbol} is now available in your loadout.` : '';
+      this.messageEl.textContent = `${previousSymbol} lattice ascended into ${nextDefinition.symbol} for ${costLabel} ${this.theroSymbol}.${unlockNote}`;
+    }
+
+    notifyTowerPlaced(this.towers.length);
+    this.updateHud();
+    this.draw();
+    refreshTowerLoadoutDisplay();
+    this.dependencies.updateStatusDisplays();
+    if (this.audio && !silent) {
+      this.audio.playSfx('towerMerge');
+    }
+
+    this.openTowerMenu(tower, { silent: true });
     return true;
   }
 

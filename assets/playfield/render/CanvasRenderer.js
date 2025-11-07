@@ -1351,19 +1351,37 @@ function drawTowerMenu() {
 
   options.forEach((option) => {
     const selected = Boolean(option.selected);
+    const disabled = Boolean(option.disabled);
     ctx.beginPath();
-    ctx.fillStyle = selected ? 'rgba(255, 228, 120, 0.32)' : 'rgba(12, 16, 26, 0.88)';
-    ctx.strokeStyle = selected ? 'rgba(255, 228, 120, 0.9)' : 'rgba(139, 247, 255, 0.75)';
+    const baseFill = selected ? 'rgba(255, 228, 120, 0.32)' : 'rgba(12, 16, 26, 0.88)';
+    const disabledFill = 'rgba(12, 16, 26, 0.5)';
+    const baseStroke = selected ? 'rgba(255, 228, 120, 0.9)' : 'rgba(139, 247, 255, 0.75)';
+    const disabledStroke = 'rgba(139, 247, 255, 0.35)';
+    ctx.fillStyle = disabled ? disabledFill : baseFill;
+    ctx.strokeStyle = disabled ? disabledStroke : baseStroke;
     ctx.lineWidth = Math.max(1.4, optionRadius * 0.16);
     ctx.arc(option.center.x, option.center.y, optionRadius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-    ctx.font = `${Math.round(optionRadius * 0.95)}px "Cormorant Garamond", serif`;
+    const hasCostLabel = typeof option.costLabel === 'string' && option.costLabel.length > 0;
+    const iconFontSize = Math.round(optionRadius * (hasCostLabel ? 0.82 : 0.95));
+    const iconY = hasCostLabel ? option.center.y - optionRadius * 0.25 : option.center.y;
+    ctx.fillStyle = disabled ? 'rgba(230, 234, 241, 0.42)' : 'rgba(255, 255, 255, 0.92)';
+    ctx.font = `${iconFontSize}px "Cormorant Garamond", serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(option.icon || '?', option.center.x, option.center.y);
+    ctx.fillText(option.icon || '?', option.center.x, iconY);
+
+    if (hasCostLabel) {
+      // Present the upgrade cost beneath the icon so players can budget merges directly from the lattice.
+      const costFontSize = Math.max(10, Math.round(optionRadius * 0.45));
+      ctx.fillStyle = disabled ? 'rgba(210, 216, 226, 0.38)' : 'rgba(210, 216, 226, 0.82)';
+      ctx.font = `${costFontSize}px "Cormorant Garamond", serif`;
+      ctx.textBaseline = 'top';
+      const costY = iconY + optionRadius * 0.4;
+      ctx.fillText(option.costLabel, option.center.x, costY);
+    }
   });
 
   ctx.restore();
