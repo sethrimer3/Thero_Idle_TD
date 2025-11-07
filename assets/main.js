@@ -8459,6 +8459,15 @@ import {
           if (!shinSimulationInstance) {
             const shinCanvas = document.getElementById('shin-canvas');
             if (shinCanvas) {
+              // Define animation loop function once
+              const animateShin = () => {
+                if (shinSimulationInstance) {
+                  shinSimulationInstance.update();
+                  shinSimulationInstance.render();
+                  requestAnimationFrame(animateShin);
+                }
+              };
+
               // Load configuration from JSON
               fetch('/assets/data/shinFractalTree.json')
                 .then(response => response.json())
@@ -8486,14 +8495,6 @@ import {
                     rootY: config.rootY || 0.9,
                   });
                   shinSimulationInstance.resize(shinCanvas.width, shinCanvas.height);
-                  // Start animation loop
-                  const animateShin = () => {
-                    if (shinSimulationInstance) {
-                      shinSimulationInstance.update();
-                      shinSimulationInstance.render();
-                      requestAnimationFrame(animateShin);
-                    }
-                  };
                   animateShin();
                 })
                 .catch(error => {
@@ -8503,18 +8504,14 @@ import {
                     canvas: shinCanvas,
                   });
                   shinSimulationInstance.resize(shinCanvas.width, shinCanvas.height);
-                  const animateShin = () => {
-                    if (shinSimulationInstance) {
-                      shinSimulationInstance.update();
-                      shinSimulationInstance.render();
-                      requestAnimationFrame(animateShin);
-                    }
-                  };
                   animateShin();
                 });
             }
           } else {
-            shinSimulationInstance.resize(shinCanvas.width, shinCanvas.height);
+            const shinCanvas = document.getElementById('shin-canvas');
+            if (shinCanvas && shinSimulationInstance) {
+              shinSimulationInstance.resize(shinCanvas.width, shinCanvas.height);
+            }
           }
         }
 
