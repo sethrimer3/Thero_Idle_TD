@@ -2849,25 +2849,6 @@ import {
     // syncFluidTabStackState() - No longer needed with compact tab design
   }
 
-  function syncFluidTabStackState() {
-    if (!fluidElements.tabStack) {
-      fluidElements.tabStack = document.getElementById('tab-powder-stack');
-    }
-    const tabStack = fluidElements.tabStack;
-    if (!tabStack) {
-      return;
-    }
-    const activeId = getActiveTabId();
-    const stackActive = activeId === 'powder' || activeId === 'fluid';
-    // Highlight the shared frame whenever either half of the split tab is active.
-    tabStack.classList.toggle('tab-button-stack--active', stackActive);
-    if (stackActive) {
-      tabStack.setAttribute('data-active-tab', activeId);
-    } else {
-      tabStack.removeAttribute('data-active-tab');
-    }
-  }
-
   // Initialize the floating spire menu navigation in the top-right of spire panels
   function initializeSpireFloatingMenu() {
     // Get all spire menu items
