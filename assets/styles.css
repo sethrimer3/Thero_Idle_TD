@@ -6165,46 +6165,36 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 /* Stacked spire tabs in the tab bar */
 .spire-tab-stack {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
   gap: 0;
-  padding: 3px;
+  padding: 2px;
   min-height: 100%;
 }
 
 .spire-tab-stack .tab-button--stacked {
   min-width: 0;
   padding: 4px 2px;
-  font-size: 0.6rem;
+  font-size: 0.5rem;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.spire-tab-stack .tab-button--stacked:last-child {
+/* Remove right border on last column items */
+.spire-tab-stack .tab-button--stacked:nth-child(3),
+.spire-tab-stack .tab-button--stacked:nth-child(6) {
   border-right: none;
 }
 
+/* Remove bottom border on bottom row items */
+.spire-tab-stack .tab-button--stacked:nth-child(4),
+.spire-tab-stack .tab-button--stacked:nth-child(5),
+.spire-tab-stack .tab-button--stacked:nth-child(6) {
+  border-bottom: none;
+}
+
 .spire-tab-stack .tab-icon {
-  font-size: 0.54rem;
-}
-
-/* When fewer spire tabs are visible, adjust the grid */
-.spire-tab-stack:has(.tab-button--stacked:nth-child(1):not([hidden])):has(.tab-button--stacked:nth-child(2)[hidden]) {
-  grid-template-columns: 1fr;
-}
-
-.spire-tab-stack:has(.tab-button--stacked:nth-child(2):not([hidden])):has(.tab-button--stacked:nth-child(3)[hidden]) {
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.spire-tab-stack:has(.tab-button--stacked:nth-child(3):not([hidden])):has(.tab-button--stacked:nth-child(4)[hidden]) {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.spire-tab-stack:has(.tab-button--stacked:nth-child(4):not([hidden])):has(.tab-button--stacked:nth-child(5)[hidden]) {
-  grid-template-columns: repeat(4, 1fr);
-}
-
-.spire-tab-stack:has(.tab-button--stacked:nth-child(5):not([hidden])):has(.tab-button--stacked:nth-child(6)[hidden]) {
-  grid-template-columns: repeat(5, 1fr);
+  font-size: 0.9rem;
 }
 
 /* Mobile adjustments for stacked spire tabs */
@@ -6212,14 +6202,16 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   .spire-tab-stack {
     gap: 0;
     padding: 2px;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
   }
   
   .spire-tab-stack .tab-button--stacked {
-    padding: 3px 1px;
+    padding: 6px 2px;
   }
   
   .spire-tab-stack .tab-icon {
-    font-size: 0.5rem;
+    font-size: 0.85rem;
   }
 }
 
