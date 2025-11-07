@@ -289,7 +289,8 @@ export function getLayerProgress(fractalId) {
   const previousThreshold = currentLayer > 0 ? definition.layerThresholds[currentLayer - 1] : 0;
   const progress = allocated - previousThreshold;
   const needed = nextThreshold - previousThreshold;
-  const percentage = (progress / needed) * 100;
+  // Guard against division by zero if thresholds are misconfigured
+  const percentage = needed > 0 ? (progress / needed) * 100 : 0;
   
   return {
     complete: false,

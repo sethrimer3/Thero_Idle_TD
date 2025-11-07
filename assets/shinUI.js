@@ -232,8 +232,9 @@ function updateLayerProgress(fractalId) {
     shinElements.layerProgressBar.style.width = '100%';
     shinElements.layerProgressText.textContent = 'All layers complete!';
   } else {
-    shinElements.layerProgressBar.style.width = `${progress.percentage}%`;
-    shinElements.layerProgressText.textContent = `Layer ${progress.layer + 1}: ${formatGameNumber(progress.current)} / ${formatGameNumber(progress.next)} (${progress.percentage.toFixed(1)}%)`;
+    const percentage = Number.isFinite(progress.percentage) ? progress.percentage : 0;
+    shinElements.layerProgressBar.style.width = `${percentage}%`;
+    shinElements.layerProgressText.textContent = `Layer ${progress.layer + 1}: ${formatGameNumber(progress.current)} / ${formatGameNumber(progress.next)} (${percentage.toFixed(1)}%)`;
   }
 }
 
