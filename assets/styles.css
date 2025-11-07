@@ -5656,7 +5656,6 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: inherit;
   transition: background var(--transition), color var(--transition);
   font-size: 0.62rem;
-  height: 100%;
 }
 
 /* Maintain hover feedback without shifting the reduced-height buttons. */
@@ -5698,6 +5697,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   padding: 10px 12px;
   gap: 4px;
   font-size: 0.72rem;
+  height: 100%;
 }
 
 /* Restore the full-size icon when the tab collapses back to a single control. */
