@@ -3874,6 +3874,7 @@ import {
       try {
         const deltaMs = deltaSeconds * 1000;
         updateShinState(deltaMs);
+        updateShinDisplay();
       } catch (error) {
         console.error('Error updating Shin state:', error);
       }

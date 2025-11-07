@@ -21,6 +21,7 @@ const shinState = {
   activeFractalId: 'tree',          // Currently selected fractal
   fractals: {},                     // State for each fractal: { id: { allocated: number, layersCompleted: number, unlocked: boolean } }
   lastUpdateTime: Date.now(),       // For calculating automatic allocation
+  accumulatedIterons: 0,            // Accumulator for fractional iterons
 };
 
 /**
@@ -34,6 +35,9 @@ let fractalDefinitions = [];
 export function initializeShinState(savedState = {}) {
   if (savedState.iteronBank !== undefined) {
     shinState.iteronBank = savedState.iteronBank;
+  } else {
+    // Start with 100 Iterons in the bank for new games
+    shinState.iteronBank = 100;
   }
   if (savedState.iterationRate !== undefined) {
     shinState.iterationRate = savedState.iterationRate;
@@ -107,8 +111,7 @@ export function getShinStateSnapshot() {
 
 /**
  * Update the Shin Spire system (called on each frame or tick)
- * Note: Iterons are automatically generated at the iteration rate and allocated to the active fractal.
- * The iteron bank is available for future features where iterons might be manually allocated.
+ * Iterons from the bank are allocated to the active fractal at the iteration rate.
  */
 export function updateShinState(deltaTime) {
   if (!shinState.activeFractalId) {
@@ -120,13 +123,22 @@ export function updateShinState(deltaTime) {
     return;
   }
   
-  // Calculate iterons to allocate based on iteration rate and time elapsed
-  // These are generated automatically, not consumed from the iteron bank
-  const iteronsToAllocate = shinState.iterationRate * (deltaTime / 1000);
-  const wholIterons = Math.floor(iteronsToAllocate);
-  
-  if (wholIterons > 0) {
-    allocateIterons(shinState.activeFractalId, wholIterons);
+  // Calculate how many iterons to allocate from the bank based on iteration rate
+  // and time elapsed. Accumulate fractional iterons across frames.
+  if (shinState.iteronBank > 0) {
+    shinState.accumulatedIterons += shinState.iterationRate * (deltaTime / 1000);
+    const wholIterons = Math.floor(shinState.accumulatedIterons);
+    
+    if (wholIterons > 0) {
+      const actualIterons = Math.min(wholIterons, shinState.iteronBank);
+      if (actualIterons > 0) {
+        const result = allocateIterons(shinState.activeFractalId, actualIterons);
+        if (result.success) {
+          shinState.iteronBank -= actualIterons;
+          shinState.accumulatedIterons -= actualIterons;
+        }
+      }
+    }
   }
   
   shinState.lastUpdateTime = Date.now();
