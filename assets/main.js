@@ -124,6 +124,7 @@ import {
   addIterons,
   getIteronBank,
   getShinGlyphs,
+  setIterationRate,
 } from './shinState.js';
 // Shin UI components for fractal tab management and display.
 import {
@@ -1006,6 +1007,8 @@ import {
     glyphs: setDeveloperGlyphs,
     tetDropRate: setDeveloperTetDropRate,
     tetDropBank: setDeveloperTetDropBank,
+    iteronBank: setDeveloperIteronBank,
+    iterationRate: setDeveloperIterationRate,
   };
 
   let developerModeActive = false;
@@ -1226,6 +1229,34 @@ import {
       // fluidSimulationInstance not yet initialized
     }
     recordDeveloperAdjustment('tetDropBank', normalized);
+  }
+
+  function setDeveloperIteronBank(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, Math.floor(value));
+    try {
+      addIterons(normalized - getIteronBank());
+      updateShinDisplay();
+    } catch (e) {
+      console.error('Failed to set iteron bank:', e);
+    }
+    recordDeveloperAdjustment('iteronBank', normalized);
+  }
+
+  function setDeveloperIterationRate(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, value);
+    try {
+      setIterationRate(normalized);
+      updateShinDisplay();
+    } catch (e) {
+      console.error('Failed to set iteration rate:', e);
+    }
+    recordDeveloperAdjustment('iterationRate', normalized);
   }
 
   function syncDeveloperControlValues() {
