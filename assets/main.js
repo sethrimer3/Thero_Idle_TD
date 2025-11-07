@@ -2882,7 +2882,7 @@ import {
     if (!powderState.fluidUnlocked) {
       const glyphCost = getFluidUnlockGlyphCost();
       const costLabel = glyphCost > 0 ? `ℵ ${formatWholeNumber(glyphCost)}` : 'ℵ 0';
-      powderElements.modeToggle.textContent = `Unlock Bet Spire (${costLabel})`;
+      powderElements.modeToggle.textContent = `Unlock Tet Spire (${costLabel})`;
       powderElements.modeToggle.setAttribute('aria-pressed', 'false');
       const availableGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
       const affordable = availableGlyphs >= glyphCost;
@@ -7319,7 +7319,7 @@ import {
       ? Math.max(0, info.highestNormalized)
       : totalNormalized;
 
-    // Update glyph columns and track Bet glyph awards
+    // Update glyph columns and track Tet glyph awards
     const glyphMetrics = updateFluidGlyphColumns({
       scrollOffset,
       rows,
