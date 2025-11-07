@@ -1832,6 +1832,7 @@ import {
     updateMoteStatsDisplays();
     updatePowderModeButton();
     updateFluidDisplay();
+    updateSpireMenuCounts();
   }
 
   const baseResources = {
@@ -2865,6 +2866,63 @@ import {
     } else {
       tabStack.removeAttribute('data-active-tab');
     }
+  }
+
+  // Initialize the floating spire menu navigation in the top-right of spire panels
+  function initializeSpireFloatingMenu() {
+    // Get all spire menu items
+    const menuItems = document.querySelectorAll('.spire-menu-item');
+    
+    menuItems.forEach((item) => {
+      item.addEventListener('click', (event) => {
+        event.preventDefault();
+        const targetTab = item.dataset.tab;
+        if (targetTab) {
+          setActiveTab(targetTab);
+          if (audioManager) {
+            audioManager.playSfx('menuSelect');
+          }
+        }
+      });
+    });
+  }
+
+  // Update the floating spire menu counts
+  function updateSpireMenuCounts() {
+    const bankedMotes = Math.max(0, Math.floor(powderState.moteBank || 0));
+    const bankedDrops = Math.max(0, Math.floor(fluidSimulation ? fluidSimulation.getIdleBank() : 0));
+    
+    // Update all mote count displays
+    const moteCountElements = [
+      document.getElementById('spire-menu-mote-count'),
+      document.getElementById('spire-menu-mote-count-fluid')
+    ];
+    moteCountElements.forEach(element => {
+      if (element) {
+        element.textContent = formatGameNumber(bankedMotes);
+      }
+    });
+    
+    // Update all fluid count displays
+    const fluidCountElements = [
+      document.getElementById('spire-menu-fluid-count'),
+      document.getElementById('spire-menu-fluid-count-fluid')
+    ];
+    fluidCountElements.forEach(element => {
+      if (element) {
+        element.textContent = formatGameNumber(bankedDrops);
+      }
+    });
+    
+    // Show/hide Tet menu items based on unlock status
+    const tetMenuItems = document.querySelectorAll('.spire-menu-item--tet');
+    tetMenuItems.forEach(item => {
+      if (powderState.fluidUnlocked) {
+        item.removeAttribute('hidden');
+      } else {
+        item.setAttribute('hidden', '');
+      }
+    });
   }
 
   // Normalize the aleph glyph tithe before using it for unlock checks or logs.
@@ -6541,6 +6599,15 @@ import {
     };
 
     removeVariableListener = addDiscoveredVariablesListener(handleVariablesChanged);
+
+    // Initialize the Equipment button to open the crafting overlay from the Towers tab
+    const equipmentButton = document.getElementById('tower-equipment-button');
+    if (equipmentButton) {
+      equipmentButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        openCraftingOverlay();
+      });
+    }
   }
 
   function enablePanelWheelScroll(panel) {
@@ -7844,12 +7911,7 @@ import {
       });
     }
 
-    if (powderElements.craftingButton) {
-      powderElements.craftingButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        openCraftingOverlay();
-      });
-    }
+    // Crafting button moved to Towers tab as Equipment button
 
     bindFluidControls();
     updateFluidDisplay();
@@ -8321,8 +8383,8 @@ import {
     });
 
     initializeTabs();
-    // Ensure the stacked spire tab reflects the initial active panel and unlock status on load.
-    syncFluidTabStackState();
+    // Initialize the floating spire menu navigation
+    initializeSpireFloatingMenu();
     updateFluidTabAvailability();
     initializeFieldNotesOverlay();
     bindCodexControls({
