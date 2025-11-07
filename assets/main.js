@@ -1237,6 +1237,8 @@ import {
     }
     const normalized = Math.max(0, Math.floor(value));
     try {
+      // Add the difference between target and current to set the bank to the desired value
+      // This allows the developer control to work correctly even if the bank already has iterons
       addIterons(normalized - getIteronBank());
       updateShinDisplay();
     } catch (e) {

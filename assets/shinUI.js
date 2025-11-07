@@ -243,7 +243,7 @@ export function updateShinDisplay() {
   }
   
   if (shinElements.shinGlyphs) {
-    shinElements.shinGlyphs.textContent = formatGameNumber(getShinGlyphs());
+    shinElements.shinGlyphs.textContent = `${formatGameNumber(getShinGlyphs())} ש`;
   }
   
   // Update active fractal progress

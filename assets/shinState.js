@@ -102,6 +102,8 @@ export function getShinStateSnapshot() {
 
 /**
  * Update the Shin Spire system (called on each frame or tick)
+ * Note: Iterons are automatically generated at the iteration rate and allocated to the active fractal.
+ * The iteron bank is available for future features where iterons might be manually allocated.
  */
 export function updateShinState(deltaTime) {
   if (!shinState.activeFractalId) {
@@ -114,6 +116,7 @@ export function updateShinState(deltaTime) {
   }
   
   // Calculate iterons to allocate based on iteration rate and time elapsed
+  // These are generated automatically, not consumed from the iteron bank
   const iteronsToAllocate = shinState.iterationRate * (deltaTime / 1000);
   const wholIterons = Math.floor(iteronsToAllocate);
   
