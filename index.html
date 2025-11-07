@@ -1139,6 +1139,36 @@
               <span class="spire-menu-icon">ט</span>
               <span class="spire-menu-count" id="spire-menu-fluid-count">0</span>
             </button>
+            <button
+              class="spire-menu-item spire-menu-item--lamed"
+              data-tab="lamed"
+              type="button"
+              aria-label="Lamed Spire"
+              hidden
+            >
+              <span class="spire-menu-icon">ל</span>
+              <span class="spire-menu-count" id="spire-menu-lamed-count-powder">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--tsadi"
+              data-tab="tsadi"
+              type="button"
+              aria-label="Tsadi Spire"
+              hidden
+            >
+              <span class="spire-menu-icon">צ</span>
+              <span class="spire-menu-count" id="spire-menu-tsadi-count-powder">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--shin"
+              data-tab="shin"
+              type="button"
+              aria-label="Shin Spire"
+              hidden
+            >
+              <span class="spire-menu-icon">ש</span>
+              <span class="spire-menu-count" id="spire-menu-shin-count-powder">0</span>
+            </button>
           </nav>
           <section class="powder-stage" id="powder-stage" aria-label="Spire">
             <article class="card powder-simulation" id="powder-simulation-card">
@@ -1294,6 +1324,36 @@
               <span class="spire-menu-icon">ט</span>
               <span class="spire-menu-count" id="spire-menu-fluid-count-fluid">0</span>
             </button>
+            <button
+              class="spire-menu-item spire-menu-item--lamed"
+              data-tab="lamed"
+              type="button"
+              aria-label="Lamed Spire"
+              hidden
+            >
+              <span class="spire-menu-icon">ל</span>
+              <span class="spire-menu-count" id="spire-menu-lamed-count-fluid">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--tsadi"
+              data-tab="tsadi"
+              type="button"
+              aria-label="Tsadi Spire"
+              hidden
+            >
+              <span class="spire-menu-icon">צ</span>
+              <span class="spire-menu-count" id="spire-menu-tsadi-count-fluid">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--shin"
+              data-tab="shin"
+              type="button"
+              aria-label="Shin Spire"
+              hidden
+            >
+              <span class="spire-menu-icon">ש</span>
+              <span class="spire-menu-count" id="spire-menu-shin-count-fluid">0</span>
+            </button>
           </nav>
           <header class="panel-header">Tet Spire</header>
           <section class="fluid-grid" aria-label="Tet Spire Overview">
@@ -1358,6 +1418,339 @@
                 bank.
               </p>
               <button class="action-button ghost fluid-return-button" type="button" id="fluid-return-button">
+                Return to Powderfall
+              </button>
+            </article>
+          </section>
+        </section>
+
+        <section
+          class="panel"
+          data-panel="lamed"
+          id="panel-lamed"
+          role="tabpanel"
+          aria-labelledby="tab-lamed"
+          hidden
+        >
+          <!-- Floating vertical spire menu in top-right corner -->
+          <nav class="spire-floating-menu" id="spire-floating-menu-lamed" aria-label="Spire Navigation">
+            <button
+              class="spire-menu-item spire-menu-item--aleph"
+              data-tab="powder"
+              type="button"
+              aria-label="Aleph Spire"
+            >
+              <span class="spire-menu-icon">ℵ</span>
+              <span class="spire-menu-count" id="spire-menu-mote-count-lamed">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--tet"
+              data-tab="fluid"
+              type="button"
+              aria-label="Tet Spire"
+            >
+              <span class="spire-menu-icon">ט</span>
+              <span class="spire-menu-count" id="spire-menu-fluid-count-lamed">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--lamed"
+              data-tab="lamed"
+              type="button"
+              aria-label="Lamed Spire"
+              aria-current="page"
+            >
+              <span class="spire-menu-icon">ל</span>
+              <span class="spire-menu-count" id="spire-menu-lamed-count">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--tsadi"
+              data-tab="tsadi"
+              type="button"
+              aria-label="Tsadi Spire"
+            >
+              <span class="spire-menu-icon">צ</span>
+              <span class="spire-menu-count" id="spire-menu-tsadi-count-lamed">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--shin"
+              data-tab="shin"
+              type="button"
+              aria-label="Shin Spire"
+            >
+              <span class="spire-menu-icon">ש</span>
+              <span class="spire-menu-count" id="spire-menu-shin-count-lamed">0</span>
+            </button>
+          </nav>
+          <header class="panel-header">Lamed Spire</header>
+          <section class="lamed-grid" aria-label="Lamed Spire Overview">
+            <div class="lamed-simulation-slot" id="lamed-simulation-host">
+              <article class="card powder-simulation lamed-simulation-card" id="lamed-simulation-card">
+                <div class="powder-basin lamed-basin" id="lamed-basin">
+                  <canvas
+                    id="lamed-canvas"
+                    width="240"
+                    height="320"
+                    role="img"
+                    aria-label="Crystal lattice formation"
+                  ></canvas>
+                  <div class="powder-viewport lamed-viewport" id="lamed-viewport">
+                    <div class="powder-glyph-column" data-lamed-glyph-column="center"></div>
+                  </div>
+                </div>
+              </article>
+            </div>
+            <article class="card lamed-metrics-card">
+              <h3>Crystallization Metrics</h3>
+              <dl class="lamed-metrics">
+                <div>
+                  <dt>Crystal Formation</dt>
+                  <dd id="lamed-formation">0.00% complete</dd>
+                </div>
+                <div>
+                  <dt>Idle Crystal Bank</dt>
+                  <dd id="lamed-reservoir">0 Crystals</dd>
+                </div>
+                <div>
+                  <dt>Formation Rate</dt>
+                  <dd id="lamed-growth-rate">0.00 crystals/sec</dd>
+                </div>
+              </dl>
+              <p class="lamed-status-note" id="lamed-status-note">
+                Particles crystallize into stable lattice structures as they settle.
+              </p>
+            </article>
+            <article class="card lamed-briefing-card">
+              <h3>
+                <span id="lamed-profile-label">Lamed Spire</span>
+                <span class="lamed-state-label" id="lamed-state-label">Nucleating</span>
+              </h3>
+              <p class="lamed-briefing">
+                Watch geometric crystal formations grow from the foundation. Arrange crystallized patterns to enhance
+                tower modifications.
+              </p>
+              <button class="action-button ghost lamed-return-button" type="button" id="lamed-return-button">
+                Return to Powderfall
+              </button>
+            </article>
+          </section>
+        </section>
+
+        <section
+          class="panel"
+          data-panel="tsadi"
+          id="panel-tsadi"
+          role="tabpanel"
+          aria-labelledby="tab-tsadi"
+          hidden
+        >
+          <!-- Floating vertical spire menu in top-right corner -->
+          <nav class="spire-floating-menu" id="spire-floating-menu-tsadi" aria-label="Spire Navigation">
+            <button
+              class="spire-menu-item spire-menu-item--aleph"
+              data-tab="powder"
+              type="button"
+              aria-label="Aleph Spire"
+            >
+              <span class="spire-menu-icon">ℵ</span>
+              <span class="spire-menu-count" id="spire-menu-mote-count-tsadi">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--tet"
+              data-tab="fluid"
+              type="button"
+              aria-label="Tet Spire"
+            >
+              <span class="spire-menu-icon">ט</span>
+              <span class="spire-menu-count" id="spire-menu-fluid-count-tsadi">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--lamed"
+              data-tab="lamed"
+              type="button"
+              aria-label="Lamed Spire"
+            >
+              <span class="spire-menu-icon">ל</span>
+              <span class="spire-menu-count" id="spire-menu-lamed-count-tsadi">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--tsadi"
+              data-tab="tsadi"
+              type="button"
+              aria-label="Tsadi Spire"
+              aria-current="page"
+            >
+              <span class="spire-menu-icon">צ</span>
+              <span class="spire-menu-count" id="spire-menu-tsadi-count">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--shin"
+              data-tab="shin"
+              type="button"
+              aria-label="Shin Spire"
+            >
+              <span class="spire-menu-icon">ש</span>
+              <span class="spire-menu-count" id="spire-menu-shin-count-tsadi">0</span>
+            </button>
+          </nav>
+          <header class="panel-header">Tsadi Spire</header>
+          <section class="tsadi-grid" aria-label="Tsadi Spire Overview">
+            <div class="tsadi-simulation-slot" id="tsadi-simulation-host">
+              <article class="card powder-simulation tsadi-simulation-card" id="tsadi-simulation-card">
+                <div class="powder-basin tsadi-basin" id="tsadi-basin">
+                  <canvas
+                    id="tsadi-canvas"
+                    width="240"
+                    height="320"
+                    role="img"
+                    aria-label="Energy flow network"
+                  ></canvas>
+                  <div class="powder-viewport tsadi-viewport" id="tsadi-viewport">
+                    <div class="powder-glyph-column" data-tsadi-glyph-column="nodes"></div>
+                  </div>
+                </div>
+              </article>
+            </div>
+            <article class="card tsadi-metrics-card">
+              <h3>Energy Flow Metrics</h3>
+              <dl class="tsadi-metrics">
+                <div>
+                  <dt>Circuit Balance</dt>
+                  <dd id="tsadi-balance">0.00% balanced</dd>
+                </div>
+                <div>
+                  <dt>Idle Energy Bank</dt>
+                  <dd id="tsadi-reservoir">0 Energy</dd>
+                </div>
+                <div>
+                  <dt>Flow Rate</dt>
+                  <dd id="tsadi-flow-rate">0.00 energy/sec</dd>
+                </div>
+              </dl>
+              <p class="tsadi-status-note" id="tsadi-status-note">
+                Energy streams flow between nodes, requiring strategic routing to maximize output.
+              </p>
+            </article>
+            <article class="card tsadi-briefing-card">
+              <h3>
+                <span id="tsadi-profile-label">Tsadi Spire</span>
+                <span class="tsadi-state-label" id="tsadi-state-label">Channeling</span>
+              </h3>
+              <p class="tsadi-briefing">
+                Direct energy currents through circuit-like patterns. Balance multiple streams to prevent overload and
+                maximize tower channeling upgrades.
+              </p>
+              <button class="action-button ghost tsadi-return-button" type="button" id="tsadi-return-button">
+                Return to Powderfall
+              </button>
+            </article>
+          </section>
+        </section>
+
+        <section
+          class="panel"
+          data-panel="shin"
+          id="panel-shin"
+          role="tabpanel"
+          aria-labelledby="tab-shin"
+          hidden
+        >
+          <!-- Floating vertical spire menu in top-right corner -->
+          <nav class="spire-floating-menu" id="spire-floating-menu-shin" aria-label="Spire Navigation">
+            <button
+              class="spire-menu-item spire-menu-item--aleph"
+              data-tab="powder"
+              type="button"
+              aria-label="Aleph Spire"
+            >
+              <span class="spire-menu-icon">ℵ</span>
+              <span class="spire-menu-count" id="spire-menu-mote-count-shin">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--tet"
+              data-tab="fluid"
+              type="button"
+              aria-label="Tet Spire"
+            >
+              <span class="spire-menu-icon">ט</span>
+              <span class="spire-menu-count" id="spire-menu-fluid-count-shin">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--lamed"
+              data-tab="lamed"
+              type="button"
+              aria-label="Lamed Spire"
+            >
+              <span class="spire-menu-icon">ל</span>
+              <span class="spire-menu-count" id="spire-menu-lamed-count-shin">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--tsadi"
+              data-tab="tsadi"
+              type="button"
+              aria-label="Tsadi Spire"
+            >
+              <span class="spire-menu-icon">צ</span>
+              <span class="spire-menu-count" id="spire-menu-tsadi-count-shin">0</span>
+            </button>
+            <button
+              class="spire-menu-item spire-menu-item--shin"
+              data-tab="shin"
+              type="button"
+              aria-label="Shin Spire"
+              aria-current="page"
+            >
+              <span class="spire-menu-icon">ש</span>
+              <span class="spire-menu-count" id="spire-menu-shin-count">0</span>
+            </button>
+          </nav>
+          <header class="panel-header">Shin Spire</header>
+          <section class="shin-grid" aria-label="Shin Spire Overview">
+            <div class="shin-simulation-slot" id="shin-simulation-host">
+              <article class="card powder-simulation shin-simulation-card" id="shin-simulation-card">
+                <div class="powder-basin shin-basin" id="shin-basin">
+                  <canvas
+                    id="shin-canvas"
+                    width="240"
+                    height="320"
+                    role="img"
+                    aria-label="Harmonic resonance patterns"
+                  ></canvas>
+                  <div class="powder-viewport shin-viewport" id="shin-viewport">
+                    <div class="powder-glyph-column" data-shin-glyph-column="peaks"></div>
+                  </div>
+                </div>
+              </article>
+            </div>
+            <article class="card shin-metrics-card">
+              <h3>Resonance Metrics</h3>
+              <dl class="shin-metrics">
+                <div>
+                  <dt>Harmonic Stability</dt>
+                  <dd id="shin-stability">0.00% stable</dd>
+                </div>
+                <div>
+                  <dt>Idle Resonance Bank</dt>
+                  <dd id="shin-reservoir">0 Harmonics</dd>
+                </div>
+                <div>
+                  <dt>Wave Frequency</dt>
+                  <dd id="shin-frequency">0.00 Hz</dd>
+                </div>
+              </dl>
+              <p class="shin-status-note" id="shin-status-note">
+                Oscillating waves interact and combine, creating interference patterns throughout the spire.
+              </p>
+            </article>
+            <article class="card shin-briefing-card">
+              <h3>
+                <span id="shin-profile-label">Shin Spire</span>
+                <span class="shin-state-label" id="shin-state-label">Oscillating</span>
+              </h3>
+              <p class="shin-briefing">
+                Tune wave frequencies to create stable resonance points. Constructive and destructive interference
+                unlock resonance-based tower enhancements.
+              </p>
+              <button class="action-button ghost shin-return-button" type="button" id="shin-return-button">
                 Return to Powderfall
               </button>
             </article>
@@ -1693,6 +2086,48 @@
           hidden
         >
           <span class="tab-icon">ט</span>
+        </button>
+        <button
+          class="tab-button tab-button--compact"
+          data-tab="lamed"
+          id="tab-lamed"
+          type="button"
+          role="tab"
+          aria-label="Lamed Spire"
+          aria-controls="panel-lamed"
+          aria-selected="false"
+          aria-pressed="false"
+          hidden
+        >
+          <span class="tab-icon">ל</span>
+        </button>
+        <button
+          class="tab-button tab-button--compact"
+          data-tab="tsadi"
+          id="tab-tsadi"
+          type="button"
+          role="tab"
+          aria-label="Tsadi Spire"
+          aria-controls="panel-tsadi"
+          aria-selected="false"
+          aria-pressed="false"
+          hidden
+        >
+          <span class="tab-icon">צ</span>
+        </button>
+        <button
+          class="tab-button tab-button--compact"
+          data-tab="shin"
+          id="tab-shin"
+          type="button"
+          role="tab"
+          aria-label="Shin Spire"
+          aria-controls="panel-shin"
+          aria-selected="false"
+          aria-pressed="false"
+          hidden
+        >
+          <span class="tab-icon">ש</span>
         </button>
         <button
           class="tab-button"
