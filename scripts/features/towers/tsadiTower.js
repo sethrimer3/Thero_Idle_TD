@@ -8,6 +8,37 @@
  */
 
 /**
+ * Ordered list of Greek letter metadata for tier naming.
+ * Each entry contains the capitalized English name and its lowercase glyph.
+ */
+const GREEK_TIER_SEQUENCE = [
+  { name: 'Alpha', letter: 'α' },
+  { name: 'Beta', letter: 'β' },
+  { name: 'Gamma', letter: 'γ' },
+  { name: 'Delta', letter: 'δ' },
+  { name: 'Epsilon', letter: 'ε' },
+  { name: 'Zeta', letter: 'ζ' },
+  { name: 'Eta', letter: 'η' },
+  { name: 'Theta', letter: 'θ' },
+  { name: 'Iota', letter: 'ι' },
+  { name: 'Kappa', letter: 'κ' },
+  { name: 'Lambda', letter: 'λ' },
+  { name: 'Mu', letter: 'μ' },
+  { name: 'Nu', letter: 'ν' },
+  { name: 'Xi', letter: 'ξ' },
+  { name: 'Omicron', letter: 'ο' },
+  { name: 'Pi', letter: 'π' },
+  { name: 'Rho', letter: 'ρ' },
+  { name: 'Sigma', letter: 'σ' },
+  { name: 'Tau', letter: 'τ' },
+  { name: 'Upsilon', letter: 'υ' },
+  { name: 'Phi', letter: 'φ' },
+  { name: 'Chi', letter: 'χ' },
+  { name: 'Psi', letter: 'ψ' },
+  { name: 'Omega', letter: 'ω' },
+];
+
+/**
  * Convert tier to a color using a perceptually uniform gradient from cool to warm.
  * @param {number} tier - The particle tier (0-based)
  * @returns {string} CSS color string
@@ -146,7 +177,7 @@ export class ParticleFusionSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
-    
+
     // Callbacks
     this.onTierChange = typeof options.onTierChange === 'function' ? options.onTierChange : null;
     this.onParticleCountChange = typeof options.onParticleCountChange === 'function' ? options.onParticleCountChange : null;
@@ -167,7 +198,7 @@ export class ParticleFusionSimulation {
     this.spawnRate = 2; // Particles per second
     this.spawnAccumulator = 0;
     this.baseMass = 1; // Base mass for tier 0 particles
-    this.baseRadius = 5; // Visual base radius
+    this.baseRadius = 5; // Visual base radius (recalculated on resize)
     
     // Glyph tracking
     this.highestTierReached = 0; // Tracks the highest tier ever reached
@@ -200,18 +231,28 @@ export class ParticleFusionSimulation {
    */
   resize() {
     if (!this.canvas) return;
-    
+
     const rect = this.canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    
-    this.width = Math.floor(rect.width * dpr);
-    this.height = Math.floor(rect.height * dpr);
-    
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
-    
+
+    // Cache CSS pixel size for consistent physics calculations.
+    this.width = rect.width;
+    this.height = rect.height;
+    this.canvas.width = Math.floor(rect.width * dpr);
+    this.canvas.height = Math.floor(rect.height * dpr);
+
     if (this.ctx) {
+      // Reset transform before applying DPR scaling to avoid cumulative scaling.
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.scale(dpr, dpr);
+    }
+
+    // Base radius ensures tier-0 diameter equals 1/50 of simulation width.
+    this.baseRadius = (this.width / 100) / this.massScaleFactor;
+
+    // Recalculate radii for existing particles so they stay proportional after resize.
+    for (const particle of this.particles) {
+      particle.radius = this.getRadiusFromMass(particle.mass);
     }
   }
   
@@ -246,10 +287,11 @@ export class ParticleFusionSimulation {
    */
   spawnParticle(tier = 0) {
     if (this.particles.length >= this.maxParticles) return;
-    
+
     const mass = this.getMassForTier(tier);
     const radius = this.getRadiusFromMass(mass);
-    
+    const tierInfo = getGreekTierInfo(tier);
+
     // Random position with margin from edges
     const margin = radius * 2;
     const x = margin + Math.random() * (this.width - margin * 2);
@@ -270,6 +312,7 @@ export class ParticleFusionSimulation {
       radius,
       tier,
       color: tierToColor(tier),
+      label: tierInfo.letter,
       id: Math.random(), // Unique ID for tracking
     });
     
@@ -283,9 +326,8 @@ export class ParticleFusionSimulation {
    */
   updateParticles(deltaTime) {
     const dt = deltaTime / 1000; // Convert to seconds
-    const dpr = window.devicePixelRatio || 1;
-    const canvasWidth = this.width / dpr;
-    const canvasHeight = this.height / dpr;
+    const canvasWidth = this.width;
+    const canvasHeight = this.height;
     
     // Spawn new particles
     this.spawnAccumulator += dt * this.spawnRate;
@@ -382,6 +424,7 @@ export class ParticleFusionSimulation {
             const newTier = p1.tier + 1;
             const newMass = p1.mass + p2.mass;
             const newRadius = this.getRadiusFromMass(newMass);
+            const newTierInfo = getGreekTierInfo(newTier);
             
             // Conserve momentum: weighted average of velocities
             const newVx = (p1.vx * p1.mass + p2.vx * p2.mass) / newMass;
@@ -401,6 +444,7 @@ export class ParticleFusionSimulation {
               radius: newRadius,
               tier: newTier,
               color: tierToColor(newTier),
+              label: newTierInfo.letter,
               id: Math.random(),
             });
             
@@ -418,9 +462,13 @@ export class ParticleFusionSimulation {
             if (newTier > this.highestTierReached) {
               this.highestTierReached = newTier;
               this.glyphCount = newTier;
-              
+
               if (this.onTierChange) {
-                this.onTierChange(newTier);
+                this.onTierChange({
+                  tier: newTier,
+                  name: newTierInfo.name,
+                  letter: newTierInfo.letter,
+                });
               }
               if (this.onGlyphChange) {
                 this.onGlyphChange(this.glyphCount);
@@ -495,13 +543,12 @@ export class ParticleFusionSimulation {
    */
   render() {
     if (!this.ctx) return;
-    
-    const dpr = window.devicePixelRatio || 1;
+
     const ctx = this.ctx;
-    
+
     // Clear with dark background
     ctx.fillStyle = this.backgroundColor;
-    ctx.fillRect(0, 0, this.width / dpr, this.height / dpr);
+    ctx.fillRect(0, 0, this.width, this.height);
     
     // Draw fusion effects
     for (const effect of this.fusionEffects) {
@@ -553,7 +600,7 @@ export class ParticleFusionSimulation {
       ctx.beginPath();
       ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
       ctx.fill();
-      
+
       // Inner highlight for 3D effect
       const highlightGradient = ctx.createRadialGradient(
         particle.x - particle.radius * 0.3,
@@ -571,6 +618,15 @@ export class ParticleFusionSimulation {
       ctx.beginPath();
       ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
       ctx.fill();
+
+      // Render the tier glyph in the particle center to reinforce tier identity.
+      if (particle.label) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.font = `${Math.max(particle.radius * 1.1, 10)}px 'Times New Roman', serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(particle.label, particle.x, particle.y);
+      }
     }
   }
   
@@ -650,6 +706,7 @@ export class ParticleFusionSimulation {
       for (const p of state.particles) {
         const mass = this.getMassForTier(p.tier);
         const radius = this.getRadiusFromMass(mass);
+        const tierInfo = getGreekTierInfo(p.tier);
         this.particles.push({
           x: p.x,
           y: p.y,
@@ -659,6 +716,7 @@ export class ParticleFusionSimulation {
           radius,
           tier: p.tier,
           color: tierToColor(p.tier),
+          label: tierInfo.letter,
           id: Math.random(),
         });
       }
@@ -673,7 +731,12 @@ export class ParticleFusionSimulation {
       this.onParticleCountChange(this.particles.length);
     }
     if (this.onTierChange) {
-      this.onTierChange(this.highestTierReached);
+      const tierInfo = getGreekTierInfo(this.highestTierReached);
+      this.onTierChange({
+        tier: this.highestTierReached,
+        name: tierInfo.name,
+        letter: tierInfo.letter,
+      });
     }
     if (this.onGlyphChange) {
       this.onGlyphChange(this.glyphCount);
@@ -681,5 +744,26 @@ export class ParticleFusionSimulation {
   }
 }
 
-// Export the tierToColor function for external use
-export { tierToColor };
+/**
+ * Retrieve metadata for the provided tier, looping through the Greek sequence if needed.
+ * @param {number} tier - Zero-based tier index
+ * @returns {{name: string, letter: string}}
+ */
+function getGreekTierInfo(tier) {
+  const safeTier = Math.max(0, Math.floor(tier));
+  const sequenceLength = GREEK_TIER_SEQUENCE.length;
+  const index = safeTier % sequenceLength;
+  const cycle = Math.floor(safeTier / sequenceLength);
+  const baseInfo = GREEK_TIER_SEQUENCE[index];
+
+  // Append cycle count to the name for tiers beyond the base sequence.
+  const cycleSuffix = cycle > 0 ? ` ${cycle + 1}` : '';
+
+  return {
+    name: `${baseInfo.name}${cycleSuffix}`,
+    letter: baseInfo.letter,
+  };
+}
+
+// Export helper utilities for external use
+export { tierToColor, getGreekTierInfo };

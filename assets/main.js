@@ -111,7 +111,7 @@ import { FluidSimulation } from '../scripts/features/towers/fluidTower.js';
 // Lamed tower gravity simulation for orbital mechanics with sparks.
 import { GravitySimulation } from '../scripts/features/towers/lamedTower.js';
 // Tsadi tower particle fusion simulation with tier-based merging.
-import { ParticleFusionSimulation } from '../scripts/features/towers/tsadiTower.js';
+import { ParticleFusionSimulation, getGreekTierInfo } from '../scripts/features/towers/tsadiTower.js';
 // Shin tower fractal tree simulation with incremental growth.
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
 // Shared color palette orchestration utilities.
@@ -8426,10 +8426,21 @@ import {
             if (tsadiCanvas) {
               tsadiSimulationInstance = new ParticleFusionSimulation({
                 canvas: tsadiCanvas,
-                onTierChange: (tier) => {
+                onTierChange: (tierInfo) => {
                   const tierEl = document.getElementById('tsadi-highest-tier');
                   if (tierEl) {
-                    tierEl.textContent = `Tier ${tier}`;
+                    // Present both the Greek tier name and glyph for clarity in the UI.
+                    const resolvedTier =
+                      typeof tierInfo === 'object' && tierInfo !== null
+                        ? tierInfo.tier ?? 0
+                        : Number.isFinite(Number(tierInfo))
+                          ? Number(tierInfo)
+                          : 0;
+                    const tierMetadata =
+                      typeof tierInfo === 'object' && tierInfo !== null
+                        ? tierInfo
+                        : getGreekTierInfo(resolvedTier);
+                    tierEl.textContent = `${tierMetadata.name} (${tierMetadata.letter}) – Tier ${resolvedTier}`;
                   }
                 },
                 onParticleCountChange: (count) => {
