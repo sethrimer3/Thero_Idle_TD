@@ -5,12 +5,12 @@
       "name": "Tree Fractal",
       "description": "A binary branching pattern inspired by natural growth.",
       "unlockCost": 0,
-      "layerThresholds": [1, 3, 7, 15, 31, 63, 127, 255, 511],
+      "layerThresholds": [1, 2, 4, 8, 16, 32, 64, 128, 256],
       "renderType": "tree",
       "config": {
         "branchFactor": 2,
         "baseSpreadDeg": 25,
-        "lengthDecay": 0.7,
+        "lengthDecay": 0.72,
         "maxDepth": 9,
         "angleJitterDeg": 3,
         "gravityBend": 0.08,
@@ -18,11 +18,23 @@
       }
     },
     {
+      "id": "gosper-curve",
+      "name": "Gosper Curve",
+      "description": "A honeycomb fractal that blooms from a single glyph.",
+      "unlockCost": 25,
+      "layerThresholds": [1, 3, 6, 12, 24, 48, 96, 192, 384],
+      "renderType": "gosper",
+      "config": {
+        "iterations": 7,
+        "segmentLength": 6
+      }
+    },
+    {
       "id": "koch-snowflake",
       "name": "Koch Snowflake",
       "description": "A classic fractal formed by recursive triangular divisions.",
-      "unlockCost": 100,
-      "layerThresholds": [1, 4, 13, 40, 121, 364, 1093, 3280, 9841],
+      "unlockCost": 50,
+      "layerThresholds": [1, 3, 7, 15, 31, 63, 127, 255, 511],
       "renderType": "koch",
       "config": {
         "iterations": 6,
@@ -31,23 +43,28 @@
       }
     },
     {
-      "id": "barnsley-fern",
-      "name": "Barnsley Fern",
-      "description": "A beautiful fern-like pattern generated through iterative transformations.",
-      "unlockCost": 100,
-      "layerThresholds": [100, 500, 1500, 3500, 7000, 12000, 20000, 30000, 45000],
-      "renderType": "barnsley",
+      "id": "fern-lsystem",
+      "name": "Natural Fern",
+      "description": "An elegant L-system fern drawing each frond as luminous ink.",
+      "unlockCost": 75,
+      "layerThresholds": [1, 2, 5, 9, 15, 24, 36, 52, 72],
+      "renderType": "fern",
       "config": {
-        "pointDensity": 50000,
-        "scale": 40
+        "axiom": "X",
+        "rules": {
+          "X": "F-[[X]+X]+F[+FX]-X",
+          "F": "FF"
+        },
+        "turnAngle": 25,
+        "segmentLength": 5
       }
     },
     {
       "id": "dragon-curve",
       "name": "Dragon Curve",
-      "description": "A self-similar curve that folds into itself endlessly.",
-      "unlockCost": 100,
-      "layerThresholds": [1, 3, 7, 15, 31, 63, 127, 255, 511],
+      "description": "A self-similar ribbon that folds upon itself in radiant ink.",
+      "unlockCost": 90,
+      "layerThresholds": [1, 2, 4, 8, 16, 32, 64, 128, 256],
       "renderType": "dragon",
       "config": {
         "iterations": 14,
@@ -55,75 +72,38 @@
       }
     },
     {
-      "id": "phoenix-fractal",
-      "name": "Phoenix Fractal",
-      "description": "A dynamic fractal with flame-like patterns emerging from chaos.",
-      "unlockCost": 100,
-      "layerThresholds": [100, 300, 700, 1500, 3000, 6000, 11000, 18000, 28000],
-      "renderType": "phoenix",
+      "id": "voronoi-glass",
+      "name": "Voronoi Glass",
+      "description": "A stained-glass tessellation of sapphire nebula shards.",
+      "unlockCost": 110,
+      "layerThresholds": [1, 2, 4, 7, 11, 16, 22, 29, 37],
+      "renderType": "voronoi",
       "config": {
-        "width": 240,
-        "height": 360,
-        "maxIterations": 50,
-        "colorShift": 0.5
+        "maxCells": 140,
+        "palette": "blue-aurora"
       }
     },
     {
-      "id": "cloud-fractal",
-      "name": "Cloud Fractal",
-      "description": "Organic, cloud-like formations through fractal noise.",
-      "unlockCost": 100,
-      "layerThresholds": [50, 150, 400, 900, 1800, 3500, 6500, 11000, 17500],
-      "renderType": "julia-cloud",
+      "id": "brownian-forest",
+      "name": "Brownian Forest",
+      "description": "Crystalline trees crystallize from drifting motes of light.",
+      "unlockCost": 140,
+      "layerThresholds": [1, 2, 5, 10, 18, 28, 40, 55, 73],
+      "renderType": "brownian",
       "config": {
-        "width": 240,
-        "height": 360,
-        "maxIterations": 100,
-        "zoom": 1.5,
-        "centerX": 0,
-        "centerY": 0
+        "particleLimit": 1800,
+        "glowRadius": 5
       }
     },
     {
-      "id": "newton-fractal",
-      "name": "Newton Fractal",
-      "description": "Complex roots visualized through Newton's method iterations.",
-      "unlockCost": 100,
-      "layerThresholds": [100, 250, 600, 1300, 2600, 5000, 9000, 15000, 23000],
-      "renderType": "newton",
+      "id": "flame-spiral",
+      "name": "Flame Spiral",
+      "description": "A flowing flame fractal that paints cosmic auroras.",
+      "unlockCost": 175,
+      "layerThresholds": [1, 2, 4, 7, 11, 16, 22, 29, 37],
+      "renderType": "flame",
       "config": {
-        "width": 240,
-        "height": 360,
-        "maxIterations": 30,
-        "polynomial": "z^3-1"
-      }
-    },
-    {
-      "id": "burning-ship",
-      "name": "Burning Ship Fractal",
-      "description": "A Mandelbrot variant with absolute values creating ship-like forms.",
-      "unlockCost": 100,
-      "layerThresholds": [100, 300, 700, 1500, 3000, 6000, 11000, 18000, 28000],
-      "renderType": "burning-ship",
-      "config": {
-        "width": 240,
-        "height": 360,
-        "maxIterations": 50,
-        "zoom": 1.0
-      }
-    },
-    {
-      "id": "lyapunov-fractal",
-      "name": "Lyapunov Fractal",
-      "description": "Stability patterns emerging from chaotic dynamical systems.",
-      "unlockCost": 100,
-      "layerThresholds": [100, 300, 700, 1500, 3000, 6000, 11000, 18000, 28000],
-      "renderType": "lyapunov",
-      "config": {
-        "width": 240,
-        "height": 360,
-        "sequence": "AABAB",
-        "iterations": 100
+        "samplesPerIteron": 8000
       }
     }
   ]

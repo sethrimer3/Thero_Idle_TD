@@ -475,7 +475,8 @@ export class FractalTreeSimulation {
       }
       // Start with 1 segment (root) and grow based on allocation
       const minSegments = 1;
-      const progress = Math.min(1, config.allocated / (maxSegments * 2));
+      const required = Math.max(1, 4 + this.maxDepth * 4);
+      const progress = Math.min(1, config.allocated / required);
       this.targetSegments = Math.floor(minSegments + (maxSegments - minSegments) * progress);
     }
 
