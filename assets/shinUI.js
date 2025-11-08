@@ -168,6 +168,11 @@ function renderFractalContent(fractal, state) {
     return;
   }
   
+  // Clear any existing simulation for this fractal since we're recreating the canvas
+  if (fractalSimulations.has(fractal.id)) {
+    fractalSimulations.delete(fractal.id);
+  }
+  
   contentContainer.innerHTML = '';
   
   const header = document.createElement('div');
