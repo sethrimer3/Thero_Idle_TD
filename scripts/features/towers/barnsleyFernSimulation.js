@@ -22,8 +22,24 @@ export class BarnsleyFernSimulation {
     this.pointsPerFrame = options.pointsPerFrame || 50; // Reduced for smoother incremental growth
     this.targetPoints = 0; // Target number of points based on allocated resources
 
-    this.bgColor = options.bgColor || '#0b0d12';
-    this.pointColor = options.pointColor || 'rgba(180, 240, 200, 0.8)';
+    this.bgColor = options.bgColor || '#000000';
+    this.pointColor = options.pointColor || '#000000';
+
+    /**
+     * Pre-rendered glow sprite used to create the yellow→orange→red halo for
+     * each fern point. Drawing the glow from an offscreen canvas is much
+     * faster than constructing a gradient for every individual point.
+     */
+    this.glowRadius = options.glowRadius || 6;
+    this.glowStops =
+      options.glowStops ||
+      [
+        { offset: 0, color: 'rgba(255, 240, 150, 0.85)' }, // Yellow core
+        { offset: 0.45, color: 'rgba(255, 180, 70, 0.6)' }, // Warm orange
+        { offset: 0.75, color: 'rgba(255, 60, 30, 0.4)' }, // Ember red
+        { offset: 1, color: 'rgba(0, 0, 0, 0.85)' }, // Fade into black
+      ];
+    this.glowStamp = this.createGlowStamp();
 
     this.points = [];
     this.currentPoint = { x: 0, y: 0 };
@@ -32,6 +48,41 @@ export class BarnsleyFernSimulation {
   reset() {
     this.points = [];
     this.currentPoint = { x: 0, y: 0 };
+  }
+
+  /**
+   * Creates a small offscreen canvas containing a radial gradient that
+   * produces the requested yellow→orange→red→black glow around every point.
+   *
+   * @returns {HTMLCanvasElement|null} Glow sprite or null if canvas missing
+   */
+  createGlowStamp() {
+    if (!this.canvas) {
+      return null;
+    }
+
+    const size = this.glowRadius * 2;
+    const glowCanvas = document.createElement('canvas');
+    glowCanvas.width = size;
+    glowCanvas.height = size;
+    const glowCtx = glowCanvas.getContext('2d');
+    const gradient = glowCtx.createRadialGradient(
+      this.glowRadius,
+      this.glowRadius,
+      0,
+      this.glowRadius,
+      this.glowRadius,
+      this.glowRadius
+    );
+
+    for (const stop of this.glowStops) {
+      gradient.addColorStop(stop.offset, stop.color);
+    }
+
+    glowCtx.fillStyle = gradient;
+    glowCtx.fillRect(0, 0, size, size);
+
+    return glowCanvas;
   }
 
   iteratePoint() {
@@ -90,10 +141,22 @@ export class BarnsleyFernSimulation {
     ctx.fillStyle = this.bgColor;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    ctx.fillStyle = this.pointColor;
     const offsetX = this.canvas.width / 2;
     const offsetY = this.canvas.height;
 
+    const glowStamp = this.glowStamp;
+    if (glowStamp) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const point of this.points) {
+        const x = offsetX + point.x * this.scale - this.glowRadius;
+        const y = offsetY - point.y * this.scale - this.glowRadius;
+        ctx.drawImage(glowStamp, x, y);
+      }
+      ctx.restore();
+    }
+
+    ctx.fillStyle = this.pointColor;
     for (const point of this.points) {
       const x = offsetX + point.x * this.scale;
       const y = offsetY - point.y * this.scale;
@@ -135,6 +198,7 @@ export class BarnsleyFernSimulation {
     
     if (config.reset === true || needsReset) {
       this.reset();
+      this.glowStamp = this.createGlowStamp();
     }
   }
 }
