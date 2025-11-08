@@ -8820,6 +8820,8 @@ import {
     updatePowderLogDisplay();
     updateResourceRates();
     updatePowderDisplay();
+    // Start resource ticker for idle resources (iterons, motes, etc.) since no level is active initially
+    resourceState.running = true;
     ensureResourceTicker();
     // Begin the recurring autosave cadence once the core systems are initialized.
     startAutoSaveLoop();
