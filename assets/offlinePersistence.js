@@ -15,10 +15,10 @@ const offlineOverlayElements = {
   alephMinutes: null,
   alephMultiplier: null,
   alephTotal: null,
-  betRow: null,
-  betMinutes: null,
-  betMultiplier: null,
-  betTotal: null,
+  tetRow: null,
+  tetMinutes: null,
+  tetMultiplier: null,
+  tetTotal: null,
   lamedRow: null,
   lamedMinutes: null,
   lamedMultiplier: null,
@@ -169,10 +169,10 @@ async function showOfflineOverlay(summary = {}) {
     alephMinutes,
     alephMultiplier,
     alephTotal,
-    betRow,
-    betMinutes,
-    betMultiplier,
-    betTotal,
+    tetRow,
+    tetMinutes,
+    tetMultiplier,
+    tetTotal,
     lamedRow,
     lamedMinutes,
     lamedMultiplier,
@@ -193,7 +193,7 @@ async function showOfflineOverlay(summary = {}) {
 
   const minutesValue = Math.max(0, Number(summary.minutes) || 0);
   const alephSummary = summary.aleph || {};
-  const betSummary = summary.bet || {};
+  const tetSummary = summary.tet || {};
   const lamedSummary = summary.lamed || {};
   const tsadiSummary = summary.tsadi || {};
   const shinSummary = summary.shin || {};
@@ -201,9 +201,9 @@ async function showOfflineOverlay(summary = {}) {
 
   const alephMultiplierValue = Math.max(0, Number(alephSummary.multiplier) || 0);
   const alephTotalValue = Math.max(0, Number(alephSummary.total) || 0);
-  const betUnlocked = Boolean(betSummary.unlocked);
-  const betMultiplierValue = Math.max(0, Number(betSummary.multiplier) || 0);
-  const betTotalValue = Math.max(0, Number(betSummary.total) || 0);
+  const tetUnlocked = Boolean(tetSummary.unlocked);
+  const tetMultiplierValue = Math.max(0, Number(tetSummary.multiplier) || 0);
+  const tetTotalValue = Math.max(0, Number(tetSummary.total) || 0);
   const lamedUnlocked = Boolean(lamedSummary.unlocked);
   const lamedMultiplierValue = Math.max(0, Number(lamedSummary.multiplier) || 0);
   const lamedTotalValue = Math.max(0, Number(lamedSummary.total) || 0);
@@ -217,12 +217,12 @@ async function showOfflineOverlay(summary = {}) {
   const kufMultiplierValue = Math.max(0, Number(kufSummary.multiplier) || 0);
   const kufTotalValue = Math.max(0, Number(kufSummary.total) || 0);
 
-  if (betRow) {
-    betRow.classList.toggle('offline-overlay__equation-row--inactive', !betUnlocked);
-    if (betUnlocked) {
-      betRow.removeAttribute('aria-hidden');
+  if (tetRow) {
+    tetRow.classList.toggle('offline-overlay__equation-row--inactive', !tetUnlocked);
+    if (tetUnlocked) {
+      tetRow.removeAttribute('aria-hidden');
     } else {
-      betRow.setAttribute('aria-hidden', 'true');
+      tetRow.setAttribute('aria-hidden', 'true');
     }
   }
   
@@ -266,9 +266,9 @@ async function showOfflineOverlay(summary = {}) {
     alephMinutes,
     alephMultiplier,
     alephTotal,
-    betMinutes,
-    betMultiplier,
-    betTotal,
+    tetMinutes,
+    tetMultiplier,
+    tetTotal,
     lamedMinutes,
     lamedMultiplier,
     lamedTotal,
@@ -289,7 +289,7 @@ async function showOfflineOverlay(summary = {}) {
 
   await Promise.all([
     animateOfflineNumber(alephMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
-    animateOfflineNumber(betMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
+    animateOfflineNumber(tetMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
     animateOfflineNumber(lamedMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
     animateOfflineNumber(tsadiMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
     animateOfflineNumber(shinMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
@@ -298,7 +298,7 @@ async function showOfflineOverlay(summary = {}) {
 
   await Promise.all([
     animateOfflineNumber(alephMultiplier, alephMultiplierValue, { format: dependencies.formatWholeNumber }),
-    animateOfflineNumber(betMultiplier, betUnlocked ? betMultiplierValue : 0, {
+    animateOfflineNumber(tetMultiplier, tetUnlocked ? tetMultiplierValue : 0, {
       format: dependencies.formatWholeNumber,
     }),
     animateOfflineNumber(lamedMultiplier, lamedUnlocked ? lamedMultiplierValue : 0, {
@@ -316,7 +316,7 @@ async function showOfflineOverlay(summary = {}) {
   ]);
 
   const alephSuffix = alephTotalValue === 1 ? ' Mote' : ' Motes';
-  const betSuffix = betTotalValue === 1 ? ' Drop' : ' Drops';
+  const tetSuffix = tetTotalValue === 1 ? ' Drop' : ' Drops';
   const lamedSuffix = lamedTotalValue === 1 ? ' Spark' : ' Sparks';
   const tsadiSuffix = tsadiTotalValue === 1 ? ' Particle' : ' Particles';
   const shinSuffix = shinTotalValue === 1 ? ' Iteron' : ' Iterons';
@@ -327,9 +327,9 @@ async function showOfflineOverlay(summary = {}) {
       format: dependencies.formatGameNumber,
       suffix: alephSuffix,
     }),
-    animateOfflineNumber(betTotal, betUnlocked ? betTotalValue : 0, {
+    animateOfflineNumber(tetTotal, tetUnlocked ? tetTotalValue : 0, {
       format: dependencies.formatGameNumber,
-      suffix: betSuffix,
+      suffix: tetSuffix,
     }),
     animateOfflineNumber(lamedTotal, lamedUnlocked ? lamedTotalValue : 0, {
       format: dependencies.formatGameNumber,
@@ -397,10 +397,10 @@ export function bindOfflineOverlayElements() {
   offlineOverlayElements.alephMinutes = document.getElementById('offline-aleph-minutes');
   offlineOverlayElements.alephMultiplier = document.getElementById('offline-aleph-multiplier');
   offlineOverlayElements.alephTotal = document.getElementById('offline-aleph-total');
-  offlineOverlayElements.betRow = document.getElementById('offline-bet-row');
-  offlineOverlayElements.betMinutes = document.getElementById('offline-bet-minutes');
-  offlineOverlayElements.betMultiplier = document.getElementById('offline-bet-multiplier');
-  offlineOverlayElements.betTotal = document.getElementById('offline-bet-total');
+  offlineOverlayElements.tetRow = document.getElementById('offline-tet-row');
+  offlineOverlayElements.tetMinutes = document.getElementById('offline-tet-minutes');
+  offlineOverlayElements.tetMultiplier = document.getElementById('offline-tet-multiplier');
+  offlineOverlayElements.tetTotal = document.getElementById('offline-tet-total');
   offlineOverlayElements.lamedRow = document.getElementById('offline-lamed-row');
   offlineOverlayElements.lamedMinutes = document.getElementById('offline-lamed-minutes');
   offlineOverlayElements.lamedMultiplier = document.getElementById('offline-lamed-multiplier');
@@ -521,30 +521,30 @@ export function recordPowderEvent(type, context = {}) {
       const minutesLabel = dependencies.formatWholeNumber(minutes);
       const alephMultiplier = idleSummary?.aleph?.multiplier;
       const alephTotal = idleSummary?.aleph?.total;
-      const betUnlocked = Boolean(idleSummary?.bet?.unlocked);
-      const betMultiplier = idleSummary?.bet?.multiplier;
-      const betTotal = idleSummary?.bet?.total;
+      const tetUnlocked = Boolean(idleSummary?.tet?.unlocked);
+      const tetMultiplier = idleSummary?.tet?.multiplier;
+      const tetTotal = idleSummary?.tet?.total;
 
       const safeAlephMultiplier = Number.isFinite(alephMultiplier) ? Math.max(0, alephMultiplier) : 0;
       const safeAlephTotal = Number.isFinite(alephTotal) ? Math.max(0, alephTotal) : 0;
       const alephRateLabel = dependencies.formatGameNumber(safeAlephMultiplier);
       const alephGainLabel = dependencies.formatGameNumber(safeAlephTotal);
 
-      const betPieces = [];
-      if (betUnlocked) {
-        const safeBetMultiplier = Number.isFinite(betMultiplier) ? Math.max(0, betMultiplier) : 0;
-        const safeBetTotal = Number.isFinite(betTotal) ? Math.max(0, betTotal) : 0;
-        const betRateLabel = dependencies.formatGameNumber(safeBetMultiplier);
-        const betGainLabel = dependencies.formatGameNumber(safeBetTotal);
-        betPieces.push(`ט × ${betRateLabel} = +${betGainLabel} Drops`);
+      const tetPieces = [];
+      if (tetUnlocked) {
+        const safeTetMultiplier = Number.isFinite(tetMultiplier) ? Math.max(0, tetMultiplier) : 0;
+        const safeTetTotal = Number.isFinite(tetTotal) ? Math.max(0, tetTotal) : 0;
+        const tetRateLabel = dependencies.formatGameNumber(safeTetMultiplier);
+        const tetGainLabel = dependencies.formatGameNumber(safeTetTotal);
+        tetPieces.push(`ט × ${tetRateLabel} = +${tetGainLabel} Drops`);
       }
 
       const powderLabel = dependencies.formatGameNumber(Math.max(0, powder));
       const fragments = [
         `ℵ × ${alephRateLabel} = +${alephGainLabel} Motes`,
       ];
-      if (betPieces.length) {
-        fragments.push(...betPieces);
+      if (tetPieces.length) {
+        fragments.push(...tetPieces);
       }
       fragments.push(`${powderLabel} Powder recaptured`);
 
@@ -647,7 +647,7 @@ export function checkOfflineRewards() {
     dependencies.notifyIdleTime(minutesAway * 60000) || {
       minutes: minutesAway,
       aleph: { multiplier: 0, total: 0, unlocked: true },
-      bet: { multiplier: 0, total: 0, unlocked: false },
+      tet: { multiplier: 0, total: 0, unlocked: false },
     };
   dependencies.applyPowderGain(powderEarned, {
     source: 'offline',
@@ -659,7 +659,7 @@ export function checkOfflineRewards() {
   showOfflineOverlay({
     minutes: minutesAway,
     aleph: idleSummary.aleph,
-    bet: idleSummary.bet,
+    tet: idleSummary.tet,
   });
 }
 
