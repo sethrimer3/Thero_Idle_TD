@@ -193,9 +193,9 @@ import {
   setGlyphCurrency,
   addGlyphCurrency,
   getGlyphCurrency,
-  setTetGlyphCurrency,
-  addTetGlyphCurrency,
-  getTetGlyphCurrency,
+  setBetGlyphCurrency,
+  addBetGlyphCurrency,
+  getBetGlyphCurrency,
   setTheroSymbol,
   setTowerLoadoutLimit,
   setHideUpgradeMatrixCallback,
@@ -1007,8 +1007,8 @@ import {
     startThero: setDeveloperBaseStartThero,
     theroMultiplier: setDeveloperTheroMultiplier,
     glyphs: setDeveloperGlyphs,
-    tetDropRate: setDeveloperTetDropRate,
-    tetDropBank: setDeveloperTetDropBank,
+    betDropRate: setDeveloperBetDropRate,
+    betDropBank: setDeveloperBetDropBank,
     iteronBank: setDeveloperIteronBank,
     iterationRate: setDeveloperIterationRate,
   };
@@ -1198,7 +1198,7 @@ import {
     updateStatusDisplays();
   }
 
-  function setDeveloperTetDropRate(value) {
+  function setDeveloperBetDropRate(value) {
     if (!Number.isFinite(value)) {
       return;
     }
@@ -1211,10 +1211,10 @@ import {
     } catch (e) {
       // fluidSimulationInstance not yet initialized
     }
-    recordDeveloperAdjustment('tetDropRate', normalized);
+    recordDeveloperAdjustment('betDropRate', normalized);
   }
 
-  function setDeveloperTetDropBank(value) {
+  function setDeveloperBetDropBank(value) {
     if (!Number.isFinite(value)) {
       return;
     }
@@ -1230,7 +1230,7 @@ import {
     } catch (e) {
       // fluidSimulationInstance not yet initialized
     }
-    recordDeveloperAdjustment('tetDropBank', normalized);
+    recordDeveloperAdjustment('betDropBank', normalized);
   }
 
   function setDeveloperIteronBank(value) {
@@ -1628,31 +1628,31 @@ import {
   }
 
   /**
-   * Format a Tet glyph label using Hebrew letter Tet (ט) with subscript numbering.
-   * Tet glyphs are the second type of upgrade currency, exclusive to the Tet Spire,
+   * Format a Bet glyph label using Hebrew letter Bet with dagesh (בּ) with subscript numbering.
+   * Bet glyphs are the second type of upgrade currency, exclusive to the Bet Spire,
    * appearing on the right wall and complementing Aleph glyphs on the left.
    * @param {number} index - The glyph index (0-based)
-   * @returns {string} Formatted label like "ט₀", "ט₁", "ט₂", etc.
+   * @returns {string} Formatted label like "בּ₀", "בּ₁", "בּ₂", etc.
    */
-  function formatTetLabel(index) {
+  function formatBetLabel(index) {
     const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
-    return `ט${toSubscriptNumber(normalized)}`;
+    return `בּ${toSubscriptNumber(normalized)}`;
   }
 
   /**
-   * Award Tet glyph currency when Tet Spire water reaches height milestones.
-   * Tet glyphs (ט) are the second type of upgrade currency, exclusive to the Tet Spire
+   * Award Bet glyph currency when Bet Spire water reaches height milestones.
+   * Bet glyphs (בּ) are the second type of upgrade currency, exclusive to the Bet Spire
    * and unlocked at the same height thresholds as Aleph glyphs but tracked independently.
-   * @param {number} count - Number of Tet glyphs to award
+   * @param {number} count - Number of Bet glyphs to award
    */
-  function awardTetGlyphs(count) {
+  function awardBetGlyphs(count) {
     if (!Number.isFinite(count) || count <= 0) {
       return;
     }
-    // For now, just log the award. In future, this will be integrated with a Tet glyph currency system
+    // For now, just log the award. In future, this will be integrated with a Bet glyph currency system
     // similar to Aleph glyphs, but as a second type of upgrade currency.
-    console.log(`Awarded ${count} Tet glyph${count !== 1 ? 's' : ''} (ט)`);
-    recordPowderEvent('tet-glyph-award', { count });
+    console.log(`Awarded ${count} Bet glyph${count !== 1 ? 's' : ''} (בּ)`);
+    recordPowderEvent('bet-glyph-award', { count });
   }
 
   const gameStats = {
@@ -1792,8 +1792,8 @@ import {
     theroMultiplier: null,
     glyphsAlephTotal: null,
     glyphsAlephUnused: null,
-    glyphsTetTotal: null,
-    glyphsTetUnused: null,
+    glyphsBetTotal: null,
+    glyphsBetUnused: null,
     tabGlyphBadge: null,
     tabMoteBadge: null,
     tabFluidBadge: null,
@@ -1804,8 +1804,8 @@ import {
     resourceElements.theroMultiplier = document.getElementById('level-thero-multiplier');
     resourceElements.glyphsAlephTotal = document.getElementById('tower-glyphs-aleph-total');
     resourceElements.glyphsAlephUnused = document.getElementById('tower-glyphs-aleph-unused');
-    resourceElements.glyphsTetTotal = document.getElementById('tower-glyphs-tet-total');
-    resourceElements.glyphsTetUnused = document.getElementById('tower-glyphs-tet-unused');
+    resourceElements.glyphsBetTotal = document.getElementById('tower-glyphs-bet-total');
+    resourceElements.glyphsBetUnused = document.getElementById('tower-glyphs-bet-unused');
     resourceElements.tabGlyphBadge = document.getElementById('tab-glyph-badge');
     resourceElements.tabMoteBadge = document.getElementById('tab-mote-badge');
     resourceElements.tabFluidBadge = document.getElementById('tab-fluid-badge');
@@ -1835,18 +1835,18 @@ import {
       }
     }
     
-    // Tet glyphs (ט) are earned from the Tet Spire progression
-    const totalTetGlyphs = Math.max(0, Math.floor(getTetGlyphCurrency()));
-    // TODO: Implement Tet glyph allocation system (similar to Aleph glyph upgrades)
-    const unusedTetGlyphs = totalTetGlyphs; // For now, all Tet glyphs are unallocated
-    if (resourceElements.glyphsTetTotal) {
-      resourceElements.glyphsTetTotal.textContent = `${formatWholeNumber(totalTetGlyphs)} ט`;
+    // Bet glyphs (בּ) are earned from the Bet Spire progression
+    const totalBetGlyphs = Math.max(0, Math.floor(getBetGlyphCurrency()));
+    // TODO: Implement Bet glyph allocation system (similar to Aleph glyph upgrades)
+    const unusedBetGlyphs = totalBetGlyphs; // For now, all Bet glyphs are unallocated
+    if (resourceElements.glyphsBetTotal) {
+      resourceElements.glyphsBetTotal.textContent = `${formatWholeNumber(totalBetGlyphs)} בּ`;
     }
-    if (resourceElements.glyphsTetUnused) {
-      if (unusedTetGlyphs > 0) {
-        resourceElements.glyphsTetUnused.textContent = `${formatWholeNumber(unusedTetGlyphs)} Unallocated`;
+    if (resourceElements.glyphsBetUnused) {
+      if (unusedBetGlyphs > 0) {
+        resourceElements.glyphsBetUnused.textContent = `${formatWholeNumber(unusedBetGlyphs)} Unallocated`;
       } else {
-        resourceElements.glyphsTetUnused.textContent = '';
+        resourceElements.glyphsBetUnused.textContent = '';
       }
     }
     if (resourceElements.tabGlyphBadge) {
@@ -1936,7 +1936,7 @@ import {
     wallGlyphsLit: 0,
     glyphsAwarded: 0, // Highest Aleph index already translated into glyph currency.
     fluidGlyphsLit: 0,
-    fluidGlyphsAwarded: 0, // Highest Tet index already translated into Tet glyph currency.
+    fluidGlyphsAwarded: 0, // Highest Bet index already translated into Bet glyph currency.
     idleMoteBank: 100,
     idleDrainRate: 1,
     pendingMoteDrops: [],
@@ -1949,7 +1949,7 @@ import {
     simulationMode: 'sand',
     wallGapTarget: powderConfig.wallBaseGapMotes,
     modeSwitchPending: false,
-    fluidProfileLabel: 'Tet Spire',
+    fluidProfileLabel: 'Bet Spire',
     fluidUnlocked: false,
     // Track pointer gestures for the powder basin camera controls.
     viewInteraction: null,
@@ -2750,11 +2750,11 @@ import {
           if (!glyph) {
             glyph = document.createElement('span');
             glyph.className = 'powder-glyph';
-            glyph.dataset[isLeftWall ? 'alephIndex' : 'tetIndex'] = String(index);
+            glyph.dataset[isLeftWall ? 'alephIndex' : 'betIndex'] = String(index);
             column.element.appendChild(glyph);
             column.glyphs.set(index, glyph);
           }
-          glyph.textContent = isLeftWall ? formatAlephLabel(index) : formatTetLabel(index);
+          glyph.textContent = isLeftWall ? formatAlephLabel(index) : formatBetLabel(index);
           const glyphNormalized = glyphHeightForIndex(index);
           const relativeRows = glyphNormalized * safeRows - scrollOffset;
           const topPx = basinHeight - relativeRows * cellSize;
@@ -3109,9 +3109,9 @@ import {
       }
     });
     
-    // Show/hide Tet menu items based on unlock status
-    const tetMenuItems = document.querySelectorAll('.spire-menu-item--tet');
-    tetMenuItems.forEach(item => {
+    // Show/hide Bet menu items based on unlock status
+    const betMenuItems = document.querySelectorAll('.spire-menu-item--bet');
+    betMenuItems.forEach(item => {
       if (powderState.fluidUnlocked) {
         item.removeAttribute('hidden');
       } else {
@@ -3156,7 +3156,7 @@ import {
     if (!powderState.fluidUnlocked) {
       const glyphCost = getFluidUnlockGlyphCost();
       const costLabel = glyphCost > 0 ? `ℵ ${formatWholeNumber(glyphCost)}` : 'ℵ 0';
-      powderElements.modeToggle.textContent = `Unlock Tet Spire (${costLabel})`;
+      powderElements.modeToggle.textContent = `Unlock Bet Spire (${costLabel})`;
       powderElements.modeToggle.setAttribute('aria-pressed', 'false');
       const availableGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
       const affordable = availableGlyphs >= glyphCost;
@@ -3172,7 +3172,7 @@ import {
     powderElements.modeToggle.removeAttribute('aria-disabled');
     powderElements.modeToggle.disabled = false;
     const mode = powderState.simulationMode;
-    const fluidLabel = powderState.fluidProfileLabel || 'Tet Spire';
+    const fluidLabel = powderState.fluidProfileLabel || 'Bet Spire';
     powderElements.modeToggle.textContent =
       mode === 'fluid' ? 'Return to Powderfall' : `Enter ${fluidLabel}`;
     powderElements.modeToggle.setAttribute('aria-pressed', mode === 'fluid' ? 'true' : 'false');
@@ -3393,7 +3393,7 @@ import {
         initializePowderViewInteraction();
         handlePowderViewTransformChange(powderSimulation.getViewTransform());
         if (previousMode !== powderState.simulationMode) {
-          recordPowderEvent('mode-switch', { mode: 'fluid', label: profile.label || 'Tet Spire' });
+          recordPowderEvent('mode-switch', { mode: 'fluid', label: profile.label || 'Bet Spire' });
         }
       } else {
         if (!sandSimulation && powderSimulation instanceof PowderSimulation) {
@@ -3949,7 +3949,7 @@ import {
 
     const target = options && typeof options === 'object' ? options.target : undefined;
     let targetIsFluid;
-    if (target === 'tet') {
+    if (target === 'bet') {
       targetIsFluid = true;
     } else if (target === 'aleph') {
       targetIsFluid = false;
@@ -7345,7 +7345,7 @@ import {
     powderState.simulationMode = 'sand';
     powderState.wallGapTarget = powderConfig.wallBaseGapMotes;
     powderState.modeSwitchPending = false;
-    powderState.fluidProfileLabel = 'Tet Spire';
+    powderState.fluidProfileLabel = 'Bet Spire';
     powderState.fluidUnlocked = false;
     updateFluidTabAvailability();
     powderState.viewTransform = null;
@@ -7620,7 +7620,7 @@ import {
       ? Math.max(0, info.highestNormalized)
       : totalNormalized;
 
-    // Update glyph columns and track Tet glyph awards
+    // Update glyph columns and track Bet glyph awards
     const glyphMetrics = updateFluidGlyphColumns({
       scrollOffset,
       rows,
@@ -7637,7 +7637,7 @@ import {
 
       if (glyphsLit > previousAwarded) {
         const newlyEarned = glyphsLit - previousAwarded;
-        awardTetGlyphs(newlyEarned);
+        awardBetGlyphs(newlyEarned);
         powderState.fluidGlyphsAwarded = glyphsLit;
       } else if (!Number.isFinite(powderState.fluidGlyphsAwarded) || powderState.fluidGlyphsAwarded < glyphsLit) {
         powderState.fluidGlyphsAwarded = Math.max(previousAwarded, glyphsLit);
@@ -7683,7 +7683,7 @@ import {
     }
 
     if (fluidElements.profileLabel) {
-      fluidElements.profileLabel.textContent = powderState.fluidProfileLabel || 'Tet Spire';
+      fluidElements.profileLabel.textContent = powderState.fluidProfileLabel || 'Bet Spire';
     }
 
     if (fluidElements.stateLabel) {
@@ -7895,7 +7895,7 @@ import {
     const defaultSummary = {
       minutes: 0,
       aleph: { multiplier: 0, total: 0, unlocked: true },
-      tet: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
+      bet: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
       lamed: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.lamed?.unlocked) },
       tsadi: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.tsadi?.unlocked) },
       shin: { multiplier: 0, total: 0, unlocked: false },
@@ -7918,8 +7918,8 @@ import {
     );
 
     const alephTotal = minutes * achievementsUnlocked;
-    const tetUnlocked = Boolean(powderState.fluidUnlocked);
-    const tetTotal = tetUnlocked ? minutes * levelsBeat : 0;
+    const betUnlocked = Boolean(powderState.fluidUnlocked);
+    const betTotal = betUnlocked ? minutes * levelsBeat : 0;
     
     // Lamed: 1 spark per second when unlocked
     const lamedUnlocked = Boolean(spireResourceState.lamed?.unlocked);
@@ -7943,8 +7943,8 @@ import {
     if (alephTotal > 0) {
       addIdleMoteBank(alephTotal, { target: 'aleph' });
     }
-    if (tetTotal > 0) {
-      addIdleMoteBank(tetTotal, { target: 'tet' });
+    if (betTotal > 0) {
+      addIdleMoteBank(betTotal, { target: 'bet' });
     }
     if (lamedTotal > 0 && lamedUnlocked) {
       setLamedSparkBank(getLamedSparkBank() + lamedTotal);
@@ -7965,10 +7965,10 @@ import {
         total: alephTotal,
         unlocked: true,
       },
-      tet: {
-        multiplier: tetUnlocked ? levelsBeat : 0,
-        total: tetTotal,
-        unlocked: tetUnlocked,
+      bet: {
+        multiplier: betUnlocked ? levelsBeat : 0,
+        total: betTotal,
+        unlocked: betUnlocked,
       },
       lamed: {
         multiplier: lamedUnlocked ? lamedRate * 60 : 0,

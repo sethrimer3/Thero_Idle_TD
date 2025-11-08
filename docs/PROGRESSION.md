@@ -186,9 +186,9 @@ The **Fluid Study** is an advanced progression system that unlocks after reachin
 - **Water Dynamics:** Drops merge into a continuous surface that ripples and equalizes over time, creating more organic wave patterns than the discrete sand grains.
 - **Idle Drop Reservoir:** Like the Mote Spire's idle bank, accumulated idle drops continuously drain into the basin at a configurable rate.
 
-### Dual Glyph System: Aleph (ℵ) & Tet (ט)
+### Dual Glyph System: Aleph (ℵ) & Bet (בּ)
 
-The Fluid Study introduces a second type of upgrade currency through **Tet glyphs**, complementing the existing **Aleph glyph** system from the Mote Spire.
+The Fluid Study introduces a second type of upgrade currency through **Bet glyphs**, complementing the existing **Aleph glyph** system from the Mote Spire.
 
 #### Aleph Glyphs (ℵ) – Left Wall
 - Appear on the **left wall** of the Fluid Study
@@ -197,22 +197,22 @@ The Fluid Study introduces a second type of upgrade currency through **Tet glyph
 - Serve as the primary tower upgrade currency
 - Thresholds occur every **50% of viewport height** (0.5 normalized height intervals)
 
-#### Tet Glyphs (ט) – Right Wall
+#### Bet Glyphs (בּ) – Right Wall
 - Appear on the **right wall** of the Fluid Study
-- Use the Hebrew letter **Tet (ט)** with subscript numbering: ט₁, ט₂, ט₃, etc.
+- Use the Hebrew letter **Bet with dagesh (בּ)** with subscript numbering: בּ₁, בּ₂, בּ₃, etc.
 - **Exclusive to the Fluid Study** – cannot be collected from the Mote Spire
 - Serve as a **second type of upgrade currency** for specialized tower research
 - Share the same height threshold intervals as Aleph glyphs (50% normalized height)
-- Numbering starts at **ט₁** (index 1), distinguishing them from Aleph's ℵ₀ start
+- Numbering starts at **בּ₁** (index 1), distinguishing them from Aleph's ℵ₀ start
 
 ### Glyph Collection Rules
-- Both Aleph and Tet glyphs are earned automatically as the water depth crosses their threshold heights
+- Both Aleph and Bet glyphs are earned automatically as the water depth crosses their threshold heights
 - Glyphs remain lit permanently once achieved, even if water level drops
 - The camera pans to keep upcoming glyphs visible as the basin fills
 - Progress is saved and persists across sessions and simulation mode switches
 - Each glyph type maintains independent currency tracking for specialized upgrade paths
 
-This dual-currency system allows for deeper strategic choices in tower development, with Tet glyphs unlocking research branches unique to the Fluid Study's advanced progression tier.
+This dual-currency system allows for deeper strategic choices in tower development, with Bet glyphs unlocking research branches unique to the Fluid Study's advanced progression tier.
 
 ## Planned Future Spires
 
