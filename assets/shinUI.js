@@ -102,8 +102,15 @@ function renderFractalTabs() {
       ? `Layer ${state.layersCompleted}`
       : 'Locked';
     
+    const tabIterons = document.createElement('span');
+    tabIterons.className = 'shin-fractal-tab-iterons';
+    tabIterons.textContent = state.unlocked && state.allocated > 0
+      ? `${formatGameNumber(state.allocated)} ℸ`
+      : '';
+    
     tab.appendChild(tabName);
     tab.appendChild(tabLayers);
+    tab.appendChild(tabIterons);
     
     if (state.unlocked) {
       tab.addEventListener('click', () => {
@@ -282,6 +289,12 @@ export function updateShinDisplay() {
       const layersElement = tab.querySelector('.shin-fractal-tab-layers');
       if (layersElement) {
         layersElement.textContent = `Layer ${state.layersCompleted}`;
+      }
+      const iteronsElement = tab.querySelector('.shin-fractal-tab-iterons');
+      if (iteronsElement) {
+        iteronsElement.textContent = state.allocated > 0
+          ? `${formatGameNumber(state.allocated)} ℸ`
+          : '';
       }
     }
   });
