@@ -122,10 +122,11 @@ export class JuliaCloudSimulation {
       return 0;
     }
     
-    // Smooth gradient mapping
-    // Logarithmic scaling for better visual distribution
-    const t = Math.log(iterations + 1) / Math.log(this.maxIterations + 1);
-    return Math.floor(t * 255);
+    // Smooth gradient mapping with better contrast
+    // Square root scaling provides better visual distribution than logarithmic
+    const t = Math.sqrt(iterations / this.maxIterations);
+    // Map to a range that provides more visible contrast (50-255 instead of 0-255)
+    return Math.floor(50 + t * 205);
   }
 
   /**

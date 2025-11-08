@@ -6607,13 +6607,21 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   display: flex;
   justify-content: center;
   align-items: center;
+  /* Ensure square aspect ratio */
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
 }
 
 .shin-fractal-canvas {
   display: block;
-  max-width: 100%;
-  height: auto;
+  width: 100%;
+  height: 100%;
+  max-width: 240px;
+  max-height: 240px;
   border-radius: 4px;
+  /* Maintain square aspect ratio */
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
 }
 
 /* Navigation card */
