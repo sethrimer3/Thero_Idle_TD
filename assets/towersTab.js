@@ -205,7 +205,7 @@ const towerTabState = {
   audioManager: null,
   playfield: null,
   glyphCurrency: 0,
-  tetGlyphCurrency: 0,
+  betGlyphCurrency: 0,
   hideUpgradeMatrix: null,
   renderUpgradeMatrix: null,
   discoveredVariables: new Map(),
@@ -307,22 +307,22 @@ export function getGlyphCurrency() {
   return towerTabState.glyphCurrency;
 }
 
-export function setTetGlyphCurrency(value) {
+export function setBetGlyphCurrency(value) {
   if (Number.isFinite(value)) {
-    towerTabState.tetGlyphCurrency = Math.max(0, Math.floor(value));
+    towerTabState.betGlyphCurrency = Math.max(0, Math.floor(value));
     updateTowerUpgradeGlyphDisplay();
-    updateStatusDisplaysCallback?.(); // Update tower tab resource summary to reflect Tet glyph changes.
+    updateStatusDisplaysCallback?.(); // Update tower tab resource summary to reflect Bet glyph changes.
   }
 }
 
-export function addTetGlyphCurrency(delta) {
+export function addBetGlyphCurrency(delta) {
   if (Number.isFinite(delta)) {
-    setTetGlyphCurrency(towerTabState.tetGlyphCurrency + delta);
+    setBetGlyphCurrency(towerTabState.betGlyphCurrency + delta);
   }
 }
 
-export function getTetGlyphCurrency() {
-  return towerTabState.tetGlyphCurrency;
+export function getBetGlyphCurrency() {
+  return towerTabState.betGlyphCurrency;
 }
 
 export function setTheroSymbol(symbol = 'þ') {

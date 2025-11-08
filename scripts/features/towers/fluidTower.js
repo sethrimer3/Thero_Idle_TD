@@ -1,6 +1,6 @@
 /**
  * Fluid tower simulation module extracted from the powder tower bundle.
- * Provides the shallow-water style drop simulation used by the Tet Spire.
+ * Provides the shallow-water style drop simulation used by the Bet Spire.
  */
 import {
   DEFAULT_MOTE_PALETTE,
@@ -198,7 +198,7 @@ export class FluidSimulation {
     const attrHeight = Number.parseFloat(this.canvas.getAttribute('height')) || 0;
     const intrinsicWidth = attrWidth > 0 ? attrWidth : measuredWidth;
 
-    // Lock the Tet Spire viewport to its intrinsic canvas size so window resizes
+    // Lock the Bet Spire viewport to its intrinsic canvas size so window resizes
     // do not stretch or compress the simulation state.
     const previousWidth = Number.isFinite(this.width) && this.width > 0 ? this.width : 0;
     const baseWidth = previousWidth || intrinsicWidth || 240;
@@ -617,7 +617,7 @@ export class FluidSimulation {
     this.notifyIdleBankChange();
   }
 
-  // Mirror the sand simulation API so idle banks hydrate the Tet Spire.
+  // Mirror the sand simulation API so idle banks hydrate the Bet Spire.
   addIdleMotes(amount) {
     this.addIdleVolume(amount);
   }
@@ -928,7 +928,7 @@ export class FluidSimulation {
     };
   }
 
-  // Report the active camera transform (static for the Tet Spire) to the host UI.
+  // Report the active camera transform (static for the Bet Spire) to the host UI.
   getViewTransform() {
     const width = this.width || this.canvas?.clientWidth || 0;
     const height = this.height || this.canvas?.clientHeight || 0;
@@ -948,7 +948,7 @@ export class FluidSimulation {
     }
   }
 
-  // Accept normalized camera centers even though the Tet Spire keeps a static viewpoint.
+  // Accept normalized camera centers even though the Bet Spire keeps a static viewpoint.
   setViewCenterNormalized(normalized) {
     const next = {
       x: Number.isFinite(normalized?.x) ? Math.max(0, Math.min(1, normalized.x)) : 0.5,
