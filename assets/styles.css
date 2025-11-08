@@ -6607,9 +6607,9 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   display: flex;
   justify-content: center;
   align-items: center;
-  /* Ensure square aspect ratio */
+  /* Ensure 2:3 aspect ratio (portrait) */
   max-width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 2 / 3;
 }
 
 .shin-fractal-canvas {
@@ -6617,10 +6617,10 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   width: 100%;
   height: 100%;
   max-width: 240px;
-  max-height: 240px;
+  max-height: 360px;
   border-radius: 4px;
-  /* Maintain square aspect ratio */
-  aspect-ratio: 1 / 1;
+  /* Maintain 2:3 aspect ratio (portrait) */
+  aspect-ratio: 2 / 3;
   object-fit: contain;
 }
 
