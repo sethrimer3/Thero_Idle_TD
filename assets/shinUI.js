@@ -38,11 +38,13 @@ const FRACTAL_RENDER_HANDLERS = new Map([
     create: (canvas, fractal, state) => new FractalTreeSimulation({
       canvas,
       ...fractal.config,
-      maxDepth: Math.min(fractal.config?.maxDepth || 9, 6 + (state?.layersCompleted || 0))
+      maxDepth: Math.min(fractal.config?.maxDepth || 9, 6 + (state?.layersCompleted || 0)),
+      allocated: state?.allocated || 0
     }),
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        maxDepth: Math.min(fractal.config?.maxDepth || 9, 6 + (state?.layersCompleted || 0))
+        maxDepth: Math.min(fractal.config?.maxDepth || 9, 6 + (state?.layersCompleted || 0)),
+        allocated: state?.allocated || 0
       });
     }
   }],
@@ -50,11 +52,13 @@ const FRACTAL_RENDER_HANDLERS = new Map([
     create: (canvas, fractal, state) => new JuliaCloudSimulation({
       canvas,
       ...fractal.config,
-      maxIterations: (fractal.config?.maxIterations || 80) + (state?.layersCompleted || 0) * 8
+      maxIterations: (fractal.config?.maxIterations || 80) + (state?.layersCompleted || 0) * 8,
+      allocated: state?.allocated || 0
     }),
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        maxIterations: (fractal.config?.maxIterations || 80) + (state?.layersCompleted || 0) * 8
+        maxIterations: (fractal.config?.maxIterations || 80) + (state?.layersCompleted || 0) * 8,
+        allocated: state?.allocated || 0
       });
     }
   }],
@@ -62,11 +66,13 @@ const FRACTAL_RENDER_HANDLERS = new Map([
     create: (canvas, fractal, state) => new KochSnowflakeSimulation({
       canvas,
       ...fractal.config,
-      iterations: Math.min(fractal.config?.iterations || 4, 2 + (state?.layersCompleted || 0))
+      iterations: Math.min(fractal.config?.iterations || 4, 2 + (state?.layersCompleted || 0)),
+      allocated: state?.allocated || 0
     }),
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        iterations: Math.min(fractal.config?.iterations || 4, 2 + (state?.layersCompleted || 0))
+        iterations: Math.min(fractal.config?.iterations || 4, 2 + (state?.layersCompleted || 0)),
+        allocated: state?.allocated || 0
       });
     }
   }],
@@ -74,11 +80,13 @@ const FRACTAL_RENDER_HANDLERS = new Map([
     create: (canvas, fractal, state) => new BarnsleyFernSimulation({
       canvas,
       ...fractal.config,
-      pointDensity: (fractal.config?.pointDensity || 30000) + (state?.layersCompleted || 0) * 6000
+      pointDensity: (fractal.config?.pointDensity || 30000) + (state?.layersCompleted || 0) * 6000,
+      allocated: state?.allocated || 0
     }),
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        pointDensity: (fractal.config?.pointDensity || 30000) + (state?.layersCompleted || 0) * 6000
+        pointDensity: (fractal.config?.pointDensity || 30000) + (state?.layersCompleted || 0) * 6000,
+        allocated: state?.allocated || 0
       });
     }
   }],
@@ -86,11 +94,13 @@ const FRACTAL_RENDER_HANDLERS = new Map([
     create: (canvas, fractal, state) => new DragonCurveSimulation({
       canvas,
       ...fractal.config,
-      iterations: Math.min(fractal.config?.iterations || 10, 6 + (state?.layersCompleted || 0))
+      iterations: Math.min(fractal.config?.iterations || 10, 6 + (state?.layersCompleted || 0)),
+      allocated: state?.allocated || 0
     }),
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        iterations: Math.min(fractal.config?.iterations || 10, 6 + (state?.layersCompleted || 0))
+        iterations: Math.min(fractal.config?.iterations || 10, 6 + (state?.layersCompleted || 0)),
+        allocated: state?.allocated || 0
       });
     }
   }],
@@ -98,11 +108,13 @@ const FRACTAL_RENDER_HANDLERS = new Map([
     create: (canvas, fractal, state) => new PhoenixFractalSimulation({
       canvas,
       ...fractal.config,
-      maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 10
+      maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 10,
+      allocated: state?.allocated || 0
     }),
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 10
+        maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 10,
+        allocated: state?.allocated || 0
       });
     }
   }],
@@ -110,11 +122,13 @@ const FRACTAL_RENDER_HANDLERS = new Map([
     create: (canvas, fractal, state) => new NewtonFractalSimulation({
       canvas,
       ...fractal.config,
-      maxIterations: (fractal.config?.maxIterations || 20) + (state?.layersCompleted || 0) * 6
+      maxIterations: (fractal.config?.maxIterations || 20) + (state?.layersCompleted || 0) * 6,
+      allocated: state?.allocated || 0
     }),
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        maxIterations: (fractal.config?.maxIterations || 20) + (state?.layersCompleted || 0) * 6
+        maxIterations: (fractal.config?.maxIterations || 20) + (state?.layersCompleted || 0) * 6,
+        allocated: state?.allocated || 0
       });
     }
   }],
@@ -123,12 +137,14 @@ const FRACTAL_RENDER_HANDLERS = new Map([
       canvas,
       ...fractal.config,
       maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 12,
-      zoom: (fractal.config?.zoom || 1) * (1 + (state?.layersCompleted || 0) * 0.08)
+      zoom: (fractal.config?.zoom || 1) * (1 + (state?.layersCompleted || 0) * 0.08),
+      allocated: state?.allocated || 0
     }),
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
         maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 12,
-        zoom: (fractal.config?.zoom || 1) * (1 + (state?.layersCompleted || 0) * 0.08)
+        zoom: (fractal.config?.zoom || 1) * (1 + (state?.layersCompleted || 0) * 0.08),
+        allocated: state?.allocated || 0
       });
     }
   }],
@@ -136,11 +152,13 @@ const FRACTAL_RENDER_HANDLERS = new Map([
     create: (canvas, fractal, state) => new LyapunovFractalSimulation({
       canvas,
       ...fractal.config,
-      iterations: (fractal.config?.iterations || 80) + (state?.layersCompleted || 0) * 40
+      iterations: (fractal.config?.iterations || 80) + (state?.layersCompleted || 0) * 40,
+      allocated: state?.allocated || 0
     }),
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        iterations: (fractal.config?.iterations || 80) + (state?.layersCompleted || 0) * 40
+        iterations: (fractal.config?.iterations || 80) + (state?.layersCompleted || 0) * 40,
+        allocated: state?.allocated || 0
       });
     }
   }]

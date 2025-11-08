@@ -133,6 +133,7 @@ import {
   updateShinDisplay,
   refreshFractalTabs,
   setShinUIUpdateCallback,
+  updateFractalSimulation,
 } from './shinUI.js';
 // Shared color palette orchestration utilities.
 import {
@@ -3892,6 +3893,7 @@ import {
         const deltaMs = deltaSeconds * 1000;
         updateShinState(deltaMs);
         updateShinDisplay();
+        updateFractalSimulation(); // Update fractal rendering based on new allocations
       } catch (error) {
         console.error('Error updating Shin state:', error);
       }

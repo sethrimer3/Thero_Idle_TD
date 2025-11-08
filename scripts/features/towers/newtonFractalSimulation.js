@@ -20,6 +20,7 @@ export class NewtonFractalSimulation {
 
     this.imageData = this.ctx ? this.ctx.createImageData(this.width, this.height) : null;
     this.currentRow = 0;
+    this.targetRows = 0; // Target rows based on allocated resources
 
     this.roots = [
       { x: 1, y: 0 },
@@ -107,8 +108,9 @@ export class NewtonFractalSimulation {
       return;
     }
 
+    // Render rows up to target based on allocated resources
     let processed = 0;
-    while (this.currentRow < this.height && processed < this.rowsPerFrame) {
+    while (this.currentRow < this.targetRows && processed < this.rowsPerFrame) {
       for (let x = 0; x < this.width; x++) {
         const { rootIndex, iteration } = this.iteratePixel(x, this.currentRow);
         const baseColor = this.rootColors[rootIndex];
@@ -135,15 +137,32 @@ export class NewtonFractalSimulation {
   /**
    * Adjusts Newton iteration depth and refreshes the render to react to new
    * Shin Spire layers.
+   * 
+   * @param {Object} config - Configuration object
+   * @param {number} config.maxIterations - Max iterations (complexity from layers)
+   * @param {number} config.allocated - Allocated iterons (controls rendering progress)
+   * @param {number} config.epsilon - Convergence epsilon
    */
   updateConfig(config = {}) {
     let rebuild = false;
     if (typeof config.maxIterations === 'number') {
-      this.maxIterations = Math.max(5, config.maxIterations);
-      rebuild = true;
+      const newIterations = Math.max(5, config.maxIterations);
+      if (newIterations !== this.maxIterations) {
+        this.maxIterations = newIterations;
+        rebuild = true;
+      }
     }
     if (typeof config.epsilon === 'number') {
       this.epsilon = Math.max(1e-7, config.epsilon);
+    }
+
+    // Update target rows based on allocated resources
+    // Start with 1 row (simple line) and grow to full height
+    if (typeof config.allocated === 'number') {
+      const minRows = 1;
+      const maxRows = this.height;
+      const progress = Math.min(1, config.allocated / (this.maxIterations * 100));
+      this.targetRows = Math.floor(minRows + (maxRows - minRows) * progress);
     }
 
     if (rebuild && this.imageData) {
