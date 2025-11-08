@@ -3949,7 +3949,7 @@ import {
 
     const target = options && typeof options === 'object' ? options.target : undefined;
     let targetIsFluid;
-    if (target === 'bet') {
+    if (target === 'tet') {
       targetIsFluid = true;
     } else if (target === 'aleph') {
       targetIsFluid = false;
@@ -7895,7 +7895,7 @@ import {
     const defaultSummary = {
       minutes: 0,
       aleph: { multiplier: 0, total: 0, unlocked: true },
-      bet: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
+      tet: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
       lamed: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.lamed?.unlocked) },
       tsadi: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.tsadi?.unlocked) },
       shin: { multiplier: 0, total: 0, unlocked: false },
@@ -7918,8 +7918,8 @@ import {
     );
 
     const alephTotal = minutes * achievementsUnlocked;
-    const betUnlocked = Boolean(powderState.fluidUnlocked);
-    const betTotal = betUnlocked ? minutes * levelsBeat : 0;
+    const tetUnlocked = Boolean(powderState.fluidUnlocked);
+    const tetTotal = tetUnlocked ? minutes * levelsBeat : 0;
     
     // Lamed: 1 spark per second when unlocked
     const lamedUnlocked = Boolean(spireResourceState.lamed?.unlocked);
@@ -7943,8 +7943,8 @@ import {
     if (alephTotal > 0) {
       addIdleMoteBank(alephTotal, { target: 'aleph' });
     }
-    if (betTotal > 0) {
-      addIdleMoteBank(betTotal, { target: 'bet' });
+    if (tetTotal > 0) {
+      addIdleMoteBank(tetTotal, { target: 'tet' });
     }
     if (lamedTotal > 0 && lamedUnlocked) {
       setLamedSparkBank(getLamedSparkBank() + lamedTotal);
@@ -7965,10 +7965,10 @@ import {
         total: alephTotal,
         unlocked: true,
       },
-      bet: {
-        multiplier: betUnlocked ? levelsBeat : 0,
-        total: betTotal,
-        unlocked: betUnlocked,
+      tet: {
+        multiplier: tetUnlocked ? levelsBeat : 0,
+        total: tetTotal,
+        unlocked: tetUnlocked,
       },
       lamed: {
         multiplier: lamedUnlocked ? lamedRate * 60 : 0,
