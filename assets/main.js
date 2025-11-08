@@ -7894,6 +7894,10 @@ import {
       minutes: 0,
       aleph: { multiplier: 0, total: 0, unlocked: true },
       bet: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
+      lamed: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.lamed?.unlocked) },
+      tsadi: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.tsadi?.unlocked) },
+      shin: { multiplier: 0, total: 0, unlocked: false },
+      kuf: { multiplier: 0, total: 0, unlocked: false },
     };
     if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) {
       return defaultSummary;
@@ -7901,6 +7905,7 @@ import {
 
     gameStats.idleMillisecondsAccumulated += elapsedMs;
     const minutes = Math.max(0, elapsedMs / 60000);
+    const seconds = Math.max(0, elapsedMs / 1000);
     const achievementsUnlocked = Math.max(
       0,
       Math.floor(getUnlockedAchievementCount()),
@@ -7913,12 +7918,40 @@ import {
     const alephTotal = minutes * achievementsUnlocked;
     const betUnlocked = Boolean(powderState.fluidUnlocked);
     const betTotal = betUnlocked ? minutes * levelsBeat : 0;
+    
+    // Lamed: 1 spark per second when unlocked
+    const lamedUnlocked = Boolean(spireResourceState.lamed?.unlocked);
+    const lamedRate = 1.0; // sparks per second
+    const lamedTotal = lamedUnlocked ? seconds * lamedRate : 0;
+    
+    // Tsadi: 2 particles per second when unlocked
+    const tsadiUnlocked = Boolean(spireResourceState.tsadi?.unlocked);
+    const tsadiRate = 2.0; // particles per second
+    const tsadiTotal = tsadiUnlocked ? seconds * tsadiRate : 0;
+    
+    // Shin: Iterons at the iteration rate
+    const shinUnlocked = typeof getIteronBank === 'function';
+    const shinRate = shinUnlocked && typeof getIterationRate === 'function' ? getIterationRate() : 0;
+    const shinTotal = shinUnlocked ? seconds * shinRate : 0;
+    
+    // Kuf: Not yet implemented
+    const kufUnlocked = false;
+    const kufTotal = 0;
 
     if (alephTotal > 0) {
       addIdleMoteBank(alephTotal, { target: 'aleph' });
     }
     if (betTotal > 0) {
       addIdleMoteBank(betTotal, { target: 'bet' });
+    }
+    if (lamedTotal > 0 && lamedUnlocked) {
+      setLamedSparkBank(getLamedSparkBank() + lamedTotal);
+    }
+    if (tsadiTotal > 0 && tsadiUnlocked) {
+      setTsadiParticleBank(getTsadiParticleBank() + tsadiTotal);
+    }
+    if (shinTotal > 0 && shinUnlocked && typeof addIterons === 'function') {
+      addIterons(shinTotal);
     }
 
     evaluateAchievements();
@@ -7934,6 +7967,26 @@ import {
         multiplier: betUnlocked ? levelsBeat : 0,
         total: betTotal,
         unlocked: betUnlocked,
+      },
+      lamed: {
+        multiplier: lamedUnlocked ? lamedRate * 60 : 0,
+        total: lamedTotal,
+        unlocked: lamedUnlocked,
+      },
+      tsadi: {
+        multiplier: tsadiUnlocked ? tsadiRate * 60 : 0,
+        total: tsadiTotal,
+        unlocked: tsadiUnlocked,
+      },
+      shin: {
+        multiplier: shinUnlocked ? shinRate * 60 : 0,
+        total: shinTotal,
+        unlocked: shinUnlocked,
+      },
+      kuf: {
+        multiplier: 0,
+        total: 0,
+        unlocked: kufUnlocked,
       },
     };
   }
