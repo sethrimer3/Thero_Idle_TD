@@ -481,6 +481,7 @@ import {
     EQUIPMENT_STORAGE_KEY,
     OFFLINE_STORAGE_KEY,
     COLOR_SCHEME_STORAGE_KEY,
+    SHIN_STATE_STORAGE_KEY,
   ].filter(Boolean);
 
   const overlayHideStates = new WeakMap();
