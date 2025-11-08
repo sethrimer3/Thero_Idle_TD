@@ -6467,6 +6467,18 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: rgba(139, 247, 255, 0.95);
 }
 
+.shin-fractal-tab-iterons {
+  font-size: 0.65rem;
+  font-family: 'Space Mono', monospace;
+  color: rgba(247, 247, 245, 0.5);
+  margin-top: 2px;
+  min-height: 0.8rem;
+}
+
+.shin-fractal-tab--active .shin-fractal-tab-iterons {
+  color: rgba(139, 247, 255, 0.8);
+}
+
 /* Layer progress */
 .shin-progress-card {
   margin-bottom: 20px;
