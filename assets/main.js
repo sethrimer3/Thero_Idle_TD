@@ -7893,7 +7893,11 @@ import {
     const defaultSummary = {
       minutes: 0,
       aleph: { multiplier: 0, total: 0, unlocked: true },
-      bet: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
+      tet: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
+      lamed: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.lamed?.unlocked) },
+      tsadi: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.tsadi?.unlocked) },
+      shin: { multiplier: 0, total: 0, unlocked: Boolean(getShinGlyphs() > 0) },
+      kuf: { multiplier: 0, total: 0, unlocked: false },
     };
     if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) {
       return defaultSummary;
@@ -7911,14 +7915,44 @@ import {
     );
 
     const alephTotal = minutes * achievementsUnlocked;
-    const betUnlocked = Boolean(powderState.fluidUnlocked);
-    const betTotal = betUnlocked ? minutes * levelsBeat : 0;
+    const tetUnlocked = Boolean(powderState.fluidUnlocked);
+    const tetTotal = tetUnlocked ? minutes * levelsBeat : 0;
+    
+    // Lamed idle rewards based on spark accumulation rate (placeholder multiplier)
+    const lamedUnlocked = Boolean(spireResourceState.lamed?.unlocked);
+    const lamedMultiplier = lamedUnlocked ? Math.max(1, Math.floor(getLamedSparkBank() / 50)) : 0;
+    const lamedTotal = lamedUnlocked ? minutes * lamedMultiplier : 0;
+    
+    // Tsadi idle rewards based on particle accumulation rate (placeholder multiplier)
+    const tsadiUnlocked = Boolean(spireResourceState.tsadi?.unlocked);
+    const tsadiMultiplier = tsadiUnlocked ? Math.max(1, Math.floor(getTsadiParticleBank() / 50)) : 0;
+    const tsadiTotal = tsadiUnlocked ? minutes * tsadiMultiplier : 0;
+    
+    // Shin idle rewards based on current glyph count
+    const shinGlyphCount = getShinGlyphs();
+    const shinUnlocked = shinGlyphCount > 0;
+    const shinMultiplier = shinUnlocked ? Math.max(1, Math.floor(shinGlyphCount / 10)) : 0;
+    const shinTotal = shinUnlocked ? minutes * shinMultiplier : 0;
+    
+    // Kuf is not yet implemented, so it remains locked
+    const kufUnlocked = false;
+    const kufTotal = 0;
 
     if (alephTotal > 0) {
       addIdleMoteBank(alephTotal, { target: 'aleph' });
     }
-    if (betTotal > 0) {
-      addIdleMoteBank(betTotal, { target: 'bet' });
+    if (tetTotal > 0) {
+      addIdleMoteBank(tetTotal, { target: 'bet' });
+    }
+    if (lamedTotal > 0) {
+      setLamedSparkBank(getLamedSparkBank() + lamedTotal);
+    }
+    if (tsadiTotal > 0) {
+      setTsadiParticleBank(getTsadiParticleBank() + tsadiTotal);
+    }
+    if (shinTotal > 0) {
+      // Shin glyphs are earned through fractal progression, not idle time, so we don't add them here
+      // But we still show them in the overlay
     }
 
     evaluateAchievements();
@@ -7930,10 +7964,30 @@ import {
         total: alephTotal,
         unlocked: true,
       },
-      bet: {
-        multiplier: betUnlocked ? levelsBeat : 0,
-        total: betTotal,
-        unlocked: betUnlocked,
+      tet: {
+        multiplier: tetUnlocked ? levelsBeat : 0,
+        total: tetTotal,
+        unlocked: tetUnlocked,
+      },
+      lamed: {
+        multiplier: lamedMultiplier,
+        total: lamedTotal,
+        unlocked: lamedUnlocked,
+      },
+      tsadi: {
+        multiplier: tsadiMultiplier,
+        total: tsadiTotal,
+        unlocked: tsadiUnlocked,
+      },
+      shin: {
+        multiplier: shinMultiplier,
+        total: shinTotal,
+        unlocked: shinUnlocked,
+      },
+      kuf: {
+        multiplier: 0,
+        total: kufTotal,
+        unlocked: kufUnlocked,
       },
     };
   }
