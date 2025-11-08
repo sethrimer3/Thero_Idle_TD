@@ -229,7 +229,7 @@ function renderFractalContent(fractal, state) {
   canvas.id = `shin-fractal-canvas-${fractal.id}`;
   canvas.className = 'shin-fractal-canvas';
   canvas.width = 240;
-  canvas.height = 320;
+  canvas.height = 240;
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', `${fractal.name} visualization`);
   
