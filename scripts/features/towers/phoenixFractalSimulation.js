@@ -24,6 +24,7 @@ export class PhoenixFractalSimulation {
 
     this.imageData = this.ctx ? this.ctx.createImageData(this.width, this.height) : null;
     this.currentRow = 0;
+    this.targetRows = 0; // Target rows based on allocated resources
   }
 
   mapToPlane(px, py) {
@@ -66,8 +67,9 @@ export class PhoenixFractalSimulation {
       return;
     }
 
+    // Render rows up to target based on allocated resources
     let processed = 0;
-    while (this.currentRow < this.height && processed < this.rowsPerFrame) {
+    while (this.currentRow < this.targetRows && processed < this.rowsPerFrame) {
       for (let x = 0; x < this.width; x++) {
         const iteration = this.iteratePixel(x, this.currentRow);
         const color = this.colorize(iteration);
@@ -139,28 +141,51 @@ export class PhoenixFractalSimulation {
   /**
    * Updates escape parameters and clears the render buffer to allow deeper
    * layers to refine the Phoenix attractor.
+   * 
+   * @param {Object} config - Configuration object
+   * @param {number} config.maxIterations - Max iterations (complexity from layers)
+   * @param {number} config.allocated - Allocated iterons (controls rendering progress)
+   * @param {number} config.colorShift - Color shift parameter
+   * @param {number} config.zoom - Zoom level
+   * @param {number} config.centerX - Center X coordinate
+   * @param {number} config.centerY - Center Y coordinate
    */
   updateConfig(config = {}) {
     let rebuild = false;
     if (typeof config.maxIterations === 'number') {
-      this.maxIterations = Math.max(10, config.maxIterations);
-      rebuild = true;
+      const newIterations = Math.max(10, config.maxIterations);
+      if (newIterations !== this.maxIterations) {
+        this.maxIterations = newIterations;
+        rebuild = true;
+      }
     }
-    if (typeof config.colorShift === 'number') {
+    if (typeof config.colorShift === 'number' && config.colorShift !== this.colorShift) {
       this.colorShift = config.colorShift;
       rebuild = true;
     }
     if (typeof config.zoom === 'number') {
-      this.zoom = Math.max(0.2, config.zoom);
-      rebuild = true;
+      const newZoom = Math.max(0.2, config.zoom);
+      if (newZoom !== this.zoom) {
+        this.zoom = newZoom;
+        rebuild = true;
+      }
     }
-    if (typeof config.centerX === 'number') {
+    if (typeof config.centerX === 'number' && config.centerX !== this.centerX) {
       this.centerX = config.centerX;
       rebuild = true;
     }
-    if (typeof config.centerY === 'number') {
+    if (typeof config.centerY === 'number' && config.centerY !== this.centerY) {
       this.centerY = config.centerY;
       rebuild = true;
+    }
+
+    // Update target rows based on allocated resources
+    // Start with 1 row (simple line) and grow to full height
+    if (typeof config.allocated === 'number') {
+      const minRows = 1;
+      const maxRows = this.height;
+      const progress = Math.min(1, config.allocated / (this.maxIterations * 100));
+      this.targetRows = Math.floor(minRows + (maxRows - minRows) * progress);
     }
 
     if (rebuild && this.imageData) {

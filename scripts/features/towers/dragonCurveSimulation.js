@@ -22,6 +22,7 @@ export class DragonCurveSimulation {
     this.turnSequence = [];
     this.pathPoints = [];
     this.progress = 0;
+    this.targetProgress = 0; // Target progress based on allocated resources
     this.drawSpeed = options.drawSpeed || 0.015;
 
     this.buildSequence();
@@ -90,8 +91,9 @@ export class DragonCurveSimulation {
     if (!this.canvas || !this.ctx) {
       return;
     }
-    if (this.progress < 1) {
-      this.progress = Math.min(1, this.progress + this.drawSpeed);
+    // Grow toward target progress based on allocated resources
+    if (this.progress < this.targetProgress) {
+      this.progress = Math.min(this.targetProgress, this.progress + this.drawSpeed);
     }
   }
 
@@ -140,6 +142,11 @@ export class DragonCurveSimulation {
 
   /**
    * Allows layer progress to extend iteration depth and redraw the curve.
+   * 
+   * @param {Object} config - Configuration object
+   * @param {number} config.iterations - Number of iterations (complexity from layers)
+   * @param {number} config.allocated - Allocated iterons (controls drawing progress)
+   * @param {number} config.segmentLength - Length of each segment
    */
   updateConfig(config = {}) {
     let rebuildNeeded = false;
@@ -158,10 +165,20 @@ export class DragonCurveSimulation {
       }
     }
 
+    // Update target progress based on allocated resources
+    // Start with 0 progress (no line) and grow to full curve
+    if (typeof config.allocated === 'number') {
+      // Estimate complexity: 2^iterations segments
+      const maxSegments = Math.pow(2, this.iterations);
+      const progress = Math.min(1, config.allocated / (maxSegments * 0.5));
+      this.targetProgress = progress;
+    }
+
     if (rebuildNeeded) {
       this.buildSequence();
       this.buildPath();
       this.progress = 0;
+      this.targetProgress = 0;
     }
   }
 }

@@ -107,6 +107,10 @@ export class FractalTreeSimulation {
     // Animation
     this.haloFrames = 15; // How long to show the halo effect
 
+    // Growth control based on allocated resources
+    this.targetSegments = 1; // Start with just the root (simple stem)
+    this.segmentsGrown = 0; // Count of segments that have been grown
+
     this.reset();
   }
 
@@ -158,6 +162,7 @@ export class FractalTreeSimulation {
     this.growthQueue = [];
     this.segmentMap.clear();
     this.isComplete = false;
+    this.segmentsGrown = 0;
 
     if (!this.canvas) return;
 
@@ -187,24 +192,27 @@ export class FractalTreeSimulation {
    * Updates the simulation by growing segments from the queue.
    */
   update() {
-    if (this.isComplete || this.growthQueue.length === 0) {
-      // Age all segments for animation purposes
-      for (const segment of this.segments) {
-        segment.age++;
-      }
-      
+    // Age all segments for animation purposes
+    for (const segment of this.segments) {
+      segment.age++;
+    }
+
+    // Check if we've reached the target segment count or completed growth
+    if (this.segmentsGrown >= this.targetSegments || this.growthQueue.length === 0) {
       if (this.growthQueue.length === 0) {
         this.isComplete = true;
       }
       return;
     }
 
-    // Grow exactly 'growthRate' segments per frame
-    const segmentsToGrow = Math.min(this.growthRate, this.growthQueue.length);
+    // Grow segments up to the target based on allocated resources
+    const remaining = this.targetSegments - this.segmentsGrown;
+    const segmentsToGrow = Math.min(this.growthRate, this.growthQueue.length, remaining);
     
     for (let i = 0; i < segmentsToGrow; i++) {
       const parent = this.growthQueue.shift();
       parent.hasGrown = true;
+      this.segmentsGrown++;
 
       // Stop growing if we've reached max depth
       if (parent.depth >= this.maxDepth) {
@@ -213,11 +221,6 @@ export class FractalTreeSimulation {
 
       // Generate child segments
       this.spawnChildren(parent);
-    }
-
-    // Age all segments
-    for (const segment of this.segments) {
-      segment.age++;
     }
   }
 
@@ -397,19 +400,50 @@ export class FractalTreeSimulation {
 
   /**
    * Updates configuration and resets the tree.
+   * 
+   * @param {Object} config - Configuration object
+   * @param {number} config.maxDepth - Max depth (complexity from layers)
+   * @param {number} config.allocated - Allocated iterons (controls growth progress)
+   * @param {number} config.branchFactor - Number of branches per node
+   * @param {number} config.baseSpreadDeg - Angle spread between branches
+   * @param {number} config.lengthDecay - Length reduction per level
+   * @param {number} config.angleJitterDeg - Random angle variation
+   * @param {number} config.gravityBend - Downward bend factor
+   * @param {number} config.growthRate - Segments to grow per frame
+   * @param {string} config.renderStyle - 'straight' or 'bezier'
+   * @param {boolean} config.showLeaves - Whether to show leaves
+   * @param {number} config.seed - Random seed
    */
   updateConfig(config) {
+    let needsReset = false;
+
     if (config.branchFactor !== undefined) {
-      this.branchFactor = this.clamp(config.branchFactor, 2, 3);
+      const newFactor = this.clamp(config.branchFactor, 2, 3);
+      if (newFactor !== this.branchFactor) {
+        this.branchFactor = newFactor;
+        needsReset = true;
+      }
     }
     if (config.baseSpreadDeg !== undefined) {
-      this.baseSpreadDeg = this.clamp(config.baseSpreadDeg, 5, 45);
+      const newSpread = this.clamp(config.baseSpreadDeg, 5, 45);
+      if (newSpread !== this.baseSpreadDeg) {
+        this.baseSpreadDeg = newSpread;
+        needsReset = true;
+      }
     }
     if (config.lengthDecay !== undefined) {
-      this.lengthDecay = this.clamp(config.lengthDecay, 0.55, 0.85);
+      const newDecay = this.clamp(config.lengthDecay, 0.55, 0.85);
+      if (newDecay !== this.lengthDecay) {
+        this.lengthDecay = newDecay;
+        needsReset = true;
+      }
     }
     if (config.maxDepth !== undefined) {
-      this.maxDepth = this.clamp(config.maxDepth, 6, 13);
+      const newDepth = this.clamp(config.maxDepth, 6, 13);
+      if (newDepth !== this.maxDepth) {
+        this.maxDepth = newDepth;
+        needsReset = true;
+      }
     }
     if (config.angleJitterDeg !== undefined) {
       this.angleJitterDeg = this.clamp(config.angleJitterDeg, 0, 6);
@@ -428,8 +462,25 @@ export class FractalTreeSimulation {
     }
     if (config.seed !== undefined) {
       this.rng = new SeededRandom(config.seed);
+      needsReset = true;
     }
 
-    this.reset();
+    // Update target segments based on allocated resources
+    // Calculate maximum possible segments for the tree
+    if (config.allocated !== undefined) {
+      // Estimate max segments: sum of branchFactor^depth for each depth
+      let maxSegments = 1; // Root
+      for (let d = 1; d <= this.maxDepth; d++) {
+        maxSegments += Math.pow(this.branchFactor, d);
+      }
+      // Start with 1 segment (root) and grow based on allocation
+      const minSegments = 1;
+      const progress = Math.min(1, config.allocated / (maxSegments * 2));
+      this.targetSegments = Math.floor(minSegments + (maxSegments - minSegments) * progress);
+    }
+
+    if (needsReset) {
+      this.reset();
+    }
   }
 }

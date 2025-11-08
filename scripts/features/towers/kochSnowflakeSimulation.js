@@ -25,6 +25,7 @@ export class KochSnowflakeSimulation {
     this.points = [];
     this.segments = [];
     this.progress = 0; // 0 → 1 controls how many segments are visible
+    this.targetProgress = 0; // Target progress based on allocated resources
 
     this.rebuildGeometry();
   }
@@ -41,6 +42,7 @@ export class KochSnowflakeSimulation {
     this.points = [];
     this.segments = [];
     this.progress = 0;
+    this.targetProgress = 0;
 
     const size = Math.min(this.initialSize, this.canvas.width * 0.8);
     const height = size * Math.sqrt(3) / 2;
@@ -91,8 +93,9 @@ export class KochSnowflakeSimulation {
     if (!this.canvas || !this.ctx) {
       return;
     }
-    if (this.progress < 1) {
-      this.progress = Math.min(1, this.progress + this.drawSpeed);
+    // Grow toward target progress based on allocated resources
+    if (this.progress < this.targetProgress) {
+      this.progress = Math.min(this.targetProgress, this.progress + this.drawSpeed);
     }
   }
 
@@ -135,21 +138,50 @@ export class KochSnowflakeSimulation {
   /**
    * Updates simulation parameters and rebuilds geometry so layer progress can
    * deepen the recursion depth in sync with gameplay state.
+   * 
+   * @param {Object} config - Configuration object
+   * @param {number} config.iterations - Number of iterations (complexity from layers)
+   * @param {number} config.allocated - Allocated iterons (controls drawing progress)
+   * @param {number} config.initialSize - Size of the snowflake
+   * @param {number} config.drawSpeed - Speed of drawing animation
+   * @param {number} config.angleStep - Angle step in degrees
    */
   updateConfig(config = {}) {
+    let rebuildNeeded = false;
+    
     if (typeof config.iterations === 'number') {
-      this.iterations = this.clamp(config.iterations, 0, 6);
+      const newIterations = this.clamp(config.iterations, 0, 6);
+      if (newIterations !== this.iterations) {
+        this.iterations = newIterations;
+        rebuildNeeded = true;
+      }
     }
-    if (typeof config.initialSize === 'number') {
+    if (typeof config.initialSize === 'number' && config.initialSize !== this.initialSize) {
       this.initialSize = config.initialSize;
+      rebuildNeeded = true;
     }
     if (typeof config.drawSpeed === 'number') {
       this.drawSpeed = config.drawSpeed;
     }
     if (typeof config.angleStep === 'number') {
-      this.angleStep = (config.angleStep * Math.PI) / 180;
+      const newAngleStep = (config.angleStep * Math.PI) / 180;
+      if (newAngleStep !== this.angleStep) {
+        this.angleStep = newAngleStep;
+        rebuildNeeded = true;
+      }
     }
 
-    this.rebuildGeometry();
+    // Update target progress based on allocated resources
+    // Start with 0 progress (no line) and grow to full snowflake
+    if (typeof config.allocated === 'number') {
+      // Estimate complexity: 3 * 4^iterations segments
+      const maxSegments = 3 * Math.pow(4, this.iterations);
+      const progress = Math.min(1, config.allocated / (maxSegments * 0.3));
+      this.targetProgress = progress;
+    }
+
+    if (rebuildNeeded) {
+      this.rebuildGeometry();
+    }
   }
 }

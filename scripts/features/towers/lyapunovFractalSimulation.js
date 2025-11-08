@@ -21,6 +21,7 @@ export class LyapunovFractalSimulation {
 
     this.imageData = this.ctx ? this.ctx.createImageData(this.width, this.height) : null;
     this.currentRow = 0;
+    this.targetRows = 0; // Target rows based on allocated resources
   }
 
   mapParameters(px, py) {
@@ -78,8 +79,9 @@ export class LyapunovFractalSimulation {
       return;
     }
 
+    // Render rows up to target based on allocated resources
     let processed = 0;
-    while (this.currentRow < this.height && processed < this.rowsPerFrame) {
+    while (this.currentRow < this.targetRows && processed < this.rowsPerFrame) {
       for (let x = 0; x < this.width; x++) {
         const lambda = this.computeLyapunov(x, this.currentRow);
         const color = this.colorize(lambda);
@@ -104,16 +106,36 @@ export class LyapunovFractalSimulation {
 
   /**
    * Updates iteration depth or sequence and refreshes the heat map.
+   * 
+   * @param {Object} config - Configuration object
+   * @param {number} config.iterations - Number of iterations (complexity from layers)
+   * @param {number} config.allocated - Allocated iterons (controls rendering progress)
+   * @param {string} config.sequence - Binary sequence for Lyapunov
    */
   updateConfig(config = {}) {
     let rebuild = false;
     if (typeof config.iterations === 'number') {
-      this.iterations = Math.max(20, config.iterations);
-      rebuild = true;
+      const newIterations = Math.max(20, config.iterations);
+      if (newIterations !== this.iterations) {
+        this.iterations = newIterations;
+        rebuild = true;
+      }
     }
     if (typeof config.sequence === 'string' && config.sequence.length > 0) {
-      this.sequence = config.sequence.toUpperCase();
-      rebuild = true;
+      const newSequence = config.sequence.toUpperCase();
+      if (newSequence !== this.sequence) {
+        this.sequence = newSequence;
+        rebuild = true;
+      }
+    }
+
+    // Update target rows based on allocated resources
+    // Start with 1 row (simple line) and grow to full height
+    if (typeof config.allocated === 'number') {
+      const minRows = 1;
+      const maxRows = this.height;
+      const progress = Math.min(1, config.allocated / (this.iterations * 50));
+      this.targetRows = Math.floor(minRows + (maxRows - minRows) * progress);
     }
 
     if (rebuild && this.imageData) {

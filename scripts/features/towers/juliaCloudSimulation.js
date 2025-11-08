@@ -46,6 +46,11 @@ export class JuliaCloudSimulation {
     // Image data for rendering
     this.imageData = null;
     this.needsRerender = true;
+    
+    // Progressive rendering
+    this.currentRow = 0; // Current row being rendered
+    this.rowsPerFrame = options.rowsPerFrame || 4; // Rows to render per frame
+    this.targetRows = 0; // Target rows based on allocated resources
   }
 
   /**
@@ -144,24 +149,55 @@ export class JuliaCloudSimulation {
   }
 
   /**
-   * Renders the Julia set fractal to the canvas.
-   * Computes the fractal for all pixels and displays with grayscale coloring.
+   * Update method - renders more rows progressively based on allocated resources.
    */
-  render() {
+  update() {
     if (!this.ctx || !this.canvas) return;
 
-    // Only rerender if parameters changed
-    if (!this.needsRerender && this.imageData) {
-      this.ctx.putImageData(this.imageData, 0, 0);
-      return;
+    // Initialize image data if needed
+    if (!this.imageData) {
+      this.imageData = this.ctx.createImageData(this.width, this.height);
+      // Fill with background color initially
+      const data = this.imageData.data;
+      const bgRGB = this.parseBackgroundColor();
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = bgRGB.r;
+        data[i + 1] = bgRGB.g;
+        data[i + 2] = bgRGB.b;
+        data[i + 3] = 255;
+      }
     }
 
-    // Create image data buffer
-    this.imageData = this.ctx.createImageData(this.width, this.height);
-    const data = this.imageData.data;
+    // Render more rows up to target
+    if (this.currentRow < this.targetRows) {
+      const rowsToRender = Math.min(this.rowsPerFrame, this.targetRows - this.currentRow);
+      this.renderRows(this.currentRow, rowsToRender);
+      this.currentRow += rowsToRender;
+    }
+  }
 
-    // Compute Julia set for each pixel
-    for (let py = 0; py < this.height; py++) {
+  /**
+   * Parse background color to RGB components
+   */
+  parseBackgroundColor() {
+    const hex = this.bgColor.replace('#', '');
+    return {
+      r: parseInt(hex.substring(0, 2), 16),
+      g: parseInt(hex.substring(2, 4), 16),
+      b: parseInt(hex.substring(4, 6), 16)
+    };
+  }
+
+  /**
+   * Render specific rows of the Julia set
+   */
+  renderRows(startRow, rowCount) {
+    if (!this.imageData) return;
+
+    const data = this.imageData.data;
+    const endRow = Math.min(startRow + rowCount, this.height);
+
+    for (let py = startRow; py < endRow; py++) {
       for (let px = 0; px < this.width; px++) {
         // Map pixel to complex plane
         const { real, imag } = this.pixelToComplex(px, py);
@@ -180,18 +216,15 @@ export class JuliaCloudSimulation {
         data[index + 3] = 255;      // Alpha (fully opaque)
       }
     }
-
-    // Draw to canvas
-    this.ctx.putImageData(this.imageData, 0, 0);
-    this.needsRerender = false;
   }
 
   /**
-   * Update method for animation loop compatibility.
-   * Julia sets are static, so this is a no-op.
+   * Renders the Julia set fractal to the canvas.
+   * Displays the current progress of the incremental rendering.
    */
-  update() {
-    // Julia set is static, no animation needed
+  render() {
+    if (!this.ctx || !this.canvas || !this.imageData) return;
+    this.ctx.putImageData(this.imageData, 0, 0);
   }
 
   /**
@@ -204,34 +237,56 @@ export class JuliaCloudSimulation {
     this.canvas.height = height;
     this.width = width;
     this.height = height;
-    this.needsRerender = true;
+    this.imageData = null;
+    this.currentRow = 0;
   }
 
   /**
    * Updates configuration and triggers a rerender.
+   * 
+   * @param {Object} config - Configuration object
+   * @param {number} config.maxIterations - Max iterations (complexity from layers)
+   * @param {number} config.allocated - Allocated iterons (controls rendering progress)
+   * @param {number} config.zoom - Zoom level
+   * @param {number} config.centerX - Center X coordinate
+   * @param {number} config.centerY - Center Y coordinate
    */
   updateConfig(config) {
-    let changed = false;
+    let needsReset = false;
     
     if (config.maxIterations !== undefined) {
-      this.maxIterations = this.clamp(config.maxIterations, 10, 500);
-      changed = true;
+      const newIterations = this.clamp(config.maxIterations, 10, 500);
+      if (newIterations !== this.maxIterations) {
+        this.maxIterations = newIterations;
+        needsReset = true;
+      }
     }
-    if (config.zoom !== undefined) {
+    if (config.zoom !== undefined && config.zoom !== this.zoom) {
       this.zoom = config.zoom;
-      changed = true;
+      needsReset = true;
     }
-    if (config.centerX !== undefined) {
+    if (config.centerX !== undefined && config.centerX !== this.centerX) {
       this.centerX = config.centerX;
-      changed = true;
+      needsReset = true;
     }
-    if (config.centerY !== undefined) {
+    if (config.centerY !== undefined && config.centerY !== this.centerY) {
       this.centerY = config.centerY;
-      changed = true;
+      needsReset = true;
     }
 
-    if (changed) {
-      this.needsRerender = true;
+    // Update target rows based on allocated resources
+    // Start with 1 row (simple line) and grow to full height
+    if (config.allocated !== undefined) {
+      const minRows = 1; // Simple horizontal line at top
+      const maxRows = this.height;
+      // Progress from 0 to maxIterations maps to minRows to maxRows
+      const progress = Math.min(1, config.allocated / (this.maxIterations * 100));
+      this.targetRows = Math.floor(minRows + (maxRows - minRows) * progress);
+    }
+
+    if (needsReset) {
+      this.imageData = null;
+      this.currentRow = 0;
     }
   }
 }
