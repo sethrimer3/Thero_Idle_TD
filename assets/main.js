@@ -125,6 +125,7 @@ import {
   getIteronBank,
   getShinGlyphs,
   setIterationRate,
+  unlockAllFractals,
 } from './shinState.js';
 // Shin UI components for fractal tab management and display.
 import {
@@ -3090,6 +3091,22 @@ import {
       const particleLabel = formatWholeNumber(Math.floor(bankedTsadiParticles));
       tsadiBankEl.textContent = `${particleLabel} Particles`;
     }
+    
+    // Update all shin count displays
+    const bankedShinGlyphs = getShinGlyphs();
+    const shinCountElements = [
+      document.getElementById('spire-menu-shin-count'),
+      document.getElementById('spire-menu-shin-count-powder'),
+      document.getElementById('spire-menu-shin-count-fluid'),
+      document.getElementById('spire-menu-shin-count-lamed'),
+      document.getElementById('spire-menu-shin-count-tsadi'),
+      document.getElementById('spire-menu-shin-count-kuf')
+    ];
+    shinCountElements.forEach(element => {
+      if (element) {
+        element.textContent = formatGameNumber(bankedShinGlyphs);
+      }
+    });
     
     // Show/hide Tet menu items based on unlock status
     const tetMenuItems = document.querySelectorAll('.spire-menu-item--tet');
@@ -7135,6 +7152,10 @@ import {
         'Developer lattice engaged—every tower, level, and codex entry is unlocked.';
     }
 
+    // Unlock all Shin Spire fractals in developer mode
+    unlockAllFractals();
+    refreshFractalTabs();
+
     updatePowderHitboxVisibility();
   }
 
@@ -8799,6 +8820,8 @@ import {
     updatePowderLogDisplay();
     updateResourceRates();
     updatePowderDisplay();
+    // Start resource ticker for idle resources (iterons, motes, etc.) since no level is active initially
+    resourceState.running = true;
     ensureResourceTicker();
     // Begin the recurring autosave cadence once the core systems are initialized.
     startAutoSaveLoop();

@@ -315,3 +315,26 @@ export function getLayerProgress(fractalId) {
     layer: currentLayer
   };
 }
+
+/**
+ * Unlock all fractals (for developer mode)
+ */
+export function unlockAllFractals() {
+  // Unlock all fractals that have been initialized
+  Object.keys(shinState.fractals).forEach(fractalId => {
+    shinState.fractals[fractalId].unlocked = true;
+  });
+  
+  // Also ensure fractal definitions are unlocked if they exist
+  fractalDefinitions.forEach(fractal => {
+    if (!shinState.fractals[fractal.id]) {
+      shinState.fractals[fractal.id] = {
+        allocated: 0,
+        layersCompleted: 0,
+        unlocked: true
+      };
+    } else {
+      shinState.fractals[fractal.id].unlocked = true;
+    }
+  });
+}
