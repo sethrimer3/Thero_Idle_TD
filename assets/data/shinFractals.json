@@ -74,11 +74,14 @@
       "description": "Organic, cloud-like formations through fractal noise.",
       "unlockCost": 100,
       "layerThresholds": [50, 150, 400, 900, 1800, 3500, 6500, 11000, 17500],
-      "renderType": "cloud",
+      "renderType": "julia-cloud",
       "config": {
-        "octaves": 6,
-        "persistence": 0.5,
-        "scale": 0.03
+        "width": 240,
+        "height": 320,
+        "maxIterations": 100,
+        "zoom": 1.5,
+        "centerX": 0,
+        "centerY": 0
       }
     },
     {

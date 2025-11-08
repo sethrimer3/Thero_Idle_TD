@@ -18,6 +18,7 @@ import {
 
 import { formatGameNumber } from '../scripts/core/formatting.js';
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
+import { JuliaCloudSimulation } from '../scripts/features/towers/juliaCloudSimulation.js';
 
 let shinElements = {};
 let activeFractalTabId = null;
@@ -237,7 +238,7 @@ function renderFractalContent(fractal, state) {
   
   // Create fractal simulation after canvas is in DOM
   requestAnimationFrame(() => {
-    if (fractal.renderType === 'tree') {
+    if (fractal.renderType === 'tree' || fractal.renderType === 'julia-cloud') {
       getOrCreateFractalSimulation(fractal);
     }
   });
@@ -323,18 +324,28 @@ function getOrCreateFractalSimulation(fractal) {
     return fractalSimulations.get(fractal.id);
   }
   
-  // Only create simulation for tree fractal type (others not implemented yet)
+  const canvas = document.getElementById(`shin-fractal-canvas-${fractal.id}`);
+  if (!canvas) {
+    return null;
+  }
+  
+  // Create simulation based on render type
   if (fractal.renderType === 'tree') {
-    const canvas = document.getElementById(`shin-fractal-canvas-${fractal.id}`);
-    if (!canvas) {
-      return null;
-    }
-    
     const simulation = new FractalTreeSimulation({
       canvas: canvas,
       ...fractal.config,
       // Map layers completed to tree depth
       maxDepth: Math.min(fractal.config.maxDepth, 6 + getFractalState(fractal.id).layersCompleted)
+    });
+    
+    fractalSimulations.set(fractal.id, simulation);
+    return simulation;
+  }
+  
+  if (fractal.renderType === 'julia-cloud') {
+    const simulation = new JuliaCloudSimulation({
+      canvas: canvas,
+      ...fractal.config
     });
     
     fractalSimulations.set(fractal.id, simulation);
@@ -356,7 +367,7 @@ function startAnimationLoop() {
     // Update and render active fractal
     if (activeFractalTabId) {
       const fractal = getFractalDefinitions().find(f => f.id === activeFractalTabId);
-      if (fractal && fractal.renderType === 'tree') {
+      if (fractal && (fractal.renderType === 'tree' || fractal.renderType === 'julia-cloud')) {
         const simulation = getOrCreateFractalSimulation(fractal);
         if (simulation) {
           simulation.update();
