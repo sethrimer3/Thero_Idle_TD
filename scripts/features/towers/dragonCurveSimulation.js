@@ -21,6 +21,7 @@ export class DragonCurveSimulation {
 
     this.turnSequence = [];
     this.pathPoints = [];
+    this.bounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
     this.progress = 0;
     this.targetProgress = 0; // Target progress based on allocated resources
     this.drawSpeed = options.drawSpeed || 0.015;
@@ -55,8 +56,8 @@ export class DragonCurveSimulation {
     ];
 
     let dirIndex = 0;
-    let x = this.canvas.width / 2;
-    let y = this.canvas.height / 2;
+    let x = 0;
+    let y = 0;
 
     this.pathPoints = [{ x, y }];
 
@@ -66,6 +67,19 @@ export class DragonCurveSimulation {
       y += directions[dirIndex].y * this.segmentLength;
       this.pathPoints.push({ x, y });
     }
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    for (const point of this.pathPoints) {
+      if (point.x < minX) minX = point.x;
+      if (point.x > maxX) maxX = point.x;
+      if (point.y < minY) minY = point.y;
+      if (point.y > maxY) maxY = point.y;
+    }
+
+    this.bounds = { minX, maxX, minY, maxY };
   }
 
   interpolateColor(factor) {
@@ -115,15 +129,25 @@ export class DragonCurveSimulation {
     const fullSegments = Math.floor(visibleSegments);
     const partial = visibleSegments - fullSegments;
 
-    for (let i = 0; i < fullSegments; i++) {
-      const start = this.pathPoints[i];
-      const end = this.pathPoints[i + 1];
-      const t = i / totalSegments;
-      ctx.strokeStyle = this.interpolateColor(t);
+    const spanX = this.bounds.maxX - this.bounds.minX || 1;
+    const spanY = this.bounds.maxY - this.bounds.minY || 1;
+    const scale = 0.9 * Math.min(this.canvas.width / spanX, this.canvas.height / spanY);
+    const offsetX = this.canvas.width / 2 - ((this.bounds.minX + this.bounds.maxX) / 2) * scale;
+    const offsetY = this.canvas.height / 2 - ((this.bounds.minY + this.bounds.maxY) / 2) * scale;
+
+    const drawSegment = (startIndex, endIndex, factor) => {
+      const start = this.pathPoints[startIndex];
+      const end = this.pathPoints[endIndex];
+      ctx.strokeStyle = this.interpolateColor(factor);
       ctx.beginPath();
-      ctx.moveTo(start.x, start.y);
-      ctx.lineTo(end.x, end.y);
+      ctx.moveTo(offsetX + (start.x - this.bounds.minX) * scale, offsetY + (start.y - this.bounds.minY) * scale);
+      ctx.lineTo(offsetX + (end.x - this.bounds.minX) * scale, offsetY + (end.y - this.bounds.minY) * scale);
       ctx.stroke();
+    };
+
+    for (let i = 0; i < fullSegments; i++) {
+      const t = i / totalSegments;
+      drawSegment(i, i + 1, t);
     }
 
     if (partial > 0 && fullSegments < totalSegments) {
@@ -134,8 +158,8 @@ export class DragonCurveSimulation {
       const t = fullSegments / totalSegments;
       ctx.strokeStyle = this.interpolateColor(t);
       ctx.beginPath();
-      ctx.moveTo(start.x, start.y);
-      ctx.lineTo(px, py);
+      ctx.moveTo(offsetX + (start.x - this.bounds.minX) * scale, offsetY + (start.y - this.bounds.minY) * scale);
+      ctx.lineTo(offsetX + (px - this.bounds.minX) * scale, offsetY + (py - this.bounds.minY) * scale);
       ctx.stroke();
     }
   }
@@ -168,10 +192,8 @@ export class DragonCurveSimulation {
     // Update target progress based on allocated resources
     // Start with 0 progress (no line) and grow to full curve
     if (typeof config.allocated === 'number') {
-      // Estimate complexity: 2^iterations segments
-      const maxSegments = Math.pow(2, this.iterations);
-      const progress = Math.min(1, config.allocated / (maxSegments * 0.5));
-      this.targetProgress = progress;
+      const required = Math.max(1, 5 + this.iterations * 4);
+      this.targetProgress = Math.min(1, config.allocated / required);
     }
 
     if (rebuildNeeded) {

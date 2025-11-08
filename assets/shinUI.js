@@ -18,14 +18,13 @@ import {
 
 import { formatGameNumber } from '../scripts/core/formatting.js';
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
-import { JuliaCloudSimulation } from '../scripts/features/towers/juliaCloudSimulation.js';
+import { GosperCurveSimulation } from '../scripts/features/towers/gosperCurveSimulation.js';
 import { KochSnowflakeSimulation } from '../scripts/features/towers/kochSnowflakeSimulation.js';
-import { BarnsleyFernSimulation } from '../scripts/features/towers/barnsleyFernSimulation.js';
+import { FernLSystemSimulation } from '../scripts/features/towers/fernLSystemSimulation.js';
 import { DragonCurveSimulation } from '../scripts/features/towers/dragonCurveSimulation.js';
-import { PhoenixFractalSimulation } from '../scripts/features/towers/phoenixFractalSimulation.js';
-import { NewtonFractalSimulation } from '../scripts/features/towers/newtonFractalSimulation.js';
-import { BurningShipSimulation } from '../scripts/features/towers/burningShipSimulation.js';
-import { LyapunovFractalSimulation } from '../scripts/features/towers/lyapunovFractalSimulation.js';
+import { VoronoiSubdivisionSimulation } from '../scripts/features/towers/voronoiSubdivisionSimulation.js';
+import { BrownianTreeSimulation } from '../scripts/features/towers/brownianTreeSimulation.js';
+import { FlameFractalSimulation } from '../scripts/features/towers/flameFractalSimulation.js';
 
 let shinElements = {};
 let activeFractalTabId = null;
@@ -48,16 +47,24 @@ const FRACTAL_RENDER_HANDLERS = new Map([
       });
     }
   }],
-  ['julia-cloud', {
-    create: (canvas, fractal, state) => new JuliaCloudSimulation({
-      canvas,
-      ...fractal.config,
-      maxIterations: (fractal.config?.maxIterations || 80) + (state?.layersCompleted || 0) * 8,
-      allocated: state?.allocated || 0
-    }),
+  ['gosper', {
+    create: (canvas, fractal, state) => {
+      const simulation = new GosperCurveSimulation({
+        canvas,
+        ...fractal.config,
+        iterations: Math.min(fractal.config?.iterations || 5, 2 + (state?.layersCompleted || 0))
+      });
+      simulation.updateConfig({
+        iterations: Math.min(fractal.config?.iterations || 5, 2 + (state?.layersCompleted || 0)),
+        segmentLength: fractal.config?.segmentLength || 6,
+        allocated: state?.allocated || 0
+      });
+      return simulation;
+    },
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        maxIterations: (fractal.config?.maxIterations || 80) + (state?.layersCompleted || 0) * 8,
+        iterations: Math.min(fractal.config?.iterations || 5, 2 + (state?.layersCompleted || 0)),
+        segmentLength: fractal.config?.segmentLength || 6,
         allocated: state?.allocated || 0
       });
     }
@@ -76,16 +83,23 @@ const FRACTAL_RENDER_HANDLERS = new Map([
       });
     }
   }],
-  ['barnsley', {
-    create: (canvas, fractal, state) => new BarnsleyFernSimulation({
-      canvas,
-      ...fractal.config,
-      pointDensity: (fractal.config?.pointDensity || 30000) + (state?.layersCompleted || 0) * 6000,
-      allocated: state?.allocated || 0
-    }),
+  ['fern', {
+    create: (canvas, fractal, state) => {
+      const simulation = new FernLSystemSimulation({
+        canvas,
+        ...fractal.config
+      });
+      simulation.updateConfig({
+        segmentLength: fractal.config?.segmentLength || 5,
+        layersCompleted: state?.layersCompleted || 0,
+        allocated: state?.allocated || 0
+      });
+      return simulation;
+    },
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        pointDensity: (fractal.config?.pointDensity || 30000) + (state?.layersCompleted || 0) * 6000,
+        segmentLength: fractal.config?.segmentLength || 5,
+        layersCompleted: state?.layersCompleted || 0,
         allocated: state?.allocated || 0
       });
     }
@@ -104,61 +118,56 @@ const FRACTAL_RENDER_HANDLERS = new Map([
       });
     }
   }],
-  ['phoenix', {
-    create: (canvas, fractal, state) => new PhoenixFractalSimulation({
-      canvas,
-      ...fractal.config,
-      maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 10,
-      allocated: state?.allocated || 0
-    }),
+  ['voronoi', {
+    create: (canvas, fractal, state) => {
+      const simulation = new VoronoiSubdivisionSimulation({
+        canvas,
+        ...fractal.config
+      });
+      simulation.updateConfig({
+        allocated: state?.allocated || 0
+      });
+      return simulation;
+    },
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 10,
         allocated: state?.allocated || 0
       });
     }
   }],
-  ['newton', {
-    create: (canvas, fractal, state) => new NewtonFractalSimulation({
-      canvas,
-      ...fractal.config,
-      maxIterations: (fractal.config?.maxIterations || 20) + (state?.layersCompleted || 0) * 6,
-      allocated: state?.allocated || 0
-    }),
+  ['brownian', {
+    create: (canvas, fractal, state) => {
+      const simulation = new BrownianTreeSimulation({
+        canvas,
+        ...fractal.config
+      });
+      simulation.updateConfig({
+        allocated: state?.allocated || 0
+      });
+      return simulation;
+    },
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        maxIterations: (fractal.config?.maxIterations || 20) + (state?.layersCompleted || 0) * 6,
         allocated: state?.allocated || 0
       });
     }
   }],
-  ['burning-ship', {
-    create: (canvas, fractal, state) => new BurningShipSimulation({
-      canvas,
-      ...fractal.config,
-      maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 12,
-      zoom: (fractal.config?.zoom || 1) * (1 + (state?.layersCompleted || 0) * 0.08),
-      allocated: state?.allocated || 0
-    }),
-    update: (simulation, fractal, state) => {
-      simulation.updateConfig({
-        maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 12,
-        zoom: (fractal.config?.zoom || 1) * (1 + (state?.layersCompleted || 0) * 0.08),
-        allocated: state?.allocated || 0
+  ['flame', {
+    create: (canvas, fractal, state) => {
+      const simulation = new FlameFractalSimulation({
+        canvas,
+        ...fractal.config
       });
-    }
-  }],
-  ['lyapunov', {
-    create: (canvas, fractal, state) => new LyapunovFractalSimulation({
-      canvas,
-      ...fractal.config,
-      iterations: (fractal.config?.iterations || 80) + (state?.layersCompleted || 0) * 40,
-      allocated: state?.allocated || 0
-    }),
+      simulation.updateConfig({
+        allocated: state?.allocated || 0,
+        samplesPerIteron: fractal.config?.samplesPerIteron || 8000
+      });
+      return simulation;
+    },
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
-        iterations: (fractal.config?.iterations || 80) + (state?.layersCompleted || 0) * 40,
-        allocated: state?.allocated || 0
+        allocated: state?.allocated || 0,
+        samplesPerIteron: fractal.config?.samplesPerIteron || 8000
       });
     }
   }]

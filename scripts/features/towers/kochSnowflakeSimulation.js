@@ -174,10 +174,8 @@ export class KochSnowflakeSimulation {
     // Update target progress based on allocated resources
     // Start with 0 progress (no line) and grow to full snowflake
     if (typeof config.allocated === 'number') {
-      // Estimate complexity: 3 * 4^iterations segments
-      const maxSegments = 3 * Math.pow(4, this.iterations);
-      const progress = Math.min(1, config.allocated / (maxSegments * 0.3));
-      this.targetProgress = progress;
+      const required = Math.max(1, 6 + this.iterations * 5);
+      this.targetProgress = Math.min(1, config.allocated / required);
     }
 
     if (rebuildNeeded) {
