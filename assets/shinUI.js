@@ -19,12 +19,132 @@ import {
 import { formatGameNumber } from '../scripts/core/formatting.js';
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
 import { JuliaCloudSimulation } from '../scripts/features/towers/juliaCloudSimulation.js';
+import { KochSnowflakeSimulation } from '../scripts/features/towers/kochSnowflakeSimulation.js';
+import { BarnsleyFernSimulation } from '../scripts/features/towers/barnsleyFernSimulation.js';
+import { DragonCurveSimulation } from '../scripts/features/towers/dragonCurveSimulation.js';
+import { PhoenixFractalSimulation } from '../scripts/features/towers/phoenixFractalSimulation.js';
+import { NewtonFractalSimulation } from '../scripts/features/towers/newtonFractalSimulation.js';
+import { BurningShipSimulation } from '../scripts/features/towers/burningShipSimulation.js';
+import { LyapunovFractalSimulation } from '../scripts/features/towers/lyapunovFractalSimulation.js';
 
 let shinElements = {};
 let activeFractalTabId = null;
 let updateCallback = null;
 let fractalSimulations = new Map(); // Store simulation instances keyed by fractal ID
 let animationFrameId = null;
+
+const FRACTAL_RENDER_HANDLERS = new Map([
+  ['tree', {
+    create: (canvas, fractal, state) => new FractalTreeSimulation({
+      canvas,
+      ...fractal.config,
+      maxDepth: Math.min(fractal.config?.maxDepth || 9, 6 + (state?.layersCompleted || 0))
+    }),
+    update: (simulation, fractal, state) => {
+      simulation.updateConfig({
+        maxDepth: Math.min(fractal.config?.maxDepth || 9, 6 + (state?.layersCompleted || 0))
+      });
+    }
+  }],
+  ['julia-cloud', {
+    create: (canvas, fractal, state) => new JuliaCloudSimulation({
+      canvas,
+      ...fractal.config,
+      maxIterations: (fractal.config?.maxIterations || 80) + (state?.layersCompleted || 0) * 8
+    }),
+    update: (simulation, fractal, state) => {
+      simulation.updateConfig({
+        maxIterations: (fractal.config?.maxIterations || 80) + (state?.layersCompleted || 0) * 8
+      });
+    }
+  }],
+  ['koch', {
+    create: (canvas, fractal, state) => new KochSnowflakeSimulation({
+      canvas,
+      ...fractal.config,
+      iterations: Math.min(fractal.config?.iterations || 4, 2 + (state?.layersCompleted || 0))
+    }),
+    update: (simulation, fractal, state) => {
+      simulation.updateConfig({
+        iterations: Math.min(fractal.config?.iterations || 4, 2 + (state?.layersCompleted || 0))
+      });
+    }
+  }],
+  ['barnsley', {
+    create: (canvas, fractal, state) => new BarnsleyFernSimulation({
+      canvas,
+      ...fractal.config,
+      pointDensity: (fractal.config?.pointDensity || 30000) + (state?.layersCompleted || 0) * 6000
+    }),
+    update: (simulation, fractal, state) => {
+      simulation.updateConfig({
+        pointDensity: (fractal.config?.pointDensity || 30000) + (state?.layersCompleted || 0) * 6000
+      });
+    }
+  }],
+  ['dragon', {
+    create: (canvas, fractal, state) => new DragonCurveSimulation({
+      canvas,
+      ...fractal.config,
+      iterations: Math.min(fractal.config?.iterations || 10, 6 + (state?.layersCompleted || 0))
+    }),
+    update: (simulation, fractal, state) => {
+      simulation.updateConfig({
+        iterations: Math.min(fractal.config?.iterations || 10, 6 + (state?.layersCompleted || 0))
+      });
+    }
+  }],
+  ['phoenix', {
+    create: (canvas, fractal, state) => new PhoenixFractalSimulation({
+      canvas,
+      ...fractal.config,
+      maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 10
+    }),
+    update: (simulation, fractal, state) => {
+      simulation.updateConfig({
+        maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 10
+      });
+    }
+  }],
+  ['newton', {
+    create: (canvas, fractal, state) => new NewtonFractalSimulation({
+      canvas,
+      ...fractal.config,
+      maxIterations: (fractal.config?.maxIterations || 20) + (state?.layersCompleted || 0) * 6
+    }),
+    update: (simulation, fractal, state) => {
+      simulation.updateConfig({
+        maxIterations: (fractal.config?.maxIterations || 20) + (state?.layersCompleted || 0) * 6
+      });
+    }
+  }],
+  ['burning-ship', {
+    create: (canvas, fractal, state) => new BurningShipSimulation({
+      canvas,
+      ...fractal.config,
+      maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 12,
+      zoom: (fractal.config?.zoom || 1) * (1 + (state?.layersCompleted || 0) * 0.08)
+    }),
+    update: (simulation, fractal, state) => {
+      simulation.updateConfig({
+        maxIterations: (fractal.config?.maxIterations || 40) + (state?.layersCompleted || 0) * 12,
+        zoom: (fractal.config?.zoom || 1) * (1 + (state?.layersCompleted || 0) * 0.08)
+      });
+    }
+  }],
+  ['lyapunov', {
+    create: (canvas, fractal, state) => new LyapunovFractalSimulation({
+      canvas,
+      ...fractal.config,
+      iterations: (fractal.config?.iterations || 80) + (state?.layersCompleted || 0) * 40
+    }),
+    update: (simulation, fractal, state) => {
+      simulation.updateConfig({
+        iterations: (fractal.config?.iterations || 80) + (state?.layersCompleted || 0) * 40
+      });
+    }
+  }]
+]);
 
 /**
  * Initialize the Shin Spire UI
@@ -238,7 +358,7 @@ function renderFractalContent(fractal, state) {
   
   // Create fractal simulation after canvas is in DOM
   requestAnimationFrame(() => {
-    if (fractal.renderType === 'tree' || fractal.renderType === 'julia-cloud') {
+    if (FRACTAL_RENDER_HANDLERS.has(fractal.renderType)) {
       getOrCreateFractalSimulation(fractal);
     }
   });
@@ -320,39 +440,35 @@ export function refreshFractalTabs() {
  * Create or get a fractal simulation for a given fractal
  */
 function getOrCreateFractalSimulation(fractal) {
-  if (fractalSimulations.has(fractal.id)) {
-    return fractalSimulations.get(fractal.id);
+  const handler = FRACTAL_RENDER_HANDLERS.get(fractal.renderType);
+  if (!handler) {
+    return null;
   }
-  
+
+  if (fractalSimulations.has(fractal.id)) {
+    const existingSimulation = fractalSimulations.get(fractal.id);
+    if (handler.update) {
+      handler.update(existingSimulation, fractal, getFractalState(fractal.id));
+    }
+    return existingSimulation;
+  }
+
   const canvas = document.getElementById(`shin-fractal-canvas-${fractal.id}`);
   if (!canvas) {
     return null;
   }
-  
-  // Create simulation based on render type
-  if (fractal.renderType === 'tree') {
-    const simulation = new FractalTreeSimulation({
-      canvas: canvas,
-      ...fractal.config,
-      // Map layers completed to tree depth
-      maxDepth: Math.min(fractal.config.maxDepth, 6 + getFractalState(fractal.id).layersCompleted)
-    });
-    
-    fractalSimulations.set(fractal.id, simulation);
-    return simulation;
+
+  if (fractal.config?.width) {
+    canvas.width = fractal.config.width;
   }
-  
-  if (fractal.renderType === 'julia-cloud') {
-    const simulation = new JuliaCloudSimulation({
-      canvas: canvas,
-      ...fractal.config
-    });
-    
-    fractalSimulations.set(fractal.id, simulation);
-    return simulation;
+  if (fractal.config?.height) {
+    canvas.height = fractal.config.height;
   }
-  
-  return null;
+
+  const state = getFractalState(fractal.id);
+  const simulation = handler.create(canvas, fractal, state);
+  fractalSimulations.set(fractal.id, simulation);
+  return simulation;
 }
 
 /**
@@ -367,7 +483,7 @@ function startAnimationLoop() {
     // Update and render active fractal
     if (activeFractalTabId) {
       const fractal = getFractalDefinitions().find(f => f.id === activeFractalTabId);
-      if (fractal && (fractal.renderType === 'tree' || fractal.renderType === 'julia-cloud')) {
+      if (fractal && FRACTAL_RENDER_HANDLERS.has(fractal.renderType)) {
         const simulation = getOrCreateFractalSimulation(fractal);
         if (simulation) {
           simulation.update();
@@ -408,9 +524,9 @@ export function updateFractalSimulation() {
   }
   
   const simulation = fractalSimulations.get(activeFractalTabId);
-  if (simulation && fractal.renderType === 'tree') {
-    // Update tree depth based on layers completed
-    const newMaxDepth = Math.min(fractal.config.maxDepth, 6 + state.layersCompleted);
-    simulation.updateConfig({ maxDepth: newMaxDepth });
+  const handler = FRACTAL_RENDER_HANDLERS.get(fractal.renderType);
+
+  if (simulation && handler && handler.update) {
+    handler.update(simulation, fractal, state);
   }
 }
