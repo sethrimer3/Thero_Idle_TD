@@ -15,6 +15,8 @@ export const POWDER_BASIN_STORAGE_KEY = 'glyph-defense-idle:powder-basin';
 export const TOWER_UPGRADE_STORAGE_KEY = 'glyph-defense-idle:tower-upgrades';
 // Storage key used to persist Shin Spire state (iterons, fractals, glyphs).
 export const SHIN_STATE_STORAGE_KEY = 'glyph-defense-idle:shin-state';
+// Storage key used to persist Kuf Spire shard allocations and scores.
+export const KUF_STATE_STORAGE_KEY = 'glyph-defense-idle:kuf-state';
 
 const DEFAULT_AUTOSAVE_INTERVAL_MS = 30000;
 const MIN_AUTOSAVE_INTERVAL_MS = 5000;
@@ -36,6 +38,7 @@ const dependencies = {
   getTowerUpgradeStateSnapshot: null,
   applyTowerUpgradeStateSnapshot: null,
   getShinStateSnapshot: null,
+  getKufStateSnapshot: null,
 };
 
 let statKeys = [];
@@ -277,6 +280,17 @@ function persistShinState() {
   writeStorageJson(SHIN_STATE_STORAGE_KEY, snapshot);
 }
 
+function persistKufState() {
+  if (typeof dependencies.getKufStateSnapshot !== 'function') {
+    return;
+  }
+  const snapshot = dependencies.getKufStateSnapshot();
+  if (!snapshot || typeof snapshot !== 'object') {
+    return;
+  }
+  writeStorageJson(KUF_STATE_STORAGE_KEY, snapshot);
+}
+
 function performAutoSave() {
   savePowderCurrency();
   if (powderBasinSaveHandle) {
@@ -288,6 +302,7 @@ function performAutoSave() {
   persistPreferences();
   persistTowerUpgrades();
   persistShinState();
+  persistKufState();
 }
 
 /**

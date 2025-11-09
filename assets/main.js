@@ -87,6 +87,7 @@ import {
   POWDER_BASIN_STORAGE_KEY,
   TOWER_UPGRADE_STORAGE_KEY,
   SHIN_STATE_STORAGE_KEY,
+  KUF_STATE_STORAGE_KEY,
 } from './autoSave.js';
 import {
   configureOfflinePersistence,
@@ -135,6 +136,13 @@ import {
   setShinUIUpdateCallback,
   updateFractalSimulation,
 } from './shinUI.js';
+import {
+  initializeKufState,
+  getKufStateSnapshot,
+  getKufGlyphs,
+  onKufStateChange,
+} from './kufState.js';
+import { initializeKufUI, updateKufDisplay } from './kufUI.js';
 // Shared color palette orchestration utilities.
 import {
   configureColorSchemeSystem,
@@ -3032,7 +3040,8 @@ import {
       document.getElementById('spire-menu-mote-count-fluid'),
       document.getElementById('spire-menu-mote-count-lamed'),
       document.getElementById('spire-menu-mote-count-tsadi'),
-      document.getElementById('spire-menu-mote-count-shin')
+      document.getElementById('spire-menu-mote-count-shin'),
+      document.getElementById('spire-menu-mote-count-kuf')
     ];
     moteCountElements.forEach(element => {
       if (element) {
@@ -3046,7 +3055,8 @@ import {
       document.getElementById('spire-menu-fluid-count-fluid'),
       document.getElementById('spire-menu-fluid-count-lamed'),
       document.getElementById('spire-menu-fluid-count-tsadi'),
-      document.getElementById('spire-menu-fluid-count-shin')
+      document.getElementById('spire-menu-fluid-count-shin'),
+      document.getElementById('spire-menu-fluid-count-kuf')
     ];
     fluidCountElements.forEach(element => {
       if (element) {
@@ -3060,7 +3070,8 @@ import {
       document.getElementById('spire-menu-lamed-count-powder'),
       document.getElementById('spire-menu-lamed-count-fluid'),
       document.getElementById('spire-menu-lamed-count-tsadi'),
-      document.getElementById('spire-menu-lamed-count-shin')
+      document.getElementById('spire-menu-lamed-count-shin'),
+      document.getElementById('spire-menu-lamed-count-kuf')
     ];
     lamedCountElements.forEach(element => {
       if (element) {
@@ -3080,7 +3091,8 @@ import {
       document.getElementById('spire-menu-tsadi-count-powder'),
       document.getElementById('spire-menu-tsadi-count-fluid'),
       document.getElementById('spire-menu-tsadi-count-lamed'),
-      document.getElementById('spire-menu-tsadi-count-shin')
+      document.getElementById('spire-menu-tsadi-count-shin'),
+      document.getElementById('spire-menu-tsadi-count-kuf')
     ];
     tsadiCountElements.forEach(element => {
       if (element) {
@@ -3107,6 +3119,21 @@ import {
     shinCountElements.forEach(element => {
       if (element) {
         element.textContent = formatGameNumber(bankedShinGlyphs);
+      }
+    });
+
+    const kufGlyphs = getKufGlyphs();
+    const kufCountElements = [
+      document.getElementById('spire-menu-kuf-count'),
+      document.getElementById('spire-menu-kuf-count-powder'),
+      document.getElementById('spire-menu-kuf-count-fluid'),
+      document.getElementById('spire-menu-kuf-count-lamed'),
+      document.getElementById('spire-menu-kuf-count-tsadi'),
+      document.getElementById('spire-menu-kuf-count-shin')
+    ];
+    kufCountElements.forEach(element => {
+      if (element) {
+        element.textContent = formatGameNumber(kufGlyphs);
       }
     });
     
@@ -3620,6 +3647,7 @@ import {
     getTowerUpgradeStateSnapshot: getTowerUpgradeStateSnapshotWithAleph,
     applyTowerUpgradeStateSnapshot: applyTowerUpgradeStateSnapshotWithAleph,
     getShinStateSnapshot,
+    getKufStateSnapshot,
     applyStoredAudioSettings,
     syncAudioControlsFromManager,
     applyNotationPreference,
@@ -3656,6 +3684,7 @@ import {
   let lamedSimulationInstance = null;
   let tsadiSimulationInstance = null;
   let shinSimulationInstance = null;
+  let kufUiInitialized = false;
   let powderBasinObserver = null;
 
   setGraphicsModeContext({
@@ -7948,8 +7977,8 @@ import {
     const shinRate = shinUnlocked && typeof getIterationRate === 'function' ? getIterationRate() : 0;
     const shinTotal = shinUnlocked ? seconds * shinRate : 0;
 
-    // Kuf: Not yet implemented
-    const kufUnlocked = false;
+    // Kuf glyphs require active simulations; idle taps simply reveal the row.
+    const kufUnlocked = true;
     const kufTotal = 0;
 
     summary.minutes = minutes;
@@ -8071,6 +8100,10 @@ import {
         }
         break;
       }
+      case 'kuf': {
+        // Kuf glyphs are earned through simulations rather than idle production.
+        break;
+      }
       default:
         break;
     }
@@ -8091,6 +8124,7 @@ import {
       { elementId: 'lamed-simulation-card', spireId: 'lamed' },
       { elementId: 'tsadi-simulation-card', spireId: 'tsadi' },
       { elementId: 'shin-fractal-content', spireId: 'shin' },
+      { elementId: 'kuf-simulation-card', spireId: 'kuf' },
     ];
 
     clickTargets.forEach(({ elementId, spireId }) => {
@@ -8874,6 +8908,22 @@ import {
           }
           // Update display with current state
           updateShinDisplay();
+        } else if (tabId === 'kuf') {
+          if (!kufUiInitialized) {
+            try {
+              initializeKufUI({
+                onRunComplete: () => {
+                  updateSpireMenuCounts();
+                },
+              });
+              kufUiInitialized = true;
+              updateKufDisplay();
+            } catch (error) {
+              console.error('Failed to initialize Kuf Spire UI:', error);
+            }
+          } else {
+            updateKufDisplay();
+          }
         }
 
         if (tabId === 'powder' || tabId === 'fluid') {
@@ -8920,6 +8970,16 @@ import {
     }
 
     setMergingLogicUnlocked(getMergeProgressState().mergingLogicUnlocked);
+
+    const savedKufState = readStorageJson(KUF_STATE_STORAGE_KEY);
+    initializeKufState(savedKufState || {});
+    updateSpireMenuCounts();
+    onKufStateChange((event) => {
+      if (event && event.type === 'result') {
+        updateSpireMenuCounts();
+        commitAutoSave();
+      }
+    });
 
     // Initialize Shin Spire fractal system
     try {
