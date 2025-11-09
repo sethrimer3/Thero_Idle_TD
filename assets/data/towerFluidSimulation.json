@@ -3,7 +3,7 @@
   "_comment_id": "Unique identifier used by the game to reference the fluid tower configuration.",
   "label": "Bet Spire",
   "_comment_label": "Player-facing name shown in menus for this tower.",
-  "dropSizes": [1, 20],
+  "dropSizes": [1, 1],
   "_comment_dropSizes": "Weighted list of droplet magnitudes; repeated values make smaller drops spawn more often.",
   "dropVolumeScale": 0.85,
   "_comment_dropVolumeScale": "Multiplier that converts drop size into the volume added to the reservoir.",
