@@ -383,6 +383,53 @@ function renderFractalContent(fractal, state) {
   canvasWrapper.appendChild(canvas);
   contentContainer.appendChild(canvasWrapper);
   
+  // Add zoom controls
+  let userZoom = 1.0;
+  const MIN_ZOOM = 0.1;
+  const MAX_ZOOM = 3.0;
+  
+  // Mouse wheel zoom
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = -Math.sign(e.deltaY) * 0.1;
+    userZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, userZoom + delta));
+  }, { passive: false });
+  
+  // Touch zoom (pinch)
+  let lastTouchDistance = null;
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastTouchDistance = Math.sqrt(dx * dx + dy * dy);
+    }
+  }, { passive: true });
+  
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && lastTouchDistance) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const delta = (distance - lastTouchDistance) / 100;
+      userZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, userZoom + delta));
+      lastTouchDistance = distance;
+    }
+  }, { passive: false });
+  
+  canvas.addEventListener('touchend', () => {
+    lastTouchDistance = null;
+  }, { passive: true });
+  
+  // Store user zoom on canvas for use in rendering
+  canvas.dataset.userZoom = userZoom.toString();
+  canvas.addEventListener('wheel', () => {
+    canvas.dataset.userZoom = userZoom.toString();
+  });
+  canvas.addEventListener('touchmove', () => {
+    canvas.dataset.userZoom = userZoom.toString();
+  });
+  
   // Create fractal simulation after canvas is in DOM
   requestAnimationFrame(() => {
     if (FRACTAL_RENDER_HANDLERS.has(fractal.renderType)) {

@@ -61,12 +61,15 @@ export class DragonCurveSimulation {
 
     this.pathPoints = [{ x, y }];
 
+    // Build the path
     for (const turn of this.turnSequence) {
       dirIndex = (dirIndex + turn + 4) % 4;
       x += directions[dirIndex].x * this.segmentLength;
       y += directions[dirIndex].y * this.segmentLength;
       this.pathPoints.push({ x, y });
     }
+    
+    // Compute bounds
     let minX = Infinity;
     let maxX = -Infinity;
     let minY = Infinity;
@@ -131,7 +134,9 @@ export class DragonCurveSimulation {
 
     const spanX = this.bounds.maxX - this.bounds.minX || 1;
     const spanY = this.bounds.maxY - this.bounds.minY || 1;
-    const scale = 0.9 * Math.min(this.canvas.width / spanX, this.canvas.height / spanY);
+    const userZoom = parseFloat(this.canvas.dataset.userZoom || '1.0');
+    const baseScale = 0.9 * Math.min(this.canvas.width / spanX, this.canvas.height / spanY);
+    const scale = baseScale * userZoom;
     const offsetX = this.canvas.width / 2 - ((this.bounds.minX + this.bounds.maxX) / 2) * scale;
     const offsetY = this.canvas.height / 2 - ((this.bounds.minY + this.bounds.maxY) / 2) * scale;
 
