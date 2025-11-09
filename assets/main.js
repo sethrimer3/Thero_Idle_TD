@@ -7158,6 +7158,10 @@ import {
     // Unlock all Shin Spire fractals in developer mode
     unlockAllFractals();
     refreshFractalTabs();
+    
+    // Give 1 million iterons in developer mode
+    addIterons(1000000);
+    updateShinDisplay();
 
     updatePowderHitboxVisibility();
   }
@@ -7497,6 +7501,10 @@ import {
         disableDeveloperMode();
       }
     });
+    
+    // Enable developer mode by default
+    developerModeElements.toggle.checked = true;
+    enableDeveloperMode();
   }
 
   function scrollPanelToElement(target, { offset = 16 } = {}) {
