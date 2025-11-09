@@ -6830,6 +6830,11 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: rgba(215, 235, 255, 0.95);
 }
 
+/* Hide the result overlay when marked with the hidden attribute so it stays out of view until needed. */
+.kuf-result-panel[hidden] {
+  display: none;
+}
+
 .kuf-result-panel h4 {
   font-size: 1.25rem;
   letter-spacing: 0.08em;
