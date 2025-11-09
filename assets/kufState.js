@@ -7,12 +7,34 @@
 
 const DEFAULT_TOTAL_SHARDS = 24; // Total shards available for allocation.
 const DEFAULT_ALLOCATIONS = Object.freeze({ health: 0, attack: 0, attackSpeed: 0 });
+const DEFAULT_UNITS = Object.freeze({ marines: 0, snipers: 0, splayers: 0 });
+
+// Unit costs in shards
+const UNIT_COSTS = Object.freeze({
+  marines: 5,
+  snipers: 15,
+  splayers: 30,
+});
 
 // Base Marine statistics before shard modifiers are applied.
 const MARINE_BASE_STATS = Object.freeze({
   health: 10,
   attack: 1,
   attackSpeed: 1,
+});
+
+// Base Sniper statistics
+const SNIPER_BASE_STATS = Object.freeze({
+  health: 8,
+  attack: 2,
+  attackSpeed: 0.5,
+});
+
+// Base Splayer statistics
+const SPLAYER_BASE_STATS = Object.freeze({
+  health: 12,
+  attack: 0.8,
+  attackSpeed: 0.7,
 });
 
 // Incremental bonuses applied per allocated shard.
@@ -35,6 +57,7 @@ const MARINE_STAT_INCREMENTS = Object.freeze({
 const kufState = {
   totalShards: DEFAULT_TOTAL_SHARDS,
   allocations: { ...DEFAULT_ALLOCATIONS },
+  units: { ...DEFAULT_UNITS },
   glyphs: 0,
   highScore: 0,
   lastResult: null,
@@ -78,6 +101,16 @@ function normalizeAllocations(rawAllocations) {
   };
 }
 
+function normalizeUnits(rawUnits) {
+  const normalized = { ...DEFAULT_UNITS };
+  if (rawUnits && typeof rawUnits === 'object') {
+    normalized.marines = sanitizeInteger(rawUnits.marines, 0);
+    normalized.snipers = sanitizeInteger(rawUnits.snipers, 0);
+    normalized.splayers = sanitizeInteger(rawUnits.splayers, 0);
+  }
+  return normalized;
+}
+
 /**
  * Initialize the Kuf state with saved data.
  * @param {object} [savedState] - Persisted Kuf spire snapshot.
@@ -85,6 +118,7 @@ function normalizeAllocations(rawAllocations) {
 export function initializeKufState(savedState = {}) {
   kufState.totalShards = sanitizeInteger(savedState.totalShards, DEFAULT_TOTAL_SHARDS);
   kufState.allocations = normalizeAllocations(savedState.allocations);
+  kufState.units = normalizeUnits(savedState.units);
   kufState.glyphs = sanitizeInteger(savedState.glyphs, 0);
   kufState.highScore = sanitizeInteger(savedState.highScore, 0);
   kufState.lastResult = savedState.lastResult && typeof savedState.lastResult === 'object'
@@ -112,6 +146,7 @@ export function getKufStateSnapshot() {
   return {
     totalShards: kufState.totalShards,
     allocations: { ...kufState.allocations },
+    units: { ...kufState.units },
     glyphs: kufState.glyphs,
     highScore: kufState.highScore,
     lastResult: kufState.lastResult ? { ...kufState.lastResult } : null,
@@ -271,6 +306,90 @@ export function getKufLastResult() {
   return kufState.lastResult ? { ...kufState.lastResult } : null;
 }
 
+/**
+ * Get current unit counts.
+ * @returns {{ marines: number, snipers: number, splayers: number }}
+ */
+export function getKufUnits() {
+  return { ...kufState.units };
+}
+
+/**
+ * Get total shards spent on units.
+ * @returns {number}
+ */
+export function getKufShardsSpentOnUnits() {
+  return (
+    kufState.units.marines * UNIT_COSTS.marines +
+    kufState.units.snipers * UNIT_COSTS.snipers +
+    kufState.units.splayers * UNIT_COSTS.splayers
+  );
+}
+
+/**
+ * Get shards available for purchasing units after stat allocations.
+ * @returns {number}
+ */
+export function getKufShardsAvailableForUnits() {
+  const allocatedShards = kufState.allocations.health + kufState.allocations.attack + kufState.allocations.attackSpeed;
+  const unitShards = getKufShardsSpentOnUnits();
+  return Math.max(0, kufState.totalShards - allocatedShards - unitShards);
+}
+
+/**
+ * Purchase a unit with shards.
+ * @param {'marines'|'snipers'|'splayers'} unitType - The type of unit to purchase.
+ * @returns {{ success: boolean, count: number, shardsRemaining: number }}
+ */
+export function purchaseKufUnit(unitType) {
+  if (!Object.prototype.hasOwnProperty.call(UNIT_COSTS, unitType)) {
+    return { success: false, count: kufState.units[unitType] || 0, shardsRemaining: getKufShardsAvailableForUnits() };
+  }
+  
+  const cost = UNIT_COSTS[unitType];
+  const available = getKufShardsAvailableForUnits();
+  
+  if (available < cost) {
+    return { success: false, count: kufState.units[unitType], shardsRemaining: available };
+  }
+  
+  kufState.units[unitType] += 1;
+  emitChange('units', { units: getKufUnits() });
+  
+  return {
+    success: true,
+    count: kufState.units[unitType],
+    shardsRemaining: getKufShardsAvailableForUnits(),
+  };
+}
+
+/**
+ * Sell a unit to refund shards.
+ * @param {'marines'|'snipers'|'splayers'} unitType - The type of unit to sell.
+ * @returns {{ success: boolean, count: number, shardsRemaining: number }}
+ */
+export function sellKufUnit(unitType) {
+  if (!Object.prototype.hasOwnProperty.call(UNIT_COSTS, unitType)) {
+    return { success: false, count: kufState.units[unitType] || 0, shardsRemaining: getKufShardsAvailableForUnits() };
+  }
+  
+  if (kufState.units[unitType] <= 0) {
+    return { success: false, count: 0, shardsRemaining: getKufShardsAvailableForUnits() };
+  }
+  
+  kufState.units[unitType] -= 1;
+  emitChange('units', { units: getKufUnits() });
+  
+  return {
+    success: true,
+    count: kufState.units[unitType],
+    shardsRemaining: getKufShardsAvailableForUnits(),
+  };
+}
+
 export const KUF_MARINE_BASE_STATS = MARINE_BASE_STATS;
+export const KUF_SNIPER_BASE_STATS = SNIPER_BASE_STATS;
+export const KUF_SPLAYER_BASE_STATS = SPLAYER_BASE_STATS;
 export const KUF_MARINE_STAT_INCREMENTS = MARINE_STAT_INCREMENTS;
 export const KUF_DEFAULT_TOTAL_SHARDS = DEFAULT_TOTAL_SHARDS;
+export const KUF_UNIT_COSTS = UNIT_COSTS;

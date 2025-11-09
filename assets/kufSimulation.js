@@ -7,13 +7,23 @@
  */
 
 const MARINE_MOVE_SPEED = 70; // Pixels per second.
+const MARINE_ACCELERATION = 120; // Pixels per second squared.
 const MARINE_RANGE = 160; // Attack range in pixels.
 const MARINE_RADIUS = 18;
+const SNIPER_RADIUS = 16;
+const SNIPER_RANGE = 280;
+const SPLAYER_RADIUS = 20;
+const SPLAYER_RANGE = 200;
 const TURRET_RADIUS = 12;
 const TURRET_RANGE = 200;
 const MARINE_BULLET_SPEED = 360;
+const SNIPER_BULLET_SPEED = 500;
+const SPLAYER_ROCKET_SPEED = 200;
 const TURRET_BULLET_SPEED = 280;
 const TRAIL_ALPHA = 0.22;
+const CAMERA_PAN_SPEED = 1.2;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2.0;
 
 /**
  * @typedef {Object} KufSimulationConfig
@@ -40,7 +50,13 @@ export class KufBattlefieldSimulation {
     this.destroyedTurrets = 0;
     this.bounds = { width: this.canvas?.width || 640, height: this.canvas?.height || 360 };
     this.pixelRatio = 1;
+    this.camera = { x: 0, y: 0, zoom: 1.0 };
+    this.cameraDrag = { active: false, startX: 0, startY: 0, camStartX: 0, camStartY: 0 };
     this.step = this.step.bind(this);
+    this.handleMouseDown = this.handleMouseDown.bind(this);
+    this.handleMouseMove = this.handleMouseMove.bind(this);
+    this.handleMouseUp = this.handleMouseUp.bind(this);
+    this.handleWheel = this.handleWheel.bind(this);
   }
 
   /**
@@ -70,7 +86,65 @@ export class KufBattlefieldSimulation {
   }
 
   /**
-   * Begin a new simulation with the provided marine stats.
+   * Attach camera control event listeners.
+   */
+  attachCameraControls() {
+    if (!this.canvas) {
+      return;
+    }
+    this.canvas.addEventListener('mousedown', this.handleMouseDown);
+    this.canvas.addEventListener('mousemove', this.handleMouseMove);
+    this.canvas.addEventListener('mouseup', this.handleMouseUp);
+    this.canvas.addEventListener('mouseleave', this.handleMouseUp);
+    this.canvas.addEventListener('wheel', this.handleWheel, { passive: false });
+  }
+
+  /**
+   * Remove camera control event listeners.
+   */
+  detachCameraControls() {
+    if (!this.canvas) {
+      return;
+    }
+    this.canvas.removeEventListener('mousedown', this.handleMouseDown);
+    this.canvas.removeEventListener('mousemove', this.handleMouseMove);
+    this.canvas.removeEventListener('mouseup', this.handleMouseUp);
+    this.canvas.removeEventListener('mouseleave', this.handleMouseUp);
+    this.canvas.removeEventListener('wheel', this.handleWheel);
+  }
+
+  handleMouseDown(e) {
+    this.cameraDrag.active = true;
+    this.cameraDrag.startX = e.clientX;
+    this.cameraDrag.startY = e.clientY;
+    this.cameraDrag.camStartX = this.camera.x;
+    this.cameraDrag.camStartY = this.camera.y;
+    this.canvas.style.cursor = 'grabbing';
+  }
+
+  handleMouseMove(e) {
+    if (!this.cameraDrag.active) {
+      return;
+    }
+    const dx = (e.clientX - this.cameraDrag.startX) * CAMERA_PAN_SPEED;
+    const dy = (e.clientY - this.cameraDrag.startY) * CAMERA_PAN_SPEED;
+    this.camera.x = this.cameraDrag.camStartX - dx / this.camera.zoom;
+    this.camera.y = this.cameraDrag.camStartY - dy / this.camera.zoom;
+  }
+
+  handleMouseUp() {
+    this.cameraDrag.active = false;
+    this.canvas.style.cursor = 'grab';
+  }
+
+  handleWheel(e) {
+    e.preventDefault();
+    const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
+    this.camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, this.camera.zoom * zoomDelta));
+  }
+
+  /**
+   * Begin a new simulation with the provided marine stats and unit counts.
    * @param {KufSimulationConfig} config - Simulation setup payload.
    */
   start(config) {
@@ -79,21 +153,77 @@ export class KufBattlefieldSimulation {
     }
     this.reset();
     const marineStats = config?.marineStats || { health: 10, attack: 1, attackSpeed: 1 };
+    const sniperStats = config?.sniperStats || { health: 8, attack: 2, attackSpeed: 0.5 };
+    const splayerStats = config?.splayerStats || { health: 12, attack: 0.8, attackSpeed: 0.7 };
+    const units = config?.units || { marines: 1, snipers: 0, splayers: 0 };
+    
     const spawnY = this.bounds.height - 48;
-    const spawnX = this.bounds.width / 2;
-    const marine = {
-      x: spawnX,
-      y: spawnY,
-      radius: MARINE_RADIUS,
-      health: marineStats.health,
-      maxHealth: marineStats.health,
-      attack: marineStats.attack,
-      attackSpeed: Math.max(0.1, marineStats.attackSpeed),
-      cooldown: 0,
-      moveSpeed: MARINE_MOVE_SPEED,
-    };
-    this.marines.push(marine);
+    const centerX = this.bounds.width / 2;
+    
+    // Spawn all purchased marines
+    for (let i = 0; i < units.marines; i++) {
+      const offsetX = (i - (units.marines - 1) / 2) * 40;
+      this.marines.push({
+        type: 'marine',
+        x: centerX + offsetX,
+        y: spawnY,
+        vx: 0,
+        vy: 0,
+        radius: MARINE_RADIUS,
+        health: marineStats.health,
+        maxHealth: marineStats.health,
+        attack: marineStats.attack,
+        attackSpeed: Math.max(0.1, marineStats.attackSpeed),
+        cooldown: Math.random() * 0.5,
+        moveSpeed: MARINE_MOVE_SPEED,
+        range: MARINE_RANGE,
+      });
+    }
+    
+    // Spawn all purchased snipers
+    for (let i = 0; i < units.snipers; i++) {
+      const offsetX = (i - (units.snipers - 1) / 2) * 40;
+      this.marines.push({
+        type: 'sniper',
+        x: centerX + offsetX,
+        y: spawnY + 30,
+        vx: 0,
+        vy: 0,
+        radius: SNIPER_RADIUS,
+        health: sniperStats.health,
+        maxHealth: sniperStats.health,
+        attack: sniperStats.attack,
+        attackSpeed: Math.max(0.1, sniperStats.attackSpeed),
+        cooldown: Math.random() * 0.5,
+        moveSpeed: MARINE_MOVE_SPEED * 0.8,
+        range: SNIPER_RANGE,
+      });
+    }
+    
+    // Spawn all purchased splayers
+    for (let i = 0; i < units.splayers; i++) {
+      const offsetX = (i - (units.splayers - 1) / 2) * 40;
+      this.marines.push({
+        type: 'splayer',
+        x: centerX + offsetX,
+        y: spawnY + 60,
+        vx: 0,
+        vy: 0,
+        radius: SPLAYER_RADIUS,
+        health: splayerStats.health,
+        maxHealth: splayerStats.health,
+        attack: splayerStats.attack,
+        attackSpeed: Math.max(0.1, splayerStats.attackSpeed),
+        cooldown: Math.random() * 0.5,
+        moveSpeed: MARINE_MOVE_SPEED * 0.9,
+        range: SPLAYER_RANGE,
+      });
+    }
+    
     this.buildTurrets();
+    this.attachCameraControls();
+    this.canvas.style.cursor = 'grab';
+    this.camera = { x: 0, y: 0, zoom: 1.0 };
     this.active = true;
     this.goldEarned = 0;
     this.destroyedTurrets = 0;
@@ -106,6 +236,10 @@ export class KufBattlefieldSimulation {
    */
   stop() {
     this.active = false;
+    this.detachCameraControls();
+    if (this.canvas) {
+      this.canvas.style.cursor = 'default';
+    }
   }
 
   reset() {
@@ -155,25 +289,97 @@ export class KufBattlefieldSimulation {
     this.updateMarines(delta);
     this.updateTurrets(delta);
     this.updateBullets(delta);
+    this.updateCamera(delta);
     this.checkVictoryConditions();
+  }
+
+  updateCamera(delta) {
+    // If not dragging, follow the forward-most (lowest y) marine
+    if (!this.cameraDrag.active && this.marines.length > 0) {
+      let forwardMost = this.marines[0];
+      this.marines.forEach((marine) => {
+        if (marine.y < forwardMost.y) {
+          forwardMost = marine;
+        }
+      });
+      
+      // Smoothly move camera to follow the forward-most unit
+      const targetX = forwardMost.x - this.bounds.width / 2 / this.camera.zoom;
+      const targetY = forwardMost.y - this.bounds.height / 2 / this.camera.zoom;
+      const smoothing = 2.0;
+      
+      this.camera.x += (targetX - this.camera.x) * smoothing * delta;
+      this.camera.y += (targetY - this.camera.y) * smoothing * delta;
+    }
   }
 
   updateMarines(delta) {
     this.marines.forEach((marine) => {
-      marine.y -= marine.moveSpeed * delta;
       marine.cooldown = Math.max(0, marine.cooldown - delta);
-      const target = this.findClosestTurret(marine.x, marine.y, MARINE_RANGE);
-      if (target && marine.cooldown <= 0) {
-        this.spawnBullet({
-          owner: 'marine',
-          x: marine.x,
-          y: marine.y - marine.radius,
-          target,
-          speed: MARINE_BULLET_SPEED,
-          damage: marine.attack,
-        });
-        marine.cooldown = 1 / marine.attackSpeed;
+      const target = this.findClosestTurret(marine.x, marine.y, marine.range);
+      
+      // Stop and fire if enemy in range, otherwise move forward
+      if (target) {
+        // Decelerate to a stop
+        const deceleration = MARINE_ACCELERATION * delta;
+        if (Math.abs(marine.vy) > deceleration) {
+          marine.vy += marine.vy > 0 ? -deceleration : deceleration;
+        } else {
+          marine.vy = 0;
+        }
+        
+        // Fire at target
+        if (marine.cooldown <= 0) {
+          this.spawnBullet({
+            owner: 'marine',
+            type: marine.type,
+            x: marine.x,
+            y: marine.y - marine.radius,
+            target,
+            speed: marine.type === 'sniper' ? SNIPER_BULLET_SPEED : 
+                   marine.type === 'splayer' ? SPLAYER_ROCKET_SPEED : MARINE_BULLET_SPEED,
+            damage: marine.attack,
+            homing: marine.type === 'splayer',
+          });
+          
+          // Splayer fires multiple rockets
+          if (marine.type === 'splayer') {
+            for (let i = 0; i < 5; i++) {
+              setTimeout(() => {
+                if (marine.health > 0) {
+                  const currentTarget = this.findClosestTurret(marine.x, marine.y, marine.range);
+                  if (currentTarget) {
+                    this.spawnBullet({
+                      owner: 'marine',
+                      type: 'splayer',
+                      x: marine.x + (Math.random() - 0.5) * 10,
+                      y: marine.y - marine.radius,
+                      target: currentTarget,
+                      speed: SPLAYER_ROCKET_SPEED,
+                      damage: marine.attack * 0.2,
+                      homing: true,
+                    });
+                  }
+                }
+              }, i * 50);
+            }
+          }
+          
+          marine.cooldown = 1 / marine.attackSpeed;
+        }
+      } else {
+        // Accelerate forward (negative y is up)
+        const targetVy = -marine.moveSpeed;
+        const acceleration = MARINE_ACCELERATION * delta;
+        if (marine.vy > targetVy) {
+          marine.vy = Math.max(targetVy, marine.vy - acceleration);
+        } else if (marine.vy < targetVy) {
+          marine.vy = Math.min(targetVy, marine.vy + acceleration);
+        }
       }
+      
+      // Apply velocity
+      marine.y += marine.vy * delta;
     });
     this.marines = this.marines.filter((marine) => marine.health > 0 && marine.y + marine.radius > -40);
   }
@@ -199,9 +405,30 @@ export class KufBattlefieldSimulation {
 
   updateBullets(delta) {
     this.bullets.forEach((bullet) => {
+      // Heat-seeking logic for splayer rockets
+      if (bullet.homing && bullet.target && bullet.target.health > 0) {
+        const dx = bullet.target.x - bullet.x;
+        const dy = bullet.target.y - bullet.y;
+        const angle = Math.atan2(dy, dx);
+        const turnRate = 3.0; // Radians per second
+        const currentAngle = Math.atan2(bullet.vy, bullet.vx);
+        let angleDiff = angle - currentAngle;
+        
+        // Normalize angle difference
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        
+        const turnAmount = Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), turnRate * delta);
+        const newAngle = currentAngle + turnAmount;
+        
+        bullet.vx = Math.cos(newAngle) * bullet.speed;
+        bullet.vy = Math.sin(newAngle) * bullet.speed;
+      }
+      
       bullet.x += bullet.vx * delta;
       bullet.y += bullet.vy * delta;
       bullet.life -= delta;
+      
       if (bullet.owner === 'marine') {
         const hit = this.findHit(this.turrets, bullet);
         if (hit && hit.health > 0) {
@@ -224,18 +451,22 @@ export class KufBattlefieldSimulation {
     this.turrets = this.turrets.filter((turret) => turret.health > 0);
   }
 
-  spawnBullet({ owner, x, y, target, speed, damage }) {
+  spawnBullet({ owner, type, x, y, target, speed, damage, homing = false }) {
     const angle = Math.atan2(target.y - y, target.x - x);
     const vx = Math.cos(angle) * speed;
     const vy = Math.sin(angle) * speed;
     this.bullets.push({
       owner,
+      type: type || 'marine',
       x,
       y,
       vx,
       vy,
       damage,
       life: 2.5,
+      homing,
+      target: homing ? target : null,
+      speed,
     });
   }
 
@@ -351,10 +582,21 @@ export class KufBattlefieldSimulation {
     }
     const ctx = this.ctx;
     this.drawBackground();
+    
+    // Apply camera transform for game objects
+    ctx.save();
+    ctx.translate(this.bounds.width / 2, this.bounds.height / 2);
+    ctx.scale(this.camera.zoom, this.camera.zoom);
+    ctx.translate(-this.bounds.width / 2 - this.camera.x, -this.bounds.height / 2 - this.camera.y);
+    
     this.drawBase();
     this.drawTurrets();
     this.drawMarines();
     this.drawBullets();
+    
+    ctx.restore();
+    
+    // Draw HUD without camera transform
     this.drawHud();
   }
 
@@ -381,9 +623,23 @@ export class KufBattlefieldSimulation {
     this.marines.forEach((marine) => {
       const healthRatio = marine.health / marine.maxHealth;
       ctx.save();
+      
+      // Different colors for different unit types
+      let mainColor, shadowColor;
+      if (marine.type === 'sniper') {
+        mainColor = 'rgba(255, 200, 100, 0.9)';
+        shadowColor = 'rgba(255, 180, 66, 0.8)';
+      } else if (marine.type === 'splayer') {
+        mainColor = 'rgba(255, 100, 200, 0.9)';
+        shadowColor = 'rgba(255, 66, 180, 0.8)';
+      } else {
+        mainColor = 'rgba(140, 255, 255, 0.9)';
+        shadowColor = 'rgba(66, 224, 255, 0.8)';
+      }
+      
       ctx.shadowBlur = 24;
-      ctx.shadowColor = 'rgba(66, 224, 255, 0.8)';
-      ctx.fillStyle = 'rgba(140, 255, 255, 0.9)';
+      ctx.shadowColor = shadowColor;
+      ctx.fillStyle = mainColor;
       ctx.beginPath();
       ctx.arc(marine.x, marine.y, marine.radius, 0, Math.PI * 2);
       ctx.fill();
@@ -422,11 +678,33 @@ export class KufBattlefieldSimulation {
     const ctx = this.ctx;
     this.bullets.forEach((bullet) => {
       ctx.save();
+      
+      let color, shadowColor, size;
+      if (bullet.owner === 'marine') {
+        if (bullet.type === 'sniper') {
+          color = 'rgba(255, 220, 120, 0.95)';
+          shadowColor = 'rgba(255, 200, 80, 0.9)';
+          size = 6;
+        } else if (bullet.type === 'splayer') {
+          color = 'rgba(255, 120, 200, 0.95)';
+          shadowColor = 'rgba(255, 80, 180, 0.9)';
+          size = 3;
+        } else {
+          color = 'rgba(120, 255, 255, 0.95)';
+          shadowColor = 'rgba(120, 255, 255, 0.9)';
+          size = 5;
+        }
+      } else {
+        color = 'rgba(255, 120, 170, 0.95)';
+        shadowColor = 'rgba(255, 120, 170, 0.9)';
+        size = 5;
+      }
+      
       ctx.shadowBlur = 16;
-      ctx.shadowColor = bullet.owner === 'marine' ? 'rgba(120, 255, 255, 0.9)' : 'rgba(255, 120, 170, 0.9)';
-      ctx.fillStyle = bullet.owner === 'marine' ? 'rgba(120, 255, 255, 0.95)' : 'rgba(255, 120, 170, 0.95)';
+      ctx.shadowColor = shadowColor;
+      ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(bullet.x, bullet.y, 5, 0, Math.PI * 2);
+      ctx.arc(bullet.x, bullet.y, size, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     });
