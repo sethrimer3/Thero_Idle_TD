@@ -7900,8 +7900,9 @@ import {
     updateFluidDisplay(info);
   }
 
-  function notifyIdleTime(elapsedMs) {
-    const defaultSummary = {
+  // Compose the baseline idle summary so every overlay row stays populated even when a spire is locked.
+  function createIdleSummaryDefaults() {
+    return {
       minutes: 0,
       aleph: { multiplier: 0, total: 0, unlocked: true },
       bet: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
@@ -7910,96 +7911,210 @@ import {
       shin: { multiplier: 0, total: 0, unlocked: false },
       kuf: { multiplier: 0, total: 0, unlocked: false },
     };
+  }
+
+  /**
+   * Calculate idle production for all spires without mutating state so multiple systems can reuse the math.
+   * @param {number} elapsedMs - Idle milliseconds to evaluate
+   * @returns {object} Idle summary compatible with the offline overlay renderer
+   */
+  function calculateIdleSpireSummary(elapsedMs) {
+    const summary = createIdleSummaryDefaults();
     if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) {
-      return defaultSummary;
+      return summary;
     }
 
-    gameStats.idleMillisecondsAccumulated += elapsedMs;
     const minutes = Math.max(0, elapsedMs / 60000);
     const seconds = Math.max(0, elapsedMs / 1000);
-    const achievementsUnlocked = Math.max(
-      0,
-      Math.floor(getUnlockedAchievementCount()),
-    );
-    const levelsBeat = Math.max(
-      0,
-      Math.floor(getCompletedInteractiveLevelCount()),
-    );
+    const achievementsUnlocked = Math.max(0, Math.floor(getUnlockedAchievementCount()));
+    const levelsBeat = Math.max(0, Math.floor(getCompletedInteractiveLevelCount()));
 
     const alephTotal = minutes * achievementsUnlocked;
     const betUnlocked = Boolean(powderState.fluidUnlocked);
     const betTotal = betUnlocked ? minutes * levelsBeat : 0;
-    
+
     // Lamed: 1 spark per second when unlocked
     const lamedUnlocked = Boolean(spireResourceState.lamed?.unlocked);
     const lamedRate = 1.0; // sparks per second
     const lamedTotal = lamedUnlocked ? seconds * lamedRate : 0;
-    
+
     // Tsadi: 2 particles per second when unlocked
     const tsadiUnlocked = Boolean(spireResourceState.tsadi?.unlocked);
     const tsadiRate = 2.0; // particles per second
     const tsadiTotal = tsadiUnlocked ? seconds * tsadiRate : 0;
-    
+
     // Shin: Iterons at the iteration rate
     const shinUnlocked = typeof getIteronBank === 'function';
     const shinRate = shinUnlocked && typeof getIterationRate === 'function' ? getIterationRate() : 0;
     const shinTotal = shinUnlocked ? seconds * shinRate : 0;
-    
+
     // Kuf: Not yet implemented
     const kufUnlocked = false;
     const kufTotal = 0;
 
-    if (alephTotal > 0) {
-      addIdleMoteBank(alephTotal, { target: 'aleph' });
+    summary.minutes = minutes;
+    summary.aleph = {
+      multiplier: achievementsUnlocked,
+      total: alephTotal,
+      unlocked: true,
+    };
+    summary.bet = {
+      multiplier: betUnlocked ? levelsBeat : 0,
+      total: betTotal,
+      unlocked: betUnlocked,
+    };
+    summary.lamed = {
+      multiplier: lamedUnlocked ? lamedRate * 60 : 0,
+      total: lamedTotal,
+      unlocked: lamedUnlocked,
+    };
+    summary.tsadi = {
+      multiplier: tsadiUnlocked ? tsadiRate * 60 : 0,
+      total: tsadiTotal,
+      unlocked: tsadiUnlocked,
+    };
+    summary.shin = {
+      multiplier: shinUnlocked ? shinRate * 60 : 0,
+      total: shinTotal,
+      unlocked: shinUnlocked,
+    };
+    summary.kuf = {
+      multiplier: 0,
+      total: kufTotal,
+      unlocked: kufUnlocked,
+    };
+
+    return summary;
+  }
+
+  /**
+   * Apply idle gains for the provided elapsed time and return the calculated summary for overlay display.
+   * @param {number} elapsedMs - Idle milliseconds to claim
+   * @returns {object} Idle summary
+   */
+  function notifyIdleTime(elapsedMs) {
+    const normalizedElapsed = Number.isFinite(elapsedMs) && elapsedMs > 0 ? elapsedMs : 0;
+    const summary = calculateIdleSpireSummary(normalizedElapsed);
+    if (normalizedElapsed <= 0 || summary.minutes <= 0) {
+      return summary;
     }
-    if (betTotal > 0) {
-      addIdleMoteBank(betTotal, { target: 'bet' });
+
+    gameStats.idleMillisecondsAccumulated += normalizedElapsed;
+
+    if (summary.aleph.total > 0) {
+      addIdleMoteBank(summary.aleph.total, { target: 'aleph' });
     }
-    if (lamedTotal > 0 && lamedUnlocked) {
-      setLamedSparkBank(getLamedSparkBank() + lamedTotal);
+    if (summary.bet.unlocked && summary.bet.total > 0) {
+      addIdleMoteBank(summary.bet.total, { target: 'bet' });
     }
-    if (tsadiTotal > 0 && tsadiUnlocked) {
-      setTsadiParticleBank(getTsadiParticleBank() + tsadiTotal);
+    if (summary.lamed.unlocked && summary.lamed.total > 0) {
+      setLamedSparkBank(getLamedSparkBank() + summary.lamed.total);
     }
-    if (shinTotal > 0 && shinUnlocked && typeof addIterons === 'function') {
-      addIterons(shinTotal);
+    if (summary.tsadi.unlocked && summary.tsadi.total > 0) {
+      setTsadiParticleBank(getTsadiParticleBank() + summary.tsadi.total);
+    }
+    if (summary.shin.unlocked && summary.shin.total > 0 && typeof addIterons === 'function') {
+      addIterons(summary.shin.total);
     }
 
     evaluateAchievements();
 
-    return {
-      minutes,
-      aleph: {
-        multiplier: achievementsUnlocked,
-        total: alephTotal,
-        unlocked: true,
-      },
-      bet: {
-        multiplier: betUnlocked ? levelsBeat : 0,
-        total: betTotal,
-        unlocked: betUnlocked,
-      },
-      lamed: {
-        multiplier: lamedUnlocked ? lamedRate * 60 : 0,
-        total: lamedTotal,
-        unlocked: lamedUnlocked,
-      },
-      tsadi: {
-        multiplier: tsadiUnlocked ? tsadiRate * 60 : 0,
-        total: tsadiTotal,
-        unlocked: tsadiUnlocked,
-      },
-      shin: {
-        multiplier: shinUnlocked ? shinRate * 60 : 0,
-        total: shinTotal,
-        unlocked: shinUnlocked,
-      },
-      kuf: {
-        multiplier: 0,
-        total: 0,
-        unlocked: kufUnlocked,
-      },
-    };
+    return summary;
+  }
+
+  /**
+   * Apply a single minute of idle gains to the requested spire so taps mirror the offline equations.
+   * @param {'aleph'|'bet'|'lamed'|'tsadi'|'shin'|'kuf'} spireId - Target spire to credit
+   */
+  function grantSpireMinuteIncome(spireId) {
+    const summary = calculateIdleSpireSummary(60000);
+    if (summary.minutes <= 0) {
+      return;
+    }
+
+    let resourcesGranted = false;
+
+    switch (spireId) {
+      case 'aleph': {
+        if (summary.aleph.total > 0) {
+          addIdleMoteBank(summary.aleph.total, { target: 'aleph' });
+          resourcesGranted = true;
+        }
+        break;
+      }
+      case 'bet': {
+        if (summary.bet.unlocked && summary.bet.total > 0) {
+          addIdleMoteBank(summary.bet.total, { target: 'bet' });
+          resourcesGranted = true;
+        }
+        break;
+      }
+      case 'lamed': {
+        if (summary.lamed.unlocked && summary.lamed.total > 0) {
+          setLamedSparkBank(getLamedSparkBank() + summary.lamed.total);
+          resourcesGranted = true;
+        }
+        break;
+      }
+      case 'tsadi': {
+        if (summary.tsadi.unlocked && summary.tsadi.total > 0) {
+          setTsadiParticleBank(getTsadiParticleBank() + summary.tsadi.total);
+          resourcesGranted = true;
+        }
+        break;
+      }
+      case 'shin': {
+        if (summary.shin.unlocked && summary.shin.total > 0) {
+          addIterons(summary.shin.total);
+          updateShinDisplay();
+          resourcesGranted = true;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    if (resourcesGranted) {
+      evaluateAchievements();
+      updateSpireMenuCounts();
+    }
+  }
+
+  /**
+   * Bind click handlers that award a minute of idle resources when players tap a spire simulation.
+   */
+  function bindSpireClickIncome() {
+    const clickTargets = [
+      { elementId: 'powder-simulation-card', spireId: 'aleph' },
+      { elementId: 'fluid-simulation-card', spireId: 'bet' },
+      { elementId: 'lamed-simulation-card', spireId: 'lamed' },
+      { elementId: 'tsadi-simulation-card', spireId: 'tsadi' },
+      { elementId: 'shin-fractal-content', spireId: 'shin' },
+    ];
+
+    clickTargets.forEach(({ elementId, spireId }) => {
+      const element = document.getElementById(elementId);
+      if (!element) {
+        return;
+      }
+      element.addEventListener('click', (event) => {
+        if (event.defaultPrevented) {
+          return;
+        }
+        if (typeof event.button === 'number' && event.button !== 0) {
+          return;
+        }
+        const interactiveTarget =
+          event.target instanceof HTMLElement
+            ? event.target.closest('button, a, input, select, textarea')
+            : null;
+        if (interactiveTarget) {
+          return;
+        }
+        grantSpireMinuteIncome(spireId);
+      });
+    });
   }
 
   function calculatePowderBonuses() {
@@ -8873,6 +8988,7 @@ import {
 
     bindStatusElements();
     bindPowderControls();
+    bindSpireClickIncome();
     await applyPowderSimulationMode(powderState.simulationMode);
     initializeEquipmentState();
     initializeCraftingOverlay({
