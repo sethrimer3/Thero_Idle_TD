@@ -6649,3 +6649,211 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================
+   Kuf Spire Styles
+   ============================================ */
+.kuf-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.kuf-card {
+  position: relative;
+  background: radial-gradient(circle at top left, rgba(30, 45, 95, 0.85), rgba(9, 12, 28, 0.92));
+  border: 1px solid rgba(96, 150, 255, 0.35);
+  box-shadow: 0 12px 48px rgba(60, 130, 255, 0.25);
+  overflow: hidden;
+}
+
+.kuf-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 10% 0%, rgba(80, 130, 255, 0.4), transparent 60%);
+  mix-blend-mode: screen;
+}
+
+.kuf-card-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem;
+  letter-spacing: 0.04em;
+}
+
+.kuf-card-subtitle {
+  margin-top: 0.25rem;
+  color: rgba(190, 220, 255, 0.75);
+}
+
+.kuf-ledger {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.kuf-ledger-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: 'Space Mono', monospace;
+  color: rgba(215, 230, 255, 0.9);
+}
+
+.kuf-ledger-row dt {
+  font-weight: 600;
+  color: rgba(140, 200, 255, 0.9);
+}
+
+.kuf-ledger-note {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: rgba(170, 210, 255, 0.7);
+}
+
+.kuf-allocation {
+  margin-top: 1.25rem;
+  padding: 0.75rem 0.5rem 0.5rem;
+  background: linear-gradient(135deg, rgba(12, 18, 40, 0.6), rgba(20, 30, 60, 0.45));
+  border-radius: 12px;
+  border: 1px solid rgba(90, 140, 255, 0.3);
+  box-shadow: inset 0 0 24px rgba(40, 120, 220, 0.15);
+}
+
+.kuf-allocation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.1rem;
+  color: rgba(200, 225, 255, 0.9);
+}
+
+.kuf-allocation-value {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.85rem;
+  color: rgba(170, 210, 255, 0.75);
+}
+
+.kuf-allocation-input {
+  margin-top: 0.75rem;
+  width: 100%;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(70, 160, 255, 0.85), rgba(150, 90, 255, 0.85));
+  box-shadow: 0 0 12px rgba(120, 200, 255, 0.45);
+}
+
+.kuf-allocation-input::-webkit-slider-thumb {
+  appearance: none;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #f9f9ff 0%, #7bf0ff 55%, #2b77ff 100%);
+  box-shadow: 0 0 18px rgba(120, 200, 255, 0.75);
+  cursor: pointer;
+}
+
+.kuf-allocation-input::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  border: none;
+  background: radial-gradient(circle, #f9f9ff 0%, #7bf0ff 55%, #2b77ff 100%);
+  box-shadow: 0 0 18px rgba(120, 200, 255, 0.75);
+  cursor: pointer;
+}
+
+.kuf-allocation-stat {
+  margin-top: 0.65rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.85rem;
+  color: rgba(210, 230, 255, 0.8);
+}
+
+.kuf-allocation-actions {
+  margin-top: 1.25rem;
+  text-align: right;
+}
+
+.kuf-card--simulation {
+  padding-bottom: 0;
+}
+
+.kuf-sim-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.kuf-sim-status {
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+  color: rgba(180, 215, 255, 0.75);
+}
+
+.kuf-sim-viewport {
+  position: relative;
+  margin-top: 1rem;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(120, 180, 255, 0.35);
+  box-shadow: inset 0 0 36px rgba(40, 100, 255, 0.35);
+  background:
+    linear-gradient(135deg, rgba(12, 16, 35, 0.9) 25%, rgba(10, 12, 28, 0.8) 50%, rgba(6, 8, 22, 0.95) 100%);
+}
+
+#kuf-simulation-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background:
+    linear-gradient(135deg, rgba(10, 14, 28, 0.95) 20%, rgba(8, 10, 22, 0.95) 60%),
+    repeating-linear-gradient(60deg, rgba(12, 20, 40, 0.35) 0, rgba(12, 20, 40, 0.35) 24px, rgba(6, 8, 20, 0.35) 24px, rgba(6, 8, 20, 0.35) 48px);
+}
+
+.kuf-result-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  gap: 0.75rem;
+  background: rgba(6, 10, 22, 0.82);
+  backdrop-filter: blur(12px);
+  text-align: center;
+  color: rgba(215, 235, 255, 0.95);
+}
+
+.kuf-result-panel h4 {
+  font-size: 1.25rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(130, 200, 255, 0.95);
+}
+
+.kuf-result-panel p {
+  margin: 0;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 640px) {
+  .kuf-sim-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .kuf-allocation {
+    padding: 0.65rem 0.5rem 0.5rem;
+  }
+
+  .kuf-card::after {
+    background: radial-gradient(circle at 20% -20%, rgba(80, 130, 255, 0.4), transparent 55%);
+  }
+}
