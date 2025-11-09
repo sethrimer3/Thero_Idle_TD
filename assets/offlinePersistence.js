@@ -302,13 +302,13 @@ async function showOfflineOverlay(summary = {}) {
       format: dependencies.formatWholeNumber,
     }),
     animateOfflineNumber(lamedMultiplier, lamedUnlocked ? lamedMultiplierValue : 0, {
-      format: dependencies.formatDecimal,
+      format: dependencies.formatWholeNumber,
     }),
     animateOfflineNumber(tsadiMultiplier, tsadiUnlocked ? tsadiMultiplierValue : 0, {
-      format: dependencies.formatDecimal,
+      format: dependencies.formatWholeNumber,
     }),
     animateOfflineNumber(shinMultiplier, shinUnlocked ? shinMultiplierValue : 0, {
-      format: dependencies.formatDecimal,
+      format: dependencies.formatWholeNumber,
     }),
     animateOfflineNumber(kufMultiplier, kufUnlocked ? kufMultiplierValue : 0, {
       format: dependencies.formatWholeNumber,
@@ -648,6 +648,10 @@ export function checkOfflineRewards() {
       minutes: minutesAway,
       aleph: { multiplier: 0, total: 0, unlocked: true },
       bet: { multiplier: 0, total: 0, unlocked: false },
+      lamed: { multiplier: 0, total: 0, unlocked: false },
+      tsadi: { multiplier: 0, total: 0, unlocked: false },
+      shin: { multiplier: 0, total: 0, unlocked: false },
+      kuf: { multiplier: 0, total: 0, unlocked: false },
     };
   dependencies.applyPowderGain(powderEarned, {
     source: 'offline',
@@ -660,6 +664,10 @@ export function checkOfflineRewards() {
     minutes: minutesAway,
     aleph: idleSummary.aleph,
     bet: idleSummary.bet,
+    lamed: idleSummary.lamed,
+    tsadi: idleSummary.tsadi,
+    shin: idleSummary.shin,
+    kuf: idleSummary.kuf,
   });
 }
 
