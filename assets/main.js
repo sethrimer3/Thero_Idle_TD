@@ -481,6 +481,7 @@ import {
     EQUIPMENT_STORAGE_KEY,
     OFFLINE_STORAGE_KEY,
     COLOR_SCHEME_STORAGE_KEY,
+    SHIN_STATE_STORAGE_KEY,
   ].filter(Boolean);
 
   const overlayHideStates = new WeakMap();
@@ -7157,6 +7158,10 @@ import {
     // Unlock all Shin Spire fractals in developer mode
     unlockAllFractals();
     refreshFractalTabs();
+    
+    // Give 1 million iterons in developer mode
+    addIterons(1000000);
+    updateShinDisplay();
 
     updatePowderHitboxVisibility();
   }
@@ -7496,6 +7501,10 @@ import {
         disableDeveloperMode();
       }
     });
+    
+    // Enable developer mode by default
+    developerModeElements.toggle.checked = true;
+    enableDeveloperMode();
   }
 
   function scrollPanelToElement(target, { offset = 16 } = {}) {

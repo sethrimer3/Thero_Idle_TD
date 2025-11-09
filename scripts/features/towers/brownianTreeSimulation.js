@@ -28,7 +28,7 @@ export class BrownianTreeSimulation {
       this.width = this.canvas.width;
       this.height = this.canvas.height;
       this.centerX = this.width / 2;
-      this.centerY = this.height * 0.75;
+      this.centerY = this.height / 2; // Center vertically instead of 0.75
       this.spawnRadius = Math.min(this.width, this.height) * 0.22;
       this.killRadius = this.spawnRadius * 1.6;
       this.accumulator = new Float32Array(this.width * this.height);

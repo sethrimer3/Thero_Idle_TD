@@ -60,7 +60,7 @@ export class GosperCurveSimulation {
 
     const commands = this.generateSequence();
     const angleStep = (Math.PI / 3); // 60° turns
-    let angle = 0;
+    let angle = Math.PI / 6; // Start at 30° to orient better
     let x = 0;
     let y = 0;
 
@@ -121,7 +121,9 @@ export class GosperCurveSimulation {
 
     const spanX = this.bounds.maxX - this.bounds.minX || 1;
     const spanY = this.bounds.maxY - this.bounds.minY || 1;
-    const scale = 0.85 * Math.min(this.canvas.width / spanX, this.canvas.height / spanY);
+    const userZoom = parseFloat(this.canvas.dataset.userZoom || '1.0');
+    const baseScale = 0.85 * Math.min(this.canvas.width / spanX, this.canvas.height / spanY);
+    const scale = baseScale * userZoom;
     const offsetX = this.canvas.width / 2 - ((this.bounds.minX + this.bounds.maxX) / 2) * scale;
     const offsetY = this.canvas.height / 2 - ((this.bounds.minY + this.bounds.maxY) / 2) * scale;
 
