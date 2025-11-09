@@ -12,11 +12,19 @@ import {
   getKufLastResult,
   getKufRemainingShards,
   getKufTotalShards,
+  getKufShardsAvailableForUnits,
   calculateKufMarineStats,
   updateKufAllocation,
   resetKufAllocations,
   recordKufBattleOutcome,
   onKufStateChange,
+  getKufUnits,
+  purchaseKufUnit,
+  sellKufUnit,
+  KUF_MARINE_BASE_STATS,
+  KUF_SNIPER_BASE_STATS,
+  KUF_SPLAYER_BASE_STATS,
+  KUF_UNIT_COSTS,
 } from './kufState.js';
 
 import { KufBattlefieldSimulation } from './kufSimulation.js';
@@ -30,6 +38,7 @@ function cacheElements() {
   kufElements = {
     shardTotal: document.getElementById('kuf-shards-total'),
     shardRemaining: document.getElementById('kuf-shards-remaining'),
+    shardsForUnits: document.getElementById('kuf-shards-for-units'),
     glyphCount: document.getElementById('kuf-glyph-count'),
     highScore: document.getElementById('kuf-high-score'),
     lastResult: document.getElementById('kuf-last-result'),
@@ -45,6 +54,21 @@ function cacheElements() {
       health: document.getElementById('kuf-allocation-health-value'),
       attack: document.getElementById('kuf-allocation-attack-value'),
       attackSpeed: document.getElementById('kuf-allocation-speed-value'),
+    },
+    unitCounts: {
+      marines: document.getElementById('kuf-marines-count'),
+      snipers: document.getElementById('kuf-snipers-count'),
+      splayers: document.getElementById('kuf-splayers-count'),
+    },
+    unitBuyButtons: {
+      marines: document.getElementById('kuf-buy-marine'),
+      snipers: document.getElementById('kuf-buy-sniper'),
+      splayers: document.getElementById('kuf-buy-splayer'),
+    },
+    unitSellButtons: {
+      marines: document.getElementById('kuf-sell-marine'),
+      snipers: document.getElementById('kuf-sell-sniper'),
+      splayers: document.getElementById('kuf-sell-splayer'),
     },
     resetButton: document.getElementById('kuf-reset-button'),
     startButton: document.getElementById('kuf-start-button'),
@@ -93,6 +117,26 @@ function bindButtons() {
       hideResultPanel();
     });
   }
+  
+  // Bind unit purchase buttons
+  Object.entries(kufElements.unitBuyButtons).forEach(([unitType, button]) => {
+    if (button) {
+      button.addEventListener('click', () => {
+        purchaseKufUnit(unitType);
+        updateUnitDisplay();
+      });
+    }
+  });
+  
+  // Bind unit sell buttons
+  Object.entries(kufElements.unitSellButtons).forEach(([unitType, button]) => {
+    if (button) {
+      button.addEventListener('click', () => {
+        sellKufUnit(unitType);
+        updateUnitDisplay();
+      });
+    }
+  });
 }
 
 function ensureSimulationInstance() {
@@ -119,19 +163,38 @@ function startSimulation() {
     kufElements.startButton.disabled = true;
     kufElements.startButton.textContent = 'Running…';
   }
-  setStatusMessage('Marine advancing toward the encampment…');
+  setStatusMessage('Units advancing toward the encampment…');
   disableAllocationInputs(true);
-  const marineStats = calculateKufMarineStats();
-  simulation.start({ marineStats });
+  disableUnitButtons(true);
+  
+  const allocations = getKufAllocations();
+  const marineStats = calculateKufMarineStats(allocations);
+  
+  // Calculate sniper and splayer stats with same shard bonuses
+  const sniperStats = {
+    health: KUF_SNIPER_BASE_STATS.health + allocations.health * 2,
+    attack: KUF_SNIPER_BASE_STATS.attack + allocations.attack * 0.5,
+    attackSpeed: KUF_SNIPER_BASE_STATS.attackSpeed + allocations.attackSpeed * 0.1,
+  };
+  
+  const splayerStats = {
+    health: KUF_SPLAYER_BASE_STATS.health + allocations.health * 2,
+    attack: KUF_SPLAYER_BASE_STATS.attack + allocations.attack * 0.5,
+    attackSpeed: KUF_SPLAYER_BASE_STATS.attackSpeed + allocations.attackSpeed * 0.1,
+  };
+  
+  const units = getKufUnits();
+  simulation.start({ marineStats, sniperStats, splayerStats, units });
 }
 
 function handleSimulationComplete(result) {
   disableAllocationInputs(false);
+  disableUnitButtons(false);
   if (kufElements.startButton) {
     kufElements.startButton.disabled = false;
     kufElements.startButton.textContent = 'Start Simulation';
   }
-  setStatusMessage(result.victory ? 'Encampment cleared. Gold tallied.' : 'Marine lost. Debrief prepared.');
+  setStatusMessage(result.victory ? 'Encampment cleared. Gold tallied.' : 'Units lost. Debrief prepared.');
   const outcome = recordKufBattleOutcome(result);
   updateAllocationDisplay();
   renderResultPanel(result, outcome);
@@ -155,6 +218,53 @@ function disableAllocationInputs(disabled) {
   if (kufElements.resetButton) {
     kufElements.resetButton.disabled = disabled;
   }
+}
+
+function disableUnitButtons(disabled) {
+  Object.values(kufElements.unitBuyButtons).forEach((button) => {
+    if (button) {
+      button.disabled = disabled;
+    }
+  });
+  Object.values(kufElements.unitSellButtons).forEach((button) => {
+    if (button) {
+      button.disabled = disabled;
+    }
+  });
+}
+
+function updateUnitDisplay() {
+  const units = getKufUnits();
+  const available = getKufShardsAvailableForUnits();
+  
+  // Update unit counts
+  Object.entries(kufElements.unitCounts).forEach(([unitType, element]) => {
+    if (element) {
+      element.textContent = String(units[unitType]);
+    }
+  });
+  
+  // Update buy button states
+  Object.entries(kufElements.unitBuyButtons).forEach(([unitType, button]) => {
+    if (button) {
+      const cost = KUF_UNIT_COSTS[unitType];
+      button.disabled = available < cost;
+    }
+  });
+  
+  // Update sell button states
+  Object.entries(kufElements.unitSellButtons).forEach(([unitType, button]) => {
+    if (button) {
+      button.disabled = units[unitType] <= 0;
+    }
+  });
+  
+  // Update shards available for units display
+  if (kufElements.shardsForUnits) {
+    kufElements.shardsForUnits.textContent = String(available);
+  }
+  
+  renderLedger();
 }
 
 function updateAllocationDisplay() {
@@ -236,6 +346,10 @@ function handleStateChange(event) {
   }
   if (event.type === 'allocation' || event.type === 'init') {
     updateAllocationDisplay();
+    updateUnitDisplay();
+  }
+  if (event.type === 'units') {
+    updateUnitDisplay();
   }
   if (event.type === 'result') {
     renderLedger();
@@ -270,6 +384,7 @@ export function initializeKufUI(options = {}) {
   attachStateListener();
   ensureSimulationInstance();
   updateAllocationDisplay();
+  updateUnitDisplay();
   primeLastResult();
 }
 
@@ -278,6 +393,7 @@ export function initializeKufUI(options = {}) {
  */
 export function updateKufDisplay() {
   updateAllocationDisplay();
+  updateUnitDisplay();
   if (simulation) {
     simulation.resize();
   }
