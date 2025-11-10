@@ -1582,8 +1582,28 @@
               <h3>Gravitational Metrics</h3>
               <dl class="lamed-metrics">
                 <div>
+                  <dt>Celestial Type</dt>
+                  <dd id="lamed-tier">Proto-star</dd>
+                </div>
+                <div>
                   <dt>Star Mass</dt>
-                  <dd id="lamed-star-mass">100.00</dd>
+                  <dd id="lamed-star-mass">10.00</dd>
+                </div>
+                <div>
+                  <dt>Next Milestone</dt>
+                  <dd id="lamed-next-tier">Main Sequence (100)</dd>
+                </div>
+                <div>
+                  <dt>Orbiting Stars</dt>
+                  <dd id="lamed-orbiting-count">0</dd>
+                </div>
+                <div>
+                  <dt>Absorptions/min</dt>
+                  <dd id="lamed-absorptions-rate">0.0</dd>
+                </div>
+                <div>
+                  <dt>Mass Inflow/min</dt>
+                  <dd id="lamed-mass-inflow">0.0</dd>
                 </div>
                 <div>
                   <dt>Idle Spark Bank</dt>
@@ -1594,8 +1614,29 @@
                   <dd id="lamed-growth-rate">1.00 sparks/sec</dd>
                 </div>
               </dl>
+              <div class="lamed-upgrades">
+                <h4>Orbital Drag System</h4>
+                <p>Upgrade drag coefficient to promote inward migration of orbiting stars.</p>
+                <div class="lamed-drag-info">
+                  <div>
+                    <dt>Drag Level</dt>
+                    <dd id="lamed-drag-level">0</dd>
+                  </div>
+                  <div>
+                    <dt>Coefficient (k)</dt>
+                    <dd id="lamed-drag-coefficient">0.00</dd>
+                  </div>
+                </div>
+                <button
+                  id="lamed-upgrade-drag-btn"
+                  class="lamed-upgrade-btn"
+                  aria-label="Upgrade drag coefficient"
+                >
+                  Upgrade Drag (Cost: <span id="lamed-drag-cost">10</span> Sparks)
+                </button>
+              </div>
               <p class="lamed-status-note" id="lamed-status-note">
-                Sparks orbit the central gravity well before being absorbed into the star.
+                Stars spawn in orbital rings around the central body. Drag causes inward spiral migration.
               </p>
             </article>
             <article class="card lamed-briefing-card">
@@ -1604,8 +1645,9 @@
                 <span class="lamed-state-label" id="lamed-state-label">Orbiting</span>
               </h3>
               <p class="lamed-briefing">
-                Observe sparks entering from the void, swirling around the central gravity well in orbital patterns.
-                As sparks are absorbed, the star's mass grows, intensifying its gravitational pull.
+                Stars emerge from the void in annular rings, orbiting the central celestial body with near-circular velocities.
+                As stars are absorbed, the central body evolves through distinct evolutionary stages from Proto-star to Black Hole.
+                Gravitational lensing, accretion disks, and polar jets manifest as mass increases.
               </p>
             </article>
           </section>
