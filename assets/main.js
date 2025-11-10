@@ -151,6 +151,7 @@ import {
   bindColorSchemeButton,
   initializeColorScheme,
   COLOR_SCHEME_STORAGE_KEY,
+  samplePaletteGradient,
 } from './colorSchemeUtils.js';
 import {
   configureAchievementsTab,
@@ -2061,6 +2062,80 @@ import {
       setTsadiParticleBank(100);
     } else {
       updateSpireMenuCounts();
+    }
+  }
+  
+  /**
+   * Bind Tsadi upgrade button click handlers
+   */
+  function bindTsadiUpgradeButtons() {
+    const repellingButton = document.getElementById('tsadi-upgrade-repelling-button');
+    const tierButton = document.getElementById('tsadi-upgrade-tier-button');
+    
+    if (repellingButton) {
+      repellingButton.addEventListener('click', () => {
+        if (tsadiSimulationInstance && tsadiSimulationInstance.purchaseRepellingForceReduction()) {
+          updateTsadiUpgradeUI();
+          updateSpireMenuCounts();
+        }
+      });
+    }
+    
+    if (tierButton) {
+      tierButton.addEventListener('click', () => {
+        if (tsadiSimulationInstance && tsadiSimulationInstance.purchaseStartingTierUpgrade()) {
+          updateTsadiUpgradeUI();
+          updateSpireMenuCounts();
+        }
+      });
+    }
+  }
+  
+  /**
+   * Update Tsadi upgrade UI elements
+   */
+  function updateTsadiUpgradeUI() {
+    if (!tsadiSimulationInstance) return;
+    
+    const upgradeInfo = tsadiSimulationInstance.getUpgradeInfo();
+    
+    // Update repelling force upgrade
+    const repellingLevel = document.getElementById('tsadi-upgrade-repelling-level');
+    const repellingCost = document.getElementById('tsadi-upgrade-repelling-cost');
+    const repellingButton = document.getElementById('tsadi-upgrade-repelling-button');
+    const repellingDesc = document.getElementById('tsadi-upgrade-repelling-description');
+    
+    if (repellingLevel) {
+      repellingLevel.textContent = `Level ${upgradeInfo.repellingForceReduction.level}`;
+    }
+    if (repellingCost) {
+      repellingCost.textContent = `Cost: ${upgradeInfo.repellingForceReduction.cost} Particles`;
+    }
+    if (repellingButton) {
+      repellingButton.disabled = !upgradeInfo.repellingForceReduction.canAfford;
+    }
+    if (repellingDesc) {
+      const effect = upgradeInfo.repellingForceReduction.effect;
+      repellingDesc.textContent = `Reduces particle repelling force by 50% per level. Current: ${effect}. When force becomes negative, particles attract instead of repel.`;
+    }
+    
+    // Update starting tier upgrade
+    const tierLevel = document.getElementById('tsadi-upgrade-tier-level');
+    const tierCost = document.getElementById('tsadi-upgrade-tier-cost');
+    const tierButton = document.getElementById('tsadi-upgrade-tier-button');
+    const tierDesc = document.getElementById('tsadi-upgrade-tier-description');
+    
+    if (tierLevel) {
+      tierLevel.textContent = `Level ${upgradeInfo.startingTier.level}`;
+    }
+    if (tierCost) {
+      tierCost.textContent = `Cost: ${upgradeInfo.startingTier.cost} Particles`;
+    }
+    if (tierButton) {
+      tierButton.disabled = !upgradeInfo.startingTier.canAfford;
+    }
+    if (tierDesc) {
+      tierDesc.textContent = `Increases the tier of particles spawned into the simulation. Current: ${upgradeInfo.startingTier.effect}.`;
     }
   }
 
@@ -8850,6 +8925,7 @@ import {
               tsadiSimulationInstance = new ParticleFusionSimulation({
                 canvas: tsadiCanvas,
                 initialParticleBank: getTsadiParticleBank(),
+                samplePaletteGradient: samplePaletteGradient,
                 onParticleBankChange: (value) => {
                   setTsadiParticleBank(value);
                 },
@@ -8867,7 +8943,7 @@ import {
                       typeof tierInfo === 'object' && tierInfo !== null
                         ? tierInfo
                         : getGreekTierInfo(resolvedTier);
-                    tierEl.textContent = `${tierMetadata.name} (${tierMetadata.letter}) – Tier ${resolvedTier}`;
+                    tierEl.textContent = `${tierMetadata.displayName || `${tierMetadata.name} (${tierMetadata.letter}) – Tier ${resolvedTier}`}`;
                   }
                 },
                 onParticleCountChange: (count) => {
@@ -8882,6 +8958,9 @@ import {
                     glyphEl.textContent = `${glyphCount} Tsadi Glyphs`;
                   }
                 },
+                onReset: () => {
+                  console.log('Tsadi simulation reset after aleph explosion');
+                },
               });
               tsadiSimulationInstance.resize();
               const generationRateEl = document.getElementById('tsadi-generation-rate');
@@ -8890,6 +8969,9 @@ import {
               }
               updateSpireMenuCounts();
               tsadiSimulationInstance.start();
+              
+              // Bind upgrade buttons
+              bindTsadiUpgradeButtons();
             }
           } else {
             tsadiSimulationInstance.resize();
@@ -8897,6 +8979,9 @@ import {
               tsadiSimulationInstance.start();
             }
           }
+          
+          // Update upgrade UI every time the tab is shown
+          updateTsadiUpgradeUI();
         } else if (tabId === 'shin') {
           // Initialize Shin Spire UI when tab is first opened
           if (!shinSimulationInstance) {

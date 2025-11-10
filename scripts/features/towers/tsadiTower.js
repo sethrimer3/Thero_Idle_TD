@@ -9,52 +9,125 @@
 
 /**
  * Ordered list of Greek letter metadata for tier naming.
- * Each entry contains the capitalized English name and its lowercase glyph.
+ * Each entry contains the capitalized English name, lowercase glyph, and uppercase glyph.
  */
 const GREEK_TIER_SEQUENCE = [
-  { name: 'Alpha', letter: 'α' },
-  { name: 'Beta', letter: 'β' },
-  { name: 'Gamma', letter: 'γ' },
-  { name: 'Delta', letter: 'δ' },
-  { name: 'Epsilon', letter: 'ε' },
-  { name: 'Zeta', letter: 'ζ' },
-  { name: 'Eta', letter: 'η' },
-  { name: 'Theta', letter: 'θ' },
-  { name: 'Iota', letter: 'ι' },
-  { name: 'Kappa', letter: 'κ' },
-  { name: 'Lambda', letter: 'λ' },
-  { name: 'Mu', letter: 'μ' },
-  { name: 'Nu', letter: 'ν' },
-  { name: 'Xi', letter: 'ξ' },
-  { name: 'Omicron', letter: 'ο' },
-  { name: 'Pi', letter: 'π' },
-  { name: 'Rho', letter: 'ρ' },
-  { name: 'Sigma', letter: 'σ' },
-  { name: 'Tau', letter: 'τ' },
-  { name: 'Upsilon', letter: 'υ' },
-  { name: 'Phi', letter: 'φ' },
-  { name: 'Chi', letter: 'χ' },
-  { name: 'Psi', letter: 'ψ' },
-  { name: 'Omega', letter: 'ω' },
+  { name: 'Alpha', letter: 'α', capital: 'Α' },
+  { name: 'Beta', letter: 'β', capital: 'Β' },
+  { name: 'Gamma', letter: 'γ', capital: 'Γ' },
+  { name: 'Delta', letter: 'δ', capital: 'Δ' },
+  { name: 'Epsilon', letter: 'ε', capital: 'Ε' },
+  { name: 'Zeta', letter: 'ζ', capital: 'Ζ' },
+  { name: 'Eta', letter: 'η', capital: 'Η' },
+  { name: 'Theta', letter: 'θ', capital: 'Θ' },
+  { name: 'Iota', letter: 'ι', capital: 'Ι' },
+  { name: 'Kappa', letter: 'κ', capital: 'Κ' },
+  { name: 'Lambda', letter: 'λ', capital: 'Λ' },
+  { name: 'Mu', letter: 'μ', capital: 'Μ' },
+  { name: 'Nu', letter: 'ν', capital: 'Ν' },
+  { name: 'Xi', letter: 'ξ', capital: 'Ξ' },
+  { name: 'Omicron', letter: 'ο', capital: 'Ο' },
+  { name: 'Pi', letter: 'π', capital: 'Π' },
+  { name: 'Rho', letter: 'ρ', capital: 'Ρ' },
+  { name: 'Sigma', letter: 'σ', capital: 'Σ' },
+  { name: 'Tau', letter: 'τ', capital: 'Τ' },
+  { name: 'Upsilon', letter: 'υ', capital: 'Υ' },
+  { name: 'Phi', letter: 'φ', capital: 'Φ' },
+  { name: 'Chi', letter: 'χ', capital: 'Χ' },
+  { name: 'Psi', letter: 'ψ', capital: 'Ψ' },
+  { name: 'Omega', letter: 'ω', capital: 'Ω' },
 ];
 
+// Null particle is tier -1, the base reference particle
+const NULL_TIER = -1;
+// Total Greek letters in sequence (used for tier calculations)
+const GREEK_SEQUENCE_LENGTH = GREEK_TIER_SEQUENCE.length;
+
 /**
- * Convert tier to a color using a perceptually uniform gradient from cool to warm.
- * @param {number} tier - The particle tier (0-based)
+ * Convert tier to a color using the active color palette gradient.
+ * Integrates with the game's color scheme system for consistent theming.
+ * @param {number} tier - The particle tier (NULL_TIER to aleph)
+ * @param {Function} sampleGradientFn - Function to sample from color palette gradient
  * @returns {string} CSS color string
  */
-function tierToColor(tier) {
-  // Map tier to hue: cool (blue) at tier 0 to warm (red/orange) at high tiers
-  // Hue range: 240° (blue) → 0° (red) with saturation and lightness adjustments
-  const maxTier = 20; // Expected max for color mapping
-  const t = Math.min(tier / maxTier, 1);
+function tierToColor(tier, sampleGradientFn = null) {
+  // Determine which cycle we're in and position within that cycle
+  const tierInfo = getTierClassification(tier);
   
-  // Cool to warm: blue (240°) → cyan (180°) → green (120°) → yellow (60°) → orange/red (0-30°)
-  const hue = 240 - (t * 240);
-  const saturation = 70 + (t * 20); // 70% to 90%
-  const lightness = 55 + (t * 10); // 55% to 65%
+  // For null tier, use the start of the gradient
+  if (tier === NULL_TIER) {
+    if (sampleGradientFn) {
+      const rgb = sampleGradientFn(0);
+      return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+    }
+    return 'hsl(240, 70%, 55%)'; // Default blue
+  }
   
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  // For aleph particle, use a golden color
+  if (tierInfo.isAleph) {
+    return 'hsl(45, 100%, 75%)'; // Golden aleph
+  }
+  
+  // Calculate position in gradient (0 to 1) based on position in Greek sequence
+  const greekIndex = tier % GREEK_SEQUENCE_LENGTH;
+  const position = greekIndex / (GREEK_SEQUENCE_LENGTH - 1);
+  
+  if (sampleGradientFn) {
+    const rgb = sampleGradientFn(position);
+    
+    // Apply darkness multiplier based on cycle
+    // Cycle 0 (lowercase): full brightness
+    // Cycle 1 (capital): 70% brightness
+    // Cycle 2+ (double letters): 50% brightness
+    let darkenFactor = 1.0;
+    if (tierInfo.cycle === 1) {
+      darkenFactor = 0.7;
+    } else if (tierInfo.cycle >= 2) {
+      darkenFactor = 0.5;
+    }
+    
+    const r = Math.round(rgb.r * darkenFactor);
+    const g = Math.round(rgb.g * darkenFactor);
+    const b = Math.round(rgb.b * darkenFactor);
+    
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+  
+  // Fallback to HSL gradient
+  const hue = 240 - (position * 240);
+  let lightness = 55 + (position * 10);
+  
+  // Apply darkness for higher cycles
+  if (tierInfo.cycle === 1) {
+    lightness *= 0.7;
+  } else if (tierInfo.cycle >= 2) {
+    lightness *= 0.5;
+  }
+  
+  return `hsl(${hue}, ${70 + position * 20}%, ${lightness}%)`;
+}
+
+/**
+ * Classify a tier into its cycle and position.
+ * @param {number} tier - The particle tier
+ * @returns {Object} Classification info
+ */
+function getTierClassification(tier) {
+  if (tier === NULL_TIER) {
+    return { cycle: -1, isNull: true, isAleph: false, greekIndex: -1 };
+  }
+  
+  // Check if aleph (after omega omega = tier 47)
+  const alephTier = GREEK_SEQUENCE_LENGTH * 2; // 48 for 24 Greek letters
+  if (tier >= alephTier) {
+    return { cycle: 3, isNull: false, isAleph: true, greekIndex: -1 };
+  }
+  
+  // Determine cycle: 0 = lowercase, 1 = capital, 2 = double lowercase
+  const cycle = Math.floor(tier / GREEK_SEQUENCE_LENGTH);
+  const greekIndex = tier % GREEK_SEQUENCE_LENGTH;
+  
+  return { cycle, isNull: false, isAleph: false, greekIndex };
 }
 
 /**
@@ -185,6 +258,10 @@ export class ParticleFusionSimulation {
     this.onParticleBankChange = typeof options.onParticleBankChange === 'function'
       ? options.onParticleBankChange
       : null;
+    this.onReset = typeof options.onReset === 'function' ? options.onReset : null;
+    this.samplePaletteGradient = typeof options.samplePaletteGradient === 'function'
+      ? options.samplePaletteGradient
+      : null;
     
     // Dimensions
     this.width = 0;
@@ -193,23 +270,34 @@ export class ParticleFusionSimulation {
     // Physics parameters
     this.gravity = 0; // No gravity for this simulation
     this.damping = 1.0; // No damping (elastic collisions)
-    this.massScaleFactor = 1.5; // k in radius = k * sqrt(mass)
+    this.baseSpeed = 100; // Base speed in pixels per second
+    this.baseRepellingForce = 1.0; // Base repelling force strength
     
     // Particle management
     this.particles = [];
     this.maxParticles = 100;
     this.spawnRate = 2; // Particles per second (consumes particle bank)
     this.spawnAccumulator = 0;
-    this.baseMass = 1; // Base mass for tier 0 particles
-    this.baseRadius = 5; // Visual base radius (recalculated on resize)
+    this.nullParticleRadius = 5; // Reference size for null particle (recalculated on resize)
     this.particleBank = 0; // Reserve that feeds the simulation with new particles
     
     // Glyph tracking
-    this.highestTierReached = 0; // Tracks the highest tier ever reached
-    this.glyphCount = 0; // Number of Tsadi glyphs earned (= highest tier reached)
+    this.highestTierReached = NULL_TIER; // Tracks the highest tier ever reached
+    this.glyphCount = 0; // Number of Tsadi glyphs earned
+    this.permanentGlyphs = []; // Permanent glowing glyphs in background
+    
+    // Upgrades
+    this.upgrades = {
+      repellingForceReduction: 0, // Number of times purchased
+      startingTier: 0, // Number of times purchased (0 = spawn null particles)
+    };
     
     // Fusion effects
     this.fusionEffects = []; // {x, y, radius, alpha, type: 'flash' | 'ring'}
+    
+    // Aleph particle state
+    this.alephParticleId = null; // ID of the current aleph particle if it exists
+    this.alephAbsorptionCount = 0; // Number of particles absorbed by aleph
     
     // Visual settings
     this.backgroundColor = '#0f1116'; // Dark background
@@ -257,29 +345,55 @@ export class ParticleFusionSimulation {
       this.ctx.scale(dpr, dpr);
     }
 
-    // Base radius ensures tier-0 diameter equals 1/50 of simulation width.
-    this.baseRadius = (this.width / 100) / this.massScaleFactor;
+    // Null particle radius is 80% of what alpha would be (which is 1/100 of width)
+    const alphaRadius = this.width / 100;
+    this.nullParticleRadius = alphaRadius * 0.8;
 
     // Recalculate radii for existing particles so they stay proportional after resize.
     for (const particle of this.particles) {
-      particle.radius = this.getRadiusFromMass(particle.mass);
+      particle.radius = this.getRadiusForTier(particle.tier);
     }
   }
   
   /**
-   * Calculate mass for a given tier.
-   * Mass doubles with each tier.
+   * Calculate radius for a given tier using 10% additive growth.
+   * Null particle (tier -1) is the reference size.
+   * Each tier above null is 10% larger than null.
+   * Capital letters reset to alpha size + 10%.
+   * Double letters reset to alpha size + 20%.
+   * @param {number} tier - The particle tier
+   * @returns {number} Radius in pixels
    */
-  getMassForTier(tier) {
-    return this.baseMass * Math.pow(2, tier);
-  }
-  
-  /**
-   * Calculate radius from mass.
-   * Formula: radius = k * sqrt(mass)
-   */
-  getRadiusFromMass(mass) {
-    return this.baseRadius * this.massScaleFactor * Math.sqrt(mass);
+  getRadiusForTier(tier) {
+    if (tier === NULL_TIER) {
+      return this.nullParticleRadius;
+    }
+    
+    const classification = getTierClassification(tier);
+    
+    // Aleph particle is 150% of null size
+    if (classification.isAleph) {
+      return this.nullParticleRadius * 1.5;
+    }
+    
+    // Calculate base size depending on cycle
+    let baseSize;
+    if (classification.cycle === 0) {
+      // Lowercase: null + 10% per tier
+      baseSize = this.nullParticleRadius * (1 + 0.1 * (tier - NULL_TIER));
+    } else if (classification.cycle === 1) {
+      // Capital: alpha + 10% per capital tier
+      const capitalTierIndex = classification.greekIndex;
+      const alphaRadius = this.nullParticleRadius * 1.1; // Alpha is 10% larger than null
+      baseSize = alphaRadius * (1 + 0.1 * capitalTierIndex);
+    } else {
+      // Double letters: alpha + 20% per double tier
+      const doubleTierIndex = tier - (GREEK_SEQUENCE_LENGTH * 2);
+      const alphaRadius = this.nullParticleRadius * 1.1;
+      baseSize = alphaRadius * (1 + 0.2 * doubleTierIndex);
+    }
+    
+    return baseSize;
   }
   
   /**
@@ -297,36 +411,47 @@ export class ParticleFusionSimulation {
   /**
    * Spawn a new particle with random position and velocity
    */
-  spawnParticle(tier = 0) {
+  spawnParticle(tier = NULL_TIER) {
     if (this.particles.length >= this.maxParticles) return false;
     if (this.particleBank <= 0) return false;
 
-    const mass = this.getMassForTier(tier);
-    const radius = this.getRadiusFromMass(mass);
-    const tierInfo = getGreekTierInfo(tier);
+    // Apply starting tier upgrade
+    const effectiveTier = tier + this.upgrades.startingTier;
+    
+    const radius = this.getRadiusForTier(effectiveTier);
+    const tierInfo = getGreekTierInfo(effectiveTier);
 
     // Random position with margin from edges
     const margin = radius * 2;
     const x = margin + Math.random() * (this.width - margin * 2);
     const y = margin + Math.random() * (this.height - margin * 2);
     
-    // Random velocity
-    const speed = 50 + Math.random() * 100; // pixels per second
+    // Calculate speed with 10% reduction per tier above null
+    const tierAboveNull = effectiveTier - NULL_TIER;
+    const speedMultiplier = Math.max(0.1, 1 - (0.1 * tierAboveNull)); // Cap at 10% min speed
+    const speed = (this.baseSpeed * speedMultiplier) * (0.5 + Math.random() * 0.5);
     const angle = Math.random() * Math.PI * 2;
     const vx = Math.cos(angle) * speed;
     const vy = Math.sin(angle) * speed;
+    
+    // Calculate repelling force (100% increase per tier)
+    const baseRepelling = this.baseRepellingForce;
+    const repellingReduction = this.upgrades.repellingForceReduction * 0.5; // 50% per upgrade
+    const repellingMultiplier = tierAboveNull - repellingReduction;
+    const repellingForce = baseRepelling * repellingMultiplier;
     
     this.particles.push({
       x,
       y,
       vx,
       vy,
-      mass,
       radius,
-      tier,
-      color: tierToColor(tier),
+      tier: effectiveTier,
+      color: tierToColor(effectiveTier, this.samplePaletteGradient),
       label: tierInfo.letter,
       id: Math.random(), // Unique ID for tracking
+      repellingForce,
+      speedMultiplier,
     });
 
     // Deduct a particle from the idle bank when it materializes inside the simulation.
@@ -346,15 +471,30 @@ export class ParticleFusionSimulation {
     const canvasWidth = this.width;
     const canvasHeight = this.height;
     
-    // Spawn new particles
+    // Spawn new particles (always spawn at null tier, upgrade will adjust)
     this.spawnAccumulator += dt * this.spawnRate;
     while (this.spawnAccumulator >= 1 && this.particles.length < this.maxParticles && this.particleBank > 0) {
-      const spawned = this.spawnParticle(0);
+      const spawned = this.spawnParticle(NULL_TIER);
       if (!spawned) {
         break;
       }
       this.spawnAccumulator -= 1;
     }
+    
+    // Build quadtree for efficient neighbor finding
+    this.quadtree = new Quadtree({
+      x: 0,
+      y: 0,
+      width: canvasWidth,
+      height: canvasHeight,
+    });
+    
+    for (const particle of this.particles) {
+      this.quadtree.insert(particle);
+    }
+    
+    // Apply repelling forces between nearby particles
+    this.applyRepellingForces(dt);
     
     // Update positions
     for (const particle of this.particles) {
@@ -379,18 +519,6 @@ export class ParticleFusionSimulation {
       }
     }
     
-    // Build quadtree for collision detection
-    this.quadtree = new Quadtree({
-      x: 0,
-      y: 0,
-      width: canvasWidth,
-      height: canvasHeight,
-    });
-    
-    for (const particle of this.particles) {
-      this.quadtree.insert(particle);
-    }
-    
     // Particle-particle collisions and fusion
     this.handleCollisions();
     
@@ -405,6 +533,47 @@ export class ParticleFusionSimulation {
 
       if (effect.alpha <= 0) {
         this.fusionEffects.splice(i, 1);
+      }
+    }
+  }
+  
+  /**
+   * Apply repelling or attracting forces between particles based on their tier
+   */
+  applyRepellingForces(dt) {
+    const processedPairs = new Set();
+    const repelRadius = this.nullParticleRadius * 5; // Repelling force acts within 5x null radius
+    
+    for (const p1 of this.particles) {
+      const candidates = this.quadtree.retrieve(p1);
+      
+      for (const p2 of candidates) {
+        if (p1.id === p2.id) continue;
+        
+        const pairKey = p1.id < p2.id ? `${p1.id}-${p2.id}` : `${p2.id}-${p1.id}`;
+        if (processedPairs.has(pairKey)) continue;
+        processedPairs.add(pairKey);
+        
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < repelRadius && dist > 0.001) {
+          // Average repelling force between the two particles
+          const avgRepelling = (p1.repellingForce + p2.repellingForce) / 2;
+          
+          // If force is negative, particles attract; if positive, they repel
+          const forceMagnitude = avgRepelling * (1 - dist / repelRadius) * dt * 50;
+          
+          const nx = dx / dist;
+          const ny = dy / dist;
+          
+          // Apply force (negative force attracts, positive repels)
+          p1.vx -= nx * forceMagnitude;
+          p1.vy -= ny * forceMagnitude;
+          p2.vx += nx * forceMagnitude;
+          p2.vy += ny * forceMagnitude;
+        }
       }
     }
   }
@@ -436,7 +605,7 @@ export class ParticleFusionSimulation {
   }
 
   /**
-   * Handle particle-particle collisions and fusion
+   * Handle particle-particle collisions and fusion with tier progression
    */
   handleCollisions() {
     const processedPairs = new Set();
@@ -446,6 +615,13 @@ export class ParticleFusionSimulation {
     for (let i = 0; i < this.particles.length; i++) {
       const p1 = this.particles[i];
       if (particlesToRemove.has(p1.id)) continue;
+      
+      // Check for aleph particle absorbing other particles
+      const p1Classification = getTierClassification(p1.tier);
+      if (p1Classification.isAleph && this.alephParticleId === p1.id) {
+        this.handleAlephAbsorption(p1, particlesToRemove);
+        continue;
+      }
       
       const candidates = this.quadtree.retrieve(p1);
       
@@ -467,59 +643,7 @@ export class ParticleFusionSimulation {
           // Collision detected
           if (p1.tier === p2.tier) {
             // Fusion: same tier particles merge
-            const newTier = p1.tier + 1;
-            const newMass = p1.mass + p2.mass;
-            const newRadius = this.getRadiusFromMass(newMass);
-            const newTierInfo = getGreekTierInfo(newTier);
-            
-            // Conserve momentum: weighted average of velocities
-            const newVx = (p1.vx * p1.mass + p2.vx * p2.mass) / newMass;
-            const newVy = (p1.vy * p1.mass + p2.vy * p2.mass) / newMass;
-            
-            // Position at midpoint of contact
-            const newX = (p1.x + p2.x) / 2;
-            const newY = (p1.y + p2.y) / 2;
-            
-            // Create new fused particle
-            particlesToAdd.push({
-              x: newX,
-              y: newY,
-              vx: newVx,
-              vy: newVy,
-              mass: newMass,
-              radius: newRadius,
-              tier: newTier,
-              color: tierToColor(newTier),
-              label: newTierInfo.letter,
-              id: Math.random(),
-            });
-            
-            // Mark old particles for removal
-            particlesToRemove.add(p1.id);
-            particlesToRemove.add(p2.id);
-            
-            // Add fusion effects
-            this.fusionEffects.push(
-              { x: newX, y: newY, radius: newRadius * 1.2, alpha: 1, type: 'flash' },
-              { x: newX, y: newY, radius: newRadius, alpha: 0.8, type: 'ring' }
-            );
-            
-            // Update highest tier
-            if (newTier > this.highestTierReached) {
-              this.highestTierReached = newTier;
-              this.glyphCount = newTier;
-
-              if (this.onTierChange) {
-                this.onTierChange({
-                  tier: newTier,
-                  name: newTierInfo.name,
-                  letter: newTierInfo.letter,
-                });
-              }
-              if (this.onGlyphChange) {
-                this.onGlyphChange(this.glyphCount);
-              }
-            }
+            this.handleFusion(p1, p2, particlesToRemove, particlesToAdd);
           } else {
             // Elastic collision: different tiers
             this.resolveElasticCollision(p1, p2);
@@ -533,6 +657,263 @@ export class ParticleFusionSimulation {
     
     // Add new particles
     this.particles.push(...particlesToAdd);
+    
+    if (this.onParticleCountChange) {
+      this.onParticleCountChange(this.particles.length);
+    }
+  }
+  
+  /**
+   * Handle fusion between two particles of the same tier
+   */
+  handleFusion(p1, p2, particlesToRemove, particlesToAdd) {
+    const newTier = p1.tier + 1;
+    const classification = getTierClassification(newTier);
+    
+    // Check if this is an omega tier that should explode
+    const isOmegaTier = (newTier > NULL_TIER && (newTier % GREEK_SEQUENCE_LENGTH === 0));
+    const omegaClassification = getTierClassification(p1.tier);
+    
+    if (isOmegaTier && omegaClassification.greekIndex === GREEK_SEQUENCE_LENGTH - 1) {
+      // This is an omega merging into the next cycle - create explosion
+      this.createTierExplosion(p1, p2, particlesToRemove, particlesToAdd);
+      return;
+    }
+    
+    // Position at midpoint of contact
+    const newX = (p1.x + p2.x) / 2;
+    const newY = (p1.y + p2.y) / 2;
+    
+    // Conserve momentum: average velocities
+    const newVx = (p1.vx + p2.vx) / 2;
+    const newVy = (p1.vy + p2.vy) / 2;
+    
+    // Create new fused particle
+    const newRadius = this.getRadiusForTier(newTier);
+    const newTierInfo = getGreekTierInfo(newTier);
+    
+    // Calculate speed with tier reduction
+    const tierAboveNull = newTier - NULL_TIER;
+    const speedMultiplier = Math.max(0.1, 1 - (0.1 * tierAboveNull));
+    
+    // Calculate repelling force
+    const baseRepelling = this.baseRepellingForce;
+    const repellingReduction = this.upgrades.repellingForceReduction * 0.5;
+    const repellingMultiplier = tierAboveNull - repellingReduction;
+    const repellingForce = baseRepelling * repellingMultiplier;
+    
+    const newParticle = {
+      x: newX,
+      y: newY,
+      vx: newVx,
+      vy: newVy,
+      radius: newRadius,
+      tier: newTier,
+      color: tierToColor(newTier, this.samplePaletteGradient),
+      label: newTierInfo.letter,
+      id: Math.random(),
+      repellingForce,
+      speedMultiplier,
+    };
+    
+    // Check if this is the first aleph particle
+    if (classification.isAleph && !this.alephParticleId) {
+      this.alephParticleId = newParticle.id;
+      this.alephAbsorptionCount = 0;
+    }
+    
+    particlesToAdd.push(newParticle);
+    
+    // Mark old particles for removal
+    particlesToRemove.add(p1.id);
+    particlesToRemove.add(p2.id);
+    
+    // Add fusion effects
+    this.fusionEffects.push(
+      { x: newX, y: newY, radius: newRadius * 1.2, alpha: 1, type: 'flash' },
+      { x: newX, y: newY, radius: newRadius, alpha: 0.8, type: 'ring' }
+    );
+    
+    // Update highest tier
+    if (newTier > this.highestTierReached) {
+      this.highestTierReached = newTier;
+      // Glyph count is now tracked separately
+      if (this.onTierChange) {
+        this.onTierChange({
+          tier: newTier,
+          name: newTierInfo.name,
+          letter: newTierInfo.letter,
+        });
+      }
+    }
+  }
+  
+  /**
+   * Create an explosion when omega tiers merge, spawning next tier particles
+   */
+  createTierExplosion(p1, p2, particlesToRemove, particlesToAdd) {
+    const explosionX = (p1.x + p2.x) / 2;
+    const explosionY = (p1.y + p2.y) / 2;
+    
+    // Determine which tier to spawn
+    const nextCycleTier = p1.tier + 1;
+    const newRadius = this.getRadiusForTier(nextCycleTier);
+    
+    // Mark old particles for removal
+    particlesToRemove.add(p1.id);
+    particlesToRemove.add(p2.id);
+    
+    // Add large explosion effect
+    this.fusionEffects.push(
+      { x: explosionX, y: explosionY, radius: newRadius * 3, alpha: 1, type: 'flash' },
+      { x: explosionX, y: explosionY, radius: newRadius * 2, alpha: 1, type: 'ring' }
+    );
+    
+    // Spawn 10 particles of the next tier in a circle
+    const numSpawned = 10;
+    const spawnRadius = newRadius * 3;
+    
+    for (let i = 0; i < numSpawned; i++) {
+      const angle = (i / numSpawned) * Math.PI * 2;
+      const x = explosionX + Math.cos(angle) * spawnRadius;
+      const y = explosionY + Math.sin(angle) * spawnRadius;
+      
+      // Ensure particles stay within bounds
+      const clampedX = Math.max(newRadius, Math.min(this.width - newRadius, x));
+      const clampedY = Math.max(newRadius, Math.min(this.height - newRadius, y));
+      
+      // Velocity pointing outward from explosion
+      const speed = this.baseSpeed * 0.5;
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed;
+      
+      const tierInfo = getGreekTierInfo(nextCycleTier);
+      
+      // Calculate tier-based properties
+      const tierAboveNull = nextCycleTier - NULL_TIER;
+      const speedMultiplier = Math.max(0.1, 1 - (0.1 * tierAboveNull));
+      const baseRepelling = this.baseRepellingForce;
+      const repellingReduction = this.upgrades.repellingForceReduction * 0.5;
+      const repellingMultiplier = tierAboveNull - repellingReduction;
+      const repellingForce = baseRepelling * repellingMultiplier;
+      
+      particlesToAdd.push({
+        x: clampedX,
+        y: clampedY,
+        vx,
+        vy,
+        radius: newRadius,
+        tier: nextCycleTier,
+        color: tierToColor(nextCycleTier, this.samplePaletteGradient),
+        label: tierInfo.letter,
+        id: Math.random(),
+        repellingForce,
+        speedMultiplier,
+      });
+    }
+    
+    // Update highest tier
+    if (nextCycleTier > this.highestTierReached) {
+      this.highestTierReached = nextCycleTier;
+      const tierInfo = getGreekTierInfo(nextCycleTier);
+      if (this.onTierChange) {
+        this.onTierChange({
+          tier: nextCycleTier,
+          name: tierInfo.name,
+          letter: tierInfo.letter,
+        });
+      }
+    }
+  }
+  
+  /**
+   * Handle aleph particle absorbing other particles
+   */
+  handleAlephAbsorption(alephParticle, particlesToRemove) {
+    const candidates = this.quadtree.retrieve(alephParticle);
+    
+    for (const other of candidates) {
+      if (other.id === alephParticle.id) continue;
+      if (particlesToRemove.has(other.id)) continue;
+      
+      const dx = other.x - alephParticle.x;
+      const dy = other.y - alephParticle.y;
+      const distSq = dx * dx + dy * dy;
+      const minDist = alephParticle.radius + other.radius;
+      
+      if (distSq < minDist * minDist) {
+        // Absorb this particle
+        particlesToRemove.add(other.id);
+        this.alephAbsorptionCount++;
+        
+        // Add small absorption effect
+        this.fusionEffects.push({
+          x: other.x,
+          y: other.y,
+          radius: other.radius * 1.5,
+          alpha: 0.8,
+          type: 'flash',
+        });
+        
+        // Check if aleph has absorbed 1000 particles
+        if (this.alephAbsorptionCount >= 1000) {
+          this.triggerAlephExplosion(alephParticle, particlesToRemove);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Trigger the final aleph explosion, awarding glyphs and resetting
+   */
+  triggerAlephExplosion(alephParticle, particlesToRemove) {
+    // Remove the aleph particle
+    particlesToRemove.add(alephParticle.id);
+    this.alephParticleId = null;
+    this.alephAbsorptionCount = 0;
+    
+    // Add massive explosion effect
+    this.fusionEffects.push(
+      { x: alephParticle.x, y: alephParticle.y, radius: this.width / 2, alpha: 1, type: 'flash' },
+      { x: alephParticle.x, y: alephParticle.y, radius: this.width / 3, alpha: 1, type: 'ring' }
+    );
+    
+    // Award 100 Tsadi glyphs
+    this.glyphCount += 100;
+    if (this.onGlyphChange) {
+      this.onGlyphChange(this.glyphCount);
+    }
+    
+    // Add permanent glyph to background
+    this.permanentGlyphs.push({
+      x: Math.random() * this.width,
+      y: Math.random() * this.height,
+      alpha: 0.2 + Math.random() * 0.3,
+      size: 20 + Math.random() * 30,
+    });
+    
+    // Reset simulation after a brief delay
+    setTimeout(() => {
+      this.resetSimulation();
+    }, 1000);
+  }
+  
+  /**
+   * Reset the simulation while maintaining glyph count
+   */
+  resetSimulation() {
+    this.particles = [];
+    this.highestTierReached = NULL_TIER;
+    this.fusionEffects = [];
+    this.alephParticleId = null;
+    this.alephAbsorptionCount = 0;
+    
+    // Respawn initial particles
+    this.spawnInitialParticles();
+    
+    if (this.onReset) {
+      this.onReset();
+    }
     
     if (this.onParticleCountChange) {
       this.onParticleCountChange(this.particles.length);
@@ -563,14 +944,18 @@ export class ParticleFusionSimulation {
     // Don't resolve if velocities are separating
     if (dvn > 0) return;
     
+    // Use radius as proxy for mass (larger particles have more inertia)
+    const m1 = p1.radius * p1.radius;
+    const m2 = p2.radius * p2.radius;
+    
     // Collision impulse scalar
-    const impulse = 2 * dvn / (p1.mass + p2.mass);
+    const impulse = 2 * dvn / (m1 + m2);
     
     // Apply impulse
-    p1.vx -= impulse * p2.mass * nx;
-    p1.vy -= impulse * p2.mass * ny;
-    p2.vx += impulse * p1.mass * nx;
-    p2.vy += impulse * p1.mass * ny;
+    p1.vx -= impulse * m2 * nx;
+    p1.vy -= impulse * m2 * ny;
+    p2.vx += impulse * m1 * nx;
+    p2.vy += impulse * m1 * ny;
     
     // Separate particles to prevent overlap
     const overlap = (p1.radius + p2.radius) - dist;
@@ -595,6 +980,15 @@ export class ParticleFusionSimulation {
     // Clear with dark background
     ctx.fillStyle = this.backgroundColor;
     ctx.fillRect(0, 0, this.width, this.height);
+    
+    // Draw permanent glowing Tsadi glyphs in background
+    for (const glyph of this.permanentGlyphs) {
+      ctx.fillStyle = `rgba(255, 220, 100, ${glyph.alpha})`;
+      ctx.font = `${glyph.size}px 'Times New Roman', serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('צ', glyph.x, glyph.y);
+    }
     
     // Draw fusion effects
     for (const effect of this.fusionEffects) {
@@ -624,13 +1018,49 @@ export class ParticleFusionSimulation {
     
     // Draw particles with sub-pixel precision and glow
     for (const particle of this.particles) {
-      // Outer glow
+      const classification = getTierClassification(particle.tier);
+      
+      // Enhanced glow for capital and double letter particles
+      let glowRadius = particle.radius * 1.5;
+      let glowIntensity = 1.0;
+      
+      if (classification.cycle === 1) {
+        // Capital letters: slightly brighter glow
+        glowRadius = particle.radius * 2.0;
+        glowIntensity = 1.3;
+      } else if (classification.cycle >= 2) {
+        // Double letters: even brighter glow
+        glowRadius = particle.radius * 2.5;
+        glowIntensity = 1.6;
+      }
+      
+      // Outer bright glow for higher tiers
+      if (classification.cycle >= 1) {
+        const brightGlowGradient = ctx.createRadialGradient(
+          particle.x, particle.y, 0,
+          particle.x, particle.y, glowRadius
+        );
+        
+        const color = particle.color;
+        // Extract RGB from the color and brighten it
+        const brightColor = this.brightenColor(color, glowIntensity);
+        
+        brightGlowGradient.addColorStop(0, brightColor);
+        brightGlowGradient.addColorStop(0.4, color);
+        brightGlowGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        ctx.fillStyle = brightGlowGradient;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, glowRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Standard outer glow
       const glowGradient = ctx.createRadialGradient(
         particle.x, particle.y, 0,
         particle.x, particle.y, particle.radius * 1.5
       );
       
-      // Parse color to extract RGB for gradient
       const color = particle.color;
       glowGradient.addColorStop(0, color);
       glowGradient.addColorStop(0.7, color);
@@ -674,6 +1104,28 @@ export class ParticleFusionSimulation {
         ctx.fillText(particle.label, particle.x, particle.y);
       }
     }
+  }
+  
+  /**
+   * Brighten a color for enhanced glow effects
+   */
+  brightenColor(colorStr, intensity) {
+    // Parse RGB from color string
+    const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (match) {
+      let r = parseInt(match[1]);
+      let g = parseInt(match[2]);
+      let b = parseInt(match[3]);
+      
+      // Brighten by intensity factor
+      r = Math.min(255, Math.round(r * intensity));
+      g = Math.min(255, Math.round(g * intensity));
+      b = Math.min(255, Math.round(b * intensity));
+      
+      return `rgba(${r}, ${g}, ${b}, 0.6)`;
+    }
+    
+    return colorStr;
   }
   
   /**
@@ -725,6 +1177,82 @@ export class ParticleFusionSimulation {
   }
   
   /**
+   * Purchase repelling force reduction upgrade
+   * @returns {boolean} True if purchase was successful
+   */
+  purchaseRepellingForceReduction() {
+    const cost = this.getRepellingForceReductionCost();
+    if (this.particleBank < cost) {
+      return false;
+    }
+    
+    this.setParticleBank(this.particleBank - cost);
+    this.upgrades.repellingForceReduction++;
+    
+    // Update repelling force for all existing particles
+    for (const particle of this.particles) {
+      const tierAboveNull = particle.tier - NULL_TIER;
+      const repellingReduction = this.upgrades.repellingForceReduction * 0.5;
+      const repellingMultiplier = tierAboveNull - repellingReduction;
+      particle.repellingForce = this.baseRepellingForce * repellingMultiplier;
+    }
+    
+    return true;
+  }
+  
+  /**
+   * Get cost of next repelling force reduction upgrade
+   */
+  getRepellingForceReductionCost() {
+    return 3 * Math.pow(2, this.upgrades.repellingForceReduction);
+  }
+  
+  /**
+   * Purchase starting tier upgrade
+   * @returns {boolean} True if purchase was successful
+   */
+  purchaseStartingTierUpgrade() {
+    const cost = this.getStartingTierUpgradeCost();
+    if (this.particleBank < cost) {
+      return false;
+    }
+    
+    this.setParticleBank(this.particleBank - cost);
+    this.upgrades.startingTier++;
+    
+    return true;
+  }
+  
+  /**
+   * Get cost of next starting tier upgrade
+   */
+  getStartingTierUpgradeCost() {
+    return 5 * Math.pow(2, this.upgrades.startingTier);
+  }
+  
+  /**
+   * Get upgrade information
+   */
+  getUpgradeInfo() {
+    return {
+      repellingForceReduction: {
+        level: this.upgrades.repellingForceReduction,
+        cost: this.getRepellingForceReductionCost(),
+        effect: `${this.upgrades.repellingForceReduction * 50}% force reduction`,
+        canAfford: this.particleBank >= this.getRepellingForceReductionCost(),
+      },
+      startingTier: {
+        level: this.upgrades.startingTier,
+        cost: this.getStartingTierUpgradeCost(),
+        effect: this.upgrades.startingTier > 0 
+          ? `Spawn ${getGreekTierInfo(NULL_TIER + this.upgrades.startingTier).name} particles`
+          : 'Spawn Null particles',
+        canAfford: this.particleBank >= this.getStartingTierUpgradeCost(),
+      },
+    };
+  }
+  
+  /**
    * Export simulation state for save/load
    */
   exportState() {
@@ -739,6 +1267,12 @@ export class ParticleFusionSimulation {
       highestTierReached: this.highestTierReached,
       glyphCount: this.glyphCount,
       particleBank: this.particleBank,
+      upgrades: {
+        repellingForceReduction: this.upgrades.repellingForceReduction,
+        startingTier: this.upgrades.startingTier,
+      },
+      permanentGlyphs: this.permanentGlyphs,
+      alephAbsorptionCount: this.alephAbsorptionCount,
     };
   }
   
@@ -751,31 +1285,60 @@ export class ParticleFusionSimulation {
     this.particles = [];
     if (Array.isArray(state.particles)) {
       for (const p of state.particles) {
-        const mass = this.getMassForTier(p.tier);
-        const radius = this.getRadiusFromMass(mass);
+        const radius = this.getRadiusForTier(p.tier);
         const tierInfo = getGreekTierInfo(p.tier);
+        
+        // Calculate tier-based properties
+        const tierAboveNull = p.tier - NULL_TIER;
+        const speedMultiplier = Math.max(0.1, 1 - (0.1 * tierAboveNull));
+        const baseRepelling = this.baseRepellingForce;
+        const repellingReduction = this.upgrades.repellingForceReduction * 0.5;
+        const repellingMultiplier = tierAboveNull - repellingReduction;
+        const repellingForce = baseRepelling * repellingMultiplier;
+        
         this.particles.push({
           x: p.x,
           y: p.y,
           vx: p.vx,
           vy: p.vy,
-          mass,
           radius,
           tier: p.tier,
-          color: tierToColor(p.tier),
+          color: tierToColor(p.tier, this.samplePaletteGradient),
           label: tierInfo.letter,
           id: Math.random(),
+          repellingForce,
+          speedMultiplier,
         });
       }
     }
     
     if (typeof state.highestTierReached === 'number') {
       this.highestTierReached = state.highestTierReached;
-      this.glyphCount = state.highestTierReached;
+    }
+    
+    if (typeof state.glyphCount === 'number') {
+      this.glyphCount = state.glyphCount;
     }
 
     if (Number.isFinite(state.particleBank)) {
       this.setParticleBank(state.particleBank);
+    }
+    
+    if (state.upgrades) {
+      if (typeof state.upgrades.repellingForceReduction === 'number') {
+        this.upgrades.repellingForceReduction = state.upgrades.repellingForceReduction;
+      }
+      if (typeof state.upgrades.startingTier === 'number') {
+        this.upgrades.startingTier = state.upgrades.startingTier;
+      }
+    }
+    
+    if (Array.isArray(state.permanentGlyphs)) {
+      this.permanentGlyphs = state.permanentGlyphs;
+    }
+    
+    if (typeof state.alephAbsorptionCount === 'number') {
+      this.alephAbsorptionCount = state.alephAbsorptionCount;
     }
 
     if (this.onParticleCountChange) {
@@ -796,24 +1359,64 @@ export class ParticleFusionSimulation {
 }
 
 /**
- * Retrieve metadata for the provided tier, looping through the Greek sequence if needed.
- * @param {number} tier - Zero-based tier index
- * @returns {{name: string, letter: string}}
+ * Retrieve metadata for the provided tier with support for null, lowercase, capital, double, and aleph.
+ * @param {number} tier - Tier index (NULL_TIER = -1 for null particle, 0+ for Greek tiers)
+ * @returns {{name: string, letter: string, displayName: string}}
  */
 function getGreekTierInfo(tier) {
-  const safeTier = Math.max(0, Math.floor(tier));
-  const sequenceLength = GREEK_TIER_SEQUENCE.length;
-  const index = safeTier % sequenceLength;
-  const cycle = Math.floor(safeTier / sequenceLength);
-  const baseInfo = GREEK_TIER_SEQUENCE[index];
-
-  // Append cycle count to the name for tiers beyond the base sequence.
-  const cycleSuffix = cycle > 0 ? ` ${cycle + 1}` : '';
-
-  return {
-    name: `${baseInfo.name}${cycleSuffix}`,
-    letter: baseInfo.letter,
-  };
+  const safeTier = Math.floor(tier);
+  
+  // Handle null particle (tier -1)
+  if (safeTier === NULL_TIER) {
+    return {
+      name: 'Null',
+      letter: '', // No letter for null particle
+      displayName: 'Null – Tier -1',
+    };
+  }
+  
+  // Handle aleph particle (after omega omega)
+  const alephTier = GREEK_SEQUENCE_LENGTH * 2; // 48 for 24 Greek letters
+  if (safeTier >= alephTier) {
+    return {
+      name: 'Aleph',
+      letter: 'ℵ', // Aleph symbol
+      displayName: 'Aleph – Final Tier',
+    };
+  }
+  
+  const classification = getTierClassification(safeTier);
+  const greekIndex = classification.greekIndex;
+  const cycle = classification.cycle;
+  const baseInfo = GREEK_TIER_SEQUENCE[greekIndex];
+  
+  let name, letter, displayName;
+  
+  if (cycle === 0) {
+    // Lowercase Greek letters (tiers 0-23)
+    name = baseInfo.name;
+    letter = baseInfo.letter;
+    displayName = `${name} (${letter}) – Tier ${safeTier}`;
+  } else if (cycle === 1) {
+    // Capital Greek letters (tiers 24-47)
+    name = `Capital ${baseInfo.name}`;
+    letter = baseInfo.capital;
+    displayName = `${name} (${letter}) – Tier ${safeTier}`;
+  } else {
+    // Double letters: Alpha Alpha, Alpha Beta, etc. (tiers 48+)
+    const firstLetterIndex = Math.floor((safeTier - alephTier) / GREEK_SEQUENCE_LENGTH);
+    const secondLetterIndex = (safeTier - alephTier) % GREEK_SEQUENCE_LENGTH;
+    const firstName = GREEK_TIER_SEQUENCE[firstLetterIndex]?.name || 'Alpha';
+    const secondName = GREEK_TIER_SEQUENCE[secondLetterIndex]?.name || 'Alpha';
+    const firstLetter = GREEK_TIER_SEQUENCE[firstLetterIndex]?.letter || 'α';
+    const secondLetter = GREEK_TIER_SEQUENCE[secondLetterIndex]?.letter || 'α';
+    
+    name = `${firstName} ${secondName}`;
+    letter = `${firstLetter}${secondLetter}`;
+    displayName = `${name} (${letter}) – Tier ${safeTier}`;
+  }
+  
+  return { name, letter, displayName };
 }
 
 // Export helper utilities for external use
