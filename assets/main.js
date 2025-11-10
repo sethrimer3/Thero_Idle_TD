@@ -151,6 +151,7 @@ import {
   bindColorSchemeButton,
   initializeColorScheme,
   COLOR_SCHEME_STORAGE_KEY,
+  samplePaletteGradient,
 } from './colorSchemeUtils.js';
 import {
   configureAchievementsTab,
@@ -8850,6 +8851,7 @@ import {
               tsadiSimulationInstance = new ParticleFusionSimulation({
                 canvas: tsadiCanvas,
                 initialParticleBank: getTsadiParticleBank(),
+                samplePaletteGradient: samplePaletteGradient,
                 onParticleBankChange: (value) => {
                   setTsadiParticleBank(value);
                 },
@@ -8867,7 +8869,7 @@ import {
                       typeof tierInfo === 'object' && tierInfo !== null
                         ? tierInfo
                         : getGreekTierInfo(resolvedTier);
-                    tierEl.textContent = `${tierMetadata.name} (${tierMetadata.letter}) – Tier ${resolvedTier}`;
+                    tierEl.textContent = `${tierMetadata.displayName || `${tierMetadata.name} (${tierMetadata.letter}) – Tier ${resolvedTier}`}`;
                   }
                 },
                 onParticleCountChange: (count) => {
@@ -8881,6 +8883,9 @@ import {
                   if (glyphEl) {
                     glyphEl.textContent = `${glyphCount} Tsadi Glyphs`;
                   }
+                },
+                onReset: () => {
+                  console.log('Tsadi simulation reset after aleph explosion');
                 },
               });
               tsadiSimulationInstance.resize();
