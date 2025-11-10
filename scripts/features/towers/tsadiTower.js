@@ -1245,7 +1245,7 @@ export class ParticleFusionSimulation {
         level: this.upgrades.startingTier,
         cost: this.getStartingTierUpgradeCost(),
         effect: this.upgrades.startingTier > 0 
-          ? `Spawn ${getGreekTierInfo(this.upgrades.startingTier - 1).name} particles`
+          ? `Spawn ${getGreekTierInfo(NULL_TIER + this.upgrades.startingTier).name} particles`
           : 'Spawn Null particles',
         canAfford: this.particleBank >= this.getStartingTierUpgradeCost(),
       },
