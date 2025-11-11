@@ -65,6 +65,15 @@ import {
   teardownMuTower as teardownMuTowerHelper,
 } from '../scripts/features/towers/muTower.js';
 import {
+  ensureNuState as ensureNuStateHelper,
+  updateNuTower as updateNuTowerHelper,
+  trackNuKill as trackNuKillHelper,
+  spawnNuKillParticle as spawnNuKillParticleHelper,
+  drawNuKillParticles as drawNuKillParticlesHelper,
+  updateNuBursts as updateNuBurstsHelper,
+  teardownNuTower as teardownNuTowerHelper,
+} from '../scripts/features/towers/nuTower.js';
+import {
   ensureThetaState as ensureThetaStateHelper,
   updateThetaTower as updateThetaTowerHelper,
   teardownThetaTower as teardownThetaTowerHelper,
@@ -199,10 +208,11 @@ export class SimplePlayfield {
     this.towers = [];
     this.enemies = [];
     this.projectiles = [];
-    // Maintain per-tower particle burst queues so α/β/γ visuals can update independently.
+    // Maintain per-tower particle burst queues so α/β/γ/ν visuals can update independently.
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+    this.nuBursts = [];
     this.availableTowers = [];
     this.draggingTowerType = null;
     this.dragPreviewOffset = { x: 0, y: 0 }; // Allow callers to nudge the preview in addition to the standardized elevation.
@@ -857,6 +867,7 @@ export class SimplePlayfield {
       this.alphaBursts = [];
       this.betaBursts = [];
       this.gammaBursts = [];
+    this.nuBursts = [];
       this.towers = [];
       this.energy = 0;
       this.lives = 0;
@@ -958,6 +969,7 @@ export class SimplePlayfield {
       this.alphaBursts = [];
       this.betaBursts = [];
       this.gammaBursts = [];
+    this.nuBursts = [];
       this.towers = [];
       this.hoverPlacement = null;
       this.pointerPosition = null;
@@ -1151,6 +1163,7 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+    this.nuBursts = [];
     this.floaters = [];
     this.floaterConnections = [];
     this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
@@ -1286,6 +1299,7 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+    this.nuBursts = [];
     this.floaters = [];
     this.floaterConnections = [];
     this.currentWaveNumber = 1;
@@ -1907,6 +1921,10 @@ export class SimplePlayfield {
     return TowerManager.spawnGammaAttackBurst.call(this, tower, targetInfo, options);
   }
 
+  spawnNuAttackBurst(tower, targetInfo, options = {}) {
+    return TowerManager.spawnNuAttackBurst.call(this, tower, targetInfo, options);
+  }
+
   /**
    * Clear cached κ tripwire data when the lattice retunes or leaves the field.
    */
@@ -1982,6 +2000,20 @@ export class SimplePlayfield {
    */
   teardownMuTower(tower) {
     return TowerManager.teardownMuTower.call(this, tower);
+  }
+
+  /**
+   * Update ν tower kill tracking and particle effects.
+   */
+  updateNuTower(tower, delta) {
+    updateNuTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Clear cached ν tower data when the tower is removed or reset.
+   */
+  teardownNuTower(tower) {
+    teardownNuTowerHelper(this, tower);
   }
 
   /**
@@ -2780,6 +2812,7 @@ export class SimplePlayfield {
     this.teardownKappaTower(tower);
     this.teardownLambdaTower(tower);
     this.teardownMuTower(tower);
+    this.teardownNuTower(tower);
     this.teardownIotaTower(tower);
     this.teardownDeltaTower(tower);
     this.teardownZetaTower(tower);
@@ -3805,6 +3838,7 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+    this.nuBursts = [];
     this.activeWave = this.createWaveState(this.levelConfig.waves[0], { initialWave: true });
     this.lives = this.levelConfig.lives;
     this.markWaveStart();
@@ -4081,6 +4115,7 @@ export class SimplePlayfield {
     this.updateAlphaBursts(speedDelta);
     this.updateBetaBursts(speedDelta);
     this.updateGammaBursts(speedDelta);
+    this.updateNuBursts(speedDelta);
     this.updateCrystals(speedDelta);
     this.updateConnectionParticles(speedDelta);
 
@@ -4321,6 +4356,9 @@ export class SimplePlayfield {
         this.updateMuTower(tower, delta);
         return;
       }
+      if (tower.type === 'nu') {
+        this.updateNuTower(tower, delta);
+      }
       if (!this.combatActive || !this.enemies.length) {
         return;
       }
@@ -4439,6 +4477,13 @@ export class SimplePlayfield {
    */
   updateGammaBursts(delta) {
     updateGammaBurstsHelper(this, delta);
+  }
+
+  /**
+   * Advance ν particle bursts so kill-tracking lasers animate smoothly.
+   */
+  updateNuBursts(delta) {
+    updateNuBurstsHelper(this, delta);
   }
 
   /**
@@ -4705,12 +4750,24 @@ export class SimplePlayfield {
     }
     const multiplier = this.computeEnemyDamageMultiplier(enemy);
     const applied = baseDamage * multiplier;
+    const hpBefore = Number.isFinite(enemy.hp) ? enemy.hp : 0;
     if (Number.isFinite(enemy.hp)) {
       enemy.hp -= applied;
     } else {
       enemy.hp = -applied;
     }
     if (enemy.hp <= 0) {
+      // Track kill and overkill damage for Nu towers
+      if (sourceTower && sourceTower.type === 'nu') {
+        const overkillDamage = Math.max(0, applied - hpBefore);
+        trackNuKillHelper(sourceTower, overkillDamage);
+        
+        // Spawn kill particle at enemy position
+        const enemyPos = this.getEnemyPosition(enemy);
+        if (enemyPos) {
+          spawnNuKillParticleHelper(this, sourceTower, enemyPos);
+        }
+      }
       this.processEnemyDefeat(enemy);
     }
     return applied;
@@ -4731,6 +4788,8 @@ export class SimplePlayfield {
       this.spawnBetaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
     } else if (tower.type === 'gamma') {
       this.spawnGammaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
+    } else if (tower.type === 'nu') {
+      this.spawnNuAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
     } else {
       this.projectiles.push({
         source: { x: tower.x, y: tower.y },
@@ -4741,7 +4800,7 @@ export class SimplePlayfield {
         maxLifetime: 0.24,
       });
     }
-    if ((tower.type === 'beta' || tower.type === 'gamma')) {
+    if ((tower.type === 'beta' || tower.type === 'gamma' || tower.type === 'nu')) {
       this.triggerQueuedSwirlLaunches(tower, effectPosition);
     }
     if (getTowerTierValue(tower) >= 24) {
@@ -5646,6 +5705,7 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+    this.nuBursts = [];
     this.floaters = [];
     this.floaterConnections = [];
     this.endlessCycle = Math.max(0, Number(snapshot.endlessCycle) || 0);

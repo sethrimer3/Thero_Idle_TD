@@ -53,6 +53,11 @@ import {
   ensureMuState as ensureMuStateHelper,
   teardownMuTower as teardownMuTowerHelper,
 } from '../../../scripts/features/towers/muTower.js';
+import {
+  ensureNuState_Burst as ensureNuStateHelper,
+  spawnNuAttackBurst as spawnNuAttackBurstHelper,
+  teardownNuTower as teardownNuTowerHelper,
+} from '../../../scripts/features/towers/nuTower.js';
 
 // Tower management routines extracted from SimplePlayfield.
 
@@ -118,6 +123,18 @@ function ensureKappaState(tower) {
 
 function spawnGammaAttackBurst(tower, targetInfo, options = {}) {
   return spawnGammaAttackBurstHelper(this, tower, targetInfo, options);
+}
+
+function ensureNuState(tower) {
+  return ensureNuStateHelper(this, tower);
+}
+
+function spawnNuAttackBurst(tower, targetInfo, options = {}) {
+  return spawnNuAttackBurstHelper(this, tower, targetInfo, options);
+}
+
+function teardownNuTower(tower) {
+  teardownNuTowerHelper(this, tower);
 }
 
 function teardownThetaTower(tower) {
@@ -266,6 +283,9 @@ export {
   teardownGammaTower,
   ensureGammaState,
   spawnGammaAttackBurst,
+  ensureNuState,
+  spawnNuAttackBurst,
+  teardownNuTower,
   teardownKappaTower,
   ensureKappaState,
   teardownThetaTower,

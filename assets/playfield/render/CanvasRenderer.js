@@ -11,6 +11,10 @@ import { drawGammaBursts as drawGammaBurstsHelper } from '../../../scripts/featu
 import { drawKappaTripwires as drawKappaTripwiresHelper } from '../../../scripts/features/towers/kappaTower.js';
 import { drawLambdaLasers as drawLambdaLasersHelper } from '../../../scripts/features/towers/lambdaTower.js';
 import { drawMuMines as drawMuMinesHelper } from '../../../scripts/features/towers/muTower.js';
+import {
+  drawNuBursts as drawNuBurstsHelper,
+  drawNuKillParticles as drawNuKillParticlesHelper,
+} from '../../../scripts/features/towers/nuTower.js';
 import { drawZetaPendulums as drawZetaPendulumsHelper } from '../../../scripts/features/towers/zetaTower.js';
 import { drawEtaOrbits as drawEtaOrbitsHelper } from '../../../scripts/features/towers/etaTower.js';
 import { drawDeltaSoldiers as drawDeltaSoldiersHelper } from '../../../scripts/features/towers/deltaTower.js';
@@ -929,6 +933,9 @@ function drawTowers() {
     if (tower.type === 'mu') {
       drawMuMinesHelper(this, tower);
     }
+    if (tower.type === 'nu') {
+      drawNuKillParticlesHelper(this, tower);
+    }
 
     ctx.save();
     const outerShadow = visuals.outerShadow;
@@ -1317,6 +1324,7 @@ function drawProjectiles() {
   this.drawBetaBursts();
   this.drawAlphaBursts();
   this.drawGammaBursts();
+  this.drawNuBursts();
 }
 
 function drawAlphaBursts() {
@@ -1329,6 +1337,10 @@ function drawBetaBursts() {
 
 function drawGammaBursts() {
   drawGammaBurstsHelper(this);
+}
+
+function drawNuBursts() {
+  drawNuBurstsHelper(this);
 }
 
 function drawTowerMenu() {
@@ -1417,6 +1429,7 @@ export {
   drawAlphaBursts,
   drawBetaBursts,
   drawGammaBursts,
+  drawNuBursts,
   drawTowerMenu,
 };
 

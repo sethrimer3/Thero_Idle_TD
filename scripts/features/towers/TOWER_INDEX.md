@@ -18,6 +18,7 @@ Quick lookup table for all implemented towers in Thero Idle.
 | κ | Kappa | `kappaTower.js` | Kappa critical strike system |
 | λ | Lambda | `lambdaTower.js` | Lambda lambda calculus mechanics |
 | μ | Mu | `muTower.js` | Fractal mine layer (Sierpinski/Apollonian) |
+| ν | Nu | `nuTower.js` | Kill-scaling piercing laser with overkill tracking |
 | ℵ | Aleph | `alephChain.js` | Cardinality-based system (advanced) |
 
 ## Special Towers
