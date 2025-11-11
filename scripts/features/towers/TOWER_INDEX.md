@@ -17,6 +17,7 @@ Quick lookup table for all implemented towers in Thero Idle.
 | ι | Iota | `iotaTower.js` | Iota integration over time |
 | κ | Kappa | `kappaTower.js` | Kappa critical strike system |
 | λ | Lambda | `lambdaTower.js` | Lambda lambda calculus mechanics |
+| μ | Mu | `muTower.js` | Fractal mine layer (Sierpinski/Apollonian) |
 | ℵ | Aleph | `alephChain.js` | Cardinality-based system (advanced) |
 
 ## Special Towers

@@ -2283,6 +2283,106 @@ const TOWER_EQUATION_BLUEPRINTS = {
       return `${formatComponent(total)} = ${formatComponent(kappa)} × ${formatComponent(enemyWeight)}`;
     },
   },
+  // μ tower (Mu) lays fractal mines on the track that charge up through tiers.
+  // Normal mode: Sierpinski triangle mines
+  // Prestige mode (Μ): Apollonian gasket circle mines
+  mu: {
+    mathSymbol: String.raw`\mu`,
+    baseEquation: String.raw`\( \mu = \lambda \times (\text{tier} \times 10) \)`,
+    variables: [
+      {
+        key: 'aleph1',
+        symbol: 'ℵ₁',
+        equationSymbol: 'ℵ₁',
+        name: 'Aleph₁ Tier',
+        description: 'Maximum tier level that mines can charge to before arming.',
+        baseValue: 1,
+        step: 1,
+        upgradable: true,
+        format: (value) => `Tier ${formatWholeNumber(Math.max(1, value))}`,
+        cost: (level) => Math.max(1, Math.pow(2, level)),
+        getSubEquations({ level, value }) {
+          const rank = Math.max(1, Number.isFinite(level) ? 1 + level : 1);
+          const resolved = Number.isFinite(value) ? Math.max(1, value) : rank;
+          return [
+            {
+              expression: String.raw`\( \text{tier} = 1 + \aleph_{1} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(resolved)} = 1 + ${formatWholeNumber(level || 0)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph2',
+        symbol: 'ℵ₂',
+        equationSymbol: 'ℵ₂',
+        name: 'Aleph₂ Capacity',
+        description: 'Increases maximum number of mines that can exist simultaneously.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        format: (value) => `+${formatWholeNumber(Math.max(0, value))} mines`,
+        cost: (level) => Math.max(1, 5 + level * 3),
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : rank;
+          const totalMines = 5 + resolved;
+          return [
+            {
+              expression: String.raw`\( \text{max} = 5 + \aleph_{2} \)`,
+            },
+            {
+              values: String.raw`\( ${formatWholeNumber(totalMines)} = 5 + ${formatWholeNumber(resolved)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph3',
+        symbol: 'ℵ₃',
+        equationSymbol: 'ℵ₃',
+        name: 'Aleph₃ Speed',
+        description: 'Increases the rate at which new mines are placed on the track.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatDecimal(0.5 + 0.1 * Math.max(0, value), 2)} mines/s`,
+        cost: (level) => Math.max(1, 3 + level * 2),
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : rank;
+          const speed = 0.5 + 0.1 * resolved;
+          return [
+            {
+              expression: String.raw`\( \text{spd} = 0.5 + 0.1 \times \aleph_{3} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(speed, 2)} = 0.5 + 0.1 \times ${formatWholeNumber(resolved)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+    ],
+    computeResult(values) {
+      // Damage calculation: atk = lambda * (tier * 10)
+      const lambdaValue = calculateTowerEquationResult('lambda');
+      const lambda = Number.isFinite(lambdaValue) ? lambdaValue : 0;
+      const tier = Math.max(1, Number.isFinite(values.aleph1) ? values.aleph1 : 1);
+      return lambda * (tier * 10);
+    },
+    formatBaseEquationValues({ values, result, formatComponent }) {
+      const lambdaValue = calculateTowerEquationResult('lambda');
+      const lambda = Number.isFinite(lambdaValue) ? lambdaValue : 0;
+      const tier = Math.max(1, Number.isFinite(values.aleph1) ? values.aleph1 : 1);
+      const tierDamage = tier * 10;
+      return `${formatComponent(result)} = ${formatComponent(lambda)} × ${formatComponent(tierDamage)}`;
+    },
+  },
   // ζ tower channels a double-pendulum equation that references multiple Aleph
   // upgrade threads to determine attack, speed, range, and pendulum count.
   zeta: {
