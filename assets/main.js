@@ -3992,9 +3992,6 @@ import {
       // Mark that initial load restoration has been completed
       powderState[initialLoadKey] = true;
       // Rectangle restoration will be handled by _synthesizeRectangleState in importState
-    } else if (!isInitialLoad && snapshot.compactHeightLine && Number.isFinite(snapshot.moteCount)) {
-      // For tab switches, temporarily remove moteCount to force full grain restoration from compactHeightLine
-      snapshot.moteCount = undefined;
     }
     
     const applied = simulation.importState(snapshot);
@@ -7866,6 +7863,34 @@ import {
         powderState.fluidGlyphsAwarded = glyphsLit;
       } else if (!Number.isFinite(powderState.fluidGlyphsAwarded) || powderState.fluidGlyphsAwarded < glyphsLit) {
         powderState.fluidGlyphsAwarded = Math.max(previousAwarded, glyphsLit);
+      }
+
+      const normalizedGlyphs = Number.isFinite(glyphsLit) ? Math.max(0, glyphsLit) : 0;
+      const previousWallTarget = Number.isFinite(powderState.wallGapTarget)
+        ? powderState.wallGapTarget
+        : powderConfig.wallBaseGapMotes;
+      const nextWallTarget = powderConfig.wallBaseGapMotes + normalizedGlyphs * powderConfig.wallGapPerGlyph;
+
+      if (nextWallTarget !== previousWallTarget) {
+        powderState.wallGapTarget = nextWallTarget;
+        const targetSimulation =
+          fluidSimulationInstance && typeof fluidSimulationInstance.setWallGapTarget === 'function'
+            ? fluidSimulationInstance
+            : null;
+        if (targetSimulation) {
+          const fluidIsActive = powderSimulation === targetSimulation;
+          const setOptions = fluidIsActive ? undefined : { skipRebuild: true };
+          targetSimulation.setWallGapTarget(nextWallTarget, setOptions);
+          const metrics = targetSimulation.getWallMetrics();
+          if (fluidIsActive) {
+            handlePowderWallMetricsChange(metrics, 'fluid');
+          } else {
+            fluidWallMetrics = metrics;
+            schedulePowderBasinSave();
+          }
+        } else {
+          schedulePowderBasinSave();
+        }
       }
 
       if (glyphsLit !== powderState.fluidGlyphsLit) {
