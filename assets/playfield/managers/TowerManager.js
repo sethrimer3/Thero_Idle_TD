@@ -49,6 +49,10 @@ import {
   ensureLambdaState as ensureLambdaStateHelper,
   teardownLambdaTower as teardownLambdaTowerHelper,
 } from '../../../scripts/features/towers/lambdaTower.js';
+import {
+  ensureMuState as ensureMuStateHelper,
+  teardownMuTower as teardownMuTowerHelper,
+} from '../../../scripts/features/towers/muTower.js';
 
 // Tower management routines extracted from SimplePlayfield.
 
@@ -94,6 +98,14 @@ function teardownLambdaTower(tower) {
 
 function ensureLambdaState(tower) {
   return ensureLambdaStateHelper(this, tower);
+}
+
+function teardownMuTower(tower) {
+  teardownMuTowerHelper(this, tower);
+}
+
+function ensureMuState(tower) {
+  return ensureMuStateHelper(this, tower);
 }
 
 function teardownKappaTower(tower) {
@@ -260,6 +272,8 @@ export {
   ensureThetaState,
   teardownLambdaTower,
   ensureLambdaState,
+  teardownMuTower,
+  ensureMuState,
   teardownZetaTower,
   ensureZetaState,
   teardownEtaTower,

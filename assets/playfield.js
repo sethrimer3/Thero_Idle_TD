@@ -59,6 +59,12 @@ import {
 import { updateKappaTower as updateKappaTowerHelper } from '../scripts/features/towers/kappaTower.js';
 import { updateLambdaTower as updateLambdaTowerHelper } from '../scripts/features/towers/lambdaTower.js';
 import {
+  ensureMuState as ensureMuStateHelper,
+  updateMuTower as updateMuTowerHelper,
+  drawMuMines as drawMuMinesHelper,
+  teardownMuTower as teardownMuTowerHelper,
+} from '../scripts/features/towers/muTower.js';
+import {
   ensureThetaState as ensureThetaStateHelper,
   updateThetaTower as updateThetaTowerHelper,
   teardownThetaTower as teardownThetaTowerHelper,
@@ -1965,6 +1971,27 @@ export class SimplePlayfield {
   }
 
   /**
+   * Place and charge μ fractal mines on the track, scaling damage with tier.
+   */
+  updateMuTower(tower, delta) {
+    updateMuTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Clear cached μ mine data when the tower is removed or reset.
+   */
+  teardownMuTower(tower) {
+    return TowerManager.teardownMuTower.call(this, tower);
+  }
+
+  /**
+   * Ensure μ mine state stays synchronized with upgrades and canvas scale.
+   */
+  ensureMuState(tower) {
+    return TowerManager.ensureMuState.call(this, tower);
+  }
+
+  /**
    * Clear cached ζ pendulum data when the tower is removed or retuned.
    */
   teardownZetaTower(tower) {
@@ -2752,6 +2779,7 @@ export class SimplePlayfield {
     this.teardownGammaTower(tower);
     this.teardownKappaTower(tower);
     this.teardownLambdaTower(tower);
+    this.teardownMuTower(tower);
     this.teardownIotaTower(tower);
     this.teardownDeltaTower(tower);
     this.teardownZetaTower(tower);
@@ -4287,6 +4315,10 @@ export class SimplePlayfield {
       }
       if (tower.type === 'lambda') {
         this.updateLambdaTower(tower, delta);
+        return;
+      }
+      if (tower.type === 'mu') {
+        this.updateMuTower(tower, delta);
         return;
       }
       if (!this.combatActive || !this.enemies.length) {
