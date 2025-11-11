@@ -74,6 +74,13 @@ import {
   teardownNuTower as teardownNuTowerHelper,
 } from '../scripts/features/towers/nuTower.js';
 import {
+  ensureXiState as ensureXiStateHelper,
+  updateXiTower as updateXiTowerHelper,
+  fireXiChain as fireXiChainHelper,
+  drawXiBalls as drawXiBallsHelper,
+  teardownXiTower as teardownXiTowerHelper,
+} from '../scripts/features/towers/xiTower.js';
+import {
   ensureThetaState as ensureThetaStateHelper,
   updateThetaTower as updateThetaTowerHelper,
   teardownThetaTower as teardownThetaTowerHelper,
@@ -1354,6 +1361,9 @@ export class SimplePlayfield {
       if (tower.type === 'zeta') {
         // Keep ζ pendulum geometry aligned with the tower's new coordinates.
         this.ensureZetaState(tower);
+      } else if (tower.type === 'xi') {
+        // Initialize ξ chaining mechanics.
+        this.ensureXiState(tower);
       } else {
         const rangeFactor = definition ? definition.range : 0.24;
         if (tower.type !== 'iota' && tower.type !== 'kappa') {
@@ -2014,6 +2024,34 @@ export class SimplePlayfield {
    */
   teardownNuTower(tower) {
     teardownNuTowerHelper(this, tower);
+  }
+
+  /**
+   * Update ξ tower chaining ball mechanics and animations.
+   */
+  updateXiTower(tower, delta) {
+    updateXiTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Ensure ξ tower state is initialized and parameters are refreshed.
+   */
+  ensureXiState(tower) {
+    return ensureXiStateHelper(this, tower);
+  }
+
+  /**
+   * Fire ξ tower chain attack at target enemy.
+   */
+  fireXiChain(tower, targetInfo) {
+    return fireXiChainHelper(this, tower, targetInfo);
+  }
+
+  /**
+   * Clear cached ξ tower data when the tower is removed or reset.
+   */
+  teardownXiTower(tower) {
+    teardownXiTowerHelper(this, tower);
   }
 
   /**
@@ -4359,6 +4397,9 @@ export class SimplePlayfield {
       if (tower.type === 'nu') {
         this.updateNuTower(tower, delta);
       }
+      if (tower.type === 'xi') {
+        this.updateXiTower(tower, delta);
+      }
       if (!this.combatActive || !this.enemies.length) {
         return;
       }
@@ -4818,6 +4859,10 @@ export class SimplePlayfield {
     }
     if (tower.type === 'aleph-null') {
       this.fireAlephChain(tower, targetInfo);
+      return;
+    }
+    if (tower.type === 'xi') {
+      this.fireXiChain(tower, targetInfo);
       return;
     }
     if (tower.type === 'iota') {
@@ -6560,6 +6605,10 @@ export class SimplePlayfield {
    */
   drawGammaBursts() {
     return CanvasRenderer.drawGammaBursts.call(this);
+  }
+
+  drawNuBursts() {
+    return CanvasRenderer.drawNuBursts.call(this);
   }
 
   /**
