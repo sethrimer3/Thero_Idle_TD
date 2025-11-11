@@ -90,8 +90,15 @@ export class KufBattlefieldSimulation {
     if (!parent) {
       return;
     }
-    const width = parent.clientWidth || 640;
-    const height = Math.max(320, Math.min(width * 0.65, 560));
+    // Derive canvas size from viewport bounds while preserving the battlefield aspect ratio.
+    const aspectRatio = 640 / 400;
+    const parentWidth = parent.clientWidth || 640;
+    const viewportWidth = typeof window.innerWidth === 'number' ? Math.max(1, window.innerWidth - 48) : parentWidth;
+    const viewportHeight = typeof window.innerHeight === 'number' ? Math.max(240, window.innerHeight - 260) : parentWidth / aspectRatio;
+    // Limit horizontal growth when the viewport height becomes the constraining dimension.
+    const maxWidthByHeight = Math.max(240, viewportHeight * aspectRatio);
+    const width = Math.min(parentWidth, viewportWidth, maxWidthByHeight);
+    const height = width / aspectRatio;
     const dpr = window.devicePixelRatio || 1;
     this.pixelRatio = dpr;
     this.canvas.width = Math.round(width * dpr);

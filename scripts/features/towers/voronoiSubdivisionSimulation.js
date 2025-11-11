@@ -98,6 +98,25 @@ export class VoronoiSubdivisionSimulation {
     this.polygons = polygons;
   }
 
+  /**
+   * Resize the Voronoi canvas so tessellation scales with viewport changes.
+   * @param {number} width - Target canvas width in device pixels.
+   * @param {number} height - Target canvas height in device pixels.
+   */
+  resize(width, height) {
+    if (!this.canvas) {
+      return;
+    }
+
+    if (Number.isFinite(width) && Number.isFinite(height)) {
+      this.canvas.width = width;
+      this.canvas.height = height;
+    }
+
+    this.circleRadius = Math.min(this.canvas.width, this.canvas.height) * 0.45;
+    this.rebuildPolygons();
+  }
+
   update() {
     this.ensureSeedCount();
   }
