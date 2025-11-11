@@ -15,6 +15,7 @@ import {
   drawNuBursts as drawNuBurstsHelper,
   drawNuKillParticles as drawNuKillParticlesHelper,
 } from '../../../scripts/features/towers/nuTower.js';
+import { drawXiBalls as drawXiBallsHelper } from '../../../scripts/features/towers/xiTower.js';
 import { drawZetaPendulums as drawZetaPendulumsHelper } from '../../../scripts/features/towers/zetaTower.js';
 import { drawEtaOrbits as drawEtaOrbitsHelper } from '../../../scripts/features/towers/etaTower.js';
 import { drawDeltaSoldiers as drawDeltaSoldiersHelper } from '../../../scripts/features/towers/deltaTower.js';
@@ -935,6 +936,9 @@ function drawTowers() {
     }
     if (tower.type === 'nu') {
       drawNuKillParticlesHelper(this, tower);
+    }
+    if (tower.type === 'xi') {
+      drawXiBallsHelper(this, tower);
     }
 
     ctx.save();
