@@ -2934,48 +2934,22 @@ body.graphics-mode-low .control-button {
 }
 
 .fluid-basin {
-  background: radial-gradient(circle at 50% 5%, rgba(126, 196, 255, 0.18), transparent 58%),
-    linear-gradient(180deg, rgba(20, 28, 36, 0.96) 0%, rgba(12, 18, 26, 0.96) 100%);
+  background: #000;
   box-shadow: inset 0 0 0 1px rgba(138, 207, 255, 0.18), inset 0 -28px 60px rgba(10, 28, 48, 0.65);
 }
 
 .fluid-basin::before {
-  background: radial-gradient(circle at 50% -10%, rgba(140, 200, 255, 0.24), transparent 60%);
-  mix-blend-mode: screen;
+  background: none;
+  opacity: 0;
 }
 
 .fluid-basin::after {
-  background: linear-gradient(180deg, transparent 65%, rgba(10, 22, 36, 0.85) 100%);
+  background: none;
+  opacity: 0;
 }
 
 .fluid-viewport {
   pointer-events: none;
-}
-
-.fluid-wall {
-  background-image: none;
-  background: linear-gradient(180deg, rgba(58, 62, 72, 0.96) 0%, rgba(28, 30, 38, 0.98) 100%);
-  box-shadow: inset 0 0 0 1px rgba(164, 186, 210, 0.18);
-}
-
-.fluid-wall::before {
-  background-image: none;
-  background: linear-gradient(180deg, rgba(70, 74, 86, 0.94) 0%, rgba(34, 36, 44, 0.98) 100%);
-  opacity: 0.9;
-}
-
-.fluid-wall::after {
-  background: radial-gradient(circle at 50% 20%, rgba(164, 192, 220, 0.22), transparent 60%);
-  opacity: 0.6;
-  mix-blend-mode: screen;
-}
-
-.fluid-wall-left {
-  border-right: 1px solid rgba(180, 198, 216, 0.16);
-}
-
-.fluid-wall-right {
-  border-left: 1px solid rgba(180, 198, 216, 0.16);
 }
 
 .fluid-metrics-card,
@@ -3120,8 +3094,7 @@ body.graphics-mode-low .control-button {
   min-height: 0;
   border-radius: 20px;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 10%, rgba(255, 228, 120, 0.08), transparent 60%),
-    linear-gradient(180deg, rgba(15, 16, 24, 0.96) 0%, rgba(22, 25, 37, 0.96) 100%);
+  background: #000;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 -20px 40px rgba(8, 8, 12, 0.6);
   --powder-crest: 0;
   touch-action: none;
@@ -3162,14 +3135,13 @@ body.graphics-mode-low .control-button {
 }
 
 .powder-basin::before {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 35%);
-  opacity: 0.2;
+  background: none;
+  opacity: 0;
 }
 
 .powder-basin::after {
-  background: radial-gradient(circle at 50% 10%, rgba(255, 228, 120, 0.2), transparent 55%);
-  opacity: calc(0.12 + var(--powder-crest, 0) * 0.45);
-  transition: opacity var(--transition);
+  background: none;
+  opacity: 0;
 }
 
 .powder-basin canvas {
