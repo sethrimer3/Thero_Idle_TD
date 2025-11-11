@@ -135,6 +135,7 @@ import {
   refreshFractalTabs,
   setShinUIUpdateCallback,
   updateFractalSimulation,
+  resizeShinFractalCanvases,
 } from './shinUI.js';
 import {
   initializeKufState,
@@ -3851,6 +3852,27 @@ import {
   let shinSimulationInstance = null;
   let kufUiInitialized = false;
   let powderBasinObserver = null;
+  let pendingSpireResizeFrame = null;
+
+  /**
+   * Resize active spire simulations so their canvases track the responsive layout.
+   */
+  function scheduleSpireResize() {
+    if (pendingSpireResizeFrame !== null) {
+      return;
+    }
+
+    pendingSpireResizeFrame = requestAnimationFrame(() => {
+      pendingSpireResizeFrame = null;
+      if (lamedSimulationInstance && typeof lamedSimulationInstance.resize === 'function') {
+        lamedSimulationInstance.resize();
+      }
+      if (tsadiSimulationInstance && typeof tsadiSimulationInstance.resize === 'function') {
+        tsadiSimulationInstance.resize();
+      }
+      resizeShinFractalCanvases();
+    });
+  }
 
   setGraphicsModeContext({
     getPowderSimulation: () => powderSimulation,
@@ -9022,7 +9044,9 @@ import {
               updateSpireMenuCounts();
               updateLamedStatistics();
               lamedSimulationInstance.start();
-              
+              // Ensure the gravity viewport adopts the new responsive dimensions.
+              scheduleSpireResize();
+
               // Update statistics periodically and sync state
               setInterval(() => {
                 if (lamedSimulationInstance && lamedSimulationInstance.running) {
@@ -9042,6 +9066,7 @@ import {
               lamedSimulationInstance.start();
             }
             updateLamedStatistics();
+            scheduleSpireResize();
           }
         } else if (tabId === 'tsadi') {
           // Initialize and start Tsadi particle fusion simulation
@@ -9096,7 +9121,9 @@ import {
               }
               updateSpireMenuCounts();
               tsadiSimulationInstance.start();
-              
+              // Match the particle fusion canvas to the responsive layout constraints.
+              scheduleSpireResize();
+
               // Bind upgrade buttons
               bindTsadiUpgradeButtons();
             }
@@ -9105,8 +9132,9 @@ import {
             if (!tsadiSimulationInstance.running) {
               tsadiSimulationInstance.start();
             }
+            scheduleSpireResize();
           }
-          
+
           // Update upgrade UI every time the tab is shown
           updateTsadiUpgradeUI();
         } else if (tabId === 'shin') {
@@ -9120,6 +9148,7 @@ import {
           }
           // Update display with current state
           updateShinDisplay();
+          scheduleSpireResize();
         } else if (tabId === 'kuf') {
           if (!kufUiInitialized) {
             try {
@@ -9159,6 +9188,9 @@ import {
     });
 
     initializeTabs();
+    // Keep the responsive spire canvases aligned with viewport changes.
+    window.addEventListener('resize', scheduleSpireResize);
+    scheduleSpireResize();
     // Initialize the floating spire menu navigation
     initializeSpireFloatingMenu();
     updateFluidTabAvailability();

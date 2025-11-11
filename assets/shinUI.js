@@ -31,6 +31,7 @@ let activeFractalTabId = null;
 let updateCallback = null;
 let fractalSimulations = new Map(); // Store simulation instances keyed by fractal ID
 let animationFrameId = null;
+let fractalResizeObserver = null;
 
 const FRACTAL_RENDER_HANDLERS = new Map([
   ['tree', {
@@ -188,7 +189,15 @@ export function initializeShinUI() {
     layerProgressBar: document.getElementById('shin-layer-progress-bar'),
     layerProgressText: document.getElementById('shin-layer-progress-text')
   };
-  
+
+  // Observe layout changes so fractal canvases can follow the responsive container size.
+  if (!fractalResizeObserver && typeof ResizeObserver === 'function' && shinElements.fractalContent) {
+    fractalResizeObserver = new ResizeObserver(() => {
+      resizeShinFractalCanvases();
+    });
+    fractalResizeObserver.observe(shinElements.fractalContent);
+  }
+
   renderFractalTabs();
   selectFractalTab(getActiveFractalId());
   updateShinDisplay();
@@ -382,7 +391,9 @@ function renderFractalContent(fractal, state) {
   
   canvasWrapper.appendChild(canvas);
   contentContainer.appendChild(canvasWrapper);
-  
+
+  resizeShinFractalCanvases();
+
   // Add zoom controls
   let userZoom = 1.0;
   const MIN_ZOOM = 0.1;
@@ -434,6 +445,46 @@ function renderFractalContent(fractal, state) {
   requestAnimationFrame(() => {
     if (FRACTAL_RENDER_HANDLERS.has(fractal.renderType)) {
       getOrCreateFractalSimulation(fractal);
+    }
+  });
+}
+
+/**
+ * Resize all active Shin fractal canvases to match their responsive wrappers.
+ */
+export function resizeShinFractalCanvases() {
+  if (!shinElements.fractalContent) {
+    return;
+  }
+
+  const wrappers = shinElements.fractalContent.querySelectorAll('.shin-fractal-canvas-wrapper');
+  const dpr = window.devicePixelRatio || 1;
+
+  wrappers.forEach((wrapper) => {
+    const canvas = wrapper.querySelector('canvas');
+    if (!canvas) {
+      return;
+    }
+
+    const rect = wrapper.getBoundingClientRect();
+    const cssWidth = Math.max(1, rect.width);
+    const cssHeight = Math.max(1, rect.height);
+    const targetWidth = Math.max(1, Math.round(cssWidth * dpr));
+    const targetHeight = Math.max(1, Math.round(cssHeight * dpr));
+
+    if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
+      const fractalId = canvas.id.replace('shin-fractal-canvas-', '');
+      const simulation = fractalSimulations.get(fractalId);
+      if (simulation) {
+        if (typeof simulation.resize === 'function') {
+          simulation.resize(targetWidth, targetHeight);
+        } else if (typeof simulation.reset === 'function') {
+          simulation.reset();
+        }
+      }
     }
   });
 }
