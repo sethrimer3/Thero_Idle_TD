@@ -208,10 +208,11 @@ export class SimplePlayfield {
     this.towers = [];
     this.enemies = [];
     this.projectiles = [];
-    // Maintain per-tower particle burst queues so α/β/γ visuals can update independently.
+    // Maintain per-tower particle burst queues so α/β/γ/ν visuals can update independently.
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+    this.nuBursts = [];
     this.availableTowers = [];
     this.draggingTowerType = null;
     this.dragPreviewOffset = { x: 0, y: 0 }; // Allow callers to nudge the preview in addition to the standardized elevation.
@@ -866,6 +867,7 @@ export class SimplePlayfield {
       this.alphaBursts = [];
       this.betaBursts = [];
       this.gammaBursts = [];
+    this.nuBursts = [];
       this.towers = [];
       this.energy = 0;
       this.lives = 0;
@@ -967,6 +969,7 @@ export class SimplePlayfield {
       this.alphaBursts = [];
       this.betaBursts = [];
       this.gammaBursts = [];
+    this.nuBursts = [];
       this.towers = [];
       this.hoverPlacement = null;
       this.pointerPosition = null;
@@ -1160,6 +1163,7 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+    this.nuBursts = [];
     this.floaters = [];
     this.floaterConnections = [];
     this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
@@ -1295,6 +1299,7 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+    this.nuBursts = [];
     this.floaters = [];
     this.floaterConnections = [];
     this.currentWaveNumber = 1;
@@ -2807,6 +2812,7 @@ export class SimplePlayfield {
     this.teardownKappaTower(tower);
     this.teardownLambdaTower(tower);
     this.teardownMuTower(tower);
+    this.teardownNuTower(tower);
     this.teardownIotaTower(tower);
     this.teardownDeltaTower(tower);
     this.teardownZetaTower(tower);
@@ -3832,6 +3838,7 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+    this.nuBursts = [];
     this.activeWave = this.createWaveState(this.levelConfig.waves[0], { initialWave: true });
     this.lives = this.levelConfig.lives;
     this.markWaveStart();
@@ -5698,6 +5705,7 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+    this.nuBursts = [];
     this.floaters = [];
     this.floaterConnections = [];
     this.endlessCycle = Math.max(0, Number(snapshot.endlessCycle) || 0);
