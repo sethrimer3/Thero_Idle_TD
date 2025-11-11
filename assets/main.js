@@ -1978,6 +1978,12 @@ import {
     lamed: {
       sparkBank: 0,
       unlocked: false,
+      dragLevel: 0,
+      starMass: 10,
+      stats: {
+        totalAbsorptions: 0,
+        totalMassGained: 0,
+      },
     },
     tsadi: {
       particleBank: 0,
@@ -3240,6 +3246,90 @@ import {
         lamedTabButton.removeAttribute('hidden');
       } else {
         lamedTabButton.setAttribute('hidden', '');
+      }
+    }
+  }
+
+  /**
+   * Update Lamed simulation statistics display in the UI.
+   */
+  function updateLamedStatistics() {
+    if (!lamedSimulationInstance) return;
+    
+    const stats = lamedSimulationInstance.getStatistics();
+    
+    // Update tier information
+    const tierEl = document.getElementById('lamed-tier');
+    if (tierEl) {
+      tierEl.textContent = stats.currentTier;
+    }
+    
+    // Update star mass
+    const starMassEl = document.getElementById('lamed-star-mass');
+    if (starMassEl) {
+      starMassEl.textContent = stats.starMass.toFixed(2);
+    }
+    
+    // Update next milestone
+    const nextTierEl = document.getElementById('lamed-next-tier');
+    if (nextTierEl) {
+      if (stats.nextTier === 'MAX') {
+        nextTierEl.textContent = 'Maximum Tier Reached';
+      } else {
+        const progress = (stats.progressToNext * 100).toFixed(1);
+        nextTierEl.textContent = `${stats.nextTier} (${stats.nextMilestone}) - ${progress}%`;
+      }
+    }
+    
+    // Update orbiting stars count
+    const orbitingEl = document.getElementById('lamed-orbiting-count');
+    if (orbitingEl) {
+      orbitingEl.textContent = stats.orbitingStars;
+    }
+    
+    // Update absorptions rate
+    const absorptionsEl = document.getElementById('lamed-absorptions-rate');
+    if (absorptionsEl) {
+      absorptionsEl.textContent = stats.absorptionsPerMinute.toFixed(1);
+    }
+    
+    // Update mass inflow rate
+    const inflowEl = document.getElementById('lamed-mass-inflow');
+    if (inflowEl) {
+      inflowEl.textContent = stats.massInflowPerMinute.toFixed(2);
+    }
+    
+    // Update drag level and coefficient
+    const dragLevelEl = document.getElementById('lamed-drag-level');
+    if (dragLevelEl) {
+      dragLevelEl.textContent = stats.dragLevel;
+    }
+    
+    const dragCoeffEl = document.getElementById('lamed-drag-coefficient');
+    if (dragCoeffEl) {
+      dragCoeffEl.textContent = stats.dragCoefficient.toFixed(2);
+    }
+    
+    // Update drag upgrade button
+    const dragBtn = document.getElementById('lamed-upgrade-drag-btn');
+    const dragCostEl = document.getElementById('lamed-drag-cost');
+    if (dragBtn && dragCostEl) {
+      const cost = lamedSimulationInstance.getDragUpgradeCost();
+      dragCostEl.textContent = formatWholeNumber(cost);
+      
+      if (lamedSimulationInstance.canUpgradeDrag()) {
+        dragBtn.disabled = false;
+        dragBtn.classList.remove('disabled');
+      } else {
+        dragBtn.disabled = true;
+        dragBtn.classList.add('disabled');
+      }
+      
+      // Hide button if at max level
+      if (stats.dragLevel >= lamedSimulationInstance.maxDragLevel) {
+        dragBtn.style.display = 'none';
+      } else {
+        dragBtn.style.display = '';
       }
     }
   }
@@ -8892,29 +8982,66 @@ import {
                   setLamedSparkBank(value);
                 },
                 onStarMassChange: (value) => {
-                  const starMassEl = document.getElementById('lamed-star-mass');
-                  if (starMassEl) {
-                    starMassEl.textContent = value.toFixed(2);
-                  }
+                  // Update state persistence
+                  spireResourceState.lamed.starMass = value;
+                  updateLamedStatistics();
                 },
               });
+              
+              // Restore saved state
+              lamedSimulationInstance.setState({
+                starMass: spireResourceState.lamed.starMass || 10,
+                sparkBank: getLamedSparkBank(),
+                dragLevel: spireResourceState.lamed.dragLevel || 0,
+                stats: spireResourceState.lamed.stats || { totalAbsorptions: 0, totalMassGained: 0 },
+              });
+              
               lamedSimulationInstance.resize();
               const growthRateEl = document.getElementById('lamed-growth-rate');
               if (growthRateEl) {
                 growthRateEl.textContent = `${lamedSimulationInstance.sparkSpawnRate.toFixed(2)} sparks/sec`;
               }
-              const starMassEl = document.getElementById('lamed-star-mass');
-              if (starMassEl) {
-                starMassEl.textContent = lamedSimulationInstance.starMass.toFixed(2);
+              
+              // Hook up drag upgrade button
+              const dragBtn = document.getElementById('lamed-upgrade-drag-btn');
+              if (dragBtn) {
+                dragBtn.addEventListener('click', () => {
+                  if (lamedSimulationInstance.upgradeDrag()) {
+                    // Sync state back to persistence
+                    const state = lamedSimulationInstance.getState();
+                    spireResourceState.lamed.dragLevel = state.dragLevel;
+                    spireResourceState.lamed.starMass = state.starMass;
+                    spireResourceState.lamed.stats = state.stats;
+                    
+                    updateLamedStatistics();
+                    updateSpireMenuCounts();
+                  }
+                });
               }
+              
               updateSpireMenuCounts();
+              updateLamedStatistics();
               lamedSimulationInstance.start();
+              
+              // Update statistics periodically and sync state
+              setInterval(() => {
+                if (lamedSimulationInstance && lamedSimulationInstance.running) {
+                  updateLamedStatistics();
+                  
+                  // Sync state back to persistence every second
+                  const state = lamedSimulationInstance.getState();
+                  spireResourceState.lamed.starMass = state.starMass;
+                  spireResourceState.lamed.dragLevel = state.dragLevel;
+                  spireResourceState.lamed.stats = state.stats;
+                }
+              }, 1000); // Update every second
             }
           } else {
             lamedSimulationInstance.resize();
             if (!lamedSimulationInstance.running) {
               lamedSimulationInstance.start();
             }
+            updateLamedStatistics();
           }
         } else if (tabId === 'tsadi') {
           // Initialize and start Tsadi particle fusion simulation
