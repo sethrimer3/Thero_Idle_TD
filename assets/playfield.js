@@ -6607,6 +6607,10 @@ export class SimplePlayfield {
     return CanvasRenderer.drawGammaBursts.call(this);
   }
 
+  drawNuBursts() {
+    return CanvasRenderer.drawNuBursts.call(this);
+  }
+
   /**
    * Paint the active radial tower command menu around the selected lattice.
    */
