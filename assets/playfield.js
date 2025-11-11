@@ -6613,6 +6613,13 @@ export class SimplePlayfield {
     return CanvasRenderer.drawDeltaSoldiers.call(this);
   }
 
+  /**
+   * Render the Omicron soldier units as equilateral triangles with swirling shield particles.
+   */
+  drawOmicronUnits() {
+    return CanvasRenderer.drawOmicronUnits.call(this);
+  }
+
   drawEnemies() {
     return CanvasRenderer.drawEnemies.call(this);
   }
