@@ -20,6 +20,7 @@ import { drawZetaPendulums as drawZetaPendulumsHelper } from '../../../scripts/f
 import { drawEtaOrbits as drawEtaOrbitsHelper } from '../../../scripts/features/towers/etaTower.js';
 import { drawDeltaSoldiers as drawDeltaSoldiersHelper } from '../../../scripts/features/towers/deltaTower.js';
 import { drawThetaContours as drawThetaContoursHelper } from '../../../scripts/features/towers/thetaTower.js';
+import { drawOmicronUnits as drawOmicronUnitsHelper } from '../../../scripts/features/towers/omicronTower.js';
 
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rendering.js';
 
@@ -151,6 +152,7 @@ function draw() {
   this.drawPlacementPreview();
   this.drawTowers();
   this.drawDeltaSoldiers();
+  this.drawOmicronUnits();
   this.drawEnemies();
   this.drawProjectiles();
   this.drawTowerMenu();
@@ -1049,6 +1051,10 @@ function drawDeltaSoldiers() {
   drawDeltaSoldiersHelper(this);
 }
 
+function drawOmicronUnits() {
+  drawOmicronUnitsHelper(this);
+}
+
 function drawEnemies() {
   if (!this.ctx || !this.enemies.length) {
     return;
@@ -1428,6 +1434,7 @@ export {
   drawZetaPendulums,
   drawEtaOrbits,
   drawDeltaSoldiers,
+  drawOmicronUnits,
   drawEnemies,
   drawProjectiles,
   drawAlphaBursts,

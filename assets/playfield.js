@@ -107,6 +107,11 @@ import {
 import {
   collectIotaChargeBonus as collectIotaChargeBonusHelper,
 } from '../scripts/features/towers/iotaTower.js';
+import {
+  ensureOmicronState as ensureOmicronStateHelper,
+  updateOmicronTower as updateOmicronTowerHelper,
+  teardownOmicronTower as teardownOmicronTowerHelper,
+} from '../scripts/features/towers/omicronTower.js';
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -1364,6 +1369,9 @@ export class SimplePlayfield {
       } else if (tower.type === 'xi') {
         // Initialize ξ chaining mechanics.
         this.ensureXiState(tower);
+      } else if (tower.type === 'omicron') {
+        // Initialize ο soldier unit mechanics.
+        this.ensureOmicronState(tower);
       } else {
         const rangeFactor = definition ? definition.range : 0.24;
         if (tower.type !== 'iota' && tower.type !== 'kappa') {
@@ -2041,6 +2049,20 @@ export class SimplePlayfield {
   }
 
   /**
+   * Update ο tower soldier unit mechanics and animations.
+   */
+  updateOmicronTower(tower, delta) {
+    updateOmicronTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Ensure ο tower state is initialized and parameters are refreshed.
+   */
+  ensureOmicronState(tower) {
+    return ensureOmicronStateHelper(this, tower);
+  }
+
+  /**
    * Fire ξ tower chain attack at target enemy.
    */
   fireXiChain(tower, targetInfo) {
@@ -2052,6 +2074,13 @@ export class SimplePlayfield {
    */
   teardownXiTower(tower) {
     teardownXiTowerHelper(this, tower);
+  }
+
+  /**
+   * Clear cached ο tower data when the tower is removed or reset.
+   */
+  teardownOmicronTower(tower) {
+    teardownOmicronTowerHelper(this, tower);
   }
 
   /**
@@ -2855,6 +2884,8 @@ export class SimplePlayfield {
     this.teardownDeltaTower(tower);
     this.teardownZetaTower(tower);
     this.teardownEtaTower(tower);
+    this.teardownXiTower(tower);
+    this.teardownOmicronTower(tower);
     this.handleAlephTowerRemoved(tower);
 
     const index = this.towers.indexOf(tower);
@@ -4399,6 +4430,10 @@ export class SimplePlayfield {
       }
       if (tower.type === 'xi') {
         this.updateXiTower(tower, delta);
+      }
+      if (tower.type === 'omicron') {
+        this.updateOmicronTower(tower, delta);
+        return;
       }
       if (!this.combatActive || !this.enemies.length) {
         return;
@@ -6576,6 +6611,13 @@ export class SimplePlayfield {
    */
   drawDeltaSoldiers() {
     return CanvasRenderer.drawDeltaSoldiers.call(this);
+  }
+
+  /**
+   * Render the Omicron soldier units as equilateral triangles with swirling shield particles.
+   */
+  drawOmicronUnits() {
+    return CanvasRenderer.drawOmicronUnits.call(this);
   }
 
   drawEnemies() {

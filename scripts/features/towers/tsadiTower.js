@@ -415,6 +415,11 @@ export class ParticleFusionSimulation {
     if (this.particles.length >= this.maxParticles) return false;
     if (this.particleBank <= 0) return false;
 
+    // Ensure valid dimensions before spawning to prevent particles spawning at origin
+    if (!Number.isFinite(this.width) || this.width <= 0 || !Number.isFinite(this.height) || this.height <= 0) {
+      return false;
+    }
+
     // Apply starting tier upgrade
     const effectiveTier = tier + this.upgrades.startingTier;
     
@@ -423,8 +428,16 @@ export class ParticleFusionSimulation {
 
     // Random position with margin from edges
     const margin = radius * 2;
-    const x = margin + Math.random() * (this.width - margin * 2);
-    const y = margin + Math.random() * (this.height - margin * 2);
+    const spawnableWidth = this.width - margin * 2;
+    const spawnableHeight = this.height - margin * 2;
+    
+    // Ensure spawnable area is valid
+    if (spawnableWidth <= 0 || spawnableHeight <= 0) {
+      return false;
+    }
+    
+    const x = margin + Math.random() * spawnableWidth;
+    const y = margin + Math.random() * spawnableHeight;
     
     // Calculate speed with 10% reduction per tier above null
     const tierAboveNull = effectiveTier - NULL_TIER;
