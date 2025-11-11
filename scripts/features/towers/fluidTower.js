@@ -851,61 +851,89 @@ export class FluidSimulation {
       return;
     }
     const palette = this.getEffectiveMotePalette();
-    const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
-    gradient.addColorStop(0, palette.backgroundTop || '#07111f');
-    gradient.addColorStop(1, palette.backgroundBottom || '#0d1b2e');
-    this.ctx.fillStyle = gradient;
+    this.ctx.fillStyle = '#000000';
     this.ctx.fillRect(0, 0, this.width, this.height);
 
     const gapStart = this.wallInsetLeftCells * this.cellSize;
     const gapEnd = this.width - this.wallInsetRightCells * this.cellSize;
+    const clampedGapStart = Math.max(0, Math.min(this.width, gapStart));
+    const clampedGapEnd = Math.max(clampedGapStart, Math.min(this.width, gapEnd));
 
-    // Draw visible walls on left and right sides with chalk-like aesthetic
-    const WALL_COLOR = 'rgba(180, 180, 180, 0.3)'; // Light gray to match theme palette
-    // Left wall
-    if (this.wallInsetLeftCells > 0) {
-      this.ctx.fillStyle = WALL_COLOR;
-      this.ctx.fillRect(0, 0, gapStart, this.height);
-    }
-    // Right wall
-    if (this.wallInsetRightCells > 0) {
-      this.ctx.fillStyle = WALL_COLOR;
-      this.ctx.fillRect(gapEnd, 0, this.width - gapEnd, this.height);
-    }
-    const waterGradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
     const stops = resolvePaletteColorStops(palette);
+    const coreStops = stops.length > 2 ? stops.slice(1, -1) : stops;
+    const gradientStops = coreStops.length ? coreStops : stops;
     const restAlpha = clampUnitInterval(palette.restAlpha ?? 0.8);
     const freefallAlpha = clampUnitInterval(palette.freefallAlpha ?? 0.55);
-    waterGradient.addColorStop(0, colorToRgbaString({ ...stops[stops.length - 1], a: restAlpha }));
-    waterGradient.addColorStop(1, colorToRgbaString({ ...stops[0], a: restAlpha }));
+    const topColor = gradientStops[gradientStops.length - 1] || stops[stops.length - 1] || { r: 120, g: 180, b: 255 };
+    const bottomColor = gradientStops[0] || topColor;
+    const asRgba = (color, alpha) => colorToRgbaString({ ...color, a: alpha });
 
-    this.ctx.beginPath();
-    this.ctx.moveTo(gapStart, this.height);
-    for (let x = gapStart; x <= gapEnd; x += this.cellSize) {
-      const surfaceY = this.getSurfaceHeightAt(x);
-      this.ctx.lineTo(x, surfaceY);
+    const waterGradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+    waterGradient.addColorStop(0, asRgba(topColor, restAlpha));
+    waterGradient.addColorStop(1, asRgba(bottomColor, restAlpha));
+
+    const waterPoints = [];
+    const step = Math.max(1, this.cellSize);
+    for (let x = clampedGapStart; x <= clampedGapEnd; x += step) {
+      const surfaceX = Math.max(0, Math.min(this.width, x));
+      waterPoints.push({ x: surfaceX, y: this.getSurfaceHeightAt(surfaceX) });
     }
-    this.ctx.lineTo(gapEnd, this.height);
+    if (!waterPoints.length || waterPoints[waterPoints.length - 1].x < clampedGapEnd) {
+      waterPoints.push({ x: clampedGapEnd, y: this.getSurfaceHeightAt(clampedGapEnd) });
+    }
+
+    const baseBottom = this.height + 1;
+    this.ctx.beginPath();
+    this.ctx.moveTo(clampedGapStart, baseBottom);
+    waterPoints.forEach((point) => {
+      this.ctx.lineTo(point.x, point.y);
+    });
+    this.ctx.lineTo(clampedGapEnd, baseBottom);
     this.ctx.closePath();
     this.ctx.fillStyle = waterGradient;
     this.ctx.fill();
 
-    this.ctx.strokeStyle = colorToRgbaString({ ...stops[stops.length - 1], a: Math.max(restAlpha, 0.85) });
-    this.ctx.lineWidth = 2;
-    this.ctx.beginPath();
-    let first = true;
-    for (let x = gapStart; x <= gapEnd; x += Math.max(1, this.cellSize / 2)) {
-      const surfaceY = this.getSurfaceHeightAt(x);
-      if (first) {
-        this.ctx.moveTo(x, surfaceY);
-        first = false;
+    if (waterPoints.length >= 2) {
+      this.ctx.save();
+      const glowGradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+      const glowAlpha = Math.max(restAlpha, 0.75);
+      if (gradientStops.length > 1) {
+        gradientStops.forEach((color, index) => {
+          const position = index / (gradientStops.length - 1);
+          glowGradient.addColorStop(position, asRgba(color, glowAlpha));
+        });
       } else {
-        this.ctx.lineTo(x, surfaceY);
+        glowGradient.addColorStop(0, asRgba(topColor, glowAlpha));
+        glowGradient.addColorStop(1, asRgba(bottomColor, glowAlpha));
       }
+      this.ctx.shadowBlur = Math.max(15, this.cellSize * 2.5);
+      this.ctx.shadowColor = asRgba(topColor, Math.max(0.45, glowAlpha));
+      this.ctx.strokeStyle = glowGradient;
+      this.ctx.globalAlpha = 0.9;
+      this.ctx.lineWidth = Math.max(6, this.cellSize * 1.5);
+      this.ctx.beginPath();
+      this.ctx.moveTo(waterPoints[0].x, waterPoints[0].y);
+      for (let index = 1; index < waterPoints.length; index += 1) {
+        const point = waterPoints[index];
+        this.ctx.lineTo(point.x, point.y);
+      }
+      this.ctx.stroke();
+      this.ctx.restore();
     }
-    this.ctx.stroke();
 
-    const dropColor = colorToRgbaString({ ...stops[stops.length - 1], a: freefallAlpha });
+    if (waterPoints.length) {
+      this.ctx.strokeStyle = asRgba(topColor, Math.max(restAlpha, 0.85));
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(waterPoints[0].x, waterPoints[0].y);
+      for (let index = 1; index < waterPoints.length; index += 1) {
+        const point = waterPoints[index];
+        this.ctx.lineTo(point.x, point.y);
+      }
+      this.ctx.stroke();
+    }
+
+    const dropColor = asRgba(topColor, freefallAlpha);
     for (const drop of this.drops) {
       if (drop.y - drop.radius > this.height || drop.y + drop.radius < 0) {
         continue;
