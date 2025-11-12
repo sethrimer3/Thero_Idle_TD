@@ -2943,25 +2943,144 @@ const TOWER_EQUATION_BLUEPRINTS = {
   },
   pi: {
     mathSymbol: String.raw`\pi`,
-    baseEquation: String.raw`\( \pi = ο^{2} \)`,
+    baseEquation: String.raw`\( \pi = \gamma^{\text{mrg}} \)`,
     variables: [
       {
-        key: 'omicron',
-        symbol: 'ο',
-        name: 'Omicron Phasor',
-        description: 'Squared shockwave amplitude sourced from ο stabilizers.',
-        reference: 'omicron',
+        key: 'gamma',
+        symbol: 'γ',
+        name: 'Gamma Power',
+        description: 'Base power sourced from γ tower upgrades.',
+        reference: 'gamma',
         upgradable: false,
-        lockedNote: 'Channel ο to prime Π with stabilized flux.',
+        lockedNote: 'Upgrade γ to increase π base power.',
         format: (value) => formatDecimal(value, 2),
+      },
+      {
+        key: 'mergeCount',
+        symbol: 'Mrg',
+        equationSymbol: String.raw`\text{mrg}`,
+        name: 'Merge Count',
+        description: 'Number of times the rotating laser has merged with lock-on lasers.',
+        baseValue: 0,
+        upgradable: false,
+        format: (value) => formatWholeNumber(value),
+      },
+      {
+        key: 'aleph1',
+        symbol: 'ℵ₁',
+        equationSymbol: 'ℵ₁',
+        name: 'Aleph₁ Range',
+        description: 'Increases base range in meters.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatDecimal(4 + 0.1 * Math.max(0, value), 2)}m`,
+        cost: (level) => Math.max(1, 2 + level * 2),
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : rank;
+          const range = 4 + 0.1 * resolved;
+          return [
+            {
+              expression: String.raw`\( \text{rng} = 4 + 0.1 \times \aleph_{1} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(range, 2)} = 4 + 0.1 \times ${formatWholeNumber(resolved)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph2',
+        symbol: 'ℵ₂',
+        equationSymbol: 'ℵ₂',
+        name: 'Aleph₂ Range Inc',
+        description: 'Amount of range the laser increases per merge in meters.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatDecimal(0.1 * Math.max(0, value), 2)}m`,
+        cost: (level) => Math.max(1, 3 + level * 2),
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : rank;
+          const rangeInc = 0.1 * resolved;
+          return [
+            {
+              expression: String.raw`\( \text{rngInc} = 0.1 \times \aleph_{2} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(rangeInc, 2)} = 0.1 \times ${formatWholeNumber(resolved)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph3',
+        symbol: 'ℵ₃',
+        equationSymbol: 'ℵ₃',
+        name: 'Aleph₃ Attack Speed',
+        description: 'How fast the tower completes its full attack sequence in seconds.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatDecimal(0.1 + 0.01 * Math.max(0, value), 2)}s`,
+        cost: (level) => Math.max(1, 2 + level),
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : rank;
+          const atkSpd = 0.1 + 0.01 * resolved;
+          return [
+            {
+              expression: String.raw`\( \text{atkSpd} = 0.1 + 0.01 \times \aleph_{3} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(atkSpd, 2)} = 0.1 + 0.01 \times ${formatWholeNumber(resolved)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
+      },
+      {
+        key: 'aleph4',
+        symbol: 'ℵ₄',
+        equationSymbol: 'ℵ₄',
+        name: 'Aleph₄ Laser Speed',
+        description: 'How fast the laser completes its full rotation in seconds.',
+        baseValue: 0,
+        step: 1,
+        upgradable: true,
+        format: (value) => `${formatDecimal(Math.max(0.5, 5 - 0.1 * Math.max(0, value)), 2)}s`,
+        cost: (level) => Math.max(1, 3 + level),
+        getSubEquations({ level, value }) {
+          const rank = Math.max(0, Number.isFinite(level) ? level : 0);
+          const resolved = Number.isFinite(value) ? value : rank;
+          const lasSpd = Math.max(0.5, 5 - 0.1 * resolved);
+          return [
+            {
+              expression: String.raw`\( \text{lasSpd} = 5 - 0.1 \times \aleph_{4} \)`,
+            },
+            {
+              values: String.raw`\( ${formatDecimal(lasSpd, 2)} = 5 - 0.1 \times ${formatWholeNumber(resolved)} \)`,
+              variant: 'values',
+            },
+          ];
+        },
       },
     ],
     computeResult(values) {
-      const omicronValue = Math.max(0, Number.isFinite(values.omicron) ? values.omicron : 0);
-      return omicronValue ** 2;
+      const gammaValue = Math.max(1, Number.isFinite(values.gamma) ? values.gamma : 1);
+      const mergeCount = Math.max(0, Number.isFinite(values.mergeCount) ? values.mergeCount : 0);
+      // Clamp merge count to prevent overflow
+      const clampedMerges = Math.min(50, mergeCount);
+      return Math.pow(gammaValue, clampedMerges);
     },
-    formatGoldenEquation({ formatVariable, formatResult }) {
-      return `\\( ${formatResult()} = ${formatVariable('omicron')}^{2} \\)`;
+    formatBaseEquationValues({ values, result, formatComponent }) {
+      const gammaValue = Math.max(1, Number.isFinite(values.gamma) ? values.gamma : 1);
+      const mergeCount = Math.max(0, Number.isFinite(values.mergeCount) ? values.mergeCount : 0);
+      return `${formatComponent(result)} = ${formatComponent(gammaValue)}^${formatComponent(mergeCount)}`;
     },
   },
 };

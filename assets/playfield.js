@@ -112,6 +112,11 @@ import {
   updateOmicronTower as updateOmicronTowerHelper,
   teardownOmicronTower as teardownOmicronTowerHelper,
 } from '../scripts/features/towers/omicronTower.js';
+import {
+  ensurePiState as ensurePiStateHelper,
+  updatePiTower as updatePiTowerHelper,
+  teardownPiTower as teardownPiTowerHelper,
+} from '../scripts/features/towers/piTower.js';
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -2063,6 +2068,20 @@ export class SimplePlayfield {
   }
 
   /**
+   * Update π tower laser merge mechanics and animations.
+   */
+  updatePiTower(tower, delta) {
+    updatePiTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Ensure π tower state is initialized and parameters are refreshed.
+   */
+  ensurePiState(tower) {
+    return ensurePiStateHelper(this, tower);
+  }
+
+  /**
    * Fire ξ tower chain attack at target enemy.
    */
   fireXiChain(tower, targetInfo) {
@@ -2081,6 +2100,13 @@ export class SimplePlayfield {
    */
   teardownOmicronTower(tower) {
     teardownOmicronTowerHelper(this, tower);
+  }
+
+  /**
+   * Clear cached π tower data when the tower is removed or reset.
+   */
+  teardownPiTower(tower) {
+    teardownPiTowerHelper(this, tower);
   }
 
   /**
@@ -2886,6 +2912,7 @@ export class SimplePlayfield {
     this.teardownEtaTower(tower);
     this.teardownXiTower(tower);
     this.teardownOmicronTower(tower);
+    this.teardownPiTower(tower);
     this.handleAlephTowerRemoved(tower);
 
     const index = this.towers.indexOf(tower);
@@ -4433,6 +4460,10 @@ export class SimplePlayfield {
       }
       if (tower.type === 'omicron') {
         this.updateOmicronTower(tower, delta);
+        return;
+      }
+      if (tower.type === 'pi') {
+        this.updatePiTower(tower, delta);
         return;
       }
       if (!this.combatActive || !this.enemies.length) {

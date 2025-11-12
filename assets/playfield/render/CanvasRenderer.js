@@ -21,6 +21,11 @@ import { drawEtaOrbits as drawEtaOrbitsHelper } from '../../../scripts/features/
 import { drawDeltaSoldiers as drawDeltaSoldiersHelper } from '../../../scripts/features/towers/deltaTower.js';
 import { drawThetaContours as drawThetaContoursHelper } from '../../../scripts/features/towers/thetaTower.js';
 import { drawOmicronUnits as drawOmicronUnitsHelper } from '../../../scripts/features/towers/omicronTower.js';
+import {
+  drawPiLockOnLines as drawPiLockOnLinesHelper,
+  drawPiFrozenLines as drawPiFrozenLinesHelper,
+  drawPiRadialLaser as drawPiRadialLaserHelper,
+} from '../../../scripts/features/towers/piTower.js';
 
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rendering.js';
 
@@ -941,6 +946,11 @@ function drawTowers() {
     }
     if (tower.type === 'xi') {
       drawXiBallsHelper(this, tower);
+    }
+    if (tower.type === 'pi') {
+      drawPiLockOnLinesHelper(this, tower);
+      drawPiFrozenLinesHelper(this, tower);
+      drawPiRadialLaserHelper(this, tower);
     }
 
     ctx.save();
