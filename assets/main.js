@@ -3491,6 +3491,155 @@ import {
     powderState.viewInteraction = interaction;
   }
 
+  /**
+   * Initialize manual drop handlers for spire viewports.
+   * Allows player to click/tap or press space to drop 1 resource into the spire.
+   * Does not work for Kuf spire.
+   */
+  function initializeManualDropHandlers() {
+    // Track if pointer moved during a gesture (to distinguish clicks from drags)
+    let pointerMoved = false;
+    let pointerDownTime = 0;
+    const MAX_CLICK_DURATION = 300; // ms
+    const MAX_CLICK_MOVEMENT = 5; // px
+    let startX = 0;
+    let startY = 0;
+
+    function handleManualDrop(spireType) {
+      if (spireType === 'kuf') {
+        return; // Kuf spire doesn't support manual drops
+      }
+
+      // Add 1 resource to the appropriate spire
+      switch (spireType) {
+        case 'aleph':
+          if (sandSimulation && typeof sandSimulation.dropManualMote === 'function') {
+            sandSimulation.dropManualMote();
+          } else {
+            // Fallback: directly increment the bank
+            powderState.idleMoteBank = Math.max(0, powderState.idleMoteBank || 0) + 1;
+            if (sandSimulation) {
+              sandSimulation.idleBank = powderState.idleMoteBank;
+            }
+          }
+          break;
+        case 'bet':
+          if (fluidSimulationInstance && typeof fluidSimulationInstance.dropManualDrop === 'function') {
+            fluidSimulationInstance.dropManualDrop();
+          } else {
+            // Fallback: directly increment the bank
+            powderState.fluidIdleBank = Math.max(0, powderState.fluidIdleBank || 0) + 1;
+            if (fluidSimulationInstance) {
+              fluidSimulationInstance.idleBank = powderState.fluidIdleBank;
+            }
+          }
+          break;
+        case 'lamed':
+          if (lamedSimulationInstance) {
+            lamedSimulationInstance.sparkBank = Math.max(0, lamedSimulationInstance.sparkBank || 0) + 1;
+            spireResourceState.lamed.sparkBank = lamedSimulationInstance.sparkBank;
+          } else {
+            spireResourceState.lamed.sparkBank = Math.max(0, spireResourceState.lamed.sparkBank || 0) + 1;
+          }
+          updateSpireMenuCounts();
+          break;
+        case 'tsadi':
+          if (tsadiSimulationInstance) {
+            tsadiSimulationInstance.particleBank = Math.max(0, tsadiSimulationInstance.particleBank || 0) + 1;
+            setTsadiParticleBank(tsadiSimulationInstance.particleBank);
+          } else {
+            spireResourceState.tsadi.particleBank = Math.max(0, spireResourceState.tsadi.particleBank || 0) + 1;
+          }
+          updateSpireMenuCounts();
+          break;
+        case 'shin':
+          addIterons(1);
+          updateSpireMenuCounts();
+          break;
+      }
+    }
+
+    // Add click handlers to spire viewports
+    const spireViewports = [
+      { id: 'powder-viewport', type: 'aleph' },
+      { id: 'fluid-viewport', type: 'bet' },
+      { id: 'lamed-basin', type: 'lamed' },
+      { id: 'tsadi-basin', type: 'tsadi' },
+      { id: 'shin-fractal-content', type: 'shin' },
+    ];
+
+    spireViewports.forEach(({ id, type }) => {
+      const element = document.getElementById(id);
+      if (element) {
+        const handlePointerDown = (event) => {
+          pointerMoved = false;
+          pointerDownTime = Date.now();
+          startX = event.clientX;
+          startY = event.clientY;
+        };
+
+        const handlePointerMove = (event) => {
+          const dx = Math.abs(event.clientX - startX);
+          const dy = Math.abs(event.clientY - startY);
+          if (dx > MAX_CLICK_MOVEMENT || dy > MAX_CLICK_MOVEMENT) {
+            pointerMoved = true;
+          }
+        };
+
+        const handleClick = (event) => {
+          const duration = Date.now() - pointerDownTime;
+          if (!pointerMoved && duration < MAX_CLICK_DURATION) {
+            // Only handle manual drop if this panel is active
+            const panel = element.closest('.panel');
+            if (panel && !panel.hidden) {
+              handleManualDrop(type);
+            }
+          }
+        };
+
+        element.addEventListener('pointerdown', handlePointerDown);
+        element.addEventListener('pointermove', handlePointerMove);
+        element.addEventListener('click', handleClick);
+      }
+    });
+
+    // Add spacebar handler for manual drops
+    document.addEventListener('keydown', (event) => {
+      if (event.key === ' ' || event.code === 'Space') {
+        // Determine which spire panel is currently active
+        const activeTab = getActiveTabId();
+        let spireType = null;
+        
+        switch (activeTab) {
+          case 'powder':
+            spireType = 'aleph';
+            break;
+          case 'fluid':
+            spireType = 'bet';
+            break;
+          case 'lamed':
+            spireType = 'lamed';
+            break;
+          case 'tsadi':
+            spireType = 'tsadi';
+            break;
+          case 'shin':
+            spireType = 'shin';
+            break;
+          case 'kuf':
+            // Don't allow manual drops on Kuf
+            return;
+        }
+
+        if (spireType) {
+          // Prevent default spacebar behavior (page scroll)
+          event.preventDefault();
+          handleManualDrop(spireType);
+        }
+      }
+    });
+  }
+
   async function applyPowderSimulationMode(mode) {
     if (mode !== 'sand' && mode !== 'fluid') {
       return;
@@ -9444,6 +9593,7 @@ import {
     bindVariableLibrary();
     bindUpgradeMatrix();
     bindLeaveLevelButton();
+    initializeManualDropHandlers();
   }
 
   if (document.readyState === 'loading') {
