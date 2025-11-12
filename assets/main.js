@@ -3054,6 +3054,43 @@ import {
     schedulePowderBasinSave();
   }
 
+  /**
+   * Update visibility for all spire tabs based on unlock status
+   */
+  function updateSpireTabVisibility() {
+    updateFluidTabAvailability();
+    
+    // Update Lamed tab
+    const lamedTab = document.getElementById('tab-lamed');
+    if (lamedTab) {
+      if (spireResourceState.lamed.unlocked) {
+        lamedTab.removeAttribute('hidden');
+        lamedTab.setAttribute('aria-hidden', 'false');
+        lamedTab.disabled = false;
+      } else {
+        lamedTab.setAttribute('hidden', '');
+        lamedTab.setAttribute('aria-hidden', 'true');
+        lamedTab.disabled = true;
+      }
+    }
+    
+    // Update Tsadi tab
+    const tsadiTab = document.getElementById('tab-tsadi');
+    if (tsadiTab) {
+      if (spireResourceState.tsadi.unlocked) {
+        tsadiTab.removeAttribute('hidden');
+        tsadiTab.setAttribute('aria-hidden', 'false');
+        tsadiTab.disabled = false;
+      } else {
+        tsadiTab.setAttribute('hidden', '');
+        tsadiTab.setAttribute('aria-hidden', 'true');
+        tsadiTab.disabled = true;
+      }
+    }
+    
+    // TODO: Add Shin and Kuf tab updates when their unlock logic is implemented
+  }
+
   function updateFluidTabAvailability() {
     if (!fluidElements.tabStack) {
       // Cache the split tab wrapper so we can toggle stacked layout states when the fluid study unlocks.
@@ -3510,51 +3547,35 @@ import {
         return; // Kuf spire doesn't support manual drops
       }
 
-      // Add 1 resource to the appropriate spire
+      // Add 1 resource to the appropriate spire WITHOUT consuming from the bank
       switch (spireType) {
         case 'aleph':
-          if (sandSimulation && typeof sandSimulation.dropManualMote === 'function') {
-            sandSimulation.dropManualMote();
-          } else {
-            // Fallback: directly increment the bank
-            powderState.idleMoteBank = Math.max(0, powderState.idleMoteBank || 0) + 1;
-            if (sandSimulation) {
-              sandSimulation.idleBank = powderState.idleMoteBank;
-            }
+          if (sandSimulation && typeof sandSimulation.spawnGrain === 'function') {
+            // Spawn a grain directly without consuming from the bank
+            sandSimulation.spawnGrain({ size: 1, source: 'manual' });
           }
           break;
         case 'bet':
-          if (fluidSimulationInstance && typeof fluidSimulationInstance.dropManualDrop === 'function') {
-            fluidSimulationInstance.dropManualDrop();
-          } else {
-            // Fallback: directly increment the bank
-            powderState.fluidIdleBank = Math.max(0, powderState.fluidIdleBank || 0) + 1;
-            if (fluidSimulationInstance) {
-              fluidSimulationInstance.idleBank = powderState.fluidIdleBank;
-            }
+          if (fluidSimulationInstance && typeof fluidSimulationInstance.spawnGrain === 'function') {
+            // Spawn a drop directly without consuming from the bank
+            fluidSimulationInstance.spawnGrain({ size: 1, source: 'manual' });
           }
           break;
         case 'lamed':
-          if (lamedSimulationInstance) {
-            lamedSimulationInstance.sparkBank = Math.max(0, lamedSimulationInstance.sparkBank || 0) + 1;
-            spireResourceState.lamed.sparkBank = lamedSimulationInstance.sparkBank;
-          } else {
-            spireResourceState.lamed.sparkBank = Math.max(0, spireResourceState.lamed.sparkBank || 0) + 1;
+          if (lamedSimulationInstance && typeof lamedSimulationInstance.spawnStar === 'function') {
+            // Spawn a star directly without consuming from the bank
+            lamedSimulationInstance.spawnStar();
           }
-          updateSpireMenuCounts();
           break;
         case 'tsadi':
-          if (tsadiSimulationInstance) {
-            tsadiSimulationInstance.particleBank = Math.max(0, tsadiSimulationInstance.particleBank || 0) + 1;
-            setTsadiParticleBank(tsadiSimulationInstance.particleBank);
-          } else {
-            spireResourceState.tsadi.particleBank = Math.max(0, spireResourceState.tsadi.particleBank || 0) + 1;
+          if (tsadiSimulationInstance && typeof tsadiSimulationInstance.spawnParticle === 'function') {
+            // Spawn a particle directly without consuming from the bank
+            tsadiSimulationInstance.spawnParticle();
           }
-          updateSpireMenuCounts();
           break;
         case 'shin':
+          // Add 1 iteron to the bank (this doesn't consume, it adds)
           addIterons(1);
-          updateSpireMenuCounts();
           break;
       }
     }
