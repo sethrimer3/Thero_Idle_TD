@@ -276,7 +276,7 @@ export class ParticleFusionSimulation {
     // Particle management
     this.particles = [];
     this.maxParticles = 100;
-    this.spawnRate = 2; // Particles per second (consumes particle bank)
+    this.spawnRate = 0; // Particles per second (consumes particle bank, starts at 0)
     this.spawnAccumulator = 0;
     this.nullParticleRadius = 5; // Reference size for null particle (recalculated on resize)
     this.particleBank = 0; // Reserve that feeds the simulation with new particles

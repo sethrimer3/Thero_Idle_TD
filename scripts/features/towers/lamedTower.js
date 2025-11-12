@@ -77,7 +77,7 @@ export class GravitySimulation {
     this.stars = [];
     this.sparkBank = 0; // Idle currency reserve that spawns stars into the simulation
     this.maxStars = 100; // Maximum number of active orbiting stars
-    this.sparkSpawnRate = 1; // Stars spawned per second
+    this.sparkSpawnRate = 0; // Stars spawned per second (starts at 0)
     this.spawnAccumulator = 0;
     
     // Spawn parameters for ring spawner

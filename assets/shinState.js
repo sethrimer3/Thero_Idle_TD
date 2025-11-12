@@ -16,7 +16,7 @@ const FRACTAL_UNLOCK_THRESHOLD = 100;
  */
 const shinState = {
   iteronBank: 0,                    // Total unallocated iterons available
-  iterationRate: 1.0,               // Allocations per second
+  iterationRate: 0,                 // Allocations per second (starts at 0)
   shinGlyphs: 0,                    // Total Shin glyphs earned
   activeFractalId: 'tree',          // Currently selected fractal
   fractals: {},                     // State for each fractal: { id: { allocated: number, layersCompleted: number, unlocked: boolean } }
@@ -36,11 +36,14 @@ export function initializeShinState(savedState = {}) {
   if (savedState.iteronBank !== undefined) {
     shinState.iteronBank = savedState.iteronBank;
   } else {
-    // Start with 100 Iterons in the bank for new games
-    shinState.iteronBank = 100;
+    // Start with 0 Iterons in the bank for new games
+    shinState.iteronBank = 0;
   }
   if (savedState.iterationRate !== undefined) {
     shinState.iterationRate = savedState.iterationRate;
+  } else {
+    // Start with 0 iteration rate for new games
+    shinState.iterationRate = 0;
   }
   if (savedState.shinGlyphs !== undefined) {
     shinState.shinGlyphs = savedState.shinGlyphs;

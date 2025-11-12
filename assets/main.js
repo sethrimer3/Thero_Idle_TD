@@ -1949,12 +1949,12 @@ import {
     glyphsAwarded: 0, // Highest Aleph index already translated into glyph currency.
     fluidGlyphsLit: 0,
     fluidGlyphsAwarded: 0, // Highest Bet index already translated into Bet glyph currency.
-    idleMoteBank: 100,
-    idleDrainRate: 1,
+    idleMoteBank: 0,
+    idleDrainRate: 0,
     pendingMoteDrops: [],
     idleBankHydrated: false, // Tracks whether the active simulation already holds the saved idle motes.
     fluidIdleBank: 0,
-    fluidIdleDrainRate: 0.1,
+    fluidIdleDrainRate: 0,
     pendingFluidDrops: [],
     fluidBankHydrated: false,
     motePalette: mergeMotePalette(DEFAULT_MOTE_PALETTE),
@@ -3054,6 +3054,43 @@ import {
     schedulePowderBasinSave();
   }
 
+  /**
+   * Update visibility for all spire tabs based on unlock status
+   */
+  function updateSpireTabVisibility() {
+    updateFluidTabAvailability();
+    
+    // Update Lamed tab
+    const lamedTab = document.getElementById('tab-lamed');
+    if (lamedTab) {
+      if (spireResourceState.lamed.unlocked) {
+        lamedTab.removeAttribute('hidden');
+        lamedTab.setAttribute('aria-hidden', 'false');
+        lamedTab.disabled = false;
+      } else {
+        lamedTab.setAttribute('hidden', '');
+        lamedTab.setAttribute('aria-hidden', 'true');
+        lamedTab.disabled = true;
+      }
+    }
+    
+    // Update Tsadi tab
+    const tsadiTab = document.getElementById('tab-tsadi');
+    if (tsadiTab) {
+      if (spireResourceState.tsadi.unlocked) {
+        tsadiTab.removeAttribute('hidden');
+        tsadiTab.setAttribute('aria-hidden', 'false');
+        tsadiTab.disabled = false;
+      } else {
+        tsadiTab.setAttribute('hidden', '');
+        tsadiTab.setAttribute('aria-hidden', 'true');
+        tsadiTab.disabled = true;
+      }
+    }
+    
+    // TODO: Add Shin and Kuf tab updates when their unlock logic is implemented
+  }
+
   function updateFluidTabAvailability() {
     if (!fluidElements.tabStack) {
       // Cache the split tab wrapper so we can toggle stacked layout states when the fluid study unlocks.
@@ -3356,33 +3393,9 @@ import {
   }
 
   function updatePowderModeButton() {
-    if (!powderElements.modeToggle) {
-      return;
-    }
-    if (!powderState.fluidUnlocked) {
-      const glyphCost = getFluidUnlockGlyphCost();
-      const costLabel = glyphCost > 0 ? `ℵ ${formatWholeNumber(glyphCost)}` : 'ℵ 0';
-      powderElements.modeToggle.textContent = `Unlock Bet Spire (${costLabel})`;
-      powderElements.modeToggle.setAttribute('aria-pressed', 'false');
-      const availableGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
-      const affordable = availableGlyphs >= glyphCost;
-      if (affordable) {
-        powderElements.modeToggle.removeAttribute('aria-disabled');
-        powderElements.modeToggle.disabled = false;
-      } else {
-        powderElements.modeToggle.setAttribute('aria-disabled', 'true');
-        powderElements.modeToggle.disabled = true;
-      }
-      return;
-    }
-    powderElements.modeToggle.removeAttribute('aria-disabled');
-    powderElements.modeToggle.disabled = false;
-    const mode = powderState.simulationMode;
-    const fluidLabel = powderState.fluidProfileLabel || 'Bet Spire';
-    powderElements.modeToggle.textContent =
-      mode === 'fluid' ? 'Return to Powderfall' : `Enter ${fluidLabel}`;
-    powderElements.modeToggle.setAttribute('aria-pressed', mode === 'fluid' ? 'true' : 'false');
-    updateFluidTabAvailability();
+    // Mode toggle button removed - spires unlock automatically based on glyphs
+    // Keeping this function as a no-op to avoid breaking existing call sites
+    return;
   }
 
   /**
@@ -3515,6 +3528,139 @@ import {
     powderState.viewInteraction = interaction;
   }
 
+  /**
+   * Initialize manual drop handlers for spire viewports.
+   * Allows player to click/tap or press space to drop 1 resource into the spire.
+   * Does not work for Kuf spire.
+   */
+  function initializeManualDropHandlers() {
+    // Track if pointer moved during a gesture (to distinguish clicks from drags)
+    let pointerMoved = false;
+    let pointerDownTime = 0;
+    const MAX_CLICK_DURATION = 300; // ms
+    const MAX_CLICK_MOVEMENT = 5; // px
+    let startX = 0;
+    let startY = 0;
+
+    function handleManualDrop(spireType) {
+      if (spireType === 'kuf') {
+        return; // Kuf spire doesn't support manual drops
+      }
+
+      // Add 1 resource to the appropriate spire WITHOUT consuming from the bank
+      switch (spireType) {
+        case 'aleph':
+          if (sandSimulation && typeof sandSimulation.spawnGrain === 'function') {
+            // Spawn a grain directly without consuming from the bank
+            sandSimulation.spawnGrain({ size: 1, source: 'manual' });
+          }
+          break;
+        case 'bet':
+          if (fluidSimulationInstance && typeof fluidSimulationInstance.spawnGrain === 'function') {
+            // Spawn a drop directly without consuming from the bank
+            fluidSimulationInstance.spawnGrain({ size: 1, source: 'manual' });
+          }
+          break;
+        case 'lamed':
+          if (lamedSimulationInstance && typeof lamedSimulationInstance.spawnStar === 'function') {
+            // Spawn a star directly without consuming from the bank
+            lamedSimulationInstance.spawnStar();
+          }
+          break;
+        case 'tsadi':
+          if (tsadiSimulationInstance && typeof tsadiSimulationInstance.spawnParticle === 'function') {
+            // Spawn a particle directly without consuming from the bank
+            tsadiSimulationInstance.spawnParticle();
+          }
+          break;
+        case 'shin':
+          // Add 1 iteron to the bank (this doesn't consume, it adds)
+          addIterons(1);
+          break;
+      }
+    }
+
+    // Add click handlers to spire viewports
+    const spireViewports = [
+      { id: 'powder-viewport', type: 'aleph' },
+      { id: 'fluid-viewport', type: 'bet' },
+      { id: 'lamed-basin', type: 'lamed' },
+      { id: 'tsadi-basin', type: 'tsadi' },
+      { id: 'shin-fractal-content', type: 'shin' },
+    ];
+
+    spireViewports.forEach(({ id, type }) => {
+      const element = document.getElementById(id);
+      if (element) {
+        const handlePointerDown = (event) => {
+          pointerMoved = false;
+          pointerDownTime = Date.now();
+          startX = event.clientX;
+          startY = event.clientY;
+        };
+
+        const handlePointerMove = (event) => {
+          const dx = Math.abs(event.clientX - startX);
+          const dy = Math.abs(event.clientY - startY);
+          if (dx > MAX_CLICK_MOVEMENT || dy > MAX_CLICK_MOVEMENT) {
+            pointerMoved = true;
+          }
+        };
+
+        const handleClick = (event) => {
+          const duration = Date.now() - pointerDownTime;
+          if (!pointerMoved && duration < MAX_CLICK_DURATION) {
+            // Only handle manual drop if this panel is active
+            const panel = element.closest('.panel');
+            if (panel && !panel.hidden) {
+              handleManualDrop(type);
+            }
+          }
+        };
+
+        element.addEventListener('pointerdown', handlePointerDown);
+        element.addEventListener('pointermove', handlePointerMove);
+        element.addEventListener('click', handleClick);
+      }
+    });
+
+    // Add spacebar handler for manual drops
+    document.addEventListener('keydown', (event) => {
+      if (event.key === ' ' || event.code === 'Space') {
+        // Determine which spire panel is currently active
+        const activeTab = getActiveTabId();
+        let spireType = null;
+        
+        switch (activeTab) {
+          case 'powder':
+            spireType = 'aleph';
+            break;
+          case 'fluid':
+            spireType = 'bet';
+            break;
+          case 'lamed':
+            spireType = 'lamed';
+            break;
+          case 'tsadi':
+            spireType = 'tsadi';
+            break;
+          case 'shin':
+            spireType = 'shin';
+            break;
+          case 'kuf':
+            // Don't allow manual drops on Kuf
+            return;
+        }
+
+        if (spireType) {
+          // Prevent default spacebar behavior (page scroll)
+          event.preventDefault();
+          handleManualDrop(spireType);
+        }
+      }
+    });
+  }
+
   async function applyPowderSimulationMode(mode) {
     if (mode !== 'sand' && mode !== 'fluid') {
       return;
@@ -3528,9 +3674,10 @@ import {
     }
 
     powderState.modeSwitchPending = true;
-    if (powderElements.modeToggle) {
-      powderElements.modeToggle.disabled = true;
-    }
+    // Mode toggle button removed
+    // if (powderElements.modeToggle) {
+    //   powderElements.modeToggle.disabled = true;
+    // }
 
     const previousMode = powderState.simulationMode;
     try {
@@ -3677,9 +3824,10 @@ import {
       console.error('Unable to switch simulation mode.', error);
     } finally {
       powderState.modeSwitchPending = false;
-      if (powderElements.modeToggle) {
-        powderElements.modeToggle.disabled = false;
-      }
+      // Mode toggle button removed
+      // if (powderElements.modeToggle) {
+      //   powderElements.modeToggle.disabled = false;
+      // }
       updatePowderModeButton();
       syncPowderWallVisuals();
       updatePowderHitboxVisibility();
@@ -3772,6 +3920,51 @@ import {
     } else {
       enterFluidStudy();
     }
+  }
+
+  /**
+   * Check and automatically unlock spires based on glyph counts from previous spire.
+   * Each spire unlocks when the player has 100 glyphs from the previous spire.
+   * @returns {boolean} True if any spire was unlocked
+   */
+  function checkAndUnlockSpires() {
+    let anyUnlocked = false;
+
+    // Get glyph counts for each spire
+    const alephGlyphs = Math.max(0, Math.floor(powderState.glyphsAwarded || 0));
+    const betGlyphs = Math.max(0, Math.floor(powderState.fluidGlyphsAwarded || 0));
+    
+    // Bet Spire: Unlocks when player has 100 Aleph glyphs
+    if (!powderState.fluidUnlocked && alephGlyphs >= 100) {
+      unlockFluidStudy({ reason: 'auto-unlock', threshold: 100, glyphCost: 0 });
+      anyUnlocked = true;
+    }
+
+    // Lamed Spire: Unlocks when player has 100 Bet glyphs
+    if (!spireResourceState.lamed.unlocked && betGlyphs >= 100) {
+      spireResourceState.lamed.unlocked = true;
+      updateSpireTabVisibility();
+      updateSpireMenuCounts();
+      anyUnlocked = true;
+    }
+
+    // Tsadi Spire: Unlocks when player has 100 Lamed glyphs (sparks)
+    const lamedGlyphs = Math.max(0, Math.floor(spireResourceState.lamed?.stats?.totalAbsorptions || 0));
+    if (!spireResourceState.tsadi.unlocked && lamedGlyphs >= 100) {
+      spireResourceState.tsadi.unlocked = true;
+      updateSpireTabVisibility();
+      updateSpireMenuCounts();
+      anyUnlocked = true;
+    }
+
+    // Shin Spire: Unlocks when player has 100 Tsadi glyphs
+    // (Need to check how Tsadi glyphs are tracked)
+    // TODO: Add Shin unlock logic once we identify the Tsadi glyph counter
+
+    // Kuf Spire: Unlocks when player has 100 Shin glyphs
+    // TODO: Add Kuf unlock logic
+
+    return anyUnlocked;
   }
 
   let resourceTicker = null;
@@ -7329,6 +7522,48 @@ import {
 
     pruneLockedTowersFromLoadout();
 
+    // Developer mode: Unlock all spires and set developer values
+    powderState.fluidUnlocked = true;
+    spireResourceState.lamed.unlocked = true;
+    spireResourceState.tsadi.unlocked = true;
+    
+    // Set spire banks to 1,000,000
+    powderState.idleMoteBank = 1000000;
+    powderState.fluidIdleBank = 1000000;
+    spireResourceState.lamed.sparkBank = 1000000;
+    spireResourceState.tsadi.particleBank = 1000000;
+    
+    // Set spire rates to 10 per second
+    powderState.idleDrainRate = 10;
+    powderState.fluidIdleDrainRate = 10;
+    if (typeof setDeveloperIteronBank === 'function') {
+      setDeveloperIteronBank(1000000);
+    }
+    if (typeof setDeveloperIterationRate === 'function') {
+      setDeveloperIterationRate(10);
+    }
+    
+    // Apply the banks and rates to active simulations
+    if (sandSimulation) {
+      sandSimulation.idleBank = 1000000;
+      sandSimulation.idleDrainRate = 10;
+    }
+    if (fluidSimulationInstance) {
+      fluidSimulationInstance.idleBank = 1000000;
+      fluidSimulationInstance.idleDrainRate = 10;
+    }
+    if (lamedSimulationInstance) {
+      lamedSimulationInstance.sparkBank = 1000000;
+      lamedSimulationInstance.sparkSpawnRate = 10;
+    }
+    if (tsadiSimulationInstance) {
+      tsadiSimulationInstance.particleBank = 1000000;
+      tsadiSimulationInstance.spawnRate = 10;
+    }
+    
+    updateSpireTabVisibility();
+    updateSpireMenuCounts();
+
     unlockedLevels.clear();
     interactiveLevelOrder.forEach((levelId) => {
       unlockedLevels.add(levelId);
@@ -7873,6 +8108,8 @@ import {
         const newlyEarned = glyphsLit - previousAwarded;
         awardBetGlyphs(newlyEarned);
         powderState.fluidGlyphsAwarded = glyphsLit;
+        // Check if any spires should auto-unlock
+        checkAndUnlockSpires();
       } else if (!Number.isFinite(powderState.fluidGlyphsAwarded) || powderState.fluidGlyphsAwarded < glyphsLit) {
         powderState.fluidGlyphsAwarded = Math.max(previousAwarded, glyphsLit);
       }
@@ -8127,6 +8364,8 @@ import {
         const newlyEarned = glyphsLit - previousAwarded;
         addGlyphCurrency(newlyEarned);
         powderState.glyphsAwarded = glyphsLit;
+        // Check if any spires should auto-unlock
+        checkAndUnlockSpires();
       } else if (!Number.isFinite(powderState.glyphsAwarded) || powderState.glyphsAwarded < glyphsLit) {
         powderState.glyphsAwarded = Math.max(previousAwarded, glyphsLit);
       }
@@ -8532,7 +8771,7 @@ import {
     powderElements.rightWall = document.getElementById('powder-wall-right');
     powderElements.leftHitbox = document.getElementById('powder-wall-hitbox-left');
     powderElements.rightHitbox = document.getElementById('powder-wall-hitbox-right');
-    powderElements.modeToggle = document.getElementById('powder-mode-toggle');
+    // powderElements.modeToggle = document.getElementById('powder-mode-toggle'); // Removed - spires unlock automatically based on glyphs
     powderElements.sandfallFormula = document.getElementById('powder-sandfall-formula');
     powderElements.sandfallNote = document.getElementById('powder-sandfall-note');
     powderElements.sandfallButton = document.getElementById('powder-sandfall-button');
@@ -8553,12 +8792,13 @@ import {
     const sigilList = document.getElementById('powder-sigil-list');
     powderElements.sigilEntries = sigilList ? Array.from(sigilList.querySelectorAll('li')) : [];
 
-    if (powderElements.modeToggle) {
-      powderElements.modeToggle.addEventListener('click', (event) => {
-        event.preventDefault();
-        handlePowderModeToggle();
-      });
-    }
+    // Mode toggle removed - spires unlock automatically based on glyphs
+    // if (powderElements.modeToggle) {
+    //   powderElements.modeToggle.addEventListener('click', (event) => {
+    //     event.preventDefault();
+    //     handlePowderModeToggle();
+    //   });
+    // }
 
     if (powderElements.sandfallButton) {
       powderElements.sandfallButton.addEventListener('click', (event) => {
@@ -9374,6 +9614,7 @@ import {
     bindVariableLibrary();
     bindUpgradeMatrix();
     bindLeaveLevelButton();
+    initializeManualDropHandlers();
   }
 
   if (document.readyState === 'loading') {
