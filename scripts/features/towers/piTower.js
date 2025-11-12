@@ -164,6 +164,11 @@ export function ensurePiState(playfield, tower) {
     tower.range = rangePixels;
     tower.baseRate = 1 / state.parameters.attackSpeed; // Convert to attacks per second
     tower.rate = tower.baseRate;
+    
+    // Update damage calculation based on current merge count
+    const damage = calculatePiDamage(state.parameters.gammaPower, state.laserMergeCount || 0);
+    tower.baseDamage = damage;
+    tower.damage = damage;
   }
   
   return state;
