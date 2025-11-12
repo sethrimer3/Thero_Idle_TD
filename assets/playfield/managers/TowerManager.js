@@ -58,6 +58,10 @@ import {
   spawnNuAttackBurst as spawnNuAttackBurstHelper,
   teardownNuTower as teardownNuTowerHelper,
 } from '../../../scripts/features/towers/nuTower.js';
+import {
+  ensurePiState as ensurePiStateHelper,
+  teardownPiTower as teardownPiTowerHelper,
+} from '../../../scripts/features/towers/piTower.js';
 
 // Tower management routines extracted from SimplePlayfield.
 
@@ -272,6 +276,14 @@ function fireIotaPulse(tower, targetInfo = {}) {
   fireIotaPulseHelper(this, tower, targetInfo);
 }
 
+function ensurePiState(tower) {
+  return ensurePiStateHelper(this, tower);
+}
+
+function teardownPiTower(tower) {
+  teardownPiTowerHelper(this, tower);
+}
+
 export {
   evaluateZetaMetrics,
   teardownAlphaTower,
@@ -310,4 +322,6 @@ export {
   ensureIotaState,
   teardownIotaTower,
   fireIotaPulse,
+  ensurePiState,
+  teardownPiTower,
 };
