@@ -658,10 +658,12 @@ export class PowderSimulation {
   }
 
   updateMaxDropSize() {
-    const usableWidth = Math.max(1, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells);
-    const scale = Number.isFinite(this.collisionScale) && this.collisionScale > 0 ? this.collisionScale : 1;
-    const maxVisualWidth = Math.max(1, Math.floor(usableWidth / scale));
-    this.maxDropSize = Math.max(1, Math.min(maxVisualWidth, this.rows));
+    // Make mote size relative to render width: 1 mote = 1/100th of render width
+    const renderWidth = Math.max(1, this.width || 240);
+    const oneMoteSize = Math.max(1, Math.round(renderWidth / 100));
+    // Convert to cell units
+    const moteSizeInCells = Math.max(1, Math.round(oneMoteSize / this.cellSize));
+    this.maxDropSize = moteSizeInCells;
   }
 
   reset() {
