@@ -1660,8 +1660,8 @@ import {
     if (!Number.isFinite(count) || count <= 0) {
       return;
     }
-    // For now, just log the award. In future, this will be integrated with a Bet glyph currency system
-    // similar to Aleph glyphs, but as a second type of upgrade currency.
+    // Award Bet glyph currency to the player
+    addBetGlyphCurrency(count);
     console.log(`Awarded ${count} Bet glyph${count !== 1 ? 's' : ''} (בּ)`);
     recordPowderEvent('bet-glyph-award', { count });
   }
@@ -1932,8 +1932,9 @@ import {
     thetaBase: 1.3,
     zetaBase: 1.6,
     simulatedDuneGainMax: 3.4,
-    wallBaseGapMotes: 15,
-    wallGapPerGlyph: 1,
+    wallBaseGapMotes: 5, // Start with walls 5 motes apart
+    wallGapPerGlyph: 1, // Walls expand by 1 mote per glyph
+    wallMaxGapMotes: 75, // Maximum wall gap of 75 motes
     wallGapViewportRatio: 0.15, // Narrow the tower walls so the visible mote lane is roughly one-fifth of the previous span.
     fluidUnlockSigils: 0, // Sigil rungs no longer gate the fluid study while glyph costs handle the unlock.
     fluidUnlockGlyphCost: 0, // Aleph glyph tithe required to unlock the fluid study (temporarily waived).
@@ -2818,6 +2819,16 @@ import {
       fluidGlyphColumns.forEach((column) => {
         const isLeftWall = column.side === 'left';
         
+        // Only show Bet glyphs on the right wall; left wall should be empty
+        if (isLeftWall) {
+          // Clear all glyphs from left wall
+          column.glyphs.forEach((glyph, index) => {
+            column.element.removeChild(glyph);
+            column.glyphs.delete(index);
+          });
+          return;
+        }
+        
         // Collect indices to delete before modifying the Map
         const indicesToDelete = [];
         column.glyphs.forEach((glyph, index) => {
@@ -2835,17 +2846,17 @@ import {
           }
         });
 
-        // Create or update glyphs in the visible range
+        // Create or update glyphs in the visible range (only Bet glyphs on right wall)
         for (let index = minIndex; index <= maxIndex; index += 1) {
           let glyph = column.glyphs.get(index);
           if (!glyph) {
             glyph = document.createElement('span');
             glyph.className = 'powder-glyph';
-            glyph.dataset[isLeftWall ? 'alephIndex' : 'betIndex'] = String(index);
+            glyph.dataset.betIndex = String(index);
             column.element.appendChild(glyph);
             column.glyphs.set(index, glyph);
           }
-          glyph.textContent = isLeftWall ? formatAlephLabel(index) : formatBetLabel(index);
+          glyph.textContent = formatBetLabel(index);
           const glyphNormalized = glyphHeightForIndex(index);
           const relativeRows = glyphNormalized * safeRows - scrollOffset;
           const topPx = basinHeight - relativeRows * cellSize;
@@ -3027,7 +3038,8 @@ import {
 
   function updatePowderWallGapFromGlyphs(glyphCount) {
     const normalized = Number.isFinite(glyphCount) ? Math.max(0, glyphCount) : 0;
-    const target = powderConfig.wallBaseGapMotes + normalized * powderConfig.wallGapPerGlyph;
+    const rawTarget = powderConfig.wallBaseGapMotes + normalized * powderConfig.wallGapPerGlyph;
+    const target = Math.min(rawTarget, powderConfig.wallMaxGapMotes);
     powderState.wallGapTarget = target;
     if (!powderSimulation) {
       // Persist glyph-driven wall targets even if the simulation is paused.
@@ -7869,7 +7881,8 @@ import {
       const previousWallTarget = Number.isFinite(powderState.wallGapTarget)
         ? powderState.wallGapTarget
         : powderConfig.wallBaseGapMotes;
-      const nextWallTarget = powderConfig.wallBaseGapMotes + normalizedGlyphs * powderConfig.wallGapPerGlyph;
+      const rawNextWallTarget = powderConfig.wallBaseGapMotes + normalizedGlyphs * powderConfig.wallGapPerGlyph;
+      const nextWallTarget = Math.min(rawNextWallTarget, powderConfig.wallMaxGapMotes);
 
       if (nextWallTarget !== previousWallTarget) {
         powderState.wallGapTarget = nextWallTarget;

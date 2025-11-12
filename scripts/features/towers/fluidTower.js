@@ -413,8 +413,11 @@ export class FluidSimulation {
   }
 
   updateMaxDropSize() {
-    this.maxDropSize = Math.max(1, Math.floor(Math.max(this.width, this.height) / 40));
-    this.maxDropRadius = this.maxDropSize;
+    // Make drop size relative to render width: 1 drop = 1/100th of render width
+    const renderWidth = Math.max(1, this.width || 240);
+    const oneDropSize = Math.max(1, renderWidth / 100);
+    this.maxDropSize = oneDropSize;
+    this.maxDropRadius = oneDropSize;
   }
 
   // Compute the pixel span between the inner walls for spawning droplets.
