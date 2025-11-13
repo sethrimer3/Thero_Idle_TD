@@ -1,0 +1,293 @@
+/**
+ * Basic Tower Blueprints
+ * 
+ * Foundational towers that form the core progression: alpha, beta, gamma.
+ * These towers introduce players to the basic mechanics and upgrade systems.
+ */
+
+import {
+  formatWholeNumber,
+  formatDecimal,
+  formatGameNumber,
+} from '../../scripts/core/formatting.js';
+import { blueprintContext } from './blueprintContext.js';
+
+// Helper function accessors for cleaner code
+const ctx = () => blueprintContext;
+
+export const alpha = {
+  mathSymbol: String.raw`\alpha`,
+  baseEquation: 'α = Attack × Speed',
+  variables: [
+    {
+      key: 'atk',
+      symbol: 'A',
+      equationSymbol: 'Attack',
+      glyphLabel: 'ℵ₁',
+      name: 'Attack',
+      description: 'Projectile damage carried by each glyph bullet.',
+      baseValue: 5,
+      step: 5,
+      upgradable: true,
+      format: (value) => `${formatWholeNumber(value)} Attack`,
+      cost: (level) => Math.max(1, 1 + level),
+      getSubEquations({ level, value }) {
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
+        const attackValue = Number.isFinite(value) ? value : 0;
+        return [
+          {
+            expression: String.raw`\( \text{Attack} = 5 \times \aleph_{1} \)`,
+            values: String.raw`\( ${formatWholeNumber(attackValue)} = 5 \times ${formatWholeNumber(glyphRank)} \)`,
+          },
+        ];
+      },
+    },
+    {
+      key: 'speed',
+      symbol: 'S',
+      equationSymbol: 'Speed',
+      glyphLabel: 'ℵ₂',
+      name: 'Speed',
+      description: 'Oscillation cadence braided from the second glyph conduit.',
+      baseValue: 0.5,
+      step: 0.5,
+      upgradable: true,
+      format: (value) => `${formatDecimal(value, 2)} speed`,
+      getSubEquations({ level, value }) {
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
+        const speedValue = Number.isFinite(value) ? value : glyphRank * 0.5;
+        return [
+          {
+            expression: String.raw`\( \text{Speed} = 0.5 \times \aleph_{2} \)`,
+            values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 \times ${formatDecimal(glyphRank, 2)} \)`,
+          },
+        ];
+      },
+    },
+  ],
+  computeResult(values) {
+    const attack = Number.isFinite(values.atk) ? values.atk : 0;
+    const speed = Number.isFinite(values.speed) ? values.speed : 0;
+    return attack * speed;
+  },
+  formatBaseEquationValues({ values, result, formatComponent }) {
+    const attack = Number.isFinite(values.atk) ? values.atk : 0;
+    const speed = Number.isFinite(values.speed) ? values.speed : 0;
+    return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)}`;
+  },
+};
+
+export const beta = {
+  mathSymbol: String.raw`\beta`,
+  baseEquation: 'β = Attack × Speed × Range',
+  variables: [
+    {
+      key: 'attack',
+      symbol: 'A',
+      equationSymbol: 'Attack',
+      glyphLabel: 'ℵ₁',
+      name: 'Attack',
+      description: 'Direct strike power mirrored from α.',
+      upgradable: true,
+      format: (value) => `${formatGameNumber(value)} attack`,
+      computeValue({ blueprint, towerId }) {
+        const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
+        const state = ctx().ensureTowerUpgradeState(towerId, effectiveBlueprint);
+        const level = state.variables?.attack?.level || 0;
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
+        const alphaValue = ctx().calculateTowerEquationResult('alpha');
+        return alphaValue * glyphRank;
+      },
+      getSubEquations({ level }) {
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
+        const alphaValue = ctx().calculateTowerEquationResult('alpha');
+        const attackValue = alphaValue * glyphRank;
+        return [
+          {
+            expression: String.raw`\( \text{Attack} = \alpha \times \aleph_{1} \)`,
+            values: String.raw`\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(alphaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
+          },
+        ];
+      },
+    },
+    {
+      key: 'speed',
+      symbol: 'S',
+      equationSymbol: 'Speed',
+      name: 'Speed',
+      description: 'Cadence accelerated by neighbouring α lattices.',
+      upgradable: false,
+      lockedNote: 'Connect α lattices to accelerate β cadence.',
+      computeValue() {
+        const alphaConnections = ctx().getDynamicConnectionCount('alpha');
+        return 0.5 + 1.5 * alphaConnections;
+      },
+      format: (value) => `${formatDecimal(value, 2)} speed`,
+      getSubEquations() {
+        const alphaConnections = ctx().getDynamicConnectionCount('alpha');
+        const speedValue = 0.5 + 1.5 * alphaConnections;
+        return [
+          {
+            expression: String.raw`\( \text{Speed} = 0.5 + 1.5 \left( \alpha_{\beta} \right) \)`,
+            values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 + 1.5 \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
+          },
+        ];
+      },
+    },
+    {
+      key: 'range',
+      symbol: 'R',
+      equationSymbol: 'Range',
+      name: 'Range',
+      description: 'Coverage extended by α lattice entanglement.',
+      upgradable: false,
+      lockedNote: 'Entangle α lattices to extend β reach.',
+      computeValue() {
+        return 1 + ctx().getDynamicConnectionCount('alpha');
+      },
+      format: (value) => `${formatDecimal(value, 2)} range`,
+      getSubEquations() {
+        const alphaConnections = ctx().getDynamicConnectionCount('alpha');
+        const rangeValue = 1 + alphaConnections;
+        return [
+          {
+            expression: String.raw`\( \text{Range} = 1 + \left( \alpha_{\beta} \right) \)`,
+            values: String.raw`\( ${formatDecimal(rangeValue, 2)} = 1 + \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
+          },
+        ];
+      },
+    },
+  ],
+  computeResult(values) {
+    const attack = Number.isFinite(values.attack) ? values.attack : 0;
+    const speed = Number.isFinite(values.speed) ? values.speed : 0;
+    const range = Number.isFinite(values.range) ? values.range : 0;
+    return attack * speed * range;
+  },
+  formatBaseEquationValues({ values, result, formatComponent }) {
+    const attack = Number.isFinite(values.attack) ? values.attack : 0;
+    const speed = Number.isFinite(values.speed) ? values.speed : 0;
+    const range = Number.isFinite(values.range) ? values.range : 0;
+    return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)}`;
+  },
+};
+
+export const gamma = {
+  mathSymbol: String.raw`\gamma`,
+  baseEquation: 'γ = Attack × Speed × Range × Pierce',
+  variables: [
+    {
+      key: 'attack',
+      symbol: 'A',
+      equationSymbol: 'Attack',
+      glyphLabel: 'ℵ₁',
+      name: 'Attack',
+      description: 'Strike intensity carried forward from β.',
+      upgradable: true,
+      format: (value) => `${formatGameNumber(value)} attack`,
+      computeValue({ blueprint, towerId }) {
+        const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
+        const state = ctx().ensureTowerUpgradeState(towerId, effectiveBlueprint);
+        const level = state.variables?.attack?.level || 0;
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
+        const betaValue = ctx().calculateTowerEquationResult('beta');
+        return betaValue * glyphRank;
+      },
+      getSubEquations({ level }) {
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
+        const betaValue = ctx().calculateTowerEquationResult('beta');
+        const attackValue = betaValue * glyphRank;
+        return [
+          {
+            expression: String.raw`\( \text{Attack} = \beta \times \aleph_{1} \)`,
+            values: String.raw`\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(betaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
+          },
+        ];
+      },
+    },
+    {
+      key: 'speed',
+      symbol: 'S',
+      equationSymbol: 'Speed',
+      name: 'Speed',
+      description: 'Cadence tuned by neighbouring α lattices.',
+      upgradable: false,
+      lockedNote: 'Link α lattices to accelerate γ cadence.',
+      computeValue() {
+        const alphaConnections = ctx().getDynamicConnectionCount('alpha');
+        return 0.5 + 0.25 * alphaConnections;
+      },
+      format: (value) => `${formatDecimal(value, 2)} speed`,
+      getSubEquations() {
+        const alphaConnections = ctx().getDynamicConnectionCount('alpha');
+        const speedValue = 0.5 + 0.25 * alphaConnections;
+        return [
+          {
+            expression: String.raw`\( \text{Speed} = 0.5 + 0.25 \left( \alpha_{\gamma} \right) \)`,
+            values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 + 0.25 \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
+          },
+        ];
+      },
+    },
+    {
+      key: 'range',
+      symbol: 'R',
+      equationSymbol: 'Range',
+      name: 'Range',
+      description: 'Arc reach extended by neighbouring β conductors.',
+      upgradable: false,
+      lockedNote: 'Bind β lattices to extend γ reach.',
+      computeValue() {
+        const betaConnections = ctx().getDynamicConnectionCount('beta');
+        return 1 + 2 * betaConnections;
+      },
+      format: (value) => `${formatDecimal(value, 2)} range`,
+      getSubEquations() {
+        const betaConnections = ctx().getDynamicConnectionCount('beta');
+        const rangeValue = 1 + 2 * betaConnections;
+        return [
+          {
+            expression: String.raw`\( \text{Range} = 1 + 2 \left( \beta_{\gamma} \right) \)`,
+            values: String.raw`\( ${formatDecimal(rangeValue, 2)} = 1 + 2 \left( ${formatWholeNumber(betaConnections)} \right) \)`,
+          },
+        ];
+      },
+    },
+    {
+      key: 'pierce',
+      symbol: 'P',
+      equationSymbol: 'Pierce',
+      glyphLabel: 'ℵ₂',
+      name: 'Pierce',
+      description: 'Piercing depth braided from the second glyph conduit.',
+      baseValue: 1,
+      step: 1,
+      upgradable: true,
+      format: (value) => `${formatWholeNumber(value)} pierce`,
+      getSubEquations({ level, value }) {
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
+        const pierceValue = Number.isFinite(value) ? value : glyphRank;
+        return [
+          {
+            expression: String.raw`\( \text{Pierce} = \aleph_{2} \)`,
+            values: String.raw`\( ${formatWholeNumber(pierceValue)} = ${formatWholeNumber(glyphRank)} \)`,
+          },
+        ];
+      },
+    },
+  ],
+  computeResult(values) {
+    const attack = Number.isFinite(values.attack) ? values.attack : 0;
+    const speed = Number.isFinite(values.speed) ? values.speed : 0;
+    const range = Number.isFinite(values.range) ? values.range : 0;
+    const pierce = Number.isFinite(values.pierce) ? values.pierce : 0;
+    return attack * speed * range * pierce;
+  },
+  formatBaseEquationValues({ values, result, formatComponent }) {
+    const attack = Number.isFinite(values.attack) ? values.attack : 0;
+    const speed = Number.isFinite(values.speed) ? values.speed : 0;
+    const range = Number.isFinite(values.range) ? values.range : 0;
+    const pierce = Number.isFinite(values.pierce) ? values.pierce : 0;
+    return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${formatComponent(pierce)}`;
+  },
+};
