@@ -70,9 +70,14 @@ export class GravitySimulation {
     this.G = 200; // Gravitational constant
     this.epsilon = 5; // Softening parameter to prevent singularity
     this.starMass = 10; // Initial mass of central star (Proto-star)
-    this.dragCoefficient = 0.0; // k parameter for drag (upgradable)
+    this.dragCoefficient = 0.01; // k parameter for drag (upgradable, starts at 0.01)
     this.dragLevel = 0; // Current drag upgrade level
     this.maxDragLevel = 1000000; // Maximum drag upgrade level
+    
+    // Upgrades
+    this.upgrades = {
+      starMass: 0, // Upgrade level for orbiting stars' mass
+    };
     
     // Star management (renamed from sparks)
     this.stars = [];
@@ -94,8 +99,9 @@ export class GravitySimulation {
     this.backgroundColor = '#000000'; // Black space
     this.shockRings = []; // Absorption shock rings
     this.dustParticles = []; // Accretion disk dust
-    this.maxDustParticles = 100;
-    this.dustSpawnRate = 5; // Dust particles per second
+    this.highGraphics = typeof options.highGraphics === 'boolean' ? options.highGraphics : false;
+    this.maxDustParticles = this.highGraphics ? 2000 : 100; // 20x more on high graphics
+    this.dustSpawnRate = this.highGraphics ? 100 : 5; // Dust particles per second (20x more on high)
     this.dustAccumulator = 0;
     this.flashEffects = []; // Spawn flash effects
     
@@ -181,8 +187,8 @@ export class GravitySimulation {
   }
   
   /**
-   * Spawn a new star in an annular ring around the central body.
-   * Uses ring spawner with near-circular orbital velocity.
+   * Spawn a new star randomly between the central body edge and simulation edge.
+   * Uses near-circular orbital velocity.
    */
   spawnStar() {
     if (this.stars.length >= this.maxStars) return false;
@@ -190,8 +196,14 @@ export class GravitySimulation {
 
     const dpr = window.devicePixelRatio || 1;
     
-    // Spawn at random distance in annulus
-    const r = this.rng.range(this.spawnRadiusMin, this.spawnRadiusMax);
+    // Calculate central body radius
+    const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
+    
+    // Calculate maximum spawn radius (edge of simulation)
+    const maxR = Math.min(this.width, this.height) / (2 * dpr);
+    
+    // Spawn at random distance between central body edge and simulation edge
+    const r = this.rng.range(starVisualRadius, maxR);
     const angle = this.rng.next() * Math.PI * 2;
     
     // Position relative to center (in DPR-scaled coordinates)
@@ -209,8 +221,9 @@ export class GravitySimulation {
     const vx = -Math.sin(angle) * v;
     const vy = Math.cos(angle) * v;
     
-    // Star mass (small fraction of central mass)
-    const starMass = this.rng.range(0.5, 2.0);
+    // Star mass (affected by star mass upgrade)
+    const baseMass = this.rng.range(0.5, 2.0);
+    const starMass = baseMass * (1 + this.upgrades.starMass * 0.1);
     
     this.stars.push({
       x,
@@ -241,6 +254,7 @@ export class GravitySimulation {
 
   /**
    * Spawn dust particles for accretion disk visualization.
+   * Particles spawn randomly between the central body edge and simulation edge.
    */
   spawnDustParticles(deltaTime) {
     if (this.dustParticles.length >= this.maxDustParticles) return;
@@ -248,9 +262,16 @@ export class GravitySimulation {
     const dt = deltaTime / 1000;
     const dpr = window.devicePixelRatio || 1;
     
+    // Calculate central body radius
+    const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
+    
+    // Calculate maximum spawn radius
+    const maxR = Math.min(this.width, this.height) / (2 * dpr);
+    
     this.dustAccumulator += dt * this.dustSpawnRate;
     while (this.dustAccumulator >= 1 && this.dustParticles.length < this.maxDustParticles) {
-      const r = this.rng.range(20, 150);
+      // Spawn randomly between central body edge and simulation edge
+      const r = this.rng.range(starVisualRadius, maxR);
       const angle = this.rng.next() * Math.PI * 2;
       
       const x = this.centerX + Math.cos(angle) * r;
@@ -263,11 +284,21 @@ export class GravitySimulation {
       const vx = -Math.sin(angle) * azimuthalSpeed + Math.cos(angle) * radialSpeed;
       const vy = Math.cos(angle) * azimuthalSpeed + Math.sin(angle) * radialSpeed;
       
+      // Sample color from palette gradient
+      const gradientPos = this.rng.next(); // Random position in gradient
+      let color;
+      if (this.samplePaletteGradient) {
+        color = this.samplePaletteGradient(gradientPos);
+      } else {
+        color = { r: 200, g: 200, b: 220 }; // Fallback color
+      }
+      
       this.dustParticles.push({
         x,
         y,
         vx,
         vy,
+        color,
         life: 1.0,
         maxLife: this.rng.range(2, 5), // seconds
         elapsed: 0,
@@ -595,13 +626,17 @@ export class GravitySimulation {
       ctx.stroke();
     }
     
-    // Draw dust particles (accretion disk)
+    // Draw dust particles (accretion disk) with color palette gradient
     for (const dust of this.dustParticles) {
       const dustX = dust.x / dpr;
       const dustY = dust.y / dpr;
       const dustAlpha = dust.life * 0.3;
       
-      ctx.fillStyle = `rgba(200, 200, 220, ${dustAlpha})`;
+      if (dust.color) {
+        ctx.fillStyle = `rgba(${dust.color.r}, ${dust.color.g}, ${dust.color.b}, ${dustAlpha})`;
+      } else {
+        ctx.fillStyle = `rgba(200, 200, 220, ${dustAlpha})`;
+      }
       ctx.beginPath();
       ctx.arc(dustX, dustY, 1, 0, Math.PI * 2);
       ctx.fill();
@@ -797,7 +832,7 @@ export class GravitySimulation {
   
   /**
    * Upgrade the drag coefficient (k parameter).
-   * Increases k by 0.1 per upgrade level.
+   * Increases k by 0.01 per upgrade level (starting at 0.01).
    * @returns {boolean} True if upgrade succeeded
    */
   upgradeDrag() {
@@ -808,7 +843,40 @@ export class GravitySimulation {
     const cost = this.getDragUpgradeCost();
     this.setSparkBank(this.sparkBank - cost);
     this.dragLevel++;
-    this.dragCoefficient = this.dragLevel * 0.1;
+    this.dragCoefficient = 0.01 + (this.dragLevel * 0.01);
+    
+    return true;
+  }
+  
+  /**
+   * Calculate the cost to upgrade star mass to the next level.
+   * @returns {number} Cost in sparks
+   */
+  getStarMassUpgradeCost() {
+    return 5 * Math.pow(2, this.upgrades.starMass);
+  }
+  
+  /**
+   * Check if star mass can be upgraded.
+   * @returns {boolean}
+   */
+  canUpgradeStarMass() {
+    return this.sparkBank >= this.getStarMassUpgradeCost();
+  }
+  
+  /**
+   * Upgrade the mass of orbiting stars.
+   * Increases star mass by 10% per upgrade level.
+   * @returns {boolean} True if upgrade succeeded
+   */
+  upgradeStarMass() {
+    if (!this.canUpgradeStarMass()) {
+      return false;
+    }
+    
+    const cost = this.getStarMassUpgradeCost();
+    this.setSparkBank(this.sparkBank - cost);
+    this.upgrades.starMass++;
     
     return true;
   }
@@ -843,6 +911,9 @@ export class GravitySimulation {
       sparkBank: this.sparkBank,
       dragLevel: this.dragLevel,
       dragCoefficient: this.dragCoefficient,
+      upgrades: {
+        starMass: this.upgrades.starMass,
+      },
       stats: {
         totalAbsorptions: this.stats.totalAbsorptions,
         totalMassGained: this.stats.totalMassGained,
@@ -863,7 +934,12 @@ export class GravitySimulation {
       }
       if (Number.isFinite(state.dragLevel)) {
         this.dragLevel = Math.max(0, Math.min(state.dragLevel, this.maxDragLevel));
-        this.dragCoefficient = this.dragLevel * 0.1;
+        this.dragCoefficient = 0.01 + (this.dragLevel * 0.01);
+      }
+      if (state.upgrades) {
+        if (Number.isFinite(state.upgrades.starMass)) {
+          this.upgrades.starMass = Math.max(0, state.upgrades.starMass);
+        }
       }
       if (state.stats) {
         if (Number.isFinite(state.stats.totalAbsorptions)) {
