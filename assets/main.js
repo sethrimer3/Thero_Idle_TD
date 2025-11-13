@@ -1023,6 +1023,10 @@ import {
     betDropBank: setDeveloperBetDropBank,
     iteronBank: setDeveloperIteronBank,
     iterationRate: setDeveloperIterationRate,
+    lamedBank: setDeveloperLamedBank,
+    lamedRate: setDeveloperLamedRate,
+    tsadiBank: setDeveloperTsadiBank,
+    tsadiRate: setDeveloperTsadiRate,
   };
 
   let developerModeActive = false;
@@ -1090,31 +1094,17 @@ import {
     }
   }
 
-  function wireDeveloperCompactBasinToggle() {
-    const el = document.getElementById('developer-compact-basin');
-    if (!el) return;
-    const enabled = readCompactBasinPreference();
-    el.checked = !!enabled;
-    el.addEventListener('change', (ev) => {
-      const checked = !!el.checked;
-      persistCompactBasinPreference(checked);
-      try {
-        if (window.powderSimulation) window.powderSimulation.useCompactAutosave = checked;
-        if (window.fluidSimulationInstance) window.fluidSimulationInstance.useCompactAutosave = checked;
-      } catch (e) {}
-      recordDeveloperAdjustment('compact-basin-toggle', checked);
-      try {
-        if (typeof schedulePowderBasinSave === 'function') schedulePowderBasinSave();
-      } catch (e) {}
-    });
-  }
+  // Compact basin autosave is now always enabled per task 24
+  // function wireDeveloperCompactBasinToggle() - REMOVED
+  // The toggle UI and preference reading have been removed
+  // Compact basin autosave is now the only save method
 
   document.addEventListener('DOMContentLoaded', () => {
-    wireDeveloperCompactBasinToggle();
-    const pref = readCompactBasinPreference();
+    // wireDeveloperCompactBasinToggle(); - REMOVED per task 24
+    // Always use compact basin autosave per task 24
     try {
-      if (window.powderSimulation) window.powderSimulation.useCompactAutosave = pref;
-      if (window.fluidSimulationInstance) window.fluidSimulationInstance.useCompactAutosave = pref;
+      if (window.powderSimulation) window.powderSimulation.useCompactAutosave = true;
+      if (window.fluidSimulationInstance) window.fluidSimulationInstance.useCompactAutosave = true;
     } catch (e) {}
   });
 
@@ -1273,6 +1263,66 @@ import {
       console.error('Failed to set iteration rate:', e);
     }
     recordDeveloperAdjustment('iterationRate', normalized);
+  }
+
+  function setDeveloperLamedBank(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, Math.floor(value));
+    try {
+      if (typeof lamedSimulationInstance !== 'undefined' && lamedSimulationInstance && typeof lamedSimulationInstance.sparkBank !== 'undefined') {
+        lamedSimulationInstance.sparkBank = normalized;
+      }
+    } catch (e) {
+      // lamedSimulationInstance not yet initialized
+    }
+    recordDeveloperAdjustment('lamedBank', normalized);
+  }
+
+  function setDeveloperLamedRate(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, value);
+    try {
+      if (typeof lamedSimulationInstance !== 'undefined' && lamedSimulationInstance && typeof lamedSimulationInstance.sparkSpawnRate !== 'undefined') {
+        lamedSimulationInstance.sparkSpawnRate = normalized;
+      }
+    } catch (e) {
+      // lamedSimulationInstance not yet initialized
+    }
+    recordDeveloperAdjustment('lamedRate', normalized);
+  }
+
+  function setDeveloperTsadiBank(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, Math.floor(value));
+    try {
+      if (typeof tsadiSimulationInstance !== 'undefined' && tsadiSimulationInstance && typeof tsadiSimulationInstance.particleBank !== 'undefined') {
+        tsadiSimulationInstance.particleBank = normalized;
+      }
+    } catch (e) {
+      // tsadiSimulationInstance not yet initialized
+    }
+    recordDeveloperAdjustment('tsadiBank', normalized);
+  }
+
+  function setDeveloperTsadiRate(value) {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const normalized = Math.max(0, value);
+    try {
+      if (typeof tsadiSimulationInstance !== 'undefined' && tsadiSimulationInstance && typeof tsadiSimulationInstance.spawnRate !== 'undefined') {
+        tsadiSimulationInstance.spawnRate = normalized;
+      }
+    } catch (e) {
+      // tsadiSimulationInstance not yet initialized
+    }
+    recordDeveloperAdjustment('tsadiRate', normalized);
   }
 
   function syncDeveloperControlValues() {
@@ -3684,13 +3734,17 @@ import {
         case 'aleph':
           if (sandSimulation && typeof sandSimulation.spawnGrain === 'function') {
             // Spawn a grain directly without consuming from the bank
-            sandSimulation.spawnGrain({ size: 1, source: 'manual' });
+            // Use maxDropSize to ensure motes are 1/100th of render width
+            const moteSize = sandSimulation.maxDropSize || 1;
+            sandSimulation.spawnGrain({ size: moteSize, source: 'manual' });
           }
           break;
         case 'bet':
           if (fluidSimulationInstance && typeof fluidSimulationInstance.spawnGrain === 'function') {
             // Spawn a drop directly without consuming from the bank
-            fluidSimulationInstance.spawnGrain({ size: 1, source: 'manual' });
+            // Use maxDropSize to ensure drops are 1/100th of render width
+            const dropSize = fluidSimulationInstance.maxDropSize || 1;
+            fluidSimulationInstance.spawnGrain({ size: dropSize, source: 'manual' });
           }
           break;
         case 'lamed':
