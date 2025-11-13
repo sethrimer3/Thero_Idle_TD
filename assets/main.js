@@ -3222,6 +3222,53 @@ import {
         }
       });
     });
+    
+    // Initialize toggle buttons for mobile sliding menu
+    const spireIds = ['powder', 'fluid', 'lamed', 'tsadi', 'shin', 'kuf'];
+    
+    spireIds.forEach((spireId) => {
+      const toggleButton = document.getElementById(`spire-menu-toggle-${spireId}`);
+      const closeButton = document.getElementById(`spire-menu-close-${spireId}`);
+      const menu = document.getElementById(`spire-floating-menu-${spireId}`);
+      
+      if (toggleButton && menu) {
+        toggleButton.addEventListener('click', () => {
+          const isVisible = menu.classList.contains('spire-floating-menu--visible');
+          
+          // Hide all other spire menus first
+          document.querySelectorAll('.spire-floating-menu').forEach((otherMenu) => {
+            if (otherMenu !== menu) {
+              otherMenu.classList.remove('spire-floating-menu--visible');
+              const otherId = otherMenu.id.replace('spire-floating-menu-', '');
+              const otherToggle = document.getElementById(`spire-menu-toggle-${otherId}`);
+              if (otherToggle) {
+                otherToggle.setAttribute('aria-expanded', 'false');
+              }
+            }
+          });
+          
+          // Toggle current menu
+          if (isVisible) {
+            menu.classList.remove('spire-floating-menu--visible');
+            toggleButton.setAttribute('aria-expanded', 'false');
+          } else {
+            menu.classList.add('spire-floating-menu--visible');
+            toggleButton.setAttribute('aria-expanded', 'true');
+          }
+        });
+      }
+      
+      if (closeButton && menu) {
+        closeButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          menu.classList.remove('spire-floating-menu--visible');
+          if (toggleButton) {
+            toggleButton.setAttribute('aria-expanded', 'false');
+          }
+        });
+      }
+    });
   }
 
   // Update the floating spire menu counts
@@ -3344,26 +3391,45 @@ import {
       }
     });
     
-    // Show/hide Lamed spire menu items
-    // Currently uses fluid unlock as a placeholder; will be replaced with dedicated unlock logic
+    // Show/hide Lamed spire menu items based on unlock status
     const lamedMenuItems = document.querySelectorAll('.spire-menu-item--lamed');
     lamedMenuItems.forEach(item => {
-      if (powderState.fluidUnlocked) {
+      if (spireResourceState.lamed.unlocked) {
         item.removeAttribute('hidden');
       } else {
         item.setAttribute('hidden', '');
       }
     });
     
-    // Also update the tab bar button visibility
-    const lamedTabButton = document.getElementById('tab-lamed');
-    if (lamedTabButton) {
-      if (powderState.fluidUnlocked) {
-        lamedTabButton.removeAttribute('hidden');
+    // Show/hide Tsadi spire menu items based on unlock status
+    const tsadiMenuItems = document.querySelectorAll('.spire-menu-item--tsadi');
+    tsadiMenuItems.forEach(item => {
+      if (spireResourceState.tsadi.unlocked) {
+        item.removeAttribute('hidden');
       } else {
-        lamedTabButton.setAttribute('hidden', '');
+        item.setAttribute('hidden', '');
       }
-    }
+    });
+    
+    // Show/hide Shin spire menu items based on unlock status
+    const shinMenuItems = document.querySelectorAll('.spire-menu-item--shin');
+    shinMenuItems.forEach(item => {
+      if (spireResourceState.shin?.unlocked) {
+        item.removeAttribute('hidden');
+      } else {
+        item.setAttribute('hidden', '');
+      }
+    });
+    
+    // Show/hide Kuf spire menu items based on unlock status
+    const kufMenuItems = document.querySelectorAll('.spire-menu-item--kuf');
+    kufMenuItems.forEach(item => {
+      if (spireResourceState.kuf?.unlocked) {
+        item.removeAttribute('hidden');
+      } else {
+        item.setAttribute('hidden', '');
+      }
+    });
   }
 
   /**
@@ -3990,7 +4056,7 @@ import {
 
   /**
    * Check and automatically unlock spires based on glyph counts from previous spire.
-   * Each spire unlocks when the player has 100 glyphs from the previous spire.
+   * Each spire unlocks when the player has 10 glyphs from the previous spire.
    * @returns {boolean} True if any spire was unlocked
    */
   function checkAndUnlockSpires() {
@@ -4000,34 +4066,34 @@ import {
     const alephGlyphs = Math.max(0, Math.floor(powderState.glyphsAwarded || 0));
     const betGlyphs = Math.max(0, Math.floor(powderState.fluidGlyphsAwarded || 0));
     
-    // Bet Spire: Unlocks when player has 100 Aleph glyphs
-    if (!powderState.fluidUnlocked && alephGlyphs >= 100) {
-      unlockFluidStudy({ reason: 'auto-unlock', threshold: 100, glyphCost: 0 });
+    // Bet Spire: Unlocks when player has 10 Aleph glyphs
+    if (!powderState.fluidUnlocked && alephGlyphs >= 10) {
+      unlockFluidStudy({ reason: 'auto-unlock', threshold: 10, glyphCost: 0 });
       anyUnlocked = true;
     }
 
-    // Lamed Spire: Unlocks when player has 100 Bet glyphs
-    if (!spireResourceState.lamed.unlocked && betGlyphs >= 100) {
+    // Lamed Spire: Unlocks when player has 10 Bet glyphs
+    if (!spireResourceState.lamed.unlocked && betGlyphs >= 10) {
       spireResourceState.lamed.unlocked = true;
       updateSpireTabVisibility();
       updateSpireMenuCounts();
       anyUnlocked = true;
     }
 
-    // Tsadi Spire: Unlocks when player has 100 Lamed glyphs (sparks)
+    // Tsadi Spire: Unlocks when player has 10 Lamed glyphs (sparks)
     const lamedGlyphs = Math.max(0, Math.floor(spireResourceState.lamed?.stats?.totalAbsorptions || 0));
-    if (!spireResourceState.tsadi.unlocked && lamedGlyphs >= 100) {
+    if (!spireResourceState.tsadi.unlocked && lamedGlyphs >= 10) {
       spireResourceState.tsadi.unlocked = true;
       updateSpireTabVisibility();
       updateSpireMenuCounts();
       anyUnlocked = true;
     }
 
-    // Shin Spire: Unlocks when player has 100 Tsadi glyphs
+    // Shin Spire: Unlocks when player has 10 Tsadi glyphs
     // (Need to check how Tsadi glyphs are tracked)
     // TODO: Add Shin unlock logic once we identify the Tsadi glyph counter
 
-    // Kuf Spire: Unlocks when player has 100 Shin glyphs
+    // Kuf Spire: Unlocks when player has 10 Shin glyphs
     // TODO: Add Kuf unlock logic
 
     return anyUnlocked;
@@ -6443,13 +6509,32 @@ import {
     const viewBoxWidth = 1200;
     const viewBoxHeight = 720;
     const margin = 90;
+    
+    // If in landscape orientation, rotate points 90° counter-clockwise to match playfield rotation
+    // This ensures level previews match the rotated playfield on desktop landscape layouts
+    const shouldRotate = preferredOrientation === 'landscape';
+    const transformPoint = (point) => {
+      const normalized = {
+        x: clampNormalizedCoordinate(point.x),
+        y: clampNormalizedCoordinate(point.y),
+      };
+      if (shouldRotate) {
+        // Rotate 90° counter-clockwise: (x, y) -> (y, 1-x)
+        return {
+          x: normalized.y,
+          y: 1 - normalized.x,
+        };
+      }
+      return normalized;
+    };
+    
     const scalePoint = (point) => ({
-      x: margin + clampNormalizedCoordinate(point.x) * (viewBoxWidth - margin * 2),
-      y: margin + clampNormalizedCoordinate(point.y) * (viewBoxHeight - margin * 2),
+      x: margin + point.x * (viewBoxWidth - margin * 2),
+      y: margin + point.y * (viewBoxHeight - margin * 2),
     });
 
     const scaledPoints = points.map((point) =>
-      scalePoint({ x: point?.x ?? 0.5, y: point?.y ?? 0.5 }),
+      scalePoint(transformPoint({ x: point?.x ?? 0.5, y: point?.y ?? 0.5 })),
     );
     const pathData = scaledPoints
       .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
@@ -6581,7 +6666,7 @@ import {
     if (anchorsList.length) {
       const anchorGroup = document.createElementNS(SVG_NS, 'g');
       anchorsList.forEach((anchor) => {
-        const scaled = scalePoint({ x: anchor?.x ?? 0.5, y: anchor?.y ?? 0.5 });
+        const scaled = scalePoint(transformPoint({ x: anchor?.x ?? 0.5, y: anchor?.y ?? 0.5 }));
         const outer = document.createElementNS(SVG_NS, 'circle');
         outer.setAttribute('cx', scaled.x);
         outer.setAttribute('cy', scaled.y);
@@ -9310,8 +9395,10 @@ import {
 
     const towerPanel = document.getElementById('panel-tower');
     const towersPanel = document.getElementById('panel-towers');
+    const optionsPanel = document.getElementById('panel-options');
     enablePanelWheelScroll(towerPanel);
     enablePanelWheelScroll(towersPanel);
+    enablePanelWheelScroll(optionsPanel);
 
     playfieldElements.container = document.getElementById('playfield');
     playfieldElements.canvas = document.getElementById('playfield-canvas');
