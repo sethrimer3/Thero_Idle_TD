@@ -313,6 +313,14 @@ import {
   scrollPanelToElement,
   enablePanelWheelScroll,
 } from './uiHelpers.js';
+import {
+  toSubscriptNumber,
+  formatAlephLabel,
+  formatBetLabel,
+  formatDuration,
+  formatRewards,
+  formatRelativeTime,
+} from './formatHelpers.js';
 
 (() => {
   'use strict';
@@ -1594,43 +1602,7 @@ import {
     }
   }
 
-  const alephSubscriptDigits = {
-    0: '₀',
-    1: '₁',
-    2: '₂',
-    3: '₃',
-    4: '₄',
-    5: '₅',
-    6: '₆',
-    7: '₇',
-    8: '₈',
-    9: '₉',
-  };
 
-  function toSubscriptNumber(value) {
-    const normalized = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-    return `${normalized}`
-      .split('')
-      .map((digit) => alephSubscriptDigits[digit] || digit)
-      .join('');
-  }
-
-  function formatAlephLabel(index) {
-    const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
-    return `ℵ${toSubscriptNumber(normalized)}`;
-  }
-
-  /**
-   * Format a Bet glyph label using Hebrew letter Bet with dagesh (בּ) with subscript numbering.
-   * Bet glyphs are the second type of upgrade currency, exclusive to the Bet Spire,
-   * appearing on the right wall and complementing Aleph glyphs on the left.
-   * @param {number} index - The glyph index (0-based)
-   * @returns {string} Formatted label like "בּ₀", "בּ₁", "בּ₂", etc.
-   */
-  function formatBetLabel(index) {
-    const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
-    return `בּ${toSubscriptNumber(normalized)}`;
-  }
 
   /**
    * Award Bet glyph currency when Bet Spire water reaches height milestones.
@@ -7374,35 +7346,7 @@ import {
     }
   }
 
-  function formatDuration(seconds) {
-    if (!Number.isFinite(seconds) || seconds < 0) {
-      return '—';
-    }
-    const totalSeconds = Math.max(0, Math.round(seconds));
-    const minutes = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    if (minutes && secs) {
-      return `${minutes}m ${secs}s`;
-    }
-    if (minutes) {
-      return `${minutes}m`;
-    }
-    return `${secs}s`;
-  }
 
-  function formatRewards(rewardScore, rewardFlux, rewardEnergy) {
-    const parts = [];
-    if (Number.isFinite(rewardScore)) {
-      parts.push(`${formatGameNumber(rewardScore)} Σ`);
-    }
-    if (Number.isFinite(rewardFlux)) {
-      parts.push(`+${Math.round(rewardFlux)} Mote Gems/min`);
-    }
-    if (Number.isFinite(rewardEnergy)) {
-      parts.push(`+${Math.round(rewardEnergy)} TD/s`);
-    }
-    return parts.length ? parts.join(' · ') : '—';
-  }
 
   function formatInteractiveLevelRewards() {
     const levelsBeaten = getCompletedInteractiveLevelCount();
@@ -7438,35 +7382,7 @@ import {
     };
   }
 
-  function formatRelativeTime(timestamp) {
-    if (!Number.isFinite(timestamp)) {
-      return null;
-    }
-    const diff = Date.now() - timestamp;
-    if (!Number.isFinite(diff)) {
-      return null;
-    }
-    if (diff < 0) {
-      return 'soon';
-    }
-    const seconds = Math.round(diff / 1000);
-    if (seconds < 5) {
-      return 'just now';
-    }
-    if (seconds < 60) {
-      return `${seconds}s ago`;
-    }
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) {
-      return `${minutes}m ago`;
-    }
-    const hours = Math.round(minutes / 60);
-    if (hours < 24) {
-      return `${hours}h ago`;
-    }
-    const days = Math.round(hours / 24);
-    return `${days}d ago`;
-  }
+
 
   function getLevelSummary(level) {
     if (!level) {
@@ -7499,7 +7415,7 @@ import {
         ? `${formatDuration(config.runDuration)} auto-run`
         : 'Idle simulation',
       rewards: config
-        ? formatRewards(config.rewardScore, config.rewardFlux, config.rewardEnergy)
+        ? formatRewards(config.rewardScore, config.rewardFlux, config.rewardEnergy, formatGameNumber)
         : '—',
       start: '—',
       startAria: 'Starting Thero not applicable.',
@@ -7533,7 +7449,7 @@ import {
     const relative = formatRelativeTime(timestamp) || 'recently';
 
     if (outcome === 'victory') {
-      const rewardText = formatRewards(stats.rewardScore, stats.rewardFlux, stats.rewardEnergy);
+      const rewardText = formatRewards(stats.rewardScore, stats.rewardFlux, stats.rewardEnergy, formatGameNumber);
       const segments = [`Victory ${relative}.`];
       if (rewardText && rewardText !== '—') {
         segments.push(`Rewards: ${rewardText}.`);
