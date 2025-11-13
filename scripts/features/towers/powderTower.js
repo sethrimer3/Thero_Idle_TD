@@ -562,36 +562,21 @@ export class PowderSimulation {
     // Maintain 3:4 aspect ratio for the simulation canvas (240:320)
     displayHeight = Math.floor(displayWidth * (4 / 3));
 
+    // NEW: Set cell size to be exactly 1/100th of render width
+    // This makes 1 cell = 1 mote width = 1/100th of width
+    this.cellSize = Math.max(1, displayWidth / 100);
+
     if (!Number.isFinite(this.baseGapUnits) || this.baseGapUnits <= 0) {
       const fallbackGapUnits = Number.isFinite(this.wallGapTargetUnits)
         ? Math.max(1, Math.round(this.wallGapTargetUnits))
         : Number.isFinite(this.wallGapCellsTarget)
           ? Math.max(1, Math.round(this.wallGapCellsTarget))
-          : 15;
+          : 5;
       this.baseGapUnits = fallbackGapUnits;
     }
 
-    if (!Number.isFinite(this.gapWidthRatio) || this.gapWidthRatio <= 0) {
-      const inferredGapWidth = Math.max(0, displayWidth - this.wallInsetLeftPx - this.wallInsetRightPx);
-      const ratioCandidate = displayWidth > 0 ? inferredGapWidth / displayWidth : 0;
-      this.gapWidthRatio = Math.max(0.1, Math.min(0.9, ratioCandidate || 0.6));
-    }
-
-    // Prevent the simulated mote lane from collapsing by enforcing a minimum pixel footprint per cell.
-    const minimumGapCellSize = MIN_MOTE_LANE_CELL_PX;
-    // Derive the base cell size from the viewport ratio while respecting the minimum readable width.
-    const ratioDerivedCellSize = Math.max(
-      1,
-      Math.round((displayWidth * this.gapWidthRatio) / Math.max(1, this.baseGapUnits)),
-    );
-    let desiredCellSize = Math.max(minimumGapCellSize, ratioDerivedCellSize);
-    // Ensure the widened lane never exceeds the available viewport width.
-    const maximumCellSize = Math.max(1, Math.floor(displayWidth / Math.max(1, this.baseGapUnits)));
-    desiredCellSize = Math.min(desiredCellSize, maximumCellSize);
-    // Mirror the resolved cell size back into the walkway width so overlays align with the simulation.
-    const walkwayWidth = Math.max(1, desiredCellSize * this.baseGapUnits);
-    this.cellSize = desiredCellSize;
-    this.wallGapReferenceWidth = walkwayWidth;
+    // Calculate wall gap reference width based on baseGapUnits
+    this.wallGapReferenceWidth = Math.max(1, this.cellSize * this.baseGapUnits);
     this.wallGapReferenceCols = Math.max(1, Math.round(this.wallGapReferenceWidth / this.cellSize));
 
     const styleWidth = `${displayWidth}px`;
@@ -658,12 +643,9 @@ export class PowderSimulation {
   }
 
   updateMaxDropSize() {
-    // Make mote size relative to render width: 1 mote = 1/100th of render width
-    const renderWidth = Math.max(1, this.width || 240);
-    const oneMoteSize = Math.max(1, Math.round(renderWidth / 100));
-    // Convert to cell units
-    const moteSizeInCells = Math.max(1, Math.round(oneMoteSize / this.cellSize));
-    this.maxDropSize = moteSizeInCells;
+    // Since cellSize is now exactly 1/100th of render width,
+    // 1 cell = 1 mote width, so maxDropSize = 1
+    this.maxDropSize = 1;
   }
 
   reset() {
