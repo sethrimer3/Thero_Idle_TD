@@ -37,6 +37,7 @@ import {
   applyStoredAudioSettings,
   bindAudioControls as bindAudioControlElements,
 } from './audioSystem.js';
+import { createAudioOrchestration } from './audioOrchestration.js';
 import { initializeStartupOverlay, dismissStartupOverlay } from './startupOverlay.js';
 import {
   FALLBACK_BASE_SCORE_RATE,
@@ -1649,116 +1650,30 @@ import {
     audioManager,
   });
 
-  const audioSuppressionReasons = new Set();
-
-  function suppressAudioPlayback(reason = 'unspecified') {
-    if (!audioManager) {
-      return;
-    }
-    const initialSize = audioSuppressionReasons.size;
-    audioSuppressionReasons.add(reason);
-    if (initialSize === 0) {
-      if (typeof audioManager.suspendMusic === 'function') {
-        audioManager.suspendMusic();
-      } else if (typeof audioManager.stopMusic === 'function') {
-        audioManager.stopMusic();
-      }
-    }
-  }
-
-  function releaseAudioSuppression(reason) {
-    if (!audioManager) {
-      return;
-    }
-    if (reason) {
-      audioSuppressionReasons.delete(reason);
-    } else {
-      audioSuppressionReasons.clear();
-    }
-    if (audioSuppressionReasons.size === 0 && typeof audioManager.resumeSuspendedMusic === 'function') {
-      audioManager.resumeSuspendedMusic();
-    }
-  }
-
-  function isAudioSuppressed() {
-    if (audioSuppressionReasons.size > 0) {
-      return true;
-    }
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-      return true;
-    }
-    return false;
-  }
-
-  let audioControlsBinding = null;
-  // Cached reference to the notation toggle control inside the Codex panel.
-  let notationToggleButton = null;
-
-  // Keeps the audio slider UI synchronized with the manager state.
-  function syncAudioControlsFromManager() {
-    if (audioControlsBinding && typeof audioControlsBinding.syncFromManager === 'function') {
-      audioControlsBinding.syncFromManager();
-    }
-  }
-
-  // Persists the current music and sound effect volumes.
-  function saveAudioSettings() {
-    if (!audioManager) {
-      return;
-    }
-    writeStorageJson(AUDIO_SETTINGS_STORAGE_KEY, {
-      musicVolume: audioManager.musicVolume,
-      sfxVolume: audioManager.sfxVolume,
-    });
-  }
-
-  // Connects DOM slider controls to the shared audio manager instance.
-  function bindAudioControls() {
-    audioControlsBinding = bindAudioControlElements(audioManager, {
-      onVolumeCommit: () => {
-        saveAudioSettings();
-      },
-    });
-  }
-
-  function determineMusicKey() {
-    const tab = getActiveTabId() || 'tower';
-    if (tab === 'tower') {
-      const interactive = Boolean(
+  const {
+    suppressAudioPlayback,
+    releaseAudioSuppression,
+    isAudioSuppressed,
+    syncAudioControlsFromManager,
+    bindAudioControls,
+    determineMusicKey,
+    refreshTabMusic,
+  } = createAudioOrchestration({
+    audioManager,
+    bindAudioControlElements,
+    writeStorageJson,
+    audioSettingsStorageKey: AUDIO_SETTINGS_STORAGE_KEY,
+    getActiveTabId,
+    isPlayfieldInteractiveLevelActive: () =>
+      Boolean(
         playfield &&
           typeof playfield.isInteractiveLevelActive === 'function' &&
           playfield.isInteractiveLevelActive(),
-      );
-      return interactive ? 'levelActive' : 'levelSelect';
-    }
-    if (tab === 'towers') {
-      return 'towers';
-    }
-    if (tab === 'powder') {
-      return 'powder';
-    }
-    if (tab === 'achievements') {
-      return 'achievements';
-    }
-    if (tab === 'options') {
-      return 'codex';
-    }
-    return 'levelSelect';
-  }
+      ),
+  });
 
-  function refreshTabMusic(options = {}) {
-    if (!audioManager) {
-      return;
-    }
-    if (isAudioSuppressed()) {
-      return;
-    }
-    const key = determineMusicKey();
-    if (!key) {
-      return;
-    }
-    audioManager.playMusic(key, options);
-  }
+  // Cached reference to the notation toggle control inside the Codex panel.
+  let notationToggleButton = null;
 
   const resourceElements = {
     theroMultiplier: null,

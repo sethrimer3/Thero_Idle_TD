@@ -70,6 +70,28 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Number formatting preferences flow through explicit parameters, reducing hidden dependencies
 - main.js loses another 120+ lines while keeping glyph and reward labels consistent
 
+### audioOrchestration.js (audio suppression and music routing)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `suppressAudioPlayback(reason)`
+- `releaseAudioSuppression(reason)`
+- `isAudioSuppressed()`
+- `syncAudioControlsFromManager()`
+- `bindAudioControls()`
+- `determineMusicKey()`
+- `refreshTabMusic(options)`
+
+**Integration approach:**
+- Functions wrapped in `createAudioOrchestration()` factory so dependencies (audio manager, storage helpers, active tab lookups) are injected explicitly
+- Factory returns orchestration helpers that main.js destructures, keeping state encapsulated inside the module
+
+**Result:**
+- Audio suppression bookkeeping lives in `assets/audioOrchestration.js`, clarifying how tab visibility and overlays pause music
+- Music routing logic now co-located with slider bindings, reducing shared state in `main.js`
+- Tab changes and overlay events still call into the same helpers, but the file sheds another tight cluster of stateful functions
+
 ## Refactoring Strategy
 
 ### Key Challenges
