@@ -1357,16 +1357,6 @@
               </ul>
             </article>
           </section>
-
-          <!-- Display the player's mote gem inventory and provide a portal into the crafting overlay. -->
-          <article class="card powder-gem-inventory-card">
-            <h3>Mote Gem Inventory</h3>
-            <p class="powder-footnote">
-              Every collected gem resonates below so crafting blueprints can reference their current stock.
-            </p>
-            <ul class="powder-gem-inventory" id="powder-gem-inventory" aria-live="polite"></ul>
-            <p class="powder-gem-inventory-empty" id="powder-gem-empty">No mote gems catalogued yet.</p>
-          </article>
         </section>
 
         <section
@@ -2776,6 +2766,12 @@
           Forge amplifiers and pylons by channeling mote gems into latent tower schematics. Recipes below are
           prototypes awaiting balance.
         </p>
+        <!-- Display the player's mote gem collection at the top of the equipment menu. -->
+        <article class="card powder-gem-inventory-card">
+          <h3>Gem collection</h3>
+          <ul class="powder-gem-inventory" id="powder-gem-inventory" aria-live="polite"></ul>
+          <p class="powder-gem-inventory-empty" id="powder-gem-empty">No mote gems catalogued yet.</p>
+        </article>
         <section
           class="crafted-equipment-section"
           id="crafted-equipment-section"
