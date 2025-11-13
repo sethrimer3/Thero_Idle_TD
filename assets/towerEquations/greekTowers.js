@@ -164,7 +164,7 @@ export const delta = {
   formatGoldenEquation({ formatVariable, formatResult }) {
     return `\\( ${formatResult()} = ${formatVariable('gamma')} \\times \\ln(${formatVariable('gamma')} + 1) \\)`;
   },
-},
+};
 
 export const epsilon = {
   mathSymbol: String.raw`\varepsilon`,
@@ -237,7 +237,7 @@ export const epsilon = {
   formatGoldenEquation() {
     return String.raw`\( \text{Atk} = (\text{NumHits})^{2} \)`;
   },
-},
+};
 // η tower channels synchronized orbital upgrades that determine laser cadence,
 // alignment thresholds, and range when planets line up.
 
@@ -579,7 +579,7 @@ export const zeta = {
     const total = Number.isFinite(values.tot) ? values.tot : 0;
     return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(critical)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${formatComponent(total)}`;
   },
-},
+};
 
 export const eta = {
   mathSymbol: String.raw`\eta`,
@@ -972,7 +972,7 @@ export const eta = {
   formatGoldenEquation() {
     return String.raw`\( \text{Eta} = \dots \)`;
   },
-},
+};
 
 export const theta = {
   mathSymbol: String.raw`\theta`,
@@ -1166,7 +1166,7 @@ export const theta = {
     const resultText = formatDecimal(result, 2);
     return `${resultText} = ${rangeText} × ${slowText}`;
   },
-},
+};
 
 export const iota = {
   mathSymbol: String.raw`\iota`,
@@ -1520,4 +1520,4 @@ export const iota = {
     const result = attack * speed * rangeMeters;
     return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(rangeMeters)}`;
   },
-},
+};
