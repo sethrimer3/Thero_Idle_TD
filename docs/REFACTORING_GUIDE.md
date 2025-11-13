@@ -114,6 +114,26 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Focus restoration and retry flows are encapsulated, making future overlay adjustments safer
 - main.js drops another concentrated set of UI helpers while retaining identical behavior
 
+### levelEditor.js (developer map tools + overlay editor controller)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `createLevelEditorController()` factory with developer map toggles, overlay editor wiring, and DOM bindings
+- Level editor surface state management (`setLevelEditorSurface`, `resetLevelEditorSurface`, `hideLevelEditorPanel`)
+- Developer map placement helpers and wave editor initialization hooks
+- Level editor pointer handling, status messaging, and sync utilities for developer mode overlays
+
+**Integration approach:**
+- Main orchestrator instantiates the controller with dependency getters (playfield reference, level config map, developer-mode flag)
+- Controller returns the handful of methods `main.js` still needs (menu button wiring, preview rendering, and playfield handoff)
+- Wave editor bindings now live inside the controller, removing the direct `waveEditorUI` import from `main.js`
+
+**Result:**
+- Developer tooling logic (map editor, overlay anchors, placement UI) is encapsulated in `assets/levelEditor.js`
+- `main.js` delegates to the controller for surface management and state checks, shrinking by ~900 lines of tightly coupled code
+- Reusable factory pattern keeps future developer tooling enhancements isolated from the core game loop
+
 ## Refactoring Strategy
 
 ### Key Challenges
