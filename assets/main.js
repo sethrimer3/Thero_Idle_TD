@@ -321,6 +321,13 @@ import {
   formatRewards,
   formatRelativeTime,
 } from './formatHelpers.js';
+import {
+  clampNormalizedCoordinate,
+  sanitizeNormalizedPoint,
+  transformPointForOrientation,
+  transformPointFromOrientation,
+  distanceSquaredToSegment,
+} from './geometryHelpers.js';
 
 (() => {
   'use strict';
@@ -5359,47 +5366,6 @@ import {
     ],
   };
 
-  function clampNormalizedCoordinate(value) {
-    if (!Number.isFinite(value)) {
-      return 0.5;
-    }
-    return Math.min(0.98, Math.max(0.02, value));
-  }
-
-  function sanitizeNormalizedPoint(point) {
-    if (!point || typeof point !== 'object') {
-      return { x: 0.5, y: 0.5 };
-    }
-    const rawX = Number.isFinite(point.x) ? point.x : 0.5;
-    const rawY = Number.isFinite(point.y) ? point.y : 0.5;
-    return {
-      x: clampNormalizedCoordinate(rawX),
-      y: clampNormalizedCoordinate(rawY),
-    };
-  }
-
-  function transformPointForOrientation(point, orientation) {
-    const normalized = sanitizeNormalizedPoint(point);
-    if (orientation === 'landscape') {
-      return {
-        x: clampNormalizedCoordinate(normalized.y),
-        y: clampNormalizedCoordinate(1 - normalized.x),
-      };
-    }
-    return normalized;
-  }
-
-  function transformPointFromOrientation(point, orientation) {
-    const normalized = sanitizeNormalizedPoint(point);
-    if (orientation === 'landscape') {
-      return {
-        x: clampNormalizedCoordinate(1 - normalized.y),
-        y: clampNormalizedCoordinate(normalized.x),
-      };
-    }
-    return normalized;
-  }
-
   function buildSeededPreviewPath(seedValue) {
     const seedString = String(seedValue || 'preview');
     let hash = 0;
@@ -5999,24 +5965,6 @@ import {
       }
     });
     return { index: bestIndex, distance: bestDistance };
-  }
-
-  function distanceSquaredToSegment(point, start, end) {
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const lengthSquared = dx * dx + dy * dy;
-    if (lengthSquared === 0) {
-      const diffX = point.x - start.x;
-      const diffY = point.y - start.y;
-      return diffX * diffX + diffY * diffY;
-    }
-    let t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared;
-    t = Math.max(0, Math.min(1, t));
-    const projX = start.x + t * dx;
-    const projY = start.y + t * dy;
-    const diffX = point.x - projX;
-    const diffY = point.y - projY;
-    return diffX * diffX + diffY * diffY;
   }
 
   function findInsertionIndex(point) {

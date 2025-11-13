@@ -28,6 +28,26 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - All UI helper functions now in dedicated module
 - No functionality changes
 
+### geometryHelpers.js (extracting normalized coordinate utilities)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `clampNormalizedCoordinate(value)`
+- `sanitizeNormalizedPoint(point)`
+- `transformPointForOrientation(point, orientation)`
+- `transformPointFromOrientation(point, orientation)`
+- `distanceSquaredToSegment(point, start, end)`
+
+**Integration approach:**
+- Functions exported individually as pure utilities
+- `main.js` imports helpers and delegates normalized coordinate math
+
+**Result:**
+- Shared geometry calculations now live in `assets/geometryHelpers.js`
+- main.js sheds tightly scoped math helpers without behavior changes
+- Reusable helpers simplify future playfield and editor refactors
+
 ## Refactoring Strategy
 
 ### Key Challenges
@@ -119,16 +139,12 @@ These can be extracted with minimal changes:
 
 **Strategy:** Direct export as pure functions
 
-#### Math/Geometry Utilities
-**Location:** Lines ~5426-5540
-**Functions:**
-- `clampNormalizedCoordinate(value)`
-- `sanitizeNormalizedPoint(point)`
-- `transformPointForOrientation(point, orientation)`
-- `transformPointFromOrientation(point, orientation)`
-- `distanceSquaredToSegment(point, start, end)`
+#### Math/Geometry Utilities (Completed)
+**Status:** ✅ Extracted to `assets/geometryHelpers.js`
 
-**Strategy:** Direct export as pure mathematical functions
+**Notes:**
+- Utilities now imported by `main.js` instead of inline definitions
+- Continue using this module for normalized coordinate helpers
 
 ### Priority 2: Semi-Independent Subsystems
 
