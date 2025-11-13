@@ -9348,8 +9348,10 @@ import {
 
     const towerPanel = document.getElementById('panel-tower');
     const towersPanel = document.getElementById('panel-towers');
+    const optionsPanel = document.getElementById('panel-options');
     enablePanelWheelScroll(towerPanel);
     enablePanelWheelScroll(towersPanel);
+    enablePanelWheelScroll(optionsPanel);
 
     playfieldElements.container = document.getElementById('playfield');
     playfieldElements.canvas = document.getElementById('playfield-canvas');
