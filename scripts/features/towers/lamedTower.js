@@ -58,6 +58,7 @@ export class GravitySimulation {
     // Callbacks
     this.onSparkBankChange = typeof options.onSparkBankChange === 'function' ? options.onSparkBankChange : null;
     this.onStarMassChange = typeof options.onStarMassChange === 'function' ? options.onStarMassChange : null;
+    this.samplePaletteGradient = typeof options.samplePaletteGradient === 'function' ? options.samplePaletteGradient : null;
     
     // Dimensions
     this.width = 0;
@@ -608,7 +609,7 @@ export class GravitySimulation {
     
     // Draw orbiting stars with trails
     for (const star of this.stars) {
-      // Draw trail with speed-based coloring
+      // Draw trail with color gradient from palette
       if (star.trail.length > 1) {
         ctx.lineWidth = 1.5;
         
@@ -618,8 +619,17 @@ export class GravitySimulation {
           
           // Color based on speed (slow = lower palette color, fast = upper palette color)
           const normalizedSpeed = Math.min(1, curr.speed / 200);
-          const slowColor = { r: 100, g: 150, b: 255 }; // Blueish
-          const fastColor = { r: 255, g: 200, b: 100 }; // Yellowish
+          
+          let slowColor, fastColor;
+          if (this.samplePaletteGradient) {
+            // Use the color palette gradient
+            slowColor = this.samplePaletteGradient(0);
+            fastColor = this.samplePaletteGradient(1);
+          } else {
+            // Fallback to default colors
+            slowColor = { r: 100, g: 150, b: 255 }; // Blueish
+            fastColor = { r: 255, g: 200, b: 100 }; // Yellowish
+          }
           
           const r = Math.floor(slowColor.r + (fastColor.r - slowColor.r) * normalizedSpeed);
           const g = Math.floor(slowColor.g + (fastColor.g - slowColor.g) * normalizedSpeed);
@@ -635,10 +645,11 @@ export class GravitySimulation {
         }
       }
       
-      // Draw star with mass-dependent size
+      // Draw star with size based on mass ratio to central body
       const starX = star.x / dpr;
       const starY = star.y / dpr;
-      const starSize = 2 + (star.mass / Math.sqrt(this.starMass + 1)) * 2;
+      const massRatio = star.mass / this.starMass;
+      const starSize = starVisualRadius * massRatio;
       
       // Glow effect
       const starGradient = ctx.createRadialGradient(
