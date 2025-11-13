@@ -306,6 +306,21 @@ import {
   unlockedLevels,
   levelSetEntries,
 } from './levels.js';
+import {
+  createOverlayHelpers,
+  setElementVisibility,
+  triggerButtonRipple,
+  scrollPanelToElement,
+  enablePanelWheelScroll,
+} from './uiHelpers.js';
+import {
+  toSubscriptNumber,
+  formatAlephLabel,
+  formatBetLabel,
+  formatDuration,
+  formatRewards,
+  formatRelativeTime,
+} from './formatHelpers.js';
 
 (() => {
   'use strict';
@@ -495,85 +510,9 @@ import {
     SHIN_STATE_STORAGE_KEY,
   ].filter(Boolean);
 
-  const overlayHideStates = new WeakMap();
-
-  function cancelOverlayHide(overlay) {
-    if (!overlay) {
-      return;
-    }
-
-    const state = overlayHideStates.get(overlay);
-    if (!state) {
-      return;
-    }
-
-    if (state.transitionHandler) {
-      overlay.removeEventListener('transitionend', state.transitionHandler);
-    }
-
-    if (state.timeoutId !== null && typeof window !== 'undefined') {
-      window.clearTimeout(state.timeoutId);
-    }
-
-    overlayHideStates.delete(overlay);
-  }
-
-  function scheduleOverlayHide(overlay) {
-    if (!overlay) {
-      return;
-    }
-
-    cancelOverlayHide(overlay);
-
-    const finalizeHide = () => {
-      cancelOverlayHide(overlay);
-      overlay.setAttribute('hidden', '');
-    };
-
-    const handleTransitionEnd = (event) => {
-      if (event && event.target !== overlay) {
-        return;
-      }
-      finalizeHide();
-    };
-
-    overlay.addEventListener('transitionend', handleTransitionEnd);
-
-    const timeoutId =
-      typeof window !== 'undefined' ? window.setTimeout(finalizeHide, 320) : null;
-
-    overlayHideStates.set(overlay, {
-      transitionHandler: handleTransitionEnd,
-      timeoutId,
-    });
-  }
-
-  function revealOverlay(overlay) {
-    if (!overlay) {
-      return;
-    }
-
-    cancelOverlayHide(overlay);
-    overlay.removeAttribute('hidden');
-  }
-
-  function setElementVisibility(element, visible) {
-    // Toggle layout fragments while preserving any pre-existing accessibility hints.
-    if (!element) {
-      return;
-    }
-
-    if (visible) {
-      element.classList.remove('is-hidden');
-      element.removeAttribute('hidden');
-      element.removeAttribute('aria-hidden');
-      return;
-    }
-
-    element.classList.add('is-hidden');
-    element.setAttribute('hidden', '');
-    element.setAttribute('aria-hidden', 'true');
-  }
+  // Initialize overlay helpers from uiHelpers module
+  const overlayHelpers = createOverlayHelpers();
+  const { cancelOverlayHide, scheduleOverlayHide, revealOverlay } = overlayHelpers;
 
   function resetPlayfieldMenuLevelSelect() {
     playfieldMenuLevelSelectConfirming = false;
@@ -1663,43 +1602,7 @@ import {
     }
   }
 
-  const alephSubscriptDigits = {
-    0: '₀',
-    1: '₁',
-    2: '₂',
-    3: '₃',
-    4: '₄',
-    5: '₅',
-    6: '₆',
-    7: '₇',
-    8: '₈',
-    9: '₉',
-  };
 
-  function toSubscriptNumber(value) {
-    const normalized = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-    return `${normalized}`
-      .split('')
-      .map((digit) => alephSubscriptDigits[digit] || digit)
-      .join('');
-  }
-
-  function formatAlephLabel(index) {
-    const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
-    return `ℵ${toSubscriptNumber(normalized)}`;
-  }
-
-  /**
-   * Format a Bet glyph label using Hebrew letter Bet with dagesh (בּ) with subscript numbering.
-   * Bet glyphs are the second type of upgrade currency, exclusive to the Bet Spire,
-   * appearing on the right wall and complementing Aleph glyphs on the left.
-   * @param {number} index - The glyph index (0-based)
-   * @returns {string} Formatted label like "בּ₀", "בּ₁", "בּ₂", etc.
-   */
-  function formatBetLabel(index) {
-    const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
-    return `בּ${toSubscriptNumber(normalized)}`;
-  }
 
   /**
    * Award Bet glyph currency when Bet Spire water reaches height milestones.
@@ -5114,42 +5017,6 @@ import {
   document.addEventListener('pointerdown', handleGlobalButtonPointerDown);
   document.addEventListener('keydown', handleDocumentKeyDown);
 
-  function triggerButtonRipple(button, event) {
-    if (!button) {
-      return;
-    }
-
-    const rect = button.getBoundingClientRect();
-    const ripple = document.createElement('span');
-    ripple.className = 'button-ripple';
-
-    const maxDimension = Math.max(rect.width, rect.height);
-    const size = maxDimension * 1.6;
-    ripple.style.width = `${size}px`;
-    ripple.style.height = `${size}px`;
-
-    let offsetX = rect.width / 2;
-    let offsetY = rect.height / 2;
-    if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
-      offsetX = event.clientX - rect.left;
-      offsetY = event.clientY - rect.top;
-    }
-
-    ripple.style.left = `${offsetX}px`;
-    ripple.style.top = `${offsetY}px`;
-
-    button.querySelectorAll('.button-ripple').forEach((existing) => existing.remove());
-    button.append(ripple);
-
-    ripple.addEventListener(
-      'animationend',
-      () => {
-        ripple.remove();
-      },
-      { once: true },
-    );
-  }
-
   function areSetNormalLevelsCompleted(levels = []) {
     if (!Array.isArray(levels) || levels.length === 0) {
       return true;
@@ -7464,50 +7331,7 @@ import {
     }
   }
 
-  function enablePanelWheelScroll(panel) {
-    if (!panel || panel.dataset.scrollAssist === 'true') {
-      return;
-    }
 
-    panel.dataset.scrollAssist = 'true';
-    panel.addEventListener(
-      'wheel',
-      (event) => {
-        if (!event || typeof event.deltaY !== 'number') {
-          return;
-        }
-
-        if (isFieldNotesOverlayVisible()) {
-          if (typeof event.preventDefault === 'function') {
-            event.preventDefault();
-          }
-          return;
-        }
-
-        const deltaMode = typeof event.deltaMode === 'number' ? event.deltaMode : 0;
-        let deltaY = event.deltaY;
-
-        if (deltaMode === 1) {
-          const computed = window.getComputedStyle(panel);
-          const lineHeight = parseFloat(computed.lineHeight) || 16;
-          deltaY *= lineHeight;
-        } else if (deltaMode === 2) {
-          deltaY *= panel.clientHeight || window.innerHeight || 600;
-        }
-
-        if (!deltaY) {
-          return;
-        }
-
-        const previous = panel.scrollTop;
-        panel.scrollTop += deltaY;
-        if (panel.scrollTop !== previous) {
-          event.preventDefault();
-        }
-      },
-      { passive: false },
-    );
-  }
 
   function bindLeaveLevelButton() {
     if (!leaveLevelBtn) return;
@@ -7522,35 +7346,7 @@ import {
     }
   }
 
-  function formatDuration(seconds) {
-    if (!Number.isFinite(seconds) || seconds < 0) {
-      return '—';
-    }
-    const totalSeconds = Math.max(0, Math.round(seconds));
-    const minutes = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    if (minutes && secs) {
-      return `${minutes}m ${secs}s`;
-    }
-    if (minutes) {
-      return `${minutes}m`;
-    }
-    return `${secs}s`;
-  }
 
-  function formatRewards(rewardScore, rewardFlux, rewardEnergy) {
-    const parts = [];
-    if (Number.isFinite(rewardScore)) {
-      parts.push(`${formatGameNumber(rewardScore)} Σ`);
-    }
-    if (Number.isFinite(rewardFlux)) {
-      parts.push(`+${Math.round(rewardFlux)} Mote Gems/min`);
-    }
-    if (Number.isFinite(rewardEnergy)) {
-      parts.push(`+${Math.round(rewardEnergy)} TD/s`);
-    }
-    return parts.length ? parts.join(' · ') : '—';
-  }
 
   function formatInteractiveLevelRewards() {
     const levelsBeaten = getCompletedInteractiveLevelCount();
@@ -7586,35 +7382,7 @@ import {
     };
   }
 
-  function formatRelativeTime(timestamp) {
-    if (!Number.isFinite(timestamp)) {
-      return null;
-    }
-    const diff = Date.now() - timestamp;
-    if (!Number.isFinite(diff)) {
-      return null;
-    }
-    if (diff < 0) {
-      return 'soon';
-    }
-    const seconds = Math.round(diff / 1000);
-    if (seconds < 5) {
-      return 'just now';
-    }
-    if (seconds < 60) {
-      return `${seconds}s ago`;
-    }
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) {
-      return `${minutes}m ago`;
-    }
-    const hours = Math.round(minutes / 60);
-    if (hours < 24) {
-      return `${hours}h ago`;
-    }
-    const days = Math.round(hours / 24);
-    return `${days}d ago`;
-  }
+
 
   function getLevelSummary(level) {
     if (!level) {
@@ -7647,7 +7415,7 @@ import {
         ? `${formatDuration(config.runDuration)} auto-run`
         : 'Idle simulation',
       rewards: config
-        ? formatRewards(config.rewardScore, config.rewardFlux, config.rewardEnergy)
+        ? formatRewards(config.rewardScore, config.rewardFlux, config.rewardEnergy, formatGameNumber)
         : '—',
       start: '—',
       startAria: 'Starting Thero not applicable.',
@@ -7681,7 +7449,7 @@ import {
     const relative = formatRelativeTime(timestamp) || 'recently';
 
     if (outcome === 'victory') {
-      const rewardText = formatRewards(stats.rewardScore, stats.rewardFlux, stats.rewardEnergy);
+      const rewardText = formatRewards(stats.rewardScore, stats.rewardFlux, stats.rewardEnergy, formatGameNumber);
       const segments = [`Victory ${relative}.`];
       if (rewardText && rewardText !== '—') {
         segments.push(`Rewards: ${rewardText}.`);
@@ -8214,32 +7982,7 @@ import {
     }
   }
 
-  function scrollPanelToElement(target, { offset = 16 } = {}) {
-    if (!target) {
-      return;
-    }
 
-    const panel = target.closest('.panel');
-    if (panel) {
-      const panelRect = panel.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      const desiredTop = targetRect.top - panelRect.top + panel.scrollTop - offset;
-      const top = Math.max(0, desiredTop);
-      const scrollOptions = { top, behavior: 'smooth' };
-      try {
-        panel.scrollTo(scrollOptions);
-      } catch (error) {
-        panel.scrollTop = top;
-      }
-      return;
-    }
-
-    try {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (error) {
-      target.scrollIntoView(true);
-    }
-  }
 
   // Field notes overlay logic handled by fieldNotesOverlay.js.
 
@@ -9450,9 +9193,9 @@ import {
     const towerPanel = document.getElementById('panel-tower');
     const towersPanel = document.getElementById('panel-towers');
     const optionsPanel = document.getElementById('panel-options');
-    enablePanelWheelScroll(towerPanel);
-    enablePanelWheelScroll(towersPanel);
-    enablePanelWheelScroll(optionsPanel);
+    enablePanelWheelScroll(towerPanel, isFieldNotesOverlayVisible);
+    enablePanelWheelScroll(towersPanel, isFieldNotesOverlayVisible);
+    enablePanelWheelScroll(optionsPanel, isFieldNotesOverlayVisible);
 
     playfieldElements.container = document.getElementById('playfield');
     playfieldElements.canvas = document.getElementById('playfield-canvas');
