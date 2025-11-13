@@ -48,6 +48,28 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - main.js sheds tightly scoped math helpers without behavior changes
 - Reusable helpers simplify future playfield and editor refactors
 
+### formatHelpers.js (formatting and labeling utilities)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `toSubscriptNumber(value)`
+- `formatAlephLabel(index)`
+- `formatBetLabel(index)`
+- `formatDuration(seconds)`
+- `formatRewards(rewardScore, rewardFlux, rewardEnergy, formatGameNumber)`
+- `formatRelativeTime(timestamp)`
+
+**Integration approach:**
+- Utilities exported directly for reuse across overlays and panels
+- `formatRewards` now accepts `formatGameNumber` as an argument so main.js passes in its preferred numeric formatter instead of the helper importing it implicitly
+- `main.js` imports the functions alongside existing geometry and UI helpers
+
+**Result:**
+- All formatting helpers now reside in `assets/formatHelpers.js`
+- Number formatting preferences flow through explicit parameters, reducing hidden dependencies
+- main.js loses another 120+ lines while keeping glyph and reward labels consistent
+
 ## Refactoring Strategy
 
 ### Key Challenges
@@ -121,23 +143,27 @@ export function enablePanelWheelScroll(panel, isFieldNotesOverlayVisible) {
 enablePanelWheelScroll(towerPanel, isFieldNotesOverlayVisible);
 ```
 
+#### 4. Parameterized Utilities (for helpers that need optional callbacks)
+
+```javascript
+// In module file
+export function formatRewards(rewardScore, rewardFlux, rewardEnergy, formatGameNumber) {
+  // Receives numeric formatter rather than importing it directly
+}
+
+// In main.js
+import { formatRewards } from './formatHelpers.js';
+
+const rewardSummary = formatRewards(score, flux, energy, formatGameNumber);
+```
+
+This pattern keeps small helpers stateless while allowing main.js to supply context-specific callbacks or formatters. It is especially useful when the helper previously reached into closure state.
+
 ## Remaining Refactoring Opportunities
 
 ### Priority 1: Independent Utilities
 
 These can be extracted with minimal changes:
-
-#### Format Utilities
-**Location:** Lines ~1613-1621, ~7417-7558  
-**Functions:**
-- `toSubscriptNumber(value)`
-- `formatAlephLabel(index)`
-- `formatBetLabel(index)`
-- `formatDuration(seconds)`
-- `formatRewards(rewardScore, rewardFlux, rewardEnergy)`
-- `formatRelativeTime(timestamp)`
-
-**Strategy:** Direct export as pure functions
 
 #### Math/Geometry Utilities (Completed)
 **Status:** ✅ Extracted to `assets/geometryHelpers.js`
@@ -145,6 +171,11 @@ These can be extracted with minimal changes:
 **Notes:**
 - Utilities now imported by `main.js` instead of inline definitions
 - Continue using this module for normalized coordinate helpers
+
+#### Remaining Small Helpers
+**Targets:** DOM mutation helpers that do not touch shared state (e.g., simple class toggles, attribute setters)
+
+**Strategy:** Group by theme (scrolling, focus management, etc.) and export them as stateless functions from focused utility modules similar to `uiHelpers.js` and `formatHelpers.js`
 
 ### Priority 2: Semi-Independent Subsystems
 
