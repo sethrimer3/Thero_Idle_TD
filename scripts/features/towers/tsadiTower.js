@@ -295,6 +295,9 @@ export class ParticleFusionSimulation {
     // Fusion effects
     this.fusionEffects = []; // {x, y, radius, alpha, type: 'flash' | 'ring'}
     
+    // Spawn effects (flash and wave)
+    this.spawnEffects = []; // {x, y, radius, alpha, maxRadius, type: 'flash' | 'wave'}
+    
     // Aleph particle state
     this.alephParticleId = null; // ID of the current aleph particle if it exists
     this.alephAbsorptionCount = 0; // Number of particles absorbed by aleph
@@ -466,6 +469,12 @@ export class ParticleFusionSimulation {
       repellingForce,
       speedMultiplier,
     });
+    
+    // Add spawn flash and wave effects
+    this.spawnEffects.push(
+      { x, y, radius: radius * 2, alpha: 1, maxRadius: radius * 2, type: 'flash' },
+      { x, y, radius: radius, alpha: 1, maxRadius: radius * 4, type: 'wave' }
+    );
 
     // Deduct a particle from the idle bank when it materializes inside the simulation.
     this.setParticleBank(this.particleBank - 1);
@@ -546,6 +555,20 @@ export class ParticleFusionSimulation {
 
       if (effect.alpha <= 0) {
         this.fusionEffects.splice(i, 1);
+      }
+    }
+    
+    // Update spawn effects
+    for (let i = this.spawnEffects.length - 1; i >= 0; i--) {
+      const effect = this.spawnEffects[i];
+      effect.alpha -= dt * 4; // Fade out over ~0.25 seconds
+      
+      if (effect.type === 'wave') {
+        effect.radius += dt * 150; // Expand wave
+      }
+      
+      if (effect.alpha <= 0) {
+        this.spawnEffects.splice(i, 1);
       }
     }
   }
@@ -1007,6 +1030,32 @@ export class ParticleFusionSimulation {
       ctx.fillText('צ', glyph.x, glyph.y);
     }
     
+    // Draw spawn effects
+    for (const effect of this.spawnEffects) {
+      if (effect.type === 'flash') {
+        // Radial flash
+        const gradient = ctx.createRadialGradient(
+          effect.x, effect.y, 0,
+          effect.x, effect.y, effect.radius
+        );
+        gradient.addColorStop(0, `rgba(255, 255, 255, ${effect.alpha})`);
+        gradient.addColorStop(0.6, `rgba(255, 255, 255, ${effect.alpha * 0.5})`);
+        gradient.addColorStop(1, `rgba(255, 255, 255, 0)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (effect.type === 'wave') {
+        // Expanding wave ring
+        ctx.strokeStyle = `rgba(255, 255, 255, ${effect.alpha * 0.5})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    
     // Draw fusion effects
     for (const effect of this.fusionEffects) {
       if (effect.type === 'flash') {
@@ -1114,10 +1163,18 @@ export class ParticleFusionSimulation {
 
       // Render the tier glyph in the particle center to reinforce tier identity.
       if (particle.label) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.font = `${Math.max(particle.radius * 1.1, 10)}px 'Times New Roman', serif`;
+        const fontSize = Math.max(particle.radius * 1.1, 10);
+        ctx.font = `${fontSize}px 'Times New Roman', serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        
+        // Draw black outline for visibility
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+        ctx.lineWidth = Math.max(2, fontSize / 8);
+        ctx.strokeText(particle.label, particle.x, particle.y);
+        
+        // Draw white text
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.fillText(particle.label, particle.x, particle.y);
       }
     }
