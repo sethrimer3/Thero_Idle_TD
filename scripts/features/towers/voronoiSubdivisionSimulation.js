@@ -10,6 +10,8 @@
 
 import { samplePalette, rgbToString } from './fractalRenderUtils.js';
 
+import { addPanZoomToFractal } from './fractalPanZoom.js';
+
 export class VoronoiSubdivisionSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
@@ -129,6 +131,7 @@ export class VoronoiSubdivisionSimulation {
     const ctx = this.ctx;
     ctx.fillStyle = '#02040c';
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.applyPanZoomTransform();
 
     ctx.save();
     ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
@@ -163,6 +166,7 @@ export class VoronoiSubdivisionSimulation {
     ctx.beginPath();
     ctx.arc(this.canvas.width / 2, this.canvas.height / 2, this.circleRadius + 1.5, 0, Math.PI * 2);
     ctx.stroke();
+    this.restorePanZoomTransform();
   }
 
   updateConfig(config = {}) {
@@ -174,3 +178,6 @@ export class VoronoiSubdivisionSimulation {
     }
   }
 }
+
+// Add pan and zoom functionality
+addPanZoomToFractal(VoronoiSubdivisionSimulation.prototype);

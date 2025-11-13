@@ -8,6 +8,8 @@
 
 import { samplePalette, rgbToString } from './fractalRenderUtils.js';
 
+import { addPanZoomToFractal } from './fractalPanZoom.js';
+
 export class FernLSystemSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
@@ -109,6 +111,7 @@ export class FernLSystemSimulation {
     const ctx = this.ctx;
     ctx.fillStyle = '#050705';
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.applyPanZoomTransform();
 
     const totalSegments = this.segments.length;
     if (totalSegments === 0) {
@@ -130,6 +133,7 @@ export class FernLSystemSimulation {
       ctx.lineTo(seg.x2, seg.y2);
       ctx.stroke();
     }
+    this.restorePanZoomTransform();
   }
 
   updateConfig(config = {}) {
@@ -166,3 +170,6 @@ export class FernLSystemSimulation {
     }
   }
 }
+
+// Add pan and zoom functionality
+addPanZoomToFractal(FernLSystemSimulation.prototype);
