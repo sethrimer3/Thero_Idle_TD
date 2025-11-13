@@ -6083,6 +6083,37 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 /* Floating vertical spire menu in top-right corner of spire panels */
+.spire-menu-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 101;
+  display: none; /* Hidden on desktop, shown on mobile */
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: rgba(10, 10, 16, 0.9);
+  border: 1px solid rgba(247, 247, 245, 0.3);
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  transition: all var(--transition);
+}
+
+.spire-menu-toggle:hover {
+  background: rgba(20, 20, 30, 0.95);
+  border-color: rgba(247, 247, 245, 0.5);
+  transform: scale(1.05);
+}
+
+.spire-menu-toggle-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--text);
+}
+
 .spire-floating-menu {
   position: fixed;
   top: 20px;
@@ -6097,6 +6128,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   padding: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(8px);
+  transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
 .spire-menu-item {
@@ -6148,6 +6180,31 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: rgba(247, 247, 245, 0.95);
 }
 
+.spire-menu-close {
+  display: none; /* Hidden on desktop, shown on mobile */
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  margin-top: 4px;
+  border: 1px solid rgba(247, 247, 245, 0.15);
+  border-radius: 8px;
+  background: rgba(247, 247, 245, 0.04);
+  color: rgba(247, 247, 245, 0.6);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.spire-menu-close:hover {
+  background: rgba(247, 247, 245, 0.1);
+  border-color: rgba(247, 247, 245, 0.3);
+  color: var(--text);
+}
+
+.spire-menu-close-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
 /* Equipment button styling to match other tower panel buttons */
 .tower-panel-button--equipment .tower-panel-button-icon {
   font-size: 1.2rem;
@@ -6164,11 +6221,23 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     font-size: 1.4rem;
   }
   
-  .spire-floating-menu {
+  .spire-menu-toggle {
+    display: flex; /* Show toggle button on mobile */
     top: 10px;
     right: 10px;
+  }
+  
+  .spire-floating-menu {
+    top: 10px;
+    right: -110%; /* Hide off-screen by default on mobile */
     padding: 8px;
     gap: 8px;
+    opacity: 0;
+  }
+  
+  .spire-floating-menu.spire-floating-menu--visible {
+    right: 10px; /* Slide in when visible */
+    opacity: 1;
   }
   
   .spire-menu-item {
@@ -6183,6 +6252,10 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   
   .spire-menu-count {
     font-size: 0.65rem;
+  }
+  
+  .spire-menu-close {
+    display: flex; /* Show close button on mobile */
   }
 }
 

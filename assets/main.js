@@ -3222,6 +3222,53 @@ import {
         }
       });
     });
+    
+    // Initialize toggle buttons for mobile sliding menu
+    const spireIds = ['powder', 'fluid', 'lamed', 'tsadi', 'shin', 'kuf'];
+    
+    spireIds.forEach((spireId) => {
+      const toggleButton = document.getElementById(`spire-menu-toggle-${spireId}`);
+      const closeButton = document.getElementById(`spire-menu-close-${spireId}`);
+      const menu = document.getElementById(`spire-floating-menu-${spireId}`);
+      
+      if (toggleButton && menu) {
+        toggleButton.addEventListener('click', () => {
+          const isVisible = menu.classList.contains('spire-floating-menu--visible');
+          
+          // Hide all other spire menus first
+          document.querySelectorAll('.spire-floating-menu').forEach((otherMenu) => {
+            if (otherMenu !== menu) {
+              otherMenu.classList.remove('spire-floating-menu--visible');
+              const otherId = otherMenu.id.replace('spire-floating-menu-', '');
+              const otherToggle = document.getElementById(`spire-menu-toggle-${otherId}`);
+              if (otherToggle) {
+                otherToggle.setAttribute('aria-expanded', 'false');
+              }
+            }
+          });
+          
+          // Toggle current menu
+          if (isVisible) {
+            menu.classList.remove('spire-floating-menu--visible');
+            toggleButton.setAttribute('aria-expanded', 'false');
+          } else {
+            menu.classList.add('spire-floating-menu--visible');
+            toggleButton.setAttribute('aria-expanded', 'true');
+          }
+        });
+      }
+      
+      if (closeButton && menu) {
+        closeButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          menu.classList.remove('spire-floating-menu--visible');
+          if (toggleButton) {
+            toggleButton.setAttribute('aria-expanded', 'false');
+          }
+        });
+      }
+    });
   }
 
   // Update the floating spire menu counts
