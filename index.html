@@ -2464,18 +2464,7 @@
                   />
                   <p class="developer-control-hint">Override the stored mote reserve.</p>
                 </div>
-                <div class="developer-control-field">
-                  <label for="developer-compact-basin">Compact basin autosave (smaller saves)</label>
-                  <input
-                    type="checkbox"
-                    id="developer-compact-basin"
-                    data-developer-field="compactBasin"
-                  />
-                  <p class="developer-control-note">
-                    When enabled (default), the game saves a compact baseline + dune descriptor
-                    for the mote basin to reduce storage size. Disable to preserve full grain positions.
-                  </p>
-                </div>
+                <!-- Compact basin autosave removed per task 24 - it is now the only save method -->
                 <div class="developer-control-field">
                   <label for="developer-mote-rate">Mote fall rate</label>
                   <input
@@ -2487,6 +2476,54 @@
                     inputmode="decimal"
                   />
                   <p class="developer-control-hint">Set motes dispensed per second.</p>
+                </div>
+                <div class="developer-control-field">
+                  <label for="developer-lamed-bank">Lamed spark bank</label>
+                  <input
+                    type="number"
+                    id="developer-lamed-bank"
+                    data-developer-field="lamedBank"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                  />
+                  <p class="developer-control-hint">Override the Lamed spire spark reserve.</p>
+                </div>
+                <div class="developer-control-field">
+                  <label for="developer-lamed-rate">Lamed spark rate</label>
+                  <input
+                    type="number"
+                    id="developer-lamed-rate"
+                    data-developer-field="lamedRate"
+                    min="0"
+                    step="0.01"
+                    inputmode="decimal"
+                  />
+                  <p class="developer-control-hint">Set sparks dispensed per second.</p>
+                </div>
+                <div class="developer-control-field">
+                  <label for="developer-tsadi-bank">Tsadi particle bank</label>
+                  <input
+                    type="number"
+                    id="developer-tsadi-bank"
+                    data-developer-field="tsadiBank"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                  />
+                  <p class="developer-control-hint">Override the Tsadi spire particle reserve.</p>
+                </div>
+                <div class="developer-control-field">
+                  <label for="developer-tsadi-rate">Tsadi particle rate</label>
+                  <input
+                    type="number"
+                    id="developer-tsadi-rate"
+                    data-developer-field="tsadiRate"
+                    min="0"
+                    step="0.01"
+                    inputmode="decimal"
+                  />
+                  <p class="developer-control-hint">Set particles dispensed per second.</p>
                 </div>
                 <div class="developer-control-field">
                   <label for="developer-start-thero">Base start þ</label>

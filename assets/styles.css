@@ -3179,9 +3179,11 @@ body.graphics-mode-low .control-button {
   /* Offset the repeating tower texture so it can scroll smoothly with the dune crest. */
   --powder-wall-shift: 0px;
   /* Store the masonry sprite on a variable so both the element and the overflow guard can reuse it. */
-  --powder-wall-texture: url('./sprites/inspiration_tower_wall.png');
+  /* --powder-wall-texture: url('./sprites/inspiration_tower_wall.png'); */ /* Removed per task 23 */
   /* Repeat the masonry texture directly on the wall so the sprite is always visible. */
-  background-image: var(--powder-wall-texture);
+  /* background-image: var(--powder-wall-texture); */ /* Removed per task 23 */
+  /* Use solid color block instead of sprite per task 23 */
+  background-color: rgba(20, 24, 32, 0.95);
   background-repeat: repeat-y;
   background-size: 100% 192px;
   background-position: center var(--powder-wall-shift, 0px);
@@ -3209,7 +3211,9 @@ body.graphics-mode-low .control-button {
   top: -200%;
   bottom: -200%;
   /* Echo the base texture beyond the viewport so panning never reveals empty bands. */
-  background-image: var(--powder-wall-texture);
+  /* background-image: var(--powder-wall-texture); */ /* Removed per task 23 */
+  /* Use solid color block instead of sprite per task 23 */
+  background-color: rgba(20, 24, 32, 0.87);
   background-repeat: repeat-y;
   background-size: 100% 192px;
   background-position: center var(--powder-wall-shift, 0px);
