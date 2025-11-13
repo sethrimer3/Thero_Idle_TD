@@ -1,7 +1,10 @@
 import {
-  ALEPH_CHAIN_DEFAULT_UPGRADES,
-  createAlephChainRegistry,
-} from '../scripts/features/towers/alephChain.js';
+  alephChainUpgradeState,
+  getAlephChainUpgrades,
+  updateAlephChainUpgrades,
+  applyAlephChainUpgradeSnapshot,
+  resetAlephChainUpgrades,
+} from './alephUpgradeState.js';
 import {
   MATH_SYMBOL_REGEX,
   renderMathElement,
@@ -334,8 +337,6 @@ import {
   'use strict';
 
   initializeStartupOverlay();
-
-  const alephChainUpgradeState = { ...ALEPH_CHAIN_DEFAULT_UPGRADES };
 
   const THERO_SYMBOL = 'þ';
   const COMMUNITY_DISCORD_INVITE = 'https://discord.gg/UzqhfsZQ8n'; // Reserved for future placement.
@@ -1390,46 +1391,6 @@ import {
     updateDeveloperControlsVisibility();
   }
 
-  function getAlephChainUpgrades() {
-    return { ...alephChainUpgradeState };
-  }
-
-  function updateAlephChainUpgrades(updates = {}) {
-    if (!updates || typeof updates !== 'object') {
-      return getAlephChainUpgrades();
-    }
-
-    const nextState = { ...alephChainUpgradeState };
-    if (Number.isFinite(updates.x) && updates.x > 0) {
-      nextState.x = updates.x;
-    }
-    if (Number.isFinite(updates.y) && updates.y > 0) {
-      nextState.y = updates.y;
-    }
-    if (Number.isFinite(updates.z)) {
-      nextState.z = Math.max(1, Math.floor(updates.z));
-    }
-
-    const changed =
-      nextState.x !== alephChainUpgradeState.x ||
-      nextState.y !== alephChainUpgradeState.y ||
-      nextState.z !== alephChainUpgradeState.z;
-
-    if (!changed) {
-      return getAlephChainUpgrades();
-    }
-
-    alephChainUpgradeState.x = nextState.x;
-    alephChainUpgradeState.y = nextState.y;
-    alephChainUpgradeState.z = nextState.z;
-
-    if (playfield?.alephChain) {
-      playfield.alephChain.setUpgrades(alephChainUpgradeState);
-      playfield.syncAlephChainStats();
-    }
-
-    return getAlephChainUpgrades();
-  }
   const playfieldElements = {
     container: null,
     canvas: null,
@@ -3992,7 +3953,7 @@ import {
     const towerSnapshot = getTowerUpgradeStateSnapshot();
     return {
       ...towerSnapshot,
-      alephChainUpgrades: { ...alephChainUpgradeState },
+      alephChainUpgrades: getAlephChainUpgrades(),
     };
   }
 
@@ -4004,15 +3965,7 @@ import {
     applyTowerUpgradeStateSnapshot(snapshot);
     // Restore alephChainUpgrades if present
     if (snapshot.alephChainUpgrades && typeof snapshot.alephChainUpgrades === 'object') {
-      if (Number.isFinite(snapshot.alephChainUpgrades.x) && snapshot.alephChainUpgrades.x > 0) {
-        alephChainUpgradeState.x = snapshot.alephChainUpgrades.x;
-      }
-      if (Number.isFinite(snapshot.alephChainUpgrades.y) && snapshot.alephChainUpgrades.y > 0) {
-        alephChainUpgradeState.y = snapshot.alephChainUpgrades.y;
-      }
-      if (Number.isFinite(snapshot.alephChainUpgrades.z)) {
-        alephChainUpgradeState.z = Math.max(1, Math.floor(snapshot.alephChainUpgrades.z));
-      }
+      applyAlephChainUpgradeSnapshot(snapshot.alephChainUpgrades, { playfield });
     }
   }
 
@@ -7681,6 +7634,8 @@ import {
     fluidWallMetrics = null;
 
     clearTowerUpgradeState();
+    // Revert Aleph chain upgrades so tower snapshots reset alongside other progression state.
+    resetAlephChainUpgrades({ playfield });
     reconcileGlyphCurrencyFromState();
 
     resetActiveMoteGems();
@@ -9599,8 +9554,10 @@ import {
   const upgradeNamespace =
     (window.theroIdleUpgrades = window.theroIdleUpgrades || window.glyphDefenseUpgrades || {});
   upgradeNamespace.alephChain = {
-    get: getAlephChainUpgrades,
-    set: updateAlephChainUpgrades,
+    // Surface the current Aleph chain upgrades so the Codex and dev tools can inspect live values.
+    get: () => getAlephChainUpgrades(),
+    // Accept upgrade adjustments from external scripts while keeping the playfield synchronized.
+    set: (updates) => updateAlephChainUpgrades(updates, { playfield }),
   };
 
   window.glyphDefenseUpgrades = upgradeNamespace;

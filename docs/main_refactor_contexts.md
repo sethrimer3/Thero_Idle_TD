@@ -15,7 +15,7 @@ Coordinates tab caching, overlay visibility toggles, level preview wiring, and s
 Bundles the developer panel bindings, value formatters, mutation handlers, and visibility toggles that expose sandbox controls.
 
 ## Aleph Chain Upgrade State Utilities
-Provides upgrade state mutations, formatting helpers, and integration hooks that synchronize Aleph chain upgrades with the playfield.
+`assets/alephUpgradeState.js` now owns the Aleph chain upgrade state, exposing helpers to clone, mutate, reset, and rehydrate upgrades while keeping the playfield synchronized.
 
 ## Audio System
 Manages the `AudioManager` wiring, slider bindings, audio persistence, activation gating, and contextual music selection for the game's tabs.
