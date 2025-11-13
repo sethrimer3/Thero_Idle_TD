@@ -44,7 +44,7 @@ conventions for all AI collaborators working anywhere inside this repository.
 
 ## Aesthetic Guidelines
 1. **Palette:** Prefer monochrome (black, white, subtle gray). Use color sparingly to
-   highlight special projectiles, unique enemies, or powder effects.
+   highlight special projectiles, unique enemies, or powder effects. The currently selected color palette is the one chosen in the Codex, and each palette defines a gradient that propagates through many visual elements.
 2. **Typography:** Favor elegant, scholarly serif or script fonts reminiscent of
    mathematics lecture notes or chalk on blackboard writing. When adding UI labels, ensure they harmonize with the
    theme.
