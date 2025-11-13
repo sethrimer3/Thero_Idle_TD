@@ -134,6 +134,41 @@ export class BrownianTreeSimulation {
     const ctx = this.ctx;
     ctx.fillStyle = '#050208';
     ctx.fillRect(0, 0, this.width, this.height);
+    
+    // Draw glowing lines connecting points
+    this.applyPanZoomTransform();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(86, 180, 255, 0.3)';
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = 'rgba(86, 180, 255, 0.5)';
+    
+    for (let i = 0; i < this.cluster.length; i++) {
+      const point = this.cluster[i];
+      const px = this.centerX + point.x;
+      const py = this.centerY - point.y;
+      
+      // Find nearest neighbors within a certain radius
+      const searchRadius = 25;
+      for (let j = i + 1; j < this.cluster.length; j++) {
+        const other = this.cluster[j];
+        const dx = point.x - other.x;
+        const dy = point.y - other.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < searchRadius) {
+          const ox = this.centerX + other.x;
+          const oy = this.centerY - other.y;
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(ox, oy);
+          ctx.stroke();
+        }
+      }
+    }
+    
+    ctx.shadowBlur = 0;
+    this.restorePanZoomTransform();
+    
     toneMapBuffer(this.accumulator, this.width, this.height, ctx, 'blue-aurora');
     this.restorePanZoomTransform();
   }
