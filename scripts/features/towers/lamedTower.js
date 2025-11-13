@@ -515,8 +515,8 @@ export class GravitySimulation {
     // diameter = star_mass / sqrt(center_mass) (scaled for display)
     const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
     
-    // Luminosity increases with progress to next tier
-    const luminosity = tier.glow * (1 + progress * 0.5);
+    // Luminosity increases with progress to next tier (100% to 200%)
+    const luminosity = tier.glow * (1 + progress);
     
     // Add pulsing effect when absorbing mass (check if recent absorption)
     const timeSinceAbsorption = this.elapsedTime - this.stats.lastAbsorptionTime;
