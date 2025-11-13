@@ -13,7 +13,8 @@ import {
   getIteronBank,
   getIterationRate,
   getShinGlyphs,
-  getLayerProgress
+  getLayerProgress,
+  allocateIterons
 } from './shinState.js';
 
 import { formatGameNumber } from '../scripts/core/formatting.js';
@@ -162,6 +163,7 @@ export function initializeShinUI() {
     shinGlyphs: document.getElementById('shin-glyph-count'),
     fractalTabs: document.getElementById('shin-fractal-tabs'),
     fractalContent: document.getElementById('shin-fractal-content'),
+    fractalDetails: document.getElementById('shin-fractal-details'),
     layerProgress: document.getElementById('shin-layer-progress'),
     layerProgressBar: document.getElementById('shin-layer-progress-bar'),
     layerProgressText: document.getElementById('shin-layer-progress-text')
@@ -297,6 +299,7 @@ function selectFractalTab(fractalId) {
  */
 function renderFractalContent(fractal, state) {
   const contentContainer = shinElements.fractalContent;
+  const detailsContainer = shinElements.fractalDetails;
   
   if (!contentContainer) {
     return;
@@ -309,52 +312,7 @@ function renderFractalContent(fractal, state) {
   
   contentContainer.innerHTML = '';
   
-  const header = document.createElement('div');
-  header.className = 'shin-fractal-header';
-  
-  const title = document.createElement('h3');
-  title.className = 'shin-fractal-title';
-  title.textContent = fractal.name;
-  
-  const description = document.createElement('p');
-  description.className = 'shin-fractal-description';
-  description.textContent = fractal.description;
-  
-  const stats = document.createElement('div');
-  stats.className = 'shin-fractal-stats';
-  
-  const allocatedStat = document.createElement('div');
-  allocatedStat.className = 'shin-fractal-stat';
-  const allocatedLabel = document.createElement('span');
-  allocatedLabel.className = 'shin-fractal-stat-label';
-  allocatedLabel.textContent = 'Iterons Allocated';
-  const allocatedValue = document.createElement('span');
-  allocatedValue.className = 'shin-fractal-stat-value';
-  allocatedValue.textContent = formatGameNumber(state.allocated);
-  allocatedStat.appendChild(allocatedLabel);
-  allocatedStat.appendChild(allocatedValue);
-  
-  const layersStat = document.createElement('div');
-  layersStat.className = 'shin-fractal-stat';
-  const layersLabel = document.createElement('span');
-  layersLabel.className = 'shin-fractal-stat-label';
-  layersLabel.textContent = 'Layers Completed';
-  const layersValue = document.createElement('span');
-  layersValue.className = 'shin-fractal-stat-value';
-  layersValue.textContent = `${state.layersCompleted} / ${fractal.layerThresholds.length}`;
-  layersStat.appendChild(layersLabel);
-  layersStat.appendChild(layersValue);
-  
-  stats.appendChild(allocatedStat);
-  stats.appendChild(layersStat);
-  
-  header.appendChild(title);
-  header.appendChild(description);
-  header.appendChild(stats);
-  
-  contentContainer.appendChild(header);
-  
-  // Add canvas for fractal visualization
+  // Add canvas for fractal visualization (in the content area)
   const canvasWrapper = document.createElement('div');
   canvasWrapper.className = 'shin-fractal-canvas-wrapper';
   
@@ -368,6 +326,64 @@ function renderFractalContent(fractal, state) {
   
   canvasWrapper.appendChild(canvas);
   contentContainer.appendChild(canvasWrapper);
+  
+  // Add click handler to allocate 1 Iteron when clicking the fractal
+  canvas.addEventListener('click', () => {
+    allocateIterons(fractal.id, 1);
+    if (updateCallback) {
+      updateCallback();
+    }
+  });
+  
+  // Render fractal details below the Layer Progress bar
+  if (detailsContainer) {
+    detailsContainer.innerHTML = '';
+    
+    const header = document.createElement('div');
+    header.className = 'shin-fractal-header';
+    
+    const title = document.createElement('h3');
+    title.className = 'shin-fractal-title';
+    title.textContent = fractal.name;
+    
+    const description = document.createElement('p');
+    description.className = 'shin-fractal-description';
+    description.textContent = fractal.description;
+    
+    const stats = document.createElement('div');
+    stats.className = 'shin-fractal-stats';
+    
+    const allocatedStat = document.createElement('div');
+    allocatedStat.className = 'shin-fractal-stat';
+    const allocatedLabel = document.createElement('span');
+    allocatedLabel.className = 'shin-fractal-stat-label';
+    allocatedLabel.textContent = 'Iterons Allocated';
+    const allocatedValue = document.createElement('span');
+    allocatedValue.className = 'shin-fractal-stat-value';
+    allocatedValue.textContent = formatGameNumber(state.allocated);
+    allocatedStat.appendChild(allocatedLabel);
+    allocatedStat.appendChild(allocatedValue);
+    
+    const layersStat = document.createElement('div');
+    layersStat.className = 'shin-fractal-stat';
+    const layersLabel = document.createElement('span');
+    layersLabel.className = 'shin-fractal-stat-label';
+    layersLabel.textContent = 'Layers Completed';
+    const layersValue = document.createElement('span');
+    layersValue.className = 'shin-fractal-stat-value';
+    layersValue.textContent = `${state.layersCompleted} / ${fractal.layerThresholds.length}`;
+    layersStat.appendChild(layersLabel);
+    layersStat.appendChild(layersValue);
+    
+    stats.appendChild(allocatedStat);
+    stats.appendChild(layersStat);
+    
+    header.appendChild(title);
+    header.appendChild(description);
+    header.appendChild(stats);
+    
+    detailsContainer.appendChild(header);
+  }
 
   resizeShinFractalCanvases();
 
