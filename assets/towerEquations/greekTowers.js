@@ -51,7 +51,7 @@ export const delta = {
       },
       getSubEquations({ value }) {
         const alephRank = Number.isFinite(value) ? Math.max(1, Math.round(value)) : 1;
-        const gammaDefinition = getTowerDefinition('gamma');
+        const gammaDefinition = ctx().getTowerDefinition('gamma');
         const gammaEquation = ctx().calculateTowerEquationResult('gamma');
         const fallbackGamma = Number.isFinite(gammaDefinition?.damage)
           ? Math.max(1, gammaDefinition.damage)
@@ -109,9 +109,9 @@ export const delta = {
       upgradable: false,
       computeValue({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const alephValue = computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint);
+        const alephValue = ctx().computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint);
         const alephRank = Number.isFinite(alephValue) ? Math.max(1, Math.round(alephValue)) : 1;
-        const gammaDefinition = getTowerDefinition('gamma');
+        const gammaDefinition = ctx().getTowerDefinition('gamma');
         const gammaEquation = ctx().calculateTowerEquationResult('gamma');
         const fallbackGamma = Number.isFinite(gammaDefinition?.damage)
           ? Math.max(1, gammaDefinition.damage)
@@ -127,9 +127,9 @@ export const delta = {
       format: (value) => `${formatGameNumber(Math.max(0, value))} hp/s`,
       getSubEquations({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const alephValue = computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint);
+        const alephValue = ctx().computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint);
         const alephRank = Number.isFinite(alephValue) ? Math.max(1, Math.round(alephValue)) : 1;
-        const gammaDefinition = getTowerDefinition('gamma');
+        const gammaDefinition = ctx().getTowerDefinition('gamma');
         const gammaEquation = ctx().calculateTowerEquationResult('gamma');
         const fallbackGamma = Number.isFinite(gammaDefinition?.damage)
           ? Math.max(1, gammaDefinition.damage)
@@ -415,16 +415,16 @@ export const zeta = {
       upgradable: false,
       computeValue({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const aleph5 = computeTowerVariableValue(towerId, 'aleph5', effectiveBlueprint);
-        const aleph6 = computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint);
+        const aleph5 = ctx().computeTowerVariableValue(towerId, 'aleph5', effectiveBlueprint);
+        const aleph6 = ctx().computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint);
         const product = Math.max(1, aleph5 * aleph6);
         return Number.isFinite(product) ? product : 1;
       },
       format: (value) => `×${formatDecimal(Math.max(1, value), 2)}`,
       getSubEquations({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const aleph5 = computeTowerVariableValue(towerId, 'aleph5', effectiveBlueprint);
-        const aleph6 = computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint);
+        const aleph5 = ctx().computeTowerVariableValue(towerId, 'aleph5', effectiveBlueprint);
+        const aleph6 = ctx().computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint);
         const product = Math.max(1, aleph5 * aleph6);
         return [
           {
@@ -447,8 +447,8 @@ export const zeta = {
       computeValue({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const gammaValue = Math.max(0, ctx().calculateTowerEquationResult('gamma'));
-        const aleph1 = Math.max(1, computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
-        const critical = Math.max(1, computeTowerVariableValue(towerId, 'crt', effectiveBlueprint));
+        const aleph1 = Math.max(1, ctx().computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
+        const critical = Math.max(1, ctx().computeTowerVariableValue(towerId, 'crt', effectiveBlueprint));
         const attack = gammaValue * critical * aleph1;
         return Number.isFinite(attack) ? attack : 0;
       },
@@ -456,8 +456,8 @@ export const zeta = {
       getSubEquations({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const gammaValue = Math.max(0, ctx().calculateTowerEquationResult('gamma'));
-        const aleph1 = Math.max(1, computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
-        const critical = Math.max(1, computeTowerVariableValue(towerId, 'crt', effectiveBlueprint));
+        const aleph1 = Math.max(1, ctx().computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
+        const critical = Math.max(1, ctx().computeTowerVariableValue(towerId, 'crt', effectiveBlueprint));
         const base = gammaValue * critical;
         const attack = base * aleph1;
         return [
@@ -480,7 +480,7 @@ export const zeta = {
       upgradable: false,
       computeValue({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const aleph2 = Math.max(0, computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
+        const aleph2 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
         const raw = 0.25 + 0.25 * aleph2;
         const clamped = Math.min(7, Math.max(0.25, raw));
         return Number.isFinite(clamped) ? clamped : 0.25;
@@ -488,7 +488,7 @@ export const zeta = {
       format: (value) => `${formatDecimal(Math.max(0, value), 2)} rps`,
       getSubEquations({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const aleph2 = Math.max(0, computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
+        const aleph2 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
         const raw = 0.25 + 0.25 * aleph2;
         const clamped = Math.min(7, Math.max(0.25, raw));
         return [
@@ -511,14 +511,14 @@ export const zeta = {
       upgradable: false,
       computeValue({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const aleph3 = Math.max(0, computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
+        const aleph3 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
         const result = 1.5 + 0.5 * aleph3;
         return Number.isFinite(result) ? result : 1.5;
       },
       format: (value) => `${formatDecimal(Math.max(0, value), 2)} units`,
       getSubEquations({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const aleph3 = Math.max(0, computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
+        const aleph3 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
         const result = 1.5 + 0.5 * aleph3;
         return [
           {
@@ -540,7 +540,7 @@ export const zeta = {
       upgradable: false,
       computeValue({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const aleph4 = Math.max(0, computeTowerVariableValue(towerId, 'aleph4', effectiveBlueprint));
+        const aleph4 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph4', effectiveBlueprint));
         const clampedAleph4 = Math.min(2, aleph4);
         const total = 2 + clampedAleph4;
         return Number.isFinite(total) ? total : 2;
@@ -548,7 +548,7 @@ export const zeta = {
       format: (value) => `${formatWholeNumber(Math.max(2, Math.round(value)))} pendulums`,
       getSubEquations({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const aleph4 = Math.max(0, computeTowerVariableValue(towerId, 'aleph4', effectiveBlueprint));
+        const aleph4 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph4', effectiveBlueprint));
         const clampedAleph4 = Math.min(2, aleph4);
         const total = 2 + clampedAleph4;
         return [
@@ -597,11 +597,11 @@ export const eta = {
         const gammaValue = Math.max(0, ctx().calculateTowerEquationResult('gamma'));
         const aleph1 = Math.max(
           1,
-          computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint),
+          ctx().computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint),
         );
         const critical = Math.max(
           0,
-          computeTowerVariableValue(towerId, 'crt', effectiveBlueprint),
+          ctx().computeTowerVariableValue(towerId, 'crt', effectiveBlueprint),
         );
         const base = Math.max(0, gammaValue * aleph1);
         const attack = critical === 0 ? 1 : base ** critical;
@@ -613,11 +613,11 @@ export const eta = {
         const gammaValue = Math.max(0, ctx().calculateTowerEquationResult('gamma'));
         const aleph1 = Math.max(
           1,
-          computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint),
+          ctx().computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint),
         );
         const critical = Math.max(
           0,
-          computeTowerVariableValue(towerId, 'crt', effectiveBlueprint),
+          ctx().computeTowerVariableValue(towerId, 'crt', effectiveBlueprint),
         );
         const base = Math.max(0, gammaValue * aleph1);
         const attack = critical === 0 ? 1 : base ** critical;
@@ -724,19 +724,19 @@ export const eta = {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const aleph2 = Math.max(
           1,
-          computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint),
+          ctx().computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint),
         );
         const aleph3 = Math.max(
           1,
-          computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint),
+          ctx().computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint),
         );
         const aleph4 = Math.max(
           1,
-          computeTowerVariableValue(towerId, 'aleph4', effectiveBlueprint),
+          ctx().computeTowerVariableValue(towerId, 'aleph4', effectiveBlueprint),
         );
         const aleph5 = Math.max(
           1,
-          computeTowerVariableValue(towerId, 'aleph5', effectiveBlueprint),
+          ctx().computeTowerVariableValue(towerId, 'aleph5', effectiveBlueprint),
         );
         const denominator = aleph2 + aleph3 + aleph4 + aleph5;
         const values = [
@@ -910,7 +910,7 @@ export const eta = {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const aleph6 = Math.max(
           1,
-          computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint),
+          ctx().computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint),
         );
         const clamped = Math.min(5, aleph6);
         return 5 + clamped;
@@ -920,7 +920,7 @@ export const eta = {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const aleph6 = Math.max(
           1,
-          computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint),
+          ctx().computeTowerVariableValue(towerId, 'aleph6', effectiveBlueprint),
         );
         const clamped = Math.min(5, aleph6);
         const total = 5 + clamped;
@@ -1009,7 +1009,7 @@ export const theta = {
       format: (value) => `${formatDecimal(Math.max(0, value), 2)}% slow`,
       computeValue({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const aleph1 = Math.max(0, computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
+        const aleph1 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
         const exponent = Math.exp(-0.1 * aleph1);
         const sinusoid = 1 + 0.1 * Math.sin(aleph1);
         const slowPercent = 95 * (1 - exponent * sinusoid) + 5;
@@ -1017,7 +1017,7 @@ export const theta = {
       },
       getSubEquations({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const aleph1 = Math.max(0, computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
+        const aleph1 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph1', effectiveBlueprint));
         const exponent = Math.exp(-0.1 * aleph1);
         const sinusoid = 1 + 0.1 * Math.sin(aleph1);
         const slowPercent = 95 * (1 - exponent * sinusoid) + 5;
@@ -1074,15 +1074,15 @@ export const theta = {
       format: (value) => `${formatPercentage(Math.max(0, Math.min(1, value)))} @ entry`,
       computeValue({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const aleph2 = Math.max(1, computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
-        const aleph3 = Math.max(0, computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
+        const aleph2 = Math.max(1, ctx().computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
+        const aleph3 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
         const raw = 100 * Math.exp(1 / aleph2) * (1 + (1 / (1.1 + aleph3)) * Math.sin(0));
         return Math.max(0, raw) / 100;
       },
       getSubEquations({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
-        const aleph2 = Math.max(1, computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
-        const aleph3 = Math.max(0, computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
+        const aleph2 = Math.max(1, ctx().computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
+        const aleph3 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
         const entryPercent = Math.max(0, 100 * Math.exp(1 / aleph2));
         return [
           {
@@ -1297,10 +1297,10 @@ export const iota = {
         const alphaLinks = Math.max(0, ctx().getDynamicConnectionCount('alpha'));
         const betaLinks = Math.max(0, ctx().getDynamicConnectionCount('beta'));
         const gammaLinks = Math.max(0, ctx().getDynamicConnectionCount('gamma'));
-        const aleph0 = Math.max(0, computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
-        const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
-        const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
-        const aleph3 = Math.max(0, computeTowerVariableValue('iota', 'aleph3', effectiveBlueprint));
+        const aleph0 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
+        const aleph1 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+        const aleph2 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+        const aleph3 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph3', effectiveBlueprint));
         const connectionMultiplier = 1 + 0.18 * alphaLinks + 0.24 * betaLinks;
         const gammaMultiplier = 1 + 0.45 * Math.sqrt(gammaLinks);
         const alephMultiplier = 1 + 0.35 * aleph0 + 0.25 * aleph1 + 0.2 * aleph2 + 0.15 * aleph3;
@@ -1312,10 +1312,10 @@ export const iota = {
         const alphaLinks = Math.max(0, ctx().getDynamicConnectionCount('alpha'));
         const betaLinks = Math.max(0, ctx().getDynamicConnectionCount('beta'));
         const gammaLinks = Math.max(0, ctx().getDynamicConnectionCount('gamma'));
-        const aleph0 = Math.max(0, computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
-        const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
-        const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
-        const aleph3 = Math.max(0, computeTowerVariableValue('iota', 'aleph3', effectiveBlueprint));
+        const aleph0 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
+        const aleph1 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+        const aleph2 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+        const aleph3 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph3', effectiveBlueprint));
         const connectionMultiplier = 1 + 0.18 * alphaLinks + 0.24 * betaLinks;
         const gammaMultiplier = 1 + 0.45 * Math.sqrt(gammaLinks);
         const alephMultiplier = 1 + 0.35 * aleph0 + 0.25 * aleph1 + 0.2 * aleph2 + 0.15 * aleph3;
@@ -1353,8 +1353,8 @@ export const iota = {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const betaLinks = Math.max(0, ctx().getDynamicConnectionCount('beta'));
         const gammaLinks = Math.max(0, ctx().getDynamicConnectionCount('gamma'));
-        const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
-        const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+        const aleph1 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+        const aleph2 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
         const base = 0.22;
         const alephComponent = 0.05 * (1 - Math.exp(-0.6 * aleph1)) + 0.03 * (1 - Math.exp(-0.4 * aleph2));
         const linkComponent = 0.01 * (betaLinks + 0.5 * gammaLinks);
@@ -1365,8 +1365,8 @@ export const iota = {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const betaLinks = Math.max(0, ctx().getDynamicConnectionCount('beta'));
         const gammaLinks = Math.max(0, ctx().getDynamicConnectionCount('gamma'));
-        const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
-        const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+        const aleph1 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+        const aleph2 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
         const speed = Number.isFinite(value)
           ? Math.max(0, value)
           : 0.22 + 0.05 * (1 - Math.exp(-0.6 * aleph1)) + 0.03 * (1 - Math.exp(-0.4 * aleph2)) + 0.01 * (betaLinks + 0.5 * gammaLinks);
@@ -1394,9 +1394,9 @@ export const iota = {
         const alphaLinks = Math.max(0, ctx().getDynamicConnectionCount('alpha'));
         const betaLinks = Math.max(0, ctx().getDynamicConnectionCount('beta'));
         const gammaLinks = Math.max(0, ctx().getDynamicConnectionCount('gamma'));
-        const aleph0 = Math.max(0, computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
-        const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
-        const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+        const aleph0 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
+        const aleph1 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+        const aleph2 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
         const alephTerm = 1.1 * Math.log(1 + aleph0 + 0.5 * aleph1 + 0.25 * aleph2);
         const linkTerm = 0.35 * Math.log(1 + alphaLinks + betaLinks + 0.5 * gammaLinks);
         const rangeMeters = 4.2 + alephTerm + linkTerm;
@@ -1407,9 +1407,9 @@ export const iota = {
         const alphaLinks = Math.max(0, ctx().getDynamicConnectionCount('alpha'));
         const betaLinks = Math.max(0, ctx().getDynamicConnectionCount('beta'));
         const gammaLinks = Math.max(0, ctx().getDynamicConnectionCount('gamma'));
-        const aleph0 = Math.max(0, computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
-        const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
-        const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+        const aleph0 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
+        const aleph1 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+        const aleph2 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
         const rangeMeters = Number.isFinite(value)
           ? Math.max(0, value)
           : 4.2 + 1.1 * Math.log(1 + aleph0 + 0.5 * aleph1 + 0.25 * aleph2) + 0.35 * Math.log(1 + alphaLinks + betaLinks + 0.5 * gammaLinks);
@@ -1437,9 +1437,9 @@ export const iota = {
         const alphaLinks = Math.max(0, ctx().getDynamicConnectionCount('alpha'));
         const betaLinks = Math.max(0, ctx().getDynamicConnectionCount('beta'));
         const gammaLinks = Math.max(0, ctx().getDynamicConnectionCount('gamma'));
-        const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
-        const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
-        const aleph3 = Math.max(0, computeTowerVariableValue('iota', 'aleph3', effectiveBlueprint));
+        const aleph1 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+        const aleph2 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+        const aleph3 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph3', effectiveBlueprint));
         const residue = 0.30 + 0.05 * alphaLinks + 0.06 * betaLinks + 0.08 * gammaLinks + 0.12 * aleph1 + 0.08 * aleph2 + 0.06 * aleph3;
         return Math.max(0, residue);
       },
@@ -1448,9 +1448,9 @@ export const iota = {
         const alphaLinks = Math.max(0, ctx().getDynamicConnectionCount('alpha'));
         const betaLinks = Math.max(0, ctx().getDynamicConnectionCount('beta'));
         const gammaLinks = Math.max(0, ctx().getDynamicConnectionCount('gamma'));
-        const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
-        const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
-        const aleph3 = Math.max(0, computeTowerVariableValue('iota', 'aleph3', effectiveBlueprint));
+        const aleph1 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+        const aleph2 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+        const aleph3 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph3', effectiveBlueprint));
         const residue = Number.isFinite(value)
           ? Math.max(0, value)
           : 0.30 + 0.05 * alphaLinks + 0.06 * betaLinks + 0.08 * gammaLinks + 0.12 * aleph1 + 0.08 * aleph2 + 0.06 * aleph3;
@@ -1478,9 +1478,9 @@ export const iota = {
         const alphaLinks = Math.max(0, ctx().getDynamicConnectionCount('alpha'));
         const betaLinks = Math.max(0, ctx().getDynamicConnectionCount('beta'));
         const gammaLinks = Math.max(0, ctx().getDynamicConnectionCount('gamma'));
-        const aleph0 = Math.max(0, computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
-        const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
-        const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+        const aleph0 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
+        const aleph1 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+        const aleph2 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
         const duration = 3.5 + 0.5 * alphaLinks + 0.25 * betaLinks + 0.35 * Math.sqrt(gammaLinks) + 0.8 * Math.sqrt(aleph0) + 0.6 * aleph1 + 0.4 * aleph2;
         return Math.max(0, duration);
       },
@@ -1489,9 +1489,9 @@ export const iota = {
         const alphaLinks = Math.max(0, ctx().getDynamicConnectionCount('alpha'));
         const betaLinks = Math.max(0, ctx().getDynamicConnectionCount('beta'));
         const gammaLinks = Math.max(0, ctx().getDynamicConnectionCount('gamma'));
-        const aleph0 = Math.max(0, computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
-        const aleph1 = Math.max(0, computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
-        const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
+        const aleph0 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph0', effectiveBlueprint));
+        const aleph1 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph1', effectiveBlueprint));
+        const aleph2 = Math.max(0, ctx().computeTowerVariableValue('iota', 'aleph2', effectiveBlueprint));
         const duration = Number.isFinite(value)
           ? Math.max(0, value)
           : 3.5 + 0.5 * alphaLinks + 0.25 * betaLinks + 0.35 * Math.sqrt(gammaLinks) + 0.8 * Math.sqrt(aleph0) + 0.6 * aleph1 + 0.4 * aleph2;

@@ -17,6 +17,8 @@ export const blueprintContext = {
   ensureTowerUpgradeState: null,
   calculateTowerEquationResult: null,
   getDynamicConnectionCount: null,
+  getTowerDefinition: null,
+  computeTowerVariableValue: null,
 };
 
 /**

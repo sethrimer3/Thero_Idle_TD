@@ -520,15 +520,6 @@ export function withTowerDynamicContext(context, evaluator) {
 // Use imported tower blueprints from refactored modules
 const TOWER_EQUATION_BLUEPRINTS = IMPORTED_TOWER_BLUEPRINTS;
 
-// Initialize blueprint context with helper functions so tower blueprints can access them
-initializeBlueprintContext({
-  deriveGlyphRankFromLevel,
-  getTowerEquationBlueprint,
-  ensureTowerUpgradeState,
-  calculateTowerEquationResult,
-  getDynamicConnectionCount,
-});
-
 // Legacy TOWER_EQUATION_BLUEPRINTS definition removed - now imported from ./towerEquations/
 // The original definition (lines 520-3086) has been refactored into:
 // - ./towerEquations/mindGate.js (mind-gate)
@@ -3432,3 +3423,15 @@ export function syncLoadoutToPlayfield() {
   renderTowerLoadout();
   updateTowerSelectionButtons();
 }
+
+// Initialize blueprint context with helper functions so tower blueprints can access them
+// This must be done after all the functions are defined
+initializeBlueprintContext({
+  deriveGlyphRankFromLevel,
+  getTowerEquationBlueprint,
+  ensureTowerUpgradeState,
+  calculateTowerEquationResult,
+  getDynamicConnectionCount,
+  getTowerDefinition,
+  computeTowerVariableValue,
+});
