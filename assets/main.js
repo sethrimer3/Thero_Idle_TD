@@ -176,6 +176,15 @@ import {
   setFieldNotesOpenButton,
 } from './fieldNotesOverlay.js';
 import {
+  configurePlayfieldOutcome,
+  setPlayfieldOutcomeElements,
+  bindPlayfieldOutcomeEvents,
+  hidePlayfieldOutcome,
+  showPlayfieldOutcome,
+  exitToLevelSelectionFromOutcome,
+  handleOutcomeRetryRequest,
+} from './playfieldOutcome.js';
+import {
   initializeWaveEditor,
   showWaveEditor,
   hideWaveEditor,
@@ -989,173 +998,13 @@ import {
     autoAnchorButton: null,
     slots: [],
   };
-  const playfieldOutcomeElements = {
-    overlay: null,
-    title: null,
-    subtitle: null,
-    primary: null,
-    secondary: null,
-  };
-  const playfieldOutcomeState = {
-    onPrimary: null,
-    onSecondary: null,
-    bound: false,
-  };
 
-  // Invoke the currently registered primary outcome action, if present.
-  function triggerPlayfieldOutcomePrimary() {
-    if (typeof playfieldOutcomeState.onPrimary === 'function') {
-      playfieldOutcomeState.onPrimary();
-    }
-  }
-
-  // Invoke the stored secondary outcome action when the retry button is pressed.
-  function triggerPlayfieldOutcomeSecondary() {
-    if (typeof playfieldOutcomeState.onSecondary === 'function') {
-      playfieldOutcomeState.onSecondary();
-    }
-  }
-
-  // Reset the outcome overlay to its hidden state and optionally restore focus.
-  function hidePlayfieldOutcome({ restoreFocus = false } = {}) {
-    const { overlay } = playfieldOutcomeElements;
-    if (!overlay) {
-      return;
-    }
-    overlay.classList.remove('active', 'playfield-outcome--victory', 'playfield-outcome--defeat');
-    overlay.setAttribute('aria-hidden', 'true');
-    overlay.setAttribute('hidden', '');
-    playfieldOutcomeState.onPrimary = null;
-    playfieldOutcomeState.onSecondary = null;
-    const { primary, secondary } = playfieldOutcomeElements;
-    if (primary) {
-      primary.disabled = false;
-    }
-    if (secondary) {
-      secondary.disabled = false;
-      secondary.setAttribute('hidden', '');
-    }
-    if (restoreFocus && playfieldElements.startButton && typeof playfieldElements.startButton.focus === 'function') {
-      try {
-        playfieldElements.startButton.focus({ preventScroll: true });
-      } catch (error) {
-        playfieldElements.startButton.focus();
-      }
-    }
-  }
-
-  // Surface the desired victory or defeat text and wire up overlay button callbacks.
-  function showPlayfieldOutcome({
-    outcome = 'defeat',
-    title = '',
-    subtitle = '',
-    primaryLabel = 'Back to Level Selection',
-    onPrimary = null,
-    secondaryLabel = null,
-    onSecondary = null,
-  } = {}) {
-    const { overlay, title: titleEl, subtitle: subtitleEl, primary, secondary } = playfieldOutcomeElements;
-    if (!overlay || !titleEl || !primary) {
-      return;
-    }
-
-    hidePlayfieldOutcome();
-
-    overlay.classList.remove('playfield-outcome--victory', 'playfield-outcome--defeat');
-    if (outcome === 'victory') {
-      overlay.classList.add('playfield-outcome--victory');
-    } else {
-      overlay.classList.add('playfield-outcome--defeat');
-    }
-
-    titleEl.textContent = title;
-    if (subtitleEl) {
-      subtitleEl.textContent = subtitle || '';
-      subtitleEl.toggleAttribute('hidden', !subtitle);
-    }
-
-    primary.textContent = primaryLabel;
-    playfieldOutcomeState.onPrimary = typeof onPrimary === 'function' ? onPrimary : null;
-
-    if (secondary) {
-      if (secondaryLabel) {
-        secondary.textContent = secondaryLabel;
-        secondary.removeAttribute('hidden');
-        playfieldOutcomeState.onSecondary = typeof onSecondary === 'function' ? onSecondary : null;
-      } else {
-        secondary.setAttribute('hidden', '');
-        playfieldOutcomeState.onSecondary = null;
-      }
-    }
-
-    overlay.removeAttribute('hidden');
-    overlay.setAttribute('aria-hidden', 'false');
-
-    requestAnimationFrame(() => {
-      overlay.classList.add('active');
-    });
-
-    if (typeof overlay.focus === 'function') {
-      try {
-        overlay.focus({ preventScroll: true });
-      } catch (error) {
-        overlay.focus();
-      }
-    }
-  }
-
-  // Attach listeners to the overlay the first time it is initialized.
-  function bindPlayfieldOutcomeEvents() {
-    if (playfieldOutcomeState.bound) {
-      return;
-    }
-    const { overlay, primary, secondary } = playfieldOutcomeElements;
-    if (!overlay || !primary) {
-      return;
-    }
-
-    primary.addEventListener('click', () => triggerPlayfieldOutcomePrimary());
-    if (secondary) {
-      secondary.addEventListener('click', () => triggerPlayfieldOutcomeSecondary());
-    }
-    overlay.addEventListener('click', (event) => {
-      if (event.target === overlay) {
-        triggerPlayfieldOutcomePrimary();
-      }
-    });
-    overlay.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        triggerPlayfieldOutcomePrimary();
-      }
-    });
-
-    playfieldOutcomeState.bound = true;
-  }
-
-  // Leave combat and transition back to the level selection grid when the overlay is dismissed.
-  function exitToLevelSelectionFromOutcome() {
-    hidePlayfieldOutcome();
-    leaveActiveLevel();
-    updateLayoutVisibility();
-  }
-
-  // Attempt to reload the most recent endless checkpoint when the retry button is pressed.
-  function handleOutcomeRetryRequest() {
-    if (!playfield || typeof playfield.retryFromEndlessCheckpoint !== 'function') {
-      return;
-    }
-    const success = playfield.retryFromEndlessCheckpoint();
-    if (success) {
-      hidePlayfieldOutcome();
-      return;
-    }
-    const { secondary } = playfieldOutcomeElements;
-    if (secondary) {
-      secondary.disabled = true;
-    }
-  }
-
+  configurePlayfieldOutcome({
+    getPlayfield: () => playfield,
+    leaveActiveLevel,
+    updateLayoutVisibility,
+    getStartButton: () => playfieldElements.startButton,
+  });
 
 
   /**
@@ -8661,11 +8510,13 @@ import {
     playfieldElements.autoAnchorButton = document.getElementById('playfield-auto');
     playfieldElements.autoWaveCheckbox = document.getElementById('playfield-auto-wave');
     playfieldElements.slots = Array.from(document.querySelectorAll('.tower-slot'));
-    playfieldOutcomeElements.overlay = document.getElementById('playfield-outcome');
-    playfieldOutcomeElements.title = document.getElementById('playfield-outcome-title');
-    playfieldOutcomeElements.subtitle = document.getElementById('playfield-outcome-subtitle');
-    playfieldOutcomeElements.primary = document.getElementById('playfield-outcome-primary');
-    playfieldOutcomeElements.secondary = document.getElementById('playfield-outcome-secondary');
+    setPlayfieldOutcomeElements({
+      overlay: document.getElementById('playfield-outcome'),
+      title: document.getElementById('playfield-outcome-title'),
+      subtitle: document.getElementById('playfield-outcome-subtitle'),
+      primary: document.getElementById('playfield-outcome-primary'),
+      secondary: document.getElementById('playfield-outcome-secondary'),
+    });
     bindPlayfieldOutcomeEvents();
     hidePlayfieldOutcome();
 
