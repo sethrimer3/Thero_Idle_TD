@@ -157,7 +157,7 @@ export const kappa = {
     const result = gamma * beta * alpha;
     return `${formatComponent(result)} = ${formatComponent(gamma)} × ${formatComponent(beta)} × ${formatComponent(alpha)}`;
   },
-},
+};
 
 export const lambda = {
   mathSymbol: String.raw`\lambda`,
@@ -282,7 +282,7 @@ export const lambda = {
     const total = kappa * enemyWeight;
     return `${formatComponent(total)} = ${formatComponent(kappa)} × ${formatComponent(enemyWeight)}`;
   },
-},
+};
 // μ tower (Mu) lays fractal mines on the track that charge up through tiers.
 // Normal mode: Sierpinski triangle mines
 // Prestige mode (Μ): Apollonian gasket circle mines
@@ -383,7 +383,7 @@ export const mu = {
     const tierDamage = tier * 10;
     return `${formatComponent(result)} = ${formatComponent(lambda)} × ${formatComponent(tierDamage)}`;
   },
-},
+};
 // ζ tower channels a double-pendulum equation that references multiple Aleph
 // upgrade threads to determine attack, speed, range, and pendulum count.
 
@@ -422,7 +422,7 @@ export const nu = {
     const overkill = Math.max(0, Number.isFinite(values.overkillTotal) ? values.overkillTotal : 0);
     return `${formatComponent(result)} = ${formatComponent(gammaValue)} + ${formatComponent(overkill)}`;
   },
-},
+};
 
 export const xi = {
   mathSymbol: String.raw`\xi`,
@@ -581,7 +581,7 @@ export const xi = {
     const nuValue = Math.max(0, Number.isFinite(values.nu) ? values.nu : 0);
     return `${formatComponent(result)} = ${formatComponent(nuValue)} × (\\text{chain}^{\\text{exp}})`;
   },
-},
+};
 
 export const omicron = {
   mathSymbol: 'ο',
@@ -605,7 +605,7 @@ export const omicron = {
   formatGoldenEquation({ formatVariable, formatResult }) {
     return `\\( ${formatResult()} = \\ln(${formatVariable('xi')} + 1) \\)`;
   },
-},
+};
 
 export const pi = {
   mathSymbol: String.raw`\pi`,
@@ -748,4 +748,4 @@ export const pi = {
     const mergeCount = Math.max(0, Number.isFinite(values.mergeCount) ? values.mergeCount : 0);
     return `${formatComponent(result)} = ${formatComponent(gammaValue)}^${formatComponent(mergeCount)}`;
   },
-},
+};
