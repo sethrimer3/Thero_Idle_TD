@@ -4321,6 +4321,7 @@ body.graphics-mode-low .control-button {
   transform: translateX(0);
   transition: transform 280ms ease, opacity 240ms ease;
   pointer-events: none;
+  --field-notes-background-image: none;
 }
 
 .field-notes-page.field-notes-page--active {
@@ -4328,6 +4329,25 @@ body.graphics-mode-low .control-button {
   visibility: visible;
   transform: translateX(0);
   pointer-events: auto;
+}
+
+/* Project parchment art into the background at low opacity for each page. */
+.field-notes-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--field-notes-background-image);
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.1;
+  pointer-events: none;
+  transition: opacity 240ms ease;
+}
+
+.field-notes-page > * {
+  position: relative;
+  z-index: 1;
 }
 
 .field-notes-page.field-notes-page--enter-forward,
@@ -4364,6 +4384,15 @@ body.graphics-mode-low .control-button {
   color: rgba(139, 247, 255, 0.75);
 }
 
+/* Style the scripted heading displayed on each field notes page. */
+.field-notes-page-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 228, 180, 0.85);
+}
+
 .field-notes-copy strong {
   color: rgba(255, 228, 160, 0.95);
 }
@@ -4377,6 +4406,17 @@ body.graphics-mode-low .control-button {
 
 .field-notes-list li::marker {
   color: rgba(120, 180, 255, 0.9);
+}
+
+/* Display a status message while the JSON-driven notes load. */
+.field-notes-loading {
+  margin: 0;
+  align-self: center;
+  justify-self: center;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(139, 247, 255, 0.72);
 }
 
 .field-notes-overlay .overlay-close {

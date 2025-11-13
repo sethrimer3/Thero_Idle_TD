@@ -9472,7 +9472,7 @@ import {
     // Initialize the floating spire menu navigation
     initializeSpireFloatingMenu();
     updateFluidTabAvailability();
-    initializeFieldNotesOverlay();
+    await initializeFieldNotesOverlay();
     bindCodexControls({
       setActiveTab,
       openFieldNotesOverlay,

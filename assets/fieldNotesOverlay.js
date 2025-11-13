@@ -23,6 +23,197 @@ const fieldNotesDependencies = {
   audioManager: null,
 };
 
+// Cache the in-flight fetch so multiple callers reuse the same request.
+let fieldNotesDataPromise = null;
+
+// Message shown when the external data file fails to load.
+const FIELD_NOTES_FALLBACK_MESSAGE =
+  'Field notes are unavailable right now. Please return once the codex stabilizes.';
+
+function getFieldNotesDataUrl() {
+  try {
+    return new URL('./data/fieldNotes.json', import.meta.url);
+  } catch (error) {
+    return null;
+  }
+}
+
+// Retrieve the authored field notes dataset from disk.
+async function loadFieldNotesData() {
+  if (fieldNotesDataPromise) {
+    return fieldNotesDataPromise;
+  }
+
+  fieldNotesDataPromise = (async () => {
+    const url = getFieldNotesDataUrl();
+    if (!url) {
+      return [];
+    }
+
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`Field notes request failed with status ${response.status}`);
+      }
+      const data = await response.json();
+      if (!data || !Array.isArray(data.pages)) {
+        return [];
+      }
+      return data.pages;
+    } catch (error) {
+      console.error('Failed to load field notes data:', error);
+      return [];
+    }
+  })();
+
+  return fieldNotesDataPromise;
+}
+
+// Build the decorative heading shown at the top of each page.
+function createFieldNotesHeading(title) {
+  if (!title) {
+    return null;
+  }
+  const heading = document.createElement('h3');
+  heading.className = 'field-notes-page-title';
+  heading.textContent = title;
+  return heading;
+}
+
+// Render a narrative paragraph, allowing lightweight inline markup for emphasis.
+function createFieldNotesParagraph(html) {
+  if (!html) {
+    return null;
+  }
+  const paragraph = document.createElement('p');
+  paragraph.innerHTML = html;
+  return paragraph;
+}
+
+// Render bullet lists that highlight tactical directives.
+function createFieldNotesList(items) {
+  if (!Array.isArray(items) || !items.length) {
+    return null;
+  }
+  const list = document.createElement('ul');
+  list.className = 'field-notes-list';
+  items.forEach((item) => {
+    if (!item) {
+      return;
+    }
+    const listItem = document.createElement('li');
+    listItem.innerHTML = item;
+    list.appendChild(listItem);
+  });
+  return list.childElementCount ? list : null;
+}
+
+// Populate a single page node with the configured text blocks.
+function populateFieldNotesArticle(article, pageData) {
+  if (!article || !pageData) {
+    return;
+  }
+
+  article.textContent = '';
+
+  if (pageData.title) {
+    const heading = createFieldNotesHeading(pageData.title);
+    if (heading) {
+      article.appendChild(heading);
+    }
+  }
+
+  const blocks = Array.isArray(pageData.content) ? pageData.content : [];
+  blocks.forEach((block) => {
+    if (!block || typeof block !== 'object') {
+      return;
+    }
+
+    const type = typeof block.type === 'string' ? block.type.toLowerCase() : 'paragraph';
+
+    if (type === 'list') {
+      const list = createFieldNotesList(block.items);
+      if (list) {
+        article.appendChild(list);
+      }
+      return;
+    }
+
+    if (type === 'caption') {
+      const caption = document.createElement('p');
+      caption.className = 'field-notes-page-caption';
+      caption.innerHTML = block.text || '';
+      article.appendChild(caption);
+      return;
+    }
+
+    const paragraph = createFieldNotesParagraph(block.text || block.html || '');
+    if (paragraph) {
+      article.appendChild(paragraph);
+    }
+  });
+}
+
+// Create a page shell, configure the parchment background, then fill it with content.
+function createFieldNotesArticle(pageData, index) {
+  const article = document.createElement('article');
+  article.className = 'field-notes-page';
+  article.dataset.pageIndex = String(index);
+  article.setAttribute('tabindex', '-1');
+  article.setAttribute('aria-hidden', 'true');
+
+  const backgroundImage =
+    typeof pageData?.backgroundImage === 'string' ? pageData.backgroundImage.trim() : '';
+  if (backgroundImage) {
+    article.style.setProperty('--field-notes-background-image', `url("${backgroundImage}")`);
+  } else {
+    article.style.removeProperty('--field-notes-background-image');
+  }
+
+  populateFieldNotesArticle(article, pageData);
+  return article;
+}
+
+// Provide a graceful fallback page if the dataset cannot be fetched.
+function createFallbackFieldNotesPage() {
+  const article = document.createElement('article');
+  article.className = 'field-notes-page';
+  article.dataset.pageIndex = '0';
+  article.setAttribute('tabindex', '-1');
+  article.setAttribute('aria-hidden', 'true');
+  const message = document.createElement('p');
+  message.innerText = FIELD_NOTES_FALLBACK_MESSAGE;
+  article.appendChild(message);
+  return article;
+}
+
+// Make sure the DOM reflects the latest dataset before the overlay is shown.
+async function ensureFieldNotesPages() {
+  const container = fieldNotesElements.copy;
+  if (!container) {
+    fieldNotesElements.pages = [];
+    return;
+  }
+
+  const pagesData = await loadFieldNotesData();
+
+  container.innerHTML = '';
+
+  const fragment = document.createDocumentFragment();
+  const normalizedPages = Array.isArray(pagesData) && pagesData.length ? pagesData : null;
+
+  if (!normalizedPages) {
+    fragment.appendChild(createFallbackFieldNotesPage());
+  } else {
+    normalizedPages.forEach((page, index) => {
+      fragment.appendChild(createFieldNotesArticle(page, index));
+    });
+  }
+
+  container.appendChild(fragment);
+  fieldNotesElements.pages = Array.from(container.querySelectorAll('.field-notes-page'));
+}
+
 export function configureFieldNotesOverlay({ revealOverlay, scheduleOverlayHide, audioManager } = {}) {
   if (typeof revealOverlay === 'function') {
     fieldNotesDependencies.revealOverlay = revealOverlay;
@@ -343,7 +534,7 @@ export function openFieldNotesOverlay() {
   });
 }
 
-export function initializeFieldNotesOverlay() {
+export async function initializeFieldNotesOverlay() {
   fieldNotesElements.overlay = document.getElementById('field-notes-overlay');
   fieldNotesElements.closeButton = document.getElementById('field-notes-close');
   fieldNotesElements.copy = document.getElementById('field-notes-copy');
@@ -352,9 +543,7 @@ export function initializeFieldNotesOverlay() {
   fieldNotesElements.prevButton = document.getElementById('field-notes-prev');
   fieldNotesElements.nextButton = document.getElementById('field-notes-next');
 
-  fieldNotesElements.pages = fieldNotesElements.copy
-    ? Array.from(fieldNotesElements.copy.querySelectorAll('.field-notes-page'))
-    : [];
+  await ensureFieldNotesPages();
   fieldNotesState.currentIndex = 0;
   setFieldNotesPage(0, { immediate: true });
   updateFieldNotesControls();
