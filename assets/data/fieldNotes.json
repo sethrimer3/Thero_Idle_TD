@@ -1,0 +1,81 @@
+{
+  "pages": [
+    {
+      "id": "rampart-lattice",
+      "title": "Field Notes · Page I — Rampart lattice schematics.",
+      "backgroundImage": "./assets/field notes/field_notes_page_1.png",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Sketches annotate the sigil-laced ramparts and note the protective harmonics woven into each parapet."
+        },
+        {
+          "type": "paragraph",
+          "text": "Margin scribbles highlight mote vents—the primer you will use to calibrate your first defenses."
+        }
+      ]
+    },
+    {
+      "id": "powder-resonance",
+      "title": "Field Notes · Page II — Powder flow resonance studies.",
+      "backgroundImage": "./assets/field notes/field_notes_page_2.png",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Diagrams catalog each powder flow experiment. Arrows track the resonance curves as motes crash against containment runes."
+        },
+        {
+          "type": "paragraph",
+          "text": "Annotations flag combinations that amplify mote yields when synchronized with <strong>Chronoglyph wards</strong>."
+        }
+      ]
+    },
+    {
+      "id": "counter-formations",
+      "title": "Field Notes · Page III — Counter-formation annotations.",
+      "backgroundImage": "./assets/field notes/field_notes_page_3.png",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Enemy formations are paired with counter-formulae. Follow the mirrored glyphs to see where to fracture each proof."
+        },
+        {
+          "type": "paragraph",
+          "text": "Notations in crimson warn of harmonics that can collapse the tower's lattice if left unattended."
+        }
+      ]
+    },
+    {
+      "id": "warden-briefing",
+      "title": "Field Notes · Page IV — Warden briefing.",
+      "content": [
+        {
+          "type": "paragraph",
+          "text": "Welcome, Warden. I am Thero, archivist of the glyph lattice. Your arrival coincides with a surge of <strong>mote turbulence</strong> washing against the tower's perimeter."
+        },
+        {
+          "type": "paragraph",
+          "text": "Our scouts report that rival scholars have animated rogue proofs. Each wave they summon is tuned to unravel the equations binding our defenses. Hold these observations close:"
+        }
+      ]
+    },
+    {
+      "id": "defense-directives",
+      "title": "Field Notes · Page V — Defense directives.",
+      "content": [
+        {
+          "type": "list",
+          "items": [
+            "The <strong>Scintilla Glyph</strong> at the summit regulates every mote current—lose it and the lattice collapses.",
+            "<strong>Chronoglyph wards</strong> along the ramparts can bend time briefly. Use their cadence to reset your ordinals and stagger enemy advances.",
+            "When a wave fractures, sift the motes it leaves behind. Their resonance seeds new towers faster than any quarry."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Return once the next theorem is secured. I will inscribe your progress and prepare the following expedition. The codex grows because of your vigilance."
+        }
+      ]
+    }
+  ]
+}
