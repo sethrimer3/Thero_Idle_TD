@@ -6469,6 +6469,67 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   max-width: 100%;
 }
 
+/* Tsadi upgrade button styles */
+.tsadi-upgrade-button {
+  font-family: "Cormorant Garamond", serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  color: #050208;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background-size: 200% 200%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(139, 247, 255, 0.2);
+  font-weight: 600;
+  position: relative;
+  overflow: hidden;
+}
+
+.tsadi-upgrade-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.tsadi-upgrade-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(139, 247, 255, 0.35);
+  background-position: 100% 100%;
+}
+
+.tsadi-upgrade-button:hover::before {
+  transform: translateX(100%);
+}
+
+.tsadi-upgrade-button:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(139, 247, 255, 0.25);
+}
+
+.tsadi-upgrade-button:disabled {
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(247, 247, 245, 0.45);
+  border-color: rgba(255, 255, 255, 0.08);
+  opacity: 0.5;
+}
+
+.tsadi-upgrade-button:disabled::before {
+  display: none;
+}
+
 .lamed-briefing-card h3 {
   display: flex;
   align-items: center;
@@ -6480,6 +6541,67 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .lamed-return-button {
   margin-top: 16px;
   width: 100%;
+}
+
+/* Lamed upgrade button styles */
+.lamed-upgrade-btn {
+  font-family: "Cormorant Garamond", serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  color: #050208;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background-size: 200% 200%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(139, 247, 255, 0.2);
+  font-weight: 600;
+  position: relative;
+  overflow: hidden;
+}
+
+.lamed-upgrade-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.lamed-upgrade-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(139, 247, 255, 0.35);
+  background-position: 100% 100%;
+}
+
+.lamed-upgrade-btn:hover::before {
+  transform: translateX(100%);
+}
+
+.lamed-upgrade-btn:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(139, 247, 255, 0.25);
+}
+
+.lamed-upgrade-btn:disabled {
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(247, 247, 245, 0.45);
+  border-color: rgba(255, 255, 255, 0.08);
+  opacity: 0.5;
+}
+
+.lamed-upgrade-btn:disabled::before {
+  display: none;
 }
 
 /* ============================================
