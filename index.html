@@ -2142,9 +2142,173 @@
           <header class="panel-header">Kuf Spire</header>
           
           <div class="kuf-grid">
+            <!-- Simulation card at top -->
+            <article class="card kuf-card kuf-card--simulation" id="kuf-simulation-card">
+              <div class="kuf-sim-viewport">
+                <canvas
+                  id="kuf-simulation-canvas"
+                  width="640"
+                  height="400"
+                  aria-label="Kuf battlefield simulation"
+                ></canvas>
+                <!-- Pre-simulation menu with unit deployment and upgrades -->
+                <div class="kuf-sim-menu" id="kuf-sim-menu">
+                  <button class="action-button kuf-sim-menu-start" type="button" id="kuf-start-button">Start Simulation</button>
+                  
+                  <div class="kuf-sim-menu-units">
+                    <!-- Marine -->
+                    <div class="kuf-sim-unit">
+                      <div class="kuf-sim-unit-header">
+                        <span class="kuf-sim-unit-name">Marine</span>
+                        <div class="kuf-sim-unit-count-controls">
+                          <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="marines" data-action="minus">−</button>
+                          <span class="kuf-sim-unit-count" id="kuf-marines-count">0</span>
+                          <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="marines" data-action="plus">+</button>
+                        </div>
+                        <div class="kuf-sim-unit-cost">
+                          <span class="kuf-sim-unit-cost-each">5</span> ea.
+                          (<span id="kuf-marines-total-cost">0</span>)
+                        </div>
+                        <button class="kuf-unit-upgrade-btn" type="button" data-unit="marines">
+                          Upgrades
+                          <span class="kuf-unit-upgrade-count" id="kuf-marines-upgrade-count">0</span>
+                        </button>
+                      </div>
+                      <div class="kuf-sim-unit-upgrades" id="kuf-marines-upgrades" hidden>
+                        <div class="kuf-upgrade-option">
+                          <span class="kuf-upgrade-name">Health</span>
+                          <div class="kuf-upgrade-controls">
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="health">−</button>
+                            <span class="kuf-upgrade-value" id="kuf-marines-health-upgrade">0</span>
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="health">+</button>
+                          </div>
+                        </div>
+                        <div class="kuf-upgrade-option">
+                          <span class="kuf-upgrade-name">Attack</span>
+                          <div class="kuf-upgrade-controls">
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="attack">−</button>
+                            <span class="kuf-upgrade-value" id="kuf-marines-attack-upgrade">0</span>
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="attack">+</button>
+                          </div>
+                        </div>
+                        <div class="kuf-upgrade-option">
+                          <span class="kuf-upgrade-name">Attack Speed</span>
+                          <div class="kuf-upgrade-controls">
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="attackSpeed">−</button>
+                            <span class="kuf-upgrade-value" id="kuf-marines-speed-upgrade">0</span>
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="attackSpeed">+</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- Sniper -->
+                    <div class="kuf-sim-unit">
+                      <div class="kuf-sim-unit-header">
+                        <span class="kuf-sim-unit-name">Sniper</span>
+                        <div class="kuf-sim-unit-count-controls">
+                          <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="snipers" data-action="minus">−</button>
+                          <span class="kuf-sim-unit-count" id="kuf-snipers-count">0</span>
+                          <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="snipers" data-action="plus">+</button>
+                        </div>
+                        <div class="kuf-sim-unit-cost">
+                          <span class="kuf-sim-unit-cost-each">15</span> ea.
+                          (<span id="kuf-snipers-total-cost">0</span>)
+                        </div>
+                        <button class="kuf-unit-upgrade-btn" type="button" data-unit="snipers">
+                          Upgrades
+                          <span class="kuf-unit-upgrade-count" id="kuf-snipers-upgrade-count">0</span>
+                        </button>
+                      </div>
+                      <div class="kuf-sim-unit-upgrades" id="kuf-snipers-upgrades" hidden>
+                        <div class="kuf-upgrade-option">
+                          <span class="kuf-upgrade-name">Health</span>
+                          <div class="kuf-upgrade-controls">
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="health">−</button>
+                            <span class="kuf-upgrade-value" id="kuf-snipers-health-upgrade">0</span>
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="health">+</button>
+                          </div>
+                        </div>
+                        <div class="kuf-upgrade-option">
+                          <span class="kuf-upgrade-name">Attack</span>
+                          <div class="kuf-upgrade-controls">
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="attack">−</button>
+                            <span class="kuf-upgrade-value" id="kuf-snipers-attack-upgrade">0</span>
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="attack">+</button>
+                          </div>
+                        </div>
+                        <div class="kuf-upgrade-option">
+                          <span class="kuf-upgrade-name">Attack Speed</span>
+                          <div class="kuf-upgrade-controls">
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="attackSpeed">−</button>
+                            <span class="kuf-upgrade-value" id="kuf-snipers-speed-upgrade">0</span>
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="attackSpeed">+</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- Splayer -->
+                    <div class="kuf-sim-unit">
+                      <div class="kuf-sim-unit-header">
+                        <span class="kuf-sim-unit-name">Splayer</span>
+                        <div class="kuf-sim-unit-count-controls">
+                          <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="splayers" data-action="minus">−</button>
+                          <span class="kuf-sim-unit-count" id="kuf-splayers-count">0</span>
+                          <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="splayers" data-action="plus">+</button>
+                        </div>
+                        <div class="kuf-sim-unit-cost">
+                          <span class="kuf-sim-unit-cost-each">30</span> ea.
+                          (<span id="kuf-splayers-total-cost">0</span>)
+                        </div>
+                        <button class="kuf-unit-upgrade-btn" type="button" data-unit="splayers">
+                          Upgrades
+                          <span class="kuf-unit-upgrade-count" id="kuf-splayers-upgrade-count">0</span>
+                        </button>
+                      </div>
+                      <div class="kuf-sim-unit-upgrades" id="kuf-splayers-upgrades" hidden>
+                        <div class="kuf-upgrade-option">
+                          <span class="kuf-upgrade-name">Health</span>
+                          <div class="kuf-upgrade-controls">
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="health">−</button>
+                            <span class="kuf-upgrade-value" id="kuf-splayers-health-upgrade">0</span>
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="health">+</button>
+                          </div>
+                        </div>
+                        <div class="kuf-upgrade-option">
+                          <span class="kuf-upgrade-name">Attack</span>
+                          <div class="kuf-upgrade-controls">
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="attack">−</button>
+                            <span class="kuf-upgrade-value" id="kuf-splayers-attack-upgrade">0</span>
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="attack">+</button>
+                          </div>
+                        </div>
+                        <div class="kuf-upgrade-option">
+                          <span class="kuf-upgrade-name">Attack Speed</span>
+                          <div class="kuf-upgrade-controls">
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="attackSpeed">−</button>
+                            <span class="kuf-upgrade-value" id="kuf-splayers-speed-upgrade">0</span>
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="attackSpeed">+</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="kuf-result-panel" id="kuf-result-panel" hidden>
+                  <h4>Simulation Complete</h4>
+                  <p id="kuf-result-summary">Awaiting results.</p>
+                  <p id="kuf-result-glyphs">Surpass your high score to earn more glyphs.</p>
+                  <button class="action-button ghost" type="button" id="kuf-result-close">Close</button>
+                </div>
+              </div>
+            </article>
+
+            <!-- Shard Ledger below simulation -->
             <article class="card kuf-card kuf-card--ledger" id="kuf-ledger-card">
               <h3 class="kuf-card-title">Shard Ledger</h3>
-              <p class="kuf-card-subtitle">Allocate shards to sculpt the marine's luminous geometry.</p>
+              <p class="kuf-card-subtitle">Track shard allocation and performance metrics.</p>
               <dl class="kuf-ledger" aria-live="polite">
                 <div class="kuf-ledger-row">
                   <dt>Shards</dt>
@@ -2170,124 +2334,81 @@
               <p class="kuf-ledger-note">Earn new Kuf glyphs only by surpassing your best gold haul.</p>
             </article>
 
-            <article class="card kuf-card kuf-card--allocations">
-              <h3 class="kuf-card-title">Marine Calibration</h3>
-              <p class="kuf-card-subtitle">Distribute shards to emphasize vitality, force, or cadence.</p>
-              <div class="kuf-allocation" aria-live="polite">
-                <div class="kuf-allocation-header">
-                  <span class="kuf-allocation-label">Vital Shell</span>
-                  <span class="kuf-allocation-value" id="kuf-allocation-health-value">0 Shards</span>
-                </div>
-                <input
-                  class="kuf-allocation-input"
-                  type="range"
-                  min="0"
-                  max="24"
-                  step="1"
-                  id="kuf-allocation-health"
-                  aria-label="Allocate shards to health"
-                />
-                <div class="kuf-allocation-stat">Health · <span id="kuf-stat-health">10 HP</span></div>
-              </div>
-              <div class="kuf-allocation" aria-live="polite">
-                <div class="kuf-allocation-header">
-                  <span class="kuf-allocation-label">Kinetic Pulse</span>
-                  <span class="kuf-allocation-value" id="kuf-allocation-attack-value">0 Shards</span>
-                </div>
-                <input
-                  class="kuf-allocation-input"
-                  type="range"
-                  min="0"
-                  max="24"
-                  step="1"
-                  id="kuf-allocation-attack"
-                  aria-label="Allocate shards to attack"
-                />
-                <div class="kuf-allocation-stat">Damage · <span id="kuf-stat-attack">1.0 Damage</span></div>
-              </div>
-              <div class="kuf-allocation" aria-live="polite">
-                <div class="kuf-allocation-header">
-                  <span class="kuf-allocation-label">Temporal Rhythm</span>
-                  <span class="kuf-allocation-value" id="kuf-allocation-speed-value">0 Shards</span>
-                </div>
-                <input
-                  class="kuf-allocation-input"
-                  type="range"
-                  min="0"
-                  max="24"
-                  step="1"
-                  id="kuf-allocation-speed"
-                  aria-label="Allocate shards to attack speed"
-                />
-                <div class="kuf-allocation-stat">Attack Speed · <span id="kuf-stat-speed">1.00 /s</span></div>
-              </div>
-              <div class="kuf-allocation-actions">
-                <button class="action-button ghost" type="button" id="kuf-reset-button">Reset Allocation</button>
-              </div>
-            </article>
-
-            <article class="card kuf-card kuf-card--units">
-              <h3 class="kuf-card-title">Unit Deployment</h3>
-              <p class="kuf-card-subtitle">Purchase units using remaining shards. Shards available: <span id="kuf-shards-for-units">0</span></p>
+            <!-- Shard Codex - new section -->
+            <article class="card kuf-card kuf-card--codex" id="kuf-codex-card">
+              <h3 class="kuf-card-title">Shard Codex</h3>
+              <p class="kuf-card-subtitle">Unit records and encountered adversaries.</p>
               
-              <div class="kuf-unit-row">
-                <div class="kuf-unit-info">
-                  <span class="kuf-unit-name">Marine</span>
-                  <span class="kuf-unit-cost">5 shards</span>
-                  <span class="kuf-unit-desc">Standard unit with balanced stats</span>
+              <div class="kuf-codex-section">
+                <h4 class="kuf-codex-section-title">Your Units</h4>
+                <div class="kuf-codex-unit" id="kuf-codex-marines">
+                  <div class="kuf-codex-unit-header">
+                    <span class="kuf-codex-unit-name">Marine</span>
+                    <span class="kuf-codex-unit-count">Count: <span id="kuf-codex-marines-count">0</span></span>
+                  </div>
+                  <dl class="kuf-codex-stats">
+                    <div class="kuf-codex-stat-row">
+                      <dt>Health</dt>
+                      <dd id="kuf-codex-marines-health">10 HP</dd>
+                    </div>
+                    <div class="kuf-codex-stat-row">
+                      <dt>Attack</dt>
+                      <dd id="kuf-codex-marines-attack">1.0 Damage</dd>
+                    </div>
+                    <div class="kuf-codex-stat-row">
+                      <dt>Attack Speed</dt>
+                      <dd id="kuf-codex-marines-speed">1.00 /s</dd>
+                    </div>
+                  </dl>
                 </div>
-                <div class="kuf-unit-controls">
-                  <button class="action-button ghost small" type="button" id="kuf-sell-marine">−</button>
-                  <span class="kuf-unit-count" id="kuf-marines-count">0</span>
-                  <button class="action-button ghost small" type="button" id="kuf-buy-marine">+</button>
+                
+                <div class="kuf-codex-unit" id="kuf-codex-snipers">
+                  <div class="kuf-codex-unit-header">
+                    <span class="kuf-codex-unit-name">Sniper</span>
+                    <span class="kuf-codex-unit-count">Count: <span id="kuf-codex-snipers-count">0</span></span>
+                  </div>
+                  <dl class="kuf-codex-stats">
+                    <div class="kuf-codex-stat-row">
+                      <dt>Health</dt>
+                      <dd id="kuf-codex-snipers-health">8 HP</dd>
+                    </div>
+                    <div class="kuf-codex-stat-row">
+                      <dt>Attack</dt>
+                      <dd id="kuf-codex-snipers-attack">2.0 Damage</dd>
+                    </div>
+                    <div class="kuf-codex-stat-row">
+                      <dt>Attack Speed</dt>
+                      <dd id="kuf-codex-snipers-speed">0.50 /s</dd>
+                    </div>
+                  </dl>
+                </div>
+                
+                <div class="kuf-codex-unit" id="kuf-codex-splayers">
+                  <div class="kuf-codex-unit-header">
+                    <span class="kuf-codex-unit-name">Splayer</span>
+                    <span class="kuf-codex-unit-count">Count: <span id="kuf-codex-splayers-count">0</span></span>
+                  </div>
+                  <dl class="kuf-codex-stats">
+                    <div class="kuf-codex-stat-row">
+                      <dt>Health</dt>
+                      <dd id="kuf-codex-splayers-health">12 HP</dd>
+                    </div>
+                    <div class="kuf-codex-stat-row">
+                      <dt>Attack</dt>
+                      <dd id="kuf-codex-splayers-attack">0.8 Damage</dd>
+                    </div>
+                    <div class="kuf-codex-stat-row">
+                      <dt>Attack Speed</dt>
+                      <dd id="kuf-codex-splayers-speed">0.70 /s</dd>
+                    </div>
+                  </dl>
                 </div>
               </div>
               
-              <div class="kuf-unit-row">
-                <div class="kuf-unit-info">
-                  <span class="kuf-unit-name">Sniper</span>
-                  <span class="kuf-unit-cost">15 shards</span>
-                  <span class="kuf-unit-desc">Long-range precision unit</span>
-                </div>
-                <div class="kuf-unit-controls">
-                  <button class="action-button ghost small" type="button" id="kuf-sell-sniper">−</button>
-                  <span class="kuf-unit-count" id="kuf-snipers-count">0</span>
-                  <button class="action-button ghost small" type="button" id="kuf-buy-sniper">+</button>
-                </div>
-              </div>
-              
-              <div class="kuf-unit-row">
-                <div class="kuf-unit-info">
-                  <span class="kuf-unit-name">Splayer</span>
-                  <span class="kuf-unit-cost">30 shards</span>
-                  <span class="kuf-unit-desc">Fires heat-seeking micro-rockets</span>
-                </div>
-                <div class="kuf-unit-controls">
-                  <button class="action-button ghost small" type="button" id="kuf-sell-splayer">−</button>
-                  <span class="kuf-unit-count" id="kuf-splayers-count">0</span>
-                  <button class="action-button ghost small" type="button" id="kuf-buy-splayer">+</button>
-                </div>
-              </div>
-            </article>
-
-            <article class="card kuf-card kuf-card--simulation" id="kuf-simulation-card">
-              <div class="kuf-sim-header">
-                <h3 class="kuf-card-title">Northern Push</h3>
-                <button class="action-button" type="button" id="kuf-start-button">Start Simulation</button>
-              </div>
-              <p class="kuf-sim-status" id="kuf-sim-status">The marine awaits shard calibration.</p>
-              <div class="kuf-sim-viewport">
-                <canvas
-                  id="kuf-simulation-canvas"
-                  width="640"
-                  height="400"
-                  aria-label="Kuf battlefield simulation"
-                ></canvas>
-                <div class="kuf-result-panel" id="kuf-result-panel" hidden>
-                  <h4>Simulation Complete</h4>
-                  <p id="kuf-result-summary">Awaiting results.</p>
-                  <p id="kuf-result-glyphs">Surpass your high score to earn more glyphs.</p>
-                  <button class="action-button ghost" type="button" id="kuf-result-close">Close</button>
+              <div class="kuf-codex-section">
+                <h4 class="kuf-codex-section-title">Encountered Enemies</h4>
+                <div id="kuf-codex-enemies">
+                  <p class="kuf-codex-empty">Complete a simulation to log enemy encounters.</p>
                 </div>
               </div>
             </article>

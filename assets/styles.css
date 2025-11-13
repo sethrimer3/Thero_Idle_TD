@@ -7178,6 +7178,292 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   font-size: 0.95rem;
 }
 
+/* Simulation Menu */
+.kuf-sim-menu {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1.5rem;
+  gap: 1.5rem;
+  background: rgba(8, 12, 28, 0.95);
+  overflow-y: auto;
+}
+
+.kuf-sim-menu[hidden] {
+  display: none;
+}
+
+.kuf-sim-menu-start {
+  font-size: 1.1rem;
+  padding: 0.75rem 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.kuf-sim-menu-units {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.kuf-sim-unit {
+  background: rgba(20, 30, 60, 0.5);
+  border: 1px solid rgba(100, 150, 220, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.kuf-sim-unit-header {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 1rem;
+  align-items: center;
+}
+
+.kuf-sim-unit-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: rgba(200, 230, 255, 0.95);
+}
+
+.kuf-sim-unit-count-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.kuf-unit-btn {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 6px;
+  border: 1px solid rgba(120, 180, 255, 0.4);
+  background: rgba(30, 50, 90, 0.6);
+  color: rgba(180, 220, 255, 0.9);
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.kuf-unit-btn:hover:not(:disabled) {
+  background: rgba(50, 80, 140, 0.7);
+  border-color: rgba(140, 200, 255, 0.6);
+}
+
+.kuf-unit-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.kuf-unit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.kuf-sim-unit-count {
+  min-width: 2rem;
+  text-align: center;
+  font-family: 'Space Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: rgba(180, 220, 255, 0.95);
+}
+
+.kuf-sim-unit-cost {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.9rem;
+  color: rgba(160, 200, 255, 0.7);
+  white-space: nowrap;
+}
+
+.kuf-sim-unit-cost-each {
+  color: rgba(200, 230, 255, 0.85);
+  font-weight: 600;
+}
+
+.kuf-unit-upgrade-btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgba(140, 100, 220, 0.4);
+  background: rgba(50, 30, 80, 0.6);
+  color: rgba(200, 180, 255, 0.9);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.kuf-unit-upgrade-btn:hover {
+  background: rgba(70, 50, 110, 0.7);
+  border-color: rgba(160, 140, 240, 0.6);
+}
+
+.kuf-unit-upgrade-count {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0.1rem 0.35rem;
+  background: rgba(140, 100, 220, 0.3);
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.kuf-sim-unit-upgrades {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(100, 150, 220, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.kuf-sim-unit-upgrades[hidden] {
+  display: none;
+}
+
+.kuf-upgrade-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: rgba(15, 25, 50, 0.4);
+  border-radius: 8px;
+}
+
+.kuf-upgrade-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem;
+  color: rgba(190, 220, 255, 0.9);
+}
+
+.kuf-upgrade-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.kuf-upgrade-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 4px;
+  border: 1px solid rgba(120, 180, 255, 0.4);
+  background: rgba(30, 50, 90, 0.6);
+  color: rgba(180, 220, 255, 0.9);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.kuf-upgrade-btn:hover:not(:disabled) {
+  background: rgba(50, 80, 140, 0.7);
+  border-color: rgba(140, 200, 255, 0.6);
+}
+
+.kuf-upgrade-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.kuf-upgrade-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.kuf-upgrade-value {
+  min-width: 1.5rem;
+  text-align: center;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: rgba(180, 220, 255, 0.95);
+}
+
+/* Shard Codex */
+.kuf-card--codex {
+  padding: 1.5rem;
+}
+
+.kuf-codex-section {
+  margin-top: 1.5rem;
+}
+
+.kuf-codex-section:first-child {
+  margin-top: 1rem;
+}
+
+.kuf-codex-section-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: rgba(180, 210, 255, 0.95);
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.03em;
+}
+
+.kuf-codex-unit {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background: rgba(20, 30, 60, 0.3);
+  border: 1px solid rgba(100, 150, 220, 0.25);
+  border-radius: 10px;
+}
+
+.kuf-codex-unit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+}
+
+.kuf-codex-unit-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: rgba(200, 230, 255, 0.95);
+}
+
+.kuf-codex-unit-count {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.85rem;
+  color: rgba(160, 200, 255, 0.75);
+}
+
+.kuf-codex-stats {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.kuf-codex-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.9rem;
+  color: rgba(190, 220, 255, 0.85);
+}
+
+.kuf-codex-stat-row dt {
+  color: rgba(140, 180, 255, 0.8);
+}
+
+.kuf-codex-empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: rgba(160, 190, 230, 0.6);
+  font-style: italic;
+}
+
 @media (max-width: 640px) {
   .kuf-sim-header {
     flex-direction: column;
@@ -7190,5 +7476,20 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
   .kuf-card::after {
     background: radial-gradient(circle at 20% -20%, rgba(80, 130, 255, 0.4), transparent 55%);
+  }
+
+  .kuf-sim-unit-header {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .kuf-sim-unit-count-controls,
+  .kuf-sim-unit-cost,
+  .kuf-unit-upgrade-btn {
+    justify-self: start;
+  }
+
+  .kuf-sim-menu {
+    padding: 1.5rem 1rem;
   }
 }

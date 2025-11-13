@@ -14,13 +14,18 @@ import {
   getKufTotalShards,
   getKufShardsAvailableForUnits,
   calculateKufMarineStats,
+  calculateKufUnitStats,
   updateKufAllocation,
   resetKufAllocations,
   recordKufBattleOutcome,
   onKufStateChange,
   getKufUnits,
+  getKufUpgrades,
   purchaseKufUnit,
   sellKufUnit,
+  allocateKufUpgrade,
+  deallocateKufUpgrade,
+  getKufShardsSpentOnUpgrades,
   KUF_MARINE_BASE_STATS,
   KUF_SNIPER_BASE_STATS,
   KUF_SPLAYER_BASE_STATS,
@@ -33,110 +38,178 @@ let simulation = null;
 let kufElements = {};
 let stateChangeUnsubscribe = null;
 let runCompleteCallback = null;
+let currentOpenDropdown = null;
+let holdTimers = new Map(); // For hold-to-spam functionality
 
 function cacheElements() {
   kufElements = {
     shardTotal: document.getElementById('kuf-shards-total'),
     shardRemaining: document.getElementById('kuf-shards-remaining'),
-    shardsForUnits: document.getElementById('kuf-shards-for-units'),
     glyphCount: document.getElementById('kuf-glyph-count'),
     highScore: document.getElementById('kuf-high-score'),
     lastResult: document.getElementById('kuf-last-result'),
-    statHealth: document.getElementById('kuf-stat-health'),
-    statAttack: document.getElementById('kuf-stat-attack'),
-    statSpeed: document.getElementById('kuf-stat-speed'),
-    allocationInputs: {
-      health: document.getElementById('kuf-allocation-health'),
-      attack: document.getElementById('kuf-allocation-attack'),
-      attackSpeed: document.getElementById('kuf-allocation-speed'),
-    },
-    allocationValues: {
-      health: document.getElementById('kuf-allocation-health-value'),
-      attack: document.getElementById('kuf-allocation-attack-value'),
-      attackSpeed: document.getElementById('kuf-allocation-speed-value'),
-    },
+    startButton: document.getElementById('kuf-start-button'),
+    canvas: document.getElementById('kuf-simulation-canvas'),
+    simMenu: document.getElementById('kuf-sim-menu'),
+    resultPanel: document.getElementById('kuf-result-panel'),
+    resultSummary: document.getElementById('kuf-result-summary'),
+    resultGlyphs: document.getElementById('kuf-result-glyphs'),
+    resultClose: document.getElementById('kuf-result-close'),
+    
+    // Unit counts
     unitCounts: {
       marines: document.getElementById('kuf-marines-count'),
       snipers: document.getElementById('kuf-snipers-count'),
       splayers: document.getElementById('kuf-splayers-count'),
     },
-    unitBuyButtons: {
-      marines: document.getElementById('kuf-buy-marine'),
-      snipers: document.getElementById('kuf-buy-sniper'),
-      splayers: document.getElementById('kuf-buy-splayer'),
+    
+    // Unit total costs
+    unitTotalCosts: {
+      marines: document.getElementById('kuf-marines-total-cost'),
+      snipers: document.getElementById('kuf-snipers-total-cost'),
+      splayers: document.getElementById('kuf-splayers-total-cost'),
     },
-    unitSellButtons: {
-      marines: document.getElementById('kuf-sell-marine'),
-      snipers: document.getElementById('kuf-sell-sniper'),
-      splayers: document.getElementById('kuf-sell-splayer'),
+    
+    // Unit upgrade panels
+    unitUpgradePanels: {
+      marines: document.getElementById('kuf-marines-upgrades'),
+      snipers: document.getElementById('kuf-snipers-upgrades'),
+      splayers: document.getElementById('kuf-splayers-upgrades'),
     },
-    resetButton: document.getElementById('kuf-reset-button'),
-    startButton: document.getElementById('kuf-start-button'),
-    canvas: document.getElementById('kuf-simulation-canvas'),
-    viewport: document.getElementById('kuf-simulation-card'),
-    status: document.getElementById('kuf-sim-status'),
-    resultPanel: document.getElementById('kuf-result-panel'),
-    resultSummary: document.getElementById('kuf-result-summary'),
-    resultGlyphs: document.getElementById('kuf-result-glyphs'),
-    resultClose: document.getElementById('kuf-result-close'),
+    
+    // Unit upgrade counts
+    unitUpgradeCounts: {
+      marines: document.getElementById('kuf-marines-upgrade-count'),
+      snipers: document.getElementById('kuf-snipers-upgrade-count'),
+      splayers: document.getElementById('kuf-splayers-upgrade-count'),
+    },
+    
+    // Upgrade values
+    upgradeValues: {
+      marines: {
+        health: document.getElementById('kuf-marines-health-upgrade'),
+        attack: document.getElementById('kuf-marines-attack-upgrade'),
+        attackSpeed: document.getElementById('kuf-marines-speed-upgrade'),
+      },
+      snipers: {
+        health: document.getElementById('kuf-snipers-health-upgrade'),
+        attack: document.getElementById('kuf-snipers-attack-upgrade'),
+        attackSpeed: document.getElementById('kuf-snipers-speed-upgrade'),
+      },
+      splayers: {
+        health: document.getElementById('kuf-splayers-health-upgrade'),
+        attack: document.getElementById('kuf-splayers-attack-upgrade'),
+        attackSpeed: document.getElementById('kuf-splayers-speed-upgrade'),
+      },
+    },
+    
+    // Codex elements
+    codexUnitCounts: {
+      marines: document.getElementById('kuf-codex-marines-count'),
+      snipers: document.getElementById('kuf-codex-snipers-count'),
+      splayers: document.getElementById('kuf-codex-splayers-count'),
+    },
+    codexUnitStats: {
+      marines: {
+        health: document.getElementById('kuf-codex-marines-health'),
+        attack: document.getElementById('kuf-codex-marines-attack'),
+        speed: document.getElementById('kuf-codex-marines-speed'),
+      },
+      snipers: {
+        health: document.getElementById('kuf-codex-snipers-health'),
+        attack: document.getElementById('kuf-codex-snipers-attack'),
+        speed: document.getElementById('kuf-codex-snipers-speed'),
+      },
+      splayers: {
+        health: document.getElementById('kuf-codex-splayers-health'),
+        attack: document.getElementById('kuf-codex-splayers-attack'),
+        speed: document.getElementById('kuf-codex-splayers-speed'),
+      },
+    },
   };
 }
 
-function bindAllocationInputs() {
-  Object.entries(kufElements.allocationInputs).forEach(([stat, input]) => {
-    if (!input) {
-      return;
-    }
-    input.max = String(getKufTotalShards());
-    input.addEventListener('input', () => {
-      const { value, changed } = updateKufAllocation(stat, Number(input.value));
-      if (value !== Number(input.value)) {
-        input.value = String(value);
-      }
-      if (changed) {
-        updateAllocationDisplay();
-      }
-    });
-  });
-}
-
 function bindButtons() {
-  if (kufElements.resetButton) {
-    kufElements.resetButton.addEventListener('click', () => {
-      resetKufAllocations();
-      updateAllocationDisplay();
-    });
-  }
+  // Start button
   if (kufElements.startButton) {
     kufElements.startButton.addEventListener('click', () => {
       startSimulation();
     });
   }
+  
+  // Result close button
   if (kufElements.resultClose) {
     kufElements.resultClose.addEventListener('click', () => {
       hideResultPanel();
     });
   }
   
-  // Bind unit purchase buttons
-  Object.entries(kufElements.unitBuyButtons).forEach(([unitType, button]) => {
-    if (button) {
-      button.addEventListener('click', () => {
+  // Unit +/- buttons (using event delegation)
+  document.addEventListener('click', (e) => {
+    const button = e.target.closest('.kuf-unit-btn');
+    if (!button) return;
+    
+    const unitType = button.dataset.unit;
+    const action = button.dataset.action;
+    
+    if (unitType && action) {
+      if (action === 'plus') {
         purchaseKufUnit(unitType);
-        updateUnitDisplay();
-      });
+      } else if (action === 'minus') {
+        sellKufUnit(unitType);
+      }
+      updateUnitDisplay();
+      updateCodexDisplay();
     }
   });
   
-  // Bind unit sell buttons
-  Object.entries(kufElements.unitSellButtons).forEach(([unitType, button]) => {
-    if (button) {
-      button.addEventListener('click', () => {
-        sellKufUnit(unitType);
-        updateUnitDisplay();
-      });
+  // Upgrade buttons (toggle dropdown)
+  document.addEventListener('click', (e) => {
+    const button = e.target.closest('.kuf-unit-upgrade-btn');
+    if (!button) return;
+    
+    const unitType = button.dataset.unit;
+    if (unitType && kufElements.unitUpgradePanels[unitType]) {
+      toggleUpgradeDropdown(unitType);
     }
   });
+  
+  // Upgrade +/- buttons (using event delegation)
+  document.addEventListener('click', (e) => {
+    const button = e.target.closest('.kuf-upgrade-btn');
+    if (!button) return;
+    
+    const unitType = button.dataset.unit;
+    const stat = button.dataset.stat;
+    const isPlus = button.classList.contains('kuf-upgrade-btn-plus');
+    
+    if (unitType && stat) {
+      if (isPlus) {
+        allocateKufUpgrade(unitType, stat);
+      } else {
+        deallocateKufUpgrade(unitType, stat);
+      }
+      updateUpgradeDisplay();
+      updateCodexDisplay();
+    }
+  });
+}
+
+function toggleUpgradeDropdown(unitType) {
+  const panel = kufElements.unitUpgradePanels[unitType];
+  if (!panel) return;
+  
+  // Close currently open dropdown if different
+  if (currentOpenDropdown && currentOpenDropdown !== unitType) {
+    const oldPanel = kufElements.unitUpgradePanels[currentOpenDropdown];
+    if (oldPanel) {
+      oldPanel.hidden = true;
+    }
+  }
+  
+  // Toggle the clicked dropdown
+  panel.hidden = !panel.hidden;
+  currentOpenDropdown = panel.hidden ? null : unitType;
 }
 
 function ensureSimulationInstance() {
@@ -159,83 +232,37 @@ function startSimulation() {
     return;
   }
   hideResultPanel();
-  if (kufElements.startButton) {
-    kufElements.startButton.disabled = true;
-    kufElements.startButton.textContent = 'Running…';
+  
+  // Hide the menu and show the canvas
+  if (kufElements.simMenu) {
+    kufElements.simMenu.hidden = true;
   }
-  setStatusMessage('Units advancing toward the encampment…');
-  disableAllocationInputs(true);
-  disableUnitButtons(true);
   
-  const allocations = getKufAllocations();
-  const marineStats = calculateKufMarineStats(allocations);
-  
-  // Calculate sniper and splayer stats with same shard bonuses
-  const sniperStats = {
-    health: KUF_SNIPER_BASE_STATS.health + allocations.health * 2,
-    attack: KUF_SNIPER_BASE_STATS.attack + allocations.attack * 0.5,
-    attackSpeed: KUF_SNIPER_BASE_STATS.attackSpeed + allocations.attackSpeed * 0.1,
-  };
-  
-  const splayerStats = {
-    health: KUF_SPLAYER_BASE_STATS.health + allocations.health * 2,
-    attack: KUF_SPLAYER_BASE_STATS.attack + allocations.attack * 0.5,
-    attackSpeed: KUF_SPLAYER_BASE_STATS.attackSpeed + allocations.attackSpeed * 0.1,
-  };
+  // Calculate unit stats with upgrades
+  const marineStats = calculateKufUnitStats('marines');
+  const sniperStats = calculateKufUnitStats('snipers');
+  const splayerStats = calculateKufUnitStats('splayers');
   
   const units = getKufUnits();
   simulation.start({ marineStats, sniperStats, splayerStats, units });
 }
 
 function handleSimulationComplete(result) {
-  disableAllocationInputs(false);
-  disableUnitButtons(false);
-  if (kufElements.startButton) {
-    kufElements.startButton.disabled = false;
-    kufElements.startButton.textContent = 'Start Simulation';
+  // Show the menu again
+  if (kufElements.simMenu) {
+    kufElements.simMenu.hidden = false;
   }
-  setStatusMessage(result.victory ? 'Encampment cleared. Gold tallied.' : 'Units lost. Debrief prepared.');
+  
   const outcome = recordKufBattleOutcome(result);
-  updateAllocationDisplay();
+  renderLedger();
   renderResultPanel(result, outcome);
   if (typeof runCompleteCallback === 'function') {
     runCompleteCallback({ result, outcome });
   }
 }
 
-function setStatusMessage(message) {
-  if (kufElements.status) {
-    kufElements.status.textContent = message;
-  }
-}
-
-function disableAllocationInputs(disabled) {
-  Object.values(kufElements.allocationInputs).forEach((input) => {
-    if (input) {
-      input.disabled = disabled;
-    }
-  });
-  if (kufElements.resetButton) {
-    kufElements.resetButton.disabled = disabled;
-  }
-}
-
-function disableUnitButtons(disabled) {
-  Object.values(kufElements.unitBuyButtons).forEach((button) => {
-    if (button) {
-      button.disabled = disabled;
-    }
-  });
-  Object.values(kufElements.unitSellButtons).forEach((button) => {
-    if (button) {
-      button.disabled = disabled;
-    }
-  });
-}
-
 function updateUnitDisplay() {
   const units = getKufUnits();
-  const available = getKufShardsAvailableForUnits();
   
   // Update unit counts
   Object.entries(kufElements.unitCounts).forEach(([unitType, element]) => {
@@ -244,52 +271,66 @@ function updateUnitDisplay() {
     }
   });
   
-  // Update buy button states
-  Object.entries(kufElements.unitBuyButtons).forEach(([unitType, button]) => {
-    if (button) {
-      const cost = KUF_UNIT_COSTS[unitType];
-      button.disabled = available < cost;
+  // Update total costs
+  Object.entries(kufElements.unitTotalCosts).forEach(([unitType, element]) => {
+    if (element) {
+      const cost = KUF_UNIT_COSTS[unitType] * units[unitType];
+      element.textContent = String(cost);
     }
   });
-  
-  // Update sell button states
-  Object.entries(kufElements.unitSellButtons).forEach(([unitType, button]) => {
-    if (button) {
-      button.disabled = units[unitType] <= 0;
-    }
-  });
-  
-  // Update shards available for units display
-  if (kufElements.shardsForUnits) {
-    kufElements.shardsForUnits.textContent = String(available);
-  }
   
   renderLedger();
 }
 
-function updateAllocationDisplay() {
-  const allocations = getKufAllocations();
-  Object.entries(kufElements.allocationInputs).forEach(([stat, input]) => {
-    if (input) {
-      input.value = String(allocations[stat]);
+function updateUpgradeDisplay() {
+  const upgrades = getKufUpgrades();
+  
+  // Update upgrade values
+  Object.entries(upgrades).forEach(([unitType, stats]) => {
+    if (kufElements.upgradeValues[unitType]) {
+      Object.entries(stats).forEach(([stat, value]) => {
+        const element = kufElements.upgradeValues[unitType][stat];
+        if (element) {
+          element.textContent = String(value);
+        }
+      });
+    }
+    
+    // Update upgrade count badge
+    if (kufElements.unitUpgradeCounts[unitType]) {
+      const total = stats.health + stats.attack + stats.attackSpeed;
+      kufElements.unitUpgradeCounts[unitType].textContent = String(total);
     }
   });
-  Object.entries(kufElements.allocationValues).forEach(([stat, label]) => {
-    if (label) {
-      label.textContent = `${allocations[stat]} Shards`;
-    }
-  });
-  const stats = calculateKufMarineStats(allocations);
-  if (kufElements.statHealth) {
-    kufElements.statHealth.textContent = `${stats.health.toFixed(0)} HP`;
-  }
-  if (kufElements.statAttack) {
-    kufElements.statAttack.textContent = `${stats.attack.toFixed(1)} Damage`;
-  }
-  if (kufElements.statSpeed) {
-    kufElements.statSpeed.textContent = `${stats.attackSpeed.toFixed(2)} /s`;
-  }
+  
   renderLedger();
+}
+
+function updateCodexDisplay() {
+  const units = getKufUnits();
+  
+  // Update unit counts in codex
+  Object.entries(kufElements.codexUnitCounts).forEach(([unitType, element]) => {
+    if (element) {
+      element.textContent = String(units[unitType]);
+    }
+  });
+  
+  // Update unit stats in codex
+  ['marines', 'snipers', 'splayers'].forEach((unitType) => {
+    const stats = calculateKufUnitStats(unitType);
+    if (kufElements.codexUnitStats[unitType]) {
+      if (kufElements.codexUnitStats[unitType].health) {
+        kufElements.codexUnitStats[unitType].health.textContent = `${stats.health.toFixed(0)} HP`;
+      }
+      if (kufElements.codexUnitStats[unitType].attack) {
+        kufElements.codexUnitStats[unitType].attack.textContent = `${stats.attack.toFixed(1)} Damage`;
+      }
+      if (kufElements.codexUnitStats[unitType].speed) {
+        kufElements.codexUnitStats[unitType].speed.textContent = `${stats.attackSpeed.toFixed(2)} /s`;
+      }
+    }
+  });
 }
 
 function renderLedger() {
@@ -344,12 +385,18 @@ function handleStateChange(event) {
   if (!event || typeof event !== 'object') {
     return;
   }
-  if (event.type === 'allocation' || event.type === 'init') {
-    updateAllocationDisplay();
+  if (event.type === 'init') {
     updateUnitDisplay();
+    updateUpgradeDisplay();
+    updateCodexDisplay();
   }
   if (event.type === 'units') {
     updateUnitDisplay();
+    updateCodexDisplay();
+  }
+  if (event.type === 'upgrades') {
+    updateUpgradeDisplay();
+    updateCodexDisplay();
   }
   if (event.type === 'result') {
     renderLedger();
@@ -362,6 +409,108 @@ function attachStateListener() {
     stateChangeUnsubscribe = null;
   }
   stateChangeUnsubscribe = onKufStateChange(handleStateChange);
+}
+
+// Hold-to-spam functionality
+function setupHoldToSpam() {
+  let holdTimer = null;
+  let spamInterval = null;
+  let progressCircle = null;
+  
+  const startHold = (button, action) => {
+    if (button.disabled) return;
+    
+    // Create progress indicator
+    progressCircle = document.createElement('div');
+    progressCircle.className = 'kuf-hold-progress';
+    progressCircle.style.cssText = `
+      position: absolute;
+      inset: -2px;
+      border-radius: inherit;
+      border: 2px solid rgba(120, 200, 255, 0.6);
+      border-right-color: transparent;
+      animation: kuf-hold-spin 1s linear;
+      pointer-events: none;
+    `;
+    
+    // Add CSS animation if not already present
+    if (!document.getElementById('kuf-hold-animation')) {
+      const style = document.createElement('style');
+      style.id = 'kuf-hold-animation';
+      style.textContent = `
+        @keyframes kuf-hold-spin {
+          0% { transform: rotate(0deg); border-right-color: transparent; }
+          100% { transform: rotate(360deg); border-right-color: rgba(120, 200, 255, 0.6); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    button.style.position = 'relative';
+    button.appendChild(progressCircle);
+    
+    // After 1 second, start spamming
+    holdTimer = setTimeout(() => {
+      if (progressCircle && progressCircle.parentElement) {
+        progressCircle.remove();
+      }
+      
+      spamInterval = setInterval(() => {
+        if (button.disabled) {
+          stopHold();
+          return;
+        }
+        action();
+      }, 100); // Spam every 100ms
+    }, 1000);
+  };
+  
+  const stopHold = () => {
+    if (holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+    if (spamInterval) {
+      clearInterval(spamInterval);
+      spamInterval = null;
+    }
+    if (progressCircle && progressCircle.parentElement) {
+      progressCircle.remove();
+      progressCircle = null;
+    }
+  };
+  
+  // Attach to unit buttons
+  document.addEventListener('mousedown', (e) => {
+    const button = e.target.closest('.kuf-unit-btn, .kuf-upgrade-btn');
+    if (!button) return;
+    
+    const action = () => {
+      button.click();
+    };
+    startHold(button, action);
+  });
+  
+  document.addEventListener('mouseup', stopHold);
+  document.addEventListener('mouseleave', (e) => {
+    if (e.target.closest('.kuf-unit-btn, .kuf-upgrade-btn')) {
+      stopHold();
+    }
+  });
+  
+  // Touch support
+  document.addEventListener('touchstart', (e) => {
+    const button = e.target.closest('.kuf-unit-btn, .kuf-upgrade-btn');
+    if (!button) return;
+    
+    const action = () => {
+      button.click();
+    };
+    startHold(button, action);
+  }, { passive: true });
+  
+  document.addEventListener('touchend', stopHold, { passive: true });
+  document.addEventListener('touchcancel', stopHold, { passive: true });
 }
 
 function primeLastResult() {
@@ -379,12 +528,13 @@ function primeLastResult() {
 export function initializeKufUI(options = {}) {
   runCompleteCallback = typeof options.onRunComplete === 'function' ? options.onRunComplete : null;
   cacheElements();
-  bindAllocationInputs();
   bindButtons();
+  setupHoldToSpam();
   attachStateListener();
   ensureSimulationInstance();
-  updateAllocationDisplay();
   updateUnitDisplay();
+  updateUpgradeDisplay();
+  updateCodexDisplay();
   primeLastResult();
 }
 
@@ -392,8 +542,9 @@ export function initializeKufUI(options = {}) {
  * Refresh UI readouts from the latest state snapshot.
  */
 export function updateKufDisplay() {
-  updateAllocationDisplay();
   updateUnitDisplay();
+  updateUpgradeDisplay();
+  updateCodexDisplay();
   if (simulation) {
     simulation.resize();
   }
