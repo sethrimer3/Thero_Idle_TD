@@ -555,7 +555,6 @@ export class ParticleFusionSimulation {
    */
   applyRepellingForces(dt) {
     const processedPairs = new Set();
-    const repelRadius = this.nullParticleRadius * 5; // Repelling force acts within 5x null radius
     
     for (const p1 of this.particles) {
       const candidates = this.quadtree.retrieve(p1);
@@ -570,6 +569,11 @@ export class ParticleFusionSimulation {
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Force acts within 3x the radius of the particle
+        // Use the average of both particles' radii for the calculation
+        const avgRadius = (p1.radius + p2.radius) / 2;
+        const repelRadius = avgRadius * 3;
         
         if (dist < repelRadius && dist > 0.001) {
           // Average repelling force between the two particles
@@ -1309,9 +1313,32 @@ export class ParticleFusionSimulation {
         const repellingMultiplier = tierAboveNull - repellingReduction;
         const repellingForce = baseRepelling * repellingMultiplier;
         
+        // Ensure valid position by randomizing if invalid or if canvas not yet sized
+        let x = p.x;
+        let y = p.y;
+        
+        // Check if position is valid (within canvas bounds with margin)
+        const margin = radius * 2;
+        const isValidPosition = 
+          Number.isFinite(x) && Number.isFinite(y) &&
+          Number.isFinite(this.width) && this.width > 0 &&
+          Number.isFinite(this.height) && this.height > 0 &&
+          x >= margin && x <= this.width - margin &&
+          y >= margin && y <= this.height - margin;
+        
+        // If position is invalid, spawn at random location
+        if (!isValidPosition && this.width > 0 && this.height > 0) {
+          const spawnableWidth = this.width - margin * 2;
+          const spawnableHeight = this.height - margin * 2;
+          if (spawnableWidth > 0 && spawnableHeight > 0) {
+            x = margin + Math.random() * spawnableWidth;
+            y = margin + Math.random() * spawnableHeight;
+          }
+        }
+        
         this.particles.push({
-          x: p.x,
-          y: p.y,
+          x,
+          y,
           vx: p.vx,
           vy: p.vy,
           radius,
