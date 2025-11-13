@@ -18,7 +18,6 @@ import {
 
 import { formatGameNumber } from '../scripts/core/formatting.js';
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
-import { GosperCurveSimulation } from '../scripts/features/towers/gosperCurveSimulation.js';
 import { KochSnowflakeSimulation } from '../scripts/features/towers/kochSnowflakeSimulation.js';
 import { FernLSystemSimulation } from '../scripts/features/towers/fernLSystemSimulation.js';
 import { DragonCurveSimulation } from '../scripts/features/towers/dragonCurveSimulation.js';
@@ -44,28 +43,6 @@ const FRACTAL_RENDER_HANDLERS = new Map([
     update: (simulation, fractal, state) => {
       simulation.updateConfig({
         maxDepth: Math.min(fractal.config?.maxDepth || 9, 6 + (state?.layersCompleted || 0)),
-        allocated: state?.allocated || 0
-      });
-    }
-  }],
-  ['gosper', {
-    create: (canvas, fractal, state) => {
-      const simulation = new GosperCurveSimulation({
-        canvas,
-        ...fractal.config,
-        iterations: Math.min(fractal.config?.iterations || 5, 2 + (state?.layersCompleted || 0))
-      });
-      simulation.updateConfig({
-        iterations: Math.min(fractal.config?.iterations || 5, 2 + (state?.layersCompleted || 0)),
-        segmentLength: fractal.config?.segmentLength || 6,
-        allocated: state?.allocated || 0
-      });
-      return simulation;
-    },
-    update: (simulation, fractal, state) => {
-      simulation.updateConfig({
-        iterations: Math.min(fractal.config?.iterations || 5, 2 + (state?.layersCompleted || 0)),
-        segmentLength: fractal.config?.segmentLength || 6,
         allocated: state?.allocated || 0
       });
     }

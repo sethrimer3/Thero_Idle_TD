@@ -4,7 +4,7 @@
 export const UPSILON_TOWER = Object.freeze({
   id: 'upsilon',
   symbol: 'υ',
-  name: 'Upsilon Tower',
+  name: 'Υ υ Tower',
   tier: 20,
   baseCost: 85000000000000,
   damage: 4100,

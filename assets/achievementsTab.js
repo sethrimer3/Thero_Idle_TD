@@ -350,9 +350,12 @@ function presentAchievementCinematic(id) {
   overlayEls.description.textContent = definition.description || '';
   overlayEls.description.hidden = !definition.description;
 
+  const state = achievementState.get(id);
+  const isUnlocked = state?.unlocked;
   const statusText = elements.status?.textContent || '';
   overlayEls.status.textContent = statusText;
-  overlayEls.status.hidden = !statusText;
+  // Hide the status line when achievement is unlocked, keep only the reward line
+  overlayEls.status.hidden = !statusText || isUnlocked;
 
   const rewardFlux = Number.isFinite(definition.rewardFlux) ? definition.rewardFlux : ACHIEVEMENT_REWARD_FLUX;
   overlayEls.reward.textContent = `Reward · +${formatGameNumber(rewardFlux)} Motes/min idle.`;

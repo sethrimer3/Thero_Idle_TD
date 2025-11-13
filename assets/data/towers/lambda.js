@@ -4,7 +4,7 @@
 export const LAMBDA_TOWER = Object.freeze({
   id: 'lambda',
   symbol: 'λ',
-  name: 'Lambda Tower',
+  name: 'Λ λ Tower',
   tier: 11,
   baseCost: 700000000,
   damage: 0,

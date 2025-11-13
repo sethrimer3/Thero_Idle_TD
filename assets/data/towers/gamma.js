@@ -4,7 +4,7 @@
 export const GAMMA_TOWER = Object.freeze({
   id: 'gamma',
   symbol: 'γ',
-  name: 'Gamma Tower',
+  name: 'Γ γ Tower',
   tier: 3,
   baseCost: 1000,
   damage: 72,

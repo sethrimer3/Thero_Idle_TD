@@ -5,11 +5,11 @@ Guideline: As you complete tasks, immediately update their checkbox from [ ] to 
 [ ] = Not done
 [x] = Done
 —
-[ ] - Put in the agents.md documentation that the "currently selected color pallet" is the currently selected color pallet in the codex, and that each color pallet has a gradient that will dictate the color for many different things in the game.
-[ ] - Achievements say both "UNLOCKED " and "REWARD," delete the unlocked line and just have the reward line.
-[ ] - Remove the title of each spire (the text that shows up at the top). For example, remove "Shin Spire — Fractal Complexity" from the top of the Shin spire.
-[ ] - In the Shin spire, delete the Gosper curve fractal.
-[ ] - The icon for the tower tab should be a lowercase alpha, it's an uppercase alpha. Also each tower should have the uppercase Greek letter and the lowercase green letter in its title, currently it just has the uppercase.
+[x] - Put in the agents.md documentation that the "currently selected color pallet" is the currently selected color pallet in the codex, and that each color pallet has a gradient that will dictate the color for many different things in the game.
+[x] - Achievements say both "UNLOCKED " and "REWARD," delete the unlocked line and just have the reward line.
+[x] - Remove the title of each spire (the text that shows up at the top). For example, remove "Shin Spire — Fractal Complexity" from the top of the Shin spire.
+[x] - In the Shin spire, delete the Gosper curve fractal.
+[x] - The icon for the tower tab should be a lowercase alpha, it's an uppercase alpha. Also each tower should have the uppercase Greek letter and the lowercase green letter in its title, currently it just has the uppercase.
 [ ] - Move the mote gem inventory from the bottom of the aleph spire tab to the top of the equipment menu in the tower tab. Call it the "Gem collection" instead of the "Mote gem inventory." Remove the text "Every collected gem resonates below so crafting blueprints can reference their current stock."
 [ ] - Glyphs for all six of the spires should be counted at the top of the towers tab, currently only the Aleph and Bet glyphs are there. Just like with the Aleph Glyph, the total number should be listed and right below it how many are unallocated. The text above just should say "Aleph Glyphs:" Not "Aleph Glyph Total," change that format for all the six glyph types.
 [ ] - Put the "Tower tree map" and "Equipment" buttons below the Variables and Upgrade Matrix buttons. Rename Tower tree map to just "Tree", and Upgrade matrix to just "Matrix".
