@@ -306,6 +306,13 @@ import {
   unlockedLevels,
   levelSetEntries,
 } from './levels.js';
+import {
+  createOverlayHelpers,
+  setElementVisibility,
+  triggerButtonRipple,
+  scrollPanelToElement,
+  enablePanelWheelScroll,
+} from './uiHelpers.js';
 
 (() => {
   'use strict';
@@ -495,85 +502,9 @@ import {
     SHIN_STATE_STORAGE_KEY,
   ].filter(Boolean);
 
-  const overlayHideStates = new WeakMap();
-
-  function cancelOverlayHide(overlay) {
-    if (!overlay) {
-      return;
-    }
-
-    const state = overlayHideStates.get(overlay);
-    if (!state) {
-      return;
-    }
-
-    if (state.transitionHandler) {
-      overlay.removeEventListener('transitionend', state.transitionHandler);
-    }
-
-    if (state.timeoutId !== null && typeof window !== 'undefined') {
-      window.clearTimeout(state.timeoutId);
-    }
-
-    overlayHideStates.delete(overlay);
-  }
-
-  function scheduleOverlayHide(overlay) {
-    if (!overlay) {
-      return;
-    }
-
-    cancelOverlayHide(overlay);
-
-    const finalizeHide = () => {
-      cancelOverlayHide(overlay);
-      overlay.setAttribute('hidden', '');
-    };
-
-    const handleTransitionEnd = (event) => {
-      if (event && event.target !== overlay) {
-        return;
-      }
-      finalizeHide();
-    };
-
-    overlay.addEventListener('transitionend', handleTransitionEnd);
-
-    const timeoutId =
-      typeof window !== 'undefined' ? window.setTimeout(finalizeHide, 320) : null;
-
-    overlayHideStates.set(overlay, {
-      transitionHandler: handleTransitionEnd,
-      timeoutId,
-    });
-  }
-
-  function revealOverlay(overlay) {
-    if (!overlay) {
-      return;
-    }
-
-    cancelOverlayHide(overlay);
-    overlay.removeAttribute('hidden');
-  }
-
-  function setElementVisibility(element, visible) {
-    // Toggle layout fragments while preserving any pre-existing accessibility hints.
-    if (!element) {
-      return;
-    }
-
-    if (visible) {
-      element.classList.remove('is-hidden');
-      element.removeAttribute('hidden');
-      element.removeAttribute('aria-hidden');
-      return;
-    }
-
-    element.classList.add('is-hidden');
-    element.setAttribute('hidden', '');
-    element.setAttribute('aria-hidden', 'true');
-  }
+  // Initialize overlay helpers from uiHelpers module
+  const overlayHelpers = createOverlayHelpers();
+  const { cancelOverlayHide, scheduleOverlayHide, revealOverlay } = overlayHelpers;
 
   function resetPlayfieldMenuLevelSelect() {
     playfieldMenuLevelSelectConfirming = false;
@@ -5114,42 +5045,6 @@ import {
   document.addEventListener('pointerdown', handleGlobalButtonPointerDown);
   document.addEventListener('keydown', handleDocumentKeyDown);
 
-  function triggerButtonRipple(button, event) {
-    if (!button) {
-      return;
-    }
-
-    const rect = button.getBoundingClientRect();
-    const ripple = document.createElement('span');
-    ripple.className = 'button-ripple';
-
-    const maxDimension = Math.max(rect.width, rect.height);
-    const size = maxDimension * 1.6;
-    ripple.style.width = `${size}px`;
-    ripple.style.height = `${size}px`;
-
-    let offsetX = rect.width / 2;
-    let offsetY = rect.height / 2;
-    if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
-      offsetX = event.clientX - rect.left;
-      offsetY = event.clientY - rect.top;
-    }
-
-    ripple.style.left = `${offsetX}px`;
-    ripple.style.top = `${offsetY}px`;
-
-    button.querySelectorAll('.button-ripple').forEach((existing) => existing.remove());
-    button.append(ripple);
-
-    ripple.addEventListener(
-      'animationend',
-      () => {
-        ripple.remove();
-      },
-      { once: true },
-    );
-  }
-
   function areSetNormalLevelsCompleted(levels = []) {
     if (!Array.isArray(levels) || levels.length === 0) {
       return true;
@@ -7464,50 +7359,7 @@ import {
     }
   }
 
-  function enablePanelWheelScroll(panel) {
-    if (!panel || panel.dataset.scrollAssist === 'true') {
-      return;
-    }
 
-    panel.dataset.scrollAssist = 'true';
-    panel.addEventListener(
-      'wheel',
-      (event) => {
-        if (!event || typeof event.deltaY !== 'number') {
-          return;
-        }
-
-        if (isFieldNotesOverlayVisible()) {
-          if (typeof event.preventDefault === 'function') {
-            event.preventDefault();
-          }
-          return;
-        }
-
-        const deltaMode = typeof event.deltaMode === 'number' ? event.deltaMode : 0;
-        let deltaY = event.deltaY;
-
-        if (deltaMode === 1) {
-          const computed = window.getComputedStyle(panel);
-          const lineHeight = parseFloat(computed.lineHeight) || 16;
-          deltaY *= lineHeight;
-        } else if (deltaMode === 2) {
-          deltaY *= panel.clientHeight || window.innerHeight || 600;
-        }
-
-        if (!deltaY) {
-          return;
-        }
-
-        const previous = panel.scrollTop;
-        panel.scrollTop += deltaY;
-        if (panel.scrollTop !== previous) {
-          event.preventDefault();
-        }
-      },
-      { passive: false },
-    );
-  }
 
   function bindLeaveLevelButton() {
     if (!leaveLevelBtn) return;
@@ -8214,32 +8066,7 @@ import {
     }
   }
 
-  function scrollPanelToElement(target, { offset = 16 } = {}) {
-    if (!target) {
-      return;
-    }
 
-    const panel = target.closest('.panel');
-    if (panel) {
-      const panelRect = panel.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      const desiredTop = targetRect.top - panelRect.top + panel.scrollTop - offset;
-      const top = Math.max(0, desiredTop);
-      const scrollOptions = { top, behavior: 'smooth' };
-      try {
-        panel.scrollTo(scrollOptions);
-      } catch (error) {
-        panel.scrollTop = top;
-      }
-      return;
-    }
-
-    try {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (error) {
-      target.scrollIntoView(true);
-    }
-  }
 
   // Field notes overlay logic handled by fieldNotesOverlay.js.
 
@@ -9450,9 +9277,9 @@ import {
     const towerPanel = document.getElementById('panel-tower');
     const towersPanel = document.getElementById('panel-towers');
     const optionsPanel = document.getElementById('panel-options');
-    enablePanelWheelScroll(towerPanel);
-    enablePanelWheelScroll(towersPanel);
-    enablePanelWheelScroll(optionsPanel);
+    enablePanelWheelScroll(towerPanel, isFieldNotesOverlayVisible);
+    enablePanelWheelScroll(towersPanel, isFieldNotesOverlayVisible);
+    enablePanelWheelScroll(optionsPanel, isFieldNotesOverlayVisible);
 
     playfieldElements.container = document.getElementById('playfield');
     playfieldElements.canvas = document.getElementById('playfield-canvas');
