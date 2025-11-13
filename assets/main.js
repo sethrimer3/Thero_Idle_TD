@@ -1818,6 +1818,14 @@ import {
     resourceElements.glyphsAlephUnused = document.getElementById('tower-glyphs-aleph-unused');
     resourceElements.glyphsBetTotal = document.getElementById('tower-glyphs-bet-total');
     resourceElements.glyphsBetUnused = document.getElementById('tower-glyphs-bet-unused');
+    resourceElements.glyphsLamedTotal = document.getElementById('tower-glyphs-lamed-total');
+    resourceElements.glyphsLamedUnused = document.getElementById('tower-glyphs-lamed-unused');
+    resourceElements.glyphsTsadiTotal = document.getElementById('tower-glyphs-tsadi-total');
+    resourceElements.glyphsTsadiUnused = document.getElementById('tower-glyphs-tsadi-unused');
+    resourceElements.glyphsShinTotal = document.getElementById('tower-glyphs-shin-total');
+    resourceElements.glyphsShinUnused = document.getElementById('tower-glyphs-shin-unused');
+    resourceElements.glyphsKufTotal = document.getElementById('tower-glyphs-kuf-total');
+    resourceElements.glyphsKufUnused = document.getElementById('tower-glyphs-kuf-unused');
     resourceElements.tabGlyphBadge = document.getElementById('tab-glyph-badge');
     resourceElements.tabMoteBadge = document.getElementById('tab-mote-badge');
     resourceElements.tabFluidBadge = document.getElementById('tab-fluid-badge');
@@ -1861,6 +1869,63 @@ import {
         resourceElements.glyphsBetUnused.textContent = '';
       }
     }
+    
+    // Lamed glyphs (ל) are earned from the Lamed Spire (spark absorptions)
+    const totalLamedGlyphs = Math.max(0, Math.floor(spireResourceState.lamed?.stats?.totalAbsorptions || 0));
+    const unusedLamedGlyphs = totalLamedGlyphs; // For now, all Lamed glyphs are unallocated
+    if (resourceElements.glyphsLamedTotal) {
+      resourceElements.glyphsLamedTotal.textContent = `${formatWholeNumber(totalLamedGlyphs)} ל`;
+    }
+    if (resourceElements.glyphsLamedUnused) {
+      if (unusedLamedGlyphs > 0) {
+        resourceElements.glyphsLamedUnused.textContent = `${formatWholeNumber(unusedLamedGlyphs)} Unallocated`;
+      } else {
+        resourceElements.glyphsLamedUnused.textContent = '';
+      }
+    }
+    
+    // Tsadi glyphs (צ) are earned from the Tsadi Spire
+    const totalTsadiGlyphs = Math.max(0, Math.floor(spireResourceState.tsadi?.stats?.totalParticles || 0));
+    const unusedTsadiGlyphs = totalTsadiGlyphs; // For now, all Tsadi glyphs are unallocated
+    if (resourceElements.glyphsTsadiTotal) {
+      resourceElements.glyphsTsadiTotal.textContent = `${formatWholeNumber(totalTsadiGlyphs)} צ`;
+    }
+    if (resourceElements.glyphsTsadiUnused) {
+      if (unusedTsadiGlyphs > 0) {
+        resourceElements.glyphsTsadiUnused.textContent = `${formatWholeNumber(unusedTsadiGlyphs)} Unallocated`;
+      } else {
+        resourceElements.glyphsTsadiUnused.textContent = '';
+      }
+    }
+    
+    // Shin glyphs (ש) are earned from the Shin Spire (iterons converted to glyphs)
+    const totalShinGlyphs = Math.max(0, Math.floor(getShinGlyphs()));
+    const unusedShinGlyphs = totalShinGlyphs; // For now, all Shin glyphs are unallocated
+    if (resourceElements.glyphsShinTotal) {
+      resourceElements.glyphsShinTotal.textContent = `${formatWholeNumber(totalShinGlyphs)} ש`;
+    }
+    if (resourceElements.glyphsShinUnused) {
+      if (unusedShinGlyphs > 0) {
+        resourceElements.glyphsShinUnused.textContent = `${formatWholeNumber(unusedShinGlyphs)} Unallocated`;
+      } else {
+        resourceElements.glyphsShinUnused.textContent = '';
+      }
+    }
+    
+    // Kuf glyphs (ק) are earned from the Kuf Spire
+    const totalKufGlyphs = Math.max(0, Math.floor(getKufGlyphs()));
+    const unusedKufGlyphs = totalKufGlyphs; // For now, all Kuf glyphs are unallocated
+    if (resourceElements.glyphsKufTotal) {
+      resourceElements.glyphsKufTotal.textContent = `${formatWholeNumber(totalKufGlyphs)} ק`;
+    }
+    if (resourceElements.glyphsKufUnused) {
+      if (unusedKufGlyphs > 0) {
+        resourceElements.glyphsKufUnused.textContent = `${formatWholeNumber(unusedKufGlyphs)} Unallocated`;
+      } else {
+        resourceElements.glyphsKufUnused.textContent = '';
+      }
+    }
+    
     if (resourceElements.tabGlyphBadge) {
       const tabGlyphLabel = formatWholeNumber(unusedAlephGlyphs);
       resourceElements.tabGlyphBadge.textContent = tabGlyphLabel;
