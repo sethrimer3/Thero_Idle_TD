@@ -269,6 +269,14 @@ import {
   CRAFTING_TIER_STORAGE_KEY,
 } from './crafting.js';
 import {
+  configureDeveloperControls,
+  bindDeveloperControls,
+  syncDeveloperControlValues,
+  updateDeveloperControlsVisibility,
+  setDeveloperIteronBank,
+  setDeveloperIterationRate,
+} from './developerControls.js';
+import {
   configureTabManager,
   getActiveTabId,
   initializeTabs,
@@ -933,19 +941,6 @@ import {
     closePlayfieldMenu();
   }
 
-  const developerControlElements = {
-    container: null,
-    fields: {
-      moteBank: null,
-      moteRate: null,
-      startThero: null,
-      theroMultiplier: null,
-      glyphs: null,
-      betDropRate: null,
-      betDropBank: null,
-    },
-  };
-
   // Developer map element references allow quick toggles for spawning and clearing obstacles.
   const developerMapElements = {
     container: null,
@@ -960,22 +955,6 @@ import {
   };
 
   let developerMapToolsActive = false;
-
-  const developerFieldHandlers = {
-    moteBank: setDeveloperIdleMoteBank,
-    moteRate: setDeveloperIdleMoteRate,
-    startThero: setDeveloperBaseStartThero,
-    theroMultiplier: setDeveloperTheroMultiplier,
-    glyphs: setDeveloperGlyphs,
-    betDropRate: setDeveloperBetDropRate,
-    betDropBank: setDeveloperBetDropBank,
-    iteronBank: setDeveloperIteronBank,
-    iterationRate: setDeveloperIterationRate,
-    lamedBank: setDeveloperLamedBank,
-    lamedRate: setDeveloperLamedRate,
-    tsadiBank: setDeveloperTsadiBank,
-    tsadiRate: setDeveloperTsadiRate,
-  };
 
   let developerModeActive = false;
 
@@ -996,400 +975,6 @@ import {
   let playfieldMenuOpen = false;
   let activeLevelIsInteractive = false;
 
-  function formatDeveloperInteger(value) {
-    if (!Number.isFinite(value)) {
-      return '';
-    }
-    return String(Math.max(0, Math.round(value)));
-  }
-
-  function formatDeveloperFloat(value, precision = 2) {
-    if (!Number.isFinite(value)) {
-      return '';
-    }
-    const normalized = Math.max(0, value);
-    if (Number.isInteger(normalized)) {
-      return String(normalized);
-    }
-    return normalized.toFixed(precision);
-  }
-
-  function recordDeveloperAdjustment(field, value) {
-    if (!developerModeActive) {
-      return;
-    }
-    recordPowderEvent('developer-adjust', { field, value });
-  }
-
-  // Developer preference key for compact basin autosave
-  const COMPACT_BASIN_STORAGE_KEY = 'glyph-defense-idle:compact-basin';
-
-  function readCompactBasinPreference() {
-    try {
-      const raw = window?.localStorage?.getItem(COMPACT_BASIN_STORAGE_KEY);
-      if (raw === null || raw === undefined) return true;
-      return raw === 'true';
-    } catch (e) {
-      return true;
-    }
-  }
-
-  function persistCompactBasinPreference(enabled) {
-    try {
-      window?.localStorage?.setItem(COMPACT_BASIN_STORAGE_KEY, String(!!enabled));
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  // Compact basin autosave is now always enabled per task 24
-  // function wireDeveloperCompactBasinToggle() - REMOVED
-  // The toggle UI and preference reading have been removed
-  // Compact basin autosave is now the only save method
-
-  document.addEventListener('DOMContentLoaded', () => {
-    // wireDeveloperCompactBasinToggle(); - REMOVED per task 24
-    // Always use compact basin autosave per task 24
-    try {
-      if (window.powderSimulation) window.powderSimulation.useCompactAutosave = true;
-      if (window.fluidSimulationInstance) window.fluidSimulationInstance.useCompactAutosave = true;
-    } catch (e) {}
-  });
-
-  function setDeveloperIdleMoteBank(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, Math.floor(value));
-    if (powderSimulation) {
-      powderSimulation.idleBank = normalized;
-    }
-    const origin = powderSimulation
-      ? powderSimulation === fluidSimulationInstance
-        ? 'fluid'
-        : 'sand'
-      : powderState.simulationMode === 'fluid'
-        ? 'fluid'
-        : 'sand';
-    handlePowderIdleBankChange(powderSimulation ? powderSimulation.idleBank : normalized, origin);
-    recordDeveloperAdjustment('idle-mote-bank', normalized);
-    // Developer tweaks should persist so debugging sessions survive reloads.
-    schedulePowderBasinSave();
-    updatePowderDisplay();
-  }
-
-  function setDeveloperIdleMoteRate(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, value);
-    if (powderSimulation) {
-      powderSimulation.idleDrainRate = normalized;
-    }
-    if (
-      powderSimulation === fluidSimulationInstance ||
-      (!powderSimulation && powderState.simulationMode === 'fluid')
-    ) {
-      powderState.fluidIdleDrainRate = normalized;
-    } else {
-      powderState.idleDrainRate = normalized;
-    }
-    recordDeveloperAdjustment('idle-mote-rate', normalized);
-    // Persist idle rate overrides to keep testing scenarios reproducible.
-    schedulePowderBasinSave();
-    updatePowderDisplay();
-  }
-
-  function setDeveloperBaseStartThero(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, value);
-    setBaseStartThero(normalized);
-    recordDeveloperAdjustment('base-start-thero', normalized);
-    updateLevelCards();
-    updatePowderLedger();
-    updateStatusDisplays();
-  }
-
-  function setDeveloperTheroMultiplier(value) {
-    if (value === null || value === undefined) {
-      clearDeveloperTheroMultiplierOverride();
-      recordDeveloperAdjustment('thero-multiplier', 'default');
-      updateLevelCards();
-      updatePowderLedger();
-      updateStatusDisplays();
-      return;
-    }
-
-    if (!Number.isFinite(value)) {
-      return;
-    }
-
-    const normalized = Math.max(0, value);
-    setDeveloperTheroMultiplierOverride(normalized);
-    recordDeveloperAdjustment('thero-multiplier', normalized);
-    updateLevelCards();
-    updatePowderLedger();
-    updateStatusDisplays();
-  }
-
-  function setDeveloperGlyphs(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, Math.floor(value));
-    setGlyphCurrency(normalized);
-    gameStats.enemiesDefeated = normalized;
-    if (gameStats.towersPlaced > normalized) {
-      gameStats.towersPlaced = normalized;
-    }
-    recordDeveloperAdjustment('glyphs', normalized);
-    updateStatusDisplays();
-  }
-
-  function setDeveloperBetDropRate(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, value);
-    // Access fluidSimulationInstance only if it exists (defined later in file)
-    try {
-      if (typeof fluidSimulationInstance !== 'undefined' && fluidSimulationInstance && typeof fluidSimulationInstance.idleDrainRate !== 'undefined') {
-        fluidSimulationInstance.idleDrainRate = normalized;
-      }
-    } catch (e) {
-      // fluidSimulationInstance not yet initialized
-    }
-    recordDeveloperAdjustment('betDropRate', normalized);
-  }
-
-  function setDeveloperBetDropBank(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, Math.floor(value));
-    // Access fluidSimulationInstance only if it exists (defined later in file)
-    try {
-      if (typeof fluidSimulationInstance !== 'undefined' && fluidSimulationInstance && typeof fluidSimulationInstance.idleBank !== 'undefined') {
-        fluidSimulationInstance.idleBank = normalized;
-        if (typeof fluidSimulationInstance.notifyIdleBankChange === 'function') {
-          fluidSimulationInstance.notifyIdleBankChange();
-        }
-      }
-    } catch (e) {
-      // fluidSimulationInstance not yet initialized
-    }
-    recordDeveloperAdjustment('betDropBank', normalized);
-  }
-
-  function setDeveloperIteronBank(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, Math.floor(value));
-    try {
-      // Add the difference between target and current to set the bank to the desired value
-      // This allows the developer control to work correctly even if the bank already has iterons
-      addIterons(normalized - getIteronBank());
-      updateShinDisplay();
-    } catch (e) {
-      console.error('Failed to set iteron bank:', e);
-    }
-    recordDeveloperAdjustment('iteronBank', normalized);
-  }
-
-  function setDeveloperIterationRate(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, value);
-    try {
-      setIterationRate(normalized);
-      updateShinDisplay();
-    } catch (e) {
-      console.error('Failed to set iteration rate:', e);
-    }
-    recordDeveloperAdjustment('iterationRate', normalized);
-  }
-
-  function setDeveloperLamedBank(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, Math.floor(value));
-    try {
-      if (typeof lamedSimulationInstance !== 'undefined' && lamedSimulationInstance && typeof lamedSimulationInstance.sparkBank !== 'undefined') {
-        lamedSimulationInstance.sparkBank = normalized;
-      }
-    } catch (e) {
-      // lamedSimulationInstance not yet initialized
-    }
-    recordDeveloperAdjustment('lamedBank', normalized);
-  }
-
-  function setDeveloperLamedRate(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, value);
-    try {
-      if (typeof lamedSimulationInstance !== 'undefined' && lamedSimulationInstance && typeof lamedSimulationInstance.sparkSpawnRate !== 'undefined') {
-        lamedSimulationInstance.sparkSpawnRate = normalized;
-      }
-    } catch (e) {
-      // lamedSimulationInstance not yet initialized
-    }
-    recordDeveloperAdjustment('lamedRate', normalized);
-  }
-
-  function setDeveloperTsadiBank(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, Math.floor(value));
-    try {
-      if (typeof tsadiSimulationInstance !== 'undefined' && tsadiSimulationInstance && typeof tsadiSimulationInstance.particleBank !== 'undefined') {
-        tsadiSimulationInstance.particleBank = normalized;
-      }
-    } catch (e) {
-      // tsadiSimulationInstance not yet initialized
-    }
-    recordDeveloperAdjustment('tsadiBank', normalized);
-  }
-
-  function setDeveloperTsadiRate(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, value);
-    try {
-      if (typeof tsadiSimulationInstance !== 'undefined' && tsadiSimulationInstance && typeof tsadiSimulationInstance.spawnRate !== 'undefined') {
-        tsadiSimulationInstance.spawnRate = normalized;
-      }
-    } catch (e) {
-      // tsadiSimulationInstance not yet initialized
-    }
-    recordDeveloperAdjustment('tsadiRate', normalized);
-  }
-
-  function syncDeveloperControlValues() {
-    const { fields } = developerControlElements;
-    if (!fields) {
-      return;
-    }
-    if (fields.moteBank) {
-      fields.moteBank.value = formatDeveloperInteger(getCurrentIdleMoteBank());
-    }
-    if (fields.moteRate) {
-      fields.moteRate.value = formatDeveloperFloat(getCurrentMoteDispenseRate());
-    }
-    if (fields.startThero) {
-      fields.startThero.value = formatDeveloperInteger(getBaseStartThero());
-    }
-    if (fields.theroMultiplier) {
-      const override = getDeveloperTheroMultiplierOverride();
-      const baseMultiplier = getBaseStartingTheroMultiplier();
-      fields.theroMultiplier.placeholder = formatDeveloperFloat(baseMultiplier, 2);
-      fields.theroMultiplier.value = Number.isFinite(override) && override >= 0
-        ? formatDeveloperFloat(override, 2)
-        : '';
-    }
-    if (fields.glyphs) {
-      fields.glyphs.value = formatDeveloperInteger(getGlyphCurrency());
-    }
-    try {
-      if (fields.betDropRate && typeof fluidSimulationInstance !== 'undefined' && fluidSimulationInstance) {
-        fields.betDropRate.value = formatDeveloperFloat(fluidSimulationInstance.idleDrainRate || 0, 2);
-      }
-      if (fields.betDropBank && typeof fluidSimulationInstance !== 'undefined' && fluidSimulationInstance) {
-        fields.betDropBank.value = formatDeveloperInteger(fluidSimulationInstance.idleBank || 0);
-      }
-    } catch (e) {
-      // fluidSimulationInstance not yet initialized
-    }
-  }
-
-  function updateDeveloperControlsVisibility() {
-    const active = developerModeActive;
-    const { container, fields } = developerControlElements;
-    if (container) {
-      container.hidden = !active;
-      container.setAttribute('aria-hidden', active ? 'false' : 'true');
-    }
-    if (fields) {
-      Object.values(fields).forEach((input) => {
-        if (input) {
-          input.disabled = !active;
-        }
-      });
-    }
-    if (active) {
-      syncDeveloperControlValues();
-    }
-    updateDeveloperMapElementsVisibility();
-  }
-
-  function handleDeveloperFieldCommit(event) {
-    const input = event?.target;
-    if (!input || !(input instanceof HTMLInputElement)) {
-      return;
-    }
-    const field = input.dataset?.developerField;
-    if (!field) {
-      return;
-    }
-    if (!developerModeActive) {
-      syncDeveloperControlValues();
-      return;
-    }
-
-    const handler = developerFieldHandlers[field];
-    if (!handler) {
-      return;
-    }
-
-    const rawValue = typeof input.value === 'string' ? input.value.trim() : '';
-    if (rawValue === '') {
-      handler(null);
-      syncDeveloperControlValues();
-      return;
-    }
-
-    const parsed = Number.parseFloat(rawValue);
-    if (!Number.isFinite(parsed)) {
-      syncDeveloperControlValues();
-      return;
-    }
-
-    handler(parsed);
-    syncDeveloperControlValues();
-  }
-
-  function bindDeveloperControls() {
-    developerControlElements.container = document.getElementById('developer-control-panel');
-    const inputs = document.querySelectorAll('[data-developer-field]');
-
-    inputs.forEach((input) => {
-      const field = input.dataset.developerField;
-      if (!field) {
-        return;
-      }
-      developerControlElements.fields[field] = input;
-      input.disabled = true;
-      input.addEventListener('change', handleDeveloperFieldCommit);
-      input.addEventListener('blur', handleDeveloperFieldCommit);
-      input.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          handleDeveloperFieldCommit(event);
-        }
-      });
-    });
-
-    syncDeveloperControlValues();
-    updateDeveloperControlsVisibility();
-  }
 
   const playfieldElements = {
     container: null,
@@ -1876,6 +1461,53 @@ import {
     initialLoadRestored: false,
     fluidInitialLoadRestored: false,
   };
+
+  // Provide the developer controls module with runtime state references.
+  configureDeveloperControls({
+    isDeveloperModeActive: () => developerModeActive,
+    recordPowderEvent,
+    getPowderSimulation: () => powderSimulation,
+    getFluidSimulation: () => fluidSimulationInstance,
+    getLamedSimulation: () => lamedSimulationInstance,
+    getTsadiSimulation: () => tsadiSimulationInstance,
+    powderState,
+    handlePowderIdleBankChange,
+    schedulePowderBasinSave,
+    updatePowderDisplay,
+    setBaseStartThero,
+    updateLevelCards,
+    updatePowderLedger,
+    updateStatusDisplays,
+    setDeveloperTheroMultiplierOverride,
+    clearDeveloperTheroMultiplierOverride,
+    getDeveloperTheroMultiplierOverride,
+    getBaseStartingTheroMultiplier,
+    getBaseStartThero,
+    getGlyphCurrency,
+    setGlyphCurrency,
+    gameStats,
+    addIterons,
+    getIteronBank,
+    setIterationRate,
+    updateShinDisplay,
+    updateDeveloperMapElementsVisibility,
+    getCurrentIdleMoteBank,
+    getCurrentMoteDispenseRate,
+  });
+
+  // Ensure compact autosave remains the active basin persistence strategy.
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      if (window.powderSimulation) {
+        window.powderSimulation.useCompactAutosave = true;
+      }
+      if (window.fluidSimulationInstance) {
+        window.fluidSimulationInstance.useCompactAutosave = true;
+      }
+    } catch (error) {
+      // Ignore assignment failures caused by missing window globals during SSR/tests.
+    }
+  });
 
   // Track idle reserves for advanced spires so their banks persist outside of active simulations.
   const spireResourceState = {
