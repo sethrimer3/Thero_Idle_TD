@@ -600,7 +600,9 @@ export class KufBattlefieldSimulation {
       if (turret.isBarracks) {
         turret.spawnTimer -= delta;
         if (turret.spawnTimer <= 0 && turret.currentSpawns < turret.maxSpawns) {
-          const nearbyMarine = this.findClosestMarine(turret.x, turret.y, turret.spawnRange);
+          // Check if barracks is under attack or if any marines are nearby
+          const isUnderAttack = turret.health < turret.maxHealth;
+          const nearbyMarine = this.findClosestMarine(turret.x, turret.y, isUnderAttack ? Infinity : turret.spawnRange);
           if (nearbyMarine) {
             // Spawn a unit near the barracks
             const angle = Math.random() * Math.PI * 2;
@@ -615,9 +617,9 @@ export class KufBattlefieldSimulation {
         return;
       }
 
-      // Handle mobile units
+      // Handle mobile units - always pursue closest marine
       if (turret.isMobile) {
-        const nearbyMarine = this.findClosestMarine(turret.x, turret.y, turret.sightRange);
+        const nearbyMarine = this.findClosestMarine(turret.x, turret.y, Infinity);
         if (nearbyMarine) {
           // Move toward the marine if out of attack range
           const dx = nearbyMarine.x - turret.x;
@@ -918,7 +920,6 @@ export class KufBattlefieldSimulation {
     ctx.scale(this.camera.zoom, this.camera.zoom);
     ctx.translate(-this.bounds.width / 2 - this.camera.x, -this.bounds.height / 2 - this.camera.y);
     
-    this.drawBase();
     this.drawTurrets();
     this.drawMarines();
     this.drawBullets();
@@ -933,23 +934,7 @@ export class KufBattlefieldSimulation {
     this.drawHud();
   }
 
-  drawBase() {
-    const ctx = this.ctx;
-    const gradient = ctx.createLinearGradient(0, 0, 0, 120);
-    gradient.addColorStop(0, 'rgba(120, 150, 255, 0.4)');
-    gradient.addColorStop(1, 'rgba(30, 40, 90, 0)');
-    ctx.save();
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, this.bounds.width, 120);
-    ctx.strokeStyle = 'rgba(120, 200, 255, 0.35)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([8, 6]);
-    ctx.beginPath();
-    ctx.moveTo(0, 110);
-    ctx.lineTo(this.bounds.width, 110);
-    ctx.stroke();
-    ctx.restore();
-  }
+
 
   drawMarines() {
     const ctx = this.ctx;
