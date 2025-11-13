@@ -4,7 +4,7 @@
 export const THETA_TOWER = Object.freeze({
   id: 'theta',
   symbol: 'θ',
-  name: 'Theta Tower',
+  name: 'Θ θ Tower',
   tier: 8,
   baseCost: 4000000,
   damage: 132,

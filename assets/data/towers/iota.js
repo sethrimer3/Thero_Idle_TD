@@ -4,7 +4,7 @@
 export const IOTA_TOWER = Object.freeze({
   id: 'iota',
   symbol: 'ι',
-  name: 'Iota Tower',
+  name: 'Ι ι Tower',
   tier: 9,
   baseCost: 60000000,
   damage: 240,

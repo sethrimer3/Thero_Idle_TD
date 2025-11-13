@@ -4,7 +4,7 @@
 export const RHO_TOWER = Object.freeze({
   id: 'rho',
   symbol: 'ρ',
-  name: 'Rho Tower',
+  name: 'Ρ ρ Tower',
   tier: 17,
   baseCost: 2500000000000,
   damage: 2300,

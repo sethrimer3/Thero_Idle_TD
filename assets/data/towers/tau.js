@@ -4,7 +4,7 @@
 export const TAU_TOWER = Object.freeze({
   id: 'tau',
   symbol: 'τ',
-  name: 'Tau Tower',
+  name: 'Τ τ Tower',
   tier: 19,
   baseCost: 26000000000000,
   damage: 3400,

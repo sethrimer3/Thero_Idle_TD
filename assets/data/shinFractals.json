@@ -17,18 +17,7 @@
         "renderStyle": "bezier"
       }
     },
-    {
-      "id": "gosper-curve",
-      "name": "Gosper Curve",
-      "description": "A honeycomb fractal that blooms from a single glyph.",
-      "unlockCost": 25,
-      "layerThresholds": [1, 3, 6, 12, 24, 48, 96, 192, 384],
-      "renderType": "gosper",
-      "config": {
-        "iterations": 7,
-        "segmentLength": 6
-      }
-    },
+
     {
       "id": "koch-snowflake",
       "name": "Koch Snowflake",
