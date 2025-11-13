@@ -472,6 +472,7 @@ import {
   const DEVELOPER_RESET_CONFIRM_LABEL = 'Are you sure?';
   const DEVELOPER_RESET_CONFIRM_WINDOW_MS = 5000;
   const DEVELOPER_RESET_RELOAD_DELAY_MS = 900;
+  const DEVELOPER_MODE_STORAGE_KEY = 'glyph-defense-idle:developer-mode';
 
   const developerResetState = {
     confirming: false,
@@ -7624,12 +7625,30 @@ import {
     updateShinDisplay();
 
     updatePowderHitboxVisibility();
+    
+    // Persist developer mode state
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, 'true');
+      } catch (error) {
+        console.warn('Failed to persist developer mode state.', error);
+      }
+    }
   }
 
   function disableDeveloperMode() {
     developerModeActive = false;
     if (developerModeElements.toggle && developerModeElements.toggle.checked) {
       developerModeElements.toggle.checked = false;
+    }
+    
+    // Persist developer mode state
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, 'false');
+      } catch (error) {
+        console.warn('Failed to persist developer mode state.', error);
+      }
     }
 
     deactivateDeveloperMapTools({ force: true, silent: true });
@@ -7856,6 +7875,16 @@ import {
       console.warn('Autosave loop did not stop cleanly before deleting player data.', error);
     }
 
+    // Save the current developer mode state before clearing storage
+    const developerModeWasEnabled = developerModeActive || (developerModeElements.toggle && developerModeElements.toggle.checked);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, developerModeWasEnabled ? 'true' : 'false');
+      } catch (error) {
+        console.warn('Failed to preserve developer mode state.', error);
+      }
+    }
+
     let encounteredError = false;
     const storageCleared = clearPersistentStorageKeys();
     if (!storageCleared) {
@@ -7962,9 +7991,23 @@ import {
       }
     });
     
-    // Enable developer mode by default
-    developerModeElements.toggle.checked = true;
-    enableDeveloperMode();
+    // Restore developer mode state from localStorage, or enable by default
+    let shouldEnableDeveloperMode = true; // Default to enabled
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const savedState = window.localStorage.getItem(DEVELOPER_MODE_STORAGE_KEY);
+        if (savedState !== null) {
+          shouldEnableDeveloperMode = savedState === 'true';
+        }
+      } catch (error) {
+        console.warn('Failed to restore developer mode state.', error);
+      }
+    }
+    
+    developerModeElements.toggle.checked = shouldEnableDeveloperMode;
+    if (shouldEnableDeveloperMode) {
+      enableDeveloperMode();
+    }
   }
 
   function scrollPanelToElement(target, { offset = 16 } = {}) {
