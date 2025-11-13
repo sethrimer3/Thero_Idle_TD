@@ -420,6 +420,28 @@
           </div>
           <div class="tower-panel-controls" id="tower-panel-controls">
             <button
+              class="tower-panel-button tower-panel-button--variables"
+              type="button"
+              id="tower-variable-library"
+              aria-haspopup="dialog"
+              aria-controls="variable-library-overlay"
+              aria-expanded="false"
+            >
+              <span class="tower-panel-button-icon" aria-hidden="true">Var</span>
+              <span class="tower-panel-button-label">Variables</span>
+            </button>
+            <button
+              class="tower-panel-button tower-panel-button--matrix"
+              type="button"
+              data-upgrade-matrix-trigger
+              aria-haspopup="dialog"
+              aria-controls="upgrade-matrix-overlay"
+              aria-expanded="false"
+            >
+              <span class="tower-panel-button-icon" aria-hidden="true">⧉</span>
+              <span class="tower-panel-button-label">Matrix</span>
+            </button>
+            <button
               class="tower-panel-button tower-tree-map-button"
               type="button"
               id="tower-tree-map-toggle"
@@ -451,29 +473,7 @@
                   </g>
                 </svg>
               </span>
-              <span class="tower-tree-map-label tower-panel-button-label">Tower Tree Map</span>
-            </button>
-            <button
-              class="tower-panel-button tower-panel-button--variables"
-              type="button"
-              id="tower-variable-library"
-              aria-haspopup="dialog"
-              aria-controls="variable-library-overlay"
-              aria-expanded="false"
-            >
-              <span class="tower-panel-button-icon" aria-hidden="true">Var</span>
-              <span class="tower-panel-button-label">Variables</span>
-            </button>
-            <button
-              class="tower-panel-button tower-panel-button--matrix"
-              type="button"
-              data-upgrade-matrix-trigger
-              aria-haspopup="dialog"
-              aria-controls="upgrade-matrix-overlay"
-              aria-expanded="false"
-            >
-              <span class="tower-panel-button-icon" aria-hidden="true">⧉</span>
-              <span class="tower-panel-button-label">Upgrade Matrix</span>
+              <span class="tower-tree-map-label tower-panel-button-label">Tree</span>
             </button>
             <button
               class="tower-panel-button tower-panel-button--equipment"
