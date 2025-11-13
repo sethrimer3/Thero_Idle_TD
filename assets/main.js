@@ -6443,13 +6443,32 @@ import {
     const viewBoxWidth = 1200;
     const viewBoxHeight = 720;
     const margin = 90;
+    
+    // If in landscape orientation, rotate points 90° counter-clockwise to match playfield rotation
+    // This ensures level previews match the rotated playfield on desktop landscape layouts
+    const shouldRotate = preferredOrientation === 'landscape';
+    const transformPoint = (point) => {
+      const normalized = {
+        x: clampNormalizedCoordinate(point.x),
+        y: clampNormalizedCoordinate(point.y),
+      };
+      if (shouldRotate) {
+        // Rotate 90° counter-clockwise: (x, y) -> (y, 1-x)
+        return {
+          x: normalized.y,
+          y: 1 - normalized.x,
+        };
+      }
+      return normalized;
+    };
+    
     const scalePoint = (point) => ({
-      x: margin + clampNormalizedCoordinate(point.x) * (viewBoxWidth - margin * 2),
-      y: margin + clampNormalizedCoordinate(point.y) * (viewBoxHeight - margin * 2),
+      x: margin + point.x * (viewBoxWidth - margin * 2),
+      y: margin + point.y * (viewBoxHeight - margin * 2),
     });
 
     const scaledPoints = points.map((point) =>
-      scalePoint({ x: point?.x ?? 0.5, y: point?.y ?? 0.5 }),
+      scalePoint(transformPoint({ x: point?.x ?? 0.5, y: point?.y ?? 0.5 })),
     );
     const pathData = scaledPoints
       .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
@@ -6581,7 +6600,7 @@ import {
     if (anchorsList.length) {
       const anchorGroup = document.createElementNS(SVG_NS, 'g');
       anchorsList.forEach((anchor) => {
-        const scaled = scalePoint({ x: anchor?.x ?? 0.5, y: anchor?.y ?? 0.5 });
+        const scaled = scalePoint(transformPoint({ x: anchor?.x ?? 0.5, y: anchor?.y ?? 0.5 }));
         const outer = document.createElementNS(SVG_NS, 'circle');
         outer.setAttribute('cx', scaled.x);
         outer.setAttribute('cy', scaled.y);
