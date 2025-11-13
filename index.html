@@ -408,17 +408,59 @@
           <!-- Present tower resource summaries near the top of the Towers tab. -->
           <div class="tower-glyph-summary" id="tower-glyph-summary" aria-live="polite">
             <div class="tower-glyph-item">
-              <span class="tower-glyph-label">Aleph Glyph Total</span>
+              <span class="tower-glyph-label">Aleph Glyphs:</span>
               <span class="tower-glyph-value" id="tower-glyphs-aleph-total">0 ℵ</span>
               <span class="tower-glyph-unallocated" id="tower-glyphs-aleph-unused"></span>
             </div>
             <div class="tower-glyph-item">
-              <span class="tower-glyph-label">Bet Glyph Total</span>
+              <span class="tower-glyph-label">Bet Glyphs:</span>
               <span class="tower-glyph-value" id="tower-glyphs-bet-total">0 בּ</span>
               <span class="tower-glyph-unallocated" id="tower-glyphs-bet-unused"></span>
             </div>
+            <div class="tower-glyph-item">
+              <span class="tower-glyph-label">Lamed Glyphs:</span>
+              <span class="tower-glyph-value" id="tower-glyphs-lamed-total">0 ל</span>
+              <span class="tower-glyph-unallocated" id="tower-glyphs-lamed-unused"></span>
+            </div>
+            <div class="tower-glyph-item">
+              <span class="tower-glyph-label">Tsadi Glyphs:</span>
+              <span class="tower-glyph-value" id="tower-glyphs-tsadi-total">0 צ</span>
+              <span class="tower-glyph-unallocated" id="tower-glyphs-tsadi-unused"></span>
+            </div>
+            <div class="tower-glyph-item">
+              <span class="tower-glyph-label">Shin Glyphs:</span>
+              <span class="tower-glyph-value" id="tower-glyphs-shin-total">0 ש</span>
+              <span class="tower-glyph-unallocated" id="tower-glyphs-shin-unused"></span>
+            </div>
+            <div class="tower-glyph-item">
+              <span class="tower-glyph-label">Kuf Glyphs:</span>
+              <span class="tower-glyph-value" id="tower-glyphs-kuf-total">0 ק</span>
+              <span class="tower-glyph-unallocated" id="tower-glyphs-kuf-unused"></span>
+            </div>
           </div>
           <div class="tower-panel-controls" id="tower-panel-controls">
+            <button
+              class="tower-panel-button tower-panel-button--variables"
+              type="button"
+              id="tower-variable-library"
+              aria-haspopup="dialog"
+              aria-controls="variable-library-overlay"
+              aria-expanded="false"
+            >
+              <span class="tower-panel-button-icon" aria-hidden="true">Var</span>
+              <span class="tower-panel-button-label">Variables</span>
+            </button>
+            <button
+              class="tower-panel-button tower-panel-button--matrix"
+              type="button"
+              data-upgrade-matrix-trigger
+              aria-haspopup="dialog"
+              aria-controls="upgrade-matrix-overlay"
+              aria-expanded="false"
+            >
+              <span class="tower-panel-button-icon" aria-hidden="true">⧉</span>
+              <span class="tower-panel-button-label">Matrix</span>
+            </button>
             <button
               class="tower-panel-button tower-tree-map-button"
               type="button"
@@ -451,29 +493,7 @@
                   </g>
                 </svg>
               </span>
-              <span class="tower-tree-map-label tower-panel-button-label">Tower Tree Map</span>
-            </button>
-            <button
-              class="tower-panel-button tower-panel-button--variables"
-              type="button"
-              id="tower-variable-library"
-              aria-haspopup="dialog"
-              aria-controls="variable-library-overlay"
-              aria-expanded="false"
-            >
-              <span class="tower-panel-button-icon" aria-hidden="true">Var</span>
-              <span class="tower-panel-button-label">Variables</span>
-            </button>
-            <button
-              class="tower-panel-button tower-panel-button--matrix"
-              type="button"
-              data-upgrade-matrix-trigger
-              aria-haspopup="dialog"
-              aria-controls="upgrade-matrix-overlay"
-              aria-expanded="false"
-            >
-              <span class="tower-panel-button-icon" aria-hidden="true">⧉</span>
-              <span class="tower-panel-button-label">Upgrade Matrix</span>
+              <span class="tower-tree-map-label tower-panel-button-label">Tree</span>
             </button>
             <button
               class="tower-panel-button tower-panel-button--equipment"
@@ -1337,16 +1357,6 @@
               </ul>
             </article>
           </section>
-
-          <!-- Display the player's mote gem inventory and provide a portal into the crafting overlay. -->
-          <article class="card powder-gem-inventory-card">
-            <h3>Mote Gem Inventory</h3>
-            <p class="powder-footnote">
-              Every collected gem resonates below so crafting blueprints can reference their current stock.
-            </p>
-            <ul class="powder-gem-inventory" id="powder-gem-inventory" aria-live="polite"></ul>
-            <p class="powder-gem-inventory-empty" id="powder-gem-empty">No mote gems catalogued yet.</p>
-          </article>
         </section>
 
         <section
@@ -2756,6 +2766,12 @@
           Forge amplifiers and pylons by channeling mote gems into latent tower schematics. Recipes below are
           prototypes awaiting balance.
         </p>
+        <!-- Display the player's mote gem collection at the top of the equipment menu. -->
+        <article class="card powder-gem-inventory-card">
+          <h3>Gem collection</h3>
+          <ul class="powder-gem-inventory" id="powder-gem-inventory" aria-live="polite"></ul>
+          <p class="powder-gem-inventory-empty" id="powder-gem-empty">No mote gems catalogued yet.</p>
+        </article>
         <section
           class="crafted-equipment-section"
           id="crafted-equipment-section"

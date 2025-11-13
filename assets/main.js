@@ -472,6 +472,7 @@ import {
   const DEVELOPER_RESET_CONFIRM_LABEL = 'Are you sure?';
   const DEVELOPER_RESET_CONFIRM_WINDOW_MS = 5000;
   const DEVELOPER_RESET_RELOAD_DELAY_MS = 900;
+  const DEVELOPER_MODE_STORAGE_KEY = 'glyph-defense-idle:developer-mode';
 
   const developerResetState = {
     confirming: false,
@@ -1817,6 +1818,14 @@ import {
     resourceElements.glyphsAlephUnused = document.getElementById('tower-glyphs-aleph-unused');
     resourceElements.glyphsBetTotal = document.getElementById('tower-glyphs-bet-total');
     resourceElements.glyphsBetUnused = document.getElementById('tower-glyphs-bet-unused');
+    resourceElements.glyphsLamedTotal = document.getElementById('tower-glyphs-lamed-total');
+    resourceElements.glyphsLamedUnused = document.getElementById('tower-glyphs-lamed-unused');
+    resourceElements.glyphsTsadiTotal = document.getElementById('tower-glyphs-tsadi-total');
+    resourceElements.glyphsTsadiUnused = document.getElementById('tower-glyphs-tsadi-unused');
+    resourceElements.glyphsShinTotal = document.getElementById('tower-glyphs-shin-total');
+    resourceElements.glyphsShinUnused = document.getElementById('tower-glyphs-shin-unused');
+    resourceElements.glyphsKufTotal = document.getElementById('tower-glyphs-kuf-total');
+    resourceElements.glyphsKufUnused = document.getElementById('tower-glyphs-kuf-unused');
     resourceElements.tabGlyphBadge = document.getElementById('tab-glyph-badge');
     resourceElements.tabMoteBadge = document.getElementById('tab-mote-badge');
     resourceElements.tabFluidBadge = document.getElementById('tab-fluid-badge');
@@ -1860,6 +1869,63 @@ import {
         resourceElements.glyphsBetUnused.textContent = '';
       }
     }
+    
+    // Lamed glyphs (ל) are earned from the Lamed Spire (spark absorptions)
+    const totalLamedGlyphs = Math.max(0, Math.floor(spireResourceState.lamed?.stats?.totalAbsorptions || 0));
+    const unusedLamedGlyphs = totalLamedGlyphs; // For now, all Lamed glyphs are unallocated
+    if (resourceElements.glyphsLamedTotal) {
+      resourceElements.glyphsLamedTotal.textContent = `${formatWholeNumber(totalLamedGlyphs)} ל`;
+    }
+    if (resourceElements.glyphsLamedUnused) {
+      if (unusedLamedGlyphs > 0) {
+        resourceElements.glyphsLamedUnused.textContent = `${formatWholeNumber(unusedLamedGlyphs)} Unallocated`;
+      } else {
+        resourceElements.glyphsLamedUnused.textContent = '';
+      }
+    }
+    
+    // Tsadi glyphs (צ) are earned from the Tsadi Spire
+    const totalTsadiGlyphs = Math.max(0, Math.floor(spireResourceState.tsadi?.stats?.totalParticles || 0));
+    const unusedTsadiGlyphs = totalTsadiGlyphs; // For now, all Tsadi glyphs are unallocated
+    if (resourceElements.glyphsTsadiTotal) {
+      resourceElements.glyphsTsadiTotal.textContent = `${formatWholeNumber(totalTsadiGlyphs)} צ`;
+    }
+    if (resourceElements.glyphsTsadiUnused) {
+      if (unusedTsadiGlyphs > 0) {
+        resourceElements.glyphsTsadiUnused.textContent = `${formatWholeNumber(unusedTsadiGlyphs)} Unallocated`;
+      } else {
+        resourceElements.glyphsTsadiUnused.textContent = '';
+      }
+    }
+    
+    // Shin glyphs (ש) are earned from the Shin Spire (iterons converted to glyphs)
+    const totalShinGlyphs = Math.max(0, Math.floor(getShinGlyphs()));
+    const unusedShinGlyphs = totalShinGlyphs; // For now, all Shin glyphs are unallocated
+    if (resourceElements.glyphsShinTotal) {
+      resourceElements.glyphsShinTotal.textContent = `${formatWholeNumber(totalShinGlyphs)} ש`;
+    }
+    if (resourceElements.glyphsShinUnused) {
+      if (unusedShinGlyphs > 0) {
+        resourceElements.glyphsShinUnused.textContent = `${formatWholeNumber(unusedShinGlyphs)} Unallocated`;
+      } else {
+        resourceElements.glyphsShinUnused.textContent = '';
+      }
+    }
+    
+    // Kuf glyphs (ק) are earned from the Kuf Spire
+    const totalKufGlyphs = Math.max(0, Math.floor(getKufGlyphs()));
+    const unusedKufGlyphs = totalKufGlyphs; // For now, all Kuf glyphs are unallocated
+    if (resourceElements.glyphsKufTotal) {
+      resourceElements.glyphsKufTotal.textContent = `${formatWholeNumber(totalKufGlyphs)} ק`;
+    }
+    if (resourceElements.glyphsKufUnused) {
+      if (unusedKufGlyphs > 0) {
+        resourceElements.glyphsKufUnused.textContent = `${formatWholeNumber(unusedKufGlyphs)} Unallocated`;
+      } else {
+        resourceElements.glyphsKufUnused.textContent = '';
+      }
+    }
+    
     if (resourceElements.tabGlyphBadge) {
       const tabGlyphLabel = formatWholeNumber(unusedAlephGlyphs);
       resourceElements.tabGlyphBadge.textContent = tabGlyphLabel;
@@ -7624,12 +7690,30 @@ import {
     updateShinDisplay();
 
     updatePowderHitboxVisibility();
+    
+    // Persist developer mode state
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, 'true');
+      } catch (error) {
+        console.warn('Failed to persist developer mode state.', error);
+      }
+    }
   }
 
   function disableDeveloperMode() {
     developerModeActive = false;
     if (developerModeElements.toggle && developerModeElements.toggle.checked) {
       developerModeElements.toggle.checked = false;
+    }
+    
+    // Persist developer mode state
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, 'false');
+      } catch (error) {
+        console.warn('Failed to persist developer mode state.', error);
+      }
     }
 
     deactivateDeveloperMapTools({ force: true, silent: true });
@@ -7856,6 +7940,16 @@ import {
       console.warn('Autosave loop did not stop cleanly before deleting player data.', error);
     }
 
+    // Save the current developer mode state before clearing storage
+    const developerModeWasEnabled = developerModeActive || (developerModeElements.toggle && developerModeElements.toggle.checked);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, developerModeWasEnabled ? 'true' : 'false');
+      } catch (error) {
+        console.warn('Failed to preserve developer mode state.', error);
+      }
+    }
+
     let encounteredError = false;
     const storageCleared = clearPersistentStorageKeys();
     if (!storageCleared) {
@@ -7962,9 +8056,23 @@ import {
       }
     });
     
-    // Enable developer mode by default
-    developerModeElements.toggle.checked = true;
-    enableDeveloperMode();
+    // Restore developer mode state from localStorage, or enable by default
+    let shouldEnableDeveloperMode = true; // Default to enabled
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const savedState = window.localStorage.getItem(DEVELOPER_MODE_STORAGE_KEY);
+        if (savedState !== null) {
+          shouldEnableDeveloperMode = savedState === 'true';
+        }
+      } catch (error) {
+        console.warn('Failed to restore developer mode state.', error);
+      }
+    }
+    
+    developerModeElements.toggle.checked = shouldEnableDeveloperMode;
+    if (shouldEnableDeveloperMode) {
+      enableDeveloperMode();
+    }
   }
 
   function scrollPanelToElement(target, { offset = 16 } = {}) {
