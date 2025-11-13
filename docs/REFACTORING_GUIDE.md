@@ -92,6 +92,28 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Music routing logic now co-located with slider bindings, reducing shared state in `main.js`
 - Tab changes and overlay events still call into the same helpers, but the file sheds another tight cluster of stateful functions
 
+### playfieldOutcome.js (victory/defeat overlay wiring)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `configurePlayfieldOutcome()` - Dependency injection setup for overlay callbacks and focus handling
+- `setPlayfieldOutcomeElements()` - Registers DOM nodes for the outcome overlay once per boot
+- `showPlayfieldOutcome()` / `hidePlayfieldOutcome()` - Presentation helpers with focus restoration logic
+- `bindPlayfieldOutcomeEvents()` - Attaches overlay event listeners exactly once
+- `exitToLevelSelectionFromOutcome()` - Leaves the active level when the primary action fires
+- `handleOutcomeRetryRequest()` - Retries endless checkpoints and disables the retry button when unavailable
+
+**Integration approach:**
+- Outcome helpers live in a dedicated module with injected getters for the playfield instance and layout visibility toggle
+- Main.js passes dependencies via `configurePlayfieldOutcome()` so hoisted functions remain callable without circular imports
+- DOM queries funnel through `setPlayfieldOutcomeElements()` inside the existing initialization block
+
+**Result:**
+- Victory/defeat overlay logic is isolated from the main orchestrator, reducing shared mutable state
+- Focus restoration and retry flows are encapsulated, making future overlay adjustments safer
+- main.js drops another concentrated set of UI helpers while retaining identical behavior
+
 ## Refactoring Strategy
 
 ### Key Challenges
