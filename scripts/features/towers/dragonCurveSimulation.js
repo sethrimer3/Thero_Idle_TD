@@ -6,6 +6,8 @@
  *   S_{n+1} = S_n ⊕ [1] ⊕ invert(reverse(S_n))
  * where 1 denotes a left turn (+90°) and -1 denotes a right turn (-90°).
  */
+import { addPanZoomToFractal } from './fractalPanZoom.js';
+
 export class DragonCurveSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
@@ -122,6 +124,7 @@ export class DragonCurveSimulation {
     const ctx = this.ctx;
     ctx.fillStyle = this.bgColor;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.applyPanZoomTransform();
 
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -167,6 +170,7 @@ export class DragonCurveSimulation {
       ctx.lineTo(offsetX + (px - this.bounds.minX) * scale, offsetY + (py - this.bounds.minY) * scale);
       ctx.stroke();
     }
+    this.restorePanZoomTransform();
   }
 
   /**
@@ -209,3 +213,6 @@ export class DragonCurveSimulation {
     }
   }
 }
+
+// Add pan and zoom functionality
+addPanZoomToFractal(DragonCurveSimulation.prototype);

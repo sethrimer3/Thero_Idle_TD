@@ -8,6 +8,8 @@
 
 import { toneMapBuffer } from './fractalRenderUtils.js';
 
+import { addPanZoomToFractal } from './fractalPanZoom.js';
+
 export class FlameFractalSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
@@ -145,6 +147,7 @@ export class FlameFractalSimulation {
     this.ctx.fillStyle = '#040108';
     this.ctx.fillRect(0, 0, this.width, this.height);
     toneMapBuffer(this.accumulator, this.width, this.height, this.ctx, 'flame-nebula');
+    this.restorePanZoomTransform();
   }
 
   updateConfig(config = {}) {
@@ -160,3 +163,6 @@ export class FlameFractalSimulation {
     }
   }
 }
+
+// Add pan and zoom functionality
+addPanZoomToFractal(FlameFractalSimulation.prototype);

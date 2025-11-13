@@ -8,6 +8,8 @@
  * closed-form formula for the snowflake's perimeter growth:
  *   P_n = P_0 * (4/3)^n
  */
+import { addPanZoomToFractal } from './fractalPanZoom.js';
+
 export class KochSnowflakeSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
@@ -28,6 +30,7 @@ export class KochSnowflakeSimulation {
     this.targetProgress = 0; // Target progress based on allocated resources
 
     this.rebuildGeometry();
+    this.initPanZoom(this.canvas);
   }
 
   clamp(value, min, max) {
@@ -107,6 +110,7 @@ export class KochSnowflakeSimulation {
     const ctx = this.ctx;
     ctx.fillStyle = this.bgColor;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.applyPanZoomTransform();
 
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -133,6 +137,7 @@ export class KochSnowflakeSimulation {
     }
 
     ctx.stroke();
+    this.restorePanZoomTransform();
   }
 
   /**
@@ -180,6 +185,10 @@ export class KochSnowflakeSimulation {
 
     if (rebuildNeeded) {
       this.rebuildGeometry();
+    this.initPanZoom(this.canvas);
     }
   }
 }
+
+// Add pan and zoom functionality
+addPanZoomToFractal(KochSnowflakeSimulation.prototype);

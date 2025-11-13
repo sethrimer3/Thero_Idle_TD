@@ -8,6 +8,8 @@
 
 import { toneMapBuffer } from './fractalRenderUtils.js';
 
+import { addPanZoomToFractal } from './fractalPanZoom.js';
+
 export class BrownianTreeSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
@@ -133,6 +135,7 @@ export class BrownianTreeSimulation {
     ctx.fillStyle = '#050208';
     ctx.fillRect(0, 0, this.width, this.height);
     toneMapBuffer(this.accumulator, this.width, this.height, ctx, 'blue-aurora');
+    this.restorePanZoomTransform();
   }
 
   updateConfig(config = {}) {
@@ -144,3 +147,6 @@ export class BrownianTreeSimulation {
     }
   }
 }
+
+// Add pan and zoom functionality
+addPanZoomToFractal(BrownianTreeSimulation.prototype);

@@ -12,7 +12,10 @@
  * - Optional leaves at terminal nodes
  * - Optional gravity bend for natural droop
  * - Seeded noise for organic variation
+ * - Pan and zoom support (mouse/touch)
  */
+
+import { addPanZoomToFractal } from './fractalPanZoom.js';
 
 /**
  * Simple seeded random number generator for consistent organic variation.
@@ -110,6 +113,9 @@ export class FractalTreeSimulation {
     // Growth control based on allocated resources
     this.targetSegments = 1; // Start with just the root (simple stem)
     this.segmentsGrown = 0; // Count of segments that have been grown
+
+    // Initialize pan and zoom
+    this.initPanZoom(this.canvas);
 
     this.reset();
   }
@@ -285,6 +291,9 @@ export class FractalTreeSimulation {
     this.ctx.fillStyle = this.bgColor;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
+    // Apply pan and zoom transformation
+    this.applyPanZoomTransform();
+
     // Draw all grown segments
     for (const segment of this.segments) {
       if (!segment.hasGrown) continue;
@@ -310,6 +319,9 @@ export class FractalTreeSimulation {
         this.drawLeaf(segment.endX, segment.endY, segment.width);
       }
     }
+
+    // Restore canvas transform
+    this.restorePanZoomTransform();
   }
 
   /**
@@ -485,3 +497,6 @@ export class FractalTreeSimulation {
     }
   }
 }
+
+// Add pan and zoom functionality to FractalTreeSimulation
+addPanZoomToFractal(FractalTreeSimulation.prototype);
