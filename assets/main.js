@@ -238,6 +238,7 @@ import {
   annotateTowerCardsWithCost,
   initializeTowerSelection,
   initializeTowerEquipmentInterface,
+  synchronizeTowerCardMasterEquations,
   syncLoadoutToPlayfield,
   pruneLockedTowersFromLoadout,
   unlockTower,
@@ -6586,6 +6587,7 @@ import {
     injectTowerCardPreviews();
     simplifyTowerCards();
     annotateTowerCardsWithCost();
+    synchronizeTowerCardMasterEquations();
     initializeTowerEquipmentInterface();
     updateTowerCardVisibility();
     initializeTowerTreeMap({

@@ -30,6 +30,7 @@ import {
 import { formatCombatNumber } from './playfield/utils/formatting.js'; // Format tower costs with the same notation used in combat messaging.
 import { TOWER_EQUATION_BLUEPRINTS as IMPORTED_TOWER_BLUEPRINTS } from './towerEquations/index.js'; // Import tower blueprints from refactored modules.
 import { initializeBlueprintContext } from './towerEquations/blueprintContext.js'; // Initialize context for tower blueprints.
+import { generateMasterEquationText } from './towerEquations/masterEquationUtils.js';
 import { createTowerEquationTooltipSystem } from './towerEquationTooltip.js';
 import { createTowerUpgradeOverlayController } from './towerUpgradeOverlayController.js';
 
@@ -2220,6 +2221,53 @@ export function simplifyTowerCards() {
     card.querySelectorAll('.formula-definition, .formula-line.result, .upgrade-list').forEach((element) => {
       element.remove();
     });
+  });
+}
+
+export function synchronizeTowerCardMasterEquations() {
+  const cards = document.querySelectorAll(TOWER_CARD_SELECTOR);
+  cards.forEach((card) => {
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+    const towerId = card.dataset.towerId;
+    if (!towerId) {
+      return;
+    }
+    const formulaLine = card.querySelector('.formula-block .formula-line');
+    if (!formulaLine) {
+      return;
+    }
+    const blueprint = getTowerEquationBlueprint(towerId);
+    const definition = getTowerDefinition(towerId);
+    if (!blueprint || !definition) {
+      return;
+    }
+
+    const latexEquation = generateMasterEquationText({
+      blueprint,
+      definition,
+      towerId,
+      format: 'latex',
+      fallback: typeof blueprint.baseEquation === 'string' ? blueprint.baseEquation : '',
+    });
+
+    if (typeof latexEquation !== 'string') {
+      return;
+    }
+
+    const trimmedEquation = latexEquation.trim();
+    if (!trimmedEquation) {
+      return;
+    }
+
+    const current = (formulaLine.textContent || '').trim();
+    if (current === trimmedEquation) {
+      return;
+    }
+
+    formulaLine.textContent = trimmedEquation;
+    renderMathElement(formulaLine);
   });
 }
 

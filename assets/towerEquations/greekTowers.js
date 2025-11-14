@@ -23,6 +23,7 @@ export const delta = {
     {
       key: 'gamma',
       symbol: 'γ',
+      masterEquationSymbol: 'Coh',
       name: 'Gamma Cohort',
       description: 'Command strength inherited entirely from γ conductors.',
       reference: 'gamma',
@@ -40,6 +41,7 @@ export const delta = {
       baseValue: 1,
       step: 1,
       upgradable: true,
+      includeInMasterEquation: false,
       maxLevel: 4,
       cost: (level) => {
         const normalizedLevel = Number.isFinite(level) ? Math.max(0, Math.floor(level)) : 0;
@@ -104,6 +106,7 @@ export const delta = {
       key: 'regen',
       symbol: 'Reg',
       equationSymbol: 'Reg',
+      masterEquationSymbol: 'Reg',
       name: 'Regeneration',
       description: 'Health restored by each Δ soldier every second.',
       upgradable: false,
@@ -174,6 +177,7 @@ export const epsilon = {
       key: 'aleph1',
       symbol: 'ℵ₁',
       name: 'Speed Aleph',
+      masterEquationSymbol: 'Spd',
       description: 'Controls volley cadence for ε needles.',
       baseValue: 0,
       step: 1,
@@ -194,6 +198,7 @@ export const epsilon = {
       key: 'aleph2',
       symbol: 'ℵ₂',
       name: 'Range Aleph',
+      masterEquationSymbol: 'Rng',
       description: 'Expands ε homing range in meters.',
       baseValue: 0,
       step: 1,
@@ -213,6 +218,7 @@ export const epsilon = {
       key: 'aleph3',
       symbol: 'ℵ₃',
       name: 'Spread Aleph',
+      masterEquationSymbol: 'Spr',
       description: 'Adjusts ε aim spread in degrees.',
       baseValue: 0,
       step: 1,
@@ -685,6 +691,7 @@ export const eta = {
       description: null,
       baseValue: 2,
       upgradable: false,
+      includeInMasterEquation: false,
       format: (value) => formatWholeNumber(Math.max(0, value)),
       getSubEquations() {
         return [
@@ -702,6 +709,7 @@ export const eta = {
       description: null,
       baseValue: 1,
       upgradable: false,
+      includeInMasterEquation: false,
       format: (value) => formatWholeNumber(Math.max(0, value)),
       getSubEquations() {
         return [
@@ -719,6 +727,7 @@ export const eta = {
       description: null,
       baseValue: 0,
       upgradable: false,
+      includeInMasterEquation: false,
       format: () => '',
       getSubEquations({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
@@ -982,6 +991,7 @@ export const theta = {
       key: 'rng',
       symbol: 'Rng',
       equationSymbol: 'Range',
+      masterEquationSymbol: 'Rng',
       name: 'Range',
       description: 'Range of the slowing field.',
       upgradable: false,
@@ -1003,6 +1013,7 @@ export const theta = {
       key: 'slw',
       symbol: 'Slw',
       equationSymbol: 'Slow',
+      masterEquationSymbol: 'Slw',
       name: 'Slow',
       description: 'Percentage of enemy speed removed while within θ’s field.',
       upgradable: false,
@@ -1068,6 +1079,7 @@ export const theta = {
       key: 'eff',
       symbol: 'Eff',
       equationSymbol: 'Eff',
+      masterEquationSymbol: 'Eff',
       name: 'Efficacy',
       description: 'Remaining slow efficacy as enemies linger within the θ field.',
       upgradable: false,
@@ -1385,6 +1397,7 @@ export const iota = {
       key: 'rangeMeters',
       symbol: 'm',
       equationSymbol: 'Range',
+      masterEquationSymbol: 'Rng',
       name: 'Splash Radius',
       description: 'Imaginary inversion radius measured in meters.',
       upgradable: false,
@@ -1428,6 +1441,7 @@ export const iota = {
       key: 'debuff',
       symbol: 'ΔD%',
       equationSymbol: 'Debuff',
+      masterEquationSymbol: 'Deb',
       name: 'Imaginary Residue',
       description: 'Additional damage enemies suffer after the pulse inverts their colors.',
       upgradable: false,
@@ -1469,6 +1483,7 @@ export const iota = {
       key: 'debuffDuration',
       symbol: 'τ',
       equationSymbol: 'Duration',
+      masterEquationSymbol: 'Dur',
       name: 'Residue Duration',
       description: 'Seconds that enemies remain weakened after being struck.',
       upgradable: false,
