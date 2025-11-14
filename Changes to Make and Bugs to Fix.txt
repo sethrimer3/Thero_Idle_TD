@@ -5,7 +5,8 @@ Guideline: As you complete tasks, immediately update their checkbox from [ ] to 
 [x] = Done
 —
 [x] - Put the "Tower tree map" and "Equipment" buttons below the Variables and Upgrade Matrix buttons (so they are on a separate line, currently on mobile they are "squished" and don't have enough space horizontally). Put the Tsadi, shin, and Kuf glyph counts on the line below the Aleph, Bet, and Lamed glyph counts on desktop at the top of the towers tab.
-[] - Level previews are no longer showing and the tower loadout bar at the bottom of the playing field shows the tower card again when it should just show the tower icone, Anchor, and upgrade amounts.
+[x] - Level previews are no longer showing and the tower loadout bar at the bottom of the playing field shows the tower card again when it should just show the tower icone, Anchor, and upgrade amounts.
+    - Restored the overlay preview by keeping developer mode off by default and limited tower card enhancements to the card grid so the loadout stays compact.
 [] - Lamed through Kuf spires are accessible, they should be locked and their buttons not visible before they are unlocked. Bet spire is locked but its button not show up when locked. Let's change the unlock requirement to obtaining 10 glyphs in the previous spire (so obtaining 10 Aleph glyphs unlocks the Bet spire, and so on).
 [] - The menu that appears in the top right of each spire tab that shows all the spire symbols and bank counts, let's make it so that menu on mobile is off the screen to the right and is brought in by clicking a small square button that is floating in the top right of the screen (regardless of whether the player scrolls up or down in a player tab). Put a small button at the bottom of the vertical menu that is an "X" which makes the menu hide off the screen to the right.
 [] - In the Shin spire, clicking on fractals should add one Iteron to the fractal. Make sure this is the case for every one of the fractals.
