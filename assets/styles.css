@@ -5661,6 +5661,20 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   box-shadow: inset 0 0 0 1px rgba(139, 247, 255, 0.35);
 }
 
+/* Palette-synced glow highlights the active spire glyph inside the tab bar. */
+.tab-button.active .tab-icon,
+.tab-button--stacked.active .tab-icon {
+  background: linear-gradient(120deg, var(--accent), var(--accent-2), var(--accent-3));
+  background-size: 220% 220%;
+  color: transparent;
+  /* WebKit requires an explicit fill reset so the gradient text renders. */
+  -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: spireGlyphAurora 4s ease-in-out infinite;
+  text-shadow: 0 0 8px rgba(139, 247, 255, 0.4), 0 0 14px rgba(255, 125, 235, 0.3);
+}
+
 /* Split spire tab styles ensure the button can host separate powder/fluid triggers without expanding the layout. */
 .tab-button-stack {
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -6115,8 +6129,9 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   display: none; /* Hidden on desktop, shown on mobile */
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  /* Trimmed footprint keeps the floating control from covering nearby UI. */
+  width: 34px;
+  height: 34px;
   background: rgba(10, 10, 16, 0.9);
   border: 1px solid rgba(247, 247, 245, 0.3);
   border-radius: 8px;
@@ -6133,9 +6148,17 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 .spire-menu-toggle-icon {
-  font-size: 1.5rem;
+  /* Icon scales proportionally with the smaller toggle footprint. */
+  font-size: 1.1rem;
   line-height: 1;
   color: var(--text);
+}
+
+/* Hidden toggle state prevents duplicate controls while a menu is open. */
+.spire-menu-toggle--hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.9);
 }
 
 .spire-floating-menu {
@@ -6186,10 +6209,19 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   box-shadow: inset 0 0 0 1px rgba(139, 247, 255, 0.25);
 }
 
+/* Animated gradient glow draws the floating glyphs from the active palette. */
 .spire-menu-icon {
   font-size: 1.8rem;
   line-height: 1;
-  color: inherit;
+  background: linear-gradient(120deg, var(--accent), var(--accent-2), var(--accent-3));
+  background-size: 220% 220%;
+  color: transparent;
+  /* WebKit requires an explicit fill reset so the gradient text renders. */
+  -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: spireGlyphAurora 4s ease-in-out infinite;
+  text-shadow: 0 0 6px rgba(139, 247, 255, 0.35), 0 0 12px rgba(255, 125, 235, 0.25);
 }
 
 .spire-menu-count {
@@ -6229,6 +6261,35 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   line-height: 1;
 }
 
+/* Cycle the gradient to create a slow aurora-like glow on glyphs. */
+@keyframes spireGlyphAurora {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Drop each floating entry from a shared origin for the tray reveal. */
+@keyframes spireMenuCascade {
+  0% {
+    opacity: 0;
+    transform: translateY(-18px) scaleY(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(4px) scaleY(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
 /* Equipment button styling to match other tower panel buttons */
 .tower-panel-button--equipment .tower-panel-button-icon {
   font-size: 1.2rem;
@@ -6257,19 +6318,53 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     padding: 8px;
     gap: 8px;
     opacity: 0;
+    /* Disable interactions while the tray is hidden off-screen. */
+    pointer-events: none;
   }
-  
+
   .spire-floating-menu.spire-floating-menu--visible {
     right: 10px; /* Slide in when visible */
     opacity: 1;
+    /* Restore interactions once the floating tray is revealed. */
+    pointer-events: auto;
   }
-  
+
   .spire-menu-item {
     min-width: 70px;
     padding: 10px 12px;
     gap: 4px;
   }
-  
+
+  /* Stack and cascade the floating entries when the tray opens. */
+  .spire-floating-menu .spire-menu-item {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+
+  .spire-floating-menu.spire-floating-menu--visible .spire-menu-item {
+    animation: spireMenuCascade 0.4s ease forwards;
+  }
+
+  .spire-floating-menu.spire-floating-menu--visible .spire-menu-item:nth-child(2) {
+    animation-delay: 0.05s;
+  }
+
+  .spire-floating-menu.spire-floating-menu--visible .spire-menu-item:nth-child(3) {
+    animation-delay: 0.1s;
+  }
+
+  .spire-floating-menu.spire-floating-menu--visible .spire-menu-item:nth-child(4) {
+    animation-delay: 0.15s;
+  }
+
+  .spire-floating-menu.spire-floating-menu--visible .spire-menu-item:nth-child(5) {
+    animation-delay: 0.2s;
+  }
+
+  .spire-floating-menu.spire-floating-menu--visible .spire-menu-item:nth-child(6) {
+    animation-delay: 0.25s;
+  }
+
   .spire-menu-icon {
     font-size: 1.5rem;
   }
