@@ -63,6 +63,8 @@ export function createSpireFloatingMenuController(options = {}) {
 
     const spireIds = ['powder', 'fluid', 'lamed', 'tsadi', 'shin', 'kuf'];
     const visibleClass = 'spire-floating-menu--visible';
+    // Dedicated class keeps toggle buttons hidden while their tray is expanded.
+    const toggleHiddenClass = 'spire-menu-toggle--hidden';
 
     spireIds.forEach((spireId) => {
       const toggleButton = doc.getElementById(`spire-menu-toggle-${spireId}`);
@@ -82,15 +84,21 @@ export function createSpireFloatingMenuController(options = {}) {
             const otherToggle = doc.getElementById(`spire-menu-toggle-${otherId}`);
             if (otherToggle) {
               otherToggle.setAttribute('aria-expanded', 'false');
+              // Ensure previously hidden toggles reappear after another tray closes.
+              otherToggle.classList.remove(toggleHiddenClass);
             }
           });
 
           if (isVisible) {
             menu.classList.remove(visibleClass);
             toggleButton.setAttribute('aria-expanded', 'false');
+            // Restore the toggle when collapsing the active tray.
+            toggleButton.classList.remove(toggleHiddenClass);
           } else {
             menu.classList.add(visibleClass);
             toggleButton.setAttribute('aria-expanded', 'true');
+            // Conceal the toggle while its corresponding tray is open.
+            toggleButton.classList.add(toggleHiddenClass);
           }
         });
       }
@@ -102,6 +110,8 @@ export function createSpireFloatingMenuController(options = {}) {
           menu.classList.remove(visibleClass);
           if (toggleButton) {
             toggleButton.setAttribute('aria-expanded', 'false');
+            // Unhide the toggle when the explicit close control is used.
+            toggleButton.classList.remove(toggleHiddenClass);
           }
         });
       }
