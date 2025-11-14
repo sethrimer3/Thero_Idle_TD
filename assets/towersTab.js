@@ -1569,14 +1569,38 @@ function getDiscoveredVariableId(variable) {
   return normalizeVariableKey(symbol) || normalizeVariableKey(variable.key);
 }
 
+/**
+ * Compose a tower label that preserves lowercase glyphs without duplication.
+ */
+function composeTowerDisplayLabel(definition, fallback = '') {
+  if (!definition || typeof definition !== 'object') {
+    return fallback;
+  }
+  const symbol = typeof definition.symbol === 'string' ? definition.symbol.trim() : '';
+  const name = typeof definition.name === 'string' ? definition.name.trim() : '';
+  if (symbol && name) {
+    const normalizedSymbol = symbol.normalize('NFKC');
+    const normalizedName = name.normalize('NFKC');
+    if (normalizedName.startsWith(normalizedSymbol)) {
+      return name;
+    }
+    return `${symbol} ${name}`;
+  }
+  if (name) {
+    return name;
+  }
+  if (symbol) {
+    return symbol;
+  }
+  return fallback;
+}
+
 function getTowerSourceLabel(towerId) {
   const definition = getTowerDefinition(towerId);
   if (!definition) {
     return towerId;
   }
-  const symbol = typeof definition.symbol === 'string' ? definition.symbol.trim() : '';
-  const name = typeof definition.name === 'string' ? definition.name.trim() : towerId;
-  return symbol ? `${symbol} ${name}` : name;
+  return composeTowerDisplayLabel(definition, towerId);
 }
 
 function notifyDiscoveredVariablesChanged() {
@@ -2148,7 +2172,7 @@ export function injectTowerCardPreviews() {
     preview.className = 'tower-preview';
     const image = document.createElement('img');
     image.src = iconPath;
-    const labelBase = definition ? `${definition.symbol} ${definition.name}`.trim() : towerId;
+    const labelBase = composeTowerDisplayLabel(definition, towerId);
     image.alt = `${labelBase} placement preview`;
     image.loading = 'lazy';
     image.decoding = 'async';

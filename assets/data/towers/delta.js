@@ -4,7 +4,7 @@
 export const DELTA_TOWER = Object.freeze({
   id: 'delta',
   symbol: 'δ',
-  name: 'Δ δ Tower',
+  name: 'δ Tower',
   tier: 4,
   baseCost: 10000,
   damage: 56,

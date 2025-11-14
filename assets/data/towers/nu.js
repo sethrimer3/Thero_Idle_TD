@@ -4,7 +4,7 @@
 export const NU_TOWER = Object.freeze({
   id: 'nu',
   symbol: 'ν',
-  name: 'Ν ν Tower',
+  name: 'ν Tower',
   tier: 13,
   baseCost: 7200000000,
   damage: 680,

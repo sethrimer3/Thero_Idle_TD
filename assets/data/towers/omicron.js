@@ -4,7 +4,7 @@
 export const OMICRON_TOWER = Object.freeze({
   id: 'omicron',
   symbol: 'ο',
-  name: 'Ο ο Tower',
+  name: 'ο Tower',
   tier: 15,
   baseCost: 240000000000,
   damage: 1500,
