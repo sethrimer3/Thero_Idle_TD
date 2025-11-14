@@ -130,6 +130,7 @@ import {
   updateShinState,
   addIterons,
   getIteronBank,
+  getIterationRate,
   getShinGlyphs,
   setIterationRate,
   unlockAllFractals,
@@ -1187,39 +1188,6 @@ import {
     getFluidSimulation: () => fluidSimulationInstance,
   });
 
-  // Provide the developer controls module with runtime state references.
-  configureDeveloperControls({
-    isDeveloperModeActive: () => developerModeActive,
-    recordPowderEvent,
-    getPowderSimulation: () => powderSimulation,
-    getFluidSimulation: () => fluidSimulationInstance,
-    getLamedSimulation: () => lamedSimulationInstance,
-    getTsadiSimulation: () => tsadiSimulationInstance,
-    powderState,
-    handlePowderIdleBankChange,
-    schedulePowderBasinSave,
-    updatePowderDisplay,
-    setBaseStartThero,
-    updateLevelCards,
-    updatePowderLedger,
-    updateStatusDisplays,
-    setDeveloperTheroMultiplierOverride,
-    clearDeveloperTheroMultiplierOverride,
-    getDeveloperTheroMultiplierOverride,
-    getBaseStartingTheroMultiplier,
-    getBaseStartThero,
-    getGlyphCurrency,
-    setGlyphCurrency,
-    gameStats,
-    addIterons,
-    getIteronBank,
-    setIterationRate,
-    updateShinDisplay,
-    updateDeveloperMapElementsVisibility,
-    getCurrentIdleMoteBank,
-    getCurrentMoteDispenseRate,
-  });
-
   // Ensure compact autosave remains the active basin persistence strategy.
   document.addEventListener('DOMContentLoaded', () => {
     try {
@@ -1466,6 +1434,29 @@ import {
     wallGlyphColumns: [],
   };
 
+  // Collect references to the Bet Spire UI so powderDisplay can hydrate the fluid viewport.
+  function bindFluidControls() {
+    fluidElements.panel = document.getElementById('panel-fluid');
+    fluidElements.host = document.getElementById('fluid-simulation-host');
+    fluidElements.simulationCard = document.getElementById('fluid-simulation-card');
+    fluidElements.canvas = document.getElementById('fluid-canvas');
+    fluidElements.basin = document.getElementById('fluid-basin');
+    fluidElements.viewport = document.getElementById('fluid-viewport');
+    fluidElements.leftWall = document.getElementById('fluid-wall-left');
+    fluidElements.rightWall = document.getElementById('fluid-wall-right');
+    fluidElements.leftHitbox = document.getElementById('fluid-wall-hitbox-left');
+    fluidElements.rightHitbox = document.getElementById('fluid-wall-hitbox-right');
+    fluidElements.profileLabel = document.getElementById('fluid-profile-label');
+    fluidElements.stateLabel = document.getElementById('fluid-state-label');
+    fluidElements.depthValue = document.getElementById('fluid-depth');
+    fluidElements.reservoirValue = document.getElementById('fluid-reservoir');
+    fluidElements.dripRateValue = document.getElementById('fluid-drip-rate');
+    fluidElements.statusNote = document.getElementById('fluid-status-note');
+    fluidElements.wallGlyphColumns = Array.from(
+      document.querySelectorAll('[data-fluid-glyph-column]') || [],
+    );
+  }
+
   const FLUX_OVERVIEW_IS_STUB = true;
   const SIGIL_LADDER_IS_STUB = true;
 
@@ -1699,6 +1690,39 @@ import {
     getCompletedInteractiveLevelCount,
     getIteronBank,
     getIterationRate,
+  });
+
+  // Provide the developer controls module with runtime state references once all powder helpers are wired.
+  configureDeveloperControls({
+    isDeveloperModeActive: () => developerModeActive,
+    recordPowderEvent,
+    getPowderSimulation: () => powderSimulation,
+    getFluidSimulation: () => fluidSimulationInstance,
+    getLamedSimulation: () => lamedSimulationInstance,
+    getTsadiSimulation: () => tsadiSimulationInstance,
+    powderState,
+    handlePowderIdleBankChange,
+    schedulePowderBasinSave,
+    updatePowderDisplay,
+    setBaseStartThero,
+    updateLevelCards,
+    updatePowderLedger,
+    updateStatusDisplays,
+    setDeveloperTheroMultiplierOverride,
+    clearDeveloperTheroMultiplierOverride,
+    getDeveloperTheroMultiplierOverride,
+    getBaseStartingTheroMultiplier,
+    getBaseStartThero,
+    getGlyphCurrency,
+    setGlyphCurrency,
+    gameStats,
+    addIterons,
+    getIteronBank,
+    setIterationRate,
+    updateShinDisplay,
+    updateDeveloperMapElementsVisibility,
+    getCurrentIdleMoteBank,
+    getCurrentMoteDispenseRate,
   });
 
   configureEnemyHandlers({ queueMoteDrop, recordPowderEvent });
