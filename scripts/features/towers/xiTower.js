@@ -188,31 +188,62 @@ function findEnemyEdgePoint(enemyPos, ballPos, enemyRadius = 16) {
   const dx = ballPos.x - enemyPos.x;
   const dy = ballPos.y - enemyPos.y;
   const distance = Math.hypot(dx, dy);
-  
+
   if (distance === 0) {
     return { x: enemyPos.x + enemyRadius, y: enemyPos.y };
   }
-  
+
   // Point on edge in direction of ball
   const edgeX = enemyPos.x + (dx / distance) * enemyRadius;
   const edgeY = enemyPos.y + (dy / distance) * enemyRadius;
-  
+
   return { x: edgeX, y: edgeY };
+}
+
+/**
+ * Resolve the perimeter contact point for an enemy using the current visual metrics.
+ */
+function resolveEnemyEdgeTarget(playfield, enemy, originPoint) {
+  if (!playfield || !enemy || enemy.hp <= 0) {
+    return null;
+  }
+
+  const enemyPos = playfield.getEnemyPosition(enemy);
+  if (!enemyPos) {
+    return null;
+  }
+
+  const metrics =
+    typeof playfield.getEnemyVisualMetrics === 'function'
+      ? playfield.getEnemyVisualMetrics(enemy)
+      : null;
+  const enemyRadius =
+    typeof playfield.getEnemyHitRadius === 'function'
+      ? playfield.getEnemyHitRadius(enemy, metrics)
+      : 16;
+
+  const edgePoint = findEnemyEdgePoint(enemyPos, originPoint, enemyRadius);
+
+  return { enemyPos, enemyRadius, edgePoint };
 }
 
 /**
  * Create a new chaining ball.
  */
-function createChainingBall(tower, firstEnemy, firstEnemyPos) {
-  const edgePoint = findEnemyEdgePoint(firstEnemyPos, { x: tower.x, y: tower.y });
-  
+function createChainingBall(playfield, tower, firstEnemy, firstEnemyPos) {
+  const originPoint = { x: tower.x, y: tower.y };
+  const contactInfo = resolveEnemyEdgeTarget(playfield, firstEnemy, originPoint);
+  const edgePoint = contactInfo?.edgePoint || findEnemyEdgePoint(firstEnemyPos, originPoint);
+
   return {
     id: `xi-ball-${Date.now()}-${Math.random()}`,
     x: tower.x,
     y: tower.y,
     targetX: edgePoint.x,
     targetY: edgePoint.y,
-    attachedEnemyId: firstEnemy.id,
+    targetEnemyId: firstEnemy.id,
+    attachedEnemyId: null,
+    lastAttachedEnemyId: null,
     chainCount: 0, // Number of chains completed
     maxChains: 0, // Will be set from state
     chainDelay: 0,
@@ -238,98 +269,144 @@ function updateChainingBall(playfield, tower, ball, state, delta) {
   ball.trail.forEach((point) => {
     point.age += delta;
   });
-  
+
+  // Keep the maximum chain count synchronized with active upgrades.
+  ball.maxChains = Math.max(1, state.maxChains || ball.maxChains || 1);
+
   if (ball.state === 'traveling') {
-    // Move toward target
-    const dx = ball.targetX - ball.x;
-    const dy = ball.targetY - ball.y;
-    const distance = Math.hypot(dx, dy);
-    
-    if (distance < 2) {
-      // Reached target - attach to enemy
-      ball.state = 'attached';
-      ball.x = ball.targetX;
-      ball.y = ball.targetY;
-      ball.chainDelay = CHAIN_DELAY;
-      ball.chainCount += 1;
-      
-      // Deal damage
-      const enemy = playfield.enemies.find((e) => e.id === ball.attachedEnemyId);
-      if (enemy && enemy.hp > 0) {
-        const damage = calculateChainDamage(state, ball.chainCount);
-        playfield.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
-        ball.damagedEnemies.add(enemy.id);
+    let targetEnemy = null;
+    if (ball.targetEnemyId) {
+      targetEnemy = playfield.enemies.find(
+        (enemy) => enemy?.id === ball.targetEnemyId && enemy.hp > 0,
+      );
+    }
+
+    if (!targetEnemy) {
+      ball.targetEnemyId = null;
+      const excludeIds = new Set();
+      if (ball.lastAttachedEnemyId) {
+        excludeIds.add(ball.lastAttachedEnemyId);
       }
-      
-      // Update color for next chain
-      ball.color = resolveXiColor(ball.chainCount);
+      const searchRadius = ball.chainCount === 0 ? state.rangePixels : state.chainRangePixels;
+      const fallbackEnemy = findNearestEnemyInRange(
+        playfield,
+        { x: ball.x, y: ball.y },
+        searchRadius,
+        excludeIds,
+      );
+      if (fallbackEnemy) {
+        ball.targetEnemyId = fallbackEnemy.id;
+        targetEnemy = fallbackEnemy;
+      }
+    }
+
+    if (targetEnemy) {
+      const contactInfo = resolveEnemyEdgeTarget(playfield, targetEnemy, { x: ball.x, y: ball.y });
+      if (contactInfo) {
+        ball.targetX = contactInfo.edgePoint.x;
+        ball.targetY = contactInfo.edgePoint.y;
+      }
+
+      const dx = ball.targetX - ball.x;
+      const dy = ball.targetY - ball.y;
+      const distance = Math.hypot(dx, dy);
+      const travelDistance = CHAIN_SPEED * delta;
+
+      if (distance <= Math.max(1, travelDistance)) {
+        // Snap to enemy and attach
+        ball.state = 'attached';
+        ball.x = ball.targetX;
+        ball.y = ball.targetY;
+        ball.chainDelay = CHAIN_DELAY;
+        ball.chainCount += 1;
+        ball.attachedEnemyId = targetEnemy.id;
+        ball.lastAttachedEnemyId = targetEnemy.id;
+        ball.targetEnemyId = null;
+
+        if (targetEnemy && targetEnemy.hp > 0) {
+          const damage = calculateChainDamage(state, ball.chainCount);
+          playfield.applyDamageToEnemy(targetEnemy, damage, { sourceTower: tower });
+          ball.damagedEnemies.add(targetEnemy.id);
+        }
+
+        ball.color = resolveXiColor(ball.chainCount);
+      } else if (distance > 0) {
+        const step = Math.min(distance, travelDistance);
+        ball.x += (dx / distance) * step;
+        ball.y += (dy / distance) * step;
+      }
     } else {
-      // Continue moving
-      const speed = CHAIN_SPEED * delta;
-      ball.x += (dx / distance) * speed;
-      ball.y += (dy / distance) * speed;
+      // No target available - fade out gracefully.
+      ball.state = 'despawning';
+      ball.lifetime = 0;
+      ball.targetEnemyId = null;
+      ball.attachedEnemyId = null;
     }
   } else if (ball.state === 'attached') {
-    // Check if attached enemy still exists
-    const attachedEnemy = playfield.enemies.find((e) => e.id === ball.attachedEnemyId);
-    
+    const attachedEnemy = ball.attachedEnemyId
+      ? playfield.enemies.find((enemy) => enemy?.id === ball.attachedEnemyId)
+      : null;
+
     if (!attachedEnemy || attachedEnemy.hp <= 0) {
-      // Enemy died - immediately try to chain to next
       ball.chainDelay = 0;
     } else {
-      // Stay attached to enemy edge
-      const enemyPos = playfield.getEnemyPosition(attachedEnemy);
-      if (enemyPos) {
-        const edgePoint = findEnemyEdgePoint(enemyPos, ball);
-        ball.x = edgePoint.x;
-        ball.y = edgePoint.y;
+      const contactInfo = resolveEnemyEdgeTarget(playfield, attachedEnemy, ball);
+      if (contactInfo) {
+        ball.x = contactInfo.edgePoint.x;
+        ball.y = contactInfo.edgePoint.y;
       }
     }
-    
-    // Count down chain delay
+
     ball.chainDelay -= delta;
-    
+
     if (ball.chainDelay <= 0) {
-      // Try to chain to next enemy
       if (ball.chainCount >= ball.maxChains) {
-        // Reached max chains - despawn with flash
         ball.state = 'despawning';
         ball.lifetime = 0;
-        
-        // Deal damage again to attached enemy if still alive
-        const enemy = playfield.enemies.find((e) => e.id === ball.attachedEnemyId);
-        if (enemy && enemy.hp > 0) {
+        ball.targetEnemyId = null;
+        ball.attachedEnemyId = null;
+
+        if (attachedEnemy && attachedEnemy.hp > 0) {
           const damage = calculateChainDamage(state, ball.chainCount);
-          playfield.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
+          playfield.applyDamageToEnemy(attachedEnemy, damage, { sourceTower: tower });
         }
       } else {
-        // Find next target (don't exclude any enemies - can chain back)
+        const excludeIds = new Set();
+        if (ball.attachedEnemyId) {
+          excludeIds.add(ball.attachedEnemyId);
+        }
         const nextEnemy = findNearestEnemyInRange(
           playfield,
           { x: ball.x, y: ball.y },
           state.chainRangePixels,
-          new Set() // No exclusions - can chain back to same enemies
+          excludeIds,
         );
-        
+
         if (nextEnemy) {
-          // Chain to next enemy
-          const nextPos = playfield.getEnemyPosition(nextEnemy);
-          const edgePoint = findEnemyEdgePoint(nextPos, ball);
-          
-          ball.targetX = edgePoint.x;
-          ball.targetY = edgePoint.y;
-          ball.attachedEnemyId = nextEnemy.id;
-          ball.state = 'traveling';
+          const contactInfo = resolveEnemyEdgeTarget(playfield, nextEnemy, ball);
+          if (contactInfo) {
+            ball.targetX = contactInfo.edgePoint.x;
+            ball.targetY = contactInfo.edgePoint.y;
+            ball.lastAttachedEnemyId = ball.attachedEnemyId || ball.lastAttachedEnemyId;
+            ball.attachedEnemyId = null;
+            ball.targetEnemyId = nextEnemy.id;
+            ball.chainDelay = 0;
+            ball.state = 'traveling';
+          } else {
+            ball.state = 'despawning';
+            ball.lifetime = 0;
+            ball.targetEnemyId = null;
+            ball.attachedEnemyId = null;
+          }
         } else {
-          // No enemy in range - despawn with flash
           ball.state = 'despawning';
           ball.lifetime = 0;
-          
-          // Deal damage again to attached enemy if still alive
-          const enemy = playfield.enemies.find((e) => e.id === ball.attachedEnemyId);
-          if (enemy && enemy.hp > 0) {
+          ball.targetEnemyId = null;
+          ball.attachedEnemyId = null;
+
+          if (attachedEnemy && attachedEnemy.hp > 0) {
             const damage = calculateChainDamage(state, ball.chainCount);
-            playfield.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
+            playfield.applyDamageToEnemy(attachedEnemy, damage, { sourceTower: tower });
           }
         }
       }
@@ -373,8 +450,8 @@ export function fireXiChain(playfield, tower, targetInfo) {
   }
   
   // Create new chaining ball
-  const ball = createChainingBall(tower, enemy, enemyPos);
-  ball.maxChains = state.maxChains;
+  const ball = createChainingBall(playfield, tower, enemy, enemyPos);
+  ball.maxChains = Math.max(1, state.maxChains);
   
   state.activeBalls.push(ball);
 }
