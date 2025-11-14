@@ -12,6 +12,10 @@ export class DragonCurveSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+    // Enable shared drag-to-pan and zoom interactions on the dragon curve canvas.
+    if (typeof this.initPanZoom === 'function') {
+      this.initPanZoom(this.canvas);
+    }
 
     this.iterations = this.clamp(options.iterations || 12, 5, 16);
     this.segmentLength = options.segmentLength || 5;

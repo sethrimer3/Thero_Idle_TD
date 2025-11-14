@@ -14,6 +14,10 @@ export class BrownianTreeSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+    // Enable shared drag-to-pan and zoom interactions on the Brownian canvas.
+    if (typeof this.initPanZoom === 'function') {
+      this.initPanZoom(this.canvas);
+    }
 
     this.glowRadius = options.glowRadius || 5;
     this.particleLimit = options.particleLimit || 1800;
