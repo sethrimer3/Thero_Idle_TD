@@ -1,3 +1,5 @@
+import { generateMasterEquationText } from './towerEquations/masterEquationUtils.js';
+
 /**
  * Tower upgrade overlay controller responsible for rendering the equation panel,
  * glyph investment controls, and overlay transitions. The implementation is
@@ -990,10 +992,24 @@ export function createTowerUpgradeOverlayController({
       towerTabState.towerVariableAnimation.shouldPlayEntry = false;
     }
 
-    const baseEquationText =
+    const autoMasterEquation = generateMasterEquationText({
+      blueprint,
+      definition,
+      towerId,
+      format: 'plain',
+      fallback: typeof blueprint.baseEquation === 'string' ? blueprint.baseEquation : '',
+    });
+
+    const providedEquation =
       typeof options.baseEquationText === 'string' && options.baseEquationText.trim()
         ? options.baseEquationText.trim()
-        : towerTabState.activeTowerUpgradeBaseEquation || blueprint.baseEquation || '';
+        : '';
+    const cachedEquation =
+      typeof towerTabState.activeTowerUpgradeBaseEquation === 'string'
+        ? towerTabState.activeTowerUpgradeBaseEquation.trim()
+        : '';
+    const baseEquationText = providedEquation || cachedEquation || autoMasterEquation || '';
+    towerTabState.activeTowerUpgradeBaseEquation = baseEquationText;
 
     if (towerTabState.towerUpgradeElements.title) {
       towerTabState.towerUpgradeElements.title.textContent = composeTowerDisplayLabel(definition);
@@ -1157,12 +1173,21 @@ export function createTowerUpgradeOverlayController({
     });
     invalidateTowerEquationCache();
 
+    const blueprint = options.blueprint || getTowerEquationBlueprint(towerId);
+    const autoMasterEquation = generateMasterEquationText({
+      blueprint,
+      definition,
+      towerId,
+      format: 'plain',
+      fallback: typeof blueprint?.baseEquation === 'string' ? blueprint.baseEquation : '',
+    });
+
     const sourceCard = options.sourceCard || null;
     if (sourceCard) {
       const existingEquation = extractTowerCardEquation(sourceCard);
-      if (existingEquation) {
-        towerTabState.activeTowerUpgradeBaseEquation = existingEquation;
-      }
+      towerTabState.activeTowerUpgradeBaseEquation = existingEquation?.trim() || autoMasterEquation;
+    } else {
+      towerTabState.activeTowerUpgradeBaseEquation = autoMasterEquation;
     }
 
     towerTabState.activeTowerUpgradeId = towerId;
@@ -1170,7 +1195,7 @@ export function createTowerUpgradeOverlayController({
     showTowerUpgradeOverlayElement(overlay);
 
     renderTowerUpgradeOverlay(towerId, {
-      blueprint: options.blueprint,
+      blueprint,
       baseEquationText: options.baseEquationText,
       animateEntry: true,
     });
