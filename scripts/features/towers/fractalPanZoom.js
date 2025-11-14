@@ -38,6 +38,9 @@ export function addPanZoomToFractal(proto) {
       lastX: 0,
       lastY: 0,
       touchStartDistance: 0,
+      pointerMoved: false,
+      touchTapCandidate: false,
+      primaryButton: 0,
     };
     
     // Bind event listeners
@@ -116,31 +119,41 @@ export function addPanZoomToFractal(proto) {
   // Private mouse event handlers
   proto._handleMouseDown = function(e) {
     if (!this.panZoom) return;
-    
+
     this.panZoom.isDragging = true;
     this.panZoom.lastX = e.clientX;
     this.panZoom.lastY = e.clientY;
+    this.panZoom.pointerMoved = false;
+    this.panZoom.primaryButton = e.button;
     e.preventDefault();
   };
-  
+
   proto._handleMouseMove = function(e) {
     if (!this.panZoom || !this.panZoom.isDragging) return;
-    
+
     const dx = e.clientX - this.panZoom.lastX;
     const dy = e.clientY - this.panZoom.lastY;
-    
+
     this.panZoom.offsetX += dx;
     this.panZoom.offsetY += dy;
-    
+
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      this.panZoom.pointerMoved = true;
+    }
+
     this.panZoom.lastX = e.clientX;
     this.panZoom.lastY = e.clientY;
-    
+
     e.preventDefault();
   };
-  
+
   proto._handleMouseUp = function(e) {
     if (!this.panZoom) return;
     this.panZoom.isDragging = false;
+
+    if (e.type === 'mouseup' && !this.panZoom.pointerMoved && e.button === this.panZoom.primaryButton) {
+      this._emitCanvasTap(e);
+    }
   };
   
   proto._handleWheel = function(e) {
@@ -172,23 +185,25 @@ export function addPanZoomToFractal(proto) {
   // Private touch event handlers
   proto._handleTouchStart = function(e) {
     if (!this.panZoom) return;
-    
+
     if (e.touches.length === 1) {
       // Single touch - start panning
       this.panZoom.isDragging = true;
       this.panZoom.lastX = e.touches[0].clientX;
       this.panZoom.lastY = e.touches[0].clientY;
+      this.panZoom.touchTapCandidate = true;
     } else if (e.touches.length === 2) {
       // Two touches - start pinch zoom
       this.panZoom.isDragging = false;
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       this.panZoom.touchStartDistance = Math.sqrt(dx * dx + dy * dy);
+      this.panZoom.touchTapCandidate = false;
     }
-    
+
     e.preventDefault();
   };
-  
+
   proto._handleTouchMove = function(e) {
     if (!this.panZoom) return;
     
@@ -196,12 +211,16 @@ export function addPanZoomToFractal(proto) {
       // Single touch - pan
       const dx = e.touches[0].clientX - this.panZoom.lastX;
       const dy = e.touches[0].clientY - this.panZoom.lastY;
-      
+
       this.panZoom.offsetX += dx;
       this.panZoom.offsetY += dy;
-      
+
       this.panZoom.lastX = e.touches[0].clientX;
       this.panZoom.lastY = e.touches[0].clientY;
+
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+        this.panZoom.touchTapCandidate = false;
+      }
     } else if (e.touches.length === 2) {
       // Two touches - pinch zoom
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -224,18 +243,23 @@ export function addPanZoomToFractal(proto) {
           this.panZoom.scale = newScale;
         }
       }
-      
+
       this.panZoom.touchStartDistance = distance;
+      this.panZoom.touchTapCandidate = false;
     }
-    
+
     e.preventDefault();
   };
-  
+
   proto._handleTouchEnd = function(e) {
     if (!this.panZoom) return;
-    
+
     if (e.touches.length === 0) {
       this.panZoom.isDragging = false;
+      if (this.panZoom.touchTapCandidate) {
+        this._emitCanvasTap(e);
+      }
+      this.panZoom.touchTapCandidate = false;
       this.panZoom.touchStartDistance = 0;
     } else if (e.touches.length === 1) {
       // Switch back to pan mode
@@ -243,7 +267,29 @@ export function addPanZoomToFractal(proto) {
       this.panZoom.lastX = e.touches[0].clientX;
       this.panZoom.lastY = e.touches[0].clientY;
       this.panZoom.touchStartDistance = 0;
+      this.panZoom.touchTapCandidate = false;
     }
+  };
+
+  /**
+   * Emit a synthetic tap event that mirrors a successful click/tap on the canvas.
+   * This allows UI code to respond even when default click events are suppressed
+   * by pan and zoom gesture handlers.
+   * @param {Event} originalEvent - Pointer or touch event that triggered the tap.
+   */
+  proto._emitCanvasTap = function(originalEvent) {
+    if (!this.canvas) {
+      return;
+    }
+
+    const tapEvent = new CustomEvent('fractalcanvas:tap', {
+      bubbles: true,
+      detail: {
+        originalEvent,
+      },
+    });
+
+    this.canvas.dispatchEvent(tapEvent);
   };
 }
 
