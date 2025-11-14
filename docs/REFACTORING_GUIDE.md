@@ -212,6 +212,25 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Tooltip behavior is reusable and easier to unit test because it no longer closes over the entire Towers tab scope
 - Future tooltip features (animations, math annotations) can iterate inside `assets/towerEquationTooltip.js` without touching the monolithic tab controller
 
+### towerUpgradeOverlayController.js (upgrade overlay renderer + glyph spending)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `renderTowerUpgradeOverlay()` orchestration for equation text, variable cards, and glyph inventory messaging.
+- Glyph spending handlers (`handleTowerVariableUpgrade()` / `handleTowerVariableDowngrade()`) with audio feedback and autosave cache invalidation.
+- Overlay show/hide scheduling, tooltip wiring, and focus restoration helpers formerly embedded in `assets/towersTab.js`.
+
+**Integration approach:**
+- Introduced a `createTowerUpgradeOverlayController()` factory that receives all stateful dependencies (tower tab state, formatter utilities, tooltip handlers, blueprint math evaluators) via dependency injection.
+- `towersTab.js` now instantiates the controller once and re-exports the returned functions so existing call sites (`unlockTower`, loadout refresh, card bindings) continue to work without modification.
+- Tooltip management continues to flow through the shared `createTowerEquationTooltipSystem()` helpers, keeping hover behavior consistent across the new module.
+
+**Result:**
+- `assets/towersTab.js` drops nearly 1,000 lines of tightly coupled overlay logic, leaving the module focused on loadout management and equipment UI.
+- Glyph math, equation formatting, and overlay transitions live in a cohesive file that can be unit tested or iterated without spelunking the entire Towers tab controller.
+- Future refactors (e.g., blueprint presenters or equipment bindings) can follow the same factory pattern to keep dependencies explicit and avoid circular imports.
+
 ### orientationController.js (playfield orientation + normalized geometry)
 
 **Status:** ✅ Complete
