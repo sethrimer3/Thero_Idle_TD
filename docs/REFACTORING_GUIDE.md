@@ -134,6 +134,46 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - `main.js` delegates to the controller for surface management and state checks, shrinking by ~900 lines of tightly coupled code
 - Reusable factory pattern keeps future developer tooling enhancements isolated from the core game loop
 
+## Upcoming High-Impact Refactor Targets
+
+### assets/playfield.js (222 KB, core battle orchestration)
+
+**Why it matters:** This module owns enemy lifecycle management, tower placement, projectile math, and palette-driven rendering bridges, making it the second-largest script after `main.js`. The breadth of responsibilities makes defects hard to isolate and stalls testing because visuals, state machines, and UI callbacks are intertwined in one file.
+
+**Suggested plan:**
+- Extract a `playfieldState.js` module that encapsulates grid occupancy, tower registries, and selection state so renderers and UI controllers can observe without mutating shared objects directly.
+- Move projectile creation, travel resolution, and damage application into a dedicated `projectileSimulation.js` (factory-based to inject time-step helpers and math utilities). Pair this with pure math helpers to simplify verification.
+- Carve out enemy spawns and codex notifications into `enemyWaveController.js`, passing in palette + audio hooks so future balance changes remain localized.
+- Leave DOM wiring and event listeners in the existing module until the underlying subsystems stabilize, then migrate them into smaller view/controller modules.
+
+### assets/towersTab.js (112 KB, upgrade + blueprint UI)
+
+**Why it matters:** Towers tab logic currently handles UI binding, blueprint math evaluation, equipment integration, and formatting concerns. These responsibilities span formatting, data flow, and state orchestration, increasing the chance of circular dependencies and slowing blueprint refactors.
+
+**Suggested plan:**
+- Extract blueprint preparation into `towerBlueprintPresenter.js`, consuming math tokenizers and returning immutable presentation models for the tab to render.
+- Move equipment binding into `towerEquipmentBindings.js` so loadout state changes can be unit-tested without rendering the full tab.
+- Convert the UI event wiring (scroll, hover, selection) into a `createTowersTabController()` factory that receives DOM nodes and collaborators, mirroring the successful level editor refactor pattern.
+- Continue using existing formatting utilities by injecting them into the controller to avoid re-importing `formatCombatNumber` deep inside view helpers.
+
+### scripts/features/towers/powderTower.js (98 KB, shared rendering helpers)
+
+**Why it matters:** Powder tower logic doubles as a palette utility module—`colorToRgbaString` and gradient helpers are imported across playfield rendering and UI previews. Mixing rendering math, palette utilities, and tower state machines creates implicit dependencies scattered throughout the project.
+
+**Suggested plan:**
+- Split palette/gradient helpers into `powderPaletteUtils.js`, limiting the tower module to combat behaviors and upgrade math.
+- Create a `createPowderTowerController()` factory that accepts shared playfield services (projectile registry, resource hooks) rather than importing them directly.
+- Relocate general-purpose rendering helpers to `playfield/render/powderEffects.js`, providing a clean import surface for both `playfield.js` and any future shader-based renderer.
+
+### assets/towerEquations/greekTowers.js (64 KB, blueprint data monolith)
+
+**Why it matters:** The module packs every Greek tower blueprint, formatting helpers, and effect annotations into one file. As new towers ship, merge conflicts and readability issues will grow.
+
+**Suggested plan:**
+- Break the file into per-letter modules inside `assets/towerEquations/greek/`, exporting a consistent interface (`getBlueprint()`, `describeUpgrades()`), then re-export from the existing index to preserve imports.
+- Move shared formatting helpers into a small `towerEquationNarration.js` utility that can serve both Greek and advanced tower sets.
+- Document the new directory layout in `JAVASCRIPT_MODULE_SYSTEM.md` once the split lands so future additions follow the pattern automatically.
+
 ## Refactoring Strategy
 
 ### Key Challenges
