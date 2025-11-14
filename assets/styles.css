@@ -6335,6 +6335,14 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   }
 
   .spire-floating-menu.spire-floating-menu--visible .spire-menu-item {
+    /*
+     * Ensure buttons stay visible even if motion preferences or WebKit quirks
+     * skip the cascade animation on mobile. Without these fallbacks the items
+     * remain fully transparent after toggling the tray, which is what caused
+     * the "invisible but clickable" regression.
+     */
+    opacity: 1;
+    transform: translateY(0);
     animation: spireMenuCascade 0.4s ease forwards;
   }
 
@@ -6368,6 +6376,14 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   
   .spire-menu-toggle--active {
     transform: translate(0, calc(var(--floating-menu-offset, 0px) + 0px));
+  }
+
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .spire-floating-menu.spire-floating-menu--visible .spire-menu-item {
+    /* Respect motion preferences by skipping the cascade animation entirely. */
+    animation: none;
   }
 }
 
