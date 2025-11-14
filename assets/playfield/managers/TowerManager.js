@@ -209,6 +209,11 @@ function applyTowerBehaviorDefaults(tower) {
   } else if (tower.lambdaState) {
     this.teardownLambdaTower(tower);
   }
+  if (tower.type === 'mu') {
+    this.ensureMuState(tower);
+  } else if (tower.muState) {
+    this.teardownMuTower(tower);
+  }
   if (tower.type === 'nu') {
     this.ensureNuState(tower);
   } else if (tower.nuState) {
