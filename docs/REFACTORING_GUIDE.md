@@ -193,6 +193,25 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Shared numeric sanitizers exit `main.js`, reducing the chance of subtle NaN/Infinity writes during autosave
 - The new factory pattern keeps the persistence helpers testable without importing the entire game orchestrator
 
+### towerEquationTooltip.js (equation variable tooltip manager)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- Tooltip element creation, hover/focus handlers, and positioning math for tower equation variables
+- Text derivation helpers that merge blueprint metadata with universal variable descriptors
+- Timeout management and ARIA attribute cleanup to keep the tooltip accessible and flicker-free
+
+**Integration approach:**
+- Replaced inline functions in `assets/towersTab.js` with a `createTowerEquationTooltipSystem()` factory fed via dependency injection
+- Towers tab now destructures the returned helpers, keeping the existing state bucket while hiding DOM bookkeeping inside the module
+- Universal variable metadata lookup is injected so the new module stays decoupled from tower discovery logic
+
+**Result:**
+- Roughly 200 lines of tooltip-specific code moved out of the 3,400-line `towersTab.js`, shrinking its UI wiring surface
+- Tooltip behavior is reusable and easier to unit test because it no longer closes over the entire Towers tab scope
+- Future tooltip features (animations, math annotations) can iterate inside `assets/towerEquationTooltip.js` without touching the monolithic tab controller
+
 ## Upcoming High-Impact Refactor Targets
 
 ### assets/playfield.js (222 KB, core battle orchestration)
