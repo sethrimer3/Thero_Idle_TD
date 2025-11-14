@@ -19,11 +19,21 @@ export class FlameFractalSimulation {
     this.targetSamples = 0;
     this.totalSamples = 0;
 
-    this.transforms = [
-      { a: 0.82, b: 0.02, c: -0.02, d: 0.82, e: 0.0, f: 1.2, p: 0.70, v: 'spherical' },
-      { a: 0.18, b: -0.26, c: 0.22, d: 0.19, e: 1.5, f: 0.6, p: 0.20, v: 'swirl' },
-      { a: 0.0, b: 0.24, c: 0.24, d: 0.0, e: -1.1, f: -0.4, p: 0.10, v: 'linear' }
-    ];
+    // Capture the starting iteron allocation so the spiral can react immediately.
+    const initialAllocated = typeof options.allocated === 'number' ? options.allocated : 0;
+
+    // Dynamic spiral parameters that respond to iteron allocation and elapsed time.
+    this.armCount = 3;
+    this.iteronInfluence = 0;
+    this.spiralTightness = 0.4;
+    this.rotationAngle = 0;
+    this.rotationSpeed = 0.01;
+    this.rotationAccumulator = 0;
+    this.rotationUpdateThreshold = 0.08;
+    this.decayFactor = 0.985;
+    this.transforms = [];
+    this.transformDirty = true;
+    this.lastAllocated = initialAllocated;
 
     if (this.canvas) {
       this.width = this.canvas.width;
@@ -42,7 +52,10 @@ export class FlameFractalSimulation {
     }
 
     this.cdf = [];
-    this.buildCDF();
+
+    // Seed the transform list using the initial iteron allocation.
+    this.updateDynamicParameters(initialAllocated);
+    this.generateTransforms();
   }
 
   buildCDF() {
@@ -88,6 +101,22 @@ export class FlameFractalSimulation {
         ny = ty;
         break;
       }
+      case 'spiral': {
+        // Stretch points outward while adding a gentle angular twist.
+        const r = Math.sqrt(nx * nx + ny * ny) + 1e-6;
+        const theta = Math.atan2(ny, nx);
+        const twist = this.spiralTightness * 0.15;
+        const scaledRadius = Math.pow(r, 0.85 + this.iteronInfluence * 0.25);
+        nx = scaledRadius * Math.cos(theta + twist);
+        ny = scaledRadius * Math.sin(theta + twist);
+        break;
+      }
+      case 'sinusoidal': {
+        // Map coordinates through a sine wave to create ember-like wisps.
+        nx = Math.sin(nx);
+        ny = Math.sin(ny);
+        break;
+      }
       default:
         break;
     }
@@ -130,6 +159,23 @@ export class FlameFractalSimulation {
       return;
     }
 
+    // Advance the rotation accumulator so the transform set slowly turns.
+    this.rotationAccumulator += this.rotationSpeed;
+    if (Math.abs(this.rotationAccumulator) >= this.rotationUpdateThreshold) {
+      this.rotationAngle += this.rotationAccumulator;
+      this.rotationAccumulator = 0;
+
+      if (this.rotationAngle > Math.PI * 2) {
+        this.rotationAngle -= Math.PI * 2;
+      } else if (this.rotationAngle < 0) {
+        this.rotationAngle += Math.PI * 2;
+      }
+
+      this.transformDirty = true;
+    }
+
+    this.refreshTransformsIfNeeded();
+
     const remaining = this.targetSamples - this.totalSamples;
     if (remaining <= 0) {
       return;
@@ -160,7 +206,123 @@ export class FlameFractalSimulation {
       if (desired !== this.targetSamples) {
         this.targetSamples = desired;
       }
+      if (config.allocated !== this.lastAllocated) {
+        // Rebuild spiral dynamics when the iteron allocation changes.
+        this.lastAllocated = config.allocated;
+        this.updateDynamicParameters(config.allocated);
+      }
     }
+  }
+
+  /**
+   * Adjust the spiral parameters so the fractal evolves with iteron investment.
+   */
+  updateDynamicParameters(allocated = 0) {
+    const iterons = Math.max(0, allocated);
+    const normalized = Math.min(iterons / 12, 1);
+    const extended = Math.min(iterons / 36, 1);
+
+    this.iteronInfluence = normalized;
+    this.armCount = 3 + Math.min(3, Math.floor(iterons / 5));
+    this.spiralTightness = 0.35 + normalized * 0.8;
+    this.rotationSpeed = 0.007 + normalized * 0.035 + extended * 0.02;
+    this.decayFactor = 0.992 - normalized * 0.03;
+    this.transformDirty = true;
+  }
+
+  /**
+   * Recompute affine transforms for the flame spiral using the latest parameters.
+   */
+  generateTransforms() {
+    const transforms = [];
+    const arms = Math.max(2, Math.min(6, Math.round(this.armCount)));
+    const influence = Math.max(0, Math.min(1, this.iteronInfluence));
+    const radialOffset = 0.9 + influence * 0.85;
+    const scale = 0.68 + influence * 0.22;
+    const totalArmProbability = 0.6;
+    const armProbability = totalArmProbability / arms;
+
+    for (let i = 0; i < arms; i++) {
+      const angle = this.rotationAngle + (i / arms) * Math.PI * 2;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+
+      transforms.push({
+        a: scale * cos,
+        b: -scale * sin,
+        c: scale * sin,
+        d: scale * cos,
+        e: radialOffset * Math.cos(angle),
+        f: radialOffset * Math.sin(angle),
+        p: armProbability,
+        v: 'spiral'
+      });
+    }
+
+    transforms.push({
+      a: 0.32,
+      b: -0.28,
+      c: 0.28,
+      d: 0.32,
+      e: 0,
+      f: 0.3 + influence * 0.4,
+      p: 0.25,
+      v: 'swirl'
+    });
+
+    transforms.push({
+      a: 0.82,
+      b: 0.18,
+      c: -0.18,
+      d: 0.82,
+      e: 0.0,
+      f: 1.1 + influence * 0.6,
+      p: 0.075,
+      v: 'spherical'
+    });
+
+    transforms.push({
+      a: 0.58,
+      b: 0.26,
+      c: -0.26,
+      d: 0.58,
+      e: -1.0,
+      f: -0.6 - influence * 0.5,
+      p: 0.075,
+      v: 'sinusoidal'
+    });
+
+    this.transforms = transforms;
+    this.buildCDF();
+    this.transformDirty = false;
+  }
+
+  /**
+   * Refresh transforms when marked dirty and fade old samples for smoother motion.
+   */
+  refreshTransformsIfNeeded() {
+    if (!this.transformDirty) {
+      return;
+    }
+
+    this.generateTransforms();
+    this.applyDecay();
+  }
+
+  /**
+   * Soften the accumulator to prevent ghosting when the spiral reorients itself.
+   */
+  applyDecay() {
+    if (!this.accumulator || this.accumulator.length === 0) {
+      return;
+    }
+
+    const decay = Math.max(0, Math.min(0.999, this.decayFactor));
+    for (let i = 0; i < this.accumulator.length; i++) {
+      this.accumulator[i] *= decay;
+    }
+
+    this.totalSamples *= decay;
   }
 }
 
