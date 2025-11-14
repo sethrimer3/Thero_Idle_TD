@@ -24,6 +24,8 @@ export class BrownianTreeSimulation {
     this.cellSize = 6;
     this.spawnRadius = 0;
     this.killRadius = 0;
+    // Track particles by grid cell so spatial lookups stay efficient even as the
+    // forest fills the canvas with thousands of glowing nodes.
     this.grid = new Map();
 
     if (this.canvas) {
@@ -49,10 +51,18 @@ export class BrownianTreeSimulation {
   }
 
   addParticle(x, y) {
+    // Remember the index before pushing so spatial buckets can reference it directly.
+    const pointIndex = this.cluster.length;
     this.cluster.push({ x, y });
     const ix = Math.round(x / this.cellSize);
     const iy = Math.round(y / this.cellSize);
-    this.grid.set(this.gridKey(ix, iy), true);
+    const cellKey = this.gridKey(ix, iy);
+    let bucket = this.grid.get(cellKey);
+    if (!bucket) {
+      bucket = [];
+      this.grid.set(cellKey, bucket);
+    }
+    bucket.push(pointIndex);
 
     const px = Math.round(this.centerX + x);
     const py = Math.round(this.centerY - y);
@@ -66,12 +76,62 @@ export class BrownianTreeSimulation {
     const iy = Math.round(y / this.cellSize);
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
-        if (this.grid.has(this.gridKey(ix + dx, iy + dy))) {
+        const bucket = this.grid.get(this.gridKey(ix + dx, iy + dy));
+        if (bucket && bucket.length > 0) {
           return true;
         }
       }
     }
     return false;
+  }
+
+  /**
+   * Collect the closest neighbor indices around the provided particle so we can
+   * weave glowing branches without checking every single pair in the cluster.
+   *
+   * @param {number} pointIndex - Index of the particle within the cluster list.
+   * @param {number} searchRadius - Maximum distance to consider for a connection.
+   * @param {number} maxNeighbors - Hard limit on how many neighbors to connect.
+   * @returns {Array<{ index: number, distance: number }>} Sorted neighbor data.
+   */
+  gatherNeighbors(pointIndex, searchRadius, maxNeighbors) {
+    const point = this.cluster[pointIndex];
+    if (!point) {
+      return [];
+    }
+
+    const ix = Math.round(point.x / this.cellSize);
+    const iy = Math.round(point.y / this.cellSize);
+    const cellRadius = Math.ceil(searchRadius / this.cellSize);
+    const candidates = [];
+
+    for (let dx = -cellRadius; dx <= cellRadius; dx++) {
+      for (let dy = -cellRadius; dy <= cellRadius; dy++) {
+        const bucket = this.grid.get(this.gridKey(ix + dx, iy + dy));
+        if (!bucket) {
+          continue;
+        }
+        for (const neighborIndex of bucket) {
+          if (neighborIndex <= pointIndex) {
+            // Skip duplicates and the point itself; we'll draw each edge once.
+            continue;
+          }
+          const neighbor = this.cluster[neighborIndex];
+          if (!neighbor) {
+            continue;
+          }
+          const dxPoint = point.x - neighbor.x;
+          const dyPoint = point.y - neighbor.y;
+          const distance = Math.hypot(dxPoint, dyPoint);
+          if (distance <= searchRadius) {
+            candidates.push({ index: neighborIndex, distance });
+          }
+        }
+      }
+    }
+
+    candidates.sort((a, b) => a.distance - b.distance);
+    return candidates.slice(0, maxNeighbors);
   }
 
   spawnWalker() {
@@ -137,35 +197,45 @@ export class BrownianTreeSimulation {
     
     // Draw glowing lines connecting points
     this.applyPanZoomTransform();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(86, 180, 255, 0.3)';
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = 'rgba(86, 180, 255, 0.5)';
-    
+    // Use a moderate radius and connection cap to keep the crystalline lattice airy.
+    const searchRadius = 32;
+    const maxNeighbors = 3;
+    ctx.lineWidth = 1.2;
+    ctx.shadowBlur = 14;
+    ctx.shadowColor = 'rgba(120, 220, 255, 0.6)';
+
     for (let i = 0; i < this.cluster.length; i++) {
       const point = this.cluster[i];
       const px = this.centerX + point.x;
       const py = this.centerY - point.y;
-      
-      // Find nearest neighbors within a certain radius
-      const searchRadius = 25;
-      for (let j = i + 1; j < this.cluster.length; j++) {
-        const other = this.cluster[j];
-        const dx = point.x - other.x;
-        const dy = point.y - other.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (dist < searchRadius) {
-          const ox = this.centerX + other.x;
-          const oy = this.centerY - other.y;
-          ctx.beginPath();
-          ctx.moveTo(px, py);
-          ctx.lineTo(ox, oy);
-          ctx.stroke();
+      const neighbors = this.gatherNeighbors(i, searchRadius, maxNeighbors);
+
+      for (const { index: neighborIndex, distance } of neighbors) {
+        const neighbor = this.cluster[neighborIndex];
+        if (!neighbor) {
+          continue;
         }
+
+        const ox = this.centerX + neighbor.x;
+        const oy = this.centerY - neighbor.y;
+        const intensity = 1 - Math.min(distance / searchRadius, 1);
+
+        // Blend a cool cyan gradient so the branches pulse outward from the trunk.
+        const gradient = ctx.createLinearGradient(px, py, ox, oy);
+        const brightColor = `rgba(180, 255, 255, ${0.55 * intensity})`;
+        const dimColor = `rgba(90, 190, 255, ${0.25 * intensity})`;
+        gradient.addColorStop(0, brightColor);
+        gradient.addColorStop(0.5, dimColor);
+        gradient.addColorStop(1, brightColor);
+
+        ctx.strokeStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(ox, oy);
+        ctx.stroke();
       }
     }
-    
+
     ctx.shadowBlur = 0;
     this.restorePanZoomTransform();
     
