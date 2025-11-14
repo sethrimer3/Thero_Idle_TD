@@ -153,6 +153,25 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Floating menu behavior now lives in a cohesive module that can be unit tested without touching the full game orchestrator
 - Unlock visibility checks and counter updates now reuse the same API wherever resource banks change
 
+### powderPersistence.js (powder basin snapshot + sanitizers)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `getPowderBasinSnapshot()` - Builds the autosave payload with palette, drop queues, and camera transform sanitization
+- `applyPowderBasinSnapshot()` - Restores saved basin state, normalizing metrics and rehydrating pending drops
+- Internal numeric guards (`clampFiniteNumber`, `clampFiniteInteger`, `cloneStoredMoteDrop`) that previously lived in `main.js`
+
+**Integration approach:**
+- Module exports a `createPowderPersistence()` factory so `main.js` can inject mutable powder state, config defaults, and callbacks (palette refresh, fluid tab toggles, autosave scheduling)
+- Snapshot helpers call injected getters for the live powder/fluid simulations instead of closing over `main.js` globals directly
+- `main.js` destructures the returned helpers and forwards them to `autoSave.js` just like the inlined versions
+
+**Result:**
+- Powder basin persistence logic now resides in `assets/powderPersistence.js`, clarifying which code owns save/load normalization
+- Shared numeric sanitizers exit `main.js`, reducing the chance of subtle NaN/Infinity writes during autosave
+- The new factory pattern keeps the persistence helpers testable without importing the entire game orchestrator
+
 ## Upcoming High-Impact Refactor Targets
 
 ### assets/playfield.js (222 KB, core battle orchestration)
