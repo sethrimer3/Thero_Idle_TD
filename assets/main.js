@@ -254,6 +254,7 @@ import { initializeTowerTreeMap, refreshTowerTreeMap } from './towerTreeMap.js';
 import { enableDragScroll } from './dragScroll.js';
 import { createLevelEditorController } from './levelEditor.js';
 import { createLevelPreviewRenderer } from './levelPreviewRenderer.js';
+import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
 import {
   moteGemState,
   MOTE_GEM_COLLECTION_RADIUS,
@@ -1100,7 +1101,7 @@ import {
     updateMoteStatsDisplays();
     updatePowderModeButton();
     updateFluidDisplay();
-    updateSpireMenuCounts();
+    spireMenuController.updateCounts();
   }
 
   const baseResources = {
@@ -1238,6 +1239,29 @@ import {
     },
   };
 
+  // Controller that wires the floating spire navigation UI and count displays.
+  const spireMenuController = createSpireFloatingMenuController({
+    formatGameNumber,
+    formatWholeNumber,
+    getCurrentIdleMoteBank,
+    getCurrentFluidDropBank,
+    getLamedSparkBank,
+    getTsadiParticleBank,
+    getShinGlyphs,
+    getKufGlyphs,
+    isFluidUnlocked: () => Boolean(powderState.fluidUnlocked),
+    isLamedUnlocked: () => Boolean(spireResourceState.lamed?.unlocked),
+    isTsadiUnlocked: () => Boolean(spireResourceState.tsadi?.unlocked),
+    isShinUnlocked: () => Boolean(spireResourceState.shin?.unlocked),
+    isKufUnlocked: () => Boolean(spireResourceState.kuf?.unlocked),
+    setActiveTab,
+    playMenuSelectSfx: () => {
+      if (audioManager) {
+        audioManager.playSfx('menuSelect');
+      }
+    },
+  });
+
   /**
    * Retrieve the current spark reserve for the Lamed Spire.
    * @returns {number}
@@ -1259,7 +1283,7 @@ import {
       return current;
     }
     spireResourceState.lamed.sparkBank = normalized;
-    updateSpireMenuCounts();
+    spireMenuController.updateCounts();
     return normalized;
   }
 
@@ -1274,7 +1298,7 @@ import {
     if (getLamedSparkBank() < 100) {
       setLamedSparkBank(100);
     } else {
-      updateSpireMenuCounts();
+      spireMenuController.updateCounts();
     }
   }
 
@@ -1299,7 +1323,7 @@ import {
       return current;
     }
     spireResourceState.tsadi.particleBank = normalized;
-    updateSpireMenuCounts();
+    spireMenuController.updateCounts();
     return normalized;
   }
 
@@ -1314,7 +1338,7 @@ import {
     if (getTsadiParticleBank() < 100) {
       setTsadiParticleBank(100);
     } else {
-      updateSpireMenuCounts();
+      spireMenuController.updateCounts();
     }
   }
   
@@ -1329,7 +1353,7 @@ import {
       repellingButton.addEventListener('click', () => {
         if (tsadiSimulationInstance && tsadiSimulationInstance.purchaseRepellingForceReduction()) {
           updateTsadiUpgradeUI();
-          updateSpireMenuCounts();
+          spireMenuController.updateCounts();
         }
       });
     }
@@ -1338,7 +1362,7 @@ import {
       tierButton.addEventListener('click', () => {
         if (tsadiSimulationInstance && tsadiSimulationInstance.purchaseStartingTierUpgrade()) {
           updateTsadiUpgradeUI();
-          updateSpireMenuCounts();
+          spireMenuController.updateCounts();
         }
       });
     }
@@ -2386,233 +2410,6 @@ import {
     }
   }
 
-  // Initialize the floating spire menu navigation in the top-right of spire panels
-  function initializeSpireFloatingMenu() {
-    // Get all spire menu items
-    const menuItems = document.querySelectorAll('.spire-menu-item');
-    
-    menuItems.forEach((item) => {
-      item.addEventListener('click', (event) => {
-        event.preventDefault();
-        const targetTab = item.dataset.tab;
-        if (targetTab) {
-          setActiveTab(targetTab);
-          if (audioManager) {
-            audioManager.playSfx('menuSelect');
-          }
-        }
-      });
-    });
-    
-    // Initialize toggle buttons for mobile sliding menu
-    const spireIds = ['powder', 'fluid', 'lamed', 'tsadi', 'shin', 'kuf'];
-    
-    spireIds.forEach((spireId) => {
-      const toggleButton = document.getElementById(`spire-menu-toggle-${spireId}`);
-      const closeButton = document.getElementById(`spire-menu-close-${spireId}`);
-      const menu = document.getElementById(`spire-floating-menu-${spireId}`);
-      
-      if (toggleButton && menu) {
-        toggleButton.addEventListener('click', () => {
-          const isVisible = menu.classList.contains('spire-floating-menu--visible');
-          
-          // Hide all other spire menus first
-          document.querySelectorAll('.spire-floating-menu').forEach((otherMenu) => {
-            if (otherMenu !== menu) {
-              otherMenu.classList.remove('spire-floating-menu--visible');
-              const otherId = otherMenu.id.replace('spire-floating-menu-', '');
-              const otherToggle = document.getElementById(`spire-menu-toggle-${otherId}`);
-              if (otherToggle) {
-                otherToggle.setAttribute('aria-expanded', 'false');
-              }
-            }
-          });
-          
-          // Toggle current menu
-          if (isVisible) {
-            menu.classList.remove('spire-floating-menu--visible');
-            toggleButton.setAttribute('aria-expanded', 'false');
-          } else {
-            menu.classList.add('spire-floating-menu--visible');
-            toggleButton.setAttribute('aria-expanded', 'true');
-          }
-        });
-      }
-      
-      if (closeButton && menu) {
-        closeButton.addEventListener('click', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          menu.classList.remove('spire-floating-menu--visible');
-          if (toggleButton) {
-            toggleButton.setAttribute('aria-expanded', 'false');
-          }
-        });
-      }
-    });
-  }
-
-  // Update the floating spire menu counts
-  function updateSpireMenuCounts() {
-    const bankedMotes = getCurrentIdleMoteBank();
-    const bankedDrops = getCurrentFluidDropBank();
-    const bankedSparks = getLamedSparkBank();
-    const bankedTsadiParticles = getTsadiParticleBank();
-    
-    // Update all mote count displays
-    const moteCountElements = [
-      document.getElementById('spire-menu-mote-count'),
-      document.getElementById('spire-menu-mote-count-fluid'),
-      document.getElementById('spire-menu-mote-count-lamed'),
-      document.getElementById('spire-menu-mote-count-tsadi'),
-      document.getElementById('spire-menu-mote-count-shin'),
-      document.getElementById('spire-menu-mote-count-kuf')
-    ];
-    moteCountElements.forEach(element => {
-      if (element) {
-        element.textContent = formatGameNumber(bankedMotes);
-      }
-    });
-    
-    // Update all fluid count displays
-    const fluidCountElements = [
-      document.getElementById('spire-menu-fluid-count'),
-      document.getElementById('spire-menu-fluid-count-fluid'),
-      document.getElementById('spire-menu-fluid-count-lamed'),
-      document.getElementById('spire-menu-fluid-count-tsadi'),
-      document.getElementById('spire-menu-fluid-count-shin'),
-      document.getElementById('spire-menu-fluid-count-kuf')
-    ];
-    fluidCountElements.forEach(element => {
-      if (element) {
-        element.textContent = formatGameNumber(bankedDrops);
-      }
-    });
-    
-    // Update all lamed count displays
-    const lamedCountElements = [
-      document.getElementById('spire-menu-lamed-count'),
-      document.getElementById('spire-menu-lamed-count-powder'),
-      document.getElementById('spire-menu-lamed-count-fluid'),
-      document.getElementById('spire-menu-lamed-count-tsadi'),
-      document.getElementById('spire-menu-lamed-count-shin'),
-      document.getElementById('spire-menu-lamed-count-kuf')
-    ];
-    lamedCountElements.forEach(element => {
-      if (element) {
-        element.textContent = formatGameNumber(bankedSparks);
-      }
-    });
-
-    const lamedReservoir = document.getElementById('lamed-reservoir');
-    if (lamedReservoir) {
-      const sparkLabel = formatWholeNumber(Math.floor(bankedSparks));
-      lamedReservoir.textContent = `${sparkLabel} Sparks`;
-    }
-
-    // Update all tsadi count displays
-    const tsadiCountElements = [
-      document.getElementById('spire-menu-tsadi-count'),
-      document.getElementById('spire-menu-tsadi-count-powder'),
-      document.getElementById('spire-menu-tsadi-count-fluid'),
-      document.getElementById('spire-menu-tsadi-count-lamed'),
-      document.getElementById('spire-menu-tsadi-count-shin'),
-      document.getElementById('spire-menu-tsadi-count-kuf')
-    ];
-    tsadiCountElements.forEach(element => {
-      if (element) {
-        element.textContent = formatGameNumber(bankedTsadiParticles);
-      }
-    });
-
-    const tsadiBankEl = document.getElementById('tsadi-bank');
-    if (tsadiBankEl) {
-      const particleLabel = formatWholeNumber(Math.floor(bankedTsadiParticles));
-      tsadiBankEl.textContent = `${particleLabel} Particles`;
-    }
-    
-    // Update all shin count displays
-    const bankedShinGlyphs = getShinGlyphs();
-    const shinCountElements = [
-      document.getElementById('spire-menu-shin-count'),
-      document.getElementById('spire-menu-shin-count-powder'),
-      document.getElementById('spire-menu-shin-count-fluid'),
-      document.getElementById('spire-menu-shin-count-lamed'),
-      document.getElementById('spire-menu-shin-count-tsadi'),
-      document.getElementById('spire-menu-shin-count-kuf')
-    ];
-    shinCountElements.forEach(element => {
-      if (element) {
-        element.textContent = formatGameNumber(bankedShinGlyphs);
-      }
-    });
-
-    const kufGlyphs = getKufGlyphs();
-    const kufCountElements = [
-      document.getElementById('spire-menu-kuf-count'),
-      document.getElementById('spire-menu-kuf-count-powder'),
-      document.getElementById('spire-menu-kuf-count-fluid'),
-      document.getElementById('spire-menu-kuf-count-lamed'),
-      document.getElementById('spire-menu-kuf-count-tsadi'),
-      document.getElementById('spire-menu-kuf-count-shin')
-    ];
-    kufCountElements.forEach(element => {
-      if (element) {
-        element.textContent = formatGameNumber(kufGlyphs);
-      }
-    });
-    
-    // Show/hide Bet menu items based on unlock status
-    const betMenuItems = document.querySelectorAll('.spire-menu-item--bet');
-    betMenuItems.forEach(item => {
-      if (powderState.fluidUnlocked) {
-        item.removeAttribute('hidden');
-      } else {
-        item.setAttribute('hidden', '');
-      }
-    });
-    
-    // Show/hide Lamed spire menu items based on unlock status
-    const lamedMenuItems = document.querySelectorAll('.spire-menu-item--lamed');
-    lamedMenuItems.forEach(item => {
-      if (spireResourceState.lamed.unlocked) {
-        item.removeAttribute('hidden');
-      } else {
-        item.setAttribute('hidden', '');
-      }
-    });
-    
-    // Show/hide Tsadi spire menu items based on unlock status
-    const tsadiMenuItems = document.querySelectorAll('.spire-menu-item--tsadi');
-    tsadiMenuItems.forEach(item => {
-      if (spireResourceState.tsadi.unlocked) {
-        item.removeAttribute('hidden');
-      } else {
-        item.setAttribute('hidden', '');
-      }
-    });
-    
-    // Show/hide Shin spire menu items based on unlock status
-    const shinMenuItems = document.querySelectorAll('.spire-menu-item--shin');
-    shinMenuItems.forEach(item => {
-      if (spireResourceState.shin?.unlocked) {
-        item.removeAttribute('hidden');
-      } else {
-        item.setAttribute('hidden', '');
-      }
-    });
-    
-    // Show/hide Kuf spire menu items based on unlock status
-    const kufMenuItems = document.querySelectorAll('.spire-menu-item--kuf');
-    kufMenuItems.forEach(item => {
-      if (spireResourceState.kuf?.unlocked) {
-        item.removeAttribute('hidden');
-      } else {
-        item.setAttribute('hidden', '');
-      }
-    });
-  }
-
   /**
    * Update Lamed simulation statistics display in the UI.
    */
@@ -3280,7 +3077,7 @@ import {
     if (!spireResourceState.lamed.unlocked && betGlyphs >= 10) {
       spireResourceState.lamed.unlocked = true;
       updateSpireTabVisibility();
-      updateSpireMenuCounts();
+      spireMenuController.updateCounts();
       anyUnlocked = true;
     }
 
@@ -3289,7 +3086,7 @@ import {
     if (!spireResourceState.tsadi.unlocked && lamedGlyphs >= 10) {
       spireResourceState.tsadi.unlocked = true;
       updateSpireTabVisibility();
-      updateSpireMenuCounts();
+      spireMenuController.updateCounts();
       anyUnlocked = true;
     }
 
@@ -5421,7 +5218,7 @@ import {
     }
     
     updateSpireTabVisibility();
-    updateSpireMenuCounts();
+    spireMenuController.updateCounts();
 
     unlockedLevels.clear();
     interactiveLevelOrder.forEach((levelId) => {
@@ -6452,7 +6249,7 @@ import {
 
     if (resourcesGranted) {
       evaluateAchievements();
-      updateSpireMenuCounts();
+      spireMenuController.updateCounts();
     }
   }
 
@@ -7213,12 +7010,12 @@ import {
                     spireResourceState.lamed.stats = state.stats;
                     
                     updateLamedStatistics();
-                    updateSpireMenuCounts();
+                    spireMenuController.updateCounts();
                   }
                 });
               }
               
-              updateSpireMenuCounts();
+              spireMenuController.updateCounts();
               updateLamedStatistics();
               lamedSimulationInstance.start();
               // Ensure the gravity viewport adopts the new responsive dimensions.
@@ -7296,7 +7093,7 @@ import {
               if (generationRateEl) {
                 generationRateEl.textContent = `${tsadiSimulationInstance.spawnRate.toFixed(2)} particles/sec`;
               }
-              updateSpireMenuCounts();
+              spireMenuController.updateCounts();
               tsadiSimulationInstance.start();
               // Match the particle fusion canvas to the responsive layout constraints.
               scheduleSpireResize();
@@ -7331,7 +7128,7 @@ import {
             try {
               initializeKufUI({
                 onRunComplete: () => {
-                  updateSpireMenuCounts();
+                  spireMenuController.updateCounts();
                 },
               });
               kufUiInitialized = true;
@@ -7369,7 +7166,7 @@ import {
     window.addEventListener('resize', scheduleSpireResize);
     scheduleSpireResize();
     // Initialize the floating spire menu navigation
-    initializeSpireFloatingMenu();
+    spireMenuController.initialize();
     updateFluidTabAvailability();
     await initializeFieldNotesOverlay();
     bindCodexControls({
@@ -7394,10 +7191,10 @@ import {
 
     const savedKufState = readStorageJson(KUF_STATE_STORAGE_KEY);
     initializeKufState(savedKufState || {});
-    updateSpireMenuCounts();
+    spireMenuController.updateCounts();
     onKufStateChange((event) => {
       if (event && event.type === 'result') {
-        updateSpireMenuCounts();
+        spireMenuController.updateCounts();
         commitAutoSave();
       }
     });
