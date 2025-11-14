@@ -32,22 +32,11 @@ export class BrownianTreeSimulation {
     // forest fills the canvas with thousands of glowing nodes.
     this.grid = new Map();
 
-    if (this.canvas) {
-      this.width = this.canvas.width;
-      this.height = this.canvas.height;
-      this.centerX = this.width / 2;
-      this.centerY = this.height / 2; // Center vertically instead of 0.75
-      this.spawnRadius = Math.min(this.width, this.height) * 0.22;
-      this.killRadius = this.spawnRadius * 1.6;
-      this.accumulator = new Float32Array(this.width * this.height);
-      this.addParticle(0, 0); // seed crystal
-    } else {
-      this.width = 0;
-      this.height = 0;
-      this.centerX = 0;
-      this.centerY = 0;
-      this.accumulator = new Float32Array(0);
-    }
+    // Maintain an offscreen canvas so tone-mapped light can follow pan and zoom interactions.
+    this.offscreenCanvas = null;
+    this.offscreenCtx = null;
+
+    this.configureDimensions(this.canvas ? this.canvas.width : 0, this.canvas ? this.canvas.height : 0);
   }
 
   gridKey(ix, iy) {
@@ -195,18 +184,31 @@ export class BrownianTreeSimulation {
       return;
     }
 
-    const ctx = this.ctx;
-    ctx.fillStyle = '#050208';
-    ctx.fillRect(0, 0, this.width, this.height);
-    
+    const shadingCtx = this.offscreenCtx || this.ctx;
+    const usingOffscreen = shadingCtx !== this.ctx;
+
+    // Refresh the density field so the glow responds when the camera moves.
+    shadingCtx.fillStyle = '#050208';
+    shadingCtx.fillRect(0, 0, this.width, this.height);
+    toneMapBuffer(this.accumulator, this.width, this.height, shadingCtx, 'blue-aurora');
+
+    if (usingOffscreen) {
+      this.ctx.fillStyle = '#050208';
+      this.ctx.fillRect(0, 0, this.width, this.height);
+    }
+
     // Draw glowing lines connecting points
     this.applyPanZoomTransform();
+    if (usingOffscreen) {
+      this.ctx.drawImage(this.offscreenCanvas, 0, 0);
+    }
+
     // Use a moderate radius and connection cap to keep the crystalline lattice airy.
     const searchRadius = 32;
     const maxNeighbors = 3;
-    ctx.lineWidth = 1.2;
-    ctx.shadowBlur = 14;
-    ctx.shadowColor = 'rgba(120, 220, 255, 0.6)';
+    this.ctx.lineWidth = 1.2;
+    this.ctx.shadowBlur = 14;
+    this.ctx.shadowColor = 'rgba(120, 220, 255, 0.6)';
 
     for (let i = 0; i < this.cluster.length; i++) {
       const point = this.cluster[i];
@@ -225,25 +227,22 @@ export class BrownianTreeSimulation {
         const intensity = 1 - Math.min(distance / searchRadius, 1);
 
         // Blend a cool cyan gradient so the branches pulse outward from the trunk.
-        const gradient = ctx.createLinearGradient(px, py, ox, oy);
+        const gradient = this.ctx.createLinearGradient(px, py, ox, oy);
         const brightColor = `rgba(180, 255, 255, ${0.55 * intensity})`;
         const dimColor = `rgba(90, 190, 255, ${0.25 * intensity})`;
         gradient.addColorStop(0, brightColor);
         gradient.addColorStop(0.5, dimColor);
         gradient.addColorStop(1, brightColor);
 
-        ctx.strokeStyle = gradient;
-        ctx.beginPath();
-        ctx.moveTo(px, py);
-        ctx.lineTo(ox, oy);
-        ctx.stroke();
+        this.ctx.strokeStyle = gradient;
+        this.ctx.beginPath();
+        this.ctx.moveTo(px, py);
+        this.ctx.lineTo(ox, oy);
+        this.ctx.stroke();
       }
     }
 
-    ctx.shadowBlur = 0;
-    this.restorePanZoomTransform();
-    
-    toneMapBuffer(this.accumulator, this.width, this.height, ctx, 'blue-aurora');
+    this.ctx.shadowBlur = 0;
     this.restorePanZoomTransform();
   }
 
@@ -254,6 +253,92 @@ export class BrownianTreeSimulation {
         this.targetParticles = desired;
       }
     }
+  }
+
+  /**
+   * Resize the Brownian canvas and rebuild spatial caches when the UI layout changes.
+   *
+   * @param {number} width - Canvas width in device pixels.
+   * @param {number} height - Canvas height in device pixels.
+   */
+  resize(width, height) {
+    this.configureDimensions(width, height);
+  }
+
+  /**
+   * Clear accumulators and re-seed the cluster from the origin.
+   */
+  reset() {
+    if (this.accumulator) {
+      this.accumulator.fill(0);
+    }
+    this.cluster = [];
+    this.grid = new Map();
+    if (this.width > 0 && this.height > 0) {
+      this.addParticle(0, 0);
+    }
+  }
+
+  /**
+   * Configure dimensions, spatial grids, and offscreen rendering buffers.
+   *
+   * @param {number} width - Canvas width in device pixels.
+   * @param {number} height - Canvas height in device pixels.
+   */
+  configureDimensions(width, height) {
+    this.width = Math.max(0, width);
+    this.height = Math.max(0, height);
+    this.centerX = this.width / 2;
+    this.centerY = this.height / 2;
+    const shortestSide = Math.min(this.width, this.height);
+    this.spawnRadius = shortestSide > 0 ? shortestSide * 0.22 : 0;
+    this.killRadius = this.spawnRadius * 1.6;
+    const size = Math.max(0, this.width * this.height);
+    this.accumulator = new Float32Array(size);
+    this.grid = new Map();
+    this.cluster = [];
+    if (this.width > 0 && this.height > 0) {
+      this.addParticle(0, 0);
+    }
+    this.createOffscreenSurface(this.width, this.height);
+  }
+
+  /**
+   * Ensure we have an offscreen surface so tone mapping honours pan and zoom.
+   *
+   * @param {number} width - Surface width in device pixels.
+   * @param {number} height - Surface height in device pixels.
+   */
+  createOffscreenSurface(width, height) {
+    if (width <= 0 || height <= 0) {
+      this.offscreenCanvas = null;
+      this.offscreenCtx = null;
+      return;
+    }
+
+    if (typeof OffscreenCanvas === 'function') {
+      if (!this.offscreenCanvas || !(this.offscreenCanvas instanceof OffscreenCanvas)) {
+        this.offscreenCanvas = new OffscreenCanvas(width, height);
+      } else {
+        this.offscreenCanvas.width = width;
+        this.offscreenCanvas.height = height;
+      }
+      this.offscreenCtx = this.offscreenCanvas.getContext('2d');
+      return;
+    }
+
+    if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+      if (!this.offscreenCanvas || typeof this.offscreenCanvas.getContext !== 'function') {
+        this.offscreenCanvas = document.createElement('canvas');
+      }
+      this.offscreenCanvas.width = width;
+      this.offscreenCanvas.height = height;
+      this.offscreenCtx = this.offscreenCanvas.getContext('2d');
+      return;
+    }
+
+    this.offscreenCanvas = null;
+    this.offscreenCtx = null;
   }
 }
 

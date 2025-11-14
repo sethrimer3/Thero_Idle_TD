@@ -39,21 +39,12 @@ export class FlameFractalSimulation {
     this.transformDirty = true;
     this.lastAllocated = initialAllocated;
 
-    if (this.canvas) {
-      this.width = this.canvas.width;
-      this.height = this.canvas.height;
-      this.accumulator = new Float32Array(this.width * this.height);
-      this.x = 0;
-      this.y = 0;
-      this.warmup = 200;
-    } else {
-      this.width = 0;
-      this.height = 0;
-      this.accumulator = new Float32Array(0);
-      this.x = 0;
-      this.y = 0;
-      this.warmup = 0;
-    }
+    // Maintain an offscreen surface so tone mapping can be transformed during pan/zoom.
+    this.offscreenCanvas = null;
+    this.offscreenCtx = null;
+
+    // Initialize drawing buffers based on the provided canvas dimensions.
+    this.configureDimensions(this.canvas ? this.canvas.width : 0, this.canvas ? this.canvas.height : 0);
 
     this.cdf = [];
 
@@ -194,9 +185,22 @@ export class FlameFractalSimulation {
       return;
     }
 
+    const shadingCtx = this.offscreenCtx || this.ctx;
+
+    // Refresh the tone-mapped flame on the offscreen surface so it can be transformed smoothly.
+    shadingCtx.fillStyle = '#040108';
+    shadingCtx.fillRect(0, 0, this.width, this.height);
+    toneMapBuffer(this.accumulator, this.width, this.height, shadingCtx, 'flame-nebula');
+
+    if (!this.offscreenCtx) {
+      // Fallback: when no offscreen surface exists, the flame already rendered directly to the main canvas.
+      return;
+    }
+
     this.ctx.fillStyle = '#040108';
     this.ctx.fillRect(0, 0, this.width, this.height);
-    toneMapBuffer(this.accumulator, this.width, this.height, this.ctx, 'flame-nebula');
+    this.applyPanZoomTransform();
+    this.ctx.drawImage(this.offscreenCanvas, 0, 0);
     this.restorePanZoomTransform();
   }
 
@@ -327,6 +331,85 @@ export class FlameFractalSimulation {
     }
 
     this.totalSamples *= decay;
+  }
+
+  /**
+   * Resize internal buffers and the offscreen surface when the hosting canvas changes.
+   *
+   * @param {number} width - New canvas width in device pixels.
+   * @param {number} height - New canvas height in device pixels.
+   */
+  resize(width, height) {
+    this.configureDimensions(width, height);
+    this.reset();
+  }
+
+  /**
+   * Clear accumulated samples so a fresh flame can be rendered after resizing.
+   */
+  reset() {
+    this.totalSamples = 0;
+    this.warmup = 200;
+    if (this.accumulator) {
+      this.accumulator.fill(0);
+    }
+    this.x = 0;
+    this.y = 0;
+  }
+
+  /**
+   * Configure drawing buffers and create an offscreen surface for tone mapping.
+   *
+   * @param {number} width - Canvas width in device pixels.
+   * @param {number} height - Canvas height in device pixels.
+   */
+  configureDimensions(width, height) {
+    this.width = Math.max(0, width);
+    this.height = Math.max(0, height);
+    const size = Math.max(0, this.width * this.height);
+    this.accumulator = new Float32Array(size);
+    this.warmup = 200;
+    this.x = 0;
+    this.y = 0;
+    this.createOffscreenSurface(this.width, this.height);
+  }
+
+  /**
+   * Build or resize an offscreen canvas so pan and zoom transformations affect the flame.
+   *
+   * @param {number} width - Surface width.
+   * @param {number} height - Surface height.
+   */
+  createOffscreenSurface(width, height) {
+    if (width <= 0 || height <= 0) {
+      this.offscreenCanvas = null;
+      this.offscreenCtx = null;
+      return;
+    }
+
+    if (typeof OffscreenCanvas === 'function') {
+      if (!this.offscreenCanvas || !(this.offscreenCanvas instanceof OffscreenCanvas)) {
+        this.offscreenCanvas = new OffscreenCanvas(width, height);
+      } else {
+        this.offscreenCanvas.width = width;
+        this.offscreenCanvas.height = height;
+      }
+      this.offscreenCtx = this.offscreenCanvas.getContext('2d');
+      return;
+    }
+
+    if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+      if (!this.offscreenCanvas || typeof this.offscreenCanvas.getContext !== 'function') {
+        this.offscreenCanvas = document.createElement('canvas');
+      }
+      this.offscreenCanvas.width = width;
+      this.offscreenCanvas.height = height;
+      this.offscreenCtx = this.offscreenCanvas.getContext('2d');
+      return;
+    }
+
+    this.offscreenCanvas = null;
+    this.offscreenCtx = null;
   }
 }
 
