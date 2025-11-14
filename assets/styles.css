@@ -1059,17 +1059,29 @@ body.graphics-mode-low .control-button {
   color: rgba(255, 228, 120, 0.75);
 }
 
-.tower-loadout-merge-cost {
-  /* Style the merge cost as a secondary line so players can distinguish it from the anchor price at a glance. */
+.tower-loadout-upgrade-cost {
+  /* Style the upgrade cost as a secondary line so players can distinguish it from the anchor price at a glance. */
   margin: 0;
   font-size: 0.52rem;
   letter-spacing: 0.08em;
   color: rgba(139, 247, 255, 0.62);
 }
 
-.tower-loadout-merge-cost[data-available='true'] {
-  /* Brighten the merge cost when a higher tier is available to emphasize the actionable price. */
+.tower-loadout-upgrade-cost[data-available='true'] {
+  /* Brighten the upgrade cost when a higher tier is available to emphasize the actionable price. */
   color: rgba(255, 228, 120, 0.68);
+}
+
+.tower-loadout-cost[data-affordable='true'] {
+  /* Add a subtle glow when the player can afford the anchor cost to guide quick decisions. */
+  color: rgba(255, 228, 120, 0.92);
+  text-shadow: 0 0 8px rgba(255, 228, 120, 0.6);
+}
+
+.tower-loadout-upgrade-cost[data-affordable='true'] {
+  /* Illuminate the upgrade price independently once the player has the required energy. */
+  color: rgba(255, 236, 180, 0.9);
+  text-shadow: 0 0 8px rgba(139, 247, 255, 0.5);
 }
 
 .playfield-stats {

@@ -1168,6 +1168,7 @@ export function refreshTowerLoadoutDisplay() {
   }
   const interactive = Boolean(towerTabState.playfield && towerTabState.playfield.isInteractiveLevelActive());
   const items = grid.querySelectorAll('.tower-loadout-item');
+  const energy = interactive && towerTabState.playfield ? towerTabState.playfield.energy : 0; // Cache the current energy pool so affordability checks remain consistent within this render.
   // Format loadout cost readouts using the combat formatter while guarding against infinite numbers.
   const formatCostLabel = (value) => {
     if (!Number.isFinite(value)) {
@@ -1187,16 +1188,18 @@ export function refreshTowerLoadoutDisplay() {
       ? definition.baseCost
       : 0;
     const anchorCostLabel = formatCostLabel(anchorCostValue);
+    const canAffordAnchor = interactive && energy >= anchorCostValue; // Determine whether the player can currently afford to place this tower.
     const costEl = item.querySelector('.tower-loadout-cost');
     if (costEl) {
       // Surface the current anchoring cost directly beneath the tower icon for quick scanning.
       costEl.textContent = `Anchor: ${anchorCostLabel} ${towerTabState.theroSymbol}`;
+      costEl.dataset.affordable = canAffordAnchor ? 'true' : 'false';
     }
-    const mergeCostEl = item.querySelector('.tower-loadout-merge-cost');
+    const upgradeCostEl = item.querySelector('.tower-loadout-upgrade-cost');
     const nextTowerId = getNextTowerId(towerId);
     const nextDefinition = nextTowerId ? getTowerDefinition(nextTowerId) : null;
-    let mergeAriaLabel = 'Merge unavailable';
-    if (mergeCostEl) {
+    let upgradeAriaLabel = 'Upgrade unavailable';
+    if (upgradeCostEl) {
       if (nextDefinition) {
         const mergeCostValue = towerTabState.playfield
           ? towerTabState.playfield.getCurrentTowerCost(nextTowerId)
@@ -1204,27 +1207,29 @@ export function refreshTowerLoadoutDisplay() {
           ? nextDefinition.baseCost
           : 0;
         const mergeCostLabel = formatCostLabel(mergeCostValue);
-        // Highlight the energy required to fuse into the next tier so players can budget merges.
-        mergeCostEl.textContent = `Merge: ${mergeCostLabel} ${towerTabState.theroSymbol}`;
-        mergeCostEl.dataset.available = 'true';
-        mergeAriaLabel = `Merge ${mergeCostLabel} ${towerTabState.theroSymbol}`;
+        // Highlight the energy required to upgrade into the next tier so players can budget upgrades.
+        upgradeCostEl.textContent = `Upgrade: ${mergeCostLabel} ${towerTabState.theroSymbol}`;
+        upgradeCostEl.dataset.available = 'true';
+        const canAffordUpgrade = interactive && energy >= mergeCostValue; // Determine whether the current energy pool supports the upgrade cost.
+        upgradeCostEl.dataset.affordable = canAffordUpgrade ? 'true' : 'false';
+        upgradeAriaLabel = `Upgrade ${mergeCostLabel} ${towerTabState.theroSymbol}`;
       } else {
         // Make it clear when no higher tier exists, keeping the layout stable.
-        mergeCostEl.textContent = 'Merge: —';
-        mergeCostEl.dataset.available = 'false';
-        mergeAriaLabel = 'Merge unavailable';
+        upgradeCostEl.textContent = 'Upgrade: —';
+        upgradeCostEl.dataset.available = 'false';
+        upgradeCostEl.dataset.affordable = 'false'; // Ensure the glow stays disabled when no upgrade path exists.
+        upgradeAriaLabel = 'Upgrade unavailable';
       }
     }
     if (definition && item) {
       const labelParts = [
         definition.name,
         `Anchor ${anchorCostLabel} ${towerTabState.theroSymbol}`,
-        mergeAriaLabel,
+        upgradeAriaLabel,
       ];
-      item.setAttribute('aria-label', labelParts.join(' — ')); // Surface name, base cost, and merge cost for screen readers.
+      item.setAttribute('aria-label', labelParts.join(' — ')); // Surface name, base cost, and upgrade cost for screen readers.
     }
-    const affordable = interactive ? towerTabState.playfield.energy >= anchorCostValue : false;
-    item.dataset.valid = affordable ? 'true' : 'false';
+    item.dataset.valid = canAffordAnchor ? 'true' : 'false';
     item.dataset.disabled = interactive ? 'false' : 'true';
     item.disabled = !interactive;
   });
@@ -1284,13 +1289,15 @@ function renderTowerLoadout() {
     const costEl = document.createElement('span');
     costEl.className = 'tower-loadout-cost';
     costEl.textContent = 'Anchor: —'; // Seed the anchor cost label so the slot never flashes empty during initialization.
+    costEl.dataset.affordable = 'false'; // Initialize the affordability state so the glow only appears once the player can pay the anchor cost.
 
-    const mergeCostEl = document.createElement('span');
-    mergeCostEl.className = 'tower-loadout-merge-cost';
-    mergeCostEl.dataset.available = 'false';
-    mergeCostEl.textContent = 'Merge: —'; // Seed the merge cost line so layout stays stable during updates.
+    const upgradeCostEl = document.createElement('span');
+    upgradeCostEl.className = 'tower-loadout-upgrade-cost';
+    upgradeCostEl.dataset.available = 'false';
+    upgradeCostEl.dataset.affordable = 'false'; // Initialize the upgrade affordability state to avoid showing the glow prematurely.
+    upgradeCostEl.textContent = 'Upgrade: —'; // Seed the upgrade cost line so layout stays stable during updates.
 
-    item.append(artwork, costEl, mergeCostEl); // Present the icon with both anchor and merge costs stacked below it for quick scanning.
+    item.append(artwork, costEl, upgradeCostEl); // Present the icon with both anchor and upgrade costs stacked below it for quick scanning.
 
     item.addEventListener('pointerdown', (event) => startTowerDrag(event, towerId, item));
 
