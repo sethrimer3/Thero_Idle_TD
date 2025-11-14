@@ -4,7 +4,7 @@
 export const MU_TOWER = Object.freeze({
   id: 'mu',
   symbol: 'μ',
-  name: 'Μ μ Tower',
+  name: 'μ Tower',
   tier: 12,
   baseCost: 2200000000,
   damage: 540,

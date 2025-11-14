@@ -4,7 +4,7 @@
 export const KAPPA_TOWER = Object.freeze({
   id: 'kappa',
   symbol: 'κ',
-  name: 'Κ κ Tower',
+  name: 'κ Tower',
   tier: 10,
   baseCost: 200000000,
   damage: 0,

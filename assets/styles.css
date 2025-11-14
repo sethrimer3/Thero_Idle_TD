@@ -2126,7 +2126,7 @@ body.graphics-mode-low .control-button {
   font-family: 'Cormorant Garamond', serif;
   font-size: 0.8rem;
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: none;
   background: radial-gradient(circle at 30% 30%, rgba(247, 247, 245, 0.16), transparent 70%);
   color: rgba(247, 247, 245, 0.85);
 }
@@ -3434,7 +3434,7 @@ body.graphics-mode-low .control-button {
 
 .tower-header h3 {
   font-size: 1.35rem;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.06em;
 }
 
@@ -5069,7 +5069,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   margin: 0 0 16px;
   font-size: 1.8rem;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .overlay-example {

@@ -98,6 +98,32 @@ export function createTowerUpgradeOverlayController({
     return value.replace(/[^a-zA-Z0-9_-]/g, (char) => `\\${char}`);
   }
 
+  /**
+   * Compose a tower display label that keeps lowercase glyphs intact.
+   */
+  function composeTowerDisplayLabel(definition, fallback = '') {
+    if (!definition || typeof definition !== 'object') {
+      return fallback;
+    }
+    const symbol = typeof definition.symbol === 'string' ? definition.symbol.trim() : '';
+    const name = typeof definition.name === 'string' ? definition.name.trim() : '';
+    if (symbol && name) {
+      const normalizedSymbol = symbol.normalize('NFKC');
+      const normalizedName = name.normalize('NFKC');
+      if (normalizedName.startsWith(normalizedSymbol)) {
+        return name;
+      }
+      return `${symbol} ${name}`;
+    }
+    if (name) {
+      return name;
+    }
+    if (symbol) {
+      return symbol;
+    }
+    return fallback;
+  }
+
   /** Reset overlay animation bookkeeping whenever a new tower is rendered. */
   function resetTowerVariableAnimationState() {
     towerTabState.towerVariableAnimation.towerId = null;
@@ -970,7 +996,7 @@ export function createTowerUpgradeOverlayController({
         : towerTabState.activeTowerUpgradeBaseEquation || blueprint.baseEquation || '';
 
     if (towerTabState.towerUpgradeElements.title) {
-      towerTabState.towerUpgradeElements.title.textContent = `${definition.symbol || ''} ${definition.name || ''}`.trim();
+      towerTabState.towerUpgradeElements.title.textContent = composeTowerDisplayLabel(definition);
     }
 
     if (towerTabState.towerUpgradeElements.tier) {
@@ -984,7 +1010,7 @@ export function createTowerUpgradeOverlayController({
       if (definition.icon) {
         const img = document.createElement('img');
         img.src = definition.icon;
-        const iconLabel = `${definition.symbol ? `${definition.symbol} ` : ''}${definition.name || 'tower'}`.trim();
+        const iconLabel = composeTowerDisplayLabel(definition, 'tower');
         img.alt = iconLabel ? `${iconLabel} icon` : 'Tower icon';
         img.loading = 'lazy';
         img.decoding = 'async';

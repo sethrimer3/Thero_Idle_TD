@@ -4,7 +4,7 @@
 export const ALPHA_TOWER = Object.freeze({
   id: 'alpha',
   symbol: 'α',
-  name: 'Α α Tower',
+  name: 'α Tower',
   tier: 1,
   baseCost: 10,
   damage: 28,
