@@ -2231,10 +2231,12 @@ import {
       return;
     }
 
-    const { leftCells, rightCells, gapCells, cellSize } = activeMetrics;
+    const { leftCells, rightCells, gapCells, cellSize, gapPixels } = activeMetrics;
     const leftWidth = Math.max(0, leftCells * cellSize);
     const rightWidth = Math.max(0, rightCells * cellSize);
-    const gapWidth = Math.max(0, gapCells * cellSize);
+    const gapWidth = Number.isFinite(gapPixels)
+      ? Math.max(0, gapPixels)
+      : Math.max(0, gapCells * cellSize); // Use the simulated span so DOM walls hug the water surface.
 
     const activeElements = getElementsForSimulation(powderSimulation);
     const inactiveElements = activeElements === powderElements ? fluidElements : powderElements;
