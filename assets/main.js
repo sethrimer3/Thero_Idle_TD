@@ -2092,11 +2092,36 @@ import {
     const activeElements = getElementsForSimulation(powderSimulation);
     const inactiveElements = activeElements === powderElements ? fluidElements : powderElements;
 
+    /**
+     * Convert a simulated wall inset into a content-box width so decorative padding/borders do not
+     * introduce visible gaps between the motes and the DOM walls.
+     */
+    const resolveContentWidth = (element, targetWidth) => {
+      if (!element || !Number.isFinite(targetWidth)) {
+        return targetWidth;
+      }
+      if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+        return targetWidth;
+      }
+      const styles = window.getComputedStyle(element);
+      if (!styles) {
+        return targetWidth;
+      }
+      const paddingLeft = Number.parseFloat(styles.paddingLeft) || 0;
+      const paddingRight = Number.parseFloat(styles.paddingRight) || 0;
+      const borderLeft = Number.parseFloat(styles.borderLeftWidth) || 0;
+      const borderRight = Number.parseFloat(styles.borderRightWidth) || 0;
+      const horizontalInset = paddingLeft + paddingRight + borderLeft + borderRight;
+      return Math.max(0, targetWidth - horizontalInset);
+    };
+
     if (activeElements.leftWall) {
-      activeElements.leftWall.style.width = `${leftWidth.toFixed(1)}px`;
+      const contentWidth = resolveContentWidth(activeElements.leftWall, leftWidth);
+      activeElements.leftWall.style.width = `${contentWidth.toFixed(1)}px`;
     }
     if (activeElements.rightWall) {
-      activeElements.rightWall.style.width = `${rightWidth.toFixed(1)}px`;
+      const contentWidth = resolveContentWidth(activeElements.rightWall, rightWidth);
+      activeElements.rightWall.style.width = `${contentWidth.toFixed(1)}px`;
     }
     if (activeElements.leftHitbox) {
       activeElements.leftHitbox.style.width = `${leftWidth.toFixed(1)}px`;
