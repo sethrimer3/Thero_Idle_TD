@@ -29,13 +29,33 @@ export class VoronoiSubdivisionSimulation {
     // Layers 1-7: rainbow colors (red through violet) - each 3x complexity
     // Layer 8: prismatic
     this.layers = [];
+    /**
+     * Track the spin state for each Voronoi layer so we can animate the glass
+     * rotation without recomputing polygons every frame.
+     * @type {Array<{angle:number, angularVelocity:number}>}
+     */
+    this.layerRotationState = [];
+    // Base angular velocity for the innermost layer: one revolution per minute.
+    const baseAngularVelocity = (Math.PI * 2) / 60;
     for (let i = 0; i < 9; i++) {
       this.layers.push({
         seeds: [],
         polygons: [],
         maxCells: i === 0 ? 9 : Math.pow(3, i) * 3 // 9, 27, 81, 243, etc.
       });
+      this.layerRotationState.push({
+        angle: 0,
+        // Each successive layer spins 10% faster than the previous one.
+        angularVelocity: baseAngularVelocity * Math.pow(1.1, i)
+      });
     }
+
+    /**
+     * Timestamp from the previous update call so we can derive delta time for
+     * smooth rotation. Initialized lazily to avoid large jumps on creation.
+     * @type {number|null}
+     */
+    this.lastUpdateTimestamp = null;
 
     if (this.canvas) {
       this.circleRadius = Math.min(this.canvas.width, this.canvas.height) * 0.45;
@@ -158,6 +178,35 @@ export class VoronoiSubdivisionSimulation {
 
   update() {
     this.ensureSeedCount();
+
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (this.lastUpdateTimestamp === null) {
+      this.lastUpdateTimestamp = now;
+      return;
+    }
+
+    // Convert elapsed time to seconds and clamp to avoid large jumps when the tab resumes.
+    const deltaSeconds = Math.min(0.25, Math.max(0, (now - this.lastUpdateTimestamp) / 1000));
+    this.lastUpdateTimestamp = now;
+    this.advanceLayerRotations(deltaSeconds);
+  }
+
+  /**
+   * Advance each layer's rotation based on the elapsed time since the previous frame.
+   * @param {number} deltaSeconds - Time in seconds since the previous update.
+   */
+  advanceLayerRotations(deltaSeconds) {
+    if (!Number.isFinite(deltaSeconds) || deltaSeconds <= 0) {
+      return;
+    }
+
+    for (let i = 0; i < this.layerRotationState.length; i++) {
+      const rotationState = this.layerRotationState[i];
+      if (!rotationState) {
+        continue;
+      }
+      rotationState.angle = (rotationState.angle + rotationState.angularVelocity * deltaSeconds) % (Math.PI * 2);
+    }
   }
 
   /**
@@ -258,12 +307,19 @@ export class VoronoiSubdivisionSimulation {
     ctx.translate(-this.canvas.width / 2, -this.canvas.height / 2);
 
     // Render all layers with 10% opacity each
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
     for (let layerIdx = 0; layerIdx < this.layers.length; layerIdx++) {
       const layer = this.layers[layerIdx];
       if (layer.polygons.length === 0) continue;
-      
+
       const layerPalette = this.getLayerPalette(layerIdx);
-      
+      const rotationState = this.layerRotationState[layerIdx];
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(rotationState ? rotationState.angle : 0);
+      ctx.translate(-centerX, -centerY);
+
       for (const poly of layer.polygons) {
         const color = this.sampleCustomPalette(layerPalette, poly.seed.colorT);
         ctx.fillStyle = rgbToString(color, 0.1);
@@ -281,6 +337,8 @@ export class VoronoiSubdivisionSimulation {
           ctx.stroke();
         }
       }
+
+      ctx.restore();
     }
 
     ctx.restore();
