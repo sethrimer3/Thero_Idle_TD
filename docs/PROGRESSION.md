@@ -115,7 +115,7 @@ Each entry combines three beats: a flavorful formula, a combat mechanic, and a h
 | Ι / ι | `ι = √θ` loops theta into circulating beams. | Iota turns θ's bends into inclusive perimeter lasers. | **Ι** shares ι's loop with the furthest linked ally, extending combined range. |
 | Κ / κ | `κ = ι + sin(ι)` adds oscillation to iota's loop. | Kappa reads curvature straight from the oscillating loop. | **Κ** embeds a curved barrier that deflects enemies inward for two seconds. |
 | Λ / λ | `λ = κ^{3/2}` elevates curvature into an aura surge. | Lambda amplifies κ into eigenvalue-like boosts. | **Λ** locks whichever aura mode is strongest and triples its effect while locked. |
-| Μ / μ | `μ = λ + ln(λ + 1)` blends lambda with a stabilizing log. | Mu smooths λ surges into predictive volleys. | **Μ** continues the blend and redistributes matching shields to the two weakest allies. |
+| Μ / μ | `μ = λ × (tier × 10)` layers λ's output through ℵ-tiered fractal mines. | Mu seeds Sierpinski triangle mines that charge up through ℵ₁-defined tiers before detonating. | **Μ** swaps to Apollonian circle mines while preserving the escalating tier multiplier. |
 | Ν / ν | `ν = μ^{2}` squares the predictive volley into tempo beams. | Nu punishes rhythmic waves with squared μ barrages. | **Ν** adds a metronome that doubles projectile speed whenever wave tempo spikes. |
 | Ξ / ξ | `ξ = √ν` roots the squared tempo into balanced blasts. | Xi fires parity-stable bursts drawn from ν. | **Ξ** mirrors the rooted blast backward through the lane at half strength. |
 | Ο / ο | `ο = ln(ξ + 1)` logs xi into steady phasors. | Omicron rewards scarcity by stabilizing ξ's output. | **Ο** keeps the scarcity bonus and discounts other towers by 5% for each surviving ο shot. |

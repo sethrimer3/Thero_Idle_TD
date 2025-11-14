@@ -311,17 +311,22 @@ export const mu = {
       baseValue: 1,
       step: 1,
       upgradable: true,
-      format: (value) => `Tier ${formatWholeNumber(Math.max(1, value))}`,
+      format: (value) => {
+        const normalized = Number.isFinite(value) ? value : 1;
+        return `Tier ${formatWholeNumber(Math.max(1, normalized))}`;
+      },
       cost: (level) => Math.max(1, Math.pow(2, level)),
       getSubEquations({ level, value }) {
-        const rank = Math.max(1, Number.isFinite(level) ? 1 + level : 1);
-        const resolved = Number.isFinite(value) ? Math.max(1, value) : rank;
+        const fallback = 1 + (Number.isFinite(level) ? level : 0);
+        const rawValue = Number.isFinite(value) ? value : fallback;
+        const rounded = Math.round(rawValue);
+        const resolved = Math.max(1, rounded);
         return [
           {
-            expression: String.raw`\( \text{tier} = 1 + \aleph_{1} \)`,
+            expression: String.raw`\( \text{tier} = \max(1, \aleph_{1}) \)`,
           },
           {
-            values: String.raw`\( ${formatWholeNumber(resolved)} = 1 + ${formatWholeNumber(level || 0)} \)`,
+            values: String.raw`\( ${formatWholeNumber(resolved)} = \max(1, ${formatWholeNumber(rounded)}) \)`,
             variant: 'values',
           },
         ];
@@ -340,8 +345,9 @@ export const mu = {
       format: (value) => `+${formatWholeNumber(Math.max(0, value))} mines`,
       cost: (level) => Math.max(1, 5 + level * 3),
       getSubEquations({ level, value }) {
-        const rank = Math.max(0, Number.isFinite(level) ? level : 0);
-        const resolved = Number.isFinite(value) ? value : rank;
+        const rank = Math.max(0, Number.isFinite(level) ? Math.round(level) : 0);
+        const rawValue = Number.isFinite(value) ? Math.round(value) : rank;
+        const resolved = Math.max(0, rawValue);
         const totalMines = 5 + resolved;
         return [
           {
@@ -367,8 +373,9 @@ export const mu = {
       format: (value) => `${formatDecimal(0.5 + 0.1 * Math.max(0, value), 2)} mines/s`,
       cost: (level) => Math.max(1, 3 + level * 2),
       getSubEquations({ level, value }) {
-        const rank = Math.max(0, Number.isFinite(level) ? level : 0);
-        const resolved = Number.isFinite(value) ? value : rank;
+        const rank = Math.max(0, Number.isFinite(level) ? Math.round(level) : 0);
+        const rawValue = Number.isFinite(value) ? value : rank;
+        const resolved = Math.max(0, rawValue);
         const speed = 0.5 + 0.1 * resolved;
         return [
           {
@@ -385,14 +392,14 @@ export const mu = {
   computeResult(values) {
     // Damage calculation: atk = lambda * (tier * 10)
     const lambdaValue = ctx().calculateTowerEquationResult('lambda');
-    const lambda = Number.isFinite(lambdaValue) ? lambdaValue : 0;
-    const tier = Math.max(1, Number.isFinite(values.aleph1) ? values.aleph1 : 1);
+    const lambda = Number.isFinite(lambdaValue) ? Math.max(0, lambdaValue) : 0;
+    const tier = Math.max(1, Number.isFinite(values.aleph1) ? Math.round(values.aleph1) : 1);
     return lambda * (tier * 10);
   },
   formatBaseEquationValues({ values, result, formatComponent }) {
     const lambdaValue = ctx().calculateTowerEquationResult('lambda');
-    const lambda = Number.isFinite(lambdaValue) ? lambdaValue : 0;
-    const tier = Math.max(1, Number.isFinite(values.aleph1) ? values.aleph1 : 1);
+    const lambda = Number.isFinite(lambdaValue) ? Math.max(0, lambdaValue) : 0;
+    const tier = Math.max(1, Number.isFinite(values.aleph1) ? Math.round(values.aleph1) : 1);
     const tierDamage = tier * 10;
     return `${formatComponent(result)} = ${formatComponent(lambda)} × ${formatComponent(tierDamage)}`;
   },

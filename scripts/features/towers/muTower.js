@@ -31,6 +31,82 @@ const TRIANGLE_BASE_SIZE = 0.4; // Size multiplier for Sierpinski triangles (in 
 const CIRCLE_BASE_SIZE = 0.35; // Size multiplier for Apollonian circles (in meters)
 
 /**
+ * Clamp blueprint-provided tier values to a valid integer (minimum tier 1).
+ */
+function clampTierValue(rawTier) {
+  if (!Number.isFinite(rawTier)) {
+    return 1;
+  }
+  return Math.max(1, Math.round(rawTier));
+}
+
+/**
+ * Keep all live mines aligned with the latest radius and maximum tier limits.
+ */
+function synchronizeMinesWithState(state, mineRadiusPixels, maxTier) {
+  if (!state?.mines) {
+    return;
+  }
+  const desiredTier = clampTierValue(maxTier);
+  state.mines.forEach((mine) => {
+    if (!mine) {
+      return;
+    }
+    if (Number.isFinite(mineRadiusPixels) && mineRadiusPixels > 0) {
+      mine.radiusPixels = mineRadiusPixels;
+    }
+    if (mine.targetTier !== desiredTier) {
+      const previousTier = mine.targetTier;
+      mine.targetTier = desiredTier;
+      if (desiredTier > previousTier) {
+        // Resume charging toward the higher tier.
+        if (mine.tier < desiredTier) {
+          mine.armed = false;
+        }
+      } else if (desiredTier <= mine.tier) {
+        // Clamp down to the new maximum and mark armed.
+        mine.tier = desiredTier;
+        mine.armed = true;
+        mine.chargeProgress = 0;
+      }
+    }
+  });
+}
+
+/**
+ * Enforce the current mine capacity, prioritizing armed and higher-tier mines.
+ */
+function pruneExcessMines(state) {
+  if (!state?.mines) {
+    return;
+  }
+  const limit = Math.max(1, Math.floor(state.maxMines || 0));
+  if (state.mines.length <= limit) {
+    return;
+  }
+  const overflow = state.mines.length - limit;
+  const removalOrder = state.mines
+    .map((mine, index) => ({ mine, index }))
+    .sort((a, b) => {
+      if (a.mine?.armed !== b.mine?.armed) {
+        return a.mine?.armed ? 1 : -1;
+      }
+      const tierDelta = (a.mine?.tier || 0) - (b.mine?.tier || 0);
+      if (tierDelta !== 0) {
+        return tierDelta;
+      }
+      return (a.mine?.chargeProgress || 0) - (b.mine?.chargeProgress || 0);
+    })
+    .slice(0, overflow)
+    .map((entry) => entry.index)
+    .sort((a, b) => b - a);
+
+  removalOrder.forEach((index) => {
+    state.mines.splice(index, 1);
+  });
+}
+
+/**
  * Ensure mu tower state is initialized.
  */
 function ensureMuStateInternal(playfield, tower) {
@@ -45,6 +121,7 @@ function ensureMuStateInternal(playfield, tower) {
       baseCooldown: 2.0,
       maxTier: 1,
       lambdaPower: 0,
+      mineRadiusPixels: 0,
     };
   }
   return tower.muState;
@@ -57,25 +134,28 @@ function refreshMuParameters(playfield, tower, state) {
   const blueprint = getTowerEquationBlueprint('mu');
   
   // Get lambda power for damage calculation
-  const lambdaPower = Math.max(0, calculateTowerEquationResult('lambda') || 0);
-  
+  const lambdaPowerRaw = calculateTowerEquationResult('lambda') || 0;
+  const lambdaPower = Number.isFinite(lambdaPowerRaw) ? Math.max(0, lambdaPowerRaw) : 0;
+
   // tier = Aleph1
   const aleph1Value = computeTowerVariableValue('mu', 'aleph1', blueprint);
-  const maxTier = Number.isFinite(aleph1Value) && aleph1Value > 0 ? Math.round(aleph1Value) : 1;
-  
+  const maxTier = clampTierValue(aleph1Value);
+
   // max = 5 + Aleph2
   const aleph2Value = computeTowerVariableValue('mu', 'aleph2', blueprint);
-  const maxMines = 5 + (Number.isFinite(aleph2Value) ? Math.round(aleph2Value) : 0);
-  
+  const maxMines = Math.max(1, 5 + (Number.isFinite(aleph2Value) ? Math.round(aleph2Value) : 0));
+
   // spd = 0.5 + 0.1 * Aleph3
   const aleph3Value = computeTowerVariableValue('mu', 'aleph3', blueprint);
-  const placementRate = 0.5 + 0.1 * (Number.isFinite(aleph3Value) ? aleph3Value : 0);
+  const rawPlacementRate = 0.5 + 0.1 * (Number.isFinite(aleph3Value) ? aleph3Value : 0);
+  const placementRate = Math.max(0, rawPlacementRate);
   
   const minDimension = resolvePlayfieldMinDimension(playfield);
   const rangePixels = Math.max(24, metersToPixels(BASE_RANGE_METERS, minDimension));
-  
+  const mineRadiusPixels = metersToPixels(MINE_RADIUS_METERS, minDimension);
+
   const baseCooldown = placementRate > 0 ? 1 / placementRate : Infinity;
-  
+
   state.lambdaPower = lambdaPower;
   state.maxTier = maxTier;
   state.maxMines = maxMines;
@@ -83,10 +163,16 @@ function refreshMuParameters(playfield, tower, state) {
   state.baseCooldown = baseCooldown;
   state.rangeMeters = BASE_RANGE_METERS;
   state.rangePixels = rangePixels;
-  
+  state.mineRadiusPixels = mineRadiusPixels;
+
+  synchronizeMinesWithState(state, mineRadiusPixels, maxTier);
+  pruneExcessMines(state);
+
   // Update tower stats for display
-  tower.baseDamage = lambdaPower;
-  tower.damage = lambdaPower;
+  const maxTierDamage = lambdaPower * (maxTier * 10);
+  const normalizedDamage = Number.isFinite(maxTierDamage) ? maxTierDamage : 0;
+  tower.baseDamage = normalizedDamage;
+  tower.damage = normalizedDamage;
   tower.baseRate = placementRate;
   tower.rate = placementRate;
   tower.baseRange = rangePixels;
@@ -174,14 +260,18 @@ function placeMine(playfield, tower, state) {
   }
   
   const minDimension = resolvePlayfieldMinDimension(playfield);
-  const mineRadiusPixels = metersToPixels(MINE_RADIUS_METERS, minDimension);
-  
+  const mineRadiusPixels =
+    Number.isFinite(state.mineRadiusPixels) && state.mineRadiusPixels > 0
+      ? state.mineRadiusPixels
+      : metersToPixels(MINE_RADIUS_METERS, minDimension);
+  const targetTier = clampTierValue(state.maxTier);
+
   const mine = {
     id: `mu-mine-${Date.now()}-${Math.random()}`,
     x: position.x,
     y: position.y,
     tier: 0,
-    targetTier: state.maxTier,
+    targetTier,
     chargeProgress: 0,
     radiusPixels: mineRadiusPixels,
     armed: false, // Becomes true when reaching targetTier
@@ -197,12 +287,36 @@ function placeMine(playfield, tower, state) {
  */
 function updateMines(playfield, tower, state, delta) {
   const minesToRemove = [];
-  
+  const desiredTier = clampTierValue(state.maxTier);
+  const mineRadius =
+    Number.isFinite(state.mineRadiusPixels) && state.mineRadiusPixels > 0
+      ? state.mineRadiusPixels
+      : null;
+
   state.mines.forEach((mine, index) => {
+    if (!mine) {
+      return;
+    }
+
+    if (mineRadius) {
+      mine.radiusPixels = mineRadius;
+    }
+
+    if (mine.targetTier !== desiredTier) {
+      mine.targetTier = desiredTier;
+      if (mine.tier >= desiredTier) {
+        mine.tier = desiredTier;
+        mine.armed = true;
+        mine.chargeProgress = 0;
+      } else {
+        mine.armed = false;
+      }
+    }
+
     // Charge up the mine to its target tier
     if (mine.tier < mine.targetTier) {
       mine.chargeProgress += delta;
-      
+
       if (mine.chargeProgress >= TIER_CHARGE_TIME) {
         mine.tier += 1;
         mine.chargeProgress = 0;
@@ -299,7 +413,11 @@ export function updateMuTower(playfield, tower, delta) {
     return;
   }
   
-  if (state.cooldown <= 0 && state.mines.length < state.maxMines) {
+  if (
+    state.cooldown <= 0 &&
+    state.mines.length < state.maxMines &&
+    Number.isFinite(state.baseCooldown)
+  ) {
     const mine = placeMine(playfield, tower, state);
     if (mine) {
       state.cooldown = state.baseCooldown;
