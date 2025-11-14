@@ -42,6 +42,8 @@ const GREEK_TIER_SEQUENCE = [
 const NULL_TIER = -1;
 // Total Greek letters in sequence (used for tier calculations)
 const GREEK_SEQUENCE_LENGTH = GREEK_TIER_SEQUENCE.length;
+// Canvas dimensions below this value indicate the spire view is collapsed or hidden.
+const COLLAPSED_DIMENSION_THRESHOLD = 2;
 
 /**
  * Convert tier to a color using the active color palette gradient.
@@ -285,26 +287,29 @@ export class ParticleFusionSimulation {
     this.highestTierReached = NULL_TIER; // Tracks the highest tier ever reached
     this.glyphCount = 0; // Number of Tsadi glyphs earned
     this.permanentGlyphs = []; // Permanent glowing glyphs in background
-    
+
     // Upgrades
     this.upgrades = {
       repellingForceReduction: 0, // Number of times purchased
       startingTier: 0, // Number of times purchased (0 = spawn null particles)
     };
-    
+
     // Fusion effects
     this.fusionEffects = []; // {x, y, radius, alpha, type: 'flash' | 'ring'}
-    
+
     // Spawn effects (flash and wave)
     this.spawnEffects = []; // {x, y, radius, alpha, maxRadius, type: 'flash' | 'wave'}
-    
+
     // Aleph particle state
     this.alephParticleId = null; // ID of the current aleph particle if it exists
     this.alephAbsorptionCount = 0; // Number of particles absorbed by aleph
-    
+
     // Visual settings
     this.backgroundColor = '#0f1116'; // Dark background
     this.glowIntensity = 0.6;
+
+    // Track when the simulation needs to scatter particles after a collapsed resize.
+    this.pendingScatterFromCollapse = false;
     
     // Animation state
     this.running = false;
@@ -336,6 +341,13 @@ export class ParticleFusionSimulation {
     const rect = this.canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
 
+    const previousWidth = this.width;
+    const previousHeight = this.height;
+    const previouslyCollapsed =
+      this.pendingScatterFromCollapse ||
+      previousWidth <= COLLAPSED_DIMENSION_THRESHOLD ||
+      previousHeight <= COLLAPSED_DIMENSION_THRESHOLD;
+
     // Cache CSS pixel size for consistent physics calculations.
     this.width = rect.width;
     this.height = rect.height;
@@ -348,6 +360,12 @@ export class ParticleFusionSimulation {
       this.ctx.scale(dpr, dpr);
     }
 
+    if (this.width <= COLLAPSED_DIMENSION_THRESHOLD || this.height <= COLLAPSED_DIMENSION_THRESHOLD) {
+      // Defer scattering until the canvas becomes visible again to avoid clustering at (0, 0).
+      this.pendingScatterFromCollapse = true;
+      return;
+    }
+
     // Null particle radius is 80% of what alpha would be (which is 1/100 of width)
     const alphaRadius = this.width / 100;
     this.nullParticleRadius = alphaRadius * 0.8;
@@ -355,6 +373,41 @@ export class ParticleFusionSimulation {
     // Recalculate radii for existing particles so they stay proportional after resize.
     for (const particle of this.particles) {
       particle.radius = this.getRadiusForTier(particle.tier);
+    }
+
+    if (previouslyCollapsed && this.particles.length > 0) {
+      // Randomly reposition particles after the layout expands so they do not spawn in a stack.
+      this.scatterParticlesRandomly();
+      this.pendingScatterFromCollapse = false;
+    }
+  }
+
+  /**
+   * Scatter all active particles across the canvas using spawn-safe bounds.
+   * Ensures the simulation looks natural after returning from a collapsed state.
+   */
+  scatterParticlesRandomly() {
+    const marginWidth = this.width;
+    const marginHeight = this.height;
+    if (marginWidth <= COLLAPSED_DIMENSION_THRESHOLD || marginHeight <= COLLAPSED_DIMENSION_THRESHOLD) {
+      // Skip scattering if the canvas is still effectively collapsed.
+      this.pendingScatterFromCollapse = true;
+      return;
+    }
+
+    for (const particle of this.particles) {
+      const radius = this.getRadiusForTier(particle.tier);
+      const margin = radius * 2;
+      const spawnableWidth = Math.max(0, marginWidth - margin * 2);
+      const spawnableHeight = Math.max(0, marginHeight - margin * 2);
+
+      if (spawnableWidth <= 0 || spawnableHeight <= 0) {
+        continue;
+      }
+
+      // Assign a new random position while preserving the particle's existing velocity.
+      particle.x = margin + Math.random() * spawnableWidth;
+      particle.y = margin + Math.random() * spawnableHeight;
     }
   }
   
