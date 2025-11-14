@@ -327,13 +327,16 @@ function renderFractalContent(fractal, state) {
   canvasWrapper.appendChild(canvas);
   contentContainer.appendChild(canvasWrapper);
   
-  // Add click handler to allocate 1 Iteron when clicking the fractal
-  canvas.addEventListener('click', () => {
+  // Add pointer interaction handler to allocate 1 Iteron when the fractal is tapped.
+  const handleFractalTap = () => {
     allocateIterons(fractal.id, 1);
     if (updateCallback) {
       updateCallback();
     }
-  });
+  };
+
+  canvas.addEventListener('click', handleFractalTap);
+  canvas.addEventListener('fractalcanvas:tap', handleFractalTap);
   
   // Render fractal details below the Layer Progress bar
   if (detailsContainer) {
