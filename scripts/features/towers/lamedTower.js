@@ -125,6 +125,18 @@ export class GravitySimulation {
     
     // Deterministic RNG
     this.rng = new SeededRandom(options.seed || Date.now());
+
+    // Shooting star events bring bonus mass into the simulation at long intervals.
+    this.shootingStars = [];
+    this.shootingStarTrailLength = 20;
+    this.nextShootingStarTime = 0; // Seconds timestamp for next shooting star spawn
+
+    // Track pending mass contributions from off-cycle events (shooting stars).
+    this.pendingAbsorptions = 0;
+    this.pendingMassGain = 0;
+
+    // Schedule the first shooting star once RNG is available.
+    this.scheduleNextShootingStar();
     
     // Seed the spark bank with any provided initial reserve so UI callbacks hydrate immediately.
     const initialSparkBank = Number.isFinite(options.initialSparkBank) ? options.initialSparkBank : 0;
@@ -185,7 +197,56 @@ export class GravitySimulation {
     
     return { tier, nextTier, progress };
   }
-  
+
+  /**
+   * Schedule the next time a shooting star should appear.
+   */
+  scheduleNextShootingStar() {
+    const intervalSeconds = this.rng.range(10, 60);
+    this.nextShootingStarTime = this.elapsedTime + intervalSeconds;
+  }
+
+  /**
+   * Spawn a shooting star just outside the simulation bounds.
+   */
+  spawnShootingStar() {
+    const dpr = window.devicePixelRatio || 1;
+
+    const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
+    const maxR = Math.min(this.width, this.height) / (2 * dpr);
+    const spawnRadius = maxR + this.rng.range(20, 80);
+    const angle = this.rng.next() * Math.PI * 2;
+
+    const x = this.centerX + Math.cos(angle) * spawnRadius;
+    const y = this.centerY + Math.sin(angle) * spawnRadius;
+
+    const approachSpeed = this.rng.range(80, 140);
+    let vx = -Math.cos(angle) * approachSpeed;
+    let vy = -Math.sin(angle) * approachSpeed;
+
+    // Add a slight tangential wobble so every shooting star path feels unique.
+    const tangentialBoost = this.rng.range(-0.3, 0.3) * approachSpeed;
+    const perpX = -Math.sin(angle);
+    const perpY = Math.cos(angle);
+    vx += perpX * tangentialBoost;
+    vy += perpY * tangentialBoost;
+
+    let color = { r: 255, g: 240, b: 200 };
+    if (this.samplePaletteGradient) {
+      color = this.samplePaletteGradient(0.85);
+    }
+
+    this.shootingStars.push({
+      x,
+      y,
+      vx,
+      vy,
+      mass: 1,
+      color,
+      trail: [],
+    });
+  }
+
   /**
    * Spawn a new star randomly between the central body edge and simulation edge.
    * Uses near-circular orbital velocity.
@@ -221,9 +282,8 @@ export class GravitySimulation {
     const vx = -Math.sin(angle) * v;
     const vy = Math.cos(angle) * v;
     
-    // Star mass (affected by star mass upgrade)
-    const baseMass = this.rng.range(0.5, 2.0);
-    const starMass = baseMass * (1 + this.upgrades.starMass * 0.1);
+    // Star mass scales deterministically with the upgrade so placement size is consistent.
+    const starMass = 1 + this.upgrades.starMass;
     
     this.stars.push({
       x,
@@ -284,11 +344,14 @@ export class GravitySimulation {
       const vx = -Math.sin(angle) * azimuthalSpeed + Math.cos(angle) * radialSpeed;
       const vy = Math.cos(angle) * azimuthalSpeed + Math.sin(angle) * radialSpeed;
       
-      // Sample color from palette gradient
-      const gradientPos = this.rng.next(); // Random position in gradient
+      // Sample color from palette gradient based on radial distance from the sun.
+      const radialBlend = Math.min(
+        1,
+        Math.max(0, (r - starVisualRadius) / Math.max(1, maxR - starVisualRadius))
+      );
       let color;
       if (this.samplePaletteGradient) {
-        color = this.samplePaletteGradient(gradientPos);
+        color = this.samplePaletteGradient(radialBlend);
       } else {
         color = { r: 200, g: 200, b: 220 }; // Fallback color
       }
@@ -314,7 +377,7 @@ export class GravitySimulation {
   updateDustParticles(deltaTime) {
     const dt = deltaTime / 1000;
     const dpr = window.devicePixelRatio || 1;
-    
+
     for (let i = this.dustParticles.length - 1; i >= 0; i--) {
       const dust = this.dustParticles[i];
       
@@ -351,7 +414,105 @@ export class GravitySimulation {
       dust.y += dust.vy * dt;
     }
   }
-  
+
+  /**
+   * Update shooting stars and resolve their interactions.
+   */
+  updateShootingStars(deltaTime) {
+    const dt = deltaTime / 1000;
+    const dpr = window.devicePixelRatio || 1;
+
+    if (this.elapsedTime >= this.nextShootingStarTime) {
+      this.spawnShootingStar();
+      this.scheduleNextShootingStar();
+    }
+
+    const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
+    const absorptionRadius = starVisualRadius;
+    const maxR = Math.min(this.width, this.height) / (2 * dpr);
+
+    for (let i = this.shootingStars.length - 1; i >= 0; i--) {
+      const shard = this.shootingStars[i];
+
+      const dx = this.centerX - shard.x;
+      const dy = this.centerY - shard.y;
+      const distSq = Math.max(dx * dx + dy * dy, this.epsilon * this.epsilon);
+      const dist = Math.sqrt(distSq);
+
+      const accelMagnitude = (this.G * this.starMass) / distSq;
+      const ax = (dx / dist) * accelMagnitude;
+      const ay = (dy / dist) * accelMagnitude;
+
+      shard.vx += ax * dt;
+      shard.vy += ay * dt;
+
+      shard.x += shard.vx * dt;
+      shard.y += shard.vy * dt;
+
+      shard.trail.push({ x: shard.x, y: shard.y, alpha: 1 });
+      if (shard.trail.length > this.shootingStarTrailLength) {
+        shard.trail.shift();
+      }
+      for (const point of shard.trail) {
+        point.alpha = Math.max(0, point.alpha - 0.12);
+      }
+
+      let merged = false;
+      for (const star of this.stars) {
+        const sdx = star.x - shard.x;
+        const sdy = star.y - shard.y;
+        const sDistSq = sdx * sdx + sdy * sdy;
+        const starRadius = Math.max(4, (star.mass / this.starMass) * starVisualRadius * 2);
+        if (sDistSq < starRadius * starRadius) {
+          // Shooting star merges into an orbiting spark and empowers it.
+          star.mass += 1;
+          this.flashEffects.push({
+            x: star.x / dpr,
+            y: star.y / dpr,
+            radius: 6,
+            maxRadius: 18,
+            alpha: 1.0,
+            duration: 0.4,
+            elapsed: 0,
+          });
+          this.shootingStars.splice(i, 1);
+          merged = true;
+          break;
+        }
+      }
+      if (merged) {
+        continue;
+      }
+
+      if (dist < absorptionRadius) {
+        // Shooting star slams into the sun and contributes a single unit of mass.
+        this.starMass += 1;
+        this.pendingAbsorptions += 1;
+        this.pendingMassGain += 1;
+        this.stats.lastAbsorptionTime = this.elapsedTime;
+        if (this.onStarMassChange) {
+          this.onStarMassChange(this.starMass);
+        }
+        this.shockRings.push({
+          x: this.centerX / dpr,
+          y: this.centerY / dpr,
+          radius: 0,
+          maxRadius: absorptionRadius * 1.5,
+          alpha: 1.0,
+          duration: 0.8,
+          elapsed: 0,
+        });
+        this.shootingStars.splice(i, 1);
+        continue;
+      }
+
+      if (dist > maxR + 200) {
+        // Retire shooting stars that fully escape the play area.
+        this.shootingStars.splice(i, 1);
+      }
+    }
+  }
+
   /**
    * Update physics for all orbiting stars.
    */
@@ -454,7 +615,14 @@ export class GravitySimulation {
         point.alpha = Math.max(0, point.alpha - this.trailFadeRate);
       }
     }
-    
+
+    if (this.pendingAbsorptions > 0) {
+      absorbedThisFrame += this.pendingAbsorptions;
+      massGainedThisFrame += this.pendingMassGain;
+      this.pendingAbsorptions = 0;
+      this.pendingMassGain = 0;
+    }
+
     // Update statistics
     if (absorbedThisFrame > 0) {
       this.stats.totalAbsorptions += absorbedThisFrame;
@@ -633,7 +801,7 @@ export class GravitySimulation {
       const dustX = dust.x / dpr;
       const dustY = dust.y / dpr;
       const dustAlpha = dust.life * 0.3;
-      
+
       if (dust.color) {
         ctx.fillStyle = `rgba(${dust.color.r}, ${dust.color.g}, ${dust.color.b}, ${dustAlpha})`;
       } else {
@@ -643,7 +811,31 @@ export class GravitySimulation {
       ctx.arc(dustX, dustY, 1, 0, Math.PI * 2);
       ctx.fill();
     }
-    
+
+    // Draw shooting stars with luminous trails.
+    for (const shard of this.shootingStars) {
+      if (shard.trail.length > 1) {
+        ctx.lineWidth = 2;
+        for (let i = 1; i < shard.trail.length; i++) {
+          const prev = shard.trail[i - 1];
+          const curr = shard.trail[i];
+          const alpha = curr.alpha * 0.6;
+          ctx.strokeStyle = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, ${alpha})`;
+          ctx.beginPath();
+          ctx.moveTo(prev.x / dpr, prev.y / dpr);
+          ctx.lineTo(curr.x / dpr, curr.y / dpr);
+          ctx.stroke();
+        }
+      }
+
+      const shardX = shard.x / dpr;
+      const shardY = shard.y / dpr;
+      ctx.fillStyle = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, 0.95)`;
+      ctx.beginPath();
+      ctx.arc(shardX, shardY, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     // Draw orbiting stars with trails
     for (const star of this.stars) {
       // Draw trail with color gradient from palette
@@ -753,6 +945,7 @@ export class GravitySimulation {
     this.elapsedTime += deltaTime / 1000;
     
     // Update all simulation components
+    this.updateShootingStars(deltaTime);
     this.updateStars(deltaTime);
     this.spawnDustParticles(deltaTime);
     this.updateDustParticles(deltaTime);
@@ -868,7 +1061,7 @@ export class GravitySimulation {
   
   /**
    * Upgrade the mass of orbiting stars.
-   * Increases star mass by 10% per upgrade level.
+   * Increases the baseline mass of placed sparks by +1 per tier.
    * @returns {boolean} True if upgrade succeeded
    */
   upgradeStarMass() {
