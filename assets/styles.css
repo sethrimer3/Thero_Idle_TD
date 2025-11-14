@@ -3188,17 +3188,7 @@ body.graphics-mode-low .control-button {
   justify-content: flex-end;
   align-items: center;
   padding: 32px 10px;
-  /* Offset the repeating tower texture so it can scroll smoothly with the dune crest. */
-  --powder-wall-shift: 0px;
-  /* Store the masonry sprite on a variable so both the element and the overflow guard can reuse it. */
-  /* --powder-wall-texture: url('./sprites/inspiration_tower_wall.png'); */ /* Removed per task 23 */
-  /* Repeat the masonry texture directly on the wall so the sprite is always visible. */
-  /* background-image: var(--powder-wall-texture); */ /* Removed per task 23 */
-  /* Use solid color block instead of sprite per task 23 */
-  background-color: rgba(20, 24, 32, 0.95);
-  background-repeat: repeat-y;
-  background-size: 100% 192px;
-  background-position: center var(--powder-wall-shift, 0px);
+  background-color: rgba(16, 20, 28, 0.45);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   z-index: 1;
   transition:
@@ -3215,30 +3205,25 @@ body.graphics-mode-low .control-button {
 .powder-wall::after {
   content: "";
   position: absolute;
-  width: 100%;
+  top: 0;
+  bottom: 0;
+  height: 100%;
+  aspect-ratio: 3 / 8;
   pointer-events: none;
 }
 
 .powder-wall::before {
-  top: -200%;
-  bottom: -200%;
-  /* Echo the base texture beyond the viewport so panning never reveals empty bands. */
-  /* background-image: var(--powder-wall-texture); */ /* Removed per task 23 */
-  /* Use solid color block instead of sprite per task 23 */
-  background-color: rgba(20, 24, 32, 0.87);
-  background-repeat: repeat-y;
-  background-size: 100% 192px;
-  background-position: center var(--powder-wall-shift, 0px);
-  opacity: 0.92;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: center bottom;
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.55));
   z-index: -2;
 }
 
 .powder-wall::after {
-  top: -200%;
-  bottom: -200%;
-  background: linear-gradient(180deg, rgba(10, 12, 18, 0.82) 0%, rgba(12, 14, 20, 0.94) 100%);
-  opacity: 0.86;
-  mix-blend-mode: overlay;
+  background: linear-gradient(180deg, rgba(10, 12, 18, 0.72) 0%, rgba(12, 14, 20, 0.92) 100%);
+  opacity: 0.85;
+  mix-blend-mode: soft-light;
   z-index: -1;
 }
 
@@ -3271,17 +3256,40 @@ body.graphics-mode-low .control-button {
   border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.powder-wall-left::before {
-  left: -100%;
-}
-
 .powder-wall-right {
   right: 0;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+
+.powder-wall-left::before {
+  right: 0;
+  left: auto;
+  background-image: url('./sprites/spires/alephSpire/aleph_spire_wall_left.png');
+}
+
+.powder-wall-left::after {
+  right: 0;
+  left: auto;
+}
+
 .powder-wall-right::before {
-  left: 100%;
+  left: 0;
+  right: auto;
+  background-image: url('./sprites/spires/alephSpire/aleph_spire_wall_right.png');
+}
+
+.powder-wall-right::after {
+  left: 0;
+  right: auto;
+}
+
+.fluid-wall-left::before {
+  background-image: url('./sprites/spires/alephSpire/bet_spire_wall_left.png');
+}
+
+.fluid-wall-right::before {
+  background-image: url('./sprites/spires/alephSpire/bet_spire_wall_right.png');
 }
 
 .powder-wall-marker {
