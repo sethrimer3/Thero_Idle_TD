@@ -91,8 +91,8 @@ export class KufBattlefieldSimulation {
       return;
     }
     // Derive canvas size from viewport bounds while preserving the battlefield aspect ratio.
-    // Fixed 3:4 aspect ratio for consistency with Aleph and Bet Spires
-    const aspectRatio = 4 / 3;
+    // Fixed 3:4 aspect ratio (width:height) for consistency with Aleph and Bet Spires.
+    const aspectRatio = 3 / 4;
     const parentWidth = parent.clientWidth || 640;
     const viewportWidth = typeof window.innerWidth === 'number' ? Math.max(1, window.innerWidth - 48) : parentWidth;
     const viewportHeight = typeof window.innerHeight === 'number' ? Math.max(240, window.innerHeight - 260) : parentWidth / aspectRatio;
