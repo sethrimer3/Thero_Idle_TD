@@ -758,23 +758,19 @@ export class FluidSimulation {
     }
 
     const threshold = Math.max(0.2, Math.min(0.95, this.scrollThreshold));
-    const targetFromTop = this.rows * (1 - threshold);
-    const currentFromTop = this.rows - highest;
+    // Cap the visible surface height so the crest stays within the viewport threshold.
+    const maxVisibleHeight = this.rows * threshold;
 
-    if (currentFromTop < targetFromTop) {
-      const shift = targetFromTop - currentFromTop;
-      this.scrollOffset = Math.max(0, this.scrollOffset + shift);
-      if (currentFromTop < targetFromTop) {
-        const shift = targetFromTop - currentFromTop;
-        this.scrollOffset = Math.max(0, this.scrollOffset + shift);
-  
-      // Shift water down by reducing all column heights by the scroll amount
-      const activeStart = this.wallInsetLeftCells;
-      const activeEnd = this.cols - this.wallInsetRightCells - 1;
-    for (let index = activeStart; index <= activeEnd; index += 1) {
-      this.columnHeights[index] = Math.max(0, (this.columnHeights[index] || 0) - shift);
+    if (highest <= maxVisibleHeight) {
+      return;
     }
-  }
+
+    const overflow = highest - maxVisibleHeight;
+    this.scrollOffset = Math.max(0, this.scrollOffset + overflow);
+
+    // Lower each column by the overflow amount so the rendered surface remains anchored to the basin floor.
+    for (let index = activeStart; index <= activeEnd; index += 1) {
+      this.columnHeights[index] = Math.max(0, (this.columnHeights[index] || 0) - overflow);
     }
   }
 
@@ -870,7 +866,7 @@ export class FluidSimulation {
       waterPoints.push({ x: clampedGapEnd, y: this.getSurfaceHeightAt(clampedGapEnd) });
     }
 
-    const baseBottom = this.height + 1;
+    const baseBottom = this.height;
     this.ctx.beginPath();
     this.ctx.moveTo(clampedGapStart, baseBottom);
     waterPoints.forEach((point) => {
