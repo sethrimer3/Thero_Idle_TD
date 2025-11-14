@@ -134,6 +134,27 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - `main.js` delegates to the controller for surface management and state checks, shrinking by ~900 lines of tightly coupled code
 - Reusable factory pattern keeps future developer tooling enhancements isolated from the core game loop
 
+### powderDisplay.js (powder tab orchestration + idle rewards)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `bindPowderControls()` and the shared `powderElements` cache for Powder tab UI wiring.
+- `updatePowderDisplay()` / `updatePowderLedger()` for multiplier math, ledger text, and math-text rendering.
+- `applyPowderGain()` and `triggerPowderBasinPulse()` to mutate mote currency and animate basin pulses.
+- `notifyIdleTime()` / `grantSpireMinuteIncome()` plus idle summary helpers for all spire reward calculations.
+- `updateResourceRates()` and `updateMoteStatsDisplays()` so powder bonuses keep global resource rates in sync.
+
+**Integration approach:**
+- New `createPowderDisplaySystem()` factory receives powder state, formatting helpers, and persistence hooks via DI.
+- `main.js` destructures the returned helpers and forwards them to autosave, offline persistence, and developer controls.
+- Powder currency getters/setters now live in the module, removing direct storage mutations from the orchestrator.
+
+**Result:**
+- Powder UI logic and idle math are isolated from `main.js`, trimming hundreds of lines from the orchestrator.
+- Autosave/offline systems read powder state through explicit APIs instead of shared closures.
+- Future powder refactors can iterate inside `powderDisplay.js` without spelunking the 10k-line main loop.
+
 ### spireFloatingMenu.js (floating menu navigation + counters)
 
 **Status:** ✅ Complete
