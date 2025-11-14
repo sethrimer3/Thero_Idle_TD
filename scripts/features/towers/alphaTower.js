@@ -285,8 +285,10 @@ function enterPierceState(particle, targetPosition, pathAngle, burst) {
   const minExtension = Number.isFinite(laser.minExtension) ? laser.minExtension : 160;
   const maxExtension = Number.isFinite(laser.maxExtension) ? laser.maxExtension : minExtension;
   const extraDistance = Math.max(minExtension, randomInt(minExtension, maxExtension));
+  const staticDuration = Number.isFinite(laser.staticDuration) ? Math.max(0, laser.staticDuration) : null;
   const speed = Number.isFinite(laser.speed) ? Math.max(0, laser.speed) : 720;
-  particle.state = speed > 0 ? 'pierce' : 'fade';
+  const usePierceState = speed > 0 || staticDuration !== null;
+  particle.state = usePierceState ? 'pierce' : 'fade';
   particle.position = { ...(targetPosition || particle.position || { x: 0, y: 0 }) };
   particle.opacity = 1;
   particle.renderSize = particle.size * 1.2;
@@ -299,11 +301,14 @@ function enterPierceState(particle, targetPosition, pathAngle, burst) {
   };
   const fadeDuration = Number.isFinite(laser.fadeDuration) ? laser.fadeDuration : particle.fadeDuration;
   particle.fadeDuration = Number.isFinite(fadeDuration) ? fadeDuration : 0.22;
-  if (speed <= 0) {
+  if (speed > 0) {
+    particle.pierceDuration = extraDistance / speed;
+  } else if (staticDuration !== null) {
+    particle.pierceDuration = staticDuration;
+  }
+  if (!usePierceState) {
     particle.state = 'fade';
     particle.fadeTime = 0;
-  } else {
-    particle.pierceDuration = speed > 0 ? extraDistance / speed : 0;
   }
 }
 

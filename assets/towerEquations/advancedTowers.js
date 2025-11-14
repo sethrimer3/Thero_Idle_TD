@@ -410,6 +410,105 @@ export const nu = {
       baseValue: 0,
       upgradable: false,
       format: (value) => formatDecimal(value, 2),
+      computeValue({ dynamicContext }) {
+        const overkill = dynamicContext?.stats?.nuOverkillTotal;
+        return Number.isFinite(overkill) ? Math.max(0, overkill) : 0;
+      },
+      getSubEquations({ dynamicContext, value }) {
+        const tracked = Number.isFinite(value) ? Math.max(0, value) : 0;
+        const kills = Number.isFinite(dynamicContext?.stats?.nuKills)
+          ? Math.max(0, dynamicContext.stats.nuKills)
+          : 0;
+        return [
+          { expression: String.raw`\( \text{OKdmg}_{\text{tot}} = \sum (\text{dmg}_{\text{final}} - \text{hp}_{\text{remaining}}) \)` },
+          {
+            values: String.raw`\( ${formatDecimal(tracked, 2)} = \text{Overkill across } ${formatWholeNumber(kills)} \text{ kills} \)`,
+            variant: 'values',
+          },
+        ];
+      },
+    },
+    {
+      key: 'kills',
+      symbol: 'kills',
+      equationSymbol: String.raw`\text{kills}`,
+      name: 'Kill Count',
+      description: 'Total enemies finished by ν beams.',
+      baseValue: 0,
+      upgradable: false,
+      format: (value) => formatWholeNumber(Math.max(0, value || 0)),
+      computeValue({ dynamicContext }) {
+        const kills = dynamicContext?.stats?.nuKills;
+        return Number.isFinite(kills) ? Math.max(0, kills) : 0;
+      },
+      getSubEquations({ value }) {
+        const resolvedKills = Number.isFinite(value) ? Math.max(0, value) : 0;
+        return [
+          { expression: String.raw`\( \text{kills} = \sum \text{final blows} \)` },
+          {
+            values: String.raw`\( ${formatWholeNumber(resolvedKills)} = \text{Enemies defeated by } \nu \)`,
+            variant: 'values',
+          },
+        ];
+      },
+    },
+    {
+      key: 'attackSpeed',
+      symbol: 'spd',
+      equationSymbol: String.raw`\text{spd}`,
+      name: 'Attack Speed',
+      description: 'Beam firings per second driven by kill count.',
+      baseValue: 1,
+      upgradable: false,
+      format: (value) => `${formatDecimal(Math.max(0, value || 0), 2)} \text{ atk/s}`,
+      computeValue({ dynamicContext }) {
+        const kills = Number.isFinite(dynamicContext?.stats?.nuKills)
+          ? Math.max(0, dynamicContext.stats.nuKills)
+          : 0;
+        return 1 + 0.1 * kills;
+      },
+      getSubEquations({ dynamicContext, value }) {
+        const kills = Number.isFinite(dynamicContext?.stats?.nuKills)
+          ? Math.max(0, dynamicContext.stats.nuKills)
+          : 0;
+        const speed = Number.isFinite(value) ? Math.max(0, value) : 1 + 0.1 * kills;
+        return [
+          { expression: String.raw`\( \text{spd} = 1 + 0.1 \times \text{kills} \)` },
+          {
+            values: String.raw`\( ${formatDecimal(speed, 2)} = 1 + 0.1 \times ${formatWholeNumber(kills)} \)`,
+            variant: 'values',
+          },
+        ];
+      },
+    },
+    {
+      key: 'rangeMeters',
+      symbol: 'rng',
+      equationSymbol: String.raw`\text{rng}`,
+      name: 'Range (m)',
+      description: 'Beam reach in meters scaling with kills.',
+      baseValue: 3,
+      upgradable: false,
+      format: (value) => `${formatDecimal(Math.max(0, value || 0), 2)} \text{ m}`,
+      computeValue({ dynamicContext }) {
+        const kills = Number.isFinite(dynamicContext?.stats?.nuKills)
+          ? Math.max(0, dynamicContext.stats.nuKills)
+          : 0;
+        return 3 + 0.05 * kills;
+      },
+      getSubEquations({ dynamicContext, value }) {
+        const kills = Number.isFinite(dynamicContext?.stats?.nuKills)
+          ? Math.max(0, dynamicContext.stats.nuKills)
+          : 0;
+        const rangeMeters = Number.isFinite(value) ? Math.max(0, value) : 3 + 0.05 * kills;
+        return [
+          { expression: String.raw`\( \text{rng} = 3 + 0.05 \times \text{kills} \)` },
+          {
+            values: String.raw`\( ${formatDecimal(rangeMeters, 2)} = 3 + 0.05 \times ${formatWholeNumber(kills)} \)`,
+            variant: 'values',
+          },
+        ];
+      },
     },
   ],
   computeResult(values) {
