@@ -74,6 +74,25 @@ Design documents and technical guides that describe game systems, progression, a
 - Designing tower unlock trees
 - Implementing mathematical formulas
 
+### `tower-equation-guidelines.md`
+**Purpose:** Shared rules for defining tower Master Equations and their sub-equations
+
+**When to update:**
+- Changing how tower equations are structured
+- Introducing new primary variables for towers
+- Adjusting UI conventions for equation displays
+
+**Key sections:**
+- Master Equation rules
+- Sub-equation naming requirements
+- Variable indicator abbreviations
+- Implementation considerations for blueprints
+
+**Read this when:**
+- Updating tower blueprint math in `assets/towerEquations/`
+- Revising UI that surfaces tower equations
+- Auditing consistency between documentation and in-game math displays
+
 ### `iota-aleph-upgrades.md`
 **Purpose:** Specific design for Iota tower and Aleph chain systems
 

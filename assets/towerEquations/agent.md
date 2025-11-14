@@ -20,9 +20,9 @@ assets/towerEquations/
 ## Tower Groupings
 
 ### Basic Towers (`basicTowers.js`)
-- **alpha** (α): Attack × Speed - The foundational projectile tower
-- **beta** (β): Attack × Speed × Range - Builds on alpha with range scaling
-- **gamma** (γ): Attack × Speed × Range × Pierce - Adds piercing mechanics
+- **alpha** (α): Atk × Spd - The foundational projectile tower
+- **beta** (β): Atk × Spd × Rng - Builds on alpha with range scaling
+- **gamma** (γ): Atk × Spd × Rng × Prc - Adds piercing mechanics
 
 **Progression**: Alpha → Beta → Gamma introduces players to basic upgrade mechanics and tower connections.
 
@@ -90,7 +90,7 @@ This allows tower blueprints to access helper functions from `towersTab.js` with
 ```javascript
 export const newTower = {
   mathSymbol: String.raw`\symbol`,  // LaTeX symbol
-  baseEquation: 'Symbol = Formula',  // Human-readable equation
+  baseEquation: 'Symbol = Formula',  // Master Equation display text
   variables: [
     {
       key: 'variableName',           // Unique key for this variable

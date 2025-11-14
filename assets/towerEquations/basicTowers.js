@@ -17,26 +17,26 @@ const ctx = () => blueprintContext;
 
 export const alpha = {
   mathSymbol: String.raw`\alpha`,
-  baseEquation: 'α = Attack × Speed',
+  baseEquation: 'α = Atk × Spd',
   variables: [
     {
       key: 'atk',
-      symbol: 'A',
-      equationSymbol: 'Attack',
+      symbol: 'Atk',
+      equationSymbol: 'Atk',
       glyphLabel: 'ℵ₁',
-      name: 'Attack',
+      name: 'Atk',
       description: 'Projectile damage carried by each glyph bullet.',
       baseValue: 5,
       step: 5,
       upgradable: true,
-      format: (value) => `${formatWholeNumber(value)} Attack`,
+      format: (value) => `${formatWholeNumber(value)} Atk`,
       cost: (level) => Math.max(1, 1 + level),
       getSubEquations({ level, value }) {
         const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
         const attackValue = Number.isFinite(value) ? value : 0;
         return [
           {
-            expression: String.raw`\( \text{Attack} = 5 \times \aleph_{1} \)`,
+            expression: String.raw`\( \text{Atk} = 5 \times \aleph_{1} \)`,
             values: String.raw`\( ${formatWholeNumber(attackValue)} = 5 \times ${formatWholeNumber(glyphRank)} \)`,
           },
         ];
@@ -44,21 +44,21 @@ export const alpha = {
     },
     {
       key: 'speed',
-      symbol: 'S',
-      equationSymbol: 'Speed',
+      symbol: 'Spd',
+      equationSymbol: 'Spd',
       glyphLabel: 'ℵ₂',
-      name: 'Speed',
+      name: 'Spd',
       description: 'Oscillation cadence braided from the second glyph conduit.',
       baseValue: 0.5,
       step: 0.5,
       upgradable: true,
-      format: (value) => `${formatDecimal(value, 2)} speed`,
+      format: (value) => `${formatDecimal(value, 2)} Spd`,
       getSubEquations({ level, value }) {
         const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
         const speedValue = Number.isFinite(value) ? value : glyphRank * 0.5;
         return [
           {
-            expression: String.raw`\( \text{Speed} = 0.5 \times \aleph_{2} \)`,
+            expression: String.raw`\( \text{Spd} = 0.5 \times \aleph_{2} \)`,
             values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 \times ${formatDecimal(glyphRank, 2)} \)`,
           },
         ];
@@ -79,17 +79,17 @@ export const alpha = {
 
 export const beta = {
   mathSymbol: String.raw`\beta`,
-  baseEquation: 'β = Attack × Speed × Range',
+  baseEquation: 'β = Atk × Spd × Rng',
   variables: [
     {
       key: 'attack',
-      symbol: 'A',
-      equationSymbol: 'Attack',
+      symbol: 'Atk',
+      equationSymbol: 'Atk',
       glyphLabel: 'ℵ₁',
-      name: 'Attack',
+      name: 'Atk',
       description: 'Direct strike power mirrored from α.',
       upgradable: true,
-      format: (value) => `${formatGameNumber(value)} attack`,
+      format: (value) => `${formatGameNumber(value)} Atk`,
       computeValue({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const state = ctx().ensureTowerUpgradeState(towerId, effectiveBlueprint);
@@ -104,7 +104,7 @@ export const beta = {
         const attackValue = alphaValue * glyphRank;
         return [
           {
-            expression: String.raw`\( \text{Attack} = \alpha \times \aleph_{1} \)`,
+            expression: String.raw`\( \text{Atk} = \alpha \times \aleph_{1} \)`,
             values: String.raw`\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(alphaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
           },
         ];
@@ -112,9 +112,9 @@ export const beta = {
     },
     {
       key: 'speed',
-      symbol: 'S',
-      equationSymbol: 'Speed',
-      name: 'Speed',
+      symbol: 'Spd',
+      equationSymbol: 'Spd',
+      name: 'Spd',
       description: 'Cadence accelerated by neighbouring α lattices.',
       upgradable: false,
       lockedNote: 'Connect α lattices to accelerate β cadence.',
@@ -122,13 +122,13 @@ export const beta = {
         const alphaConnections = ctx().getDynamicConnectionCount('alpha');
         return 0.5 + 1.5 * alphaConnections;
       },
-      format: (value) => `${formatDecimal(value, 2)} speed`,
+      format: (value) => `${formatDecimal(value, 2)} Spd`,
       getSubEquations() {
         const alphaConnections = ctx().getDynamicConnectionCount('alpha');
         const speedValue = 0.5 + 1.5 * alphaConnections;
         return [
           {
-            expression: String.raw`\( \text{Speed} = 0.5 + 1.5 \left( \alpha_{\beta} \right) \)`,
+            expression: String.raw`\( \text{Spd} = 0.5 + 1.5 \left( \alpha_{\beta} \right) \)`,
             values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 + 1.5 \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
           },
         ];
@@ -136,22 +136,22 @@ export const beta = {
     },
     {
       key: 'range',
-      symbol: 'R',
-      equationSymbol: 'Range',
-      name: 'Range',
+      symbol: 'Rng',
+      equationSymbol: 'Rng',
+      name: 'Rng',
       description: 'Coverage extended by α lattice entanglement.',
       upgradable: false,
       lockedNote: 'Entangle α lattices to extend β reach.',
       computeValue() {
         return 1 + ctx().getDynamicConnectionCount('alpha');
       },
-      format: (value) => `${formatDecimal(value, 2)} range`,
+      format: (value) => `${formatDecimal(value, 2)} Rng`,
       getSubEquations() {
         const alphaConnections = ctx().getDynamicConnectionCount('alpha');
         const rangeValue = 1 + alphaConnections;
         return [
           {
-            expression: String.raw`\( \text{Range} = 1 + \left( \alpha_{\beta} \right) \)`,
+            expression: String.raw`\( \text{Rng} = 1 + \left( \alpha_{\beta} \right) \)`,
             values: String.raw`\( ${formatDecimal(rangeValue, 2)} = 1 + \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
           },
         ];
@@ -174,17 +174,17 @@ export const beta = {
 
 export const gamma = {
   mathSymbol: String.raw`\gamma`,
-  baseEquation: 'γ = Attack × Speed × Range × Pierce',
+  baseEquation: 'γ = Atk × Spd × Rng × Prc',
   variables: [
     {
       key: 'attack',
-      symbol: 'A',
-      equationSymbol: 'Attack',
+      symbol: 'Atk',
+      equationSymbol: 'Atk',
       glyphLabel: 'ℵ₁',
-      name: 'Attack',
+      name: 'Atk',
       description: 'Strike intensity carried forward from β.',
       upgradable: true,
-      format: (value) => `${formatGameNumber(value)} attack`,
+      format: (value) => `${formatGameNumber(value)} Atk`,
       computeValue({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const state = ctx().ensureTowerUpgradeState(towerId, effectiveBlueprint);
@@ -199,7 +199,7 @@ export const gamma = {
         const attackValue = betaValue * glyphRank;
         return [
           {
-            expression: String.raw`\( \text{Attack} = \beta \times \aleph_{1} \)`,
+            expression: String.raw`\( \text{Atk} = \beta \times \aleph_{1} \)`,
             values: String.raw`\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(betaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
           },
         ];
@@ -207,9 +207,9 @@ export const gamma = {
     },
     {
       key: 'speed',
-      symbol: 'S',
-      equationSymbol: 'Speed',
-      name: 'Speed',
+      symbol: 'Spd',
+      equationSymbol: 'Spd',
+      name: 'Spd',
       description: 'Cadence tuned by neighbouring α lattices.',
       upgradable: false,
       lockedNote: 'Link α lattices to accelerate γ cadence.',
@@ -217,13 +217,13 @@ export const gamma = {
         const alphaConnections = ctx().getDynamicConnectionCount('alpha');
         return 0.5 + 0.25 * alphaConnections;
       },
-      format: (value) => `${formatDecimal(value, 2)} speed`,
+      format: (value) => `${formatDecimal(value, 2)} Spd`,
       getSubEquations() {
         const alphaConnections = ctx().getDynamicConnectionCount('alpha');
         const speedValue = 0.5 + 0.25 * alphaConnections;
         return [
           {
-            expression: String.raw`\( \text{Speed} = 0.5 + 0.25 \left( \alpha_{\gamma} \right) \)`,
+            expression: String.raw`\( \text{Spd} = 0.5 + 0.25 \left( \alpha_{\gamma} \right) \)`,
             values: String.raw`\( ${formatDecimal(speedValue, 2)} = 0.5 + 0.25 \left( ${formatWholeNumber(alphaConnections)} \right) \)`,
           },
         ];
@@ -231,9 +231,9 @@ export const gamma = {
     },
     {
       key: 'range',
-      symbol: 'R',
-      equationSymbol: 'Range',
-      name: 'Range',
+      symbol: 'Rng',
+      equationSymbol: 'Rng',
+      name: 'Rng',
       description: 'Arc reach extended by neighbouring β conductors.',
       upgradable: false,
       lockedNote: 'Bind β lattices to extend γ reach.',
@@ -241,13 +241,13 @@ export const gamma = {
         const betaConnections = ctx().getDynamicConnectionCount('beta');
         return 1 + 2 * betaConnections;
       },
-      format: (value) => `${formatDecimal(value, 2)} range`,
+      format: (value) => `${formatDecimal(value, 2)} Rng`,
       getSubEquations() {
         const betaConnections = ctx().getDynamicConnectionCount('beta');
         const rangeValue = 1 + 2 * betaConnections;
         return [
           {
-            expression: String.raw`\( \text{Range} = 1 + 2 \left( \beta_{\gamma} \right) \)`,
+            expression: String.raw`\( \text{Rng} = 1 + 2 \left( \beta_{\gamma} \right) \)`,
             values: String.raw`\( ${formatDecimal(rangeValue, 2)} = 1 + 2 \left( ${formatWholeNumber(betaConnections)} \right) \)`,
           },
         ];
@@ -255,21 +255,21 @@ export const gamma = {
     },
     {
       key: 'pierce',
-      symbol: 'P',
-      equationSymbol: 'Pierce',
+      symbol: 'Prc',
+      equationSymbol: 'Prc',
       glyphLabel: 'ℵ₂',
-      name: 'Pierce',
+      name: 'Prc',
       description: 'Piercing depth braided from the second glyph conduit.',
       baseValue: 1,
       step: 1,
       upgradable: true,
-      format: (value) => `${formatWholeNumber(value)} pierce`,
+      format: (value) => `${formatWholeNumber(value)} Prc`,
       getSubEquations({ level, value }) {
         const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
         const pierceValue = Number.isFinite(value) ? value : glyphRank;
         return [
           {
-            expression: String.raw`\( \text{Pierce} = \aleph_{2} \)`,
+            expression: String.raw`\( \text{Prc} = \aleph_{2} \)`,
             values: String.raw`\( ${formatWholeNumber(pierceValue)} = ${formatWholeNumber(glyphRank)} \)`,
           },
         ];
