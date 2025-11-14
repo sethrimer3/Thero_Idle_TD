@@ -341,6 +341,14 @@ export class SimplePlayfield {
     this.enemyTooltipNameEl = null;
     this.enemyTooltipHpEl = null;
 
+    if (typeof StatsPanel.setInteractionHandlers === 'function') {
+      // Allow the stats surface to request focus changes or pop-up refreshes when an entry is clicked.
+      StatsPanel.setInteractionHandlers({
+        focusEnemy: (enemyId) => this.focusEnemyById(enemyId),
+        clearEnemyFocus: () => this.clearFocusedEnemy({ silent: true }),
+      });
+    }
+
     if (!this.previewOnly) {
       this.registerSlots();
       this.bindStartButton();
@@ -517,6 +525,335 @@ export class SimplePlayfield {
     return summaries.sort((a, b) => b.totalDamage - a.totalDamage);
   }
 
+  /**
+   * Convert a wave configuration into formatted queue entries for UI rendering.
+   */
+  buildWaveEntries(config, {
+    spawned = 0,
+    waveNumber = this.currentWaveNumber,
+    label = '',
+    waveIndex = this.waveIndex,
+    isCurrent = false,
+  } = {}) {
+    if (!config) {
+      return [];
+    }
+
+    const entries = [];
+    const totalCount = Number.isFinite(config.count) ? Math.max(0, Math.floor(config.count)) : 0;
+    const remainingTotal = Math.max(0, totalCount - Math.max(0, spawned));
+    const hasBoss = Boolean(config.boss && typeof config.boss === 'object');
+    const bossAlreadySpawned = hasBoss && spawned >= totalCount;
+    const bossRemaining = hasBoss && !bossAlreadySpawned ? 1 : 0;
+    const minionRemaining = Math.max(0, remainingTotal - bossRemaining);
+    const theroSymbol = this.theroSymbol || 'þ';
+
+    const resolveEnemyName = (source = {}) => {
+      if (source.label) {
+        return source.label;
+      }
+      if (source.codexId) {
+        const codex = getEnemyCodexEntry(source.codexId);
+        if (codex?.name) {
+          return codex.name;
+        }
+      }
+      return 'Glyph';
+    };
+
+    const waveSubtitle = () => {
+      if (!Number.isFinite(waveNumber)) {
+        return label;
+      }
+      return label ? `Wave ${waveNumber} · ${label}` : `Wave ${waveNumber}`;
+    };
+
+    const createDialogRows = (details = {}) =>
+      [
+        Number.isFinite(waveNumber)
+          ? { label: 'Wave', value: String(waveSubtitle()) }
+          : null,
+        { label: 'Enemy', value: resolveEnemyName(details) },
+        {
+          label: isCurrent ? 'Remaining' : 'Count',
+          value: isCurrent
+            ? `${Math.max(0, details.remaining)}/${totalCount}`
+            : `${totalCount}`,
+        },
+        {
+          label: 'HP',
+          value: this.formatEnemyExponentLabel(
+            this.calculateHealthExponent(details.hp),
+            details.hp,
+          ),
+        },
+        {
+          label: 'Reward',
+          value: `${formatCombatNumber(Math.max(0, details.reward || 0))} ${theroSymbol}`,
+        },
+        {
+          label: 'Speed',
+          value: this.formatEnemySpeed(details.speed),
+        },
+        Number.isFinite(details.interval)
+          ? { label: 'Spawn Interval', value: `${details.interval.toFixed(2)} s` }
+          : null,
+        Number.isFinite(config.delay)
+          ? { label: 'Wave Delay', value: `${Math.max(0, config.delay).toFixed(2)} s` }
+          : null,
+      ].filter(Boolean);
+
+    if (minionRemaining > 0) {
+      const symbol = this.resolveEnemySymbol(config);
+      const enemyName = resolveEnemyName(config);
+      const exponent = this.calculateHealthExponent(config.hp);
+      const hpLabel = this.formatEnemyExponentLabel(exponent, config.hp);
+      const rewardLabel = `${formatCombatNumber(Math.max(0, config.reward || 0))} ${theroSymbol}`;
+      const title = `${symbol} — ${enemyName}`;
+      entries.push({
+        id: `${isCurrent ? 'current' : 'next'}-${waveIndex}-minions`,
+        title,
+        subtitle: waveSubtitle(),
+        meta: [
+          { text: `Remaining ${minionRemaining}/${totalCount}`, emphasize: true },
+          { text: `HP ${hpLabel}` },
+          { text: `Reward ${rewardLabel}` },
+          { text: `Speed ${this.formatEnemySpeed(config.speed)}` },
+        ],
+        footnote: null,
+        dialog: {
+          title,
+          rows: createDialogRows({
+            remaining: minionRemaining,
+            hp: config.hp,
+            reward: config.reward,
+            speed: config.speed,
+            interval: config.interval,
+          }),
+        },
+      });
+    }
+
+    if (bossRemaining > 0 || (!isCurrent && hasBoss)) {
+      const bossConfig = { ...config, ...(config.boss || {}) };
+      const symbol = typeof bossConfig.symbol === 'string'
+        ? bossConfig.symbol
+        : this.resolveEnemySymbol(bossConfig);
+      const bossName = bossConfig.label || `Boss ${resolveEnemyName(config)}`;
+      const exponent = this.calculateHealthExponent(bossConfig.hp);
+      const hpLabel = this.formatEnemyExponentLabel(exponent, bossConfig.hp);
+      const rewardLabel = `${formatCombatNumber(Math.max(0, bossConfig.reward || 0))} ${theroSymbol}`;
+      const title = `${symbol} — ${bossName}`;
+      entries.push({
+        id: `${isCurrent ? 'current' : 'next'}-${waveIndex}-boss`,
+        title,
+        subtitle: waveSubtitle(),
+        meta: [
+          { text: `Remaining ${bossRemaining}/${bossRemaining || 1}`, emphasize: true },
+          { text: `HP ${hpLabel}` },
+          { text: `Reward ${rewardLabel}` },
+          { text: `Speed ${this.formatEnemySpeed(bossConfig.speed)}` },
+        ],
+        footnote: 'Boss enemy spawns at the end of the wave.',
+        dialog: {
+          title,
+          rows: createDialogRows({
+            remaining: bossRemaining,
+            hp: bossConfig.hp,
+            reward: bossConfig.reward,
+            speed: bossConfig.speed,
+            interval: config.interval,
+          }),
+        },
+      });
+    }
+
+    return entries;
+  }
+
+  /**
+   * Generate formatted entries for the currently active wave queue.
+   */
+  buildCurrentWaveQueue() {
+    if (!this.levelConfig) {
+      return { entries: [] };
+    }
+
+    let config = null;
+    let spawned = 0;
+    let waveLabel = '';
+    let waveNumber = this.currentWaveNumber || this.computeWaveNumber(this.waveIndex);
+
+    if (this.activeWave?.config) {
+      config = this.activeWave.config;
+      spawned = Number.isFinite(this.activeWave.spawned) ? Math.max(0, this.activeWave.spawned) : 0;
+      waveLabel = config.label || '';
+      waveNumber = this.currentWaveNumber || waveNumber;
+    } else {
+      const baseConfig = Array.isArray(this.levelConfig.waves)
+        ? this.levelConfig.waves[this.waveIndex]
+        : null;
+      if (!baseConfig) {
+        return { entries: [] };
+      }
+      config = this.scaleWaveConfigForCycle(baseConfig, this.endlessCycle);
+      waveLabel = config.label || baseConfig.label || '';
+      spawned = 0;
+    }
+
+    return {
+      entries: this.buildWaveEntries(config, {
+        spawned,
+        waveNumber,
+        label: waveLabel,
+        waveIndex: this.waveIndex,
+        isCurrent: true,
+      }),
+    };
+  }
+
+  /**
+   * Generate formatted entries for the next wave preview so players can scout ahead.
+   */
+  buildNextWaveQueue() {
+    if (!this.levelConfig || !Array.isArray(this.levelConfig.waves)) {
+      return { entries: [] };
+    }
+    const waves = this.levelConfig.waves;
+    if (!waves.length) {
+      return { entries: [] };
+    }
+
+    const waveCount = waves.length;
+    if (!waveCount) {
+      return { entries: [] };
+    }
+
+    let nextIndex = Number.isFinite(this.waveIndex) ? this.waveIndex + 1 : 0;
+    let cycle = Number.isFinite(this.endlessCycle) ? this.endlessCycle : 0;
+    cycle = Math.max(0, cycle);
+
+    if (nextIndex < 0) {
+      nextIndex = 0;
+    }
+
+    if (nextIndex >= waveCount) {
+      if (!this.isEndlessMode) {
+        return { entries: [] };
+      }
+      const cycleJump = Math.floor(nextIndex / waveCount);
+      nextIndex %= waveCount;
+      cycle += cycleJump;
+    }
+
+    const baseConfig = waves[nextIndex];
+    if (!baseConfig) {
+      return { entries: [] };
+    }
+
+    const scaled = this.scaleWaveConfigForCycle(baseConfig, cycle);
+    const total = Math.max(1, this.baseWaveCount || waveCount);
+    const waveNumber = this.isEndlessMode
+      ? cycle * total + nextIndex + 1
+      : nextIndex + 1;
+    const waveLabel = scaled.label || baseConfig.label || '';
+
+    return {
+      entries: this.buildWaveEntries(scaled, {
+        spawned: 0,
+        waveNumber,
+        label: waveLabel,
+        waveIndex: nextIndex,
+        isCurrent: false,
+      }),
+    };
+  }
+
+  /**
+   * Build formatted entries for all on-screen enemies so the stats panel can update live.
+   */
+  buildActiveEnemyEntries() {
+    if (!Array.isArray(this.enemies) || !this.enemies.length) {
+      return [];
+    }
+    const theroSymbol = this.theroSymbol || 'þ';
+    const waveLabel = this.activeWave?.config?.label || '';
+    const waveNumber = this.currentWaveNumber || this.computeWaveNumber(this.waveIndex);
+
+    const entries = this.enemies
+      .map((enemy) => {
+        if (!enemy || !Number.isFinite(enemy.id)) {
+          return null;
+        }
+        const symbol = typeof enemy.symbol === 'string'
+          ? enemy.symbol
+          : this.resolveEnemySymbol(enemy);
+        const label = enemy.label || symbol || 'Glyph';
+        const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
+        const maxHp = Number.isFinite(enemy.maxHp) ? Math.max(0, enemy.maxHp) : remainingHp;
+        const exponent = this.calculateHealthExponent(remainingHp > 0 ? remainingHp : maxHp);
+        const maxExponent = this.calculateHealthExponent(maxHp);
+        const reward = Number.isFinite(enemy.reward) ? Math.max(0, enemy.reward) : 0;
+        const rows = [
+          { label: 'Status', value: enemy.isBoss ? 'Boss' : 'Standard' },
+          {
+            label: 'Current HP',
+            value: this.formatEnemyExponentLabel(exponent, remainingHp),
+          },
+          {
+            label: 'Max HP',
+            value: this.formatEnemyExponentLabel(maxExponent, maxHp),
+          },
+          {
+            label: 'Reward',
+            value: `${formatCombatNumber(reward)} ${theroSymbol}`,
+          },
+          { label: 'Speed', value: this.formatEnemySpeed(enemy.speed) },
+        ];
+
+        if (Number.isFinite(enemy.baseSpeed) && Math.abs(enemy.baseSpeed - enemy.speed) > 0.0001) {
+          rows.push({ label: 'Base Speed', value: this.formatEnemySpeed(enemy.baseSpeed) });
+        }
+        if (Number.isFinite(enemy.gemDropMultiplier)) {
+          rows.push({ label: 'Gem Multiplier', value: `×${enemy.gemDropMultiplier.toFixed(2)}` });
+        }
+        if (Number.isFinite(enemy.moteFactor)) {
+          rows.push({ label: 'Mote Yield', value: formatCombatNumber(enemy.moteFactor) });
+        }
+        if (Number.isFinite(waveNumber)) {
+          rows.unshift({ label: 'Wave', value: waveLabel ? `Wave ${waveNumber} · ${waveLabel}` : `Wave ${waveNumber}` });
+        }
+
+        const priority = maxHp > 0 ? maxHp : remainingHp;
+
+        return {
+          id: enemy.id,
+          focusEnemyId: enemy.id,
+          priority,
+          title: `${symbol} — ${label}`,
+          subtitle: waveLabel && Number.isFinite(waveNumber)
+            ? `Wave ${waveNumber} · ${waveLabel}`
+            : Number.isFinite(waveNumber)
+              ? `Wave ${waveNumber}`
+              : waveLabel,
+          meta: [
+            { text: `HP ${this.formatEnemyExponentLabel(exponent, remainingHp)}`, emphasize: true },
+            { text: `Reward ${formatCombatNumber(reward)} ${theroSymbol}` },
+            { text: `Speed ${this.formatEnemySpeed(enemy.speed)}` },
+          ],
+          footnote: enemy.isBoss ? 'Boss enemy currently on the field.' : null,
+          dialog: {
+            title: `${symbol} — ${label}`,
+            rows,
+          },
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+    return entries.map(({ priority, ...entry }) => entry);
+  }
+
   captureEnemyHistory(enemy) {
     if (!enemy || !this.combatStats) {
       return;
@@ -561,6 +898,15 @@ export class SimplePlayfield {
     }
     if (typeof StatsPanel.renderEnemyHistory === 'function') {
       StatsPanel.renderEnemyHistory(this.combatStats.enemyHistory.slice(0, 24));
+    }
+    if (typeof StatsPanel.renderCurrentWaveQueue === 'function') {
+      StatsPanel.renderCurrentWaveQueue(this.buildCurrentWaveQueue());
+    }
+    if (typeof StatsPanel.renderNextWaveQueue === 'function') {
+      StatsPanel.renderNextWaveQueue(this.buildNextWaveQueue());
+    }
+    if (typeof StatsPanel.renderActiveEnemyList === 'function') {
+      StatsPanel.renderActiveEnemyList(this.buildActiveEnemyEntries());
     }
     this.statsDirty = false;
     this.statsLastRender = this.combatStats.elapsed;
@@ -1354,6 +1700,8 @@ export class SimplePlayfield {
     }
     this.updateAutoAnchorButton();
     this.updateSpeedButton();
+    this.scheduleStatsPanelRefresh();
+    this.refreshStatsPanel({ force: true });
     refreshTowerLoadoutDisplay();
   }
 
@@ -2497,6 +2845,22 @@ export class SimplePlayfield {
     } else {
       this.setFocusedEnemy(enemy);
     }
+  }
+
+  /**
+   * Programmatically focus the requested enemy so stats panel selections highlight the target.
+   */
+  focusEnemyById(enemyId) {
+    if (!Number.isFinite(enemyId)) {
+      return false;
+    }
+    const enemy = this.enemies.find((candidate) => candidate?.id === enemyId);
+    if (!enemy) {
+      this.clearFocusedEnemy({ silent: true });
+      return false;
+    }
+    this.setFocusedEnemy(enemy, { silent: true });
+    return true;
   }
 
   renderEnemyTooltip(enemy) {
@@ -4194,6 +4558,90 @@ export class SimplePlayfield {
     };
   }
 
+  /**
+   * Resolve the endless cycle multiplier for an arbitrary cycle value.
+   */
+  getCycleMultiplierFor(cycle = this.endlessCycle) {
+    if (!this.isEndlessMode) {
+      return 1;
+    }
+    if (!Number.isFinite(cycle)) {
+      return this.getCycleMultiplier();
+    }
+    return 10 ** Math.max(0, cycle);
+  }
+
+  /**
+   * Resolve the endless cycle speed scalar for an arbitrary cycle value.
+   */
+  getCycleSpeedScalarFor(cycle = this.endlessCycle) {
+    if (!this.isEndlessMode) {
+      return 1;
+    }
+    if (!Number.isFinite(cycle)) {
+      return this.getCycleSpeedScalar();
+    }
+    return 1 + Math.max(0, cycle) * 0.1;
+  }
+
+  /**
+   * Produce a scaled wave configuration without mutating the original level data.
+   */
+  scaleWaveConfigForCycle(waveConfig, cycle = this.endlessCycle) {
+    if (!waveConfig) {
+      return null;
+    }
+    const multiplier = this.getCycleMultiplierFor(cycle);
+    const speedScalar = this.getCycleSpeedScalarFor(cycle);
+    const scaled = { ...waveConfig };
+    if (Number.isFinite(scaled.hp)) {
+      scaled.hp *= multiplier;
+    }
+    if (Number.isFinite(scaled.speed)) {
+      scaled.speed *= speedScalar;
+    }
+    if (Number.isFinite(scaled.reward)) {
+      scaled.reward *= multiplier;
+    }
+    if (scaled.boss && typeof scaled.boss === 'object') {
+      scaled.boss = { ...scaled.boss };
+      if (Number.isFinite(scaled.boss.hp)) {
+        scaled.boss.hp *= multiplier;
+      }
+      if (Number.isFinite(scaled.boss.speed)) {
+        scaled.boss.speed *= speedScalar;
+      }
+      if (Number.isFinite(scaled.boss.reward)) {
+        scaled.boss.reward *= multiplier;
+      }
+    }
+    return scaled;
+  }
+
+  /**
+   * Present an exponent label alongside a formatted HP total for stats displays.
+   */
+  formatEnemyExponentLabel(exponent, hpValue) {
+    const resolvedExponent = Number.isFinite(exponent)
+      ? exponent
+      : this.calculateHealthExponent(hpValue);
+    const exponentLabel = Number.isFinite(resolvedExponent)
+      ? `10^${resolvedExponent.toFixed(1)}`
+      : '10^0.0';
+    const hpLabel = formatCombatNumber(Math.max(0, hpValue || 0));
+    return `${exponentLabel} (${hpLabel})`;
+  }
+
+  /**
+   * Format an enemy speed value for UI consumption using consistent units.
+   */
+  formatEnemySpeed(speed) {
+    if (!Number.isFinite(speed)) {
+      return '—';
+    }
+    return `${Math.max(0, speed).toFixed(3)} path/s`;
+  }
+
   updateFloaters(delta) {
     if (!this.floaters.length || !this.levelConfig) {
       return;
@@ -4581,6 +5029,8 @@ export class SimplePlayfield {
       this.activeWave.spawned += 1;
       const interval = Number.isFinite(spawnConfig.interval) ? spawnConfig.interval : config.interval;
       this.activeWave.nextSpawn += interval;
+      // Flag the stats surface so the remaining queue reflects the newly spawned enemy.
+      this.scheduleStatsPanelRefresh();
       if (spawnConfig.codexId) {
         registerEnemyEncounter(spawnConfig.codexId);
       }
@@ -6060,6 +6510,8 @@ export class SimplePlayfield {
         }
         this.updateHud();
         this.updateProgress();
+        // Refresh the queue previews so the endless cycle rollover is reflected immediately.
+        this.scheduleStatsPanelRefresh();
         return;
       }
       this.handleVictory();
@@ -6075,6 +6527,8 @@ export class SimplePlayfield {
     }
     this.updateHud();
     this.updateProgress();
+    // Update wave previews for the newly activated wave.
+    this.scheduleStatsPanelRefresh();
   }
 
   handleEnemyBreach(enemy) {
@@ -6110,6 +6564,8 @@ export class SimplePlayfield {
     }
     this.updateHud();
     this.updateProgress();
+    // Ensure the queue updates once the breached enemy is removed.
+    this.scheduleStatsPanelRefresh();
   }
 
   // Create a mote gem at the fallen enemy's position so it can be collected later.
@@ -6160,6 +6616,8 @@ export class SimplePlayfield {
     this.spawnMoteGemFromEnemy(enemy);
 
     this.dependencies.notifyEnemyDefeated();
+    // Remove the defeated enemy from the live lists immediately.
+    this.scheduleStatsPanelRefresh();
   }
 
   handleVictory() {

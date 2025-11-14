@@ -303,6 +303,75 @@
                   aria-hidden="true"
                 >
                   <header class="playfield-combat-stats__header">Battle Analytics</header>
+                  <section
+                    class="playfield-combat-stats__section"
+                    aria-labelledby="playfield-combat-stats-current-title"
+                  >
+                    <h3
+                      class="playfield-combat-stats__section-title"
+                      id="playfield-combat-stats-current-title"
+                    >
+                      Current Wave
+                    </h3>
+                    <p
+                      class="playfield-combat-stats__note"
+                      id="playfield-combat-stats-current-empty"
+                    >
+                      Current wave details will appear once defenses commence.
+                    </p>
+                    <div
+                      class="playfield-combat-stats__wave"
+                      id="playfield-combat-stats-current-wave"
+                      role="list"
+                      aria-live="polite"
+                    ></div>
+                  </section>
+                  <section
+                    class="playfield-combat-stats__section"
+                    aria-labelledby="playfield-combat-stats-next-title"
+                  >
+                    <h3
+                      class="playfield-combat-stats__section-title"
+                      id="playfield-combat-stats-next-title"
+                    >
+                      Next Wave
+                    </h3>
+                    <p
+                      class="playfield-combat-stats__note"
+                      id="playfield-combat-stats-next-empty"
+                    >
+                      Future wave information appears after the current wave has been scouted.
+                    </p>
+                    <div
+                      class="playfield-combat-stats__wave"
+                      id="playfield-combat-stats-next-wave"
+                      role="list"
+                      aria-live="polite"
+                    ></div>
+                  </section>
+                  <section
+                    class="playfield-combat-stats__section"
+                    aria-labelledby="playfield-combat-stats-active-title"
+                  >
+                    <h3
+                      class="playfield-combat-stats__section-title"
+                      id="playfield-combat-stats-active-title"
+                    >
+                      On-Screen Enemies
+                    </h3>
+                    <p
+                      class="playfield-combat-stats__note"
+                      id="playfield-combat-stats-active-empty"
+                    >
+                      Enemies currently traversing the lattice will appear here.
+                    </p>
+                    <div
+                      class="playfield-combat-stats__active"
+                      id="playfield-combat-stats-active-enemies"
+                      role="list"
+                      aria-live="polite"
+                    ></div>
+                  </section>
                   <section class="playfield-combat-stats__section" aria-labelledby="playfield-combat-stats-tower-title">
                     <h3 class="playfield-combat-stats__section-title" id="playfield-combat-stats-tower-title">
                       Tower Output
@@ -346,6 +415,37 @@
                     ></div>
                   </section>
                 </section>
+                <div
+                  class="playfield-combat-stats__dialog"
+                  id="playfield-combat-stats-dialog"
+                  role="dialog"
+                  aria-modal="false"
+                  hidden
+                  aria-hidden="true"
+                >
+                  <div class="playfield-combat-stats__dialog-content">
+                    <div class="playfield-combat-stats__dialog-header">
+                      <h4
+                        class="playfield-combat-stats__dialog-title"
+                        id="playfield-combat-stats-dialog-title"
+                      >
+                        Enemy Details
+                      </h4>
+                      <button
+                        class="playfield-combat-stats__dialog-close"
+                        type="button"
+                        id="playfield-combat-stats-dialog-close"
+                        aria-label="Close enemy details"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <dl
+                      class="playfield-combat-stats__dialog-list"
+                      id="playfield-combat-stats-dialog-list"
+                    ></dl>
+                  </div>
+                </div>
               </div>
               <section
                 class="overlay-editor"
