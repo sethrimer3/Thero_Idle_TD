@@ -5438,8 +5438,8 @@ import {
       }
     });
     
-    // Restore developer mode state from localStorage, or enable by default
-    let shouldEnableDeveloperMode = true; // Default to enabled
+    // Restore developer mode state from localStorage, defaulting to the standard player experience.
+    let shouldEnableDeveloperMode = false; // Keep developer tools disabled unless explicitly toggled.
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const savedState = window.localStorage.getItem(DEVELOPER_MODE_STORAGE_KEY);

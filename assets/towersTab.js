@@ -48,6 +48,7 @@ export function configureTowersTabCallbacks(callbacks = {}) {
 const HAS_POINTER_EVENTS = typeof window !== 'undefined' && 'PointerEvent' in window; // Detect pointer support for tooltip listeners.
 const EQUATION_TOOLTIP_MARGIN_PX = 12; // Maintain consistent spacing between the tooltip and the hovered variable.
 const EQUATION_TOOLTIP_ID = 'tower-upgrade-equation-tooltip'; // Stable id so aria-describedby wiring stays deterministic.
+const TOWER_CARD_SELECTOR = '.card[data-tower-id]'; // Limit tower card queries so loadout buttons stay compact.
 
 const UNIVERSAL_VARIABLE_LIBRARY = new Map([
   [
@@ -1022,7 +1023,7 @@ function createTowerEquipmentSlot(towerId, card) {
 }
 
 function ensureTowerEquipmentSlots() {
-  const cards = document.querySelectorAll('[data-tower-id]');
+  const cards = document.querySelectorAll(TOWER_CARD_SELECTOR);
   cards.forEach((card) => {
     if (!(card instanceof HTMLElement)) {
       return;
@@ -2085,7 +2086,7 @@ function extractTowerCardEquation(card) {
 }
 
 export function bindTowerCardUpgradeInteractions() {
-  const cards = document.querySelectorAll('[data-tower-id]');
+  const cards = document.querySelectorAll(TOWER_CARD_SELECTOR);
   cards.forEach((card) => {
     if (!(card instanceof HTMLElement)) {
       return;
@@ -2122,7 +2123,7 @@ export function bindTowerCardUpgradeInteractions() {
   });
 }
 export function updateTowerCardVisibility() {
-  const cards = document.querySelectorAll('[data-tower-id]');
+  const cards = document.querySelectorAll(TOWER_CARD_SELECTOR);
   cards.forEach((card) => {
     if (!(card instanceof HTMLElement)) {
       return;
@@ -2151,7 +2152,7 @@ export function updateTowerCardVisibility() {
 }
 
 export function injectTowerCardPreviews() {
-  const cards = document.querySelectorAll('[data-tower-id]');
+  const cards = document.querySelectorAll(TOWER_CARD_SELECTOR);
   cards.forEach((card) => {
     if (!(card instanceof HTMLElement)) {
       return;
@@ -2187,7 +2188,7 @@ export function injectTowerCardPreviews() {
 }
 
 export function simplifyTowerCards() {
-  const cards = document.querySelectorAll('[data-tower-id]');
+  const cards = document.querySelectorAll(TOWER_CARD_SELECTOR);
   cards.forEach((card) => {
     if (!(card instanceof HTMLElement)) {
       return;
@@ -2211,7 +2212,7 @@ export function simplifyTowerCards() {
 }
 
 export function annotateTowerCardsWithCost() {
-  const cards = document.querySelectorAll('[data-tower-id]');
+  const cards = document.querySelectorAll(TOWER_CARD_SELECTOR);
   cards.forEach((card) => {
     const towerId = card.dataset.towerId;
     if (!towerId) {
