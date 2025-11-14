@@ -399,10 +399,41 @@ export class FluidSimulation {
   }
 
   updateMaxDropSize() {
-    // Since cellSize is now exactly 1/100th of render width,
-    // 1 cell = 1 drop diameter, so maxDropSize = 1
-    this.maxDropSize = 1;
-    this.maxDropRadius = 1;
+    // Mirror the configured drop size palette so manual spawns honour the largest entry.
+    const largestConfiguredDrop = Array.isArray(this.dropSizes) && this.dropSizes.length
+      ? this.dropSizes.reduce(
+          (largest, size) => (Number.isFinite(size) && size > largest ? Math.round(size) : largest),
+          1,
+        )
+      : 1;
+    this.maxDropSize = Math.max(1, largestConfiguredDrop);
+    this.maxDropRadius = this.maxDropSize; // Keep radius clamping in drop units before converting to pixels.
+  }
+
+  /**
+   * Spawn a droplet immediately without consuming the idle reservoir.
+   * Accepts the same payload shape as the powder simulation so manual controls stay in sync.
+   * @param {{x?:number,size?:number}|number} dropLike - Requested drop descriptor or scalar size.
+   */
+  spawnGrain(dropLike) {
+    const descriptor =
+      dropLike && typeof dropLike === 'object' && !Array.isArray(dropLike) ? dropLike : { size: dropLike };
+    const requestedSize = Number.isFinite(descriptor?.size) && descriptor.size > 0
+      ? descriptor.size
+      : this.maxDropSize;
+    const bounds = this.getGapBounds();
+    const span = Math.max(1, bounds.end - bounds.start);
+    const preferredX = Number.isFinite(descriptor?.x)
+      ? descriptor.x
+      : bounds.start + span / 2; // Default to the basin centre for manual taps.
+    const jitter = Number.isFinite(descriptor?.x) ? 0 : span * 0.05;
+    const dropX = Math.max(
+      bounds.start,
+      Math.min(bounds.end, preferredX + (jitter ? (Math.random() - 0.5) * jitter : 0)),
+    );
+
+    this.addDrop(dropX, requestedSize);
+    this.spawnPendingDrops(1); // Promote the queued droplet immediately so clicks feel responsive.
   }
 
   // Compute the pixel span between the inner walls for spawning droplets.
