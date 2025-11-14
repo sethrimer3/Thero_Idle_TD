@@ -6,7 +6,7 @@
  * provided by design and is tone-mapped into a luminous nebula.
  */
 
-import { toneMapBuffer } from './fractalRenderUtils.js';
+import { toneMapBuffer, samplePalette } from './fractalRenderUtils.js';
 
 import { addPanZoomToFractal } from './fractalPanZoom.js';
 
@@ -42,6 +42,12 @@ export class FlameFractalSimulation {
     // Maintain an offscreen surface so tone mapping can be transformed during pan/zoom.
     this.offscreenCanvas = null;
     this.offscreenCtx = null;
+
+    // Store auxiliary ember ribbons that add motion beyond the base flame spiral.
+    this.emberNodes = [];
+    this.baseEmberCount = 4;
+    this.emberPulse = 0;
+    this.emberPulseSpeed = 0.015;
 
     // Initialize drawing buffers based on the provided canvas dimensions.
     this.configureDimensions(this.canvas ? this.canvas.width : 0, this.canvas ? this.canvas.height : 0);
@@ -171,6 +177,9 @@ export class FlameFractalSimulation {
 
     this.refreshTransformsIfNeeded();
 
+    // Advance ember ribbons so they flow even when the fractal pauses to accumulate.
+    this.updateEmberAnimation();
+
     const remaining = this.targetSamples - this.totalSamples;
     if (remaining <= 0) {
       return;
@@ -191,6 +200,8 @@ export class FlameFractalSimulation {
     shadingCtx.fillStyle = '#040108';
     shadingCtx.fillRect(0, 0, this.width, this.height);
     toneMapBuffer(this.accumulator, this.width, this.height, shadingCtx, 'flame-nebula');
+    // Overlay luminous ember ribbons that respond to iteron investment.
+    this.renderEmberRibbons(shadingCtx);
 
     if (!this.offscreenCtx) {
       // Fallback: when no offscreen surface exists, the flame already rendered directly to the main canvas.
@@ -235,6 +246,9 @@ export class FlameFractalSimulation {
     this.spiralTightness = 0.35 + normalized * 0.8;
     this.rotationSpeed = 0.007 + normalized * 0.035 + extended * 0.02;
     this.decayFactor = 0.992 - normalized * 0.03;
+    this.emberPulseSpeed = 0.012 + normalized * 0.04 + extended * 0.025;
+    this.updateEmberBudget(iterons);
+    this.refreshEmberSpeeds();
     this.transformDirty = true;
   }
 
@@ -355,6 +369,7 @@ export class FlameFractalSimulation {
     }
     this.x = 0;
     this.y = 0;
+    this.emberPulse = 0;
   }
 
   /**
@@ -372,6 +387,114 @@ export class FlameFractalSimulation {
     this.x = 0;
     this.y = 0;
     this.createOffscreenSurface(this.width, this.height);
+  }
+
+  /**
+   * Ensure ember ribbons scale with iteron allocation by rebuilding the node list.
+   *
+   * @param {number} iterons - Current iteron allocation driving the fractal.
+   */
+  updateEmberBudget(iterons) {
+    const desired = this.baseEmberCount + Math.min(6, Math.floor(iterons / 3));
+    if (this.emberNodes.length === desired) {
+      return;
+    }
+
+    const nodes = [];
+    for (let i = 0; i < desired; i++) {
+      const angle = (i / desired) * Math.PI * 2;
+      nodes.push({
+        angle,
+        radiusScale: 0.85 + Math.random() * 0.75,
+        thickness: 0.65 + Math.random() * 0.45,
+        baseSpeed: 0.0025 + Math.random() * 0.0035,
+        speed: 0,
+        phase: Math.random() * Math.PI * 2,
+        twist: (Math.random() - 0.5) * 0.6
+      });
+    }
+
+    this.emberNodes = nodes;
+  }
+
+  /**
+   * Refresh per-node animation speed so higher iteron levels feel more energetic.
+   */
+  refreshEmberSpeeds() {
+    if (!this.emberNodes.length) {
+      return;
+    }
+
+    const multiplier = 0.65 + this.iteronInfluence * 2.4;
+    for (const node of this.emberNodes) {
+      node.speed = node.baseSpeed * multiplier;
+    }
+  }
+
+  /**
+   * Animate ember ribbons so they drift and pulse alongside the flame spiral.
+   */
+  updateEmberAnimation() {
+    if (!this.emberNodes.length) {
+      return;
+    }
+
+    this.emberPulse += this.emberPulseSpeed;
+    if (this.emberPulse > 1) {
+      this.emberPulse -= 1;
+    }
+
+    const drift = this.rotationSpeed * (0.3 + this.iteronInfluence * 0.8);
+    for (const node of this.emberNodes) {
+      node.angle += drift + node.speed;
+      if (node.angle > Math.PI * 2) {
+        node.angle -= Math.PI * 2;
+      }
+    }
+  }
+
+  /**
+   * Render soft ember ribbons that orbit the flame and provide visual feedback.
+   *
+   * @param {CanvasRenderingContext2D} ctx - Rendering context receiving the overlay.
+   */
+  renderEmberRibbons(ctx) {
+    if (!ctx || !this.emberNodes.length) {
+      return;
+    }
+
+    ctx.save();
+    ctx.translate(this.width / 2, this.height / 2);
+    ctx.globalCompositeOperation = 'lighter';
+
+    const baseRadius = Math.min(this.width, this.height) * 0.18;
+    const innerColor = samplePalette('flame-nebula', Math.min(1, 0.45 + this.iteronInfluence * 0.4));
+    const outerColor = samplePalette('flame-nebula', Math.min(1, 0.82 + this.iteronInfluence * 0.15));
+
+    for (const node of this.emberNodes) {
+      const pulse = 0.72 + Math.sin(this.emberPulse * Math.PI * 2 + node.phase) * 0.24;
+      const radius = baseRadius * node.radiusScale * (1 + this.iteronInfluence * 0.6);
+      const x = Math.cos(node.angle) * radius;
+      const y = Math.sin(node.angle) * radius;
+      const thickness = Math.max(6, baseRadius * 0.55 * node.thickness * pulse);
+
+      const gradient = ctx.createRadialGradient(x, y, Math.max(1, thickness * 0.25), x, y, Math.max(thickness, 1));
+      gradient.addColorStop(0, `rgba(${innerColor.r}, ${innerColor.g}, ${innerColor.b}, 0.9)`);
+      gradient.addColorStop(0.58, `rgba(${outerColor.r}, ${outerColor.g}, ${outerColor.b}, 0.36)`);
+      gradient.addColorStop(1, 'rgba(10, 0, 18, 0)');
+      ctx.fillStyle = gradient;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(node.angle + node.twist);
+      ctx.scale(1.25, 0.55 + this.iteronInfluence * 0.35);
+      ctx.beginPath();
+      ctx.arc(0, 0, thickness, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
   }
 
   /**
