@@ -48,6 +48,14 @@ import * as InputController from './playfield/input/InputController.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import * as TowerManager from './playfield/managers/TowerManager.js';
 import {
+  determinePreferredOrientation,
+  setPreferredOrientation,
+  applyContainerOrientationClass,
+  cloneNormalizedPoint,
+  rotateNormalizedPointClockwise,
+  applyLevelOrientation,
+} from './playfield/orientationController.js';
+import {
   updateAlphaBursts as updateAlphaBurstsHelper,
 } from '../scripts/features/towers/alphaTower.js';
 import {
@@ -358,109 +366,6 @@ export class SimplePlayfield {
       return document.body.classList.contains('graphics-mode-low');
     }
     return false;
-  }
-
-  // Determine whether the current viewport favors a portrait or landscape layout.
-  determinePreferredOrientation() {
-    if (this.preferredOrientationOverride === 'landscape') {
-      // Respect explicit landscape requests supplied by wrapper modules.
-      return 'landscape';
-    }
-    if (this.preferredOrientationOverride === 'portrait') {
-      // Respect explicit portrait requests supplied by wrapper modules.
-      return 'portrait';
-    }
-    if (typeof window === 'undefined') {
-      return 'portrait';
-    }
-    const width = Number.isFinite(window.innerWidth) ? window.innerWidth : 0;
-    const height = Number.isFinite(window.innerHeight) ? window.innerHeight : 0;
-    if (width > 0 && height > 0 && width > height) {
-      return 'landscape';
-    }
-    return 'portrait';
-  }
-
-  // Update the override and immediately re-evaluate the level orientation if active.
-  setPreferredOrientation(orientation) {
-    const normalized =
-      orientation === 'landscape' || orientation === 'portrait' ? orientation : null;
-    if (this.preferredOrientationOverride === normalized) {
-      return;
-    }
-    this.preferredOrientationOverride = normalized;
-    if (!this.levelActive) {
-      return;
-    }
-    this.layoutOrientation = this.determinePreferredOrientation();
-    this.applyLevelOrientation();
-    this.applyContainerOrientationClass();
-    this.syncCanvasSize();
-  }
-
-  // Update playfield container classes so CSS can size the canvas per orientation.
-  applyContainerOrientationClass() {
-    if (!this.container || !this.container.classList) {
-      return;
-    }
-    if (!this.container.classList.contains('playfield')) {
-      return;
-    }
-    if (this.layoutOrientation === 'landscape') {
-      this.container.classList.add('playfield--landscape');
-      this.container.classList.remove('playfield--portrait');
-    } else {
-      this.container.classList.add('playfield--portrait');
-      this.container.classList.remove('playfield--landscape');
-    }
-  }
-
-  // Clone a normalized point while constraining it to the valid 0–1 range.
-  cloneNormalizedPoint(point) {
-    if (!point || typeof point !== 'object') {
-      return { x: 0, y: 0 };
-    }
-    const x = Number.isFinite(point.x) ? point.x : 0;
-    const y = Number.isFinite(point.y) ? point.y : 0;
-    return {
-      x: Math.max(0, Math.min(1, x)),
-      y: Math.max(0, Math.min(1, y)),
-    };
-  }
-
-  // Rotate a normalized point 90° clockwise around the playfield center.
-  rotateNormalizedPointClockwise(point) {
-    const base = this.cloneNormalizedPoint(point);
-    const rotated = {
-      x: base.y,
-      y: 1 - base.x,
-    };
-    return {
-      x: Math.max(0, Math.min(1, rotated.x)),
-      y: Math.max(0, Math.min(1, rotated.y)),
-    };
-  }
-
-  // Apply the active orientation to the level's path and auto-anchor geometry.
-  applyLevelOrientation() {
-    if (!this.levelConfig) {
-      return;
-    }
-    const basePath = Array.isArray(this.basePathPoints) && this.basePathPoints.length
-      ? this.basePathPoints
-      : Array.isArray(this.levelConfig.path)
-      ? this.levelConfig.path
-      : [];
-    const baseAnchors = Array.isArray(this.baseAutoAnchors) ? this.baseAutoAnchors : [];
-    const transform =
-      this.layoutOrientation === 'landscape'
-        ? (point) => this.rotateNormalizedPointClockwise(point)
-        : (point) => this.cloneNormalizedPoint(point);
-
-    this.levelConfig.path = basePath.map((point) => transform(point));
-    this.levelConfig.autoAnchors = baseAnchors.length
-      ? baseAnchors.map((anchor) => transform(anchor))
-      : [];
   }
 
   // Applies a canvas shadow when high graphics fidelity is active.
@@ -6691,3 +6596,12 @@ export class SimplePlayfield {
     return CanvasRenderer.drawTowerMenu.call(this);
   }
 }
+
+Object.assign(SimplePlayfield.prototype, {
+  determinePreferredOrientation,
+  setPreferredOrientation,
+  applyContainerOrientationClass,
+  cloneNormalizedPoint,
+  rotateNormalizedPointClockwise,
+  applyLevelOrientation,
+});

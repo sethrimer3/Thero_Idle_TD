@@ -212,6 +212,26 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Tooltip behavior is reusable and easier to unit test because it no longer closes over the entire Towers tab scope
 - Future tooltip features (animations, math annotations) can iterate inside `assets/towerEquationTooltip.js` without touching the monolithic tab controller
 
+### orientationController.js (playfield orientation + normalized geometry)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `determinePreferredOrientation()` to infer portrait vs. landscape layouts based on viewport metrics and overrides
+- `setPreferredOrientation()` to apply overrides and trigger downstream layout refresh hooks
+- `applyContainerOrientationClass()` so CSS modifiers switch alongside the active orientation
+- Normalized geometry helpers (`cloneNormalizedPoint`, `rotateNormalizedPointClockwise`) and the path transformer `applyLevelOrientation()`
+
+**Integration approach:**
+- New module `assets/playfield/orientationController.js` exports functions designed to bind directly onto `SimplePlayfield.prototype`
+- `assets/playfield.js` now imports the helpers and mixes them in via `Object.assign`, keeping existing call sites intact without re-implementing each method inline
+- Pure geometry helpers are reused within the module so future consumers can import them without loading the 6,000+ line playfield orchestrator
+
+**Result:**
+- Playfield orientation logic moves out of the monolith, shaving ~120 lines from `assets/playfield.js`
+- Orientation/geometry responsibilities gain dedicated documentation and are easier to spot for upcoming playfield refactors
+- Prototype mixin approach provides a template for extracting additional stateful clusters without rewriting every call site
+
 ## Upcoming High-Impact Refactor Targets
 
 ### assets/playfield.js (222 KB, core battle orchestration)
