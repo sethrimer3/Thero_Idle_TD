@@ -646,17 +646,18 @@ export class ParticleFusionSimulation {
         const dy = p2.y - p1.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         
-        // Force acts within 3x the radius of the particle
-        // Use the average of both particles' radii for the calculation
-        const avgRadius = (p1.radius + p2.radius) / 2;
-        const repelRadius = avgRadius * 3;
-        
-        if (dist < repelRadius && dist > 0.001) {
+        // Force acts within 3× each particle's radius. Use the larger influence zone so
+        // big particles exert a wider field while still covering small ones.
+        const p1InfluenceRadius = p1.radius * 3;
+        const p2InfluenceRadius = p2.radius * 3;
+        const interactionRadius = Math.max(p1InfluenceRadius, p2InfluenceRadius);
+
+        if (dist < interactionRadius && dist > 0.001) {
           // Average repelling force between the two particles
           const avgRepelling = (p1.repellingForce + p2.repellingForce) / 2;
-          
+
           // If force is negative, particles attract; if positive, they repel
-          const forceMagnitude = avgRepelling * (1 - dist / repelRadius) * dt * 50;
+          const forceMagnitude = avgRepelling * (1 - dist / interactionRadius) * dt * 50;
           
           const nx = dx / dist;
           const ny = dy / dist;
