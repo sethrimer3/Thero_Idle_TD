@@ -407,105 +407,117 @@
         >
           <!-- Present tower resource summaries near the top of the Towers tab. -->
           <div class="tower-glyph-summary" id="tower-glyph-summary" aria-live="polite">
-            <div class="tower-glyph-item">
-              <span class="tower-glyph-label">Aleph Glyphs:</span>
-              <span class="tower-glyph-value" id="tower-glyphs-aleph-total">0 ℵ</span>
-              <span class="tower-glyph-unallocated" id="tower-glyphs-aleph-unused"></span>
+            <!-- Arrange the first trio of glyph counters on a dedicated desktop row. -->
+            <div class="tower-glyph-row tower-glyph-row--primary">
+              <div class="tower-glyph-item">
+                <span class="tower-glyph-label">Aleph Glyphs:</span>
+                <span class="tower-glyph-value" id="tower-glyphs-aleph-total">0 ℵ</span>
+                <span class="tower-glyph-unallocated" id="tower-glyphs-aleph-unused"></span>
+              </div>
+              <div class="tower-glyph-item">
+                <span class="tower-glyph-label">Bet Glyphs:</span>
+                <span class="tower-glyph-value" id="tower-glyphs-bet-total">0 בּ</span>
+                <span class="tower-glyph-unallocated" id="tower-glyphs-bet-unused"></span>
+              </div>
+              <div class="tower-glyph-item">
+                <span class="tower-glyph-label">Lamed Glyphs:</span>
+                <span class="tower-glyph-value" id="tower-glyphs-lamed-total">0 ל</span>
+                <span class="tower-glyph-unallocated" id="tower-glyphs-lamed-unused"></span>
+              </div>
             </div>
-            <div class="tower-glyph-item">
-              <span class="tower-glyph-label">Bet Glyphs:</span>
-              <span class="tower-glyph-value" id="tower-glyphs-bet-total">0 בּ</span>
-              <span class="tower-glyph-unallocated" id="tower-glyphs-bet-unused"></span>
-            </div>
-            <div class="tower-glyph-item">
-              <span class="tower-glyph-label">Lamed Glyphs:</span>
-              <span class="tower-glyph-value" id="tower-glyphs-lamed-total">0 ל</span>
-              <span class="tower-glyph-unallocated" id="tower-glyphs-lamed-unused"></span>
-            </div>
-            <div class="tower-glyph-item">
-              <span class="tower-glyph-label">Tsadi Glyphs:</span>
-              <span class="tower-glyph-value" id="tower-glyphs-tsadi-total">0 צ</span>
-              <span class="tower-glyph-unallocated" id="tower-glyphs-tsadi-unused"></span>
-            </div>
-            <div class="tower-glyph-item">
-              <span class="tower-glyph-label">Shin Glyphs:</span>
-              <span class="tower-glyph-value" id="tower-glyphs-shin-total">0 ש</span>
-              <span class="tower-glyph-unallocated" id="tower-glyphs-shin-unused"></span>
-            </div>
-            <div class="tower-glyph-item">
-              <span class="tower-glyph-label">Kuf Glyphs:</span>
-              <span class="tower-glyph-value" id="tower-glyphs-kuf-total">0 ק</span>
-              <span class="tower-glyph-unallocated" id="tower-glyphs-kuf-unused"></span>
+            <!-- Position the higher-tier glyph counters beneath the introductory row. -->
+            <div class="tower-glyph-row tower-glyph-row--secondary">
+              <div class="tower-glyph-item">
+                <span class="tower-glyph-label">Tsadi Glyphs:</span>
+                <span class="tower-glyph-value" id="tower-glyphs-tsadi-total">0 צ</span>
+                <span class="tower-glyph-unallocated" id="tower-glyphs-tsadi-unused"></span>
+              </div>
+              <div class="tower-glyph-item">
+                <span class="tower-glyph-label">Shin Glyphs:</span>
+                <span class="tower-glyph-value" id="tower-glyphs-shin-total">0 ש</span>
+                <span class="tower-glyph-unallocated" id="tower-glyphs-shin-unused"></span>
+              </div>
+              <div class="tower-glyph-item">
+                <span class="tower-glyph-label">Kuf Glyphs:</span>
+                <span class="tower-glyph-value" id="tower-glyphs-kuf-total">0 ק</span>
+                <span class="tower-glyph-unallocated" id="tower-glyphs-kuf-unused"></span>
+              </div>
             </div>
           </div>
           <div class="tower-panel-controls" id="tower-panel-controls">
-            <button
-              class="tower-panel-button tower-panel-button--variables"
-              type="button"
-              id="tower-variable-library"
-              aria-haspopup="dialog"
-              aria-controls="variable-library-overlay"
-              aria-expanded="false"
-            >
-              <span class="tower-panel-button-icon" aria-hidden="true">Var</span>
-              <span class="tower-panel-button-label">Variables</span>
-            </button>
-            <button
-              class="tower-panel-button tower-panel-button--matrix"
-              type="button"
-              data-upgrade-matrix-trigger
-              aria-haspopup="dialog"
-              aria-controls="upgrade-matrix-overlay"
-              aria-expanded="false"
-            >
-              <span class="tower-panel-button-icon" aria-hidden="true">⧉</span>
-              <span class="tower-panel-button-label">Matrix</span>
-            </button>
-            <button
-              class="tower-panel-button tower-tree-map-button"
-              type="button"
-              id="tower-tree-map-toggle"
-              aria-pressed="false"
-              aria-expanded="false"
-              aria-controls="tower-tree-map"
-              title="Open the Tower Tree Map"
-            >
-              <span class="tower-tree-map-icon" aria-hidden="true">
-                <svg viewBox="0 0 80 80" focusable="false" aria-hidden="true">
-                  <g stroke="currentColor" stroke-width="2" fill="none">
-                    <path d="M18 18 L40 10 L62 18" />
-                    <path d="M18 62 L40 70 L62 62" />
-                    <path d="M18 18 L18 62" />
-                    <path d="M62 18 L62 62" />
-                    <path d="M40 10 L40 70" />
-                  </g>
-                  <g fill="currentColor" font-family="'Cormorant Garamond', serif" font-size="16" text-anchor="middle">
-                    <circle cx="18" cy="18" r="8" fill="rgba(255,255,255,0.15)" />
-                    <text x="18" y="22">α</text>
-                    <circle cx="40" cy="10" r="8" fill="rgba(255,255,255,0.15)" />
-                    <text x="40" y="14">β</text>
-                    <circle cx="62" cy="18" r="8" fill="rgba(255,255,255,0.15)" />
-                    <text x="62" y="22">γ</text>
-                    <circle cx="18" cy="62" r="8" fill="rgba(255,255,255,0.15)" />
-                    <text x="18" y="66">δ</text>
-                    <circle cx="62" cy="62" r="8" fill="rgba(255,255,255,0.15)" />
-                    <text x="62" y="66">ε</text>
-                  </g>
-                </svg>
-              </span>
-              <span class="tower-tree-map-label tower-panel-button-label">Tree</span>
-            </button>
-            <button
-              class="tower-panel-button tower-panel-button--equipment"
-              type="button"
-              id="tower-equipment-button"
-              aria-haspopup="dialog"
-              aria-controls="crafting-overlay"
-              aria-expanded="false"
-            >
-              <span class="tower-panel-button-icon" aria-hidden="true">⚒</span>
-              <span class="tower-panel-button-label">Equipment</span>
-            </button>
+            <!-- Keep the utility buttons grouped so they align across devices. -->
+            <div class="tower-panel-controls__row tower-panel-controls__row--primary">
+              <button
+                class="tower-panel-button tower-panel-button--variables"
+                type="button"
+                id="tower-variable-library"
+                aria-haspopup="dialog"
+                aria-controls="variable-library-overlay"
+                aria-expanded="false"
+              >
+                <span class="tower-panel-button-icon" aria-hidden="true">Var</span>
+                <span class="tower-panel-button-label">Variables</span>
+              </button>
+              <button
+                class="tower-panel-button tower-panel-button--matrix"
+                type="button"
+                data-upgrade-matrix-trigger
+                aria-haspopup="dialog"
+                aria-controls="upgrade-matrix-overlay"
+                aria-expanded="false"
+              >
+                <span class="tower-panel-button-icon" aria-hidden="true">⧉</span>
+                <span class="tower-panel-button-label">Matrix</span>
+              </button>
+            </div>
+            <!-- Shift secondary actions onto a dedicated row for breathing room. -->
+            <div class="tower-panel-controls__row tower-panel-controls__row--secondary">
+              <button
+                class="tower-panel-button tower-tree-map-button"
+                type="button"
+                id="tower-tree-map-toggle"
+                aria-pressed="false"
+                aria-expanded="false"
+                aria-controls="tower-tree-map"
+                title="Open the Tower Tree Map"
+              >
+                <span class="tower-tree-map-icon" aria-hidden="true">
+                  <svg viewBox="0 0 80 80" focusable="false" aria-hidden="true">
+                    <g stroke="currentColor" stroke-width="2" fill="none">
+                      <path d="M18 18 L40 10 L62 18" />
+                      <path d="M18 62 L40 70 L62 62" />
+                      <path d="M18 18 L18 62" />
+                      <path d="M62 18 L62 62" />
+                      <path d="M40 10 L40 70" />
+                    </g>
+                    <g fill="currentColor" font-family="'Cormorant Garamond', serif" font-size="16" text-anchor="middle">
+                      <circle cx="18" cy="18" r="8" fill="rgba(255,255,255,0.15)" />
+                      <text x="18" y="22">α</text>
+                      <circle cx="40" cy="10" r="8" fill="rgba(255,255,255,0.15)" />
+                      <text x="40" y="14">β</text>
+                      <circle cx="62" cy="18" r="8" fill="rgba(255,255,255,0.15)" />
+                      <text x="62" y="22">γ</text>
+                      <circle cx="18" cy="62" r="8" fill="rgba(255,255,255,0.15)" />
+                      <text x="18" y="66">δ</text>
+                      <circle cx="62" cy="62" r="8" fill="rgba(255,255,255,0.15)" />
+                      <text x="62" y="66">ε</text>
+                    </g>
+                  </svg>
+                </span>
+                <span class="tower-tree-map-label tower-panel-button-label">Tree</span>
+              </button>
+              <button
+                class="tower-panel-button tower-panel-button--equipment"
+                type="button"
+                id="tower-equipment-button"
+                aria-haspopup="dialog"
+                aria-controls="crafting-overlay"
+                aria-expanded="false"
+              >
+                <span class="tower-panel-button-icon" aria-hidden="true">⚒</span>
+                <span class="tower-panel-button-label">Equipment</span>
+              </button>
+            </div>
           </div>
           <div
             class="tower-tree-map"
