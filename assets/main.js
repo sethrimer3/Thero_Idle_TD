@@ -2882,6 +2882,17 @@ import {
     let startX = 0;
     let startY = 0;
 
+    const tabForSpire = (spireType) => {
+      switch (spireType) {
+        case 'aleph':
+          return 'powder';
+        case 'bet':
+          return 'fluid';
+        default:
+          return spireType;
+      }
+    };
+
     function handleManualDrop(spireType) {
       if (spireType === 'kuf') {
         return; // Kuf spire doesn't support manual drops
@@ -2925,17 +2936,22 @@ import {
     }
 
     // Add click handlers to spire viewports
-    const spireViewports = [
-      { id: 'powder-viewport', type: 'aleph' },
-      { id: 'fluid-viewport', type: 'bet' },
-      { id: 'lamed-basin', type: 'lamed' },
-      { id: 'tsadi-basin', type: 'tsadi' },
-      { id: 'shin-fractal-content', type: 'shin' },
+    const spireTargets = [
+      { type: 'aleph', selectors: ['powder-viewport', 'powder-basin', 'powder-canvas'] },
+      { type: 'bet', selectors: ['fluid-viewport', 'fluid-basin', 'fluid-canvas'] },
+      { type: 'lamed', selectors: ['lamed-basin'] },
+      { type: 'tsadi', selectors: ['tsadi-basin'] },
+      { type: 'shin', selectors: ['shin-fractal-content'] },
     ];
 
-    spireViewports.forEach(({ id, type }) => {
-      const element = document.getElementById(id);
-      if (element) {
+    spireTargets.forEach(({ type, selectors }) => {
+      const uniqueSelectors = Array.from(new Set(selectors));
+      uniqueSelectors.forEach((id) => {
+        const element = document.getElementById(id);
+        if (!element) {
+          return;
+        }
+
         const handlePointerDown = (event) => {
           pointerMoved = false;
           pointerDownTime = Date.now();
@@ -2951,21 +2967,24 @@ import {
           }
         };
 
-        const handleClick = (event) => {
+        const handleClick = () => {
           const duration = Date.now() - pointerDownTime;
-          if (!pointerMoved && duration < MAX_CLICK_DURATION) {
-            // Only handle manual drop if this panel is active
-            const panel = element.closest('.panel');
-            if (panel && !panel.hidden) {
-              handleManualDrop(type);
-            }
+          if (pointerMoved || duration >= MAX_CLICK_DURATION) {
+            return;
           }
+
+          const activeTab = getActiveTabId();
+          if (activeTab !== tabForSpire(type)) {
+            return;
+          }
+
+          handleManualDrop(type);
         };
 
         element.addEventListener('pointerdown', handlePointerDown);
         element.addEventListener('pointermove', handlePointerMove);
         element.addEventListener('click', handleClick);
-      }
+      });
     });
 
     // Add spacebar handler for manual drops
