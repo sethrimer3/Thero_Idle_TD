@@ -3,6 +3,7 @@ import { formatGameNumber, formatWholeNumber } from '../scripts/core/formatting.
 // Achievements tab logic extracted from the main script to keep state and rendering scoped here.
 
 const ACHIEVEMENT_REWARD_FLUX = 1;
+const ACHIEVEMENT_REVEAL_TIMEOUT_MS = 420; // Fallback delay before forcing the overlay text to appear.
 
 const achievementState = new Map();
 const achievementElements = new Map();
@@ -12,6 +13,39 @@ let achievementPowderRate = 0;
 let context = null;
 let overlayElements = null; // Stores the lazily created overlay nodes for cinematic reveals.
 let overlayState = null; // Tracks the currently animating achievement so it can return home.
+
+// Clear any pending timeout that would reveal the overlay text.
+function clearOverlayRevealTimer() {
+  if (overlayState?.revealTimer) {
+    window.clearTimeout(overlayState.revealTimer);
+    overlayState.revealTimer = null;
+  }
+}
+
+// Ensure the overlay icon and descriptive text become visible even if the animation does not emit transition events.
+function revealAchievementOverlayContent() {
+  if (!overlayElements || overlayElements.overlay.classList.contains('closing')) {
+    return;
+  }
+  overlayElements.floatingIcon.hidden = true;
+  overlayElements.iconTarget.classList.add('visible');
+  overlayElements.content.classList.add('text-visible');
+}
+
+// Schedule a fallback reveal so keyboard-only users still see the description when transitions are interrupted.
+function scheduleAchievementOverlayRevealFallback() {
+  if (!overlayState) {
+    return;
+  }
+  clearOverlayRevealTimer();
+  overlayState.revealTimer = window.setTimeout(() => {
+    if (!overlayState || !overlayElements || overlayElements.overlay.classList.contains('closing')) {
+      return;
+    }
+    overlayState.revealTimer = null;
+    revealAchievementOverlayContent();
+  }, ACHIEVEMENT_REVEAL_TIMEOUT_MS);
+}
 
 function getContext() {
   if (!context) {
@@ -276,6 +310,7 @@ function ensureAchievementOverlay() {
     }
 
     const { overlay: overlayEl, iconTarget: iconEl, content: contentEl } = overlayElements;
+    clearOverlayRevealTimer();
     if (overlayEl.classList.contains('closing')) {
       const focusTarget = overlayState?.trigger || null;
       if (overlayState?.originIcon) {
@@ -294,9 +329,7 @@ function ensureAchievementOverlay() {
       return;
     }
 
-    floatingIcon.hidden = true;
-    iconEl.classList.add('visible');
-    contentEl.classList.add('text-visible');
+    revealAchievementOverlayContent();
   });
 
   document.body.append(overlay);
@@ -385,7 +418,9 @@ function presentAchievementCinematic(id) {
     id,
     originIcon: iconSource,
     trigger: elements.container,
+    revealTimer: null,
   };
+  scheduleAchievementOverlayRevealFallback();
 
   requestAnimationFrame(() => {
     const targetRect = overlayEls.iconTarget.getBoundingClientRect();
@@ -409,6 +444,7 @@ function dismissAchievementCinematic() {
     return;
   }
 
+  clearOverlayRevealTimer();
   overlayEls.overlay.classList.remove('visible');
   overlayEls.overlay.classList.add('closing');
   overlayEls.content.classList.remove('text-visible');

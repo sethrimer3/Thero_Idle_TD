@@ -7595,9 +7595,9 @@ import {
     // Activate the gem cursor when a desktop pointer is detected.
     initializeDesktopCursorPreference();
 
-    // Enable drag gestures on scrollable shells to replace the hidden scrollbars.
+    // Enable drag gestures on targeted overlays; panels rely on native scroll to keep wheel navigation responsive.
     enableDragScroll({
-      selectors: ['.panel', '.field-notes-page', '.upgrade-matrix-grid'],
+      selectors: ['.field-notes-page', '.upgrade-matrix-grid'],
     });
 
     initializeLevelEditorElements();
