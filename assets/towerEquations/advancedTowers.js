@@ -437,6 +437,18 @@ export const xi = {
       upgradable: false,
       lockedNote: 'Upgrade ν to increase ξ base damage.',
       format: (value) => formatDecimal(value, 2),
+      getSubEquations({ value }) {
+        const resolved = Math.max(0, Number.isFinite(value) ? value : 0);
+        return [
+          {
+            expression: String.raw`\( \text{atk} = \nu \times (\text{numChain}^{\text{numChnExp}}) \)`,
+          },
+          {
+            values: String.raw`\( ${formatDecimal(resolved, 2)} \times (\text{chain}^{\text{exp}}) \)`,
+            variant: 'values',
+          },
+        ];
+      },
     },
     {
       key: 'aleph1',
