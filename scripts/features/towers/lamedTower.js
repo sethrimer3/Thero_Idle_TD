@@ -548,7 +548,9 @@ export class GravitySimulation {
     const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
     
     // Luminosity increases with progress to next tier (100% to 200%)
-    const luminosity = tier.glow * (1 + progress);
+    const baseGlowIntensity = Math.max(0.6, tier.glow);
+    const glowProgressScale = 1 + progress; // 100% glow at start, 200% at next milestone threshold
+    const luminosity = baseGlowIntensity * glowProgressScale;
     
     // Add pulsing effect when absorbing mass (check if recent absorption)
     const timeSinceAbsorption = this.elapsedTime - this.stats.lastAbsorptionTime;
@@ -581,7 +583,7 @@ export class GravitySimulation {
     }
     
     // Draw glow effect with tier-based luminosity
-    const glowRadius = starVisualRadius * (2 + luminosity) * pulseScale;
+    const glowRadius = starVisualRadius * (1.8 + baseGlowIntensity) * glowProgressScale * pulseScale;
     const gradient = ctx.createRadialGradient(
       centerXScaled, centerYScaled, 0,
       centerXScaled, centerYScaled, glowRadius
