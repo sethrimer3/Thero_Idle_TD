@@ -134,6 +134,25 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - `main.js` delegates to the controller for surface management and state checks, shrinking by ~900 lines of tightly coupled code
 - Reusable factory pattern keeps future developer tooling enhancements isolated from the core game loop
 
+### spireFloatingMenu.js (floating menu navigation + counters)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `createSpireFloatingMenuController()` factory for wiring floating spire navigation and slide-out menus
+- Counter refresh helpers for mote, fluid, spark, particle, shin, and kuf displays
+- Unlock-state toggles for showing and hiding spire-specific menu entries
+
+**Integration approach:**
+- Controller receives formatting helpers, resource getters, unlock predicates, and tab setter via dependency injection
+- Main orchestrator instantiates the controller once and calls `initialize()`/`updateCounts()` where previous inline functions were invoked
+- Menu selection sound routing is injected through a tiny callback to avoid direct audio dependencies in the module
+
+**Result:**
+- `assets/main.js` sheds another 230+ lines of DOM wiring related to the floating spire UI
+- Floating menu behavior now lives in a cohesive module that can be unit tested without touching the full game orchestrator
+- Unlock visibility checks and counter updates now reuse the same API wherever resource banks change
+
 ## Upcoming High-Impact Refactor Targets
 
 ### assets/playfield.js (222 KB, core battle orchestration)
