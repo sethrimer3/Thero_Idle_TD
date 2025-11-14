@@ -84,8 +84,9 @@ const NU_PARTICLE_CONFIG = {
   laser: {
     minExtension: 160,
     maxExtension: 320,
-    speed: 760,
-    fadeDuration: 0.22,
+    speed: 0,
+    staticDuration: 0.24,
+    fadeDuration: 0.28,
   },
 };
 
@@ -101,6 +102,10 @@ function ensureNuStateInternal(playfield, tower) {
       flashIntensity: 0,
       rippleRadius: 0,
       rippleAlpha: 0,
+      cachedAttack: 0,
+      cachedSpeed: BASE_ATTACK_SPEED,
+      cachedRangeMeters: BASE_RANGE_METERS,
+      needsRefresh: true,
     };
   }
   return tower.nuState;
@@ -121,10 +126,10 @@ function refreshNuParameters(playfield, tower, state) {
   
   // rng = 3 + 0.05 × kills (in meters)
   const rangeMeters = BASE_RANGE_METERS + KILL_RANGE_BONUS * state.kills;
-  
+
   const minDimension = resolvePlayfieldMinDimension(playfield);
   const rangePixels = Math.max(24, metersToPixels(rangeMeters, minDimension));
-  
+
   // Update tower stats for display
   tower.baseDamage = attack;
   tower.damage = attack;
@@ -132,7 +137,13 @@ function refreshNuParameters(playfield, tower, state) {
   tower.rate = attackSpeed;
   tower.baseRange = rangePixels;
   tower.range = rangePixels;
-  
+  tower.rangeMeters = rangeMeters;
+
+  state.cachedAttack = attack;
+  state.cachedSpeed = attackSpeed;
+  state.cachedRangeMeters = rangeMeters;
+  state.needsRefresh = false;
+
   // Update color resolver with current kill count
   NU_PARTICLE_CONFIG.colorResolver = () => resolveNuParticleColors(state.kills);
 }
@@ -165,6 +176,7 @@ export function trackNuKill(tower, overkillDamage = 0) {
   const state = ensureNuStateInternal(null, tower);
   state.kills += 1;
   state.overkillDamageTotal += Math.max(0, overkillDamage);
+  state.needsRefresh = true;
 }
 
 /**
@@ -253,10 +265,10 @@ export function updateNuTower(playfield, tower, delta) {
   }
   
   const state = ensureNuStateInternal(playfield, tower);
-  
+
   // Refresh parameters periodically
   state.recalcTimer = (state.recalcTimer || 0) - delta;
-  if (state.recalcTimer <= 0) {
+  if (state.needsRefresh || state.recalcTimer <= 0) {
     refreshNuParameters(playfield, tower, state);
     state.recalcTimer = 0.35; // Recalc every 350ms
   }

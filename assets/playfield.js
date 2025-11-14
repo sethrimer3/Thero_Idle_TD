@@ -1702,6 +1702,8 @@ export class SimplePlayfield {
             range: candidate?.range,
             connections: candidate?.linkTargetId ? [candidate.linkTargetId] : [],
             sources: candidate?.linkSources instanceof Set ? Array.from(candidate.linkSources) : [],
+            nuKills: candidate?.nuState?.kills,
+            nuOverkillTotal: candidate?.nuState?.overkillDamageTotal,
           }))
           .filter((entry) => entry.id && Number.isFinite(entry.x) && Number.isFinite(entry.y));
         openTowerUpgradeOverlay(tower.type, {
@@ -1714,6 +1716,8 @@ export class SimplePlayfield {
             range: tower.range,
             connections: tower.linkTargetId ? [tower.linkTargetId] : [],
             sources: tower.linkSources instanceof Set ? Array.from(tower.linkSources) : [],
+            nuKills: tower?.nuState?.kills,
+            nuOverkillTotal: tower?.nuState?.overkillDamageTotal,
           },
           contextTowers,
         });
