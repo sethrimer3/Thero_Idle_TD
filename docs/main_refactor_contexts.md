@@ -12,10 +12,12 @@ Owns tier-based hue calculations, palette definitions, color scheme cycling, and
 Coordinates tab caching, overlay visibility toggles, level preview wiring, and shared helpers for showing or hiding the various overlays.
 
 ## Developer Controls and Sandbox Adjustments
-Bundles the developer panel bindings, value formatters, mutation handlers, and visibility toggles that expose sandbox controls.
+`assets/developerControls.js` now owns the developer panel bindings, value formatters, mutation handlers, and visibility toggles
+that expose sandbox controls. Remaining developer map tools still live in `assets/main.js` until the overlay/editor plumbing is
+extracted.
 
 ## Aleph Chain Upgrade State Utilities
-Provides upgrade state mutations, formatting helpers, and integration hooks that synchronize Aleph chain upgrades with the playfield.
+`assets/alephUpgradeState.js` now owns the Aleph chain upgrade state, exposing helpers to clone, mutate, reset, and rehydrate upgrades while keeping the playfield synchronized.
 
 ## Audio System
 Manages the `AudioManager` wiring, slider bindings, audio persistence, activation gating, and contextual music selection for the game's tabs.

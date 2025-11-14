@@ -1,7 +1,10 @@
 import {
-  ALEPH_CHAIN_DEFAULT_UPGRADES,
-  createAlephChainRegistry,
-} from '../scripts/features/towers/alephChain.js';
+  alephChainUpgradeState,
+  getAlephChainUpgrades,
+  updateAlephChainUpgrades,
+  applyAlephChainUpgradeSnapshot,
+  resetAlephChainUpgrades,
+} from './alephUpgradeState.js';
 import {
   MATH_SYMBOL_REGEX,
   renderMathElement,
@@ -37,6 +40,7 @@ import {
   applyStoredAudioSettings,
   bindAudioControls as bindAudioControlElements,
 } from './audioSystem.js';
+import { createAudioOrchestration } from './audioOrchestration.js';
 import { initializeStartupOverlay, dismissStartupOverlay } from './startupOverlay.js';
 import {
   FALLBACK_BASE_SCORE_RATE,
@@ -172,12 +176,14 @@ import {
   setFieldNotesOpenButton,
 } from './fieldNotesOverlay.js';
 import {
-  initializeWaveEditor,
-  showWaveEditor,
-  hideWaveEditor,
-  loadWavesIntoEditor,
-  syncWaveEditorWithLevel,
-} from './waveEditorUI.js';
+  configurePlayfieldOutcome,
+  setPlayfieldOutcomeElements,
+  bindPlayfieldOutcomeEvents,
+  hidePlayfieldOutcome,
+  showPlayfieldOutcome,
+  exitToLevelSelectionFromOutcome,
+  handleOutcomeRetryRequest,
+} from './playfieldOutcome.js';
 import {
   codexState,
   enemyCodexElements,
@@ -246,6 +252,7 @@ import { initializeEquipmentState, EQUIPMENT_STORAGE_KEY } from './equipment.js'
 import { initializeTowerTreeMap, refreshTowerTreeMap } from './towerTreeMap.js';
 // Bring in drag-scroll support so hidden scrollbars remain usable.
 import { enableDragScroll } from './dragScroll.js';
+import { createLevelEditorController } from './levelEditor.js';
 import {
   moteGemState,
   MOTE_GEM_COLLECTION_RADIUS,
@@ -264,6 +271,14 @@ import {
   refreshCraftingRecipesDisplay,
   CRAFTING_TIER_STORAGE_KEY,
 } from './crafting.js';
+import {
+  configureDeveloperControls,
+  bindDeveloperControls,
+  syncDeveloperControlValues,
+  updateDeveloperControlsVisibility,
+  setDeveloperIteronBank,
+  setDeveloperIterationRate,
+} from './developerControls.js';
 import {
   configureTabManager,
   getActiveTabId,
@@ -306,13 +321,33 @@ import {
   unlockedLevels,
   levelSetEntries,
 } from './levels.js';
+import {
+  createOverlayHelpers,
+  setElementVisibility,
+  triggerButtonRipple,
+  scrollPanelToElement,
+  enablePanelWheelScroll,
+} from './uiHelpers.js';
+import {
+  toSubscriptNumber,
+  formatAlephLabel,
+  formatBetLabel,
+  formatDuration,
+  formatRewards,
+  formatRelativeTime,
+} from './formatHelpers.js';
+import {
+  clampNormalizedCoordinate,
+  sanitizeNormalizedPoint,
+  transformPointForOrientation,
+  transformPointFromOrientation,
+  distanceSquaredToSegment,
+} from './geometryHelpers.js';
 
 (() => {
   'use strict';
 
   initializeStartupOverlay();
-
-  const alephChainUpgradeState = { ...ALEPH_CHAIN_DEFAULT_UPGRADES };
 
   const THERO_SYMBOL = 'þ';
   const COMMUNITY_DISCORD_INVITE = 'https://discord.gg/UzqhfsZQ8n'; // Reserved for future placement.
@@ -381,39 +416,7 @@ import {
   let overlayExample = null;
   let overlayPreview = null;
   let overlayPreviewCanvas = null;
-  let overlayPreviewLevel = null;
   let previewPlayfield = null;
-  const levelEditorSurface = {
-    type: 'none',
-    canvas: null,
-    playfield: null,
-    orientation: 'portrait',
-    listenerOptions: false,
-  };
-  function setLevelEditorSurface(options = {}) {
-    const nextType = options.type === 'playfield' ? 'playfield' : 'overlay';
-    levelEditorSurface.type = nextType;
-    levelEditorSurface.canvas = options.canvas || null;
-    levelEditorSurface.playfield = options.playfield || null;
-    levelEditorSurface.orientation = options.orientation === 'landscape' ? 'landscape' : 'portrait';
-    levelEditorSurface.listenerOptions = Boolean(options.listenerOptions);
-    if (levelEditorSurface.type === 'playfield' && levelEditorSurface.listenerOptions === false) {
-      levelEditorSurface.listenerOptions = true;
-    }
-  }
-  function resetLevelEditorSurface() {
-    levelEditorSurface.type = 'none';
-    levelEditorSurface.canvas = null;
-    levelEditorSurface.playfield = null;
-    levelEditorSurface.orientation = 'portrait';
-    levelEditorSurface.listenerOptions = false;
-  }
-  function isOverlayEditorSurface() {
-    return levelEditorSurface.type === 'overlay';
-  }
-  function isPlayfieldEditorSurface() {
-    return levelEditorSurface.type === 'playfield';
-  }
   let overlayMode = null;
   let overlayDuration = null;
   let overlayRewards = null;
@@ -495,85 +498,9 @@ import {
     SHIN_STATE_STORAGE_KEY,
   ].filter(Boolean);
 
-  const overlayHideStates = new WeakMap();
-
-  function cancelOverlayHide(overlay) {
-    if (!overlay) {
-      return;
-    }
-
-    const state = overlayHideStates.get(overlay);
-    if (!state) {
-      return;
-    }
-
-    if (state.transitionHandler) {
-      overlay.removeEventListener('transitionend', state.transitionHandler);
-    }
-
-    if (state.timeoutId !== null && typeof window !== 'undefined') {
-      window.clearTimeout(state.timeoutId);
-    }
-
-    overlayHideStates.delete(overlay);
-  }
-
-  function scheduleOverlayHide(overlay) {
-    if (!overlay) {
-      return;
-    }
-
-    cancelOverlayHide(overlay);
-
-    const finalizeHide = () => {
-      cancelOverlayHide(overlay);
-      overlay.setAttribute('hidden', '');
-    };
-
-    const handleTransitionEnd = (event) => {
-      if (event && event.target !== overlay) {
-        return;
-      }
-      finalizeHide();
-    };
-
-    overlay.addEventListener('transitionend', handleTransitionEnd);
-
-    const timeoutId =
-      typeof window !== 'undefined' ? window.setTimeout(finalizeHide, 320) : null;
-
-    overlayHideStates.set(overlay, {
-      transitionHandler: handleTransitionEnd,
-      timeoutId,
-    });
-  }
-
-  function revealOverlay(overlay) {
-    if (!overlay) {
-      return;
-    }
-
-    cancelOverlayHide(overlay);
-    overlay.removeAttribute('hidden');
-  }
-
-  function setElementVisibility(element, visible) {
-    // Toggle layout fragments while preserving any pre-existing accessibility hints.
-    if (!element) {
-      return;
-    }
-
-    if (visible) {
-      element.classList.remove('is-hidden');
-      element.removeAttribute('hidden');
-      element.removeAttribute('aria-hidden');
-      return;
-    }
-
-    element.classList.add('is-hidden');
-    element.setAttribute('hidden', '');
-    element.setAttribute('aria-hidden', 'true');
-  }
+  // Initialize overlay helpers from uiHelpers module
+  const overlayHelpers = createOverlayHelpers();
+  const { cancelOverlayHide, scheduleOverlayHide, revealOverlay } = overlayHelpers;
 
   function resetPlayfieldMenuLevelSelect() {
     playfieldMenuLevelSelectConfirming = false;
@@ -616,10 +543,11 @@ import {
     }
     if (playfieldMenuDevTools) {
       const devAvailable = Boolean(developerModeActive && activeLevelId && interactive);
+      const toolsActive = isDeveloperMapToolsActive();
       playfieldMenuDevTools.disabled = !devAvailable;
       playfieldMenuDevTools.setAttribute('aria-disabled', devAvailable ? 'false' : 'true');
-      playfieldMenuDevTools.textContent = developerMapToolsActive ? 'Close Dev Map Tools' : 'Dev Map Tools';
-      playfieldMenuDevTools.setAttribute('aria-pressed', developerMapToolsActive ? 'true' : 'false');
+      playfieldMenuDevTools.textContent = toolsActive ? 'Close Dev Map Tools' : 'Dev Map Tools';
+      playfieldMenuDevTools.setAttribute('aria-pressed', toolsActive ? 'true' : 'false');
       if (!devAvailable) {
         const hint = developerModeActive
           ? 'Enter an interactive defense to access Dev Map Tools.'
@@ -832,88 +760,6 @@ import {
     }
   }
 
-  function activateDeveloperMapToolsForLevel(level) {
-    if (
-      !developerModeActive ||
-      !level ||
-      !playfield ||
-      !playfieldElements?.canvas ||
-      !playfield.levelActive ||
-      !playfield.levelConfig
-    ) {
-      return false;
-    }
-
-    const battlefieldCanvas = playfieldElements.canvas || playfield.canvas || null;
-    if (!battlefieldCanvas) {
-      return false;
-    }
-
-    const orientation = playfield.layoutOrientation || 'portrait';
-    setLevelEditorSurface({
-      type: 'playfield',
-      canvas: battlefieldCanvas,
-      playfield,
-      orientation,
-      listenerOptions: true,
-    });
-
-    const config = levelConfigs.get(level.id) || null;
-    let basePath = Array.isArray(playfield.basePathPoints) && playfield.basePathPoints.length >= 2
-      ? playfield.basePathPoints
-      : null;
-
-    if (!basePath && Array.isArray(playfield.levelConfig?.path) && playfield.levelConfig.path.length >= 2) {
-      basePath = playfield.levelConfig.path.map((point) => transformPointFromOrientation(point, orientation));
-    }
-
-    if (!basePath && Array.isArray(config?.path) && config.path.length >= 2) {
-      basePath = config.path;
-    }
-
-    if (!Array.isArray(basePath) || basePath.length < 2) {
-      return false;
-    }
-
-    developerMapToolsActive = true;
-    overlayPreviewLevel = level;
-
-    configureLevelEditorForLevel(level, { path: basePath }, { orientation, basePath });
-    setLevelEditorEditing(true);
-    setLevelEditorStatus('Editing active—drag anchors or Shift-click to remove.', { duration: 2600 });
-    updateDeveloperMapElementsVisibility();
-    
-    // Show and sync wave editor with current level
-    showWaveEditor();
-    if (config && config.waves) {
-      loadWavesIntoEditor(config.waves);
-    }
-
-    return true;
-  }
-
-  function deactivateDeveloperMapTools(options = {}) {
-    const { force = false, silent = false } = options;
-    if (!developerMapToolsActive && !force) {
-      return false;
-    }
-
-    developerMapToolsActive = false;
-    overlayPreviewLevel = null;
-    hideLevelEditorPanel();
-    resetLevelEditorSurface();
-    updateDeveloperMapElementsVisibility();
-    
-    // Hide wave editor
-    hideWaveEditor();
-
-    if (!silent && playfield?.messageEl) {
-      playfield.messageEl.textContent = 'Developer map tools closed.';
-    }
-
-    return true;
-  }
-
   function handleOpenDevMapTools() {
     resetPlayfieldMenuLevelSelect();
 
@@ -950,7 +796,7 @@ import {
       return;
     }
 
-    if (developerMapToolsActive) {
+    if (isDeveloperMapToolsActive()) {
       deactivateDeveloperMapTools({ force: true, silent: false });
       updatePlayfieldMenuState();
       if (audioManager) {
@@ -985,50 +831,7 @@ import {
     closePlayfieldMenu();
   }
 
-  const developerControlElements = {
-    container: null,
-    fields: {
-      moteBank: null,
-      moteRate: null,
-      startThero: null,
-      theroMultiplier: null,
-      glyphs: null,
-      betDropRate: null,
-      betDropBank: null,
-    },
-  };
-
   // Developer map element references allow quick toggles for spawning and clearing obstacles.
-  const developerMapElements = {
-    container: null,
-    addCrystalButton: null,
-    clearButton: null,
-    note: null,
-  };
-
-  // Placement state tracks which experimental element should capture the next battlefield click.
-  const developerMapPlacementState = {
-    mode: null,
-  };
-
-  let developerMapToolsActive = false;
-
-  const developerFieldHandlers = {
-    moteBank: setDeveloperIdleMoteBank,
-    moteRate: setDeveloperIdleMoteRate,
-    startThero: setDeveloperBaseStartThero,
-    theroMultiplier: setDeveloperTheroMultiplier,
-    glyphs: setDeveloperGlyphs,
-    betDropRate: setDeveloperBetDropRate,
-    betDropBank: setDeveloperBetDropBank,
-    iteronBank: setDeveloperIteronBank,
-    iterationRate: setDeveloperIterationRate,
-    lamedBank: setDeveloperLamedBank,
-    lamedRate: setDeveloperLamedRate,
-    tsadiBank: setDeveloperTsadiBank,
-    tsadiRate: setDeveloperTsadiRate,
-  };
-
   let developerModeActive = false;
 
   let playfield = null;
@@ -1048,441 +851,7 @@ import {
   let playfieldMenuOpen = false;
   let activeLevelIsInteractive = false;
 
-  function formatDeveloperInteger(value) {
-    if (!Number.isFinite(value)) {
-      return '';
-    }
-    return String(Math.max(0, Math.round(value)));
-  }
 
-  function formatDeveloperFloat(value, precision = 2) {
-    if (!Number.isFinite(value)) {
-      return '';
-    }
-    const normalized = Math.max(0, value);
-    if (Number.isInteger(normalized)) {
-      return String(normalized);
-    }
-    return normalized.toFixed(precision);
-  }
-
-  function recordDeveloperAdjustment(field, value) {
-    if (!developerModeActive) {
-      return;
-    }
-    recordPowderEvent('developer-adjust', { field, value });
-  }
-
-  // Developer preference key for compact basin autosave
-  const COMPACT_BASIN_STORAGE_KEY = 'glyph-defense-idle:compact-basin';
-
-  function readCompactBasinPreference() {
-    try {
-      const raw = window?.localStorage?.getItem(COMPACT_BASIN_STORAGE_KEY);
-      if (raw === null || raw === undefined) return true;
-      return raw === 'true';
-    } catch (e) {
-      return true;
-    }
-  }
-
-  function persistCompactBasinPreference(enabled) {
-    try {
-      window?.localStorage?.setItem(COMPACT_BASIN_STORAGE_KEY, String(!!enabled));
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  // Compact basin autosave is now always enabled per task 24
-  // function wireDeveloperCompactBasinToggle() - REMOVED
-  // The toggle UI and preference reading have been removed
-  // Compact basin autosave is now the only save method
-
-  document.addEventListener('DOMContentLoaded', () => {
-    // wireDeveloperCompactBasinToggle(); - REMOVED per task 24
-    // Always use compact basin autosave per task 24
-    try {
-      if (window.powderSimulation) window.powderSimulation.useCompactAutosave = true;
-      if (window.fluidSimulationInstance) window.fluidSimulationInstance.useCompactAutosave = true;
-    } catch (e) {}
-  });
-
-  function setDeveloperIdleMoteBank(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, Math.floor(value));
-    if (powderSimulation) {
-      powderSimulation.idleBank = normalized;
-    }
-    const origin = powderSimulation
-      ? powderSimulation === fluidSimulationInstance
-        ? 'fluid'
-        : 'sand'
-      : powderState.simulationMode === 'fluid'
-        ? 'fluid'
-        : 'sand';
-    handlePowderIdleBankChange(powderSimulation ? powderSimulation.idleBank : normalized, origin);
-    recordDeveloperAdjustment('idle-mote-bank', normalized);
-    // Developer tweaks should persist so debugging sessions survive reloads.
-    schedulePowderBasinSave();
-    updatePowderDisplay();
-  }
-
-  function setDeveloperIdleMoteRate(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, value);
-    if (powderSimulation) {
-      powderSimulation.idleDrainRate = normalized;
-    }
-    if (
-      powderSimulation === fluidSimulationInstance ||
-      (!powderSimulation && powderState.simulationMode === 'fluid')
-    ) {
-      powderState.fluidIdleDrainRate = normalized;
-    } else {
-      powderState.idleDrainRate = normalized;
-    }
-    recordDeveloperAdjustment('idle-mote-rate', normalized);
-    // Persist idle rate overrides to keep testing scenarios reproducible.
-    schedulePowderBasinSave();
-    updatePowderDisplay();
-  }
-
-  function setDeveloperBaseStartThero(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, value);
-    setBaseStartThero(normalized);
-    recordDeveloperAdjustment('base-start-thero', normalized);
-    updateLevelCards();
-    updatePowderLedger();
-    updateStatusDisplays();
-  }
-
-  function setDeveloperTheroMultiplier(value) {
-    if (value === null || value === undefined) {
-      clearDeveloperTheroMultiplierOverride();
-      recordDeveloperAdjustment('thero-multiplier', 'default');
-      updateLevelCards();
-      updatePowderLedger();
-      updateStatusDisplays();
-      return;
-    }
-
-    if (!Number.isFinite(value)) {
-      return;
-    }
-
-    const normalized = Math.max(0, value);
-    setDeveloperTheroMultiplierOverride(normalized);
-    recordDeveloperAdjustment('thero-multiplier', normalized);
-    updateLevelCards();
-    updatePowderLedger();
-    updateStatusDisplays();
-  }
-
-  function setDeveloperGlyphs(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, Math.floor(value));
-    setGlyphCurrency(normalized);
-    gameStats.enemiesDefeated = normalized;
-    if (gameStats.towersPlaced > normalized) {
-      gameStats.towersPlaced = normalized;
-    }
-    recordDeveloperAdjustment('glyphs', normalized);
-    updateStatusDisplays();
-  }
-
-  function setDeveloperBetDropRate(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, value);
-    // Access fluidSimulationInstance only if it exists (defined later in file)
-    try {
-      if (typeof fluidSimulationInstance !== 'undefined' && fluidSimulationInstance && typeof fluidSimulationInstance.idleDrainRate !== 'undefined') {
-        fluidSimulationInstance.idleDrainRate = normalized;
-      }
-    } catch (e) {
-      // fluidSimulationInstance not yet initialized
-    }
-    recordDeveloperAdjustment('betDropRate', normalized);
-  }
-
-  function setDeveloperBetDropBank(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, Math.floor(value));
-    // Access fluidSimulationInstance only if it exists (defined later in file)
-    try {
-      if (typeof fluidSimulationInstance !== 'undefined' && fluidSimulationInstance && typeof fluidSimulationInstance.idleBank !== 'undefined') {
-        fluidSimulationInstance.idleBank = normalized;
-        if (typeof fluidSimulationInstance.notifyIdleBankChange === 'function') {
-          fluidSimulationInstance.notifyIdleBankChange();
-        }
-      }
-    } catch (e) {
-      // fluidSimulationInstance not yet initialized
-    }
-    recordDeveloperAdjustment('betDropBank', normalized);
-  }
-
-  function setDeveloperIteronBank(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, Math.floor(value));
-    try {
-      // Add the difference between target and current to set the bank to the desired value
-      // This allows the developer control to work correctly even if the bank already has iterons
-      addIterons(normalized - getIteronBank());
-      updateShinDisplay();
-    } catch (e) {
-      console.error('Failed to set iteron bank:', e);
-    }
-    recordDeveloperAdjustment('iteronBank', normalized);
-  }
-
-  function setDeveloperIterationRate(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, value);
-    try {
-      setIterationRate(normalized);
-      updateShinDisplay();
-    } catch (e) {
-      console.error('Failed to set iteration rate:', e);
-    }
-    recordDeveloperAdjustment('iterationRate', normalized);
-  }
-
-  function setDeveloperLamedBank(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, Math.floor(value));
-    try {
-      if (typeof lamedSimulationInstance !== 'undefined' && lamedSimulationInstance && typeof lamedSimulationInstance.sparkBank !== 'undefined') {
-        lamedSimulationInstance.sparkBank = normalized;
-      }
-    } catch (e) {
-      // lamedSimulationInstance not yet initialized
-    }
-    recordDeveloperAdjustment('lamedBank', normalized);
-  }
-
-  function setDeveloperLamedRate(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, value);
-    try {
-      if (typeof lamedSimulationInstance !== 'undefined' && lamedSimulationInstance && typeof lamedSimulationInstance.sparkSpawnRate !== 'undefined') {
-        lamedSimulationInstance.sparkSpawnRate = normalized;
-      }
-    } catch (e) {
-      // lamedSimulationInstance not yet initialized
-    }
-    recordDeveloperAdjustment('lamedRate', normalized);
-  }
-
-  function setDeveloperTsadiBank(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, Math.floor(value));
-    try {
-      if (typeof tsadiSimulationInstance !== 'undefined' && tsadiSimulationInstance && typeof tsadiSimulationInstance.particleBank !== 'undefined') {
-        tsadiSimulationInstance.particleBank = normalized;
-      }
-    } catch (e) {
-      // tsadiSimulationInstance not yet initialized
-    }
-    recordDeveloperAdjustment('tsadiBank', normalized);
-  }
-
-  function setDeveloperTsadiRate(value) {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    const normalized = Math.max(0, value);
-    try {
-      if (typeof tsadiSimulationInstance !== 'undefined' && tsadiSimulationInstance && typeof tsadiSimulationInstance.spawnRate !== 'undefined') {
-        tsadiSimulationInstance.spawnRate = normalized;
-      }
-    } catch (e) {
-      // tsadiSimulationInstance not yet initialized
-    }
-    recordDeveloperAdjustment('tsadiRate', normalized);
-  }
-
-  function syncDeveloperControlValues() {
-    const { fields } = developerControlElements;
-    if (!fields) {
-      return;
-    }
-    if (fields.moteBank) {
-      fields.moteBank.value = formatDeveloperInteger(getCurrentIdleMoteBank());
-    }
-    if (fields.moteRate) {
-      fields.moteRate.value = formatDeveloperFloat(getCurrentMoteDispenseRate());
-    }
-    if (fields.startThero) {
-      fields.startThero.value = formatDeveloperInteger(getBaseStartThero());
-    }
-    if (fields.theroMultiplier) {
-      const override = getDeveloperTheroMultiplierOverride();
-      const baseMultiplier = getBaseStartingTheroMultiplier();
-      fields.theroMultiplier.placeholder = formatDeveloperFloat(baseMultiplier, 2);
-      fields.theroMultiplier.value = Number.isFinite(override) && override >= 0
-        ? formatDeveloperFloat(override, 2)
-        : '';
-    }
-    if (fields.glyphs) {
-      fields.glyphs.value = formatDeveloperInteger(getGlyphCurrency());
-    }
-    try {
-      if (fields.betDropRate && typeof fluidSimulationInstance !== 'undefined' && fluidSimulationInstance) {
-        fields.betDropRate.value = formatDeveloperFloat(fluidSimulationInstance.idleDrainRate || 0, 2);
-      }
-      if (fields.betDropBank && typeof fluidSimulationInstance !== 'undefined' && fluidSimulationInstance) {
-        fields.betDropBank.value = formatDeveloperInteger(fluidSimulationInstance.idleBank || 0);
-      }
-    } catch (e) {
-      // fluidSimulationInstance not yet initialized
-    }
-  }
-
-  function updateDeveloperControlsVisibility() {
-    const active = developerModeActive;
-    const { container, fields } = developerControlElements;
-    if (container) {
-      container.hidden = !active;
-      container.setAttribute('aria-hidden', active ? 'false' : 'true');
-    }
-    if (fields) {
-      Object.values(fields).forEach((input) => {
-        if (input) {
-          input.disabled = !active;
-        }
-      });
-    }
-    if (active) {
-      syncDeveloperControlValues();
-    }
-    updateDeveloperMapElementsVisibility();
-  }
-
-  function handleDeveloperFieldCommit(event) {
-    const input = event?.target;
-    if (!input || !(input instanceof HTMLInputElement)) {
-      return;
-    }
-    const field = input.dataset?.developerField;
-    if (!field) {
-      return;
-    }
-    if (!developerModeActive) {
-      syncDeveloperControlValues();
-      return;
-    }
-
-    const handler = developerFieldHandlers[field];
-    if (!handler) {
-      return;
-    }
-
-    const rawValue = typeof input.value === 'string' ? input.value.trim() : '';
-    if (rawValue === '') {
-      handler(null);
-      syncDeveloperControlValues();
-      return;
-    }
-
-    const parsed = Number.parseFloat(rawValue);
-    if (!Number.isFinite(parsed)) {
-      syncDeveloperControlValues();
-      return;
-    }
-
-    handler(parsed);
-    syncDeveloperControlValues();
-  }
-
-  function bindDeveloperControls() {
-    developerControlElements.container = document.getElementById('developer-control-panel');
-    const inputs = document.querySelectorAll('[data-developer-field]');
-
-    inputs.forEach((input) => {
-      const field = input.dataset.developerField;
-      if (!field) {
-        return;
-      }
-      developerControlElements.fields[field] = input;
-      input.disabled = true;
-      input.addEventListener('change', handleDeveloperFieldCommit);
-      input.addEventListener('blur', handleDeveloperFieldCommit);
-      input.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          handleDeveloperFieldCommit(event);
-        }
-      });
-    });
-
-    syncDeveloperControlValues();
-    updateDeveloperControlsVisibility();
-  }
-
-  function getAlephChainUpgrades() {
-    return { ...alephChainUpgradeState };
-  }
-
-  function updateAlephChainUpgrades(updates = {}) {
-    if (!updates || typeof updates !== 'object') {
-      return getAlephChainUpgrades();
-    }
-
-    const nextState = { ...alephChainUpgradeState };
-    if (Number.isFinite(updates.x) && updates.x > 0) {
-      nextState.x = updates.x;
-    }
-    if (Number.isFinite(updates.y) && updates.y > 0) {
-      nextState.y = updates.y;
-    }
-    if (Number.isFinite(updates.z)) {
-      nextState.z = Math.max(1, Math.floor(updates.z));
-    }
-
-    const changed =
-      nextState.x !== alephChainUpgradeState.x ||
-      nextState.y !== alephChainUpgradeState.y ||
-      nextState.z !== alephChainUpgradeState.z;
-
-    if (!changed) {
-      return getAlephChainUpgrades();
-    }
-
-    alephChainUpgradeState.x = nextState.x;
-    alephChainUpgradeState.y = nextState.y;
-    alephChainUpgradeState.z = nextState.z;
-
-    if (playfield?.alephChain) {
-      playfield.alephChain.setUpgrades(alephChainUpgradeState);
-      playfield.syncAlephChainStats();
-    }
-
-    return getAlephChainUpgrades();
-  }
   const playfieldElements = {
     container: null,
     canvas: null,
@@ -1496,210 +865,38 @@ import {
     autoAnchorButton: null,
     slots: [],
   };
-  const playfieldOutcomeElements = {
-    overlay: null,
-    title: null,
-    subtitle: null,
-    primary: null,
-    secondary: null,
-  };
-  const playfieldOutcomeState = {
-    onPrimary: null,
-    onSecondary: null,
-    bound: false,
-  };
 
-  // Invoke the currently registered primary outcome action, if present.
-  function triggerPlayfieldOutcomePrimary() {
-    if (typeof playfieldOutcomeState.onPrimary === 'function') {
-      playfieldOutcomeState.onPrimary();
-    }
-  }
+  const levelEditor = createLevelEditorController({
+    playfieldElements,
+    getPlayfield: () => playfield,
+    getLevelConfigs: () => levelConfigs,
+    isDeveloperModeActive: () => developerModeActive,
+  });
 
-  // Invoke the stored secondary outcome action when the retry button is pressed.
-  function triggerPlayfieldOutcomeSecondary() {
-    if (typeof playfieldOutcomeState.onSecondary === 'function') {
-      playfieldOutcomeState.onSecondary();
-    }
-  }
+  const {
+    setLevelEditorSurface,
+    resetLevelEditorSurface,
+    configureLevelEditorForLevel,
+    syncLevelEditorVisibility,
+    updateDeveloperMapElementsVisibility,
+    setDeveloperMapPlacementMode,
+    handleDeveloperMapPlacementRequest,
+    initializeDeveloperMapElements,
+    initializeLevelEditorElements,
+    activateDeveloperMapToolsForLevel,
+    deactivateDeveloperMapTools,
+    isDeveloperMapToolsActive,
+    hideLevelEditorPanel,
+    setOverlayPreviewLevel,
+  } = levelEditor;
 
-  // Reset the outcome overlay to its hidden state and optionally restore focus.
-  function hidePlayfieldOutcome({ restoreFocus = false } = {}) {
-    const { overlay } = playfieldOutcomeElements;
-    if (!overlay) {
-      return;
-    }
-    overlay.classList.remove('active', 'playfield-outcome--victory', 'playfield-outcome--defeat');
-    overlay.setAttribute('aria-hidden', 'true');
-    overlay.setAttribute('hidden', '');
-    playfieldOutcomeState.onPrimary = null;
-    playfieldOutcomeState.onSecondary = null;
-    const { primary, secondary } = playfieldOutcomeElements;
-    if (primary) {
-      primary.disabled = false;
-    }
-    if (secondary) {
-      secondary.disabled = false;
-      secondary.setAttribute('hidden', '');
-    }
-    if (restoreFocus && playfieldElements.startButton && typeof playfieldElements.startButton.focus === 'function') {
-      try {
-        playfieldElements.startButton.focus({ preventScroll: true });
-      } catch (error) {
-        playfieldElements.startButton.focus();
-      }
-    }
-  }
+  configurePlayfieldOutcome({
+    getPlayfield: () => playfield,
+    leaveActiveLevel,
+    updateLayoutVisibility,
+    getStartButton: () => playfieldElements.startButton,
+  });
 
-  // Surface the desired victory or defeat text and wire up overlay button callbacks.
-  function showPlayfieldOutcome({
-    outcome = 'defeat',
-    title = '',
-    subtitle = '',
-    primaryLabel = 'Back to Level Selection',
-    onPrimary = null,
-    secondaryLabel = null,
-    onSecondary = null,
-  } = {}) {
-    const { overlay, title: titleEl, subtitle: subtitleEl, primary, secondary } = playfieldOutcomeElements;
-    if (!overlay || !titleEl || !primary) {
-      return;
-    }
-
-    hidePlayfieldOutcome();
-
-    overlay.classList.remove('playfield-outcome--victory', 'playfield-outcome--defeat');
-    if (outcome === 'victory') {
-      overlay.classList.add('playfield-outcome--victory');
-    } else {
-      overlay.classList.add('playfield-outcome--defeat');
-    }
-
-    titleEl.textContent = title;
-    if (subtitleEl) {
-      subtitleEl.textContent = subtitle || '';
-      subtitleEl.toggleAttribute('hidden', !subtitle);
-    }
-
-    primary.textContent = primaryLabel;
-    playfieldOutcomeState.onPrimary = typeof onPrimary === 'function' ? onPrimary : null;
-
-    if (secondary) {
-      if (secondaryLabel) {
-        secondary.textContent = secondaryLabel;
-        secondary.removeAttribute('hidden');
-        playfieldOutcomeState.onSecondary = typeof onSecondary === 'function' ? onSecondary : null;
-      } else {
-        secondary.setAttribute('hidden', '');
-        playfieldOutcomeState.onSecondary = null;
-      }
-    }
-
-    overlay.removeAttribute('hidden');
-    overlay.setAttribute('aria-hidden', 'false');
-
-    requestAnimationFrame(() => {
-      overlay.classList.add('active');
-    });
-
-    if (typeof overlay.focus === 'function') {
-      try {
-        overlay.focus({ preventScroll: true });
-      } catch (error) {
-        overlay.focus();
-      }
-    }
-  }
-
-  // Attach listeners to the overlay the first time it is initialized.
-  function bindPlayfieldOutcomeEvents() {
-    if (playfieldOutcomeState.bound) {
-      return;
-    }
-    const { overlay, primary, secondary } = playfieldOutcomeElements;
-    if (!overlay || !primary) {
-      return;
-    }
-
-    primary.addEventListener('click', () => triggerPlayfieldOutcomePrimary());
-    if (secondary) {
-      secondary.addEventListener('click', () => triggerPlayfieldOutcomeSecondary());
-    }
-    overlay.addEventListener('click', (event) => {
-      if (event.target === overlay) {
-        triggerPlayfieldOutcomePrimary();
-      }
-    });
-    overlay.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        triggerPlayfieldOutcomePrimary();
-      }
-    });
-
-    playfieldOutcomeState.bound = true;
-  }
-
-  // Leave combat and transition back to the level selection grid when the overlay is dismissed.
-  function exitToLevelSelectionFromOutcome() {
-    hidePlayfieldOutcome();
-    leaveActiveLevel();
-    updateLayoutVisibility();
-  }
-
-  // Attempt to reload the most recent endless checkpoint when the retry button is pressed.
-  function handleOutcomeRetryRequest() {
-    if (!playfield || typeof playfield.retryFromEndlessCheckpoint !== 'function') {
-      return;
-    }
-    const success = playfield.retryFromEndlessCheckpoint();
-    if (success) {
-      hidePlayfieldOutcome();
-      return;
-    }
-    const { secondary } = playfieldOutcomeElements;
-    if (secondary) {
-      secondary.disabled = true;
-    }
-  }
-
-  const alephSubscriptDigits = {
-    0: '₀',
-    1: '₁',
-    2: '₂',
-    3: '₃',
-    4: '₄',
-    5: '₅',
-    6: '₆',
-    7: '₇',
-    8: '₈',
-    9: '₉',
-  };
-
-  function toSubscriptNumber(value) {
-    const normalized = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-    return `${normalized}`
-      .split('')
-      .map((digit) => alephSubscriptDigits[digit] || digit)
-      .join('');
-  }
-
-  function formatAlephLabel(index) {
-    const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
-    return `ℵ${toSubscriptNumber(normalized)}`;
-  }
-
-  /**
-   * Format a Bet glyph label using Hebrew letter Bet with dagesh (בּ) with subscript numbering.
-   * Bet glyphs are the second type of upgrade currency, exclusive to the Bet Spire,
-   * appearing on the right wall and complementing Aleph glyphs on the left.
-   * @param {number} index - The glyph index (0-based)
-   * @returns {string} Formatted label like "בּ₀", "בּ₁", "בּ₂", etc.
-   */
-  function formatBetLabel(index) {
-    const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
-    return `בּ${toSubscriptNumber(normalized)}`;
-  }
 
   /**
    * Award Bet glyph currency when Bet Spire water reaches height milestones.
@@ -1739,116 +936,30 @@ import {
     audioManager,
   });
 
-  const audioSuppressionReasons = new Set();
-
-  function suppressAudioPlayback(reason = 'unspecified') {
-    if (!audioManager) {
-      return;
-    }
-    const initialSize = audioSuppressionReasons.size;
-    audioSuppressionReasons.add(reason);
-    if (initialSize === 0) {
-      if (typeof audioManager.suspendMusic === 'function') {
-        audioManager.suspendMusic();
-      } else if (typeof audioManager.stopMusic === 'function') {
-        audioManager.stopMusic();
-      }
-    }
-  }
-
-  function releaseAudioSuppression(reason) {
-    if (!audioManager) {
-      return;
-    }
-    if (reason) {
-      audioSuppressionReasons.delete(reason);
-    } else {
-      audioSuppressionReasons.clear();
-    }
-    if (audioSuppressionReasons.size === 0 && typeof audioManager.resumeSuspendedMusic === 'function') {
-      audioManager.resumeSuspendedMusic();
-    }
-  }
-
-  function isAudioSuppressed() {
-    if (audioSuppressionReasons.size > 0) {
-      return true;
-    }
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-      return true;
-    }
-    return false;
-  }
-
-  let audioControlsBinding = null;
-  // Cached reference to the notation toggle control inside the Codex panel.
-  let notationToggleButton = null;
-
-  // Keeps the audio slider UI synchronized with the manager state.
-  function syncAudioControlsFromManager() {
-    if (audioControlsBinding && typeof audioControlsBinding.syncFromManager === 'function') {
-      audioControlsBinding.syncFromManager();
-    }
-  }
-
-  // Persists the current music and sound effect volumes.
-  function saveAudioSettings() {
-    if (!audioManager) {
-      return;
-    }
-    writeStorageJson(AUDIO_SETTINGS_STORAGE_KEY, {
-      musicVolume: audioManager.musicVolume,
-      sfxVolume: audioManager.sfxVolume,
-    });
-  }
-
-  // Connects DOM slider controls to the shared audio manager instance.
-  function bindAudioControls() {
-    audioControlsBinding = bindAudioControlElements(audioManager, {
-      onVolumeCommit: () => {
-        saveAudioSettings();
-      },
-    });
-  }
-
-  function determineMusicKey() {
-    const tab = getActiveTabId() || 'tower';
-    if (tab === 'tower') {
-      const interactive = Boolean(
+  const {
+    suppressAudioPlayback,
+    releaseAudioSuppression,
+    isAudioSuppressed,
+    syncAudioControlsFromManager,
+    bindAudioControls,
+    determineMusicKey,
+    refreshTabMusic,
+  } = createAudioOrchestration({
+    audioManager,
+    bindAudioControlElements,
+    writeStorageJson,
+    audioSettingsStorageKey: AUDIO_SETTINGS_STORAGE_KEY,
+    getActiveTabId,
+    isPlayfieldInteractiveLevelActive: () =>
+      Boolean(
         playfield &&
           typeof playfield.isInteractiveLevelActive === 'function' &&
           playfield.isInteractiveLevelActive(),
-      );
-      return interactive ? 'levelActive' : 'levelSelect';
-    }
-    if (tab === 'towers') {
-      return 'towers';
-    }
-    if (tab === 'powder') {
-      return 'powder';
-    }
-    if (tab === 'achievements') {
-      return 'achievements';
-    }
-    if (tab === 'options') {
-      return 'codex';
-    }
-    return 'levelSelect';
-  }
+      ),
+  });
 
-  function refreshTabMusic(options = {}) {
-    if (!audioManager) {
-      return;
-    }
-    if (isAudioSuppressed()) {
-      return;
-    }
-    const key = determineMusicKey();
-    if (!key) {
-      return;
-    }
-    audioManager.playMusic(key, options);
-  }
+  // Cached reference to the notation toggle control inside the Codex panel.
+  let notationToggleButton = null;
 
   const resourceElements = {
     theroMultiplier: null,
@@ -2090,6 +1201,53 @@ import {
     initialLoadRestored: false,
     fluidInitialLoadRestored: false,
   };
+
+  // Provide the developer controls module with runtime state references.
+  configureDeveloperControls({
+    isDeveloperModeActive: () => developerModeActive,
+    recordPowderEvent,
+    getPowderSimulation: () => powderSimulation,
+    getFluidSimulation: () => fluidSimulationInstance,
+    getLamedSimulation: () => lamedSimulationInstance,
+    getTsadiSimulation: () => tsadiSimulationInstance,
+    powderState,
+    handlePowderIdleBankChange,
+    schedulePowderBasinSave,
+    updatePowderDisplay,
+    setBaseStartThero,
+    updateLevelCards,
+    updatePowderLedger,
+    updateStatusDisplays,
+    setDeveloperTheroMultiplierOverride,
+    clearDeveloperTheroMultiplierOverride,
+    getDeveloperTheroMultiplierOverride,
+    getBaseStartingTheroMultiplier,
+    getBaseStartThero,
+    getGlyphCurrency,
+    setGlyphCurrency,
+    gameStats,
+    addIterons,
+    getIteronBank,
+    setIterationRate,
+    updateShinDisplay,
+    updateDeveloperMapElementsVisibility,
+    getCurrentIdleMoteBank,
+    getCurrentMoteDispenseRate,
+  });
+
+  // Ensure compact autosave remains the active basin persistence strategy.
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      if (window.powderSimulation) {
+        window.powderSimulation.useCompactAutosave = true;
+      }
+      if (window.fluidSimulationInstance) {
+        window.fluidSimulationInstance.useCompactAutosave = true;
+      }
+    } catch (error) {
+      // Ignore assignment failures caused by missing window globals during SSR/tests.
+    }
+  });
 
   // Track idle reserves for advanced spires so their banks persist outside of active simulations.
   const spireResourceState = {
@@ -4167,7 +3325,7 @@ import {
     const towerSnapshot = getTowerUpgradeStateSnapshot();
     return {
       ...towerSnapshot,
-      alephChainUpgrades: { ...alephChainUpgradeState },
+      alephChainUpgrades: getAlephChainUpgrades(),
     };
   }
 
@@ -4179,15 +3337,7 @@ import {
     applyTowerUpgradeStateSnapshot(snapshot);
     // Restore alephChainUpgrades if present
     if (snapshot.alephChainUpgrades && typeof snapshot.alephChainUpgrades === 'object') {
-      if (Number.isFinite(snapshot.alephChainUpgrades.x) && snapshot.alephChainUpgrades.x > 0) {
-        alephChainUpgradeState.x = snapshot.alephChainUpgrades.x;
-      }
-      if (Number.isFinite(snapshot.alephChainUpgrades.y) && snapshot.alephChainUpgrades.y > 0) {
-        alephChainUpgradeState.y = snapshot.alephChainUpgrades.y;
-      }
-      if (Number.isFinite(snapshot.alephChainUpgrades.z)) {
-        alephChainUpgradeState.z = Math.max(1, Math.floor(snapshot.alephChainUpgrades.z));
-      }
+      applyAlephChainUpgradeSnapshot(snapshot.alephChainUpgrades, { playfield });
     }
   }
 
@@ -5114,42 +4264,6 @@ import {
   document.addEventListener('pointerdown', handleGlobalButtonPointerDown);
   document.addEventListener('keydown', handleDocumentKeyDown);
 
-  function triggerButtonRipple(button, event) {
-    if (!button) {
-      return;
-    }
-
-    const rect = button.getBoundingClientRect();
-    const ripple = document.createElement('span');
-    ripple.className = 'button-ripple';
-
-    const maxDimension = Math.max(rect.width, rect.height);
-    const size = maxDimension * 1.6;
-    ripple.style.width = `${size}px`;
-    ripple.style.height = `${size}px`;
-
-    let offsetX = rect.width / 2;
-    let offsetY = rect.height / 2;
-    if (event && typeof event.clientX === 'number' && typeof event.clientY === 'number') {
-      offsetX = event.clientX - rect.left;
-      offsetY = event.clientY - rect.top;
-    }
-
-    ripple.style.left = `${offsetX}px`;
-    ripple.style.top = `${offsetY}px`;
-
-    button.querySelectorAll('.button-ripple').forEach((existing) => existing.remove());
-    button.append(ripple);
-
-    ripple.addEventListener(
-      'animationend',
-      () => {
-        ripple.remove();
-      },
-      { once: true },
-    );
-  }
-
   function areSetNormalLevelsCompleted(levels = []) {
     if (!Array.isArray(levels) || levels.length === 0) {
       return true;
@@ -5492,47 +4606,6 @@ import {
     ],
   };
 
-  function clampNormalizedCoordinate(value) {
-    if (!Number.isFinite(value)) {
-      return 0.5;
-    }
-    return Math.min(0.98, Math.max(0.02, value));
-  }
-
-  function sanitizeNormalizedPoint(point) {
-    if (!point || typeof point !== 'object') {
-      return { x: 0.5, y: 0.5 };
-    }
-    const rawX = Number.isFinite(point.x) ? point.x : 0.5;
-    const rawY = Number.isFinite(point.y) ? point.y : 0.5;
-    return {
-      x: clampNormalizedCoordinate(rawX),
-      y: clampNormalizedCoordinate(rawY),
-    };
-  }
-
-  function transformPointForOrientation(point, orientation) {
-    const normalized = sanitizeNormalizedPoint(point);
-    if (orientation === 'landscape') {
-      return {
-        x: clampNormalizedCoordinate(normalized.y),
-        y: clampNormalizedCoordinate(1 - normalized.x),
-      };
-    }
-    return normalized;
-  }
-
-  function transformPointFromOrientation(point, orientation) {
-    const normalized = sanitizeNormalizedPoint(point);
-    if (orientation === 'landscape') {
-      return {
-        x: clampNormalizedCoordinate(1 - normalized.y),
-        y: clampNormalizedCoordinate(normalized.x),
-      };
-    }
-    return normalized;
-  }
-
   function buildSeededPreviewPath(seedValue) {
     const seedString = String(seedValue || 'preview');
     let hash = 0;
@@ -5624,7 +4697,7 @@ import {
     }
 
     hideLevelEditorPanel();
-    overlayPreviewLevel = null;
+    setOverlayPreviewLevel(null);
     resetLevelEditorSurface();
 
     if (previewPlayfield) {
@@ -5639,820 +4712,13 @@ import {
     overlayPreview.classList.remove('overlay-preview--active');
   }
 
-  function setLevelEditorStatus(message, options = {}) {
-    if (!levelEditorElements.status) {
-      return;
-    }
-
-    if (levelEditorState.statusTimeout) {
-      clearTimeout(levelEditorState.statusTimeout);
-      levelEditorState.statusTimeout = null;
-    }
-
-    if (!message) {
-      levelEditorElements.status.textContent = '';
-      levelEditorElements.status.hidden = true;
-      delete levelEditorElements.status.dataset.tone;
-      return;
-    }
-
-    const tone = options.tone || 'info';
-    const duration = Number.isFinite(options.duration) ? options.duration : 2400;
-    levelEditorElements.status.dataset.tone = tone;
-    levelEditorElements.status.textContent = message;
-    levelEditorElements.status.hidden = false;
-
-    if (duration > 0 && typeof window !== 'undefined') {
-      levelEditorState.statusTimeout = window.setTimeout(() => {
-        levelEditorState.statusTimeout = null;
-        if (levelEditorElements.status) {
-          levelEditorElements.status.hidden = true;
-        }
-      }, duration);
-    }
-  }
-
-  function endLevelEditorDrag() {
-    const canvas = levelEditorSurface.canvas;
-    if (canvas && levelEditorState.pointerId !== null) {
-      try {
-        canvas.releasePointerCapture(levelEditorState.pointerId);
-      } catch (error) {
-        // ignore pointer capture release errors
-      }
-    }
-    levelEditorState.pointerId = null;
-    levelEditorState.draggingIndex = -1;
-    if (canvas && isOverlayEditorSurface() && canvas.classList) {
-      canvas.classList.remove('overlay-preview__canvas--dragging');
-    }
-  }
-
-  function detachLevelEditorCanvasListeners() {
-    const canvas = levelEditorSurface.canvas;
-    if (!levelEditorState.canvasListenersAttached || !canvas) {
-      levelEditorState.canvasListenersAttached = false;
-      return;
-    }
-
-    const useCapture = Boolean(levelEditorState.listenerOptions);
-    canvas.removeEventListener('pointerdown', handleLevelEditorPointerDown, useCapture);
-    canvas.removeEventListener('pointermove', handleLevelEditorPointerMove, useCapture);
-    canvas.removeEventListener('pointerup', handleLevelEditorPointerUp, useCapture);
-    canvas.removeEventListener('pointercancel', handleLevelEditorPointerUp, useCapture);
-    canvas.removeEventListener('lostpointercapture', handleLevelEditorPointerUp, useCapture);
-    canvas.removeEventListener('click', handleLevelEditorCanvasClick, useCapture);
-    levelEditorState.canvasListenersAttached = false;
-    levelEditorState.listenerOptions = false;
-  }
-
-  function hideLevelEditorPanel() {
-    const surfaceType = levelEditorSurface.type;
-    const canvas = levelEditorSurface.canvas;
-    const surfacePlayfield = levelEditorSurface.playfield;
-
-    endLevelEditorDrag();
-    detachLevelEditorCanvasListeners();
-    levelEditorState.levelId = null;
-    levelEditorState.points = [];
-    levelEditorState.originalPoints = [];
-    levelEditorState.editing = false;
-
-    if (surfacePlayfield && typeof surfacePlayfield.setDeveloperPathMarkers === 'function') {
-      surfacePlayfield.setDeveloperPathMarkers([]);
-      if (typeof surfacePlayfield.draw === 'function') {
-        surfacePlayfield.draw();
-      }
-    }
-
-    if (surfaceType === 'overlay' && canvas && canvas.classList) {
-      canvas.classList.remove('overlay-preview__canvas--editing');
-      canvas.classList.remove('overlay-preview__canvas--dragging');
-    }
-
-    if (surfaceType === 'playfield' && playfieldElements?.container?.classList) {
-      playfieldElements.container.classList.remove('playfield--developer-editing');
-    }
-
-    if (levelEditorElements.container) {
-      levelEditorElements.container.hidden = true;
-      levelEditorElements.container.setAttribute('aria-hidden', 'true');
-    }
-
-    setDeveloperMapPlacementMode(null);
-    updateDeveloperMapElementsVisibility();
-
-    if (levelEditorElements.toggle) {
-      levelEditorElements.toggle.disabled = true;
-      levelEditorElements.toggle.setAttribute('aria-pressed', 'false');
-      levelEditorElements.toggle.textContent = 'Enable Editing';
-    }
-
-    updateLevelEditorOutput();
-    updateLevelEditorUI();
-    setLevelEditorStatus('');
-  }
-
-  function attachLevelEditorCanvasListeners() {
-    const canvas = levelEditorSurface.canvas;
-    if (!canvas || levelEditorState.canvasListenersAttached) {
-      return;
-    }
-
-    const useCapture = isPlayfieldEditorSurface();
-    canvas.addEventListener('pointerdown', handleLevelEditorPointerDown, useCapture);
-    canvas.addEventListener('pointermove', handleLevelEditorPointerMove, useCapture);
-    canvas.addEventListener('pointerup', handleLevelEditorPointerUp, useCapture);
-    canvas.addEventListener('pointercancel', handleLevelEditorPointerUp, useCapture);
-    canvas.addEventListener('lostpointercapture', handleLevelEditorPointerUp, useCapture);
-    canvas.addEventListener('click', handleLevelEditorCanvasClick, useCapture);
-    levelEditorState.canvasListenersAttached = true;
-    levelEditorState.listenerOptions = useCapture;
-  }
-
-  function handleLevelEditorCanvasClick(event) {
-    if (!levelEditorState.editing) {
-      return;
-    }
-    if (event) {
-      event.preventDefault();
-    }
-    event.stopPropagation();
-  }
-
-  function updateLevelEditorOutput() {
-    if (!levelEditorElements.output) {
-      return;
-    }
-
-    if (!levelEditorState.points.length) {
-      levelEditorElements.output.value = '';
-      return;
-    }
-
-    const formattedPoints = levelEditorState.points.map((point) => ({
-      x: Number(clampNormalizedCoordinate(point.x).toFixed(4)),
-      y: Number(clampNormalizedCoordinate(point.y).toFixed(4)),
-    }));
-    levelEditorElements.output.value = JSON.stringify(formattedPoints, null, 2);
-  }
-
-  function updateLevelEditorUI() {
-    const points = levelEditorState.points;
-    if (levelEditorElements.count) {
-      const label = points.length === 1 ? 'point' : 'points';
-      levelEditorElements.count.textContent = `${points.length} ${label}`;
-    }
-    if (levelEditorElements.clear) {
-      levelEditorElements.clear.disabled = points.length === 0;
-    }
-    if (levelEditorElements.reset) {
-      levelEditorElements.reset.disabled = levelEditorState.originalPoints.length === 0;
-    }
-    if (levelEditorElements.exportButton) {
-      levelEditorElements.exportButton.disabled = points.length < 2;
-    }
-    if (levelEditorElements.toggle) {
-      levelEditorElements.toggle.disabled = !developerModeActive || !levelEditorSurface.canvas;
-      levelEditorElements.toggle.textContent = levelEditorState.editing ? 'Disable Editing' : 'Enable Editing';
-      levelEditorElements.toggle.setAttribute('aria-pressed', levelEditorState.editing ? 'true' : 'false');
-    }
-  }
-
-  function refreshLevelEditorMarkers(options = {}) {
-    const targetPlayfield = levelEditorSurface.playfield;
-    if (!targetPlayfield) {
-      return;
-    }
-
-    const { redraw = true } = options;
-    const canvas = levelEditorSurface.canvas;
-
-    if (!canvas || !levelEditorState.points.length) {
-      targetPlayfield.setDeveloperPathMarkers([]);
-      if (redraw && typeof targetPlayfield.draw === 'function') {
-        targetPlayfield.draw();
-      }
-      return;
-    }
-
-    let width = targetPlayfield.renderWidth || 0;
-    let height = targetPlayfield.renderHeight || 0;
-    if ((!width || !height) && canvas) {
-      const rect = canvas.getBoundingClientRect();
-      width = rect.width;
-      height = rect.height;
-    }
-
-    if (!width || !height) {
-      targetPlayfield.setDeveloperPathMarkers([]);
-      if (redraw && typeof targetPlayfield.draw === 'function') {
-        targetPlayfield.draw();
-      }
-      return;
-    }
-
-    const orientation = levelEditorSurface.orientation || targetPlayfield.layoutOrientation || 'portrait';
-    const markers = levelEditorState.points.map((point, index) => {
-      const oriented = transformPointForOrientation(point, orientation);
-      return {
-        x: oriented.x * width,
-        y: oriented.y * height,
-        label: index + 1,
-        active: levelEditorState.draggingIndex === index,
-      };
-    });
-    targetPlayfield.setDeveloperPathMarkers(markers);
-    if (redraw && typeof targetPlayfield.draw === 'function') {
-      targetPlayfield.draw();
-    }
-  }
-
-  function applyLevelEditorPoints() {
-    const targetPlayfield = levelEditorSurface.playfield;
-    if (!targetPlayfield || !targetPlayfield.levelConfig) {
-      updateLevelEditorOutput();
-      updateLevelEditorUI();
-      return;
-    }
-
-    const orientation = levelEditorSurface.orientation || targetPlayfield.layoutOrientation || 'portrait';
-    const sanitized = levelEditorState.points.map((point) => sanitizeNormalizedPoint(point));
-    levelEditorState.points = sanitized.map((point) => ({ ...point }));
-
-    if (Array.isArray(targetPlayfield.basePathPoints)) {
-      targetPlayfield.basePathPoints = sanitized.map((point) => ({ ...point }));
-    }
-
-    const orientedPath = sanitized.map((point) => transformPointForOrientation(point, orientation));
-    targetPlayfield.levelConfig.path = orientedPath.map((point) => ({ ...point }));
-    targetPlayfield.buildPathGeometry();
-    refreshLevelEditorMarkers({ redraw: false });
-    if (typeof targetPlayfield.draw === 'function') {
-      targetPlayfield.draw();
-    }
-    updateLevelEditorOutput();
-    updateLevelEditorUI();
-  }
-
-  function setLevelEditorEditing(active) {
-    const canvas = levelEditorSurface.canvas;
-    const enable = Boolean(active && developerModeActive && canvas);
-    if (!enable) {
-      endLevelEditorDrag();
-    }
-    levelEditorState.editing = enable;
-    if (levelEditorElements.container) {
-      levelEditorElements.container.classList.toggle('overlay-editor--active', enable);
-    }
-    if (isOverlayEditorSurface() && canvas && canvas.classList) {
-      canvas.classList.toggle('overlay-preview__canvas--editing', enable);
-      if (!enable) {
-        canvas.classList.remove('overlay-preview__canvas--dragging');
-      }
-    }
-    if (isPlayfieldEditorSurface() && playfieldElements?.container?.classList) {
-      playfieldElements.container.classList.toggle('playfield--developer-editing', enable);
-    }
-    updateLevelEditorUI();
-    refreshLevelEditorMarkers();
-  }
-
-  function clearLevelEditorPoints() {
-    levelEditorState.points = [];
-    levelEditorState.draggingIndex = -1;
-    applyLevelEditorPoints();
-    setLevelEditorStatus('Cleared all anchors. Click to plot a new path.', { tone: 'warning' });
-  }
-
-  function resetLevelEditorPoints() {
-    if (!levelEditorState.originalPoints.length) {
-      return;
-    }
-    levelEditorState.points = levelEditorState.originalPoints.map((point) => ({ ...point }));
-    levelEditorState.draggingIndex = -1;
-    applyLevelEditorPoints();
-    setLevelEditorStatus('Restored path from level configuration.');
-  }
-
-  function configureLevelEditorForLevel(level, config, options = {}) {
-    if (!levelEditorElements.container) {
-      return;
-    }
-
-    const basePathSource = Array.isArray(options.basePath) ? options.basePath : config?.path;
-    const hasPath = Array.isArray(basePathSource) && basePathSource.length >= 2;
-    if (!developerModeActive || !level || !hasPath) {
-      hideLevelEditorPanel();
-      return;
-    }
-
-    const orientation = options.orientation === 'landscape' ? 'landscape' : 'portrait';
-    levelEditorSurface.orientation = orientation;
-
-    levelEditorState.levelId = level.id || null;
-    levelEditorState.originalPoints = basePathSource.map((point) => sanitizeNormalizedPoint(point));
-    levelEditorState.points = levelEditorState.originalPoints.map((point) => ({ ...point }));
-    levelEditorState.editing = false;
-    levelEditorState.draggingIndex = -1;
-    levelEditorState.pointerId = null;
-
-    const canvas = levelEditorSurface.canvas;
-    if (isOverlayEditorSurface() && canvas && canvas.classList) {
-      canvas.classList.remove('overlay-preview__canvas--dragging');
-      canvas.classList.remove('overlay-preview__canvas--editing');
-    }
-
-    if (isPlayfieldEditorSurface() && playfieldElements?.container?.classList) {
-      playfieldElements.container.classList.remove('playfield--developer-editing');
-    }
-
-    attachLevelEditorCanvasListeners();
-    applyLevelEditorPoints();
-
-    levelEditorElements.container.hidden = false;
-    levelEditorElements.container.setAttribute('aria-hidden', 'false');
-    if (levelEditorElements.note) {
-      if (isPlayfieldEditorSurface()) {
-        levelEditorElements.note.textContent =
-          'Click the battlefield to place anchors. Drag markers to adjust, or Shift-click to remove the nearest anchor.';
-      } else {
-        levelEditorElements.note.textContent =
-          'Click the preview to place anchors. Drag markers to adjust, or Shift-click to remove the nearest anchor.';
-      }
-    }
-    const readyMessage = isPlayfieldEditorSurface()
-      ? 'Battlefield editing ready—toggle editing to adjust anchors live.'
-      : 'Developer editor ready—toggle editing to adjust anchors.';
-    setLevelEditorStatus(readyMessage, { duration: 2000 });
-  }
-
-  function syncLevelEditorVisibility() {
-    if (!developerModeActive) {
-      hideLevelEditorPanel();
-      return;
-    }
-
-    if (!levelEditorElements.container) {
-      return;
-    }
-
-    if (!developerMapToolsActive || !isPlayfieldEditorSurface()) {
-      hideLevelEditorPanel();
-      return;
-    }
-
-    if (!overlayPreviewLevel || !levelEditorSurface.playfield) {
-      return;
-    }
-
-    const targetPlayfield = levelEditorSurface.playfield;
-    const isActivePlayfieldSurface = isPlayfieldEditorSurface();
-    let basePath = null;
-    let orientation = levelEditorSurface.orientation || targetPlayfield.layoutOrientation || 'portrait';
-
-    if (isActivePlayfieldSurface) {
-      if (!targetPlayfield.levelConfig) {
-        hideLevelEditorPanel();
-        return;
-      }
-      if (Array.isArray(targetPlayfield.basePathPoints) && targetPlayfield.basePathPoints.length >= 2) {
-        basePath = targetPlayfield.basePathPoints;
-      } else if (Array.isArray(targetPlayfield.levelConfig.path) && targetPlayfield.levelConfig.path.length >= 2) {
-        basePath = targetPlayfield.levelConfig.path.map((point) => transformPointFromOrientation(point, orientation));
-      }
-    } else {
-      const config = levelConfigs.get(overlayPreviewLevel.id);
-      if (!config || !Array.isArray(config.path) || config.path.length < 2) {
-        hideLevelEditorPanel();
-        return;
-      }
-      basePath = config.path;
-    }
-
-    if (!Array.isArray(basePath) || basePath.length < 2) {
-      hideLevelEditorPanel();
-      return;
-    }
-
-    if (levelEditorState.levelId !== overlayPreviewLevel.id) {
-      configureLevelEditorForLevel(overlayPreviewLevel, { path: basePath }, { orientation, basePath });
-      return;
-    }
-
-    levelEditorElements.container.hidden = false;
-    levelEditorElements.container.setAttribute('aria-hidden', 'false');
-    updateLevelEditorUI();
-    refreshLevelEditorMarkers();
-    updateDeveloperMapElementsVisibility();
-  }
-
-  function handleLevelEditorToggle() {
-    if (!developerModeActive) {
-      setLevelEditorStatus('Enable developer mode to use the level editor.', { tone: 'warning' });
-      return;
-    }
-    const nextState = !levelEditorState.editing;
-    setLevelEditorEditing(nextState);
-    if (nextState && !levelEditorState.points.length) {
-      const prompt = isPlayfieldEditorSurface()
-        ? 'Click the battlefield to place your first anchor.'
-        : 'Click the preview to place your first anchor.';
-      setLevelEditorStatus(prompt);
-    } else if (!nextState) {
-      setLevelEditorStatus('Editing disabled. Copy the JSON below when ready.');
-    }
-  }
-
-  function handleLevelEditorClear() {
-    clearLevelEditorPoints();
-  }
-
-  function handleLevelEditorReset() {
-    resetLevelEditorPoints();
-  }
-
-  async function handleLevelEditorExport() {
-    if (!levelEditorElements.output) {
-      return;
-    }
-    const text = levelEditorElements.output.value.trim();
-    if (!text) {
-      setLevelEditorStatus('Add at least two anchors before exporting.', { tone: 'warning' });
-      return;
-    }
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        setLevelEditorStatus('Copied path JSON to clipboard.');
-      } else {
-        levelEditorElements.output.focus();
-        levelEditorElements.output.select();
-        setLevelEditorStatus('Clipboard unavailable—select and copy manually.', { tone: 'warning' });
-      }
-    } catch (error) {
-      console.warn('Level editor failed to copy path', error);
-      levelEditorElements.output.focus();
-      levelEditorElements.output.select();
-      setLevelEditorStatus('Copy failed—select the JSON manually.', { tone: 'error' });
-    }
-  }
-
-  function getNormalizedPointerPosition(event) {
-    const canvas = levelEditorSurface.canvas;
-    if (!canvas) {
-      return null;
-    }
-    const rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) {
-      return null;
-    }
-    const pointer = {
-      x: clampNormalizedCoordinate((event.clientX - rect.left) / rect.width),
-      y: clampNormalizedCoordinate((event.clientY - rect.top) / rect.height),
-    };
-    const orientation = levelEditorSurface.orientation;
-    return transformPointFromOrientation(pointer, orientation);
-  }
-
-  function findNearestEditorPoint(point) {
-    const points = levelEditorState.points;
-    if (!points.length) {
-      return { index: -1, distance: Infinity };
-    }
-    let bestIndex = -1;
-    let bestDistance = Infinity;
-    points.forEach((candidate, index) => {
-      const dx = candidate.x - point.x;
-      const dy = candidate.y - point.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestIndex = index;
-      }
-    });
-    return { index: bestIndex, distance: bestDistance };
-  }
-
-  function distanceSquaredToSegment(point, start, end) {
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const lengthSquared = dx * dx + dy * dy;
-    if (lengthSquared === 0) {
-      const diffX = point.x - start.x;
-      const diffY = point.y - start.y;
-      return diffX * diffX + diffY * diffY;
-    }
-    let t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared;
-    t = Math.max(0, Math.min(1, t));
-    const projX = start.x + t * dx;
-    const projY = start.y + t * dy;
-    const diffX = point.x - projX;
-    const diffY = point.y - projY;
-    return diffX * diffX + diffY * diffY;
-  }
-
-  function findInsertionIndex(point) {
-    const points = levelEditorState.points;
-    if (!points.length) {
-      return 0;
-    }
-    if (points.length === 1) {
-      return 1;
-    }
-    let bestIndex = points.length;
-    let bestDistance = Infinity;
-    for (let index = 0; index < points.length - 1; index += 1) {
-      const start = points[index];
-      const end = points[index + 1];
-      const distance = distanceSquaredToSegment(point, start, end);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestIndex = index + 1;
-      }
-    }
-    return bestIndex;
-  }
-
-  function handleLevelEditorPointerDown(event) {
-    const canvas = levelEditorSurface.canvas;
-    if (!levelEditorState.editing || !canvas || event.button !== 0) {
-      return;
-    }
-
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    const point = getNormalizedPointerPosition(event);
-    if (!point) {
-      return;
-    }
-
-    const nearest = findNearestEditorPoint(point);
-    const removalThreshold = 0.045;
-    if (event.shiftKey && nearest.index >= 0 && nearest.distance <= removalThreshold) {
-      levelEditorState.points.splice(nearest.index, 1);
-      levelEditorState.draggingIndex = -1;
-      levelEditorState.pointerId = null;
-      applyLevelEditorPoints();
-      const removalMessage = isPlayfieldEditorSurface()
-        ? `Removed anchor ${nearest.index + 1} from the battlefield.`
-        : `Removed anchor ${nearest.index + 1}.`;
-      setLevelEditorStatus(removalMessage, { tone: 'warning' });
-      return;
-    }
-
-    const selectionThreshold = 0.04;
-    if (nearest.index >= 0 && nearest.distance <= selectionThreshold) {
-      levelEditorState.draggingIndex = nearest.index;
-      levelEditorState.pointerId = event.pointerId;
-      try {
-        canvas.setPointerCapture(event.pointerId);
-      } catch (error) {
-        // ignore pointer capture errors
-      }
-      if (isOverlayEditorSurface() && canvas.classList) {
-        canvas.classList.add('overlay-preview__canvas--dragging');
-      }
-      levelEditorState.points[nearest.index] = point;
-      applyLevelEditorPoints();
-      return;
-    }
-
-    const insertionIndex = findInsertionIndex(point);
-    levelEditorState.points.splice(insertionIndex, 0, point);
-    levelEditorState.draggingIndex = insertionIndex;
-    levelEditorState.pointerId = event.pointerId;
-    try {
-      canvas.setPointerCapture(event.pointerId);
-    } catch (error) {
-      // ignore pointer capture errors
-    }
-    if (isOverlayEditorSurface() && canvas.classList) {
-      canvas.classList.add('overlay-preview__canvas--dragging');
-    }
-    applyLevelEditorPoints();
-    if (levelEditorState.points.length === 1) {
-      const placementMessage = isPlayfieldEditorSurface()
-        ? 'Anchor placed. Add another anchor on the battlefield to draw the path.'
-        : 'Anchor placed. Add another anchor to draw the path.';
-      setLevelEditorStatus(placementMessage);
-    }
-  }
-
-  function handleLevelEditorPointerMove(event) {
-    if (!levelEditorState.editing || levelEditorState.draggingIndex < 0) {
-      return;
-    }
-    if (levelEditorState.pointerId !== null && event.pointerId !== levelEditorState.pointerId) {
-      return;
-    }
-
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    const point = getNormalizedPointerPosition(event);
-    if (!point) {
-      return;
-    }
-    levelEditorState.points[levelEditorState.draggingIndex] = point;
-    applyLevelEditorPoints();
-  }
-
-  function handleLevelEditorPointerUp(event) {
-    if (event && levelEditorState.pointerId !== null && event.pointerId !== levelEditorState.pointerId) {
-      return;
-    }
-
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    endLevelEditorDrag();
-    refreshLevelEditorMarkers();
-    updateLevelEditorUI();
-  }
-
-  // Update visibility whenever developer tools, overlay mode, or playfield state changes.
-  function updateDeveloperMapElementsVisibility() {
-    const container = developerMapElements.container;
-    if (!container) {
-      return;
-    }
-    const toolsActive = developerMapToolsActive && isPlayfieldEditorSurface();
-    const canUseBattlefield = Boolean(
-      developerModeActive &&
-        toolsActive &&
-        playfield &&
-        playfield.levelActive &&
-        playfield.levelConfig,
-    );
-    container.hidden = !canUseBattlefield;
-    container.setAttribute('aria-hidden', canUseBattlefield ? 'false' : 'true');
-    if (!canUseBattlefield) {
-      setDeveloperMapPlacementMode(null);
-      if (developerMapElements.note) {
-        developerMapElements.note.hidden = true;
-        developerMapElements.note.textContent = '';
-      }
-    }
-  }
-
-  // Toggle the active placement mode so developers can drop repeated crystals or exit the tool.
-  function setDeveloperMapPlacementMode(mode) {
-    const nextMode = mode && developerMapPlacementState.mode === mode ? null : mode;
-    developerMapPlacementState.mode = nextMode;
-    if (developerMapElements.addCrystalButton) {
-      developerMapElements.addCrystalButton.classList.toggle(
-        'overlay-editor__button--active',
-        nextMode === 'crystal',
-      );
-    }
-    if (developerMapElements.note) {
-      if (nextMode === 'crystal') {
-        developerMapElements.note.hidden = false;
-        developerMapElements.note.textContent =
-          'Click the battlefield to anchor a solid crystal obstruction.';
-      } else {
-        developerMapElements.note.hidden = true;
-        developerMapElements.note.textContent = '';
-      }
-    }
-  }
-
-  // Handle battlefield clicks routed from the playfield when the crystal tool is active.
-  function handleDeveloperMapPlacementRequest(context = {}) {
-    if (developerMapPlacementState.mode !== 'crystal' || !developerModeActive) {
-      return false;
-    }
-    if (!context || !context.normalized) {
-      return false;
-    }
-    if (!developerMapToolsActive) {
-      return false;
-    }
-    return placeDeveloperCrystal(context.normalized);
-  }
-
-  // Place a developer crystal at the provided normalized position and surface feedback.
-  function placeDeveloperCrystal(normalized) {
-    if (!playfield || typeof playfield.addDeveloperCrystal !== 'function') {
-      setLevelEditorStatus('Active battlefield required before placing crystals.', { tone: 'warning' });
-      return false;
-    }
-    const placed = playfield.addDeveloperCrystal(normalized);
-    if (!placed) {
-      setLevelEditorStatus('Crystal placement failed—ensure the click stays within the battlefield.', { tone: 'error' });
-      return false;
-    }
-    setLevelEditorStatus('Solid crystal anchored—focus towers on it to stress-test fractures.', { tone: 'info', duration: 2800 });
-    if (developerMapElements.note && developerMapPlacementState.mode === 'crystal') {
-      developerMapElements.note.hidden = false;
-      developerMapElements.note.textContent =
-        'Crystal anchored. Click again to place another or toggle the tool to finish.';
-    }
-    return true;
-  }
-
-  // Clear any developer crystals that remain on the battlefield and reset placement hints.
-  function clearDeveloperCrystalsFromUI() {
-    if (!playfield || typeof playfield.clearDeveloperCrystals !== 'function') {
-      setLevelEditorStatus('Enter an interactive defense to clear developer crystals.', { tone: 'warning' });
-      return;
-    }
-    const removed = playfield.clearDeveloperCrystals({ silent: false });
-    if (removed > 0) {
-      const suffix = removed === 1 ? '' : 's';
-      setLevelEditorStatus(`Cleared ${removed} developer crystal${suffix}.`, { tone: 'info' });
-    } else {
-      setLevelEditorStatus('No developer crystals to clear.', { tone: 'warning' });
-    }
-    setDeveloperMapPlacementMode(null);
-  }
-
-  // Bind the developer map element controls surfaced inside the overlay editor.
-  function initializeDeveloperMapElements() {
-    developerMapElements.container = document.getElementById('developer-map-elements');
-    developerMapElements.addCrystalButton = document.getElementById('developer-add-crystal');
-    developerMapElements.clearButton = document.getElementById('developer-clear-crystals');
-    developerMapElements.note = document.getElementById('developer-map-elements-note');
-
-    if (developerMapElements.addCrystalButton) {
-      developerMapElements.addCrystalButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        if (!developerModeActive) {
-          setLevelEditorStatus('Enable developer mode to place map elements.', { tone: 'warning' });
-          return;
-        }
-        setDeveloperMapPlacementMode('crystal');
-      });
-    }
-
-    if (developerMapElements.clearButton) {
-      developerMapElements.clearButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        clearDeveloperCrystalsFromUI();
-      });
-    }
-
-    updateDeveloperMapElementsVisibility();
-  }
-
-  function initializeLevelEditorElements() {
-    levelEditorElements.container = document.getElementById('overlay-level-editor');
-    levelEditorElements.toggle = document.getElementById('level-editor-toggle');
-    levelEditorElements.note = document.getElementById('level-editor-note');
-    levelEditorElements.count = document.getElementById('level-editor-count');
-    levelEditorElements.clear = document.getElementById('level-editor-clear');
-    levelEditorElements.reset = document.getElementById('level-editor-reset');
-    levelEditorElements.exportButton = document.getElementById('level-editor-export');
-    levelEditorElements.output = document.getElementById('level-editor-output');
-    levelEditorElements.status = document.getElementById('level-editor-status');
-
-    if (levelEditorElements.toggle) {
-      levelEditorElements.toggle.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        handleLevelEditorToggle();
-      });
-    }
-    if (levelEditorElements.clear) {
-      levelEditorElements.clear.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        handleLevelEditorClear();
-      });
-    }
-    if (levelEditorElements.reset) {
-      levelEditorElements.reset.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        handleLevelEditorReset();
-      });
-    }
-    if (levelEditorElements.exportButton) {
-      levelEditorElements.exportButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        handleLevelEditorExport();
-      });
-    }
-
-    hideLevelEditorPanel();
-    
-    // Initialize wave editor for developer mode
-    initializeWaveEditor();
-  }
-
   function renderLevelPreview(level) {
     if (!overlayPreview) {
       return;
     }
     clearOverlayPreview();
 
-    overlayPreviewLevel = level || null;
+    setOverlayPreviewLevel(level || null);
 
     const config = level ? levelConfigs.get(level.id) : null;
     const hasInteractivePath = Boolean(
@@ -7464,50 +5730,7 @@ import {
     }
   }
 
-  function enablePanelWheelScroll(panel) {
-    if (!panel || panel.dataset.scrollAssist === 'true') {
-      return;
-    }
 
-    panel.dataset.scrollAssist = 'true';
-    panel.addEventListener(
-      'wheel',
-      (event) => {
-        if (!event || typeof event.deltaY !== 'number') {
-          return;
-        }
-
-        if (isFieldNotesOverlayVisible()) {
-          if (typeof event.preventDefault === 'function') {
-            event.preventDefault();
-          }
-          return;
-        }
-
-        const deltaMode = typeof event.deltaMode === 'number' ? event.deltaMode : 0;
-        let deltaY = event.deltaY;
-
-        if (deltaMode === 1) {
-          const computed = window.getComputedStyle(panel);
-          const lineHeight = parseFloat(computed.lineHeight) || 16;
-          deltaY *= lineHeight;
-        } else if (deltaMode === 2) {
-          deltaY *= panel.clientHeight || window.innerHeight || 600;
-        }
-
-        if (!deltaY) {
-          return;
-        }
-
-        const previous = panel.scrollTop;
-        panel.scrollTop += deltaY;
-        if (panel.scrollTop !== previous) {
-          event.preventDefault();
-        }
-      },
-      { passive: false },
-    );
-  }
 
   function bindLeaveLevelButton() {
     if (!leaveLevelBtn) return;
@@ -7522,35 +5745,7 @@ import {
     }
   }
 
-  function formatDuration(seconds) {
-    if (!Number.isFinite(seconds) || seconds < 0) {
-      return '—';
-    }
-    const totalSeconds = Math.max(0, Math.round(seconds));
-    const minutes = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    if (minutes && secs) {
-      return `${minutes}m ${secs}s`;
-    }
-    if (minutes) {
-      return `${minutes}m`;
-    }
-    return `${secs}s`;
-  }
 
-  function formatRewards(rewardScore, rewardFlux, rewardEnergy) {
-    const parts = [];
-    if (Number.isFinite(rewardScore)) {
-      parts.push(`${formatGameNumber(rewardScore)} Σ`);
-    }
-    if (Number.isFinite(rewardFlux)) {
-      parts.push(`+${Math.round(rewardFlux)} Mote Gems/min`);
-    }
-    if (Number.isFinite(rewardEnergy)) {
-      parts.push(`+${Math.round(rewardEnergy)} TD/s`);
-    }
-    return parts.length ? parts.join(' · ') : '—';
-  }
 
   function formatInteractiveLevelRewards() {
     const levelsBeaten = getCompletedInteractiveLevelCount();
@@ -7586,35 +5781,7 @@ import {
     };
   }
 
-  function formatRelativeTime(timestamp) {
-    if (!Number.isFinite(timestamp)) {
-      return null;
-    }
-    const diff = Date.now() - timestamp;
-    if (!Number.isFinite(diff)) {
-      return null;
-    }
-    if (diff < 0) {
-      return 'soon';
-    }
-    const seconds = Math.round(diff / 1000);
-    if (seconds < 5) {
-      return 'just now';
-    }
-    if (seconds < 60) {
-      return `${seconds}s ago`;
-    }
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) {
-      return `${minutes}m ago`;
-    }
-    const hours = Math.round(minutes / 60);
-    if (hours < 24) {
-      return `${hours}h ago`;
-    }
-    const days = Math.round(hours / 24);
-    return `${days}d ago`;
-  }
+
 
   function getLevelSummary(level) {
     if (!level) {
@@ -7647,7 +5814,7 @@ import {
         ? `${formatDuration(config.runDuration)} auto-run`
         : 'Idle simulation',
       rewards: config
-        ? formatRewards(config.rewardScore, config.rewardFlux, config.rewardEnergy)
+        ? formatRewards(config.rewardScore, config.rewardFlux, config.rewardEnergy, formatGameNumber)
         : '—',
       start: '—',
       startAria: 'Starting Thero not applicable.',
@@ -7681,7 +5848,7 @@ import {
     const relative = formatRelativeTime(timestamp) || 'recently';
 
     if (outcome === 'victory') {
-      const rewardText = formatRewards(stats.rewardScore, stats.rewardFlux, stats.rewardEnergy);
+      const rewardText = formatRewards(stats.rewardScore, stats.rewardFlux, stats.rewardEnergy, formatGameNumber);
       const segments = [`Victory ${relative}.`];
       if (rewardText && rewardText !== '—') {
         segments.push(`Rewards: ${rewardText}.`);
@@ -8050,6 +6217,8 @@ import {
     fluidWallMetrics = null;
 
     clearTowerUpgradeState();
+    // Revert Aleph chain upgrades so tower snapshots reset alongside other progression state.
+    resetAlephChainUpgrades({ playfield });
     reconcileGlyphCurrencyFromState();
 
     resetActiveMoteGems();
@@ -8214,32 +6383,7 @@ import {
     }
   }
 
-  function scrollPanelToElement(target, { offset = 16 } = {}) {
-    if (!target) {
-      return;
-    }
 
-    const panel = target.closest('.panel');
-    if (panel) {
-      const panelRect = panel.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      const desiredTop = targetRect.top - panelRect.top + panel.scrollTop - offset;
-      const top = Math.max(0, desiredTop);
-      const scrollOptions = { top, behavior: 'smooth' };
-      try {
-        panel.scrollTo(scrollOptions);
-      } catch (error) {
-        panel.scrollTop = top;
-      }
-      return;
-    }
-
-    try {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (error) {
-      target.scrollIntoView(true);
-    }
-  }
 
   // Field notes overlay logic handled by fieldNotesOverlay.js.
 
@@ -9450,9 +7594,9 @@ import {
     const towerPanel = document.getElementById('panel-tower');
     const towersPanel = document.getElementById('panel-towers');
     const optionsPanel = document.getElementById('panel-options');
-    enablePanelWheelScroll(towerPanel);
-    enablePanelWheelScroll(towersPanel);
-    enablePanelWheelScroll(optionsPanel);
+    enablePanelWheelScroll(towerPanel, isFieldNotesOverlayVisible);
+    enablePanelWheelScroll(towersPanel, isFieldNotesOverlayVisible);
+    enablePanelWheelScroll(optionsPanel, isFieldNotesOverlayVisible);
 
     playfieldElements.container = document.getElementById('playfield');
     playfieldElements.canvas = document.getElementById('playfield-canvas');
@@ -9468,11 +7612,13 @@ import {
     playfieldElements.autoAnchorButton = document.getElementById('playfield-auto');
     playfieldElements.autoWaveCheckbox = document.getElementById('playfield-auto-wave');
     playfieldElements.slots = Array.from(document.querySelectorAll('.tower-slot'));
-    playfieldOutcomeElements.overlay = document.getElementById('playfield-outcome');
-    playfieldOutcomeElements.title = document.getElementById('playfield-outcome-title');
-    playfieldOutcomeElements.subtitle = document.getElementById('playfield-outcome-subtitle');
-    playfieldOutcomeElements.primary = document.getElementById('playfield-outcome-primary');
-    playfieldOutcomeElements.secondary = document.getElementById('playfield-outcome-secondary');
+    setPlayfieldOutcomeElements({
+      overlay: document.getElementById('playfield-outcome'),
+      title: document.getElementById('playfield-outcome-title'),
+      subtitle: document.getElementById('playfield-outcome-subtitle'),
+      primary: document.getElementById('playfield-outcome-primary'),
+      secondary: document.getElementById('playfield-outcome-secondary'),
+    });
     bindPlayfieldOutcomeEvents();
     hidePlayfieldOutcome();
 
@@ -9993,8 +8139,10 @@ import {
   const upgradeNamespace =
     (window.theroIdleUpgrades = window.theroIdleUpgrades || window.glyphDefenseUpgrades || {});
   upgradeNamespace.alephChain = {
-    get: getAlephChainUpgrades,
-    set: updateAlephChainUpgrades,
+    // Surface the current Aleph chain upgrades so the Codex and dev tools can inspect live values.
+    get: () => getAlephChainUpgrades(),
+    // Accept upgrade adjustments from external scripts while keeping the playfield synchronized.
+    set: (updates) => updateAlephChainUpgrades(updates, { playfield }),
   };
 
   window.glyphDefenseUpgrades = upgradeNamespace;

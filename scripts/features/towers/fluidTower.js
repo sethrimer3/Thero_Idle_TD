@@ -203,7 +203,8 @@ export class FluidSimulation {
     const previousWidth = Number.isFinite(this.width) && this.width > 0 ? this.width : 0;
     const baseWidth = previousWidth || intrinsicWidth || 240;
     const constrainedWidth = Math.max(150, baseWidth);
-    const aspectRatio = attrWidth > 0 && attrHeight > 0 ? attrHeight / Math.max(1, attrWidth) : 4 / 3;
+    // Fixed 3:4 aspect ratio for consistency with Aleph Spire
+    const aspectRatio = 4 / 3;
     const constrainedHeight = Math.max(200, Math.floor(constrainedWidth * aspectRatio));
 
     const styleWidth = `${constrainedWidth}px`;
@@ -235,34 +236,19 @@ export class FluidSimulation {
     this.width = constrainedWidth;
     this.height = constrainedHeight;
 
+    // NEW: Set cell size to be exactly 1/100th of render width
+    // This makes 1 cell = 1 drop diameter = 1/100th of width
+    this.cellSize = Math.max(1, constrainedWidth / 100);
+
     if (!Number.isFinite(this.baseGapUnits) || this.baseGapUnits <= 0) {
       const fallbackGapUnits = Number.isFinite(this.wallGapTargetUnits)
         ? Math.max(1, Math.round(this.wallGapTargetUnits))
-        : 15;
+        : 5;
       this.baseGapUnits = fallbackGapUnits;
     }
 
-    if (!Number.isFinite(this.gapWidthRatio) || this.gapWidthRatio <= 0) {
-      const inferredGapWidth = Math.max(0, this.width - this.wallInsetLeftPx - this.wallInsetRightPx);
-      const ratioCandidate = this.width > 0 ? inferredGapWidth / this.width : 0;
-      this.gapWidthRatio = Math.max(0.1, Math.min(0.9, ratioCandidate || 0.6));
-    }
-
-    // Keep the fluid mote lane consistent with the sand view by enforcing the shared cell floor.
-    const minimumGapCellSize = MIN_MOTE_LANE_CELL_PX;
-    // Scale the lane using the viewport ratio but never shrink below the readable width threshold.
-    const ratioDerivedCellSize = Math.max(
-      1,
-      Math.round((this.width * this.gapWidthRatio) / Math.max(1, this.baseGapUnits)),
-    );
-    let desiredCellSize = Math.max(minimumGapCellSize, ratioDerivedCellSize);
-    // Avoid overflowing the viewport when the widened gap approaches the canvas bounds.
-    const maximumCellSize = Math.max(1, Math.floor(this.width / Math.max(1, this.baseGapUnits)));
-    desiredCellSize = Math.min(desiredCellSize, maximumCellSize);
-    // Synchronize the walkway width with the resolved cell size so the DOM walls stay aligned.
-    const walkwayWidth = Math.max(1, desiredCellSize * this.baseGapUnits);
-    this.cellSize = desiredCellSize;
-    this.wallGapReferenceWidth = walkwayWidth;
+    // Calculate wall gap reference width based on baseGapUnits
+    this.wallGapReferenceWidth = Math.max(1, this.cellSize * this.baseGapUnits);
     this.wallGapReferenceCols = Math.max(1, Math.round(this.wallGapReferenceWidth / this.cellSize));
 
     this.cols = Math.max(8, Math.floor(this.width / this.cellSize));
@@ -413,11 +399,10 @@ export class FluidSimulation {
   }
 
   updateMaxDropSize() {
-    // Make drop size relative to render width: 1 drop = 1/100th of render width
-    const renderWidth = Math.max(1, this.width || 240);
-    const oneDropSize = Math.max(1, renderWidth / 100);
-    this.maxDropSize = oneDropSize;
-    this.maxDropRadius = oneDropSize;
+    // Since cellSize is now exactly 1/100th of render width,
+    // 1 cell = 1 drop diameter, so maxDropSize = 1
+    this.maxDropSize = 1;
+    this.maxDropRadius = 1;
   }
 
   // Compute the pixel span between the inner walls for spawning droplets.
