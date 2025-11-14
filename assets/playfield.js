@@ -47,6 +47,7 @@ import {
 import * as InputController from './playfield/input/InputController.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import * as TowerManager from './playfield/managers/TowerManager.js';
+import * as StatsPanel from './playfieldStatsPanel.js';
 import {
   determinePreferredOrientation,
   setPreferredOrientation,
@@ -215,6 +216,11 @@ export class SimplePlayfield {
     this.endlessCheckpoint = null;
     this.endlessCheckpointUsed = false;
 
+    this.combatStats = this.createCombatStatsContainer();
+    this.statsPanelEnabled = false;
+    this.statsDirty = false;
+    this.statsLastRender = 0;
+
     // Allow callers (such as preview renderers) to override the natural orientation choice.
     this.preferredOrientationOverride =
       typeof options?.preferredOrientation === 'string'
@@ -350,6 +356,240 @@ export class SimplePlayfield {
       this.updateProgress();
       this.updateSpeedButton();
       this.updateAutoAnchorButton();
+    }
+  }
+
+  createCombatStatsContainer() {
+    return {
+      active: false,
+      elapsed: 0,
+      towerInstances: new Map(),
+      // Incremental index assigned to each unique placement so summaries can disambiguate duplicates.
+      placementCount: 0,
+      attackLog: [],
+      enemyHistory: [],
+    };
+  }
+
+  resetCombatStats() {
+    this.combatStats = this.createCombatStatsContainer();
+    this.statsDirty = false;
+    this.statsLastRender = 0;
+    if (typeof StatsPanel.resetPanel === 'function') {
+      StatsPanel.resetPanel();
+    }
+  }
+
+  setStatsPanelEnabled(enabled) {
+    this.statsPanelEnabled = Boolean(enabled);
+    if (typeof StatsPanel.setVisible === 'function') {
+      StatsPanel.setVisible(this.statsPanelEnabled);
+    }
+    if (this.statsPanelEnabled) {
+      this.refreshStatsPanel({ force: true });
+    }
+  }
+
+  ensureTowerStatsEntry(tower) {
+    if (!tower || !tower.id || !this.combatStats) {
+      return null;
+    }
+    let entry = this.combatStats.towerInstances.get(tower.id);
+    if (!entry) {
+      // Assign a unique placement index so identical tower types remain distinguishable in the UI.
+      const nextIndex = Number.isFinite(this.combatStats.placementCount)
+        ? this.combatStats.placementCount + 1
+        : 1;
+      this.combatStats.placementCount = nextIndex;
+      entry = {
+        id: tower.id,
+        type: tower.type,
+        totalDamage: 0,
+        activeTime: 0,
+        placementIndex: nextIndex,
+        firstPlacedAt: Number.isFinite(this.combatStats.elapsed)
+          ? Math.max(0, this.combatStats.elapsed)
+          : 0,
+      };
+      this.combatStats.towerInstances.set(tower.id, entry);
+    }
+    entry.type = tower.type;
+    entry.isActive = true;
+    return entry;
+  }
+
+  startCombatStatsSession() {
+    this.resetCombatStats();
+    this.combatStats.active = true;
+    if (Array.isArray(this.towers)) {
+      this.towers.forEach((tower) => this.ensureTowerStatsEntry(tower));
+    }
+    this.scheduleStatsPanelRefresh();
+    if (this.statsPanelEnabled) {
+      this.refreshStatsPanel({ force: true });
+    }
+  }
+
+  stopCombatStatsSession() {
+    if (this.combatStats) {
+      this.combatStats.active = false;
+    }
+    this.scheduleStatsPanelRefresh();
+    if (this.statsPanelEnabled) {
+      this.refreshStatsPanel({ force: true });
+    }
+  }
+
+  scheduleStatsPanelRefresh() {
+    this.statsDirty = true;
+  }
+
+  appendAttackLogEntry(tower, damage) {
+    if (!this.combatStats || !tower) {
+      return;
+    }
+    const value = Number.isFinite(damage) ? Math.max(0, damage) : 0;
+    if (value <= 0) {
+      return;
+    }
+    const log = this.combatStats.attackLog;
+    const maxEntries = 60;
+    const last = log[0];
+    if (last && last.type === tower.type) {
+      last.damage += value;
+      last.events = (last.events || 1) + 1;
+      last.timestamp = this.combatStats.elapsed;
+      return;
+    }
+    log.unshift({
+      type: tower.type,
+      damage: value,
+      events: 1,
+      timestamp: this.combatStats.elapsed,
+    });
+    if (log.length > maxEntries) {
+      log.length = maxEntries;
+    }
+  }
+
+  recordDamageEvent({ tower, enemy = null, damage = 0 } = {}) {
+    if (!tower || !Number.isFinite(damage) || damage <= 0 || !this.combatStats) {
+      return;
+    }
+    const entry = this.ensureTowerStatsEntry(tower);
+    if (entry) {
+      entry.totalDamage = (entry.totalDamage || 0) + damage;
+    }
+    if (enemy) {
+      if (!(enemy.damageContributors instanceof Map)) {
+        enemy.damageContributors = new Map();
+      }
+      const previous = enemy.damageContributors.get(tower.type) || 0;
+      enemy.damageContributors.set(tower.type, previous + damage);
+    }
+    this.appendAttackLogEntry(tower, damage);
+    this.scheduleStatsPanelRefresh();
+  }
+
+  buildTowerSummaries() {
+    if (!this.combatStats) {
+      return [];
+    }
+    const summaries = [];
+    this.combatStats.towerInstances.forEach((instance) => {
+      if (!instance || !instance.type) {
+        return;
+      }
+      const totalDamage = Number.isFinite(instance.totalDamage) ? Math.max(0, instance.totalDamage) : 0;
+      const activeTime = Number.isFinite(instance.activeTime) ? Math.max(0, instance.activeTime) : 0;
+      summaries.push({
+        id: instance.id,
+        type: instance.type,
+        totalDamage,
+        activeTime,
+        averageDps: activeTime > 0 ? totalDamage / activeTime : 0,
+        isActive: Boolean(instance.isActive),
+        placementIndex: Number.isFinite(instance.placementIndex) ? instance.placementIndex : null,
+        firstPlacedAt: Number.isFinite(instance.firstPlacedAt) ? instance.firstPlacedAt : 0,
+        retiredAt: Number.isFinite(instance.retiredAt) ? instance.retiredAt : null,
+      });
+    });
+    return summaries.sort((a, b) => b.totalDamage - a.totalDamage);
+  }
+
+  captureEnemyHistory(enemy) {
+    if (!enemy || !this.combatStats) {
+      return;
+    }
+    const contributors = enemy.damageContributors instanceof Map
+      ? Array.from(enemy.damageContributors.entries())
+      : [];
+    const topContributors = contributors
+      .map(([type, amount]) => ({ type, damage: Number.isFinite(amount) ? Math.max(0, amount) : 0 }))
+      .filter((entry) => entry.damage > 0)
+      .sort((a, b) => b.damage - a.damage)
+      .slice(0, 3);
+    const historyEntry = {
+      id: enemy.id,
+      label: enemy.label || enemy.symbol || 'Enemy',
+      hp: Number.isFinite(enemy.maxHp) ? Math.max(0, enemy.maxHp) : Math.max(0, enemy.hp || 0),
+      topContributors,
+      timestamp: this.combatStats.elapsed,
+    };
+    this.combatStats.enemyHistory.unshift(historyEntry);
+    const maxEntries = 40;
+    if (this.combatStats.enemyHistory.length > maxEntries) {
+      this.combatStats.enemyHistory.length = maxEntries;
+    }
+    this.scheduleStatsPanelRefresh();
+  }
+
+  refreshStatsPanel({ force = false } = {}) {
+    if (!this.combatStats) {
+      return;
+    }
+    if (!this.statsPanelEnabled && !force) {
+      this.statsDirty = false;
+      return;
+    }
+    const summaries = this.buildTowerSummaries();
+    if (typeof StatsPanel.renderTowerSummaries === 'function') {
+      StatsPanel.renderTowerSummaries(summaries);
+    }
+    if (typeof StatsPanel.renderAttackLog === 'function') {
+      StatsPanel.renderAttackLog(this.combatStats.attackLog.slice(0, 40));
+    }
+    if (typeof StatsPanel.renderEnemyHistory === 'function') {
+      StatsPanel.renderEnemyHistory(this.combatStats.enemyHistory.slice(0, 24));
+    }
+    this.statsDirty = false;
+    this.statsLastRender = this.combatStats.elapsed;
+  }
+
+  updateCombatStats(delta) {
+    if (!this.combatStats || !this.combatStats.active) {
+      return;
+    }
+    const step = Number.isFinite(delta) ? Math.max(0, delta) : 0;
+    this.combatStats.elapsed += step;
+    const activeIds = new Set();
+    this.towers.forEach((tower) => {
+      const entry = this.ensureTowerStatsEntry(tower);
+      if (entry) {
+        entry.activeTime = (entry.activeTime || 0) + step;
+        activeIds.add(tower.id);
+      }
+    });
+    this.combatStats.towerInstances.forEach((entry, towerId) => {
+      if (!activeIds.has(towerId) && entry) {
+        entry.isActive = false;
+      }
+    });
+    if (this.statsPanelEnabled && this.statsDirty) {
+      const elapsedSinceRender = this.combatStats.elapsed - this.statsLastRender;
+      if (elapsedSinceRender >= 0.25) {
+        this.refreshStatsPanel();
+      }
     }
   }
 
@@ -783,6 +1023,8 @@ export class SimplePlayfield {
       this.currentWaveNumber = 1;
       this.maxWaveReached = 0;
       this.stopLoop();
+      this.resetCombatStats();
+      this.setStatsPanelEnabled(false);
       this.disableSlots(true);
       this.enemies = [];
       this.projectiles = [];
@@ -2612,6 +2854,10 @@ export class SimplePlayfield {
       mergeTarget.cooldown = 0;
       mergeTarget.chain = null;
       this.applyTowerBehaviorDefaults(mergeTarget);
+      if (this.combatStats?.active) {
+        this.ensureTowerStatsEntry(mergeTarget);
+        this.scheduleStatsPanelRefresh();
+      }
       const nextIsAlephNull = nextDefinition.id === 'aleph-null';
       if (nextIsAlephNull) {
         this.handleAlephTowerAdded(mergeTarget);
@@ -2681,6 +2927,10 @@ export class SimplePlayfield {
     this.towers.push(tower);
     this.handleAlephTowerAdded(tower);
     notifyTowerPlaced(this.towers.length);
+    if (this.combatStats?.active) {
+      this.ensureTowerStatsEntry(tower);
+      this.scheduleStatsPanelRefresh();
+    }
 
     if (slot) {
       slot.tower = tower;
@@ -2827,6 +3077,19 @@ export class SimplePlayfield {
     const index = this.towers.indexOf(tower);
     if (index >= 0) {
       this.towers.splice(index, 1);
+    }
+    if (this.combatStats?.towerInstances instanceof Map) {
+      // Flag the stats entry as retired immediately so the panel reflects the change before the next tick.
+      const entry = this.combatStats.towerInstances.get(tower.id);
+      if (entry) {
+        entry.isActive = false;
+        entry.retiredAt = Number.isFinite(this.combatStats.elapsed)
+          ? Math.max(0, this.combatStats.elapsed)
+          : 0;
+      }
+    }
+    if (this.combatStats?.active) {
+      this.scheduleStatsPanelRefresh();
     }
 
     const resolvedSlot = slot || tower.slot || null;
@@ -3847,6 +4110,7 @@ export class SimplePlayfield {
     this.activeWave = this.createWaveState(this.levelConfig.waves[0], { initialWave: true });
     this.lives = this.levelConfig.lives;
     this.markWaveStart();
+    this.startCombatStatsSession();
 
     if (this.startButton) {
       this.startButton.disabled = true;
@@ -4115,6 +4379,7 @@ export class SimplePlayfield {
     }
 
     const speedDelta = delta * this.speedMultiplier;
+    this.updateCombatStats(speedDelta);
     this.updateFloaters(speedDelta);
     this.updateFocusIndicator(speedDelta);
     this.updateAlphaBursts(speedDelta);
@@ -4771,6 +5036,9 @@ export class SimplePlayfield {
       enemy.hp -= applied;
     } else {
       enemy.hp = -applied;
+    }
+    if (sourceTower) {
+      this.recordDamageEvent({ tower: sourceTower, enemy, damage: applied });
     }
     if (enemy.hp <= 0) {
       // Track kill and overkill damage for Nu towers
@@ -5857,6 +6125,7 @@ export class SimplePlayfield {
   }
 
   processEnemyDefeat(enemy) {
+    this.captureEnemyHistory(enemy);
     this.clearEnemySlowEffects(enemy);
     this.clearEnemyDamageAmplifiers(enemy);
     const index = this.enemies.indexOf(enemy);
@@ -5901,6 +6170,7 @@ export class SimplePlayfield {
       this.audio.playSfx('victory');
     }
     this.combatActive = false;
+    this.stopCombatStatsSession();
     this.resolvedOutcome = 'victory';
     this.activeWave = null;
     const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
@@ -5949,6 +6219,7 @@ export class SimplePlayfield {
       this.audio.playSfx('defeat');
     }
     this.combatActive = false;
+    this.stopCombatStatsSession();
     this.resolvedOutcome = 'defeat';
     this.activeWave = null;
     const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;

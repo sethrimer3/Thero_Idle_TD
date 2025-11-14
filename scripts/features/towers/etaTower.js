@@ -478,7 +478,7 @@ export function fireEtaLaser(playfield, tower, state, { angle = 0, orbitAlign = 
     if (perpendicular > tolerance) {
       return;
     }
-    applyEtaDamage(playfield, enemy, damage);
+    applyEtaDamage(playfield, enemy, damage, { sourceTower: tower });
   });
 
   const projectile = {
@@ -499,9 +499,13 @@ export function fireEtaLaser(playfield, tower, state, { angle = 0, orbitAlign = 
 /**
  * Apply η laser damage and remove defeated enemies from play.
  */
-export function applyEtaDamage(playfield, enemy, damage) {
+export function applyEtaDamage(playfield, enemy, damage, options = {}) {
   if (!playfield || !enemy || !Number.isFinite(damage) || damage <= 0) {
     return;
+  }
+  const sourceTower = options?.sourceTower || null;
+  if (sourceTower && typeof playfield.recordDamageEvent === 'function') {
+    playfield.recordDamageEvent({ tower: sourceTower, enemy, damage });
   }
   enemy.hp -= damage;
   if (enemy.hp <= 0) {

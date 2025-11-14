@@ -1136,6 +1136,171 @@ body.graphics-mode-low .control-button {
   font-size: 0.65rem;
 }
 
+.playfield-combat-stats {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(6, 8, 18, 0.82);
+  display: grid;
+  gap: 18px;
+  color: rgba(244, 248, 255, 0.9);
+  font-family: 'Cormorant Garamond', serif;
+  letter-spacing: 0.03em;
+}
+
+.playfield-combat-stats[hidden] {
+  display: none;
+}
+
+.playfield-combat-stats__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: clamp(1rem, 1.8vw, 1.2rem);
+  text-transform: uppercase;
+  color: rgba(244, 248, 255, 0.86);
+}
+
+.playfield-combat-stats__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.playfield-combat-stats__section-title {
+  margin: 0;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(244, 248, 255, 0.7);
+}
+
+.playfield-combat-stats__list,
+.playfield-combat-stats__log,
+.playfield-combat-stats__enemies {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.playfield-combat-stats__note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(244, 248, 255, 0.6);
+}
+
+.playfield-combat-stats__tower-item,
+.playfield-combat-stats__log-item,
+.playfield-combat-stats__enemy-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(9, 12, 22, 0.65);
+}
+
+.playfield-combat-stats__icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.playfield-combat-stats__icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.playfield-combat-stats__icon-fallback {
+  font-size: 1.2rem;
+  color: rgba(244, 248, 255, 0.82);
+}
+
+.playfield-combat-stats__tower-text,
+.playfield-combat-stats__log-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 auto;
+}
+
+.playfield-combat-stats__tower-title,
+.playfield-combat-stats__log-title {
+  font-size: 0.95rem;
+  margin: 0;
+  letter-spacing: 0.05em;
+  color: rgba(244, 248, 255, 0.9);
+}
+
+.playfield-combat-stats__tower-damage,
+.playfield-combat-stats__tower-rate,
+.playfield-combat-stats__log-detail {
+  font-size: 0.78rem;
+  color: rgba(244, 248, 255, 0.72);
+}
+
+.playfield-combat-stats__enemy-header {
+  width: 100%;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(244, 248, 255, 0.8);
+}
+
+.playfield-combat-stats__enemy-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.playfield-combat-stats__enemy-contributor {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: rgba(244, 248, 255, 0.78);
+}
+
+.playfield-combat-stats__enemy-rank {
+  font-weight: 600;
+  color: rgba(255, 228, 120, 0.85);
+}
+
+.playfield-combat-stats__icon--inline {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.playfield-combat-stats__enemy-label {
+  letter-spacing: 0.05em;
+}
+
+.playfield-combat-stats__enemy-damage {
+  font-variant-numeric: tabular-nums;
+  justify-self: end;
+  color: rgba(139, 247, 255, 0.85);
+}
+
+.playfield-combat-stats__enemy-empty {
+  font-size: 0.75rem;
+  color: rgba(244, 248, 255, 0.6);
+}
+
 .subsection-title {
   font-size: clamp(1.3rem, 2.3vw, 1.8rem);
   letter-spacing: 0.06em;
@@ -5888,6 +6053,24 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   .overlay-panel {
     margin: 0 16px;
     padding: 28px 20px;
+  }
+
+  .playfield-combat-stats {
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .playfield-combat-stats__list,
+  .playfield-combat-stats__log,
+  .playfield-combat-stats__enemies {
+    max-height: 140px;
+  }
+
+  .playfield-combat-stats__tower-item,
+  .playfield-combat-stats__log-item,
+  .playfield-combat-stats__enemy-item {
+    padding: 8px 10px;
+    gap: 10px;
   }
 }
 .tower-cost {

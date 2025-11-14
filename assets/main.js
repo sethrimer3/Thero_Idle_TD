@@ -70,6 +70,7 @@ import {
   getActiveGraphicsMode,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
+import * as PlayfieldStatsPanel from './playfieldStatsPanel.js';
 import {
   configureAutoSave,
   loadPersistentState,
@@ -534,6 +535,14 @@ import {
         playfieldMenuDevTools.removeAttribute('aria-description');
       }
     }
+    if (playfieldMenuStats) {
+      const statsAvailable = Boolean(playfield && interactive);
+      playfieldMenuStats.disabled = !statsAvailable;
+      playfieldMenuStats.setAttribute('aria-disabled', statsAvailable ? 'false' : 'true');
+      const label = playfieldStatsVisible ? 'Hide Combat Stats' : 'Show Combat Stats';
+      playfieldMenuStats.textContent = label;
+      playfieldMenuStats.setAttribute('aria-pressed', playfieldStatsVisible ? 'true' : 'false');
+    }
   }
 
   function closePlayfieldMenu(options = {}) {
@@ -640,6 +649,18 @@ import {
     }
   }
 
+  function togglePlayfieldStatsVisibility() {
+    if (!playfield || typeof playfield.setStatsPanelEnabled !== 'function') {
+      return;
+    }
+    if (!activeLevelId || !activeLevelIsInteractive) {
+      return;
+    }
+    playfieldStatsVisible = !playfieldStatsVisible;
+    playfield.setStatsPanelEnabled(playfieldStatsVisible);
+    updatePlayfieldMenuState();
+  }
+
   function updateLayoutVisibility() {
     // Hide the battlefield until an interactive level is in progress.
     const shouldShowPlayfield = Boolean(activeLevelId && activeLevelIsInteractive);
@@ -649,6 +670,11 @@ import {
 
     if (!shouldShowPlayfield) {
       closePlayfieldMenu();
+      if (playfield && typeof playfield.setStatsPanelEnabled === 'function') {
+        playfield.setStatsPanelEnabled(false);
+      }
+      playfieldStatsVisible = false;
+      PlayfieldStatsPanel.resetPanel();
       updatePlayfieldMenuState();
       return;
     }
@@ -821,10 +847,12 @@ import {
   let playfieldMenuLevelSelect = null;
   let playfieldMenuRetryWave = null;
   let playfieldMenuDevTools = null;
+  let playfieldMenuStats = null;
   let playfieldMenuLevelSelectConfirming = false;
   const playfieldMenuLevelSelectDefaultLabel = 'Level Selection';
   let playfieldMenuOpen = false;
   let activeLevelIsInteractive = false;
+  let playfieldStatsVisible = false;
 
 
   const playfieldElements = {
@@ -5895,6 +5923,7 @@ import {
     playfieldMenuLevelSelect = document.getElementById('playfield-menu-level-select');
     playfieldMenuRetryWave = document.getElementById('playfield-menu-retry-wave');
     playfieldMenuDevTools = document.getElementById('playfield-menu-dev-tools');
+    playfieldMenuStats = document.getElementById('playfield-menu-stats');
     if (playfieldMenuLevelSelect) {
       playfieldMenuLevelSelect.textContent = playfieldMenuLevelSelectDefaultLabel;
     }
@@ -5920,6 +5949,12 @@ import {
       playfieldMenuRetryWave.addEventListener('click', (event) => {
         event.preventDefault();
         handleRetryCurrentWave();
+      });
+    }
+    if (playfieldMenuStats) {
+      playfieldMenuStats.addEventListener('click', (event) => {
+        event.preventDefault();
+        togglePlayfieldStatsVisibility();
       });
     }
     if (playfieldMenuDevTools) {
@@ -6002,6 +6037,15 @@ import {
     playfieldElements.autoAnchorButton = document.getElementById('playfield-auto');
     playfieldElements.autoWaveCheckbox = document.getElementById('playfield-auto-wave');
     playfieldElements.slots = Array.from(document.querySelectorAll('.tower-slot'));
+    PlayfieldStatsPanel.registerStatsElements({
+      container: document.getElementById('playfield-combat-stats'),
+      towerList: document.getElementById('playfield-combat-stats-towers'),
+      attackList: document.getElementById('playfield-combat-stats-log'),
+      enemyList: document.getElementById('playfield-combat-stats-enemies'),
+      emptyTowerNote: document.getElementById('playfield-combat-stats-tower-empty'),
+      emptyAttackNote: document.getElementById('playfield-combat-stats-log-empty'),
+      emptyEnemyNote: document.getElementById('playfield-combat-stats-enemy-empty'),
+    });
     setPlayfieldOutcomeElements({
       overlay: document.getElementById('playfield-outcome'),
       title: document.getElementById('playfield-outcome-title'),
@@ -6344,6 +6388,7 @@ import {
       });
       setTowersPlayfield(playfield);
       playfield.draw();
+      playfield.setStatsPanelEnabled(playfieldStatsVisible);
       updatePlayfieldMenuState();
     }
 

@@ -228,6 +228,15 @@
                   >
                     Loadout Placement
                   </button>
+                  <button
+                    class="playfield-menu-item"
+                    type="button"
+                    id="playfield-menu-stats"
+                    role="menuitem"
+                    aria-pressed="false"
+                  >
+                    Show Combat Stats
+                  </button>
                   <label class="playfield-menu-toggle" for="playfield-auto-wave">
                     <input type="checkbox" id="playfield-auto-wave" checked />
                     <span>Auto-send next wave</span>
@@ -285,6 +294,58 @@
                   </p>
                   <div class="tower-loadout-grid" id="tower-loadout-grid" role="list"></div>
                 </div>
+                <section
+                  class="playfield-combat-stats"
+                  id="playfield-combat-stats"
+                  role="region"
+                  aria-label="Combat stats"
+                  hidden
+                  aria-hidden="true"
+                >
+                  <header class="playfield-combat-stats__header">Battle Analytics</header>
+                  <section class="playfield-combat-stats__section" aria-labelledby="playfield-combat-stats-tower-title">
+                    <h3 class="playfield-combat-stats__section-title" id="playfield-combat-stats-tower-title">
+                      Tower Output
+                    </h3>
+                    <p class="playfield-combat-stats__note" id="playfield-combat-stats-tower-empty">
+                      Tower damage summaries appear once combat begins.
+                    </p>
+                    <div
+                      class="playfield-combat-stats__list"
+                      id="playfield-combat-stats-towers"
+                      role="list"
+                      aria-live="polite"
+                    ></div>
+                  </section>
+                  <section class="playfield-combat-stats__section" aria-labelledby="playfield-combat-stats-log-title">
+                    <h3 class="playfield-combat-stats__section-title" id="playfield-combat-stats-log-title">
+                      Attack Log
+                    </h3>
+                    <p class="playfield-combat-stats__note" id="playfield-combat-stats-log-empty">
+                      Recent attack summaries will gather here.
+                    </p>
+                    <div
+                      class="playfield-combat-stats__log"
+                      id="playfield-combat-stats-log"
+                      role="list"
+                      aria-live="polite"
+                    ></div>
+                  </section>
+                  <section class="playfield-combat-stats__section" aria-labelledby="playfield-combat-stats-enemy-title">
+                    <h3 class="playfield-combat-stats__section-title" id="playfield-combat-stats-enemy-title">
+                      Enemy History
+                    </h3>
+                    <p class="playfield-combat-stats__note" id="playfield-combat-stats-enemy-empty">
+                      Defeated enemies and their top damaging towers will appear once battles resolve.
+                    </p>
+                    <div
+                      class="playfield-combat-stats__enemies"
+                      id="playfield-combat-stats-enemies"
+                      role="list"
+                      aria-live="polite"
+                    ></div>
+                  </section>
+                </section>
               </div>
               <section
                 class="overlay-editor"
