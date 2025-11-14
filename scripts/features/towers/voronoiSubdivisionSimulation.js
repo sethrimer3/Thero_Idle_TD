@@ -16,6 +16,10 @@ export class VoronoiSubdivisionSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+    // Enable shared drag-to-pan and zoom interactions on the Voronoi canvas.
+    if (typeof this.initPanZoom === 'function') {
+      this.initPanZoom(this.canvas);
+    }
 
     this.maxCells = options.maxCells || 140;
     this.palette = options.palette || 'blue-aurora';

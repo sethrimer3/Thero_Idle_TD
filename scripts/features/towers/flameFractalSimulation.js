@@ -14,6 +14,10 @@ export class FlameFractalSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
     this.ctx = this.canvas ? this.canvas.getContext('2d', { willReadFrequently: true }) : null;
+    // Enable shared drag-to-pan and zoom interactions on the flame canvas.
+    if (typeof this.initPanZoom === 'function') {
+      this.initPanZoom(this.canvas);
+    }
 
     this.samplesPerIteron = options.samplesPerIteron || 8000;
     this.targetSamples = 0;
