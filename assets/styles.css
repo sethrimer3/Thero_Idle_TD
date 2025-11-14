@@ -5643,8 +5643,8 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 .tab-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  /* Remove lingering outline rectangles so the spire tab grid stays clean after taps. */
+  outline: none;
 }
 
 .tab-button:hover {
@@ -6138,13 +6138,17 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
-  transition: all var(--transition);
+  transition: transform var(--transition), background var(--transition), border-color var(--transition),
+    box-shadow var(--transition);
+  /* CSS custom property lets the toggle slide beneath the floating menu when active. */
+  transform: translateY(0);
+  --floating-menu-offset: 0px;
 }
 
 .spire-menu-toggle:hover {
   background: rgba(20, 20, 30, 0.95);
   border-color: rgba(247, 247, 245, 0.5);
-  transform: scale(1.05);
+  transform: translateY(var(--floating-menu-offset, 0px)) scale(1.05);
 }
 
 .spire-menu-toggle-icon {
@@ -6154,11 +6158,13 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: var(--text);
 }
 
-/* Hidden toggle state prevents duplicate controls while a menu is open. */
-.spire-menu-toggle--hidden {
-  opacity: 0;
-  pointer-events: none;
-  transform: scale(0.9);
+/* Active toggle doubles as the close affordance once the tray expands. */
+.spire-menu-toggle--active {
+  /* Slide the toggle beneath the revealed menu and reuse it as the close affordance. */
+  transform: translateY(var(--floating-menu-offset, 0px));
+  background: rgba(20, 20, 30, 0.95);
+  border-color: rgba(247, 247, 245, 0.5);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
 }
 
 .spire-floating-menu {
@@ -6169,12 +6175,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: rgba(10, 10, 16, 0.85);
-  border: 1px solid rgba(247, 247, 245, 0.2);
-  border-radius: 12px;
-  padding: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(8px);
+  padding: 0;
   transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
@@ -6236,31 +6237,6 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: rgba(247, 247, 245, 0.95);
 }
 
-.spire-menu-close {
-  display: none; /* Hidden on desktop, shown on mobile */
-  align-items: center;
-  justify-content: center;
-  padding: 10px;
-  margin-top: 4px;
-  border: 1px solid rgba(247, 247, 245, 0.15);
-  border-radius: 8px;
-  background: rgba(247, 247, 245, 0.04);
-  color: rgba(247, 247, 245, 0.6);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.spire-menu-close:hover {
-  background: rgba(247, 247, 245, 0.1);
-  border-color: rgba(247, 247, 245, 0.3);
-  color: var(--text);
-}
-
-.spire-menu-close-icon {
-  font-size: 1.2rem;
-  line-height: 1;
-}
-
 /* Cycle the gradient to create a slow aurora-like glow on glyphs. */
 @keyframes spireGlyphAurora {
   0% {
@@ -6315,17 +6291,14 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   .spire-floating-menu {
     top: 10px;
     right: -110%; /* Hide off-screen by default on mobile */
-    padding: 8px;
     gap: 8px;
     opacity: 0;
-    /* Disable interactions while the tray is hidden off-screen. */
     pointer-events: none;
   }
 
   .spire-floating-menu.spire-floating-menu--visible {
     right: 10px; /* Slide in when visible */
     opacity: 1;
-    /* Restore interactions once the floating tray is revealed. */
     pointer-events: auto;
   }
 
@@ -6373,8 +6346,8 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     font-size: 0.65rem;
   }
   
-  .spire-menu-close {
-    display: flex; /* Show close button on mobile */
+  .spire-menu-toggle--active {
+    transform: translate(0, calc(var(--floating-menu-offset, 0px) + 0px));
   }
 }
 
