@@ -442,6 +442,26 @@ body.graphics-mode-low .control-button {
   -ms-overflow-style: none;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Lock the desktop shell to the viewport so wheel gestures target the active panel. */
+  .app-shell {
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Stretch the main stage to fill the viewport so panel scroll assistance can engage. */
+  .main-stage {
+    height: 100%;
+  }
+
+  /* Restore visible scrollbars on desktop to support click-and-drag scrolling. */
+  .panel {
+    scrollbar-width: auto;
+    -ms-overflow-style: auto;
+  }
+}
+
 .panel.active {
   display: flex;
 }
