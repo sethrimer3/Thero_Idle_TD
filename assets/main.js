@@ -947,6 +947,12 @@ import {
     tabFluidBadge: null,
   };
 
+  // Track glyph totals so unlock checks only trigger when thresholds change.
+  let trackedLamedGlyphs = 0;
+  let trackedTsadiGlyphs = 0;
+  let trackedShinGlyphs = 0;
+  let trackedKufGlyphs = 0;
+
   // Cache the relocated resource nodes so status updates only swap text content.
   function bindStatusElements() {
     resourceElements.theroMultiplier = document.getElementById('level-thero-multiplier');
@@ -1021,7 +1027,15 @@ import {
     }
     
     // Tsadi glyphs (צ) are earned from the Tsadi Spire
-    const totalTsadiGlyphs = Math.max(0, Math.floor(spireResourceState.tsadi?.stats?.totalParticles || 0));
+    const tsadiStats = spireResourceState.tsadi?.stats || {};
+    const totalTsadiGlyphs = Math.max(
+      0,
+      Math.floor(
+        Number.isFinite(tsadiStats.totalGlyphs)
+          ? tsadiStats.totalGlyphs
+          : tsadiStats.totalParticles || 0,
+      ),
+    );
     const unusedTsadiGlyphs = totalTsadiGlyphs; // For now, all Tsadi glyphs are unallocated
     if (resourceElements.glyphsTsadiTotal) {
       resourceElements.glyphsTsadiTotal.textContent = `${formatWholeNumber(totalTsadiGlyphs)} צ`;
@@ -1217,8 +1231,21 @@ import {
     tsadi: {
       particleBank: 0,
       unlocked: false,
+      stats: {
+        totalParticles: 0,
+        totalGlyphs: 0,
+      },
+    },
+    shin: {
+      unlocked: false,
+    },
+    kuf: {
+      unlocked: false,
     },
   };
+
+  trackedLamedGlyphs = Math.max(0, Math.floor(spireResourceState.lamed.stats.totalAbsorptions || 0));
+  trackedTsadiGlyphs = Math.max(0, Math.floor(spireResourceState.tsadi.stats.totalGlyphs || 0));
 
   // Controller that wires the floating spire navigation UI and count displays.
   const spireMenuController = createSpireFloatingMenuController({
@@ -2131,7 +2158,30 @@ import {
    */
   function updateSpireTabVisibility() {
     updateFluidTabAvailability();
-    
+
+    /**
+     * Toggle visibility for the floating menu toggle button that lives inside a spire panel.
+     * @param {string} spireId - Identifier suffix for the spire toggle.
+     * @param {boolean} unlocked - Whether the spire should be visible.
+     */
+    function syncSpireToggle(spireId, unlocked) {
+      const toggle = document.getElementById(`spire-menu-toggle-${spireId}`);
+      if (!toggle) {
+        return;
+      }
+      if (unlocked) {
+        toggle.removeAttribute('hidden');
+        toggle.setAttribute('aria-hidden', 'false');
+        toggle.disabled = false;
+      } else {
+        toggle.setAttribute('hidden', '');
+        toggle.setAttribute('aria-hidden', 'true');
+        toggle.disabled = true;
+        toggle.classList.remove('spire-menu-toggle--active');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    }
+
     // Update Lamed tab
     const lamedTab = document.getElementById('tab-lamed');
     if (lamedTab) {
@@ -2145,7 +2195,8 @@ import {
         lamedTab.disabled = true;
       }
     }
-    
+    syncSpireToggle('lamed', Boolean(spireResourceState.lamed.unlocked));
+
     // Update Tsadi tab
     const tsadiTab = document.getElementById('tab-tsadi');
     if (tsadiTab) {
@@ -2159,8 +2210,37 @@ import {
         tsadiTab.disabled = true;
       }
     }
-    
-    // TODO: Add Shin and Kuf tab updates when their unlock logic is implemented
+    syncSpireToggle('tsadi', Boolean(spireResourceState.tsadi.unlocked));
+
+    // Update Shin tab
+    const shinTab = document.getElementById('tab-shin');
+    if (shinTab) {
+      if (spireResourceState.shin?.unlocked) {
+        shinTab.removeAttribute('hidden');
+        shinTab.setAttribute('aria-hidden', 'false');
+        shinTab.disabled = false;
+      } else {
+        shinTab.setAttribute('hidden', '');
+        shinTab.setAttribute('aria-hidden', 'true');
+        shinTab.disabled = true;
+      }
+    }
+    syncSpireToggle('shin', Boolean(spireResourceState.shin?.unlocked));
+
+    // Update Kuf tab
+    const kufTab = document.getElementById('tab-kuf');
+    if (kufTab) {
+      if (spireResourceState.kuf?.unlocked) {
+        kufTab.removeAttribute('hidden');
+        kufTab.setAttribute('aria-hidden', 'false');
+        kufTab.disabled = false;
+      } else {
+        kufTab.setAttribute('hidden', '');
+        kufTab.setAttribute('aria-hidden', 'true');
+        kufTab.disabled = true;
+      }
+    }
+    syncSpireToggle('kuf', Boolean(spireResourceState.kuf?.unlocked));
   }
 
   function updateFluidTabAvailability() {
@@ -2871,12 +2951,14 @@ import {
     // Bet Spire: Unlocks when player has 10 Aleph glyphs
     if (!powderState.fluidUnlocked && alephGlyphs >= 10) {
       unlockFluidStudy({ reason: 'auto-unlock', threshold: 10, glyphCost: 0 });
+      updateSpireTabVisibility();
+      spireMenuController.updateCounts();
       anyUnlocked = true;
     }
 
     // Lamed Spire: Unlocks when player has 10 Bet glyphs
     if (!spireResourceState.lamed.unlocked && betGlyphs >= 10) {
-      spireResourceState.lamed.unlocked = true;
+      ensureLamedBankSeeded();
       updateSpireTabVisibility();
       spireMenuController.updateCounts();
       anyUnlocked = true;
@@ -2885,18 +2967,42 @@ import {
     // Tsadi Spire: Unlocks when player has 10 Lamed glyphs (sparks)
     const lamedGlyphs = Math.max(0, Math.floor(spireResourceState.lamed?.stats?.totalAbsorptions || 0));
     if (!spireResourceState.tsadi.unlocked && lamedGlyphs >= 10) {
-      spireResourceState.tsadi.unlocked = true;
+      ensureTsadiBankSeeded();
       updateSpireTabVisibility();
       spireMenuController.updateCounts();
       anyUnlocked = true;
     }
 
     // Shin Spire: Unlocks when player has 10 Tsadi glyphs
-    // (Need to check how Tsadi glyphs are tracked)
-    // TODO: Add Shin unlock logic once we identify the Tsadi glyph counter
+    const tsadiGlyphs = Math.max(
+      0,
+      Math.floor(
+        Number.isFinite(spireResourceState.tsadi?.stats?.totalGlyphs)
+          ? spireResourceState.tsadi.stats.totalGlyphs
+          : spireResourceState.tsadi?.stats?.totalParticles || 0,
+      ),
+    );
+    if (!spireResourceState.shin?.unlocked && tsadiGlyphs >= 10) {
+      if (!spireResourceState.shin) {
+        spireResourceState.shin = { unlocked: false };
+      }
+      spireResourceState.shin.unlocked = true;
+      updateSpireTabVisibility();
+      spireMenuController.updateCounts();
+      anyUnlocked = true;
+    }
 
     // Kuf Spire: Unlocks when player has 10 Shin glyphs
-    // TODO: Add Kuf unlock logic
+    const shinGlyphs = Math.max(0, Math.floor(getShinGlyphs()));
+    if (!spireResourceState.kuf?.unlocked && shinGlyphs >= 10) {
+      if (!spireResourceState.kuf) {
+        spireResourceState.kuf = { unlocked: false };
+      }
+      spireResourceState.kuf.unlocked = true;
+      updateSpireTabVisibility();
+      spireMenuController.updateCounts();
+      anyUnlocked = true;
+    }
 
     return anyUnlocked;
   }
@@ -3234,6 +3340,13 @@ import {
         updateShinState(deltaMs);
         updateShinDisplay();
         updateFractalSimulation(); // Update fractal rendering based on new allocations
+        // Watch for new Shin glyphs so downstream spires unlock without delay.
+        const currentShinGlyphs = Math.max(0, Math.floor(getShinGlyphs()));
+        if (currentShinGlyphs !== trackedShinGlyphs) {
+          trackedShinGlyphs = currentShinGlyphs;
+          spireMenuController.updateCounts();
+          checkAndUnlockSpires();
+        }
       } catch (error) {
         console.error('Error updating Shin state:', error);
       }
@@ -6114,12 +6227,23 @@ import {
               setInterval(() => {
                 if (lamedSimulationInstance && lamedSimulationInstance.running) {
                   updateLamedStatistics();
-                  
+
                   // Sync state back to persistence every second
                   const state = lamedSimulationInstance.getState();
                   spireResourceState.lamed.starMass = state.starMass;
                   spireResourceState.lamed.dragLevel = state.dragLevel;
                   spireResourceState.lamed.stats = state.stats;
+                  // Detect fresh spark absorptions so dependent spires unlock right away.
+                  const currentLamedGlyphs = Math.max(
+                    0,
+                    Math.floor(state.stats?.totalAbsorptions || 0),
+                  );
+                  if (currentLamedGlyphs !== trackedLamedGlyphs) {
+                    trackedLamedGlyphs = currentLamedGlyphs;
+                    spireMenuController.updateCounts();
+                    updateStatusDisplays();
+                    checkAndUnlockSpires();
+                  }
                 }
               }, 1000); // Update every second
             }
@@ -6168,9 +6292,23 @@ import {
                   }
                 },
                 onGlyphChange: (glyphCount) => {
+                  const normalizedGlyphs = Math.max(0, Math.floor(glyphCount || 0));
                   const glyphEl = document.getElementById('tsadi-reservoir');
                   if (glyphEl) {
-                    glyphEl.textContent = `${glyphCount} Tsadi Glyphs`;
+                    glyphEl.textContent = `${normalizedGlyphs} Tsadi Glyphs`;
+                  }
+                  // Persist Tsadi glyph totals so unlock checks can react immediately.
+                  const previousGlyphs = trackedTsadiGlyphs;
+                  trackedTsadiGlyphs = normalizedGlyphs;
+                  spireResourceState.tsadi.stats = {
+                    ...(spireResourceState.tsadi.stats || {}),
+                    totalParticles: normalizedGlyphs,
+                    totalGlyphs: normalizedGlyphs,
+                  };
+                  spireMenuController.updateCounts();
+                  if (normalizedGlyphs !== previousGlyphs) {
+                    updateStatusDisplays();
+                    checkAndUnlockSpires();
                   }
                 },
                 onReset: () => {
@@ -6256,7 +6394,7 @@ import {
     scheduleSpireResize();
     // Initialize the floating spire menu navigation
     spireMenuController.initialize();
-    updateFluidTabAvailability();
+    updateSpireTabVisibility();
     await initializeFieldNotesOverlay();
     bindCodexControls({
       setActiveTab,
@@ -6280,10 +6418,18 @@ import {
 
     const savedKufState = readStorageJson(KUF_STATE_STORAGE_KEY);
     initializeKufState(savedKufState || {});
+    trackedKufGlyphs = Math.max(0, Math.floor(getKufGlyphs()));
     spireMenuController.updateCounts();
     onKufStateChange((event) => {
       if (event && event.type === 'result') {
         spireMenuController.updateCounts();
+        // Keep Kuf unlock progression synchronized with fresh glyph payouts.
+        const currentKufGlyphs = Math.max(0, Math.floor(getKufGlyphs()));
+        if (currentKufGlyphs !== trackedKufGlyphs) {
+          trackedKufGlyphs = currentKufGlyphs;
+          updateStatusDisplays();
+          checkAndUnlockSpires();
+        }
         commitAutoSave();
       }
     });
@@ -6294,13 +6440,28 @@ import {
       // Load saved state from storage
       const savedShinState = readStorageJson(SHIN_STATE_STORAGE_KEY);
       initializeShinState(savedShinState || {});
+      trackedShinGlyphs = Math.max(0, Math.floor(getShinGlyphs()));
       setShinUIUpdateCallback(() => {
         updateShinDisplay();
+        // React to manual Iteron allocations that push Shin glyph totals forward.
+        const currentShinGlyphs = Math.max(0, Math.floor(getShinGlyphs()));
+        if (currentShinGlyphs !== trackedShinGlyphs) {
+          trackedShinGlyphs = currentShinGlyphs;
+          spireMenuController.updateCounts();
+          updateStatusDisplays();
+          checkAndUnlockSpires();
+        } else {
+          spireMenuController.updateCounts();
+        }
         commitAutoSave();
       });
     } catch (error) {
       console.error('Failed to initialize Shin Spire system:', error);
     }
+
+    updateSpireTabVisibility();
+    checkAndUnlockSpires();
+    spireMenuController.updateCounts();
 
     enemyCodexElements.list = document.getElementById('enemy-codex-list');
     enemyCodexElements.empty = document.getElementById('enemy-codex-empty');
