@@ -63,15 +63,22 @@ export function createSpireFloatingMenuController(options = {}) {
 
     const spireIds = ['powder', 'fluid', 'lamed', 'tsadi', 'shin', 'kuf'];
     const visibleClass = 'spire-floating-menu--visible';
-    // Dedicated class keeps toggle buttons hidden while their tray is expanded.
-    const toggleHiddenClass = 'spire-menu-toggle--hidden';
+    // Track the expanded state so the toggle can animate beneath the open tray.
+    const activeToggleClass = 'spire-menu-toggle--active';
+    // Shared glyph that replaces the hamburger icon while the tray is open.
+    const closeIcon = '✕';
 
     spireIds.forEach((spireId) => {
       const toggleButton = doc.getElementById(`spire-menu-toggle-${spireId}`);
-      const closeButton = doc.getElementById(`spire-menu-close-${spireId}`);
       const menu = doc.getElementById(`spire-floating-menu-${spireId}`);
 
       if (toggleButton && menu) {
+        const toggleIcon = toggleButton.querySelector('.spire-menu-toggle-icon');
+        const defaultIcon = toggleIcon ? toggleIcon.textContent.trim() : '';
+        // Persist the open/close labels so screen readers stay in sync with the toggle role swap.
+        const openLabel = toggleButton.getAttribute('aria-label') || 'Toggle Spire Navigation';
+        const closeLabel = `Close ${spireId.charAt(0).toUpperCase()}${spireId.slice(1)} Spire Navigation`;
+
         toggleButton.addEventListener('click', () => {
           const isVisible = menu.classList.contains(visibleClass);
 
@@ -84,36 +91,52 @@ export function createSpireFloatingMenuController(options = {}) {
             const otherToggle = doc.getElementById(`spire-menu-toggle-${otherId}`);
             if (otherToggle) {
               otherToggle.setAttribute('aria-expanded', 'false');
-              // Ensure previously hidden toggles reappear after another tray closes.
-              otherToggle.classList.remove(toggleHiddenClass);
+              // Reset any toggle that belonged to a tray that just closed.
+              otherToggle.classList.remove(activeToggleClass);
+              otherToggle.style.setProperty('--floating-menu-offset', '0px');
+              const otherIcon = otherToggle.querySelector('.spire-menu-toggle-icon');
+              if (otherIcon) {
+                const fallbackIcon = otherToggle.dataset.defaultIcon || '☰';
+                otherIcon.textContent = fallbackIcon;
+              }
+              const otherOpenLabel = otherToggle.dataset.openLabel;
+              if (otherOpenLabel) {
+                otherToggle.setAttribute('aria-label', otherOpenLabel);
+              }
             }
           });
 
           if (isVisible) {
             menu.classList.remove(visibleClass);
             toggleButton.setAttribute('aria-expanded', 'false');
-            // Restore the toggle when collapsing the active tray.
-            toggleButton.classList.remove(toggleHiddenClass);
+            toggleButton.classList.remove(activeToggleClass);
+            toggleButton.style.setProperty('--floating-menu-offset', '0px');
+            if (toggleIcon) {
+              toggleIcon.textContent = defaultIcon || '☰';
+            }
+            toggleButton.setAttribute('aria-label', openLabel);
           } else {
             menu.classList.add(visibleClass);
             toggleButton.setAttribute('aria-expanded', 'true');
-            // Conceal the toggle while its corresponding tray is open.
-            toggleButton.classList.add(toggleHiddenClass);
-          }
-        });
-      }
+            toggleButton.classList.add(activeToggleClass);
+            toggleButton.style.setProperty('--floating-menu-offset', '0px');
+            if (toggleIcon) {
+              toggleIcon.textContent = closeIcon;
+            }
+            toggleButton.setAttribute('aria-label', closeLabel);
 
-      if (closeButton && menu) {
-        closeButton.addEventListener('click', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          menu.classList.remove(visibleClass);
-          if (toggleButton) {
-            toggleButton.setAttribute('aria-expanded', 'false');
-            // Unhide the toggle when the explicit close control is used.
-            toggleButton.classList.remove(toggleHiddenClass);
+            requestAnimationFrame(() => {
+              const menuHeight = menu.getBoundingClientRect().height;
+              const offset = Number.isFinite(menuHeight) ? menuHeight + 16 : 0;
+              // Store the measured height so CSS can slide the toggle beneath the tray.
+              toggleButton.style.setProperty('--floating-menu-offset', `${offset}px`);
+            });
           }
         });
+
+        // Cache the default icon so it can be restored when the tray collapses.
+        toggleButton.dataset.defaultIcon = defaultIcon || '☰';
+        toggleButton.dataset.openLabel = openLabel;
       }
     });
   }
