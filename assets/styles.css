@@ -6419,6 +6419,30 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   transition: all var(--transition);
 }
 
+/* Close control ensures players can dismiss the floating menu without reaching for the toggle. */
+.spire-menu-dismiss {
+  display: none;
+  width: 32px;
+  height: 32px;
+  margin: 2px auto 0;
+  border: 1px solid rgba(247, 247, 245, 0.25);
+  border-radius: 8px;
+  background: rgba(10, 10, 16, 0.85);
+  color: var(--text);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), transform var(--transition);
+  touch-action: manipulation;
+}
+
+.spire-menu-dismiss:hover {
+  background: rgba(20, 20, 30, 0.95);
+  border-color: rgba(247, 247, 245, 0.45);
+  transform: translateY(-1px);
+}
+
 .spire-menu-item:hover {
   background: rgba(247, 247, 245, 0.12);
   border-color: rgba(247, 247, 245, 0.35);
@@ -6529,6 +6553,14 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     min-width: 70px;
     padding: 10px 12px;
     gap: 4px;
+  }
+
+  /* Mobile layout reveals the close control at the base of the tray. */
+  .spire-menu-dismiss {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 6px;
   }
 
   /* Stack and cascade the floating entries when the tray opens. */
