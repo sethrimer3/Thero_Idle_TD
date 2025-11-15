@@ -7,6 +7,8 @@ export const GRAPHICS_MODE_STORAGE_KEY = 'glyph-defense-idle:graphics-mode';
 export const NOTATION_STORAGE_KEY = 'glyph-defense-idle:notation';
 // Storage key used to persist the glyph equation visibility toggle.
 export const GLYPH_EQUATIONS_STORAGE_KEY = 'glyph-defense-idle:glyph-equations';
+// Storage key used to persist the preferred track rendering style.
+export const TRACK_RENDER_MODE_STORAGE_KEY = 'glyph-defense-idle:track-render-mode';
 export const POWDER_STORAGE_KEY = 'glyph-defense-idle:powder';
 export const GAME_STATS_STORAGE_KEY = 'glyph-defense-idle:stats';
 // Storage key used to persist the active Spire snapshot.

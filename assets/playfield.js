@@ -234,6 +234,8 @@ export class SimplePlayfield {
     this.pathSegments = [];
     this.pathPoints = [];
     this.pathLength = 0;
+    this.trackRiverParticles = [];
+    this.trackRiverPulse = 0;
 
     this.slots = new Map();
     this.towers = [];
@@ -1213,6 +1215,8 @@ export class SimplePlayfield {
       this.pathSegments = [];
       this.pathPoints = [];
       this.pathLength = 0;
+      this.trackRiverParticles = [];
+      this.trackRiverPulse = 0;
       return;
     }
 
@@ -1236,6 +1240,33 @@ export class SimplePlayfield {
     this.pathPoints = smoothPoints;
     this.pathSegments = segments;
     this.pathLength = totalLength || 1;
+    this.initializeTrackRiverParticles();
+  }
+
+  initializeTrackRiverParticles() {
+    if (!this.pathSegments.length || !Number.isFinite(this.pathLength) || this.pathLength <= 0) {
+      this.trackRiverParticles = [];
+      this.trackRiverPulse = 0;
+      return;
+    }
+
+    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
+    const baseCount = Math.round(this.pathLength / Math.max(28, minDimension * 0.35));
+    const particleCount = Math.max(36, Math.min(160, baseCount));
+    const createParticle = () => ({
+      progress: Math.random(),
+      speed: 0.045 + Math.random() * 0.05,
+      radius: 0.7 + Math.random() * 1.2,
+      offset: (Math.random() - 0.5) * 0.8,
+      offsetTarget: (Math.random() - 0.5) * 0.8,
+      driftRate: 0.5 + Math.random() * 0.9,
+      driftTimer: 0.6 + Math.random() * 1.2,
+      phase: Math.random() * Math.PI * 2,
+      phaseSpeed: 0.6 + Math.random() * 1.3,
+    });
+
+    this.trackRiverParticles = Array.from({ length: particleCount }, createParticle);
+    this.trackRiverPulse = 0;
   }
 
   computeFloaterCount(width, height) {
@@ -4436,6 +4467,45 @@ export class SimplePlayfield {
     return Math.hypot(point.x - projX, point.y - projY);
   }
 
+  getPositionAlongPath(progress) {
+    if (!this.pathSegments.length || !Number.isFinite(this.pathLength) || this.pathLength <= 0) {
+      return null;
+    }
+
+    const clamped = Number.isFinite(progress) ? Math.max(0, Math.min(1, progress)) : 0;
+    const targetDistance = clamped * this.pathLength;
+    let traversed = 0;
+
+    for (let index = 0; index < this.pathSegments.length; index += 1) {
+      const segment = this.pathSegments[index];
+      const length = Number.isFinite(segment.length)
+        ? segment.length
+        : this.distanceBetween(segment.start, segment.end);
+      if (!length) {
+        continue;
+      }
+      const next = traversed + length;
+      if (targetDistance <= next || index === this.pathSegments.length - 1) {
+        const ratio = Math.max(0, Math.min(1, (targetDistance - traversed) / length));
+        const x = segment.start.x + (segment.end.x - segment.start.x) * ratio;
+        const y = segment.start.y + (segment.end.y - segment.start.y) * ratio;
+        const tangent = Math.atan2(segment.end.y - segment.start.y, segment.end.x - segment.start.x);
+        return { x, y, tangent };
+      }
+      traversed = next;
+    }
+
+    const fallbackSegment = this.pathSegments[this.pathSegments.length - 1];
+    if (!fallbackSegment) {
+      return null;
+    }
+    const tangent = Math.atan2(
+      fallbackSegment.end.y - fallbackSegment.start.y,
+      fallbackSegment.end.x - fallbackSegment.start.x,
+    );
+    return { x: fallbackSegment.end.x, y: fallbackSegment.end.y, tangent };
+  }
+
   /**
    * Project a point onto a path segment and expose the ratio along that segment.
    */
@@ -4969,6 +5039,56 @@ export class SimplePlayfield {
     this.floaterConnections = connections;
   }
 
+  updateTrackRiverParticles(delta) {
+    if (!Array.isArray(this.trackRiverParticles) || !this.trackRiverParticles.length) {
+      return;
+    }
+
+    const dt = Math.max(0, Math.min(delta, 0.08));
+    this.trackRiverPulse = Number.isFinite(this.trackRiverPulse) ? this.trackRiverPulse : 0;
+    this.trackRiverPulse += dt * 0.6;
+    const fullTurn = Math.PI * 2;
+    if (this.trackRiverPulse >= fullTurn) {
+      this.trackRiverPulse -= fullTurn;
+    }
+
+    const wrapProgress = (value) => {
+      if (value > 1) {
+        return value - 1;
+      }
+      if (value < 0) {
+        return value + 1;
+      }
+      return value;
+    };
+
+    this.trackRiverParticles.forEach((particle) => {
+      if (!particle) {
+        return;
+      }
+      const speed = Number.isFinite(particle.speed) ? particle.speed : 0.05;
+      const progress = Number.isFinite(particle.progress) ? particle.progress : Math.random();
+      particle.progress = wrapProgress(progress + speed * dt);
+
+      const phaseSpeed = Number.isFinite(particle.phaseSpeed) ? particle.phaseSpeed : 1;
+      const nextPhase = (Number.isFinite(particle.phase) ? particle.phase : 0) + phaseSpeed * dt;
+      particle.phase = nextPhase % fullTurn;
+
+      const driftTimer = Number.isFinite(particle.driftTimer) ? particle.driftTimer : 0;
+      particle.driftTimer = driftTimer - dt;
+      if (particle.driftTimer <= 0) {
+        particle.offsetTarget = (Math.random() - 0.5) * 0.8;
+        particle.driftTimer = 0.6 + Math.random() * 1.3;
+      }
+
+      const driftRate = Number.isFinite(particle.driftRate) ? particle.driftRate : 0.6;
+      const easing = Math.min(1, dt * driftRate);
+      const offset = Number.isFinite(particle.offset) ? particle.offset : 0;
+      const target = Number.isFinite(particle.offsetTarget) ? particle.offsetTarget : 0;
+      particle.offset = offset + (target - offset) * easing;
+    });
+  }
+
   update(delta) {
     if (!this.levelActive || !this.levelConfig) {
       return;
@@ -4977,6 +5097,7 @@ export class SimplePlayfield {
     const speedDelta = delta * this.speedMultiplier;
     this.updateCombatStats(speedDelta);
     this.updateFloaters(speedDelta);
+    this.updateTrackRiverParticles(speedDelta);
     this.updateFocusIndicator(speedDelta);
     this.updateAlphaBursts(speedDelta);
     this.updateBetaBursts(speedDelta);

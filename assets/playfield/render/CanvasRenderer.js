@@ -3,6 +3,7 @@ import { getTowerVisualConfig, samplePaletteGradient } from '../../colorSchemeUt
 import { getTowerDefinition } from '../../towersTab.js';
 import { moteGemState, getGemSpriteImage } from '../../enemies.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../../../scripts/features/towers/powderTower.js';
+import { getTrackRenderMode, TRACK_RENDER_MODES } from '../../preferences.js';
 import {
   drawAlphaBursts as drawAlphaBurstsHelper,
 } from '../../../scripts/features/towers/alphaTower.js';
@@ -42,6 +43,7 @@ enemyGateSprite.decoding = 'async';
 enemyGateSprite.loading = 'eager';
 
 const GEM_MOTE_BASE_RATIO = 0.02;
+const TRACK_GATE_SIZE_SCALE = 0.5;
 
 function applyCanvasShadow(ctx, color, blur) {
   if (!ctx) {
@@ -302,43 +304,94 @@ function drawPath() {
   const start = points[0];
   const end = points[points.length - 1];
 
+  const trackMode = getTrackRenderMode();
+  if (trackMode === TRACK_RENDER_MODES.RIVER) {
+    drawTrackParticleRiver.call(this);
+    return;
+  }
+
+  const paletteStops = [
+    { stop: 0, color: samplePaletteGradient(0) },
+    { stop: 0.5, color: samplePaletteGradient(0.5) },
+    { stop: 1, color: samplePaletteGradient(1) },
+  ];
   const baseGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
-  baseGradient.addColorStop(0, 'rgba(88, 160, 255, 0.5)');
-  baseGradient.addColorStop(0.48, 'rgba(162, 110, 255, 0.48)');
-  baseGradient.addColorStop(1, 'rgba(255, 158, 88, 0.5)');
+  const highlightGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+  const baseAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.78 : 0.55;
+  const highlightAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.32 : 0.18;
+  paletteStops.forEach((entry) => {
+    baseGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, baseAlpha));
+    highlightGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, highlightAlpha));
+  });
+
+  const tracePath = () => {
+    ctx.moveTo(start.x, start.y);
+    for (let index = 1; index < points.length; index += 1) {
+      const point = points[index];
+      ctx.lineTo(point.x, point.y);
+    }
+  };
 
   ctx.save();
   ctx.beginPath();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.lineWidth = 7;
-  this.applyCanvasShadow(ctx, 'rgba(88, 160, 255, 0.2)', 12);
-  ctx.moveTo(start.x, start.y);
-  for (let index = 1; index < points.length; index += 1) {
-    const point = points[index];
-    ctx.lineTo(point.x, point.y);
-  }
+  ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 7;
+  const shadowColor = colorToRgbaString(
+    paletteStops[0]?.color || { r: 88, g: 160, b: 255 },
+    trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2,
+  );
+  this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
+  tracePath();
   ctx.strokeStyle = baseGradient;
   ctx.stroke();
   ctx.restore();
 
-  const highlightGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
-  highlightGradient.addColorStop(0, 'rgba(88, 160, 255, 0.12)');
-  highlightGradient.addColorStop(0.52, 'rgba(162, 110, 255, 0.1)');
-  highlightGradient.addColorStop(1, 'rgba(255, 158, 88, 0.14)');
-
   ctx.save();
   ctx.beginPath();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.lineWidth = 2;
-  ctx.moveTo(start.x, start.y);
-  for (let index = 1; index < points.length; index += 1) {
-    const point = points[index];
-    ctx.lineTo(point.x, point.y);
-  }
+  ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 : 1;
+  ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 3.8 : 2;
+  tracePath();
   ctx.strokeStyle = highlightGradient;
   ctx.stroke();
+  ctx.restore();
+}
+
+function drawTrackParticleRiver() {
+  if (!this.ctx || !Array.isArray(this.trackRiverParticles) || !this.trackRiverParticles.length) {
+    return;
+  }
+  const ctx = this.ctx;
+  const particles = this.trackRiverParticles;
+  const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
+  const laneRadius = Math.max(4, minDimension * 0.014);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  particles.forEach((particle) => {
+    if (!particle || !Number.isFinite(particle.progress)) {
+      return;
+    }
+    const position = this.getPositionAlongPath(particle.progress);
+    if (!position) {
+      return;
+    }
+    const tangent = Number.isFinite(position.tangent) ? position.tangent : 0;
+    const lateral = (Number.isFinite(particle.offset) ? particle.offset : 0) * laneRadius;
+    const radius = Math.max(0.8, laneRadius * 0.2 * (Number.isFinite(particle.radius) ? particle.radius : 1));
+    const progressColor = samplePaletteGradient(particle.progress);
+    const phase = Number.isFinite(particle.phase) ? particle.phase : 0;
+    const pulse = Math.sin(phase + (this.trackRiverPulse || 0)) * 0.5 + 0.5;
+    const alpha = 0.18 + pulse * 0.32;
+    const offsetX = Math.cos(tangent + Math.PI / 2) * lateral;
+    const offsetY = Math.sin(tangent + Math.PI / 2) * lateral;
+    ctx.fillStyle = colorToRgbaString(progressColor, alpha);
+    this.applyCanvasShadow(ctx, colorToRgbaString(progressColor, alpha * 0.65), radius * 3.2);
+    ctx.beginPath();
+    ctx.arc(position.x + offsetX, position.y + offsetY, radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
   ctx.restore();
 }
 
@@ -429,7 +482,7 @@ function drawEnemyGateSymbol(ctx, position) {
   const dimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 0;
   const baseRadius = dimension ? dimension * 0.028 : 0;
   const baseSize = Math.max(12, Math.min(20, baseRadius || 16));
-  const radius = baseSize * 2;
+  const radius = baseSize * 2 * TRACK_GATE_SIZE_SCALE;
 
   ctx.save();
   ctx.translate(position.x, position.y);
@@ -444,7 +497,7 @@ function drawEnemyGateSymbol(ctx, position) {
 
   const spriteReady = enemyGateSprite?.complete && enemyGateSprite.naturalWidth > 0;
   if (spriteReady) {
-    const spriteSize = Math.max(baseSize * 2, 40) * 2;
+    const spriteSize = Math.max(baseSize * 2, 40) * 2 * TRACK_GATE_SIZE_SCALE;
     ctx.save();
     ctx.globalAlpha = 0.95;
     ctx.drawImage(enemyGateSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
@@ -471,7 +524,7 @@ function drawMindGateSymbol(ctx, position) {
   const dimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 0;
   const baseRadius = dimension ? dimension * 0.035 : 0;
   const baseSize = Math.max(14, Math.min(24, baseRadius || 18));
-  const radius = baseSize * 2;
+  const radius = baseSize * 2 * TRACK_GATE_SIZE_SCALE;
 
   ctx.save();
   ctx.translate(position.x, position.y);
@@ -494,7 +547,7 @@ function drawMindGateSymbol(ctx, position) {
 
   const spriteReady = mindGateSprite?.complete && mindGateSprite.naturalWidth > 0;
   if (spriteReady) {
-    const spriteSize = Math.max(baseSize * 2.1, 46) * 2;
+    const spriteSize = Math.max(baseSize * 2.1, 46) * 2 * TRACK_GATE_SIZE_SCALE;
     ctx.save();
     ctx.globalAlpha = 0.96;
     ctx.drawImage(mindGateSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);

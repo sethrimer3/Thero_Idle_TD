@@ -10,11 +10,18 @@ import {
   NOTATION_STORAGE_KEY,
   GLYPH_EQUATIONS_STORAGE_KEY,
   GRAPHICS_MODE_STORAGE_KEY,
+  TRACK_RENDER_MODE_STORAGE_KEY,
 } from './autoSave.js';
 
 const GRAPHICS_MODES = Object.freeze({
   LOW: 'low',
   HIGH: 'high',
+});
+
+export const TRACK_RENDER_MODES = Object.freeze({
+  GRADIENT: 'gradient',
+  BLUR: 'blur',
+  RIVER: 'river',
 });
 
 let notationToggleButton = null;
@@ -25,9 +32,11 @@ let glyphEquationToggleInput = null;
 let glyphEquationToggleStateLabel = null;
 
 let graphicsModeButton = null;
+let trackRenderModeButton = null;
 let desktopCursorMediaQuery = null;
 let desktopCursorActive = false;
 let activeGraphicsMode = GRAPHICS_MODES.HIGH;
+let activeTrackRenderMode = TRACK_RENDER_MODES.GRADIENT;
 
 let powderSimulationGetter = () => null;
 let playfieldGetter = () => null;
@@ -300,4 +309,75 @@ export function initializeGraphicsMode() {
   const normalized = stored === GRAPHICS_MODES.LOW || stored === GRAPHICS_MODES.HIGH ? stored : null;
   const fallback = prefersLowGraphicsByDefault() ? GRAPHICS_MODES.LOW : GRAPHICS_MODES.HIGH;
   applyGraphicsMode(normalized || fallback, { persist: !normalized });
+}
+
+function resolveTrackRenderModeLabel(mode = activeTrackRenderMode) {
+  switch (mode) {
+    case TRACK_RENDER_MODES.BLUR:
+      return 'Blurred';
+    case TRACK_RENDER_MODES.RIVER:
+      return 'River';
+    case TRACK_RENDER_MODES.GRADIENT:
+    default:
+      return 'Gradient';
+  }
+}
+
+function updateTrackRenderModeButton() {
+  if (!trackRenderModeButton) {
+    return;
+  }
+  const label = resolveTrackRenderModeLabel();
+  trackRenderModeButton.textContent = `Track · ${label}`;
+  trackRenderModeButton.setAttribute('aria-label', `Switch track visuals (current: ${label})`);
+}
+
+function cycleTrackRenderMode() {
+  const modes = Object.values(TRACK_RENDER_MODES);
+  if (!modes.length) {
+    return;
+  }
+  const currentIndex = modes.indexOf(activeTrackRenderMode);
+  const next = modes[(currentIndex + 1) % modes.length];
+  applyTrackRenderMode(next);
+}
+
+export function getTrackRenderMode() {
+  return activeTrackRenderMode;
+}
+
+export function applyTrackRenderMode(mode, { persist = true } = {}) {
+  const validModes = Object.values(TRACK_RENDER_MODES);
+  const normalized = validModes.includes(mode) ? mode : TRACK_RENDER_MODES.GRADIENT;
+  activeTrackRenderMode = normalized;
+  updateTrackRenderModeButton();
+
+  if (persist) {
+    writeStorage(TRACK_RENDER_MODE_STORAGE_KEY, normalized);
+  }
+
+  const playfield = playfieldGetter();
+  if (playfield && typeof playfield.draw === 'function') {
+    playfield.draw();
+  }
+
+  return normalized;
+}
+
+export function bindTrackRenderModeButton() {
+  trackRenderModeButton = document.getElementById('track-graphics-button');
+  if (!trackRenderModeButton) {
+    return;
+  }
+  trackRenderModeButton.addEventListener('click', () => {
+    cycleTrackRenderMode();
+  });
+  updateTrackRenderModeButton();
+}
+
+export function initializeTrackRenderMode() {
+  const stored = readStorage(TRACK_RENDER_MODE_STORAGE_KEY);
+  const validModes = Object.values(TRACK_RENDER_MODES);
+  const normalized = stored && validModes.includes(stored) ? stored : TRACK_RENDER_MODES.GRADIENT;
+  applyTrackRenderMode(normalized, { persist: false });
 }
