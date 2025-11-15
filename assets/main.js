@@ -266,6 +266,7 @@ import { createLevelPreviewRenderer } from './levelPreviewRenderer.js';
 import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
 import { createPlayfieldMenuController } from './playfieldMenu.js';
 import { createLevelSummaryHelpers } from './levelSummary.js';
+import { createLamedSpireUi } from './lamedSpireUi.js';
 import {
   moteGemState,
   MOTE_GEM_COLLECTION_RADIUS,
@@ -883,6 +884,10 @@ import {
     },
   });
 
+  const lamedSpireUi = createLamedSpireUi({
+    formatWholeNumber,
+  });
+
   const resourceHud = createResourceHud({
     formatGameNumber,
     formatWholeNumber,
@@ -1207,115 +1212,8 @@ import {
   };
 
 
-  /**
-   * Update Lamed simulation statistics display in the UI.
-   */
   function updateLamedStatistics() {
-    if (!lamedSimulationInstance) return;
-    
-    const stats = lamedSimulationInstance.getStatistics();
-    
-    // Update tier information
-    const tierEl = document.getElementById('lamed-tier');
-    if (tierEl) {
-      tierEl.textContent = stats.currentTier;
-    }
-    
-    // Update star mass
-    const starMassEl = document.getElementById('lamed-star-mass');
-    if (starMassEl) {
-      starMassEl.textContent = stats.starMass.toFixed(2);
-    }
-    
-    // Update next milestone
-    const nextTierEl = document.getElementById('lamed-next-tier');
-    if (nextTierEl) {
-      if (stats.nextTier === 'MAX') {
-        nextTierEl.textContent = 'Maximum Tier Reached';
-      } else {
-        const progress = (stats.progressToNext * 100).toFixed(1);
-        nextTierEl.textContent = `${stats.nextTier} (${stats.nextMilestone}) - ${progress}%`;
-      }
-    }
-    
-    // Update orbiting stars count
-    const orbitingEl = document.getElementById('lamed-orbiting-count');
-    if (orbitingEl) {
-      orbitingEl.textContent = stats.orbitingStars;
-    }
-    
-    // Update absorptions rate
-    const absorptionsEl = document.getElementById('lamed-absorptions-rate');
-    if (absorptionsEl) {
-      absorptionsEl.textContent = stats.absorptionsPerMinute.toFixed(1);
-    }
-    
-    // Update mass inflow rate
-    const inflowEl = document.getElementById('lamed-mass-inflow');
-    if (inflowEl) {
-      inflowEl.textContent = stats.massInflowPerMinute.toFixed(2);
-    }
-    
-    // Update drag level and coefficient
-    const dragLevelEl = document.getElementById('lamed-drag-level');
-    if (dragLevelEl) {
-      dragLevelEl.textContent = stats.dragLevel;
-    }
-    
-    const dragCoeffEl = document.getElementById('lamed-drag-coefficient');
-    if (dragCoeffEl) {
-      dragCoeffEl.textContent = stats.dragCoefficient.toFixed(3);
-    }
-
-    // Update star mass upgrade readouts with the latest tiered values.
-    const starMassLevelEl = document.getElementById('lamed-star-mass-level');
-    if (starMassLevelEl) {
-      starMassLevelEl.textContent = formatWholeNumber(stats.starMassUpgradeLevel);
-    }
-
-    const starMassValueEl = document.getElementById('lamed-star-mass-value');
-    if (starMassValueEl) {
-      starMassValueEl.textContent = formatWholeNumber(stats.orbitingSparkMass);
-    }
-
-    // Update drag upgrade button
-    const dragBtn = document.getElementById('lamed-upgrade-drag-btn');
-    const dragCostEl = document.getElementById('lamed-drag-cost');
-    if (dragBtn && dragCostEl) {
-      const cost = lamedSimulationInstance.getDragUpgradeCost();
-      dragCostEl.textContent = formatWholeNumber(cost);
-      
-      if (lamedSimulationInstance.canUpgradeDrag()) {
-        dragBtn.disabled = false;
-        dragBtn.classList.remove('disabled');
-      } else {
-        dragBtn.disabled = true;
-        dragBtn.classList.add('disabled');
-      }
-      
-      // Hide button if at max level
-      if (stats.dragLevel >= lamedSimulationInstance.maxDragLevel) {
-        dragBtn.style.display = 'none';
-      } else {
-        dragBtn.style.display = '';
-      }
-    }
-
-    // Update star mass upgrade button so affordability feedback stays accurate.
-    const starMassBtn = document.getElementById('lamed-upgrade-star-mass-btn');
-    const starMassCostEl = document.getElementById('lamed-star-mass-cost');
-    if (starMassBtn && starMassCostEl) {
-      const starMassCost = lamedSimulationInstance.getStarMassUpgradeCost();
-      starMassCostEl.textContent = formatWholeNumber(starMassCost);
-
-      if (lamedSimulationInstance.canUpgradeStarMass()) {
-        starMassBtn.disabled = false;
-        starMassBtn.classList.remove('disabled');
-      } else {
-        starMassBtn.disabled = true;
-        starMassBtn.classList.add('disabled');
-      }
-    }
+    lamedSpireUi.updateStatistics(lamedSimulationInstance);
   }
 
   // Normalize the aleph glyph tithe before using it for unlock checks or logs.
@@ -4987,39 +4885,34 @@ import {
               }
               
               // Hook up drag upgrade button
-              const dragBtn = document.getElementById('lamed-upgrade-drag-btn');
-              if (dragBtn) {
-                dragBtn.addEventListener('click', () => {
-                  if (lamedSimulationInstance.upgradeDrag()) {
-                    // Sync state back to persistence
-                    const state = lamedSimulationInstance.getState();
-                    spireResourceState.lamed.dragLevel = state.dragLevel;
-                    spireResourceState.lamed.starMass = state.starMass;
-                    spireResourceState.lamed.upgrades = state.upgrades;
-                    spireResourceState.lamed.stats = state.stats;
-
-                    updateLamedStatistics();
-                    spireMenuController.updateCounts();
+              lamedSpireUi.bindUpgradeButtons({
+                onDragUpgrade: () => {
+                  if (!lamedSimulationInstance || !lamedSimulationInstance.upgradeDrag()) {
+                    return;
                   }
-                });
-              }
+                  const state = lamedSimulationInstance.getState();
+                  spireResourceState.lamed.dragLevel = state.dragLevel;
+                  spireResourceState.lamed.starMass = state.starMass;
+                  spireResourceState.lamed.upgrades = state.upgrades;
+                  spireResourceState.lamed.stats = state.stats;
 
-              // Hook up star mass upgrade button so players can bulk up sparks.
-              const starMassBtn = document.getElementById('lamed-upgrade-star-mass-btn');
-              if (starMassBtn) {
-                starMassBtn.addEventListener('click', () => {
-                  if (lamedSimulationInstance.upgradeStarMass()) {
-                    const state = lamedSimulationInstance.getState();
-                    spireResourceState.lamed.dragLevel = state.dragLevel;
-                    spireResourceState.lamed.starMass = state.starMass;
-                    spireResourceState.lamed.upgrades = state.upgrades;
-                    spireResourceState.lamed.stats = state.stats;
-
-                    updateLamedStatistics();
-                    spireMenuController.updateCounts();
+                  updateLamedStatistics();
+                  spireMenuController.updateCounts();
+                },
+                onStarMassUpgrade: () => {
+                  if (!lamedSimulationInstance || !lamedSimulationInstance.upgradeStarMass()) {
+                    return;
                   }
-                });
-              }
+                  const state = lamedSimulationInstance.getState();
+                  spireResourceState.lamed.dragLevel = state.dragLevel;
+                  spireResourceState.lamed.starMass = state.starMass;
+                  spireResourceState.lamed.upgrades = state.upgrades;
+                  spireResourceState.lamed.stats = state.stats;
+
+                  updateLamedStatistics();
+                  spireMenuController.updateCounts();
+                },
+              });
 
               spireMenuController.updateCounts();
               updateLamedStatistics();
