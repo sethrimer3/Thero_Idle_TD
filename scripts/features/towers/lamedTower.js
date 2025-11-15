@@ -82,7 +82,7 @@ export class GravitySimulation {
     // Star management (renamed from sparks)
     this.stars = [];
     this.sparkBank = 0; // Idle currency reserve that spawns stars into the simulation
-    this.maxStars = 100; // Maximum number of active orbiting stars
+    this.maxStars = 1000; // Maximum number of active orbiting stars increased for denser orbits
     this.sparkSpawnRate = 0; // Stars spawned per second (starts at 0)
     this.spawnAccumulator = 0;
     
