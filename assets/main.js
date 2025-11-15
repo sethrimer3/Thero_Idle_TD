@@ -2897,6 +2897,7 @@ import {
       //   powderElements.modeToggle.disabled = false;
       // }
       updatePowderModeButton();
+      ensurePowderBasinResizeObserver();
       syncPowderWallVisuals();
       updatePowderHitboxVisibility();
     }
@@ -3138,6 +3139,9 @@ import {
   let shinSimulationInstance = null;
   let kufUiInitialized = false;
   let powderBasinObserver = null;
+  let pendingPowderResizeFrame = null;
+  let pendingPowderResizeIsTimeout = false;
+  let observedPowderResizeElements = new WeakSet();
   let pendingSpireResizeFrame = null;
 
   /**
@@ -3157,6 +3161,66 @@ import {
         tsadiSimulationInstance.resize();
       }
       resizeShinFractalCanvases();
+    });
+  }
+
+  /**
+   * Ensure powder and fluid basin containers notify the active simulation when their bounds change.
+   * Desktop viewports animate the spire walls, so the ResizeObserver keeps the canvas aligned with the new width.
+   */
+  function ensurePowderBasinResizeObserver() {
+    if (typeof ResizeObserver !== 'function') {
+      return;
+    }
+
+    if (!powderBasinObserver) {
+      powderBasinObserver = new ResizeObserver(() => {
+        if (pendingPowderResizeFrame !== null) {
+          return;
+        }
+
+        const canUseAnimationFrame =
+          typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function';
+
+        const schedule = canUseAnimationFrame
+          ? window.requestAnimationFrame.bind(window)
+          : (callback) => window.setTimeout(callback, 16);
+
+        pendingPowderResizeIsTimeout = !canUseAnimationFrame;
+        pendingPowderResizeFrame = schedule(() => {
+          pendingPowderResizeFrame = null;
+          pendingPowderResizeIsTimeout = false;
+          if (powderSimulation && typeof powderSimulation.handleResize === 'function') {
+            powderSimulation.handleResize();
+            handlePowderViewTransformChange(powderSimulation.getViewTransform());
+          }
+        });
+      });
+    }
+
+    const resizeTargets = [
+      powderElements?.stage,
+      powderElements?.simulationCard,
+      powderElements?.basin,
+      fluidElements?.simulationCard,
+      fluidElements?.basin,
+    ].filter((element) => {
+      if (!element || typeof element.getBoundingClientRect !== 'function') {
+        return false;
+      }
+      if (observedPowderResizeElements.has(element)) {
+        return false;
+      }
+      return true;
+    });
+
+    resizeTargets.forEach((element) => {
+      try {
+        powderBasinObserver.observe(element);
+        observedPowderResizeElements.add(element);
+      } catch (error) {
+        console.warn('Failed to observe powder basin resize target.', error);
+      }
     });
   }
 
@@ -5429,6 +5493,18 @@ import {
       }
     }
     powderBasinObserver = null;
+    if (pendingPowderResizeFrame !== null) {
+      if (typeof window !== 'undefined') {
+        if (pendingPowderResizeIsTimeout && typeof window.clearTimeout === 'function') {
+          window.clearTimeout(pendingPowderResizeFrame);
+        } else if (!pendingPowderResizeIsTimeout && typeof window.cancelAnimationFrame === 'function') {
+          window.cancelAnimationFrame(pendingPowderResizeFrame);
+        }
+      }
+    }
+    pendingPowderResizeFrame = null;
+    pendingPowderResizeIsTimeout = false;
+    observedPowderResizeElements = new WeakSet();
 
     powderState.sandOffset = powderConfig.sandOffsetActive;
     powderState.duneHeight = powderConfig.duneHeightBase;
@@ -6600,6 +6676,7 @@ import {
 
     bindStatusElements();
     bindPowderControls();
+    ensurePowderBasinResizeObserver();
     bindSpireClickIncome();
     await applyPowderSimulationMode(powderState.simulationMode);
     initializeEquipmentState();
