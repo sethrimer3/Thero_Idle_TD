@@ -964,6 +964,8 @@ export function createTowerUpgradeOverlayController({
     // Ensure freshly rendered variable cards inherit the correct visibility state
     // so their sub-equation stacks do not remain hidden after re-renders.
     syncTowerVariableCardVisibility();
+
+    towerTabState.towerUpgradeElements.lastRenderedTowerId = towerId;
   }
 
   function formatTowerEquationResultValue(value) {
@@ -984,9 +986,16 @@ export function createTowerUpgradeOverlayController({
       return;
     }
 
-    const { panel } = towerTabState.towerUpgradeElements;
+    const { panel, lastRenderedTowerId } = towerTabState.towerUpgradeElements;
     if (panel) {
-      panel.scrollTo({ top: 0, behavior: 'instant' in panel ? 'instant' : 'auto' });
+      // Preserve the scroll position while browsing unless this is a new entry
+      // animation or the caller explicitly requests a reset.
+      const shouldResetScroll =
+        options.resetScroll === true ||
+        (options.resetScroll !== false && (options.animateEntry || lastRenderedTowerId !== towerId));
+      if (shouldResetScroll) {
+        panel.scrollTo({ top: 0, behavior: 'instant' in panel ? 'instant' : 'auto' });
+      }
     }
 
     if (options.animateEntry) {
@@ -1231,6 +1240,7 @@ export function createTowerUpgradeOverlayController({
     towerTabState.lastTowerUpgradeTrigger = null;
     towerTabState.activeTowerUpgradeId = null;
     towerTabState.dynamicContext = null;
+    towerTabState.towerUpgradeElements.lastRenderedTowerId = null;
     invalidateTowerEquationCache();
   }
 
