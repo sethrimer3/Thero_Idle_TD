@@ -114,6 +114,24 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Focus restoration and retry flows are encapsulated, making future overlay adjustments safer
 - main.js drops another concentrated set of UI helpers while retaining identical behavior
 
+### spireTabVisibility.js (spire tab toggling helpers)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `updateSpireTabVisibility()` - Orchestrates unlock-driven visibility for the Lamed, Tsadi, Shin, and Kuf spire tabs and their floating menu toggles
+- `updateFluidTabAvailability()` - Manages the split powder/fluid tab state and corresponding badge visibility when the fluid study unlocks
+
+**Integration approach:**
+- Added `createSpireTabVisibilityManager()` factory that accepts `fluidElements`, `powderState`, `spireResourceState`, and a getter for the current resource HUD elements
+- `main.js` destructures the returned helpers so existing code paths continue calling `updateSpireTabVisibility()` and `updateFluidTabAvailability()` without signature changes
+- Resource HUD references now flow through a getter, ensuring the factory always sees the latest DOM bindings after the HUD initializes
+
+**Result:**
+- Unlock gating logic for spire tabs now lives alongside the DOM-specific wiring instead of expanding `main.js`
+- Dependency injection keeps the helpers pure, improving future testability and reducing implicit coupling to the global scope
+- main.js sheds another focused cluster of UI toggling code while retaining identical runtime behavior
+
 ### levelEditor.js (developer map tools + overlay editor controller)
 
 **Status:** ✅ Complete
