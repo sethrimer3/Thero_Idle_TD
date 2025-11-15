@@ -5823,6 +5823,44 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   border-top: 1px solid rgba(139, 247, 255, 0.08);
 }
 
+/* Additional enemy group controls share the full row width beneath the primary inputs. */
+.wave-editor-item__group-container {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.wave-editor-item__group-row {
+  display: grid;
+  grid-template-columns: 3rem 3rem 4.5rem 2.5rem;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.wave-editor-item__add-group {
+  align-self: flex-start;
+  padding: 0.35rem 0.75rem;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.85rem;
+  border: 1px solid rgba(139, 247, 255, 0.24);
+  border-radius: 6px;
+  background: rgba(6, 10, 20, 0.92);
+  color: rgba(205, 228, 255, 0.88);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wave-editor-item__add-group:hover {
+  border-color: rgba(139, 247, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(139, 247, 255, 0.14);
+}
+
+.wave-editor-item__group-delete {
+  padding: 0.35rem 0.5rem;
+}
+
 .overlay-editor__wave-export {
   display: flex;
   gap: 0.5rem;

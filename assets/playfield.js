@@ -526,6 +526,62 @@ export class SimplePlayfield {
   }
 
   /**
+   * Normalize the enemy group definitions for a wave configuration.
+   * @param {Object} config - Raw wave configuration
+   * @returns {Array} Sanitized enemy group list
+   */
+  resolveWaveGroups(config = null) {
+    if (!config) {
+      return [];
+    }
+
+    const base = {
+      hp: Number.isFinite(config.hp) ? config.hp : 0,
+      speed: Number.isFinite(config.speed) ? config.speed : 0,
+      reward: Number.isFinite(config.reward) ? config.reward : 0,
+      color: config.color || null,
+      codexId: config.codexId || null,
+      label: config.label || null,
+      symbol: config.symbol || null,
+    };
+
+    const normalizeGroup = (group = {}) => {
+      const count = Number.isFinite(group.count) ? Math.max(0, Math.floor(group.count)) : 0;
+      const hp = Number.isFinite(group.hp) ? Math.max(0, group.hp) : base.hp;
+      const speed = Number.isFinite(group.speed) ? group.speed : base.speed;
+      const reward = Number.isFinite(group.reward) ? group.reward : base.reward;
+      return {
+        count,
+        hp,
+        speed,
+        reward,
+        color: group.color || base.color,
+        codexId: group.codexId || base.codexId,
+        label: group.label || base.label,
+        symbol: group.symbol || base.symbol,
+        enemyType: group.enemyType || null,
+        interval: Number.isFinite(group.interval) ? group.interval : null,
+      };
+    };
+
+    let groups = [];
+    if (Array.isArray(config.enemyGroups) && config.enemyGroups.length) {
+      groups = config.enemyGroups.map((group) => normalizeGroup(group));
+    } else {
+      const minionCount = Number.isFinite(config.minionCount)
+        ? Math.max(0, Math.floor(config.minionCount))
+        : Number.isFinite(config.count)
+          ? Math.max(0, Math.floor(config.count - (config.boss ? 1 : 0)))
+          : 0;
+      if (minionCount > 0) {
+        groups = [normalizeGroup({ ...config, count: minionCount })];
+      }
+    }
+
+    return groups.filter((group) => group.count > 0);
+  }
+
+  /**
    * Convert a wave configuration into formatted queue entries for UI rendering.
    */
   buildWaveEntries(config, {
@@ -540,12 +596,18 @@ export class SimplePlayfield {
     }
 
     const entries = [];
-    const totalCount = Number.isFinite(config.count) ? Math.max(0, Math.floor(config.count)) : 0;
-    const remainingTotal = Math.max(0, totalCount - Math.max(0, spawned));
+    const groups = this.resolveWaveGroups(config);
     const hasBoss = Boolean(config.boss && typeof config.boss === 'object');
-    const bossAlreadySpawned = hasBoss && spawned >= totalCount;
+    const totalMinionCount = groups.reduce(
+      (sum, group) => sum + Math.max(0, Math.floor(group.count || 0)),
+      0,
+    );
+    const totalSpawnCount = totalMinionCount + (hasBoss ? 1 : 0);
+    const normalizedSpawned = Number.isFinite(spawned) ? Math.max(0, Math.floor(spawned)) : 0;
+    const clampedSpawned = Math.min(normalizedSpawned, totalSpawnCount);
+    const spawnedMinions = Math.min(clampedSpawned, totalMinionCount);
+    const bossAlreadySpawned = hasBoss && clampedSpawned > totalMinionCount;
     const bossRemaining = hasBoss && !bossAlreadySpawned ? 1 : 0;
-    const minionRemaining = Math.max(0, remainingTotal - bossRemaining);
     const theroSymbol = this.theroSymbol || 'þ';
 
     const resolveEnemyName = (source = {}) => {
@@ -603,36 +665,50 @@ export class SimplePlayfield {
           : null,
       ].filter(Boolean);
 
-    if (minionRemaining > 0) {
-      const symbol = this.resolveEnemySymbol(config);
-      const enemyName = resolveEnemyName(config);
-      const exponent = this.calculateHealthExponent(config.hp);
-      const hpLabel = this.formatEnemyExponentLabel(exponent, config.hp);
-      const rewardLabel = `${formatCombatNumber(Math.max(0, config.reward || 0))} ${theroSymbol}`;
+    let remainingSpawned = spawnedMinions;
+
+    groups.forEach((group, index) => {
+      const groupCount = Math.max(0, Math.floor(group.count || 0));
+      if (!groupCount) {
+        return;
+      }
+      const spawnedInGroup = Math.min(groupCount, remainingSpawned);
+      remainingSpawned -= spawnedInGroup;
+      const remaining = isCurrent ? Math.max(0, groupCount - spawnedInGroup) : groupCount;
+      const symbol = this.resolveEnemySymbol(group);
+      const enemyName = resolveEnemyName(group);
+      const exponent = this.calculateHealthExponent(group.hp);
+      const hpLabel = this.formatEnemyExponentLabel(exponent, group.hp);
+      const rewardLabel = `${formatCombatNumber(Math.max(0, group.reward || 0))} ${theroSymbol}`;
       const title = `${symbol} — ${enemyName}`;
       entries.push({
-        id: `${isCurrent ? 'current' : 'next'}-${waveIndex}-minions`,
+        id: `${isCurrent ? 'current' : 'next'}-${waveIndex}-group-${index}`,
         title,
         subtitle: waveSubtitle(),
         meta: [
-          { text: `Remaining ${minionRemaining}/${totalCount}`, emphasize: true },
+          {
+            text: isCurrent
+              ? `Remaining ${remaining}/${groupCount}`
+              : `Count ${groupCount}`,
+            emphasize: true,
+          },
           { text: `HP ${hpLabel}` },
           { text: `Reward ${rewardLabel}` },
-          { text: `Speed ${this.formatEnemySpeed(config.speed)}` },
+          { text: `Speed ${this.formatEnemySpeed(group.speed)}` },
         ],
         footnote: null,
         dialog: {
           title,
           rows: createDialogRows({
-            remaining: minionRemaining,
-            hp: config.hp,
-            reward: config.reward,
-            speed: config.speed,
-            interval: config.interval,
+            remaining,
+            hp: group.hp,
+            reward: group.reward,
+            speed: group.speed,
+            interval: Number.isFinite(group.interval) ? group.interval : config.interval,
           }),
         },
       });
-    }
+    });
 
     if (bossRemaining > 0 || (!isCurrent && hasBoss)) {
       const bossConfig = { ...config, ...(config.boss || {}) };
@@ -4525,15 +4601,35 @@ export class SimplePlayfield {
     const multiplier = this.getCycleMultiplier();
     // Apply a 10× health jump per endless cycle while boosting speed by 10% additively.
     const speedScalar = this.getCycleSpeedScalar();
-    const scaledHp = Number.isFinite(config.hp) ? config.hp * multiplier : config.hp;
-    const scaledSpeed = Number.isFinite(config.speed) ? config.speed * speedScalar : config.speed;
-    const scaledReward = Number.isFinite(config.reward)
-      ? config.reward * multiplier
-      : config.reward;
+    const resolvedGroups = this.resolveWaveGroups(config);
+    const scaledGroups = resolvedGroups.map((group) => ({
+      ...group,
+      hp: Number.isFinite(group.hp) ? group.hp * multiplier : group.hp,
+      speed: Number.isFinite(group.speed) ? group.speed * speedScalar : group.speed,
+      reward: Number.isFinite(group.reward) ? group.reward * multiplier : group.reward,
+    }));
+    const totalMinionCount = scaledGroups.reduce(
+      (sum, group) => sum + Math.max(0, Math.floor(group.count || 0)),
+      0,
+    );
+    const primaryGroup = scaledGroups[0] || null;
+
+    const scaledConfig = {
+      ...config,
+      enemyGroups: scaledGroups,
+      minionCount: totalMinionCount,
+      hp: primaryGroup ? primaryGroup.hp : Number.isFinite(config.hp) ? config.hp * multiplier : config.hp,
+      speed: primaryGroup ? primaryGroup.speed : Number.isFinite(config.speed) ? config.speed * speedScalar : config.speed,
+      reward: primaryGroup
+        ? primaryGroup.reward
+        : Number.isFinite(config.reward)
+          ? config.reward * multiplier
+          : config.reward,
+    };
+
     // Mirror the cycle scaling onto any boss variant attached to the wave.
-    let scaledBoss = null;
     if (config.boss && typeof config.boss === 'object') {
-      scaledBoss = { ...config.boss };
+      const scaledBoss = { ...config.boss };
       if (Number.isFinite(scaledBoss.hp)) {
         scaledBoss.hp *= multiplier;
       }
@@ -4543,15 +4639,16 @@ export class SimplePlayfield {
       if (Number.isFinite(scaledBoss.reward)) {
         scaledBoss.reward *= multiplier;
       }
+      scaledConfig.boss = scaledBoss;
+    } else {
+      scaledConfig.boss = null;
     }
+
+    const bossCount = scaledConfig.boss ? 1 : 0;
+    scaledConfig.count = totalMinionCount + bossCount;
+
     return {
-      config: {
-        ...config,
-        hp: scaledHp,
-        speed: scaledSpeed,
-        reward: scaledReward,
-        boss: scaledBoss || null,
-      },
+      config: scaledConfig,
       spawned: 0,
       nextSpawn: initialWave ? this.initialSpawnDelay : 0,
       multiplier,
@@ -4594,14 +4691,37 @@ export class SimplePlayfield {
     const multiplier = this.getCycleMultiplierFor(cycle);
     const speedScalar = this.getCycleSpeedScalarFor(cycle);
     const scaled = { ...waveConfig };
-    if (Number.isFinite(scaled.hp)) {
-      scaled.hp *= multiplier;
-    }
-    if (Number.isFinite(scaled.speed)) {
-      scaled.speed *= speedScalar;
-    }
-    if (Number.isFinite(scaled.reward)) {
-      scaled.reward *= multiplier;
+    const resolvedGroups = this.resolveWaveGroups(waveConfig);
+    const scaledGroups = resolvedGroups.map((group) => ({
+      ...group,
+      hp: Number.isFinite(group.hp) ? group.hp * multiplier : group.hp,
+      speed: Number.isFinite(group.speed) ? group.speed * speedScalar : group.speed,
+      reward: Number.isFinite(group.reward) ? group.reward * multiplier : group.reward,
+    }));
+    const totalMinions = scaledGroups.reduce(
+      (sum, group) => sum + Math.max(0, Math.floor(group.count || 0)),
+      0,
+    );
+    const primaryGroup = scaledGroups[0] || null;
+    scaled.enemyGroups = scaledGroups;
+    scaled.minionCount = totalMinions;
+    if (primaryGroup) {
+      scaled.hp = primaryGroup.hp;
+      scaled.speed = primaryGroup.speed;
+      scaled.reward = primaryGroup.reward;
+      scaled.color = primaryGroup.color;
+      scaled.codexId = primaryGroup.codexId;
+      scaled.label = primaryGroup.label;
+    } else {
+      if (Number.isFinite(scaled.hp)) {
+        scaled.hp *= multiplier;
+      }
+      if (Number.isFinite(scaled.speed)) {
+        scaled.speed *= speedScalar;
+      }
+      if (Number.isFinite(scaled.reward)) {
+        scaled.reward *= multiplier;
+      }
     }
     if (scaled.boss && typeof scaled.boss === 'object') {
       scaled.boss = { ...scaled.boss };
@@ -4615,6 +4735,7 @@ export class SimplePlayfield {
         scaled.boss.reward *= multiplier;
       }
     }
+    scaled.count = totalMinions + (scaled.boss ? 1 : 0);
     return scaled;
   }
 
@@ -4989,17 +5110,62 @@ export class SimplePlayfield {
       return;
     }
 
+    const groups = this.resolveWaveGroups(config);
+    const hasBoss = Boolean(config.boss && typeof config.boss === 'object');
+    const totalMinionCount = groups.reduce(
+      (sum, group) => sum + Math.max(0, Math.floor(group.count || 0)),
+      0,
+    );
+    const totalSpawnCount = totalMinionCount + (hasBoss ? 1 : 0);
+
     while (
-      this.activeWave.spawned < config.count &&
+      this.activeWave.spawned < totalSpawnCount &&
       this.waveTimer >= this.activeWave.nextSpawn
     ) {
-      // Reserve the final spawn slot for an optional boss profile.
       const spawnIndex = this.activeWave.spawned;
-      const bossConfig =
-        config.boss && config.count - spawnIndex === 1 && typeof config.boss === 'object'
-          ? config.boss
-          : null;
-      const spawnConfig = bossConfig ? { ...config, ...bossConfig } : config;
+      const spawningBoss = hasBoss && spawnIndex >= totalMinionCount;
+      let sourceConfig = null;
+
+      if (spawningBoss) {
+        sourceConfig = { ...config, ...(config.boss || {}) };
+      } else {
+        let remainingIndex = spawnIndex;
+        for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+          const group = groups[groupIndex];
+          const groupCount = Math.max(0, Math.floor(group.count || 0));
+          if (remainingIndex < groupCount) {
+            sourceConfig = group;
+            break;
+          }
+          remainingIndex -= groupCount;
+        }
+        if (!sourceConfig) {
+          // No suitable group found; treat minions as fully spawned and continue to boss if present.
+          this.activeWave.spawned = totalMinionCount;
+          continue;
+        }
+      }
+
+      const spawnConfig = {
+        ...config,
+        ...sourceConfig,
+      };
+      delete spawnConfig.enemyGroups;
+      delete spawnConfig.minionCount;
+
+      const interval = Number.isFinite(sourceConfig.interval)
+        ? sourceConfig.interval
+        : Number.isFinite(config.interval)
+          ? config.interval
+          : 1.5;
+      spawnConfig.interval = interval;
+      spawnConfig.hp = Number.isFinite(sourceConfig.hp) ? sourceConfig.hp : config.hp;
+      spawnConfig.speed = Number.isFinite(sourceConfig.speed) ? sourceConfig.speed : config.speed;
+      spawnConfig.reward = Number.isFinite(sourceConfig.reward) ? sourceConfig.reward : config.reward;
+      spawnConfig.color = sourceConfig.color || config.color;
+      spawnConfig.label = sourceConfig.label || config.label;
+      spawnConfig.codexId = sourceConfig.codexId || config.codexId || null;
+
       const pathMode = (spawnConfig.pathMode === 'direct' ? 'direct' : 'path');
       const symbol = this.resolveEnemySymbol(spawnConfig);
       const maxHp = Number.isFinite(spawnConfig.hp) ? Math.max(1, spawnConfig.hp) : 1;
@@ -5022,14 +5188,12 @@ export class SimplePlayfield {
         hpExponent,
         gemDropMultiplier,
       };
-      if (bossConfig) {
+      if (spawningBoss) {
         enemy.isBoss = true;
       }
       this.enemies.push(enemy);
       this.activeWave.spawned += 1;
-      const interval = Number.isFinite(spawnConfig.interval) ? spawnConfig.interval : config.interval;
       this.activeWave.nextSpawn += interval;
-      // Flag the stats surface so the remaining queue reflects the newly spawned enemy.
       this.scheduleStatsPanelRefresh();
       if (spawnConfig.codexId) {
         registerEnemyEncounter(spawnConfig.codexId);

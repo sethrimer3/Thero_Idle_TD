@@ -28,8 +28,8 @@ const ENEMY_ID_TO_TYPE = Object.fromEntries(
 
 /**
  * Parse compact wave string into verbose wave array.
- * Format: [WaveNumber]:[Count][EnemyType][Mantissa]e[Exponent]/[Interval]/[Delay]/[BossHP (optional)]
- * Example: "1:10A1e2/1.5|2:15B5e3/1.2/0.5|3:20C1e4/1.0/0.3/E1e5"
+ * Format: [WaveNumber]:[[Count][EnemyType][Mantissa]e[Exponent](+[...])]/[Interval]/[Delay]/[BossHP (optional)]
+ * Example: "1:10A1e2+6B5e2/1.5|2:15B5e3/1.2/0.5|3:20C1e4/1.0/0.3/E1e5"
  * @param {string} waveString - Compact wave string
  * @returns {Array} Array of wave objects
  */
@@ -68,37 +68,64 @@ function parseWaveSegment(segment) {
   if (dataParts.length === 0) return null;
 
   const waveData = dataParts.join(':');
-  
+
   // Split wave data by slash to get components
   const parts = waveData.split('/');
   if (parts.length < 2) return null;
 
   const [countAndHp, interval, delay, bossHp] = parts;
 
-  // Parse count, enemy type, and HP using scientific notation
-  // Format: [Count][EnemyType][Mantissa]e[Exponent]
-  const match = countAndHp.match(/^(\d+)([A-M])(\d+(?:\.\d+)?)e(\d+)$/i);
-  if (!match) return null;
+  const groupStrings = countAndHp.split('+').map((group) => group.trim()).filter(Boolean);
+  if (!groupStrings.length) {
+    return null;
+  }
 
-  const [, count, enemyType, mantissa, exponent] = match;
-  const enemyData = ENEMY_TYPES[enemyType.toUpperCase()];
-  if (!enemyData) return null;
+  const enemyGroups = [];
+  let totalMinionCount = 0;
 
-  const hp = parseFloat(mantissa) * Math.pow(10, parseInt(exponent, 10));
-  const reward = hp * 0.1; // 10% of HP as reward
+  groupStrings.forEach((groupStr) => {
+    const match = groupStr.match(/^(\d+)([A-M])(\d+(?:\.\d+)?)e(\d+)$/i);
+    if (!match) {
+      throw new Error(`Invalid enemy group format: ${groupStr}`);
+    }
+    const [, count, enemyType, mantissa, exponent] = match;
+    const typeKey = enemyType.toUpperCase();
+    const enemyData = ENEMY_TYPES[typeKey];
+    if (!enemyData) {
+      throw new Error(`Unknown enemy type: ${enemyType}`);
+    }
+    const parsedCount = parseInt(count, 10);
+    const hp = parseFloat(mantissa) * Math.pow(10, parseInt(exponent, 10));
+    const reward = hp * 0.1; // 10% of HP as reward
+    const normalizedSpeed = enemyData.speed / SPEED_NORMALIZATION_FACTOR;
 
-  // Convert normalized speed to game speed (0-1 range)
-  const normalizedSpeed = enemyData.speed / SPEED_NORMALIZATION_FACTOR;
+    enemyGroups.push({
+      count: parsedCount,
+      hp,
+      speed: normalizedSpeed,
+      reward,
+      color: enemyData.color,
+      codexId: enemyData.id,
+      label: enemyData.label,
+      enemyType: typeKey,
+      symbol: typeKey,
+    });
+    totalMinionCount += parsedCount;
+  });
+
+  const primaryGroup = enemyGroups[0] || {};
 
   const wave = {
-    count: parseInt(count, 10),
+    count: totalMinionCount,
     interval: parseFloat(interval),
-    hp: hp,
-    speed: normalizedSpeed,
-    reward: reward,
-    color: enemyData.color,
-    codexId: enemyData.id,
-    label: enemyData.label
+    hp: primaryGroup.hp,
+    speed: primaryGroup.speed,
+    reward: primaryGroup.reward,
+    color: primaryGroup.color,
+    codexId: primaryGroup.codexId,
+    label: primaryGroup.label,
+    enemyGroups,
+    minionCount: totalMinionCount,
   };
 
   // Add delay if specified
@@ -113,13 +140,25 @@ function parseWaveSegment(segment) {
       const [, bossMantissa, bossExponent] = bossMatch;
       const bossHpValue = parseFloat(bossMantissa) * Math.pow(10, parseInt(bossExponent, 10));
       wave.boss = {
-        label: `Boss ${enemyData.label}`,
+        label: `Boss ${primaryGroup.label || 'Enemy'}`,
         hp: bossHpValue,
-        speed: normalizedSpeed * 0.5, // Bosses move slower
+        speed: (primaryGroup.speed || 0) * 0.5, // Bosses move slower
         reward: bossHpValue * 0.15, // 15% of HP as reward
-        color: enemyData.color,
-        symbol: enemyType.toUpperCase()
+        color: primaryGroup.color,
+        symbol: primaryGroup.symbol || (primaryGroup.enemyType ? primaryGroup.enemyType : '◈'),
       };
+      if (enemyGroups.length) {
+        const lastGroup = enemyGroups[enemyGroups.length - 1];
+        const originalCount = Number.isFinite(lastGroup.count)
+          ? Math.max(0, Math.floor(lastGroup.count))
+          : 0;
+        if (originalCount > 0) {
+          lastGroup.count = originalCount - 1;
+          totalMinionCount = Math.max(0, totalMinionCount - 1);
+        }
+      }
+      wave.count = totalMinionCount + 1;
+      wave.minionCount = totalMinionCount;
     }
   }
 
@@ -152,15 +191,43 @@ export function encodeWavesToCompact(waves) {
 function encodeWave(wave, waveNumber) {
   if (!wave || typeof wave !== 'object') return '';
 
-  // Find enemy type letter from codexId
-  const enemyType = ENEMY_ID_TO_TYPE[wave.codexId];
-  if (!enemyType) return '';
+  const groups = Array.isArray(wave.enemyGroups) && wave.enemyGroups.length
+    ? wave.enemyGroups
+    : [wave];
 
-  // Convert HP to scientific notation
-  const { mantissa, exponent } = toScientificNotation(wave.hp);
-  
-  // Build wave string: [WaveNumber]:[Count][EnemyType][Mantissa]e[Exponent]/[Interval]
-  let waveStr = `${waveNumber}:${wave.count}${enemyType}${mantissa}e${exponent}/${wave.interval}`;
+  const sanitizedGroups = [];
+
+  groups.forEach((group) => {
+    const count = Math.max(0, Math.floor(group.count || 0));
+    if (!count) {
+      return;
+    }
+
+    const typeLetter = resolveEnemyTypeLetterForGroup(group, wave);
+    if (!typeLetter) {
+      return;
+    }
+
+    const hpValue = Number.isFinite(group.hp) ? group.hp : wave.hp;
+    const { mantissa, exponent } = toScientificNotation(hpValue);
+    sanitizedGroups.push({ count, typeLetter, mantissa, exponent });
+  });
+
+  if (!sanitizedGroups.length) {
+    return '';
+  }
+
+  const hasBoss = Boolean(wave.boss && wave.boss.hp);
+  const groupSegments = sanitizedGroups.map((group, index) => {
+    const isLast = index === sanitizedGroups.length - 1;
+    const adjustedCount = hasBoss && isLast ? group.count + 1 : group.count;
+    return `${adjustedCount}${group.typeLetter}${group.mantissa}e${group.exponent}`;
+  });
+
+  const intervalValue = Number.isFinite(wave.interval) ? wave.interval : 1.5;
+
+  // Build wave string: [WaveNumber]:[Groups...]/[Interval]
+  let waveStr = `${waveNumber}:${groupSegments.join('+')}/${intervalValue}`;
 
   // Add delay if present
   if ('delay' in wave && wave.delay > 0) {
@@ -181,6 +248,28 @@ function encodeWave(wave, waveNumber) {
   }
 
   return waveStr;
+}
+
+/**
+ * Resolve the compact letter identifier for a wave enemy group.
+ * @param {Object} group - Enemy group configuration
+ * @param {Object} wave - Parent wave configuration for fallback codex lookup
+ * @returns {string|null} Enemy type letter
+ */
+function resolveEnemyTypeLetterForGroup(group, wave) {
+  if (group?.enemyType && ENEMY_TYPES[group.enemyType]) {
+    return group.enemyType;
+  }
+  if (group?.symbol && ENEMY_TYPES[group.symbol]) {
+    return group.symbol;
+  }
+  if (group?.codexId && ENEMY_ID_TO_TYPE[group.codexId]) {
+    return ENEMY_ID_TO_TYPE[group.codexId];
+  }
+  if (wave?.codexId && ENEMY_ID_TO_TYPE[wave.codexId]) {
+    return ENEMY_ID_TO_TYPE[wave.codexId];
+  }
+  return null;
 }
 
 /**
@@ -324,21 +413,29 @@ export function validateWaveString(waveString) {
       return;
     }
 
-    // Validate count/enemy/hp format
-    const countHpMatch = dataParts[0].match(/^(\d+)([A-M])(\d+(?:\.\d+)?)e(\d+)$/i);
-    if (!countHpMatch) {
+    // Validate count/enemy/hp format for each group
+    const groupParts = dataParts[0].split('+').map((group) => group.trim()).filter(Boolean);
+    if (!groupParts.length) {
       result.valid = false;
-      result.errors.push(`Wave ${waveNum}: Invalid format for count/enemy/hp (expected: [Count][EnemyType][Mantissa]e[Exponent])`);
+      result.errors.push(`Wave ${waveNum}: Missing enemy groups (expected at least one [Count][EnemyType][Mantissa]e[Exponent])`);
       return;
     }
 
-    const [, count, enemyType, mantissa, exponent] = countHpMatch;
-    
-    // Validate enemy type
-    if (!ENEMY_TYPES[enemyType.toUpperCase()]) {
-      result.valid = false;
-      result.errors.push(`Wave ${waveNum}: Invalid enemy type '${enemyType}' (must be A-M)`);
-    }
+    groupParts.forEach((groupPart) => {
+      const countHpMatch = groupPart.match(/^(\d+)([A-M])(\d+(?:\.\d+)?)e(\d+)$/i);
+      if (!countHpMatch) {
+        result.valid = false;
+        result.errors.push(`Wave ${waveNum}: Invalid group format '${groupPart}' (expected: [Count][EnemyType][Mantissa]e[Exponent])`);
+        return;
+      }
+
+      const [, , enemyType] = countHpMatch;
+
+      if (!ENEMY_TYPES[enemyType.toUpperCase()]) {
+        result.valid = false;
+        result.errors.push(`Wave ${waveNum}: Invalid enemy type '${enemyType}' (must be A-M)`);
+      }
+    });
 
     // Validate interval
     const interval = parseFloat(dataParts[1]);

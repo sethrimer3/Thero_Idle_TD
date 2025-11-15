@@ -56,6 +56,10 @@ export function cloneWaveArray(array) {
       hp: Number.isFinite(wave.hp) ? wave.hp : 0,
       speed: Number.isFinite(wave.speed) ? wave.speed : 0,
       reward: Number.isFinite(wave.reward) ? wave.reward : 0,
+      minionCount: Number.isFinite(wave.minionCount) ? wave.minionCount : undefined,
+      enemyGroups: Array.isArray(wave.enemyGroups)
+        ? wave.enemyGroups.map((group) => ({ ...group }))
+        : undefined,
     };
   });
 }
