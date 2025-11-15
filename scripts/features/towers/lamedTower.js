@@ -8,7 +8,7 @@
  * - Drag system with upgradable k parameter
  * - Accretion disk visual effects with dust particles
  * - Trajectory trails colored by velocity
- * - Dynamic quasar beams and geyser particle bursts on high-mass absorptions
+ * - Diamond lens flare and geyser particle bursts on high-mass absorptions
  * - Statistics tracking (mass inflow, absorptions)
  */
 
@@ -108,18 +108,15 @@ export class GravitySimulation {
     this.geyserParticles = []; // Geyser bursts triggered by high-tier absorptions
     this.visualEffectSettings = {
       /**
-       * Tunable parameters for the quasar beam effect so designers can tweak behavior without editing logic.
+       * Lens-flare inspired diamond that subtly protrudes above and below the sun.
        */
-      quasar: {
-        baseWidth: typeof options.quasarBaseWidth === 'number' ? options.quasarBaseWidth : 14,
-        baseAlpha: typeof options.quasarBaseAlpha === 'number' ? options.quasarBaseAlpha : 0.7,
-        pulseSpeed: typeof options.quasarPulseSpeed === 'number' ? options.quasarPulseSpeed : 1.6,
-        flickerSpeed: typeof options.quasarFlickerSpeed === 'number' ? options.quasarFlickerSpeed : 2.4,
-        jitterAmount: typeof options.quasarJitterAmount === 'number' ? options.quasarJitterAmount : 0.08,
-        jitterSpeed: typeof options.quasarJitterSpeed === 'number' ? options.quasarJitterSpeed : 0.6,
-        minLength: typeof options.quasarMinLength === 'number' ? options.quasarMinLength : 80,
-        maxLength: typeof options.quasarMaxLength === 'number' ? options.quasarMaxLength : 260,
-        massForFullLength: typeof options.quasarMassForFullLength === 'number' ? options.quasarMassForFullLength : 15000,
+      diamondFlare: {
+        baseAlpha: typeof options.diamondBaseAlpha === 'number' ? options.diamondBaseAlpha : 0.28,
+        flickerSpeed: typeof options.diamondFlickerSpeed === 'number' ? options.diamondFlickerSpeed : 1.7,
+        flickerAmount: typeof options.diamondFlickerAmount === 'number' ? options.diamondFlickerAmount : 0.35,
+        verticalScale: typeof options.diamondVerticalScale === 'number' ? options.diamondVerticalScale : 1.4,
+        horizontalScale: typeof options.diamondHorizontalScale === 'number' ? options.diamondHorizontalScale : 0.45,
+        offsetScale: typeof options.diamondOffsetScale === 'number' ? options.diamondOffsetScale : 0.18,
       },
       /**
        * Particle system controls for the geyser burst effect.
@@ -137,7 +134,7 @@ export class GravitySimulation {
         flashFraction: typeof options.geyserFlashFraction === 'number' ? options.geyserFlashFraction : 0.1,
       },
     };
-    this.quasarState = { time: 0, angleSeed: Math.random() };
+    this.diamondFlareState = { time: 0 };
 
     // Track the spring-based bounce so the sun can wobble outward when it absorbs a star.
     this.sunBounce = { offset: 0, velocity: 0 };
@@ -182,8 +179,7 @@ export class GravitySimulation {
 
     // Deterministic RNG
     this.rng = new SeededRandom(options.seed || Date.now());
-    this.quasarNoiseSeed = this.rng.next(); // Keep quasar flicker deterministic per simulation instance.
-    this.quasarState.angleSeed = this.rng.next();
+    this.diamondNoiseSeed = this.rng.next(); // Keep lens flare flicker deterministic per simulation instance.
 
     // Build tiled noise fields so animated sampling can avoid regenerating noise each frame.
     this.surfaceNoise = {
@@ -464,18 +460,18 @@ export class GravitySimulation {
   }
 
   /**
-   * Lightweight 1D noise based on sine hashing so beam flicker stays organic without extra dependencies.
+   * Lightweight 1D noise based on sine hashing so the lens flare shimmer feels organic.
    * @param {number} time - Sample time in seconds
    * @param {number} seedOffset - Offset so multiple channels can be sampled independently
    * @returns {number} Noise value in the 0-1 range
    */
-  sampleQuasarNoise(time, seedOffset = 0) {
-    const base = time + seedOffset + this.quasarNoiseSeed;
+  sampleDiamondNoise(time, seedOffset = 0) {
+    const base = time + seedOffset + this.diamondNoiseSeed;
     const integerPart = Math.floor(base);
     const fractional = base - integerPart;
 
     const hash = (n) => {
-      const x = Math.sin((n + this.quasarNoiseSeed) * 43758.5453);
+      const x = Math.sin((n + this.diamondNoiseSeed) * 43758.5453);
       return x - Math.floor(x);
     };
 
@@ -1287,8 +1283,8 @@ export class GravitySimulation {
     // Update geyser particles for high-tier absorptions.
     this.updateGeyserParticles(dt);
 
-    // Advance quasar beam animation clock.
-    this.quasarState.time += dt;
+    // Advance the lens flare animation clock so the diamond shimmer can flicker over time.
+    this.diamondFlareState.time += dt;
 
     // Advance the spring that powers the sun bounce so render() can apply the new scale.
     this.updateSunBounce(dt);
@@ -1298,68 +1294,56 @@ export class GravitySimulation {
   }
 
   /**
-   * Render additive quasar beams aligned to the vertical axis of the sun.
+   * Render a faint diamond-shaped lens flare behind the stellar core.
    * @param {CanvasRenderingContext2D} ctx - Drawing context
    * @param {number} centerX - Sun center X in CSS pixels
    * @param {number} centerY - Sun center Y in CSS pixels
    * @param {number} coreRadius - Radius of the rendered core in CSS pixels
    * @param {{r:number,g:number,b:number}} tierColor - Current tier tint
    */
-  renderQuasarBeams(ctx, centerX, centerY, coreRadius, tierColor) {
-    const settings = this.visualEffectSettings.quasar;
-    const t = this.quasarState.time;
-    const pulsePhase = t * settings.pulseSpeed + this.quasarState.angleSeed * Math.PI * 2;
-    const width = settings.baseWidth * (1 + 0.2 * Math.sin(pulsePhase));
+  renderDiamondFlare(ctx, centerX, centerY, coreRadius, tierColor) {
+    const settings = this.visualEffectSettings.diamondFlare;
+    const t = this.diamondFlareState.time;
 
-    const flicker = this.sampleQuasarNoise(t * settings.flickerSpeed, 0.37);
-    const alpha = settings.baseAlpha * (0.5 + 0.5 * flicker);
+    const flicker = this.sampleDiamondNoise(t * settings.flickerSpeed, 0.37);
+    const flickerDelta = (flicker - 0.5) * 2 * settings.flickerAmount;
+    const alpha = GravitySimulation.clamp(settings.baseAlpha * (1 + flickerDelta), 0, 1);
+    if (alpha <= 0.001) {
+      return;
+    }
 
-    const lengthProgress = GravitySimulation.clamp(this.starMass / settings.massForFullLength, 0, 1);
-    const beamLength = GravitySimulation.lerp(settings.minLength, settings.maxLength, lengthProgress);
-
-    const jitter = (this.sampleQuasarNoise(t * settings.jitterSpeed, 1.7) - 0.5) * 2 * settings.jitterAmount;
-
-    const topGradient = ctx.createLinearGradient(0, 0, 0, -beamLength);
-    topGradient.addColorStop(0, `rgba(255, 255, 230, ${alpha})`);
-    topGradient.addColorStop(0.35, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${alpha * 0.85})`);
-    topGradient.addColorStop(1, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, 0)`);
-
-    const bottomGradient = ctx.createLinearGradient(0, 0, 0, beamLength);
-    bottomGradient.addColorStop(0, `rgba(255, 255, 230, ${alpha})`);
-    bottomGradient.addColorStop(0.35, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${alpha * 0.85})`);
-    bottomGradient.addColorStop(1, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, 0)`);
+    const sizeFlicker = 1 + (this.sampleDiamondNoise(t * settings.flickerSpeed, 1.12) - 0.5) * 0.1;
+    const verticalRadius = coreRadius * settings.verticalScale * sizeFlicker;
+    const horizontalRadius = coreRadius * settings.horizontalScale * sizeFlicker;
+    const offset = coreRadius * settings.offsetScale;
 
     ctx.save();
     ctx.translate(centerX, centerY);
     ctx.globalCompositeOperation = 'lighter';
-    ctx.shadowBlur = Math.max(6, width * 0.8);
-    ctx.shadowColor = `rgba(255, 255, 200, ${alpha})`;
 
-    const drawBeam = (gradient, direction) => {
-      ctx.save();
-      ctx.rotate(jitter * direction);
-      ctx.beginPath();
-      const tipWidth = width * 0.3;
-      ctx.moveTo(-width / 2, 0);
-      ctx.lineTo(width / 2, 0);
-      ctx.lineTo(tipWidth, direction * (beamLength + coreRadius * 0.2));
-      ctx.lineTo(-tipWidth, direction * (beamLength + coreRadius * 0.2));
-      ctx.closePath();
-      ctx.fillStyle = gradient;
-      ctx.fill();
+    const gradient = ctx.createLinearGradient(0, -verticalRadius - offset, 0, verticalRadius + offset);
+    gradient.addColorStop(0, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${alpha * 0.25})`);
+    gradient.addColorStop(0.5, `rgba(255, 255, 255, ${alpha})`);
+    gradient.addColorStop(1, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${alpha * 0.25})`);
 
-      // Inner filament for a bright spine down the center.
-      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.9})`;
-      ctx.lineWidth = width * 0.2;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(0, direction * (beamLength + coreRadius * 0.2));
-      ctx.stroke();
-      ctx.restore();
-    };
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.moveTo(0, -verticalRadius - offset);
+    ctx.lineTo(horizontalRadius, 0);
+    ctx.lineTo(0, verticalRadius + offset);
+    ctx.lineTo(-horizontalRadius, 0);
+    ctx.closePath();
+    ctx.fill();
 
-    drawBeam(topGradient, -1);
-    drawBeam(bottomGradient, 1);
+    ctx.lineWidth = Math.max(0.75, coreRadius * 0.03);
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.3})`;
+    ctx.beginPath();
+    ctx.moveTo(0, -verticalRadius - offset);
+    ctx.lineTo(horizontalRadius, 0);
+    ctx.lineTo(0, verticalRadius + offset);
+    ctx.lineTo(-horizontalRadius, 0);
+    ctx.closePath();
+    ctx.stroke();
 
     ctx.restore();
   }
@@ -1496,7 +1480,10 @@ export class GravitySimulation {
       ctx.stroke();
       ctx.setLineDash([]);
     }
-    
+
+    // Lay down the faint diamond flare before the glow so the core renders above it.
+    this.renderDiamondFlare(ctx, centerXScaled, centerYScaled, coreRadius, tierColor);
+
     // Draw glow effect with tier-based luminosity
     const glowRadius = starVisualRadius * (1.8 + baseGlowIntensity) * glowProgressScale * pulseScale;
     const gradient = ctx.createRadialGradient(
@@ -1552,9 +1539,6 @@ export class GravitySimulation {
 
     // Apply a lightweight heat shimmer so the star subtly distorts nearby space.
     this.renderHeatDistortion(ctx, centerXScaled, centerYScaled, coreRadius, tierColor);
-
-    // Layer the new quasar beams directly after the star rendering.
-    this.renderQuasarBeams(ctx, centerXScaled, centerYScaled, coreRadius, tierColor);
     
     // Draw dust particles (accretion disk) with color palette gradient
     for (const dust of this.dustParticles) {
