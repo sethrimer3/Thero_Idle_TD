@@ -5485,6 +5485,31 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: rgba(255, 255, 255, 0.68);
 }
 
+.overlay-confirm {
+  /* Provide a visible call-to-action so desktop clicks reliably enter the level. */
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(135deg, rgba(44, 60, 120, 0.82), rgba(76, 44, 110, 0.82));
+  color: rgba(255, 255, 255, 0.92);
+  padding: 12px 28px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.overlay-confirm:hover,
+.overlay-confirm:focus {
+  background: linear-gradient(135deg, rgba(66, 90, 160, 0.92), rgba(104, 60, 148, 0.9));
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.overlay-confirm:active {
+  transform: translateY(1px);
+}
+
 .overlay-preview__canvas--editing {
   cursor: crosshair;
 }
