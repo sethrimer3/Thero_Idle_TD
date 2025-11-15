@@ -58,8 +58,10 @@ class BranchSegment {
     this.parentId = parentId; // ID of parent segment
     this.endX = x + Math.cos(angle) * length;
     this.endY = y + Math.sin(angle) * length;
-    this.hasGrown = false; // Whether this segment has been rendered
-    this.age = 0; // Frames since this segment was grown
+    this.hasGrown = false; // Whether this segment has fully grown
+    this.isGrowing = false; // Whether the segment tip is currently extending
+    this.growthProgress = 0; // 0 to 1 progress for animated growth
+    this.age = 0; // Frames since this segment finished growing
     this.bezierOffset = bezierOffset; // Cached Bézier control point offset for consistent rendering
   }
 }
@@ -89,6 +91,7 @@ export class FractalTreeSimulation {
     this.angleJitterDeg = this.clamp(options.angleJitterDeg || 3, 0, 6);
     this.gravityBend = this.clamp(options.gravityBend || 0.08, 0, 0.25);
     this.growthRate = this.clamp(options.growthRate || 3, 1, 20);
+    this.growthAnimationSpeed = this.clamp(options.growthAnimationSpeed || 0.08, 0.01, 0.6);
 
     // Rendering style
     this.renderStyle = options.renderStyle || 'bezier'; // 'straight' or 'bezier'
@@ -198,36 +201,50 @@ export class FractalTreeSimulation {
    * Updates the simulation by growing segments from the queue.
    */
   update() {
-    // Age all segments for animation purposes
+    let activeGrowth = false;
+
+    // Animate growth progress and age fully grown segments.
     for (const segment of this.segments) {
-      segment.age++;
+      if (segment.isGrowing && segment.growthProgress < 1) {
+        segment.growthProgress = Math.min(1, segment.growthProgress + this.growthAnimationSpeed);
+        if (segment.growthProgress < 1) {
+          activeGrowth = true;
+        } else if (!segment.hasGrown) {
+          // Segment finished growing; allow children to spawn on the next frame.
+          segment.hasGrown = true;
+          segment.isGrowing = false;
+          segment.age = 0;
+
+          if (segment.depth < this.maxDepth) {
+            this.spawnChildren(segment);
+          }
+        }
+      }
+
+      if (segment.hasGrown) {
+        segment.age++;
+      }
     }
 
-    // Check if we've reached the target segment count or completed growth
-    if (this.segmentsGrown >= this.targetSegments || this.growthQueue.length === 0) {
-      if (this.growthQueue.length === 0) {
-        this.isComplete = true;
-      }
+    if (this.segmentsGrown >= this.targetSegments) {
+      this.isComplete = this.growthQueue.length === 0 && !activeGrowth;
       return;
     }
 
     // Grow segments up to the target based on allocated resources
     const remaining = this.targetSegments - this.segmentsGrown;
     const segmentsToGrow = Math.min(this.growthRate, this.growthQueue.length, remaining);
-    
+
     for (let i = 0; i < segmentsToGrow; i++) {
-      const parent = this.growthQueue.shift();
-      parent.hasGrown = true;
+      const segment = this.growthQueue.shift();
+      segment.isGrowing = true;
+      segment.growthProgress = 0;
+      segment.age = 0;
       this.segmentsGrown++;
-
-      // Stop growing if we've reached max depth
-      if (parent.depth >= this.maxDepth) {
-        continue;
-      }
-
-      // Generate child segments
-      this.spawnChildren(parent);
+      activeGrowth = true;
     }
+
+    this.isComplete = this.growthQueue.length === 0 && !activeGrowth;
   }
 
   /**
@@ -296,7 +313,8 @@ export class FractalTreeSimulation {
 
     // Draw all grown segments
     for (const segment of this.segments) {
-      if (!segment.hasGrown) continue;
+      const progress = segment.hasGrown ? 1 : segment.growthProgress;
+      if (progress <= 0) continue;
 
       // Calculate color based on depth
       const depthFactor = segment.depth / this.maxDepth;
@@ -304,14 +322,21 @@ export class FractalTreeSimulation {
 
       // Draw segment
       if (this.renderStyle === 'bezier') {
-        this.drawBezierSegment(segment, color);
+        this.drawBezierSegment(segment, color, progress);
       } else {
-        this.drawStraightSegment(segment, color);
+        this.drawStraightSegment(segment, color, progress);
       }
 
+      const tipX = segment.x + (segment.endX - segment.x) * progress;
+      const tipY = segment.y + (segment.endY - segment.y) * progress;
+
       // Draw halo effect for recently grown segments
-      if (segment.age < this.haloFrames) {
-        this.drawHalo(segment.endX, segment.endY, segment.width, segment.age);
+      if (segment.hasGrown && segment.age < this.haloFrames) {
+        this.drawHalo(tipX, tipY, segment.width, segment.age);
+      } else if (segment.isGrowing && progress < 1) {
+        // Keep the growth tip glowing while the branch extends.
+        const glowAge = Math.round((1 - progress) * this.haloFrames * 0.5);
+        this.drawHalo(tipX, tipY, segment.width, glowAge);
       }
 
       // Draw leaf at terminal nodes if enabled
@@ -327,16 +352,20 @@ export class FractalTreeSimulation {
   /**
    * Draws a straight segment with tapered width.
    */
-  drawStraightSegment(segment, color) {
+  drawStraightSegment(segment, color, progress = 1) {
     this.ctx.strokeStyle = color;
     this.ctx.lineWidth = segment.width;
     this.ctx.lineCap = 'round';
     this.ctx.lineJoin = 'round';
     this.ctx.globalAlpha = 0.9;
 
+    const clamped = this.clamp(progress, 0, 1);
+    const endX = segment.x + (segment.endX - segment.x) * clamped;
+    const endY = segment.y + (segment.endY - segment.y) * clamped;
+
     this.ctx.beginPath();
     this.ctx.moveTo(segment.x, segment.y);
-    this.ctx.lineTo(segment.endX, segment.endY);
+    this.ctx.lineTo(endX, endY);
     this.ctx.stroke();
 
     this.ctx.globalAlpha = 1.0;
@@ -345,7 +374,7 @@ export class FractalTreeSimulation {
   /**
    * Draws a segment with a subtle Bézier curve for natural appearance.
    */
-  drawBezierSegment(segment, color) {
+  drawBezierSegment(segment, color, progress = 1) {
     this.ctx.strokeStyle = color;
     this.ctx.lineWidth = segment.width;
     this.ctx.lineCap = 'round';
@@ -355,16 +384,38 @@ export class FractalTreeSimulation {
     // Calculate control point with slight perpendicular offset using cached values
     const midX = (segment.x + segment.endX) / 2;
     const midY = (segment.y + segment.endY) / 2;
-    
+
     // Perpendicular offset for curve (10% of length) using cached bezierOffset
     const perpAngle = segment.angle + Math.PI / 2;
     const offsetMag = segment.length * 0.1;
     const controlX = midX + Math.cos(perpAngle) * offsetMag * segment.bezierOffset.x;
     const controlY = midY + Math.sin(perpAngle) * offsetMag * segment.bezierOffset.y;
 
-    this.ctx.beginPath();
-    this.ctx.moveTo(segment.x, segment.y);
-    this.ctx.quadraticCurveTo(controlX, controlY, segment.endX, segment.endY);
+    const clamped = this.clamp(progress, 0, 1);
+    if (clamped < 1) {
+      // Use De Casteljau's algorithm to draw a partial quadratic Bézier segment.
+      const p0x = segment.x;
+      const p0y = segment.y;
+      const p1x = controlX;
+      const p1y = controlY;
+      const p2x = segment.endX;
+      const p2y = segment.endY;
+
+      const q0x = p0x + (p1x - p0x) * clamped;
+      const q0y = p0y + (p1y - p0y) * clamped;
+      const q1x = p1x + (p2x - p1x) * clamped;
+      const q1y = p1y + (p2y - p1y) * clamped;
+      const rx = q0x + (q1x - q0x) * clamped;
+      const ry = q0y + (q1y - q0y) * clamped;
+
+      this.ctx.beginPath();
+      this.ctx.moveTo(p0x, p0y);
+      this.ctx.quadraticCurveTo(q0x, q0y, rx, ry);
+    } else {
+      this.ctx.beginPath();
+      this.ctx.moveTo(segment.x, segment.y);
+      this.ctx.quadraticCurveTo(controlX, controlY, segment.endX, segment.endY);
+    }
     this.ctx.stroke();
 
     this.ctx.globalAlpha = 1.0;

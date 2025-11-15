@@ -32,6 +32,14 @@ export class BrownianTreeSimulation {
     // forest fills the canvas with thousands of glowing nodes.
     this.grid = new Map();
 
+    // Animated connection data so new filaments draw outward smoothly from the trunk.
+    this.connections = [];
+    this.connectionSet = new Set();
+    this.connectionGrowthSpeed = options.connectionGrowthSpeed || 0.12;
+    this.connectionSearchRadius = options.connectionSearchRadius || 32;
+    this.maxConnectionNeighbors = options.maxConnectionNeighbors || 3;
+    this.pointFlashDuration = options.pointFlashDuration || 18;
+
     // Maintain an offscreen canvas so tone-mapped light can follow pan and zoom interactions.
     this.offscreenCanvas = null;
     this.offscreenCtx = null;
@@ -46,7 +54,8 @@ export class BrownianTreeSimulation {
   addParticle(x, y) {
     // Remember the index before pushing so spatial buckets can reference it directly.
     const pointIndex = this.cluster.length;
-    this.cluster.push({ x, y });
+    const point = { x, y, flashAge: 0 };
+    this.cluster.push(point);
     const ix = Math.round(x / this.cellSize);
     const iy = Math.round(y / this.cellSize);
     const cellKey = this.gridKey(ix, iy);
@@ -62,6 +71,8 @@ export class BrownianTreeSimulation {
     if (px >= 0 && px < this.width && py >= 0 && py < this.height) {
       this.accumulator[py * this.width + px] += 1;
     }
+
+    this.registerConnectionsForPoint(pointIndex);
   }
 
   nearCluster(x, y) {
@@ -87,7 +98,7 @@ export class BrownianTreeSimulation {
    * @param {number} maxNeighbors - Hard limit on how many neighbors to connect.
    * @returns {Array<{ index: number, distance: number }>} Sorted neighbor data.
    */
-  gatherNeighbors(pointIndex, searchRadius, maxNeighbors) {
+  gatherNeighbors(pointIndex, searchRadius, maxNeighbors, includeLowerIndices = false) {
     const point = this.cluster[pointIndex];
     if (!point) {
       return [];
@@ -105,8 +116,11 @@ export class BrownianTreeSimulation {
           continue;
         }
         for (const neighborIndex of bucket) {
-          if (neighborIndex <= pointIndex) {
+          if (!includeLowerIndices && neighborIndex <= pointIndex) {
             // Skip duplicates and the point itself; we'll draw each edge once.
+            continue;
+          }
+          if (includeLowerIndices && neighborIndex === pointIndex) {
             continue;
           }
           const neighbor = this.cluster[neighborIndex];
@@ -177,6 +191,21 @@ export class BrownianTreeSimulation {
         break;
       }
     }
+
+    // Animate newly added connections so filaments extend over several frames.
+    for (const connection of this.connections) {
+      if (connection.progress < 1) {
+        connection.progress = Math.min(1, connection.progress + this.connectionGrowthSpeed);
+      }
+      connection.age = (connection.age || 0) + 1;
+    }
+
+    // Age the sparkle halo around freshly attached particles.
+    for (const point of this.cluster) {
+      if (point && point.flashAge < this.pointFlashDuration) {
+        point.flashAge++;
+      }
+    }
   }
 
   render() {
@@ -203,46 +232,74 @@ export class BrownianTreeSimulation {
       this.ctx.drawImage(this.offscreenCanvas, 0, 0);
     }
 
-    // Use a moderate radius and connection cap to keep the crystalline lattice airy.
-    const searchRadius = 32;
-    const maxNeighbors = 3;
     this.ctx.lineWidth = 1.2;
     this.ctx.shadowBlur = 14;
     this.ctx.shadowColor = 'rgba(120, 220, 255, 0.6)';
 
-    for (let i = 0; i < this.cluster.length; i++) {
-      const point = this.cluster[i];
-      const px = this.centerX + point.x;
-      const py = this.centerY - point.y;
-      const neighbors = this.gatherNeighbors(i, searchRadius, maxNeighbors);
+    for (const connection of this.connections) {
+      const source = this.cluster[connection.source];
+      const target = this.cluster[connection.target];
+      if (!source || !target) {
+        continue;
+      }
 
-      for (const { index: neighborIndex, distance } of neighbors) {
-        const neighbor = this.cluster[neighborIndex];
-        if (!neighbor) {
-          continue;
-        }
+      const startX = this.centerX + source.x;
+      const startY = this.centerY - source.y;
+      const endX = this.centerX + target.x;
+      const endY = this.centerY - target.y;
+      const progress = Math.max(0, Math.min(1, connection.progress));
+      if (progress <= 0) {
+        continue;
+      }
 
-        const ox = this.centerX + neighbor.x;
-        const oy = this.centerY - neighbor.y;
-        const intensity = 1 - Math.min(distance / searchRadius, 1);
+      const tipX = startX + (endX - startX) * progress;
+      const tipY = startY + (endY - startY) * progress;
+      const intensity = connection.intensity;
 
-        // Blend a cool cyan gradient so the branches pulse outward from the trunk.
-        const gradient = this.ctx.createLinearGradient(px, py, ox, oy);
-        const brightColor = `rgba(180, 255, 255, ${0.55 * intensity})`;
-        const dimColor = `rgba(90, 190, 255, ${0.25 * intensity})`;
-        gradient.addColorStop(0, brightColor);
-        gradient.addColorStop(0.5, dimColor);
-        gradient.addColorStop(1, brightColor);
+      const gradient = this.ctx.createLinearGradient(startX, startY, tipX, tipY);
+      const brightColor = `rgba(180, 255, 255, ${0.55 * intensity})`;
+      const dimColor = `rgba(90, 190, 255, ${0.25 * intensity})`;
+      gradient.addColorStop(0, brightColor);
+      gradient.addColorStop(0.5, dimColor);
+      gradient.addColorStop(1, brightColor);
 
-        this.ctx.strokeStyle = gradient;
+      this.ctx.strokeStyle = gradient;
+      this.ctx.beginPath();
+      this.ctx.moveTo(startX, startY);
+      this.ctx.lineTo(tipX, tipY);
+      this.ctx.stroke();
+
+      if (progress < 1) {
+        const glowAlpha = 0.45 + 0.35 * (1 - progress);
+        const glowRadius = 3 + intensity * 3;
+        this.ctx.globalAlpha = glowAlpha;
+        this.ctx.fillStyle = 'rgba(220, 255, 255, 1)';
         this.ctx.beginPath();
-        this.ctx.moveTo(px, py);
-        this.ctx.lineTo(ox, oy);
-        this.ctx.stroke();
+        this.ctx.arc(tipX, tipY, glowRadius, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.globalAlpha = 1;
       }
     }
 
     this.ctx.shadowBlur = 0;
+
+    for (const point of this.cluster) {
+      if (!point || point.flashAge >= this.pointFlashDuration) {
+        continue;
+      }
+      const ageFactor = 1 - point.flashAge / this.pointFlashDuration;
+      const px = this.centerX + point.x;
+      const py = this.centerY - point.y;
+      const radius = 2.5 + ageFactor * 3.5;
+      const alpha = 0.5 * ageFactor;
+      this.ctx.globalAlpha = alpha;
+      this.ctx.fillStyle = 'rgba(225, 255, 255, 1)';
+      this.ctx.beginPath();
+      this.ctx.arc(px, py, radius, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.globalAlpha = 1;
+    }
+
     this.restorePanZoomTransform();
   }
 
@@ -273,6 +330,8 @@ export class BrownianTreeSimulation {
       this.accumulator.fill(0);
     }
     this.cluster = [];
+    this.connections = [];
+    this.connectionSet = new Set();
     this.grid = new Map();
     if (this.width > 0 && this.height > 0) {
       this.addParticle(0, 0);
@@ -297,10 +356,45 @@ export class BrownianTreeSimulation {
     this.accumulator = new Float32Array(size);
     this.grid = new Map();
     this.cluster = [];
+    this.connections = [];
+    this.connectionSet = new Set();
     if (this.width > 0 && this.height > 0) {
       this.addParticle(0, 0);
     }
     this.createOffscreenSurface(this.width, this.height);
+  }
+
+  /**
+   * Register smooth connection animations for a freshly attached particle.
+   *
+   * @param {number} pointIndex - Index of the particle that was just added.
+   */
+  registerConnectionsForPoint(pointIndex) {
+    const neighbors = this.gatherNeighbors(
+      pointIndex,
+      this.connectionSearchRadius,
+      this.maxConnectionNeighbors,
+      true
+    );
+
+    for (const { index: neighborIndex, distance } of neighbors) {
+      const keyA = Math.min(pointIndex, neighborIndex);
+      const keyB = Math.max(pointIndex, neighborIndex);
+      const key = `${keyA}-${keyB}`;
+      if (this.connectionSet.has(key)) {
+        continue;
+      }
+      this.connectionSet.add(key);
+
+      const intensity = 1 - Math.min(distance / this.connectionSearchRadius, 1);
+      this.connections.push({
+        source: neighborIndex,
+        target: pointIndex,
+        progress: 0,
+        intensity,
+        age: 0
+      });
+    }
   }
 
   /**
