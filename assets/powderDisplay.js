@@ -552,7 +552,8 @@ export function createPowderDisplaySystem({
     const shinRate = shinUnlocked && typeof getIterationRate === 'function' ? getIterationRate() : 0;
     const shinTotal = shinUnlocked ? seconds * shinRate : 0;
 
-    const kufUnlocked = true;
+    // Mirror the live Kuf unlock flag so the idle summary hides the panel until the spire is available.
+    const kufUnlocked = Boolean(spireResourceState.kuf?.unlocked);
     const kufTotal = 0;
 
     summary.minutes = minutes;

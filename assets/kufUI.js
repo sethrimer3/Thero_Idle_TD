@@ -509,6 +509,14 @@ function handleStateChange(event) {
     updateUpgradeDisplay();
     updateCodexDisplay();
   }
+  if (event.type === 'allocation') {
+    // Refresh the ledger whenever shard allocations shift via external state updates.
+    renderLedger();
+  }
+  if (event.type === 'totalShards') {
+    // Developer overrides of the shard budget should immediately update ledger totals.
+    renderLedger();
+  }
   if (event.type === 'result') {
     renderLedger();
   }
