@@ -108,6 +108,66 @@ export class GravitySimulation {
 
     // Track the spring-based bounce so the sun can wobble outward when it absorbs a star.
     this.sunBounce = { offset: 0, velocity: 0 };
+
+    // Visual tuning controls for the sun surface so designers can fine-tune turbulence behaviour.
+    this.sunSurfaceSettings = {
+      sunspotThreshold: typeof options.sunspotThreshold === 'number' ? options.sunspotThreshold : 0.45,
+      noiseScalePrimary: typeof options.noiseScalePrimary === 'number' ? options.noiseScalePrimary : 2.5,
+      noiseScaleSecondary: typeof options.noiseScaleSecondary === 'number' ? options.noiseScaleSecondary : 6,
+      spotDarkness: typeof options.spotDarkness === 'number' ? options.spotDarkness : 0.55,
+      surfaceWarpStrength: typeof options.surfaceWarpStrength === 'number' ? options.surfaceWarpStrength : 0.04,
+      coronaIntensity: typeof options.coronaIntensity === 'number' ? options.coronaIntensity : 0.65,
+      coronaWobbleSpeed: typeof options.coronaWobbleSpeed === 'number' ? options.coronaWobbleSpeed : 0.08,
+      animationSpeedMain: typeof options.animationSpeedMain === 'number' ? options.animationSpeedMain : 0.015,
+      animationSpeedSecondary: typeof options.animationSpeedSecondary === 'number' ? options.animationSpeedSecondary : 0.01,
+      heatDistortionStrength: typeof options.heatDistortionStrength === 'number'
+        ? options.heatDistortionStrength
+        : typeof options.surfaceWarpStrength === 'number'
+          ? options.surfaceWarpStrength * 0.5
+          : 0.02,
+      coreInnerColor: options.coreInnerColor || '#fff7d6',
+      coreOuterColor: options.coreOuterColor || '#ff7b32',
+      coreFalloff: typeof options.coreFalloff === 'number' ? options.coreFalloff : 1.2,
+    };
+
+    // Precompute canvases for the sun surface so the render loop only blits textures.
+    this.surfaceTextureSize = 192;
+    if (typeof document !== 'undefined') {
+      this.surfaceCanvas = document.createElement('canvas');
+      this.surfaceCanvas.width = this.surfaceTextureSize;
+      this.surfaceCanvas.height = this.surfaceTextureSize;
+      this.surfaceCtx = this.surfaceCanvas.getContext('2d', { willReadFrequently: true });
+      this.surfaceImageData = this.surfaceCtx?.createImageData(this.surfaceTextureSize, this.surfaceTextureSize) || null;
+    } else {
+      this.surfaceCanvas = null;
+      this.surfaceCtx = null;
+      this.surfaceImageData = null;
+    }
+
+    // Deterministic RNG
+    this.rng = new SeededRandom(options.seed || Date.now());
+
+    // Build tiled noise fields so animated sampling can avoid regenerating noise each frame.
+    this.surfaceNoise = {
+      primary: this.generateValueNoiseTexture(this.surfaceTextureSize, 32),
+      secondary: this.generateValueNoiseTexture(this.surfaceTextureSize, 24),
+      corona: this.generateValueNoiseTexture(this.surfaceTextureSize, 48),
+      distortion: this.generateValueNoiseTexture(this.surfaceTextureSize, 40),
+    };
+
+    // Track UV offsets for animated noise layers so we only adjust sampling coordinates over time.
+    this.surfaceAnimationState = {
+      primaryOffsetX: 0,
+      primaryOffsetY: 0,
+      secondaryOffsetX: 0,
+      secondaryOffsetY: 0,
+      coronaOffset: 0,
+      distortionOffset: 0,
+      time: 0,
+    };
+
+    // Flag to rebuild the cached surface texture whenever animation advances.
+    this.surfaceTextureDirty = true;
     
     // Statistics tracking
     this.stats = {
@@ -126,9 +186,6 @@ export class GravitySimulation {
     this.lastFrame = 0;
     this.loopHandle = null;
     this.elapsedTime = 0;
-    
-    // Deterministic RNG
-    this.rng = new SeededRandom(options.seed || Date.now());
 
     // Shooting star events bring bonus mass into the simulation at long intervals.
     this.shootingStars = [];
@@ -240,6 +297,319 @@ export class GravitySimulation {
 
     // Kick the velocity forward so the spring actually oscillates instead of easing silently.
     this.sunBounce.velocity += clampedIncrease * 6;
+  }
+
+  /**
+   * Convert a CSS hex color into RGB components so shader-like math stays numeric.
+   * @param {string} hex - Hexadecimal color string (#rrggbb)
+   * @returns {{r:number,g:number,b:number}} Parsed color components
+   */
+  static parseHexColor(hex) {
+    const normalized = hex.startsWith('#') ? hex.slice(1) : hex;
+    const value = normalized.padEnd(6, 'f');
+    return {
+      r: parseInt(value.slice(0, 2), 16),
+      g: parseInt(value.slice(2, 4), 16),
+      b: parseInt(value.slice(4, 6), 16),
+    };
+  }
+
+  /**
+   * Generate seamless value noise so surface sampling can animate without flicker.
+   * @param {number} size - Resolution of the texture square
+   * @param {number} cellSize - Size of the interpolation cell controlling frequency
+   * @returns {{size:number,data:Float32Array}} Value noise texture data
+   */
+  generateValueNoiseTexture(size, cellSize) {
+    const gridSize = Math.max(1, Math.floor(size / cellSize));
+    const grid = new Array((gridSize + 1) * (gridSize + 1));
+
+    // Populate grid points with deterministic random values for smooth interpolation.
+    for (let y = 0; y <= gridSize; y++) {
+      for (let x = 0; x <= gridSize; x++) {
+        grid[y * (gridSize + 1) + x] = this.rng.next();
+      }
+    }
+
+    const data = new Float32Array(size * size);
+
+    // Bilinearly interpolate between grid values to create soft value noise.
+    for (let y = 0; y < size; y++) {
+      const gy = (y / size) * gridSize;
+      const gy0 = Math.floor(gy);
+      const gy1 = (gy0 + 1) % gridSize;
+      const ty = gy - gy0;
+
+      for (let x = 0; x < size; x++) {
+        const gx = (x / size) * gridSize;
+        const gx0 = Math.floor(gx);
+        const gx1 = (gx0 + 1) % gridSize;
+        const tx = gx - gx0;
+
+        const topLeft = grid[gy0 * (gridSize + 1) + gx0];
+        const topRight = grid[gy0 * (gridSize + 1) + gx1];
+        const bottomLeft = grid[gy1 * (gridSize + 1) + gx0];
+        const bottomRight = grid[gy1 * (gridSize + 1) + gx1];
+
+        const top = topLeft * (1 - tx) + topRight * tx;
+        const bottom = bottomLeft * (1 - tx) + bottomRight * tx;
+        const value = top * (1 - ty) + bottom * ty;
+
+        data[y * size + x] = value;
+      }
+    }
+
+    return { size, data };
+  }
+
+  /**
+   * Sample tiled value noise with wrap-around so UV offsets can scroll smoothly forever.
+   * @param {{size:number,data:Float32Array}} texture - Noise texture data to sample
+   * @param {number} u - Horizontal coordinate (0-1 range, unbounded)
+   * @param {number} v - Vertical coordinate (0-1 range, unbounded)
+   * @param {number} scale - Frequency multiplier to control detail density
+   * @returns {number} Noise value between 0 and 1
+   */
+  sampleNoise(texture, u, v, scale) {
+    const wrappedU = ((u * scale) % 1 + 1) % 1;
+    const wrappedV = ((v * scale) % 1 + 1) % 1;
+    const x = wrappedU * texture.size;
+    const y = wrappedV * texture.size;
+
+    const x0 = Math.floor(x) % texture.size;
+    const y0 = Math.floor(y) % texture.size;
+    const x1 = (x0 + 1) % texture.size;
+    const y1 = (y0 + 1) % texture.size;
+    const tx = x - Math.floor(x);
+    const ty = y - Math.floor(y);
+
+    const topLeft = texture.data[y0 * texture.size + x0];
+    const topRight = texture.data[y0 * texture.size + x1];
+    const bottomLeft = texture.data[y1 * texture.size + x0];
+    const bottomRight = texture.data[y1 * texture.size + x1];
+
+    const top = topLeft * (1 - tx) + topRight * tx;
+    const bottom = bottomLeft * (1 - tx) + bottomRight * tx;
+    return top * (1 - ty) + bottom * ty;
+  }
+
+  /**
+   * Advance UV offsets so the precomputed noise scrolls slowly across the star surface.
+   * @param {number} dt - Delta time in seconds
+   */
+  updateSurfaceAnimation(dt) {
+    const settings = this.sunSurfaceSettings;
+    this.surfaceAnimationState.primaryOffsetX += settings.animationSpeedMain * dt;
+    this.surfaceAnimationState.primaryOffsetY += settings.animationSpeedMain * 0.6 * dt;
+    this.surfaceAnimationState.secondaryOffsetX += settings.animationSpeedSecondary * 0.75 * dt;
+    this.surfaceAnimationState.secondaryOffsetY += settings.animationSpeedSecondary * dt;
+    this.surfaceAnimationState.coronaOffset += settings.coronaWobbleSpeed * dt;
+    this.surfaceAnimationState.distortionOffset += settings.animationSpeedSecondary * 0.45 * dt;
+    this.surfaceAnimationState.time += dt;
+    this.surfaceTextureDirty = true;
+  }
+
+  /**
+   * Rebuild the cached sun surface texture so the main render only performs a single drawImage call.
+   * @param {{r:number,g:number,b:number}} tierColor - Tier tint to blend into the plasma surface
+   * @param {number} luminosity - Scalar controlling overall brightness
+   * @param {number} absorptionGlowBoost - Recent absorption boost for highlights
+   */
+  rebuildSunSurfaceTexture(tierColor, luminosity, absorptionGlowBoost) {
+    if (!this.surfaceTextureDirty) {
+      return;
+    }
+
+    if (!this.surfaceCanvas || !this.surfaceCtx || !this.surfaceImageData) {
+      this.surfaceTextureDirty = false;
+      return;
+    }
+
+    const size = this.surfaceTextureSize;
+    const data = this.surfaceImageData.data;
+    const half = size / 2;
+    const settings = this.sunSurfaceSettings;
+    const inner = GravitySimulation.parseHexColor(settings.coreInnerColor);
+    const outer = GravitySimulation.parseHexColor(settings.coreOuterColor);
+    const tierBlend = 0.35;
+    const highlightBoost = 1 + absorptionGlowBoost * 0.6;
+
+    // Iterate through the texture grid and shade each texel according to the layered noise fields.
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const index = (y * size + x) * 4;
+        const dx = (x + 0.5 - half) / half;
+        const dy = (y + 0.5 - half) / half;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+
+        if (radius > 1) {
+          data[index] = 0;
+          data[index + 1] = 0;
+          data[index + 2] = 0;
+          data[index + 3] = 0;
+          continue;
+        }
+
+        const u = dx * 0.5 + 0.5;
+        const v = dy * 0.5 + 0.5;
+
+        // Sample two animated noise layers to create sunspot masks and boiling motion.
+        const warpedU = u + (this.sampleNoise(
+          this.surfaceNoise.secondary,
+          u + this.surfaceAnimationState.secondaryOffsetX,
+          v + this.surfaceAnimationState.secondaryOffsetY,
+          settings.noiseScaleSecondary
+        ) - 0.5) * settings.surfaceWarpStrength;
+        const warpedV = v + (this.sampleNoise(
+          this.surfaceNoise.secondary,
+          v + this.surfaceAnimationState.secondaryOffsetY,
+          u + this.surfaceAnimationState.secondaryOffsetX,
+          settings.noiseScaleSecondary
+        ) - 0.5) * settings.surfaceWarpStrength;
+
+        const primaryNoise = this.sampleNoise(
+          this.surfaceNoise.primary,
+          warpedU + this.surfaceAnimationState.primaryOffsetX,
+          warpedV + this.surfaceAnimationState.primaryOffsetY,
+          settings.noiseScalePrimary
+        );
+        const secondaryNoise = this.sampleNoise(
+          this.surfaceNoise.secondary,
+          warpedU + this.surfaceAnimationState.secondaryOffsetX * 0.5,
+          warpedV + this.surfaceAnimationState.secondaryOffsetY * 0.5,
+          settings.noiseScaleSecondary * 0.8
+        );
+
+        const combinedNoise = primaryNoise * 0.65 + secondaryNoise * 0.35;
+
+        // Convert combined noise into a smooth sunspot mask using a soft threshold.
+        const threshold = settings.sunspotThreshold;
+        const softness = 0.12;
+        const spotFactor = Math.max(0, (threshold - combinedNoise) / Math.max(softness, 0.0001));
+        const sunspotMask = Math.min(1, Math.pow(spotFactor, 1.4));
+
+        // Base color gradient from inner (white-hot) to outer (orange-red) with adjustable falloff.
+        const radialT = Math.pow(Math.min(1, radius), settings.coreFalloff);
+        let r = inner.r * (1 - radialT) + outer.r * radialT;
+        let g = inner.g * (1 - radialT) + outer.g * radialT;
+        let b = inner.b * (1 - radialT) + outer.b * radialT;
+
+        // Blend tier tint so tier progression continues to affect colour identity.
+        r = r * (1 - tierBlend) + tierColor.r * tierBlend;
+        g = g * (1 - tierBlend) + tierColor.g * tierBlend;
+        b = b * (1 - tierBlend) + tierColor.b * tierBlend;
+
+        // Apply boiling convection brightness from secondary noise.
+        const convection = (secondaryNoise - 0.5) * 0.22;
+        const rimHighlight = Math.pow(Math.max(0, 1 - radius), 2.2) * 0.3;
+        const brightness = Math.max(0.2, luminosity * (0.85 + convection + rimHighlight) * highlightBoost);
+
+        // Darken sunspot areas while keeping a soft glowing edge for realism.
+        const spotDarkness = settings.spotDarkness * sunspotMask;
+        const edgeGlow = sunspotMask > 0 ? Math.pow(sunspotMask, 0.6) * 0.2 : 0;
+
+        r = Math.max(0, r * (1 - spotDarkness)) + r * edgeGlow;
+        g = Math.max(0, g * (1 - spotDarkness)) + g * edgeGlow * 0.9;
+        b = Math.max(0, b * (1 - spotDarkness * 0.9)) + b * edgeGlow * 0.7;
+
+        // Clamp and apply brightness scaling.
+        data[index] = Math.min(255, Math.max(0, Math.round(r * brightness)));
+        data[index + 1] = Math.min(255, Math.max(0, Math.round(g * brightness)));
+        data[index + 2] = Math.min(255, Math.max(0, Math.round(b * brightness)));
+        data[index + 3] = 255;
+      }
+    }
+
+    this.surfaceCtx.putImageData(this.surfaceImageData, 0, 0);
+    this.surfaceTextureDirty = false;
+  }
+
+  /**
+   * Render the shimmering corona with a noise-driven wobble to keep the rim lively.
+   * @param {CanvasRenderingContext2D} ctx - Rendering context
+   * @param {number} centerX - Horizontal centre of the star
+   * @param {number} centerY - Vertical centre of the star
+   * @param {number} starVisualRadius - Base radius of the star core
+   * @param {{r:number,g:number,b:number}} tierColor - Tier tint for halo colouring
+   * @param {number} luminosity - Glow multiplier derived from tier progress
+   */
+  renderCorona(ctx, centerX, centerY, starVisualRadius, tierColor, luminosity) {
+    const settings = this.sunSurfaceSettings;
+    const baseRadius = starVisualRadius * (1.3 + settings.coronaIntensity * 0.4);
+    const gradient = ctx.createRadialGradient(centerX, centerY, starVisualRadius * 0.95, centerX, centerY, baseRadius);
+
+    // Build a gentle outer halo before adding the shimmering band.
+    gradient.addColorStop(0, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.25 * luminosity})`);
+    gradient.addColorStop(0.6, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.18 * luminosity})`);
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Overlay a noise-driven shimmer ring for the corona so the edge appears to dance.
+    const segments = 42;
+    const wobbleRadius = starVisualRadius * 0.14;
+    const wobbleOffset = this.surfaceAnimationState.coronaOffset;
+    ctx.lineWidth = Math.max(1.5, starVisualRadius * 0.08);
+    ctx.shadowBlur = starVisualRadius * 0.18;
+    ctx.shadowColor = `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.22 * luminosity})`;
+
+    for (let i = 0; i < segments; i++) {
+      const startAngle = (i / segments) * Math.PI * 2;
+      const endAngle = ((i + 1) / segments) * Math.PI * 2;
+      const sampleU = i / segments + wobbleOffset;
+      const noise = this.sampleNoise(this.surfaceNoise.corona, sampleU, 0.5, 1.2);
+      const intensity = settings.coronaIntensity * (0.35 + noise * 0.65) * luminosity;
+      const radius = baseRadius + (noise - 0.5) * wobbleRadius;
+
+      ctx.strokeStyle = `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${Math.max(0, Math.min(0.45, intensity))})`;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Draw a subtle heat distortion ring to hint at refractive shimmer without heavy processing.
+   * @param {CanvasRenderingContext2D} ctx - Rendering context
+   * @param {number} centerX - Horizontal centre of the star
+   * @param {number} centerY - Vertical centre of the star
+   * @param {number} starVisualRadius - Base radius of the star core
+   * @param {{r:number,g:number,b:number}} tierColor - Tier tint for halo colouring
+   */
+  renderHeatDistortion(ctx, centerX, centerY, starVisualRadius, tierColor) {
+    const strength = this.sunSurfaceSettings.heatDistortionStrength;
+    if (strength <= 0) {
+      return;
+    }
+
+    const segments = 28;
+    const wobbleOffset = this.surfaceAnimationState.distortionOffset;
+    const distortionRadius = starVisualRadius * 1.05;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.filter = 'blur(0.6px)';
+    ctx.lineWidth = Math.max(1, starVisualRadius * 0.04);
+
+    for (let i = 0; i < segments; i++) {
+      const startAngle = (i / segments) * Math.PI * 2;
+      const endAngle = ((i + 1) / segments) * Math.PI * 2;
+      const sample = this.sampleNoise(this.surfaceNoise.distortion, i / segments + wobbleOffset, 0.25, 1.1);
+      const wobble = (sample - 0.5) * strength * starVisualRadius * 2;
+      const alpha = 0.05 + Math.max(0, sample - 0.4) * 0.12;
+      ctx.strokeStyle = `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, distortionRadius + wobble, startAngle, endAngle);
+      ctx.stroke();
+    }
+
+    ctx.restore();
   }
 
   /**
@@ -773,6 +1143,9 @@ export class GravitySimulation {
 
     // Advance the spring that powers the sun bounce so render() can apply the new scale.
     this.updateSunBounce(dt);
+
+    // Scroll the procedural textures so surface turbulence and corona wobble stay animated.
+    this.updateSurfaceAnimation(dt);
   }
   
   /**
@@ -825,7 +1198,10 @@ export class GravitySimulation {
     };
     
     const tierColor = parseColor(tier.color);
-    
+
+    // Rebuild the cached procedural texture before any blitting occurs.
+    this.rebuildSunSurfaceTexture(tierColor, luminosity, absorptionGlowBoost);
+
     // Draw gravitational lensing effect (fake refraction)
     if (tier.name === 'Black Hole') {
       // Draw event horizon
@@ -864,12 +1240,34 @@ export class GravitySimulation {
       ctx.stroke();
     }
 
-    // Draw core celestial body
-    ctx.fillStyle = tier.color;
-    ctx.beginPath();
-    ctx.arc(centerXScaled, centerYScaled, starVisualRadius * pulseScale, 0, Math.PI * 2);
-    ctx.fill();
-    
+    // Draw the procedural surface texture with animated sunspots and convection.
+    const coreRadius = starVisualRadius * pulseScale;
+    if (this.surfaceCanvas) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerXScaled, centerYScaled, coreRadius, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(
+        this.surfaceCanvas,
+        centerXScaled - coreRadius,
+        centerYScaled - coreRadius,
+        coreRadius * 2,
+        coreRadius * 2
+      );
+      ctx.restore();
+    } else {
+      ctx.fillStyle = tier.color;
+      ctx.beginPath();
+      ctx.arc(centerXScaled, centerYScaled, coreRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Overlay the shimmering corona and rim glow for atmospheric depth.
+    this.renderCorona(ctx, centerXScaled, centerYScaled, coreRadius, tierColor, luminosity);
+
+    // Apply a lightweight heat shimmer so the star subtly distorts nearby space.
+    this.renderHeatDistortion(ctx, centerXScaled, centerYScaled, coreRadius, tierColor);
+
     // Draw accretion jets for high-mass stars
     const spinThreshold = 1000; // Mass threshold for jets
     if (this.starMass > spinThreshold && this.stars.length > 5) {
