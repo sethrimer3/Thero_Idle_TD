@@ -2355,7 +2355,17 @@
                 <!-- Pre-simulation menu with unit deployment and upgrades -->
                 <div class="kuf-sim-menu" id="kuf-sim-menu">
                   <button class="action-button kuf-sim-menu-start" type="button" id="kuf-start-button">Start Simulation</button>
-                  
+
+                  <div class="kuf-sim-map" aria-live="polite">
+                    <label class="kuf-sim-map-label" for="kuf-map-select">Battlefield</label>
+                    <select class="kuf-map-select" id="kuf-map-select"></select>
+                    <p class="kuf-sim-map-meta" id="kuf-map-difficulty"></p>
+                    <p class="kuf-sim-map-description" id="kuf-map-description">Select a battlefield to see its briefing.</p>
+                    <ul class="kuf-map-mechanics" id="kuf-map-mechanics">
+                      <li>No unique mechanics documented yet.</li>
+                    </ul>
+                  </div>
+
                   <div class="kuf-sim-menu-units">
                     <!-- Marine -->
                     <div class="kuf-sim-unit">
