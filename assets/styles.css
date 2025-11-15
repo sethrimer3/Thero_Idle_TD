@@ -14,6 +14,14 @@
   --shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
   --transition: 180ms ease;
   --level-node-size: 124px;
+  /* Default cursor tokens so pointer overrides can switch to the gem sprite without rewriting selectors. */
+  --cursor-default: auto;
+  --cursor-pointer: pointer;
+  --cursor-not-allowed: not-allowed;
+  --cursor-grab: grab;
+  --cursor-grabbing: grabbing;
+  --cursor-crosshair: crosshair;
+  --cursor-progress: progress;
 }
 
 * {
@@ -38,12 +46,12 @@ body *::-webkit-scrollbar {
 
 /* Signal draggable surfaces and suppress text selection while panning. */
 [data-drag-scroll] {
-  cursor: grab;
+  cursor: var(--cursor-grab);
 }
 
 /* Lock text selection during an active drag-scroll gesture. */
 [data-drag-scroll].drag-scroll-active {
-  cursor: grabbing;
+  cursor: var(--cursor-grabbing);
   user-select: none;
 }
 
@@ -68,16 +76,20 @@ body {
   font-family: "Cormorant Garamond", serif;
   display: flex;
   justify-content: center;
+  /* Body inherits the active cursor token so desktop overrides propagate. */
+  cursor: var(--cursor-default);
 }
 
 /* Activate the gem cursor on desktop pointers without affecting touch targets. */
 body.mouse-cursor-gem {
-  cursor: url('./sprites/mouse_cursor.png') 4 2, auto;
-}
-
-/* Mirror the gem cursor on common interactive elements while respecting disabled states. */
-body.mouse-cursor-gem :is(button, a, [role='button']):not([disabled]):not([aria-disabled='true']) {
-  cursor: url('./sprites/mouse_cursor.png') 4 2, pointer;
+  /* Swap cursor tokens to the gem sprite while keeping fallbacks for unsupported formats. */
+  --cursor-default: url('./sprites/mouse_cursor.png') 4 2, auto;
+  --cursor-pointer: url('./sprites/mouse_cursor.png') 4 2, pointer;
+  --cursor-not-allowed: url('./sprites/mouse_cursor.png') 4 2, not-allowed;
+  --cursor-grab: url('./sprites/mouse_cursor.png') 4 2, grab;
+  --cursor-grabbing: url('./sprites/mouse_cursor.png') 4 2, grabbing;
+  --cursor-crosshair: url('./sprites/mouse_cursor.png') 4 2, crosshair;
+  --cursor-progress: url('./sprites/mouse_cursor.png') 4 2, progress;
 }
 
 button {
@@ -580,7 +592,7 @@ body.graphics-mode-low .control-button {
     radial-gradient(circle at 70% 25%, rgba(255, 125, 235, 0.12), transparent 65%),
     rgba(5, 6, 12, 0.9);
   box-shadow: inset 0 0 30px rgba(139, 247, 255, 0.12), 0 18px 36px rgba(0, 0, 0, 0.5);
-  cursor: crosshair;
+  cursor: var(--cursor-crosshair);
   touch-action: none;
 }
 
@@ -692,7 +704,7 @@ body.graphics-mode-low .control-button {
   font-size: 1rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: background var(--transition, 0.3s ease), transform var(--transition, 0.3s ease);
 }
 
@@ -709,7 +721,7 @@ body.graphics-mode-low .control-button {
 
 .playfield-outcome__button:disabled {
   opacity: 0.6;
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
 }
 
 .playfield-outcome__button--secondary {
@@ -740,7 +752,7 @@ body.graphics-mode-low .control-button {
   color: rgba(255, 255, 255, 0.86);
   font-size: 1.3rem;
   line-height: 1;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: background var(--transition), transform var(--transition);
 }
 
@@ -786,7 +798,7 @@ body.graphics-mode-low .control-button {
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: background var(--transition), color var(--transition);
 }
 
@@ -814,7 +826,7 @@ body.graphics-mode-low .control-button {
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: background var(--transition), color var(--transition);
 }
 
@@ -978,7 +990,7 @@ body.graphics-mode-low .control-button {
   letter-spacing: 0.06em;
   display: grid;
   place-items: center;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
 }
 
@@ -995,7 +1007,7 @@ body.graphics-mode-low .control-button {
 
 .tower-slot:disabled,
 .tower-slot:disabled:hover {
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
   opacity: 0.45;
   transform: translate(-50%, -50%);
   border-color: rgba(255, 255, 255, 0.14);
@@ -1038,7 +1050,7 @@ body.graphics-mode-low .control-button {
   border-radius: 12px;
   border: 1px solid rgba(139, 247, 255, 0.3);
   background: rgba(6, 7, 12, 0.8);
-  cursor: grab;
+  cursor: var(--cursor-grab);
   touch-action: none;
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition),
     opacity var(--transition);
@@ -1047,12 +1059,12 @@ body.graphics-mode-low .control-button {
 }
 
 .tower-loadout-item:active {
-  cursor: grabbing;
+  cursor: var(--cursor-grabbing);
 }
 
 .tower-loadout-item[data-disabled='true'] {
   opacity: 0.35;
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
   border-color: rgba(255, 255, 255, 0.08);
 }
 
@@ -1326,7 +1338,7 @@ body.graphics-mode-low .control-button {
   font-family: inherit;
   font-size: 0.86rem;
   letter-spacing: 0.05em;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: border-color 0.2s ease, background 0.2s ease;
 }
 
@@ -1409,7 +1421,7 @@ body.graphics-mode-low .control-button {
   color: rgba(244, 248, 255, 0.8);
   font-size: 1rem;
   line-height: 1;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1514,7 +1526,7 @@ body.graphics-mode-low .control-button {
   font-size: 1rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition), opacity var(--transition);
   box-shadow: var(--shadow);
 }
@@ -1595,7 +1607,7 @@ body.graphics-mode-low .control-button {
 .level-set.locked .level-set-trigger {
   border-color: rgba(255, 255, 255, 0.1);
   opacity: 0.65;
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
   box-shadow: none;
 }
 
@@ -1639,7 +1651,7 @@ body.graphics-mode-low .control-button {
   text-align: left;
   font-family: "Cormorant Garamond", serif;
   letter-spacing: 0.06em;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transform: translateX(-24px);
   opacity: 0;
   transition: transform 300ms ease, opacity 220ms ease, border-color var(--transition), box-shadow var(--transition);
@@ -1665,7 +1677,7 @@ body.graphics-mode-low .control-button {
 .level-node.locked {
   border-color: rgba(255, 255, 255, 0.1);
   opacity: 0.55;
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
 }
 
 .level-set.expanded .level-node.locked:hover,
@@ -1886,7 +1898,7 @@ body.graphics-mode-low .control-button {
   gap: 10px;
   font-size: 0.85rem;
   color: var(--muted);
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   user-select: none;
 }
 
@@ -1907,7 +1919,7 @@ body.graphics-mode-low .control-button {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition:
     color var(--transition),
     border-color var(--transition),
@@ -1923,7 +1935,7 @@ body.graphics-mode-low .control-button {
 
 .developer-reset-button:disabled {
   opacity: 0.6;
-  cursor: progress;
+  cursor: var(--cursor-progress);
   transform: none;
 }
 
@@ -2076,7 +2088,7 @@ body.graphics-mode-low .control-button {
   border: 1px solid transparent;
   color: var(--bg);
   background: linear-gradient(120deg, var(--accent), var(--accent-2));
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: transform var(--transition), box-shadow var(--transition);
 }
 
@@ -2087,7 +2099,7 @@ body.graphics-mode-low .control-button {
 
 .action-button:disabled,
 .action-button:disabled:hover {
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
   transform: none;
   box-shadow: none;
   background: rgba(255, 255, 255, 0.08);
@@ -2113,7 +2125,7 @@ body.graphics-mode-low .control-button {
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: border-color var(--transition), background var(--transition), color var(--transition);
 }
 
@@ -2131,7 +2143,7 @@ body.graphics-mode-low .control-button {
 
 .tower-equip-button:disabled,
 .tower-equip-button:disabled:hover {
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
   opacity: 0.6;
   border-color: rgba(255, 255, 255, 0.08);
 }
@@ -2165,7 +2177,7 @@ body.graphics-mode-low .control-button {
   background-clip: padding-box, border-box;
   color: var(--text);
   clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   /* Surround the octagon with a gentle amber glow to emphasize its energized state. */
   box-shadow: 0 0 16px rgba(255, 228, 120, 0.28), 0 0 0 1.5px rgba(255, 228, 120, 0.22) inset;
   transition: box-shadow var(--transition), color var(--transition), background var(--transition);
@@ -2246,7 +2258,7 @@ body.graphics-mode-low .control-button {
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 .tower-equipment-menu__item:hover,
@@ -2294,7 +2306,7 @@ body.graphics-mode-low .control-button {
   color: var(--text);
   font-family: "Cormorant Garamond", serif;
   letter-spacing: 0.1em;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: background var(--transition);
 }
 
@@ -2304,7 +2316,7 @@ body.graphics-mode-low .control-button {
 
 .play-button:disabled,
 .play-button:disabled:hover {
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
   background: rgba(255, 255, 255, 0.08);
   color: rgba(247, 247, 245, 0.55);
 }
@@ -2335,7 +2347,7 @@ body.graphics-mode-low .control-button {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text);
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   user-select: none;
 }
 
@@ -2343,7 +2355,7 @@ body.graphics-mode-low .control-button {
   width: 18px;
   height: 18px;
   accent-color: rgba(255, 255, 255, 0.75);
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 .control-button {
@@ -2356,7 +2368,7 @@ body.graphics-mode-low .control-button {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
   padding: 10px 20px;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: background var(--transition), transform var(--transition);
 }
 
@@ -2368,7 +2380,7 @@ body.graphics-mode-low .control-button {
 .control-button:disabled,
 .control-button[aria-disabled="true"],
 .control-button:disabled:hover {
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
   background: rgba(255, 255, 255, 0.05);
   color: rgba(247, 247, 245, 0.5);
   transform: none;
@@ -2431,7 +2443,7 @@ body.graphics-mode-low .control-button {
   font-size: 0.75rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: transform var(--transition), background var(--transition), border-color var(--transition);
 }
 
@@ -2625,7 +2637,7 @@ body.graphics-mode-low .control-button {
   text-align: center;
   box-shadow: 0 16px 24px rgba(0, 0, 0, 0.28);
   /* Indicate that constellation nodes can be grabbed and rearranged. */
-  cursor: grab;
+  cursor: var(--cursor-grab);
   /* Keep a baseline float offset so animation and hover can blend smoothly. */
   --tower-float-offset: 0px;
   transform: translateY(var(--tower-float-offset));
@@ -2646,7 +2658,7 @@ body.graphics-mode-low .control-button {
 
 /* Present a grabbing cursor while the player is dragging a node. */
 .tower-tree-node-orbit[data-dragging='true'] {
-  cursor: grabbing;
+  cursor: var(--cursor-grabbing);
   /* Pause the idle float while actively dragging for predictable control. */
   animation-play-state: paused;
   transform: translateY(var(--tower-float-offset));
@@ -2734,7 +2746,7 @@ body.graphics-mode-low .control-button {
 }
 
 .card[data-tower-id][data-locked='false'] {
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
@@ -2746,7 +2758,7 @@ body.graphics-mode-low .control-button {
 }
 
 .card[data-tower-id][data-locked='true'] {
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
   opacity: 0.6;
 }
 
@@ -2875,7 +2887,7 @@ body.graphics-mode-low .control-button {
   height: 4px;
   border-radius: 999px;
   background: rgba(247, 247, 245, 0.18);
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   accent-color: var(--accent);
 }
 
@@ -2941,7 +2953,7 @@ body.graphics-mode-low .control-button {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   font-family: 'Cormorant Garamond', serif;
   font-size: 0.75rem;
   letter-spacing: 0.1em;
@@ -2957,7 +2969,7 @@ body.graphics-mode-low .control-button {
   width: 100%;
   height: 100%;
   opacity: 0;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 .settings-toggle-slider {
@@ -3033,7 +3045,7 @@ body.graphics-mode-low .control-button {
 
 .powder-mode-toggle:disabled {
   opacity: 0.6;
-  cursor: progress;
+  cursor: var(--cursor-progress);
   transform: none;
 }
 
@@ -3923,7 +3935,7 @@ body.graphics-mode-low .control-button {
   gap: 10px;
   text-align: center;
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 .achievement-tile:focus-visible {
@@ -4215,7 +4227,7 @@ body.graphics-mode-low .control-button {
 
 .developer-control-field input:disabled {
   opacity: 0.45;
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
 }
 
 .developer-control-hint {
@@ -4281,7 +4293,7 @@ body.graphics-mode-low .control-button {
   color: rgba(255, 255, 255, 0.65);
   font-size: 1.35rem;
   line-height: 1;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: color var(--transition), background var(--transition);
 }
 
@@ -4815,7 +4827,7 @@ body.graphics-mode-low .control-button {
   color: rgba(255, 255, 255, 0.82);
   font-size: 1.4rem;
   font-family: 'Cormorant Garamond', serif;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
 
@@ -4828,7 +4840,7 @@ body.graphics-mode-low .control-button {
 
 .field-notes-page-button:disabled {
   opacity: 0.4;
-  cursor: default;
+  cursor: var(--cursor-default);
   border-color: rgba(139, 247, 255, 0.2);
 }
 
@@ -5273,12 +5285,12 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease;
 }
 
 .tower-upgrade-variable-glyph-button:disabled {
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
   opacity: 0.5;
   box-shadow: none;
 }
@@ -5494,7 +5506,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   border-radius: 999px;
   font-size: 0.95rem;
   font-family: inherit;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
 }
@@ -5511,11 +5523,11 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 .overlay-preview__canvas--editing {
-  cursor: crosshair;
+  cursor: var(--cursor-crosshair);
 }
 
 .overlay-preview__canvas--dragging {
-  cursor: grabbing;
+  cursor: var(--cursor-grabbing);
 }
 
 .overlay-editor {
@@ -5565,7 +5577,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: background 140ms ease, border-color 140ms ease;
 }
 
@@ -5610,7 +5622,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
@@ -5622,7 +5634,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .overlay-editor__button:disabled {
   opacity: 0.45;
-  cursor: default;
+  cursor: var(--cursor-default);
 }
 
 /* Developer map element controls mirror the level editor styling so new obstacles feel integrated. */
@@ -5805,7 +5817,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   border-radius: 6px;
   background: rgba(6, 10, 20, 0.92);
   color: rgba(205, 228, 255, 0.88);
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 .wave-editor-item__select:focus {
@@ -5817,7 +5829,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .wave-editor-item__checkbox {
   width: 1.2rem;
   height: 1.2rem;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   accent-color: rgba(139, 247, 255, 0.8);
 }
 
@@ -5827,7 +5839,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: rgba(255, 244, 212, 0.88);
   border: 1px solid rgba(255, 128, 152, 0.4);
   border-radius: 6px;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   font-family: "Cormorant Garamond", serif;
   font-size: 0.85rem;
   transition: all 0.2s ease;
@@ -5873,7 +5885,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   border-radius: 6px;
   background: rgba(6, 10, 20, 0.92);
   color: rgba(205, 228, 255, 0.88);
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: all 0.2s ease;
 }
 
@@ -6034,7 +6046,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   gap: 4px;
   padding: 10px 12px;
   border-radius: 12px;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: background var(--transition), color var(--transition), transform var(--transition), border-color var(--transition),
     box-shadow var(--transition);
   font-family: "Cormorant Garamond", serif;
@@ -6567,7 +6579,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   background: rgba(10, 10, 16, 0.9);
   border: 1px solid rgba(247, 247, 245, 0.3);
   border-radius: 8px;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
   transition: transform var(--transition), background var(--transition), border-color var(--transition),
@@ -6624,7 +6636,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   background: rgba(247, 247, 245, 0.06);
   color: var(--muted);
   font-family: 'Cormorant Garamond', serif;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: all var(--transition);
 }
 
@@ -6641,7 +6653,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   font-family: 'Cormorant Garamond', serif;
   font-size: 1rem;
   line-height: 1;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: background var(--transition), border-color var(--transition), transform var(--transition);
   touch-action: manipulation;
 }
@@ -7089,7 +7101,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: #050208;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   background-size: 200% 200%;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(139, 247, 255, 0.2);
   font-weight: 600;
@@ -7125,7 +7137,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 .tsadi-upgrade-button:disabled {
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
   transform: none;
   box-shadow: none;
   background: rgba(255, 255, 255, 0.08);
@@ -7163,7 +7175,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: #050208;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   background-size: 200% 200%;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(139, 247, 255, 0.2);
   font-weight: 600;
@@ -7199,7 +7211,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 .lamed-upgrade-btn:disabled {
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
   transform: none;
   box-shadow: none;
   background: rgba(255, 255, 255, 0.08);
@@ -7293,7 +7305,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: var(--text);
   font-family: 'Cormorant Garamond', serif;
   font-size: 0.85rem;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: all 0.2s ease;
 }
 
@@ -7311,7 +7323,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .shin-fractal-tab--locked {
   opacity: 0.4;
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
 }
 
 .shin-fractal-tab-name {
@@ -7624,7 +7636,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   border-radius: 50%;
   background: radial-gradient(circle, #f9f9ff 0%, #7bf0ff 55%, #2b77ff 100%);
   box-shadow: 0 0 18px rgba(120, 200, 255, 0.75);
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 .kuf-allocation-input::-moz-range-thumb {
@@ -7634,7 +7646,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   border: none;
   background: radial-gradient(circle, #f9f9ff 0%, #7bf0ff 55%, #2b77ff 100%);
   box-shadow: 0 0 18px rgba(120, 200, 255, 0.75);
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 .kuf-allocation-stat {
@@ -7924,7 +7936,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: rgba(180, 220, 255, 0.9);
   font-size: 1.1rem;
   font-weight: 600;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -7943,7 +7955,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .kuf-unit-btn:disabled {
   opacity: 0.4;
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
 }
 
 .kuf-sim-unit-count {
@@ -7975,7 +7987,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: rgba(200, 180, 255, 0.9);
   font-family: 'Space Mono', monospace;
   font-size: 0.85rem;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: all 0.2s ease;
   white-space: nowrap;
 }
@@ -8037,7 +8049,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: rgba(180, 220, 255, 0.9);
   font-size: 1rem;
   font-weight: 600;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -8056,7 +8068,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .kuf-upgrade-btn:disabled {
   opacity: 0.4;
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
 }
 
 .kuf-upgrade-value {
