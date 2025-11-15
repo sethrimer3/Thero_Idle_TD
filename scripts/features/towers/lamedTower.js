@@ -100,8 +100,9 @@ export class GravitySimulation {
     this.shockRings = []; // Absorption shock rings
     this.dustParticles = []; // Accretion disk dust
     this.highGraphics = typeof options.highGraphics === 'boolean' ? options.highGraphics : false;
-    this.maxDustParticles = this.highGraphics ? 2000 : 100; // 20x more on high graphics
-    this.dustSpawnRate = this.highGraphics ? 100 : 5; // Dust particles per second (20x more on high)
+    this.desiredDustParticles = 200; // Maintain a fixed decorative ring of dust around the sun.
+    this.maxDustParticles = this.desiredDustParticles; // Cap population so the simulation keeps exactly 200 grains.
+    this.dustSpawnRate = this.desiredDustParticles; // Refill quickly when particles expire or are removed.
     this.dustAccumulator = 0;
     this.flashEffects = []; // Spawn flash effects
 
@@ -207,6 +208,24 @@ export class GravitySimulation {
    */
   calculateCoreRadius() {
     return Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
+  }
+
+  /**
+   * Convert a world position into a palette blend factor for dust coloring.
+   * @param {number} x - X coordinate in canvas space
+   * @param {number} y - Y coordinate in canvas space
+   * @returns {number} Blend between 0 (core) and 1 (edge) for palette sampling
+   */
+  calculateDustRadialBlend(x, y) {
+    const dpr = window.devicePixelRatio || 1;
+    const dx = (x - this.centerX) / dpr;
+    const dy = (y - this.centerY) / dpr;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const starVisualRadius = this.calculateCoreRadius();
+    const maxRadius = Math.min(this.width, this.height) / (2 * dpr);
+    const normalized = (distance - starVisualRadius) / Math.max(1, maxRadius - starVisualRadius);
+
+    return Math.min(1, Math.max(0, normalized));
   }
 
   /**
@@ -368,7 +387,7 @@ export class GravitySimulation {
    */
   spawnDustParticles(deltaTime) {
     if (this.dustParticles.length >= this.maxDustParticles) return;
-    
+
     const dt = deltaTime / 1000;
     const dpr = window.devicePixelRatio || 1;
     
@@ -396,10 +415,7 @@ export class GravitySimulation {
       const vy = Math.cos(angle) * azimuthalSpeed + Math.sin(angle) * radialSpeed;
       
       // Sample color from palette gradient based on radial distance from the sun.
-      const radialBlend = Math.min(
-        1,
-        Math.max(0, (r - starVisualRadius) / Math.max(1, maxR - starVisualRadius))
-      );
+      const radialBlend = this.calculateDustRadialBlend(x, y); // Keep palette mapping consistent with rendering.
       let color;
       if (this.samplePaletteGradient) {
         color = this.samplePaletteGradient(radialBlend);
@@ -435,12 +451,18 @@ export class GravitySimulation {
       // Update lifetime
       dust.elapsed += dt;
       dust.life = Math.max(0, 1 - dust.elapsed / dust.maxLife);
-      
+
       if (dust.life <= 0) {
         this.dustParticles.splice(i, 1);
         continue;
       }
-      
+
+      // Refresh the color so palette switches immediately affect existing dust grains.
+      if (this.samplePaletteGradient) {
+        const radialBlend = this.calculateDustRadialBlend(dust.x, dust.y);
+        dust.color = this.samplePaletteGradient(radialBlend);
+      }
+
       // Push dust away from passing stars
       for (const star of this.stars) {
         const dx = dust.x - star.x;
