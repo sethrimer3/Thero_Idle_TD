@@ -183,6 +183,7 @@ const towerTabState = {
     icon: null,
     hideTimeoutId: null,
     hideTransitionHandler: null,
+    lastRenderedTowerId: null,
   },
   towerUpgradeState: new Map(),
   towerEquationCache: new Map(),

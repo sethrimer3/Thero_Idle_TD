@@ -30,6 +30,21 @@ export const delta = {
       upgradable: false,
       lockedNote: 'Bolster γ to empower this cohort.',
       format: (value) => formatDecimal(value, 2),
+      getSubEquations({ value }) {
+        const gammaValue = Math.max(0, Number.isFinite(value) ? value : 0);
+        const logTerm = Math.log(gammaValue + 1);
+        const attack = gammaValue * logTerm;
+        const formattedAttack = Number.isFinite(attack) ? formatGameNumber(attack) : formatGameNumber(0);
+        const formattedGamma = formatGameNumber(gammaValue);
+        const formattedLog = Number.isFinite(logTerm) ? formatDecimal(logTerm, 3) : '0';
+        return [
+          { expression: String.raw`\( atk = \gamma \cdot \ln(\gamma + 1) \)` },
+          {
+            values: String.raw`\( ${formattedAttack} = ${formattedGamma} \cdot ${formattedLog} \)`,
+            variant: 'values',
+          },
+        ];
+      },
     },
     {
       key: 'aleph1',

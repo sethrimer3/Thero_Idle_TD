@@ -29,6 +29,33 @@ export const kappa = {
       upgradable: false,
       format: (value) => formatGameNumber(Math.max(0, value || 0)),
       lockedNote: "Empower γ to raise κ's base output.",
+      getSubEquations() {
+        const helpers = ctx();
+        const gammaRaw =
+          typeof helpers?.calculateTowerEquationResult === 'function'
+            ? helpers.calculateTowerEquationResult('gamma')
+            : 0;
+        const betaRaw =
+          typeof helpers?.calculateTowerEquationResult === 'function'
+            ? helpers.calculateTowerEquationResult('beta')
+            : 0;
+        const alphaRaw =
+          typeof helpers?.calculateTowerEquationResult === 'function'
+            ? helpers.calculateTowerEquationResult('alpha')
+            : 0;
+        const gammaValue = Number.isFinite(gammaRaw) ? Math.max(0, gammaRaw) : 0;
+        const betaValue = Number.isFinite(betaRaw) ? Math.max(0, betaRaw) : 0;
+        const alphaValue = Number.isFinite(alphaRaw) ? Math.max(0, alphaRaw) : 0;
+        const attackRaw = gammaValue * betaValue * alphaValue;
+        const attack = Number.isFinite(attackRaw) ? attackRaw : Number.MAX_SAFE_INTEGER;
+        return [
+          { expression: String.raw`\( atk = \gamma \times \beta \times \alpha \)` },
+          {
+            values: String.raw`\( ${formatGameNumber(attack)} = ${formatGameNumber(gammaValue)} \times ${formatGameNumber(betaValue)} \times ${formatGameNumber(alphaValue)} \)`,
+            variant: 'values',
+          },
+        ];
+      },
     },
     {
       key: 'beta',
@@ -179,6 +206,22 @@ export const lambda = {
       upgradable: false,
       format: (value) => formatGameNumber(Math.max(0, value || 0)),
       lockedNote: 'Channel more κ energy to raise λ beam strength.',
+      getSubEquations({ blueprint, towerId, value }) {
+        const helpers = ctx();
+        const effectiveBlueprint = blueprint || helpers.getTowerEquationBlueprint?.(towerId) || null;
+        const kappaBase = Math.max(0, Number.isFinite(value) ? value : 0);
+        const enemyWeightRaw = helpers.computeTowerVariableValue?.(towerId, 'enemyWeight', effectiveBlueprint);
+        const enemyWeight = Number.isFinite(enemyWeightRaw) ? Math.max(1, enemyWeightRaw) : 1;
+        const attackRaw = kappaBase * enemyWeight;
+        const attack = Number.isFinite(attackRaw) ? attackRaw : Number.MAX_SAFE_INTEGER;
+        return [
+          { expression: String.raw`\( atk = \kappa \times N_{\text{eff}} \)` },
+          {
+            values: String.raw`\( ${formatGameNumber(attack)} = ${formatGameNumber(kappaBase)} \times ${formatDecimal(enemyWeight, 2)} \)`,
+            variant: 'values',
+          },
+        ];
+      },
     },
     {
       key: 'enemyWeight',
@@ -321,7 +364,17 @@ export const mu = {
         const rawValue = Number.isFinite(value) ? value : fallback;
         const rounded = Math.round(rawValue);
         const resolved = Math.max(1, rounded);
+        const lambdaRaw = ctx().calculateTowerEquationResult?.('lambda');
+        const lambdaValue = Number.isFinite(lambdaRaw) ? Math.max(0, lambdaRaw) : 0;
+        const tierDamage = resolved * 10;
+        const attackRaw = lambdaValue * tierDamage;
+        const attack = Number.isFinite(attackRaw) ? attackRaw : Number.MAX_SAFE_INTEGER;
         return [
+          { expression: String.raw`\( atk = \lambda \times (\text{tier} \times 10) \)` },
+          {
+            values: String.raw`\( ${formatGameNumber(attack)} = ${formatGameNumber(lambdaValue)} \times (${formatWholeNumber(resolved)} \times 10) \)`,
+            variant: 'values',
+          },
           {
             expression: String.raw`\( \text{tier} = \max(1, \aleph_{1}) \)`,
           },
@@ -421,6 +474,21 @@ export const nu = {
       upgradable: false,
       lockedNote: 'Upgrade γ to increase ν base power.',
       format: (value) => formatDecimal(value, 2),
+      getSubEquations({ blueprint, towerId, value }) {
+        const helpers = ctx();
+        const effectiveBlueprint = blueprint || helpers.getTowerEquationBlueprint?.(towerId) || null;
+        const gammaValue = Math.max(0, Number.isFinite(value) ? value : 0);
+        const overkillRaw = helpers.computeTowerVariableValue?.(towerId, 'overkillTotal', effectiveBlueprint);
+        const overkill = Number.isFinite(overkillRaw) ? Math.max(0, overkillRaw) : 0;
+        const attack = gammaValue + overkill;
+        return [
+          { expression: String.raw`\( atk = \gamma + \text{OKdmg}_{\text{tot}} \)` },
+          {
+            values: String.raw`\( ${formatGameNumber(attack)} = ${formatGameNumber(gammaValue)} + ${formatGameNumber(overkill)} \)`,
+            variant: 'values',
+          },
+        ];
+      },
     },
     {
       key: 'overkillTotal',
@@ -562,14 +630,22 @@ export const xi = {
       upgradable: false,
       lockedNote: 'Upgrade ν to increase ξ base damage.',
       format: (value) => formatDecimal(value, 2),
-      getSubEquations({ value }) {
-        const resolved = Math.max(0, Number.isFinite(value) ? value : 0);
+      getSubEquations({ blueprint, towerId, value }) {
+        const helpers = ctx();
+        const effectiveBlueprint = blueprint || helpers.getTowerEquationBlueprint?.(towerId) || null;
+        const nuBase = Math.max(0, Number.isFinite(value) ? value : 0);
+        const chainsRaw = helpers.computeTowerVariableValue?.(towerId, 'aleph4', effectiveBlueprint);
+        const chains = 3 + Math.max(0, Number.isFinite(chainsRaw) ? Math.round(chainsRaw) : 0);
+        const exponentRaw = helpers.computeTowerVariableValue?.(towerId, 'aleph5', effectiveBlueprint);
+        const exponent = 1 + 0.1 * Math.max(0, Number.isFinite(exponentRaw) ? exponentRaw : 0);
+        const attackRaw = nuBase * Math.pow(chains, exponent);
+        const attack = Number.isFinite(attackRaw) ? attackRaw : Number.MAX_SAFE_INTEGER;
         return [
           {
-            expression: String.raw`\( \text{atk} = \nu \times (\text{numChain}^{\text{numChnExp}}) \)`,
+            expression: String.raw`\( atk = \nu \times (\text{numChain}^{\text{numChnExp}}) \)`,
           },
           {
-            values: String.raw`\( ${formatDecimal(resolved, 2)} \times (\text{chain}^{\text{exp}}) \)`,
+            values: String.raw`\( ${formatGameNumber(attack)} = ${formatGameNumber(nuBase)} \times ${formatWholeNumber(chains)}^{${formatDecimal(exponent, 2)}} \)`,
             variant: 'values',
           },
         ];
@@ -739,6 +815,18 @@ export const omicron = {
       upgradable: false,
       lockedNote: 'Tune ξ to channel energy into ο.',
       format: (value) => formatDecimal(value, 2),
+      getSubEquations({ value }) {
+        const xiValue = Math.max(0, Number.isFinite(value) ? value : 0);
+        const attackRaw = Math.log(xiValue + 1);
+        const attack = Number.isFinite(attackRaw) ? attackRaw : 0;
+        return [
+          { expression: String.raw`\( atk = \ln(\xi + 1) \)` },
+          {
+            values: String.raw`\( ${formatDecimal(attack, 3)} = \ln(${formatGameNumber(xiValue)} + 1) \)`,
+            variant: 'values',
+          },
+        ];
+      },
     },
   ],
   computeResult(values) {
@@ -764,6 +852,22 @@ export const pi = {
       upgradable: false,
       lockedNote: 'Upgrade γ to increase π base power.',
       format: (value) => formatDecimal(value, 2),
+      getSubEquations({ blueprint, towerId, value }) {
+        const helpers = ctx();
+        const effectiveBlueprint = blueprint || helpers.getTowerEquationBlueprint?.(towerId) || null;
+        const gammaValue = Math.max(1, Number.isFinite(value) ? value : 1);
+        const mergesRaw = helpers.computeTowerVariableValue?.(towerId, 'mergeCount', effectiveBlueprint);
+        const merges = Math.min(50, Math.max(0, Number.isFinite(mergesRaw) ? mergesRaw : 0));
+        const attackRaw = Math.pow(gammaValue, merges);
+        const attack = Number.isFinite(attackRaw) ? attackRaw : Number.MAX_SAFE_INTEGER;
+        return [
+          { expression: String.raw`\( atk = \gamma^{\text{mrg}} \)` },
+          {
+            values: String.raw`\( ${formatGameNumber(attack)} = ${formatGameNumber(gammaValue)}^{${formatWholeNumber(merges)}} \)`,
+            variant: 'values',
+          },
+        ];
+      },
     },
     {
       key: 'mergeCount',
