@@ -1221,9 +1221,16 @@ import {
       return;
     }
 
-    const { leftCells, rightCells, gapCells, cellSize, gapPixels } = activeMetrics;
-    const leftWidth = Math.max(0, leftCells * cellSize);
-    const rightWidth = Math.max(0, rightCells * cellSize);
+    const { leftCells, rightCells, gapCells, cellSize, gapPixels, leftPixels, rightPixels } = activeMetrics;
+    // Prefer the simulation's pixel-accurate inset when available so DOM walls meet the motes exactly.
+    const leftWidth = Number.isFinite(leftPixels)
+      ? Math.max(0, leftPixels)
+      : Math.max(0, leftCells * cellSize);
+    // Mirror the right edge calculation to avoid asymmetrical seams during wall widening events.
+    const rightWidth = Number.isFinite(rightPixels)
+      ? Math.max(0, rightPixels)
+      : Math.max(0, rightCells * cellSize);
+    // Fall back to cell measurements only when pixel data is unavailable to preserve backwards compatibility.
     const gapWidth = Number.isFinite(gapPixels)
       ? Math.max(0, gapPixels)
       : Math.max(0, gapCells * cellSize); // Use the simulated span so DOM walls hug the water surface.
@@ -1257,10 +1264,14 @@ import {
     if (activeElements.leftWall) {
       const contentWidth = resolveContentWidth(activeElements.leftWall, leftWidth);
       activeElements.leftWall.style.width = `${contentWidth.toFixed(1)}px`;
+      // Mirror the resolved inset onto a CSS variable so wall textures stretch to the inner edge.
+      activeElements.leftWall.style.setProperty('--powder-wall-visual-width', `${leftWidth.toFixed(1)}px`);
     }
     if (activeElements.rightWall) {
       const contentWidth = resolveContentWidth(activeElements.rightWall, rightWidth);
       activeElements.rightWall.style.width = `${contentWidth.toFixed(1)}px`;
+      // Push the same precision to the right wall sprite for the Bet spire's liquid surface.
+      activeElements.rightWall.style.setProperty('--powder-wall-visual-width', `${rightWidth.toFixed(1)}px`);
     }
     if (activeElements.leftHitbox) {
       activeElements.leftHitbox.style.width = `${leftWidth.toFixed(1)}px`;
@@ -1274,9 +1285,13 @@ import {
 
     if (inactiveElements.leftWall) {
       inactiveElements.leftWall.style.removeProperty('width');
+      // Clear the precision hint so dormant overlays fall back to their default sizing rules.
+      inactiveElements.leftWall.style.removeProperty('--powder-wall-visual-width');
     }
     if (inactiveElements.rightWall) {
       inactiveElements.rightWall.style.removeProperty('width');
+      // Reset the mirrored hint when the right wall overlay is inactive.
+      inactiveElements.rightWall.style.removeProperty('--powder-wall-visual-width');
     }
     if (inactiveElements.leftHitbox) {
       inactiveElements.leftHitbox.style.removeProperty('width');

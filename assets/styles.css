@@ -3560,6 +3560,8 @@ body.graphics-mode-low .control-button {
   bottom: 0;
   height: 100%;
   aspect-ratio: 3 / 8;
+  /* Stretch the masonry textures to the resolved wall width so no gap appears beside the motes. */
+  width: var(--powder-wall-visual-width, 100%);
   pointer-events: none;
 }
 
