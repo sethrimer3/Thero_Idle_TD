@@ -105,6 +105,7 @@ import {
 } from './offlinePersistence.js';
 import { createPowderPersistence } from './powderPersistence.js';
 import { createPowderDisplaySystem } from './powderDisplay.js';
+import { createResourceHud } from './resourceHud.js';
 // Powder tower palette and simulation helpers.
 import {
   DEFAULT_MOTE_PALETTE,
@@ -349,6 +350,36 @@ import {
   'use strict';
 
   initializeStartupOverlay();
+
+  let updateStatusDisplays = () => {};
+  let bindStatusElements = () => {};
+  let registerResourceHudRefreshCallback = () => {};
+  let resourceElements = {
+    theroMultiplier: null,
+    glyphsAlephTotal: null,
+    glyphsAlephUnused: null,
+    glyphsBetTotal: null,
+    glyphsBetUnused: null,
+    glyphsLamedTotal: null,
+    glyphsLamedUnused: null,
+    glyphsTsadiTotal: null,
+    glyphsTsadiUnused: null,
+    glyphsShinTotal: null,
+    glyphsShinUnused: null,
+    glyphsKufTotal: null,
+    glyphsKufUnused: null,
+    tabGlyphBadge: null,
+    tabMoteBadge: null,
+    tabFluidBadge: null,
+  };
+  let getTrackedLamedGlyphs = () => 0;
+  let setTrackedLamedGlyphs = () => {};
+  let getTrackedTsadiGlyphs = () => 0;
+  let setTrackedTsadiGlyphs = () => {};
+  let getTrackedShinGlyphs = () => 0;
+  let setTrackedShinGlyphs = () => {};
+  let getTrackedKufGlyphs = () => 0;
+  let setTrackedKufGlyphs = () => {};
 
   const THERO_SYMBOL = 'þ';
   const COMMUNITY_DISCORD_INVITE = 'https://discord.gg/UzqhfsZQ8n'; // Reserved for future placement.
@@ -671,191 +702,6 @@ import {
   // Cached reference to the notation toggle control inside the Codex panel.
   let notationToggleButton = null;
 
-  const resourceElements = {
-    theroMultiplier: null,
-    glyphsAlephTotal: null,
-    glyphsAlephUnused: null,
-    glyphsBetTotal: null,
-    glyphsBetUnused: null,
-    tabGlyphBadge: null,
-    tabMoteBadge: null,
-    tabFluidBadge: null,
-  };
-
-  // Track glyph totals so unlock checks only trigger when thresholds change.
-  let trackedLamedGlyphs = 0;
-  let trackedTsadiGlyphs = 0;
-  let trackedShinGlyphs = 0;
-  let trackedKufGlyphs = 0;
-
-  // Cache the relocated resource nodes so status updates only swap text content.
-  function bindStatusElements() {
-    resourceElements.theroMultiplier = document.getElementById('level-thero-multiplier');
-    resourceElements.glyphsAlephTotal = document.getElementById('tower-glyphs-aleph-total');
-    resourceElements.glyphsAlephUnused = document.getElementById('tower-glyphs-aleph-unused');
-    resourceElements.glyphsBetTotal = document.getElementById('tower-glyphs-bet-total');
-    resourceElements.glyphsBetUnused = document.getElementById('tower-glyphs-bet-unused');
-    resourceElements.glyphsLamedTotal = document.getElementById('tower-glyphs-lamed-total');
-    resourceElements.glyphsLamedUnused = document.getElementById('tower-glyphs-lamed-unused');
-    resourceElements.glyphsTsadiTotal = document.getElementById('tower-glyphs-tsadi-total');
-    resourceElements.glyphsTsadiUnused = document.getElementById('tower-glyphs-tsadi-unused');
-    resourceElements.glyphsShinTotal = document.getElementById('tower-glyphs-shin-total');
-    resourceElements.glyphsShinUnused = document.getElementById('tower-glyphs-shin-unused');
-    resourceElements.glyphsKufTotal = document.getElementById('tower-glyphs-kuf-total');
-    resourceElements.glyphsKufUnused = document.getElementById('tower-glyphs-kuf-unused');
-    resourceElements.tabGlyphBadge = document.getElementById('tab-glyph-badge');
-    resourceElements.tabMoteBadge = document.getElementById('tab-mote-badge');
-    resourceElements.tabFluidBadge = document.getElementById('tab-fluid-badge');
-    updateStatusDisplays();
-  }
-
-  // Render the relocated resource panels using the latest score, glyph, and mote reserves.
-  function updateStatusDisplays() {
-    const theroMultiplier = getStartingTheroMultiplier();
-    if (resourceElements.theroMultiplier) {
-      const multiplierLabel = formatGameNumber(theroMultiplier);
-      resourceElements.theroMultiplier.textContent = `×${multiplierLabel}`;
-      resourceElements.theroMultiplier.setAttribute('aria-label', `Thero multiplier ×${multiplierLabel}`);
-    }
-
-    // Aleph glyphs (ℵ) are earned from defeating enemies in the main game
-    const totalAlephGlyphs = Math.max(0, Math.floor(powderState.glyphsAwarded || 0));
-    const unusedAlephGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
-    if (resourceElements.glyphsAlephTotal) {
-      resourceElements.glyphsAlephTotal.textContent = `${formatWholeNumber(totalAlephGlyphs)} ℵ`;
-    }
-    if (resourceElements.glyphsAlephUnused) {
-      if (unusedAlephGlyphs > 0) {
-        resourceElements.glyphsAlephUnused.textContent = `${formatWholeNumber(unusedAlephGlyphs)} Unallocated`;
-      } else {
-        resourceElements.glyphsAlephUnused.textContent = '';
-      }
-    }
-    
-    // Bet glyphs (בּ) are earned from the Bet Spire progression
-    const totalBetGlyphs = Math.max(0, Math.floor(getBetGlyphCurrency()));
-    // TODO: Implement Bet glyph allocation system (similar to Aleph glyph upgrades)
-    const unusedBetGlyphs = totalBetGlyphs; // For now, all Bet glyphs are unallocated
-    if (resourceElements.glyphsBetTotal) {
-      resourceElements.glyphsBetTotal.textContent = `${formatWholeNumber(totalBetGlyphs)} בּ`;
-    }
-    if (resourceElements.glyphsBetUnused) {
-      if (unusedBetGlyphs > 0) {
-        resourceElements.glyphsBetUnused.textContent = `${formatWholeNumber(unusedBetGlyphs)} Unallocated`;
-      } else {
-        resourceElements.glyphsBetUnused.textContent = '';
-      }
-    }
-    
-    // Lamed glyphs (ל) are earned from the Lamed Spire (spark absorptions)
-    const totalLamedGlyphs = Math.max(0, Math.floor(spireResourceState.lamed?.stats?.totalAbsorptions || 0));
-    const unusedLamedGlyphs = totalLamedGlyphs; // For now, all Lamed glyphs are unallocated
-    if (resourceElements.glyphsLamedTotal) {
-      resourceElements.glyphsLamedTotal.textContent = `${formatWholeNumber(totalLamedGlyphs)} ל`;
-    }
-    if (resourceElements.glyphsLamedUnused) {
-      if (unusedLamedGlyphs > 0) {
-        resourceElements.glyphsLamedUnused.textContent = `${formatWholeNumber(unusedLamedGlyphs)} Unallocated`;
-      } else {
-        resourceElements.glyphsLamedUnused.textContent = '';
-      }
-    }
-    
-    // Tsadi glyphs (צ) are earned from the Tsadi Spire
-    const tsadiStats = spireResourceState.tsadi?.stats || {};
-    const totalTsadiGlyphs = Math.max(
-      0,
-      Math.floor(
-        Number.isFinite(tsadiStats.totalGlyphs)
-          ? tsadiStats.totalGlyphs
-          : tsadiStats.totalParticles || 0,
-      ),
-    );
-    const unusedTsadiGlyphs = totalTsadiGlyphs; // For now, all Tsadi glyphs are unallocated
-    if (resourceElements.glyphsTsadiTotal) {
-      resourceElements.glyphsTsadiTotal.textContent = `${formatWholeNumber(totalTsadiGlyphs)} צ`;
-    }
-    if (resourceElements.glyphsTsadiUnused) {
-      if (unusedTsadiGlyphs > 0) {
-        resourceElements.glyphsTsadiUnused.textContent = `${formatWholeNumber(unusedTsadiGlyphs)} Unallocated`;
-      } else {
-        resourceElements.glyphsTsadiUnused.textContent = '';
-      }
-    }
-    
-    // Shin glyphs (ש) are earned from the Shin Spire (iterons converted to glyphs)
-    const totalShinGlyphs = Math.max(0, Math.floor(getShinGlyphs()));
-    const unusedShinGlyphs = totalShinGlyphs; // For now, all Shin glyphs are unallocated
-    if (resourceElements.glyphsShinTotal) {
-      resourceElements.glyphsShinTotal.textContent = `${formatWholeNumber(totalShinGlyphs)} ש`;
-    }
-    if (resourceElements.glyphsShinUnused) {
-      if (unusedShinGlyphs > 0) {
-        resourceElements.glyphsShinUnused.textContent = `${formatWholeNumber(unusedShinGlyphs)} Unallocated`;
-      } else {
-        resourceElements.glyphsShinUnused.textContent = '';
-      }
-    }
-    
-    // Kuf glyphs (ק) are earned from the Kuf Spire
-    const totalKufGlyphs = Math.max(0, Math.floor(getKufGlyphs()));
-    const unusedKufGlyphs = totalKufGlyphs; // For now, all Kuf glyphs are unallocated
-    if (resourceElements.glyphsKufTotal) {
-      resourceElements.glyphsKufTotal.textContent = `${formatWholeNumber(totalKufGlyphs)} ק`;
-    }
-    if (resourceElements.glyphsKufUnused) {
-      if (unusedKufGlyphs > 0) {
-        resourceElements.glyphsKufUnused.textContent = `${formatWholeNumber(unusedKufGlyphs)} Unallocated`;
-      } else {
-        resourceElements.glyphsKufUnused.textContent = '';
-      }
-    }
-    
-    if (resourceElements.tabGlyphBadge) {
-      const tabGlyphLabel = formatWholeNumber(unusedAlephGlyphs);
-      resourceElements.tabGlyphBadge.textContent = tabGlyphLabel;
-      resourceElements.tabGlyphBadge.setAttribute('aria-label', `${tabGlyphLabel} unused Aleph glyphs`);
-      const hasUnusedGlyphs = unusedAlephGlyphs > 0;
-      // Mirror the glow badge visibility on the towers tab so idle glyphs stand out immediately.
-      if (hasUnusedGlyphs) {
-        resourceElements.tabGlyphBadge.removeAttribute('hidden');
-        resourceElements.tabGlyphBadge.setAttribute('aria-hidden', 'false');
-      } else {
-        resourceElements.tabGlyphBadge.setAttribute('hidden', '');
-        resourceElements.tabGlyphBadge.setAttribute('aria-hidden', 'true');
-      }
-    }
-
-    const bankedMotes = getCurrentIdleMoteBank();
-    if (resourceElements.tabMoteBadge) {
-      const tabStoredLabel = formatGameNumber(bankedMotes);
-      resourceElements.tabMoteBadge.textContent = tabStoredLabel;
-      resourceElements.tabMoteBadge.setAttribute('aria-label', `${tabStoredLabel} motes in bank`);
-      resourceElements.tabMoteBadge.removeAttribute('hidden');
-      resourceElements.tabMoteBadge.setAttribute('aria-hidden', 'false');
-    }
-
-    const bankedDrops = getCurrentFluidDropBank();
-    if (resourceElements.tabFluidBadge) {
-      const tabStoredLabel = formatGameNumber(bankedDrops);
-      resourceElements.tabFluidBadge.textContent = tabStoredLabel;
-      resourceElements.tabFluidBadge.setAttribute('aria-label', `${tabStoredLabel} drops in bank`);
-      if (powderState.fluidUnlocked) {
-        resourceElements.tabFluidBadge.removeAttribute('hidden');
-        resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'false');
-      } else {
-        resourceElements.tabFluidBadge.setAttribute('hidden', '');
-        resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'true');
-      }
-    }
-
-    // Refresh mote-specific HUD elements whenever core status displays tick.
-    updateMoteStatsDisplays();
-    updatePowderModeButton();
-    updateFluidDisplay();
-    spireMenuController.updateCounts();
-  }
-
   const baseResources = {
     score: calculateStartingThero(),
     scoreRate: FALLBACK_BASE_SCORE_RATE,
@@ -981,9 +827,6 @@ import {
     },
   };
 
-  trackedLamedGlyphs = Math.max(0, Math.floor(spireResourceState.lamed.stats.totalAbsorptions || 0));
-  trackedTsadiGlyphs = Math.max(0, Math.floor(spireResourceState.tsadi.stats.totalGlyphs || 0));
-
   // Controller that wires the floating spire navigation UI and count displays.
   const spireMenuController = createSpireFloatingMenuController({
     formatGameNumber,
@@ -1006,6 +849,43 @@ import {
       }
     },
   });
+
+  const resourceHud = createResourceHud({
+    formatGameNumber,
+    formatWholeNumber,
+    getStartingTheroMultiplier,
+    getGlyphCurrency,
+    getBetGlyphCurrency,
+    getShinGlyphs,
+    getKufGlyphs,
+    getCurrentIdleMoteBank,
+    getCurrentFluidDropBank,
+    powderState,
+    spireResourceState,
+    spireMenuController,
+  });
+
+  resourceElements = resourceHud.resourceElements;
+  bindStatusElements = resourceHud.bindStatusElements;
+  updateStatusDisplays = resourceHud.updateStatusDisplays;
+  registerResourceHudRefreshCallback = resourceHud.registerStatusRefreshCallback;
+  getTrackedLamedGlyphs = resourceHud.getTrackedLamedGlyphs;
+  setTrackedLamedGlyphs = resourceHud.setTrackedLamedGlyphs;
+  getTrackedTsadiGlyphs = resourceHud.getTrackedTsadiGlyphs;
+  setTrackedTsadiGlyphs = resourceHud.setTrackedTsadiGlyphs;
+  getTrackedShinGlyphs = resourceHud.getTrackedShinGlyphs;
+  setTrackedShinGlyphs = resourceHud.setTrackedShinGlyphs;
+  getTrackedKufGlyphs = resourceHud.getTrackedKufGlyphs;
+  setTrackedKufGlyphs = resourceHud.setTrackedKufGlyphs;
+
+  setTrackedLamedGlyphs(spireResourceState.lamed?.stats?.totalAbsorptions || 0);
+  setTrackedTsadiGlyphs(
+    Number.isFinite(spireResourceState.tsadi?.stats?.totalGlyphs)
+      ? spireResourceState.tsadi.stats.totalGlyphs
+      : spireResourceState.tsadi?.stats?.totalParticles || 0,
+  );
+  setTrackedShinGlyphs(getShinGlyphs());
+  setTrackedKufGlyphs(getKufGlyphs());
 
   /**
    * Retrieve the current spark reserve for the Lamed Spire.
@@ -1455,6 +1335,10 @@ import {
     getIteronBank,
     getIterationRate,
   });
+
+  registerResourceHudRefreshCallback(updateMoteStatsDisplays);
+  registerResourceHudRefreshCallback(updatePowderModeButton);
+  registerResourceHudRefreshCallback(updateFluidDisplay);
 
   // Provide the developer controls module with runtime state references once all powder helpers are wired.
   configureDeveloperControls({
@@ -3195,8 +3079,8 @@ import {
         updateFractalSimulation(); // Update fractal rendering based on new allocations
         // Watch for new Shin glyphs so downstream spires unlock without delay.
         const currentShinGlyphs = Math.max(0, Math.floor(getShinGlyphs()));
-        if (currentShinGlyphs !== trackedShinGlyphs) {
-          trackedShinGlyphs = currentShinGlyphs;
+        if (currentShinGlyphs !== getTrackedShinGlyphs()) {
+          setTrackedShinGlyphs(currentShinGlyphs);
           spireMenuController.updateCounts();
           checkAndUnlockSpires();
         }
@@ -6154,8 +6038,8 @@ import {
                     0,
                     Math.floor(state.stats?.totalAbsorptions || 0),
                   );
-                  if (currentLamedGlyphs !== trackedLamedGlyphs) {
-                    trackedLamedGlyphs = currentLamedGlyphs;
+                  if (currentLamedGlyphs !== getTrackedLamedGlyphs()) {
+                    setTrackedLamedGlyphs(currentLamedGlyphs);
                     spireMenuController.updateCounts();
                     updateStatusDisplays();
                     checkAndUnlockSpires();
@@ -6214,8 +6098,8 @@ import {
                     glyphEl.textContent = `${normalizedGlyphs} Tsadi Glyphs`;
                   }
                   // Persist Tsadi glyph totals so unlock checks can react immediately.
-                  const previousGlyphs = trackedTsadiGlyphs;
-                  trackedTsadiGlyphs = normalizedGlyphs;
+                  const previousGlyphs = getTrackedTsadiGlyphs();
+                  setTrackedTsadiGlyphs(normalizedGlyphs);
                   spireResourceState.tsadi.stats = {
                     ...(spireResourceState.tsadi.stats || {}),
                     totalParticles: normalizedGlyphs,
@@ -6334,15 +6218,15 @@ import {
 
     const savedKufState = readStorageJson(KUF_STATE_STORAGE_KEY);
     initializeKufState(savedKufState || {});
-    trackedKufGlyphs = Math.max(0, Math.floor(getKufGlyphs()));
+    setTrackedKufGlyphs(Math.max(0, Math.floor(getKufGlyphs())));
     spireMenuController.updateCounts();
     onKufStateChange((event) => {
       if (event && event.type === 'result') {
         spireMenuController.updateCounts();
         // Keep Kuf unlock progression synchronized with fresh glyph payouts.
         const currentKufGlyphs = Math.max(0, Math.floor(getKufGlyphs()));
-        if (currentKufGlyphs !== trackedKufGlyphs) {
-          trackedKufGlyphs = currentKufGlyphs;
+        if (currentKufGlyphs !== getTrackedKufGlyphs()) {
+          setTrackedKufGlyphs(currentKufGlyphs);
           updateStatusDisplays();
           checkAndUnlockSpires();
         }
@@ -6356,13 +6240,13 @@ import {
       // Load saved state from storage
       const savedShinState = readStorageJson(SHIN_STATE_STORAGE_KEY);
       initializeShinState(savedShinState || {});
-      trackedShinGlyphs = Math.max(0, Math.floor(getShinGlyphs()));
+      setTrackedShinGlyphs(Math.max(0, Math.floor(getShinGlyphs())));
       setShinUIUpdateCallback(() => {
         updateShinDisplay();
         // React to manual Iteron allocations that push Shin glyph totals forward.
         const currentShinGlyphs = Math.max(0, Math.floor(getShinGlyphs()));
-        if (currentShinGlyphs !== trackedShinGlyphs) {
-          trackedShinGlyphs = currentShinGlyphs;
+        if (currentShinGlyphs !== getTrackedShinGlyphs()) {
+          setTrackedShinGlyphs(currentShinGlyphs);
           spireMenuController.updateCounts();
           updateStatusDisplays();
           checkAndUnlockSpires();

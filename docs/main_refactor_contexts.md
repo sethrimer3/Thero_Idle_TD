@@ -23,7 +23,7 @@ extracted.
 Manages the `AudioManager` wiring, slider bindings, audio persistence, activation gating, and contextual music selection for the game's tabs.
 
 ## Resource HUD and Powder-Economy State
-Maintains base resource snapshots, powder configuration/state, UI element caches, and glyph-wall math/visual synchronization routines.
+`assets/resourceHud.js` now encapsulates the resource HUD bindings, status refresh loop, glyph badge tracking, and callback registry that keeps the powder displays in sync. `assets/main.js` only wires the factory with formatting utilities and state references.
 
 ## Offline Overlay & Persistence Plumbing
 Handles storage key constants, powder log bookkeeping, offline overlay animation state, and timer coordination for idle rewards.
