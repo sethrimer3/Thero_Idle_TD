@@ -330,18 +330,46 @@ export class KufBattlefieldSimulation {
     // Sample map configuration - player spawns at (0,0)
     // This places small turrets north of the player
     const mapConfig = [
-      { type: 'small_turret', gridX: 0, gridY: 10, level: 1 },
-      { type: 'small_turret', gridX: 2, gridY: 11, level: 1 },
-      { type: 'small_turret', gridX: -2, gridY: 12, level: 1 },
-      { type: 'big_turret', gridX: 0, gridY: 15, level: 2 },
-      { type: 'wall', gridX: -3, gridY: 8, level: 1 },
-      { type: 'wall', gridX: 3, gridY: 8, level: 1 },
-      { type: 'mine', gridX: 1, gridY: 7, level: 1 },
+      // Forward trench immediately north of the player spawn.
+      { type: 'wall', gridX: -3, gridY: 7, level: 1 },
       { type: 'mine', gridX: -1, gridY: 7, level: 1 },
-      { type: 'melee_unit', gridX: -1, gridY: 13, level: 1 },
-      { type: 'ranged_unit', gridX: 1, gridY: 13, level: 1 },
+      { type: 'mine', gridX: 1, gridY: 7, level: 1 },
+      { type: 'wall', gridX: 3, gridY: 7, level: 1 },
+      { type: 'small_turret', gridX: 0, gridY: 9, level: 1 },
+      { type: 'laser_turret', gridX: -2, gridY: 10, level: 1 },
+      { type: 'laser_turret', gridX: 2, gridY: 10, level: 1 },
+
+      // Mid-field emplacements with supporting barracks.
       { type: 'melee_barracks', gridX: -4, gridY: 14, level: 1 },
       { type: 'ranged_barracks', gridX: 4, gridY: 14, level: 1 },
+      { type: 'melee_unit', gridX: -1, gridY: 14, level: 1 },
+      { type: 'ranged_unit', gridX: 1, gridY: 14, level: 1 },
+      { type: 'rocket_turret', gridX: 0, gridY: 16, level: 1 },
+      { type: 'small_turret', gridX: -3, gridY: 17, level: 2 },
+      { type: 'small_turret', gridX: 3, gridY: 17, level: 2 },
+
+      // Defensive bastion anchored by non-lethal structures that must be cleared.
+      { type: 'shield_generator', gridX: -2, gridY: 19, level: 1 },
+      { type: 'supply_cache', gridX: 2, gridY: 19, level: 1 },
+      { type: 'big_turret', gridX: 0, gridY: 20, level: 2 },
+      { type: 'signal_beacon', gridX: 0, gridY: 22, level: 1 },
+
+      // Upper battlements stretch the battlefield vertically.
+      { type: 'wall', gridX: -4, gridY: 23, level: 2 },
+      { type: 'wall', gridX: 4, gridY: 23, level: 2 },
+      { type: 'rocket_turret', gridX: -2, gridY: 24, level: 2 },
+      { type: 'rocket_turret', gridX: 2, gridY: 24, level: 2 },
+      { type: 'laser_turret', gridX: 0, gridY: 25, level: 2 },
+      { type: 'melee_unit', gridX: -1, gridY: 26, level: 2 },
+      { type: 'ranged_unit', gridX: 1, gridY: 26, level: 2 },
+
+      // Final keep: taller structures and artillery perched high above.
+      { type: 'shield_generator', gridX: -3, gridY: 28, level: 2 },
+      { type: 'supply_cache', gridX: 3, gridY: 28, level: 2 },
+      { type: 'artillery_turret', gridX: -1, gridY: 30, level: 2 },
+      { type: 'artillery_turret', gridX: 1, gridY: 30, level: 2 },
+      { type: 'signal_beacon', gridX: 0, gridY: 32, level: 2 },
+      { type: 'big_turret', gridX: 0, gridY: 34, level: 3 },
     ];
 
     mapConfig.forEach((enemy) => {
@@ -371,6 +399,8 @@ export class KufBattlefieldSimulation {
       cooldown: 0,
       range: baseStats.range,
       level,
+      // Preserve per-enemy reward information so structures can offer higher payouts.
+      goldValue: typeof baseStats.goldValue === 'number' ? baseStats.goldValue : 5,
       ...baseStats.extra,
     };
 
@@ -386,6 +416,7 @@ export class KufBattlefieldSimulation {
           attack: 1,
           attackSpeed: 1,
           range: TURRET_RANGE,
+          goldValue: 6,
           extra: {},
         };
       case 'big_turret':
@@ -395,6 +426,17 @@ export class KufBattlefieldSimulation {
           attack: 3,
           attackSpeed: 0.8,
           range: BIG_TURRET_RANGE,
+          goldValue: 12,
+          extra: {},
+        };
+      case 'laser_turret':
+        return {
+          radius: TURRET_RADIUS,
+          health: 8,
+          attack: 1.8,
+          attackSpeed: 1.6,
+          range: TURRET_RANGE * 1.1,
+          goldValue: 8,
           extra: {},
         };
       case 'wall':
@@ -404,6 +446,7 @@ export class KufBattlefieldSimulation {
           attack: 0,
           attackSpeed: 0,
           range: 0,
+          goldValue: 4,
           extra: { isWall: true },
         };
       case 'mine':
@@ -413,6 +456,7 @@ export class KufBattlefieldSimulation {
           attack: 5,
           attackSpeed: 0,
           range: 0,
+          goldValue: 5,
           extra: { isMine: true, explosionRadius: MINE_EXPLOSION_RADIUS },
         };
       case 'melee_unit':
@@ -422,6 +466,7 @@ export class KufBattlefieldSimulation {
           attack: 2,
           attackSpeed: 1.2,
           range: MELEE_UNIT_RANGE,
+          goldValue: 7,
           extra: {
             isMobile: true,
             moveSpeed: MELEE_UNIT_SPEED,
@@ -435,6 +480,7 @@ export class KufBattlefieldSimulation {
           attack: 1.5,
           attackSpeed: 0.8,
           range: RANGED_UNIT_RANGE,
+          goldValue: 8,
           extra: {
             isMobile: true,
             moveSpeed: RANGED_UNIT_SPEED,
@@ -448,6 +494,7 @@ export class KufBattlefieldSimulation {
           attack: 0,
           attackSpeed: 0,
           range: 0,
+          goldValue: 10,
           extra: {
             isBarracks: true,
             spawnType: 'melee_unit',
@@ -465,6 +512,7 @@ export class KufBattlefieldSimulation {
           attack: 0,
           attackSpeed: 0,
           range: 0,
+          goldValue: 10,
           extra: {
             isBarracks: true,
             spawnType: 'ranged_unit',
@@ -474,6 +522,56 @@ export class KufBattlefieldSimulation {
             maxSpawns: 3,
             currentSpawns: 0,
           },
+        };
+      case 'rocket_turret':
+        return {
+          radius: BIG_TURRET_RADIUS * 0.9,
+          health: 16,
+          attack: 2.5,
+          attackSpeed: 1.1,
+          range: BIG_TURRET_RANGE * 1.1,
+          goldValue: 11,
+          extra: {},
+        };
+      case 'artillery_turret':
+        return {
+          radius: BIG_TURRET_RADIUS,
+          health: 24,
+          attack: 3.5,
+          attackSpeed: 0.7,
+          range: BIG_TURRET_RANGE * 1.35,
+          goldValue: 14,
+          extra: {},
+        };
+      case 'shield_generator':
+        return {
+          radius: BIG_TURRET_RADIUS,
+          health: 40,
+          attack: 0,
+          attackSpeed: 0,
+          range: 0,
+          goldValue: 9,
+          extra: { isStructure: true },
+        };
+      case 'supply_cache':
+        return {
+          radius: BIG_TURRET_RADIUS * 0.8,
+          health: 35,
+          attack: 0,
+          attackSpeed: 0,
+          range: 0,
+          goldValue: 12,
+          extra: { isStructure: true },
+        };
+      case 'signal_beacon':
+        return {
+          radius: BIG_TURRET_RADIUS * 0.7,
+          health: 28,
+          attack: 0,
+          attackSpeed: 0,
+          range: 0,
+          goldValue: 10,
+          extra: { isStructure: true },
         };
       default:
         return null;
@@ -757,7 +855,9 @@ export class KufBattlefieldSimulation {
           hit.health -= bullet.damage;
           bullet.life = 0;
           if (hit.health <= 0) {
-            this.goldEarned += 5;
+            // Reward players based on the defeated enemy's configured payout.
+            const reward = typeof hit.goldValue === 'number' ? hit.goldValue : 5;
+            this.goldEarned += reward;
             this.destroyedTurrets += 1;
           }
         }
@@ -1005,6 +1105,26 @@ export class KufBattlefieldSimulation {
           shadowColor = 'rgba(255, 160, 60, 0.8)';
           strokeColor = `rgba(255, ${160 + healthRatio * 60}, ${80 + healthRatio * 120}, 0.9)`;
         }
+      } else if (turret.isStructure) {
+        // Distinct palette for non-lethal objectives so players can recognize mandatory targets.
+        mainColor = 'rgba(130, 200, 255, 0.65)';
+        shadowColor = 'rgba(90, 160, 220, 0.7)';
+        strokeColor = `rgba(160, ${170 + healthRatio * 60}, 255, 0.85)`;
+      } else if (turret.type === 'rocket_turret') {
+        // Rocket turrets glow with a saturated magenta hue to highlight their burst damage threat.
+        mainColor = 'rgba(255, 120, 200, 0.8)';
+        shadowColor = 'rgba(255, 90, 180, 0.85)';
+        strokeColor = `rgba(255, ${90 + healthRatio * 120}, ${180 + healthRatio * 40}, 0.9)`;
+      } else if (turret.type === 'artillery_turret') {
+        // Artillery cannons feel heavier through a deep amber palette.
+        mainColor = 'rgba(255, 180, 120, 0.8)';
+        shadowColor = 'rgba(255, 150, 90, 0.85)';
+        strokeColor = `rgba(255, ${140 + healthRatio * 50}, ${100 + healthRatio * 80}, 0.9)`;
+      } else if (turret.type === 'laser_turret') {
+        // Laser towers shimmer with icy cyan so players can quickly read their rapid-fire style.
+        mainColor = 'rgba(120, 220, 255, 0.8)';
+        shadowColor = 'rgba(90, 200, 255, 0.85)';
+        strokeColor = `rgba(${120 + healthRatio * 80}, ${200 + healthRatio * 40}, 255, 0.9)`;
       } else if (turret.type === 'big_turret') {
         mainColor = 'rgba(255, 100, 150, 0.8)';
         shadowColor = 'rgba(255, 80, 130, 0.8)';
