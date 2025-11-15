@@ -260,11 +260,14 @@ export class GravitySimulation {
     // Calculate central body radius
     const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
     
-    // Calculate maximum spawn radius (edge of simulation)
-    const maxR = Math.min(this.width, this.height) / (2 * dpr);
-    
-    // Spawn at random distance between central body edge and simulation edge
-    const r = this.rng.range(starVisualRadius, maxR);
+    // Calculate maximum spawn radius using the horizontal distance to the edge of the view
+    const maxR = this.width / (2 * dpr);
+
+    // Enforce a minimum orbit of twice the sun's radius so new stars never crowd the surface
+    const minR = Math.min(maxR, starVisualRadius * 2);
+
+    // Spawn at random distance between the enforced minimum and the simulation edge
+    const r = this.rng.range(minR, maxR);
     const angle = this.rng.next() * Math.PI * 2;
     
     // Position relative to center (in DPR-scaled coordinates)
