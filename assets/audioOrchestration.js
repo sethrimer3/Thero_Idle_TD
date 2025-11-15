@@ -41,6 +41,9 @@ export function createAudioOrchestration({
     const initialSize = audioSuppressionReasons.size;
     audioSuppressionReasons.add(reason);
     if (initialSize === 0) {
+      if (typeof audioManager.suspendLoopingSfx === 'function') {
+        audioManager.suspendLoopingSfx();
+      }
       if (typeof audioManager.suspendMusic === 'function') {
         audioManager.suspendMusic();
       } else if (typeof audioManager.stopMusic === 'function') {
@@ -63,11 +66,13 @@ export function createAudioOrchestration({
     } else {
       audioSuppressionReasons.clear();
     }
-    if (
-      audioSuppressionReasons.size === 0 &&
-      typeof audioManager.resumeSuspendedMusic === 'function'
-    ) {
-      audioManager.resumeSuspendedMusic();
+    if (audioSuppressionReasons.size === 0) {
+      if (typeof audioManager.resumeSuspendedLoopingSfx === 'function') {
+        audioManager.resumeSuspendedLoopingSfx();
+      }
+      if (typeof audioManager.resumeSuspendedMusic === 'function') {
+        audioManager.resumeSuspendedMusic();
+      }
     }
   }
 
