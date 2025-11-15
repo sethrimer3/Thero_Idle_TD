@@ -185,8 +185,21 @@ function createPreviewId(prefix, value) {
 
 // Determine the preferred orientation for rendering overlay previews.
 function resolvePreferredOrientation(playfield) {
-  if (playfield && typeof playfield.layoutOrientation === 'string') {
-    return playfield.layoutOrientation;
+  if (playfield) {
+    if (playfield.levelActive && typeof playfield.layoutOrientation === 'string') {
+      // Reuse the active battlefield orientation so previews mirror the current combat view.
+      return playfield.layoutOrientation;
+    }
+    if (typeof playfield.determinePreferredOrientation === 'function') {
+      // Fall back to the playfield's orientation heuristic when no level is active yet.
+      const resolved = playfield.determinePreferredOrientation();
+      if (resolved === 'landscape' || resolved === 'portrait') {
+        return resolved;
+      }
+    }
+    if (typeof playfield.layoutOrientation === 'string') {
+      return playfield.layoutOrientation;
+    }
   }
   if (typeof window !== 'undefined') {
     const width = Number.isFinite(window.innerWidth) ? window.innerWidth : 0;

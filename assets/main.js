@@ -421,6 +421,7 @@ import {
   let overlayStartThero = null;
   let overlayLast = null;
   let overlayInstruction = null;
+  let overlayConfirmButton = null; // Store the explicit confirmation control inside the level overlay.
   let overlayRequiresLevelExit = false;
   let levelPreviewRenderer = null;
   let upgradeOverlay = null;
@@ -436,7 +437,7 @@ import {
   let variableLibraryLabel = null;
   let lastVariableLibraryTrigger = null;
   let removeVariableListener = null;
-  const overlayInstructionDefault = 'Tap to enter';
+  const overlayInstructionDefault = 'Tap or click to enter';
   let activeLevelId = null;
   let pendingLevel = null;
   let lastLevelTrigger = null;
@@ -4421,9 +4422,20 @@ import {
       if (overlayRequiresLevelExit) {
         const exitLevel = exitLevelId ? levelLookup.get(exitLevelId) : levelLookup.get(activeLevelId);
         const exitLabel = exitLevel ? `${exitLevel.id} · ${exitLevel.title}` : 'the active level';
-        overlayInstruction.textContent = `Entering will abandon ${exitLabel}. Tap to confirm.`;
+        overlayInstruction.textContent = `Entering will abandon ${exitLabel}. Tap or click to confirm.`;
       } else {
         overlayInstruction.textContent = overlayInstructionDefault;
+      }
+    }
+    if (overlayConfirmButton) {
+      // Keep the confirm button label synchronized with the current overlay context.
+      const baseLabel = `${level.id} · ${level.title}`;
+      if (overlayRequiresLevelExit) {
+        overlayConfirmButton.textContent = 'Confirm & Enter';
+        overlayConfirmButton.setAttribute('aria-label', `Abandon active defense and enter ${baseLabel}`);
+      } else {
+        overlayConfirmButton.textContent = 'Enter Level';
+        overlayConfirmButton.setAttribute('aria-label', `Enter ${baseLabel}`);
       }
     }
     if (overlay) {
@@ -6239,6 +6251,14 @@ import {
     overlayInstruction = overlay ? overlay.querySelector('.overlay-instruction') : null;
     if (overlayInstruction) {
       overlayInstruction.textContent = overlayInstructionDefault;
+    }
+    overlayConfirmButton = overlay ? overlay.querySelector('.overlay-confirm') : null;
+    if (overlayConfirmButton) {
+      overlayConfirmButton.addEventListener('click', (event) => {
+        // Prevent the overlay wrapper from receiving duplicate confirmation events.
+        event.stopPropagation();
+        confirmPendingLevel();
+      });
     }
 
     // Instantiate overlay preview renderer so level cards share the same editor plumbing.
