@@ -12,6 +12,17 @@ import { samplePalette, rgbToString } from './fractalRenderUtils.js';
 
 import { addPanZoomToFractal } from './fractalPanZoom.js';
 
+/**
+ * Hard limits that keep the Voronoi subdivision simulation performant even when
+ * the player pours absurd iteron totals into the Shin spire. Without these
+ * caps the original algorithm attempted to tessellate tens of thousands of
+ * cells per frame, which locked the browser when returning to the Shin tab.
+ */
+const LAYER_SEED_LIMITS = [9, 18, 30, 45, 60, 75, 90, 110, 130];
+const TOTAL_CELL_CAP = LAYER_SEED_LIMITS.reduce((sum, limit) => sum + limit, 0);
+const MIN_RADIAL_STEPS = 60;
+const MAX_RADIAL_STEPS = 180;
+
 export class VoronoiSubdivisionSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
@@ -89,7 +100,9 @@ export class VoronoiSubdivisionSimulation {
     for (let layerIdx = 0; layerIdx < this.layers.length; layerIdx++) {
       const layer = this.layers[layerIdx];
       const layerMax = layer.maxCells;
-      const layerTarget = Math.min(layerMax, Math.max(0, this.targetCells - cellsAllocated));
+      const layerCap = LAYER_SEED_LIMITS[layerIdx] ?? layerMax;
+      const remainingCapacity = Math.max(0, this.targetCells - cellsAllocated);
+      const layerTarget = Math.min(layerMax, layerCap, remainingCapacity);
       let layerChanged = false;
 
       // Update seeds for this layer
@@ -124,12 +137,21 @@ export class VoronoiSubdivisionSimulation {
     const layer = this.layers[layerIdx];
     const seeds = layer.seeds;
     const polygons = [];
-    const step = Math.PI / 90;
-    
+    const seedCap = LAYER_SEED_LIMITS[layerIdx] ?? seeds.length;
+    const density = seedCap > 0 ? Math.min(1, seeds.length / seedCap) : 0;
+    const radialSteps = Math.max(
+      MIN_RADIAL_STEPS,
+      Math.min(
+        MAX_RADIAL_STEPS,
+        Math.round(MIN_RADIAL_STEPS + (MAX_RADIAL_STEPS - MIN_RADIAL_STEPS) * density)
+      )
+    );
+    const angleStep = (Math.PI * 2) / radialSteps;
+
     for (let i = 0; i < seeds.length; i++) {
       const seed = seeds[i];
       const points = [];
-      for (let angle = 0; angle < Math.PI * 2; angle += step) {
+      for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
         const dirX = Math.cos(angle);
         const dirY = Math.sin(angle);
         let radius = this.circleRadius;
@@ -358,9 +380,9 @@ export class VoronoiSubdivisionSimulation {
 
   updateConfig(config = {}) {
     if (typeof config.allocated === 'number') {
-      // Total maximum cells across all 9 layers
-      const totalMaxCells = this.layers.reduce((sum, layer) => sum + layer.maxCells, 0);
-      const desired = Math.min(totalMaxCells, Math.floor(3 + config.allocated));
+      // Total maximum cells across all 9 layers, clamped to the tuned seed limits so
+      // we never request more polygons than the browser can handle in real time.
+      const desired = Math.min(TOTAL_CELL_CAP, Math.floor(3 + config.allocated));
       if (desired !== this.targetCells) {
         this.targetCells = desired;
       }
