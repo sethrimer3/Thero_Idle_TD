@@ -670,6 +670,10 @@ export class FluidSimulation {
     }
     const gravity = Math.max(50, Math.min(400, this.height * 1.5));
     for (const drop of this.drops) {
+      // Skip physics integration for drops that already merged with the basin.
+      if (drop.settled) {
+        continue;
+      }
       drop.velocity += (gravity * deltaMs) / 1000;
       drop.y += (drop.velocity * deltaMs) / 1000;
       const surfaceY = this.getSurfaceHeightAt(drop.x);
@@ -677,7 +681,8 @@ export class FluidSimulation {
         this.depositDrop(drop);
       }
     }
-    this.drops = this.drops.filter((drop) => drop.y - drop.radius < this.height);
+    // Remove drops that have merged with the basin or fallen out of view.
+    this.drops = this.drops.filter((drop) => !drop.settled && drop.y - drop.radius < this.height);
   }
 
   getSurfaceHeightAt(x) {
@@ -725,6 +730,8 @@ export class FluidSimulation {
     this.columnHeights[index] = Math.max(0, (this.columnHeights[index] || 0) + amount);
     this.columnVelocities[index] = Math.max(0, this.columnVelocities[index] || 0);
     this.largestDrop = Math.max(this.largestDrop, drop.size);
+    // Flag the drop so the render loop retires it after transferring its volume.
+    drop.settled = true;
 
     // Ripple drop spawning disabled to prevent exponential multiplication
     // The ripple effect is handled through wave physics in simulateFluid() which uses
