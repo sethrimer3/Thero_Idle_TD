@@ -2497,6 +2497,11 @@ body.graphics-mode-low .control-button {
 
 .variable-library-overlay .overlay-panel {
   max-width: 520px;
+  /* Let long glossaries scroll within the overlay instead of clipping off-screen. */
+  max-height: min(92vh, 640px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
 }
 
 .variable-library-list {
