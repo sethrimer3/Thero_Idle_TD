@@ -104,6 +104,9 @@ export class GravitySimulation {
     this.dustSpawnRate = this.highGraphics ? 100 : 5; // Dust particles per second (20x more on high)
     this.dustAccumulator = 0;
     this.flashEffects = []; // Spawn flash effects
+
+    // Track the spring-based bounce so the sun can wobble outward when it absorbs a star.
+    this.sunBounce = { offset: 0, velocity: 0 };
     
     // Statistics tracking
     this.stats = {
@@ -177,7 +180,7 @@ export class GravitySimulation {
   getCurrentTier() {
     let tier = MASS_TIERS[0];
     let nextTier = MASS_TIERS[1] || null;
-    
+
     for (let i = 0; i < MASS_TIERS.length; i++) {
       if (this.starMass >= MASS_TIERS[i].threshold) {
         tier = MASS_TIERS[i];
@@ -194,8 +197,50 @@ export class GravitySimulation {
       const nextThreshold = nextTier.threshold;
       progress = Math.min(1, (this.starMass - currentThreshold) / (nextThreshold - currentThreshold));
     }
-    
+
     return { tier, nextTier, progress };
+  }
+
+  /**
+   * Calculate the current visual radius of the sun so rendering and reactions stay in sync.
+   * @returns {number} Radius of the core body in pixels
+   */
+  calculateCoreRadius() {
+    return Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
+  }
+
+  /**
+   * Apply a bounce impulse so the sun briefly swells when material impacts it.
+   * @param {number} fractionalIncrease - Desired temporary radius increase expressed as a scale fraction
+   */
+  applySunBounceImpulse(fractionalIncrease = 0.01) {
+    const clampedIncrease = Math.max(0, fractionalIncrease);
+
+    // Add to the displacement while capping so chained absorptions stay subtle.
+    this.sunBounce.offset = Math.min(this.sunBounce.offset + clampedIncrease, 0.12);
+
+    // Kick the velocity forward so the spring actually oscillates instead of easing silently.
+    this.sunBounce.velocity += clampedIncrease * 6;
+  }
+
+  /**
+   * Update the spring simulation that drives the bounce animation.
+   * @param {number} dt - Delta time in seconds
+   */
+  updateSunBounce(dt) {
+    const stiffness = 32; // Gentle stiffness keeps the wobble readable without going rigid.
+    const damping = 8; // Damping trims oscillations so the motion settles quickly.
+    const displacement = this.sunBounce.offset;
+    const acceleration = -stiffness * displacement - damping * this.sunBounce.velocity;
+
+    this.sunBounce.velocity += acceleration * dt;
+    this.sunBounce.offset += this.sunBounce.velocity * dt;
+
+    // Snap to rest when the remaining motion is imperceptible.
+    if (Math.abs(this.sunBounce.offset) < 0.0001 && Math.abs(this.sunBounce.velocity) < 0.0001) {
+      this.sunBounce.offset = 0;
+      this.sunBounce.velocity = 0;
+    }
   }
 
   /**
@@ -212,7 +257,8 @@ export class GravitySimulation {
   spawnShootingStar() {
     const dpr = window.devicePixelRatio || 1;
 
-    const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
+    // Use the shared radius helper so spawn logic mirrors rendering scale.
+    const starVisualRadius = this.calculateCoreRadius();
     const maxR = Math.min(this.width, this.height) / (2 * dpr);
     const spawnRadius = maxR + this.rng.range(20, 80);
     const angle = this.rng.next() * Math.PI * 2;
@@ -258,7 +304,8 @@ export class GravitySimulation {
     const dpr = window.devicePixelRatio || 1;
     
     // Calculate central body radius
-    const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
+    // Use the shared radius helper so trail generation respects the current star size.
+    const starVisualRadius = this.calculateCoreRadius();
     
     // Calculate maximum spawn radius using the horizontal distance to the edge of the view
     const maxR = this.width / (2 * dpr);
@@ -326,7 +373,8 @@ export class GravitySimulation {
     const dpr = window.devicePixelRatio || 1;
     
     // Calculate central body radius
-    const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
+    // Use the shared radius helper so dust drag remains centered on the rendered core.
+    const starVisualRadius = this.calculateCoreRadius();
     
     // Calculate maximum spawn radius
     const maxR = Math.min(this.width, this.height) / (2 * dpr);
@@ -430,8 +478,10 @@ export class GravitySimulation {
       this.scheduleNextShootingStar();
     }
 
-    const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
-    const absorptionRadius = starVisualRadius;
+    // Use the shared radius helper so launch positions orbit around the same core size used in rendering.
+    const starVisualRadius = this.calculateCoreRadius();
+    // Mirror the bounce scale so collision detection matches the rendered radius.
+    const absorptionRadius = starVisualRadius * Math.max(0.85, 1 + this.sunBounce.offset);
     const maxR = Math.min(this.width, this.height) / (2 * dpr);
 
     for (let i = this.shootingStars.length - 1; i >= 0; i--) {
@@ -496,6 +546,9 @@ export class GravitySimulation {
         if (this.onStarMassChange) {
           this.onStarMassChange(this.starMass);
         }
+
+        // Trigger the same spring bounce for meteor impacts so the sun reacts uniformly.
+        this.applySunBounceImpulse(0.01);
         this.shockRings.push({
           x: this.centerX / dpr,
           y: this.centerY / dpr,
@@ -547,10 +600,9 @@ export class GravitySimulation {
       const distSq = Math.max(dx * dx + dy * dy, this.epsilon * this.epsilon);
       const dist = Math.sqrt(distSq);
       
-      // Get current tier for absorption radius
-      const { tier } = this.getCurrentTier();
-      const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
-      const absorptionRadius = starVisualRadius;
+      // Use the shared radius helper so absorption checks align with the rendered radius.
+      const starVisualRadius = this.calculateCoreRadius();
+      const absorptionRadius = starVisualRadius * Math.max(0.85, 1 + this.sunBounce.offset);
       
       // Check if star should be absorbed (collision detection)
       if (dist < absorptionRadius) {
@@ -563,7 +615,10 @@ export class GravitySimulation {
         if (this.onStarMassChange) {
           this.onStarMassChange(this.starMass);
         }
-        
+
+        // Trigger a 1% radius bounce so the sun visibly reacts to the incoming mass.
+        this.applySunBounceImpulse(0.01);
+
         // Create absorption shock ring
         this.shockRings.push({
           x: this.centerX / dpr,
@@ -684,15 +739,18 @@ export class GravitySimulation {
     for (let i = this.flashEffects.length - 1; i >= 0; i--) {
       const flash = this.flashEffects[i];
       flash.elapsed += dt;
-      
+
       const progress = flash.elapsed / flash.duration;
       flash.radius = flash.maxRadius * Math.sin(progress * Math.PI); // Expand then contract
       flash.alpha = Math.max(0, 1 - progress);
-      
+
       if (progress >= 1) {
         this.flashEffects.splice(i, 1);
       }
     }
+
+    // Advance the spring that powers the sun bounce so render() can apply the new scale.
+    this.updateSunBounce(dt);
   }
   
   /**
@@ -716,19 +774,25 @@ export class GravitySimulation {
     
     // Calculate star visual radius based on mass
     // diameter = star_mass / sqrt(center_mass) (scaled for display)
-    const starVisualRadius = Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
+    // Use the shared radius helper so the drawn body matches physics-driven interactions.
+    const starVisualRadius = this.calculateCoreRadius();
     
     // Luminosity increases with progress to next tier (100% to 200%)
     const baseGlowIntensity = Math.max(0.6, tier.glow);
     const glowProgressScale = 1 + progress; // 100% glow at start, 200% at next milestone threshold
-    const luminosity = baseGlowIntensity * glowProgressScale;
-    
-    // Add pulsing effect when absorbing mass (check if recent absorption)
+
+    // Sample the bounce spring so the core radius swells roughly 1% on every absorption.
+    const bounceScale = 1 + this.sunBounce.offset;
+    const pulseScale = Math.max(0.85, bounceScale);
+
+    // Track recent absorptions to brighten the glow without altering the bounce physics.
     const timeSinceAbsorption = this.elapsedTime - this.stats.lastAbsorptionTime;
-    let pulseScale = 1.0;
+    let absorptionGlowBoost = 0;
     if (timeSinceAbsorption < 0.3) {
-      pulseScale = 1.0 + Math.sin((timeSinceAbsorption / 0.3) * Math.PI) * 0.2;
+      const absorptionProgress = timeSinceAbsorption / 0.3;
+      absorptionGlowBoost = Math.sin(absorptionProgress * Math.PI) * 0.2;
     }
+    const luminosity = baseGlowIntensity * glowProgressScale * (1 + absorptionGlowBoost);
     
     // Parse tier color
     const parseColor = (hex) => {
@@ -768,7 +832,16 @@ export class GravitySimulation {
     ctx.beginPath();
     ctx.arc(centerXScaled, centerYScaled, glowRadius, 0, Math.PI * 2);
     ctx.fill();
-    
+
+    // Render shock rings beneath the core so the expanding wave emerges from behind the sun.
+    for (const ring of this.shockRings) {
+      ctx.strokeStyle = `rgba(255, 255, 255, ${ring.alpha * 0.8})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     // Draw core celestial body
     ctx.fillStyle = tier.color;
     ctx.beginPath();
@@ -918,15 +991,6 @@ export class GravitySimulation {
       ctx.beginPath();
       ctx.arc(starX, starY, starSize, 0, Math.PI * 2);
       ctx.fill();
-    }
-    
-    // Draw absorption shock rings
-    for (const ring of this.shockRings) {
-      ctx.strokeStyle = `rgba(255, 255, 255, ${ring.alpha * 0.8})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
-      ctx.stroke();
     }
     
     // Draw spawn flash effects
