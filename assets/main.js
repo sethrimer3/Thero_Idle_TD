@@ -454,6 +454,8 @@ import {
   const DEVELOPER_RESET_CONFIRM_WINDOW_MS = 5000;
   const DEVELOPER_RESET_RELOAD_DELAY_MS = 900;
   const DEVELOPER_MODE_STORAGE_KEY = 'glyph-defense-idle:developer-mode';
+  // Use an effectively infinite reserve for developer resource injections so limits never interfere with testing.
+  const DEVELOPER_RESOURCE_GRANT = Number.MAX_SAFE_INTEGER;
 
   const developerResetState = {
     confirming: false,
@@ -5269,17 +5271,17 @@ import {
     spireResourceState.shin.unlocked = true;
     spireResourceState.kuf.unlocked = true;
     
-    // Set spire banks to 1,000,000
-    powderState.idleMoteBank = 1000000;
-    powderState.fluidIdleBank = 1000000;
-    spireResourceState.lamed.sparkBank = 1000000;
-    spireResourceState.tsadi.particleBank = 1000000;
+    // Flood each spire bank with an effectively limitless reserve for stress-free testing.
+    powderState.idleMoteBank = DEVELOPER_RESOURCE_GRANT;
+    powderState.fluidIdleBank = DEVELOPER_RESOURCE_GRANT;
+    spireResourceState.lamed.sparkBank = DEVELOPER_RESOURCE_GRANT;
+    spireResourceState.tsadi.particleBank = DEVELOPER_RESOURCE_GRANT;
     
     // Set spire rates to 10 per second
     powderState.idleDrainRate = 10;
     powderState.fluidIdleDrainRate = 10;
     if (typeof setDeveloperIteronBank === 'function') {
-      setDeveloperIteronBank(1000000);
+      setDeveloperIteronBank(DEVELOPER_RESOURCE_GRANT);
     }
     if (typeof setDeveloperIterationRate === 'function') {
       setDeveloperIterationRate(10);
@@ -5287,19 +5289,19 @@ import {
     
     // Apply the banks and rates to active simulations
     if (sandSimulation) {
-      sandSimulation.idleBank = 1000000;
+      sandSimulation.idleBank = DEVELOPER_RESOURCE_GRANT;
       sandSimulation.idleDrainRate = 10;
     }
     if (fluidSimulationInstance) {
-      fluidSimulationInstance.idleBank = 1000000;
+      fluidSimulationInstance.idleBank = DEVELOPER_RESOURCE_GRANT;
       fluidSimulationInstance.idleDrainRate = 10;
     }
     if (lamedSimulationInstance) {
-      lamedSimulationInstance.sparkBank = 1000000;
+      lamedSimulationInstance.sparkBank = DEVELOPER_RESOURCE_GRANT;
       lamedSimulationInstance.sparkSpawnRate = 10;
     }
     if (tsadiSimulationInstance) {
-      tsadiSimulationInstance.particleBank = 1000000;
+      tsadiSimulationInstance.particleBank = DEVELOPER_RESOURCE_GRANT;
       tsadiSimulationInstance.spawnRate = 10;
     }
     
@@ -5362,7 +5364,7 @@ import {
     refreshFractalTabs();
     
     // Give 1 million iterons in developer mode
-    addIterons(1000000);
+    addIterons(DEVELOPER_RESOURCE_GRANT);
     updateShinDisplay();
 
     updatePowderHitboxVisibility();
@@ -6365,6 +6367,14 @@ import {
       isFieldNotesOverlayVisible,
       onTabChange: (tabId) => {
         refreshTabMusic();
+        if (audioManager) {
+          if (tabId === 'lamed') {
+            // Ensure the gravity well emits its low rumble whenever the Lamed tab is visible.
+            audioManager.playSfx('lamedRumble', { loop: true, restart: false });
+          } else {
+            audioManager.stopSfx('lamedRumble', { reset: false });
+          }
+        }
         // Compact spire tabs no longer need stack state synchronization
         if (tabId === 'fluid') {
           updateFluidTabAvailability();

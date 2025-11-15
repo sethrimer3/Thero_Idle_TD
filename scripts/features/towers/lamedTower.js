@@ -70,7 +70,7 @@ export class GravitySimulation {
     this.G = 200; // Gravitational constant
     this.epsilon = 5; // Softening parameter to prevent singularity
     this.starMass = 10; // Initial mass of central star (Proto-star)
-    this.dragCoefficient = 0.01; // k parameter for drag (upgradable, starts at 0.01)
+    this.dragCoefficient = 0.002; // k parameter for drag (upgradable, starts at 0.002)
     this.dragLevel = 0; // Current drag upgrade level
     this.maxDragLevel = 1000000; // Maximum drag upgrade level
     
@@ -128,6 +128,9 @@ export class GravitySimulation {
       coreInnerColor: options.coreInnerColor || '#fff7d6',
       coreOuterColor: options.coreOuterColor || '#ff7b32',
       coreFalloff: typeof options.coreFalloff === 'number' ? options.coreFalloff : 1.2,
+      // Limb darkening settings control how dramatically the surface fades near the edge.
+      limbDarkeningStrength: typeof options.limbDarkeningStrength === 'number' ? options.limbDarkeningStrength : 0.35,
+      limbDarkeningExponent: typeof options.limbDarkeningExponent === 'number' ? options.limbDarkeningExponent : 1.6,
     };
 
     // Precompute canvases for the sun surface so the render loop only blits textures.
@@ -264,7 +267,15 @@ export class GravitySimulation {
    * @returns {number} Radius of the core body in pixels
    */
   calculateCoreRadius() {
-    return Math.max(10, 5 + Math.sqrt(this.starMass / 10) * 3);
+    const neutronTier = MASS_TIERS[5];
+    const slowGrowthThreshold = neutronTier ? neutronTier.threshold : 0;
+    const dampenedMass = slowGrowthThreshold > 0
+      ? Math.min(this.starMass, slowGrowthThreshold) * 0.25
+      : this.starMass * 0.25;
+    const excessMass = slowGrowthThreshold > 0 ? Math.max(0, this.starMass - slowGrowthThreshold) : 0;
+    const effectiveMass = dampenedMass + excessMass;
+    // Apply the reduced mass curve so early tiers expand 75% slower while keeping continuity at high tiers.
+    return Math.max(10, 5 + Math.sqrt(effectiveMass / 10) * 3);
   }
 
   /**
@@ -490,6 +501,9 @@ export class GravitySimulation {
 
         // Base color gradient from inner (white-hot) to outer (orange-red) with adjustable falloff.
         const radialT = Math.pow(Math.min(1, radius), settings.coreFalloff);
+        // Introduce a limb-darkening gradient so the stellar disc darkens toward the rim for a 3D illusion.
+        const limbFactorRaw = 1 - settings.limbDarkeningStrength * Math.pow(Math.min(1, radius), settings.limbDarkeningExponent);
+        const limbFactor = Math.max(0.2, limbFactorRaw);
         let r = inner.r * (1 - radialT) + outer.r * radialT;
         let g = inner.g * (1 - radialT) + outer.g * radialT;
         let b = inner.b * (1 - radialT) + outer.b * radialT;
@@ -502,7 +516,7 @@ export class GravitySimulation {
         // Apply boiling convection brightness from secondary noise.
         const convection = (secondaryNoise - 0.5) * 0.22;
         const rimHighlight = Math.pow(Math.max(0, 1 - radius), 2.2) * 0.3;
-        const brightness = Math.max(0.2, luminosity * (0.85 + convection + rimHighlight) * highlightBoost);
+        const brightness = Math.max(0.2, luminosity * (0.85 + convection + rimHighlight) * highlightBoost * limbFactor);
 
         // Darken sunspot areas while keeping a soft glowing edge for realism.
         const spotDarkness = settings.spotDarkness * sunspotMask;
@@ -545,15 +559,23 @@ export class GravitySimulation {
 
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
+    // Blur the inner halo so the glow appears diffused instead of forming a solid ring.
+    const haloBlur = Math.max(4, starVisualRadius * 0.12);
+    ctx.filter = `blur(${haloBlur}px)`;
     ctx.fillStyle = gradient;
     ctx.beginPath();
     ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
 
     // Overlay a noise-driven shimmer ring for the corona so the edge appears to dance.
     const segments = 42;
     const wobbleRadius = starVisualRadius * 0.14;
     const wobbleOffset = this.surfaceAnimationState.coronaOffset;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    // Add a light blur to the shimmer ring to create a hazy corona band.
+    ctx.filter = `blur(${Math.max(1.5, starVisualRadius * 0.05)}px)`;
     ctx.lineWidth = Math.max(1.5, starVisualRadius * 0.08);
     ctx.shadowBlur = starVisualRadius * 0.18;
     ctx.shadowColor = `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.22 * luminosity})`;
@@ -1232,6 +1254,9 @@ export class GravitySimulation {
     ctx.fill();
 
     // Render shock rings beneath the core so the expanding wave emerges from behind the sun.
+    ctx.save();
+    // Feather the shock rings so the expansion looks gaseous instead of razor sharp.
+    ctx.filter = `blur(${Math.max(1.2, coreRadius * 0.04)}px)`;
     for (const ring of this.shockRings) {
       ctx.strokeStyle = `rgba(255, 255, 255, ${ring.alpha * 0.8})`;
       ctx.lineWidth = 2;
@@ -1239,6 +1264,7 @@ export class GravitySimulation {
       ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
       ctx.stroke();
     }
+    ctx.restore();
 
     // Draw the procedural surface texture with animated sunspots and convection.
     const coreRadius = starVisualRadius * pulseScale;
@@ -1281,14 +1307,15 @@ export class GravitySimulation {
       
       // Top jet
       ctx.beginPath();
-      ctx.moveTo(centerXScaled, centerYScaled);
-      ctx.lineTo(centerXScaled, centerYScaled - jetLength);
+      // Start the jet outside the stellar surface so no line slices through the sun's core.
+      ctx.moveTo(centerXScaled, centerYScaled - coreRadius);
+      ctx.lineTo(centerXScaled, centerYScaled - coreRadius - jetLength);
       ctx.stroke();
-      
+
       // Bottom jet
       ctx.beginPath();
-      ctx.moveTo(centerXScaled, centerYScaled);
-      ctx.lineTo(centerXScaled, centerYScaled + jetLength);
+      ctx.moveTo(centerXScaled, centerYScaled + coreRadius);
+      ctx.lineTo(centerXScaled, centerYScaled + coreRadius + jetLength);
       ctx.stroke();
     }
     
@@ -1530,7 +1557,7 @@ export class GravitySimulation {
   
   /**
    * Upgrade the drag coefficient (k parameter).
-   * Increases k by 0.01 per upgrade level (starting at 0.01).
+   * Increases k by 0.002 per upgrade level (starting at 0.002).
    * @returns {boolean} True if upgrade succeeded
    */
   upgradeDrag() {
@@ -1541,7 +1568,7 @@ export class GravitySimulation {
     const cost = this.getDragUpgradeCost();
     this.setSparkBank(this.sparkBank - cost);
     this.dragLevel++;
-    this.dragCoefficient = 0.01 + (this.dragLevel * 0.01);
+    this.dragCoefficient = 0.002 + this.dragLevel * 0.002;
     
     return true;
   }
@@ -1635,7 +1662,7 @@ export class GravitySimulation {
       }
       if (Number.isFinite(state.dragLevel)) {
         this.dragLevel = Math.max(0, Math.min(state.dragLevel, this.maxDragLevel));
-        this.dragCoefficient = 0.01 + (this.dragLevel * 0.01);
+        this.dragCoefficient = 0.002 + this.dragLevel * 0.002;
       }
       if (state.upgrades) {
         if (Number.isFinite(state.upgrades.starMass)) {
