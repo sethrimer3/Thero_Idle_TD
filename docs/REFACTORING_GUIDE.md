@@ -170,6 +170,26 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Upgrade panel updates remain functionally identical while relying on the shared factory pattern established for other extracts
 - Refined dependencies make future Tsadi feature work easier without combing through thousands of lines in the orchestrator
 
+### towerBlueprintPresenter.js (blueprint math + glyph state cache)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `getTowerEquationBlueprint()` fallback handling plus authored blueprint lookups moved out of `towersTab.js`
+- Glyph state bookkeeping (`ensureTowerUpgradeState`, snapshot/apply helpers, glyph cost tallies) consolidated into a single presenter
+- `computeTowerVariableValue()` and `calculateTowerEquationResult()` now live beside the memoized equation cache instead of reaching into Towers tab globals
+- `calculateTowerVariableUpgradeCost()` centralized so UI components share the same glyph pricing logic without duplicating guards
+
+**Integration approach:**
+- Added `createTowerBlueprintPresenter()` factory (`assets/towerBlueprintPresenter.js`) that receives `getTowerDefinition`, dynamic-context getter, and formatter helpers via dependency injection
+- `assets/towersTab.js` instantiates the presenter once, re-exporting the returned APIs so existing imports in playfield/tower modules continue to work unchanged
+- The tower upgrade overlay controller now consumes the presenter functions through its dependency map, keeping DI consistent with other refactors
+
+**Result:**
+- Blueprint math and glyph persistence are isolated from the 2,300-line Towers tab UI, trimming another ~500 lines from the monolith
+- Shared helpers (`calculateTowerEquationResult`, `computeTowerVariableValue`, etc.) now sit in a dedicated module that can be unit tested without DOM scaffolding
+- Explicit dependencies make future blueprint presenters (equipment bindings, blueprint narration) easier to author without re-threading global state
+
 ### powderUiDomHelpers.js (powder and fluid overlay DOM helpers)
 
 **Status:** ✅ Complete

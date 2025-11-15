@@ -28,11 +28,11 @@ import {
   addEquipmentListener as addEquipmentStateListener,
 } from './equipment.js';
 import { formatCombatNumber } from './playfield/utils/formatting.js'; // Format tower costs with the same notation used in combat messaging.
-import { TOWER_EQUATION_BLUEPRINTS as IMPORTED_TOWER_BLUEPRINTS } from './towerEquations/index.js'; // Import tower blueprints from refactored modules.
 import { initializeBlueprintContext } from './towerEquations/blueprintContext.js'; // Initialize context for tower blueprints.
 import { generateMasterEquationText } from './towerEquations/masterEquationUtils.js';
 import { createTowerEquationTooltipSystem } from './towerEquationTooltip.js';
 import { createTowerUpgradeOverlayController } from './towerUpgradeOverlayController.js';
+import { createTowerBlueprintPresenter } from './towerBlueprintPresenter.js';
 
 // Callback to update status displays when glyphs change. Set via configureTowersTabCallbacks.
 let updateStatusDisplaysCallback = null;
@@ -185,8 +185,6 @@ const towerTabState = {
     hideTransitionHandler: null,
     lastRenderedTowerId: null,
   },
-  towerUpgradeState: new Map(),
-  towerEquationCache: new Map(),
   towerVariableAnimation: {
     towerId: null,
     variableMap: new Map(),
@@ -218,6 +216,35 @@ const towerTabState = {
   discoveredVariables: new Map(),
   discoveredVariableListeners: new Set(),
   dynamicContext: null,
+};
+
+// Instantiate a blueprint presenter so glyph math and caching live outside the UI wiring.
+const {
+  getTowerEquationBlueprint,
+  ensureTowerUpgradeState,
+  getTowerUpgradeStateSnapshot,
+  applyTowerUpgradeStateSnapshot,
+  calculateInvestedGlyphs,
+  calculateTowerVariableUpgradeCost,
+  computeTowerVariableValue,
+  calculateTowerEquationResult,
+  invalidateTowerEquationCache,
+} = createTowerBlueprintPresenter({
+  getTowerDefinition,
+  getDynamicContext: () => towerTabState.dynamicContext,
+  formatters: { formatWholeNumber, formatDecimal },
+});
+
+export {
+  getTowerEquationBlueprint,
+  ensureTowerUpgradeState,
+  getTowerUpgradeStateSnapshot,
+  applyTowerUpgradeStateSnapshot,
+  calculateInvestedGlyphs,
+  calculateTowerVariableUpgradeCost,
+  computeTowerVariableValue,
+  calculateTowerEquationResult,
+  invalidateTowerEquationCache,
 };
 
 const {
@@ -291,8 +318,6 @@ export {
   handleTowerVariableDowngrade,
   bindTowerUpgradeOverlay,
 };
-
-const fallbackTowerBlueprints = new Map();
 
 // Ensure tower definitions expose meter-calibrated sizing and range data.
 function normalizeTowerDefinition(definition = {}) {
@@ -605,17 +630,6 @@ export function withTowerDynamicContext(context, evaluator) {
     towerTabState.dynamicContext = previousContext;
   }
 }
-
-// Use imported tower blueprints from refactored modules
-const TOWER_EQUATION_BLUEPRINTS = IMPORTED_TOWER_BLUEPRINTS;
-
-// Legacy TOWER_EQUATION_BLUEPRINTS definition removed - now imported from ./towerEquations/
-// The original definition (lines 520-3086) has been refactored into:
-// - ./towerEquations/mindGate.js (mind-gate)
-// - ./towerEquations/basicTowers.js (alpha, beta, gamma)
-// - ./towerEquations/greekTowers.js (delta, epsilon, zeta, eta, theta, iota)
-// - ./towerEquations/advancedTowers.js (kappa, lambda, mu, nu, xi, omicron, pi)
-// See ./towerEquations/agent.md for documentation
 
 export function getTowerDefinition(towerId) {
   return towerTabState.towerDefinitionMap.get(towerId) || null;
@@ -1389,495 +1403,7 @@ export function toggleTowerSelection(towerId) {
   updateTowerSelectionButtons();
   syncLoadoutToPlayfield();
 }
-export function getTowerEquationBlueprint(towerId) {
-  if (!towerId) {
-    return null;
-  }
-  if (Object.prototype.hasOwnProperty.call(TOWER_EQUATION_BLUEPRINTS, towerId)) {
-    return TOWER_EQUATION_BLUEPRINTS[towerId];
-  }
-  if (fallbackTowerBlueprints.has(towerId)) {
-    return fallbackTowerBlueprints.get(towerId);
-  }
-  const definition = getTowerDefinition(towerId);
-  if (!definition) {
-    return null;
-  }
 
-  const fallbackBlueprint = {
-    mathSymbol: definition.symbol ? definition.symbol : towerId,
-    baseEquation: `\\( ${definition.symbol || towerId} = X \\times Y \\)`,
-    variables: [
-      {
-        key: 'damage',
-        symbol: 'X',
-        name: 'Damage',
-        description: 'Base strike damage coursing through the lattice.',
-        stat: 'damage',
-        upgradable: false,
-        format: (value) => formatWholeNumber(value),
-      },
-      {
-        key: 'rate',
-        symbol: 'Y',
-        name: 'Attack Speed',
-        description: 'Attacks per second released by the glyph.',
-        stat: 'rate',
-        upgradable: false,
-        format: (value) => formatDecimal(value, 2),
-      },
-    ],
-    computeResult(values) {
-      const damage = Number.isFinite(values.damage) ? values.damage : 0;
-      const rate = Number.isFinite(values.rate) ? values.rate : 0;
-      return damage * rate;
-    },
-    formatGoldenEquation({ formatVariable, formatResult }) {
-      return `\\( ${formatResult()} = ${formatVariable('damage')} \\times ${formatVariable('rate')} \\)`;
-    },
-  };
-
-  fallbackTowerBlueprints.set(towerId, fallbackBlueprint);
-  return fallbackBlueprint;
-}
-
-function getBlueprintVariable(blueprint, key) {
-  if (!blueprint || !key) {
-    return null;
-  }
-  return (blueprint.variables || []).find((variable) => variable.key === key) || null;
-}
-
-export function ensureTowerUpgradeState(towerId, blueprint = null) {
-  if (!towerId) {
-    return { variables: {} };
-  }
-  const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
-  let state = towerTabState.towerUpgradeState.get(towerId);
-  if (!state) {
-    state = { variables: {} };
-    towerTabState.towerUpgradeState.set(towerId, state);
-  }
-  if (!state.variables) {
-    state.variables = {};
-  }
-  const variables = effectiveBlueprint?.variables || [];
-  variables.forEach((variable) => {
-    if (!state.variables[variable.key]) {
-      state.variables[variable.key] = { level: 0 };
-    }
-  });
-  return state;
-}
-
-/**
- * Get a serializable snapshot of all tower upgrade states for persistence.
- */
-export function getTowerUpgradeStateSnapshot() {
-  const snapshot = {};
-  towerTabState.towerUpgradeState.forEach((state, towerId) => {
-    if (!state || !state.variables) {
-      return;
-    }
-    const variables = {};
-    Object.keys(state.variables).forEach((key) => {
-      const variableState = state.variables[key];
-      if (variableState && Number.isFinite(variableState.level)) {
-        variables[key] = { level: Math.max(0, variableState.level) };
-      }
-    });
-    if (Object.keys(variables).length > 0) {
-      snapshot[towerId] = { variables };
-    }
-  });
-  return snapshot;
-}
-
-/**
- * Apply a saved tower upgrade state snapshot, restoring glyph allocations.
- */
-export function applyTowerUpgradeStateSnapshot(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object') {
-    return;
-  }
-  Object.keys(snapshot).forEach((towerId) => {
-    const savedState = snapshot[towerId];
-    if (!savedState || !savedState.variables || typeof savedState.variables !== 'object') {
-      return;
-    }
-    const blueprint = getTowerEquationBlueprint(towerId);
-    const state = ensureTowerUpgradeState(towerId, blueprint);
-    Object.keys(savedState.variables).forEach((variableKey) => {
-      const savedVariable = savedState.variables[variableKey];
-      if (savedVariable && Number.isFinite(savedVariable.level) && savedVariable.level > 0) {
-        if (!state.variables[variableKey]) {
-          state.variables[variableKey] = { level: 0 };
-        }
-        state.variables[variableKey].level = Math.max(0, savedVariable.level);
-      }
-    });
-  });
-}
-
-/**
- * Computes the total number of glyphs invested across all tower variables.
- */
-export function calculateInvestedGlyphs() {
-  let total = 0;
-  towerTabState.towerUpgradeState.forEach((state, towerId) => {
-    if (!state || !state.variables) {
-      return;
-    }
-    const blueprint = getTowerEquationBlueprint(towerId);
-    Object.entries(state.variables).forEach(([variableKey, variableState]) => {
-      const levels = Number.isFinite(variableState?.level) ? Math.max(0, variableState.level) : 0;
-      if (levels <= 0) {
-        return;
-      }
-      const variable = getBlueprintVariable(blueprint, variableKey);
-      for (let levelIndex = 0; levelIndex < levels; levelIndex += 1) {
-        const cost = calculateTowerVariableUpgradeCost(variable, levelIndex);
-        total += Math.max(1, cost);
-      }
-    });
-  });
-  return total;
-}
-
-/**
- * Clears all stored tower upgrade progress and resets available glyph currency.
- */
-export function clearTowerUpgradeState() {
-  towerTabState.towerUpgradeState.clear();
-  towerTabState.glyphCurrency = 0;
-  updateTowerUpgradeGlyphDisplay();
-}
-
-function normalizeVariableKey(value) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-  return value.trim().toLowerCase();
-}
-
-function getUniversalVariableMetadata(variable) {
-  if (!variable) {
-    return null;
-  }
-  const symbolKey = normalizeVariableKey(variable.symbol);
-  const keyKey = normalizeVariableKey(variable.key);
-  return (
-    UNIVERSAL_VARIABLE_LIBRARY.get(symbolKey) || UNIVERSAL_VARIABLE_LIBRARY.get(keyKey) || null
-  );
-}
-
-function getDiscoveredVariableId(variable) {
-  if (!variable) {
-    return '';
-  }
-  const symbol =
-    typeof variable.symbol === 'string' && variable.symbol.trim().length > 0
-      ? variable.symbol.trim()
-      : typeof variable.key === 'string' && variable.key.trim().length > 0
-      ? variable.key.trim().toUpperCase()
-      : '';
-  return normalizeVariableKey(symbol) || normalizeVariableKey(variable.key);
-}
-
-/**
- * Compose a tower label that preserves lowercase glyphs without duplication.
- */
-function composeTowerDisplayLabel(definition, fallback = '') {
-  if (!definition || typeof definition !== 'object') {
-    return fallback;
-  }
-  const symbol = typeof definition.symbol === 'string' ? definition.symbol.trim() : '';
-  const name = typeof definition.name === 'string' ? definition.name.trim() : '';
-  if (symbol && name) {
-    const normalizedSymbol = symbol.normalize('NFKC');
-    const normalizedName = name.normalize('NFKC');
-    if (normalizedName.startsWith(normalizedSymbol)) {
-      return name;
-    }
-    return `${symbol} ${name}`;
-  }
-  if (name) {
-    return name;
-  }
-  if (symbol) {
-    return symbol;
-  }
-  return fallback;
-}
-
-function getTowerSourceLabel(towerId) {
-  const definition = getTowerDefinition(towerId);
-  if (!definition) {
-    return towerId;
-  }
-  return composeTowerDisplayLabel(definition, towerId);
-}
-
-function notifyDiscoveredVariablesChanged() {
-  const snapshot = getDiscoveredVariables();
-  towerTabState.discoveredVariableListeners.forEach((listener) => {
-    try {
-      listener(snapshot);
-    } catch (error) {
-      console.warn('Failed to notify discovered variable listener', error);
-    }
-  });
-  if (typeof document !== 'undefined') {
-    document.dispatchEvent(
-      new CustomEvent('tower-variables-changed', {
-        detail: { variables: snapshot },
-      }),
-    );
-  }
-}
-
-function discoverTowerVariables(towerId, blueprint = null) {
-  if (!towerId) {
-    return;
-  }
-  const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
-  if (!effectiveBlueprint) {
-    return;
-  }
-  const variables = effectiveBlueprint.variables || [];
-  if (!variables.length) {
-    return;
-  }
-
-  const sourceLabel = getTowerSourceLabel(towerId);
-  let changed = false;
-
-  variables.forEach((variable) => {
-    if (!variable) {
-      return;
-    }
-    const id = getDiscoveredVariableId(variable);
-    if (!id) {
-      return;
-    }
-
-    const universal = getUniversalVariableMetadata(variable);
-    const symbol = universal?.symbol
-      ? universal.symbol
-      : typeof variable.symbol === 'string' && variable.symbol.trim().length
-      ? variable.symbol.trim()
-      : typeof variable.key === 'string' && variable.key.trim().length
-      ? variable.key.trim().toUpperCase()
-      : id.toUpperCase();
-    const name = universal?.name || variable.name || `Variable ${symbol}`;
-    const description = universal?.description || variable.description || '';
-
-    let entry = towerTabState.discoveredVariables.get(id);
-    if (!entry) {
-      entry = {
-        id,
-        symbol,
-        name,
-        description,
-        sources: new Set(),
-      };
-      towerTabState.discoveredVariables.set(id, entry);
-      changed = true;
-    } else {
-      if (universal && (entry.symbol !== universal.symbol || entry.name !== universal.name)) {
-        entry.symbol = universal.symbol;
-        entry.name = universal.name;
-        entry.description = universal.description;
-        changed = true;
-      } else if (!entry.description && description) {
-        entry.description = description;
-        changed = true;
-      }
-    }
-
-    if (sourceLabel && !entry.sources.has(sourceLabel)) {
-      entry.sources.add(sourceLabel);
-      changed = true;
-    }
-  });
-
-  if (changed) {
-    notifyDiscoveredVariablesChanged();
-  }
-}
-
-export function initializeDiscoveredVariablesFromUnlocks(unlockedTowers = []) {
-  towerTabState.discoveredVariables = new Map();
-  const towerList = Array.isArray(unlockedTowers)
-    ? unlockedTowers
-    : Array.from(unlockedTowers || []);
-  towerList.forEach((towerId) => {
-    discoverTowerVariables(towerId);
-  });
-  notifyDiscoveredVariablesChanged();
-}
-
-export function addDiscoveredVariablesListener(listener) {
-  if (typeof listener !== 'function') {
-    return () => {};
-  }
-  towerTabState.discoveredVariableListeners.add(listener);
-  try {
-    listener(getDiscoveredVariables());
-  } catch (error) {
-    console.warn('Failed to invoke discovered variable listener', error);
-  }
-  return () => {
-    towerTabState.discoveredVariableListeners.delete(listener);
-  };
-}
-
-export function getDiscoveredVariables() {
-  const entries = Array.from(towerTabState.discoveredVariables.values()).map((entry) => ({
-    id: entry.id,
-    symbol: entry.symbol,
-    name: entry.name,
-    description: entry.description,
-    sources: Array.from(entry.sources).sort((a, b) =>
-      a.localeCompare(b, undefined, { sensitivity: 'base' }),
-    ),
-  }));
-
-  return entries.sort((a, b) =>
-    a.symbol.localeCompare(b.symbol, undefined, { sensitivity: 'base' }),
-  );
-}
-
-export function calculateTowerVariableUpgradeCost(variable, level) {
-  if (!variable) {
-    return 1;
-  }
-  if (typeof variable.cost === 'function') {
-    const value = variable.cost(level);
-    if (Number.isFinite(value) && value > 0) {
-      return Math.max(1, Math.floor(value));
-    }
-  } else if (Number.isFinite(variable.cost)) {
-    return Math.max(1, Math.floor(variable.cost));
-  }
-  return Math.max(1, 1 + level);
-}
-
-export function computeTowerVariableValue(towerId, variableKey, blueprint = null, visited = new Set()) {
-  if (!towerId || !variableKey) {
-    return 0;
-  }
-  const effectiveBlueprint = blueprint || getTowerEquationBlueprint(towerId);
-  const variable = getBlueprintVariable(effectiveBlueprint, variableKey);
-  if (!variable) {
-    return 0;
-  }
-
-  if (variable.reference) {
-    const referencedId = variable.reference;
-    const referencedValue = calculateTowerEquationResult(referencedId, visited);
-    if (!Number.isFinite(referencedValue)) {
-      return 0;
-    }
-    if (typeof variable.transform === 'function') {
-      return variable.transform(referencedValue);
-    }
-    if (Number.isFinite(variable.exponent)) {
-      return referencedValue ** variable.exponent;
-    }
-    return referencedValue;
-  }
-
-  const definition = getTowerDefinition(towerId);
-
-  if (typeof variable.computeValue === 'function') {
-    try {
-      const computedValue = variable.computeValue({
-        definition,
-        towerId,
-        blueprint: effectiveBlueprint,
-        dynamicContext: towerTabState.dynamicContext,
-      });
-      if (Number.isFinite(computedValue)) {
-        return computedValue;
-      }
-    } catch (error) {
-      console.warn('Failed to evaluate custom tower variable computeValue', error);
-    }
-  }
-
-  let baseValue = 0;
-  if (typeof variable.getBase === 'function') {
-    baseValue = variable.getBase({ definition, towerId });
-  } else if (variable.stat && Number.isFinite(definition?.[variable.stat])) {
-    baseValue = definition[variable.stat];
-  } else if (Number.isFinite(variable.baseValue)) {
-    baseValue = variable.baseValue;
-  }
-
-  if (!Number.isFinite(baseValue)) {
-    baseValue = 0;
-  }
-
-  const state = ensureTowerUpgradeState(towerId, effectiveBlueprint);
-  const level = state.variables?.[variableKey]?.level || 0;
-  if (variable.upgradable === false) {
-    return baseValue;
-  }
-
-  const step =
-    typeof variable.getStep === 'function'
-      ? variable.getStep(level, { definition, towerId })
-      : Number.isFinite(variable.step)
-      ? variable.step
-      : 0;
-
-  return baseValue + level * step;
-}
-
-export function calculateTowerEquationResult(towerId, visited = new Set()) {
-  if (!towerId) {
-    return 0;
-  }
-  if (towerTabState.towerEquationCache.has(towerId)) {
-    return towerTabState.towerEquationCache.get(towerId);
-  }
-  if (visited.has(towerId)) {
-    return 0;
-  }
-  visited.add(towerId);
-
-  const blueprint = getTowerEquationBlueprint(towerId);
-  if (!blueprint) {
-    visited.delete(towerId);
-    return 0;
-  }
-
-  ensureTowerUpgradeState(towerId, blueprint);
-  const values = {};
-  (blueprint.variables || []).forEach((variable) => {
-    values[variable.key] = computeTowerVariableValue(towerId, variable.key, blueprint, visited);
-  });
-
-  let result = 0;
-  if (typeof blueprint.computeResult === 'function') {
-    result = blueprint.computeResult(values, { definition: getTowerDefinition(towerId) });
-  } else {
-    result = Object.values(values).reduce((total, value) => {
-      const contribution = Number.isFinite(value) ? value : 0;
-      return total === 0 ? contribution : total * contribution;
-    }, 0);
-  }
-
-  const safeResult = Number.isFinite(result) ? result : 0;
-  towerTabState.towerEquationCache.set(towerId, safeResult);
-  visited.delete(towerId);
-  return safeResult;
-}
-
-export function invalidateTowerEquationCache() {
-  towerTabState.towerEquationCache.clear();
-}
 
 function formatTowerVariableValue(variable, value) {
   if (!Number.isFinite(value)) {
