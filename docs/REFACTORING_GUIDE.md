@@ -115,6 +115,26 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Focus restoration and retry flows are encapsulated, making future overlay adjustments safer
 - main.js drops another concentrated set of UI helpers while retaining identical behavior
 
+### levelSummary.js (level preview + history formatting)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `getLevelSummary(level)` - Generates the mode/duration/reward summary for the hovered level card
+- `describeLevelLastResult(level, state, runner)` - Narrates the most recent outcome or idle run progress
+- `formatInteractiveLevelRewards()` - Computes the dynamic interactive reward string with multiplier callouts
+- `describeLevelStartingThero()` - Formats the starting Thero math using the configured multiplier and glyph symbol
+
+**Integration approach:**
+- Added `createLevelSummaryHelpers()` factory in `assets/levelSummary.js`
+- Factory receives dependencies (`levelConfigs`, `idleLevelConfigs`, `getStartingTheroMultiplier`, etc.) plus the live Thero glyph so math text stays centralized
+- `main.js` instantiates the helpers once after declaring `THERO_SYMBOL` and destructures `getLevelSummary` and `describeLevelLastResult`
+
+**Result:**
+- Level overlay/tooltip math formatting moved out of `main.js`, reducing repeated formatting logic
+- All summary helpers live together, making it easier to audit copy and math changes without hunting through the orchestrator
+- Future level-preview tweaks can adjust the helper factory without threading new state through thousands of lines of unrelated code
+
 ### spireTabVisibility.js (spire tab toggling helpers)
 
 **Status:** ✅ Complete
