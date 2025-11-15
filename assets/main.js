@@ -260,6 +260,7 @@ import { enableDragScroll } from './dragScroll.js';
 import { createLevelEditorController } from './levelEditor.js';
 import { createLevelPreviewRenderer } from './levelPreviewRenderer.js';
 import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
+import { createPlayfieldMenuController } from './playfieldMenu.js';
 import {
   moteGemState,
   MOTE_GEM_COLLECTION_RADIUS,
@@ -482,203 +483,17 @@ import {
   const overlayHelpers = createOverlayHelpers();
   const { cancelOverlayHide, scheduleOverlayHide, revealOverlay } = overlayHelpers;
 
-  function resetPlayfieldMenuLevelSelect() {
-    playfieldMenuLevelSelectConfirming = false;
-    if (!playfieldMenuLevelSelect) {
-      return;
-    }
-    playfieldMenuLevelSelect.textContent = playfieldMenuLevelSelectDefaultLabel;
-    playfieldMenuLevelSelect.classList.remove('playfield-menu-item--warning');
-    playfieldMenuLevelSelect.removeAttribute('data-confirming');
-  }
+  // Developer map element references allow quick toggles for spawning and clearing obstacles.
+  let developerModeActive = false;
 
-  function updatePlayfieldMenuState() {
-    const interactive = Boolean(activeLevelId && activeLevelIsInteractive);
-    if (playfieldMenuCommence) {
-      // Mirror the primary commence button label/state inside the quick menu.
-      const startButton = playfieldElements.startButton;
-      const disabled = !startButton || startButton.disabled;
-      playfieldMenuCommence.disabled = disabled;
-      playfieldMenuCommence.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-      const label = startButton?.textContent?.trim();
-      if (label) {
-        playfieldMenuCommence.textContent = label;
-      }
-    }
-    if (playfieldMenuLevelSelect) {
-      playfieldMenuLevelSelect.disabled = !interactive && !activeLevelId;
-      playfieldMenuLevelSelect.setAttribute(
-        'aria-disabled',
-        playfieldMenuLevelSelect.disabled ? 'true' : 'false',
-      );
-    }
-    if (playfieldMenuRetryWave) {
-      const canRetry = Boolean(
-        playfield && typeof playfield.canRetryCurrentWave === 'function'
-          ? playfield.canRetryCurrentWave()
-          : interactive,
-      );
-      playfieldMenuRetryWave.disabled = !canRetry;
-      playfieldMenuRetryWave.setAttribute('aria-disabled', canRetry ? 'false' : 'true');
-    }
-    if (playfieldMenuDevTools) {
-      const devAvailable = Boolean(developerModeActive && activeLevelId && interactive);
-      const toolsActive = isDeveloperMapToolsActive();
-      playfieldMenuDevTools.disabled = !devAvailable;
-      playfieldMenuDevTools.setAttribute('aria-disabled', devAvailable ? 'false' : 'true');
-      playfieldMenuDevTools.textContent = toolsActive ? 'Close Dev Map Tools' : 'Dev Map Tools';
-      playfieldMenuDevTools.setAttribute('aria-pressed', toolsActive ? 'true' : 'false');
-      if (!devAvailable) {
-        const hint = developerModeActive
-          ? 'Enter an interactive defense to access Dev Map Tools.'
-          : 'Enable developer mode in the Codex tab to access Dev Map Tools.';
-        playfieldMenuDevTools.setAttribute('title', hint);
-        playfieldMenuDevTools.setAttribute('aria-description', hint);
-      } else {
-        playfieldMenuDevTools.removeAttribute('title');
-        playfieldMenuDevTools.removeAttribute('aria-description');
-      }
-    }
-    if (playfieldMenuStats) {
-      const statsAvailable = Boolean(playfield && interactive);
-      playfieldMenuStats.disabled = !statsAvailable;
-      playfieldMenuStats.setAttribute('aria-disabled', statsAvailable ? 'false' : 'true');
-      const label = playfieldStatsVisible ? 'Hide Combat Stats' : 'Show Combat Stats';
-      playfieldMenuStats.textContent = label;
-      playfieldMenuStats.setAttribute('aria-pressed', playfieldStatsVisible ? 'true' : 'false');
-    }
-  }
-
-  function closePlayfieldMenu(options = {}) {
-    // Ensure the quick menu hides and returns focus control to the battlefield trigger.
-    const { restoreFocus = false } = options;
-
-    if (playfieldMenuButton) {
-      playfieldMenuButton.setAttribute('aria-expanded', 'false');
-    }
-    if (playfieldMenuPanel) {
-      playfieldMenuPanel.setAttribute('hidden', '');
-    }
-
-    resetPlayfieldMenuLevelSelect();
-
-    if (!playfieldMenuOpen) {
-      return;
-    }
-
-    playfieldMenuOpen = false;
-    document.removeEventListener('pointerdown', handlePlayfieldMenuPointerDown);
-    document.removeEventListener('keydown', handlePlayfieldMenuKeydown);
-
-    if (restoreFocus && playfieldMenuButton && typeof playfieldMenuButton.focus === 'function') {
-      try {
-        playfieldMenuButton.focus({ preventScroll: true });
-      } catch (error) {
-        playfieldMenuButton.focus();
-      }
-    }
-  }
-
-  function handlePlayfieldMenuPointerDown(event) {
-    // Collapse the menu whenever the player interacts outside of the panel bounds.
-    if (!playfieldMenuOpen) {
-      return;
-    }
-
-    const target = event?.target || null;
-    if (!playfieldMenuPanel) {
-      return;
-    }
-
-    if (playfieldMenuPanel.contains(target)) {
-      return;
-    }
-
-    if (playfieldMenuButton && target === playfieldMenuButton) {
-      return;
-    }
-
-    closePlayfieldMenu();
-  }
-
-  function handlePlayfieldMenuKeydown(event) {
-    // Allow players to dismiss the battlefield menu with the Escape key.
-    if (!playfieldMenuOpen) {
-      return;
-    }
-
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      closePlayfieldMenu({ restoreFocus: true });
-    }
-  }
-
-  function openPlayfieldMenu() {
-    // Reveal the battlefield actions panel only while an interactive level is active.
-    if (!playfieldMenuButton || !playfieldMenuPanel) {
-      return;
-    }
-    if (!activeLevelId || !activeLevelIsInteractive) {
-      return;
-    }
-    if (playfieldMenuOpen) {
-      return;
-    }
-
-    playfieldMenuOpen = true;
-    playfieldMenuButton.setAttribute('aria-expanded', 'true');
-    playfieldMenuPanel.removeAttribute('hidden');
-
-    updatePlayfieldMenuState();
-
-    document.addEventListener('pointerdown', handlePlayfieldMenuPointerDown);
-    document.addEventListener('keydown', handlePlayfieldMenuKeydown);
-
-    const focusTarget = playfieldMenuPanel.querySelector('[role="menuitem"], button');
-    if (focusTarget && typeof focusTarget.focus === 'function') {
-      try {
-        focusTarget.focus({ preventScroll: true });
-      } catch (error) {
-        focusTarget.focus();
-      }
-    }
-  }
-
-  function togglePlayfieldMenu() {
-    // Switch the menu state with a single button tap.
-    if (playfieldMenuOpen) {
-      closePlayfieldMenu();
-    } else {
-      openPlayfieldMenu();
-    }
-  }
-
-  function togglePlayfieldStatsVisibility() {
-    if (!playfield || typeof playfield.setStatsPanelEnabled !== 'function') {
-      return;
-    }
-    if (!activeLevelId || !activeLevelIsInteractive) {
-      return;
-    }
-    playfieldStatsVisible = !playfieldStatsVisible;
-    playfield.setStatsPanelEnabled(playfieldStatsVisible);
-    if (playfieldStatsVisible && typeof PlayfieldStatsPanel.focusPanel === 'function') {
-      const revealPanel = () => {
-        try {
-          // Smoothly scroll the analytics card into view so the toggle has immediate feedback.
-          PlayfieldStatsPanel.focusPanel();
-        } catch (error) {
-          PlayfieldStatsPanel.focusPanel();
-        }
-      };
-      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-        window.requestAnimationFrame(revealPanel);
-      } else {
-        revealPanel();
-      }
-    }
-    updatePlayfieldMenuState();
-  }
+  let playfield = null;
+  // Track layout elements so the UI can swap between the battlefield and level grid.
+  let playfieldWrapper = null;
+  let stageControls = null;
+  let levelSelectionSection = null;
+  let activeLevelIsInteractive = false;
+  let playfieldMenuController = null;
+  let audioManager = null;
 
   function updateLayoutVisibility() {
     // Hide the battlefield until an interactive level is in progress.
@@ -688,13 +503,10 @@ import {
     setElementVisibility(levelSelectionSection, !shouldShowPlayfield);
 
     if (!shouldShowPlayfield) {
-      closePlayfieldMenu();
-      if (playfield && typeof playfield.setStatsPanelEnabled === 'function') {
-        playfield.setStatsPanelEnabled(false);
+      if (playfieldMenuController) {
+        playfieldMenuController.closeMenu();
+        playfieldMenuController.resetStatsPanelState();
       }
-      playfieldStatsVisible = false;
-      PlayfieldStatsPanel.resetPanel();
-      updatePlayfieldMenuState();
       return;
     }
 
@@ -703,175 +515,10 @@ import {
       playfield.syncCanvasSize();
     }
 
-    updatePlayfieldMenuState();
-  }
-
-  function handleReturnToLevelSelection() {
-    // Confirm whether players truly want to abandon the current battle.
-    const hasActiveLevel = Boolean(activeLevelId);
-    const requiresConfirm = Boolean(activeLevelId && activeLevelIsInteractive);
-
-    if (!hasActiveLevel) {
-      resetPlayfieldMenuLevelSelect();
-      closePlayfieldMenu();
-      updateLayoutVisibility();
-      return;
-    }
-
-    if (requiresConfirm && !playfieldMenuLevelSelectConfirming) {
-      playfieldMenuLevelSelectConfirming = true;
-      if (playfieldMenuLevelSelect) {
-        playfieldMenuLevelSelect.textContent = 'Are you sure?';
-        playfieldMenuLevelSelect.classList.add('playfield-menu-item--warning');
-        playfieldMenuLevelSelect.setAttribute('data-confirming', 'true');
-      }
-      return;
-    }
-
-    resetPlayfieldMenuLevelSelect();
-    const finalizeExit = () => {
-      leaveActiveLevel();
-      closePlayfieldMenu({ restoreFocus: true }); // Ensure the quick menu collapses after returning to level selection.
-    };
-    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(finalizeExit);
-    } else {
-      finalizeExit();
+    if (playfieldMenuController) {
+      playfieldMenuController.syncStatsPanelVisibility();
     }
   }
-
-  function handleCommenceWaveFromMenu() {
-    // Trigger the main commence button from the quick menu while respecting its state.
-    const startButton = playfieldElements.startButton;
-    if (!startButton || startButton.disabled) {
-      return;
-    }
-
-    if (startButton === playfieldMenuCommence) {
-      // When the quick menu button doubles as the start control, close the sheet after it fires.
-      const finalizeClose = () => {
-        closePlayfieldMenu();
-        updatePlayfieldMenuState();
-      };
-      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-        window.requestAnimationFrame(finalizeClose);
-      } else {
-        finalizeClose();
-      }
-      return;
-    }
-
-    startButton.click();
-    closePlayfieldMenu();
-    updatePlayfieldMenuState();
-  }
-
-  function handleRetryCurrentWave() {
-    resetPlayfieldMenuLevelSelect();
-
-    if (!playfield || typeof playfield.retryCurrentWave !== 'function') {
-      return;
-    }
-
-    const retried = playfield.retryCurrentWave();
-    updatePlayfieldMenuState();
-    if (retried) {
-      closePlayfieldMenu();
-    }
-  }
-
-  function handleOpenDevMapTools() {
-    resetPlayfieldMenuLevelSelect();
-
-    if (!developerModeActive) {
-      if (playfield?.messageEl) {
-        playfield.messageEl.textContent =
-          'Enable developer mode in the Codex tab to open Dev Map Tools.';
-      }
-      if (audioManager) {
-        audioManager.playSfx('error');
-      }
-      closePlayfieldMenu();
-      return;
-    }
-
-    if (!activeLevelId || !activeLevelIsInteractive) {
-      if (playfield?.messageEl) {
-        playfield.messageEl.textContent = 'Enter an interactive defense before opening Dev Map Tools.';
-      }
-      if (audioManager) {
-        audioManager.playSfx('error');
-      }
-      closePlayfieldMenu();
-      return;
-    }
-
-    const level = levelLookup.get(activeLevelId);
-    if (!level) {
-      if (playfield?.messageEl) {
-        playfield.messageEl.textContent =
-          'Active level data unavailable—restart the defense to refresh developer tools.';
-      }
-      closePlayfieldMenu();
-      return;
-    }
-
-    if (isDeveloperMapToolsActive()) {
-      deactivateDeveloperMapTools({ force: true, silent: false });
-      updatePlayfieldMenuState();
-      if (audioManager) {
-        audioManager.playSfx('menuSelect');
-      }
-      closePlayfieldMenu();
-      return;
-    }
-
-    pendingLevel = null;
-    const activated = activateDeveloperMapToolsForLevel(level);
-    if (!activated) {
-      if (playfield?.messageEl) {
-        playfield.messageEl.textContent =
-          'Unable to activate developer map tools—verify the level path is loaded.';
-      }
-      if (audioManager) {
-        audioManager.playSfx('error');
-      }
-      closePlayfieldMenu();
-      return;
-    }
-
-    if (playfield?.messageEl) {
-      playfield.messageEl.textContent =
-        'Developer map tools active—drag anchors or Shift-click to remove points directly on the battlefield.';
-    }
-    if (audioManager) {
-      audioManager.playSfx('menuSelect');
-    }
-    updatePlayfieldMenuState();
-    closePlayfieldMenu();
-  }
-
-  // Developer map element references allow quick toggles for spawning and clearing obstacles.
-  let developerModeActive = false;
-
-  let playfield = null;
-  // Track layout elements so the UI can swap between the battlefield and level grid.
-  let playfieldWrapper = null;
-  let stageControls = null;
-  let levelSelectionSection = null;
-  // Store quick menu controls for leaving an active level.
-  let playfieldMenuButton = null;
-  let playfieldMenuPanel = null;
-  let playfieldMenuCommence = null;
-  let playfieldMenuLevelSelect = null;
-  let playfieldMenuRetryWave = null;
-  let playfieldMenuDevTools = null;
-  let playfieldMenuStats = null;
-  let playfieldMenuLevelSelectConfirming = false;
-  const playfieldMenuLevelSelectDefaultLabel = 'Level Selection';
-  let playfieldMenuOpen = false;
-  let activeLevelIsInteractive = false;
-  let playfieldStatsVisible = false;
 
 
   const playfieldElements = {
@@ -912,6 +559,47 @@ import {
     setOverlayPreviewLevel,
   } = levelEditor;
 
+  // Centralize quick menu controls (commence/retry/dev tools/stats) outside of main.js.
+  playfieldMenuController = createPlayfieldMenuController({
+    getActiveLevelId: () => activeLevelId,
+    isActiveLevelInteractive: () => activeLevelIsInteractive,
+    getPlayfield: () => playfield,
+    getStartButton: () => playfieldElements.startButton,
+    isDeveloperModeActive: () => developerModeActive,
+    getLevelById: (levelId) => levelLookup.get(levelId),
+    isDeveloperMapToolsActive,
+    activateDeveloperMapToolsForLevel,
+    deactivateDeveloperMapTools,
+    clearPendingLevel: () => {
+      pendingLevel = null;
+    },
+    requestLayoutRefresh: () => {
+      updateLayoutVisibility();
+    },
+    leaveActiveLevel,
+    onStatsPanelVisibilityChange: (visible) => {
+      if (playfield && typeof playfield.setStatsPanelEnabled === 'function') {
+        playfield.setStatsPanelEnabled(visible);
+      }
+    },
+    focusStatsPanel: () => {
+      if (typeof PlayfieldStatsPanel.focusPanel === 'function') {
+        PlayfieldStatsPanel.focusPanel();
+      }
+    },
+    resetStatsPanel: () => {
+      if (typeof PlayfieldStatsPanel.resetPanel === 'function') {
+        PlayfieldStatsPanel.resetPanel();
+      }
+    },
+    getAudioManager: () => audioManager,
+    setPlayfieldMessage: (message) => {
+      if (playfield?.messageEl) {
+        playfield.messageEl.textContent = message;
+      }
+    },
+  });
+
   configurePlayfieldOutcome({
     getPlayfield: () => playfield,
     leaveActiveLevel,
@@ -949,7 +637,7 @@ import {
     highestPowderMultiplier: 1,
   };
 
-  const audioManager = new AudioManager(DEFAULT_AUDIO_MANIFEST);
+  audioManager = new AudioManager(DEFAULT_AUDIO_MANIFEST);
   setTowersAudioManager(audioManager);
 
   configureFieldNotesOverlay({
@@ -4587,7 +4275,9 @@ import {
     // Ensure the battlefield stays hidden until another level begins.
     updateLayoutVisibility();
     updateTowerSelectionButtons();
-    updatePlayfieldMenuState();
+    if (playfieldMenuController) {
+      playfieldMenuController.updateMenuState();
+    }
   }
 
   function updateLevelCards() {
@@ -5351,7 +5041,9 @@ import {
 
     syncLevelEditorVisibility();
 
-    updatePlayfieldMenuState();
+    if (playfieldMenuController) {
+      playfieldMenuController.updateMenuState();
+    }
     updateDeveloperMapElementsVisibility();
 
     if (playfield?.messageEl) {
@@ -5444,7 +5136,9 @@ import {
     updateDeveloperControlsVisibility();
     syncDeveloperControlValues();
 
-    updatePlayfieldMenuState();
+    if (playfieldMenuController) {
+      playfieldMenuController.updateMenuState();
+    }
 
     updatePowderHitboxVisibility();
   }
@@ -6192,51 +5886,16 @@ import {
     playfieldWrapper = document.getElementById('playfield-wrapper');
     stageControls = document.getElementById('stage-controls');
     levelSelectionSection = document.getElementById('level-selection');
-    // Store quick menu controls that surface the level selection confirmation.
-    playfieldMenuButton = document.getElementById('playfield-menu-button');
-    playfieldMenuPanel = document.getElementById('playfield-menu-panel');
-    playfieldMenuCommence = document.getElementById('playfield-menu-commence');
-    playfieldMenuLevelSelect = document.getElementById('playfield-menu-level-select');
-    playfieldMenuRetryWave = document.getElementById('playfield-menu-retry-wave');
-    playfieldMenuDevTools = document.getElementById('playfield-menu-dev-tools');
-    playfieldMenuStats = document.getElementById('playfield-menu-stats');
-    if (playfieldMenuLevelSelect) {
-      playfieldMenuLevelSelect.textContent = playfieldMenuLevelSelectDefaultLabel;
-    }
-    if (playfieldMenuButton) {
-      playfieldMenuButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        togglePlayfieldMenu();
-      });
-    }
-    if (playfieldMenuLevelSelect) {
-      playfieldMenuLevelSelect.addEventListener('click', (event) => {
-        event.preventDefault();
-        handleReturnToLevelSelection();
-      });
-    }
-    if (playfieldMenuCommence) {
-      playfieldMenuCommence.addEventListener('click', (event) => {
-        event.preventDefault();
-        handleCommenceWaveFromMenu();
-      });
-    }
-    if (playfieldMenuRetryWave) {
-      playfieldMenuRetryWave.addEventListener('click', (event) => {
-        event.preventDefault();
-        handleRetryCurrentWave();
-      });
-    }
-    if (playfieldMenuStats) {
-      playfieldMenuStats.addEventListener('click', (event) => {
-        event.preventDefault();
-        togglePlayfieldStatsVisibility();
-      });
-    }
-    if (playfieldMenuDevTools) {
-      playfieldMenuDevTools.addEventListener('click', (event) => {
-        event.preventDefault();
-        handleOpenDevMapTools();
+    if (playfieldMenuController) {
+      // Wire the playfield quick menu buttons through the dedicated controller.
+      playfieldMenuController.bindMenuElements({
+        button: document.getElementById('playfield-menu-button'),
+        panel: document.getElementById('playfield-menu-panel'),
+        commence: document.getElementById('playfield-menu-commence'),
+        levelSelect: document.getElementById('playfield-menu-level-select'),
+        retry: document.getElementById('playfield-menu-retry-wave'),
+        devTools: document.getElementById('playfield-menu-dev-tools'),
+        stats: document.getElementById('playfield-menu-stats'),
       });
     }
     // Default to the level selection view until a combat encounter begins.
@@ -6762,8 +6421,9 @@ import {
       });
       setTowersPlayfield(playfield);
       playfield.draw();
-      playfield.setStatsPanelEnabled(playfieldStatsVisible);
-      updatePlayfieldMenuState();
+      if (playfieldMenuController) {
+        playfieldMenuController.syncStatsPanelVisibility();
+      }
     }
 
     refreshTabMusic({ restart: true });
