@@ -91,6 +91,7 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Audio suppression bookkeeping lives in `assets/audioOrchestration.js`, clarifying how tab visibility and overlays pause music
 - Music routing logic now co-located with slider bindings, reducing shared state in `main.js`
 - Tab changes and overlay events still call into the same helpers, but the file sheds another tight cluster of stateful functions
+- **Guideline:** Any future ambient loops or bed tracks (e.g., tower hums, spire ambience) must route through `audioManager.playSfx()` with `loop: true` **and** rely on the shared suppression hooks. Call `suppressAudioPlayback()` when visibility or overlay changes should silence audio—the helper now pauses both music and looping SFX via `audioManager.suspendLoopingSfx()` so everything halts when the tab is hidden. When wiring a new loop to a tab, also remember to stop it explicitly via `audioManager.stopSfx(key)` when the tab is exited so the suppression/resume cycle can safely restart it later.
 
 ### playfieldOutcome.js (victory/defeat overlay wiring)
 

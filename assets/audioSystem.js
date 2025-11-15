@@ -67,6 +67,8 @@ export class AudioManager {
     this.sfxPools = new Map();
     // Track looping sound effects so they can be stopped or adjusted later.
     this.loopingSfx = new Map();
+    // Remember which looping tracks were actively playing when suppression kicked in.
+    this.suspendedLoopingSfx = new Set();
     this.currentMusicKey = null;
     this.activeMusicEntry = null;
     this.activeMusicFade = null;
@@ -356,6 +358,7 @@ export class AudioManager {
       }
       audio.loop = false;
       this.loopingSfx.delete(key);
+      this.suspendedLoopingSfx.delete(key);
     };
 
     if (!this.unlocked) {
@@ -364,6 +367,48 @@ export class AudioManager {
     }
 
     stopAudio();
+  }
+
+  /**
+   * Pause all looping sound effects so ambient beds respect document visibility.
+   */
+  suspendLoopingSfx() {
+    if (!this.loopingSfx || this.loopingSfx.size === 0) {
+      return;
+    }
+    this.loopingSfx.forEach((entry, key) => {
+      const audio = entry?.audio;
+      if (!audio) {
+        return;
+      }
+      const wasPlaying = !audio.paused;
+      audio.pause();
+      if (wasPlaying) {
+        this.suspendedLoopingSfx.add(key);
+      }
+    });
+  }
+
+  /**
+   * Resume any looping sound effects that were paused via suspendLoopingSfx().
+   */
+  resumeSuspendedLoopingSfx() {
+    if (!this.suspendedLoopingSfx || this.suspendedLoopingSfx.size === 0) {
+      return;
+    }
+    const pendingKeys = Array.from(this.suspendedLoopingSfx);
+    this.suspendedLoopingSfx.clear();
+    pendingKeys.forEach((key) => {
+      const entry = this.loopingSfx.get(key);
+      const audio = entry?.audio;
+      if (!audio) {
+        return;
+      }
+      const playPromise = audio.play();
+      if (typeof playPromise?.catch === 'function') {
+        playPromise.catch(() => {});
+      }
+    });
   }
 
   /**
