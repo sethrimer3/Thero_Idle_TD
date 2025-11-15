@@ -564,6 +564,13 @@ body.graphics-mode-low .control-button {
   width: min(560px, 100%);
 }
 
+/* Keep the combat stats card aligned beneath the battlefield without covering it. */
+.playfield-combat-stats-container {
+  width: min(560px, 100%);
+  display: grid;
+  gap: 14px;
+}
+
 .playfield {
   position: relative;
   border-radius: 24px;
@@ -1137,13 +1144,14 @@ body.graphics-mode-low .control-button {
 }
 
 .playfield-combat-stats {
-  margin-top: 18px;
+  margin: 0;
   padding: 18px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(6, 8, 18, 0.82);
   display: grid;
   gap: 18px;
+  width: 100%;
   color: rgba(244, 248, 255, 0.9);
   font-family: 'Cormorant Garamond', serif;
   letter-spacing: 0.03em;
@@ -1359,7 +1367,7 @@ body.graphics-mode-low .control-button {
 /* Floating dialog shares details about the selected enemy or wave. */
 .playfield-combat-stats__dialog {
   position: relative;
-  margin-top: 14px;
+  margin: 0;
 }
 
 .playfield-combat-stats__dialog[hidden] {
