@@ -152,6 +152,27 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Upgrade panel updates remain functionally identical while relying on the shared factory pattern established for other extracts
 - Refined dependencies make future Tsadi feature work easier without combing through thousands of lines in the orchestrator
 
+### powderUiDomHelpers.js (powder and fluid overlay DOM helpers)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `bindFluidControls()` - Collects Bet Spire DOM references for simulation hydration
+- `applyMindGatePaletteToDom()` - Updates the Mind Gate emblem gradient for the active powder palette
+- `updateMoteGemInventoryDisplay()` - Renders the mote gem inventory list with sprites and counters
+- `updatePowderGlyphColumns()` - Manages Aleph wall glyph DOM recycling and progress indicators
+- `updateFluidGlyphColumns()` - Mirrors Bet glyph columns on the fluid study wall with right-side exclusivity
+
+**Integration approach:**
+- Helpers exposed via `createPowderUiDomHelpers()` with dependency injection for DOM caches and formatting utilities
+- Main orchestrator provides lazy `getPowderElements()` accessor so initialization order remains unchanged
+- Arrays tracking glyph columns are passed by reference, preserving shared state with powder display systems
+
+**Result:**
+- Powder and fluid overlay DOM logic now lives in `assets/powderUiDomHelpers.js`, shrinking `main.js` by another focused cluster
+- UI helpers reuse the established factory pattern, keeping palette updates and glyph maintenance encapsulated
+- Lazy element resolution guards prevent early calls from throwing while modules initialize, improving robustness
+
 ### powderDisplay.js (powder tab orchestration + idle rewards)
 
 **Status:** ✅ Complete
