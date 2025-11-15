@@ -33,9 +33,15 @@ export class FernLSystemSimulation {
 
     this.progress = 0;
     this.targetProgress = 0;
-    this.drawSpeed = 0.05;
+    this.progressEase = 0.02;
+    this.segmentGrowthSpeed = options.segmentGrowthSpeed || 0.085;
 
     this.segments = [];
+    this.segmentProgress = new Float32Array(0);
+    this.segmentTargets = new Float32Array(0);
+    this.segmentComplete = new Uint8Array(0);
+    this.activeSegmentCount = 0;
+    this.partialSegmentIndex = -1;
     this.buildSegments();
   }
 
@@ -95,6 +101,7 @@ export class FernLSystemSimulation {
     }
 
     this.segments = segments;
+    this.resetAnimationState();
   }
 
   update() {
@@ -103,7 +110,59 @@ export class FernLSystemSimulation {
     }
 
     if (this.progress < this.targetProgress) {
-      this.progress = Math.min(this.targetProgress, this.progress + this.drawSpeed);
+      this.progress = Math.min(this.targetProgress, this.progress + this.progressEase);
+    } else if (this.progress > this.targetProgress) {
+      this.progress = Math.max(this.targetProgress, this.progress - this.progressEase);
+    }
+
+    const totalSegments = this.segments.length;
+    if (totalSegments === 0) {
+      return;
+    }
+
+    // Determine how many segments should currently be animating.
+    const segmentProgressTarget = this.progress * totalSegments;
+    const targetFullSegments = Math.min(totalSegments, Math.floor(segmentProgressTarget));
+    const partialRemainder = Math.min(1, segmentProgressTarget - targetFullSegments);
+
+    // Upgrade previously partial segments if the global target moved beyond them.
+    if (this.partialSegmentIndex !== -1 && this.partialSegmentIndex < targetFullSegments) {
+      this.segmentTargets[this.partialSegmentIndex] = 1;
+      this.partialSegmentIndex = -1;
+    }
+
+    // Start any new fully-grown segments that should now be animating.
+    while (this.activeSegmentCount < targetFullSegments && this.activeSegmentCount < totalSegments) {
+      this.segmentTargets[this.activeSegmentCount] = 1;
+      this.activeSegmentCount++;
+    }
+
+    // Handle the trailing partial segment that is currently drawing in.
+    if (partialRemainder > 0) {
+      if (this.partialSegmentIndex !== -1) {
+        this.segmentTargets[this.partialSegmentIndex] = Math.max(this.segmentTargets[this.partialSegmentIndex], partialRemainder);
+      } else if (this.activeSegmentCount < totalSegments) {
+        this.segmentTargets[this.activeSegmentCount] = partialRemainder;
+        this.partialSegmentIndex = this.activeSegmentCount;
+        this.activeSegmentCount++;
+      }
+    } else if (this.partialSegmentIndex !== -1) {
+      this.segmentTargets[this.partialSegmentIndex] = 1;
+      this.partialSegmentIndex = -1;
+    }
+
+    const maxAnimatedIndex = this.partialSegmentIndex !== -1 ? this.partialSegmentIndex : this.activeSegmentCount - 1;
+    for (let i = 0; i <= maxAnimatedIndex && i < this.segmentTargets.length; i++) {
+      const target = this.segmentTargets[i];
+      if (target <= 0) {
+        continue;
+      }
+      if (this.segmentProgress[i] < target) {
+        this.segmentProgress[i] = Math.min(target, this.segmentProgress[i] + this.segmentGrowthSpeed);
+      }
+      if (this.segmentProgress[i] >= 1) {
+        this.segmentComplete[i] = 1;
+      }
     }
   }
 
@@ -117,27 +176,52 @@ export class FernLSystemSimulation {
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.applyPanZoomTransform();
 
-    const totalSegments = this.segments.length;
-    if (totalSegments === 0) {
-      return;
-    }
-
-    const visibleSegments = Math.floor(totalSegments * this.progress);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    for (let i = 0; i < visibleSegments; i++) {
+    const maxSegmentsToDraw = Math.min(this.activeSegmentCount, this.segmentProgress.length);
+    for (let i = 0; i < maxSegmentsToDraw; i++) {
+      const progress = this.segmentProgress[i];
+      if (progress <= 0) {
+        continue;
+      }
       const seg = this.segments[i];
-      const t = i / totalSegments;
+      const clamped = Math.min(progress, 1);
+      const px = seg.x1 + (seg.x2 - seg.x1) * clamped;
+      const py = seg.y1 + (seg.y2 - seg.y1) * clamped;
+      const t = this.segments.length > 0 ? i / this.segments.length : 0;
       const color = samplePalette('emerald-ink', t);
       ctx.strokeStyle = rgbToString(color, 0.9);
       ctx.lineWidth = Math.max(1, 4 - t * 3);
       ctx.beginPath();
       ctx.moveTo(seg.x1, seg.y1);
-      ctx.lineTo(seg.x2, seg.y2);
+      ctx.lineTo(px, py);
       ctx.stroke();
+
+      if (progress < 1) {
+        const tipAlpha = 0.35 + 0.25 * (1 - progress);
+        const radius = Math.max(1.5, 4 - t * 2);
+        ctx.globalAlpha = tipAlpha;
+        ctx.fillStyle = rgbToString(color, 1);
+        ctx.beginPath();
+        ctx.arc(px, py, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
     }
     this.restorePanZoomTransform();
+  }
+
+  /**
+   * Reset all per-segment animation state after rebuilding the fern geometry.
+   */
+  resetAnimationState() {
+    const total = this.segments.length;
+    this.segmentProgress = new Float32Array(total);
+    this.segmentTargets = new Float32Array(total);
+    this.segmentComplete = new Uint8Array(total);
+    this.activeSegmentCount = 0;
+    this.partialSegmentIndex = -1;
   }
 
   updateConfig(config = {}) {
