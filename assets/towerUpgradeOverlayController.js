@@ -960,6 +960,10 @@ export function createTowerUpgradeOverlayController({
 
     container.append(fragment);
     mathElements.forEach((element) => renderMathElement(element));
+
+    // Ensure freshly rendered variable cards inherit the correct visibility state
+    // so their sub-equation stacks do not remain hidden after re-renders.
+    syncTowerVariableCardVisibility();
   }
 
   function formatTowerEquationResultValue(value) {
