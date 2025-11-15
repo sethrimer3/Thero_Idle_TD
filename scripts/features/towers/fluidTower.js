@@ -59,6 +59,10 @@ export class FluidSimulation {
       ? Math.max(1, Math.round(options.wallGapCells))
       : 15;
     this.baseGapUnits = normalizedBaseGap;
+    // Remember the intrinsic width so dynamic resizes can scale droplet size from a consistent baseline.
+    this.referenceWidth = referenceWidth;
+    // Cache the default droplet diameter measured in CSS pixels; this keeps desktop layouts from collapsing to tiny drops.
+    this.baseCellSize = Math.max(1, referenceWidth / 100);
     this.gapWidthRatio = Number.isFinite(options.gapWidthRatio) && options.gapWidthRatio > 0
       ? Math.max(0.05, Math.min(0.95, options.gapWidthRatio))
       : null;
@@ -193,7 +197,7 @@ export class FluidSimulation {
       ? parent.getBoundingClientRect()
       : null;
 
-    const measuredWidth = parentRect?.width || rect?.width || this.canvas.clientWidth || 240;
+    const measuredWidth = parentRect?.width || rect?.width || this.canvas.clientWidth || 0;
     const attrWidth = Number.parseFloat(this.canvas.getAttribute('width')) || 0;
     const attrHeight = Number.parseFloat(this.canvas.getAttribute('height')) || 0;
     const intrinsicWidth = attrWidth > 0 ? attrWidth : measuredWidth;
@@ -201,8 +205,21 @@ export class FluidSimulation {
     // Lock the Bet Spire viewport to its intrinsic canvas size so window resizes
     // do not stretch or compress the simulation state.
     const previousWidth = Number.isFinite(this.width) && this.width > 0 ? this.width : 0;
-    const baseWidth = previousWidth || intrinsicWidth || 240;
-    const constrainedWidth = Math.max(150, baseWidth);
+    if (measuredWidth && measuredWidth > 0) {
+      // Track the live viewport width so we can size droplets relative to the actual render area.
+      const roundedMeasured = Math.round(measuredWidth);
+      this.referenceWidth = roundedMeasured;
+      this.baseCellSize = Math.max(1, roundedMeasured / 100);
+    }
+
+    const fallbackWidth = previousWidth
+      ? previousWidth
+      : this.referenceWidth && this.referenceWidth > 0
+        ? this.referenceWidth
+        : intrinsicWidth || 240;
+    // Prefer the measured width when the canvas is visible so the simulation scales with the host card.
+    const widthSource = measuredWidth && measuredWidth > 0 ? measuredWidth : fallbackWidth;
+    const constrainedWidth = Math.max(150, Math.round(widthSource));
     // Fixed 3:4 aspect ratio for consistency with Aleph Spire
     const aspectRatio = 4 / 3;
     const constrainedHeight = Math.max(200, Math.floor(constrainedWidth * aspectRatio));
@@ -236,9 +253,15 @@ export class FluidSimulation {
     this.width = constrainedWidth;
     this.height = constrainedHeight;
 
-    // NEW: Set cell size to be exactly 1/100th of render width
-    // This makes 1 cell = 1 drop diameter = 1/100th of width
-    this.cellSize = Math.max(1, constrainedWidth / 100);
+    // Scale the active cell size from the cached baseline rather than locking to the intrinsic canvas width.
+    // This keeps mobile drop detail intact while letting the desktop viewport thicken the fluid proportionally.
+    const referenceWidth = this.referenceWidth && this.referenceWidth > 0 ? this.referenceWidth : constrainedWidth;
+    const baseCellSize = this.baseCellSize && this.baseCellSize > 0
+      ? this.baseCellSize
+      : Math.max(1, referenceWidth / 100);
+    const widthScale = constrainedWidth / Math.max(1, referenceWidth);
+    // Scale droplet size from the cached baseline so larger desktop viewports thicken the fluid proportionally.
+    this.cellSize = Math.max(1, baseCellSize * widthScale);
 
     if (!Number.isFinite(this.baseGapUnits) || this.baseGapUnits <= 0) {
       const fallbackGapUnits = Number.isFinite(this.wallGapTargetUnits)
