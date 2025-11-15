@@ -22,6 +22,8 @@ const LAYER_SEED_LIMITS = [9, 18, 30, 45, 60, 75, 90, 110, 130];
 const TOTAL_CELL_CAP = LAYER_SEED_LIMITS.reduce((sum, limit) => sum + limit, 0);
 const MIN_RADIAL_STEPS = 60;
 const MAX_RADIAL_STEPS = 180;
+// Successive Voronoi disks shrink by 10% to create concentric glass layers.
+const LAYER_RADIUS_FALLOFF = 0.9;
 
 export class VoronoiSubdivisionSimulation {
   constructor(options = {}) {
@@ -77,9 +79,20 @@ export class VoronoiSubdivisionSimulation {
     }
   }
 
+  /**
+   * Calculate the target radius for a Voronoi layer so each disk shrinks by 10%.
+   * @param {number} layerIdx - Index of the Voronoi layer.
+   * @returns {number} Radius assigned to the specified layer.
+   */
+  getLayerRadius(layerIdx) {
+    const layerFalloff = Math.pow(LAYER_RADIUS_FALLOFF, Math.max(0, layerIdx));
+    return this.circleRadius * layerFalloff;
+  }
+
   randomSeed(layerIndex) {
     const angle = Math.random() * Math.PI * 2;
-    const radius = Math.sqrt(Math.random()) * this.circleRadius * 0.95;
+    const layerRadius = this.getLayerRadius(layerIndex);
+    const radius = Math.sqrt(Math.random()) * layerRadius * 0.95;
     const colorT = 0.2 + Math.random() * 0.8;
     return {
       x: this.canvas.width / 2 + Math.cos(angle) * radius,
@@ -104,6 +117,22 @@ export class VoronoiSubdivisionSimulation {
       const remainingCapacity = Math.max(0, this.targetCells - cellsAllocated);
       const layerTarget = Math.min(layerMax, layerCap, remainingCapacity);
       let layerChanged = false;
+      const centerX = this.canvas.width / 2;
+      const centerY = this.canvas.height / 2;
+      const layerRadius = this.getLayerRadius(layerIdx) * 0.98;
+
+      // Keep existing seeds within the shrunken disk for this layer.
+      for (const seed of layer.seeds) {
+        const dx = seed.x - centerX;
+        const dy = seed.y - centerY;
+        const distance = Math.hypot(dx, dy);
+        if (distance > layerRadius && distance > 0) {
+          const clampRatio = layerRadius / distance;
+          seed.x = centerX + dx * clampRatio;
+          seed.y = centerY + dy * clampRatio;
+          layerChanged = true;
+        }
+      }
 
       // Update seeds for this layer
       while (layer.seeds.length < layerTarget) {
@@ -139,6 +168,7 @@ export class VoronoiSubdivisionSimulation {
     const polygons = [];
     const seedCap = LAYER_SEED_LIMITS[layerIdx] ?? seeds.length;
     const density = seedCap > 0 ? Math.min(1, seeds.length / seedCap) : 0;
+    const layerRadius = this.getLayerRadius(layerIdx); // Each layer tessellates within its own shrinking disk.
     const radialSteps = Math.max(
       MIN_RADIAL_STEPS,
       Math.min(
@@ -154,7 +184,7 @@ export class VoronoiSubdivisionSimulation {
       for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
         const dirX = Math.cos(angle);
         const dirY = Math.sin(angle);
-        let radius = this.circleRadius;
+        let radius = layerRadius;
 
         for (let j = 0; j < seeds.length; j++) {
           if (i === j) {
@@ -191,12 +221,31 @@ export class VoronoiSubdivisionSimulation {
       return;
     }
 
+    const previousCircleRadius = this.circleRadius;
     if (Number.isFinite(width) && Number.isFinite(height)) {
       this.canvas.width = width;
       this.canvas.height = height;
     }
 
     this.circleRadius = Math.min(this.canvas.width, this.canvas.height) * 0.45;
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+    const hasPreviousRadius = Number.isFinite(previousCircleRadius) && previousCircleRadius > 0;
+    if (hasPreviousRadius) {
+      // Preserve the concentric disk ratios when the canvas resizes.
+      for (let layerIdx = 0; layerIdx < this.layers.length; layerIdx++) {
+        const layer = this.layers[layerIdx];
+        const oldLayerRadius = previousCircleRadius * Math.pow(LAYER_RADIUS_FALLOFF, layerIdx);
+        const newLayerRadius = this.getLayerRadius(layerIdx);
+        const radiusRatio = oldLayerRadius > 0 ? newLayerRadius / oldLayerRadius : 1;
+        for (const seed of layer.seeds) {
+          const dx = seed.x - centerX;
+          const dy = seed.y - centerY;
+          seed.x = centerX + dx * radiusRatio;
+          seed.y = centerY + dy * radiusRatio;
+        }
+      }
+    }
     for (let i = 0; i < this.layers.length; i++) {
       this.rebuildPolygonsForLayer(i);
     }
@@ -341,9 +390,13 @@ export class VoronoiSubdivisionSimulation {
 
       const layerPalette = this.getLayerPalette(layerIdx);
       const rotationState = this.layerRotationState[layerIdx];
+      const layerRadius = this.getLayerRadius(layerIdx); // Clip rendering to the concentric disk for this layer.
       ctx.save();
       ctx.translate(centerX, centerY);
       ctx.rotate(rotationState ? rotationState.angle : 0);
+      ctx.beginPath();
+      ctx.arc(0, 0, layerRadius, 0, Math.PI * 2);
+      ctx.clip();
       ctx.translate(-centerX, -centerY);
 
       for (const poly of layer.polygons) {
