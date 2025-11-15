@@ -23,7 +23,7 @@ export const DEFAULT_AUDIO_MANIFEST = {
   },
   sfx: {
     // Continuous low-frequency ambience for the Lamed Spire gravity well.
-    lamedRumble: { file: 'lamed_spire_rumble.ogg', volume: 0.55, maxConcurrent: 1, loop: true },
+    lamedRumble: { file: 'lamed_spire_rumble.ogg', volume: 0.44, maxConcurrent: 1, loop: true },
     uiConfirm: { file: 'menu_selection_alt.mp3', volume: 0.55, maxConcurrent: 2 },
     uiToggle: { file: 'menu_selection_OLD.mp3', volume: 0.5, maxConcurrent: 2 },
     menuSelect: { file: 'menu_selection.mp3', volume: 0.55, maxConcurrent: 4 },

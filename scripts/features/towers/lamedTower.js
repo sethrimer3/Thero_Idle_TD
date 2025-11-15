@@ -1221,6 +1221,9 @@ export class GravitySimulation {
     
     const tierColor = parseColor(tier.color);
 
+    // Derive the rendered core radius up front so blur passes and texture placement reference the same scale.
+    const coreRadius = starVisualRadius * pulseScale;
+
     // Rebuild the cached procedural texture before any blitting occurs.
     this.rebuildSunSurfaceTexture(tierColor, luminosity, absorptionGlowBoost);
 
@@ -1267,7 +1270,6 @@ export class GravitySimulation {
     ctx.restore();
 
     // Draw the procedural surface texture with animated sunspots and convection.
-    const coreRadius = starVisualRadius * pulseScale;
     if (this.surfaceCanvas) {
       ctx.save();
       ctx.beginPath();
