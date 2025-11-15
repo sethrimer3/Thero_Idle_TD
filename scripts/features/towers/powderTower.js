@@ -634,6 +634,21 @@ export class PowderSimulation {
       leftCells: this.wallInsetLeftCells,
       rightCells: this.wallInsetRightCells,
       gapCells: Math.max(0, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells),
+      // Surface the pixel-resolved inset so DOM walls can align without rounding gaps.
+      leftPixels: Number.isFinite(this.wallInsetLeftPx)
+        ? Math.max(0, this.wallInsetLeftPx)
+        : Math.max(0, this.wallInsetLeftCells * this.cellSize),
+      // Mirror the right wall width using the precise pixel measurement from the simulation.
+      rightPixels: Number.isFinite(this.wallInsetRightPx)
+        ? Math.max(0, this.wallInsetRightPx)
+        : Math.max(0, this.wallInsetRightCells * this.cellSize),
+      // Report the remaining playable lane width in pixels so overlays hug the motes.
+      gapPixels: Math.max(
+        0,
+        this.width -
+          (Number.isFinite(this.wallInsetLeftPx) ? this.wallInsetLeftPx : this.wallInsetLeftCells * this.cellSize) -
+          (Number.isFinite(this.wallInsetRightPx) ? this.wallInsetRightPx : this.wallInsetRightCells * this.cellSize),
+      ),
       cellSize: this.cellSize,
       rows: this.rows,
       cols: this.cols,

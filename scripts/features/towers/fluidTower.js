@@ -338,7 +338,21 @@ export class FluidSimulation {
       leftCells: this.wallInsetLeftCells,
       rightCells: this.wallInsetRightCells,
       gapCells: Math.max(0, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells),
-      gapPixels: Math.max(0, this.width - this.wallInsetLeftCells * this.cellSize - this.wallInsetRightCells * this.cellSize),
+      // Publish the exact pixel span so DOM decorations can track the simulation edge precisely.
+      leftPixels: Number.isFinite(this.wallInsetLeftPx)
+        ? Math.max(0, this.wallInsetLeftPx)
+        : Math.max(0, this.wallInsetLeftCells * this.cellSize),
+      // Provide the mirrored pixel width for the right-hand masonry to avoid mirrored gaps.
+      rightPixels: Number.isFinite(this.wallInsetRightPx)
+        ? Math.max(0, this.wallInsetRightPx)
+        : Math.max(0, this.wallInsetRightCells * this.cellSize),
+      // Report the remaining liquid channel width using the refined pixel totals.
+      gapPixels: Math.max(
+        0,
+        this.width -
+          (Number.isFinite(this.wallInsetLeftPx) ? this.wallInsetLeftPx : this.wallInsetLeftCells * this.cellSize) -
+          (Number.isFinite(this.wallInsetRightPx) ? this.wallInsetRightPx : this.wallInsetRightCells * this.cellSize),
+      ),
       wallGapReferenceWidth: this.wallGapReferenceWidth,
       wallGapReferenceCols: this.wallGapReferenceCols,
       cellSize: this.cellSize,
