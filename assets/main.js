@@ -68,6 +68,8 @@ import {
   setGraphicsModeContext,
   areGlyphEquationsVisible,
   getActiveGraphicsMode,
+  bindTrackRenderModeButton,
+  initializeTrackRenderMode,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
 import * as PlayfieldStatsPanel from './playfieldStatsPanel.js';
@@ -4642,8 +4644,10 @@ import {
 
     // Apply the preferred graphics fidelity before other controls render.
     initializeGraphicsMode();
+    initializeTrackRenderMode();
     bindGraphicsModeToggle();
     bindColorSchemeButton();
+    bindTrackRenderModeButton();
     bindNotationToggle();
     bindGlyphEquationToggle();
     initializeColorScheme();
