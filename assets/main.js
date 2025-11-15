@@ -152,6 +152,7 @@ import {
   getKufStateSnapshot,
   getKufGlyphs,
   onKufStateChange,
+  setKufTotalShards,
 } from './kufState.js';
 import { initializeKufUI, updateKufDisplay } from './kufUI.js';
 // Shared color palette orchestration utilities.
@@ -4272,39 +4273,41 @@ import {
     // Ensure advanced spires (Shin and Kuf) are interactable when developer lattice is active.
     spireResourceState.shin.unlocked = true;
     spireResourceState.kuf.unlocked = true;
-    
+    // Grant effectively infinite shards so Kuf allocations are never resource-gated in developer mode.
+    setKufTotalShards(DEVELOPER_RESOURCE_GRANT);
+
     // Flood each spire bank with an effectively limitless reserve for stress-free testing.
     powderState.idleMoteBank = DEVELOPER_RESOURCE_GRANT;
     powderState.fluidIdleBank = DEVELOPER_RESOURCE_GRANT;
     spireResourceState.lamed.sparkBank = DEVELOPER_RESOURCE_GRANT;
     spireResourceState.tsadi.particleBank = DEVELOPER_RESOURCE_GRANT;
-    
-    // Set spire rates to 10 per second
-    powderState.idleDrainRate = 10;
-    powderState.fluidIdleDrainRate = 10;
+
+    // Set spire rates to zero so developer scenarios start from a steady state.
+    powderState.idleDrainRate = 0;
+    powderState.fluidIdleDrainRate = 0;
     if (typeof setDeveloperIteronBank === 'function') {
       setDeveloperIteronBank(DEVELOPER_RESOURCE_GRANT);
     }
     if (typeof setDeveloperIterationRate === 'function') {
-      setDeveloperIterationRate(10);
+      setDeveloperIterationRate(0);
     }
-    
+
     // Apply the banks and rates to active simulations
     if (sandSimulation) {
       sandSimulation.idleBank = DEVELOPER_RESOURCE_GRANT;
-      sandSimulation.idleDrainRate = 10;
+      sandSimulation.idleDrainRate = 0;
     }
     if (fluidSimulationInstance) {
       fluidSimulationInstance.idleBank = DEVELOPER_RESOURCE_GRANT;
-      fluidSimulationInstance.idleDrainRate = 10;
+      fluidSimulationInstance.idleDrainRate = 0;
     }
     if (lamedSimulationInstance) {
       lamedSimulationInstance.sparkBank = DEVELOPER_RESOURCE_GRANT;
-      lamedSimulationInstance.sparkSpawnRate = 10;
+      lamedSimulationInstance.sparkSpawnRate = 0;
     }
     if (tsadiSimulationInstance) {
       tsadiSimulationInstance.particleBank = DEVELOPER_RESOURCE_GRANT;
-      tsadiSimulationInstance.spawnRate = 10;
+      tsadiSimulationInstance.spawnRate = 0;
     }
     
     updateSpireTabVisibility();

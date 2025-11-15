@@ -209,6 +209,22 @@ export function getKufTotalShards() {
 }
 
 /**
+ * Override the total shard budget, re-normalizing existing allocations to fit the new ceiling.
+ * @param {number} totalShards - Updated shard capacity for the Kuf Spire.
+ * @returns {number} The sanitized shard total applied to state.
+ */
+export function setKufTotalShards(totalShards) {
+  const sanitized = sanitizeInteger(totalShards, kufState.totalShards);
+  if (sanitized === kufState.totalShards) {
+    return kufState.totalShards;
+  }
+  kufState.totalShards = sanitized;
+  kufState.allocations = normalizeAllocations(kufState.allocations);
+  emitChange('totalShards', { totalShards: kufState.totalShards, allocations: getKufAllocations() });
+  return kufState.totalShards;
+}
+
+/**
  * Remaining shards after current allocations.
  * @returns {number}
  */
