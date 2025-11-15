@@ -296,6 +296,16 @@ export function createTowerBlueprintPresenter({
     towerEquationCache.clear();
   }
 
+  /** Reset upgrade investments and cached math for one or all towers. */
+  function clearTowerUpgradeState(targetTowerId = null) {
+    if (typeof targetTowerId === 'string' && targetTowerId.trim()) {
+      towerUpgradeState.delete(targetTowerId.trim());
+    } else {
+      towerUpgradeState.clear();
+    }
+    invalidateTowerEquationCache();
+  }
+
   return {
     getTowerEquationBlueprint,
     ensureTowerUpgradeState,
@@ -306,5 +316,6 @@ export function createTowerBlueprintPresenter({
     computeTowerVariableValue,
     calculateTowerEquationResult,
     invalidateTowerEquationCache,
+    clearTowerUpgradeState,
   };
 }
