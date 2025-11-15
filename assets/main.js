@@ -5145,6 +5145,9 @@ import {
     powderState.fluidUnlocked = true;
     spireResourceState.lamed.unlocked = true;
     spireResourceState.tsadi.unlocked = true;
+    // Ensure advanced spires (Shin and Kuf) are interactable when developer lattice is active.
+    spireResourceState.shin.unlocked = true;
+    spireResourceState.kuf.unlocked = true;
     
     // Set spire banks to 1,000,000
     powderState.idleMoteBank = 1000000;
