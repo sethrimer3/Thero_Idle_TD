@@ -1402,7 +1402,7 @@ import {
     
     const dragCoeffEl = document.getElementById('lamed-drag-coefficient');
     if (dragCoeffEl) {
-      dragCoeffEl.textContent = stats.dragCoefficient.toFixed(2);
+      dragCoeffEl.textContent = stats.dragCoefficient.toFixed(3);
     }
 
     // Update star mass upgrade readouts with the latest tiered values.

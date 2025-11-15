@@ -8,7 +8,7 @@
  * - Drag system with upgradable k parameter
  * - Accretion disk visual effects with dust particles
  * - Trajectory trails colored by velocity
- * - Absorption shock rings
+ * - Dynamic quasar beams and geyser particle bursts on high-mass absorptions
  * - Statistics tracking (mass inflow, absorptions)
  */
 
@@ -105,6 +105,39 @@ export class GravitySimulation {
     this.dustSpawnRate = this.desiredDustParticles; // Refill quickly when particles expire or are removed.
     this.dustAccumulator = 0;
     this.flashEffects = []; // Spawn flash effects
+    this.geyserParticles = []; // Geyser bursts triggered by high-tier absorptions
+    this.visualEffectSettings = {
+      /**
+       * Tunable parameters for the quasar beam effect so designers can tweak behavior without editing logic.
+       */
+      quasar: {
+        baseWidth: typeof options.quasarBaseWidth === 'number' ? options.quasarBaseWidth : 14,
+        baseAlpha: typeof options.quasarBaseAlpha === 'number' ? options.quasarBaseAlpha : 0.7,
+        pulseSpeed: typeof options.quasarPulseSpeed === 'number' ? options.quasarPulseSpeed : 1.6,
+        flickerSpeed: typeof options.quasarFlickerSpeed === 'number' ? options.quasarFlickerSpeed : 2.4,
+        jitterAmount: typeof options.quasarJitterAmount === 'number' ? options.quasarJitterAmount : 0.08,
+        jitterSpeed: typeof options.quasarJitterSpeed === 'number' ? options.quasarJitterSpeed : 0.6,
+        minLength: typeof options.quasarMinLength === 'number' ? options.quasarMinLength : 80,
+        maxLength: typeof options.quasarMaxLength === 'number' ? options.quasarMaxLength : 260,
+        massForFullLength: typeof options.quasarMassForFullLength === 'number' ? options.quasarMassForFullLength : 15000,
+      },
+      /**
+       * Particle system controls for the geyser burst effect.
+       */
+      geyser: {
+        particleCountMin: typeof options.geyserParticleMin === 'number' ? options.geyserParticleMin : 6,
+        particleCountMax: typeof options.geyserParticleMax === 'number' ? options.geyserParticleMax : 14,
+        baseSpeed: typeof options.geyserBaseSpeed === 'number' ? options.geyserBaseSpeed : 180,
+        upwardBias: typeof options.geyserUpwardBias === 'number' ? options.geyserUpwardBias : 0.35,
+        lifetimeMin: typeof options.geyserLifetimeMin === 'number' ? options.geyserLifetimeMin : 0.4,
+        lifetimeMax: typeof options.geyserLifetimeMax === 'number' ? options.geyserLifetimeMax : 0.8,
+        sizeMin: typeof options.geyserSizeMin === 'number' ? options.geyserSizeMin : 8,
+        sizeMax: typeof options.geyserSizeMax === 'number' ? options.geyserSizeMax : 16,
+        gravity: typeof options.geyserGravity === 'number' ? options.geyserGravity : 240,
+        flashFraction: typeof options.geyserFlashFraction === 'number' ? options.geyserFlashFraction : 0.1,
+      },
+    };
+    this.quasarState = { time: 0, angleSeed: Math.random() };
 
     // Track the spring-based bounce so the sun can wobble outward when it absorbs a star.
     this.sunBounce = { offset: 0, velocity: 0 };
@@ -149,6 +182,8 @@ export class GravitySimulation {
 
     // Deterministic RNG
     this.rng = new SeededRandom(options.seed || Date.now());
+    this.quasarNoiseSeed = this.rng.next(); // Keep quasar flicker deterministic per simulation instance.
+    this.quasarState.angleSeed = this.rng.next();
 
     // Build tiled noise fields so animated sampling can avoid regenerating noise each frame.
     this.surfaceNoise = {
@@ -241,11 +276,13 @@ export class GravitySimulation {
   getCurrentTier() {
     let tier = MASS_TIERS[0];
     let nextTier = MASS_TIERS[1] || null;
+    let tierIndex = 0;
 
     for (let i = 0; i < MASS_TIERS.length; i++) {
       if (this.starMass >= MASS_TIERS[i].threshold) {
         tier = MASS_TIERS[i];
         nextTier = MASS_TIERS[i + 1] || null;
+        tierIndex = i;
       } else {
         break;
       }
@@ -259,7 +296,7 @@ export class GravitySimulation {
       progress = Math.min(1, (this.starMass - currentThreshold) / (nextThreshold - currentThreshold));
     }
 
-    return { tier, nextTier, progress };
+    return { tier, nextTier, progress, tierIndex };
   }
 
   /**
@@ -402,6 +439,50 @@ export class GravitySimulation {
     const top = topLeft * (1 - tx) + topRight * tx;
     const bottom = bottomLeft * (1 - tx) + bottomRight * tx;
     return top * (1 - ty) + bottom * ty;
+  }
+
+  /**
+   * Simple helper to clamp a numeric value.
+   * @param {number} value - Input value
+   * @param {number} min - Minimum allowed
+   * @param {number} max - Maximum allowed
+   * @returns {number} Clamped value
+   */
+  static clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  /**
+   * Linearly interpolate between two values.
+   * @param {number} a - Start value
+   * @param {number} b - End value
+   * @param {number} t - Interpolation factor (0-1)
+   * @returns {number} Interpolated value
+   */
+  static lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  /**
+   * Lightweight 1D noise based on sine hashing so beam flicker stays organic without extra dependencies.
+   * @param {number} time - Sample time in seconds
+   * @param {number} seedOffset - Offset so multiple channels can be sampled independently
+   * @returns {number} Noise value in the 0-1 range
+   */
+  sampleQuasarNoise(time, seedOffset = 0) {
+    const base = time + seedOffset + this.quasarNoiseSeed;
+    const integerPart = Math.floor(base);
+    const fractional = base - integerPart;
+
+    const hash = (n) => {
+      const x = Math.sin((n + this.quasarNoiseSeed) * 43758.5453);
+      return x - Math.floor(x);
+    };
+
+    const v1 = hash(integerPart);
+    const v2 = hash(integerPart + 1);
+    const smoothT = fractional * fractional * (3 - 2 * fractional); // Smoothstep for softer interpolation
+    return GravitySimulation.lerp(v1, v2, smoothT);
   }
 
   /**
@@ -829,6 +910,57 @@ export class GravitySimulation {
       this.dustAccumulator -= 1;
     }
   }
+
+  /**
+   * Spawn a geyser particle burst at the sun's surface for high-tier absorptions.
+   * @param {number} impactAngle - Angle (radians) describing where the incoming star arrived from
+   * @param {number} massGain - Mass contributed by the absorbed star (used to scale burst strength)
+   * @param {{color:string}} tier - Current tier descriptor for tinting
+   */
+  spawnGeyserBurst(impactAngle, massGain, tier) {
+    const settings = this.visualEffectSettings.geyser;
+    const dpr = window.devicePixelRatio || 1;
+    const spawnX = this.centerX / dpr;
+    const spawnY = this.centerY / dpr;
+
+    const countRange = settings.particleCountMax - settings.particleCountMin;
+    const particleCount = Math.round(settings.particleCountMin + this.rng.next() * countRange);
+    const tierColor = tier ? GravitySimulation.parseHexColor(tier.color) : { r: 255, g: 200, b: 120 };
+
+    const massScale = GravitySimulation.clamp(massGain / 5, 0.6, 2.4);
+
+    for (let i = 0; i < particleCount; i++) {
+      const spread = this.rng.range(-Math.PI / 6, Math.PI / 6);
+      let dirX = Math.cos(impactAngle + spread);
+      let dirY = Math.sin(impactAngle + spread);
+
+      // Bias the burst upward slightly so the spray arcs skyward.
+      dirY -= settings.upwardBias;
+      const length = Math.max(1e-5, Math.sqrt(dirX * dirX + dirY * dirY));
+      dirX /= length;
+      dirY /= length;
+
+      const velocityJitter = 1 + this.rng.range(-0.2, 0.4);
+      const speed = settings.baseSpeed * velocityJitter * massScale;
+      const lifetime = this.rng.range(settings.lifetimeMin, settings.lifetimeMax);
+      const startSize = this.rng.range(settings.sizeMin, settings.sizeMax);
+
+      this.geyserParticles.push({
+        x: spawnX,
+        y: spawnY,
+        vx: dirX * speed,
+        vy: dirY * speed,
+        lifetime,
+        age: 0,
+        startSize,
+        size: startSize,
+        color: tierColor,
+        flashPhase: settings.flashFraction,
+        alpha: 1,
+        flashProgress: 0,
+      });
+    }
+  }
   
   /**
    * Update dust particles.
@@ -931,8 +1063,8 @@ export class GravitySimulation {
         const sDistSq = sdx * sdx + sdy * sdy;
         const starRadius = Math.max(4, (star.mass / this.starMass) * starVisualRadius * 2);
         if (sDistSq < starRadius * starRadius) {
-          // Shooting star merges into an orbiting spark and empowers it.
-          star.mass += 1;
+          // Shooting star merges into an orbiting spark and empowers it by doubling its mass.
+          star.mass *= 2;
           this.flashEffects.push({
             x: star.x / dpr,
             y: star.y / dpr,
@@ -952,26 +1084,7 @@ export class GravitySimulation {
       }
 
       if (dist < absorptionRadius) {
-        // Shooting star slams into the sun and contributes a single unit of mass.
-        this.starMass += 1;
-        this.pendingAbsorptions += 1;
-        this.pendingMassGain += 1;
-        this.stats.lastAbsorptionTime = this.elapsedTime;
-        if (this.onStarMassChange) {
-          this.onStarMassChange(this.starMass);
-        }
-
-        // Trigger the same spring bounce for meteor impacts so the sun reacts uniformly.
-        this.applySunBounceImpulse(0.01);
-        this.shockRings.push({
-          x: this.centerX / dpr,
-          y: this.centerY / dpr,
-          radius: 0,
-          maxRadius: absorptionRadius * 1.5,
-          alpha: 1.0,
-          duration: 0.8,
-          elapsed: 0,
-        });
+        // Shooting star slips beneath the event horizon; it is removed without altering the central mass.
         this.shootingStars.splice(i, 1);
         continue;
       }
@@ -1033,16 +1146,24 @@ export class GravitySimulation {
         // Trigger a 1% radius bounce so the sun visibly reacts to the incoming mass.
         this.applySunBounceImpulse(0.01);
 
-        // Create absorption shock ring
-        this.shockRings.push({
-          x: this.centerX / dpr,
-          y: this.centerY / dpr,
-          radius: 0,
-          maxRadius: absorptionRadius * 1.5,
-          alpha: 1.0,
-          duration: 0.8, // seconds
-          elapsed: 0,
-        });
+        const impactAngle = Math.atan2(star.y - this.centerY, star.x - this.centerX);
+        const { tier, tierIndex } = this.getCurrentTier();
+        const highTierStartIndex = 2; // Blue Giant and onward replace pulses with geyser bursts.
+
+        if (tierIndex >= highTierStartIndex) {
+          this.spawnGeyserBurst(impactAngle, massGain, tier);
+        } else {
+          // Create absorption shock ring for early tiers.
+          this.shockRings.push({
+            x: this.centerX / dpr,
+            y: this.centerY / dpr,
+            radius: 0,
+            maxRadius: absorptionRadius * 1.5,
+            alpha: 1.0,
+            duration: 0.8, // seconds
+            elapsed: 0,
+          });
+        }
 
         // Remove star
         this.stars.splice(i, 1);
@@ -1134,7 +1255,7 @@ export class GravitySimulation {
    */
   updateEffects(deltaTime) {
     const dt = deltaTime / 1000;
-    
+
     // Update shock rings
     for (let i = this.shockRings.length - 1; i >= 0; i--) {
       const ring = this.shockRings[i];
@@ -1163,11 +1284,147 @@ export class GravitySimulation {
       }
     }
 
+    // Update geyser particles for high-tier absorptions.
+    this.updateGeyserParticles(dt);
+
+    // Advance quasar beam animation clock.
+    this.quasarState.time += dt;
+
     // Advance the spring that powers the sun bounce so render() can apply the new scale.
     this.updateSunBounce(dt);
 
     // Scroll the procedural textures so surface turbulence and corona wobble stay animated.
     this.updateSurfaceAnimation(dt);
+  }
+
+  /**
+   * Render additive quasar beams aligned to the vertical axis of the sun.
+   * @param {CanvasRenderingContext2D} ctx - Drawing context
+   * @param {number} centerX - Sun center X in CSS pixels
+   * @param {number} centerY - Sun center Y in CSS pixels
+   * @param {number} coreRadius - Radius of the rendered core in CSS pixels
+   * @param {{r:number,g:number,b:number}} tierColor - Current tier tint
+   */
+  renderQuasarBeams(ctx, centerX, centerY, coreRadius, tierColor) {
+    const settings = this.visualEffectSettings.quasar;
+    const t = this.quasarState.time;
+    const pulsePhase = t * settings.pulseSpeed + this.quasarState.angleSeed * Math.PI * 2;
+    const width = settings.baseWidth * (1 + 0.2 * Math.sin(pulsePhase));
+
+    const flicker = this.sampleQuasarNoise(t * settings.flickerSpeed, 0.37);
+    const alpha = settings.baseAlpha * (0.5 + 0.5 * flicker);
+
+    const lengthProgress = GravitySimulation.clamp(this.starMass / settings.massForFullLength, 0, 1);
+    const beamLength = GravitySimulation.lerp(settings.minLength, settings.maxLength, lengthProgress);
+
+    const jitter = (this.sampleQuasarNoise(t * settings.jitterSpeed, 1.7) - 0.5) * 2 * settings.jitterAmount;
+
+    const topGradient = ctx.createLinearGradient(0, 0, 0, -beamLength);
+    topGradient.addColorStop(0, `rgba(255, 255, 230, ${alpha})`);
+    topGradient.addColorStop(0.35, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${alpha * 0.85})`);
+    topGradient.addColorStop(1, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, 0)`);
+
+    const bottomGradient = ctx.createLinearGradient(0, 0, 0, beamLength);
+    bottomGradient.addColorStop(0, `rgba(255, 255, 230, ${alpha})`);
+    bottomGradient.addColorStop(0.35, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${alpha * 0.85})`);
+    bottomGradient.addColorStop(1, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, 0)`);
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowBlur = Math.max(6, width * 0.8);
+    ctx.shadowColor = `rgba(255, 255, 200, ${alpha})`;
+
+    const drawBeam = (gradient, direction) => {
+      ctx.save();
+      ctx.rotate(jitter * direction);
+      ctx.beginPath();
+      const tipWidth = width * 0.3;
+      ctx.moveTo(-width / 2, 0);
+      ctx.lineTo(width / 2, 0);
+      ctx.lineTo(tipWidth, direction * (beamLength + coreRadius * 0.2));
+      ctx.lineTo(-tipWidth, direction * (beamLength + coreRadius * 0.2));
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Inner filament for a bright spine down the center.
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.9})`;
+      ctx.lineWidth = width * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, direction * (beamLength + coreRadius * 0.2));
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    drawBeam(topGradient, -1);
+    drawBeam(bottomGradient, 1);
+
+    ctx.restore();
+  }
+
+  /**
+   * Render geyser particles with additive blending for luminous bursts.
+   * @param {CanvasRenderingContext2D} ctx - Drawing context
+   */
+  renderGeyserParticles(ctx) {
+    if (this.geyserParticles.length === 0) return;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    for (const particle of this.geyserParticles) {
+      const size = Math.max(0, particle.size);
+      if (size <= 0) {
+        continue;
+      }
+
+      const progress = GravitySimulation.clamp(particle.flashProgress || 0, 0, 1);
+      const flashActive = progress < (particle.flashPhase || 0);
+      const flashAlpha = flashActive ? GravitySimulation.clamp(1 - progress / Math.max(1e-4, particle.flashPhase), 0, 1) : 0;
+      const baseAlpha = particle.alpha;
+
+      const innerAlpha = GravitySimulation.clamp(baseAlpha + flashAlpha * 0.6, 0, 1);
+
+      const gradient = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, size);
+      gradient.addColorStop(0, `rgba(255, 255, 255, ${innerAlpha})`);
+      gradient.addColorStop(0.2, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, ${Math.max(0, baseAlpha)})`);
+      gradient.addColorStop(1, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, 0)`);
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Update geyser particle kinematics and fade-out.
+   * @param {number} dt - Delta time in seconds
+   */
+  updateGeyserParticles(dt) {
+    const settings = this.visualEffectSettings.geyser;
+    for (let i = this.geyserParticles.length - 1; i >= 0; i--) {
+      const particle = this.geyserParticles[i];
+      particle.age += dt;
+
+      const progress = particle.age / particle.lifetime;
+      if (progress >= 1) {
+        this.geyserParticles.splice(i, 1);
+        continue;
+      }
+
+      particle.x += particle.vx * dt;
+      particle.y += particle.vy * dt;
+      particle.vy += settings.gravity * dt;
+
+      particle.size = particle.startSize * Math.max(0, 1 - progress);
+      particle.alpha = Math.max(0, 1 - progress);
+      particle.flashProgress = progress;
+    }
   }
   
   /**
@@ -1296,30 +1553,8 @@ export class GravitySimulation {
     // Apply a lightweight heat shimmer so the star subtly distorts nearby space.
     this.renderHeatDistortion(ctx, centerXScaled, centerYScaled, coreRadius, tierColor);
 
-    // Draw accretion jets for high-mass stars
-    const spinThreshold = 1000; // Mass threshold for jets
-    if (this.starMass > spinThreshold && this.stars.length > 5) {
-      const jetLength = 100;
-      const jetWidth = 3;
-      const jetAlpha = Math.min(0.6, (this.starMass / spinThreshold - 1) * 0.1);
-      
-      // Draw twin beams along vertical axis
-      ctx.strokeStyle = `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${jetAlpha})`;
-      ctx.lineWidth = jetWidth;
-      
-      // Top jet
-      ctx.beginPath();
-      // Start the jet outside the stellar surface so no line slices through the sun's core.
-      ctx.moveTo(centerXScaled, centerYScaled - coreRadius);
-      ctx.lineTo(centerXScaled, centerYScaled - coreRadius - jetLength);
-      ctx.stroke();
-
-      // Bottom jet
-      ctx.beginPath();
-      ctx.moveTo(centerXScaled, centerYScaled + coreRadius);
-      ctx.lineTo(centerXScaled, centerYScaled + coreRadius + jetLength);
-      ctx.stroke();
-    }
+    // Layer the new quasar beams directly after the star rendering.
+    this.renderQuasarBeams(ctx, centerXScaled, centerYScaled, coreRadius, tierColor);
     
     // Draw dust particles (accretion disk) with color palette gradient
     for (const dust of this.dustParticles) {
@@ -1336,6 +1571,9 @@ export class GravitySimulation {
       ctx.arc(dustX, dustY, 1, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    // Render geyser particles before orbiting stars so the burst overlays the accretion disk but sits behind sparks.
+    this.renderGeyserParticles(ctx);
 
     // Draw shooting stars with luminous trails.
     for (const shard of this.shootingStars) {
