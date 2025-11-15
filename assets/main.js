@@ -659,6 +659,21 @@ import {
     }
     playfieldStatsVisible = !playfieldStatsVisible;
     playfield.setStatsPanelEnabled(playfieldStatsVisible);
+    if (playfieldStatsVisible && typeof PlayfieldStatsPanel.focusPanel === 'function') {
+      const revealPanel = () => {
+        try {
+          // Smoothly scroll the analytics card into view so the toggle has immediate feedback.
+          PlayfieldStatsPanel.focusPanel();
+        } catch (error) {
+          PlayfieldStatsPanel.focusPanel();
+        }
+      };
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(revealPanel);
+      } else {
+        revealPanel();
+      }
+    }
     updatePlayfieldMenuState();
   }
 

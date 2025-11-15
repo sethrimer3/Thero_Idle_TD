@@ -6,6 +6,7 @@
  */
 import { formatCombatNumber } from './playfield/utils/formatting.js';
 import { getTowerDefinition } from './towersTab.js';
+import { scrollPanelToElement } from './uiHelpers.js';
 
 const elements = {
   container: null,
@@ -600,6 +601,31 @@ export function resetPanel() {
   nextWaveEntries = [];
   activeEnemyEntries = [];
   hideEnemyDialog();
+}
+
+/**
+ * Bring the combat stats panel into view so players immediately see the analytics surface.
+ */
+export function focusPanel() {
+  const { container } = elements;
+  if (!container) {
+    return;
+  }
+
+  // Prefer the shared panel scrolling helper so the stats card aligns with the active tab.
+  if (typeof scrollPanelToElement === 'function') {
+    try {
+      scrollPanelToElement(container, { offset: 24 });
+    } catch (error) {
+      // Fall back to native scrolling if the helper throws.
+    }
+  }
+
+  try {
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (error) {
+    container.scrollIntoView(true);
+  }
 }
 
 export function renderTowerSummaries(summaries = []) {
