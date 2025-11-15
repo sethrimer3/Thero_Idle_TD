@@ -112,17 +112,18 @@ export function addWaveEditorRow(waveData = null) {
   const waveIndex = waveEditorState.waves.length;
   const waveNumber = waveIndex + 1;
 
-  const resolvedEnemyType = resolveEnemyTypeFromWaveData(waveData);
+  const groups = extractWaveGroups(waveData);
+  if (!groups.length) {
+    groups.push(createDefaultGroup());
+  }
 
-  // Default wave data
   const wave = {
-    count: waveData?.count || 10,
-    enemyType: resolvedEnemyType,
-    hp: waveData?.hp || 100,
-    interval: waveData?.interval || 1.5,
-    delay: waveData?.delay || 0,
-    hasBoss: !!(waveData?.boss),
-    bossHp: waveData?.boss?.hp || 1000
+    interval: Number.isFinite(waveData?.interval) ? waveData.interval : 1.5,
+    delay: Number.isFinite(waveData?.delay) ? waveData.delay : 0,
+    hasBoss: Boolean(waveData?.boss || waveData?.hasBoss),
+    bossHp: resolveBossHp(waveData),
+    groups,
+    label: typeof waveData?.label === 'string' ? waveData.label : ''
   };
 
   waveEditorState.waves.push(wave);
@@ -138,18 +139,20 @@ export function addWaveEditorRow(waveData = null) {
   label.textContent = `W${waveNumber}`;
   row.appendChild(label);
 
-  // Enemy count input
+  const primaryGroup = wave.groups[0];
+
+  // Primary enemy count input
   const countInput = document.createElement('input');
   countInput.type = 'number';
   countInput.className = 'wave-editor-item__input';
-  countInput.value = wave.count;
+  countInput.value = primaryGroup.count;
   countInput.min = 1;
   countInput.max = 999;
   countInput.title = 'Enemy count';
-  countInput.addEventListener('input', () => updateWaveData(row.dataset.waveIndex, 'count', parseInt(countInput.value, 10)));
+  countInput.addEventListener('input', () => updateGroupData(row.dataset.waveIndex, 0, 'count', parseInt(countInput.value, 10)));
   row.appendChild(countInput);
 
-  // Enemy type select
+  // Primary enemy type select
   const typeSelect = document.createElement('select');
   typeSelect.className = 'wave-editor-item__select';
   typeSelect.title = 'Enemy type';
@@ -158,22 +161,26 @@ export function addWaveEditorRow(waveData = null) {
     option.value = letter;
     option.textContent = letter;
     option.title = data.label;
-    if (letter === wave.enemyType) {
+    if (letter === primaryGroup.enemyType) {
       option.selected = true;
     }
     typeSelect.appendChild(option);
   });
-  typeSelect.addEventListener('change', () => updateWaveData(row.dataset.waveIndex, 'enemyType', typeSelect.value));
+  typeSelect.addEventListener('change', () => updateGroupData(row.dataset.waveIndex, 0, 'enemyType', typeSelect.value));
   row.appendChild(typeSelect);
 
-  // HP input (displayed as scientific notation)
+  // Primary HP input (displayed as scientific notation)
   const hpInput = document.createElement('input');
   hpInput.type = 'text';
   hpInput.className = 'wave-editor-item__input';
-  hpInput.value = formatHpForInput(wave.hp);
+  hpInput.value = formatHpForInput(primaryGroup.hp);
   hpInput.title = 'HP (e.g., 1e5 or 100000)';
-  hpInput.addEventListener('input', () => updateWaveData(row.dataset.waveIndex, 'hp', parseHpFromInput(hpInput.value)));
-  hpInput.addEventListener('blur', () => hpInput.value = formatHpForInput(wave.hp));
+  hpInput.addEventListener('input', () => updateGroupData(row.dataset.waveIndex, 0, 'hp', parseHpFromInput(hpInput.value)));
+  hpInput.addEventListener('blur', () => {
+    const currentWave = waveEditorState.waves[row.dataset.waveIndex];
+    const group = currentWave?.groups?.[0];
+    hpInput.value = formatHpForInput(group?.hp);
+  });
   row.appendChild(hpInput);
 
   // Interval input
@@ -208,6 +215,9 @@ export function addWaveEditorRow(waveData = null) {
   bossCheckbox.title = 'Enable boss';
   bossCheckbox.addEventListener('change', () => {
     updateWaveData(row.dataset.waveIndex, 'hasBoss', bossCheckbox.checked);
+    if (bossCheckbox.checked) {
+      ensureBossHp(row.dataset.waveIndex);
+    }
     updateBossControls(row, bossCheckbox.checked);
   });
   row.appendChild(bossCheckbox);
@@ -220,6 +230,24 @@ export function addWaveEditorRow(waveData = null) {
   deleteBtn.title = 'Delete wave';
   deleteBtn.addEventListener('click', () => removeWaveEditorRow(row.dataset.waveIndex));
   row.appendChild(deleteBtn);
+
+  // Additional enemy groups
+  const groupContainer = document.createElement('div');
+  groupContainer.className = 'wave-editor-item__group-container';
+  if (wave.groups.length > 1) {
+    for (let index = 1; index < wave.groups.length; index += 1) {
+      groupContainer.appendChild(createAdditionalGroupRow(row.dataset.waveIndex, index, wave.groups[index]));
+    }
+  }
+
+  const addEnemyButton = document.createElement('button');
+  addEnemyButton.type = 'button';
+  addEnemyButton.className = 'wave-editor-item__add-group';
+  addEnemyButton.textContent = 'Add Enemy';
+  addEnemyButton.title = 'Add another enemy type to this wave';
+  addEnemyButton.addEventListener('click', () => handleAddEnemyGroup(row.dataset.waveIndex));
+  groupContainer.appendChild(addEnemyButton);
+  row.appendChild(groupContainer);
 
   // Boss HP controls (conditionally visible)
   if (wave.hasBoss) {
@@ -271,6 +299,69 @@ function addBossControls(row, bossHp) {
 }
 
 /**
+ * Build an additional enemy group row for a wave entry.
+ * @param {string|number} waveIndex - Parent wave index
+ * @param {string|number} groupIndex - Group index inside the wave
+ * @param {Object} groupData - Group configuration snapshot
+ * @returns {HTMLElement} Configured row element
+ */
+function createAdditionalGroupRow(waveIndex, groupIndex, groupData) {
+  const row = document.createElement('div');
+  row.className = 'wave-editor-item__group-row';
+  row.dataset.waveIndex = String(waveIndex);
+  row.dataset.groupIndex = String(groupIndex);
+
+  const countInput = document.createElement('input');
+  countInput.type = 'number';
+  countInput.className = 'wave-editor-item__input';
+  countInput.value = groupData.count;
+  countInput.min = 1;
+  countInput.max = 999;
+  countInput.title = 'Enemy count';
+  countInput.addEventListener('input', () => updateGroupData(waveIndex, groupIndex, 'count', parseInt(countInput.value, 10)));
+  row.appendChild(countInput);
+
+  const typeSelect = document.createElement('select');
+  typeSelect.className = 'wave-editor-item__select';
+  typeSelect.title = 'Enemy type';
+  Object.entries(ENEMY_TYPES).forEach(([letter, data]) => {
+    const option = document.createElement('option');
+    option.value = letter;
+    option.textContent = letter;
+    option.title = data.label;
+    if (letter === groupData.enemyType) {
+      option.selected = true;
+    }
+    typeSelect.appendChild(option);
+  });
+  typeSelect.addEventListener('change', () => updateGroupData(waveIndex, groupIndex, 'enemyType', typeSelect.value));
+  row.appendChild(typeSelect);
+
+  const hpInput = document.createElement('input');
+  hpInput.type = 'text';
+  hpInput.className = 'wave-editor-item__input';
+  hpInput.value = formatHpForInput(groupData.hp);
+  hpInput.title = 'HP (e.g., 1e5 or 100000)';
+  hpInput.addEventListener('input', () => updateGroupData(waveIndex, groupIndex, 'hp', parseHpFromInput(hpInput.value)));
+  hpInput.addEventListener('blur', () => {
+    const wave = waveEditorState.waves[parseInt(waveIndex, 10)];
+    const group = wave?.groups?.[parseInt(groupIndex, 10)];
+    hpInput.value = formatHpForInput(group?.hp);
+  });
+  row.appendChild(hpInput);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'wave-editor-item__delete wave-editor-item__group-delete';
+  removeBtn.textContent = '×';
+  removeBtn.title = 'Remove enemy';
+  removeBtn.addEventListener('click', () => handleRemoveEnemyGroup(waveIndex, groupIndex));
+  row.appendChild(removeBtn);
+
+  return row;
+}
+
+/**
  * Update visibility of boss controls based on checkbox.
  * @param {HTMLElement} row - Wave row element
  * @param {boolean} visible - Show or hide boss controls
@@ -287,6 +378,84 @@ function updateBossControls(row, visible) {
 }
 
 /**
+ * Ensure a wave has a valid boss HP when enabling the boss toggle.
+ * @param {string|number} waveIndex - Wave index to normalize
+ */
+function ensureBossHp(waveIndex) {
+  const idx = parseInt(waveIndex, 10);
+  if (isNaN(idx) || idx < 0 || idx >= waveEditorState.waves.length) {
+    return;
+  }
+  const wave = waveEditorState.waves[idx];
+  if (!wave) {
+    return;
+  }
+  const current = Number.isFinite(wave.bossHp) ? Math.max(1, wave.bossHp) : null;
+  if (current) {
+    wave.bossHp = current;
+    return;
+  }
+  const fallbackGroup = Array.isArray(wave.groups) && wave.groups.length
+    ? wave.groups[wave.groups.length - 1]
+    : null;
+  const fallbackHp = Number.isFinite(fallbackGroup?.hp) ? fallbackGroup.hp * 5 : 1000;
+  wave.bossHp = Math.max(1, fallbackHp);
+}
+
+/**
+ * Append a new enemy group to the specified wave and rebuild the editor UI.
+ * @param {string|number} waveIndex - Wave index to update
+ */
+function handleAddEnemyGroup(waveIndex) {
+  const idx = parseInt(waveIndex, 10);
+  if (isNaN(idx) || idx < 0 || idx >= waveEditorState.waves.length) {
+    return;
+  }
+  const wave = waveEditorState.waves[idx];
+  if (!wave) {
+    return;
+  }
+  const lastGroup = Array.isArray(wave.groups) && wave.groups.length
+    ? wave.groups[wave.groups.length - 1]
+    : null;
+  const newGroup = createDefaultGroup({
+    enemyType: lastGroup?.enemyType || 'A',
+    count: lastGroup?.count || 5,
+    hp: lastGroup?.hp || 100,
+  });
+  if (!Array.isArray(wave.groups)) {
+    wave.groups = [];
+  }
+  wave.groups.push(newGroup);
+  rebuildWaveEditorList();
+}
+
+/**
+ * Remove an enemy group from a wave when multiple groups are configured.
+ * @param {string|number} waveIndex - Wave index to update
+ * @param {string|number} groupIndex - Group index to remove
+ */
+function handleRemoveEnemyGroup(waveIndex, groupIndex) {
+  const waveIdx = parseInt(waveIndex, 10);
+  const groupIdx = parseInt(groupIndex, 10);
+  if (
+    isNaN(waveIdx) || waveIdx < 0 || waveIdx >= waveEditorState.waves.length ||
+    isNaN(groupIdx)
+  ) {
+    return;
+  }
+  const wave = waveEditorState.waves[waveIdx];
+  if (!wave || !Array.isArray(wave.groups) || wave.groups.length <= 1) {
+    return;
+  }
+  if (groupIdx < 0 || groupIdx >= wave.groups.length) {
+    return;
+  }
+  wave.groups.splice(groupIdx, 1);
+  rebuildWaveEditorList();
+}
+
+/**
  * Rebuild the wave editor list and normalize state indexes after mutations.
  */
 function rebuildWaveEditorList() {
@@ -294,7 +463,12 @@ function rebuildWaveEditorList() {
     return;
   }
 
-  const existingWaves = waveEditorState.waves.map((wave) => ({ ...wave }));
+  const existingWaves = waveEditorState.waves.map((wave) => ({
+    ...wave,
+    groups: Array.isArray(wave.groups)
+      ? wave.groups.map((group) => ({ ...group }))
+      : []
+  }));
   waveEditorState.waves = [];
   waveEditorElements.list.innerHTML = '';
 
@@ -336,7 +510,72 @@ function updateWaveData(index, field, value) {
     return;
   }
 
-  wave[field] = value;
+  if (field === 'interval') {
+    const parsed = Number.parseFloat(value);
+    wave.interval = Number.isFinite(parsed) ? Math.max(0.1, parsed) : wave.interval;
+    return;
+  }
+
+  if (field === 'delay') {
+    const parsed = Number.parseFloat(value);
+    wave.delay = Number.isFinite(parsed) ? Math.max(0, parsed) : wave.delay;
+    return;
+  }
+
+  if (field === 'hasBoss') {
+    wave.hasBoss = Boolean(value);
+    return;
+  }
+
+  if (field === 'bossHp') {
+    const parsed = Number.parseFloat(value);
+    wave.bossHp = Number.isFinite(parsed) ? Math.max(1, parsed) : wave.bossHp;
+  }
+}
+
+/**
+ * Update a nested enemy group property for the specified wave entry.
+ * @param {string|number} waveIndex - Index of the parent wave
+ * @param {string|number} groupIndex - Index of the enemy group to update
+ * @param {string} field - Group field to mutate (count, enemyType, hp)
+ * @param {*} value - New value for the field
+ */
+function updateGroupData(waveIndex, groupIndex, field, value) {
+  const waveIdx = parseInt(waveIndex, 10);
+  const groupIdx = parseInt(groupIndex, 10);
+  if (
+    isNaN(waveIdx) || waveIdx < 0 || waveIdx >= waveEditorState.waves.length ||
+    isNaN(groupIdx)
+  ) {
+    return;
+  }
+
+  const wave = waveEditorState.waves[waveIdx];
+  if (!wave || !Array.isArray(wave.groups) || groupIdx < 0 || groupIdx >= wave.groups.length) {
+    return;
+  }
+
+  const group = wave.groups[groupIdx];
+  if (!group) {
+    return;
+  }
+
+  if (field === 'count') {
+    const parsed = parseInt(value, 10);
+    group.count = Number.isFinite(parsed) ? Math.max(1, parsed) : group.count;
+    return;
+  }
+
+  if (field === 'hp') {
+    const parsed = Number.parseFloat(value);
+    group.hp = Number.isFinite(parsed) ? Math.max(0, parsed) : group.hp;
+    return;
+  }
+
+  if (field === 'enemyType') {
+    const resolved = resolveEnemyTypeLetter({ enemyType: value }, group.enemyType);
+    group.enemyType = resolved;
+  }
 }
 
 /**
@@ -418,23 +657,50 @@ export function exportWavesFromEditor() {
 
   // Convert internal wave format to verbose format for encoding
   const verboseWaves = waveEditorState.waves.map((wave) => {
-    const enemyData = ENEMY_TYPES[wave.enemyType];
-    if (!enemyData) {
+    const groups = Array.isArray(wave.groups) ? wave.groups : [];
+
+    const verboseGroups = groups
+      .map((group) => {
+        const enemyType = resolveEnemyTypeLetter(group, 'A');
+        const enemyData = ENEMY_TYPES[enemyType];
+        if (!enemyData) {
+          return null;
+        }
+        const count = Number.isFinite(group.count) ? Math.max(1, Math.floor(group.count)) : 1;
+        const hp = Number.isFinite(group.hp) ? Math.max(0, group.hp) : 0;
+        const speed = enemyData.speed / SPEED_NORMALIZATION_FACTOR;
+        return {
+          count,
+          hp,
+          speed,
+          reward: hp * 0.1,
+          color: enemyData.color,
+          codexId: enemyData.id,
+          label: enemyData.label,
+          enemyType,
+          symbol: enemyType,
+        };
+      })
+      .filter(Boolean);
+
+    if (!verboseGroups.length) {
       return null;
     }
 
-    const normalizedSpeed = enemyData.speed / SPEED_NORMALIZATION_FACTOR;
-    const reward = wave.hp * 0.1;
+    const totalMinions = verboseGroups.reduce((sum, group) => sum + group.count, 0);
+    const primaryGroup = verboseGroups[0];
 
     const verboseWave = {
-      count: wave.count,
-      interval: wave.interval,
-      hp: wave.hp,
-      speed: normalizedSpeed,
-      reward: reward,
-      color: enemyData.color,
-      codexId: enemyData.id,
-      label: enemyData.label
+      count: totalMinions + (wave.hasBoss ? 1 : 0),
+      interval: Number.isFinite(wave.interval) ? Math.max(0.1, wave.interval) : 1.5,
+      hp: primaryGroup.hp,
+      speed: primaryGroup.speed,
+      reward: primaryGroup.reward,
+      color: primaryGroup.color,
+      codexId: primaryGroup.codexId,
+      label: primaryGroup.label,
+      enemyGroups: verboseGroups.map((group) => ({ ...group })),
+      minionCount: totalMinions,
     };
 
     if (wave.delay && wave.delay > 0) {
@@ -442,13 +708,14 @@ export function exportWavesFromEditor() {
     }
 
     if (wave.hasBoss && wave.bossHp) {
+      const bossHp = Math.max(1, wave.bossHp);
       verboseWave.boss = {
-        label: `Boss ${enemyData.label}`,
-        hp: wave.bossHp,
-        speed: normalizedSpeed * 0.5,
-        reward: wave.bossHp * 0.15,
-        color: enemyData.color,
-        symbol: wave.enemyType
+        label: `Boss ${primaryGroup.label}`,
+        hp: bossHp,
+        speed: primaryGroup.speed * 0.5,
+        reward: bossHp * 0.15,
+        color: primaryGroup.color,
+        symbol: primaryGroup.enemyType || primaryGroup.symbol || '◈',
       };
     }
 
@@ -506,25 +773,100 @@ function getEnemyTypeFromCodexId(codexId) {
 }
 
 /**
- * Resolve the preferred enemy type letter for an existing wave entry.
- * Prefers stored editor data, then codex ids, and finally defaults to type A.
- * @param {Object|null} waveData - Existing wave data
+ * Resolve the preferred enemy type letter from any source object.
+ * Prefers explicit editor data, then codex identifiers, and finally a fallback letter.
+ * @param {Object|null} source - Wave or group configuration source
+ * @param {string} fallback - Fallback enemy type when no explicit match is found
  * @returns {string} Enemy type letter
  */
-function resolveEnemyTypeFromWaveData(waveData) {
-  if (waveData?.enemyType) {
-    const candidate = String(waveData.enemyType).toUpperCase();
+function resolveEnemyTypeLetter(source, fallback = 'A') {
+  if (source?.enemyType) {
+    const candidate = String(source.enemyType).toUpperCase();
     if (ENEMY_TYPES[candidate]) {
       return candidate;
     }
   }
 
-  const fromCodex = getEnemyTypeFromCodexId(waveData?.codexId);
+  if (source?.symbol) {
+    const candidate = String(source.symbol).toUpperCase();
+    if (ENEMY_TYPES[candidate]) {
+      return candidate;
+    }
+  }
+
+  const fromCodex = getEnemyTypeFromCodexId(source?.codexId);
   if (fromCodex && ENEMY_TYPES[fromCodex]) {
     return fromCodex;
   }
 
+  const normalizedFallback = String(fallback || 'A').toUpperCase();
+  if (ENEMY_TYPES[normalizedFallback]) {
+    return normalizedFallback;
+  }
+
   return 'A';
+}
+
+/**
+ * Create a normalized enemy group object for editor state.
+ * @param {Object} overrides - Optional overrides for default values
+ * @returns {Object} Enemy group configuration
+ */
+function createDefaultGroup(overrides = {}) {
+  const enemyType = resolveEnemyTypeLetter(overrides, 'A');
+  const count = Number.isFinite(overrides.count) ? Math.max(1, Math.floor(overrides.count)) : 10;
+  const hp = Number.isFinite(overrides.hp) ? Math.max(0, overrides.hp) : 100;
+  return { count, enemyType, hp };
+}
+
+/**
+ * Derive normalized enemy group definitions from existing wave data.
+ * @param {Object|null} waveData - Source wave configuration
+ * @returns {Array} Array of normalized enemy group objects
+ */
+function extractWaveGroups(waveData) {
+  const fallbackType = resolveEnemyTypeLetter(waveData, 'A');
+  const groups = Array.isArray(waveData?.enemyGroups) ? waveData.enemyGroups : null;
+  if (Array.isArray(groups) && groups.length) {
+    return groups
+      .map((group) => {
+        const count = Number.isFinite(group?.count) ? Math.max(1, Math.floor(group.count)) : 10;
+        const hp = Number.isFinite(group?.hp)
+          ? Math.max(0, group.hp)
+          : Number.isFinite(waveData?.hp)
+            ? Math.max(0, waveData.hp)
+            : 100;
+        const enemyType = resolveEnemyTypeLetter(group, fallbackType);
+        return { count, enemyType, hp };
+      })
+      .filter(Boolean);
+  }
+
+  const minionCount = Number.isFinite(waveData?.minionCount)
+    ? Math.max(1, Math.floor(waveData.minionCount))
+    : Number.isFinite(waveData?.count)
+      ? Math.max(1, Math.floor(waveData.count - (waveData?.boss ? 1 : 0)))
+      : 10;
+  const hp = Number.isFinite(waveData?.hp) ? Math.max(0, waveData.hp) : 100;
+  return [createDefaultGroup({ count: minionCount, hp, enemyType: fallbackType })];
+}
+
+/**
+ * Resolve the best boss HP default from existing wave data.
+ * @param {Object|null} waveData - Source wave configuration
+ * @returns {number} Boss HP value
+ */
+function resolveBossHp(waveData) {
+  if (Number.isFinite(waveData?.boss?.hp)) {
+    return Math.max(1, waveData.boss.hp);
+  }
+  if (Number.isFinite(waveData?.bossHp)) {
+    return Math.max(1, waveData.bossHp);
+  }
+  if (Number.isFinite(waveData?.hp)) {
+    return Math.max(1, waveData.hp * 10);
+  }
+  return 1000;
 }
 
 /**
