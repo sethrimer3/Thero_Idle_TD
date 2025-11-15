@@ -85,28 +85,28 @@ export class VoronoiSubdivisionSimulation {
 
     // Determine which layers should be active based on targetCells
     let cellsAllocated = 0;
-    let changed = false;
-    
+
     for (let layerIdx = 0; layerIdx < this.layers.length; layerIdx++) {
       const layer = this.layers[layerIdx];
       const layerMax = layer.maxCells;
       const layerTarget = Math.min(layerMax, Math.max(0, this.targetCells - cellsAllocated));
-      
+      let layerChanged = false;
+
       // Update seeds for this layer
       while (layer.seeds.length < layerTarget) {
         layer.seeds.push(this.randomSeed(layerIdx));
-        changed = true;
+        layerChanged = true;
       }
       if (layer.seeds.length > layerTarget) {
         layer.seeds.length = layerTarget;
-        changed = true;
+        layerChanged = true;
       }
-      
+
       // Rebuild polygons for this layer if needed
-      if (changed || layer.polygons.length !== layer.seeds.length) {
+      if (layerChanged || layer.polygons.length !== layer.seeds.length) {
         this.rebuildPolygonsForLayer(layerIdx);
       }
-      
+
       cellsAllocated += layerTarget;
       
       // Update current layer tracker

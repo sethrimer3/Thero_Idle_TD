@@ -55,6 +55,24 @@ function ensureTabCollections() {
   }
 }
 
+// Determine whether a tab button is visible and interactive for the player.
+function isTabAccessible(tab) {
+  if (!tab) {
+    return false;
+  }
+  if (tab.disabled) {
+    return false;
+  }
+  if (tab.hasAttribute('hidden')) {
+    return false;
+  }
+  const ariaHidden = tab.getAttribute('aria-hidden');
+  if (ariaHidden && ariaHidden !== 'false') {
+    return false;
+  }
+  return true;
+}
+
 // Guards against reacting to keyboard shortcuts while a text input is focused.
 function isTextInput(element) {
   if (!element) return false;
@@ -79,6 +97,15 @@ function notifyTabChange(tabId, { matched } = { matched: false }) {
 
 // Applies focus management and aria states whenever a tab becomes active.
 export function setActiveTab(target) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const targetTabElement = document.querySelector(`.tab-button[data-tab='${target}']`);
+  if (!isTabAccessible(targetTabElement)) {
+    return;
+  }
+
   ensureTabCollections();
 
   if (!tabs.length || !panels.length) {
@@ -163,13 +190,35 @@ export function setActiveTab(target) {
 }
 
 // Focuses the requested tab button and propagates selection state updates.
-function focusAndActivateTab(index) {
+function focusAndActivateTab(index, direction = 0) {
   if (!tabs.length) return;
-  const normalizedIndex = ((index % tabs.length) + tabs.length) % tabs.length;
-  const targetTab = tabs[normalizedIndex];
-  if (!targetTab) return;
-  setActiveTab(targetTab.dataset.tab);
-  targetTab.focus();
+  const totalTabs = tabs.length;
+  if (totalTabs === 0) {
+    return;
+  }
+
+  let normalizedIndex = ((index % totalTabs) + totalTabs) % totalTabs;
+  let targetTab = tabs[normalizedIndex];
+  if (isTabAccessible(targetTab)) {
+    setActiveTab(targetTab.dataset.tab);
+    targetTab.focus();
+    return;
+  }
+
+  const step = direction > 0 ? 1 : direction < 0 ? -1 : 0;
+  if (step === 0) {
+    return;
+  }
+
+  for (let attempt = 0; attempt < totalTabs - 1; attempt++) {
+    normalizedIndex = ((normalizedIndex + step) % totalTabs + totalTabs) % totalTabs;
+    targetTab = tabs[normalizedIndex];
+    if (isTabAccessible(targetTab)) {
+      setActiveTab(targetTab.dataset.tab);
+      targetTab.focus();
+      return;
+    }
+  }
 }
 
 // Binds left/right arrow navigation and direct hotkeys once per session.
@@ -187,7 +236,7 @@ function bindKeyboardNavigation() {
 
     const direction = event.key === 'ArrowRight' ? 1 : -1;
     event.preventDefault();
-    focusAndActivateTab(activeTabIndex + direction);
+    focusAndActivateTab(activeTabIndex + direction, direction);
   };
 
   const handleTabHotkey = (event) => {
@@ -250,7 +299,7 @@ export function initializeTabs() {
         if (playTabSelectSfx) {
           playTabSelectSfx();
         }
-        focusAndActivateTab(index);
+        focusAndActivateTab(index, 0);
       }
     });
   });
