@@ -134,6 +134,24 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - `main.js` delegates to the controller for surface management and state checks, shrinking by ~900 lines of tightly coupled code
 - Reusable factory pattern keeps future developer tooling enhancements isolated from the core game loop
 
+### tsadiUpgradeUi.js (Tsadi spire upgrade bindings)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `bindTsadiUpgradeButtons()` - Click handlers for Tsadi repelling-force and tier upgrades
+- `updateTsadiUpgradeUI()` - DOM refresh helper that syncs button state, labels, and descriptions with simulation data
+
+**Integration approach:**
+- Added `createTsadiUpgradeUi()` factory that receives the active Tsadi simulation getter and `spireMenuController`
+- `main.js` destructures the returned helpers after simulation variables are declared, keeping dependency flow explicit
+- Button listeners now check `spireMenuController.updateCounts` defensively so DI consumers remain optional
+
+**Result:**
+- Tsadi-specific UI wiring lives in `assets/tsadiUpgradeUi.js`, trimming duplicated DOM queries from `main.js`
+- Upgrade panel updates remain functionally identical while relying on the shared factory pattern established for other extracts
+- Refined dependencies make future Tsadi feature work easier without combing through thousands of lines in the orchestrator
+
 ### powderDisplay.js (powder tab orchestration + idle rewards)
 
 **Status:** ✅ Complete
