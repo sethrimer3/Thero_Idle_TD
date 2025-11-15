@@ -12,6 +12,8 @@
  * @param {Function} options.isPlayfieldInteractiveLevelActive - Returns true if an interactive level is running.
  * @param {Document} [options.documentRef] - Optional document reference for visibility checks (mainly for testing).
  */
+const LAMED_MUSIC_FADE_SECONDS = 1.5; // Short crossfade keeps the Lamed loop seamless.
+
 export function createAudioOrchestration({
   audioManager,
   bindAudioControlElements,
@@ -23,6 +25,7 @@ export function createAudioOrchestration({
 }) {
   const audioSuppressionReasons = new Set();
   let audioControlsBinding = null;
+  let lastMusicKey = null; // Track previous selection so Lamed transitions can crossfade lightly.
 
   /**
    * Halt music playback while a blocking reason is active (e.g., hidden tab, modal overlay).
@@ -142,6 +145,9 @@ export function createAudioOrchestration({
     if (activeTab === 'achievements') {
       return 'achievements';
     }
+    if (activeTab === 'lamed') {
+      return 'lamedSpire'; // Route the Lamed tab to its ambient score.
+    }
     if (activeTab === 'options') {
       return 'codex';
     }
@@ -161,7 +167,12 @@ export function createAudioOrchestration({
     if (!key) {
       return;
     }
-    audioManager.playMusic(key, options);
+    const playbackOptions =
+      key === 'lamedSpire' || lastMusicKey === 'lamedSpire'
+        ? { ...options, fadeSeconds: LAMED_MUSIC_FADE_SECONDS }
+        : options;
+    audioManager.playMusic(key, playbackOptions);
+    lastMusicKey = key;
   }
 
   return {

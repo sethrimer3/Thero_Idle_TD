@@ -18,6 +18,8 @@ export const DEFAULT_AUDIO_MANIFEST = {
     powder: { file: 'mote_screen_music.mp3', loop: true, volume: 0.65 },
     achievements: { file: 'achievements_music.mp3', loop: true, volume: 0.6 },
     codex: { file: 'codex_music.mp3', loop: true, volume: 0.6 },
+    // Ambient loop for the Lamed Spire tab.
+    lamedSpire: { file: 'lamed_spire_loop.ogg', loop: true, volume: 0.6 },
   },
   sfx: {
     uiConfirm: { file: 'menu_selection_alt.mp3', volume: 0.55, maxConcurrent: 2 },
