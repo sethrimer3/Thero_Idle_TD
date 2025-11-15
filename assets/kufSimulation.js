@@ -1,4 +1,15 @@
-import kufMapData from './data/kufMaps.json' assert { type: 'json' };
+import { getCachedKufMaps, onKufMapsReady } from './kufMapData.js';
+
+// Default map identifier used when the external dataset is unavailable.
+const KUF_FALLBACK_MAP_ID = 'forward-bastion';
+// Mirror the latest loaded map data so new simulation instances can start in sync.
+let sharedAvailableKufMaps = getCachedKufMaps();
+let sharedDefaultKufMapId = sharedAvailableKufMaps[0]?.id || KUF_FALLBACK_MAP_ID;
+
+onKufMapsReady((maps) => {
+  sharedAvailableKufMaps = Array.isArray(maps) ? maps : [];
+  sharedDefaultKufMapId = sharedAvailableKufMaps[0]?.id || KUF_FALLBACK_MAP_ID;
+});
 
 /**
  * Kuf Spire Battlefield Simulation
@@ -8,8 +19,6 @@ import kufMapData from './data/kufMaps.json' assert { type: 'json' };
  * either side is defeated.
  */
 
-const AVAILABLE_KUF_MAPS = Array.isArray(kufMapData.maps) ? kufMapData.maps : [];
-const DEFAULT_KUF_MAP_ID = AVAILABLE_KUF_MAPS[0]?.id || 'forward-bastion';
 
 const MARINE_MOVE_SPEED = 70; // Pixels per second.
 const MARINE_ACCELERATION = 120; // Pixels per second squared.
@@ -60,7 +69,7 @@ export class KufBattlefieldSimulation {
    * @param {(result: { goldEarned: number, victory: boolean, destroyedTurrets: number }) => void} [options.onComplete]
    *   Completion callback fired when the encounter resolves.
    */
-  constructor({ canvas, onComplete } = {}) {
+  constructor({ canvas, onComplete, maps } = {}) {
     this.canvas = canvas || null;
     this.onComplete = typeof onComplete === 'function' ? onComplete : null;
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
@@ -77,8 +86,13 @@ export class KufBattlefieldSimulation {
     this.camera = { x: 0, y: 0, zoom: 1.0 };
     this.cameraDrag = { active: false, startX: 0, startY: 0, camStartX: 0, camStartY: 0 };
     this.selectedEnemy = null;
-    this.availableMaps = AVAILABLE_KUF_MAPS;
-    this.currentMap = this.getMapById(DEFAULT_KUF_MAP_ID);
+    const providedMaps = Array.isArray(maps) ? maps : null;
+    this.availableMaps = providedMaps && providedMaps.length
+      ? providedMaps.map((map) => ({ ...map }))
+      : sharedAvailableKufMaps.map((map) => ({ ...map }));
+    this.defaultMapId = this.availableMaps[0]?.id || sharedDefaultKufMapId;
+    this.activeMapId = this.defaultMapId;
+    this.currentMap = this.getMapById(this.activeMapId);
     this.step = this.step.bind(this);
     this.handleMouseDown = this.handleMouseDown.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
@@ -237,8 +251,8 @@ export class KufBattlefieldSimulation {
     const sniperStats = config?.sniperStats || { health: 8, attack: 2, attackSpeed: 0.5 };
     const splayerStats = config?.splayerStats || { health: 12, attack: 0.8, attackSpeed: 0.7 };
     const units = config?.units || { marines: 1, snipers: 0, splayers: 0 };
-    const requestedMap = config?.mapId || DEFAULT_KUF_MAP_ID;
-    this.currentMap = this.getMapById(requestedMap);
+    const requestedMap = config?.mapId || this.defaultMapId;
+    this.setActiveMap(requestedMap);
     
     const spawnY = this.bounds.height - 48;
     const centerX = this.bounds.width / 2;
@@ -1117,6 +1131,47 @@ export class KufBattlefieldSimulation {
       return this.availableMaps[0] || null;
     }
     return this.availableMaps.find((map) => map.id === mapId) || this.availableMaps[0] || null;
+  }
+
+  /**
+   * Replace the cached map dataset with the supplied collection.
+   * @param {Array<object>} maps - Updated battlefield definitions.
+   */
+  setAvailableMaps(maps) {
+    this.availableMaps = Array.isArray(maps) ? maps.map((map) => ({ ...map })) : [];
+    this.defaultMapId = this.availableMaps[0]?.id || sharedDefaultKufMapId;
+    if (!this.availableMaps.length) {
+      this.activeMapId = this.defaultMapId;
+      this.currentMap = null;
+      return;
+    }
+    if (!this.activeMapId || !this.getMapById(this.activeMapId)) {
+      this.activeMapId = this.defaultMapId;
+    }
+    this.currentMap = this.getMapById(this.activeMapId);
+  }
+
+  /**
+   * Update the active map selection, falling back to the default when missing.
+   * @param {string} mapId - Requested map identifier.
+   */
+  setActiveMap(mapId) {
+    const nextMap = this.getMapById(mapId);
+    if (nextMap) {
+      this.activeMapId = nextMap.id;
+      this.currentMap = nextMap;
+      return;
+    }
+    this.activeMapId = this.defaultMapId;
+    this.currentMap = this.getMapById(this.activeMapId);
+  }
+
+  /**
+   * Provide the default map identifier so UI components can mirror the selection logic.
+   * @returns {string}
+   */
+  getDefaultMapId() {
+    return this.defaultMapId || sharedDefaultKufMapId;
   }
 
   findClosestTurret(x, y, range) {
