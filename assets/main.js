@@ -264,6 +264,7 @@ import { createLevelEditorController } from './levelEditor.js';
 import { createLevelPreviewRenderer } from './levelPreviewRenderer.js';
 import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
 import { createPlayfieldMenuController } from './playfieldMenu.js';
+import { createLevelSummaryHelpers } from './levelSummary.js';
 import {
   moteGemState,
   MOTE_GEM_COLLECTION_RADIUS,
@@ -388,6 +389,16 @@ import {
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
   setTheroSymbol(THERO_SYMBOL);
+
+  const { getLevelSummary, describeLevelLastResult } = createLevelSummaryHelpers({
+    getCompletedInteractiveLevelCount,
+    getStartingTheroMultiplier,
+    isInteractiveLevel,
+    levelConfigs,
+    idleLevelConfigs,
+    getBaseStartThero,
+    theroSymbol: THERO_SYMBOL,
+  });
 
   // Gameplay configuration, resource baselines, and fluid profile loading now reside in configuration.js.
 
@@ -4115,132 +4126,6 @@ import {
     if (leaveLevelBtn && !leaveLevelBtn.disabled && typeof leaveLevelBtn.focus === 'function') {
       leaveLevelBtn.focus();
     }
-  }
-
-
-
-  function formatInteractiveLevelRewards() {
-    const levelsBeaten = getCompletedInteractiveLevelCount();
-    const multiplier = getStartingTheroMultiplier(levelsBeaten);
-    const levelLabel = levelsBeaten === 1 ? 'level' : 'levels';
-    const beatenText = `${levelsBeaten} ${levelLabel} sealed`;
-    const multiplierLabel = formatGameNumber(multiplier);
-    return `+1 Mote Gems/min · Thero Multiplier ×${multiplierLabel} (${beatenText})`;
-  }
-
-  // Summarize the stage-specific starting Thero after applying the current multiplier.
-  function describeLevelStartingThero(level, configOverride = null) {
-    const config = configOverride || (level ? levelConfigs.get(level.id) : null);
-    if (!config) {
-      return { text: '—', aria: 'Starting Thero not applicable.' };
-    }
-    if (config.infiniteThero) {
-      return { text: `∞ ${THERO_SYMBOL}`, aria: 'Starting Thero is infinite.' };
-    }
-
-    const baseStart = Number.isFinite(config.startThero)
-      ? Math.max(0, config.startThero)
-      : BASE_START_THERO;
-    const multiplier = getStartingTheroMultiplier();
-    const totalStart = Math.max(0, baseStart * multiplier);
-    const baseLabel = formatGameNumber(baseStart);
-    const multiplierLabel = formatGameNumber(multiplier);
-    const totalLabel = formatGameNumber(totalStart);
-
-    return {
-      text: `${baseLabel} ${THERO_SYMBOL} × ${multiplierLabel} = ${totalLabel} ${THERO_SYMBOL}`,
-      aria: `Starting Thero equals ${baseLabel} ${THERO_SYMBOL} times ${multiplierLabel}, totaling ${totalLabel} ${THERO_SYMBOL}.`,
-    };
-  }
-
-
-
-  function getLevelSummary(level) {
-    if (!level) {
-      return {
-        mode: '—',
-        duration: '—',
-        rewards: '—',
-        start: '—',
-        startAria: 'Starting Thero not applicable.',
-      };
-    }
-    const interactiveConfig = levelConfigs.get(level.id);
-    if (interactiveConfig) {
-      const waves = interactiveConfig.waves?.length || 0;
-      const endless = Boolean(interactiveConfig.forceEndlessMode);
-      const startSummary = describeLevelStartingThero(level, interactiveConfig);
-      return {
-        mode: endless ? 'Endless Defense' : 'Active Defense',
-        duration: endless ? 'Endless · manual' : waves ? `${waves} waves · manual` : 'Active defense',
-        rewards: formatInteractiveLevelRewards(),
-        start: startSummary.text,
-        startAria: startSummary.aria,
-      };
-    }
-
-    const config = idleLevelConfigs.get(level.id);
-    return {
-      mode: 'Idle Simulation',
-      duration: config
-        ? `${formatDuration(config.runDuration)} auto-run`
-        : 'Idle simulation',
-      rewards: config
-        ? formatRewards(config.rewardScore, config.rewardFlux, config.rewardEnergy, formatGameNumber)
-        : '—',
-      start: '—',
-      startAria: 'Starting Thero not applicable.',
-    };
-  }
-
-  function describeLevelLastResult(level, state, runner) {
-    if (runner) {
-      const percent = Math.min(100, Math.max(0, Math.round((runner.progress || 0) * 100)));
-      const remainingSeconds = Number.isFinite(runner.remainingMs)
-        ? Math.ceil(runner.remainingMs / 1000)
-        : null;
-      const remainingLabel = remainingSeconds === null
-        ? 'Finishing'
-        : `${formatDuration(remainingSeconds)} remaining`;
-      return `Auto-run ${percent}% · ${remainingLabel}.`;
-    }
-
-    if (state?.running) {
-      return level && isInteractiveLevel(level.id)
-        ? 'Manual defense active.'
-        : 'Auto-run initializing.';
-    }
-
-    if (!state || !state.lastResult) {
-      return 'No attempts recorded.';
-    }
-
-    const { outcome, stats = {}, timestamp } = state.lastResult;
-    const bestWave = Math.max(state.bestWave || 0, stats.maxWave || 0);
-    const relative = formatRelativeTime(timestamp) || 'recently';
-
-    if (outcome === 'victory') {
-      const rewardText = formatRewards(stats.rewardScore, stats.rewardFlux, stats.rewardEnergy, formatGameNumber);
-      const segments = [`Victory ${relative}.`];
-      if (rewardText && rewardText !== '—') {
-        segments.push(`Rewards: ${rewardText}.`);
-      }
-      if (Number.isFinite(stats.startThero)) {
-        segments.push(`Starting Thero now ${formatGameNumber(stats.startThero)} ${THERO_SYMBOL}.`);
-      }
-      if (bestWave > 0) {
-        segments.push(`Waves cleared: ${bestWave}.`);
-      }
-      return segments.join(' ');
-    }
-
-    if (outcome === 'defeat') {
-      return bestWave > 0
-        ? `Defense collapsed ${relative}. Reached wave ${bestWave}.`
-        : `Defense collapsed ${relative}.`;
-    }
-
-    return 'No attempts recorded.';
   }
 
   function enableDeveloperMode() {
