@@ -105,6 +105,7 @@ import {
 } from './offlinePersistence.js';
 import { createPowderPersistence } from './powderPersistence.js';
 import { createPowderDisplaySystem } from './powderDisplay.js';
+import { createPowderViewportController } from './powderViewportController.js';
 // DOM helpers extracted from main.js to hydrate powder and fluid overlays.
 import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
 import { createResourceHud } from './resourceHud.js';
@@ -1049,8 +1050,6 @@ import {
 
   // Initialize the Towers tab emblem to the default mote palette before any theme swaps occur.
   applyMindGatePaletteToDom(powderState.motePalette);
-  let powderWallMetrics = null;
-  let fluidWallMetrics = null;
 
   const {
     powderElements,
@@ -1182,195 +1181,31 @@ import {
     setActiveTab,
   });
 
-  function getElementsForSimulation(simulation) {
-    if (simulation && simulation === fluidSimulationInstance) {
-      return fluidElements;
-    }
-    return powderElements;
-  }
+  const {
+    applyPowderViewportTransform,
+    handlePowderViewTransformChange,
+    handlePowderWallMetricsChange,
+    updatePowderWallGapFromGlyphs,
+    initializePowderViewInteraction,
+  } = createPowderViewportController({
+    getActiveSimulation: () => powderSimulation,
+    getFluidSimulation: () => fluidSimulationInstance,
+    getPowderElements: () => powderElements,
+    getFluidElements: () => fluidElements,
+    powderState,
+    powderConfig,
+    schedulePowderBasinSave,
+    isDeveloperModeActive: () => developerModeActive,
+  });
 
-  // Apply the active camera transform to the overlay container so the decorative walls
-  // match the powder simulation's zoom and pan state.
-  function applyPowderViewportTransform(transform, simulation = powderSimulation) {
-    const elements = getElementsForSimulation(simulation);
-    const viewport = elements?.viewport;
-    if (!viewport) {
-      return;
-    }
-    if (!transform) {
-      viewport.style.transform = '';
-      return;
-    }
-    const width = Number.isFinite(transform.width) ? transform.width : 0;
-    const height = Number.isFinite(transform.height) ? transform.height : 0;
-    const scale = Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1;
-    if (!width || !height) {
-      viewport.style.transform = '';
-      return;
-    }
-    const centerX = Number.isFinite(transform.center?.x) ? transform.center.x : width / 2;
-    const centerY = Number.isFinite(transform.center?.y) ? transform.center.y : height / 2;
-    const translateToCenter = `translate(${(width / 2).toFixed(3)}px, ${(height / 2).toFixed(3)}px)`;
-    const scalePart = `scale(${scale.toFixed(5)})`;
-    const translateToOrigin = `translate(${(-centerX).toFixed(3)}px, ${(-centerY).toFixed(3)}px)`;
-    viewport.style.transform = `${translateToCenter} ${scalePart} ${translateToOrigin}`;
-  }
+  // Convenience helper so developer toggles can refresh the powder walls without duplicating logic.
+  const refreshPowderWallDecorations = () => {
+    handlePowderWallMetricsChange(
+      powderSimulation ? powderSimulation.getWallMetrics() : null,
+      powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand',
+    );
+  };
 
-  // Store and broadcast camera transform updates emitted by the powder simulation.
-  function handlePowderViewTransformChange(transform) {
-    powderState.viewTransform = transform || null;
-    applyPowderViewportTransform(transform || null, powderSimulation);
-    // Schedule a basin save so camera adjustments persist across reloads.
-    schedulePowderBasinSave();
-  }
-
-  function syncPowderWallVisuals(metrics) {
-    const isFluidActive = powderSimulation === fluidSimulationInstance;
-    const cachedMetrics = isFluidActive ? fluidWallMetrics : powderWallMetrics;
-    const activeMetrics =
-      metrics || cachedMetrics || (powderSimulation ? powderSimulation.getWallMetrics() : null);
-    if (!activeMetrics) {
-      return;
-    }
-
-    const { leftCells, rightCells, gapCells, cellSize, gapPixels, leftPixels, rightPixels } = activeMetrics;
-    // Prefer the simulation's pixel-accurate inset when available so DOM walls meet the motes exactly.
-    const leftWidth = Number.isFinite(leftPixels)
-      ? Math.max(0, leftPixels)
-      : Math.max(0, leftCells * cellSize);
-    // Mirror the right edge calculation to avoid asymmetrical seams during wall widening events.
-    const rightWidth = Number.isFinite(rightPixels)
-      ? Math.max(0, rightPixels)
-      : Math.max(0, rightCells * cellSize);
-    // Fall back to cell measurements only when pixel data is unavailable to preserve backwards compatibility.
-    const gapWidth = Number.isFinite(gapPixels)
-      ? Math.max(0, gapPixels)
-      : Math.max(0, gapCells * cellSize); // Use the simulated span so DOM walls hug the water surface.
-
-    const activeElements = getElementsForSimulation(powderSimulation);
-    const inactiveElements = activeElements === powderElements ? fluidElements : powderElements;
-
-    /**
-     * Convert a simulated wall inset into a content-box width so decorative padding/borders do not
-     * introduce visible gaps between the motes and the DOM walls.
-     */
-    const resolveContentWidth = (element, targetWidth) => {
-      if (!element || !Number.isFinite(targetWidth)) {
-        return targetWidth;
-      }
-      if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
-        return targetWidth;
-      }
-      const styles = window.getComputedStyle(element);
-      if (!styles) {
-        return targetWidth;
-      }
-      const paddingLeft = Number.parseFloat(styles.paddingLeft) || 0;
-      const paddingRight = Number.parseFloat(styles.paddingRight) || 0;
-      const borderLeft = Number.parseFloat(styles.borderLeftWidth) || 0;
-      const borderRight = Number.parseFloat(styles.borderRightWidth) || 0;
-      const horizontalInset = paddingLeft + paddingRight + borderLeft + borderRight;
-      return Math.max(0, targetWidth - horizontalInset);
-    };
-
-    if (activeElements.leftWall) {
-      const contentWidth = resolveContentWidth(activeElements.leftWall, leftWidth);
-      activeElements.leftWall.style.width = `${contentWidth.toFixed(1)}px`;
-      // Mirror the resolved inset onto a CSS variable so wall textures stretch to the inner edge.
-      activeElements.leftWall.style.setProperty('--powder-wall-visual-width', `${leftWidth.toFixed(1)}px`);
-    }
-    if (activeElements.rightWall) {
-      const contentWidth = resolveContentWidth(activeElements.rightWall, rightWidth);
-      activeElements.rightWall.style.width = `${contentWidth.toFixed(1)}px`;
-      // Push the same precision to the right wall sprite for the Bet spire's liquid surface.
-      activeElements.rightWall.style.setProperty('--powder-wall-visual-width', `${rightWidth.toFixed(1)}px`);
-    }
-    if (activeElements.leftHitbox) {
-      activeElements.leftHitbox.style.width = `${leftWidth.toFixed(1)}px`;
-    }
-    if (activeElements.rightHitbox) {
-      activeElements.rightHitbox.style.width = `${rightWidth.toFixed(1)}px`;
-    }
-    if (activeElements.basin) {
-      activeElements.basin.style.setProperty('--powder-gap-width', `${gapWidth.toFixed(1)}px`);
-    }
-
-    if (inactiveElements.leftWall) {
-      inactiveElements.leftWall.style.removeProperty('width');
-      // Clear the precision hint so dormant overlays fall back to their default sizing rules.
-      inactiveElements.leftWall.style.removeProperty('--powder-wall-visual-width');
-    }
-    if (inactiveElements.rightWall) {
-      inactiveElements.rightWall.style.removeProperty('width');
-      // Reset the mirrored hint when the right wall overlay is inactive.
-      inactiveElements.rightWall.style.removeProperty('--powder-wall-visual-width');
-    }
-    if (inactiveElements.leftHitbox) {
-      inactiveElements.leftHitbox.style.removeProperty('width');
-    }
-    if (inactiveElements.rightHitbox) {
-      inactiveElements.rightHitbox.style.removeProperty('width');
-    }
-  }
-
-  function updatePowderHitboxVisibility() {
-    const isFluidActive = powderSimulation === fluidSimulationInstance;
-    const cachedMetrics = isFluidActive ? fluidWallMetrics : powderWallMetrics;
-    const metrics = cachedMetrics || (powderSimulation ? powderSimulation.getWallMetrics() : null);
-    const showHitboxes = developerModeActive && metrics;
-    const activeElements = getElementsForSimulation(powderSimulation);
-    const inactiveElements = activeElements === powderElements ? fluidElements : powderElements;
-
-    if (activeElements.leftHitbox) {
-      activeElements.leftHitbox.classList.toggle(
-        'powder-wall-hitbox--visible',
-        Boolean(showHitboxes && metrics?.leftCells > 0),
-      );
-    }
-    if (activeElements.rightHitbox) {
-      activeElements.rightHitbox.classList.toggle(
-        'powder-wall-hitbox--visible',
-        Boolean(showHitboxes && metrics?.rightCells > 0),
-      );
-    }
-    if (inactiveElements.leftHitbox) {
-      inactiveElements.leftHitbox.classList.remove('powder-wall-hitbox--visible');
-    }
-    if (inactiveElements.rightHitbox) {
-      inactiveElements.rightHitbox.classList.remove('powder-wall-hitbox--visible');
-    }
-  }
-
-  function handlePowderWallMetricsChange(metrics, source) {
-    const origin = source || (powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand');
-    if (origin === 'fluid') {
-      fluidWallMetrics = metrics || null;
-    } else {
-      powderWallMetrics = metrics || null;
-    }
-    syncPowderWallVisuals(metrics || undefined);
-    updatePowderHitboxVisibility();
-    // Queue a basin snapshot so wall spacing changes survive future sessions.
-    schedulePowderBasinSave();
-  }
-
-  function updatePowderWallGapFromGlyphs(glyphCount) {
-    const normalized = Number.isFinite(glyphCount) ? Math.max(0, glyphCount) : 0;
-    const rawTarget = powderConfig.wallBaseGapMotes + normalized * powderConfig.wallGapPerGlyph;
-    const target = Math.min(rawTarget, powderConfig.wallMaxGapMotes);
-    powderState.wallGapTarget = target;
-    if (!powderSimulation) {
-      // Persist glyph-driven wall targets even if the simulation is paused.
-      schedulePowderBasinSave();
-      return;
-    }
-    powderSimulation.setWallGapTarget(target);
-    powderWallMetrics = powderSimulation.getWallMetrics();
-    syncPowderWallVisuals(powderWallMetrics);
-    updatePowderHitboxVisibility();
-    // Record the updated gap so reloads mirror the active glyph bonus.
-    schedulePowderBasinSave();
-  }
 
   /**
    * Update Lamed simulation statistics display in the UI.
@@ -1495,136 +1330,6 @@ import {
     // Mode toggle button removed - spires unlock automatically based on glyphs
     // Keeping this function as a no-op to avoid breaking existing call sites
     return;
-  }
-
-  /**
-   * Lazily binds pointer and wheel interactions that let players pan and zoom the powder viewport.
-   * The handlers reuse the active powder simulation instance so mode switches keep gestures intact.
-   */
-  function initializePowderViewInteraction() {
-    const simulation = powderSimulation;
-    if (!simulation) {
-      return;
-    }
-
-    const viewport = simulation === fluidSimulationInstance ? fluidElements.viewport : powderElements.viewport;
-    if (!viewport) {
-      return;
-    }
-
-    if (powderState.viewInteraction?.viewport === viewport && powderState.viewInteraction.initialized) {
-      return;
-    }
-
-    if (powderState.viewInteraction?.destroy) {
-      powderState.viewInteraction.destroy();
-    }
-
-    const interaction = {
-      initialized: true,
-      pointerId: null,
-      lastPoint: null,
-      viewport,
-      destroy: null,
-    };
-
-    const getSimulation = () => powderSimulation;
-
-    const clearPointerState = () => {
-      if (interaction.pointerId !== null && typeof viewport.releasePointerCapture === 'function') {
-        viewport.releasePointerCapture(interaction.pointerId);
-      }
-      interaction.pointerId = null;
-      interaction.lastPoint = null;
-    };
-
-    const handlePointerDown = (event) => {
-      if (event.pointerType === 'mouse' && event.button !== 0) {
-        return;
-      }
-      const activeSimulation = getSimulation();
-      if (!activeSimulation) {
-        return;
-      }
-      interaction.pointerId = event.pointerId;
-      interaction.lastPoint = { x: event.clientX, y: event.clientY };
-      if (typeof viewport.setPointerCapture === 'function') {
-        try {
-          viewport.setPointerCapture(event.pointerId);
-        } catch (error) {
-          console.warn('Unable to capture powder viewport pointer', error);
-        }
-      }
-    };
-
-    const handlePointerMove = (event) => {
-      if (interaction.pointerId === null || event.pointerId !== interaction.pointerId) {
-        return;
-      }
-      const activeSimulation = getSimulation();
-      if (!activeSimulation || !interaction.lastPoint) {
-        return;
-      }
-
-      const dx = event.clientX - interaction.lastPoint.x;
-      const dy = event.clientY - interaction.lastPoint.y;
-      interaction.lastPoint = { x: event.clientX, y: event.clientY };
-
-      const transform = activeSimulation.getViewTransform();
-      if (!transform || !transform.center) {
-        return;
-      }
-
-      const scale = Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1;
-      const nextCenter = {
-        x: transform.center.x - dx / scale,
-        y: transform.center.y - dy / scale,
-      };
-      activeSimulation.setViewCenterFromWorld(nextCenter);
-    };
-
-    const handlePointerUp = (event) => {
-      if (event.pointerId !== interaction.pointerId) {
-        return;
-      }
-      clearPointerState();
-    };
-
-    const handleWheel = (event) => {
-      const activeSimulation = getSimulation();
-      if (!activeSimulation) {
-        return;
-      }
-      const delta = Number.isFinite(event.deltaY) ? event.deltaY : 0;
-      if (!delta) {
-        return;
-      }
-      const factor = delta > 0 ? 0.9 : 1.1;
-      const anchorPoint = { clientX: event.clientX, clientY: event.clientY };
-      const changed = activeSimulation.applyZoomFactor(factor, anchorPoint);
-      if (changed) {
-        event.preventDefault();
-      }
-    };
-
-    viewport.addEventListener('pointerdown', handlePointerDown);
-    viewport.addEventListener('pointermove', handlePointerMove);
-    viewport.addEventListener('pointerup', handlePointerUp);
-    viewport.addEventListener('pointercancel', handlePointerUp);
-    viewport.addEventListener('pointerleave', handlePointerUp);
-    viewport.addEventListener('wheel', handleWheel, { passive: false });
-
-    interaction.destroy = () => {
-      viewport.removeEventListener('pointerdown', handlePointerDown);
-      viewport.removeEventListener('pointermove', handlePointerMove);
-      viewport.removeEventListener('pointerup', handlePointerUp);
-      viewport.removeEventListener('pointercancel', handlePointerUp);
-      viewport.removeEventListener('pointerleave', handlePointerUp);
-      viewport.removeEventListener('wheel', handleWheel);
-      clearPointerState();
-    };
-
-    powderState.viewInteraction = interaction;
   }
 
   /**
@@ -1927,13 +1632,7 @@ import {
         }
       }
 
-      if (powderSimulation === fluidSimulationInstance) {
-        fluidWallMetrics = powderSimulation ? powderSimulation.getWallMetrics() : null;
-      } else {
-        powderWallMetrics = powderSimulation ? powderSimulation.getWallMetrics() : null;
-      }
-      syncPowderWallVisuals((powderSimulation === fluidSimulationInstance ? fluidWallMetrics : powderWallMetrics) || undefined);
-      updatePowderHitboxVisibility();
+      refreshPowderWallDecorations();
       handlePowderHeightChange(powderSimulation ? powderSimulation.getStatus() : undefined);
       updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
       updateMoteStatsDisplays();
@@ -1952,8 +1651,7 @@ import {
       // }
       updatePowderModeButton();
       ensurePowderBasinResizeObserver();
-      syncPowderWallVisuals();
-      updatePowderHitboxVisibility();
+      refreshPowderWallDecorations();
     }
   }
 
@@ -4259,7 +3957,7 @@ import {
     addIterons(DEVELOPER_RESOURCE_GRANT);
     updateShinDisplay();
 
-    updatePowderHitboxVisibility();
+    refreshPowderWallDecorations();
     
     // Persist developer mode state
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -4340,7 +4038,7 @@ import {
       playfieldMenuController.updateMenuState();
     }
 
-    updatePowderHitboxVisibility();
+    refreshPowderWallDecorations();
   }
 
   function resetDeveloperResetButtonConfirmation({ label = DEVELOPER_RESET_DEFAULT_LABEL, warning = false } = {}) {
@@ -4485,8 +4183,6 @@ import {
     powderState.loadedFluidState = null;
 
     resetPowderUiState();
-    powderWallMetrics = null;
-    fluidWallMetrics = null;
 
     clearTowerUpgradeState();
     // Revert Aleph chain upgrades so tower snapshots reset alongside other progression state.
@@ -4505,8 +4201,7 @@ import {
     updateMoteGemInventoryDisplay();
 
     updatePowderWallGapFromGlyphs(0);
-    syncPowderWallVisuals();
-    updatePowderHitboxVisibility();
+    refreshPowderWallDecorations();
     refreshPowderSystems();
     updatePowderModeButton();
     updateStatusDisplays();
@@ -4795,12 +4490,7 @@ import {
           const setOptions = fluidIsActive ? undefined : { skipRebuild: true };
           targetSimulation.setWallGapTarget(nextWallTarget, setOptions);
           const metrics = targetSimulation.getWallMetrics();
-          if (fluidIsActive) {
-            handlePowderWallMetricsChange(metrics, 'fluid');
-          } else {
-            fluidWallMetrics = metrics;
-            schedulePowderBasinSave();
-          }
+          handlePowderWallMetricsChange(metrics, 'fluid');
         } else {
           schedulePowderBasinSave();
         }

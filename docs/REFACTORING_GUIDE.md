@@ -232,6 +232,27 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - UI helpers reuse the established factory pattern, keeping palette updates and glyph maintenance encapsulated
 - Lazy element resolution guards prevent early calls from throwing while modules initialize, improving robustness
 
+### powderViewportController.js (camera transforms + wall metrics)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `applyPowderViewportTransform()` - Mirrors the simulation camera onto the DOM overlays
+- `handlePowderViewTransformChange()` - Stores transforms and schedules basin saves
+- `handlePowderWallMetricsChange()` / `updatePowderWallGapFromGlyphs()` - Normalize wall spacing and glyph-driven widening
+- `initializePowderViewInteraction()` - Pointer + wheel bindings for panning/zooming both sand and fluid modes
+- Hitbox visibility toggles previously tied to developer mode
+
+**Integration approach:**
+- Added `createPowderViewportController()` factory (`assets/powderViewportController.js`) that receives simulation getters, DOM element accessors, powder state/config, and autosave hooks
+- `assets/main.js` destructures the returned helpers (plus a tiny `refreshPowderWallDecorations()` convenience wrapper) so existing call sites simply call the injected APIs
+- The factory caches wall metrics for both sand and fluid overlays, only re-rendering the active DOM when necessary so developer toggles and inactive simulations stay lightweight
+
+**Result:**
+- All viewport math, wall spacing, and gesture logic left `assets/main.js`, trimming another ~400 lines from the orchestrator
+- Developer mode toggles now refresh walls through a single helper instead of duplicating DOM math across the file
+- Autosave integration became more explicit because wall metrics/transform persistence now lives in one module with clear scheduling points
+
 ### powderDisplay.js (powder tab orchestration + idle rewards)
 
 **Status:** ✅ Complete
