@@ -193,6 +193,25 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Shared numeric sanitizers exit `main.js`, reducing the chance of subtle NaN/Infinity writes during autosave
 - The new factory pattern keeps the persistence helpers testable without importing the entire game orchestrator
 
+### powderPaletteUtils.js (shared palette + normalization helpers)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `DEFAULT_MOTE_PALETTE`, `mergeMotePalette()`, and `computeMotePaletteFromTheme()` so palette assembly no longer bloats `powderTower.js`
+- Color conversion helpers (`parseCssColor()`, `mixRgbColors()`, `colorToRgbaString()`) plus the clone utility reused by fluid and powder simulations
+- Numeric guards (`clampUnitInterval()`, `normalizeFiniteNumber()`, `normalizeFiniteInteger()`) that sanitize powder persistence data
+
+**Integration approach:**
+- Introduced `scripts/features/towers/powderPaletteUtils.js` and imported it from `powderTower.js`, re-exporting the same API so existing consumers keep their import paths
+- Updated the powder simulation to call the extracted helpers instead of maintaining inline copies of every parser and guard
+- Documented the shared helpers so future palette work can stay decoupled from the 2,600-line powder simulation file
+
+**Result:**
+- `powderTower.js` sheds roughly 300 lines of palette and normalization boilerplate, focusing the file on simulation logic
+- Fluid and powder systems now share a single palette source of truth, reducing divergence when the theme palette changes
+- The dedicated module creates a clean staging ground for future palette or serialization refactors without reopening the monolith
+
 ### towerEquationTooltip.js (equation variable tooltip manager)
 
 **Status:** ✅ Complete
