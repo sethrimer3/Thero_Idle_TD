@@ -5,341 +5,38 @@
  * reuse the same palette rules without depending on the main bundle.
  */
 
-export const DEFAULT_MOTE_PALETTE = {
-  stops: [
-    { r: 255, g: 222, b: 137 },
-    { r: 139, g: 247, b: 255 },
-    { r: 164, g: 182, b: 255 },
-  ],
-  restAlpha: 0.9,
-  freefallAlpha: 0.6,
-  backgroundTop: '#0f1018',
-  backgroundBottom: '#171a27',
-};
+// Reuse the extracted palette and normalization helpers to shrink this bundle.
+import {
+  DEFAULT_MOTE_PALETTE,
+  clampUnitInterval,
+  cloneMoteColor,
+  colorToRgbaString,
+  computeMotePaletteFromTheme,
+  mergeMotePalette,
+  mixRgbColors,
+  normalizeFiniteInteger,
+  normalizeFiniteNumber,
+  parseCssColor,
+  resolvePaletteColorStops,
+} from './powderPaletteUtils.js';
+
+// Re-export the helpers so existing imports from powderTower remain valid.
+export {
+  DEFAULT_MOTE_PALETTE,
+  clampUnitInterval,
+  cloneMoteColor,
+  colorToRgbaString,
+  computeMotePaletteFromTheme,
+  mergeMotePalette,
+  mixRgbColors,
+  normalizeFiniteInteger,
+  normalizeFiniteNumber,
+  parseCssColor,
+  resolvePaletteColorStops,
+} from './powderPaletteUtils.js';
 
 // Guarantee each mote lane cell remains legible on compact viewports.
 export const MIN_MOTE_LANE_CELL_PX = 4;
-
-export function clampUnitInterval(value) {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  return Math.max(0, Math.min(1, value));
-}
-
-// Normalize a floating-point value so serialized powder state never stores NaN or Infinity artifacts.
-function normalizeFiniteNumber(value, fallback = 0) {
-  if (!Number.isFinite(value)) {
-    return fallback;
-  }
-  return value;
-}
-
-// Normalize an integer value while guaranteeing a deterministic rounding strategy for persistence.
-function normalizeFiniteInteger(value, fallback = 0) {
-  if (!Number.isFinite(value)) {
-    return fallback;
-  }
-  return Math.round(value);
-}
-
-// Clone an RGB color payload so serialization never mutates the original mote palette references.
-function cloneMoteColor(color) {
-  if (!color || typeof color !== 'object') {
-    return null;
-  }
-  if (!Number.isFinite(color.r) || !Number.isFinite(color.g) || !Number.isFinite(color.b)) {
-    return null;
-  }
-  return {
-    r: Math.max(0, Math.min(255, Math.round(color.r))),
-    g: Math.max(0, Math.min(255, Math.round(color.g))),
-    b: Math.max(0, Math.min(255, Math.round(color.b))),
-  };
-}
-
-function parseHexColor(value) {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  let hex = value.trim();
-  if (!hex) {
-    return null;
-  }
-  if (hex.startsWith('#')) {
-    hex = hex.slice(1);
-  }
-  if (hex.length === 3) {
-    hex = hex
-      .split('')
-      .map((char) => char + char)
-      .join('');
-  }
-  if (hex.length !== 6 && hex.length !== 8) {
-    return null;
-  }
-  const int = Number.parseInt(hex.slice(0, 6), 16);
-  if (Number.isNaN(int)) {
-    return null;
-  }
-  return {
-    r: (int >> 16) & 0xff,
-    g: (int >> 8) & 0xff,
-    b: int & 0xff,
-  };
-}
-
-function parseRgbColor(value) {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const match = value
-    .trim()
-    .match(/^rgba?\((\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)(?:[,\s]+([0-9.]+))?\)$/i);
-  if (!match) {
-    return null;
-  }
-  const r = Number.parseFloat(match[1]);
-  const g = Number.parseFloat(match[2]);
-  const b = Number.parseFloat(match[3]);
-  if ([r, g, b].some((component) => Number.isNaN(component))) {
-    return null;
-  }
-  return { r, g, b };
-}
-
-function hslToRgbColor(h, s, l) {
-  const hue = ((h % 360) + 360) % 360;
-  const sat = clampUnitInterval(s);
-  const light = clampUnitInterval(l);
-  if (sat === 0) {
-    const value = Math.round(light * 255);
-    return { r: value, g: value, b: value };
-  }
-  const q = light < 0.5 ? light * (1 + sat) : light + sat - light * sat;
-  const p = 2 * light - q;
-  const convert = (t) => {
-    let temp = t;
-    if (temp < 0) {
-      temp += 1;
-    }
-    if (temp > 1) {
-      temp -= 1;
-    }
-    if (temp < 1 / 6) {
-      return p + (q - p) * 6 * temp;
-    }
-    if (temp < 1 / 2) {
-      return q;
-    }
-    if (temp < 2 / 3) {
-      return p + (q - p) * (2 / 3 - temp) * 6;
-    }
-    return p;
-  };
-  const r = convert(hue / 360 + 1 / 3);
-  const g = convert(hue / 360);
-  const b = convert(hue / 360 - 1 / 3);
-  return {
-    r: Math.round(r * 255),
-    g: Math.round(g * 255),
-    b: Math.round(b * 255),
-  };
-}
-
-function parseHslColor(value) {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const match = value
-    .trim()
-    .match(/^hsla?\(([-\d.]+)[,\s]+([\d.]+)%[,\s]+([\d.]+)%(?:[,\s]+([0-9.]+))?\)$/i);
-  if (!match) {
-    return null;
-  }
-  const h = Number.parseFloat(match[1]);
-  const s = Number.parseFloat(match[2]) / 100;
-  const l = Number.parseFloat(match[3]) / 100;
-  if ([h, s, l].some((component) => Number.isNaN(component))) {
-    return null;
-  }
-  return hslToRgbColor(h, s, l);
-}
-
-function parseCssColor(value) {
-  if (!value) {
-    return null;
-  }
-  if (typeof value === 'string') {
-    return parseHexColor(value) || parseRgbColor(value) || parseHslColor(value);
-  }
-  if (typeof value === 'object') {
-    if ('r' in value && 'g' in value && 'b' in value) {
-      return {
-        r: Number.isFinite(value.r) ? value.r : 0,
-        g: Number.isFinite(value.g) ? value.g : 0,
-        b: Number.isFinite(value.b) ? value.b : 0,
-      };
-    }
-    if ('h' in value && 's' in value && 'l' in value) {
-      return hslToRgbColor(value.h, value.s, value.l);
-    }
-  }
-  return null;
-}
-
-function mixRgbColors(colorA, colorB, ratio) {
-  const t = clampUnitInterval(ratio);
-  const a = colorA || { r: 0, g: 0, b: 0 };
-  const b = colorB || { r: 0, g: 0, b: 0 };
-  return {
-    r: a.r + (b.r - a.r) * t,
-    g: a.g + (b.g - a.g) * t,
-    b: a.b + (b.b - a.b) * t,
-  };
-}
-
-export function colorToRgbaString(color, alpha = 1) {
-  const safeColor = color || { r: 0, g: 0, b: 0 };
-  const r = Math.round(Math.max(0, Math.min(255, safeColor.r || 0)));
-  const g = Math.round(Math.max(0, Math.min(255, safeColor.g || 0)));
-  const b = Math.round(Math.max(0, Math.min(255, safeColor.b || 0)));
-  const normalizedAlpha = clampUnitInterval(alpha);
-  return `rgba(${r}, ${g}, ${b}, ${normalizedAlpha.toFixed(3)})`;
-}
-
-export function mergeMotePalette(palette) {
-  if (!palette || typeof palette !== 'object') {
-    return {
-      ...DEFAULT_MOTE_PALETTE,
-      stops: DEFAULT_MOTE_PALETTE.stops.map((stop) => ({ ...stop })),
-    };
-  }
-
-  const stops = Array.isArray(palette.stops) && palette.stops.length
-    ? palette.stops
-        .map((stop) => {
-          if (stop && typeof stop === 'object') {
-            const color = parseCssColor(stop) || stop;
-            if (color && typeof color === 'object' && 'r' in color && 'g' in color && 'b' in color) {
-              return {
-                r: Number.isFinite(color.r) ? color.r : 0,
-                g: Number.isFinite(color.g) ? color.g : 0,
-                b: Number.isFinite(color.b) ? color.b : 0,
-              };
-            }
-          }
-          return null;
-        })
-        .filter(Boolean)
-    : DEFAULT_MOTE_PALETTE.stops.map((stop) => ({ ...stop }));
-
-  if (!stops.length) {
-    stops.push(...DEFAULT_MOTE_PALETTE.stops.map((stop) => ({ ...stop }))); // Fallback
-  }
-
-  return {
-    stops,
-    restAlpha: Number.isFinite(palette.restAlpha) ? palette.restAlpha : DEFAULT_MOTE_PALETTE.restAlpha,
-    freefallAlpha: Number.isFinite(palette.freefallAlpha)
-      ? palette.freefallAlpha
-      : DEFAULT_MOTE_PALETTE.freefallAlpha,
-    backgroundTop: palette.backgroundTop || DEFAULT_MOTE_PALETTE.backgroundTop,
-    backgroundBottom: palette.backgroundBottom || DEFAULT_MOTE_PALETTE.backgroundBottom,
-  };
-}
-
-function normalizePaletteColorStop(stop) {
-  if (!stop) {
-    return null;
-  }
-
-  let color = null;
-  if (typeof stop === 'string') {
-    color = parseCssColor(stop);
-  } else if (typeof stop === 'object') {
-    if ('r' in stop && 'g' in stop && 'b' in stop) {
-      color = stop;
-    } else {
-      color = parseCssColor(stop);
-    }
-  }
-
-  if (!color || !Number.isFinite(color.r) || !Number.isFinite(color.g) || !Number.isFinite(color.b)) {
-    return null;
-  }
-
-  return {
-    r: Math.max(0, Math.min(255, Math.round(color.r))),
-    g: Math.max(0, Math.min(255, Math.round(color.g))),
-    b: Math.max(0, Math.min(255, Math.round(color.b))),
-  };
-}
-
-export function resolvePaletteColorStops(palette) {
-  const reference = palette && typeof palette === 'object' ? palette : DEFAULT_MOTE_PALETTE;
-  const stops = [];
-  const pushStop = (candidate) => {
-    const color = normalizePaletteColorStop(candidate);
-    if (!color) {
-      return;
-    }
-    const last = stops[stops.length - 1];
-    if (last && last.r === color.r && last.g === color.g && last.b === color.b) {
-      return;
-    }
-    stops.push(color);
-  };
-
-  pushStop(reference.backgroundTop);
-
-  const baseStops = Array.isArray(reference.stops) && reference.stops.length
-    ? reference.stops
-    : DEFAULT_MOTE_PALETTE.stops;
-  baseStops.forEach((stop) => pushStop(stop));
-
-  pushStop(reference.backgroundBottom);
-
-  if (!stops.length) {
-    DEFAULT_MOTE_PALETTE.stops.forEach((stop) => pushStop(stop));
-  }
-
-  if (stops.length === 1) {
-    stops.push({ ...stops[0] });
-  }
-
-  return stops;
-}
-
-export function computeMotePaletteFromTheme() {
-  if (typeof window === 'undefined') {
-    return mergeMotePalette(DEFAULT_MOTE_PALETTE);
-  }
-  const root = document.body || document.documentElement;
-  if (!root) {
-    return mergeMotePalette(DEFAULT_MOTE_PALETTE);
-  }
-  const styles = window.getComputedStyle(root);
-  const accent = parseCssColor(styles.getPropertyValue('--accent')) || DEFAULT_MOTE_PALETTE.stops[1];
-  const accentSecondary =
-    parseCssColor(styles.getPropertyValue('--accent-2')) || DEFAULT_MOTE_PALETTE.stops[2];
-  const accentWarm = parseCssColor(styles.getPropertyValue('--accent-3')) || DEFAULT_MOTE_PALETTE.stops[0];
-  const deepBase = { r: 15, g: 16, b: 24 };
-  const lowBase = { r: 23, g: 26, b: 39 };
-  const stops = [
-    mixRgbColors(accentWarm, { r: 255, g: 255, b: 255 }, 0.12),
-    mixRgbColors(accent, accentSecondary, 0.25),
-    mixRgbColors(accentSecondary, { r: 255, g: 255, b: 255 }, 0.18),
-  ];
-
-  return mergeMotePalette({
-    stops,
-    restAlpha: 0.9,
-    freefallAlpha: 0.62,
-    backgroundTop: colorToRgbaString(mixRgbColors(deepBase, accent, 0.22), 1),
-    backgroundBottom: colorToRgbaString(mixRgbColors(lowBase, accentSecondary, 0.18), 1),
-  });
-}
 
 export const POWDER_CELL_SIZE_PX = 1;
 // Render and collide motes at their base cell footprint so each grain appears one-third the previous size.
