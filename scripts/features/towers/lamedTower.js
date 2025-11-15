@@ -128,7 +128,7 @@ export class GravitySimulation {
 
     // Shooting star events bring bonus mass into the simulation at long intervals.
     this.shootingStars = [];
-    this.shootingStarTrailLength = 20;
+    this.shootingStarTrailLength = 60; // Extend streak memory so shooting stars leave long ribbons across the canvas.
     this.nextShootingStarTime = 0; // Seconds timestamp for next shooting star spawn
 
     // Track pending mass contributions from off-cycle events (shooting stars).
@@ -457,7 +457,7 @@ export class GravitySimulation {
         shard.trail.shift();
       }
       for (const point of shard.trail) {
-        point.alpha = Math.max(0, point.alpha - 0.12);
+        point.alpha = Math.max(0, point.alpha - 0.08); // Slow the alpha decay so the elongated trails remain bright.
       }
 
       let merged = false;
@@ -818,25 +818,41 @@ export class GravitySimulation {
     // Draw shooting stars with luminous trails.
     for (const shard of this.shootingStars) {
       if (shard.trail.length > 1) {
-        ctx.lineWidth = 2;
+        ctx.save();
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.globalCompositeOperation = 'lighter'; // Blend streaks additively so overlapping segments intensify the glow.
+        ctx.shadowBlur = 12; // Apply a soft halo that makes the trail appear diffused.
+        ctx.shadowColor = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, 0.9)`; // Reuse shard color for the luminous blur.
         for (let i = 1; i < shard.trail.length; i++) {
           const prev = shard.trail[i - 1];
           const curr = shard.trail[i];
-          const alpha = curr.alpha * 0.6;
-          ctx.strokeStyle = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, ${alpha})`;
+          const progress = i / shard.trail.length || 0; // Normalize segment position so the head stays brightest.
+          const fadeAlpha = Math.max(0, curr.alpha * (1 - progress * 0.5)); // Keep more opacity near the leading edge of the streak.
+          const brightness = 0.7 + (1 - progress) * 0.3; // Boost color intensity at the head for a radiant taper.
+          const boostedR = Math.min(255, Math.round(shard.color.r * brightness));
+          const boostedG = Math.min(255, Math.round(shard.color.g * brightness));
+          const boostedB = Math.min(255, Math.round(shard.color.b * brightness));
+          ctx.strokeStyle = `rgba(${boostedR}, ${boostedG}, ${boostedB}, ${fadeAlpha})`;
           ctx.beginPath();
           ctx.moveTo(prev.x / dpr, prev.y / dpr);
           ctx.lineTo(curr.x / dpr, curr.y / dpr);
           ctx.stroke();
         }
+        ctx.restore();
       }
 
       const shardX = shard.x / dpr;
       const shardY = shard.y / dpr;
-      ctx.fillStyle = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, 0.95)`;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter'; // Let the meteor head bloom brightly on top of the trail.
+      ctx.shadowBlur = 20; // Stronger blur around the core star for a glowing nucleus.
+      ctx.shadowColor = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, 1)`; // Mirror the meteor hue in the glow to keep palette cohesion.
+      ctx.fillStyle = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, 1)`;
       ctx.beginPath();
-      ctx.arc(shardX, shardY, 3, 0, Math.PI * 2);
+      ctx.arc(shardX, shardY, 3.5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     }
 
     // Draw orbiting stars with trails
