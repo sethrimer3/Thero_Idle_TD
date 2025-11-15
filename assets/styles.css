@@ -6923,7 +6923,9 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.6) 100%);
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08), transparent 65%);
+  opacity: 0.4;
+  mix-blend-mode: screen;
   pointer-events: none;
 }
 

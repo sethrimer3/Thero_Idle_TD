@@ -19,7 +19,7 @@
 const MASS_TIERS = [
   { name: 'Proto-star', threshold: 10, color: '#FF6B6B', glow: 0.3 },
   { name: 'Main Sequence', threshold: 100, color: '#FFD93D', glow: 0.5 },
-  { name: 'Blue Giant', threshold: 5000, color: '#6BCF7F', glow: 0.7 },
+  { name: 'Blue Giant', threshold: 5000, color: '#3EC8FF', glow: 0.7 },
   { name: 'Red Giant', threshold: 10000, color: '#FF8B94', glow: 0.85 },
   { name: 'Supergiant', threshold: 50000, color: '#FFA07A', glow: 1.0 },
   { name: 'Neutron Star', threshold: 1000000, color: '#B19CD9', glow: 1.2 },
@@ -122,15 +122,21 @@ export class GravitySimulation {
     this.geyserParticles = []; // Geyser bursts triggered by high-tier absorptions
     this.visualEffectSettings = {
       /**
-       * Lens-flare inspired diamond that subtly protrudes above and below the sun.
+       * Multi-ghost lens flare inspired by telescope footage.
        */
-      diamondFlare: {
-        baseAlpha: typeof options.diamondBaseAlpha === 'number' ? options.diamondBaseAlpha : 0.28,
-        flickerSpeed: typeof options.diamondFlickerSpeed === 'number' ? options.diamondFlickerSpeed : 1.7,
-        flickerAmount: typeof options.diamondFlickerAmount === 'number' ? options.diamondFlickerAmount : 0.35,
-        verticalScale: typeof options.diamondVerticalScale === 'number' ? options.diamondVerticalScale : 1.4,
-        horizontalScale: typeof options.diamondHorizontalScale === 'number' ? options.diamondHorizontalScale : 0.45,
-        offsetScale: typeof options.diamondOffsetScale === 'number' ? options.diamondOffsetScale : 0.18,
+      lensFlare: {
+        baseAlpha: typeof options.lensFlareBaseAlpha === 'number' ? options.lensFlareBaseAlpha : 0.35,
+        flickerSpeed: typeof options.lensFlareFlickerSpeed === 'number' ? options.lensFlareFlickerSpeed : 1.6,
+        flickerAmount: typeof options.lensFlareFlickerAmount === 'number' ? options.lensFlareFlickerAmount : 0.45,
+        ghostCount: typeof options.lensFlareGhostCount === 'number' ? options.lensFlareGhostCount : 3,
+        ghostSpacing: typeof options.lensFlareGhostSpacing === 'number' ? options.lensFlareGhostSpacing : 0.65,
+        ghostScale: typeof options.lensFlareGhostScale === 'number' ? options.lensFlareGhostScale : 0.26,
+        ghostAlpha: typeof options.lensFlareGhostAlpha === 'number' ? options.lensFlareGhostAlpha : 0.35,
+        ringRadiusOffset: typeof options.lensFlareRingRadiusOffset === 'number' ? options.lensFlareRingRadiusOffset : 0.18,
+        ringBlur: typeof options.lensFlareRingBlur === 'number' ? options.lensFlareRingBlur : 0.12,
+        streakLength: typeof options.lensFlareStreakLength === 'number' ? options.lensFlareStreakLength : 1.4,
+        streakThickness: typeof options.lensFlareStreakThickness === 'number' ? options.lensFlareStreakThickness : 0.08,
+        streakAlpha: typeof options.lensFlareStreakAlpha === 'number' ? options.lensFlareStreakAlpha : 0.25,
       },
       /**
        * Particle system controls for the geyser burst effect.
@@ -148,7 +154,7 @@ export class GravitySimulation {
         flashFraction: typeof options.geyserFlashFraction === 'number' ? options.geyserFlashFraction : 0.1,
       },
     };
-    this.diamondFlareState = { time: 0 };
+    this.lensFlareState = { time: 0 };
 
     // Track the spring-based bounce so the sun can wobble outward when it absorbs a star.
     this.sunBounce = { offset: 0, velocity: 0 };
@@ -176,10 +182,15 @@ export class GravitySimulation {
       noiseScaleSecondary: typeof options.noiseScaleSecondary === 'number' ? options.noiseScaleSecondary : 6,
       spotDarkness: typeof options.spotDarkness === 'number' ? options.spotDarkness : 0.55,
       surfaceWarpStrength: typeof options.surfaceWarpStrength === 'number' ? options.surfaceWarpStrength : 0.04,
+      sunspotSoftness: typeof options.sunspotSoftness === 'number' ? options.sunspotSoftness : 0.1,
+      sunspotJitter: typeof options.sunspotJitter === 'number' ? options.sunspotJitter : 0.2,
+      sunspotDetailMix: typeof options.sunspotDetailMix === 'number' ? options.sunspotDetailMix : 0.55,
+      sunspotSwirlStrength: typeof options.sunspotSwirlStrength === 'number' ? options.sunspotSwirlStrength : 0.35,
       coronaIntensity: typeof options.coronaIntensity === 'number' ? options.coronaIntensity : 0.65,
       coronaWobbleSpeed: typeof options.coronaWobbleSpeed === 'number' ? options.coronaWobbleSpeed : 0.08,
       animationSpeedMain: typeof options.animationSpeedMain === 'number' ? options.animationSpeedMain : 0.015,
       animationSpeedSecondary: typeof options.animationSpeedSecondary === 'number' ? options.animationSpeedSecondary : 0.01,
+      noiseScaleTertiary: typeof options.noiseScaleTertiary === 'number' ? options.noiseScaleTertiary : 3.5,
       heatDistortionStrength: typeof options.heatDistortionStrength === 'number'
         ? options.heatDistortionStrength
         : typeof options.surfaceWarpStrength === 'number'
@@ -209,12 +220,13 @@ export class GravitySimulation {
 
     // Deterministic RNG
     this.rng = new SeededRandom(options.seed || Date.now());
-    this.diamondNoiseSeed = this.rng.next(); // Keep lens flare flicker deterministic per simulation instance.
+    this.lensFlareNoiseSeed = this.rng.next(); // Keep lens flare flicker deterministic per simulation instance.
 
     // Build tiled noise fields so animated sampling can avoid regenerating noise each frame.
     this.surfaceNoise = {
       primary: this.generateValueNoiseTexture(this.surfaceTextureSize, 32),
       secondary: this.generateValueNoiseTexture(this.surfaceTextureSize, 24),
+      tertiary: this.generateValueNoiseTexture(this.surfaceTextureSize, 20),
       corona: this.generateValueNoiseTexture(this.surfaceTextureSize, 48),
       distortion: this.generateValueNoiseTexture(this.surfaceTextureSize, 40),
     };
@@ -225,6 +237,8 @@ export class GravitySimulation {
       primaryOffsetY: 0,
       secondaryOffsetX: 0,
       secondaryOffsetY: 0,
+      tertiaryOffsetX: 0,
+      tertiaryOffsetY: 0,
       coronaOffset: 0,
       distortionOffset: 0,
       time: 0,
@@ -578,13 +592,13 @@ export class GravitySimulation {
    * @param {number} seedOffset - Offset so multiple channels can be sampled independently
    * @returns {number} Noise value in the 0-1 range
    */
-  sampleDiamondNoise(time, seedOffset = 0) {
-    const base = time + seedOffset + this.diamondNoiseSeed;
+  sampleLensNoise(time, seedOffset = 0) {
+    const base = time + seedOffset + this.lensFlareNoiseSeed;
     const integerPart = Math.floor(base);
     const fractional = base - integerPart;
 
     const hash = (n) => {
-      const x = Math.sin((n + this.diamondNoiseSeed) * 43758.5453);
+      const x = Math.sin((n + this.lensFlareNoiseSeed) * 43758.5453);
       return x - Math.floor(x);
     };
 
@@ -604,6 +618,8 @@ export class GravitySimulation {
     this.surfaceAnimationState.primaryOffsetY += settings.animationSpeedMain * 0.6 * dt;
     this.surfaceAnimationState.secondaryOffsetX += settings.animationSpeedSecondary * 0.75 * dt;
     this.surfaceAnimationState.secondaryOffsetY += settings.animationSpeedSecondary * dt;
+    this.surfaceAnimationState.tertiaryOffsetX += settings.animationSpeedMain * 0.4 * dt;
+    this.surfaceAnimationState.tertiaryOffsetY += settings.animationSpeedSecondary * 0.6 * dt;
     this.surfaceAnimationState.coronaOffset += settings.coronaWobbleSpeed * dt;
     this.surfaceAnimationState.distortionOffset += settings.animationSpeedSecondary * 0.45 * dt;
     this.surfaceAnimationState.time += dt;
@@ -653,6 +669,11 @@ export class GravitySimulation {
 
         const u = dx * 0.5 + 0.5;
         const v = dy * 0.5 + 0.5;
+        const angle = Math.atan2(dy, dx);
+        const swirlStrength = settings.sunspotSwirlStrength || 0;
+        const swirl = swirlStrength !== 0
+          ? Math.sin(angle * 6 + this.surfaceAnimationState.time * 0.4) * swirlStrength
+          : 0;
 
         // Sample two animated noise layers to create sunspot masks and boiling motion.
         const warpedU = u + (this.sampleNoise(
@@ -681,11 +702,23 @@ export class GravitySimulation {
           settings.noiseScaleSecondary * 0.8
         );
 
-        const combinedNoise = primaryNoise * 0.65 + secondaryNoise * 0.35;
+        const tertiaryNoise = this.sampleNoise(
+          this.surfaceNoise.tertiary,
+          warpedU + this.surfaceAnimationState.tertiaryOffsetX + swirl * 0.3,
+          warpedV + this.surfaceAnimationState.tertiaryOffsetY - swirl * 0.3,
+          settings.noiseScaleTertiary || 3.5,
+        );
+
+        const detailMix = GravitySimulation.clamp(typeof settings.sunspotDetailMix === 'number' ? settings.sunspotDetailMix : 0.55, 0, 1);
+        const organicNoise = primaryNoise * detailMix + tertiaryNoise * (1 - detailMix);
+        const combinedNoise = primaryNoise * 0.45 + secondaryNoise * 0.35 + organicNoise * 0.2 + swirl * 0.1;
 
         // Convert combined noise into a smooth sunspot mask using a soft threshold.
-        const threshold = settings.sunspotThreshold;
-        const softness = 0.12;
+        const thresholdBase = settings.sunspotThreshold;
+        const jitter = (tertiaryNoise - 0.5) * (settings.sunspotJitter || 0);
+        const threshold = thresholdBase + jitter;
+        const baseSoftness = Math.max(0.02, settings.sunspotSoftness || 0.1);
+        const softness = Math.max(0.02, baseSoftness + Math.abs(swirl) * 0.05);
         const spotFactor = Math.max(0, (threshold - combinedNoise) / Math.max(softness, 0.0001));
         const sunspotMask = Math.min(1, Math.pow(spotFactor, 1.4));
 
@@ -1028,11 +1061,16 @@ export class GravitySimulation {
    * @param {number} massGain - Mass contributed by the absorbed star (used to scale burst strength)
    * @param {{color:string}} tier - Current tier descriptor for tinting
    */
-  spawnGeyserBurst(impactAngle, massGain, tier) {
+  spawnGeyserBurst(impactAngle, massGain, tier, contactPointCss, starRadiusCss, sunRadiusCss) {
     const settings = this.visualEffectSettings.geyser;
     const dpr = window.devicePixelRatio || 1;
-    const spawnX = this.centerX / dpr;
-    const spawnY = this.centerY / dpr;
+    const resolvedStarRadius = Math.max(2, Number.isFinite(starRadiusCss) ? starRadiusCss : 4);
+    const resolvedSunRadius = Math.max(2, Number.isFinite(sunRadiusCss) ? sunRadiusCss : this.calculateCoreRadius());
+    const normal = { x: Math.cos(impactAngle), y: Math.sin(impactAngle) };
+    const origin = contactPointCss || { x: this.centerX / dpr, y: this.centerY / dpr };
+    const offsetDistance = Math.min(resolvedStarRadius * 0.4, resolvedSunRadius * 0.2);
+    const spawnX = origin.x - normal.x * offsetDistance;
+    const spawnY = origin.y - normal.y * offsetDistance;
 
     const countRange = settings.particleCountMax - settings.particleCountMin;
     const particleCount = Math.round(settings.particleCountMin + this.rng.next() * countRange);
@@ -1054,7 +1092,7 @@ export class GravitySimulation {
       const velocityJitter = 1 + this.rng.range(-0.2, 0.4);
       const speed = settings.baseSpeed * velocityJitter * massScale;
       const lifetime = this.rng.range(settings.lifetimeMin, settings.lifetimeMax);
-      const startSize = this.rng.range(settings.sizeMin, settings.sizeMax);
+      const startSize = Math.max(1.5, this.rng.range(resolvedStarRadius * 0.85, resolvedStarRadius * 1.1));
 
       this.geyserParticles.push({
         x: spawnX,
@@ -1069,6 +1107,7 @@ export class GravitySimulation {
         flashPhase: settings.flashFraction,
         alpha: 1,
         flashProgress: 0,
+        occlusionRadius: resolvedSunRadius,
       });
     }
   }
@@ -1262,14 +1301,20 @@ export class GravitySimulation {
         const impactAngle = Math.atan2(star.y - this.centerY, star.x - this.centerX);
         const { tier, tierIndex } = this.getCurrentTier();
         const highTierStartIndex = 2; // Blue Giant and onward replace pulses with geyser bursts.
+        const centerCssX = this.centerX / dpr;
+        const centerCssY = this.centerY / dpr;
+        const contactPoint = {
+          x: centerCssX + Math.cos(impactAngle) * sunRadiusCss,
+          y: centerCssY + Math.sin(impactAngle) * sunRadiusCss,
+        };
 
         if (tierIndex >= highTierStartIndex) {
-          this.spawnGeyserBurst(impactAngle, massGain, tier);
+          this.spawnGeyserBurst(impactAngle, massGain, tier, contactPoint, starRadiusCss, sunRadiusCss);
         } else {
           // Create absorption shock ring for early tiers.
           this.shockRings.push({
-            x: this.centerX / dpr,
-            y: this.centerY / dpr,
+            x: centerCssX,
+            y: centerCssY,
             radius: 0,
             maxRadius: sunRadiusCss * 1.5,
             alpha: 1.0,
@@ -1400,8 +1445,8 @@ export class GravitySimulation {
     // Update geyser particles for high-tier absorptions.
     this.updateGeyserParticles(dt);
 
-    // Advance the lens flare animation clock so the diamond shimmer can flicker over time.
-    this.diamondFlareState.time += dt;
+    // Advance the lens flare animation clock so the shimmer can flicker over time.
+    this.lensFlareState.time += dt;
 
     // Advance the spring that powers the sun bounce so render() can apply the new scale.
     this.updateSunBounce(dt);
@@ -1411,55 +1456,77 @@ export class GravitySimulation {
   }
 
   /**
-   * Render a faint diamond-shaped lens flare behind the stellar core.
+   * Render a multi-ghost telescope-inspired lens flare.
    * @param {CanvasRenderingContext2D} ctx - Drawing context
    * @param {number} centerX - Sun center X in CSS pixels
    * @param {number} centerY - Sun center Y in CSS pixels
    * @param {number} coreRadius - Radius of the rendered core in CSS pixels
    * @param {{r:number,g:number,b:number}} tierColor - Current tier tint
    */
-  renderDiamondFlare(ctx, centerX, centerY, coreRadius, tierColor) {
-    const settings = this.visualEffectSettings.diamondFlare;
-    const t = this.diamondFlareState.time;
+  renderLensFlare(ctx, centerX, centerY, coreRadius, tierColor) {
+    const settings = this.visualEffectSettings.lensFlare;
+    const t = this.lensFlareState.time;
 
-    const flicker = this.sampleDiamondNoise(t * settings.flickerSpeed, 0.37);
-    const flickerDelta = (flicker - 0.5) * 2 * settings.flickerAmount;
-    const alpha = GravitySimulation.clamp(settings.baseAlpha * (1 + flickerDelta), 0, 1);
+    const flicker = this.sampleLensNoise(t * settings.flickerSpeed, 0.37);
+    const flickerDelta = (flicker - 0.5) * settings.flickerAmount;
+    const alpha = GravitySimulation.clamp(settings.baseAlpha + flickerDelta, 0, 1);
     if (alpha <= 0.001) {
       return;
     }
 
-    const sizeFlicker = 1 + (this.sampleDiamondNoise(t * settings.flickerSpeed, 1.12) - 0.5) * 0.1;
-    const verticalRadius = coreRadius * settings.verticalScale * sizeFlicker;
-    const horizontalRadius = coreRadius * settings.horizontalScale * sizeFlicker;
-    const offset = coreRadius * settings.offsetScale;
-
     ctx.save();
     ctx.translate(centerX, centerY);
-    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalCompositeOperation = 'screen';
 
-    const gradient = ctx.createLinearGradient(0, -verticalRadius - offset, 0, verticalRadius + offset);
-    gradient.addColorStop(0, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${alpha * 0.25})`);
-    gradient.addColorStop(0.5, `rgba(255, 255, 255, ${alpha})`);
-    gradient.addColorStop(1, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${alpha * 0.25})`);
-
-    ctx.fillStyle = gradient;
+    const ringRadius = coreRadius * (1 + settings.ringRadiusOffset);
+    const ringGradient = ctx.createRadialGradient(0, 0, ringRadius * 0.55, 0, 0, ringRadius);
+    ringGradient.addColorStop(0, `rgba(255, 255, 255, ${alpha * 0.9})`);
+    ringGradient.addColorStop(0.45, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${alpha * 0.35})`);
+    ringGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.filter = `blur(${Math.max(1, ringRadius * settings.ringBlur)}px)`;
+    ctx.fillStyle = ringGradient;
     ctx.beginPath();
-    ctx.moveTo(0, -verticalRadius - offset);
-    ctx.lineTo(horizontalRadius, 0);
-    ctx.lineTo(0, verticalRadius + offset);
-    ctx.lineTo(-horizontalRadius, 0);
-    ctx.closePath();
+    ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
     ctx.fill();
+    ctx.filter = 'none';
 
-    ctx.lineWidth = Math.max(0.75, coreRadius * 0.03);
-    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.3})`;
+    const ghostCount = Math.max(0, Math.floor(settings.ghostCount));
+    for (let i = 1; i <= ghostCount; i++) {
+      const offset = coreRadius * settings.ghostSpacing * i;
+      const radius = coreRadius * settings.ghostScale / Math.max(1, i * 0.9);
+      const ghostIntensity = alpha * settings.ghostAlpha / Math.max(1, i);
+      const hueShift = this.sampleLensNoise(t * 0.6, i * 0.71);
+      const mix = GravitySimulation.lerp(0.3, 0.9, hueShift);
+      const ghostColor = {
+        r: Math.round(GravitySimulation.lerp(255, tierColor.r, mix)),
+        g: Math.round(GravitySimulation.lerp(255, tierColor.g, mix)),
+        b: Math.round(GravitySimulation.lerp(255, tierColor.b, mix)),
+      };
+
+      const ghostGradient = ctx.createRadialGradient(offset, 0, 0, offset, 0, radius);
+      ghostGradient.addColorStop(0, `rgba(255, 255, 255, ${ghostIntensity})`);
+      ghostGradient.addColorStop(1, `rgba(${ghostColor.r}, ${ghostColor.g}, ${ghostColor.b}, 0)`);
+      ctx.beginPath();
+      ctx.fillStyle = ghostGradient;
+      ctx.arc(offset, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      const mirroredGradient = ctx.createRadialGradient(-offset, 0, 0, -offset, 0, radius * 0.85);
+      mirroredGradient.addColorStop(0, `rgba(255, 255, 255, ${ghostIntensity * 0.9})`);
+      mirroredGradient.addColorStop(1, `rgba(${ghostColor.r}, ${ghostColor.g}, ${ghostColor.b}, 0)`);
+      ctx.beginPath();
+      ctx.fillStyle = mirroredGradient;
+      ctx.arc(-offset, 0, radius * 0.85, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const streakLength = coreRadius * settings.streakLength;
+    const streakThickness = Math.max(1, coreRadius * settings.streakThickness);
+    ctx.lineWidth = streakThickness;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * settings.streakAlpha})`;
     ctx.beginPath();
-    ctx.moveTo(0, -verticalRadius - offset);
-    ctx.lineTo(horizontalRadius, 0);
-    ctx.lineTo(0, verticalRadius + offset);
-    ctx.lineTo(-horizontalRadius, 0);
-    ctx.closePath();
+    ctx.moveTo(-streakLength, 0);
+    ctx.lineTo(streakLength, 0);
     ctx.stroke();
 
     ctx.restore();
@@ -1469,7 +1536,7 @@ export class GravitySimulation {
    * Render geyser particles with additive blending for luminous bursts.
    * @param {CanvasRenderingContext2D} ctx - Drawing context
    */
-  renderGeyserParticles(ctx) {
+  renderGeyserParticles(ctx, centerX, centerY, occlusionRadius) {
     if (this.geyserParticles.length === 0) return;
 
     ctx.save();
@@ -1479,6 +1546,19 @@ export class GravitySimulation {
       const size = Math.max(0, particle.size);
       if (size <= 0) {
         continue;
+      }
+
+      const particleOcclusion = Number.isFinite(particle.occlusionRadius)
+        ? particle.occlusionRadius
+        : occlusionRadius;
+      const occlusionLimit = Math.max(0, Math.min(occlusionRadius || 0, particleOcclusion || 0));
+      if (occlusionLimit > 0) {
+        const dx = particle.x - centerX;
+        const dy = particle.y - centerY;
+        const distSq = dx * dx + dy * dy;
+        if (distSq < occlusionLimit * occlusionLimit) {
+          continue;
+        }
       }
 
       const progress = GravitySimulation.clamp(particle.flashProgress || 0, 0, 1);
@@ -1598,18 +1678,35 @@ export class GravitySimulation {
       ctx.setLineDash([]);
     }
 
-    // Lay down the faint diamond flare before the glow so the core renders above it.
-    this.renderDiamondFlare(ctx, centerXScaled, centerYScaled, coreRadius, tierColor);
+    // Lay down the refined lens flare before the glow so the core renders above it.
+    this.renderLensFlare(ctx, centerXScaled, centerYScaled, coreRadius, tierColor);
 
-    // Draw glow effect with tier-based luminosity
+    // Bright white halo that hugs the core and only extends 5% beyond the radius.
+    const whiteGlowRadius = coreRadius * 1.05;
+    const whiteGlow = ctx.createRadialGradient(
+      centerXScaled, centerYScaled, coreRadius * 0.65,
+      centerXScaled, centerYScaled, whiteGlowRadius,
+    );
+    whiteGlow.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, 0.95 * luminosity)})`);
+    whiteGlow.addColorStop(0.75, `rgba(255, 255, 255, ${0.35 * luminosity})`);
+    whiteGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = whiteGlow;
+    ctx.beginPath();
+    ctx.arc(centerXScaled, centerYScaled, whiteGlowRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Draw glow effect with tier-based luminosity (outer color fringe)
     const glowRadius = starVisualRadius * (1.8 + baseGlowIntensity) * glowProgressScale * pulseScale;
     const gradient = ctx.createRadialGradient(
       centerXScaled, centerYScaled, 0,
       centerXScaled, centerYScaled, glowRadius
     );
-    gradient.addColorStop(0, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.8 * luminosity})`);
-    gradient.addColorStop(0.3, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.5 * luminosity})`);
-    gradient.addColorStop(0.6, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.2 * luminosity})`);
+    gradient.addColorStop(0, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.4 * luminosity})`);
+    gradient.addColorStop(0.3, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.25 * luminosity})`);
+    gradient.addColorStop(0.6, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.1 * luminosity})`);
     gradient.addColorStop(1, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, 0)`);
     
     ctx.fillStyle = gradient;
@@ -1674,7 +1771,7 @@ export class GravitySimulation {
     }
 
     // Render geyser particles before orbiting stars so the burst overlays the accretion disk but sits behind sparks.
-    this.renderGeyserParticles(ctx);
+    this.renderGeyserParticles(ctx, centerXScaled, centerYScaled, coreRadius);
 
     // Draw shooting stars with luminous trails.
     for (const shard of this.shootingStars) {
