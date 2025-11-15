@@ -1,3 +1,5 @@
+import kufMapData from './data/kufMaps.json' assert { type: 'json' };
+
 /**
  * Kuf Spire Battlefield Simulation
  *
@@ -5,6 +7,9 @@
  * Marines advance north toward entrenched turrets, trading projectiles until
  * either side is defeated.
  */
+
+const AVAILABLE_KUF_MAPS = Array.isArray(kufMapData.maps) ? kufMapData.maps : [];
+const DEFAULT_KUF_MAP_ID = AVAILABLE_KUF_MAPS[0]?.id || 'forward-bastion';
 
 const MARINE_MOVE_SPEED = 70; // Pixels per second.
 const MARINE_ACCELERATION = 120; // Pixels per second squared.
@@ -34,6 +39,7 @@ const MARINE_BULLET_SPEED = 360;
 const SNIPER_BULLET_SPEED = 500;
 const SPLAYER_ROCKET_SPEED = 200;
 const TURRET_BULLET_SPEED = 280;
+const PLASMA_BULLET_SPEED = 260;
 const TRAIL_ALPHA = 0.22;
 const CAMERA_PAN_SPEED = 1.2;
 const MIN_ZOOM = 0.5;
@@ -71,6 +77,8 @@ export class KufBattlefieldSimulation {
     this.camera = { x: 0, y: 0, zoom: 1.0 };
     this.cameraDrag = { active: false, startX: 0, startY: 0, camStartX: 0, camStartY: 0 };
     this.selectedEnemy = null;
+    this.availableMaps = AVAILABLE_KUF_MAPS;
+    this.currentMap = this.getMapById(DEFAULT_KUF_MAP_ID);
     this.step = this.step.bind(this);
     this.handleMouseDown = this.handleMouseDown.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
@@ -229,6 +237,8 @@ export class KufBattlefieldSimulation {
     const sniperStats = config?.sniperStats || { health: 8, attack: 2, attackSpeed: 0.5 };
     const splayerStats = config?.splayerStats || { health: 12, attack: 0.8, attackSpeed: 0.7 };
     const units = config?.units || { marines: 1, snipers: 0, splayers: 0 };
+    const requestedMap = config?.mapId || DEFAULT_KUF_MAP_ID;
+    this.currentMap = this.getMapById(requestedMap);
     
     const spawnY = this.bounds.height - 48;
     const centerX = this.bounds.width / 2;
@@ -248,8 +258,10 @@ export class KufBattlefieldSimulation {
         attack: marineStats.attack,
         attackSpeed: Math.max(0.1, marineStats.attackSpeed),
         cooldown: Math.random() * 0.5,
+        baseMoveSpeed: MARINE_MOVE_SPEED,
         moveSpeed: MARINE_MOVE_SPEED,
         range: MARINE_RANGE,
+        statusEffects: [],
       });
     }
     
@@ -268,8 +280,10 @@ export class KufBattlefieldSimulation {
         attack: sniperStats.attack,
         attackSpeed: Math.max(0.1, sniperStats.attackSpeed),
         cooldown: Math.random() * 0.5,
+        baseMoveSpeed: MARINE_MOVE_SPEED * 0.8,
         moveSpeed: MARINE_MOVE_SPEED * 0.8,
         range: SNIPER_RANGE,
+        statusEffects: [],
       });
     }
     
@@ -288,8 +302,10 @@ export class KufBattlefieldSimulation {
         attack: splayerStats.attack,
         attackSpeed: Math.max(0.1, splayerStats.attackSpeed),
         cooldown: Math.random() * 0.5,
+        baseMoveSpeed: MARINE_MOVE_SPEED * 0.9,
         moveSpeed: MARINE_MOVE_SPEED * 0.9,
         range: SPLAYER_RANGE,
+        statusEffects: [],
       });
     }
     
@@ -327,52 +343,10 @@ export class KufBattlefieldSimulation {
   }
 
   buildTurrets() {
-    // Sample map configuration - player spawns at (0,0)
-    // This places small turrets north of the player
-    const mapConfig = [
-      // Forward trench immediately north of the player spawn.
-      { type: 'wall', gridX: -3, gridY: 7, level: 1 },
-      { type: 'mine', gridX: -1, gridY: 7, level: 1 },
-      { type: 'mine', gridX: 1, gridY: 7, level: 1 },
-      { type: 'wall', gridX: 3, gridY: 7, level: 1 },
-      { type: 'small_turret', gridX: 0, gridY: 9, level: 1 },
-      { type: 'laser_turret', gridX: -2, gridY: 10, level: 1 },
-      { type: 'laser_turret', gridX: 2, gridY: 10, level: 1 },
+    // Populate the battlefield using the currently selected map layout.
+    const layout = Array.isArray(this.currentMap?.layout) ? this.currentMap.layout : [];
 
-      // Mid-field emplacements with supporting barracks.
-      { type: 'melee_barracks', gridX: -4, gridY: 14, level: 1 },
-      { type: 'ranged_barracks', gridX: 4, gridY: 14, level: 1 },
-      { type: 'melee_unit', gridX: -1, gridY: 14, level: 1 },
-      { type: 'ranged_unit', gridX: 1, gridY: 14, level: 1 },
-      { type: 'rocket_turret', gridX: 0, gridY: 16, level: 1 },
-      { type: 'small_turret', gridX: -3, gridY: 17, level: 2 },
-      { type: 'small_turret', gridX: 3, gridY: 17, level: 2 },
-
-      // Defensive bastion anchored by non-lethal structures that must be cleared.
-      { type: 'shield_generator', gridX: -2, gridY: 19, level: 1 },
-      { type: 'supply_cache', gridX: 2, gridY: 19, level: 1 },
-      { type: 'big_turret', gridX: 0, gridY: 20, level: 2 },
-      { type: 'signal_beacon', gridX: 0, gridY: 22, level: 1 },
-
-      // Upper battlements stretch the battlefield vertically.
-      { type: 'wall', gridX: -4, gridY: 23, level: 2 },
-      { type: 'wall', gridX: 4, gridY: 23, level: 2 },
-      { type: 'rocket_turret', gridX: -2, gridY: 24, level: 2 },
-      { type: 'rocket_turret', gridX: 2, gridY: 24, level: 2 },
-      { type: 'laser_turret', gridX: 0, gridY: 25, level: 2 },
-      { type: 'melee_unit', gridX: -1, gridY: 26, level: 2 },
-      { type: 'ranged_unit', gridX: 1, gridY: 26, level: 2 },
-
-      // Final keep: taller structures and artillery perched high above.
-      { type: 'shield_generator', gridX: -3, gridY: 28, level: 2 },
-      { type: 'supply_cache', gridX: 3, gridY: 28, level: 2 },
-      { type: 'artillery_turret', gridX: -1, gridY: 30, level: 2 },
-      { type: 'artillery_turret', gridX: 1, gridY: 30, level: 2 },
-      { type: 'signal_beacon', gridX: 0, gridY: 32, level: 2 },
-      { type: 'big_turret', gridX: 0, gridY: 34, level: 3 },
-    ];
-
-    mapConfig.forEach((enemy) => {
+    layout.forEach((enemy) => {
       const pos = this.gridToPixels(enemy.gridX, enemy.gridY);
       this.createEnemy(enemy.type, pos.x, pos.y, enemy.level);
     });
@@ -543,6 +517,86 @@ export class KufBattlefieldSimulation {
           goldValue: 14,
           extra: {},
         };
+      case 'plasma_turret':
+        return {
+          radius: TURRET_RADIUS,
+          health: 10,
+          attack: 1.4,
+          attackSpeed: 1.4,
+          range: TURRET_RANGE * 1.05,
+          goldValue: 10,
+          extra: {
+            projectileSpeed: PLASMA_BULLET_SPEED,
+            projectileEffects: {
+              type: 'burn',
+              damagePerSecond: 2.5,
+              duration: 4,
+            },
+          },
+        };
+      case 'scatter_turret':
+        return {
+          radius: BIG_TURRET_RADIUS * 0.85,
+          health: 18,
+          attack: 1.8,
+          attackSpeed: 1.3,
+          range: BIG_TURRET_RANGE,
+          goldValue: 13,
+          extra: {
+            multiShot: 3,
+            spreadAngle: 18 * (Math.PI / 180),
+          },
+        };
+      case 'support_drone':
+        return {
+          radius: RANGED_UNIT_RADIUS,
+          health: 6,
+          attack: 0,
+          attackSpeed: 0,
+          range: 0,
+          goldValue: 9,
+          extra: {
+            isMobile: true,
+            isSupport: true,
+            moveSpeed: 85,
+            sightRange: 260,
+            healRange: 80,
+            healPerSecond: 6,
+            healVisualTimer: 0,
+          },
+        };
+      case 'stasis_obelisk':
+        return {
+          radius: BIG_TURRET_RADIUS,
+          health: 28,
+          attack: 0,
+          attackSpeed: 0,
+          range: 0,
+          goldValue: 11,
+          extra: {
+            isStructure: true,
+            isStasisField: true,
+            slowAmount: 0.35,
+            slowRadius: 220,
+            fieldPulse: 0,
+          },
+        };
+      case 'relay_pylon':
+        return {
+          radius: BIG_TURRET_RADIUS * 0.75,
+          health: 30,
+          attack: 0,
+          attackSpeed: 0,
+          range: 0,
+          goldValue: 12,
+          extra: {
+            isStructure: true,
+            isBuffNode: true,
+            buffRadius: 240,
+            attackSpeedMultiplier: 1.25,
+            damageMultiplier: 1.15,
+          },
+        };
       case 'shield_generator':
         return {
           radius: BIG_TURRET_RADIUS,
@@ -622,6 +676,10 @@ export class KufBattlefieldSimulation {
 
   updateMarines(delta) {
     this.marines.forEach((marine) => {
+      this.updateMarineStatus(marine, delta);
+      if (marine.health <= 0) {
+        return;
+      }
       marine.cooldown = Math.max(0, marine.cooldown - delta);
       const target = this.findClosestTurret(marine.x, marine.y, marine.range);
       
@@ -694,6 +752,12 @@ export class KufBattlefieldSimulation {
   updateTurrets(delta) {
     this.turrets.forEach((turret) => {
       turret.cooldown = Math.max(0, turret.cooldown - delta);
+      if (turret.fieldPulse !== undefined) {
+        turret.fieldPulse = (turret.fieldPulse + delta) % 1.5;
+      }
+      if (turret.healVisualTimer !== undefined) {
+        turret.healVisualTimer = Math.max(0, turret.healVisualTimer - delta);
+      }
 
       // Handle barracks spawning
       if (turret.isBarracks) {
@@ -716,6 +780,11 @@ export class KufBattlefieldSimulation {
         return;
       }
 
+      if (turret.isSupport) {
+        this.handleSupportDrone(turret, delta);
+        return;
+      }
+
       // Handle mobile units - always pursue closest marine
       if (turret.isMobile) {
         const nearbyMarine = this.findClosestMarine(turret.x, turret.y, Infinity);
@@ -734,15 +803,7 @@ export class KufBattlefieldSimulation {
           } else {
             // In range - attack
             if (turret.cooldown <= 0 && turret.attack > 0) {
-              this.spawnBullet({
-                owner: 'turret',
-                x: turret.x,
-                y: turret.y,
-                target: nearbyMarine,
-                speed: TURRET_BULLET_SPEED,
-                damage: turret.attack,
-              });
-              turret.cooldown = 1 / turret.attackSpeed;
+              this.fireTurret(turret, nearbyMarine);
             }
           }
         }
@@ -753,15 +814,7 @@ export class KufBattlefieldSimulation {
       if (turret.attack > 0 && !turret.isWall && !turret.isMine) {
         const target = this.findClosestMarine(turret.x, turret.y, turret.range);
         if (target && turret.cooldown <= 0) {
-          this.spawnBullet({
-            owner: 'turret',
-            x: turret.x,
-            y: turret.y + turret.radius,
-            target,
-            speed: TURRET_BULLET_SPEED,
-            damage: turret.attack,
-          });
-          turret.cooldown = 1 / turret.attackSpeed;
+          this.fireTurret(turret, target);
         }
       }
     });
@@ -865,6 +918,9 @@ export class KufBattlefieldSimulation {
         const hit = this.findHit(this.marines, bullet);
         if (hit && hit.health > 0) {
           hit.health -= bullet.damage;
+          if (bullet.effects) {
+            this.applyBulletEffects(hit, bullet.effects);
+          }
           bullet.life = 0;
         }
       }
@@ -873,10 +929,10 @@ export class KufBattlefieldSimulation {
     this.turrets = this.turrets.filter((turret) => turret.health > 0);
   }
 
-  spawnBullet({ owner, type, x, y, target, speed, damage, homing = false }) {
-    const angle = Math.atan2(target.y - y, target.x - x);
-    const vx = Math.cos(angle) * speed;
-    const vy = Math.sin(angle) * speed;
+  spawnBullet({ owner, type, x, y, target, speed, damage, homing = false, angle = null, effects = null }) {
+    const heading = angle !== null ? angle : Math.atan2(target.y - y, target.x - x);
+    const vx = Math.cos(heading) * speed;
+    const vy = Math.sin(heading) * speed;
     this.bullets.push({
       owner,
       type: type || 'marine',
@@ -889,7 +945,178 @@ export class KufBattlefieldSimulation {
       homing,
       target: homing ? target : null,
       speed,
+      effects,
     });
+  }
+
+  fireTurret(turret, target) {
+    const modifiers = this.getTurretAttackModifier(turret);
+    const projectileSpeed = turret.projectileSpeed || TURRET_BULLET_SPEED;
+    const damagePerShot = turret.attack * modifiers.damageMultiplier;
+    const attackSpeed = Math.max(0.1, turret.attackSpeed * modifiers.attackSpeedMultiplier);
+    const shots = turret.multiShot || 1;
+    const spread = turret.spreadAngle || 0;
+    const baseAngle = Math.atan2(target.y - turret.y, target.x - turret.x);
+
+    for (let i = 0; i < shots; i++) {
+      const lerp = shots > 1 ? (i / (shots - 1)) - 0.5 : 0;
+      const angleOffset = spread * lerp;
+      this.spawnBullet({
+        owner: 'turret',
+        type: turret.type,
+        x: turret.x,
+        y: turret.y + (turret.radius || 0),
+        target,
+        speed: projectileSpeed,
+        damage: damagePerShot,
+        angle: baseAngle + angleOffset,
+        effects: turret.projectileEffects || null,
+      });
+    }
+
+    turret.cooldown = 1 / attackSpeed;
+  }
+
+  getTurretAttackModifier(turret) {
+    let attackSpeedMultiplier = 1;
+    let damageMultiplier = 1;
+    this.turrets.forEach((node) => {
+      if (node === turret || !node.isBuffNode) {
+        return;
+      }
+      const dx = node.x - turret.x;
+      const dy = node.y - turret.y;
+      const distanceSq = dx * dx + dy * dy;
+      const radius = node.buffRadius || 0;
+      if (radius > 0 && distanceSq <= radius * radius) {
+        if (node.attackSpeedMultiplier) {
+          attackSpeedMultiplier *= node.attackSpeedMultiplier;
+        }
+        if (node.damageMultiplier) {
+          damageMultiplier *= node.damageMultiplier;
+        }
+      }
+    });
+    return { attackSpeedMultiplier, damageMultiplier };
+  }
+
+  handleSupportDrone(drone, delta) {
+    const target = this.findDamagedTurret(drone.x, drone.y, drone.sightRange, drone);
+    if (!target) {
+      return;
+    }
+
+    const dx = target.x - drone.x;
+    const dy = target.y - drone.y;
+    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+
+    if (distance > (drone.healRange || 80)) {
+      const moveX = (dx / distance) * drone.moveSpeed * delta;
+      const moveY = (dy / distance) * drone.moveSpeed * delta;
+      drone.x += moveX;
+      drone.y += moveY;
+      drone.activeHealTarget = null;
+    } else {
+      const healAmount = (drone.healPerSecond || 4) * delta;
+      target.health = Math.min(target.maxHealth, target.health + healAmount);
+      drone.healVisualTimer = 0.25;
+      drone.activeHealTarget = { x: target.x, y: target.y };
+    }
+  }
+
+  findDamagedTurret(x, y, range, exclude) {
+    let closest = null;
+    let bestDist = range * range;
+    this.turrets.forEach((turret) => {
+      if (turret === exclude || turret.health >= turret.maxHealth) {
+        return;
+      }
+      const dx = turret.x - x;
+      const dy = turret.y - y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= bestDist) {
+        closest = turret;
+        bestDist = distSq;
+      }
+    });
+    return closest;
+  }
+
+  applyBulletEffects(target, effects) {
+    if (!effects) {
+      return;
+    }
+    if (!target.statusEffects) {
+      target.statusEffects = [];
+    }
+    if (effects.type === 'burn') {
+      target.statusEffects.push({
+        type: 'burn',
+        damagePerSecond: effects.damagePerSecond || 1,
+        remaining: effects.duration || 2,
+      });
+    }
+    if (effects.type === 'slow') {
+      target.statusEffects.push({
+        type: 'slow',
+        multiplier: Math.max(0.1, effects.multiplier || 0.5),
+        remaining: effects.duration || 2,
+      });
+    }
+  }
+
+  updateMarineStatus(marine, delta) {
+    if (!marine.statusEffects) {
+      marine.statusEffects = [];
+    }
+    const remainingEffects = [];
+    let slowMultiplier = 1;
+
+    marine.statusEffects.forEach((effect) => {
+      effect.remaining -= delta;
+      if (effect.type === 'burn') {
+        marine.health -= (effect.damagePerSecond || 0) * delta;
+      }
+      if (effect.type === 'slow') {
+        slowMultiplier *= Math.max(0.1, effect.multiplier || 1);
+      }
+      if (effect.remaining > 0) {
+        remainingEffects.push(effect);
+      }
+    });
+
+    marine.statusEffects = remainingEffects;
+
+    const fieldMultiplier = this.getFieldSlowMultiplier(marine);
+    const combinedMultiplier = Math.max(0.2, slowMultiplier * fieldMultiplier);
+    marine.moveSpeed = marine.baseMoveSpeed * combinedMultiplier;
+  }
+
+  getFieldSlowMultiplier(marine) {
+    let multiplier = 1;
+    this.turrets.forEach((turret) => {
+      if (!turret.isStasisField) {
+        return;
+      }
+      const dx = turret.x - marine.x;
+      const dy = turret.y - marine.y;
+      const radius = turret.slowRadius || 0;
+      if (radius <= 0) {
+        return;
+      }
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq <= radius * radius) {
+        multiplier *= 1 - Math.min(0.9, turret.slowAmount || 0.3);
+      }
+    });
+    return Math.max(0.2, multiplier);
+  }
+
+  getMapById(mapId) {
+    if (!mapId) {
+      return this.availableMaps[0] || null;
+    }
+    return this.availableMaps.find((map) => map.id === mapId) || this.availableMaps[0] || null;
   }
 
   findClosestTurret(x, y, range) {
@@ -1080,9 +1307,40 @@ export class KufBattlefieldSimulation {
       const healthRatio = Math.max(0, turret.health / turret.maxHealth);
       ctx.save();
 
+      if (turret.isStasisField && turret.slowRadius) {
+        ctx.save();
+        const gradient = ctx.createRadialGradient(
+          turret.x,
+          turret.y,
+          turret.slowRadius * 0.1,
+          turret.x,
+          turret.y,
+          turret.slowRadius
+        );
+        gradient.addColorStop(0, 'rgba(120, 200, 255, 0.25)');
+        gradient.addColorStop(1, 'rgba(20, 40, 70, 0)');
+        ctx.fillStyle = gradient;
+        ctx.globalAlpha = 0.45 + 0.25 * Math.sin((turret.fieldPulse || 0) * Math.PI * 2);
+        ctx.beginPath();
+        ctx.arc(turret.x, turret.y, turret.slowRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      if (turret.isBuffNode && turret.buffRadius) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 200, 120, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.arc(turret.x, turret.y, turret.buffRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       // Different colors and styles for different enemy types
       let mainColor, shadowColor, strokeColor;
-      
+
       if (turret.isWall) {
         mainColor = 'rgba(120, 120, 140, 0.9)';
         shadowColor = 'rgba(80, 80, 100, 0.8)';
@@ -1095,6 +1353,10 @@ export class KufBattlefieldSimulation {
         mainColor = 'rgba(180, 100, 200, 0.7)';
         shadowColor = 'rgba(160, 80, 180, 0.8)';
         strokeColor = `rgba(${160 + healthRatio * 60}, ${100 + healthRatio * 100}, 200, 0.9)`;
+      } else if (turret.isSupport) {
+        mainColor = 'rgba(120, 255, 200, 0.8)';
+        shadowColor = 'rgba(80, 220, 180, 0.85)';
+        strokeColor = `rgba(120, ${200 + healthRatio * 40}, 210, 0.9)`;
       } else if (turret.isMobile) {
         if (turret.type === 'melee_unit') {
           mainColor = 'rgba(255, 80, 80, 0.8)';
@@ -1105,11 +1367,29 @@ export class KufBattlefieldSimulation {
           shadowColor = 'rgba(255, 160, 60, 0.8)';
           strokeColor = `rgba(255, ${160 + healthRatio * 60}, ${80 + healthRatio * 120}, 0.9)`;
         }
+      } else if (turret.type === 'plasma_turret') {
+        mainColor = 'rgba(255, 150, 80, 0.82)';
+        shadowColor = 'rgba(255, 110, 50, 0.88)';
+        strokeColor = `rgba(255, ${100 + healthRatio * 110}, ${80 + healthRatio * 70}, 0.9)`;
+      } else if (turret.type === 'scatter_turret') {
+        mainColor = 'rgba(255, 210, 140, 0.78)';
+        shadowColor = 'rgba(255, 190, 120, 0.85)';
+        strokeColor = `rgba(255, ${150 + healthRatio * 80}, ${120 + healthRatio * 80}, 0.92)`;
       } else if (turret.isStructure) {
         // Distinct palette for non-lethal objectives so players can recognize mandatory targets.
         mainColor = 'rgba(130, 200, 255, 0.65)';
         shadowColor = 'rgba(90, 160, 220, 0.7)';
         strokeColor = `rgba(160, ${170 + healthRatio * 60}, 255, 0.85)`;
+        if (turret.isStasisField) {
+          mainColor = 'rgba(140, 200, 255, 0.72)';
+          shadowColor = 'rgba(110, 180, 240, 0.82)';
+          strokeColor = `rgba(160, ${190 + healthRatio * 40}, 255, 0.9)`;
+        }
+        if (turret.isBuffNode) {
+          mainColor = 'rgba(255, 200, 130, 0.78)';
+          shadowColor = 'rgba(255, 170, 90, 0.85)';
+          strokeColor = `rgba(255, ${190 + healthRatio * 40}, ${140 + healthRatio * 60}, 0.92)`;
+        }
       } else if (turret.type === 'rocket_turret') {
         // Rocket turrets glow with a saturated magenta hue to highlight their burst damage threat.
         mainColor = 'rgba(255, 120, 200, 0.8)';
@@ -1145,7 +1425,18 @@ export class KufBattlefieldSimulation {
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = turret.type === 'big_turret' ? 3 : 2;
       ctx.stroke();
-      
+
+      if (turret.healVisualTimer > 0 && turret.activeHealTarget) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(120, 255, 210, 0.75)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(turret.x, turret.y);
+        ctx.lineTo(turret.activeHealTarget.x, turret.activeHealTarget.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       // Draw selection indicator
       if (turret === this.selectedEnemy) {
         ctx.strokeStyle = 'rgba(255, 255, 100, 0.9)';
@@ -1180,9 +1471,19 @@ export class KufBattlefieldSimulation {
           size = 5;
         }
       } else {
-        color = 'rgba(255, 120, 170, 0.95)';
-        shadowColor = 'rgba(255, 120, 170, 0.9)';
-        size = 5;
+        if (bullet.type === 'plasma_turret') {
+          color = 'rgba(255, 140, 90, 0.95)';
+          shadowColor = 'rgba(255, 120, 60, 0.9)';
+          size = 6;
+        } else if (bullet.type === 'scatter_turret') {
+          color = 'rgba(255, 210, 140, 0.92)';
+          shadowColor = 'rgba(255, 190, 120, 0.85)';
+          size = 4;
+        } else {
+          color = 'rgba(255, 120, 170, 0.95)';
+          shadowColor = 'rgba(255, 120, 170, 0.9)';
+          size = 5;
+        }
       }
       
       ctx.shadowBlur = 16;
@@ -1325,8 +1626,13 @@ export class KufBattlefieldSimulation {
     ctx.save();
     ctx.fillStyle = 'rgba(170, 220, 255, 0.92)';
     ctx.font = '600 16px "Space Mono", monospace';
-    ctx.fillText(`Gold: ${this.goldEarned}`, 20, this.bounds.height - 24);
-    ctx.fillText(`Enemies: ${this.turrets.length}`, 20, this.bounds.height - 48);
+    const hudY = this.bounds.height - 24;
+    ctx.fillText(`Gold: ${this.goldEarned}`, 20, hudY);
+    ctx.fillText(`Enemies: ${this.turrets.length}`, 20, hudY - 24);
+    if (this.currentMap?.name) {
+      ctx.font = '600 12px "Space Mono", monospace';
+      ctx.fillText(`Map: ${this.currentMap.name}`, 20, hudY - 48);
+    }
     ctx.restore();
   }
 }

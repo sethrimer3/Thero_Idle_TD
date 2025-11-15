@@ -33,6 +33,7 @@ import {
 } from './kufState.js';
 
 import { KufBattlefieldSimulation } from './kufSimulation.js';
+import kufMaps from './data/kufMaps.json' assert { type: 'json' };
 
 let simulation = null;
 let kufElements = {};
@@ -40,6 +41,9 @@ let stateChangeUnsubscribe = null;
 let runCompleteCallback = null;
 let currentOpenDropdown = null;
 let holdTimers = new Map(); // For hold-to-spam functionality
+const kufMapList = Array.isArray(kufMaps.maps) ? kufMaps.maps : [];
+const kufMapLookup = new Map(kufMapList.map((map) => [map.id, map]));
+let selectedMapId = kufMapList[0]?.id || null;
 
 function cacheElements() {
   kufElements = {
@@ -55,6 +59,10 @@ function cacheElements() {
     resultSummary: document.getElementById('kuf-result-summary'),
     resultGlyphs: document.getElementById('kuf-result-glyphs'),
     resultClose: document.getElementById('kuf-result-close'),
+    mapSelect: document.getElementById('kuf-map-select'),
+    mapDescription: document.getElementById('kuf-map-description'),
+    mapDifficulty: document.getElementById('kuf-map-difficulty'),
+    mapMechanics: document.getElementById('kuf-map-mechanics'),
     
     // Unit counts
     unitCounts: {
@@ -134,6 +142,14 @@ function bindButtons() {
   if (kufElements.startButton) {
     kufElements.startButton.addEventListener('click', () => {
       startSimulation();
+    });
+  }
+
+  if (kufElements.mapSelect) {
+    kufElements.mapSelect.addEventListener('change', (event) => {
+      const value = event.target.value;
+      selectedMapId = value || kufMapList[0]?.id || null;
+      updateMapDetails();
     });
   }
   
@@ -244,7 +260,11 @@ function startSimulation() {
   const splayerStats = calculateKufUnitStats('splayers');
   
   const units = getKufUnits();
-  simulation.start({ marineStats, sniperStats, splayerStats, units });
+  const mapId = selectedMapId && kufMapLookup.has(selectedMapId)
+    ? selectedMapId
+    : kufMapList[0]?.id;
+
+  simulation.start({ marineStats, sniperStats, splayerStats, units, mapId });
 }
 
 function handleSimulationComplete(result) {
@@ -278,8 +298,57 @@ function updateUnitDisplay() {
       element.textContent = String(cost);
     }
   });
-  
+
   renderLedger();
+}
+
+function populateMapSelect() {
+  if (!kufElements.mapSelect) {
+    return;
+  }
+  kufElements.mapSelect.innerHTML = '';
+  kufMapList.forEach((map) => {
+    const option = document.createElement('option');
+    option.value = map.id;
+    option.textContent = `${map.name}`;
+    kufElements.mapSelect.appendChild(option);
+  });
+  if (selectedMapId && !kufMapLookup.has(selectedMapId)) {
+    selectedMapId = kufMapList[0]?.id || null;
+  }
+  if (selectedMapId) {
+    kufElements.mapSelect.value = selectedMapId;
+  }
+  updateMapDetails();
+}
+
+function updateMapDetails() {
+  const map = selectedMapId ? kufMapLookup.get(selectedMapId) : kufMapList[0];
+  if (kufElements.mapDescription) {
+    kufElements.mapDescription.textContent = map?.description || 'Select a battlefield to see its briefing.';
+  }
+  if (kufElements.mapDifficulty) {
+    if (map) {
+      const glyphs = typeof map.recommendedGlyphs === 'number' ? ` · ${map.recommendedGlyphs} glyphs` : '';
+      kufElements.mapDifficulty.textContent = `${map.difficulty || 'Unknown'}${glyphs}`;
+    } else {
+      kufElements.mapDifficulty.textContent = '';
+    }
+  }
+  if (kufElements.mapMechanics) {
+    kufElements.mapMechanics.innerHTML = '';
+    if (map?.mechanics?.length) {
+      map.mechanics.forEach((mechanic) => {
+        const li = document.createElement('li');
+        li.textContent = mechanic;
+        kufElements.mapMechanics.appendChild(li);
+      });
+    } else {
+      const li = document.createElement('li');
+      li.textContent = 'No unique mechanics documented yet.';
+      kufElements.mapMechanics.appendChild(li);
+    }
+  }
 }
 
 function updateUpgradeDisplay() {
@@ -532,6 +601,7 @@ export function initializeKufUI(options = {}) {
   setupHoldToSpam();
   attachStateListener();
   ensureSimulationInstance();
+  populateMapSelect();
   updateUnitDisplay();
   updateUpgradeDisplay();
   updateCodexDisplay();
@@ -545,6 +615,7 @@ export function updateKufDisplay() {
   updateUnitDisplay();
   updateUpgradeDisplay();
   updateCodexDisplay();
+  updateMapDetails();
   if (simulation) {
     simulation.resize();
   }
