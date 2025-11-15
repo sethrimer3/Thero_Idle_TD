@@ -3977,21 +3977,20 @@ export class SimplePlayfield {
     const activeParticles = particles.filter((particle) => particle.state === 'orbit' || particle.state === 'arrive');
     if (activeParticles.length > desiredCount) {
       let toCull = activeParticles.length - desiredCount;
-      tower.connectionParticles = tower.connectionParticles.filter((particle) => {
-        if (particle.type !== type) {
-          return true;
+      // Drop the newest orbiters first so capped towers keep their existing motes.
+      for (let index = tower.connectionParticles.length - 1; index >= 0 && toCull > 0; index -= 1) {
+        const particle = tower.connectionParticles[index];
+        if (!particle || particle.type !== type) {
+          continue;
         }
-        if (particle.state === 'launch') {
-          return true;
+        if (particle.state === 'launch' || particle.state === 'done') {
+          continue;
         }
         if (particle.state === 'orbit' || particle.state === 'arrive') {
-          if (toCull > 0) {
-            toCull -= 1;
-            return false;
-          }
+          tower.connectionParticles.splice(index, 1);
+          toCull -= 1;
         }
-        return true;
-      });
+      }
       return;
     }
     if (activeParticles.length < desiredCount) {
@@ -4308,11 +4307,28 @@ export class SimplePlayfield {
       tower.connectionParticles = [];
     }
     const bodyRadius = this.resolveTowerBodyRadius(tower);
+    const desiredSwirlCounts = {
+      alpha: Math.max(0, Math.floor(tower.storedAlphaSwirl || 0)),
+      beta: Math.max(0, Math.floor(tower.storedBetaSwirl || 0)),
+    };
+    const activeSwirlCounts = { alpha: 0, beta: 0 };
+    tower.connectionParticles.forEach((particle) => {
+      if (!particle || (particle.type !== 'alpha' && particle.type !== 'beta')) {
+        return;
+      }
+      if (particle.state === 'orbit' || particle.state === 'arrive') {
+        activeSwirlCounts[particle.type] += 1;
+      }
+    });
     projectile.seeds.forEach((seed) => {
       if (!seed) {
         return;
       }
       const type = seed.type === 'beta' ? 'beta' : 'alpha';
+      if (activeSwirlCounts[type] >= desiredSwirlCounts[type]) {
+        // Ignore surplus arrivals once the tower already displays the target swirl count.
+        return;
+      }
       const startPosition = seed.position || projectile.target || { x: tower.x, y: tower.y };
       const angle = Math.atan2(startPosition.y - tower.y, startPosition.x - tower.x);
       const orbitRadius = bodyRadius + 6 + Math.random() * Math.max(18, Number.isFinite(tower.range) ? tower.range * 0.06 : 24);
@@ -4325,6 +4341,7 @@ export class SimplePlayfield {
         size: seed.size,
       });
       tower.connectionParticles.push(particle);
+      activeSwirlCounts[type] += 1;
     });
   }
 
