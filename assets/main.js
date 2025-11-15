@@ -263,6 +263,7 @@ import { initializeTowerTreeMap, refreshTowerTreeMap } from './towerTreeMap.js';
 import { enableDragScroll } from './dragScroll.js';
 import { createLevelEditorController } from './levelEditor.js';
 import { createLevelPreviewRenderer } from './levelPreviewRenderer.js';
+import { createLevelOverlayController } from './levelOverlayController.js';
 import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
 import { createPlayfieldMenuController } from './playfieldMenu.js';
 import { createLevelSummaryHelpers } from './levelSummary.js';
@@ -456,20 +457,8 @@ import {
   let levelGrid = null;
   let activeLevelEl = null;
   let leaveLevelBtn = null;
-  let overlay = null;
-  let overlayLabel = null;
-  let overlayTitle = null;
-  let overlayExample = null;
-  let overlayPreview = null;
-  let overlayMode = null;
-  let overlayDuration = null;
-  let overlayRewards = null;
-  let overlayStartThero = null;
-  let overlayLast = null;
-  let overlayInstruction = null;
-  let overlayConfirmButton = null; // Store the explicit confirmation control inside the level overlay.
-  let overlayRequiresLevelExit = false;
   let levelPreviewRenderer = null;
+  let levelOverlayController = null;
   let upgradeOverlay = null;
   let upgradeOverlayButtons = [];
   let upgradeOverlayTriggerSet = null;
@@ -483,7 +472,6 @@ import {
   let variableLibraryLabel = null;
   let lastVariableLibraryTrigger = null;
   let removeVariableListener = null;
-  const overlayInstructionDefault = 'Tap or click to enter';
   let activeLevelId = null;
   let pendingLevel = null;
   let lastLevelTrigger = null;
@@ -1778,6 +1766,18 @@ import {
   });
 
   const idleLevelRuns = new Map();
+
+  levelOverlayController = createLevelOverlayController({
+    document,
+    describeLevelLastResult,
+    getLevelSummary,
+    getLevelState: (levelId) => levelState.get(levelId) || null,
+    getIdleLevelRunner: (levelId) => idleLevelRuns.get(levelId) || null,
+    getLevelById: (levelId) => levelLookup.get(levelId) || null,
+    getActiveLevelId: () => activeLevelId,
+    revealOverlay,
+    scheduleOverlayHide,
+  });
   // Track the animation frame id that advances idle simulations so we can pause the loop when idle.
   let idleRunAnimationHandle = null;
 
@@ -2984,7 +2984,12 @@ import {
 
     if (!state.entered || requiresExitConfirm) {
       pendingLevel = level;
-      showLevelOverlay(level, { requireExitConfirm: requiresExitConfirm, exitLevelId: otherActiveId });
+      if (levelOverlayController) {
+        levelOverlayController.showLevelOverlay(level, {
+          requireExitConfirm: requiresExitConfirm,
+          exitLevelId: otherActiveId,
+        });
+      }
       return;
     }
 
@@ -2993,96 +2998,11 @@ import {
     lastLevelTrigger = null;
   }
 
-  function showLevelOverlay(level, options = {}) {
-    if (!overlay || !overlayLabel || !overlayTitle || !overlayExample) return;
-    const { requireExitConfirm = false, exitLevelId = null } = options;
-    overlayRequiresLevelExit = Boolean(requireExitConfirm);
-    overlayLabel.textContent = level.id;
-    overlayTitle.textContent = level.title;
-    overlayExample.textContent = level.example;
-    if (levelPreviewRenderer) {
-      levelPreviewRenderer.render(level);
-    }
-    const summary = getLevelSummary(level);
-    if (overlayMode) {
-      overlayMode.textContent = summary.mode;
-    }
-    if (overlayDuration) {
-      overlayDuration.textContent = summary.duration;
-    }
-    if (overlayRewards) {
-      overlayRewards.textContent = summary.rewards;
-    }
-    // Surface the stage-specific starting Thero within the preview metrics.
-    if (overlayStartThero) {
-      const startLabel = summary.start || '—';
-      overlayStartThero.textContent = startLabel;
-      overlayStartThero.setAttribute(
-        'aria-label',
-        summary.startAria ||
-          (startLabel === '—' ? 'Starting Thero not applicable.' : `Starting Thero ${startLabel}`),
-      );
-    }
-    if (overlayLast) {
-      const state = levelState.get(level.id) || null;
-      const runner = idleLevelRuns.get(level.id) || null;
-      overlayLast.textContent = describeLevelLastResult(level, state, runner);
-    }
-    if (overlayInstruction) {
-      if (overlayRequiresLevelExit) {
-        const exitLevel = exitLevelId ? levelLookup.get(exitLevelId) : levelLookup.get(activeLevelId);
-        const exitLabel = exitLevel ? `${exitLevel.id} · ${exitLevel.title}` : 'the active level';
-        overlayInstruction.textContent = `Entering will abandon ${exitLabel}. Tap or click to confirm.`;
-      } else {
-        overlayInstruction.textContent = overlayInstructionDefault;
-      }
-    }
-    if (overlayConfirmButton) {
-      // Keep the confirm button label synchronized with the current overlay context.
-      const baseLabel = `${level.id} · ${level.title}`;
-      if (overlayRequiresLevelExit) {
-        overlayConfirmButton.textContent = 'Confirm & Enter';
-        overlayConfirmButton.setAttribute('aria-label', `Abandon active defense and enter ${baseLabel}`);
-      } else {
-        overlayConfirmButton.textContent = 'Enter Level';
-        overlayConfirmButton.setAttribute('aria-label', `Enter ${baseLabel}`);
-      }
-    }
-    if (overlay) {
-      if (overlayRequiresLevelExit) {
-        overlay.setAttribute('data-overlay-mode', 'warning');
-      } else {
-        overlay.removeAttribute('data-overlay-mode');
-      }
-    }
-    revealOverlay(overlay);
-    overlay.setAttribute('aria-hidden', 'false');
-    overlay.focus();
-    requestAnimationFrame(() => {
-      overlay.classList.add('active');
-    });
-  }
-
-  function hideLevelOverlay() {
-    if (!overlay) return;
-    if (levelPreviewRenderer) {
-      levelPreviewRenderer.clear();
-    }
-    overlay.classList.remove('active');
-    overlay.setAttribute('aria-hidden', 'true');
-    scheduleOverlayHide(overlay);
-    overlayRequiresLevelExit = false;
-    if (overlayInstruction) {
-      overlayInstruction.textContent = overlayInstructionDefault;
-    }
-    if (overlay) {
-      overlay.removeAttribute('data-overlay-mode');
-    }
-  }
-
   function cancelPendingLevel() {
     pendingLevel = null;
-    hideLevelOverlay();
+    if (levelOverlayController) {
+      levelOverlayController.hideLevelOverlay();
+    }
     if (lastLevelTrigger && typeof lastLevelTrigger.focus === 'function') {
       lastLevelTrigger.focus();
     }
@@ -3091,16 +3011,25 @@ import {
 
   function confirmPendingLevel() {
     if (!pendingLevel) {
-      hideLevelOverlay();
+      if (levelOverlayController) {
+        levelOverlayController.hideLevelOverlay();
+      }
       return;
     }
 
     const levelToStart = pendingLevel;
     pendingLevel = null;
-    hideLevelOverlay();
+    if (levelOverlayController) {
+      levelOverlayController.hideLevelOverlay();
+    }
     startLevel(levelToStart);
     focusLeaveLevelButton();
     lastLevelTrigger = null;
+  }
+
+  // Allow the overlay confirmation gesture to begin levels through the shared controller.
+  if (levelOverlayController) {
+    levelOverlayController.setConfirmHandler(confirmPendingLevel);
   }
 
   function startLevel(level) {
@@ -3374,13 +3303,6 @@ import {
   }
 
   
-
-  function bindOverlayEvents() {
-    if (!overlay) return;
-    overlay.addEventListener('click', () => {
-      confirmPendingLevel();
-    });
-  }
 
   function renderUpgradeMatrix() {
     if (!upgradeOverlayGrid) {
@@ -4666,9 +4588,8 @@ import {
     levelGrid = document.getElementById('level-grid');
     activeLevelEl = document.getElementById('active-level');
     leaveLevelBtn = document.getElementById('leave-level');
-    overlay = document.getElementById('level-overlay');
-    if (overlay && !overlay.hasAttribute('tabindex')) {
-      overlay.setAttribute('tabindex', '-1');
+    if (levelOverlayController) {
+      levelOverlayController.bindOverlayElements();
     }
     // Cache layout toggles for switching between the level grid and battlefield.
     playfieldWrapper = document.getElementById('playfield-wrapper');
@@ -4688,32 +4609,10 @@ import {
     }
     // Default to the level selection view until a combat encounter begins.
     updateLayoutVisibility();
-    overlayLabel = document.getElementById('overlay-level');
-    overlayTitle = document.getElementById('overlay-title');
-    overlayExample = document.getElementById('overlay-example');
-    overlayPreview = document.getElementById('overlay-preview');
-    overlayMode = document.getElementById('overlay-mode');
-    overlayDuration = document.getElementById('overlay-duration');
-    overlayRewards = document.getElementById('overlay-rewards');
-    overlayStartThero = document.getElementById('overlay-start-thero');
-    overlayLast = document.getElementById('overlay-last');
-    overlayInstruction = overlay ? overlay.querySelector('.overlay-instruction') : null;
-    if (overlayInstruction) {
-      overlayInstruction.textContent = overlayInstructionDefault;
-    }
-    overlayConfirmButton = overlay ? overlay.querySelector('.overlay-confirm') : null;
-    if (overlayConfirmButton) {
-      overlayConfirmButton.addEventListener('click', (event) => {
-        // Prevent the overlay wrapper from receiving duplicate confirmation events.
-        event.stopPropagation();
-        confirmPendingLevel();
-      });
-    }
-
     // Instantiate overlay preview renderer so level cards share the same editor plumbing.
     levelPreviewRenderer = createLevelPreviewRenderer({
-      getOverlayElement: () => overlay,
-      getOverlayPreviewElement: () => overlayPreview,
+      getOverlayElement: () => levelOverlayController?.getOverlayElement() || null,
+      getOverlayPreviewElement: () => levelOverlayController?.getOverlayPreviewElement() || null,
       getLevelConfigs: () => levelConfigs,
       getPlayfield: () => playfield,
       playfieldElements,
@@ -4726,6 +4625,9 @@ import {
       setLevelEditorSurface,
       configureLevelEditorForLevel,
     });
+    if (levelOverlayController) {
+      levelOverlayController.setPreviewRenderer(levelPreviewRenderer);
+    }
 
     // Activate the gem cursor when a desktop pointer is detected.
     initializeDesktopCursorPreference();
@@ -4810,7 +4712,7 @@ import {
 
     // Synchronize tab interactions with overlay state, audio cues, and banner refreshes.
     configureTabManager({
-      getOverlayActiveState: () => Boolean(overlay && overlay.classList.contains('active')),
+      getOverlayActiveState: () => Boolean(levelOverlayController?.isOverlayActive()),
       isFieldNotesOverlayVisible,
       onTabChange: (tabId) => {
         refreshTabMusic();
@@ -5259,7 +5161,6 @@ import {
 
     buildLevelCards();
     updateLevelCards();
-    bindOverlayEvents();
     bindVariableLibrary();
     bindUpgradeMatrix();
     bindLeaveLevelButton();

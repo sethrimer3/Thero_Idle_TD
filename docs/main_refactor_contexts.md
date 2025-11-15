@@ -11,6 +11,9 @@ Owns tier-based hue calculations, palette definitions, color scheme cycling, and
 ## Tab/Overlay and Level-Preview UI Management
 Coordinates tab caching, overlay visibility toggles, level preview wiring, and shared helpers for showing or hiding the various overlays. `assets/levelPreviewRenderer.js` now owns the level overlay preview rendering, including the procedural SVG fallback and developer battlefield reuse hooks that previously lived in `assets/main.js`. The quick battlefield menu (commence/retry/level select/dev tools/stats) has been extracted into `assets/playfieldMenu.js`, which centralizes DOM bindings, confirmation handling, and developer map tool activation.
 
+### Level Overlay Controller
+`assets/levelOverlayController.js` now binds the level-entry overlay DOM, confirmation affordances, and status text refreshes. The controller accepts callbacks that surface `getLevelSummary`, describe the last run, and manage exit warnings so `assets/main.js` only tracks pending levels and delegates show/hide responsibilities. It also supplies overlay state to the tab manager and routes preview renderer bindings, trimming another legacy block out of `assets/main.js`.
+
 ## Developer Controls and Sandbox Adjustments
 `assets/developerControls.js` now owns the developer panel bindings, value formatters, mutation handlers, and visibility toggles
 that expose sandbox controls. Remaining developer map tools still live in `assets/main.js` until the overlay/editor plumbing is
