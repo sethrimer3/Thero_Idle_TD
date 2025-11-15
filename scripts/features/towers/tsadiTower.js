@@ -300,6 +300,9 @@ export class ParticleFusionSimulation {
     // Spawn effects (flash and wave)
     this.spawnEffects = []; // {x, y, radius, alpha, maxRadius, type: 'flash' | 'wave'}
 
+    // Store active force links so the renderer can visualize attractive/repulsive pairs.
+    this.forceLinks = [];
+
     // Aleph particle state
     this.alephParticleId = null; // ID of the current aleph particle if it exists
     this.alephAbsorptionCount = 0; // Number of particles absorbed by aleph
@@ -631,6 +634,8 @@ export class ParticleFusionSimulation {
    */
   applyRepellingForces(dt) {
     const processedPairs = new Set();
+    // Clear any previously recorded force links before evaluating the current frame.
+    this.forceLinks.length = 0;
     
     for (const p1 of this.particles) {
       const candidates = this.quadtree.retrieve(p1);
@@ -655,9 +660,10 @@ export class ParticleFusionSimulation {
         if (dist < interactionRadius && dist > 0.001) {
           // Average repelling force between the two particles
           const avgRepelling = (p1.repellingForce + p2.repellingForce) / 2;
+          const proximityStrength = 1 - dist / interactionRadius;
 
           // If force is negative, particles attract; if positive, they repel
-          const forceMagnitude = avgRepelling * (1 - dist / interactionRadius) * dt * 50;
+          const forceMagnitude = avgRepelling * proximityStrength * dt * 50;
           
           const nx = dx / dist;
           const ny = dy / dist;
@@ -667,6 +673,16 @@ export class ParticleFusionSimulation {
           p1.vy -= ny * forceMagnitude;
           p2.vx += nx * forceMagnitude;
           p2.vy += ny * forceMagnitude;
+
+          // Record the interaction so the renderer can draw a connective filament.
+          this.forceLinks.push({
+            x1: p1.x,
+            y1: p1.y,
+            x2: p2.x,
+            y2: p2.y,
+            intensity: proximityStrength,
+            isRepelling: forceMagnitude >= 0,
+          });
         }
       }
     }
@@ -1136,6 +1152,23 @@ export class ParticleFusionSimulation {
       }
     }
     
+    // Draw blurred filaments between particles experiencing interaction forces.
+    for (const link of this.forceLinks) {
+      const baseRgb = link.isRepelling ? '255, 140, 190' : '130, 190, 255';
+      const alpha = 0.12 + link.intensity * 0.28;
+
+      ctx.save();
+      ctx.strokeStyle = `rgba(${baseRgb}, ${alpha})`;
+      ctx.lineWidth = 1.2;
+      ctx.shadowColor = `rgba(${baseRgb}, ${Math.min(0.5, alpha * 1.8)})`;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(link.x1, link.y1);
+      ctx.lineTo(link.x2, link.y2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // Draw particles with sub-pixel precision and glow
     for (const particle of this.particles) {
       const classification = getTierClassification(particle.tier);
