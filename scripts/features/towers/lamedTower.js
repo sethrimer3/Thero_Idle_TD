@@ -1093,6 +1093,9 @@ export class GravitySimulation {
       totalAbsorptions: this.stats.totalAbsorptions,
       dragLevel: this.dragLevel,
       dragCoefficient: this.dragCoefficient,
+      // Surface orbiting spark upgrade data so the UI can render it live.
+      starMassUpgradeLevel: this.upgrades.starMass,
+      orbitingSparkMass: 1 + this.upgrades.starMass,
       nextMilestone: nextTier ? nextTier.threshold : this.starMass,
     };
   }
