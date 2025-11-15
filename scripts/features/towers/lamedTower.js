@@ -65,6 +65,8 @@ export class GravitySimulation {
     this.height = 0;
     this.centerX = 0;
     this.centerY = 0;
+    this.cssWidth = 0; // CSS pixel width of the canvas for spawn calculations.
+    this.cssHeight = 0; // CSS pixel height of the canvas for spawn calculations.
     
     // Physics parameters
     this.G = 200; // Gravitational constant
@@ -254,14 +256,18 @@ export class GravitySimulation {
     
     this.width = Math.floor(rect.width * dpr);
     this.height = Math.floor(rect.height * dpr);
-    
+    this.cssWidth = rect.width;
+    this.cssHeight = rect.height;
+
     this.canvas.width = this.width;
     this.canvas.height = this.height;
-    
+
     this.centerX = this.width / 2;
     this.centerY = this.height / 2;
-    
+
     if (this.ctx) {
+      // Reset transforms so repeated resize calls do not accumulate DPR scaling.
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.scale(dpr, dpr);
     }
   }
@@ -748,13 +754,13 @@ export class GravitySimulation {
     // Use the shared radius helper so spawn logic mirrors rendering scale.
     const starVisualRadius = this.calculateCoreRadius();
     const maxR = Math.min(this.width, this.height) / (2 * dpr);
-    const spawnRadius = maxR + this.rng.range(20, 80);
+    const spawnRadius = (maxR + this.rng.range(20, 80)) * dpr;
     const angle = this.rng.next() * Math.PI * 2;
 
     const x = this.centerX + Math.cos(angle) * spawnRadius;
     const y = this.centerY + Math.sin(angle) * spawnRadius;
 
-    const approachSpeed = this.rng.range(80, 140);
+    const approachSpeed = this.rng.range(80, 140) * dpr;
     let vx = -Math.cos(angle) * approachSpeed;
     let vy = -Math.sin(angle) * approachSpeed;
 
@@ -802,15 +808,16 @@ export class GravitySimulation {
     const minR = Math.min(maxR, starVisualRadius * 2);
 
     // Spawn at random distance between the enforced minimum and the simulation edge
-    const r = this.rng.range(minR, maxR);
+    const orbitRadiusCss = this.rng.range(minR, maxR);
+    const orbitRadiusDevice = orbitRadiusCss * dpr;
     const angle = this.rng.next() * Math.PI * 2;
-    
+
     // Position relative to center (in DPR-scaled coordinates)
-    const x = this.centerX + Math.cos(angle) * r;
-    const y = this.centerY + Math.sin(angle) * r;
-    
+    const x = this.centerX + Math.cos(angle) * orbitRadiusDevice;
+    const y = this.centerY + Math.sin(angle) * orbitRadiusDevice;
+
     // Calculate circular orbital velocity: v = sqrt(G*M/r)
-    const circularSpeed = Math.sqrt((this.G * this.starMass) / r);
+    const circularSpeed = Math.sqrt((this.G * this.starMass) / Math.max(orbitRadiusDevice, this.epsilon));
     
     // Add velocity noise for spiral effects
     const velocityMultiplier = 1 + this.rng.range(-this.velocityNoiseFactor, this.velocityNoiseFactor);
@@ -870,15 +877,16 @@ export class GravitySimulation {
     this.dustAccumulator += dt * this.dustSpawnRate;
     while (this.dustAccumulator >= 1 && this.dustParticles.length < this.maxDustParticles) {
       // Spawn randomly between central body edge and simulation edge
-      const r = this.rng.range(starVisualRadius, maxR);
+      const rCss = this.rng.range(starVisualRadius, maxR);
+      const rDevice = rCss * dpr;
       const angle = this.rng.next() * Math.PI * 2;
-      
-      const x = this.centerX + Math.cos(angle) * r;
-      const y = this.centerY + Math.sin(angle) * r;
-      
+
+      const x = this.centerX + Math.cos(angle) * rDevice;
+      const y = this.centerY + Math.sin(angle) * rDevice;
+
       // Azimuthal velocity with radial inflow
-      const azimuthalSpeed = Math.sqrt((this.G * this.starMass) / r) * 0.3;
-      const radialSpeed = -2; // Slow inward drift
+      const azimuthalSpeed = Math.sqrt((this.G * this.starMass) / Math.max(rDevice, this.epsilon)) * 0.3;
+      const radialSpeed = -2 * dpr; // Slow inward drift converted to device pixels
       
       const vx = -Math.sin(angle) * azimuthalSpeed + Math.cos(angle) * radialSpeed;
       const vy = Math.cos(angle) * azimuthalSpeed + Math.sin(angle) * radialSpeed;
@@ -1023,8 +1031,8 @@ export class GravitySimulation {
     // Use the shared radius helper so launch positions orbit around the same core size used in rendering.
     const starVisualRadius = this.calculateCoreRadius();
     // Mirror the bounce scale so collision detection matches the rendered radius.
-    const absorptionRadius = starVisualRadius * Math.max(0.85, 1 + this.sunBounce.offset);
-    const maxR = Math.min(this.width, this.height) / (2 * dpr);
+    const absorptionRadius = starVisualRadius * Math.max(0.85, 1 + this.sunBounce.offset) * dpr;
+    const maxR = Math.min(this.width, this.height) / 2;
 
     for (let i = this.shootingStars.length - 1; i >= 0; i--) {
       const shard = this.shootingStars[i];
@@ -1057,7 +1065,7 @@ export class GravitySimulation {
         const sdx = star.x - shard.x;
         const sdy = star.y - shard.y;
         const sDistSq = sdx * sdx + sdy * sdy;
-        const starRadius = Math.max(4, (star.mass / this.starMass) * starVisualRadius * 2);
+        const starRadius = Math.max(4 * dpr, (star.mass / this.starMass) * starVisualRadius * 2 * dpr);
         if (sDistSq < starRadius * starRadius) {
           // Shooting star merges into an orbiting spark and empowers it by doubling its mass.
           star.mass *= 2;
@@ -1085,7 +1093,7 @@ export class GravitySimulation {
         continue;
       }
 
-      if (dist > maxR + 200) {
+      if (dist > maxR + 200 * dpr) {
         // Retire shooting stars that fully escape the play area.
         this.shootingStars.splice(i, 1);
       }
@@ -1125,10 +1133,12 @@ export class GravitySimulation {
       
       // Use the shared radius helper so absorption checks align with the rendered radius.
       const starVisualRadius = this.calculateCoreRadius();
-      const absorptionRadius = starVisualRadius * Math.max(0.85, 1 + this.sunBounce.offset);
-      
+      const sunRadiusCss = starVisualRadius * Math.max(0.85, 1 + this.sunBounce.offset);
+      const starRadiusCss = Math.max(2, (star.mass / this.starMass) * starVisualRadius);
+      const collisionRadiusDevice = (sunRadiusCss + starRadiusCss) * dpr;
+
       // Check if star should be absorbed (collision detection)
-      if (dist < absorptionRadius) {
+      if (dist <= collisionRadiusDevice) {
         // Increase central body mass
         const massGain = star.mass;
         this.starMass += massGain;
@@ -1154,7 +1164,7 @@ export class GravitySimulation {
             x: this.centerX / dpr,
             y: this.centerY / dpr,
             radius: 0,
-            maxRadius: absorptionRadius * 1.5,
+            maxRadius: sunRadiusCss * 1.5,
             alpha: 1.0,
             duration: 0.8, // seconds
             elapsed: 0,
