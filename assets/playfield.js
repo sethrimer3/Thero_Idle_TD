@@ -630,8 +630,13 @@ export class SimplePlayfield {
       return label ? `Wave ${waveNumber} · ${label}` : `Wave ${waveNumber}`;
     };
 
-    const createDialogRows = (details = {}) =>
-      [
+    const createDialogRows = (details = {}) => {
+      // Determine the total count to display so future waves and bosses show the correct denominator.
+      const totalCount = Number.isFinite(details.totalCount)
+        ? Math.max(0, Math.floor(details.totalCount))
+        : totalSpawnCount;
+
+      return [
         Number.isFinite(waveNumber)
           ? { label: 'Wave', value: String(waveSubtitle()) }
           : null,
@@ -660,10 +665,11 @@ export class SimplePlayfield {
         Number.isFinite(details.interval)
           ? { label: 'Spawn Interval', value: `${details.interval.toFixed(2)} s` }
           : null,
-        Number.isFinite(config.delay)
-          ? { label: 'Wave Delay', value: `${Math.max(0, config.delay).toFixed(2)} s` }
-          : null,
+          Number.isFinite(config.delay)
+            ? { label: 'Wave Delay', value: `${Math.max(0, config.delay).toFixed(2)} s` }
+            : null,
       ].filter(Boolean);
+    };
 
     let remainingSpawned = spawnedMinions;
 
@@ -705,6 +711,8 @@ export class SimplePlayfield {
             reward: group.reward,
             speed: group.speed,
             interval: Number.isFinite(group.interval) ? group.interval : config.interval,
+            // Ensure the dialog reflects the exact enemy count for the current group.
+            totalCount: groupCount,
           }),
         },
       });
@@ -739,6 +747,8 @@ export class SimplePlayfield {
             reward: bossConfig.reward,
             speed: bossConfig.speed,
             interval: config.interval,
+            // Boss entries always represent a single target regardless of remaining count.
+            totalCount: hasBoss ? 1 : bossRemaining,
           }),
         },
       });
