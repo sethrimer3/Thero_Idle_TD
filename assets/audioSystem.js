@@ -22,6 +22,8 @@ export const DEFAULT_AUDIO_MANIFEST = {
     lamedSpire: { file: 'lamed_spire_loop.ogg', loop: true, volume: 0.6 },
   },
   sfx: {
+    // Continuous low-frequency ambience for the Lamed Spire gravity well.
+    lamedRumble: { file: 'lamed_spire_rumble.ogg', volume: 0.55, maxConcurrent: 1, loop: true },
     uiConfirm: { file: 'menu_selection_alt.mp3', volume: 0.55, maxConcurrent: 2 },
     uiToggle: { file: 'menu_selection_OLD.mp3', volume: 0.5, maxConcurrent: 2 },
     menuSelect: { file: 'menu_selection.mp3', volume: 0.55, maxConcurrent: 4 },
@@ -63,6 +65,8 @@ export class AudioManager {
     this.sfxVolume = this._clampVolume(manifest.sfxVolume, 0.5);
     this.musicElements = new Map();
     this.sfxPools = new Map();
+    // Track looping sound effects so they can be stopped or adjusted later.
+    this.loopingSfx = new Map();
     this.currentMusicKey = null;
     this.activeMusicEntry = null;
     this.activeMusicFade = null;
@@ -277,17 +281,38 @@ export class AudioManager {
         return;
       }
 
-      const index = entry.nextIndex ?? 0;
-      const audio = pool[index];
-      entry.nextIndex = (index + 1) % pool.length;
+      const shouldLoop = typeof options.loop === 'boolean' ? options.loop : Boolean(definition.loop);
+      const restartLoop = shouldLoop ? options.restart !== false : true;
+      let audio;
 
-      audio.loop = false;
+      if (shouldLoop) {
+        // Reuse the dedicated loop channel so overlapping play requests simply adjust volume.
+        const activeLoop = this.loopingSfx.get(key);
+        if (activeLoop?.audio) {
+          audio = activeLoop.audio;
+        } else {
+          audio = pool[0];
+          this.loopingSfx.set(key, { audio, definition });
+        }
+      } else {
+        const index = entry.nextIndex ?? 0;
+        audio = pool[index];
+        entry.nextIndex = (index + 1) % pool.length;
+      }
+
+      if (!audio) {
+        return;
+      }
+
+      audio.loop = shouldLoop;
       audio.volume = this._resolveSfxVolume(definition, options.volume);
 
-      try {
-        audio.currentTime = 0;
-      } catch (error) {
-        audio.src = audio.src;
+      if (restartLoop || !shouldLoop || audio.paused) {
+        try {
+          audio.currentTime = 0;
+        } catch (error) {
+          audio.src = audio.src;
+        }
       }
 
       const playPromise = audio.play();
@@ -302,6 +327,43 @@ export class AudioManager {
     }
 
     startPlayback();
+  }
+
+  /**
+   * Stops a looping sound effect that was started via playSfx with loop enabled.
+   * @param {string} key - Manifest key for the looping sound effect
+   * @param {{ reset?: boolean }} [options] - Behavioural overrides for the stop call
+   */
+  stopSfx(key, options = {}) {
+    if (!key) {
+      return;
+    }
+
+    const stopAudio = () => {
+      const entry = this.loopingSfx.get(key);
+      if (!entry?.audio) {
+        return;
+      }
+
+      const audio = entry.audio;
+      audio.pause();
+      if (options.reset !== false) {
+        try {
+          audio.currentTime = 0;
+        } catch (error) {
+          audio.src = audio.src;
+        }
+      }
+      audio.loop = false;
+      this.loopingSfx.delete(key);
+    };
+
+    if (!this.unlocked) {
+      this.whenUnlocked().then(() => stopAudio());
+      return;
+    }
+
+    stopAudio();
   }
 
   /**
