@@ -6890,6 +6890,46 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   font-family: 'Space Mono', monospace;
 }
 
+/* Organize Lamed upgrade blocks so each system reads cleanly. */
+.lamed-upgrades {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Present upgrade copy, stats, and button as a vertical stack. */
+.lamed-upgrade-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Align drag and star mass readouts in a compact grid layout. */
+.lamed-drag-info,
+.lamed-star-mass-info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  font-size: 0.95rem;
+}
+
+/* Harmonize metric typography with other Lamed readouts. */
+.lamed-drag-info dt,
+.lamed-star-mass-info dt {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(247, 247, 245, 0.65);
+}
+
+/* Ensure values stay bold to emphasize gains. */
+.lamed-drag-info dd,
+.lamed-star-mass-info dd {
+  margin: 0;
+  font-weight: 600;
+  color: rgba(247, 247, 245, 0.95);
+}
+
 .lamed-state-label {
   display: inline-block;
   padding: 4px 12px;

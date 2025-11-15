@@ -1267,6 +1267,8 @@ import {
       unlocked: false,
       dragLevel: 0,
       starMass: 10,
+      // Persist Lamed-specific upgrade levels between visits.
+      upgrades: { starMass: 0 },
       stats: {
         totalAbsorptions: 0,
         totalMassGained: 0,
@@ -2419,7 +2421,18 @@ import {
     if (dragCoeffEl) {
       dragCoeffEl.textContent = stats.dragCoefficient.toFixed(2);
     }
-    
+
+    // Update star mass upgrade readouts with the latest tiered values.
+    const starMassLevelEl = document.getElementById('lamed-star-mass-level');
+    if (starMassLevelEl) {
+      starMassLevelEl.textContent = formatWholeNumber(stats.starMassUpgradeLevel);
+    }
+
+    const starMassValueEl = document.getElementById('lamed-star-mass-value');
+    if (starMassValueEl) {
+      starMassValueEl.textContent = formatWholeNumber(stats.orbitingSparkMass);
+    }
+
     // Update drag upgrade button
     const dragBtn = document.getElementById('lamed-upgrade-drag-btn');
     const dragCostEl = document.getElementById('lamed-drag-cost');
@@ -2440,6 +2453,22 @@ import {
         dragBtn.style.display = 'none';
       } else {
         dragBtn.style.display = '';
+      }
+    }
+
+    // Update star mass upgrade button so affordability feedback stays accurate.
+    const starMassBtn = document.getElementById('lamed-upgrade-star-mass-btn');
+    const starMassCostEl = document.getElementById('lamed-star-mass-cost');
+    if (starMassBtn && starMassCostEl) {
+      const starMassCost = lamedSimulationInstance.getStarMassUpgradeCost();
+      starMassCostEl.textContent = formatWholeNumber(starMassCost);
+
+      if (lamedSimulationInstance.canUpgradeStarMass()) {
+        starMassBtn.disabled = false;
+        starMassBtn.classList.remove('disabled');
+      } else {
+        starMassBtn.disabled = true;
+        starMassBtn.classList.add('disabled');
       }
     }
   }
@@ -6365,9 +6394,13 @@ import {
                 starMass: spireResourceState.lamed.starMass || 10,
                 sparkBank: getLamedSparkBank(),
                 dragLevel: spireResourceState.lamed.dragLevel || 0,
+                // Restore the stored star mass upgrade tier so UI and simulation stay in sync.
+                upgrades: {
+                  starMass: spireResourceState.lamed.upgrades?.starMass || 0,
+                },
                 stats: spireResourceState.lamed.stats || { totalAbsorptions: 0, totalMassGained: 0 },
               });
-              
+
               lamedSimulationInstance.resize();
               const growthRateEl = document.getElementById('lamed-growth-rate');
               if (growthRateEl) {
@@ -6383,14 +6416,32 @@ import {
                     const state = lamedSimulationInstance.getState();
                     spireResourceState.lamed.dragLevel = state.dragLevel;
                     spireResourceState.lamed.starMass = state.starMass;
+                    spireResourceState.lamed.upgrades = state.upgrades;
                     spireResourceState.lamed.stats = state.stats;
-                    
+
                     updateLamedStatistics();
                     spireMenuController.updateCounts();
                   }
                 });
               }
-              
+
+              // Hook up star mass upgrade button so players can bulk up sparks.
+              const starMassBtn = document.getElementById('lamed-upgrade-star-mass-btn');
+              if (starMassBtn) {
+                starMassBtn.addEventListener('click', () => {
+                  if (lamedSimulationInstance.upgradeStarMass()) {
+                    const state = lamedSimulationInstance.getState();
+                    spireResourceState.lamed.dragLevel = state.dragLevel;
+                    spireResourceState.lamed.starMass = state.starMass;
+                    spireResourceState.lamed.upgrades = state.upgrades;
+                    spireResourceState.lamed.stats = state.stats;
+
+                    updateLamedStatistics();
+                    spireMenuController.updateCounts();
+                  }
+                });
+              }
+
               spireMenuController.updateCounts();
               updateLamedStatistics();
               lamedSimulationInstance.start();
@@ -6406,6 +6457,8 @@ import {
                   const state = lamedSimulationInstance.getState();
                   spireResourceState.lamed.starMass = state.starMass;
                   spireResourceState.lamed.dragLevel = state.dragLevel;
+                  // Copy upgrade tiers so offline banking tracks new power.
+                  spireResourceState.lamed.upgrades = state.upgrades;
                   spireResourceState.lamed.stats = state.stats;
                   // Detect fresh spark absorptions so dependent spires unlock right away.
                   const currentLamedGlyphs = Math.max(
