@@ -4374,12 +4374,14 @@ import {
       otherActiveId && (otherActiveState?.running || otherActiveState?.entered),
     );
 
-    if (!state.entered || requiresExitConfirm) {
+    // Only show overlay if we need exit confirmation, not for first-time entries
+    if (requiresExitConfirm) {
       pendingLevel = level;
       showLevelOverlay(level, { requireExitConfirm: requiresExitConfirm, exitLevelId: otherActiveId });
       return;
     }
 
+    // For first-time entries or returning to an already-entered level, go directly
     startLevel(level);
     focusLeaveLevelButton();
     lastLevelTrigger = null;
