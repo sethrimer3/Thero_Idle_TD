@@ -191,6 +191,25 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Upgrade panel updates remain functionally identical while relying on the shared factory pattern established for other extracts
 - Refined dependencies make future Tsadi feature work easier without combing through thousands of lines in the orchestrator
 
+### lamedSpireUi.js (Lamed gravity spire stats + upgrades)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- DOM lookups and text updates for every Lamed stat readout (tier labels, spark banks, upgrade costs)
+- Drag/Star Mass upgrade button state management, including disabled styles and hide-at-max logic
+- Click handlers for both upgrade buttons so the simulation state sync happens in one place
+
+**Integration approach:**
+- Added `createLamedSpireUi()` factory that caches DOM references and exposes `updateStatistics()` and `bindUpgradeButtons()`
+- `main.js` now calls `lamedSpireUi.updateStatistics(lamedSimulationInstance)` instead of querying dozens of nodes directly
+- Upgrade callbacks are injected when the Gravity simulation boots, keeping persistence + unlock bookkeeping inside `main.js`
+
+**Result:**
+- Lamed-specific UI plumbing moved to `assets/lamedSpireUi.js`, reducing churn inside the already massive tab-change handler
+- Button bindings can be reused or unit-tested without spinning up the entire orchestrator
+- Clearing this block sets the stage for additional spire refactors (Tsadi already extracted, Shin/Kuf next)
+
 ### towerBlueprintPresenter.js (blueprint math + glyph state cache)
 
 **Status:** ✅ Complete
