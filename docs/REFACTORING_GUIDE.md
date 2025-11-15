@@ -347,6 +347,25 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Orientation/geometry responsibilities gain dedicated documentation and are easier to spot for upcoming playfield refactors
 - Prototype mixin approach provides a template for extracting additional stateful clusters without rewriting every call site
 
+### playfield/managers/DeveloperCrystalManager.js (developer crystal sandbox tools)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- Radius math, coordinate transforms, and placement helpers for the sandbox-only developer crystals
+- Focus state management plus fracture/shard particle emission logic that previously lived inline inside `SimplePlayfield`
+- Damage + update loops for the temporary obstacles so projectile logic can remain focused on enemies
+
+**Integration approach:**
+- New module exports named functions that expect to run with the playfield instance as their `this` value, matching other renderer helpers
+- `assets/playfield.js` mixes the module directly onto `SimplePlayfield.prototype` via `Object.assign`, avoiding wrapper methods and keeping existing call sites intact
+- Palette sampling moved alongside shard spawning, so the top-level playfield orchestrator no longer needs to import `samplePaletteGradient`
+
+**Result:**
+- Removes ~300 lines of crystal-only logic from the 7,500-line playfield monolith without changing gameplay behavior
+- Developer-only systems now live under `assets/playfield/managers/`, making future sandbox tooling easier to locate and iterate
+- The refactor demonstrates the repeatable mixin pattern for isolating additional state clusters (projectiles, enemy spawns, etc.) in future slices
+
 ## Upcoming High-Impact Refactor Targets
 
 ### assets/playfield.js (222 KB, core battle orchestration)
