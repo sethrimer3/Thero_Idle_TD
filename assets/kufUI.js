@@ -33,7 +33,11 @@ import {
 } from './kufState.js';
 
 import { KufBattlefieldSimulation } from './kufSimulation.js';
-import kufMaps from './data/kufMaps.json' assert { type: 'json' };
+import {
+  getCachedKufMaps,
+  loadKufMaps,
+  onKufMapsReady,
+} from './kufMapData.js';
 
 let simulation = null;
 let kufElements = {};
@@ -41,9 +45,40 @@ let stateChangeUnsubscribe = null;
 let runCompleteCallback = null;
 let currentOpenDropdown = null;
 let holdTimers = new Map(); // For hold-to-spam functionality
-const kufMapList = Array.isArray(kufMaps.maps) ? kufMaps.maps : [];
-const kufMapLookup = new Map(kufMapList.map((map) => [map.id, map]));
+const KUF_FALLBACK_MAP_ID = 'forward-bastion';
+
+let kufMapList = getCachedKufMaps();
+let kufMapLookup = new Map(kufMapList.map((map) => [map.id, map]));
 let selectedMapId = kufMapList[0]?.id || null;
+let removeKufMapListener = null;
+
+/**
+ * Synchronize local map caches and refresh the UI when new data arrives.
+ * @param {Array<object>} maps - Latest Kuf battlefield definitions.
+ */
+function applyKufMapData(maps) {
+  kufMapList = Array.isArray(maps) ? maps : [];
+  kufMapLookup = new Map(kufMapList.map((map) => [map.id, map]));
+  if (!selectedMapId && kufMapList[0]) {
+    selectedMapId = kufMapList[0].id;
+  }
+  if (selectedMapId && !kufMapLookup.has(selectedMapId)) {
+    selectedMapId = kufMapList[0]?.id || KUF_FALLBACK_MAP_ID;
+  }
+  if (!selectedMapId) {
+    selectedMapId = KUF_FALLBACK_MAP_ID;
+  }
+  if (simulation && typeof simulation.setAvailableMaps === 'function') {
+    simulation.setAvailableMaps(kufMapList);
+    if (typeof simulation.setActiveMap === 'function') {
+      simulation.setActiveMap(selectedMapId);
+    }
+  }
+  if (kufElements.mapSelect) {
+    populateMapSelect();
+  }
+  updateMapDetails();
+}
 
 function cacheElements() {
   kufElements = {
@@ -149,6 +184,12 @@ function bindButtons() {
     kufElements.mapSelect.addEventListener('change', (event) => {
       const value = event.target.value;
       selectedMapId = value || kufMapList[0]?.id || null;
+      if (!selectedMapId) {
+        selectedMapId = simulation?.getDefaultMapId?.() || KUF_FALLBACK_MAP_ID;
+      }
+      if (simulation && typeof simulation.setActiveMap === 'function') {
+        simulation.setActiveMap(selectedMapId);
+      }
       updateMapDetails();
     });
   }
@@ -237,6 +278,7 @@ function ensureSimulationInstance() {
     onComplete: (result) => {
       handleSimulationComplete(result);
     },
+    maps: kufMapList,
   });
   simulation.resize();
   window.addEventListener('resize', () => simulation.resize());
@@ -262,7 +304,7 @@ function startSimulation() {
   const units = getKufUnits();
   const mapId = selectedMapId && kufMapLookup.has(selectedMapId)
     ? selectedMapId
-    : kufMapList[0]?.id;
+    : simulation?.getDefaultMapId?.() || kufMapList[0]?.id || KUF_FALLBACK_MAP_ID;
 
   simulation.start({ marineStats, sniperStats, splayerStats, units, mapId });
 }
@@ -601,7 +643,15 @@ export function initializeKufUI(options = {}) {
   setupHoldToSpam();
   attachStateListener();
   ensureSimulationInstance();
-  populateMapSelect();
+  applyKufMapData(kufMapList);
+  if (!removeKufMapListener) {
+    removeKufMapListener = onKufMapsReady((maps) => {
+      applyKufMapData(maps);
+    });
+  }
+  loadKufMaps().catch((error) => {
+    console.error('Failed to load Kuf map data', error);
+  });
   updateUnitDisplay();
   updateUpgradeDisplay();
   updateCodexDisplay();
@@ -632,5 +682,9 @@ export function teardownKufUI() {
   if (simulation) {
     simulation.stop();
     simulation = null;
+  }
+  if (removeKufMapListener) {
+    removeKufMapListener();
+    removeKufMapListener = null;
   }
 }

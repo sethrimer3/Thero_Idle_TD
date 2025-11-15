@@ -21,6 +21,7 @@ import { generateLevelAchievements } from './achievementsTab.js';
 import {
   fetchJsonWithFallback,
   getEmbeddedGameplayConfig,
+  importJsonModule,
   loadGameplayConfigViaFetch,
   loadGameplayConfigViaModule,
 } from './gameplayConfigLoaders.js';
@@ -136,9 +137,9 @@ export async function loadFluidSimulationProfile() {
       }
 
       try {
-        const module = await import(FLUID_SIM_CONFIG_URL.href, { assert: { type: 'json' } });
-        if (module && module.default) {
-          return module.default;
+        const moduleData = await importJsonModule(FLUID_SIM_CONFIG_URL.href);
+        if (moduleData) {
+          return moduleData;
         }
       } catch (error) {
         console.error('Fluid simulation profile import failed.', error);
