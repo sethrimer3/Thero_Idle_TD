@@ -109,12 +109,15 @@ export function loadWavesIntoEditor(waves) {
  * @param {Object} waveData - Optional wave data to populate
  */
 export function addWaveEditorRow(waveData = null) {
-  const waveNumber = waveEditorState.waves.length + 1;
-  
+  const waveIndex = waveEditorState.waves.length;
+  const waveNumber = waveIndex + 1;
+
+  const resolvedEnemyType = resolveEnemyTypeFromWaveData(waveData);
+
   // Default wave data
   const wave = {
     count: waveData?.count || 10,
-    enemyType: getEnemyTypeFromCodexId(waveData?.codexId) || 'A',
+    enemyType: resolvedEnemyType,
     hp: waveData?.hp || 100,
     interval: waveData?.interval || 1.5,
     delay: waveData?.delay || 0,
@@ -274,13 +277,30 @@ function addBossControls(row, bossHp) {
  */
 function updateBossControls(row, visible) {
   const bossControls = row.querySelector('.wave-editor-item__boss-controls');
-  
+
   if (visible && !bossControls) {
     const wave = waveEditorState.waves[row.dataset.waveIndex];
     addBossControls(row, wave?.bossHp || 1000);
   } else if (!visible && bossControls) {
     bossControls.remove();
   }
+}
+
+/**
+ * Rebuild the wave editor list and normalize state indexes after mutations.
+ */
+function rebuildWaveEditorList() {
+  if (!waveEditorElements.list) {
+    return;
+  }
+
+  const existingWaves = waveEditorState.waves.map((wave) => ({ ...wave }));
+  waveEditorState.waves = [];
+  waveEditorElements.list.innerHTML = '';
+
+  existingWaves.forEach((wave) => {
+    addWaveEditorRow(wave);
+  });
 }
 
 /**
@@ -296,13 +316,7 @@ export function removeWaveEditorRow(index) {
   // Remove from state
   waveEditorState.waves.splice(idx, 1);
 
-  // Rebuild UI
-  if (waveEditorElements.list) {
-    waveEditorElements.list.innerHTML = '';
-    waveEditorState.waves.forEach((wave) => {
-      addWaveEditorRow(wave);
-    });
-  }
+  rebuildWaveEditorList();
 }
 
 /**
@@ -489,6 +503,28 @@ function getEnemyTypeFromCodexId(codexId) {
   }
 
   return null;
+}
+
+/**
+ * Resolve the preferred enemy type letter for an existing wave entry.
+ * Prefers stored editor data, then codex ids, and finally defaults to type A.
+ * @param {Object|null} waveData - Existing wave data
+ * @returns {string} Enemy type letter
+ */
+function resolveEnemyTypeFromWaveData(waveData) {
+  if (waveData?.enemyType) {
+    const candidate = String(waveData.enemyType).toUpperCase();
+    if (ENEMY_TYPES[candidate]) {
+      return candidate;
+    }
+  }
+
+  const fromCodex = getEnemyTypeFromCodexId(waveData?.codexId);
+  if (fromCodex && ENEMY_TYPES[fromCodex]) {
+    return fromCodex;
+  }
+
+  return 'A';
 }
 
 /**
