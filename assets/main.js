@@ -833,17 +833,6 @@ import {
     powderState,
   });
 
-  const { getPowderBasinSnapshot, applyPowderBasinSnapshot } = createPowderPersistence({
-    powderState,
-    powderConfig,
-    mergeMotePalette,
-    applyMindGatePaletteToDom,
-    updateFluidTabAvailability,
-    schedulePowderBasinSave,
-    getPowderSimulation: () => powderSimulation,
-    getFluidSimulation: () => fluidSimulationInstance,
-  });
-
   // Ensure compact autosave remains the active basin persistence strategy.
   document.addEventListener('DOMContentLoaded', () => {
     try {
@@ -1030,6 +1019,17 @@ import {
     formatGameNumber,
     getMoteGemColor,
     getGemSpriteAssetPath,
+  });
+
+  const { getPowderBasinSnapshot, applyPowderBasinSnapshot } = createPowderPersistence({
+    powderState,
+    powderConfig,
+    mergeMotePalette,
+    applyMindGatePaletteToDom,
+    updateFluidTabAvailability,
+    schedulePowderBasinSave,
+    getPowderSimulation: () => powderSimulation,
+    getFluidSimulation: () => fluidSimulationInstance,
   });
 
   const FLUX_OVERVIEW_IS_STUB = true;
