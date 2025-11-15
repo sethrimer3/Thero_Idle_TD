@@ -1374,6 +1374,76 @@ import {
     });
   }
 
+  function stopLamedDeveloperSpamLoop() {
+    lamedDeveloperSpamActive = false;
+    if (lamedDeveloperSpamHandle) {
+      cancelAnimationFrame(lamedDeveloperSpamHandle);
+      lamedDeveloperSpamHandle = null;
+    }
+  }
+
+  function runLamedDeveloperSpawnLoop() {
+    if (!lamedDeveloperSpamActive) {
+      stopLamedDeveloperSpamLoop();
+      return;
+    }
+    if (!developerModeActive || !lamedSimulationInstance || typeof lamedSimulationInstance.spawnStar !== 'function') {
+      stopLamedDeveloperSpamLoop();
+      return;
+    }
+
+    for (let i = 0; i < 4; i++) {
+      if (!lamedSimulationInstance.spawnStar()) {
+        break;
+      }
+    }
+
+    lamedDeveloperSpamHandle = window.requestAnimationFrame(() => runLamedDeveloperSpawnLoop());
+  }
+
+  function handleLamedDeveloperSpamPointerDown(event) {
+    if (!developerModeActive || !lamedSimulationInstance || typeof lamedSimulationInstance.spawnStar !== 'function') {
+      return;
+    }
+
+    lamedDeveloperSpamActive = true;
+    if (typeof event?.preventDefault === 'function') {
+      event.preventDefault();
+    }
+    if (typeof event?.target?.setPointerCapture === 'function' && typeof event.pointerId === 'number') {
+      try {
+        event.target.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore pointer capture failures because the gesture can still continue without capture.
+      }
+    }
+    if (!lamedDeveloperSpamHandle) {
+      runLamedDeveloperSpawnLoop();
+    }
+  }
+
+  function handleLamedDeveloperSpamPointerUp(event) {
+    if (typeof event?.target?.releasePointerCapture === 'function' && typeof event.pointerId === 'number') {
+      try {
+        event.target.releasePointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore pointer capture failures because cleanup will continue regardless.
+      }
+    }
+    stopLamedDeveloperSpamLoop();
+  }
+
+  function attachLamedDeveloperSpamTarget(canvas) {
+    if (!canvas || lamedDeveloperSpamAttached) {
+      return;
+    }
+    lamedDeveloperSpamAttached = true;
+    canvas.addEventListener('pointerdown', handleLamedDeveloperSpamPointerDown);
+    canvas.addEventListener('pointerup', handleLamedDeveloperSpamPointerUp);
+    canvas.addEventListener('pointerleave', handleLamedDeveloperSpamPointerUp);
+    canvas.addEventListener('pointercancel', handleLamedDeveloperSpamPointerUp);
+  }
+
   async function applyPowderSimulationMode(mode) {
     if (mode !== 'sand' && mode !== 'fluid') {
       return;
@@ -1785,6 +1855,9 @@ import {
   let sandSimulation = null;
   let fluidSimulationInstance = null;
   let lamedSimulationInstance = null;
+  let lamedDeveloperSpamHandle = null;
+  let lamedDeveloperSpamActive = false;
+  let lamedDeveloperSpamAttached = false;
   let tsadiSimulationInstance = null;
   let shinSimulationInstance = null;
   let kufUiInitialized = false;
@@ -3794,7 +3867,8 @@ import {
     if (developerModeElements.toggle && developerModeElements.toggle.checked) {
       developerModeElements.toggle.checked = false;
     }
-    
+    stopLamedDeveloperSpamLoop();
+
     // Persist developer mode state
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
@@ -4754,6 +4828,7 @@ import {
           if (!lamedSimulationInstance) {
             const lamedCanvas = document.getElementById('lamed-canvas');
             if (lamedCanvas) {
+              attachLamedDeveloperSpamTarget(lamedCanvas);
               ensureLamedBankSeeded();
               lamedSimulationInstance = new GravitySimulation({
                 canvas: lamedCanvas,
