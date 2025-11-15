@@ -9,7 +9,7 @@ Responsible for fetching gameplay configuration files, handling embedded fallbac
 Owns tier-based hue calculations, palette definitions, color scheme cycling, and persistence of the player's selection.
 
 ## Tab/Overlay and Level-Preview UI Management
-Coordinates tab caching, overlay visibility toggles, level preview wiring, and shared helpers for showing or hiding the various overlays. `assets/levelPreviewRenderer.js` now owns the level overlay preview rendering, including the procedural SVG fallback and developer battlefield reuse hooks that previously lived in `assets/main.js`.
+Coordinates tab caching, overlay visibility toggles, level preview wiring, and shared helpers for showing or hiding the various overlays. `assets/levelPreviewRenderer.js` now owns the level overlay preview rendering, including the procedural SVG fallback and developer battlefield reuse hooks that previously lived in `assets/main.js`. The quick battlefield menu (commence/retry/level select/dev tools/stats) has been extracted into `assets/playfieldMenu.js`, which centralizes DOM bindings, confirmation handling, and developer map tool activation.
 
 ## Developer Controls and Sandbox Adjustments
 `assets/developerControls.js` now owns the developer panel bindings, value formatters, mutation handlers, and visibility toggles
