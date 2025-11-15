@@ -27,6 +27,18 @@ const MASS_TIERS = [
 ];
 
 /**
+ * Diameter percentages for each mass tier so the sun scales with the viewport width.
+ * These map directly to MASS_TIERS indices and represent the on-screen diameter fraction.
+ */
+const TIER_DIAMETER_PERCENTAGES = [0.01, 0.05, 0.1, 0.15, 0.25, 0.1, 0.01];
+
+/** Maximum relative diameter for the black hole tier so late-game cores can expand dramatically. */
+const BLACK_HOLE_MAX_DIAMETER_PERCENT = 0.5;
+
+/** Duration of the collapse animation (in seconds) when transitioning to smaller tiers. */
+const COLLAPSE_ANIMATION_SECONDS = 10;
+
+/**
  * Deterministic pseudo-random number generator using seed.
  */
 class SeededRandom {
@@ -140,6 +152,22 @@ export class GravitySimulation {
 
     // Track the spring-based bounce so the sun can wobble outward when it absorbs a star.
     this.sunBounce = { offset: 0, velocity: 0 };
+
+    // Track the responsive diameter so the sun scales with viewport width instead of raw mass.
+    const initialTier = this.getCurrentTier();
+    const initialPercent = TIER_DIAMETER_PERCENTAGES[initialTier.tierIndex] || TIER_DIAMETER_PERCENTAGES[0];
+    this.coreSizeState = {
+      percent: initialPercent,
+      transitionStartPercent: initialPercent,
+      targetPercent: initialPercent,
+      transitionElapsed: 0,
+      transitionDuration: 0,
+    };
+    this.lastTierIndex = initialTier.tierIndex;
+    const blackHoleTier = MASS_TIERS[MASS_TIERS.length - 1];
+    // Span late-game growth across nine thresholds so the diameter hits 50% at 10x the unlock mass.
+    this.blackHoleGrowthRange = blackHoleTier ? blackHoleTier.threshold * 9 : 0;
+    this.updateCoreSizeState(0);
 
     // Visual tuning controls for the sun surface so designers can fine-tune turbulence behaviour.
     this.sunSurfaceSettings = {
@@ -306,15 +334,94 @@ export class GravitySimulation {
    * @returns {number} Radius of the core body in pixels
    */
   calculateCoreRadius() {
-    const neutronTier = MASS_TIERS[5];
-    const slowGrowthThreshold = neutronTier ? neutronTier.threshold : 0;
-    const dampenedMass = slowGrowthThreshold > 0
-      ? Math.min(this.starMass, slowGrowthThreshold) * 0.25
-      : this.starMass * 0.25;
-    const excessMass = slowGrowthThreshold > 0 ? Math.max(0, this.starMass - slowGrowthThreshold) : 0;
-    const effectiveMass = dampenedMass + excessMass;
-    // Apply the reduced mass curve so early tiers expand 75% slower while keeping continuity at high tiers.
-    return Math.max(10, 5 + Math.sqrt(effectiveMass / 10) * 3);
+    const cssWidth = this.cssWidth || (this.width / (window.devicePixelRatio || 1)) || 0;
+    const diameterPx = cssWidth * (this.coreSizeState?.percent || TIER_DIAMETER_PERCENTAGES[0]);
+    // Safeguard against extremely small radii so the core remains visible even on narrow screens.
+    return Math.max(2, diameterPx / 2);
+  }
+
+  /**
+   * Advance the responsive diameter so stage progress smoothly grows the sun.
+   * @param {number} dt - Delta time in seconds
+   */
+  updateCoreSizeState(dt) {
+    const tierInfo = this.getCurrentTier();
+    const basePercent = TIER_DIAMETER_PERCENTAGES[tierInfo.tierIndex] || TIER_DIAMETER_PERCENTAGES[0];
+
+    if (typeof this.lastTierIndex !== 'number') {
+      this.lastTierIndex = tierInfo.tierIndex;
+    }
+
+    const previousTierIndex = this.lastTierIndex;
+    const transitioned = tierInfo.tierIndex !== previousTierIndex;
+    if (transitioned) {
+      const collapseTransition =
+        (previousTierIndex === 4 && tierInfo.tierIndex === 5) ||
+        (previousTierIndex === 5 && tierInfo.tierIndex === 6);
+
+      if (collapseTransition) {
+        // Trigger a visible crunch animation when the star collapses to a smaller tier.
+        this.coreSizeState.transitionStartPercent = this.coreSizeState.percent;
+        this.coreSizeState.targetPercent = basePercent;
+        this.coreSizeState.transitionElapsed = 0;
+        this.coreSizeState.transitionDuration = COLLAPSE_ANIMATION_SECONDS;
+      } else {
+        // Snap forward to the new baseline while letting progress interpolation handle further growth.
+        this.coreSizeState.percent = Math.max(this.coreSizeState.percent, basePercent);
+        this.coreSizeState.transitionDuration = 0;
+        this.coreSizeState.transitionElapsed = 0;
+        this.coreSizeState.targetPercent = basePercent;
+        this.coreSizeState.transitionStartPercent = this.coreSizeState.percent;
+      }
+
+      this.lastTierIndex = tierInfo.tierIndex;
+    }
+
+    if (this.coreSizeState.transitionDuration > 0) {
+      const newElapsed = Math.min(
+        this.coreSizeState.transitionElapsed + Math.max(0, dt),
+        this.coreSizeState.transitionDuration,
+      );
+      this.coreSizeState.transitionElapsed = newElapsed;
+      const progress = this.coreSizeState.transitionDuration > 0
+        ? newElapsed / this.coreSizeState.transitionDuration
+        : 1;
+      const eased = 1 - Math.pow(1 - progress, 3);
+      this.coreSizeState.percent = GravitySimulation.lerp(
+        this.coreSizeState.transitionStartPercent,
+        this.coreSizeState.targetPercent,
+        eased,
+      );
+
+      if (newElapsed >= this.coreSizeState.transitionDuration) {
+        this.coreSizeState.transitionDuration = 0;
+      }
+      return;
+    }
+
+    let desiredPercent = basePercent;
+    if (tierInfo.tierIndex === MASS_TIERS.length - 1) {
+      // Let the black hole swell up to 50% of the viewport width as mass grows post-threshold.
+      const lastTier = MASS_TIERS[tierInfo.tierIndex];
+      const startPercent = desiredPercent;
+      const extraMass = Math.max(0, this.starMass - lastTier.threshold);
+      const range = Math.max(1, this.blackHoleGrowthRange || lastTier.threshold);
+      const normalized = GravitySimulation.clamp(extraMass / range, 0, 1);
+      desiredPercent = GravitySimulation.lerp(startPercent, BLACK_HOLE_MAX_DIAMETER_PERCENT, normalized);
+    } else if (tierInfo.nextTier) {
+      const nextPercent = TIER_DIAMETER_PERCENTAGES[tierInfo.tierIndex + 1] || desiredPercent;
+      if (nextPercent > desiredPercent) {
+        desiredPercent = GravitySimulation.lerp(
+          desiredPercent,
+          nextPercent,
+          GravitySimulation.clamp(tierInfo.progress, 0, 1),
+        );
+      }
+    }
+
+    // Ease toward the desired size so growth appears smooth even on variable frame rates.
+    const smoothing = dt <= 0 ? 1 : GravitySimulation.clamp(dt * 4, 0, 1);
+    this.coreSizeState.percent = GravitySimulation.lerp(this.coreSizeState.percent, desiredPercent, smoothing);
   }
 
   /**
@@ -1704,10 +1811,14 @@ export class GravitySimulation {
     const MAX_FRAME_DELTA_MS = 100; // Prevent physics instability on frame drops
     const deltaTime = Math.min(timestamp - this.lastFrame, MAX_FRAME_DELTA_MS);
     this.lastFrame = timestamp;
-    
+
     // Update elapsed time for statistics
-    this.elapsedTime += deltaTime / 1000;
-    
+    const deltaSeconds = deltaTime / 1000;
+    this.elapsedTime += deltaSeconds;
+
+    // Refresh the responsive sun diameter before physics rely on the latest radius.
+    this.updateCoreSizeState(deltaSeconds);
+
     // Update all simulation components
     this.updateShootingStars(deltaTime);
     this.updateStars(deltaTime);
@@ -1912,5 +2023,15 @@ export class GravitySimulation {
         }
       }
     }
+
+    const refreshedTier = this.getCurrentTier();
+    this.lastTierIndex = refreshedTier.tierIndex;
+    const baselinePercent = TIER_DIAMETER_PERCENTAGES[refreshedTier.tierIndex] || TIER_DIAMETER_PERCENTAGES[0];
+    this.coreSizeState.percent = baselinePercent;
+    this.coreSizeState.transitionStartPercent = baselinePercent;
+    this.coreSizeState.targetPercent = baselinePercent;
+    this.coreSizeState.transitionElapsed = 0;
+    this.coreSizeState.transitionDuration = 0;
+    this.updateCoreSizeState(0);
   }
 }

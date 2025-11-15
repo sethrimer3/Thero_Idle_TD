@@ -7054,7 +7054,14 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .lamed-simulation-card {
   height: auto;
+  /* Use the stable viewport height when available to prevent mobile address bar flicker. */
   width: min(100%, calc(100vw - 48px), calc((100vh - 220px) * 0.75));
+}
+
+@supports (height: 100svh) {
+  .lamed-simulation-card {
+    width: min(100%, calc(100vw - 48px), calc((100svh - 220px) * 0.75));
+  }
 }
 
 .lamed-simulation-card .powder-simulation {
