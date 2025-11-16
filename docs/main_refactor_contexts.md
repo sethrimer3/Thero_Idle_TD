@@ -33,6 +33,9 @@ Manages the `AudioManager` wiring, slider bindings, audio persistence, activatio
 
 `assets/state/spireResourceState.js` exposes `createSpireResourceState()` which clones the Lamed/Tsadi/Shin/Kuf banks (including nested upgrade + stat objects) so saved state can hydrate without mutating shared templates. Main.js now imports the builder instead of declaring the literal inline, reducing another chunk of state setup.
 
+## Spire Bank Management Helpers
+`assets/spireResourceBanks.js` encapsulates the Lamed/Tsadi bank normalization logic and glyph currency reconciliation math. Main.js now requests a tiny helper surface for updating bank values rather than defining dozens of inline functions tied to the spire menu controller.
+
 ## Offline Overlay & Persistence Plumbing
 Handles storage key constants, powder log bookkeeping, offline overlay animation state, and timer coordination for idle rewards.
 

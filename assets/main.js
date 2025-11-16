@@ -118,6 +118,7 @@ import { createTsadiUpgradeUi } from './tsadiUpgradeUi.js';
 import { createSpireTabVisibilityManager } from './spireTabVisibility.js';
 import { createIdleLevelRunManager } from './idleLevelRunManager.js';
 import { createSpireResourceState } from './state/spireResourceState.js';
+import { createSpireResourceBanks } from './spireResourceBanks.js';
 // Powder tower palette and simulation helpers.
 import {
   DEFAULT_MOTE_PALETTE,
@@ -823,8 +824,26 @@ import {
     }
   });
 
+  let spireMenuController = null;
+
+  const {
+    getLamedSparkBank,
+    setLamedSparkBank,
+    ensureLamedBankSeeded,
+    getTsadiParticleBank,
+    setTsadiParticleBank,
+    ensureTsadiBankSeeded,
+    reconcileGlyphCurrencyFromState,
+  } = createSpireResourceBanks({
+    spireResourceState,
+    getSpireMenuController: () => spireMenuController,
+    powderState,
+    calculateInvestedGlyphs,
+    setGlyphCurrency,
+  });
+
   // Controller that wires the floating spire navigation UI and count displays.
-  const spireMenuController = createSpireFloatingMenuController({
+  spireMenuController = createSpireFloatingMenuController({
     formatGameNumber,
     formatWholeNumber,
     getCurrentIdleMoteBank,
@@ -886,96 +905,6 @@ import {
   );
   setTrackedShinGlyphs(getShinGlyphs());
   setTrackedKufGlyphs(getKufGlyphs());
-
-  /**
-   * Retrieve the current spark reserve for the Lamed Spire.
-   * @returns {number}
-   */
-  function getLamedSparkBank() {
-    const bank = spireResourceState.lamed?.sparkBank;
-    return Number.isFinite(bank) ? Math.max(0, bank) : 0;
-  }
-
-  /**
-   * Persist a new spark reserve total and refresh connected UI readouts.
-   * @param {number} value - Updated spark bank
-   * @returns {number} Normalized spark bank value
-   */
-  function setLamedSparkBank(value) {
-    const normalized = Number.isFinite(value) ? Math.max(0, value) : 0;
-    const current = getLamedSparkBank();
-    if (normalized === current) {
-      return current;
-    }
-    spireResourceState.lamed.sparkBank = normalized;
-    spireMenuController.updateCounts();
-    return normalized;
-  }
-
-  /**
-   * Ensure the Lamed bank starts with a seed reserve the first time the spire unlocks.
-   */
-  function ensureLamedBankSeeded() {
-    if (spireResourceState.lamed.unlocked) {
-      return;
-    }
-    spireResourceState.lamed.unlocked = true;
-    if (getLamedSparkBank() < 100) {
-      setLamedSparkBank(100);
-    } else {
-      spireMenuController.updateCounts();
-    }
-  }
-
-  /**
-   * Retrieve the current particle reserve for the Tsadi Spire.
-   * @returns {number}
-   */
-  function getTsadiParticleBank() {
-    const bank = spireResourceState.tsadi?.particleBank;
-    return Number.isFinite(bank) ? Math.max(0, bank) : 0;
-  }
-
-  /**
-   * Persist a new particle reserve total and refresh connected UI readouts.
-   * @param {number} value - Updated particle bank
-   * @returns {number} Normalized particle bank value
-   */
-  function setTsadiParticleBank(value) {
-    const normalized = Number.isFinite(value) ? Math.max(0, value) : 0;
-    const current = getTsadiParticleBank();
-    if (normalized === current) {
-      return current;
-    }
-    spireResourceState.tsadi.particleBank = normalized;
-    spireMenuController.updateCounts();
-    return normalized;
-  }
-
-  /**
-   * Seed the Tsadi bank when the spire is first unlocked so particles can spawn immediately.
-   */
-  function ensureTsadiBankSeeded() {
-    if (spireResourceState.tsadi.unlocked) {
-      return;
-    }
-    spireResourceState.tsadi.unlocked = true;
-    if (getTsadiParticleBank() < 100) {
-      setTsadiParticleBank(100);
-    } else {
-      spireMenuController.updateCounts();
-    }
-  }
-  
-  function reconcileGlyphCurrencyFromState() {
-    const awarded = Number.isFinite(powderState.glyphsAwarded)
-      ? Math.max(0, Math.floor(powderState.glyphsAwarded))
-      : 0;
-    const invested = Math.max(0, calculateInvestedGlyphs());
-    const available = Math.max(0, awarded - invested);
-    setGlyphCurrency(available);
-    return { awarded, invested, available };
-  }
 
   const powderGlyphColumns = [];
   const fluidGlyphColumns = [];
