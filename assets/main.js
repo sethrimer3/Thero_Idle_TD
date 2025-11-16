@@ -276,6 +276,7 @@ import { enableDragScroll } from './dragScroll.js';
 import { createLevelEditorController } from './levelEditor.js';
 import { createLevelPreviewRenderer } from './levelPreviewRenderer.js';
 import { createLevelOverlayController } from './levelOverlayController.js';
+import { createLevelStoryScreen } from './levelStoryScreen.js';
 import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
 import { createPlayfieldMenuController } from './playfieldMenu.js';
 import { createVariableLibraryController } from './variableLibraryController.js';
@@ -1883,6 +1884,25 @@ import {
     revealOverlay,
     scheduleOverlayHide,
   });
+
+  const levelStoryScreen = createLevelStoryScreen({
+    levelState,
+    onStoryComplete: (levelId) => {
+      if (!levelId) {
+        return;
+      }
+      const existingState = levelState.get(levelId) || {
+        entered: false,
+        running: false,
+        completed: false,
+      };
+      if (existingState.storySeen) {
+        return;
+      }
+      levelState.set(levelId, { ...existingState, storySeen: true });
+      commitAutoSave();
+    },
+  });
   // Track the animation frame id that advances idle simulations so we can pause the loop when idle.
 
   let powderSimulation = null;
@@ -2964,6 +2984,10 @@ import {
       });
     }
 
+    if (isInteractive && levelStoryScreen) {
+      levelStoryScreen.maybeShowStory(level);
+    }
+
     if (isInteractive) {
       if (audioManager) {
         audioManager.playSfx('enterLevel');
@@ -3675,6 +3699,14 @@ import {
     if (levelOverlayController) {
       levelOverlayController.bindOverlayElements();
     }
+    if (levelStoryScreen) {
+      levelStoryScreen.bindElements({
+        overlay: document.getElementById('level-story-overlay'),
+        label: document.getElementById('level-story-label'),
+        sections: document.getElementById('level-story-sections'),
+        prompt: document.getElementById('level-story-prompt'),
+      });
+    }
     // Cache layout toggles for switching between the level grid and battlefield.
     playfieldWrapper = document.getElementById('playfield-wrapper');
     stageControls = document.getElementById('stage-controls');
@@ -4105,6 +4137,10 @@ import {
       }
       await dismissStartupOverlay();
       return;
+    }
+
+    if (levelStoryScreen) {
+      levelStoryScreen.preloadStories();
     }
 
     setMergingLogicUnlocked(getMergeProgressState().mergingLogicUnlocked);
