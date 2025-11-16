@@ -137,6 +137,14 @@ import {
   absorbSigmaDamage as absorbSigmaDamageHelper,
   resolveSigmaShotDamage as resolveSigmaShotDamageHelper,
 } from '../scripts/features/towers/sigmaTower.js';
+import {
+  ensureChiState as ensureChiStateHelper,
+  updateChiTower as updateChiTowerHelper,
+  teardownChiTower as teardownChiTowerHelper,
+  tryConvertEnemyToChiThrall as tryConvertEnemyToChiThrallHelper,
+  updateChiThralls as updateChiThrallsHelper,
+  updateChiLightTrails as updateChiLightTrailsHelper,
+} from '../scripts/features/towers/chiTower.js';
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -257,6 +265,9 @@ export class SimplePlayfield {
     this.betaBursts = [];
     this.gammaBursts = [];
     this.nuBursts = [];
+    this.chiThralls = [];
+    this.chiLightTrails = [];
+    this.chiThrallIdCounter = 0;
     this.availableTowers = [];
     this.draggingTowerType = null;
     this.dragPreviewOffset = { x: 0, y: 0 }; // Allow callers to nudge the preview in addition to the standardized elevation.
@@ -398,6 +409,19 @@ export class SimplePlayfield {
     this.statsLastRender = 0;
     if (typeof StatsPanel.resetPanel === 'function') {
       StatsPanel.resetPanel();
+    }
+  }
+
+  resetChiSystems() {
+    if (Array.isArray(this.chiThralls)) {
+      this.chiThralls.length = 0;
+    } else {
+      this.chiThralls = [];
+    }
+    if (Array.isArray(this.chiLightTrails)) {
+      this.chiLightTrails.length = 0;
+    } else {
+      this.chiLightTrails = [];
     }
   }
 
@@ -1517,6 +1541,7 @@ export class SimplePlayfield {
       this.setStatsPanelEnabled(false);
       this.disableSlots(true);
       this.enemies = [];
+      this.resetChiSystems();
       this.projectiles = [];
       this.alphaBursts = [];
       this.betaBursts = [];
@@ -1619,6 +1644,7 @@ export class SimplePlayfield {
       this.stopLoop();
       this.arcOffset = 0;
       this.enemies = [];
+      this.resetChiSystems();
       this.projectiles = [];
       this.alphaBursts = [];
       this.betaBursts = [];
@@ -1691,6 +1717,7 @@ export class SimplePlayfield {
       this.shouldAnimate = false;
       this.stopLoop();
       this.enemies = [];
+      this.resetChiSystems();
       this.projectiles = [];
       this.towers = [];
       this.pathSegments = [];
@@ -1728,6 +1755,7 @@ export class SimplePlayfield {
     this.stopLoop();
     this.disableSlots(true);
     this.enemies = [];
+    this.resetChiSystems();
     this.projectiles = [];
     this.activeTowerMenu = null;
     this.deltaSoldierIdCounter = 0;
@@ -1813,6 +1841,7 @@ export class SimplePlayfield {
     this.currentWaveNumber = 1;
     this.maxWaveReached = 0;
     this.enemies = [];
+    this.resetChiSystems();
     this.projectiles = [];
     this.alphaBursts = [];
     this.betaBursts = [];
@@ -1951,6 +1980,7 @@ export class SimplePlayfield {
     this.activeWave = null;
     this.enemies.forEach((enemy) => this.clearEnemySlowEffects(enemy));
     this.enemies = [];
+    this.resetChiSystems();
     this.projectiles = [];
     this.alphaBursts = [];
     this.betaBursts = [];
@@ -2006,6 +2036,9 @@ export class SimplePlayfield {
       }
       if (tower.type === 'iota') {
         this.ensureIotaState(tower);
+      }
+      if (tower.type === 'chi') {
+        this.ensureChiState(tower);
       }
       if (tower.type === 'zeta') {
         // Keep ζ pendulum geometry aligned with the tower's new coordinates.
@@ -2771,6 +2804,48 @@ export class SimplePlayfield {
    */
   teardownSigmaTower(tower) {
     return TowerManager.teardownSigmaTower.call(this, tower);
+  }
+
+  /**
+   * Ensure χ state remains initialized so thrall conversions stay responsive.
+   */
+  ensureChiState(tower) {
+    return ensureChiStateHelper(this, tower);
+  }
+
+  /**
+   * Clear χ caches and associated thralls when the tower departs the lattice.
+   */
+  teardownChiTower(tower) {
+    teardownChiTowerHelper(this, tower);
+  }
+
+  /**
+   * Attempt to convert a fallen enemy into a Chi thrall.
+   */
+  tryConvertEnemyToChiThrall(enemy, options = {}) {
+    return tryConvertEnemyToChiThrallHelper(this, enemy, options);
+  }
+
+  /**
+   * Maintain χ aura pulses and conversion state.
+   */
+  updateChiTower(tower, delta) {
+    updateChiTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Advance live Chi thralls along the track.
+   */
+  updateChiThralls(delta) {
+    updateChiThrallsHelper(this, delta);
+  }
+
+  /**
+   * Animate Chi light trails traveling between anchors.
+   */
+  updateChiLightTrails(delta) {
+    updateChiLightTrailsHelper(this, delta);
   }
 
   /**
@@ -4695,6 +4770,7 @@ export class SimplePlayfield {
     this.waveTimer = 0;
     this.enemyIdCounter = 0;
     this.enemies = [];
+    this.resetChiSystems();
     this.projectiles = [];
     this.alphaBursts = [];
     this.betaBursts = [];
@@ -5227,6 +5303,8 @@ export class SimplePlayfield {
     try {
       this.spawnEnemies();
       this.updateEnemies(speedDelta);
+      this.updateChiThralls(speedDelta);
+      this.updateChiLightTrails(speedDelta);
     } finally {
       finishEnemySegment();
     }
@@ -5522,6 +5600,10 @@ export class SimplePlayfield {
         }
         if (tower.type === 'sigma') {
           this.updateSigmaTower(tower, delta);
+          return;
+        }
+        if (tower.type === 'chi') {
+          this.updateChiTower(tower, delta);
           return;
         }
         if (!this.combatActive) {
@@ -6953,10 +7035,11 @@ export class SimplePlayfield {
     this.ensureLoop();
 
     this.waveIndex = targetIndex;
-    this.waveTimer = 0;
-    this.enemyIdCounter = 0;
-    this.enemies = [];
-    this.projectiles = [];
+      this.waveTimer = 0;
+      this.enemyIdCounter = 0;
+      this.enemies = [];
+      this.resetChiSystems();
+      this.projectiles = [];
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
@@ -7098,6 +7181,8 @@ export class SimplePlayfield {
   }
 
   processEnemyDefeat(enemy) {
+    const defeatPosition = this.getEnemyPosition(enemy);
+    this.tryConvertEnemyToChiThrall(enemy, { position: defeatPosition });
     this.captureEnemyHistory(enemy);
     this.clearEnemySlowEffects(enemy);
     this.clearEnemyDamageAmplifiers(enemy);
@@ -7464,6 +7549,14 @@ export class SimplePlayfield {
 
   drawNodes() {
     return CanvasRenderer.drawNodes.call(this);
+  }
+
+  drawChiThralls() {
+    return CanvasRenderer.drawChiThralls.call(this);
+  }
+
+  drawChiLightTrails() {
+    return CanvasRenderer.drawChiLightTrails.call(this);
   }
 
   setDeveloperPathMarkers(markers) {
