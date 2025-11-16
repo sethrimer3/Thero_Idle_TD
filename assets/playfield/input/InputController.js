@@ -303,48 +303,55 @@ function handleCanvasPointerDown(event) {
     this.cancelTowerHoldGesture();
   }
 
-  if (canInitiateDrag && tower && (tower.type === 'alpha' || tower.type === 'beta' || tower.type === 'gamma')) {
-      this.clearConnectionDragState();
-      this.connectionDragState.pointerId = event.pointerId;
-      this.connectionDragState.originTowerId = tower.id;
-      this.connectionDragState.startPosition = position ? { ...position } : null;
-      this.connectionDragState.currentPosition = position ? { ...position } : null;
-      this.connectionDragState.highlightEntries = [];
-      this.connectionDragState.hoverEntry = null;
-      this.suppressNextCanvasClick = false;
-      if (!isTouchPointer && typeof this.canvas?.setPointerCapture === 'function') {
-        try {
-          this.canvas.setPointerCapture(event.pointerId);
-        } catch (error) {
-          // Ignore pointer capture errors?connection drags still function without it.
-        }
+  // Detect when the pointer interaction should start a glyph-connection drag between α/β/γ towers.
+  const canDragConnections =
+    canInitiateDrag &&
+    tower &&
+    (tower.type === 'alpha' || tower.type === 'beta' || tower.type === 'gamma');
+  if (canDragConnections) {
+    this.clearConnectionDragState();
+    this.connectionDragState.pointerId = event.pointerId;
+    this.connectionDragState.originTowerId = tower.id;
+    this.connectionDragState.startPosition = position ? { ...position } : null;
+    this.connectionDragState.currentPosition = position ? { ...position } : null;
+    this.connectionDragState.highlightEntries = [];
+    this.connectionDragState.hoverEntry = null;
+    this.suppressNextCanvasClick = false;
+    if (!isTouchPointer && typeof this.canvas?.setPointerCapture === 'function') {
+      try {
+        this.canvas.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore pointer capture errors so connection drags still function without capture.
       }
-      return;
     }
-    if (tower && tower.type === 'delta') {
-      this.clearDeltaCommandDragState();
-      const dragState = this.deltaCommandDragState;
-      dragState.pointerId = event.pointerId;
-      dragState.towerId = tower.id;
-      dragState.startPosition = position ? { ...position } : null;
-      dragState.currentPosition = position ? { ...position } : null;
-      dragState.startNormalized = normalized ? { ...normalized } : null;
-      dragState.currentNormalized = normalized ? { ...normalized } : null;
-      dragState.active = false;
-      dragState.hasMoved = false;
-      dragState.trackAnchor = null;
-      dragState.trackDistance = Infinity;
-      dragState.anchorAvailable = false;
-      this.suppressNextCanvasClick = false;
-      if (!isTouchPointer && typeof this.canvas?.setPointerCapture === 'function') {
-        try {
-          this.canvas.setPointerCapture(event.pointerId);
-        } catch (error) {
-          // Ignore pointer capture errors; dragging still functions without capture.
-        }
+    return;
+  }
+
+  // Detect when the active tower is δ so the drag gesture routes command tracks.
+  const canDragDeltaCommands = canInitiateDrag && tower && tower.type === 'delta';
+  if (canDragDeltaCommands) {
+    this.clearDeltaCommandDragState();
+    const dragState = this.deltaCommandDragState;
+    dragState.pointerId = event.pointerId;
+    dragState.towerId = tower.id;
+    dragState.startPosition = position ? { ...position } : null;
+    dragState.currentPosition = position ? { ...position } : null;
+    dragState.startNormalized = normalized ? { ...normalized } : null;
+    dragState.currentNormalized = normalized ? { ...normalized } : null;
+    dragState.active = false;
+    dragState.hasMoved = false;
+    dragState.trackAnchor = null;
+    dragState.trackDistance = Infinity;
+    dragState.anchorAvailable = false;
+    this.suppressNextCanvasClick = false;
+    if (!isTouchPointer && typeof this.canvas?.setPointerCapture === 'function') {
+      try {
+        this.canvas.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore pointer capture errors so delta drags still function without capture.
       }
-      return;
     }
+    return;
   }
 
   if (canInitiateDrag) {
