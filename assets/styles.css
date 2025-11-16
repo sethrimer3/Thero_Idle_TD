@@ -3670,6 +3670,66 @@ body.graphics-mode-low .control-button {
   height: 100%;
 }
 
+/* Layer that anchors the animated Delta slimes so they follow viewport transforms. */
+.fluid-terrarium-creature-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.fluid-terrarium-creature,
+.fluid-terrarium-creature::after {
+  transition: filter 0.35s ease;
+}
+
+/* Stylize the Delta grasshopper slimes with a multi-tone gradient. */
+.fluid-terrarium-creature {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: transparent;
+  opacity: 0.95;
+  background-image: linear-gradient(
+    180deg,
+    #05142a 0%,
+    #123c72 32%,
+    #1f6fa8 48%,
+    #31a6c7 68%,
+    #7ed8b1 86%,
+    #1d6f35 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  mix-blend-mode: screen;
+  transform-origin: 50% 100%;
+  will-change: transform;
+  filter:
+    drop-shadow(0 3px 6px rgba(6, 12, 20, 0.85))
+    drop-shadow(0 0 10px rgba(91, 219, 205, var(--delta-slime-glow, 0.8)));
+}
+
+/* Pseudo-element acts as a soft glow under each slime to emphasize motion. */
+.fluid-terrarium-creature::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  width: 40%;
+  height: 12px;
+  background: radial-gradient(circle, rgba(80, 180, 200, 0.35), transparent 70%);
+  opacity: 0.8;
+  transform: translateX(-50%);
+  filter: blur(6px);
+  pointer-events: none;
+  z-index: -1;
+}
+
 .fluid-terrarium__sky {
   position: absolute;
   top: 0;

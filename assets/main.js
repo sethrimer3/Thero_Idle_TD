@@ -126,6 +126,8 @@ import { createPowderViewportController } from './powderViewportController.js';
 import { createPowderResizeObserver } from './powderResizeObserver.js';
 // DOM helpers extracted from main.js to hydrate powder and fluid overlays.
 import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
+// Lightweight animation overlay that keeps the Bet terrarium lively.
+import { FluidTerrariumCreatures } from './fluidTerrariumCreatures.js';
 import { createResourceHud } from './resourceHud.js';
 import { createTsadiUpgradeUi } from './tsadiUpgradeUi.js';
 import { createSpireTabVisibilityManager } from './spireTabVisibility.js';
@@ -825,6 +827,21 @@ import {
     spireResourceState,
     powderState,
   });
+
+  // Animate Delta grasshopper slimes once the fluid viewport is bound.
+  let fluidTerrariumCreatures = null;
+
+  function ensureFluidTerrariumCreatures() {
+    // Lazily create the overlay so it never blocks powder initialization.
+    if (fluidTerrariumCreatures || !fluidElements?.viewport) {
+      return;
+    }
+    fluidTerrariumCreatures = new FluidTerrariumCreatures({
+      container: fluidElements.viewport,
+      creatureCount: 4,
+    });
+    fluidTerrariumCreatures.start();
+  }
 
   // Ensure compact autosave remains the active basin persistence strategy.
   document.addEventListener('DOMContentLoaded', () => {
@@ -4212,6 +4229,7 @@ import {
 
     bindStatusElements();
     bindPowderControls();
+    ensureFluidTerrariumCreatures();
     ensurePowderBasinResizeObserver();
     bindSpireClickIncome();
     await applyPowderSimulationMode(powderState.simulationMode);
