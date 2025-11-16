@@ -132,6 +132,11 @@ import {
   updatePiTower as updatePiTowerHelper,
   teardownPiTower as teardownPiTowerHelper,
 } from '../scripts/features/towers/piTower.js';
+import {
+  updateSigmaTower as updateSigmaTowerHelper,
+  absorbSigmaDamage as absorbSigmaDamageHelper,
+  resolveSigmaShotDamage as resolveSigmaShotDamageHelper,
+} from '../scripts/features/towers/sigmaTower.js';
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -2748,6 +2753,34 @@ export class SimplePlayfield {
   }
 
   /**
+   * Convert stored σ damage into a discharge when conditions are met.
+   */
+  updateSigmaTower(tower, delta) {
+    updateSigmaTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Ensure σ state exists so allied fire has a reservoir.
+   */
+  ensureSigmaState(tower) {
+    return TowerManager.ensureSigmaState.call(this, tower);
+  }
+
+  /**
+   * Clear σ-specific caches when the tower is sold or retuned.
+   */
+  teardownSigmaTower(tower) {
+    return TowerManager.teardownSigmaTower.call(this, tower);
+  }
+
+  /**
+   * Feed allied damage into σ's accumulator.
+   */
+  absorbSigmaDamage(tower, damage, options = {}) {
+    return absorbSigmaDamageHelper(this, tower, damage, options);
+  }
+
+  /**
    * Ensure μ mine state stays synchronized with upgrades and canvas scale.
    */
   ensureMuState(tower) {
@@ -3575,6 +3608,7 @@ export class SimplePlayfield {
     this.teardownXiTower(tower);
     this.teardownOmicronTower(tower);
     this.teardownPiTower(tower);
+    this.teardownSigmaTower(tower);
     this.handleAlephTowerRemoved(tower);
 
     const index = this.towers.indexOf(tower);
@@ -5486,13 +5520,17 @@ export class SimplePlayfield {
           this.updatePiTower(tower, delta);
           return;
         }
-        if (!this.combatActive || !this.enemies.length) {
+        if (tower.type === 'sigma') {
+          this.updateSigmaTower(tower, delta);
+          return;
+        }
+        if (!this.combatActive) {
           return;
         }
         if (tower.cooldown > 0) {
           return;
         }
-        const targetInfo = this.findTarget(tower);
+        const targetInfo = this.findTarget(tower, { includeSigmaTargets: tower.type !== 'sigma' });
         if (!targetInfo) {
           return;
         }
@@ -5658,10 +5696,11 @@ export class SimplePlayfield {
     deployDeltaSoldierHelper(this, tower, targetInfo);
   }
 
-  findTarget(tower) {
+  findTarget(tower, options = {}) {
     if (!tower) {
       return null;
     }
+    const includeSigmaTargets = options.includeSigmaTargets !== false;
     const manual = this.getTowerManualTarget(tower);
     if (manual) {
       const position = this.getEnemyPosition(manual);
@@ -5720,6 +5759,41 @@ export class SimplePlayfield {
       if (enemy.progress > bestProgress) {
         selected = { enemy, position };
         bestProgress = enemy.progress;
+      }
+    });
+    if (selected) {
+      return selected;
+    }
+    if (includeSigmaTargets) {
+      return this.findSigmaFriendlyTarget(tower);
+    }
+    return null;
+  }
+
+  /**
+   * Locate the nearest σ lattice within range so idle towers can feed it.
+   */
+  findSigmaFriendlyTarget(tower) {
+    if (!tower || tower.type === 'sigma') {
+      return null;
+    }
+    const range = Number.isFinite(tower.range) ? tower.range : 0;
+    if (range <= 0) {
+      return null;
+    }
+    let selected = null;
+    let nearest = Infinity;
+    this.towers.forEach((candidate) => {
+      if (!candidate || candidate.type !== 'sigma' || candidate.id === tower.id) {
+        return;
+      }
+      const distance = Math.hypot(candidate.x - tower.x, candidate.y - tower.y);
+      if (distance > range) {
+        return;
+      }
+      if (distance < nearest) {
+        selected = { sigma: candidate, position: { x: candidate.x, y: candidate.y } };
+        nearest = distance;
       }
     });
     return selected;
@@ -5811,6 +5885,9 @@ export class SimplePlayfield {
       return 0;
     }
     let damage = Number.isFinite(tower.damage) ? tower.damage : 0;
+    if (tower.type === 'sigma') {
+      return resolveSigmaShotDamageHelper(this, tower);
+    }
     if (tower.type === 'beta') {
       const alphaShots = Math.max(0, tower.storedAlphaShots || 0);
       if (alphaShots > 0) {
@@ -5966,13 +6043,25 @@ export class SimplePlayfield {
     }
     const enemy = targetInfo.enemy || null;
     const crystal = targetInfo.crystal || null;
+    const sigmaTower = targetInfo.sigma || null;
     const attackPosition =
       targetInfo.position ||
-      (enemy ? this.getEnemyPosition(enemy) : crystal ? this.getCrystalPosition(crystal) : null);
+      (enemy
+        ? this.getEnemyPosition(enemy)
+        : crystal
+        ? this.getCrystalPosition(crystal)
+        : sigmaTower
+        ? { x: sigmaTower.x, y: sigmaTower.y }
+        : null);
     const damage = this.resolveTowerShotDamage(tower);
     if (crystal) {
       this.emitTowerAttackVisuals(tower, { crystal, position: attackPosition });
       this.applyCrystalHit(crystal, damage, { position: attackPosition });
+      return;
+    }
+    if (sigmaTower) {
+      this.absorbSigmaDamage(sigmaTower, damage, { sourceTower: tower });
+      this.emitTowerAttackVisuals(tower, { position: attackPosition });
       return;
     }
     if (!enemy) {
@@ -6624,6 +6713,14 @@ export class SimplePlayfield {
       storedAlphaSwirl: Number.isFinite(tower.storedAlphaSwirl) ? tower.storedAlphaSwirl : 0,
       storedBetaSwirl: Number.isFinite(tower.storedBetaSwirl) ? tower.storedBetaSwirl : 0,
       storedGammaShots: Number.isFinite(tower.storedGammaShots) ? tower.storedGammaShots : 0,
+      sigmaStoredDamage:
+        tower.type === 'sigma' && Number.isFinite(tower.sigmaState?.storedDamage)
+          ? tower.sigmaState.storedDamage
+          : null,
+      sigmaTotalAbsorbed:
+        tower.type === 'sigma' && Number.isFinite(tower.sigmaState?.totalAbsorbed)
+          ? tower.sigmaState.totalAbsorbed
+          : null,
     };
   }
 
@@ -6722,6 +6819,27 @@ export class SimplePlayfield {
         const rawPrime = Number.isFinite(snapshot.etaPrime) ? snapshot.etaPrime : 0;
         tower.etaPrime = Math.max(0, Math.min(rawPrime, ETA_MAX_PRESTIGE_MERGES));
         tower.isPrestigeEta = snapshot.isPrestigeEta ? true : tower.etaPrime >= ETA_MAX_PRESTIGE_MERGES;
+      }
+      if (tower.type === 'sigma') {
+        const sigmaState = this.ensureSigmaState(tower);
+        if (sigmaState) {
+          sigmaState.storedDamage = 0;
+          sigmaState.totalAbsorbed = 0;
+          const restoredDamage = Number.isFinite(snapshot.sigmaStoredDamage)
+            ? Math.max(0, snapshot.sigmaStoredDamage)
+            : 0;
+          if (restoredDamage > 0) {
+            absorbSigmaDamageHelper(this, tower, restoredDamage);
+          }
+          if (Number.isFinite(snapshot.sigmaTotalAbsorbed)) {
+            sigmaState.totalAbsorbed = Math.max(
+              sigmaState.totalAbsorbed,
+              Math.max(0, snapshot.sigmaTotalAbsorbed),
+            );
+          }
+          tower.damage = sigmaState.storedDamage;
+          tower.baseDamage = sigmaState.storedDamage;
+        }
       }
       if (snapshot.slotId && this.slots.has(snapshot.slotId)) {
         const slot = this.slots.get(snapshot.slotId);

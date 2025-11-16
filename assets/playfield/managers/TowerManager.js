@@ -62,6 +62,10 @@ import {
   ensurePiState as ensurePiStateHelper,
   teardownPiTower as teardownPiTowerHelper,
 } from '../../../scripts/features/towers/piTower.js';
+import {
+  ensureSigmaState as ensureSigmaStateHelper,
+  teardownSigmaTower as teardownSigmaTowerHelper,
+} from '../../../scripts/features/towers/sigmaTower.js';
 
 // Tower management routines extracted from SimplePlayfield.
 
@@ -244,6 +248,11 @@ function applyTowerBehaviorDefaults(tower) {
     // Clear η caches when the lattice shifts into another configuration.
     this.teardownEtaTower(tower);
   }
+  if (tower.type === 'sigma') {
+    this.ensureSigmaState(tower);
+  } else if (tower.sigmaState) {
+    this.teardownSigmaTower(tower);
+  }
 }
 
 function ensureDeltaState(tower) {
@@ -294,6 +303,14 @@ function teardownPiTower(tower) {
   teardownPiTowerHelper(this, tower);
 }
 
+function ensureSigmaState(tower) {
+  return ensureSigmaStateHelper(this, tower);
+}
+
+function teardownSigmaTower(tower) {
+  teardownSigmaTowerHelper(this, tower);
+}
+
 export {
   evaluateZetaMetrics,
   teardownAlphaTower,
@@ -334,4 +351,6 @@ export {
   fireIotaPulse,
   ensurePiState,
   teardownPiTower,
+  ensureSigmaState,
+  teardownSigmaTower,
 };
