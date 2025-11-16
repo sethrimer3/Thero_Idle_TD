@@ -148,13 +148,14 @@ function refreshMuParameters(playfield, tower, state) {
   // spd = 0.5 + 0.1 * Aleph3
   const aleph3Value = computeTowerVariableValue('mu', 'aleph3', blueprint);
   const rawPlacementRate = 0.5 + 0.1 * (Number.isFinite(aleph3Value) ? aleph3Value : 0);
-  const placementRate = Math.max(0, rawPlacementRate);
+  const placementRate =
+    Number.isFinite(rawPlacementRate) && rawPlacementRate > 0 ? rawPlacementRate : 0.5;
   
   const minDimension = resolvePlayfieldMinDimension(playfield);
   const rangePixels = Math.max(24, metersToPixels(BASE_RANGE_METERS, minDimension));
   const mineRadiusPixels = metersToPixels(MINE_RADIUS_METERS, minDimension);
 
-  const baseCooldown = placementRate > 0 ? 1 / placementRate : Infinity;
+  const baseCooldown = placementRate > 0 ? 1 / placementRate : 2;
 
   state.lambdaPower = lambdaPower;
   state.maxTier = maxTier;
@@ -177,6 +178,12 @@ function refreshMuParameters(playfield, tower, state) {
   tower.rate = placementRate;
   tower.baseRange = rangePixels;
   tower.range = rangePixels;
+
+  // Prevent stale cooldowns from soft-locking mine placement when placementRate was invalid.
+  if (!Number.isFinite(state.cooldown) || state.cooldown > state.baseCooldown) {
+    state.cooldown = 0;
+    tower.cooldown = state.cooldown;
+  }
 }
 
 /**

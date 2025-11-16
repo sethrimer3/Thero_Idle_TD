@@ -386,6 +386,28 @@ export const mu = {
       },
     },
     {
+      key: 'range',
+      symbol: 'rng',
+      equationSymbol: 'rng',
+      masterEquationSymbol: 'Rng',
+      name: 'Mine Radius',
+      description: 'Fixed placement radius measured in meters.',
+      baseValue: 3,
+      upgradable: false,
+      format: (value) => `${formatDecimal(Math.max(0, value || 0), 2)} m`,
+      includeInMasterEquation: false,
+      getSubEquations({ value }) {
+        const resolved = Number.isFinite(value) ? Math.max(0, value) : 3;
+        return [
+          { expression: String.raw`\( \text{rng} = 3 \)` },
+          {
+            values: String.raw`\( ${formatDecimal(resolved, 2)} = 3 \)`,
+            variant: 'values',
+          },
+        ];
+      },
+    },
+    {
       key: 'aleph2',
       symbol: 'ℵ₂',
       equationSymbol: 'ℵ₂',
