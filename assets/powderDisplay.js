@@ -94,7 +94,20 @@ export function createPowderDisplaySystem({
     rightHitbox: null,
     modeToggle: null,
     stage: null,
+    altRenderToggle: null,
+    altRender: null,
   };
+
+  function setAltRenderVisibility(isVisible) {
+    if (powderElements.altRender) {
+      powderElements.altRender.hidden = !isVisible;
+      powderElements.altRender.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+    }
+    if (powderElements.altRenderToggle) {
+      powderElements.altRenderToggle.setAttribute('aria-pressed', isVisible ? 'true' : 'false');
+      powderElements.altRenderToggle.textContent = isVisible ? 'Hide Bet Wall Render' : 'Show Bet Wall Render';
+    }
+  }
 
   function setPowderCurrency(value) {
     const normalized = Number.isFinite(value) ? Math.max(0, value) : 0;
@@ -121,6 +134,7 @@ export function createPowderDisplaySystem({
       clearTimeout(powderBasinPulseTimer);
       powderBasinPulseTimer = null;
     }
+    setAltRenderVisibility(false);
   }
 
   function calculatePowderBonuses() {
@@ -233,6 +247,8 @@ export function createPowderDisplaySystem({
     powderElements.crystalFormula = document.getElementById('powder-crystal-formula');
     powderElements.crystalNote = document.getElementById('powder-crystal-note');
     powderElements.crystalButton = document.getElementById('powder-crystal-button');
+    powderElements.altRenderToggle = document.getElementById('powder-alt-render-toggle');
+    powderElements.altRender = document.getElementById('powder-alt-render');
 
     const glyphColumnNodes = document.querySelectorAll('[data-powder-glyph-column]');
     powderElements.wallGlyphColumns = Array.from(glyphColumnNodes);
@@ -262,6 +278,16 @@ export function createPowderDisplaySystem({
       powderElements.crystalButton.addEventListener('click', (event) => {
         event.preventDefault();
         chargeCrystalMatrix();
+      });
+    }
+
+    if (powderElements.altRender && powderElements.altRenderToggle) {
+      powderElements.altRender.setAttribute('aria-hidden', 'true');
+      setAltRenderVisibility(false);
+      powderElements.altRenderToggle.addEventListener('click', (event) => {
+        event.preventDefault();
+        const shouldShow = Boolean(powderElements.altRender.hidden);
+        setAltRenderVisibility(shouldShow);
       });
     }
 

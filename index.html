@@ -1498,6 +1498,33 @@
                     <div class="powder-glyph-column" data-powder-glyph-column="right"></div>
                   </div>
                 </div>
+                <div class="powder-alt-render-panel">
+                  <button
+                    class="powder-alt-render-toggle"
+                    id="powder-alt-render-toggle"
+                    type="button"
+                    aria-controls="powder-alt-render"
+                    aria-pressed="false"
+                  >
+                    Show Bet Wall Render
+                  </button>
+                  <div class="powder-alt-render" id="powder-alt-render" hidden>
+                    <div
+                      class="powder-alt-render__frame"
+                      role="img"
+                      aria-label="Preserved Bet Spire walls rendered within the Aleph study"
+                    >
+                      <div class="powder-alt-render__wall powder-alt-render__wall--left" aria-hidden="true"></div>
+                      <div class="powder-alt-render__fluid" aria-hidden="true">
+                        <div class="powder-alt-render__glow"></div>
+                      </div>
+                      <div class="powder-alt-render__wall powder-alt-render__wall--right" aria-hidden="true"></div>
+                    </div>
+                    <p class="powder-alt-render__caption">
+                      Bet walls now live as an Aleph render—toggle to compare the terrarium layouts.
+                    </p>
+                  </div>
+                </div>
               </div>
             </article>
           </section>
@@ -1690,6 +1717,7 @@
                         decoding="async"
                         aria-hidden="true"
                       />
+                      <div class="fluid-terrarium__liquid" aria-hidden="true"></div>
                       <img
                         class="fluid-terrarium__foreground"
                         src="./assets/sprites/spires/betSpire/bet_landscape.png"
@@ -1700,32 +1728,7 @@
                       />
                     </div>
                   </div>
-                  <div class="powder-viewport fluid-viewport" id="fluid-viewport">
-                    <div
-                      class="powder-wall-hitbox powder-wall-hitbox-left fluid-wall-hitbox fluid-wall-hitbox-left"
-                      id="fluid-wall-hitbox-left"
-                      aria-hidden="true"
-                    ></div>
-                    <div
-                      class="powder-wall powder-wall-left fluid-wall fluid-wall-left"
-                      id="fluid-wall-left"
-                      aria-hidden="true"
-                    >
-                      <div class="powder-glyph-column" data-fluid-glyph-column="left"></div>
-                    </div>
-                    <div
-                      class="powder-wall-hitbox powder-wall-hitbox-right fluid-wall-hitbox fluid-wall-hitbox-right"
-                      id="fluid-wall-hitbox-right"
-                      aria-hidden="true"
-                    ></div>
-                    <div
-                      class="powder-wall powder-wall-right fluid-wall fluid-wall-right"
-                      id="fluid-wall-right"
-                      aria-hidden="true"
-                    >
-                      <div class="powder-glyph-column" data-fluid-glyph-column="right"></div>
-                    </div>
-                  </div>
+                  <div class="powder-viewport fluid-viewport" id="fluid-viewport"></div>
                 </div>
               </article>
             </div>
