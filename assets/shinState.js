@@ -69,6 +69,37 @@ export function initializeShinState(savedState = {}) {
 }
 
 /**
+ * Fully reset the Shin Spire runtime state so save wipes clear all progress.
+ */
+export function resetShinState() {
+  // Reset headline resources and selection.
+  shinState.iteronBank = 0;
+  shinState.iterationRate = 0;
+  shinState.shinGlyphs = 0;
+  shinState.activeFractalId = 'tree';
+  shinState.accumulatedIterons = 0;
+  shinState.lastUpdateTime = Date.now();
+
+  // Rebuild fractal state map with only base progress unlocked by default.
+  const resetFractals = {
+    tree: { allocated: 0, layersCompleted: 0, unlocked: true },
+  };
+
+  fractalDefinitions.forEach((fractal) => {
+    if (!fractal?.id || fractal.id === 'tree') {
+      return;
+    }
+    resetFractals[fractal.id] = {
+      allocated: 0,
+      layersCompleted: 0,
+      unlocked: false,
+    };
+  });
+
+  shinState.fractals = resetFractals;
+}
+
+/**
  * Load fractal definitions from JSON file
  */
 export async function loadFractalDefinitions() {
