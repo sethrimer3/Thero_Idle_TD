@@ -480,6 +480,11 @@ function drawArcLight() {
   if (!this.ctx || !this.pathSegments.length || this.pathPoints.length < 2) {
     return;
   }
+  const trackMode = getTrackRenderMode();
+  if (trackMode === TRACK_RENDER_MODES.RIVER) {
+    // The river track effect replaces the solid path lines, so skip the arc tracer.
+    return;
+  }
   const ctx = this.ctx;
   ctx.save();
   ctx.beginPath();
