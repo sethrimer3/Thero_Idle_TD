@@ -4,6 +4,84 @@
 
 This document outlines the strategy for refactoring `assets/main.js` (originally 10,002 lines) into smaller, more maintainable modules without changing any game functionality.
 
+## Upcoming High-Impact Refactoring Targets
+
+### `assets/styles.css` – Layered stylesheet plan
+
+**Why it matters:** The primary stylesheet now exceeds 8,000 lines and intermixes global tokens, palette swaps (e.g., `body.color-scheme-fractal-bloom`), utility selectors, and component-specific rules (panels, overlays, level paths). The cascade is difficult to reason about, and the `body.mouse-cursor-gem` overrides illustrate how hard it is to scope single-surface experiments.
+
+**Refactor goals:**
+
+1. Preserve all visual output while making it possible to evolve individual surfaces (HUD, overlays, playfield, Codex) without scrolling through the entire file.
+2. Move palette and typography tokens into a base layer that other files can import so theme work is isolated from component tweaks.
+3. Introduce consistent naming (BEM-style blocks or `data-*` hooks) for selectors that currently piggyback on nested DOM structure.
+
+**Plan:**
+
+1. **Inventory + annotate sections.** Use `rg`/`caniuse-lite` audit to tag the current major blocks (global reset, palette overrides, overlays, playfield HUD, towers tab, Codex) and add temporary `@layer` comments at the top of each block so we know where to split.
+2. **Create layered partials.** Split the file into `styles/base.css` (custom properties, global reset, cursor tokens), `styles/themes.css` (all `body.color-scheme-*` variants and cursor overrides), `styles/components/` (HUD, overlays, panels, powder basins), and `styles/utilities.css` (helpers such as `.screen-reader-only` and `[data-drag-scroll]`). Each partial wraps rules in CSS `@layer base|theme|components|utilities` so import order stays predictable even though the browser loads multiple `<link>` tags.
+3. **Map imports in `index.html`.** Replace the single `<link rel="stylesheet" href="./assets/styles.css">` with chained imports (base → themes → utilities → components). Because there is no build step, we rely on native CSS `@import url('./themes.css') layer(theme);` inside `styles/base.css` to keep HTTP requests minimal.
+4. **Modularize components incrementally.** As we touch each UI surface (e.g., `.overlay-panel`, `.powder-ledger`, `.level-path-node`), move it into its own file under `styles/components/` and gate it behind matching data attributes. This enables future UI refactors to delete or replace an entire file without disturbing unrelated selectors.
+5. **Regression verification.** Use a manual visual diff checklist (main menu, playfield, towers tab, powder tab, overlays) plus existing cursor toggles (`body.mouse-cursor-gem`) to ensure layered imports did not change specificity. The cascade remains stable because `@layer` sorts by declaration order, so record the canonical order in `docs/PLATFORM_SUPPORT.md` once confirmed.
+
+### `assets/playfield.js` – Split SimplePlayfield responsibilities
+
+**Why it matters:** `SimplePlayfield` owns rendering, combat state, gesture handling, developer tooling (`DeveloperCrystalManager` mixin), tower-orchestration glue, and unlock notifications in a single 7,000+ line file even though many subsystems already live in `assets/playfield/`. The constructor alone wires DOM nodes, dependency injection, and runtime bookkeeping, making changes brittle.
+
+**Refactor goals:**
+
+1. Turn `SimplePlayfield` into a thin orchestrator that composes explicit controllers instead of hoarding methods (e.g., `drawGammaBursts`, `drawTowerMenu`) and dependency state.
+2. Make developer tooling optional by migrating the current `Object.assign(SimplePlayfield.prototype, DeveloperCrystalManager)` mixin into a dedicated service so production builds can skip it entirely.
+3. Decouple gem drop + codex notifications from the render loop so those systems can be unit tested without a canvas.
+
+**Plan:**
+
+1. **Define controller boundaries.** Group existing methods into domains: (a) lifecycle + wave flow (`startLevel`, `handleVictory`, `handleDefeat`), (b) placement & targeting (`handleSlotSelect`, `spawnTower`, tower upgrade helpers), (c) rendering + effects (`drawAlphaBursts`, `drawTowerMenu`, gem particle draws), and (d) developer/diagnostic helpers. Document these clusters in `docs/main_refactor_contexts.md` so later contributors know where each method moved.
+2. **Introduce composition layer.** Create `assets/playfield/controllers/PlayfieldLifecycle.js`, `PlayfieldPlacementController.js`, and `PlayfieldEffectsController.js`. Each module exports a factory that receives the dependencies already passed into `configurePlayfieldSystem` (tower defs, codex callbacks, palette helpers) and returns a set of functions. `SimplePlayfield` stores references to these controllers instead of re-declaring every helper.
+3. **Migrate mixins into services.** Convert `DeveloperCrystalManager` into `createDeveloperTools(playfield)` so developer hooks register themselves only when the flag is on. Similarly, move orientation helpers (`determinePreferredOrientation`, `applyContainerOrientationClass`, etc.) into `playfield/orientationController.js` (already imported) by exposing an object so we can delete the trailing `Object.assign(SimplePlayfield.prototype, ...)` block.
+4. **Isolate DOM/event binding.** Build a `PlayfieldDomBindings` helper that hydrates canvas + HUD references and provides strongly typed accessors. The constructor then consumes this helper, which simplifies testing and allows future Reactivity (observers) to reuse the bindings.
+5. **Rewrite update loop glue.** Wrap the animation loop (`shouldAnimate`, `update` etc.) in a dedicated scheduler module so the class simply calls `this.scheduler.start()`/`stop()`. This also opens the door to deterministic replays or off-thread simulations.
+6. **Regression suite.** After each extraction, run the existing manual loop: load a level, place towers, trigger developer tools, and ensure enemy codex and gem drops still flow through `registerEnemyEncounter` and `collectMoteGemDrop`. Because the controllers only change structure, no balance data should move.
+
+### `assets/main.js` – Next extraction wave
+
+**Why it matters:** Even after the documented extractions (`powderDisplay`, `powderPersistence`, `developerModeManager`, etc.), `main.js` still initializes resource state (`resourceState`, `powderState`, `spireResourceState`), tab routing (`tabForSpire`, `setActiveTab`, `getActiveTabId`), and overlay orchestration for systems like the upgrade matrix. The combination of state containers, tab/hud wiring, and autosave hookups keeps the file near 8k lines, slowing future UI work.
+
+**Refactor goals:**
+
+1. Move persistent state containers (resource, powder, spire banks) into dedicated modules that can be imported by both the HUD and autosave subsystems.
+2. Extract tab navigation + overlay routing into a router/controller pair so overlay toggles stop manipulating DOM nodes defined hundreds of lines away.
+3. Push autosave + progression hooks (`registerResourceHudRefreshCallback`, `schedulePowderSave`, level start confirmation overlays) into orchestration helpers that publish events rather than mutating closures.
+
+**Plan:**
+
+1. **State modules.** Create `assets/state/resourceState.js` (responsible for `baseResources` + `resourceState`, currently declared near line 700) and `assets/state/spireResourceState.js` (wrapping the `lamed/tsadi/shin/kuf` banks). Export factory functions so `configuration.js` can continue calling `registerResourceContainers` with the live objects. This unlocks re-use in tests and other modules without importing the entire main orchestrator.
+2. **Powder session bootstrap.** Move the powder configuration + state literal (currently `powderConfig`/`powderState`) plus helper getters (`getPowderElements`, `powderGlyphColumns`, `fluidGlyphColumns`) into `assets/powder/powderState.js`. That module can instantiate `createPowderDisplaySystem`/`createPowderUiDomHelpers` internally and expose the public APIs that `main.js` needs, shrinking the global variable list and clarifying ownership of functions like `reconcileGlyphCurrencyFromState`.
+3. **Tab + overlay router.** Extract functions dealing with active tab bookkeeping (`tabForSpire`, `getActiveTabId`, `setActiveTab`, `updateSpireTabVisibility`, overlay toggles used around lines 1400-1500 and 3500+) into `assets/navigation/tabRouter.js`. Pair it with an `overlayRegistry` that exposes `openOverlay(id)`, `closeOverlay(id)`, and `withFocusTrap(id, callback)` so upgrade, glossary, powder, and playfield overlays stop duplicating focus and aria logic.
+4. **Autosave/event dispatcher.** Introduce a lightweight event emitter (or leverage the browser's `EventTarget`) inside `assets/orchestration/gameEvents.js`. When powder or spire modules need to schedule saves, they dispatch `powder:state-changed`, and `autoSave.js` listens without requiring `main.js` to thread callbacks manually. This also simplifies offline progression code which currently imports `notifyIdleTime`, `grantSpireMinuteIncome`, etc.
+5. **Migration cadence.** Apply the `uiHelpers` pattern used for earlier refactors: extract a module, wrap dependencies in a factory, import into `main.js`, and replace the inline block with the returned functions. Update `docs/main_refactor_contexts.md` after each extraction to record the new module boundaries.
+6. **Verification.** After each phase, smoke-test tower placement, powder tab toggles, spire unlock transitions, developer mode toggles, and the upgrade overlay. Console logging on tab changes should prove the router is the only component manipulating ARIA attributes.
+
+### `assets/data/gameplayConfig.json` – Structured config slices
+
+**Why it matters:** The single JSON blob now mixes defaults, tower arrays, dozens of enemy codex entries (each with lore + formulas), level metadata, and future map slots. The file is 3,400+ lines long, which makes diffs noisy and invites merge conflicts whenever two people edit different sections.
+
+**Refactor goals:**
+
+1. Allow designers to edit enemies, towers, and level configs independently without scrolling through unrelated sections.
+2. Keep the runtime loading API (`ensureGameplayConfigLoaded`, `loadGameplayConfigViaFetch`, `importJsonModule`) unchanged so downstream modules do not need to care where the data originated.
+3. Preserve JSON sources for GitHub Pages hosting, but also add ES module fallbacks so the game can import structured data when running without fetch (e.g., local file URLs).
+
+**Plan:**
+
+1. **Split the data directory.** Create `assets/data/gameplay/` with subfolders for `defaults.json`, `enemies/*.json`, `towers/*.json`, and `levels/*.json`. Move the existing arrays into their respective files and keep a minimal `gameplayConfig.json` that only lists `{"defaults": "./defaults.json", "enemies": ["./enemies/etype.json", ...]}` references for backwards compatibility.
+2. **Add an assembler module.** Implement `assets/data/gameplay/index.js` that imports each fragment (native JSON import supported by modern browsers) and exports a single `buildGameplayConfig()` function. `assets/gameplayConfigLoaders.js` can detect when module imports are available and call this builder instead of fetching the monolith, while the fetch path still downloads the combined JSON for legacy browsers.
+3. **Update `configuration.js`.** Teach `applyGameplayConfigInternal()` to accept either the legacy combined object or the output of `buildGameplayConfig()`. When it receives the reference-style object from step 1, it resolves the relative files via `fetchJsonWithFallback` (similar to how fluid simulation profiles already handle multiple URLs).
+4. **Document schema contracts.** Create a short schema description in `docs/main_refactor_contexts.md` or `docs/REFACTORING_GUIDE.md` describing the shape of each fragment (`EnemyCodexEntry`, `LevelBlueprint`, etc.) so contributors editing small JSON files know which fields remain required.
+5. **Validation + tooling.** Add a lightweight validation script under `scripts/tools/validateGameplayConfig.js` that loads every fragment and asserts required keys (id, symbol, formulaLabel, etc.). Hook it into CI or the manual QA checklist. Designers can then edit `assets/data/enemies/planckShade.json` without worrying about typos breaking the entire config.
+
+Following this plan will shrink the single-source files, align them with the distributed module approach already underway in `assets/main.js`, and make the codebase friendlier to concurrent changes.
+
 ## Completed Work
 
 ### uiHelpers.js (173 lines extracted)
