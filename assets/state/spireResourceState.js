@@ -1,0 +1,59 @@
+// Centralized builder for advanced spire resource banks.
+const DEFAULT_LAMED_STATE = {
+  sparkBank: 0,
+  unlocked: false,
+  dragLevel: 0,
+  starMass: 10,
+  upgrades: { starMass: 0 },
+  stats: {
+    totalAbsorptions: 0,
+    totalMassGained: 0,
+  },
+};
+
+const DEFAULT_TSADI_STATE = {
+  particleBank: 0,
+  unlocked: false,
+  stats: {
+    totalParticles: 0,
+    totalGlyphs: 0,
+  },
+};
+
+const DEFAULT_GENERIC_STATE = {
+  unlocked: false,
+};
+
+function mergeBranch(base, overrides = {}) {
+  return {
+    ...base,
+    ...overrides,
+    upgrades: {
+      ...(base.upgrades || {}),
+      ...(overrides.upgrades || {}),
+    },
+    stats: {
+      ...(base.stats || {}),
+      ...(overrides.stats || {}),
+    },
+  };
+}
+
+/**
+ * Produces the shared spire resource container with optional overrides so the
+ * playfield can hydrate previously saved state without mutating defaults.
+ */
+export function createSpireResourceState(overrides = {}) {
+  return {
+    lamed: mergeBranch(DEFAULT_LAMED_STATE, overrides.lamed),
+    tsadi: mergeBranch(DEFAULT_TSADI_STATE, overrides.tsadi),
+    shin: {
+      ...DEFAULT_GENERIC_STATE,
+      ...(overrides.shin || {}),
+    },
+    kuf: {
+      ...DEFAULT_GENERIC_STATE,
+      ...(overrides.kuf || {}),
+    },
+  };
+}

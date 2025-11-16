@@ -56,6 +56,7 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 **Plan:**
 
 1. **State modules.** Create `assets/state/resourceState.js` (responsible for `baseResources` + `resourceState`, currently declared near line 700) and `assets/state/spireResourceState.js` (wrapping the `lamed/tsadi/shin/kuf` banks). Export factory functions so `configuration.js` can continue calling `registerResourceContainers` with the live objects. This unlocks re-use in tests and other modules without importing the entire main orchestrator.
+   _Progress:_ Both factories now exist and `main.js` imports them. The remaining work in this bullet is extracting the powder config/state pair and wiring it through the same module boundary.
 2. **Powder session bootstrap.** Move the powder configuration + state literal (currently `powderConfig`/`powderState`) plus helper getters (`getPowderElements`, `powderGlyphColumns`, `fluidGlyphColumns`) into `assets/powder/powderState.js`. That module can instantiate `createPowderDisplaySystem`/`createPowderUiDomHelpers` internally and expose the public APIs that `main.js` needs, shrinking the global variable list and clarifying ownership of functions like `reconcileGlyphCurrencyFromState`.
 3. **Tab + overlay router.** Extract functions dealing with active tab bookkeeping (`tabForSpire`, `getActiveTabId`, `setActiveTab`, `updateSpireTabVisibility`, overlay toggles used around lines 1400-1500 and 3500+) into `assets/navigation/tabRouter.js`. Pair it with an `overlayRegistry` that exposes `openOverlay(id)`, `closeOverlay(id)`, and `withFocusTrap(id, callback)` so upgrade, glossary, powder, and playfield overlays stop duplicating focus and aria logic.
 4. **Autosave/event dispatcher.** Introduce a lightweight event emitter (or leverage the browser's `EventTarget`) inside `assets/orchestration/gameEvents.js`. When powder or spire modules need to schedule saves, they dispatch `powder:state-changed`, and `autoSave.js` listens without requiring `main.js` to thread callbacks manually. This also simplifies offline progression code which currently imports `notifyIdleTime`, `grantSpireMinuteIncome`, etc.
@@ -170,6 +171,45 @@ Following this plan will shrink the single-source files, align them with the dis
 - Music routing logic now co-located with slider bindings, reducing shared state in `main.js`
 - Tab changes and overlay events still call into the same helpers, but the file sheds another tight cluster of stateful functions
 - **Guideline:** Any future ambient loops or bed tracks (e.g., tower hums, spire ambience) must route through `audioManager.playSfx()` with `loop: true` **and** rely on the shared suppression hooks. Call `suppressAudioPlayback()` when visibility or overlay changes should silence audio—the helper now pauses both music and looping SFX via `audioManager.suspendLoopingSfx()` so everything halts when the tab is hidden. When wiring a new loop to a tab, also remember to stop it explicitly via `audioManager.stopSfx(key)` when the tab is exited so the suppression/resume cycle can safely restart it later.
+
+### state/resourceState.js (resource container factory)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- Creation of `baseResources` defaults (score, score rate, energy rate, flux rate)
+- Runtime `resourceState` mirror that tracks the mutable HUD values
+- `registerResourceContainers()` wiring so downstream systems receive references without importing `main.js`
+
+**Integration approach:**
+- Introduced `createResourceStateContainers()` in `assets/state/resourceState.js`
+- `main.js` calls the factory with `calculateStartingThero()` and fallback rates pulled from `configuration.js`
+- Factory returns `{ baseResources, resourceState }`, preserving object identity for existing consumers while hiding the construction logic
+
+**Result:**
+- Roughly 40 lines of initialization logic left `assets/main.js`
+- Future modules (autosave, HUD widgets, developer tools) can import the factory directly when they need fresh containers for tests
+- Dependency injection keeps calculation helpers (`calculateStartingThero`, fallback rates, registration hook) explicit, simplifying future refactors of the state bootstrap sequence
+
+### state/spireResourceState.js (advanced spire banks)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- Default Lamed spark bank payload (spark totals, drag level, upgrades, stats)
+- Default Tsadi particle bank payload (particle totals plus glyph counts)
+- Generic placeholders for Shin and Kuf unlock progression
+- Merge helper so saved state can hydrate the container without mutating module-level templates
+
+**Integration approach:**
+- Added `createSpireResourceState()` under `assets/state/spireResourceState.js`
+- The helper deep-merges overrides into the default branch templates and returns a fresh object tree
+- `main.js` now calls the builder once during initialization instead of declaring the nested literals inline
+
+**Result:**
+- Advanced spire bookkeeping now lives beside the shared state factories, clarifying ownership of spark/particle banks
+- Tests and future controllers can generate isolated state objects without importing the 4k-line orchestrator
+- Prep work finished for the remaining "state modules" milestone—powder and spire persistence can follow the same pattern without re-opening `main.js`
 
 ### playfieldOutcome.js (victory/defeat overlay wiring)
 

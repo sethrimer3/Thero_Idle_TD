@@ -55,6 +55,7 @@ import {
   setBaseStartThero,
   getBaseCoreIntegrity,
 } from './configuration.js';
+import { createResourceStateContainers } from './state/resourceState.js';
 import {
   setNotationRefreshHandler,
   bindNotationToggle,
@@ -116,6 +117,7 @@ import { createResourceHud } from './resourceHud.js';
 import { createTsadiUpgradeUi } from './tsadiUpgradeUi.js';
 import { createSpireTabVisibilityManager } from './spireTabVisibility.js';
 import { createIdleLevelRunManager } from './idleLevelRunManager.js';
+import { createSpireResourceState } from './state/spireResourceState.js';
 // Powder tower palette and simulation helpers.
 import {
   DEFAULT_MOTE_PALETTE,
@@ -701,22 +703,13 @@ import {
   // Cached reference to the notation toggle control inside the Codex panel.
   let notationToggleButton = null;
 
-  const baseResources = {
-    score: calculateStartingThero(),
-    scoreRate: FALLBACK_BASE_SCORE_RATE,
-    energyRate: FALLBACK_BASE_ENERGY_RATE,
-    fluxRate: FALLBACK_BASE_FLUX_RATE,
-  };
-
-  const resourceState = {
-    score: baseResources.score,
-    scoreRate: baseResources.scoreRate,
-    energyRate: baseResources.energyRate,
-    fluxRate: baseResources.fluxRate,
-    running: false,
-  };
-
-  registerResourceContainers({ baseResources, resourceState });
+  const { baseResources, resourceState } = createResourceStateContainers({
+    calculateStartingThero,
+    baseScoreRate: FALLBACK_BASE_SCORE_RATE,
+    baseEnergyRate: FALLBACK_BASE_ENERGY_RATE,
+    baseFluxRate: FALLBACK_BASE_FLUX_RATE,
+    registerResourceContainers,
+  });
 
   const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the fluid study with a base reservoir of drops upon unlock.
 
@@ -772,34 +765,7 @@ import {
   };
 
   // Track idle reserves for advanced spires so their banks persist outside of active simulations.
-  const spireResourceState = {
-    lamed: {
-      sparkBank: 0,
-      unlocked: false,
-      dragLevel: 0,
-      starMass: 10,
-      // Persist Lamed-specific upgrade levels between visits.
-      upgrades: { starMass: 0 },
-      stats: {
-        totalAbsorptions: 0,
-        totalMassGained: 0,
-      },
-    },
-    tsadi: {
-      particleBank: 0,
-      unlocked: false,
-      stats: {
-        totalParticles: 0,
-        totalGlyphs: 0,
-      },
-    },
-    shin: {
-      unlocked: false,
-    },
-    kuf: {
-      unlocked: false,
-    },
-  };
+  const spireResourceState = createSpireResourceState();
 
   const fluidElements = {
     tabStack: null, // Container that hosts the split spire tab controls.
