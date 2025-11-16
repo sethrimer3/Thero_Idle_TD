@@ -62,6 +62,7 @@ import {
   bindGlyphEquationToggle,
   applyGlyphEquationPreference,
   initializeDesktopCursorPreference,
+  applyGraphicsMode,
   initializeGraphicsMode,
   bindGraphicsModeToggle,
   isLowGraphicsModeActive,
@@ -72,6 +73,7 @@ import {
   initializeTrackRenderMode,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
+import { configurePerformanceMonitor } from './performanceMonitor.js';
 import * as PlayfieldStatsPanel from './playfieldStatsPanel.js';
 import {
   configureAutoSave,
@@ -204,6 +206,7 @@ import {
   renderEnemyCodex,
   registerEnemyEncounter,
   bindCodexControls,
+  initializePerformanceCodex,
 } from './codex.js';
 import {
   setTowerDefinitions,
@@ -360,6 +363,13 @@ import {
   'use strict';
 
   initializeStartupOverlay();
+
+  // Wire performance instrumentation into the graphics preference system for auto fallbacks.
+  configurePerformanceMonitor({
+    applyGraphicsMode,
+    getActiveGraphicsMode,
+    isLowGraphicsModeActive,
+  });
 
   let updateStatusDisplays = () => {};
   let bindStatusElements = () => {};
@@ -4262,6 +4272,8 @@ import {
       scrollPanelToElement,
       onOpenButtonReady: setFieldNotesOpenButton,
     });
+    // Hydrate the diagnostics card once codex controls exist.
+    initializePerformanceCodex();
     try {
       await ensureGameplayConfigLoaded();
     } catch (error) {
