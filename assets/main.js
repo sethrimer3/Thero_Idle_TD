@@ -1177,6 +1177,10 @@ import {
     isDeveloperModeActive: () => developerModeActive,
   });
 
+  // Track idle simulation runs early so downstream systems (like developer mode)
+  // can safely reference the shared map without tripping temporal dead zones.
+  const idleLevelRuns = new Map();
+
   // Convenience helper so developer toggles can refresh the powder walls without duplicating logic.
   const refreshPowderWallDecorations = () => {
     handlePowderWallMetricsChange(
@@ -1928,8 +1932,6 @@ import {
       glyphEquations: areGlyphEquationsVisible() ? '1' : '0',
     }),
   });
-
-  const idleLevelRuns = new Map();
 
   levelOverlayController = createLevelOverlayController({
     document,
