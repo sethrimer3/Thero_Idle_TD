@@ -651,10 +651,10 @@ export class ParticleFusionSimulation {
         const dy = p2.y - p1.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         
-        // Force acts within 3× each particle's radius. Use the larger influence zone so
+        // Force acts within 5× each particle's radius. Use the larger influence zone so
         // big particles exert a wider field while still covering small ones.
-        const p1InfluenceRadius = p1.radius * 3;
-        const p2InfluenceRadius = p2.radius * 3;
+        const p1InfluenceRadius = p1.radius * 5;
+        const p2InfluenceRadius = p2.radius * 5;
         const interactionRadius = Math.max(p1InfluenceRadius, p2InfluenceRadius);
 
         if (dist < interactionRadius && dist > 0.001) {
@@ -1457,34 +1457,29 @@ export class ParticleFusionSimulation {
         const repellingMultiplier = tierAboveNull - repellingReduction;
         const repellingForce = baseRepelling * repellingMultiplier;
         
-        // Ensure valid position by randomizing if invalid or if canvas not yet sized
-        let x = p.x;
-        let y = p.y;
-        
-        // Check if position is valid (within canvas bounds with margin)
+        // Always randomize layout on load so returning players see particles scattered
+        // safely away from the edges. Fall back to the saved coordinates only if the
+        // canvas has not been sized yet.
         const margin = radius * 2;
-        const isValidPosition = 
-          Number.isFinite(x) && Number.isFinite(y) &&
-          Number.isFinite(this.width) && this.width > 0 &&
-          Number.isFinite(this.height) && this.height > 0 &&
-          x >= margin && x <= this.width - margin &&
-          y >= margin && y <= this.height - margin;
-        
-        // If position is invalid, spawn at random location
-        if (!isValidPosition && this.width > 0 && this.height > 0) {
+        const hasSizedCanvas =
+          Number.isFinite(this.width) && this.width > margin * 2 &&
+          Number.isFinite(this.height) && this.height > margin * 2;
+
+        let x = Number.isFinite(p.x) ? p.x : margin;
+        let y = Number.isFinite(p.y) ? p.y : margin;
+
+        if (hasSizedCanvas) {
           const spawnableWidth = this.width - margin * 2;
           const spawnableHeight = this.height - margin * 2;
-          if (spawnableWidth > 0 && spawnableHeight > 0) {
-            x = margin + Math.random() * spawnableWidth;
-            y = margin + Math.random() * spawnableHeight;
-          }
+          x = margin + Math.random() * spawnableWidth;
+          y = margin + Math.random() * spawnableHeight;
         }
         
         this.particles.push({
           x,
           y,
-          vx: p.vx,
-          vy: p.vy,
+          vx: 0, // Reset velocity so returning particles start from rest
+          vy: 0,
           radius,
           tier: p.tier,
           color: tierToColor(p.tier, this.samplePaletteGradient),
