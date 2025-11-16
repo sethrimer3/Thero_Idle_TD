@@ -950,6 +950,40 @@ function drawDeveloperCrystals() {
   }
 }
 
+// Draw an accent ring + glyph echo when a tower is actively pressed by the player.
+function drawTowerPressGlow(playfield, tower, bodyRadius, intensity, visuals, glyph) {
+  const ctx = playfield?.ctx;
+  if (!ctx || !tower || !Number.isFinite(bodyRadius) || !intensity) {
+    return;
+  }
+  const clamped = Math.max(0, Math.min(1, intensity));
+  if (clamped <= 0) {
+    return;
+  }
+  const ringColor = visuals.outerStroke || 'rgba(139, 247, 255, 0.85)';
+  const ringRadius = bodyRadius + 6 + clamped * 6;
+  ctx.save();
+  ctx.globalAlpha = 0.35 + clamped * 0.45;
+  playfield.applyCanvasShadow(ctx, ringColor, 16 + clamped * 18);
+  ctx.lineWidth = 2.6 + clamped * 2.8;
+  ctx.strokeStyle = ringColor;
+  ctx.beginPath();
+  ctx.arc(tower.x, tower.y, ringRadius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  const symbolColor = visuals.symbolFill || ringColor;
+  ctx.globalAlpha = 0.4 + clamped * 0.5;
+  playfield.applyCanvasShadow(ctx, symbolColor, 18 + clamped * 16);
+  ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = symbolColor;
+  ctx.fillText(glyph || '?', tower.x, tower.y);
+  ctx.restore();
+}
+
 function drawPlacementPreview() {
   if (!this.ctx || !this.hoverPlacement || !this.hoverPlacement.position) {
     return;
@@ -1210,6 +1244,14 @@ function drawTowers() {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(glyph, tower.x, tower.y);
+
+    const pressGlowIntensity =
+      typeof this.getTowerPressGlowIntensity === 'function'
+        ? this.getTowerPressGlowIntensity(tower.id)
+        : 0;
+    if (pressGlowIntensity > 0.001) {
+      drawTowerPressGlow(this, tower, bodyRadius, pressGlowIntensity, visuals, glyph);
+    }
 
     if (tower.type === 'beta') {
       const alphaShots = Math.max(0, Math.floor(tower.storedAlphaShots || 0));
