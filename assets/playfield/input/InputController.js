@@ -459,8 +459,10 @@ function handleCanvasPointerUp(event) {
     return;
   }
 
-  if (this.viewDragState.pointerId === event.pointerId) {
-    if (this.viewDragState.isDragging) {
+  const wasViewDragPointer = this.viewDragState.pointerId === event.pointerId;
+  const wasViewDragging = wasViewDragPointer && this.viewDragState.isDragging;
+  if (wasViewDragPointer) {
+    if (wasViewDragging) {
       this.suppressNextCanvasClick = true;
     }
     this.viewDragState.pointerId = null;
@@ -473,6 +475,33 @@ function handleCanvasPointerUp(event) {
       this.canvas.releasePointerCapture(event.pointerId);
     } catch (error) {
       // Ignore browsers that throw if the pointer was not previously captured.
+    }
+  }
+
+  const canTriggerTowerTap =
+    isTouchPointer &&
+    !wasViewDragging &&
+    !this.isPinchZooming &&
+    !this.connectionDragState.pointerId &&
+    !this.deltaCommandDragState.pointerId;
+  if (canTriggerTowerTap && typeof this.toggleTowerMenuFromTap === 'function') {
+    const normalized = this.getNormalizedFromEvent(event);
+    if (normalized) {
+      const position = this.getCanvasPosition(normalized);
+      const tower = this.findTowerAt(position);
+      if (tower) {
+        // Run the double-tap test on touch pointer releases so tower menus feel responsive on mobile.
+        const toggled = this.toggleTowerMenuFromTap(tower, position, event, {
+          suppressNextClick: true,
+        });
+        if (toggled) {
+          this.suppressNextCanvasClick = true;
+          if (!this.shouldAnimate) {
+            this.draw();
+          }
+          return;
+        }
+      }
     }
   }
 }
@@ -590,16 +619,9 @@ function handleCanvasClick(event) {
   }
 
   const tower = this.findTowerAt(position);
-  if (tower) {
-    const shouldToggleMenu =
-      typeof this.registerTowerTap === 'function' && this.registerTowerTap(tower, position, event);
-    if (!shouldToggleMenu) {
+  if (tower && typeof this.toggleTowerMenuFromTap === 'function') {
+    if (this.toggleTowerMenuFromTap(tower, position, event)) {
       return;
-    }
-    if (this.activeTowerMenu?.towerId === tower.id) {
-      this.closeTowerMenu();
-    } else {
-      this.openTowerMenu(tower);
     }
     return;
   }
