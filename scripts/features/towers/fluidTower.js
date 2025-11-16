@@ -1015,14 +1015,37 @@ export class FluidSimulation {
     };
   }
 
+  // Keep the camera centered on content by clamping the normalized view to the render edges for the current zoom.
+  clampViewCenterNormalized(normalized) {
+    if (!normalized) {
+      return { x: 0.5, y: 0.5 };
+    }
+    const scale = Math.max(this.viewScale || 1, 0.0001);
+    const halfWidth = Math.min(0.5, 0.5 / scale);
+    const halfHeight = Math.min(0.5, 0.5 / scale);
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+    return {
+      x: clamp(normalized.x, halfWidth, 1 - halfWidth),
+      y: clamp(normalized.y, halfHeight, 1 - halfHeight),
+    };
+  }
+
+  // Enforce camera constraints after transforms so zoomed views cannot drift beyond the basin edges.
+  applyViewConstraints() {
+    this.viewCenterNormalized = this.clampViewCenterNormalized(
+      this.viewCenterNormalized || { x: 0.5, y: 0.5 },
+    );
+  }
+
   // Report the active camera transform (static for the Bet Spire) to the host UI.
   getViewTransform() {
     const width = this.width || this.canvas?.clientWidth || 0;
     const height = this.height || this.canvas?.clientHeight || 0;
+    const scale = Number.isFinite(this.viewScale) && this.viewScale > 0 ? this.viewScale : 1;
     return {
       width,
       height,
-      scale: this.viewScale,
+      scale,
       center: this.getViewCenterWorld(),
       normalizedCenter: { ...(this.viewCenterNormalized || { x: 0.5, y: 0.5 }) },
     };
@@ -1037,10 +1060,7 @@ export class FluidSimulation {
 
   // Accept normalized camera centers even though the Bet Spire keeps a static viewpoint.
   setViewCenterNormalized(normalized) {
-    const next = {
-      x: Number.isFinite(normalized?.x) ? Math.max(0, Math.min(1, normalized.x)) : 0.5,
-      y: Number.isFinite(normalized?.y) ? Math.max(0, Math.min(1, normalized.y)) : 0.5,
-    };
+    const next = this.clampViewCenterNormalized(normalized);
     if (
       this.viewCenterNormalized &&
       Math.abs(this.viewCenterNormalized.x - next.x) < 0.0001 &&
@@ -1066,17 +1086,18 @@ export class FluidSimulation {
     this.setViewCenterNormalized({ x: world.x / width, y: world.y / height });
   }
 
-  // Maintain API parity with the sand basin while clamping to a limited zoom window.
+  // Maintain API parity with the sand basin while clamping zoom between native view (1x) and tight 10x magnification.
   applyZoomFactor(factor) {
     if (!Number.isFinite(factor) || factor <= 0) {
       return false;
     }
     const previous = Number.isFinite(this.viewScale) && this.viewScale > 0 ? this.viewScale : 1;
-    const next = Math.max(0.5, Math.min(1.5, previous * factor));
+    const next = Math.max(1, Math.min(10, previous * factor));
     if (Math.abs(next - previous) < 0.0001) {
       return false;
     }
     this.viewScale = next;
+    this.applyViewConstraints();
     this.notifyViewTransformChange();
     return true;
   }
