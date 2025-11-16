@@ -4231,6 +4231,8 @@ import {
 
     bindOfflineOverlayElements();
     loadPersistentState();
+    // Reapply developer mode boosts after progression restore so level unlocks stay in sync.
+    refreshDeveloperModeState();
     reconcileGlyphCurrencyFromState();
 
     bindStatusElements();
