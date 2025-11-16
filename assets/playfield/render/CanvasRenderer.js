@@ -239,6 +239,7 @@ function draw() {
   this.drawOmicronUnits();
   this.drawEnemies();
   this.drawDamageNumbers();
+  this.drawWaveTallies();
   this.drawChiLightTrails();
   this.drawChiThralls();
   this.drawProjectiles();
@@ -1540,6 +1541,80 @@ function drawDamageNumbers() {
   ctx.restore();
 }
 
+function drawWaveTallies() {
+  if (!this.ctx || !Array.isArray(this.waveTallyLabels) || !this.waveTallyLabels.length) {
+    return;
+  }
+
+  const ctx = this.ctx;
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  this.waveTallyLabels.forEach((entry) => {
+    if (!entry || !entry.position) {
+      return;
+    }
+    const alpha = Math.max(0, Math.min(1, entry.alpha || 0));
+    if (alpha <= 0) {
+      return;
+    }
+    const label = entry.label;
+    if (!label) {
+      return;
+    }
+    const fontSize = Number.isFinite(entry.fontSize) ? entry.fontSize : 16;
+    const font = entry.font || `600 ${fontSize}px "Cormorant Garamond", serif`;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = font;
+    const fullWidth = Number.isFinite(entry.textWidth)
+      ? entry.textWidth
+      : ctx.measureText(label).width;
+    const drawProgress = Number.isFinite(entry.revealProgress)
+      ? Math.max(0, Math.min(1, entry.revealProgress))
+      : 1;
+    const eraseProgress = entry.isErasing && Number.isFinite(entry.eraseProgress)
+      ? Math.max(0, Math.min(1, entry.eraseProgress))
+      : 0;
+    let clipWidth = Math.max(0, fullWidth * drawProgress);
+    let clipX = entry.position.x - fullWidth / 2;
+    if (entry.isErasing && eraseProgress > 0) {
+      clipX += fullWidth * eraseProgress;
+      clipWidth = Math.max(0, fullWidth * (1 - eraseProgress));
+    }
+    if (clipWidth <= 0) {
+      ctx.restore();
+      return;
+    }
+    const clipHeight = fontSize * 1.6;
+    const clipY = entry.position.y - fontSize * 0.8;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(clipX, clipY, clipWidth, clipHeight);
+    ctx.clip();
+    const fillColor = colorToRgbaString(entry.color || { r: 255, g: 228, b: 120 }, 1);
+    ctx.fillStyle = fillColor;
+    ctx.lineWidth = Math.max(1, fontSize * 0.08);
+    if (entry.strokeColor) {
+      ctx.strokeStyle = colorToRgbaString(entry.strokeColor, 0.85);
+      ctx.strokeText(label, entry.position.x, entry.position.y);
+    }
+    if (entry.shadowColor) {
+      ctx.shadowColor = colorToRgbaString(entry.shadowColor, 0.6);
+      ctx.shadowBlur = Number.isFinite(entry.shadowBlur) ? entry.shadowBlur : 8;
+    } else {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0)';
+      ctx.shadowBlur = 0;
+    }
+    ctx.fillText(label, entry.position.x, entry.position.y);
+    ctx.restore();
+    ctx.restore();
+  });
+
+  ctx.restore();
+}
+
 function drawProjectiles() {
   if (!this.ctx) {
     return;
@@ -1834,6 +1909,7 @@ export {
   drawOmicronUnits,
   drawEnemies,
   drawDamageNumbers,
+  drawWaveTallies,
   drawProjectiles,
   drawAlphaBursts,
   drawBetaBursts,
