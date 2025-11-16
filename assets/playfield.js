@@ -160,6 +160,11 @@ import {
   spawnTauProjectile as spawnTauProjectileHelper,
   teardownTauTower as teardownTauTowerHelper,
 } from '../scripts/features/towers/tauTower.js';
+import {
+  ensureUpsilonState as ensureUpsilonStateHelper,
+  teardownUpsilonTower as teardownUpsilonTowerHelper,
+  updateUpsilonTower as updateUpsilonTowerHelper,
+} from '../scripts/features/towers/upsilonTower.js';
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -3516,6 +3521,14 @@ export class SimplePlayfield {
       label: 'Strongest priority',
       selected: priority === 'strongest',
     });
+    options.push({
+      id: 'priority-weakest',
+      type: 'priority',
+      value: 'weakest',
+      icon: 'Wk',
+      label: 'Weakest priority',
+      selected: priority === 'weakest',
+    });
     if (tower.type === 'delta') {
       const mode = tower.behaviorMode || 'pursuit';
       options.push({
@@ -3667,9 +3680,13 @@ export class SimplePlayfield {
       if (tower.targetPriority !== option.value) {
         tower.targetPriority = option.value;
         if (this.messageEl) {
-          this.messageEl.textContent = `Target priority set to ${
-            option.value === 'strongest' ? 'strongest' : 'first'
-          }.`;
+          const descriptor =
+            option.value === 'strongest'
+              ? 'strongest'
+              : option.value === 'weakest'
+                ? 'weakest'
+                : 'first';
+          this.messageEl.textContent = `Target priority set to ${descriptor}.`;
         }
       }
       this.openTowerMenu(tower, { silent: true });
@@ -3958,6 +3975,13 @@ export class SimplePlayfield {
   }
 
   /**
+   * Update υ fleet logic and targeting.
+   */
+  updateUpsilonTower(tower, delta) {
+    updateUpsilonTowerHelper(this, tower, delta);
+  }
+
+  /**
    * Ensure π tower state is initialized and parameters are refreshed.
    */
   ensurePiState(tower) {
@@ -3997,6 +4021,20 @@ export class SimplePlayfield {
    */
   teardownTauTower(tower) {
     teardownTauTowerHelper(this, tower);
+  }
+
+  /**
+   * Ensure υ ships have their state container before rendering or updates.
+   */
+  ensureUpsilonState(tower) {
+    return ensureUpsilonStateHelper(this, tower);
+  }
+
+  /**
+   * Clear υ caches when the lattice is removed.
+   */
+  teardownUpsilonTower(tower) {
+    teardownUpsilonTowerHelper(this, tower);
   }
 
   /**
@@ -7009,6 +7047,10 @@ export class SimplePlayfield {
         if (tower.type === 'tau') {
           this.updateTauTower(tower, delta);
         }
+        if (tower.type === 'upsilon') {
+          this.updateUpsilonTower(tower, delta);
+          return;
+        }
         if (tower.type === 'sigma') {
           this.updateSigmaTower(tower, delta);
           return;
@@ -7233,7 +7275,7 @@ export class SimplePlayfield {
     let selected = null;
     const priority = tower.targetPriority || 'first';
     let bestProgress = -Infinity;
-    let bestStrength = -Infinity;
+    let bestStrength = priority === 'weakest' ? Infinity : -Infinity;
     this.enemies.forEach((enemy) => {
       const position = this.getEnemyPosition(enemy);
       const distance = Math.hypot(position.x - tower.x, position.y - tower.y);
@@ -7243,6 +7285,15 @@ export class SimplePlayfield {
       if (priority === 'strongest') {
         const strength = Number.isFinite(enemy.hp) ? enemy.hp : enemy.maxHp || 0;
         if (strength > bestStrength || (strength === bestStrength && enemy.progress > bestProgress)) {
+          selected = { enemy, position };
+          bestStrength = strength;
+          bestProgress = enemy.progress;
+        }
+        return;
+      }
+      if (priority === 'weakest') {
+        const strength = Number.isFinite(enemy.hp) ? enemy.hp : enemy.maxHp || 0;
+        if (strength < bestStrength || (strength === bestStrength && enemy.progress > bestProgress)) {
           selected = { enemy, position };
           bestStrength = strength;
           bestProgress = enemy.progress;

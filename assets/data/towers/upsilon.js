@@ -7,9 +7,9 @@ export const UPSILON_TOWER = Object.freeze({
   name: 'υ Tower',
   tier: 20,
   baseCost: 85000000000000,
-  damage: 4100,
-  rate: 0.48,
-  range: 0.64,
+  damage: 1200,
+  rate: 0.4,
+  range: 2.5,
   icon: 'assets/images/tower-upsilon.svg',
   nextTierId: 'phi',
 });

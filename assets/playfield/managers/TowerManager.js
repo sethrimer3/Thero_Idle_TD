@@ -74,6 +74,10 @@ import {
   ensureTauState as ensureTauStateHelper,
   teardownTauTower as teardownTauTowerHelper,
 } from '../../../scripts/features/towers/tauTower.js';
+import {
+  ensureUpsilonState as ensureUpsilonStateHelper,
+  teardownUpsilonTower as teardownUpsilonTowerHelper,
+} from '../../../scripts/features/towers/upsilonTower.js';
 
 // Tower management routines extracted from SimplePlayfield.
 
@@ -266,6 +270,11 @@ function applyTowerBehaviorDefaults(tower) {
   } else if (tower.tauState) {
     this.teardownTauTower(tower);
   }
+  if (tower.type === 'upsilon') {
+    this.ensureUpsilonState(tower);
+  } else if (tower.upsilonState) {
+    this.teardownUpsilonTower(tower);
+  }
   if (tower.type === 'chi') {
     this.ensureChiState(tower);
   } else if (tower.chiState) {
@@ -345,6 +354,14 @@ function teardownTauTower(tower) {
   teardownTauTowerHelper(this, tower);
 }
 
+function ensureUpsilonState(tower) {
+  return ensureUpsilonStateHelper(this, tower);
+}
+
+function teardownUpsilonTower(tower) {
+  teardownUpsilonTowerHelper(this, tower);
+}
+
 export {
   evaluateZetaMetrics,
   teardownAlphaTower,
@@ -391,4 +408,6 @@ export {
   teardownChiTower,
   ensureTauState,
   teardownTauTower,
+  ensureUpsilonState,
+  teardownUpsilonTower,
 };

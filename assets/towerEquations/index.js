@@ -8,7 +8,7 @@
 import { mindGate } from './mindGate.js';
 import { alpha, beta, gamma } from './basicTowers.js';
 import { delta, epsilon, zeta, eta, theta, iota } from './greekTowers.js';
-import { kappa, lambda, mu, nu, xi, omicron, pi, rho, sigma, tau } from './advancedTowers.js';
+import { kappa, lambda, mu, nu, xi, omicron, pi, rho, sigma, tau, upsilon } from './advancedTowers.js';
 
 /**
  * Complete tower equation blueprints object.
@@ -35,6 +35,7 @@ export const TOWER_EQUATION_BLUEPRINTS = {
   rho,
   sigma,
   tau,
+  upsilon,
 };
 
 /**
