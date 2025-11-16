@@ -720,7 +720,7 @@ const {
 
 export { setLoadoutElements, pruneLockedTowersFromLoadout, refreshTowerLoadoutDisplay, startTowerDrag, cancelTowerDrag };
 
-const { initializeTowerEquipmentInterface } = createTowerEquipmentBindings({
+const { initializeTowerEquipmentInterface, getEquipmentSlotRecord } = createTowerEquipmentBindings({
   equipmentUiState: towerTabState.equipmentUi,
   towerCardSelector: TOWER_CARD_SELECTOR,
   getTowerSourceLabel,

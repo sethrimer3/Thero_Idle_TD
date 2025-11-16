@@ -455,5 +455,10 @@ export function createTowerEquipmentBindings({
 
   return {
     initializeTowerEquipmentInterface,
+    /**
+     * Allow external callers (like the Towers tab visibility refresh) to
+     * inspect the cached slot record without duplicating lookup logic.
+     */
+    getEquipmentSlotRecord,
   };
 }
