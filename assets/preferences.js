@@ -10,6 +10,8 @@ import {
   NOTATION_STORAGE_KEY,
   GLYPH_EQUATIONS_STORAGE_KEY,
   DAMAGE_NUMBER_TOGGLE_STORAGE_KEY,
+  WAVE_KILL_TALLY_STORAGE_KEY,
+  WAVE_DAMAGE_TALLY_STORAGE_KEY,
   GRAPHICS_MODE_STORAGE_KEY,
   TRACK_RENDER_MODE_STORAGE_KEY,
 } from './autoSave.js';
@@ -35,6 +37,16 @@ let glyphEquationToggleStateLabel = null;
 let damageNumbersEnabled = true;
 let damageNumberToggleInput = null;
 let damageNumberToggleStateLabel = null;
+
+// Toggle state for the wave kill tally overlay.
+let waveKillTalliesEnabled = true;
+let waveKillTallyToggleInput = null;
+let waveKillTallyToggleStateLabel = null;
+
+// Toggle state for the wave damage tally overlay.
+let waveDamageTalliesEnabled = true;
+let waveDamageTallyToggleInput = null;
+let waveDamageTallyToggleStateLabel = null;
 
 let graphicsModeButton = null;
 let trackRenderModeButton = null;
@@ -147,6 +159,36 @@ function updateDamageNumberToggleUi() {
   }
 }
 
+// Synchronize the wave kill tally toggle control with the in-memory state.
+function updateWaveKillTallyToggleUi() {
+  if (waveKillTallyToggleInput) {
+    waveKillTallyToggleInput.checked = waveKillTalliesEnabled;
+    waveKillTallyToggleInput.setAttribute('aria-checked', waveKillTalliesEnabled ? 'true' : 'false');
+    const controlShell = waveKillTallyToggleInput.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', waveKillTalliesEnabled);
+    }
+  }
+  if (waveKillTallyToggleStateLabel) {
+    waveKillTallyToggleStateLabel.textContent = waveKillTalliesEnabled ? 'On' : 'Off';
+  }
+}
+
+// Synchronize the wave damage tally toggle control with the in-memory state.
+function updateWaveDamageTallyToggleUi() {
+  if (waveDamageTallyToggleInput) {
+    waveDamageTallyToggleInput.checked = waveDamageTalliesEnabled;
+    waveDamageTallyToggleInput.setAttribute('aria-checked', waveDamageTalliesEnabled ? 'true' : 'false');
+    const controlShell = waveDamageTallyToggleInput.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', waveDamageTalliesEnabled);
+    }
+  }
+  if (waveDamageTallyToggleStateLabel) {
+    waveDamageTallyToggleStateLabel.textContent = waveDamageTalliesEnabled ? 'On' : 'Off';
+  }
+}
+
 export function applyGlyphEquationPreference(preference, { persist = true } = {}) {
   const enabled = normalizeGlyphEquationPreference(preference);
   glyphEquationsVisible = enabled;
@@ -199,6 +241,74 @@ export function applyDamageNumberPreference(preference, { persist = true } = {})
     writeStorage(DAMAGE_NUMBER_TOGGLE_STORAGE_KEY, damageNumbersEnabled ? '1' : '0');
   }
   return damageNumbersEnabled;
+}
+
+/**
+ * Bind the visual settings toggle that controls wave kill tally scribbles.
+ */
+export function bindWaveKillTallyToggle() {
+  waveKillTallyToggleInput = document.getElementById('wave-kill-tally-toggle');
+  waveKillTallyToggleStateLabel = document.getElementById('wave-kill-tally-toggle-state');
+  if (!waveKillTallyToggleInput) {
+    return;
+  }
+  waveKillTallyToggleInput.addEventListener('change', (event) => {
+    applyWaveKillTallyPreference(event?.target?.checked);
+  });
+  updateWaveKillTallyToggleUi();
+}
+
+/**
+ * Persist and apply the wave kill tally overlay preference.
+ */
+export function applyWaveKillTallyPreference(preference, { persist = true } = {}) {
+  const enabled = normalizeDamageNumberPreference(preference);
+  waveKillTalliesEnabled = enabled;
+  updateWaveKillTallyToggleUi();
+  if (!enabled) {
+    const playfield = playfieldGetter();
+    if (playfield && typeof playfield.clearWaveTallies === 'function') {
+      playfield.clearWaveTallies({ type: 'kills' });
+    }
+  }
+  if (persist) {
+    writeStorage(WAVE_KILL_TALLY_STORAGE_KEY, waveKillTalliesEnabled ? '1' : '0');
+  }
+  return waveKillTalliesEnabled;
+}
+
+/**
+ * Bind the visual settings toggle that controls wave damage tally scribbles.
+ */
+export function bindWaveDamageTallyToggle() {
+  waveDamageTallyToggleInput = document.getElementById('wave-damage-tally-toggle');
+  waveDamageTallyToggleStateLabel = document.getElementById('wave-damage-tally-toggle-state');
+  if (!waveDamageTallyToggleInput) {
+    return;
+  }
+  waveDamageTallyToggleInput.addEventListener('change', (event) => {
+    applyWaveDamageTallyPreference(event?.target?.checked);
+  });
+  updateWaveDamageTallyToggleUi();
+}
+
+/**
+ * Persist and apply the wave damage tally overlay preference.
+ */
+export function applyWaveDamageTallyPreference(preference, { persist = true } = {}) {
+  const enabled = normalizeDamageNumberPreference(preference);
+  waveDamageTalliesEnabled = enabled;
+  updateWaveDamageTallyToggleUi();
+  if (!enabled) {
+    const playfield = playfieldGetter();
+    if (playfield && typeof playfield.clearWaveTallies === 'function') {
+      playfield.clearWaveTallies({ type: 'damage' });
+    }
+  }
+  if (persist) {
+    writeStorage(WAVE_DAMAGE_TALLY_STORAGE_KEY, waveDamageTalliesEnabled ? '1' : '0');
+  }
+  return waveDamageTalliesEnabled;
 }
 
 function resolveGraphicsModeLabel(mode = activeGraphicsMode) {
@@ -346,6 +456,20 @@ export function areGlyphEquationsVisible() {
 
 export function areDamageNumbersEnabled() {
   return damageNumbersEnabled;
+}
+
+/**
+ * Reports whether the kill tally scribble overlay is active.
+ */
+export function areWaveKillTalliesEnabled() {
+  return waveKillTalliesEnabled;
+}
+
+/**
+ * Reports whether the damage tally scribble overlay is active.
+ */
+export function areWaveDamageTalliesEnabled() {
+  return waveDamageTalliesEnabled;
 }
 
 export function bindGraphicsModeToggle() {

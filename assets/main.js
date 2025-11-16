@@ -64,6 +64,10 @@ import {
   applyGlyphEquationPreference,
   applyDamageNumberPreference,
   bindDamageNumberToggle,
+  applyWaveKillTallyPreference,
+  applyWaveDamageTallyPreference,
+  bindWaveKillTallyToggle,
+  bindWaveDamageTallyToggle,
   initializeDesktopCursorPreference,
   applyGraphicsMode,
   initializeGraphicsMode,
@@ -72,6 +76,8 @@ import {
   setGraphicsModeContext,
   areGlyphEquationsVisible,
   areDamageNumbersEnabled,
+  areWaveKillTalliesEnabled,
+  areWaveDamageTalliesEnabled,
   getActiveGraphicsMode,
   bindTrackRenderModeButton,
   initializeTrackRenderMode,
@@ -1851,6 +1857,8 @@ import {
     handleNotationFallback: refreshNotationDisplays,
     applyGlyphEquationPreference,
     applyDamageNumberPreference,
+    applyWaveKillTallyPreference,
+    applyWaveDamageTallyPreference,
     getGameStatsSnapshot: () => gameStats,
     mergeLoadedGameStats: (stored) => {
       if (!stored) {
@@ -1870,6 +1878,8 @@ import {
       graphics: getActiveGraphicsMode(),
       glyphEquations: areGlyphEquationsVisible() ? '1' : '0',
       damageNumbers: areDamageNumbersEnabled() ? '1' : '0',
+      waveKillTallies: areWaveKillTalliesEnabled() ? '1' : '0',
+      waveDamageTallies: areWaveDamageTalliesEnabled() ? '1' : '0',
     }),
   });
 
@@ -3766,6 +3776,8 @@ import {
     bindNotationToggle();
     bindGlyphEquationToggle();
     bindDamageNumberToggle();
+    bindWaveKillTallyToggle();
+    bindWaveDamageTallyToggle();
     initializeColorScheme();
     bindAudioControls();
 
