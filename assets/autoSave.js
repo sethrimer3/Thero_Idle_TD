@@ -19,6 +19,8 @@ export const TOWER_UPGRADE_STORAGE_KEY = 'glyph-defense-idle:tower-upgrades';
 export const SHIN_STATE_STORAGE_KEY = 'glyph-defense-idle:shin-state';
 // Storage key used to persist Kuf Spire shard allocations and scores.
 export const KUF_STATE_STORAGE_KEY = 'glyph-defense-idle:kuf-state';
+// Storage key used to persist interactive level completion and unlock progress.
+export const LEVEL_PROGRESS_STORAGE_KEY = 'glyph-defense-idle:level-progress';
 
 const DEFAULT_AUTOSAVE_INTERVAL_MS = 30000;
 const MIN_AUTOSAVE_INTERVAL_MS = 5000;
@@ -41,6 +43,8 @@ const dependencies = {
   applyTowerUpgradeStateSnapshot: null,
   getShinStateSnapshot: null,
   getKufStateSnapshot: null,
+  getLevelProgressSnapshot: null,
+  applyLevelProgressSnapshot: null,
 };
 
 let statKeys = [];
@@ -180,6 +184,13 @@ export function loadPersistentState() {
     }
   }
 
+  if (typeof dependencies.applyLevelProgressSnapshot === 'function') {
+    const storedProgress = readStorageJson(LEVEL_PROGRESS_STORAGE_KEY);
+    if (storedProgress && typeof storedProgress === 'object') {
+      dependencies.applyLevelProgressSnapshot(storedProgress);
+    }
+  }
+
   if (dependencies.audioStorageKey && typeof dependencies.applyStoredAudioSettings === 'function') {
     const storedAudio = readStorageJson(dependencies.audioStorageKey);
     if (storedAudio) {
@@ -293,6 +304,17 @@ function persistKufState() {
   writeStorageJson(KUF_STATE_STORAGE_KEY, snapshot);
 }
 
+function persistLevelProgress() {
+  if (typeof dependencies.getLevelProgressSnapshot !== 'function') {
+    return;
+  }
+  const snapshot = dependencies.getLevelProgressSnapshot();
+  if (!snapshot || typeof snapshot !== 'object') {
+    return;
+  }
+  writeStorageJson(LEVEL_PROGRESS_STORAGE_KEY, snapshot);
+}
+
 function performAutoSave() {
   savePowderCurrency();
   if (powderBasinSaveHandle) {
@@ -305,6 +327,7 @@ function performAutoSave() {
   persistTowerUpgrades();
   persistShinState();
   persistKufState();
+  persistLevelProgress();
 }
 
 /**
