@@ -1782,7 +1782,10 @@ function drawWaveTallies() {
     const fontSize = Number.isFinite(entry.fontSize) ? entry.fontSize : 16;
     const font = entry.font || `600 ${fontSize}px "Cormorant Garamond", serif`;
     ctx.save();
-    ctx.globalAlpha = alpha;
+    const entryOpacity = Number.isFinite(entry.opacity)
+      ? Math.max(0, Math.min(1, entry.opacity))
+      : 1;
+    ctx.globalAlpha = alpha * entryOpacity;
     ctx.font = font;
     const fullWidth = Number.isFinite(entry.textWidth)
       ? entry.textWidth
