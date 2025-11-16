@@ -3003,6 +3003,55 @@ body.graphics-mode-low .control-button {
   gap: 14px;
 }
 
+.visual-settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.visual-settings-card .visual-settings-copy h3 {
+  margin-bottom: 4px;
+}
+
+.visual-settings-card .visual-settings-copy p {
+  margin: 0;
+  color: rgba(247, 247, 245, 0.72);
+}
+
+.visual-settings-trigger {
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.visual-settings-menu {
+  display: grid;
+  gap: 12px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 280ms ease, opacity 280ms ease;
+}
+
+.visual-settings-menu[data-open='true'] {
+  opacity: 1;
+  margin-top: 14px;
+  pointer-events: auto;
+}
+
+.visual-settings-menu[data-open='false'] {
+  pointer-events: none;
+}
+
+.visual-settings-menu .action-button {
+  width: 100%;
+}
+
+.visual-settings-menu .settings-toggle {
+  margin-top: 14px;
+}
+
 .slider-row {
   display: grid;
   gap: 8px;

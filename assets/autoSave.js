@@ -7,6 +7,8 @@ export const GRAPHICS_MODE_STORAGE_KEY = 'glyph-defense-idle:graphics-mode';
 export const NOTATION_STORAGE_KEY = 'glyph-defense-idle:notation';
 // Storage key used to persist the glyph equation visibility toggle.
 export const GLYPH_EQUATIONS_STORAGE_KEY = 'glyph-defense-idle:glyph-equations';
+// Storage key used to persist combat damage number visibility.
+export const DAMAGE_NUMBER_TOGGLE_STORAGE_KEY = 'glyph-defense-idle:damage-numbers';
 // Storage key used to persist the preferred track rendering style.
 export const TRACK_RENDER_MODE_STORAGE_KEY = 'glyph-defense-idle:track-render-mode';
 export const POWDER_STORAGE_KEY = 'glyph-defense-idle:powder';
@@ -33,6 +35,7 @@ const dependencies = {
   applyNotationPreference: null,
   handleNotationFallback: null,
   applyGlyphEquationPreference: null,
+  applyDamageNumberPreference: null,
   getGameStatsSnapshot: null,
   mergeLoadedGameStats: null,
   getPreferenceSnapshot: null,
@@ -217,6 +220,13 @@ export function loadPersistentState() {
     }
   }
 
+  if (typeof dependencies.applyDamageNumberPreference === 'function') {
+    const storedDamageNumbers = readStorage(DAMAGE_NUMBER_TOGGLE_STORAGE_KEY);
+    if (storedDamageNumbers !== null) {
+      dependencies.applyDamageNumberPreference(storedDamageNumbers, { persist: false });
+    }
+  }
+
   if (statKeys.length && typeof dependencies.mergeLoadedGameStats === 'function') {
     const storedStats = readStorageJson(GAME_STATS_STORAGE_KEY);
     if (storedStats && typeof storedStats === 'object') {
@@ -268,6 +278,9 @@ function persistPreferences() {
   }
   if (snapshot.glyphEquations !== undefined && snapshot.glyphEquations !== null) {
     writeStorage(GLYPH_EQUATIONS_STORAGE_KEY, snapshot.glyphEquations);
+  }
+  if (snapshot.damageNumbers !== undefined && snapshot.damageNumbers !== null) {
+    writeStorage(DAMAGE_NUMBER_TOGGLE_STORAGE_KEY, snapshot.damageNumbers);
   }
 }
 

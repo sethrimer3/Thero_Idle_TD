@@ -2692,41 +2692,80 @@
                 </div>
               </div>
             </article>
-            <article class="card">
-              <h3>Visual Theme</h3>
-              <p>Switch between aurora and chromatic palettes.</p>
-              <button class="action-button ghost" type="button" id="color-scheme-button">
-                Palette · Aurora
+            <article class="card visual-settings-card">
+              <div class="visual-settings-copy">
+                <h3>Visual Settings</h3>
+                <p>Fine-tune palettes, notation, and battlefield overlays.</p>
+              </div>
+              <button
+                class="action-button visual-settings-trigger"
+                type="button"
+                id="visual-settings-menu-button"
+                aria-expanded="false"
+                aria-controls="visual-settings-menu"
+              >
+                Visual Settings
               </button>
-              <button class="action-button ghost" type="button" id="track-graphics-button">
-                Track · Gradient
-              </button>
-              <button class="action-button ghost" type="button" id="notation-toggle-button">
-                Notation · Letters
-              </button>
-              <!-- Toggle between low and high graphics fidelity. -->
-              <button class="action-button ghost" type="button" id="graphics-mode-button">
-                Graphics · High
-              </button>
-              <!-- Toggle to reveal glyph equations inside tower upgrade cards. -->
-              <div class="settings-toggle" id="glyph-equation-toggle-row">
-                <div class="settings-toggle-text">
-                  <span class="settings-toggle-title">Show Glyph Equations</span>
-                  <span class="settings-toggle-description"
-                    >Reveal Aleph glyph formulas within every tower detail.</span
-                  >
+              <div
+                class="visual-settings-menu"
+                id="visual-settings-menu"
+                data-open="false"
+                aria-hidden="true"
+                hidden
+              >
+                <button class="action-button ghost" type="button" id="color-scheme-button">
+                  Palette · Aurora
+                </button>
+                <button class="action-button ghost" type="button" id="track-graphics-button">
+                  Track · Gradient
+                </button>
+                <button class="action-button ghost" type="button" id="notation-toggle-button">
+                  Notation · Letters
+                </button>
+                <!-- Toggle between low and high graphics fidelity. -->
+                <button class="action-button ghost" type="button" id="graphics-mode-button">
+                  Graphics · High
+                </button>
+                <!-- Toggle to reveal glyph equations inside tower upgrade cards. -->
+                <div class="settings-toggle" id="glyph-equation-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title">Show Glyph Equations</span>
+                    <span class="settings-toggle-description"
+                      >Reveal Aleph glyph formulas within every tower detail.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="glyph-equation-toggle">
+                    <input
+                      type="checkbox"
+                      id="glyph-equation-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-checked="false"
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="glyph-equation-toggle-state">Off</span>
+                  </label>
                 </div>
-                <label class="settings-toggle-control" for="glyph-equation-toggle">
-                  <input
-                    type="checkbox"
-                    id="glyph-equation-toggle"
-                    class="settings-toggle-input"
-                    role="switch"
-                    aria-checked="false"
-                  />
-                  <span class="settings-toggle-slider" aria-hidden="true"></span>
-                  <span class="settings-toggle-state" id="glyph-equation-toggle-state">Off</span>
-                </label>
+                <div class="settings-toggle" id="damage-number-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title">Floating Damage Numbers</span>
+                    <span class="settings-toggle-description"
+                      >Show colorful combat values drifting away from struck glyphs.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="damage-number-toggle">
+                    <input
+                      type="checkbox"
+                      id="damage-number-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="damage-number-toggle-state">On</span>
+                  </label>
+                </div>
               </div>
             </article>
             <article class="card">
