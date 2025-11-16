@@ -594,14 +594,14 @@ export function buildTowerDynamicContext(options = {}) {
       const distance = Math.hypot(dx, dy);
       const targetRange = Number.isFinite(target.range) ? Math.max(0, target.range) : 0;
       const candidateRange = Number.isFinite(candidate.range) ? Math.max(0, candidate.range) : 0;
-      if (!Number.isFinite(distance) || distance === 0) {
-        if (distance === 0 && candidateRange > 0 && targetRange > 0) {
-          const key = candidate.type || 'unknown';
-          counts.set(key, (counts.get(key) || 0) + 1);
-        }
+      if (!Number.isFinite(distance)) {
         return;
       }
-      if (distance > targetRange || distance > candidateRange) {
+      // Treat towers as adjacent when either range overlaps so beta/γ style
+      // mechanics can count nearby allies even if their radii differ.
+      const overlapsTarget = targetRange > 0 && distance <= targetRange;
+      const overlapsCandidate = candidateRange > 0 && distance <= candidateRange;
+      if (!overlapsTarget && !overlapsCandidate) {
         return;
       }
       const key = candidate.type || 'unknown';
