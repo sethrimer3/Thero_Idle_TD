@@ -1933,6 +1933,10 @@ function drawDamageNumbers() {
       return;
     }
     const fontSize = Number.isFinite(entry.fontSize) ? entry.fontSize : 16;
+    // Fade the highlight outline based on how much of the target's health the hit removed.
+    const highlightAlpha = Number.isFinite(entry.outlineAlpha)
+      ? Math.max(0, Math.min(1, entry.outlineAlpha))
+      : 0;
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1, entry.alpha));
     ctx.font = `600 ${fontSize}px "Cormorant Garamond", serif`;
@@ -1941,6 +1945,13 @@ function drawDamageNumbers() {
     ctx.strokeStyle = 'rgba(6, 8, 14, 0.7)';
     ctx.fillStyle = colorToRgbaString(entry.color || { r: 255, g: 228, b: 120 }, 0.92);
     ctx.strokeText(entry.text, entry.position.x, entry.position.y);
+    if (highlightAlpha > 0.01) {
+      const brightOutlineWidth = Math.max(1, outlineWidth * 0.8);
+      ctx.lineWidth = brightOutlineWidth;
+      ctx.strokeStyle = `rgba(255, 255, 236, ${highlightAlpha})`;
+      ctx.strokeText(entry.text, entry.position.x, entry.position.y);
+      ctx.lineWidth = outlineWidth;
+    }
     ctx.fillText(entry.text, entry.position.x, entry.position.y);
     ctx.restore();
   });
