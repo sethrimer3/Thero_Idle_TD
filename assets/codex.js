@@ -1,4 +1,8 @@
 import { annotateMathText, renderMathElement } from '../scripts/core/mathText.js';
+import {
+  getPerformanceSnapshotLog,
+  subscribeToPerformanceSnapshots,
+} from './performanceMonitor.js';
 
 // Maintains codex progression state for encountered enemies.
 export const codexState = {
@@ -11,6 +15,252 @@ export const enemyCodexElements = {
   empty: null,
   note: null,
 };
+
+// Track recent performance snapshots rendered in the Codex diagnostics card.
+const performanceCodexState = {
+  log: [],
+};
+
+// Cache DOM nodes tied to the diagnostics card so updates stay efficient.
+const performanceCodexElements = {
+  card: null,
+  list: null,
+  empty: null,
+  updated: null,
+};
+
+let unsubscribePerformanceSnapshots = null;
+
+// Friendly labels for the raw instrumentation keys emitted by the playfield tracker.
+const PERFORMANCE_BUCKET_LABELS = {
+  update: 'Playfield Update',
+  'update:stats': 'Stat Sync',
+  'update:ambient': 'Ambient FX',
+  'update:towers': 'Towers',
+  'update:enemies': 'Enemies',
+  'update:projectiles': 'Projectiles',
+  'update:motes': 'Drops',
+  'update:hud': 'HUD & Progress',
+  draw: 'Rendering',
+  towers: 'Tower Total',
+};
+
+// Canonical display names for tower ids so the card reads like the tower tab.
+const TOWER_LABELS = {
+  alpha: 'Alpha Spire',
+  beta: 'Beta Spire',
+  gamma: 'Gamma Spire',
+  delta: 'Delta Spire',
+  epsilon: 'Epsilon Spire',
+  zeta: 'Zeta Spire',
+  eta: 'Eta Spire',
+  theta: 'Theta Spire',
+  iota: 'Iota Spire',
+  kappa: 'Kappa Spire',
+  lambda: 'Lambda Spire',
+  mu: 'Mu Spire',
+  nu: 'Nu Spire',
+  xi: 'Xi Spire',
+  omicron: 'Omicron Spire',
+  pi: 'Pi Spire',
+  rho: 'Rho Spire',
+  sigma: 'Sigma Spire',
+  tau: 'Tau Spire',
+  upsilon: 'Upsilon Spire',
+  phi: 'Phi Spire',
+  chi: 'Chi Spire',
+  psi: 'Psi Spire',
+  omega: 'Omega Spire',
+};
+
+function formatPercent(value) {
+  const percentage = Number.isFinite(value) ? value * 100 : 0;
+  return `${percentage.toFixed(1)}%`;
+}
+
+function formatFrameTime(ms) {
+  if (!Number.isFinite(ms)) {
+    return '— ms';
+  }
+  return `${ms.toFixed(1)} ms`;
+}
+
+function formatFps(fps) {
+  if (!Number.isFinite(fps) || fps <= 0) {
+    return '— FPS';
+  }
+  return `${Math.round(fps)} FPS`;
+}
+
+function formatRelativeTimestamp(timestamp) {
+  if (!Number.isFinite(timestamp)) {
+    return '—';
+  }
+  const deltaMs = Date.now() - timestamp;
+  if (deltaMs < 5_000) {
+    return 'Just now';
+  }
+  if (deltaMs < 60_000) {
+    return `${Math.max(1, Math.round(deltaMs / 1_000))}s ago`;
+  }
+  const minutes = Math.round(deltaMs / 60_000);
+  return `${minutes}m ago`;
+}
+
+function resolveBucketLabel(label) {
+  if (!label) {
+    return 'Misc';
+  }
+  if (PERFORMANCE_BUCKET_LABELS[label]) {
+    return PERFORMANCE_BUCKET_LABELS[label];
+  }
+  const suffix = label.includes(':') ? label.split(':').pop() : label;
+  return suffix ? suffix.charAt(0).toUpperCase() + suffix.slice(1) : 'Misc';
+}
+
+function formatTowerLabel(towerType) {
+  if (!towerType) {
+    return 'Unknown Spire';
+  }
+  const normalized = towerType.trim().toLowerCase();
+  if (TOWER_LABELS[normalized]) {
+    return TOWER_LABELS[normalized];
+  }
+  return `${normalized.charAt(0).toUpperCase() + normalized.slice(1)} Spire`;
+}
+
+// Render the diagnostics card using the latest rolling log entries.
+function renderPerformanceCodex() {
+  if (!performanceCodexElements.list) {
+    return;
+  }
+
+  const logEntries = performanceCodexState.log;
+  if (!Array.isArray(logEntries) || logEntries.length === 0) {
+    performanceCodexElements.list.setAttribute('hidden', '');
+    if (performanceCodexElements.empty) {
+      performanceCodexElements.empty.hidden = false;
+    }
+    if (performanceCodexElements.updated) {
+      performanceCodexElements.updated.textContent = 'Awaiting diagnostics…';
+    }
+    return;
+  }
+
+  performanceCodexElements.list.removeAttribute('hidden');
+  if (performanceCodexElements.empty) {
+    performanceCodexElements.empty.hidden = true;
+  }
+  const latest = logEntries[0];
+  if (performanceCodexElements.updated) {
+    performanceCodexElements.updated.textContent = `Last update · ${formatRelativeTimestamp(
+      latest.timestamp,
+    )}`;
+  }
+
+  performanceCodexElements.list.innerHTML = '';
+  const fragment = document.createDocumentFragment();
+
+  logEntries.forEach((entry) => {
+    if (!entry) {
+      return;
+    }
+    const card = document.createElement('article');
+    card.className = 'performance-log-entry';
+
+    const header = document.createElement('header');
+    header.className = 'performance-log-entry-header';
+
+    const time = document.createElement('span');
+    time.className = 'performance-log-entry-time';
+    time.textContent = formatRelativeTimestamp(entry.timestamp);
+
+    const frame = document.createElement('span');
+    frame.className = 'performance-log-entry-frame';
+    frame.textContent = `${formatFrameTime(entry.averageFrameMs)} · ${formatFps(entry.fps)}`;
+
+    header.append(time, frame);
+
+    if (entry.autoGraphics?.active) {
+      const badge = document.createElement('span');
+      badge.className = 'performance-log-badge';
+      badge.textContent = 'Auto Low Mode';
+      header.append(badge);
+    }
+
+    card.append(header);
+
+    const bucketList = document.createElement('dl');
+    bucketList.className = 'performance-breakdown';
+    const topBuckets = Array.isArray(entry.buckets) ? entry.buckets.slice(0, 3) : [];
+    topBuckets.forEach((bucket) => {
+      const row = document.createElement('div');
+      row.className = 'performance-breakdown-row';
+
+      const label = document.createElement('dt');
+      label.textContent = resolveBucketLabel(bucket.label);
+
+      const value = document.createElement('dd');
+      value.textContent = formatPercent(bucket.percent);
+
+      row.append(label, value);
+      bucketList.append(row);
+    });
+    card.append(bucketList);
+
+    const towerList = document.createElement('div');
+    towerList.className = 'performance-tower-list';
+    const topTowers = Array.isArray(entry.towers) ? entry.towers.slice(0, 3) : [];
+    topTowers.forEach((tower) => {
+      const towerRow = document.createElement('div');
+      towerRow.className = 'performance-tower-row';
+
+      const label = document.createElement('span');
+      label.className = 'performance-tower-label';
+      label.textContent = formatTowerLabel(tower.label);
+
+      const value = document.createElement('span');
+      value.className = 'performance-tower-value';
+      value.textContent = formatPercent(tower.percent);
+
+      towerRow.append(label, value);
+      towerList.append(towerRow);
+    });
+    if (topTowers.length) {
+      card.append(towerList);
+    }
+
+    if (Array.isArray(entry.events) && entry.events.length) {
+      entry.events.forEach((eventMessage) => {
+        const note = document.createElement('p');
+        note.className = 'performance-log-note';
+        note.textContent = eventMessage;
+        card.append(note);
+      });
+    }
+
+    fragment.append(card);
+  });
+
+  performanceCodexElements.list.append(fragment);
+}
+
+// Bind DOM nodes and subscribe to instrumentation updates so the diagnostics stay live.
+export function initializePerformanceCodex() {
+  performanceCodexElements.card = document.getElementById('performance-codex-card');
+  performanceCodexElements.list = document.getElementById('performance-log-list');
+  performanceCodexElements.empty = document.getElementById('performance-log-empty');
+  performanceCodexElements.updated = document.getElementById('performance-log-updated');
+  performanceCodexState.log = getPerformanceSnapshotLog();
+  renderPerformanceCodex();
+  if (unsubscribePerformanceSnapshots) {
+    unsubscribePerformanceSnapshots();
+  }
+  unsubscribePerformanceSnapshots = subscribeToPerformanceSnapshots(() => {
+    performanceCodexState.log = getPerformanceSnapshotLog();
+    renderPerformanceCodex();
+  });
+}
 
 let enemyCodexEntries = [];
 let enemyCodexMap = new Map();

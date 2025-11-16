@@ -49,6 +49,12 @@ import * as TowerManager from './playfield/managers/TowerManager.js';
 import * as DeveloperCrystalManager from './playfield/managers/DeveloperCrystalManager.js';
 import * as StatsPanel from './playfieldStatsPanel.js';
 import {
+  beginPerformanceFrame,
+  beginPerformanceSegment,
+  beginTowerPerformanceSegment,
+  endPerformanceFrame,
+} from './performanceMonitor.js';
+import {
   determinePreferredOrientation,
   setPreferredOrientation,
   applyContainerOrientationClass,
@@ -1443,8 +1449,24 @@ export class SimplePlayfield {
     this.lastTimestamp = timestamp;
 
     const safeDelta = Math.min(delta, 0.12);
-    this.update(safeDelta);
-    this.draw();
+    // Wrap the frame lifecycle with performance markers so diagnostics can attribute work.
+    beginPerformanceFrame();
+    try {
+      const finishUpdateSegment = beginPerformanceSegment('update');
+      try {
+        this.update(safeDelta);
+      } finally {
+        finishUpdateSegment();
+      }
+      const finishDrawSegment = beginPerformanceSegment('draw');
+      try {
+        this.draw();
+      } finally {
+        finishDrawSegment();
+      }
+    } finally {
+      endPerformanceFrame();
+    }
 
     this.animationId = requestAnimationFrame((nextTimestamp) => this.tick(nextTimestamp));
   }
@@ -5095,16 +5117,29 @@ export class SimplePlayfield {
     }
 
     const speedDelta = delta * this.speedMultiplier;
-    this.updateCombatStats(speedDelta);
-    this.updateFloaters(speedDelta);
-    this.updateTrackRiverParticles(speedDelta);
-    this.updateFocusIndicator(speedDelta);
-    this.updateAlphaBursts(speedDelta);
-    this.updateBetaBursts(speedDelta);
-    this.updateGammaBursts(speedDelta);
-    this.updateNuBursts(speedDelta);
-    this.updateCrystals(speedDelta);
-    this.updateConnectionParticles(speedDelta);
+    // Attribute stat upkeep costs so the codex can surface non-combat drains.
+    const finishStatSegment = beginPerformanceSegment('update:stats');
+    try {
+      this.updateCombatStats(speedDelta);
+    } finally {
+      finishStatSegment();
+    }
+
+    // Measure passive ambient effects (particles, floaters, connections) as a single bucket.
+    const finishAmbientSegment = beginPerformanceSegment('update:ambient');
+    try {
+      this.updateFloaters(speedDelta);
+      this.updateTrackRiverParticles(speedDelta);
+      this.updateFocusIndicator(speedDelta);
+      this.updateAlphaBursts(speedDelta);
+      this.updateBetaBursts(speedDelta);
+      this.updateGammaBursts(speedDelta);
+      this.updateNuBursts(speedDelta);
+      this.updateCrystals(speedDelta);
+      this.updateConnectionParticles(speedDelta);
+    } finally {
+      finishAmbientSegment();
+    }
 
     const arcSpeed = this.levelConfig?.arcSpeed ?? 0.2;
     const pathLength = this.pathLength || 1;
@@ -5116,39 +5151,85 @@ export class SimplePlayfield {
 
     if (!this.combatActive) {
       // Keep unique tower behaviors alive even while waves are paused.
-      this.towers.forEach((tower) => {
-        if (tower.type === 'zeta') {
-          this.updateZetaTower(tower, speedDelta);
-          return;
-        }
-        if (tower.type === 'eta') {
-          this.updateEtaTower(tower, speedDelta);
-          return;
-        }
-        if (tower.type === 'lambda') {
-          this.updateLambdaTower(tower, speedDelta);
-          return;
-        }
-        if (tower.type !== 'delta') {
-          return;
-        }
-        tower.cooldown = Math.max(0, tower.cooldown - speedDelta);
-        this.updateDeltaTower(tower, speedDelta);
-      });
-      this.updateHud();
-      this.updateProgress();
+      // Keep a tower bucket active even when waves are paused so idle behaviors are tracked.
+      const finishMaintenanceSegment = beginPerformanceSegment('update:towers');
+      try {
+        this.towers.forEach((tower) => {
+          if (tower.type === 'zeta') {
+            this.updateZetaTower(tower, speedDelta);
+            return;
+          }
+          if (tower.type === 'eta') {
+            this.updateEtaTower(tower, speedDelta);
+            return;
+          }
+          if (tower.type === 'lambda') {
+            this.updateLambdaTower(tower, speedDelta);
+            return;
+          }
+          if (tower.type !== 'delta') {
+            return;
+          }
+          tower.cooldown = Math.max(0, tower.cooldown - speedDelta);
+          this.updateDeltaTower(tower, speedDelta);
+        });
+      } finally {
+        finishMaintenanceSegment();
+      }
+      // Record HUD/progress refresh time for the paused state separately.
+      const finishHudSegment = beginPerformanceSegment('update:hud');
+      try {
+        this.updateHud();
+        this.updateProgress();
+      } finally {
+        finishHudSegment();
+      }
       return;
     }
 
     this.waveTimer += speedDelta;
-    this.spawnEnemies();
-    this.updateTowers(speedDelta);
-    this.updateEnemies(speedDelta);
-    this.updateProjectiles(speedDelta);
-    // Animate mote gems so they pulse gently while waiting to be collected.
-    this.updateMoteGems(speedDelta);
-    this.updateProgress();
-    this.updateHud();
+    // Group enemy spawning and marching updates to weigh pathfinding cost.
+    const finishEnemySegment = beginPerformanceSegment('update:enemies');
+    try {
+      this.spawnEnemies();
+      this.updateEnemies(speedDelta);
+    } finally {
+      finishEnemySegment();
+    }
+
+    // Track the live tower loop while combat is active.
+    const finishTowerSegment = beginPerformanceSegment('update:towers');
+    try {
+      this.updateTowers(speedDelta);
+    } finally {
+      finishTowerSegment();
+    }
+
+    // Monitor projectile simulations separately so beam-heavy builds are visible.
+    const finishProjectileSegment = beginPerformanceSegment('update:projectiles');
+    try {
+      this.updateProjectiles(speedDelta);
+    } finally {
+      finishProjectileSegment();
+    }
+
+    // Keep mote animation costs visible when drops flood the field.
+    const finishMoteSegment = beginPerformanceSegment('update:motes');
+    try {
+      // Animate mote gems so they pulse gently while waiting to be collected.
+      this.updateMoteGems(speedDelta);
+    } finally {
+      finishMoteSegment();
+    }
+
+    // Track HUD refresh costs while combat is active.
+    const finishHudSegment = beginPerformanceSegment('update:hud');
+    try {
+      this.updateProgress();
+      this.updateHud();
+    } finally {
+      finishHudSegment();
+    }
   }
 
   calculateMoteFactor(config) {
@@ -5351,69 +5432,75 @@ export class SimplePlayfield {
 
   updateTowers(delta) {
     this.towers.forEach((tower) => {
-      tower.cooldown = Math.max(0, tower.cooldown - delta);
-      if (tower.linkTargetId) {
-        this.updateConnectionSupplier(tower, delta);
-        return;
+      // Attribute work to the active tower type before branching into its custom logic.
+      const finishTowerSample = beginTowerPerformanceSegment(tower?.type || 'unknown');
+      try {
+        tower.cooldown = Math.max(0, tower.cooldown - delta);
+        if (tower.linkTargetId) {
+          this.updateConnectionSupplier(tower, delta);
+          return;
+        }
+        if (tower.type === 'zeta') {
+          this.updateZetaTower(tower, delta);
+          return;
+        }
+        if (tower.type === 'eta') {
+          this.updateEtaTower(tower, delta);
+          return;
+        }
+        if (tower.type === 'delta') {
+          this.updateDeltaTower(tower, delta);
+          return;
+        }
+        if (tower.type === 'epsilon') {
+          this.updateEpsilonTower(tower, delta);
+          return;
+        }
+        if (tower.type === 'theta') {
+          this.updateThetaTower(tower, delta);
+          return;
+        }
+        if (tower.type === 'kappa') {
+          this.updateKappaTower(tower, delta);
+          return;
+        }
+        if (tower.type === 'lambda') {
+          this.updateLambdaTower(tower, delta);
+          return;
+        }
+        if (tower.type === 'mu') {
+          this.updateMuTower(tower, delta);
+          return;
+        }
+        if (tower.type === 'nu') {
+          this.updateNuTower(tower, delta);
+        }
+        if (tower.type === 'xi') {
+          this.updateXiTower(tower, delta);
+        }
+        if (tower.type === 'omicron') {
+          this.updateOmicronTower(tower, delta);
+          return;
+        }
+        if (tower.type === 'pi') {
+          this.updatePiTower(tower, delta);
+          return;
+        }
+        if (!this.combatActive || !this.enemies.length) {
+          return;
+        }
+        if (tower.cooldown > 0) {
+          return;
+        }
+        const targetInfo = this.findTarget(tower);
+        if (!targetInfo) {
+          return;
+        }
+        tower.cooldown = 1 / tower.rate;
+        this.fireAtTarget(tower, targetInfo);
+      } finally {
+        finishTowerSample();
       }
-      if (tower.type === 'zeta') {
-        this.updateZetaTower(tower, delta);
-        return;
-      }
-      if (tower.type === 'eta') {
-        this.updateEtaTower(tower, delta);
-        return;
-      }
-      if (tower.type === 'delta') {
-        this.updateDeltaTower(tower, delta);
-        return;
-      }
-      if (tower.type === 'epsilon') {
-        this.updateEpsilonTower(tower, delta);
-        return;
-      }
-      if (tower.type === 'theta') {
-        this.updateThetaTower(tower, delta);
-        return;
-      }
-      if (tower.type === 'kappa') {
-        this.updateKappaTower(tower, delta);
-        return;
-      }
-      if (tower.type === 'lambda') {
-        this.updateLambdaTower(tower, delta);
-        return;
-      }
-      if (tower.type === 'mu') {
-        this.updateMuTower(tower, delta);
-        return;
-      }
-      if (tower.type === 'nu') {
-        this.updateNuTower(tower, delta);
-      }
-      if (tower.type === 'xi') {
-        this.updateXiTower(tower, delta);
-      }
-      if (tower.type === 'omicron') {
-        this.updateOmicronTower(tower, delta);
-        return;
-      }
-      if (tower.type === 'pi') {
-        this.updatePiTower(tower, delta);
-        return;
-      }
-      if (!this.combatActive || !this.enemies.length) {
-        return;
-      }
-      if (tower.cooldown > 0) {
-        return;
-      }
-      const targetInfo = this.findTarget(tower);
-      if (!targetInfo) {
-        return;
-      }
-      tower.cooldown = 1 / tower.rate;
-      this.fireAtTarget(tower, targetInfo);
     });
   }
 
