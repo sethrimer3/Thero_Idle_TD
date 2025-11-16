@@ -182,7 +182,7 @@ const TOWER_HOLD_ACTIVATION_MS = 180;
 const TOWER_HOLD_CANCEL_DISTANCE_PX = 18;
 const TOWER_HOLD_SWIPE_THRESHOLD_PX = 48;
 const TOWER_PRESS_GLOW_FADE_MS = 200;
-const TOWER_MENU_DOUBLE_TAP_INTERVAL_MS = 320;
+const TOWER_MENU_DOUBLE_TAP_INTERVAL_MS = 800;
 const TOWER_MENU_DOUBLE_TAP_DISTANCE_PX = 28;
 const DEFAULT_COST_SCRIBBLE_COLORS = {
   start: { r: 139, g: 247, b: 255 },
@@ -211,9 +211,9 @@ const WAVE_TALLY_HOLD_DURATION = 2;
 const WAVE_TALLY_ERASE_DURATION = 0.4;
 const WAVE_TALLY_KILL_PADDING = 18;
 const WAVE_TALLY_DAMAGE_PADDING = 24;
-const WAVE_TALLY_KILL_FONT_SIZE = 17;
-// Damage scribbles intentionally run half size so they feel like supporting data beneath kill tallies.
-const WAVE_TALLY_DAMAGE_FONT_SIZE = 8;
+// Keep kill and damage scribbles in sync so both stats feel equally legible around each tower.
+const WAVE_TALLY_DAMAGE_FONT_SIZE = 9.6;
+const WAVE_TALLY_KILL_FONT_SIZE = WAVE_TALLY_DAMAGE_FONT_SIZE;
 
 export class SimplePlayfield {
   constructor(options) {
@@ -326,6 +326,8 @@ export class SimplePlayfield {
 
     // Track which lattice menu is active so clicks open option rings instead of instant selling.
     this.activeTowerMenu = null;
+    // Store a short-lived closing animation snapshot so the radial menu can gracefully dissipate.
+    this.towerMenuExitAnimation = null;
     // Provide stable identifiers for Delta soldiers as they spawn from multiple towers.
     this.deltaSoldierIdCounter = 0;
 
@@ -2300,6 +2302,7 @@ export class SimplePlayfield {
     this.resetDamageNumbers();
     this.resetWaveTallies();
     this.activeTowerMenu = null;
+    this.towerMenuExitAnimation = null;
     this.deltaSoldierIdCounter = 0;
     this.floaters = [];
     this.floaterConnections = [];
@@ -3331,6 +3334,7 @@ export class SimplePlayfield {
     const tower = this.towers.find((candidate) => candidate?.id === this.activeTowerMenu.towerId);
     if (!tower) {
       this.activeTowerMenu = null;
+      this.towerMenuExitAnimation = null;
     }
     return tower || null;
   }
@@ -3346,7 +3350,14 @@ export class SimplePlayfield {
       typeof performance !== 'undefined' && typeof performance.now === 'function'
         ? performance.now()
         : Date.now();
-    this.activeTowerMenu = { towerId: tower.id, openedAt: timestamp };
+    this.activeTowerMenu = {
+      towerId: tower.id,
+      openedAt: timestamp,
+      anchor: { x: tower.x, y: tower.y },
+      geometrySnapshot: null,
+    };
+    // Opening a fresh lattice menu cancels any lingering dismissal animation.
+    this.towerMenuExitAnimation = null;
     if (this.messageEl && !options.silent) {
       const label = tower.definition?.name || `${tower.symbol || 'Tower'}`;
       this.messageEl.textContent = `${label} command lattice ready.`;
@@ -3357,6 +3368,45 @@ export class SimplePlayfield {
    * Hide any open radial tower menu.
    */
   closeTowerMenu() {
+    const currentMenu = this.activeTowerMenu;
+    if (!currentMenu) {
+      this.towerMenuExitAnimation = null;
+      this.activeTowerMenu = null;
+      return;
+    }
+    const timestamp = this.getCurrentTimestamp();
+    const tower = this.getActiveMenuTower();
+    const geometry = tower ? this.getTowerMenuGeometry(tower) : currentMenu.geometrySnapshot || null;
+    const anchor = tower
+      ? { x: tower.x, y: tower.y }
+      : currentMenu.anchor
+      ? { x: currentMenu.anchor.x, y: currentMenu.anchor.y }
+      : null;
+    if (
+      geometry &&
+      anchor &&
+      Number.isFinite(geometry.optionRadius) &&
+      Number.isFinite(geometry.ringRadius) &&
+      Array.isArray(geometry.options) &&
+      geometry.options.length
+    ) {
+      // Snapshot the current lattice layout so the renderer can animate the dismissal even after the tower reference clears.
+      this.towerMenuExitAnimation = {
+        anchor,
+        startedAt: timestamp,
+        optionRadius: geometry.optionRadius,
+        ringRadius: geometry.ringRadius,
+        options: geometry.options.map((option) => ({
+          angle: option.angle,
+          icon: option.icon,
+          costLabel: option.costLabel,
+          selected: option.selected,
+          disabled: option.disabled,
+        })),
+      };
+    } else {
+      this.towerMenuExitAnimation = null;
+    }
     this.activeTowerMenu = null;
   }
 
