@@ -1,0 +1,260 @@
+{
+  "achievements": [
+    {
+      "id": "achievement-conjecture-1",
+      "levelId": "Conjecture - 1",
+      "title": "Lemniscate Hypothesis",
+      "subtitle": "Conjecture · Conjecture - 1",
+      "description": "∞ loop traced from r² = cos(2θ); mirrored spawn lanes cross twice. Early E glyphs surge with divisor scouts—tempo control is vital.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-conjecture-2",
+      "levelId": "Conjecture - 2",
+      "title": "Collatz Cascade",
+      "subtitle": "Conjecture · Conjecture - 2",
+      "description": "Stepwise descent generated from the 3n + 1 map with teleport risers. Hit-count enemies appear on odd nodes; summon glyph soldiers to stall.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-conjecture-3",
+      "levelId": "Conjecture - 3",
+      "title": "Riemann Helix",
+      "subtitle": "Conjecture · Conjecture - 3",
+      "description": "Logarithmic spiral with harmonic bulges keyed to ζ(s) zero estimates. Divisor elites flank wave bosses—Ω previews excel at splash slows.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-conjecture-4",
+      "levelId": "Conjecture - 4",
+      "title": "Twin Prime Fork",
+      "subtitle": "Conjecture · Conjecture - 4",
+      "description": "Dual lattice rails linked by prime gaps; enemies swap lanes unpredictably. Prime counters demand rapid-fire towers—γ chaining resets their count.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-conjecture-5",
+      "levelId": "Conjecture - 5",
+      "title": "Birch Flow",
+      "subtitle": "Conjecture · Conjecture - 5",
+      "description": "Cardioid river influenced by elliptic curve rank gradients. Reversal sentinels join late waves—δ soldiers can flip them to your side.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-conjecture-secret",
+      "levelId": "Conjecture - Secret",
+      "title": "Apocrypha Loop",
+      "subtitle": "Conjecture · Conjecture - Secret",
+      "description": "Hidden lemniscate mirrored through complex planes; portals bloom off-axis. Only reveals during total glyph alignment—expect mixed archetypes in waves.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-corollary-6",
+      "levelId": "Corollary - 6",
+      "title": "Derivative Bloom",
+      "subtitle": "Corollary · Corollary - 6",
+      "description": "Petal loops bloom where f′(x) = 0 across mirrored cardioids and saddle petals. Flux bursts alternate with brittle shards—steady α lattices prevent overflow collapses.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-corollary-7",
+      "levelId": "Corollary - 7",
+      "title": "Integral Cascade",
+      "subtitle": "Corollary · Corollary - 7",
+      "description": "Stepped integrator ramps descend in quantized slopes shaped by accumulated area. Energy leeches drift down ramps—δ summons keep Δ energy above zero.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-corollary-8",
+      "levelId": "Corollary - 8",
+      "title": "Fibonacci Turnabout",
+      "subtitle": "Corollary · Corollary - 8",
+      "description": "Interleaved golden spirals shift radius on Fibonacci indices and teleport pads. Prime counters spawn on Fibonacci junctions—γ conductors reset their tally.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-corollary-9",
+      "levelId": "Corollary - 9",
+      "title": "Euler Bridge",
+      "subtitle": "Corollary · Corollary - 9",
+      "description": "Bridge arcs obey planar graph constraints; parity lanes swap over Euler gaps. Divisors guard the bridges—β beams must stay coherent to pierce.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-corollary-10",
+      "levelId": "Corollary - 10",
+      "title": "Modular Bloom",
+      "subtitle": "Corollary · Corollary - 10",
+      "description": "Modular roses rotate through residue-locked petals with congruence gate warps. Reversal sentinels invert on residue gates—δ rallies convert them mid-arc.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-corollary-secret",
+      "levelId": "Corollary - Secret",
+      "title": "Shadow Integral",
+      "subtitle": "Corollary · Corollary - Secret",
+      "description": "Phase-shifted archipelago of calculus islands hidden beneath modular petals. Resource siphons and reversal elites stack together—prepare universal counters.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-lemma-11",
+      "levelId": "Lemma - 11",
+      "title": "Abel Cascade",
+      "subtitle": "Lemma · Lemma - 11",
+      "description": "Waterfall descent using commutator switches; river nodes invert projectile order, testing burst versus beam timing. Stub focus – finalize lemma-tier enemy pacing once behaviors are scripted.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-lemma-12",
+      "levelId": "Lemma - 12",
+      "title": "Noether Weave",
+      "subtitle": "Lemma · Lemma - 12",
+      "description": "Symmetry-rich ringroads whose portals preserve DPS sums; enemies trade positions when struck by support glyphs. Stub focus – finalize lemma-tier enemy pacing once behaviors are scripted.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-lemma-13",
+      "levelId": "Lemma - 13",
+      "title": "Erdős Drift",
+      "subtitle": "Lemma · Lemma - 13",
+      "description": "Random-graph tramlines that shuffle lane adjacency; probabilistic smugglers reroute toward the longest surviving enemy. Stub focus – finalize lemma-tier enemy pacing once behaviors are scripted.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-lemma-14",
+      "levelId": "Lemma - 14",
+      "title": "Möbius Rind",
+      "subtitle": "Lemma · Lemma - 14",
+      "description": "Inside-out corkscrew track; sign-flip sentries grant negative armor that amplifies epsilon burn damage. Stub focus – finalize lemma-tier enemy pacing once behaviors are scripted.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-lemma-15",
+      "levelId": "Lemma - 15",
+      "title": "Ramanujan Bloom",
+      "subtitle": "Lemma · Lemma - 15",
+      "description": "Lotus of nested circles keyed to modular forms; resonance echoes cause defeated foes to spawn low-HP harmonic clones. Stub focus – finalize lemma-tier enemy pacing once behaviors are scripted.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-proof-16",
+      "levelId": "Proof - 16",
+      "title": "Hilbert Fold",
+      "subtitle": "Proof · Proof - 16",
+      "description": "Space-filling fractal corridor; dimensional walkers slip through walls unless slowed by delta caserns. Stub focus – stage goals will follow once proof-tier hazards are tuned.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-proof-17",
+      "levelId": "Proof - 17",
+      "title": "Gödel Labyrinth",
+      "subtitle": "Proof · Proof - 17",
+      "description": "Self-referencing maze with locked axioms; paradox custodians revive unless struck by three distinct tower classes. Stub focus – stage goals will follow once proof-tier hazards are tuned.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-proof-18",
+      "levelId": "Proof - 18",
+      "title": "Turing Spire",
+      "subtitle": "Proof · Proof - 18",
+      "description": "Vertical tape ascent with binary toggles; automaton foes flip between vulnerable and immune states based on attack parity. Stub focus – stage goals will follow once proof-tier hazards are tuned.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-proof-19",
+      "levelId": "Proof - 19",
+      "title": "Cantor Verge",
+      "subtitle": "Proof · Proof - 19",
+      "description": "Fragmented coastline path removing middle thirds; lacuna spirits leap gaps, forcing chained knockback to corral them. Stub focus – stage goals will follow once proof-tier hazards are tuned.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-proof-20",
+      "levelId": "Proof - 20",
+      "title": "Jordan Curve Bastion",
+      "subtitle": "Proof · Proof - 20",
+      "description": "Contour fortress wrapped around the core; enclosure judges stun towers that let enemies slip past twice. Stub focus – stage goals will follow once proof-tier hazards are tuned.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-theorem-21",
+      "levelId": "Theorem - 21",
+      "title": "Gauss Orchard",
+      "subtitle": "Theorem · Theorem - 21",
+      "description": "Hexagonal orchard aligned to quadratic residues; orchard keepers gain bonus armor on perfect squares. Stub focus – theorem-tier balancing will be added alongside enemy rosters.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-theorem-22",
+      "levelId": "Theorem - 22",
+      "title": "Fourier Aurora",
+      "subtitle": "Theorem · Theorem - 22",
+      "description": "Polar halo with wavelength lanes; harmonics build up unless projectile types stay varied. Stub focus – theorem-tier balancing will be added alongside enemy rosters.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-theorem-23",
+      "levelId": "Theorem - 23",
+      "title": "Nash Spiral",
+      "subtitle": "Theorem · Theorem - 23",
+      "description": "Competitive spiral with alternating payoff nodes; adversary agents buff themselves when lanes sit undefended. Stub focus – theorem-tier balancing will be added alongside enemy rosters.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-theorem-24",
+      "levelId": "Theorem - 24",
+      "title": "Riesz Parallax",
+      "subtitle": "Theorem · Theorem - 24",
+      "description": "Dual parabolic arches sharing intercepts; projection ghosts mirror the lead enemy unless frozen in tandem. Stub focus – theorem-tier balancing will be added alongside enemy rosters.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-theorem-25",
+      "levelId": "Theorem - 25",
+      "title": "Poincaré Bloom",
+      "subtitle": "Theorem · Theorem - 25",
+      "description": "Hypersphere cross-section with teleport seams; flarebitters detonate when they contact the seams. Stub focus – theorem-tier balancing will be added alongside enemy rosters.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-axiom-26",
+      "levelId": "Axiom - 26",
+      "title": "Zorn Horizon",
+      "subtitle": "Axiom · Axiom - 26",
+      "description": "Infinite-descending plateau where gravity reverses; maximal chain wardens swell until omega strikes topple them. Stub focus – axiom-tier encounters will be scripted once late-game math is locked.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-axiom-27",
+      "levelId": "Axiom - 27",
+      "title": "Löwenheim Gate",
+      "subtitle": "Axiom · Axiom - 27",
+      "description": "Quantifier gates that rescale enemy size; shrinking glyphs slip through gaps unless sigma snares hold them. Stub focus – axiom-tier encounters will be scripted once late-game math is locked.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-axiom-28",
+      "levelId": "Axiom - 28",
+      "title": "Grothendieck Loom",
+      "subtitle": "Axiom · Axiom - 28",
+      "description": "Category lattice weaving incoming paths; functor heralds copy the highest-tier tower stats once per wave. Stub focus – axiom-tier encounters will be scripted once late-game math is locked.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-axiom-29",
+      "levelId": "Axiom - 29",
+      "title": "Tarski Reflection",
+      "subtitle": "Axiom · Axiom - 29",
+      "description": "Mirror arena with delayed reflections; spectral doubles retrace steps with inverted resistances. Stub focus – axiom-tier encounters will be scripted once late-game math is locked.",
+      "rewardFlux": 1
+    },
+    {
+      "id": "achievement-axiom-30",
+      "levelId": "Axiom - 30",
+      "title": "Peano Genesis",
+      "subtitle": "Axiom · Axiom - 30",
+      "description": "Final spiral built from recursive integers; successor titans rebuild lost segments unless powderfall seals flare. Stub focus – axiom-tier encounters will be scripted once late-game math is locked.",
+      "rewardFlux": 1
+    }
+  ]
+}

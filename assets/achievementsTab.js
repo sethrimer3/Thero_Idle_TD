@@ -1,9 +1,14 @@
 import { formatGameNumber, formatWholeNumber } from '../scripts/core/formatting.js';
+import { fetchJsonWithFallback } from './gameplayConfigLoaders.js';
 
 // Achievements tab logic extracted from the main script to keep state and rendering scoped here.
 
 const ACHIEVEMENT_REWARD_FLUX = 1;
 const ACHIEVEMENT_REVEAL_TIMEOUT_MS = 420; // Fallback delay before forcing the overlay text to appear.
+const ACHIEVEMENT_DISMISS_TIMEOUT_MS = 520; // Ensures the overlay always resets even if transitions are interrupted.
+
+const ACHIEVEMENT_DATA_RELATIVE_PATH = './data/achievements.json';
+const ACHIEVEMENT_DATA_URL = new URL(ACHIEVEMENT_DATA_RELATIVE_PATH, import.meta.url);
 
 const achievementState = new Map();
 const achievementElements = new Map();
@@ -13,12 +18,22 @@ let achievementPowderRate = 0;
 let context = null;
 let overlayElements = null; // Stores the lazily created overlay nodes for cinematic reveals.
 let overlayState = null; // Tracks the currently animating achievement so it can return home.
+let achievementMetadata = [];
+let achievementMetadataLoadPromise = null;
 
 // Clear any pending timeout that would reveal the overlay text.
 function clearOverlayRevealTimer() {
   if (overlayState?.revealTimer) {
     window.clearTimeout(overlayState.revealTimer);
     overlayState.revealTimer = null;
+  }
+}
+
+// Cancel a pending timeout that would forcibly reset the overlay during dismissal.
+function clearOverlayDismissTimer() {
+  if (overlayState?.dismissTimer) {
+    window.clearTimeout(overlayState.dismissTimer);
+    overlayState.dismissTimer = null;
   }
 }
 
@@ -45,6 +60,97 @@ function scheduleAchievementOverlayRevealFallback() {
     overlayState.revealTimer = null;
     revealAchievementOverlayContent();
   }, ACHIEVEMENT_REVEAL_TIMEOUT_MS);
+}
+
+function scheduleAchievementOverlayDismissFallback() {
+  if (!overlayState) {
+    return;
+  }
+  clearOverlayDismissTimer();
+  overlayState.dismissTimer = window.setTimeout(() => {
+    finalizeAchievementOverlayDismissal();
+  }, ACHIEVEMENT_DISMISS_TIMEOUT_MS);
+}
+
+function finalizeAchievementOverlayDismissal() {
+  if (!overlayState || !overlayElements) {
+    overlayState = null;
+    return;
+  }
+  clearOverlayDismissTimer();
+  clearOverlayRevealTimer();
+  const focusTarget = overlayState.trigger || null;
+  if (overlayState.originIcon) {
+    overlayState.originIcon.classList.remove('achievement-icon-hidden');
+  }
+  overlayElements.overlay.hidden = true;
+  overlayElements.overlay.setAttribute('aria-hidden', 'true');
+  overlayElements.overlay.classList.remove('closing');
+  overlayElements.overlay.classList.remove('visible');
+  overlayElements.iconTarget.classList.remove('visible');
+  overlayElements.content.classList.remove('text-visible');
+  overlayElements.floatingIcon.hidden = true;
+  const restoreFocus = typeof focusTarget?.focus === 'function' ? focusTarget : null;
+  overlayState = null;
+  if (restoreFocus) {
+    restoreFocus.focus();
+  }
+}
+
+function normalizeAchievementMetadata(entry) {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+  const levelId = typeof entry.levelId === 'string' && entry.levelId.trim() ? entry.levelId.trim() : null;
+  if (!levelId) {
+    return null;
+  }
+  const idCandidate = typeof entry.id === 'string' && entry.id.trim() ? entry.id.trim() : null;
+  const title = typeof entry.title === 'string' && entry.title.trim() ? entry.title.trim() : levelId;
+  const subtitle = typeof entry.subtitle === 'string' && entry.subtitle.trim() ? entry.subtitle.trim() : null;
+  const description = typeof entry.description === 'string' && entry.description.trim()
+    ? entry.description.trim()
+    : null;
+  const icon = typeof entry.icon === 'string' && entry.icon.trim() ? entry.icon.trim() : null;
+  const rewardFlux = Number.isFinite(entry.rewardFlux) ? entry.rewardFlux : null;
+  return {
+    id: idCandidate || `achievement-${levelId.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`,
+    levelId,
+    title,
+    subtitle,
+    description,
+    icon,
+    rewardFlux,
+  };
+}
+
+async function loadAchievementMetadata() {
+  if (achievementMetadata.length) {
+    return achievementMetadata;
+  }
+  if (!achievementMetadataLoadPromise) {
+    achievementMetadataLoadPromise = (async () => {
+      try {
+        const payload = await fetchJsonWithFallback(
+          ACHIEVEMENT_DATA_URL.href,
+          ACHIEVEMENT_DATA_RELATIVE_PATH,
+        );
+        const list = Array.isArray(payload?.achievements)
+          ? payload.achievements
+          : Array.isArray(payload)
+            ? payload
+            : [];
+        achievementMetadata = list.map(normalizeAchievementMetadata).filter(Boolean);
+      } catch (error) {
+        console.warn('Failed to load achievement metadata.', error);
+        achievementMetadata = [];
+      } finally {
+        achievementMetadataLoadPromise = null;
+      }
+      return achievementMetadata;
+    })();
+  }
+  return achievementMetadataLoadPromise;
 }
 
 function getContext() {
@@ -76,17 +182,19 @@ function describeLevelAchievementProgress(levelId, shortLabel, longLabel) {
 }
 
 // Builds an achievement definition for a single level entry.
-function createLevelAchievementDefinition(levelId, ordinal) {
+function createLevelAchievementDefinition(levelId, ordinal, metadataMap) {
   const { levelConfigs, isLevelCompleted, THERO_SYMBOL: theroSymbol } = getContext();
   const levelConfig = levelConfigs.get(levelId);
   if (!levelConfig || levelConfig.developerOnly) {
     return null;
   }
 
-  const id = `level-${ordinal}`;
-  const displayName = levelConfig.displayName || levelConfig.title || levelConfig.id || `Level ${ordinal}`;
-  const shortLabel = levelConfig.id || displayName;
-  const icon = String(ordinal);
+  const metadata = metadataMap?.get(levelId) || null;
+
+  const id = metadata?.id || `level-${ordinal}`;
+  const displayName = metadata?.title || levelConfig.displayName || levelConfig.title || levelConfig.id || `Level ${ordinal}`;
+  const shortLabel = metadata?.subtitle || levelConfig.id || displayName;
+  const icon = metadata?.icon || String(ordinal);
 
   const rewardSegments = [];
   if (Number.isFinite(levelConfig.startThero)) {
@@ -103,7 +211,10 @@ function createLevelAchievementDefinition(levelId, ordinal) {
   }
 
   const rewardSummary = rewardSegments.join(' ');
-  const description = `${displayName} — seal ${shortLabel} to claim the idle mote seal. ${rewardSummary}`.trim();
+  const rewardFlux = Number.isFinite(metadata?.rewardFlux) ? metadata.rewardFlux : ACHIEVEMENT_REWARD_FLUX;
+  const baseDescription = metadata?.description
+    ? `${metadata.description}`
+    : `${displayName} — seal ${shortLabel} to claim the idle mote seal. ${rewardSummary}`.trim();
 
   return {
     id,
@@ -111,48 +222,58 @@ function createLevelAchievementDefinition(levelId, ordinal) {
     title: displayName,
     subtitle: shortLabel,
     icon,
-    rewardFlux: ACHIEVEMENT_REWARD_FLUX,
-    description: `${description} Unlocking adds +${ACHIEVEMENT_REWARD_FLUX} Motes/min to idle reserves.`,
+    rewardFlux,
+    description: `${baseDescription} Unlocking adds +${rewardFlux} Motes/min to idle reserves.`.trim(),
     condition: () => isLevelCompleted(levelId),
     progress: () => describeLevelAchievementProgress(levelId, shortLabel, displayName),
   };
 }
 
 // Recomputes the full achievements list using the current interactive level order.
-export function generateLevelAchievements() {
-  const { getInteractiveLevelOrder, updateResourceRates, updatePowderLedger } = getContext();
-  let ordinal = 0;
-  const definitions = [];
-
-  const order = typeof getInteractiveLevelOrder === 'function' ? getInteractiveLevelOrder() : [];
-  order.forEach((levelId) => {
-    const candidate = createLevelAchievementDefinition(levelId, ordinal + 1);
-    if (!candidate) {
-      return;
+export async function generateLevelAchievements() {
+  try {
+    const metadata = await loadAchievementMetadata();
+    const metadataMap = new Map((metadata || []).map((entry) => [entry.levelId, entry]));
+    const { getInteractiveLevelOrder, updateResourceRates, updatePowderLedger } = getContext();
+    const levelOrder = typeof getInteractiveLevelOrder === 'function' ? getInteractiveLevelOrder() : [];
+    if (!levelOrder.length) {
+      achievementDefinitions = [];
+      return achievementDefinitions;
     }
-    ordinal += 1;
-    definitions.push(candidate);
-  });
 
-  achievementDefinitions = definitions;
-  const allowedIds = new Set(definitions.map((definition) => definition.id));
-  Array.from(achievementState.keys()).forEach((key) => {
-    if (!allowedIds.has(key)) {
-      achievementState.delete(key);
-    }
-  });
+    const definitions = [];
+    levelOrder.forEach((levelId, index) => {
+      const definition = createLevelAchievementDefinition(levelId, index + 1, metadataMap);
+      if (definition) {
+        definitions.push(definition);
+      }
+    });
 
-  refreshAchievementPowderRate();
+    achievementDefinitions = definitions;
+    const allowedIds = new Set(definitions.map((definition) => definition.id));
+    Array.from(achievementState.keys()).forEach((key) => {
+      if (!allowedIds.has(key)) {
+        achievementState.delete(key);
+      }
+    });
 
-  if (achievementGridEl) {
-    renderAchievementGrid();
-    evaluateAchievements();
-    if (typeof updateResourceRates === 'function') {
-      updateResourceRates();
+    refreshAchievementPowderRate();
+
+    if (achievementGridEl) {
+      renderAchievementGrid();
+      evaluateAchievements();
+      if (typeof updateResourceRates === 'function') {
+        updateResourceRates();
+      }
+      if (typeof updatePowderLedger === 'function') {
+        updatePowderLedger();
+      }
     }
-    if (typeof updatePowderLedger === 'function') {
-      updatePowderLedger();
-    }
+
+    return achievementDefinitions;
+  } catch (error) {
+    console.error('Failed to generate level achievements.', error);
+    return achievementDefinitions;
   }
 }
 
@@ -312,20 +433,7 @@ function ensureAchievementOverlay() {
     const { overlay: overlayEl, iconTarget: iconEl, content: contentEl } = overlayElements;
     clearOverlayRevealTimer();
     if (overlayEl.classList.contains('closing')) {
-      const focusTarget = overlayState?.trigger || null;
-      if (overlayState?.originIcon) {
-        overlayState.originIcon.classList.remove('achievement-icon-hidden');
-      }
-      overlayEl.hidden = true;
-      overlayEl.setAttribute('aria-hidden', 'true');
-      overlayEl.classList.remove('closing');
-      iconEl.classList.remove('visible');
-      contentEl.classList.remove('text-visible');
-      floatingIcon.hidden = true;
-      overlayState = null;
-      if (focusTarget && typeof focusTarget.focus === 'function') {
-        focusTarget.focus();
-      }
+      finalizeAchievementOverlayDismissal();
       return;
     }
 
@@ -419,6 +527,7 @@ function presentAchievementCinematic(id) {
     originIcon: iconSource,
     trigger: elements.container,
     revealTimer: null,
+    dismissTimer: null,
   };
   scheduleAchievementOverlayRevealFallback();
 
@@ -451,6 +560,10 @@ function dismissAchievementCinematic() {
   overlayEls.iconTarget.classList.remove('visible');
 
   const originIcon = overlayState.originIcon;
+  if (!originIcon) {
+    finalizeAchievementOverlayDismissal();
+    return;
+  }
   const originRect = originIcon.getBoundingClientRect();
   const targetRect = overlayEls.iconTarget.getBoundingClientRect();
 
@@ -470,6 +583,8 @@ function dismissAchievementCinematic() {
     // Restore opacity as the icon settles back into the achievements grid.
     overlayEls.floatingIcon.style.opacity = '1';
   });
+
+  scheduleAchievementOverlayDismissFallback();
 }
 
 // Initializes the achievements tab when the interface binds event handlers.
