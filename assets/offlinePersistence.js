@@ -419,10 +419,8 @@ export function bindOfflineOverlayElements() {
   offlineOverlayElements.kufTotal = document.getElementById('offline-kuf-total');
   offlineOverlayElements.prompt = document.getElementById('offline-prompt');
 
+  // Allow players to bypass the offline tally as soon as they interact with the overlay.
   offlineOverlayElements.container.addEventListener('pointerdown', (event) => {
-    if (offlineOverlayAnimating) {
-      return;
-    }
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return;
     }
@@ -430,13 +428,9 @@ export function bindOfflineOverlayElements() {
   });
 
   offlineOverlayElements.container.addEventListener('keydown', (event) => {
-    if (offlineOverlayAnimating) {
-      return;
-    }
-    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar' || event.key === 'Escape') {
-      event.preventDefault();
-      hideOfflineOverlay();
-    }
+    // Any key press should dismiss the overlay immediately, even mid-animation.
+    event.preventDefault();
+    hideOfflineOverlay();
   });
 }
 
