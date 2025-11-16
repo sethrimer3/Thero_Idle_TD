@@ -527,6 +527,7 @@ function sanitizeTowerContextEntry(entry) {
     ? entry.sources.map((value) => (typeof value === 'string' ? value : String(value))).filter(Boolean)
     : [];
   const stats = {};
+  const prestige = entry.prestige === true;
   const kills = Number(entry.nuKills);
   if (Number.isFinite(kills) && kills >= 0) {
     stats.nuKills = kills;
@@ -544,6 +545,7 @@ function sanitizeTowerContextEntry(entry) {
     range: Number.isFinite(range) && range > 0 ? range : 0,
     connections,
     sources,
+    prestige,
     stats: normalizedStats,
   };
 }
@@ -622,6 +624,11 @@ export function buildTowerDynamicContext(options = {}) {
     towerType: target.type || null,
     counts,
     stats: target.stats || null,
+    prestige: target.prestige === true,
+    unspentThero:
+      Number.isFinite(options.unspentThero) && options.unspentThero >= 0
+        ? options.unspentThero
+        : null,
   };
 }
 

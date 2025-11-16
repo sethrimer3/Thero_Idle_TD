@@ -3616,6 +3616,7 @@ export class SimplePlayfield {
             range: candidate?.range,
             connections: candidate?.linkTargetId ? [candidate.linkTargetId] : [],
             sources: candidate?.linkSources instanceof Set ? Array.from(candidate.linkSources) : [],
+            prestige: candidate?.prestige === true || candidate?.isPrestigeSigma === true,
             nuKills: candidate?.nuState?.kills,
             nuOverkillTotal: candidate?.nuState?.overkillDamageTotal,
           }))
@@ -3630,10 +3631,12 @@ export class SimplePlayfield {
             range: tower.range,
             connections: tower.linkTargetId ? [tower.linkTargetId] : [],
             sources: tower.linkSources instanceof Set ? Array.from(tower.linkSources) : [],
+            prestige: tower?.prestige === true || tower?.isPrestigeSigma === true,
             nuKills: tower?.nuState?.kills,
             nuOverkillTotal: tower?.nuState?.overkillDamageTotal,
           },
           contextTowers,
+          unspentThero: this.energy,
         });
       }
       if (this.messageEl) {
