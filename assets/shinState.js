@@ -276,6 +276,15 @@ export function getShinGlyphs() {
 }
 
 /**
+ * Override the stored Shin glyph total for developer workflows.
+ */
+export function setShinGlyphs(value) {
+  const normalized = Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
+  shinState.shinGlyphs = normalized;
+  return shinState.shinGlyphs;
+}
+
+/**
  * Get progress to the next layer for a fractal
  * @param {string} fractalId - The ID of the fractal
  * @returns {Object} Progress info with current, next threshold, and percentage

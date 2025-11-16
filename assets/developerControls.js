@@ -11,7 +11,12 @@ const developerControlElements = {
     moteRate: null,
     startThero: null,
     theroMultiplier: null,
-    glyphs: null,
+    glyphsAleph: null,
+    glyphsBet: null,
+    glyphsLamed: null,
+    glyphsTsadi: null,
+    glyphsShin: null,
+    glyphsKuf: null,
     betDropRate: null,
     betDropBank: null,
   },
@@ -200,6 +205,10 @@ function setDeveloperGlyphs(value) {
 
   const normalized = Math.max(0, Math.floor(value));
   const context = getContext();
+  if (context.powderState) {
+    context.powderState.glyphsAwarded = normalized;
+    context.powderState.wallGlyphsLit = normalized;
+  }
   if (typeof context.setGlyphCurrency === 'function') {
     context.setGlyphCurrency(normalized);
   }
@@ -212,11 +221,146 @@ function setDeveloperGlyphs(value) {
     }
   }
 
-  recordDeveloperAdjustment('glyphs', normalized);
+  recordDeveloperAdjustment('glyphs-aleph', normalized);
 
   if (typeof context.updateStatusDisplays === 'function') {
     context.updateStatusDisplays();
   }
+  if (typeof context.schedulePowderBasinSave === 'function') {
+    context.schedulePowderBasinSave();
+  }
+  refreshDeveloperGlyphProgress();
+}
+
+/**
+ * Synchronize unlock checks and HUD labels after glyph totals change.
+ */
+function refreshDeveloperGlyphProgress() {
+  const context = getContext();
+  if (typeof context.updateStatusDisplays === 'function') {
+    context.updateStatusDisplays();
+  }
+  if (typeof context.updateSpireTabVisibility === 'function') {
+    context.updateSpireTabVisibility();
+  }
+  if (typeof context.checkAndUnlockSpires === 'function') {
+    context.checkAndUnlockSpires();
+  }
+}
+
+/**
+ * Override the Bet spire glyph tally and currency supply.
+ */
+function setDeveloperBetGlyphs(value) {
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  const normalized = Math.max(0, Math.floor(value));
+  const context = getContext();
+
+  if (context.powderState) {
+    context.powderState.fluidGlyphsAwarded = normalized;
+    context.powderState.fluidGlyphsLit = normalized;
+  }
+  if (typeof context.setBetGlyphCurrency === 'function') {
+    context.setBetGlyphCurrency(normalized);
+  }
+
+  recordDeveloperAdjustment('glyphs-bet', normalized);
+  refreshDeveloperGlyphProgress();
+}
+
+/**
+ * Override the Lamed spire spark glyph ledger.
+ */
+function setDeveloperLamedGlyphs(value) {
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  const normalized = Math.max(0, Math.floor(value));
+  const context = getContext();
+  const lamedState = context.spireResourceState?.lamed;
+  if (lamedState) {
+    lamedState.stats = {
+      ...(lamedState.stats || {}),
+      totalAbsorptions: normalized,
+      totalMassGained: lamedState.stats?.totalMassGained || 0,
+    };
+  }
+  if (typeof context.setTrackedLamedGlyphs === 'function') {
+    context.setTrackedLamedGlyphs(normalized);
+  }
+
+  recordDeveloperAdjustment('glyphs-lamed', normalized);
+  refreshDeveloperGlyphProgress();
+}
+
+/**
+ * Override the Tsadi spire glyph harvest totals.
+ */
+function setDeveloperTsadiGlyphs(value) {
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  const normalized = Math.max(0, Math.floor(value));
+  const context = getContext();
+  const tsadiState = context.spireResourceState?.tsadi;
+  if (tsadiState) {
+    tsadiState.stats = {
+      ...(tsadiState.stats || {}),
+      totalGlyphs: normalized,
+      totalParticles: normalized,
+    };
+  }
+  if (typeof context.setTrackedTsadiGlyphs === 'function') {
+    context.setTrackedTsadiGlyphs(normalized);
+  }
+
+  recordDeveloperAdjustment('glyphs-tsadi', normalized);
+  refreshDeveloperGlyphProgress();
+}
+
+/**
+ * Override the Shin spire glyph ledger for fractal progress.
+ */
+function setDeveloperShinGlyphs(value) {
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  const normalized = Math.max(0, Math.floor(value));
+  const context = getContext();
+  if (typeof context.setShinGlyphs === 'function') {
+    context.setShinGlyphs(normalized);
+  }
+  if (typeof context.setTrackedShinGlyphs === 'function') {
+    context.setTrackedShinGlyphs(normalized);
+  }
+  if (typeof context.updateShinDisplay === 'function') {
+    context.updateShinDisplay();
+  }
+
+  recordDeveloperAdjustment('glyphs-shin', normalized);
+  refreshDeveloperGlyphProgress();
+}
+
+/**
+ * Override the Kuf spire glyph count from the tactics simulator.
+ */
+function setDeveloperKufGlyphs(value) {
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  const normalized = Math.max(0, Math.floor(value));
+  const context = getContext();
+  if (typeof context.setKufGlyphs === 'function') {
+    context.setKufGlyphs(normalized);
+  }
+  if (typeof context.setTrackedKufGlyphs === 'function') {
+    context.setTrackedKufGlyphs(normalized);
+  }
+
+  recordDeveloperAdjustment('glyphs-kuf', normalized);
+  refreshDeveloperGlyphProgress();
 }
 
 function setDeveloperBetDropRate(value) {
@@ -349,7 +493,12 @@ const developerFieldHandlers = {
   moteRate: setDeveloperIdleMoteRate,
   startThero: setDeveloperBaseStartThero,
   theroMultiplier: setDeveloperTheroMultiplier,
-  glyphs: setDeveloperGlyphs,
+  glyphsAleph: setDeveloperGlyphs,
+  glyphsBet: setDeveloperBetGlyphs,
+  glyphsLamed: setDeveloperLamedGlyphs,
+  glyphsTsadi: setDeveloperTsadiGlyphs,
+  glyphsShin: setDeveloperShinGlyphs,
+  glyphsKuf: setDeveloperKufGlyphs,
   betDropRate: setDeveloperBetDropRate,
   betDropBank: setDeveloperBetDropBank,
   iteronBank: setDeveloperIteronBank,
@@ -389,8 +538,28 @@ function syncDeveloperControlValues() {
       ? formatDeveloperFloat(override, 2)
       : '';
   }
-  if (fields.glyphs && typeof context.getGlyphCurrency === 'function') {
-    fields.glyphs.value = formatDeveloperInteger(context.getGlyphCurrency());
+  if (fields.glyphsAleph && context.powderState) {
+    fields.glyphsAleph.value = formatDeveloperInteger(context.powderState.glyphsAwarded);
+  }
+  if (fields.glyphsBet && context.powderState) {
+    fields.glyphsBet.value = formatDeveloperInteger(context.powderState.fluidGlyphsAwarded);
+  }
+  const lamedStats = context.spireResourceState?.lamed?.stats;
+  if (fields.glyphsLamed) {
+    fields.glyphsLamed.value = formatDeveloperInteger(lamedStats?.totalAbsorptions);
+  }
+  const tsadiStats = context.spireResourceState?.tsadi?.stats;
+  if (fields.glyphsTsadi) {
+    const tsadiGlyphs = Number.isFinite(tsadiStats?.totalGlyphs)
+      ? tsadiStats.totalGlyphs
+      : tsadiStats?.totalParticles;
+    fields.glyphsTsadi.value = formatDeveloperInteger(tsadiGlyphs);
+  }
+  if (fields.glyphsShin && typeof context.getShinGlyphs === 'function') {
+    fields.glyphsShin.value = formatDeveloperInteger(context.getShinGlyphs());
+  }
+  if (fields.glyphsKuf && typeof context.getKufGlyphs === 'function') {
+    fields.glyphsKuf.value = formatDeveloperInteger(context.getKufGlyphs());
   }
 
   const fluidSimulation = getFluidSimulation();
