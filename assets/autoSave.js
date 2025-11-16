@@ -9,6 +9,10 @@ export const NOTATION_STORAGE_KEY = 'glyph-defense-idle:notation';
 export const GLYPH_EQUATIONS_STORAGE_KEY = 'glyph-defense-idle:glyph-equations';
 // Storage key used to persist combat damage number visibility.
 export const DAMAGE_NUMBER_TOGGLE_STORAGE_KEY = 'glyph-defense-idle:damage-numbers';
+// Storage key used to persist the wave kill tally overlay preference.
+export const WAVE_KILL_TALLY_STORAGE_KEY = 'glyph-defense-idle:wave-kill-tallies';
+// Storage key used to persist the wave damage tally overlay preference.
+export const WAVE_DAMAGE_TALLY_STORAGE_KEY = 'glyph-defense-idle:wave-damage-tallies';
 // Storage key used to persist the preferred track rendering style.
 export const TRACK_RENDER_MODE_STORAGE_KEY = 'glyph-defense-idle:track-render-mode';
 export const POWDER_STORAGE_KEY = 'glyph-defense-idle:powder';
@@ -36,6 +40,8 @@ const dependencies = {
   handleNotationFallback: null,
   applyGlyphEquationPreference: null,
   applyDamageNumberPreference: null,
+  applyWaveKillTallyPreference: null,
+  applyWaveDamageTallyPreference: null,
   getGameStatsSnapshot: null,
   mergeLoadedGameStats: null,
   getPreferenceSnapshot: null,
@@ -227,6 +233,20 @@ export function loadPersistentState() {
     }
   }
 
+  if (typeof dependencies.applyWaveKillTallyPreference === 'function') {
+    const storedKillTallies = readStorage(WAVE_KILL_TALLY_STORAGE_KEY);
+    if (storedKillTallies !== null) {
+      dependencies.applyWaveKillTallyPreference(storedKillTallies, { persist: false });
+    }
+  }
+
+  if (typeof dependencies.applyWaveDamageTallyPreference === 'function') {
+    const storedDamageTallies = readStorage(WAVE_DAMAGE_TALLY_STORAGE_KEY);
+    if (storedDamageTallies !== null) {
+      dependencies.applyWaveDamageTallyPreference(storedDamageTallies, { persist: false });
+    }
+  }
+
   if (statKeys.length && typeof dependencies.mergeLoadedGameStats === 'function') {
     const storedStats = readStorageJson(GAME_STATS_STORAGE_KEY);
     if (storedStats && typeof storedStats === 'object') {
@@ -281,6 +301,12 @@ function persistPreferences() {
   }
   if (snapshot.damageNumbers !== undefined && snapshot.damageNumbers !== null) {
     writeStorage(DAMAGE_NUMBER_TOGGLE_STORAGE_KEY, snapshot.damageNumbers);
+  }
+  if (snapshot.waveKillTallies !== undefined && snapshot.waveKillTallies !== null) {
+    writeStorage(WAVE_KILL_TALLY_STORAGE_KEY, snapshot.waveKillTallies);
+  }
+  if (snapshot.waveDamageTallies !== undefined && snapshot.waveDamageTallies !== null) {
+    writeStorage(WAVE_DAMAGE_TALLY_STORAGE_KEY, snapshot.waveDamageTallies);
   }
 }
 
