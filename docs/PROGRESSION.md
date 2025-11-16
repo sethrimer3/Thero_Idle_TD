@@ -131,6 +131,15 @@ Each entry combines three beats: a flavorful formula, a combat mechanic, and a h
 
 Support variants (slow fields, reversal chants, homing missiles, etc.) remain available for each letter and inherit any prestige bonuses that modify shared mechanics (for example, **Σ** increases the damage budget of homing missiles by summing all allied support damage).
 
+### Tower Upgrade Gestures & Demotion Economy
+
+- **Hold-to-Inspect:** Press and hold directly on any placed tower to pause the cursor/drag state and surface a glowing scribble that lists the next-tier upgrade cost and a reminder that swiping down will demote the lattice. The scribble uses the currently selected palette gradient, animating from left to right like chalk racing across a board so the cost readout feels instant and alive.【F:assets/playfield.js†L2341-L2451】【F:assets/styles.css†L909-L1002】
+- **Swipe-up upgrades:** While still holding, swipe upward past the gesture threshold to buy the highlighted upgrade immediately. The action respects all standard affordability checks, plays the existing merge audio, and suppresses stray taps so players can upgrade without reopening menus.【F:assets/playfield.js†L2474-L2532】
+- **Swipe-down demotion:** Swiping downward instead initiates a demotion flow that refunds the full amount spent on the current tier, then instantly charges the price of the prior tier. If the player cannot afford the re-entry fee, the demotion is blocked and the cost history is restored so no resources disappear. Demotion is unavailable at the base tier and reuses the same stat reset/aura hooks as regular downgrades, so Aleph chains and scribble cues stay in sync.【F:assets/playfield.js†L3955-L4064】
+- **Full-refund selling:** Selecting the Sell command still dissolves the lattice entirely, but it now uses the same per-tier cost history tracker. Every placement, upgrade, and demotion records its spend so selling always yields a complete refund even if exponential costs were in play.【F:assets/playfield.js†L1141-L1207】【F:assets/playfield.js†L4067-L4124】
+
+These flows lean on a per-tower `costHistory` ledger so legacy saves can reconstruct spend values, enabling consistent refunds whether the player taps Sell, demotes via swipe, or simply upgrades forward. The gesture system also keeps drag interactions intact by cancelling active connection or delta-command drags whenever a hold takes priority, preventing accidental wires while players experiment with the new demotion mechanic.【F:assets/playfield.js†L2370-L2451】
+
 ## Enemy Archetypes
 All enemies manifest using **non-Greek mathematical symbols** so that their silhouettes feel distinct from the tower roster yet still read as scholarly constructs. The connection between symbol and behavior is intentionally indirect, but each foe carries a subtle mathematical echo that observant players can parse.
 

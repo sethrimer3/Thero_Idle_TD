@@ -906,6 +906,35 @@ body.graphics-mode-low .control-button {
   will-change: clip-path, filter, opacity;
 }
 
+.tower-upgrade-cost-scribble {
+  position: absolute;
+  z-index: 7;
+  pointer-events: none;
+  transform: translate(-50%, -150%);
+  font-family: "Cormorant Garamond", serif;
+  font-size: clamp(0.95rem, 2vw, 1.5rem);
+  letter-spacing: 0.08em;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--tower-scribble-start, rgba(139, 247, 255, 1)),
+    var(--tower-scribble-end, rgba(255, 138, 216, 1))
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  text-shadow: 0 0 16px var(--tower-scribble-shadow, rgba(255, 255, 255, 0.6));
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.55));
+  animation: tower-upgrade-scribble-dissipate 1.4s ease-out 0.4s forwards;
+}
+
+.tower-upgrade-cost-scribble__text {
+  display: inline-block;
+  clip-path: inset(0 100% 0 0);
+  animation: tower-upgrade-scribble-reveal 0.28s ease-out forwards;
+  text-transform: uppercase;
+}
+
 @keyframes tower-scribble-reveal {
   0% {
     clip-path: inset(0 100% 0 0);
@@ -936,6 +965,39 @@ body.graphics-mode-low .control-button {
     opacity: 0;
     filter: blur(10px);
     transform: translate(-50%, -150%);
+  }
+}
+
+@keyframes tower-upgrade-scribble-reveal {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+    filter: blur(1px);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes tower-upgrade-scribble-dissipate {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate(-50%, -150%);
+  }
+  60% {
+    opacity: 1;
+    filter: blur(0.5px);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(8px);
+    transform: translate(-50%, -190%);
   }
 }
 

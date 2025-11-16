@@ -25,6 +25,9 @@ function handleCanvasPointerMove(event) {
     this.clearPlacementPreview();
     this.pointerPosition = null;
     this.clearEnemyHover();
+    if (typeof this.cancelTowerHoldGesture === 'function') {
+      this.cancelTowerHoldGesture();
+    }
     return;
   }
 
@@ -46,6 +49,10 @@ function handleCanvasPointerMove(event) {
     this.activePointers.clear();
     this.pinchState = null;
     this.isPinchZooming = false;
+  }
+
+  if (typeof this.updateTowerHoldGesture === 'function') {
+    this.updateTowerHoldGesture(event);
   }
 
   if (this.connectionDragState.pointerId === event.pointerId) {
@@ -262,6 +269,9 @@ function handleCanvasPointerDown(event) {
       this.viewDragState.pointerId = null;
       this.viewDragState.isDragging = false;
       this.suppressNextCanvasClick = true;
+      if (typeof this.cancelTowerHoldGesture === 'function') {
+        this.cancelTowerHoldGesture();
+      }
     }
   } else {
     this.activePointers.clear();
@@ -276,11 +286,24 @@ function handleCanvasPointerDown(event) {
   const isPrimaryMouseDrag = !isTouchPointer && event.button === 0;
   const isSingleTouchDrag = isTouchPointer && this.activePointers.size < 2;
   const canInitiateDrag = !this.draggingTowerType && (isPrimaryMouseDrag || isSingleTouchDrag);
+
+  let normalized = null;
+  let position = null;
+  let tower = null;
   if (canInitiateDrag) {
-    const normalized = this.getNormalizedFromEvent(event);
-    const position = normalized ? this.getCanvasPosition(normalized) : null;
-    const tower = position ? this.findTowerAt(position) : null;
-    if (tower && (tower.type === 'alpha' || tower.type === 'beta' || tower.type === 'gamma')) {
+    normalized = this.getNormalizedFromEvent(event);
+    position = normalized ? this.getCanvasPosition(normalized) : null;
+    tower = position ? this.findTowerAt(position) : null;
+    if (tower && typeof this.beginTowerHoldGesture === 'function') {
+      this.beginTowerHoldGesture(tower, event);
+    } else if (typeof this.cancelTowerHoldGesture === 'function') {
+      this.cancelTowerHoldGesture();
+    }
+  } else if (typeof this.cancelTowerHoldGesture === 'function') {
+    this.cancelTowerHoldGesture();
+  }
+
+  if (canInitiateDrag && tower && (tower.type === 'alpha' || tower.type === 'beta' || tower.type === 'gamma')) {
       this.clearConnectionDragState();
       this.connectionDragState.pointerId = event.pointerId;
       this.connectionDragState.originTowerId = tower.id;
@@ -354,6 +377,10 @@ function handleCanvasPointerUp(event) {
     this.activePointers.clear();
     this.pinchState = null;
     this.isPinchZooming = false;
+  }
+
+  if (typeof this.cancelTowerHoldGesture === 'function') {
+    this.cancelTowerHoldGesture({ pointerId: event.pointerId });
   }
 
   if (this.connectionDragState.pointerId === event.pointerId) {
@@ -445,6 +472,9 @@ function handleCanvasPointerLeave() {
   this.viewDragState.isDragging = false;
   this.clearConnectionDragState();
   this.clearDeltaCommandDragState();
+  if (typeof this.cancelTowerHoldGesture === 'function') {
+    this.cancelTowerHoldGesture();
+  }
 }
 
 function collectMoteGemsNear(position) {

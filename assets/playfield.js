@@ -7,6 +7,7 @@ import {
 import {
   getTowerDefinition,
   getNextTowerId,
+  getPreviousTowerId,
   isTowerUnlocked,
   refreshTowerLoadoutDisplay,
   cancelTowerDrag,
@@ -14,6 +15,7 @@ import {
   getTowerLoadoutState,
   openTowerUpgradeOverlay,
   calculateTowerEquationResult,
+  unlockTower,
 } from './towersTab.js';
 import {
   moteGemState,
@@ -32,6 +34,7 @@ import {
   getTowerVisualConfig,
   getOmegaWaveVisualConfig,
   getTowerTierValue,
+  samplePaletteGradient,
 } from './colorSchemeUtils.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../scripts/features/towers/powderTower.js';
 import { notifyTowerPlaced } from './achievementsTab.js';
@@ -168,6 +171,15 @@ let playfieldDependencies = { ...defaultDependencies };
 export function configurePlayfieldSystem(options = {}) {
   playfieldDependencies = { ...defaultDependencies, ...options };
 }
+
+const TOWER_HOLD_ACTIVATION_MS = 180;
+const TOWER_HOLD_CANCEL_DISTANCE_PX = 18;
+const TOWER_HOLD_SWIPE_THRESHOLD_PX = 48;
+const DEFAULT_COST_SCRIBBLE_COLORS = {
+  start: { r: 139, g: 247, b: 255 },
+  end: { r: 255, g: 138, b: 216 },
+  glow: { r: 255, g: 255, b: 255 },
+};
 
 export class SimplePlayfield {
   constructor(options) {
@@ -352,6 +364,17 @@ export class SimplePlayfield {
     };
     // Remember when a drag gesture should block the follow-up click event.
     this.suppressNextCanvasClick = false;
+    this.towerHoldState = {
+      pointerId: null,
+      towerId: null,
+      startClientX: 0,
+      startClientY: 0,
+      holdTimeoutId: null,
+      holdActivated: false,
+      scribbleCleanup: null,
+      actionTriggered: null,
+      pointerType: null,
+    };
 
     this.developerPathMarkers = [];
     // Developer crystals are sandbox obstacles that towers can chip away during testing.
@@ -1123,6 +1146,64 @@ export class SimplePlayfield {
     const activeCount = this.getActiveTowerCount(towerId);
     const exponent = 1 + Math.max(0, activeCount);
     return definition.baseCost ** exponent;
+  }
+
+  ensureTowerCostHistory(tower) {
+    if (!tower) {
+      return [];
+    }
+    if (!Array.isArray(tower.costHistory)) {
+      tower.costHistory = [];
+    }
+    if (tower.costHistory.length === 0 && tower.costHistoryInitialized !== true) {
+      this.reconstructTowerCostHistory(tower);
+    }
+    return tower.costHistory;
+  }
+
+  reconstructTowerCostHistory(tower) {
+    if (!tower) {
+      return [];
+    }
+    const history = [];
+    const visited = new Set();
+    let cursorId = tower.type || null;
+    while (cursorId && !visited.has(cursorId)) {
+      visited.add(cursorId);
+      const definition = getTowerDefinition(cursorId);
+      if (!definition) {
+        break;
+      }
+      const baseCost = Number.isFinite(definition.baseCost) ? Math.max(0, definition.baseCost) : 0;
+      if (baseCost > 0) {
+        history.unshift(baseCost);
+      }
+      cursorId = getPreviousTowerId(cursorId);
+    }
+    tower.costHistory = history;
+    tower.costHistoryInitialized = true;
+    return tower.costHistory;
+  }
+
+  recordTowerCost(tower, amount) {
+    if (!tower || !Number.isFinite(amount) || amount <= 0) {
+      return;
+    }
+    const history = this.ensureTowerCostHistory(tower);
+    history.push(Math.max(0, amount));
+    tower.costHistoryInitialized = true;
+  }
+
+  calculateTowerSellRefund(tower) {
+    if (!tower) {
+      return 0;
+    }
+    const history = this.ensureTowerCostHistory(tower);
+    if (!history.length) {
+      const fallback = getTowerDefinition(tower.type)?.baseCost ?? this.getCurrentTowerCost(tower.type);
+      return Math.max(0, Number.isFinite(fallback) ? fallback : 0);
+    }
+    return history.reduce((total, entry) => (Number.isFinite(entry) ? total + entry : total), 0);
   }
 
   setDraggingTower(towerId) {
@@ -2255,6 +2336,214 @@ export class SimplePlayfield {
     }
     const { focusRadius = 0, ringRadius = 0 } = metrics;
     return Math.max(baseRadius, focusRadius || ringRadius || baseRadius);
+  }
+
+  getTowerHoldScribbleText(tower) {
+    if (!tower) {
+      return '';
+    }
+    const nextId = getNextTowerId(tower.type);
+    if (!nextId) {
+      return 'Peak tier · Swipe ↓ to demote';
+    }
+    const nextCost = this.getCurrentTowerCost(nextId);
+    const costLabel = formatCombatNumber(Math.max(0, Number.isFinite(nextCost) ? nextCost : 0));
+    return `Upgrade · ${this.theroSymbol}${costLabel} · Swipe ↓ to demote`;
+  }
+
+  spawnTowerUpgradeCostScribble(tower, text = '') {
+    if (!tower || !this.container) {
+      return null;
+    }
+    const scribbleText = text || this.getTowerHoldScribbleText(tower);
+    if (!scribbleText) {
+      return null;
+    }
+    if (!Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
+      return null;
+    }
+    const effect = document.createElement('div');
+    effect.className = 'tower-upgrade-cost-scribble';
+    effect.style.left = `${tower.x}px`;
+    effect.style.top = `${tower.y}px`;
+
+    const startColor = samplePaletteGradient(0.05) || DEFAULT_COST_SCRIBBLE_COLORS.start;
+    const endColor = samplePaletteGradient(0.85) || DEFAULT_COST_SCRIBBLE_COLORS.end;
+    const glowColor = samplePaletteGradient(0.5) || DEFAULT_COST_SCRIBBLE_COLORS.glow;
+    effect.style.setProperty('--tower-scribble-start', colorToRgbaString(startColor, 1));
+    effect.style.setProperty('--tower-scribble-end', colorToRgbaString(endColor, 1));
+    effect.style.setProperty('--tower-scribble-shadow', colorToRgbaString(glowColor, 0.65));
+
+    const textEl = document.createElement('span');
+    textEl.className = 'tower-upgrade-cost-scribble__text';
+    textEl.textContent = scribbleText;
+    effect.append(textEl);
+
+    const cleanup = () => {
+      effect.removeEventListener('animationend', handleAnimationEnd);
+      if (effect.parentNode) {
+        effect.parentNode.removeChild(effect);
+      }
+    };
+
+    const handleAnimationEnd = (animationEvent) => {
+      if (
+        animationEvent.target === effect &&
+        animationEvent.animationName === 'tower-upgrade-cost-scribble-dissipate'
+      ) {
+        cleanup();
+      }
+    };
+
+    effect.addEventListener('animationend', handleAnimationEnd);
+    this.container.append(effect);
+
+    const timeoutId = setTimeout(() => cleanup(), 2000);
+    return () => {
+      clearTimeout(timeoutId);
+      cleanup();
+    };
+  }
+
+  beginTowerHoldGesture(tower, event) {
+    if (!tower || !event || !this.towerHoldState) {
+      return;
+    }
+    if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) {
+      return;
+    }
+    if (this.towerHoldState.pointerId && this.towerHoldState.pointerId !== event.pointerId) {
+      this.cancelTowerHoldGesture();
+    }
+    this.cancelTowerHoldGesture();
+    this.towerHoldState.pointerId = event.pointerId;
+    this.towerHoldState.towerId = tower.id;
+    this.towerHoldState.startClientX = event.clientX;
+    this.towerHoldState.startClientY = event.clientY;
+    this.towerHoldState.pointerType = event.pointerType || 'mouse';
+    this.towerHoldState.holdActivated = false;
+    this.towerHoldState.actionTriggered = null;
+    this.towerHoldState.holdTimeoutId = setTimeout(
+      () => this.activateTowerHoldGesture(),
+      TOWER_HOLD_ACTIVATION_MS,
+    );
+  }
+
+  activateTowerHoldGesture() {
+    const state = this.towerHoldState;
+    if (!state?.pointerId || !state.towerId) {
+      return;
+    }
+    state.holdTimeoutId = null;
+    const tower = this.getTowerById(state.towerId);
+    if (!tower) {
+      this.cancelTowerHoldGesture();
+      return;
+    }
+    state.holdActivated = true;
+    this.suppressNextCanvasClick = true;
+    state.scribbleCleanup = this.spawnTowerUpgradeCostScribble(tower);
+    if (this.connectionDragState.pointerId === state.pointerId) {
+      this.clearConnectionDragState();
+    }
+    if (this.deltaCommandDragState.pointerId === state.pointerId) {
+      this.clearDeltaCommandDragState();
+    }
+  }
+
+  updateTowerHoldGesture(event) {
+    const state = this.towerHoldState;
+    if (!state?.pointerId || state.pointerId !== event.pointerId) {
+      return;
+    }
+    if (!Number.isFinite(state.startClientX) || !Number.isFinite(state.startClientY)) {
+      return;
+    }
+    const dx = event.clientX - state.startClientX;
+    const dy = event.clientY - state.startClientY;
+    const distance = Math.hypot(dx, dy);
+    if (!state.holdActivated) {
+      if (distance >= TOWER_HOLD_CANCEL_DISTANCE_PX) {
+        this.cancelTowerHoldGesture({ pointerId: event.pointerId });
+      }
+      return;
+    }
+    if (typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+    if (state.actionTriggered) {
+      return;
+    }
+    if (dy <= -TOWER_HOLD_SWIPE_THRESHOLD_PX) {
+      const upgraded = this.commitTowerHoldUpgrade();
+      if (upgraded) {
+        state.actionTriggered = 'upgrade';
+        this.cancelTowerHoldGesture();
+      }
+      return;
+    }
+    if (dy >= TOWER_HOLD_SWIPE_THRESHOLD_PX) {
+      const demoted = this.commitTowerHoldDemotion();
+      if (demoted) {
+        state.actionTriggered = 'demote';
+        this.cancelTowerHoldGesture();
+      }
+    }
+  }
+
+  cancelTowerHoldGesture({ pointerId = null } = {}) {
+    if (!this.towerHoldState) {
+      return;
+    }
+    const state = this.towerHoldState;
+    if (pointerId && state.pointerId && pointerId !== state.pointerId) {
+      return;
+    }
+    if (state.holdTimeoutId) {
+      clearTimeout(state.holdTimeoutId);
+    }
+    if (typeof state.scribbleCleanup === 'function') {
+      state.scribbleCleanup();
+    }
+    state.pointerId = null;
+    state.towerId = null;
+    state.startClientX = 0;
+    state.startClientY = 0;
+    state.holdTimeoutId = null;
+    state.holdActivated = false;
+    state.scribbleCleanup = null;
+    state.actionTriggered = null;
+    state.pointerType = null;
+  }
+
+  commitTowerHoldUpgrade() {
+    if (!this.towerHoldState?.towerId) {
+      return false;
+    }
+    const tower = this.getTowerById(this.towerHoldState.towerId);
+    if (!tower) {
+      return false;
+    }
+    const upgraded = this.upgradeTowerTier(tower);
+    if (upgraded) {
+      this.suppressNextCanvasClick = true;
+    }
+    return upgraded;
+  }
+
+  commitTowerHoldDemotion() {
+    if (!this.towerHoldState?.towerId) {
+      return false;
+    }
+    const tower = this.getTowerById(this.towerHoldState.towerId);
+    if (!tower) {
+      return false;
+    }
+    const demoted = this.demoteTowerTier(tower);
+    if (demoted) {
+      this.suppressNextCanvasClick = true;
+    }
+    return demoted;
   }
 
   /**
@@ -3479,6 +3768,7 @@ export class SimplePlayfield {
         towerType: nextDefinition.id,
         silent,
       });
+      this.recordTowerCost(mergeTarget, mergeCost);
       const newlyUnlocked = !isTowerUnlocked(nextDefinition.id)
         ? unlockTower(nextDefinition.id, { silent: true })
         : false;
@@ -3532,10 +3822,13 @@ export class SimplePlayfield {
       storedBetaSwirl: 0,
       storedGammaShots: 0,
       connectionParticles: [],
+      costHistory: [],
+      costHistoryInitialized: true,
     };
 
     this.applyTowerBehaviorDefaults(tower);
     this.towers.push(tower);
+    this.recordTowerCost(tower, actionCost);
     this.handleAlephTowerAdded(tower);
     notifyTowerPlaced(this.towers.length);
     if (this.combatStats?.active) {
@@ -3601,6 +3894,7 @@ export class SimplePlayfield {
     }
 
     this.energy = Math.max(0, this.energy - cost);
+    this.recordTowerCost(tower, cost);
 
     const previousSymbol = tower.symbol || tower.definition?.symbol || 'Tower';
     const wasAlephNull = tower.type === 'aleph-null';
@@ -3658,9 +3952,125 @@ export class SimplePlayfield {
     return true;
   }
 
+  demoteTowerTier(tower, { silent = false } = {}) {
+    if (!tower) {
+      return false;
+    }
+
+    const previousId = getPreviousTowerId(tower.type);
+    if (!previousId) {
+      if (this.messageEl && !silent) {
+        this.messageEl.textContent = 'Base lattice tier cannot be demoted further.';
+      }
+      if (this.audio && !silent) {
+        this.audio.playSfx('error');
+      }
+      return false;
+    }
+
+    const previousDefinition = getTowerDefinition(previousId);
+    if (!previousDefinition) {
+      if (this.audio && !silent) {
+        this.audio.playSfx('error');
+      }
+      return false;
+    }
+
+    const history = this.ensureTowerCostHistory(tower);
+    const removedCost = history.length ? history.pop() : null;
+    const currentCost = Number.isFinite(removedCost) ? removedCost : this.getCurrentTowerCost(tower.type);
+    const charge = this.getCurrentTowerCost(previousDefinition.id);
+    const cap = this.levelConfig?.theroCap ?? this.levelConfig?.energyCap ?? Infinity;
+    const refundAmount = Math.max(0, Number.isFinite(currentCost) ? currentCost : 0);
+    const cappedEnergy = Math.min(cap, this.energy + refundAmount);
+
+    if (cappedEnergy < charge) {
+      if (removedCost !== null && removedCost !== undefined) {
+        history.push(removedCost);
+      }
+      if (this.messageEl && !silent) {
+        const deficit = Math.max(0, charge - cappedEnergy);
+        const deficitLabel = formatCombatNumber(deficit);
+        this.messageEl.textContent = `Need ${deficitLabel} ${this.theroSymbol} more to stabilize a demotion.`;
+      }
+      if (this.audio && !silent) {
+        this.audio.playSfx('error');
+      }
+      return false;
+    }
+
+    const chargeAmount = Math.max(0, Number.isFinite(charge) ? charge : 0);
+    this.energy = Math.max(0, cappedEnergy - chargeAmount);
+    if (history.length) {
+      history[history.length - 1] = chargeAmount;
+    } else if (chargeAmount > 0) {
+      history.push(chargeAmount);
+    }
+    tower.costHistoryInitialized = true;
+
+    const previousSymbol = tower.symbol || tower.definition?.symbol || 'Tower';
+    const wasAlephNull = tower.type === 'aleph-null';
+    if (wasAlephNull) {
+      this.handleAlephTowerRemoved(tower);
+    }
+
+    const range = Math.min(this.renderWidth, this.renderHeight) * previousDefinition.range;
+    const baseDamage = Number.isFinite(previousDefinition.damage) ? previousDefinition.damage : 0;
+    const baseRate = Number.isFinite(previousDefinition.rate) ? previousDefinition.rate : 1;
+
+    tower.type = previousDefinition.id;
+    tower.definition = previousDefinition;
+    tower.symbol = previousDefinition.symbol;
+    tower.tier = previousDefinition.tier;
+    tower.damage = baseDamage;
+    tower.rate = baseRate;
+    tower.range = range;
+    tower.baseDamage = baseDamage;
+    tower.baseRate = baseRate;
+    tower.baseRange = range;
+    tower.cooldown = 0;
+    tower.chain = null;
+
+    this.applyTowerBehaviorDefaults(tower);
+
+    const nextIsAlephNull = previousDefinition.id === 'aleph-null';
+    if (nextIsAlephNull) {
+      this.handleAlephTowerAdded(tower);
+    } else if (wasAlephNull) {
+      this.syncAlephChainStats();
+    }
+
+    this.spawnTowerEquationScribble(tower, { towerType: previousDefinition.id, silent });
+
+    if (this.messageEl && !silent) {
+      const refundLabel = formatCombatNumber(refundAmount);
+      const chargeLabel = formatCombatNumber(chargeAmount);
+      this.messageEl.textContent = `${previousSymbol} lattice relaxed into ${previousDefinition.symbol}—refunded ${refundLabel} ${this.theroSymbol} and spent ${chargeLabel} ${this.theroSymbol}.`;
+    }
+
+    notifyTowerPlaced(this.towers.length);
+    this.updateHud();
+    this.draw();
+    refreshTowerLoadoutDisplay();
+    this.dependencies.updateStatusDisplays();
+    if (this.combatStats?.active) {
+      this.scheduleStatsPanelRefresh();
+    }
+    if (this.audio && !silent) {
+      this.audio.playSfx('towerSell');
+    }
+
+    this.openTowerMenu(tower, { silent: true });
+    return true;
+  }
+
   sellTower(tower, { slot } = {}) {
     if (!tower) {
       return;
+    }
+
+    if (this.towerHoldState?.towerId === tower.id) {
+      this.cancelTowerHoldGesture();
     }
 
     this.removeAllConnectionsForTower(tower);
@@ -3714,14 +4124,12 @@ export class SimplePlayfield {
     }
 
     if (this.levelConfig) {
-      const definition = getTowerDefinition(tower.type);
-      const baseRefund = definition ? definition.baseCost : this.getCurrentTowerCost(tower.type);
-      const refund = Math.round(baseRefund * 0.5);
       const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
+      const refund = Math.max(0, this.calculateTowerSellRefund(tower));
       this.energy = Math.min(cap, this.energy + refund);
       if (this.messageEl) {
         const refundLabel = formatCombatNumber(refund);
-        this.messageEl.textContent = `Lattice released—refunded ${refundLabel} ${this.theroSymbol}.`;
+        this.messageEl.textContent = `Lattice dissolved—refunded ${refundLabel} ${this.theroSymbol}.`;
       }
     }
 
