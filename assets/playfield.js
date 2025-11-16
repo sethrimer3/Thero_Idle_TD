@@ -580,7 +580,7 @@ export class SimplePlayfield {
     return { x: Math.cos(fallbackAngle), y: Math.sin(fallbackAngle) };
   }
 
-  spawnDamageNumber(enemy, damage, { sourceTower } = {}) {
+  spawnDamageNumber(enemy, damage, { sourceTower, enemyHpBefore } = {}) {
     if (!this.areDamageNumbersActive() || !enemy || !Number.isFinite(damage) || damage <= 0) {
       return;
     }
@@ -601,7 +601,15 @@ export class SimplePlayfield {
     };
     const gradientSample = samplePaletteGradient(Math.random());
     const magnitude = Math.max(0, Math.log10(Math.max(1, damage)));
-    const fontSize = Math.min(28, 16 + magnitude * 2.6);
+    const baseFontSize = Math.min(28, 16 + magnitude * 2.6);
+    // Scale the display based on how much of the enemy's total health the hit removed.
+    const maxHp = Number.isFinite(enemy.maxHp)
+      ? Math.max(1, enemy.maxHp)
+      : Math.max(1, Number.isFinite(enemyHpBefore) ? enemyHpBefore : 1);
+    const relativeDamage = Math.min(1, damage / maxHp);
+    const impactScale = 1 + relativeDamage;
+    const fontSize = baseFontSize * impactScale;
+    const outlineAlpha = relativeDamage;
     const initialSpeed = 110 + Math.random() * 45;
     const entry = {
       id: (this.damageNumberIdCounter += 1),
@@ -616,6 +624,8 @@ export class SimplePlayfield {
       elapsed: 0,
       lifetime: 1.15,
       alpha: 1,
+      // Store how intense the outline highlight should be for this impact.
+      outlineAlpha,
     };
     this.damageNumbers.push(entry);
     const maxEntries = 90;
@@ -7360,7 +7370,8 @@ export class SimplePlayfield {
     if (sourceTower) {
       this.recordDamageEvent({ tower: sourceTower, enemy, damage: applied });
     }
-    this.spawnDamageNumber(enemy, applied, { sourceTower });
+    // Pass through pre-hit HP so the renderer can scale the damage number impact.
+    this.spawnDamageNumber(enemy, applied, { sourceTower, enemyHpBefore: hpBefore });
     // Capture the hit vector so the swirl renderer can push particles along the impact path.
     const sourcePosition =
       sourceTower && Number.isFinite(sourceTower.x) && Number.isFinite(sourceTower.y)
