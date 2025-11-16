@@ -27,6 +27,10 @@ import {
   drawPiFrozenLines as drawPiFrozenLinesHelper,
   drawPiRadialLaser as drawPiRadialLaserHelper,
 } from '../../../scripts/features/towers/piTower.js';
+import {
+  drawChiThralls as drawChiThrallsHelper,
+  drawChiLightTrails as drawChiLightTrailsHelper,
+} from '../../../scripts/features/towers/chiTower.js';
 
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rendering.js';
 
@@ -161,6 +165,8 @@ function draw() {
   this.drawDeltaSoldiers();
   this.drawOmicronUnits();
   this.drawEnemies();
+  this.drawChiLightTrails();
+  this.drawChiThralls();
   this.drawProjectiles();
   this.drawTowerMenu();
   this.updateEnemyTooltipPosition();
@@ -619,6 +625,14 @@ function drawNodes() {
     : this.pathSegments[this.pathSegments.length - 1].end;
   this.drawEnemyGateSymbol(ctx, startPoint);
   this.drawMindGateSymbol(ctx, endPoint);
+}
+
+function drawChiThralls() {
+  drawChiThrallsHelper(this);
+}
+
+function drawChiLightTrails() {
+  drawChiLightTrailsHelper(this);
 }
 
 function drawDeveloperPathMarkers() {
@@ -1490,6 +1504,8 @@ export {
   drawEnemyGateSymbol,
   drawMindGateSymbol,
   drawNodes,
+  drawChiThralls,
+  drawChiLightTrails,
   drawDeveloperPathMarkers,
   drawDeveloperCrystals,
   drawPlacementPreview,

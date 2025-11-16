@@ -125,7 +125,7 @@ Each entry combines three beats: a flavorful formula, a combat mechanic, and a h
 | Τ / τ | `τ = σ^{2}` squares sigma into rotating sawtooth bursts. | Tau spins σ's energy into relentless arcs. | **Τ** maintains the cycle and stuns enemies for `τ/2` seconds after each discharge. |
 | Υ / υ | `υ = √τ` roots the rotation into gradient control. | Upsilon converts τ into push-pull resource flows. | **Υ** keeps the gradient flip and doubles ally crits against inverted armor. |
 | Φ / φ | `φ = ln(υ + 1)` logs upsilon into golden spirals. | Phi threads logged υ into Fibonacci-style buffs. | **Φ** doubles the spiral hop count so the pattern re-hits its origin. |
-| Χ / χ | `χ = φ^{2}` squares phi into synchronized matrices. | Chi aligns every spiral into harmonic windows. | **Χ** widens the matrix so every synced ally shares the buff. |
+| Χ / χ | `χ = φ^{2}` squares phi into synchronized matrices. | Chi converts nearby enemy deaths into Chi thralls that reconstitute at the mind gate and sprint backward, subtracting their remaining vitality from any glyph they collide with before looping again. | **Χ** widens the matrix so every synced ally shares the buff and grants thralls a fuller resurrection whenever they rebound to the mind gate. |
 | Ψ / ψ | `ψ = √χ` roots chi into quantum crit waves. | Psi collapses χ's matrix into lethal probability spikes. | **Ψ** keeps the rooted wave and collapses every third shot into a pure damage burst. |
 | Ω / ω | `ω = ψ + ln(ψ + 1)` blends psi with a final logarithmic anchor. | Omega harmonizes the entire ladder with ψ as fuel. | **Ω** unleashes an omega shock equal to the total blended damage when foes reach 1% HP. |
 

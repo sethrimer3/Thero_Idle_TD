@@ -66,6 +66,10 @@ import {
   ensureSigmaState as ensureSigmaStateHelper,
   teardownSigmaTower as teardownSigmaTowerHelper,
 } from '../../../scripts/features/towers/sigmaTower.js';
+import {
+  ensureChiState as ensureChiStateHelper,
+  teardownChiTower as teardownChiTowerHelper,
+} from '../../../scripts/features/towers/chiTower.js';
 
 // Tower management routines extracted from SimplePlayfield.
 
@@ -253,6 +257,11 @@ function applyTowerBehaviorDefaults(tower) {
   } else if (tower.sigmaState) {
     this.teardownSigmaTower(tower);
   }
+  if (tower.type === 'chi') {
+    this.ensureChiState(tower);
+  } else if (tower.chiState) {
+    this.teardownChiTower(tower);
+  }
 }
 
 function ensureDeltaState(tower) {
@@ -311,6 +320,14 @@ function teardownSigmaTower(tower) {
   teardownSigmaTowerHelper(this, tower);
 }
 
+function ensureChiState(tower) {
+  return ensureChiStateHelper(this, tower);
+}
+
+function teardownChiTower(tower) {
+  teardownChiTowerHelper(this, tower);
+}
+
 export {
   evaluateZetaMetrics,
   teardownAlphaTower,
@@ -353,4 +370,6 @@ export {
   teardownPiTower,
   ensureSigmaState,
   teardownSigmaTower,
+  ensureChiState,
+  teardownChiTower,
 };

@@ -19,6 +19,7 @@ Quick lookup table for all implemented towers in Thero Idle.
 | λ | Lambda | `lambdaTower.js` | Lambda lambda calculus mechanics |
 | μ | Mu | `muTower.js` | Fractal mine layer (Sierpinski/Apollonian) |
 | ν | Nu | `nuTower.js` | Kill-scaling piercing laser with overkill tracking |
+| χ | Chi | `chiTower.js` | Converts nearby enemy deaths into mind-gate thralls marching backward |
 | σ | Sigma | `sigmaTower.js` | Draws allied fire, sums the damage, and releases it as single shots |
 | ℵ | Aleph | `alephChain.js` | Cardinality-based system (advanced) |
 
