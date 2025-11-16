@@ -254,6 +254,26 @@ Following this plan will shrink the single-source files, align them with the dis
 - Key handling no longer inspects DOM flags directly, reducing tight coupling between overlays and the global listener
 - main.js drops another concentrated set of UI helpers while retaining identical behavior
 
+### upgradeMatrixOverlay.js (tower tier matrix overlay)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- DOM queries for the upgrade-matrix overlay, trigger buttons, close button, and content grid
+- Rendering loop that lists unlocked towers, formats their base costs, and shows the next-tier preview text
+- Overlay show/hide transitions plus focus restoration so keyboard users return to the activating trigger
+- Background click + keydown handlers that previously lived in `main.js`
+
+**Integration approach:**
+- Added `createUpgradeMatrixOverlay()` which receives overlay helpers, formatting utilities, tower lookups, and the live Thero glyph via dependency injection
+- main.js instantiates the controller alongside the other overlay factories, destructures the bind/render/hide/key handlers, and forwards `hide`/`render` to `towersTab` via the existing callback setters
+- The global `keydown` listener now delegates to `handleUpgradeMatrixKeydown(event, { isLevelOverlayActive })`, mirroring the previous behavior that short-circuited level overlay shortcuts when the upgrade matrix was open
+
+**Result:**
+- Upgrade matrix UI logic moves out of `main.js`, removing another dense block of DOM code and focus bookkeeping
+- Towers tab no longer reaches into `main.js` state; it simply calls the provided callbacks
+- Overlay accessibility logic is centralized, making future adjustments to the tier list (sorting, filtering, new copy) possible without revisiting the orchestrator
+
 ### levelSummary.js (level preview + history formatting)
 
 **Status:** ✅ Complete
