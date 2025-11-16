@@ -272,6 +272,9 @@ export function getLevelProgressSnapshot() {
       entered: Boolean(state.entered),
       completed: Boolean(state.completed),
     };
+    if (state.storySeen) {
+      entry.storySeen = true;
+    }
     if (Number.isFinite(state.bestWave)) {
       entry.bestWave = Math.max(0, state.bestWave);
     }
@@ -375,6 +378,9 @@ export function applyLevelProgressSnapshot(snapshot = {}) {
         running: false,
         completed: Boolean(entry.completed),
       };
+      if (entry.storySeen) {
+        hydratedState.storySeen = true;
+      }
       if (Number.isFinite(entry.bestWave)) {
         hydratedState.bestWave = Math.max(0, entry.bestWave);
       }

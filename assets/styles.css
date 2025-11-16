@@ -438,6 +438,92 @@ body.graphics-mode-low .control-button {
   opacity: 1;
 }
 
+.level-story-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 5vw, 3rem);
+  background: rgba(0, 0, 0, 0);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 350ms ease, background-color 350ms ease;
+  z-index: 1600;
+}
+
+.level-story-overlay--visible {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.96);
+  pointer-events: auto;
+}
+
+.level-story-overlay__content {
+  max-width: min(48rem, 90vw);
+  color: #f6f2eb;
+  text-align: center;
+  font-family: 'Cormorant Garamond', 'Space Mono', serif;
+  letter-spacing: 0.02em;
+}
+
+.level-story-overlay__level {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.level-story-overlay__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.level-story-section {
+  margin: 0;
+  font-size: clamp(1.15rem, 4vw, 1.65rem);
+  line-height: 1.6;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 400ms ease, transform 400ms ease;
+}
+
+.level-story-section--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.level-story-word {
+  display: inline-block;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.level-story-word--visible {
+  opacity: 1;
+}
+
+.level-story-overlay__prompt {
+  margin-top: 2.25rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.level-story-overlay[data-story-complete='true'] .level-story-overlay__prompt {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .level-story-section,
+  .level-story-word,
+  .level-story-overlay {
+    transition: none;
+  }
+}
+
 .panel {
   display: none;
   flex-direction: column;
