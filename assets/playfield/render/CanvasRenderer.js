@@ -63,13 +63,16 @@ const ENEMY_SWIRL_KNOCKBACK_DURATION_MS = 360;
 const ENEMY_SWIRL_FALLBACK_THRESHOLD = 60;
 const ENEMY_GATE_DARK_BLUE = 'rgba(15, 27, 63, 0.95)';
 const ENEMY_GATE_DARK_BLUE_CORE = 'rgba(5, 8, 18, 0.92)';
+// Match the bright glyph on the enemy gate symbol so outlines stay consistent with the UI motif.
+const ENEMY_GATE_SYMBOL_GOLD = { r: 251, g: 255, b: 176 };
+// Brighter swirl palette spanning dark blues into regal purples before fading to black.
 const ENEMY_PARTICLE_PALETTE = [
-  { r: 4, g: 4, b: 6 },
-  { r: 7, g: 10, b: 22 },
-  { r: 9, g: 14, b: 30 },
-  { r: 12, g: 20, b: 48 },
-  { r: 20, g: 12, b: 46 },
-  { r: 32, g: 8, b: 52 },
+  { r: 12, g: 22, b: 42 },
+  { r: 22, g: 34, b: 82 },
+  { r: 38, g: 32, b: 96 },
+  { r: 56, g: 26, b: 110 },
+  { r: 70, g: 24, b: 104 },
+  { r: 16, g: 12, b: 32 },
   { r: 0, g: 0, b: 0 },
 ];
 // Reuse the same warm palette that powers the luminous arc tracer.
@@ -112,11 +115,11 @@ function randomBetween(min, max) {
 
 function sampleEnemyParticleColor() {
   if (!ENEMY_PARTICLE_PALETTE.length) {
-    return { r: 8, g: 10, b: 24 };
+    return { r: 12, g: 18, b: 44 };
   }
   const first = ENEMY_PARTICLE_PALETTE[Math.floor(Math.random() * ENEMY_PARTICLE_PALETTE.length)];
   const second = ENEMY_PARTICLE_PALETTE[Math.floor(Math.random() * ENEMY_PARTICLE_PALETTE.length)];
-  const mix = Math.random() * 0.6;
+  const mix = 0.35 + Math.random() * 0.45;
   return {
     r: Math.round(first.r + (second.r - first.r) * mix),
     g: Math.round(first.g + (second.g - first.g) * mix),
@@ -1752,6 +1755,10 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
     const size = Math.max(0.6, particle.size || 1.2);
     ctx.arc(position.x, position.y, size, 0, Math.PI * 2);
     ctx.fill();
+    // Outline each mote with a bright gate-gold halo so the swirl reads clearly against dark bodies.
+    ctx.lineWidth = Math.max(0.6, size * 0.6);
+    ctx.strokeStyle = colorToRgbaString(ENEMY_GATE_SYMBOL_GOLD, Math.min(1, alpha + 0.1));
+    ctx.stroke();
   });
 }
 
