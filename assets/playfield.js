@@ -181,6 +181,8 @@ export function configurePlayfieldSystem(options = {}) {
 const TOWER_HOLD_ACTIVATION_MS = 180;
 const TOWER_HOLD_CANCEL_DISTANCE_PX = 18;
 const TOWER_HOLD_SWIPE_THRESHOLD_PX = 48;
+const TOWER_MENU_DOUBLE_TAP_INTERVAL_MS = 320;
+const TOWER_MENU_DOUBLE_TAP_DISTANCE_PX = 28;
 const DEFAULT_COST_SCRIBBLE_COLORS = {
   start: { r: 139, g: 247, b: 255 },
   end: { r: 255, g: 138, b: 216 },
@@ -398,6 +400,11 @@ export class SimplePlayfield {
       scribbleCleanup: null,
       actionTriggered: null,
       pointerType: null,
+    };
+    this.towerTapState = {
+      lastTowerId: null,
+      lastTapTime: 0,
+      lastTapPosition: null,
     };
 
     this.developerPathMarkers = [];
@@ -2827,6 +2834,7 @@ export class SimplePlayfield {
       return;
     }
     state.holdActivated = true;
+    this.resetTowerTapState();
     this.suppressNextCanvasClick = true;
     state.scribbleCleanup = this.spawnTowerUpgradeCostScribble(tower);
     if (this.connectionDragState.pointerId === state.pointerId) {
@@ -2913,6 +2921,7 @@ export class SimplePlayfield {
     const upgraded = this.upgradeTowerTier(tower);
     if (upgraded) {
       this.suppressNextCanvasClick = true;
+      this.resetTowerTapState();
     }
     return upgraded;
   }
@@ -2928,8 +2937,71 @@ export class SimplePlayfield {
     const demoted = this.demoteTowerTier(tower);
     if (demoted) {
       this.suppressNextCanvasClick = true;
+      this.resetTowerTapState();
     }
     return demoted;
+  }
+
+  /**
+   * Clear any pending tower tap tracking so the next tap starts a fresh sequence.
+   */
+  resetTowerTapState() {
+    if (!this.towerTapState) {
+      this.towerTapState = {
+        lastTowerId: null,
+        lastTapTime: 0,
+        lastTapPosition: null,
+      };
+      return;
+    }
+    this.towerTapState.lastTowerId = null;
+    this.towerTapState.lastTapTime = 0;
+    this.towerTapState.lastTapPosition = null;
+  }
+
+  /**
+   * Register a tap on a tower and return true when it qualifies as a double tap.
+   */
+  registerTowerTap(tower, position, event = null) {
+    if (!tower?.id || !position) {
+      this.resetTowerTapState();
+      return false;
+    }
+    const x = Number.isFinite(position.x) ? position.x : null;
+    const y = Number.isFinite(position.y) ? position.y : null;
+    if (x === null || y === null) {
+      this.resetTowerTapState();
+      return false;
+    }
+    if (!this.towerTapState) {
+      this.resetTowerTapState();
+    }
+    const state = this.towerTapState;
+    const now =
+      Number.isFinite(event?.timeStamp)
+        ? event.timeStamp
+        : typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
+    const previousTime = Number.isFinite(state.lastTapTime) ? state.lastTapTime : 0;
+    const elapsed = now - previousTime;
+    const isSameTower = state.lastTowerId === tower.id;
+    const withinTime = isSameTower && elapsed >= 0 && elapsed <= TOWER_MENU_DOUBLE_TAP_INTERVAL_MS;
+    let withinDistance = false;
+    if (isSameTower && state.lastTapPosition) {
+      const dx = x - state.lastTapPosition.x;
+      const dy = y - state.lastTapPosition.y;
+      const distance = Math.hypot(dx, dy);
+      withinDistance = Number.isFinite(distance) && distance <= TOWER_MENU_DOUBLE_TAP_DISTANCE_PX;
+    }
+    if (withinTime && withinDistance) {
+      this.resetTowerTapState();
+      return true;
+    }
+    state.lastTowerId = tower.id;
+    state.lastTapTime = now;
+    state.lastTapPosition = { x, y };
+    return false;
   }
 
   /**

@@ -482,6 +482,9 @@ function handleCanvasPointerLeave() {
   if (typeof this.cancelTowerHoldGesture === 'function') {
     this.cancelTowerHoldGesture();
   }
+  if (typeof this.resetTowerTapState === 'function') {
+    this.resetTowerTapState();
+  }
 }
 
 function collectMoteGemsNear(position) {
@@ -540,6 +543,9 @@ function handleCanvasClick(event) {
   const enemyTarget = this.findEnemyAt(position);
   const menuTower = this.getActiveMenuTower();
   if (enemyTarget) {
+    if (typeof this.resetTowerTapState === 'function') {
+      this.resetTowerTapState();
+    }
     if (menuTower && this.handleTowerMenuEnemySelection(menuTower, enemyTarget.enemy)) {
       return;
     }
@@ -549,26 +555,44 @@ function handleCanvasClick(event) {
 
   const crystalTarget = this.findCrystalAt(position);
   if (crystalTarget) {
+    if (typeof this.resetTowerTapState === 'function') {
+      this.resetTowerTapState();
+    }
     this.toggleCrystalFocus(crystalTarget);
     return;
   }
 
   if (this.activeTowerMenu && this.handleTowerMenuClick(position)) {
+    if (typeof this.resetTowerTapState === 'function') {
+      this.resetTowerTapState();
+    }
     return;
   }
 
   if (this.collectMoteGemsNear(position)) {
+    if (typeof this.resetTowerTapState === 'function') {
+      this.resetTowerTapState();
+    }
     return;
   }
 
   const tower = this.findTowerAt(position);
   if (tower) {
+    const shouldToggleMenu =
+      typeof this.registerTowerTap === 'function' && this.registerTowerTap(tower, position, event);
+    if (!shouldToggleMenu) {
+      return;
+    }
     if (this.activeTowerMenu?.towerId === tower.id) {
       this.closeTowerMenu();
     } else {
       this.openTowerMenu(tower);
     }
     return;
+  }
+
+  if (typeof this.resetTowerTapState === 'function') {
+    this.resetTowerTapState();
   }
 
   if (this.activeTowerMenu) {
