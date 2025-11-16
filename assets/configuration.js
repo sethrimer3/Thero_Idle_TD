@@ -155,7 +155,7 @@ export async function loadFluidSimulationProfile() {
   return fluidSimulationProfile;
 }
 
-function applyGameplayConfigInternal(config = {}) {
+async function applyGameplayConfigInternal(config = {}) {
   assertResourceContainers();
 
   gameplayConfigData = config || {};
@@ -233,7 +233,7 @@ function applyGameplayConfigInternal(config = {}) {
   populateIdleLevelConfigs(baseResourcesRef);
   pruneLevelState();
 
-  generateLevelAchievements();
+  await generateLevelAchievements();
 
   return gameplayConfigData;
 }
