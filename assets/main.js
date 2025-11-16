@@ -113,6 +113,7 @@ import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
 import { createResourceHud } from './resourceHud.js';
 import { createTsadiUpgradeUi } from './tsadiUpgradeUi.js';
 import { createSpireTabVisibilityManager } from './spireTabVisibility.js';
+import { createIdleLevelRunManager } from './idleLevelRunManager.js';
 // Powder tower palette and simulation helpers.
 import {
   DEFAULT_MOTE_PALETTE,
@@ -1177,9 +1178,22 @@ import {
     isDeveloperModeActive: () => developerModeActive,
   });
 
-  // Track idle simulation runs early so downstream systems (like developer mode)
-  // can safely reference the shared map without tripping temporal dead zones.
-  const idleLevelRuns = new Map();
+  const {
+    idleLevelRuns,
+    beginIdleLevelRun,
+    stopIdleLevelRun,
+    stopAllIdleRuns,
+    updateIdleLevelDisplay,
+  } = createIdleLevelRunManager({
+    idleLevelConfigs,
+    levelState,
+    levelLookup,
+    isInteractiveLevel,
+    updateLevelCards,
+    handlePlayfieldVictory,
+    getActiveLevelId: () => activeLevelId,
+    getPlayfieldElements: () => playfieldElements,
+  });
 
   // Convenience helper so developer toggles can refresh the powder walls without duplicating logic.
   const refreshPowderWallDecorations = () => {
@@ -1945,7 +1959,6 @@ import {
     scheduleOverlayHide,
   });
   // Track the animation frame id that advances idle simulations so we can pause the loop when idle.
-  let idleRunAnimationHandle = null;
 
   let powderSimulation = null;
   let sandSimulation = null;
@@ -2419,233 +2432,6 @@ import {
     // Flushes change the basin layout, so capture them for the next resume.
     schedulePowderBasinSave();
     updateStatusDisplays();
-  }
-
-  // Cancel the animation frame loop that advances idle level simulations once no runs remain active.
-  function stopIdleRunLoop() {
-    if (idleRunAnimationHandle === null) {
-      return;
-    }
-    if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
-      window.cancelAnimationFrame(idleRunAnimationHandle);
-    }
-    idleRunAnimationHandle = null;
-  }
-
-  // Ensure an animation frame is queued so idle level simulations continue ticking while runs exist.
-  function ensureIdleRunLoop() {
-    if (idleRunAnimationHandle !== null) {
-      return;
-    }
-    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
-      return;
-    }
-
-    const step = (timestamp) => {
-      // Clear the stored handle before processing so subsequent frames can be scheduled as needed.
-      idleRunAnimationHandle = null;
-      updateIdleRuns(timestamp);
-      if (idleLevelRuns.size) {
-        ensureIdleRunLoop();
-      }
-    };
-
-    idleRunAnimationHandle = window.requestAnimationFrame(step);
-  }
-
-  // Begin tracking the automated progress for an idle level encounter.
-  function beginIdleLevelRun(level) {
-    if (!level || !level.id || isInteractiveLevel(level.id)) {
-      return;
-    }
-
-    const config = idleLevelConfigs.get(level.id) || null;
-    const durationSeconds = Number.isFinite(config?.runDuration) ? Math.max(1, config.runDuration) : 90;
-    const rewardScore = Number.isFinite(config?.rewardScore) ? Math.max(0, config.rewardScore) : 0;
-    const rewardFlux = Number.isFinite(config?.rewardFlux) ? Math.max(0, config.rewardFlux) : 0;
-    const rewardEnergy = Number.isFinite(config?.rewardEnergy)
-      ? Math.max(0, config.rewardEnergy)
-      : Number.isFinite(config?.rewardThero)
-        ? Math.max(0, config.rewardThero)
-        : 0;
-    const durationMs = durationSeconds * 1000;
-
-    // Store the canonical progress state so UI components can report remaining duration and rewards.
-    const runner = {
-      levelId: level.id,
-      startTime: null,
-      duration: durationSeconds,
-      durationMs,
-      progress: 0,
-      remainingMs: durationMs,
-      rewardScore,
-      rewardFlux,
-      rewardEnergy,
-    };
-
-    idleLevelRuns.set(level.id, runner);
-
-    const existingState = levelState.get(level.id) || null;
-    if (existingState && !existingState.running) {
-      levelState.set(level.id, { ...existingState, running: true });
-    }
-
-    updateLevelCards();
-    if (activeLevelId === level.id) {
-      updateIdleLevelDisplay(runner);
-    }
-
-    ensureIdleRunLoop();
-  }
-
-  // Halt an active idle simulation and refresh related UI surfaces.
-  function stopIdleLevelRun(levelId) {
-    if (!levelId || isInteractiveLevel(levelId)) {
-      return;
-    }
-
-    const runnerActive = idleLevelRuns.has(levelId);
-    if (runnerActive) {
-      idleLevelRuns.delete(levelId);
-    }
-
-    const state = levelState.get(levelId) || null;
-    if (state && state.running) {
-      levelState.set(levelId, { ...state, running: false });
-    }
-
-    if (runnerActive) {
-      updateLevelCards();
-    }
-
-    if (activeLevelId === levelId) {
-      updateIdleLevelDisplay();
-    }
-
-    if (!idleLevelRuns.size) {
-      stopIdleRunLoop();
-    }
-  }
-
-  function stopAllIdleRuns(exceptId) {
-    const levelIds = Array.from(idleLevelRuns.keys());
-    levelIds.forEach((levelId) => {
-      if (levelId === exceptId) {
-        return;
-      }
-      stopIdleLevelRun(levelId);
-    });
-  }
-
-  function completeIdleLevelRun(levelId, runner) {
-    if (!levelId || isInteractiveLevel(levelId)) {
-      return;
-    }
-
-    const stats = {
-      rewardScore: runner.rewardScore,
-      rewardFlux: runner.rewardFlux,
-      rewardEnergy: runner.rewardEnergy,
-      runDuration: runner.duration,
-    };
-
-    handlePlayfieldVictory(levelId, stats);
-
-    if (activeLevelId === levelId) {
-      updateIdleLevelDisplay();
-    }
-  }
-
-  function updateIdleRuns(timestamp) {
-    if (!idleLevelRuns.size) {
-      if (activeLevelId && !isInteractiveLevel(activeLevelId)) {
-        updateIdleLevelDisplay();
-      }
-      return;
-    }
-
-    const now = typeof timestamp === 'number' ? timestamp : 0;
-
-    idleLevelRuns.forEach((runner, levelId) => {
-      if (runner.startTime === null) {
-        runner.startTime = now;
-      }
-
-      const elapsed = Math.max(0, now - runner.startTime);
-      const total = Math.max(1, runner.durationMs);
-      const clampedElapsed = Math.min(elapsed, total);
-
-      runner.progress = clampedElapsed / total;
-      runner.remainingMs = Math.max(0, total - clampedElapsed);
-
-      if (elapsed >= total) {
-        idleLevelRuns.delete(levelId);
-        runner.progress = 1;
-        runner.remainingMs = 0;
-        completeIdleLevelRun(levelId, runner);
-      }
-    });
-
-    updateLevelCards();
-
-    if (activeLevelId && !isInteractiveLevel(activeLevelId)) {
-      updateIdleLevelDisplay(idleLevelRuns.get(activeLevelId) || null);
-    }
-  }
-
-  function updateIdleLevelDisplay(activeRunner = null) {
-    if (!activeLevelId || isInteractiveLevel(activeLevelId)) {
-      return;
-    }
-
-    if (!playfieldElements.message || !playfieldElements.progress) {
-      return;
-    }
-
-    const level = levelLookup.get(activeLevelId);
-    const state = levelState.get(activeLevelId) || {};
-    const runner = activeRunner || idleLevelRuns.get(activeLevelId) || null;
-
-    if (!level) {
-      return;
-    }
-
-    if (runner) {
-      const remainingSeconds = Math.ceil(runner.remainingMs / 1000);
-      const percent = Math.min(100, Math.max(0, Math.round(runner.progress * 100)));
-      playfieldElements.message.textContent = `${level.title} auto-sim running—sigils recalibrating.`;
-      playfieldElements.progress.textContent = `Simulation progress: ${percent}% · ${remainingSeconds}s remaining.`;
-    } else if (state.running) {
-      playfieldElements.message.textContent = `${level.title} is initializing—automated glyphs mobilizing.`;
-      playfieldElements.progress.textContent = 'Auto-run preparing to deploy.';
-    } else if (state.completed) {
-      playfieldElements.message.textContent = `${level.title} sealed—auto-run rewards claimed.`;
-      playfieldElements.progress.textContent = 'Simulation complete. Re-enter to rerun the proof.';
-    } else {
-      playfieldElements.message.textContent = 'Tap the highlighted overlay to begin this automated defense.';
-      playfieldElements.progress.textContent = 'Awaiting confirmation.';
-    }
-
-    if (playfieldElements.wave) {
-      playfieldElements.wave.textContent = '—';
-    }
-    if (playfieldElements.health) {
-      playfieldElements.health.textContent = '—';
-    }
-    if (playfieldElements.energy) {
-      playfieldElements.energy.textContent = '—';
-    }
-
-    if (playfieldElements.startButton) {
-      if (runner || state.running) {
-        playfieldElements.startButton.textContent = runner
-          ? 'Auto-run Active'
-          : 'Auto-run Initializing';
-      } else {
-        playfieldElements.startButton.textContent = 'Preview Only';
-      }
-      playfieldElements.startButton.disabled = true;
-    }
   }
 
   function handlePlayfieldCombatStart(levelId) {
