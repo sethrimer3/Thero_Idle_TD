@@ -3340,6 +3340,29 @@ export class SimplePlayfield {
   }
 
   /**
+   * Run the double-tap gesture logic and toggle the active tower menu when appropriate.
+   */
+  toggleTowerMenuFromTap(tower, position, event = null, options = {}) {
+    if (!tower || !position) {
+      return false;
+    }
+    const shouldToggle =
+      typeof this.registerTowerTap === 'function' && this.registerTowerTap(tower, position, event);
+    if (!shouldToggle) {
+      return false;
+    }
+    if (options?.suppressNextClick) {
+      this.suppressNextCanvasClick = true;
+    }
+    if (this.activeTowerMenu?.towerId === tower.id) {
+      this.closeTowerMenu();
+    } else {
+      this.openTowerMenu(tower);
+    }
+    return true;
+  }
+
+  /**
    * Present the radial command menu for the supplied tower.
    */
   openTowerMenu(tower, options = {}) {
