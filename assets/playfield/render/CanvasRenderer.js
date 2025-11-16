@@ -165,6 +165,7 @@ function draw() {
   this.drawDeltaSoldiers();
   this.drawOmicronUnits();
   this.drawEnemies();
+  this.drawDamageNumbers();
   this.drawChiLightTrails();
   this.drawChiThralls();
   this.drawProjectiles();
@@ -1222,6 +1223,37 @@ function drawEnemies() {
   ctx.restore();
 }
 
+function drawDamageNumbers() {
+  if (!this.ctx || !Array.isArray(this.damageNumbers) || !this.damageNumbers.length) {
+    return;
+  }
+
+  const ctx = this.ctx;
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+
+  this.damageNumbers.forEach((entry) => {
+    if (!entry || !entry.position || !entry.text || entry.alpha <= 0) {
+      return;
+    }
+    const fontSize = Number.isFinite(entry.fontSize) ? entry.fontSize : 16;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, entry.alpha));
+    ctx.font = `600 ${fontSize}px "Cormorant Garamond", serif`;
+    const outlineWidth = Math.max(1, fontSize * 0.12);
+    ctx.lineWidth = outlineWidth;
+    ctx.strokeStyle = 'rgba(6, 8, 14, 0.7)';
+    ctx.fillStyle = colorToRgbaString(entry.color || { r: 255, g: 228, b: 120 }, 0.92);
+    ctx.strokeText(entry.text, entry.position.x, entry.position.y);
+    ctx.fillText(entry.text, entry.position.x, entry.position.y);
+    ctx.restore();
+  });
+
+  ctx.restore();
+}
+
 function drawProjectiles() {
   if (!this.ctx) {
     return;
@@ -1515,6 +1547,7 @@ export {
   drawDeltaSoldiers,
   drawOmicronUnits,
   drawEnemies,
+  drawDamageNumbers,
   drawProjectiles,
   drawAlphaBursts,
   drawBetaBursts,

@@ -9,6 +9,7 @@ import {
   readStorage,
   NOTATION_STORAGE_KEY,
   GLYPH_EQUATIONS_STORAGE_KEY,
+  DAMAGE_NUMBER_TOGGLE_STORAGE_KEY,
   GRAPHICS_MODE_STORAGE_KEY,
   TRACK_RENDER_MODE_STORAGE_KEY,
 } from './autoSave.js';
@@ -30,6 +31,10 @@ let notationRefreshHandler = () => {};
 let glyphEquationsVisible = false;
 let glyphEquationToggleInput = null;
 let glyphEquationToggleStateLabel = null;
+
+let damageNumbersEnabled = true;
+let damageNumberToggleInput = null;
+let damageNumberToggleStateLabel = null;
 
 let graphicsModeButton = null;
 let trackRenderModeButton = null;
@@ -110,6 +115,10 @@ function normalizeGlyphEquationPreference(value) {
   return Boolean(value);
 }
 
+function normalizeDamageNumberPreference(value) {
+  return normalizeGlyphEquationPreference(value);
+}
+
 function updateGlyphEquationToggleUi() {
   if (glyphEquationToggleInput) {
     glyphEquationToggleInput.checked = glyphEquationsVisible;
@@ -121,6 +130,20 @@ function updateGlyphEquationToggleUi() {
   }
   if (glyphEquationToggleStateLabel) {
     glyphEquationToggleStateLabel.textContent = glyphEquationsVisible ? 'On' : 'Off';
+  }
+}
+
+function updateDamageNumberToggleUi() {
+  if (damageNumberToggleInput) {
+    damageNumberToggleInput.checked = damageNumbersEnabled;
+    damageNumberToggleInput.setAttribute('aria-checked', damageNumbersEnabled ? 'true' : 'false');
+    const controlShell = damageNumberToggleInput.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', damageNumbersEnabled);
+    }
+  }
+  if (damageNumberToggleStateLabel) {
+    damageNumberToggleStateLabel.textContent = damageNumbersEnabled ? 'On' : 'Off';
   }
 }
 
@@ -148,6 +171,34 @@ export function bindGlyphEquationToggle() {
     applyGlyphEquationPreference(event?.target?.checked);
   });
   updateGlyphEquationToggleUi();
+}
+
+export function bindDamageNumberToggle() {
+  damageNumberToggleInput = document.getElementById('damage-number-toggle');
+  damageNumberToggleStateLabel = document.getElementById('damage-number-toggle-state');
+  if (!damageNumberToggleInput) {
+    return;
+  }
+  damageNumberToggleInput.addEventListener('change', (event) => {
+    applyDamageNumberPreference(event?.target?.checked);
+  });
+  updateDamageNumberToggleUi();
+}
+
+export function applyDamageNumberPreference(preference, { persist = true } = {}) {
+  const enabled = normalizeDamageNumberPreference(preference);
+  damageNumbersEnabled = enabled;
+  updateDamageNumberToggleUi();
+  if (!enabled) {
+    const playfield = playfieldGetter();
+    if (playfield && typeof playfield.clearDamageNumbers === 'function') {
+      playfield.clearDamageNumbers();
+    }
+  }
+  if (persist) {
+    writeStorage(DAMAGE_NUMBER_TOGGLE_STORAGE_KEY, damageNumbersEnabled ? '1' : '0');
+  }
+  return damageNumbersEnabled;
 }
 
 function resolveGraphicsModeLabel(mode = activeGraphicsMode) {
@@ -291,6 +342,10 @@ export function toggleGraphicsMode() {
 
 export function areGlyphEquationsVisible() {
   return glyphEquationsVisible;
+}
+
+export function areDamageNumbersEnabled() {
+  return damageNumbersEnabled;
 }
 
 export function bindGraphicsModeToggle() {

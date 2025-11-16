@@ -32,12 +32,14 @@ import {
   getTowerVisualConfig,
   getOmegaWaveVisualConfig,
   getTowerTierValue,
+  samplePaletteGradient,
 } from './colorSchemeUtils.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../scripts/features/towers/powderTower.js';
 import { notifyTowerPlaced } from './achievementsTab.js';
 import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import { formatCombatNumber } from './playfield/utils/formatting.js';
 import { easeInCubic, easeOutCubic } from './playfield/utils/math.js';
+import { areDamageNumbersEnabled } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
 import {
   PLAYFIELD_VIEW_DRAG_THRESHOLD,
@@ -260,6 +262,8 @@ export class SimplePlayfield {
     this.towers = [];
     this.enemies = [];
     this.projectiles = [];
+    this.damageNumbers = [];
+    this.damageNumberIdCounter = 0;
     // Maintain per-tower particle burst queues so α/β/γ/ν visuals can update independently.
     this.alphaBursts = [];
     this.betaBursts = [];
@@ -422,6 +426,139 @@ export class SimplePlayfield {
       this.chiLightTrails.length = 0;
     } else {
       this.chiLightTrails = [];
+    }
+  }
+
+  resetDamageNumbers() {
+    if (Array.isArray(this.damageNumbers)) {
+      this.damageNumbers.length = 0;
+    } else {
+      this.damageNumbers = [];
+    }
+    this.damageNumberIdCounter = 0;
+  }
+
+  clearDamageNumbers() {
+    this.resetDamageNumbers();
+  }
+
+  areDamageNumbersActive() {
+    if (this.previewOnly) {
+      return false;
+    }
+    return areDamageNumbersEnabled();
+  }
+
+  resolveDamageNumberDirection(enemyPosition, sourceTower) {
+    const fallbackAngle = Math.random() * Math.PI * 2;
+    if (sourceTower && Number.isFinite(sourceTower.x) && Number.isFinite(sourceTower.y)) {
+      const dx = enemyPosition.x - sourceTower.x;
+      const dy = enemyPosition.y - sourceTower.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance > 0.001) {
+        const jitter = (Math.random() - 0.5) * (Math.PI / 6);
+        const cos = Math.cos(jitter);
+        const sin = Math.sin(jitter);
+        const nx = dx / distance;
+        const ny = dy / distance;
+        const jitteredX = nx * cos - ny * sin;
+        const jitteredY = nx * sin + ny * cos;
+        const magnitude = Math.hypot(jitteredX, jitteredY) || 1;
+        return { x: jitteredX / magnitude, y: jitteredY / magnitude };
+      }
+    }
+    return { x: Math.cos(fallbackAngle), y: Math.sin(fallbackAngle) };
+  }
+
+  spawnDamageNumber(enemy, damage, { sourceTower } = {}) {
+    if (!this.areDamageNumbersActive() || !enemy || !Number.isFinite(damage) || damage <= 0) {
+      return;
+    }
+    const enemyPosition = this.getEnemyPosition(enemy);
+    if (!enemyPosition) {
+      return;
+    }
+    const label = formatCombatNumber(damage);
+    if (!label) {
+      return;
+    }
+    const metrics = this.getEnemyVisualMetrics(enemy);
+    const direction = this.resolveDamageNumberDirection(enemyPosition, sourceTower);
+    const offsetDistance = (metrics?.ringRadius || 12) + 6;
+    const spawnPosition = {
+      x: enemyPosition.x + direction.x * offsetDistance,
+      y: enemyPosition.y + direction.y * offsetDistance,
+    };
+    const gradientSample = samplePaletteGradient(Math.random());
+    const magnitude = Math.max(0, Math.log10(Math.max(1, damage)));
+    const fontSize = Math.min(28, 16 + magnitude * 2.6);
+    const initialSpeed = 110 + Math.random() * 45;
+    const entry = {
+      id: (this.damageNumberIdCounter += 1),
+      position: spawnPosition,
+      velocity: {
+        x: direction.x * initialSpeed,
+        y: direction.y * (initialSpeed * 0.85),
+      },
+      text: label,
+      color: gradientSample,
+      fontSize,
+      elapsed: 0,
+      lifetime: 1.15,
+      alpha: 1,
+    };
+    this.damageNumbers.push(entry);
+    const maxEntries = 90;
+    if (this.damageNumbers.length > maxEntries) {
+      this.damageNumbers.splice(0, this.damageNumbers.length - maxEntries);
+    }
+  }
+
+  updateDamageNumbers(delta) {
+    if (!Number.isFinite(delta) || delta <= 0) {
+      return;
+    }
+    if (!Array.isArray(this.damageNumbers) || !this.damageNumbers.length) {
+      return;
+    }
+    if (!this.areDamageNumbersActive()) {
+      this.resetDamageNumbers();
+      return;
+    }
+    const damping = 7.5;
+    for (let index = this.damageNumbers.length - 1; index >= 0; index -= 1) {
+      const entry = this.damageNumbers[index];
+      if (!entry) {
+        this.damageNumbers.splice(index, 1);
+        continue;
+      }
+      entry.elapsed += delta;
+      if (entry.elapsed >= entry.lifetime) {
+        this.damageNumbers.splice(index, 1);
+        continue;
+      }
+      const drag = Math.max(0, 1 - damping * delta);
+      entry.velocity.x *= drag;
+      entry.velocity.y *= drag;
+      if (Math.abs(entry.velocity.x) < 1) {
+        entry.velocity.x = 0;
+      }
+      if (Math.abs(entry.velocity.y) < 1) {
+        entry.velocity.y = 0;
+      }
+      entry.position.x += entry.velocity.x * delta;
+      entry.position.y += entry.velocity.y * delta;
+      const fadeStart = entry.lifetime * 0.55;
+      if (entry.elapsed <= fadeStart) {
+        entry.alpha = 1;
+      } else {
+        const fadeDuration = Math.max(entry.lifetime - fadeStart, 0.001);
+        const fadeProgress = (entry.elapsed - fadeStart) / fadeDuration;
+        entry.alpha = Math.max(0, 1 - fadeProgress);
+      }
+      if (entry.alpha <= 0.01) {
+        this.damageNumbers.splice(index, 1);
+      }
     }
   }
 
@@ -1543,6 +1680,7 @@ export class SimplePlayfield {
       this.enemies = [];
       this.resetChiSystems();
       this.projectiles = [];
+      this.resetDamageNumbers();
       this.alphaBursts = [];
       this.betaBursts = [];
       this.gammaBursts = [];
@@ -1646,6 +1784,7 @@ export class SimplePlayfield {
       this.enemies = [];
       this.resetChiSystems();
       this.projectiles = [];
+      this.resetDamageNumbers();
       this.alphaBursts = [];
       this.betaBursts = [];
       this.gammaBursts = [];
@@ -1757,6 +1896,7 @@ export class SimplePlayfield {
     this.enemies = [];
     this.resetChiSystems();
     this.projectiles = [];
+    this.resetDamageNumbers();
     this.activeTowerMenu = null;
     this.deltaSoldierIdCounter = 0;
     this.floaters = [];
@@ -1843,6 +1983,7 @@ export class SimplePlayfield {
     this.enemies = [];
     this.resetChiSystems();
     this.projectiles = [];
+    this.resetDamageNumbers();
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
@@ -1982,6 +2123,7 @@ export class SimplePlayfield {
     this.enemies = [];
     this.resetChiSystems();
     this.projectiles = [];
+    this.resetDamageNumbers();
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
@@ -5247,6 +5389,7 @@ export class SimplePlayfield {
       this.updateNuBursts(speedDelta);
       this.updateCrystals(speedDelta);
       this.updateConnectionParticles(speedDelta);
+      this.updateDamageNumbers(speedDelta);
     } finally {
       finishAmbientSegment();
     }
@@ -6048,6 +6191,7 @@ export class SimplePlayfield {
     if (sourceTower) {
       this.recordDamageEvent({ tower: sourceTower, enemy, damage: applied });
     }
+    this.spawnDamageNumber(enemy, applied, { sourceTower });
     if (enemy.hp <= 0) {
       // Track kill and overkill damage for Nu towers
       if (sourceTower && sourceTower.type === 'nu') {
@@ -7040,6 +7184,7 @@ export class SimplePlayfield {
       this.enemies = [];
       this.resetChiSystems();
       this.projectiles = [];
+    this.resetDamageNumbers();
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
@@ -7635,6 +7780,10 @@ export class SimplePlayfield {
 
   drawEnemies() {
     return CanvasRenderer.drawEnemies.call(this);
+  }
+
+  drawDamageNumbers() {
+    return CanvasRenderer.drawDamageNumbers.call(this);
   }
 
   drawProjectiles() {
