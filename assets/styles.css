@@ -2382,7 +2382,9 @@ body.graphics-mode-low .control-button {
   border-radius: 999px;
   border: 1px solid transparent;
   color: var(--bg);
-  background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  /* Provide a solid fallback so buttons stay visible if gradients are disabled. */
+  background-color: var(--accent);
+  background-image: linear-gradient(120deg, var(--accent), var(--accent-2));
   cursor: var(--cursor-pointer);
   transition: transform var(--transition), box-shadow var(--transition);
 }
@@ -2404,6 +2406,8 @@ body.graphics-mode-low .control-button {
 
 .action-button.ghost {
   background: transparent;
+  background-image: none;
+  background-color: transparent;
   color: var(--text);
   border-color: rgba(255, 255, 255, 0.12);
 }

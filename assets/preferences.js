@@ -14,6 +14,7 @@ import {
   WAVE_DAMAGE_TALLY_STORAGE_KEY,
   GRAPHICS_MODE_STORAGE_KEY,
   TRACK_RENDER_MODE_STORAGE_KEY,
+  TRACK_TRACER_TOGGLE_STORAGE_KEY,
 } from './autoSave.js';
 
 const GRAPHICS_MODES = Object.freeze({
@@ -47,6 +48,11 @@ let waveKillTallyToggleStateLabel = null;
 let waveDamageTalliesEnabled = true;
 let waveDamageTallyToggleInput = null;
 let waveDamageTallyToggleStateLabel = null;
+
+// Toggle state for the luminous track tracer overlay.
+let trackTracerEnabled = true;
+let trackTracerToggleInput = null;
+let trackTracerToggleStateLabel = null;
 
 let graphicsModeButton = null;
 let trackRenderModeButton = null;
@@ -189,6 +195,21 @@ function updateWaveDamageTallyToggleUi() {
   }
 }
 
+// Synchronize the track tracer toggle so the label reflects the active preference.
+function updateTrackTracerToggleUi() {
+  if (trackTracerToggleInput) {
+    trackTracerToggleInput.checked = trackTracerEnabled;
+    trackTracerToggleInput.setAttribute('aria-checked', trackTracerEnabled ? 'true' : 'false');
+    const controlShell = trackTracerToggleInput.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', trackTracerEnabled);
+    }
+  }
+  if (trackTracerToggleStateLabel) {
+    trackTracerToggleStateLabel.textContent = trackTracerEnabled ? 'On' : 'Off';
+  }
+}
+
 export function applyGlyphEquationPreference(preference, { persist = true } = {}) {
   const enabled = normalizeGlyphEquationPreference(preference);
   glyphEquationsVisible = enabled;
@@ -309,6 +330,38 @@ export function applyWaveDamageTallyPreference(preference, { persist = true } = 
     writeStorage(WAVE_DAMAGE_TALLY_STORAGE_KEY, waveDamageTalliesEnabled ? '1' : '0');
   }
   return waveDamageTalliesEnabled;
+}
+
+/**
+ * Persist and apply the glowing track tracer preference.
+ */
+export function applyTrackTracerPreference(preference, { persist = true } = {}) {
+  const enabled = normalizeDamageNumberPreference(preference);
+  trackTracerEnabled = enabled;
+  updateTrackTracerToggleUi();
+  if (persist) {
+    writeStorage(TRACK_TRACER_TOGGLE_STORAGE_KEY, trackTracerEnabled ? '1' : '0');
+  }
+  const playfield = playfieldGetter();
+  if (playfield && typeof playfield.draw === 'function') {
+    playfield.draw();
+  }
+  return trackTracerEnabled;
+}
+
+/**
+ * Bind the visual settings toggle that controls the luminous track tracer.
+ */
+export function bindTrackTracerToggle() {
+  trackTracerToggleInput = document.getElementById('track-tracer-toggle');
+  trackTracerToggleStateLabel = document.getElementById('track-tracer-toggle-state');
+  if (!trackTracerToggleInput) {
+    return;
+  }
+  trackTracerToggleInput.addEventListener('change', (event) => {
+    applyTrackTracerPreference(event?.target?.checked);
+  });
+  updateTrackTracerToggleUi();
 }
 
 function resolveGraphicsModeLabel(mode = activeGraphicsMode) {
@@ -470,6 +523,13 @@ export function areWaveKillTalliesEnabled() {
  */
 export function areWaveDamageTalliesEnabled() {
   return waveDamageTalliesEnabled;
+}
+
+/**
+ * Reports whether the luminous track tracer overlay is active.
+ */
+export function areTrackTracersEnabled() {
+  return trackTracerEnabled;
 }
 
 export function bindGraphicsModeToggle() {
