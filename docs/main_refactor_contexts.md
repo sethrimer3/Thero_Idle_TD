@@ -28,6 +28,11 @@ Manages the `AudioManager` wiring, slider bindings, audio persistence, activatio
 ## Resource HUD and Powder-Economy State
 `assets/resourceHud.js` now encapsulates the resource HUD bindings, status refresh loop, glyph badge tracking, and callback registry that keeps the powder displays in sync. `assets/main.js` only wires the factory with formatting utilities and state references.
 
+## Resource and Spire State Containers
+`assets/state/resourceState.js` builds the `baseResources`/`resourceState` pair via `createResourceStateContainers()`, injecting the starting thero calculation, fallback income rates, and `registerResourceContainers()` hook. The factory returns references that other modules can import for tests without touching `main.js`.
+
+`assets/state/spireResourceState.js` exposes `createSpireResourceState()` which clones the Lamed/Tsadi/Shin/Kuf banks (including nested upgrade + stat objects) so saved state can hydrate without mutating shared templates. Main.js now imports the builder instead of declaring the literal inline, reducing another chunk of state setup.
+
 ## Offline Overlay & Persistence Plumbing
 Handles storage key constants, powder log bookkeeping, offline overlay animation state, and timer coordination for idle rewards.
 
