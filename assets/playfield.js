@@ -658,10 +658,14 @@ export class SimplePlayfield {
     }
     const magnitude = Math.hypot(direction.x, direction.y) || 1;
     const normalized = { x: direction.x / magnitude, y: direction.y / magnitude };
-    const baseStrength = Number.isFinite(damageApplied) && Number.isFinite(enemyHpBefore) && enemyHpBefore > 0
-      ? damageApplied / enemyHpBefore
+    // Double the baseline knockback and scale it up to another 2x as hits approach a full health bar chunk.
+    const relativeDamageFraction = Number.isFinite(damageApplied) && Number.isFinite(enemyHpBefore) && enemyHpBefore > 0
+      ? clamp(damageApplied / enemyHpBefore, 0, 1)
       : 1;
-    const strength = Math.max(0.45, Math.min(1.35, baseStrength));
+    const baseStrength = Math.max(0.45, Math.min(1.35, relativeDamageFraction));
+    const doubledKnockback = baseStrength * 2;
+    const finishingBlowBonus = 1 + relativeDamageFraction;
+    const strength = doubledKnockback * finishingBlowBonus;
     queue.push({ enemy, direction: normalized, strength, timestamp: now });
     const maxQueueEntries = 120;
     if (queue.length > maxQueueEntries) {
