@@ -34,6 +34,7 @@ import { createTowerEquationTooltipSystem } from './towerEquationTooltip.js';
 import { createTowerUpgradeOverlayController } from './towerUpgradeOverlayController.js';
 import { createTowerBlueprintPresenter } from './towerBlueprintPresenter.js';
 import { createTowerVariableDiscoveryManager } from './towerVariableDiscovery.js';
+import { createTowerLoadoutController } from './towerLoadoutController.js';
 
 // Callback to update status displays when glyphs change. Set via configureTowersTabCallbacks.
 let updateStatusDisplaysCallback = null;
@@ -168,8 +169,6 @@ const towerTabState = {
   mergingLogicElements: { card: null },
   loadoutElements: { container: null, grid: null, note: null },
   selectionButtons: new Map(),
-  loadoutDrag: { active: false, pointerId: null, towerId: null, element: null },
-  renderedLoadoutSignature: null,
   theroSymbol: 'þ',
   towerUpgradeElements: {
     overlay: null,
@@ -411,13 +410,6 @@ export function setMergingLogicCard(element) {
   updateMergingLogicVisibility();
 }
 
-export function setLoadoutElements({ container = null, grid = null, note = null } = {}) {
-  towerTabState.loadoutElements.container = container;
-  towerTabState.loadoutElements.grid = grid;
-  towerTabState.loadoutElements.note = note;
-  updateLoadoutNote();
-}
-
 export function setAudioManager(manager) {
   towerTabState.audioManager = manager || null;
 }
@@ -496,20 +488,6 @@ export function setMergingLogicUnlocked(value = true) {
     if (typeof hideUpgradeMatrix === 'function') {
       hideUpgradeMatrix();
     }
-  }
-}
-
-function updateLoadoutNote() {
-  const { loadoutElements, loadoutState } = towerTabState;
-  if (!loadoutElements.note) {
-    return;
-  }
-  if (!loadoutState.selected.length) {
-    loadoutElements.note.textContent =
-      'Select towers on the Towers tab to prepare up to four glyphs for this defense.';
-  } else {
-    loadoutElements.note.textContent =
-      'Select four towers to bring into the defense. Drag the glyph chips onto the plane to lattice them; drop a chip atop a matching tower to merge.';
   }
 }
 
@@ -719,6 +697,28 @@ export function isTowerPlaceable(towerId) {
   return definition.placeable !== false;
 }
 
+const {
+  setLoadoutElements,
+  pruneLockedTowersFromLoadout,
+  refreshTowerLoadoutDisplay,
+  renderTowerLoadout,
+  startTowerDrag,
+  cancelTowerDrag,
+} = createTowerLoadoutController({
+  getLoadoutState: () => towerTabState.loadoutState,
+  getLoadoutElements: () => towerTabState.loadoutElements,
+  getTowerDefinition,
+  getNextTowerId,
+  isTowerUnlocked,
+  isTowerPlaceable,
+  getTheroSymbol: () => towerTabState.theroSymbol,
+  getPlayfield: () => towerTabState.playfield,
+  getAudioManager: () => towerTabState.audioManager,
+  formatCombatNumber,
+});
+
+export { setLoadoutElements, pruneLockedTowersFromLoadout, refreshTowerLoadoutDisplay, startTowerDrag, cancelTowerDrag };
+
 export function unlockTower(towerId, { silent = false } = {}) {
   if (!towerId || !towerTabState.towerDefinitionMap.has(towerId)) {
     return false;
@@ -772,252 +772,6 @@ function createPreviewId(prefix, value) {
 }
 
 // Additional tower-tab functions continue below.
-export function pruneLockedTowersFromLoadout() {
-  const selected = towerTabState.loadoutState.selected;
-  let changed = false;
-  for (let index = selected.length - 1; index >= 0; index -= 1) {
-    const towerId = selected[index];
-    if (!isTowerUnlocked(towerId) || !isTowerPlaceable(towerId)) {
-      selected.splice(index, 1);
-      changed = true;
-    }
-  }
-  return changed;
-}
-
-export function refreshTowerLoadoutDisplay() {
-  const { grid } = towerTabState.loadoutElements;
-  if (!grid) {
-    return;
-  }
-  const interactive = Boolean(towerTabState.playfield && towerTabState.playfield.isInteractiveLevelActive());
-  const items = grid.querySelectorAll('.tower-loadout-item');
-  const energy = interactive && towerTabState.playfield ? towerTabState.playfield.energy : 0; // Cache the current energy pool so affordability checks remain consistent within this render.
-  // Format loadout cost readouts using the combat formatter while guarding against infinite numbers.
-  const formatCostLabel = (value) => {
-    if (!Number.isFinite(value)) {
-      return '∞';
-    }
-    return formatCombatNumber(Math.max(0, value));
-  };
-  items.forEach((item) => {
-    const towerId = item.dataset.towerId;
-    const definition = getTowerDefinition(towerId);
-    if (!definition) {
-      return;
-    }
-    const anchorCostValue = towerTabState.playfield
-      ? towerTabState.playfield.getCurrentTowerCost(towerId)
-      : Number.isFinite(definition.baseCost)
-      ? definition.baseCost
-      : 0;
-    const anchorCostLabel = formatCostLabel(anchorCostValue);
-    const canAffordAnchor = interactive && energy >= anchorCostValue; // Determine whether the player can currently afford to place this tower.
-    const costEl = item.querySelector('.tower-loadout-cost');
-    if (costEl) {
-      // Surface the current anchoring cost directly beneath the tower icon for quick scanning.
-      costEl.textContent = `Anchor: ${anchorCostLabel} ${towerTabState.theroSymbol}`;
-      costEl.dataset.affordable = canAffordAnchor ? 'true' : 'false';
-    }
-    const upgradeCostEl = item.querySelector('.tower-loadout-upgrade-cost');
-    const nextTowerId = getNextTowerId(towerId);
-    const nextDefinition = nextTowerId ? getTowerDefinition(nextTowerId) : null;
-    let upgradeAriaLabel = 'Upgrade unavailable';
-    if (upgradeCostEl) {
-      if (nextDefinition) {
-        const mergeCostValue = towerTabState.playfield
-          ? towerTabState.playfield.getCurrentTowerCost(nextTowerId)
-          : Number.isFinite(nextDefinition.baseCost)
-          ? nextDefinition.baseCost
-          : 0;
-        const mergeCostLabel = formatCostLabel(mergeCostValue);
-        // Highlight the energy required to upgrade into the next tier so players can budget upgrades.
-        upgradeCostEl.textContent = `Upgrade: ${mergeCostLabel} ${towerTabState.theroSymbol}`;
-        upgradeCostEl.dataset.available = 'true';
-        const canAffordUpgrade = interactive && energy >= mergeCostValue; // Determine whether the current energy pool supports the upgrade cost.
-        upgradeCostEl.dataset.affordable = canAffordUpgrade ? 'true' : 'false';
-        upgradeAriaLabel = `Upgrade ${mergeCostLabel} ${towerTabState.theroSymbol}`;
-      } else {
-        // Make it clear when no higher tier exists, keeping the layout stable.
-        upgradeCostEl.textContent = 'Upgrade: —';
-        upgradeCostEl.dataset.available = 'false';
-        upgradeCostEl.dataset.affordable = 'false'; // Ensure the glow stays disabled when no upgrade path exists.
-        upgradeAriaLabel = 'Upgrade unavailable';
-      }
-    }
-    if (definition && item) {
-      const labelParts = [
-        definition.name,
-        `Anchor ${anchorCostLabel} ${towerTabState.theroSymbol}`,
-        upgradeAriaLabel,
-      ];
-      item.setAttribute('aria-label', labelParts.join(' — ')); // Surface name, base cost, and upgrade cost for screen readers.
-    }
-    item.dataset.valid = canAffordAnchor ? 'true' : 'false';
-    item.dataset.disabled = interactive ? 'false' : 'true';
-    item.disabled = !interactive;
-  });
-}
-
-function renderTowerLoadout() {
-  const { grid } = towerTabState.loadoutElements;
-  if (!grid) {
-    towerTabState.renderedLoadoutSignature = null;
-    return;
-  }
-
-  const selected = towerTabState.loadoutState.selected;
-  const signature = selected.join('|');
-  const existingCount = grid.childElementCount;
-
-  if (signature === towerTabState.renderedLoadoutSignature && existingCount === selected.length) {
-    refreshTowerLoadoutDisplay();
-    updateLoadoutNote();
-    return;
-  }
-
-  grid.innerHTML = '';
-  const fragment = document.createDocumentFragment();
-  towerTabState.renderedLoadoutSignature = signature;
-
-  if (!selected.length) {
-    updateLoadoutNote();
-    return;
-  }
-
-  selected.forEach((towerId) => {
-    const definition = getTowerDefinition(towerId);
-    if (!definition || definition.placeable === false) {
-      return;
-    }
-
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'tower-loadout-item';
-    item.dataset.towerId = towerId;
-    item.setAttribute('role', 'listitem');
-    item.setAttribute('aria-label', definition.name); // Seed an accessible label until the live cost is calculated.
-
-    const artwork = document.createElement('img');
-    artwork.className = 'tower-loadout-art';
-    if (definition.icon) {
-      artwork.src = definition.icon;
-      artwork.alt = `${definition.name} sigil`;
-      artwork.decoding = 'async';
-      artwork.loading = 'lazy';
-    } else {
-      artwork.alt = '';
-      artwork.setAttribute('aria-hidden', 'true');
-    }
-
-    const costEl = document.createElement('span');
-    costEl.className = 'tower-loadout-cost';
-    costEl.textContent = 'Anchor: —'; // Seed the anchor cost label so the slot never flashes empty during initialization.
-    costEl.dataset.affordable = 'false'; // Initialize the affordability state so the glow only appears once the player can pay the anchor cost.
-
-    const upgradeCostEl = document.createElement('span');
-    upgradeCostEl.className = 'tower-loadout-upgrade-cost';
-    upgradeCostEl.dataset.available = 'false';
-    upgradeCostEl.dataset.affordable = 'false'; // Initialize the upgrade affordability state to avoid showing the glow prematurely.
-    upgradeCostEl.textContent = 'Upgrade: —'; // Seed the upgrade cost line so layout stays stable during updates.
-
-    item.append(artwork, costEl, upgradeCostEl); // Present the icon with both anchor and upgrade costs stacked below it for quick scanning.
-
-    item.addEventListener('pointerdown', (event) => startTowerDrag(event, towerId, item));
-
-    fragment.append(item);
-  });
-
-  grid.append(fragment);
-  refreshTowerLoadoutDisplay();
-  updateLoadoutNote();
-}
-
-export function cancelTowerDrag() {
-  const drag = towerTabState.loadoutDrag;
-  if (!drag.active) {
-    return;
-  }
-  document.removeEventListener('pointermove', handleTowerDragMove);
-  document.removeEventListener('pointerup', handleTowerDragEnd);
-  document.removeEventListener('pointercancel', handleTowerDragEnd);
-  if (drag.element) {
-    try {
-      drag.element.releasePointerCapture(drag.pointerId);
-    } catch (error) {
-      // Ignore pointer-capture errors.
-    }
-    drag.element.removeAttribute('data-state');
-  }
-  towerTabState.playfield?.finishTowerDrag();
-  towerTabState.playfield?.clearPlacementPreview();
-  drag.active = false;
-  drag.pointerId = null;
-  drag.towerId = null;
-  drag.element = null;
-  refreshTowerLoadoutDisplay();
-}
-
-function handleTowerDragMove(event) {
-  const drag = towerTabState.loadoutDrag;
-  if (!drag.active || event.pointerId !== drag.pointerId) {
-    return;
-  }
-  const element = drag.element;
-  if (element) {
-    element.dataset.state = 'dragging';
-  }
-  if (!towerTabState.playfield) {
-    return;
-  }
-  const normalized = towerTabState.playfield.getNormalizedFromEvent(event);
-  if (normalized) {
-    towerTabState.playfield.previewTowerPlacement(normalized, {
-      towerType: drag.towerId,
-      dragging: true,
-    }); // Maintain a floating preview while the tower is dragged across the battlefield.
-  }
-}
-
-function finalizeTowerDrag(event) {
-  const drag = towerTabState.loadoutDrag;
-  if (!drag.active || event.pointerId !== drag.pointerId) {
-    return;
-  }
-  if (drag.element) {
-    try {
-      drag.element.releasePointerCapture(drag.pointerId);
-    } catch (error) {
-      // Ignore pointer-capture errors.
-    }
-    drag.element.removeAttribute('data-state');
-  }
-
-  document.removeEventListener('pointermove', handleTowerDragMove);
-  document.removeEventListener('pointerup', handleTowerDragEnd);
-  document.removeEventListener('pointercancel', handleTowerDragEnd);
-
-  if (towerTabState.playfield) {
-    const normalized = towerTabState.playfield.getNormalizedFromEvent(event);
-    if (normalized) {
-      towerTabState.playfield.completeTowerPlacement(normalized, { towerType: drag.towerId });
-    } else {
-      towerTabState.playfield.clearPlacementPreview();
-    }
-    towerTabState.playfield.finishTowerDrag();
-  }
-
-  drag.active = false;
-  drag.pointerId = null;
-  drag.towerId = null;
-  drag.element = null;
-  refreshTowerLoadoutDisplay();
-}
-
-function handleTowerDragEnd(event) {
-  finalizeTowerDrag(event);
-}
-
 // ---------- Tower equipment slot helpers ----------
 
 const EMPTY_EQUIPMENT_SYMBOL = '∅';
@@ -1334,45 +1088,6 @@ function handleEquipmentStateUpdate() {
   if (activeTowerId) {
     populateTowerEquipmentMenu(activeTowerId);
   }
-}
-
-export function startTowerDrag(event, towerId, element) {
-  if (!towerTabState.playfield || !towerTabState.playfield.isInteractiveLevelActive()) {
-    if (towerTabState.audioManager) {
-      towerTabState.audioManager.playSfx('error');
-    }
-    if (towerTabState.playfield?.messageEl) {
-      towerTabState.playfield.messageEl.textContent = 'Enter the defense to lattice towers from your loadout.';
-    }
-    return;
-  }
-
-  cancelTowerDrag();
-
-  const drag = towerTabState.loadoutDrag;
-  drag.active = true;
-  drag.pointerId = event.pointerId;
-  drag.towerId = towerId;
-  drag.element = element;
-  element.dataset.state = 'dragging';
-
-  towerTabState.playfield.setDraggingTower(towerId);
-
-  try {
-    element.setPointerCapture(event.pointerId);
-  } catch (error) {
-    // Ignore pointer capture errors.
-  }
-
-  if (typeof event.preventDefault === 'function') {
-    event.preventDefault();
-  }
-
-  document.addEventListener('pointermove', handleTowerDragMove);
-  document.addEventListener('pointerup', handleTowerDragEnd);
-  document.addEventListener('pointercancel', handleTowerDragEnd);
-
-  handleTowerDragMove(event);
 }
 
 export function updateTowerSelectionButtons() {

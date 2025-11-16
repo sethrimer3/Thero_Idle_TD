@@ -428,6 +428,26 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Shared listeners and snapshots now live in an isolated module that can be unit-tested without the entire Towers tab closure
 - Tooltip + overlay modules consume the same `getUniversalVariableMetadata()` helper via dependency injection, avoiding repeated code
 
+### towerLoadoutController.js (loadout grid rendering + drag handling)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- DOM wiring for the tower loadout grid, including button creation and cost label scaffolding
+- Affordability refresh logic so anchor/upgrade cost badges stay synced with the live playfield state
+- Pointer drag orchestration (start, move, cancel, finalize) that previously lived inline inside `towersTab.js`
+- Helper text updates for the loadout note so onboarding copy remains consistent
+
+**Integration approach:**
+- Added `createTowerLoadoutController()` factory (`assets/towerLoadoutController.js`) that receives state getters plus formatting helpers via dependency injection
+- `assets/towersTab.js` instantiates the controller once, re-exporting `setLoadoutElements`, `refreshTowerLoadoutDisplay`, `startTowerDrag`, etc., so existing call sites keep the same API
+- The controller reads DOM caches through injected getters, meaning other systems that touch `towerTabState.loadoutElements` continue to function without modification
+
+**Result:**
+- Roughly 500 lines of loadout-specific DOM/drag code moved out of the 1,900-line `towersTab.js`, keeping the file focused on unlocks, equipment, and blueprint math
+- Drag behavior, preview plumbing, and affordability labels now live in a cohesive module that can be unit tested without booting the entire Towers tab controller
+- Future loadout enhancements (e.g., multi-slot presets) can evolve inside the dedicated controller without reopening the monolithic Towers tab orchestrator
+
 ### towerUpgradeOverlayController.js (upgrade overlay renderer + glyph spending)
 
 **Status:** ✅ Complete
