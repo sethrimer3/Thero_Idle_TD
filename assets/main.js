@@ -2673,7 +2673,10 @@ import {
       }
 
       const previous = levelSetEntries[index - 1];
-      const unlocked = index === 0 || areSetNormalLevelsCompleted(previous?.levels);
+      // Developer mode should surface every level set immediately, bypassing progression locks.
+      const unlocked = developerModeActive
+        || index === 0
+        || areSetNormalLevelsCompleted(previous?.levels);
 
       if (!unlocked && entry.element.classList.contains('expanded')) {
         collapseLevelSet(entry.element);
