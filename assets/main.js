@@ -275,6 +275,7 @@ import { createLevelOverlayController } from './levelOverlayController.js';
 import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
 import { createPlayfieldMenuController } from './playfieldMenu.js';
 import { createVariableLibraryController } from './variableLibraryController.js';
+import { createUpgradeMatrixOverlay } from './upgradeMatrixOverlay.js';
 import { createLevelSummaryHelpers } from './levelSummary.js';
 import { createLamedSpireUi } from './lamedSpireUi.js';
 import { createDeveloperModeManager } from './developerModeManager.js';
@@ -476,12 +477,6 @@ import {
   let leaveLevelBtn = null;
   let levelPreviewRenderer = null;
   let levelOverlayController = null;
-  let upgradeOverlay = null;
-  let upgradeOverlayButtons = [];
-  let upgradeOverlayTriggerSet = null;
-  let upgradeOverlayClose = null;
-  let upgradeOverlayGrid = null;
-  let lastUpgradeTrigger = null;
   let activeLevelId = null;
   let pendingLevel = null;
   let lastLevelTrigger = null;
@@ -506,6 +501,22 @@ import {
   // Initialize overlay helpers from uiHelpers module
   const overlayHelpers = createOverlayHelpers();
   const { cancelOverlayHide, scheduleOverlayHide, revealOverlay } = overlayHelpers;
+
+  const upgradeMatrixOverlayController = createUpgradeMatrixOverlay({
+    revealOverlay,
+    scheduleOverlayHide,
+    getTowerDefinitions,
+    getTowerDefinition,
+    isTowerUnlocked,
+    formatGameNumber,
+    theroSymbol: THERO_SYMBOL,
+  });
+  const {
+    bindUpgradeMatrix,
+    hideUpgradeMatrix,
+    renderUpgradeMatrix,
+    handleKeydown: handleUpgradeMatrixKeydown,
+  } = upgradeMatrixOverlayController;
 
   const variableLibraryController = createVariableLibraryController({
     revealOverlay,
@@ -3235,157 +3246,6 @@ import {
 
   
 
-  function renderUpgradeMatrix() {
-    if (!upgradeOverlayGrid) {
-      return;
-    }
-
-    upgradeOverlayGrid.innerHTML = '';
-    const fragment = document.createDocumentFragment();
-
-    const towerList = getTowerDefinitions();
-    towerList.forEach((definition) => {
-      if (!isTowerUnlocked(definition.id)) {
-        return;
-      }
-      const row = document.createElement('div');
-      row.className = 'upgrade-matrix-row';
-      row.setAttribute('role', 'listitem');
-
-      const tier = document.createElement('span');
-      tier.className = 'upgrade-matrix-tier';
-      tier.textContent = `Tier ${definition.tier}`;
-
-      const name = document.createElement('span');
-      name.className = 'upgrade-matrix-name';
-      const symbol = document.createElement('span');
-      symbol.className = 'upgrade-matrix-symbol';
-      symbol.textContent = definition.symbol;
-      const title = document.createElement('span');
-      title.className = 'upgrade-matrix-title';
-      const sanitizedName = typeof definition.name === 'string'
-        ? definition.name.replace(/tower/gi, '').replace(/\s{2,}/g, ' ').trim()
-        : '';
-      title.textContent = sanitizedName || definition.name;
-      name.append(symbol, document.createTextNode(' '), title);
-
-      const cost = document.createElement('span');
-      cost.className = 'upgrade-matrix-cost';
-      cost.textContent = `${formatGameNumber(definition.baseCost)} ${THERO_SYMBOL}`;
-
-      const nextTier = document.createElement('span');
-      nextTier.className = 'upgrade-matrix-next';
-      const nextDefinition = definition.nextTierId
-        ? getTowerDefinition(definition.nextTierId)
-        : null;
-      const nextName = nextDefinition?.name
-        ? nextDefinition.name.replace(/tower/gi, '').replace(/\s{2,}/g, ' ').trim()
-        : '';
-      nextTier.textContent = nextDefinition
-        ? `→ ${nextDefinition.symbol} ${nextName || nextDefinition.name}`
-        : '→ Final lattice awakened';
-
-      row.append(tier, name, cost, nextTier);
-      fragment.append(row);
-    });
-
-    upgradeOverlayGrid.append(fragment);
-  }
-
-  function showUpgradeMatrix() {
-    if (!upgradeOverlay) {
-      return;
-    }
-
-    revealOverlay(upgradeOverlay);
-    renderUpgradeMatrix();
-    if (!lastUpgradeTrigger || !(upgradeOverlayTriggerSet?.has(lastUpgradeTrigger))) {
-      const activeElement = document.activeElement;
-      lastUpgradeTrigger =
-        activeElement && typeof activeElement.focus === 'function' ? activeElement : null;
-    }
-
-    upgradeOverlay.setAttribute('aria-hidden', 'false');
-    if (lastUpgradeTrigger && upgradeOverlayTriggerSet?.has(lastUpgradeTrigger)) {
-      lastUpgradeTrigger.setAttribute('aria-expanded', 'true');
-    }
-    if (!upgradeOverlay.classList.contains('active')) {
-      requestAnimationFrame(() => {
-        upgradeOverlay.classList.add('active');
-      });
-    }
-
-    const focusTarget = upgradeOverlayClose || upgradeOverlay.querySelector('.overlay-panel');
-    if (focusTarget && typeof focusTarget.focus === 'function') {
-      focusTarget.focus();
-    } else if (typeof upgradeOverlay.focus === 'function') {
-      upgradeOverlay.focus();
-    }
-  }
-
-  function hideUpgradeMatrix() {
-    if (!upgradeOverlay) {
-      return;
-    }
-
-    upgradeOverlay.classList.remove('active');
-    upgradeOverlay.setAttribute('aria-hidden', 'true');
-    scheduleOverlayHide(upgradeOverlay);
-    if (upgradeOverlayButtons.length) {
-      upgradeOverlayButtons.forEach((button) => {
-        if (button) {
-          button.setAttribute('aria-expanded', 'false');
-        }
-      });
-    }
-
-    if (lastUpgradeTrigger && typeof lastUpgradeTrigger.focus === 'function') {
-      lastUpgradeTrigger.focus();
-    }
-    lastUpgradeTrigger = null;
-  }
-
-  function bindUpgradeMatrix() {
-    upgradeOverlayButtons = Array.from(
-      document.querySelectorAll('[data-upgrade-matrix-trigger]'),
-    );
-    upgradeOverlayTriggerSet = new WeakSet(upgradeOverlayButtons);
-    upgradeOverlay = document.getElementById('upgrade-matrix-overlay');
-    upgradeOverlayGrid = document.getElementById('upgrade-matrix-grid');
-    upgradeOverlayClose = upgradeOverlay
-      ? upgradeOverlay.querySelector('[data-overlay-close]')
-      : null;
-
-    if (upgradeOverlay && !upgradeOverlay.hasAttribute('tabindex')) {
-      upgradeOverlay.setAttribute('tabindex', '-1');
-    }
-
-    upgradeOverlayButtons.forEach((button) => {
-      if (!button) {
-        return;
-      }
-      button.setAttribute('aria-expanded', 'false');
-      button.addEventListener('click', () => {
-        lastUpgradeTrigger = button;
-        showUpgradeMatrix();
-      });
-    });
-
-    if (upgradeOverlayClose) {
-      upgradeOverlayClose.addEventListener('click', () => {
-        hideUpgradeMatrix();
-      });
-    }
-
-    if (upgradeOverlay) {
-      upgradeOverlay.addEventListener('click', (event) => {
-        if (event.target === upgradeOverlay) {
-          hideUpgradeMatrix();
-        }
-      });
-    }
-  }
-
 
 
   function bindLeaveLevelButton() {
@@ -4460,6 +4320,9 @@ import {
   });
 
   document.addEventListener('keydown', (event) => {
+    const overlay = levelOverlayController?.getOverlayElement
+      ? levelOverlayController.getOverlayElement()
+      : null;
     const towerUpgradeOverlay = getTowerUpgradeOverlayElement();
     if (towerUpgradeOverlay && towerUpgradeOverlay.classList.contains('active')) {
       if (event.key === 'Escape') {
@@ -4474,20 +4337,12 @@ import {
       }
     }
 
-    if (upgradeOverlay && upgradeOverlay.classList.contains('active')) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        hideUpgradeMatrix();
-        return;
-      }
-      if ((event.key === 'Enter' || event.key === ' ') && event.target === upgradeOverlay) {
-        event.preventDefault();
-        hideUpgradeMatrix();
-        return;
-      }
-      if (!overlay || !overlay.classList.contains('active')) {
-        return;
-      }
+    if (
+      handleUpgradeMatrixKeydown(event, {
+        isLevelOverlayActive: Boolean(overlay && overlay.classList.contains('active')),
+      })
+    ) {
+      return;
     }
 
     if (variableLibraryController.handleKeydown(event)) {
