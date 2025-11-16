@@ -32,6 +32,7 @@ import {
   drawChiLightTrails as drawChiLightTrailsHelper,
 } from '../../../scripts/features/towers/chiTower.js';
 import { drawTauProjectiles as drawTauProjectilesHelper } from '../../../scripts/features/towers/tauTower.js';
+import { drawUpsilonFleet as drawUpsilonFleetHelper } from '../../../scripts/features/towers/upsilonTower.js';
 
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rendering.js';
 import { easeInCubic, easeOutCubic } from '../utils/math.js';
@@ -1502,6 +1503,9 @@ function drawTowers() {
     }
     if (tower.type === 'tau') {
       drawTauProjectilesHelper(this, tower);
+    }
+    if (tower.type === 'upsilon') {
+      drawUpsilonFleetHelper(this, tower);
     }
 
     ctx.save();
