@@ -33,6 +33,7 @@ import {
 } from '../../../scripts/features/towers/chiTower.js';
 
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rendering.js';
+import { easeInCubic, easeOutCubic } from '../utils/math.js';
 
 const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
 const mindGateSprite = new Image();
@@ -79,6 +80,12 @@ const GLYPH_DEFAULT_DEMOTION_VECTOR = { x: 0, y: 1 };
 const PROMOTION_GLYPH_COLOR = { r: 139, g: 247, b: 255 };
 const DEMOTION_GLYPH_COLOR = { r: 255, g: 196, b: 150 };
 const GLYPH_FLASH_RAMP_MS = 120;
+// Radial tower menu animation tuning keeps the command lattice feeling responsive yet readable.
+const TOWER_MENU_OPEN_DURATION_MS = 360;
+const TOWER_MENU_DISMISS_DURATION_MS = 220;
+const TOWER_MENU_OPEN_SPIN_RADIANS = Math.PI * 0.75;
+const TOWER_MENU_DISMISS_SPIN_RADIANS = Math.PI * 0.65;
+const TOWER_MENU_DISMISS_SCALE = 1.25;
 
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) {
@@ -2226,29 +2233,47 @@ function drawNuBursts() {
   drawNuBurstsHelper(this);
 }
 
-function drawTowerMenu() {
-  if (!this.ctx || !this.activeTowerMenu) {
-    return;
+/**
+ * Render the radial tower menu with animated scaling, rotation, and opacity.
+ */
+function drawAnimatedTowerMenu(ctx, config = {}) {
+  const {
+    position,
+    options,
+    ringRadius,
+    optionRadius,
+    rotationOffset = 0,
+    radiusScale = 1,
+    optionScale = 1,
+    opacity = 1,
+  } = config;
+  if (
+    !ctx ||
+    !position ||
+    !Number.isFinite(ringRadius) ||
+    !Number.isFinite(optionRadius) ||
+    !Array.isArray(options) ||
+    !options.length
+  ) {
+    return false;
   }
-  const tower = this.getActiveMenuTower();
-  if (!tower) {
-    return;
-  }
-  const geometry = this.getTowerMenuGeometry(tower);
-  if (!geometry) {
-    return;
-  }
-  const { options, optionRadius, ringRadius } = geometry;
-  const ctx = this.ctx;
+  const scaledRingRadius = Math.max(0, ringRadius * Math.max(0, radiusScale));
+  const scaledOptionRadius = Math.max(2, optionRadius * Math.max(0.35, optionScale));
   ctx.save();
-
+  ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
   ctx.beginPath();
   ctx.strokeStyle = 'rgba(139, 247, 255, 0.35)';
-  ctx.lineWidth = Math.max(1.2, optionRadius * 0.14);
-  ctx.arc(tower.x, tower.y, ringRadius, 0, Math.PI * 2);
+  ctx.lineWidth = Math.max(1.2, scaledOptionRadius * 0.14);
+  ctx.arc(position.x, position.y, scaledRingRadius, 0, Math.PI * 2);
   ctx.stroke();
 
   options.forEach((option) => {
+    if (!option) {
+      return;
+    }
+    const angle = ((Number.isFinite(option.angle) ? option.angle : 0) + rotationOffset) % (Math.PI * 2);
+    const optionX = position.x + Math.cos(angle) * scaledRingRadius;
+    const optionY = position.y + Math.sin(angle) * scaledRingRadius;
     const selected = Boolean(option.selected);
     const disabled = Boolean(option.disabled);
     ctx.beginPath();
@@ -2258,30 +2283,111 @@ function drawTowerMenu() {
     const disabledStroke = 'rgba(139, 247, 255, 0.35)';
     ctx.fillStyle = disabled ? disabledFill : baseFill;
     ctx.strokeStyle = disabled ? disabledStroke : baseStroke;
-    ctx.lineWidth = Math.max(1.4, optionRadius * 0.16);
-    ctx.arc(option.center.x, option.center.y, optionRadius, 0, Math.PI * 2);
+    ctx.lineWidth = Math.max(1.4, scaledOptionRadius * 0.16);
+    ctx.arc(optionX, optionY, scaledOptionRadius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
     const hasCostLabel = typeof option.costLabel === 'string' && option.costLabel.length > 0;
-    const iconFontSize = Math.round(optionRadius * (hasCostLabel ? 0.82 : 0.95));
-    const iconY = hasCostLabel ? option.center.y - optionRadius * 0.25 : option.center.y;
+    const iconFontSize = Math.max(10, Math.round(scaledOptionRadius * (hasCostLabel ? 0.82 : 0.95)));
+    const iconY = hasCostLabel ? optionY - scaledOptionRadius * 0.25 : optionY;
     ctx.fillStyle = disabled ? 'rgba(230, 234, 241, 0.42)' : 'rgba(255, 255, 255, 0.92)';
     ctx.font = `${iconFontSize}px "Cormorant Garamond", serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(option.icon || '?', option.center.x, iconY);
+    ctx.fillText(option.icon || '?', optionX, iconY);
 
     if (hasCostLabel) {
-      // Present the upgrade cost beneath the icon so players can budget merges directly from the lattice.
-      const costFontSize = Math.max(10, Math.round(optionRadius * 0.45));
+      const costFontSize = Math.max(8, Math.round(scaledOptionRadius * 0.45));
       ctx.fillStyle = disabled ? 'rgba(210, 216, 226, 0.38)' : 'rgba(210, 216, 226, 0.82)';
       ctx.font = `${costFontSize}px "Cormorant Garamond", serif`;
       ctx.textBaseline = 'top';
-      const costY = iconY + optionRadius * 0.4;
-      ctx.fillText(option.costLabel, option.center.x, costY);
+      const costY = iconY + scaledOptionRadius * 0.4;
+      ctx.fillText(option.costLabel, optionX, costY);
     }
   });
+
+  ctx.restore();
+  return true;
+}
+
+function drawTowerMenu() {
+  if (!this.ctx || (!this.activeTowerMenu && !this.towerMenuExitAnimation)) {
+    return;
+  }
+  const ctx = this.ctx;
+  const now =
+    typeof this.getCurrentTimestamp === 'function' ? this.getCurrentTimestamp() : Date.now();
+  ctx.save();
+
+  if (this.activeTowerMenu) {
+    // Animate the live command lattice so options spin out from the tower core.
+    const tower = this.getActiveMenuTower();
+    const geometry = tower ? this.getTowerMenuGeometry(tower) : null;
+    if (tower && geometry && Array.isArray(geometry.options) && geometry.options.length) {
+      const openedAt = Number.isFinite(this.activeTowerMenu.openedAt)
+        ? this.activeTowerMenu.openedAt
+        : now;
+      const progress =
+        TOWER_MENU_OPEN_DURATION_MS > 0
+          ? Math.max(0, Math.min(1, (now - openedAt) / TOWER_MENU_OPEN_DURATION_MS))
+          : 1;
+      const easedScale = easeOutCubic(progress);
+      drawAnimatedTowerMenu(ctx, {
+        position: { x: tower.x, y: tower.y },
+        options: geometry.options,
+        ringRadius: geometry.ringRadius,
+        optionRadius: geometry.optionRadius,
+        rotationOffset: -TOWER_MENU_OPEN_SPIN_RADIANS * (1 - easedScale),
+        radiusScale: easedScale,
+        optionScale: Math.max(0.35, easedScale),
+        opacity: easedScale,
+      });
+      this.activeTowerMenu.anchor = { x: tower.x, y: tower.y };
+      // Cache geometry so the closing animation can finish even if the underlying tower disappears mid-frame.
+      this.activeTowerMenu.geometrySnapshot = {
+        ringRadius: geometry.ringRadius,
+        optionRadius: geometry.optionRadius,
+        options: geometry.options.map((option) => ({
+          angle: option.angle,
+          icon: option.icon,
+          costLabel: option.costLabel,
+          selected: option.selected,
+          disabled: option.disabled,
+        })),
+      };
+    }
+  }
+
+  if (this.towerMenuExitAnimation) {
+    // Continue rendering a short dismissal burst so the lattice fades away smoothly.
+    const state = this.towerMenuExitAnimation;
+    const progress =
+      TOWER_MENU_DISMISS_DURATION_MS > 0
+        ? Math.max(0, Math.min(1, (now - (state.startedAt || 0)) / TOWER_MENU_DISMISS_DURATION_MS))
+        : 1;
+    if (progress >= 1) {
+      this.towerMenuExitAnimation = null;
+    } else if (
+      state.anchor &&
+      Array.isArray(state.options) &&
+      state.options.length &&
+      Number.isFinite(state.ringRadius) &&
+      Number.isFinite(state.optionRadius)
+    ) {
+      const eased = easeInCubic(progress);
+      drawAnimatedTowerMenu(ctx, {
+        position: state.anchor,
+        options: state.options,
+        ringRadius: state.ringRadius,
+        optionRadius: state.optionRadius,
+        rotationOffset: -TOWER_MENU_DISMISS_SPIN_RADIANS * eased,
+        radiusScale: 1 + (TOWER_MENU_DISMISS_SCALE - 1) * eased,
+        optionScale: 1 + 0.25 * eased,
+        opacity: 1 - eased,
+      });
+    }
+  }
 
   ctx.restore();
 }
