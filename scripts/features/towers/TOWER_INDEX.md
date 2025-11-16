@@ -21,6 +21,7 @@ Quick lookup table for all implemented towers in Thero Idle.
 | ν | Nu | `nuTower.js` | Kill-scaling piercing laser with overkill tracking |
 | χ | Chi | `chiTower.js` | Converts nearby enemy deaths into mind-gate thralls marching backward |
 | σ | Sigma | `sigmaTower.js` | Draws allied fire, sums the damage, and releases it as single shots |
+| τ | Tau | `tauTower.js` | Spiral bullets with returning arcs and upgradeable hit particles |
 | ℵ | Aleph | `alephChain.js` | Cardinality-based system (advanced) |
 
 ## Special Towers
