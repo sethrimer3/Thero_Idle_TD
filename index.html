@@ -1699,36 +1699,40 @@
                     role="presentation"
                     aria-hidden="true"
                   ></canvas>
-                  <div
-                    class="fluid-terrarium-stage"
-                    role="img"
-                    aria-label="Bet terrarium shimmering beneath a starlit sky"
-                  >
-                    <div class="fluid-terrarium-stage__media">
-                      <div class="fluid-terrarium__sky" aria-hidden="true">
-                        <div class="fluid-terrarium__stars fluid-terrarium__stars--near"></div>
-                        <div class="fluid-terrarium__stars fluid-terrarium__stars--far"></div>
+                  <div class="fluid-terrarium-layer" id="fluid-terrarium-layer">
+                    <div
+                      class="fluid-terrarium-stage"
+                      id="fluid-terrarium-stage"
+                      role="img"
+                      aria-label="Bet terrarium shimmering beneath a starlit sky"
+                    >
+                      <div class="fluid-terrarium-stage__media" id="fluid-terrarium-stage-media">
+                        <div class="fluid-terrarium__sky" aria-hidden="true">
+                          <div class="fluid-terrarium__stars fluid-terrarium__stars--near"></div>
+                          <div class="fluid-terrarium__stars fluid-terrarium__stars--far"></div>
+                        </div>
+                        <img
+                          class="fluid-terrarium__background"
+                          src="./assets/sprites/spires/betSpire/bet_landscape_background.png"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                        <div class="fluid-terrarium__liquid" aria-hidden="true"></div>
+                        <img
+                          class="fluid-terrarium__foreground"
+                          id="fluid-terrarium-foreground"
+                          src="./assets/sprites/spires/betSpire/bet_landscape.png"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
                       </div>
-                      <img
-                        class="fluid-terrarium__background"
-                        src="./assets/sprites/spires/betSpire/bet_landscape_background.png"
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        aria-hidden="true"
-                      />
-                      <div class="fluid-terrarium__liquid" aria-hidden="true"></div>
-                      <img
-                        class="fluid-terrarium__foreground"
-                        src="./assets/sprites/spires/betSpire/bet_landscape.png"
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        aria-hidden="true"
-                      />
                     </div>
+                    <div class="powder-viewport fluid-viewport" id="fluid-viewport"></div>
                   </div>
-                  <div class="powder-viewport fluid-viewport" id="fluid-viewport"></div>
                 </div>
               </article>
             </div>

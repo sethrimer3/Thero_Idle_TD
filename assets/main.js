@@ -806,6 +806,8 @@ import {
     simulationCard: null,
     canvas: null,
     basin: null,
+    terrariumLayer: null,
+    terrariumStage: null,
     viewport: null,
     leftWall: null,
     rightWall: null,
@@ -818,6 +820,7 @@ import {
     dripRateValue: null,
     statusNote: null,
     returnButton: null,
+    terrainSprite: null,
     wallGlyphColumns: [],
   };
 
@@ -838,6 +841,7 @@ import {
     }
     fluidTerrariumCreatures = new FluidTerrariumCreatures({
       container: fluidElements.viewport,
+      terrainElement: fluidElements.terrainSprite,
       creatureCount: 4,
     });
     fluidTerrariumCreatures.start();

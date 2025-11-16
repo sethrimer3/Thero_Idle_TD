@@ -49,6 +49,8 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidElements.simulationCard = document.getElementById('fluid-simulation-card');
     fluidElements.canvas = document.getElementById('fluid-canvas');
     fluidElements.basin = document.getElementById('fluid-basin');
+    fluidElements.terrariumLayer = document.getElementById('fluid-terrarium-layer');
+    fluidElements.terrariumStage = document.getElementById('fluid-terrarium-stage');
     fluidElements.viewport = document.getElementById('fluid-viewport');
     fluidElements.leftWall = document.getElementById('fluid-wall-left');
     fluidElements.rightWall = document.getElementById('fluid-wall-right');
@@ -60,6 +62,7 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidElements.reservoirValue = document.getElementById('fluid-reservoir');
     fluidElements.dripRateValue = document.getElementById('fluid-drip-rate');
     fluidElements.statusNote = document.getElementById('fluid-status-note');
+    fluidElements.terrainSprite = document.getElementById('fluid-terrarium-foreground');
     fluidElements.wallGlyphColumns = Array.from(
       document.querySelectorAll('[data-fluid-glyph-column]') || [],
     );
