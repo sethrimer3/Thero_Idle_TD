@@ -4228,6 +4228,7 @@ import {
               lamedSimulationInstance = new GravitySimulation({
                 canvas: lamedCanvas,
                 initialSparkBank: getLamedSparkBank(),
+                isLowGraphicsMode: () => isLowGraphicsModeActive(),
                 onSparkBankChange: (value) => {
                   setLamedSparkBank(value);
                 },

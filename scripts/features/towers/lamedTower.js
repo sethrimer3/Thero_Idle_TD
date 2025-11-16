@@ -107,7 +107,22 @@ export class GravitySimulation {
     
     // Trail rendering
     this.trailLength = 40; // Number of trail points to keep
+    this.baseTrailLength = this.trailLength;
     this.trailFadeRate = 0.025; // How quickly trails fade
+    this.baseTrailFadeRate = this.trailFadeRate;
+    this.simpleTrailLength = typeof options.simpleTrailLength === 'number' ? options.simpleTrailLength : 12;
+    this.simpleTrailFadeRate = typeof options.simpleTrailFadeRate === 'number' ? options.simpleTrailFadeRate : 0.05;
+    this.trailComplexityThresholds = {
+      simplify: 100,
+      disable: 200,
+    };
+    this.activeTrailSettings = {
+      mode: 'full',
+      maxLength: this.baseTrailLength,
+      fadeRate: this.baseTrailFadeRate,
+    };
+    this.lowGraphicsModeResolver = typeof options.isLowGraphicsMode === 'function' ? options.isLowGraphicsMode : null;
+    this.lowGraphicsMode = typeof options.lowGraphicsMode === 'boolean' ? options.lowGraphicsMode : false;
     
     // Visual effects
     this.backgroundColor = '#000000'; // Black space
@@ -286,7 +301,47 @@ export class GravitySimulation {
       this.resize();
     }
   }
-  
+
+  /**
+   * Determine whether the global graphics preference forces a low-complexity render path.
+   */
+  isLowGraphicsModeEnabled() {
+    if (typeof this.lowGraphicsModeResolver === 'function') {
+      try {
+        return Boolean(this.lowGraphicsModeResolver());
+      } catch (error) {
+        console.warn('Lamed simulation failed to query graphics preference; falling back to last known value.', error);
+      }
+    }
+    return Boolean(this.lowGraphicsMode);
+  }
+
+  /**
+   * Resolve how orbiting star trails should be rendered based on population and graphics settings.
+   */
+  resolveTrailRenderSettings(starCount = this.stars.length) {
+    const lowGraphicsActive = this.isLowGraphicsModeEnabled();
+    if (lowGraphicsActive || starCount > this.trailComplexityThresholds.disable) {
+      return {
+        mode: 'none',
+        maxLength: 0,
+        fadeRate: this.baseTrailFadeRate,
+      };
+    }
+    if (starCount > this.trailComplexityThresholds.simplify) {
+      return {
+        mode: 'simple',
+        maxLength: this.simpleTrailLength,
+        fadeRate: this.simpleTrailFadeRate,
+      };
+    }
+    return {
+      mode: 'full',
+      maxLength: this.baseTrailLength,
+      fadeRate: this.baseTrailFadeRate,
+    };
+  }
+
   /**
    * Resize the simulation to match canvas dimensions
    */
@@ -1267,6 +1322,15 @@ export class GravitySimulation {
     let absorbedThisFrame = 0;
     let massGainedThisFrame = 0;
     
+    // Resolve trail complexity based on current population and device settings.
+    const trailSettings = this.resolveTrailRenderSettings(this.stars.length);
+    this.activeTrailSettings = trailSettings;
+    const allowTrails = trailSettings.mode !== 'none';
+    const maxTrailLength = allowTrails
+      ? Math.max(2, trailSettings.maxLength || this.baseTrailLength)
+      : 0;
+    const trailFadeRate = typeof trailSettings.fadeRate === 'number' ? trailSettings.fadeRate : this.trailFadeRate;
+
     // Update each star
     for (let i = this.stars.length - 1; i >= 0; i--) {
       const star = this.stars[i];
@@ -1348,6 +1412,11 @@ export class GravitySimulation {
       // Calculate speed for trail coloring
       const speed = Math.sqrt(star.vx * star.vx + star.vy * star.vy);
       
+      if (!allowTrails) {
+        star.trail.length = 0;
+        continue;
+      }
+
       // Add current position to trail
       star.trail.push({
         x: star.x,
@@ -1355,15 +1424,15 @@ export class GravitySimulation {
         alpha: 1.0,
         speed: speed,
       });
-      
-      // Limit trail length
-      if (star.trail.length > this.trailLength) {
+
+      // Limit trail length based on the active complexity profile.
+      if (star.trail.length > maxTrailLength) {
         star.trail.shift();
       }
-      
+
       // Fade trail points
       for (const point of star.trail) {
-        point.alpha = Math.max(0, point.alpha - this.trailFadeRate);
+        point.alpha = Math.max(0, point.alpha - trailFadeRate);
       }
     }
 
@@ -1613,9 +1682,11 @@ export class GravitySimulation {
    */
   render() {
     if (!this.ctx) return;
-    
+
     const dpr = window.devicePixelRatio || 1;
     const ctx = this.ctx;
+    const activeTrailSettings = this.activeTrailSettings || this.resolveTrailRenderSettings(this.stars.length);
+    const trailMode = activeTrailSettings.mode || 'full';
     
     // Clear with black background
     ctx.fillStyle = this.backgroundColor;
@@ -1816,38 +1887,51 @@ export class GravitySimulation {
     // Draw orbiting stars with trails
     for (const star of this.stars) {
       // Draw trail with color gradient from palette
-      if (star.trail.length > 1) {
-        ctx.lineWidth = 1.5;
-        
-        for (let i = 1; i < star.trail.length; i++) {
-          const prev = star.trail[i - 1];
-          const curr = star.trail[i];
-          
-          // Color based on speed (slow = lower palette color, fast = upper palette color)
-          const normalizedSpeed = Math.min(1, curr.speed / 200);
-          
-          let slowColor, fastColor;
-          if (this.samplePaletteGradient) {
-            // Use the color palette gradient
-            slowColor = this.samplePaletteGradient(0);
-            fastColor = this.samplePaletteGradient(1);
-          } else {
-            // Fallback to default colors
-            slowColor = { r: 100, g: 150, b: 255 }; // Blueish
-            fastColor = { r: 255, g: 200, b: 100 }; // Yellowish
-          }
-          
-          const r = Math.floor(slowColor.r + (fastColor.r - slowColor.r) * normalizedSpeed);
-          const g = Math.floor(slowColor.g + (fastColor.g - slowColor.g) * normalizedSpeed);
-          const b = Math.floor(slowColor.b + (fastColor.b - slowColor.b) * normalizedSpeed);
-          
-          const alpha = curr.alpha * 0.5;
-          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-          
+      if (trailMode !== 'none' && star.trail.length > 1) {
+        if (trailMode === 'simple') {
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+          const firstPoint = star.trail[0];
           ctx.beginPath();
-          ctx.moveTo(prev.x / dpr, prev.y / dpr);
-          ctx.lineTo(curr.x / dpr, curr.y / dpr);
+          ctx.moveTo(firstPoint.x / dpr, firstPoint.y / dpr);
+          for (let i = 1; i < star.trail.length; i++) {
+            const point = star.trail[i];
+            ctx.lineTo(point.x / dpr, point.y / dpr);
+          }
           ctx.stroke();
+        } else {
+          ctx.lineWidth = 1.5;
+
+          for (let i = 1; i < star.trail.length; i++) {
+            const prev = star.trail[i - 1];
+            const curr = star.trail[i];
+
+            // Color based on speed (slow = lower palette color, fast = upper palette color)
+            const normalizedSpeed = Math.min(1, curr.speed / 200);
+
+            let slowColor, fastColor;
+            if (this.samplePaletteGradient) {
+              // Use the color palette gradient
+              slowColor = this.samplePaletteGradient(0);
+              fastColor = this.samplePaletteGradient(1);
+            } else {
+              // Fallback to default colors
+              slowColor = { r: 100, g: 150, b: 255 }; // Blueish
+              fastColor = { r: 255, g: 200, b: 100 }; // Yellowish
+            }
+
+            const r = Math.floor(slowColor.r + (fastColor.r - slowColor.r) * normalizedSpeed);
+            const g = Math.floor(slowColor.g + (fastColor.g - slowColor.g) * normalizedSpeed);
+            const b = Math.floor(slowColor.b + (fastColor.b - slowColor.b) * normalizedSpeed);
+
+            const alpha = curr.alpha * 0.5;
+            ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+
+            ctx.beginPath();
+            ctx.moveTo(prev.x / dpr, prev.y / dpr);
+            ctx.lineTo(curr.x / dpr, curr.y / dpr);
+            ctx.stroke();
+          }
         }
       }
       
