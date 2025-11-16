@@ -68,6 +68,8 @@ import {
   applyWaveDamageTallyPreference,
   bindWaveKillTallyToggle,
   bindWaveDamageTallyToggle,
+  applyTrackTracerPreference,
+  bindTrackTracerToggle,
   initializeDesktopCursorPreference,
   applyGraphicsMode,
   initializeGraphicsMode,
@@ -78,6 +80,7 @@ import {
   areDamageNumbersEnabled,
   areWaveKillTalliesEnabled,
   areWaveDamageTalliesEnabled,
+  areTrackTracersEnabled,
   getActiveGraphicsMode,
   bindTrackRenderModeButton,
   initializeTrackRenderMode,
@@ -1859,6 +1862,7 @@ import {
     applyDamageNumberPreference,
     applyWaveKillTallyPreference,
     applyWaveDamageTallyPreference,
+    applyTrackTracerPreference,
     getGameStatsSnapshot: () => gameStats,
     mergeLoadedGameStats: (stored) => {
       if (!stored) {
@@ -1880,6 +1884,7 @@ import {
       damageNumbers: areDamageNumbersEnabled() ? '1' : '0',
       waveKillTallies: areWaveKillTalliesEnabled() ? '1' : '0',
       waveDamageTallies: areWaveDamageTalliesEnabled() ? '1' : '0',
+      trackTracer: areTrackTracersEnabled() ? '1' : '0',
     }),
   });
 
@@ -3773,6 +3778,8 @@ import {
     bindVisualSettingsMenu();
     bindColorSchemeButton();
     bindTrackRenderModeButton();
+    // Expose a tactile toggle for the luminous track tracer overlay.
+    bindTrackTracerToggle();
     bindNotationToggle();
     bindGlyphEquationToggle();
     bindDamageNumberToggle();

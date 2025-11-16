@@ -15,6 +15,8 @@ export const WAVE_KILL_TALLY_STORAGE_KEY = 'glyph-defense-idle:wave-kill-tallies
 export const WAVE_DAMAGE_TALLY_STORAGE_KEY = 'glyph-defense-idle:wave-damage-tallies';
 // Storage key used to persist the preferred track rendering style.
 export const TRACK_RENDER_MODE_STORAGE_KEY = 'glyph-defense-idle:track-render-mode';
+// Storage key used to persist the luminous track tracer preference.
+export const TRACK_TRACER_TOGGLE_STORAGE_KEY = 'glyph-defense-idle:track-tracer-enabled';
 export const POWDER_STORAGE_KEY = 'glyph-defense-idle:powder';
 export const GAME_STATS_STORAGE_KEY = 'glyph-defense-idle:stats';
 // Storage key used to persist the active Spire snapshot.
@@ -42,6 +44,7 @@ const dependencies = {
   applyDamageNumberPreference: null,
   applyWaveKillTallyPreference: null,
   applyWaveDamageTallyPreference: null,
+  applyTrackTracerPreference: null,
   getGameStatsSnapshot: null,
   mergeLoadedGameStats: null,
   getPreferenceSnapshot: null,
@@ -247,6 +250,13 @@ export function loadPersistentState() {
     }
   }
 
+  if (typeof dependencies.applyTrackTracerPreference === 'function') {
+    const storedTrackTracer = readStorage(TRACK_TRACER_TOGGLE_STORAGE_KEY);
+    if (storedTrackTracer !== null) {
+      dependencies.applyTrackTracerPreference(storedTrackTracer, { persist: false });
+    }
+  }
+
   if (statKeys.length && typeof dependencies.mergeLoadedGameStats === 'function') {
     const storedStats = readStorageJson(GAME_STATS_STORAGE_KEY);
     if (storedStats && typeof storedStats === 'object') {
@@ -307,6 +317,9 @@ function persistPreferences() {
   }
   if (snapshot.waveDamageTallies !== undefined && snapshot.waveDamageTallies !== null) {
     writeStorage(WAVE_DAMAGE_TALLY_STORAGE_KEY, snapshot.waveDamageTallies);
+  }
+  if (snapshot.trackTracer !== undefined && snapshot.trackTracer !== null) {
+    writeStorage(TRACK_TRACER_TOGGLE_STORAGE_KEY, snapshot.trackTracer);
   }
 }
 

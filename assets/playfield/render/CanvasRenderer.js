@@ -3,7 +3,7 @@ import { getTowerVisualConfig, samplePaletteGradient } from '../../colorSchemeUt
 import { getTowerDefinition } from '../../towersTab.js';
 import { moteGemState, getGemSpriteImage } from '../../enemies.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../../../scripts/features/towers/powderTower.js';
-import { getTrackRenderMode, TRACK_RENDER_MODES } from '../../preferences.js';
+import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled } from '../../preferences.js';
 import {
   drawAlphaBursts as drawAlphaBurstsHelper,
 } from '../../../scripts/features/towers/alphaTower.js';
@@ -71,6 +71,9 @@ const ENEMY_PARTICLE_PALETTE = [
   { r: 32, g: 8, b: 52 },
   { r: 0, g: 0, b: 0 },
 ];
+// Reuse the same warm palette that powers the luminous arc tracer.
+const TRACK_TRACER_PRIMARY_COLOR = { r: 255, g: 180, b: 105 };
+const TRACK_TRACER_HALO_COLOR = { r: 255, g: 228, b: 180 };
 
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) {
@@ -491,6 +494,51 @@ function drawTrackParticleRiver() {
     ctx.arc(position.x + offsetX, position.y + offsetY, radius, 0, Math.PI * 2);
     ctx.fill();
   });
+
+  // Overlay the luminous tracer sparks whenever the preference is enabled.
+  if (
+    areTrackTracersEnabled() &&
+    Array.isArray(this.trackRiverTracerParticles) &&
+    this.trackRiverTracerParticles.length
+  ) {
+    const tracerRadius = Math.max(1.2, laneRadius * 0.45);
+    this.trackRiverTracerParticles.forEach((particle) => {
+      if (!particle || !Number.isFinite(particle.progress)) {
+        return;
+      }
+      const position = this.getPositionAlongPath(particle.progress);
+      if (!position) {
+        return;
+      }
+      const tangent = Number.isFinite(position.tangent) ? position.tangent : 0;
+      const lateral = (Number.isFinite(particle.offset) ? particle.offset : 0) * laneRadius;
+      const offsetX = Math.cos(tangent + Math.PI / 2) * lateral;
+      const offsetY = Math.sin(tangent + Math.PI / 2) * lateral;
+      const phase = Number.isFinite(particle.phase) ? particle.phase : 0;
+      const pulse = Math.sin(phase + (this.trackRiverPulse || 0) * 1.4) * 0.5 + 0.5;
+      const glowAlpha = 0.45 + pulse * 0.45;
+      const haloAlpha = 0.25 + pulse * 0.35;
+      const radius = tracerRadius * (0.9 + pulse * 0.45);
+      const x = position.x + offsetX;
+      const y = position.y + offsetY;
+
+      this.applyCanvasShadow(
+        ctx,
+        colorToRgbaString(TRACK_TRACER_HALO_COLOR, haloAlpha),
+        radius * 3.6,
+      );
+      ctx.beginPath();
+      ctx.fillStyle = colorToRgbaString(TRACK_TRACER_PRIMARY_COLOR, glowAlpha);
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = Math.max(radius * 0.55, 1.2);
+      ctx.strokeStyle = colorToRgbaString(
+        TRACK_TRACER_HALO_COLOR,
+        Math.min(1, glowAlpha + 0.25),
+      );
+      ctx.stroke();
+    });
+  }
   ctx.restore();
 }
 
@@ -503,13 +551,16 @@ function drawArcLight() {
     // The river track effect replaces the solid path lines, so skip the arc tracer.
     return;
   }
+  if (!areTrackTracersEnabled()) {
+    return;
+  }
   const ctx = this.ctx;
   ctx.save();
   ctx.beginPath();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.lineWidth = 3;
-  ctx.strokeStyle = 'rgba(255, 180, 105, 0.7)';
+  ctx.strokeStyle = colorToRgbaString(TRACK_TRACER_PRIMARY_COLOR, 0.7);
   ctx.setLineDash([this.pathLength * 0.12, this.pathLength * 0.18]);
   ctx.lineDashOffset = this.arcOffset;
   ctx.moveTo(this.pathPoints[0].x, this.pathPoints[0].y);
