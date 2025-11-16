@@ -74,6 +74,11 @@ const ENEMY_PARTICLE_PALETTE = [
 // Reuse the same warm palette that powers the luminous arc tracer.
 const TRACK_TRACER_PRIMARY_COLOR = { r: 255, g: 180, b: 105 };
 const TRACK_TRACER_HALO_COLOR = { r: 255, g: 228, b: 180 };
+const GLYPH_DEFAULT_PROMOTION_VECTOR = { x: 0, y: -1 };
+const GLYPH_DEFAULT_DEMOTION_VECTOR = { x: 0, y: 1 };
+const PROMOTION_GLYPH_COLOR = { r: 139, g: 247, b: 255 };
+const DEMOTION_GLYPH_COLOR = { r: 255, g: 196, b: 150 };
+const GLYPH_FLASH_RAMP_MS = 120;
 
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) {
@@ -162,6 +167,11 @@ function clearCanvasShadow(ctx) {
   }
   ctx.shadowColor = 'rgba(0, 0, 0, 0)';
   ctx.shadowBlur = 0;
+}
+
+function smoothstep(value) {
+  const clamped = clamp(value, 0, 1);
+  return clamped * clamped * (3 - 2 * clamped);
 }
 
 function drawTowerConnectionParticles(ctx, tower, bodyRadius) {
@@ -1105,6 +1115,175 @@ function drawPlacementPreview() {
   }
 }
 
+function drawTowerGlyphTransition(ctx, tower, bodyRadius, transition, visuals, glyph) {
+  if (!ctx || !tower || !transition) {
+    return;
+  }
+  const now = getNowTimestamp();
+  const baseVector = transition.direction ||
+    (transition.mode === 'demote' ? GLYPH_DEFAULT_DEMOTION_VECTOR : GLYPH_DEFAULT_PROMOTION_VECTOR);
+  const length = Math.hypot(baseVector?.x || 0, baseVector?.y || 0) || 1;
+  const direction = { x: (baseVector?.x || 0) / length, y: (baseVector?.y || 0) / length };
+  const perpendicular = { x: -direction.y, y: direction.x };
+
+  drawTowerGlyphResidue.call(this, ctx, tower, bodyRadius, transition, now, visuals);
+  drawTowerGlyphParticles(ctx, tower, bodyRadius, transition, now, direction, perpendicular);
+  drawTowerGlyphFlash(ctx, tower, bodyRadius, transition, now);
+  drawTowerGlyphText.call(this, ctx, tower, bodyRadius, transition, now, visuals, glyph);
+}
+
+function drawTowerGlyphResidue(ctx, tower, bodyRadius, transition, now, visuals) {
+  if (!transition?.fromSymbol || !Number.isFinite(transition.fromSymbolFade)) {
+    return;
+  }
+  const fadeDuration = Math.max(1, transition.fromSymbolFade);
+  const elapsed = now - (transition.startedAt || 0);
+  if (elapsed >= fadeDuration) {
+    return;
+  }
+  const alpha = Math.max(0, 1 - elapsed / fadeDuration);
+  if (alpha <= 0) {
+    return;
+  }
+  ctx.save();
+  ctx.globalAlpha = alpha * 0.85;
+  this.clearCanvasShadow(ctx);
+  ctx.fillStyle = visuals.symbolFill || 'rgba(255, 228, 120, 0.92)';
+  ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(transition.fromSymbol, tower.x, tower.y);
+  ctx.restore();
+}
+
+function drawTowerGlyphParticles(ctx, tower, bodyRadius, transition, now, direction, perpendicular) {
+  const particles = Array.isArray(transition?.particles) ? transition.particles : [];
+  if (!particles.length) {
+    return;
+  }
+  particles.forEach((particle) => {
+    if (!particle) {
+      return;
+    }
+    const elapsed = now - (transition.startedAt || 0) - (particle.delay || 0);
+    if (elapsed <= 0) {
+      return;
+    }
+    const duration = Math.max(1, particle.duration || 0);
+    const progress = clamp(elapsed / duration, 0, 1);
+    if (progress <= 0 || progress > 1) {
+      return;
+    }
+    const baseAlpha = Number.isFinite(particle.alpha) ? particle.alpha : 1;
+    const alpha = Math.max(0, baseAlpha * (1 - progress));
+    if (alpha <= 0.01) {
+      return;
+    }
+    const distance = (particle.maxDistance || bodyRadius) * progress;
+    const wobble = (particle.lateral || 0) * Math.sin(progress * Math.PI);
+    const x = tower.x + (particle.offsetX || 0) + direction.x * distance + perpendicular.x * wobble;
+    const y = tower.y + (particle.offsetY || 0) + direction.y * distance + perpendicular.y * wobble;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const color = getGlyphParticleColor(transition.mode, particle.hueShift || 0);
+    ctx.fillStyle = colorToRgbaString(color, 1);
+    const size = Math.max(1.2, particle.size || bodyRadius * 0.08);
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+function getGlyphParticleColor(mode, tint = 0) {
+  const base = mode === 'demote' ? DEMOTION_GLYPH_COLOR : PROMOTION_GLYPH_COLOR;
+  const mix = clamp(tint, 0, 1);
+  const lift = 0.65 + mix * 0.35;
+  return {
+    r: Math.min(255, Math.round(base.r * lift + 30 * mix)),
+    g: Math.min(255, Math.round(base.g * lift + (mode === 'demote' ? 20 : 35) * mix)),
+    b: Math.min(255, Math.round(base.b * lift + (mode === 'demote' ? 5 : 45) * mix)),
+  };
+}
+
+function drawTowerGlyphFlash(ctx, tower, bodyRadius, transition, now) {
+  const fadeDuration = Math.max(0, transition?.flashDuration || 0);
+  const hold = Math.max(0, transition?.flashHold || 0);
+  if (!fadeDuration && !hold) {
+    return;
+  }
+  const elapsed = now - (transition.startedAt || 0);
+  const total = GLYPH_FLASH_RAMP_MS + hold + fadeDuration;
+  if (elapsed >= total) {
+    return;
+  }
+  let intensity = 0;
+  if (elapsed <= GLYPH_FLASH_RAMP_MS) {
+    intensity = smoothstep(elapsed / GLYPH_FLASH_RAMP_MS);
+  } else if (elapsed <= GLYPH_FLASH_RAMP_MS + hold) {
+    intensity = 1;
+  } else {
+    const fadeProgress = (elapsed - GLYPH_FLASH_RAMP_MS - hold) / Math.max(1, fadeDuration);
+    intensity = Math.max(0, 1 - fadeProgress);
+  }
+  if (intensity <= 0) {
+    return;
+  }
+  const baseColor = transition?.mode === 'demote' ? DEMOTION_GLYPH_COLOR : PROMOTION_GLYPH_COLOR;
+  const strength = Math.min(1.1, (transition?.strengthRatio || 1) * 0.35 + 0.65);
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, intensity * strength * 0.75);
+  const radius = bodyRadius * (1.05 + intensity * 0.8);
+  const gradient = ctx.createRadialGradient(
+    tower.x,
+    tower.y,
+    radius * 0.25,
+    tower.x,
+    tower.y,
+    radius,
+  );
+  gradient.addColorStop(0, colorToRgbaString(baseColor, 0.85));
+  gradient.addColorStop(1, colorToRgbaString(baseColor, 0));
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(tower.x, tower.y, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawTowerGlyphText(ctx, tower, bodyRadius, transition, now, visuals, glyph) {
+  const delay = Math.max(0, transition?.newSymbolDelay || 0);
+  const duration = Math.max(1, transition?.newSymbolFade || 1);
+  const elapsed = now - (transition.startedAt || 0) - delay;
+  if (elapsed <= 0) {
+    return;
+  }
+  const progress = clamp(elapsed / duration, 0, 1);
+  const eased = smoothstep(progress);
+  if (eased <= 0) {
+    return;
+  }
+  const symbolShadow = visuals.symbolShadow;
+  if (symbolShadow?.color) {
+    this.applyCanvasShadow(
+      ctx,
+      symbolShadow.color,
+      Number.isFinite(symbolShadow.blur) ? symbolShadow.blur : 18,
+    );
+  } else {
+    this.clearCanvasShadow(ctx);
+  }
+  ctx.save();
+  ctx.globalAlpha = eased;
+  ctx.fillStyle = visuals.symbolFill || 'rgba(255, 228, 120, 0.92)';
+  ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const symbol = transition?.toSymbol || glyph || tower.symbol || tower.definition?.symbol || '?';
+  ctx.fillText(symbol, tower.x, tower.y);
+  ctx.restore();
+}
+
 function drawTowers() {
   if (!this.ctx || !this.towers.length) {
     return;
@@ -1228,22 +1407,27 @@ function drawTowers() {
 
     const symbolColor = visuals.symbolFill || 'rgba(255, 228, 120, 0.92)';
     const symbolShadow = visuals.symbolShadow;
-    if (symbolShadow?.color) {
-      this.applyCanvasShadow(
-        ctx,
-        symbolShadow.color,
-        Number.isFinite(symbolShadow.blur) ? symbolShadow.blur : 18,
-      );
-    } else {
-      this.clearCanvasShadow(ctx);
-    }
 
     const glyph = tower.symbol || tower.definition?.symbol || '?';
-    ctx.fillStyle = symbolColor;
-    ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(glyph, tower.x, tower.y);
+    const glyphTransition = this.towerGlyphTransitions?.get(tower.id) || null;
+    if (glyphTransition) {
+      drawTowerGlyphTransition.call(this, ctx, tower, bodyRadius, glyphTransition, visuals, glyph);
+    } else {
+      if (symbolShadow?.color) {
+        this.applyCanvasShadow(
+          ctx,
+          symbolShadow.color,
+          Number.isFinite(symbolShadow.blur) ? symbolShadow.blur : 18,
+        );
+      } else {
+        this.clearCanvasShadow(ctx);
+      }
+      ctx.fillStyle = symbolColor;
+      ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(glyph, tower.x, tower.y);
+    }
 
     const pressGlowIntensity =
       typeof this.getTowerPressGlowIntensity === 'function'
