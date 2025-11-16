@@ -294,6 +294,10 @@ function handleCanvasPointerDown(event) {
     normalized = this.getNormalizedFromEvent(event);
     position = normalized ? this.getCanvasPosition(normalized) : null;
     tower = position ? this.findTowerAt(position) : null;
+    if (tower && typeof this.handleTowerPointerPress === 'function') {
+      // Notify the playfield so pointer down events can animate tower press glows.
+      this.handleTowerPointerPress(tower, event);
+    }
     if (tower && typeof this.beginTowerHoldGesture === 'function') {
       this.beginTowerHoldGesture(tower, event);
     } else if (typeof this.cancelTowerHoldGesture === 'function') {
@@ -384,6 +388,11 @@ function handleCanvasPointerUp(event) {
     this.activePointers.clear();
     this.pinchState = null;
     this.isPinchZooming = false;
+  }
+
+  if (typeof this.handleTowerPointerRelease === 'function') {
+    // Clear any active press glows tied to the completed pointer interaction.
+    this.handleTowerPointerRelease(event.pointerId);
   }
 
   if (typeof this.cancelTowerHoldGesture === 'function') {
@@ -479,6 +488,10 @@ function handleCanvasPointerLeave() {
   this.viewDragState.isDragging = false;
   this.clearConnectionDragState();
   this.clearDeltaCommandDragState();
+  if (typeof this.handleTowerPointerRelease === 'function') {
+    // Release all press glows so leaving the canvas cancels any lingering highlights.
+    this.handleTowerPointerRelease();
+  }
   if (typeof this.cancelTowerHoldGesture === 'function') {
     this.cancelTowerHoldGesture();
   }

@@ -181,6 +181,7 @@ export function configurePlayfieldSystem(options = {}) {
 const TOWER_HOLD_ACTIVATION_MS = 180;
 const TOWER_HOLD_CANCEL_DISTANCE_PX = 18;
 const TOWER_HOLD_SWIPE_THRESHOLD_PX = 48;
+const TOWER_PRESS_GLOW_FADE_MS = 200;
 const TOWER_MENU_DOUBLE_TAP_INTERVAL_MS = 320;
 const TOWER_MENU_DOUBLE_TAP_DISTANCE_PX = 28;
 const DEFAULT_COST_SCRIBBLE_COLORS = {
@@ -405,6 +406,9 @@ export class SimplePlayfield {
       lastTapTime: 0,
       lastTapPosition: null,
     };
+    // Maintain glow state for pressed towers so pointer interactions can animate highlights.
+    this.towerPressHighlights = new Map();
+    this.towerPressPointerMap = new Map();
 
     this.developerPathMarkers = [];
     // Developer crystals are sandbox obstacles that towers can chip away during testing.
@@ -2942,6 +2946,129 @@ export class SimplePlayfield {
     state.scribbleCleanup = null;
     state.actionTriggered = null;
     state.pointerType = null;
+  }
+
+  /**
+   * Returns a monotonic timestamp so press glow easing stays frame-rate independent.
+   */
+  getCurrentTimestamp() {
+    return typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
+  }
+
+  /**
+   * Track pointer presses on a tower so the renderer can animate a palette-matched glow.
+   */
+  handleTowerPointerPress(tower, event) {
+    if (!tower?.id || !event || !this.towerPressHighlights || !this.towerPressPointerMap) {
+      return;
+    }
+    const pointerId = typeof event.pointerId === 'number' ? event.pointerId : null;
+    const now = this.getCurrentTimestamp();
+    let entry = this.towerPressHighlights.get(tower.id);
+    if (!entry) {
+      entry = {
+        intensity: 0,
+        target: 0,
+        lastTimestamp: now,
+        pointerIds: new Set(),
+      };
+      this.towerPressHighlights.set(tower.id, entry);
+    }
+    entry.target = 1;
+    entry.lastTimestamp = now;
+    if (!entry.pointerIds) {
+      entry.pointerIds = new Set();
+    }
+    if (pointerId !== null) {
+      entry.pointerIds.add(pointerId);
+      this.towerPressPointerMap.set(pointerId, tower.id);
+    }
+    if (!this.shouldAnimate) {
+      this.draw();
+    }
+  }
+
+  /**
+   * Release a tower press glow either for a specific pointer or every active pointer.
+   */
+  handleTowerPointerRelease(pointerId = null) {
+    if (!this.towerPressHighlights || !this.towerPressPointerMap) {
+      return;
+    }
+    const now = this.getCurrentTimestamp();
+    const finalizeEntry = (towerId, activePointerId = null) => {
+      const entry = this.towerPressHighlights.get(towerId);
+      if (!entry) {
+        return;
+      }
+      if (entry.pointerIds && activePointerId !== null) {
+        entry.pointerIds.delete(activePointerId);
+      } else if (entry.pointerIds && activePointerId === null) {
+        entry.pointerIds.clear();
+      }
+      entry.lastTimestamp = now;
+      if (!entry.pointerIds || entry.pointerIds.size === 0) {
+        entry.target = 0;
+      }
+    };
+
+    if (typeof pointerId !== 'number') {
+      this.towerPressPointerMap.forEach((towerId, activePointerId) => {
+        finalizeEntry(towerId, activePointerId);
+      });
+      this.towerPressPointerMap.clear();
+      if (!this.shouldAnimate) {
+        this.draw();
+      }
+      return;
+    }
+
+    const towerId = this.towerPressPointerMap.get(pointerId);
+    if (!towerId) {
+      return;
+    }
+    this.towerPressPointerMap.delete(pointerId);
+    finalizeEntry(towerId, pointerId);
+    if (!this.shouldAnimate) {
+      this.draw();
+    }
+  }
+
+  /**
+   * Resolve the current glow intensity for a tower press entry using eased transitions.
+   */
+  getTowerPressGlowIntensity(towerId) {
+    if (!towerId || !this.towerPressHighlights) {
+      return 0;
+    }
+    const entry = this.towerPressHighlights.get(towerId);
+    if (!entry) {
+      return 0;
+    }
+    const now = this.getCurrentTimestamp();
+    const last = Number.isFinite(entry.lastTimestamp) ? entry.lastTimestamp : now;
+    const elapsed = Math.max(0, now - last);
+    entry.lastTimestamp = now;
+    const duration = Math.max(16, TOWER_PRESS_GLOW_FADE_MS);
+    const delta = duration > 0 ? elapsed / duration : 1;
+    if (!Number.isFinite(entry.intensity)) {
+      entry.intensity = 0;
+    }
+    const target = entry.target ?? 0;
+    if (target > entry.intensity) {
+      entry.intensity = Math.min(target, entry.intensity + delta);
+    } else if (target < entry.intensity) {
+      entry.intensity = Math.max(target, entry.intensity - delta);
+    }
+    const intensity = Math.max(0, Math.min(1, entry.intensity));
+    if (intensity <= 0 && (!entry.pointerIds || entry.pointerIds.size === 0) && target <= 0) {
+      this.towerPressHighlights.delete(towerId);
+    } else {
+      entry.intensity = intensity;
+    }
+    return intensity;
   }
 
   commitTowerHoldUpgrade() {
