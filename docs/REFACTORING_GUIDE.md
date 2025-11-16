@@ -113,6 +113,27 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 **Result:**
 - Victory/defeat overlay logic is isolated from the main orchestrator, reducing shared mutable state
 - Focus restoration and retry flows are encapsulated, making future overlay adjustments safer
+
+### variableLibraryController.js (tower variable glossary overlay)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- Button label refresh and badge counting logic for the Towers tab "Variable Library" trigger
+- DOM rendering for the glossary list, including empty-state messaging and accessible titles
+- Overlay presentation helpers that animate show/hide sequences and restore focus to the invoking button
+- Event binding for the glossary trigger, close button, background click dismissal, and discovered-variable listener wiring
+- Equipment button handler that routes directly to `openCraftingOverlay()`
+
+**Integration approach:**
+- Added `createVariableLibraryController()` which accepts overlay helpers plus the discovery APIs via dependency injection
+- Main.js instantiates the controller immediately after the overlay helper factory and calls `bindVariableLibrary()` during init
+- Global keydown handler now defers to `variableLibraryController.handleKeydown(event)` so Escape/Enter close the overlay without referencing DOM nodes stored in main.js
+
+**Result:**
+- All variable glossary state now resides in `assets/variableLibraryController.js`, shaving another ~140 lines from `main.js`
+- Overlay focus management and label bookkeeping are encapsulated, making it easier to evolve the glossary UI without touching the main orchestrator
+- Key handling no longer inspects DOM flags directly, reducing tight coupling between overlays and the global listener
 - main.js drops another concentrated set of UI helpers while retaining identical behavior
 
 ### levelSummary.js (level preview + history formatting)
