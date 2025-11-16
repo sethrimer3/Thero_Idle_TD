@@ -270,6 +270,7 @@ import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
 import { createPlayfieldMenuController } from './playfieldMenu.js';
 import { createLevelSummaryHelpers } from './levelSummary.js';
 import { createLamedSpireUi } from './lamedSpireUi.js';
+import { createDeveloperModeManager } from './developerModeManager.js';
 import {
   moteGemState,
   MOTE_GEM_COLLECTION_RADIUS,
@@ -478,25 +479,6 @@ import {
   let pendingLevel = null;
   let lastLevelTrigger = null;
   let expandedLevelSet = null;
-
-  const developerModeElements = {
-    toggle: null,
-    note: null,
-    resetButton: null,
-  };
-
-  const DEVELOPER_RESET_DEFAULT_LABEL = 'Delete Player Data';
-  const DEVELOPER_RESET_CONFIRM_LABEL = 'Are you sure?';
-  const DEVELOPER_RESET_CONFIRM_WINDOW_MS = 5000;
-  const DEVELOPER_RESET_RELOAD_DELAY_MS = 900;
-  const DEVELOPER_MODE_STORAGE_KEY = 'glyph-defense-idle:developer-mode';
-  // Use an effectively infinite reserve for developer resource injections so limits never interfere with testing.
-  const DEVELOPER_RESOURCE_GRANT = Number.MAX_SAFE_INTEGER;
-
-  const developerResetState = {
-    confirming: false,
-    timeoutId: null,
-  };
 
   const PERSISTENT_STORAGE_KEYS = [
     GRAPHICS_MODE_STORAGE_KEY,
@@ -1200,6 +1182,114 @@ import {
       powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand',
     );
   };
+
+  const { bindDeveloperModeToggle } = createDeveloperModeManager({
+    getDeveloperModeActive: () => developerModeActive,
+    setDeveloperModeActive: (value) => {
+      developerModeActive = value;
+    },
+    getTowerDefinitions,
+    getTowerLoadoutState,
+    getTowerLoadoutLimit,
+    unlockTower,
+    initializeDiscoveredVariablesFromUnlocks,
+    pruneLockedTowersFromLoadout,
+    getTowerUnlockState,
+    setMergingLogicUnlocked,
+    powderState,
+    spireResourceState,
+    setKufTotalShards,
+    setDeveloperIteronBank,
+    setDeveloperIterationRate,
+    getPowderSimulation: () => powderSimulation,
+    setPowderSimulation: (value) => {
+      powderSimulation = value;
+    },
+    getSandSimulation: () => sandSimulation,
+    setSandSimulation: (value) => {
+      sandSimulation = value;
+    },
+    getFluidSimulation: () => fluidSimulationInstance,
+    setFluidSimulation: (value) => {
+      fluidSimulationInstance = value;
+    },
+    getLamedSimulation: () => lamedSimulationInstance,
+    getTsadiSimulation: () => tsadiSimulationInstance,
+    updateSpireTabVisibility,
+    spireMenuController,
+    unlockedLevels,
+    interactiveLevelOrder,
+    levelState,
+    levelBlueprints,
+    getEnemyCodexEntries,
+    codexState,
+    renderEnemyCodex,
+    updateLevelCards,
+    updateActiveLevelBanner,
+    updateTowerCardVisibility,
+    updateTowerSelectionButtons,
+    syncLoadoutToPlayfield,
+    updateStatusDisplays,
+    evaluateAchievements,
+    refreshAchievementPowderRate,
+    updateResourceRates,
+    updatePowderLedger,
+    updateDeveloperControlsVisibility,
+    syncDeveloperControlValues,
+    syncLevelEditorVisibility,
+    updateDeveloperMapElementsVisibility,
+    getPlayfield: () => playfield,
+    getPlayfieldMenuController: () => playfieldMenuController,
+    unlockAllFractals,
+    refreshFractalTabs,
+    addIterons,
+    updateShinDisplay,
+    refreshPowderWallDecorations,
+    clearDeveloperTheroMultiplierOverride,
+    stopLamedDeveloperSpamLoop,
+    deactivateDeveloperMapTools,
+    setDeveloperMapPlacementMode,
+    persistentStorageKeys: PERSISTENT_STORAGE_KEYS,
+    stopAutoSaveLoop,
+    pruneLevelState,
+    resetPowderUiState,
+    resetActiveMoteGems,
+    updateMoteGemInventoryDisplay,
+    refreshPowderSystems,
+    updatePowderModeButton,
+    updatePowderLogDisplay,
+    setPowderCurrency,
+    idleLevelRuns,
+    gameStats,
+    resourceState,
+    baseResources,
+    powderConfig,
+    applyMindGatePaletteToDom,
+    mergeMotePalette,
+    defaultMotePalette: DEFAULT_MOTE_PALETTE,
+    updateFluidTabAvailability,
+    resetAlephChainUpgrades,
+    reconcileGlyphCurrencyFromState,
+    updatePowderWallGapFromGlyphs,
+    moteGemState,
+    clearTowerUpgradeState,
+    setPowderBasinObserver: (value) => {
+      powderBasinObserver = value;
+    },
+    getPowderBasinObserver: () => powderBasinObserver,
+    setPendingPowderResizeFrame: (value) => {
+      pendingPowderResizeFrame = value;
+    },
+    getPendingPowderResizeFrame: () => pendingPowderResizeFrame,
+    setPendingPowderResizeIsTimeout: (value) => {
+      pendingPowderResizeIsTimeout = value;
+    },
+    getPendingPowderResizeIsTimeout: () => pendingPowderResizeIsTimeout,
+    setObservedPowderResizeElements: (value) => {
+      observedPowderResizeElements = value;
+    },
+    getObservedPowderResizeElements: () => observedPowderResizeElements,
+  });
 
 
   function updateLamedStatistics() {
@@ -3718,531 +3808,6 @@ import {
   function focusLeaveLevelButton() {
     if (leaveLevelBtn && !leaveLevelBtn.disabled && typeof leaveLevelBtn.focus === 'function') {
       leaveLevelBtn.focus();
-    }
-  }
-
-  function enableDeveloperMode() {
-    developerModeActive = true;
-    if (developerModeElements.toggle && !developerModeElements.toggle.checked) {
-      developerModeElements.toggle.checked = true;
-    }
-
-    const loadoutState = getTowerLoadoutState();
-    const towers = getTowerDefinitions();
-
-    towers.forEach((definition) => {
-      unlockTower(definition.id, { silent: true });
-    });
-
-    initializeDiscoveredVariablesFromUnlocks(
-      towers.map((definition) => definition.id),
-    );
-
-    loadoutState.selected = towers
-      .slice(0, getTowerLoadoutLimit())
-      .map((definition) => definition.id);
-
-    pruneLockedTowersFromLoadout();
-
-    // Developer mode: Unlock all spires and set developer values
-    powderState.fluidUnlocked = true;
-    spireResourceState.lamed.unlocked = true;
-    spireResourceState.tsadi.unlocked = true;
-    // Ensure advanced spires (Shin and Kuf) are interactable when developer lattice is active.
-    spireResourceState.shin.unlocked = true;
-    spireResourceState.kuf.unlocked = true;
-    // Grant effectively infinite shards so Kuf allocations are never resource-gated in developer mode.
-    setKufTotalShards(DEVELOPER_RESOURCE_GRANT);
-
-    // Flood each spire bank with an effectively limitless reserve for stress-free testing.
-    powderState.idleMoteBank = DEVELOPER_RESOURCE_GRANT;
-    powderState.fluidIdleBank = DEVELOPER_RESOURCE_GRANT;
-    spireResourceState.lamed.sparkBank = DEVELOPER_RESOURCE_GRANT;
-    spireResourceState.tsadi.particleBank = DEVELOPER_RESOURCE_GRANT;
-
-    // Set spire rates to zero so developer scenarios start from a steady state.
-    powderState.idleDrainRate = 0;
-    powderState.fluidIdleDrainRate = 0;
-    if (typeof setDeveloperIteronBank === 'function') {
-      setDeveloperIteronBank(DEVELOPER_RESOURCE_GRANT);
-    }
-    if (typeof setDeveloperIterationRate === 'function') {
-      setDeveloperIterationRate(0);
-    }
-
-    // Apply the banks and rates to active simulations
-    if (sandSimulation) {
-      sandSimulation.idleBank = DEVELOPER_RESOURCE_GRANT;
-      sandSimulation.idleDrainRate = 0;
-    }
-    if (fluidSimulationInstance) {
-      fluidSimulationInstance.idleBank = DEVELOPER_RESOURCE_GRANT;
-      fluidSimulationInstance.idleDrainRate = 0;
-    }
-    if (lamedSimulationInstance) {
-      lamedSimulationInstance.sparkBank = DEVELOPER_RESOURCE_GRANT;
-      lamedSimulationInstance.sparkSpawnRate = 0;
-    }
-    if (tsadiSimulationInstance) {
-      tsadiSimulationInstance.particleBank = DEVELOPER_RESOURCE_GRANT;
-      tsadiSimulationInstance.spawnRate = 0;
-    }
-    
-    updateSpireTabVisibility();
-    spireMenuController.updateCounts();
-
-    unlockedLevels.clear();
-    interactiveLevelOrder.forEach((levelId) => {
-      unlockedLevels.add(levelId);
-      const existing = levelState.get(levelId) || {};
-      levelState.set(levelId, {
-        ...existing,
-        entered: true,
-        running: false,
-        completed: true,
-      });
-    });
-
-    levelBlueprints.forEach((level) => {
-      if (!levelState.has(level.id)) {
-        levelState.set(level.id, { entered: true, running: false, completed: true });
-      }
-    });
-
-    const codexEntries = getEnemyCodexEntries();
-    codexState.encounteredEnemies = new Set(codexEntries.map((entry) => entry.id));
-
-    renderEnemyCodex();
-    updateLevelCards();
-    updateActiveLevelBanner();
-    updateTowerCardVisibility();
-    updateTowerSelectionButtons();
-    syncLoadoutToPlayfield();
-    updateStatusDisplays();
-
-    evaluateAchievements();
-    refreshAchievementPowderRate();
-    updateResourceRates();
-    updatePowderLedger();
-
-    if (developerModeElements.note) {
-      developerModeElements.note.hidden = false;
-    }
-
-    updateDeveloperControlsVisibility();
-    syncDeveloperControlValues();
-
-    syncLevelEditorVisibility();
-
-    if (playfieldMenuController) {
-      playfieldMenuController.updateMenuState();
-    }
-    updateDeveloperMapElementsVisibility();
-
-    if (playfield?.messageEl) {
-      playfield.messageEl.textContent =
-        'Developer lattice engaged—every tower, level, and codex entry is unlocked.';
-    }
-
-    // Unlock all Shin Spire fractals in developer mode
-    unlockAllFractals();
-    refreshFractalTabs();
-    
-    // Give 1 million iterons in developer mode
-    addIterons(DEVELOPER_RESOURCE_GRANT);
-    updateShinDisplay();
-
-    refreshPowderWallDecorations();
-    
-    // Persist developer mode state
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, 'true');
-      } catch (error) {
-        console.warn('Failed to persist developer mode state.', error);
-      }
-    }
-  }
-
-  function disableDeveloperMode() {
-    developerModeActive = false;
-    if (developerModeElements.toggle && developerModeElements.toggle.checked) {
-      developerModeElements.toggle.checked = false;
-    }
-    stopLamedDeveloperSpamLoop();
-
-    // Persist developer mode state
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, 'false');
-      } catch (error) {
-        console.warn('Failed to persist developer mode state.', error);
-      }
-    }
-
-    deactivateDeveloperMapTools({ force: true, silent: true });
-    setDeveloperMapPlacementMode(null);
-    updateDeveloperMapElementsVisibility();
-
-    const unlockState = getTowerUnlockState();
-    unlockState.unlocked = new Set(['alpha']);
-    setMergingLogicUnlocked(false);
-    initializeDiscoveredVariablesFromUnlocks(unlockState.unlocked);
-    const loadoutState = getTowerLoadoutState();
-    loadoutState.selected = ['alpha'];
-    pruneLockedTowersFromLoadout();
-
-    codexState.encounteredEnemies = new Set();
-
-    levelState.clear();
-    unlockedLevels.clear();
-    if (interactiveLevelOrder.length) {
-      unlockedLevels.add(interactiveLevelOrder[0]);
-    }
-
-    activeLevelId = null;
-    pendingLevel = null;
-    resourceState.running = false;
-
-    clearDeveloperTheroMultiplierOverride();
-
-    if (playfield) {
-      playfield.leaveLevel();
-    }
-
-    renderEnemyCodex();
-    updateLevelCards();
-    updateActiveLevelBanner();
-    updateTowerCardVisibility();
-    updateTowerSelectionButtons();
-    syncLoadoutToPlayfield();
-    updateStatusDisplays();
-
-    evaluateAchievements();
-    refreshAchievementPowderRate();
-    updateResourceRates();
-    updatePowderLedger();
-
-    if (developerModeElements.note) {
-      developerModeElements.note.hidden = true;
-    }
-
-    updateDeveloperControlsVisibility();
-    syncDeveloperControlValues();
-
-    if (playfieldMenuController) {
-      playfieldMenuController.updateMenuState();
-    }
-
-    refreshPowderWallDecorations();
-  }
-
-  function resetDeveloperResetButtonConfirmation({ label = DEVELOPER_RESET_DEFAULT_LABEL, warning = false } = {}) {
-    developerResetState.confirming = false;
-    if (developerResetState.timeoutId) {
-      clearTimeout(developerResetState.timeoutId);
-      developerResetState.timeoutId = null;
-    }
-    const button = developerModeElements.resetButton;
-    if (!button) {
-      return;
-    }
-    button.disabled = false;
-    button.textContent = label;
-    if (warning) {
-      button.classList.add('developer-reset-button--warning');
-    } else {
-      button.classList.remove('developer-reset-button--warning');
-    }
-  }
-
-  function clearPersistentStorageKeys() {
-    if (typeof window === 'undefined' || !window.localStorage) {
-      return true;
-    }
-
-    const storage = window.localStorage;
-    let success = true;
-
-    PERSISTENT_STORAGE_KEYS.forEach((key) => {
-      if (!key || typeof key !== 'string') {
-        return;
-      }
-      try {
-        storage.removeItem(key);
-      } catch (error) {
-        success = false;
-        console.warn(`Failed to remove storage key "${key}" while deleting player data.`, error);
-      }
-    });
-
-    return success;
-  }
-
-  function resetPlayerProgressState() {
-    gameStats.manualVictories = 0;
-    gameStats.idleVictories = 0;
-    gameStats.towersPlaced = 0;
-    gameStats.maxTowersSimultaneous = 0;
-    gameStats.autoAnchorPlacements = 0;
-    gameStats.powderActions = 0;
-    gameStats.enemiesDefeated = 0;
-    gameStats.idleMillisecondsAccumulated = 0;
-    gameStats.powderSigilsReached = 0;
-    gameStats.highestPowderMultiplier = 1;
-
-    resourceState.score = baseResources.score;
-    resourceState.scoreRate = baseResources.scoreRate;
-    resourceState.energyRate = baseResources.energyRate;
-    resourceState.fluxRate = baseResources.fluxRate;
-    resourceState.running = false;
-
-    setPowderCurrency(0);
-
-    if (idleLevelRuns) {
-      idleLevelRuns.clear();
-    }
-
-    if (powderState.viewInteraction?.destroy) {
-      try {
-        powderState.viewInteraction.destroy();
-      } catch (error) {
-        console.warn('Failed to destroy powder interaction while resetting player data.', error);
-      }
-    }
-    powderState.viewInteraction = null;
-
-    if (powderSimulation?.stop) {
-      try {
-        powderSimulation.stop();
-      } catch (error) {
-        console.warn('Failed to stop powder simulation while resetting player data.', error);
-      }
-    }
-    if (fluidSimulationInstance?.stop) {
-      try {
-        fluidSimulationInstance.stop();
-      } catch (error) {
-        console.warn('Failed to stop fluid simulation while resetting player data.', error);
-      }
-    }
-
-    powderSimulation = null;
-    sandSimulation = null;
-    fluidSimulationInstance = null;
-
-    if (powderBasinObserver?.disconnect) {
-      try {
-        powderBasinObserver.disconnect();
-      } catch (error) {
-        console.warn('Failed to disconnect powder observer while resetting player data.', error);
-      }
-    }
-    powderBasinObserver = null;
-    if (pendingPowderResizeFrame !== null) {
-      if (typeof window !== 'undefined') {
-        if (pendingPowderResizeIsTimeout && typeof window.clearTimeout === 'function') {
-          window.clearTimeout(pendingPowderResizeFrame);
-        } else if (!pendingPowderResizeIsTimeout && typeof window.cancelAnimationFrame === 'function') {
-          window.cancelAnimationFrame(pendingPowderResizeFrame);
-        }
-      }
-    }
-    pendingPowderResizeFrame = null;
-    pendingPowderResizeIsTimeout = false;
-    observedPowderResizeElements = new WeakSet();
-
-    powderState.sandOffset = powderConfig.sandOffsetActive;
-    powderState.duneHeight = powderConfig.duneHeightBase;
-    powderState.charges = 0;
-    powderState.simulatedDuneGain = 0;
-    powderState.wallGlyphsLit = 0;
-    powderState.glyphsAwarded = 0;
-    powderState.idleMoteBank = 100;
-    powderState.idleDrainRate = 1;
-    powderState.pendingMoteDrops = [];
-    powderState.idleBankHydrated = false;
-    powderState.fluidIdleBank = 0;
-    powderState.fluidIdleDrainRate = 0.1;
-    powderState.pendingFluidDrops = [];
-    powderState.fluidBankHydrated = false;
-    powderState.motePalette = mergeMotePalette(DEFAULT_MOTE_PALETTE);
-    applyMindGatePaletteToDom(powderState.motePalette);
-    powderState.simulationMode = 'sand';
-    powderState.wallGapTarget = powderConfig.wallBaseGapMotes;
-    powderState.modeSwitchPending = false;
-    powderState.fluidProfileLabel = 'Bet Spire';
-    powderState.fluidUnlocked = false;
-    updateFluidTabAvailability();
-    powderState.viewTransform = null;
-    powderState.loadedSimulationState = null;
-    powderState.loadedFluidState = null;
-
-    resetPowderUiState();
-
-    clearTowerUpgradeState();
-    // Revert Aleph chain upgrades so tower snapshots reset alongside other progression state.
-    resetAlephChainUpgrades({ playfield });
-    reconcileGlyphCurrencyFromState();
-
-    resetActiveMoteGems();
-    moteGemState.active.length = 0;
-    if (typeof moteGemState.nextId === 'number') {
-      moteGemState.nextId = 1;
-    }
-    if (moteGemState.inventory?.clear) {
-      moteGemState.inventory.clear();
-    }
-    moteGemState.autoCollectUnlocked = false;
-    updateMoteGemInventoryDisplay();
-
-    updatePowderWallGapFromGlyphs(0);
-    refreshPowderWallDecorations();
-    refreshPowderSystems();
-    updatePowderModeButton();
-    updateStatusDisplays();
-    updatePowderLogDisplay();
-  }
-
-  function executePlayerDataReset() {
-    try {
-      stopAutoSaveLoop();
-    } catch (error) {
-      console.warn('Autosave loop did not stop cleanly before deleting player data.', error);
-    }
-
-    // Save the current developer mode state before clearing storage
-    const developerModeWasEnabled = developerModeActive || (developerModeElements.toggle && developerModeElements.toggle.checked);
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, developerModeWasEnabled ? 'true' : 'false');
-      } catch (error) {
-        console.warn('Failed to preserve developer mode state.', error);
-      }
-    }
-
-    let encounteredError = false;
-    const storageCleared = clearPersistentStorageKeys();
-    if (!storageCleared) {
-      encounteredError = true;
-    }
-
-    try {
-      resetPlayerProgressState();
-    } catch (error) {
-      encounteredError = true;
-      console.error('Failed to reset runtime state after deleting player data.', error);
-    }
-
-    try {
-      disableDeveloperMode();
-    } catch (error) {
-      encounteredError = true;
-      console.error('Failed to disable developer mode while deleting player data.', error);
-    }
-
-    try {
-      pruneLevelState();
-    } catch (error) {
-      encounteredError = true;
-      console.error('Failed to prune level state after deleting player data.', error);
-    }
-
-    const button = developerModeElements.resetButton;
-
-    if (encounteredError) {
-      if (button) {
-        resetDeveloperResetButtonConfirmation({
-          label: 'Deletion failed · Retry',
-          warning: true,
-        });
-      }
-      return;
-    }
-
-    if (button) {
-      button.textContent = 'Player data deleted · Reloading…';
-    }
-
-    if (typeof window !== 'undefined') {
-      window.setTimeout(() => {
-        window.location.reload();
-      }, DEVELOPER_RESET_RELOAD_DELAY_MS);
-    }
-  }
-
-  function handleDeveloperResetClick() {
-    const button = developerModeElements.resetButton;
-    if (!button) {
-      return;
-    }
-
-    if (!developerResetState.confirming) {
-      developerResetState.confirming = true;
-      button.textContent = DEVELOPER_RESET_CONFIRM_LABEL;
-      button.classList.add('developer-reset-button--warning');
-      if (developerResetState.timeoutId) {
-        clearTimeout(developerResetState.timeoutId);
-      }
-      if (typeof window !== 'undefined') {
-        developerResetState.timeoutId = window.setTimeout(() => {
-          resetDeveloperResetButtonConfirmation();
-        }, DEVELOPER_RESET_CONFIRM_WINDOW_MS);
-      }
-      return;
-    }
-
-    developerResetState.confirming = false;
-    if (developerResetState.timeoutId) {
-      clearTimeout(developerResetState.timeoutId);
-      developerResetState.timeoutId = null;
-    }
-
-    button.disabled = true;
-    button.classList.remove('developer-reset-button--warning');
-    button.textContent = 'Wiping save data…';
-
-    executePlayerDataReset();
-  }
-
-  function bindDeveloperModeToggle() {
-    developerModeElements.toggle = document.getElementById('codex-developer-mode');
-    developerModeElements.note = document.getElementById('codex-developer-note');
-    developerModeElements.resetButton = document.getElementById('developer-reset-button');
-
-    if (developerModeElements.resetButton) {
-      developerModeElements.resetButton.addEventListener('click', handleDeveloperResetClick);
-      resetDeveloperResetButtonConfirmation();
-    }
-
-    if (!developerModeElements.toggle) {
-      return;
-    }
-
-    developerModeElements.toggle.addEventListener('change', (event) => {
-      if (event.target.checked) {
-        enableDeveloperMode();
-      } else {
-        disableDeveloperMode();
-      }
-    });
-    
-    // Restore developer mode state from localStorage, defaulting to the standard player experience.
-    let shouldEnableDeveloperMode = false; // Keep developer tools disabled unless explicitly toggled.
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        const savedState = window.localStorage.getItem(DEVELOPER_MODE_STORAGE_KEY);
-        if (savedState !== null) {
-          shouldEnableDeveloperMode = savedState === 'true';
-        }
-      } catch (error) {
-        console.warn('Failed to restore developer mode state.', error);
-      }
-    }
-    
-    developerModeElements.toggle.checked = shouldEnableDeveloperMode;
-    if (shouldEnableDeveloperMode) {
-      enableDeveloperMode();
     }
   }
 

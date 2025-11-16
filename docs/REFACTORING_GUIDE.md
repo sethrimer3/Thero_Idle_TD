@@ -312,6 +312,25 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Floating menu behavior now lives in a cohesive module that can be unit tested without touching the full game orchestrator
 - Unlock visibility checks and counter updates now reuse the same API wherever resource banks change
 
+### developerModeManager.js (developer toggle + reset workflow)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- Developer mode enable/disable orchestration (tower unlocks, spire bank flooding, Shin/Kuf unlock toggles)
+- Player data wipe helpers (`resetPlayerProgressState`, `executePlayerDataReset`) plus persistent-storage clearing
+- DOM bindings for the Codex developer toggle, explanatory note, and the destructive reset button
+
+**Integration approach:**
+- Added `createDeveloperModeManager()` in `assets/developerModeManager.js` to encapsulate the lattice controls behind a dependency-injected factory
+- `assets/main.js` now instantiates the factory after powder helpers initialize and destructures only `bindDeveloperModeToggle()`, allowing the module to mutate shared state through injected getters/setters
+- Autosave coordination, tower state, and developer control hooks are passed explicitly so the module no longer relies on `main.js` closure scope
+
+**Result:**
+- Several hundred lines of developer-only logic left `main.js`, improving readability and reducing the blast radius of future changes
+- The Codex developer controls now live in a cohesive module that owns DOM wiring, storage persistence, and reset flows
+- Future developer tooling additions can extend `createDeveloperModeManager()` without reopening the 10k-line orchestrator
+
 ### powderPersistence.js (powder basin snapshot + sanitizers)
 
 **Status:** ✅ Complete
