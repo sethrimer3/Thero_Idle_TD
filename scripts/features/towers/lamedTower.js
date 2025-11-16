@@ -99,6 +99,9 @@ export class GravitySimulation {
     this.maxStars = 1000; // Maximum number of active orbiting stars increased for denser orbits
     this.sparkSpawnRate = 0; // Stars spawned per second (starts at 0)
     this.spawnAccumulator = 0;
+    // Cap how many orbiting stars are allowed to render trails simultaneously to protect framerate.
+    this.maxStarsWithTrails = typeof options.maxStarsWithTrails === 'number' ? options.maxStarsWithTrails : 100;
+    this.trailEnabledStarCount = 0; // Track how many active orbiting stars should render trails.
     
     // Spawn parameters for ring spawner
     this.spawnRadiusMin = 60; // Minimum spawn radius (pixels)
@@ -1024,16 +1027,23 @@ export class GravitySimulation {
     
     // Star mass scales deterministically with the upgrade so placement size is consistent.
     const starMass = 1 + this.upgrades.starMass;
-    
+    const starHasTrail = this.trailEnabledStarCount < this.maxStarsWithTrails;
+
     this.stars.push({
       x,
       y,
       vx,
       vy,
       mass: starMass,
+      // Persist whether this spark is allowed to render a trail for its entire lifetime.
+      hasTrail: starHasTrail,
       trail: [], // Array of {x, y, alpha, speed} points
       life: 1.0,
     });
+
+    if (starHasTrail) {
+      this.trailEnabledStarCount++;
+    }
     
     // Add spawn flash effect
     this.flashEffects.push({
@@ -1388,6 +1398,9 @@ export class GravitySimulation {
         }
 
         // Remove star
+        if (star.hasTrail) {
+          this.trailEnabledStarCount = Math.max(0, this.trailEnabledStarCount - 1);
+        }
         this.stars.splice(i, 1);
         continue;
       }
@@ -1412,7 +1425,7 @@ export class GravitySimulation {
       // Calculate speed for trail coloring
       const speed = Math.sqrt(star.vx * star.vx + star.vy * star.vy);
       
-      if (!allowTrails) {
+      if (!allowTrails || !star.hasTrail) {
         star.trail.length = 0;
         continue;
       }
@@ -1887,7 +1900,7 @@ export class GravitySimulation {
     // Draw orbiting stars with trails
     for (const star of this.stars) {
       // Draw trail with color gradient from palette
-      if (trailMode !== 'none' && star.trail.length > 1) {
+      if (trailMode !== 'none' && star.hasTrail && star.trail.length > 1) {
         if (trailMode === 'simple') {
           ctx.lineWidth = 1;
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
