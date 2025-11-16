@@ -154,6 +154,12 @@ import {
   updateChiThralls as updateChiThrallsHelper,
   updateChiLightTrails as updateChiLightTrailsHelper,
 } from '../scripts/features/towers/chiTower.js';
+import {
+  ensureTauState as ensureTauStateHelper,
+  updateTauTower as updateTauTowerHelper,
+  spawnTauProjectile as spawnTauProjectileHelper,
+  teardownTauTower as teardownTauTowerHelper,
+} from '../scripts/features/towers/tauTower.js';
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -3901,6 +3907,13 @@ export class SimplePlayfield {
   }
 
   /**
+   * Update τ tower spiral projectiles.
+   */
+  updateTauTower(tower, delta) {
+    updateTauTowerHelper(this, tower, delta);
+  }
+
+  /**
    * Ensure π tower state is initialized and parameters are refreshed.
    */
   ensurePiState(tower) {
@@ -3936,6 +3949,13 @@ export class SimplePlayfield {
   }
 
   /**
+   * Clear τ-specific caches when the tower is sold or retuned.
+   */
+  teardownTauTower(tower) {
+    teardownTauTowerHelper(this, tower);
+  }
+
+  /**
    * Convert stored σ damage into a discharge when conditions are met.
    */
   updateSigmaTower(tower, delta) {
@@ -3950,10 +3970,24 @@ export class SimplePlayfield {
   }
 
   /**
+   * Ensure τ state stays initialized so spirals animate smoothly.
+   */
+  ensureTauState(tower) {
+    return ensureTauStateHelper(this, tower);
+  }
+
+  /**
    * Clear σ-specific caches when the tower is sold or retuned.
    */
   teardownSigmaTower(tower) {
     return TowerManager.teardownSigmaTower.call(this, tower);
+  }
+
+  /**
+   * Spawn a τ spiral projectile toward the current target.
+   */
+  spawnTauProjectile(tower, targetInfo) {
+    spawnTauProjectileHelper(this, tower, targetInfo);
   }
 
   /**
@@ -4979,6 +5013,7 @@ export class SimplePlayfield {
     this.teardownXiTower(tower);
     this.teardownOmicronTower(tower);
     this.teardownPiTower(tower);
+    this.teardownTauTower(tower);
     this.teardownSigmaTower(tower);
     this.handleAlephTowerRemoved(tower);
 
@@ -6923,6 +6958,9 @@ export class SimplePlayfield {
           this.updatePiTower(tower, delta);
           return;
         }
+        if (tower.type === 'tau') {
+          this.updateTauTower(tower, delta);
+        }
         if (tower.type === 'sigma') {
           this.updateSigmaTower(tower, delta);
           return;
@@ -7450,6 +7488,10 @@ export class SimplePlayfield {
     }
     if (tower.type === 'xi') {
       this.fireXiChain(tower, targetInfo);
+      return;
+    }
+    if (tower.type === 'tau') {
+      this.spawnTauProjectile(tower, targetInfo);
       return;
     }
     if (tower.type === 'iota') {

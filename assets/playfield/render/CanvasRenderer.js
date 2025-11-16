@@ -31,6 +31,7 @@ import {
   drawChiThralls as drawChiThrallsHelper,
   drawChiLightTrails as drawChiLightTrailsHelper,
 } from '../../../scripts/features/towers/chiTower.js';
+import { drawTauProjectiles as drawTauProjectilesHelper } from '../../../scripts/features/towers/tauTower.js';
 
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rendering.js';
 import { easeInCubic, easeOutCubic } from '../utils/math.js';
@@ -1387,6 +1388,9 @@ function drawTowers() {
       drawPiLockOnLinesHelper(this, tower);
       drawPiFrozenLinesHelper(this, tower);
       drawPiRadialLaserHelper(this, tower);
+    }
+    if (tower.type === 'tau') {
+      drawTauProjectilesHelper(this, tower);
     }
 
     ctx.save();
