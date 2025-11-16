@@ -453,6 +453,14 @@ resizeCanvas() {
 }
 ```
 
+## Enemy Overlay Guidelines
+- Enemies now render a compact debuff bar beneath their ring. Place debuff glyphs (e.g., ι, ρ, θ) side by side in the order they
+  were first applied.
+- Use `registerEnemyDebuff`, `resolveActiveDebuffTypes`, and `getEnemyDebuffIndicators` when adding new effects so the renderer
+  inherits correct ordering.
+- Visual accents like the ρ sparkle ring should be lightweight enough for fallback rendering and aligned to existing enemy
+  metrics (use `getEnemyVisualMetrics`).
+
 ## Common Mistakes to Avoid
 
 ❌ **Don't** hardcode formulas in managers - import from tower modules

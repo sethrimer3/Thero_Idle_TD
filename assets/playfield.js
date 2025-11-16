@@ -220,6 +220,13 @@ const WAVE_TALLY_DAMAGE_PADDING = 24;
 // Keep kill and damage scribbles in sync so both stats feel equally legible around each tower.
 const WAVE_TALLY_DAMAGE_FONT_SIZE = 9.6;
 const WAVE_TALLY_KILL_FONT_SIZE = WAVE_TALLY_DAMAGE_FONT_SIZE;
+// Rho debuff visuals should linger briefly so the sparkle ring can be noticed as enemies leave the field.
+const RHO_SPARKLE_LINGER_SECONDS = 0.9;
+const DEBUFF_ICON_SYMBOLS = {
+  iota: 'ι',
+  rho: 'ρ',
+  theta: 'θ',
+};
 
 export class SimplePlayfield {
   constructor(options) {
@@ -3834,6 +3841,39 @@ export class SimplePlayfield {
   }
 
   /**
+   * Apply ρ sparkles to enemies within range so the debuff ring and icon bar update together.
+   */
+  updateRhoTower(tower, delta) {
+    if (!tower || tower.type !== 'rho' || !this.combatActive) {
+      return;
+    }
+    const radius = Math.max(0, Number.isFinite(tower.range) ? tower.range : 0);
+    if (!(radius > 0)) {
+      return;
+    }
+    const radiusSq = radius * radius;
+    const refreshAmount = RHO_SPARKLE_LINGER_SECONDS + Math.max(0, Number.isFinite(delta) ? delta : 0);
+
+    this.enemies.forEach((enemy) => {
+      if (!enemy) {
+        return;
+      }
+      const position = this.getEnemyPosition(enemy);
+      if (!position) {
+        return;
+      }
+      const dx = position.x - tower.x;
+      const dy = position.y - tower.y;
+      if (dx * dx + dy * dy > radiusSq) {
+        return;
+      }
+      const existing = Number.isFinite(enemy.rhoSparkleTimer) ? enemy.rhoSparkleTimer : 0;
+      enemy.rhoSparkleTimer = Math.max(existing, refreshAmount);
+      this.registerEnemyDebuff(enemy, 'rho');
+    });
+  }
+
+  /**
    * Evolve κ tripwire charge, manage collisions, and refresh linked targets.
    */
   updateKappaTower(tower, delta) {
@@ -6936,6 +6976,10 @@ export class SimplePlayfield {
           this.updateThetaTower(tower, delta);
           return;
         }
+        if (tower.type === 'rho') {
+          this.updateRhoTower(tower, delta);
+          return;
+        }
         if (tower.type === 'kappa') {
           this.updateKappaTower(tower, delta);
           return;
@@ -7400,6 +7444,111 @@ export class SimplePlayfield {
     return Math.max(0, 1 + additive);
   }
 
+  /**
+   * Track when a debuff first lands on an enemy so the renderer can order icons chronologically.
+   */
+  registerEnemyDebuff(enemy, type) {
+    if (!enemy || !type) {
+      return;
+    }
+    if (!Array.isArray(enemy.debuffIndicators)) {
+      enemy.debuffIndicators = [];
+    }
+    const now =
+      typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
+    const existing = enemy.debuffIndicators.find((entry) => entry?.type === type);
+    if (existing) {
+      existing.lastSeen = now;
+      return;
+    }
+    enemy.debuffIndicators.push({ type, appliedAt: now, lastSeen: now });
+  }
+
+  /**
+   * Resolve which debuffs are active on an enemy so visual indicators stay in sync with game logic.
+   */
+  resolveActiveDebuffTypes(enemy) {
+    const activeTypes = [];
+    if (!enemy) {
+      return activeTypes;
+    }
+
+    const amplifierActive =
+      (enemy.damageAmplifiers instanceof Map && enemy.damageAmplifiers.size > 0) ||
+      (enemy.damageAmplifiers && typeof enemy.damageAmplifiers === 'object' &&
+        Object.keys(enemy.damageAmplifiers).length > 0) ||
+      (Number.isFinite(enemy.iotaInversionTimer) && enemy.iotaInversionTimer > 0);
+    if (amplifierActive) {
+      activeTypes.push('iota');
+    }
+
+    const slowEffects = enemy.slowEffects;
+    const thetaActive = slowEffects instanceof Map
+      ? Array.from(slowEffects.values()).some((effect) => effect?.type === 'theta')
+      : slowEffects && typeof slowEffects === 'object'
+        ? Object.values(slowEffects).some((effect) => effect?.type === 'theta')
+        : false;
+    if (thetaActive) {
+      activeTypes.push('theta');
+    }
+
+    if (Number.isFinite(enemy.rhoSparkleTimer) && enemy.rhoSparkleTimer > 0) {
+      activeTypes.push('rho');
+    }
+
+    return activeTypes;
+  }
+
+  /**
+   * Ensure the debuff indicator list only includes active effects while preserving first-seen order.
+   */
+  syncEnemyDebuffIndicators(enemy, activeTypes = []) {
+    if (!enemy) {
+      return [];
+    }
+    if (!Array.isArray(enemy.debuffIndicators)) {
+      enemy.debuffIndicators = [];
+    }
+    const activeSet = new Set(activeTypes);
+    enemy.debuffIndicators = enemy.debuffIndicators.filter(
+      (entry) => entry && activeSet.has(entry.type),
+    );
+    if (!activeSet.size) {
+      return enemy.debuffIndicators;
+    }
+    const now =
+      typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
+    activeTypes.forEach((type) => {
+      const existing = enemy.debuffIndicators.find((entry) => entry?.type === type);
+      if (existing) {
+        existing.lastSeen = now;
+        return;
+      }
+      enemy.debuffIndicators.push({ type, appliedAt: now, lastSeen: now });
+    });
+    enemy.debuffIndicators.sort((a, b) => (a?.appliedAt || 0) - (b?.appliedAt || 0));
+    return enemy.debuffIndicators;
+  }
+
+  /**
+   * Provide ordered debuff metadata to the renderer with pre-resolved glyphs for each effect.
+   */
+  getEnemyDebuffIndicators(enemy) {
+    if (!enemy) {
+      return [];
+    }
+    const activeTypes = this.resolveActiveDebuffTypes(enemy);
+    const entries = this.syncEnemyDebuffIndicators(enemy, activeTypes);
+    return entries.map((entry) => ({
+      type: entry.type,
+      symbol: DEBUFF_ICON_SYMBOLS[entry.type] || entry.type?.[0] || '·',
+    }));
+  }
+
   applyDamageToEnemy(enemy, baseDamage, { sourceTower } = {}) {
     if (!enemy || !Number.isFinite(baseDamage) || baseDamage <= 0) {
       return 0;
@@ -7728,6 +7877,7 @@ export class SimplePlayfield {
       });
     }
     delete enemy.slowEffects;
+    this.syncEnemyDebuffIndicators(enemy, this.resolveActiveDebuffTypes(enemy));
   }
 
   clearEnemyDamageAmplifiers(enemy) {
@@ -7743,6 +7893,7 @@ export class SimplePlayfield {
     }
     delete enemy.damageAmplifiers;
     delete enemy.iotaInversionTimer;
+    this.syncEnemyDebuffIndicators(enemy, this.resolveActiveDebuffTypes(enemy));
   }
 
   updateEnemies(delta) {
@@ -7776,6 +7927,14 @@ export class SimplePlayfield {
           delete enemy.iotaInversionTimer;
         }
       }
+      if (Number.isFinite(enemy.rhoSparkleTimer)) {
+        enemy.rhoSparkleTimer = Math.max(0, enemy.rhoSparkleTimer - delta);
+        if (enemy.rhoSparkleTimer <= 0) {
+          delete enemy.rhoSparkleTimer;
+        }
+      }
+      const activeDebuffs = this.resolveActiveDebuffTypes(enemy);
+      this.syncEnemyDebuffIndicators(enemy, activeDebuffs);
       const baseSpeed = Number.isFinite(enemy.baseSpeed) ? enemy.baseSpeed : 0;
       const speedMultiplier = this.resolveEnemySlowMultiplier(enemy);
       const effectiveSpeed = Math.max(0, baseSpeed * speedMultiplier);

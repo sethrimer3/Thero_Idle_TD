@@ -79,6 +79,18 @@ const ENEMY_PARTICLE_PALETTE = [
 // Reuse the same warm palette that powers the luminous arc tracer.
 const TRACK_TRACER_PRIMARY_COLOR = { r: 255, g: 180, b: 105 };
 const TRACK_TRACER_HALO_COLOR = { r: 255, g: 228, b: 180 };
+// Golden sparkle accents and debuff bar palette keep status markers consistent with the math aesthetic.
+const RHO_SPARKLE_LINGER_SECONDS = 0.9;
+const RHO_SPARKLE_COLOR = { r: 255, g: 218, b: 140 };
+const RHO_SPARKLE_GLOW = 'rgba(255, 234, 170, 0.55)';
+const DEBUFF_ICON_COLORS = {
+  iota: { fill: 'rgba(139, 247, 255, 0.92)', stroke: 'rgba(6, 8, 14, 0.82)' },
+  rho: { fill: 'rgba(255, 219, 156, 0.96)', stroke: 'rgba(52, 28, 4, 0.85)' },
+  theta: { fill: 'rgba(208, 242, 255, 0.9)', stroke: 'rgba(8, 12, 18, 0.82)' },
+  default: { fill: 'rgba(255, 255, 255, 0.86)', stroke: 'rgba(6, 8, 14, 0.8)' },
+};
+const DEBUFF_BAR_BACKGROUND = 'rgba(6, 8, 14, 0.82)';
+const DEBUFF_BAR_STROKE = 'rgba(255, 255, 255, 0.16)';
 const GLYPH_DEFAULT_PROMOTION_VECTOR = { x: 0, y: -1 };
 const GLYPH_DEFAULT_DEMOTION_VECTOR = { x: 0, y: 1 };
 const PROMOTION_GLYPH_COLOR = { r: 139, g: 247, b: 255 };
@@ -183,6 +195,102 @@ function clearCanvasShadow(ctx) {
 function smoothstep(value) {
   const clamped = clamp(value, 0, 1);
   return clamped * clamped * (3 - 2 * clamped);
+}
+
+// Render rho's golden sparkle ring around affected enemies using a lightweight particle halo.
+function drawRhoSparkleRing(ctx, enemy, metrics, timestamp) {
+  if (!ctx || !metrics || !enemy) {
+    return;
+  }
+  const duration = Number.isFinite(enemy.rhoSparkleTimer) ? enemy.rhoSparkleTimer : 0;
+  if (!(duration > 0)) {
+    return;
+  }
+  const sparkleCount = this.isLowGraphicsMode?.() ? 12 : 18;
+  const baseRadius = metrics.ringRadius + Math.max(4, metrics.scale * 4);
+  const timeSeconds = Math.max(0, (timestamp || 0) / 1000);
+  const visibility = Math.min(1, duration / (RHO_SPARKLE_LINGER_SECONDS + 0.25));
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  applyCanvasShadow.call(this, ctx, RHO_SPARKLE_GLOW, Math.max(2, metrics.scale * 2));
+  for (let index = 0; index < sparkleCount; index += 1) {
+    const angle =
+      (index / sparkleCount) * Math.PI * 2 + timeSeconds * 0.9 + (enemy.id || 0) * 0.07;
+    const wobble = Math.sin(timeSeconds * 2.4 + index * 1.3) * 1.6 * metrics.scale;
+    const radius = baseRadius + wobble;
+    const x = radius * Math.cos(angle);
+    const y = radius * Math.sin(angle);
+    const twinkle = 0.65 + 0.35 * Math.sin(timeSeconds * 3 + index * 0.9);
+    const sparkleSize = Math.max(1.25, metrics.scale * 1.6) * twinkle;
+    const alpha = Math.max(
+      0.2,
+      Math.min(0.8, visibility * (0.65 + 0.35 * Math.sin(timeSeconds * 1.7 + index))),
+    );
+
+    ctx.fillStyle = colorToRgbaString(RHO_SPARKLE_COLOR, alpha);
+    ctx.beginPath();
+    ctx.arc(x, y, sparkleSize, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  clearCanvasShadow.call(this, ctx);
+  ctx.restore();
+}
+
+function drawDebuffBarBackground(ctx, width, height) {
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  const radius = Math.min(halfHeight, 8);
+  ctx.beginPath();
+  ctx.moveTo(-halfWidth + radius, -halfHeight);
+  ctx.lineTo(halfWidth - radius, -halfHeight);
+  ctx.quadraticCurveTo(halfWidth, -halfHeight, halfWidth, -halfHeight + radius);
+  ctx.lineTo(halfWidth, halfHeight - radius);
+  ctx.quadraticCurveTo(halfWidth, halfHeight, halfWidth - radius, halfHeight);
+  ctx.lineTo(-halfWidth + radius, halfHeight);
+  ctx.quadraticCurveTo(-halfWidth, halfHeight, -halfWidth, halfHeight - radius);
+  ctx.lineTo(-halfWidth, -halfHeight + radius);
+  ctx.quadraticCurveTo(-halfWidth, -halfHeight, -halfWidth + radius, -halfHeight);
+}
+
+// Draw a compact debuff bar beneath enemies so glyph icons reflect active status order.
+function drawEnemyDebuffBar(ctx, metrics, debuffs) {
+  if (!ctx || !metrics || !Array.isArray(debuffs) || !debuffs.length) {
+    return;
+  }
+  const iconSize = Math.max(10, metrics.symbolSize * 0.38);
+  const spacing = Math.max(6, iconSize * 0.35);
+  const paddingX = Math.max(6, iconSize * 0.32);
+  const paddingY = Math.max(3, iconSize * 0.22);
+  const width = debuffs.length * iconSize + Math.max(0, debuffs.length - 1) * spacing + paddingX * 2;
+  const height = iconSize + paddingY * 2;
+  const offsetY = metrics.ringRadius + height * 0.75;
+
+  ctx.save();
+  ctx.translate(0, offsetY);
+  drawDebuffBarBackground(ctx, width, height);
+  ctx.fillStyle = DEBUFF_BAR_BACKGROUND;
+  ctx.strokeStyle = DEBUFF_BAR_STROKE;
+  ctx.lineWidth = 1.25;
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.font = `600 ${iconSize}px "Cormorant Garamond", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  debuffs.forEach((entry, index) => {
+    const color = DEBUFF_ICON_COLORS[entry?.type] || DEBUFF_ICON_COLORS.default;
+    const x = -width / 2 + paddingX + iconSize / 2 + index * (iconSize + spacing);
+    ctx.lineWidth = Math.max(1, iconSize * 0.08);
+    ctx.strokeStyle = color.stroke;
+    ctx.fillStyle = color.fill;
+    const symbol = entry?.symbol || '·';
+    ctx.strokeText(symbol, x, 0);
+    ctx.fillText(symbol, x, 0);
+  });
+
+  ctx.restore();
 }
 
 function drawTowerConnectionParticles(ctx, tower, bodyRadius) {
@@ -1881,6 +1989,11 @@ function drawEnemies() {
     const symbol = typeof enemy.symbol === 'string' ? enemy.symbol : this.resolveEnemySymbol(enemy);
     const exponent = this.calculateHealthExponent(Math.max(1, enemy.hp ?? enemy.maxHp ?? 1));
     const inversionActive = Number.isFinite(enemy.iotaInversionTimer) && enemy.iotaInversionTimer > 0;
+    const debuffIndicators =
+      typeof this.getEnemyDebuffIndicators === 'function'
+        ? this.getEnemyDebuffIndicators(enemy)
+        : [];
+    const rhoSparklesActive = Number.isFinite(enemy.rhoSparkleTimer) && enemy.rhoSparkleTimer > 0;
 
     ctx.save();
     ctx.translate(position.x, position.y);
@@ -1892,6 +2005,10 @@ function drawEnemies() {
       drawEnemySwirlParticles.call(this, ctx, enemy, metrics, timestamp, inversionActive);
     }
 
+    if (rhoSparklesActive) {
+      drawRhoSparkleRing.call(this, ctx, enemy, metrics, timestamp);
+    }
+
     drawEnemySymbolAndExponent.call(this, ctx, {
       symbol,
       exponent,
@@ -1899,6 +2016,8 @@ function drawEnemies() {
       inversionActive,
       enemy,
     });
+
+    drawEnemyDebuffBar(ctx, metrics, debuffIndicators);
 
     if (this.focusedEnemyId === enemy.id) {
       const markerRadius = metrics.focusRadius || metrics.ringRadius + 8;
