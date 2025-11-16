@@ -234,6 +234,26 @@ Following this plan will shrink the single-source files, align them with the dis
 - All summary helpers live together, making it easier to audit copy and math changes without hunting through the orchestrator
 - Future level-preview tweaks can adjust the helper factory without threading new state through thousands of lines of unrelated code
 
+### idleLevelRunManager.js (idle level automation controller)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- The shared `idleLevelRuns` map along with begin/stop helpers so background simulations are coordinated in one place
+- `ensureIdleRunLoop()` / `stopIdleRunLoop()` animation frame wiring to tick runners only when active
+- Idle-run completion plumbing that forwards rewards to `handlePlayfieldVictory()`
+- `updateIdleLevelDisplay()` so the playfield HUD messaging lives beside the automation state machine
+
+**Integration approach:**
+- Added a `createIdleLevelRunManager()` factory that accepts level config/state maps, lookup helpers, and the DOM getters used for the playfield panel
+- `main.js` destructures the returned helpers (`beginIdleLevelRun`, `stopIdleLevelRun`, `stopAllIdleRuns`, `updateIdleLevelDisplay`, and the shared map) so existing call sites keep the same names
+- Developer tooling still receives the `idleLevelRuns` map reference, preserving the ability to clear or inspect runs during data resets
+
+**Result:**
+- Roughly 200 lines of idle-run orchestration logic move out of `main.js`, reducing the size of the orchestrator without changing behavior
+- Background automation, HUD messaging, and animation-frame bookkeeping now live together, clarifying the dependencies required for future refactors
+- Dependency injection keeps the new module decoupled from globals, so future changes to the playfield DOM or level state APIs only touch one file
+
 ### spireTabVisibility.js (spire tab toggling helpers)
 
 **Status:** ✅ Complete
