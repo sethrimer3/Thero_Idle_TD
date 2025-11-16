@@ -7277,7 +7277,14 @@ export class SimplePlayfield {
     let bestProgress = -Infinity;
     let bestStrength = priority === 'weakest' ? Infinity : -Infinity;
     this.enemies.forEach((enemy) => {
+      // Skip any cleared enemy slots so null placeholders don't break targeting.
+      if (!enemy) {
+        return;
+      }
       const position = this.getEnemyPosition(enemy);
+      if (!position) {
+        return;
+      }
       const distance = Math.hypot(position.x - tower.x, position.y - tower.y);
       if (distance > tower.range) {
         return;
