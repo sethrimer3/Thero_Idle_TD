@@ -347,6 +347,8 @@ import {
   interactiveLevelOrder,
   unlockedLevels,
   levelSetEntries,
+  getLevelProgressSnapshot,
+  applyLevelProgressSnapshot,
 } from './levels.js';
 import {
   createOverlayHelpers,
@@ -1837,6 +1839,8 @@ import {
     applyTowerUpgradeStateSnapshot: applyTowerUpgradeStateSnapshotWithAleph,
     getShinStateSnapshot,
     getKufStateSnapshot,
+    getLevelProgressSnapshot,
+    applyLevelProgressSnapshot,
     applyStoredAudioSettings,
     syncAudioControlsFromManager,
     applyNotationPreference,
@@ -2413,6 +2417,7 @@ import {
 
     updateActiveLevelBanner();
     updateLevelCards();
+    commitAutoSave();
 
     if (activeLevelId === levelId && activeLevelIsInteractive && playfield) {
       // Surface the victory overlay so the player can exit the battlefield gracefully.
@@ -2450,6 +2455,7 @@ import {
     resourceState.running = false;
     updateActiveLevelBanner();
     updateLevelCards();
+    commitAutoSave();
 
     if (activeLevelId === levelId && activeLevelIsInteractive && playfield) {
       // Display defeat messaging and optional endless retry controls directly on the playfield.

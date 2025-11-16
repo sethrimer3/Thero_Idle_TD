@@ -12,6 +12,8 @@ export let interactiveLevelOrder = [];
 export const unlockedLevels = new Set();
 export const levelSetEntries = [];
 
+const LEVEL_PROGRESS_VERSION = 1;
+
 let developerTheroMultiplierOverride = null;
 
 // Clone a vector array so callers never mutate the original level blueprints.
@@ -256,4 +258,155 @@ export function getPreviousInteractiveLevelId(levelId) {
     return null;
   }
   return interactiveLevelOrder[index - 1] || null;
+}
+
+// Serialize the mutable level state and unlock list so autosave can persist progress snapshots.
+export function getLevelProgressSnapshot() {
+  const stateEntries = [];
+  levelState.forEach((state, levelId) => {
+    if (!levelId || !state) {
+      return;
+    }
+    const entry = {
+      id: levelId,
+      entered: Boolean(state.entered),
+      completed: Boolean(state.completed),
+    };
+    if (Number.isFinite(state.bestWave)) {
+      entry.bestWave = Math.max(0, state.bestWave);
+    }
+    if (state.lastResult && typeof state.lastResult === 'object') {
+      const sanitizedResult = {};
+      if (typeof state.lastResult.outcome === 'string') {
+        sanitizedResult.outcome = state.lastResult.outcome;
+      }
+      if (Number.isFinite(state.lastResult.timestamp)) {
+        sanitizedResult.timestamp = state.lastResult.timestamp;
+      }
+      if (state.lastResult.stats && typeof state.lastResult.stats === 'object') {
+        const stats = {};
+        Object.entries(state.lastResult.stats).forEach(([key, value]) => {
+          if (Number.isFinite(value)) {
+            stats[key] = value;
+          }
+        });
+        if (Object.keys(stats).length) {
+          sanitizedResult.stats = stats;
+        }
+      }
+      if (Object.keys(sanitizedResult).length) {
+        entry.lastResult = sanitizedResult;
+      }
+    }
+    stateEntries.push(entry);
+  });
+
+  return {
+    version: LEVEL_PROGRESS_VERSION,
+    unlocked: Array.from(unlockedLevels),
+    state: stateEntries,
+  };
+}
+
+function sanitizeStoredLevelResult(result) {
+  if (!result || typeof result !== 'object') {
+    return null;
+  }
+  const sanitized = {};
+  if (typeof result.outcome === 'string') {
+    sanitized.outcome = result.outcome;
+  }
+  if (Number.isFinite(result.timestamp)) {
+    sanitized.timestamp = result.timestamp;
+  }
+  if (result.stats && typeof result.stats === 'object') {
+    const stats = {};
+    Object.entries(result.stats).forEach(([key, value]) => {
+      if (Number.isFinite(value)) {
+        stats[key] = value;
+      }
+    });
+    if (Object.keys(stats).length) {
+      sanitized.stats = stats;
+    }
+  }
+  return Object.keys(sanitized).length ? sanitized : null;
+}
+
+function rebuildUnlockedLevelsFromState() {
+  unlockedLevels.clear();
+  if (!interactiveLevelOrder.length) {
+    return;
+  }
+  const firstLevel = interactiveLevelOrder[0];
+  if (firstLevel) {
+    unlockedLevels.add(firstLevel);
+  }
+  for (let index = 0; index < interactiveLevelOrder.length - 1; index += 1) {
+    const levelId = interactiveLevelOrder[index];
+    const nextId = interactiveLevelOrder[index + 1];
+    if (!levelId || !nextId) {
+      continue;
+    }
+    const state = levelState.get(levelId);
+    if (state?.completed) {
+      unlockedLevels.add(nextId);
+    } else if (!unlockedLevels.has(levelId)) {
+      break;
+    }
+  }
+}
+
+// Hydrate the level state and unlock list using the persisted snapshot.
+export function applyLevelProgressSnapshot(snapshot = {}) {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return false;
+  }
+
+  let restored = false;
+  if (Array.isArray(snapshot.state)) {
+    levelState.clear();
+    snapshot.state.forEach((entry) => {
+      if (!entry || typeof entry !== 'object' || !entry.id) {
+        return;
+      }
+      const hydratedState = {
+        entered: Boolean(entry.entered),
+        running: false,
+        completed: Boolean(entry.completed),
+      };
+      if (Number.isFinite(entry.bestWave)) {
+        hydratedState.bestWave = Math.max(0, entry.bestWave);
+      }
+      const hydratedResult = sanitizeStoredLevelResult(entry.lastResult);
+      if (hydratedResult) {
+        hydratedState.lastResult = hydratedResult;
+      }
+      levelState.set(entry.id, hydratedState);
+    });
+    restored = true;
+  }
+
+  const unlockedSource = Array.isArray(snapshot.unlocked) ? snapshot.unlocked : null;
+  unlockedLevels.clear();
+  if (unlockedSource && unlockedSource.length) {
+    unlockedSource.forEach((levelId) => {
+      if (isInteractiveLevel(levelId)) {
+        unlockedLevels.add(levelId);
+      }
+    });
+  }
+
+  if (!unlockedLevels.size) {
+    rebuildUnlockedLevelsFromState();
+  }
+
+  if (!unlockedLevels.size && interactiveLevelOrder.length) {
+    const firstLevel = interactiveLevelOrder[0];
+    if (firstLevel) {
+      unlockedLevels.add(firstLevel);
+    }
+  }
+
+  return restored || Boolean(unlockedSource?.length);
 }
