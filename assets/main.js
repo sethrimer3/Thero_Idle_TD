@@ -367,6 +367,7 @@ import {
   levelSetEntries,
   getLevelProgressSnapshot,
   applyLevelProgressSnapshot,
+  setDeveloperModeUnlockOverride,
 } from './levels.js';
 import {
   createOverlayHelpers,
@@ -1238,6 +1239,7 @@ import {
     interactiveLevelOrder,
     levelState,
     levelBlueprints,
+    setDeveloperModeUnlockOverride,
     getEnemyCodexEntries,
     codexState,
     renderEnemyCodex,

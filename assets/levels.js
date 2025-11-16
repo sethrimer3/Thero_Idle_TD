@@ -15,6 +15,8 @@ export const levelSetEntries = [];
 const LEVEL_PROGRESS_VERSION = 1;
 
 let developerTheroMultiplierOverride = null;
+// Flag to bypass level locks when developer mode is active so the UI always treats maps as available.
+let developerModeUnlockOverride = false;
 
 // Clone a vector array so callers never mutate the original level blueprints.
 export function cloneVectorArray(array) {
@@ -201,10 +203,18 @@ export function isLevelUnlocked(levelId) {
   if (!levelId) {
     return false;
   }
+  if (developerModeUnlockOverride) {
+    return true;
+  }
   if (!isInteractiveLevel(levelId)) {
     return true;
   }
   return unlockedLevels.has(levelId);
+}
+
+// Allow developer mode to override level locks without mutating persisted unlock data.
+export function setDeveloperModeUnlockOverride(active) {
+  developerModeUnlockOverride = Boolean(active);
 }
 
 // Determine whether the player has already completed the specified level.
