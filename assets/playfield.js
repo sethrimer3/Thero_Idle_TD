@@ -293,9 +293,8 @@ export class SimplePlayfield {
     this.projectiles = [];
     this.damageNumbers = [];
     this.damageNumberIdCounter = 0;
-    // Store per-wave tally scribbles so intermissions can surface kill/damage callouts.
-    this.waveTallyLabels = [];
-    this.waveTallyIdCounter = 0;
+    // Queue knockback requests so the renderer knows when swirl rings should react to hits.
+    this.enemySwirlImpacts = [];
     // Maintain per-tower particle burst queues so α/β/γ/ν visuals can update independently.
     this.alphaBursts = [];
     this.betaBursts = [];
@@ -593,6 +592,41 @@ export class SimplePlayfield {
     const maxEntries = 90;
     if (this.damageNumbers.length > maxEntries) {
       this.damageNumbers.splice(0, this.damageNumbers.length - maxEntries);
+    }
+  }
+
+  // Queue a swirl knockback entry so the renderer can fan particles away from the hit.
+  recordEnemySwirlImpact(enemy, { sourcePosition, damageApplied, enemyHpBefore } = {}) {
+    if (!enemy) {
+      return;
+    }
+    const enemyPosition = this.getEnemyPosition(enemy);
+    if (!enemyPosition) {
+      return;
+    }
+    const queue = Array.isArray(this.enemySwirlImpacts) ? this.enemySwirlImpacts : (this.enemySwirlImpacts = []);
+    const now = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+    let direction = null;
+    if (sourcePosition && Number.isFinite(sourcePosition.x) && Number.isFinite(sourcePosition.y)) {
+      direction = {
+        x: enemyPosition.x - sourcePosition.x,
+        y: enemyPosition.y - sourcePosition.y,
+      };
+    }
+    if (!direction) {
+      const fallbackAngle = Math.random() * Math.PI * 2;
+      direction = { x: Math.cos(fallbackAngle), y: Math.sin(fallbackAngle) };
+    }
+    const magnitude = Math.hypot(direction.x, direction.y) || 1;
+    const normalized = { x: direction.x / magnitude, y: direction.y / magnitude };
+    const baseStrength = Number.isFinite(damageApplied) && Number.isFinite(enemyHpBefore) && enemyHpBefore > 0
+      ? damageApplied / enemyHpBefore
+      : 1;
+    const strength = Math.max(0.45, Math.min(1.35, baseStrength));
+    queue.push({ enemy, direction: normalized, strength, timestamp: now });
+    const maxQueueEntries = 120;
+    if (queue.length > maxQueueEntries) {
+      queue.splice(0, queue.length - maxQueueEntries);
     }
   }
 
@@ -6845,6 +6879,12 @@ export class SimplePlayfield {
       this.recordDamageEvent({ tower: sourceTower, enemy, damage: applied });
     }
     this.spawnDamageNumber(enemy, applied, { sourceTower });
+    // Capture the hit vector so the swirl renderer can push particles along the impact path.
+    const sourcePosition =
+      sourceTower && Number.isFinite(sourceTower.x) && Number.isFinite(sourceTower.y)
+        ? { x: sourceTower.x, y: sourceTower.y }
+        : null;
+    this.recordEnemySwirlImpact(enemy, { sourcePosition, damageApplied: applied, enemyHpBefore: hpBefore });
     if (enemy.hp <= 0) {
       // Track kill and overkill damage for Nu towers
       if (sourceTower && sourceTower.type === 'nu') {
