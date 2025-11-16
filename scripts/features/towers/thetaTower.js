@@ -53,7 +53,7 @@ function clearThetaSlow(enemy, towerId) {
   }
 }
 
-function applyThetaSlow(enemy, tower, state, timeInField) {
+function applyThetaSlow(playfield, enemy, tower, state, timeInField) {
   if (!enemy || !tower || !state) {
     return;
   }
@@ -76,6 +76,9 @@ function applyThetaSlow(enemy, tower, state, timeInField) {
   });
 
   enemy.speed = baseSpeed * multiplier;
+  if (playfield?.registerEnemyDebuff) {
+    playfield.registerEnemyDebuff(enemy, 'theta');
+  }
 }
 
 export function ensureThetaState(playfield, tower) {
@@ -174,7 +177,7 @@ export function updateThetaTower(playfield, tower, delta = 0) {
     entry.time = Math.max(0, (entry.time || 0) + elapsed);
     entry.active = true;
     timers.set(enemy.id, entry);
-    applyThetaSlow(enemy, tower, state, entry.time);
+    applyThetaSlow(playfield, enemy, tower, state, entry.time);
   });
 
   timers.forEach((entry, enemyId) => {

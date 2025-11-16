@@ -127,17 +127,21 @@ function ensureDamageAmplifierMap(enemy) {
   return map;
 }
 
-function applyIotaDebuff(tower, enemy, state) {
+function applyIotaDebuff(playfield, tower, enemy, state) {
   if (!enemy || !state || state.debuffStrength <= 0 || state.debuffDuration <= 0) {
     return;
   }
   const map = ensureDamageAmplifierMap(enemy);
   const effect = map.get(tower.id) || { strength: 0, remaining: 0 };
+  effect.type = 'iota';
   effect.strength = Math.max(effect.strength || 0, state.debuffStrength);
   effect.remaining = Math.max(effect.remaining || 0, state.debuffDuration);
   map.set(tower.id, effect);
   const existingTimer = Number.isFinite(enemy.iotaInversionTimer) ? enemy.iotaInversionTimer : 0;
   enemy.iotaInversionTimer = Math.max(existingTimer, state.debuffDuration);
+  if (playfield?.registerEnemyDebuff) {
+    playfield.registerEnemyDebuff(enemy, 'iota');
+  }
 }
 
 function spawnIotaPulseVisual(playfield, tower, radius) {
@@ -203,7 +207,7 @@ export function fireIotaPulse(playfield, tower, targetInfo = {}) {
       return;
     }
     playfield.applyDamageToEnemy(enemy, damagePerTarget, { sourceTower: tower });
-    applyIotaDebuff(tower, enemy, state);
+    applyIotaDebuff(playfield, tower, enemy, state);
     if (position) {
       playfield.emitTowerAttackVisuals(tower, { enemy, position });
     }
