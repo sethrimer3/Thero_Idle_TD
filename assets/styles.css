@@ -3654,6 +3654,14 @@ body.graphics-mode-low .control-button {
   pointer-events: none;
 }
 
+.fluid-terrarium-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
 .fluid-terrarium-stage {
   position: absolute;
   inset: 0;
@@ -3860,7 +3868,8 @@ body.graphics-mode-low .control-button {
 }
 
 .fluid-viewport {
-  pointer-events: none;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .fluid-metrics-card,
@@ -4169,7 +4178,8 @@ body.graphics-mode-low .control-button {
   inset: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
+  pointer-events: auto;
+  touch-action: none;
   transform-origin: 0 0;
 }
 

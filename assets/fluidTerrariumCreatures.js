@@ -50,14 +50,18 @@ export class FluidTerrariumCreatures {
     this.container = options.container || null;
     this.creatureCount = Number.isFinite(options.creatureCount) ? Math.max(1, Math.round(options.creatureCount)) : 4;
     this.gravity = Number.isFinite(options.gravity) ? options.gravity : 1800; // px/s^2
+    this.terrainElement = options.terrainElement || null;
     this.creatures = [];
     this.layer = null;
     this.bounds = { width: 0, height: 0 };
+    this.terrainBounds = { left: 0, right: 0, width: 0, top: 0, bottom: 0, height: 0 };
+    this.terrainProfile = null;
     this.running = false;
     this.animationFrame = null;
     this.lastTimestamp = null;
     this.resizeObserver = null;
     this.handleFrame = this.handleFrame.bind(this);
+    this.handleTerrainImageLoad = this.handleTerrainImageLoad.bind(this);
 
     if (this.container) {
       this.initializeLayer();
@@ -65,6 +69,8 @@ export class FluidTerrariumCreatures {
       this.spawnCreatures();
       this.observeContainer();
     }
+
+    this.observeTerrainElement(this.terrainElement);
   }
 
   /**
@@ -101,11 +107,28 @@ export class FluidTerrariumCreatures {
       return;
     }
     const rect = this.container.getBoundingClientRect();
-    this.bounds.width = rect.width;
-    this.bounds.height = rect.height;
+    this.bounds.width = this.container.clientWidth || rect.width;
+    this.bounds.height = this.container.clientHeight || rect.height;
+
+    if (this.terrainElement) {
+      const terrainRect = this.terrainElement.getBoundingClientRect();
+      this.terrainBounds = {
+        left: terrainRect.left - rect.left,
+        right: terrainRect.right - rect.left,
+        width: terrainRect.width,
+        top: terrainRect.top - rect.top,
+        bottom: terrainRect.bottom - rect.top,
+        height: terrainRect.height,
+      };
+    }
+
     this.creatures.forEach((creature) => {
+      const leftLimit = this.getLeftLimit(creature);
+      const rightLimit = this.getRightLimit(creature);
+      const minX = Math.min(leftLimit, rightLimit);
+      const maxX = Math.max(leftLimit, rightLimit);
+      creature.x = clamp(creature.x, minX, maxX);
       creature.y = Math.min(creature.y, this.getGroundLevel(creature));
-      creature.x = clamp(creature.x, this.getLeftLimit(creature), this.getRightLimit(creature));
       this.updateCreatureTransform(creature);
     });
   }
@@ -118,7 +141,7 @@ export class FluidTerrariumCreatures {
       return;
     }
     for (let index = 0; index < this.creatureCount; index += 1) {
-      const size = randomBetween(20, 30);
+      const size = randomBetween(2, 3);
       const element = document.createElement('div');
       element.className = 'fluid-terrarium-creature';
       element.textContent = 'Δ';
@@ -127,8 +150,8 @@ export class FluidTerrariumCreatures {
       const creature = {
         element,
         size,
-        x: randomBetween(this.getLeftLimit({ size }), this.getRightLimit({ size })),
-        y: this.getGroundLevel({ size }),
+        x: 0,
+        y: 0,
         vx: 0,
         vy: 0,
         state: 'idle',
@@ -141,6 +164,12 @@ export class FluidTerrariumCreatures {
         targetScaleY: 1,
         shadowPhase: Math.random() * Math.PI * 2,
       };
+      const leftLimit = this.getLeftLimit(creature);
+      const rightLimit = this.getRightLimit(creature);
+      const minX = Math.min(leftLimit, rightLimit);
+      const maxX = Math.max(leftLimit, rightLimit);
+      creature.x = maxX > minX ? randomBetween(minX, maxX) : minX;
+      creature.y = this.getGroundLevel(creature);
       this.creatures.push(creature);
       this.layer.appendChild(element);
       this.updateCreatureTransform(creature);
@@ -152,6 +181,9 @@ export class FluidTerrariumCreatures {
    */
   getLeftLimit(creature) {
     const halfWidth = (creature.size || 24) * 0.35;
+    if (this.terrainBounds.width > 0) {
+      return this.terrainBounds.left + halfWidth;
+    }
     return halfWidth + 2;
   }
 
@@ -163,6 +195,9 @@ export class FluidTerrariumCreatures {
       return (creature.size || 24) * 0.35 + 2;
     }
     const halfWidth = (creature.size || 24) * 0.35;
+    if (this.terrainBounds.width > 0) {
+      return this.terrainBounds.right - halfWidth;
+    }
     return this.bounds.width - halfWidth - 2;
   }
 
@@ -171,10 +206,42 @@ export class FluidTerrariumCreatures {
    */
   getGroundLevel(creature) {
     if (!this.bounds.height) {
-      return (creature.size || 24) * 2;
+      return (creature?.size || 24) * 2;
     }
     const padding = 6;
+    const ground = this.getTerrainGroundAt(creature?.x ?? this.bounds.width / 2);
+    if (Number.isFinite(ground)) {
+      return ground;
+    }
     return this.bounds.height - padding;
+  }
+
+  /**
+   * Report the interpolated terrain height for a given x coordinate.
+   * @param {number} x
+   * @returns {number|null}
+   */
+  getTerrainGroundAt(x) {
+    if (!Number.isFinite(x) || !this.terrainProfile || this.terrainBounds.width <= 0) {
+      return null;
+    }
+    const normalizedX = clamp((x - this.terrainBounds.left) / this.terrainBounds.width, 0, 1);
+    const samples = this.terrainProfile.samples;
+    if (!samples || !samples.length) {
+      return null;
+    }
+    const rawIndex = normalizedX * (samples.length - 1);
+    const lowerIndex = Math.floor(rawIndex);
+    const upperIndex = Math.min(samples.length - 1, lowerIndex + 1);
+    const t = rawIndex - lowerIndex;
+    const lower = samples[lowerIndex];
+    const upper = samples[upperIndex];
+    const sampleValue = lower + (upper - lower) * t;
+    if (!Number.isFinite(sampleValue) || !Number.isFinite(this.terrainProfile.height)) {
+      return null;
+    }
+    const normalizedY = sampleValue / this.terrainProfile.height;
+    return this.terrainBounds.top + normalizedY * this.terrainBounds.height;
   }
 
   /**
@@ -239,13 +306,15 @@ export class FluidTerrariumCreatures {
 
       const leftLimit = this.getLeftLimit(creature);
       const rightLimit = this.getRightLimit(creature);
+      const minX = Math.min(leftLimit, rightLimit);
+      const maxX = Math.max(leftLimit, rightLimit);
       const ground = this.getGroundLevel(creature);
 
-      if (creature.x <= leftLimit) {
-        creature.x = leftLimit;
+      if (creature.x <= minX) {
+        creature.x = minX;
         creature.vx = Math.abs(creature.vx) * 0.65;
-      } else if (creature.x >= rightLimit) {
-        creature.x = rightLimit;
+      } else if (creature.x >= maxX) {
+        creature.x = maxX;
         creature.vx = -Math.abs(creature.vx) * 0.65;
       }
 
@@ -339,10 +408,83 @@ export class FluidTerrariumCreatures {
       }
       this.resizeObserver = null;
     }
+    if (this.terrainElement) {
+      this.terrainElement.removeEventListener('load', this.handleTerrainImageLoad);
+    }
     if (this.layer && this.layer.parentNode) {
       this.layer.parentNode.removeChild(this.layer);
     }
     this.layer = null;
     this.creatures.length = 0;
+  }
+
+  /**
+   * Listen for the terrain sprite load event so collisions can match its silhouette.
+   * @param {HTMLImageElement|null} element
+   */
+  observeTerrainElement(element) {
+    if (!element) {
+      return;
+    }
+    if (element.complete && element.naturalWidth > 0 && element.naturalHeight > 0) {
+      this.sampleTerrainProfile();
+      this.refreshBounds();
+      return;
+    }
+    element.addEventListener('load', this.handleTerrainImageLoad, { once: true });
+  }
+
+  /**
+   * Handle the terrain sprite load event.
+   */
+  handleTerrainImageLoad() {
+    this.sampleTerrainProfile();
+    this.refreshBounds();
+  }
+
+  /**
+   * Trace the top contour of the terrain sprite to generate a collision profile.
+   */
+  sampleTerrainProfile() {
+    if (
+      !this.terrainElement ||
+      !Number.isFinite(this.terrainElement.naturalWidth) ||
+      !Number.isFinite(this.terrainElement.naturalHeight) ||
+      this.terrainElement.naturalWidth <= 0 ||
+      this.terrainElement.naturalHeight <= 0
+    ) {
+      return;
+    }
+    const sampleWidth = Math.min(256, Math.max(48, Math.round(this.terrainElement.naturalWidth / 4)));
+    const aspectRatio = this.terrainElement.naturalHeight / this.terrainElement.naturalWidth;
+    const sampleHeight = Math.max(1, Math.round(sampleWidth * aspectRatio));
+    const canvas = document.createElement('canvas');
+    canvas.width = sampleWidth;
+    canvas.height = sampleHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(this.terrainElement, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const samples = new Float32Array(canvas.width);
+    const alphaThreshold = 8;
+    for (let x = 0; x < canvas.width; x += 1) {
+      let sampleY = canvas.height;
+      for (let y = 0; y < canvas.height; y += 1) {
+        const index = (y * canvas.width + x) * 4 + 3;
+        if (imageData.data[index] > alphaThreshold) {
+          sampleY = y;
+          break;
+        }
+      }
+      samples[x] = sampleY;
+    }
+    this.terrainProfile = {
+      width: canvas.width,
+      height: canvas.height,
+      samples,
+    };
   }
 }

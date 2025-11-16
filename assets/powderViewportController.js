@@ -51,18 +51,33 @@ export function createPowderViewportController({
   function applyPowderViewportTransform(transform, simulation = (typeof getActiveSimulation === 'function' ? getActiveSimulation() : null)) {
     const elements = getElementsForSimulation(simulation);
     const viewport = elements?.viewport;
-    if (!viewport) {
+    const fluidSimulation = typeof getFluidSimulation === 'function' ? getFluidSimulation() : null;
+    const isFluid = Boolean(simulation && fluidSimulation && simulation === fluidSimulation);
+    const transformTarget = isFluid ? elements?.terrariumLayer || viewport : viewport;
+    if (!transformTarget) {
+      if (viewport) {
+        viewport.style.transform = '';
+      }
+      if (isFluid && elements?.terrariumLayer) {
+        elements.terrariumLayer.style.transform = '';
+      }
       return;
     }
     if (!transform) {
-      viewport.style.transform = '';
+      transformTarget.style.transform = '';
+      if (transformTarget !== viewport && viewport) {
+        viewport.style.transform = '';
+      }
       return;
     }
     const width = Number.isFinite(transform.width) ? transform.width : 0;
     const height = Number.isFinite(transform.height) ? transform.height : 0;
     const scale = Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1;
     if (!width || !height) {
-      viewport.style.transform = '';
+      transformTarget.style.transform = '';
+      if (transformTarget !== viewport && viewport) {
+        viewport.style.transform = '';
+      }
       return;
     }
     const centerX = Number.isFinite(transform.center?.x) ? transform.center.x : width / 2;
@@ -70,7 +85,11 @@ export function createPowderViewportController({
     const translateToCenter = `translate(${(width / 2).toFixed(3)}px, ${(height / 2).toFixed(3)}px)`;
     const scalePart = `scale(${scale.toFixed(5)})`;
     const translateToOrigin = `translate(${(-centerX).toFixed(3)}px, ${(-centerY).toFixed(3)}px)`;
-    viewport.style.transform = `${translateToCenter} ${scalePart} ${translateToOrigin}`;
+    const transformValue = `${translateToCenter} ${scalePart} ${translateToOrigin}`;
+    transformTarget.style.transform = transformValue;
+    if (transformTarget !== viewport && viewport) {
+      viewport.style.transform = '';
+    }
   }
 
   function handlePowderViewTransformChange(transform) {
