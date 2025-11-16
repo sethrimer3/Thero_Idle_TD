@@ -163,6 +163,7 @@ const towerTabState = {
   towerDefinitions: [],
   towerDefinitionMap: new Map(),
   towerOrderIndex: new Map(),
+  towerPreviousTierMap: new Map(),
   towerLoadoutLimit: 4,
   loadoutState: { selected: ['alpha'] },
   unlockState: { unlocked: new Set(['alpha']) },
@@ -382,6 +383,12 @@ export function setTowerDefinitions(definitions = []) {
   towerTabState.towerOrderIndex = new Map(
     towerTabState.towerDefinitions.map((tower, index) => [tower.id, index]),
   );
+  towerTabState.towerPreviousTierMap = new Map();
+  towerTabState.towerDefinitions.forEach((tower) => {
+    if (tower?.nextTierId && !towerTabState.towerPreviousTierMap.has(tower.nextTierId)) {
+      towerTabState.towerPreviousTierMap.set(tower.nextTierId, tower.id);
+    }
+  });
 }
 
 export function getTowerDefinitions() {
@@ -684,6 +691,13 @@ function getTowerSourceLabel(towerId) {
 export function getNextTowerId(towerId) {
   const definition = getTowerDefinition(towerId);
   return definition?.nextTierId || null;
+}
+
+export function getPreviousTowerId(towerId) {
+  if (!towerId) {
+    return null;
+  }
+  return towerTabState.towerPreviousTierMap.get(towerId) || null;
 }
 
 export function isTowerUnlocked(towerId) {
