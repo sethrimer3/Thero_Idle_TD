@@ -40,6 +40,7 @@ export function createDeveloperModeManager(options = {}) {
     interactiveLevelOrder,
     levelState,
     levelBlueprints,
+    setDeveloperModeUnlockOverride,
     getEnemyCodexEntries,
     codexState,
     renderEnemyCodex,
@@ -186,6 +187,8 @@ export function createDeveloperModeManager(options = {}) {
     if (developerModeElements.toggle && !developerModeElements.toggle.checked) {
       developerModeElements.toggle.checked = true;
     }
+    // Ensure level lock checks bypass progression when developer mode is active.
+    setDeveloperModeUnlockOverride?.(true);
 
     const towers = typeof getTowerDefinitions === 'function' ? getTowerDefinitions() : [];
     const loadoutState = typeof getTowerLoadoutState === 'function' ? getTowerLoadoutState() : null;
@@ -299,6 +302,8 @@ export function createDeveloperModeManager(options = {}) {
     if (developerModeElements.toggle && developerModeElements.toggle.checked) {
       developerModeElements.toggle.checked = false;
     }
+    // Restore normal level lock behavior once developer mode is disabled.
+    setDeveloperModeUnlockOverride?.(false);
     stopLamedDeveloperSpamLoop?.();
     persistDeveloperModeState(false);
 
