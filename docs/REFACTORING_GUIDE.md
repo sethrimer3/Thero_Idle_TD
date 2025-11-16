@@ -606,6 +606,25 @@ Following this plan will shrink the single-source files, align them with the dis
 - Drag behavior, preview plumbing, and affordability labels now live in a cohesive module that can be unit tested without booting the entire Towers tab controller
 - Future loadout enhancements (e.g., multi-slot presets) can evolve inside the dedicated controller without reopening the monolithic Towers tab orchestrator
 
+### towerEquipmentBindings.js (tower equipment slot UI)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- DOM scaffolding for the tower equipment slot (button, icon, caption, dropdown list) that previously bloated `assets/towersTab.js`
+- Menu population logic that lists crafted equipment, renders the "empty slot" sentinel, and annotates assignments with `getTowerSourceLabel()`
+- Pointer/keyboard listeners that close the dropdown when clicking elsewhere or pressing Escape, plus the subscription that reacts to `addEquipmentStateListener`
+
+**Integration approach:**
+- Introduced `assets/towerEquipmentBindings.js` with a `createTowerEquipmentBindings()` factory that receives the Towers tab equipment state bucket, selector constants, and helpers from `equipment.js`
+- `assets/towersTab.js` instantiates the factory once and re-exports `initializeTowerEquipmentInterface()` so `main.js` keeps the exact same wiring API
+- The factory injects unlock events via `document.addEventListener('tower-unlocked', …)` instead of relying on the Towers tab closure, keeping the dropdown logic self-contained
+
+**Result:**
+- Roughly 300 lines of equipment-specific DOM code left `assets/towersTab.js`, shrinking the file before the remaining blueprint refactors land
+- Equipment menu behavior now lives in a cohesive module that can be unit tested or reused without importing the entire Towers tab orchestrator
+- Future work (e.g., multi-slot equipment, rarity badges) can iterate inside `towerEquipmentBindings.js` without touching loadout, blueprint, or unlock logic
+
 ### towerUpgradeOverlayController.js (upgrade overlay renderer + glyph spending)
 
 **Status:** ✅ Complete
