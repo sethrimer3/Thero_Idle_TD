@@ -43,6 +43,10 @@ export class BrownianTreeSimulation {
     // Maintain an offscreen canvas so tone-mapped light can follow pan and zoom interactions.
     this.offscreenCanvas = null;
     this.offscreenCtx = null;
+    // Track whether the tone-mapped buffer needs to be re-rendered. This lets us
+    // skip a full Float32Array walk every frame when no new particles were
+    // attached, which was the primary cause of sluggishness even for tiny clusters.
+    this.needsToneMap = true;
 
     this.configureDimensions(this.canvas ? this.canvas.width : 0, this.canvas ? this.canvas.height : 0);
   }
@@ -73,6 +77,7 @@ export class BrownianTreeSimulation {
     }
 
     this.registerConnectionsForPoint(pointIndex);
+    this.needsToneMap = true;
   }
 
   nearCluster(x, y) {
@@ -215,11 +220,18 @@ export class BrownianTreeSimulation {
 
     const shadingCtx = this.offscreenCtx || this.ctx;
     const usingOffscreen = shadingCtx !== this.ctx;
+    const shouldToneMap = this.needsToneMap || !usingOffscreen;
 
-    // Refresh the density field so the glow responds when the camera moves.
-    shadingCtx.fillStyle = '#050208';
-    shadingCtx.fillRect(0, 0, this.width, this.height);
-    toneMapBuffer(this.accumulator, this.width, this.height, shadingCtx, 'blue-aurora');
+    if (shouldToneMap) {
+      // Refresh the density field only when new particles were attached or when
+      // we lack an offscreen buffer (fallback mode). This avoids the heavy
+      // per-frame tone mapping pass that previously made even a two-point
+      // cluster feel sluggish.
+      shadingCtx.fillStyle = '#050208';
+      shadingCtx.fillRect(0, 0, this.width, this.height);
+      toneMapBuffer(this.accumulator, this.width, this.height, shadingCtx, 'blue-aurora');
+      this.needsToneMap = false;
+    }
 
     if (usingOffscreen) {
       this.ctx.fillStyle = '#050208';
@@ -336,6 +348,7 @@ export class BrownianTreeSimulation {
     if (this.width > 0 && this.height > 0) {
       this.addParticle(0, 0);
     }
+    this.needsToneMap = true;
   }
 
   /**
@@ -362,6 +375,7 @@ export class BrownianTreeSimulation {
       this.addParticle(0, 0);
     }
     this.createOffscreenSurface(this.width, this.height);
+    this.needsToneMap = true;
   }
 
   /**
@@ -407,6 +421,7 @@ export class BrownianTreeSimulation {
     if (width <= 0 || height <= 0) {
       this.offscreenCanvas = null;
       this.offscreenCtx = null;
+      this.needsToneMap = true;
       return;
     }
 
@@ -433,6 +448,7 @@ export class BrownianTreeSimulation {
 
     this.offscreenCanvas = null;
     this.offscreenCtx = null;
+    this.needsToneMap = true;
   }
 }
 
