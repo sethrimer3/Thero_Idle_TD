@@ -54,6 +54,11 @@ const ENEMY_SWIRL_MIN_HOLD_MS = 140;
 const ENEMY_SWIRL_MAX_HOLD_MS = 360;
 const ENEMY_SWIRL_PARTICLE_BASE = 18;
 const ENEMY_SWIRL_PARTICLE_LOW = 10;
+// Anchor for the high-fidelity spawn budget so designers can tune the swirl curve quickly.
+const ENEMY_SWIRL_HIGH_PARTICLE_ANCHOR = 30;
+// Knockback tuning keeps hit reactions energetic without throwing particles off-screen.
+const ENEMY_SWIRL_KNOCKBACK_DISTANCE = 14;
+const ENEMY_SWIRL_KNOCKBACK_DURATION_MS = 360;
 const ENEMY_SWIRL_FALLBACK_THRESHOLD = 60;
 const ENEMY_GATE_DARK_BLUE = 'rgba(15, 27, 63, 0.95)';
 const ENEMY_GATE_DARK_BLUE_CORE = 'rgba(5, 8, 18, 0.92)';
@@ -102,6 +107,19 @@ function sampleEnemyParticleColor() {
     g: Math.round(first.g + (second.g - first.g) * mix),
     b: Math.round(first.b + (second.b - first.b) * mix),
   };
+}
+
+// Resolve how many swirl particles a newly spawned enemy should receive in high-fidelity mode.
+function resolveHighGraphicsSpawnParticleBudget() {
+  if (!this || typeof this.isLowGraphicsMode !== 'function' || this.isLowGraphicsMode()) {
+    return null;
+  }
+  if (!Number.isFinite(ENEMY_SWIRL_HIGH_PARTICLE_ANCHOR)) {
+    return null;
+  }
+  const trackedEnemies = this.enemySwirlParticles instanceof Map ? this.enemySwirlParticles.size : 0;
+  const available = ENEMY_SWIRL_HIGH_PARTICLE_ANCHOR - trackedEnemies;
+  return Math.max(0, Math.round(available));
 }
 
 function lerpAngle(start, end, t) {
@@ -1217,6 +1235,71 @@ function shouldUseEnemyFallbackRendering() {
   return enemyCount > threshold;
 }
 
+// Consume the most recent queued impact for an enemy so the renderer can animate knockback.
+function consumeEnemySwirlImpact(enemy) {
+  if (!enemy || !Array.isArray(this?.enemySwirlImpacts) || !this.enemySwirlImpacts.length) {
+    return null;
+  }
+  let latest = null;
+  for (let index = this.enemySwirlImpacts.length - 1; index >= 0; index -= 1) {
+    const entry = this.enemySwirlImpacts[index];
+    if (!entry || entry.enemy !== enemy) {
+      continue;
+    }
+    latest = entry;
+    this.enemySwirlImpacts.splice(index, 1);
+    break;
+  }
+  return latest;
+}
+
+// Determine the current swirl target based on fidelity mode and per-enemy spawn budgets.
+function resolveEnemySwirlDesiredCount(entry, metrics, lowGraphicsEnabled) {
+  if (lowGraphicsEnabled) {
+    const baseCount = ENEMY_SWIRL_PARTICLE_LOW;
+    const scale = Number.isFinite(metrics?.scale) ? metrics.scale : 1;
+    const scaled = clamp(baseCount * scale, baseCount * 0.6, baseCount * 1.4);
+    return Math.max(4, Math.round(scaled));
+  }
+  const spawnBudget = Number.isFinite(entry?.spawnParticleBudget)
+    ? entry.spawnParticleBudget
+    : ENEMY_SWIRL_PARTICLE_BASE;
+  return Math.max(0, Math.round(spawnBudget));
+}
+
+// Apply a knockback offset so swirl particles briefly drift away from the impact point.
+function applyEnemySwirlImpactOffset(entry, position, now) {
+  if (!entry || !entry.activeImpact || !position) {
+    return position;
+  }
+  const impact = entry.activeImpact;
+  const duration = Number.isFinite(impact.duration) ? impact.duration : ENEMY_SWIRL_KNOCKBACK_DURATION_MS;
+  if (duration <= 0) {
+    entry.activeImpact = null;
+    return position;
+  }
+  const startTime = Number.isFinite(impact.startedAt) ? impact.startedAt : now;
+  const elapsed = now - startTime;
+  if (elapsed <= 0) {
+    return position;
+  }
+  if (elapsed >= duration) {
+    entry.activeImpact = null;
+    return position;
+  }
+  const progress = clamp(elapsed / duration, 0, 1);
+  const impulse = Math.sin(progress * Math.PI);
+  const direction = impact.direction || { x: 0, y: 0 };
+  const magnitude = Math.hypot(direction.x, direction.y) || 1;
+  const normalized = { x: direction.x / magnitude, y: direction.y / magnitude };
+  const strength = Number.isFinite(impact.strength) ? Math.max(0, impact.strength) : 1;
+  const distance = ENEMY_SWIRL_KNOCKBACK_DISTANCE * strength * impulse;
+  return {
+    x: position.x + normalized.x * distance,
+    y: position.y + normalized.y * distance,
+  };
+}
+
 function ensureEnemySwirlState(enemy, metrics) {
   if (!enemy || !metrics) {
     return null;
@@ -1226,7 +1309,12 @@ function ensureEnemySwirlState(enemy, metrics) {
   }
   let entry = this.enemySwirlParticles.get(enemy);
   if (!entry) {
+    // Record the spawn-time swirl allocation so future frames keep the same budget.
+    const spawnBudget = resolveHighGraphicsSpawnParticleBudget.call(this);
     entry = { particles: [], ringRadius: metrics.ringRadius, coreRadius: metrics.coreRadius };
+    if (Number.isFinite(spawnBudget)) {
+      entry.spawnParticleBudget = spawnBudget;
+    }
     this.enemySwirlParticles.set(enemy, entry);
   }
   const previousRadius = Number.isFinite(entry.ringRadius) ? entry.ringRadius : metrics.ringRadius;
@@ -1343,9 +1431,18 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
   if (!entry) {
     return;
   }
-  const baseCount = this.isLowGraphicsMode() ? ENEMY_SWIRL_PARTICLE_LOW : ENEMY_SWIRL_PARTICLE_BASE;
-  const scaled = clamp(baseCount * (metrics.scale || 1), baseCount * 0.6, baseCount * 1.4);
-  const desiredCount = Math.max(4, Math.round(scaled));
+  const lowGraphicsEnabled = this.isLowGraphicsMode();
+  // Apply the latest queued knockback so the swirl ring reacts to recent hits.
+  const latestImpact = consumeEnemySwirlImpact.call(this, enemy);
+  if (latestImpact) {
+    entry.activeImpact = {
+      direction: latestImpact.direction,
+      strength: Number.isFinite(latestImpact.strength) ? latestImpact.strength : 1,
+      startedAt: Number.isFinite(latestImpact.timestamp) ? latestImpact.timestamp : now,
+      duration: ENEMY_SWIRL_KNOCKBACK_DURATION_MS,
+    };
+  }
+  const desiredCount = resolveEnemySwirlDesiredCount(entry, metrics, lowGraphicsEnabled);
   while (entry.particles.length < desiredCount) {
     entry.particles.push(spawnEnemySwirlParticle(metrics, now));
   }
@@ -1357,13 +1454,13 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
     advanceEnemySwirlParticle(particle, metrics, now);
     const radius = clamp(particle.currentRadius ?? metrics.ringRadius, 0, metrics.ringRadius);
     const angle = Number.isFinite(particle.currentAngle) ? particle.currentAngle : 0;
-    const x = Math.cos(angle) * radius;
-    const y = Math.sin(angle) * radius;
+    const basePosition = { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+    const position = applyEnemySwirlImpactOffset(entry, basePosition, now) || basePosition;
     const alpha = clamp(alphaBase * (particle.state === 'hold' ? 0.9 : 0.7 + Math.random() * 0.2), 0.25, 0.95);
     ctx.beginPath();
     ctx.fillStyle = colorToRgbaString(particle.color || sampleEnemyParticleColor(), alpha);
     const size = Math.max(0.6, particle.size || 1.2);
-    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.arc(position.x, position.y, size, 0, Math.PI * 2);
     ctx.fill();
   });
 }
@@ -1421,6 +1518,23 @@ function drawEnemySymbolAndExponent(ctx, options = {}) {
   ctx.fillText(exponentLabel, exponentOffsetX, exponentOffsetY);
 }
 
+// Remove stale knockback entries so the queue never references defeated enemies.
+function cleanupEnemySwirlImpactQueue(activeEnemies) {
+  if (!Array.isArray(this.enemySwirlImpacts) || !this.enemySwirlImpacts.length) {
+    return;
+  }
+  if (!activeEnemies || !activeEnemies.size) {
+    this.enemySwirlImpacts.length = 0;
+    return;
+  }
+  for (let index = this.enemySwirlImpacts.length - 1; index >= 0; index -= 1) {
+    const entry = this.enemySwirlImpacts[index];
+    if (!entry || !activeEnemies.has(entry.enemy)) {
+      this.enemySwirlImpacts.splice(index, 1);
+    }
+  }
+}
+
 function cleanupEnemySwirlParticles(activeEnemies) {
   if (!this.enemySwirlParticles) {
     return;
@@ -1431,6 +1545,7 @@ function cleanupEnemySwirlParticles(activeEnemies) {
       this.enemySwirlParticles.delete(enemyRef);
     }
   });
+  cleanupEnemySwirlImpactQueue.call(this, activeSet);
 }
 
 function drawEnemies() {
@@ -1446,6 +1561,9 @@ function drawEnemies() {
   const activeEnemies = fallbackRendering ? null : new Set();
   if (fallbackRendering && this.enemySwirlParticles) {
     this.enemySwirlParticles.clear();
+  }
+  if (fallbackRendering && Array.isArray(this.enemySwirlImpacts)) {
+    this.enemySwirlImpacts.length = 0;
   }
 
   this.enemies.forEach((enemy) => {
