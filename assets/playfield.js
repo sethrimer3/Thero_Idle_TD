@@ -195,12 +195,14 @@ const WAVE_TALLY_KILL_COLOR = { r: 255, g: 228, b: 150 };
 const WAVE_TALLY_DAMAGE_COLOR = { r: 139, g: 247, b: 255 };
 const WAVE_TALLY_SHADOW_COLOR = { r: 6, g: 8, b: 14 };
 const WAVE_TALLY_SCRIBBLE_DURATION = 0.28;
-const WAVE_TALLY_HOLD_DURATION = 0.5;
+// Let wave tallies linger on screen before fading to help readability during busy waves.
+const WAVE_TALLY_HOLD_DURATION = 2;
 const WAVE_TALLY_ERASE_DURATION = 0.4;
 const WAVE_TALLY_KILL_PADDING = 18;
 const WAVE_TALLY_DAMAGE_PADDING = 24;
 const WAVE_TALLY_KILL_FONT_SIZE = 17;
-const WAVE_TALLY_DAMAGE_FONT_SIZE = 16;
+// Damage scribbles intentionally run half size so they feel like supporting data beneath kill tallies.
+const WAVE_TALLY_DAMAGE_FONT_SIZE = 8;
 
 export class SimplePlayfield {
   constructor(options) {
@@ -707,7 +709,8 @@ export class SimplePlayfield {
       return null;
     }
     const fontSize = type === 'kills' ? WAVE_TALLY_KILL_FONT_SIZE : WAVE_TALLY_DAMAGE_FONT_SIZE;
-    const font = `600 ${fontSize}px ${WAVE_TALLY_FONT_FAMILY}`;
+    const fontWeight = type === 'damage' ? 700 : 600;
+    const font = `${fontWeight} ${fontSize}px ${WAVE_TALLY_FONT_FAMILY}`;
     const color = type === 'kills' ? WAVE_TALLY_KILL_COLOR : WAVE_TALLY_DAMAGE_COLOR;
     const padding = type === 'kills' ? WAVE_TALLY_KILL_PADDING : WAVE_TALLY_DAMAGE_PADDING;
     const entry = {
@@ -732,6 +735,7 @@ export class SimplePlayfield {
       revealProgress: 0,
       eraseProgress: 0,
       alpha: 0,
+      opacity: type === 'damage' ? 0.7 : 1,
       position: { x: tower.x, y: tower.y },
     };
     entry.textWidth = this.measureWaveTallyLabelWidth(label, font, fontSize);
@@ -780,7 +784,7 @@ export class SimplePlayfield {
       if (showDamage) {
         const totalDamage = Number.isFinite(statsEntry.totalDamage) ? statsEntry.totalDamage : 0;
         if (totalDamage > 0) {
-          const damageLabel = `Damage · ${formatCombatNumber(totalDamage)}`;
+          const damageLabel = `Dmg · ${formatCombatNumber(totalDamage)}`;
           const entry = this.createWaveTallyEntry(tower, { type: 'damage', label: damageLabel });
           if (entry) {
             this.waveTallyLabels.push(entry);
