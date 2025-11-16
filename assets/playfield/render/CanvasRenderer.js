@@ -48,6 +48,79 @@ enemyGateSprite.loading = 'eager';
 
 const GEM_MOTE_BASE_RATIO = 0.02;
 const TRACK_GATE_SIZE_SCALE = 0.5;
+const ENEMY_SWIRL_MIN_DURATION_MS = 500;
+const ENEMY_SWIRL_MAX_DURATION_MS = 2000;
+const ENEMY_SWIRL_MIN_HOLD_MS = 140;
+const ENEMY_SWIRL_MAX_HOLD_MS = 360;
+const ENEMY_SWIRL_PARTICLE_BASE = 18;
+const ENEMY_SWIRL_PARTICLE_LOW = 10;
+const ENEMY_SWIRL_FALLBACK_THRESHOLD = 60;
+const ENEMY_GATE_DARK_BLUE = 'rgba(15, 27, 63, 0.95)';
+const ENEMY_GATE_DARK_BLUE_CORE = 'rgba(5, 8, 18, 0.92)';
+const ENEMY_PARTICLE_PALETTE = [
+  { r: 4, g: 4, b: 6 },
+  { r: 7, g: 10, b: 22 },
+  { r: 9, g: 14, b: 30 },
+  { r: 12, g: 20, b: 48 },
+  { r: 20, g: 12, b: 46 },
+  { r: 32, g: 8, b: 52 },
+  { r: 0, g: 0, b: 0 },
+];
+
+function clamp(value, min, max) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  if (value < min) {
+    return min;
+  }
+  if (value > max) {
+    return max;
+  }
+  return value;
+}
+
+function randomBetween(min, max) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return min;
+  }
+  if (max <= min) {
+    return min;
+  }
+  return min + Math.random() * (max - min);
+}
+
+function sampleEnemyParticleColor() {
+  if (!ENEMY_PARTICLE_PALETTE.length) {
+    return { r: 8, g: 10, b: 24 };
+  }
+  const first = ENEMY_PARTICLE_PALETTE[Math.floor(Math.random() * ENEMY_PARTICLE_PALETTE.length)];
+  const second = ENEMY_PARTICLE_PALETTE[Math.floor(Math.random() * ENEMY_PARTICLE_PALETTE.length)];
+  const mix = Math.random() * 0.6;
+  return {
+    r: Math.round(first.r + (second.r - first.r) * mix),
+    g: Math.round(first.g + (second.g - first.g) * mix),
+    b: Math.round(first.b + (second.b - first.b) * mix),
+  };
+}
+
+function lerpAngle(start, end, t) {
+  const tau = Math.PI * 2;
+  let delta = (end - start) % tau;
+  if (delta > Math.PI) {
+    delta -= tau;
+  } else if (delta < -Math.PI) {
+    delta += tau;
+  }
+  return start + delta * t;
+}
+
+function getNowTimestamp() {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now();
+  }
+  return Date.now();
+}
 
 function applyCanvasShadow(ctx, color, blur) {
   if (!ctx) {
@@ -1133,6 +1206,233 @@ function drawOmicronUnits() {
   drawOmicronUnitsHelper(this);
 }
 
+function shouldUseEnemyFallbackRendering() {
+  const enemyCount = Array.isArray(this.enemies) ? this.enemies.length : 0;
+  if (!enemyCount) {
+    return false;
+  }
+  const threshold = this.isLowGraphicsMode()
+    ? Math.max(12, Math.round(ENEMY_SWIRL_FALLBACK_THRESHOLD * 0.65))
+    : ENEMY_SWIRL_FALLBACK_THRESHOLD;
+  return enemyCount > threshold;
+}
+
+function ensureEnemySwirlState(enemy, metrics) {
+  if (!enemy || !metrics) {
+    return null;
+  }
+  if (!this.enemySwirlParticles) {
+    this.enemySwirlParticles = new Map();
+  }
+  let entry = this.enemySwirlParticles.get(enemy);
+  if (!entry) {
+    entry = { particles: [], ringRadius: metrics.ringRadius, coreRadius: metrics.coreRadius };
+    this.enemySwirlParticles.set(enemy, entry);
+  }
+  const previousRadius = Number.isFinite(entry.ringRadius) ? entry.ringRadius : metrics.ringRadius;
+  if (Number.isFinite(previousRadius) && previousRadius > 0 && Math.abs(previousRadius - metrics.ringRadius) > 0.1) {
+    const ratio = metrics.ringRadius / previousRadius;
+    entry.particles.forEach((particle) => {
+      if (Number.isFinite(particle?.currentRadius)) {
+        particle.currentRadius *= ratio;
+      }
+    });
+  }
+  entry.ringRadius = metrics.ringRadius;
+  entry.coreRadius = metrics.coreRadius;
+  return entry;
+}
+
+function spawnEnemySwirlParticle(metrics, now) {
+  const duration = randomBetween(ENEMY_SWIRL_MIN_DURATION_MS, ENEMY_SWIRL_MAX_DURATION_MS);
+  const holdDuration = randomBetween(ENEMY_SWIRL_MIN_HOLD_MS, ENEMY_SWIRL_MAX_HOLD_MS);
+  const angle = Math.random() * Math.PI * 2;
+  const scale = Math.max(0.65, Math.min(1.45, metrics.scale || 1));
+  const size = randomBetween(0.9, 2.3) * scale;
+  const jitter = Math.random();
+  return {
+    color: sampleEnemyParticleColor(),
+    startAngle: angle,
+    targetAngle: angle,
+    currentAngle: angle,
+    currentRadius: metrics.ringRadius,
+    state: 'in',
+    duration,
+    holdDuration,
+    startedAt: now - jitter * duration,
+    holdUntil: 0,
+    size,
+  };
+}
+
+function advanceEnemySwirlParticle(particle, metrics, now) {
+  if (!particle || !metrics) {
+    return;
+  }
+  const maxRadius = metrics.ringRadius;
+  if (!Number.isFinite(maxRadius) || maxRadius <= 0) {
+    particle.currentRadius = 0;
+    return;
+  }
+  if (!particle.duration || particle.duration <= 0) {
+    particle.duration = ENEMY_SWIRL_MIN_DURATION_MS;
+  }
+  if (particle.state === 'in') {
+    const elapsed = now - particle.startedAt;
+    const progress = clamp(elapsed / particle.duration, 0, 1);
+    particle.currentRadius = maxRadius * (1 - progress);
+    if (progress >= 1) {
+      particle.state = 'hold';
+      particle.holdUntil = now + particle.holdDuration;
+    }
+  } else if (particle.state === 'hold') {
+    particle.currentRadius = 0;
+    if (!particle.holdUntil || now >= particle.holdUntil) {
+      particle.state = 'out';
+      particle.startAngle = particle.currentAngle;
+      particle.targetAngle = Math.random() * Math.PI * 2;
+      particle.startedAt = now;
+      particle.duration = randomBetween(ENEMY_SWIRL_MIN_DURATION_MS, ENEMY_SWIRL_MAX_DURATION_MS);
+    }
+  } else {
+    const elapsed = now - particle.startedAt;
+    const progress = clamp(elapsed / particle.duration, 0, 1);
+    particle.currentRadius = maxRadius * progress;
+    const startAngle = Number.isFinite(particle.startAngle) ? particle.startAngle : 0;
+    const endAngle = Number.isFinite(particle.targetAngle) ? particle.targetAngle : startAngle;
+    particle.currentAngle = lerpAngle(startAngle, endAngle, progress);
+    if (progress >= 1) {
+      particle.state = 'in';
+      particle.startAngle = particle.currentAngle;
+      particle.targetAngle = particle.currentAngle;
+      particle.startedAt = now;
+      particle.duration = randomBetween(ENEMY_SWIRL_MIN_DURATION_MS, ENEMY_SWIRL_MAX_DURATION_MS);
+      particle.holdDuration = randomBetween(ENEMY_SWIRL_MIN_HOLD_MS, ENEMY_SWIRL_MAX_HOLD_MS);
+    }
+  }
+}
+
+function drawEnemySwirlBackdrop(ctx, metrics, inversionActive) {
+  if (!ctx || !metrics) {
+    return;
+  }
+  ctx.save();
+  const radius = metrics.ringRadius * 1.08;
+  const gradient = ctx.createRadialGradient(0, 0, Math.max(2, metrics.coreRadius * 0.25), 0, 0, radius);
+  if (inversionActive) {
+    gradient.addColorStop(0, 'rgba(236, 244, 255, 0.55)');
+    gradient.addColorStop(0.5, 'rgba(210, 228, 255, 0.18)');
+    gradient.addColorStop(1, 'rgba(236, 244, 255, 0.08)');
+  } else {
+    gradient.addColorStop(0, 'rgba(6, 10, 22, 0.85)');
+    gradient.addColorStop(0.45, 'rgba(10, 16, 34, 0.6)');
+    gradient.addColorStop(1, 'rgba(2, 4, 10, 0.05)');
+  }
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
+  if (!ctx || !enemy || !metrics) {
+    return;
+  }
+  const entry = ensureEnemySwirlState.call(this, enemy, metrics);
+  if (!entry) {
+    return;
+  }
+  const baseCount = this.isLowGraphicsMode() ? ENEMY_SWIRL_PARTICLE_LOW : ENEMY_SWIRL_PARTICLE_BASE;
+  const scaled = clamp(baseCount * (metrics.scale || 1), baseCount * 0.6, baseCount * 1.4);
+  const desiredCount = Math.max(4, Math.round(scaled));
+  while (entry.particles.length < desiredCount) {
+    entry.particles.push(spawnEnemySwirlParticle(metrics, now));
+  }
+  if (entry.particles.length > desiredCount) {
+    entry.particles.splice(desiredCount);
+  }
+  const alphaBase = inversionActive ? 0.55 : 0.85;
+  entry.particles.forEach((particle) => {
+    advanceEnemySwirlParticle(particle, metrics, now);
+    const radius = clamp(particle.currentRadius ?? metrics.ringRadius, 0, metrics.ringRadius);
+    const angle = Number.isFinite(particle.currentAngle) ? particle.currentAngle : 0;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    const alpha = clamp(alphaBase * (particle.state === 'hold' ? 0.9 : 0.7 + Math.random() * 0.2), 0.25, 0.95);
+    ctx.beginPath();
+    ctx.fillStyle = colorToRgbaString(particle.color || sampleEnemyParticleColor(), alpha);
+    const size = Math.max(0.6, particle.size || 1.2);
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function drawEnemyFallbackBody(ctx, metrics, inversionActive) {
+  if (!ctx || !metrics) {
+    return;
+  }
+  ctx.beginPath();
+  ctx.fillStyle = inversionActive ? 'rgba(240, 244, 255, 0.88)' : ENEMY_GATE_DARK_BLUE;
+  ctx.strokeStyle = inversionActive ? 'rgba(12, 16, 24, 0.55)' : 'rgba(80, 130, 190, 0.55)';
+  ctx.lineWidth = 2;
+  ctx.arc(0, 0, metrics.ringRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.fillStyle = inversionActive ? 'rgba(12, 18, 28, 0.42)' : ENEMY_GATE_DARK_BLUE_CORE;
+  ctx.arc(0, 0, metrics.coreRadius, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawEnemySymbolAndExponent(ctx, options = {}) {
+  const { symbol, exponent, metrics, inversionActive, enemy } = options;
+  if (!ctx || !metrics) {
+    return;
+  }
+  const glyph = symbol || '?';
+  const symbolFillStyle = 'rgba(255, 255, 255, 0.96)';
+  const glowColor = inversionActive ? 'rgba(24, 32, 48, 0.75)' : 'rgba(255, 255, 255, 0.65)';
+  this.applyCanvasShadow(ctx, glowColor, inversionActive ? 10 : 18);
+  ctx.fillStyle = symbolFillStyle;
+  ctx.font = `${metrics.symbolSize}px "Cormorant Garamond", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(glyph, 0, 0);
+  this.clearCanvasShadow(ctx);
+
+  const exponentFillStyle = inversionActive ? 'rgba(24, 34, 46, 0.9)' : this.resolveEnemyExponentColor(enemy);
+  const exponentStrokeStyle = inversionActive ? 'rgba(236, 240, 248, 0.85)' : 'rgba(6, 8, 14, 0.85)';
+  ctx.font = `700 ${metrics.exponentSize}px "Cormorant Garamond", serif`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  const exponentLabel = Number.isFinite(exponent) ? exponent.toFixed(1) : '0.0';
+  const pixelRatio = Number.isFinite(this.pixelRatio) && this.pixelRatio > 0 ? this.pixelRatio : 1;
+  const outlineWidth = Math.max(1, Math.round(pixelRatio));
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
+  ctx.strokeStyle = exponentStrokeStyle;
+  ctx.lineWidth = outlineWidth;
+  const exponentOffsetX = metrics.ringRadius * 0.94;
+  const exponentOffsetY = -metrics.ringRadius * 0.98;
+  ctx.strokeText(exponentLabel, exponentOffsetX, exponentOffsetY);
+  ctx.fillStyle = exponentFillStyle;
+  ctx.fillText(exponentLabel, exponentOffsetX, exponentOffsetY);
+}
+
+function cleanupEnemySwirlParticles(activeEnemies) {
+  if (!this.enemySwirlParticles) {
+    return;
+  }
+  const activeSet = activeEnemies || new Set();
+  Array.from(this.enemySwirlParticles.keys()).forEach((enemyRef) => {
+    if (!activeSet.has(enemyRef)) {
+      this.enemySwirlParticles.delete(enemyRef);
+    }
+  });
+}
+
 function drawEnemies() {
   if (!this.ctx || !this.enemies.length) {
     return;
@@ -1140,6 +1440,13 @@ function drawEnemies() {
 
   const ctx = this.ctx;
   ctx.save();
+
+  const fallbackRendering = shouldUseEnemyFallbackRendering.call(this);
+  const timestamp = fallbackRendering ? 0 : getNowTimestamp();
+  const activeEnemies = fallbackRendering ? null : new Set();
+  if (fallbackRendering && this.enemySwirlParticles) {
+    this.enemySwirlParticles.clear();
+  }
 
   this.enemies.forEach((enemy) => {
     if (!enemy) {
@@ -1154,54 +1461,25 @@ function drawEnemies() {
     const metrics = this.getEnemyVisualMetrics(enemy);
     const symbol = typeof enemy.symbol === 'string' ? enemy.symbol : this.resolveEnemySymbol(enemy);
     const exponent = this.calculateHealthExponent(Math.max(1, enemy.hp ?? enemy.maxHp ?? 1));
+    const inversionActive = Number.isFinite(enemy.iotaInversionTimer) && enemy.iotaInversionTimer > 0;
 
     ctx.save();
     ctx.translate(position.x, position.y);
 
-    const inversionActive = Number.isFinite(enemy.iotaInversionTimer) && enemy.iotaInversionTimer > 0;
-    const ringFillStyle = inversionActive ? 'rgba(240, 244, 255, 0.88)' : 'rgba(12, 16, 24, 0.88)';
-    const ringStrokeStyle = inversionActive ? 'rgba(12, 16, 24, 0.55)' : 'rgba(139, 247, 255, 0.45)';
-    const coreFillStyle = inversionActive ? 'rgba(12, 18, 28, 0.42)' : 'rgba(139, 247, 255, 0.28)';
-    const symbolFillStyle = inversionActive ? 'rgba(16, 20, 30, 0.92)' : 'rgba(255, 255, 255, 0.92)';
-    const exponentFillStyle = inversionActive
-      ? 'rgba(24, 34, 46, 0.9)'
-      : this.resolveEnemyExponentColor(enemy);
-    const exponentStrokeStyle = inversionActive ? 'rgba(236, 240, 248, 0.85)' : 'rgba(6, 8, 14, 0.85)';
+    if (fallbackRendering) {
+      drawEnemyFallbackBody(ctx, metrics, inversionActive);
+    } else {
+      drawEnemySwirlBackdrop(ctx, metrics, inversionActive);
+      drawEnemySwirlParticles.call(this, ctx, enemy, metrics, timestamp, inversionActive);
+    }
 
-    ctx.beginPath();
-    ctx.fillStyle = ringFillStyle;
-    ctx.strokeStyle = ringStrokeStyle;
-    ctx.lineWidth = 2;
-    ctx.arc(0, 0, metrics.ringRadius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.fillStyle = coreFillStyle;
-    ctx.arc(0, 0, metrics.coreRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = symbolFillStyle;
-    ctx.font = `${metrics.symbolSize}px "Cormorant Garamond", serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(symbol || '?', 0, 0);
-
-    ctx.font = `700 ${metrics.exponentSize}px "Cormorant Garamond", serif`;
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    const exponentLabel = exponent.toFixed(1);
-    const pixelRatio = Number.isFinite(this.pixelRatio) && this.pixelRatio > 0 ? this.pixelRatio : 1;
-    const outlineWidth = Math.max(1, Math.round(pixelRatio));
-    ctx.lineJoin = 'round';
-    ctx.miterLimit = 2;
-    ctx.strokeStyle = exponentStrokeStyle;
-    ctx.lineWidth = outlineWidth;
-    const exponentOffsetX = metrics.ringRadius * 0.94;
-    const exponentOffsetY = -metrics.ringRadius * 0.98;
-    ctx.strokeText(exponentLabel, exponentOffsetX, exponentOffsetY);
-    ctx.fillStyle = exponentFillStyle;
-    ctx.fillText(exponentLabel, exponentOffsetX, exponentOffsetY);
+    drawEnemySymbolAndExponent.call(this, ctx, {
+      symbol,
+      exponent,
+      metrics,
+      inversionActive,
+      enemy,
+    });
 
     if (this.focusedEnemyId === enemy.id) {
       const markerRadius = metrics.focusRadius || metrics.ringRadius + 8;
@@ -1218,7 +1496,15 @@ function drawEnemies() {
     }
 
     ctx.restore();
+
+    if (activeEnemies) {
+      activeEnemies.add(enemy);
+    }
   });
+
+  if (activeEnemies) {
+    cleanupEnemySwirlParticles.call(this, activeEnemies);
+  }
 
   ctx.restore();
 }
