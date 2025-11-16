@@ -528,6 +528,32 @@ function sanitizeTowerContextEntry(entry) {
     : [];
   const stats = {};
   const prestige = entry.prestige === true;
+  // Surface σ state so tower cards can describe stored and lifetime absorption math.
+  const sigmaState = typeof entry.sigmaState === 'object' && entry.sigmaState ? entry.sigmaState : null;
+  const storedDamage = Number(
+    Number.isFinite(entry.sigmaStoredDamage)
+      ? entry.sigmaStoredDamage
+      : sigmaState?.storedDamage ?? entry.storedDamage,
+  );
+  if (Number.isFinite(storedDamage) && storedDamage >= 0) {
+    stats.sigmaStoredDamage = storedDamage;
+  }
+  const totalAbsorbed = Number(
+    Number.isFinite(entry.sigmaTotalAbsorbed)
+      ? entry.sigmaTotalAbsorbed
+      : sigmaState?.totalAbsorbed ?? entry.totalAbsorbed,
+  );
+  if (Number.isFinite(totalAbsorbed) && totalAbsorbed >= 0) {
+    stats.sigmaTotalAbsorbed = totalAbsorbed;
+  }
+  const lastRelease = Number(
+    Number.isFinite(entry.sigmaLastRelease)
+      ? entry.sigmaLastRelease
+      : sigmaState?.lastRelease ?? entry.lastRelease,
+  );
+  if (Number.isFinite(lastRelease) && lastRelease >= 0) {
+    stats.sigmaLastRelease = lastRelease;
+  }
   const kills = Number(entry.nuKills);
   if (Number.isFinite(kills) && kills >= 0) {
     stats.nuKills = kills;
