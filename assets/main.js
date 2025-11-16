@@ -739,7 +739,7 @@ import {
     registerResourceContainers,
   });
 
-  const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the fluid study with a base reservoir of drops upon unlock.
+  const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the fluid study with a base reservoir of Serendipity upon unlock.
 
   const powderConfig = {
     sandOffsetInactive: 0,
@@ -3414,15 +3414,14 @@ import {
 
     const idleBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
     if (fluidElements.reservoirValue) {
-      const dropLabel = idleBank === 1 ? 'Drop' : 'Drops';
-      fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} ${dropLabel}`;
+      fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} Serendipity`;
     }
 
     const drainRate = Number.isFinite(powderState.fluidIdleDrainRate)
       ? Math.max(0, powderState.fluidIdleDrainRate)
       : 0;
     if (fluidElements.dripRateValue) {
-      fluidElements.dripRateValue.textContent = `${formatDecimal(drainRate, 2)} drops/sec`;
+      fluidElements.dripRateValue.textContent = `${formatDecimal(drainRate, 2)} Serendipity/sec`;
     }
 
     if (fluidElements.profileLabel) {
@@ -3440,11 +3439,11 @@ import {
     if (fluidElements.statusNote) {
       let message;
       if (normalizedHeight >= 0.9) {
-        message = 'Reservoir plane stabilized—idle drops condense rapidly.';
+        message = 'Reservoir plane stabilized—idle Serendipity condenses rapidly.';
       } else if (normalizedHeight >= 0.5) {
-        message = 'Flow is balanced. Drops weave a mirrored surface across the channel.';
+        message = 'Flow is balanced. Serendipity weaves a mirrored surface across the channel.';
       } else {
-        message = 'Channel remains shallow. Allow more drops to condense into the study.';
+        message = 'Channel remains shallow. Allow more Serendipity to condense into the study.';
       }
       fluidElements.statusNote.textContent = message;
     }
@@ -3460,7 +3459,7 @@ import {
       if (resourceElements.tabFluidBadge) {
         const tabStoredLabel = formatGameNumber(normalized);
         resourceElements.tabFluidBadge.textContent = tabStoredLabel;
-        resourceElements.tabFluidBadge.setAttribute('aria-label', `${tabStoredLabel} drops in bank`);
+        resourceElements.tabFluidBadge.setAttribute('aria-label', `${tabStoredLabel} Serendipity in reserve`);
         if (powderState.fluidUnlocked) {
           resourceElements.tabFluidBadge.removeAttribute('hidden');
           resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'false');

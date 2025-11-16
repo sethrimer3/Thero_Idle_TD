@@ -316,7 +316,7 @@ async function showOfflineOverlay(summary = {}) {
   ]);
 
   const alephSuffix = alephTotalValue === 1 ? ' Mote' : ' Motes';
-  const betSuffix = betTotalValue === 1 ? ' Drop' : ' Drops';
+  const betSuffix = ' Serendipity';
   const lamedSuffix = lamedTotalValue === 1 ? ' Spark' : ' Sparks';
   const tsadiSuffix = tsadiTotalValue === 1 ? ' Particle' : ' Particles';
   const shinSuffix = shinTotalValue === 1 ? ' Iteron' : ' Iterons';
@@ -536,7 +536,7 @@ export function recordPowderEvent(type, context = {}) {
         const safeBetTotal = Number.isFinite(betTotal) ? Math.max(0, betTotal) : 0;
         const betRateLabel = dependencies.formatGameNumber(safeBetMultiplier);
         const betGainLabel = dependencies.formatGameNumber(safeBetTotal);
-        betPieces.push(`בּ × ${betRateLabel} = +${betGainLabel} Drops`);
+        betPieces.push(`בּ × ${betRateLabel} = +${betGainLabel} Serendipity`);
       }
 
       const powderLabel = dependencies.formatGameNumber(Math.max(0, powder));

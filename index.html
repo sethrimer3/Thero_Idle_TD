@@ -89,7 +89,7 @@
               <span class="offline-symbol">×</span>
               <span class="offline-number" id="offline-bet-multiplier">0</span>
               <span class="offline-symbol">=</span>
-              <span class="offline-number" id="offline-bet-total">0 Drops</span>
+              <span class="offline-number" id="offline-bet-total">0 Serendipity</span>
             </div>
           </div>
           <div class="offline-overlay__equation-row" id="offline-lamed-row" aria-label="Lamed Spire idle gains">
@@ -1666,11 +1666,40 @@
                 <div class="powder-basin fluid-basin" id="fluid-basin">
                   <canvas
                     id="fluid-canvas"
+                    class="fluid-canvas"
                     width="240"
                     height="320"
-                    role="img"
-                    aria-label="Fluid resonance channel"
+                    role="presentation"
+                    aria-hidden="true"
                   ></canvas>
+                  <div
+                    class="fluid-terrarium-stage"
+                    role="img"
+                    aria-label="Bet terrarium shimmering beneath a starlit sky"
+                  >
+                    <div class="fluid-terrarium-stage__media">
+                      <div class="fluid-terrarium__sky" aria-hidden="true">
+                        <div class="fluid-terrarium__stars fluid-terrarium__stars--near"></div>
+                        <div class="fluid-terrarium__stars fluid-terrarium__stars--far"></div>
+                      </div>
+                      <img
+                        class="fluid-terrarium__background"
+                        src="./assets/sprites/spires/betSpire/bet_landscape_background.png"
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        aria-hidden="true"
+                      />
+                      <img
+                        class="fluid-terrarium__foreground"
+                        src="./assets/sprites/spires/betSpire/bet_landscape.png"
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        aria-hidden="true"
+                      />
+                    </div>
+                  </div>
                   <div class="powder-viewport fluid-viewport" id="fluid-viewport">
                     <div
                       class="powder-wall-hitbox powder-wall-hitbox-left fluid-wall-hitbox fluid-wall-hitbox-left"
@@ -1708,16 +1737,16 @@
                   <dd id="fluid-depth">0.00% full</dd>
                 </div>
                 <div>
-                  <dt>Idle Drop Reservoir</dt>
-                  <dd id="fluid-reservoir">0 Drops</dd>
+                  <dt>Serendipity Reserve</dt>
+                  <dd id="fluid-reservoir">0 Serendipity</dd>
                 </div>
                 <div>
                   <dt>Condensation Rate</dt>
-                  <dd id="fluid-drip-rate">0.00 drops/sec</dd>
+                  <dd id="fluid-drip-rate">0.00 Serendipity/sec</dd>
                 </div>
               </dl>
               <p class="fluid-status-note" id="fluid-status-note">
-                Water drops seep from idle reserves and collect within the study.
+                Serendipity blooms seep from idle reserves and collect within the study.
               </p>
             </article>
             <article class="card fluid-briefing-card">
@@ -1726,8 +1755,8 @@
                 <span class="fluid-state-label" id="fluid-state-label">Forming</span>
               </h3>
               <p class="fluid-briefing">
-                Observe condensed drops cascading into the spire. Guide the flow to stabilize the lattice and feed the idle
-                bank.
+                Observe Serendipity cascading into the terrarium. Guide the flow to stabilize the lattice and feed the idle
+                reserve.
               </p>
             </article>
           </section>
@@ -3038,7 +3067,7 @@
                   <p class="developer-control-hint">Set total glyph currency available.</p>
                 </div>
                 <div class="developer-control-field">
-                  <label for="developer-bet-drop-rate">Bet tower drop rate</label>
+                  <label for="developer-bet-drop-rate">Bet Spire Serendipity rate</label>
                   <input
                     type="number"
                     id="developer-bet-drop-rate"
@@ -3047,10 +3076,10 @@
                     step="0.01"
                     inputmode="decimal"
                   />
-                  <p class="developer-control-hint">Set drops per second for Bet Spire.</p>
+                  <p class="developer-control-hint">Set Serendipity per second for Bet Spire.</p>
                 </div>
                 <div class="developer-control-field">
-                  <label for="developer-bet-bank">Bet tower drop bank</label>
+                  <label for="developer-bet-bank">Bet Spire Serendipity reserve</label>
                   <input
                     type="number"
                     id="developer-bet-bank"
@@ -3059,7 +3088,7 @@
                     step="1"
                     inputmode="numeric"
                   />
-                  <p class="developer-control-hint">Override the stored drop reserve for Bet Spire.</p>
+                  <p class="developer-control-hint">Override the stored Serendipity reserve for Bet Spire.</p>
                 </div>
                 <div class="developer-control-field">
                   <label for="developer-iteron-bank">Shin Spire iteron bank</label>
