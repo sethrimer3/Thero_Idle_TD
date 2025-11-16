@@ -388,6 +388,25 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - Tooltip behavior is reusable and easier to unit test because it no longer closes over the entire Towers tab scope
 - Future tooltip features (animations, math annotations) can iterate inside `assets/towerEquationTooltip.js` without touching the monolithic tab controller
 
+### towerVariableDiscovery.js (tower equation variable tracking)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- Normalization helpers for blueprint variable metadata (library keys, symbols, and tooltip text)
+- Discovered variable snapshot/listener bookkeeping so other systems (e.g., Codex, crafting) can react to unlocks
+- `discoverTowerVariables()`, `getDiscoveredVariables()`, `addDiscoveredVariablesListener()`, and `initializeDiscoveredVariablesFromUnlocks()`
+
+**Integration approach:**
+- Added `createTowerVariableDiscoveryManager()` factory in `assets/towerVariableDiscovery.js`
+- Factory receives the Towers tab state buckets (discovered-variable map + listeners) plus dependency getters for blueprint definitions and unlock collections
+- `assets/towersTab.js` instantiates the manager once and re-exports the public APIs so existing imports continue to work unchanged
+
+**Result:**
+- Roughly 200 lines of metadata helpers left `assets/towersTab.js`, shrinking the tab controller before larger UI refactors land
+- Shared listeners and snapshots now live in an isolated module that can be unit-tested without the entire Towers tab closure
+- Tooltip + overlay modules consume the same `getUniversalVariableMetadata()` helper via dependency injection, avoiding repeated code
+
 ### towerUpgradeOverlayController.js (upgrade overlay renderer + glyph spending)
 
 **Status:** ✅ Complete
