@@ -1185,7 +1185,7 @@ import {
     getFluidElements: () => fluidElements,
   });
 
-  const { bindDeveloperModeToggle } = createDeveloperModeManager({
+  const { bindDeveloperModeToggle, refreshDeveloperModeState } = createDeveloperModeManager({
     getDeveloperModeActive: () => developerModeActive,
     setDeveloperModeActive: (value) => {
       developerModeActive = value;
@@ -4124,6 +4124,8 @@ import {
       await dismissStartupOverlay();
       return;
     }
+
+    refreshDeveloperModeState();
 
     if (levelStoryScreen) {
       levelStoryScreen.preloadStories();

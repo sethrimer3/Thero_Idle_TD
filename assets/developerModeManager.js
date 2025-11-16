@@ -669,7 +669,15 @@ export function createDeveloperModeManager(options = {}) {
     }
   }
 
+  function refreshDeveloperModeState() {
+    const toggleEnabled = Boolean(developerModeElements.toggle?.checked);
+    if (isDeveloperModeActive() || toggleEnabled) {
+      enableDeveloperMode();
+    }
+  }
+
   return {
     bindDeveloperModeToggle,
+    refreshDeveloperModeState,
   };
 }
