@@ -123,6 +123,7 @@ import {
 import { createPowderPersistence } from './powderPersistence.js';
 import { createPowderDisplaySystem } from './powderDisplay.js';
 import { createPowderViewportController } from './powderViewportController.js';
+import { createPowderResizeObserver } from './powderResizeObserver.js';
 // DOM helpers extracted from main.js to hydrate powder and fluid overlays.
 import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
 import { createResourceHud } from './resourceHud.js';
@@ -1134,6 +1135,35 @@ import {
     );
   };
 
+  let powderSimulation = null;
+  let sandSimulation = null;
+  let fluidSimulationInstance = null;
+  let lamedSimulationInstance = null;
+  let lamedDeveloperSpamHandle = null;
+  let lamedDeveloperSpamActive = false;
+  let lamedDeveloperSpamAttached = false;
+  let tsadiSimulationInstance = null;
+  let shinSimulationInstance = null;
+  let kufUiInitialized = false;
+  let pendingSpireResizeFrame = null;
+
+  const {
+    ensurePowderBasinResizeObserver,
+    getPowderBasinObserver,
+    setPowderBasinObserver,
+    getPendingPowderResizeFrame,
+    setPendingPowderResizeFrame,
+    getPendingPowderResizeIsTimeout,
+    setPendingPowderResizeIsTimeout,
+    getObservedPowderResizeElements,
+    setObservedPowderResizeElements,
+  } = createPowderResizeObserver({
+    getPowderSimulation: () => powderSimulation,
+    handlePowderViewTransformChange,
+    getPowderElements,
+    getFluidElements: () => fluidElements,
+  });
+
   const { bindDeveloperModeToggle } = createDeveloperModeManager({
     getDeveloperModeActive: () => developerModeActive,
     setDeveloperModeActive: (value) => {
@@ -1224,22 +1254,14 @@ import {
     updatePowderWallGapFromGlyphs,
     moteGemState,
     clearTowerUpgradeState,
-    setPowderBasinObserver: (value) => {
-      powderBasinObserver = value;
-    },
-    getPowderBasinObserver: () => powderBasinObserver,
-    setPendingPowderResizeFrame: (value) => {
-      pendingPowderResizeFrame = value;
-    },
-    getPendingPowderResizeFrame: () => pendingPowderResizeFrame,
-    setPendingPowderResizeIsTimeout: (value) => {
-      pendingPowderResizeIsTimeout = value;
-    },
-    getPendingPowderResizeIsTimeout: () => pendingPowderResizeIsTimeout,
-    setObservedPowderResizeElements: (value) => {
-      observedPowderResizeElements = value;
-    },
-    getObservedPowderResizeElements: () => observedPowderResizeElements,
+    setPowderBasinObserver,
+    getPowderBasinObserver,
+    setPendingPowderResizeFrame,
+    getPendingPowderResizeFrame,
+    setPendingPowderResizeIsTimeout,
+    getPendingPowderResizeIsTimeout,
+    setObservedPowderResizeElements,
+    getObservedPowderResizeElements,
   });
 
 
@@ -1920,26 +1942,11 @@ import {
   });
   // Track the animation frame id that advances idle simulations so we can pause the loop when idle.
 
-  let powderSimulation = null;
-  let sandSimulation = null;
-  let fluidSimulationInstance = null;
-  let lamedSimulationInstance = null;
-  let lamedDeveloperSpamHandle = null;
-  let lamedDeveloperSpamActive = false;
-  let lamedDeveloperSpamAttached = false;
-  let tsadiSimulationInstance = null;
-  let shinSimulationInstance = null;
-  let kufUiInitialized = false;
   // Extracted Tsadi UI helpers manage upgrade bindings via dependency injection.
   const { bindTsadiUpgradeButtons, updateTsadiUpgradeUI } = createTsadiUpgradeUi({
     getTsadiSimulation: () => tsadiSimulationInstance,
     spireMenuController,
   });
-  let powderBasinObserver = null;
-  let pendingPowderResizeFrame = null;
-  let pendingPowderResizeIsTimeout = false;
-  let observedPowderResizeElements = new WeakSet();
-  let pendingSpireResizeFrame = null;
 
   /**
    * Resize active spire simulations so their canvases track the responsive layout.
@@ -1958,66 +1965,6 @@ import {
         tsadiSimulationInstance.resize();
       }
       resizeShinFractalCanvases();
-    });
-  }
-
-  /**
-   * Ensure powder and fluid basin containers notify the active simulation when their bounds change.
-   * Desktop viewports animate the spire walls, so the ResizeObserver keeps the canvas aligned with the new width.
-   */
-  function ensurePowderBasinResizeObserver() {
-    if (typeof ResizeObserver !== 'function') {
-      return;
-    }
-
-    if (!powderBasinObserver) {
-      powderBasinObserver = new ResizeObserver(() => {
-        if (pendingPowderResizeFrame !== null) {
-          return;
-        }
-
-        const canUseAnimationFrame =
-          typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function';
-
-        const schedule = canUseAnimationFrame
-          ? window.requestAnimationFrame.bind(window)
-          : (callback) => window.setTimeout(callback, 16);
-
-        pendingPowderResizeIsTimeout = !canUseAnimationFrame;
-        pendingPowderResizeFrame = schedule(() => {
-          pendingPowderResizeFrame = null;
-          pendingPowderResizeIsTimeout = false;
-          if (powderSimulation && typeof powderSimulation.handleResize === 'function') {
-            powderSimulation.handleResize();
-            handlePowderViewTransformChange(powderSimulation.getViewTransform());
-          }
-        });
-      });
-    }
-
-    const resizeTargets = [
-      powderElements?.stage,
-      powderElements?.simulationCard,
-      powderElements?.basin,
-      fluidElements?.simulationCard,
-      fluidElements?.basin,
-    ].filter((element) => {
-      if (!element || typeof element.getBoundingClientRect !== 'function') {
-        return false;
-      }
-      if (observedPowderResizeElements.has(element)) {
-        return false;
-      }
-      return true;
-    });
-
-    resizeTargets.forEach((element) => {
-      try {
-        powderBasinObserver.observe(element);
-        observedPowderResizeElements.add(element);
-      } catch (error) {
-        console.warn('Failed to observe powder basin resize target.', error);
-      }
     });
   }
 

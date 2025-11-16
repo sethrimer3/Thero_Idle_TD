@@ -451,6 +451,25 @@ Following this plan will shrink the single-source files, align them with the dis
 - Developer mode toggles now refresh walls through a single helper instead of duplicating DOM math across the file
 - Autosave integration became more explicit because wall metrics/transform persistence now lives in one module with clear scheduling points
 
+### powderResizeObserver.js (powder + fluid basin resize guard)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- ResizeObserver instantiation for the powder and fluid basins, including the stage card targets that animate the split tab layout
+- Animation-frame/setTimeout fallback scheduling plus the `pendingPowderResizeFrame` bookkeeping that prevents overlapping resize callbacks
+- Getter/setter hooks for the observer instance, pending frame metadata, and observed element set so developer resets can disconnect everything without touching `main.js`
+
+**Integration approach:**
+- Added `createPowderResizeObserver()` in `assets/powderResizeObserver.js` that accepts DOM getters, the active powder simulation getter, and the shared `handlePowderViewTransformChange()` callback via dependency injection
+- `main.js` instantiates the factory next to the other powder helpers and destructures `ensurePowderBasinResizeObserver()` plus the developer-mode-friendly getters/setters
+- Developer manager now receives those helpers directly, allowing its data-wipe flow to clear observers/timers without mutating orchestrator locals
+
+**Result:**
+- Roughly 60 lines of ResizeObserver wiring left `assets/main.js`, clarifying that basin responsiveness is handled by a focused helper
+- Dependency injection keeps the observer reusable if additional spire viewports arrive, while still keeping palette/view-transform updates centralized
+- Developer reset workflows now drive the observer through a dedicated API, reducing the risk of dangling observers or orphaned timeouts
+
 ### powderDisplay.js (powder tab orchestration + idle rewards)
 
 **Status:** ✅ Complete
