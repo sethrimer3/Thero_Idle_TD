@@ -63,6 +63,9 @@ export function createDeveloperModeManager(options = {}) {
     unlockAllFractals,
     refreshFractalTabs,
     addIterons,
+    resetShinState,
+    setShinGlyphs,
+    setTrackedShinGlyphs,
     updateShinDisplay,
     refreshPowderWallDecorations,
     clearDeveloperTheroMultiplierOverride,
@@ -518,6 +521,22 @@ export function createDeveloperModeManager(options = {}) {
     clearTowerUpgradeState?.();
     resetAlephChainUpgrades?.({ playfield: getPlayfield?.() });
     reconcileGlyphCurrencyFromState?.();
+
+    // Clear Shin Spire allocations so save wipes fully reset iterons and glyphs.
+    if (typeof resetShinState === 'function') {
+      try {
+        resetShinState();
+        setShinGlyphs?.(0);
+        setTrackedShinGlyphs?.(0);
+        if (spireResourceState?.shin) {
+          spireResourceState.shin.unlocked = false;
+        }
+        updateShinDisplay?.();
+        updateSpireTabVisibility?.();
+      } catch (error) {
+        console.warn('Failed to reset Shin Spire state while deleting player data.', error);
+      }
+    }
 
     resetActiveMoteGems?.();
     if (moteGemState) {
