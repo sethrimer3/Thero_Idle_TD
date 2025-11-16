@@ -341,6 +341,21 @@ export function getKufGlyphs() {
 }
 
 /**
+ * Override the player's Kuf glyph total while keeping the high score in sync.
+ * @param {number} value - New glyph total to apply.
+ * @returns {number} Updated glyph total.
+ */
+export function setKufGlyphs(value) {
+  const normalized = sanitizeInteger(value, kufState.glyphs);
+  kufState.glyphs = normalized;
+  if (normalized > kufState.highScore) {
+    kufState.highScore = normalized;
+  }
+  emitChange('glyphs', { glyphs: kufState.glyphs, highScore: kufState.highScore });
+  return kufState.glyphs;
+}
+
+/**
  * Highest recorded gold score.
  * @returns {number}
  */

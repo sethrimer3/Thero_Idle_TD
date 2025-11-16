@@ -160,6 +160,7 @@ import {
   getIterationRate,
   getShinGlyphs,
   setIterationRate,
+  setShinGlyphs,
   unlockAllFractals,
 } from './shinState.js';
 // Shin UI components for fractal tab management and display.
@@ -177,6 +178,7 @@ import {
   getKufGlyphs,
   onKufStateChange,
   setKufTotalShards,
+  setKufGlyphs,
 } from './kufState.js';
 import { initializeKufUI, updateKufDisplay } from './kufUI.js';
 // Shared color palette orchestration utilities.
@@ -1082,6 +1084,19 @@ import {
     getBaseStartThero,
     getGlyphCurrency,
     setGlyphCurrency,
+    setBetGlyphCurrency,
+    getBetGlyphCurrency,
+    spireResourceState,
+    setTrackedLamedGlyphs,
+    setTrackedTsadiGlyphs,
+    setTrackedShinGlyphs,
+    setTrackedKufGlyphs,
+    updateSpireTabVisibility,
+    checkAndUnlockSpires,
+    getShinGlyphs,
+    setShinGlyphs,
+    getKufGlyphs,
+    setKufGlyphs,
     gameStats,
     addIterons,
     getIteronBank,
