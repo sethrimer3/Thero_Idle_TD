@@ -107,18 +107,22 @@ export class FluidTerrariumCreatures {
       return;
     }
     const rect = this.container.getBoundingClientRect();
-    this.bounds.width = this.container.clientWidth || rect.width;
-    this.bounds.height = this.container.clientHeight || rect.height;
+    const clientWidth = this.container.clientWidth || rect.width;
+    const clientHeight = this.container.clientHeight || rect.height;
+    const scaleX = rect.width > 0 && clientWidth > 0 ? rect.width / clientWidth : 1;
+    const scaleY = rect.height > 0 && clientHeight > 0 ? rect.height / clientHeight : 1;
+    this.bounds.width = clientWidth;
+    this.bounds.height = clientHeight;
 
     if (this.terrainElement) {
       const terrainRect = this.terrainElement.getBoundingClientRect();
       this.terrainBounds = {
-        left: terrainRect.left - rect.left,
-        right: terrainRect.right - rect.left,
-        width: terrainRect.width,
-        top: terrainRect.top - rect.top,
-        bottom: terrainRect.bottom - rect.top,
-        height: terrainRect.height,
+        left: (terrainRect.left - rect.left) / scaleX,
+        right: (terrainRect.right - rect.left) / scaleX,
+        width: terrainRect.width / scaleX,
+        top: (terrainRect.top - rect.top) / scaleY,
+        bottom: (terrainRect.bottom - rect.top) / scaleY,
+        height: terrainRect.height / scaleY,
       };
     }
 
