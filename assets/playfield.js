@@ -422,6 +422,8 @@ export class SimplePlayfield {
       startCenter: { x: 0.5, y: 0.5 },
       isDragging: false,
     };
+    // Remember when the view should stay anchored because a tower hold gesture is active.
+    this.viewPanLockPointerId = null;
     // Remember when a drag gesture should block the follow-up click event.
     this.suppressNextCanvasClick = false;
     this.towerHoldState = {
@@ -3075,6 +3077,11 @@ export class SimplePlayfield {
     if (this.deltaCommandDragState.pointerId === state.pointerId) {
       this.clearDeltaCommandDragState();
     }
+    this.viewPanLockPointerId = state.pointerId;
+    if (this.viewDragState.pointerId === state.pointerId) {
+      this.viewDragState.pointerId = null;
+      this.viewDragState.isDragging = false;
+    }
   }
 
   updateTowerHoldGesture(event) {
@@ -3140,6 +3147,9 @@ export class SimplePlayfield {
     state.scribbleCleanup = null;
     state.actionTriggered = null;
     state.pointerType = null;
+    if (!pointerId || this.viewPanLockPointerId === pointerId) {
+      this.viewPanLockPointerId = null;
+    }
   }
 
   /**
