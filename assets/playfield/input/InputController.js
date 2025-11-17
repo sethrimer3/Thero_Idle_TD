@@ -138,11 +138,13 @@ function handleCanvasPointerMove(event) {
     event.pointerId === this.viewDragState.pointerId &&
     (!isTouchPointer || this.activePointers.size < 2);
   if (isPanPointer) {
+    // Allow more finger jitter before treating a touch as a camera drag so quick double taps stay responsive on mobile.
+    const dragThreshold = isTouchPointer ? PLAYFIELD_VIEW_DRAG_THRESHOLD * 2.5 : PLAYFIELD_VIEW_DRAG_THRESHOLD;
     // Translate pointer movement into a clamped camera offset while dragging.
     const dx = event.clientX - this.viewDragState.startX;
     const dy = event.clientY - this.viewDragState.startY;
     const dragDistance = Math.hypot(dx, dy);
-    if (!this.viewDragState.isDragging && dragDistance >= PLAYFIELD_VIEW_DRAG_THRESHOLD) {
+    if (!this.viewDragState.isDragging && dragDistance >= dragThreshold) {
       this.viewDragState.isDragging = true;
       this.suppressNextCanvasClick = true;
     }
