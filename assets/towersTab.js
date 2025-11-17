@@ -170,6 +170,8 @@ const towerTabState = {
   mergeProgress: { mergingLogicUnlocked: false },
   mergingLogicElements: { card: null },
   loadoutElements: { container: null, grid: null, note: null },
+  // Track the contextual replacement prompt so full-loadout equips can swap slots gracefully.
+  loadoutReplacementUi: { container: null, optionsRow: null, anchorButton: null, pendingTowerId: null, outsideHandler: null },
   selectionButtons: new Map(),
   theroSymbol: 'þ',
   towerUpgradeElements: {
@@ -875,17 +877,122 @@ export function updateTowerSelectionButtons() {
       return;
     }
     const atLimit = !selected && towerTabState.loadoutState.selected.length >= towerTabState.towerLoadoutLimit;
-    button.disabled = atLimit;
+    button.disabled = false;
+    button.dataset.loadoutFull = atLimit ? 'true' : 'false';
     button.title = selected
       ? `${definition?.name || 'Tower'} is currently in your loadout.`
-      : `Equip ${definition?.name || 'tower'} for this defense.`;
+      : atLimit
+        ? 'Loadout full—choose a tower to replace.'
+        : `Equip ${definition?.name || 'tower'} for this defense.`;
   });
 }
 
-export function toggleTowerSelection(towerId) {
+// Remove any existing replacement prompt so new interactions always start clean.
+function hideLoadoutReplacementPrompt() {
+  const { loadoutReplacementUi } = towerTabState;
+  if (loadoutReplacementUi.outsideHandler) {
+    document.removeEventListener('pointerdown', loadoutReplacementUi.outsideHandler);
+  }
+  if (loadoutReplacementUi.container?.parentNode) {
+    loadoutReplacementUi.container.remove();
+  }
+  loadoutReplacementUi.container = null;
+  loadoutReplacementUi.optionsRow = null;
+  loadoutReplacementUi.anchorButton = null;
+  loadoutReplacementUi.pendingTowerId = null;
+  loadoutReplacementUi.outsideHandler = null;
+}
+
+// Build the popup that lets players pick which equipped tower to replace when the loadout is full.
+function showLoadoutReplacementPrompt(targetTowerId, anchorButton) {
+  if (!(anchorButton instanceof HTMLElement)) {
+    hideLoadoutReplacementPrompt();
+    return;
+  }
+  const { loadoutReplacementUi } = towerTabState;
+  const selected = towerTabState.loadoutState.selected;
+  if (!Array.isArray(selected) || selected.length < 1) {
+    hideLoadoutReplacementPrompt();
+    return;
+  }
+
+  const container = document.createElement('div');
+  container.className = 'tower-replace-popup';
+  container.setAttribute('role', 'dialog');
+  container.setAttribute('aria-label', 'Select a tower to replace');
+
+  const title = document.createElement('p');
+  title.className = 'tower-replace-popup__title';
+  title.textContent = 'Replace which tower?';
+  container.append(title);
+
+  const optionsRow = document.createElement('div');
+  optionsRow.className = 'tower-replace-popup__options';
+  container.append(optionsRow);
+
+  selected.forEach((currentTowerId) => {
+    const definition = getTowerDefinition(currentTowerId);
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'tower-replace-popup__option';
+    option.dataset.towerId = currentTowerId;
+    option.title = `Replace ${definition?.name || currentTowerId}`;
+    option.setAttribute('aria-label', `Replace ${definition?.name || currentTowerId}`);
+
+    if (definition?.icon) {
+      const icon = document.createElement('img');
+      icon.src = definition.icon;
+      icon.alt = `${definition.name || currentTowerId} icon`;
+      icon.loading = 'lazy';
+      icon.decoding = 'async';
+      option.append(icon);
+    }
+
+    const label = document.createElement('span');
+    label.className = 'tower-replace-popup__option-label';
+    label.textContent = definition?.symbol || definition?.name || currentTowerId;
+    option.append(label);
+
+    option.addEventListener('click', () => {
+      replaceTowerInLoadout(currentTowerId, targetTowerId);
+    });
+    optionsRow.append(option);
+  });
+
+  hideLoadoutReplacementPrompt();
+  anchorButton.insertAdjacentElement('afterend', container);
+  loadoutReplacementUi.container = container;
+  loadoutReplacementUi.optionsRow = optionsRow;
+  loadoutReplacementUi.anchorButton = anchorButton;
+  loadoutReplacementUi.pendingTowerId = targetTowerId;
+  loadoutReplacementUi.outsideHandler = (event) => {
+    if (!container.contains(event.target) && !anchorButton.contains(event.target)) {
+      hideLoadoutReplacementPrompt();
+    }
+  };
+  document.addEventListener('pointerdown', loadoutReplacementUi.outsideHandler);
+}
+
+// Swap a tower in the loadout for the requested replacement and refresh the downstream UI.
+function replaceTowerInLoadout(towerIdToRemove, towerIdToAdd) {
+  const selected = towerTabState.loadoutState.selected;
+  if (!Array.isArray(selected)) {
+    return;
+  }
+  const index = selected.indexOf(towerIdToRemove);
+  if (index === -1) {
+    return;
+  }
+  selected.splice(index, 1, towerIdToAdd);
+  hideLoadoutReplacementPrompt();
+  syncLoadoutToPlayfield();
+}
+
+export function toggleTowerSelection(towerId, { anchorButton = null } = {}) {
   if (!towerTabState.towerDefinitionMap.has(towerId)) {
     return;
   }
+  hideLoadoutReplacementPrompt();
   if (!isTowerPlaceable(towerId)) {
     return;
   }
@@ -916,11 +1023,9 @@ export function toggleTowerSelection(towerId) {
     selected.splice(index, 1);
   } else {
     if (selected.length >= towerTabState.towerLoadoutLimit) {
-      if (towerTabState.audioManager) {
-        towerTabState.audioManager.playSfx('error');
-      }
+      showLoadoutReplacementPrompt(towerId, anchorButton);
       if (towerTabState.loadoutElements.note) {
-        towerTabState.loadoutElements.note.textContent = 'Only four towers can be prepared at once.';
+        towerTabState.loadoutElements.note.textContent = 'Loadout full—select a glyph to replace.';
       }
       updateTowerSelectionButtons();
       return;
@@ -1385,12 +1490,15 @@ export function initializeTowerSelection() {
       button.textContent = `Equip ${definition.symbol}`;
     }
     button.setAttribute('aria-pressed', 'false');
-    button.addEventListener('click', () => toggleTowerSelection(towerId));
+    // Pass the button as an anchor so replacement prompts can position beneath the trigger.
+    button.addEventListener('click', () => toggleTowerSelection(towerId, { anchorButton: button }));
   });
   updateTowerSelectionButtons();
 }
 
 export function syncLoadoutToPlayfield() {
+  // Clear any replacement prompt before mutating the loadout so UI mirrors the new state.
+  hideLoadoutReplacementPrompt();
   pruneLockedTowersFromLoadout();
   const placeableSelection = towerTabState.loadoutState.selected.filter((towerId) => isTowerPlaceable(towerId));
   if (towerTabState.playfield) {
