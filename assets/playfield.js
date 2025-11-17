@@ -677,8 +677,9 @@ export class SimplePlayfield {
     const magnitude = Math.hypot(direction.x, direction.y) || 1;
     const normalized = { x: direction.x / magnitude, y: direction.y / magnitude };
     // Double the baseline knockback and scale it up to another 2x as hits approach a full health bar chunk.
+    // Clamp the damage ratio locally so hit reactions never rely on a global helper.
     const relativeDamageFraction = Number.isFinite(damageApplied) && Number.isFinite(enemyHpBefore) && enemyHpBefore > 0
-      ? clamp(damageApplied / enemyHpBefore, 0, 1)
+      ? Math.max(0, Math.min(1, damageApplied / enemyHpBefore))
       : 1;
     const baseStrength = Math.max(0.45, Math.min(1.35, relativeDamageFraction));
     const doubledKnockback = baseStrength * 2;
