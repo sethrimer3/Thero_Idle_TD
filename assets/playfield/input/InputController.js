@@ -55,6 +55,9 @@ function handleCanvasPointerMove(event) {
     this.updateTowerHoldGesture(event);
   }
 
+  // Lock camera panning while a tower hold gesture is active on this pointer.
+  const isViewPanLocked = this.viewPanLockPointerId && event.pointerId === this.viewPanLockPointerId;
+
   if (this.connectionDragState.pointerId === event.pointerId) {
     if (typeof event.preventDefault === 'function') {
       event.preventDefault();
@@ -136,7 +139,8 @@ function handleCanvasPointerMove(event) {
   const isPanPointer =
     this.viewDragState.pointerId !== null &&
     event.pointerId === this.viewDragState.pointerId &&
-    (!isTouchPointer || this.activePointers.size < 2);
+    (!isTouchPointer || this.activePointers.size < 2) &&
+    !isViewPanLocked;
   if (isPanPointer) {
     // Allow more finger jitter before treating a touch as a camera drag so quick double taps stay responsive on mobile.
     const dragThreshold = isTouchPointer ? PLAYFIELD_VIEW_DRAG_THRESHOLD * 2.5 : PLAYFIELD_VIEW_DRAG_THRESHOLD;
