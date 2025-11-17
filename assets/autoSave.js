@@ -17,6 +17,8 @@ export const WAVE_DAMAGE_TALLY_STORAGE_KEY = 'glyph-defense-idle:wave-damage-tal
 export const TRACK_RENDER_MODE_STORAGE_KEY = 'glyph-defense-idle:track-render-mode';
 // Storage key used to persist the luminous track tracer preference.
 export const TRACK_TRACER_TOGGLE_STORAGE_KEY = 'glyph-defense-idle:track-tracer-enabled';
+// Storage key used to persist the preferred tower loadout slot count.
+export const TOWER_LOADOUT_SLOTS_STORAGE_KEY = 'glyph-defense-idle:loadout-slots';
 export const POWDER_STORAGE_KEY = 'glyph-defense-idle:powder';
 export const GAME_STATS_STORAGE_KEY = 'glyph-defense-idle:stats';
 // Storage key used to persist the active Spire snapshot.

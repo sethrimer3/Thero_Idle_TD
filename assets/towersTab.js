@@ -397,14 +397,70 @@ export function getTowerDefinitions() {
   return towerTabState.towerDefinitions;
 }
 
+/**
+ * Ensure the loadout selection array matches the active slot limit so placeholders can render consistently.
+ */
+function normalizeLoadoutSlots() {
+  const loadoutState = towerTabState.loadoutState;
+  if (!Array.isArray(loadoutState.selected)) {
+    loadoutState.selected = [];
+  }
+  const limit = towerTabState.towerLoadoutLimit;
+  if (loadoutState.selected.length > limit) {
+    loadoutState.selected.length = limit;
+  }
+  while (loadoutState.selected.length < limit) {
+    loadoutState.selected.push(null);
+  }
+  return loadoutState.selected;
+}
+
+/**
+ * Count the number of equipped towers ignoring placeholder slots.
+ */
+function getEquippedLoadoutCount() {
+  return normalizeLoadoutSlots().filter((towerId) => typeof towerId === 'string').length;
+}
+
+/**
+ * Identify the next open slot index so replacement prompts only appear when necessary.
+ */
+function getNextEmptyLoadoutSlot() {
+  return normalizeLoadoutSlots().findIndex((towerId) => !towerId);
+}
+
+/**
+ * Assign a tower to a specific slot while clearing any duplicate entries elsewhere in the array.
+ */
+function assignTowerToSlot(slotIndex, towerId) {
+  const slots = normalizeLoadoutSlots();
+  if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= slots.length) {
+    return slots;
+  }
+  const duplicateIndex = slots.findIndex((id, index) => id === towerId && index !== slotIndex);
+  if (duplicateIndex !== -1) {
+    slots[duplicateIndex] = null;
+  }
+  slots[slotIndex] = towerId;
+  return slots;
+}
+
 export function setTowerLoadoutLimit(limit) {
   if (Number.isFinite(limit) && limit > 0) {
     towerTabState.towerLoadoutLimit = Math.max(1, Math.floor(limit));
+    normalizeLoadoutSlots();
   }
 }
 
 export function getTowerLoadoutState() {
   return towerTabState.loadoutState;
+}
+
+/**
+ * Surface a normalized view of the loadout slots for UI consumers like the playfield tray.
+ */
+export function getLoadoutSlots() {
+  return normalizeLoadoutSlots();
 }
 
 export function getTowerUnlockState() {
@@ -757,6 +813,9 @@ const {
 } = createTowerLoadoutController({
   getLoadoutState: () => towerTabState.loadoutState,
   getLoadoutElements: () => towerTabState.loadoutElements,
+  getLoadoutSlots,
+  getLoadoutLimit: () => towerTabState.towerLoadoutLimit,
+  getTowerDefinitions,
   getTowerDefinition,
   getNextTowerId,
   isTowerUnlocked,
@@ -765,6 +824,7 @@ const {
   getPlayfield: () => towerTabState.playfield,
   getAudioManager: () => towerTabState.audioManager,
   formatCombatNumber,
+  syncLoadoutToPlayfield,
 });
 
 export { setLoadoutElements, pruneLockedTowersFromLoadout, refreshTowerLoadoutDisplay, startTowerDrag, cancelTowerDrag };
@@ -840,7 +900,7 @@ function createPreviewId(prefix, value) {
 export function updateTowerSelectionButtons() {
   towerTabState.selectionButtons.forEach((button, towerId) => {
     const definition = getTowerDefinition(towerId);
-    const selected = towerTabState.loadoutState.selected.includes(towerId);
+    const selected = normalizeLoadoutSlots().includes(towerId);
     const label = definition ? definition.symbol : towerId;
     const unlocked = isTowerUnlocked(towerId);
     const placeable = isTowerPlaceable(towerId);
@@ -876,7 +936,7 @@ export function updateTowerSelectionButtons() {
       button.title = 'Leave the active level to adjust your loadout.';
       return;
     }
-    const atLimit = !selected && towerTabState.loadoutState.selected.length >= towerTabState.towerLoadoutLimit;
+    const atLimit = !selected && getNextEmptyLoadoutSlot() === -1;
     button.disabled = false;
     button.dataset.loadoutFull = atLimit ? 'true' : 'false';
     button.title = selected
@@ -910,7 +970,7 @@ function showLoadoutReplacementPrompt(targetTowerId, anchorButton) {
     return;
   }
   const { loadoutReplacementUi } = towerTabState;
-  const selected = towerTabState.loadoutState.selected;
+  const selected = normalizeLoadoutSlots().filter((towerId) => towerId);
   if (!Array.isArray(selected) || selected.length < 1) {
     hideLoadoutReplacementPrompt();
     return;
@@ -975,7 +1035,7 @@ function showLoadoutReplacementPrompt(targetTowerId, anchorButton) {
 
 // Swap a tower in the loadout for the requested replacement and refresh the downstream UI.
 function replaceTowerInLoadout(towerIdToRemove, towerIdToAdd) {
-  const selected = towerTabState.loadoutState.selected;
+  const selected = normalizeLoadoutSlots();
   if (!Array.isArray(selected)) {
     return;
   }
@@ -983,7 +1043,7 @@ function replaceTowerInLoadout(towerIdToRemove, towerIdToAdd) {
   if (index === -1) {
     return;
   }
-  selected.splice(index, 1, towerIdToAdd);
+  assignTowerToSlot(index, towerIdToAdd);
   hideLoadoutReplacementPrompt();
   syncLoadoutToPlayfield();
 }
@@ -1017,12 +1077,13 @@ export function toggleTowerSelection(towerId, { anchorButton = null } = {}) {
     updateTowerSelectionButtons();
     return;
   }
-  const selected = towerTabState.loadoutState.selected;
+  const selected = normalizeLoadoutSlots();
   const index = selected.indexOf(towerId);
   if (index >= 0) {
-    selected.splice(index, 1);
+    selected[index] = null;
   } else {
-    if (selected.length >= towerTabState.towerLoadoutLimit) {
+    const emptyIndex = getNextEmptyLoadoutSlot();
+    if (emptyIndex === -1) {
       showLoadoutReplacementPrompt(towerId, anchorButton);
       if (towerTabState.loadoutElements.note) {
         towerTabState.loadoutElements.note.textContent = 'Loadout full—select a glyph to replace.';
@@ -1030,7 +1091,7 @@ export function toggleTowerSelection(towerId, { anchorButton = null } = {}) {
       updateTowerSelectionButtons();
       return;
     }
-    selected.push(towerId);
+    assignTowerToSlot(emptyIndex, towerId);
   }
   updateTowerSelectionButtons();
   syncLoadoutToPlayfield();
@@ -1499,6 +1560,7 @@ export function initializeTowerSelection() {
 export function syncLoadoutToPlayfield() {
   // Clear any replacement prompt before mutating the loadout so UI mirrors the new state.
   hideLoadoutReplacementPrompt();
+  normalizeLoadoutSlots();
   pruneLockedTowersFromLoadout();
   const placeableSelection = towerTabState.loadoutState.selected.filter((towerId) => isTowerPlaceable(towerId));
   if (towerTabState.playfield) {

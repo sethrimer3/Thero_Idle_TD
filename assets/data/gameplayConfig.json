@@ -1,6 +1,6 @@
 {
   "defaults": {
-    "towerLoadoutLimit": 4,
+    "towerLoadoutLimit": 2,
     "baseStartThero": 50,
     "baseCoreIntegrity": 100,
     "initialTowerLoadout": [
