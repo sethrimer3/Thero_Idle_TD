@@ -444,6 +444,35 @@ function handleCanvasPointerUp(event) {
 
   if (this.deltaCommandDragState.pointerId === event.pointerId) {
     const dragState = this.deltaCommandDragState;
+    const isTapLikeRelease =
+      isTouchPointer &&
+      !dragState.active &&
+      !dragState.hasMoved &&
+      dragState.towerId;
+    if (isTapLikeRelease && typeof this.toggleTowerMenuFromTap === 'function') {
+      const normalized = dragState.currentNormalized || this.getNormalizedFromEvent(event);
+      const position = dragState.currentPosition || (normalized ? this.getCanvasPosition(normalized) : null);
+      const tower = position ? this.findTowerAt(position) : null;
+      if (tower && tower.id === dragState.towerId) {
+        // Run the double-tap check before clearing the drag state so δ towers can still open their menu with quick taps.
+        const toggled = this.toggleTowerMenuFromTap(tower, position, event, { suppressNextClick: true });
+        if (toggled) {
+          this.suppressNextCanvasClick = true;
+          this.clearDeltaCommandDragState();
+          if (!isTouchPointer && typeof this.canvas?.releasePointerCapture === 'function') {
+            try {
+              this.canvas.releasePointerCapture(event.pointerId);
+            } catch (error) {
+              // Ignore browsers that throw if the pointer was not previously captured.
+            }
+          }
+          if (!this.shouldAnimate) {
+            this.draw();
+          }
+          return;
+        }
+      }
+    }
     let committed = false;
     if (dragState.active && dragState.trackAnchor) {
       committed = this.commitDeltaCommandDrag();
