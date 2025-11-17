@@ -1,12 +1,12 @@
 /**
  * Mu (μ/Μ) Tower - Fractal Mine Layer
  * 
- * Normal mode (μ): Lays Sierpinski triangle fractal mines
- * Prestige mode (Μ): Lays Apollonian gasket fractal circle mines
+ * Normal mode (μ): Lays geometric mines rendered as growing polygons
+ * Prestige mode (Μ): Uses the same polygon visuals with prestige palette accents
  * 
  * Mechanics:
  * - Places mines randomly within range on the track
- * - Mines charge up through tiers (adding fractal layers)
+ * - Mines charge up through tiers (adding polygon edges)
  * - Each tier multiplies damage by 10×
  * - Max tier determined by Aleph1 upgrade
  * - Max concurrent mines: 5 + Aleph2
@@ -27,8 +27,41 @@ import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 const BASE_RANGE_METERS = 3;
 const TIER_CHARGE_TIME = 2.0; // Seconds to advance one tier
 const MINE_RADIUS_METERS = 0.3; // Visual size of the mine center
-const TRIANGLE_BASE_SIZE = 0.4; // Size multiplier for Sierpinski triangles (in meters)
-const CIRCLE_BASE_SIZE = 0.35; // Size multiplier for Apollonian circles (in meters)
+const POLYGON_BASE_SIZE = 0.42; // Size multiplier for the mine polygon visuals (in meters)
+const POLYGON_TIER_GROWTH = 1.12; // Growth factor applied per tier for polygon size
+
+/**
+ * Convert a tier value into a Roman numeral for the mine label.
+ */
+function convertToRomanNumeral(value) {
+  const romanPairs = [
+    [1000, 'M'],
+    [900, 'CM'],
+    [500, 'D'],
+    [400, 'CD'],
+    [100, 'C'],
+    [90, 'XC'],
+    [50, 'L'],
+    [40, 'XL'],
+    [10, 'X'],
+    [9, 'IX'],
+    [5, 'V'],
+    [4, 'IV'],
+    [1, 'I'],
+  ];
+
+  let remaining = Math.max(1, Math.floor(value));
+  let result = '';
+
+  romanPairs.forEach(([numeric, numeral]) => {
+    while (remaining >= numeric) {
+      result += numeral;
+      remaining -= numeric;
+    }
+  });
+
+  return result;
+}
 
 /**
  * Clamp blueprint-provided tier values to a valid integer (minimum tier 1).
@@ -436,127 +469,65 @@ export function updateMuTower(playfield, tower, delta) {
 }
 
 /**
- * Draw Sierpinski triangle fractal for a mine.
+ * Draw a polygon-based mine where each tier adds an edge and a Roman numeral label.
  */
-function drawSierpinskiMine(ctx, mine, minDimension, colors) {
+function drawPolygonMine(ctx, mine, minDimension, colors) {
   const x = mine.x;
   const y = mine.y;
-  const tier = mine.tier;
-  const sizeMeters = TRIANGLE_BASE_SIZE * Math.pow(1.3, tier); // Grow with tier
-  const sizePixels = metersToPixels(sizeMeters, minDimension);
-  
-  // Helper to draw a hollow triangle
-  function drawHollowTriangle(cx, cy, size, alpha) {
-    const h = size * Math.sqrt(3) / 2; // Height of equilateral triangle
-    
-    ctx.save();
-    ctx.strokeStyle = `rgba(${colors[0].r}, ${colors[0].g}, ${colors[0].b}, ${alpha})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - h * 2 / 3); // Top vertex
-    ctx.lineTo(cx - size / 2, cy + h / 3); // Bottom left
-    ctx.lineTo(cx + size / 2, cy + h / 3); // Bottom right
-    ctx.closePath();
-    ctx.stroke();
-    ctx.restore();
-  }
-  
-  // Draw base triangle
-  const baseAlpha = mine.armed ? 0.9 : 0.5 + 0.4 * (mine.chargeProgress / TIER_CHARGE_TIME);
-  drawHollowTriangle(x, y, sizePixels, baseAlpha);
-  
-  // Draw fractal layers (Sierpinski pattern)
-  // Each tier adds inner triangles in the three corners
-  if (tier > 0) {
-    const layerSizes = [];
-    let currentSize = sizePixels;
-    
-    for (let t = 0; t < tier; t++) {
-      currentSize *= 0.5; // Each layer is half the size
-      layerSizes.push(currentSize);
-    }
-    
-    layerSizes.forEach((layerSize, layerIndex) => {
-      const offset = sizePixels * (0.25 / Math.pow(2, layerIndex));
-      const h = sizePixels * Math.sqrt(3) / 2;
-      const layerAlpha = baseAlpha * (1 - layerIndex * 0.15);
-      
-      // Top triangle
-      drawHollowTriangle(x, y - h / 3, layerSize, layerAlpha);
-      // Bottom left triangle
-      drawHollowTriangle(x - sizePixels / 4, y + h / 6, layerSize, layerAlpha);
-      // Bottom right triangle
-      drawHollowTriangle(x + sizePixels / 4, y + h / 6, layerSize, layerAlpha);
-    });
-  }
-  
-  // Draw tier indicator
-  if (tier > 0) {
-    ctx.save();
-    ctx.fillStyle = `rgba(255, 255, 255, ${baseAlpha})`;
-    ctx.font = `${Math.max(10, sizePixels * 0.3)}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`T${tier}`, x, y);
-    ctx.restore();
-  }
-}
+  const tier = Math.max(0, Math.floor(mine.tier));
+  const sides = Math.max(3, tier + 2); // Tier 1 → triangle, Tier 2 → square, etc.
+  const tierGrowthSteps = Math.max(0, tier - 1);
+  const sizeMeters = POLYGON_BASE_SIZE * Math.pow(POLYGON_TIER_GROWTH, tierGrowthSteps);
+  const radiusPixels = metersToPixels(sizeMeters, minDimension);
 
-/**
- * Draw Apollonian gasket fractal for a prestige mine.
- */
-function drawApollonianMine(ctx, mine, minDimension, colors) {
-  const x = mine.x;
-  const y = mine.y;
-  const tier = mine.tier;
-  const sizeMeters = CIRCLE_BASE_SIZE * Math.pow(1.3, tier); // Grow with tier
-  const sizePixels = metersToPixels(sizeMeters, minDimension);
-  
-  // Helper to draw a hollow circle
-  function drawHollowCircle(cx, cy, radius, alpha, color) {
-    ctx.save();
-    ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
-  
-  // Draw base circle
-  const baseAlpha = mine.armed ? 0.9 : 0.5 + 0.4 * (mine.chargeProgress / TIER_CHARGE_TIME);
-  drawHollowCircle(x, y, sizePixels, baseAlpha, colors[0]);
-  
-  // Draw fractal circles (Apollonian gasket approximation)
-  // Each tier adds circles that fit in the gaps
-  if (tier > 0) {
-    for (let t = 1; t <= tier; t++) {
-      const circleRadius = sizePixels * 0.4 / t;
-      const layerAlpha = baseAlpha * (1 - t * 0.1);
-      const color = colors[t % colors.length];
-      
-      // Draw 3 circles around the center
-      const angleStep = (Math.PI * 2) / 3;
-      for (let i = 0; i < 3; i++) {
-        const angle = i * angleStep;
-        const offset = sizePixels * 0.5;
-        const cx = x + Math.cos(angle) * offset;
-        const cy = y + Math.sin(angle) * offset;
-        drawHollowCircle(cx, cy, circleRadius, layerAlpha, color);
-      }
+  const baseAlpha = mine.armed
+    ? 0.95
+    : 0.55 + 0.35 * Math.min(1, mine.chargeProgress / TIER_CHARGE_TIME);
+  const strokeColor = mine.prestige ? colors[0] : colors[1];
+  const fillColor = mine.prestige ? colors[2] : colors[0];
+
+  ctx.save();
+
+  // Draw the main polygon shell.
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = `rgba(${strokeColor.r}, ${strokeColor.g}, ${strokeColor.b}, ${baseAlpha})`;
+  ctx.fillStyle = `rgba(${fillColor.r}, ${fillColor.g}, ${fillColor.b}, ${baseAlpha * 0.4})`;
+  ctx.beginPath();
+
+  for (let i = 0; i < sides; i++) {
+    const angle = (Math.PI * 2 * i) / sides - Math.PI / 2;
+    const px = x + radiusPixels * Math.cos(angle);
+    const py = y + radiusPixels * Math.sin(angle);
+
+    if (i === 0) {
+      ctx.moveTo(px, py);
+    } else {
+      ctx.lineTo(px, py);
     }
   }
-  
-  // Draw tier indicator
+
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Inner ring to emphasize charge state.
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = `rgba(${strokeColor.r}, ${strokeColor.g}, ${strokeColor.b}, ${baseAlpha * 0.65})`;
+  ctx.beginPath();
+  ctx.arc(x, y, radiusPixels * 0.58, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Tier indicator in Roman numerals.
   if (tier > 0) {
-    ctx.save();
-    ctx.fillStyle = `rgba(255, 255, 255, ${baseAlpha})`;
-    ctx.font = `${Math.max(10, sizePixels * 0.35)}px Arial`;
+    const numeral = convertToRomanNumeral(tier);
+    ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, baseAlpha + 0.05)})`;
+    ctx.font = `${Math.max(12, radiusPixels * 0.8)}px 'Times New Roman', serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`T${tier}`, x, y);
-    ctx.restore();
+    ctx.fillText(numeral, x, y);
   }
+
+  ctx.restore();
 }
 
 /**
@@ -587,11 +558,7 @@ export function drawMuMines(playfield, tower) {
   ctx.save();
   
   mines.forEach((mine) => {
-    if (mine.prestige) {
-      drawApollonianMine(ctx, mine, minDimension, colors);
-    } else {
-      drawSierpinskiMine(ctx, mine, minDimension, colors);
-    }
+    drawPolygonMine(ctx, mine, minDimension, colors);
   });
   
   ctx.restore();
