@@ -2045,6 +2045,8 @@ import {
     getBaseStartThero,
     getBaseCoreIntegrity,
     handleDeveloperMapPlacement: handleDeveloperMapPlacementRequest,
+    // Share developer toggle so level thero caps can be bypassed during sandboxing.
+    isDeveloperModeActive: () => developerModeActive,
     // Provide the playfield with the active graphics mode to prune visual effects.
     isLowGraphicsMode: () => isLowGraphicsModeActive(),
   });
