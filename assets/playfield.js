@@ -2833,7 +2833,9 @@ export class SimplePlayfield {
   }
 
   getEnemyHitRadius(enemy = null, metrics = null) {
-    const baseRadius = Math.max(16, Math.min(this.renderWidth, this.renderHeight) * 0.05);
+    const width = Number.isFinite(this.renderWidth) ? this.renderWidth : 0;
+    const height = Number.isFinite(this.renderHeight) ? this.renderHeight : 0;
+    const baseRadius = Math.max(16, Math.min(width, height) * 0.05);
     if (!enemy || !metrics) {
       return baseRadius;
     }
