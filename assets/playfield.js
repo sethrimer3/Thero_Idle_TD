@@ -7957,6 +7957,11 @@ export class SimplePlayfield {
   updateEnemies(delta) {
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       const enemy = this.enemies[index];
+      // Guard against stray null slots so a missing enemy can't halt the animation loop mid-wave.
+      if (!enemy) {
+        this.enemies.splice(index, 1);
+        continue;
+      }
       if (!Number.isFinite(enemy.baseSpeed)) {
         enemy.baseSpeed = Number.isFinite(enemy.speed) ? enemy.speed : 0;
       }
