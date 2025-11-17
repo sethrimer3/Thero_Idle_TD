@@ -15,6 +15,7 @@ import {
   GRAPHICS_MODE_STORAGE_KEY,
   TRACK_RENDER_MODE_STORAGE_KEY,
   TRACK_TRACER_TOGGLE_STORAGE_KEY,
+  TOWER_LOADOUT_SLOTS_STORAGE_KEY,
 } from './autoSave.js';
 
 const GRAPHICS_MODES = Object.freeze({
@@ -53,6 +54,11 @@ let waveDamageTallyToggleStateLabel = null;
 let trackTracerEnabled = true;
 let trackTracerToggleInput = null;
 let trackTracerToggleStateLabel = null;
+
+// Preferred tower loadout slot count; players can cycle between 2–4 slots in Options.
+let preferredLoadoutSlots = 2;
+let loadoutSlotButton = null;
+let loadoutSlotChangeHandler = () => {};
 
 let graphicsModeButton = null;
 let trackRenderModeButton = null;
@@ -138,6 +144,16 @@ function normalizeGlyphEquationPreference(value) {
 
 function normalizeDamageNumberPreference(value) {
   return normalizeGlyphEquationPreference(value);
+}
+
+/**
+ * Clamp the preferred loadout slot count between the supported 2–4 range.
+ */
+function normalizeLoadoutSlotPreference(value) {
+  if (!Number.isFinite(value)) {
+    return 2;
+  }
+  return Math.min(4, Math.max(2, Math.floor(value)));
 }
 
 function updateGlyphEquationToggleUi() {
@@ -384,6 +400,70 @@ export function bindTrackTracerToggle() {
     applyTrackTracerPreference(event?.target?.checked);
   });
   updateTrackTracerToggleUi();
+}
+
+/**
+ * Refresh the loadout slot button copy so the Options card always mirrors the active preference.
+ */
+function updateLoadoutSlotButton() {
+  if (!loadoutSlotButton) {
+    return;
+  }
+  loadoutSlotButton.textContent = `Slots · ${preferredLoadoutSlots}`;
+  loadoutSlotButton.setAttribute('aria-label', `Cycle loadout slots (current: ${preferredLoadoutSlots})`);
+}
+
+/**
+ * Allow the bootstrapper to register a callback whenever the loadout slot preference changes.
+ */
+export function setLoadoutSlotChangeHandler(handler) {
+  loadoutSlotChangeHandler = typeof handler === 'function' ? handler : () => {};
+}
+
+/**
+ * Persist and apply the preferred loadout slot count.
+ */
+export function applyLoadoutSlotPreference(preference, { persist = true } = {}) {
+  const normalized = normalizeLoadoutSlotPreference(preference);
+  preferredLoadoutSlots = normalized;
+  updateLoadoutSlotButton();
+  loadoutSlotChangeHandler(preferredLoadoutSlots);
+  if (persist) {
+    writeStorage(TOWER_LOADOUT_SLOTS_STORAGE_KEY, String(preferredLoadoutSlots));
+  }
+  return preferredLoadoutSlots;
+}
+
+/**
+ * Bind the Options card button that cycles through 2–4 loadout slots.
+ */
+export function bindLoadoutSlotButton() {
+  loadoutSlotButton = document.getElementById('loadout-slot-button');
+  if (!loadoutSlotButton) {
+    return;
+  }
+  loadoutSlotButton.addEventListener('click', () => {
+    const next = preferredLoadoutSlots >= 4 ? 2 : preferredLoadoutSlots + 1;
+    applyLoadoutSlotPreference(next);
+  });
+  updateLoadoutSlotButton();
+}
+
+/**
+ * Initialize the loadout slot preference from storage so the slot limit persists across sessions.
+ */
+export function initializeLoadoutSlotPreference({ defaultSlots = 2 } = {}) {
+  const stored = Number.parseInt(readStorage(TOWER_LOADOUT_SLOTS_STORAGE_KEY), 10);
+  const normalizedStored = Number.isFinite(stored) ? normalizeLoadoutSlotPreference(stored) : null;
+  const fallback = normalizeLoadoutSlotPreference(defaultSlots);
+  return applyLoadoutSlotPreference(normalizedStored ?? fallback, { persist: false });
+}
+
+/**
+ * Report the current preferred loadout slot count.
+ */
+export function getPreferredLoadoutSlots() {
+  return preferredLoadoutSlots;
 }
 
 function resolveGraphicsModeLabel(mode = activeGraphicsMode) {

@@ -1237,7 +1237,7 @@ body.graphics-mode-low .control-button {
 
 .tower-loadout-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 16px;
   width: 100%;
   pointer-events: none; /* Allow empty portions of the loadout tray to pass clicks through to the battlefield. */
@@ -1279,6 +1279,105 @@ body.graphics-mode-low .control-button {
   transform: translateY(-6px);
   border-color: rgba(255, 228, 120, 0.8);
   box-shadow: 0 16px 32px rgba(255, 228, 120, 0.28);
+}
+
+.tower-loadout-item--empty {
+  border-style: dashed;
+  color: rgba(139, 247, 255, 0.84);
+  background: rgba(6, 7, 12, 0.6);
+}
+
+.tower-loadout-art--placeholder {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: rgba(139, 247, 255, 0.92);
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 40%, rgba(139, 247, 255, 0.24), rgba(12, 14, 20, 0.82));
+  box-shadow: 0 10px 18px rgba(139, 247, 255, 0.22);
+}
+
+.tower-loadout-empty-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: rgba(139, 247, 255, 0.76);
+}
+
+.tower-loadout-wheel {
+  position: absolute;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(6, 7, 12, 0.94);
+  border: 1px solid rgba(139, 247, 255, 0.32);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.55);
+  min-width: 210px;
+  z-index: 6;
+  pointer-events: auto;
+}
+
+.tower-loadout-wheel__list {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow: hidden;
+}
+
+.tower-loadout-wheel__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(139, 247, 255, 0.32);
+  background: rgba(12, 14, 20, 0.92);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  opacity: 1;
+  transition: transform var(--transition), opacity var(--transition), border-color var(--transition);
+}
+
+.tower-loadout-wheel__item[data-distance='1'] {
+  opacity: 0.72;
+}
+
+.tower-loadout-wheel__item[data-distance='2'] {
+  opacity: 0.45;
+}
+
+.tower-loadout-wheel__item[data-affordable='false'] {
+  opacity: 0.65;
+  border-color: rgba(255, 108, 140, 0.72);
+  box-shadow: 0 10px 20px rgba(255, 108, 140, 0.24);
+}
+
+.tower-loadout-wheel__item:focus-visible {
+  outline: 2px solid rgba(139, 247, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.tower-loadout-wheel__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  padding: 6px;
+  background: radial-gradient(circle at 50% 30%, rgba(255, 228, 120, 0.22), rgba(12, 14, 20, 0.9));
+  box-shadow: 0 10px 16px rgba(255, 228, 120, 0.16);
+  object-fit: contain;
+}
+
+.tower-loadout-wheel__label {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(255, 228, 120, 0.92);
+}
+
+.tower-loadout-wheel__tier {
+  justify-self: end;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  color: rgba(139, 247, 255, 0.82);
 }
 
 .tower-loadout-art {
@@ -3282,6 +3381,28 @@ body.graphics-mode-low .control-button {
 .visual-settings-card .visual-settings-copy p {
   margin: 0;
   color: rgba(247, 247, 245, 0.72);
+}
+
+.loadout-slots-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.loadout-slots-copy {
+  display: grid;
+  gap: 6px;
+  max-width: 70%;
+}
+
+.loadout-slots-copy p {
+  margin: 0;
+  color: rgba(247, 247, 245, 0.72);
+}
+
+.loadout-slots-card .action-button {
+  min-width: 144px;
 }
 
 .visual-settings-trigger {

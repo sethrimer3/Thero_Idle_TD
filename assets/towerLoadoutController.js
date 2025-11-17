@@ -6,6 +6,9 @@
 export function createTowerLoadoutController({
   getLoadoutState,
   getLoadoutElements,
+  getLoadoutSlots,
+  getLoadoutLimit,
+  getTowerDefinitions,
   getTowerDefinition,
   getNextTowerId,
   isTowerUnlocked,
@@ -14,14 +17,34 @@ export function createTowerLoadoutController({
   getPlayfield,
   getAudioManager,
   formatCombatNumber,
+  syncLoadoutToPlayfield,
 } = {}) {
+  const LOADOUT_WHEEL_HOLD_MS = 1000; // Require an intentional hold before opening the wheel overlay.
+  const LOADOUT_SCROLL_STEP_PX = 28; // Drag distance required to advance the wheel to the next item.
+  const LOADOUT_DRAG_CANCEL_DISTANCE = 6; // Movement threshold that cancels the hold timer so drags can begin immediately.
   // Store the last rendered tower order signature so the DOM only rebuilds when selection changes.
   let renderedLoadoutSignature = null;
   // Track the active drag interaction so pointer events can be cancelled cleanly.
   const dragState = { active: false, pointerId: null, towerId: null, element: null };
+  // Track the transient loadout wheel overlay so it can be rebuilt as the player scrolls through towers.
+  const wheelState = {
+    timerId: null,
+    container: null,
+    list: null,
+    slotIndex: -1,
+    activeIndex: 0,
+    towers: [],
+    outsideHandler: null,
+    pointerId: null,
+    lastY: 0,
+    dragAccumulator: 0,
+  };
 
   const safeGetLoadoutState = () => (typeof getLoadoutState === 'function' ? getLoadoutState() : null);
   const safeGetLoadoutElements = () => (typeof getLoadoutElements === 'function' ? getLoadoutElements() : null);
+  const safeGetLoadoutSlots = () => (typeof getLoadoutSlots === 'function' ? getLoadoutSlots() : []);
+  const safeGetLoadoutLimit = () => (typeof getLoadoutLimit === 'function' ? getLoadoutLimit() : 0);
+  const safeGetTowerDefinitions = () => (typeof getTowerDefinitions === 'function' ? getTowerDefinitions() : []);
   const safeGetTowerDefinition = (towerId) => (typeof getTowerDefinition === 'function' ? getTowerDefinition(towerId) : null);
   const safeGetNextTowerId = (towerId) => (typeof getNextTowerId === 'function' ? getNextTowerId(towerId) : null);
   const safeIsTowerUnlocked = (towerId) => (typeof isTowerUnlocked === 'function' ? isTowerUnlocked(towerId) : false);
@@ -29,12 +52,49 @@ export function createTowerLoadoutController({
   const safeGetTheroSymbol = () => (typeof getTheroSymbol === 'function' ? getTheroSymbol() : 'þ');
   const safeGetPlayfield = () => (typeof getPlayfield === 'function' ? getPlayfield() : null);
   const safeGetAudioManager = () => (typeof getAudioManager === 'function' ? getAudioManager() : null);
+  const safeSyncLoadoutToPlayfield = () => {
+    if (typeof syncLoadoutToPlayfield === 'function') {
+      syncLoadoutToPlayfield();
+    }
+  };
   const safeFormatCombatNumber = (value) => {
     if (typeof formatCombatNumber === 'function') {
       return formatCombatNumber(value);
     }
     return String(value);
   };
+
+  /**
+   * Resolve the cost state for a given tower so affordability cues can stay consistent across UI surfaces.
+   */
+  function resolveTowerCostState(towerId) {
+    const playfield = safeGetPlayfield();
+    const isInteractiveLevelActive = Boolean(playfield?.isInteractiveLevelActive?.());
+    const energy = isInteractiveLevelActive && playfield ? playfield.energy : 0;
+    const definition = safeGetTowerDefinition(towerId);
+    const baseCost = Number.isFinite(definition?.baseCost) ? definition.baseCost : 0;
+    const anchorCostValue = typeof playfield?.getCurrentTowerCost === 'function'
+      ? playfield.getCurrentTowerCost(towerId)
+      : baseCost;
+    const nextTowerId = safeGetNextTowerId(towerId);
+    const nextDefinition = nextTowerId ? safeGetTowerDefinition(nextTowerId) : null;
+    const nextBaseCost = Number.isFinite(nextDefinition?.baseCost) ? nextDefinition.baseCost : null;
+    const mergeCostValue = nextBaseCost === null
+      ? null
+      : typeof playfield?.getCurrentTowerCost === 'function'
+        ? playfield.getCurrentTowerCost(nextTowerId)
+        : nextBaseCost;
+    return {
+      playfield,
+      isInteractiveLevelActive,
+      energy,
+      definition,
+      anchorCostValue,
+      canAffordAnchor: isInteractiveLevelActive && energy >= anchorCostValue,
+      mergeCostValue,
+      canAffordUpgrade: Number.isFinite(mergeCostValue) && isInteractiveLevelActive && energy >= mergeCostValue,
+    };
+  }
 
   /**
    * Update cached DOM references for the loadout container, grid, and helper note.
@@ -60,12 +120,14 @@ export function createTowerLoadoutController({
       return;
     }
     const loadoutState = safeGetLoadoutState();
-    if (!loadoutState?.selected?.length) {
-      note.textContent = 'Select towers on the Towers tab to prepare up to four glyphs for this defense.';
-    } else {
-      note.textContent =
-        'Select four towers to bring into the defense. Drag the glyph chips onto the plane to lattice them; drop a chip atop a matching tower to merge.';
-    }
+    const hasEquippedTower = Array.isArray(loadoutState?.selected)
+      ? loadoutState.selected.some((towerId) => towerId)
+      : false;
+    const slotLimit = Math.max(1, safeGetLoadoutLimit());
+    const introMessage = `Hold a loadout slot for one second to browse towers. Prepare up to ${slotLimit} glyphs for this defense.`;
+    const equippedMessage =
+      'Drag glyph chips onto the plane to lattice them; drop a chip atop a matching tower to merge. Hold a slot to swap towers mid-defense.';
+    note.textContent = hasEquippedTower ? equippedMessage : introMessage;
   }
 
   /**
@@ -73,15 +135,18 @@ export function createTowerLoadoutController({
    */
   function pruneLockedTowersFromLoadout() {
     const loadoutState = safeGetLoadoutState();
-    const selected = loadoutState?.selected;
+    const selected = Array.isArray(loadoutState?.selected) ? loadoutState.selected : safeGetLoadoutSlots();
     if (!Array.isArray(selected)) {
       return false;
     }
     let changed = false;
-    for (let index = selected.length - 1; index >= 0; index -= 1) {
+    for (let index = 0; index < selected.length; index += 1) {
       const towerId = selected[index];
+      if (!towerId) {
+        continue;
+      }
       if (!safeIsTowerUnlocked(towerId) || !safeIsTowerPlaceable(towerId)) {
-        selected.splice(index, 1);
+        selected[index] = null;
         changed = true;
       }
     }
@@ -97,10 +162,7 @@ export function createTowerLoadoutController({
     if (!grid || typeof grid.querySelectorAll !== 'function') {
       return;
     }
-    const playfield = safeGetPlayfield();
-    const isInteractiveLevelActive = Boolean(playfield?.isInteractiveLevelActive?.());
     const items = grid.querySelectorAll('.tower-loadout-item');
-    const energy = isInteractiveLevelActive && playfield ? playfield.energy : 0;
     const formatCostLabel = (value) => {
       if (!Number.isFinite(value)) {
         return '∞';
@@ -110,36 +172,32 @@ export function createTowerLoadoutController({
 
     items.forEach((item) => {
       const towerId = item.dataset.towerId;
-      const definition = safeGetTowerDefinition(towerId);
-      if (!definition) {
+      if (!towerId) {
+        item.dataset.valid = 'true';
+        item.dataset.disabled = 'false';
+        item.disabled = false;
+        item.setAttribute('aria-label', 'Empty loadout slot');
+        const emptyLabel = item.querySelector('.tower-loadout-empty-label');
+        if (emptyLabel) {
+          emptyLabel.textContent = 'Hold to choose';
+        }
         return;
       }
-      const baseCost = Number.isFinite(definition.baseCost) ? definition.baseCost : 0;
-      const anchorCostValue = typeof playfield?.getCurrentTowerCost === 'function'
-        ? playfield.getCurrentTowerCost(towerId)
-        : baseCost;
-      const anchorCostLabel = formatCostLabel(anchorCostValue);
-      const canAffordAnchor = isInteractiveLevelActive && energy >= anchorCostValue;
+      const costState = resolveTowerCostState(towerId);
+      const anchorCostLabel = formatCostLabel(costState.anchorCostValue);
       const costEl = item.querySelector('.tower-loadout-cost');
       if (costEl) {
         costEl.textContent = `Anchor: ${anchorCostLabel} ${safeGetTheroSymbol()}`;
-        costEl.dataset.affordable = canAffordAnchor ? 'true' : 'false';
+        costEl.dataset.affordable = costState.canAffordAnchor ? 'true' : 'false';
       }
       const upgradeCostEl = item.querySelector('.tower-loadout-upgrade-cost');
-      const nextTowerId = safeGetNextTowerId(towerId);
-      const nextDefinition = nextTowerId ? safeGetTowerDefinition(nextTowerId) : null;
       let upgradeAriaLabel = 'Upgrade unavailable';
       if (upgradeCostEl) {
-        if (nextDefinition) {
-          const nextBaseCost = Number.isFinite(nextDefinition.baseCost) ? nextDefinition.baseCost : 0;
-          const mergeCostValue = typeof playfield?.getCurrentTowerCost === 'function'
-            ? playfield.getCurrentTowerCost(nextTowerId)
-            : nextBaseCost;
-          const mergeCostLabel = formatCostLabel(mergeCostValue);
+        if (Number.isFinite(costState.mergeCostValue)) {
+          const mergeCostLabel = formatCostLabel(costState.mergeCostValue);
           upgradeCostEl.textContent = `Upgrade: ${mergeCostLabel} ${safeGetTheroSymbol()}`;
           upgradeCostEl.dataset.available = 'true';
-          const canAffordUpgrade = isInteractiveLevelActive && energy >= mergeCostValue;
-          upgradeCostEl.dataset.affordable = canAffordUpgrade ? 'true' : 'false';
+          upgradeCostEl.dataset.affordable = costState.canAffordUpgrade ? 'true' : 'false';
           upgradeAriaLabel = `Upgrade ${mergeCostLabel} ${safeGetTheroSymbol()}`;
         } else {
           upgradeCostEl.textContent = 'Upgrade: —';
@@ -148,17 +206,16 @@ export function createTowerLoadoutController({
           upgradeAriaLabel = 'Upgrade unavailable';
         }
       }
-      if (definition && item) {
-        const labelParts = [
-          definition.name,
-          `Anchor ${anchorCostLabel} ${safeGetTheroSymbol()}`,
-          upgradeAriaLabel,
-        ];
-        item.setAttribute('aria-label', labelParts.join(' — '));
-      }
-      item.dataset.valid = canAffordAnchor ? 'true' : 'false';
-      item.dataset.disabled = isInteractiveLevelActive ? 'false' : 'true';
-      item.disabled = !isInteractiveLevelActive;
+      const definition = costState.definition;
+      const labelParts = [
+        definition?.name || 'Tower',
+        `Anchor ${anchorCostLabel} ${safeGetTheroSymbol()}`,
+        upgradeAriaLabel,
+      ];
+      item.setAttribute('aria-label', labelParts.join(' — '));
+      item.dataset.valid = costState.canAffordAnchor ? 'true' : 'false';
+      item.dataset.disabled = 'false';
+      item.disabled = false;
     });
   }
 
@@ -172,11 +229,15 @@ export function createTowerLoadoutController({
       renderedLoadoutSignature = null;
       return;
     }
-    const loadoutState = safeGetLoadoutState();
-    const selected = Array.isArray(loadoutState?.selected) ? loadoutState.selected : [];
-    const signature = selected.join('|');
+    const slots = safeGetLoadoutSlots();
+    const limit = Math.max(1, safeGetLoadoutLimit());
+    const normalizedSlots = Array.isArray(slots) ? slots.slice(0, limit) : [];
+    while (normalizedSlots.length < limit) {
+      normalizedSlots.push(null);
+    }
+    const signature = normalizedSlots.map((towerId) => towerId || 'empty').join('|');
     const existingCount = grid.childElementCount;
-    if (signature === renderedLoadoutSignature && existingCount === selected.length) {
+    if (signature === renderedLoadoutSignature && existingCount === normalizedSlots.length) {
       refreshTowerLoadoutDisplay();
       updateLoadoutNote();
       return;
@@ -185,55 +246,330 @@ export function createTowerLoadoutController({
     grid.innerHTML = '';
     renderedLoadoutSignature = signature;
 
-    if (!selected.length) {
-      updateLoadoutNote();
-      return;
-    }
-
     const fragment = document.createDocumentFragment();
-    selected.forEach((towerId) => {
-      const definition = safeGetTowerDefinition(towerId);
-      if (!definition || definition.placeable === false) {
-        return;
-      }
+    normalizedSlots.forEach((towerId, slotIndex) => {
+      const definition = towerId ? safeGetTowerDefinition(towerId) : null;
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'tower-loadout-item';
-      item.dataset.towerId = towerId;
+      item.dataset.towerId = towerId || '';
+      item.dataset.slotIndex = String(slotIndex);
       item.setAttribute('role', 'listitem');
-      item.setAttribute('aria-label', definition.name);
+      item.setAttribute('aria-label', definition?.name || 'Empty loadout slot');
 
-      const artwork = document.createElement('img');
-      artwork.className = 'tower-loadout-art';
-      if (definition.icon) {
-        artwork.src = definition.icon;
-        artwork.alt = `${definition.name} sigil`;
-        artwork.decoding = 'async';
-        artwork.loading = 'lazy';
+      if (definition && definition.placeable !== false) {
+        const artwork = document.createElement('img');
+        artwork.className = 'tower-loadout-art';
+        if (definition.icon) {
+          artwork.src = definition.icon;
+          artwork.alt = `${definition.name} sigil`;
+          artwork.decoding = 'async';
+          artwork.loading = 'lazy';
+        } else {
+          artwork.alt = '';
+          artwork.setAttribute('aria-hidden', 'true');
+        }
+
+        const costEl = document.createElement('span');
+        costEl.className = 'tower-loadout-cost';
+        costEl.textContent = 'Anchor: —';
+        costEl.dataset.affordable = 'false';
+
+        const upgradeCostEl = document.createElement('span');
+        upgradeCostEl.className = 'tower-loadout-upgrade-cost';
+        upgradeCostEl.dataset.available = 'false';
+        upgradeCostEl.dataset.affordable = 'false';
+        upgradeCostEl.textContent = 'Upgrade: —';
+
+        item.append(artwork, costEl, upgradeCostEl);
       } else {
-        artwork.alt = '';
-        artwork.setAttribute('aria-hidden', 'true');
+        item.classList.add('tower-loadout-item--empty');
+        const emptyArt = document.createElement('span');
+        emptyArt.className = 'tower-loadout-art tower-loadout-art--placeholder';
+        emptyArt.textContent = '＋';
+
+        const emptyLabel = document.createElement('span');
+        emptyLabel.className = 'tower-loadout-empty-label';
+        emptyLabel.textContent = 'Hold to choose';
+
+        item.append(emptyArt, emptyLabel);
       }
 
-      const costEl = document.createElement('span');
-      costEl.className = 'tower-loadout-cost';
-      costEl.textContent = 'Anchor: —';
-      costEl.dataset.affordable = 'false';
-
-      const upgradeCostEl = document.createElement('span');
-      upgradeCostEl.className = 'tower-loadout-upgrade-cost';
-      upgradeCostEl.dataset.available = 'false';
-      upgradeCostEl.dataset.affordable = 'false';
-      upgradeCostEl.textContent = 'Upgrade: —';
-
-      item.append(artwork, costEl, upgradeCostEl);
-      item.addEventListener('pointerdown', (event) => startTowerDrag(event, towerId, item));
+      item.addEventListener('pointerdown', (event) => handleLoadoutPointerDown(event, towerId, slotIndex, item));
       fragment.append(item);
     });
 
     grid.append(fragment);
     refreshTowerLoadoutDisplay();
     updateLoadoutNote();
+  }
+
+  /**
+   * Clear the active hold timer so accidental taps do not spawn the wheel overlay.
+   */
+  function clearWheelHoldTimer() {
+    if (wheelState.timerId) {
+      clearTimeout(wheelState.timerId);
+      wheelState.timerId = null;
+    }
+  }
+
+  /**
+   * Tear down the transient wheel overlay and any pointer listeners tied to it.
+   */
+  function closeLoadoutWheel() {
+    clearWheelHoldTimer();
+    if (wheelState.list && wheelState.pointerId !== null) {
+      try {
+        wheelState.list.releasePointerCapture(wheelState.pointerId);
+      } catch (error) {
+        // Ignore pointer capture errors so cleanup always completes.
+      }
+    }
+    if (wheelState.outsideHandler) {
+      document.removeEventListener('pointerdown', wheelState.outsideHandler);
+    }
+    wheelState.outsideHandler = null;
+    wheelState.pointerId = null;
+    wheelState.dragAccumulator = 0;
+    wheelState.lastY = 0;
+    if (wheelState.container?.parentNode) {
+      wheelState.container.remove();
+    }
+    wheelState.container = null;
+    wheelState.list = null;
+    wheelState.towers = [];
+    wheelState.slotIndex = -1;
+  }
+
+  /**
+   * Update the wheel list items to mirror the active index and affordability state.
+   */
+  function renderLoadoutWheel() {
+    const { list, towers } = wheelState;
+    if (!list || !Array.isArray(towers) || !towers.length) {
+      return;
+    }
+    const clampedIndex = Math.min(Math.max(wheelState.activeIndex, 0), towers.length - 1);
+    wheelState.activeIndex = clampedIndex;
+    list.innerHTML = '';
+
+    const startIndex = Math.max(0, clampedIndex - 2);
+    const endIndex = Math.min(towers.length, clampedIndex + 3);
+
+    for (let index = startIndex; index < endIndex; index += 1) {
+      const definition = towers[index];
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'tower-loadout-wheel__item';
+      item.dataset.towerId = definition.id;
+      item.dataset.distance = String(Math.abs(index - clampedIndex));
+
+      if (definition.icon) {
+        const art = document.createElement('img');
+        art.className = 'tower-loadout-wheel__icon';
+        art.src = definition.icon;
+        art.alt = `${definition.name} icon`;
+        art.decoding = 'async';
+        art.loading = 'lazy';
+        item.append(art);
+      }
+
+      const label = document.createElement('span');
+      label.className = 'tower-loadout-wheel__label';
+      label.textContent = definition.symbol || definition.name || definition.id;
+      item.append(label);
+
+      const tier = document.createElement('span');
+      tier.className = 'tower-loadout-wheel__tier';
+      tier.textContent = `Tier ${Number.isFinite(definition.tier) ? definition.tier : '—'}`;
+      item.append(tier);
+
+      const costState = resolveTowerCostState(definition.id);
+      item.dataset.affordable = costState.canAffordAnchor ? 'true' : 'false';
+      item.setAttribute(
+        'aria-label',
+        `${definition.name || definition.id} — Tier ${definition.tier || '—'} — Anchor ${safeFormatCombatNumber(
+          costState.anchorCostValue,
+        )} ${safeGetTheroSymbol()}`,
+      );
+
+      item.addEventListener('click', () => {
+        wheelState.activeIndex = index;
+        const slots = safeGetLoadoutSlots();
+        if (Array.isArray(slots) && wheelState.slotIndex >= 0 && wheelState.slotIndex < slots.length) {
+          const duplicateIndex = slots.findIndex((id, slotIdx) => id === definition.id && slotIdx !== wheelState.slotIndex);
+          if (duplicateIndex !== -1) {
+            slots[duplicateIndex] = null;
+          }
+          slots[wheelState.slotIndex] = definition.id;
+          renderTowerLoadout();
+          safeSyncLoadoutToPlayfield();
+        }
+        closeLoadoutWheel();
+      });
+
+      list.append(item);
+    }
+  }
+
+  /**
+   * Shift the active wheel index in response to scroll or drag input.
+   */
+  function shiftWheelSelection(delta) {
+    const nextIndex = Math.min(
+      Math.max(wheelState.activeIndex + delta, 0),
+      Math.max(0, wheelState.towers.length - 1),
+    );
+    if (nextIndex !== wheelState.activeIndex) {
+      wheelState.activeIndex = nextIndex;
+      renderLoadoutWheel();
+    }
+  }
+
+  /**
+   * Begin listening for drag gestures on the wheel to emulate a scrolling column.
+   */
+  function beginWheelDrag(event) {
+    wheelState.pointerId = event.pointerId;
+    wheelState.lastY = event.clientY;
+    wheelState.dragAccumulator = 0;
+    try {
+      wheelState.list?.setPointerCapture?.(event.pointerId);
+    } catch (error) {
+      // Ignore pointer capture errors so drag gestures remain responsive.
+    }
+    document.addEventListener('pointermove', handleWheelDragMove);
+    document.addEventListener('pointerup', endWheelDrag);
+    document.addEventListener('pointercancel', endWheelDrag);
+  }
+
+  /**
+   * Translate vertical drag movement into wheel index changes.
+   */
+  function handleWheelDragMove(event) {
+    if (event.pointerId !== wheelState.pointerId) {
+      return;
+    }
+    const deltaY = event.clientY - wheelState.lastY;
+    wheelState.lastY = event.clientY;
+    wheelState.dragAccumulator += deltaY;
+    while (Math.abs(wheelState.dragAccumulator) >= LOADOUT_SCROLL_STEP_PX) {
+      shiftWheelSelection(wheelState.dragAccumulator > 0 ? 1 : -1);
+      wheelState.dragAccumulator += wheelState.dragAccumulator > 0 ? -LOADOUT_SCROLL_STEP_PX : LOADOUT_SCROLL_STEP_PX;
+    }
+  }
+
+  /**
+   * Stop tracking drag gestures when the pointer is released or cancelled.
+   */
+  function endWheelDrag(event) {
+    if (event.pointerId !== wheelState.pointerId) {
+      return;
+    }
+    document.removeEventListener('pointermove', handleWheelDragMove);
+    document.removeEventListener('pointerup', endWheelDrag);
+    document.removeEventListener('pointercancel', endWheelDrag);
+    try {
+      wheelState.list?.releasePointerCapture?.(event.pointerId);
+    } catch (error) {
+      // Ignore release failures while still clearing drag state.
+    }
+    wheelState.pointerId = null;
+    wheelState.dragAccumulator = 0;
+    wheelState.lastY = 0;
+  }
+
+  /**
+   * Open the wheel overlay anchored to a specific slot.
+   */
+  function openLoadoutWheel(slotIndex, anchorElement) {
+    closeLoadoutWheel();
+    const towers = safeGetTowerDefinitions().filter(
+      (definition) => safeIsTowerUnlocked(definition.id) && safeIsTowerPlaceable(definition.id),
+    );
+    if (!towers.length) {
+      return;
+    }
+    const slots = safeGetLoadoutSlots();
+    const slotTowerId = Array.isArray(slots) && slotIndex < slots.length ? slots[slotIndex] : null;
+    const activeIndex = towers.findIndex((definition) => definition.id === slotTowerId);
+
+    const container = document.createElement('div');
+    container.className = 'tower-loadout-wheel';
+    const list = document.createElement('div');
+    list.className = 'tower-loadout-wheel__list';
+    container.append(list);
+
+    wheelState.container = container;
+    wheelState.list = list;
+    wheelState.slotIndex = slotIndex;
+    wheelState.towers = towers;
+    wheelState.activeIndex = activeIndex >= 0 ? activeIndex : 0;
+
+    renderLoadoutWheel();
+
+    list.addEventListener('pointerdown', beginWheelDrag);
+    list.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      shiftWheelSelection(event.deltaY > 0 ? 1 : -1);
+    });
+
+    const loadoutContainer = safeGetLoadoutElements()?.container;
+    const host = loadoutContainer || document.body;
+    host.append(container);
+    if (anchorElement?.getBoundingClientRect && loadoutContainer?.getBoundingClientRect) {
+      const anchorRect = anchorElement.getBoundingClientRect();
+      const hostRect = loadoutContainer.getBoundingClientRect();
+      container.style.left = `${anchorRect.left - hostRect.left}px`;
+      container.style.top = `${Math.max(0, anchorRect.top - hostRect.top - container.offsetHeight - 8)}px`;
+    }
+
+    wheelState.outsideHandler = (event) => {
+      if (!container.contains(event.target) && !anchorElement?.contains(event.target)) {
+        closeLoadoutWheel();
+      }
+    };
+    document.addEventListener('pointerdown', wheelState.outsideHandler);
+  }
+
+  /**
+   * Start drag placement immediately while scheduling a hold to open the wheel.
+   */
+  function handleLoadoutPointerDown(event, towerId, slotIndex, element) {
+    if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
+    closeLoadoutWheel();
+    const startX = event.clientX;
+    const startY = event.clientY;
+
+    const cancelHold = () => {
+      clearWheelHoldTimer();
+      element.removeEventListener('pointermove', handleMove);
+    };
+
+    const handleMove = (moveEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      if (Math.hypot(dx, dy) > LOADOUT_DRAG_CANCEL_DISTANCE) {
+        cancelHold();
+      }
+    };
+
+    wheelState.timerId = setTimeout(() => {
+      cancelHold();
+      cancelTowerDrag();
+      openLoadoutWheel(slotIndex, element);
+    }, LOADOUT_WHEEL_HOLD_MS);
+
+    element.addEventListener('pointermove', handleMove);
+    element.addEventListener('pointerup', cancelHold, { once: true });
+    element.addEventListener('pointercancel', cancelHold, { once: true });
+
+    if (towerId) {
+      startTowerDrag(event, towerId, element);
+    }
   }
 
   /**

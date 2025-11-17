@@ -32,7 +32,7 @@ const GAMEPLAY_CONFIG_URL = new URL(GAMEPLAY_CONFIG_RELATIVE_PATH, import.meta.u
 const FLUID_SIM_CONFIG_RELATIVE_PATH = './data/towerFluidSimulation.json';
 const FLUID_SIM_CONFIG_URL = new URL(FLUID_SIM_CONFIG_RELATIVE_PATH, import.meta.url);
 
-export const FALLBACK_TOWER_LOADOUT_LIMIT = 4;
+export const FALLBACK_TOWER_LOADOUT_LIMIT = 2;
 export const FALLBACK_BASE_START_THERO = 50;
 export const FALLBACK_BASE_CORE_INTEGRITY = 100;
 export const FALLBACK_BASE_SCORE_RATE = 1;
@@ -214,13 +214,18 @@ async function applyGameplayConfigInternal(config = {}) {
     normalizedLoadout.push(towerDefinitions[0].id);
   }
   loadoutState.selected = normalizedLoadout;
+  setTowerLoadoutLimit(TOWER_LOADOUT_LIMIT);
 
   const unlocked = new Set(
     Array.isArray(defaults.initialUnlockedTowers)
       ? defaults.initialUnlockedTowers.filter((towerId) => getTowerDefinition(towerId))
       : [],
   );
-  loadoutState.selected.forEach((towerId) => unlocked.add(towerId));
+  loadoutState.selected.forEach((towerId) => {
+    if (towerId) {
+      unlocked.add(towerId);
+    }
+  });
   unlockState.unlocked = unlocked;
   setMergingLogicUnlocked(unlocked.has('beta'));
   initializeDiscoveredVariablesFromUnlocks(unlocked);
@@ -282,6 +287,18 @@ export function calculateStartingThero() {
 
 export function getTowerLoadoutLimit() {
   return TOWER_LOADOUT_LIMIT;
+}
+
+/**
+ * Allow players to override the tower loadout slot count via preferences.
+ */
+export function overrideTowerLoadoutLimit(limit) {
+  if (!Number.isFinite(limit) || limit <= 0) {
+    return;
+  }
+  const normalizedLimit = Math.max(1, Math.floor(limit));
+  TOWER_LOADOUT_LIMIT = normalizedLimit;
+  setTowerLoadoutLimit(normalizedLimit);
 }
 
 export function getBaseStartThero() {

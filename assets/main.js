@@ -50,6 +50,7 @@ import {
   loadFluidSimulationProfile,
   calculateStartingThero,
   getTowerLoadoutLimit,
+  overrideTowerLoadoutLimit,
   getBaseStartThero,
   registerResourceContainers,
   setBaseStartThero,
@@ -70,6 +71,7 @@ import {
   bindWaveDamageTallyToggle,
   applyTrackTracerPreference,
   bindTrackTracerToggle,
+  bindLoadoutSlotButton,
   initializeDesktopCursorPreference,
   applyGraphicsMode,
   initializeGraphicsMode,
@@ -84,6 +86,8 @@ import {
   getActiveGraphicsMode,
   bindTrackRenderModeButton,
   initializeTrackRenderMode,
+  initializeLoadoutSlotPreference,
+  setLoadoutSlotChangeHandler,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
 import { configurePerformanceMonitor } from './performanceMonitor.js';
@@ -3771,6 +3775,7 @@ import {
     bindTrackRenderModeButton();
     // Expose a tactile toggle for the luminous track tracer overlay.
     bindTrackTracerToggle();
+    bindLoadoutSlotButton();
     bindNotationToggle();
     bindGlyphEquationToggle();
     bindDamageNumberToggle();
@@ -3833,6 +3838,10 @@ import {
       container: document.getElementById('tower-loadout'),
       grid: document.getElementById('tower-loadout-grid'),
       note: document.getElementById('tower-loadout-note'),
+    });
+    setLoadoutSlotChangeHandler((slotCount) => {
+      overrideTowerLoadoutLimit(slotCount);
+      syncLoadoutToPlayfield();
     });
 
     setHideUpgradeMatrixCallback(hideUpgradeMatrix);
@@ -4156,6 +4165,8 @@ import {
     }
 
     setMergingLogicUnlocked(getMergeProgressState().mergingLogicUnlocked);
+
+    initializeLoadoutSlotPreference({ defaultSlots: getTowerLoadoutLimit() });
 
     const savedKufState = readStorageJson(KUF_STATE_STORAGE_KEY);
     initializeKufState(savedKufState || {});
