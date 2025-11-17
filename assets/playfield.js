@@ -4434,7 +4434,8 @@ export class SimplePlayfield {
       return;
     }
 
-    const enemy = this.enemies.find((candidate) => candidate.id === this.hoverEnemy.enemyId);
+    // Gracefully skip over any cleared enemy slots so tooltip updates never crash the render loop.
+    const enemy = this.enemies.find((candidate) => candidate?.id === this.hoverEnemy.enemyId);
     if (!enemy || !this.pointerPosition) {
       this.clearEnemyHover();
       return;
