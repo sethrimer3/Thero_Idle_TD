@@ -56,6 +56,9 @@ let trackTracerToggleStateLabel = null;
 
 let graphicsModeButton = null;
 let trackRenderModeButton = null;
+// Cache the preview line and tracer so track mode changes can mirror the canvas style.
+let trackRenderPreviewLine = null;
+let trackRenderPreviewTracer = null;
 let desktopCursorMediaQuery = null;
 let desktopCursorActive = false;
 let activeGraphicsMode = GRAPHICS_MODES.HIGH;
@@ -210,6 +213,24 @@ function updateTrackTracerToggleUi() {
   }
 }
 
+// Mirror the active track mode and tracer toggle in the preview line beneath the control.
+function updateTrackRenderPreview() {
+  if (!trackRenderPreviewLine) {
+    trackRenderPreviewLine = document.getElementById('track-render-preview-line');
+  }
+  if (!trackRenderPreviewTracer) {
+    trackRenderPreviewTracer = document.getElementById('track-render-preview-tracer');
+  }
+  if (!trackRenderPreviewLine) {
+    return;
+  }
+  trackRenderPreviewLine.dataset.mode = activeTrackRenderMode;
+  trackRenderPreviewLine.classList.toggle('is-tracer-enabled', trackTracerEnabled);
+  if (trackRenderPreviewTracer) {
+    trackRenderPreviewTracer.setAttribute('aria-hidden', trackTracerEnabled ? 'false' : 'true');
+  }
+}
+
 export function applyGlyphEquationPreference(preference, { persist = true } = {}) {
   const enabled = normalizeGlyphEquationPreference(preference);
   glyphEquationsVisible = enabled;
@@ -339,6 +360,7 @@ export function applyTrackTracerPreference(preference, { persist = true } = {}) 
   const enabled = normalizeDamageNumberPreference(preference);
   trackTracerEnabled = enabled;
   updateTrackTracerToggleUi();
+  updateTrackRenderPreview();
   if (persist) {
     writeStorage(TRACK_TRACER_TOGGLE_STORAGE_KEY, trackTracerEnabled ? '1' : '0');
   }
@@ -590,6 +612,7 @@ export function applyTrackRenderMode(mode, { persist = true } = {}) {
   const normalized = validModes.includes(mode) ? mode : TRACK_RENDER_MODES.GRADIENT;
   activeTrackRenderMode = normalized;
   updateTrackRenderModeButton();
+  updateTrackRenderPreview();
 
   if (persist) {
     writeStorage(TRACK_RENDER_MODE_STORAGE_KEY, normalized);
@@ -612,6 +635,7 @@ export function bindTrackRenderModeButton() {
     cycleTrackRenderMode();
   });
   updateTrackRenderModeButton();
+  updateTrackRenderPreview();
 }
 
 export function initializeTrackRenderMode() {

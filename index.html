@@ -2778,6 +2778,13 @@
                 <button class="action-button ghost" type="button" id="track-graphics-button">
                   Track · Gradient
                 </button>
+                <!-- Inline preview mirrors the active track render mode and tracer toggle. -->
+                <div class="track-render-preview" aria-hidden="true">
+                  <span class="track-render-preview-label">Track preview</span>
+                  <div class="track-render-preview-line" id="track-render-preview-line" data-mode="gradient">
+                    <span class="track-render-preview-tracer" id="track-render-preview-tracer"></span>
+                  </div>
+                </div>
                 <div class="settings-toggle" id="track-tracer-toggle-row">
                   <div class="settings-toggle-text">
                     <span class="settings-toggle-title" id="track-tracer-toggle-title">Track Tracer</span>
