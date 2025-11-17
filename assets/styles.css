@@ -80,6 +80,19 @@ body {
   cursor: var(--cursor-default);
 }
 
+/* Stop long-press gestures from selecting text or dragging tower art on mobile. */
+.app-shell {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.app-shell img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
 /* Activate the gem cursor on desktop pointers without affecting touch targets. */
 body.mouse-cursor-gem {
   /* Swap cursor tokens to the gem sprite while keeping fallbacks for unsupported formats. */
