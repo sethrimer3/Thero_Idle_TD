@@ -29,8 +29,8 @@ const PARAM_REFRESH_SECONDS = 0.5;
 const MAX_TURN_RATE = Math.PI * 1.3;
 // Keep ship collision checks compact for performance.
 const SHIP_ATTACK_RADIUS = 34;
-// Visual footprint of each triangle ship (pixels).
-const SHIP_SIZE = 11;
+// Visual footprint of each triangle ship (pixels) – quarter scale for tighter swarms.
+const SHIP_SIZE = 11 * 0.25;
 // Laser lifetime so streaks linger briefly.
 const LASER_LIFETIME = 0.16;
 // Launch ring lifetime for the release flash.
@@ -94,7 +94,7 @@ function refreshUpsilonParameters(playfield, tower, state) {
   const attack = Math.max(0, computeTowerVariableValue('upsilon', 'attack', blueprint) || 0);
   const production = Math.max(0, computeTowerVariableValue('upsilon', 'production', blueprint) || 0);
   const fleet = Math.max(1, Math.floor(computeTowerVariableValue('upsilon', 'fleet', blueprint) || 1));
-  const shipSpeedMeters = Math.max(0.2, computeTowerVariableValue('upsilon', 'velocity', blueprint) || 0.2);
+  const shipSpeedMeters = Math.max(0.2, (computeTowerVariableValue('upsilon', 'velocity', blueprint) || 0.2) * 2);
   const minDimension = resolvePlayfieldScale(playfield);
   const shipSpeedPixels = metersToPixels(shipSpeedMeters, minDimension);
 
