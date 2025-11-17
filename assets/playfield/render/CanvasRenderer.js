@@ -1676,8 +1676,15 @@ function resolveEnemySwirlDesiredCount(entry, metrics, lowGraphicsEnabled) {
   return Math.max(0, Math.round(spawnBudget));
 }
 
+// Generate a deterministic 0..1 noise value so particle knockback varies without frame-to-frame jitter.
+function sampleImpactNoise(seedValue = 0) {
+  const scaledSeed = (seedValue || 0) * 127.1;
+  const raw = Math.sin(scaledSeed) * 43758.5453;
+  return raw - Math.floor(raw);
+}
+
 // Apply a knockback offset so swirl particles briefly drift away from the impact point.
-function applyEnemySwirlImpactOffset(entry, position, now) {
+function applyEnemySwirlImpactOffset(entry, position, now, jitterSeed = 0) {
   if (!entry || !entry.activeImpact || !position) {
     return position;
   }
@@ -1702,10 +1709,18 @@ function applyEnemySwirlImpactOffset(entry, position, now) {
   const magnitude = Math.hypot(direction.x, direction.y) || 1;
   const normalized = { x: direction.x / magnitude, y: direction.y / magnitude };
   const strength = Number.isFinite(impact.strength) ? Math.max(0, impact.strength) : 1;
-  const distance = ENEMY_SWIRL_KNOCKBACK_DISTANCE * strength * impulse;
+  const angleNoise = sampleImpactNoise(jitterSeed);
+  const speedNoise = sampleImpactNoise(jitterSeed + 0.37);
+  const angleOffset = (angleNoise - 0.5) * 0.65;
+  const speedVariance = 0.82 + speedNoise * 0.55;
+  const rotatedDirection = {
+    x: normalized.x * Math.cos(angleOffset) - normalized.y * Math.sin(angleOffset),
+    y: normalized.x * Math.sin(angleOffset) + normalized.y * Math.cos(angleOffset),
+  };
+  const distance = ENEMY_SWIRL_KNOCKBACK_DISTANCE * strength * impulse * speedVariance;
   return {
-    x: position.x + normalized.x * distance,
-    y: position.y + normalized.y * distance,
+    x: position.x + rotatedDirection.x * distance,
+    y: position.y + rotatedDirection.y * distance,
   };
 }
 
@@ -1864,7 +1879,8 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
     const radius = clamp(particle.currentRadius ?? metrics.ringRadius, 0, metrics.ringRadius);
     const angle = Number.isFinite(particle.currentAngle) ? particle.currentAngle : 0;
     const basePosition = { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
-    const position = applyEnemySwirlImpactOffset(entry, basePosition, now) || basePosition;
+    const jitterSeed = Number.isFinite(particle.startAngle) ? particle.startAngle : angle;
+    const position = applyEnemySwirlImpactOffset(entry, basePosition, now, jitterSeed) || basePosition;
     const alpha = clamp(alphaBase * (particle.state === 'hold' ? 0.9 : 0.7 + Math.random() * 0.2), 0.25, 0.95);
     ctx.beginPath();
     ctx.fillStyle = colorToRgbaString(particle.color || sampleEnemyParticleColor(), alpha);
@@ -1872,7 +1888,7 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
     ctx.arc(position.x, position.y, size, 0, Math.PI * 2);
     ctx.fill();
     // Outline each mote with a bright gate-gold halo so the swirl reads clearly against dark bodies.
-    ctx.lineWidth = Math.max(0.6, size * 0.6);
+    ctx.lineWidth = Math.max(0.2, size * 0.25);
     ctx.strokeStyle = colorToRgbaString(ENEMY_GATE_SYMBOL_GOLD, Math.min(1, alpha + 0.1));
     ctx.stroke();
   });

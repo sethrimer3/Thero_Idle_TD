@@ -626,7 +626,7 @@ export class SimplePlayfield {
       : Math.max(1, Number.isFinite(enemyHpBefore) ? enemyHpBefore : 1);
     const relativeDamage = Math.min(1, damage / maxHp);
     const impactScale = 1 + relativeDamage;
-    const fontSize = baseFontSize * impactScale;
+    const fontSize = baseFontSize * impactScale * 0.5;
     const outlineAlpha = relativeDamage;
     const initialSpeed = 110 + Math.random() * 45;
     const entry = {
