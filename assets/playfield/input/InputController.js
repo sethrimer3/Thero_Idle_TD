@@ -338,12 +338,14 @@ function handleCanvasPointerDown(event) {
   }
 
   // Detect when the active tower is δ so the drag gesture routes command tracks.
-  const canDragDeltaCommands = canInitiateDrag && tower && tower.type === 'delta';
+  const canDragDeltaCommands =
+    canInitiateDrag && tower && (tower.type === 'delta' || tower.type === 'omicron' || tower.type === 'upsilon');
   if (canDragDeltaCommands) {
     this.clearDeltaCommandDragState();
     const dragState = this.deltaCommandDragState;
     dragState.pointerId = event.pointerId;
     dragState.towerId = tower.id;
+    dragState.towerType = tower.type;
     dragState.startPosition = position ? { ...position } : null;
     dragState.currentPosition = position ? { ...position } : null;
     dragState.startNormalized = normalized ? { ...normalized } : null;

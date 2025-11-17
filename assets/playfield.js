@@ -370,6 +370,7 @@ export class SimplePlayfield {
     this.deltaCommandDragState = {
       pointerId: null,
       towerId: null,
+      towerType: null,
       startPosition: null,
       currentPosition: null,
       startNormalized: null,
@@ -3974,6 +3975,20 @@ export class SimplePlayfield {
   }
 
   /**
+   * Keep ο track-hold anchors in sync with the glyph lane.
+   */
+  updateOmicronAnchors(tower) {
+    return TowerManager.updateOmicronAnchors.call(this, tower);
+  }
+
+  /**
+   * Assign an ο track-hold anchor from player drag gestures.
+   */
+  assignOmicronTrackHoldAnchor(tower, anchor) {
+    return TowerManager.assignOmicronTrackHoldAnchor.call(this, tower, anchor);
+  }
+
+  /**
    * Update π tower laser merge mechanics and animations.
    */
   updatePiTower(tower, delta) {
@@ -3992,6 +4007,20 @@ export class SimplePlayfield {
    */
   updateUpsilonTower(tower, delta) {
     updateUpsilonTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Keep υ track-hold anchors in sync with the glyph lane.
+   */
+  updateUpsilonAnchors(tower) {
+    return TowerManager.updateUpsilonAnchors.call(this, tower);
+  }
+
+  /**
+   * Assign a υ fly-by anchor from player drag gestures.
+   */
+  assignUpsilonTrackHoldAnchor(tower, anchor) {
+    return TowerManager.assignUpsilonTrackHoldAnchor.call(this, tower, anchor);
   }
 
   /**
@@ -5189,6 +5218,7 @@ export class SimplePlayfield {
     this.deltaCommandDragState = {
       pointerId: null,
       towerId: null,
+      towerType: null,
       startPosition: null,
       currentPosition: null,
       startNormalized: null,
@@ -5408,10 +5438,15 @@ export class SimplePlayfield {
       this.clearDeltaCommandDragState();
       return;
     }
+    const towerLabel = tower.type === 'omicron'
+      ? 'ο wing'
+      : tower.type === 'upsilon'
+        ? 'υ flight'
+        : 'Δ cohort';
     dragState.currentPosition = position ? { x: position.x, y: position.y } : null;
     if (!position) {
       if (dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = 'Drag onto the glyph lane to position the Δ cohort.';
+        this.messageEl.textContent = `Drag onto the glyph lane to position the ${towerLabel}.`;
       }
       dragState.trackAnchor = null;
       dragState.anchorAvailable = false;
@@ -5422,7 +5457,7 @@ export class SimplePlayfield {
     const projection = this.getClosestPointOnPath(position);
     if (!projection?.point) {
       if (dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = 'Drag onto the glyph lane to position the Δ cohort.';
+        this.messageEl.textContent = `Drag onto the glyph lane to position the ${towerLabel}.`;
       }
       dragState.trackAnchor = null;
       dragState.anchorAvailable = false;
@@ -5443,12 +5478,12 @@ export class SimplePlayfield {
           : 0,
       };
       if (!dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = 'Release to anchor Δ cohort to the glyph lane.';
+        this.messageEl.textContent = `Release to anchor the ${towerLabel} to the glyph lane.`;
       }
       dragState.anchorAvailable = true;
     } else {
       if (dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = 'Drag onto the glyph lane to position the Δ cohort.';
+        this.messageEl.textContent = `Drag onto the glyph lane to position the ${towerLabel}.`;
       }
       dragState.trackAnchor = null;
       dragState.anchorAvailable = false;
@@ -5469,13 +5504,25 @@ export class SimplePlayfield {
       y: dragState.trackAnchor.point.y,
       progress: dragState.trackAnchor.progress,
     };
-    const assigned = this.assignDeltaTrackHoldAnchor(tower, anchor);
+    let assigned = false;
+    if (tower.type === 'omicron') {
+      assigned = this.assignOmicronTrackHoldAnchor(tower, anchor);
+    } else if (tower.type === 'upsilon') {
+      assigned = this.assignUpsilonTrackHoldAnchor(tower, anchor);
+    } else {
+      assigned = this.assignDeltaTrackHoldAnchor(tower, anchor);
+    }
     if (assigned) {
       if (this.audio && typeof this.audio.playSfx === 'function') {
         this.audio.playSfx('uiConfirm');
       }
       if (this.messageEl) {
-        this.messageEl.textContent = 'Δ cohort orbit anchored to the glyph lane.';
+        const towerLabel = tower.type === 'omicron'
+          ? 'ο wing anchor locked to the glyph lane.'
+          : tower.type === 'upsilon'
+            ? 'υ flight path locked to the glyph lane.'
+            : 'Δ cohort orbit anchored to the glyph lane.';
+        this.messageEl.textContent = towerLabel;
       }
       if (!this.shouldAnimate) {
         this.draw();

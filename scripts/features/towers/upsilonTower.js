@@ -37,6 +37,12 @@ const LASER_LIFETIME = 0.16;
 const LAUNCH_RING_LIFETIME = 0.6;
 // Despawn ships cleanly once they touch the tower core again.
 const RECALL_RADIUS = 14;
+// Dash distance and turn rate after firing to create dogfighting loops.
+const DOGFIGHT_DASH_METERS = 1;
+const DOGFIGHT_SPEED_MULTIPLIER = 1.55;
+const DOGFIGHT_TURN_ANGLE = Math.PI * 0.6;
+// Loop pacing when ships idle around a track-hold anchor.
+const TRACK_HOLD_LOOP_SPEED = Math.PI * 0.55;
 
 /**
  * Resolve minimum canvas dimension to convert meters into pixels safely.
@@ -81,9 +87,98 @@ function ensureUpsilonStateInternal(tower) {
       launchIndex: 0,
       colorOffset: 0,
       parameters: null,
+      trackHoldPoint: null,
+      trackHoldProgress: 0,
+      trackHoldTangent: null,
+      trackHoldManual: false,
+      loopPhase: 0,
     };
   }
   return tower.upsilonState;
+}
+
+export function updateUpsilonAnchors(playfield, tower) {
+  if (!tower || tower.type !== 'upsilon' || !tower.upsilonState) {
+    return;
+  }
+  const state = tower.upsilonState;
+  if (tower.behaviorMode === 'trackHold') {
+    if (state.trackHoldManual && Number.isFinite(state.trackHoldProgress)) {
+      const clamped = Math.max(0, Math.min(1, state.trackHoldProgress));
+      const anchor = playfield.getPositionAlongPath(clamped);
+      if (anchor) {
+        state.trackHoldPoint = { x: anchor.x, y: anchor.y };
+        state.trackHoldTangent = Number.isFinite(anchor.tangent) ? anchor.tangent : null;
+      }
+    } else {
+      const anchor = playfield.getClosestPointOnPath({ x: tower.x, y: tower.y });
+      const position = Number.isFinite(anchor?.progress)
+        ? playfield.getPositionAlongPath(anchor.progress)
+        : null;
+      const anchorPoint = position || anchor?.point;
+      if (anchorPoint) {
+        state.trackHoldPoint = { x: anchorPoint.x, y: anchorPoint.y };
+        state.trackHoldTangent = Number.isFinite(position?.tangent) ? position.tangent : null;
+      } else {
+        state.trackHoldPoint = { x: tower.x, y: tower.y };
+        state.trackHoldTangent = null;
+      }
+      state.trackHoldProgress = Number.isFinite(anchor?.progress) ? anchor.progress : 0;
+      state.trackHoldManual = false;
+    }
+  }
+}
+
+export function assignUpsilonTrackHoldAnchor(playfield, tower, anchor) {
+  if (!playfield || !tower || tower.type !== 'upsilon' || !anchor) {
+    return false;
+  }
+  const state = ensureUpsilonStateInternal(tower);
+  if (!state) {
+    return false;
+  }
+  tower.behaviorMode = 'trackHold';
+  const resolved = {
+    x: Number.isFinite(anchor.x) ? anchor.x : tower.x,
+    y: Number.isFinite(anchor.y) ? anchor.y : tower.y,
+  };
+  let progress = Number.isFinite(anchor.progress) ? anchor.progress : null;
+  if (!Number.isFinite(progress)) {
+    const projection = playfield.getClosestPointOnPath(resolved);
+    if (projection?.point) {
+      resolved.x = projection.point.x;
+      resolved.y = projection.point.y;
+    }
+    progress = Number.isFinite(projection?.progress) ? projection.progress : 0;
+  }
+
+  const clampedProgress = Math.max(0, Math.min(1, progress));
+  state.trackHoldManual = true;
+  state.trackHoldProgress = clampedProgress;
+  const anchorPosition = playfield.getPositionAlongPath(clampedProgress);
+  state.trackHoldPoint = { x: resolved.x, y: resolved.y };
+  state.trackHoldTangent = Number.isFinite(anchorPosition?.tangent) ? anchorPosition.tangent : null;
+  return true;
+}
+
+function resolveUpsilonTrackWaypoint(playfield, state) {
+  if (!state.trackHoldPoint) {
+    return null;
+  }
+  const minDimension = resolvePlayfieldScale(playfield);
+  const loopRadius = Math.max(20, (minDimension || 720) * 0.05);
+  const tangent = Number.isFinite(state.trackHoldTangent) ? state.trackHoldTangent : 0;
+  const forwardX = Math.cos(tangent);
+  const forwardY = Math.sin(tangent);
+  const normalX = -forwardY;
+  const normalY = forwardX;
+  const phase = Number.isFinite(state.loopPhase) ? state.loopPhase : 0;
+  const along = Math.cos(phase) * loopRadius * 1.25;
+  const lateral = Math.sin(phase) * loopRadius * 0.65;
+  return {
+    x: state.trackHoldPoint.x + forwardX * along + normalX * lateral,
+    y: state.trackHoldPoint.y + forwardY * along + normalY * lateral,
+  };
 }
 
 /**
@@ -198,6 +293,9 @@ function spawnUpsilonShip(playfield, tower, state) {
     cooldown: 0,
     trail: [],
     returning: false,
+    dashDistanceRemaining: 0,
+    dashHeading: launchAngle,
+    dashTurn: 1,
   };
 
   state.launchBursts.push({
@@ -232,14 +330,17 @@ function updateShip(playfield, tower, state, ship, targetInfo, delta) {
     return;
   }
 
+  const dashActive = Number.isFinite(ship.dashDistanceRemaining) && ship.dashDistanceRemaining > 0;
   const targetPosition = targetInfo?.position || { x: tower.x, y: tower.y };
   const dx = targetPosition.x - ship.position.x;
   const dy = targetPosition.y - ship.position.y;
-  const desiredAngle = Math.atan2(dy, dx);
+  const desiredAngle = dashActive ? ship.dashHeading : Math.atan2(dy, dx);
   const turnStep = Math.min(1, params.turnRate * delta);
   ship.angle = ship.angle + Math.atan2(Math.sin(desiredAngle - ship.angle), Math.cos(desiredAngle - ship.angle)) * turnStep;
 
-  const speed = params.shipSpeedPixels;
+  const speed = dashActive ? params.shipSpeedPixels * DOGFIGHT_SPEED_MULTIPLIER : params.shipSpeedPixels;
+  const prevX = ship.position.x;
+  const prevY = ship.position.y;
   ship.position.x += Math.cos(ship.angle) * speed * delta;
   ship.position.y += Math.sin(ship.angle) * speed * delta;
 
@@ -251,18 +352,31 @@ function updateShip(playfield, tower, state, ship, targetInfo, delta) {
 
   ship.cooldown = Math.max(0, ship.cooldown - delta);
 
-  if (!targetInfo?.enemy || targetInfo.enemy.hp <= 0) {
+  const hasAnchorTarget = targetInfo && targetInfo.position && !targetInfo.enemy;
+  if ((!targetInfo?.enemy || targetInfo.enemy.hp <= 0) && !hasAnchorTarget) {
     ship.returning = true;
     return;
   }
 
   const distance = Math.hypot(dx, dy);
-  if (distance <= SHIP_ATTACK_RADIUS && ship.cooldown <= 0) {
+  if (targetInfo?.enemy && distance <= SHIP_ATTACK_RADIUS && ship.cooldown <= 0) {
     const applied = playfield.applyDamageToEnemy(targetInfo.enemy, params.attack, { sourceTower: tower });
     if (applied > 0) {
       recordLaser(state, ship.position, targetPosition, ship.color);
+      ship.dashDistanceRemaining = metersToPixels(DOGFIGHT_DASH_METERS, resolvePlayfieldScale(playfield));
+      ship.dashHeading = ship.angle;
+      ship.dashTurn = Math.random() < 0.5 ? -1 : 1;
     }
     ship.cooldown = params.fireInterval;
+  }
+
+  if (dashActive) {
+    const traveled = Math.hypot(ship.position.x - prevX, ship.position.y - prevY);
+    ship.dashDistanceRemaining = Math.max(0, ship.dashDistanceRemaining - traveled);
+    if (ship.dashDistanceRemaining <= 0) {
+      ship.angle += ship.dashTurn * DOGFIGHT_TURN_ANGLE;
+      ship.dashHeading = ship.angle;
+    }
   }
 }
 
@@ -339,12 +453,32 @@ export function updateUpsilonTower(playfield, tower, delta) {
     state.recalcTimer = PARAM_REFRESH_SECONDS;
   }
 
+  if (tower.behaviorMode === 'trackHold') {
+    updateUpsilonAnchors(playfield, tower);
+    state.loopPhase = Number.isFinite(state.loopPhase) ? state.loopPhase : 0;
+    state.loopPhase += delta * TRACK_HOLD_LOOP_SPEED;
+    const tau = Math.PI * 2;
+    if (state.loopPhase > tau || state.loopPhase < -tau) {
+      state.loopPhase %= tau;
+    }
+  }
+
   pruneVisuals(state, delta);
 
   const targetInfo = selectPriorityEnemy(playfield, tower);
   const hasEnemies = Array.isArray(playfield.enemies) && playfield.enemies.some((enemy) => enemy?.hp > 0);
 
   if (!hasEnemies) {
+    if (state.trackHoldPoint) {
+      const waypoint = resolveUpsilonTrackWaypoint(playfield, state);
+      const ships = state.ships || [];
+      ships.forEach((ship) => {
+        updateShip(playfield, tower, state, ship, waypoint ? { position: waypoint } : null, delta);
+      });
+      state.spawnCounter = 0;
+      state.launchIndex = 0;
+      return;
+    }
     recallShips(tower, state, delta);
     state.spawnCounter = 0;
     state.launchIndex = 0;
