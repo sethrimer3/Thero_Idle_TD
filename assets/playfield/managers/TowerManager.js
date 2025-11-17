@@ -41,6 +41,12 @@ import {
   assignDeltaTrackHoldAnchor as assignDeltaTrackHoldAnchorHelper,
 } from '../../../scripts/features/towers/deltaTower.js';
 import {
+  ensureOmicronState as ensureOmicronStateHelper,
+  teardownOmicronTower as teardownOmicronTowerHelper,
+  updateOmicronAnchors as updateOmicronAnchorsHelper,
+  assignOmicronTrackHoldAnchor as assignOmicronTrackHoldAnchorHelper,
+} from '../../../scripts/features/towers/omicronTower.js';
+import {
   ensureIotaState as ensureIotaStateHelper,
   teardownIotaTower as teardownIotaTowerHelper,
   fireIotaPulse as fireIotaPulseHelper,
@@ -77,6 +83,8 @@ import {
 import {
   ensureUpsilonState as ensureUpsilonStateHelper,
   teardownUpsilonTower as teardownUpsilonTowerHelper,
+  updateUpsilonAnchors as updateUpsilonAnchorsHelper,
+  assignUpsilonTrackHoldAnchor as assignUpsilonTrackHoldAnchorHelper,
 } from '../../../scripts/features/towers/upsilonTower.js';
 
 // Tower management routines extracted from SimplePlayfield.
@@ -241,6 +249,11 @@ function applyTowerBehaviorDefaults(tower) {
   } else if (tower.deltaState) {
     this.teardownDeltaTower(tower);
   }
+  if (tower.type === 'omicron') {
+    this.ensureOmicronState(tower);
+  } else if (tower.omicronState) {
+    this.teardownOmicronTower(tower);
+  }
   if (tower.type === 'iota') {
     this.ensureIotaState(tower);
   } else if (tower.iotaState) {
@@ -310,6 +323,22 @@ function assignDeltaTrackHoldAnchor(tower, anchor) {
   return assignDeltaTrackHoldAnchorHelper(this, tower, anchor);
 }
 
+function ensureOmicronState(tower) {
+  return ensureOmicronStateHelper(this, tower);
+}
+
+function teardownOmicronTower(tower) {
+  teardownOmicronTowerHelper(this, tower);
+}
+
+function updateOmicronAnchors(tower) {
+  return updateOmicronAnchorsHelper(this, tower);
+}
+
+function assignOmicronTrackHoldAnchor(tower, anchor) {
+  return assignOmicronTrackHoldAnchorHelper(this, tower, anchor);
+}
+
 function ensureIotaState(tower) {
   return ensureIotaStateHelper(this, tower);
 }
@@ -362,6 +391,14 @@ function teardownUpsilonTower(tower) {
   teardownUpsilonTowerHelper(this, tower);
 }
 
+function updateUpsilonAnchors(tower) {
+  return updateUpsilonAnchorsHelper(this, tower);
+}
+
+function assignUpsilonTrackHoldAnchor(tower, anchor) {
+  return assignUpsilonTrackHoldAnchorHelper(this, tower, anchor);
+}
+
 export {
   evaluateZetaMetrics,
   teardownAlphaTower,
@@ -397,6 +434,10 @@ export {
   clearTowerManualTarget,
   getTowerManualTarget,
   assignDeltaTrackHoldAnchor,
+  ensureOmicronState,
+  teardownOmicronTower,
+  updateOmicronAnchors,
+  assignOmicronTrackHoldAnchor,
   ensureIotaState,
   teardownIotaTower,
   fireIotaPulse,
@@ -410,4 +451,6 @@ export {
   teardownTauTower,
   ensureUpsilonState,
   teardownUpsilonTower,
+  updateUpsilonAnchors,
+  assignUpsilonTrackHoldAnchor,
 };

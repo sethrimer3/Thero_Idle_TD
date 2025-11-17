@@ -57,6 +57,15 @@ const TRAIL_CONFIG = {
   maxPoints: 30,
 };
 
+// Ramming dash parameters to help units peel away from stacked collisions.
+const RAM_DISTANCE_METERS = 1;
+const RAM_SPEED_MULTIPLIER = 1.6;
+const RAM_TURN_ANGLE = Math.PI * 0.5;
+const RAM_COOLDOWN_SECONDS = 0.55;
+
+// Fly-by loop pacing for track-hold anchors.
+const TRACK_HOLD_LOOP_SPEED = Math.PI * 0.6;
+
 // Clamp helper
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -70,6 +79,10 @@ function ensureOmicronStateInternal(playfield, tower) {
       fragments: [],
       unitCounter: 0,
       recalcTimer: 0,
+      trackHoldPoint: null,
+      trackHoldProgress: 0,
+      trackHoldTangent: null,
+      trackHoldManual: false,
     };
   }
   return tower.omicronState;
@@ -159,6 +172,77 @@ function resolvePlayfieldMinDimension(playfield) {
 }
 
 /**
+ * Keep the cached track-hold anchor aligned with the glyph lane.
+ */
+export function updateOmicronAnchors(playfield, tower) {
+  if (!tower || tower.type !== 'omicron' || !tower.omicronState) {
+    return;
+  }
+  const state = tower.omicronState;
+  if (tower.behaviorMode === 'trackHold') {
+    if (state.trackHoldManual && Number.isFinite(state.trackHoldProgress)) {
+      const clamped = Math.max(0, Math.min(1, state.trackHoldProgress));
+      const anchor = playfield.getPositionAlongPath(clamped);
+      if (anchor) {
+        state.trackHoldPoint = { x: anchor.x, y: anchor.y };
+        state.trackHoldTangent = Number.isFinite(anchor.tangent) ? anchor.tangent : null;
+      }
+    } else {
+      const anchor = playfield.getClosestPointOnPath({ x: tower.x, y: tower.y });
+      const position = Number.isFinite(anchor?.progress)
+        ? playfield.getPositionAlongPath(anchor.progress)
+        : null;
+      const anchorPoint = position || anchor?.point;
+      if (anchorPoint) {
+        state.trackHoldPoint = { x: anchorPoint.x, y: anchorPoint.y };
+        state.trackHoldTangent = Number.isFinite(position?.tangent) ? position.tangent : null;
+      } else {
+        state.trackHoldPoint = { x: tower.x, y: tower.y };
+        state.trackHoldTangent = null;
+      }
+      state.trackHoldProgress = Number.isFinite(anchor?.progress) ? anchor.progress : 0;
+      state.trackHoldManual = false;
+    }
+  }
+}
+
+/**
+ * Manually assign an omicron rally point on the track for ship-like orbits.
+ */
+export function assignOmicronTrackHoldAnchor(playfield, tower, anchor) {
+  if (!playfield || !tower || tower.type !== 'omicron' || !anchor) {
+    return false;
+  }
+  const state = ensureOmicronStateInternal(playfield, tower);
+  if (!state) {
+    return false;
+  }
+
+  tower.behaviorMode = 'trackHold';
+  const resolved = {
+    x: Number.isFinite(anchor.x) ? anchor.x : tower.x,
+    y: Number.isFinite(anchor.y) ? anchor.y : tower.y,
+  };
+  let progress = Number.isFinite(anchor.progress) ? anchor.progress : null;
+  if (!Number.isFinite(progress)) {
+    const projection = playfield.getClosestPointOnPath(resolved);
+    if (projection?.point) {
+      resolved.x = projection.point.x;
+      resolved.y = projection.point.y;
+    }
+    progress = Number.isFinite(projection?.progress) ? projection.progress : 0;
+  }
+
+  const clampedProgress = Math.max(0, Math.min(1, progress));
+  state.trackHoldManual = true;
+  state.trackHoldProgress = clampedProgress;
+  const anchorPosition = playfield.getPositionAlongPath(clampedProgress);
+  state.trackHoldPoint = { x: resolved.x, y: resolved.y };
+  state.trackHoldTangent = Number.isFinite(anchorPosition?.tangent) ? anchorPosition.tangent : null;
+  return true;
+}
+
+/**
  * Create shield particles for a unit.
  */
 function createShieldParticles(unit, gradientProgress) {
@@ -228,6 +312,11 @@ function deployOmicronUnit(playfield, tower, state) {
     lastTrailSample: { x: spawnX, y: spawnY },
     color: baseColor,
     gradientProgress,
+    flybyPhase: (spawnIndex / Math.max(1, limit)) * Math.PI,
+    ramDistanceRemaining: 0,
+    ramCooldown: 0,
+    ramHeading: angle,
+    ramTurn: 1,
   };
   
   state.units.push(unit);
@@ -236,21 +325,39 @@ function deployOmicronUnit(playfield, tower, state) {
 /**
  * Resolve idle position for unit.
  */
-function resolveIdlePosition(tower, unit, state) {
-  const minDimension = resolvePlayfieldMinDimension({ renderWidth: 800, renderHeight: 600 });
+function resolveIdlePosition(playfield, tower, unit, state) {
+  const minDimension = resolvePlayfieldMinDimension(playfield);
   const idleRadius = Math.max(22, minDimension * 0.045);
-  
+
   const index = Number.isFinite(unit.slotIndex) ? unit.slotIndex : 0;
   const count = Math.max(1, state.maxUnits || 1);
-  const baseAngle = -Math.PI / 2 + (Math.PI * 2 * index) / count;
-  
+  const defaultAngle = -Math.PI / 2 + (Math.PI * 2 * index) / count;
+
   if (!Number.isFinite(unit.idleAngleOffset)) {
-    unit.idleAngleOffset = baseAngle;
+    unit.idleAngleOffset = defaultAngle;
   }
-  
+
+  const baseAngle = Number.isFinite(unit.idleAngleOffset) ? unit.idleAngleOffset : defaultAngle;
+
+  if (tower.behaviorMode === 'trackHold' && state.trackHoldPoint) {
+    const tangent = Number.isFinite(state.trackHoldTangent) ? state.trackHoldTangent : baseAngle;
+    const forwardX = Math.cos(tangent);
+    const forwardY = Math.sin(tangent);
+    const normalX = -forwardY;
+    const normalY = forwardX;
+    const loopRadius = Math.max(22, minDimension * 0.055);
+    const phase = unit.flybyPhase || 0;
+    const along = Math.cos(phase) * loopRadius * 1.2;
+    const lateral = Math.sin(phase) * loopRadius * 0.75;
+    return {
+      x: state.trackHoldPoint.x + forwardX * along + normalX * lateral,
+      y: state.trackHoldPoint.y + forwardY * along + normalY * lateral,
+    };
+  }
+
   return {
-    x: tower.x + Math.cos(unit.idleAngleOffset) * idleRadius,
-    y: tower.y + Math.sin(unit.idleAngleOffset) * idleRadius,
+    x: tower.x + Math.cos(baseAngle) * idleRadius,
+    y: tower.y + Math.sin(baseAngle) * idleRadius,
   };
 }
 
@@ -320,7 +427,7 @@ function updateOmicronUnit(playfield, tower, unit, state, delta) {
   if (!unit) {
     return false;
   }
-  
+
   // Update shield particle orbit
   if (unit.hasShield) {
     unit.shieldOrbitPhase = (unit.shieldOrbitPhase || 0) + delta * SHIELD_ORBIT_SPEED;
@@ -328,7 +435,16 @@ function updateOmicronUnit(playfield, tower, unit, state, delta) {
       unit.shieldOrbitPhase %= (Math.PI * 2);
     }
   }
-  
+
+  if (tower.behaviorMode === 'trackHold') {
+    unit.flybyPhase = (unit.flybyPhase || 0) + delta * TRACK_HOLD_LOOP_SPEED;
+    if (unit.flybyPhase > Math.PI * 2) {
+      unit.flybyPhase %= Math.PI * 2;
+    }
+  }
+
+  unit.ramCooldown = Math.max(0, (unit.ramCooldown || 0) - delta);
+
   // Find target
   let target = null;
   if (unit.targetId) {
@@ -346,15 +462,21 @@ function updateOmicronUnit(playfield, tower, unit, state, delta) {
       target = candidate.enemy;
     }
   }
-  
+
   // Determine destination
   let destination = null;
+  let cachedTargetPosition = null;
+  let cachedEnemyMetrics = null;
+  let cachedEnemyRadius = null;
   if (target) {
-    destination = playfield.getEnemyPosition(target);
+    cachedTargetPosition = playfield.getEnemyPosition(target);
+    destination = cachedTargetPosition;
+    cachedEnemyMetrics = playfield.getEnemyVisualMetrics(target);
+    cachedEnemyRadius = playfield.getEnemyHitRadius(target, cachedEnemyMetrics);
     unit.mode = 'attacking';
   }
   if (!destination) {
-    destination = resolveIdlePosition(tower, unit, state);
+    destination = resolveIdlePosition(playfield, tower, unit, state);
     unit.mode = 'idle';
   }
   if (!destination) {
@@ -377,8 +499,29 @@ function updateOmicronUnit(playfield, tower, unit, state, delta) {
   const minDimension = resolvePlayfieldMinDimension(playfield);
   const unitSpeedMetersPerSec = state.unitSpeedMetersPerSecond || 1;
   const unitSpeedPixelsPerSec = metersToPixels(unitSpeedMetersPerSec, minDimension);
-  
-  const desiredSpeed = distance > 1 ? unitSpeedPixelsPerSec : 0;
+
+  const ramActive = Number.isFinite(unit.ramDistanceRemaining) && unit.ramDistanceRemaining > 0;
+  const contactRadius = cachedEnemyRadius + (unit.size || 16);
+  if (
+    target &&
+    !ramActive &&
+    unit.ramCooldown <= 0 &&
+    Number.isFinite(contactRadius) &&
+    distance <= contactRadius * 1.1
+  ) {
+    unit.ramDistanceRemaining = metersToPixels(RAM_DISTANCE_METERS, minDimension);
+    unit.ramHeading = Math.atan2(dy, dx);
+    unit.ramTurn = Math.random() < 0.5 ? -1 : 1;
+  }
+
+  let desiredSpeed = distance > 1 ? unitSpeedPixelsPerSec : 0;
+  if (ramActive) {
+    const heading = Number.isFinite(unit.ramHeading) ? unit.ramHeading : Math.atan2(dy, dx);
+    nx = Math.cos(heading);
+    ny = Math.sin(heading);
+    desiredSpeed = unitSpeedPixelsPerSec * RAM_SPEED_MULTIPLIER;
+  }
+
   const desiredVx = nx * desiredSpeed;
   const desiredVy = ny * desiredSpeed;
   const deltaVx = desiredVx - unit.vx;
@@ -417,7 +560,20 @@ function updateOmicronUnit(playfield, tower, unit, state, delta) {
       unit.y += stepY;
     }
   }
-  
+
+  const traveled = Math.hypot(unit.x - unit.prevX, unit.y - unit.prevY);
+  if (ramActive) {
+    unit.ramDistanceRemaining = Math.max(0, unit.ramDistanceRemaining - traveled);
+    if (unit.ramDistanceRemaining <= 0) {
+      unit.ramCooldown = RAM_COOLDOWN_SECONDS;
+      unit.heading = (Number.isFinite(unit.ramHeading) ? unit.ramHeading : Math.atan2(unit.vy, unit.vx))
+        + unit.ramTurn * RAM_TURN_ANGLE;
+      const speedMagnitude = Math.hypot(unit.vx, unit.vy);
+      unit.vx = Math.cos(unit.heading) * speedMagnitude;
+      unit.vy = Math.sin(unit.heading) * speedMagnitude;
+    }
+  }
+
   // Update heading
   if (Number.isFinite(unit.vx) && Number.isFinite(unit.vy)) {
     const velocityMagnitude = Math.hypot(unit.vx, unit.vy);
@@ -448,10 +604,12 @@ function updateOmicronUnit(playfield, tower, unit, state, delta) {
   
   // Check collision with target
   if (target) {
-    const targetPosition = playfield.getEnemyPosition(target);
+    const targetPosition = cachedTargetPosition || playfield.getEnemyPosition(target);
     if (targetPosition) {
-      const metrics = playfield.getEnemyVisualMetrics(target);
-      const enemyRadius = playfield.getEnemyHitRadius(target, metrics);
+      const metrics = cachedEnemyMetrics || playfield.getEnemyVisualMetrics(target);
+      const enemyRadius = Number.isFinite(cachedEnemyRadius)
+        ? cachedEnemyRadius
+        : playfield.getEnemyHitRadius(target, metrics);
       const contactRadius = enemyRadius + (unit.size || 16);
       const separation = Math.hypot(unit.x - targetPosition.x, unit.y - targetPosition.y);
       
@@ -561,9 +719,13 @@ export function updateOmicronTower(playfield, tower, delta) {
   if (!playfield || !tower || tower.type !== 'omicron') {
     return;
   }
-  
+
   const state = ensureOmicronStateInternal(playfield, tower);
-  
+
+  if (tower.behaviorMode === 'trackHold') {
+    updateOmicronAnchors(playfield, tower);
+  }
+
   // Refresh parameters periodically
   state.recalcTimer = (state.recalcTimer || 0) - delta;
   if (state.recalcTimer <= 0) {

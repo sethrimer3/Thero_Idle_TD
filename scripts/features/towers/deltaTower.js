@@ -7,6 +7,7 @@ import {
 } from '../../../assets/towersTab.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 import { formatGameNumber } from '../../core/formatting.js';
+import { metersToPixels } from '../../../assets/gameUnits.js';
 
 // Fallback gradient anchors Delta colors when palette metadata is unavailable.
 const DELTA_FALLBACK_GRADIENT = [
@@ -24,6 +25,12 @@ const DELTA_TRAIL_CONFIG = {
 
 // Default angular velocity (radians per second) for Δ sentries orbiting a track anchor.
 const DELTA_ORBIT_DEFAULT_SPEED = Math.PI * 0.35;
+
+// Short dash that kicks in near targets to create a ramming flourish.
+const DELTA_RAM_DISTANCE_METERS = 1;
+const DELTA_RAM_SPEED_MULTIPLIER = 1.75;
+const DELTA_RAM_TURN_ANGLE = Math.PI * 0.55;
+const DELTA_RAM_COOLDOWN = 0.65;
 
 // Clamp helper ensures math stays within bounds even when towers feed edge cases.
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
@@ -191,16 +198,23 @@ export function updateDeltaAnchors(playfield, tower) {
   if (tower.behaviorMode === 'trackHold') {
     if (state.trackHoldManual && Number.isFinite(state.trackHoldProgress)) {
       const clampedProgress = Math.max(0, Math.min(1, state.trackHoldProgress));
-      const manualAnchor = playfield.getPointAlongPath(clampedProgress);
+      const manualAnchor = playfield.getPositionAlongPath(clampedProgress);
       if (manualAnchor) {
         state.trackHoldPoint = { x: manualAnchor.x, y: manualAnchor.y };
+        state.trackHoldTangent = Number.isFinite(manualAnchor.tangent) ? manualAnchor.tangent : null;
       }
     } else {
       const anchor = playfield.getClosestPointOnPath({ x: tower.x, y: tower.y });
-      if (anchor?.point) {
-        state.trackHoldPoint = { x: anchor.point.x, y: anchor.point.y };
+      const position = Number.isFinite(anchor?.progress)
+        ? playfield.getPositionAlongPath(anchor.progress)
+        : null;
+      const anchorPoint = position || anchor?.point;
+      if (anchorPoint) {
+        state.trackHoldPoint = { x: anchorPoint.x, y: anchorPoint.y };
+        state.trackHoldTangent = Number.isFinite(position?.tangent) ? position.tangent : null;
       } else {
         state.trackHoldPoint = { x: tower.x, y: tower.y };
+        state.trackHoldTangent = null;
       }
       state.trackHoldProgress = Number.isFinite(anchor?.progress) ? anchor.progress : 0;
       state.trackHoldManual = false;
@@ -237,6 +251,8 @@ export function assignDeltaTrackHoldAnchor(playfield, tower, anchor) {
   state.trackHoldManual = true;
   state.trackHoldProgress = clampedProgress;
   state.trackHoldPoint = { x: resolved.x, y: resolved.y };
+  const anchorPosition = playfield.getPositionAlongPath(clampedProgress);
+  state.trackHoldTangent = Number.isFinite(anchorPosition?.tangent) ? anchorPosition.tangent : null;
   state.orbitPhase = 0;
   if (!Number.isFinite(state.orbitAngularSpeed) || state.orbitAngularSpeed <= 0) {
     state.orbitAngularSpeed = DELTA_ORBIT_DEFAULT_SPEED;
@@ -278,12 +294,19 @@ function resolveDeltaHoldPosition(playfield, tower, soldier, state) {
   }
   const baseAngle = Number.isFinite(soldier.idleAngleOffset) ? soldier.idleAngleOffset : defaultAngle;
   if (tower.behaviorMode === 'trackHold' && state.trackHoldPoint) {
-    const radius = Math.max(22, minDimension * 0.055);
     const orbitPhase = Number.isFinite(state.orbitPhase) ? state.orbitPhase : 0;
-    const angle = baseAngle + orbitPhase;
+    const tangent = Number.isFinite(state.trackHoldTangent) ? state.trackHoldTangent : baseAngle;
+    const forwardX = Math.cos(tangent);
+    const forwardY = Math.sin(tangent);
+    const normalX = -forwardY;
+    const normalY = forwardX;
+    const loopRadius = Math.max(24, minDimension * 0.06);
+    const phase = orbitPhase + (index * Math.PI) / Math.max(1, count);
+    const along = Math.cos(phase) * loopRadius * 1.3;
+    const lateral = Math.sin(phase) * loopRadius * 0.65;
     return {
-      x: state.trackHoldPoint.x + Math.cos(angle) * radius,
-      y: state.trackHoldPoint.y + Math.sin(angle) * radius,
+      x: state.trackHoldPoint.x + forwardX * along + normalX * lateral,
+      y: state.trackHoldPoint.y + forwardY * along + normalY * lateral,
     };
   }
   const sentinelRadius = tower.behaviorMode === 'sentinel'
@@ -367,6 +390,10 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
     lastTrailSample: { x: spawnX, y: spawnY },
     color,
     gradientProgress,
+    ramCooldown: 0,
+    ramDistanceRemaining: 0,
+    ramHeading: angle,
+    ramTurn: 1,
   };
 
   state.soldiers.push(soldier);
@@ -426,12 +453,21 @@ function updateDeltaSoldier(playfield, tower, soldier, delta, state) {
     }
   }
 
+  soldier.ramCooldown = Math.max(0, (soldier.ramCooldown || 0) - delta);
+
   const minDimension = Math.min(playfield.renderWidth || 0, playfield.renderHeight || 0) || 1;
   const speed = Math.max(90, minDimension * 0.22);
+  const ramDistance = metersToPixels(DELTA_RAM_DISTANCE_METERS, minDimension);
 
   let destination = null;
+  let cachedTargetPosition = null;
+  let cachedEnemyMetrics = null;
+  let cachedEnemyRadius = null;
   if (target) {
-    destination = playfield.getEnemyPosition(target);
+    cachedTargetPosition = playfield.getEnemyPosition(target);
+    destination = cachedTargetPosition;
+    cachedEnemyMetrics = playfield.getEnemyVisualMetrics(target);
+    cachedEnemyRadius = playfield.getEnemyHitRadius(target, cachedEnemyMetrics);
   }
   if (!destination) {
     destination = resolveDeltaHoldPosition(playfield, tower, soldier, state);
@@ -450,7 +486,28 @@ function updateDeltaSoldier(playfield, tower, soldier, delta, state) {
     nx = dx / distance;
     ny = dy / distance;
   }
-  const desiredSpeed = distance > 1 ? speed : 0;
+
+  const ramActive = Number.isFinite(soldier.ramDistanceRemaining) && soldier.ramDistanceRemaining > 0;
+  const contactRadius = cachedEnemyRadius + (soldier.collisionRadius || 12);
+  if (
+    target &&
+    !ramActive &&
+    soldier.ramCooldown <= 0 &&
+    Number.isFinite(contactRadius) &&
+    distance <= contactRadius * 1.15
+  ) {
+    soldier.ramDistanceRemaining = ramDistance;
+    soldier.ramHeading = Math.atan2(dy, dx);
+    soldier.ramTurn = Math.random() < 0.5 ? -1 : 1;
+  }
+
+  let desiredSpeed = distance > 1 ? speed : 0;
+  if (ramActive) {
+    const heading = Number.isFinite(soldier.ramHeading) ? soldier.ramHeading : Math.atan2(dy, dx);
+    nx = Math.cos(heading);
+    ny = Math.sin(heading);
+    desiredSpeed = speed * DELTA_RAM_SPEED_MULTIPLIER;
+  }
   const desiredVx = nx * desiredSpeed;
   const desiredVy = ny * desiredSpeed;
   const deltaVx = desiredVx - soldier.vx;
@@ -493,6 +550,19 @@ function updateDeltaSoldier(playfield, tower, soldier, delta, state) {
     }
   }
 
+  const traveled = Math.hypot(soldier.x - soldier.prevX, soldier.y - soldier.prevY);
+  if (ramActive) {
+    soldier.ramDistanceRemaining = Math.max(0, soldier.ramDistanceRemaining - traveled);
+    soldier.heading = Math.atan2(soldier.vy, soldier.vx);
+    if (soldier.ramDistanceRemaining <= 0) {
+      soldier.ramCooldown = DELTA_RAM_COOLDOWN;
+      soldier.heading += soldier.ramTurn * DELTA_RAM_TURN_ANGLE;
+      const speedMagnitude = Math.hypot(soldier.vx, soldier.vy);
+      soldier.vx = Math.cos(soldier.heading) * speedMagnitude;
+      soldier.vy = Math.sin(soldier.heading) * speedMagnitude;
+    }
+  }
+
   if (Number.isFinite(soldier.vx) && Number.isFinite(soldier.vy)) {
     const velocityMagnitude = Math.hypot(soldier.vx, soldier.vy);
     if (velocityMagnitude > 0.01) {
@@ -522,10 +592,12 @@ function updateDeltaSoldier(playfield, tower, soldier, delta, state) {
   updateTrailAges(soldier, delta);
 
   if (target) {
-    const targetPosition = playfield.getEnemyPosition(target);
+    const targetPosition = cachedTargetPosition || playfield.getEnemyPosition(target);
     if (targetPosition) {
-      const metrics = playfield.getEnemyVisualMetrics(target);
-      const enemyRadius = playfield.getEnemyHitRadius(target, metrics);
+      const metrics = cachedEnemyMetrics || playfield.getEnemyVisualMetrics(target);
+      const enemyRadius = Number.isFinite(cachedEnemyRadius)
+        ? cachedEnemyRadius
+        : playfield.getEnemyHitRadius(target, metrics);
       const contactRadius = enemyRadius + (soldier.collisionRadius || 12);
       const separation = Math.hypot(soldier.x - targetPosition.x, soldier.y - targetPosition.y);
       if (separation <= contactRadius) {
