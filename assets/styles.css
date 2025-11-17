@@ -2447,6 +2447,66 @@ body.graphics-mode-low .control-button {
   border-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Present a compact replacement chooser beneath an equip button when the loadout is full. */
+.tower-replace-popup {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(8, 9, 14, 0.9);
+  border: 1px solid rgba(139, 247, 255, 0.28);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
+  display: grid;
+  gap: 8px;
+  text-align: center;
+}
+
+.tower-replace-popup__title {
+  margin: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  color: rgba(247, 247, 245, 0.92);
+}
+
+.tower-replace-popup__options {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tower-replace-popup__option {
+  min-width: 72px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 228, 120, 0.32);
+  background:
+    linear-gradient(160deg, rgba(12, 16, 24, 0.95), rgba(18, 24, 36, 0.95));
+  color: var(--text);
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  cursor: var(--cursor-pointer);
+  transition: border-color var(--transition), transform var(--transition);
+}
+
+.tower-replace-popup__option:hover,
+.tower-replace-popup__option:focus-visible {
+  border-color: rgba(255, 228, 120, 0.75);
+  transform: translateY(-1px);
+}
+
+.tower-replace-popup__option img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.tower-replace-popup__option-label {
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+}
+
 /* Introduce an octagonal socket for crafted relics beneath each tower card. */
 .tower-equipment-slot {
   position: relative;
