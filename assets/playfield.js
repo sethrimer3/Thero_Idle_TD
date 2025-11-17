@@ -179,6 +179,8 @@ const defaultDependencies = {
   getBaseStartThero: () => 50,
   getBaseCoreIntegrity: () => 100,
   handleDeveloperMapPlacement: () => false,
+  // Allow the playfield to bypass currency caps when developer tools are toggled on.
+  isDeveloperModeActive: () => false,
   // Allows the playfield to respect the global graphics fidelity toggle.
   isLowGraphicsMode: () => false,
 };
@@ -2285,6 +2287,14 @@ export class SimplePlayfield {
     this.updateProgress();
     this.updateSpeedButton();
     this.updateAutoAnchorButton();
+  }
+
+  getEnergyCap() {
+    // Developer mode removes level caps so test thero grants are never clamped mid-run.
+    if (typeof this.dependencies.isDeveloperModeActive === 'function' && this.dependencies.isDeveloperModeActive()) {
+      return Number.POSITIVE_INFINITY;
+    }
+    return this.levelConfig?.theroCap ?? this.levelConfig?.energyCap ?? Infinity;
   }
 
   leaveLevel() {
@@ -4747,7 +4757,7 @@ export class SimplePlayfield {
         notifyTowerPlaced(this.towers.length);
         return true;
       }
-      const cap = this.levelConfig?.theroCap ?? this.levelConfig?.energyCap ?? Infinity;
+      const cap = this.getEnergyCap();
       this.energy = Math.min(cap, this.energy + actionCost);
       return false;
     }
@@ -5014,7 +5024,7 @@ export class SimplePlayfield {
     const removedCost = history.length ? history.pop() : null;
     const currentCost = Number.isFinite(removedCost) ? removedCost : this.getCurrentTowerCost(tower.type);
     const charge = this.getCurrentTowerCost(previousDefinition.id);
-    const cap = this.levelConfig?.theroCap ?? this.levelConfig?.energyCap ?? Infinity;
+    const cap = this.getEnergyCap();
     const refundAmount = Math.max(0, Number.isFinite(currentCost) ? currentCost : 0);
     const cappedEnergy = Math.min(cap, this.energy + refundAmount);
 
@@ -5170,7 +5180,7 @@ export class SimplePlayfield {
     }
 
     if (this.levelConfig) {
-      const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
+      const cap = this.getEnergyCap();
       const refund = Math.max(0, this.calculateTowerSellRefund(tower));
       this.energy = Math.min(cap, this.energy + refund);
       if (this.messageEl && !silent) {
@@ -8870,7 +8880,7 @@ export class SimplePlayfield {
     const baseGain =
       (this.levelConfig?.theroPerKill ?? this.levelConfig?.energyPerKill ?? 0) +
       (enemy.reward || 0);
-    const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
+    const cap = this.getEnergyCap();
     this.energy = Math.min(cap, this.energy + baseGain);
 
     if (this.messageEl) {
@@ -8903,7 +8913,7 @@ export class SimplePlayfield {
     this.stopCombatStatsSession();
     this.resolvedOutcome = 'victory';
     this.activeWave = null;
-    const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
+    const cap = this.getEnergyCap();
     const reward = this.levelConfig.rewardThero ?? this.levelConfig.rewardEnergy ?? 0;
     this.energy = Math.min(cap, this.energy + reward);
     this.currentWaveNumber = this.baseWaveCount || this.currentWaveNumber;
@@ -8952,7 +8962,7 @@ export class SimplePlayfield {
     this.stopCombatStatsSession();
     this.resolvedOutcome = 'defeat';
     this.activeWave = null;
-    const cap = this.levelConfig.theroCap ?? this.levelConfig.energyCap ?? Infinity;
+    const cap = this.getEnergyCap();
     const baseline = this.levelConfig.startThero ?? this.levelConfig.startEnergy ?? 0;
     this.energy = Math.min(cap, Math.max(this.energy, baseline));
     this.maxWaveReached = Math.max(this.maxWaveReached, this.currentWaveNumber);
