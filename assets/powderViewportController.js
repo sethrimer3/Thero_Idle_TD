@@ -265,10 +265,90 @@ export function createPowderViewportController({
       pointerId: null,
       lastPoint: null,
       viewport,
+      // Track simultaneous touches so pinch gestures can drive viewport zoom on mobile.
+      activePointers: new Map(),
+      // Cache the baseline pinch spacing and scale to compute incremental zoom factors.
+      pinchState: null,
       destroy: null,
     };
 
     const getSimulation = () => (typeof getActiveSimulation === 'function' ? getActiveSimulation() : null);
+
+    // Read the active view scale to normalize pinch deltas against the current zoom level.
+    const getActiveScale = () => {
+      const activeSimulation = getSimulation();
+      const transform = activeSimulation?.getViewTransform?.();
+      const scale = Number.isFinite(transform?.scale) && transform.scale > 0 ? transform.scale : 1;
+      return scale;
+    };
+
+    // Clear pinch bookkeeping when touches end or become invalid.
+    const resetPinchState = () => {
+      interaction.pinchState = null;
+    };
+
+    // Remove lifted touch samples from the pinch cache so future gestures start clean.
+    const removePointerFromCache = (event) => {
+      if (event.pointerType === 'touch') {
+        interaction.activePointers.delete(event.pointerId);
+      }
+    };
+
+    // Calculate pinch distance changes to zoom the basin while anchoring around the gesture midpoint.
+    const performPinchZoom = () => {
+      const activeSimulation = getSimulation();
+      if (!activeSimulation) {
+        return;
+      }
+      const pointers = Array.from(interaction.activePointers.values());
+      if (pointers.length < 2) {
+        resetPinchState();
+        return;
+      }
+
+      const [first, second] = pointers;
+      const dx = first.clientX - second.clientX;
+      const dy = first.clientY - second.clientY;
+      const distance = Math.hypot(dx, dy);
+      if (!Number.isFinite(distance) || distance <= 0) {
+        return;
+      }
+
+      const midpoint = {
+        clientX: (first.clientX + second.clientX) / 2,
+        clientY: (first.clientY + second.clientY) / 2,
+      };
+
+      if (!interaction.pinchState || !Number.isFinite(interaction.pinchState.startDistance) || interaction.pinchState.startDistance <= 0) {
+        interaction.pinchState = {
+          startDistance: distance,
+          startScale: getActiveScale(),
+        };
+        return;
+      }
+
+      const baseDistance = interaction.pinchState.startDistance;
+      const baseScale = Number.isFinite(interaction.pinchState.startScale)
+        ? interaction.pinchState.startScale
+        : getActiveScale();
+      if (!Number.isFinite(baseDistance) || baseDistance <= 0 || !Number.isFinite(baseScale) || baseScale <= 0) {
+        resetPinchState();
+        return;
+      }
+
+      const currentScale = getActiveScale();
+      const targetScale = (distance / baseDistance) * baseScale;
+      const factor = Number.isFinite(currentScale) && currentScale > 0 ? targetScale / currentScale : 1;
+      if (!Number.isFinite(factor) || Math.abs(factor - 1) < 0.001) {
+        return;
+      }
+
+      const changed = activeSimulation.applyZoomFactor(factor, midpoint);
+      if (changed) {
+        interaction.pinchState.startDistance = distance;
+        interaction.pinchState.startScale = activeSimulation.getViewTransform?.()?.scale ?? targetScale;
+      }
+    };
 
     const clearPointerState = () => {
       if (interaction.pointerId !== null && typeof viewport.releasePointerCapture === 'function') {
@@ -281,6 +361,13 @@ export function createPowderViewportController({
     const handlePointerDown = (event) => {
       if (event.pointerType === 'mouse' && event.button !== 0) {
         return;
+      }
+      if (event.pointerType === 'touch') {
+        interaction.activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+        if (interaction.activePointers.size >= 2) {
+          // A second touch begins a pinch gesture, so cancel any in-flight pan capture.
+          clearPointerState();
+        }
       }
       const activeSimulation = getSimulation();
       if (!activeSimulation) {
@@ -298,6 +385,16 @@ export function createPowderViewportController({
     };
 
     const handlePointerMove = (event) => {
+      if (event.pointerType === 'touch') {
+        interaction.activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+        if (interaction.activePointers.size >= 2) {
+          if (typeof event.preventDefault === 'function') {
+            event.preventDefault();
+          }
+          performPinchZoom();
+          return;
+        }
+      }
       if (interaction.pointerId === null || event.pointerId !== interaction.pointerId) {
         return;
       }
@@ -325,9 +422,17 @@ export function createPowderViewportController({
 
     const handlePointerUp = (event) => {
       if (event.pointerId !== interaction.pointerId) {
+        removePointerFromCache(event);
+        if (interaction.activePointers.size < 2) {
+          resetPinchState();
+        }
         return;
       }
       clearPointerState();
+      removePointerFromCache(event);
+      if (interaction.activePointers.size < 2) {
+        resetPinchState();
+      }
     };
 
     const handleWheel = (event) => {
@@ -362,6 +467,8 @@ export function createPowderViewportController({
       viewport.removeEventListener('pointerleave', handlePointerUp);
       viewport.removeEventListener('wheel', handleWheel);
       clearPointerState();
+      resetPinchState();
+      interaction.activePointers.clear();
     };
 
     powderState.viewInteraction = interaction;
