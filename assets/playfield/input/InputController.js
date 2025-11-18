@@ -560,7 +560,8 @@ function handleCanvasPointerLeave() {
     this.handleTowerPointerRelease();
   }
   if (typeof this.cancelTowerHoldGesture === 'function') {
-    this.cancelTowerHoldGesture();
+    const preserveWheel = Boolean(this?.towerSelectionWheel?.container);
+    this.cancelTowerHoldGesture({ preserveWheel });
   }
   if (typeof this.resetTowerTapState === 'function') {
     this.resetTowerTapState();

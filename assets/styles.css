@@ -1370,6 +1370,17 @@ body.graphics-mode-low .control-button {
   outline-offset: 2px;
 }
 
+.tower-loadout-wheel__label {
+  grid-column: 1 / span 2;
+  justify-self: start;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.tower-loadout-wheel__label--sell {
+  color: rgba(139, 247, 255, 0.9);
+}
+
 .tower-loadout-wheel__icon {
   width: 36px;
   height: 36px;
@@ -1381,6 +1392,7 @@ body.graphics-mode-low .control-button {
 }
 
 .tower-loadout-wheel__cost {
+  grid-column: 2;
   justify-self: end;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -1388,7 +1400,8 @@ body.graphics-mode-low .control-button {
 }
 
 .tower-loadout-wheel__cost[data-direction='refund'] {
-  color: rgba(139, 247, 255, 0.9);
+  color: #bfe7ff;
+  text-shadow: -1px 0 #000, 1px 0 #000, 0 1px #000, 0 -1px #000;
 }
 
 .tower-loadout-art {

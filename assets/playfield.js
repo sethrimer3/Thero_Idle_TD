@@ -1655,6 +1655,11 @@ export class SimplePlayfield {
       return this.getCurrentTowerCost(targetDefinition.id);
     }
 
+    if (targetDefinition.id === 'sell') {
+      // Surface the full refund amount so the UI can treat selling as a negative cost option.
+      return -Math.max(0, this.calculateTowerSellRefund(sourceTower));
+    }
+
     const history = this.ensureTowerCostHistory(sourceTower);
     const refundAmount = history.length ? history[history.length - 1] : this.getCurrentTowerCost(sourceTower.type);
     const targetCost = this.getCurrentTowerCost(targetDefinition.id);
@@ -3145,6 +3150,14 @@ export class SimplePlayfield {
       item.dataset.towerId = definition.id;
       item.dataset.distance = String(Math.abs(index - clampedIndex));
 
+      if (definition.id === 'sell') {
+        item.dataset.role = 'sell';
+        const label = document.createElement('span');
+        label.className = 'tower-loadout-wheel__label tower-loadout-wheel__label--sell';
+        label.textContent = 'SELL';
+        item.append(label);
+      }
+
       if (definition.icon) {
         const art = document.createElement('img');
         art.className = 'tower-loadout-wheel__icon';
@@ -3162,17 +3175,19 @@ export class SimplePlayfield {
       const costLabel = document.createElement('span');
       costLabel.className = 'tower-loadout-wheel__cost';
       costLabel.dataset.direction = costDelta >= 0 ? 'increase' : 'refund';
-      const formattedDelta = formatCombatNumber(Math.max(0, Math.abs(costDelta)));
-      costLabel.textContent = `${costDelta >= 0 ? '+' : '−'}${formattedDelta} ${this.theroSymbol}`;
+      const absoluteDelta = Math.max(0, Math.abs(costDelta));
+      const formattedDelta = formatCombatNumber(absoluteDelta);
+      const prefix = costDelta < 0 ? '+' : '';
+      costLabel.textContent = `${prefix}${formattedDelta} ${this.theroSymbol}`;
       item.append(costLabel);
 
       const netAffordable = costDelta <= 0 || this.energy >= costDelta;
       item.dataset.affordable = netAffordable ? 'true' : 'false';
       item.setAttribute(
         'aria-label',
-        `${definition.name || definition.id} — ${costDelta >= 0 ? 'Cost' : 'Refund'} ${formatCombatNumber(
-          Math.max(0, Math.abs(costDelta)),
-        )} ${this.theroSymbol}`,
+        `${definition.id === 'sell' ? 'Sell lattice' : definition.name || definition.id} — ${
+          costDelta >= 0 ? 'Cost' : 'Refund'
+        } ${formatCombatNumber(absoluteDelta)} ${this.theroSymbol}`,
       );
 
       item.addEventListener('click', () => this.applyTowerSelection(definition));
@@ -3323,9 +3338,13 @@ export class SimplePlayfield {
     if (!towers.length) {
       return;
     }
+    const options = [
+      { id: 'sell', name: 'Sell lattice' },
+      ...towers,
+    ];
     const wheel = this.towerSelectionWheel;
-    wheel.towers = towers;
-    wheel.activeIndex = Math.max(0, towers.findIndex((definition) => definition.id === tower.type));
+    wheel.towers = options;
+    wheel.activeIndex = Math.max(0, options.findIndex((definition) => definition.id === tower.type));
     wheel.towerId = tower.id;
 
     const container = document.createElement('div');
@@ -3368,6 +3387,13 @@ export class SimplePlayfield {
     const tower = wheel?.towerId ? this.getTowerById(wheel.towerId) : null;
     if (!tower) {
       this.closeTowerSelectionWheel();
+      return;
+    }
+    if (definition.id === 'sell') {
+      // Treat the sell row as a direct lattice dissolution shortcut.
+      this.sellTower(tower);
+      this.closeTowerSelectionWheel();
+      this.cancelTowerHoldGesture();
       return;
     }
     if (definition.id === tower.type) {
