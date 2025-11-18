@@ -294,16 +294,17 @@ function resolveDeltaHoldPosition(playfield, tower, soldier, state) {
   }
   const baseAngle = Number.isFinite(soldier.idleAngleOffset) ? soldier.idleAngleOffset : defaultAngle;
   if (tower.behaviorMode === 'trackHold' && state.trackHoldPoint) {
-    const orbitPhase = Number.isFinite(state.orbitPhase) ? state.orbitPhase : 0;
+    const tau = Math.PI * 2;
+    const orbitPhase = Number.isFinite(soldier.swarmPhase) ? soldier.swarmPhase : Math.random() * tau;
     const tangent = Number.isFinite(state.trackHoldTangent) ? state.trackHoldTangent : baseAngle;
     const forwardX = Math.cos(tangent);
     const forwardY = Math.sin(tangent);
     const normalX = -forwardY;
     const normalY = forwardX;
-    const loopRadius = Math.max(24, minDimension * 0.06);
-    const phase = orbitPhase + (index * Math.PI) / Math.max(1, count);
+    const loopRadius = Math.max(24, minDimension * 0.06) * (soldier.swarmRadiusMultiplier ?? 1);
+    const phase = orbitPhase;
     const along = Math.cos(phase) * loopRadius * 1.3;
-    const lateral = Math.sin(phase) * loopRadius * 0.65;
+    const lateral = Math.sin(phase * 1.25) * loopRadius * 0.8;
     return {
       x: state.trackHoldPoint.x + forwardX * along + normalX * lateral,
       y: state.trackHoldPoint.y + forwardY * along + normalY * lateral,
@@ -394,6 +395,10 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
     ramDistanceRemaining: 0,
     ramHeading: angle,
     ramTurn: 1,
+    // Per-soldier swarm tuning so each sentry orbits independently during track-hold.
+    swarmPhase: Math.random() * Math.PI * 2,
+    swarmSpeedMultiplier: 0.85 + Math.random() * 0.35,
+    swarmRadiusMultiplier: 0.8 + Math.random() * 0.6,
   };
 
   state.soldiers.push(soldier);
@@ -403,6 +408,22 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
 function updateDeltaSoldier(playfield, tower, soldier, delta, state) {
   if (!soldier || soldier.health <= 0) {
     return false;
+  }
+
+  // Track-hold uses personal swarm timers so sentries drift independently instead of marching in a single orbit.
+  const tau = Math.PI * 2;
+  if (tower.behaviorMode === 'trackHold') {
+    const orbitSpeed = Number.isFinite(state.orbitAngularSpeed) && state.orbitAngularSpeed > 0
+      ? state.orbitAngularSpeed
+      : DELTA_ORBIT_DEFAULT_SPEED;
+    const soldierOrbitSpeed = orbitSpeed * (soldier.swarmSpeedMultiplier ?? 1);
+    if (!Number.isFinite(soldier.swarmPhase)) {
+      soldier.swarmPhase = Math.random() * tau;
+    }
+    soldier.swarmPhase += delta * soldierOrbitSpeed;
+    if (soldier.swarmPhase > tau || soldier.swarmPhase < -tau) {
+      soldier.swarmPhase %= tau;
+    }
   }
 
   const regenRate = Number.isFinite(state.regenPerSecond)
