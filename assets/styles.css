@@ -8249,8 +8249,10 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   grid-template-rows: repeat(2, 1fr);
   gap: 0;
   padding: 2px;
-  min-height: 100%;
-  align-content: stretch;
+  /* Shrink-wrap the grid to its contents so mobile tabs don't create tall empty columns. */
+  min-height: auto;
+  height: auto;
+  align-content: center;
   justify-items: stretch;
 }
 
