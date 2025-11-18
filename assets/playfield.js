@@ -706,7 +706,8 @@ export class SimplePlayfield {
     const doubledKnockback = baseStrength * 2;
     const finishingBlowBonus = 1 + relativeDamageFraction;
     const strength = doubledKnockback * finishingBlowBonus;
-    queue.push({ enemy, direction: normalized, strength, timestamp: now });
+    // Preserve the raw damage fraction so the renderer can knock back only a matching share of swirl particles.
+    queue.push({ enemy, direction: normalized, strength, timestamp: now, damageFraction: relativeDamageFraction });
     const maxQueueEntries = 120;
     if (queue.length > maxQueueEntries) {
       queue.splice(0, queue.length - maxQueueEntries);
