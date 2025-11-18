@@ -5068,37 +5068,30 @@ export class SimplePlayfield {
     let mergeCost = 0;
 
     if (existingTower && existingTower.type === selectedType) {
-      if (selectedType === 'eta') {
-        if (existingTower.isPrestigeEta) {
-          if (this.messageEl && !silent) {
-            this.messageEl.textContent = 'Η lattice already crowned—no further fusion possible.';
-          }
-          if (this.audio && !silent) {
-            this.audio.playSfx('error');
-          }
-          return false;
+      const nextId = getNextTowerId(selectedType);
+      if (!nextId) {
+        if (this.messageEl && !silent) {
+          this.messageEl.textContent = `${definition.symbol} already resonates at its peak tier.`;
         }
-        mergeTarget = existingTower;
-        merging = true;
-        placement.position = { x: mergeTarget.x, y: mergeTarget.y };
-        mergeCost = this.getCurrentTowerCost(selectedType);
-      } else {
-        const nextId = getNextTowerId(selectedType);
-        if (!nextId) {
-          if (this.messageEl && !silent) {
-            this.messageEl.textContent = `${definition.symbol} already resonates at its peak tier.`;
-          }
-          if (this.audio && !silent) {
-            this.audio.playSfx('error');
-          }
-          return false;
+        if (this.audio && !silent) {
+          this.audio.playSfx('error');
         }
-        nextDefinition = getTowerDefinition(nextId);
-        mergeTarget = existingTower;
-        merging = true;
-        placement.position = { x: mergeTarget.x, y: mergeTarget.y };
-        mergeCost = this.getCurrentTowerCost(nextDefinition.id);
+        return false;
       }
+      nextDefinition = getTowerDefinition(nextId);
+      if (!nextDefinition) {
+        if (this.messageEl && !silent) {
+          this.messageEl.textContent = `${definition.symbol} upgrade path is unavailable.`;
+        }
+        if (this.audio && !silent) {
+          this.audio.playSfx('error');
+        }
+        return false;
+      }
+      mergeTarget = existingTower;
+      merging = true;
+      placement.position = { x: mergeTarget.x, y: mergeTarget.y };
+      mergeCost = this.getCurrentTowerCost(nextDefinition.id);
     } else {
       placement = this.validatePlacement(normalized, { allowPathOverlap });
       if (!placement.valid) {
@@ -5139,19 +5132,6 @@ export class SimplePlayfield {
     }
 
     this.energy = Math.max(0, this.energy - actionCost);
-
-    if (merging && mergeTarget && selectedType === 'eta') {
-      const merged = this.mergeEtaTower(mergeTarget, { silent });
-      if (merged) {
-        // Clear the placement preview so η fusions do not leave a ghost icon tethered to the pointer.
-        this.clearPlacementPreview();
-        notifyTowerPlaced(this.towers.length);
-        return true;
-      }
-      const cap = this.getEnergyCap();
-      this.energy = Math.min(cap, this.energy + actionCost);
-      return false;
-    }
 
     if (merging && mergeTarget && nextDefinition) {
       const wasAlephNull = mergeTarget.type === 'aleph-null';

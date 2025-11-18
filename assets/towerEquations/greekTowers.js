@@ -699,19 +699,73 @@ export const eta = {
       },
     },
     {
+      key: 'bet1',
+      symbol: 'ב₁',
+      equationSymbol: 'Bet₁',
+      glyphLabel: 'ב₁',
+      name: 'Bet₁',
+      description: 'Bet glyph infusion that unfolds additional η rings.',
+      baseValue: 0,
+      step: 1,
+      upgradable: true,
+      glyphCurrency: 'bet',
+      maxLevel: 3,
+      format: (value) => formatWholeNumber(Math.max(0, value)),
+      cost(level) {
+        const normalized = Math.max(0, Math.floor(Number.isFinite(level) ? level : 0));
+        if (normalized === 0) {
+          return 1;
+        }
+        if (normalized === 1) {
+          return 5;
+        }
+        return 10;
+      },
+      getSubEquations({ level, value }) {
+        const resolvedLevel = Math.max(0, Math.floor(Number.isFinite(level) ? level : 0));
+        const resolvedValue = Math.max(0, Number.isFinite(value) ? value : resolvedLevel);
+        return [
+          {
+            expression: String.raw`\( \text{Bet}_{1} = \text{Level} \)`,
+          },
+          {
+            values: String.raw`\( ${formatWholeNumber(resolvedValue)} = ${formatWholeNumber(resolvedLevel)} \)`,
+            variant: 'values',
+            glyphEquation: true,
+          },
+          {
+            expression: String.raw`\( \text{Cost progression: }1,\ 5,\ 10\ \text{Bet glyphs} \)`,
+            glyphEquation: true,
+          },
+        ];
+      },
+    },
+    {
       key: 'totRing',
-      symbol: 'TotRing',
-      equationSymbol: 'TotRing',
-      name: 'TotRing',
-      description: null,
+      symbol: 'Ring',
+      equationSymbol: 'Ring',
+      name: 'Ring Count',
+      description: 'Total η orbital rings.',
       baseValue: 2,
       upgradable: false,
       includeInMasterEquation: false,
       format: (value) => formatWholeNumber(Math.max(0, value)),
-      getSubEquations() {
+      computeValue({ blueprint, towerId }) {
+        const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
+        const bet1 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'bet1', effectiveBlueprint));
+        return Math.min(5, Math.max(2, 2 + bet1));
+      },
+      getSubEquations({ blueprint, towerId }) {
+        const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
+        const bet1 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'bet1', effectiveBlueprint));
+        const ringCount = Math.min(5, Math.max(2, 2 + bet1));
         return [
           {
-            expression: String.raw`\( \text{TotRing} = 2 + \eta' \)`,
+            expression: String.raw`\( \text{RingCount} = 2 + \text{Bet}_{1} \)`,
+          },
+          {
+            values: String.raw`\( ${formatWholeNumber(ringCount)} = 2 + ${formatWholeNumber(bet1)} \)`,
+            variant: 'values',
           },
         ];
       },

@@ -91,6 +91,8 @@ export function ensureEtaState(playfield, tower, options = {}) {
   const aleph5 = Math.max(1, computeTowerVariableValue('eta', 'aleph5'));
   const aleph6Raw = Math.max(1, computeTowerVariableValue('eta', 'aleph6'));
   const aleph6 = Math.min(5, aleph6Raw);
+  // Bet glyph infusion drives η ring expansion through the Bet₁ upgrade lane.
+  const bet1 = Math.max(0, computeTowerVariableValue('eta', 'bet1'));
 
   const gammaValue = Math.max(0, calculateTowerEquationResult('gamma'));
   // Guarantee a non-zero laser pulse so aligned orbits always emit a beam even if γ has not
@@ -100,7 +102,10 @@ export function ensureEtaState(playfield, tower, options = {}) {
 
   const isPrestige = Boolean(tower.isPrestigeEta);
   const prime = Number.isFinite(tower.etaPrime) ? Math.max(0, tower.etaPrime) : 0;
-  const totalRings = isPrestige ? 5 : Math.min(5, 2 + prime);
+  // Preserve legacy merge progress while honoring Bet glyph upgrades and the prestige cap.
+  const betRingCount = Math.min(5, Math.max(2, 2 + bet1));
+  const legacyRingCount = Math.min(5, 2 + prime);
+  const totalRings = isPrestige ? 5 : Math.max(betRingCount, legacyRingCount);
   const rangeMeters = 5 + aleph6;
   const rangePixels = metersToPixels(rangeMeters, minDimension);
 
@@ -126,6 +131,7 @@ export function ensureEtaState(playfield, tower, options = {}) {
     isPrestige ? 'prestige' : 'standard',
     `prime:${prime}`,
     `rings:${totalRings}`,
+    `bet:${bet1.toFixed(4)}`,
     `a1:${aleph1.toFixed(4)}`,
     `a2:${aleph2.toFixed(4)}`,
     `a3:${aleph3.toFixed(4)}`,
@@ -246,7 +252,10 @@ export function mergeEtaTower(playfield, tower, { silent = false } = {}) {
   ensureEtaState(playfield, tower, { forceResync: true });
   tower.cooldown = 0;
 
-  const totalRings = tower.etaState?.totalRings || Math.min(5, 2 + tower.etaPrime);
+  const bet1 = Math.max(0, computeTowerVariableValue('eta', 'bet1'));
+  const betRingCount = Math.min(5, Math.max(2, 2 + bet1));
+  const legacyRings = Math.min(5, 2 + tower.etaPrime);
+  const totalRings = tower.etaState?.totalRings || Math.max(betRingCount, legacyRings);
   if (playfield.messageEl && !silent) {
     if (tower.isPrestigeEta) {
       playfield.messageEl.textContent = 'η lattice ascended into Η—five rings ignite in harmony.';
