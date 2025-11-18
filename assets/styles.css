@@ -4239,6 +4239,16 @@ body.graphics-mode-low .control-button {
   object-fit: contain;
 }
 
+/* Overlay canvas that renders animated grass tied to the terrain silhouettes. */
+.fluid-terrarium__grass {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+
 .fluid-terrarium__background {
   z-index: 0;
 }
