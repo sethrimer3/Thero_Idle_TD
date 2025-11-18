@@ -146,6 +146,7 @@ import { createTsadiBindingUi } from './tsadiBindingUi.js';
 import { createSpireTabVisibilityManager } from './spireTabVisibility.js';
 import { createIdleLevelRunManager } from './idleLevelRunManager.js';
 import { createSpireResourceState } from './state/spireResourceState.js';
+import { createTsadiMoleculeNameGenerator, TSADI_MOLECULE_LEXICON } from './tsadiMoleculeNameGenerator.js';
 import { createSpireResourceBanks } from './spireResourceBanks.js';
 // Powder tower palette and simulation helpers.
 import {
@@ -833,6 +834,8 @@ import {
 
   // Track idle reserves for advanced spires so their banks persist outside of active simulations.
   const spireResourceState = createSpireResourceState();
+  // Randomized, non-repeating Tsadi molecule name generator seeded per session.
+  const tsadiMoleculeNameGenerator = createTsadiMoleculeNameGenerator('tsadi-codex', TSADI_MOLECULE_LEXICON);
 
   const fluidElements = {
     tabStack: null, // Container that hosts the split spire tab controls.
@@ -1133,7 +1136,7 @@ import {
       ? spireResourceState.tsadi.discoveredMolecules
       : [];
     const preserved = existing.filter((entry) => entry && entry.id !== recipe.id);
-    spireResourceState.tsadi.discoveredMolecules = [...preserved, recipe];
+    spireResourceState.tsadi.discoveredMolecules = normalizeDiscoveredMolecules([...preserved, recipe]);
     refreshCodexList();
   }
 
@@ -2108,6 +2111,16 @@ import {
   }
 
   /**
+   * Apply unique randomized names to normalized molecule entries.
+   * @param {Array} molecules - Raw persisted molecule descriptors.
+   * @returns {Array} Molecule descriptors with guaranteed-unique names.
+   */
+  function normalizeDiscoveredMolecules(molecules) {
+    const normalized = normalizePersistedMolecules(molecules);
+    return tsadiMoleculeNameGenerator.normalizeRecipes(normalized);
+  }
+
+  /**
    * Compose a persistence-safe snapshot of the advanced spire resource state.
    * @returns {Object} Sanitized spire resource data for autosave.
    */
@@ -2135,7 +2148,7 @@ import {
         unlocked: Boolean(tsadiState.unlocked),
         particleBank: getTsadiParticleBank(),
         bindingAgents: getTsadiBindingAgents(),
-        discoveredMolecules: normalizePersistedMolecules(tsadiState.discoveredMolecules),
+        discoveredMolecules: normalizeDiscoveredMolecules(tsadiState.discoveredMolecules),
         stats: {
           totalParticles: clampPersistedValue(tsadiState.stats?.totalParticles, 0),
           totalGlyphs: clampPersistedValue(tsadiState.stats?.totalGlyphs, 0),
@@ -2192,7 +2205,7 @@ import {
       totalParticles: clampPersistedValue(tsadiBranch.stats?.totalParticles, tsadiState.stats?.totalParticles || 0),
       totalGlyphs: clampPersistedValue(tsadiBranch.stats?.totalGlyphs, tsadiState.stats?.totalGlyphs || 0),
     };
-    tsadiState.discoveredMolecules = normalizePersistedMolecules(
+    tsadiState.discoveredMolecules = normalizeDiscoveredMolecules(
       tsadiBranch.discoveredMolecules || tsadiState.discoveredMolecules,
     );
 
@@ -4320,6 +4333,7 @@ import {
                 initialParticleBank: getTsadiParticleBank(),
                 initialBindingAgents: getTsadiBindingAgents(),
                 initialDiscoveredMolecules: spireResourceState.tsadi?.discoveredMolecules || [],
+                assignMoleculeName: (recipe) => tsadiMoleculeNameGenerator.assignName(recipe),
                 samplePaletteGradient: samplePaletteGradient,
                 onParticleBankChange: (value) => {
                   setTsadiParticleBank(value);

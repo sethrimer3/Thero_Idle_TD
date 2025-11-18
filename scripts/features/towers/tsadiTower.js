@@ -334,8 +334,14 @@ export class ParticleFusionSimulation {
       ? Math.max(0, options.initialBindingAgents)
       : 0;
     this.bindingAgentRadius = 0;
-    this.discoveredMolecules = new Set(
-      Array.isArray(options.initialDiscoveredMolecules) ? options.initialDiscoveredMolecules : []
+    // Injected name resolver keeps molecule names randomized and unique.
+    this.assignMoleculeName = typeof options.assignMoleculeName === 'function'
+      ? options.assignMoleculeName
+      : null;
+    this.discoveredMolecules = new Set();
+    this.discoveredMoleculeEntries = new Map();
+    this.seedDiscoveredMolecules(
+      Array.isArray(options.initialDiscoveredMolecules) ? options.initialDiscoveredMolecules : [],
     );
     this.moleculeBonuses = { spawnRateBonus: 0, repellingShift: 0 };
     this.onBindingAgentStockChange = typeof options.onBindingAgentStockChange === 'function'
@@ -886,6 +892,75 @@ export class ParticleFusionSimulation {
   }
 
   /**
+   * Normalize a persisted or newly discovered molecule descriptor and apply naming.
+   * @param {Object|string} recipe - Molecule recipe payload or identifier.
+   * @returns {Object|null} Descriptor containing id, name, tiers, description, and bonus.
+   */
+  normalizeMoleculeDescriptor(recipe) {
+    if (!recipe) {
+      return null;
+    }
+    const resolvedId = typeof recipe === 'string' ? recipe : recipe.id || recipe.name;
+    const baseRecipe = MOLECULE_RECIPES.find((entry) => entry.id === resolvedId) || null;
+    const merged = typeof recipe === 'object' ? { ...(baseRecipe || {}), ...recipe } : (baseRecipe || { id: resolvedId });
+
+    const id = merged.id || merged.name || resolvedId || 'molecule';
+    const tiers = Array.isArray(merged.tiers) ? merged.tiers : baseRecipe?.tiers || [];
+    const description = typeof merged.description === 'string'
+      ? merged.description
+      : baseRecipe?.description || 'Recorded in the Alchemy Codex.';
+    const descriptor = {
+      ...merged,
+      id,
+      name: typeof merged.name === 'string' && merged.name ? merged.name : (baseRecipe?.name || id),
+      tiers,
+      description,
+      bonus: merged.bonus || baseRecipe?.bonus || {},
+    };
+
+    if (this.assignMoleculeName) {
+      const namedDescriptor = this.assignMoleculeName(descriptor);
+      if (namedDescriptor) {
+        return { ...descriptor, ...namedDescriptor };
+      }
+    }
+
+    return descriptor;
+  }
+
+  /**
+   * Seed discovered molecule registries from persisted payloads.
+   * @param {Array} entries - Stored molecule entries.
+   */
+  seedDiscoveredMolecules(entries) {
+    if (!Array.isArray(entries)) {
+      return;
+    }
+    entries.forEach((entry) => {
+      const descriptor = this.normalizeMoleculeDescriptor(entry);
+      if (descriptor) {
+        this.discoveredMolecules.add(descriptor.id);
+        this.discoveredMoleculeEntries.set(descriptor.id, descriptor);
+      }
+    });
+  }
+
+  /**
+   * Record a newly completed molecule and return the enriched descriptor.
+   * @param {Object} recipe - Molecule recipe that just completed.
+   * @returns {Object|null} Descriptor saved to the discovery ledger.
+   */
+  recordDiscoveredMolecule(recipe) {
+    const descriptor = this.normalizeMoleculeDescriptor(recipe);
+    if (!descriptor) {
+      return null;
+    }
+    this.discoveredMolecules.add(descriptor.id);
+    this.discoveredMoleculeEntries.set(descriptor.id, descriptor);
+    return descriptor;
+  }
+
+  /**
    * Recompute global molecule bonuses from all active bindings.
    */
   recalculateMoleculeBonuses() {
@@ -965,9 +1040,9 @@ export class ParticleFusionSimulation {
         if (isComplete) {
           agent.activeMolecules.push(recipe.id);
           if (!this.discoveredMolecules.has(recipe.id)) {
-            this.discoveredMolecules.add(recipe.id);
-            if (this.onMoleculeDiscovered) {
-              this.onMoleculeDiscovered(recipe);
+            const descriptor = this.recordDiscoveredMolecule(recipe);
+            if (descriptor && this.onMoleculeDiscovered) {
+              this.onMoleculeDiscovered(descriptor);
             }
           }
         }
@@ -982,7 +1057,15 @@ export class ParticleFusionSimulation {
    * @returns {Array} Array of molecule recipe objects that have been discovered.
    */
   getDiscoveredMolecules() {
-    return MOLECULE_RECIPES.filter((recipe) => this.discoveredMolecules.has(recipe.id));
+    const entries = [];
+    for (const id of this.discoveredMolecules) {
+      const descriptor = this.discoveredMoleculeEntries.get(id)
+        || this.normalizeMoleculeDescriptor(id);
+      if (descriptor) {
+        entries.push(descriptor);
+      }
+    }
+    return entries;
   }
 
   /**
@@ -1800,7 +1883,7 @@ export class ParticleFusionSimulation {
         x: agent.x,
         y: agent.y,
       })),
-      discoveredMolecules: Array.from(this.discoveredMolecules),
+      discoveredMolecules: Array.from(this.discoveredMoleculeEntries.values()),
       upgrades: {
         repellingForceReduction: this.upgrades.repellingForceReduction,
         startingTier: this.upgrades.startingTier,
@@ -1893,7 +1976,9 @@ export class ParticleFusionSimulation {
     }
 
     if (Array.isArray(state.discoveredMolecules)) {
-      this.discoveredMolecules = new Set(state.discoveredMolecules);
+      this.discoveredMolecules.clear();
+      this.discoveredMoleculeEntries.clear();
+      this.seedDiscoveredMolecules(state.discoveredMolecules);
     }
 
     this.recalculateMoleculeBonuses();
