@@ -4305,6 +4305,23 @@ body.graphics-mode-low .control-button {
   z-index: 3;
 }
 
+/* Overlay canvases that host the fractal trees anchored by the Bet terrarium masks. */
+.fluid-terrarium__trees {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Individual fractal tree canvases sized to their mask anchors. */
+.fluid-terrarium__tree {
+  position: absolute;
+  inset: auto;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 3px 10px rgba(6, 12, 20, 0.55));
+}
+
 .fluid-terrarium__background {
   z-index: 0;
 }

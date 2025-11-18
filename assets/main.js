@@ -132,6 +132,8 @@ import { createPowderResizeObserver } from './powderResizeObserver.js';
 import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
 // Lightweight animation overlay that keeps the Bet terrarium lively.
 import { FluidTerrariumCreatures } from './fluidTerrariumCreatures.js';
+// Fractal trees anchored by the Bet terrarium placement masks.
+import { FluidTerrariumTrees } from './fluidTerrariumTrees.js';
 // Procedural grass that sprouts from the terrarium silhouettes.
 import { FluidTerrariumGrass } from './fluidTerrariumGrass.js';
 // Day/night cycle that animates the Bet terrarium sky and celestial bodies.
@@ -885,6 +887,8 @@ import {
   let betHappinessSystem = null;
   // Animate Delta grasshopper slimes once the fluid viewport is bound.
   let fluidTerrariumCreatures = null;
+  // Grow Shin-inspired fractal trees on top of the Bet terrain silhouettes.
+  let fluidTerrariumTrees = null;
   // Render swaying grass blades that cling to the Bet spire silhouettes.
   let fluidTerrariumGrass = null;
   // Drive the Bet terrarium day/night palette and celestial bodies.
@@ -923,6 +927,18 @@ import {
       maskUrl: './assets/sprites/spires/betSpire/Grass.png',
     });
     fluidTerrariumGrass.start();
+  }
+
+  // Plant animated fractal trees on the Bet terrarium using the placement masks.
+  function ensureFluidTerrariumTrees() {
+    if (fluidTerrariumTrees || !fluidElements?.terrariumMedia) {
+      return;
+    }
+    fluidTerrariumTrees = new FluidTerrariumTrees({
+      container: fluidElements.terrariumMedia,
+      largeMaskUrl: './assets/sprites/spires/betSpire/Tree.png',
+      smallMaskUrl: './assets/sprites/spires/betSpire/Small-Tree.png',
+    });
   }
 
   // Paint the Bet terrarium sky with a looping day/night gradient and celestial path.
@@ -4379,6 +4395,7 @@ import {
     }
     ensureFluidTerrariumCreatures();
     ensureFluidTerrariumGrass();
+    ensureFluidTerrariumTrees();
     ensureFluidTerrariumSkyCycle();
     ensurePowderBasinResizeObserver();
     bindSpireClickIncome();
