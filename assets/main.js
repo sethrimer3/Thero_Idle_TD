@@ -938,7 +938,11 @@ import {
       container: fluidElements.terrariumMedia,
       terrainElement: fluidElements.terrainSprite,
       floatingIslandElement: fluidElements.floatingIslandSprite,
-      maskUrl: './assets/sprites/spires/betSpire/Grass.png',
+      // Use both ground and floating island placement masks so grass sprouts in each marked zone.
+      maskUrls: [
+        './assets/sprites/spires/betSpire/Grass.png',
+        './assets/sprites/spires/betSpire/Island-Grass.png',
+      ],
     });
     fluidTerrariumGrass.start();
   }
@@ -952,6 +956,7 @@ import {
       container: fluidElements.terrariumMedia,
       largeMaskUrl: './assets/sprites/spires/betSpire/Tree.png',
       smallMaskUrl: './assets/sprites/spires/betSpire/Small-Tree.png',
+      islandSmallMaskUrl: './assets/sprites/spires/betSpire/Island-Small-Tree.png',
       state: powderState.betTerrarium,
       spendSerendipity: spendFluidSerendipity,
       getSerendipityBalance: getCurrentFluidDropBank,

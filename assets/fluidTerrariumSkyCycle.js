@@ -11,6 +11,11 @@ export class FluidTerrariumSkyCycle {
     this.sunElement = options.sunElement || null;
     /** @type {HTMLElement|null} */
     this.moonElement = options.moonElement || null;
+    /**
+     * Host element that shares CSS variables with the terrain sprites and overlays.
+     * @type {HTMLElement|null}
+     */
+    this.stageElement = this.skyElement?.parentElement || null;
     /** @type {number} */
     this.cycleDurationMs = Number.isFinite(options.cycleDurationMs)
       ? Math.max(10000, options.cycleDurationMs)
@@ -86,6 +91,7 @@ export class FluidTerrariumSkyCycle {
 
     this.updateSun(progress);
     this.updateMoon(progress);
+    this.applyNightBrightness(starOpacity);
   }
 
   /**
@@ -187,6 +193,21 @@ export class FluidTerrariumSkyCycle {
     const altitude = Math.sin(clamped * Math.PI);
     const vertical = 26 - altitude * 12;
     return { left: `${horizontal}%`, top: `${vertical}%` };
+  }
+
+  /**
+   * Share a night-time brightness scalar with the terrarium so non-glowing sprites dim after dusk.
+   * @param {number} starOpacity - Current opacity of the star layer, used as the night proxy.
+   */
+  applyNightBrightness(starOpacity) {
+    if (!this.stageElement || !this.stageElement.style?.setProperty) {
+      return;
+    }
+    const maxNightOpacity = 0.95;
+    const maxDimming = 0.5;
+    const normalizedNight = this.clamp(starOpacity / maxNightOpacity, 0, 1);
+    const brightness = 1 - normalizedNight * maxDimming;
+    this.stageElement.style.setProperty('--terrarium-night-brightness', `${brightness}`);
   }
 
   /**

@@ -27,6 +27,10 @@ export class FluidTerrariumTrees {
     this.largeMaskUrl = typeof options.largeMaskUrl === 'string' ? options.largeMaskUrl : null;
     /** @type {string|null} */
     this.smallMaskUrl = typeof options.smallMaskUrl === 'string' ? options.smallMaskUrl : null;
+    /** @type {string|null} */
+    this.islandSmallMaskUrl = typeof options.islandSmallMaskUrl === 'string'
+      ? options.islandSmallMaskUrl
+      : null;
 
     this.overlay = null;
     this.bounds = { width: 0, height: 0 };
@@ -199,6 +203,8 @@ export class FluidTerrariumTrees {
     const maskSources = [
       { url: this.largeMaskUrl, size: 'large' },
       { url: this.smallMaskUrl, size: 'small' },
+      // A dedicated floating island mask spawns the elevated bonsai anchor.
+      { url: this.islandSmallMaskUrl, size: 'small' },
     ].filter((entry) => typeof entry.url === 'string');
 
     maskSources.forEach((entry) => {
