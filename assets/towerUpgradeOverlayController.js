@@ -459,8 +459,13 @@ export function createTowerUpgradeOverlayController({
     if (!glyphs) {
       return;
     }
-    const available = Math.max(0, Math.floor(towerTabState.glyphCurrency));
-    glyphs.textContent = `Available Glyphs: ${formatWholeNumber(available)}`;
+    const alephAvailable = Math.max(0, Math.floor(towerTabState.glyphCurrency));
+    const betAvailable = Math.max(0, Math.floor(towerTabState.betGlyphCurrency));
+    const segments = [
+      `Available Glyphs: ${formatWholeNumber(alephAvailable)} ℵ`,
+      `Bet Glyphs: ${formatWholeNumber(betAvailable)} בּ`,
+    ];
+    glyphs.textContent = segments.join(' • ');
   }
 
   /** Present contextual messaging below the variable list. */
@@ -556,6 +561,31 @@ export function createTowerUpgradeOverlayController({
     return 'ℵ';
   }
 
+  function getVariableCurrencyKey(variable) {
+    return variable?.glyphCurrency === 'bet' ? 'bet' : 'aleph';
+  }
+
+  function getCurrencyMeta(currencyKey = 'aleph') {
+    if (currencyKey === 'bet') {
+      return { singular: 'Bet glyph', plural: 'Bet glyphs', short: 'Bet Glyphs', symbol: 'בּ' };
+    }
+    return { singular: 'glyph', plural: 'glyphs', short: 'Glyphs', symbol: 'ℵ' };
+  }
+
+  function getAvailableCurrency(currencyKey = 'aleph') {
+    const balance = currencyKey === 'bet' ? towerTabState.betGlyphCurrency : towerTabState.glyphCurrency;
+    return Math.max(0, Math.floor(balance || 0));
+  }
+
+  function adjustCurrencyBalance(currencyKey = 'aleph', delta = 0) {
+    if (currencyKey === 'bet') {
+      towerTabState.betGlyphCurrency = Math.max(0, Math.floor((towerTabState.betGlyphCurrency || 0) + delta));
+      return towerTabState.betGlyphCurrency;
+    }
+    towerTabState.glyphCurrency = Math.max(0, Math.floor((towerTabState.glyphCurrency || 0) + delta));
+    return towerTabState.glyphCurrency;
+  }
+
   function buildVariableGlyphControls(variable, towerId, level, options = {}) {
     const { asAttachment = false } = options;
     const controls = document.createElement('div');
@@ -574,6 +604,9 @@ export function createTowerUpgradeOverlayController({
     const maxLevel =
       Number.isFinite(variable.maxLevel) && variable.maxLevel >= 0 ? Math.floor(variable.maxLevel) : null;
     const reachedMax = maxLevel !== null && level >= maxLevel;
+    const currencyKey = getVariableCurrencyKey(variable);
+    const currencyMeta = getCurrencyMeta(currencyKey);
+    const availableGlyphs = getAvailableCurrency(currencyKey);
 
     const decrement = document.createElement('button');
     decrement.type = 'button';
@@ -594,7 +627,7 @@ export function createTowerUpgradeOverlayController({
     increment.className = 'tower-upgrade-variable-glyph-button tower-upgrade-variable-glyph-button--increase';
     increment.dataset.upgradeVariable = variable.key;
     increment.textContent = '+';
-    increment.disabled = towerTabState.glyphCurrency < cost || reachedMax;
+    increment.disabled = availableGlyphs < cost || reachedMax;
     increment.setAttribute('aria-label', `Invest glyph into ${variable.symbol || variable.key}`);
     increment.addEventListener('click', () => handleTowerVariableUpgrade(towerId, variable.key));
     glyphControl.append(increment);
@@ -603,7 +636,8 @@ export function createTowerUpgradeOverlayController({
 
     const costNote = document.createElement('span');
     costNote.className = 'tower-upgrade-variable-cost';
-    costNote.textContent = cost === 1 ? 'COST: 1 GLYPH' : `COST: ${cost} GLYPHS`;
+    const costLabel = cost === 1 ? currencyMeta.singular : currencyMeta.plural;
+    costNote.textContent = `COST: ${cost} ${costLabel.toUpperCase()}`;
     controls.append(costNote);
 
     if (maxLevel !== null) {
@@ -1277,25 +1311,31 @@ export function createTowerUpgradeOverlayController({
       towerTabState.audioManager?.playSfx?.('error');
       return;
     }
+    const currencyKey = getVariableCurrencyKey(variable);
+    const currencyMeta = getCurrencyMeta(currencyKey);
     const cost = calculateTowerVariableUpgradeCost(variable, currentLevel);
     const normalizedCost = Math.max(1, cost);
 
-    if (towerTabState.glyphCurrency < normalizedCost) {
-      setTowerUpgradeNote('Not enough glyphs to reinforce this variable.', 'warning');
+    const availableGlyphs = getAvailableCurrency(currencyKey);
+    if (availableGlyphs < normalizedCost) {
+      setTowerUpgradeNote(`Not enough ${currencyMeta.plural} to reinforce this variable.`, 'warning');
       updateTowerUpgradeGlyphDisplay();
       renderTowerUpgradeOverlay(towerId, { blueprint });
       towerTabState.audioManager?.playSfx?.('error');
       return;
     }
 
-    towerTabState.glyphCurrency -= normalizedCost;
+    adjustCurrencyBalance(currencyKey, -normalizedCost);
     state.variables[variableKey].level = currentLevel + 1;
     invalidateTowerEquationCache();
     setTowerUpgradeNote(
-      `Invested ${normalizedCost} ${normalizedCost === 1 ? 'glyph' : 'glyphs'} into ${variable.symbol}.`,
+      `Invested ${normalizedCost} ${normalizedCost === 1 ? currencyMeta.singular : currencyMeta.plural} into ${
+        variable.symbol
+      }.`,
       'success',
     );
     towerTabState.audioManager?.playSfx?.('upgrade');
+    updateTowerUpgradeGlyphDisplay();
     renderTowerUpgradeOverlay(towerId, { blueprint });
   }
 
@@ -1319,19 +1359,24 @@ export function createTowerUpgradeOverlayController({
       return;
     }
 
+    const currencyKey = getVariableCurrencyKey(variable);
+    const currencyMeta = getCurrencyMeta(currencyKey);
     const nextLevel = currentLevel - 1;
     const refundAmount = Math.max(1, calculateTowerVariableUpgradeCost(variable, nextLevel));
 
     state.variables[variableKey].level = nextLevel;
-    towerTabState.glyphCurrency += refundAmount;
+    adjustCurrencyBalance(currencyKey, refundAmount);
     invalidateTowerEquationCache();
 
     setTowerUpgradeNote(
-      `Withdrew ${refundAmount} ${refundAmount === 1 ? 'glyph' : 'glyphs'} from ${variable.symbol || variable.key}.`,
+      `Withdrew ${refundAmount} ${refundAmount === 1 ? currencyMeta.singular : currencyMeta.plural} from ${
+        variable.symbol || variable.key
+      }.`,
       'success',
     );
 
     towerTabState.audioManager?.playSfx?.('towerSell');
+    updateTowerUpgradeGlyphDisplay();
 
     renderTowerUpgradeOverlay(towerId, { blueprint });
   }

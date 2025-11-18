@@ -1177,6 +1177,22 @@ function getVariableGlyphLabel(variable) {
   return 'ℵ';
 }
 
+function getVariableCurrencyKey(variable) {
+  return variable?.glyphCurrency === 'bet' ? 'bet' : 'aleph';
+}
+
+function getCurrencyMeta(currencyKey = 'aleph') {
+  if (currencyKey === 'bet') {
+    return { singular: 'Bet glyph', plural: 'Bet glyphs', short: 'Bet Glyphs', symbol: 'בּ' };
+  }
+  return { singular: 'glyph', plural: 'glyphs', short: 'Glyphs', symbol: 'ℵ' };
+}
+
+function getAvailableCurrency(currencyKey = 'aleph') {
+  const balance = currencyKey === 'bet' ? towerTabState.betGlyphCurrency : towerTabState.glyphCurrency;
+  return Math.max(0, Math.floor(balance || 0));
+}
+
 function buildVariableGlyphControls(variable, towerId, level, options = {}) {
   const { asAttachment = false } = options;
   const controls = document.createElement('div');
@@ -1195,6 +1211,9 @@ function buildVariableGlyphControls(variable, towerId, level, options = {}) {
   const maxLevel =
     Number.isFinite(variable.maxLevel) && variable.maxLevel >= 0 ? Math.floor(variable.maxLevel) : null;
   const reachedMax = maxLevel !== null && level >= maxLevel;
+  const currencyKey = getVariableCurrencyKey(variable);
+  const currencyMeta = getCurrencyMeta(currencyKey);
+  const availableGlyphs = getAvailableCurrency(currencyKey);
 
   const decrement = document.createElement('button');
   decrement.type = 'button';
@@ -1215,7 +1234,7 @@ function buildVariableGlyphControls(variable, towerId, level, options = {}) {
   increment.className = 'tower-upgrade-variable-glyph-button tower-upgrade-variable-glyph-button--increase';
   increment.dataset.upgradeVariable = variable.key;
   increment.textContent = '+';
-  increment.disabled = towerTabState.glyphCurrency < cost || reachedMax;
+  increment.disabled = availableGlyphs < cost || reachedMax;
   increment.setAttribute('aria-label', `Invest glyph into ${variable.symbol || variable.key}`);
   increment.addEventListener('click', () => handleTowerVariableUpgrade(towerId, variable.key));
   glyphControl.append(increment);
@@ -1224,7 +1243,8 @@ function buildVariableGlyphControls(variable, towerId, level, options = {}) {
 
   const costNote = document.createElement('span');
   costNote.className = 'tower-upgrade-variable-cost';
-  costNote.textContent = cost === 1 ? 'COST: 1 GLYPH' : `COST: ${cost} GLYPHS`;
+  const costLabel = cost === 1 ? currencyMeta.singular : currencyMeta.plural;
+  costNote.textContent = `COST: ${cost} ${costLabel.toUpperCase()}`;
   controls.append(costNote);
 
   if (maxLevel !== null) {
