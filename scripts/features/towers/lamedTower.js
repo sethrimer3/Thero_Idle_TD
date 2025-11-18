@@ -447,7 +447,7 @@ export class GravitySimulation {
   calculateStarRadiusCss(starMass, coreRadiusCss = this.calculateCoreRadius()) {
     const dpr = window.devicePixelRatio || 1;
     const cssWidth = this.cssWidth || (this.width / dpr) || 0;
-    const minimumRadius = Math.max(1, cssWidth / 300);
+    const minimumRadius = Math.max(1, cssWidth / 900);
     const normalizedMass = Math.max(0, Number.isFinite(starMass) ? starMass : 0);
     const massRatio = normalizedMass / Math.max(this.starMass, 1e-6);
     return Math.max(minimumRadius, coreRadiusCss * massRatio);
