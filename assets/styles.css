@@ -4384,13 +4384,128 @@ body.graphics-mode-low .control-button {
   z-index: 4;
 }
 
+.fluid-terrarium__trees.is-leveling {
+  pointer-events: auto;
+}
+
+.fluid-terrarium__tree-layer,
+.fluid-terrarium__tree-badges {
+  position: absolute;
+  inset: 0;
+}
+
 /* Individual fractal tree canvases sized to their mask anchors. */
 .fluid-terrarium__tree {
   position: absolute;
   inset: auto;
   pointer-events: none;
-  mix-blend-mode: screen;
-  filter: drop-shadow(0 3px 10px rgba(6, 12, 20, 0.55));
+  mix-blend-mode: normal;
+  filter: none;
+}
+
+.fluid-terrarium__trees.is-leveling .fluid-terrarium__tree {
+  pointer-events: auto;
+}
+
+.fluid-tree-level-toggle {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(16, 24, 36, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+  font-family: "Space Mono", monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  pointer-events: auto;
+  z-index: 5;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+.fluid-tree-level-toggle.is-active {
+  background: rgba(224, 182, 64, 0.25);
+  border-color: rgba(224, 182, 64, 0.55);
+  color: #f6e7c5;
+}
+
+.fluid-tree-level {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.fluid-terrarium__trees.is-leveling .fluid-tree-level {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.fluid-tree-level__label {
+  font-family: "Space Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: rgba(232, 240, 250, 0.9);
+  text-shadow: 0 1px 4px rgba(4, 6, 12, 0.7);
+}
+
+.fluid-tree-level__bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: rgba(8, 12, 18, 0.65);
+  border: 1px solid rgba(232, 240, 250, 0.35);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.fluid-tree-level__fill {
+  position: absolute;
+  inset: 0;
+  width: 0;
+  background: linear-gradient(90deg, rgba(246, 200, 90, 0.9), rgba(250, 232, 160, 0.85));
+  transition: width 180ms ease;
+}
+
+.fluid-tree-level__progress {
+  font-family: "Space Mono", monospace;
+  font-size: 0.72rem;
+  color: rgba(232, 240, 250, 0.78);
+  text-shadow: 0 1px 4px rgba(4, 6, 12, 0.7);
+}
+
+.fluid-tree-ripple {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgba(246, 200, 90, 0.7);
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.4);
+  opacity: 0.8;
+  animation: fluid-tree-ripple 360ms ease-out forwards;
+}
+
+.fluid-tree-ripple--expand {
+  opacity: 0;
+}
+
+@keyframes fluid-tree-ripple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.2);
+    opacity: 0;
+  }
 }
 
 .fluid-terrarium__background {

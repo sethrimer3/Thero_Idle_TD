@@ -182,6 +182,17 @@ export function createPowderPersistence({
           ),
         },
       },
+      // Persist Bet terrarium leveling progress for fractal trees.
+      betTerrarium: {
+        levelingMode: Boolean(powderState.betTerrarium?.levelingMode),
+        trees: Object.entries(powderState.betTerrarium?.trees || {}).reduce((result, [key, tree]) => {
+          const allocated = clampFiniteInteger(tree?.allocated, 0);
+          if (allocated >= 0) {
+            result[key] = { allocated: Math.max(0, allocated) };
+          }
+          return result;
+        }, {}),
+      },
       viewTransform,
       heightInfo: status
         ? {
@@ -291,6 +302,17 @@ export function createPowderPersistence({
             : 4;
       happinessState.producers = { ...happinessState.producers, slime: normalizedSlimes };
       powderState.betHappiness = happinessState;
+      // Restore Bet terrarium leveling progress for fractal trees.
+      const storedTerrarium = base.betTerrarium || {};
+      const storedTrees = storedTerrarium.trees && typeof storedTerrarium.trees === 'object' ? storedTerrarium.trees : {};
+      powderState.betTerrarium = {
+        levelingMode: Boolean(storedTerrarium.levelingMode),
+        trees: Object.entries(storedTrees).reduce((result, [key, value]) => {
+          const allocated = Number.isFinite(value?.allocated) ? Math.max(0, Math.floor(value.allocated)) : 0;
+          result[key] = { allocated };
+          return result;
+        }, {}),
+      };
       if (updateFluidTab) {
         updateFluidTab();
       }
