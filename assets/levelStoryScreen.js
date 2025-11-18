@@ -154,11 +154,26 @@ export function createLevelStoryScreen({
     }
   }
 
-  function getSectionsForLevel(levelId) {
+  // Match modern level ids to legacy story definitions so the first-entry narrative still appears.
+  function findStoryEntry(levelId) {
     if (!levelId || !storyData || typeof storyData !== 'object') {
-      return [];
+      return null;
     }
-    const entry = storyData[levelId];
+    if (storyData[levelId]) {
+      return storyData[levelId];
+    }
+    const numberMatch = /([0-9]+)/.exec(levelId);
+    if (!numberMatch) {
+      return null;
+    }
+    const paddedIndex = numberMatch[1].padStart(2, '0');
+    const legacyPrefix = `level-${paddedIndex}`;
+    const legacyKey = Object.keys(storyData).find((key) => key.startsWith(legacyPrefix));
+    return legacyKey ? storyData[legacyKey] : null;
+  }
+
+  function getSectionsForLevel(levelId) {
+    const entry = findStoryEntry(levelId);
     return sanitizeSections(entry);
   }
 
