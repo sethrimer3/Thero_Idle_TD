@@ -436,6 +436,7 @@ export class SimplePlayfield {
       towerId: null,
       startClientX: 0,
       startClientY: 0,
+      lastClientY: 0,
       holdTimeoutId: null,
       holdActivated: false,
       scribbleCleanup: null,
@@ -1640,6 +1641,26 @@ export class SimplePlayfield {
     const activeCount = this.getActiveTowerCount(towerId);
     const exponent = 1 + Math.max(0, activeCount);
     return definition.baseCost ** exponent;
+  }
+
+  /**
+   * Calculate the net thero delta for swapping the active tower into a target lattice.
+   */
+  getTowerSelectionCostDelta({ targetDefinition = null, sourceTower = null } = {}) {
+    if (!targetDefinition) {
+      return 0;
+    }
+    if (!sourceTower) {
+      return this.getCurrentTowerCost(targetDefinition.id);
+    }
+
+    const history = this.ensureTowerCostHistory(sourceTower);
+    const refundAmount = history.length ? history[history.length - 1] : this.getCurrentTowerCost(sourceTower.type);
+    const targetCost = this.getCurrentTowerCost(targetDefinition.id);
+    if (!Number.isFinite(targetCost) || !Number.isFinite(refundAmount)) {
+      return targetCost;
+    }
+    return targetCost - refundAmount;
   }
 
   ensureTowerCostHistory(tower) {
@@ -3107,6 +3128,7 @@ export class SimplePlayfield {
     if (!wheel?.list || !Array.isArray(wheel.towers) || !wheel.towers.length) {
       return;
     }
+    const activeTower = wheel?.towerId ? this.getTowerById(wheel.towerId) : null;
     const clampedIndex = Math.min(Math.max(wheel.activeIndex, 0), wheel.towers.length - 1);
     wheel.activeIndex = clampedIndex;
     wheel.list.innerHTML = '';
@@ -3132,22 +3154,23 @@ export class SimplePlayfield {
         item.append(art);
       }
 
-      const label = document.createElement('span');
-      label.className = 'tower-loadout-wheel__label';
-      label.textContent = definition.symbol || definition.name || definition.id;
-      item.append(label);
+      const costDelta = this.getTowerSelectionCostDelta({
+        targetDefinition: definition,
+        sourceTower: activeTower,
+      });
+      const costLabel = document.createElement('span');
+      costLabel.className = 'tower-loadout-wheel__cost';
+      costLabel.dataset.direction = costDelta >= 0 ? 'increase' : 'refund';
+      const formattedDelta = formatCombatNumber(Math.max(0, Math.abs(costDelta)));
+      costLabel.textContent = `${costDelta >= 0 ? '+' : '−'}${formattedDelta} ${this.theroSymbol}`;
+      item.append(costLabel);
 
-      const tier = document.createElement('span');
-      tier.className = 'tower-loadout-wheel__tier';
-      tier.textContent = `Tier ${Number.isFinite(definition.tier) ? definition.tier : '—'}`;
-      item.append(tier);
-
-      const cost = this.getCurrentTowerCost(definition.id);
-      item.dataset.affordable = this.energy >= cost ? 'true' : 'false';
+      const netAffordable = costDelta <= 0 || this.energy >= costDelta;
+      item.dataset.affordable = netAffordable ? 'true' : 'false';
       item.setAttribute(
         'aria-label',
-        `${definition.name || definition.id} — Tier ${definition.tier || '—'} — ${formatCombatNumber(
-          Math.max(0, cost),
+        `${definition.name || definition.id} — ${costDelta >= 0 ? 'Cost' : 'Refund'} ${formatCombatNumber(
+          Math.max(0, Math.abs(costDelta)),
         )} ${this.theroSymbol}`,
       );
 
@@ -3172,6 +3195,41 @@ export class SimplePlayfield {
   }
 
   /**
+   * Attach drag listeners so the wheel can scroll immediately after a hold gesture activates it.
+   */
+  startTowerSelectionWheelDrag({ pointerId = null, initialClientY = null, target = null } = {}) {
+    const wheel = this.towerSelectionWheel;
+    if (!wheel?.list || !Number.isFinite(pointerId)) {
+      return;
+    }
+    if (wheel.pointerId && wheel.pointerId !== pointerId) {
+      this.endTowerSelectionWheelDrag({ pointerId: wheel.pointerId });
+    }
+    if (wheel.moveHandler) {
+      document.removeEventListener('pointermove', wheel.moveHandler);
+    }
+    if (wheel.endHandler) {
+      document.removeEventListener('pointerup', wheel.endHandler);
+      document.removeEventListener('pointercancel', wheel.endHandler);
+    }
+    wheel.pointerId = pointerId;
+    wheel.lastY = Number.isFinite(initialClientY) ? initialClientY : wheel.lastY || 0;
+    wheel.dragAccumulator = 0;
+    wheel.moveHandler = (moveEvent) => this.handleTowerSelectionWheelDrag(moveEvent);
+    wheel.endHandler = (endEvent) => this.endTowerSelectionWheelDrag(endEvent);
+    if (target?.setPointerCapture) {
+      try {
+        target.setPointerCapture(pointerId);
+      } catch (error) {
+        // Ignore pointer capture errors so drag gestures still function.
+      }
+    }
+    document.addEventListener('pointermove', wheel.moveHandler);
+    document.addEventListener('pointerup', wheel.endHandler);
+    document.addEventListener('pointercancel', wheel.endHandler);
+  }
+
+  /**
    * Begin tracking drag gestures on the tower selection wheel.
    */
   beginTowerSelectionWheelDrag(event) {
@@ -3179,19 +3237,7 @@ export class SimplePlayfield {
     if (!wheel?.list) {
       return;
     }
-    wheel.pointerId = event.pointerId;
-    wheel.lastY = event.clientY;
-    wheel.dragAccumulator = 0;
-    wheel.moveHandler = (moveEvent) => this.handleTowerSelectionWheelDrag(moveEvent);
-    wheel.endHandler = (endEvent) => this.endTowerSelectionWheelDrag(endEvent);
-    try {
-      wheel.list.setPointerCapture?.(event.pointerId);
-    } catch (error) {
-      // Ignore pointer capture errors so drag gestures still function.
-    }
-    document.addEventListener('pointermove', wheel.moveHandler);
-    document.addEventListener('pointerup', wheel.endHandler);
-    document.addEventListener('pointercancel', wheel.endHandler);
+    this.startTowerSelectionWheelDrag({ pointerId: event.pointerId, initialClientY: event.clientY, target: wheel.list });
   }
 
   /**
@@ -3406,6 +3452,7 @@ export class SimplePlayfield {
     this.towerHoldState.towerId = tower.id;
     this.towerHoldState.startClientX = event.clientX;
     this.towerHoldState.startClientY = event.clientY;
+    this.towerHoldState.lastClientY = event.clientY;
     this.towerHoldState.pointerType = event.pointerType || 'mouse';
     this.towerHoldState.holdActivated = false;
     this.towerHoldState.actionTriggered = null;
@@ -3431,6 +3478,7 @@ export class SimplePlayfield {
     this.suppressNextCanvasClick = true;
     state.scribbleCleanup = null;
     this.openTowerSelectionWheel(tower);
+    this.startTowerSelectionWheelDrag({ pointerId: state.pointerId, initialClientY: state.lastClientY });
     if (this.connectionDragState.pointerId === state.pointerId) {
       this.clearConnectionDragState();
     }
@@ -3454,6 +3502,7 @@ export class SimplePlayfield {
     }
     const dx = event.clientX - state.startClientX;
     const dy = event.clientY - state.startClientY;
+    state.lastClientY = event.clientY;
     const distance = Math.hypot(dx, dy);
     if (!state.holdActivated) {
       if (distance >= TOWER_HOLD_CANCEL_DISTANCE_PX) {
@@ -3493,6 +3542,7 @@ export class SimplePlayfield {
     state.towerId = null;
     state.startClientX = 0;
     state.startClientY = 0;
+    state.lastClientY = 0;
     state.holdTimeoutId = null;
     state.holdActivated = false;
     state.scribbleCleanup = null;
