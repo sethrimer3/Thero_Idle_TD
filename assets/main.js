@@ -132,6 +132,8 @@ import { createPowderResizeObserver } from './powderResizeObserver.js';
 import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
 // Lightweight animation overlay that keeps the Bet terrarium lively.
 import { FluidTerrariumCreatures } from './fluidTerrariumCreatures.js';
+// Procedural grass that sprouts from the terrarium silhouettes.
+import { FluidTerrariumGrass } from './fluidTerrariumGrass.js';
 // Bet Spire happiness production tracker fed by Serendipity purchases.
 import { createBetHappinessSystem } from './betHappiness.js';
 import { createResourceHud } from './resourceHud.js';
@@ -838,6 +840,8 @@ import {
     basin: null,
     terrariumLayer: null,
     terrariumStage: null,
+    terrariumMedia: null,
+    floatingIslandSprite: null,
     viewport: null,
     leftWall: null,
     rightWall: null,
@@ -874,6 +878,8 @@ import {
   let betHappinessSystem = null;
   // Animate Delta grasshopper slimes once the fluid viewport is bound.
   let fluidTerrariumCreatures = null;
+  // Render swaying grass blades that cling to the Bet spire silhouettes.
+  let fluidTerrariumGrass = null;
 
   function ensureFluidTerrariumCreatures() {
     // Lazily create the overlay so it never blocks powder initialization.
@@ -894,6 +900,20 @@ import {
       betHappinessSystem.setProducerCount('grasshopper', grasshopperCount);
     }
     fluidTerrariumCreatures.start();
+  }
+
+  // Lazily generate the terrarium grass overlay once the stage media is available.
+  function ensureFluidTerrariumGrass() {
+    if (fluidTerrariumGrass || !fluidElements?.terrariumMedia || !fluidElements?.terrainSprite) {
+      return;
+    }
+    fluidTerrariumGrass = new FluidTerrariumGrass({
+      container: fluidElements.terrariumMedia,
+      terrainElement: fluidElements.terrainSprite,
+      floatingIslandElement: fluidElements.floatingIslandSprite,
+      maskUrl: './assets/sprites/spires/betSpire/Grass.png',
+    });
+    fluidTerrariumGrass.start();
   }
 
   // Ensure compact autosave remains the active basin persistence strategy.
@@ -4337,6 +4357,7 @@ import {
       betHappinessSystem.updateDisplay(fluidElements);
     }
     ensureFluidTerrariumCreatures();
+    ensureFluidTerrariumGrass();
     ensurePowderBasinResizeObserver();
     bindSpireClickIncome();
     await applyPowderSimulationMode(powderState.simulationMode);
