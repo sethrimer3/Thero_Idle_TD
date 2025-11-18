@@ -338,9 +338,9 @@ export class GravitySimulation {
     const lowGraphicsActive = this.isLowGraphicsModeEnabled();
     if (lowGraphicsActive || starCount > this.trailComplexityThresholds.disable) {
       return {
-        mode: 'none',
-        maxLength: 0,
-        fadeRate: this.baseTrailFadeRate,
+        mode: 'simple',
+        maxLength: this.simpleTrailLength,
+        fadeRate: this.simpleTrailFadeRate,
       };
     }
     if (starCount > this.trailComplexityThresholds.simplify) {
@@ -436,6 +436,21 @@ export class GravitySimulation {
     const halfHeight = cssHeight / 2;
 
     return Math.sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
+  }
+
+  /**
+   * Calculate a star's rendered radius and enforce a viewport-aware minimum so sparks stay visible.
+   * @param {number} starMass - Mass of the orbiting star
+   * @param {number} coreRadiusCss - Current core radius in CSS pixels
+   * @returns {number} Radius in CSS pixels respecting the minimum size rule
+   */
+  calculateStarRadiusCss(starMass, coreRadiusCss = this.calculateCoreRadius()) {
+    const dpr = window.devicePixelRatio || 1;
+    const cssWidth = this.cssWidth || (this.width / dpr) || 0;
+    const minimumRadius = Math.max(1, cssWidth / 300);
+    const normalizedMass = Math.max(0, Number.isFinite(starMass) ? starMass : 0);
+    const massRatio = normalizedMass / Math.max(this.starMass, 1e-6);
+    return Math.max(minimumRadius, coreRadiusCss * massRatio);
   }
 
   /**
@@ -1041,12 +1056,6 @@ export class GravitySimulation {
     const dpr = window.devicePixelRatio || 1;
     const starMass = 1 + this.upgrades.starMass;
 
-    if (this.stars.length >= this.maxStars) {
-      this.absorbStarImmediately(starMass);
-      this.setSparkBank(this.sparkBank - 1);
-      return true;
-    }
-
     // Calculate central body radius
     // Use the shared radius helper so trail generation respects the current star size.
     const starVisualRadius = this.calculateCoreRadius();
@@ -1068,14 +1077,30 @@ export class GravitySimulation {
 
     // Calculate circular orbital velocity: v = sqrt(G*M/r)
     const circularSpeed = Math.sqrt((this.G * this.starMass) / Math.max(orbitRadiusDevice, this.epsilon));
-    
+
     // Add velocity noise for spiral effects
     const velocityMultiplier = 1 + this.rng.range(-this.velocityNoiseFactor, this.velocityNoiseFactor);
     const v = circularSpeed * velocityMultiplier;
-    
+
     // Tangential velocity (perpendicular to radius vector)
     const vx = -Math.sin(angle) * v;
     const vy = Math.cos(angle) * v;
+
+    if (this.stars.length >= this.maxStars) {
+      // Continue to surface the spawn flash even when the orbit is saturated so the tab stays lively.
+      this.absorbStarImmediately(starMass);
+      this.flashEffects.push({
+        x: x / dpr,
+        y: y / dpr,
+        radius: 5,
+        maxRadius: 20,
+        alpha: 1.0,
+        duration: 0.3, // seconds
+        elapsed: 0,
+      });
+      this.setSparkBank(this.sparkBank - 1);
+      return true;
+    }
     
     // Star mass scales deterministically with the upgrade so placement size is consistent.
     const starHasTrail = this.trailEnabledStarCount < this.maxStarsWithTrails;
@@ -1338,7 +1363,10 @@ export class GravitySimulation {
         const sdx = star.x - shard.x;
         const sdy = star.y - shard.y;
         const sDistSq = sdx * sdx + sdy * sdy;
-        const starRadius = Math.max(4 * dpr, (star.mass / this.starMass) * starVisualRadius * 2 * dpr);
+        const starRadius = Math.max(
+          4 * dpr,
+          this.calculateStarRadiusCss(star.mass, starVisualRadius) * 2 * dpr,
+        );
         if (sDistSq < starRadius * starRadius) {
           // Shooting star merges into an orbiting spark and empowers it by doubling its mass.
           star.mass *= 2;
@@ -1431,7 +1459,7 @@ export class GravitySimulation {
       // Use the shared radius helper so absorption checks align with the rendered radius.
       const starVisualRadius = this.calculateCoreRadius();
       const sunRadiusCss = starVisualRadius * Math.max(0.85, 1 + this.sunBounce.offset);
-      const starRadiusCss = Math.max(2, (star.mass / this.starMass) * starVisualRadius);
+      const starRadiusCss = this.calculateStarRadiusCss(star.mass, starVisualRadius);
       const collisionRadiusDevice = (sunRadiusCss + starRadiusCss) * dpr;
 
       // Check if star should be absorbed (collision detection)
@@ -2028,8 +2056,7 @@ export class GravitySimulation {
       // Draw star with size based on mass ratio to central body
       const starX = star.x / dpr;
       const starY = star.y / dpr;
-      const massRatio = star.mass / this.starMass;
-      const starSize = starVisualRadius * massRatio;
+      const starSize = this.calculateStarRadiusCss(star.mass, starVisualRadius);
       
       // Glow effect
       const starGradient = ctx.createRadialGradient(
