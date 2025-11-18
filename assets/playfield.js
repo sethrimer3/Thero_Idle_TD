@@ -8297,7 +8297,9 @@ export class SimplePlayfield {
       typeof getOmegaPatternForTier === 'function' ? getOmegaPatternForTier(tier) : [];
     const visuals = getOmegaWaveVisualConfig(tower);
     const count = Math.max(6, Math.floor(pattern.projectileCount || 0));
-    const baseSize = Math.max(3, visuals.size ?? pattern.baseSize ?? 4);
+    // Scale the omega wave motes down to a tenth of their previous footprint to keep the effect readable.
+    const scaledSize = (visuals.size ?? pattern.baseSize ?? 4) * 0.1;
+    const baseSize = Math.max(0.3, scaledSize);
     const stage = Math.max(0, Math.floor(tier) - 24);
     const jitterStrength = 0.06 + stage * 0.02;
     const maxLifetime = Math.max(0.8, pattern.duration || 2);
