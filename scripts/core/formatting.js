@@ -26,7 +26,13 @@ const numberSuffixes = [
 export const GAME_NUMBER_NOTATIONS = {
   LETTERS: 'letters',
   SCIENTIFIC: 'scientific',
+  ABC: 'abc',
 };
+
+/**
+ * Track available number notations so preference toggles can validate input safely.
+ */
+const SUPPORTED_GAME_NUMBER_NOTATIONS = new Set(Object.values(GAME_NUMBER_NOTATIONS));
 
 /**
  * Tracks the active notation preference for large number formatting.
@@ -44,8 +50,8 @@ const notationListeners = new Set();
  * @returns {string} Resolved notation value after applying the change.
  */
 export function setGameNumberNotation(notation) {
-  const normalized = notation === GAME_NUMBER_NOTATIONS.SCIENTIFIC
-    ? GAME_NUMBER_NOTATIONS.SCIENTIFIC
+  const normalized = SUPPORTED_GAME_NUMBER_NOTATIONS.has(notation)
+    ? notation
     : GAME_NUMBER_NOTATIONS.LETTERS;
   if (normalized === currentGameNumberNotation) {
     return currentGameNumberNotation;
@@ -104,6 +110,8 @@ export function formatGameNumber(value) {
     return value.toFixed(2);
   }
 
+  const tier = Math.floor(Math.log10(absolute) / 3);
+
   if (currentGameNumberNotation === GAME_NUMBER_NOTATIONS.SCIENTIFIC && absolute >= 1000) {
     const exponent = Math.floor(Math.log10(absolute));
     const mantissa = value / 10 ** exponent;
@@ -113,15 +121,39 @@ export function formatGameNumber(value) {
     return `${formattedMantissa} × 10^${exponent}`;
   }
 
-  const tier = Math.min(
-    Math.floor(Math.log10(absolute) / 3),
-    numberSuffixes.length - 1,
-  );
-  const scaled = value / 10 ** (tier * 3);
+  const clampedLetterTier = Math.min(tier, numberSuffixes.length - 1);
+  // Allow ABC notation to keep expanding while letter suffixes clamp to the lookup table.
+  const scaledTier = currentGameNumberNotation === GAME_NUMBER_NOTATIONS.ABC
+    ? tier
+    : clampedLetterTier;
+  const scaled = value / 10 ** (scaledTier * 3);
   const precision = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
   const formatted = scaled.toFixed(precision);
-  const suffix = numberSuffixes[tier];
+
+  if (currentGameNumberNotation === GAME_NUMBER_NOTATIONS.ABC) {
+    const abcSuffix = tier > 0 ? resolveAbcSuffix(tier) : '';
+    return abcSuffix ? `${formatted} ${abcSuffix}` : formatted;
+  }
+
+  const suffix = numberSuffixes[clampedLetterTier];
   return suffix ? `${formatted} ${suffix}` : formatted;
+}
+
+/**
+ * Generates the ABC notation suffix where every thousandth place advances the letter.
+ * Thousands are tagged with "A", millions with "B", billions with "C", and so on.
+ * @param {number} tier Magnitude group derived from log10(value) / 3 (1 => thousands).
+ * @returns {string} Alphabetic suffix such as "A", "B", ... "AA" for large magnitudes.
+ */
+function resolveAbcSuffix(tier) {
+  let suffix = '';
+  let group = Math.max(0, tier);
+  while (group > 0) {
+    const remainder = (group - 1) % 26;
+    suffix = String.fromCharCode('A'.charCodeAt(0) + remainder) + suffix;
+    group = Math.floor((group - 1) / 26);
+  }
+  return suffix;
 }
 
 /**
