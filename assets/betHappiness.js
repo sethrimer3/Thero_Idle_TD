@@ -1,10 +1,14 @@
+const DEFAULT_SLIME_COUNT = 4;
+
 const BET_HAPPINESS_PRODUCERS = {
-  grasshopper: {
-    id: 'grasshopper',
-    label: 'Grasshopper',
+  slime: {
+    id: 'slime',
+    label: 'Slimes',
     ratePerHour: 0.5,
   },
 };
+
+const LEGACY_PRODUCER_ALIASES = { grasshopper: 'slime' };
 
 function normalizeCount(value, fallback = 0) {
   if (!Number.isFinite(value)) {
@@ -33,8 +37,9 @@ export function createBetHappinessSystem({
   if (!happinessState.producers || typeof happinessState.producers !== 'object') {
     happinessState.producers = {};
   }
-  if (!Number.isFinite(happinessState.producers.grasshopper)) {
-    happinessState.producers.grasshopper = 4;
+  migrateLegacyProducers(happinessState.producers);
+  if (!Number.isFinite(happinessState.producers.slime)) {
+    happinessState.producers.slime = DEFAULT_SLIME_COUNT;
   }
   if (!Number.isFinite(happinessState.bank)) {
     happinessState.bank = 0;
@@ -241,4 +246,18 @@ export function createBetHappinessSystem({
     updateDisplay,
     state: happinessState,
   };
+}
+
+function migrateLegacyProducers(producers) {
+  if (!producers || typeof producers !== 'object') {
+    return;
+  }
+  Object.entries(LEGACY_PRODUCER_ALIASES).forEach(([legacyId, nextId]) => {
+    if (Number.isFinite(producers[legacyId]) && !Number.isFinite(producers[nextId])) {
+      producers[nextId] = normalizeCount(producers[legacyId], DEFAULT_SLIME_COUNT);
+    }
+    if (legacyId !== nextId && legacyId in producers) {
+      delete producers[legacyId];
+    }
+  });
 }

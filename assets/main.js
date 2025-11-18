@@ -826,7 +826,7 @@ import {
     // Persist Bet Spire happiness generation tied to Serendipity purchases.
     betHappiness: {
       bank: 0,
-      producers: { grasshopper: 4 },
+      producers: { slime: 4 },
     },
   };
 
@@ -879,7 +879,7 @@ import {
     wallGlyphColumns: [],
   };
 
-  // Spawn zones derived from the Cave-4.png and Cave-5.png mask blocks so Deltas appear inside those caverns.
+  // Spawn zones derived from the solid color block markers inside Cave-4.png and Cave-5.png so Deltas appear inside those caverns.
   const BET_CAVE_SPAWN_ZONES = [
     { x: 225 / 1024, y: 1076 / 1536, width: 240 / 1024, height: 198 / 1536 },
     { x: 540 / 1024, y: 1064 / 1536, width: 310 / 1024, height: 205 / 1536 },
@@ -893,7 +893,7 @@ import {
   });
 
   let betHappinessSystem = null;
-  // Animate Delta grasshopper slimes once the fluid viewport is bound.
+  // Animate Delta slimes once the fluid viewport is bound.
   let fluidTerrariumCreatures = null;
   // Grow Shin-inspired fractal trees on top of the Bet terrain silhouettes.
   let fluidTerrariumTrees = null;
@@ -907,18 +907,15 @@ import {
     if (fluidTerrariumCreatures || !fluidElements?.viewport) {
       return;
     }
-    const grasshopperCount = Math.max(
-      1,
-      betHappinessSystem ? betHappinessSystem.getProducerCount('grasshopper') : 4,
-    );
+    const slimeCount = Math.max(1, betHappinessSystem ? betHappinessSystem.getProducerCount('slime') : 4);
     fluidTerrariumCreatures = new FluidTerrariumCreatures({
       container: fluidElements.viewport,
       terrainElement: fluidElements.terrainSprite,
-      creatureCount: grasshopperCount,
+      creatureCount: slimeCount,
       spawnZones: BET_CAVE_SPAWN_ZONES,
     });
     if (betHappinessSystem) {
-      betHappinessSystem.setProducerCount('grasshopper', grasshopperCount);
+      betHappinessSystem.setProducerCount('slime', slimeCount);
     }
     fluidTerrariumCreatures.start();
   }
