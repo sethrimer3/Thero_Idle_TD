@@ -20,7 +20,8 @@ export function createTowerLoadoutController({
 } = {}) {
   const LOADOUT_WHEEL_HOLD_MS = 500; // Require an intentional hold before opening the wheel overlay.
   const LOADOUT_SCROLL_STEP_PX = 28; // Drag distance required to advance the wheel to the next item.
-  const LOADOUT_DRAG_CANCEL_DISTANCE = 6; // Movement threshold that cancels the hold timer so drags can begin immediately.
+  const LOADOUT_DRAG_CANCEL_DISTANCE = 6; // Mouse/pen threshold that cancels the hold timer so drags can begin immediately.
+  const LOADOUT_DRAG_CANCEL_DISTANCE_TOUCH = 14; // Slightly looser touch threshold to tolerate finger jitter during holds.
   // Store the last rendered tower order signature so the DOM only rebuilds when selection changes.
   let renderedLoadoutSignature = null;
   // Track the active drag interaction so pointer events can be cancelled cleanly.
@@ -697,6 +698,8 @@ export function createTowerLoadoutController({
     closeLoadoutWheel();
     const startX = event.clientX;
     const startY = event.clientY;
+    const isTouchPointer = event.pointerType === 'touch';
+    const cancelDistance = isTouchPointer ? LOADOUT_DRAG_CANCEL_DISTANCE_TOUCH : LOADOUT_DRAG_CANCEL_DISTANCE;
 
     const cancelHold = () => {
       clearWheelHoldTimer();
@@ -706,7 +709,7 @@ export function createTowerLoadoutController({
     const handleMove = (moveEvent) => {
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
-      if (Math.hypot(dx, dy) > LOADOUT_DRAG_CANCEL_DISTANCE) {
+      if (Math.hypot(dx, dy) > cancelDistance) {
         cancelHold();
       }
     };
