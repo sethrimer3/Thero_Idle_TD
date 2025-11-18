@@ -4037,6 +4037,77 @@ body.graphics-mode-low .control-button {
   padding: clamp(8px, 2vw, 20px);
 }
 
+/* Visualize Bet Spire happiness progress beneath the terrarium viewport. */
+.fluid-happiness-progress {
+  width: min(440px, 100%);
+  margin: 14px auto 0;
+  padding: 10px 12px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(138, 207, 255, 0.18);
+  background: linear-gradient(180deg, rgba(6, 14, 26, 0.72), rgba(6, 14, 26, 0.58));
+  box-shadow: inset 0 0 0 1px rgba(16, 54, 92, 0.38), 0 12px 24px rgba(0, 0, 0, 0.35);
+}
+
+.fluid-happiness-progress__label {
+  margin: 0 0 6px 0;
+  text-align: center;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  color: rgba(234, 246, 255, 0.92);
+}
+
+.fluid-happiness-progress__bar-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.fluid-happiness-progress__threshold {
+  font-size: 0.88rem;
+  letter-spacing: 0.05em;
+  color: rgba(216, 234, 255, 0.7);
+  white-space: nowrap;
+}
+
+.fluid-happiness-progress__track {
+  position: relative;
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(18, 58, 96, 0.4), rgba(30, 86, 142, 0.25));
+  border: 1px solid rgba(138, 207, 255, 0.28);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.fluid-happiness-progress__fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2fa0ff, #6be1c7);
+  box-shadow: 0 0 12px rgba(91, 219, 205, 0.35);
+  transition: width 0.35s ease;
+}
+
+.fluid-happiness-progress__current {
+  position: absolute;
+  top: 100%;
+  transform: translate(-50%, 6px);
+  font-size: 0.9rem;
+  color: rgba(234, 246, 255, 0.92);
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.fluid-happiness-progress--empty .fluid-happiness-progress__fill {
+  opacity: 0.35;
+}
+
+.fluid-happiness-progress--empty .fluid-happiness-progress__current {
+  color: rgba(216, 234, 255, 0.75);
+}
+
 /* Summarize Bet Spire happiness production alongside fluid metrics. */
 .fluid-happiness-card {
   display: flex;
