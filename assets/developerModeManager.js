@@ -26,6 +26,7 @@ export function createDeveloperModeManager(options = {}) {
     setKufTotalShards,
     setDeveloperIteronBank,
     setDeveloperIterationRate,
+    setDeveloperInfiniteTheroEnabled,
     getPowderSimulation,
     setPowderSimulation,
     getSandSimulation,
@@ -186,6 +187,7 @@ export function createDeveloperModeManager(options = {}) {
   }
 
   function enableDeveloperMode() {
+    const developerModeWasActive = isDeveloperModeActive();
     setDeveloperModeFlag(true);
     if (developerModeElements.toggle && !developerModeElements.toggle.checked) {
       developerModeElements.toggle.checked = true;
@@ -233,6 +235,9 @@ export function createDeveloperModeManager(options = {}) {
     setKufTotalShards?.(DEVELOPER_RESOURCE_GRANT);
     setDeveloperIteronBank?.(DEVELOPER_RESOURCE_GRANT);
     setDeveloperIterationRate?.(0);
+    if (!developerModeWasActive) {
+      setDeveloperInfiniteTheroEnabled?.(true);
+    }
     updateSpireSimulationBanks();
 
     updateSpireTabVisibility?.();
@@ -305,6 +310,7 @@ export function createDeveloperModeManager(options = {}) {
     if (developerModeElements.toggle && developerModeElements.toggle.checked) {
       developerModeElements.toggle.checked = false;
     }
+    setDeveloperInfiniteTheroEnabled?.(false);
     // Restore normal level lock behavior once developer mode is disabled.
     setDeveloperModeUnlockOverride?.(false);
     stopLamedDeveloperSpamLoop?.();

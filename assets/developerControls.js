@@ -20,6 +20,9 @@ const developerControlElements = {
     betDropRate: null,
     betDropBank: null,
   },
+  toggles: {
+    infiniteThero: null,
+  },
 };
 
 /**
@@ -47,6 +50,15 @@ function getLamedSimulation() {
 
 function getTsadiSimulation() {
   return getContext().getTsadiSimulation?.() || null;
+}
+
+// Toggle whether all levels should start with infinite Thero for developer sandboxing.
+function setDeveloperInfiniteTheroEnabled(active) {
+  const context = getContext();
+  if (typeof context.setDeveloperInfiniteTheroEnabled === 'function') {
+    context.setDeveloperInfiniteTheroEnabled(Boolean(active));
+  }
+  recordDeveloperAdjustment('infinite-thero', active ? 'enabled' : 'disabled');
 }
 
 function recordDeveloperAdjustment(field, value) {
@@ -510,7 +522,7 @@ const developerFieldHandlers = {
 };
 
 function syncDeveloperControlValues() {
-  const { fields } = developerControlElements;
+  const { fields, toggles } = developerControlElements;
   if (!fields) {
     return;
   }
@@ -562,6 +574,13 @@ function syncDeveloperControlValues() {
     fields.glyphsKuf.value = formatDeveloperInteger(context.getKufGlyphs());
   }
 
+  if (toggles?.infiniteThero) {
+    const infiniteTheroActive = typeof context.isDeveloperInfiniteTheroEnabled === 'function'
+      ? context.isDeveloperInfiniteTheroEnabled()
+      : false;
+    toggles.infiniteThero.checked = Boolean(infiniteTheroActive);
+  }
+
   const fluidSimulation = getFluidSimulation();
   if (fields.betDropRate && fluidSimulation) {
     fields.betDropRate.value = formatDeveloperFloat(fluidSimulation.idleDrainRate || 0, 2);
@@ -573,13 +592,21 @@ function syncDeveloperControlValues() {
 
 function updateDeveloperControlsVisibility() {
   const active = isDeveloperModeActive();
-  const { container, fields } = developerControlElements;
+  const { container, fields, toggles } = developerControlElements;
   if (container) {
     container.hidden = !active;
     container.setAttribute('aria-hidden', active ? 'false' : 'true');
   }
   if (fields) {
     Object.values(fields).forEach((input) => {
+      if (input) {
+        input.disabled = !active;
+      }
+    });
+  }
+
+  if (toggles) {
+    Object.values(toggles).forEach((input) => {
       if (input) {
         input.disabled = !active;
       }
@@ -634,6 +661,29 @@ function handleDeveloperFieldCommit(event) {
   syncDeveloperControlValues();
 }
 
+function handleDeveloperToggleChange(event) {
+  const input = event?.target;
+  if (!input || !(input instanceof HTMLInputElement)) {
+    return;
+  }
+
+  const toggle = input.dataset?.developerToggle;
+  if (!toggle) {
+    return;
+  }
+
+  if (!isDeveloperModeActive()) {
+    syncDeveloperControlValues();
+    return;
+  }
+
+  if (toggle === 'infiniteThero') {
+    setDeveloperInfiniteTheroEnabled(Boolean(input.checked));
+  }
+
+  syncDeveloperControlValues();
+}
+
 function bindDeveloperControls() {
   developerControlElements.container = document.getElementById('developer-control-panel');
   const inputs = document.querySelectorAll('[data-developer-field]');
@@ -653,6 +703,17 @@ function bindDeveloperControls() {
         handleDeveloperFieldCommit(event);
       }
     });
+  });
+
+  const toggles = document.querySelectorAll('[data-developer-toggle]');
+  toggles.forEach((input) => {
+    const field = input.dataset.developerToggle;
+    if (!field) {
+      return;
+    }
+    developerControlElements.toggles[field] = input;
+    input.disabled = true;
+    input.addEventListener('change', handleDeveloperToggleChange);
   });
 
   syncDeveloperControlValues();
