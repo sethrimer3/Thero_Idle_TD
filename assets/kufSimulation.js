@@ -1,4 +1,5 @@
 import { getCachedKufMaps, onKufMapsReady } from './kufMapData.js';
+import { isLowGraphicsModeActive } from './preferences.js';
 
 // Default map identifier used when the external dataset is unavailable.
 const KUF_FALLBACK_MAP_ID = 'forward-bastion';
@@ -50,6 +51,9 @@ const SPLAYER_ROCKET_SPEED = 200;
 const TURRET_BULLET_SPEED = 280;
 const PLASMA_BULLET_SPEED = 260;
 const TRAIL_ALPHA = 0.22;
+const LOW_TRAIL_ALPHA = 0.14; // Softer fade for lightweight rendering while preserving trails.
+const HIGH_QUALITY_FRAME_BUDGET_MS = 18; // Target frame cost before we start trimming glow work.
+const FRAME_COST_SMOOTHING = 0.08; // Exponential smoothing factor for frame time measurements.
 const CAMERA_PAN_SPEED = 1.2;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.0;
@@ -86,6 +90,11 @@ export class KufBattlefieldSimulation {
     this.camera = { x: 0, y: 0, zoom: 1.0 };
     this.cameraDrag = { active: false, startX: 0, startY: 0, camStartX: 0, camStartY: 0 };
     this.selectedEnemy = null;
+    // Track runtime rendering profile so we can gracefully downshift on slower devices without losing glow aesthetics.
+    this.renderProfile = isLowGraphicsModeActive() ? 'light' : 'high';
+    this.smoothedFrameCost = 12;
+    this.overlaySkipInterval = this.renderProfile === 'light' ? 2 : 1;
+    this.overlaySkipCounter = 0;
     const providedMaps = Array.isArray(maps) ? maps : null;
     this.availableMaps = providedMaps && providedMaps.length
       ? providedMaps.map((map) => ({ ...map }))
@@ -253,7 +262,9 @@ export class KufBattlefieldSimulation {
     const units = config?.units || { marines: 1, snipers: 0, splayers: 0 };
     const requestedMap = config?.mapId || this.defaultMapId;
     this.setActiveMap(requestedMap);
-    
+    // Reset overlay pacing so each run begins with full HUD fidelity before auto-throttling.
+    this.overlaySkipCounter = 0;
+
     const spawnY = this.bounds.height - 48;
     const centerX = this.bounds.width / 2;
     
@@ -652,11 +663,32 @@ export class KufBattlefieldSimulation {
     }
     const dt = Math.min(64, timestamp - this.lastTimestamp || 16);
     this.lastTimestamp = timestamp;
-    this.update(dt / 1000);
+    const delta = dt / 1000;
+
+    const frameStart = performance.now();
+    this.update(delta);
     this.render();
+    this.updateRenderProfile(performance.now() - frameStart);
     if (this.active) {
       requestAnimationFrame(this.step);
     }
+  }
+
+  /**
+   * Adapt rendering detail based on recent frame costs to keep simulation fluid on weaker hardware.
+   * @param {number} frameCostMs - Combined update+render duration for the last frame.
+   */
+  updateRenderProfile(frameCostMs) {
+    if (isLowGraphicsModeActive()) {
+      // Honor the explicit low graphics toggle even if frames are inexpensive.
+      this.renderProfile = 'light';
+      this.overlaySkipInterval = 2;
+      return;
+    }
+    this.smoothedFrameCost = (1 - FRAME_COST_SMOOTHING) * this.smoothedFrameCost + FRAME_COST_SMOOTHING * frameCostMs;
+    const shouldDownshift = this.smoothedFrameCost > HIGH_QUALITY_FRAME_BUDGET_MS;
+    this.renderProfile = shouldDownshift ? 'light' : 'high';
+    this.overlaySkipInterval = shouldDownshift ? 2 : 1;
   }
 
   update(delta) {
@@ -1267,7 +1299,8 @@ export class KufBattlefieldSimulation {
       ctx.fillRect(0, 0, this.bounds.width, this.bounds.height);
       this.drawTrianglePattern();
     } else {
-      ctx.globalAlpha = TRAIL_ALPHA;
+      const trailAlpha = this.renderProfile === 'light' ? LOW_TRAIL_ALPHA : TRAIL_ALPHA;
+      ctx.globalAlpha = trailAlpha;
       ctx.fillStyle = 'rgba(5, 7, 21, 0.6)';
       ctx.fillRect(0, 0, this.bounds.width, this.bounds.height);
     }
@@ -1302,19 +1335,35 @@ export class KufBattlefieldSimulation {
     ctx.translate(this.bounds.width / 2, this.bounds.height / 2);
     ctx.scale(this.camera.zoom, this.camera.zoom);
     ctx.translate(-this.bounds.width / 2 - this.camera.x, -this.bounds.height / 2 - this.camera.y);
-    
+
     this.drawTurrets();
     this.drawMarines();
     this.drawBullets();
     this.drawExplosions();
-    this.drawHealthBars();
-    this.drawLevelIndicators();
-    this.drawSelectedEnemyBox();
-    
+    const skipOverlays = this.shouldSkipOverlays();
+    if (!skipOverlays) {
+      this.drawHealthBars();
+      this.drawLevelIndicators();
+      this.drawSelectedEnemyBox();
+    }
+
     ctx.restore();
-    
+
     // Draw HUD without camera transform
     this.drawHud();
+  }
+
+
+  /**
+   * Skip overlay-heavy layers intermittently when running in lightweight mode to save GPU/CPU time.
+   * @returns {boolean} True when this frame should omit overlays.
+   */
+  shouldSkipOverlays() {
+    if (this.renderProfile === 'high') {
+      return false;
+    }
+    this.overlaySkipCounter = (this.overlaySkipCounter + 1) % this.overlaySkipInterval;
+    return this.overlaySkipCounter !== 0;
   }
 
 
@@ -1338,14 +1387,15 @@ export class KufBattlefieldSimulation {
         shadowColor = 'rgba(66, 224, 255, 0.8)';
       }
       
-      ctx.shadowBlur = 24;
+      const marineGlow = this.renderProfile === 'light' ? 10 : 24;
+      ctx.shadowBlur = marineGlow;
       ctx.shadowColor = shadowColor;
       ctx.fillStyle = mainColor;
       ctx.beginPath();
       ctx.arc(marine.x, marine.y, marine.radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = this.renderProfile === 'light' ? 2 : 3;
       ctx.strokeStyle = `rgba(${80 + healthRatio * 80}, ${200 + healthRatio * 40}, 255, 0.85)`;
       ctx.stroke();
       ctx.fillStyle = 'rgba(15, 20, 40, 0.65)';
@@ -1470,7 +1520,8 @@ export class KufBattlefieldSimulation {
         strokeColor = `rgba(255, ${80 + healthRatio * 120}, 200, 0.9)`;
       }
 
-      ctx.shadowBlur = 18;
+      const turretGlow = this.renderProfile === 'light' ? 10 : 18;
+      ctx.shadowBlur = turretGlow;
       ctx.shadowColor = shadowColor;
       ctx.fillStyle = mainColor;
       ctx.beginPath();
@@ -1478,7 +1529,8 @@ export class KufBattlefieldSimulation {
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.strokeStyle = strokeColor;
-      ctx.lineWidth = turret.type === 'big_turret' ? 3 : 2;
+      const lineWidth = this.renderProfile === 'light' ? 1.5 : turret.type === 'big_turret' ? 3 : 2;
+      ctx.lineWidth = lineWidth;
       ctx.stroke();
 
       if (turret.healVisualTimer > 0 && turret.activeHealTarget) {
@@ -1541,7 +1593,8 @@ export class KufBattlefieldSimulation {
         }
       }
       
-      ctx.shadowBlur = 16;
+      const bulletGlow = this.renderProfile === 'light' ? 8 : 16;
+      ctx.shadowBlur = bulletGlow;
       ctx.shadowColor = shadowColor;
       ctx.fillStyle = color;
       ctx.beginPath();
