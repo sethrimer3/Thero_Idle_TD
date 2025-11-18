@@ -12,6 +12,7 @@ export function createPowderDisplaySystem({
   resourceState,
   baseResources,
   schedulePowderSave,
+  schedulePowderBasinSave,
   recordPowderEvent,
   notifyPowderAction,
   notifyPowderMultiplier,
@@ -656,6 +657,8 @@ export function createPowderDisplaySystem({
     if (summary.happiness?.unlocked && summary.happiness.total > 0 && betHappinessSystem) {
       betHappinessSystem.addHappiness(summary.happiness.total);
       betHappinessSystem.updateDisplay();
+      // Persist the updated Bet happiness bank alongside other idle rewards.
+      schedulePowderBasinSave();
       schedulePowderSave();
     }
 
