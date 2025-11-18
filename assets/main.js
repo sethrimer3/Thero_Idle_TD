@@ -132,6 +132,12 @@ import { createPowderResizeObserver } from './powderResizeObserver.js';
 import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
 // Lightweight animation overlay that keeps the Bet terrarium lively.
 import { FluidTerrariumCreatures } from './fluidTerrariumCreatures.js';
+// Fractal trees anchored by the Bet terrarium placement masks.
+import { FluidTerrariumTrees } from './fluidTerrariumTrees.js';
+// Procedural grass that sprouts from the terrarium silhouettes.
+import { FluidTerrariumGrass } from './fluidTerrariumGrass.js';
+// Day/night cycle that animates the Bet terrarium sky and celestial bodies.
+import { FluidTerrariumSkyCycle } from './fluidTerrariumSkyCycle.js';
 // Bet Spire happiness production tracker fed by Serendipity purchases.
 import { createBetHappinessSystem } from './betHappiness.js';
 import { createResourceHud } from './resourceHud.js';
@@ -820,7 +826,7 @@ import {
     // Persist Bet Spire happiness generation tied to Serendipity purchases.
     betHappiness: {
       bank: 0,
-      producers: { grasshopper: 4 },
+      producers: { slime: 4 },
     },
   };
 
@@ -838,6 +844,13 @@ import {
     basin: null,
     terrariumLayer: null,
     terrariumStage: null,
+    terrariumMedia: null,
+    terrariumSky: null,
+    terrariumStarsNear: null,
+    terrariumStarsFar: null,
+    terrariumSun: null,
+    terrariumMoon: null,
+    floatingIslandSprite: null,
     viewport: null,
     leftWall: null,
     rightWall: null,
@@ -851,14 +864,22 @@ import {
     statusNote: null,
     returnButton: null,
     terrainSprite: null,
+    // Happiness ledger values mirrored in the Bet Spire HUD.
     happinessTotal: null,
     happinessRate: null,
     happinessList: null,
     happinessEmpty: null,
+    // Progress bar elements that communicate the next Bet glyph unlock.
+    happinessProgressBar: null,
+    happinessProgressFill: null,
+    happinessProgressLabel: null,
+    happinessProgressPrevious: null,
+    happinessProgressNext: null,
+    happinessProgressCurrent: null,
     wallGlyphColumns: [],
   };
 
-  // Spawn zones derived from the Cave-4.png and Cave-5.png mask blocks so Deltas appear inside those caverns.
+  // Spawn zones derived from the solid color block markers inside Cave-4.png and Cave-5.png so Deltas appear inside those caverns.
   const BET_CAVE_SPAWN_ZONES = [
     { x: 225 / 1024, y: 1076 / 1536, width: 240 / 1024, height: 198 / 1536 },
     { x: 540 / 1024, y: 1064 / 1536, width: 310 / 1024, height: 205 / 1536 },
@@ -872,28 +893,69 @@ import {
   });
 
   let betHappinessSystem = null;
-  // Animate Delta grasshopper slimes once the fluid viewport is bound.
+  // Animate Delta slimes once the fluid viewport is bound.
   let fluidTerrariumCreatures = null;
+  // Grow Shin-inspired fractal trees on top of the Bet terrain silhouettes.
+  let fluidTerrariumTrees = null;
+  // Render swaying grass blades that cling to the Bet spire silhouettes.
+  let fluidTerrariumGrass = null;
+  // Drive the Bet terrarium day/night palette and celestial bodies.
+  let fluidTerrariumSkyCycle = null;
 
   function ensureFluidTerrariumCreatures() {
     // Lazily create the overlay so it never blocks powder initialization.
     if (fluidTerrariumCreatures || !fluidElements?.viewport) {
       return;
     }
-    const grasshopperCount = Math.max(
-      1,
-      betHappinessSystem ? betHappinessSystem.getProducerCount('grasshopper') : 4,
-    );
+    const slimeCount = Math.max(1, betHappinessSystem ? betHappinessSystem.getProducerCount('slime') : 4);
     fluidTerrariumCreatures = new FluidTerrariumCreatures({
       container: fluidElements.viewport,
       terrainElement: fluidElements.terrainSprite,
-      creatureCount: grasshopperCount,
+      creatureCount: slimeCount,
       spawnZones: BET_CAVE_SPAWN_ZONES,
     });
     if (betHappinessSystem) {
-      betHappinessSystem.setProducerCount('grasshopper', grasshopperCount);
+      betHappinessSystem.setProducerCount('slime', slimeCount);
     }
     fluidTerrariumCreatures.start();
+  }
+
+  // Lazily generate the terrarium grass overlay once the stage media is available.
+  function ensureFluidTerrariumGrass() {
+    if (fluidTerrariumGrass || !fluidElements?.terrariumMedia || !fluidElements?.terrainSprite) {
+      return;
+    }
+    fluidTerrariumGrass = new FluidTerrariumGrass({
+      container: fluidElements.terrariumMedia,
+      terrainElement: fluidElements.terrainSprite,
+      floatingIslandElement: fluidElements.floatingIslandSprite,
+      maskUrl: './assets/sprites/spires/betSpire/Grass.png',
+    });
+    fluidTerrariumGrass.start();
+  }
+
+  // Plant animated fractal trees on the Bet terrarium using the placement masks.
+  function ensureFluidTerrariumTrees() {
+    if (fluidTerrariumTrees || !fluidElements?.terrariumMedia) {
+      return;
+    }
+    fluidTerrariumTrees = new FluidTerrariumTrees({
+      container: fluidElements.terrariumMedia,
+      largeMaskUrl: './assets/sprites/spires/betSpire/Tree.png',
+      smallMaskUrl: './assets/sprites/spires/betSpire/Small-Tree.png',
+    });
+  }
+
+  // Paint the Bet terrarium sky with a looping day/night gradient and celestial path.
+  function ensureFluidTerrariumSkyCycle() {
+    if (fluidTerrariumSkyCycle || !fluidElements?.terrariumSky) {
+      return;
+    }
+    fluidTerrariumSkyCycle = new FluidTerrariumSkyCycle({
+      skyElement: fluidElements.terrariumSky,
+      sunElement: fluidElements.terrariumSun,
+      moonElement: fluidElements.terrariumMoon,
+    });
   }
 
   // Ensure compact autosave remains the active basin persistence strategy.
@@ -1238,6 +1300,7 @@ import {
   let shinSimulationInstance = null;
   let kufUiInitialized = false;
   let pendingSpireResizeFrame = null;
+  let previousTabId = getActiveTabId();
 
   const {
     ensurePowderBasinResizeObserver,
@@ -3914,6 +3977,11 @@ import {
       getOverlayActiveState: () => Boolean(levelOverlayController?.isOverlayActive()),
       isFieldNotesOverlayVisible,
       onTabChange: (tabId) => {
+        if (previousTabId === 'tsadi' && tabId !== 'tsadi') {
+          // Stash Tsadi particle counts before the viewport collapses so reentry can rebuild cleanly.
+          tsadiSimulationInstance?.stageParticlesForReentry?.();
+        }
+
         refreshTabMusic();
         if (audioManager) {
           if (tabId === 'lamed') {
@@ -4118,6 +4186,7 @@ import {
                 },
               });
               tsadiSimulationInstance.resize();
+              tsadiSimulationInstance.beginPlacementFromStoredCounts?.();
               const generationRateEl = document.getElementById('tsadi-generation-rate');
               if (generationRateEl) {
                 generationRateEl.textContent = `${tsadiSimulationInstance.spawnRate.toFixed(2)} particles/sec`;
@@ -4132,6 +4201,7 @@ import {
             }
           } else {
             tsadiSimulationInstance.resize();
+            tsadiSimulationInstance.beginPlacementFromStoredCounts?.();
             if (!tsadiSimulationInstance.running) {
               tsadiSimulationInstance.start();
             }
@@ -4179,6 +4249,8 @@ import {
             }
           });
         }
+
+        previousTabId = tabId;
       },
       onTowerTabActivated: () => {
         updateActiveLevelBanner();
@@ -4337,6 +4409,9 @@ import {
       betHappinessSystem.updateDisplay(fluidElements);
     }
     ensureFluidTerrariumCreatures();
+    ensureFluidTerrariumGrass();
+    ensureFluidTerrariumTrees();
+    ensureFluidTerrariumSkyCycle();
     ensurePowderBasinResizeObserver();
     bindSpireClickIncome();
     await applyPowderSimulationMode(powderState.simulationMode);

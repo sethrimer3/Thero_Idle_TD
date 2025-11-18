@@ -1,10 +1,14 @@
+const DEFAULT_SLIME_COUNT = 4;
+
 const BET_HAPPINESS_PRODUCERS = {
-  grasshopper: {
-    id: 'grasshopper',
-    label: 'Grasshopper',
+  slime: {
+    id: 'slime',
+    label: 'Slimes',
     ratePerHour: 0.5,
   },
 };
+
+const LEGACY_PRODUCER_ALIASES = { grasshopper: 'slime' };
 
 function normalizeCount(value, fallback = 0) {
   if (!Number.isFinite(value)) {
@@ -33,8 +37,9 @@ export function createBetHappinessSystem({
   if (!happinessState.producers || typeof happinessState.producers !== 'object') {
     happinessState.producers = {};
   }
-  if (!Number.isFinite(happinessState.producers.grasshopper)) {
-    happinessState.producers.grasshopper = 4;
+  migrateLegacyProducers(happinessState.producers);
+  if (!Number.isFinite(happinessState.producers.slime)) {
+    happinessState.producers.slime = DEFAULT_SLIME_COUNT;
   }
   if (!Number.isFinite(happinessState.bank)) {
     happinessState.bank = 0;
@@ -45,7 +50,38 @@ export function createBetHappinessSystem({
     rate: null,
     list: null,
     empty: null,
+    progressBar: null,
+    progressFill: null,
+    progressLabel: null,
+    progressPrevious: null,
+    progressNext: null,
+    progressCurrent: null,
   };
+
+  /**
+   * Derive the current happiness segment using a doubling threshold that begins at 5 hp.
+   * @param {number} total - Total stored happiness points.
+   * @returns {{ previous: number, next: number, level: number, progress: number, clampedTotal: number }}
+   */
+  function resolveHappinessProgress(total) {
+    const clampedTotal = normalizeBank(total);
+    const baseThreshold = 5;
+    let previous = 0;
+    let next = baseThreshold;
+    let level = 1;
+
+    // March through the doubling ladder until the next target sits above the current bank.
+    while (clampedTotal >= next) {
+      previous = next;
+      next *= 2;
+      level += 1;
+    }
+
+    const span = Math.max(1, next - previous);
+    const progress = Math.min(1, Math.max(0, (clampedTotal - previous) / span));
+
+    return { previous, next, level, progress, clampedTotal };
+  }
 
   function getProducerDefinition(id) {
     return BET_HAPPINESS_PRODUCERS[id] || null;
@@ -114,6 +150,14 @@ export function createBetHappinessSystem({
       rate: elements.happinessRate || elements.rate || displayElements.rate,
       list: elements.happinessList || elements.list || displayElements.list,
       empty: elements.happinessEmpty || elements.empty || displayElements.empty,
+      progressBar: elements.happinessProgressBar || elements.progressBar || displayElements.progressBar,
+      progressFill: elements.happinessProgressFill || elements.progressFill || displayElements.progressFill,
+      progressLabel: elements.happinessProgressLabel || elements.progressLabel || displayElements.progressLabel,
+      progressPrevious:
+        elements.happinessProgressPrevious || elements.progressPrevious || displayElements.progressPrevious,
+      progressNext: elements.happinessProgressNext || elements.progressNext || displayElements.progressNext,
+      progressCurrent:
+        elements.happinessProgressCurrent || elements.progressCurrent || displayElements.progressCurrent,
     };
   }
 
@@ -135,6 +179,32 @@ export function createBetHappinessSystem({
 
     if (!list || !empty) {
       return;
+    }
+
+    const { progressLabel, progressBar, progressFill, progressPrevious, progressNext, progressCurrent } =
+      displayElements;
+    if (progressBar || progressFill || progressLabel || progressPrevious || progressNext || progressCurrent) {
+      const { previous, next, level, progress, clampedTotal } = resolveHappinessProgress(totalHappiness);
+      if (progressLabel) {
+        progressLabel.textContent = `Happiness Level ${level}`;
+      }
+      if (progressPrevious) {
+        progressPrevious.textContent = `${formatDecimal(previous, 0)} hp`;
+      }
+      if (progressNext) {
+        progressNext.textContent = `${formatDecimal(next, 0)} hp`;
+      }
+      if (progressFill) {
+        progressFill.style.width = `${Math.round(progress * 100)}%`;
+      }
+      if (progressCurrent) {
+        progressCurrent.textContent = `${formatDecimal(clampedTotal, 1)} hp`;
+        const anchoredPercent = Math.max(10, Math.min(90, progress * 100));
+        progressCurrent.style.left = `${anchoredPercent}%`;
+      }
+      if (progressBar) {
+        progressBar.classList.toggle('fluid-happiness-progress--empty', clampedTotal <= 0);
+      }
     }
 
     list.textContent = '';
@@ -176,4 +246,18 @@ export function createBetHappinessSystem({
     updateDisplay,
     state: happinessState,
   };
+}
+
+function migrateLegacyProducers(producers) {
+  if (!producers || typeof producers !== 'object') {
+    return;
+  }
+  Object.entries(LEGACY_PRODUCER_ALIASES).forEach(([legacyId, nextId]) => {
+    if (Number.isFinite(producers[legacyId]) && !Number.isFinite(producers[nextId])) {
+      producers[nextId] = normalizeCount(producers[legacyId], DEFAULT_SLIME_COUNT);
+    }
+    if (legacyId !== nextId && legacyId in producers) {
+      delete producers[legacyId];
+    }
+  });
 }

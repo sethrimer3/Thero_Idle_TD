@@ -303,6 +303,13 @@ export class ParticleFusionSimulation {
     // Store active force links so the renderer can visualize attractive/repulsive pairs.
     this.forceLinks = [];
 
+    // Preserve particle counts when the Tsadi viewport is hidden so returning players see a gradual rebuild.
+    this.storedTierCounts = null;
+    // Queue staggered particle placement so rehydration happens one particle per frame.
+    this.pendingPlacementQueue = [];
+    // Gate new spawns while the reentry queue is being processed.
+    this.placingStoredParticles = false;
+
     // Aleph particle state
     this.alephParticleId = null; // ID of the current aleph particle if it exists
     this.alephAbsorptionCount = 0; // Number of particles absorbed by aleph
@@ -548,7 +555,15 @@ export class ParticleFusionSimulation {
     const dt = deltaTime / 1000; // Convert to seconds
     const canvasWidth = this.width;
     const canvasHeight = this.height;
-    
+
+    // Stagger the reentry placement queue before resuming normal spawning or physics.
+    if (this.placingStoredParticles) {
+      this.spawnAccumulator = 0;
+      this.placeQueuedParticle();
+      // Skip movement for the placement frame so particles appear stationary when restored.
+      return;
+    }
+
     // Spawn new particles (always spawn at null tier, upgrade will adjust)
     this.spawnAccumulator += dt * this.spawnRate;
     while (this.spawnAccumulator >= 1 && this.particles.length < this.maxParticles && this.particleBank > 0) {
@@ -1533,6 +1548,123 @@ export class ParticleFusionSimulation {
     }
     if (this.onGlyphChange) {
       this.onGlyphChange(this.glyphCount);
+    }
+  }
+
+  /**
+   * Capture per-tier particle counts when the spire view hides so reentry can rebuild the swarm cleanly.
+   */
+  stageParticlesForReentry() {
+    this.storedTierCounts = this.getParticleCountByTier();
+    this.pendingPlacementQueue = [];
+    this.placingStoredParticles = false;
+    this.particles = [];
+    this.spawnAccumulator = 0;
+    if (this.onParticleCountChange) {
+      this.onParticleCountChange(0);
+    }
+    this.stop();
+  }
+
+  /**
+   * Initialize the queued placement sequence using the stored tier counts when returning to the Tsadi tab.
+   */
+  beginPlacementFromStoredCounts() {
+    if (!this.storedTierCounts) {
+      return;
+    }
+
+    this.pendingPlacementQueue = [];
+    Object.entries(this.storedTierCounts).forEach(([tierKey, count]) => {
+      const tier = Number(tierKey);
+      const safeCount = Math.max(0, Math.floor(count));
+      for (let i = 0; i < safeCount; i++) {
+        this.pendingPlacementQueue.push(tier);
+      }
+    });
+
+    // Shuffle the queue so restored particles do not cluster by tier.
+    for (let i = this.pendingPlacementQueue.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this.pendingPlacementQueue[i], this.pendingPlacementQueue[j]] = [
+        this.pendingPlacementQueue[j],
+        this.pendingPlacementQueue[i],
+      ];
+    }
+
+    this.spawnAccumulator = 0;
+    this.placingStoredParticles = this.pendingPlacementQueue.length > 0;
+  }
+
+  /**
+   * Place a single queued particle with zero initial velocity and guaranteed spacing from neighbors.
+   */
+  placeQueuedParticle() {
+    if (!this.pendingPlacementQueue.length) {
+      this.placingStoredParticles = false;
+      this.storedTierCounts = null;
+      return;
+    }
+
+    const tier = this.pendingPlacementQueue.shift();
+    const radius = this.getRadiusForTier(tier);
+    const tierInfo = getGreekTierInfo(tier);
+    const tierAboveNull = tier - NULL_TIER;
+    const speedMultiplier = Math.max(0.1, 1 - (0.1 * tierAboveNull));
+    const repellingReduction = this.upgrades.repellingForceReduction * 0.5;
+    const repellingForce = this.baseRepellingForce * (tierAboveNull - repellingReduction);
+
+    const spacingBuffer = this.nullParticleRadius * 0.5;
+    const margin = radius + spacingBuffer;
+    const spawnableWidth = this.width - margin * 2;
+    const spawnableHeight = this.height - margin * 2;
+    if (spawnableWidth <= 0 || spawnableHeight <= 0) {
+      this.pendingPlacementQueue.unshift(tier);
+      return;
+    }
+
+    let placed = false;
+    const maxAttempts = 50;
+    for (let attempt = 0; attempt < maxAttempts && !placed; attempt++) {
+      const x = margin + Math.random() * spawnableWidth;
+      const y = margin + Math.random() * spawnableHeight;
+      const isClear = this.particles.every((p) => {
+        const dx = x - p.x;
+        const dy = y - p.y;
+        const minDistance = p.radius + radius + spacingBuffer;
+        return (dx * dx + dy * dy) >= (minDistance * minDistance);
+      });
+
+      if (isClear) {
+        this.particles.push({
+          x,
+          y,
+          vx: 0,
+          vy: 0,
+          radius,
+          tier,
+          color: tierToColor(tier, this.samplePaletteGradient),
+          label: tierInfo.letter,
+          id: Math.random(),
+          repellingForce,
+          speedMultiplier,
+        });
+        placed = true;
+      }
+    }
+
+    // If placement failed due to congestion, requeue the particle for the next frame.
+    if (!placed) {
+      this.pendingPlacementQueue.unshift(tier);
+    }
+
+    if (this.onParticleCountChange) {
+      this.onParticleCountChange(this.particles.length);
+    }
+
+    if (!this.pendingPlacementQueue.length) {
+      this.placingStoredParticles = false;
+      this.storedTierCounts = null;
     }
   }
 }

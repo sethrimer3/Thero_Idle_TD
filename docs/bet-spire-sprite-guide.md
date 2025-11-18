@@ -24,7 +24,7 @@ Use this baseline stack (back to front) when composing the Bet Spire vista:
 6. Creatures/effects and UI overlays
 
 ## Spawn Anchors
-- Cave masks define usable interior bounds. For example, the Delta grasshopper slimes currently spawn inside the Cave 4 and Cave 5 masks:
+- Cave masks define usable interior bounds. For example, the Delta slimes currently spawn inside the Cave 4 and Cave 5 masks:
   - **Cave 4 mask window:** `x=225–465`, `y=1076–1274` in the 1024×1536 sprite space (≈21.97–45.4% X, 70.05–82.94% Y).
   - **Cave 5 mask window:** `x=540–850`, `y=1064–1269` in the same space (≈52.73–83.01% X, 69.27–82.55% Y).
 - Normalize coordinates against the rendered terrain bounds so spawn areas remain correct as the viewport scales.

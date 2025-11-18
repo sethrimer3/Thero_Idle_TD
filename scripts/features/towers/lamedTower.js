@@ -38,6 +38,15 @@ const BLACK_HOLE_MAX_DIAMETER_PERCENT = 0.5;
 /** Duration of the collapse animation (in seconds) when transitioning to smaller tiers. */
 const COLLAPSE_ANIMATION_SECONDS = 10;
 
+/** Maximum number of orbiting stars that can be rendered simultaneously. */
+const MAX_RENDERED_STARS = 200;
+
+/** Cap how many stars are allowed to draw trails at any given time to protect performance. */
+const MAX_TRAIL_STARS = 50;
+
+/** Maximum decorative dust particle population when no stars are present. */
+const MAX_DUST_PARTICLES = 200;
+
 /**
  * Deterministic pseudo-random number generator using seed.
  */
@@ -96,11 +105,14 @@ export class GravitySimulation {
     // Star management (renamed from sparks)
     this.stars = [];
     this.sparkBank = 0; // Idle currency reserve that spawns stars into the simulation
-    this.maxStars = 1000; // Maximum number of active orbiting stars increased for denser orbits
+    this.maxStars = MAX_RENDERED_STARS; // Maximum number of active orbiting stars visible at once.
     this.sparkSpawnRate = 0; // Stars spawned per second (starts at 0)
     this.spawnAccumulator = 0;
     // Cap how many orbiting stars are allowed to render trails simultaneously to protect framerate.
-    this.maxStarsWithTrails = typeof options.maxStarsWithTrails === 'number' ? options.maxStarsWithTrails : 100;
+    this.maxStarsWithTrails = Math.min(
+      typeof options.maxStarsWithTrails === 'number' ? options.maxStarsWithTrails : MAX_TRAIL_STARS,
+      MAX_TRAIL_STARS,
+    );
     this.trailEnabledStarCount = 0; // Track how many active orbiting stars should render trails.
     
     // Spawn parameters for ring spawner
@@ -132,7 +144,7 @@ export class GravitySimulation {
     this.shockRings = []; // Absorption shock rings
     this.dustParticles = []; // Accretion disk dust
     this.highGraphics = typeof options.highGraphics === 'boolean' ? options.highGraphics : false;
-    this.desiredDustParticles = 200; // Maintain a fixed decorative ring of dust around the sun.
+    this.desiredDustParticles = MAX_DUST_PARTICLES; // Maintain a fixed decorative ring of dust around the sun.
     this.maxDustParticles = this.desiredDustParticles; // Cap population so the simulation keeps exactly 200 grains.
     this.dustSpawnRate = this.desiredDustParticles; // Refill quickly when particles expire or are removed.
     this.dustAccumulator = 0;
@@ -326,9 +338,9 @@ export class GravitySimulation {
     const lowGraphicsActive = this.isLowGraphicsModeEnabled();
     if (lowGraphicsActive || starCount > this.trailComplexityThresholds.disable) {
       return {
-        mode: 'none',
-        maxLength: 0,
-        fadeRate: this.baseTrailFadeRate,
+        mode: 'simple',
+        maxLength: this.simpleTrailLength,
+        fadeRate: this.simpleTrailFadeRate,
       };
     }
     if (starCount > this.trailComplexityThresholds.simplify) {
@@ -410,6 +422,35 @@ export class GravitySimulation {
     const diameterPx = cssWidth * (this.coreSizeState?.percent || TIER_DIAMETER_PERCENTAGES[0]);
     // Safeguard against extremely small radii so the core remains visible even on narrow screens.
     return Math.max(2, diameterPx / 2);
+  }
+
+  /**
+   * Measure the farthest visible point so spawns can reach the canvas corners.
+   * @returns {number} Maximum spawn radius in CSS pixels extending to the viewport corners
+   */
+  calculateMaxSpawnRadiusCss() {
+    const dpr = window.devicePixelRatio || 1;
+    const cssWidth = this.cssWidth || (this.width / dpr) || 0;
+    const cssHeight = this.cssHeight || (this.height / dpr) || 0;
+    const halfWidth = cssWidth / 2;
+    const halfHeight = cssHeight / 2;
+
+    return Math.sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
+  }
+
+  /**
+   * Calculate a star's rendered radius and enforce a viewport-aware minimum so sparks stay visible.
+   * @param {number} starMass - Mass of the orbiting star
+   * @param {number} coreRadiusCss - Current core radius in CSS pixels
+   * @returns {number} Radius in CSS pixels respecting the minimum size rule
+   */
+  calculateStarRadiusCss(starMass, coreRadiusCss = this.calculateCoreRadius()) {
+    const dpr = window.devicePixelRatio || 1;
+    const cssWidth = this.cssWidth || (this.width / dpr) || 0;
+    const minimumRadius = Math.max(1, cssWidth / 300);
+    const normalizedMass = Math.max(0, Number.isFinite(starMass) ? starMass : 0);
+    const massRatio = normalizedMass / Math.max(this.starMass, 1e-6);
+    return Math.max(minimumRadius, coreRadiusCss * massRatio);
   }
 
   /**
@@ -986,21 +1027,41 @@ export class GravitySimulation {
   }
 
   /**
+   * Apply a star's mass directly to the sun when the render cap is hit so late spawns still matter.
+   * @param {number} massGain - Mass to funnel directly into the core
+   */
+  absorbStarImmediately(massGain) {
+    const normalizedMass = Math.max(0, Number.isFinite(massGain) ? massGain : 0);
+    if (normalizedMass <= 0) {
+      return;
+    }
+
+    this.starMass += normalizedMass;
+    this.pendingAbsorptions += 1;
+    this.pendingMassGain += normalizedMass;
+    this.applySunBounceImpulse(0.01);
+
+    if (this.onStarMassChange) {
+      this.onStarMassChange(this.starMass);
+    }
+  }
+
+  /**
    * Spawn a new star randomly between the central body edge and simulation edge.
    * Uses near-circular orbital velocity.
    */
   spawnStar() {
-    if (this.stars.length >= this.maxStars) return false;
     if (this.sparkBank <= 0) return false;
 
     const dpr = window.devicePixelRatio || 1;
-    
+    const starMass = 1 + this.upgrades.starMass;
+
     // Calculate central body radius
     // Use the shared radius helper so trail generation respects the current star size.
     const starVisualRadius = this.calculateCoreRadius();
-    
-    // Calculate maximum spawn radius using the horizontal distance to the edge of the view
-    const maxR = this.width / (2 * dpr);
+
+    // Calculate maximum spawn radius using the diagonal distance to the viewport corners.
+    const maxR = this.calculateMaxSpawnRadiusCss();
 
     // Enforce a minimum orbit of twice the sun's radius so new stars never crowd the surface
     const minR = Math.min(maxR, starVisualRadius * 2);
@@ -1016,17 +1077,32 @@ export class GravitySimulation {
 
     // Calculate circular orbital velocity: v = sqrt(G*M/r)
     const circularSpeed = Math.sqrt((this.G * this.starMass) / Math.max(orbitRadiusDevice, this.epsilon));
-    
+
     // Add velocity noise for spiral effects
     const velocityMultiplier = 1 + this.rng.range(-this.velocityNoiseFactor, this.velocityNoiseFactor);
     const v = circularSpeed * velocityMultiplier;
-    
+
     // Tangential velocity (perpendicular to radius vector)
     const vx = -Math.sin(angle) * v;
     const vy = Math.cos(angle) * v;
+
+    if (this.stars.length >= this.maxStars) {
+      // Continue to surface the spawn flash even when the orbit is saturated so the tab stays lively.
+      this.absorbStarImmediately(starMass);
+      this.flashEffects.push({
+        x: x / dpr,
+        y: y / dpr,
+        radius: 5,
+        maxRadius: 20,
+        alpha: 1.0,
+        duration: 0.3, // seconds
+        elapsed: 0,
+      });
+      this.setSparkBank(this.sparkBank - 1);
+      return true;
+    }
     
     // Star mass scales deterministically with the upgrade so placement size is consistent.
-    const starMass = 1 + this.upgrades.starMass;
     const starHasTrail = this.trailEnabledStarCount < this.maxStarsWithTrails;
 
     this.stars.push({
@@ -1067,7 +1143,15 @@ export class GravitySimulation {
    * Particles spawn randomly between the central body edge and simulation edge.
    */
   spawnDustParticles(deltaTime) {
-    if (this.dustParticles.length >= this.maxDustParticles) return;
+    // Dynamically scale dust population to fade out as the starfield reaches maximum density.
+    this.desiredDustParticles = Math.max(0, MAX_DUST_PARTICLES - Math.min(this.stars.length, this.maxStars));
+    this.maxDustParticles = this.desiredDustParticles;
+    this.dustSpawnRate = this.desiredDustParticles;
+
+    if (this.dustParticles.length >= this.maxDustParticles && this.maxDustParticles <= 0) {
+      this.dustParticles.length = 0;
+      return;
+    }
 
     const dt = deltaTime / 1000;
     const dpr = window.devicePixelRatio || 1;
@@ -1076,10 +1160,13 @@ export class GravitySimulation {
     // Use the shared radius helper so dust drag remains centered on the rendered core.
     const starVisualRadius = this.calculateCoreRadius();
     
-    // Calculate maximum spawn radius
-    const maxR = Math.min(this.width, this.height) / (2 * dpr);
+    // Calculate maximum spawn radius using the diagonal distance so grains can appear in the corners.
+    const maxR = this.calculateMaxSpawnRadiusCss();
     
     this.dustAccumulator += dt * this.dustSpawnRate;
+    while (this.dustParticles.length > this.maxDustParticles) {
+      this.dustParticles.shift();
+    }
     while (this.dustAccumulator >= 1 && this.dustParticles.length < this.maxDustParticles) {
       // Spawn randomly between central body edge and simulation edge
       const rCss = this.rng.range(starVisualRadius, maxR);
@@ -1276,7 +1363,10 @@ export class GravitySimulation {
         const sdx = star.x - shard.x;
         const sdy = star.y - shard.y;
         const sDistSq = sdx * sdx + sdy * sdy;
-        const starRadius = Math.max(4 * dpr, (star.mass / this.starMass) * starVisualRadius * 2 * dpr);
+        const starRadius = Math.max(
+          4 * dpr,
+          this.calculateStarRadiusCss(star.mass, starVisualRadius) * 2 * dpr,
+        );
         if (sDistSq < starRadius * starRadius) {
           // Shooting star merges into an orbiting spark and empowers it by doubling its mass.
           star.mass *= 2;
@@ -1331,7 +1421,22 @@ export class GravitySimulation {
     // Track absorptions for statistics
     let absorbedThisFrame = 0;
     let massGainedThisFrame = 0;
-    
+
+    // Ensure legacy trail flags respect the new simultaneous trail cap.
+    if (this.trailEnabledStarCount > this.maxStarsWithTrails) {
+      let trailsToDisable = this.trailEnabledStarCount - this.maxStarsWithTrails;
+      for (const star of this.stars) {
+        if (trailsToDisable <= 0) {
+          break;
+        }
+        if (star.hasTrail) {
+          star.hasTrail = false;
+          trailsToDisable--;
+          this.trailEnabledStarCount = Math.max(0, this.trailEnabledStarCount - 1);
+        }
+      }
+    }
+
     // Resolve trail complexity based on current population and device settings.
     const trailSettings = this.resolveTrailRenderSettings(this.stars.length);
     this.activeTrailSettings = trailSettings;
@@ -1354,7 +1459,7 @@ export class GravitySimulation {
       // Use the shared radius helper so absorption checks align with the rendered radius.
       const starVisualRadius = this.calculateCoreRadius();
       const sunRadiusCss = starVisualRadius * Math.max(0.85, 1 + this.sunBounce.offset);
-      const starRadiusCss = Math.max(2, (star.mass / this.starMass) * starVisualRadius);
+      const starRadiusCss = this.calculateStarRadiusCss(star.mass, starVisualRadius);
       const collisionRadiusDevice = (sunRadiusCss + starRadiusCss) * dpr;
 
       // Check if star should be absorbed (collision detection)
@@ -1951,8 +2056,7 @@ export class GravitySimulation {
       // Draw star with size based on mass ratio to central body
       const starX = star.x / dpr;
       const starY = star.y / dpr;
-      const massRatio = star.mass / this.starMass;
-      const starSize = starVisualRadius * massRatio;
+      const starSize = this.calculateStarRadiusCss(star.mass, starVisualRadius);
       
       // Glow effect
       const starGradient = ctx.createRadialGradient(

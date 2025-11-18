@@ -3,7 +3,8 @@ import { fetchJsonWithFallback } from './gameplayConfigLoaders.js';
 const STORY_DATA_URL = new URL('./data/levelStories.json', import.meta.url);
 const STORY_DATA_RELATIVE_PATH = './assets/data/levelStories.json';
 const WORD_DELAY_MS = 100;
-const SECTION_PAUSE_MS = 600;
+const SECTION_PAUSE_MS = 5000;
+const PROMPT_DELAY_AFTER_COMPLETE_MS = 5000;
 
 function sanitizeSections(value) {
   if (!value || typeof value !== 'object') {
@@ -35,6 +36,7 @@ export function createLevelStoryScreen({
   let completionResolver = null;
   let listenersBound = false;
   let completionNotified = false;
+  let promptTimer = null;
 
   function getTimerApi() {
     if (typeof window !== 'undefined') {
@@ -71,11 +73,19 @@ export function createLevelStoryScreen({
     allSectionsRevealed = false;
     activeLevel = null;
     completionNotified = false;
+    if (promptTimer) {
+      timerApi.clearTimeout(promptTimer);
+      promptTimer = null;
+    }
     if (sectionsEl) {
       sectionsEl.innerHTML = '';
     }
     if (overlayEl) {
       overlayEl.removeAttribute('data-story-complete');
+    }
+    if (promptEl) {
+      promptEl.textContent = '';
+      promptEl.classList.remove('level-story-overlay__prompt--visible');
     }
   }
 
@@ -321,7 +331,14 @@ export function createLevelStoryScreen({
       overlayEl.setAttribute('data-story-complete', 'true');
     }
     if (promptEl) {
-      promptEl.textContent = 'Tap or press any key to continue.';
+      if (promptTimer) {
+        timerApi.clearTimeout(promptTimer);
+      }
+      promptTimer = timerApi.setTimeout(() => {
+        promptEl.textContent = 'Press any key to continue...';
+        promptEl.classList.add('level-story-overlay__prompt--visible');
+        promptTimer = null;
+      }, PROMPT_DELAY_AFTER_COMPLETE_MS);
     }
   }
 
@@ -359,7 +376,8 @@ export function createLevelStoryScreen({
       titleEl.textContent = labelParts.join(' · ');
     }
     if (promptEl) {
-      promptEl.textContent = 'Tap or press any key to reveal the next section instantly.';
+      promptEl.textContent = '';
+      promptEl.classList.remove('level-story-overlay__prompt--visible');
     }
     overlayEl.setAttribute('aria-hidden', 'false');
     overlayEl.classList.add('level-story-overlay--visible');

@@ -82,6 +82,7 @@ export class FractalTreeSimulation {
     this.leafColor = options.leafColor || '#a2e3f5';
     this.leafAlpha = options.leafAlpha || 0.3;
     this.showLeaves = options.showLeaves !== undefined ? options.showLeaves : false;
+    this.depthColors = Array.isArray(options.depthColors) ? options.depthColors : null;
 
     // Growth parameters
     this.branchFactor = this.clamp(options.branchFactor || 2, 2, 3);
@@ -160,6 +161,21 @@ export class FractalTreeSimulation {
     const b = Math.round(b1 + (b2 - b1) * factor);
     
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  }
+
+  /**
+   * Resolve the stroke color for a given depth, honoring explicit depth palettes when present.
+   * @param {number} depth
+   * @returns {string}
+   */
+  getDepthColor(depth) {
+    if (Array.isArray(this.depthColors) && this.depthColors.length) {
+      const clampedDepth = Math.max(0, Math.min(depth, this.depthColors.length - 1));
+      return this.depthColors[clampedDepth];
+    }
+
+    const depthFactor = depth / this.maxDepth;
+    return this.interpolateColor(this.trunkColor, this.twigColor, depthFactor);
   }
 
   /**
@@ -317,8 +333,7 @@ export class FractalTreeSimulation {
       if (progress <= 0) continue;
 
       // Calculate color based on depth
-      const depthFactor = segment.depth / this.maxDepth;
-      const color = this.interpolateColor(this.trunkColor, this.twigColor, depthFactor);
+      const color = this.getDepthColor(segment.depth);
 
       // Draw segment
       if (this.renderStyle === 'bezier') {
@@ -475,6 +490,7 @@ export class FractalTreeSimulation {
    * @param {number} config.growthRate - Segments to grow per frame
    * @param {string} config.renderStyle - 'straight' or 'bezier'
    * @param {boolean} config.showLeaves - Whether to show leaves
+   * @param {Array<string>} config.depthColors - Optional explicit palette keyed by depth
    * @param {number} config.seed - Random seed
    */
   updateConfig(config) {
@@ -518,10 +534,13 @@ export class FractalTreeSimulation {
       this.growthRate = this.clamp(config.growthRate, 1, 20);
     }
     if (config.renderStyle !== undefined) {
-      this.renderStyle = config.renderStyle;
+      this.renderStyle = config.renderStyle === 'straight' ? 'straight' : 'bezier';
     }
     if (config.showLeaves !== undefined) {
-      this.showLeaves = config.showLeaves;
+      this.showLeaves = Boolean(config.showLeaves);
+    }
+    if (config.depthColors !== undefined) {
+      this.depthColors = Array.isArray(config.depthColors) ? config.depthColors : null;
     }
     if (config.seed !== undefined) {
       this.rng = new SeededRandom(config.seed);

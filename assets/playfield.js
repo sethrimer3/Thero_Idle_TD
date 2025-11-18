@@ -3531,6 +3531,10 @@ export class SimplePlayfield {
     wheel.container = container;
     wheel.list = list;
 
+    const host = this.container || document.body;
+    host.append(container);
+
+    // Render after mounting so measurements (height, transforms) are accurate on first paint.
     this.renderTowerSelectionWheel();
 
     list.addEventListener('pointerdown', (event) => this.beginTowerSelectionWheelDrag(event));
@@ -3544,8 +3548,6 @@ export class SimplePlayfield {
       );
     });
 
-    const host = this.container || document.body;
-    host.append(container);
     this.positionTowerSelectionWheel(tower);
 
     wheel.outsideHandler = (event) => {

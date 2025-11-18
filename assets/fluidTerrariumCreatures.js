@@ -43,7 +43,7 @@ function randomBetween(min, max) {
 }
 
 /**
- * Lightweight physics simulation that animates Delta grasshopper slimes inside the fluid viewport.
+ * Lightweight physics simulation that animates Delta slimes inside the fluid viewport.
  */
 export class FluidTerrariumCreatures {
   constructor(options = {}) {
@@ -136,7 +136,7 @@ export class FluidTerrariumCreatures {
       return;
     }
     for (let index = 0; index < this.creatureCount; index += 1) {
-      const size = randomBetween(1.6, 2.4);
+      const size = randomBetween(3.2, 4.8);
       const element = document.createElement('div');
       element.className = 'fluid-terrarium-creature';
       element.textContent = 'Δ';

@@ -79,6 +79,77 @@ export function createSpireTabVisibilityManager({
     updateFluidTabAvailability();
 
     /**
+     * Reflow the spire tab grid so only unlocked tabs consume space.
+     * The layout adapts from single button up to the full 3x2 grid.
+     */
+    function applySpireStackLayout() {
+      const spireStack = document.getElementById('spire-tab-stack');
+      if (!spireStack) {
+        return;
+      }
+
+      const layoutClasses = [
+        'spire-tab-stack--layout-1',
+        'spire-tab-stack--layout-2',
+        'spire-tab-stack--layout-3',
+        'spire-tab-stack--layout-4',
+        'spire-tab-stack--layout-5',
+        'spire-tab-stack--layout-6',
+      ];
+
+      layoutClasses.forEach((className) => spireStack.classList.remove(className));
+
+      const visibleButtons = Array.from(
+        spireStack.querySelectorAll('.tab-button--stacked')
+      ).filter(
+        (button) => !button.hasAttribute('hidden') && button.getAttribute('aria-hidden') !== 'true'
+      );
+
+      visibleButtons.forEach((button) => {
+        button.style.gridColumn = '';
+        button.style.gridRow = '';
+        button.classList.remove('spire-tab-button--tall');
+      });
+
+      const visibleCount = visibleButtons.length;
+      if (visibleCount === 0) {
+        return;
+      }
+
+      spireStack.classList.add(`spire-tab-stack--layout-${visibleCount}`);
+
+      if (visibleCount === 1) {
+        // Center the lone spire tab within the available button footprint.
+        visibleButtons[0].style.gridColumn = '1 / -1';
+        visibleButtons[0].style.gridRow = '1 / -1';
+        return;
+      }
+
+      if (visibleCount === 5) {
+        // Keep a clean 2x2 square for the first four spires and stretch the fifth vertically on the right.
+        const squarePlacements = [
+          { col: 1, row: 1 },
+          { col: 2, row: 1 },
+          { col: 1, row: 2 },
+          { col: 2, row: 2 },
+        ];
+
+        squarePlacements.forEach((placement, index) => {
+          const target = visibleButtons[index];
+          if (target) {
+            target.style.gridColumn = `${placement.col}`;
+            target.style.gridRow = `${placement.row}`;
+          }
+        });
+
+        const tallButton = visibleButtons[4];
+        tallButton.style.gridColumn = '3';
+        tallButton.style.gridRow = '1 / span 2';
+        tallButton.classList.add('spire-tab-button--tall');
+      }
+    }
+
+    /**
      * Toggle visibility for the floating menu toggle button that lives inside a spire panel.
      * @param {string} spireId - Identifier suffix for the spire toggle.
      * @param {boolean} unlocked - Whether the spire should be visible.
@@ -160,6 +231,9 @@ export function createSpireTabVisibilityManager({
       }
     }
     syncSpireToggle('kuf', Boolean(spireResourceState?.kuf?.unlocked));
+
+    // Rebuild the layout so only visible spires consume space in the stack grid.
+    applySpireStackLayout();
   }
 
   return {

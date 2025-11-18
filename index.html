@@ -175,7 +175,7 @@
         <p class="level-story-overlay__level" id="level-story-label">Level · Title</p>
         <div class="level-story-overlay__sections" id="level-story-sections"></div>
         <p class="level-story-overlay__prompt" id="level-story-prompt">
-          Tap or press any key to reveal the next section instantly.
+          
         </p>
       </div>
     </div>
@@ -1739,9 +1739,17 @@
                       aria-label="Bet terrarium shimmering beneath a starlit sky"
                     >
                       <div class="fluid-terrarium-stage__media" id="fluid-terrarium-stage-media">
-                        <div class="fluid-terrarium__sky" aria-hidden="true">
-                          <div class="fluid-terrarium__stars fluid-terrarium__stars--near"></div>
-                          <div class="fluid-terrarium__stars fluid-terrarium__stars--far"></div>
+                        <div class="fluid-terrarium__sky" id="fluid-terrarium-sky" aria-hidden="true">
+                          <div class="fluid-terrarium__sun" id="fluid-terrarium-sun" aria-hidden="true"></div>
+                          <div class="fluid-terrarium__moon" id="fluid-terrarium-moon" aria-hidden="true"></div>
+                          <div
+                            class="fluid-terrarium__stars fluid-terrarium__stars--near"
+                            id="fluid-terrarium-stars-near"
+                          ></div>
+                          <div
+                            class="fluid-terrarium__stars fluid-terrarium__stars--far"
+                            id="fluid-terrarium-stars-far"
+                          ></div>
                         </div>
                         <img
                           class="fluid-terrarium__background"
@@ -1753,6 +1761,7 @@
                         />
                         <img
                           class="fluid-terrarium__floating-island"
+                          id="fluid-terrarium-floating-island"
                           src="./assets/sprites/spires/betSpire/Floating-Island.png"
                           alt=""
                           loading="lazy"
@@ -1775,11 +1784,27 @@
                 </div>
               </article>
             </div>
-            <article class="card fluid-metrics-card">
-              <h3>Reservoir Metrics</h3>
-              <dl class="fluid-metrics">
-                <div>
-                  <dt>Reservoir Depth</dt>
+        <!-- Progress bar that reveals how close the Bet Spire is to its next happiness glyph. -->
+        <div class="fluid-happiness-progress" id="fluid-happiness-progress" aria-live="polite">
+          <div class="fluid-happiness-progress__label" id="fluid-happiness-progress-label">
+            Happiness Level 1
+          </div>
+          <div class="fluid-happiness-progress__bar-row">
+            <span class="fluid-happiness-progress__threshold" id="fluid-happiness-progress-previous">0 hp</span>
+            <div class="fluid-happiness-progress__track">
+              <div class="fluid-happiness-progress__fill" id="fluid-happiness-progress-fill"></div>
+              <div class="fluid-happiness-progress__current" id="fluid-happiness-progress-current">
+                0.0 hp
+              </div>
+            </div>
+            <span class="fluid-happiness-progress__threshold" id="fluid-happiness-progress-next">5 hp</span>
+          </div>
+        </div>
+        <article class="card fluid-metrics-card">
+          <h3>Reservoir Metrics</h3>
+          <dl class="fluid-metrics">
+            <div>
+              <dt>Reservoir Depth</dt>
                   <dd id="fluid-depth">0.00% full</dd>
                 </div>
                 <div>
