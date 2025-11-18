@@ -3510,6 +3510,18 @@ body.graphics-mode-low .control-button {
   width: 100%;
 }
 
+/* Palette preview line mirrors the active projectile gradient. */
+.visual-settings-menu .palette-gradient-preview {
+  height: 14px;
+  width: 100%;
+  margin-top: -2px;
+  margin-bottom: 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(247, 247, 245, 0.14);
+  background: linear-gradient(90deg, #8bf7ff 0%, #ff8ad8 100%);
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.35);
+}
+
 .visual-settings-menu .settings-toggle {
   margin-top: 14px;
 }
