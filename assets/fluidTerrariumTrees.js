@@ -616,7 +616,8 @@ export class FluidTerrariumTrees {
   buildSimulation(size, canvas, height) {
     // Limit Bet terrarium trees to eight visible layers to match the stepped palette.
     const depth = 7;
-    const baseWidth = size === 'large' ? 7 : 5;
+    // Keep the trees slender while preserving their full height on both mask sizes.
+    const baseWidth = size === 'large' ? 4 : 3;
     const rootLength = Math.max(16, height * (size === 'large' ? 0.3 : 0.26));
 
     const simulation = new FractalTreeSimulation({
@@ -635,7 +636,7 @@ export class FluidTerrariumTrees {
       growthRate: size === 'large' ? 3 : 2,
       renderStyle: 'bezier',
       baseWidth,
-      minWidth: 0.65,
+      minWidth: 0.38,
       rootLength,
       rootX: 0.5,
       rootY: 0.99,
