@@ -332,6 +332,8 @@ export class SimplePlayfield {
     this.projectiles = [];
     this.damageNumbers = [];
     this.damageNumberIdCounter = 0;
+    // Track collapsing enemy fragments so defeat bursts can animate after removal.
+    this.enemyDeathParticles = [];
     // Queue knockback requests so the renderer knows when swirl rings should react to hits.
     this.enemySwirlImpacts = [];
     // Maintain per-tower particle burst queues so α/β/γ/ν visuals can update independently.
@@ -548,6 +550,15 @@ export class SimplePlayfield {
     this.damageNumberIdCounter = 0;
   }
 
+  // Clear lingering collapse motes so each level starts without leftover defeat debris.
+  resetEnemyDeathParticles() {
+    if (Array.isArray(this.enemyDeathParticles)) {
+      this.enemyDeathParticles.length = 0;
+    } else {
+      this.enemyDeathParticles = [];
+    }
+  }
+
   clearDamageNumbers() {
     this.resetDamageNumbers();
   }
@@ -714,6 +725,52 @@ export class SimplePlayfield {
     }
   }
 
+  // Scatter sine-wobbling fragments when an enemy collapses so the defeat moment feels energetic.
+  spawnEnemyDeathParticles(enemy) {
+    if (!enemy) {
+      return;
+    }
+    const position = this.getEnemyPosition(enemy);
+    if (!position) {
+      return;
+    }
+    const metrics = this.getEnemyVisualMetrics(enemy);
+    const particles = Array.isArray(this.enemyDeathParticles)
+      ? this.enemyDeathParticles
+      : (this.enemyDeathParticles = []);
+    const ringRadius = Number.isFinite(metrics?.ringRadius) ? metrics.ringRadius : 12;
+    const count = this.isLowGraphicsMode() ? 10 : 16;
+    const baseSpeed = Math.max(60, ringRadius * 5);
+    const maxEntries = 180;
+    for (let index = 0; index < count; index += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+      const perpendicular = { x: -direction.y, y: direction.x };
+      const wobbleAmplitude = ringRadius * (0.25 + Math.random() * 0.45);
+      const wobbleFrequency = 6 + Math.random() * 5;
+      const speed = baseSpeed * (0.55 + Math.random() * 0.9);
+      const lifetime = 0.6 + Math.random() * 0.55;
+      const size = Math.max(1.2, ringRadius * 0.08 + Math.random() * 0.6);
+      particles.push({
+        position: { ...position },
+        direction,
+        perpendicular,
+        speed,
+        wobbleAmplitude,
+        wobbleFrequency,
+        phase: Math.random() * Math.PI * 2,
+        elapsed: 0,
+        lifetime,
+        alpha: 1,
+        size,
+        color: samplePaletteGradient(Math.random()),
+      });
+    }
+    if (particles.length > maxEntries) {
+      particles.splice(0, particles.length - maxEntries);
+    }
+  }
+
   updateDamageNumbers(delta) {
     if (!Number.isFinite(delta) || delta <= 0) {
       return;
@@ -758,6 +815,43 @@ export class SimplePlayfield {
       }
       if (entry.alpha <= 0.01) {
         this.damageNumbers.splice(index, 1);
+      }
+    }
+  }
+
+  // Advance collapse fragments so they drift, wobble, fade out, and clean up automatically.
+  updateEnemyDeathParticles(delta) {
+    if (!Number.isFinite(delta) || delta <= 0) {
+      return;
+    }
+    const particles = Array.isArray(this.enemyDeathParticles)
+      ? this.enemyDeathParticles
+      : (this.enemyDeathParticles = []);
+    if (!particles.length) {
+      return;
+    }
+    for (let index = particles.length - 1; index >= 0; index -= 1) {
+      const particle = particles[index];
+      if (!particle || !particle.position || !particle.direction) {
+        particles.splice(index, 1);
+        continue;
+      }
+      particle.elapsed = (particle.elapsed || 0) + delta;
+      const lifetime = Number.isFinite(particle.lifetime) ? particle.lifetime : 0.75;
+      if (particle.elapsed >= lifetime) {
+        particles.splice(index, 1);
+        continue;
+      }
+      const speed = Number.isFinite(particle.speed) ? particle.speed : 80;
+      particle.position.x += (particle.direction.x || 0) * speed * delta;
+      particle.position.y += (particle.direction.y || 0) * speed * delta;
+      const fadeStart = lifetime * 0.35;
+      if (particle.elapsed <= fadeStart) {
+        particle.alpha = 1;
+      } else {
+        const fadeDuration = Math.max(lifetime - fadeStart, 0.001);
+        const fadeProgress = (particle.elapsed - fadeStart) / fadeDuration;
+        particle.alpha = Math.max(0, 1 - fadeProgress);
       }
     }
   }
@@ -2162,11 +2256,12 @@ export class SimplePlayfield {
       this.resetChiSystems();
       this.projectiles = [];
       this.resetDamageNumbers();
+      this.resetEnemyDeathParticles();
       this.resetWaveTallies();
       this.alphaBursts = [];
       this.betaBursts = [];
       this.gammaBursts = [];
-    this.nuBursts = [];
+      this.nuBursts = [];
       this.towers = [];
       this.energy = 0;
       this.lives = 0;
@@ -2267,11 +2362,12 @@ export class SimplePlayfield {
       this.resetChiSystems();
       this.projectiles = [];
       this.resetDamageNumbers();
+      this.resetEnemyDeathParticles();
       this.resetWaveTallies();
       this.alphaBursts = [];
       this.betaBursts = [];
       this.gammaBursts = [];
-    this.nuBursts = [];
+      this.nuBursts = [];
       this.towers = [];
       this.hoverPlacement = null;
       this.pointerPosition = null;
@@ -2349,6 +2445,9 @@ export class SimplePlayfield {
       this.enemies = [];
       this.resetChiSystems();
       this.projectiles = [];
+      this.resetDamageNumbers();
+      this.resetEnemyDeathParticles();
+      this.resetWaveTallies();
       this.towers = [];
       this.pathSegments = [];
       this.pathPoints = [];
@@ -2388,6 +2487,7 @@ export class SimplePlayfield {
     this.resetChiSystems();
     this.projectiles = [];
     this.resetDamageNumbers();
+    this.resetEnemyDeathParticles();
     this.resetWaveTallies();
     this.activeTowerMenu = null;
     this.towerMenuExitAnimation = null;
@@ -2477,6 +2577,7 @@ export class SimplePlayfield {
     this.resetChiSystems();
     this.projectiles = [];
     this.resetDamageNumbers();
+    this.resetEnemyDeathParticles();
     this.resetWaveTallies();
     this.alphaBursts = [];
     this.betaBursts = [];
@@ -2621,6 +2722,7 @@ export class SimplePlayfield {
     this.resetChiSystems();
     this.projectiles = [];
     this.resetDamageNumbers();
+    this.resetEnemyDeathParticles();
     this.resetWaveTallies();
     this.alphaBursts = [];
     this.betaBursts = [];
@@ -7156,6 +7258,8 @@ export class SimplePlayfield {
       this.updateConnectionParticles(speedDelta);
       this.updateTowerGlyphTransitions(speedDelta);
       this.updateDamageNumbers(speedDelta);
+      // Advance collapse shards so fallen enemies leave a brief, graceful trail.
+      this.updateEnemyDeathParticles(speedDelta);
       this.updateWaveTallies(speedDelta);
     } finally {
       finishAmbientSegment();
@@ -9115,6 +9219,7 @@ export class SimplePlayfield {
     this.resetChiSystems();
     this.projectiles = [];
     this.resetDamageNumbers();
+    this.resetEnemyDeathParticles();
     this.resetWaveTallies();
     this.alphaBursts = [];
     this.betaBursts = [];
@@ -9261,6 +9366,8 @@ export class SimplePlayfield {
 
   processEnemyDefeat(enemy) {
     const defeatPosition = this.getEnemyPosition(enemy);
+    // Emit a burst of collapse motes before removing the enemy from active lists.
+    this.spawnEnemyDeathParticles(enemy);
     this.tryConvertEnemyToChiThrall(enemy, { position: defeatPosition });
     this.captureEnemyHistory(enemy);
     this.clearEnemySlowEffects(enemy);
