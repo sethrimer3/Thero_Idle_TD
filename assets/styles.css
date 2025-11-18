@@ -1411,6 +1411,10 @@ body.graphics-mode-low .control-button {
   opacity: 0.65;
 }
 
+.tower-loadout-wheel__item[data-affordable='false'] .tower-loadout-wheel__cost {
+  color: rgba(255, 156, 156, 0.92);
+}
+
 .tower-loadout-wheel__item:focus-visible {
   outline: 2px solid rgba(139, 247, 255, 0.55);
   outline-offset: 2px;
@@ -1432,9 +1436,23 @@ body.graphics-mode-low .control-button {
   height: 36px;
   border-radius: 10px;
   padding: 6px;
+  position: relative;
+  overflow: hidden;
   background: radial-gradient(circle at 50% 30%, rgba(255, 228, 120, 0.22), rgba(12, 14, 20, 0.9));
   box-shadow: 0 10px 16px rgba(255, 228, 120, 0.16);
   object-fit: contain;
+}
+
+.tower-loadout-wheel__item[data-affordable='false'] .tower-loadout-wheel__icon::after {
+  content: '';
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 50%;
+  height: 3px;
+  background: rgba(240, 80, 80, 0.85);
+  border-radius: 999px;
+  transform: translateY(-50%);
 }
 
 .tower-loadout-wheel__cost {
