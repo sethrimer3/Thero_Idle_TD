@@ -259,7 +259,8 @@ export class FluidTerrariumTrees {
       }
 
       this.overlay.appendChild(canvas);
-      this.trees.push({ canvas, simulation });
+      // Track each tree along with its simulation so we can freeze completed renders later.
+      this.trees.push({ canvas, simulation, frozen: false });
     });
 
     if (this.trees.length) {
@@ -352,6 +353,37 @@ export class FluidTerrariumTrees {
   }
 
   /**
+   * Convert a fully grown fractal tree canvas into a static image to reduce render cost.
+   * @param {{canvas: HTMLCanvasElement|HTMLImageElement, simulation: FractalTreeSimulation|null, frozen: boolean}} tree
+   */
+  freezeTree(tree) {
+    if (!tree || tree.frozen || !(tree.canvas instanceof HTMLCanvasElement)) {
+      return;
+    }
+
+    const { canvas, simulation } = tree;
+
+    // Ensure the final frame is rendered before capturing the bitmap.
+    if (simulation) {
+      simulation.render();
+    }
+
+    const image = new Image();
+    image.className = canvas.className;
+    image.style.cssText = canvas.style.cssText;
+    image.width = canvas.width;
+    image.height = canvas.height;
+    image.setAttribute('aria-hidden', 'true');
+    image.setAttribute('role', 'presentation');
+    image.src = canvas.toDataURL('image/png');
+
+    canvas.replaceWith(image);
+    tree.canvas = image;
+    tree.simulation = null;
+    tree.frozen = true;
+  }
+
+  /**
    * Begin the animation loop so branches keep sprouting.
    */
   start() {
@@ -381,13 +413,29 @@ export class FluidTerrariumTrees {
       return;
     }
 
+    // Track whether any simulations still need to advance so we can stop once all are frozen.
+    let hasActiveSimulation = false;
+
     this.trees.forEach((tree) => {
       if (!tree?.simulation) {
         return;
       }
       tree.simulation.update();
       tree.simulation.render();
+
+      if (tree.simulation.isComplete) {
+        // Replace fully grown fractals with a static bitmap to avoid ongoing renders.
+        this.freezeTree(tree);
+        return;
+      }
+
+      hasActiveSimulation = true;
     });
+
+    if (!hasActiveSimulation) {
+      this.stop();
+      return;
+    }
 
     this.animationFrame = requestAnimationFrame(this.handleFrame);
   }
