@@ -389,6 +389,7 @@ function draw() {
   this.drawDeltaSoldiers();
   this.drawOmicronUnits();
   this.drawEnemies();
+  this.drawEnemyDeathParticles();
   this.drawDamageNumbers();
   this.drawWaveTallies();
   this.drawChiLightTrails();
@@ -2107,6 +2108,47 @@ function drawEnemies() {
   ctx.restore();
 }
 
+// Render sine-wobbling fragments that drift away from defeated enemies until they fade out.
+function drawEnemyDeathParticles() {
+  if (!this.ctx || !Array.isArray(this.enemyDeathParticles) || !this.enemyDeathParticles.length) {
+    return;
+  }
+
+  const ctx = this.ctx;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  this.enemyDeathParticles.forEach((particle) => {
+    if (!particle || !particle.position) {
+      return;
+    }
+    const alpha = clamp(Number.isFinite(particle.alpha) ? particle.alpha : 1, 0, 1);
+    if (alpha <= 0) {
+      return;
+    }
+    const wobbleFrequency = Number.isFinite(particle.wobbleFrequency) ? particle.wobbleFrequency : 0;
+    const wobbleAmplitude = Number.isFinite(particle.wobbleAmplitude) ? particle.wobbleAmplitude : 0;
+    const wobblePhase = (Number.isFinite(particle.phase) ? particle.phase : 0)
+      + (Number.isFinite(particle.elapsed) ? particle.elapsed : 0) * wobbleFrequency;
+    const wobbleOffset = Math.sin(wobblePhase) * wobbleAmplitude;
+    const perpendicular = particle.perpendicular || { x: 0, y: 0 };
+    const x = particle.position.x + (perpendicular.x || 0) * wobbleOffset;
+    const y = particle.position.y + (perpendicular.y || 0) * wobbleOffset;
+    const size = Math.max(1, Number.isFinite(particle.size) ? particle.size : 2);
+    const color = particle.color || samplePaletteGradient(Math.random());
+
+    ctx.beginPath();
+    ctx.fillStyle = colorToRgbaString(color, alpha * 0.9);
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = Math.max(0.4, size * 0.35);
+    ctx.strokeStyle = colorToRgbaString(color, alpha * 0.65);
+    ctx.stroke();
+  });
+
+  ctx.restore();
+}
+
 function drawDamageNumbers() {
   if (!this.ctx || !Array.isArray(this.damageNumbers) || !this.damageNumbers.length) {
     return;
@@ -2618,6 +2660,7 @@ export {
   drawDeltaSoldiers,
   drawOmicronUnits,
   drawEnemies,
+  drawEnemyDeathParticles,
   drawDamageNumbers,
   drawWaveTallies,
   drawProjectiles,
