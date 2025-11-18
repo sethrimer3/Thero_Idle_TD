@@ -582,7 +582,11 @@ export function createPowderDisplaySystem({
     const lamedTotal = lamedUnlocked ? seconds * lamedRate : 0;
 
     const tsadiUnlocked = Boolean(spireResourceState.tsadi?.unlocked);
-    const tsadiRate = 2.0;
+    const discoveredMoleculeCount = Array.isArray(spireResourceState.tsadi?.discoveredMolecules)
+      ? spireResourceState.tsadi.discoveredMolecules.length
+      : 0;
+    const tsadiIdleBonusPerSecond = discoveredMoleculeCount / 3600; // +1 particle/hour per molecule
+    const tsadiRate = 2.0 + tsadiIdleBonusPerSecond;
     const tsadiTotal = tsadiUnlocked ? seconds * tsadiRate : 0;
 
     // Binding agents accrue slowly over idle time to emphasize their value as a crafting reagent.

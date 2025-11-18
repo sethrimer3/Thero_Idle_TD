@@ -183,6 +183,12 @@ export function createDeveloperModeManager(options = {}) {
       if (typeof tsadiSimulation.spawnRate !== 'undefined') {
         tsadiSimulation.spawnRate = 0;
       }
+      if (typeof tsadiSimulation.setAvailableBindingAgents === 'function') {
+        tsadiSimulation.setAvailableBindingAgents(DEVELOPER_RESOURCE_GRANT);
+      }
+    }
+    if (spireResourceState?.tsadi) {
+      spireResourceState.tsadi.bindingAgents = DEVELOPER_RESOURCE_GRANT;
     }
   }
 

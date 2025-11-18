@@ -8602,9 +8602,20 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .tsadi-codex-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+}
+
+.tsadi-codex-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tsadi-codex-summary {
+  font-size: 13px;
+  color: #c9d3ef;
 }
 
 .tsadi-codex-button {
@@ -8630,6 +8641,19 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   gap: 8px;
 }
 
+.tsadi-codex-panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(10, 15, 24, 0.7);
+  padding: 10px;
+}
+
+.tsadi-codex-note {
+  margin: 0 0 8px;
+  color: #c9d3ef;
+  font-size: 13px;
+}
+
 .tsadi-codex-entry {
   border: 1px solid rgba(255, 255, 255, 0.15);
   padding: 8px;
@@ -8637,9 +8661,33 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   background: rgba(17, 21, 30, 0.8);
 }
 
-.tsadi-codex-entry__title {
+.tsadi-codex-entry__toggle {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #e3e8f7;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.tsadi-codex-entry__toggle:hover {
+  color: #ffffff;
+}
+
+.tsadi-codex-entry__formula {
   font-weight: 700;
-  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+
+.tsadi-codex-entry__name {
+  margin-left: auto;
+  color: #9ad8ff;
+  font-weight: 700;
 }
 
 .tsadi-codex-entry__tiers {
@@ -8648,8 +8696,24 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 .tsadi-codex-entry__bonus {
-  margin: 4px 0 0;
+  margin: 0;
   color: #e3e8f7;
+}
+
+.tsadi-codex-entry__detail {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tsadi-codex-canvas {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  background: #0f1622;
 }
 
 .tsadi-codex-empty {
