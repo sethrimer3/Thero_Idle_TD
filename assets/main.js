@@ -132,6 +132,8 @@ import { createPowderResizeObserver } from './powderResizeObserver.js';
 import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
 // Lightweight animation overlay that keeps the Bet terrarium lively.
 import { FluidTerrariumCreatures } from './fluidTerrariumCreatures.js';
+// Bet Spire happiness production tracker fed by Serendipity purchases.
+import { createBetHappinessSystem } from './betHappiness.js';
 import { createResourceHud } from './resourceHud.js';
 import { createTsadiUpgradeUi } from './tsadiUpgradeUi.js';
 import { createSpireTabVisibilityManager } from './spireTabVisibility.js';
@@ -800,6 +802,11 @@ import {
     // Track whether initial page load restoration has been completed (once per session)
     initialLoadRestored: false,
     fluidInitialLoadRestored: false,
+    // Persist Bet Spire happiness generation tied to Serendipity purchases.
+    betHappiness: {
+      bank: 0,
+      producers: { grasshopper: 4 },
+    },
   };
 
   // Track idle reserves for advanced spires so their banks persist outside of active simulations.
@@ -829,6 +836,10 @@ import {
     statusNote: null,
     returnButton: null,
     terrainSprite: null,
+    happinessTotal: null,
+    happinessRate: null,
+    happinessList: null,
+    happinessEmpty: null,
     wallGlyphColumns: [],
   };
 
@@ -839,6 +850,7 @@ import {
     powderState,
   });
 
+  let betHappinessSystem = null;
   // Animate Delta grasshopper slimes once the fluid viewport is bound.
   let fluidTerrariumCreatures = null;
 
@@ -847,11 +859,18 @@ import {
     if (fluidTerrariumCreatures || !fluidElements?.viewport) {
       return;
     }
+    const grasshopperCount = Math.max(
+      1,
+      betHappinessSystem ? betHappinessSystem.getProducerCount('grasshopper') : 4,
+    );
     fluidTerrariumCreatures = new FluidTerrariumCreatures({
       container: fluidElements.viewport,
       terrainElement: fluidElements.terrainSprite,
-      creatureCount: 4,
+      creatureCount: grasshopperCount,
     });
+    if (betHappinessSystem) {
+      betHappinessSystem.setProducerCount('grasshopper', grasshopperCount);
+    }
     fluidTerrariumCreatures.start();
   }
 
@@ -957,6 +976,12 @@ import {
   let powderElementsRef = null;
   const getPowderElements = () => powderElementsRef;
 
+  betHappinessSystem = createBetHappinessSystem({
+    state: powderState.betHappiness,
+    formatGameNumber,
+    formatDecimal,
+  });
+
   const {
     bindFluidControls,
     applyMindGatePaletteToDom,
@@ -1059,6 +1084,7 @@ import {
     getCompletedInteractiveLevelCount,
     getIteronBank,
     getIterationRate,
+    betHappinessSystem,
   });
 
   powderElementsRef = powderElements;
@@ -3498,6 +3524,10 @@ import {
       }
       fluidElements.statusNote.textContent = message;
     }
+
+    if (betHappinessSystem) {
+      betHappinessSystem.updateDisplay(fluidElements);
+    }
   }
 
   function handlePowderIdleBankChange(bankValue, source) {
@@ -4274,6 +4304,10 @@ import {
 
     bindStatusElements();
     bindPowderControls();
+    if (betHappinessSystem) {
+      betHappinessSystem.bindDisplayElements(fluidElements);
+      betHappinessSystem.updateDisplay(fluidElements);
+    }
     ensureFluidTerrariumCreatures();
     ensurePowderBasinResizeObserver();
     bindSpireClickIncome();

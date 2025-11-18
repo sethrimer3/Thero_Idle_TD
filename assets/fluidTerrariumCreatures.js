@@ -141,7 +141,7 @@ export class FluidTerrariumCreatures {
       return;
     }
     for (let index = 0; index < this.creatureCount; index += 1) {
-      const size = randomBetween(2, 3);
+      const size = randomBetween(1.6, 2.4);
       const element = document.createElement('div');
       element.className = 'fluid-terrarium-creature';
       element.textContent = 'Δ';
@@ -263,7 +263,9 @@ export class FluidTerrariumCreatures {
     creature.state = 'airborne';
     creature.targetScaleX = 0.92;
     creature.targetScaleY = 1.1;
-    const jumpSpeed = randomBetween(520, 880);
+    // Constrain hops to roughly ten times the slime's own height for a grounded, smaller scale arc.
+    const jumpHeight = Math.max(1, creature.size * 10);
+    const jumpSpeed = Math.sqrt(2 * this.gravity * jumpHeight);
     const horizontalSpeed = randomBetween(120, 240);
     const direction = Math.random() < 0.5 ? -1 : 1;
     creature.vy = -jumpSpeed;

@@ -19,6 +19,10 @@ const offlineOverlayElements = {
   betMinutes: null,
   betMultiplier: null,
   betTotal: null,
+  happinessRow: null,
+  happinessMinutes: null,
+  happinessMultiplier: null,
+  happinessTotal: null,
   lamedRow: null,
   lamedMinutes: null,
   lamedMultiplier: null,
@@ -173,6 +177,10 @@ async function showOfflineOverlay(summary = {}) {
     betMinutes,
     betMultiplier,
     betTotal,
+    happinessRow,
+    happinessMinutes,
+    happinessMultiplier,
+    happinessTotal,
     lamedRow,
     lamedMinutes,
     lamedMultiplier,
@@ -194,6 +202,7 @@ async function showOfflineOverlay(summary = {}) {
   const minutesValue = Math.max(0, Number(summary.minutes) || 0);
   const alephSummary = summary.aleph || {};
   const betSummary = summary.bet || {};
+  const happinessSummary = summary.happiness || {};
   const lamedSummary = summary.lamed || {};
   const tsadiSummary = summary.tsadi || {};
   const shinSummary = summary.shin || {};
@@ -204,6 +213,9 @@ async function showOfflineOverlay(summary = {}) {
   const betUnlocked = Boolean(betSummary.unlocked);
   const betMultiplierValue = Math.max(0, Number(betSummary.multiplier) || 0);
   const betTotalValue = Math.max(0, Number(betSummary.total) || 0);
+  const happinessUnlocked = Boolean(happinessSummary.unlocked);
+  const happinessMultiplierValue = Math.max(0, Number(happinessSummary.multiplier) || 0);
+  const happinessTotalValue = Math.max(0, Number(happinessSummary.total) || 0);
   const lamedUnlocked = Boolean(lamedSummary.unlocked);
   const lamedMultiplierValue = Math.max(0, Number(lamedSummary.multiplier) || 0);
   const lamedTotalValue = Math.max(0, Number(lamedSummary.total) || 0);
@@ -225,7 +237,16 @@ async function showOfflineOverlay(summary = {}) {
       betRow.setAttribute('aria-hidden', 'true');
     }
   }
-  
+
+  if (happinessRow) {
+    happinessRow.classList.toggle('offline-overlay__equation-row--inactive', !happinessUnlocked);
+    if (happinessUnlocked) {
+      happinessRow.removeAttribute('aria-hidden');
+    } else {
+      happinessRow.setAttribute('aria-hidden', 'true');
+    }
+  }
+
   if (lamedRow) {
     lamedRow.classList.toggle('offline-overlay__equation-row--inactive', !lamedUnlocked);
     if (lamedUnlocked) {
@@ -269,6 +290,9 @@ async function showOfflineOverlay(summary = {}) {
     betMinutes,
     betMultiplier,
     betTotal,
+    happinessMinutes,
+    happinessMultiplier,
+    happinessTotal,
     lamedMinutes,
     lamedMultiplier,
     lamedTotal,
@@ -290,6 +314,7 @@ async function showOfflineOverlay(summary = {}) {
   await Promise.all([
     animateOfflineNumber(alephMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
     animateOfflineNumber(betMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
+    animateOfflineNumber(happinessMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
     animateOfflineNumber(lamedMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
     animateOfflineNumber(tsadiMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
     animateOfflineNumber(shinMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
@@ -300,6 +325,9 @@ async function showOfflineOverlay(summary = {}) {
     animateOfflineNumber(alephMultiplier, alephMultiplierValue, { format: dependencies.formatWholeNumber }),
     animateOfflineNumber(betMultiplier, betUnlocked ? betMultiplierValue : 0, {
       format: dependencies.formatWholeNumber,
+    }),
+    animateOfflineNumber(happinessMultiplier, happinessUnlocked ? happinessMultiplierValue : 0, {
+      format: dependencies.formatDecimal,
     }),
     animateOfflineNumber(lamedMultiplier, lamedUnlocked ? lamedMultiplierValue : 0, {
       format: dependencies.formatWholeNumber,
@@ -317,6 +345,7 @@ async function showOfflineOverlay(summary = {}) {
 
   const alephSuffix = alephTotalValue === 1 ? ' Mote' : ' Motes';
   const betSuffix = ' Serendipity';
+  const happinessSuffix = ' hp';
   const lamedSuffix = lamedTotalValue === 1 ? ' Spark' : ' Sparks';
   const tsadiSuffix = tsadiTotalValue === 1 ? ' Particle' : ' Particles';
   const shinSuffix = shinTotalValue === 1 ? ' Iteron' : ' Iterons';
@@ -330,6 +359,10 @@ async function showOfflineOverlay(summary = {}) {
     animateOfflineNumber(betTotal, betUnlocked ? betTotalValue : 0, {
       format: dependencies.formatGameNumber,
       suffix: betSuffix,
+    }),
+    animateOfflineNumber(happinessTotal, happinessUnlocked ? happinessTotalValue : 0, {
+      format: dependencies.formatDecimal,
+      suffix: happinessSuffix,
     }),
     animateOfflineNumber(lamedTotal, lamedUnlocked ? lamedTotalValue : 0, {
       format: dependencies.formatGameNumber,
@@ -401,6 +434,10 @@ export function bindOfflineOverlayElements() {
   offlineOverlayElements.betMinutes = document.getElementById('offline-bet-minutes');
   offlineOverlayElements.betMultiplier = document.getElementById('offline-bet-multiplier');
   offlineOverlayElements.betTotal = document.getElementById('offline-bet-total');
+  offlineOverlayElements.happinessRow = document.getElementById('offline-happiness-row');
+  offlineOverlayElements.happinessMinutes = document.getElementById('offline-happiness-minutes');
+  offlineOverlayElements.happinessMultiplier = document.getElementById('offline-happiness-multiplier');
+  offlineOverlayElements.happinessTotal = document.getElementById('offline-happiness-total');
   offlineOverlayElements.lamedRow = document.getElementById('offline-lamed-row');
   offlineOverlayElements.lamedMinutes = document.getElementById('offline-lamed-minutes');
   offlineOverlayElements.lamedMultiplier = document.getElementById('offline-lamed-multiplier');
@@ -518,6 +555,9 @@ export function recordPowderEvent(type, context = {}) {
       const betUnlocked = Boolean(idleSummary?.bet?.unlocked);
       const betMultiplier = idleSummary?.bet?.multiplier;
       const betTotal = idleSummary?.bet?.total;
+      const happinessUnlocked = Boolean(idleSummary?.happiness?.unlocked);
+      const happinessMultiplier = idleSummary?.happiness?.multiplier;
+      const happinessTotal = idleSummary?.happiness?.total;
 
       const safeAlephMultiplier = Number.isFinite(alephMultiplier) ? Math.max(0, alephMultiplier) : 0;
       const safeAlephTotal = Number.isFinite(alephTotal) ? Math.max(0, alephTotal) : 0;
@@ -533,12 +573,26 @@ export function recordPowderEvent(type, context = {}) {
         betPieces.push(`בּ × ${betRateLabel} = +${betGainLabel} Serendipity`);
       }
 
+      const happinessPieces = [];
+      if (happinessUnlocked) {
+        const safeHappinessMultiplier = Number.isFinite(happinessMultiplier)
+          ? Math.max(0, happinessMultiplier)
+          : 0;
+        const safeHappinessTotal = Number.isFinite(happinessTotal) ? Math.max(0, happinessTotal) : 0;
+        const happinessRateLabel = dependencies.formatDecimal(safeHappinessMultiplier * 60, 2);
+        const happinessGainLabel = dependencies.formatDecimal(safeHappinessTotal, 2);
+        happinessPieces.push(`☺ × ${happinessRateLabel}/hr = +${happinessGainLabel} hp`);
+      }
+
       const powderLabel = dependencies.formatGameNumber(Math.max(0, powder));
       const fragments = [
         `ℵ × ${alephRateLabel} = +${alephGainLabel} Motes`,
       ];
       if (betPieces.length) {
         fragments.push(...betPieces);
+      }
+      if (happinessPieces.length) {
+        fragments.push(...happinessPieces);
       }
       fragments.push(`${powderLabel} Powder recaptured`);
 
@@ -642,6 +696,7 @@ export function checkOfflineRewards() {
       minutes: minutesAway,
       aleph: { multiplier: 0, total: 0, unlocked: true },
       bet: { multiplier: 0, total: 0, unlocked: false },
+      happiness: { multiplier: 0, total: 0, unlocked: false },
       lamed: { multiplier: 0, total: 0, unlocked: false },
       tsadi: { multiplier: 0, total: 0, unlocked: false },
       shin: { multiplier: 0, total: 0, unlocked: false },
@@ -658,6 +713,7 @@ export function checkOfflineRewards() {
     minutes: minutesAway,
     aleph: idleSummary.aleph,
     bet: idleSummary.bet,
+    happiness: idleSummary.happiness,
     lamed: idleSummary.lamed,
     tsadi: idleSummary.tsadi,
     shin: idleSummary.shin,
