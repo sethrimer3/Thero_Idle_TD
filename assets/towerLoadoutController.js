@@ -10,7 +10,6 @@ export function createTowerLoadoutController({
   getLoadoutLimit,
   getTowerDefinitions,
   getTowerDefinition,
-  getNextTowerId,
   isTowerUnlocked,
   isTowerPlaceable,
   getTheroSymbol,
@@ -19,7 +18,7 @@ export function createTowerLoadoutController({
   formatCombatNumber,
   syncLoadoutToPlayfield,
 } = {}) {
-  const LOADOUT_WHEEL_HOLD_MS = 1000; // Require an intentional hold before opening the wheel overlay.
+  const LOADOUT_WHEEL_HOLD_MS = 500; // Require an intentional hold before opening the wheel overlay.
   const LOADOUT_SCROLL_STEP_PX = 28; // Drag distance required to advance the wheel to the next item.
   const LOADOUT_DRAG_CANCEL_DISTANCE = 6; // Movement threshold that cancels the hold timer so drags can begin immediately.
   // Store the last rendered tower order signature so the DOM only rebuilds when selection changes.
@@ -33,11 +32,16 @@ export function createTowerLoadoutController({
     list: null,
     slotIndex: -1,
     activeIndex: 0,
+    focusIndex: 0,
+    targetIndex: 0,
+    itemHeight: 0,
+    animationFrame: null,
     towers: [],
     outsideHandler: null,
     pointerId: null,
     lastY: 0,
     dragAccumulator: 0,
+    anchorElement: null,
   };
 
   const safeGetLoadoutState = () => (typeof getLoadoutState === 'function' ? getLoadoutState() : null);
@@ -46,7 +50,6 @@ export function createTowerLoadoutController({
   const safeGetLoadoutLimit = () => (typeof getLoadoutLimit === 'function' ? getLoadoutLimit() : 0);
   const safeGetTowerDefinitions = () => (typeof getTowerDefinitions === 'function' ? getTowerDefinitions() : []);
   const safeGetTowerDefinition = (towerId) => (typeof getTowerDefinition === 'function' ? getTowerDefinition(towerId) : null);
-  const safeGetNextTowerId = (towerId) => (typeof getNextTowerId === 'function' ? getNextTowerId(towerId) : null);
   const safeIsTowerUnlocked = (towerId) => (typeof isTowerUnlocked === 'function' ? isTowerUnlocked(towerId) : false);
   const safeIsTowerPlaceable = (towerId) => (typeof isTowerPlaceable === 'function' ? isTowerPlaceable(towerId) : false);
   const safeGetTheroSymbol = () => (typeof getTheroSymbol === 'function' ? getTheroSymbol() : 'þ');
@@ -76,14 +79,6 @@ export function createTowerLoadoutController({
     const anchorCostValue = typeof playfield?.getCurrentTowerCost === 'function'
       ? playfield.getCurrentTowerCost(towerId)
       : baseCost;
-    const nextTowerId = safeGetNextTowerId(towerId);
-    const nextDefinition = nextTowerId ? safeGetTowerDefinition(nextTowerId) : null;
-    const nextBaseCost = Number.isFinite(nextDefinition?.baseCost) ? nextDefinition.baseCost : null;
-    const mergeCostValue = nextBaseCost === null
-      ? null
-      : typeof playfield?.getCurrentTowerCost === 'function'
-        ? playfield.getCurrentTowerCost(nextTowerId)
-        : nextBaseCost;
     return {
       playfield,
       isInteractiveLevelActive,
@@ -91,8 +86,6 @@ export function createTowerLoadoutController({
       definition,
       anchorCostValue,
       canAffordAnchor: isInteractiveLevelActive && energy >= anchorCostValue,
-      mergeCostValue,
-      canAffordUpgrade: Number.isFinite(mergeCostValue) && isInteractiveLevelActive && energy >= mergeCostValue,
     };
   }
 
@@ -124,7 +117,7 @@ export function createTowerLoadoutController({
       ? loadoutState.selected.some((towerId) => towerId)
       : false;
     const slotLimit = Math.max(1, safeGetLoadoutLimit());
-    const introMessage = `Hold a loadout slot for one second to browse towers. Prepare up to ${slotLimit} glyphs for this defense.`;
+    const introMessage = `Hold a loadout slot for half a second to browse towers. Prepare up to ${slotLimit} glyphs for this defense.`;
     const equippedMessage =
       'Drag glyph chips onto the plane to lattice them; drop a chip atop a matching tower to merge. Hold a slot to swap towers mid-defense.';
     note.textContent = hasEquippedTower ? equippedMessage : introMessage;
@@ -177,40 +170,19 @@ export function createTowerLoadoutController({
         item.dataset.disabled = 'false';
         item.disabled = false;
         item.setAttribute('aria-label', 'Empty loadout slot');
-        const emptyLabel = item.querySelector('.tower-loadout-empty-label');
-        if (emptyLabel) {
-          emptyLabel.textContent = 'Hold to choose';
-        }
         return;
       }
       const costState = resolveTowerCostState(towerId);
       const anchorCostLabel = formatCostLabel(costState.anchorCostValue);
       const costEl = item.querySelector('.tower-loadout-cost');
       if (costEl) {
-        costEl.textContent = `Anchor: ${anchorCostLabel} ${safeGetTheroSymbol()}`;
+        costEl.textContent = `${anchorCostLabel} ${safeGetTheroSymbol()}`;
         costEl.dataset.affordable = costState.canAffordAnchor ? 'true' : 'false';
-      }
-      const upgradeCostEl = item.querySelector('.tower-loadout-upgrade-cost');
-      let upgradeAriaLabel = 'Upgrade unavailable';
-      if (upgradeCostEl) {
-        if (Number.isFinite(costState.mergeCostValue)) {
-          const mergeCostLabel = formatCostLabel(costState.mergeCostValue);
-          upgradeCostEl.textContent = `Upgrade: ${mergeCostLabel} ${safeGetTheroSymbol()}`;
-          upgradeCostEl.dataset.available = 'true';
-          upgradeCostEl.dataset.affordable = costState.canAffordUpgrade ? 'true' : 'false';
-          upgradeAriaLabel = `Upgrade ${mergeCostLabel} ${safeGetTheroSymbol()}`;
-        } else {
-          upgradeCostEl.textContent = 'Upgrade: —';
-          upgradeCostEl.dataset.available = 'false';
-          upgradeCostEl.dataset.affordable = 'false';
-          upgradeAriaLabel = 'Upgrade unavailable';
-        }
       }
       const definition = costState.definition;
       const labelParts = [
         definition?.name || 'Tower',
-        `Anchor ${anchorCostLabel} ${safeGetTheroSymbol()}`,
-        upgradeAriaLabel,
+        `${anchorCostLabel} ${safeGetTheroSymbol()}`,
       ];
       item.setAttribute('aria-label', labelParts.join(' — '));
       item.dataset.valid = costState.canAffordAnchor ? 'true' : 'false';
@@ -272,27 +244,17 @@ export function createTowerLoadoutController({
 
         const costEl = document.createElement('span');
         costEl.className = 'tower-loadout-cost';
-        costEl.textContent = 'Anchor: —';
+        costEl.textContent = '—';
         costEl.dataset.affordable = 'false';
 
-        const upgradeCostEl = document.createElement('span');
-        upgradeCostEl.className = 'tower-loadout-upgrade-cost';
-        upgradeCostEl.dataset.available = 'false';
-        upgradeCostEl.dataset.affordable = 'false';
-        upgradeCostEl.textContent = 'Upgrade: —';
-
-        item.append(artwork, costEl, upgradeCostEl);
+        item.append(artwork, costEl);
       } else {
         item.classList.add('tower-loadout-item--empty');
         const emptyArt = document.createElement('span');
         emptyArt.className = 'tower-loadout-art tower-loadout-art--placeholder';
         emptyArt.textContent = '＋';
 
-        const emptyLabel = document.createElement('span');
-        emptyLabel.className = 'tower-loadout-empty-label';
-        emptyLabel.textContent = 'Hold to choose';
-
-        item.append(emptyArt, emptyLabel);
+        item.append(emptyArt);
       }
 
       item.addEventListener('pointerdown', (event) => handleLoadoutPointerDown(event, towerId, slotIndex, item));
@@ -326,13 +288,26 @@ export function createTowerLoadoutController({
         // Ignore pointer capture errors so cleanup always completes.
       }
     }
+    document.removeEventListener('pointermove', handleWheelDragMove);
+    document.removeEventListener('pointerup', endWheelDrag);
+    document.removeEventListener('pointercancel', endWheelDrag);
     if (wheelState.outsideHandler) {
       document.removeEventListener('pointerdown', wheelState.outsideHandler);
+    }
+    if (wheelState.animationFrame) {
+      cancelAnimationFrame(wheelState.animationFrame);
+    }
+    if (wheelState.anchorElement) {
+      wheelState.anchorElement.classList.remove('tower-loadout-item--active-wheel');
     }
     wheelState.outsideHandler = null;
     wheelState.pointerId = null;
     wheelState.dragAccumulator = 0;
     wheelState.lastY = 0;
+    wheelState.focusIndex = 0;
+    wheelState.targetIndex = 0;
+    wheelState.itemHeight = 0;
+    wheelState.animationFrame = null;
     if (wheelState.container?.parentNode) {
       wheelState.container.remove();
     }
@@ -340,25 +315,130 @@ export function createTowerLoadoutController({
     wheelState.list = null;
     wheelState.towers = [];
     wheelState.slotIndex = -1;
+    wheelState.anchorElement = null;
+  }
+
+  /**
+   * Position the loadout wheel relative to the anchor slot while keeping it in view.
+   */
+  function positionLoadoutWheel(anchorElement, loadoutContainer = null) {
+    if (!wheelState.container || !anchorElement?.getBoundingClientRect) {
+      return;
+    }
+    const host = loadoutContainer || safeGetLoadoutElements()?.container;
+    const hostRect = host?.getBoundingClientRect?.();
+    const anchorRect = anchorElement.getBoundingClientRect();
+    if (!hostRect) {
+      return;
+    }
+    const containerRect = {
+      width: wheelState.container.offsetWidth || 0,
+      height: wheelState.container.offsetHeight || 0,
+    };
+    const anchorCenterX = anchorRect.left - hostRect.left + anchorRect.width / 2;
+    const anchorCenterY = anchorRect.top - hostRect.top + anchorRect.height / 2;
+    const maxLeft = Math.max(0, hostRect.width - containerRect.width);
+    const maxTop = Math.max(0, hostRect.height - containerRect.height);
+    const left = Math.min(maxLeft, Math.max(0, anchorCenterX - containerRect.width / 2));
+    const top = Math.min(maxTop, Math.max(0, anchorCenterY - containerRect.height / 2));
+    wheelState.container.style.left = `${left}px`;
+    wheelState.container.style.top = `${top}px`;
+  }
+
+  /**
+   * Update the wheel list items to mirror the focused index and affordability state.
+   */
+  function updateLoadoutWheelDistances() {
+    const { list, towers } = wheelState;
+    if (!list || !Array.isArray(towers) || !towers.length) {
+      return;
+    }
+    const focusIndex = Number.isFinite(wheelState.focusIndex) ? wheelState.focusIndex : wheelState.activeIndex;
+    Array.from(list.children).forEach((child, index) => {
+      const distance = Math.min(2, Math.round(Math.abs(index - focusIndex)));
+      child.dataset.distance = String(distance);
+    });
+  }
+
+  /**
+   * Smoothly translate the wheel list so the focused option is centered.
+   */
+  function updateLoadoutWheelTransform({ immediate = false } = {}) {
+    const { list, towers } = wheelState;
+    if (!list || !Array.isArray(towers) || !towers.length || !Number.isFinite(wheelState.focusIndex)) {
+      return;
+    }
+    const itemHeight = Math.max(1, wheelState.itemHeight || LOADOUT_SCROLL_STEP_PX);
+    const listHeight = list.getBoundingClientRect()?.height || itemHeight;
+    const offset = -wheelState.focusIndex * itemHeight + listHeight / 2 - itemHeight / 2;
+    list.style.willChange = 'transform';
+    list.style.transition = immediate ? 'none' : 'transform 140ms ease-out';
+    list.style.transform = `translateY(${offset}px)`;
+    const roundedIndex = Math.min(
+      Math.max(Math.round(wheelState.focusIndex), 0),
+      Math.max(0, towers.length - 1),
+    );
+    wheelState.activeIndex = roundedIndex;
+    updateLoadoutWheelDistances();
+    if (wheelState.anchorElement) {
+      positionLoadoutWheel(wheelState.anchorElement);
+    }
+    if (immediate) {
+      requestAnimationFrame(() => {
+        if (wheelState.list) {
+          wheelState.list.style.transition = 'transform 140ms ease-out';
+        }
+      });
+    }
+  }
+
+  /**
+   * Ease the focus index toward a target for smoother scrolling.
+   */
+  function setLoadoutWheelTarget(targetIndex) {
+    const { towers } = wheelState;
+    if (!Array.isArray(towers) || !towers.length) {
+      return;
+    }
+    const clamped = Math.min(Math.max(targetIndex, 0), Math.max(0, towers.length - 1));
+    wheelState.targetIndex = clamped;
+    if (!Number.isFinite(wheelState.focusIndex)) {
+      wheelState.focusIndex = clamped;
+    }
+    const stepAnimation = () => {
+      const target = Number.isFinite(wheelState.targetIndex) ? wheelState.targetIndex : wheelState.focusIndex;
+      const current = Number.isFinite(wheelState.focusIndex) ? wheelState.focusIndex : target;
+      const delta = target - current;
+      if (Math.abs(delta) < 0.002) {
+        wheelState.focusIndex = target;
+        updateLoadoutWheelTransform();
+        wheelState.animationFrame = null;
+        return;
+      }
+      wheelState.focusIndex = current + delta * 0.2;
+      updateLoadoutWheelTransform();
+      wheelState.animationFrame = requestAnimationFrame(stepAnimation);
+    };
+    if (!wheelState.animationFrame) {
+      wheelState.animationFrame = requestAnimationFrame(stepAnimation);
+    }
   }
 
   /**
    * Update the wheel list items to mirror the active index and affordability state.
    */
-  function renderLoadoutWheel() {
+  function renderLoadoutWheel({ immediate = false } = {}) {
     const { list, towers } = wheelState;
     if (!list || !Array.isArray(towers) || !towers.length) {
       return;
     }
     const clampedIndex = Math.min(Math.max(wheelState.activeIndex, 0), towers.length - 1);
     wheelState.activeIndex = clampedIndex;
+    wheelState.focusIndex = Number.isFinite(wheelState.focusIndex) ? wheelState.focusIndex : clampedIndex;
+    wheelState.targetIndex = Number.isFinite(wheelState.targetIndex) ? wheelState.targetIndex : clampedIndex;
     list.innerHTML = '';
 
-    const startIndex = Math.max(0, clampedIndex - 2);
-    const endIndex = Math.min(towers.length, clampedIndex + 3);
-
-    for (let index = startIndex; index < endIndex; index += 1) {
-      const definition = towers[index];
+    towers.forEach((definition, index) => {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'tower-loadout-wheel__item';
@@ -389,7 +469,7 @@ export function createTowerLoadoutController({
       item.dataset.affordable = costState.canAffordAnchor ? 'true' : 'false';
       item.setAttribute(
         'aria-label',
-        `${definition.name || definition.id} — Tier ${definition.tier || '—'} — Anchor ${safeFormatCombatNumber(
+        `${definition.name || definition.id} — Tier ${definition.tier || '—'} — ${safeFormatCombatNumber(
           costState.anchorCostValue,
         )} ${safeGetTheroSymbol()}`,
       );
@@ -410,21 +490,11 @@ export function createTowerLoadoutController({
       });
 
       list.append(item);
-    }
-  }
+    });
 
-  /**
-   * Shift the active wheel index in response to scroll or drag input.
-   */
-  function shiftWheelSelection(delta) {
-    const nextIndex = Math.min(
-      Math.max(wheelState.activeIndex + delta, 0),
-      Math.max(0, wheelState.towers.length - 1),
-    );
-    if (nextIndex !== wheelState.activeIndex) {
-      wheelState.activeIndex = nextIndex;
-      renderLoadoutWheel();
-    }
+    const firstItem = list.querySelector('.tower-loadout-wheel__item');
+    wheelState.itemHeight = firstItem?.getBoundingClientRect?.().height || LOADOUT_SCROLL_STEP_PX;
+    updateLoadoutWheelTransform({ immediate });
   }
 
   /**
@@ -454,9 +524,14 @@ export function createTowerLoadoutController({
     const deltaY = event.clientY - wheelState.lastY;
     wheelState.lastY = event.clientY;
     wheelState.dragAccumulator += deltaY;
-    while (Math.abs(wheelState.dragAccumulator) >= LOADOUT_SCROLL_STEP_PX) {
-      shiftWheelSelection(wheelState.dragAccumulator > 0 ? -1 : 1);
-      wheelState.dragAccumulator += wheelState.dragAccumulator > 0 ? -LOADOUT_SCROLL_STEP_PX : LOADOUT_SCROLL_STEP_PX;
+    const itemHeight = Math.max(1, wheelState.itemHeight || LOADOUT_SCROLL_STEP_PX);
+    const deltaIndex = wheelState.dragAccumulator / itemHeight;
+    if (Math.abs(deltaIndex) >= 0.01) {
+      const currentTarget = Number.isFinite(wheelState.targetIndex)
+        ? wheelState.targetIndex
+        : wheelState.activeIndex;
+      setLoadoutWheelTarget(currentTarget - deltaIndex);
+      wheelState.dragAccumulator = 0;
     }
   }
 
@@ -474,6 +549,9 @@ export function createTowerLoadoutController({
       wheelState.list?.releasePointerCapture?.(event.pointerId);
     } catch (error) {
       // Ignore release failures while still clearing drag state.
+    }
+    if (wheelState.towers.length) {
+      setLoadoutWheelTarget(Math.round(wheelState.focusIndex));
     }
     wheelState.pointerId = null;
     wheelState.dragAccumulator = 0;
@@ -506,24 +584,32 @@ export function createTowerLoadoutController({
     wheelState.slotIndex = slotIndex;
     wheelState.towers = towers;
     wheelState.activeIndex = activeIndex >= 0 ? activeIndex : 0;
+    wheelState.focusIndex = wheelState.activeIndex;
+    wheelState.targetIndex = wheelState.activeIndex;
+    wheelState.anchorElement = anchorElement || null;
 
-    renderLoadoutWheel();
-
-    list.addEventListener('pointerdown', beginWheelDrag);
-    list.addEventListener('wheel', (event) => {
-      event.preventDefault();
-      shiftWheelSelection(event.deltaY > 0 ? 1 : -1);
-    });
+    if (wheelState.anchorElement) {
+      wheelState.anchorElement.classList.add('tower-loadout-item--active-wheel');
+    }
 
     const loadoutContainer = safeGetLoadoutElements()?.container;
     const host = loadoutContainer || document.body;
     host.append(container);
-    if (anchorElement?.getBoundingClientRect && loadoutContainer?.getBoundingClientRect) {
-      const anchorRect = anchorElement.getBoundingClientRect();
-      const hostRect = loadoutContainer.getBoundingClientRect();
-      container.style.left = `${anchorRect.left - hostRect.left}px`;
-      container.style.top = `${Math.max(0, anchorRect.top - hostRect.top - container.offsetHeight - 8)}px`;
-    }
+
+    renderLoadoutWheel({ immediate: true });
+
+    list.addEventListener('pointerdown', beginWheelDrag);
+    list.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      const itemHeight = Math.max(1, wheelState.itemHeight || LOADOUT_SCROLL_STEP_PX);
+      const deltaIndex = (event.deltaY || 0) / itemHeight;
+      const currentTarget = Number.isFinite(wheelState.targetIndex)
+        ? wheelState.targetIndex
+        : wheelState.activeIndex;
+      setLoadoutWheelTarget(currentTarget + deltaIndex);
+    });
+
+    positionLoadoutWheel(anchorElement, loadoutContainer);
 
     wheelState.outsideHandler = (event) => {
       if (!container.contains(event.target) && !anchorElement?.contains(event.target)) {
