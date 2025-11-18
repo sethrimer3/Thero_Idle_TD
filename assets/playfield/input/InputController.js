@@ -607,6 +607,8 @@ function handleCanvasClick(event) {
   }
 
   const position = this.getCanvasPosition(normalized);
+  // Cache the tap location so mobile focus interactions can surface the same tooltip details as desktop hover.
+  this.pointerPosition = normalized;
 
   if (
     typeof this.dependencies.handleDeveloperMapPlacement === 'function' &&
@@ -626,6 +628,7 @@ function handleCanvasClick(event) {
     if (typeof this.resetTowerTapState === 'function') {
       this.resetTowerTapState();
     }
+    this.setEnemyHover(enemyTarget.enemy);
     if (menuTower && this.handleTowerMenuEnemySelection(menuTower, enemyTarget.enemy)) {
       return;
     }
