@@ -473,10 +473,15 @@ body.graphics-mode-low .control-button {
 
 .level-story-overlay__content {
   max-width: min(48rem, 90vw);
+  max-height: min(88vh, 96vw);
   color: #f6f2eb;
   text-align: center;
   font-family: 'Cormorant Garamond', 'Space Mono', serif;
   letter-spacing: 0.02em;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-height: 0;
 }
 
 .level-story-overlay__level {
@@ -491,6 +496,13 @@ body.graphics-mode-low .control-button {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  flex: 1 1 auto;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  margin: 0 auto;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
 }
 
 .level-story-section {
@@ -518,11 +530,18 @@ body.graphics-mode-low .control-button {
 }
 
 .level-story-overlay__prompt {
-  margin-top: 2.25rem;
+  margin-top: 1.5rem;
   font-size: 0.95rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  font-style: italic;
+  letter-spacing: 0.06em;
+  text-transform: none;
   color: rgba(255, 255, 255, 0.65);
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
+.level-story-overlay__prompt--visible {
+  opacity: 1;
 }
 
 .level-story-overlay[data-story-complete='true'] .level-story-overlay__prompt {
