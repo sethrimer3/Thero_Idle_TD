@@ -193,7 +193,7 @@ export function configurePlayfieldSystem(options = {}) {
   playfieldDependencies = { ...defaultDependencies, ...options };
 }
 
-const TOWER_HOLD_ACTIVATION_MS = 1000;
+const TOWER_HOLD_ACTIVATION_MS = 500;
 const TOWER_HOLD_CANCEL_DISTANCE_PX = 18;
 const TOWER_SELECTION_SCROLL_STEP_PX = 28;
 const TOWER_PRESS_GLOW_FADE_MS = 200;
@@ -446,6 +446,10 @@ export class SimplePlayfield {
     this.towerSelectionWheel = {
       container: null,
       list: null,
+      animationFrame: null,
+      focusIndex: 0,
+      targetIndex: 0,
+      itemHeight: 0,
       pointerId: null,
       dragAccumulator: 0,
       lastY: 0,
@@ -3110,9 +3114,16 @@ export class SimplePlayfield {
     if (wheel.outsideHandler) {
       document.removeEventListener('pointerdown', wheel.outsideHandler);
     }
+    if (wheel.animationFrame) {
+      cancelAnimationFrame(wheel.animationFrame);
+    }
+    wheel.animationFrame = null;
     wheel.pointerId = null;
     wheel.dragAccumulator = 0;
     wheel.lastY = 0;
+    wheel.focusIndex = 0;
+    wheel.targetIndex = 0;
+    wheel.itemHeight = 0;
     wheel.moveHandler = null;
     wheel.endHandler = null;
     wheel.outsideHandler = null;
@@ -3137,13 +3148,11 @@ export class SimplePlayfield {
     const activeTower = wheel?.towerId ? this.getTowerById(wheel.towerId) : null;
     const clampedIndex = Math.min(Math.max(wheel.activeIndex, 0), wheel.towers.length - 1);
     wheel.activeIndex = clampedIndex;
+    wheel.targetIndex = Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : clampedIndex;
+    wheel.focusIndex = Number.isFinite(wheel.focusIndex) ? wheel.focusIndex : clampedIndex;
     wheel.list.innerHTML = '';
 
-    const startIndex = Math.max(0, clampedIndex - 2);
-    const endIndex = Math.min(wheel.towers.length, clampedIndex + 3);
-
-    for (let index = startIndex; index < endIndex; index += 1) {
-      const definition = wheel.towers[index];
+    wheel.towers.forEach((definition, index) => {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'tower-loadout-wheel__item';
@@ -3192,7 +3201,17 @@ export class SimplePlayfield {
 
       item.addEventListener('click', () => this.applyTowerSelection(definition));
       wheel.list.append(item);
+    });
+
+    const firstItem = wheel.list.querySelector('.tower-loadout-wheel__item');
+    if (firstItem) {
+      const rect = firstItem.getBoundingClientRect();
+      if (rect?.height) {
+        wheel.itemHeight = rect.height;
+      }
     }
+    this.updateTowerSelectionWheelDistances();
+    this.updateTowerSelectionWheelTransform({ immediate: true });
   }
 
   /**
@@ -3203,11 +3222,9 @@ export class SimplePlayfield {
     if (!wheel || !Array.isArray(wheel.towers) || !wheel.towers.length) {
       return;
     }
-    const nextIndex = Math.min(Math.max(wheel.activeIndex + delta, 0), Math.max(0, wheel.towers.length - 1));
-    if (nextIndex !== wheel.activeIndex) {
-      wheel.activeIndex = nextIndex;
-      this.renderTowerSelectionWheel();
-    }
+    const currentTarget = Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex;
+    const nextIndex = Math.min(Math.max(currentTarget + delta, 0), Math.max(0, wheel.towers.length - 1));
+    this.setTowerSelectionWheelTarget(nextIndex);
   }
 
   /**
@@ -3257,21 +3274,26 @@ export class SimplePlayfield {
   }
 
   /**
-   * Translate drag distance into inverted scroll steps for the selection wheel.
+   * Translate drag distance into smooth scroll offsets for the selection wheel.
    */
   handleTowerSelectionWheelDrag(event) {
     const wheel = this.towerSelectionWheel;
     if (!wheel || event.pointerId !== wheel.pointerId) {
       return;
     }
+    if (typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
     const deltaY = event.clientY - wheel.lastY;
     wheel.lastY = event.clientY;
     wheel.dragAccumulator += deltaY;
-    while (Math.abs(wheel.dragAccumulator) >= TOWER_SELECTION_SCROLL_STEP_PX) {
-      this.shiftTowerSelectionWheel(wheel.dragAccumulator > 0 ? -1 : 1);
-      wheel.dragAccumulator += wheel.dragAccumulator > 0
-        ? -TOWER_SELECTION_SCROLL_STEP_PX
-        : TOWER_SELECTION_SCROLL_STEP_PX;
+    const itemHeight = Math.max(1, wheel.itemHeight || TOWER_SELECTION_SCROLL_STEP_PX);
+    const deltaIndex = wheel.dragAccumulator / itemHeight;
+    if (Math.abs(deltaIndex) >= 0.01) {
+      this.setTowerSelectionWheelTarget(
+        (Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex) - deltaIndex,
+      );
+      wheel.dragAccumulator = 0;
     }
   }
 
@@ -3300,6 +3322,9 @@ export class SimplePlayfield {
     wheel.lastY = 0;
     wheel.moveHandler = null;
     wheel.endHandler = null;
+    if (wheel.towers.length) {
+      this.setTowerSelectionWheelTarget(Math.round(wheel.focusIndex));
+    }
   }
 
   /**
@@ -3317,10 +3342,44 @@ export class SimplePlayfield {
     if (!screen || !canvasRect) {
       return;
     }
-    const left = canvasRect.left - hostRect.left + screen.x - (wheel.container.offsetWidth || 0) / 2;
-    const top = canvasRect.top - hostRect.top + screen.y - (wheel.container.offsetHeight || 0) - 12;
-    wheel.container.style.left = `${Math.max(0, left)}px`;
-    wheel.container.style.top = `${Math.max(0, top)}px`;
+    const baseLeft = canvasRect.left - hostRect.left + screen.x - (wheel.container.offsetWidth || 0) / 2;
+    const baseTop = canvasRect.top - hostRect.top + screen.y - (wheel.container.offsetHeight || 0) / 2;
+    let absoluteLeft = Math.max(0, baseLeft);
+    let absoluteTop = Math.max(0, baseTop);
+
+    wheel.container.style.left = `${absoluteLeft}px`;
+    wheel.container.style.top = `${absoluteTop}px`;
+
+    const activeItem = wheel.list?.querySelector('[data-distance="0"]');
+    const targetX = canvasRect.left + screen.x;
+    const targetY = canvasRect.top + screen.y;
+    if (activeItem) {
+      const itemRect = activeItem.getBoundingClientRect();
+      const icon =
+        activeItem.querySelector('.tower-loadout-wheel__icon') || activeItem.querySelector('.tower-loadout-wheel__label');
+      const cost = activeItem.querySelector('.tower-loadout-wheel__cost');
+      const iconRect = icon?.getBoundingClientRect ? icon.getBoundingClientRect() : null;
+      const costRect = cost?.getBoundingClientRect ? cost.getBoundingClientRect() : null;
+
+      if (itemRect?.height) {
+        const itemCenterY = (itemRect.top + itemRect.bottom) / 2;
+        const deltaY = targetY - itemCenterY;
+        absoluteTop = Math.max(0, absoluteTop + deltaY);
+      }
+
+      if (iconRect?.width) {
+        const desiredIconRight = targetX - 8;
+        const deltaX = desiredIconRight - iconRect.right;
+        absoluteLeft = Math.max(0, absoluteLeft + deltaX);
+      } else if (costRect?.left) {
+        const desiredCostLeft = targetX + 6;
+        const deltaX = desiredCostLeft - costRect.left;
+        absoluteLeft = Math.max(0, absoluteLeft + deltaX);
+      }
+    }
+
+    wheel.container.style.left = `${absoluteLeft}px`;
+    wheel.container.style.top = `${absoluteTop}px`;
   }
 
   /**
@@ -3345,6 +3404,8 @@ export class SimplePlayfield {
     const wheel = this.towerSelectionWheel;
     wheel.towers = options;
     wheel.activeIndex = Math.max(0, options.findIndex((definition) => definition.id === tower.type));
+    wheel.focusIndex = wheel.activeIndex;
+    wheel.targetIndex = wheel.activeIndex;
     wheel.towerId = tower.id;
 
     const container = document.createElement('div');
@@ -3361,7 +3422,12 @@ export class SimplePlayfield {
     list.addEventListener('pointerdown', (event) => this.beginTowerSelectionWheelDrag(event));
     list.addEventListener('wheel', (event) => {
       event.preventDefault();
-      this.shiftTowerSelectionWheel(event.deltaY > 0 ? 1 : -1);
+      const itemHeight = Math.max(1, wheel.itemHeight || TOWER_SELECTION_SCROLL_STEP_PX);
+      const deltaIndex = (event.deltaY || 0) / itemHeight;
+      const cappedDelta = Math.max(-2, Math.min(2, deltaIndex));
+      this.setTowerSelectionWheelTarget(
+        (Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex) + cappedDelta,
+      );
     });
 
     const host = this.container || document.body;
@@ -3374,6 +3440,88 @@ export class SimplePlayfield {
       }
     };
     document.addEventListener('pointerdown', wheel.outsideHandler);
+  }
+
+  /**
+   * Update the distance metadata for each option so scaling follows the focused entry.
+   */
+  updateTowerSelectionWheelDistances() {
+    const wheel = this.towerSelectionWheel;
+    if (!wheel?.list) {
+      return;
+    }
+    const focusIndex = Number.isFinite(wheel.focusIndex) ? wheel.focusIndex : wheel.activeIndex;
+    Array.from(wheel.list.children).forEach((child, index) => {
+      const distance = Math.min(2, Math.round(Math.abs(index - focusIndex)));
+      child.dataset.distance = String(distance);
+    });
+  }
+
+  /**
+   * Smoothly translate the wheel list so the focused option aligns with the tower anchor.
+   */
+  updateTowerSelectionWheelTransform({ immediate = false } = {}) {
+    const wheel = this.towerSelectionWheel;
+    if (!wheel?.list || !Number.isFinite(wheel.focusIndex)) {
+      return;
+    }
+    const itemHeight = Math.max(1, wheel.itemHeight || TOWER_SELECTION_SCROLL_STEP_PX);
+    const listHeight = wheel.list.getBoundingClientRect()?.height || itemHeight;
+    const offset = -wheel.focusIndex * itemHeight + listHeight / 2 - itemHeight / 2;
+    wheel.list.style.willChange = 'transform';
+    wheel.list.style.transition = immediate ? 'none' : 'transform 140ms ease-out';
+    wheel.list.style.transform = `translateY(${offset}px)`;
+    const roundedIndex = Math.min(
+      Math.max(Math.round(wheel.focusIndex), 0),
+      Math.max(0, wheel.towers.length - 1),
+    );
+    wheel.activeIndex = roundedIndex;
+    this.updateTowerSelectionWheelDistances();
+    if (wheel.towerId) {
+      const tower = this.getTowerById(wheel.towerId);
+      if (tower) {
+        this.positionTowerSelectionWheel(tower);
+      }
+    }
+    if (immediate) {
+      requestAnimationFrame(() => {
+        if (wheel.list) {
+          wheel.list.style.transition = 'transform 140ms ease-out';
+        }
+      });
+    }
+  }
+
+  /**
+   * Advance the focus index toward a target so scrolling eases instead of stepping.
+   */
+  setTowerSelectionWheelTarget(targetIndex) {
+    const wheel = this.towerSelectionWheel;
+    if (!wheel || !Array.isArray(wheel.towers) || !wheel.towers.length) {
+      return;
+    }
+    const clamped = Math.min(Math.max(targetIndex, 0), Math.max(0, wheel.towers.length - 1));
+    wheel.targetIndex = clamped;
+    if (!Number.isFinite(wheel.focusIndex)) {
+      wheel.focusIndex = clamped;
+    }
+    const stepAnimation = () => {
+      const target = Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.focusIndex;
+      const current = Number.isFinite(wheel.focusIndex) ? wheel.focusIndex : target;
+      const delta = target - current;
+      if (Math.abs(delta) < 0.002) {
+        wheel.focusIndex = target;
+        this.updateTowerSelectionWheelTransform();
+        wheel.animationFrame = null;
+        return;
+      }
+      wheel.focusIndex = current + delta * 0.2;
+      this.updateTowerSelectionWheelTransform();
+      wheel.animationFrame = requestAnimationFrame(stepAnimation);
+    };
+    if (!wheel.animationFrame) {
+      wheel.animationFrame = requestAnimationFrame(stepAnimation);
+    }
   }
 
   /**
