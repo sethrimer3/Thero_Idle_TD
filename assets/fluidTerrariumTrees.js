@@ -2,6 +2,18 @@
 
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
 
+// Layered palette that transitions from dark bark into vibrant canopies.
+const BET_TREE_DEPTH_COLORS = [
+  '#26160c',
+  '#2f1c0e',
+  '#3b2612',
+  '#4a2f16',
+  '#1f4b29',
+  '#245c2f',
+  '#2b6d36',
+  '#33803f',
+];
+
 /**
  * Render animated fractal trees on the Bet terrarium using color-block masks to anchor
  * their positions. Each tree reuses the Shin Spire fractal animation so branches
@@ -284,7 +296,9 @@ export class FluidTerrariumTrees {
     const desiredHeight = width * (anchor.size === 'large' ? 1.9 : 1.6);
     const groundY = this.renderBounds.top + anchor.baseY * this.renderBounds.height;
     const maxHeight = Math.max(10, groundY - this.renderBounds.top);
-    const height = Math.min(desiredHeight, maxHeight);
+    // Reserve a small buffer so crowns don't brush against the basin rim.
+    const canopyCushion = this.renderBounds.height * 0.04;
+    const height = Math.min(desiredHeight + canopyCushion, maxHeight);
 
     const left = this.renderBounds.left + anchor.centerX * this.renderBounds.width - width / 2;
     const top = groundY - height;
@@ -317,17 +331,18 @@ export class FluidTerrariumTrees {
    * @param {number} height
    */
   buildSimulation(size, canvas, height) {
-    const depth = size === 'large' ? 9 : 8;
+    // Limit Bet terrarium trees to eight visible layers to match the stepped palette.
+    const depth = 7;
     const baseWidth = size === 'large' ? 7 : 5;
-    const rootLength = Math.max(16, height * (size === 'large' ? 0.36 : 0.3));
+    const rootLength = Math.max(16, height * (size === 'large' ? 0.3 : 0.26));
 
     const simulation = new FractalTreeSimulation({
       canvas,
       bgColor: 'rgba(0, 0, 0, 0)',
-      trunkColor: '#e6e6ea',
-      twigColor: '#a2e3f5',
-      leafColor: '#a2e3f5',
-      leafAlpha: 0.26,
+      trunkColor: BET_TREE_DEPTH_COLORS[1],
+      twigColor: BET_TREE_DEPTH_COLORS[BET_TREE_DEPTH_COLORS.length - 1],
+      leafColor: BET_TREE_DEPTH_COLORS[BET_TREE_DEPTH_COLORS.length - 1],
+      leafAlpha: 0.3,
       branchFactor: 2,
       baseSpreadDeg: 25,
       lengthDecay: 0.7,
@@ -340,13 +355,14 @@ export class FluidTerrariumTrees {
       minWidth: 0.65,
       rootLength,
       rootX: 0.5,
-      rootY: 0.98,
+      rootY: 0.99,
       seed: Math.floor(Math.random() * 100000),
     });
 
     simulation.updateConfig({
       allocated: 999,
       maxDepth: depth,
+      depthColors: BET_TREE_DEPTH_COLORS,
     });
 
     return simulation;
