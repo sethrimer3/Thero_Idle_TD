@@ -11,6 +11,7 @@ import { formatDuration, formatRewards, formatRelativeTime } from './formatHelpe
  * @param {Map} options.idleLevelConfigs live idle level configuration map
  * @param {Function} options.getBaseStartThero getter for the configured baseline starting Thero
  * @param {string} options.theroSymbol glyph used to describe Thero
+ * @param {Function} [options.isDeveloperInfiniteTheroEnabled] flags whether developer infinite Thero is toggled on
  */
 export function createLevelSummaryHelpers({
   getCompletedInteractiveLevelCount,
@@ -20,6 +21,7 @@ export function createLevelSummaryHelpers({
   idleLevelConfigs,
   getBaseStartThero,
   theroSymbol,
+  isDeveloperInfiniteTheroEnabled,
 }) {
   function formatInteractiveLevelRewards() {
     const levelsBeaten = getCompletedInteractiveLevelCount();
@@ -34,6 +36,9 @@ export function createLevelSummaryHelpers({
     const config = configOverride || (level ? levelConfigs.get(level.id) : null);
     if (!config) {
       return { text: '—', aria: 'Starting Thero not applicable.' };
+    }
+    if (typeof isDeveloperInfiniteTheroEnabled === 'function' && isDeveloperInfiniteTheroEnabled()) {
+      return { text: `∞ ${theroSymbol}`, aria: 'Starting Thero is infinite for developer testing.' };
     }
     if (config.infiniteThero) {
       return { text: `∞ ${theroSymbol}`, aria: 'Starting Thero is infinite.' };

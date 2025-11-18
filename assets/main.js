@@ -446,6 +446,7 @@ import {
     idleLevelConfigs,
     getBaseStartThero,
     theroSymbol: THERO_SYMBOL,
+    isDeveloperInfiniteTheroEnabled,
   });
 
   // Gameplay configuration, resource baselines, and fluid profile loading now reside in configuration.js.
@@ -555,6 +556,8 @@ import {
 
   // Developer map element references allow quick toggles for spawning and clearing obstacles.
   let developerModeActive = false;
+  // Developer sandbox toggle that forces all levels to start with infinite Thero for rapid testing.
+  let developerInfiniteTheroEnabled = false;
 
   let playfield = null;
   // Track layout elements so the UI can swap between the battlefield and level grid.
@@ -611,6 +614,18 @@ import {
     getLevelConfigs: () => levelConfigs,
     isDeveloperModeActive: () => developerModeActive,
   });
+
+  // Allow developer controls to flip the infinite Thero sandbox flag and refresh level UI accordingly.
+  function setDeveloperInfiniteTheroEnabled(active) {
+    developerInfiniteTheroEnabled = Boolean(active);
+    updateLevelCards();
+    updateActiveLevelBanner();
+  }
+
+  // Keep dependent systems aware of whether infinite Thero is active while developer mode is enabled.
+  function isDeveloperInfiniteTheroEnabled() {
+    return Boolean(developerModeActive && developerInfiniteTheroEnabled);
+  }
 
   const {
     setLevelEditorSurface,
@@ -1070,6 +1085,8 @@ import {
   // Provide the developer controls module with runtime state references once all powder helpers are wired.
   configureDeveloperControls({
     isDeveloperModeActive: () => developerModeActive,
+    isDeveloperInfiniteTheroEnabled,
+    setDeveloperInfiniteTheroEnabled,
     recordPowderEvent,
     getPowderSimulation: () => powderSimulation,
     getFluidSimulation: () => fluidSimulationInstance,
@@ -1224,6 +1241,7 @@ import {
     setKufTotalShards,
     setDeveloperIteronBank,
     setDeveloperIterationRate,
+    setDeveloperInfiniteTheroEnabled,
     getPowderSimulation: () => powderSimulation,
     setPowderSimulation: (value) => {
       powderSimulation = value;
@@ -2051,6 +2069,7 @@ import {
     handleDeveloperMapPlacement: handleDeveloperMapPlacementRequest,
     // Share developer toggle so level thero caps can be bypassed during sandboxing.
     isDeveloperModeActive: () => developerModeActive,
+    isDeveloperInfiniteTheroEnabled,
     // Provide the playfield with the active graphics mode to prune visual effects.
     isLowGraphicsMode: () => isLowGraphicsModeActive(),
   });

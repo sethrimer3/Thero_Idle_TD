@@ -5199,6 +5199,16 @@ body.graphics-mode-low .control-button {
   gap: 6px;
 }
 
+.developer-control-field--checkbox {
+  gap: 4px;
+}
+
+.developer-control-field--checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .developer-control-field label {
   font-size: 0.75rem;
   letter-spacing: 0.08em;
@@ -5215,6 +5225,18 @@ body.graphics-mode-low .control-button {
   color: inherit;
   font-family: "Cormorant Garamond", serif;
   font-size: 0.95rem;
+}
+
+.developer-control-field--checkbox input[type='checkbox'] {
+  width: auto;
+  height: 18px;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.developer-control-field--checkbox .developer-control-hint {
+  padding-left: 30px;
 }
 
 .developer-control-field input:focus {

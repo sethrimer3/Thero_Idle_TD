@@ -183,6 +183,8 @@ const defaultDependencies = {
   handleDeveloperMapPlacement: () => false,
   // Allow the playfield to bypass currency caps when developer tools are toggled on.
   isDeveloperModeActive: () => false,
+  // Let developer controls grant infinite Thero at the start of every level when enabled.
+  isDeveloperInfiniteTheroEnabled: () => false,
   // Allows the playfield to respect the global graphics fidelity toggle.
   isLowGraphicsMode: () => false,
 };
@@ -2308,7 +2310,10 @@ export class SimplePlayfield {
         : [],
     };
 
-    const forceInfiniteThero = Boolean(config?.infiniteThero);
+    const developerInfiniteThero = Boolean(
+      this.dependencies.isDeveloperInfiniteTheroEnabled?.(),
+    );
+    const forceInfiniteThero = Boolean(config?.infiniteThero || developerInfiniteThero);
     if (forceInfiniteThero) {
       clonedConfig.infiniteThero = true;
       clonedConfig.startThero = Number.POSITIVE_INFINITY;
