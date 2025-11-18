@@ -1053,6 +1053,7 @@ import {
     resourceState,
     baseResources,
     schedulePowderSave,
+    schedulePowderBasinSave,
     recordPowderEvent,
     notifyPowderAction,
     notifyPowderMultiplier,
