@@ -99,7 +99,10 @@ function gradientFromHex(startHex, endHex) {
 const colorSchemeState = {
   index: 0,
   button: null,
+  // Inline preview line that mirrors the current projectile gradient.
+  gradientPreview: null,
   buttonId: 'color-scheme-button',
+  gradientPreviewId: 'color-scheme-gradient-preview',
   listenerAttached: false,
 };
 
@@ -209,6 +212,11 @@ export function configureColorSchemeSystem(options = {}) {
 
   if (typeof options.buttonId === 'string' && options.buttonId.trim()) {
     colorSchemeState.buttonId = options.buttonId.trim();
+  }
+
+  // Accept overrides for the gradient preview element so host UI can provide custom layout.
+  if (typeof options.gradientPreviewId === 'string' && options.gradientPreviewId.trim()) {
+    colorSchemeState.gradientPreviewId = options.gradientPreviewId.trim();
   }
 }
 
@@ -537,6 +545,32 @@ export function samplePaletteGradient(position = 0) {
   };
 }
 
+// Resolve the gradient preview line so palette swaps repaint the inline sample.
+function getGradientPreviewElement() {
+  if (colorSchemeState.gradientPreview && colorSchemeState.gradientPreview.isConnected) {
+    return colorSchemeState.gradientPreview;
+  }
+  if (typeof document === 'undefined') {
+    return null;
+  }
+  const preview = document.getElementById(colorSchemeState.gradientPreviewId);
+  colorSchemeState.gradientPreview = preview || null;
+  return colorSchemeState.gradientPreview;
+}
+
+// Apply the active projectile gradient to the preview stripe beneath the palette button.
+function updateColorSchemePreview() {
+  const preview = getGradientPreviewElement();
+  if (!preview) {
+    return;
+  }
+
+  const gradient = getActiveProjectileGradient();
+  const start = gradient.start || defaultProjectileGradient.start;
+  const end = gradient.end || defaultProjectileGradient.end;
+  preview.style.background = `linear-gradient(90deg, rgb(${start.r}, ${start.g}, ${start.b}), rgb(${end.r}, ${end.g}, ${end.b}))`;
+}
+
 // Updates the toggle button label so assistive tech reflects the current palette.
 function updateColorSchemeButton() {
   const button = colorSchemeState.button;
@@ -569,6 +603,7 @@ function applyColorScheme() {
   }
 
   updateColorSchemeButton();
+  updateColorSchemePreview();
 
   const storage = resolveStorage();
   if (storage && typeof storage.setItem === 'function') {
