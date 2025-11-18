@@ -29,6 +29,8 @@ export const TOWER_UPGRADE_STORAGE_KEY = 'glyph-defense-idle:tower-upgrades';
 export const SHIN_STATE_STORAGE_KEY = 'glyph-defense-idle:shin-state';
 // Storage key used to persist Kuf Spire shard allocations and scores.
 export const KUF_STATE_STORAGE_KEY = 'glyph-defense-idle:kuf-state';
+// Storage key used to persist advanced spire resource banks (Tsadi binding agents, Lamed sparks, etc.).
+export const SPIRE_RESOURCE_STORAGE_KEY = 'glyph-defense-idle:spires';
 // Storage key used to persist interactive level completion and unlock progress.
 export const LEVEL_PROGRESS_STORAGE_KEY = 'glyph-defense-idle:level-progress';
 
@@ -57,6 +59,8 @@ const dependencies = {
   applyTowerUpgradeStateSnapshot: null,
   getShinStateSnapshot: null,
   getKufStateSnapshot: null,
+  getSpireResourceStateSnapshot: null,
+  applySpireResourceStateSnapshot: null,
   getLevelProgressSnapshot: null,
   applyLevelProgressSnapshot: null,
 };
@@ -195,6 +199,13 @@ export function loadPersistentState() {
     const storedUpgrades = readStorageJson(TOWER_UPGRADE_STORAGE_KEY);
     if (storedUpgrades && typeof storedUpgrades === 'object') {
       dependencies.applyTowerUpgradeStateSnapshot(storedUpgrades);
+    }
+  }
+
+  if (typeof dependencies.applySpireResourceStateSnapshot === 'function') {
+    const storedSpireResources = readStorageJson(SPIRE_RESOURCE_STORAGE_KEY);
+    if (storedSpireResources && typeof storedSpireResources === 'object') {
+      dependencies.applySpireResourceStateSnapshot(storedSpireResources);
     }
   }
 
@@ -358,6 +369,17 @@ function persistKufState() {
   writeStorageJson(KUF_STATE_STORAGE_KEY, snapshot);
 }
 
+function persistSpireResourceState() {
+  if (typeof dependencies.getSpireResourceStateSnapshot !== 'function') {
+    return;
+  }
+  const snapshot = dependencies.getSpireResourceStateSnapshot();
+  if (!snapshot || typeof snapshot !== 'object') {
+    return;
+  }
+  writeStorageJson(SPIRE_RESOURCE_STORAGE_KEY, snapshot);
+}
+
 function persistLevelProgress() {
   if (typeof dependencies.getLevelProgressSnapshot !== 'function') {
     return;
@@ -381,6 +403,7 @@ function performAutoSave() {
   persistTowerUpgrades();
   persistShinState();
   persistKufState();
+  persistSpireResourceState();
   persistLevelProgress();
 }
 

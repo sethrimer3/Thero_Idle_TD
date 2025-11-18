@@ -225,6 +225,7 @@ export function createDeveloperModeManager(options = {}) {
     if (spireResourceState?.tsadi) {
       spireResourceState.tsadi.unlocked = true;
       spireResourceState.tsadi.particleBank = DEVELOPER_RESOURCE_GRANT;
+      spireResourceState.tsadi.bindingAgents = DEVELOPER_RESOURCE_GRANT;
     }
     if (spireResourceState?.shin) {
       spireResourceState.shin.unlocked = true;

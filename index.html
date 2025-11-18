@@ -2145,6 +2145,15 @@
             <div class="tsadi-simulation-slot" id="tsadi-simulation-host">
               <article class="card powder-simulation tsadi-simulation-card" id="tsadi-simulation-card">
                 <div class="powder-basin tsadi-basin" id="tsadi-basin">
+                  <button
+                    class="tsadi-binding-handle"
+                    id="tsadi-binding-handle"
+                    type="button"
+                    title="Drag to place a binding agent"
+                    aria-label="Drag to place a binding agent"
+                  >
+                    ⚗
+                  </button>
                   <canvas
                     id="tsadi-canvas"
                     width="240"
@@ -2174,6 +2183,10 @@
                   <dd id="tsadi-bank">0 Particles</dd>
                 </div>
                 <div>
+                  <dt>Binding Agents</dt>
+                  <dd id="tsadi-binding-agent-count">0 Binding Agents</dd>
+                </div>
+                <div>
                   <dt>Particle Generation Rate</dt>
                   <dd id="tsadi-generation-rate">2.00 particles/sec</dd>
                 </div>
@@ -2184,8 +2197,18 @@
               </dl>
               <p class="tsadi-status-note" id="tsadi-status-note">
                 Particles bounce and collide. When two particles of the same tier collide, they fuse into a higher tier.
-                Each new tier reached earns a Tsadi glyph.
+                Each new tier reached earns a Tsadi glyph. Calm particles (with zero or negative repelling force) can be tied
+                together with binding agents to form molecules for bonus effects.
               </p>
+            </article>
+            <article class="card tsadi-codex-card">
+              <div class="tsadi-codex-header">
+                <h3>Alchemy Codex</h3>
+                <button class="tsadi-codex-button" id="tsadi-codex-button" type="button" aria-expanded="false">
+                  Show Alchemy Codex
+                </button>
+              </div>
+              <ul class="tsadi-codex-list" id="tsadi-codex-list" aria-live="polite" aria-label="Discovered molecules"></ul>
             </article>
             <article class="card tsadi-upgrades-card">
               <h3>Permanent Upgrades</h3>

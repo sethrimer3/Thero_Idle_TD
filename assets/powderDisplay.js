@@ -35,6 +35,8 @@ export function createPowderDisplaySystem({
   setLamedSparkBank,
   getTsadiParticleBank,
   setTsadiParticleBank,
+  getTsadiBindingAgents,
+  setTsadiBindingAgents,
   addIterons,
   updateShinDisplay,
   evaluateAchievements,
@@ -44,6 +46,7 @@ export function createPowderDisplaySystem({
   getIteronBank,
   getIterationRate,
   betHappinessSystem,
+  onTsadiBindingAgentsChange,
 }) {
   let powderCurrency = 0;
   let powderBasinPulseTimer = null;
@@ -548,6 +551,7 @@ export function createPowderDisplaySystem({
       happiness: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
       lamed: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.lamed?.unlocked) },
       tsadi: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.tsadi?.unlocked) },
+      bindingAgents: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.tsadi?.unlocked) },
       shin: { multiplier: 0, total: 0, unlocked: false },
       kuf: { multiplier: 0, total: 0, unlocked: false },
     };
@@ -580,6 +584,11 @@ export function createPowderDisplaySystem({
     const tsadiUnlocked = Boolean(spireResourceState.tsadi?.unlocked);
     const tsadiRate = 2.0;
     const tsadiTotal = tsadiUnlocked ? seconds * tsadiRate : 0;
+
+    // Binding agents accrue slowly over idle time to emphasize their value as a crafting reagent.
+    const bindingAgentUnlocked = tsadiUnlocked;
+    const bindingAgentRatePerMinute = 1 / 60; // 1 per hour
+    const bindingAgentTotal = bindingAgentUnlocked ? minutes * bindingAgentRatePerMinute : 0;
 
     const shinUnlocked = typeof getIteronBank === 'function';
     const shinRate = shinUnlocked && typeof getIterationRate === 'function' ? getIterationRate() : 0;
@@ -615,6 +624,11 @@ export function createPowderDisplaySystem({
       total: tsadiTotal,
       unlocked: tsadiUnlocked,
     };
+    summary.bindingAgents = {
+      multiplier: bindingAgentUnlocked ? bindingAgentRatePerMinute : 0,
+      total: bindingAgentTotal,
+      unlocked: bindingAgentUnlocked,
+    };
     summary.shin = {
       multiplier: shinUnlocked ? shinRate * 60 : 0,
       total: shinTotal,
@@ -649,6 +663,14 @@ export function createPowderDisplaySystem({
     }
     if (summary.tsadi.unlocked && summary.tsadi.total > 0) {
       setTsadiParticleBank(getTsadiParticleBank() + summary.tsadi.total);
+    }
+    if (summary.bindingAgents.unlocked && summary.bindingAgents.total > 0) {
+      const updatedBindingAgents = setTsadiBindingAgents(
+        getTsadiBindingAgents() + summary.bindingAgents.total,
+      );
+      if (typeof onTsadiBindingAgentsChange === 'function') {
+        onTsadiBindingAgentsChange(updatedBindingAgents);
+      }
     }
     if (summary.shin.unlocked && summary.shin.total > 0 && typeof addIterons === 'function') {
       addIterons(summary.shin.total);
@@ -697,6 +719,15 @@ export function createPowderDisplaySystem({
       case 'tsadi': {
         if (summary.tsadi.unlocked && summary.tsadi.total > 0) {
           setTsadiParticleBank(getTsadiParticleBank() + summary.tsadi.total);
+          resourcesGranted = true;
+        }
+        if (summary.bindingAgents.unlocked && summary.bindingAgents.total > 0) {
+          const updatedBindingAgents = setTsadiBindingAgents(
+            getTsadiBindingAgents() + summary.bindingAgents.total,
+          );
+          if (typeof onTsadiBindingAgentsChange === 'function') {
+            onTsadiBindingAgentsChange(updatedBindingAgents);
+          }
           resourcesGranted = true;
         }
         break;

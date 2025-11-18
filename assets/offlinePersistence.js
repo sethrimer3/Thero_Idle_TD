@@ -699,6 +699,7 @@ export function checkOfflineRewards() {
       happiness: { multiplier: 0, total: 0, unlocked: false },
       lamed: { multiplier: 0, total: 0, unlocked: false },
       tsadi: { multiplier: 0, total: 0, unlocked: false },
+      bindingAgents: { multiplier: 0, total: 0, unlocked: false },
       shin: { multiplier: 0, total: 0, unlocked: false },
       kuf: { multiplier: 0, total: 0, unlocked: false },
     };

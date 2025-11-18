@@ -44,6 +44,30 @@ const NULL_TIER = -1;
 const GREEK_SEQUENCE_LENGTH = GREEK_TIER_SEQUENCE.length;
 // Canvas dimensions below this value indicate the spire view is collapsed or hidden.
 const COLLAPSED_DIMENSION_THRESHOLD = 2;
+// Molecule recipes that reward the player for stabilizing specific tier sets.
+const MOLECULE_RECIPES = [
+  {
+    id: 'null-alpha-beta',
+    name: 'Catalyst Triangle',
+    tiers: [NULL_TIER, 0, 1],
+    bonus: { spawnRateBonus: 0.15, repellingShift: -0.05 },
+    description: 'Stabilizes null, α, and β bonds to gently hasten particle spawning.',
+  },
+  {
+    id: 'alpha-beta-gamma',
+    name: 'Prismatic Triplet',
+    tiers: [0, 1, 2],
+    bonus: { spawnRateBonus: 0.1, repellingShift: -0.2 },
+    description: 'Aligns α/β/γ into an attractive prism that weakens repelling forces.',
+  },
+  {
+    id: 'delta-epsilon-zeta',
+    name: 'Stability Weave',
+    tiers: [3, 4, 5],
+    bonus: { spawnRateBonus: 0.05, repellingShift: -0.15 },
+    description: 'Weaves δ/ε/ζ together to keep higher-tier clusters from scattering.',
+  },
+];
 
 /**
  * Convert tier to a color using the active color palette gradient.
@@ -303,6 +327,24 @@ export class ParticleFusionSimulation {
     // Store active force links so the renderer can visualize attractive/repulsive pairs.
     this.forceLinks = [];
 
+    // Binding agent placement and molecule tracking.
+    this.bindingAgents = []; // { id, x, y, connections: [{ particleId, tier, bondLength }], activeMolecules: string[] }
+    this.bindingAgentPreview = null; // Pending placement ghost position
+    this.availableBindingAgents = Number.isFinite(options.initialBindingAgents)
+      ? Math.max(0, options.initialBindingAgents)
+      : 0;
+    this.bindingAgentRadius = 0;
+    this.discoveredMolecules = new Set(
+      Array.isArray(options.initialDiscoveredMolecules) ? options.initialDiscoveredMolecules : []
+    );
+    this.moleculeBonuses = { spawnRateBonus: 0, repellingShift: 0 };
+    this.onBindingAgentStockChange = typeof options.onBindingAgentStockChange === 'function'
+      ? options.onBindingAgentStockChange
+      : null;
+    this.onMoleculeDiscovered = typeof options.onMoleculeDiscovered === 'function'
+      ? options.onMoleculeDiscovered
+      : null;
+
     // Preserve particle counts when the Tsadi viewport is hidden so returning players see a gradual rebuild.
     this.storedTierCounts = null;
     // Queue staggered particle placement so rehydration happens one particle per frame.
@@ -379,6 +421,7 @@ export class ParticleFusionSimulation {
     // Null particle radius is 80% of what alpha would be (which is 1/100 of width)
     const alphaRadius = this.width / 100;
     this.nullParticleRadius = alphaRadius * 0.8;
+    this.bindingAgentRadius = this.nullParticleRadius * 0.7;
 
     // Recalculate radii for existing particles so they stay proportional after resize.
     for (const particle of this.particles) {
@@ -565,7 +608,8 @@ export class ParticleFusionSimulation {
     }
 
     // Spawn new particles (always spawn at null tier, upgrade will adjust)
-    this.spawnAccumulator += dt * this.spawnRate;
+    const effectiveSpawnRate = this.spawnRate * (1 + this.moleculeBonuses.spawnRateBonus);
+    this.spawnAccumulator += dt * effectiveSpawnRate;
     while (this.spawnAccumulator >= 1 && this.particles.length < this.maxParticles && this.particleBank > 0) {
       const spawned = this.spawnParticle(NULL_TIER);
       if (!spawned) {
@@ -633,15 +677,17 @@ export class ParticleFusionSimulation {
     for (let i = this.spawnEffects.length - 1; i >= 0; i--) {
       const effect = this.spawnEffects[i];
       effect.alpha -= dt * 4; // Fade out over ~0.25 seconds
-      
+
       if (effect.type === 'wave') {
         effect.radius += dt * 150; // Expand wave
       }
-      
+
       if (effect.alpha <= 0) {
         this.spawnEffects.splice(i, 1);
       }
     }
+
+    this.updateBindingAgents(dt);
   }
   
   /**
@@ -678,7 +724,8 @@ export class ParticleFusionSimulation {
           const proximityStrength = 1 - dist / interactionRadius;
 
           // If force is negative, particles attract; if positive, they repel
-          const forceMagnitude = avgRepelling * proximityStrength * dt * 50;
+          const forceMagnitude =
+            (avgRepelling + this.moleculeBonuses.repellingShift) * proximityStrength * dt * 50;
           
           const nx = dx / dist;
           const ny = dy / dist;
@@ -701,6 +748,241 @@ export class ParticleFusionSimulation {
         }
       }
     }
+  }
+
+  /**
+   * Retrieve the visual radius used for binding agent placement hit-testing.
+   * @returns {number} Binding agent display radius in CSS pixels.
+   */
+  getBindingAgentRadius() {
+    return this.bindingAgentRadius || this.nullParticleRadius * 0.7;
+  }
+
+  /**
+   * Get the available binding agent stock.
+   * @returns {number} Non-negative binding agent reserve.
+   */
+  getAvailableBindingAgents() {
+    return this.availableBindingAgents;
+  }
+
+  /**
+   * Set the available binding agent stock and notify listeners.
+   * @param {number} amount - Desired stock value.
+   */
+  setAvailableBindingAgents(amount) {
+    const normalized = Number.isFinite(amount) ? Math.max(0, amount) : 0;
+    if (normalized === this.availableBindingAgents) {
+      return;
+    }
+    this.availableBindingAgents = normalized;
+    if (this.onBindingAgentStockChange) {
+      this.onBindingAgentStockChange(normalized);
+    }
+  }
+
+  /**
+   * Increment the binding agent reserve by a positive or negative delta.
+   * @param {number} amount - Amount to add to the stockpile.
+   */
+  addBindingAgents(amount) {
+    if (!Number.isFinite(amount) || amount === 0) {
+      return;
+    }
+    this.setAvailableBindingAgents(this.availableBindingAgents + amount);
+  }
+
+  /**
+   * Update the pending placement preview to mirror pointer movement.
+   * @param {{x:number, y:number}|null} position - Canvas-space coordinates.
+   */
+  setBindingAgentPreview(position) {
+    if (position && Number.isFinite(position.x) && Number.isFinite(position.y)) {
+      this.bindingAgentPreview = { x: position.x, y: position.y };
+    } else {
+      this.bindingAgentPreview = null;
+    }
+  }
+
+  /**
+   * Clear any pending preview once placement succeeds or is cancelled.
+   */
+  clearBindingAgentPreview() {
+    this.bindingAgentPreview = null;
+  }
+
+  /**
+   * Attempt to place a binding agent at the provided coordinates.
+   * Placement fails if stock is empty or overlaps an existing molecule anchor.
+   * @param {{x:number, y:number}} position - Canvas-space coordinates.
+   * @returns {boolean} Whether the binding agent was placed.
+   */
+  placeBindingAgent(position) {
+    if (!position || this.availableBindingAgents < 1) {
+      return false;
+    }
+
+    const radius = this.getBindingAgentRadius();
+    const overlapsExisting = this.bindingAgents.some((agent) => {
+      const dx = agent.x - position.x;
+      const dy = agent.y - position.y;
+      const minDistance = radius * 2;
+      return (dx * dx + dy * dy) < (minDistance * minDistance);
+    });
+
+    if (overlapsExisting) {
+      return false;
+    }
+
+    this.bindingAgents.push({
+      id: Math.random(),
+      x: position.x,
+      y: position.y,
+      connections: [],
+      activeMolecules: [],
+    });
+
+    this.addBindingAgents(-1);
+    this.clearBindingAgentPreview();
+    return true;
+  }
+
+  /**
+   * Find the nearest binding agent anchor to a point within the interaction radius.
+   * @param {{x:number, y:number}} position - Canvas coordinates.
+   * @param {number} tolerance - Extra padding to widen the selection ring.
+   * @returns {Object|null} Matching binding agent or null when none is close enough.
+   */
+  findBindingAgentNear(position, tolerance = 0) {
+    const radius = this.getBindingAgentRadius() + tolerance;
+    for (const agent of this.bindingAgents) {
+      const dx = agent.x - position.x;
+      const dy = agent.y - position.y;
+      if ((dx * dx + dy * dy) <= radius * radius) {
+        return agent;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Disband and remove a placed binding agent, refunding its stock.
+   * @param {{x:number, y:number}} position - Canvas coordinates used for hit-testing.
+   * @returns {boolean} Whether an agent was removed.
+   */
+  disbandBindingAgentAt(position) {
+    if (!position) {
+      return false;
+    }
+    const target = this.findBindingAgentNear(position, 2);
+    if (!target) {
+      return false;
+    }
+
+    this.bindingAgents = this.bindingAgents.filter((agent) => agent.id !== target.id);
+    this.addBindingAgents(1);
+    this.recalculateMoleculeBonuses();
+    return true;
+  }
+
+  /**
+   * Recompute global molecule bonuses from all active bindings.
+   */
+  recalculateMoleculeBonuses() {
+    const nextBonuses = { spawnRateBonus: 0, repellingShift: 0 };
+    for (const agent of this.bindingAgents) {
+      for (const moleculeId of agent.activeMolecules || []) {
+        const recipe = MOLECULE_RECIPES.find((entry) => entry.id === moleculeId);
+        if (!recipe || !recipe.bonus) {
+          continue;
+        }
+        if (Number.isFinite(recipe.bonus.spawnRateBonus)) {
+          nextBonuses.spawnRateBonus += recipe.bonus.spawnRateBonus;
+        }
+        if (Number.isFinite(recipe.bonus.repellingShift)) {
+          nextBonuses.repellingShift += recipe.bonus.repellingShift;
+        }
+      }
+    }
+    this.moleculeBonuses = nextBonuses;
+  }
+
+  /**
+   * Randomly connect binding agents to nearby particles with non-positive repelling force
+   * and resolve molecule formation state.
+   * @param {number} dt - Delta time in seconds.
+   */
+  updateBindingAgents(dt) {
+    if (!this.bindingAgents.length) {
+      this.moleculeBonuses = { spawnRateBonus: 0, repellingShift: 0 };
+      return;
+    }
+
+    const particleMap = new Map();
+    for (const particle of this.particles) {
+      particleMap.set(particle.id, particle);
+    }
+
+    for (const agent of this.bindingAgents) {
+      // Remove stale or now-repulsive connections.
+      agent.connections = agent.connections.filter((connection) => {
+        const target = particleMap.get(connection.particleId);
+        return Boolean(target && target.repellingForce <= 0);
+      });
+
+      const connectedTiers = new Set(agent.connections.map((connection) => connection.tier));
+
+      // Stochastically attempt one new connection per frame to keep molecule creation organic.
+      const shouldAttemptBond = Math.random() < Math.min(0.6, dt * 3);
+      if (shouldAttemptBond) {
+        const eligibleCandidates = this.particles.filter((particle) => {
+          if (particle.repellingForce > 0) return false;
+          if (connectedTiers.has(particle.tier)) return false;
+
+          const dx = particle.x - agent.x;
+          const dy = particle.y - agent.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const maxDistance = particle.radius + this.getBindingAgentRadius();
+          return distance <= maxDistance;
+        });
+
+        if (eligibleCandidates.length) {
+          const target = eligibleCandidates[Math.floor(Math.random() * eligibleCandidates.length)];
+          agent.connections.push({
+            particleId: target.id,
+            tier: target.tier,
+            bondLength: target.radius,
+          });
+          connectedTiers.add(target.tier);
+        }
+      }
+
+      // Resolve molecule completion and discovery.
+      const tiersPresent = new Set(agent.connections.map((connection) => connection.tier));
+      agent.activeMolecules = [];
+      for (const recipe of MOLECULE_RECIPES) {
+        const isComplete = recipe.tiers.every((tier) => tiersPresent.has(tier));
+        if (isComplete) {
+          agent.activeMolecules.push(recipe.id);
+          if (!this.discoveredMolecules.has(recipe.id)) {
+            this.discoveredMolecules.add(recipe.id);
+            if (this.onMoleculeDiscovered) {
+              this.onMoleculeDiscovered(recipe);
+            }
+          }
+        }
+      }
+    }
+
+    this.recalculateMoleculeBonuses();
+  }
+
+  /**
+   * Retrieve metadata for discovered molecules for UI surfaces.
+   * @returns {Array} Array of molecule recipe objects that have been discovered.
+   */
+  getDiscoveredMolecules() {
+    return MOLECULE_RECIPES.filter((recipe) => this.discoveredMolecules.has(recipe.id));
   }
 
   /**
@@ -1032,7 +1314,13 @@ export class ParticleFusionSimulation {
     this.fusionEffects = [];
     this.alephParticleId = null;
     this.alephAbsorptionCount = 0;
-    
+
+    for (const agent of this.bindingAgents) {
+      agent.connections = [];
+      agent.activeMolecules = [];
+    }
+    this.recalculateMoleculeBonuses();
+
     // Respawn initial particles
     this.spawnInitialParticles();
     
@@ -1184,6 +1472,8 @@ export class ParticleFusionSimulation {
       ctx.restore();
     }
 
+    this.renderBindingAgents(ctx);
+
     // Draw particles with sub-pixel precision and glow
     for (const particle of this.particles) {
       const classification = getTierClassification(particle.tier);
@@ -1281,7 +1571,69 @@ export class ParticleFusionSimulation {
       }
     }
   }
-  
+
+  /**
+   * Render binding agent anchors, their connections, and any placement preview.
+   * @param {CanvasRenderingContext2D} ctx - Active 2D context.
+   */
+  renderBindingAgents(ctx) {
+    const particleMap = new Map(this.particles.map((particle) => [particle.id, particle]));
+    const radius = this.getBindingAgentRadius();
+
+    const drawAgent = (agent, { isPreview = false } = {}) => {
+      const baseColor = isPreview ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.9)';
+      ctx.save();
+      ctx.fillStyle = baseColor;
+      ctx.beginPath();
+      ctx.arc(agent.x, agent.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = agent.activeMolecules?.length ? 'rgba(255, 215, 130, 0.9)' : 'rgba(180, 200, 255, 0.7)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.font = `${radius * 1.5}px 'Times New Roman', serif`;
+      ctx.fillStyle = 'rgba(30, 40, 60, 0.9)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⚗', agent.x, agent.y + 1);
+      ctx.restore();
+    };
+
+    // Preview indicator when the player drags a fresh binding agent.
+    if (this.bindingAgentPreview) {
+      drawAgent({ ...this.bindingAgentPreview, activeMolecules: [] }, { isPreview: true });
+    }
+
+    for (const agent of this.bindingAgents) {
+      for (const connection of agent.connections) {
+        const target = particleMap.get(connection.particleId);
+        if (!target) continue;
+
+        const dx = target.x - agent.x;
+        const dy = target.y - agent.y;
+        const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+        const nx = dx / distance;
+        const ny = dy / distance;
+        const endX = agent.x + nx * connection.bondLength;
+        const endY = agent.y + ny * connection.bondLength;
+
+        const connectionColor = agent.activeMolecules?.length
+          ? 'rgba(255, 215, 130, 0.8)'
+          : 'rgba(180, 220, 255, 0.7)';
+
+        ctx.save();
+        ctx.strokeStyle = connectionColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(agent.x, agent.y);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      drawAgent(agent);
+    }
+  }
+
   /**
    * Brighten a color for enhanced glow effects
    */
@@ -1443,6 +1795,12 @@ export class ParticleFusionSimulation {
       highestTierReached: this.highestTierReached,
       glyphCount: this.glyphCount,
       particleBank: this.particleBank,
+      bindingAgentBank: this.availableBindingAgents,
+      bindingAgents: this.bindingAgents.map((agent) => ({
+        x: agent.x,
+        y: agent.y,
+      })),
+      discoveredMolecules: Array.from(this.discoveredMolecules),
       upgrades: {
         repellingForceReduction: this.upgrades.repellingForceReduction,
         startingTier: this.upgrades.startingTier,
@@ -1509,7 +1867,7 @@ export class ParticleFusionSimulation {
     if (typeof state.highestTierReached === 'number') {
       this.highestTierReached = state.highestTierReached;
     }
-    
+
     if (typeof state.glyphCount === 'number') {
       this.glyphCount = state.glyphCount;
     }
@@ -1517,7 +1875,29 @@ export class ParticleFusionSimulation {
     if (Number.isFinite(state.particleBank)) {
       this.setParticleBank(state.particleBank);
     }
-    
+
+    if (Number.isFinite(state.bindingAgentBank)) {
+      this.setAvailableBindingAgents(state.bindingAgentBank);
+    }
+
+    if (Array.isArray(state.bindingAgents)) {
+      this.bindingAgents = state.bindingAgents
+        .filter((agent) => Number.isFinite(agent?.x) && Number.isFinite(agent?.y))
+        .map((agent) => ({
+          id: Math.random(),
+          x: agent.x,
+          y: agent.y,
+          connections: [],
+          activeMolecules: [],
+        }));
+    }
+
+    if (Array.isArray(state.discoveredMolecules)) {
+      this.discoveredMolecules = new Set(state.discoveredMolecules);
+    }
+
+    this.recalculateMoleculeBonuses();
+
     if (state.upgrades) {
       if (typeof state.upgrades.repellingForceReduction === 'number') {
         this.upgrades.repellingForceReduction = state.upgrades.repellingForceReduction;

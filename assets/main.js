@@ -142,6 +142,7 @@ import { FluidTerrariumSkyCycle } from './fluidTerrariumSkyCycle.js';
 import { createBetHappinessSystem } from './betHappiness.js';
 import { createResourceHud } from './resourceHud.js';
 import { createTsadiUpgradeUi } from './tsadiUpgradeUi.js';
+import { createTsadiBindingUi } from './tsadiBindingUi.js';
 import { createSpireTabVisibilityManager } from './spireTabVisibility.js';
 import { createIdleLevelRunManager } from './idleLevelRunManager.js';
 import { createSpireResourceState } from './state/spireResourceState.js';
@@ -980,6 +981,8 @@ import {
     ensureLamedBankSeeded,
     getTsadiParticleBank,
     setTsadiParticleBank,
+    getTsadiBindingAgents,
+    setTsadiBindingAgents,
     ensureTsadiBankSeeded,
     reconcileGlyphCurrencyFromState,
   } = createSpireResourceBanks({
@@ -1101,6 +1104,39 @@ import {
   // Initialize the Towers tab emblem to the default mote palette before any theme swaps occur.
   applyMindGatePaletteToDom(powderState.motePalette);
 
+  const { initializeTsadiBindingUi, updateBindingAgentDisplay, refreshCodexList } = createTsadiBindingUi({
+    getTsadiSimulation: () => tsadiSimulationInstance,
+    getBindingAgentBank: () => getTsadiBindingAgents(),
+    setBindingAgentBank: (value) => setTsadiBindingAgents(value),
+    spireResourceState,
+  });
+
+  function syncTsadiBindingAgents(nextValue) {
+    const normalized = setTsadiBindingAgents(nextValue);
+    if (tsadiSimulationInstance?.setAvailableBindingAgents) {
+      tsadiSimulationInstance.setAvailableBindingAgents(normalized);
+    }
+    if (spireResourceState.tsadi) {
+      spireResourceState.tsadi.bindingAgents = normalized;
+    }
+    updateBindingAgentDisplay();
+  }
+
+  function handleMoleculeDiscovery(recipe) {
+    if (!recipe) {
+      return;
+    }
+    if (!spireResourceState.tsadi) {
+      spireResourceState.tsadi = {};
+    }
+    const existing = Array.isArray(spireResourceState.tsadi.discoveredMolecules)
+      ? spireResourceState.tsadi.discoveredMolecules
+      : [];
+    const preserved = existing.filter((entry) => entry && entry.id !== recipe.id);
+    spireResourceState.tsadi.discoveredMolecules = [...preserved, recipe];
+    refreshCodexList();
+  }
+
   const {
     powderElements,
     bindPowderControls,
@@ -1160,6 +1196,8 @@ import {
     setLamedSparkBank,
     getTsadiParticleBank,
     setTsadiParticleBank,
+    getTsadiBindingAgents,
+    setTsadiBindingAgents,
     addIterons,
     updateShinDisplay,
     evaluateAchievements,
@@ -1169,6 +1207,7 @@ import {
     getIteronBank,
     getIterationRate,
     betHappinessSystem,
+    onTsadiBindingAgentsChange: syncTsadiBindingAgents,
   });
 
   powderElementsRef = powderElements;
@@ -1298,6 +1337,7 @@ import {
   let lamedDeveloperSpamAttached = false;
   let tsadiSimulationInstance = null;
   let shinSimulationInstance = null;
+  let tsadiBindingUiInitialized = false;
   let kufUiInitialized = false;
   let pendingSpireResizeFrame = null;
   let previousTabId = getActiveTabId();
@@ -2021,6 +2061,148 @@ import {
     }
   }
 
+  /**
+   * Clamp a numeric value to a finite non-negative value for persistence payloads.
+   * @param {number} value - Raw numeric input from save data.
+   * @param {number} fallback - Optional fallback when the input is invalid.
+   * @returns {number} Sanitized value.
+   */
+  function clampPersistedValue(value, fallback = 0) {
+    const normalized = Number.isFinite(value) ? value : fallback;
+    return Math.max(0, normalized);
+  }
+
+  /**
+   * Normalize discovered molecule entries so older save payloads that only stored ids still render.
+   * @param {Array} molecules - Persisted molecule list.
+   * @returns {Array} Sanitized molecule descriptors.
+   */
+  function normalizePersistedMolecules(molecules) {
+    if (!Array.isArray(molecules)) {
+      return [];
+    }
+    return molecules
+      .map((entry) => {
+        if (!entry) {
+          return null;
+        }
+        if (typeof entry === 'string') {
+          return {
+            id: entry,
+            name: entry,
+            tiers: [],
+            description: 'Recorded in the Alchemy Codex.',
+          };
+        }
+        if (typeof entry === 'object') {
+          const id = entry.id || entry.name || 'molecule';
+          const name = typeof entry.name === 'string' ? entry.name : id;
+          const tiers = Array.isArray(entry.tiers) ? entry.tiers.filter((tier) => Number.isFinite(tier)) : [];
+          const description =
+            typeof entry.description === 'string' ? entry.description : 'Recorded in the Alchemy Codex.';
+          return { ...entry, id, name, tiers, description };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }
+
+  /**
+   * Compose a persistence-safe snapshot of the advanced spire resource state.
+   * @returns {Object} Sanitized spire resource data for autosave.
+   */
+  function getSpireResourceStateSnapshot() {
+    const lamedState = spireResourceState.lamed || {};
+    const tsadiState = spireResourceState.tsadi || {};
+    const shinState = spireResourceState.shin || {};
+    const kufState = spireResourceState.kuf || {};
+
+    return {
+      lamed: {
+        unlocked: Boolean(lamedState.unlocked),
+        sparkBank: getLamedSparkBank(),
+        dragLevel: clampPersistedValue(lamedState.dragLevel, 0),
+        starMass: Number.isFinite(lamedState.starMass) ? lamedState.starMass : 10,
+        upgrades: {
+          starMass: clampPersistedValue(lamedState.upgrades?.starMass, 0),
+        },
+        stats: {
+          totalAbsorptions: clampPersistedValue(lamedState.stats?.totalAbsorptions, 0),
+          totalMassGained: clampPersistedValue(lamedState.stats?.totalMassGained, 0),
+        },
+      },
+      tsadi: {
+        unlocked: Boolean(tsadiState.unlocked),
+        particleBank: getTsadiParticleBank(),
+        bindingAgents: getTsadiBindingAgents(),
+        discoveredMolecules: normalizePersistedMolecules(tsadiState.discoveredMolecules),
+        stats: {
+          totalParticles: clampPersistedValue(tsadiState.stats?.totalParticles, 0),
+          totalGlyphs: clampPersistedValue(tsadiState.stats?.totalGlyphs, 0),
+        },
+      },
+      shin: {
+        unlocked: Boolean(shinState.unlocked),
+      },
+      kuf: {
+        unlocked: Boolean(kufState.unlocked),
+      },
+    };
+  }
+
+  /**
+   * Hydrate the advanced spire resource state from persisted data while preserving existing references.
+   * @param {Object} snapshot - Persisted spire state payload.
+   */
+  function applySpireResourceStateSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') {
+      return;
+    }
+
+    const lamedBranch = snapshot.lamed || {};
+    const tsadiBranch = snapshot.tsadi || {};
+    const shinBranch = snapshot.shin || {};
+    const kufBranch = snapshot.kuf || {};
+
+    const lamedState = spireResourceState.lamed || {};
+    lamedState.unlocked = Boolean(lamedBranch.unlocked || lamedState.unlocked);
+    setLamedSparkBank(clampPersistedValue(lamedBranch.sparkBank, getLamedSparkBank()));
+    lamedState.dragLevel = clampPersistedValue(lamedBranch.dragLevel, lamedState.dragLevel || 0);
+    lamedState.starMass = Number.isFinite(lamedBranch.starMass) ? lamedBranch.starMass : lamedState.starMass || 10;
+    lamedState.upgrades = {
+      ...(lamedState.upgrades || {}),
+      starMass: clampPersistedValue(lamedBranch.upgrades?.starMass, lamedState.upgrades?.starMass || 0),
+    };
+    lamedState.stats = {
+      ...(lamedState.stats || {}),
+      totalAbsorptions: clampPersistedValue(
+        lamedBranch.stats?.totalAbsorptions,
+        lamedState.stats?.totalAbsorptions || 0,
+      ),
+      totalMassGained: clampPersistedValue(lamedBranch.stats?.totalMassGained, lamedState.stats?.totalMassGained || 0),
+    };
+
+    const tsadiState = spireResourceState.tsadi || {};
+    tsadiState.unlocked = Boolean(tsadiBranch.unlocked || tsadiState.unlocked);
+    setTsadiParticleBank(clampPersistedValue(tsadiBranch.particleBank, getTsadiParticleBank()));
+    const bindingStock = clampPersistedValue(tsadiBranch.bindingAgents, getTsadiBindingAgents());
+    setTsadiBindingAgents(bindingStock);
+    tsadiState.stats = {
+      ...(tsadiState.stats || {}),
+      totalParticles: clampPersistedValue(tsadiBranch.stats?.totalParticles, tsadiState.stats?.totalParticles || 0),
+      totalGlyphs: clampPersistedValue(tsadiBranch.stats?.totalGlyphs, tsadiState.stats?.totalGlyphs || 0),
+    };
+    tsadiState.discoveredMolecules = normalizePersistedMolecules(
+      tsadiBranch.discoveredMolecules || tsadiState.discoveredMolecules,
+    );
+
+    const shinState = spireResourceState.shin || {};
+    shinState.unlocked = Boolean(shinBranch.unlocked || shinState.unlocked);
+
+    const kufState = spireResourceState.kuf || {};
+    kufState.unlocked = Boolean(kufBranch.unlocked || kufState.unlocked);
+  }
+
   // Configure the autosave helpers so they can persist powder, stats, and preference state.
   configureAutoSave({
     audioStorageKey: AUDIO_SETTINGS_STORAGE_KEY,
@@ -2068,6 +2250,8 @@ import {
       waveDamageTallies: areWaveDamageTalliesEnabled() ? '1' : '0',
       trackTracer: areTrackTracersEnabled() ? '1' : '0',
     }),
+    getSpireResourceStateSnapshot,
+    applySpireResourceStateSnapshot,
   });
 
   levelOverlayController = createLevelOverlayController({
@@ -4134,9 +4318,14 @@ import {
               tsadiSimulationInstance = new ParticleFusionSimulation({
                 canvas: tsadiCanvas,
                 initialParticleBank: getTsadiParticleBank(),
+                initialBindingAgents: getTsadiBindingAgents(),
+                initialDiscoveredMolecules: spireResourceState.tsadi?.discoveredMolecules || [],
                 samplePaletteGradient: samplePaletteGradient,
                 onParticleBankChange: (value) => {
                   setTsadiParticleBank(value);
+                },
+                onBindingAgentStockChange: (value) => {
+                  syncTsadiBindingAgents(value);
                 },
                 onTierChange: (tierInfo) => {
                   const tierEl = document.getElementById('tsadi-highest-tier');
@@ -4180,12 +4369,15 @@ import {
                     updateStatusDisplays();
                     checkAndUnlockSpires();
                   }
+                  refreshCodexList();
                 },
                 onReset: () => {
                   console.log('Tsadi simulation reset after aleph explosion');
                 },
+                onMoleculeDiscovered: handleMoleculeDiscovery,
               });
               tsadiSimulationInstance.resize();
+              tsadiSimulationInstance.setAvailableBindingAgents(getTsadiBindingAgents());
               tsadiSimulationInstance.beginPlacementFromStoredCounts?.();
               const generationRateEl = document.getElementById('tsadi-generation-rate');
               if (generationRateEl) {
@@ -4195,6 +4387,13 @@ import {
               tsadiSimulationInstance.start();
               // Match the particle fusion canvas to the responsive layout constraints.
               scheduleSpireResize();
+
+              if (!tsadiBindingUiInitialized) {
+                initializeTsadiBindingUi();
+                tsadiBindingUiInitialized = true;
+              }
+              updateBindingAgentDisplay();
+              refreshCodexList();
 
               // Bind upgrade buttons
               bindTsadiUpgradeButtons();
@@ -4206,6 +4405,8 @@ import {
               tsadiSimulationInstance.start();
             }
             scheduleSpireResize();
+            updateBindingAgentDisplay();
+            refreshCodexList();
           }
 
           // Update upgrade UI every time the tab is shown
