@@ -51,10 +51,12 @@ export class FluidTerrariumCreatures {
     this.creatureCount = Number.isFinite(options.creatureCount) ? Math.max(1, Math.round(options.creatureCount)) : 4;
     this.gravity = Number.isFinite(options.gravity) ? options.gravity : 1800; // px/s^2
     this.terrainElement = options.terrainElement || null;
+    this.spawnZones = Array.isArray(options.spawnZones) ? options.spawnZones : [];
     this.creatures = [];
     this.layer = null;
     this.bounds = { width: 0, height: 0 };
     this.terrainBounds = { left: 0, right: 0, width: 0, top: 0, bottom: 0, height: 0 };
+    this.resolvedSpawnZones = [];
     this.terrainProfile = null;
     this.running = false;
     this.animationFrame = null;
@@ -122,15 +124,8 @@ export class FluidTerrariumCreatures {
       };
     }
 
-    this.creatures.forEach((creature) => {
-      const leftLimit = this.getLeftLimit(creature);
-      const rightLimit = this.getRightLimit(creature);
-      const minX = Math.min(leftLimit, rightLimit);
-      const maxX = Math.max(leftLimit, rightLimit);
-      creature.x = clamp(creature.x, minX, maxX);
-      creature.y = Math.min(creature.y, this.getGroundLevel(creature));
-      this.updateCreatureTransform(creature);
-    });
+    this.resolveSpawnZones();
+    this.syncCreatureZones();
   }
 
   /**
@@ -163,7 +158,10 @@ export class FluidTerrariumCreatures {
         targetScaleX: 1,
         targetScaleY: 1,
         shadowPhase: Math.random() * Math.PI * 2,
+        zoneIndex: this.pickSpawnZoneIndex(),
+        zone: null,
       };
+      creature.zone = this.getResolvedZone(creature.zoneIndex);
       const leftLimit = this.getLeftLimit(creature);
       const rightLimit = this.getRightLimit(creature);
       const minX = Math.min(leftLimit, rightLimit);
@@ -181,6 +179,10 @@ export class FluidTerrariumCreatures {
    */
   getLeftLimit(creature) {
     const halfWidth = (creature.size || 24) * 0.35;
+    const zone = this.getCreatureZone(creature);
+    if (zone) {
+      return zone.left + halfWidth;
+    }
     if (this.terrainBounds.width > 0) {
       return this.terrainBounds.left + halfWidth;
     }
@@ -195,6 +197,10 @@ export class FluidTerrariumCreatures {
       return (creature.size || 24) * 0.35 + 2;
     }
     const halfWidth = (creature.size || 24) * 0.35;
+    const zone = this.getCreatureZone(creature);
+    if (zone) {
+      return zone.right - halfWidth;
+    }
     if (this.terrainBounds.width > 0) {
       return this.terrainBounds.right - halfWidth;
     }
@@ -209,6 +215,14 @@ export class FluidTerrariumCreatures {
       return (creature?.size || 24) * 2;
     }
     const padding = 6;
+    const zone = this.getCreatureZone(creature);
+    if (zone) {
+      const limitedGround = this.getTerrainGroundAt(creature?.x ?? zone.left + zone.width / 2);
+      if (Number.isFinite(limitedGround)) {
+        return clamp(limitedGround, zone.top + padding, zone.bottom);
+      }
+      return zone.bottom - padding;
+    }
     const ground = this.getTerrainGroundAt(creature?.x ?? this.bounds.width / 2);
     if (Number.isFinite(ground)) {
       return ground;
@@ -488,5 +502,118 @@ export class FluidTerrariumCreatures {
       height: canvas.height,
       samples,
     };
+  }
+
+  /**
+   * Map normalized spawn rectangles onto the rendered terrain bounds.
+   */
+  resolveSpawnZones() {
+    const hasTerrainBounds = this.terrainBounds.width > 0 && this.terrainBounds.height > 0;
+    const reference = hasTerrainBounds
+      ? this.terrainBounds
+      : { left: 0, top: 0, width: this.bounds.width, height: this.bounds.height };
+
+    if (!reference.width || !reference.height) {
+      this.resolvedSpawnZones = [];
+      return;
+    }
+
+    this.resolvedSpawnZones = (this.spawnZones || [])
+      .map((zone, index) => {
+        if (!zone || !Number.isFinite(zone.x) || !Number.isFinite(zone.y)) {
+          return null;
+        }
+        const normalizedX = clamp(zone.x, 0, 1);
+        const normalizedY = clamp(zone.y, 0, 1);
+        const normalizedWidth = clamp(zone.width ?? 0, 0, 1 - normalizedX);
+        const normalizedHeight = clamp(zone.height ?? 0, 0, 1 - normalizedY);
+        if (normalizedWidth <= 0 || normalizedHeight <= 0) {
+          return null;
+        }
+        const left = reference.left + reference.width * normalizedX;
+        const top = reference.top + reference.height * normalizedY;
+        const width = reference.width * normalizedWidth;
+        const height = reference.height * normalizedHeight;
+        return {
+          index,
+          left,
+          right: left + width,
+          width,
+          top,
+          bottom: top + height,
+          height,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  /**
+   * Re-anchor creatures to their zones after a resize.
+   */
+  syncCreatureZones() {
+    const padding = 6;
+    this.creatures.forEach((creature) => {
+      if (typeof creature.zoneIndex === 'number') {
+        creature.zone = this.getResolvedZone(creature.zoneIndex);
+      }
+      const zone = this.getCreatureZone(creature);
+      if (zone) {
+        const halfWidth = (creature.size || 24) * 0.35;
+        const minX = zone.left + halfWidth;
+        const maxX = zone.right - halfWidth;
+        creature.x = clamp(creature.x, minX, maxX);
+        creature.y = clamp(creature.y, zone.top + padding, zone.bottom);
+      } else {
+        const leftLimit = this.getLeftLimit(creature);
+        const rightLimit = this.getRightLimit(creature);
+        const minX = Math.min(leftLimit, rightLimit);
+        const maxX = Math.max(leftLimit, rightLimit);
+        creature.x = clamp(creature.x, minX, maxX);
+        creature.y = Math.min(creature.y, this.getGroundLevel(creature));
+      }
+      this.updateCreatureTransform(creature);
+    });
+  }
+
+  /**
+   * Retrieve the resolved spawn zone for the provided index.
+   * @param {number|null|undefined} zoneIndex
+   * @returns {Object|null}
+   */
+  getResolvedZone(zoneIndex) {
+    if (!Array.isArray(this.resolvedSpawnZones)) {
+      return null;
+    }
+    if (typeof zoneIndex !== 'number' || zoneIndex < 0 || zoneIndex >= this.resolvedSpawnZones.length) {
+      return null;
+    }
+    return this.resolvedSpawnZones[zoneIndex];
+  }
+
+  /**
+   * Resolve the active zone for a creature, if one exists.
+   * @param {Object} creature
+   * @returns {Object|null}
+   */
+  getCreatureZone(creature) {
+    if (creature?.zone) {
+      return creature.zone;
+    }
+    if (typeof creature?.zoneIndex === 'number') {
+      return this.getResolvedZone(creature.zoneIndex);
+    }
+    return null;
+  }
+
+  /**
+   * Choose a spawn zone index for a new creature.
+   * @returns {number|null}
+   */
+  pickSpawnZoneIndex() {
+    if (!Array.isArray(this.resolvedSpawnZones) || this.resolvedSpawnZones.length === 0) {
+      return null;
+    }
+    const zoneIndex = Math.floor(Math.random() * this.resolvedSpawnZones.length);
+    return Math.max(0, Math.min(zoneIndex, this.resolvedSpawnZones.length - 1));
   }
 }

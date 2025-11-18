@@ -858,6 +858,12 @@ import {
     wallGlyphColumns: [],
   };
 
+  // Spawn zones derived from the Cave-4.png and Cave-5.png mask blocks so Deltas appear inside those caverns.
+  const BET_CAVE_SPAWN_ZONES = [
+    { x: 225 / 1024, y: 1076 / 1536, width: 240 / 1024, height: 198 / 1536 },
+    { x: 540 / 1024, y: 1064 / 1536, width: 310 / 1024, height: 205 / 1536 },
+  ];
+
   const { updateFluidTabAvailability, updateSpireTabVisibility } = createSpireTabVisibilityManager({
     fluidElements,
     getResourceElements: () => resourceElements,
@@ -882,6 +888,7 @@ import {
       container: fluidElements.viewport,
       terrainElement: fluidElements.terrainSprite,
       creatureCount: grasshopperCount,
+      spawnZones: BET_CAVE_SPAWN_ZONES,
     });
     if (betHappinessSystem) {
       betHappinessSystem.setProducerCount('grasshopper', grasshopperCount);
