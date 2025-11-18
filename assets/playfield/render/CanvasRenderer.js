@@ -1676,6 +1676,30 @@ function resolveEnemySwirlDesiredCount(entry, metrics, lowGraphicsEnabled) {
   return Math.max(0, Math.round(spawnBudget));
 }
 
+// Choose which swirl particles get pushed back so only a damage-matching slice reacts to the impact.
+function selectImpactedSwirlParticles(entry, damageFraction) {
+  if (!entry || !Array.isArray(entry.particles)) {
+    return new Map();
+  }
+  const fraction = clamp(Number.isFinite(damageFraction) ? damageFraction : 1, 0, 1);
+  const totalParticles = entry.particles.length;
+  if (!totalParticles || fraction <= 0) {
+    return new Map();
+  }
+  const impacted = new Map();
+  const targetCount = Math.ceil(totalParticles * fraction);
+  const candidates = entry.particles.slice();
+  for (let index = 0; index < targetCount && candidates.length; index += 1) {
+    const pickIndex = Math.floor(Math.random() * candidates.length);
+    const [pickedParticle] = candidates.splice(pickIndex, 1);
+    if (pickedParticle) {
+      // Lock in an independent angular deviation so nearby motes scatter instead of moving as one mass.
+      impacted.set(pickedParticle, randomBetween(-Math.PI / 3, Math.PI / 3));
+    }
+  }
+  return impacted;
+}
+
 // Generate a deterministic 0..1 noise value so particle knockback varies without frame-to-frame jitter.
 function sampleImpactNoise(seedValue = 0) {
   const scaledSeed = (seedValue || 0) * 127.1;
@@ -1684,7 +1708,7 @@ function sampleImpactNoise(seedValue = 0) {
 }
 
 // Apply a knockback offset so swirl particles briefly drift away from the impact point.
-function applyEnemySwirlImpactOffset(entry, position, now, jitterSeed = 0) {
+function applyEnemySwirlImpactOffset(entry, particle, position, now, jitterSeed = 0) {
   if (!entry || !entry.activeImpact || !position) {
     return position;
   }
@@ -1708,14 +1732,28 @@ function applyEnemySwirlImpactOffset(entry, position, now, jitterSeed = 0) {
   const direction = impact.direction || { x: 0, y: 0 };
   const magnitude = Math.hypot(direction.x, direction.y) || 1;
   const normalized = { x: direction.x / magnitude, y: direction.y / magnitude };
+  const impactedParticles = impact.impactedParticles;
+  if (impactedParticles instanceof Map) {
+    if (!impactedParticles.size) {
+      entry.activeImpact = null;
+      return position;
+    }
+    if (!impactedParticles.has(particle)) {
+      return position;
+    }
+  }
   const strength = Number.isFinite(impact.strength) ? Math.max(0, impact.strength) : 1;
-  const angleNoise = sampleImpactNoise(jitterSeed);
   const speedNoise = sampleImpactNoise(jitterSeed + 0.37);
-  const angleOffset = (angleNoise - 0.5) * 0.65;
+  const particleAngleOffset =
+    impactedParticles instanceof Map && impactedParticles.size
+      ? impactedParticles.get(particle)
+      : null;
+  const angleOffset = Number.isFinite(particleAngleOffset) ? particleAngleOffset : 0;
+  const rotatedAngle = Math.atan2(normalized.y, normalized.x) + angleOffset;
   const speedVariance = 0.82 + speedNoise * 0.55;
   const rotatedDirection = {
-    x: normalized.x * Math.cos(angleOffset) - normalized.y * Math.sin(angleOffset),
-    y: normalized.x * Math.sin(angleOffset) + normalized.y * Math.cos(angleOffset),
+    x: Math.cos(rotatedAngle),
+    y: Math.sin(rotatedAngle),
   };
   const distance = ENEMY_SWIRL_KNOCKBACK_DISTANCE * strength * impulse * speedVariance;
   return {
@@ -1864,6 +1902,8 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
       strength: Number.isFinite(latestImpact.strength) ? latestImpact.strength : 1,
       startedAt: Number.isFinite(latestImpact.timestamp) ? latestImpact.timestamp : now,
       duration: ENEMY_SWIRL_KNOCKBACK_DURATION_MS,
+      // Tag the specific particles that should stagger so the reaction matches the damage share.
+      impactedParticles: selectImpactedSwirlParticles(entry, latestImpact.damageFraction),
     };
   }
   const desiredCount = resolveEnemySwirlDesiredCount(entry, metrics, lowGraphicsEnabled);
@@ -1880,7 +1920,7 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
     const angle = Number.isFinite(particle.currentAngle) ? particle.currentAngle : 0;
     const basePosition = { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
     const jitterSeed = Number.isFinite(particle.startAngle) ? particle.startAngle : angle;
-    const position = applyEnemySwirlImpactOffset(entry, basePosition, now, jitterSeed) || basePosition;
+    const position = applyEnemySwirlImpactOffset(entry, particle, basePosition, now, jitterSeed) || basePosition;
     const alpha = clamp(alphaBase * (particle.state === 'hold' ? 0.9 : 0.7 + Math.random() * 0.2), 0.25, 0.95);
     ctx.beginPath();
     ctx.fillStyle = colorToRgbaString(particle.color || sampleEnemyParticleColor(), alpha);
