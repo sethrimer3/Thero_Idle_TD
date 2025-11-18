@@ -118,7 +118,7 @@ export function formatGameNumber(value) {
     const magnitude = Math.abs(mantissa);
     const precision = magnitude >= 100 ? 0 : magnitude >= 10 ? 1 : 2;
     const formattedMantissa = mantissa.toFixed(precision);
-    return `${formattedMantissa} × 10^${exponent}`;
+    return `${formattedMantissa}e${exponent}`;
   }
 
   const clampedLetterTier = Math.min(tier, numberSuffixes.length - 1);
