@@ -8444,6 +8444,92 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   display: none;
 }
 
+.tsadi-binding-handle {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(30, 36, 46, 0.8);
+  color: #ffd782;
+  font-size: 20px;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.35);
+}
+
+.tsadi-binding-handle:active {
+  cursor: grabbing;
+  transform: translateY(1px);
+}
+
+.tsadi-codex-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tsadi-codex-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tsadi-codex-button {
+  background: #1c2533;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #e3e8f7;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tsadi-codex-button:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.tsadi-codex-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tsadi-codex-entry {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 8px;
+  border-radius: 6px;
+  background: rgba(17, 21, 30, 0.8);
+}
+
+.tsadi-codex-entry__title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.tsadi-codex-entry__tiers {
+  font-size: 13px;
+  color: #c9d3ef;
+}
+
+.tsadi-codex-entry__bonus {
+  margin: 4px 0 0;
+  color: #e3e8f7;
+}
+
+.tsadi-codex-empty {
+  color: #9aa3b5;
+  font-style: italic;
+}
+
 .lamed-briefing-card h3 {
   display: flex;
   align-items: center;

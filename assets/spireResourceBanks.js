@@ -90,6 +90,20 @@ export function createSpireResourceBanks({
     return normalized;
   }
 
+  function getTsadiBindingAgents() {
+    return normalizeBankValue(tsadiState.bindingAgents);
+  }
+
+  function setTsadiBindingAgents(value) {
+    const normalized = normalizeBankValue(value);
+    if (normalized === getTsadiBindingAgents()) {
+      return normalized;
+    }
+    tsadiState.bindingAgents = normalized;
+    updateSpireMenuCounts();
+    return normalized;
+  }
+
   function ensureTsadiBankSeeded() {
     if (tsadiState.unlocked) {
       return;
@@ -118,6 +132,8 @@ export function createSpireResourceBanks({
     ensureLamedBankSeeded,
     getTsadiParticleBank,
     setTsadiParticleBank,
+    getTsadiBindingAgents,
+    setTsadiBindingAgents,
     ensureTsadiBankSeeded,
     reconcileGlyphCurrencyFromState,
   };

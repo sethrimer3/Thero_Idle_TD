@@ -14,6 +14,8 @@ const DEFAULT_LAMED_STATE = {
 const DEFAULT_TSADI_STATE = {
   particleBank: 0,
   unlocked: false,
+  bindingAgents: 0,
+  discoveredMolecules: [],
   stats: {
     totalParticles: 0,
     totalGlyphs: 0,
