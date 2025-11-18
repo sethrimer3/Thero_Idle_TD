@@ -1303,6 +1303,7 @@ import {
   let shinSimulationInstance = null;
   let kufUiInitialized = false;
   let pendingSpireResizeFrame = null;
+  let previousTabId = getActiveTabId();
 
   const {
     ensurePowderBasinResizeObserver,
@@ -3979,6 +3980,11 @@ import {
       getOverlayActiveState: () => Boolean(levelOverlayController?.isOverlayActive()),
       isFieldNotesOverlayVisible,
       onTabChange: (tabId) => {
+        if (previousTabId === 'tsadi' && tabId !== 'tsadi') {
+          // Stash Tsadi particle counts before the viewport collapses so reentry can rebuild cleanly.
+          tsadiSimulationInstance?.stageParticlesForReentry?.();
+        }
+
         refreshTabMusic();
         if (audioManager) {
           if (tabId === 'lamed') {
@@ -4183,6 +4189,7 @@ import {
                 },
               });
               tsadiSimulationInstance.resize();
+              tsadiSimulationInstance.beginPlacementFromStoredCounts?.();
               const generationRateEl = document.getElementById('tsadi-generation-rate');
               if (generationRateEl) {
                 generationRateEl.textContent = `${tsadiSimulationInstance.spawnRate.toFixed(2)} particles/sec`;
@@ -4197,6 +4204,7 @@ import {
             }
           } else {
             tsadiSimulationInstance.resize();
+            tsadiSimulationInstance.beginPlacementFromStoredCounts?.();
             if (!tsadiSimulationInstance.running) {
               tsadiSimulationInstance.start();
             }
@@ -4244,6 +4252,8 @@ import {
             }
           });
         }
+
+        previousTabId = tabId;
       },
       onTowerTabActivated: () => {
         updateActiveLevelBanner();
