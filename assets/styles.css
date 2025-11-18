@@ -8273,6 +8273,13 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   font-size: 0.9rem;
 }
 
+/* Keep the spire buttons square so the tab bar stays compact on mobile. */
+.tab-button-stack.spire-tab-stack:not(.tab-button-stack--split) .tab-button--stacked {
+  aspect-ratio: 1 / 1;
+  height: auto;
+  padding: 8px;
+}
+
 /* Mobile adjustments for stacked spire tabs */
 @media (max-width: 768px) {
   .spire-tab-stack {
@@ -8281,13 +8288,20 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(2, 1fr);
   }
-  
+
   .spire-tab-stack .tab-button--stacked {
     padding: 6px 2px;
   }
-  
+
   .spire-tab-stack .tab-icon {
     font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Maintain square spire buttons while trimming padding on smaller screens. */
+  .tab-button-stack.spire-tab-stack:not(.tab-button-stack--split) .tab-button--stacked {
+    padding: 6px;
   }
 }
 
