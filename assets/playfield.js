@@ -9971,6 +9971,11 @@ export class SimplePlayfield {
     return CanvasRenderer.drawEnemies.call(this);
   }
 
+  // Render particle fragments from defeated enemies so the battlefield reflects recent combat.
+  drawEnemyDeathParticles() {
+    return CanvasRenderer.drawEnemyDeathParticles.call(this);
+  }
+
   drawDamageNumbers() {
     return CanvasRenderer.drawDamageNumbers.call(this);
   }
