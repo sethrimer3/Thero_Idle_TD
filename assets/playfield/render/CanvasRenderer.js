@@ -88,6 +88,7 @@ const DEBUFF_ICON_COLORS = {
   iota: { fill: 'rgba(139, 247, 255, 0.92)', stroke: 'rgba(6, 8, 14, 0.82)' },
   rho: { fill: 'rgba(255, 219, 156, 0.96)', stroke: 'rgba(52, 28, 4, 0.85)' },
   theta: { fill: 'rgba(208, 242, 255, 0.9)', stroke: 'rgba(8, 12, 18, 0.82)' },
+  'derivative-shield': { fill: 'rgba(192, 210, 224, 0.9)', stroke: 'rgba(24, 32, 42, 0.82)' },
   default: { fill: 'rgba(255, 255, 255, 0.86)', stroke: 'rgba(6, 8, 14, 0.8)' },
 };
 const DEBUFF_BAR_BACKGROUND = 'rgba(6, 8, 14, 0.82)';

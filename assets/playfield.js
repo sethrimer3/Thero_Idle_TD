@@ -233,10 +233,17 @@ const WAVE_TALLY_DAMAGE_FONT_SIZE = 9.6;
 const WAVE_TALLY_KILL_FONT_SIZE = WAVE_TALLY_DAMAGE_FONT_SIZE;
 // Rho debuff visuals should linger briefly so the sparkle ring can be noticed as enemies leave the field.
 const RHO_SPARKLE_LINGER_SECONDS = 0.9;
+const DERIVATIVE_SHIELD_SYMBOL = '∂';
+const DERIVATIVE_SHIELD_RADIUS_SCALE = 4.2;
+const DERIVATIVE_SHIELD_MIN_RADIUS = 96;
+const DERIVATIVE_SHIELD_LINGER_MS = 160;
+const DEFAULT_POLYGON_SIDES = 6;
+const POLYGON_SPLIT_COUNT = 2;
 const DEBUFF_ICON_SYMBOLS = {
   iota: 'ι',
   rho: 'ρ',
   theta: 'θ',
+  'derivative-shield': DERIVATIVE_SHIELD_SYMBOL,
 };
 
 export class SimplePlayfield {
@@ -7583,7 +7590,54 @@ export class SimplePlayfield {
     return 'rgba(255, 168, 92, 0.95)';
   }
 
+  resolvePolygonSides(config = {}) {
+    if (Number.isFinite(config.polygonSides)) {
+      return Math.max(1, Math.floor(config.polygonSides));
+    }
+    if (config && typeof config.codexId === 'string' && config.codexId === 'polygon-splitter') {
+      return DEFAULT_POLYGON_SIDES;
+    }
+    return null;
+  }
+
+  resolvePolygonSymbol(sides) {
+    const normalized = Number.isFinite(sides) ? Math.max(1, Math.floor(sides)) : 0;
+    if (normalized >= 6) {
+      return '⬢';
+    }
+    if (normalized === 5) {
+      return '⬟';
+    }
+    if (normalized === 4) {
+      return '⬦';
+    }
+    if (normalized === 3) {
+      return '△';
+    }
+    if (normalized === 2) {
+      return '―';
+    }
+    if (normalized === 1) {
+      return '·';
+    }
+    return null;
+  }
+
+  resolveNextPolygonSides(currentSides) {
+    const normalized = Number.isFinite(currentSides) ? Math.max(1, Math.floor(currentSides)) : 0;
+    if (normalized <= 1) {
+      return 0;
+    }
+    return normalized - 1;
+  }
+
   resolveEnemySymbol(config = {}) {
+    if (config && typeof config.polygonSides !== 'undefined') {
+      const polygonSymbol = this.resolvePolygonSymbol(config.polygonSides);
+      if (polygonSymbol) {
+        return polygonSymbol;
+      }
+    }
     if (config && typeof config.symbol === 'string') {
       const trimmed = config.symbol.trim();
       if (trimmed) {
@@ -7674,8 +7728,9 @@ export class SimplePlayfield {
       spawnConfig.label = sourceConfig.label || config.label;
       spawnConfig.codexId = sourceConfig.codexId || config.codexId || null;
 
+      const polygonSides = this.resolvePolygonSides(spawnConfig);
       const pathMode = (spawnConfig.pathMode === 'direct' ? 'direct' : 'path');
-      const symbol = this.resolveEnemySymbol(spawnConfig);
+      const symbol = this.resolveEnemySymbol({ ...spawnConfig, polygonSides });
       const maxHp = Number.isFinite(spawnConfig.hp) ? Math.max(1, spawnConfig.hp) : 1;
       const hpExponent = this.calculateHealthExponent(maxHp);
       const gemDropMultiplier = resolveEnemyGemDropMultiplier(spawnConfig);
@@ -7693,6 +7748,7 @@ export class SimplePlayfield {
         pathMode,
         moteFactor: this.calculateMoteFactor(spawnConfig),
         symbol,
+        polygonSides,
         hpExponent,
         gemDropMultiplier,
       };
@@ -8227,6 +8283,24 @@ export class SimplePlayfield {
     return Math.max(0, 1 + additive);
   }
 
+  // Apply mitigation from derivative shield carriers before other multipliers modify the strike.
+  applyDerivativeShieldMitigation(enemy, baseDamage) {
+    if (!enemy || !enemy.derivativeShield || !Number.isFinite(baseDamage) || baseDamage <= 0) {
+      return baseDamage;
+    }
+    const effect = enemy.derivativeShield;
+    if (!effect.active) {
+      return baseDamage;
+    }
+    if (effect.mode === 'sqrt') {
+      return Math.max(0, Math.sqrt(baseDamage));
+    }
+    const stack = Number.isFinite(effect.stack) && effect.stack >= 0 ? effect.stack : 0;
+    const mitigation = Math.pow(0.5, stack + 1);
+    effect.stack = stack + 1;
+    return Math.max(0, baseDamage * mitigation);
+  }
+
   /**
    * Track when a debuff first lands on an enemy so the renderer can order icons chronologically.
    */
@@ -8279,6 +8353,10 @@ export class SimplePlayfield {
 
     if (Number.isFinite(enemy.rhoSparkleTimer) && enemy.rhoSparkleTimer > 0) {
       activeTypes.push('rho');
+    }
+
+    if (enemy.derivativeShield && enemy.derivativeShield.active) {
+      activeTypes.push('derivative-shield');
     }
 
     return activeTypes;
@@ -8336,8 +8414,9 @@ export class SimplePlayfield {
     if (!enemy || !Number.isFinite(baseDamage) || baseDamage <= 0) {
       return 0;
     }
+    const mitigatedBase = this.applyDerivativeShieldMitigation(enemy, baseDamage);
     const multiplier = this.computeEnemyDamageMultiplier(enemy);
-    const applied = baseDamage * multiplier;
+    const applied = mitigatedBase * multiplier;
     const hpBefore = Number.isFinite(enemy.hp) ? enemy.hp : 0;
     if (Number.isFinite(enemy.hp)) {
       enemy.hp -= applied;
@@ -8682,6 +8761,7 @@ export class SimplePlayfield {
   }
 
   updateEnemies(delta) {
+    this.updateDerivativeShieldStates(delta);
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       const enemy = this.enemies[index];
       // Guard against stray null slots so a missing enemy can't halt the animation loop mid-wave.
@@ -8745,6 +8825,76 @@ export class SimplePlayfield {
     ) {
       this.advanceWave();
     }
+  }
+
+  // Maintain derivative shield coverage so the mitigation state follows the projector as it marches down the path.
+  updateDerivativeShieldStates(delta) {
+    if (!Array.isArray(this.enemies) || !this.enemies.length) {
+      return;
+    }
+    const shielders = this.enemies.filter((enemy) => enemy && enemy.typeId === 'derivative-shield');
+    if (!shielders.length) {
+      this.enemies.forEach((enemy) => {
+        if (enemy && enemy.derivativeShield) {
+          delete enemy.derivativeShield;
+        }
+      });
+      return;
+    }
+
+    const activeTargets = new Set();
+    const now =
+      typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
+
+    shielders.forEach((shielder) => {
+      const sourcePosition = this.getEnemyPosition(shielder);
+      if (!sourcePosition) {
+        return;
+      }
+      const metrics = this.getEnemyVisualMetrics(shielder);
+      const baseRadius = Math.max(12, metrics?.focusRadius || metrics?.ringRadius || 0);
+      const radius = Math.max(DERIVATIVE_SHIELD_MIN_RADIUS, baseRadius * DERIVATIVE_SHIELD_RADIUS_SCALE);
+
+      this.enemies.forEach((target) => {
+        if (!target) {
+          return;
+        }
+        const position = this.getEnemyPosition(target);
+        if (!position) {
+          return;
+        }
+        const distance = Math.hypot(position.x - sourcePosition.x, position.y - sourcePosition.y);
+        if (distance > radius) {
+          return;
+        }
+        const effect = target.derivativeShield || { stack: 0 };
+        if (!Number.isFinite(effect.stack) || effect.stack < 0) {
+          effect.stack = 0;
+        }
+        effect.mode = shielder?.isBoss ? 'sqrt' : 'halve';
+        effect.lastSeen = now;
+        effect.active = true;
+        effect.sourceId = shielder?.id || null;
+        target.derivativeShield = effect;
+        if (Number.isFinite(target.id)) {
+          activeTargets.add(target.id);
+        }
+      });
+    });
+
+    this.enemies.forEach((enemy) => {
+      if (!enemy || !enemy.derivativeShield) {
+        return;
+      }
+      const recentlyShielded =
+        (Number.isFinite(enemy.id) && activeTargets.has(enemy.id)) ||
+        (enemy.derivativeShield.lastSeen && now - enemy.derivativeShield.lastSeen <= DERIVATIVE_SHIELD_LINGER_MS);
+      if (!recentlyShielded) {
+        delete enemy.derivativeShield;
+      }
+    });
   }
 
   updateProjectiles(delta) {
@@ -9536,6 +9686,8 @@ export class SimplePlayfield {
       this.clearFocusedEnemy({ silent: true });
     }
 
+    this.handlePolygonSplitOnDefeat(enemy);
+
     const baseGain =
       (this.levelConfig?.theroPerKill ?? this.levelConfig?.energyPerKill ?? 0) +
       (enemy.reward || 0);
@@ -9559,6 +9711,90 @@ export class SimplePlayfield {
     this.dependencies.notifyEnemyDefeated();
     // Remove the defeated enemy from the live lists immediately.
     this.scheduleStatsPanelRefresh();
+  }
+
+  // Spawn progressively simpler polygon shards when a polygonal splitter collapses.
+  handlePolygonSplitOnDefeat(enemy) {
+    if (!enemy || enemy.typeId !== 'polygon-splitter') {
+      return;
+    }
+    const currentSides = Number.isFinite(enemy.polygonSides)
+      ? Math.max(1, Math.floor(enemy.polygonSides))
+      : DEFAULT_POLYGON_SIDES;
+    const nextSides = this.resolveNextPolygonSides(currentSides);
+    if (nextSides <= 0) {
+      return;
+    }
+    const hpMultiplier = enemy?.isBoss ? 0.5 : 0.1;
+    const speedMultiplier = enemy?.isBoss ? 0.5 : 1.1;
+
+    for (let shardIndex = 0; shardIndex < POLYGON_SPLIT_COUNT; shardIndex += 1) {
+      const offset = shardIndex === 0 ? -0.004 : 0.004;
+      this.spawnPolygonShard(enemy, {
+        polygonSides: nextSides,
+        hpMultiplier,
+        speedMultiplier,
+        progressOffset: offset,
+      });
+    }
+  }
+
+  // Derive a child enemy from a parent polygonal shard using the configured health and speed multipliers.
+  spawnPolygonShard(parent, options = {}) {
+    if (!parent) {
+      return null;
+    }
+    const nextSides = Number.isFinite(options.polygonSides)
+      ? Math.max(1, Math.floor(options.polygonSides))
+      : this.resolveNextPolygonSides(parent.polygonSides);
+    if (!nextSides) {
+      return null;
+    }
+    const hpBase = Number.isFinite(parent.maxHp) ? parent.maxHp : parent.hp;
+    const baseSpeed = Number.isFinite(parent.baseSpeed) ? parent.baseSpeed : parent.speed;
+    const hpMultiplier = Number.isFinite(options.hpMultiplier) ? options.hpMultiplier : 0.1;
+    const speedMultiplier = Number.isFinite(options.speedMultiplier) ? options.speedMultiplier : 1;
+    const shardHp = Math.max(1, hpBase * hpMultiplier);
+    const shardSpeed = Math.max(0, baseSpeed * speedMultiplier);
+    const rewardRatio = hpBase > 0 && Number.isFinite(parent.reward) ? parent.reward / hpBase : 0.1;
+    const shardReward = Math.max(0, shardHp * rewardRatio);
+    const progressOffset = Number.isFinite(options.progressOffset) ? options.progressOffset : 0;
+    const shardProgress = Math.min(0.999, Math.max(0, (parent.progress || 0) + progressOffset));
+    const shardConfig = {
+      hp: shardHp,
+      speed: shardSpeed,
+      reward: shardReward,
+      color: parent.color,
+      label: parent.label,
+      codexId: parent.typeId || parent.codexId || null,
+      pathMode: parent.pathMode,
+      polygonSides: nextSides,
+    };
+    const symbol = this.resolveEnemySymbol({ ...shardConfig, polygonSides: nextSides });
+    const shard = {
+      id: this.enemyIdCounter += 1,
+      progress: shardProgress,
+      hp: shardHp,
+      maxHp: shardHp,
+      speed: shardSpeed,
+      baseSpeed: shardSpeed,
+      reward: shardReward,
+      color: parent.color,
+      label: parent.label,
+      typeId: parent.typeId || parent.codexId || null,
+      pathMode: parent.pathMode,
+      moteFactor: this.calculateMoteFactor(shardConfig),
+      symbol,
+      polygonSides: nextSides,
+      hpExponent: this.calculateHealthExponent(shardHp),
+      gemDropMultiplier: resolveEnemyGemDropMultiplier(shardConfig),
+    };
+    if (parent.isBoss) {
+      shard.isBoss = true;
+    }
+    this.enemies.push(shard);
+    this.scheduleStatsPanelRefresh();
+    return shard;
   }
 
   handleVictory() {
