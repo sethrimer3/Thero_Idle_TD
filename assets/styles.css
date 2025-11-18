@@ -676,6 +676,26 @@ body.graphics-mode-low .control-button {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
+/* Animated caustic overlay mirrors the flowing particle river used by the playfield renderer. */
+.track-render-preview-line::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  background: repeating-linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.18) 0,
+    rgba(255, 255, 255, 0.18) 10px,
+    rgba(255, 255, 255, 0.02) 16px,
+    rgba(255, 255, 255, 0.02) 22px
+  );
+  opacity: 0;
+  mix-blend-mode: screen;
+  filter: blur(1px);
+  transition: opacity 200ms ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .track-render-preview-line[data-mode='blur'] {
   background: linear-gradient(90deg, rgba(78, 192, 255, 0.9), rgba(138, 125, 255, 0.72) 38%, rgba(255, 159, 100, 0.55) 82%);
   filter: blur(0.3px) drop-shadow(0 0 4px rgba(138, 125, 255, 0.35));
@@ -683,6 +703,14 @@ body.graphics-mode-low .control-button {
 
 .track-render-preview-line[data-mode='river'] {
   background: linear-gradient(90deg, rgba(62, 180, 255, 0.9) 8%, rgba(120, 214, 255, 0.72) 36%, rgba(255, 214, 150, 0.9) 82%);
+  background-size: 220% 100%;
+  animation: river-flow 3.4s ease-in-out infinite;
+}
+
+.track-render-preview-line[data-mode='river']::before {
+  opacity: 1;
+  background-size: 180% 100%;
+  animation: river-caustics 2.6s linear infinite;
 }
 
 .track-render-preview-tracer {
@@ -698,6 +726,24 @@ body.graphics-mode-low .control-button {
 .track-render-preview-line.is-tracer-enabled .track-render-preview-tracer {
   opacity: 1;
   transform: translateX(0%);
+}
+
+@keyframes river-flow {
+  from {
+    background-position: 0% 0%;
+  }
+  to {
+    background-position: -40% 0%;
+  }
+}
+
+@keyframes river-caustics {
+  from {
+    background-position: 0% 0%;
+  }
+  to {
+    background-position: 120% 0%;
+  }
 }
 
 @keyframes tracer-glide {
