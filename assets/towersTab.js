@@ -169,7 +169,7 @@ const towerTabState = {
   unlockState: { unlocked: new Set(['alpha']) },
   mergeProgress: { mergingLogicUnlocked: false },
   mergingLogicElements: { card: null },
-  loadoutElements: { container: null, grid: null, note: null },
+  loadoutElements: { shell: null, container: null, grid: null, note: null, toggle: null },
   // Track the contextual replacement prompt so full-loadout equips can swap slots gracefully.
   loadoutReplacementUi: { container: null, optionsRow: null, anchorButton: null, pendingTowerId: null, outsideHandler: null },
   selectionButtons: new Map(),

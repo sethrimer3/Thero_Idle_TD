@@ -3893,9 +3893,11 @@ import {
     hidePlayfieldOutcome();
 
     setLoadoutElements({
+      shell: document.getElementById('tower-loadout-shell'),
       container: document.getElementById('tower-loadout'),
       grid: document.getElementById('tower-loadout-grid'),
       note: document.getElementById('tower-loadout-note'),
+      toggle: document.getElementById('tower-loadout-toggle'),
     });
     setLoadoutSlotChangeHandler((slotCount) => {
       overrideTowerLoadoutLimit(slotCount);

@@ -43,6 +43,7 @@ export function createTowerLoadoutController({
     dragAccumulator: 0,
     anchorElement: null,
   };
+  const loadoutUiState = { collapsed: false, toggleHandler: null };
 
   const safeGetLoadoutState = () => (typeof getLoadoutState === 'function' ? getLoadoutState() : null);
   const safeGetLoadoutElements = () => (typeof getLoadoutElements === 'function' ? getLoadoutElements() : null);
@@ -90,17 +91,59 @@ export function createTowerLoadoutController({
   }
 
   /**
-   * Update cached DOM references for the loadout container, grid, and helper note.
+   * Toggle the visibility of the loadout tray while keeping the toggle state in sync for accessibility.
    */
-  function setLoadoutElements({ container = null, grid = null, note = null } = {}) {
+  function updateLoadoutCollapsedState(collapsed = false) {
+    loadoutUiState.collapsed = Boolean(collapsed);
+    const elements = safeGetLoadoutElements();
+    const shell = elements?.shell;
+    const container = elements?.container;
+    const toggle = elements?.toggle;
+    if (shell) {
+      shell.classList.toggle('tower-loadout-shell--collapsed', loadoutUiState.collapsed);
+    }
+    if (container) {
+      container.dataset.collapsed = loadoutUiState.collapsed ? 'true' : 'false';
+      container.setAttribute('aria-hidden', loadoutUiState.collapsed ? 'true' : 'false');
+    }
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', loadoutUiState.collapsed ? 'false' : 'true');
+      toggle.setAttribute('aria-label', loadoutUiState.collapsed ? 'Show tower loadout' : 'Hide tower loadout');
+    }
+  }
+
+  /**
+   * Wire the collapse toggle so players can tuck the tray beneath the battlefield on demand.
+   */
+  function bindLoadoutToggle() {
+    const elements = safeGetLoadoutElements();
+    const toggle = elements?.toggle;
+    if (!toggle) {
+      return;
+    }
+    if (loadoutUiState.toggleHandler) {
+      toggle.removeEventListener('click', loadoutUiState.toggleHandler);
+    }
+    loadoutUiState.toggleHandler = () => updateLoadoutCollapsedState(!loadoutUiState.collapsed);
+    toggle.addEventListener('click', loadoutUiState.toggleHandler);
+  }
+
+  /**
+   * Update cached DOM references for the loadout container, grid, helper note, and toggle.
+   */
+  function setLoadoutElements({ shell = null, container = null, grid = null, note = null, toggle = null } = {}) {
     const elements = safeGetLoadoutElements();
     if (!elements) {
       return;
     }
+    elements.shell = shell;
     elements.container = container;
     elements.grid = grid;
     elements.note = note;
+    elements.toggle = toggle;
     updateLoadoutNote();
+    bindLoadoutToggle();
+    updateLoadoutCollapsedState(loadoutUiState.collapsed);
   }
 
   /**
@@ -121,6 +164,31 @@ export function createTowerLoadoutController({
     const equippedMessage =
       'Drag glyph chips onto the plane to lattice them; drop a chip atop a matching tower to merge. Hold a slot to swap towers mid-defense.';
     note.textContent = hasEquippedTower ? equippedMessage : introMessage;
+  }
+
+  /**
+   * Determine whether the pointer is currently hovering the loadout buttons so placement can be cancelled.
+   */
+  function isEventOverLoadout(event) {
+    if (loadoutUiState.collapsed) {
+      return false;
+    }
+    const elements = safeGetLoadoutElements();
+    const grid = elements?.grid || elements?.container;
+    const toggle = elements?.toggle;
+    const rects = [grid?.getBoundingClientRect?.(), toggle?.getBoundingClientRect?.()].filter(Boolean);
+    if (!rects.length) {
+      return false;
+    }
+    const { clientX, clientY } = event || {};
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+      return false;
+    }
+    return rects.some((rect) => {
+      const withinX = clientX >= rect.left && clientX <= rect.right;
+      const withinY = clientY >= rect.top && clientY <= rect.bottom;
+      return withinX && withinY;
+    });
   }
 
   /**
@@ -702,6 +770,10 @@ export function createTowerLoadoutController({
     if (!playfield) {
       return;
     }
+    if (isEventOverLoadout(event)) {
+      playfield.clearPlacementPreview?.();
+      return;
+    }
     const normalized = playfield.getNormalizedFromEvent?.(event);
     if (normalized) {
       playfield.previewTowerPlacement?.(normalized, {
@@ -732,8 +804,9 @@ export function createTowerLoadoutController({
       document.removeEventListener('pointercancel', handleTowerDragEnd);
     }
     const playfield = safeGetPlayfield();
+    const placementBlocked = isEventOverLoadout(event);
     if (playfield) {
-      const normalized = playfield.getNormalizedFromEvent?.(event);
+      const normalized = placementBlocked ? null : playfield.getNormalizedFromEvent?.(event);
       if (normalized) {
         playfield.completeTowerPlacement?.(normalized, { towerType: dragState.towerId });
       } else {

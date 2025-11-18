@@ -1282,22 +1282,79 @@ body.graphics-mode-low .control-button {
 }
 
 
+.tower-loadout-shell {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  width: min(92vw, 440px);
+  pointer-events: none;
+}
+
+.tower-loadout-toggle {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 247, 255, 0.4);
+  background: rgba(6, 7, 12, 0.86);
+  color: #ffffff;
+  cursor: var(--cursor-grab);
+  transition: transform var(--transition), bottom var(--transition), border-color var(--transition),
+    background var(--transition);
+  pointer-events: auto;
+}
+
+.tower-loadout-toggle:active {
+  cursor: var(--cursor-grabbing);
+}
+
+.tower-loadout-toggle:focus-visible {
+  outline: 2px solid rgba(139, 247, 255, 0.65);
+  outline-offset: 3px;
+}
+
+.tower-loadout-toggle__icon {
+  display: inline-block;
+  transition: transform var(--transition);
+}
+
+.tower-loadout-shell--collapsed .tower-loadout-toggle {
+  bottom: 0;
+}
+
+.tower-loadout-shell--collapsed .tower-loadout-toggle__icon {
+  transform: rotate(180deg);
+}
+
 .tower-loadout {
   position: absolute;
-  left: 50%;
-  bottom: 16px;
-  transform: translateX(-50%);
-  display: grid;
-  gap: 8px;
-  justify-items: center;
-  width: min(90%, 420px);
+  left: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  width: auto;
+  pointer-events: none;
+  transform: translateY(0);
+  transition: transform var(--transition), opacity var(--transition);
+  opacity: 1;
+}
+
+.tower-loadout-shell--collapsed .tower-loadout {
+  transform: translateY(120%);
+  opacity: 0;
   pointer-events: none;
 }
 
 .tower-loadout-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
-  gap: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
   width: 100%;
   pointer-events: none; /* Allow empty portions of the loadout tray to pass clicks through to the battlefield. */
 }
@@ -1306,17 +1363,24 @@ body.graphics-mode-low .control-button {
   position: relative;
   display: grid;
   justify-items: center;
-  gap: 6px;
-  padding: 8px 6px;
+  align-items: center;
+  width: 56px;
+  height: 56px;
+  gap: 4px;
+  padding: 0;
   border-radius: 12px;
-  border: 1px solid rgba(139, 247, 255, 0.3);
-  background: rgba(6, 7, 12, 0.8);
+  border: none;
+  background: transparent;
   cursor: var(--cursor-grab);
   touch-action: none;
-  transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition),
-    opacity var(--transition);
+  transition: transform var(--transition), opacity var(--transition);
   min-height: 0;
   pointer-events: auto; /* Re-enable interaction on actual loadout items while leaving gaps transparent to input. */
+}
+
+.tower-loadout-item:focus-visible {
+  outline: 2px solid rgba(139, 247, 255, 0.8);
+  outline-offset: 4px;
 }
 
 .tower-loadout-item:active {
@@ -1326,46 +1390,34 @@ body.graphics-mode-low .control-button {
 .tower-loadout-item[data-disabled='true'] {
   opacity: 0.35;
   cursor: var(--cursor-not-allowed);
-  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .tower-loadout-item[data-valid='false'] {
-  opacity: 0.5;
-  border-color: rgba(255, 108, 140, 0.45);
+  opacity: 0.7;
 }
 
 .tower-loadout-item[data-state='dragging'] {
   transform: translateY(-6px);
-  border-color: rgba(255, 228, 120, 0.8);
-  box-shadow: 0 16px 32px rgba(255, 228, 120, 0.28);
 }
 
 .tower-loadout-item--active-wheel {
-  transform: translateY(-10px);
-  box-shadow: 0 14px 28px rgba(139, 247, 255, 0.2);
+  transform: translateY(-8px);
 }
 
 .tower-loadout-item--empty {
-  border-style: dashed;
-  color: rgba(139, 247, 255, 0.84);
-  background: rgba(6, 7, 12, 0.6);
+  border: none;
+  color: rgba(139, 247, 255, 0.94);
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding-inline: 10px;
+  justify-content: center;
+  padding: 0;
 }
 
 .tower-loadout-art--placeholder {
-  font-size: 1rem;
+  font-size: 1.4rem;
   font-weight: 700;
-  color: rgba(139, 247, 255, 0.92);
-  display: grid;
-  place-items: center;
-  background: radial-gradient(circle at 50% 40%, rgba(139, 247, 255, 0.24), rgba(12, 14, 20, 0.82));
-  box-shadow: 0 10px 18px rgba(139, 247, 255, 0.22);
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
+  line-height: 1;
+  color: rgba(139, 247, 255, 0.94);
 }
 
 .tower-loadout-wheel {
@@ -1475,28 +1527,18 @@ body.graphics-mode-low .control-button {
 }
 
 .tower-loadout-art {
-  width: 44px;
-  height: 44px;
+  width: 100%;
+  height: 100%;
   border-radius: 12px;
-  padding: 4px;
-  background: radial-gradient(circle at 50% 30%, rgba(255, 228, 120, 0.25), rgba(12, 14, 20, 0.82));
-  box-shadow: 0 10px 18px rgba(255, 228, 120, 0.18);
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
   object-fit: contain;
-  mix-blend-mode: screen;
+  mix-blend-mode: normal;
 }
 
 .tower-loadout-cost {
-  /* Stack the cost beneath the icon with enough contrast to remain legible in the compact layout. */
-  margin: 0;
-  font-size: 0.6rem;
-  letter-spacing: 0.06em;
-  color: rgba(255, 228, 120, 0.75);
-}
-
-.tower-loadout-cost[data-affordable='true'] {
-  /* Add a subtle glow when the player can afford the anchor cost to guide quick decisions. */
-  color: rgba(255, 228, 120, 0.92);
-  text-shadow: 0 0 8px rgba(255, 228, 120, 0.6);
+  display: none;
 }
 
 .playfield-stats {
