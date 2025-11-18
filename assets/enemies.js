@@ -135,6 +135,8 @@ const ENEMY_GEM_MULTIPLIERS = new Map([
   ['null-husk', 5.2],
   ['imaginary-strider', 5.4],
   ['combination-cohort', 5.6],
+  ['polygon-splitter', 5.8],
+  ['derivative-shield', 6],
 ]);
 
 // Radius used when sweeping the battlefield for mote gem pickups.

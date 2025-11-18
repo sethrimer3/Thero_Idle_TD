@@ -473,7 +473,7 @@ Format: `[WaveNumber]:[Count][EnemyType][Mantissa]e[Exponent]/[Interval]/[Delay]
 - Waves separated by `|`
 - Wave number prefix (e.g., `1:`)
 - Enemy count (e.g., `10`)
-- Enemy type letter A-M (see enemy type mapping below)
+- Enemy type letter A-O (see enemy type mapping below)
 - HP in scientific notation (e.g., `1e2` = 100 HP)
 - Spawn interval in seconds (e.g., `1.5`)
 - Optional: Pre-wave delay in seconds (e.g., `0.5`)

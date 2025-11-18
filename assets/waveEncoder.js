@@ -18,7 +18,9 @@ export const ENEMY_TYPES = {
   'J': { id: 'planck-shade', speed: 70, color: '#2c3e50', label: 'Planck Shade' },
   'K': { id: 'null-husk', speed: 38, color: '#95a5a6', label: 'Null Husk' },
   'L': { id: 'imaginary-strider', speed: 75, color: '#3498db', label: 'Imaginary Strider' },
-  'M': { id: 'combination-cohort', speed: 44, color: '#e67e22', label: 'Combination Cohort' }
+  'M': { id: 'combination-cohort', speed: 44, color: '#e67e22', label: 'Combination Cohort' },
+  'N': { id: 'polygon-splitter', speed: 58, color: '#00bfa5', label: 'Polygonal Splitter' },
+  'O': { id: 'derivative-shield', speed: 46, color: '#7f8c8d', label: 'Derivative Shield' }
 };
 
 // Reverse mapping for encoding
@@ -84,7 +86,7 @@ function parseWaveSegment(segment) {
   let totalMinionCount = 0;
 
   groupStrings.forEach((groupStr) => {
-    const match = groupStr.match(/^(\d+)([A-M])(\d+(?:\.\d+)?)e(\d+)$/i);
+    const match = groupStr.match(/^(\d+)([A-O])(\d+(?:\.\d+)?)e(\d+)$/i);
     if (!match) {
       throw new Error(`Invalid enemy group format: ${groupStr}`);
     }
@@ -334,7 +336,7 @@ export function createDefaultWaveString(levelNumber) {
     hpIncrement = 6;
   } else {
     waveCount = 10 + Math.floor((levelNumber - 26) / 2);
-    enemyTypes = ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
+    enemyTypes = ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O'];
     hpBase = 50;
     hpIncrement = 10;
   }
@@ -422,7 +424,7 @@ export function validateWaveString(waveString) {
     }
 
     groupParts.forEach((groupPart) => {
-      const countHpMatch = groupPart.match(/^(\d+)([A-M])(\d+(?:\.\d+)?)e(\d+)$/i);
+      const countHpMatch = groupPart.match(/^(\d+)([A-O])(\d+(?:\.\d+)?)e(\d+)$/i);
       if (!countHpMatch) {
         result.valid = false;
         result.errors.push(`Wave ${waveNum}: Invalid group format '${groupPart}' (expected: [Count][EnemyType][Mantissa]e[Exponent])`);
@@ -433,7 +435,7 @@ export function validateWaveString(waveString) {
 
       if (!ENEMY_TYPES[enemyType.toUpperCase()]) {
         result.valid = false;
-        result.errors.push(`Wave ${waveNum}: Invalid enemy type '${enemyType}' (must be A-M)`);
+        result.errors.push(`Wave ${waveNum}: Invalid enemy type '${enemyType}' (must be A-O)`);
       }
     });
 

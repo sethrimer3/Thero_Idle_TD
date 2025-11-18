@@ -198,6 +198,34 @@
       "lore": "Bronze dust settles in Pascal-triangle dots, counting every combination spent to keep them standing.",
       "formula": "(H_{new} = H_{total} / \text{alive})",
       "formulaLabel": "Binomial Share"
+    },
+    {
+      "id": "polygon-splitter",
+      "symbol": "\u2b22",
+      "name": "Polygonal Splitter",
+      "summary": "Recursive polygons that fracture into simpler shapes whenever they collapse.",
+      "traits": [
+        "Spawn as n-gons whose symbol mirrors their side count; each defeat spawns two children with one fewer side.",
+        "Children inherit 10% of the parent's health and 110% of its speed (50% and 50% for boss facets), making each split sharper."
+      ],
+      "counter": "Layer area damage and slows so every shard is caught in the blast before it accelerates past your towers.",
+      "lore": "Archivists sketch them as proofs broken along each edge, every split revealing a simpler lemma underneath.",
+      "formula": "(H_{child} = 0.1 H_{parent},\\ v_{child} = 1.1 v_{parent})",
+      "formulaLabel": "Recursive Split"
+    },
+    {
+      "id": "derivative-shield",
+      "symbol": "\u2202",
+      "name": "Derivative Shield",
+      "summary": "Calculus projectors that halve incoming damage for nearby allies and themselves.",
+      "traits": [
+        "Enemies within their aegis wear a stacking half-damage filter; every hit while shielded doubles the mitigation depth.",
+        "Boss projectors reshape strikes by taking the square root of incoming damage instead of stacking halves."
+      ],
+      "counter": "Break the projector first or burst targets between shield pulses before the derivatives flatten your volleys.",
+      "lore": "Their sigils sketch partial derivatives across the lane, bending trajectories until only an infinitesimal puncture remains.",
+      "formula": "(D_{n+1} = 0.5^{n+1} D_0)",
+      "formulaLabel": "Diminishing Derivative"
     }
   ],
   "maps": [
