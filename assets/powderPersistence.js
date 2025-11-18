@@ -173,9 +173,12 @@ export function createPowderPersistence({
       betHappiness: {
         bank: Math.max(0, clampFiniteNumber(powderState.betHappiness?.bank, 0)),
         producers: {
-          grasshopper: Math.max(
+          slime: Math.max(
             0,
-            clampFiniteInteger(powderState.betHappiness?.producers?.grasshopper, 4),
+            clampFiniteInteger(
+              powderState.betHappiness?.producers?.slime ?? powderState.betHappiness?.producers?.grasshopper,
+              4,
+            ),
           ),
         },
       },
@@ -272,18 +275,21 @@ export function createPowderPersistence({
       }
       powderState.fluidUnlocked = !!base.fluidUnlocked;
       const incomingHappiness = base.betHappiness || {};
-      const happinessState = powderState.betHappiness || { bank: 0, producers: { grasshopper: 4 } };
+      const happinessState = powderState.betHappiness || { bank: 0, producers: { slime: 4 } };
       happinessState.bank = Math.max(
         0,
         Number.isFinite(incomingHappiness.bank) ? incomingHappiness.bank : happinessState.bank || 0,
       );
-      const storedGrasshoppers = incomingHappiness.producers?.grasshopper;
-      const normalizedGrasshoppers = Number.isFinite(storedGrasshoppers)
-        ? Math.max(0, Math.floor(storedGrasshoppers))
-        : Number.isFinite(happinessState.producers?.grasshopper)
-          ? Math.max(0, Math.floor(happinessState.producers.grasshopper))
-          : 4;
-      happinessState.producers = { ...happinessState.producers, grasshopper: normalizedGrasshoppers };
+      const storedSlimes = incomingHappiness.producers?.slime;
+      const legacyGrasshoppers = incomingHappiness.producers?.grasshopper;
+      const normalizedSlimes = Number.isFinite(storedSlimes)
+        ? Math.max(0, Math.floor(storedSlimes))
+        : Number.isFinite(legacyGrasshoppers)
+          ? Math.max(0, Math.floor(legacyGrasshoppers))
+          : Number.isFinite(happinessState.producers?.slime)
+            ? Math.max(0, Math.floor(happinessState.producers.slime))
+            : 4;
+      happinessState.producers = { ...happinessState.producers, slime: normalizedSlimes };
       powderState.betHappiness = happinessState;
       if (updateFluidTab) {
         updateFluidTab();
