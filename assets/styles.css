@@ -8011,6 +8011,38 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   gap: 0;
   padding: 2px;
   min-height: 100%;
+  align-content: stretch;
+  justify-items: stretch;
+}
+
+/* Adaptive layouts keep unlocked spire buttons centered and evenly distributed. */
+.spire-tab-stack--layout-1 {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  align-content: center;
+}
+
+.spire-tab-stack--layout-2 {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: 1fr;
+  align-content: center;
+}
+
+.spire-tab-stack--layout-3 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 1fr;
+  align-content: center;
+}
+
+.spire-tab-stack--layout-4 {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.spire-tab-stack--layout-5,
+.spire-tab-stack--layout-6 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
 }
 
 .spire-tab-stack .tab-button--stacked {
@@ -8054,6 +8086,11 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   .spire-tab-stack .tab-icon {
     font-size: 0.85rem;
   }
+}
+
+/* Vertical span helper for the 5-spire layout so the final button fills the right column. */
+.spire-tab-button--tall {
+  border-bottom: none;
 }
 
 /* Lamed Spire gravity simulation styles */
