@@ -3,6 +3,7 @@ import {
   setGameNumberNotation,
   addGameNumberNotationChangeListener,
   GAME_NUMBER_NOTATIONS,
+  formatGameNumber,
 } from '../scripts/core/formatting.js';
 import {
   writeStorage,
@@ -31,6 +32,7 @@ export const TRACK_RENDER_MODES = Object.freeze({
 
 let notationToggleButton = null;
 let notationRefreshHandler = () => {};
+let notationPreviewValue = null;
 
 let glyphEquationsVisible = false;
 let glyphEquationToggleInput = null;
@@ -73,12 +75,38 @@ let activeTrackRenderMode = TRACK_RENDER_MODES.GRADIENT;
 let powderSimulationGetter = () => null;
 let playfieldGetter = () => null;
 
+// Cycle through every available notation in the menu so players can preview formats quickly.
+const NOTATION_SEQUENCE = [
+  GAME_NUMBER_NOTATIONS.LETTERS,
+  GAME_NUMBER_NOTATIONS.SCIENTIFIC,
+  GAME_NUMBER_NOTATIONS.ABC,
+];
+
+// Present a fixed quadrillion-scale value to mirror how damage numbers fly out of enemies.
+const NOTATION_PREVIEW_DAMAGE = 5.1e15;
+
 export function setNotationRefreshHandler(handler) {
   notationRefreshHandler = typeof handler === 'function' ? handler : () => {};
 }
 
 function resolveNotationLabel(notation) {
-  return notation === GAME_NUMBER_NOTATIONS.SCIENTIFIC ? 'Scientific' : 'Letters';
+  switch (notation) {
+    case GAME_NUMBER_NOTATIONS.SCIENTIFIC:
+      return 'Scientific';
+    case GAME_NUMBER_NOTATIONS.ABC:
+      return 'ABC';
+    default:
+      return 'Letters';
+  }
+}
+
+/**
+ * Rotate through the supported notation sequence when the toggle is pressed.
+ */
+function getNextNotation(current) {
+  const index = NOTATION_SEQUENCE.indexOf(current);
+  const nextIndex = index >= 0 ? (index + 1) % NOTATION_SEQUENCE.length : 0;
+  return NOTATION_SEQUENCE[nextIndex];
 }
 
 function updateNotationToggleLabel() {
@@ -92,8 +120,23 @@ function updateNotationToggleLabel() {
   notationToggleButton.setAttribute('aria-label', `Switch number notation (current: ${label})`);
 }
 
+/**
+ * Refresh the quadrillion-scale damage preview to mirror the active notation choice.
+ */
+function updateNotationPreviewDamage() {
+  if (!notationPreviewValue) {
+    notationPreviewValue = document.getElementById('notation-preview-value');
+  }
+  if (!notationPreviewValue) {
+    return;
+  }
+  const formattedDamage = formatGameNumber(NOTATION_PREVIEW_DAMAGE);
+  notationPreviewValue.textContent = `${formattedDamage} dmg`;
+}
+
 function handleNotationChange() {
   updateNotationToggleLabel();
+  updateNotationPreviewDamage();
   notationRefreshHandler();
 }
 
@@ -109,14 +152,13 @@ export function applyNotationPreference(notation, { persist = true } = {}) {
 
 export function toggleNotationPreference() {
   const current = getGameNumberNotation();
-  const next = current === GAME_NUMBER_NOTATIONS.SCIENTIFIC
-    ? GAME_NUMBER_NOTATIONS.LETTERS
-    : GAME_NUMBER_NOTATIONS.SCIENTIFIC;
+  const next = getNextNotation(current);
   applyNotationPreference(next);
 }
 
 export function bindNotationToggle() {
   notationToggleButton = document.getElementById('notation-toggle-button');
+  notationPreviewValue = document.getElementById('notation-preview-value');
   if (!notationToggleButton) {
     return;
   }
@@ -124,6 +166,7 @@ export function bindNotationToggle() {
     toggleNotationPreference();
   });
   updateNotationToggleLabel();
+  updateNotationPreviewDamage();
 }
 
 function normalizeGlyphEquationPreference(value) {
