@@ -4546,7 +4546,7 @@ body.graphics-mode-low .control-button {
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
-  padding: 32px 10px;
+  padding: 32px 0;
   background-color: rgba(16, 20, 28, 0.45);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   z-index: 1;
