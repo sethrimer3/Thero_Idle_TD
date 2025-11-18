@@ -3977,6 +3977,59 @@ body.graphics-mode-low .control-button {
   padding: clamp(8px, 2vw, 20px);
 }
 
+/* Summarize Bet Spire happiness production alongside fluid metrics. */
+.fluid-happiness-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fluid-happiness-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px 14px;
+  margin: 0;
+}
+
+.fluid-happiness-summary dt {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(235, 243, 255, 0.68);
+}
+
+.fluid-happiness-summary dd {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #f5fcff;
+}
+
+.fluid-happiness-breakdown {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 10px;
+}
+
+.fluid-happiness-empty {
+  margin: 0;
+  color: rgba(235, 243, 255, 0.78);
+  font-size: 0.92rem;
+}
+
+.fluid-happiness-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fluid-happiness-list__item {
+  font-size: 0.98rem;
+  color: #f5fcff;
+}
+
 .fluid-simulation-slot {
   display: flex;
   justify-content: center;

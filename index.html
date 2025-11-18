@@ -92,6 +92,19 @@
               <span class="offline-number" id="offline-bet-total">0 Serendipity</span>
             </div>
           </div>
+          <div class="offline-overlay__equation-row" id="offline-happiness-row" aria-label="Happiness idle gains">
+            <span class="offline-overlay__label" aria-label="Happiness">
+              <span class="offline-symbol offline-symbol--glyph" aria-hidden="true">☺</span>
+              <span class="offline-overlay__label-text" aria-hidden="true">Happiness</span>
+            </span>
+            <div class="offline-overlay__equation">
+              <span class="offline-number" id="offline-happiness-minutes">0</span>
+              <span class="offline-symbol">×</span>
+              <span class="offline-number" id="offline-happiness-multiplier">0</span>
+              <span class="offline-symbol">=</span>
+              <span class="offline-number" id="offline-happiness-total">0 hp</span>
+            </div>
+          </div>
           <div class="offline-overlay__equation-row" id="offline-lamed-row" aria-label="Lamed Spire idle gains">
             <span class="offline-overlay__label" aria-label="Lamed Spire">
               <span class="offline-symbol offline-symbol--glyph" aria-hidden="true">ל</span>
@@ -1772,6 +1785,23 @@
                 Observe Serendipity cascading into the terrarium. Guide the flow to stabilize the lattice and feed the idle
                 reserve.
               </p>
+            </article>
+            <article class="card fluid-happiness-card">
+              <h3>Happiness Ledger</h3>
+              <dl class="fluid-happiness-summary">
+                <div>
+                  <dt>Total Happiness</dt>
+                  <dd id="fluid-happiness-total">0 hp</dd>
+                </div>
+                <div>
+                  <dt>Happiness per Hour</dt>
+                  <dd id="fluid-happiness-rate">0 hp/hr</dd>
+                </div>
+              </dl>
+              <div class="fluid-happiness-breakdown">
+                <p class="fluid-happiness-empty" id="fluid-happiness-empty">No habitats are generating happiness yet.</p>
+                <ul class="fluid-happiness-list" id="fluid-happiness-list"></ul>
+              </div>
             </article>
           </section>
         </section>

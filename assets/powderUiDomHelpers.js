@@ -63,6 +63,10 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidElements.dripRateValue = document.getElementById('fluid-drip-rate');
     fluidElements.statusNote = document.getElementById('fluid-status-note');
     fluidElements.terrainSprite = document.getElementById('fluid-terrarium-foreground');
+    fluidElements.happinessTotal = document.getElementById('fluid-happiness-total');
+    fluidElements.happinessRate = document.getElementById('fluid-happiness-rate');
+    fluidElements.happinessList = document.getElementById('fluid-happiness-list');
+    fluidElements.happinessEmpty = document.getElementById('fluid-happiness-empty');
     fluidElements.wallGlyphColumns = Array.from(
       document.querySelectorAll('[data-fluid-glyph-column]') || [],
     );
