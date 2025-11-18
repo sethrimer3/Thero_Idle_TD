@@ -1086,13 +1086,14 @@ export class FluidSimulation {
     this.setViewCenterNormalized({ x: world.x / width, y: world.y / height });
   }
 
-  // Maintain API parity with the sand basin while clamping zoom between native view (1x) and tight 10x magnification.
+  // Maintain API parity with the sand basin while clamping zoom between native view (1x) and a focused 3x magnification.
   applyZoomFactor(factor) {
     if (!Number.isFinite(factor) || factor <= 0) {
       return false;
     }
     const previous = Number.isFinite(this.viewScale) && this.viewScale > 0 ? this.viewScale : 1;
-    const next = Math.max(1, Math.min(10, previous * factor));
+    // Cap zoom at 3x so the Bet Spire render stays legible without letting the viewport drift beyond its bounds.
+    const next = Math.max(1, Math.min(3, previous * factor));
     if (Math.abs(next - previous) < 0.0001) {
       return false;
     }
