@@ -455,7 +455,7 @@ export function createTowerLoadoutController({
     wheelState.lastY = event.clientY;
     wheelState.dragAccumulator += deltaY;
     while (Math.abs(wheelState.dragAccumulator) >= LOADOUT_SCROLL_STEP_PX) {
-      shiftWheelSelection(wheelState.dragAccumulator > 0 ? 1 : -1);
+      shiftWheelSelection(wheelState.dragAccumulator > 0 ? -1 : 1);
       wheelState.dragAccumulator += wheelState.dragAccumulator > 0 ? -LOADOUT_SCROLL_STEP_PX : LOADOUT_SCROLL_STEP_PX;
     }
   }

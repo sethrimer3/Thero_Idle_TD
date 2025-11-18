@@ -404,7 +404,8 @@ function handleCanvasPointerUp(event) {
   }
 
   if (typeof this.cancelTowerHoldGesture === 'function') {
-    this.cancelTowerHoldGesture({ pointerId: event.pointerId });
+    const preserveWheel = Boolean(this?.towerSelectionWheel?.container);
+    this.cancelTowerHoldGesture({ pointerId: event.pointerId, preserveWheel });
   }
 
   if (this.connectionDragState.pointerId === event.pointerId) {

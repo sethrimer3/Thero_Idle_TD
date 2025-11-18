@@ -9,7 +9,9 @@ import {
   getTowerDefinition,
   getNextTowerId,
   getPreviousTowerId,
+  getTowerDefinitions,
   isTowerUnlocked,
+  isTowerPlaceable,
   refreshTowerLoadoutDisplay,
   cancelTowerDrag,
   getTowerEquationBlueprint,
@@ -191,9 +193,9 @@ export function configurePlayfieldSystem(options = {}) {
   playfieldDependencies = { ...defaultDependencies, ...options };
 }
 
-const TOWER_HOLD_ACTIVATION_MS = 180;
+const TOWER_HOLD_ACTIVATION_MS = 1000;
 const TOWER_HOLD_CANCEL_DISTANCE_PX = 18;
-const TOWER_HOLD_SWIPE_THRESHOLD_PX = 48;
+const TOWER_SELECTION_SCROLL_STEP_PX = 28;
 const TOWER_PRESS_GLOW_FADE_MS = 200;
 const TOWER_MENU_DOUBLE_TAP_INTERVAL_MS = 800;
 const TOWER_MENU_DOUBLE_TAP_DISTANCE_PX = 28;
@@ -439,6 +441,19 @@ export class SimplePlayfield {
       scribbleCleanup: null,
       actionTriggered: null,
       pointerType: null,
+    };
+    this.towerSelectionWheel = {
+      container: null,
+      list: null,
+      pointerId: null,
+      dragAccumulator: 0,
+      lastY: 0,
+      towers: [],
+      activeIndex: 0,
+      towerId: null,
+      outsideHandler: null,
+      moveHandler: null,
+      endHandler: null,
     };
     this.towerTapState = {
       lastTowerId: null,
@@ -3043,6 +3058,339 @@ export class SimplePlayfield {
     expired.forEach((towerId) => this.towerGlyphTransitions.delete(towerId));
   }
 
+  /**
+   * Remove the tower selection wheel overlay and detach related listeners.
+   */
+  closeTowerSelectionWheel() {
+    const wheel = this.towerSelectionWheel;
+    if (!wheel) {
+      return;
+    }
+    if (wheel.list && wheel.pointerId !== null) {
+      try {
+        wheel.list.releasePointerCapture(wheel.pointerId);
+      } catch (error) {
+        // Ignore pointer capture release errors so cleanup always completes.
+      }
+    }
+    if (wheel.moveHandler) {
+      document.removeEventListener('pointermove', wheel.moveHandler);
+    }
+    if (wheel.endHandler) {
+      document.removeEventListener('pointerup', wheel.endHandler);
+      document.removeEventListener('pointercancel', wheel.endHandler);
+    }
+    if (wheel.outsideHandler) {
+      document.removeEventListener('pointerdown', wheel.outsideHandler);
+    }
+    wheel.pointerId = null;
+    wheel.dragAccumulator = 0;
+    wheel.lastY = 0;
+    wheel.moveHandler = null;
+    wheel.endHandler = null;
+    wheel.outsideHandler = null;
+    if (wheel.container?.parentNode) {
+      wheel.container.remove();
+    }
+    wheel.container = null;
+    wheel.list = null;
+    wheel.towers = [];
+    wheel.activeIndex = 0;
+    wheel.towerId = null;
+  }
+
+  /**
+   * Render the scrolling tower list so players can pick any lattice for promotion or demotion.
+   */
+  renderTowerSelectionWheel() {
+    const wheel = this.towerSelectionWheel;
+    if (!wheel?.list || !Array.isArray(wheel.towers) || !wheel.towers.length) {
+      return;
+    }
+    const clampedIndex = Math.min(Math.max(wheel.activeIndex, 0), wheel.towers.length - 1);
+    wheel.activeIndex = clampedIndex;
+    wheel.list.innerHTML = '';
+
+    const startIndex = Math.max(0, clampedIndex - 2);
+    const endIndex = Math.min(wheel.towers.length, clampedIndex + 3);
+
+    for (let index = startIndex; index < endIndex; index += 1) {
+      const definition = wheel.towers[index];
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'tower-loadout-wheel__item';
+      item.dataset.towerId = definition.id;
+      item.dataset.distance = String(Math.abs(index - clampedIndex));
+
+      if (definition.icon) {
+        const art = document.createElement('img');
+        art.className = 'tower-loadout-wheel__icon';
+        art.src = definition.icon;
+        art.alt = `${definition.name} icon`;
+        art.decoding = 'async';
+        art.loading = 'lazy';
+        item.append(art);
+      }
+
+      const label = document.createElement('span');
+      label.className = 'tower-loadout-wheel__label';
+      label.textContent = definition.symbol || definition.name || definition.id;
+      item.append(label);
+
+      const tier = document.createElement('span');
+      tier.className = 'tower-loadout-wheel__tier';
+      tier.textContent = `Tier ${Number.isFinite(definition.tier) ? definition.tier : '—'}`;
+      item.append(tier);
+
+      const cost = this.getCurrentTowerCost(definition.id);
+      item.dataset.affordable = this.energy >= cost ? 'true' : 'false';
+      item.setAttribute(
+        'aria-label',
+        `${definition.name || definition.id} — Tier ${definition.tier || '—'} — ${formatCombatNumber(
+          Math.max(0, cost),
+        )} ${this.theroSymbol}`,
+      );
+
+      item.addEventListener('click', () => this.applyTowerSelection(definition));
+      wheel.list.append(item);
+    }
+  }
+
+  /**
+   * Shift the active tower selection index and redraw the overlay.
+   */
+  shiftTowerSelectionWheel(delta) {
+    const wheel = this.towerSelectionWheel;
+    if (!wheel || !Array.isArray(wheel.towers) || !wheel.towers.length) {
+      return;
+    }
+    const nextIndex = Math.min(Math.max(wheel.activeIndex + delta, 0), Math.max(0, wheel.towers.length - 1));
+    if (nextIndex !== wheel.activeIndex) {
+      wheel.activeIndex = nextIndex;
+      this.renderTowerSelectionWheel();
+    }
+  }
+
+  /**
+   * Begin tracking drag gestures on the tower selection wheel.
+   */
+  beginTowerSelectionWheelDrag(event) {
+    const wheel = this.towerSelectionWheel;
+    if (!wheel?.list) {
+      return;
+    }
+    wheel.pointerId = event.pointerId;
+    wheel.lastY = event.clientY;
+    wheel.dragAccumulator = 0;
+    wheel.moveHandler = (moveEvent) => this.handleTowerSelectionWheelDrag(moveEvent);
+    wheel.endHandler = (endEvent) => this.endTowerSelectionWheelDrag(endEvent);
+    try {
+      wheel.list.setPointerCapture?.(event.pointerId);
+    } catch (error) {
+      // Ignore pointer capture errors so drag gestures still function.
+    }
+    document.addEventListener('pointermove', wheel.moveHandler);
+    document.addEventListener('pointerup', wheel.endHandler);
+    document.addEventListener('pointercancel', wheel.endHandler);
+  }
+
+  /**
+   * Translate drag distance into inverted scroll steps for the selection wheel.
+   */
+  handleTowerSelectionWheelDrag(event) {
+    const wheel = this.towerSelectionWheel;
+    if (!wheel || event.pointerId !== wheel.pointerId) {
+      return;
+    }
+    const deltaY = event.clientY - wheel.lastY;
+    wheel.lastY = event.clientY;
+    wheel.dragAccumulator += deltaY;
+    while (Math.abs(wheel.dragAccumulator) >= TOWER_SELECTION_SCROLL_STEP_PX) {
+      this.shiftTowerSelectionWheel(wheel.dragAccumulator > 0 ? -1 : 1);
+      wheel.dragAccumulator += wheel.dragAccumulator > 0
+        ? -TOWER_SELECTION_SCROLL_STEP_PX
+        : TOWER_SELECTION_SCROLL_STEP_PX;
+    }
+  }
+
+  /**
+   * Stop tracking pointer drag interactions on the tower selection wheel.
+   */
+  endTowerSelectionWheelDrag(event) {
+    const wheel = this.towerSelectionWheel;
+    if (!wheel || event.pointerId !== wheel.pointerId) {
+      return;
+    }
+    if (wheel.moveHandler) {
+      document.removeEventListener('pointermove', wheel.moveHandler);
+    }
+    if (wheel.endHandler) {
+      document.removeEventListener('pointerup', wheel.endHandler);
+      document.removeEventListener('pointercancel', wheel.endHandler);
+    }
+    try {
+      wheel.list?.releasePointerCapture?.(event.pointerId);
+    } catch (error) {
+      // Ignore release failures so drag cleanup always completes.
+    }
+    wheel.pointerId = null;
+    wheel.dragAccumulator = 0;
+    wheel.lastY = 0;
+    wheel.moveHandler = null;
+    wheel.endHandler = null;
+  }
+
+  /**
+   * Position the tower selection wheel above the active lattice.
+   */
+  positionTowerSelectionWheel(tower) {
+    const wheel = this.towerSelectionWheel;
+    if (!wheel?.container || !this.canvas || !tower) {
+      return;
+    }
+    const screen = this.worldToScreen({ x: tower.x, y: tower.y });
+    const canvasRect = this.canvas.getBoundingClientRect();
+    const host = this.container || document.body;
+    const hostRect = host?.getBoundingClientRect ? host.getBoundingClientRect() : { left: 0, top: 0 };
+    if (!screen || !canvasRect) {
+      return;
+    }
+    const left = canvasRect.left - hostRect.left + screen.x - (wheel.container.offsetWidth || 0) / 2;
+    const top = canvasRect.top - hostRect.top + screen.y - (wheel.container.offsetHeight || 0) - 12;
+    wheel.container.style.left = `${Math.max(0, left)}px`;
+    wheel.container.style.top = `${Math.max(0, top)}px`;
+  }
+
+  /**
+   * Open the selection wheel so a held tower can morph into any unlocked lattice.
+   */
+  openTowerSelectionWheel(tower) {
+    if (!tower) {
+      return;
+    }
+    this.closeTowerSelectionWheel();
+    const definitions = Array.isArray(getTowerDefinitions()) ? getTowerDefinitions() : [];
+    const towers = definitions.filter(
+      (definition) => isTowerUnlocked(definition.id) && isTowerPlaceable(definition.id),
+    );
+    if (!towers.length) {
+      return;
+    }
+    const wheel = this.towerSelectionWheel;
+    wheel.towers = towers;
+    wheel.activeIndex = Math.max(0, towers.findIndex((definition) => definition.id === tower.type));
+    wheel.towerId = tower.id;
+
+    const container = document.createElement('div');
+    container.className = 'tower-loadout-wheel';
+    const list = document.createElement('div');
+    list.className = 'tower-loadout-wheel__list';
+    container.append(list);
+
+    wheel.container = container;
+    wheel.list = list;
+
+    this.renderTowerSelectionWheel();
+
+    list.addEventListener('pointerdown', (event) => this.beginTowerSelectionWheelDrag(event));
+    list.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      this.shiftTowerSelectionWheel(event.deltaY > 0 ? 1 : -1);
+    });
+
+    const host = this.container || document.body;
+    host.append(container);
+    this.positionTowerSelectionWheel(tower);
+
+    wheel.outsideHandler = (event) => {
+      if (!container.contains(event.target)) {
+        this.closeTowerSelectionWheel();
+      }
+    };
+    document.addEventListener('pointerdown', wheel.outsideHandler);
+  }
+
+  /**
+   * Apply the selected tower template and mirror promotion or demotion costs accordingly.
+   */
+  applyTowerSelection(definition) {
+    if (!definition) {
+      return;
+    }
+    const wheel = this.towerSelectionWheel;
+    const tower = wheel?.towerId ? this.getTowerById(wheel.towerId) : null;
+    if (!tower) {
+      this.closeTowerSelectionWheel();
+      return;
+    }
+    if (definition.id === tower.type) {
+      this.closeTowerSelectionWheel();
+      return;
+    }
+    const targetTier = Number.isFinite(definition.tier) ? definition.tier : tower.tier;
+    const currentTier = Number.isFinite(tower.tier) ? tower.tier : 0;
+    const promoted = targetTier >= currentTier
+      ? this.promoteTowerToTarget(tower, definition.id)
+      : this.demoteTowerToTarget(tower, definition.id);
+    if (promoted) {
+      this.suppressNextCanvasClick = true;
+    }
+    this.closeTowerSelectionWheel();
+    this.cancelTowerHoldGesture();
+  }
+
+  /**
+   * Promote the active tower until it reaches the requested target tier.
+   */
+  promoteTowerToTarget(tower, targetId) {
+    if (!tower || !targetId) {
+      return false;
+    }
+    const guardSteps = (Array.isArray(getTowerDefinitions()) ? getTowerDefinitions().length : 12) + 2;
+    const visited = new Set();
+    let steps = 0;
+    while (tower.type !== targetId && steps < guardSteps) {
+      if (visited.has(tower.type)) {
+        break;
+      }
+      visited.add(tower.type);
+      const nextId = getNextTowerId(tower.type) || targetId;
+      const isFinalStep = nextId === targetId;
+      const upgraded = this.upgradeTowerTier(tower, { expectedNextId: nextId, silent: !isFinalStep });
+      if (!upgraded) {
+        return false;
+      }
+      steps += 1;
+    }
+    return tower.type === targetId;
+  }
+
+  /**
+   * Demote the active tower toward the requested target while respecting refund math.
+   */
+  demoteTowerToTarget(tower, targetId) {
+    if (!tower || !targetId) {
+      return false;
+    }
+    const guardSteps = (Array.isArray(getTowerDefinitions()) ? getTowerDefinitions().length : 12) + 2;
+    const visited = new Set();
+    let steps = 0;
+    while (tower.type !== targetId && steps < guardSteps) {
+      if (visited.has(tower.type)) {
+        break;
+      }
+      visited.add(tower.type);
+      const previousId = getPreviousTowerId(tower.type);
+      const isFinalStep = previousId === targetId;
+      const demoted = this.demoteTowerTier(tower, { silent: !isFinalStep });
+      if (!demoted) {
+        return false;
+      }
+      steps += 1;
+    }
+    return tower.type === targetId;
+  }
+
   beginTowerHoldGesture(tower, event) {
     if (!tower || !event || !this.towerHoldState) {
       return;
@@ -3081,7 +3429,8 @@ export class SimplePlayfield {
     state.holdActivated = true;
     this.resetTowerTapState();
     this.suppressNextCanvasClick = true;
-    state.scribbleCleanup = this.spawnTowerUpgradeCostScribble(tower);
+    state.scribbleCleanup = null;
+    this.openTowerSelectionWheel(tower);
     if (this.connectionDragState.pointerId === state.pointerId) {
       this.clearConnectionDragState();
     }
@@ -3115,27 +3464,15 @@ export class SimplePlayfield {
     if (typeof event.preventDefault === 'function') {
       event.preventDefault();
     }
-    if (state.actionTriggered) {
-      return;
-    }
-    if (dy <= -TOWER_HOLD_SWIPE_THRESHOLD_PX) {
-      const upgraded = this.commitTowerHoldUpgrade({ swipeVector: { x: dx, y: dy } });
-      if (upgraded) {
-        state.actionTriggered = 'upgrade';
-        this.cancelTowerHoldGesture();
-      }
-      return;
-    }
-    if (dy >= TOWER_HOLD_SWIPE_THRESHOLD_PX) {
-      const demoted = this.commitTowerHoldDemotion({ swipeVector: { x: dx, y: dy } });
-      if (demoted) {
-        state.actionTriggered = 'demote';
-        this.cancelTowerHoldGesture();
+    if (this.towerSelectionWheel?.container && state.towerId) {
+      const tower = this.getTowerById(state.towerId);
+      if (tower) {
+        this.positionTowerSelectionWheel(tower);
       }
     }
   }
 
-  cancelTowerHoldGesture({ pointerId = null } = {}) {
+  cancelTowerHoldGesture({ pointerId = null, preserveWheel = false } = {}) {
     if (!this.towerHoldState) {
       return;
     }
@@ -3148,6 +3485,9 @@ export class SimplePlayfield {
     }
     if (typeof state.scribbleCleanup === 'function') {
       state.scribbleCleanup();
+    }
+    if (!preserveWheel) {
+      this.closeTowerSelectionWheel();
     }
     state.pointerId = null;
     state.towerId = null;
