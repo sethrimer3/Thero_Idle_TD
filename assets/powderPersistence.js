@@ -170,6 +170,15 @@ export function createPowderPersistence({
       modeSwitchPending: Boolean(powderState.modeSwitchPending),
       fluidProfileLabel: typeof powderState.fluidProfileLabel === 'string' ? powderState.fluidProfileLabel : 'Bet Spire',
       fluidUnlocked: Boolean(powderState.fluidUnlocked),
+      betHappiness: {
+        bank: Math.max(0, clampFiniteNumber(powderState.betHappiness?.bank, 0)),
+        producers: {
+          grasshopper: Math.max(
+            0,
+            clampFiniteInteger(powderState.betHappiness?.producers?.grasshopper, 4),
+          ),
+        },
+      },
       viewTransform,
       heightInfo: status
         ? {
@@ -262,6 +271,20 @@ export function createPowderPersistence({
         powderState.wallGapTarget = Math.max(1, Math.round(base.wallGapTarget));
       }
       powderState.fluidUnlocked = !!base.fluidUnlocked;
+      const incomingHappiness = base.betHappiness || {};
+      const happinessState = powderState.betHappiness || { bank: 0, producers: { grasshopper: 4 } };
+      happinessState.bank = Math.max(
+        0,
+        Number.isFinite(incomingHappiness.bank) ? incomingHappiness.bank : happinessState.bank || 0,
+      );
+      const storedGrasshoppers = incomingHappiness.producers?.grasshopper;
+      const normalizedGrasshoppers = Number.isFinite(storedGrasshoppers)
+        ? Math.max(0, Math.floor(storedGrasshoppers))
+        : Number.isFinite(happinessState.producers?.grasshopper)
+          ? Math.max(0, Math.floor(happinessState.producers.grasshopper))
+          : 4;
+      happinessState.producers = { ...happinessState.producers, grasshopper: normalizedGrasshoppers };
+      powderState.betHappiness = happinessState;
       if (updateFluidTab) {
         updateFluidTab();
       }
