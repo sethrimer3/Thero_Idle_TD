@@ -134,6 +134,8 @@ import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
 import { FluidTerrariumCreatures } from './fluidTerrariumCreatures.js';
 // Procedural grass that sprouts from the terrarium silhouettes.
 import { FluidTerrariumGrass } from './fluidTerrariumGrass.js';
+// Day/night cycle that animates the Bet terrarium sky and celestial bodies.
+import { FluidTerrariumSkyCycle } from './fluidTerrariumSkyCycle.js';
 // Bet Spire happiness production tracker fed by Serendipity purchases.
 import { createBetHappinessSystem } from './betHappiness.js';
 import { createResourceHud } from './resourceHud.js';
@@ -841,6 +843,11 @@ import {
     terrariumLayer: null,
     terrariumStage: null,
     terrariumMedia: null,
+    terrariumSky: null,
+    terrariumStarsNear: null,
+    terrariumStarsFar: null,
+    terrariumSun: null,
+    terrariumMoon: null,
     floatingIslandSprite: null,
     viewport: null,
     leftWall: null,
@@ -880,6 +887,8 @@ import {
   let fluidTerrariumCreatures = null;
   // Render swaying grass blades that cling to the Bet spire silhouettes.
   let fluidTerrariumGrass = null;
+  // Drive the Bet terrarium day/night palette and celestial bodies.
+  let fluidTerrariumSkyCycle = null;
 
   function ensureFluidTerrariumCreatures() {
     // Lazily create the overlay so it never blocks powder initialization.
@@ -914,6 +923,18 @@ import {
       maskUrl: './assets/sprites/spires/betSpire/Grass.png',
     });
     fluidTerrariumGrass.start();
+  }
+
+  // Paint the Bet terrarium sky with a looping day/night gradient and celestial path.
+  function ensureFluidTerrariumSkyCycle() {
+    if (fluidTerrariumSkyCycle || !fluidElements?.terrariumSky) {
+      return;
+    }
+    fluidTerrariumSkyCycle = new FluidTerrariumSkyCycle({
+      skyElement: fluidElements.terrariumSky,
+      sunElement: fluidElements.terrariumSun,
+      moonElement: fluidElements.terrariumMoon,
+    });
   }
 
   // Ensure compact autosave remains the active basin persistence strategy.
@@ -4358,6 +4379,7 @@ import {
     }
     ensureFluidTerrariumCreatures();
     ensureFluidTerrariumGrass();
+    ensureFluidTerrariumSkyCycle();
     ensurePowderBasinResizeObserver();
     bindSpireClickIncome();
     await applyPowderSimulationMode(powderState.simulationMode);
