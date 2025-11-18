@@ -113,10 +113,12 @@ export class FractalTreeSimulation {
     
     // Animation
     this.haloFrames = 15; // How long to show the halo effect
+    this.enableHalos = options.enableHalos !== undefined ? Boolean(options.enableHalos) : true;
 
     // Growth control based on allocated resources
     this.targetSegments = 1; // Start with just the root (simple stem)
     this.segmentsGrown = 0; // Count of segments that have been grown
+    this.maxSegments = this.computeMaxSegments();
 
     // Initialize pan and zoom
     this.initPanZoom(this.canvas);
@@ -188,6 +190,7 @@ export class FractalTreeSimulation {
     this.segmentMap.clear();
     this.isComplete = false;
     this.segmentsGrown = 0;
+    this.maxSegments = this.computeMaxSegments();
 
     if (!this.canvas) return;
 
@@ -211,6 +214,40 @@ export class FractalTreeSimulation {
     this.segments.push(root);
     this.segmentMap.set(root.id, root);
     this.growthQueue.push(root);
+  }
+
+  /**
+   * Calculate the maximum number of segments this tree can ever grow.
+   * @returns {number}
+   */
+  computeMaxSegments() {
+    let maxSegments = 1; // Root
+    for (let depth = 1; depth <= this.maxDepth; depth++) {
+      maxSegments += Math.pow(this.branchFactor, depth);
+    }
+    return maxSegments;
+  }
+
+  /**
+   * Set the number of segments the simulation should eventually grow.
+   * @param {number} count
+   */
+  setTargetSegments(count) {
+    if (!Number.isFinite(count)) {
+      return;
+    }
+    this.targetSegments = Math.max(1, Math.min(this.maxSegments, Math.round(count)));
+  }
+
+  /**
+   * Increment the growth budget by a number of segments (lines).
+   * @param {number} count
+   */
+  addGrowthSegments(count) {
+    if (!Number.isFinite(count) || count === 0) {
+      return;
+    }
+    this.setTargetSegments(this.targetSegments + count);
   }
 
   /**
@@ -346,12 +383,14 @@ export class FractalTreeSimulation {
       const tipY = segment.y + (segment.endY - segment.y) * progress;
 
       // Draw halo effect for recently grown segments
-      if (segment.hasGrown && segment.age < this.haloFrames) {
-        this.drawHalo(tipX, tipY, segment.width, segment.age);
-      } else if (segment.isGrowing && progress < 1) {
-        // Keep the growth tip glowing while the branch extends.
-        const glowAge = Math.round((1 - progress) * this.haloFrames * 0.5);
-        this.drawHalo(tipX, tipY, segment.width, glowAge);
+      if (this.enableHalos) {
+        if (segment.hasGrown && segment.age < this.haloFrames) {
+          this.drawHalo(tipX, tipY, segment.width, segment.age);
+        } else if (segment.isGrowing && progress < 1) {
+          // Keep the growth tip glowing while the branch extends.
+          const glowAge = Math.round((1 - progress) * this.haloFrames * 0.5);
+          this.drawHalo(tipX, tipY, segment.width, glowAge);
+        }
       }
 
       // Draw leaf at terminal nodes if enabled
@@ -547,19 +586,17 @@ export class FractalTreeSimulation {
       needsReset = true;
     }
 
+    // Recalculate the maximum attainable segments whenever structure inputs change.
+    this.maxSegments = this.computeMaxSegments();
+
     // Update target segments based on allocated resources
     // Calculate maximum possible segments for the tree
     if (config.allocated !== undefined) {
-      // Estimate max segments: sum of branchFactor^depth for each depth
-      let maxSegments = 1; // Root
-      for (let d = 1; d <= this.maxDepth; d++) {
-        maxSegments += Math.pow(this.branchFactor, d);
-      }
       // Start with 1 segment (root) and grow based on allocation
       const minSegments = 1;
       const required = Math.max(1, 4 + this.maxDepth * 4);
       const progress = Math.min(1, config.allocated / required);
-      this.targetSegments = Math.floor(minSegments + (maxSegments - minSegments) * progress);
+      this.setTargetSegments(minSegments + (this.maxSegments - minSegments) * progress);
     }
 
     if (needsReset) {

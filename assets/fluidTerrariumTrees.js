@@ -35,6 +35,22 @@ export class FluidTerrariumTrees {
     this.anchors = [];
     this.trees = [];
 
+    this.treeLayer = null;
+    this.badgeLayer = null;
+    this.levelButton = null;
+
+    const storedState = options.state && typeof options.state === 'object' ? options.state : {};
+    this.treeState = storedState.trees && typeof storedState.trees === 'object' ? { ...storedState.trees } : {};
+    this.levelingMode = Boolean(storedState.levelingMode);
+
+    this.getSerendipityBalance =
+      typeof options.getSerendipityBalance === 'function' ? options.getSerendipityBalance : () => 0;
+    this.spendSerendipity = typeof options.spendSerendipity === 'function' ? options.spendSerendipity : () => 0;
+    this.onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : () => {};
+
+    this.activeHold = null;
+    this.holdTimer = null;
+
     this.resizeObserver = null;
     this.animationFrame = null;
     this.running = false;
@@ -56,8 +72,34 @@ export class FluidTerrariumTrees {
     }
     const overlay = document.createElement('div');
     overlay.className = 'fluid-terrarium__trees';
+
+    const treeLayer = document.createElement('div');
+    treeLayer.className = 'fluid-terrarium__tree-layer';
+    overlay.appendChild(treeLayer);
+
+    const badgeLayer = document.createElement('div');
+    badgeLayer.className = 'fluid-terrarium__tree-badges';
+    overlay.appendChild(badgeLayer);
+
+    const levelButton = document.createElement('button');
+    levelButton.type = 'button';
+    levelButton.className = 'fluid-tree-level-toggle';
+    levelButton.textContent = 'Lv.';
+    levelButton.setAttribute('aria-label', 'Toggle tree leveling mode');
+    levelButton.addEventListener('click', () => {
+      this.levelingMode = !this.levelingMode;
+      this.syncLevelingMode();
+      this.emitState();
+    });
+
     this.overlay = overlay;
+    this.treeLayer = treeLayer;
+    this.badgeLayer = badgeLayer;
+    this.levelButton = levelButton;
+
+    this.container.appendChild(levelButton);
     this.container.appendChild(overlay);
+    this.syncLevelingMode();
     this.refreshBounds();
   }
 
@@ -120,6 +162,34 @@ export class FluidTerrariumTrees {
     }
 
     this.renderBounds = { left, top, width, height };
+  }
+
+  /**
+   * Toggle pointer affordances and visuals when leveling mode changes.
+   */
+  syncLevelingMode() {
+    if (this.overlay) {
+      this.overlay.classList.toggle('is-leveling', this.levelingMode);
+    }
+    if (this.treeLayer) {
+      this.treeLayer.style.pointerEvents = this.levelingMode ? 'auto' : 'none';
+    }
+    if (this.levelButton) {
+      this.levelButton.classList.toggle('is-active', this.levelingMode);
+    }
+    if (!this.levelingMode) {
+      this.stopHold();
+    }
+  }
+
+  /**
+   * Persist the current terrarium leveling state to the host container.
+   */
+  emitState() {
+    this.onStateChange({
+      levelingMode: this.levelingMode,
+      trees: { ...this.treeState },
+    });
   }
 
   /**
@@ -248,15 +318,211 @@ export class FluidTerrariumTrees {
   }
 
   /**
+   * Create a stable identifier for a tree anchor so progress persists across reloads.
+   */
+  getAnchorKey(anchor) {
+    const center = Math.round((anchor?.centerX || 0) * 1000);
+    const base = Math.round((anchor?.baseY || 0) * 1000);
+    const width = Math.round((anchor?.widthRatio || 0) * 1000);
+    const height = Math.round((anchor?.heightRatio || 0) * 1000);
+    return `${anchor?.size || 'tree'}-${center}-${base}-${width}-${height}`;
+  }
+
+  /**
+   * Ensure each tree entry tracks a non-negative serendipity allocation.
+   */
+  normalizeTreeState(treeId) {
+    if (!this.treeState[treeId]) {
+      this.treeState[treeId] = { allocated: 0 };
+    }
+    const allocated = Math.max(0, Math.round(this.treeState[treeId].allocated || 0));
+    this.treeState[treeId].allocated = allocated;
+    return this.treeState[treeId];
+  }
+
+  /**
+   * Resolve the level and remainder toward the next level from total serendipity.
+   */
+  computeLevelInfo(allocated) {
+    let remaining = Math.max(0, allocated);
+    let level = 0;
+    let nextCost = 1;
+    while (remaining >= nextCost) {
+      remaining -= nextCost;
+      level += 1;
+      nextCost *= 2;
+    }
+    return { level, progress: remaining, nextCost };
+  }
+
+  /**
+   * Sync the fractal growth budget with the allocated serendipity lines.
+   */
+  updateSimulationTarget(tree) {
+    if (!tree?.simulation) {
+      return;
+    }
+    const allocated = Math.max(0, tree.state.allocated || 0);
+    const growthBudget = Math.min(tree.simulation.maxSegments - 1, allocated);
+    tree.simulation.setTargetSegments(1 + growthBudget);
+  }
+
+  /**
+   * Build the HUD elements that hover over a tree.
+   */
+  createLevelBadge(layout) {
+    const badge = document.createElement('div');
+    badge.className = 'fluid-tree-level';
+    badge.style.left = `${layout.left}px`;
+    badge.style.top = `${layout.top - 16}px`;
+    badge.style.width = `${layout.width}px`;
+
+    const label = document.createElement('div');
+    label.className = 'fluid-tree-level__label';
+    badge.appendChild(label);
+
+    const bar = document.createElement('div');
+    bar.className = 'fluid-tree-level__bar';
+    const fill = document.createElement('div');
+    fill.className = 'fluid-tree-level__fill';
+    bar.appendChild(fill);
+    badge.appendChild(bar);
+
+    const progressText = document.createElement('div');
+    progressText.className = 'fluid-tree-level__progress';
+    badge.appendChild(progressText);
+
+    return { badge, label, fill, progressText };
+  }
+
+  /**
+   * Refresh the level label and progress bar for a given tree.
+   */
+  updateTreeBadge(tree) {
+    if (!tree?.badge) {
+      return;
+    }
+    const { label, fill, progressText } = tree.badge;
+    const levelInfo = this.computeLevelInfo(tree.state.allocated || 0);
+    const progressRatio = levelInfo.nextCost ? Math.min(1, (levelInfo.progress || 0) / levelInfo.nextCost) : 0;
+    const remaining = Math.max(0, levelInfo.nextCost - levelInfo.progress);
+
+    label.textContent = `Lv ${levelInfo.level}`;
+    fill.style.width = `${Math.round(progressRatio * 100)}%`;
+    progressText.textContent = `${remaining} Serendipity to next level`;
+  }
+
+  /**
+   * Animate a gold ripple where serendipity was applied.
+   */
+  spawnRipple(globalPoint, jitter = false) {
+    if (!this.overlay || !globalPoint) {
+      return;
+    }
+    const ripple = document.createElement('div');
+    ripple.className = 'fluid-tree-ripple';
+
+    const rect = this.overlay.getBoundingClientRect();
+    const originX = jitter ? globalPoint.x + (Math.random() - 0.5) * 24 : globalPoint.x;
+    const originY = jitter ? globalPoint.y + (Math.random() - 0.5) * 24 : globalPoint.y;
+    ripple.style.left = `${originX - rect.left}px`;
+    ripple.style.top = `${originY - rect.top}px`;
+
+    this.overlay.appendChild(ripple);
+    requestAnimationFrame(() => {
+      ripple.classList.add('fluid-tree-ripple--expand');
+    });
+
+    ripple.addEventListener('animationend', () => ripple.remove());
+  }
+
+  /**
+   * Deduct serendipity and push growth into a specific tree.
+   */
+  allocateToTree(tree, amount, globalPoint, jitter = false) {
+    const normalized = Math.max(1, Math.round(amount));
+    const spent = this.spendSerendipity(normalized);
+    if (!spent) {
+      return 0;
+    }
+    tree.state.allocated = Math.max(0, (tree.state.allocated || 0) + spent);
+    this.updateSimulationTarget(tree);
+    this.updateTreeBadge(tree);
+    this.spawnRipple(globalPoint, jitter);
+    this.emitState();
+    return spent;
+  }
+
+  stopHold() {
+    if (this.holdTimer) {
+      clearTimeout(this.holdTimer);
+      this.holdTimer = null;
+    }
+    this.activeHold = null;
+  }
+
+  continueHold() {
+    if (!this.activeHold || !this.levelingMode) {
+      return;
+    }
+    const { tree, point } = this.activeHold;
+    const spent = this.allocateToTree(tree, 1, point, true);
+    if (!spent) {
+      this.stopHold();
+      return;
+    }
+    this.activeHold.rate = Math.min(10, this.activeHold.rate + 1);
+    const intervalMs = 1000 / this.activeHold.rate;
+    this.holdTimer = setTimeout(() => this.continueHold(), intervalMs);
+  }
+
+  /**
+   * Wire pointer handlers so trees can accept serendipity taps.
+   */
+  attachTreeInput(tree) {
+    if (!tree?.canvas) {
+      return;
+    }
+    const canvas = tree.canvas;
+
+    const handlePointerUp = (event) => {
+      if (this.activeHold && this.activeHold.pointerId === event.pointerId) {
+        this.stopHold();
+      }
+    };
+
+    canvas.addEventListener('pointerdown', (event) => {
+      if (!this.levelingMode) {
+        return;
+      }
+      if (!this.getSerendipityBalance()) {
+        return;
+      }
+      event.preventDefault();
+      this.stopHold();
+      const point = { x: event.clientX, y: event.clientY };
+      this.allocateToTree(tree, 1, point);
+      this.activeHold = { tree, point, rate: 2, pointerId: event.pointerId };
+      this.holdTimer = setTimeout(() => this.continueHold(), 240);
+      canvas.setPointerCapture(event.pointerId);
+    });
+
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((eventName) => {
+      canvas.addEventListener(eventName, handlePointerUp);
+    });
+  }
+
+  /**
    * Clear existing canvases and rebuild simulations for all anchors.
    */
   refreshLayout() {
-    if (!this.overlay || !this.anchors.length || !this.renderBounds.width || !this.renderBounds.height) {
+    if (!this.overlay || !this.treeLayer || !this.badgeLayer || !this.anchors.length || !this.renderBounds.width || !this.renderBounds.height) {
       return;
     }
 
     this.stop();
-    this.overlay.innerHTML = '';
+    this.treeLayer.innerHTML = '';
+    this.badgeLayer.innerHTML = '';
     this.trees = [];
 
     this.anchors.forEach((anchor) => {
@@ -265,16 +531,28 @@ export class FluidTerrariumTrees {
         return;
       }
       const canvas = this.createCanvas(layout);
-      const simulation = this.buildSimulation(anchor.size, canvas, layout.height);
+      const simulation = this.buildSimulation(anchor.size, canvas, layout.visibleHeight || layout.height);
       if (!simulation) {
         return;
       }
 
-      this.overlay.appendChild(canvas);
+      const treeId = this.getAnchorKey(anchor);
+      const state = this.normalizeTreeState(treeId);
+      const badge = this.createLevelBadge(layout);
+
+      this.treeLayer.appendChild(canvas);
+      this.badgeLayer.appendChild(badge.badge);
+
+      const tree = { id: treeId, canvas, simulation, frozen: false, state, badge };
+      this.updateSimulationTarget(tree);
+      this.updateTreeBadge(tree);
+      this.attachTreeInput(tree);
+
       // Track each tree along with its simulation so we can freeze completed renders later.
-      this.trees.push({ canvas, simulation, frozen: false });
+      this.trees.push(tree);
     });
 
+    this.syncLevelingMode();
     if (this.trees.length) {
       this.start();
     }
@@ -300,10 +578,15 @@ export class FluidTerrariumTrees {
     const canopyCushion = this.renderBounds.height * 0.04;
     const height = Math.min(desiredHeight + canopyCushion, maxHeight);
 
-    const left = this.renderBounds.left + anchor.centerX * this.renderBounds.width - width / 2;
-    const top = groundY - height;
+    const horizontalPadding = Math.max(8, width * 0.12);
+    const verticalPadding = Math.max(8, height * 0.12);
+    const paddedWidth = width + horizontalPadding * 2;
+    const paddedHeight = height + verticalPadding;
 
-    return { left, top, width, height };
+    const left = this.renderBounds.left + anchor.centerX * this.renderBounds.width - paddedWidth / 2;
+    const top = groundY - paddedHeight;
+
+    return { left, top, width: paddedWidth, height: paddedHeight, visibleHeight: height };
   }
 
   /**
@@ -357,10 +640,10 @@ export class FluidTerrariumTrees {
       rootX: 0.5,
       rootY: 0.99,
       seed: Math.floor(Math.random() * 100000),
+      enableHalos: false,
     });
 
     simulation.updateConfig({
-      allocated: 999,
       maxDepth: depth,
       depthColors: BET_TREE_DEPTH_COLORS,
     });

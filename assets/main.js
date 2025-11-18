@@ -829,6 +829,11 @@ import {
       bank: 0,
       producers: { slime: 4 },
     },
+    // Track Bet terrarium fractal leveling progress.
+    betTerrarium: {
+      levelingMode: false,
+      trees: {},
+    },
   };
 
   // Track idle reserves for advanced spires so their banks persist outside of active simulations.
@@ -944,6 +949,16 @@ import {
       container: fluidElements.terrariumMedia,
       largeMaskUrl: './assets/sprites/spires/betSpire/Tree.png',
       smallMaskUrl: './assets/sprites/spires/betSpire/Small-Tree.png',
+      state: powderState.betTerrarium,
+      spendSerendipity: spendFluidSerendipity,
+      getSerendipityBalance: getCurrentFluidDropBank,
+      onStateChange: (state) => {
+        powderState.betTerrarium = {
+          levelingMode: Boolean(state?.levelingMode),
+          trees: state?.trees ? { ...state.trees } : {},
+        };
+        schedulePowderBasinSave();
+      },
     });
   }
 
@@ -2593,6 +2608,32 @@ import {
       return bank;
     }
     return Math.max(0, powderState.fluidIdleBank || 0);
+  }
+
+  /**
+   * Deduct Serendipity (fluid idle bank) for interactive Bet Spire upgrades.
+   * @param {number} amount
+   * @returns {number} - Actual Serendipity spent
+   */
+  function spendFluidSerendipity(amount) {
+    const normalized = Math.max(0, Math.floor(amount));
+    if (!normalized) {
+      return 0;
+    }
+    const available = getCurrentFluidDropBank();
+    const spend = Math.min(normalized, available);
+    if (!spend) {
+      return 0;
+    }
+    if (fluidSimulationInstance && Number.isFinite(fluidSimulationInstance.idleBank)) {
+      fluidSimulationInstance.idleBank = Math.max(0, fluidSimulationInstance.idleBank - spend);
+    }
+    const current = Number.isFinite(powderState.fluidIdleBank) ? powderState.fluidIdleBank : 0;
+    powderState.fluidIdleBank = Math.max(0, current - spend);
+    powderState.fluidBankHydrated = false;
+    schedulePowderBasinSave();
+    updateStatusDisplays();
+    return spend;
   }
 
   function getCurrentFluidDispenseRate() {
