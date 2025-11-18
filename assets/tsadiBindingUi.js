@@ -1,3 +1,105 @@
+import { getGreekTierInfo, tierToColor } from '../scripts/features/towers/tsadiTower.js';
+
+/**
+ * Generate a deterministic pseudo-random number generator seeded from a string.
+ * Keeps molecule thumbnails consistent between refreshes while still feeling organic.
+ * @param {string} seed - Unique identifier for the molecule formula.
+ * @returns {Function} Pseudo-random generator returning [0,1).
+ */
+function createSeededRandom(seed) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash << 5) - hash + seed.charCodeAt(i);
+    hash |= 0; // Convert to 32-bit integer
+  }
+  return () => {
+    hash = Math.imul(hash ^ 0x9e3779b1, 0x85ebca6b);
+    hash ^= hash >>> 13;
+    hash = Math.imul(hash, 0xc2b2ae35);
+    hash ^= hash >>> 16;
+    return (hash >>> 0) / 0xffffffff;
+  };
+}
+
+/**
+ * Translate a tier list into a Greek letter formula ordered from highest to lowest.
+ * @param {Array<number>} tiers - Molecule tier recipe.
+ * @returns {string} Formula text (e.g., "γ – β – α").
+ */
+function buildTierFormula(tiers = []) {
+  if (!Array.isArray(tiers) || !tiers.length) {
+    return 'Uncatalogued';
+  }
+  const ordered = [...tiers].sort((a, b) => b - a);
+  return ordered
+    .map((tier) => {
+      if (tier === -1) {
+        return '∅';
+      }
+      const greek = getGreekTierInfo(tier);
+      return greek.letter || greek.name || '?';
+    })
+    .join(' – ');
+}
+
+/**
+ * Render a generated thumbnail depicting the discovered molecule composition.
+ * @param {HTMLCanvasElement} canvas - Destination canvas.
+ * @param {Array<number>} tiers - Tier recipe used for layout and coloring.
+ */
+function renderMoleculeSketch(canvas, tiers = []) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const formulaKey = tiers.join('|') || 'empty';
+  const random = createSeededRandom(formulaKey);
+  const width = canvas.width;
+  const height = canvas.height;
+
+  ctx.clearRect(0, 0, width, height);
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, 'rgba(22, 28, 42, 0.95)');
+  gradient.addColorStop(1, 'rgba(12, 16, 26, 0.95)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  const nodes = tiers.map((tier, index) => {
+    const theta = (index / Math.max(1, tiers.length)) * Math.PI * 2 + random() * 0.6;
+    const radius = Math.min(width, height) * (0.25 + random() * 0.2);
+    const centerX = width / 2 + Math.cos(theta) * radius;
+    const centerY = height / 2 + Math.sin(theta) * radius;
+    const glyph = getGreekTierInfo(tier);
+    const nodeColor = tierToColor(tier);
+    return { x: centerX, y: centerY, glyph: glyph.letter || '∅', color: nodeColor };
+  });
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 1;
+  nodes.forEach((node, index) => {
+    nodes.slice(index + 1).forEach((target) => {
+      ctx.beginPath();
+      ctx.moveTo(node.x, node.y);
+      ctx.lineTo(target.x, target.y);
+      ctx.stroke();
+    });
+  });
+
+  nodes.forEach((node) => {
+    const radius = 12;
+    ctx.fillStyle = node.color;
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(12, 16, 26, 0.9)';
+    ctx.font = 'bold 16px "EB Garamond", "Times New Roman", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(node.glyph, node.x, node.y);
+  });
+}
+
 /**
  * UI controller for Tsadi binding agents and the Alchemy Codex.
  * Handles drag-to-place interactions, long-press disbanding, and discovered molecule listings.
@@ -19,7 +121,9 @@ export function createTsadiBindingUi({
   let canvasElement = null;
   let handleElement = null;
   let codexButton = null;
+  let codexPanel = null;
   let codexList = null;
+  let codexSummary = null;
   let bindingStat = null;
 
   let isPlacing = false;
@@ -72,11 +176,15 @@ export function createTsadiBindingUi({
    */
   function updateBindingAgentDisplay() {
     const simulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
-    const available = simulation?.getAvailableBindingAgents?.()
+    const availableRaw = simulation?.getAvailableBindingAgents?.()
       ?? (typeof getBindingAgentBank === 'function' ? getBindingAgentBank() : 0);
+    const available = Number.isFinite(availableRaw) ? Math.max(0, availableRaw) : Infinity;
+    const displayValue = Number.isFinite(available)
+      ? available.toFixed(1)
+      : '∞';
 
     if (handleElement) {
-      if (available >= 1) {
+      if (available >= 1 || !Number.isFinite(available)) {
         handleElement.removeAttribute('hidden');
         handleElement.disabled = false;
       } else {
@@ -86,7 +194,7 @@ export function createTsadiBindingUi({
 
     if (bindingStat) {
       const suffix = available === 1 ? 'Binding Agent' : 'Binding Agents';
-      bindingStat.textContent = `${available.toFixed(1)} ${suffix}`;
+      bindingStat.textContent = `${displayValue} ${suffix}`;
     }
   }
 
@@ -107,6 +215,11 @@ export function createTsadiBindingUi({
 
     codexList.innerHTML = '';
 
+    const entryCount = recipes?.length || 0;
+    if (codexSummary) {
+      codexSummary.textContent = `(${entryCount} Entries: +${entryCount} particles/hour)`;
+    }
+
     if (!recipes?.length) {
       const emptyItem = document.createElement('li');
       emptyItem.className = 'tsadi-codex-empty';
@@ -118,18 +231,57 @@ export function createTsadiBindingUi({
     recipes.forEach((recipe) => {
       const item = document.createElement('li');
       item.className = 'tsadi-codex-entry';
-      const heading = document.createElement('div');
-      heading.className = 'tsadi-codex-entry__title';
-      heading.textContent = recipe.name;
-      const tiers = document.createElement('div');
-      tiers.className = 'tsadi-codex-entry__tiers';
-      tiers.textContent = `Requires: ${recipe.tiers.map((tier) => tier === -1 ? 'Null' : `Tier ${tier}`).join(', ')}`;
-      const bonus = document.createElement('p');
-      bonus.className = 'tsadi-codex-entry__bonus';
-      bonus.textContent = recipe.description;
-      item.appendChild(heading);
-      item.appendChild(tiers);
-      item.appendChild(bonus);
+
+      const formulaText = buildTierFormula(recipe.tiers);
+
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'tsadi-codex-entry__toggle';
+      toggle.setAttribute('aria-expanded', 'false');
+
+      const formula = document.createElement('span');
+      formula.className = 'tsadi-codex-entry__formula';
+      formula.textContent = formulaText;
+
+      const title = document.createElement('span');
+      title.className = 'tsadi-codex-entry__name';
+      title.textContent = recipe.name;
+
+      toggle.appendChild(formula);
+      toggle.appendChild(title);
+
+      const detail = document.createElement('div');
+      detail.className = 'tsadi-codex-entry__detail';
+      detail.hidden = true;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 260;
+      canvas.height = 140;
+      canvas.className = 'tsadi-codex-canvas';
+
+      const description = document.createElement('p');
+      description.className = 'tsadi-codex-entry__bonus';
+      description.textContent = recipe.description || 'Recorded in the Alchemy Codex.';
+
+      const tierLine = document.createElement('p');
+      tierLine.className = 'tsadi-codex-entry__tiers';
+      tierLine.textContent = `Formula: ${formulaText}`;
+
+      detail.appendChild(canvas);
+      detail.appendChild(tierLine);
+      detail.appendChild(description);
+
+      toggle.addEventListener('click', () => {
+        const expanded = detail.hidden;
+        detail.hidden = !expanded;
+        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        if (expanded) {
+          renderMoleculeSketch(canvas, recipe.tiers);
+        }
+      });
+
+      item.appendChild(toggle);
+      item.appendChild(detail);
       codexList.appendChild(item);
     });
   }
@@ -139,9 +291,9 @@ export function createTsadiBindingUi({
    */
   function toggleCodex() {
     codexOpen = !codexOpen;
-    if (codexList) {
-      codexList.hidden = !codexOpen;
-      codexList.setAttribute('aria-hidden', codexOpen ? 'false' : 'true');
+    if (codexPanel) {
+      codexPanel.hidden = !codexOpen;
+      codexPanel.setAttribute('aria-hidden', codexOpen ? 'false' : 'true');
     }
     if (codexButton) {
       codexButton.setAttribute('aria-expanded', codexOpen ? 'true' : 'false');
@@ -292,14 +444,16 @@ export function createTsadiBindingUi({
     canvasElement = document.getElementById('tsadi-canvas');
     handleElement = document.getElementById('tsadi-binding-handle');
     codexButton = document.getElementById('tsadi-codex-button');
+    codexPanel = document.getElementById('tsadi-codex-panel');
     codexList = document.getElementById('tsadi-codex-list');
+    codexSummary = document.getElementById('tsadi-codex-summary');
     bindingStat = document.getElementById('tsadi-binding-agent-count');
 
     bindPointerListeners();
 
-    if (codexButton && codexList) {
-      codexList.hidden = true;
-      codexList.setAttribute('aria-hidden', 'true');
+    if (codexButton && codexPanel) {
+      codexPanel.hidden = true;
+      codexPanel.setAttribute('aria-hidden', 'true');
       codexButton.setAttribute('aria-expanded', 'false');
       codexButton.addEventListener('click', () => {
         toggleCodex();

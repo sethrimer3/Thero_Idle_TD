@@ -2203,12 +2203,23 @@
             </article>
             <article class="card tsadi-codex-card">
               <div class="tsadi-codex-header">
-                <h3>Alchemy Codex</h3>
+                <div class="tsadi-codex-title">
+                  <h3>Alchemy Codex</h3>
+                  <span class="tsadi-codex-summary" id="tsadi-codex-summary">(0 Entries: +0 particles/hour)</span>
+                </div>
                 <button class="tsadi-codex-button" id="tsadi-codex-button" type="button" aria-expanded="false">
                   Show Alchemy Codex
                 </button>
               </div>
-              <ul class="tsadi-codex-list" id="tsadi-codex-list" aria-live="polite" aria-label="Discovered molecules"></ul>
+              <div class="tsadi-codex-panel" id="tsadi-codex-panel" aria-hidden="true" hidden>
+                <p class="tsadi-codex-note">Tap a formula to reveal the generated molecule sketch.</p>
+                <ul
+                  class="tsadi-codex-list"
+                  id="tsadi-codex-list"
+                  aria-live="polite"
+                  aria-label="Discovered molecules"
+                ></ul>
+              </div>
             </article>
             <article class="card tsadi-upgrades-card">
               <h3>Permanent Upgrades</h3>
