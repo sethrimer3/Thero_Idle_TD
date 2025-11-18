@@ -4182,15 +4182,21 @@ body.graphics-mode-low .control-button {
   z-index: -1;
 }
 
+
+/* Animate the Bet terrarium sky through a day/night palette driven by the sky cycle. */
 .fluid-terrarium__sky {
+  --terrarium-sky-top: rgba(6, 10, 24, 0.95);
+  --terrarium-sky-bottom: rgba(6, 10, 24, 0);
+  --terrarium-star-opacity: 1;
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 52%;
-  background: linear-gradient(180deg, rgba(6, 10, 24, 0.95), rgba(6, 10, 24, 0));
+  background: linear-gradient(180deg, var(--terrarium-sky-top), var(--terrarium-sky-bottom));
   overflow: hidden;
   z-index: 1;
+  transition: background 1200ms ease;
 }
 
 .fluid-terrarium__stars {
@@ -4198,8 +4204,9 @@ body.graphics-mode-low .control-button {
   inset: 0;
   background-repeat: repeat;
   background-size: 180px 180px;
-  opacity: 0.65;
+  opacity: calc(var(--terrarium-star-opacity, 1) * 0.65);
   animation: fluid-star-twinkle 14s ease-in-out infinite;
+  transition: opacity 900ms ease;
 }
 
 .fluid-terrarium__stars::after {
@@ -4220,13 +4227,43 @@ body.graphics-mode-low .control-button {
 }
 
 .fluid-terrarium__stars--far {
-  opacity: 0.4;
+  opacity: calc(var(--terrarium-star-opacity, 1) * 0.4);
   background-image:
     radial-gradient(0.8px 0.8px at 15% 15%, rgba(255, 255, 255, 0.65) 0, transparent 60%),
     radial-gradient(0.9px 0.9px at 45% 35%, rgba(174, 200, 255, 0.6) 0, transparent 60%),
     radial-gradient(0.8px 0.8px at 75% 50%, rgba(255, 198, 150, 0.5) 0, transparent 60%);
   animation-duration: 18s;
   filter: blur(0.3px);
+}
+
+.fluid-terrarium__sun,
+.fluid-terrarium__moon {
+  position: absolute;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  top: 12%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 2;
+  transition: opacity 800ms ease, left 800ms ease, top 800ms ease;
+  box-shadow: 0 0 18px 10px rgba(255, 255, 255, 0.25);
+}
+
+.fluid-terrarium__sun {
+  background: radial-gradient(circle at 30% 30%, #fff7d1 0, #ffe47a 65%, #f5c542 100%);
+  box-shadow:
+    0 0 12px 6px rgba(255, 228, 122, 0.65),
+    0 0 28px 14px rgba(255, 228, 122, 0.35);
+}
+
+.fluid-terrarium__moon {
+  background: radial-gradient(circle at 25% 25%, #f4f5f7 0, #cfd3da 60%, #9aa0ac 100%);
+  box-shadow:
+    0 0 10px 6px rgba(207, 211, 218, 0.55),
+    0 0 22px 12px rgba(154, 160, 172, 0.35);
 }
 
 .fluid-terrarium__background,

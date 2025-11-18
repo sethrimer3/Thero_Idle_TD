@@ -52,6 +52,12 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidElements.terrariumLayer = document.getElementById('fluid-terrarium-layer');
     fluidElements.terrariumStage = document.getElementById('fluid-terrarium-stage');
     fluidElements.terrariumMedia = document.getElementById('fluid-terrarium-stage-media');
+    // Cache terrarium sky layers for the day/night cycle renderer.
+    fluidElements.terrariumSky = document.getElementById('fluid-terrarium-sky');
+    fluidElements.terrariumStarsNear = document.getElementById('fluid-terrarium-stars-near');
+    fluidElements.terrariumStarsFar = document.getElementById('fluid-terrarium-stars-far');
+    fluidElements.terrariumSun = document.getElementById('fluid-terrarium-sun');
+    fluidElements.terrariumMoon = document.getElementById('fluid-terrarium-moon');
     fluidElements.viewport = document.getElementById('fluid-viewport');
     fluidElements.leftWall = document.getElementById('fluid-wall-left');
     fluidElements.rightWall = document.getElementById('fluid-wall-right');
