@@ -864,10 +864,18 @@ import {
     statusNote: null,
     returnButton: null,
     terrainSprite: null,
+    // Happiness ledger values mirrored in the Bet Spire HUD.
     happinessTotal: null,
     happinessRate: null,
     happinessList: null,
     happinessEmpty: null,
+    // Progress bar elements that communicate the next Bet glyph unlock.
+    happinessProgressBar: null,
+    happinessProgressFill: null,
+    happinessProgressLabel: null,
+    happinessProgressPrevious: null,
+    happinessProgressNext: null,
+    happinessProgressCurrent: null,
     wallGlyphColumns: [],
   };
 

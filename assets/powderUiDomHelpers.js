@@ -75,6 +75,13 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidElements.happinessRate = document.getElementById('fluid-happiness-rate');
     fluidElements.happinessList = document.getElementById('fluid-happiness-list');
     fluidElements.happinessEmpty = document.getElementById('fluid-happiness-empty');
+    // Track progress toward the next Bet glyph unlock.
+    fluidElements.happinessProgressBar = document.getElementById('fluid-happiness-progress');
+    fluidElements.happinessProgressFill = document.getElementById('fluid-happiness-progress-fill');
+    fluidElements.happinessProgressLabel = document.getElementById('fluid-happiness-progress-label');
+    fluidElements.happinessProgressPrevious = document.getElementById('fluid-happiness-progress-previous');
+    fluidElements.happinessProgressNext = document.getElementById('fluid-happiness-progress-next');
+    fluidElements.happinessProgressCurrent = document.getElementById('fluid-happiness-progress-current');
     fluidElements.wallGlyphColumns = Array.from(
       document.querySelectorAll('[data-fluid-glyph-column]') || [],
     );
