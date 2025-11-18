@@ -7201,6 +7201,8 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Keep glyph icons lowercase even when parent buttons are uppercased. */
+  text-transform: none;
 }
 
 /* Glowing tab supplements now sit beneath the tab label for immediate readability. */
