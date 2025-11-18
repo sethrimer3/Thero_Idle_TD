@@ -4188,6 +4188,7 @@ body.graphics-mode-low .control-button {
 }
 
 .fluid-terrarium__background,
+.fluid-terrarium__floating-island,
 .fluid-terrarium__foreground {
   position: absolute;
   inset: 0;
@@ -4200,29 +4201,9 @@ body.graphics-mode-low .control-button {
   z-index: 0;
 }
 
-.fluid-terrarium__liquid {
-  position: absolute;
-  top: 38%;
-  bottom: 10%;
-  right: 6%;
-  width: clamp(88px, 42%, 160px);
-  background: radial-gradient(
-      circle at 40% 30%,
-      rgba(124, 198, 255, 0.4),
-      rgba(124, 198, 255, 0.12) 60%,
-      transparent 85%
-    ),
-    linear-gradient(180deg, rgba(82, 158, 214, 0.45), rgba(54, 108, 166, 0.35));
-  border-radius: 52% 52% 36% 36% / 68% 68% 32% 32%;
-  box-shadow:
-    inset 0 -18px 28px rgba(14, 52, 92, 0.45),
-    inset 0 18px 24px rgba(180, 226, 255, 0.25),
-    0 0 22px rgba(96, 190, 255, 0.25);
-  mix-blend-mode: screen;
-  opacity: 0.95;
-  pointer-events: none;
+.fluid-terrarium__floating-island {
   z-index: 1;
-  animation: fluid-liquid-drift 16s ease-in-out infinite alternate;
+  pointer-events: none;
 }
 
 .fluid-terrarium__foreground {
@@ -4241,21 +4222,6 @@ body.graphics-mode-low .control-button {
   100% {
     opacity: 0.5;
     transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes fluid-liquid-drift {
-  0% {
-    transform: translate3d(0, 0, 0) scaleX(1);
-    filter: drop-shadow(0 0 18px rgba(126, 206, 255, 0.45));
-  }
-  50% {
-    transform: translate3d(-2%, -1%, 0) scaleX(0.98) scaleY(1.02);
-    filter: drop-shadow(0 0 22px rgba(126, 206, 255, 0.35));
-  }
-  100% {
-    transform: translate3d(1%, 1%, 0) scaleX(1.02) scaleY(0.98);
-    filter: drop-shadow(0 0 14px rgba(126, 206, 255, 0.4));
   }
 }
 
