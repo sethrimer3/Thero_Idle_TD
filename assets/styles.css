@@ -4210,6 +4210,7 @@ body.graphics-mode-low .control-button {
   position: relative;
   width: 100%;
   height: 100%;
+  --terrarium-night-brightness: 1;
 }
 
 /* Layer that anchors the animated Delta slimes so they follow viewport transforms. */
@@ -4354,7 +4355,9 @@ body.graphics-mode-low .control-button {
     0 0 22px 12px rgba(154, 160, 172, 0.35);
 }
 
+/* Anchor static Bet terrarium sprites, including the magma layer beneath the terrain. */
 .fluid-terrarium__background,
+.fluid-terrarium__magma,
 .fluid-terrarium__floating-island,
 .fluid-terrarium__foreground {
   position: absolute;
@@ -4362,6 +4365,39 @@ body.graphics-mode-low .control-button {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  transition: filter 900ms ease;
+}
+
+.fluid-terrarium__background { z-index: 0; }
+
+.fluid-terrarium__magma {
+  z-index: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 0 16px rgba(255, 96, 48, 0.6));
+}
+
+.fluid-terrarium__floating-island { z-index: 2; }
+
+.fluid-terrarium__foreground { z-index: 3; }
+
+/* Screened glow keeps magma light visible even though the sprite sits behind the terrain. */
+.fluid-terrarium__magma-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 46% 86%, rgba(255, 116, 64, 0.38) 0%, rgba(255, 90, 48, 0.28) 26%, rgba(255, 64, 32, 0.14) 44%, rgba(255, 64, 32, 0) 68%);
+  mix-blend-mode: screen;
+  filter: blur(14px);
+  opacity: 0.9;
+  z-index: 4;
+}
+
+.fluid-terrarium__background,
+.fluid-terrarium__floating-island,
+.fluid-terrarium__foreground,
+.fluid-terrarium__grass {
+  /* Night cycle fades non-glowing layers without dimming the magma. */
+  filter: brightness(var(--terrarium-night-brightness, 1));
 }
 
 /* Overlay canvas that renders animated grass tied to the terrain silhouettes. */
@@ -4371,7 +4407,8 @@ body.graphics-mode-low .control-button {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 1;
+  z-index: 5;
+  transition: filter 900ms ease;
 }
 
 /* Overlay canvases that host the fractal trees anchored by the Bet terrarium masks. */
@@ -4379,7 +4416,7 @@ body.graphics-mode-low .control-button {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 4;
+  z-index: 6;
 }
 
 .fluid-terrarium__trees.is-leveling {
@@ -4398,7 +4435,8 @@ body.graphics-mode-low .control-button {
   inset: auto;
   pointer-events: none;
   mix-blend-mode: normal;
-  filter: none;
+  filter: brightness(var(--terrarium-night-brightness, 1));
+  transition: filter 900ms ease;
 }
 
 .fluid-terrarium__trees.is-leveling .fluid-terrarium__tree {
@@ -4419,7 +4457,7 @@ body.graphics-mode-low .control-button {
   font-size: 0.9rem;
   letter-spacing: 0.05em;
   pointer-events: auto;
-  z-index: 5;
+  z-index: 7;
   transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
 }
 

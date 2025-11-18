@@ -11,14 +11,18 @@ export class FluidTerrariumGrass {
     this.terrainElement = options.terrainElement || null;
     /** @type {HTMLImageElement|null} */
     this.floatingIslandElement = options.floatingIslandElement || null;
-    /** @type {string|null} */
-    this.maskUrl = typeof options.maskUrl === 'string' ? options.maskUrl : null;
+    /** @type {string[]} */
+    this.maskUrls = Array.isArray(options.maskUrls)
+      ? options.maskUrls.filter((url) => typeof url === 'string')
+      : typeof options.maskUrl === 'string'
+        ? [options.maskUrl]
+        : [];
 
     this.canvas = null;
     this.ctx = null;
     this.bounds = { width: 0, height: 0 };
     this.renderBounds = { left: 0, top: 0, width: 0, height: 0 };
-    this.maskImage = null;
+    this.maskImages = [];
     this.terrainProfile = null;
     this.islandProfile = null;
     this.grassBlades = [];
@@ -35,7 +39,7 @@ export class FluidTerrariumGrass {
     this.observeContainer();
     this.observeSurfaceElement(this.terrainElement, this.handleTerrainLoad);
     this.observeSurfaceElement(this.floatingIslandElement, this.handleIslandLoad);
-    this.loadMask();
+    this.loadMasks();
   }
 
   /**
@@ -121,12 +125,13 @@ export class FluidTerrariumGrass {
    * Calculate the object-fit bounds so grass positions match the scaled sprite images.
    */
   updateRenderBounds() {
-    if (!this.maskImage || !this.maskImage.naturalWidth || !this.maskImage.naturalHeight) {
+    const referenceMask = this.getReferenceMask();
+    if (!referenceMask || !referenceMask.naturalWidth || !referenceMask.naturalHeight) {
       this.renderBounds = { left: 0, top: 0, width: this.bounds.width, height: this.bounds.height };
       return;
     }
     const containerRatio = this.bounds.width / Math.max(1, this.bounds.height || 1);
-    const spriteRatio = this.maskImage.naturalWidth / this.maskImage.naturalHeight;
+    const spriteRatio = referenceMask.naturalWidth / referenceMask.naturalHeight;
     let width = this.bounds.width;
     let height = this.bounds.height;
     let left = 0;
@@ -146,24 +151,41 @@ export class FluidTerrariumGrass {
   /**
    * Kick off mask loading so grass spawn coordinates can be traced.
    */
-  loadMask() {
-    if (this.maskImage || !this.maskUrl || typeof Image === 'undefined') {
+  loadMasks() {
+    if (this.maskImages.length || !this.maskUrls.length || typeof Image === 'undefined') {
       return;
     }
-    const maskImage = new Image();
-    maskImage.decoding = 'async';
-    maskImage.loading = 'eager';
-    maskImage.src = this.maskUrl;
-    maskImage.addEventListener('load', this.handleMaskLoad, { once: true });
-    this.maskImage = maskImage;
+    this.maskUrls.forEach((maskUrl) => {
+      const maskImage = new Image();
+      maskImage.decoding = 'async';
+      maskImage.loading = 'eager';
+      maskImage.src = maskUrl;
+      maskImage.addEventListener('load', () => this.handleMaskLoad(maskImage), { once: true });
+    });
   }
 
   /**
-   * Handle completion of the grass mask load and regenerate blades.
+   * Handle completion of a mask load and regenerate blades.
+   * @param {HTMLImageElement} maskImage
    */
-  handleMaskLoad() {
+  handleMaskLoad(maskImage) {
+    if (!maskImage?.naturalWidth || !maskImage?.naturalHeight) {
+      return;
+    }
+    this.maskImages.push(maskImage);
     this.updateRenderBounds();
     this.refreshGrass(true);
+  }
+
+  /**
+   * Resolve the primary mask used for sizing calculations.
+   * @returns {HTMLImageElement|null}
+   */
+  getReferenceMask() {
+    if (this.maskImages.length) {
+      return this.maskImages[0];
+    }
+    return null;
   }
 
   /**
@@ -345,48 +367,53 @@ export class FluidTerrariumGrass {
    * Parse the grass mask into a set of blades anchored to the nearest terrain surface.
    */
   seedGrassFromMask() {
-    if (!this.maskImage || !this.maskImage.naturalWidth || !this.maskImage.naturalHeight) {
+    const referenceMask = this.getReferenceMask();
+    if (!referenceMask || !referenceMask.naturalWidth || !referenceMask.naturalHeight) {
       return;
     }
     const offscreen = document.createElement('canvas');
-    offscreen.width = this.maskImage.naturalWidth;
-    offscreen.height = this.maskImage.naturalHeight;
+    offscreen.width = referenceMask.naturalWidth;
+    offscreen.height = referenceMask.naturalHeight;
     const ctx = offscreen.getContext('2d');
     if (!ctx) {
       return;
     }
     ctx.clearRect(0, 0, offscreen.width, offscreen.height);
-    ctx.drawImage(this.maskImage, 0, 0, offscreen.width, offscreen.height);
-    const imageData = ctx.getImageData(0, 0, offscreen.width, offscreen.height).data;
-    const blades = [];
+    let blades = [];
+    let seen = 0;
     const alphaThreshold = 6;
     const maxBlades = 820;
-    let seen = 0;
-    for (let y = 0; y < offscreen.height; y += 1) {
-      for (let x = 0; x < offscreen.width; x += 1) {
-        const index = (y * offscreen.width + x) * 4 + 3;
-        const alpha = imageData[index];
-        if (alpha <= alphaThreshold) {
-          continue;
-        }
-        const normalizedX = x / (offscreen.width - 1);
-        const normalizedY = y / (offscreen.height - 1);
-        const surface = this.pickSurface(normalizedX, normalizedY);
-        if (!surface) {
-          continue;
-        }
-        const blade = this.createGrassBlade(normalizedX, surface.y);
-        seen += 1;
-        if (blades.length < maxBlades) {
-          blades.push(blade);
-        } else {
-          const replaceIndex = Math.floor(Math.random() * seen);
-          if (replaceIndex < blades.length) {
-            blades[replaceIndex] = blade;
+
+    this.maskImages.forEach((mask) => {
+      ctx.clearRect(0, 0, offscreen.width, offscreen.height);
+      ctx.drawImage(mask, 0, 0, offscreen.width, offscreen.height);
+      const imageData = ctx.getImageData(0, 0, offscreen.width, offscreen.height).data;
+      for (let y = 0; y < offscreen.height; y += 1) {
+        for (let x = 0; x < offscreen.width; x += 1) {
+          const index = (y * offscreen.width + x) * 4 + 3;
+          const alpha = imageData[index];
+          if (alpha <= alphaThreshold) {
+            continue;
+          }
+          const normalizedX = x / (offscreen.width - 1);
+          const normalizedY = y / (offscreen.height - 1);
+          const surface = this.pickSurface(normalizedX, normalizedY);
+          if (!surface) {
+            continue;
+          }
+          const blade = this.createGrassBlade(normalizedX, surface.y);
+          seen += 1;
+          if (blades.length < maxBlades) {
+            blades.push(blade);
+          } else {
+            const replaceIndex = Math.floor(Math.random() * seen);
+            if (replaceIndex < blades.length) {
+              blades[replaceIndex] = blade;
+            }
           }
         }
       }
-    }
+    });
     this.grassBlades = blades;
     this.updateBladeLayout();
   }
@@ -399,7 +426,7 @@ export class FluidTerrariumGrass {
     if (!this.canvas || !this.ctx || !this.bounds.width || !this.bounds.height) {
       return;
     }
-    if (!this.maskImage || (!this.terrainProfile && !this.islandProfile)) {
+    if (!this.maskImages.length || (!this.terrainProfile && !this.islandProfile)) {
       return;
     }
     this.updateRenderBounds();
