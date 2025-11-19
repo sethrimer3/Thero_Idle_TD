@@ -44,3 +44,6 @@ Acts as the bridge between the powder simulation and the rest of the game by man
 
 ## Playfield Gameplay Class
 Isolates the `Playfield` class definition, its constructor wiring, UI bindings, input handling, geometry calculations, floater animation scaffolding, and tower placement logic.
+
+### Wave Tally Overlay UI (Playfield)
+`assets/playfield/ui/WaveTallyOverlays.js` now owns kill/damage scribble creation, measurement, and animation timing for wave summaries while `assets/playfield.js` delegates lifecycle calls. The renderer still consumes the shared `waveTallyLabels` array, but the heavy state manipulation shifted into the UI helper to keep the main class smaller.
