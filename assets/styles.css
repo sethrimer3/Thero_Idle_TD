@@ -431,6 +431,13 @@ body.graphics-mode-low .control-button {
   text-align: right;
 }
 
+/* Tuck resource names beneath offline totals for compact mathematical styling. */
+.offline-number sub {
+  font-size: 0.65em;
+  margin-left: 0.25em;
+  font-style: italic;
+}
+
 .offline-symbol {
   color: rgba(255, 255, 255, 0.68);
   font-size: clamp(1.2rem, 3vw, 2.2rem);
