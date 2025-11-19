@@ -3618,9 +3618,6 @@ import {
         fluidSimulationInstance.stop();
       }
 
-      if (fluidElements.depthValue) {
-        fluidElements.depthValue.textContent = '0% crest height';
-      }
       if (fluidElements.reservoirValue) {
         fluidElements.reservoirValue.textContent = '0 Serendipity';
       }
@@ -3739,11 +3736,6 @@ import {
       fluidElements.rightWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
     }
 
-    if (fluidElements.depthValue) {
-      const crestPercent = formatDecimal(crestNormalized * 100, 1);
-      fluidElements.depthValue.textContent = `${crestPercent}% crest height`;
-    }
-
     const idleBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
     if (fluidElements.reservoirValue) {
       fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} Serendipity`;
@@ -3764,7 +3756,7 @@ import {
       } else if (crestNormalized >= 0.75) {
         message = `Surface oscillates near the ridge (${crestPercent}%). This gauge tracks wave height, not stored Serendipity.`;
       } else {
-        message = `Crest remains low (${crestPercent}%). Wave height here is separate from the Serendipity reserve total.`;
+        message = `Terrarium surface is calm (${crestPercent}%). Wave height is separate from the Serendipity reserve total.`;
       }
       fluidElements.statusNote.textContent = message;
     }
