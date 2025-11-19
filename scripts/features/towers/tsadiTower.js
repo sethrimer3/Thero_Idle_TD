@@ -791,6 +791,16 @@ export class ParticleFusionSimulation {
   }
 
   /**
+   * Determine the maximum tether reach and minimum rod length for binding agents.
+   *
+   * Range and rod length scale with the render width so bonds stay visually legible on any viewport size.
+   * @returns {number} Rod range in CSS pixels.
+   */
+  getBindingRodRange() {
+    return Math.max(0, this.width) / 50;
+  }
+
+  /**
    * Get the available binding agent stock.
    * @returns {number} Non-negative binding agent reserve.
    */
@@ -1024,6 +1034,8 @@ export class ParticleFusionSimulation {
     const bindingRadius = this.getBindingAgentRadius();
     const bindingMass = this.getBindingAgentMass();
     const bindingRepellingForce = this.baseRepellingForce * 0.5;
+    const connectionRange = this.getBindingRodRange(); // Bond reach tied to viewport width.
+    const minimumBondLength = connectionRange; // Rods stretch to at least this length when tethered.
 
     const particleMap = new Map();
     for (const particle of this.particles) {
@@ -1042,7 +1054,10 @@ export class ParticleFusionSimulation {
         }
 
         // Preserve the latest distance so the render step can draw a taut bond to moving particles.
-        connection.bondLength = Math.hypot(target.x - agent.x, target.y - agent.y);
+        connection.bondLength = Math.max(
+          minimumBondLength,
+          Math.hypot(target.x - agent.x, target.y - agent.y),
+        );
         return true;
       });
 
@@ -1063,10 +1078,14 @@ export class ParticleFusionSimulation {
         const distance = Math.sqrt(dx * dx + dy * dy) || 1;
         const minDistance = bindingRadius + target.radius;
 
-        if (distance <= minDistance) {
+        if (distance <= Math.max(connectionRange, minDistance)) {
           // Null particles cannot form bonds, but still collide to keep the chamber physical.
           if (!isNullParticle && !connectedIds.has(target.id) && !connectedTiers.has(target.tier)) {
-            const bondLength = Math.max(minDistance, Math.hypot(target.x - agent.x, target.y - agent.y));
+            const bondLength = Math.max(
+              minimumBondLength,
+              minDistance,
+              Math.hypot(target.x - agent.x, target.y - agent.y),
+            );
             agent.connections.push({
               particleId: target.id,
               tier: target.tier,
@@ -1090,13 +1109,16 @@ export class ParticleFusionSimulation {
           const dx = particle.x - agent.x;
           const dy = particle.y - agent.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
-          const maxDistance = particle.radius + this.getBindingAgentRadius();
+          const maxDistance = Math.max(connectionRange, particle.radius + this.getBindingAgentRadius());
           return distance <= maxDistance;
         });
 
         if (eligibleCandidates.length) {
           const target = eligibleCandidates[Math.floor(Math.random() * eligibleCandidates.length)];
-          const bondLength = Math.hypot(target.x - agent.x, target.y - agent.y);
+          const bondLength = Math.max(
+            minimumBondLength,
+            Math.hypot(target.x - agent.x, target.y - agent.y),
+          );
           agent.connections.push({
             particleId: target.id,
             tier: target.tier,
@@ -1130,7 +1152,7 @@ export class ParticleFusionSimulation {
         const dx = target.x - agent.x;
         const dy = target.y - agent.y;
         const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-        const desiredLength = connection.bondLength || distance;
+        const desiredLength = Math.max(minimumBondLength, connection.bondLength || distance);
         connection.bondLength = desiredLength;
 
         const nx = dx / distance;
