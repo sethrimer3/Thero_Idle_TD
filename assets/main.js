@@ -4110,11 +4110,12 @@ import {
 
     if (powderElements.nextGlyphProgress) {
       if (glyphMetrics) {
-        const remainingFraction = 1 - Math.min(1, Math.max(0, glyphMetrics.progressFraction));
-        const remainingPercent = formatDecimal(remainingFraction * 100, 1);
+        const clampedProgress = Math.min(1, Math.max(0, glyphMetrics.progressFraction));
+        // Show progress climbing toward the next glyph instead of counting down from 100%.
+        const progressPercent = formatDecimal(clampedProgress * 100, 1);
         const remainingHeight = formatDecimal(Math.max(0, glyphMetrics.remainingToNext), 2);
         const nextLabel = formatAlephLabel(Math.max(0, glyphMetrics.nextIndex));
-        powderElements.nextGlyphProgress.textContent = `${remainingPercent}% to ${nextLabel} · Δh ${remainingHeight}`;
+        powderElements.nextGlyphProgress.textContent = `${progressPercent}% to ${nextLabel} · Δh ${remainingHeight}`;
       } else {
         powderElements.nextGlyphProgress.textContent = '—';
       }
