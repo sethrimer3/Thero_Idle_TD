@@ -175,6 +175,9 @@ export function createSpireFloatingMenuController(options = {}) {
         }
       }
     });
+
+    // Sync counts and lock states immediately so locked spires stay hidden on first paint.
+    updateCounts();
   }
 
   /**
