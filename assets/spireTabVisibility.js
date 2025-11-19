@@ -18,12 +18,12 @@ export function createSpireTabVisibilityManager({
   powderState,
 }) {
   /**
-   * Update the split powder/fluid tab visibility and associated badges when the fluid study
+   * Update the split powder/fluid tab visibility and associated badges when the Bet Spire Terrarium
    * unlocks or locks. Resource badge visibility depends on the current unlock state.
    */
   function updateFluidTabAvailability() {
     if (!fluidElements.tabStack) {
-      // Cache the split tab wrapper so we can toggle stacked layout states when the fluid study unlocks.
+      // Cache the split tab wrapper so we can toggle stacked layout states when the Bet Spire Terrarium unlocks.
       fluidElements.tabStack = document.getElementById('tab-powder-stack');
     }
     if (!fluidElements.powderTabButton) {
@@ -57,7 +57,7 @@ export function createSpireTabVisibilityManager({
       }
     } else {
       if (tabStack) {
-        // Collapse the stack back into a single button while the fluid study remains locked.
+        // Collapse the stack back into a single button while the Bet Spire Terrarium remains locked.
         tabStack.classList.remove('tab-button-stack--split');
         tabStack.classList.remove('tab-button-stack--active');
         tabStack.setAttribute('aria-hidden', 'false');

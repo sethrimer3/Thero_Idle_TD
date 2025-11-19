@@ -4062,7 +4062,7 @@ body.graphics-mode-low .control-button {
   letter-spacing: 0.16em;
 }
 
-/* Fluid Study layout mirrors the powder basin while adopting a liquid-inspired palette. */
+/* Bet Spire Terrarium layout mirrors the powder basin while adopting a liquid-inspired palette. */
 .fluid-grid {
   display: flex;
   flex-direction: column;
@@ -7519,7 +7519,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   height: 100%;
 }
 
-/* Expand the wrapper into two equal columns whenever fluid study access is unlocked. */
+/* Expand the wrapper into two equal columns whenever Bet Spire Terrarium access is unlocked. */
 .tab-button-stack--split {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -7583,7 +7583,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   margin-top: 2px;
 }
 
-/* Preserve the original single-button proportions while the fluid study remains locked. */
+/* Preserve the original single-button proportions while the Bet Spire Terrarium remains locked. */
 .tab-button-stack:not(.tab-button-stack--split) .tab-button--stacked {
   padding: 10px 12px;
   gap: 4px;
