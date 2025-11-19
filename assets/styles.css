@@ -5203,6 +5203,8 @@ body.graphics-mode-low .control-button {
   top: 0;
   bottom: 0;
   width: clamp(36px, 14%, 68px);
+  --powder-wall-tile-height: 192px; /* Mirror POWDER_WALL_TEXTURE_REPEAT_PX so masonry tiles stay in phase. */
+  --powder-wall-shift: 0px; /* Updated by the viewport to keep wall sprites moving with rising glyphs. */
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -5235,9 +5237,9 @@ body.graphics-mode-low .control-button {
 }
 
 .powder-wall::before {
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  background-position: center bottom;
+  background-repeat: repeat-y;
+  background-size: 100% var(--powder-wall-tile-height);
+  background-position: center var(--powder-wall-shift);
   filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.55));
   z-index: -2;
 }
