@@ -1471,8 +1471,10 @@ body.graphics-mode-low .control-button {
   border: none;
   box-shadow: none;
   min-width: 210px;
+  width: min(340px, calc(100vw - 16px)); /* Keep the picker wide enough that tower icons are never squeezed into slivers. */
   z-index: 12;
   pointer-events: auto;
+  overflow: visible;
 }
 
 .tower-loadout-wheel__list {
@@ -1481,6 +1483,7 @@ body.graphics-mode-low .control-button {
   max-height: var(--tower-loadout-wheel-height, 240px);
   height: var(--tower-loadout-wheel-height, auto);
   overflow: hidden;
+  width: 100%;
 }
 
 .tower-loadout-wheel__item {
@@ -1532,17 +1535,20 @@ body.graphics-mode-low .control-button {
   color: rgba(139, 247, 255, 0.9);
 }
 
+/* Enlarge and brighten tower badges so each glyph icon reads clearly during selection. */
 .tower-loadout-wheel__icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  padding: 4px;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  padding: 3px;
   position: relative;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 30%, rgba(255, 228, 120, 0.22), rgba(12, 14, 20, 0.9));
-  box-shadow: 0 10px 16px rgba(255, 228, 120, 0.16);
+  background: radial-gradient(circle at 50% 30%, rgba(255, 228, 120, 0.28), rgba(12, 14, 20, 0.92));
+  box-shadow: 0 10px 16px rgba(255, 228, 120, 0.22), 0 0 14px rgba(139, 247, 255, 0.28);
+  border: 1px solid rgba(139, 247, 255, 0.32);
   object-fit: contain;
   display: block;
+  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.35)) drop-shadow(0 0 6px rgba(139, 247, 255, 0.32));
 }
 
 .tower-loadout-wheel__item[data-affordable='false'] .tower-loadout-wheel__icon::after {
