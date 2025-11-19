@@ -273,7 +273,7 @@ export class BrownianTreeSimulation {
       this.ctx.drawImage(this.offscreenCanvas, 0, 0);
     }
 
-    this.ctx.lineWidth = 1.2;
+    this.ctx.lineWidth = 3.6;
     this.ctx.shadowBlur = 14;
     this.ctx.shadowColor = 'rgba(120, 220, 255, 0.6)';
 
