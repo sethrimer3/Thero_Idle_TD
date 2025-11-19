@@ -41,6 +41,7 @@
 - **No build step:** Open `index.html` directly to test
 - **ES6 modules:** Explicit imports only
 - **Mathematical theme:** Greek letters, scholarly fonts
+- **Build tracking:** Increment `assets/buildInfo.js#BUILD_NUMBER` by 1 for every change and start reports with the updated build number.
 
 ### Directory Structure
 ```

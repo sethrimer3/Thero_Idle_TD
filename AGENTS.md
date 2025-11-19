@@ -76,6 +76,7 @@ conventions for all AI collaborators working anywhere inside this repository.
    collectible glyph symbol used for upgrades (rendered as the glyph icon with an index like `𝔊₁`). The
    lowercase form (e.g., `glyph1`) refers to the same glyph symbol with the index styled as a subscript.
    Treat all glyph variables as upgradeable slots within the tower menus.
+7. **Build numbering:** Increment the build number in `assets/buildInfo.js` by `+1` for every committed change and lead your change reports with the updated build number.
 
 ## Workflow Expectations
 - **Branching:** Work on feature branches; keep commits atomic with clear messages.

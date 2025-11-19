@@ -7798,6 +7798,24 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   pointer-events: none;
 }
 
+/* Display the active build identifier so testers can confirm the loaded revision at startup. */
+.startup-overlay__build {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  padding: 8px 12px;
+  border: 1px solid rgba(240, 240, 246, 0.22);
+  border-radius: 14px;
+  background: rgba(6, 7, 10, 0.6);
+  color: rgba(240, 240, 246, 0.78);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
 .startup-overlay__content {
   display: grid;
   gap: 24px;
@@ -7886,6 +7904,13 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   .startup-overlay__loading {
     width: min(32vw, 80px); /* Maintain the 80px glyph size while still allowing narrow screens to shrink proportionally. */
     max-width: 80px; /* Match the desktop cap so the animation height stays consistent across devices. */
+  }
+
+  .startup-overlay__build {
+    top: 12px;
+    left: 12px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
   }
 }
 
