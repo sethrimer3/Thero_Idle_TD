@@ -389,13 +389,14 @@ body.graphics-mode-low .control-button {
   display: grid;
   gap: clamp(12px, 3vw, 18px);
   /* Align math operators across rows with a shared column template for clarity. */
+  --offline-label-width: clamp(10ch, 16vw, 13ch);
   --offline-equation-template: minmax(8ch, 1fr) minmax(2ch, auto) minmax(8ch, 1fr) minmax(2ch, auto)
     minmax(12ch, 1fr);
 }
 
 .offline-overlay__equation-row {
   display: grid;
-  grid-template-columns: minmax(10ch, auto) 1fr;
+  grid-template-columns: var(--offline-label-width) 1fr;
   align-items: baseline;
   gap: clamp(12px, 3vw, 24px);
 }
@@ -409,12 +410,17 @@ body.graphics-mode-low .control-button {
   color: rgba(255, 255, 255, 0.72);
   font-family: "Cormorant Garamond", serif;
   justify-content: flex-end;
-  min-width: clamp(10ch, 16vw, 13ch);
+  min-width: var(--offline-label-width);
 }
 
 .offline-overlay__label-text {
   display: inline-block;
   text-transform: uppercase;
+}
+
+.offline-overlay__label-glyph {
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  text-transform: none;
 }
 
 
@@ -483,12 +489,16 @@ body.graphics-mode-low .control-button {
 }
 
 .offline-overlay__equation-row--continuation {
-  grid-template-columns: minmax(10ch, auto) 1fr;
+  grid-template-columns: var(--offline-label-width) 1fr;
 }
 
 .offline-overlay__equation-row--continuation .offline-overlay__equation {
   grid-column: 2;
   justify-self: start;
+}
+
+.offline-overlay__label--placeholder {
+  visibility: hidden;
 }
 
 .offline-overlay__equation--continuation {
