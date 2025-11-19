@@ -1605,11 +1605,15 @@ import {
           }
         };
 
-        const handleClick = () => {
+        const handleClick = (event) => {
           const duration = Date.now() - pointerDownTime;
           if (pointerMoved || duration >= MAX_CLICK_DURATION) {
             return;
           }
+
+          // Prevent bubbling into parent cards that also grant click rewards so a single tap
+          // doesn't trigger multiple mote or drop spawns (e.g., Aleph spire double drops).
+          event?.stopPropagation?.();
 
           const activeTab = getActiveTabId();
           if (activeTab !== tabForSpire(type)) {
