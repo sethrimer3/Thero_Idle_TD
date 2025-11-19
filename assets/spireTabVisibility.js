@@ -172,65 +172,40 @@ export function createSpireTabVisibilityManager({
       }
     }
 
-    // Update Lamed tab
-    const lamedTab = document.getElementById('tab-lamed');
-    if (lamedTab) {
-      if (spireResourceState?.lamed?.unlocked) {
-        lamedTab.removeAttribute('hidden');
-        lamedTab.setAttribute('aria-hidden', 'false');
-        lamedTab.disabled = false;
-      } else {
-        lamedTab.setAttribute('hidden', '');
-        lamedTab.setAttribute('aria-hidden', 'true');
-        lamedTab.disabled = true;
+    /**
+     * Keep the stacked spire tab buttons in sync with the corresponding unlocks so locked
+     * spires no longer leak visible icons into the primary tab bar.
+     * @param {string} spireId - Identifier suffix for the stacked spire tab.
+     * @param {boolean} unlocked - Whether the spire should be visible.
+     */
+    function syncSpireTabButton(spireId, unlocked) {
+      const tabButton = document.getElementById(`tab-${spireId}`);
+      if (!tabButton) {
+        return;
       }
-    }
-    syncSpireToggle('lamed', Boolean(spireResourceState?.lamed?.unlocked));
 
-    // Update Tsadi tab
-    const tsadiTab = document.getElementById('tab-tsadi');
-    if (tsadiTab) {
-      if (spireResourceState?.tsadi?.unlocked) {
-        tsadiTab.removeAttribute('hidden');
-        tsadiTab.setAttribute('aria-hidden', 'false');
-        tsadiTab.disabled = false;
+      if (unlocked) {
+        tabButton.removeAttribute('hidden');
+        tabButton.setAttribute('aria-hidden', 'false');
+        tabButton.disabled = false;
       } else {
-        tsadiTab.setAttribute('hidden', '');
-        tsadiTab.setAttribute('aria-hidden', 'true');
-        tsadiTab.disabled = true;
+        tabButton.setAttribute('hidden', '');
+        tabButton.setAttribute('aria-hidden', 'true');
+        tabButton.disabled = true;
       }
     }
-    syncSpireToggle('tsadi', Boolean(spireResourceState?.tsadi?.unlocked));
 
-    // Update Shin tab
-    const shinTab = document.getElementById('tab-shin');
-    if (shinTab) {
-      if (spireResourceState?.shin?.unlocked) {
-        shinTab.removeAttribute('hidden');
-        shinTab.setAttribute('aria-hidden', 'false');
-        shinTab.disabled = false;
-      } else {
-        shinTab.setAttribute('hidden', '');
-        shinTab.setAttribute('aria-hidden', 'true');
-        shinTab.disabled = true;
-      }
-    }
-    syncSpireToggle('shin', Boolean(spireResourceState?.shin?.unlocked));
+    const spireConfigs = [
+      { id: 'lamed', unlocked: Boolean(spireResourceState?.lamed?.unlocked) },
+      { id: 'tsadi', unlocked: Boolean(spireResourceState?.tsadi?.unlocked) },
+      { id: 'shin', unlocked: Boolean(spireResourceState?.shin?.unlocked) },
+      { id: 'kuf', unlocked: Boolean(spireResourceState?.kuf?.unlocked) },
+    ];
 
-    // Update Kuf tab
-    const kufTab = document.getElementById('tab-kuf');
-    if (kufTab) {
-      if (spireResourceState?.kuf?.unlocked) {
-        kufTab.removeAttribute('hidden');
-        kufTab.setAttribute('aria-hidden', 'false');
-        kufTab.disabled = false;
-      } else {
-        kufTab.setAttribute('hidden', '');
-        kufTab.setAttribute('aria-hidden', 'true');
-        kufTab.disabled = true;
-      }
-    }
-    syncSpireToggle('kuf', Boolean(spireResourceState?.kuf?.unlocked));
+    spireConfigs.forEach(({ id, unlocked }) => {
+      syncSpireTabButton(id, unlocked);
+      syncSpireToggle(id, unlocked);
+    });
 
     // Rebuild the layout so only visible spires consume space in the stack grid.
     applySpireStackLayout();
