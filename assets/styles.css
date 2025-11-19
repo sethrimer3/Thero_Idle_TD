@@ -8961,6 +8961,8 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   border-radius: 6px;
   background: rgba(10, 15, 24, 0.7);
   padding: 10px;
+  max-height: 420px;
+  overflow-y: auto;
 }
 
 .tsadi-codex-note {
@@ -9024,11 +9026,15 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   gap: 8px;
 }
 
+.tsadi-codex-entry__detail[hidden] {
+  display: none;
+}
+
 .tsadi-codex-canvas {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
-  background: #0f1622;
+  background: #000000;
 }
 
 .tsadi-codex-empty {
