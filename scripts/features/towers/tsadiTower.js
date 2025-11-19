@@ -1060,7 +1060,7 @@ export class ParticleFusionSimulation {
       // If a Waals particle bumps into an eligible target, immediately stabilize it with a bond
       // and resolve the overlap so the contact is visible instead of passing through.
       for (const target of this.particles) {
-        if (target.tier <= NULL_TIER) continue;
+        const isNullParticle = target.tier <= NULL_TIER;
 
         const dx = target.x - agent.x;
         const dy = target.y - agent.y;
@@ -1087,7 +1087,8 @@ export class ParticleFusionSimulation {
           target.vx += (relativeSpeed * nx * bindingMass) / totalMass;
           target.vy += (relativeSpeed * ny * bindingMass) / totalMass;
 
-          if (!connectedIds.has(target.id) && !connectedTiers.has(target.tier)) {
+          // Null particles cannot form bonds, but still collide to keep the chamber physical.
+          if (!isNullParticle && !connectedIds.has(target.id) && !connectedTiers.has(target.tier)) {
             const bondLength = Math.max(minDistance, Math.hypot(target.x - agent.x, target.y - agent.y));
             agent.connections.push({
               particleId: target.id,
