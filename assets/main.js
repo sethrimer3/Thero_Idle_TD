@@ -780,6 +780,9 @@ import {
     registerResourceContainers,
   });
 
+  // Temporarily disable the Bet/Fluid study so hidden simulations do not consume resources.
+  const FLUID_STUDY_ENABLED = false;
+
   const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the fluid study with a base reservoir of Serendipity upon unlock.
 
   const {
@@ -819,6 +822,30 @@ import {
   let fluidTerrariumGrass = null;
   // Drive the Bet terrarium day/night palette and celestial bodies.
   let fluidTerrariumSkyCycle = null;
+
+  /**
+   * Force the fluid study to remain locked and inactive while the feature is disabled.
+   * This ensures saved unlocks or tabs cannot resurrect the retired simulation.
+   */
+  function enforceFluidStudyDisabledState() {
+    if (FLUID_STUDY_ENABLED) {
+      return;
+    }
+
+    powderState.fluidUnlocked = false;
+    powderState.simulationMode = 'sand';
+    powderState.pendingFluidDrops = [];
+    powderState.loadedFluidState = null;
+    powderState.fluidIdleBank = 0;
+    powderState.fluidIdleDrainRate = 0;
+    powderState.fluidBankHydrated = false;
+    powderState.fluidInitialLoadRestored = true;
+    if (getActiveTabId() === 'fluid') {
+      setActiveTab('powder');
+    }
+    updateFluidTabAvailability();
+    updateSpireTabVisibility();
+  }
 
   /**
    * Wait for a terrarium sprite to load so dependent overlays align with its silhouette.
@@ -879,14 +906,24 @@ import {
 
   /**
    * Ensure the Bet terrarium surfaces spawn in order so creatures and foliage don't fall through.
-   * First wait for the ground terrain, then for the floating island, before layering overlays.
+   * First wait for the lightweight collision silhouette, then the ground terrain, and finally the floating island.
    */
   async function ensureTerrariumSurfacesReady() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
+    const collisionSprite = fluidElements.terrainCollisionSprite;
+    if (collisionSprite && collisionSprite !== fluidElements.terrainSprite) {
+      await waitForTerrariumSprite(collisionSprite);
+    }
     await waitForTerrariumSprite(fluidElements.terrainSprite);
     await waitForTerrariumSprite(fluidElements.floatingIslandSprite);
   }
 
   function ensureFluidTerrariumCreatures() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
     // Lazily create the overlay so it never blocks powder initialization.
     if (fluidTerrariumCreatures || !fluidElements?.viewport) {
       return;
@@ -895,6 +932,7 @@ import {
     fluidTerrariumCreatures = new FluidTerrariumCreatures({
       container: fluidElements.viewport,
       terrainElement: fluidElements.terrainSprite,
+      terrainCollisionElement: fluidElements.terrainCollisionSprite,
       creatureCount: slimeCount,
       spawnZones: BET_CAVE_SPAWN_ZONES,
     });
@@ -906,6 +944,9 @@ import {
 
   // Lazily generate the terrarium grass overlay once the stage media is available.
   function ensureFluidTerrariumGrass() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
     if (fluidTerrariumGrass || !fluidElements?.terrariumMedia || !fluidElements?.terrainSprite) {
       return;
     }
@@ -924,6 +965,9 @@ import {
 
   // Plant animated fractal trees on the Bet terrarium using the placement masks.
   function ensureFluidTerrariumTrees() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
     if (fluidTerrariumTrees || !fluidElements?.terrariumMedia) {
       return;
     }
@@ -947,6 +991,9 @@ import {
 
   // Paint the Bet terrarium sky with a looping day/night gradient and celestial path.
   function ensureFluidTerrariumSkyCycle() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
     if (fluidTerrariumSkyCycle || !fluidElements?.terrariumSky) {
       return;
     }
@@ -1563,6 +1610,12 @@ import {
     if (powderState.modeSwitchPending) {
       return;
     }
+    if (!FLUID_STUDY_ENABLED && mode === 'fluid') {
+      // Keep the retired fluid simulation dormant even if legacy saves request it.
+      powderState.simulationMode = 'sand';
+      updatePowderModeButton();
+      return;
+    }
     if (mode === 'fluid' && !powderState.fluidUnlocked) {
       updatePowderModeButton();
       return;
@@ -1724,6 +1777,9 @@ import {
   }
 
   function unlockFluidStudy({ reason = 'purchase', threshold = null, glyphCost = null } = {}) {
+    if (!FLUID_STUDY_ENABLED) {
+      return false;
+    }
     if (powderState.fluidUnlocked) {
       return false;
     }
@@ -1757,6 +1813,9 @@ import {
   }
 
   function attemptFluidUnlock() {
+    if (!FLUID_STUDY_ENABLED) {
+      return false;
+    }
     const glyphCost = getFluidUnlockGlyphCost();
     const availableGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
     if (availableGlyphs < glyphCost) {
@@ -1772,6 +1831,9 @@ import {
   }
 
   function enterFluidStudy() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
     if (powderState.modeSwitchPending) {
       return;
     }
@@ -1797,6 +1859,11 @@ import {
   }
 
   function handlePowderModeToggle() {
+    if (!FLUID_STUDY_ENABLED) {
+      setActiveTab('powder');
+      updatePowderModeButton();
+      return;
+    }
     if (!powderState.fluidUnlocked) {
       const unlocked = attemptFluidUnlock();
       if (unlocked) {
@@ -1824,7 +1891,7 @@ import {
     const betGlyphs = Math.max(0, Math.floor(powderState.fluidGlyphsAwarded || 0));
     
     // Bet Spire: Unlocks when player has 10 Aleph glyphs
-    if (!powderState.fluidUnlocked && alephGlyphs >= 10) {
+    if (FLUID_STUDY_ENABLED && !powderState.fluidUnlocked && alephGlyphs >= 10) {
       unlockFluidStudy({ reason: 'auto-unlock', threshold: 10, glyphCost: 0 });
       updateSpireTabVisibility();
       spireMenuController.updateCounts();
@@ -3552,7 +3619,7 @@ import {
       }
 
       if (fluidElements.depthValue) {
-        fluidElements.depthValue.textContent = '0% full';
+        fluidElements.depthValue.textContent = '0% crest height';
       }
       if (fluidElements.reservoirValue) {
         fluidElements.reservoirValue.textContent = '0 Serendipity';
@@ -3585,6 +3652,10 @@ import {
     const normalizedHeight = Number.isFinite(info?.normalizedHeight)
       ? Math.max(0, Math.min(1, info.normalizedHeight))
       : 0;
+    // Highest crest accounts for hidden overflow so the readout mirrors the tallest wave peak, not a fill gauge.
+    const crestNormalized = Number.isFinite(info?.highestNormalized)
+      ? Math.max(0, Math.min(2, info.highestNormalized))
+      : normalizedHeight;
     const scrollOffset = Number.isFinite(info?.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
     const totalNormalized = Number.isFinite(info?.totalNormalized)
       ? Math.max(0, info.totalNormalized)
@@ -3669,7 +3740,8 @@ import {
     }
 
     if (fluidElements.depthValue) {
-      fluidElements.depthValue.textContent = `${formatDecimal(normalizedHeight * 100, 1)}% full`;
+      const crestPercent = formatDecimal(crestNormalized * 100, 1);
+      fluidElements.depthValue.textContent = `${crestPercent}% crest height`;
     }
 
     const idleBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
@@ -3686,12 +3758,13 @@ import {
 
     if (fluidElements.statusNote) {
       let message;
-      if (normalizedHeight >= 0.9) {
-        message = 'Reservoir plane stabilized—idle Serendipity condenses rapidly.';
-      } else if (normalizedHeight >= 0.5) {
-        message = 'Flow is balanced. Serendipity weaves a mirrored surface across the channel.';
+      const crestPercent = formatDecimal(crestNormalized * 100, 1);
+      if (crestNormalized >= 1.2) {
+        message = `Crest is ${crestPercent}% of the viewport—overflow is cycling while idle Serendipity condenses.`;
+      } else if (crestNormalized >= 0.75) {
+        message = `Surface oscillates near the ridge (${crestPercent}%). This gauge tracks wave height, not stored Serendipity.`;
       } else {
-        message = 'Channel remains shallow. Allow more Serendipity to condense into the study.';
+        message = `Crest remains low (${crestPercent}%). Wave height here is separate from the Serendipity reserve total.`;
       }
       fluidElements.statusNote.textContent = message;
     }
@@ -4498,6 +4571,7 @@ import {
 
     bindOfflineOverlayElements();
     loadPersistentState();
+    enforceFluidStudyDisabledState();
     // Reapply developer mode boosts after progression restore so level unlocks stay in sync.
     refreshDeveloperModeState();
     reconcileGlyphCurrencyFromState();

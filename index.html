@@ -1797,6 +1797,16 @@
                           decoding="async"
                           aria-hidden="true"
                         />
+                        <!-- Hidden collision silhouette sampled by the Bet terrarium overlays. -->
+                        <img
+                          class="fluid-terrarium__collision-map"
+                          id="fluid-terrarium-foreground-collision"
+                          src="./assets/sprites/spires/betSpire/terrain-collision.png"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
                       </div>
                     </div>
                     <div class="powder-viewport fluid-viewport" id="fluid-viewport"></div>
@@ -1824,8 +1834,8 @@
           <h3>Reservoir Metrics</h3>
           <dl class="fluid-metrics">
             <div>
-              <dt>Reservoir Depth</dt>
-                  <dd id="fluid-depth">0.00% full</dd>
+              <dt>Surface Crest Height</dt>
+                  <dd id="fluid-depth">0.00% crest height</dd>
                 </div>
                 <div>
                   <dt>Serendipity Reserve</dt>
@@ -1837,7 +1847,7 @@
                 </div>
               </dl>
               <p class="fluid-status-note" id="fluid-status-note">
-                Serendipity blooms seep from idle reserves and collect within the study.
+                Crest height tracks the tallest wave inside the Bet terrarium; Serendipity is banked separately below.
               </p>
             </article>
             <article class="card fluid-happiness-card">

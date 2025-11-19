@@ -96,6 +96,7 @@ export function createPowderStateContext() {
     statusNote: null,
     returnButton: null,
     terrainSprite: null,
+    terrainCollisionSprite: null, // Offscreen collision silhouette for the Bet terrarium ground.
     // Happiness ledger values mirrored in the Bet Spire HUD.
     happinessTotal: null,
     happinessRate: null,

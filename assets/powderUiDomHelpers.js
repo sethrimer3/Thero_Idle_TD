@@ -69,6 +69,7 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidElements.statusNote = document.getElementById('fluid-status-note');
     fluidElements.floatingIslandSprite = document.getElementById('fluid-terrarium-floating-island');
     fluidElements.terrainSprite = document.getElementById('fluid-terrarium-foreground');
+    fluidElements.terrainCollisionSprite = document.getElementById('fluid-terrarium-foreground-collision');
     fluidElements.happinessTotal = document.getElementById('fluid-happiness-total');
     fluidElements.happinessRate = document.getElementById('fluid-happiness-rate');
     fluidElements.happinessList = document.getElementById('fluid-happiness-list');
