@@ -85,6 +85,19 @@ function normalizeTierList(tiers = []) {
 }
 
 /**
+ * Convert an internal tier index into the player-facing tier number.
+ * Null sits at tier 0, Alpha at tier 1, and so on up the Greek ladder.
+ * @param {number} tier - Internal tier index (NULL_TIER = -1, alpha = 0)
+ * @returns {number} Display tier number.
+ */
+function toDisplayTier(tier) {
+  if (tier === NULL_TIER) {
+    return 0;
+  }
+  return tier + 1;
+}
+
+/**
  * Build a deterministic identifier for a molecule combination.
  * @param {Array<number>} tiers - Sorted unique tier list.
  * @returns {string|null} Stable id or null when insufficient data.
@@ -94,7 +107,19 @@ function createCombinationIdFromTiers(tiers = []) {
   if (normalized.length < 2) {
     return null;
   }
-  return `combo-${normalized.join('-')}`;
+  return normalized.map((tier) => toDisplayTier(tier)).join('-');
+}
+
+/**
+ * Remove the legacy "combo-" prefix from molecule identifiers for cleaner labels.
+ * @param {string} label - Raw molecule id or name.
+ * @returns {string} Label without the combo prefix.
+ */
+function stripCombinationPrefix(label = '') {
+  if (typeof label !== 'string') {
+    return '';
+  }
+  return label.replace(/^combo-/i, '');
 }
 
 /**
@@ -1006,14 +1031,20 @@ export class ParticleFusionSimulation {
     const tiers = normalizeTierList(Array.isArray(merged.tiers) ? merged.tiers : legacyRecipe?.tiers || []);
     const particleCount = tiers.length;
     const generatedId = createCombinationIdFromTiers(tiers);
-    const id = merged.id || merged.name || generatedId || resolvedId || 'molecule';
+    let id = merged.id || merged.name || generatedId || resolvedId || 'molecule';
+    if (/^combo-/i.test(id) && generatedId) {
+      id = generatedId;
+    }
+    const tierSequenceLabel = tiers.length ? tiers.map((tier) => toDisplayTier(tier)).join('-') : id;
+    const baseName = typeof merged.name === 'string' && merged.name ? merged.name : (legacyRecipe?.name || id);
+    const cleanedName = stripCombinationPrefix(baseName) || tierSequenceLabel;
     const description = typeof merged.description === 'string'
       ? merged.description
       : legacyRecipe?.description || 'Recorded in the Alchemy Codex.';
     const descriptor = {
       ...merged,
       id,
-      name: typeof merged.name === 'string' && merged.name ? merged.name : (legacyRecipe?.name || id),
+      name: cleanedName,
       tiers,
       description,
       particleCount,
@@ -2510,10 +2541,11 @@ function getGreekTierInfo(tier) {
     return {
       name: 'Null',
       letter: '', // No letter for null particle
-      displayName: 'Null – Tier -1',
+      displayName: 'Null – Tier 0',
+      displayTier: 0,
     };
   }
-  
+
   // Handle aleph particle (after omega omega)
   const alephTier = GREEK_SEQUENCE_LENGTH * 2; // 48 for 24 Greek letters
   if (safeTier >= alephTier) {
@@ -2521,13 +2553,15 @@ function getGreekTierInfo(tier) {
       name: 'Aleph',
       letter: 'ℵ', // Aleph symbol
       displayName: 'Aleph – Final Tier',
+      displayTier: safeTier + 1,
     };
   }
-  
+
   const classification = getTierClassification(safeTier);
   const greekIndex = classification.greekIndex;
   const cycle = classification.cycle;
   const baseInfo = GREEK_TIER_SEQUENCE[greekIndex];
+  const displayTier = toDisplayTier(safeTier);
   
   let name, letter, displayName;
   
@@ -2535,12 +2569,12 @@ function getGreekTierInfo(tier) {
     // Lowercase Greek letters (tiers 0-23)
     name = baseInfo.name;
     letter = baseInfo.letter;
-    displayName = `${name} (${letter}) – Tier ${safeTier}`;
+    displayName = `${name} (${letter}) – Tier ${displayTier}`;
   } else if (cycle === 1) {
     // Capital Greek letters (tiers 24-47)
     name = `Capital ${baseInfo.name}`;
     letter = baseInfo.capital;
-    displayName = `${name} (${letter}) – Tier ${safeTier}`;
+    displayName = `${name} (${letter}) – Tier ${displayTier}`;
   } else {
     // Double letters: Alpha Alpha, Alpha Beta, etc. (tiers 48+)
     const firstLetterIndex = Math.floor((safeTier - alephTier) / GREEK_SEQUENCE_LENGTH);
@@ -2549,13 +2583,13 @@ function getGreekTierInfo(tier) {
     const secondName = GREEK_TIER_SEQUENCE[secondLetterIndex]?.name || 'Alpha';
     const firstLetter = GREEK_TIER_SEQUENCE[firstLetterIndex]?.letter || 'α';
     const secondLetter = GREEK_TIER_SEQUENCE[secondLetterIndex]?.letter || 'α';
-    
+
     name = `${firstName} ${secondName}`;
     letter = `${firstLetter}${secondLetter}`;
-    displayName = `${name} (${letter}) – Tier ${safeTier}`;
+    displayName = `${name} (${letter}) – Tier ${displayTier}`;
   }
-  
-  return { name, letter, displayName };
+
+  return { name, letter, displayName, displayTier };
 }
 
 // Export helper utilities for external use

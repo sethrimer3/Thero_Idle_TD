@@ -4439,7 +4439,12 @@ import {
                       typeof tierInfo === 'object' && tierInfo !== null
                         ? tierInfo
                         : getGreekTierInfo(resolvedTier);
-                    tierEl.textContent = `${tierMetadata.displayName || `${tierMetadata.name} (${tierMetadata.letter}) – Tier ${resolvedTier}`}`;
+                    const fallbackTier = Number.isFinite(tierMetadata.displayTier)
+                      ? tierMetadata.displayTier
+                      : resolvedTier + 1;
+                    const tierLabel = tierMetadata.displayName
+                      || `${tierMetadata.name} (${tierMetadata.letter}) – Tier ${fallbackTier}`;
+                    tierEl.textContent = tierLabel;
                   }
                   const previousHighest = Math.max(
                     0,

@@ -28,6 +28,33 @@ function rgbToRgba(color, alpha = 1) {
 }
 
 /**
+ * Present a unique tier list using player-facing numbering (Null = 0, Alpha = 1).
+ * @param {Array<number>} tiers - Raw tier collection.
+ * @returns {string} Sequence label suitable for display.
+ */
+function formatDisplayTierSequence(tiers = []) {
+  if (!Array.isArray(tiers)) {
+    return '';
+  }
+  const normalized = Array.from(
+    new Set(tiers.filter((tier) => Number.isFinite(tier)).map((tier) => Math.floor(tier))),
+  ).sort((a, b) => a - b);
+  return normalized.map((tier) => Math.max(0, tier + 1)).join('-');
+}
+
+/**
+ * Strip the legacy combo prefix so molecule sketches show clean tier sequences.
+ * @param {string} label - Raw molecule identifier or name.
+ * @returns {string} Label without the combo prefix.
+ */
+function stripCombinationPrefix(label = '') {
+  if (typeof label !== 'string') {
+    return '';
+  }
+  return label.replace(/^combo-/i, '');
+}
+
+/**
  * Render a generated thumbnail depicting the discovered molecule composition.
  * @param {HTMLCanvasElement} canvas - Destination canvas.
  * @param {{tiers?:Array<number>,name?:string}} recipe - Molecule metadata for layout and labeling.
@@ -43,14 +70,8 @@ function renderMoleculeSketch(canvas, recipe = {}) {
   const random = createSeededRandom(formulaKey);
   const width = canvas.width;
   const height = canvas.height;
-  const backgroundStart = samplePaletteGradient(0.05);
-  const backgroundEnd = samplePaletteGradient(0.85);
-
   ctx.clearRect(0, 0, width, height);
-  const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, rgbToRgba(backgroundStart, 0.92));
-  gradient.addColorStop(1, rgbToRgba(backgroundEnd, 0.92));
-  ctx.fillStyle = gradient;
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, width, height);
 
   if (name) {
@@ -147,7 +168,7 @@ export function createTsadiBindingUi({
     if (typeof recipe === 'string') {
       return {
         id: recipe,
-        name: recipe,
+        name: stripCombinationPrefix(recipe),
         tiers: [],
         description: 'Recorded in the Alchemy Codex.',
         particleCount: 0,
@@ -155,13 +176,15 @@ export function createTsadiBindingUi({
     }
     if (typeof recipe === 'object') {
       const id = recipe.id || recipe.name || 'molecule';
-      const name = typeof recipe.name === 'string' ? recipe.name : id;
       const tiers = Array.isArray(recipe.tiers) ? recipe.tiers : [];
+      const defaultSequence = formatDisplayTierSequence(tiers) || id;
+      const name = typeof recipe.name === 'string' ? stripCombinationPrefix(recipe.name) : defaultSequence;
       const description = typeof recipe.description === 'string' ? recipe.description : 'Recorded in the Alchemy Codex.';
       const particleCount = Number.isFinite(recipe.particleCount)
         ? Math.max(0, recipe.particleCount)
         : new Set(tiers).size;
-      return { ...recipe, id, name, tiers, description, particleCount };
+      const displayName = name || defaultSequence;
+      return { ...recipe, id, name: displayName, tiers, description, particleCount };
     }
     return null;
   }
@@ -217,7 +240,7 @@ export function createTsadiBindingUi({
 
     if (bindingStat) {
       if (!waalsUnlocked) {
-        bindingStat.textContent = `Reach Tier ${WAALS_UNLOCK_TIER} to unlock Waals bonds.`;
+        bindingStat.textContent = `Reach Tier ${WAALS_UNLOCK_TIER + 1} to unlock Waals bonds.`;
       } else {
         const suffix = available === 1 ? 'Waal' : 'Waals';
         bindingStat.textContent = `${displayValue} ${suffix}`;
@@ -275,6 +298,7 @@ export function createTsadiBindingUi({
       const detail = document.createElement('div');
       detail.className = 'tsadi-codex-entry__detail';
       detail.hidden = true;
+      detail.setAttribute('aria-hidden', 'true');
 
       const canvas = document.createElement('canvas');
       canvas.width = 260;
@@ -287,15 +311,18 @@ export function createTsadiBindingUi({
         const expanded = detail.hidden;
         if (expandedEntry && expandedEntry.detail !== detail) {
           expandedEntry.detail.hidden = true;
+          expandedEntry.detail.setAttribute('aria-hidden', 'true');
           expandedEntry.toggle.setAttribute('aria-expanded', 'false');
         }
         if (expanded) {
           detail.hidden = false;
+          detail.setAttribute('aria-hidden', 'false');
           toggle.setAttribute('aria-expanded', 'true');
           renderMoleculeSketch(canvas, recipe);
           expandedEntry = { detail, toggle };
         } else {
           detail.hidden = true;
+          detail.setAttribute('aria-hidden', 'true');
           toggle.setAttribute('aria-expanded', 'false');
           expandedEntry = null;
         }
