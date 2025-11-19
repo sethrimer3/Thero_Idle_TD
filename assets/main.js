@@ -2033,7 +2033,10 @@ import {
           const tiers = Array.isArray(entry.tiers) ? entry.tiers.filter((tier) => Number.isFinite(tier)) : [];
           const description =
             typeof entry.description === 'string' ? entry.description : 'Recorded in the Alchemy Codex.';
-          return { ...entry, id, name, tiers, description };
+          const particleCount = Number.isFinite(entry.particleCount)
+            ? Math.max(0, entry.particleCount)
+            : new Set(tiers).size;
+          return { ...entry, id, name, tiers, description, particleCount };
         }
         return null;
       })
@@ -4146,6 +4149,10 @@ import {
       getOverlayActiveState: () => Boolean(levelOverlayController?.isOverlayActive()),
       isFieldNotesOverlayVisible,
       onTabChange: (tabId) => {
+        // Hide the tower selection wheel whenever players leave the Stage tab.
+        if (tabId !== 'tower' && playfield && typeof playfield.closeTowerSelectionWheel === 'function') {
+          playfield.closeTowerSelectionWheel();
+        }
         if (previousTabId === 'tsadi' && tabId !== 'tsadi') {
           // Stash Tsadi particle counts before the viewport collapses so reentry can rebuild cleanly.
           tsadiSimulationInstance?.stageParticlesForReentry?.();

@@ -590,10 +590,19 @@ export function createPowderDisplaySystem({
     const lamedTotal = lamedUnlocked ? seconds * lamedRate : 0;
 
     const tsadiUnlocked = Boolean(spireResourceState.tsadi?.unlocked);
-    const discoveredMoleculeCount = Array.isArray(spireResourceState.tsadi?.discoveredMolecules)
-      ? spireResourceState.tsadi.discoveredMolecules.length
-      : 0;
-    const tsadiIdleBonusPerSecond = discoveredMoleculeCount / 3600; // +1 particle/hour per molecule
+    const discoveredMolecules = Array.isArray(spireResourceState.tsadi?.discoveredMolecules)
+      ? spireResourceState.tsadi.discoveredMolecules
+      : [];
+    const tsadiHourlyBonus = discoveredMolecules.reduce((total, entry) => {
+      const tiers = Array.isArray(entry?.tiers)
+        ? entry.tiers.filter((tier) => Number.isFinite(tier))
+        : [];
+      const particleCount = Number.isFinite(entry?.particleCount)
+        ? Math.max(0, entry.particleCount)
+        : new Set(tiers).size;
+      return total + particleCount;
+    }, 0);
+    const tsadiIdleBonusPerSecond = tsadiHourlyBonus / 3600; // +1 particle/hour per particle in molecule
     const tsadiRate = 2.0 + tsadiIdleBonusPerSecond;
     const tsadiTotal = tsadiUnlocked ? seconds * tsadiRate : 0;
 

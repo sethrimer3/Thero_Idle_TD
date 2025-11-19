@@ -236,6 +236,11 @@ export function createPlayfieldMenuController(options) {
    * Opens the quick menu if an interactive level is running.
    */
   function openMenu() {
+    // Collapse any open tower selection wheel so focus doesn't compete with the quick menu.
+    const playfield = typeof getPlayfield === 'function' ? getPlayfield() : null;
+    if (playfield && typeof playfield.closeTowerSelectionWheel === 'function') {
+      playfield.closeTowerSelectionWheel();
+    }
     const interactive = Boolean(
       typeof isActiveLevelInteractive === 'function' && isActiveLevelInteractive(),
     );

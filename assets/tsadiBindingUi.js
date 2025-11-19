@@ -22,27 +22,6 @@ function createSeededRandom(seed) {
 }
 
 /**
- * Translate a tier list into a Greek letter formula ordered from highest to lowest.
- * @param {Array<number>} tiers - Molecule tier recipe.
- * @returns {string} Formula text (e.g., "γ – β – α").
- */
-function buildTierFormula(tiers = []) {
-  if (!Array.isArray(tiers) || !tiers.length) {
-    return 'Uncatalogued';
-  }
-  const ordered = [...tiers].sort((a, b) => b - a);
-  return ordered
-    .map((tier) => {
-      if (tier === -1) {
-        return '∅';
-      }
-      const greek = getGreekTierInfo(tier);
-      return greek.letter || greek.name || '?';
-    })
-    .join(' – ');
-}
-
-/**
  * Render a generated thumbnail depicting the discovered molecule composition.
  * @param {HTMLCanvasElement} canvas - Destination canvas.
  * @param {Array<number>} tiers - Tier recipe used for layout and coloring.
@@ -148,6 +127,7 @@ export function createTsadiBindingUi({
         name: recipe,
         tiers: [],
         description: 'Recorded in the Alchemy Codex.',
+        particleCount: 0,
       };
     }
     if (typeof recipe === 'object') {
@@ -155,7 +135,10 @@ export function createTsadiBindingUi({
       const name = typeof recipe.name === 'string' ? recipe.name : id;
       const tiers = Array.isArray(recipe.tiers) ? recipe.tiers : [];
       const description = typeof recipe.description === 'string' ? recipe.description : 'Recorded in the Alchemy Codex.';
-      return { ...recipe, id, name, tiers, description };
+      const particleCount = Number.isFinite(recipe.particleCount)
+        ? Math.max(0, recipe.particleCount)
+        : new Set(tiers).size;
+      return { ...recipe, id, name, tiers, description, particleCount };
     }
     return null;
   }
@@ -237,8 +220,9 @@ export function createTsadiBindingUi({
     codexList.innerHTML = '';
 
     const entryCount = recipes?.length || 0;
+    const hourlyBonus = recipes.reduce((total, recipe) => total + Math.max(0, recipe.particleCount || 0), 0);
     if (codexSummary) {
-      codexSummary.textContent = `(${entryCount} Entries: +${entryCount} particles/hour)`;
+      codexSummary.textContent = `(${entryCount} Entries: +${hourlyBonus} particles/hour)`;
     }
 
     if (!recipes?.length) {
@@ -249,26 +233,20 @@ export function createTsadiBindingUi({
       return;
     }
 
+    let expandedEntry = null;
     recipes.forEach((recipe) => {
       const item = document.createElement('li');
       item.className = 'tsadi-codex-entry';
-
-      const formulaText = buildTierFormula(recipe.tiers);
 
       const toggle = document.createElement('button');
       toggle.type = 'button';
       toggle.className = 'tsadi-codex-entry__toggle';
       toggle.setAttribute('aria-expanded', 'false');
 
-      const formula = document.createElement('span');
-      formula.className = 'tsadi-codex-entry__formula';
-      formula.textContent = formulaText;
-
       const title = document.createElement('span');
       title.className = 'tsadi-codex-entry__name';
       title.textContent = recipe.name;
 
-      toggle.appendChild(formula);
       toggle.appendChild(title);
 
       const detail = document.createElement('div');
@@ -280,24 +258,23 @@ export function createTsadiBindingUi({
       canvas.height = 140;
       canvas.className = 'tsadi-codex-canvas';
 
-      const description = document.createElement('p');
-      description.className = 'tsadi-codex-entry__bonus';
-      description.textContent = recipe.description || 'Recorded in the Alchemy Codex.';
-
-      const tierLine = document.createElement('p');
-      tierLine.className = 'tsadi-codex-entry__tiers';
-      tierLine.textContent = `Formula: ${formulaText}`;
-
       detail.appendChild(canvas);
-      detail.appendChild(tierLine);
-      detail.appendChild(description);
 
       toggle.addEventListener('click', () => {
         const expanded = detail.hidden;
-        detail.hidden = !expanded;
-        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        if (expandedEntry && expandedEntry.detail !== detail) {
+          expandedEntry.detail.hidden = true;
+          expandedEntry.toggle.setAttribute('aria-expanded', 'false');
+        }
         if (expanded) {
+          detail.hidden = false;
+          toggle.setAttribute('aria-expanded', 'true');
           renderMoleculeSketch(canvas, recipe.tiers);
+          expandedEntry = { detail, toggle };
+        } else {
+          detail.hidden = true;
+          toggle.setAttribute('aria-expanded', 'false');
+          expandedEntry = null;
         }
       });
 
