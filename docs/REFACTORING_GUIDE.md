@@ -294,6 +294,25 @@ Following this plan will shrink the single-source files, align them with the dis
 - Towers tab no longer reaches into `main.js` state; it simply calls the provided callbacks
 - Overlay accessibility logic is centralized, making future adjustments to the tier list (sorting, filtering, new copy) possible without revisiting the orchestrator
 
+### pageLifecycle.js (page visibility + autosave listeners)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- Document visibility handler that flushes autosaves, records activity timestamps, and toggles audio suppression when the tab hides or shows
+- Window blur/focus/pagehide/pageshow/beforeunload listeners that coordinate suppression reasons and stop music when navigating away
+- Shared `stopMusicIfAvailable` helper so lifecycle hooks can halt loops without inlining audio manager guards
+
+**Integration approach:**
+- Introduced `bindPageLifecycleEvents()` in `assets/pageLifecycle.js` to accept autosave, timestamp, audio, and reward callbacks
+- `main.js` now calls the binding helper once with existing orchestration references instead of inlining five separate listeners
+- The helper returns a cleanup hook so future tests or rehydration steps can detach listeners without reopening the monolith
+
+**Result:**
+- Lifecycle and audio-suppression wiring lives in a dedicated module, reducing noise in `main.js`
+- State persistence during tab switches or unloads is encapsulated behind explicit dependencies, clarifying what each event touches
+- Refactor advances the "state modules" milestone by isolating another cluster of global listeners from the orchestrator
+
 ### levelSummary.js (level preview + history formatting)
 
 **Status:** ✅ Complete

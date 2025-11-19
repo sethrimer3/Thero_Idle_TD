@@ -309,6 +309,7 @@ import { createLevelOverlayController } from './levelOverlayController.js';
 import { createLevelStoryScreen } from './levelStoryScreen.js';
 import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
 import { createPlayfieldMenuController } from './playfieldMenu.js';
+import { bindPageLifecycleEvents } from './pageLifecycle.js';
 import { createVariableLibraryController } from './variableLibraryController.js';
 import { createUpgradeMatrixOverlay } from './upgradeMatrixOverlay.js';
 import { createLevelSummaryHelpers } from './levelSummary.js';
@@ -4711,53 +4712,14 @@ import {
     init();
   }
 
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      // Flush an autosave before the tab suspends so recent actions persist.
-      commitAutoSave();
-      markLastActive();
-      suppressAudioPlayback('document-hidden');
-      return;
-    }
-    if (document.visibilityState === 'visible') {
-      releaseAudioSuppression('document-hidden');
-      refreshTabMusic();
-      checkOfflineRewards();
-      markLastActive();
-    }
-  });
-
-  window.addEventListener('blur', () => {
-    suppressAudioPlayback('window-blur');
-  });
-
-  window.addEventListener('focus', () => {
-    releaseAudioSuppression('window-blur');
-    refreshTabMusic();
-  });
-
-  window.addEventListener('pagehide', () => {
-    // Commit the latest autosave snapshot when the page transitions away.
-    commitAutoSave();
-    markLastActive();
-    suppressAudioPlayback('pagehide');
-    if (audioManager && typeof audioManager.stopMusic === 'function') {
-      // Halt any lingering music so tracks do not continue after the session closes.
-      audioManager.stopMusic();
-    }
-  });
-  window.addEventListener('pageshow', () => {
-    releaseAudioSuppression('pagehide');
-    refreshTabMusic();
-  });
-  window.addEventListener('beforeunload', () => {
-    // Ensure progress persists even if the browser closes abruptly.
-    commitAutoSave();
-    markLastActive();
-    if (audioManager && typeof audioManager.stopMusic === 'function') {
-      // Ensure the soundtrack fully stops before the tab exits.
-      audioManager.stopMusic();
-    }
+  bindPageLifecycleEvents({
+    commitAutoSave,
+    markLastActive,
+    suppressAudioPlayback,
+    releaseAudioSuppression,
+    refreshTabMusic,
+    checkOfflineRewards,
+    audioManager,
   });
 
   document.addEventListener('keydown', (event) => {
