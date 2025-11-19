@@ -543,6 +543,8 @@ export function createPowderDisplaySystem({
     updatePowderStockpileDisplay();
   }
 
+  const WAALS_UNLOCK_TIER = 5;
+
   function createIdleSummaryDefaults() {
     return {
       minutes: 0,
@@ -551,7 +553,13 @@ export function createPowderDisplaySystem({
       happiness: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
       lamed: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.lamed?.unlocked) },
       tsadi: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.tsadi?.unlocked) },
-      bindingAgents: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.tsadi?.unlocked) },
+      bindingAgents: {
+        multiplier: 0,
+        total: 0,
+        unlocked:
+          Boolean(spireResourceState.tsadi?.unlocked) &&
+          Number(spireResourceState.tsadi?.stats?.highestTier) >= WAALS_UNLOCK_TIER,
+      },
       shin: { multiplier: 0, total: 0, unlocked: false },
       kuf: { multiplier: 0, total: 0, unlocked: false },
     };
@@ -590,8 +598,13 @@ export function createPowderDisplaySystem({
     const tsadiTotal = tsadiUnlocked ? seconds * tsadiRate : 0;
 
     // Binding agents accrue slowly over idle time to emphasize their value as a crafting reagent.
-    const bindingAgentUnlocked = tsadiUnlocked;
-    const bindingAgentRatePerMinute = 1 / 60; // 1 per hour
+    const highestTsadiTier = Math.max(
+      0,
+      Math.floor(Number(spireResourceState.tsadi?.stats?.highestTier) || 0),
+    );
+    const bindingAgentUnlocked = tsadiUnlocked && highestTsadiTier >= WAALS_UNLOCK_TIER;
+    const waalsPerHour = Math.max(0, highestTsadiTier - (WAALS_UNLOCK_TIER - 1));
+    const bindingAgentRatePerMinute = bindingAgentUnlocked ? waalsPerHour / 60 : 0;
     const bindingAgentTotal = bindingAgentUnlocked ? minutes * bindingAgentRatePerMinute : 0;
 
     // Respect the Shin unlock flag so idle summaries hide the branch until players reach it.

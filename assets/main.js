@@ -2082,6 +2082,7 @@ import {
         stats: {
           totalParticles: clampPersistedValue(tsadiState.stats?.totalParticles, 0),
           totalGlyphs: clampPersistedValue(tsadiState.stats?.totalGlyphs, 0),
+          highestTier: clampPersistedValue(tsadiState.stats?.highestTier, 0),
         },
       },
       shin: {
@@ -2129,15 +2130,17 @@ import {
     tsadiState.unlocked = Boolean(tsadiBranch.unlocked || tsadiState.unlocked);
     setTsadiParticleBank(clampPersistedValue(tsadiBranch.particleBank, getTsadiParticleBank()));
     const bindingStock = clampPersistedValue(tsadiBranch.bindingAgents, getTsadiBindingAgents());
-    setTsadiBindingAgents(bindingStock);
+    syncTsadiBindingAgents(bindingStock);
     tsadiState.stats = {
       ...(tsadiState.stats || {}),
       totalParticles: clampPersistedValue(tsadiBranch.stats?.totalParticles, tsadiState.stats?.totalParticles || 0),
       totalGlyphs: clampPersistedValue(tsadiBranch.stats?.totalGlyphs, tsadiState.stats?.totalGlyphs || 0),
+      highestTier: clampPersistedValue(tsadiBranch.stats?.highestTier, tsadiState.stats?.highestTier || 0),
     };
     tsadiState.discoveredMolecules = normalizeDiscoveredMolecules(
       tsadiBranch.discoveredMolecules || tsadiState.discoveredMolecules,
     );
+    updateBindingAgentDisplay();
 
     const shinState = spireResourceState.shin || {};
     shinState.unlocked = Boolean(shinBranch.unlocked || shinState.unlocked);
@@ -4311,20 +4314,41 @@ import {
                   syncTsadiBindingAgents(value);
                 },
                 onTierChange: (tierInfo) => {
+                  const resolvedTier =
+                    typeof tierInfo === 'object' && tierInfo !== null
+                      ? tierInfo.tier ?? 0
+                      : Number.isFinite(Number(tierInfo))
+                        ? Number(tierInfo)
+                        : 0;
                   const tierEl = document.getElementById('tsadi-highest-tier');
                   if (tierEl) {
                     // Present both the Greek tier name and glyph for clarity in the UI.
-                    const resolvedTier =
-                      typeof tierInfo === 'object' && tierInfo !== null
-                        ? tierInfo.tier ?? 0
-                        : Number.isFinite(Number(tierInfo))
-                          ? Number(tierInfo)
-                          : 0;
                     const tierMetadata =
                       typeof tierInfo === 'object' && tierInfo !== null
                         ? tierInfo
                         : getGreekTierInfo(resolvedTier);
                     tierEl.textContent = `${tierMetadata.displayName || `${tierMetadata.name} (${tierMetadata.letter}) – Tier ${resolvedTier}`}`;
+                  }
+                  const previousHighest = Math.max(
+                    0,
+                    Math.floor(Number(spireResourceState.tsadi?.stats?.highestTier) || 0),
+                  );
+                  const nextHighest = Math.max(previousHighest, resolvedTier);
+                  if (!spireResourceState.tsadi) {
+                    spireResourceState.tsadi = {};
+                  }
+                  if (!spireResourceState.tsadi.stats) {
+                    spireResourceState.tsadi.stats = {};
+                  }
+                  if (
+                    !Number.isFinite(spireResourceState.tsadi.stats.highestTier) ||
+                    nextHighest !== previousHighest
+                  ) {
+                    spireResourceState.tsadi.stats = {
+                      ...(spireResourceState.tsadi.stats || {}),
+                      highestTier: nextHighest,
+                    };
+                    updateBindingAgentDisplay();
                   }
                 },
                 onParticleCountChange: (count) => {

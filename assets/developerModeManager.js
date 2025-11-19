@@ -548,7 +548,7 @@ export function createDeveloperModeManager(options = {}) {
         spireResourceState.tsadi.particleBank = 0;
         spireResourceState.tsadi.bindingAgents = 0;
         spireResourceState.tsadi.discoveredMolecules = [];
-        spireResourceState.tsadi.stats = { totalParticles: 0, totalGlyphs: 0 };
+        spireResourceState.tsadi.stats = { totalParticles: 0, totalGlyphs: 0, highestTier: 0 };
       }
       if (spireResourceState.shin) {
         spireResourceState.shin.unlocked = false;

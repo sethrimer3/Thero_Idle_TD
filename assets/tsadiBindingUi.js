@@ -100,6 +100,8 @@ function renderMoleculeSketch(canvas, tiers = []) {
   });
 }
 
+const WAALS_UNLOCK_TIER = 5;
+
 /**
  * UI controller for Tsadi binding agents and the Alchemy Codex.
  * Handles drag-to-place interactions, long-press disbanding, and discovered molecule listings.
@@ -171,6 +173,14 @@ export function createTsadiBindingUi({
     };
   }
 
+  function getHighestTierReached() {
+    return Math.max(0, Math.floor(Number(spireResourceState?.tsadi?.stats?.highestTier) || 0));
+  }
+
+  function isWaalsUnlocked() {
+    return getHighestTierReached() >= WAALS_UNLOCK_TIER;
+  }
+
   /**
    * Sync the binding agent stock display and button visibility with live data.
    */
@@ -182,23 +192,30 @@ export function createTsadiBindingUi({
     const displayValue = Number.isFinite(available)
       ? available.toFixed(1)
       : '∞';
+    const waalsUnlocked = isWaalsUnlocked();
 
     if (handleElement) {
-      // Always show the handle when any binding agent stock exists, but dim and disable it until a full unit is available.
-      const hasStock = (available > 0) || !Number.isFinite(available);
-      const canPlace = (available >= 1) || !Number.isFinite(available);
-      if (hasStock) {
-        handleElement.removeAttribute('hidden');
-      } else {
+      if (!waalsUnlocked) {
         handleElement.setAttribute('hidden', '');
+        handleElement.setAttribute('aria-hidden', 'true');
+        handleElement.disabled = true;
+        handleElement.classList.remove('tsadi-binding-handle--depleted');
+      } else {
+        handleElement.removeAttribute('hidden');
+        handleElement.setAttribute('aria-hidden', 'false');
+        const canPlace = (available >= 1) || !Number.isFinite(available);
+        handleElement.disabled = !canPlace;
+        handleElement.classList.toggle('tsadi-binding-handle--depleted', !canPlace);
       }
-      handleElement.disabled = !canPlace;
-      handleElement.classList.toggle('tsadi-binding-handle--depleted', hasStock && !canPlace);
     }
 
     if (bindingStat) {
-      const suffix = available === 1 ? 'Binding Agent' : 'Binding Agents';
-      bindingStat.textContent = `${displayValue} ${suffix}`;
+      if (!waalsUnlocked) {
+        bindingStat.textContent = `Reach Tier ${WAALS_UNLOCK_TIER} to unlock Waals bonds.`;
+      } else {
+        const suffix = available === 1 ? 'Waal' : 'Waals';
+        bindingStat.textContent = `${displayValue} ${suffix}`;
+      }
     }
   }
 
