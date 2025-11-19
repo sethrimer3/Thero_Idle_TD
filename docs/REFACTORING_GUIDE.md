@@ -407,6 +407,25 @@ Following this plan will shrink the single-source files, align them with the dis
 - `main.js` delegates to the controller for surface management and state checks, shrinking by ~900 lines of tightly coupled code
 - Reusable factory pattern keeps future developer tooling enhancements isolated from the core game loop
 
+### TowerSelectionWheel.js (tower loadout wheel extraction)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- Loadout wheel rendering, drag/scroll/keyboard navigation, and outside-click teardown handlers
+- Canvas-relative positioning for the wheel overlay so the active tower stays aligned on screen
+- Promotion/demotion application helpers that reuse the existing tower upgrade/downgrade flows and sell shortcut
+
+**Integration approach:**
+- Introduced `assets/playfield/ui/TowerSelectionWheel.js` as a mixin added to `SimplePlayfield` after class definition
+- Module keeps cost formatting and tower lookup dependencies injected through the existing playfield instance
+- Hold gesture and tower menu flows continue to call the same method names while delegating behavior to the new module
+
+**Result:**
+- `assets/playfield.js` drops roughly 500 lines (to ~9,569) by delegating the wheel overlay internals
+- Wheel interaction logic now lives beside its DOM construction, making future UI polish safer
+- Gesture handlers remain unchanged for callers, but the refactor isolates selection math from the core playfield loop
+
 ### tsadiUpgradeUi.js (Tsadi spire upgrade bindings)
 
 **Status:** ✅ Complete
