@@ -9807,8 +9807,11 @@ export class SimplePlayfield {
       minDimension > 0 && PLAYFIELD_VIEW_PAN_MARGIN_METERS > 0
         ? metersToPixels(PLAYFIELD_VIEW_PAN_MARGIN_METERS, minDimension)
         : 0;
+    // Keep the camera inside the rendered walls by shrinking the clamp window instead of extending it past the bounds.
     const marginNormalizedX = width > 0 ? Math.max(0, marginPixels / width) : 0;
     const marginNormalizedY = height > 0 ? Math.max(0, marginPixels / height) : 0;
+    const safeMarginX = Math.min(marginNormalizedX, Math.max(0, halfWidth - 0.001));
+    const safeMarginY = Math.min(marginNormalizedY, Math.max(0, halfHeight - 0.001));
     const clamp = (value, min, max) => {
       if (min > max) {
         return 0.5;
@@ -9816,8 +9819,8 @@ export class SimplePlayfield {
       return Math.min(Math.max(value, min), max);
     };
     return {
-      x: clamp(normalized.x, halfWidth - marginNormalizedX, 1 - halfWidth + marginNormalizedX),
-      y: clamp(normalized.y, halfHeight - marginNormalizedY, 1 - halfHeight + marginNormalizedY),
+      x: clamp(normalized.x, halfWidth + safeMarginX, 1 - halfWidth - safeMarginX),
+      y: clamp(normalized.y, halfHeight + safeMarginY, 1 - halfHeight - safeMarginY),
     };
   }
 
