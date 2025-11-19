@@ -90,7 +90,6 @@ export function createPowderStateContext() {
     rightWall: null,
     leftHitbox: null,
     rightHitbox: null,
-    depthValue: null,
     reservoirValue: null,
     dripRateValue: null,
     statusNote: null,

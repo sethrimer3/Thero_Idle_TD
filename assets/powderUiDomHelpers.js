@@ -63,7 +63,6 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidElements.rightWall = document.getElementById('fluid-wall-right');
     fluidElements.leftHitbox = document.getElementById('fluid-wall-hitbox-left');
     fluidElements.rightHitbox = document.getElementById('fluid-wall-hitbox-right');
-    fluidElements.depthValue = document.getElementById('fluid-depth');
     fluidElements.reservoirValue = document.getElementById('fluid-reservoir');
     fluidElements.dripRateValue = document.getElementById('fluid-drip-rate');
     fluidElements.statusNote = document.getElementById('fluid-status-note');
