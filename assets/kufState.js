@@ -168,6 +168,13 @@ export function initializeKufState(savedState = {}) {
 }
 
 /**
+ * Fully reset the Kuf Spire progress so player data wipes clear glyphs and scores.
+ */
+export function resetKufState() {
+  initializeKufState({});
+}
+
+/**
  * Returns a serializable snapshot of the Kuf state.
  * @returns {object}
  */
