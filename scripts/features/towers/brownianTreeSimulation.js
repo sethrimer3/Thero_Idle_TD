@@ -14,6 +14,8 @@ export class BrownianTreeSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+    this.originX = typeof options.originX === 'number' ? options.originX : 0.5;
+    this.originY = typeof options.originY === 'number' ? options.originY : 0.5;
     // Enable shared drag-to-pan and zoom interactions on the Brownian canvas.
     if (typeof this.initPanZoom === 'function') {
       this.initPanZoom(this.canvas);
@@ -40,6 +42,14 @@ export class BrownianTreeSimulation {
     this.maxConnectionNeighbors = options.maxConnectionNeighbors || 3;
     this.pointFlashDuration = options.pointFlashDuration || 18;
 
+    // Optional walkable mask prevents growth from tunneling through solid terrain.
+    this.walkableMask = null;
+    this.walkableScaleX = 1;
+    this.walkableScaleY = 1;
+    if (options.walkableMask) {
+      this.setWalkableMask(options.walkableMask, { reset: false });
+    }
+
     // Maintain an offscreen canvas so tone-mapped light can follow pan and zoom interactions.
     this.offscreenCanvas = null;
     this.offscreenCtx = null;
@@ -56,6 +66,9 @@ export class BrownianTreeSimulation {
   }
 
   addParticle(x, y) {
+    if (this.isBlocked(x, y)) {
+      return;
+    }
     // Remember the index before pushing so spatial buckets can reference it directly.
     const pointIndex = this.cluster.length;
     const point = { x, y, flashAge: 0 };
@@ -147,13 +160,20 @@ export class BrownianTreeSimulation {
   }
 
   spawnWalker() {
-    const angle = Math.random() * Math.PI * 2;
-    const radius = this.spawnRadius;
-    return {
-      x: Math.cos(angle) * radius,
-      y: Math.sin(angle) * radius,
-      stepsRemaining: 650
-    };
+    for (let attempt = 0; attempt < 24; attempt++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = this.spawnRadius;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+      if (!this.isBlocked(x, y)) {
+        return {
+          x,
+          y,
+          stepsRemaining: 650
+        };
+      }
+    }
+    return { x: 0, y: 0, stepsRemaining: 0 };
   }
 
   simulateWalker() {
@@ -162,8 +182,13 @@ export class BrownianTreeSimulation {
     while (walker.stepsRemaining > 0) {
       walker.stepsRemaining--;
       const theta = Math.random() * Math.PI * 2;
-      walker.x += Math.cos(theta) * stepSize;
-      walker.y += Math.sin(theta) * stepSize;
+      const nextX = walker.x + Math.cos(theta) * stepSize;
+      const nextY = walker.y + Math.sin(theta) * stepSize;
+      if (this.isBlocked(nextX, nextY)) {
+        continue;
+      }
+      walker.x = nextX;
+      walker.y = nextY;
 
       const distance = Math.hypot(walker.x, walker.y);
       if (distance > this.killRadius) {
@@ -172,6 +197,10 @@ export class BrownianTreeSimulation {
       }
 
       if (this.nearCluster(walker.x, walker.y)) {
+        if (this.isBlocked(walker.x, walker.y)) {
+          walker = this.spawnWalker();
+          continue;
+        }
         this.addParticle(walker.x, walker.y);
         this.spawnRadius = Math.min(this.spawnRadius + 0.15, Math.min(this.width, this.height) * 0.38);
         this.killRadius = this.spawnRadius * 1.8;
@@ -322,6 +351,16 @@ export class BrownianTreeSimulation {
         this.targetParticles = desired;
       }
     }
+
+    if (typeof config.originX === 'number' || typeof config.originY === 'number') {
+      const nextOriginX = typeof config.originX === 'number' ? config.originX : this.originX;
+      const nextOriginY = typeof config.originY === 'number' ? config.originY : this.originY;
+      this.setOrigin(nextOriginX, nextOriginY);
+    }
+
+    if (config.walkableMask) {
+      this.setWalkableMask(config.walkableMask);
+    }
   }
 
   /**
@@ -345,8 +384,10 @@ export class BrownianTreeSimulation {
     this.connections = [];
     this.connectionSet = new Set();
     this.grid = new Map();
+    this.rebuildWalkableScaling();
     if (this.width > 0 && this.height > 0) {
-      this.addParticle(0, 0);
+      const { x, y } = this.findSeedPosition();
+      this.addParticle(x, y);
     }
     this.needsToneMap = true;
   }
@@ -360,8 +401,8 @@ export class BrownianTreeSimulation {
   configureDimensions(width, height) {
     this.width = Math.max(0, width);
     this.height = Math.max(0, height);
-    this.centerX = this.width / 2;
-    this.centerY = this.height / 2;
+    this.centerX = this.width * this.originX;
+    this.centerY = this.height * this.originY;
     const shortestSide = Math.min(this.width, this.height);
     this.spawnRadius = shortestSide > 0 ? shortestSide * 0.22 : 0;
     this.killRadius = this.spawnRadius * 1.6;
@@ -371,8 +412,10 @@ export class BrownianTreeSimulation {
     this.cluster = [];
     this.connections = [];
     this.connectionSet = new Set();
+    this.rebuildWalkableScaling();
     if (this.width > 0 && this.height > 0) {
-      this.addParticle(0, 0);
+      const { x, y } = this.findSeedPosition();
+      this.addParticle(x, y);
     }
     this.createOffscreenSurface(this.width, this.height);
     this.needsToneMap = true;
@@ -449,6 +492,109 @@ export class BrownianTreeSimulation {
     this.offscreenCanvas = null;
     this.offscreenCtx = null;
     this.needsToneMap = true;
+  }
+
+  /**
+   * Update the walkable mask that constrains particle movement to empty space.
+   * @param {{width:number, height:number, data: Uint8Array}} mask
+   * @param {{ reset?: boolean }} options
+   */
+  setWalkableMask(mask, options = {}) {
+    const shouldReset = options.reset !== false;
+    if (mask && Number.isFinite(mask.width) && Number.isFinite(mask.height) && mask.data instanceof Uint8Array) {
+      this.walkableMask = {
+        width: Math.max(1, Math.round(mask.width)),
+        height: Math.max(1, Math.round(mask.height)),
+        data: mask.data,
+      };
+    } else {
+      this.walkableMask = null;
+    }
+    this.rebuildWalkableScaling();
+    if (shouldReset && this.width > 0 && this.height > 0) {
+      this.reset();
+    }
+  }
+
+  /**
+   * Recenter the Brownian origin so the cluster can anchor to arbitrary coordinates.
+   * @param {number} originX - Horizontal ratio (0-1) from left edge.
+   * @param {number} originY - Vertical ratio (0-1) from top edge.
+   */
+  setOrigin(originX, originY) {
+    this.originX = this.clamp(originX, 0, 1);
+    this.originY = this.clamp(originY, 0, 1);
+    if (this.width > 0 && this.height > 0) {
+      this.centerX = this.width * this.originX;
+      this.centerY = this.height * this.originY;
+    }
+  }
+
+  /**
+   * Determine whether a world coordinate sits inside a blocked cell.
+   * @param {number} x
+   * @param {number} y
+   * @returns {boolean}
+   */
+  isBlocked(x, y) {
+    if (!this.walkableMask) {
+      return false;
+    }
+    const px = Math.round(this.centerX + x);
+    const py = Math.round(this.centerY - y);
+    if (px < 0 || px >= this.width || py < 0 || py >= this.height) {
+      return true;
+    }
+    const mx = Math.round(px * this.walkableScaleX);
+    const my = Math.round(py * this.walkableScaleY);
+    if (mx < 0 || mx >= this.walkableMask.width || my < 0 || my >= this.walkableMask.height) {
+      return true;
+    }
+    const index = my * this.walkableMask.width + mx;
+    return this.walkableMask.data[index] !== 1;
+  }
+
+  /**
+   * Recompute the scaling ratio between the canvas and the walkable mask silhouette.
+   */
+  rebuildWalkableScaling() {
+    if (
+      this.walkableMask &&
+      this.walkableMask.width > 0 &&
+      this.walkableMask.height > 0 &&
+      this.width > 0 &&
+      this.height > 0
+    ) {
+      this.walkableScaleX = this.walkableMask.width / this.width;
+      this.walkableScaleY = this.walkableMask.height / this.height;
+    } else {
+      this.walkableScaleX = 1;
+      this.walkableScaleY = 1;
+    }
+  }
+
+  /**
+   * Locate a valid seed position that is not buried inside blocked terrain.
+   * @returns {{x:number, y:number}}
+   */
+  findSeedPosition() {
+    const maxRadius = Math.min(this.width, this.height) * 0.48;
+    if (!this.isBlocked(0, 0)) {
+      return { x: 0, y: 0 };
+    }
+
+    for (let step = 1; step <= 120; step++) {
+      const ratio = step / 120;
+      const radius = maxRadius * ratio;
+      const angle = ratio * Math.PI * 6;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+      if (!this.isBlocked(x, y)) {
+        return { x, y };
+      }
+    }
+
+    return { x: 0, y: 0 };
   }
 }
 
