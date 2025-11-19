@@ -377,7 +377,7 @@ export const mu = {
   variables: [
     {
       key: 'aleph1',
-      symbol: 'ℵ₁',
+      symbol: 'atk',
       equationSymbol: 'ℵ₁',
       masterEquationSymbol: 'Lvl',
       name: 'Aleph₁ Tier',
@@ -440,7 +440,7 @@ export const mu = {
     },
     {
       key: 'aleph2',
-      symbol: 'ℵ₂',
+      symbol: 'max',
       equationSymbol: 'ℵ₂',
       masterEquationSymbol: 'Cap',
       name: 'Aleph₂ Capacity',
@@ -468,7 +468,7 @@ export const mu = {
     },
     {
       key: 'aleph3',
-      symbol: 'ℵ₃',
+      symbol: 'spd',
       equationSymbol: 'ℵ₃',
       masterEquationSymbol: 'Gen',
       name: 'Aleph₃ Speed',
@@ -628,8 +628,8 @@ export const nu = {
     },
     {
       key: 'rangeMeters',
-      symbol: 'rng',
-      equationSymbol: String.raw`\text{rng}`,
+      symbol: 'spd',
+      equationSymbol: String.raw`\text{spd}`,
       masterEquationSymbol: 'Rng',
       name: 'Range (m)',
       description: 'Beam reach in meters scaling with kills.',
@@ -706,8 +706,8 @@ export const xi = {
     },
     {
       key: 'aleph1',
-      symbol: 'ℵ₁',
-      equationSymbol: 'ℵ₁',
+      symbol: 'spd',
+      equationSymbol: String.raw`\text{spd}`,
       masterEquationSymbol: 'Spd',
       name: 'Aleph₁ Speed',
       description: 'Increases attack speed for faster chain initiation.',
@@ -733,8 +733,8 @@ export const xi = {
     },
     {
       key: 'aleph2',
-      symbol: 'ℵ₂',
-      equationSymbol: 'ℵ₂',
+      symbol: 'rng',
+      equationSymbol: String.raw`\text{rng}`,
       masterEquationSymbol: 'Rng',
       name: 'Aleph₂ Range',
       description: 'Extends initial targeting range in meters.',
@@ -760,8 +760,8 @@ export const xi = {
     },
     {
       key: 'aleph3',
-      symbol: 'ℵ₃',
-      equationSymbol: 'ℵ₃',
+      symbol: 'chnRng',
+      equationSymbol: String.raw`\text{chnRng}`,
       masterEquationSymbol: 'Chn',
       name: 'Aleph₃ Chain Range',
       description: 'Chain range for jumping between enemies in meters.',
@@ -787,8 +787,8 @@ export const xi = {
     },
     {
       key: 'aleph4',
-      symbol: 'ℵ₄',
-      equationSymbol: 'ℵ₄',
+      symbol: 'maxChn',
+      equationSymbol: String.raw`\text{maxChn}`,
       masterEquationSymbol: 'Max',
       name: 'Aleph₄ Max Chains',
       description: 'Maximum number of chain jumps per attack.',
@@ -814,8 +814,8 @@ export const xi = {
     },
     {
       key: 'aleph5',
-      symbol: 'ℵ₅',
-      equationSymbol: 'ℵ₅',
+      symbol: 'numChnExp',
+      equationSymbol: String.raw`\text{numChnExp}`,
       masterEquationSymbol: 'Exp',
       name: 'Aleph₅ Chain Exponent',
       description: 'Exponential scaling factor for damage per chain.',
@@ -942,8 +942,8 @@ export const omicron = {
     },
     {
       key: 'aleph1',
-      symbol: 'ℵ₁',
-      equationSymbol: 'ℵ₁',
+      symbol: 'shdAtk',
+      equationSymbol: String.raw`\text{shdAtk}`,
       masterEquationSymbol: 'Shd',
       name: 'Aleph₁ Shield Impact',
       description: 'Determines shield collision damage as a percentage of enemy max HP.',
@@ -967,8 +967,8 @@ export const omicron = {
     },
     {
       key: 'aleph2',
-      symbol: 'ℵ₂',
-      equationSymbol: 'ℵ₂',
+      symbol: 'untSpd',
+      equationSymbol: String.raw`\text{untSpd}`,
       masterEquationSymbol: 'Spd',
       name: 'Aleph₂ Unit Speed',
       description: 'Boosts the top speed of each triangle soldier.',
@@ -992,8 +992,8 @@ export const omicron = {
     },
     {
       key: 'aleph3',
-      symbol: 'ℵ₃',
-      equationSymbol: 'ℵ₃',
+      symbol: 'Tot',
+      equationSymbol: String.raw`\text{Tot}`,
       masterEquationSymbol: 'Tot',
       name: 'Aleph₃ Unit Cohort',
       description: 'Expands the total number of omicron units that can be active.',
@@ -1105,8 +1105,8 @@ export const pi = {
     },
     {
       key: 'aleph1',
-      symbol: 'ℵ₁',
-      equationSymbol: 'ℵ₁',
+      symbol: 'rng',
+      equationSymbol: String.raw`\text{rng}`,
       masterEquationSymbol: 'Rng',
       name: 'Aleph₁ Range',
       description: 'Increases base range in meters.',
@@ -1132,8 +1132,8 @@ export const pi = {
     },
     {
       key: 'aleph2',
-      symbol: 'ℵ₂',
-      equationSymbol: 'ℵ₂',
+      symbol: 'rngInc',
+      equationSymbol: String.raw`\text{rngInc}`,
       masterEquationSymbol: 'Inc',
       name: 'Aleph₂ Range Inc',
       description: 'Amount of range the laser increases per merge in meters.',
@@ -1159,8 +1159,8 @@ export const pi = {
     },
     {
       key: 'aleph3',
-      symbol: 'ℵ₃',
-      equationSymbol: 'ℵ₃',
+      symbol: 'atkSpd',
+      equationSymbol: String.raw`\text{atkSpd}`,
       masterEquationSymbol: 'Atk',
       name: 'Aleph₃ Attack Speed',
       description: 'How fast the tower completes its full attack sequence in seconds.',
@@ -1186,8 +1186,8 @@ export const pi = {
     },
     {
       key: 'aleph4',
-      symbol: 'ℵ₄',
-      equationSymbol: 'ℵ₄',
+      symbol: 'lasSpd',
+      equationSymbol: String.raw`\text{lasSpd}`,
       masterEquationSymbol: 'Rot',
       name: 'Aleph₄ Laser Speed',
       description: 'How fast the laser completes its full rotation in seconds.',
@@ -1452,7 +1452,7 @@ export const tau = {
     },
     {
       key: 'aleph1',
-      symbol: String.raw`\aleph_{1}`,
+      symbol: 'Rmax',
       equationSymbol: String.raw`R_{\max}`,
       glyphLabel: 'ℵ₁',
       name: 'Spiral Radius',
@@ -1472,7 +1472,7 @@ export const tau = {
     },
     {
       key: 'aleph2',
-      symbol: String.raw`\aleph_{2}`,
+      symbol: 'Spd',
       equationSymbol: String.raw`\text{spd}`,
       glyphLabel: 'ℵ₂',
       name: 'Spiral Speed',
@@ -1493,7 +1493,7 @@ export const tau = {
     },
     {
       key: 'aleph3',
-      symbol: String.raw`\aleph_{3}`,
+      symbol: 'p',
       equationSymbol: String.raw`p`,
       glyphLabel: 'ℵ₃',
       name: 'Internal Particles',
