@@ -51,6 +51,8 @@ enemyGateSprite.loading = 'eager';
 
 const GEM_MOTE_BASE_RATIO = 0.02;
 const TRACK_GATE_SIZE_SCALE = 0.5;
+// Scale the enemy gate glyph up so the spawn marker remains legible at a glance.
+const ENEMY_GATE_SYMBOL_SCALE = 2;
 const ENEMY_SWIRL_MIN_DURATION_MS = 500;
 const ENEMY_SWIRL_MAX_DURATION_MS = 2000;
 const ENEMY_SWIRL_MIN_HOLD_MS = 140;
@@ -769,10 +771,13 @@ function drawEnemyGateSymbol(ctx, position) {
   const dimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 0;
   const baseRadius = dimension ? dimension * 0.028 : 0;
   const baseSize = Math.max(12, Math.min(20, baseRadius || 16));
-  const radius = baseSize * 2 * TRACK_GATE_SIZE_SCALE;
+  const radius = baseSize * 2 * TRACK_GATE_SIZE_SCALE * ENEMY_GATE_SYMBOL_SCALE;
 
   ctx.save();
-  ctx.translate(position.x, position.y);
+  const anchorX = Math.round(position.x);
+  const anchorY = Math.round(position.y);
+  // Snap to whole pixels so the enlarged gate stays centered on the path anchor.
+  ctx.translate(anchorX, anchorY);
 
   const glow = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.2);
   glow.addColorStop(0, 'rgba(74, 240, 255, 0.42)');
@@ -784,7 +789,7 @@ function drawEnemyGateSymbol(ctx, position) {
 
   const spriteReady = enemyGateSprite?.complete && enemyGateSprite.naturalWidth > 0;
   if (spriteReady) {
-    const spriteSize = Math.max(baseSize * 2, 40) * 2 * TRACK_GATE_SIZE_SCALE;
+    const spriteSize = Math.max(baseSize * 2, 40) * 2 * TRACK_GATE_SIZE_SCALE * ENEMY_GATE_SYMBOL_SCALE;
     ctx.save();
     ctx.globalAlpha = 0.95;
     ctx.drawImage(enemyGateSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
