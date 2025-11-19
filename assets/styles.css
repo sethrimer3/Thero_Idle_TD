@@ -453,8 +453,20 @@ body.graphics-mode-low .control-button {
   text-shadow: none;
 }
 
-.offline-overlay__equation--subset {
-  font-size: 0.5em;
+.offline-overlay__equation-row--continuation {
+  grid-template-columns: minmax(10ch, auto) 1fr;
+}
+
+.offline-overlay__equation-row--continuation .offline-overlay__equation {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.offline-overlay__equation--continuation {
+  display: inline-flex;
+  align-items: baseline;
+  gap: clamp(10px, 2.5vw, 18px);
+  width: 100%;
 }
 
 .offline-overlay__prompt {
