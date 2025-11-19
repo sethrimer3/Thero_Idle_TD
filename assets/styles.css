@@ -1328,6 +1328,8 @@ body.graphics-mode-low .control-button {
   bottom: 12px;
   width: min(92vw, 440px);
   pointer-events: none;
+  /* Establish a stacking context so the toggle can rise above the tray. */
+  isolation: isolate;
 }
 
 .tower-loadout-toggle {
@@ -1346,6 +1348,7 @@ body.graphics-mode-low .control-button {
   cursor: var(--cursor-grab);
   transition: transform var(--transition), bottom var(--transition), border-color var(--transition),
     background var(--transition);
+  z-index: 2;
   pointer-events: auto;
 }
 
@@ -1382,6 +1385,7 @@ body.graphics-mode-low .control-button {
   transform: translateY(0);
   transition: transform var(--transition), opacity var(--transition);
   opacity: 1;
+  z-index: 1;
 }
 
 .tower-loadout-shell--collapsed .tower-loadout {
