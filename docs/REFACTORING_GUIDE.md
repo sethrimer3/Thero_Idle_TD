@@ -64,23 +64,39 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 5. **Migration cadence.** Apply the `uiHelpers` pattern used for earlier refactors: extract a module, wrap dependencies in a factory, import into `main.js`, and replace the inline block with the returned functions. Update `docs/main_refactor_contexts.md` after each extraction to record the new module boundaries.
 6. **Verification.** After each phase, smoke-test tower placement, powder tab toggles, spire unlock transitions, developer mode toggles, and the upgrade overlay. Console logging on tab changes should prove the router is the only component manipulating ARIA attributes.
 
-### `assets/data/gameplayConfig.json` – Structured config slices
+### `index.html` – De-duplicate markup and externalize static fragments
 
-**Why it matters:** The single JSON blob now mixes defaults, tower arrays, dozens of enemy codex entries (each with lore + formulas), level metadata, and future map slots. The file is 3,400+ lines long, which makes diffs noisy and invites merge conflicts whenever two people edit different sections.
+**Why it matters:** The landing document still carries thousands of lines of inline markup for overlays, HUD panels, Codex drawers, and tutorial content. Even though the DOM stays static after load, every structural tweak forces a full-file scroll and increases the risk of conflicting aria/ID attributes.
 
 **Refactor goals:**
 
-1. Allow designers to edit enemies, towers, and level configs independently without scrolling through unrelated sections.
-2. Keep the runtime loading API (`ensureGameplayConfigLoaded`, `loadGameplayConfigViaFetch`, `importJsonModule`) unchanged so downstream modules do not need to care where the data originated.
-3. Preserve JSON sources for GitHub Pages hosting, but also add ES module fallbacks so the game can import structured data when running without fetch (e.g., local file URLs).
+1. Preserve the exact DOM structure the game expects (IDs, classes, aria labels) while reducing the amount of markup that lives directly in `index.html`.
+2. Make each overlay/panel independently maintainable so small UI fixes no longer require editing the entire page skeleton.
+3. Establish a repeatable pattern for sharing structural templates (e.g., panel chrome, button rows) without changing the runtime behavior.
 
 **Plan:**
 
-1. **Split the data directory.** Create `assets/data/gameplay/` with subfolders for `defaults.json`, `enemies/*.json`, `towers/*.json`, and `levels/*.json`. Move the existing arrays into their respective files and keep a minimal `gameplayConfig.json` that only lists `{"defaults": "./defaults.json", "enemies": ["./enemies/etype.json", ...]}` references for backwards compatibility.
-2. **Add an assembler module.** Implement `assets/data/gameplay/index.js` that imports each fragment (native JSON import supported by modern browsers) and exports a single `buildGameplayConfig()` function. `assets/gameplayConfigLoaders.js` can detect when module imports are available and call this builder instead of fetching the monolith, while the fetch path still downloads the combined JSON for legacy browsers.
-3. **Update `configuration.js`.** Teach `applyGameplayConfigInternal()` to accept either the legacy combined object or the output of `buildGameplayConfig()`. When it receives the reference-style object from step 1, it resolves the relative files via `fetchJsonWithFallback` (similar to how fluid simulation profiles already handle multiple URLs).
-4. **Document schema contracts.** Create a short schema description in `docs/main_refactor_contexts.md` or `docs/REFACTORING_GUIDE.md` describing the shape of each fragment (`EnemyCodexEntry`, `LevelBlueprint`, etc.) so contributors editing small JSON files know which fields remain required.
-5. **Validation + tooling.** Add a lightweight validation script under `scripts/tools/validateGameplayConfig.js` that loads every fragment and asserts required keys (id, symbol, formulaLabel, etc.). Hook it into CI or the manual QA checklist. Designers can then edit `assets/data/enemies/planckShade.json` without worrying about typos breaking the entire config.
+1. **Template audit.** Catalog repeated structures (overlay shells, modal headers, list rows) and annotate them with unique `data-template` markers. Snapshot the current DOM (outerHTML) so we can assert parity after refactors.
+2. **Extract HTML fragments.** Move stable, static clusters into `/assets/html/` partials (e.g., `panels/overlayShell.html`, `panels/resourceHud.html`). Load them at startup via a lightweight injector that fetches and inserts the fragments into placeholder containers that already sit in `index.html`. The injector must run before the existing initialization hooks so IDs remain stable for query selectors.
+3. **Promote reusable templates.** Convert repeated blocks into `<template>` elements (e.g., for button rows) and clone them where needed instead of duplicating markup. Ensure hydration keeps the same classes/IDs, and add a DOM-diff sanity check to confirm the instantiated nodes match the pre-refactor snapshot.
+4. **Accessibility locks.** As fragments move out, centralize aria attributes and focus traps in a small `assets/templates/accessibilityHooks.js` so no overlay loses its labels or tab order. Verify overlays still wire to `createOverlayHelpers()` without behavioral changes.
+
+### `assets/data/gameplayConfig.json` – Data segmentation without behavioral drift
+
+**Why it matters:** The monolithic JSON contains progression values, unlock tables, powder configs, and tuning constants in a single 3,000+ line blob. Any small balance change requires scrolling through unrelated sections, and accidental edits are hard to isolate during reviews.
+
+**Refactor goals:**
+
+1. Preserve every numeric/formula constant while making each subsystem's data live in its own file.
+2. Keep the runtime-facing configuration object identical to today's shape so consuming code stays untouched.
+3. Introduce validation so segmented files cannot drift or accidentally omit required keys.
+
+**Plan:**
+
+1. **Define schema + guardrails.** Write a lightweight JSON Schema (or `zod`-style) validator inside a new `assets/data/configSchema.js` that asserts the current object shape (progression sets, tower defaults, powder settings). Run it during development load to ensure parity.
+2. **Split by domain.** Relocate sections into `assets/data/gameplay/` (progression levels, enemy tables), `assets/data/towers/` (tower defaults and upgrade curves), and `assets/data/powder/` (powder baselines, glyph mappings). Each file exports plain JSON that mirrors the existing subtrees.
+3. **Recompose at load.** Add a small aggregator `assets/data/loadGameplayConfig.js` that imports/loads the segmented files, merges them into the original object shape, validates with the schema, and exports the final config. Update existing import sites to consume the aggregator instead of the raw JSON file.
+4. **Regression check.** Compare the serialized output of the aggregated object against the pre-split JSON to confirm byte-for-byte equivalence. Keep a fixture snapshot in `docs/main_refactor_contexts.md` so future edits can diff against the baseline.
 
 Following this plan will shrink the single-source files, align them with the distributed module approach already underway in `assets/main.js`, and make the codebase friendlier to concurrent changes.
 
