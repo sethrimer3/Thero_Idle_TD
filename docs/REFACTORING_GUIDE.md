@@ -428,6 +428,25 @@ Following this plan will shrink the single-source files, align them with the dis
 - Button bindings can be reused or unit-tested without spinning up the entire orchestrator
 - Clearing this block sets the stage for additional spire refactors (Tsadi already extracted, Shin/Kuf next)
 
+### manualDropController.js (spire manual drop gestures)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- Click/tap handlers for Aleph, Bet, Lamed, Tsadi, and Shin spire viewports
+- Keyboard listener that maps the active tab to the corresponding spire drop action
+- Tab-mapping helper that prevents drops when the user is viewing a different spire
+
+**Integration approach:**
+- Added `createManualDropController()` to house the gesture logic and expose `initializeManualDropHandlers()`
+- `main.js` injects simulation getters plus `addIterons` so the controller always targets the current instances
+- Existing initialization flow still calls `initializeManualDropHandlers()` in the same place, but the orchestrator no longer stores the listeners
+
+**Result:**
+- Manual drop wiring now lives outside the 8k-line orchestrator, reducing shared closure state
+- Spire-specific spawn calls sit together in one module, making future input tweaks easier to audit
+- Dependency injection keeps the drop behavior aligned with whichever simulation is active without touching `main.js`
+
 ### towerBlueprintPresenter.js (blueprint math + glyph state cache)
 
 **Status:** ✅ Complete

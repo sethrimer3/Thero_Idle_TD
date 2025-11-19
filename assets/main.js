@@ -309,6 +309,7 @@ import { createLevelOverlayController } from './levelOverlayController.js';
 import { createLevelStoryScreen } from './levelStoryScreen.js';
 import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
 import { createPlayfieldMenuController } from './playfieldMenu.js';
+import { createManualDropController } from './manualDropController.js';
 import { bindPageLifecycleEvents } from './pageLifecycle.js';
 import { createVariableLibraryController } from './variableLibraryController.js';
 import { createUpgradeMatrixOverlay } from './upgradeMatrixOverlay.js';
@@ -1330,6 +1331,15 @@ import {
   let pendingSpireResizeFrame = null;
   let previousTabId = getActiveTabId();
 
+  const { initializeManualDropHandlers } = createManualDropController({
+    getActiveTabId,
+    getSandSimulation: () => sandSimulation,
+    getFluidSimulation: () => fluidSimulationInstance,
+    getLamedSimulation: () => lamedSimulationInstance,
+    getTsadiSimulation: () => tsadiSimulationInstance,
+    addIterons,
+  });
+
   const {
     ensurePowderBasinResizeObserver,
     getPowderBasinObserver,
@@ -1469,166 +1479,6 @@ import {
     // Mode toggle button removed - spires unlock automatically based on glyphs
     // Keeping this function as a no-op to avoid breaking existing call sites
     return;
-  }
-
-  /**
-   * Initialize manual drop handlers for spire viewports.
-   * Allows player to click/tap or press space to drop 1 resource into the spire.
-   * Does not work for Kuf spire.
-   */
-  function initializeManualDropHandlers() {
-    // Track if pointer moved during a gesture (to distinguish clicks from drags)
-    let pointerMoved = false;
-    let pointerDownTime = 0;
-    const MAX_CLICK_DURATION = 300; // ms
-    const MAX_CLICK_MOVEMENT = 5; // px
-    let startX = 0;
-    let startY = 0;
-
-    const tabForSpire = (spireType) => {
-      switch (spireType) {
-        case 'aleph':
-          return 'powder';
-        case 'bet':
-          return 'fluid';
-        default:
-          return spireType;
-      }
-    };
-
-    function handleManualDrop(spireType) {
-      if (spireType === 'kuf') {
-        return; // Kuf spire doesn't support manual drops
-      }
-
-      // Add 1 resource to the appropriate spire WITHOUT consuming from the bank
-      switch (spireType) {
-        case 'aleph':
-          if (sandSimulation && typeof sandSimulation.spawnGrain === 'function') {
-            // Spawn a grain directly without consuming from the bank
-            // Use maxDropSize to ensure motes are 1/100th of render width
-            const moteSize = sandSimulation.maxDropSize || 1;
-            sandSimulation.spawnGrain({ size: moteSize, source: 'manual' });
-          }
-          break;
-        case 'bet':
-          if (fluidSimulationInstance && typeof fluidSimulationInstance.spawnGrain === 'function') {
-            // Spawn a drop directly without consuming from the bank
-            // Use maxDropSize to ensure drops are 1/100th of render width
-            const dropSize = fluidSimulationInstance.maxDropSize || 1;
-            fluidSimulationInstance.spawnGrain({ size: dropSize, source: 'manual' });
-          }
-          break;
-        case 'lamed':
-          if (lamedSimulationInstance && typeof lamedSimulationInstance.spawnStar === 'function') {
-            // Spawn a star directly without consuming from the bank
-            lamedSimulationInstance.spawnStar();
-          }
-          break;
-        case 'tsadi':
-          if (tsadiSimulationInstance && typeof tsadiSimulationInstance.spawnParticle === 'function') {
-            // Spawn a particle directly without consuming from the bank
-            tsadiSimulationInstance.spawnParticle();
-          }
-          break;
-        case 'shin':
-          // Add 1 iteron to the bank (this doesn't consume, it adds)
-          addIterons(1);
-          break;
-      }
-    }
-
-    // Add click handlers to spire viewports
-    const spireTargets = [
-      { type: 'aleph', selectors: ['powder-viewport', 'powder-basin', 'powder-canvas'] },
-      { type: 'bet', selectors: ['fluid-viewport', 'fluid-basin', 'fluid-canvas'] },
-      { type: 'lamed', selectors: ['lamed-basin'] },
-      { type: 'tsadi', selectors: ['tsadi-basin'] },
-      { type: 'shin', selectors: ['shin-fractal-content'] },
-    ];
-
-    spireTargets.forEach(({ type, selectors }) => {
-      const uniqueSelectors = Array.from(new Set(selectors));
-      uniqueSelectors.forEach((id) => {
-        const element = document.getElementById(id);
-        if (!element) {
-          return;
-        }
-
-        const handlePointerDown = (event) => {
-          pointerMoved = false;
-          pointerDownTime = Date.now();
-          startX = event.clientX;
-          startY = event.clientY;
-        };
-
-        const handlePointerMove = (event) => {
-          const dx = Math.abs(event.clientX - startX);
-          const dy = Math.abs(event.clientY - startY);
-          if (dx > MAX_CLICK_MOVEMENT || dy > MAX_CLICK_MOVEMENT) {
-            pointerMoved = true;
-          }
-        };
-
-        const handleClick = (event) => {
-          const duration = Date.now() - pointerDownTime;
-          if (pointerMoved || duration >= MAX_CLICK_DURATION) {
-            return;
-          }
-
-          // Prevent bubbling into parent cards that also grant click rewards so a single tap
-          // doesn't trigger multiple mote or drop spawns (e.g., Aleph spire double drops).
-          event?.stopPropagation?.();
-
-          const activeTab = getActiveTabId();
-          if (activeTab !== tabForSpire(type)) {
-            return;
-          }
-
-          handleManualDrop(type);
-        };
-
-        element.addEventListener('pointerdown', handlePointerDown);
-        element.addEventListener('pointermove', handlePointerMove);
-        element.addEventListener('click', handleClick);
-      });
-    });
-
-    // Add spacebar handler for manual drops
-    document.addEventListener('keydown', (event) => {
-      if (event.key === ' ' || event.code === 'Space') {
-        // Determine which spire panel is currently active
-        const activeTab = getActiveTabId();
-        let spireType = null;
-        
-        switch (activeTab) {
-          case 'powder':
-            spireType = 'aleph';
-            break;
-          case 'fluid':
-            spireType = 'bet';
-            break;
-          case 'lamed':
-            spireType = 'lamed';
-            break;
-          case 'tsadi':
-            spireType = 'tsadi';
-            break;
-          case 'shin':
-            spireType = 'shin';
-            break;
-          case 'kuf':
-            // Don't allow manual drops on Kuf
-            return;
-        }
-
-        if (spireType) {
-          // Prevent default spacebar behavior (page scroll)
-          event.preventDefault();
-          handleManualDrop(spireType);
-        }
-      }
-    });
   }
 
   function stopLamedDeveloperSpamLoop() {
