@@ -463,9 +463,10 @@ body.graphics-mode-low .control-button {
 }
 
 .offline-overlay__equation--continuation {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr) max-content minmax(0, 1.2fr);
   align-items: baseline;
-  gap: clamp(10px, 2.5vw, 18px);
+  column-gap: clamp(10px, 2.5vw, 18px);
   width: 100%;
 }
 
