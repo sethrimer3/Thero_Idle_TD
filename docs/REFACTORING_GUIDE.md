@@ -56,8 +56,9 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 **Plan:**
 
 1. **State modules.** Create `assets/state/resourceState.js` (responsible for `baseResources` + `resourceState`, currently declared near line 700) and `assets/state/spireResourceState.js` (wrapping the `lamed/tsadi/shin/kuf` banks). Export factory functions so `configuration.js` can continue calling `registerResourceContainers` with the live objects. This unlocks re-use in tests and other modules without importing the entire main orchestrator.
-   _Progress:_ Both factories now exist and `main.js` imports them. The remaining work in this bullet is extracting the powder config/state pair and wiring it through the same module boundary.
+   _Progress:_ Resource and spire factories now live under `assets/state/`, and the powder config/state bundle has been relocated to `assets/powder/powderState.js` so all persistent containers come from dedicated modules.
 2. **Powder session bootstrap.** Move the powder configuration + state literal (currently `powderConfig`/`powderState`) plus helper getters (`getPowderElements`, `powderGlyphColumns`, `fluidGlyphColumns`) into `assets/powder/powderState.js`. That module can instantiate `createPowderDisplaySystem`/`createPowderUiDomHelpers` internally and expose the public APIs that `main.js` needs, shrinking the global variable list and clarifying ownership of functions like `reconcileGlyphCurrencyFromState`.
+   _Progress:_ Config, state, DOM placeholders, and glyph column containers now come from `createPowderStateContext()`. Main.js still builds the display/UI helpers directly; the remaining opportunity is to migrate those factory calls once dependencies are decoupled.
 3. **Tab + overlay router.** Extract functions dealing with active tab bookkeeping (`tabForSpire`, `getActiveTabId`, `setActiveTab`, `updateSpireTabVisibility`, overlay toggles used around lines 1400-1500 and 3500+) into `assets/navigation/tabRouter.js`. Pair it with an `overlayRegistry` that exposes `openOverlay(id)`, `closeOverlay(id)`, and `withFocusTrap(id, callback)` so upgrade, glossary, powder, and playfield overlays stop duplicating focus and aria logic.
 4. **Autosave/event dispatcher.** Introduce a lightweight event emitter (or leverage the browser's `EventTarget`) inside `assets/orchestration/gameEvents.js`. When powder or spire modules need to schedule saves, they dispatch `powder:state-changed`, and `autoSave.js` listens without requiring `main.js` to thread callbacks manually. This also simplifies offline progression code which currently imports `notifyIdleTime`, `grantSpireMinuteIncome`, etc.
 5. **Migration cadence.** Apply the `uiHelpers` pattern used for earlier refactors: extract a module, wrap dependencies in a factory, import into `main.js`, and replace the inline block with the returned functions. Update `docs/main_refactor_contexts.md` after each extraction to record the new module boundaries.
@@ -210,6 +211,25 @@ Following this plan will shrink the single-source files, align them with the dis
 - Advanced spire bookkeeping now lives beside the shared state factories, clarifying ownership of spark/particle banks
 - Tests and future controllers can generate isolated state objects without importing the 4k-line orchestrator
 - Prep work finished for the remaining "state modules" milestone—powder and spire persistence can follow the same pattern without re-opening `main.js`
+
+### powder/powderState.js (powder config + DOM placeholders)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- Powder configuration defaults (offsets, dune heights, wall gap bounds, unlock costs)
+- Shared powder state container including glyph awards, idle banks, saved snapshots, and Bet subsystems
+- DOM placeholder bundle for the Bet fluid viewport plus glyph column arrays and powder element getter/setter helpers
+
+**Integration approach:**
+- Introduced `createPowderStateContext()` under `assets/powder/powderState.js` to return config, state, DOM buckets, and glyph column arrays
+- main.js now destructures the returned context instead of declaring the literals inline and hydrates the powder elements via the provided setter
+- Existing powder display, persistence, and DOM helper factories receive the shared references without needing new parameters
+
+**Result:**
+- main.js sheds another large literal block tied to powder bootstrap while keeping object identity for downstream systems
+- Powder DOM scaffolding now lives beside its configuration, improving discoverability for future refactors
+- Subsequent powder extractions can evolve `createPowderStateContext()` without touching the main orchestrator
 
 ### playfieldOutcome.js (victory/defeat overlay wiring)
 

@@ -146,6 +146,7 @@ import { createTsadiBindingUi } from './tsadiBindingUi.js';
 import { createSpireTabVisibilityManager } from './spireTabVisibility.js';
 import { createIdleLevelRunManager } from './idleLevelRunManager.js';
 import { createSpireResourceState } from './state/spireResourceState.js';
+import { createPowderStateContext } from './powder/powderState.js';
 import { createTsadiMoleculeNameGenerator, TSADI_MOLECULE_LEXICON } from './tsadiMoleculeNameGenerator.js';
 import { createSpireResourceBanks } from './spireResourceBanks.js';
 // Powder tower palette and simulation helpers.
@@ -776,115 +777,20 @@ import {
 
   const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the fluid study with a base reservoir of Serendipity upon unlock.
 
-  const powderConfig = {
-    sandOffsetInactive: 0,
-    sandOffsetActive: 1.1,
-    duneHeightBase: 1,
-    duneHeightMax: 6,
-    thetaBase: 1.3,
-    zetaBase: 1.6,
-    simulatedDuneGainMax: 3.4,
-    wallBaseGapMotes: 5, // Start with walls 5 motes apart
-    wallGapPerGlyph: 1, // Walls expand by 1 mote per glyph
-    wallMaxGapMotes: 75, // Maximum wall gap of 75 motes
-    wallGapViewportRatio: 0.15, // Narrow the tower walls so the visible mote lane is roughly one-fifth of the previous span.
-    fluidUnlockSigils: 0, // Sigil rungs no longer gate the fluid study while glyph costs handle the unlock.
-    fluidUnlockGlyphCost: 0, // Aleph glyph tithe required to unlock the fluid study (temporarily waived).
-  };
-
-  const powderState = {
-    sandOffset: powderConfig.sandOffsetActive,
-    duneHeight: powderConfig.duneHeightBase,
-    charges: 0,
-    simulatedDuneGain: 0,
-    wallGlyphsLit: 0,
-    glyphsAwarded: 0, // Highest Aleph index already translated into glyph currency.
-    fluidGlyphsLit: 0,
-    fluidGlyphsAwarded: 0, // Highest Bet index already translated into Bet glyph currency.
-    idleMoteBank: 0,
-    idleDrainRate: 0,
-    pendingMoteDrops: [],
-    idleBankHydrated: false, // Tracks whether the active simulation already holds the saved idle motes.
-    fluidIdleBank: 0,
-    fluidIdleDrainRate: 0,
-    pendingFluidDrops: [],
-    fluidBankHydrated: false,
-    motePalette: mergeMotePalette(DEFAULT_MOTE_PALETTE),
-    simulationMode: 'sand',
-    wallGapTarget: powderConfig.wallBaseGapMotes,
-    modeSwitchPending: false,
-    fluidProfileLabel: 'Bet Spire',
-    fluidUnlocked: false,
-    // Track pointer gestures for the powder basin camera controls.
-    viewInteraction: null,
-    // Cache the latest camera transform so overlays sync even before the simulation emits.
-    viewTransform: null,
-    // Preserve serialized simulation payloads until the active basin is ready to restore them.
-    loadedSimulationState: null,
-    loadedFluidState: null,
-    // Track whether initial page load restoration has been completed (once per session)
-    initialLoadRestored: false,
-    fluidInitialLoadRestored: false,
-    // Persist Bet Spire happiness generation tied to Serendipity purchases.
-    betHappiness: {
-      bank: 0,
-      producers: { slime: 4 },
-    },
-    // Track Bet terrarium fractal leveling progress.
-    betTerrarium: {
-      levelingMode: false,
-      trees: {},
-    },
-  };
+  const {
+    powderConfig,
+    powderState,
+    fluidElements,
+    powderGlyphColumns,
+    fluidGlyphColumns,
+    getPowderElements,
+    setPowderElements,
+  } = createPowderStateContext();
 
   // Track idle reserves for advanced spires so their banks persist outside of active simulations.
   const spireResourceState = createSpireResourceState();
   // Randomized, non-repeating Tsadi molecule name generator seeded per session.
   const tsadiMoleculeNameGenerator = createTsadiMoleculeNameGenerator('tsadi-codex', TSADI_MOLECULE_LEXICON);
-
-  const fluidElements = {
-    tabStack: null, // Container that hosts the split spire tab controls.
-    powderTabButton: null, // Reference to the mote spire trigger that occupies the top half of the split button.
-    tabButton: null,
-    panel: null,
-    host: null,
-    simulationCard: null,
-    canvas: null,
-    basin: null,
-    terrariumLayer: null,
-    terrariumStage: null,
-    terrariumMedia: null,
-    terrariumSky: null,
-    terrariumStarsNear: null,
-    terrariumStarsFar: null,
-    terrariumSun: null,
-    terrariumMoon: null,
-    floatingIslandSprite: null,
-    viewport: null,
-    leftWall: null,
-    rightWall: null,
-    leftHitbox: null,
-    rightHitbox: null,
-    depthValue: null,
-    reservoirValue: null,
-    dripRateValue: null,
-    statusNote: null,
-    returnButton: null,
-    terrainSprite: null,
-    // Happiness ledger values mirrored in the Bet Spire HUD.
-    happinessTotal: null,
-    happinessRate: null,
-    happinessList: null,
-    happinessEmpty: null,
-    // Progress bar elements that communicate the next Bet glyph unlock.
-    happinessProgressBar: null,
-    happinessProgressFill: null,
-    happinessProgressLabel: null,
-    happinessProgressPrevious: null,
-    happinessProgressNext: null,
-    happinessProgressCurrent: null,
-    wallGlyphColumns: [],
-  };
 
   // Spawn zones derived from the solid color block markers inside Cave-4.png and Cave-5.png so Deltas appear inside those caverns.
   const BET_CAVE_SPAWN_ZONES = [
@@ -1144,12 +1050,6 @@ import {
   setTrackedShinGlyphs(getShinGlyphs());
   setTrackedKufGlyphs(getKufGlyphs());
 
-  const powderGlyphColumns = [];
-  const fluidGlyphColumns = [];
-
-  let powderElementsRef = null;
-  const getPowderElements = () => powderElementsRef;
-
   betHappinessSystem = createBetHappinessSystem({
     state: powderState.betHappiness,
     formatGameNumber,
@@ -1297,7 +1197,7 @@ import {
     onTsadiBindingAgentsChange: syncTsadiBindingAgents,
   });
 
-  powderElementsRef = powderElements;
+  setPowderElements(powderElements);
 
   registerResourceHudRefreshCallback(updateMoteStatsDisplays);
   registerResourceHudRefreshCallback(updatePowderModeButton);
