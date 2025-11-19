@@ -1326,7 +1326,8 @@ body.graphics-mode-low .control-button {
 .tower-loadout-toggle {
   position: absolute;
   left: 20px;
-  bottom: calc(100% - 6px);
+  /* Raise the toggle above the loadout tray so it stays clickable. */
+  bottom: calc(100% + 6px);
   width: 16px;
   height: 16px;
   display: grid;
