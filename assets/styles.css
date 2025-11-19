@@ -5362,6 +5362,7 @@ body.graphics-mode-low .control-button {
   pointer-events: none;
 }
 
+/* Aleph spire wall glyphs begin as ink so their glow-up reads as earned. */
 .powder-glyph {
   position: absolute;
   left: 50%;
@@ -5372,8 +5373,8 @@ body.graphics-mode-low .control-button {
   font-family: 'Cormorant Garamond', serif;
   font-size: clamp(1.3rem, 2.6vw, 2rem);
   letter-spacing: 0.14em;
-  color: rgba(255, 255, 255, 0.28);
-  text-shadow: 0 0 6px rgba(255, 255, 255, 0.08);
+  color: rgba(6, 6, 6, 0.92);
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.35);
   transition: color 0.3s ease, text-shadow 0.3s ease;
   pointer-events: none;
 }
@@ -5393,20 +5394,21 @@ body.graphics-mode-low .control-button {
   transition: background 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
 }
 
+/* Palette-aware glow lights reached glyphs with a golden outline. */
 .powder-glyph--achieved {
-  color: rgba(255, 255, 255, 0.72);
-  text-shadow: 0 0 14px rgba(255, 255, 255, 0.28);
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(255, 220, 120, 0.55), 0 0 18px rgba(255, 186, 92, 0.45);
 }
 
+/* Hide the cross-line once a glyph is earned to keep the symbol unobstructed. */
 .powder-glyph--achieved::before {
-  opacity: 0.7;
-  background: linear-gradient(90deg, rgba(175, 215, 255, 0.7), rgba(255, 204, 150, 0.65));
-  box-shadow: 0 0 12px rgba(175, 215, 255, 0.35);
+  display: none;
 }
 
+/* Target glyphs lean into the secondary palette hue while keeping the golden halo. */
 .powder-glyph--target {
-  color: rgba(255, 240, 200, 0.95);
-  text-shadow: 0 0 18px rgba(255, 208, 140, 0.45);
+  color: var(--accent-2);
+  text-shadow: 0 0 12px rgba(255, 232, 150, 0.65), 0 0 22px rgba(255, 200, 120, 0.55), 0 0 30px rgba(255, 210, 140, 0.45);
 }
 
 .powder-glyph--target::before {
