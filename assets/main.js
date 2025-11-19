@@ -782,8 +782,8 @@ import {
     registerResourceContainers,
   });
 
-  // Temporarily disable the Bet/Fluid study so hidden simulations do not consume resources.
-  const FLUID_STUDY_ENABLED = false;
+  // Re-enable the Bet/Fluid study so its ambient terrarium renders (slimes, grass, trees, sky cycle).
+  const FLUID_STUDY_ENABLED = true;
 
   const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the fluid study with a base reservoir of Serendipity upon unlock.
 
