@@ -22,6 +22,20 @@
   --cursor-grabbing: grabbing;
   --cursor-crosshair: crosshair;
   --cursor-progress: progress;
+  /* Stable viewport height unit that resists mobile address bar reflows. */
+  --stable-vh: 100vh;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --stable-vh: 100dvh;
+  }
+}
+
+@supports (height: 100svh) {
+  :root {
+    --stable-vh: 100svh;
+  }
 }
 
 * {
@@ -69,7 +83,7 @@ body *::-webkit-scrollbar {
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: var(--stable-vh);
   background: radial-gradient(circle at 50% 0, rgba(139, 247, 255, 0.12), transparent 55%),
     var(--bg);
   color: var(--text);
@@ -218,7 +232,7 @@ body.graphics-mode-low .control-button {
 
 .app-shell {
   width: min(960px, 100%);
-  min-height: 100vh;
+  min-height: var(--stable-vh);
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   padding: 24px clamp(16px, 4vw, 36px) 16px;
@@ -575,8 +589,8 @@ body.graphics-mode-low .control-button {
 @media (hover: hover) and (pointer: fine) {
   /* Lock the desktop shell to the viewport so wheel gestures target the active panel. */
   .app-shell {
-    height: 100vh;
-    max-height: 100vh;
+    height: var(--stable-vh);
+    max-height: var(--stable-vh);
     overflow: hidden;
   }
 
@@ -1060,14 +1074,14 @@ body.graphics-mode-low .control-button {
 
 .playfield:not(.playfield--landscape),
 .playfield.playfield--portrait {
-  width: min(420px, 100%, calc((100vh - 160px) * 9 / 16));
-  max-height: calc(100vh - 160px);
+  width: min(420px, 100%, calc((var(--stable-vh) - 160px) * 9 / 16));
+  max-height: calc(var(--stable-vh) - 160px);
   aspect-ratio: 9 / 16;
 }
 
 .playfield.playfield--landscape {
-  width: min(900px, 100%, calc((100vh - 160px) * 16 / 9));
-  max-height: calc(100vh - 160px);
+  width: min(900px, 100%, calc((var(--stable-vh) - 160px) * 16 / 9));
+  max-height: calc(var(--stable-vh) - 160px);
   aspect-ratio: 16 / 9;
 }
 
@@ -3158,7 +3172,7 @@ body.graphics-mode-low .control-button {
   background: linear-gradient(160deg, rgba(5, 5, 12, 0.8), rgba(16, 16, 24, 0.9));
   padding: 24px;
   margin: 0 auto 18px;
-  width: min(420px, 100%, calc((100vh - 160px) * 9 / 16));
+  width: min(420px, 100%, calc((var(--stable-vh) - 160px) * 9 / 16));
   aspect-ratio: 9 / 16;
   overflow: hidden;
   /* Let custom JS manage panning and zooming gestures within the map. */
@@ -4705,16 +4719,16 @@ body.graphics-mode-low .control-button {
   align-items: center;
   gap: 9px;
   /* Let spire simulations expand until they meet the screen bounds while staying centered. */
-  width: min(100%, calc(100vw - 48px), calc((100vh - 220px) * 0.75));
-  max-width: min(calc(100vw - 48px), calc((100vh - 220px) * 0.75));
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
   margin-inline: auto;
 }
 
 @media (max-width: 640px) {
   /* Allow the Spire basin to use the full mobile width so walls no longer overlap. */
   .powder-simulation {
-    width: min(100%, calc(100vh * 0.75));
-    max-width: min(100%, calc(100vh * 0.75));
+    width: min(100%, calc(var(--stable-vh) * 0.75));
+    max-width: min(100%, calc(var(--stable-vh) * 0.75));
   }
 }
 
@@ -8509,13 +8523,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .lamed-simulation-card {
   height: auto;
   /* Use the stable viewport height when available to prevent mobile address bar flicker. */
-  width: min(100%, calc(100vw - 48px), calc((100vh - 220px) * 0.75));
-}
-
-@supports (height: 100svh) {
-  .lamed-simulation-card {
-    width: min(100%, calc(100vw - 48px), calc((100svh - 220px) * 0.75));
-  }
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
 .lamed-simulation-card .powder-simulation {
@@ -8544,7 +8552,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .tsadi-simulation-card {
   height: auto;
-  width: min(100%, calc(100vw - 48px), calc((100vh - 220px) * 0.75));
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
 .tsadi-simulation-card .powder-simulation {
@@ -9104,7 +9112,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   justify-content: center;
   align-items: center;
   /* Ensure 2:3 aspect ratio (portrait) */
-  width: min(100%, calc(100vw - 48px), calc((100vh - 220px) * (2 / 3)));
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * (2 / 3)));
   aspect-ratio: 2 / 3;
 }
 
@@ -9342,7 +9350,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   padding-bottom: 0;
   grid-column: 1 / -1;
   justify-self: center;
-  width: min(100%, calc(100vw - 48px), calc((100vh - 220px) * 1.6));
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 1.6));
 }
 
 .kuf-sim-header {
@@ -9372,8 +9380,8 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   aspect-ratio: 3 / 4;
   /* Expand until the viewport width or height limit is encountered. */
   width: min(100%, calc(100vw - 48px));
-  max-width: min(720px, calc((100vh - 220px) * 0.75));
-  max-height: calc(100vh - 220px);
+  max-width: min(720px, calc((var(--stable-vh) - 220px) * 0.75));
+  max-height: calc(var(--stable-vh) - 220px);
 }
 
 #kuf-simulation-canvas {
