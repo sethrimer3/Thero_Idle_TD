@@ -1424,6 +1424,9 @@ import {
   let lamedDeveloperSpamHandle = null;
   let lamedDeveloperSpamActive = false;
   let lamedDeveloperSpamAttached = false;
+  let tsadiDeveloperSpamHandle = null;
+  let tsadiDeveloperSpamActive = false;
+  let tsadiDeveloperSpamAttached = false;
   let tsadiSimulationInstance = null;
   let shinSimulationInstance = null;
   let tsadiBindingUiInitialized = false;
@@ -1651,6 +1654,76 @@ import {
     canvas.addEventListener('pointerup', handleLamedDeveloperSpamPointerUp);
     canvas.addEventListener('pointerleave', handleLamedDeveloperSpamPointerUp);
     canvas.addEventListener('pointercancel', handleLamedDeveloperSpamPointerUp);
+  }
+
+  function stopTsadiDeveloperSpamLoop() {
+    tsadiDeveloperSpamActive = false;
+    if (tsadiDeveloperSpamHandle) {
+      cancelAnimationFrame(tsadiDeveloperSpamHandle);
+      tsadiDeveloperSpamHandle = null;
+    }
+  }
+
+  function runTsadiDeveloperSpawnLoop() {
+    if (!tsadiDeveloperSpamActive) {
+      stopTsadiDeveloperSpamLoop();
+      return;
+    }
+    if (!developerModeActive || !tsadiSimulationInstance || typeof tsadiSimulationInstance.spawnParticle !== 'function') {
+      stopTsadiDeveloperSpamLoop();
+      return;
+    }
+
+    for (let i = 0; i < 4; i++) {
+      if (!tsadiSimulationInstance.spawnParticle()) {
+        break;
+      }
+    }
+
+    tsadiDeveloperSpamHandle = window.requestAnimationFrame(() => runTsadiDeveloperSpawnLoop());
+  }
+
+  function handleTsadiDeveloperSpamPointerDown(event) {
+    if (!developerModeActive || !tsadiSimulationInstance || typeof tsadiSimulationInstance.spawnParticle !== 'function') {
+      return;
+    }
+
+    tsadiDeveloperSpamActive = true;
+    if (typeof event?.preventDefault === 'function') {
+      event.preventDefault();
+    }
+    if (typeof event?.target?.setPointerCapture === 'function' && typeof event.pointerId === 'number') {
+      try {
+        event.target.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore pointer capture failures because the gesture can still continue without capture.
+      }
+    }
+    if (!tsadiDeveloperSpamHandle) {
+      runTsadiDeveloperSpawnLoop();
+    }
+  }
+
+  function handleTsadiDeveloperSpamPointerUp(event) {
+    if (typeof event?.target?.releasePointerCapture === 'function' && typeof event.pointerId === 'number') {
+      try {
+        event.target.releasePointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore pointer capture failures because cleanup will continue regardless.
+      }
+    }
+    stopTsadiDeveloperSpamLoop();
+  }
+
+  function attachTsadiDeveloperSpamTarget(canvas) {
+    if (!canvas || tsadiDeveloperSpamAttached) {
+      return;
+    }
+    tsadiDeveloperSpamAttached = true;
+    canvas.addEventListener('pointerdown', handleTsadiDeveloperSpamPointerDown);
+    canvas.addEventListener('pointerup', handleTsadiDeveloperSpamPointerUp);
+    canvas.addEventListener('pointerleave', handleTsadiDeveloperSpamPointerUp);
+    canvas.addEventListener('pointercancel', handleTsadiDeveloperSpamPointerUp);
   }
 
   async function applyPowderSimulationMode(mode) {
@@ -4337,6 +4410,7 @@ import {
           if (!tsadiSimulationInstance) {
             const tsadiCanvas = document.getElementById('tsadi-canvas');
             if (tsadiCanvas) {
+              attachTsadiDeveloperSpamTarget(tsadiCanvas);
               ensureTsadiBankSeeded();
               tsadiSimulationInstance = new ParticleFusionSimulation({
                 canvas: tsadiCanvas,

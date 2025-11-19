@@ -1,4 +1,5 @@
 import { getGreekTierInfo, tierToColor } from '../scripts/features/towers/tsadiTower.js';
+import { samplePaletteGradient } from './colorSchemeUtils.js';
 
 /**
  * Generate a deterministic pseudo-random number generator seeded from a string.
@@ -21,39 +22,61 @@ function createSeededRandom(seed) {
   };
 }
 
+function rgbToRgba(color, alpha = 1) {
+  const safeColor = color && typeof color === 'object' ? color : { r: 22, g: 28, b: 42 };
+  return `rgba(${safeColor.r ?? 22}, ${safeColor.g ?? 28}, ${safeColor.b ?? 42}, ${alpha})`;
+}
+
 /**
  * Render a generated thumbnail depicting the discovered molecule composition.
  * @param {HTMLCanvasElement} canvas - Destination canvas.
- * @param {Array<number>} tiers - Tier recipe used for layout and coloring.
+ * @param {{tiers?:Array<number>,name?:string}} recipe - Molecule metadata for layout and labeling.
  */
-function renderMoleculeSketch(canvas, tiers = []) {
+function renderMoleculeSketch(canvas, recipe = {}) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
+  const tiers = Array.isArray(recipe.tiers) ? recipe.tiers : [];
+  const name = typeof recipe.name === 'string' ? recipe.name : '';
   const formulaKey = tiers.join('|') || 'empty';
   const random = createSeededRandom(formulaKey);
   const width = canvas.width;
   const height = canvas.height;
+  const backgroundStart = samplePaletteGradient(0.05);
+  const backgroundEnd = samplePaletteGradient(0.85);
 
   ctx.clearRect(0, 0, width, height);
   const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, 'rgba(22, 28, 42, 0.95)');
-  gradient.addColorStop(1, 'rgba(12, 16, 26, 0.95)');
+  gradient.addColorStop(0, rgbToRgba(backgroundStart, 0.92));
+  gradient.addColorStop(1, rgbToRgba(backgroundEnd, 0.92));
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
+  if (name) {
+    ctx.font = '600 18px "EB Garamond", "Times New Roman", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.strokeText(name, width / 2, 10);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.fillText(name, width / 2, 10);
+  }
+
+  const strandColor = rgbToRgba(samplePaletteGradient(0.4), 0.22);
+  const labelOffsetY = name ? 12 : 0;
   const nodes = tiers.map((tier, index) => {
     const theta = (index / Math.max(1, tiers.length)) * Math.PI * 2 + random() * 0.6;
     const radius = Math.min(width, height) * (0.25 + random() * 0.2);
     const centerX = width / 2 + Math.cos(theta) * radius;
-    const centerY = height / 2 + Math.sin(theta) * radius;
+    const centerY = height / 2 + Math.sin(theta) * radius + labelOffsetY;
     const glyph = getGreekTierInfo(tier);
-    const nodeColor = tierToColor(tier);
+    const nodeColor = tierToColor(tier, samplePaletteGradient);
     return { x: centerX, y: centerY, glyph: glyph.letter || '∅', color: nodeColor };
   });
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.strokeStyle = strandColor;
   ctx.lineWidth = 1;
   nodes.forEach((node, index) => {
     nodes.slice(index + 1).forEach((target) => {
@@ -269,7 +292,7 @@ export function createTsadiBindingUi({
         if (expanded) {
           detail.hidden = false;
           toggle.setAttribute('aria-expanded', 'true');
-          renderMoleculeSketch(canvas, recipe.tiers);
+          renderMoleculeSketch(canvas, recipe);
           expandedEntry = { detail, toggle };
         } else {
           detail.hidden = true;
@@ -342,6 +365,25 @@ export function createTsadiBindingUi({
         refreshCodexList();
       }
     }, 400);
+  }
+
+  function attemptCodexCollection(event) {
+    const simulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
+    if (!simulation || typeof simulation.collectPendingMoleculesAt !== 'function') {
+      return false;
+    }
+    const collected = simulation.collectPendingMoleculesAt(toCanvasCoords(event));
+    if (!collected) {
+      return false;
+    }
+    if (typeof event?.stopPropagation === 'function') {
+      event.stopPropagation();
+    }
+    if (typeof event?.preventDefault === 'function') {
+      event.preventDefault();
+    }
+    updateBindingAgentDisplay();
+    return true;
   }
 
   function handlePointerMove(event) {
@@ -417,6 +459,9 @@ export function createTsadiBindingUi({
 
     if (canvasElement) {
       canvasElement.addEventListener('pointerdown', (event) => {
+        if (attemptCodexCollection(event)) {
+          return;
+        }
         scheduleDisband(event);
       });
       canvasElement.addEventListener('pointermove', () => {

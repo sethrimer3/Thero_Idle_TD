@@ -69,6 +69,9 @@ const LEGACY_MOLECULE_RECIPES = [
   },
 ];
 
+// Tier threshold that unlocks automatic codex recording for newly discovered molecules.
+const AUTO_CODEX_UNLOCK_TIER = 20;
+
 /**
  * Normalize and sort a tier list so combinations ignore permutation order.
  * @param {Array<number>} tiers - Raw tier list.
@@ -388,6 +391,8 @@ export class ParticleFusionSimulation {
       : null;
     this.discoveredMolecules = new Set();
     this.discoveredMoleculeEntries = new Map();
+    this.pendingMoleculeIds = new Set();
+    this.autoCodexUnlocked = false;
     this.seedDiscoveredMolecules(
       Array.isArray(options.initialDiscoveredMolecules) ? options.initialDiscoveredMolecules : [],
     );
@@ -934,6 +939,8 @@ export class ParticleFusionSimulation {
       vy: 0,
       connections: [],
       activeMolecules: [],
+      pendingDiscoveries: [],
+      awaitingCodexTap: false,
       popTimer: 0,
     });
 
@@ -972,6 +979,9 @@ export class ParticleFusionSimulation {
     const target = this.findBindingAgentNear(position, 2);
     if (!target) {
       return false;
+    }
+    if (target.awaitingCodexTap) {
+      return false; // Prevent dismantling while a discovery is pending collection.
     }
 
     this.bindingAgents = this.bindingAgents.filter((agent) => agent.id !== target.id);
@@ -1052,6 +1062,76 @@ export class ParticleFusionSimulation {
     return descriptor;
   }
 
+  finalizeMoleculeDiscovery(descriptor) {
+    if (!descriptor) {
+      return false;
+    }
+    const recorded = this.recordDiscoveredMolecule(descriptor);
+    if (recorded && this.onMoleculeDiscovered) {
+      this.onMoleculeDiscovered(recorded);
+    }
+    return Boolean(recorded);
+  }
+
+  queuePendingMolecule(agent, descriptor) {
+    if (!agent || !descriptor) {
+      return;
+    }
+    agent.pendingDiscoveries = Array.isArray(agent.pendingDiscoveries) ? agent.pendingDiscoveries : [];
+    agent.pendingDiscoveries.push(descriptor);
+    agent.awaitingCodexTap = true;
+    agent.popTimer = Math.max(agent.popTimer || 0, 0.6);
+    this.pendingMoleculeIds.add(descriptor.id);
+  }
+
+  processPendingMolecules(agent) {
+    if (!agent || !Array.isArray(agent.pendingDiscoveries) || !agent.pendingDiscoveries.length) {
+      return false;
+    }
+    let recorded = false;
+    while (agent.pendingDiscoveries.length) {
+      const descriptor = agent.pendingDiscoveries.shift();
+      if (!descriptor) {
+        continue;
+      }
+      this.pendingMoleculeIds.delete(descriptor.id);
+      if (this.finalizeMoleculeDiscovery(descriptor)) {
+        recorded = true;
+      }
+    }
+    agent.pendingDiscoveries = [];
+    agent.awaitingCodexTap = false;
+    this.popBindingAgent(agent);
+    return recorded;
+  }
+
+  collectPendingMoleculesAt(position) {
+    if (!position) {
+      return false;
+    }
+    const agent = this.findBindingAgentNear(position, 2);
+    if (!agent || !agent.awaitingCodexTap) {
+      return false;
+    }
+    return this.processPendingMolecules(agent);
+  }
+
+  flushPendingMolecules() {
+    for (const agent of this.bindingAgents) {
+      if (agent?.pendingDiscoveries?.length) {
+        this.processPendingMolecules(agent);
+      }
+    }
+  }
+
+  isAutoCodexUnlocked() {
+    if (!this.autoCodexUnlocked && this.highestTierReached >= AUTO_CODEX_UNLOCK_TIER) {
+      this.autoCodexUnlocked = true;
+      this.flushPendingMolecules();
+    }
+    return this.autoCodexUnlocked;
+  }
+
   /**
    * Create a normalized descriptor for a freeform molecule combination.
    * @param {Array<number>} tiers - Unique tier list to capture.
@@ -1110,6 +1190,8 @@ export class ParticleFusionSimulation {
     });
     agent.connections = [];
     agent.activeMolecules = [];
+    agent.pendingDiscoveries = [];
+    agent.awaitingCodexTap = false;
     agent.popTimer = Math.max(agent.popTimer || 0, 0.6);
   }
 
@@ -1138,6 +1220,10 @@ export class ParticleFusionSimulation {
     for (const agent of this.bindingAgents) {
       agent.radius = bindingRadius;
       agent.repellingForce = bindingRepellingForce;
+
+      if (agent.awaitingCodexTap) {
+        continue;
+      }
 
       // Remove stale or now-repulsive connections.
       agent.connections = agent.connections.filter((connection) => {
@@ -1226,21 +1312,28 @@ export class ParticleFusionSimulation {
       const combinations = tiersPresent.length >= 2 ? generateTierCombinations(tiersPresent) : [];
       agent.activeMolecules = [];
       let discoveredNewMolecule = false;
+      const autoCodex = this.isAutoCodexUnlocked();
       for (const combo of combinations) {
         const descriptor = this.createCombinationDescriptor(combo);
         if (!descriptor) {
           continue;
         }
         agent.activeMolecules.push(descriptor.id);
-        if (!this.discoveredMolecules.has(descriptor.id)) {
-          const recorded = this.recordDiscoveredMolecule(descriptor);
-          if (recorded && this.onMoleculeDiscovered) {
-            this.onMoleculeDiscovered(recorded);
+        const alreadyRecorded = this.discoveredMolecules.has(descriptor.id);
+        const pendingRecording = this.pendingMoleculeIds.has(descriptor.id);
+        if (alreadyRecorded || pendingRecording) {
+          continue;
+        }
+        if (autoCodex) {
+          if (this.finalizeMoleculeDiscovery(descriptor)) {
+            discoveredNewMolecule = true;
           }
+        } else {
+          this.queuePendingMolecule(agent, descriptor);
           discoveredNewMolecule = true;
         }
       }
-      if (discoveredNewMolecule) {
+      if (discoveredNewMolecule && autoCodex) {
         this.popBindingAgent(agent);
       }
 
@@ -1468,6 +1561,7 @@ export class ParticleFusionSimulation {
           letter: newTierInfo.letter,
         });
       }
+      this.isAutoCodexUnlocked();
     }
   }
   
@@ -1546,6 +1640,7 @@ export class ParticleFusionSimulation {
           letter: tierInfo.letter,
         });
       }
+      this.isAutoCodexUnlocked();
     }
   }
   
@@ -1634,7 +1729,10 @@ export class ParticleFusionSimulation {
     for (const agent of this.bindingAgents) {
       agent.connections = [];
       agent.activeMolecules = [];
+      agent.pendingDiscoveries = [];
+      agent.awaitingCodexTap = false;
     }
+    this.pendingMoleculeIds.clear();
     this.recalculateMoleculeBonuses();
 
     // Respawn initial particles
@@ -1944,7 +2042,8 @@ export class ParticleFusionSimulation {
     }
 
     for (const agent of this.bindingAgents) {
-      const hasActiveMolecule = (agent.activeMolecules?.length || 0) > 0 || (agent.popTimer || 0) > 0;
+      const hasActiveMolecule =
+        agent.awaitingCodexTap || (agent.activeMolecules?.length || 0) > 0 || (agent.popTimer || 0) > 0;
       for (const connection of agent.connections) {
         const target = particleMap.get(connection.particleId);
         if (!target) continue;
@@ -2157,8 +2256,9 @@ export class ParticleFusionSimulation {
    */
   importState(state) {
     if (!state) return;
-    
+
     this.particles = [];
+    this.pendingMoleculeIds.clear();
     if (Array.isArray(state.particles)) {
       for (const p of state.particles) {
         const radius = this.getRadiusForTier(p.tier);
@@ -2208,6 +2308,7 @@ export class ParticleFusionSimulation {
     
     if (typeof state.highestTierReached === 'number') {
       this.highestTierReached = state.highestTierReached;
+      this.autoCodexUnlocked = this.highestTierReached >= AUTO_CODEX_UNLOCK_TIER;
     }
 
     if (typeof state.glyphCount === 'number') {
@@ -2231,6 +2332,9 @@ export class ParticleFusionSimulation {
           y: agent.y,
           connections: [],
           activeMolecules: [],
+          pendingDiscoveries: [],
+          awaitingCodexTap: false,
+          popTimer: 0,
         }));
     }
 
