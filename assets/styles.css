@@ -1549,9 +1549,15 @@ body.graphics-mode-low .control-button {
   outline-offset: 2px;
 }
 
+.tower-loadout-wheel__info {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .tower-loadout-wheel__label {
-  grid-column: 1 / span 2;
-  justify-self: start;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
@@ -1589,8 +1595,8 @@ body.graphics-mode-low .control-button {
 }
 
 .tower-loadout-wheel__cost {
-  grid-column: 2;
-  justify-self: end;
+  display: flex;
+  align-items: center;
   font-weight: 700;
   letter-spacing: 0.05em;
   color: rgba(255, 228, 120, 0.92);

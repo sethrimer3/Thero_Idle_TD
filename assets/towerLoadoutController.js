@@ -528,6 +528,7 @@ export function createTowerLoadoutController({
       item.dataset.towerId = definition.id;
       item.dataset.distance = String(Math.abs(index - clampedIndex));
 
+      const costState = resolveTowerCostState(definition.id);
       if (definition.icon) {
         const art = document.createElement('img');
         art.className = 'tower-loadout-wheel__icon';
@@ -538,23 +539,28 @@ export function createTowerLoadoutController({
         item.append(art);
       }
 
+      const infoRow = document.createElement('div');
+      infoRow.className = 'tower-loadout-wheel__info';
+
+      // Keep the glyph and its price paired so the wheel stays text-light.
       const label = document.createElement('span');
       label.className = 'tower-loadout-wheel__label';
       label.textContent = definition.symbol || definition.name || definition.id;
-      item.append(label);
+      infoRow.append(label);
 
-      const tier = document.createElement('span');
-      tier.className = 'tower-loadout-wheel__tier';
-      tier.textContent = `Tier ${Number.isFinite(definition.tier) ? definition.tier : '—'}`;
-      item.append(tier);
+      const costValue = Number.isFinite(costState.anchorCostValue) ? costState.anchorCostValue : 0;
+      const costLabel = document.createElement('span');
+      costLabel.className = 'tower-loadout-wheel__cost';
+      costLabel.textContent = `${safeFormatCombatNumber(costValue)} ${safeGetTheroSymbol()}`;
+      infoRow.append(costLabel);
 
-      const costState = resolveTowerCostState(definition.id);
+      item.append(infoRow);
       item.dataset.affordable = costState.canAffordAnchor ? 'true' : 'false';
       item.setAttribute(
         'aria-label',
-        `${definition.name || definition.id} — Tier ${definition.tier || '—'} — ${safeFormatCombatNumber(
-          costState.anchorCostValue,
-        )} ${safeGetTheroSymbol()}`,
+        `${definition.symbol || definition.name || definition.id} — ${safeFormatCombatNumber(costValue)} ${
+          safeGetTheroSymbol()
+        }`,
       );
 
       item.addEventListener('click', () => {
