@@ -1403,11 +1403,10 @@ export class PowderSimulation {
     const palette = this.getEffectiveMotePalette();
     const normalizedSize = Number.isFinite(size) ? Math.max(1, size) : 1;
     const sizeRatio = clampUnitInterval((normalizedSize - 1) / Math.max(1, (this.maxDropSize || normalizedSize) - 1));
-    const baseRestAlpha = Number.isFinite(palette?.restAlpha) ? palette.restAlpha : 0.9;
-    const baseFreefallAlpha = Number.isFinite(palette?.freefallAlpha) ? palette.freefallAlpha : 0.6;
-    const alpha = isFreefall
-      ? Math.min(1, baseFreefallAlpha + 0.08)
-      : Math.min(1, baseRestAlpha + 0.04);
+    const baseRestAlpha = Number.isFinite(palette?.restAlpha) ? palette.restAlpha : 1;
+    const baseFreefallAlpha = Number.isFinite(palette?.freefallAlpha) ? palette.freefallAlpha : 1;
+    // Keep mote fills fully opaque so grains render as solid blocks without halo outlines.
+    const alpha = Math.min(1, Math.max(1, isFreefall ? baseFreefallAlpha : baseRestAlpha));
     const resolvedColor = this.normalizeDropColor(baseColor);
     if (resolvedColor) {
       const highlight = mixRgbColors(resolvedColor, { r: 255, g: 255, b: 255 }, 0.28 + sizeRatio * 0.22);
