@@ -4146,6 +4146,10 @@ import {
       getOverlayActiveState: () => Boolean(levelOverlayController?.isOverlayActive()),
       isFieldNotesOverlayVisible,
       onTabChange: (tabId) => {
+        // Hide the tower selection wheel whenever players leave the Stage tab.
+        if (tabId !== 'tower' && playfield && typeof playfield.closeTowerSelectionWheel === 'function') {
+          playfield.closeTowerSelectionWheel();
+        }
         if (previousTabId === 'tsadi' && tabId !== 'tsadi') {
           // Stash Tsadi particle counts before the viewport collapses so reentry can rebuild cleanly.
           tsadiSimulationInstance?.stageParticlesForReentry?.();
