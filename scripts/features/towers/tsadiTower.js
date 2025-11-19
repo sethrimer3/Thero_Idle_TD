@@ -328,7 +328,7 @@ export class ParticleFusionSimulation {
     this.forceLinks = [];
 
     // Binding agent placement and molecule tracking.
-    this.bindingAgents = []; // { id, x, y, connections: [{ particleId, tier, bondLength }], activeMolecules: string[] }
+    this.bindingAgents = []; // { id, x, y, vx, vy, connections: [{ particleId, tier, bondLength }], activeMolecules: string[] }
     this.bindingAgentPreview = null; // Pending placement ghost position
     this.availableBindingAgents = Number.isFinite(options.initialBindingAgents)
       ? Math.max(0, options.initialBindingAgents)
@@ -765,6 +765,15 @@ export class ParticleFusionSimulation {
   }
 
   /**
+   * Estimate a binding agent's mass using its display radius as an inertia proxy.
+   * @returns {number} Positive mass-like scalar.
+   */
+  getBindingAgentMass() {
+    const radius = this.getBindingAgentRadius();
+    return Math.max(1, radius * radius);
+  }
+
+  /**
    * Get the available binding agent stock.
    * @returns {number} Non-negative binding agent reserve.
    */
@@ -844,6 +853,8 @@ export class ParticleFusionSimulation {
       id: Math.random(),
       x: position.x,
       y: position.y,
+      vx: 0,
+      vy: 0,
       connections: [],
       activeMolecules: [],
     });
@@ -993,6 +1004,38 @@ export class ParticleFusionSimulation {
       return;
     }
 
+    // Drift binding agents with inertia so they participate in the simulation like particles.
+    const bindingRadius = this.getBindingAgentRadius();
+    const bindingMass = this.getBindingAgentMass();
+    for (const agent of this.bindingAgents) {
+      if (!Number.isFinite(agent.vx)) agent.vx = 0;
+      if (!Number.isFinite(agent.vy)) agent.vy = 0;
+
+      agent.x += agent.vx * dt;
+      agent.y += agent.vy * dt;
+
+      // Bounce off the walls so anchored agents stay inside the chamber.
+      if (agent.x - bindingRadius < 0) {
+        agent.x = bindingRadius;
+        agent.vx = Math.abs(agent.vx);
+      } else if (agent.x + bindingRadius > this.width) {
+        agent.x = this.width - bindingRadius;
+        agent.vx = -Math.abs(agent.vx);
+      }
+
+      if (agent.y - bindingRadius < 0) {
+        agent.y = bindingRadius;
+        agent.vy = Math.abs(agent.vy);
+      } else if (agent.y + bindingRadius > this.height) {
+        agent.y = this.height - bindingRadius;
+        agent.vy = -Math.abs(agent.vy);
+      }
+
+      // Light damping avoids runaway velocity without stealing the feeling of momentum.
+      agent.vx *= 0.995;
+      agent.vy *= 0.995;
+    }
+
     const particleMap = new Map();
     for (const particle of this.particles) {
       particleMap.set(particle.id, particle);
@@ -1002,7 +1045,7 @@ export class ParticleFusionSimulation {
       // Remove stale or now-repulsive connections.
       agent.connections = agent.connections.filter((connection) => {
         const target = particleMap.get(connection.particleId);
-        if (!target || target.repellingForce > 0) {
+        if (!target || target.repellingForce > 0 || target.tier <= NULL_TIER) {
           return false;
         }
 
@@ -1018,6 +1061,7 @@ export class ParticleFusionSimulation {
       if (shouldAttemptBond) {
         const eligibleCandidates = this.particles.filter((particle) => {
           if (particle.repellingForce > 0) return false;
+          if (particle.tier <= NULL_TIER) return false;
           if (connectedTiers.has(particle.tier)) return false;
 
           const dx = particle.x - agent.x;
@@ -1053,6 +1097,41 @@ export class ParticleFusionSimulation {
             }
           }
         }
+      }
+
+      // Constrain connected particles to move as if joined by rigid, weightless rods.
+      for (const connection of agent.connections) {
+        const target = particleMap.get(connection.particleId);
+        if (!target) continue;
+
+        const dx = target.x - agent.x;
+        const dy = target.y - agent.y;
+        const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+        const desiredLength = connection.bondLength || distance;
+        connection.bondLength = desiredLength;
+
+        const nx = dx / distance;
+        const ny = dy / distance;
+
+        const targetMass = target.radius * target.radius;
+        const totalMass = bindingMass + targetMass;
+
+        // Position correction splits the error proportionally to each body's inertia proxy.
+        const separation = distance - desiredLength;
+        const agentShift = (separation * targetMass) / totalMass;
+        const targetShift = (separation * bindingMass) / totalMass;
+        agent.x += nx * agentShift;
+        agent.y += ny * agentShift;
+        target.x -= nx * targetShift;
+        target.y -= ny * targetShift;
+
+        // Velocity correction removes relative motion along the rod so both bodies travel together.
+        const relativeSpeed = (agent.vx - target.vx) * nx + (agent.vy - target.vy) * ny;
+        const impulse = relativeSpeed;
+        agent.vx -= (impulse * nx * targetMass) / totalMass;
+        agent.vy -= (impulse * ny * targetMass) / totalMass;
+        target.vx += (impulse * nx * bindingMass) / totalMass;
+        target.vy += (impulse * ny * bindingMass) / totalMass;
       }
     }
 
