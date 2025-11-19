@@ -1665,19 +1665,43 @@ export class ParticleFusionSimulation {
 
     const drawAgent = (agent, { isPreview = false } = {}) => {
       const baseColor = isPreview ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.9)';
+      const bondColor = agent.activeMolecules?.length ? 'rgba(255, 215, 130, 0.9)' : 'rgba(180, 200, 255, 0.7)';
+      const triangleRadius = radius * 1.5;
+      const cornerRadius = radius * 0.55;
+      const angleOffset = -Math.PI / 2;
+      const corners = [0, 1, 2].map((index) => {
+        const theta = angleOffset + (index * (Math.PI * 2)) / 3;
+        return {
+          x: agent.x + Math.cos(theta) * triangleRadius,
+          y: agent.y + Math.sin(theta) * triangleRadius,
+        };
+      });
+
+      // Outline the triangular bond to hint at three connected spheres rather than a flask glyph.
       ctx.save();
-      ctx.fillStyle = baseColor;
-      ctx.beginPath();
-      ctx.arc(agent.x, agent.y, radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = agent.activeMolecules?.length ? 'rgba(255, 215, 130, 0.9)' : 'rgba(180, 200, 255, 0.7)';
+      ctx.strokeStyle = bondColor;
       ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(corners[0].x, corners[0].y);
+      corners.slice(1).forEach((corner) => {
+        ctx.lineTo(corner.x, corner.y);
+      });
+      ctx.closePath();
       ctx.stroke();
-      ctx.font = `${radius * 1.5}px 'Times New Roman', serif`;
-      ctx.fillStyle = 'rgba(30, 40, 60, 0.9)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('⚗', agent.x, agent.y + 1);
+
+      corners.forEach((corner) => {
+        const glow = ctx.createRadialGradient(corner.x, corner.y, cornerRadius * 0.2, corner.x, corner.y, cornerRadius);
+        glow.addColorStop(0, bondColor);
+        glow.addColorStop(1, baseColor);
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(corner.x, corner.y, cornerRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = bondColor;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      });
       ctx.restore();
     };
 

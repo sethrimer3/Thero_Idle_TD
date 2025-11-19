@@ -8638,11 +8638,23 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   align-items: center;
   justify-content: center;
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.35);
+  z-index: 3; /* Keep the binding handle above overlay layers so the icon remains visible. */
 }
 
 .tsadi-binding-handle:active {
   cursor: grabbing;
   transform: translateY(1px);
+}
+
+.tsadi-binding-handle .tsadi-binding-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.tsadi-binding-handle--depleted {
+  opacity: 0.65; /* Dim the handle when stock is low but keep it discoverable. */
+  cursor: not-allowed;
 }
 
 .tsadi-codex-card {

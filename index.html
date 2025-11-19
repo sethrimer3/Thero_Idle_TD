@@ -2161,7 +2161,19 @@
                     title="Drag to place a binding agent"
                     aria-label="Drag to place a binding agent"
                   >
-                    ⚗
+                    <!-- Hollow triangle with three bonded spheres to represent a binding agent. -->
+                    <svg class="tsadi-binding-icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                      <path
+                        d="M32 8 10 48h44Z"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linejoin="round"
+                        stroke-width="3"
+                      ></path>
+                      <circle cx="32" cy="8" r="6" fill="currentColor"></circle>
+                      <circle cx="54" cy="48" r="6" fill="currentColor"></circle>
+                      <circle cx="10" cy="48" r="6" fill="currentColor"></circle>
+                    </svg>
                   </button>
                   <canvas
                     id="tsadi-canvas"

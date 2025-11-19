@@ -184,12 +184,16 @@ export function createTsadiBindingUi({
       : '∞';
 
     if (handleElement) {
-      if (available >= 1 || !Number.isFinite(available)) {
+      // Always show the handle when any binding agent stock exists, but dim and disable it until a full unit is available.
+      const hasStock = (available > 0) || !Number.isFinite(available);
+      const canPlace = (available >= 1) || !Number.isFinite(available);
+      if (hasStock) {
         handleElement.removeAttribute('hidden');
-        handleElement.disabled = false;
       } else {
         handleElement.setAttribute('hidden', '');
       }
+      handleElement.disabled = !canPlace;
+      handleElement.classList.toggle('tsadi-binding-handle--depleted', hasStock && !canPlace);
     }
 
     if (bindingStat) {
