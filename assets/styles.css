@@ -8360,6 +8360,42 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   box-shadow: inset 0 0 0 1px rgba(139, 247, 255, 0.15), inset 0 0 40px rgba(0, 0, 0, 0.9);
 }
 
+/* Twinkling star layer to anchor the Lamed Spire inside open space. */
+.lamed-starfield {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 18% 26%, rgba(255, 255, 255, 0.85), transparent 55%),
+    radial-gradient(1px 1px at 62% 34%, rgba(139, 247, 255, 0.8), transparent 55%),
+    radial-gradient(1px 1px at 84% 72%, rgba(247, 247, 245, 0.8), transparent 55%),
+    radial-gradient(1px 1px at 34% 78%, rgba(255, 255, 255, 0.8), transparent 55%),
+    radial-gradient(1px 1px at 8% 62%, rgba(139, 247, 255, 0.75), transparent 55%),
+    radial-gradient(1px 1px at 52% 12%, rgba(255, 255, 255, 0.78), transparent 55%);
+  background-size: 240px 240px, 280px 280px, 320px 320px, 360px 360px, 420px 420px, 500px 500px;
+  background-repeat: repeat;
+  opacity: 0.75;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 2px rgba(139, 247, 255, 0.35));
+  animation: lamed-star-twinkle 9s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes lamed-star-twinkle {
+  0% {
+    opacity: 0.45;
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translate3d(-0.6%, 0.4%, 0);
+  }
+  100% {
+    opacity: 0.6;
+    transform: translate3d(0.4%, -0.6%, 0);
+  }
+}
+
 .lamed-basin::before {
   content: '';
   position: absolute;
