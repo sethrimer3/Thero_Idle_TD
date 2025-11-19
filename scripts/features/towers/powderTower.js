@@ -583,9 +583,9 @@ export class PowderSimulation {
     }
 
     const idleBankPositive = Number.isFinite(this.idleBank) && this.idleBank > 1e-6;
-    const ambientEnabled =
-      this.flowOffset > 0 && idleBankPositive && (!Number.isFinite(this.idleDrainRate) || this.idleDrainRate <= 0);
-    // Restrict ambient motes to scenarios where the idle drain is disabled so the fall rate mirrors the mote bank.
+    const idleDrainActive = Number.isFinite(this.idleDrainRate) && this.idleDrainRate > 0;
+    const ambientEnabled = this.flowOffset > 0 && idleBankPositive && idleDrainActive;
+    // Keep ambient motes in sync with the configured fall rate so a zero rate fully halts the cascade.
 
     if (!ambientEnabled) {
       this.spawnTimer = Math.min(this.spawnTimer, interval);
@@ -614,7 +614,9 @@ export class PowderSimulation {
     if (remaining <= 0) {
       return;
     }
-    const allowAmbient = this.flowOffset > 0 && Number.isFinite(this.idleBank) && this.idleBank > 1e-6;
+    const idleDrainActive = Number.isFinite(this.idleDrainRate) && this.idleDrainRate > 0;
+    const allowAmbient =
+      idleDrainActive && this.flowOffset > 0 && Number.isFinite(this.idleBank) && this.idleBank > 1e-6;
     while (remaining > 0 && this.pendingDrops.length && this.grains.length < this.maxGrains) {
       const drop = this.pendingDrops[0];
       if (drop && drop.source === 'ambient' && !allowAmbient) {
