@@ -4473,18 +4473,19 @@ body.graphics-mode-low .control-button {
   pointer-events: auto;
 }
 
+/* Compact leveling toggle that uses a Bet cyan highlight when active. */
 .fluid-tree-level-toggle {
   position: absolute;
   top: 10px;
   left: 10px;
-  width: 44px;
-  height: 44px;
+  width: 26px;
+  height: 26px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 8px;
   background: rgba(16, 24, 36, 0.3);
   color: rgba(255, 255, 255, 0.8);
   font-family: "Space Mono", monospace;
-  font-size: 0.9rem;
+  font-size: 0.7rem;
   letter-spacing: 0.05em;
   pointer-events: auto;
   z-index: 7;
@@ -4492,9 +4493,9 @@ body.graphics-mode-low .control-button {
 }
 
 .fluid-tree-level-toggle.is-active {
-  background: rgba(224, 182, 64, 0.25);
-  border-color: rgba(224, 182, 64, 0.55);
-  color: #f6e7c5;
+  background: rgba(126, 203, 255, 0.25);
+  border-color: rgba(126, 203, 255, 0.65);
+  color: #bfe5ff;
 }
 
 .fluid-tree-level {
