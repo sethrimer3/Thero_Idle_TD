@@ -4386,6 +4386,18 @@ body.graphics-mode-low .control-button {
   transition: filter 900ms ease;
 }
 
+/* Invisible silhouette used to sample collisions without reprocessing the full-resolution terrain art. */
+.fluid-terrarium__collision-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
 .fluid-terrarium__background { z-index: 0; }
 
 .fluid-terrarium__magma {

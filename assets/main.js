@@ -879,9 +879,13 @@ import {
 
   /**
    * Ensure the Bet terrarium surfaces spawn in order so creatures and foliage don't fall through.
-   * First wait for the ground terrain, then for the floating island, before layering overlays.
+   * First wait for the lightweight collision silhouette, then the ground terrain, and finally the floating island.
    */
   async function ensureTerrariumSurfacesReady() {
+    const collisionSprite = fluidElements.terrainCollisionSprite;
+    if (collisionSprite && collisionSprite !== fluidElements.terrainSprite) {
+      await waitForTerrariumSprite(collisionSprite);
+    }
     await waitForTerrariumSprite(fluidElements.terrainSprite);
     await waitForTerrariumSprite(fluidElements.floatingIslandSprite);
   }
@@ -895,6 +899,7 @@ import {
     fluidTerrariumCreatures = new FluidTerrariumCreatures({
       container: fluidElements.viewport,
       terrainElement: fluidElements.terrainSprite,
+      terrainCollisionElement: fluidElements.terrainCollisionSprite,
       creatureCount: slimeCount,
       spawnZones: BET_CAVE_SPAWN_ZONES,
     });
