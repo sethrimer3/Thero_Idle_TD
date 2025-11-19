@@ -388,6 +388,9 @@ body.graphics-mode-low .control-button {
 .offline-overlay__equation-group {
   display: grid;
   gap: clamp(12px, 3vw, 18px);
+  /* Align math operators across rows with a shared column template for clarity. */
+  --offline-equation-template: minmax(8ch, 1fr) minmax(2ch, auto) minmax(8ch, 1fr) minmax(2ch, auto)
+    minmax(12ch, 1fr);
 }
 
 .offline-overlay__equation-row {
@@ -418,7 +421,7 @@ body.graphics-mode-low .control-button {
 /* Keep offline math compact while allowing numbers to grow to their largest value per row. */
 .offline-overlay__equation {
   display: grid;
-  grid-template-columns: repeat(5, max-content);
+  grid-template-columns: var(--offline-equation-template);
   align-items: baseline;
   justify-content: flex-start;
   column-gap: clamp(6px, 1.6vw, 12px);
@@ -479,7 +482,7 @@ body.graphics-mode-low .control-button {
 
 .offline-overlay__equation--continuation {
   display: grid;
-  grid-template-columns: repeat(5, max-content);
+  grid-template-columns: var(--offline-equation-template);
   align-items: baseline;
   column-gap: clamp(6px, 1.6vw, 12px);
   width: 100%;

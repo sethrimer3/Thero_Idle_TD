@@ -332,7 +332,7 @@ async function showOfflineOverlay(summary = {}) {
 
   const alephSuffix = alephTotalValue === 1 ? ' Mote' : ' Motes';
   const betSuffix = ' Serendipity';
-  const happinessSuffix = ' hp';
+  const happinessSuffix = ' happiness';
   const lamedSuffix = lamedTotalValue === 1 ? ' Spark' : ' Sparks';
   const tsadiSuffix = tsadiTotalValue === 1 ? ' Particle' : ' Particles';
   const waalsSuffix = waalsTotalValue === 1 ? ' Waal' : ' Waals';
@@ -577,7 +577,7 @@ export function recordPowderEvent(type, context = {}) {
         const safeHappinessTotal = Number.isFinite(happinessTotal) ? Math.max(0, happinessTotal) : 0;
         const happinessRateLabel = dependencies.formatDecimal(safeHappinessMultiplier * 60, 2);
         const happinessGainLabel = dependencies.formatDecimal(safeHappinessTotal, 2);
-        happinessPieces.push(`☺ × ${happinessRateLabel}/hr = +${happinessGainLabel} hp`);
+        happinessPieces.push(`☺ × ${happinessRateLabel}/hr = +${happinessGainLabel} happiness`);
       }
 
       const powderLabel = dependencies.formatGameNumber(Math.max(0, powder));
