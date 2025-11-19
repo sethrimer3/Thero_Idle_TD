@@ -524,10 +524,39 @@ export function createDeveloperModeManager(options = {}) {
       powderState.modeSwitchPending = false;
       powderState.fluidProfileLabel = 'Bet Spire';
       powderState.fluidUnlocked = false;
+      // Reset Bet glyph milestones so higher-tier spires do not auto-unlock after a wipe.
+      powderState.fluidGlyphsAwarded = 0;
       powderState.viewTransform = null;
       powderState.loadedSimulationState = null;
       powderState.loadedFluidState = null;
     }
+
+    if (spireResourceState) {
+      // Reinitialize advanced spire branches so the tab stack hides any spires that should be locked.
+      if (spireResourceState.lamed) {
+        spireResourceState.lamed.unlocked = false;
+        spireResourceState.lamed.sparkBank = 0;
+        spireResourceState.lamed.dragLevel = 0;
+        spireResourceState.lamed.starMass = 10;
+        spireResourceState.lamed.upgrades = { starMass: 0 };
+        spireResourceState.lamed.stats = { totalAbsorptions: 0, totalMassGained: 0 };
+      }
+      if (spireResourceState.tsadi) {
+        spireResourceState.tsadi.unlocked = false;
+        spireResourceState.tsadi.particleBank = 0;
+        spireResourceState.tsadi.bindingAgents = 0;
+        spireResourceState.tsadi.discoveredMolecules = [];
+        spireResourceState.tsadi.stats = { totalParticles: 0, totalGlyphs: 0 };
+      }
+      if (spireResourceState.shin) {
+        spireResourceState.shin.unlocked = false;
+      }
+      if (spireResourceState.kuf) {
+        spireResourceState.kuf.unlocked = false;
+      }
+    }
+    // Clear Kuf shard totals so the navigation menu and unlock checks reflect a fresh state.
+    setKufTotalShards?.(0);
 
     updateFluidTabAvailability?.();
     resetPowderUiState?.();
@@ -545,7 +574,6 @@ export function createDeveloperModeManager(options = {}) {
           spireResourceState.shin.unlocked = false;
         }
         updateShinDisplay?.();
-        updateSpireTabVisibility?.();
       } catch (error) {
         console.warn('Failed to reset Shin Spire state while deleting player data.', error);
       }
@@ -565,6 +593,9 @@ export function createDeveloperModeManager(options = {}) {
     updatePowderWallGapFromGlyphs?.(0);
     refreshPowderWallDecorations?.();
     refreshPowderSystems?.();
+    // Sync the spire UI immediately so hidden spires disappear before the reload kicks in.
+    updateSpireTabVisibility?.();
+    spireMenuController?.updateCounts?.();
     updatePowderModeButton?.();
     updateStatusDisplays?.();
     updatePowderLogDisplay?.();
