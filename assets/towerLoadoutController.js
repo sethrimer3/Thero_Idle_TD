@@ -44,6 +44,7 @@ export function createTowerLoadoutController({
     dragAccumulator: 0,
     anchorElement: null,
     verticalOffset: 0,
+    horizontalOffset: 0,
   };
   const loadoutUiState = { collapsed: false, toggleHandler: null };
 
@@ -387,6 +388,7 @@ export function createTowerLoadoutController({
     wheelState.slotIndex = -1;
     wheelState.anchorElement = null;
     wheelState.verticalOffset = 0;
+    wheelState.horizontalOffset = 0;
   }
 
   /**
@@ -410,12 +412,14 @@ export function createTowerLoadoutController({
     const scrollY = window.scrollY || window.pageYOffset || 0;
     const maxLeft = Math.max(0, viewportWidth - containerRect.width - 8);
     const maxTop = Math.max(0, viewportHeight - containerRect.height - 8);
-    const desiredLeft = Math.max(8, anchorCenterX - containerRect.width / 2);
-    const desiredTop = Math.max(8, anchorCenterY - containerRect.height / 2);
-    const left = Math.min(maxLeft, desiredLeft);
-    const top = Math.min(maxTop, desiredTop);
+    const desiredLeft = anchorCenterX - containerRect.width / 2;
+    const desiredTop = anchorCenterY - containerRect.height / 2;
+    const left = Math.min(maxLeft, Math.max(8, desiredLeft));
+    const top = Math.min(maxTop, Math.max(8, desiredTop));
     // Track how far the wheel was clamped vertically so the list can be nudged to stay aligned with the held slot.
     wheelState.verticalOffset = desiredTop - top;
+    // Track horizontal clamp offset so the wheel contents can stay centered on the slot even near the viewport edge.
+    wheelState.horizontalOffset = desiredLeft - left;
     wheelState.container.style.left = `${left + scrollX}px`;
     wheelState.container.style.top = `${top + scrollY}px`;
     if (wheelState.list) {
@@ -452,7 +456,7 @@ export function createTowerLoadoutController({
       -wheelState.focusIndex * itemHeight + listHeight / 2 - itemHeight / 2 + (wheelState.verticalOffset || 0);
     list.style.willChange = 'transform';
     list.style.transition = immediate ? 'none' : 'transform 140ms ease-out';
-    list.style.transform = `translateY(${offset}px)`;
+    list.style.transform = `translate(${wheelState.horizontalOffset || 0}px, ${offset}px)`;
     const roundedIndex = Math.min(
       Math.max(Math.round(wheelState.focusIndex), 0),
       Math.max(0, towers.length - 1),
