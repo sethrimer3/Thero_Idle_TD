@@ -334,6 +334,10 @@ export class FluidTerrariumTrees {
     badgeLayer.className = 'fluid-terrarium__tree-badges';
     overlay.appendChild(badgeLayer);
 
+    // Cluster the terrarium controls so they can sit along the magma shelf in the Bet cave.
+    const controlCluster = document.createElement('div');
+    controlCluster.className = 'fluid-tree-control-cluster';
+
     const levelButton = document.createElement('button');
     levelButton.type = 'button';
     levelButton.className = 'fluid-tree-level-toggle';
@@ -378,8 +382,9 @@ export class FluidTerrariumTrees {
     // toggle receives a proper UX treatment.
     this.levelingMode = true;
 
-    this.container.appendChild(levelButton);
-    this.container.appendChild(storeButton);
+    controlCluster.appendChild(levelButton);
+    controlCluster.appendChild(storeButton);
+    this.container.appendChild(controlCluster);
     if (storePanel) {
       this.container.appendChild(storePanel);
     }
