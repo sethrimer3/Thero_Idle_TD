@@ -201,10 +201,10 @@ export class FluidTerrariumTrees {
    */
   loadMasks() {
     const maskSources = [
-      { url: this.largeMaskUrl, size: 'large' },
-      { url: this.smallMaskUrl, size: 'small' },
+      { url: this.largeMaskUrl, size: 'large', origin: 'ground' },
+      { url: this.smallMaskUrl, size: 'small', origin: 'ground' },
       // A dedicated floating island mask spawns the elevated bonsai anchor.
-      { url: this.islandSmallMaskUrl, size: 'small' },
+      { url: this.islandSmallMaskUrl, size: 'small', origin: 'island' },
     ].filter((entry) => typeof entry.url === 'string');
 
     maskSources.forEach((entry) => {
@@ -213,17 +213,17 @@ export class FluidTerrariumTrees {
       image.loading = 'eager';
       image.src = entry.url;
       image.addEventListener('load', () => {
-        this.handleMaskLoad(entry.size, image);
+        this.handleMaskLoad(entry, image);
       }, { once: true });
     });
   }
 
   /**
    * Extract anchors from a loaded mask and rebuild the fractal layout.
-   * @param {'large'|'small'} size
+   * @param {{size:'large'|'small', origin?:'ground'|'island'}} mask
    * @param {HTMLImageElement} image
    */
-  handleMaskLoad(size, image) {
+  handleMaskLoad(mask, image) {
     if (!image?.naturalWidth || !image?.naturalHeight) {
       return;
     }
@@ -233,7 +233,14 @@ export class FluidTerrariumTrees {
       this.updateRenderBounds();
     }
 
-    const anchors = this.extractAnchorsFromMask(image).map((anchor) => ({ ...anchor, size }));
+    const anchors = this.extractAnchorsFromMask(image)
+      .map((anchor) => ({
+        ...anchor,
+        size: mask.size,
+        origin: mask.origin || 'ground',
+        rawBaseY: anchor.baseY,
+      }))
+      .map((anchor) => ({ ...anchor, baseY: this.getAdjustedBase(anchor) }));
     this.anchors.push(...anchors);
     this.refreshLayout();
   }
@@ -324,11 +331,33 @@ export class FluidTerrariumTrees {
   }
 
   /**
+   * Lift or nudge anchors so tree roots meet the terrain surfaces marked by the masks.
+   * @param {{baseY:number, heightRatio:number, size:'large'|'small', origin?:'ground'|'island'}} anchor
+   * @returns {number}
+   */
+  getAdjustedBase(anchor) {
+    const base = anchor?.baseY || 0;
+    const heightRatio = anchor?.heightRatio || 0;
+
+    if (anchor?.origin === 'island') {
+      // Raise island anchors slightly so the bonsai crown grows from the plateau instead of the overhang.
+      return Math.min(1, base + heightRatio * 0.15);
+    }
+
+    if (anchor?.size === 'small') {
+      // Center ground anchors on the color block instead of its lower edge to prevent burying the saplings.
+      return Math.max(0, base - heightRatio * 0.5);
+    }
+
+    return base;
+  }
+
+  /**
    * Create a stable identifier for a tree anchor so progress persists across reloads.
    */
   getAnchorKey(anchor) {
     const center = Math.round((anchor?.centerX || 0) * 1000);
-    const base = Math.round((anchor?.baseY || 0) * 1000);
+    const base = Math.round(((anchor?.rawBaseY ?? anchor?.baseY) || 0) * 1000);
     const width = Math.round((anchor?.widthRatio || 0) * 1000);
     const height = Math.round((anchor?.heightRatio || 0) * 1000);
     return `${anchor?.size || 'tree'}-${center}-${base}-${width}-${height}`;
