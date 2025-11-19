@@ -163,7 +163,7 @@ function createProceduralPreviewPath(level) {
 }
 
 // Retrieve preview-ready points from the level configuration or generate a fallback.
-function getPreviewPointsForLevel(level, levelConfigs) {
+export function getPreviewPointsForLevel(level, levelConfigs) {
   if (!level) {
     return null;
   }

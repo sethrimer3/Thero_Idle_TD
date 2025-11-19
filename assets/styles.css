@@ -2171,6 +2171,35 @@ body.graphics-mode-low .control-button {
   transition: transform 300ms ease, opacity 220ms ease, border-color var(--transition), box-shadow var(--transition);
 }
 
+/* Overlay a faint trace of the level path so each card hints at its shape without overpowering the label. */
+.level-node-preview {
+  position: absolute;
+  inset: 10px;
+  z-index: 0;
+  opacity: 0.55;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.level-node-preview__glow {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.2;
+  filter: blur(1.2px);
+}
+
+.level-node-preview__stroke {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.32;
+}
+
 .level-set.expanded .level-node {
   transform: translateX(0);
   opacity: 1;
@@ -2211,6 +2240,8 @@ body.graphics-mode-low .control-button {
 }
 
 .level-node-core {
+  position: relative; /* Keep level copy above the transparent path trace. */
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -2244,6 +2275,7 @@ body.graphics-mode-low .control-button {
   background: rgba(139, 247, 255, 0.18);
   color: var(--accent);
   font-weight: 600;
+  z-index: 1; /* Elevate the status pill above the embedded path preview. */
 }
 
 .level-node.entered .level-status-pill {
@@ -2274,6 +2306,7 @@ body.graphics-mode-low .control-button {
   pointer-events: none;
   opacity: 0;
   transition: opacity 200ms ease;
+  z-index: 1; /* Ensure wave records sit above the level preview stroke. */
 }
 
 .level-node.show-wave .level-best-wave {
