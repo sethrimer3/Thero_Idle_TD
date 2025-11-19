@@ -43,6 +43,7 @@ export function createTowerLoadoutController({
     lastY: 0,
     dragAccumulator: 0,
     anchorElement: null,
+    verticalOffset: 0,
   };
   const loadoutUiState = { collapsed: false, toggleHandler: null };
 
@@ -385,6 +386,7 @@ export function createTowerLoadoutController({
     wheelState.towers = [];
     wheelState.slotIndex = -1;
     wheelState.anchorElement = null;
+    wheelState.verticalOffset = 0;
   }
 
   /**
@@ -408,10 +410,17 @@ export function createTowerLoadoutController({
     const scrollY = window.scrollY || window.pageYOffset || 0;
     const maxLeft = Math.max(0, viewportWidth - containerRect.width - 8);
     const maxTop = Math.max(0, viewportHeight - containerRect.height - 8);
-    const left = Math.min(maxLeft, Math.max(8, anchorCenterX - containerRect.width / 2));
-    const top = Math.min(maxTop, Math.max(8, anchorCenterY - containerRect.height / 2));
+    const desiredLeft = Math.max(8, anchorCenterX - containerRect.width / 2);
+    const desiredTop = Math.max(8, anchorCenterY - containerRect.height / 2);
+    const left = Math.min(maxLeft, desiredLeft);
+    const top = Math.min(maxTop, desiredTop);
+    // Track how far the wheel was clamped vertically so the list can be nudged to stay aligned with the held slot.
+    wheelState.verticalOffset = desiredTop - top;
     wheelState.container.style.left = `${left + scrollX}px`;
     wheelState.container.style.top = `${top + scrollY}px`;
+    if (wheelState.list) {
+      updateLoadoutWheelTransform({ immediate: true, skipReposition: true });
+    }
   }
 
   /**
@@ -432,14 +441,15 @@ export function createTowerLoadoutController({
   /**
    * Smoothly translate the wheel list so the focused option is centered.
    */
-  function updateLoadoutWheelTransform({ immediate = false } = {}) {
+  function updateLoadoutWheelTransform({ immediate = false, skipReposition = false } = {}) {
     const { list, towers } = wheelState;
     if (!list || !Array.isArray(towers) || !towers.length || !Number.isFinite(wheelState.focusIndex)) {
       return;
     }
     const itemHeight = Math.max(1, wheelState.itemHeight || LOADOUT_SCROLL_STEP_PX);
     const listHeight = list.getBoundingClientRect()?.height || itemHeight;
-    const offset = -wheelState.focusIndex * itemHeight + listHeight / 2 - itemHeight / 2;
+    const offset =
+      -wheelState.focusIndex * itemHeight + listHeight / 2 - itemHeight / 2 + (wheelState.verticalOffset || 0);
     list.style.willChange = 'transform';
     list.style.transition = immediate ? 'none' : 'transform 140ms ease-out';
     list.style.transform = `translateY(${offset}px)`;
@@ -449,7 +459,7 @@ export function createTowerLoadoutController({
     );
     wheelState.activeIndex = roundedIndex;
     updateLoadoutWheelDistances();
-    if (wheelState.anchorElement) {
+    if (wheelState.anchorElement && !skipReposition) {
       positionLoadoutWheel(wheelState.anchorElement);
     }
     if (immediate) {
@@ -567,9 +577,11 @@ export function createTowerLoadoutController({
     const listStyles = window.getComputedStyle(list);
     const gapValue = listStyles?.rowGap || listStyles?.gap || '0';
     const listGap = Number.parseFloat(gapValue) || 0;
-    const viewportHeight = itemHeight * Math.max(1, towers.length) + listGap * Math.max(0, towers.length - 1);
-    // Grow the wheel viewport by one icon height per unlocked tower so new options remain fully visible.
-    list.style.setProperty('--tower-loadout-wheel-height', `${viewportHeight}px`);
+    const totalHeight = itemHeight * Math.max(1, towers.length) + listGap * Math.max(0, towers.length - 1);
+    const viewportHeight = document.documentElement?.clientHeight || window.innerHeight || totalHeight;
+    // Clamp the wheel height to the viewport so the active option can sit over the slot without clipping off-screen.
+    const clampedHeight = Math.min(totalHeight, Math.max(itemHeight * 3, viewportHeight - 24));
+    list.style.setProperty('--tower-loadout-wheel-height', `${clampedHeight}px`);
     updateLoadoutWheelTransform({ immediate });
   }
 
