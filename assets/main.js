@@ -135,7 +135,7 @@ import { FluidTerrariumCreatures } from './fluidTerrariumCreatures.js';
 // Brownian forest crystal growth pinned to the Bet cavern walls.
 import { FluidTerrariumCrystal } from './fluidTerrariumCrystal.js';
 // Fractal trees anchored by the Bet terrarium placement masks.
-import { FluidTerrariumTrees } from './fluidTerrariumTrees.js';
+import { FluidTerrariumTrees, resolveTerrariumTreeLevel } from './fluidTerrariumTrees.js';
 // Procedural grass that sprouts from the terrarium silhouettes.
 import { FluidTerrariumGrass } from './fluidTerrariumGrass.js';
 // Day/night cycle that animates the Bet terrarium sky and celestial bodies.
@@ -982,6 +982,30 @@ import {
     });
   }
 
+  function updateTerrariumTreeHappiness(trees = {}) {
+    if (!betHappinessSystem) {
+      return;
+    }
+    let largeLevels = 0;
+    let smallLevels = 0;
+    Object.entries(trees || {}).forEach(([treeId, treeState]) => {
+      const allocated = Number.isFinite(treeState?.allocated) ? treeState.allocated : 0;
+      const { level } = resolveTerrariumTreeLevel(allocated);
+      if (!level) {
+        return;
+      }
+      const treeKey = typeof treeId === 'string' ? treeId : '';
+      if (treeKey.startsWith('large-')) {
+        largeLevels += level;
+      } else if (treeKey.startsWith('small-')) {
+        smallLevels += level;
+      }
+    });
+    betHappinessSystem.setProducerCount('betTreeLarge', largeLevels);
+    betHappinessSystem.setProducerCount('betTreeSmall', smallLevels);
+    betHappinessSystem.updateDisplay();
+  }
+
   // Plant animated fractal trees on the Bet terrarium using the placement masks.
   function ensureFluidTerrariumTrees() {
     if (!FLUID_STUDY_ENABLED) {
@@ -1003,6 +1027,7 @@ import {
           levelingMode: Boolean(state?.levelingMode),
           trees: state?.trees ? { ...state.trees } : {},
         };
+        updateTerrariumTreeHappiness(powderState.betTerrarium.trees);
         schedulePowderBasinSave();
       },
     });
@@ -1126,6 +1151,7 @@ import {
     formatGameNumber,
     formatDecimal,
   });
+  updateTerrariumTreeHappiness(powderState.betTerrarium?.trees);
 
   const {
     bindFluidControls,
@@ -1145,7 +1171,7 @@ import {
     getGemSpriteAssetPath,
   });
 
-  const { getPowderBasinSnapshot, applyPowderBasinSnapshot } = createPowderPersistence({
+  const powderPersistence = createPowderPersistence({
     powderState,
     powderConfig,
     mergeMotePalette,
@@ -1155,6 +1181,11 @@ import {
     getPowderSimulation: () => powderSimulation,
     getFluidSimulation: () => fluidSimulationInstance,
   });
+  const getPowderBasinSnapshot = powderPersistence.getPowderBasinSnapshot;
+  const applyPowderBasinSnapshot = (snapshot) => {
+    powderPersistence.applyPowderBasinSnapshot(snapshot);
+    updateTerrariumTreeHappiness(powderState.betTerrarium?.trees);
+  };
 
   const FLUX_OVERVIEW_IS_STUB = true;
   const SIGIL_LADDER_IS_STUB = true;

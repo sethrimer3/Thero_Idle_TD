@@ -6,6 +6,18 @@ const BET_HAPPINESS_PRODUCERS = {
     label: 'Slimes',
     ratePerHour: 0.5,
   },
+  betTreeLarge: {
+    id: 'betTreeLarge',
+    label: 'Ancient Tree',
+    ratePerHour: 10,
+    countLabel: 'Lv',
+  },
+  betTreeSmall: {
+    id: 'betTreeSmall',
+    label: 'Bonsai Trees',
+    ratePerHour: 5,
+    countLabel: 'Lv',
+  },
 };
 
 const LEGACY_PRODUCER_ALIASES = { grasshopper: 'slime' };
@@ -228,7 +240,8 @@ export function createBetHappinessSystem({
       const item = document.createElement('li');
       item.className = 'fluid-happiness-list__item';
       const formattedRate = formatDecimal(producer.totalRate, 2);
-      item.textContent = `${producer.label} (${producer.count}) = ${formattedRate} hp/hr`;
+      const countText = producer.countLabel ? `${producer.countLabel} ${producer.count}` : producer.count;
+      item.textContent = `${producer.label} (${countText}) = ${formattedRate} hp/hr`;
       fragment.appendChild(item);
     });
     list.appendChild(fragment);

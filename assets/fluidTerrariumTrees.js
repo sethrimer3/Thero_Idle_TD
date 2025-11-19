@@ -2,6 +2,25 @@
 
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
 
+/**
+ * Convert stored serendipity allocations into a terrarium tree level, remaining progress,
+ * and the cost of the next level. Shared by the fractal overlay and happiness hooks so
+ * both systems agree on level math.
+ * @param {number} allocated
+ * @returns {{ level: number, progress: number, nextCost: number }}
+ */
+export function resolveTerrariumTreeLevel(allocated = 0) {
+  let remaining = Math.max(0, Math.round(allocated));
+  let level = 0;
+  let nextCost = 1;
+  while (remaining >= nextCost) {
+    remaining -= nextCost;
+    level += 1;
+    nextCost *= 2;
+  }
+  return { level, progress: remaining, nextCost };
+}
+
 // Layered palette that transitions from dark bark into vibrant canopies.
 const BET_TREE_DEPTH_COLORS = [
   '#26160c',
@@ -90,8 +109,8 @@ export class FluidTerrariumTrees {
     levelButton.className = 'fluid-tree-level-toggle';
     levelButton.textContent = 'Lv.';
     // Small overlay toggle that reveals tree levels and leveling progress bars on demand.
-    levelButton.setAttribute('aria-label', 'Toggle tree leveling mode');
-    levelButton.title = 'Show tree levels';
+    levelButton.setAttribute('aria-label', 'Tree levels are always visible');
+    levelButton.title = 'Tree levels are always visible';
     levelButton.addEventListener('click', (event) => {
       // Prevent the click from bubbling into the basin so manual drop handlers don't swallow the toggle.
       event.stopPropagation();
@@ -100,11 +119,18 @@ export class FluidTerrariumTrees {
       this.syncLevelingMode();
       this.emitState();
     });
+    // Disable the toggle until the leveling button UX is reworked.
+    levelButton.disabled = true;
+    levelButton.setAttribute('aria-disabled', 'true');
 
     this.overlay = overlay;
     this.treeLayer = treeLayer;
     this.badgeLayer = badgeLayer;
     this.levelButton = levelButton;
+
+    // Keep leveling mode permanently active so progress bars remain visible until the
+    // toggle receives a proper UX treatment.
+    this.levelingMode = true;
 
     this.container.appendChild(levelButton);
     this.container.appendChild(overlay);
@@ -352,8 +378,8 @@ export class FluidTerrariumTrees {
     }
 
     if (anchor?.size === 'small') {
-      // Center ground anchors on the color block instead of its lower edge to prevent burying the saplings.
-      return Math.max(0, base - heightRatio * 0.5);
+      // Lift saplings so their roots sit on the top edge of the placement mask instead of being buried.
+      return Math.max(0, base - heightRatio);
     }
 
     return base;
@@ -386,15 +412,7 @@ export class FluidTerrariumTrees {
    * Resolve the level and remainder toward the next level from total serendipity.
    */
   computeLevelInfo(allocated) {
-    let remaining = Math.max(0, allocated);
-    let level = 0;
-    let nextCost = 1;
-    while (remaining >= nextCost) {
-      remaining -= nextCost;
-      level += 1;
-      nextCost *= 2;
-    }
-    return { level, progress: remaining, nextCost };
+    return resolveTerrariumTreeLevel(allocated);
   }
 
   /**
