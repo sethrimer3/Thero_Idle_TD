@@ -1470,7 +1470,8 @@ body.graphics-mode-low .control-button {
 .tower-loadout-wheel__list {
   display: grid;
   gap: 2px;
-  max-height: 240px;
+  max-height: var(--tower-loadout-wheel-height, 240px);
+  height: var(--tower-loadout-wheel-height, auto);
   overflow: hidden;
 }
 
