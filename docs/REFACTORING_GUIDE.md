@@ -567,6 +567,25 @@ Following this plan will shrink the single-source files, align them with the dis
 - Fluid and powder systems now share a single palette source of truth, reducing divergence when the theme palette changes
 - The dedicated module creates a clean staging ground for future palette or serialization refactors without reopening the monolith
 
+### powderGridUtils.js (powder basin grid + wall helpers)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- Wall masking, grid clearing, and resize-aware rebuild helpers that previously lived directly on `PowderSimulation`
+- Placement, fill, and clearing utilities for grains plus the aggregate depth math that guides slump direction
+- Wall gap resolution logic (`resolveScaledWallGap()`, `applyWallGapTarget()`, `setWallGapTarget()`) so inset math sits beside the grid utilities
+
+**Integration approach:**
+- Added `scripts/features/towers/powderGridUtils.js` and imported the helpers into `powderTower.js`
+- Replaced the inline method bodies with thin delegations to the shared helpers, keeping public method names stable for existing callers
+- The helpers receive the live simulation instance, letting them reuse `computeColliderSize()`, rendering hooks, and notifier callbacks without duplicating state
+
+**Result:**
+- Wall/inset math and grid bookkeeping now live in a focused module, trimming several hundred lines from `powderTower.js`
+- Future powder simulation changes can adjust grid math in one place without scrolling through the rendering and I/O sections of the tower module
+- The extracted helpers improve readability while preserving the established PowderSimulation API surface
+
 ### towerEquationTooltip.js (equation variable tooltip manager)
 
 **Status:** ✅ Complete
