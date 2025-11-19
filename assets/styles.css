@@ -1482,7 +1482,9 @@ body.graphics-mode-low .control-button {
   gap: 2px;
   max-height: var(--tower-loadout-wheel-height, 240px);
   height: var(--tower-loadout-wheel-height, auto);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: visible;
+  padding: 4px;
   width: 100%;
 }
 
@@ -1493,6 +1495,7 @@ body.graphics-mode-low .control-button {
   gap: 6px;
   align-items: center;
   padding: 8px 10px;
+  overflow: visible;
   border-radius: 10px;
   border: none;
   background: transparent;
