@@ -33,6 +33,37 @@ const BET_TREE_DEPTH_COLORS = [
   '#33803f',
 ];
 
+// Storefront configuration so the Bet terrarium can surface player-placed decorations.
+const DEFAULT_TERRARIUM_STORE_ITEMS = [
+  {
+    id: 'bet-store-large-tree',
+    label: 'Large Fractal Tree',
+    description: 'Full canopy anchor grown from the Shin lattice.',
+    size: 'large',
+    minY: 0.32,
+    maxY: 0.94,
+    minSpacing: 0.09,
+    initialAllocation: 8,
+  },
+  {
+    id: 'bet-store-small-tree',
+    label: 'Island Bonsai',
+    description: 'Compact sapling suited for ridge lines.',
+    size: 'small',
+    minY: 0.28,
+    maxY: 0.9,
+    minSpacing: 0.07,
+    initialAllocation: 5,
+  },
+];
+
+const PLACEMENT_DIMENSIONS = {
+  large: { widthRatio: 0.08, heightRatio: 0.26 },
+  small: { widthRatio: 0.05, heightRatio: 0.18 },
+};
+
+const STORE_STATUS_DEFAULT = 'Select an object and tap the terrain to place it. Placements reset when you reload.';
+
 /**
  * Render animated fractal trees on the Bet terrarium using color-block masks to anchor
  * their positions. Each tree reuses the Shin Spire fractal animation so branches
@@ -61,6 +92,18 @@ export class FluidTerrariumTrees {
     this.treeLayer = null;
     this.badgeLayer = null;
     this.levelButton = null;
+    this.storeButton = null;
+    this.storePanel = null;
+    this.storeList = null;
+    this.storeStatus = null;
+    this.storeItemButtons = new Map();
+    this.availableStoreItems = this.normalizeStoreItems(options.storeItems);
+    this.playerPlacements = [];
+    this.activeStoreItemId = null;
+    this.isStoreOpen = false;
+    this.placementPreview = null;
+    this.pendingPlacementPoint = null;
+    this.ephemeralIdCounter = 0;
 
     const storedState = options.state && typeof options.state === 'object' ? options.state : {};
     this.treeState = storedState.trees && typeof storedState.trees === 'object' ? { ...storedState.trees } : {};
@@ -80,10 +123,197 @@ export class FluidTerrariumTrees {
 
     this.handleResize = this.handleResize.bind(this);
     this.handleFrame = this.handleFrame.bind(this);
+    this.handleContainerPointerMove = this.handleContainerPointerMove.bind(this);
+    this.handleContainerPointerLeave = this.handleContainerPointerLeave.bind(this);
+    this.handleContainerClick = this.handleContainerClick.bind(this);
 
     this.initializeOverlay();
     this.observeContainer();
     this.loadMasks();
+  }
+
+  /**
+   * Normalize optional storefront configuration so every entry carries placement rules.
+   * @param {Array} rawItems
+   */
+  normalizeStoreItems(rawItems) {
+    const source = Array.isArray(rawItems) && rawItems.length ? rawItems : DEFAULT_TERRARIUM_STORE_ITEMS;
+    return source.map((item, index) => ({
+      id: typeof item?.id === 'string' ? item.id : `terrarium-store-${index}`,
+      label: typeof item?.label === 'string' ? item.label : 'Terrarium Object',
+      description: typeof item?.description === 'string' ? item.description : '',
+      size: item?.size === 'small' ? 'small' : 'large',
+      origin: item?.origin === 'island' ? 'island' : 'ground',
+      minY: Number.isFinite(item?.minY) ? item.minY : 0.3,
+      maxY: Number.isFinite(item?.maxY) ? item.maxY : 0.95,
+      minSpacing: Number.isFinite(item?.minSpacing) ? Math.max(0.04, item.minSpacing) : 0.08,
+      initialAllocation: Number.isFinite(item?.initialAllocation) ? Math.max(0, item.initialAllocation) : 6,
+    }));
+  }
+
+  /**
+   * Build the interactive store menu that lets players pick decorative items.
+   */
+  buildStorePanel() {
+    if (!this.container || typeof document === 'undefined') {
+      return null;
+    }
+
+    const panel = document.createElement('div');
+    panel.className = 'fluid-tree-store-panel';
+    panel.hidden = true;
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-hidden', 'true');
+    panel.setAttribute('aria-label', 'Terrarium store');
+
+    const title = document.createElement('p');
+    title.className = 'fluid-tree-store-title';
+    title.textContent = 'Terrarium Store';
+    panel.appendChild(title);
+
+    const note = document.createElement('p');
+    note.className = 'fluid-tree-store-note';
+    note.textContent = 'Pick a fractal object and tap the basin to place it.';
+    panel.appendChild(note);
+
+    const list = document.createElement('div');
+    list.className = 'fluid-tree-store-list';
+    panel.appendChild(list);
+    this.storeList = list;
+    this.populateStoreItems();
+
+    const status = document.createElement('p');
+    status.className = 'fluid-tree-store-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.textContent = STORE_STATUS_DEFAULT;
+    panel.appendChild(status);
+    this.storeStatus = status;
+
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'fluid-tree-store-close';
+    closeButton.textContent = 'Close';
+    closeButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.toggleStorePanel(false);
+    });
+    panel.appendChild(closeButton);
+
+    return panel;
+  }
+
+  /**
+   * Populate the store menu with the available decorative items.
+   */
+  populateStoreItems() {
+    if (!this.storeList) {
+      return;
+    }
+    this.storeList.innerHTML = '';
+    this.storeItemButtons.clear();
+
+    this.availableStoreItems.forEach((item) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'fluid-tree-store-item';
+      button.dataset.itemId = item.id;
+      const label = document.createElement('span');
+      label.className = 'fluid-tree-store-item__label';
+      label.textContent = item.label;
+      button.appendChild(label);
+      if (item.description) {
+        const description = document.createElement('span');
+        description.className = 'fluid-tree-store-item__description';
+        description.textContent = item.description;
+        button.appendChild(description);
+      }
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.selectStoreItem(item.id);
+      });
+      this.storeList.appendChild(button);
+      this.storeItemButtons.set(item.id, button);
+    });
+  }
+
+  /**
+   * Toggle the visibility of the store panel.
+   * @param {boolean} [forceState]
+   */
+  toggleStorePanel(forceState) {
+    const nextState = typeof forceState === 'boolean' ? forceState : !this.isStoreOpen;
+    this.isStoreOpen = nextState;
+    if (this.storePanel) {
+      this.storePanel.hidden = !nextState;
+      this.storePanel.setAttribute('aria-hidden', nextState ? 'false' : 'true');
+    }
+    if (this.storeButton) {
+      this.storeButton.classList.toggle('is-active', nextState);
+      this.storeButton.setAttribute('aria-expanded', nextState ? 'true' : 'false');
+    }
+    if (!nextState) {
+      this.clearStoreSelection();
+      this.hidePlacementPreview();
+      this.setStoreStatus(STORE_STATUS_DEFAULT);
+    }
+  }
+
+  /**
+   * Update the live region messaging for the storefront.
+   * @param {string} message
+   */
+  setStoreStatus(message) {
+    if (this.storeStatus) {
+      this.storeStatus.textContent = message || STORE_STATUS_DEFAULT;
+    }
+  }
+
+  /**
+   * Highlight the active store entry.
+   * @param {string|null} itemId
+   */
+  updateStoreSelectionVisuals(itemId) {
+    this.storeItemButtons.forEach((button, id) => {
+      button.classList.toggle('is-selected', id === itemId);
+    });
+  }
+
+  /**
+   * Clear the currently selected store item.
+   */
+  clearStoreSelection() {
+    this.activeStoreItemId = null;
+    this.updateStoreSelectionVisuals(null);
+  }
+
+  /**
+   * Resolve the active store item metadata.
+   */
+  getActiveStoreItem() {
+    if (!this.activeStoreItemId) {
+      return null;
+    }
+    return this.availableStoreItems.find((item) => item.id === this.activeStoreItemId) || null;
+  }
+
+  /**
+   * Handle item selection and guide the player toward the placement gesture.
+   * @param {string} itemId
+   */
+  selectStoreItem(itemId) {
+    const item = this.availableStoreItems.find((entry) => entry.id === itemId);
+    if (!item) {
+      return;
+    }
+    this.activeStoreItemId = item.id;
+    this.updateStoreSelectionVisuals(item.id);
+    if (!this.isStoreOpen) {
+      this.toggleStorePanel(true);
+    }
+    this.setStoreStatus('Tap the terrain to place this object. These placements are temporary.');
   }
 
   /**
@@ -123,19 +353,239 @@ export class FluidTerrariumTrees {
     levelButton.disabled = true;
     levelButton.setAttribute('aria-disabled', 'true');
 
+    const storeButton = document.createElement('button');
+    storeButton.type = 'button';
+    storeButton.className = 'fluid-tree-store-toggle';
+    storeButton.textContent = 'Store';
+    storeButton.setAttribute('aria-label', 'Open terrarium store');
+    storeButton.setAttribute('aria-expanded', 'false');
+    storeButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.toggleStorePanel();
+    });
+
+    const storePanel = this.buildStorePanel();
+
     this.overlay = overlay;
     this.treeLayer = treeLayer;
     this.badgeLayer = badgeLayer;
     this.levelButton = levelButton;
+    this.storeButton = storeButton;
+    this.storePanel = storePanel;
 
     // Keep leveling mode permanently active so progress bars remain visible until the
     // toggle receives a proper UX treatment.
     this.levelingMode = true;
 
     this.container.appendChild(levelButton);
+    this.container.appendChild(storeButton);
+    if (storePanel) {
+      this.container.appendChild(storePanel);
+    }
     this.container.appendChild(overlay);
+
+    if (this.container) {
+      this.container.addEventListener('pointermove', this.handleContainerPointerMove);
+      this.container.addEventListener('pointerleave', this.handleContainerPointerLeave);
+      this.container.addEventListener('click', this.handleContainerClick);
+    }
+
+    if (this.overlay) {
+      const preview = document.createElement('div');
+      preview.className = 'fluid-tree-placement-preview';
+      preview.setAttribute('aria-hidden', 'true');
+      preview.hidden = true;
+      this.overlay.appendChild(preview);
+      this.placementPreview = preview;
+    }
+
     this.syncLevelingMode();
     this.refreshBounds();
+  }
+
+  hidePlacementPreview() {
+    if (this.placementPreview) {
+      this.placementPreview.hidden = true;
+      this.placementPreview.removeAttribute('data-visible');
+      this.placementPreview.removeAttribute('data-valid');
+    }
+    this.pendingPlacementPoint = null;
+  }
+
+  /**
+   * Update the placement preview marker so the player knows where a store object will land.
+   * @param {{xRatio:number,yRatio:number,isInside:boolean}} point
+   * @param {boolean} isValid
+   */
+  updatePlacementPreview(point, isValid) {
+    if (!this.placementPreview || !point?.isInside) {
+      this.hidePlacementPreview();
+      return;
+    }
+    const left = this.renderBounds.left + point.xRatio * this.renderBounds.width;
+    const top = this.renderBounds.top + point.yRatio * this.renderBounds.height;
+    this.placementPreview.style.left = `${left}px`;
+    this.placementPreview.style.top = `${top}px`;
+    this.placementPreview.hidden = false;
+    this.placementPreview.dataset.visible = 'true';
+    this.placementPreview.dataset.valid = isValid ? 'true' : 'false';
+  }
+
+  handleContainerPointerMove(event) {
+    if (!this.isStoreOpen || !this.activeStoreItemId) {
+      return;
+    }
+    if (this.storePanel && this.storePanel.contains(event.target)) {
+      return;
+    }
+    const point = this.getNormalizedPointFromClient(event.clientX, event.clientY);
+    if (!point) {
+      this.hidePlacementPreview();
+      return;
+    }
+    this.pendingPlacementPoint = point;
+    const isValid = this.isPlacementLocationValid(point);
+    this.updatePlacementPreview(point, isValid);
+  }
+
+  handleContainerPointerLeave() {
+    this.hidePlacementPreview();
+  }
+
+  handleContainerClick(event) {
+    if (!this.isStoreOpen || !this.activeStoreItemId) {
+      return;
+    }
+    if (this.storePanel && this.storePanel.contains(event.target)) {
+      return;
+    }
+    const point = this.getNormalizedPointFromClient(event.clientX, event.clientY);
+    if (!point || !this.isPlacementLocationValid(point)) {
+      this.setStoreStatus('Pick an open patch of terrain. Placements are not saved to your profile.');
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.placeActiveStoreItem(point);
+  }
+
+  /**
+   * Convert a screen coordinate into a normalized point relative to the terrarium sprite.
+   * @param {number} clientX
+   * @param {number} clientY
+   */
+  getNormalizedPointFromClient(clientX, clientY) {
+    if (!this.container || !this.renderBounds.width || !this.renderBounds.height) {
+      return null;
+    }
+    const rect = this.container.getBoundingClientRect();
+    const offsetX = clientX - rect.left - this.renderBounds.left;
+    const offsetY = clientY - rect.top - this.renderBounds.top;
+    const xRatio = offsetX / Math.max(1, this.renderBounds.width);
+    const yRatio = offsetY / Math.max(1, this.renderBounds.height);
+    return {
+      xRatio,
+      yRatio,
+      isInside: xRatio >= 0 && xRatio <= 1 && yRatio >= 0 && yRatio <= 1,
+    };
+  }
+
+  /**
+   * Validate whether a normalized point is acceptable for the selected store item.
+   * @param {{xRatio:number,yRatio:number,isInside:boolean}} point
+   * @param {object|null} [storeItem]
+   */
+  isPlacementLocationValid(point, storeItem = this.getActiveStoreItem()) {
+    if (!point?.isInside || !storeItem) {
+      return false;
+    }
+    if (point.yRatio < storeItem.minY || point.yRatio > storeItem.maxY) {
+      return false;
+    }
+    const spacing = Math.max(0.02, storeItem.minSpacing || 0.08);
+    const anchors = this.getCombinedAnchors();
+    return !anchors.some((anchor) => {
+      const anchorX = Number.isFinite(anchor?.centerX) ? anchor.centerX : 0;
+      const anchorY = Number.isFinite(anchor?.baseY) ? anchor.baseY : 0;
+      const distance = Math.hypot(anchorX - point.xRatio, anchorY - point.yRatio);
+      return distance < spacing;
+    });
+  }
+
+  /**
+   * Merge the baked-in anchors with player-placed entries.
+   */
+  getCombinedAnchors() {
+    return [...this.anchors, ...this.playerPlacements];
+  }
+
+  /**
+   * Generate a normalized anchor from a placement gesture.
+   * @param {{xRatio:number,yRatio:number}} point
+   * @param {object} storeItem
+   */
+  createPlacementAnchor(point, storeItem) {
+    const dimensions = PLACEMENT_DIMENSIONS[storeItem.size] || PLACEMENT_DIMENSIONS.large;
+    const clampedX = Math.min(1, Math.max(0, point.xRatio));
+    const clampedY = Math.min(1, Math.max(0, point.yRatio));
+    const anchor = {
+      centerX: clampedX,
+      baseY: clampedY,
+      rawBaseY: clampedY,
+      widthRatio: dimensions.widthRatio,
+      heightRatio: dimensions.heightRatio,
+      size: storeItem.size,
+      origin: storeItem.origin,
+      ephemeral: true,
+      initialAllocation: storeItem.initialAllocation,
+    };
+    this.getPlacementId(anchor);
+    return anchor;
+  }
+
+  /**
+   * Ensure every player placement receives a stable identifier for animation tracking.
+   * @param {object} anchor
+   */
+  getPlacementId(anchor) {
+    if (!anchor) {
+      return '';
+    }
+    if (!anchor.placementId) {
+      this.ephemeralIdCounter += 1;
+      anchor.placementId = `placement-${this.ephemeralIdCounter}`;
+    }
+    return anchor.placementId;
+  }
+
+  /**
+   * Provide a static state object for ephemeral trees so they can grow without persistence.
+   * @param {object} anchor
+   */
+  createEphemeralTreeState(anchor) {
+    const allocation = Number.isFinite(anchor?.initialAllocation)
+      ? Math.max(0, anchor.initialAllocation)
+      : anchor?.size === 'small'
+        ? 4
+        : 6;
+    return { allocated: allocation };
+  }
+
+  /**
+   * Convert a placement selection into a live tree without persisting to the player profile.
+   * @param {{xRatio:number,yRatio:number}} point
+   */
+  placeActiveStoreItem(point) {
+    const storeItem = this.getActiveStoreItem();
+    if (!storeItem) {
+      return;
+    }
+    const anchor = this.createPlacementAnchor(point, storeItem);
+    this.playerPlacements.push(anchor);
+    this.refreshLayout();
+    this.setStoreStatus(`${storeItem.label} planted. Placements reset when you leave this session.`);
+    this.updatePlacementPreview(point, true);
   }
 
   /**
@@ -576,7 +1026,8 @@ export class FluidTerrariumTrees {
    * Clear existing canvases and rebuild simulations for all anchors.
    */
   refreshLayout() {
-    if (!this.overlay || !this.treeLayer || !this.badgeLayer || !this.anchors.length || !this.renderBounds.width || !this.renderBounds.height) {
+    const anchors = this.getCombinedAnchors();
+    if (!this.overlay || !this.treeLayer || !this.badgeLayer || !anchors.length || !this.renderBounds.width || !this.renderBounds.height) {
       return;
     }
 
@@ -585,7 +1036,7 @@ export class FluidTerrariumTrees {
     this.badgeLayer.innerHTML = '';
     this.trees = [];
 
-    this.anchors.forEach((anchor) => {
+    anchors.forEach((anchor) => {
       const layout = this.computeLayout(anchor);
       if (!layout) {
         return;
@@ -596,17 +1047,24 @@ export class FluidTerrariumTrees {
         return;
       }
 
-      const treeId = this.getAnchorKey(anchor);
-      const state = this.normalizeTreeState(treeId);
-      const badge = this.createLevelBadge(layout);
+      const isEphemeral = Boolean(anchor?.ephemeral);
+      const treeId = isEphemeral ? this.getPlacementId(anchor) : this.getAnchorKey(anchor);
+      const state = isEphemeral ? this.createEphemeralTreeState(anchor) : this.normalizeTreeState(treeId);
+      const badge = isEphemeral ? null : this.createLevelBadge(layout);
 
       this.treeLayer.appendChild(canvas);
-      this.badgeLayer.appendChild(badge.badge);
+      if (badge) {
+        this.badgeLayer.appendChild(badge.badge);
+      }
 
-      const tree = { id: treeId, canvas, simulation, frozen: false, state, badge };
+      const tree = { id: treeId, canvas, simulation, frozen: false, state, badge, isEphemeral };
       this.updateSimulationTarget(tree);
-      this.updateTreeBadge(tree);
-      this.attachTreeInput(tree);
+      if (badge) {
+        this.updateTreeBadge(tree);
+      }
+      if (!isEphemeral) {
+        this.attachTreeInput(tree);
+      }
 
       // Track each tree along with its simulation so we can freeze completed renders later.
       this.trees.push(tree);
@@ -811,6 +1269,11 @@ export class FluidTerrariumTrees {
       } catch (error) {
         console.warn('Failed to disconnect terrarium tree resize observer.', error);
       }
+    }
+    if (this.container) {
+      this.container.removeEventListener('pointermove', this.handleContainerPointerMove);
+      this.container.removeEventListener('pointerleave', this.handleContainerPointerLeave);
+      this.container.removeEventListener('click', this.handleContainerClick);
     }
   }
 }
