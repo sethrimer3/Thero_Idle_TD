@@ -392,7 +392,7 @@ body.graphics-mode-low .control-button {
 
 .offline-overlay__equation-row {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: minmax(10ch, auto) 1fr;
   align-items: baseline;
   gap: clamp(12px, 3vw, 24px);
 }
@@ -405,6 +405,8 @@ body.graphics-mode-low .control-button {
   letter-spacing: 0.08em;
   color: rgba(255, 255, 255, 0.72);
   font-family: "Cormorant Garamond", serif;
+  justify-content: flex-end;
+  min-width: clamp(10ch, 16vw, 13ch);
 }
 
 .offline-overlay__label-text {
@@ -413,12 +415,13 @@ body.graphics-mode-low .control-button {
 }
 
 .offline-overlay__equation {
-  display: inline-grid;
-  grid-auto-flow: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr) max-content minmax(0, 1.2fr);
   align-items: baseline;
-  gap: clamp(10px, 2.5vw, 18px);
+  column-gap: clamp(10px, 2.5vw, 18px);
   font-family: "Cormorant Garamond", serif;
   font-size: clamp(1.6rem, 4.5vw, 3.2rem);
+  width: 100%;
 }
 
 .offline-number {
@@ -448,6 +451,10 @@ body.graphics-mode-low .control-button {
 .offline-overlay__equation-row--inactive .offline-symbol--glyph {
   color: rgba(255, 255, 255, 0.45);
   text-shadow: none;
+}
+
+.offline-overlay__equation--subset {
+  font-size: 0.5em;
 }
 
 .offline-overlay__prompt {
