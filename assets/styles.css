@@ -414,11 +414,14 @@ body.graphics-mode-low .control-button {
   text-transform: uppercase;
 }
 
+
+/* Keep offline math compact while allowing numbers to grow to their largest value per row. */
 .offline-overlay__equation {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr) max-content minmax(0, 1.2fr);
+  grid-template-columns: repeat(5, max-content);
   align-items: baseline;
-  column-gap: clamp(10px, 2.5vw, 18px);
+  justify-content: flex-start;
+  column-gap: clamp(6px, 1.6vw, 12px);
   font-family: "Cormorant Garamond", serif;
   font-size: clamp(1.6rem, 4.5vw, 3.2rem);
   width: 100%;
@@ -427,8 +430,9 @@ body.graphics-mode-low .control-button {
 .offline-number {
   color: var(--accent-3);
   text-shadow: 0 0 14px rgba(255, 228, 120, 0.55), 0 0 28px rgba(255, 228, 120, 0.35);
-  min-width: 4ch;
+  min-width: 0;
   text-align: right;
+  white-space: nowrap;
 }
 
 /* Tuck resource names beneath offline totals for compact mathematical styling. */
@@ -441,6 +445,10 @@ body.graphics-mode-low .control-button {
 .offline-symbol {
   color: rgba(255, 255, 255, 0.68);
   font-size: clamp(1.2rem, 3vw, 2.2rem);
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  min-width: 1.4ch;
 }
 
 .offline-symbol--glyph {
@@ -471,9 +479,9 @@ body.graphics-mode-low .control-button {
 
 .offline-overlay__equation--continuation {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr) max-content minmax(0, 1.2fr);
+  grid-template-columns: repeat(5, max-content);
   align-items: baseline;
-  column-gap: clamp(10px, 2.5vw, 18px);
+  column-gap: clamp(6px, 1.6vw, 12px);
   width: 100%;
 }
 
