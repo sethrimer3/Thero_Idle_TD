@@ -108,10 +108,10 @@ export class PowderSimulation {
     this.idleDropBuffer = 0; // Track how many idle conversions still need to spawn into the basin.
     this.idleDropAccumulator = 0; // Retain fractional idle releases so drops respect the configured rate.
     const fallbackIdleDrainRate = Number.isFinite(options.fallbackIdleDrainRate)
-      ? Math.max(1, options.fallbackIdleDrainRate)
-      : 1;
+      ? Math.max(0, options.fallbackIdleDrainRate)
+      : 0;
     this.idleDrainRate = Number.isFinite(options.idleDrainRate)
-      ? Math.max(1, options.idleDrainRate)
+      ? Math.max(0, options.idleDrainRate)
       : fallbackIdleDrainRate;
     this.maxDropSize = 1;
 
@@ -1332,7 +1332,7 @@ export class PowderSimulation {
     }
 
     if (Number.isFinite(targetProfile.idleDrainRate)) {
-      this.idleDrainRate = Math.max(1, targetProfile.idleDrainRate);
+      this.idleDrainRate = Math.max(0, targetProfile.idleDrainRate);
     } else if (targetProfile.idleDrainRate === null && this.defaultProfile) {
       this.idleDrainRate = this.defaultProfile.idleDrainRate;
     }
@@ -1748,7 +1748,7 @@ export class PowderSimulation {
         flowOffset: Math.max(0, normalizeFiniteNumber(this.flowOffset, 0)),
         stabilized: !!this.stabilized,
         nextId: Math.max(1, normalizeFiniteInteger(this.nextId, 1)),
-        idleDrainRate: Math.max(0.1, normalizeFiniteNumber(this.idleDrainRate, 1)),
+        idleDrainRate: Math.max(0, normalizeFiniteNumber(this.idleDrainRate, 0)),
         baseSpawnInterval: Math.max(16, normalizeFiniteNumber(this.baseSpawnInterval, 180)),
         grainSizes: Array.isArray(this.grainSizes) ? this.grainSizes.map((size) => Math.max(1, normalizeFiniteInteger(size, 1))) : [],
         wallInsetLeftCells: Math.max(0, normalizeFiniteInteger(this.wallInsetLeftCells, 0)),
@@ -1777,7 +1777,7 @@ export class PowderSimulation {
       flowOffset: Math.max(0, normalizeFiniteNumber(this.flowOffset, 0)),
       stabilized: !!this.stabilized,
       nextId: Math.max(1, normalizeFiniteInteger(this.nextId, grains.length + 1)),
-      idleDrainRate: Math.max(0.1, normalizeFiniteNumber(this.idleDrainRate, 1)),
+      idleDrainRate: Math.max(0, normalizeFiniteNumber(this.idleDrainRate, 0)),
       baseSpawnInterval: Math.max(16, normalizeFiniteNumber(this.baseSpawnInterval, 180)),
       grainSizes: Array.isArray(this.grainSizes) ? this.grainSizes.map((size) => Math.max(1, normalizeFiniteInteger(size, 1))) : [],
       wallInsetLeftCells: Math.max(0, normalizeFiniteInteger(this.wallInsetLeftCells, 0)),
@@ -1823,8 +1823,8 @@ export class PowderSimulation {
       }
     }
 
-    if (Number.isFinite(state.idleDrainRate) && state.idleDrainRate > 0) {
-      this.idleDrainRate = Math.max(0.1, state.idleDrainRate);
+    if (Number.isFinite(state.idleDrainRate) && state.idleDrainRate >= 0) {
+      this.idleDrainRate = Math.max(0, state.idleDrainRate);
     }
 
     if (Number.isFinite(state.baseSpawnInterval) && state.baseSpawnInterval > 0) {
