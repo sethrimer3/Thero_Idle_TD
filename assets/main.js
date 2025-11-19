@@ -1092,7 +1092,7 @@ import {
     getTsadiParticleBank,
     getShinGlyphs,
     getKufGlyphs,
-    isFluidUnlocked: () => Boolean(powderState.fluidUnlocked),
+    isFluidUnlocked: () => Boolean(spireResourceState.fluid?.unlocked || powderState.fluidUnlocked),
     isLamedUnlocked: () => Boolean(spireResourceState.lamed?.unlocked),
     isTsadiUnlocked: () => Boolean(spireResourceState.tsadi?.unlocked),
     isShinUnlocked: () => Boolean(spireResourceState.shin?.unlocked),
@@ -1904,6 +1904,10 @@ import {
       return false;
     }
     powderState.fluidUnlocked = true;
+    spireResourceState.fluid = {
+      ...(spireResourceState.fluid || {}),
+      unlocked: true,
+    };
     const startingReservoir = FLUID_UNLOCK_BASE_RESERVOIR_DROPS; // Base reservoir grant for the newly unlocked study.
     const currentFluidBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
     if (currentFluidBank < startingReservoir) {
@@ -2237,6 +2241,7 @@ import {
     fluidStoryState.unlocked = Boolean(fluidBranch.unlocked || fluidStoryState.unlocked);
     fluidStoryState.storySeen = Boolean(fluidBranch.storySeen || fluidStoryState.storySeen);
     spireResourceState.fluid = fluidStoryState;
+    powderState.fluidUnlocked = Boolean(fluidStoryState.unlocked || powderState.fluidUnlocked);
 
     const lamedState = spireResourceState.lamed || {};
     lamedState.unlocked = Boolean(lamedBranch.unlocked || lamedState.unlocked);
