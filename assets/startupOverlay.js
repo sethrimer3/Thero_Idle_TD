@@ -1,8 +1,11 @@
+import { BUILD_NUMBER } from './buildInfo.js';
+
 const STARTUP_LOGO_EXIT_MS = 720; // Allow the logo to drift upward and fade before the overlay dismisses.
 const STARTUP_OVERLAY_MIN_VISIBLE_MS = 4000; // Guarantee the startup overlay lingers long enough to be seen.
 const STARTUP_OVERLAY_FADE_MS = 320;
 
 const startupOverlay = document.getElementById('startup-overlay');
+const startupBuildLabel = startupOverlay ? startupOverlay.querySelector('[data-startup-build]') : null;
 const startupLogo = startupOverlay ? startupOverlay.querySelector('[data-startup-logo]') : null;
 const startupLoading = startupOverlay ? startupOverlay.querySelector('[data-startup-loading]') : null;
 const startupHint = startupOverlay ? startupOverlay.querySelector('.startup-overlay__hint') : null;
@@ -13,6 +16,14 @@ let startupOverlayFadeHandle = null;
 let startupOverlayVisibleAt = null; // Track when the overlay became visible so the minimum duration can be enforced.
 let startupLogoExitHandle = null;
 let startupLogoExitPromise = null;
+
+// Surface the active build number so testers can verify which revision is running during the loading sequence.
+function renderStartupBuildNumber() {
+  if (!startupBuildLabel) {
+    return;
+  }
+  startupBuildLabel.textContent = `Build ${BUILD_NUMBER}`;
+}
 
 function activateStartupLoadingSpinner() {
   if (!startupOverlay || !startupLoading) {
@@ -83,6 +94,7 @@ export function initializeStartupOverlay() {
   if (!startupOverlay) {
     return;
   }
+  renderStartupBuildNumber();
   startupOverlay.classList.remove('startup-overlay--hidden');
   startupOverlay.removeAttribute('hidden');
   startupOverlay.setAttribute('aria-hidden', 'false');
