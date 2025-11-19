@@ -1,25 +1,23 @@
 {
   "level-01-epsilon-loop": {
-      "title": "Epsilon Loop",
-      "sections": [
-        "The Weiserstrass consciousness interface, or what we simply call the Mind Gate, is meant for the consciousness. We still don't know if it is 'the consciousness' or simply consciousness but the distnction it being something we have and something we do is one of the unknowns we hope to illuminate with Mind Gate experiments.",
-
-        "He thought that “animal spirits” (a fine, volatile substance) flowed from this gland to the muscles through hollow nerves to cause movement, and vice versa for perception."
-      ]
-    },
+    "title": "Epsilon Loop",
+    "sections": [
+      "The Weiserstrass consciousness interface, or what we simply call the Mind Gate, is meant for the consciousness. We still don't know if it is 'the consciousness' or simply consciousness but the distnction it being something we have and something we do is one of the unknowns we hope to illuminate with Mind Gate experiments.",
+      "He thought that \u201canimal spirits\u201d (a fine, volatile substance) flowed from this gland to the muscles through hollow nerves to cause movement, and vice versa for perception."
+    ]
+  },
   "level-02-cardioid": {
     "title": "Cardioid",
-      "sections": [
-        "The Cardioid threshold hums like a patient metronome. Loose glyphs drift past your visor in slow drowsy arcs. You jot the vibration frequency into the chalk margin for the archives.",
-        "Archivists stack parabolas beside the path and pretend it's normal. Every beacon along Cardioid flickers between jade and violet on a whim. You tell them the oscillation is intentional so the interns calm down.",
-        "You reroute a stream of ionized sand through the lattice just to listen. The response smells faintly of ozone and pocket thunderstorms. Someone radios that the Cardioid control room approves of your improvisation."
-
-      ]
-    },
+    "sections": [
+      "The Cardioid threshold hums like a patient metronome. Loose glyphs drift past your visor in slow drowsy arcs. You jot the vibration frequency into the chalk margin for the archives.",
+      "Archivists stack parabolas beside the path and pretend it's normal. Every beacon along Cardioid flickers between jade and violet on a whim. You tell them the oscillation is intentional so the interns calm down.",
+      "You reroute a stream of ionized sand through the lattice just to listen. The response smells faintly of ozone and pocket thunderstorms. Someone radios that the Cardioid control room approves of your improvisation."
+    ]
+  },
   "level-03-figure-eight": {
-      "title": "Figure Eight",
-      "sections": [
-        "The philosopher René Descartes asserted that the pineal gland was the “principal seat of the soul.” The point of interaction between the immaterial mind and the physical body. He believed it was the only structure in the brain that was single and not divided into a pair of symmetrical halves. This makes it suitable to unify sensory inputs into a single experience and interact with the singular, indivisible soul.",
+    "title": "Figure Eight",
+    "sections": [
+      "The philosopher Ren\u00e9 Descartes asserted that the pineal gland was the \u201cprincipal seat of the soul.\u201d The point of interaction between the immaterial mind and the physical body. He believed it was the only structure in the brain that was single and not divided into a pair of symmetrical halves. This makes it suitable to unify sensory inputs into a single experience and interact with the singular, indivisible soul.",
       "The countdown hands you a mug of determinant broth and a knowing nod. You whisper that all loops end in laughter because traditions must be honored. By the time the mug is empty, the Cardioid chamber is ready for you."
     ]
   },
@@ -264,6 +262,48 @@
       "Archivists stack clockwork feathers beside the path and pretend it's normal. Every beacon along Evolute flickers between violet and saffron on a whim. You tell them the oscillation is intentional so the interns calm down.",
       "You reroute a stream of ionized sand through the lattice just to listen. The response smells faintly of lemongrass and pocket thunderstorms. Someone radios that the Evolute control room approves of your improvisation.",
       "The countdown hands you a mug of lumen chai and a knowing nod. You whisper that every gate believes in kindness because traditions must be honored. By the time the mug is empty, the Evolute chamber is ready for you."
+    ]
+  },
+  "spire-powder": {
+    "title": "Aleph Spire",
+    "sections": [
+      "The Aleph Spire exhales powder-fine equations that drift like snow across the Mind Gate floor. Each mote feels like a whispered variable begging to be solved.",
+      "Archivists strap lanterns to the cavern walls so the ripples of falling sand can be read like music. You steady your breath and let the dune chants set the tempo for the defense ahead."
+    ]
+  },
+  "spire-fluid": {
+    "title": "Bet Spire",
+    "sections": [
+      "The Bet Terrarium murmurs with violet currents that press against the glass like curious thoughts. Condensation beads reshape themselves into glyphs whenever you blink.",
+      "You skim a finger across the reservoir and the whole chamber answers with a rising chord. The response reminds you that the moat is awake and willing to cooperate if you keep the flow balanced."
+    ]
+  },
+  "spire-lamed": {
+    "title": "Lamed Spire",
+    "sections": [
+      "Gravity softens when you step into the Lamed gate. Sparks hang in place as if waiting for permission to fall, sketching parabolas that only reveal themselves after a deep breath.",
+      "The main mass thrums like a cello string whenever the drag field adjusts. You log the resonance so future crews know how to soothe the well before asking it to grow."
+    ]
+  },
+  "spire-tsadi": {
+    "title": "Tsadi Spire",
+    "sections": [
+      "The Tsadi chamber hums with a thousand polite collisions. Particles greet each other with soft flashes, testing whether they are meant to fuse or merely pass by.",
+      "Chemists have pinned recipes to the walls like festival banners. You promise to return each label with a new tier scribbled in the margins before the night is over."
+    ]
+  },
+  "spire-shin": {
+    "title": "Shin Spire",
+    "sections": [
+      "A lattice of fractal trees unfurls as you enter Shin. Their branches bend toward any source of warmth, tracing invisible integrals through the air around your hands.",
+      "Iterons drift between the trunks like cautious fireflies. You offer them a rhythm to follow so the forest will remember you as the visitor who kept time with its pulse."
+    ]
+  },
+  "spire-kuf": {
+    "title": "Kuf Spire",
+    "sections": [
+      "The Kuf vault keeps its puzzles in mirrored corridors. Each reflection shows a different tower arrangement, daring you to decide which reality will defend the gate.",
+      "Glyph fragments clink underfoot like ceramic tiles. You collect a few shards for luck, knowing the archivists will ask how the vault greeted you when you return."
     ]
   }
 }

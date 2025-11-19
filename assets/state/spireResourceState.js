@@ -2,6 +2,7 @@
 const DEFAULT_LAMED_STATE = {
   sparkBank: 0,
   unlocked: false,
+  storySeen: false,
   dragLevel: 0,
   starMass: 10,
   upgrades: { starMass: 0 },
@@ -14,6 +15,7 @@ const DEFAULT_LAMED_STATE = {
 const DEFAULT_TSADI_STATE = {
   particleBank: 0,
   unlocked: false,
+  storySeen: false,
   bindingAgents: 0,
   discoveredMolecules: [],
   stats: {
@@ -25,6 +27,7 @@ const DEFAULT_TSADI_STATE = {
 
 const DEFAULT_GENERIC_STATE = {
   unlocked: false,
+  storySeen: false,
 };
 
 function mergeBranch(base, overrides = {}) {
@@ -48,6 +51,14 @@ function mergeBranch(base, overrides = {}) {
  */
 export function createSpireResourceState(overrides = {}) {
   return {
+    powder: {
+      ...DEFAULT_GENERIC_STATE,
+      ...(overrides.powder || {}),
+    },
+    fluid: {
+      ...DEFAULT_GENERIC_STATE,
+      ...(overrides.fluid || {}),
+    },
     lamed: mergeBranch(DEFAULT_LAMED_STATE, overrides.lamed),
     tsadi: mergeBranch(DEFAULT_TSADI_STATE, overrides.tsadi),
     shin: {

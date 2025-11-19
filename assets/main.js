@@ -2162,17 +2162,28 @@ import {
    * @returns {Object} Sanitized spire resource data for autosave.
    */
   function getSpireResourceStateSnapshot() {
+    const powderStoryState = spireResourceState.powder || {};
+    const fluidStoryState = spireResourceState.fluid || {};
     const lamedState = spireResourceState.lamed || {};
     const tsadiState = spireResourceState.tsadi || {};
     const shinState = spireResourceState.shin || {};
     const kufState = spireResourceState.kuf || {};
 
     return {
+      powder: {
+        unlocked: true,
+        storySeen: Boolean(powderStoryState.storySeen),
+      },
+      fluid: {
+        unlocked: Boolean(fluidStoryState.unlocked || powderState.fluidUnlocked),
+        storySeen: Boolean(fluidStoryState.storySeen),
+      },
       lamed: {
         unlocked: Boolean(lamedState.unlocked),
         sparkBank: getLamedSparkBank(),
         dragLevel: clampPersistedValue(lamedState.dragLevel, 0),
         starMass: Number.isFinite(lamedState.starMass) ? lamedState.starMass : 10,
+        storySeen: Boolean(lamedState.storySeen),
         upgrades: {
           starMass: clampPersistedValue(lamedState.upgrades?.starMass, 0),
         },
@@ -2183,6 +2194,7 @@ import {
       },
       tsadi: {
         unlocked: Boolean(tsadiState.unlocked),
+        storySeen: Boolean(tsadiState.storySeen),
         particleBank: getTsadiParticleBank(),
         bindingAgents: getTsadiBindingAgents(),
         discoveredMolecules: normalizeDiscoveredMolecules(tsadiState.discoveredMolecules),
@@ -2194,9 +2206,11 @@ import {
       },
       shin: {
         unlocked: Boolean(shinState.unlocked),
+        storySeen: Boolean(shinState.storySeen),
       },
       kuf: {
         unlocked: Boolean(kufState.unlocked),
+        storySeen: Boolean(kufState.storySeen),
       },
     };
   }
@@ -2210,16 +2224,28 @@ import {
       return;
     }
 
+    const powderBranch = snapshot.powder || {};
+    const fluidBranch = snapshot.fluid || {};
     const lamedBranch = snapshot.lamed || {};
     const tsadiBranch = snapshot.tsadi || {};
     const shinBranch = snapshot.shin || {};
     const kufBranch = snapshot.kuf || {};
+
+    const powderStoryState = spireResourceState.powder || {};
+    powderStoryState.storySeen = Boolean(powderBranch.storySeen || powderStoryState.storySeen);
+    spireResourceState.powder = powderStoryState;
+
+    const fluidStoryState = spireResourceState.fluid || {};
+    fluidStoryState.unlocked = Boolean(fluidBranch.unlocked || fluidStoryState.unlocked);
+    fluidStoryState.storySeen = Boolean(fluidBranch.storySeen || fluidStoryState.storySeen);
+    spireResourceState.fluid = fluidStoryState;
 
     const lamedState = spireResourceState.lamed || {};
     lamedState.unlocked = Boolean(lamedBranch.unlocked || lamedState.unlocked);
     setLamedSparkBank(clampPersistedValue(lamedBranch.sparkBank, getLamedSparkBank()));
     lamedState.dragLevel = clampPersistedValue(lamedBranch.dragLevel, lamedState.dragLevel || 0);
     lamedState.starMass = Number.isFinite(lamedBranch.starMass) ? lamedBranch.starMass : lamedState.starMass || 10;
+    lamedState.storySeen = Boolean(lamedBranch.storySeen || lamedState.storySeen);
     lamedState.upgrades = {
       ...(lamedState.upgrades || {}),
       starMass: clampPersistedValue(lamedBranch.upgrades?.starMass, lamedState.upgrades?.starMass || 0),
@@ -2235,6 +2261,7 @@ import {
 
     const tsadiState = spireResourceState.tsadi || {};
     tsadiState.unlocked = Boolean(tsadiBranch.unlocked || tsadiState.unlocked);
+    tsadiState.storySeen = Boolean(tsadiBranch.storySeen || tsadiState.storySeen);
     setTsadiParticleBank(clampPersistedValue(tsadiBranch.particleBank, getTsadiParticleBank()));
     const bindingStock = clampPersistedValue(tsadiBranch.bindingAgents, getTsadiBindingAgents());
     syncTsadiBindingAgents(bindingStock);
@@ -2251,9 +2278,11 @@ import {
 
     const shinState = spireResourceState.shin || {};
     shinState.unlocked = Boolean(shinBranch.unlocked || shinState.unlocked);
+    shinState.storySeen = Boolean(shinBranch.storySeen || shinState.storySeen);
 
     const kufState = spireResourceState.kuf || {};
     kufState.unlocked = Boolean(kufBranch.unlocked || kufState.unlocked);
+    kufState.storySeen = Boolean(kufBranch.storySeen || kufState.storySeen);
   }
 
   // Configure the autosave helpers so they can persist powder, stats, and preference state.
@@ -2337,6 +2366,66 @@ import {
       commitAutoSave();
     },
   });
+  // Narrative targets for each spire tab so the shared story overlay can surface their briefings.
+  const spireStoryTargets = {
+    powder: { id: 'spire-powder', title: 'Aleph Spire' },
+    fluid: { id: 'spire-fluid', title: 'Bet Spire' },
+    lamed: { id: 'spire-lamed', title: 'Lamed Spire' },
+    tsadi: { id: 'spire-tsadi', title: 'Tsadi Spire' },
+    shin: { id: 'spire-shin', title: 'Shin Spire' },
+    kuf: { id: 'spire-kuf', title: 'Kuf Spire' },
+  };
+
+  /**
+   * Retrieve or initialize the persistent story branch for a spire so unlock flow and autosave share state.
+   * @param {string} spireId - Identifier for the spire tab (powder, fluid, lamed, tsadi, shin, kuf).
+   * @returns {Object|null} Reference to the spire story state branch.
+   */
+  function getSpireStoryBranch(spireId) {
+    if (!spireId) {
+      return null;
+    }
+    if (!Object.prototype.hasOwnProperty.call(spireResourceState, spireId)) {
+      spireResourceState[spireId] = { storySeen: false };
+    }
+    const branch = spireResourceState[spireId] || {};
+    if (typeof branch.storySeen !== 'boolean') {
+      branch.storySeen = false;
+    }
+    return branch;
+  }
+
+  /**
+   * Mark a spire briefing as viewed and persist the change to storage.
+   * @param {string} spireId - Identifier for the spire tab.
+   */
+  function markSpireStorySeen(spireId) {
+    const branch = getSpireStoryBranch(spireId);
+    if (!branch || branch.storySeen) {
+      return;
+    }
+    branch.storySeen = true;
+    commitAutoSave();
+  }
+
+  /**
+   * Trigger the shared story overlay when a spire tab opens for the first time.
+   * @param {string} spireId - Identifier for the spire tab being opened.
+   */
+  function maybeShowSpireStory(spireId) {
+    if (!levelStoryScreen) {
+      return;
+    }
+    const storyTarget = spireStoryTargets[spireId];
+    const branch = getSpireStoryBranch(spireId);
+    if (!storyTarget || !branch || branch.storySeen) {
+      return;
+    }
+    levelStoryScreen.maybeShowStory(storyTarget, {
+      shouldShow: () => !branch.storySeen,
+      onComplete: () => markSpireStorySeen(spireId),
+    });
+  }
   // Track the animation frame id that advances idle simulations so we can pause the loop when idle.
 
   // Extracted Tsadi UI helpers manage upgrade bindings via dependency injection.
@@ -4261,6 +4350,9 @@ import {
           // Stash Tsadi particle counts before the viewport collapses so reentry can rebuild cleanly.
           tsadiSimulationInstance?.stageParticlesForReentry?.();
         }
+
+        // Surface spire briefings the first time each tab opens.
+        maybeShowSpireStory(tabId);
 
         refreshTabMusic();
         if (audioManager) {
