@@ -9741,23 +9741,66 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   margin-bottom: 0.5rem;
 }
 
-.kuf-map-select {
+.kuf-map-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+.kuf-map-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   width: 100%;
-  appearance: none;
-  padding: 0.6rem 0.85rem;
+  padding: 0.75rem 0.9rem;
   border-radius: 10px;
   border: 1px solid rgba(120, 160, 220, 0.45);
   background: rgba(15, 24, 44, 0.9);
   color: rgba(220, 240, 255, 0.95);
   font-family: 'Space Grotesk', 'Space Mono', monospace;
   font-size: 0.95rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  text-align: left;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
 
-.kuf-map-select:focus {
+.kuf-map-button:hover,
+.kuf-map-button:focus-visible {
   outline: none;
   border-color: rgba(170, 210, 255, 0.9);
   box-shadow: 0 0 0 2px rgba(90, 140, 220, 0.25);
+  transform: translateY(-1px);
+}
+
+.kuf-map-button.is-active {
+  border-color: rgba(205, 185, 120, 0.85);
+  box-shadow: 0 0 0 2px rgba(240, 210, 140, 0.25);
+}
+
+.kuf-map-button-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: rgba(230, 240, 255, 0.95);
+}
+
+.kuf-map-button-gold {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  color: #f3c969;
+  font-weight: 600;
+}
+
+.kuf-map-gold-value {
+  line-height: 1;
+}
+
+.kuf-map-gold-unit {
+  line-height: 1;
+  font-style: italic;
+  color: #f9dd9a;
+}
 }
 
 .kuf-sim-map-meta {
@@ -9793,6 +9836,8 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   font-size: 1.1rem;
   padding: 0.75rem 2rem;
   margin-bottom: 0.5rem;
+  width: min(420px, 100%);
+  align-self: stretch;
 }
 
 .kuf-sim-menu-units {
@@ -10091,7 +10136,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     padding: 1rem;
   }
 
-  .kuf-map-select {
+  .kuf-map-button {
     font-size: 0.9rem;
   }
 
