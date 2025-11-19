@@ -1002,7 +1002,13 @@ export class ParticleFusionSimulation {
       // Remove stale or now-repulsive connections.
       agent.connections = agent.connections.filter((connection) => {
         const target = particleMap.get(connection.particleId);
-        return Boolean(target && target.repellingForce <= 0);
+        if (!target || target.repellingForce > 0) {
+          return false;
+        }
+
+        // Preserve the latest distance so the render step can draw a taut bond to moving particles.
+        connection.bondLength = Math.hypot(target.x - agent.x, target.y - agent.y);
+        return true;
       });
 
       const connectedTiers = new Set(agent.connections.map((connection) => connection.tier));
@@ -1023,10 +1029,11 @@ export class ParticleFusionSimulation {
 
         if (eligibleCandidates.length) {
           const target = eligibleCandidates[Math.floor(Math.random() * eligibleCandidates.length)];
+          const bondLength = Math.hypot(target.x - agent.x, target.y - agent.y);
           agent.connections.push({
             particleId: target.id,
             tier: target.tier,
-            bondLength: target.radius,
+            bondLength,
           });
           connectedTiers.add(target.tier);
         }
@@ -1720,8 +1727,9 @@ export class ParticleFusionSimulation {
         const distance = Math.sqrt(dx * dx + dy * dy) || 1;
         const nx = dx / distance;
         const ny = dy / distance;
-        const endX = agent.x + nx * connection.bondLength;
-        const endY = agent.y + ny * connection.bondLength;
+        const reach = Math.max(target.radius, Math.min(distance, connection.bondLength || distance));
+        const endX = agent.x + nx * reach;
+        const endY = agent.y + ny * reach;
 
         const connectionColor = agent.activeMolecules?.length
           ? 'rgba(255, 215, 130, 0.8)'
