@@ -445,6 +445,17 @@ body.graphics-mode-low .control-button {
   font-style: italic;
 }
 
+.offline-resource {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35em;
+}
+
+.offline-resource__label {
+  font-size: 0.5em;
+  letter-spacing: 0.08em;
+}
+
 .offline-symbol {
   color: rgba(255, 255, 255, 0.68);
   font-size: clamp(1.2rem, 3vw, 2.2rem);
