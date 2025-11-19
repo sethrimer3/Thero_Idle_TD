@@ -307,7 +307,7 @@ import { initializeTowerTreeMap, refreshTowerTreeMap } from './towerTreeMap.js';
 // Bring in drag-scroll support so hidden scrollbars remain usable.
 import { enableDragScroll } from './dragScroll.js';
 import { createLevelEditorController } from './levelEditor.js';
-import { createLevelPreviewRenderer } from './levelPreviewRenderer.js';
+import { createLevelPreviewRenderer, getPreviewPointsForLevel } from './levelPreviewRenderer.js';
 import { createLevelOverlayController } from './levelOverlayController.js';
 import { createLevelStoryScreen } from './levelStoryScreen.js';
 import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
@@ -404,6 +404,7 @@ import {
   formatRewards,
   formatRelativeTime,
 } from './formatHelpers.js';
+import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
 (() => {
   'use strict';
@@ -3195,6 +3196,41 @@ import {
     });
   }
 
+  // Draw a translucent version of the level's path behind the selection label so the card hints at its route.
+  function createLevelNodePreview(level) {
+    const previewPoints = getPreviewPointsForLevel(level, levelConfigs);
+    if (!Array.isArray(previewPoints) || previewPoints.length < 2) {
+      return null;
+    }
+
+    const preview = document.createElementNS(SVG_NS, 'svg');
+    preview.setAttribute('viewBox', '0 0 100 100');
+    preview.setAttribute('class', 'level-node-preview');
+    preview.setAttribute('aria-hidden', 'true');
+
+    const padding = 12;
+    const span = 100 - padding * 2;
+    const pathData = previewPoints
+      .map((point) => ({
+        x: padding + clampNormalizedCoordinate(point?.x ?? 0.5) * span,
+        y: padding + clampNormalizedCoordinate(point?.y ?? 0.5) * span,
+      }))
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+      .join(' ');
+
+    const glow = document.createElementNS(SVG_NS, 'path');
+    glow.setAttribute('d', pathData);
+    glow.setAttribute('class', 'level-node-preview__glow');
+    preview.append(glow);
+
+    const stroke = document.createElementNS(SVG_NS, 'path');
+    stroke.setAttribute('d', pathData);
+    stroke.setAttribute('class', 'level-node-preview__stroke');
+    preview.append(stroke);
+
+    return preview;
+  }
+
   function buildLevelCards() {
     if (!levelGrid) return;
     expandedLevelSet = null;
@@ -3306,6 +3342,11 @@ import {
           <span class="screen-reader-only level-best-wave-sr">Infinity wave record locked.</span>
         `;
         card.dataset.ariaLabelBase = `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
+        const levelPreview = createLevelNodePreview(level);
+        if (levelPreview) {
+          // Seat the path trace behind the text so each card previews the map silhouette without affecting readability.
+          card.append(levelPreview);
+        }
         card.addEventListener('click', () => {
           handleLevelSelection(level);
         });
