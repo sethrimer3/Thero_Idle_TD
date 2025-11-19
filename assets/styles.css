@@ -4604,8 +4604,8 @@ body.graphics-mode-low .control-button {
   touch-action: none;
 }
 
-.fluid-metrics-card,
-.fluid-briefing-card {
+
+.fluid-metrics-card {
   min-height: 0;
   width: 100%;
   max-width: 800px;
@@ -4650,49 +4650,6 @@ body.graphics-mode-low .control-button {
   color: rgba(204, 230, 255, 0.68);
 }
 
-.fluid-briefing-card {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.fluid-briefing-card h3 {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 0;
-  font-size: 1.25rem;
-}
-
-.fluid-briefing {
-  margin: 0;
-  font-family: "Cormorant Garamond", serif;
-  font-size: 0.92rem;
-  letter-spacing: 0.06em;
-  line-height: 1.5;
-  color: rgba(214, 232, 255, 0.78);
-}
-
-.fluid-state-label {
-  padding: 4px 12px;
-  border-radius: 16px;
-  font-family: "Space Mono", monospace;
-  font-size: 0.7rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  background: rgba(76, 132, 176, 0.24);
-  color: rgba(204, 230, 255, 0.9);
-}
-
-.fluid-state-label--ready {
-  background: rgba(120, 200, 255, 0.32);
-  color: rgba(240, 252, 255, 0.96);
-}
-
-.fluid-state-label--forming {
-  background: rgba(40, 92, 132, 0.32);
-  color: rgba(180, 215, 250, 0.85);
-}
 
 .fluid-return-button {
   align-self: flex-start;
