@@ -118,8 +118,9 @@ export class PowderSimulation {
     // Track the camera transform so the basin view can pan and zoom smoothly.
     this.viewScale = Number.isFinite(options.viewScale) && options.viewScale > 0 ? options.viewScale : 1;
     this.minViewScale = Number.isFinite(options.minViewScale) && options.minViewScale > 0 ? options.minViewScale : 0.75;
-    this.maxViewScale = Number.isFinite(options.maxViewScale) && options.maxViewScale > 0 ? options.maxViewScale : 2.5;
-    // Limit how far the camera may scroll above the tower so zoomed-out views only reveal 50% extra height.
+    // Match the Bet spire with a 3x zoom ceiling while keeping the Aleph basin panning inside its walls.
+    this.maxViewScale = Number.isFinite(options.maxViewScale) && options.maxViewScale > 0 ? options.maxViewScale : 3;
+    // Preserve a small overscan budget for spawn alignment without ever letting the camera drift above the wall tops.
     this.maxViewTopOverscanNormalized = Number.isFinite(options.maxViewTopOverscanNormalized)
       ? Math.max(0, options.maxViewTopOverscanNormalized)
       : 0.5;
@@ -1069,7 +1070,7 @@ export class PowderSimulation {
     const halfX = Math.min(0.5, 0.5 / scale);
     // Measure half of the visible height in normalized tower units so zoom changes keep the floor anchored.
     const verticalHalfNormalized = Math.min(0.5 / scale, 1);
-    // Reuse the overscan budget when clamping so both camera limits and spawn logic stay in sync.
+    // Read the overscan budget so spawn logic can stay in sync even though the camera clamps to the wall tops.
     const overscanNormalized = Number.isFinite(this.maxViewTopOverscanNormalized)
       ? Math.max(0, this.maxViewTopOverscanNormalized)
       : 0;
@@ -1079,17 +1080,22 @@ export class PowderSimulation {
       }
       return Math.min(Math.max(value, min), max);
     };
-    let minY = -overscanNormalized + verticalHalfNormalized;
+    const minY = Math.max(verticalHalfNormalized, verticalHalfNormalized - overscanNormalized);
     let maxY = 1 - verticalHalfNormalized;
     if (minY > maxY) {
       // Collapse impossible ranges (e.g., extreme debug zoom) to the midpoint so the camera stays stable.
       const midpoint = (minY + maxY) / 2;
-      minY = midpoint;
-      maxY = midpoint;
+      const clampedMidpoint = Math.max(verticalHalfNormalized, midpoint);
+      const safeMaxY = Math.max(clampedMidpoint, maxY);
+      // Keep both bounds aligned so the center cannot slip outside the renderable basin even if inputs are extreme.
+      return {
+        x: clamp(normalized.x, halfX, 1 - halfX),
+        y: clamp(clampedMidpoint, clampedMidpoint, safeMaxY),
+      };
     }
     return {
       x: clamp(normalized.x, halfX, 1 - halfX),
-      // Restrict the vertical camera range so the floor stays visible and the zoom ceiling matches the overscan budget.
+      // Restrict the vertical camera range so the basin stays framed and the zoom ceiling never leaves the walls behind.
       y: clamp(normalized.y, minY, maxY),
     };
   }
