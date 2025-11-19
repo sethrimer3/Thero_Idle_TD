@@ -2033,8 +2033,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     // Tsadi Spire: Unlocks when player has 10 Lamed glyphs (sparks)
     // Use the tracked Lamed glyph counter to gate Tsadi so early spark absorptions do not prematurely unlock it.
-    const lamedGlyphs = Math.max(0, Math.floor(getTrackedLamedGlyphs?.() || 0));
-    if (!spireResourceState.tsadi.unlocked && lamedGlyphs >= 10) {
+    const lamedUnlocked = Boolean(spireResourceState.lamed?.unlocked);
+    const lamedGlyphs = lamedUnlocked ? Math.max(0, Math.floor(getTrackedLamedGlyphs?.() || 0)) : 0;
+    if (!spireResourceState.tsadi.unlocked && lamedUnlocked && lamedGlyphs >= 10) {
       ensureTsadiBankSeeded();
       updateSpireTabVisibility();
       spireMenuController.updateCounts();
