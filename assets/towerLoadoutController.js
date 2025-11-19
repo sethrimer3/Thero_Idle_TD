@@ -394,24 +394,24 @@ export function createTowerLoadoutController({
     if (!wheelState.container || !anchorElement?.getBoundingClientRect) {
       return;
     }
-    const host = loadoutContainer || safeGetLoadoutElements()?.container;
-    const hostRect = host?.getBoundingClientRect?.();
+    // Clamp the wheel to the viewport so it can rise above the loadout tray on mobile viewports.
+    const viewportWidth = document.documentElement?.clientWidth || window.innerWidth || 0;
+    const viewportHeight = document.documentElement?.clientHeight || window.innerHeight || 0;
     const anchorRect = anchorElement.getBoundingClientRect();
-    if (!hostRect) {
-      return;
-    }
     const containerRect = {
       width: wheelState.container.offsetWidth || 0,
       height: wheelState.container.offsetHeight || 0,
     };
-    const anchorCenterX = anchorRect.left - hostRect.left + anchorRect.width / 2;
-    const anchorCenterY = anchorRect.top - hostRect.top + anchorRect.height / 2;
-    const maxLeft = Math.max(0, hostRect.width - containerRect.width);
-    const maxTop = Math.max(0, hostRect.height - containerRect.height);
-    const left = Math.min(maxLeft, Math.max(0, anchorCenterX - containerRect.width / 2));
-    const top = Math.min(maxTop, Math.max(0, anchorCenterY - containerRect.height / 2));
-    wheelState.container.style.left = `${left}px`;
-    wheelState.container.style.top = `${top}px`;
+    const anchorCenterX = anchorRect.left + anchorRect.width / 2;
+    const anchorCenterY = anchorRect.top + anchorRect.height / 2;
+    const scrollX = window.scrollX || window.pageXOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    const maxLeft = Math.max(0, viewportWidth - containerRect.width - 8);
+    const maxTop = Math.max(0, viewportHeight - containerRect.height - 8);
+    const left = Math.min(maxLeft, Math.max(8, anchorCenterX - containerRect.width / 2));
+    const top = Math.min(maxTop, Math.max(8, anchorCenterY - containerRect.height / 2));
+    wheelState.container.style.left = `${left + scrollX}px`;
+    wheelState.container.style.top = `${top + scrollY}px`;
   }
 
   /**
@@ -661,8 +661,8 @@ export function createTowerLoadoutController({
       wheelState.anchorElement.classList.add('tower-loadout-item--active-wheel');
     }
 
-    const loadoutContainer = safeGetLoadoutElements()?.container;
-    const host = loadoutContainer || document.body;
+    // Mount the wheel on the body so it can escape the tray bounds while still aligning to the held slot.
+    const host = document.body;
     host.append(container);
 
     renderLoadoutWheel({ immediate: true });
