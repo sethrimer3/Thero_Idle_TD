@@ -89,7 +89,9 @@ export class FluidTerrariumTrees {
     levelButton.type = 'button';
     levelButton.className = 'fluid-tree-level-toggle';
     levelButton.textContent = 'Lv.';
+    // Small overlay toggle that reveals tree levels and leveling progress bars on demand.
     levelButton.setAttribute('aria-label', 'Toggle tree leveling mode');
+    levelButton.title = 'Show tree levels';
     levelButton.addEventListener('click', () => {
       this.levelingMode = !this.levelingMode;
       this.syncLevelingMode();
@@ -180,6 +182,8 @@ export class FluidTerrariumTrees {
     }
     if (this.levelButton) {
       this.levelButton.classList.toggle('is-active', this.levelingMode);
+      // Mirror the toggle state for assistive tech so the leveling mode is explicit.
+      this.levelButton.setAttribute('aria-pressed', this.levelingMode ? 'true' : 'false');
     }
     if (!this.levelingMode) {
       this.stopHold();
