@@ -117,13 +117,13 @@ export class PowderSimulation {
 
     // Track the camera transform so the basin view can pan and zoom smoothly.
     this.viewScale = Number.isFinite(options.viewScale) && options.viewScale > 0 ? options.viewScale : 1;
-    this.minViewScale = Number.isFinite(options.minViewScale) && options.minViewScale > 0 ? options.minViewScale : 0.75;
+    this.minViewScale = Number.isFinite(options.minViewScale) && options.minViewScale > 0 ? options.minViewScale : 1;
     // Match the Bet spire with a 3x zoom ceiling while keeping the Aleph basin panning inside its walls.
     this.maxViewScale = Number.isFinite(options.maxViewScale) && options.maxViewScale > 0 ? options.maxViewScale : 3;
     // Preserve a small overscan budget for spawn alignment without ever letting the camera drift above the wall tops.
     this.maxViewTopOverscanNormalized = Number.isFinite(options.maxViewTopOverscanNormalized)
       ? Math.max(0, options.maxViewTopOverscanNormalized)
-      : 0.5;
+      : 0.1;
     this.viewCenterNormalized = { x: 0.5, y: 0.5 };
 
     this.scrollThreshold = Number.isFinite(options.scrollThreshold)
@@ -486,7 +486,9 @@ export class PowderSimulation {
 
   convertIdleBank(delta) {
     if (!Number.isFinite(delta) || delta <= 0 || this.idleBank <= 0) {
-      if (this.idleBank <= 0 && this.idleDropBuffer <= 0) {
+      if (this.idleBank <= 0) {
+        this.idleDropBuffer = 0; // Purge buffered conversions so falling motes halt the instant the bank is empty.
+        this.idleDropAccumulator = 0;
         this.idleAccumulator = 0; // Clear fractional progress so the counter stops when the bank is empty.
       }
       return 0;
