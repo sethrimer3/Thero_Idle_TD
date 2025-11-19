@@ -132,6 +132,8 @@ import { createPowderResizeObserver } from './powderResizeObserver.js';
 import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
 // Lightweight animation overlay that keeps the Bet terrarium lively.
 import { FluidTerrariumCreatures } from './fluidTerrariumCreatures.js';
+// Brownian forest crystal growth pinned to the Bet cavern walls.
+import { FluidTerrariumCrystal } from './fluidTerrariumCrystal.js';
 // Fractal trees anchored by the Bet terrarium placement masks.
 import { FluidTerrariumTrees } from './fluidTerrariumTrees.js';
 // Procedural grass that sprouts from the terrarium silhouettes.
@@ -816,6 +818,8 @@ import {
   let betHappinessSystem = null;
   // Animate Delta slimes once the fluid viewport is bound.
   let fluidTerrariumCreatures = null;
+  // Grow a Shin-inspired Brownian forest along the Bet cavern walls.
+  let fluidTerrariumCrystal = null;
   // Grow Shin-inspired fractal trees on top of the Bet terrain silhouettes.
   let fluidTerrariumTrees = null;
   // Render swaying grass blades that cling to the Bet spire silhouettes.
@@ -961,6 +965,21 @@ import {
       ],
     });
     fluidTerrariumGrass.start();
+  }
+
+  // Grow a Brownian forest inside the growing crystal alcove, constrained by the collision silhouette.
+  function ensureFluidTerrariumCrystal() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
+    if (fluidTerrariumCrystal || !fluidElements?.terrariumMedia) {
+      return;
+    }
+    fluidTerrariumCrystal = new FluidTerrariumCrystal({
+      container: fluidElements.terrariumMedia,
+      collisionElement: fluidElements.terrainCollisionSprite,
+      maskUrl: './assets/sprites/spires/betSpire/Growing-Crystal.png',
+    });
   }
 
   // Plant animated fractal trees on the Bet terrarium using the placement masks.
@@ -4577,6 +4596,7 @@ import {
     await ensureTerrariumSurfacesReady();
     ensureFluidTerrariumCreatures();
     ensureFluidTerrariumGrass();
+    ensureFluidTerrariumCrystal();
     ensureFluidTerrariumTrees();
     ensureFluidTerrariumSkyCycle();
     ensurePowderBasinResizeObserver();
