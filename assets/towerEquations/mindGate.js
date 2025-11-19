@@ -14,7 +14,7 @@ export const mindGate = {
   variables: [
     {
       key: 'life',
-      symbol: 'ℵ₁',
+      symbol: 'Life',
       name: 'Life',
       masterEquationSymbol: 'Life',
       description: 'Glyph lifeforce braided into the Mind Gate core.',
@@ -40,7 +40,7 @@ export const mindGate = {
     },
     {
       key: 'recovery',
-      symbol: 'ℵ₂',
+      symbol: 'Reg',
       name: 'Regeneration',
       masterEquationSymbol: 'Reg',
       description: 'Restorative glyph cadence that rethreads the gate between waves.',
