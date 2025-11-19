@@ -3139,12 +3139,14 @@ body.graphics-mode-low .control-button {
   gap: 12px;
 }
 
-/* Align each button row so secondary actions can sit beneath the primary ones. */
+/* Align each button row so the utility controls live on a single line. */
 .tower-panel-controls__row {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  justify-content: center;
   gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 
 .tower-panel-button {
@@ -3196,6 +3198,28 @@ body.graphics-mode-low .control-button {
 
 .tower-panel-button-label {
   white-space: nowrap;
+}
+
+/* Compress tower utility buttons on mobile so the icons remain side by side. */
+@media (max-width: 768px) {
+  .tower-panel-controls__row {
+    gap: 8px;
+  }
+
+  .tower-panel-button {
+    padding: 10px 12px;
+  }
+
+  .tower-panel-button-icon,
+  .tower-tree-map-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .tower-panel-button-label,
+  .tower-tree-map-label {
+    display: none;
+  }
 }
 
 .tower-tree-map-icon {
