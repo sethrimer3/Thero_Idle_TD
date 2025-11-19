@@ -1187,7 +1187,6 @@ import {
     updateTerrariumTreeHappiness(powderState.betTerrarium?.trees);
   };
 
-  const FLUX_OVERVIEW_IS_STUB = true;
   const SIGIL_LADDER_IS_STUB = true;
 
   // Initialize the Towers tab emblem to the default mote palette before any theme swaps occur.
@@ -1256,7 +1255,6 @@ import {
     formatGameNumber,
     formatDecimal,
     formatPercentage,
-    formatSignedPercentage,
     renderMathElement,
     getBaseStartThero,
     resourceState,
@@ -1276,7 +1274,6 @@ import {
     updateFluidDisplay,
     updatePowderLogDisplay,
     updateMoteGemInventoryDisplay,
-    FLUX_OVERVIEW_IS_STUB,
     SIGIL_LADDER_IS_STUB,
     getPowderSimulation: () => powderSimulation,
     spireResourceState,
@@ -4051,14 +4048,10 @@ import {
     const clampedGain = Number.isFinite(info.duneGain)
       ? Math.max(0, Math.min(powderConfig.simulatedDuneGainMax, info.duneGain))
       : 0;
-    const largestGrain = Number.isFinite(info.largestGrain) ? Math.max(0, info.largestGrain) : 0;
     const scrollOffset = Number.isFinite(info.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
     const totalNormalized = Number.isFinite(info.totalNormalized)
       ? Math.max(0, info.totalNormalized)
       : normalizedHeight;
-    const crestPosition = Number.isFinite(info.crestPosition)
-      ? Math.max(0, Math.min(1, info.crestPosition))
-      : 1;
     const cellSize = Number.isFinite(info.cellSize)
       ? Math.max(1, info.cellSize)
       : POWDER_CELL_SIZE_PX;
@@ -4085,7 +4078,7 @@ import {
 
     if (powderElements.leftWall) {
       powderElements.leftWall.style.transform = '';
-      // Apply the offset via a CSS variable so the wall texture scrolls without breaking crest markers.
+      // Apply the offset via a CSS variable so the wall texture scrolls without breaking wall markers.
       powderElements.leftWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
     }
     if (powderElements.rightWall) {
@@ -4094,11 +4087,6 @@ import {
     }
 
     const basinHeight = rows * cellSize;
-    if (powderElements.crestMarker) {
-      const crestOffset = Math.min(basinHeight, crestPosition * basinHeight);
-      powderElements.crestMarker.style.transform = `translateY(${crestOffset.toFixed(1)}px)`;
-      powderElements.crestMarker.dataset.height = `Crest ${formatDecimal(normalizedHeight, 2)}`;
-    }
 
     const glyphMetrics = updatePowderGlyphColumns({
       scrollOffset,
@@ -4111,23 +4099,18 @@ import {
     if (powderElements.wallMarker) {
       const peakOffset = Math.min(basinHeight, (1 - highestNormalized) * basinHeight);
       powderElements.wallMarker.style.transform = `translateY(${peakOffset.toFixed(1)}px)`;
+      powderElements.wallMarker.dataset.height = `Peak ${highestDisplay}`;
+    }
+
+    if (powderElements.nextGlyphProgress) {
       if (glyphMetrics) {
-        const {
-          achievedCount,
-          nextIndex,
-          highestRaw,
-          progressFraction,
-          remainingToNext,
-        } = glyphMetrics;
-        const progressPercent = formatDecimal(Math.min(1, progressFraction) * 100, 1);
-        const remaining = formatDecimal(Math.max(0, remainingToNext), 2);
-        const currentLabel = glyphMetrics.glyphsLit > 0
-          ? formatAlephLabel(Math.max(0, achievedCount))
-          : 'Base';
-        const nextLabel = formatAlephLabel(Math.max(0, nextIndex));
-        powderElements.wallMarker.dataset.height = `${currentLabel} · ${progressPercent}% to ${nextLabel} (Δh ${remaining})`;
+        const remainingFraction = 1 - Math.min(1, Math.max(0, glyphMetrics.progressFraction));
+        const remainingPercent = formatDecimal(remainingFraction * 100, 1);
+        const remainingHeight = formatDecimal(Math.max(0, glyphMetrics.remainingToNext), 2);
+        const nextLabel = formatAlephLabel(Math.max(0, glyphMetrics.nextIndex));
+        powderElements.nextGlyphProgress.textContent = `${remainingPercent}% to ${nextLabel} · Δh ${remainingHeight}`;
       } else {
-        powderElements.wallMarker.dataset.height = `Peak ${highestDisplay}`;
+        powderElements.nextGlyphProgress.textContent = '—';
       }
     }
 

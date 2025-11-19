@@ -6,7 +6,6 @@ export function createPowderDisplaySystem({
   formatGameNumber,
   formatDecimal,
   formatPercentage,
-  formatSignedPercentage,
   renderMathElement,
   getBaseStartThero,
   resourceState,
@@ -26,7 +25,6 @@ export function createPowderDisplaySystem({
   updateFluidDisplay,
   updatePowderLogDisplay,
   updateMoteGemInventoryDisplay,
-  FLUX_OVERVIEW_IS_STUB,
   SIGIL_LADDER_IS_STUB,
   getPowderSimulation,
   spireResourceState,
@@ -67,12 +65,9 @@ export function createPowderDisplaySystem({
     crystalFormula: null,
     crystalNote: null,
     crystalButton: null,
-    totalMultiplier: null,
-    sandBonusValue: null,
-    duneBonusValue: null,
-    crystalBonusValue: null,
     stockpile: null,
     idleMultiplier: null,
+    nextGlyphProgress: null,
     moteBank: null,
     moteRate: null,
     gemInventoryList: null,
@@ -90,7 +85,6 @@ export function createPowderDisplaySystem({
     basin: null,
     viewport: null,
     wallMarker: null,
-    crestMarker: null,
     wallGlyphColumns: [],
     leftWall: null,
     rightWall: null,
@@ -137,6 +131,9 @@ export function createPowderDisplaySystem({
     if (powderBasinPulseTimer) {
       clearTimeout(powderBasinPulseTimer);
       powderBasinPulseTimer = null;
+    }
+    if (powderElements.nextGlyphProgress) {
+      powderElements.nextGlyphProgress.textContent = '—';
     }
     setAltRenderVisibility(false);
   }
@@ -212,14 +209,11 @@ export function createPowderDisplaySystem({
   }
 
   function bindPowderControls() {
-    powderElements.totalMultiplier = document.getElementById('powder-total-multiplier');
-    powderElements.sandBonusValue = document.getElementById('powder-sand-bonus');
-    powderElements.duneBonusValue = document.getElementById('powder-dune-bonus');
-    powderElements.crystalBonusValue = document.getElementById('powder-crystal-bonus');
     powderElements.stockpile = document.getElementById('powder-stockpile');
     powderElements.moteBank = document.getElementById('powder-mote-bank');
     powderElements.moteRate = document.getElementById('powder-mote-rate');
     powderElements.idleMultiplier = document.getElementById('powder-idle-multiplier');
+    powderElements.nextGlyphProgress = document.getElementById('powder-next-glyph-progress');
     powderElements.gemInventoryList = document.getElementById('powder-gem-inventory');
     powderElements.gemInventoryEmpty = document.getElementById('powder-gem-empty');
     powderElements.craftingButton = document.getElementById('powder-crafting-button');
@@ -237,7 +231,6 @@ export function createPowderDisplaySystem({
     powderElements.basin = document.getElementById('powder-basin');
     powderElements.viewport = document.getElementById('powder-viewport');
     powderElements.wallMarker = document.getElementById('powder-wall-marker');
-    powderElements.crestMarker = document.getElementById('powder-crest-marker');
     powderElements.leftWall = document.getElementById('powder-wall-left');
     powderElements.rightWall = document.getElementById('powder-wall-right');
     powderElements.leftHitbox = document.getElementById('powder-wall-hitbox-left');
@@ -408,37 +401,6 @@ export function createPowderDisplaySystem({
   function updatePowderDisplay(pulseBonus) {
     const totalMultiplier = currentPowderBonuses.totalMultiplier;
     notifyPowderMultiplier(totalMultiplier);
-
-    if (FLUX_OVERVIEW_IS_STUB) {
-      if (powderElements.totalMultiplier) {
-        powderElements.totalMultiplier.textContent = '×—.—';
-      }
-      if (powderElements.sandBonusValue) {
-        powderElements.sandBonusValue.textContent = '—%';
-      }
-      if (powderElements.duneBonusValue) {
-        powderElements.duneBonusValue.textContent = '—%';
-      }
-      if (powderElements.crystalBonusValue) {
-        powderElements.crystalBonusValue.textContent = '—%';
-      }
-    } else {
-      if (powderElements.totalMultiplier) {
-        powderElements.totalMultiplier.textContent = `×${formatDecimal(totalMultiplier, 2)}`;
-      }
-
-      if (powderElements.sandBonusValue) {
-        powderElements.sandBonusValue.textContent = formatSignedPercentage(currentPowderBonuses.sandBonus);
-      }
-
-      if (powderElements.duneBonusValue) {
-        powderElements.duneBonusValue.textContent = formatSignedPercentage(currentPowderBonuses.duneBonus);
-      }
-
-      if (powderElements.crystalBonusValue) {
-        powderElements.crystalBonusValue.textContent = formatSignedPercentage(currentPowderBonuses.crystalBonus);
-      }
-    }
 
     if (SIGIL_LADDER_IS_STUB) {
       if (powderElements.sigilEntries && powderElements.sigilEntries.length) {
