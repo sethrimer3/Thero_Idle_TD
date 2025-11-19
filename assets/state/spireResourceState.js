@@ -19,6 +19,7 @@ const DEFAULT_TSADI_STATE = {
   stats: {
     totalParticles: 0,
     totalGlyphs: 0,
+    highestTier: 0,
   },
 };
 
