@@ -3,8 +3,8 @@
 This guide summarizes the layered Bet Spire sprite set inside `assets/sprites/spires/betSpire/` and how each asset should be interpreted by the rendering and gameplay systems.
 
 ## Sprite Layers and Intent
-- **Cave Background (`Cave-Background.png`)** – Rendered furthest back. Treated as distant scenery with no collision.
-- **Terrain (`Terrain.png`)** – Primary, fully solid collision surface. Almost all entities collide with terrain and cannot pass through it.
+- **Cave Background (`Cave-Background.svg`)** – Rendered furthest back. Treated as distant scenery with no collision while staying crisp at any zoom.
+- **Terrain (`Terrain.svg`)** – Primary, fully solid collision surface. Almost all entities collide with terrain and cannot pass through it.
 - **Floating Island (`Floating-Island.png`)** – Additional solid terrain suspended above the main ground. Behaves like terrain for collision and placement.
 - **Caves (`Cave-1.png` … `Cave-5.png`)** – Solid-color masks that mark cave interiors. Use these masks to anchor spawn zones or scripted events for each cave pocket.
 - **Tunnels (`Tunnels.png`)** – Solid-color mask indicating tunnel passages and navigation hints.
