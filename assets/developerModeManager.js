@@ -510,11 +510,11 @@ export function createDeveloperModeManager(options = {}) {
       powderState.wallGlyphsLit = 0;
       powderState.glyphsAwarded = 0;
       powderState.idleMoteBank = 100;
-      powderState.idleDrainRate = 1;
+      powderState.idleDrainRate = 0;
       powderState.pendingMoteDrops = [];
       powderState.idleBankHydrated = false;
       powderState.fluidIdleBank = 0;
-      powderState.fluidIdleDrainRate = 0.1;
+      powderState.fluidIdleDrainRate = 0;
       powderState.pendingFluidDrops = [];
       powderState.fluidBankHydrated = false;
       powderState.motePalette = typeof mergeMotePalette === 'function'
