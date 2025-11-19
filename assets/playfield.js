@@ -459,6 +459,7 @@ export class SimplePlayfield {
       activeIndex: 0,
       towerId: null,
       outsideHandler: null,
+      outsideClickHandler: null,
       moveHandler: null,
       endHandler: null,
     };
@@ -3037,6 +3038,9 @@ export class SimplePlayfield {
     if (wheel.outsideHandler) {
       document.removeEventListener('pointerdown', wheel.outsideHandler);
     }
+    if (wheel.outsideClickHandler) {
+      document.removeEventListener('click', wheel.outsideClickHandler);
+    }
     if (wheel.animationFrame) {
       cancelAnimationFrame(wheel.animationFrame);
     }
@@ -3050,6 +3054,7 @@ export class SimplePlayfield {
     wheel.moveHandler = null;
     wheel.endHandler = null;
     wheel.outsideHandler = null;
+    wheel.outsideClickHandler = null;
     if (wheel.container?.parentNode) {
       wheel.container.remove();
     }
@@ -3365,12 +3370,16 @@ export class SimplePlayfield {
 
     this.positionTowerSelectionWheel(tower);
 
-    wheel.outsideHandler = (event) => {
+    // Close the wheel when any pointer or click interaction happens outside the overlay shell.
+    const handleOutsideInteraction = (event) => {
       if (!container.contains(event.target)) {
         this.closeTowerSelectionWheel();
       }
     };
+    wheel.outsideHandler = handleOutsideInteraction;
+    wheel.outsideClickHandler = handleOutsideInteraction;
     document.addEventListener('pointerdown', wheel.outsideHandler);
+    document.addEventListener('click', wheel.outsideClickHandler);
   }
 
   /**
