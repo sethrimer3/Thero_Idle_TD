@@ -1,4 +1,4 @@
-const STARTUP_LOGO_DURATION_MS = 5000; // 2s fade-in + 1s hold + 2s fade-out.
+const STARTUP_LOGO_EXIT_MS = 720; // Allow the logo to drift upward and fade before the overlay dismisses.
 const STARTUP_OVERLAY_MIN_VISIBLE_MS = 4000; // Guarantee the startup overlay lingers long enough to be seen.
 const STARTUP_OVERLAY_FADE_MS = 320;
 
@@ -11,6 +11,8 @@ const startupHintDefaultText = startupHint ? startupHint.textContent : '';
 let startupLoadingActivated = false;
 let startupOverlayFadeHandle = null;
 let startupOverlayVisibleAt = null; // Track when the overlay became visible so the minimum duration can be enforced.
+let startupLogoExitHandle = null;
+let startupLogoExitPromise = null;
 
 function activateStartupLoadingSpinner() {
   if (!startupOverlay || !startupLoading) {
@@ -32,6 +34,51 @@ function activateStartupLoadingSpinner() {
   }
 }
 
+// Animate the logo off-screen once loading completes so dismissal waits for the full fade-out.
+function waitForStartupLogoExit() {
+  if (!startupLogo) {
+    // Without a logo element, there is no animation to await.
+    return Promise.resolve();
+  }
+
+  if (startupLogoExitPromise) {
+    return startupLogoExitPromise;
+  }
+
+  startupLogoExitPromise = new Promise((resolve) => {
+    const complete = () => {
+      if (startupLogoExitHandle) {
+        window.clearTimeout(startupLogoExitHandle);
+        startupLogoExitHandle = null;
+      }
+      startupLogo.removeEventListener('animationend', handleAnimationEnd);
+      startupLogoExitPromise = null;
+      resolve();
+    };
+
+    const handleAnimationEnd = (event) => {
+      if (event.target !== startupLogo || event.animationName !== 'startupLogoExit') {
+        return;
+      }
+      complete();
+    };
+
+    startupLogo.addEventListener('animationend', handleAnimationEnd);
+
+    // Kick off the upward fade animation on the next frame so the class toggle is composited cleanly.
+    requestAnimationFrame(() => {
+      startupLogo.classList.add('startup-overlay__logo--exit');
+    });
+
+    startupLogoExitHandle = window.setTimeout(() => {
+      // Safety net to resolve even if the animationend event is suppressed by reduced motion settings.
+      complete();
+    }, STARTUP_LOGO_EXIT_MS + 160);
+  });
+
+  return startupLogoExitPromise;
+}
+
 export function initializeStartupOverlay() {
   if (!startupOverlay) {
     return;
@@ -42,33 +89,6 @@ export function initializeStartupOverlay() {
   startupOverlayVisibleAt = performance.now(); // Record the reveal timestamp for minimum-duration calculations.
 
   activateStartupLoadingSpinner();
-
-  if (!startupLogo) {
-    return;
-  }
-
-  let fallbackTimer = null;
-
-  const finalizeLogo = () => {
-    if (fallbackTimer) {
-      window.clearTimeout(fallbackTimer);
-      fallbackTimer = null;
-    }
-    startupLogo.setAttribute('hidden', '');
-    activateStartupLoadingSpinner();
-  };
-
-  const logoAnimationHandler = () => {
-    startupLogo.removeEventListener('animationend', logoAnimationHandler);
-    finalizeLogo();
-  };
-
-  fallbackTimer = window.setTimeout(() => {
-    startupLogo.removeEventListener('animationend', logoAnimationHandler);
-    finalizeLogo();
-  }, STARTUP_LOGO_DURATION_MS + 120);
-
-  startupLogo.addEventListener('animationend', logoAnimationHandler);
 }
 
 export async function dismissStartupOverlay() {
@@ -99,6 +119,8 @@ export async function dismissStartupOverlay() {
     startupOverlayVisibleAt = null; // Clear the timestamp once dismissal completes so subsequent calls skip the delay.
     return;
   }
+
+  await waitForStartupLogoExit();
 
   await new Promise((resolve) => {
     const complete = () => {

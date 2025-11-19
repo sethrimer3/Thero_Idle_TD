@@ -7776,7 +7776,12 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   max-width: 360px;
   filter: drop-shadow(0 18px 36px rgba(0, 0, 0, 0.6));
   opacity: 0;
-  animation: startupLogoReveal 5s ease-in-out forwards;
+  animation: startupLogoReveal 2.7s ease-in-out forwards;
+}
+
+/* Allow the logo to gracefully exit once the initialization sequence finishes. */
+.startup-overlay__logo--exit {
+  animation: startupLogoExit 0.72s ease forwards;
 }
 
 .startup-overlay__loading {
@@ -7811,17 +7816,24 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     opacity: 0;
     transform: translateY(18px) scale(0.96);
   }
-  40% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
   60% {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
   100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes startupLogoExit {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
     opacity: 0;
-    transform: translateY(-12px) scale(1.02);
+    transform: translateY(-14px) scale(1.02);
   }
 }
 
@@ -7844,6 +7856,11 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 @media (prefers-reduced-motion: reduce) {
   .startup-overlay__logo {
+    animation-duration: 1ms;
+    animation-fill-mode: forwards;
+  }
+
+  .startup-overlay__logo--exit {
     animation-duration: 1ms;
     animation-fill-mode: forwards;
   }
