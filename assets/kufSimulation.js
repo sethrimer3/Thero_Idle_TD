@@ -1283,6 +1283,7 @@ export class KufBattlefieldSimulation {
         goldEarned: this.goldEarned,
         victory,
         destroyedTurrets: this.destroyedTurrets,
+        mapId: this.activeMapId,
       });
     }
   }

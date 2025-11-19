@@ -9,6 +9,7 @@ import {
   getKufAllocations,
   getKufGlyphs,
   getKufHighScore,
+  getKufMapHighScores,
   getKufLastResult,
   getKufRemainingShards,
   getKufTotalShards,
@@ -68,15 +69,54 @@ function applyKufMapData(maps) {
   if (!selectedMapId) {
     selectedMapId = KUF_FALLBACK_MAP_ID;
   }
+  ensureSelectedMapId();
   if (simulation && typeof simulation.setAvailableMaps === 'function') {
     simulation.setAvailableMaps(kufMapList);
     if (typeof simulation.setActiveMap === 'function') {
       simulation.setActiveMap(selectedMapId);
     }
   }
-  if (kufElements.mapSelect) {
-    populateMapSelect();
+  if (kufElements.mapList) {
+    renderMapButtons();
   }
+  updateMapDetails();
+}
+
+// Ensure a valid battlefield identifier is always available before rendering or starting runs.
+function ensureSelectedMapId() {
+  if (selectedMapId && kufMapLookup.has(selectedMapId)) {
+    return selectedMapId;
+  }
+  const fallbackId = kufMapList[0]?.id || simulation?.getDefaultMapId?.() || KUF_FALLBACK_MAP_ID;
+  selectedMapId = fallbackId;
+  return selectedMapId;
+}
+
+// Present gold totals with compact suffixes while preserving readability.
+function formatMapGoldValue(value) {
+  const amount = Number.isFinite(value) ? value : 0;
+  const thresholds = [
+    { limit: 1e12, suffix: 'T' },
+    { limit: 1e9, suffix: 'B' },
+    { limit: 1e6, suffix: 'M' },
+    { limit: 1e3, suffix: 'K' },
+  ];
+  const matching = thresholds.find((entry) => amount >= entry.limit);
+  if (matching) {
+    const scaled = amount / matching.limit;
+    return `${scaled.toFixed(scaled >= 10 ? 1 : 2)}${matching.suffix}`;
+  }
+  return amount.toLocaleString('en-US');
+}
+
+// Apply a map selection and refresh UI surfaces that depend on the active battlefield.
+function handleMapSelection(mapId) {
+  const nextId = mapId && kufMapLookup.has(mapId) ? mapId : null;
+  selectedMapId = nextId || ensureSelectedMapId();
+  if (simulation && typeof simulation.setActiveMap === 'function') {
+    simulation.setActiveMap(selectedMapId);
+  }
+  renderMapButtons();
   updateMapDetails();
 }
 
@@ -94,7 +134,7 @@ function cacheElements() {
     resultSummary: document.getElementById('kuf-result-summary'),
     resultGlyphs: document.getElementById('kuf-result-glyphs'),
     resultClose: document.getElementById('kuf-result-close'),
-    mapSelect: document.getElementById('kuf-map-select'),
+    mapList: document.getElementById('kuf-map-list'),
     mapDescription: document.getElementById('kuf-map-description'),
     mapDifficulty: document.getElementById('kuf-map-difficulty'),
     mapMechanics: document.getElementById('kuf-map-mechanics'),
@@ -180,17 +220,13 @@ function bindButtons() {
     });
   }
 
-  if (kufElements.mapSelect) {
-    kufElements.mapSelect.addEventListener('change', (event) => {
-      const value = event.target.value;
-      selectedMapId = value || kufMapList[0]?.id || null;
-      if (!selectedMapId) {
-        selectedMapId = simulation?.getDefaultMapId?.() || KUF_FALLBACK_MAP_ID;
+  if (kufElements.mapList) {
+    kufElements.mapList.addEventListener('click', (event) => {
+      const mapButton = event.target.closest('.kuf-map-button');
+      if (!mapButton) {
+        return;
       }
-      if (simulation && typeof simulation.setActiveMap === 'function') {
-        simulation.setActiveMap(selectedMapId);
-      }
-      updateMapDetails();
+      handleMapSelection(mapButton.dataset.mapId);
     });
   }
   
@@ -300,11 +336,9 @@ function startSimulation() {
   const marineStats = calculateKufUnitStats('marines');
   const sniperStats = calculateKufUnitStats('snipers');
   const splayerStats = calculateKufUnitStats('splayers');
-  
+
   const units = getKufUnits();
-  const mapId = selectedMapId && kufMapLookup.has(selectedMapId)
-    ? selectedMapId
-    : simulation?.getDefaultMapId?.() || kufMapList[0]?.id || KUF_FALLBACK_MAP_ID;
+  const mapId = ensureSelectedMapId();
 
   simulation.start({ marineStats, sniperStats, splayerStats, units, mapId });
 }
@@ -314,12 +348,14 @@ function handleSimulationComplete(result) {
   if (kufElements.simMenu) {
     kufElements.simMenu.hidden = false;
   }
-  
-  const outcome = recordKufBattleOutcome(result);
+
+  const mapId = ensureSelectedMapId();
+  const resultWithMap = { ...result, mapId };
+  const outcome = recordKufBattleOutcome(resultWithMap);
   renderLedger();
-  renderResultPanel(result, outcome);
+  renderResultPanel(resultWithMap, outcome);
   if (typeof runCompleteCallback === 'function') {
-    runCompleteCallback({ result, outcome });
+    runCompleteCallback({ result: resultWithMap, outcome });
   }
 }
 
@@ -344,35 +380,58 @@ function updateUnitDisplay() {
   renderLedger();
 }
 
-function populateMapSelect() {
-  if (!kufElements.mapSelect) {
+// Render battlefield buttons with their best gold totals so players can compare at a glance.
+function renderMapButtons() {
+  if (!kufElements.mapList) {
     return;
   }
-  kufElements.mapSelect.innerHTML = '';
+  ensureSelectedMapId();
+  const mapHighScores = getKufMapHighScores();
+  kufElements.mapList.innerHTML = '';
   kufMapList.forEach((map) => {
-    const option = document.createElement('option');
-    option.value = map.id;
-    option.textContent = `${map.name}`;
-    kufElements.mapSelect.appendChild(option);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'kuf-map-button';
+    button.dataset.mapId = map.id;
+    if (map.id === selectedMapId) {
+      button.classList.add('is-active');
+    }
+
+    const name = document.createElement('span');
+    name.className = 'kuf-map-button-name';
+    name.textContent = map.name;
+
+    const goldLabel = document.createElement('span');
+    goldLabel.className = 'kuf-map-button-gold';
+    const goldValue = document.createElement('span');
+    goldValue.className = 'kuf-map-gold-value';
+    goldValue.textContent = formatMapGoldValue(mapHighScores[map.id] || 0);
+    const goldUnit = document.createElement('sub');
+    goldUnit.className = 'kuf-map-gold-unit';
+    goldUnit.textContent = 'gold';
+    goldLabel.append(goldValue, goldUnit);
+
+    button.append(name, goldLabel);
+    kufElements.mapList.appendChild(button);
   });
-  if (selectedMapId && !kufMapLookup.has(selectedMapId)) {
-    selectedMapId = kufMapList[0]?.id || null;
-  }
-  if (selectedMapId) {
-    kufElements.mapSelect.value = selectedMapId;
-  }
-  updateMapDetails();
 }
 
 function updateMapDetails() {
+  ensureSelectedMapId();
   const map = selectedMapId ? kufMapLookup.get(selectedMapId) : kufMapList[0];
   if (kufElements.mapDescription) {
     kufElements.mapDescription.textContent = map?.description || 'Select a battlefield to see its briefing.';
   }
   if (kufElements.mapDifficulty) {
     if (map) {
-      const glyphs = typeof map.recommendedGlyphs === 'number' ? ` · ${map.recommendedGlyphs} glyphs` : '';
-      kufElements.mapDifficulty.textContent = `${map.difficulty || 'Unknown'}${glyphs}`;
+      const parts = [];
+      if (map.difficulty && map.difficulty !== 'Baseline') {
+        parts.push(map.difficulty);
+      }
+      if (typeof map.recommendedGlyphs === 'number' && map.recommendedGlyphs > 0) {
+        parts.push(`${map.recommendedGlyphs} glyphs`);
+      }
+      kufElements.mapDifficulty.textContent = parts.join(' · ');
     } else {
       kufElements.mapDifficulty.textContent = '';
     }
@@ -519,6 +578,7 @@ function handleStateChange(event) {
   }
   if (event.type === 'result') {
     renderLedger();
+    renderMapButtons();
   }
 }
 

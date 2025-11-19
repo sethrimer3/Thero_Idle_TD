@@ -13,6 +13,8 @@ const DEFAULT_UPGRADES = Object.freeze({
   snipers: { health: 0, attack: 0, attackSpeed: 0 },
   splayers: { health: 0, attack: 0, attackSpeed: 0 },
 });
+const DEFAULT_MAP_HIGH_SCORES = Object.freeze({});
+const DEFAULT_MAP_ID = 'forward-bastion';
 
 // Unit costs in shards
 const UNIT_COSTS = Object.freeze({
@@ -71,6 +73,7 @@ const kufState = {
   glyphs: 0,
   highScore: 0,
   lastResult: null,
+  mapHighScores: { ...DEFAULT_MAP_HIGH_SCORES },
 };
 
 const listeners = new Set();
@@ -139,6 +142,19 @@ function normalizeUpgrades(rawUpgrades) {
   return normalized;
 }
 
+// Normalize per-map score ledger so each battlefield tracks its personal best.
+function normalizeMapHighScores(rawMapScores) {
+  const normalized = {};
+  if (rawMapScores && typeof rawMapScores === 'object') {
+    Object.entries(rawMapScores).forEach(([mapId, score]) => {
+      if (typeof mapId === 'string' && mapId.trim()) {
+        normalized[mapId] = sanitizeInteger(score, 0);
+      }
+    });
+  }
+  return normalized;
+}
+
 /**
  * Initialize the Kuf state with saved data.
  * @param {object} [savedState] - Persisted Kuf spire snapshot.
@@ -150,11 +166,17 @@ export function initializeKufState(savedState = {}) {
   kufState.upgrades = normalizeUpgrades(savedState.upgrades);
   kufState.glyphs = sanitizeInteger(savedState.glyphs, 0);
   kufState.highScore = sanitizeInteger(savedState.highScore, 0);
+  kufState.mapHighScores = normalizeMapHighScores(savedState.mapHighScores);
+  // Seed legacy saves with the global high score so map buttons surface a real value immediately.
+  if (!Object.keys(kufState.mapHighScores).length && kufState.highScore > 0) {
+    kufState.mapHighScores[DEFAULT_MAP_ID] = kufState.highScore;
+  }
   kufState.lastResult = savedState.lastResult && typeof savedState.lastResult === 'object'
     ? {
         goldEarned: sanitizeInteger(savedState.lastResult.goldEarned, 0),
         victory: Boolean(savedState.lastResult.victory),
         destroyedTurrets: sanitizeInteger(savedState.lastResult.destroyedTurrets, 0),
+        mapId: typeof savedState.lastResult.mapId === 'string' ? savedState.lastResult.mapId : null,
         timestamp: sanitizeInteger(savedState.lastResult.timestamp, Date.now()),
       }
     : null;
@@ -191,6 +213,7 @@ export function getKufStateSnapshot() {
     glyphs: kufState.glyphs,
     highScore: kufState.highScore,
     lastResult: kufState.lastResult ? { ...kufState.lastResult } : null,
+    mapHighScores: { ...kufState.mapHighScores },
   };
 }
 
@@ -301,11 +324,13 @@ export function calculateKufMarineStats(allocations = kufState.allocations) {
  * @param {number} result.goldEarned - Total gold earned during the run.
  * @param {boolean} result.victory - Whether the marine survived the encounter.
  * @param {number} result.destroyedTurrets - Number of turrets eliminated.
- * @returns {{ newHigh: boolean, glyphsAwarded: number, highScore: number, goldEarned: number }}
+ * @param {string} [result.mapId] - Battlefield identifier used to track per-map records.
+ * @returns {{ newHigh: boolean, glyphsAwarded: number, highScore: number, goldEarned: number, mapId: string | null }}
  */
-export function recordKufBattleOutcome({ goldEarned = 0, victory = false, destroyedTurrets = 0 } = {}) {
+export function recordKufBattleOutcome({ goldEarned = 0, victory = false, destroyedTurrets = 0, mapId = null } = {}) {
   const sanitizedGold = sanitizeInteger(goldEarned, 0);
   const sanitizedTurrets = sanitizeInteger(destroyedTurrets, 0);
+  const normalizedMapId = typeof mapId === 'string' && mapId.trim() ? mapId : null;
   const previousHigh = kufState.highScore;
   const previousGlyphs = kufState.glyphs;
 
@@ -313,6 +338,7 @@ export function recordKufBattleOutcome({ goldEarned = 0, victory = false, destro
     goldEarned: sanitizedGold,
     victory: Boolean(victory),
     destroyedTurrets: sanitizedTurrets,
+    mapId: normalizedMapId,
     timestamp: Date.now(),
   };
 
@@ -323,12 +349,20 @@ export function recordKufBattleOutcome({ goldEarned = 0, victory = false, destro
     newHigh = true;
   }
 
+  if (normalizedMapId) {
+    const previousMapHigh = kufState.mapHighScores[normalizedMapId] || 0;
+    if (sanitizedGold > previousMapHigh) {
+      kufState.mapHighScores[normalizedMapId] = sanitizedGold;
+    }
+  }
+
   const glyphsAwarded = Math.max(0, kufState.glyphs - previousGlyphs);
   emitChange('result', {
     newHigh,
     glyphsAwarded,
     goldEarned: sanitizedGold,
     highScore: kufState.highScore,
+    mapId: normalizedMapId,
   });
 
   return {
@@ -336,6 +370,7 @@ export function recordKufBattleOutcome({ goldEarned = 0, victory = false, destro
     glyphsAwarded,
     highScore: kufState.highScore,
     goldEarned: sanitizedGold,
+    mapId: normalizedMapId,
   };
 }
 
@@ -368,6 +403,14 @@ export function setKufGlyphs(value) {
  */
 export function getKufHighScore() {
   return kufState.highScore;
+}
+
+/**
+ * Retrieve the best recorded gold totals per battlefield.
+ * @returns {Record<string, number>}
+ */
+export function getKufMapHighScores() {
+  return { ...kufState.mapHighScores };
 }
 
 /**
