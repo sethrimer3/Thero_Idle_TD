@@ -507,7 +507,9 @@ body.graphics-mode-low .control-button {
 
 .level-story-overlay__content {
   max-width: min(48rem, 90vw);
-  max-height: min(88vh, 96vw);
+  max-height: calc(100vh - 2 * clamp(1rem, 5vw, 3rem));
+  /* Preserve generous vertical real estate so longer intros fill the viewport. */
+  min-height: min(80vh, 96vw);
   color: #f6f2eb;
   text-align: center;
   font-family: 'Cormorant Garamond', 'Space Mono', serif;
@@ -531,7 +533,10 @@ body.graphics-mode-low .control-button {
   flex-direction: column;
   gap: 1.5rem;
   flex: 1 1 auto;
-  max-height: 60vh;
+  /* Allow the scrolling surface to stretch through the full overlay height. */
+  max-height: none;
+  height: 100%;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 0.25rem;
   margin: 0 auto;

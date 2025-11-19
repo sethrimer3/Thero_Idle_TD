@@ -20,6 +20,7 @@ export function createLevelStoryScreen({
   document: documentRef = typeof document !== 'undefined' ? document : null,
   levelState,
   onStoryComplete,
+  shouldShowStory: customShouldShowStory,
 } = {}) {
   let overlayEl = null;
   let titleEl = null;
@@ -37,6 +38,7 @@ export function createLevelStoryScreen({
   let listenersBound = false;
   let completionNotified = false;
   let promptTimer = null;
+  let activeCompletionHandler = null;
 
   function getTimerApi() {
     if (typeof window !== 'undefined') {
@@ -73,6 +75,7 @@ export function createLevelStoryScreen({
     allSectionsRevealed = false;
     activeLevel = null;
     completionNotified = false;
+    activeCompletionHandler = null;
     if (promptTimer) {
       timerApi.clearTimeout(promptTimer);
       promptTimer = null;
@@ -194,6 +197,9 @@ export function createLevelStoryScreen({
     const sections = getSectionsForLevel(levelId);
     if (!sections.length) {
       return false;
+    }
+    if (typeof customShouldShowStory === 'function') {
+      return customShouldShowStory(levelId);
     }
     const state = levelState && typeof levelState.get === 'function'
       ? levelState.get(levelId) || {}
@@ -350,13 +356,14 @@ export function createLevelStoryScreen({
     overlayEl.classList.remove('level-story-overlay--visible');
     overlayEl.setAttribute('aria-hidden', 'true');
     const levelId = activeLevel?.id;
+    const completionHandler = activeCompletionHandler || onStoryComplete;
     const resolver = completionResolver;
     completionResolver = null;
     timerApi.setTimeout(() => {
       resetStoryState();
-      if (!completionNotified && typeof onStoryComplete === 'function' && levelId) {
+      if (!completionNotified && typeof completionHandler === 'function' && levelId) {
         completionNotified = true;
-        onStoryComplete(levelId);
+        completionHandler(levelId);
       }
       if (resolver) {
         resolver();
@@ -364,13 +371,14 @@ export function createLevelStoryScreen({
     }, 250);
   }
 
-  function openOverlay(level, sections) {
+  function openOverlay(level, sections, { onComplete } = {}) {
     if (!overlayEl || !sectionsEl) {
       return false;
     }
     resetStoryState();
     activeLevel = level;
     sectionsQueue = sections.slice();
+    activeCompletionHandler = typeof onComplete === 'function' ? onComplete : onStoryComplete;
     if (titleEl) {
       const labelParts = [level?.id, level?.title || level?.name].filter(Boolean);
       titleEl.textContent = labelParts.join(' · ');
@@ -393,15 +401,20 @@ export function createLevelStoryScreen({
     return promise;
   }
 
-  async function maybeShowStory(level) {
+  async function maybeShowStory(level, { shouldShow, onComplete } = {}) {
     if (!level || !level.id) {
       return false;
     }
     await loadStoryData();
-    if (!shouldShowStory(level.id)) {
+    const sections = getSectionsForLevel(level.id);
+    if (!sections.length) {
       return false;
     }
-    return openOverlay(level, getSectionsForLevel(level.id));
+    const showStory = typeof shouldShow === 'function' ? shouldShow(level.id) : shouldShowStory(level.id);
+    if (!showStory) {
+      return false;
+    }
+    return openOverlay(level, sections, { onComplete });
   }
 
   return {
