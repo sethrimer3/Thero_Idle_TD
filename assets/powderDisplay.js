@@ -594,7 +594,8 @@ export function createPowderDisplaySystem({
     const bindingAgentRatePerMinute = 1 / 60; // 1 per hour
     const bindingAgentTotal = bindingAgentUnlocked ? minutes * bindingAgentRatePerMinute : 0;
 
-    const shinUnlocked = typeof getIteronBank === 'function';
+    // Respect the Shin unlock flag so idle summaries hide the branch until players reach it.
+    const shinUnlocked = Boolean(spireResourceState.shin?.unlocked);
     const shinRate = shinUnlocked && typeof getIterationRate === 'function' ? getIterationRate() : 0;
     const shinTotal = shinUnlocked ? seconds * shinRate : 0;
 
