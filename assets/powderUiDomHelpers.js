@@ -7,7 +7,7 @@ import {
 import { formatAlephLabel, formatBetLabel } from './formatHelpers.js';
 
 /**
- * Factory that bundles DOM helpers used by the powder and fluid study overlays.
+ * Factory that bundles DOM helpers used by the powder and Bet Spire Terrarium overlays.
  * @param {Object} options - Dependency injection container for DOM bindings and utilities.
  * @returns {Object} Powder overlay helper functions consumed by main.js.
  */

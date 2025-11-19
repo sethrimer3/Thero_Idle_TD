@@ -782,10 +782,10 @@ import {
     registerResourceContainers,
   });
 
-  // Re-enable the Bet/Fluid study so its ambient terrarium renders (slimes, grass, trees, sky cycle).
+  // Re-enable the Bet Spire Terrarium so its ambient terrarium renders (slimes, grass, trees, sky cycle).
   const FLUID_STUDY_ENABLED = true;
 
-  const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the fluid study with a base reservoir of Serendipity upon unlock.
+  const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the Bet Spire Terrarium with a base reservoir of Serendipity upon unlock.
 
   const {
     powderConfig,
@@ -828,7 +828,7 @@ import {
   let fluidTerrariumSkyCycle = null;
 
   /**
-   * Force the fluid study to remain locked and inactive while the feature is disabled.
+   * Force the Bet Spire Terrarium to remain locked and inactive while the feature is disabled.
    * This ensures saved unlocks or tabs cannot resurrect the retired simulation.
    */
   function enforceFluidStudyDisabledState() {

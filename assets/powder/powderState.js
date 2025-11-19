@@ -18,8 +18,8 @@ export function createPowderStateContext() {
     wallGapPerGlyph: 1, // Walls expand by 1 mote per glyph
     wallMaxGapMotes: 75, // Maximum wall gap of 75 motes
     wallGapViewportRatio: 0.15, // Narrow the tower walls so the visible mote lane is roughly one-fifth of the previous span.
-    fluidUnlockSigils: 0, // Sigil rungs no longer gate the fluid study while glyph costs handle the unlock.
-    fluidUnlockGlyphCost: 0, // Aleph glyph tithe required to unlock the fluid study (temporarily waived).
+    fluidUnlockSigils: 0, // Sigil rungs no longer gate the Bet Spire Terrarium while glyph costs handle the unlock.
+    fluidUnlockGlyphCost: 0, // Aleph glyph tithe required to unlock the Bet Spire Terrarium (temporarily waived).
   };
 
   const powderState = {

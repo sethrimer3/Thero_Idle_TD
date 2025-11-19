@@ -375,7 +375,7 @@ Following this plan will shrink the single-source files, align them with the dis
 
 **What was extracted:**
 - `updateSpireTabVisibility()` - Orchestrates unlock-driven visibility for the Lamed, Tsadi, Shin, and Kuf spire tabs and their floating menu toggles
-- `updateFluidTabAvailability()` - Manages the split powder/fluid tab state and corresponding badge visibility when the fluid study unlocks
+- `updateFluidTabAvailability()` - Manages the split powder/fluid tab state and corresponding badge visibility when the Bet Spire Terrarium unlocks
 
 **Integration approach:**
 - Added `createSpireTabVisibilityManager()` factory that accepts `fluidElements`, `powderState`, `spireResourceState`, and a getter for the current resource HUD elements
@@ -492,7 +492,7 @@ Following this plan will shrink the single-source files, align them with the dis
 - `applyMindGatePaletteToDom()` - Updates the Mind Gate emblem gradient for the active powder palette
 - `updateMoteGemInventoryDisplay()` - Renders the mote gem inventory list with sprites and counters
 - `updatePowderGlyphColumns()` - Manages Aleph wall glyph DOM recycling and progress indicators
-- `updateFluidGlyphColumns()` - Mirrors Bet glyph columns on the fluid study wall with right-side exclusivity
+- `updateFluidGlyphColumns()` - Mirrors Bet glyph columns on the Bet Spire Terrarium wall with right-side exclusivity
 
 **Integration approach:**
 - Helpers exposed via `createPowderUiDomHelpers()` with dependency injection for DOM caches and formatting utilities
