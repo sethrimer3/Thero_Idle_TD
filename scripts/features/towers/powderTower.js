@@ -20,6 +20,23 @@ import {
   resolvePaletteColorStops,
 } from './powderPaletteUtils.js';
 
+import {
+  applyWallGapTarget,
+  applyWallMask,
+  canPlaceGrain,
+  clearCells,
+  clearGridPreserveWalls,
+  fillCells,
+  getAggregateDepth,
+  getSlumpDirection,
+  getSupportDepth,
+  getWallMetrics,
+  populateGridFromGrains,
+  rebuildGridAfterWallChange,
+  resolveScaledWallGap,
+  setWallGapTarget,
+} from './powderGridUtils.js';
+
 // Re-export the helpers so existing imports from powderTower remain valid.
 export {
   DEFAULT_MOTE_PALETTE,
@@ -361,257 +378,43 @@ export class PowderSimulation {
   }
 
   applyWallMask() {
-    if (!this.grid.length) {
-      return;
-    }
-    const leftBound = Math.min(this.cols, this.wallInsetLeftCells);
-    const rightStart = Math.max(leftBound, this.cols - this.wallInsetRightCells);
-    for (let row = 0; row < this.grid.length; row += 1) {
-      const gridRow = this.grid[row];
-      for (let col = 0; col < leftBound; col += 1) {
-        gridRow[col] = -1;
-      }
-      for (let col = rightStart; col < this.cols; col += 1) {
-        gridRow[col] = -1;
-      }
-    }
+    applyWallMask(this);
   }
 
   clearGridPreserveWalls() {
-    if (!this.grid.length) {
-      return;
-    }
-    for (let row = 0; row < this.grid.length; row += 1) {
-      const gridRow = this.grid[row];
-      for (let col = 0; col < this.cols; col += 1) {
-        if (gridRow[col] !== -1) {
-          gridRow[col] = 0;
-        }
-      }
-    }
+    clearGridPreserveWalls(this);
   }
 
   rebuildGridAfterWallChange(previousMetrics = null) {
-    if (!this.rows || !this.cols) {
-      return;
-    }
-
-    this.grid = Array.from({ length: this.rows }, () => new Array(this.cols).fill(0));
-    this.applyWallMask();
-
-    // Normalize the previous grid footprint so we can map grains into the resized interior.
-    const previousCols = Number.isFinite(previousMetrics?.cols)
-      ? Math.max(1, Math.round(previousMetrics.cols))
-      : null;
-    const previousRows = Number.isFinite(previousMetrics?.rows)
-      ? Math.max(1, Math.round(previousMetrics.rows))
-      : null;
-    const previousLeftInset = Number.isFinite(previousMetrics?.wallInsetLeftCells)
-      ? Math.max(0, Math.round(previousMetrics.wallInsetLeftCells))
-      : null;
-    const previousRightInset = Number.isFinite(previousMetrics?.wallInsetRightCells)
-      ? Math.max(0, Math.round(previousMetrics.wallInsetRightCells))
-      : null;
-    const previousScrollOffset = Number.isFinite(previousMetrics?.scrollOffsetCells)
-      ? Math.max(0, Math.round(previousMetrics.scrollOffsetCells))
-      : null;
-
-    const previousInteriorStart = previousLeftInset !== null ? previousLeftInset : this.wallInsetLeftCells;
-    const previousInteriorEnd = previousCols !== null
-      ? Math.max(
-          previousInteriorStart,
-          previousCols - (previousRightInset !== null ? previousRightInset : this.wallInsetRightCells),
-        )
-      : Math.max(previousInteriorStart, this.cols - this.wallInsetRightCells);
-    const previousInteriorWidth = Math.max(1, previousInteriorEnd - previousInteriorStart);
-    const interiorStart = this.wallInsetLeftCells;
-    const interiorEnd = Math.max(interiorStart, this.cols - this.wallInsetRightCells);
-    const interiorWidth = Math.max(1, interiorEnd - interiorStart);
-
-    // Derive scale factors that preserve horizontal and vertical positions across the resize.
-    const columnScale = previousCols ? interiorWidth / previousInteriorWidth : 1;
-    const rowScale = previousRows ? this.rows / previousRows : 1;
-
-    if (previousScrollOffset !== null && rowScale !== 1) {
-      // Preserve the crest offset so the visible powder height does not jump after the resize.
-      this.scrollOffsetCells = Math.round(previousScrollOffset * rowScale);
-    }
-
-    const minX = this.wallInsetLeftCells;
-    const maxInterior = Math.max(minX, this.cols - this.wallInsetRightCells);
-
-    for (const grain of this.grains) {
-      if (!Number.isFinite(grain.colliderSize) || grain.colliderSize <= 0) {
-        grain.colliderSize = this.computeColliderSize(grain.size);
-      }
-      const collider = Math.max(1, Math.round(grain.colliderSize));
-
-      if (previousCols && (columnScale !== 1 || previousInteriorStart !== interiorStart)) {
-        const previousAvailable = Math.max(0, previousInteriorWidth - collider);
-        const newAvailable = Math.max(0, interiorWidth - collider);
-        const normalized = Math.max(0, Math.min(previousAvailable, grain.x - previousInteriorStart));
-        const scaled = newAvailable > 0
-          ? (normalized / (previousAvailable || 1)) * newAvailable
-          : 0; // Scale the horizontal offset so grains stay centered between the new walls.
-        grain.x = Math.round(interiorStart + scaled);
-      }
-
-      if (previousRows && rowScale !== 1) {
-        const previousAvailable = Math.max(0, previousRows - collider);
-        const newAvailable = Math.max(0, this.rows - collider);
-        const normalizedY = Math.max(0, Math.min(previousAvailable, grain.y));
-        const scaledY = newAvailable > 0
-          ? (normalizedY / (previousAvailable || 1)) * newAvailable
-          : 0; // Scale the vertical offset so resting grains keep their relative height.
-        grain.y = Math.round(scaledY);
-      }
-
-      const maxOrigin = Math.max(minX, this.cols - this.wallInsetRightCells - collider);
-      if (grain.x < minX) {
-        grain.x = minX;
-        grain.freefall = true;
-        grain.resting = false;
-      } else if (grain.x > maxOrigin) {
-        grain.x = maxOrigin;
-        grain.freefall = true;
-        grain.resting = false;
-      }
-      if (grain.x + collider > maxInterior) {
-        grain.x = Math.max(minX, maxInterior - collider);
-      }
-      grain.inGrid = false;
-    }
-
-    this.populateGridFromGrains();
-    this.updateHeightFromGrains(true);
-    this.render();
-    this.notifyWallMetricsChange();
+    rebuildGridAfterWallChange(this, previousMetrics);
   }
 
   populateGridFromGrains() {
-    if (!this.grid.length) {
-      return;
-    }
-    for (const grain of this.grains) {
-      if (grain.freefall) {
-        grain.inGrid = false;
-        continue;
-      }
-      if (!Number.isFinite(grain.colliderSize) || grain.colliderSize <= 0) {
-        grain.colliderSize = this.computeColliderSize(grain.size);
-      }
-      const colliderSize = Math.max(1, Math.round(grain.colliderSize));
-      if (grain.y >= this.rows || grain.y + colliderSize <= 0) {
-        grain.inGrid = false;
-        continue;
-      }
-      this.fillCells(grain);
-      grain.inGrid = true;
-    }
+    populateGridFromGrains(this);
   }
 
   canPlace(x, y, size) {
-    const normalizedSize = Number.isFinite(size) ? Math.max(1, Math.round(size)) : 1;
-    if (x < 0 || y < 0 || x + normalizedSize > this.cols || y + normalizedSize > this.rows) {
-      return false;
-    }
-    for (let row = 0; row < normalizedSize; row += 1) {
-      const gridRow = this.grid[y + row];
-      for (let col = 0; col < normalizedSize; col += 1) {
-        if (gridRow[x + col]) {
-          return false;
-        }
-      }
-    }
-    return true;
+    return canPlaceGrain(this, x, y, size);
   }
 
   fillCells(grain) {
-    const colliderSize = Number.isFinite(grain.colliderSize) ? Math.max(1, Math.round(grain.colliderSize)) : 1;
-    for (let row = 0; row < colliderSize; row += 1) {
-      const y = grain.y + row;
-      if (y < 0 || y >= this.rows) {
-        continue;
-      }
-      const gridRow = this.grid[y];
-      for (let col = 0; col < colliderSize; col += 1) {
-        const x = grain.x + col;
-        if (x < 0 || x >= this.cols) {
-          continue;
-        }
-        gridRow[x] = grain.id;
-      }
-    }
+    fillCells(this, grain);
   }
 
   clearCells(grain) {
-    if (!grain.inGrid) {
-      return;
-    }
-    const colliderSize = Number.isFinite(grain.colliderSize) ? Math.max(1, Math.round(grain.colliderSize)) : 1;
-    for (let row = 0; row < colliderSize; row += 1) {
-      const y = grain.y + row;
-      if (y < 0 || y >= this.rows) {
-        continue;
-      }
-      const gridRow = this.grid[y];
-      for (let col = 0; col < colliderSize; col += 1) {
-        const x = grain.x + col;
-        if (x < 0 || x >= this.cols) {
-          continue;
-        }
-        if (gridRow[x] === grain.id) {
-          gridRow[x] = 0;
-        }
-      }
-    }
-    grain.inGrid = false;
+    clearCells(this, grain);
   }
 
   getSupportDepth(column, startRow) {
-    if (column < 0 || column >= this.cols) {
-      return 0;
-    }
-    let depth = 0;
-    for (let row = startRow; row < this.rows; row += 1) {
-      if (this.grid[row][column]) {
-        break;
-      }
-      depth += 1;
-    }
-    return depth;
+    return getSupportDepth(this, column, startRow);
   }
 
   getAggregateDepth(startColumn, startRow, size) {
-    const normalizedSize = Number.isFinite(size) ? Math.max(1, Math.round(size)) : 1;
-    if (startColumn < 0 || startColumn + normalizedSize > this.cols) {
-      return 0;
-    }
-    let total = 0;
-    for (let offset = 0; offset < normalizedSize; offset += 1) {
-      total += this.getSupportDepth(startColumn + offset, startRow);
-    }
-    return total / Math.max(1, normalizedSize);
+    return getAggregateDepth(this, startColumn, startRow, size);
   }
 
   getSlumpDirection(grain) {
-    const colliderSize = Number.isFinite(grain.colliderSize) ? Math.max(1, Math.round(grain.colliderSize)) : 1;
-    const bottom = grain.y + colliderSize;
-    if (bottom >= this.rows) {
-      return 0;
-    }
-
-    const span = Math.min(colliderSize, this.cols);
-    const leftDepth = this.getAggregateDepth(grain.x - 1, bottom, span);
-    const rightDepth = this.getAggregateDepth(grain.x + colliderSize, bottom, span);
-
-    if (leftDepth > rightDepth + 0.6) {
-      return -1;
-    }
-    if (rightDepth > leftDepth + 0.6) {
-      return 1;
-    }
-    return 0;
+    return getSlumpDirection(this, grain);
   }
 
   notifyWallMetricsChange(metrics) {
@@ -630,119 +433,19 @@ export class PowderSimulation {
   }
 
   getWallMetrics() {
-    return {
-      leftCells: this.wallInsetLeftCells,
-      rightCells: this.wallInsetRightCells,
-      gapCells: Math.max(0, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells),
-      // Surface the pixel-resolved inset so DOM walls can align without rounding gaps.
-      leftPixels: Number.isFinite(this.wallInsetLeftPx)
-        ? Math.max(0, this.wallInsetLeftPx)
-        : Math.max(0, this.wallInsetLeftCells * this.cellSize),
-      // Mirror the right wall width using the precise pixel measurement from the simulation.
-      rightPixels: Number.isFinite(this.wallInsetRightPx)
-        ? Math.max(0, this.wallInsetRightPx)
-        : Math.max(0, this.wallInsetRightCells * this.cellSize),
-      // Report the remaining playable lane width in pixels so overlays hug the motes.
-      gapPixels: Math.max(
-        0,
-        this.width -
-          (Number.isFinite(this.wallInsetLeftPx) ? this.wallInsetLeftPx : this.wallInsetLeftCells * this.cellSize) -
-          (Number.isFinite(this.wallInsetRightPx) ? this.wallInsetRightPx : this.wallInsetRightCells * this.cellSize),
-      ),
-      cellSize: this.cellSize,
-      rows: this.rows,
-      cols: this.cols,
-      width: this.width,
-      height: this.height,
-    };
+    return getWallMetrics(this);
   }
 
   setWallGapTarget(gapCells, options = {}) {
-    if (!Number.isFinite(gapCells) || gapCells <= 0) {
-      this.wallGapCellsTarget = null;
-      this.updateMaxDropSize();
-      return false;
-    }
-    this.wallGapCellsTarget = Math.max(1, Math.round(gapCells));
-    if (!this.wallGapReferenceCols && this.cols) {
-      this.wallGapReferenceCols = Math.max(1, this.cols);
-    }
-    if (!this.cols) {
-      return false;
-    }
-    return this.applyWallGapTarget(options);
+    return setWallGapTarget(this, gapCells, options);
   }
 
   resolveScaledWallGap() {
-    if (!Number.isFinite(this.wallGapCellsTarget)) {
-      return null;
-    }
-    const target = Math.max(1, Math.round(this.wallGapCellsTarget));
-    if (!this.cols) {
-      return target;
-    }
-    const available = Math.max(1, this.cols - this.wallInsetLeftCells - this.wallInsetRightCells);
-    return Math.max(1, Math.min(target, available));
+    return resolveScaledWallGap(this);
   }
 
   applyWallGapTarget(options = {}) {
-    if (!this.cols) {
-      return false;
-    }
-
-    const { skipRebuild = false } = options;
-    const previousMetrics = skipRebuild
-      ? null
-      : {
-          cols: this.cols,
-          rows: this.rows,
-          wallInsetLeftCells: this.wallInsetLeftCells,
-          wallInsetRightCells: this.wallInsetRightCells,
-          scrollOffsetCells: this.scrollOffsetCells,
-        }; // Cache the current layout so restored saves can realign grains after wall spacing updates.
-    const baseLargest = this.grainSizes.length
-      ? Math.max(1, this.grainSizes[this.grainSizes.length - 1])
-      : 1;
-    const largestGrain = Math.max(1, this.computeColliderSize(baseLargest));
-    let desiredGap = this.resolveScaledWallGap();
-    if (!Number.isFinite(desiredGap)) {
-      desiredGap = this.cols - this.wallInsetLeftCells - this.wallInsetRightCells;
-    }
-    if (Number.isFinite(this.wallGapCellsTarget)) {
-      const baseTarget = Math.max(
-        largestGrain,
-        Math.min(this.cols, Math.round(this.wallGapCellsTarget)),
-      );
-      desiredGap = Math.max(desiredGap, baseTarget);
-    }
-    desiredGap = Math.max(largestGrain, Math.min(this.cols, Math.round(desiredGap)));
-    const clampedGap = Math.max(largestGrain, Math.min(this.cols, desiredGap));
-    const totalInset = Math.max(0, this.cols - clampedGap);
-    let nextLeft = Math.floor(totalInset / 2);
-    let nextRight = totalInset - nextLeft;
-
-    if (nextLeft + nextRight >= this.cols) {
-      nextLeft = Math.max(0, Math.floor((this.cols - largestGrain) / 2));
-      nextRight = Math.max(0, this.cols - largestGrain - nextLeft);
-    }
-
-    const changed = nextLeft !== this.wallInsetLeftCells || nextRight !== this.wallInsetRightCells;
-    this.wallInsetLeftCells = nextLeft;
-    this.wallInsetRightCells = nextRight;
-    this.wallInsetLeftPx = nextLeft * this.cellSize;
-    this.wallInsetRightPx = nextRight * this.cellSize;
-    this.updateMaxDropSize();
-
-    if (changed) {
-      if (skipRebuild) {
-        return true;
-      }
-      this.rebuildGridAfterWallChange(previousMetrics);
-    } else if (!skipRebuild) {
-      this.notifyWallMetricsChange();
-    }
-
-    return changed;
+    return applyWallGapTarget(this, options);
   }
 
   handleFrame(timestamp) {
