@@ -323,15 +323,18 @@ export class FluidTerrariumGrass {
    * Create a grass blade descriptor with sway parameters derived from normalized coordinates.
    */
   createGrassBlade(normalizedX, baseYNormalized) {
-    const lengthFactor = 0.015 + Math.random() * 0.028;
+    // Shrink overall blade height to one third of the previous range for a more delicate silhouette.
+    const lengthFactor = (0.015 + Math.random() * 0.028) / 3;
     const swayFactor = 0.08 + Math.random() * 0.12;
     const swaySpeed = 0.9 + Math.random() * 0.9;
-    const baseThickness = 0.65 + Math.random() * 0.55;
+    // Keep blade width proportional to the new height by scaling thickness alongside length.
+    const baseThickness = (0.65 + Math.random() * 0.55) / 3;
     const lean = (Math.random() - 0.5) * 4.4;
     const shade = Math.random() * 0.28;
     return {
       normalizedX,
       baseYNormalized,
+      embedFraction: 0.25,
       lengthFactor,
       swayFactor,
       swaySpeed,
@@ -355,9 +358,11 @@ export class FluidTerrariumGrass {
       return;
     }
     this.grassBlades.forEach((blade) => {
+      const surfaceY = this.renderBounds.top + blade.baseYNormalized * this.renderBounds.height;
       blade.baseX = this.renderBounds.left + blade.normalizedX * this.renderBounds.width;
-      blade.baseY = this.renderBounds.top + blade.baseYNormalized * this.renderBounds.height;
       blade.length = blade.lengthFactor * this.renderBounds.height;
+      const embedDepth = blade.length * blade.embedFraction;
+      blade.baseY = surfaceY + embedDepth;
       blade.swayAmplitude = blade.length * blade.swayFactor;
       blade.thickness = blade.baseThickness;
     });
