@@ -909,6 +909,49 @@ import {
   // Drive the Bet terrarium day/night palette and celestial bodies.
   let fluidTerrariumSkyCycle = null;
 
+  /**
+   * Wait for a terrarium sprite to load so dependent overlays align with its silhouette.
+   * @param {HTMLImageElement|null} image
+   * @returns {Promise<boolean>} Resolves true when the image is ready.
+   */
+  function waitForTerrariumSprite(image) {
+    if (!image) {
+      return Promise.resolve(false);
+    }
+    if (
+      image.complete &&
+      Number.isFinite(image.naturalWidth) &&
+      Number.isFinite(image.naturalHeight) &&
+      image.naturalWidth > 0 &&
+      image.naturalHeight > 0
+    ) {
+      return Promise.resolve(true);
+    }
+    return new Promise((resolve) => {
+      const handleLoad = () => {
+        image.removeEventListener('load', handleLoad);
+        image.removeEventListener('error', handleError);
+        resolve(true);
+      };
+      const handleError = () => {
+        image.removeEventListener('load', handleLoad);
+        image.removeEventListener('error', handleError);
+        resolve(false);
+      };
+      image.addEventListener('load', handleLoad, { once: true });
+      image.addEventListener('error', handleError, { once: true });
+    });
+  }
+
+  /**
+   * Ensure the Bet terrarium surfaces spawn in order so creatures and foliage don't fall through.
+   * First wait for the ground terrain, then for the floating island, before layering overlays.
+   */
+  async function ensureTerrariumSurfacesReady() {
+    await waitForTerrariumSprite(fluidElements.terrainSprite);
+    await waitForTerrariumSprite(fluidElements.floatingIslandSprite);
+  }
+
   function ensureFluidTerrariumCreatures() {
     // Lazily create the overlay so it never blocks powder initialization.
     if (fluidTerrariumCreatures || !fluidElements?.viewport) {
@@ -4686,6 +4729,7 @@ import {
       betHappinessSystem.bindDisplayElements(fluidElements);
       betHappinessSystem.updateDisplay(fluidElements);
     }
+    await ensureTerrariumSurfacesReady();
     ensureFluidTerrariumCreatures();
     ensureFluidTerrariumGrass();
     ensureFluidTerrariumTrees();
