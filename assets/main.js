@@ -918,6 +918,16 @@ import {
     if (!image) {
       return Promise.resolve(false);
     }
+
+    // Force lazy-loaded sprites to decode immediately so startup flow doesn't stall
+    // while the browser waits for the terrarium art to enter the viewport.
+    if (image.loading === 'lazy') {
+      image.loading = 'eager';
+      if (typeof image.decode === 'function') {
+        image.decode().catch(() => {});
+      }
+    }
+
     if (
       image.complete &&
       Number.isFinite(image.naturalWidth) &&
@@ -927,19 +937,32 @@ import {
     ) {
       return Promise.resolve(true);
     }
+
     return new Promise((resolve) => {
-      const handleLoad = () => {
+      const handleComplete = (didLoad) => {
         image.removeEventListener('load', handleLoad);
         image.removeEventListener('error', handleError);
-        resolve(true);
+        resolve(didLoad);
+      };
+
+      const handleLoad = () => {
+        handleComplete(true);
       };
       const handleError = () => {
-        image.removeEventListener('load', handleLoad);
-        image.removeEventListener('error', handleError);
-        resolve(false);
+        handleComplete(false);
       };
+
+      // Prevent the startup sequence from hanging indefinitely if the sprite never
+      // fires a load/error event (e.g., due to an unsupported format or network block).
+      const timeoutHandle = window.setTimeout(() => handleComplete(false), 3000);
+
       image.addEventListener('load', handleLoad, { once: true });
       image.addEventListener('error', handleError, { once: true });
+
+      // Clear the timeout once we reach a terminal state.
+      const cleanup = () => window.clearTimeout(timeoutHandle);
+      image.addEventListener('load', cleanup, { once: true });
+      image.addEventListener('error', cleanup, { once: true });
     });
   }
 
