@@ -1045,7 +1045,7 @@ export class ParticleFusionSimulation {
       // Remove stale or now-repulsive connections.
       agent.connections = agent.connections.filter((connection) => {
         const target = particleMap.get(connection.particleId);
-        if (!target || target.repellingForce > 0 || target.tier <= NULL_TIER) {
+        if (!target || target.tier <= NULL_TIER) {
           return false;
         }
 
@@ -1055,15 +1055,58 @@ export class ParticleFusionSimulation {
       });
 
       const connectedTiers = new Set(agent.connections.map((connection) => connection.tier));
+      const connectedIds = new Set(agent.connections.map((connection) => connection.particleId));
+
+      // If a Waals particle bumps into an eligible target, immediately stabilize it with a bond
+      // and resolve the overlap so the contact is visible instead of passing through.
+      for (const target of this.particles) {
+        if (target.tier <= NULL_TIER) continue;
+
+        const dx = target.x - agent.x;
+        const dy = target.y - agent.y;
+        const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+        const minDistance = bindingRadius + target.radius;
+
+        if (distance < minDistance) {
+          const overlap = minDistance - distance;
+          const nx = dx / distance;
+          const ny = dy / distance;
+          const targetMass = target.radius * target.radius;
+          const totalMass = bindingMass + targetMass || 1;
+
+          // Separate the bodies proportionally to their mass so both visibly react to the bump.
+          agent.x -= nx * (overlap * targetMass) / totalMass;
+          agent.y -= ny * (overlap * targetMass) / totalMass;
+          target.x += nx * (overlap * bindingMass) / totalMass;
+          target.y += ny * (overlap * bindingMass) / totalMass;
+
+          // Damp relative motion along the collision normal to keep the bond calm after impact.
+          const relativeSpeed = (agent.vx - target.vx) * nx + (agent.vy - target.vy) * ny;
+          agent.vx -= (relativeSpeed * nx * targetMass) / totalMass;
+          agent.vy -= (relativeSpeed * ny * targetMass) / totalMass;
+          target.vx += (relativeSpeed * nx * bindingMass) / totalMass;
+          target.vy += (relativeSpeed * ny * bindingMass) / totalMass;
+
+          if (!connectedIds.has(target.id) && !connectedTiers.has(target.tier)) {
+            const bondLength = Math.max(minDistance, Math.hypot(target.x - agent.x, target.y - agent.y));
+            agent.connections.push({
+              particleId: target.id,
+              tier: target.tier,
+              bondLength,
+            });
+            connectedIds.add(target.id);
+            connectedTiers.add(target.tier);
+          }
+        }
+      }
 
       // Stochastically attempt one new connection per frame to keep molecule creation organic.
       const shouldAttemptBond = Math.random() < Math.min(0.6, dt * 3);
       if (shouldAttemptBond) {
         const eligibleCandidates = this.particles.filter((particle) => {
-          if (particle.repellingForce > 0) return false;
           if (particle.tier <= NULL_TIER) return false;
           if (connectedTiers.has(particle.tier)) return false;
-
+          
           const dx = particle.x - agent.x;
           const dy = particle.y - agent.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
