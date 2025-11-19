@@ -230,9 +230,10 @@ export function createTsadiBindingUi({
         handleElement.disabled = true;
         handleElement.classList.remove('tsadi-binding-handle--depleted');
       } else {
-        handleElement.removeAttribute('hidden');
-        handleElement.setAttribute('aria-hidden', 'false');
         const canPlace = (available >= 1) || !Number.isFinite(available);
+        // Hide the placement handle entirely when the reserve is empty to avoid implying placement is available.
+        handleElement.toggleAttribute('hidden', !canPlace);
+        handleElement.setAttribute('aria-hidden', canPlace ? 'false' : 'true');
         handleElement.disabled = !canPlace;
         handleElement.classList.toggle('tsadi-binding-handle--depleted', !canPlace);
       }
