@@ -57,7 +57,7 @@ let trackTracerEnabled = true;
 let trackTracerToggleInput = null;
 let trackTracerToggleStateLabel = null;
 
-// Preferred tower loadout slot count; players can cycle between 2–4 slots in Options.
+// Preferred tower loadout slot count; players can cycle between 1–4 slots in Options.
 let preferredLoadoutSlots = 2;
 let loadoutSlotButton = null;
 let loadoutSlotChangeHandler = () => {};
@@ -190,13 +190,13 @@ function normalizeDamageNumberPreference(value) {
 }
 
 /**
- * Clamp the preferred loadout slot count between the supported 2–4 range.
+ * Clamp the preferred loadout slot count between the supported 1–4 range.
  */
 function normalizeLoadoutSlotPreference(value) {
   if (!Number.isFinite(value)) {
     return 2;
   }
-  return Math.min(4, Math.max(2, Math.floor(value)));
+  return Math.min(4, Math.max(1, Math.floor(value)));
 }
 
 function updateGlyphEquationToggleUi() {
@@ -478,7 +478,7 @@ export function applyLoadoutSlotPreference(preference, { persist = true } = {}) 
 }
 
 /**
- * Bind the Options card button that cycles through 2–4 loadout slots.
+ * Bind the Options card button that cycles through 1–4 loadout slots.
  */
 export function bindLoadoutSlotButton() {
   loadoutSlotButton = document.getElementById('loadout-slot-button');
@@ -486,7 +486,7 @@ export function bindLoadoutSlotButton() {
     return;
   }
   loadoutSlotButton.addEventListener('click', () => {
-    const next = preferredLoadoutSlots >= 4 ? 2 : preferredLoadoutSlots + 1;
+    const next = preferredLoadoutSlots >= 4 ? 1 : preferredLoadoutSlots + 1;
     applyLoadoutSlotPreference(next);
   });
   updateLoadoutSlotButton();

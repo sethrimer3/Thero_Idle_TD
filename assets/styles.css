@@ -1311,10 +1311,10 @@ body.graphics-mode-low .control-button {
 
 .tower-loadout-toggle {
   position: absolute;
-  left: 0;
-  bottom: calc(100% + 8px);
-  width: 32px;
-  height: 32px;
+  left: 20px;
+  bottom: calc(100% - 6px);
+  width: 16px;
+  height: 16px;
   display: grid;
   place-items: center;
   border-radius: 999px;
@@ -1449,7 +1449,7 @@ body.graphics-mode-low .control-button {
   border: none;
   box-shadow: none;
   min-width: 210px;
-  z-index: 6;
+  z-index: 12;
   pointer-events: auto;
 }
 
@@ -1462,7 +1462,8 @@ body.graphics-mode-low .control-button {
 
 .tower-loadout-wheel__item {
   display: grid;
-  grid-template-columns: auto 1fr;
+  /* Reserve a fixed art column so tower icons remain full-size. */
+  grid-template-columns: 52px 1fr;
   gap: 6px;
   align-items: center;
   padding: 8px 10px;
@@ -1509,15 +1510,16 @@ body.graphics-mode-low .control-button {
 }
 
 .tower-loadout-wheel__icon {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 10px;
-  padding: 6px;
+  padding: 4px;
   position: relative;
   overflow: hidden;
   background: radial-gradient(circle at 50% 30%, rgba(255, 228, 120, 0.22), rgba(12, 14, 20, 0.9));
   box-shadow: 0 10px 16px rgba(255, 228, 120, 0.16);
   object-fit: contain;
+  display: block;
 }
 
 .tower-loadout-wheel__item[data-affordable='false'] .tower-loadout-wheel__icon::after {

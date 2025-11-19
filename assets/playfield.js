@@ -3451,15 +3451,20 @@ export class SimplePlayfield {
     }
     const screen = this.worldToScreen({ x: tower.x, y: tower.y });
     const canvasRect = this.canvas.getBoundingClientRect();
-    const host = this.container || document.body;
-    const hostRect = host?.getBoundingClientRect ? host.getBoundingClientRect() : { left: 0, top: 0 };
+    const viewportWidth = document.documentElement?.clientWidth || window.innerWidth || 0;
+    const viewportHeight = document.documentElement?.clientHeight || window.innerHeight || 0;
+    const scrollX = window.scrollX || window.pageXOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
     if (!screen || !canvasRect) {
       return;
     }
-    const baseLeft = canvasRect.left - hostRect.left + screen.x - (wheel.container.offsetWidth || 0) / 2;
-    const baseTop = canvasRect.top - hostRect.top + screen.y - (wheel.container.offsetHeight || 0) / 2;
-    let absoluteLeft = Math.max(0, baseLeft);
-    let absoluteTop = Math.max(0, baseTop);
+    // Keep the selector inside the viewport so the scroll column is fully readable on edge towers.
+    const baseLeft = canvasRect.left + screen.x - (wheel.container.offsetWidth || 0) / 2;
+    const baseTop = canvasRect.top + screen.y - (wheel.container.offsetHeight || 0) / 2;
+    const maxLeft = Math.max(0, viewportWidth - (wheel.container.offsetWidth || 0) - 8);
+    const maxTop = Math.max(0, viewportHeight - (wheel.container.offsetHeight || 0) - 8);
+    let absoluteLeft = Math.min(maxLeft, Math.max(8, baseLeft)) + scrollX;
+    let absoluteTop = Math.min(maxTop, Math.max(8, baseTop)) + scrollY;
 
     wheel.container.style.left = `${absoluteLeft}px`;
     wheel.container.style.top = `${absoluteTop}px`;
@@ -3531,7 +3536,8 @@ export class SimplePlayfield {
     wheel.container = container;
     wheel.list = list;
 
-    const host = this.container || document.body;
+    // Mount on the document body so viewport-based positioning stays accurate near the screen edges.
+    const host = document.body;
     host.append(container);
 
     // Render after mounting so measurements (height, transforms) are accurate on first paint.
