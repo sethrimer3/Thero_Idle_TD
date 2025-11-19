@@ -44,8 +44,8 @@ const NULL_TIER = -1;
 const GREEK_SEQUENCE_LENGTH = GREEK_TIER_SEQUENCE.length;
 // Canvas dimensions below this value indicate the spire view is collapsed or hidden.
 const COLLAPSED_DIMENSION_THRESHOLD = 2;
-// Molecule recipes that reward the player for stabilizing specific tier sets.
-const MOLECULE_RECIPES = [
+// Legacy molecule recipes kept for backward compatibility with old saves.
+const LEGACY_MOLECULE_RECIPES = [
   {
     id: 'null-alpha-beta',
     name: 'Catalyst Triangle',
@@ -68,6 +68,54 @@ const MOLECULE_RECIPES = [
     description: 'Weaves δ/ε/ζ together to keep higher-tier clusters from scattering.',
   },
 ];
+
+/**
+ * Normalize and sort a tier list so combinations ignore permutation order.
+ * @param {Array<number>} tiers - Raw tier list.
+ * @returns {Array<number>} Sorted unique tiers.
+ */
+function normalizeTierList(tiers = []) {
+  const unique = Array.isArray(tiers)
+    ? Array.from(new Set(tiers.filter((tier) => Number.isFinite(tier))))
+    : [];
+  return unique.sort((a, b) => a - b);
+}
+
+/**
+ * Build a deterministic identifier for a molecule combination.
+ * @param {Array<number>} tiers - Sorted unique tier list.
+ * @returns {string|null} Stable id or null when insufficient data.
+ */
+function createCombinationIdFromTiers(tiers = []) {
+  const normalized = normalizeTierList(tiers);
+  if (normalized.length < 2) {
+    return null;
+  }
+  return `combo-${normalized.join('-')}`;
+}
+
+/**
+ * Enumerate every unique combination of at least two tiers from a set.
+ * @param {Array<number>} tiers - Sorted unique tiers present on a binding agent.
+ * @returns {Array<Array<number>>} All combinations with size >= 2.
+ */
+function generateTierCombinations(tiers = []) {
+  const results = [];
+  const total = tiers.length;
+  const maxMask = 1 << total;
+  for (let mask = 0; mask < maxMask; mask += 1) {
+    const combo = [];
+    for (let i = 0; i < total; i += 1) {
+      if (mask & (1 << i)) {
+        combo.push(tiers[i]);
+      }
+    }
+    if (combo.length >= 2) {
+      results.push(combo);
+    }
+  }
+  return results;
+}
 
 /**
  * Convert tier to a color using the active color palette gradient.
@@ -610,6 +658,8 @@ export class ParticleFusionSimulation {
     // Treat binding agents as first-class physics bodies so they collide and share forces with particles.
     const physicsBodies = [...this.particles];
     for (const agent of this.bindingAgents) {
+      // Fade pop highlight timers so recent discoveries still glow briefly.
+      agent.popTimer = Math.max(0, (agent.popTimer || 0) - dt);
       agent.radius = bindingRadius;
       agent.repellingForce = bindingRepellingForce;
       agent.isBindingAgent = true;
@@ -884,6 +934,7 @@ export class ParticleFusionSimulation {
       vy: 0,
       connections: [],
       activeMolecules: [],
+      popTimer: 0,
     });
 
     this.addBindingAgents(-1);
@@ -939,21 +990,24 @@ export class ParticleFusionSimulation {
       return null;
     }
     const resolvedId = typeof recipe === 'string' ? recipe : recipe.id || recipe.name;
-    const baseRecipe = MOLECULE_RECIPES.find((entry) => entry.id === resolvedId) || null;
-    const merged = typeof recipe === 'object' ? { ...(baseRecipe || {}), ...recipe } : (baseRecipe || { id: resolvedId });
+    const legacyRecipe = LEGACY_MOLECULE_RECIPES.find((entry) => entry.id === resolvedId) || null;
+    const merged = typeof recipe === 'object' ? { ...(legacyRecipe || {}), ...recipe } : (legacyRecipe || { id: resolvedId });
 
-    const id = merged.id || merged.name || resolvedId || 'molecule';
-    const tiers = Array.isArray(merged.tiers) ? merged.tiers : baseRecipe?.tiers || [];
+    const tiers = normalizeTierList(Array.isArray(merged.tiers) ? merged.tiers : legacyRecipe?.tiers || []);
+    const particleCount = tiers.length;
+    const generatedId = createCombinationIdFromTiers(tiers);
+    const id = merged.id || merged.name || generatedId || resolvedId || 'molecule';
     const description = typeof merged.description === 'string'
       ? merged.description
-      : baseRecipe?.description || 'Recorded in the Alchemy Codex.';
+      : legacyRecipe?.description || 'Recorded in the Alchemy Codex.';
     const descriptor = {
       ...merged,
       id,
-      name: typeof merged.name === 'string' && merged.name ? merged.name : (baseRecipe?.name || id),
+      name: typeof merged.name === 'string' && merged.name ? merged.name : (legacyRecipe?.name || id),
       tiers,
       description,
-      bonus: merged.bonus || baseRecipe?.bonus || {},
+      particleCount,
+      bonus: merged.bonus || legacyRecipe?.bonus || {},
     };
 
     if (this.assignMoleculeName) {
@@ -990,12 +1044,29 @@ export class ParticleFusionSimulation {
    */
   recordDiscoveredMolecule(recipe) {
     const descriptor = this.normalizeMoleculeDescriptor(recipe);
-    if (!descriptor) {
+    if (!descriptor || (descriptor.particleCount || 0) < 2) {
       return null;
     }
     this.discoveredMolecules.add(descriptor.id);
     this.discoveredMoleculeEntries.set(descriptor.id, descriptor);
     return descriptor;
+  }
+
+  /**
+   * Create a normalized descriptor for a freeform molecule combination.
+   * @param {Array<number>} tiers - Unique tier list to capture.
+   * @returns {Object|null} Molecule descriptor with id and particle count.
+   */
+  createCombinationDescriptor(tiers = []) {
+    const normalized = normalizeTierList(tiers);
+    if (normalized.length < 2) {
+      return null;
+    }
+    return this.normalizeMoleculeDescriptor({
+      id: createCombinationIdFromTiers(normalized),
+      tiers: normalized,
+      particleCount: normalized.length,
+    });
   }
 
   /**
@@ -1005,7 +1076,7 @@ export class ParticleFusionSimulation {
     const nextBonuses = { spawnRateBonus: 0, repellingShift: 0 };
     for (const agent of this.bindingAgents) {
       for (const moleculeId of agent.activeMolecules || []) {
-        const recipe = MOLECULE_RECIPES.find((entry) => entry.id === moleculeId);
+        const recipe = this.discoveredMoleculeEntries.get(moleculeId);
         if (!recipe || !recipe.bonus) {
           continue;
         }
@@ -1018,6 +1089,28 @@ export class ParticleFusionSimulation {
       }
     }
     this.moleculeBonuses = nextBonuses;
+  }
+
+  /**
+   * Release all bonds on a binding agent after a successful discovery.
+   * @param {Object} agent - Binding agent whose connections should be cleared.
+   */
+  popBindingAgent(agent) {
+    if (!agent) {
+      return;
+    }
+    const particleMap = new Map(this.particles.map((particle) => [particle.id, particle]));
+    agent.connections.forEach((connection) => {
+      const particle = particleMap.get(connection.particleId);
+      if (particle) {
+        // Nudge attached particles apart so the release is visible.
+        particle.vx += (Math.random() - 0.5) * 0.4;
+        particle.vy += (Math.random() - 0.5) * 0.4;
+      }
+    });
+    agent.connections = [];
+    agent.activeMolecules = [];
+    agent.popTimer = Math.max(agent.popTimer || 0, 0.6);
   }
 
   /**
@@ -1128,20 +1221,27 @@ export class ParticleFusionSimulation {
         }
       }
 
-      // Resolve molecule completion and discovery.
-      const tiersPresent = new Set(agent.connections.map((connection) => connection.tier));
+      // Resolve molecule completion and discovery based on unique tier combinations.
+      const tiersPresent = normalizeTierList(agent.connections.map((connection) => connection.tier));
+      const combinations = tiersPresent.length >= 2 ? generateTierCombinations(tiersPresent) : [];
       agent.activeMolecules = [];
-      for (const recipe of MOLECULE_RECIPES) {
-        const isComplete = recipe.tiers.every((tier) => tiersPresent.has(tier));
-        if (isComplete) {
-          agent.activeMolecules.push(recipe.id);
-          if (!this.discoveredMolecules.has(recipe.id)) {
-            const descriptor = this.recordDiscoveredMolecule(recipe);
-            if (descriptor && this.onMoleculeDiscovered) {
-              this.onMoleculeDiscovered(descriptor);
-            }
-          }
+      let discoveredNewMolecule = false;
+      for (const combo of combinations) {
+        const descriptor = this.createCombinationDescriptor(combo);
+        if (!descriptor) {
+          continue;
         }
+        agent.activeMolecules.push(descriptor.id);
+        if (!this.discoveredMolecules.has(descriptor.id)) {
+          const recorded = this.recordDiscoveredMolecule(descriptor);
+          if (recorded && this.onMoleculeDiscovered) {
+            this.onMoleculeDiscovered(recorded);
+          }
+          discoveredNewMolecule = true;
+        }
+      }
+      if (discoveredNewMolecule) {
+        this.popBindingAgent(agent);
       }
 
       // Constrain connected particles to move as if joined by rigid, weightless rods.
@@ -1796,9 +1896,9 @@ export class ParticleFusionSimulation {
     const particleMap = new Map(this.particles.map((particle) => [particle.id, particle]));
     const radius = this.getBindingAgentRadius();
 
-    const drawAgent = (agent, { isPreview = false } = {}) => {
+    const drawAgent = (agent, { isPreview = false, hasActiveMolecule = false } = {}) => {
       const baseColor = isPreview ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.9)';
-      const bondColor = agent.activeMolecules?.length ? 'rgba(255, 215, 130, 0.9)' : 'rgba(180, 200, 255, 0.7)';
+      const bondColor = hasActiveMolecule ? 'rgba(255, 215, 130, 0.9)' : 'rgba(180, 200, 255, 0.7)';
       const triangleRadius = radius * 1.5;
       const cornerRadius = radius * 0.55;
       const angleOffset = -Math.PI / 2;
@@ -1844,6 +1944,7 @@ export class ParticleFusionSimulation {
     }
 
     for (const agent of this.bindingAgents) {
+      const hasActiveMolecule = (agent.activeMolecules?.length || 0) > 0 || (agent.popTimer || 0) > 0;
       for (const connection of agent.connections) {
         const target = particleMap.get(connection.particleId);
         if (!target) continue;
@@ -1857,7 +1958,7 @@ export class ParticleFusionSimulation {
         const endX = agent.x + nx * reach;
         const endY = agent.y + ny * reach;
 
-        const connectionColor = agent.activeMolecules?.length
+        const connectionColor = hasActiveMolecule
           ? 'rgba(255, 215, 130, 0.8)'
           : 'rgba(180, 220, 255, 0.7)';
 
@@ -1871,7 +1972,7 @@ export class ParticleFusionSimulation {
         ctx.restore();
       }
 
-      drawAgent(agent);
+      drawAgent(agent, { hasActiveMolecule });
     }
   }
 

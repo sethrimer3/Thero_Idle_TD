@@ -2033,7 +2033,10 @@ import {
           const tiers = Array.isArray(entry.tiers) ? entry.tiers.filter((tier) => Number.isFinite(tier)) : [];
           const description =
             typeof entry.description === 'string' ? entry.description : 'Recorded in the Alchemy Codex.';
-          return { ...entry, id, name, tiers, description };
+          const particleCount = Number.isFinite(entry.particleCount)
+            ? Math.max(0, entry.particleCount)
+            : new Set(tiers).size;
+          return { ...entry, id, name, tiers, description, particleCount };
         }
         return null;
       })
