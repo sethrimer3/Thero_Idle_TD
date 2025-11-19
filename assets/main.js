@@ -3557,7 +3557,7 @@ import {
       }
 
       if (fluidElements.depthValue) {
-        fluidElements.depthValue.textContent = '0% full';
+        fluidElements.depthValue.textContent = '0% crest height';
       }
       if (fluidElements.reservoirValue) {
         fluidElements.reservoirValue.textContent = '0 Serendipity';
@@ -3590,6 +3590,10 @@ import {
     const normalizedHeight = Number.isFinite(info?.normalizedHeight)
       ? Math.max(0, Math.min(1, info.normalizedHeight))
       : 0;
+    // Highest crest accounts for hidden overflow so the readout mirrors the tallest wave peak, not a fill gauge.
+    const crestNormalized = Number.isFinite(info?.highestNormalized)
+      ? Math.max(0, Math.min(2, info.highestNormalized))
+      : normalizedHeight;
     const scrollOffset = Number.isFinite(info?.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
     const totalNormalized = Number.isFinite(info?.totalNormalized)
       ? Math.max(0, info.totalNormalized)
@@ -3674,7 +3678,8 @@ import {
     }
 
     if (fluidElements.depthValue) {
-      fluidElements.depthValue.textContent = `${formatDecimal(normalizedHeight * 100, 1)}% full`;
+      const crestPercent = formatDecimal(crestNormalized * 100, 1);
+      fluidElements.depthValue.textContent = `${crestPercent}% crest height`;
     }
 
     const idleBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
@@ -3691,12 +3696,13 @@ import {
 
     if (fluidElements.statusNote) {
       let message;
-      if (normalizedHeight >= 0.9) {
-        message = 'Reservoir plane stabilized—idle Serendipity condenses rapidly.';
-      } else if (normalizedHeight >= 0.5) {
-        message = 'Flow is balanced. Serendipity weaves a mirrored surface across the channel.';
+      const crestPercent = formatDecimal(crestNormalized * 100, 1);
+      if (crestNormalized >= 1.2) {
+        message = `Crest is ${crestPercent}% of the viewport—overflow is cycling while idle Serendipity condenses.`;
+      } else if (crestNormalized >= 0.75) {
+        message = `Surface oscillates near the ridge (${crestPercent}%). This gauge tracks wave height, not stored Serendipity.`;
       } else {
-        message = 'Channel remains shallow. Allow more Serendipity to condense into the study.';
+        message = `Crest remains low (${crestPercent}%). Wave height here is separate from the Serendipity reserve total.`;
       }
       fluidElements.statusNote.textContent = message;
     }
