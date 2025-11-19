@@ -27,7 +27,13 @@ Use this baseline stack (back to front) when composing the Bet Spire vista:
 - Cave masks define usable interior bounds. For example, the Delta slimes currently spawn inside the Cave 4 and Cave 5 masks:
   - **Cave 4 mask window:** `x=225–465`, `y=1076–1274` in the 1024×1536 sprite space (≈21.97–45.4% X, 70.05–82.94% Y).
   - **Cave 5 mask window:** `x=540–850`, `y=1064–1269` in the same space (≈52.73–83.01% X, 69.27–82.55% Y).
-- Normalize coordinates against the rendered terrain bounds so spawn areas remain correct as the viewport scales.
+  - Normalize coordinates against the rendered terrain bounds so spawn areas remain correct as the viewport scales.
+
+## Collision Strategy for Interactive Elements
+- **Avoid per-frame SVG hit tests.** The main terrain art lives in `Terrain.svg` (3000×4000 viewBox) and contains hundreds of vector paths; walking those paths for collision every frame would be CPU-heavy on mobile GPUs.【F:assets/sprites/spires/betSpire/Terrain.svg†L1-L40】【71b8df†L1-L2】
+- **Use the baked collision mask.** The terrarium already preloads `terrain-collision.png` alongside the SVG; sample that raster silhouette for ground checks, decal placement, and pathfinding to keep lookups O(1) per pixel rather than O(number of SVG paths).【F:index.html†L1790-L1807】
+- **Map decorative reactions to the mask.** When attaching grass sways, fractal tree roots, Delta slime ground checks, or growing crystal anchors, derive their world positions from the collision mask (or a downscaled version) and cache the results so the simulation never queries SVG geometry directly.
+- **Keep updates batched.** If those elements need to react to terrain (e.g., slime bounce or crystal growth), batch collision samples per tick (or per chunk) and reuse results for multiple entities to avoid redundant reads.
 
 ## Migration Notes
 - Legacy Bet landscape sprites (`bet_landscape.png`, `bet_landscape_background.png`) and the layered gradient “water” overlay have been removed from the terrarium. Use the new Terrain/Floating-Island/Cave-Background art stack instead.
