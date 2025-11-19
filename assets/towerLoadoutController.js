@@ -563,6 +563,13 @@ export function createTowerLoadoutController({
 
     const firstItem = list.querySelector('.tower-loadout-wheel__item');
     wheelState.itemHeight = firstItem?.getBoundingClientRect?.().height || LOADOUT_SCROLL_STEP_PX;
+    const itemHeight = Math.max(1, wheelState.itemHeight);
+    const listStyles = window.getComputedStyle(list);
+    const gapValue = listStyles?.rowGap || listStyles?.gap || '0';
+    const listGap = Number.parseFloat(gapValue) || 0;
+    const viewportHeight = itemHeight * Math.max(1, towers.length) + listGap * Math.max(0, towers.length - 1);
+    // Grow the wheel viewport by one icon height per unlocked tower so new options remain fully visible.
+    list.style.setProperty('--tower-loadout-wheel-height', `${viewportHeight}px`);
     updateLoadoutWheelTransform({ immediate });
   }
 
