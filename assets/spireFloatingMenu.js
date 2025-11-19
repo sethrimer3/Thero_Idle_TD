@@ -299,43 +299,55 @@ export function createSpireFloatingMenuController(options = {}) {
       }
     });
 
+    // Hide locked spire icons and mirror the state to aria-hidden so the menu
+    // never flashes inaccessible entries during startup or reloads.
     doc.querySelectorAll('.spire-menu-item--bet').forEach((item) => {
       if (isFluidUnlocked()) {
         item.removeAttribute('hidden');
+        item.setAttribute('aria-hidden', 'false');
       } else {
         item.setAttribute('hidden', '');
+        item.setAttribute('aria-hidden', 'true');
       }
     });
 
     doc.querySelectorAll('.spire-menu-item--lamed').forEach((item) => {
       if (isLamedUnlocked()) {
         item.removeAttribute('hidden');
+        item.setAttribute('aria-hidden', 'false');
       } else {
         item.setAttribute('hidden', '');
+        item.setAttribute('aria-hidden', 'true');
       }
     });
 
     doc.querySelectorAll('.spire-menu-item--tsadi').forEach((item) => {
       if (isTsadiUnlocked()) {
         item.removeAttribute('hidden');
+        item.setAttribute('aria-hidden', 'false');
       } else {
         item.setAttribute('hidden', '');
+        item.setAttribute('aria-hidden', 'true');
       }
     });
 
     doc.querySelectorAll('.spire-menu-item--shin').forEach((item) => {
       if (isShinUnlocked()) {
         item.removeAttribute('hidden');
+        item.setAttribute('aria-hidden', 'false');
       } else {
         item.setAttribute('hidden', '');
+        item.setAttribute('aria-hidden', 'true');
       }
     });
 
     doc.querySelectorAll('.spire-menu-item--kuf').forEach((item) => {
       if (isKufUnlocked()) {
         item.removeAttribute('hidden');
+        item.setAttribute('aria-hidden', 'false');
       } else {
         item.setAttribute('hidden', '');
+        item.setAttribute('aria-hidden', 'true');
       }
     });
   }
