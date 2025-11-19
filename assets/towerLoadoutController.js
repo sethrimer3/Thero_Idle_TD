@@ -406,13 +406,13 @@ export function createTowerLoadoutController({
       width: wheelState.container.offsetWidth || 0,
       height: wheelState.container.offsetHeight || 0,
     };
-    const anchorCenterX = anchorRect.left + anchorRect.width / 2;
     const anchorCenterY = anchorRect.top + anchorRect.height / 2;
     const scrollX = window.scrollX || window.pageXOffset || 0;
     const scrollY = window.scrollY || window.pageYOffset || 0;
     const maxLeft = Math.max(0, viewportWidth - containerRect.width - 8);
     const maxTop = Math.max(0, viewportHeight - containerRect.height - 8);
-    const desiredLeft = anchorCenterX - containerRect.width / 2;
+    // Anchor the wheel to the slot's left edge so the glyph column sits directly atop the held slot.
+    const desiredLeft = anchorRect.left;
     const desiredTop = anchorCenterY - containerRect.height / 2;
     const left = Math.min(maxLeft, Math.max(8, desiredLeft));
     const top = Math.min(maxTop, Math.max(8, desiredTop));
