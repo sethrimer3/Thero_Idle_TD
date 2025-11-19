@@ -229,59 +229,26 @@ async function showOfflineOverlay(summary = {}) {
   const kufMultiplierValue = Math.max(0, Number(kufSummary.multiplier) || 0);
   const kufTotalValue = Math.max(0, Number(kufSummary.total) || 0);
 
-  if (betRow) {
-    betRow.classList.toggle('offline-overlay__equation-row--inactive', !betUnlocked);
-    if (betUnlocked) {
-      betRow.removeAttribute('aria-hidden');
-    } else {
-      betRow.setAttribute('aria-hidden', 'true');
+  // Hide locked rows entirely so players only see idle equations for unlocked spires.
+  const syncOfflineRowVisibility = (rowElement, unlocked) => {
+    if (!rowElement) {
+      return;
     }
-  }
+    rowElement.classList.toggle('offline-overlay__equation-row--inactive', !unlocked);
+    rowElement.setAttribute('aria-hidden', unlocked ? 'false' : 'true');
+    if (unlocked) {
+      rowElement.removeAttribute('hidden');
+    } else {
+      rowElement.setAttribute('hidden', '');
+    }
+  };
 
-  if (happinessRow) {
-    happinessRow.classList.toggle('offline-overlay__equation-row--inactive', !happinessUnlocked);
-    if (happinessUnlocked) {
-      happinessRow.removeAttribute('aria-hidden');
-    } else {
-      happinessRow.setAttribute('aria-hidden', 'true');
-    }
-  }
-
-  if (lamedRow) {
-    lamedRow.classList.toggle('offline-overlay__equation-row--inactive', !lamedUnlocked);
-    if (lamedUnlocked) {
-      lamedRow.removeAttribute('aria-hidden');
-    } else {
-      lamedRow.setAttribute('aria-hidden', 'true');
-    }
-  }
-  
-  if (tsadiRow) {
-    tsadiRow.classList.toggle('offline-overlay__equation-row--inactive', !tsadiUnlocked);
-    if (tsadiUnlocked) {
-      tsadiRow.removeAttribute('aria-hidden');
-    } else {
-      tsadiRow.setAttribute('aria-hidden', 'true');
-    }
-  }
-  
-  if (shinRow) {
-    shinRow.classList.toggle('offline-overlay__equation-row--inactive', !shinUnlocked);
-    if (shinUnlocked) {
-      shinRow.removeAttribute('aria-hidden');
-    } else {
-      shinRow.setAttribute('aria-hidden', 'true');
-    }
-  }
-  
-  if (kufRow) {
-    kufRow.classList.toggle('offline-overlay__equation-row--inactive', !kufUnlocked);
-    if (kufUnlocked) {
-      kufRow.removeAttribute('aria-hidden');
-    } else {
-      kufRow.setAttribute('aria-hidden', 'true');
-    }
-  }
+  syncOfflineRowVisibility(betRow, betUnlocked);
+  syncOfflineRowVisibility(happinessRow, happinessUnlocked);
+  syncOfflineRowVisibility(lamedRow, lamedUnlocked);
+  syncOfflineRowVisibility(tsadiRow, tsadiUnlocked);
+  syncOfflineRowVisibility(shinRow, shinUnlocked);
+  syncOfflineRowVisibility(kufRow, kufUnlocked);
 
   [
     alephMinutes,
