@@ -865,8 +865,6 @@ import {
     rightWall: null,
     leftHitbox: null,
     rightHitbox: null,
-    profileLabel: null,
-    stateLabel: null,
     depthValue: null,
     reservoirValue: null,
     dripRateValue: null,
@@ -3858,18 +3856,6 @@ import {
       : 0;
     if (fluidElements.dripRateValue) {
       fluidElements.dripRateValue.textContent = `${formatDecimal(drainRate, 2)} Serendipity/sec`;
-    }
-
-    if (fluidElements.profileLabel) {
-      fluidElements.profileLabel.textContent = powderState.fluidProfileLabel || 'Bet Spire';
-    }
-
-    if (fluidElements.stateLabel) {
-      const crestState = normalizedHeight >= 0.9 ? 'ready' : normalizedHeight < 0.5 ? 'forming' : 'steady';
-      fluidElements.stateLabel.textContent =
-        crestState === 'ready' ? 'Stabilized' : crestState === 'forming' ? 'Forming' : 'Balanced';
-      fluidElements.stateLabel.classList.toggle('fluid-state-label--ready', crestState === 'ready');
-      fluidElements.stateLabel.classList.toggle('fluid-state-label--forming', crestState === 'forming');
     }
 
     if (fluidElements.statusNote) {
