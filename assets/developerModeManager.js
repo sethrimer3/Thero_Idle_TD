@@ -24,6 +24,8 @@ export function createDeveloperModeManager(options = {}) {
     powderState,
     spireResourceState,
     setKufTotalShards,
+    resetKufState,
+    setTrackedKufGlyphs,
     setDeveloperIteronBank,
     setDeveloperIterationRate,
     setDeveloperInfiniteTheroEnabled,
@@ -553,6 +555,15 @@ export function createDeveloperModeManager(options = {}) {
       }
       if (spireResourceState.kuf) {
         spireResourceState.kuf.unlocked = false;
+      }
+    }
+    // Clear Kuf Spire progress so glyphs, scores, and HUD trackers wipe alongside other systems.
+    if (typeof resetKufState === 'function') {
+      try {
+        resetKufState();
+        setTrackedKufGlyphs?.(0);
+      } catch (error) {
+        console.warn('Failed to reset Kuf Spire state while deleting player data.', error);
       }
     }
     // Clear Kuf shard totals so the navigation menu and unlock checks reflect a fresh state.

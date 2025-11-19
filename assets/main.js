@@ -194,6 +194,7 @@ import {
   getKufGlyphs,
   onKufStateChange,
   setKufTotalShards,
+  resetKufState,
   setKufGlyphs,
 } from './kufState.js';
 import { initializeKufUI, updateKufDisplay } from './kufUI.js';
@@ -536,6 +537,8 @@ import {
     EQUIPMENT_STORAGE_KEY,
     OFFLINE_STORAGE_KEY,
     COLOR_SCHEME_STORAGE_KEY,
+    // Clear Kuf tactical progress so glyph wipes remove saved spire runs.
+    KUF_STATE_STORAGE_KEY,
     SHIN_STATE_STORAGE_KEY,
   ].filter(Boolean);
 
@@ -1373,6 +1376,8 @@ import {
     powderState,
     spireResourceState,
     setKufTotalShards,
+    resetKufState,
+    setTrackedKufGlyphs,
     setDeveloperIteronBank,
     setDeveloperIterationRate,
     setDeveloperInfiniteTheroEnabled,
