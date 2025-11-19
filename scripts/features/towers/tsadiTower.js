@@ -604,6 +604,17 @@ export class ParticleFusionSimulation {
     const dt = deltaTime / 1000; // Convert to seconds
     const canvasWidth = this.width;
     const canvasHeight = this.height;
+    const bindingRadius = this.getBindingAgentRadius();
+    const bindingRepellingForce = this.baseRepellingForce * 0.5; // Keep anchors gentle but interactive.
+
+    // Treat binding agents as first-class physics bodies so they collide and share forces with particles.
+    const physicsBodies = [...this.particles];
+    for (const agent of this.bindingAgents) {
+      agent.radius = bindingRadius;
+      agent.repellingForce = bindingRepellingForce;
+      agent.isBindingAgent = true;
+      physicsBodies.push(agent);
+    }
 
     // Stagger the reentry placement queue before resuming normal spawning or physics.
     if (this.placingStoredParticles) {
@@ -631,39 +642,45 @@ export class ParticleFusionSimulation {
       width: canvasWidth,
       height: canvasHeight,
     });
-    
-    for (const particle of this.particles) {
-      this.quadtree.insert(particle);
+
+    for (const body of physicsBodies) {
+      this.quadtree.insert(body);
     }
-    
+
     // Apply repelling forces between nearby particles
-    this.applyRepellingForces(dt);
-    
+    this.applyRepellingForces(dt, physicsBodies);
+
     // Update positions
-    for (const particle of this.particles) {
-      particle.x += particle.vx * dt;
-      particle.y += particle.vy * dt;
-      
+    for (const body of physicsBodies) {
+      body.x += body.vx * dt;
+      body.y += body.vy * dt;
+
       // Wall collisions (elastic)
-      if (particle.x - particle.radius < 0) {
-        particle.x = particle.radius;
-        particle.vx = Math.abs(particle.vx);
-      } else if (particle.x + particle.radius > canvasWidth) {
-        particle.x = canvasWidth - particle.radius;
-        particle.vx = -Math.abs(particle.vx);
+      if (body.x - body.radius < 0) {
+        body.x = body.radius;
+        body.vx = Math.abs(body.vx);
+      } else if (body.x + body.radius > canvasWidth) {
+        body.x = canvasWidth - body.radius;
+        body.vx = -Math.abs(body.vx);
       }
-      
-      if (particle.y - particle.radius < 0) {
-        particle.y = particle.radius;
-        particle.vy = Math.abs(particle.vy);
-      } else if (particle.y + particle.radius > canvasHeight) {
-        particle.y = canvasHeight - particle.radius;
-        particle.vy = -Math.abs(particle.vy);
+
+      if (body.y - body.radius < 0) {
+        body.y = body.radius;
+        body.vy = Math.abs(body.vy);
+      } else if (body.y + body.radius > canvasHeight) {
+        body.y = canvasHeight - body.radius;
+        body.vy = -Math.abs(body.vy);
+      }
+
+      if (body.isBindingAgent) {
+        // Light damping avoids runaway velocity without stealing the feeling of momentum.
+        body.vx *= 0.995;
+        body.vy *= 0.995;
       }
     }
-    
+
     // Particle-particle collisions and fusion
-    this.handleCollisions();
+    this.handleCollisions(physicsBodies);
     
     // Update fusion effects
     for (let i = this.fusionEffects.length - 1; i >= 0; i--) {
@@ -699,12 +716,12 @@ export class ParticleFusionSimulation {
   /**
    * Apply repelling or attracting forces between particles based on their tier
    */
-  applyRepellingForces(dt) {
+  applyRepellingForces(dt, bodies = this.particles) {
     const processedPairs = new Set();
     // Clear any previously recorded force links before evaluating the current frame.
     this.forceLinks.length = 0;
-    
-    for (const p1 of this.particles) {
+
+    for (const p1 of bodies) {
       const candidates = this.quadtree.retrieve(p1);
       
       for (const p2 of candidates) {
@@ -1004,37 +1021,9 @@ export class ParticleFusionSimulation {
       return;
     }
 
-    // Drift binding agents with inertia so they participate in the simulation like particles.
     const bindingRadius = this.getBindingAgentRadius();
     const bindingMass = this.getBindingAgentMass();
-    for (const agent of this.bindingAgents) {
-      if (!Number.isFinite(agent.vx)) agent.vx = 0;
-      if (!Number.isFinite(agent.vy)) agent.vy = 0;
-
-      agent.x += agent.vx * dt;
-      agent.y += agent.vy * dt;
-
-      // Bounce off the walls so anchored agents stay inside the chamber.
-      if (agent.x - bindingRadius < 0) {
-        agent.x = bindingRadius;
-        agent.vx = Math.abs(agent.vx);
-      } else if (agent.x + bindingRadius > this.width) {
-        agent.x = this.width - bindingRadius;
-        agent.vx = -Math.abs(agent.vx);
-      }
-
-      if (agent.y - bindingRadius < 0) {
-        agent.y = bindingRadius;
-        agent.vy = Math.abs(agent.vy);
-      } else if (agent.y + bindingRadius > this.height) {
-        agent.y = this.height - bindingRadius;
-        agent.vy = -Math.abs(agent.vy);
-      }
-
-      // Light damping avoids runaway velocity without stealing the feeling of momentum.
-      agent.vx *= 0.995;
-      agent.vy *= 0.995;
-    }
+    const bindingRepellingForce = this.baseRepellingForce * 0.5;
 
     const particleMap = new Map();
     for (const particle of this.particles) {
@@ -1042,6 +1031,9 @@ export class ParticleFusionSimulation {
     }
 
     for (const agent of this.bindingAgents) {
+      agent.radius = bindingRadius;
+      agent.repellingForce = bindingRepellingForce;
+
       // Remove stale or now-repulsive connections.
       agent.connections = agent.connections.filter((connection) => {
         const target = particleMap.get(connection.particleId);
@@ -1057,9 +1049,13 @@ export class ParticleFusionSimulation {
       const connectedTiers = new Set(agent.connections.map((connection) => connection.tier));
       const connectedIds = new Set(agent.connections.map((connection) => connection.particleId));
 
+      const nearbyBodies = this.quadtree ? this.quadtree.retrieve(agent) : this.particles;
+
       // If a Waals particle bumps into an eligible target, immediately stabilize it with a bond
       // and resolve the overlap so the contact is visible instead of passing through.
-      for (const target of this.particles) {
+      for (const target of nearbyBodies) {
+        if (target.id === agent.id) continue;
+        if (target.isBindingAgent) continue;
         const isNullParticle = target.tier <= NULL_TIER;
 
         const dx = target.x - agent.x;
@@ -1067,26 +1063,7 @@ export class ParticleFusionSimulation {
         const distance = Math.sqrt(dx * dx + dy * dy) || 1;
         const minDistance = bindingRadius + target.radius;
 
-        if (distance < minDistance) {
-          const overlap = minDistance - distance;
-          const nx = dx / distance;
-          const ny = dy / distance;
-          const targetMass = target.radius * target.radius;
-          const totalMass = bindingMass + targetMass || 1;
-
-          // Separate the bodies proportionally to their mass so both visibly react to the bump.
-          agent.x -= nx * (overlap * targetMass) / totalMass;
-          agent.y -= ny * (overlap * targetMass) / totalMass;
-          target.x += nx * (overlap * bindingMass) / totalMass;
-          target.y += ny * (overlap * bindingMass) / totalMass;
-
-          // Damp relative motion along the collision normal to keep the bond calm after impact.
-          const relativeSpeed = (agent.vx - target.vx) * nx + (agent.vy - target.vy) * ny;
-          agent.vx -= (relativeSpeed * nx * targetMass) / totalMass;
-          agent.vy -= (relativeSpeed * ny * targetMass) / totalMass;
-          target.vx += (relativeSpeed * nx * bindingMass) / totalMass;
-          target.vy += (relativeSpeed * ny * bindingMass) / totalMass;
-
+        if (distance <= minDistance) {
           // Null particles cannot form bonds, but still collide to keep the chamber physical.
           if (!isNullParticle && !connectedIds.has(target.id) && !connectedTiers.has(target.tier)) {
             const bondLength = Math.max(minDistance, Math.hypot(target.x - agent.x, target.y - agent.y));
@@ -1104,10 +1081,12 @@ export class ParticleFusionSimulation {
       // Stochastically attempt one new connection per frame to keep molecule creation organic.
       const shouldAttemptBond = Math.random() < Math.min(0.6, dt * 3);
       if (shouldAttemptBond) {
-        const eligibleCandidates = this.particles.filter((particle) => {
+        const eligibleCandidates = nearbyBodies.filter((particle) => {
+          if (particle.id === agent.id) return false;
+          if (particle.isBindingAgent) return false;
           if (particle.tier <= NULL_TIER) return false;
           if (connectedTiers.has(particle.tier)) return false;
-          
+
           const dx = particle.x - agent.x;
           const dy = particle.y - agent.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
@@ -1227,13 +1206,13 @@ export class ParticleFusionSimulation {
   /**
    * Handle particle-particle collisions and fusion with tier progression
    */
-  handleCollisions() {
+  handleCollisions(bodies = this.particles) {
     const processedPairs = new Set();
     const particlesToRemove = new Set();
     const particlesToAdd = [];
-    
-    for (let i = 0; i < this.particles.length; i++) {
-      const p1 = this.particles[i];
+
+    for (let i = 0; i < bodies.length; i++) {
+      const p1 = bodies[i];
       if (particlesToRemove.has(p1.id)) continue;
       
       // Check for aleph particle absorbing other particles
@@ -1244,24 +1223,26 @@ export class ParticleFusionSimulation {
       }
       
       const candidates = this.quadtree.retrieve(p1);
-      
+
       for (const p2 of candidates) {
         if (p1.id === p2.id) continue;
         if (particlesToRemove.has(p2.id)) continue;
-        
+
         const pairKey = p1.id < p2.id ? `${p1.id}-${p2.id}` : `${p2.id}-${p1.id}`;
         if (processedPairs.has(pairKey)) continue;
         processedPairs.add(pairKey);
-        
+
         // Check for collision
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
         const distSq = dx * dx + dy * dy;
         const minDist = p1.radius + p2.radius;
-        
+
         if (distSq < minDist * minDist) {
           // Collision detected
-          if (p1.tier === p2.tier) {
+          if (p1.isBindingAgent || p2.isBindingAgent) {
+            this.resolveElasticCollision(p1, p2);
+          } else if (p1.tier === p2.tier) {
             // Fusion: same tier particles merge
             this.handleFusion(p1, p2, particlesToRemove, particlesToAdd);
           } else {
