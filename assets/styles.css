@@ -4219,7 +4219,8 @@ body.graphics-mode-low .control-button {
   display: flex;
   align-items: stretch;
   justify-content: center;
-  pointer-events: none;
+  /* Keep the Lv. toggle and tree overlays clickable so leveling mode can activate. */
+  pointer-events: auto;
   z-index: 0;
 }
 
