@@ -4659,8 +4659,9 @@ body.graphics-mode-low .control-button {
   opacity: 0;
 }
 
+/* Let Bet terrarium controls (like the Lv. toggle) sit above the viewport overlay while preserving touch panning. */
 .fluid-viewport {
-  pointer-events: auto;
+  pointer-events: none;
   touch-action: none;
 }
 

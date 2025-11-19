@@ -92,7 +92,10 @@ export class FluidTerrariumTrees {
     // Small overlay toggle that reveals tree levels and leveling progress bars on demand.
     levelButton.setAttribute('aria-label', 'Toggle tree leveling mode');
     levelButton.title = 'Show tree levels';
-    levelButton.addEventListener('click', () => {
+    levelButton.addEventListener('click', (event) => {
+      // Prevent the click from bubbling into the basin so manual drop handlers don't swallow the toggle.
+      event.stopPropagation();
+      event.preventDefault();
       this.levelingMode = !this.levelingMode;
       this.syncLevelingMode();
       this.emitState();
