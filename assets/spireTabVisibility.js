@@ -18,6 +18,38 @@ export function createSpireTabVisibilityManager({
   powderState,
 }) {
   /**
+   * Swap stacked tab icons to a placeholder instead of removing them from the DOM.
+   * Keeping the controls visible preserves the 3x2 layout regardless of unlock state.
+   * @param {HTMLButtonElement} tabButton - Target stacked tab button.
+   * @param {Object} options - State toggles for the tab.
+   * @param {boolean} options.unlocked - Whether the associated feature is available.
+   * @param {string} [options.lockedLabel='Unknown Spire'] - Accessible label while locked.
+   */
+  function setStackedTabButtonState(tabButton, { unlocked, lockedLabel = 'Unknown Spire' }) {
+    if (!tabButton) {
+      return;
+    }
+
+    const icon = tabButton.querySelector('.tab-icon');
+    if (icon && !tabButton.dataset.unlockedIcon) {
+      // Capture the original glyph once so we can restore it when the spire unlocks later in the run.
+      tabButton.dataset.unlockedIcon = icon.textContent?.trim() || '';
+    }
+    if (!tabButton.dataset.unlockedAriaLabel) {
+      tabButton.dataset.unlockedAriaLabel = tabButton.getAttribute('aria-label') || '';
+    }
+
+    if (icon) {
+      icon.textContent = unlocked ? tabButton.dataset.unlockedIcon : '?';
+    }
+
+    tabButton.removeAttribute('hidden');
+    tabButton.setAttribute('aria-hidden', 'false');
+    tabButton.disabled = !unlocked;
+    tabButton.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
+    tabButton.setAttribute('aria-label', unlocked ? tabButton.dataset.unlockedAriaLabel : lockedLabel);
+  }
+  /**
    * Update the split powder/fluid tab visibility and associated badges when the Bet Spire Terrarium
    * unlocks or locks. Resource badge visibility depends on the current unlock state.
    */
@@ -42,30 +74,23 @@ export function createSpireTabVisibilityManager({
 
     const resourceElements = typeof getResourceElements === 'function' ? getResourceElements() || {} : {};
 
-    if (powderState?.fluidUnlocked) {
-      if (tabStack) {
-        // Fluid unlock splits the tab so the lower half can be targeted separately.
-        tabStack.classList.add('tab-button-stack--split');
-        tabStack.setAttribute('aria-hidden', 'false');
-      }
-      tabButton.removeAttribute('hidden');
-      tabButton.setAttribute('aria-hidden', 'false');
-      tabButton.disabled = false;
-      if (resourceElements.tabFluidBadge) {
+    if (tabStack) {
+      // Keep the stack split so both halves of the powder/fluid control remain visible in the grid.
+      tabStack.classList.add('tab-button-stack--split');
+      tabStack.classList.remove('tab-button-stack--active');
+      tabStack.setAttribute('aria-hidden', 'false');
+    }
+
+    setStackedTabButtonState(tabButton, {
+      unlocked: Boolean(powderState?.fluidUnlocked),
+      lockedLabel: 'Locked Bet Spire',
+    });
+
+    if (resourceElements.tabFluidBadge) {
+      if (powderState?.fluidUnlocked) {
         resourceElements.tabFluidBadge.removeAttribute('hidden');
         resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'false');
-      }
-    } else {
-      if (tabStack) {
-        // Collapse the stack back into a single button while the Bet Spire Terrarium remains locked.
-        tabStack.classList.remove('tab-button-stack--split');
-        tabStack.classList.remove('tab-button-stack--active');
-        tabStack.setAttribute('aria-hidden', 'false');
-      }
-      tabButton.setAttribute('hidden', '');
-      tabButton.setAttribute('aria-hidden', 'true');
-      tabButton.disabled = true;
-      if (resourceElements.tabFluidBadge) {
+      } else {
         resourceElements.tabFluidBadge.setAttribute('hidden', '');
         resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'true');
       }
@@ -78,16 +103,8 @@ export function createSpireTabVisibilityManager({
   function updateSpireTabVisibility() {
     updateFluidTabAvailability();
 
-    /**
-     * Reflow the spire tab grid so only unlocked tabs consume space.
-     * The layout adapts from single button up to the full 3x2 grid.
-     */
-    function applySpireStackLayout() {
-      const spireStack = document.getElementById('spire-tab-stack');
-      if (!spireStack) {
-        return;
-      }
-
+    const spireStack = document.getElementById('spire-tab-stack');
+    if (spireStack) {
       const layoutClasses = [
         'spire-tab-stack--layout-1',
         'spire-tab-stack--layout-2',
@@ -96,57 +113,8 @@ export function createSpireTabVisibilityManager({
         'spire-tab-stack--layout-5',
         'spire-tab-stack--layout-6',
       ];
-
       layoutClasses.forEach((className) => spireStack.classList.remove(className));
-
-      const visibleButtons = Array.from(
-        spireStack.querySelectorAll('.tab-button--stacked')
-      ).filter(
-        (button) => !button.hasAttribute('hidden') && button.getAttribute('aria-hidden') !== 'true'
-      );
-
-      visibleButtons.forEach((button) => {
-        button.style.gridColumn = '';
-        button.style.gridRow = '';
-        button.classList.remove('spire-tab-button--tall');
-      });
-
-      const visibleCount = visibleButtons.length;
-      if (visibleCount === 0) {
-        return;
-      }
-
-      spireStack.classList.add(`spire-tab-stack--layout-${visibleCount}`);
-
-      if (visibleCount === 1) {
-        // Center the lone spire tab within the available button footprint.
-        visibleButtons[0].style.gridColumn = '1 / -1';
-        visibleButtons[0].style.gridRow = '1 / -1';
-        return;
-      }
-
-      if (visibleCount === 5) {
-        // Keep a clean 2x2 square for the first four spires and stretch the fifth vertically on the right.
-        const squarePlacements = [
-          { col: 1, row: 1 },
-          { col: 2, row: 1 },
-          { col: 1, row: 2 },
-          { col: 2, row: 2 },
-        ];
-
-        squarePlacements.forEach((placement, index) => {
-          const target = visibleButtons[index];
-          if (target) {
-            target.style.gridColumn = `${placement.col}`;
-            target.style.gridRow = `${placement.row}`;
-          }
-        });
-
-        const tallButton = visibleButtons[4];
-        tallButton.style.gridColumn = '3';
-        tallButton.style.gridRow = '1 / span 2';
-        tallButton.classList.add('spire-tab-button--tall');
-      }
+      spireStack.classList.add('spire-tab-stack--layout-6');
     }
 
     /**
@@ -184,15 +152,10 @@ export function createSpireTabVisibilityManager({
         return;
       }
 
-      if (unlocked) {
-        tabButton.removeAttribute('hidden');
-        tabButton.setAttribute('aria-hidden', 'false');
-        tabButton.disabled = false;
-      } else {
-        tabButton.setAttribute('hidden', '');
-        tabButton.setAttribute('aria-hidden', 'true');
-        tabButton.disabled = true;
-      }
+      setStackedTabButtonState(tabButton, {
+        unlocked,
+        lockedLabel: 'Unknown Spire',
+      });
     }
 
     const spireConfigs = [
@@ -207,8 +170,7 @@ export function createSpireTabVisibilityManager({
       syncSpireToggle(id, unlocked);
     });
 
-    // Rebuild the layout so only visible spires consume space in the stack grid.
-    applySpireStackLayout();
+    // Layout is fixed to the 3x2 grid above, so no additional adjustments are needed here.
   }
 
   return {
