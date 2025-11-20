@@ -39,6 +39,8 @@ export const DEFAULT_AUDIO_MANIFEST = {
     noteDSharp: { file: 'note_D#.mp3', volume: 0.8, maxConcurrent: 3 },
     noteFSharp: { file: 'note_F#.mp3', volume: 0.8, maxConcurrent: 3 },
     noteG: { file: 'note_G.mp3', volume: 0.8, maxConcurrent: 3 },
+    psi_merge: { file: 'psi_merge.mp3', volume: 0.65, maxConcurrent: 3 },
+    psi_aoe: { file: 'psi_aoe.mp3', volume: 0.7, maxConcurrent: 4 },
   },
 };
 
