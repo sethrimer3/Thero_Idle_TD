@@ -24,6 +24,7 @@ Quick lookup table for all implemented towers in Thero Idle.
 | τ | Tau | `tauTower.js` | Spiral bullets with returning arcs and upgradeable hit particles |
 | υ | Upsilon | `upsilonTower.js` | Infinite-range triangle fleet that focus-fires priority targets before recalling |
 | φ | Phi | `phiTower.js` | Grows seeds in sunflower pattern, bursts them outward to spiral and return |
+| ψ | Psi | `psiTower.js` | Merge tower that combines nearby enemies into powerful PsiClusters with AoE death explosions |
 | ℵ | Aleph | `alephChain.js` | Cardinality-based system (advanced) |
 
 ## Special Towers
