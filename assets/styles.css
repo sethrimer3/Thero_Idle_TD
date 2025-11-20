@@ -430,7 +430,7 @@ body.graphics-mode-low .control-button {
   grid-template-columns: var(--offline-equation-template);
   align-items: baseline;
   justify-content: flex-start;
-  column-gap: 0.25em;
+  column-gap: 0.15em;
   font-family: "Cormorant Garamond", serif;
   font-size: clamp(1.6rem, 4.5vw, 3.2rem);
   width: 100%;
@@ -470,7 +470,7 @@ body.graphics-mode-low .control-button {
   display: inline-flex;
   align-items: baseline;
   justify-content: center;
-  min-width: 1.4ch;
+  min-width: 0;
 }
 
 .offline-symbol--glyph {
@@ -507,7 +507,7 @@ body.graphics-mode-low .control-button {
   display: grid;
   grid-template-columns: var(--offline-equation-template);
   align-items: baseline;
-  column-gap: 0.25em;
+  column-gap: 0.15em;
   width: 100%;
 }
 
