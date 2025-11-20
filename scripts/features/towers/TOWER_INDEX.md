@@ -23,6 +23,7 @@ Quick lookup table for all implemented towers in Thero Idle.
 | σ | Sigma | `sigmaTower.js` | Draws allied fire, sums the damage, and releases it as single shots |
 | τ | Tau | `tauTower.js` | Spiral bullets with returning arcs and upgradeable hit particles |
 | υ | Upsilon | `upsilonTower.js` | Infinite-range triangle fleet that focus-fires priority targets before recalling |
+| φ | Phi | `phiTower.js` | Grows seeds in sunflower pattern, bursts them outward to spiral and return |
 | ℵ | Aleph | `alephChain.js` | Cardinality-based system (advanced) |
 
 ## Special Towers

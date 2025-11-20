@@ -33,6 +33,7 @@ import {
 } from '../../../scripts/features/towers/chiTower.js';
 import { drawTauProjectiles as drawTauProjectilesHelper } from '../../../scripts/features/towers/tauTower.js';
 import { drawUpsilonFleet as drawUpsilonFleetHelper } from '../../../scripts/features/towers/upsilonTower.js';
+import { drawPhiTower as drawPhiTowerHelper } from '../../../scripts/features/towers/phiTower.js';
 
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rendering.js';
 import { easeInCubic, easeOutCubic } from '../utils/math.js';
@@ -1513,6 +1514,9 @@ function drawTowers() {
     }
     if (tower.type === 'upsilon') {
       drawUpsilonFleetHelper(this, tower);
+    }
+    if (tower.type === 'phi') {
+      drawPhiTowerHelper(this, tower);
     }
 
     ctx.save();
