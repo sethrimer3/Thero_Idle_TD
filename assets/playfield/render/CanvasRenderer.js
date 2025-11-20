@@ -34,6 +34,7 @@ import {
 import { drawTauProjectiles as drawTauProjectilesHelper } from '../../../scripts/features/towers/tauTower.js';
 import { drawUpsilonFleet as drawUpsilonFleetHelper } from '../../../scripts/features/towers/upsilonTower.js';
 import { drawPhiTower as drawPhiTowerHelper } from '../../../scripts/features/towers/phiTower.js';
+import { drawOmegaParticles as drawOmegaParticlesHelper } from '../../../scripts/features/towers/omegaTower.js';
 
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rendering.js';
 import { easeInCubic, easeOutCubic } from '../utils/math.js';
@@ -2468,6 +2469,7 @@ function drawProjectiles() {
   this.drawAlphaBursts();
   this.drawGammaBursts();
   this.drawNuBursts();
+  this.drawOmegaParticles();
 }
 
 function drawAlphaBursts() {
@@ -2484,6 +2486,10 @@ function drawGammaBursts() {
 
 function drawNuBursts() {
   drawNuBurstsHelper(this);
+}
+
+function drawOmegaParticles() {
+  drawOmegaParticlesHelper(this);
 }
 
 /**
@@ -2678,6 +2684,7 @@ export {
   drawBetaBursts,
   drawGammaBursts,
   drawNuBursts,
+  drawOmegaParticles,
   drawTowerMenu,
 };
 

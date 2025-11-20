@@ -176,6 +176,12 @@ import {
   teardownPsiTower as teardownPsiTowerHelper,
   triggerPsiClusterAoE as triggerPsiClusterAoEHelper,
 } from '../scripts/features/towers/psiTower.js';
+import {
+  ensureOmegaState as ensureOmegaStateHelper,
+  updateOmegaTower as updateOmegaTowerHelper,
+  teardownOmegaTower as teardownOmegaTowerHelper,
+  drawOmegaParticles as drawOmegaParticlesHelper,
+} from '../scripts/features/towers/omegaTower.js';
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -2752,6 +2758,9 @@ export class SimplePlayfield {
       if (tower.type === 'chi') {
         this.ensureChiState(tower);
       }
+      if (tower.type === 'omega') {
+        this.ensureOmegaState(tower);
+      }
       if (tower.type === 'zeta') {
         // Keep ζ pendulum geometry aligned with the tower's new coordinates.
         this.ensureZetaState(tower);
@@ -4144,6 +4153,24 @@ export class SimplePlayfield {
    */
   updatePsiTower(tower, delta) {
     updatePsiTowerHelper(this, tower, delta);
+  }
+
+  updateOmegaTower(tower, delta) {
+    updateOmegaTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Ensure Ω tower state is initialized with orbital particles.
+   */
+  ensureOmegaState(tower) {
+    return TowerManager.ensureOmegaState.call(this, tower);
+  }
+
+  /**
+   * Clean up Ω tower state when tower is removed or changed.
+   */
+  teardownOmegaTower(tower) {
+    return TowerManager.teardownOmegaTower.call(this, tower);
   }
 
   /**
@@ -7322,6 +7349,10 @@ export class SimplePlayfield {
           this.updatePsiTower(tower, delta);
           return;
         }
+        if (tower.type === 'omega') {
+          this.updateOmegaTower(tower, delta);
+          return;
+        }
         if (!this.combatActive) {
           return;
         }
@@ -9743,6 +9774,13 @@ export class SimplePlayfield {
 
   drawNuBursts() {
     return CanvasRenderer.drawNuBursts.call(this);
+  }
+
+  /**
+   * Render Ω particle orbits around targeted enemies.
+   */
+  drawOmegaParticles() {
+    return CanvasRenderer.drawOmegaParticles.call(this);
   }
 
   /**
