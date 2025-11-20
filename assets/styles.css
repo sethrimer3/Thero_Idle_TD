@@ -3539,6 +3539,8 @@ body.graphics-mode-low .control-button {
   display: grid;
   gap: 18px;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  /* Allow vertical scrolling when touching grid content on mobile */
+  touch-action: pan-y;
 }
 
 .card {
@@ -3550,6 +3552,8 @@ body.graphics-mode-low .control-button {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* Allow vertical scrolling when touching card content on mobile */
+  touch-action: pan-y;
 }
 
 .card[data-tower-id][data-locked='false'] {
