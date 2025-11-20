@@ -4848,6 +4848,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     bindStatusElements();
     bindPowderControls();
+    bindFluidControls();
     if (betHappinessSystem) {
       betHappinessSystem.bindDisplayElements(fluidElements);
       betHappinessSystem.updateDisplay(fluidElements);
