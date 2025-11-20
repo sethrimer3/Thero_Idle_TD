@@ -11,36 +11,29 @@ const powderLog = []; // Maintain the in-memory powder ledger for quick display 
 // Track the live DOM elements for the overlay so focus handling and animations stay coordinated.
 const offlineOverlayElements = {
   container: null,
+  title: null,
   alephRow: null,
-  alephMinutes: null,
   alephMultiplier: null,
   alephTotal: null,
   betRow: null,
-  betMinutes: null,
   betMultiplier: null,
   betTotal: null,
   happinessRow: null,
-  happinessMinutes: null,
   happinessMultiplier: null,
   happinessTotal: null,
   lamedRow: null,
-  lamedMinutes: null,
   lamedMultiplier: null,
   lamedTotal: null,
   tsadiRow: null,
-  tsadiMinutes: null,
   tsadiMultiplier: null,
   tsadiTotal: null,
   waalsRow: null,
-  waalsMinutes: null,
   waalsMultiplier: null,
   waalsTotal: null,
   shinRow: null,
-  shinMinutes: null,
   shinMultiplier: null,
   shinTotal: null,
   kufRow: null,
-  kufMinutes: null,
   kufMultiplier: null,
   kufTotal: null,
   prompt: null,
@@ -173,41 +166,40 @@ async function showOfflineOverlay(summary = {}) {
   }
 
   const {
+    title,
     alephRow,
-    alephMinutes,
     alephMultiplier,
     alephTotal,
     betRow,
-    betMinutes,
     betMultiplier,
     betTotal,
     happinessRow,
-    happinessMinutes,
     happinessMultiplier,
     happinessTotal,
     lamedRow,
-    lamedMinutes,
     lamedMultiplier,
     lamedTotal,
     tsadiRow,
-    tsadiMinutes,
     tsadiMultiplier,
     tsadiTotal,
     waalsRow,
-    waalsMinutes,
     waalsMultiplier,
     waalsTotal,
     shinRow,
-    shinMinutes,
     shinMultiplier,
     shinTotal,
     kufRow,
-    kufMinutes,
     kufMultiplier,
     kufTotal,
   } = offlineOverlayElements;
 
   const minutesValue = Math.max(0, Number(summary.minutes) || 0);
+  
+  // Update the title with the minutes count
+  if (title) {
+    const minutesText = minutesValue === 1 ? 'minute' : 'minutes';
+    title.textContent = `Asleep ${dependencies.formatWholeNumber(minutesValue)} ${minutesText}…`;
+  }
   const alephSummary = summary.aleph || {};
   const betSummary = summary.bet || {};
   const happinessSummary = summary.happiness || {};
@@ -264,28 +256,20 @@ async function showOfflineOverlay(summary = {}) {
   syncOfflineRowVisibility(kufRow, kufUnlocked);
 
   [
-    alephMinutes,
     alephMultiplier,
     alephTotal,
-    betMinutes,
     betMultiplier,
     betTotal,
-    happinessMinutes,
     happinessMultiplier,
     happinessTotal,
-    lamedMinutes,
     lamedMultiplier,
     lamedTotal,
-    tsadiMinutes,
     tsadiMultiplier,
     tsadiTotal,
-    waalsMinutes,
     waalsMultiplier,
     waalsTotal,
-    shinMinutes,
     shinMultiplier,
     shinTotal,
-    kufMinutes,
     kufMultiplier,
     kufTotal,
   ].forEach((element) => {
@@ -293,17 +277,6 @@ async function showOfflineOverlay(summary = {}) {
       element.textContent = '0';
     }
   });
-
-  await Promise.all([
-    animateOfflineNumber(alephMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
-    animateOfflineNumber(betMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
-    animateOfflineNumber(happinessMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
-    animateOfflineNumber(lamedMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
-    animateOfflineNumber(tsadiMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
-    animateOfflineNumber(waalsMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
-    animateOfflineNumber(shinMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
-    animateOfflineNumber(kufMinutes, minutesValue, { format: dependencies.formatWholeNumber }),
-  ]);
 
   await Promise.all([
     animateOfflineNumber(alephMultiplier, alephMultiplierValue, { format: dependencies.formatWholeNumber }),
@@ -330,47 +303,30 @@ async function showOfflineOverlay(summary = {}) {
     }),
   ]);
 
-  const alephSuffix = alephTotalValue === 1 ? ' Mote' : ' Motes';
-  const betSuffix = ' Serendipity';
-  const happinessSuffix = ' happiness';
-  const lamedSuffix = lamedTotalValue === 1 ? ' Spark' : ' Sparks';
-  const tsadiSuffix = tsadiTotalValue === 1 ? ' Particle' : ' Particles';
-  const waalsSuffix = waalsTotalValue === 1 ? ' Waal' : ' Waals';
-  const shinSuffix = shinTotalValue === 1 ? ' Iteron' : ' Iterons';
-  const kufSuffix = kufTotalValue === 1 ? ' Glyph' : ' Glyphs';
-
   await Promise.all([
     animateOfflineNumber(alephTotal, alephTotalValue, {
       format: dependencies.formatGameNumber,
-      suffix: alephSuffix,
     }),
     animateOfflineNumber(betTotal, betUnlocked ? betTotalValue : 0, {
       format: dependencies.formatGameNumber,
-      suffix: betSuffix,
     }),
     animateOfflineNumber(happinessTotal, happinessUnlocked ? happinessTotalValue : 0, {
       format: dependencies.formatDecimal,
-      suffix: happinessSuffix,
     }),
     animateOfflineNumber(lamedTotal, lamedUnlocked ? lamedTotalValue : 0, {
       format: dependencies.formatGameNumber,
-      suffix: lamedSuffix,
     }),
     animateOfflineNumber(tsadiTotal, tsadiUnlocked ? tsadiTotalValue : 0, {
       format: dependencies.formatGameNumber,
-      suffix: tsadiSuffix,
     }),
     animateOfflineNumber(waalsTotal, waalsUnlocked ? waalsTotalValue : 0, {
       format: dependencies.formatDecimal,
-      suffix: waalsSuffix,
     }),
     animateOfflineNumber(shinTotal, shinUnlocked ? shinTotalValue : 0, {
       format: dependencies.formatGameNumber,
-      suffix: shinSuffix,
     }),
     animateOfflineNumber(kufTotal, kufUnlocked ? kufTotalValue : 0, {
       format: dependencies.formatGameNumber,
-      suffix: kufSuffix,
     }),
   ]);
 
@@ -418,36 +374,29 @@ export function bindOfflineOverlayElements() {
   if (!offlineOverlayElements.container) {
     return;
   }
+  offlineOverlayElements.title = document.getElementById('offline-overlay-title');
   offlineOverlayElements.alephRow = document.getElementById('offline-aleph-row');
-  offlineOverlayElements.alephMinutes = document.getElementById('offline-aleph-minutes');
   offlineOverlayElements.alephMultiplier = document.getElementById('offline-aleph-multiplier');
   offlineOverlayElements.alephTotal = document.getElementById('offline-aleph-total');
   offlineOverlayElements.betRow = document.getElementById('offline-bet-row');
-  offlineOverlayElements.betMinutes = document.getElementById('offline-bet-minutes');
   offlineOverlayElements.betMultiplier = document.getElementById('offline-bet-multiplier');
   offlineOverlayElements.betTotal = document.getElementById('offline-bet-total');
   offlineOverlayElements.happinessRow = document.getElementById('offline-happiness-row');
-  offlineOverlayElements.happinessMinutes = document.getElementById('offline-happiness-minutes');
   offlineOverlayElements.happinessMultiplier = document.getElementById('offline-happiness-multiplier');
   offlineOverlayElements.happinessTotal = document.getElementById('offline-happiness-total');
   offlineOverlayElements.lamedRow = document.getElementById('offline-lamed-row');
-  offlineOverlayElements.lamedMinutes = document.getElementById('offline-lamed-minutes');
   offlineOverlayElements.lamedMultiplier = document.getElementById('offline-lamed-multiplier');
   offlineOverlayElements.lamedTotal = document.getElementById('offline-lamed-total');
   offlineOverlayElements.tsadiRow = document.getElementById('offline-tsadi-row');
-  offlineOverlayElements.tsadiMinutes = document.getElementById('offline-tsadi-minutes');
   offlineOverlayElements.tsadiMultiplier = document.getElementById('offline-tsadi-multiplier');
   offlineOverlayElements.tsadiTotal = document.getElementById('offline-tsadi-total');
   offlineOverlayElements.waalsRow = document.getElementById('offline-waals-row');
-  offlineOverlayElements.waalsMinutes = document.getElementById('offline-waals-minutes');
   offlineOverlayElements.waalsMultiplier = document.getElementById('offline-waals-multiplier');
   offlineOverlayElements.waalsTotal = document.getElementById('offline-waals-total');
   offlineOverlayElements.shinRow = document.getElementById('offline-shin-row');
-  offlineOverlayElements.shinMinutes = document.getElementById('offline-shin-minutes');
   offlineOverlayElements.shinMultiplier = document.getElementById('offline-shin-multiplier');
   offlineOverlayElements.shinTotal = document.getElementById('offline-shin-total');
   offlineOverlayElements.kufRow = document.getElementById('offline-kuf-row');
-  offlineOverlayElements.kufMinutes = document.getElementById('offline-kuf-minutes');
   offlineOverlayElements.kufMultiplier = document.getElementById('offline-kuf-multiplier');
   offlineOverlayElements.kufTotal = document.getElementById('offline-kuf-total');
   offlineOverlayElements.prompt = document.getElementById('offline-prompt');
