@@ -759,6 +759,138 @@ export class SimplePlayfield {
     }
   }
 
+  /**
+   * Spawn visual effects for Psi merge event.
+   * Creates particle lines from source positions to the cluster spawn position.
+   * @param {Array} sourcePositions - Array of {x, y} positions where merged enemies were
+   * @param {Object} clusterPosition - {x, y} position where PsiCluster spawned
+   */
+  spawnPsiMergeEffect(sourcePositions, clusterPosition) {
+    if (!Array.isArray(sourcePositions) || !clusterPosition) {
+      return;
+    }
+    const particles = Array.isArray(this.enemyDeathParticles)
+      ? this.enemyDeathParticles
+      : (this.enemyDeathParticles = []);
+    
+    // Create converging particle beams from each source to the cluster
+    sourcePositions.forEach((source) => {
+      if (!source) {
+        return;
+      }
+      const dx = clusterPosition.x - source.x;
+      const dy = clusterPosition.y - source.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance < 1) {
+        return;
+      }
+      const direction = { x: dx / distance, y: dy / distance };
+      const perpendicular = { x: -direction.y, y: direction.x };
+      
+      // Spawn 3-5 particles per source to create a beam effect
+      const particleCount = this.isLowGraphicsMode() ? 2 : 4;
+      for (let i = 0; i < particleCount; i += 1) {
+        particles.push({
+          position: { ...source },
+          direction,
+          perpendicular,
+          speed: distance * 3.5, // Fast enough to reach center quickly
+          wobbleAmplitude: 2,
+          wobbleFrequency: 8,
+          phase: Math.random() * Math.PI * 2,
+          elapsed: 0,
+          lifetime: 0.35, // Short-lived for quick implosion effect
+          alpha: 1,
+          size: 1.8,
+          color: samplePaletteGradient(0.75), // Psi-themed color
+        });
+      }
+    });
+    
+    // Add central implosion particles at cluster position
+    const implosionCount = this.isLowGraphicsMode() ? 8 : 16;
+    for (let i = 0; i < implosionCount; i += 1) {
+      const angle = (i / implosionCount) * Math.PI * 2;
+      const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+      particles.push({
+        position: { ...clusterPosition },
+        direction,
+        perpendicular: { x: -direction.y, y: direction.x },
+        speed: 40, // Slower, swirling outward briefly
+        wobbleAmplitude: 8,
+        wobbleFrequency: 12,
+        phase: angle,
+        elapsed: 0,
+        lifetime: 0.5,
+        alpha: 1,
+        size: 2.2,
+        color: samplePaletteGradient(0.8),
+      });
+    }
+  }
+
+  /**
+   * Spawn visual effects for Psi AoE explosion when a cluster dies.
+   * Creates an expanding radial pulse effect.
+   * @param {Object} position - {x, y} position of the explosion center
+   * @param {number} radius - Radius of the AoE in pixels
+   */
+  spawnPsiAoeEffect(position, radius) {
+    if (!position || !Number.isFinite(radius) || radius <= 0) {
+      return;
+    }
+    const particles = Array.isArray(this.enemyDeathParticles)
+      ? this.enemyDeathParticles
+      : (this.enemyDeathParticles = []);
+    
+    // Create expanding ring particles
+    const ringCount = this.isLowGraphicsMode() ? 16 : 32;
+    const baseSpeed = radius * 1.8; // Speed proportional to radius for consistent visual
+    
+    for (let i = 0; i < ringCount; i += 1) {
+      const angle = (i / ringCount) * Math.PI * 2;
+      const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+      const perpendicular = { x: -direction.y, y: direction.x };
+      
+      particles.push({
+        position: { ...position },
+        direction,
+        perpendicular,
+        speed: baseSpeed * (0.8 + Math.random() * 0.4),
+        wobbleAmplitude: 4,
+        wobbleFrequency: 6,
+        phase: Math.random() * Math.PI * 2,
+        elapsed: 0,
+        lifetime: 0.7,
+        alpha: 1,
+        size: 2.5,
+        color: samplePaletteGradient(0.85),
+      });
+    }
+    
+    // Add secondary wave for emphasis
+    const secondaryCount = this.isLowGraphicsMode() ? 8 : 16;
+    for (let i = 0; i < secondaryCount; i += 1) {
+      const angle = (i / secondaryCount) * Math.PI * 2 + Math.PI / secondaryCount;
+      const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+      
+      particles.push({
+        position: { ...position },
+        direction,
+        perpendicular: { x: -direction.y, y: direction.x },
+        speed: baseSpeed * 0.6,
+        wobbleAmplitude: 6,
+        wobbleFrequency: 8,
+        phase: angle,
+        elapsed: 0.1, // Slight delay for wave effect
+        lifetime: 0.85,
+        alpha: 1,
+        size: 2,
+        color: samplePaletteGradient(0.75),
+      });
+    }
+  }
+
   updateDamageNumbers(delta) {
     if (!Number.isFinite(delta) || delta <= 0) {
       return;
@@ -4124,6 +4256,13 @@ export class SimplePlayfield {
    */
   teardownSigmaTower(tower) {
     return TowerManager.teardownSigmaTower.call(this, tower);
+  }
+
+  /**
+   * Ensure ψ tower has its merge state container before updates.
+   */
+  ensurePsiState(tower) {
+    return ensurePsiStateHelper(this, tower);
   }
 
   teardownPsiTower(tower) {

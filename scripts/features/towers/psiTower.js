@@ -296,6 +296,20 @@ function performMerge(playfield, tower, selectedEnemies, state) {
 
   playfield.enemies.push(cluster);
 
+  // Spawn visual effects for merge
+  if (typeof playfield.spawnPsiMergeEffect === 'function') {
+    const sourcePositions = selectedEnemies.map(({ position }) => position);
+    const clusterPosition = playfield.getEnemyPosition(cluster);
+    if (clusterPosition) {
+      playfield.spawnPsiMergeEffect(sourcePositions, clusterPosition);
+    }
+  }
+
+  // Play merge sound effect
+  if (playfield.audio && typeof playfield.audio.playSfx === 'function') {
+    playfield.audio.playSfx('psi_merge');
+  }
+
   // Update HUD and stats
   if (typeof playfield.updateHud === 'function') {
     playfield.updateHud();
@@ -343,6 +357,16 @@ export function triggerPsiClusterAoE(playfield, cluster, deathPosition) {
 
   if (aoeDamage <= 0 || aoeRadiusPixels <= 0) {
     return;
+  }
+
+  // Spawn visual effects for AoE explosion
+  if (typeof playfield.spawnPsiAoeEffect === 'function') {
+    playfield.spawnPsiAoeEffect(deathPosition, aoeRadiusPixels);
+  }
+
+  // Play AoE sound effect
+  if (playfield.audio && typeof playfield.audio.playSfx === 'function') {
+    playfield.audio.playSfx('psi_aoe');
   }
 
   // Apply damage to all enemies in range
