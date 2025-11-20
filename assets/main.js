@@ -4144,12 +4144,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       totalNormalized,
     });
 
-    if (powderElements.wallMarker) {
-      const peakOffset = Math.min(basinHeight, (1 - highestNormalized) * basinHeight);
-      powderElements.wallMarker.style.transform = `translateY(${peakOffset.toFixed(1)}px)`;
-      powderElements.wallMarker.dataset.height = `Peak ${highestDisplay}`;
-    }
-
     if (powderElements.nextGlyphProgress) {
       if (glyphMetrics) {
         const clampedProgress = Math.min(1, Math.max(0, glyphMetrics.progressFraction));
