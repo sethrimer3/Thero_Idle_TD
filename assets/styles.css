@@ -646,9 +646,9 @@ body.graphics-mode-low .control-button {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable both-edge;
-  /* Hide the panel scrollbar; drag gestures now handle navigation. */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  /* Show scrollbars by default for touch devices where drag gestures don't work. */
+  scrollbar-width: auto;
+  -ms-overflow-style: auto;
 }
 
 @media (hover: hover) and (pointer: fine) {
