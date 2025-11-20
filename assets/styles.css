@@ -8450,6 +8450,10 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: var(--text);
 }
 
+.spire-menu-item[hidden] {
+  display: none;
+}
+
 .spire-menu-item[aria-current="page"] {
   background: linear-gradient(120deg, rgba(139, 247, 255, 0.18), rgba(255, 125, 235, 0.18));
   border-color: rgba(139, 247, 255, 0.45);
