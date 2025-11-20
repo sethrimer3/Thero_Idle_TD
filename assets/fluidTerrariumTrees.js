@@ -107,7 +107,8 @@ export class FluidTerrariumTrees {
 
     const storedState = options.state && typeof options.state === 'object' ? options.state : {};
     this.treeState = storedState.trees && typeof storedState.trees === 'object' ? { ...storedState.trees } : {};
-    this.levelingMode = Boolean(storedState.levelingMode);
+    this.levelingMode =
+      typeof storedState.levelingMode === 'boolean' ? storedState.levelingMode : true;
 
     this.getSerendipityBalance =
       typeof options.getSerendipityBalance === 'function' ? options.getSerendipityBalance : () => 0;
@@ -353,9 +354,7 @@ export class FluidTerrariumTrees {
       this.syncLevelingMode();
       this.emitState();
     });
-    // Disable the toggle until the leveling button UX is reworked.
-    levelButton.disabled = true;
-    levelButton.setAttribute('aria-disabled', 'true');
+    levelButton.setAttribute('aria-pressed', this.levelingMode ? 'true' : 'false');
 
     const storeButton = document.createElement('button');
     storeButton.type = 'button';
@@ -377,10 +376,6 @@ export class FluidTerrariumTrees {
     this.levelButton = levelButton;
     this.storeButton = storeButton;
     this.storePanel = storePanel;
-
-    // Keep leveling mode permanently active so progress bars remain visible until the
-    // toggle receives a proper UX treatment.
-    this.levelingMode = true;
 
     controlCluster.appendChild(levelButton);
     controlCluster.appendChild(storeButton);
@@ -907,7 +902,14 @@ export class FluidTerrariumTrees {
     progressText.className = 'fluid-tree-level__progress';
     badge.appendChild(progressText);
 
-    return { badge, label, fill, progressText };
+    const upgradeButton = document.createElement('button');
+    upgradeButton.type = 'button';
+    upgradeButton.className = 'fluid-tree-level__upgrade';
+    upgradeButton.textContent = 'Upgrade';
+    upgradeButton.setAttribute('aria-label', 'Allocate serendipity into this tree');
+    badge.appendChild(upgradeButton);
+
+    return { badge, label, fill, progressText, upgradeButton };
   }
 
   /**
@@ -917,7 +919,7 @@ export class FluidTerrariumTrees {
     if (!tree?.badge) {
       return;
     }
-    const { label, fill, progressText } = tree.badge;
+    const { label, fill, progressText, upgradeButton } = tree.badge;
     const levelInfo = this.computeLevelInfo(tree.state.allocated || 0);
     const progressRatio = levelInfo.nextCost ? Math.min(1, (levelInfo.progress || 0) / levelInfo.nextCost) : 0;
     const remaining = Math.max(0, levelInfo.nextCost - levelInfo.progress);
@@ -925,6 +927,34 @@ export class FluidTerrariumTrees {
     label.textContent = `Lv ${levelInfo.level}`;
     fill.style.width = `${Math.round(progressRatio * 100)}%`;
     progressText.textContent = `${remaining} Serendipity to next level`;
+
+    if (upgradeButton) {
+      const nextLevel = levelInfo.level + 1;
+      upgradeButton.textContent = remaining > 0 ? `Upgrade (${remaining})` : 'Upgrade';
+      upgradeButton.title = `Spend serendipity to reach level ${nextLevel}`;
+      upgradeButton.disabled = !this.getSerendipityBalance();
+    }
+  }
+
+  /**
+   * Spend serendipity from the upgrade button to push the selected tree forward.
+   */
+  handleUpgradeButton(tree, event) {
+    if (!tree) {
+      return;
+    }
+    const levelInfo = this.computeLevelInfo(tree.state.allocated || 0);
+    const required = Math.max(1, Math.round(levelInfo.nextCost - levelInfo.progress));
+    const available = Math.max(0, Math.round(this.getSerendipityBalance()));
+    if (!available) {
+      return;
+    }
+    const amount = Math.min(required, available);
+    const rect = event?.currentTarget?.getBoundingClientRect?.();
+    const point = rect
+      ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      : null;
+    this.allocateToTree(tree, amount, point, amount > 1);
   }
 
   /**
@@ -1028,6 +1058,20 @@ export class FluidTerrariumTrees {
   }
 
   /**
+   * Attach the upgrade button so taps spend serendipity on the specific tree.
+   */
+  attachUpgradeButton(tree) {
+    if (!tree?.badge?.upgradeButton) {
+      return;
+    }
+    tree.badge.upgradeButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.handleUpgradeButton(tree, event);
+    });
+  }
+
+  /**
    * Clear existing canvases and rebuild simulations for all anchors.
    */
   refreshLayout() {
@@ -1069,6 +1113,7 @@ export class FluidTerrariumTrees {
       }
       if (!isEphemeral) {
         this.attachTreeInput(tree);
+        this.attachUpgradeButton(tree);
       }
 
       // Track each tree along with its simulation so we can freeze completed renders later.
