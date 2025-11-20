@@ -106,7 +106,6 @@ export function createSpireFloatingMenuController(options = {}) {
         // Persist the open/close labels so screen readers stay in sync with the toggle role swap.
         const openLabel = toggleButton.getAttribute('aria-label') || 'Toggle Spire Navigation';
         const closeLabel = `Close ${spireId.charAt(0).toUpperCase()}${spireId.slice(1)} Spire Navigation`;
-        const closeButton = menu.querySelector('.spire-menu-dismiss');
 
         // Cache defaults before wiring helpers so they remain accessible inside closures.
         toggleButton.dataset.defaultIcon = defaultIcon || '☰';
@@ -163,16 +162,6 @@ export function createSpireFloatingMenuController(options = {}) {
             expandMenu();
           }
         });
-
-        if (closeButton) {
-          closeButton.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            // Close control mirrors the toggle so players can dismiss the tray from inside it.
-            collapseMenu();
-            toggleButton.focus({ preventScroll: true });
-          });
-        }
       }
     });
 
@@ -301,53 +290,119 @@ export function createSpireFloatingMenuController(options = {}) {
 
     // Hide locked spire icons and mirror the state to aria-hidden so the menu
     // never flashes inaccessible entries during startup or reloads.
+    // Also change the icon to a question mark for locked spires.
     doc.querySelectorAll('.spire-menu-item--bet').forEach((item) => {
+      const iconElement = item.querySelector('.spire-menu-icon');
       if (isFluidUnlocked()) {
         item.removeAttribute('hidden');
         item.setAttribute('aria-hidden', 'false');
+        if (iconElement && !iconElement.dataset.originalIcon) {
+          iconElement.dataset.originalIcon = iconElement.textContent.trim();
+        }
+        if (iconElement && iconElement.dataset.originalIcon) {
+          iconElement.textContent = iconElement.dataset.originalIcon;
+        }
       } else {
         item.setAttribute('hidden', '');
         item.setAttribute('aria-hidden', 'true');
+        if (iconElement && !iconElement.dataset.originalIcon) {
+          iconElement.dataset.originalIcon = iconElement.textContent.trim();
+        }
+        if (iconElement) {
+          iconElement.textContent = '?';
+        }
       }
     });
 
     doc.querySelectorAll('.spire-menu-item--lamed').forEach((item) => {
+      const iconElement = item.querySelector('.spire-menu-icon');
       if (isLamedUnlocked()) {
         item.removeAttribute('hidden');
         item.setAttribute('aria-hidden', 'false');
+        if (iconElement && !iconElement.dataset.originalIcon) {
+          iconElement.dataset.originalIcon = iconElement.textContent.trim();
+        }
+        if (iconElement && iconElement.dataset.originalIcon) {
+          iconElement.textContent = iconElement.dataset.originalIcon;
+        }
       } else {
         item.setAttribute('hidden', '');
         item.setAttribute('aria-hidden', 'true');
+        if (iconElement && !iconElement.dataset.originalIcon) {
+          iconElement.dataset.originalIcon = iconElement.textContent.trim();
+        }
+        if (iconElement) {
+          iconElement.textContent = '?';
+        }
       }
     });
 
     doc.querySelectorAll('.spire-menu-item--tsadi').forEach((item) => {
+      const iconElement = item.querySelector('.spire-menu-icon');
       if (isTsadiUnlocked()) {
         item.removeAttribute('hidden');
         item.setAttribute('aria-hidden', 'false');
+        if (iconElement && !iconElement.dataset.originalIcon) {
+          iconElement.dataset.originalIcon = iconElement.textContent.trim();
+        }
+        if (iconElement && iconElement.dataset.originalIcon) {
+          iconElement.textContent = iconElement.dataset.originalIcon;
+        }
       } else {
         item.setAttribute('hidden', '');
         item.setAttribute('aria-hidden', 'true');
+        if (iconElement && !iconElement.dataset.originalIcon) {
+          iconElement.dataset.originalIcon = iconElement.textContent.trim();
+        }
+        if (iconElement) {
+          iconElement.textContent = '?';
+        }
       }
     });
 
     doc.querySelectorAll('.spire-menu-item--shin').forEach((item) => {
+      const iconElement = item.querySelector('.spire-menu-icon');
       if (isShinUnlocked()) {
         item.removeAttribute('hidden');
         item.setAttribute('aria-hidden', 'false');
+        if (iconElement && !iconElement.dataset.originalIcon) {
+          iconElement.dataset.originalIcon = iconElement.textContent.trim();
+        }
+        if (iconElement && iconElement.dataset.originalIcon) {
+          iconElement.textContent = iconElement.dataset.originalIcon;
+        }
       } else {
         item.setAttribute('hidden', '');
         item.setAttribute('aria-hidden', 'true');
+        if (iconElement && !iconElement.dataset.originalIcon) {
+          iconElement.dataset.originalIcon = iconElement.textContent.trim();
+        }
+        if (iconElement) {
+          iconElement.textContent = '?';
+        }
       }
     });
 
     doc.querySelectorAll('.spire-menu-item--kuf').forEach((item) => {
+      const iconElement = item.querySelector('.spire-menu-icon');
       if (isKufUnlocked()) {
         item.removeAttribute('hidden');
         item.setAttribute('aria-hidden', 'false');
+        if (iconElement && !iconElement.dataset.originalIcon) {
+          iconElement.dataset.originalIcon = iconElement.textContent.trim();
+        }
+        if (iconElement && iconElement.dataset.originalIcon) {
+          iconElement.textContent = iconElement.dataset.originalIcon;
+        }
       } else {
         item.setAttribute('hidden', '');
         item.setAttribute('aria-hidden', 'true');
+        if (iconElement && !iconElement.dataset.originalIcon) {
+          iconElement.dataset.originalIcon = iconElement.textContent.trim();
+        }
+        if (iconElement) {
+          iconElement.textContent = '?';
+        }
       }
     });
   }
