@@ -164,6 +164,12 @@ import {
   teardownUpsilonTower as teardownUpsilonTowerHelper,
   updateUpsilonTower as updateUpsilonTowerHelper,
 } from '../scripts/features/towers/upsilonTower.js';
+import {
+  ensurePhiState as ensurePhiStateHelper,
+  updatePhiTower as updatePhiTowerHelper,
+  teardownPhiTower as teardownPhiTowerHelper,
+  triggerPhiBurst as triggerPhiBurstHelper,
+} from '../scripts/features/towers/phiTower.js';
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -3982,6 +3988,20 @@ export class SimplePlayfield {
   }
 
   /**
+   * Update φ sunflower seed logic and burst behavior.
+   */
+  updatePhiTower(tower, delta) {
+    updatePhiTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Trigger φ burst - launch all seeds simultaneously.
+   */
+  triggerPhiBurst(tower) {
+    triggerPhiBurstHelper(this, tower);
+  }
+
+  /**
    * Update υ fleet logic and targeting.
    */
   updateUpsilonTower(tower, delta) {
@@ -7128,6 +7148,10 @@ export class SimplePlayfield {
         }
         if (tower.type === 'chi') {
           this.updateChiTower(tower, delta);
+          return;
+        }
+        if (tower.type === 'phi') {
+          this.updatePhiTower(tower, delta);
           return;
         }
         if (!this.combatActive) {

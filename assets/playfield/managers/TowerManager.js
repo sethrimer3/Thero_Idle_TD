@@ -86,6 +86,10 @@ import {
   updateUpsilonAnchors as updateUpsilonAnchorsHelper,
   assignUpsilonTrackHoldAnchor as assignUpsilonTrackHoldAnchorHelper,
 } from '../../../scripts/features/towers/upsilonTower.js';
+import {
+  ensurePhiState as ensurePhiStateHelper,
+  teardownPhiTower as teardownPhiTowerHelper,
+} from '../../../scripts/features/towers/phiTower.js';
 
 // Tower management routines extracted from SimplePlayfield.
 
@@ -193,6 +197,14 @@ function mergeEtaTower(tower, { silent = false } = {}) {
   return mergeEtaTowerHelper(this, tower, { silent });
 }
 
+function ensurePhiState(tower) {
+  return ensurePhiStateHelper(this, tower);
+}
+
+function teardownPhiTower(tower) {
+  teardownPhiTowerHelper(this, tower);
+}
+
 function applyTowerBehaviorDefaults(tower) {
   if (!tower) {
     return;
@@ -292,6 +304,11 @@ function applyTowerBehaviorDefaults(tower) {
     this.ensureChiState(tower);
   } else if (tower.chiState) {
     this.teardownChiTower(tower);
+  }
+  if (tower.type === 'phi') {
+    this.ensurePhiState(tower);
+  } else if (tower.phiState) {
+    this.teardownPhiTower(tower);
   }
 }
 
@@ -453,4 +470,6 @@ export {
   teardownUpsilonTower,
   updateUpsilonAnchors,
   assignUpsilonTrackHoldAnchor,
+  ensurePhiState,
+  teardownPhiTower,
 };
