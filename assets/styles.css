@@ -390,8 +390,7 @@ body.graphics-mode-low .control-button {
   gap: clamp(12px, 3vw, 18px);
   /* Align math operators across rows with a shared column template for clarity. */
   --offline-label-width: clamp(10ch, 16vw, 13ch);
-  --offline-equation-template: minmax(8ch, 1fr) minmax(2ch, auto) minmax(8ch, 1fr) minmax(2ch, auto)
-    minmax(12ch, 1fr);
+  --offline-equation-template: auto auto auto auto auto auto auto;
 }
 
 .offline-overlay__equation-row {
