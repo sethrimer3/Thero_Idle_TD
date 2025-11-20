@@ -649,6 +649,7 @@ body.graphics-mode-low .control-button {
   /* Show scrollbars by default for touch devices where drag gestures don't work. */
   scrollbar-width: auto;
   -ms-overflow-style: auto;
+  touch-action: pan-y; /* Allow vertical scrolling even when touching child elements */
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -2023,6 +2024,7 @@ body.graphics-mode-low .control-button {
   gap: 24px;
   align-items: stretch;
   width: 100%;
+  touch-action: pan-y; /* Ensure scrolling works on child elements */
 }
 
 .level-set {
@@ -2679,6 +2681,7 @@ body.graphics-mode-low .control-button {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  touch-action: pan-y; /* Ensure scrolling works on child elements */
 }
 
 .enemy-card {
@@ -4045,6 +4048,7 @@ body.graphics-mode-low .control-button {
   margin: 0;
   display: grid;
   gap: 12px;
+  touch-action: pan-y; /* Ensure scrolling works on child elements */
 }
 
 .powder-ledger-grid div {
@@ -4198,6 +4202,7 @@ body.graphics-mode-low .control-button {
   align-items: center;
   gap: 18px;
   padding: clamp(8px, 2vw, 20px);
+  touch-action: pan-y; /* Ensure scrolling works on child elements */
 }
 
 /* Visualize Bet Spire happiness progress beneath the terrarium viewport. */
@@ -5596,6 +5601,7 @@ body.graphics-mode-low .control-button {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  touch-action: pan-y; /* Ensure scrolling works on child elements */
 }
 
 .achievement-tile {
@@ -8879,6 +8885,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   padding: 20px;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   align-items: start;
+  touch-action: pan-y; /* Ensure scrolling works on child elements */
 }
 
 /* Keep the gravity simulation centered across the full row. */
@@ -8910,6 +8917,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   padding: 20px;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   align-items: start;
+  touch-action: pan-y; /* Ensure scrolling works on child elements */
 }
 
 .tsadi-simulation-slot {
@@ -9547,6 +9555,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   gap: 1.5rem;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   align-items: start;
+  touch-action: pan-y; /* Ensure scrolling works on child elements */
 }
 
 .kuf-card {
