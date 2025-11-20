@@ -170,6 +170,12 @@ import {
   teardownPhiTower as teardownPhiTowerHelper,
   triggerPhiBurst as triggerPhiBurstHelper,
 } from '../scripts/features/towers/phiTower.js';
+import {
+  ensurePsiState as ensurePsiStateHelper,
+  updatePsiTower as updatePsiTowerHelper,
+  teardownPsiTower as teardownPsiTowerHelper,
+  triggerPsiClusterAoE as triggerPsiClusterAoEHelper,
+} from '../scripts/features/towers/psiTower.js';
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -4002,6 +4008,20 @@ export class SimplePlayfield {
   }
 
   /**
+   * Update ψ merge logic for combining enemies.
+   */
+  updatePsiTower(tower, delta) {
+    updatePsiTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Trigger Psi cluster AoE effect on death.
+   */
+  triggerPsiClusterAoE(cluster, deathPosition) {
+    triggerPsiClusterAoEHelper(this, cluster, deathPosition);
+  }
+
+  /**
    * Update υ fleet logic and targeting.
    */
   updateUpsilonTower(tower, delta) {
@@ -4104,6 +4124,10 @@ export class SimplePlayfield {
    */
   teardownSigmaTower(tower) {
     return TowerManager.teardownSigmaTower.call(this, tower);
+  }
+
+  teardownPsiTower(tower) {
+    teardownPsiTowerHelper(this, tower);
   }
 
   /**
@@ -5119,6 +5143,7 @@ export class SimplePlayfield {
     this.teardownPiTower(tower);
     this.teardownTauTower(tower);
     this.teardownSigmaTower(tower);
+    this.teardownPsiTower(tower);
     this.handleAlephTowerRemoved(tower);
 
     const index = this.towers.indexOf(tower);
@@ -7154,6 +7179,10 @@ export class SimplePlayfield {
           this.updatePhiTower(tower, delta);
           return;
         }
+        if (tower.type === 'psi') {
+          this.updatePsiTower(tower, delta);
+          return;
+        }
         if (!this.combatActive) {
           return;
         }
@@ -8983,6 +9012,12 @@ export class SimplePlayfield {
 
   processEnemyDefeat(enemy) {
     const defeatPosition = this.getEnemyPosition(enemy);
+    
+    // Trigger PsiCluster AoE if this is a Psi cluster
+    if (enemy.isPsiCluster) {
+      this.triggerPsiClusterAoE(enemy, defeatPosition);
+    }
+    
     // Emit a burst of collapse motes before removing the enemy from active lists.
     this.spawnEnemyDeathParticles(enemy);
     this.tryConvertEnemyToChiThrall(enemy, { position: defeatPosition });
