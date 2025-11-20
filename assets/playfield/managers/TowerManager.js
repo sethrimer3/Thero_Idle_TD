@@ -87,6 +87,10 @@ import {
   assignUpsilonTrackHoldAnchor as assignUpsilonTrackHoldAnchorHelper,
 } from '../../../scripts/features/towers/upsilonTower.js';
 import {
+  ensureOmegaState as ensureOmegaStateHelper,
+  teardownOmegaTower as teardownOmegaTowerHelper,
+} from '../../../scripts/features/towers/omegaTower.js';
+import {
   ensurePhiState as ensurePhiStateHelper,
   teardownPhiTower as teardownPhiTowerHelper,
 } from '../../../scripts/features/towers/phiTower.js';
@@ -310,6 +314,11 @@ function applyTowerBehaviorDefaults(tower) {
   } else if (tower.phiState) {
     this.teardownPhiTower(tower);
   }
+  if (tower.type === 'omega') {
+    this.ensureOmegaState(tower);
+  } else if (tower.omegaState) {
+    this.teardownOmegaTower(tower);
+  }
 }
 
 function ensureDeltaState(tower) {
@@ -472,4 +481,6 @@ export {
   assignUpsilonTrackHoldAnchor,
   ensurePhiState,
   teardownPhiTower,
+  ensureOmegaState,
+  teardownOmegaTower,
 };

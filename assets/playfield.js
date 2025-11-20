@@ -2758,6 +2758,9 @@ export class SimplePlayfield {
       if (tower.type === 'chi') {
         this.ensureChiState(tower);
       }
+      if (tower.type === 'omega') {
+        this.ensureOmegaState(tower);
+      }
       if (tower.type === 'zeta') {
         // Keep ζ pendulum geometry aligned with the tower's new coordinates.
         this.ensureZetaState(tower);
@@ -4154,6 +4157,20 @@ export class SimplePlayfield {
 
   updateOmegaTower(tower, delta) {
     updateOmegaTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Ensure Ω tower state is initialized with orbital particles.
+   */
+  ensureOmegaState(tower) {
+    return TowerManager.ensureOmegaState.call(this, tower);
+  }
+
+  /**
+   * Clean up Ω tower state when tower is removed or changed.
+   */
+  teardownOmegaTower(tower) {
+    return TowerManager.teardownOmegaTower.call(this, tower);
   }
 
   /**
