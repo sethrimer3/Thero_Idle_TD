@@ -176,6 +176,12 @@ import {
   teardownPsiTower as teardownPsiTowerHelper,
   triggerPsiClusterAoE as triggerPsiClusterAoEHelper,
 } from '../scripts/features/towers/psiTower.js';
+import {
+  ensureOmegaState as ensureOmegaStateHelper,
+  updateOmegaTower as updateOmegaTowerHelper,
+  teardownOmegaTower as teardownOmegaTowerHelper,
+  drawOmegaParticles as drawOmegaParticlesHelper,
+} from '../scripts/features/towers/omegaTower.js';
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -4146,6 +4152,10 @@ export class SimplePlayfield {
     updatePsiTowerHelper(this, tower, delta);
   }
 
+  updateOmegaTower(tower, delta) {
+    updateOmegaTowerHelper(this, tower, delta);
+  }
+
   /**
    * Trigger Psi cluster AoE effect on death.
    */
@@ -7322,6 +7332,10 @@ export class SimplePlayfield {
           this.updatePsiTower(tower, delta);
           return;
         }
+        if (tower.type === 'omega') {
+          this.updateOmegaTower(tower, delta);
+          return;
+        }
         if (!this.combatActive) {
           return;
         }
@@ -9743,6 +9757,13 @@ export class SimplePlayfield {
 
   drawNuBursts() {
     return CanvasRenderer.drawNuBursts.call(this);
+  }
+
+  /**
+   * Render Ω particle orbits around targeted enemies.
+   */
+  drawOmegaParticles() {
+    return CanvasRenderer.drawOmegaParticles.call(this);
   }
 
   /**
