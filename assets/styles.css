@@ -4360,8 +4360,8 @@ body.graphics-mode-low .control-button {
   display: flex;
   align-items: stretch;
   justify-content: center;
-  /* Keep the Lv. toggle and tree overlays clickable so leveling mode can activate. */
-  pointer-events: auto;
+  /* Allow clicks to pass through to underlying UI elements. Interactive children have pointer-events: auto. */
+  pointer-events: none;
   z-index: 0;
 }
 
@@ -4959,7 +4959,7 @@ body.graphics-mode-low .control-button {
 }
 
 /* Let Bet terrarium controls (like the Lv. toggle) sit above the viewport overlay while preserving touch panning. */
-.fluid-viewport {
+.powder-viewport.fluid-viewport {
   pointer-events: none;
   touch-action: none;
 }
