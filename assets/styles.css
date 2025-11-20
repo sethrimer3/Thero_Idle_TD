@@ -430,7 +430,7 @@ body.graphics-mode-low .control-button {
   grid-template-columns: var(--offline-equation-template);
   align-items: baseline;
   justify-content: flex-start;
-  column-gap: clamp(6px, 1.6vw, 12px);
+  column-gap: 0.25em;
   font-family: "Cormorant Garamond", serif;
   font-size: clamp(1.6rem, 4.5vw, 3.2rem);
   width: 100%;
@@ -460,6 +460,8 @@ body.graphics-mode-low .control-button {
 .offline-resource__label {
   font-size: 0.5em;
   letter-spacing: 0.08em;
+  color: var(--accent-3);
+  text-shadow: 0 0 14px rgba(255, 228, 120, 0.55), 0 0 28px rgba(255, 228, 120, 0.35);
 }
 
 .offline-symbol {
@@ -505,7 +507,7 @@ body.graphics-mode-low .control-button {
   display: grid;
   grid-template-columns: var(--offline-equation-template);
   align-items: baseline;
-  column-gap: clamp(6px, 1.6vw, 12px);
+  column-gap: 0.25em;
   width: 100%;
 }
 
