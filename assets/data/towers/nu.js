@@ -12,6 +12,7 @@ export const NU_TOWER = Object.freeze({
   range: 0.46,
   icon: 'assets/images/tower-nu.svg',
   nextTierId: 'xi',
+  placeable: true,
 });
 
 export default NU_TOWER;

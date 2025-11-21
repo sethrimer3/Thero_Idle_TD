@@ -12,6 +12,7 @@ export const PHI_TOWER = Object.freeze({
   range: 0.66,
   icon: 'assets/images/tower-phi.svg',
   nextTierId: 'chi',
+  placeable: true,
 });
 
 export default PHI_TOWER;
