@@ -289,6 +289,11 @@ export function endTowerSelectionWheelDrag(event) {
   } catch (error) {
     // Ignore release failures so drag cleanup always completes.
   }
+  
+  // Store the pointer ID that just ended so we can ignore the immediate pointerdown from the same gesture
+  wheel.justReleasedPointerId = wheel.pointerId;
+  wheel.releaseTimestamp = performance.now();
+  
   wheel.pointerId = null;
   wheel.dragAccumulator = 0;
   wheel.lastY = 0;
@@ -441,6 +446,14 @@ export function openTowerSelectionWheel(tower) {
     if (!wheel?.container) {
       return;
     }
+    
+    // Ignore events from the pointer that just opened the wheel (within 100ms grace period)
+    const timeSinceRelease = performance.now() - (wheel.releaseTimestamp || 0);
+    if (wheel.justReleasedPointerId === event.pointerId && timeSinceRelease < 100) {
+      wheel.justReleasedPointerId = null;
+      return;
+    }
+    
     const target = event.target instanceof Node ? event.target : null;
     const clickedInside = target ? wheel.container.contains(target) : false;
     if (!clickedInside) {
