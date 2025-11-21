@@ -52,6 +52,8 @@ export function closeTowerSelectionWheel() {
   wheel.endHandler = null;
   wheel.outsideHandler = null;
   wheel.outsideClickHandler = null;
+  wheel.justReleasedPointerId = null;
+  wheel.releaseTimestamp = 0;
   if (wheel.container?.parentNode) {
     wheel.container.remove();
   }
@@ -450,7 +452,6 @@ export function openTowerSelectionWheel(tower) {
     // Ignore events from the pointer that just opened the wheel (within 100ms grace period)
     const timeSinceRelease = performance.now() - (wheel.releaseTimestamp || 0);
     if (wheel.justReleasedPointerId === event.pointerId && timeSinceRelease < 100) {
-      wheel.justReleasedPointerId = null;
       return;
     }
     
