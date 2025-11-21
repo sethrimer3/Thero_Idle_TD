@@ -10,6 +10,9 @@ import {
 // Scroll step keeps the tower selection wheel responsive while swiping or dragging through options.
 const TOWER_SELECTION_SCROLL_STEP_PX = 28;
 
+// Grace period to prevent hold release from being treated as an outside click.
+const POINTER_RELEASE_GRACE_PERIOD_MS = 100;
+
 /**
  * Remove the tower selection wheel overlay and detach related listeners.
  */
@@ -52,6 +55,8 @@ export function closeTowerSelectionWheel() {
   wheel.endHandler = null;
   wheel.outsideHandler = null;
   wheel.outsideClickHandler = null;
+  wheel.justReleasedPointerId = null;
+  wheel.releaseTimestamp = 0;
   if (wheel.container?.parentNode) {
     wheel.container.remove();
   }
@@ -289,6 +294,11 @@ export function endTowerSelectionWheelDrag(event) {
   } catch (error) {
     // Ignore release failures so drag cleanup always completes.
   }
+  
+  // Store the pointer ID to prevent the release event from immediately closing the wheel via outside click handler
+  wheel.justReleasedPointerId = wheel.pointerId;
+  wheel.releaseTimestamp = performance.now();
+  
   wheel.pointerId = null;
   wheel.dragAccumulator = 0;
   wheel.lastY = 0;
@@ -441,6 +451,13 @@ export function openTowerSelectionWheel(tower) {
     if (!wheel?.container) {
       return;
     }
+    
+    // Ignore events from the pointer that just opened the wheel (within grace period)
+    const timeSinceRelease = performance.now() - (wheel.releaseTimestamp || 0);
+    if (wheel.justReleasedPointerId === event.pointerId && timeSinceRelease < POINTER_RELEASE_GRACE_PERIOD_MS) {
+      return;
+    }
+    
     const target = event.target instanceof Node ? event.target : null;
     const clickedInside = target ? wheel.container.contains(target) : false;
     if (!clickedInside) {
