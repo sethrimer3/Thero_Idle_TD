@@ -368,6 +368,7 @@ export function updatePhiTower(playfield, tower, delta) {
   tower.range = TOWER_RANGE;
   tower.baseDamage = SEED_DAMAGE;
   tower.damage = SEED_DAMAGE;
+  tower.rate = SEEDS_PER_SECOND;
 }
 
 /**

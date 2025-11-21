@@ -7371,7 +7371,6 @@ export class SimplePlayfield {
         }
         if (tower.type === 'phi') {
           this.updatePhiTower(tower, delta);
-          return;
         }
         if (tower.type === 'psi') {
           this.updatePsiTower(tower, delta);
