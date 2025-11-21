@@ -129,10 +129,10 @@ function initializePhiState() {
   for (let k = 0; k < MAX_ROWS; k += 1) {
     rows.push(createRow(k));
   }
-  
+
   return {
     rows,
-    lastSeedSpawnTime: 0,
+    seedAccumulator: 0,
     burstActive: false,
     colorOffset: 0,
   };
@@ -142,7 +142,7 @@ function initializePhiState() {
  * Spawn a single seed in the first available row.
  * Returns true if a seed was spawned, false if all rows are full.
  */
-function spawnOneSeed(tower, state, currentTime) {
+function spawnOneSeed(tower, state) {
   for (let k = 0; k < state.rows.length; k += 1) {
     const row = state.rows[k];
     if (row.seeds.length < row.capacity) {
@@ -166,24 +166,26 @@ function spawnOneSeed(tower, state, currentTime) {
 /**
  * Update seed production during charge phase.
  */
-function updateSeedProduction(playfield, tower, state, currentTime) {
+function updateSeedProduction(playfield, tower, state, delta) {
   if (state.burstActive) {
     return; // Do not produce seeds during burst
   }
-  
-  // Calculate how many seeds should be spawned
-  const dt = currentTime - state.lastSeedSpawnTime;
-  let expectedSeeds = dt * SEEDS_PER_SECOND;
-  
+
+  // Calculate how many seeds should be spawned using elapsed simulation time
+  state.seedAccumulator += delta * SEEDS_PER_SECOND;
+  let expectedSeeds = state.seedAccumulator;
+
   // Spawn integer number of seeds
   while (expectedSeeds >= 1.0) {
-    if (!spawnOneSeed(tower, state, currentTime)) {
+    if (!spawnOneSeed(tower, state)) {
       // All rows full, stop spawning
       break;
     }
     expectedSeeds -= 1.0;
-    state.lastSeedSpawnTime = currentTime;
   }
+
+  // Retain fractional progress toward the next seed
+  state.seedAccumulator = expectedSeeds;
 }
 
 /**
@@ -326,11 +328,8 @@ export function updatePhiTower(playfield, tower, delta) {
     return;
   }
   
-  // Get current game time
-  const currentTime = playfield.gameTime || 0;
-  
   // Update seed production
-  updateSeedProduction(playfield, tower, state, currentTime);
+  updateSeedProduction(playfield, tower, state, delta);
   
   if (state.burstActive) {
     let anySeedStillInFlight = false;

@@ -197,9 +197,18 @@ export function spawnNuKillParticle(playfield, tower, position) {
   if (!playfield || !tower || tower.type !== 'nu') {
     return;
   }
-  
+
+  if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+    console.warn('ν kill particle skipped due to missing enemy position.', position);
+    return;
+  }
+
   const state = ensureNuStateInternal(playfield, tower);
-  
+
+  if (!Array.isArray(state.killParticles)) {
+    state.killParticles = [];
+  }
+
   const particle = {
     id: `nu-kill-${Date.now()}-${Math.random()}`,
     x: position.x,
@@ -218,9 +227,13 @@ export function spawnNuKillParticle(playfield, tower, position) {
  * Update kill particles and tower flash effects.
  */
 function updateKillParticles(playfield, tower, state, delta) {
+  if (!Array.isArray(state.killParticles)) {
+    state.killParticles = [];
+  }
+  const particles = state.killParticles;
   const particlesToRemove = [];
-  
-  state.killParticles.forEach((particle, index) => {
+
+  particles.forEach((particle, index) => {
     if (particle.absorbed) {
       particlesToRemove.push(index);
       return;
