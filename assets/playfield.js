@@ -4065,6 +4065,20 @@ export class SimplePlayfield {
   }
 
   /**
+   * Ensure ν burst state stays initialized so piercing lasers can render cleanly.
+   */
+  ensureNuState(tower) {
+    return TowerManager.ensureNuState.call(this, tower);
+  }
+
+  /**
+   * Emit ν piercing laser bursts using the shared particle animation stack.
+   */
+  spawnNuAttackBurst(tower, targetInfo, options = {}) {
+    return TowerManager.spawnNuAttackBurst.call(this, tower, targetInfo, options);
+  }
+
+  /**
    * Update ν tower kill tracking and particle effects.
    */
   updateNuTower(tower, delta) {
@@ -4132,6 +4146,20 @@ export class SimplePlayfield {
    */
   updateTauTower(tower, delta) {
     updateTauTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Ensure φ state exists so sunflower seed generation stays in sync with range.
+   */
+  ensurePhiState(tower) {
+    return TowerManager.ensurePhiState.call(this, tower);
+  }
+
+  /**
+   * Clear cached φ seed data when the lattice retunes or is removed.
+   */
+  teardownPhiTower(tower) {
+    return TowerManager.teardownPhiTower.call(this, tower);
   }
 
   /**
