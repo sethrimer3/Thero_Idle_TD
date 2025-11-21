@@ -8026,6 +8026,10 @@ export class SimplePlayfield {
       this.fireIotaPulse(tower, targetInfo);
       return;
     }
+    if (tower.type === 'phi') {
+      this.triggerPhiBurst(tower);
+      return;
+    }
     if (!targetInfo) {
       return;
     }
