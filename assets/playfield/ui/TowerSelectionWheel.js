@@ -10,6 +10,9 @@ import {
 // Scroll step keeps the tower selection wheel responsive while swiping or dragging through options.
 const TOWER_SELECTION_SCROLL_STEP_PX = 28;
 
+// Grace period to prevent hold release from being treated as an outside click.
+const POINTER_RELEASE_GRACE_PERIOD_MS = 100;
+
 /**
  * Remove the tower selection wheel overlay and detach related listeners.
  */
@@ -292,7 +295,7 @@ export function endTowerSelectionWheelDrag(event) {
     // Ignore release failures so drag cleanup always completes.
   }
   
-  // Store the pointer ID that just ended so we can ignore the immediate pointerdown from the same gesture
+  // Store the pointer ID to prevent the release event from immediately closing the wheel via outside click handler
   wheel.justReleasedPointerId = wheel.pointerId;
   wheel.releaseTimestamp = performance.now();
   
@@ -449,9 +452,9 @@ export function openTowerSelectionWheel(tower) {
       return;
     }
     
-    // Ignore events from the pointer that just opened the wheel (within 100ms grace period)
+    // Ignore events from the pointer that just opened the wheel (within grace period)
     const timeSinceRelease = performance.now() - (wheel.releaseTimestamp || 0);
-    if (wheel.justReleasedPointerId === event.pointerId && timeSinceRelease < 100) {
+    if (wheel.justReleasedPointerId === event.pointerId && timeSinceRelease < POINTER_RELEASE_GRACE_PERIOD_MS) {
       return;
     }
     
