@@ -114,9 +114,20 @@ function ensureNuStateInternal(playfield, tower) {
 /**
  * Refresh nu tower parameters from formulas.
  */
+function resolveGammaPowerSafe() {
+  // Guard against equation resolution failures so ν can't freeze the playfield when γ math is unavailable.
+  try {
+    const gammaRaw = calculateTowerEquationResult('gamma');
+    return Number.isFinite(gammaRaw) ? Math.max(0, gammaRaw) : 0;
+  } catch (error) {
+    console.warn('ν tower failed to resolve γ power; defaulting to 0.', error);
+    return 0;
+  }
+}
+
 function refreshNuParameters(playfield, tower, state) {
-  // Get gamma power for base damage
-  const gammaPower = Math.max(0, calculateTowerEquationResult('gamma') || 0);
+  // Get gamma power for base damage with a safe fallback.
+  const gammaPower = resolveGammaPowerSafe();
   
   // atk = gamma + OKdmgTot
   const attack = gammaPower + state.overkillDamageTotal;
