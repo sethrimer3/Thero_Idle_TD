@@ -214,7 +214,7 @@ export function createPlayfieldMenuController(options) {
     }
     documentListeners.pointerdown = handlePointerDown;
     documentListeners.keydown = handleKeydown;
-    document.addEventListener('pointerdown', documentListeners.pointerdown);
+    document.addEventListener('pointerdown', documentListeners.pointerdown, { passive: true });
     document.addEventListener('keydown', documentListeners.keydown);
   }
 
@@ -223,7 +223,7 @@ export function createPlayfieldMenuController(options) {
    */
   function detachDocumentListeners() {
     if (documentListeners.pointerdown) {
-      document.removeEventListener('pointerdown', documentListeners.pointerdown);
+      document.removeEventListener('pointerdown', documentListeners.pointerdown, { passive: true });
       documentListeners.pointerdown = null;
     }
     if (documentListeners.keydown) {

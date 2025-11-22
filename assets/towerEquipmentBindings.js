@@ -342,7 +342,7 @@ export function createTowerEquipmentBindings({
     if (state.closeHandlersBound || typeof document === 'undefined') {
       return;
     }
-    document.addEventListener('pointerdown', handleEquipmentPointerDown, true);
+    document.addEventListener('pointerdown', handleEquipmentPointerDown, { capture: true, passive: true });
     document.addEventListener('keydown', handleEquipmentKeyDown, true);
     state.closeHandlersBound = true;
   }
@@ -354,7 +354,7 @@ export function createTowerEquipmentBindings({
     if (!state.closeHandlersBound || typeof document === 'undefined') {
       return;
     }
-    document.removeEventListener('pointerdown', handleEquipmentPointerDown, true);
+    document.removeEventListener('pointerdown', handleEquipmentPointerDown, { capture: true, passive: true });
     document.removeEventListener('keydown', handleEquipmentKeyDown, true);
     state.closeHandlersBound = false;
   }

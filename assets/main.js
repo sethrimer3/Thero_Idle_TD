@@ -3115,8 +3115,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     triggerButtonRipple(button, event);
   }
 
-  document.addEventListener('pointerdown', handleDocumentPointerDown);
-  document.addEventListener('pointerdown', handleGlobalButtonPointerDown);
+  document.addEventListener('pointerdown', handleDocumentPointerDown, { passive: true });
+  document.addEventListener('pointerdown', handleGlobalButtonPointerDown, { passive: true });
   document.addEventListener('keydown', handleDocumentKeyDown);
 
   function areSetNormalLevelsCompleted(levels = []) {
