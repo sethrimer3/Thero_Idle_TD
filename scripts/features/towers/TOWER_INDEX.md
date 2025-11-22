@@ -26,7 +26,7 @@ Quick lookup table for all implemented towers in Thero Idle.
 | φ | Phi | `phiTower.js` | Grows seeds in sunflower pattern, bursts them outward to spiral and return |
 | ψ | Psi | `psiTower.js` | Merge tower that combines nearby enemies into powerful PsiClusters with AoE death explosions |
 | Ω | Omega | `omegaTower.js` | Golden orbital particles slice percentage of enemy max HP after charging period |
-| ℵ | Aleph | `alephChain.js` | Cardinality-based system (advanced) |
+| ∞ | Infinity | `infinityTower.js` | Aura tower that exponentially boosts all towers in range based on total tower count |
 
 ## Special Towers
 
@@ -42,6 +42,25 @@ Quick lookup table for all implemented towers in Thero Idle.
 | Module | Description |
 |--------|-------------|
 | `betaMath.js` | Dedicated utilities for β tower calculations |
+| `infinityTower.js` | Infinity tower mechanics and bonus calculations |
+
+## Infinity Tower Details
+
+The Infinity Tower (∞) is a unique support tower that provides exponential damage bonuses to all towers within its range.
+
+**Key Features:**
+- **Range**: 2×e meters (≈5.44m, upgradable with ℵ₂)
+- **Exponent Bonus**: ln(totalTowerCount) × ℵ₁
+- **Multiplier Base**: e + 0.1(ℵ₃ - 1)
+- **Damage Boost**: Affected towers receive: damage × multiplier^exponent
+- **Visual Effect**: Golden lines connect infinity tower to all towers in range
+
+**Sub-Equations:**
+- **Exp (ℵ₁)**: Exponent = ln(n) where n is total tower count
+- **Rng (ℵ₂)**: Range = 2e + 0.5(ℵ₂ - 1) meters
+- **Mul (ℵ₃)**: Multiplier base = e + 0.1(ℵ₃ - 1)
+
+**Master Equation**: ∞ = Exp × Rng
 
 ## Common Tower Patterns
 
