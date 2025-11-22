@@ -391,6 +391,7 @@ function draw() {
   this.drawDeveloperPathMarkers();
   this.drawPlacementPreview();
   this.drawTowers();
+  this.drawInfinityAuras();
   this.drawDeltaSoldiers();
   this.drawOmicronUnits();
   this.drawEnemies();
