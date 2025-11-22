@@ -1021,12 +1021,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       smallMaskUrl: './assets/sprites/spires/betSpire/Small-Tree.png',
       islandSmallMaskUrl: './assets/sprites/spires/betSpire/Island-Small-Tree.png',
       state: powderState.betTerrarium,
+      powderState: powderState,
       spendSerendipity: spendFluidSerendipity,
       getSerendipityBalance: getCurrentFluidDropBank,
       onStateChange: (state) => {
         powderState.betTerrarium = {
           levelingMode: Boolean(state?.levelingMode),
           trees: state?.trees ? { ...state.trees } : {},
+          buttonMenuOpen: Boolean(state?.buttonMenuOpen),
         };
         updateTerrariumTreeHappiness(powderState.betTerrarium.trees);
         schedulePowderBasinSave();

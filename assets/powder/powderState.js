@@ -64,6 +64,7 @@ export function createPowderStateContext() {
     betTerrarium: {
       levelingMode: false,
       trees: {},
+      buttonMenuOpen: false, // Track when button menus are open
     },
   };
 
