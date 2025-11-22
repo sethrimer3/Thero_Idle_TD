@@ -98,6 +98,12 @@ function countAliveEnemies(playfield) {
   return count;
 }
 
+/**
+ * Resolve minimum playfield dimension for pixel calculations.
+ * Caches the last valid dimension to prevent sudden range changes.
+ */
+let cachedPlayfieldDimension = null;
+
 function resolvePlayfieldMinDimension(playfield) {
   const dimensionCandidates = [];
   if (Number.isFinite(playfield?.renderWidth) && playfield.renderWidth > 0) {
@@ -106,10 +112,21 @@ function resolvePlayfieldMinDimension(playfield) {
   if (Number.isFinite(playfield?.renderHeight) && playfield.renderHeight > 0) {
     dimensionCandidates.push(playfield.renderHeight);
   }
-  if (!dimensionCandidates.length) {
-    return 1;
+  
+  if (dimensionCandidates.length) {
+    const minDimension = Math.min(...dimensionCandidates);
+    cachedPlayfieldDimension = minDimension;
+    return minDimension;
   }
-  return Math.min(...dimensionCandidates);
+  
+  // Use cached value if available
+  if (cachedPlayfieldDimension !== null && cachedPlayfieldDimension > 0) {
+    return cachedPlayfieldDimension;
+  }
+  
+  // Fallback to reasonable default (800px is a common canvas size)
+  console.warn('λ tower: playfield dimensions not available, using fallback value of 800px');
+  return 800;
 }
 
 function computeEffectiveEnemyFactor(enemyCount, enemyWeight) {

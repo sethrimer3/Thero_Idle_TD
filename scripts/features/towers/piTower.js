@@ -106,7 +106,10 @@ function calculatePiDamage(gammaPower, mergeCount) {
 
 /**
  * Convert playfield minimum dimension for pixel calculations.
+ * Caches the last valid dimension to prevent sudden range changes.
  */
+let cachedPlayfieldDimension = null;
+
 function resolvePlayfieldMinDimension(playfield) {
   const candidates = [];
   if (Number.isFinite(playfield?.renderWidth) && playfield.renderWidth > 0) {
@@ -115,7 +118,21 @@ function resolvePlayfieldMinDimension(playfield) {
   if (Number.isFinite(playfield?.renderHeight) && playfield.renderHeight > 0) {
     candidates.push(playfield.renderHeight);
   }
-  return candidates.length ? Math.min(...candidates) : 1;
+  
+  if (candidates.length) {
+    const minDimension = Math.min(...candidates);
+    cachedPlayfieldDimension = minDimension;
+    return minDimension;
+  }
+  
+  // Use cached value if available
+  if (cachedPlayfieldDimension !== null && cachedPlayfieldDimension > 0) {
+    return cachedPlayfieldDimension;
+  }
+  
+  // Fallback to reasonable default (800px is a common canvas size)
+  console.warn('π tower: playfield dimensions not available, using fallback value of 800px');
+  return 800;
 }
 
 /**
