@@ -221,9 +221,6 @@ function refreshMuParameters(playfield, tower, state) {
 
 /**
  * Resolve minimum playfield dimension for pixel calculations.
- */
-/**
- * Resolve minimum playfield dimension for pixel calculations.
  * Caches the last valid dimension to prevent sudden range changes.
  */
 let cachedPlayfieldDimension = null;
