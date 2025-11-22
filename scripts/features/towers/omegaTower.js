@@ -1,19 +1,12 @@
 // Ω tower particle orchestration: golden particles orbit enemies, then execute HP% slices.
-import {
-  computeTowerVariableValue,
-  calculateTowerEquationResult,
-} from '../../../assets/towersTab.js';
+import { computeTowerVariableValue } from '../../../assets/towersTab.js';
 import { metersToPixels } from '../../../assets/gameUnits.js';
-import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 
 // Golden particle colors for Omega tower
 const OMEGA_PARTICLE_COLORS = [
   { r: 255, g: 215, b: 0 },   // Gold
   { r: 255, g: 223, b: 128 }, // Light gold
 ];
-
-// Offsets for palette sampling
-const OMEGA_COLOR_OFFSETS = [0.45, 0.65];
 
 // Base configuration constants
 const BASE_RANGE_METERS = 7.0;
@@ -23,7 +16,7 @@ const BASE_SLICE_FRACTION = 0.10; // 10% of max HP
 const MAX_SLICE_FRACTION = 0.40;  // Cap at 40% of max HP
 const ORBIT_RADIUS_PIXELS = 25;
 const ORBIT_ANGULAR_SPEED = Math.PI * 0.8; // radians per second
-const CHARGE_PHASE_FRACTION = 0.7; // 70% of cooldown is charging
+const CHARGE_PHASE_FRACTION = 0.25; // Shorter charge so slices span the full attack window
 
 // Tower states
 const STATE_IDLE = 'IDLE';
@@ -32,34 +25,9 @@ const STATE_SLICING = 'SLICING';
 const STATE_COOLDOWN = 'COOLDOWN';
 
 /**
- * Normalize palette-derived colors to particle-friendly RGB objects.
- */
-function normalizeParticleColor(color) {
-  if (!color || typeof color !== 'object') {
-    return null;
-  }
-  const { r, g, b } = color;
-  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) {
-    return null;
-  }
-  return {
-    r: Math.max(0, Math.min(255, Math.round(r))),
-    g: Math.max(0, Math.min(255, Math.round(g))),
-    b: Math.max(0, Math.min(255, Math.round(b))),
-  };
-}
-
-/**
  * Resolve colors for omega particles from the palette or use fallback.
  */
 function resolveOmegaParticleColors() {
-  const colors = OMEGA_COLOR_OFFSETS.map((offset) => 
-    normalizeParticleColor(samplePaletteGradient(offset))
-  ).filter(Boolean);
-  
-  if (colors.length >= 2) {
-    return colors;
-  }
   return OMEGA_PARTICLE_COLORS.map((entry) => ({ ...entry }));
 }
 
@@ -119,9 +87,12 @@ export function ensureOmegaState(playfield, tower, options = {}) {
       particleCount,
       sliceCooldown,
       sliceFrac,
+      sliceInterval: sliceCooldown / particleCount,
       sliceChargeTime,
       priorityMode: omega_priorityMode,
       multiMode: omega_multiMode,
+      slicingElapsed: 0,
+      slicingIndex: 0,
     };
     tower.omegaState = state;
   } else {
@@ -129,10 +100,16 @@ export function ensureOmegaState(playfield, tower, options = {}) {
     state.particleCount = particleCount;
     state.sliceCooldown = sliceCooldown;
     state.sliceFrac = sliceFrac;
+    state.sliceInterval = sliceCooldown / particleCount;
     state.sliceChargeTime = sliceChargeTime;
     state.priorityMode = omega_priorityMode;
     state.multiMode = omega_multiMode;
   }
+
+  // Display the effective slice cadence rather than the full cooldown
+  const effectiveSliceSeconds = Math.max(state.sliceInterval, 0.01);
+  tower.rate = 1 / effectiveSliceSeconds;
+  tower.baseRate = tower.rate;
 
   return state;
 }
@@ -241,6 +218,9 @@ function createParticles(state, targets, towerPosition) {
       size: 4,
       opacity: 0.9,
       color,
+      mode: 'orbit',
+      trail: [],
+      sliceTimer: 0,
     });
   }
 
@@ -250,28 +230,37 @@ function createParticles(state, targets, towerPosition) {
 /**
  * Update particle positions during orbit phase.
  */
-function updateOrbitingParticles(playfield, state, delta) {
+function updateOrbitingParticles(playfield, tower, state, delta) {
   const validParticles = [];
-  
+
   state.particles.forEach((particle) => {
     if (!particle.target || particle.target.hp <= 0) {
-      // Target died, remove this particle
-      return;
+      // Target died, send particle back to tower for idle swirl
+      particle.target = null;
+      particle.mode = 'return';
     }
-    
-    const position = playfield.getEnemyPosition(particle.target);
+
+    const position = particle.target
+      ? playfield.getEnemyPosition(particle.target)
+      : { x: tower.x, y: tower.y };
     if (!position) {
       // Target not found
       return;
     }
-    
+
     // Update angle
     particle.angle += ORBIT_ANGULAR_SPEED * delta;
-    
+
     // Update position around target
     particle.x = position.x + Math.cos(particle.angle) * particle.orbitRadius;
     particle.y = position.y + Math.sin(particle.angle) * particle.orbitRadius;
-    
+
+    // Comet-like trail while the particle is moving
+    particle.trail.push({ x: particle.x, y: particle.y, life: 1 });
+    if (particle.trail.length > 16) {
+      particle.trail.shift();
+    }
+
     validParticles.push(particle);
   });
   
@@ -291,42 +280,93 @@ function updateOrbitingParticles(playfield, state, delta) {
 /**
  * Execute the slice phase: deal percentage damage to all current targets.
  */
-function executeSlice(playfield, tower, state) {
-  const uniqueTargets = new Set();
-  
-  // Collect unique targets from particles
-  state.particles.forEach((particle) => {
-    if (particle.target && particle.target.hp > 0) {
-      const position = playfield.getEnemyPosition(particle.target);
-      if (position) {
-        const distance = Math.hypot(position.x - tower.x, position.y - tower.y);
-        if (distance <= tower.range) {
-          uniqueTargets.add(particle.target);
-        }
-      }
-    }
-  });
-  
-  // Apply damage to each unique target
-  uniqueTargets.forEach((enemy) => {
-    const maxHP = enemy.maxHP || enemy.hp || 0;
-    const damage = state.sliceFrac * maxHP;
-    
-    if (damage > 0) {
-      enemy.hp = Math.max(0, enemy.hp - damage);
-      
-      // Track damage for statistics
-      if (typeof playfield.recordDamage === 'function') {
-        playfield.recordDamage(tower, enemy, damage);
-      }
-    }
-  });
-  
-  // Visual/audio feedback
-  if (uniqueTargets.size > 0) {
-    // Play sound effect (if audio system available)
-    // VFX.spawnOmegaSliceEffect(state.particles, Array.from(uniqueTargets));
+function executeSlice(playfield, tower, state, particle, targetCounts) {
+  if (!particle.target || particle.target.hp <= 0) {
+    return;
   }
+
+  const position = playfield.getEnemyPosition(particle.target);
+  if (!position) {
+    return;
+  }
+
+  const distance = Math.hypot(position.x - tower.x, position.y - tower.y);
+  if (distance > tower.range) {
+    return;
+  }
+
+  const maxHP = particle.target.maxHP || particle.target.hp || 0;
+  const slicesOnTarget = Math.max(1, targetCounts.get(particle.targetId) || 1);
+  const damage = (state.sliceFrac / slicesOnTarget) * maxHP;
+
+  if (damage > 0) {
+    particle.target.hp = Math.max(0, particle.target.hp - damage);
+
+    if (typeof playfield.recordDamage === 'function') {
+      playfield.recordDamage(tower, particle.target, damage);
+    }
+  }
+}
+
+/**
+ * Maintain idle particles swirling around the tower when no enemies are valid.
+ */
+function updateIdleParticles(playfield, tower, state, delta) {
+  if (!playfield || !tower) {
+    return;
+  }
+
+  if (state.particles.length !== state.particleCount) {
+    const colors = resolveOmegaParticleColors();
+    state.particles = Array.from({ length: state.particleCount }, (_, idx) => {
+      const baseAngle = (2 * Math.PI * idx) / state.particleCount;
+      return {
+        target: null,
+        targetId: null,
+        baseAngle,
+        angle: baseAngle,
+        orbitRadius: ORBIT_RADIUS_PIXELS * 0.6,
+        x: tower.x,
+        y: tower.y,
+        size: 4,
+        opacity: 0.9,
+        color: colors[idx % colors.length],
+        mode: 'idle',
+        trail: [],
+        sliceTimer: 0,
+      };
+    });
+  }
+
+  state.particles.forEach((particle) => {
+    particle.mode = 'idle';
+    particle.target = null;
+    particle.angle += ORBIT_ANGULAR_SPEED * 0.5 * delta;
+
+    const jitter = 6 * Math.sin(performance.now() * 0.001 + particle.baseAngle);
+    particle.x = tower.x + Math.cos(particle.angle) * (particle.orbitRadius + jitter);
+    particle.y = tower.y + Math.sin(particle.angle) * (particle.orbitRadius + jitter);
+
+    particle.trail.push({ x: particle.x, y: particle.y, life: 1 });
+    if (particle.trail.length > 16) {
+      particle.trail.shift();
+    }
+  });
+}
+
+/**
+ * Count how many particles are assigned to each target so slices can divide damage.
+ */
+function countParticlesPerTarget(particles) {
+  const counts = new Map();
+
+  particles.forEach((particle) => {
+    if (particle.targetId) {
+      counts.set(particle.targetId, (counts.get(particle.targetId) || 0) + 1);
+    }
+  });
+
+  return counts;
 }
 
 /**
@@ -349,20 +389,22 @@ export function updateOmegaTower(playfield, tower, delta) {
 
   switch (state.state) {
     case STATE_IDLE:
+      updateIdleParticles(playfield, tower, state, delta);
+
       // Check if cooldown is ready
       if (state.cooldownTimer > 0) {
         state.cooldownTimer = Math.max(0, state.cooldownTimer - delta);
         break;
       }
-      
+
       // Gather targets and start a new cycle
       const sortedTargets = gatherTargets(playfield, tower, state);
-      
+
       if (sortedTargets.length === 0) {
-        // No enemies in range, stay idle
+        // No enemies in range, keep swirling around the tower
         break;
       }
-      
+
       // Determine how many targets to use
       let targetsToUse = [];
       if (state.multiMode === 'single') {
@@ -373,58 +415,107 @@ export function updateOmegaTower(playfield, tower, delta) {
         const maxTargets = Math.min(state.particleCount, sortedTargets.length);
         targetsToUse = sortedTargets.slice(0, maxTargets);
       }
-      
+
       state.currentTargets = targetsToUse;
       state.particles = createParticles(state, targetsToUse, { x: tower.x, y: tower.y });
-      
+
       if (state.particles.length === 0) {
         // No valid particles created, stay idle
         break;
       }
-      
+
       state.sliceTimer = 0;
+      state.slicingElapsed = 0;
+      state.slicingIndex = 0;
       state.state = STATE_ORBITING;
       break;
 
     case STATE_ORBITING:
       // Update timer
       state.sliceTimer += delta;
-      
+
       // Update particle positions
-      const hasTargets = updateOrbitingParticles(playfield, state, delta);
-      
+      const hasTargets = updateOrbitingParticles(playfield, tower, state, delta);
+
       if (!hasTargets) {
         // All targets died, end cycle early
-        state.particles = [];
         state.currentTargets = [];
         state.state = STATE_COOLDOWN;
         state.cooldownTimer = state.sliceCooldown;
         break;
       }
-      
+
       // Check if charge time is complete
       if (state.sliceTimer >= state.sliceChargeTime) {
+        state.slicingElapsed = 0;
+        state.slicingIndex = 0;
+        state.targetCounts = countParticlesPerTarget(state.particles);
         state.state = STATE_SLICING;
       }
       break;
 
     case STATE_SLICING:
-      // Execute the slice
-      executeSlice(playfield, tower, state);
-      
-      // Clear particles and targets
-      state.particles = [];
-      state.currentTargets = [];
-      
-      // Enter cooldown
-      state.state = STATE_COOLDOWN;
-      state.cooldownTimer = state.sliceCooldown;
+      // Update slicing schedule
+      state.slicingElapsed += delta;
+
+      while (
+        state.slicingIndex < state.particles.length &&
+        state.slicingElapsed >= state.slicingIndex * state.sliceInterval
+      ) {
+        const particle = state.particles[state.slicingIndex];
+
+        if (particle) {
+          particle.mode = 'slicing';
+          particle.sliceTimer = state.sliceInterval * 0.6;
+          particle.sliceVector = {
+            x: Math.cos(particle.angle + Math.PI / 2) * (ORBIT_RADIUS_PIXELS * 2),
+            y: Math.sin(particle.angle + Math.PI / 2) * (ORBIT_RADIUS_PIXELS * 2),
+          };
+          executeSlice(playfield, tower, state, particle, state.targetCounts);
+        }
+
+        state.slicingIndex += 1;
+      }
+
+      // Move particles while they slice or orbit
+      state.particles.forEach((particle) => {
+        if (particle.mode === 'slicing' && particle.sliceTimer > 0) {
+          particle.x += (particle.sliceVector?.x || 0) * delta;
+          particle.y += (particle.sliceVector?.y || 0) * delta;
+          particle.sliceTimer = Math.max(0, particle.sliceTimer - delta);
+        } else {
+          particle.mode = 'orbit';
+          const pos = playfield.getEnemyPosition(particle.target);
+          if (pos) {
+            particle.angle += ORBIT_ANGULAR_SPEED * delta;
+            particle.x = pos.x + Math.cos(particle.angle) * particle.orbitRadius;
+            particle.y = pos.y + Math.sin(particle.angle) * particle.orbitRadius;
+          }
+        }
+
+        particle.trail.push({ x: particle.x, y: particle.y, life: 1 });
+        if (particle.trail.length > 16) {
+          particle.trail.shift();
+        }
+      });
+
+      const totalSliceWindow = state.sliceInterval * state.particles.length;
+      const finalSliceFinished =
+        state.slicingElapsed >= totalSliceWindow &&
+        state.particles.every((p) => p.sliceTimer <= 0 || !p.sliceTimer);
+
+      if (finalSliceFinished) {
+        state.state = STATE_COOLDOWN;
+        state.cooldownTimer = state.sliceCooldown;
+      }
       break;
 
     case STATE_COOLDOWN:
-      // Wait for cooldown to finish
+      // Wait for cooldown to finish while swirling around the tower
+      updateIdleParticles(playfield, tower, state, delta);
+
       state.cooldownTimer = Math.max(0, state.cooldownTimer - delta);
-      
+
       if (state.cooldownTimer <= 0) {
         state.state = STATE_IDLE;
       }
@@ -461,6 +552,22 @@ export function drawOmegaParticles(playfield) {
       const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
       const { r, g, b } = particle.color;
       const alpha = clamp(particle.opacity, 0, 1);
+
+      // Comet-like trail
+      if (particle.trail && particle.trail.length > 1) {
+        ctx.beginPath();
+        particle.trail.forEach((point, idx) => {
+          const trailAlpha = alpha * (idx / particle.trail.length);
+          if (idx === 0) {
+            ctx.moveTo(point.x, point.y);
+          } else {
+            ctx.lineTo(point.x, point.y);
+          }
+          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${trailAlpha * 0.6})`;
+          ctx.lineWidth = Math.max(1, size * 0.6 * (idx / particle.trail.length));
+        });
+        ctx.stroke();
+      }
 
       gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha})`);
       gradient.addColorStop(0.6, `rgba(${r}, ${g}, ${b}, ${alpha * 0.4})`);
