@@ -652,6 +652,18 @@ body.graphics-mode-low .control-button {
   touch-action: pan-y; /* Allow vertical scrolling even when touching child elements */
 }
 
+/* Propagate touch-action to all children for Android Chrome compatibility */
+.panel * {
+  touch-action: pan-y;
+}
+
+/* Override touch-action for elements that need custom touch handling */
+.panel canvas,
+.panel .playfield,
+.panel [data-drag-scroll] {
+  touch-action: none;
+}
+
 @media (hover: hover) and (pointer: fine) {
   /* Lock the desktop shell to the viewport so wheel gestures target the active panel. */
   .app-shell {
