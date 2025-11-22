@@ -11,7 +11,7 @@
  * Formulas:
  * - atk = gamma + OKdmgTot (gamma power + total overkill damage)
  * - spd = 1 + 0.1 × kills (attack speed scales with kills)
- * - rng = 3 + 0.05 × kills (range in meters scales with kills)
+ * - rng = baseRangeMeters + 0.05 × kills (base derived from tower config, clamped to ≥3m)
  * 
  * Visual:
  * - Piercing laser color cycles through gradient every 100 kills
@@ -30,11 +30,12 @@ import {
   calculateTowerEquationResult,
   getTowerEquationBlueprint,
 } from '../../../assets/towersTab.js';
-import { metersToPixels } from '../../../assets/gameUnits.js';
+import { canvasFractionToMeters, metersToPixels } from '../../../assets/gameUnits.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 
 // Constants
 const BASE_RANGE_METERS = 3;
+const BASE_RANGE_FRACTION = 0.46; // Matches the configured ν range so meters stay in sync with legacy balance.
 const BASE_ATTACK_SPEED = 1.0; // attacks per second
 const KILL_SPEED_BONUS = 0.1; // +0.1 attack speed per kill
 const KILL_RANGE_BONUS = 0.05; // +0.05 meters per kill
@@ -63,6 +64,18 @@ function resolveNuParticleColors(killCount = 0) {
     return colors;
   }
   return NU_PARTICLE_COLORS.map((entry) => ({ ...entry }));
+}
+
+/**
+ * Resolve the ν tower base range in meters using the configured canvas fraction when available.
+ */
+function resolveBaseRangeMeters(tower) {
+  const rangeFraction = Number.isFinite(tower?.definition?.range) ? tower.definition.range : BASE_RANGE_FRACTION;
+  if (!Number.isFinite(rangeFraction) || rangeFraction <= 0) {
+    return BASE_RANGE_METERS;
+  }
+  const metersFromConfig = canvasFractionToMeters(rangeFraction);
+  return Math.max(BASE_RANGE_METERS, metersFromConfig);
 }
 
 // Configuration for nu piercing laser particles
@@ -104,7 +117,7 @@ function ensureNuStateInternal(playfield, tower) {
       rippleAlpha: 0,
       cachedAttack: 0,
       cachedSpeed: BASE_ATTACK_SPEED,
-      cachedRangeMeters: BASE_RANGE_METERS,
+      cachedRangeMeters: resolveBaseRangeMeters(tower),
       needsRefresh: true,
     };
   }
@@ -134,9 +147,10 @@ function refreshNuParameters(playfield, tower, state) {
   
   // spd = 1 + 0.1 × kills
   const attackSpeed = BASE_ATTACK_SPEED + KILL_SPEED_BONUS * state.kills;
-  
+
   // rng = 3 + 0.05 × kills (in meters)
-  const rangeMeters = BASE_RANGE_METERS + KILL_RANGE_BONUS * state.kills;
+  const baseRangeMeters = resolveBaseRangeMeters(tower);
+  const rangeMeters = baseRangeMeters + KILL_RANGE_BONUS * state.kills;
 
   const minDimension = resolvePlayfieldMinDimension(playfield);
   const rangePixels = Math.max(24, metersToPixels(rangeMeters, minDimension));
