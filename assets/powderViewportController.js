@@ -284,15 +284,17 @@ export function createPowderViewportController({
 
     // Check if a button menu is currently open in the Bet terrarium.
     const isButtonMenuOpen = () => {
+      const activeSimulation = getSimulation();
       const fluidSim = typeof getFluidSimulation === 'function' ? getFluidSimulation() : null;
-      const isFluid = Boolean(simulation === fluidSim);
+      const isFluid = Boolean(activeSimulation === fluidSim);
       return isFluid && Boolean(powderState.betTerrarium?.buttonMenuOpen);
     };
 
     // Close any open button menus when user initiates camera gestures.
     const closeButtonMenus = () => {
+      const activeSimulation = getSimulation();
       const fluidSim = typeof getFluidSimulation === 'function' ? getFluidSimulation() : null;
-      const isFluid = Boolean(simulation === fluidSim);
+      const isFluid = Boolean(activeSimulation === fluidSim);
       if (isFluid && powderState.betTerrarium?.buttonMenuOpen) {
         powderState.betTerrarium.buttonMenuOpen = false;
         // Trigger DOM update by dispatching a custom event
