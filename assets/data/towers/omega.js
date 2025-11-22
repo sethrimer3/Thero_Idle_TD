@@ -11,7 +11,7 @@ export const OMEGA_TOWER = Object.freeze({
   rate: 0.4,
   range: 0.74,
   icon: 'assets/images/tower-omega.svg',
-  nextTierId: 'aleph-null',
+  nextTierId: 'infinity',
 });
 
 export default OMEGA_TOWER;

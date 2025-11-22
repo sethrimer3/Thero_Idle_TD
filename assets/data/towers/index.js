@@ -26,12 +26,7 @@ import PHI_TOWER from './phi.js';
 import CHI_TOWER from './chi.js';
 import PSI_TOWER from './psi.js';
 import OMEGA_TOWER from './omega.js';
-import ALEPH_NULL_TOWER from './aleph-null.js';
-import ALEPH_ONE_TOWER from './aleph-one.js';
-import ALEPH_TWO_TOWER from './aleph-two.js';
-import ALEPH_THREE_TOWER from './aleph-three.js';
-import ALEPH_FOUR_TOWER from './aleph-four.js';
-import ALEPH_FIVE_TOWER from './aleph-five.js';
+import INFINITY_TOWER from './infinity.js';
 
 export {
   MIND_GATE_TOWER as mind_gateTower,
@@ -59,12 +54,7 @@ export {
   CHI_TOWER as chiTower,
   PSI_TOWER as psiTower,
   OMEGA_TOWER as omegaTower,
-  ALEPH_NULL_TOWER as aleph_nullTower,
-  ALEPH_ONE_TOWER as aleph_oneTower,
-  ALEPH_TWO_TOWER as aleph_twoTower,
-  ALEPH_THREE_TOWER as aleph_threeTower,
-  ALEPH_FOUR_TOWER as aleph_fourTower,
-  ALEPH_FIVE_TOWER as aleph_fiveTower,
+  INFINITY_TOWER as infinityTower,
 };
 
 export const towers = [
@@ -94,12 +84,7 @@ export const towers = [
   CHI_TOWER,
   PSI_TOWER,
   OMEGA_TOWER,
-  ALEPH_NULL_TOWER,
-  ALEPH_ONE_TOWER,
-  ALEPH_TWO_TOWER,
-  ALEPH_THREE_TOWER,
-  ALEPH_FOUR_TOWER,
-  ALEPH_FIVE_TOWER,
+  INFINITY_TOWER,
 ];
 
 export default towers;
