@@ -3362,157 +3362,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     return;
   }
 
-    const activeSimulation =
-      fluidSimulationInstance && typeof fluidSimulationInstance.getStatus === 'function'
-        ? fluidSimulationInstance
-        : null;
-    let info = null;
-    if (powderSimulation === fluidSimulationInstance && status) {
-      info = status;
-    } else if (activeSimulation) {
-      info = activeSimulation.getStatus();
-    }
-
-    const normalizedHeight = Number.isFinite(info?.normalizedHeight)
-      ? Math.max(0, Math.min(1, info.normalizedHeight))
-      : 0;
-    // Highest crest accounts for hidden overflow so the readout mirrors the tallest wave peak, not a fill gauge.
-    const crestNormalized = Number.isFinite(info?.highestNormalized)
-      ? Math.max(0, Math.min(2, info.highestNormalized))
-      : normalizedHeight;
-    const scrollOffset = Number.isFinite(info?.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
-    const totalNormalized = Number.isFinite(info?.totalNormalized)
-      ? Math.max(0, info.totalNormalized)
-      : normalizedHeight;
-    const cellSize = Number.isFinite(info?.cellSize)
-      ? Math.max(1, info.cellSize)
-      : POWDER_CELL_SIZE_PX;
-    const rows = Number.isFinite(info?.rows) ? Math.max(1, info.rows) : 1;
-    const highestNormalizedRaw = Number.isFinite(info?.highestNormalized)
-      ? Math.max(0, info.highestNormalized)
-      : totalNormalized;
-
-    // Update glyph columns and track Bet glyph awards
-    const glyphMetrics = updateFluidGlyphColumns({
-      scrollOffset,
-      rows,
-      cellSize,
-      highestNormalized: highestNormalizedRaw,
-      totalNormalized,
-    });
-
-    if (glyphMetrics) {
-      const { glyphsLit } = glyphMetrics;
-      const previousAwarded = Number.isFinite(powderState.fluidGlyphsAwarded)
-        ? Math.max(0, powderState.fluidGlyphsAwarded)
-        : 0;
-
-      if (glyphsLit > previousAwarded) {
-        const newlyEarned = glyphsLit - previousAwarded;
-        awardBetGlyphs(newlyEarned);
-        powderState.fluidGlyphsAwarded = glyphsLit;
-        // Check if any spires should auto-unlock
-        checkAndUnlockSpires();
-      } else if (!Number.isFinite(powderState.fluidGlyphsAwarded) || powderState.fluidGlyphsAwarded < glyphsLit) {
-        powderState.fluidGlyphsAwarded = Math.max(previousAwarded, glyphsLit);
-      }
-
-      const normalizedGlyphs = Number.isFinite(glyphsLit) ? Math.max(0, glyphsLit) : 0;
-      const previousWallTarget = Number.isFinite(powderState.wallGapTarget)
-        ? powderState.wallGapTarget
-        : powderConfig.wallBaseGapMotes;
-      const rawNextWallTarget = powderConfig.wallBaseGapMotes + normalizedGlyphs * powderConfig.wallGapPerGlyph;
-      const nextWallTarget = Math.min(rawNextWallTarget, powderConfig.wallMaxGapMotes);
-
-      if (nextWallTarget !== previousWallTarget) {
-        powderState.wallGapTarget = nextWallTarget;
-        const targetSimulation =
-          fluidSimulationInstance && typeof fluidSimulationInstance.setWallGapTarget === 'function'
-            ? fluidSimulationInstance
-            : null;
-        if (targetSimulation) {
-          const fluidIsActive = powderSimulation === targetSimulation;
-          const setOptions = fluidIsActive ? undefined : { skipRebuild: true };
-          targetSimulation.setWallGapTarget(nextWallTarget, setOptions);
-          const metrics = targetSimulation.getWallMetrics();
-          handlePowderWallMetricsChange(metrics, 'fluid');
-        } else {
-          schedulePowderBasinSave();
-        }
-      }
-
-      if (glyphsLit !== powderState.fluidGlyphsLit) {
-        powderState.fluidGlyphsLit = glyphsLit;
-        schedulePowderBasinSave();
-      }
-    }
-
-    // Apply wall offset for scrolling texture
-    const wallShiftPx = scrollOffset * cellSize;
-    const textureRepeat = POWDER_WALL_TEXTURE_REPEAT_PX > 0 ? POWDER_WALL_TEXTURE_REPEAT_PX : null;
-    const rawTextureOffset = textureRepeat ? wallShiftPx % textureRepeat : wallShiftPx;
-    const wallTextureOffset = Number.isFinite(rawTextureOffset) ? rawTextureOffset : 0;
-    const wallOffsetValue = `${wallTextureOffset.toFixed(1)}px`;
-
-    if (fluidElements.leftWall) {
-      fluidElements.leftWall.style.transform = '';
-      fluidElements.leftWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
-    }
-    if (fluidElements.rightWall) {
-      fluidElements.rightWall.style.transform = '';
-      fluidElements.rightWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
-    }
-
-    const idleBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
-    if (fluidElements.reservoirValue) {
-      fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} Serendipity`;
-    }
-
-    const drainRate = Number.isFinite(powderState.fluidIdleDrainRate)
-      ? Math.max(0, powderState.fluidIdleDrainRate)
-      : 0;
-    if (fluidElements.dripRateValue) {
-      fluidElements.dripRateValue.textContent = `${formatDecimal(drainRate, 2)} Serendipity/sec`;
-    }
-
-    if (fluidElements.statusNote) {
-      let message;
-      const crestPercent = formatDecimal(crestNormalized * 100, 1);
-      if (crestNormalized >= 1.2) {
-        message = `Crest is ${crestPercent}% of the viewport—overflow is cycling while idle Serendipity condenses.`;
-      } else if (crestNormalized >= 0.75) {
-        message = `Surface oscillates near the ridge (${crestPercent}%). This gauge tracks wave height, not stored Serendipity.`;
-      } else {
-        message = `Terrarium surface is calm (${crestPercent}%). Wave height is separate from the Serendipity reserve total.`;
-      }
-      fluidElements.statusNote.textContent = message;
-    }
-
-    if (betHappinessSystem) {
-      betHappinessSystem.updateDisplay(fluidElements);
-    }
-  }
-
   function handlePowderIdleBankChange(bankValue, source) {
     const normalized = Number.isFinite(bankValue) ? Math.max(0, bankValue) : 0;
-    const origin = source || (powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand');
+    const origin = source || 'sand';
+    
+    // Fluid simulation removed - only handle sand mode
     if (origin === 'fluid') {
-      const previous = Number.isFinite(powderState.fluidIdleBank) ? powderState.fluidIdleBank : 0;
-      powderState.fluidIdleBank = normalized;
-      powderState.fluidBankHydrated = powderSimulation === fluidSimulationInstance;
-      if (resourceElements.tabFluidBadge) {
-        const tabStoredLabel = formatGameNumber(normalized);
-        resourceElements.tabFluidBadge.textContent = tabStoredLabel;
-        resourceElements.tabFluidBadge.setAttribute('aria-label', `${tabStoredLabel} Serendipity in reserve`);
-        if (powderState.fluidUnlocked) {
-          resourceElements.tabFluidBadge.removeAttribute('hidden');
-          resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'false');
-        }
-      }
-      if (Math.abs(previous - normalized) >= 0.0001) {
-        schedulePowderBasinSave();
-      }
-      updateFluidDisplay();
       return;
     }
 
@@ -3521,7 +3376,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     powderState.idleBankHydrated = powderSimulation === sandSimulation && !!sandSimulation;
 
     if (Math.abs(previous - normalized) < 0.0001) {
-      updateFluidDisplay();
       return;
     }
 
@@ -3537,8 +3391,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       resourceElements.tabMoteBadge.removeAttribute('hidden');
       resourceElements.tabMoteBadge.setAttribute('aria-hidden', 'false');
     }
-
-    updateFluidDisplay();
   }
 
   function handlePowderHeightChange(info, source) {
@@ -3546,10 +3398,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
 
-    const origin = source || (powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand');
+    const origin = source || 'sand';
+    
+    // Fluid simulation removed - only handle sand mode
     if (origin === 'fluid') {
-      updateFluidDisplay(info);
-      schedulePowderBasinSave();
       return;
     }
 
