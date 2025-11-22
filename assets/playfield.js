@@ -1,5 +1,11 @@
 // Playfield gameplay class extracted from the main bundle for reuse across entry points.
-import { createAlephChainRegistry } from '../scripts/features/towers/alephChain.js';
+import {
+  calculateInfinityExponent,
+  getInfinityRange,
+  getTowersInInfinityRange,
+  applyInfinityBonus,
+  INFINITY_PARTICLE_CONFIG,
+} from '../scripts/features/towers/infinityTower.js';
 import { convertMathExpressionToPlainText } from '../scripts/core/mathText.js';
 import {
   playTowerPlacementNotes,
@@ -186,7 +192,6 @@ import {
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
-  alephChainUpgrades: {},
   theroSymbol: 'þ',
   calculateStartingThero: () => 0,
   updateStatusDisplays: () => {},
@@ -407,8 +412,8 @@ export class SimplePlayfield {
     });
     this.waveTallyLabels = this.waveTallyOverlays.getEntries();
 
-    const upgrades = this.dependencies.alephChainUpgrades || {};
-    this.alephChain = createAlephChainRegistry({ upgrades });
+    // Infinity towers are tracked separately for their aura effects
+    this.infinityTowers = [];
 
     this.animationId = null;
     this.lastTimestamp = 0;
@@ -2479,7 +2484,7 @@ export class SimplePlayfield {
     // Clear mote gem drops whenever the battlefield resets.
     resetActiveMoteGems();
     this.towers = [];
-    this.alephChain.reset();
+    this.infinityTowers = [];
     // Clear cached Nu tower dimensions so ranges recalculate correctly on next level entry.
     clearNuCachedDimensionsHelper();
     this.hoverPlacement = null;
@@ -2573,11 +2578,11 @@ export class SimplePlayfield {
       this.towerGlyphTransitions.clear();
     }
     this.towers = [];
+    this.infinityTowers = [];
     this.towerConnectionMap.clear();
     this.towerConnectionSources.clear();
     this.connectionEffects = [];
     this.clearConnectionDragState();
-    this.alephChain.reset();
     this.hoverPlacement = null;
     this.clearFocusedEnemy({ silent: true });
     this.slots.forEach((slot) => {
@@ -4708,81 +4713,102 @@ export class SimplePlayfield {
     this.renderEnemyTooltip(enemy);
   }
 
-  syncAlephChainStats() {
-    if (!this.alephChain) {
+  /**
+   * Apply infinity tower bonuses to all towers within range.
+   * Infinity towers provide an exponential damage boost based on total tower count.
+   */
+  applyInfinityBonuses() {
+    if (this.infinityTowers.length === 0) {
       return;
     }
 
-    const states = this.alephChain.getAllStates();
-    const rangeMultiplier = this.alephChain.getRangeMultiplier();
-    const speedMultiplier = this.alephChain.getSpeedMultiplier();
-    const linkCount = this.alephChain.getLinkCount();
+    // Calculate the exponent based on total tower count
+    const totalTowerCount = this.towers.length;
+    const exponent = calculateInfinityExponent(totalTowerCount);
 
-    this.towers.forEach((tower) => {
-      const baseDamage = Number.isFinite(tower.baseDamage)
-        ? tower.baseDamage
-        : Number.isFinite(tower.definition?.damage)
-        ? tower.definition.damage
-        : tower.damage;
-      const baseRate = Number.isFinite(tower.baseRate)
-        ? tower.baseRate
-        : Number.isFinite(tower.definition?.rate)
-        ? tower.definition.rate
-        : tower.rate;
-      const baseRange = Number.isFinite(tower.baseRange)
-        ? tower.baseRange
-        : Math.min(this.renderWidth, this.renderHeight) * (tower.definition?.range ?? 0.78);
-
-      tower.baseDamage = baseDamage;
-      tower.baseRate = baseRate;
-      tower.baseRange = baseRange;
-
-      if (tower.type !== 'aleph-null') {
-        if (tower.chain) {
-          tower.chain = null;
-          tower.damage = baseDamage;
-          tower.rate = baseRate;
-          tower.range = baseRange;
+    // For each infinity tower, apply bonuses to towers in range
+    this.infinityTowers.forEach((infinityTower) => {
+      const towersInRange = getTowersInInfinityRange(
+        infinityTower,
+        this.towers,
+        (x1, y1, x2, y2) => {
+          const dx = x2 - x1;
+          const dy = y2 - y1;
+          return Math.sqrt(dx * dx + dy * dy) / metersToPixels(1);
         }
-        return;
-      }
+      );
 
-      const state = states.get(tower.id) || null;
-      if (!state) {
-        tower.chain = null;
-        tower.damage = baseDamage;
-        tower.rate = baseRate;
-        tower.range = baseRange;
-        return;
-      }
+      // Apply bonus to each tower in range
+      towersInRange.forEach((tower) => {
+        if (tower.type === 'infinity') {
+          return; // Don't boost itself
+        }
 
-      tower.chain = {
-        index: state.index,
-        totalDamage: state.totalDamage,
-        rangeMultiplier,
-        speedMultiplier,
-        linkCount,
-      };
-      tower.damage = state.totalDamage;
-      tower.rate = baseRate * speedMultiplier;
-      tower.range = baseRange * rangeMultiplier;
+        // Store original damage if not already stored
+        if (!Number.isFinite(tower.baseDamageBeforeInfinity)) {
+          tower.baseDamageBeforeInfinity = tower.damage || tower.baseDamage || 0;
+        }
+
+        // Get the base multiplier from infinity tower equation
+        const infinityBlueprint = getTowerEquationBlueprint('infinity');
+        let baseMultiplier = Math.E; // Default to Euler's number
+        if (infinityBlueprint) {
+          const infinityValues = calculateTowerEquationResult('infinity', {
+            totalTowerCount,
+          });
+          baseMultiplier = infinityValues?.bonusMultiplier || Math.E;
+        }
+
+        // Apply the infinity bonus
+        const boostedDamage = applyInfinityBonus(
+          tower.baseDamageBeforeInfinity,
+          exponent,
+          baseMultiplier
+        );
+        tower.damage = boostedDamage;
+
+        // Mark this tower as affected by infinity for visual effects
+        if (!tower.infinityAffected) {
+          tower.infinityAffected = [];
+        }
+        if (!tower.infinityAffected.includes(infinityTower.id)) {
+          tower.infinityAffected.push(infinityTower.id);
+        }
+      });
     });
   }
 
-  handleAlephTowerAdded(tower) {
-    if (!tower || tower.type !== 'aleph-null' || !this.alephChain) {
+  handleInfinityTowerAdded(tower) {
+    if (!tower || tower.type !== 'infinity') {
       return;
     }
-    this.alephChain.registerTower(tower.id, tower.baseDamage);
-    this.syncAlephChainStats();
+    this.infinityTowers.push(tower);
+    this.applyInfinityBonuses();
   }
 
-  handleAlephTowerRemoved(tower) {
-    if (!tower || tower.type !== 'aleph-null' || !this.alephChain) {
+  handleInfinityTowerRemoved(tower) {
+    if (!tower || tower.type !== 'infinity') {
       return;
     }
-    this.alephChain.unregisterTower(tower.id);
-    this.syncAlephChainStats();
+    const index = this.infinityTowers.findIndex((t) => t.id === tower.id);
+    if (index >= 0) {
+      this.infinityTowers.splice(index, 1);
+    }
+
+    // Reset all tower damages affected by this infinity tower
+    this.towers.forEach((t) => {
+      if (t.infinityAffected && t.infinityAffected.includes(tower.id)) {
+        t.infinityAffected = t.infinityAffected.filter((id) => id !== tower.id);
+        if (t.infinityAffected.length === 0 && Number.isFinite(t.baseDamageBeforeInfinity)) {
+          t.damage = t.baseDamageBeforeInfinity;
+          delete t.baseDamageBeforeInfinity;
+          delete t.infinityAffected;
+        }
+      }
+    });
+
+    // Reapply remaining infinity bonuses
+    this.applyInfinityBonuses();
   }
 
   getTowerEquationScribbleText(towerType) {
@@ -4957,9 +4983,9 @@ export class SimplePlayfield {
     this.energy = Math.max(0, this.energy - actionCost);
 
     if (merging && mergeTarget && nextDefinition) {
-      const wasAlephNull = mergeTarget.type === 'aleph-null';
-      if (wasAlephNull) {
-        this.handleAlephTowerRemoved(mergeTarget);
+      const wasInfinity = mergeTarget.type === 'infinity';
+      if (wasInfinity) {
+        this.handleInfinityTowerRemoved(mergeTarget);
       }
 
       const range = Math.min(this.renderWidth, this.renderHeight) * nextDefinition.range;
@@ -4976,17 +5002,16 @@ export class SimplePlayfield {
       mergeTarget.baseRate = baseRate;
       mergeTarget.baseRange = range;
       mergeTarget.cooldown = 0;
-      mergeTarget.chain = null;
       this.applyTowerBehaviorDefaults(mergeTarget);
       if (this.combatStats?.active) {
         this.ensureTowerStatsEntry(mergeTarget);
         this.scheduleStatsPanelRefresh();
       }
-      const nextIsAlephNull = nextDefinition.id === 'aleph-null';
-      if (nextIsAlephNull) {
-        this.handleAlephTowerAdded(mergeTarget);
-      } else if (wasAlephNull) {
-        this.syncAlephChainStats();
+      const nextIsInfinity = nextDefinition.id === 'infinity';
+      if (nextIsInfinity) {
+        this.handleInfinityTowerAdded(mergeTarget);
+      } else if (wasInfinity) {
+        this.applyInfinityBonuses();
       }
       this.spawnTowerEquationScribble(mergeTarget, {
         towerType: nextDefinition.id,
@@ -5053,7 +5078,7 @@ export class SimplePlayfield {
     this.applyTowerBehaviorDefaults(tower);
     this.towers.push(tower);
     this.recordTowerCost(tower, actionCost);
-    this.handleAlephTowerAdded(tower);
+    this.handleInfinityTowerAdded(tower);
     notifyTowerPlaced(this.towers.length);
     if (this.combatStats?.active) {
       this.ensureTowerStatsEntry(tower);
@@ -5124,9 +5149,9 @@ export class SimplePlayfield {
     this.recordTowerCost(tower, cost);
 
     const previousSymbol = tower.symbol || tower.definition?.symbol || 'Tower';
-    const wasAlephNull = tower.type === 'aleph-null';
-    if (wasAlephNull) {
-      this.handleAlephTowerRemoved(tower);
+    const wasInfinity = tower.type === 'infinity';
+    if (wasInfinity) {
+      this.handleInfinityTowerRemoved(tower);
     }
 
     const range = Math.min(this.renderWidth, this.renderHeight) * nextDefinition.range;
@@ -5144,7 +5169,6 @@ export class SimplePlayfield {
     tower.baseRate = baseRate;
     tower.baseRange = range;
     tower.cooldown = 0;
-    tower.chain = null;
 
     this.applyTowerBehaviorDefaults(tower);
 
@@ -5155,11 +5179,11 @@ export class SimplePlayfield {
       swipeVector,
     });
 
-    const nextIsAlephNull = nextDefinition.id === 'aleph-null';
-    if (nextIsAlephNull) {
-      this.handleAlephTowerAdded(tower);
-    } else if (wasAlephNull) {
-      this.syncAlephChainStats();
+    const nextIsInfinity = nextDefinition.id === 'infinity';
+    if (nextIsInfinity) {
+      this.handleInfinityTowerAdded(tower);
+    } else if (wasInfinity) {
+      this.applyInfinityBonuses();
     }
 
     this.spawnTowerEquationScribble(tower, { towerType: nextDefinition.id, silent });
@@ -5247,9 +5271,9 @@ export class SimplePlayfield {
     tower.costHistoryInitialized = true;
 
     const previousSymbol = tower.symbol || tower.definition?.symbol || 'Tower';
-    const wasAlephNull = tower.type === 'aleph-null';
-    if (wasAlephNull) {
-      this.handleAlephTowerRemoved(tower);
+    const wasInfinity = tower.type === 'infinity';
+    if (wasInfinity) {
+      this.handleInfinityTowerRemoved(tower);
     }
 
     const range = Math.min(this.renderWidth, this.renderHeight) * previousDefinition.range;
@@ -5267,7 +5291,6 @@ export class SimplePlayfield {
     tower.baseRate = baseRate;
     tower.baseRange = range;
     tower.cooldown = 0;
-    tower.chain = null;
 
     this.applyTowerBehaviorDefaults(tower);
 
@@ -5278,11 +5301,11 @@ export class SimplePlayfield {
       swipeVector,
     });
 
-    const nextIsAlephNull = previousDefinition.id === 'aleph-null';
-    if (nextIsAlephNull) {
-      this.handleAlephTowerAdded(tower);
-    } else if (wasAlephNull) {
-      this.syncAlephChainStats();
+    const nextIsInfinity = previousDefinition.id === 'infinity';
+    if (nextIsInfinity) {
+      this.handleInfinityTowerAdded(tower);
+    } else if (wasInfinity) {
+      this.applyInfinityBonuses();
     }
 
     this.spawnTowerEquationScribble(tower, { towerType: previousDefinition.id, silent });
@@ -5345,7 +5368,7 @@ export class SimplePlayfield {
     this.teardownTauTower(tower);
     this.teardownSigmaTower(tower);
     this.teardownPsiTower(tower);
-    this.handleAlephTowerRemoved(tower);
+    this.handleInfinityTowerRemoved(tower);
 
     const index = this.towers.indexOf(tower);
     if (index >= 0) {
@@ -8044,8 +8067,8 @@ export class SimplePlayfield {
       this.deployDeltaSoldier(tower, targetInfo);
       return;
     }
-    if (tower.type === 'aleph-null') {
-      this.fireAlephChain(tower, targetInfo);
+    if (tower.type === 'infinity') {
+      // Infinity tower doesn't attack directly, it provides aura bonuses
       return;
     }
     if (tower.type === 'xi') {
@@ -8097,85 +8120,10 @@ export class SimplePlayfield {
     this.emitTowerAttackVisuals(tower, { enemy, position: attackPosition });
   }
 
-  fireAlephChain(tower, targetInfo) {
-    if (!targetInfo || !targetInfo.enemy) {
-      return;
-    }
-
-    const chainStats =
-      tower.chain || (this.alephChain ? this.alephChain.getState(tower.id) : null);
-    const totalDamage = Number.isFinite(chainStats?.totalDamage)
-      ? chainStats.totalDamage
-      : tower.damage;
-    const range = Number.isFinite(tower.range)
-      ? tower.range
-      : Number.isFinite(tower.baseRange)
-      ? tower.baseRange
-      : 0;
-    const maxLinks = Math.max(1, Math.floor(chainStats?.linkCount ?? 1));
-
-    const visited = new Set();
-    const chainTargets = [];
-    const firstEnemy = targetInfo.enemy;
-    const firstPosition = targetInfo.position || this.getEnemyPosition(firstEnemy);
-    chainTargets.push({ enemy: firstEnemy, position: firstPosition });
-    visited.add(firstEnemy.id);
-
-    let anchorPosition = firstPosition;
-    let hopsRemaining = maxLinks - 1;
-
-    while (hopsRemaining > 0 && anchorPosition) {
-      let nearest = null;
-      let nearestPosition = null;
-      let nearestDistance = Infinity;
-      this.enemies.forEach((candidate) => {
-        if (!candidate || visited.has(candidate.id)) {
-          return;
-        }
-        const candidatePosition = this.getEnemyPosition(candidate);
-        const distance = Math.hypot(
-          candidatePosition.x - anchorPosition.x,
-          candidatePosition.y - anchorPosition.y,
-        );
-        if (distance <= range && distance < nearestDistance) {
-          nearest = candidate;
-          nearestPosition = candidatePosition;
-          nearestDistance = distance;
-        }
-      });
-
-      if (!nearest || !nearestPosition) {
-        break;
-      }
-
-      chainTargets.push({ enemy: nearest, position: nearestPosition });
-      visited.add(nearest.id);
-      anchorPosition = nearestPosition;
-      hopsRemaining -= 1;
-    }
-
-    let origin = { x: tower.x, y: tower.y };
-    chainTargets.forEach((target) => {
-      const enemy = target.enemy;
-      this.applyDamageToEnemy(enemy, totalDamage, { sourceTower: tower });
-      this.projectiles.push({
-        source: { ...origin },
-        targetId: enemy.id,
-        target: target.position,
-        lifetime: 0,
-        maxLifetime: 0.24,
-      });
-      origin = { ...target.position };
-    });
-
-    if (getTowerTierValue(tower) >= 24) {
-      this.spawnOmegaWave(tower);
-    }
-
-    if (this.audio) {
-      this.audio.playSfx('alphaTowerFire');
-    }
-  }
+  /**
+   * Legacy method removed - aleph chain towers have been replaced by the infinity tower.
+   * The infinity tower provides aura bonuses instead of chain attacks.
+   */
 
   spawnOmegaWave(tower) {
     if (!tower) {
@@ -8843,9 +8791,10 @@ export class SimplePlayfield {
     const snapshots = Array.isArray(towerSnapshots) ? towerSnapshots : [];
     this.towers.forEach((tower) => {
       this.teardownDeltaTower(tower);
-      this.handleAlephTowerRemoved(tower);
+      this.handleInfinityTowerRemoved(tower);
     });
     this.towers = [];
+    this.infinityTowers = [];
     this.towerConnectionMap.clear();
     this.towerConnectionSources.clear();
     this.connectionEffects = [];
@@ -8978,7 +8927,7 @@ export class SimplePlayfield {
       }
       this.towers.push(tower);
       restoredTowerMap.set(tower.id, tower);
-      this.handleAlephTowerAdded(tower);
+      this.handleInfinityTowerAdded(tower);
     });
 
     snapshots.forEach((snapshot) => {
@@ -9094,7 +9043,7 @@ export class SimplePlayfield {
       this.availableTowers = snapshot.availableTowers.slice();
     }
 
-    this.alephChain.reset();
+    this.infinityTowers = [];
     this.restoreTowersFromCheckpoint(snapshot.towers);
 
     const waveConfig = this.levelConfig.waves[targetIndex];
