@@ -951,7 +951,7 @@ export function updateTowerSelectionButtons() {
 function hideLoadoutReplacementPrompt() {
   const { loadoutReplacementUi } = towerTabState;
   if (loadoutReplacementUi.outsideHandler) {
-    document.removeEventListener('pointerdown', loadoutReplacementUi.outsideHandler);
+    document.removeEventListener('pointerdown', loadoutReplacementUi.outsideHandler, { passive: true });
   }
   if (loadoutReplacementUi.container?.parentNode) {
     loadoutReplacementUi.container.remove();
@@ -1030,7 +1030,7 @@ function showLoadoutReplacementPrompt(targetTowerId, anchorButton) {
       hideLoadoutReplacementPrompt();
     }
   };
-  document.addEventListener('pointerdown', loadoutReplacementUi.outsideHandler);
+  document.addEventListener('pointerdown', loadoutReplacementUi.outsideHandler, { passive: true });
 }
 
 // Swap a tower in the loadout for the requested replacement and refresh the downstream UI.

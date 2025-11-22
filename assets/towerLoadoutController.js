@@ -363,7 +363,7 @@ export function createTowerLoadoutController({
     document.removeEventListener('pointerup', endWheelDrag);
     document.removeEventListener('pointercancel', endWheelDrag);
     if (wheelState.outsideHandler) {
-      document.removeEventListener('pointerdown', wheelState.outsideHandler);
+      document.removeEventListener('pointerdown', wheelState.outsideHandler, { passive: true });
     }
     if (wheelState.animationFrame) {
       cancelAnimationFrame(wheelState.animationFrame);
@@ -714,7 +714,7 @@ export function createTowerLoadoutController({
         closeLoadoutWheel();
       }
     };
-    document.addEventListener('pointerdown', wheelState.outsideHandler);
+    document.addEventListener('pointerdown', wheelState.outsideHandler, { passive: true });
   }
 
   /**
