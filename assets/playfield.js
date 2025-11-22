@@ -9690,6 +9690,65 @@ export class SimplePlayfield {
   }
 
   /**
+   * Draw golden lines from infinity towers to all towers within their range.
+   * Called after drawTowers to overlay the aura effect.
+   */
+  drawInfinityAuras() {
+    if (!this.ctx || this.infinityTowers.length === 0) {
+      return;
+    }
+
+    const ctx = this.ctx;
+    const totalTowerCount = this.towers.length;
+
+    this.infinityTowers.forEach((infinityTower) => {
+      // Get all towers within range
+      const towersInRange = getTowersInInfinityRange(
+        infinityTower,
+        this.towers,
+        (x1, y1, x2, y2) => {
+          const dx = x2 - x1;
+          const dy = y2 - y1;
+          return Math.sqrt(dx * dx + dy * dy) / metersToPixels(1);
+        }
+      );
+
+      // Draw golden lines to each tower in range
+      towersInRange.forEach((tower) => {
+        if (tower.type === 'infinity') {
+          return; // Don't draw line to itself
+        }
+
+        // Pulsing effect based on time
+        const time = (this.gameTime || 0) * 0.001; // Convert to seconds
+        const pulse = 0.3 + 0.3 * Math.sin(time * INFINITY_PARTICLE_CONFIG.pulseSpeed);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(infinityTower.x, infinityTower.y);
+        ctx.lineTo(tower.x, tower.y);
+
+        // Golden color with pulsing alpha
+        const alpha = INFINITY_PARTICLE_CONFIG.lineColor.a * (0.4 + pulse);
+        ctx.strokeStyle = `rgba(${INFINITY_PARTICLE_CONFIG.lineColor.r}, ${INFINITY_PARTICLE_CONFIG.lineColor.g}, ${INFINITY_PARTICLE_CONFIG.lineColor.b}, ${alpha})`;
+        ctx.lineWidth = INFINITY_PARTICLE_CONFIG.lineWidth;
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Draw range circle around infinity tower (subtle)
+      const rangePixels = getInfinityRange() * metersToPixels(1);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(infinityTower.x, infinityTower.y, rangePixels, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${INFINITY_PARTICLE_CONFIG.lineColor.r}, ${INFINITY_PARTICLE_CONFIG.lineColor.g}, ${INFINITY_PARTICLE_CONFIG.lineColor.b}, 0.15)`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  /**
    * Render ζ pendulum arms and trails so the battlefield reflects their orbit.
    */
   drawZetaPendulums(tower) {
