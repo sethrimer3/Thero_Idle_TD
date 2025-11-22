@@ -128,18 +128,8 @@ import { createPowderPersistence } from './powderPersistence.js';
 import { createPowderDisplaySystem } from './powderDisplay.js';
 import { createPowderViewportController } from './powderViewportController.js';
 import { createPowderResizeObserver } from './powderResizeObserver.js';
-// DOM helpers extracted from main.js to hydrate powder and fluid overlays.
+// DOM helpers extracted from main.js to hydrate powder overlays.
 import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
-// Lightweight animation overlay that keeps the Bet terrarium lively.
-import { FluidTerrariumCreatures } from './fluidTerrariumCreatures.js';
-// Brownian forest crystal growth pinned to the Bet cavern walls.
-import { FluidTerrariumCrystal } from './fluidTerrariumCrystal.js';
-// Fractal trees anchored by the Bet terrarium placement masks.
-import { FluidTerrariumTrees, resolveTerrariumTreeLevel } from './fluidTerrariumTrees.js';
-// Procedural grass that sprouts from the terrarium silhouettes.
-import { FluidTerrariumGrass } from './fluidTerrariumGrass.js';
-// Day/night cycle that animates the Bet terrarium sky and celestial bodies.
-import { FluidTerrariumSkyCycle } from './fluidTerrariumSkyCycle.js';
 // Bet Spire happiness production tracker fed by Serendipity purchases.
 import { createBetHappinessSystem } from './betHappiness.js';
 import { createResourceHud } from './resourceHud.js';
@@ -158,8 +148,7 @@ import {
   PowderSimulation,
   mergeMotePalette,
 } from '../scripts/features/towers/powderTower.js';
-// Fluid tower shallow-water simulation extracted into a dedicated module.
-import { FluidSimulation } from '../scripts/features/towers/fluidTower.js';
+
 // Lamed tower gravity simulation for orbital mechanics with sparks.
 import { GravitySimulation } from '../scripts/features/towers/lamedTower.js';
 // Tsadi tower particle fusion simulation with tier-based merging.
@@ -783,17 +772,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     registerResourceContainers,
   });
 
-  // Re-enable the Bet Spire Terrarium so its ambient terrarium renders (slimes, grass, trees, sky cycle).
-  const FLUID_STUDY_ENABLED = true;
-
-  const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the Bet Spire Terrarium with a base reservoir of Serendipity upon unlock.
-
   const {
     powderConfig,
     powderState,
-    fluidElements,
     powderGlyphColumns,
-    fluidGlyphColumns,
     getPowderElements,
     setPowderElements,
   } = createPowderStateContext();
@@ -809,254 +791,23 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     { x: 540 / 1024, y: 1064 / 1536, width: 310 / 1024, height: 205 / 1536 },
   ];
 
-  const { updateFluidTabAvailability, updateSpireTabVisibility } = createSpireTabVisibilityManager({
-    fluidElements,
+  const { updateSpireTabVisibility } = createSpireTabVisibilityManager({
     getResourceElements: () => resourceElements,
     spireResourceState,
     powderState,
   });
 
   let betHappinessSystem = null;
-  // Animate Delta slimes once the fluid viewport is bound.
-  let fluidTerrariumCreatures = null;
-  // Grow a Shin-inspired Brownian forest along the Bet cavern walls.
-  let fluidTerrariumCrystal = null;
-  // Grow Shin-inspired fractal trees on top of the Bet terrain silhouettes.
-  let fluidTerrariumTrees = null;
-  // Render swaying grass blades that cling to the Bet spire silhouettes.
-  let fluidTerrariumGrass = null;
-  // Drive the Bet terrarium day/night palette and celestial bodies.
-  let fluidTerrariumSkyCycle = null;
 
-  /**
-   * Force the Bet Spire Terrarium to remain locked and inactive while the feature is disabled.
-   * This ensures saved unlocks or tabs cannot resurrect the retired simulation.
-   */
-  function enforceFluidStudyDisabledState() {
-    if (FLUID_STUDY_ENABLED) {
-      return;
-    }
 
-    powderState.fluidUnlocked = false;
-    powderState.simulationMode = 'sand';
-    powderState.pendingFluidDrops = [];
-    powderState.loadedFluidState = null;
-    powderState.fluidIdleBank = 0;
-    powderState.fluidIdleDrainRate = 0;
-    powderState.fluidBankHydrated = false;
-    powderState.fluidInitialLoadRestored = true;
-    if (getActiveTabId() === 'fluid') {
-      setActiveTab('powder');
-    }
-    updateFluidTabAvailability();
-    updateSpireTabVisibility();
-  }
 
-  /**
-   * Wait for a terrarium sprite to load so dependent overlays align with its silhouette.
-   * @param {HTMLImageElement|null} image
-   * @returns {Promise<boolean>} Resolves true when the image is ready.
-   */
-  function waitForTerrariumSprite(image) {
-    if (!image) {
-      return Promise.resolve(false);
-    }
 
-    // Force lazy-loaded sprites to decode immediately so startup flow doesn't stall
-    // while the browser waits for the terrarium art to enter the viewport.
-    if (image.loading === 'lazy') {
-      image.loading = 'eager';
-      if (typeof image.decode === 'function') {
-        image.decode().catch(() => {});
-      }
-    }
-
-    if (
-      image.complete &&
-      Number.isFinite(image.naturalWidth) &&
-      Number.isFinite(image.naturalHeight) &&
-      image.naturalWidth > 0 &&
-      image.naturalHeight > 0
-    ) {
-      return Promise.resolve(true);
-    }
-
-    return new Promise((resolve) => {
-      const handleComplete = (didLoad) => {
-        image.removeEventListener('load', handleLoad);
-        image.removeEventListener('error', handleError);
-        resolve(didLoad);
-      };
-
-      const handleLoad = () => {
-        handleComplete(true);
-      };
-      const handleError = () => {
-        handleComplete(false);
-      };
-
-      // Prevent the startup sequence from hanging indefinitely if the sprite never
-      // fires a load/error event (e.g., due to an unsupported format or network block).
-      const timeoutHandle = window.setTimeout(() => handleComplete(false), 3000);
-
-      image.addEventListener('load', handleLoad, { once: true });
-      image.addEventListener('error', handleError, { once: true });
-
-      // Clear the timeout once we reach a terminal state.
-      const cleanup = () => window.clearTimeout(timeoutHandle);
-      image.addEventListener('load', cleanup, { once: true });
-      image.addEventListener('error', cleanup, { once: true });
-    });
-  }
-
-  /**
-   * Ensure the Bet terrarium surfaces spawn in order so creatures and foliage don't fall through.
-   * First wait for the lightweight collision silhouette, then the ground terrain, and finally the floating island.
-   */
-  async function ensureTerrariumSurfacesReady() {
-    if (!FLUID_STUDY_ENABLED) {
-      return;
-    }
-    const collisionSprite = fluidElements.terrainCollisionSprite;
-    if (collisionSprite && collisionSprite !== fluidElements.terrainSprite) {
-      await waitForTerrariumSprite(collisionSprite);
-    }
-    await waitForTerrariumSprite(fluidElements.terrainSprite);
-    await waitForTerrariumSprite(fluidElements.floatingIslandSprite);
-  }
-
-  function ensureFluidTerrariumCreatures() {
-    if (!FLUID_STUDY_ENABLED) {
-      return;
-    }
-    // Lazily create the overlay so it never blocks powder initialization.
-    if (fluidTerrariumCreatures || !fluidElements?.viewport) {
-      return;
-    }
-    const slimeCount = Math.max(1, betHappinessSystem ? betHappinessSystem.getProducerCount('slime') : 4);
-    fluidTerrariumCreatures = new FluidTerrariumCreatures({
-      container: fluidElements.viewport,
-      terrainElement: fluidElements.terrainSprite,
-      terrainCollisionElement: fluidElements.terrainCollisionSprite,
-      creatureCount: slimeCount,
-      spawnZones: BET_CAVE_SPAWN_ZONES,
-    });
-    if (betHappinessSystem) {
-      betHappinessSystem.setProducerCount('slime', slimeCount);
-    }
-    fluidTerrariumCreatures.start();
-  }
-
-  // Lazily generate the terrarium grass overlay once the stage media is available.
-  function ensureFluidTerrariumGrass() {
-    if (!FLUID_STUDY_ENABLED) {
-      return;
-    }
-    if (fluidTerrariumGrass || !fluidElements?.terrariumMedia || !fluidElements?.terrainSprite) {
-      return;
-    }
-    fluidTerrariumGrass = new FluidTerrariumGrass({
-      container: fluidElements.terrariumMedia,
-      terrainElement: fluidElements.terrainSprite,
-      floatingIslandElement: fluidElements.floatingIslandSprite,
-      // Use both ground and floating island placement masks so grass sprouts in each marked zone.
-      maskUrls: [
-        './assets/sprites/spires/betSpire/Grass.png',
-        './assets/sprites/spires/betSpire/Island-Grass.png',
-      ],
-    });
-    fluidTerrariumGrass.start();
-  }
-
-  // Grow a Brownian forest inside the growing crystal alcove, constrained by the collision silhouette.
-  function ensureFluidTerrariumCrystal() {
-    if (!FLUID_STUDY_ENABLED) {
-      return;
-    }
-    if (fluidTerrariumCrystal || !fluidElements?.terrariumMedia) {
-      return;
-    }
-    fluidTerrariumCrystal = new FluidTerrariumCrystal({
-      container: fluidElements.terrariumMedia,
-      collisionElement: fluidElements.terrainCollisionSprite,
-      maskUrl: './assets/sprites/spires/betSpire/Growing-Crystal.png',
-    });
-  }
-
-  function updateTerrariumTreeHappiness(trees = {}) {
-    if (!betHappinessSystem) {
-      return;
-    }
-    let largeLevels = 0;
-    let smallLevels = 0;
-    Object.entries(trees || {}).forEach(([treeId, treeState]) => {
-      const allocated = Number.isFinite(treeState?.allocated) ? treeState.allocated : 0;
-      const { level } = resolveTerrariumTreeLevel(allocated);
-      if (!level) {
-        return;
-      }
-      const treeKey = typeof treeId === 'string' ? treeId : '';
-      if (treeKey.startsWith('large-')) {
-        largeLevels += level;
-      } else if (treeKey.startsWith('small-')) {
-        smallLevels += level;
-      }
-    });
-    betHappinessSystem.setProducerCount('betTreeLarge', largeLevels);
-    betHappinessSystem.setProducerCount('betTreeSmall', smallLevels);
-    betHappinessSystem.updateDisplay();
-  }
-
-  // Plant animated fractal trees on the Bet terrarium using the placement masks.
-  function ensureFluidTerrariumTrees() {
-    if (!FLUID_STUDY_ENABLED) {
-      return;
-    }
-    if (fluidTerrariumTrees || !fluidElements?.terrariumMedia) {
-      return;
-    }
-    fluidTerrariumTrees = new FluidTerrariumTrees({
-      container: fluidElements.terrariumMedia,
-      largeMaskUrl: './assets/sprites/spires/betSpire/Tree.png',
-      smallMaskUrl: './assets/sprites/spires/betSpire/Small-Tree.png',
-      islandSmallMaskUrl: './assets/sprites/spires/betSpire/Island-Small-Tree.png',
-      state: powderState.betTerrarium,
-      spendSerendipity: spendFluidSerendipity,
-      getSerendipityBalance: getCurrentFluidDropBank,
-      onStateChange: (state) => {
-        powderState.betTerrarium = {
-          levelingMode: Boolean(state?.levelingMode),
-          trees: state?.trees ? { ...state.trees } : {},
-        };
-        updateTerrariumTreeHappiness(powderState.betTerrarium.trees);
-        schedulePowderBasinSave();
-      },
-    });
-  }
-
-  // Paint the Bet terrarium sky with a looping day/night gradient and celestial path.
-  function ensureFluidTerrariumSkyCycle() {
-    if (!FLUID_STUDY_ENABLED) {
-      return;
-    }
-    if (fluidTerrariumSkyCycle || !fluidElements?.terrariumSky) {
-      return;
-    }
-    fluidTerrariumSkyCycle = new FluidTerrariumSkyCycle({
-      skyElement: fluidElements.terrariumSky,
-      sunElement: fluidElements.terrariumSun,
-      moonElement: fluidElements.terrariumMoon,
-    });
-  }
 
   // Ensure compact autosave remains the active basin persistence strategy.
   document.addEventListener('DOMContentLoaded', () => {
     try {
       if (window.powderSimulation) {
         window.powderSimulation.useCompactAutosave = true;
-      }
-      if (window.fluidSimulationInstance) {
-        window.fluidSimulationInstance.useCompactAutosave = true;
       }
     } catch (error) {
       // Ignore assignment failures caused by missing window globals during SSR/tests.
@@ -1417,7 +1168,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
   let powderSimulation = null;
   let sandSimulation = null;
-  let fluidSimulationInstance = null;
   let lamedSimulationInstance = null;
   let lamedDeveloperSpamHandle = null;
   let lamedDeveloperSpamActive = false;
@@ -1435,7 +1185,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   const { initializeManualDropHandlers } = createManualDropController({
     getActiveTabId,
     getSandSimulation: () => sandSimulation,
-    getFluidSimulation: () => fluidSimulationInstance,
     getLamedSimulation: () => lamedSimulationInstance,
     getTsadiSimulation: () => tsadiSimulationInstance,
     addIterons,
@@ -1455,7 +1204,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getPowderSimulation: () => powderSimulation,
     handlePowderViewTransformChange,
     getPowderElements,
-    getFluidElements: () => fluidElements,
   });
 
   const { bindDeveloperModeToggle, refreshDeveloperModeState } = createDeveloperModeManager({
@@ -1487,10 +1235,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     setSandSimulation: (value) => {
       sandSimulation = value;
     },
-    getFluidSimulation: () => fluidSimulationInstance,
-    setFluidSimulation: (value) => {
-      fluidSimulationInstance = value;
-    },
+
     getLamedSimulation: () => lamedSimulationInstance,
     getTsadiSimulation: () => tsadiSimulationInstance,
     updateSpireTabVisibility,
@@ -1570,13 +1315,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     lamedSpireUi.updateStatistics(lamedSimulationInstance);
   }
 
-  // Normalize the aleph glyph tithe before using it for unlock checks or logs.
-  function getFluidUnlockGlyphCost() {
-    const rawCost = Number.isFinite(powderConfig.fluidUnlockGlyphCost)
-      ? powderConfig.fluidUnlockGlyphCost
-      : 0;
-    return Math.max(0, Math.floor(rawCost));
-  }
+
 
   function updatePowderModeButton() {
     // Mode toggle button removed - spires unlock automatically based on glyphs
@@ -1725,282 +1464,91 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   }
 
   async function applyPowderSimulationMode(mode) {
-    if (mode !== 'sand' && mode !== 'fluid') {
-      return;
+    // Only sand mode is supported now
+    if (mode !== 'sand') {
+      mode = 'sand';
     }
     if (powderState.modeSwitchPending) {
       return;
     }
-    if (!FLUID_STUDY_ENABLED && mode === 'fluid') {
-      // Keep the retired fluid simulation dormant even if legacy saves request it.
-      powderState.simulationMode = 'sand';
-      updatePowderModeButton();
-      return;
-    }
-    if (mode === 'fluid' && !powderState.fluidUnlocked) {
-      updatePowderModeButton();
-      return;
-    }
 
     powderState.modeSwitchPending = true;
-    // Mode toggle button removed
-    // if (powderElements.modeToggle) {
-    //   powderElements.modeToggle.disabled = true;
-    // }
 
     const previousMode = powderState.simulationMode;
     try {
-      if (mode === 'fluid') {
-        const profile = await loadFluidSimulationProfile();
-        if (!profile) {
-          throw new Error('Fluid simulation profile unavailable.');
-        }
-        powderState.fluidProfileLabel = profile.label || powderState.fluidProfileLabel;
-
-        if (!fluidSimulationInstance && fluidElements.canvas) {
-          const { left: leftInset, right: rightInset } = getSimulationWallInsets('fluid');
-          fluidSimulationInstance = new FluidSimulation({
-            canvas: fluidElements.canvas,
-            cellSize: POWDER_CELL_SIZE_PX,
-            scrollThreshold: 0.5,
-            wallInsetLeft: leftInset,
-            wallInsetRight: rightInset,
-            wallGapCells: powderConfig.wallBaseGapMotes,
-            gapWidthRatio: powderConfig.wallGapViewportRatio,
-            idleDrainRate: powderState.fluidIdleDrainRate || powderState.idleDrainRate,
-            motePalette: powderState.motePalette,
-            dropSizes: profile.dropSizes,
-            dropVolumeScale: profile.dropVolumeScale ?? undefined,
-            waveStiffness: profile.waveStiffness ?? undefined,
-            waveDamping: profile.waveDamping ?? undefined,
-            sideFlowRate: profile.sideFlowRate ?? undefined,
-            rippleFrequency: profile.rippleFrequency ?? undefined,
-            rippleAmplitude: profile.rippleAmplitude ?? undefined,
-            maxDuneGain: powderConfig.simulatedDuneGainMax,
-            onIdleBankChange: (value) => handlePowderIdleBankChange(value, 'fluid'),
-            onHeightChange: (info) => handlePowderHeightChange(info, 'fluid'),
-            onWallMetricsChange: (metrics) => handlePowderWallMetricsChange(metrics, 'fluid'),
-            onViewTransformChange: handlePowderViewTransformChange,
-          });
-        }
-
-        if (!fluidSimulationInstance) {
-          throw new Error('Fluid simulation could not be created.');
-        }
-
-        if (powderSimulation && powderSimulation !== fluidSimulationInstance) {
-          captureSimulationState(powderSimulation);
-          powderSimulation.stop();
-        }
-
-        powderSimulation = fluidSimulationInstance;
-        powderSimulation.applyProfile(profile);
-        if (Number.isFinite(profile.flowOffset) && typeof powderSimulation.setFlowOffset === 'function') {
-          powderSimulation.setFlowOffset(profile.flowOffset);
-        } else if (typeof powderSimulation.setFlowOffset === 'function') {
-          powderSimulation.setFlowOffset(powderState.sandOffset);
-        }
-        powderState.motePalette = powderSimulation.getEffectiveMotePalette();
-        // Update the Mind Gate UI badge so fluid-mode palettes propagate outside the canvas.
-        applyMindGatePaletteToDom(powderState.motePalette);
-        powderState.fluidIdleDrainRate = powderSimulation.idleDrainRate;
-        powderState.simulationMode = 'fluid';
-        powderSimulation.setWallGapTarget(powderState.wallGapTarget || powderConfig.wallBaseGapMotes, {
-          skipRebuild: true,
+      if (!sandSimulation && powderSimulation instanceof PowderSimulation) {
+        sandSimulation = powderSimulation;
+      }
+      if (!sandSimulation && powderElements.simulationCanvas) {
+        const { left: leftInset, right: rightInset } = getSimulationWallInsets('sand');
+        sandSimulation = new PowderSimulation({
+          canvas: powderElements.simulationCanvas,
+          cellSize: POWDER_CELL_SIZE_PX,
+          grainSizes: [1], // Keep the sandfall motes uniform while preserving external drop sizing.
+          scrollThreshold: 0.75,
+          wallInsetLeft: leftInset,
+          wallInsetRight: rightInset,
+          wallGapCells: powderConfig.wallBaseGapMotes,
+          gapWidthRatio: powderConfig.wallGapViewportRatio,
+          maxDuneGain: powderConfig.simulatedDuneGainMax,
+          idleDrainRate: powderState.idleDrainRate,
+          motePalette: powderState.motePalette,
+          onIdleBankChange: (value) => handlePowderIdleBankChange(value, 'sand'),
+          onHeightChange: (info) => handlePowderHeightChange(info, 'sand'),
+          onWallMetricsChange: (metrics) => handlePowderWallMetricsChange(metrics, 'sand'),
+          onViewTransformChange: handlePowderViewTransformChange,
         });
-        powderSimulation.handleResize();
-        applyLoadedPowderSimulationState(powderSimulation);
-        flushPendingMoteDrops();
-        powderSimulation.start();
-        initializePowderViewInteraction();
-        handlePowderViewTransformChange(powderSimulation.getViewTransform());
-        if (previousMode !== powderState.simulationMode) {
-          recordPowderEvent('mode-switch', { mode: 'fluid', label: profile.label || 'Bet Spire' });
-        }
-      } else {
-        if (!sandSimulation && powderSimulation instanceof PowderSimulation) {
-          sandSimulation = powderSimulation;
-        }
-        if (!sandSimulation && powderElements.simulationCanvas) {
-          const { left: leftInset, right: rightInset } = getSimulationWallInsets('sand');
-          sandSimulation = new PowderSimulation({
-            canvas: powderElements.simulationCanvas,
-            cellSize: POWDER_CELL_SIZE_PX,
-            grainSizes: [1], // Keep the sandfall motes uniform while preserving external drop sizing.
-            scrollThreshold: 0.75,
-            wallInsetLeft: leftInset,
-            wallInsetRight: rightInset,
-            wallGapCells: powderConfig.wallBaseGapMotes,
-            gapWidthRatio: powderConfig.wallGapViewportRatio,
-            maxDuneGain: powderConfig.simulatedDuneGainMax,
-            idleDrainRate: powderState.idleDrainRate,
-            motePalette: powderState.motePalette,
-            onIdleBankChange: (value) => handlePowderIdleBankChange(value, 'sand'),
-            onHeightChange: (info) => handlePowderHeightChange(info, 'sand'),
-            onWallMetricsChange: (metrics) => handlePowderWallMetricsChange(metrics, 'sand'),
-            onViewTransformChange: handlePowderViewTransformChange,
-          });
-        }
+      }
 
-        if (powderSimulation && powderSimulation !== sandSimulation) {
-          captureSimulationState(powderSimulation);
-          powderSimulation.stop();
-        }
+      if (powderSimulation && powderSimulation !== sandSimulation) {
+        captureSimulationState(powderSimulation);
+        powderSimulation.stop();
+      }
 
-        if (!sandSimulation) {
-          throw new Error('Powder simulation unavailable.');
-        }
+      if (!sandSimulation) {
+        throw new Error('Powder simulation unavailable.');
+      }
 
-        powderSimulation = sandSimulation;
-        const baseProfile = powderSimulation.getDefaultProfile();
-        powderSimulation.applyProfile(baseProfile || undefined);
-        powderSimulation.setFlowOffset(powderState.sandOffset);
-        powderState.motePalette = powderSimulation.getEffectiveMotePalette();
-        // Sync the emblem glow when returning to the sand simulation baseline palette.
-        applyMindGatePaletteToDom(powderState.motePalette);
-        powderState.idleDrainRate = powderSimulation.idleDrainRate;
-        powderState.simulationMode = 'sand';
-        powderSimulation.setWallGapTarget(powderState.wallGapTarget || powderConfig.wallBaseGapMotes, {
-          skipRebuild: true,
-        });
-        powderSimulation.handleResize();
-        applyLoadedPowderSimulationState(powderSimulation);
-        flushPendingMoteDrops();
-        powderSimulation.start();
-        initializePowderViewInteraction();
-        handlePowderViewTransformChange(powderSimulation.getViewTransform());
-        if (previousMode !== powderState.simulationMode) {
-          recordPowderEvent('mode-switch', { mode: 'sand', label: 'Powderfall Study' });
-        }
+      powderSimulation = sandSimulation;
+      const baseProfile = powderSimulation.getDefaultProfile();
+      powderSimulation.applyProfile(baseProfile || undefined);
+      powderSimulation.setFlowOffset(powderState.sandOffset);
+      powderState.motePalette = powderSimulation.getEffectiveMotePalette();
+      // Sync the emblem glow when returning to the sand simulation baseline palette.
+      applyMindGatePaletteToDom(powderState.motePalette);
+      powderState.idleDrainRate = powderSimulation.idleDrainRate;
+      powderState.simulationMode = 'sand';
+      powderSimulation.setWallGapTarget(powderState.wallGapTarget || powderConfig.wallBaseGapMotes, {
+        skipRebuild: true,
+      });
+      powderSimulation.handleResize();
+      applyLoadedPowderSimulationState(powderSimulation);
+      flushPendingMoteDrops();
+      powderSimulation.start();
+      initializePowderViewInteraction();
+      handlePowderViewTransformChange(powderSimulation.getViewTransform());
+      if (previousMode !== powderState.simulationMode) {
+        recordPowderEvent('mode-switch', { mode: 'sand', label: 'Powderfall Study' });
       }
 
       refreshPowderWallDecorations();
       handlePowderHeightChange(powderSimulation ? powderSimulation.getStatus() : undefined);
       updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
       updateMoteStatsDisplays();
-      const fluidStatus =
-        fluidSimulationInstance && typeof fluidSimulationInstance.getStatus === 'function'
-          ? fluidSimulationInstance.getStatus()
-          : null;
-      updateFluidDisplay(fluidStatus);
     } catch (error) {
       console.error('Unable to switch simulation mode.', error);
     } finally {
       powderState.modeSwitchPending = false;
-      // Mode toggle button removed
-      // if (powderElements.modeToggle) {
-      //   powderElements.modeToggle.disabled = false;
-      // }
       updatePowderModeButton();
       ensurePowderBasinResizeObserver();
       refreshPowderWallDecorations();
     }
   }
 
-  function unlockFluidStudy({ reason = 'purchase', threshold = null, glyphCost = null } = {}) {
-    if (!FLUID_STUDY_ENABLED) {
-      return false;
-    }
-    if (powderState.fluidUnlocked) {
-      return false;
-    }
-    powderState.fluidUnlocked = true;
-    spireResourceState.fluid = {
-      ...(spireResourceState.fluid || {}),
-      unlocked: true,
-    };
-    const startingReservoir = FLUID_UNLOCK_BASE_RESERVOIR_DROPS; // Base reservoir grant for the newly unlocked study.
-    const currentFluidBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
-    if (currentFluidBank < startingReservoir) {
-      handlePowderIdleBankChange(startingReservoir, 'fluid'); // Surface the seeded reservoir through the shared idle handler.
-      if (fluidSimulationInstance) {
-        const simulationBank = Number.isFinite(fluidSimulationInstance.idleBank) ? Math.max(0, fluidSimulationInstance.idleBank) : 0;
-        if (simulationBank < startingReservoir) {
-          fluidSimulationInstance.idleBank = startingReservoir;
-          fluidSimulationInstance.notifyIdleBankChange(); // Sync the live simulation with the seeded reservoir total.
-        }
-      }
-    }
-    updateFluidTabAvailability();
-    updatePowderModeButton();
-    const normalizedCost = Number.isFinite(glyphCost) ? Math.max(0, Math.floor(glyphCost)) : getFluidUnlockGlyphCost();
-    const normalizedThreshold = Number.isFinite(threshold) ? Math.max(0, threshold) : undefined;
-    const context = {
-      reason,
-      glyphCost: normalizedCost,
-    };
-    if (typeof normalizedThreshold !== 'undefined') {
-      context.threshold = normalizedThreshold;
-    }
-    recordPowderEvent('fluid-unlocked', context);
-    schedulePowderSave();
-    return true;
-  }
-
-  function attemptFluidUnlock() {
-    if (!FLUID_STUDY_ENABLED) {
-      return false;
-    }
-    const glyphCost = getFluidUnlockGlyphCost();
-    const availableGlyphs = Math.max(0, Math.floor(getGlyphCurrency()));
-    if (availableGlyphs < glyphCost) {
-      updatePowderModeButton();
-      return false;
-    }
-    if (glyphCost > 0) {
-      addGlyphCurrency(-glyphCost);
-    }
-    const unlocked = unlockFluidStudy({ reason: 'purchase', glyphCost });
-    updateStatusDisplays();
-    return unlocked;
-  }
-
-  function enterFluidStudy() {
-    if (!FLUID_STUDY_ENABLED) {
-      return;
-    }
-    if (powderState.modeSwitchPending) {
-      return;
-    }
-    if (!powderState.fluidUnlocked) {
-      updatePowderModeButton();
-      return;
-    }
-    if (getActiveTabId() === 'fluid') {
-      return;
-    }
-    updateFluidTabAvailability();
-    setActiveTab('fluid');
-  }
-
-  function exitFluidStudy() {
-    if (powderState.modeSwitchPending) {
-      return;
-    }
-    if (getActiveTabId() === 'powder') {
-      return;
-    }
-    setActiveTab('powder');
-  }
-
   function handlePowderModeToggle() {
-    if (!FLUID_STUDY_ENABLED) {
-      setActiveTab('powder');
-      updatePowderModeButton();
-      return;
-    }
-    if (!powderState.fluidUnlocked) {
-      const unlocked = attemptFluidUnlock();
-      if (unlocked) {
-        enterFluidStudy();
-      }
-      return;
-    }
-    if (getActiveTabId() === 'fluid') {
-      exitFluidStudy();
-    } else {
-      enterFluidStudy();
-    }
+    // Only sand mode is supported - ensure we're on the powder tab
+    setActiveTab('powder');
+    updatePowderModeButton();
   }
 
   /**
@@ -2013,18 +1561,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     // Get glyph counts for each spire
     const alephGlyphs = Math.max(0, Math.floor(powderState.glyphsAwarded || 0));
-    const betGlyphs = Math.max(0, Math.floor(powderState.fluidGlyphsAwarded || 0));
     
-    // Bet Spire: Unlocks when player has 10 Aleph glyphs
-    if (FLUID_STUDY_ENABLED && !powderState.fluidUnlocked && alephGlyphs >= 10) {
-      unlockFluidStudy({ reason: 'auto-unlock', threshold: 10, glyphCost: 0 });
-      updateSpireTabVisibility();
-      spireMenuController.updateCounts();
-      anyUnlocked = true;
-    }
-
-    // Lamed Spire: Unlocks when player has 10 Bet glyphs
-    if (!spireResourceState.lamed.unlocked && betGlyphs >= 10) {
+    // Lamed Spire: Unlocks when player has 10 Aleph glyphs
+    if (!spireResourceState.lamed.unlocked && alephGlyphs >= 10) {
       ensureLamedBankSeeded();
       updateSpireTabVisibility();
       spireMenuController.updateCounts();
@@ -2607,8 +2146,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     schedulePowderBasinSave();
   }
 
-  function getSimulationWallInsets(mode = powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand') {
-    const elements = mode === 'fluid' ? fluidElements : powderElements;
+  function getSimulationWallInsets(mode = 'sand') {
+    const elements = powderElements;
     const fallback = 68;
     const left = elements.leftWall ? Math.max(fallback, elements.leftWall.offsetWidth || 0) : fallback;
     const right = elements.rightWall ? Math.max(fallback, elements.rightWall.offsetWidth || 0) : fallback;
@@ -2637,10 +2176,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       schedulePowderBasinSave();
       return;
     }
-    const targetIsFluid =
-      powderSimulation === fluidSimulationInstance ||
-      (!powderSimulation && powderState.simulationMode === 'fluid');
-    const pendingList = targetIsFluid ? powderState.pendingFluidDrops : powderState.pendingMoteDrops;
+    const pendingList = powderState.pendingMoteDrops;
     pendingList.push(payload);
     // Persist pending drops so they spawn correctly after a reload.
     schedulePowderBasinSave();
@@ -2733,48 +2269,18 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   }
 
   function getCurrentFluidDropBank() {
-    if (fluidSimulationInstance && Number.isFinite(fluidSimulationInstance.idleBank)) {
-      const bank = Math.max(0, fluidSimulationInstance.idleBank);
-      powderState.fluidIdleBank = bank;
-      powderState.fluidBankHydrated = true;
-      return bank;
-    }
-    return Math.max(0, powderState.fluidIdleBank || 0);
+    // Fluid simulation removed - return 0
+    return 0;
   }
 
-  /**
-   * Deduct Serendipity (fluid idle bank) for interactive Bet Spire upgrades.
-   * @param {number} amount
-   * @returns {number} - Actual Serendipity spent
-   */
   function spendFluidSerendipity(amount) {
-    const normalized = Math.max(0, Math.floor(amount));
-    if (!normalized) {
-      return 0;
-    }
-    const available = getCurrentFluidDropBank();
-    const spend = Math.min(normalized, available);
-    if (!spend) {
-      return 0;
-    }
-    if (fluidSimulationInstance && Number.isFinite(fluidSimulationInstance.idleBank)) {
-      fluidSimulationInstance.idleBank = Math.max(0, fluidSimulationInstance.idleBank - spend);
-    }
-    const current = Number.isFinite(powderState.fluidIdleBank) ? powderState.fluidIdleBank : 0;
-    powderState.fluidIdleBank = Math.max(0, current - spend);
-    powderState.fluidBankHydrated = false;
-    schedulePowderBasinSave();
-    updateStatusDisplays();
-    return spend;
+    // Fluid simulation removed - no-op
+    return 0;
   }
 
   function getCurrentFluidDispenseRate() {
-    if (fluidSimulationInstance && Number.isFinite(fluidSimulationInstance.idleDrainRate)) {
-      const rate = Math.max(0, fluidSimulationInstance.idleDrainRate);
-      powderState.fluidIdleDrainRate = rate;
-      return rate;
-    }
-    return Math.max(0, powderState.fluidIdleDrainRate || 0);
+    // Fluid simulation removed - return 0
+    return 0;
   }
 
   function addIdleMoteBank(amount, options = {}) {
@@ -2782,33 +2288,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
 
-    const target = options && typeof options === 'object' ? options.target : undefined;
-    let targetIsFluid;
-    if (target === 'bet') {
-      targetIsFluid = true;
-    } else if (target === 'aleph') {
-      targetIsFluid = false;
-    } else {
-      targetIsFluid =
-        powderSimulation === fluidSimulationInstance ||
-        (!powderSimulation && powderState.simulationMode === 'fluid');
-    }
-
-    const simulationTarget = targetIsFluid ? fluidSimulationInstance : sandSimulation;
+    const simulationTarget = sandSimulation;
 
     if (simulationTarget && typeof simulationTarget.addIdleMotes === 'function') {
       simulationTarget.addIdleMotes(amount);
-      if (targetIsFluid) {
-        powderState.fluidIdleBank = Math.max(0, simulationTarget.idleBank);
-        powderState.fluidBankHydrated = simulationTarget === powderSimulation;
-      } else {
-        powderState.idleMoteBank = Math.max(0, simulationTarget.idleBank);
-        powderState.idleBankHydrated = simulationTarget === powderSimulation;
-      }
-    } else if (targetIsFluid) {
-      const current = Number.isFinite(powderState.fluidIdleBank) ? powderState.fluidIdleBank : 0;
-      powderState.fluidIdleBank = Math.max(0, current + amount);
-      powderState.fluidBankHydrated = false;
+      powderState.idleMoteBank = Math.max(0, simulationTarget.idleBank);
+      powderState.idleBankHydrated = simulationTarget === powderSimulation;
     } else {
       const current = Number.isFinite(powderState.idleMoteBank) ? powderState.idleMoteBank : 0;
       powderState.idleMoteBank = Math.max(0, current + amount);
@@ -2824,8 +2309,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (!powderSimulation || typeof powderSimulation.queueDrop !== 'function') {
       return;
     }
-    const isFluid = powderSimulation === fluidSimulationInstance;
-    const pendingDrops = isFluid ? powderState.pendingFluidDrops : powderState.pendingMoteDrops;
+    const pendingDrops = powderState.pendingMoteDrops;
     if (pendingDrops.length) {
       pendingDrops.forEach((drop) => {
         const sizeValue = Number.isFinite(drop?.size) ? drop.size : drop;
@@ -2840,8 +2324,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       });
       pendingDrops.length = 0;
     }
-    const bankKey = isFluid ? 'fluidIdleBank' : 'idleMoteBank';
-    const hydratedKey = isFluid ? 'fluidBankHydrated' : 'idleBankHydrated';
+    const bankKey = 'idleMoteBank';
+    const hydratedKey = 'idleBankHydrated';
     const pendingBank = Math.max(0, Number.isFinite(powderState[bankKey]) ? powderState[bankKey] : 0);
     if (pendingBank > 0) {
       const simulationBank = Number.isFinite(powderSimulation.idleBank)
