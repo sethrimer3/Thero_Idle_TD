@@ -535,19 +535,103 @@
                     Copy Path JSON
                   </button>
                 </div>
-                <!-- Developer map elements let designers drop experimental obstacles onto the battlefield. -->
+                <!-- Developer map tools palette for selecting placement modes -->
                 <div class="overlay-editor__elements" id="developer-map-elements" hidden aria-hidden="true">
-                  <p class="overlay-editor__elements-title">Developer Map Elements</p>
-                  <div class="overlay-editor__elements-actions">
+                  <p class="overlay-editor__elements-title">Map Tools Palette</p>
+                  <div class="overlay-editor__palette">
                     <button
-                      class="overlay-editor__button overlay-editor__button--primary"
+                      class="overlay-editor__palette-tool"
                       type="button"
-                      id="developer-add-crystal"
+                      id="palette-tool-path"
+                      data-tool="path"
+                      aria-pressed="true"
+                      title="Edit path anchors"
                     >
-                      Place Solid Crystal
+                      <span class="overlay-editor__palette-icon">⚓</span>
+                      <span class="overlay-editor__palette-label">Path</span>
                     </button>
+                    <button
+                      class="overlay-editor__palette-tool"
+                      type="button"
+                      id="palette-tool-crystal"
+                      data-tool="crystal"
+                      aria-pressed="false"
+                      title="Place crystal obstacles"
+                    >
+                      <span class="overlay-editor__palette-icon">◇</span>
+                      <span class="overlay-editor__palette-label">Crystal</span>
+                    </button>
+                    <button
+                      class="overlay-editor__palette-tool"
+                      type="button"
+                      id="palette-tool-tower"
+                      data-tool="tower"
+                      aria-pressed="false"
+                      title="Place pre-configured towers"
+                    >
+                      <span class="overlay-editor__palette-icon">⬡</span>
+                      <span class="overlay-editor__palette-label">Tower</span>
+                    </button>
+                    <button
+                      class="overlay-editor__palette-tool"
+                      type="button"
+                      id="palette-tool-erase"
+                      data-tool="erase"
+                      aria-pressed="false"
+                      title="Remove map elements"
+                    >
+                      <span class="overlay-editor__palette-icon">✕</span>
+                      <span class="overlay-editor__palette-label">Erase</span>
+                    </button>
+                  </div>
+                  <div class="overlay-editor__tool-options" id="tool-options-container">
+                    <!-- Crystal options -->
+                    <div class="overlay-editor__tool-option-group" id="tool-options-crystal" hidden>
+                      <label class="overlay-editor__tool-option-label">
+                        <span>Crystal Integrity</span>
+                        <input
+                          type="number"
+                          class="overlay-editor__tool-input"
+                          id="crystal-integrity-input"
+                          value="900"
+                          min="10"
+                          max="100000"
+                          step="10"
+                        />
+                      </label>
+                      <label class="overlay-editor__tool-option-label">
+                        <span>Thero Reward</span>
+                        <input
+                          type="number"
+                          class="overlay-editor__tool-input"
+                          id="crystal-thero-input"
+                          value="0"
+                          min="0"
+                          max="1000000"
+                          step="10"
+                        />
+                      </label>
+                    </div>
+                    <!-- Tower options -->
+                    <div class="overlay-editor__tool-option-group" id="tool-options-tower" hidden>
+                      <label class="overlay-editor__tool-option-label">
+                        <span>Tower Type</span>
+                        <select class="overlay-editor__tool-select" id="tower-type-select">
+                          <option value="alpha">α - Alpha (Basic)</option>
+                          <option value="beta">β - Beta (Multiplier)</option>
+                          <option value="gamma">γ - Gamma (Exponent)</option>
+                          <option value="delta">δ - Delta (Command)</option>
+                          <option value="epsilon">ε - Epsilon (Factorial)</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                  <div class="overlay-editor__elements-actions">
                     <button class="overlay-editor__button" type="button" id="developer-clear-crystals">
-                      Clear Crystals
+                      Clear All Crystals
+                    </button>
+                    <button class="overlay-editor__button" type="button" id="developer-clear-towers" hidden>
+                      Clear All Towers
                     </button>
                   </div>
                   <p class="overlay-editor__elements-note" id="developer-map-elements-note" hidden></p>

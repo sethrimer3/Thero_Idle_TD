@@ -7397,6 +7397,103 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   line-height: 1.4;
 }
 
+/* Map tools palette provides visual tool selection for developer mode */
+.overlay-editor__palette {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.overlay-editor__palette-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(139, 247, 255, 0.24);
+  background: rgba(6, 10, 20, 0.7);
+  color: rgba(205, 228, 255, 0.75);
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.overlay-editor__palette-tool:hover:not([aria-pressed="true"]) {
+  background: rgba(20, 30, 50, 0.85);
+  border-color: rgba(139, 247, 255, 0.4);
+  color: rgba(205, 228, 255, 0.9);
+}
+
+.overlay-editor__palette-tool[aria-pressed="true"] {
+  background: rgba(139, 247, 255, 0.15);
+  border-color: rgba(139, 247, 255, 0.65);
+  color: rgba(205, 228, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(139, 247, 255, 0.3);
+}
+
+.overlay-editor__palette-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  display: block;
+}
+
+.overlay-editor__palette-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Tool-specific options panel */
+.overlay-editor__tool-options {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.overlay-editor__tool-option-group {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(6, 10, 20, 0.5);
+  border: 1px solid rgba(139, 247, 255, 0.15);
+}
+
+.overlay-editor__tool-option-group[hidden] {
+  display: none;
+}
+
+.overlay-editor__tool-option-label {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.75rem;
+  color: rgba(205, 228, 255, 0.85);
+  font-family: "Cormorant Garamond", serif;
+}
+
+.overlay-editor__tool-input,
+.overlay-editor__tool-select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(139, 247, 255, 0.24);
+  background: rgba(6, 10, 20, 0.8);
+  color: rgba(205, 228, 255, 0.9);
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.8rem;
+}
+
+.overlay-editor__tool-input:focus,
+.overlay-editor__tool-select:focus {
+  outline: none;
+  border-color: rgba(139, 247, 255, 0.5);
+  box-shadow: 0 0 0 2px rgba(139, 247, 255, 0.1);
+}
+
 .overlay-editor__output {
   width: 100%;
   min-height: 120px;
