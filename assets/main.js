@@ -3358,29 +3358,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   }
 
   function updateFluidDisplay(status) {
-    // If the Bet Spire is locked or has been deleted, freeze the readouts and halt any
-    // lingering fluid simulation so the reservoir numbers stay static instead of drifting.
-    if (!powderState.fluidUnlocked) {
-      if (fluidSimulationInstance && typeof fluidSimulationInstance.stop === 'function') {
-        fluidSimulationInstance.stop();
-      }
-
-      if (fluidElements.reservoirValue) {
-        fluidElements.reservoirValue.textContent = '0 Serendipity';
-      }
-      if (fluidElements.dripRateValue) {
-        fluidElements.dripRateValue.textContent = '0 Serendipity/sec';
-      }
-      if (fluidElements.stateLabel) {
-        fluidElements.stateLabel.textContent = 'Dormant';
-        fluidElements.stateLabel.classList.remove('fluid-state-label--ready');
-        fluidElements.stateLabel.classList.remove('fluid-state-label--forming');
-      }
-      if (fluidElements.statusNote) {
-        fluidElements.statusNote.textContent = 'The Bet reservoir is sealed until the spire returns.';
-      }
-      return;
-    }
+    // Fluid simulation removed - no-op function
+    return;
+  }
 
     const activeSimulation =
       fluidSimulationInstance && typeof fluidSimulationInstance.getStatus === 'function'

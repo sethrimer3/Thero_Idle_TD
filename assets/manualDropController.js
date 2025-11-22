@@ -4,7 +4,6 @@
  * @param {Object} options - Dependency injection container.
  * @param {() => string} options.getActiveTabId - Returns the currently active tab id.
  * @param {() => any} options.getSandSimulation - Getter for the Aleph sand simulation instance.
- * @param {() => any} options.getFluidSimulation - Getter for the Bet fluid simulation instance.
  * @param {() => any} options.getLamedSimulation - Getter for the Lamed gravity simulation instance.
  * @param {() => any} options.getTsadiSimulation - Getter for the Tsadi binding simulation instance.
  * @param {(count: number) => void} options.addIterons - Adds iterons to the Shin bank.
@@ -13,7 +12,6 @@
 export function createManualDropController({
   getActiveTabId,
   getSandSimulation,
-  getFluidSimulation,
   getLamedSimulation,
   getTsadiSimulation,
   addIterons,
@@ -34,8 +32,6 @@ export function createManualDropController({
       switch (spireType) {
         case 'aleph':
           return 'powder';
-        case 'bet':
-          return 'fluid';
         default:
           return spireType;
       }
@@ -47,7 +43,6 @@ export function createManualDropController({
       }
 
       const sandSimulation = getSandSimulation?.();
-      const fluidSimulation = getFluidSimulation?.();
       const lamedSimulation = getLamedSimulation?.();
       const tsadiSimulation = getTsadiSimulation?.();
 
@@ -56,12 +51,6 @@ export function createManualDropController({
           if (sandSimulation && typeof sandSimulation.spawnGrain === 'function') {
             const moteSize = sandSimulation.maxDropSize || 1;
             sandSimulation.spawnGrain({ size: moteSize, source: 'manual' });
-          }
-          break;
-        case 'bet':
-          if (fluidSimulation && typeof fluidSimulation.spawnGrain === 'function') {
-            const dropSize = fluidSimulation.maxDropSize || 1;
-            fluidSimulation.spawnGrain({ size: dropSize, source: 'manual' });
           }
           break;
         case 'lamed':
@@ -84,7 +73,6 @@ export function createManualDropController({
 
     const spireTargets = [
       { type: 'aleph', selectors: ['powder-viewport', 'powder-basin', 'powder-canvas'] },
-      { type: 'bet', selectors: ['fluid-viewport', 'fluid-basin', 'fluid-canvas'] },
       { type: 'lamed', selectors: ['lamed-basin'] },
       { type: 'tsadi', selectors: ['tsadi-basin'] },
       { type: 'shin', selectors: ['shin-fractal-content'] },

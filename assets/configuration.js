@@ -40,8 +40,6 @@ export const FALLBACK_BASE_ENERGY_RATE = 0;
 export const FALLBACK_BASE_FLUX_RATE = 0;
 
 let gameplayConfigData = null;
-let fluidSimulationProfile = null;
-let fluidSimulationLoadPromise = null;
 
 let TOWER_LOADOUT_LIMIT = FALLBACK_TOWER_LOADOUT_LIMIT;
 let BASE_START_THERO = FALLBACK_BASE_START_THERO;
@@ -61,98 +59,9 @@ export function registerResourceContainers({ baseResources, resourceState }) {
   resourceStateRef = resourceState;
 }
 
-function normalizeFluidSimulationProfile(data) {
-  if (!data || typeof data !== 'object') {
-    return null;
-  }
-
-  const paletteSource =
-    data.palette && typeof data.palette === 'object'
-      ? data.palette
-      : {
-          stops: data.stops,
-          restAlpha: data.restAlpha,
-          freefallAlpha: data.freefallAlpha,
-          backgroundTop: data.backgroundTop,
-          backgroundBottom: data.backgroundBottom,
-        };
-
-  const dropSizes = Array.isArray(data.dropSizes)
-    ? data.dropSizes
-        .map((size) => {
-          const numeric = Number.parseFloat(size);
-          return Number.isFinite(numeric) ? Math.max(1, Math.round(numeric)) : null;
-        })
-        .filter((size) => Number.isFinite(size) && size > 0)
-    : Array.isArray(data.grainSizes)
-      ? data.grainSizes
-          .map((size) => {
-            const numeric = Number.parseFloat(size);
-            return Number.isFinite(numeric) ? Math.max(1, Math.round(numeric)) : null;
-          })
-          .filter((size) => Number.isFinite(size) && size > 0)
-      : [];
-
-  if (!dropSizes.length) {
-    dropSizes.push(1, 1, 2);
-  }
-
-  return {
-    id: typeof data.id === 'string' && data.id.trim() ? data.id.trim() : 'fluid',
-    label: typeof data.label === 'string' && data.label.trim() ? data.label.trim() : 'Bet Spire',
-    dropSizes,
-    dropVolumeScale:
-      Number.isFinite(data.dropVolumeScale) && data.dropVolumeScale > 0 ? data.dropVolumeScale : null,
-    idleDrainRate: Number.isFinite(data.idleDrainRate) ? Math.max(0.1, data.idleDrainRate) : null,
-    baseSpawnInterval:
-      Number.isFinite(data.baseSpawnInterval) && data.baseSpawnInterval > 0
-        ? Math.max(30, data.baseSpawnInterval)
-        : null,
-    flowOffset: Number.isFinite(data.flowOffset) ? Math.max(0, data.flowOffset) : null,
-    waveStiffness:
-      Number.isFinite(data.waveStiffness) && data.waveStiffness > 0 ? data.waveStiffness : null,
-    waveDamping: Number.isFinite(data.waveDamping) && data.waveDamping >= 0 ? data.waveDamping : null,
-    sideFlowRate: Number.isFinite(data.sideFlowRate) && data.sideFlowRate >= 0 ? data.sideFlowRate : null,
-    rippleFrequency:
-      Number.isFinite(data.rippleFrequency) && data.rippleFrequency >= 0 ? data.rippleFrequency : null,
-    rippleAmplitude:
-      Number.isFinite(data.rippleAmplitude) && data.rippleAmplitude >= 0 ? data.rippleAmplitude : null,
-    palette: mergeMotePalette(paletteSource || {}),
-  };
-}
-
 export async function loadFluidSimulationProfile() {
-  if (fluidSimulationProfile) {
-    return fluidSimulationProfile;
-  }
-
-  if (!fluidSimulationLoadPromise) {
-    fluidSimulationLoadPromise = (async () => {
-      try {
-        if (typeof fetch === 'function') {
-          return fetchJsonWithFallback(FLUID_SIM_CONFIG_URL.href, FLUID_SIM_CONFIG_RELATIVE_PATH);
-        }
-      } catch (error) {
-        console.warn('Fluid simulation fetch failed; attempting module import.', error);
-      }
-
-      try {
-        const moduleData = await importJsonModule(FLUID_SIM_CONFIG_URL.href);
-        if (moduleData) {
-          return moduleData;
-        }
-      } catch (error) {
-        console.error('Fluid simulation profile import failed.', error);
-      }
-
-      return null;
-    })();
-  }
-
-  const rawProfile = await fluidSimulationLoadPromise;
-  fluidSimulationLoadPromise = null;
-  fluidSimulationProfile = normalizeFluidSimulationProfile(rawProfile);
-  return fluidSimulationProfile;
+  // Fluid simulation removed
+  return null;
 }
 
 async function applyGameplayConfigInternal(config = {}) {
