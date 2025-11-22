@@ -4769,6 +4769,12 @@ body.graphics-mode-low .control-button {
   color: rgba(255, 255, 255, 0.7);
 }
 
+.fluid-tree-store-item__icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
 .fluid-tree-store-status {
   font-family: "Space Mono", monospace;
   font-size: 0.6rem;
@@ -4970,7 +4976,7 @@ body.graphics-mode-low .control-button {
 
 /* Let Bet terrarium controls (like the Lv. toggle) sit above the viewport overlay while preserving touch panning. */
 .powder-viewport.fluid-viewport {
-  pointer-events: none;
+  pointer-events: auto;
   touch-action: none;
 }
 

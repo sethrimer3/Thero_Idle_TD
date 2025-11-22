@@ -39,6 +39,7 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
     id: 'bet-store-large-tree',
     label: 'Large Fractal Tree',
     description: 'Full canopy anchor grown from the Shin lattice.',
+    icon: '🌳',
     size: 'large',
     minY: 0.32,
     maxY: 0.94,
@@ -49,6 +50,7 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
     id: 'bet-store-small-tree',
     label: 'Island Bonsai',
     description: 'Compact sapling suited for ridge lines.',
+    icon: '🌱',
     size: 'small',
     minY: 0.28,
     maxY: 0.9,
@@ -143,6 +145,7 @@ export class FluidTerrariumTrees {
       id: typeof item?.id === 'string' ? item.id : `terrarium-store-${index}`,
       label: typeof item?.label === 'string' ? item.label : 'Terrarium Object',
       description: typeof item?.description === 'string' ? item.description : '',
+      icon: typeof item?.icon === 'string' ? item.icon : '🌿',
       size: item?.size === 'small' ? 'small' : 'large',
       origin: item?.origin === 'island' ? 'island' : 'ground',
       minY: Number.isFinite(item?.minY) ? item.minY : 0.3,
@@ -220,6 +223,12 @@ export class FluidTerrariumTrees {
       button.type = 'button';
       button.className = 'fluid-tree-store-item';
       button.dataset.itemId = item.id;
+      if (item.icon) {
+        const icon = document.createElement('span');
+        icon.className = 'fluid-tree-store-item__icon';
+        icon.textContent = item.icon;
+        button.appendChild(icon);
+      }
       const label = document.createElement('span');
       label.className = 'fluid-tree-store-item__label';
       label.textContent = item.label;
