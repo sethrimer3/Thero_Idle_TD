@@ -95,6 +95,7 @@ import {
   drawNuKillParticles as drawNuKillParticlesHelper,
   updateNuBursts as updateNuBurstsHelper,
   teardownNuTower as teardownNuTowerHelper,
+  clearNuCachedDimensions as clearNuCachedDimensionsHelper,
 } from '../scripts/features/towers/nuTower.js';
 import {
   ensureXiState as ensureXiStateHelper,
@@ -2236,6 +2237,8 @@ export class SimplePlayfield {
       this.gammaBursts = [];
       this.nuBursts = [];
       this.towers = [];
+      // Clear cached Nu tower dimensions when entering non-interactive mode.
+      clearNuCachedDimensionsHelper();
       this.energy = 0;
       this.lives = 0;
       // Reset gate defense while previewing non-interactive layouts.
@@ -2425,6 +2428,8 @@ export class SimplePlayfield {
       this.resetEnemyDeathParticles();
       this.resetWaveTallies();
       this.towers = [];
+      // Clear cached Nu tower dimensions when leaving preview mode.
+      clearNuCachedDimensionsHelper();
       this.pathSegments = [];
       this.pathPoints = [];
       this.pathLength = 0;
@@ -2475,6 +2480,8 @@ export class SimplePlayfield {
     resetActiveMoteGems();
     this.towers = [];
     this.alephChain.reset();
+    // Clear cached Nu tower dimensions so ranges recalculate correctly on next level entry.
+    clearNuCachedDimensionsHelper();
     this.hoverPlacement = null;
     this.clearFocusedEnemy({ silent: true });
     this.energy = 0;

@@ -179,6 +179,14 @@ function refreshNuParameters(playfield, tower, state) {
  */
 let cachedPlayfieldDimension = null;
 
+/**
+ * Clear cached playfield dimensions.
+ * Should be called when playfield context changes (leaving/entering level).
+ */
+export function clearNuCachedDimensions() {
+  cachedPlayfieldDimension = null;
+}
+
 function resolvePlayfieldMinDimension(playfield) {
   const dimensionCandidates = [];
   if (Number.isFinite(playfield?.renderWidth) && playfield.renderWidth > 0) {
@@ -304,6 +312,8 @@ export function ensureNuState(playfield, tower) {
     return null;
   }
   const state = ensureNuStateInternal(playfield, tower);
+  // Force immediate refresh to ensure parameters use current playfield dimensions
+  state.needsRefresh = true;
   refreshNuParameters(playfield, tower, state);
   return state;
 }
