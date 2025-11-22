@@ -282,6 +282,45 @@ export function createPowderViewportController({
       return scale;
     };
 
+    // Check if the current simulation is the fluid (Bet) simulation.
+    const isFluidSimulation = () => {
+      const activeSimulation = getSimulation();
+      const fluidSim = typeof getFluidSimulation === 'function' ? getFluidSimulation() : null;
+      return Boolean(activeSimulation === fluidSim);
+    };
+
+    // Check if a button menu is currently open in the Bet terrarium.
+    const isButtonMenuOpen = () => {
+      return isFluidSimulation() && Boolean(powderState.betTerrarium?.buttonMenuOpen);
+    };
+
+    // Close any open button menus when user initiates camera gestures.
+    const closeButtonMenus = () => {
+      if (isFluidSimulation() && powderState.betTerrarium?.buttonMenuOpen) {
+        powderState.betTerrarium.buttonMenuOpen = false;
+        // Trigger DOM update by dispatching a custom event
+        if (typeof window !== 'undefined' && typeof window.CustomEvent === 'function') {
+          const event = new CustomEvent('betTerrariumMenuClose');
+          window.dispatchEvent(event);
+        }
+      }
+    };
+
+    // Check if the event target is a button element or within a button menu.
+    const isButtonOrMenu = (target) => {
+      if (!target || !(target instanceof Element)) {
+        return false;
+      }
+      return Boolean(
+        target.closest('.fluid-tree-level-button') ||
+        target.closest('.fluid-tree-store-button') ||
+        target.closest('.fluid-tree-level-toggle') ||
+        target.closest('.fluid-tree-store-toggle') ||
+        target.closest('.fluid-tree-store-panel') ||
+        target.closest('.fluid-tree-level__upgrade')
+      );
+    };
+
     // Clear pinch bookkeeping when touches end or become invalid.
     const resetPinchState = () => {
       interaction.pinchState = null;
@@ -362,6 +401,13 @@ export function createPowderViewportController({
       if (event.pointerType === 'mouse' && event.button !== 0) {
         return;
       }
+      // Skip camera pan initiation if clicking on buttons or a button menu is open
+      if (isButtonOrMenu(event.target)) {
+        return;
+      }
+      if (isButtonMenuOpen()) {
+        return;
+      }
       if (event.pointerType === 'touch') {
         interaction.activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
         if (interaction.activePointers.size >= 2) {
@@ -391,6 +437,8 @@ export function createPowderViewportController({
           if (typeof event.preventDefault === 'function') {
             event.preventDefault();
           }
+          // Close menus when pinch zoom gesture is detected
+          closeButtonMenus();
           performPinchZoom();
           return;
         }
@@ -405,6 +453,14 @@ export function createPowderViewportController({
 
       const dx = event.clientX - interaction.lastPoint.x;
       const dy = event.clientY - interaction.lastPoint.y;
+      
+      // Close menus if user starts dragging (pan gesture detected)
+      const movement = Math.hypot(dx, dy);
+      const MAX_CLICK_MOVEMENT = 5;
+      if (movement > MAX_CLICK_MOVEMENT) {
+        closeButtonMenus();
+      }
+      
       interaction.lastPoint = { x: event.clientX, y: event.clientY };
 
       const transform = activeSimulation.getViewTransform();
@@ -444,6 +500,8 @@ export function createPowderViewportController({
       if (!delta) {
         return;
       }
+      // Close menus when user zooms
+      closeButtonMenus();
       const factor = delta > 0 ? 0.9 : 1.1;
       const anchorPoint = { clientX: event.clientX, clientY: event.clientY };
       const changed = activeSimulation.applyZoomFactor(factor, anchorPoint);

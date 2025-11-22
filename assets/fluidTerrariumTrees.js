@@ -116,6 +116,7 @@ export class FluidTerrariumTrees {
       typeof options.getSerendipityBalance === 'function' ? options.getSerendipityBalance : () => 0;
     this.spendSerendipity = typeof options.spendSerendipity === 'function' ? options.spendSerendipity : () => 0;
     this.onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : () => {};
+    this.powderState = options.powderState || null;
 
     this.activeHold = null;
     this.holdTimer = null;
@@ -129,10 +130,30 @@ export class FluidTerrariumTrees {
     this.handleContainerPointerMove = this.handleContainerPointerMove.bind(this);
     this.handleContainerPointerLeave = this.handleContainerPointerLeave.bind(this);
     this.handleContainerClick = this.handleContainerClick.bind(this);
+    this.handleMenuCloseEvent = this.handleMenuCloseEvent.bind(this);
 
     this.initializeOverlay();
     this.observeContainer();
     this.loadMasks();
+    this.listenForMenuClose();
+  }
+
+  /**
+   * Listen for menu close events from the viewport controller.
+   */
+  listenForMenuClose() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('betTerrariumMenuClose', this.handleMenuCloseEvent);
+    }
+  }
+
+  /**
+   * Handle menu close event triggered by camera gestures.
+   */
+  handleMenuCloseEvent() {
+    if (this.isStoreOpen) {
+      this.toggleStorePanel(false);
+    }
   }
 
   /**
@@ -256,6 +277,12 @@ export class FluidTerrariumTrees {
   toggleStorePanel(forceState) {
     const nextState = typeof forceState === 'boolean' ? forceState : !this.isStoreOpen;
     this.isStoreOpen = nextState;
+    
+    // Update buttonMenuOpen state in powderState
+    if (this.powderState?.betTerrarium) {
+      this.powderState.betTerrarium.buttonMenuOpen = nextState;
+    }
+    
     if (this.storePanel) {
       this.storePanel.hidden = !nextState;
       this.storePanel.setAttribute('aria-hidden', nextState ? 'false' : 'true');
@@ -1333,6 +1360,9 @@ export class FluidTerrariumTrees {
       this.container.removeEventListener('pointermove', this.handleContainerPointerMove);
       this.container.removeEventListener('pointerleave', this.handleContainerPointerLeave);
       this.container.removeEventListener('click', this.handleContainerClick);
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('betTerrariumMenuClose', this.handleMenuCloseEvent);
     }
   }
 }
