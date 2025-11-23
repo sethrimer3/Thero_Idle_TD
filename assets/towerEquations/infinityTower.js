@@ -28,15 +28,17 @@ export const infinity = {
       equationSymbol: 'Exp',
       glyphLabel: 'ℵ₁',
       name: 'Exp',
-      description: 'Exponent bonus applied to all towers within range. Equals the natural logarithm of total tower count.',
+      description: 'Exponent bonus applied to all towers within range. Equals the natural logarithm of player\'s unspent thero (money).',
       upgradable: true,
       baseValue: 1,
       step: 0.1,
       format: (value) => `${formatDecimal(value, 2)} Exp`,
       cost: (level) => Math.max(1, Math.floor(10 * Math.pow(1.5, level))),
       computeValue({ blueprint, towerId, dynamicContext }) {
-        // Get total tower count from dynamic context
-        const totalTowers = dynamicContext?.totalTowerCount || 1;
+        // Get player's unspent thero (money) from dynamic context
+        const unspentThero = Number.isFinite(dynamicContext?.unspentThero) 
+          ? Math.max(1, dynamicContext.unspentThero) 
+          : 1;
         
         // Get upgrade level for this variable
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
@@ -44,23 +46,25 @@ export const infinity = {
         const level = state.variables?.exponent?.level || 0;
         const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
         
-        // Base exponent is ln(totalTowers), multiplied by glyph rank
-        const baseExponent = Math.log(Math.max(1, totalTowers));
+        // Base exponent is ln(unspentThero), multiplied by glyph rank
+        const baseExponent = Math.log(unspentThero);
         return Math.max(0, baseExponent * glyphRank);
       },
       getSubEquations({ level, value, dynamicContext }) {
-        const totalTowers = dynamicContext?.totalTowerCount || 1;
+        const unspentThero = Number.isFinite(dynamicContext?.unspentThero) 
+          ? Math.max(1, dynamicContext.unspentThero) 
+          : 1;
         const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
-        const baseExponent = Math.log(Math.max(1, totalTowers));
+        const baseExponent = Math.log(unspentThero);
         const exponentValue = Number.isFinite(value) ? value : baseExponent;
         
         return [
           {
-            expression: String.raw`\( \text{Exp} = \ln(n) \times \aleph_{1} \)`,
-            values: String.raw`\( ${formatDecimal(exponentValue, 2)} = \ln(${formatWholeNumber(totalTowers)}) \times ${formatWholeNumber(glyphRank)} \)`,
+            expression: String.raw`\( \text{Exp} = \ln(\text{þ}) \times \aleph_{1} \)`,
+            values: String.raw`\( ${formatDecimal(exponentValue, 2)} = \ln(${formatGameNumber(unspentThero)}) \times ${formatWholeNumber(glyphRank)} \)`,
           },
           {
-            expression: String.raw`\( n = \text{total tower count} \)`,
+            expression: String.raw`\( \text{þ} = \text{unspent thero (player money)} \)`,
             variant: 'note',
           },
         ];

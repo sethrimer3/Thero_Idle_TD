@@ -23,6 +23,7 @@ import {
   getTowerLoadoutState,
   openTowerUpgradeOverlay,
   calculateTowerEquationResult,
+  computeTowerVariableValue,
   unlockTower,
 } from './towersTab.js';
 import {
@@ -4723,9 +4724,9 @@ export class SimplePlayfield {
       return;
     }
 
-    // Calculate the exponent based on total tower count
-    const totalTowerCount = this.towers.length;
-    const exponent = calculateInfinityExponent(totalTowerCount);
+    // Calculate the exponent based on player's unspent thero (money)
+    const unspentThero = Math.max(1, Number.isFinite(this.energy) ? this.energy : 1);
+    const exponent = calculateInfinityExponent(unspentThero);
 
     // For each infinity tower, apply bonuses to towers in range
     this.infinityTowers.forEach((infinityTower) => {
@@ -4754,10 +4755,8 @@ export class SimplePlayfield {
         const infinityBlueprint = getTowerEquationBlueprint('infinity');
         let baseMultiplier = Math.E; // Default to Euler's number
         if (infinityBlueprint) {
-          const infinityValues = calculateTowerEquationResult('infinity', {
-            totalTowerCount,
-          });
-          baseMultiplier = infinityValues?.bonusMultiplier || Math.E;
+          const multiplierValue = computeTowerVariableValue('infinity', 'bonusMultiplier', infinityBlueprint);
+          baseMultiplier = Number.isFinite(multiplierValue) && multiplierValue > 0 ? multiplierValue : Math.E;
         }
 
         // Apply the infinity bonus

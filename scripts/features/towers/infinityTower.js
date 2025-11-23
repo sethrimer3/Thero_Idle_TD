@@ -3,12 +3,12 @@
  * 
  * The Infinity Tower provides exponential bonuses to all towers within its range.
  * The bonus is calculated as an exponent equal to the natural logarithm of the
- * total number of towers on the playfield.
+ * player's unspent thero (money amount).
  * 
  * Mathematical formula:
  * - Range: 2×e meters (where e is Euler's number ≈ 2.71828)
- * - Exponent bonus: ln(totalTowerCount)
- * - Applied as: tower_damage × (base^exponent) where exponent = ln(totalTowerCount)
+ * - Exponent bonus: ln(unspentThero)
+ * - Applied as: tower_damage × (base^exponent) where exponent = ln(unspentThero)
  */
 
 // Constants
@@ -17,15 +17,15 @@ const INFINITY_RANGE_METERS = 2 * EULER; // ≈ 5.4366 meters
 
 /**
  * Calculate the exponent bonus provided by the Infinity Tower.
- * Formula: ln(n) where n is the total tower count
+ * Formula: ln(þ) where þ is the player's unspent thero (money)
  * 
- * @param {number} totalTowerCount - Total number of towers on the playfield
- * @returns {number} The exponent bonus (natural logarithm of tower count)
+ * @param {number} unspentThero - Player's current unspent thero (money amount)
+ * @returns {number} The exponent bonus (natural logarithm of unspent thero)
  */
-export function calculateInfinityExponent(totalTowerCount) {
-  // Ensure we have at least 1 tower to avoid ln(0) = -∞
-  const safeCount = Math.max(1, Math.floor(totalTowerCount));
-  return Math.log(safeCount);
+export function calculateInfinityExponent(unspentThero) {
+  // Ensure we have at least 1 to avoid ln(0) = -∞
+  const safeThero = Math.max(1, Number.isFinite(unspentThero) ? unspentThero : 1);
+  return Math.log(safeThero);
 }
 
 /**
@@ -82,7 +82,7 @@ export function getTowersInInfinityRange(infinityTower, allTowers, distanceFunc)
 /**
  * Calculate the damage multiplier for a tower affected by Infinity Tower.
  * The multiplier uses the exponent as a power: base^exponent
- * where exponent = ln(totalTowerCount)
+ * where exponent = ln(unspentThero)
  * 
  * @param {number} baseDamage - The tower's base damage
  * @param {number} exponent - The exponent from calculateInfinityExponent
@@ -130,22 +130,22 @@ export const INFINITY_PARTICLE_CONFIG = {
  * 
  * Master Equation: ∞ = Exp × Rng
  * Where:
- * - Exp (Exponent) = ln(n) where n is total tower count
+ * - Exp (Exponent) = ln(þ) where þ is player's unspent thero (money)
  * - Rng (Range) = 2×e meters
  */
 export const INFINITY_SUB_EQUATIONS = {
   /**
    * Exponent sub-equation.
-   * Formula: Exp = ln(n)
-   * where n = total number of towers on playfield
+   * Formula: Exp = ln(þ)
+   * where þ = player's unspent thero (money amount)
    */
   exponent: {
     name: 'Exp',
     symbol: 'Exp',
     description: 'Exponent bonus applied to towers within range',
-    formula: 'ln(n)',
-    explanation: 'Natural logarithm of total tower count',
-    calculate: (totalTowerCount) => calculateInfinityExponent(totalTowerCount),
+    formula: 'ln(þ)',
+    explanation: 'Natural logarithm of player\'s unspent thero (money)',
+    calculate: (unspentThero) => calculateInfinityExponent(unspentThero),
   },
   
   /**
