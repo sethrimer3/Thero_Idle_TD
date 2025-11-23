@@ -7799,7 +7799,8 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .tab-bar {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(92px, 14vw) minmax(0, 1fr)
+    minmax(0, 1fr);
   gap: 12px;
   padding: 16px clamp(12px, 3vw, 24px);
   border-radius: 16px;
@@ -7848,6 +7849,12 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     min-width: 28px;
     padding: 2px 6px;
     font-size: 0.58rem;
+  }
+
+  /* Allow the spire column to reclaim full width on mobile so the 2x3 grid stays legible. */
+  .tab-button-stack.spire-tab-stack {
+    width: 100%;
+    max-width: none;
   }
 
   .status-bar {
@@ -8767,6 +8774,12 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .spire-tab-stack--layout-6 {
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(2, 1fr);
+}
+
+/* Constrain the spire column on desktop so the surrounding tabs can stretch without inflating the square buttons. */
+.tab-button-stack.spire-tab-stack {
+  width: clamp(96px, 12vw, 132px);
+  justify-self: center;
 }
 
 .spire-tab-stack .tab-button--stacked {
