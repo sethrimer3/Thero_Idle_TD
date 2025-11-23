@@ -44,24 +44,21 @@ export const infinity = {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const state = ctx().ensureTowerUpgradeState(towerId, effectiveBlueprint);
         const level = state.variables?.exponent?.level || 0;
-        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
-        
-        // Base exponent is ln(unspentThero), multiplied by glyph rank
+        // Base exponent is ln(unspentThero); upgrades influence other sub-equations
         const baseExponent = Math.log(unspentThero);
-        return Math.max(0, baseExponent * glyphRank);
+        return Math.max(0, baseExponent);
       },
       getSubEquations({ level, value, dynamicContext }) {
-        const unspentThero = Number.isFinite(dynamicContext?.unspentThero) 
-          ? Math.max(1, dynamicContext.unspentThero) 
+        const unspentThero = Number.isFinite(dynamicContext?.unspentThero)
+          ? Math.max(1, dynamicContext.unspentThero)
           : 1;
-        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
         const baseExponent = Math.log(unspentThero);
         const exponentValue = Number.isFinite(value) ? value : baseExponent;
-        
+
         return [
           {
-            expression: String.raw`\( \text{Exp} = \ln(\text{þ}) \times \aleph_{1} \)`,
-            values: String.raw`\( ${formatDecimal(exponentValue, 2)} = \ln(${formatGameNumber(unspentThero)}) \times ${formatWholeNumber(glyphRank)} \)`,
+            expression: String.raw`\( \text{Exp} = \ln(\text{þ}) \)`,
+            values: String.raw`\( ${formatDecimal(exponentValue, 2)} = \ln(${formatGameNumber(unspentThero)}) \)`,
           },
           {
             expression: String.raw`\( \text{þ} = \text{unspent thero (player money)} \)`,
@@ -114,7 +111,7 @@ export const infinity = {
       equationSymbol: 'Mul',
       glyphLabel: 'ℵ₃',
       name: 'Mul',
-      description: 'Bonus multiplier base. Towers within range receive damage multiplied by this base raised to the Exp power.',
+      description: 'Bonus multiplier base derived from a glyph fusion product inside a natural log.',
       upgradable: true,
       baseValue: EULER,
       step: 0.1,
@@ -125,21 +122,47 @@ export const infinity = {
         const state = ctx().ensureTowerUpgradeState(towerId, effectiveBlueprint);
         const level = state.variables?.bonusMultiplier?.level || 0;
         const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
-        
-        // Base multiplier is e, increased by glyph upgrades
-        return EULER + (glyphRank - 1) * 0.1;
+        const glyphAllocations = {
+          aleph: Math.max(1, glyphRank),
+          bet: Math.max(1, glyphRank),
+          lamed: Math.max(1, glyphRank),
+          tsadi: Math.max(1, glyphRank),
+          shin: Math.max(1, glyphRank),
+          kuf: Math.max(1, glyphRank),
+        };
+
+        const product = Object.values(glyphAllocations).reduce(
+          (total, count) => total * count,
+          1
+        );
+
+        const fusedMultiplier = Math.log(product);
+        return Math.max(1, fusedMultiplier);
       },
       getSubEquations({ level, value }) {
         const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
-        const multiplierValue = Number.isFinite(value) ? value : EULER;
-        
+        const glyphAllocations = {
+          aleph: Math.max(1, glyphRank),
+          bet: Math.max(1, glyphRank),
+          lamed: Math.max(1, glyphRank),
+          tsadi: Math.max(1, glyphRank),
+          shin: Math.max(1, glyphRank),
+          kuf: Math.max(1, glyphRank),
+        };
+        const product = Object.values(glyphAllocations).reduce(
+          (total, count) => total * count,
+          1
+        );
+        const multiplierValue = Number.isFinite(value) ? value : Math.max(1, Math.log(product));
+
         return [
           {
-            expression: String.raw`\( \text{Mul} = e + 0.1(\aleph_{3} - 1) \)`,
-            values: String.raw`\( ${formatDecimal(multiplierValue, 2)} = ${formatDecimal(EULER, 2)} + 0.1(${formatWholeNumber(glyphRank)} - 1) \)`,
+            expression: String.raw`\( \text{Mul} = \ln(\aleph_{1} \times \text{ב}_{1} \times \text{ל}_{1} \times \text{צ}_{1} \times \text{ש}_{1} \times \text{ק}_{1}) \)`,
+            values: String.raw`\( ${formatDecimal(multiplierValue, 2)} = \ln(${formatWholeNumber(glyphAllocations.aleph)} \times ${formatWholeNumber(glyphAllocations.bet)} \times ${formatWholeNumber(glyphAllocations.lamed)} \times ${formatWholeNumber(glyphAllocations.tsadi)} \times ${formatWholeNumber(glyphAllocations.shin)} \times ${formatWholeNumber(glyphAllocations.kuf)}) \)`,
+            glyphEquation: true,
           },
           {
-            expression: String.raw`\( \text{Applied as: } \text{dmg} \times \text{Mul}^{\text{Exp}} \)`,
+            expression: String.raw`\( \text{Each glyph rank allocated boosts the fused product before taking } \ln \)`,
             variant: 'note',
           },
         ];
