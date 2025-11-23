@@ -23,6 +23,7 @@ import {
   getTowerLoadoutState,
   openTowerUpgradeOverlay,
   calculateTowerEquationResult,
+  computeTowerVariableValue,
   unlockTower,
 } from './towersTab.js';
 import {
@@ -4754,8 +4755,8 @@ export class SimplePlayfield {
         const infinityBlueprint = getTowerEquationBlueprint('infinity');
         let baseMultiplier = Math.E; // Default to Euler's number
         if (infinityBlueprint) {
-          const infinityValues = calculateTowerEquationResult('infinity');
-          baseMultiplier = infinityValues?.bonusMultiplier || Math.E;
+          const multiplierValue = computeTowerVariableValue('infinity', 'bonusMultiplier', infinityBlueprint);
+          baseMultiplier = Number.isFinite(multiplierValue) && multiplierValue > 0 ? multiplierValue : Math.E;
         }
 
         // Apply the infinity bonus
