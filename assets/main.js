@@ -163,7 +163,11 @@ import { FluidSimulation } from '../scripts/features/towers/fluidTower.js';
 // Lamed tower gravity simulation for orbital mechanics with sparks.
 import { GravitySimulation } from '../scripts/features/towers/lamedTower.js';
 // Tsadi tower particle fusion simulation with tier-based merging.
-import { ParticleFusionSimulation, getGreekTierInfo } from '../scripts/features/towers/tsadiTower.js';
+import {
+  ParticleFusionSimulation,
+  getGreekTierInfo,
+  ADVANCED_MOLECULE_UNLOCK_TIER,
+} from '../scripts/features/towers/tsadiTower.js';
 // Shin tower fractal tree simulation with incremental growth.
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
 // Shin state management for Iteron allocation and fractal progression.
@@ -1191,6 +1195,30 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   };
 
   const SIGIL_LADDER_IS_STUB = true;
+
+  // Track Tsadi status messaging so advanced molecule unlocks surface clearly in the UI.
+  const tsadiStatusNoteElement = document.getElementById('tsadi-status-note');
+  const TSADI_STATUS_BASE_MESSAGE = (tsadiStatusNoteElement?.textContent || '').trim()
+    || 'Particles bounce and collide. When two particles of the same tier collide, they fuse into a higher tier. Each new tier reached earns a Tsadi glyph. Calm particles (with zero or negative repelling force) can be tied together with binding agents to form molecules for bonus effects.';
+
+  /**
+   * Render the Tsadi status note, appending the advanced particle unlock detail when applicable.
+   * @param {number} highestTier - Current highest particle tier reached.
+   */
+  function updateTsadiStatusNote(highestTier = 0) {
+    if (!tsadiStatusNoteElement) {
+      return;
+    }
+    const advancedUnlocked = (tsadiSimulationInstance?.areAdvancedMoleculesUnlocked?.() ?? false)
+      || highestTier >= ADVANCED_MOLECULE_UNLOCK_TIER;
+    const advancedSentence = advancedUnlocked
+      ? ' Advances Particles Unlocked — duplicate-tier molecules now weave through chained Waals anchors.'
+      : '';
+    tsadiStatusNoteElement.textContent = `${TSADI_STATUS_BASE_MESSAGE}${advancedSentence ? ` ${advancedSentence}` : ''}`;
+  }
+
+  // Seed the Tsadi status note with the latest saved tier progress before the simulation spins up.
+  updateTsadiStatusNote(Math.max(0, Math.floor(Number(spireResourceState.tsadi?.stats?.highestTier) || 0)));
 
   // Initialize the Towers tab emblem to the default mote palette before any theme swaps occur.
   applyMindGatePaletteToDom(powderState.motePalette);
@@ -4613,6 +4641,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                     Math.floor(Number(spireResourceState.tsadi?.stats?.highestTier) || 0),
                   );
                   const nextHighest = Math.max(previousHighest, resolvedTier);
+                  // Refresh the particle metrics note whenever the best tier advances.
+                  updateTsadiStatusNote(nextHighest);
                   if (!spireResourceState.tsadi) {
                     spireResourceState.tsadi = {};
                   }
