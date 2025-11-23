@@ -61,6 +61,7 @@ import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
 import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
 import * as TowerManager from './playfield/managers/TowerManager.js';
 import * as DeveloperCrystalManager from './playfield/managers/DeveloperCrystalManager.js';
+import * as DeveloperTowerManager from './playfield/managers/DeveloperTowerManager.js';
 import * as StatsPanel from './playfieldStatsPanel.js';
 import {
   beginPerformanceFrame,
@@ -9840,6 +9841,8 @@ export class SimplePlayfield {
 Object.assign(SimplePlayfield.prototype, TowerSelectionWheel);
 
 Object.assign(SimplePlayfield.prototype, DeveloperCrystalManager);
+
+Object.assign(SimplePlayfield.prototype, DeveloperTowerManager);
 
 Object.assign(SimplePlayfield.prototype, {
   determinePreferredOrientation,

@@ -32,9 +32,10 @@ export function getCrystalPosition(crystal) {
  * Spawn a developer crystal for sandbox testing at the supplied normalized coordinates.
  * @this {SimplePlayfield}
  * @param {{x:number,y:number}} normalized
+ * @param {{integrity?:number,thero?:number}} options
  * @returns {boolean}
  */
-export function addDeveloperCrystal(normalized) {
+export function addDeveloperCrystal(normalized, options = {}) {
   const clamped = this.clampNormalized(normalized);
   if (!clamped) {
     return false;
@@ -47,7 +48,8 @@ export function addDeveloperCrystal(normalized) {
   const id = `developer-crystal-${this.crystalIdCounter}`;
   const paletteRatio = Math.random();
   const outline = Array.from({ length: 7 }, () => 0.72 + Math.random() * 0.28);
-  const integrity = 900;
+  const integrity = Number.isFinite(options.integrity) && options.integrity > 0 ? options.integrity : 900;
+  const thero = Number.isFinite(options.thero) && options.thero >= 0 ? options.thero : 0;
   const crystal = {
     id,
     normalized: clamped,
@@ -57,6 +59,7 @@ export function addDeveloperCrystal(normalized) {
     integrity,
     maxIntegrity: integrity,
     orientation: Math.random() * Math.PI * 2,
+    theroReward: thero,
   };
   this.developerCrystals.push(crystal);
   if (this.messageEl) {
@@ -282,7 +285,15 @@ export function applyCrystalHit(crystal, damage, options = {}) {
     if (this.focusedCrystalId === crystal.id) {
       this.focusedCrystalId = null;
     }
-    if (this.messageEl) {
+    // Award thero if the crystal has a reward
+    if (Number.isFinite(crystal.theroReward) && crystal.theroReward > 0) {
+      if (typeof this.addThero === 'function') {
+        this.addThero(crystal.theroReward);
+      }
+      if (this.messageEl) {
+        this.messageEl.textContent = `Crystal shattered—earned ${crystal.theroReward}θ!`;
+      }
+    } else if (this.messageEl) {
       this.messageEl.textContent = 'Developer crystal shattered—shards scatter across the lane.';
     }
   }
@@ -328,4 +339,26 @@ export function updateCrystals(delta) {
     }
   });
   this.crystalShards = survivors;
+}
+
+/**
+ * Remove a specific developer crystal by ID.
+ * @this {SimplePlayfield}
+ * @param {string} crystalId
+ * @returns {boolean}
+ */
+export function removeDeveloperCrystal(crystalId) {
+  if (!crystalId) {
+    return false;
+  }
+  const initialCount = this.developerCrystals.length;
+  this.developerCrystals = this.developerCrystals.filter((crystal) => crystal?.id !== crystalId);
+  const removed = this.developerCrystals.length < initialCount;
+  if (removed && this.focusedCrystalId === crystalId) {
+    this.focusedCrystalId = null;
+  }
+  if (removed) {
+    this.draw();
+  }
+  return removed;
 }

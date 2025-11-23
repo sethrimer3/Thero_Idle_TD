@@ -84,13 +84,27 @@ export function createLevelEditorController({
 
   const developerMapElements = {
     container: null,
-    addCrystalButton: null,
-    clearButton: null,
+    clearCrystalsButton: null,
+    clearTowersButton: null,
     note: null,
+    paletteTools: {},
+    toolOptionsContainer: null,
+    crystalOptions: {
+      group: null,
+      integrityInput: null,
+      theroInput: null,
+    },
+    towerOptions: {
+      group: null,
+      typeSelect: null,
+    },
   };
 
   const developerMapPlacementState = {
-    mode: null,
+    mode: 'path', // Default mode is path editing
+    crystalIntegrity: 900,
+    crystalThero: 0,
+    towerType: 'alpha',
   };
 
   let overlayPreviewLevel = null;
@@ -625,6 +639,13 @@ export function createLevelEditorController({
       return;
     }
 
+    // Check if we're in path editing mode - if not, let the click pass through
+    const currentMode = developerMapPlacementState.mode;
+    if (currentMode !== 'path') {
+      // For non-path modes, don't handle the pointerdown - let the click event handle it
+      return;
+    }
+
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -721,23 +742,36 @@ export function createLevelEditorController({
   }
 
   function setDeveloperMapPlacementMode(mode) {
-    const nextMode = mode && developerMapPlacementState.mode === mode ? null : mode;
+    const validModes = ['path', 'crystal', 'tower', 'erase'];
+    const nextMode = validModes.includes(mode) ? mode : 'path';
     developerMapPlacementState.mode = nextMode;
-    if (developerMapElements.addCrystalButton) {
-      developerMapElements.addCrystalButton.classList.toggle(
-        'developer-map-elements__button--active',
-        developerMapPlacementState.mode === 'crystal',
-      );
-    }
-    if (developerMapElements.note) {
-      if (developerMapPlacementState.mode === 'crystal') {
-        developerMapElements.note.hidden = false;
-        developerMapElements.note.textContent =
-          'Click the battlefield to anchor a solid crystal obstruction.';
-      } else {
-        developerMapElements.note.hidden = true;
-        developerMapElements.note.textContent = '';
+
+    // Update palette button states
+    Object.entries(developerMapElements.paletteTools).forEach(([toolMode, button]) => {
+      if (button) {
+        button.setAttribute('aria-pressed', toolMode === nextMode ? 'true' : 'false');
       }
+    });
+
+    // Show/hide tool-specific options
+    if (developerMapElements.crystalOptions.group) {
+      developerMapElements.crystalOptions.group.hidden = nextMode !== 'crystal';
+    }
+    if (developerMapElements.towerOptions.group) {
+      developerMapElements.towerOptions.group.hidden = nextMode !== 'tower';
+    }
+
+    // Update note text based on active tool
+    if (developerMapElements.note) {
+      const noteMessages = {
+        path: 'Click to place path anchors. Drag to adjust, Shift-click to remove.',
+        crystal: 'Click the battlefield to place crystal obstacles.',
+        tower: 'Click the battlefield to place pre-configured towers.',
+        erase: 'Click on crystals or towers to remove them.',
+      };
+      const message = noteMessages[nextMode] || '';
+      developerMapElements.note.hidden = !message;
+      developerMapElements.note.textContent = message;
     }
   }
 
@@ -747,34 +781,107 @@ export function createLevelEditorController({
       setLevelEditorStatus('Active battlefield required before placing crystals.', { tone: 'warning' });
       return false;
     }
-    const placed = playfield.addDeveloperCrystal(normalized);
+    const placed = playfield.addDeveloperCrystal(normalized, {
+      integrity: developerMapPlacementState.crystalIntegrity,
+      thero: developerMapPlacementState.crystalThero,
+    });
     if (!placed) {
       setLevelEditorStatus('Crystal placement failed—ensure the click stays within the battlefield.', { tone: 'error' });
       return false;
     }
-    setLevelEditorStatus('Solid crystal anchored—focus towers on it to stress-test fractures.', {
+    const integrityText = developerMapPlacementState.crystalIntegrity;
+    const theroText = developerMapPlacementState.crystalThero > 0
+      ? ` (${developerMapPlacementState.crystalThero}θ reward)`
+      : '';
+    setLevelEditorStatus(`Crystal placed (${integrityText} integrity${theroText}).`, {
       tone: 'info',
       duration: 2800,
     });
-    if (developerMapElements.note && developerMapPlacementState.mode === 'crystal') {
-      developerMapElements.note.hidden = false;
-      developerMapElements.note.textContent =
-        'Crystal anchored. Click again to place another or toggle the tool to finish.';
-    }
     return true;
   }
 
+  function clearDeveloperTowersFromUI() {
+    const playfield = getPlayfield();
+    if (!playfield || typeof playfield.clearDeveloperTowers !== 'function') {
+      setLevelEditorStatus('Enter an interactive defense to clear developer towers.', { tone: 'warning' });
+      return;
+    }
+    const removed = playfield.clearDeveloperTowers({ silent: false });
+    if (removed > 0) {
+      const suffix = removed === 1 ? '' : 's';
+      setLevelEditorStatus(`Cleared ${removed} developer tower${suffix}.`, { tone: 'info' });
+    } else {
+      setLevelEditorStatus('No developer towers to clear.', { tone: 'warning' });
+    }
+  }
+
   function handleDeveloperMapPlacementRequest(context = {}) {
-    if (developerMapPlacementState.mode !== 'crystal' || !isDeveloperModeActive()) {
+    if (!isDeveloperModeActive() || !developerMapToolsActive) {
       return false;
     }
     if (!context || !context.normalized) {
       return false;
     }
-    if (!developerMapToolsActive) {
+
+    const mode = developerMapPlacementState.mode;
+    const playfield = context.playfield || getPlayfield();
+
+    // Handle crystal placement
+    if (mode === 'crystal') {
+      return placeDeveloperCrystal(context.normalized);
+    }
+
+    // Handle tower placement
+    if (mode === 'tower') {
+      if (!playfield || typeof playfield.addDeveloperTower !== 'function') {
+        setLevelEditorStatus('Active battlefield required before placing towers.', { tone: 'warning' });
+        return false;
+      }
+      const towerType = developerMapPlacementState.towerType;
+      const placed = playfield.addDeveloperTower(context.normalized, { towerType });
+      if (placed) {
+        setLevelEditorStatus(`${towerType.toUpperCase()} tower placed on battlefield.`, {
+          tone: 'info',
+          duration: 2400,
+        });
+        return true;
+      }
+      setLevelEditorStatus('Tower placement failed—check positioning and range.', { tone: 'error' });
       return false;
     }
-    return placeDeveloperCrystal(context.normalized);
+
+    // Handle erase mode
+    if (mode === 'erase') {
+      if (!playfield || !context.position) {
+        return false;
+      }
+      // Try to remove crystal at position
+      if (typeof playfield.findCrystalAt === 'function' && typeof playfield.removeDeveloperCrystal === 'function') {
+        const crystal = playfield.findCrystalAt(context.position);
+        if (crystal) {
+          const removed = playfield.removeDeveloperCrystal(crystal.id);
+          if (removed) {
+            setLevelEditorStatus('Crystal removed from battlefield.', { tone: 'info', duration: 2000 });
+            return true;
+          }
+        }
+      }
+      // Try to remove tower at position
+      if (typeof playfield.findDeveloperTowerAt === 'function' && typeof playfield.removeDeveloperTower === 'function') {
+        const tower = playfield.findDeveloperTowerAt(context.position);
+        if (tower) {
+          const removed = playfield.removeDeveloperTower(tower.id);
+          if (removed) {
+            setLevelEditorStatus('Tower removed from battlefield.', { tone: 'info', duration: 2000 });
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    // Path mode doesn't use this handler
+    return false;
   }
 
   function clearDeveloperCrystalsFromUI() {
@@ -790,7 +897,6 @@ export function createLevelEditorController({
     } else {
       setLevelEditorStatus('No developer crystals to clear.', { tone: 'warning' });
     }
-    setDeveloperMapPlacementMode(null);
   }
 
   function updateDeveloperMapElementsVisibility() {
@@ -802,42 +908,91 @@ export function createLevelEditorController({
     container.hidden = !isDeveloperModeActive() || !toolsActive;
     container.setAttribute('aria-hidden', container.hidden ? 'true' : 'false');
     if (!toolsActive) {
-      setDeveloperMapPlacementMode(null);
+      setDeveloperMapPlacementMode('path');
       if (developerMapElements.note) {
         developerMapElements.note.hidden = true;
         developerMapElements.note.textContent = '';
       }
-    } else if (developerMapElements.note && developerMapPlacementState.mode === 'crystal') {
-      developerMapElements.note.hidden = false;
-      developerMapElements.note.textContent =
-        'Click the battlefield to anchor a solid crystal obstruction.';
+    } else {
+      // Update note based on current mode
+      setDeveloperMapPlacementMode(developerMapPlacementState.mode || 'path');
     }
   }
 
   function initializeDeveloperMapElements() {
     developerMapElements.container = document.getElementById('developer-map-elements');
-    developerMapElements.addCrystalButton = document.getElementById('developer-add-crystal');
-    developerMapElements.clearButton = document.getElementById('developer-clear-crystals');
+    developerMapElements.clearCrystalsButton = document.getElementById('developer-clear-crystals');
+    developerMapElements.clearTowersButton = document.getElementById('developer-clear-towers');
     developerMapElements.note = document.getElementById('developer-map-elements-note');
+    developerMapElements.toolOptionsContainer = document.getElementById('tool-options-container');
 
-    if (developerMapElements.addCrystalButton) {
-      developerMapElements.addCrystalButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        if (!isDeveloperModeActive()) {
-          setLevelEditorStatus('Enable developer mode to place map elements.', { tone: 'warning' });
-          return;
+    // Initialize palette tool buttons
+    const toolModes = ['path', 'crystal', 'tower', 'erase'];
+    toolModes.forEach((mode) => {
+      const button = document.getElementById(`palette-tool-${mode}`);
+      if (button) {
+        developerMapElements.paletteTools[mode] = button;
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          if (!isDeveloperModeActive()) {
+            setLevelEditorStatus('Enable developer mode to use map tools.', { tone: 'warning' });
+            return;
+          }
+          setDeveloperMapPlacementMode(mode);
+        });
+      }
+    });
+
+    // Initialize crystal options
+    developerMapElements.crystalOptions.group = document.getElementById('tool-options-crystal');
+    developerMapElements.crystalOptions.integrityInput = document.getElementById('crystal-integrity-input');
+    developerMapElements.crystalOptions.theroInput = document.getElementById('crystal-thero-input');
+
+    if (developerMapElements.crystalOptions.integrityInput) {
+      developerMapElements.crystalOptions.integrityInput.addEventListener('change', (event) => {
+        const value = parseInt(event.target.value, 10);
+        if (Number.isFinite(value) && value >= 10) {
+          developerMapPlacementState.crystalIntegrity = value;
         }
-        setDeveloperMapPlacementMode('crystal');
       });
     }
 
-    if (developerMapElements.clearButton) {
-      developerMapElements.clearButton.addEventListener('click', (event) => {
+    if (developerMapElements.crystalOptions.theroInput) {
+      developerMapElements.crystalOptions.theroInput.addEventListener('change', (event) => {
+        const value = parseInt(event.target.value, 10);
+        if (Number.isFinite(value) && value >= 0) {
+          developerMapPlacementState.crystalThero = value;
+        }
+      });
+    }
+
+    // Initialize tower options
+    developerMapElements.towerOptions.group = document.getElementById('tool-options-tower');
+    developerMapElements.towerOptions.typeSelect = document.getElementById('tower-type-select');
+
+    if (developerMapElements.towerOptions.typeSelect) {
+      developerMapElements.towerOptions.typeSelect.addEventListener('change', (event) => {
+        developerMapPlacementState.towerType = event.target.value || 'alpha';
+      });
+    }
+
+    // Initialize clear buttons
+    if (developerMapElements.clearCrystalsButton) {
+      developerMapElements.clearCrystalsButton.addEventListener('click', (event) => {
         event.preventDefault();
         clearDeveloperCrystalsFromUI();
       });
     }
 
+    if (developerMapElements.clearTowersButton) {
+      developerMapElements.clearTowersButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        clearDeveloperTowersFromUI();
+      });
+    }
+
+    // Set initial mode and update visibility
+    setDeveloperMapPlacementMode('path');
     updateDeveloperMapElementsVisibility();
   }
 
