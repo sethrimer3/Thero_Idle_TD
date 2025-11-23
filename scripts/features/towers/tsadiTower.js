@@ -1430,6 +1430,7 @@ export class ParticleFusionSimulation {
       const combinations = tiersPresent.length >= 2 ? generateTierCombinations(tiersPresent) : [];
       agent.activeMolecules = [];
       let discoveredNewMolecule = false;
+      let queuedManualDiscovery = false;
       const autoCodex = this.isAutoCodexUnlocked();
       for (const combo of combinations) {
         const descriptor = this.createCombinationDescriptor(combo);
@@ -1449,6 +1450,17 @@ export class ParticleFusionSimulation {
         } else {
           this.queuePendingMolecule(agent, descriptor);
           discoveredNewMolecule = true;
+          queuedManualDiscovery = true;
+        }
+      }
+
+      // Immediately process queued discoveries so the explosion, knockback, and codex entry
+      // happen without requiring a manual tap before Auto-Codex unlocks.
+      if (queuedManualDiscovery) {
+        const processed = this.processPendingMolecules(agent);
+        if (processed) {
+          // Agent is removed during processing, so skip further constraint handling.
+          continue;
         }
       }
       if (discoveredNewMolecule && autoCodex) {
