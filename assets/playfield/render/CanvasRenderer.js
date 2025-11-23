@@ -1142,6 +1142,7 @@ function drawPlacementPreview() {
     towerType,
     definition,
     tier,
+    connections,
   } = this.hoverPlacement;
 
   ctx.save();
@@ -1159,6 +1160,25 @@ function drawPlacementPreview() {
   ctx.arc(position.x, position.y, Math.max(12, radius), 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
+
+  // Visualize valid κ tripwire links so players can see pending connections.
+  const connectionPreviews = Array.isArray(connections) ? connections : [];
+  if (connectionPreviews.length) {
+    ctx.save();
+    ctx.setLineDash([8, 6]);
+    ctx.lineWidth = 2.2;
+    connectionPreviews.forEach((connection) => {
+      const baseStroke = connection.kappaPair
+        ? 'rgba(255, 228, 120, 0.85)'
+        : 'rgba(139, 247, 255, 0.85)';
+      ctx.strokeStyle = valid ? baseStroke : 'rgba(255, 112, 112, 0.75)';
+      ctx.beginPath();
+      ctx.moveTo(connection.from.x, connection.from.y);
+      ctx.lineTo(connection.to.x, connection.to.y);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
 
   if (merge && mergeTarget) {
     ctx.setLineDash([6, 6]);

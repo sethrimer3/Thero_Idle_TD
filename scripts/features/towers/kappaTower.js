@@ -26,12 +26,16 @@ function resolveKappaColor() {
   return { r: 139, g: 247, b: 255 };
 }
 
-function refreshKappaParameters(playfield, tower, state) {
-  const blueprint = getTowerEquationBlueprint('kappa');
+function resolveKappaParameters(playfield) {
+  /**
+   * Kappa attack leans on multiplicative synergy across α, β, and γ.
+   * Formula: attack = α × β × γ
+   */
   const gamma = Math.max(0, calculateTowerEquationResult('gamma') || 0);
   const beta = Math.max(0, calculateTowerEquationResult('beta') || 0);
   const alpha = Math.max(0, calculateTowerEquationResult('alpha') || 0);
   const attack = gamma * beta * alpha;
+  const blueprint = getTowerEquationBlueprint('kappa');
   const chargeRateValue = computeTowerVariableValue('kappa', 'chargeRate', blueprint);
   const rangeMetersValue = computeTowerVariableValue('kappa', 'rangeMeters', blueprint);
   const amplitudeValue = computeTowerVariableValue('kappa', 'amplitudeMultiplier', blueprint);
@@ -58,19 +62,34 @@ function refreshKappaParameters(playfield, tower, state) {
     : 1;
   const rangePixels = Math.max(24, metersToPixels(rangeMeters, minDimension));
 
-  state.attack = attack;
-  state.chargeRate = chargeRate;
-  state.rangeMeters = rangeMeters;
-  state.rangePixels = rangePixels;
-  state.maxDamageMultiplier = Math.max(1, amplitudeMultiplier);
-  state.waveAmplitudeFactor = 0.08 + 0.02 * Math.log1p(state.maxDamageMultiplier);
-  state.waveFrequency = BASE_WAVE_FREQUENCY;
-  state.flashDuration = FLASH_DURATION;
+  return {
+    attack,
+    chargeRate,
+    rangeMeters,
+    rangePixels,
+    maxDamageMultiplier: Math.max(1, amplitudeMultiplier),
+    waveAmplitudeFactor: 0.08 + 0.02 * Math.log1p(Math.max(1, amplitudeMultiplier)),
+    waveFrequency: BASE_WAVE_FREQUENCY,
+    flashDuration: FLASH_DURATION,
+  };
+}
 
-  tower.damage = attack;
-  tower.baseDamage = attack;
-  tower.range = rangePixels;
-  tower.baseRange = rangePixels;
+function refreshKappaParameters(playfield, tower, state) {
+  const parameters = resolveKappaParameters(playfield);
+
+  state.attack = parameters.attack;
+  state.chargeRate = parameters.chargeRate;
+  state.rangeMeters = parameters.rangeMeters;
+  state.rangePixels = parameters.rangePixels;
+  state.maxDamageMultiplier = parameters.maxDamageMultiplier;
+  state.waveAmplitudeFactor = parameters.waveAmplitudeFactor;
+  state.waveFrequency = parameters.waveFrequency;
+  state.flashDuration = parameters.flashDuration;
+
+  tower.damage = parameters.attack;
+  tower.baseDamage = parameters.attack;
+  tower.range = parameters.rangePixels;
+  tower.baseRange = parameters.rangePixels;
   tower.rate = 0;
   tower.baseRate = 0;
 }
@@ -136,6 +155,13 @@ export function ensureKappaState(playfield, tower) {
   return state;
 }
 
+/**
+ * Surface kappa preview parameters so placement UI can mirror real connection reach.
+ */
+export function getKappaPreviewParameters(playfield) {
+  return resolveKappaParameters(playfield);
+}
+
 export function teardownKappaTower(playfield, tower) {
   if (!tower?.kappaState) {
     return;
@@ -195,7 +221,12 @@ export function updateKappaTower(playfield, tower, delta) {
       return;
     }
 
-    entry.charge = Math.min(1, Math.max(0, (entry.charge || 0) + chargeRate * delta));
+    // Dual κ links supercharge the conduit (double charge rate, squared damage).
+    const kappaSynergy = target.type === 'kappa' ? 2 : 1;
+    entry.charge = Math.min(
+      1,
+      Math.max(0, (entry.charge || 0) + chargeRate * kappaSynergy * delta),
+    );
     entry.phase = (entry.phase || 0) + state.waveFrequency * delta;
     entry.flashTimer = Math.max(0, (entry.flashTimer || 0) - delta);
 
@@ -250,7 +281,8 @@ export function updateKappaTower(playfield, tower, delta) {
     }
 
     const multiplier = 1 + damageMultiplierSpan * Math.max(0, Math.min(1, entry.charge || 0));
-    const damage = (state.attack || 0) * multiplier;
+    const baseDamage = (state.attack || 0) * multiplier;
+    const damage = target.type === 'kappa' ? baseDamage * baseDamage : baseDamage;
     if (damage > 0) {
       playfield.applyDamageToEnemy(hitEnemy, damage, { sourceTower: tower });
     }
