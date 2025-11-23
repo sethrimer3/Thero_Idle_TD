@@ -93,6 +93,7 @@ export class FluidTerrariumTrees {
 
     this.treeLayer = null;
     this.badgeLayer = null;
+    this.controlCluster = null;
     this.levelButton = null;
     this.storeButton = null;
     this.storePanel = null;
@@ -114,6 +115,8 @@ export class FluidTerrariumTrees {
     this.treeState = storedState.trees && typeof storedState.trees === 'object' ? { ...storedState.trees } : {};
     this.levelingMode =
       typeof storedState.levelingMode === 'boolean' ? storedState.levelingMode : true;
+    this.cameraMode = Boolean(storedState.cameraMode);
+    this.isStoreOpen = typeof storedState.buttonMenuOpen === 'boolean' ? storedState.buttonMenuOpen : this.isStoreOpen;
 
     this.getSerendipityBalance =
       typeof options.getSerendipityBalance === 'function' ? options.getSerendipityBalance : () => 0;
@@ -308,6 +311,7 @@ export class FluidTerrariumTrees {
   toggleStorePanel(forceState, options = {}) {
     const nextState = typeof forceState === 'boolean' ? forceState : !this.isStoreOpen;
     const preserveSelection = Boolean(options?.preserveSelection);
+    const suppressEmit = Boolean(options?.suppressEmit);
     this.isStoreOpen = nextState;
     
     // Update buttonMenuOpen state in powderState
@@ -329,6 +333,10 @@ export class FluidTerrariumTrees {
       }
       this.hidePlacementPreview();
       this.setStoreStatus(STORE_STATUS_DEFAULT);
+    }
+
+    if (!suppressEmit) {
+      this.emitState();
     }
   }
 
@@ -624,6 +632,7 @@ export class FluidTerrariumTrees {
     this.levelButton = levelButton;
     this.storeButton = storeButton;
     this.storePanel = storePanel;
+    this.controlCluster = controlCluster;
 
     controlCluster.appendChild(levelButton);
     controlCluster.appendChild(storeButton);
@@ -649,6 +658,8 @@ export class FluidTerrariumTrees {
     }
 
     this.syncLevelingMode();
+    this.toggleStorePanel(this.isStoreOpen, { preserveSelection: true, suppressEmit: true });
+    this.setCameraMode(this.cameraMode, { notifyHost: false });
     this.refreshBounds();
   }
 
@@ -942,12 +953,46 @@ export class FluidTerrariumTrees {
   }
 
   /**
+   * Toggle camera mode visuals so the on-render buttons disappear when panning is active.
+   * @param {boolean} enabled
+   * @param {{notifyHost?: boolean}} [options]
+   */
+  setCameraMode(enabled, options = {}) {
+    const nextState = Boolean(enabled);
+    const notifyHost = options.notifyHost !== false;
+    if (this.cameraMode === nextState && !notifyHost) {
+      return;
+    }
+    this.cameraMode = nextState;
+
+    if (this.controlCluster) {
+      this.controlCluster.classList.toggle('fluid-tree-control-cluster--hidden', this.cameraMode);
+    }
+    if (this.container) {
+      this.container.classList.toggle('fluid-terrarium--camera-mode', this.cameraMode);
+    }
+    if (this.overlay) {
+      this.overlay.classList.toggle('fluid-terrarium__trees--camera-mode', this.cameraMode);
+    }
+
+    if (this.cameraMode && this.isStoreOpen) {
+      this.toggleStorePanel(false, { preserveSelection: true, suppressEmit: !notifyHost });
+    }
+
+    if (notifyHost) {
+      this.emitState();
+    }
+  }
+
+  /**
    * Persist the current terrarium leveling state to the host container.
    */
   emitState() {
     this.onStateChange({
       levelingMode: this.levelingMode,
       trees: { ...this.treeState },
+      buttonMenuOpen: Boolean(this.isStoreOpen),
+      cameraMode: this.cameraMode,
     });
   }
 

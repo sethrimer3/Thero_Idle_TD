@@ -5079,6 +5079,98 @@ body.graphics-mode-low .control-button {
   touch-action: none;
 }
 
+.fluid-viewport--camera-locked {
+  pointer-events: none;
+  touch-action: auto;
+}
+
+.fluid-camera-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 0 0;
+}
+
+.fluid-camera-toggle__button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font-weight: 600;
+  text-align: left;
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.fluid-camera-toggle__button.is-active {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.fluid-camera-toggle__label {
+  font-family: "Cormorant Garamond", serif;
+  letter-spacing: 0.02em;
+}
+
+.fluid-camera-toggle__pill {
+  position: relative;
+  width: 48px;
+  height: 24px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.fluid-camera-toggle__thumb {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+  transform: translateX(0);
+  transition: transform 180ms ease;
+}
+
+.fluid-camera-toggle__button.is-active .fluid-camera-toggle__thumb {
+  transform: translateX(22px);
+}
+
+.fluid-camera-toggle__state {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+}
+
+.fluid-camera-toggle__hint {
+  margin: 0;
+  flex: 1.15;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.fluid-tree-control-cluster--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fluid-terrarium--camera-mode {
+  cursor: grab;
+}
+
+.fluid-terrarium__trees--camera-mode {
+  pointer-events: none;
+}
+
 
 .fluid-metrics-card {
   min-height: 0;
