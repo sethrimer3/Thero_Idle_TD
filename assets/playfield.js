@@ -1944,7 +1944,6 @@ export class SimplePlayfield {
     const segments = [];
     let totalLength = 0;
     // Calculate speed multipliers for segments based on interpolation between original path points
-    const originalPathLength = points.length;
     for (let index = 0; index < smoothPoints.length - 1; index += 1) {
       const start = smoothPoints[index];
       const end = smoothPoints[index + 1];
@@ -1953,11 +1952,13 @@ export class SimplePlayfield {
       // Find which original path segment this smooth segment corresponds to
       // and interpolate the speed multiplier accordingly
       let speedMultiplier = 1;
-      if (start.speedMultiplier !== undefined && end.speedMultiplier !== undefined) {
+      if (Number.isFinite(start.speedMultiplier) && Number.isFinite(end.speedMultiplier)) {
         // Average the speed multipliers at the start and end of this segment
         speedMultiplier = (start.speedMultiplier + end.speedMultiplier) / 2;
-      } else {
-        speedMultiplier = start.speedMultiplier || end.speedMultiplier || 1;
+      } else if (Number.isFinite(start.speedMultiplier)) {
+        speedMultiplier = start.speedMultiplier;
+      } else if (Number.isFinite(end.speedMultiplier)) {
+        speedMultiplier = end.speedMultiplier;
       }
       
       segments.push({ start, end, length, speedMultiplier });
@@ -2125,8 +2126,8 @@ export class SimplePlayfield {
         const y = this.catmullRom(previous.y, current.y, next.y, afterNext.y, t);
         
         // Interpolate speed multiplier between current and next points
-        const currentSpeed = current.speedMultiplier !== undefined ? current.speedMultiplier : 1;
-        const nextSpeed = next.speedMultiplier !== undefined ? next.speedMultiplier : 1;
+        const currentSpeed = Number.isFinite(current.speedMultiplier) ? current.speedMultiplier : 1;
+        const nextSpeed = Number.isFinite(next.speedMultiplier) ? next.speedMultiplier : 1;
         const speedMultiplier = currentSpeed + (nextSpeed - currentSpeed) * t;
         
         const point = { x, y, speedMultiplier };
@@ -2138,7 +2139,8 @@ export class SimplePlayfield {
 
     const lastPoint = points[points.length - 1];
     if (!smooth.length || this.distanceBetween(smooth[smooth.length - 1], lastPoint) > 0) {
-      smooth.push({ ...lastPoint });
+      const speedMultiplier = Number.isFinite(lastPoint.speedMultiplier) ? lastPoint.speedMultiplier : 1;
+      smooth.push({ ...lastPoint, speedMultiplier });
     }
 
     return smooth;
