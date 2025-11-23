@@ -1119,7 +1119,7 @@ export class ParticleFusionSimulation {
     if (!agent || !Array.isArray(agent.pendingDiscoveries) || !agent.pendingDiscoveries.length) {
       return false;
     }
-    let recorded = false;
+    let discoveredNew = false;
     while (agent.pendingDiscoveries.length) {
       const descriptor = agent.pendingDiscoveries.shift();
       if (!descriptor) {
@@ -1127,13 +1127,14 @@ export class ParticleFusionSimulation {
       }
       this.pendingMoleculeIds.delete(descriptor.id);
       if (this.finalizeMoleculeDiscovery(descriptor)) {
-        recorded = true;
+        discoveredNew = true;
       }
     }
     agent.pendingDiscoveries = [];
     agent.awaitingCodexTap = false;
-    this.popBindingAgent(agent);
-    return recorded;
+    // Trigger explosion effect when manually collecting new discoveries
+    this.popBindingAgent(agent, discoveredNew);
+    return discoveredNew;
   }
 
   collectPendingMoleculesAt(position) {
@@ -1205,25 +1206,61 @@ export class ParticleFusionSimulation {
   /**
    * Release all bonds on a binding agent after a successful discovery.
    * @param {Object} agent - Binding agent whose connections should be cleared.
+   * @param {boolean} withExplosion - Whether to create an explosion effect and remove the agent.
    */
-  popBindingAgent(agent) {
+  popBindingAgent(agent, withExplosion = false) {
     if (!agent) {
       return;
     }
     const particleMap = new Map(this.particles.map((particle) => [particle.id, particle]));
-    agent.connections.forEach((connection) => {
-      const particle = particleMap.get(connection.particleId);
-      if (particle) {
-        // Nudge attached particles apart so the release is visible.
-        particle.vx += (Math.random() - 0.5) * 0.4;
-        particle.vy += (Math.random() - 0.5) * 0.4;
+    
+    if (withExplosion) {
+      // Create explosion effect at the binding agent's location
+      const explosionRadius = this.getBindingAgentRadius() * 4;
+      this.fusionEffects.push(
+        { x: agent.x, y: agent.y, radius: explosionRadius, alpha: 1, type: 'flash' },
+        { x: agent.x, y: agent.y, radius: explosionRadius * 0.7, alpha: 0.8, type: 'ring' }
+      );
+      
+      // Free particles with stronger outward momentum
+      agent.connections.forEach((connection) => {
+        const particle = particleMap.get(connection.particleId);
+        if (particle) {
+          const dx = particle.x - agent.x;
+          const dy = particle.y - agent.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          // Push particles outward from the explosion center
+          particle.vx += nx * 0.8;
+          particle.vy += ny * 0.8;
+        }
+      });
+      
+      // Remove the binding agent from the simulation
+      if (agent.id !== null && agent.id !== undefined) {
+        const agentIndex = this.bindingAgents.findIndex((a) => a.id === agent.id);
+        if (agentIndex !== -1) {
+          this.bindingAgents.splice(agentIndex, 1);
+        }
       }
-    });
-    agent.connections = [];
-    agent.activeMolecules = [];
-    agent.pendingDiscoveries = [];
-    agent.awaitingCodexTap = false;
-    agent.popTimer = Math.max(agent.popTimer || 0, 0.6);
+      // Don't refund the agent when it explodes with a discovery
+    } else {
+      // Standard pop without explosion - just release particles gently
+      agent.connections.forEach((connection) => {
+        const particle = particleMap.get(connection.particleId);
+        if (particle) {
+          // Nudge attached particles apart so the release is visible.
+          particle.vx += (Math.random() - 0.5) * 0.4;
+          particle.vy += (Math.random() - 0.5) * 0.4;
+        }
+      });
+      agent.connections = [];
+      agent.activeMolecules = [];
+      agent.pendingDiscoveries = [];
+      agent.awaitingCodexTap = false;
+      agent.popTimer = Math.max(agent.popTimer || 0, 0.6);
+    }
   }
 
   /**
@@ -1365,7 +1402,8 @@ export class ParticleFusionSimulation {
         }
       }
       if (discoveredNewMolecule && autoCodex) {
-        this.popBindingAgent(agent);
+        // Trigger explosion effect for newly discovered molecule
+        this.popBindingAgent(agent, true);
       }
 
       // Constrain connected particles to move as if joined by rigid, weightless rods.
@@ -2018,6 +2056,23 @@ export class ParticleFusionSimulation {
   }
 
   /**
+   * Check if a binding agent has a valid combination (at least 2 different tier particles).
+   * @param {Object} agent - The binding agent to check.
+   * @returns {boolean} True if the agent has a valid combination.
+   */
+  hasValidCombination(agent) {
+    if (!agent || !Array.isArray(agent.connections)) {
+      return false;
+    }
+    const uniqueTiers = new Set(
+      agent.connections
+        .filter((connection) => connection && Number.isFinite(connection.tier))
+        .map((connection) => connection.tier)
+    );
+    return uniqueTiers.size >= 2;
+  }
+
+  /**
    * Render binding agent anchors, their connections, and any placement preview.
    * @param {CanvasRenderingContext2D} ctx - Active 2D context.
    */
@@ -2025,9 +2080,14 @@ export class ParticleFusionSimulation {
     const particleMap = new Map(this.particles.map((particle) => [particle.id, particle]));
     const radius = this.getBindingAgentRadius();
 
-    const drawAgent = (agent, { isPreview = false, hasActiveMolecule = false } = {}) => {
+    const drawAgent = (agent, { isPreview = false, hasActiveMolecule = false, hasValidCombo = false } = {}) => {
       const baseColor = isPreview ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.9)';
-      const bondColor = hasActiveMolecule ? 'rgba(255, 215, 130, 0.9)' : 'rgba(180, 200, 255, 0.7)';
+      // Yellow color for valid combinations, otherwise the existing color scheme
+      const bondColor = hasValidCombo
+        ? 'rgba(255, 220, 80, 0.9)'
+        : hasActiveMolecule
+          ? 'rgba(255, 215, 130, 0.9)'
+          : 'rgba(180, 200, 255, 0.7)';
       const triangleRadius = radius * 1.5;
       const cornerRadius = radius * 0.55;
       const angleOffset = -Math.PI / 2;
@@ -2075,6 +2135,8 @@ export class ParticleFusionSimulation {
     for (const agent of this.bindingAgents) {
       const hasActiveMolecule =
         agent.awaitingCodexTap || (agent.activeMolecules?.length || 0) > 0 || (agent.popTimer || 0) > 0;
+      const hasValidCombo = this.hasValidCombination(agent);
+      
       for (const connection of agent.connections) {
         const target = particleMap.get(connection.particleId);
         if (!target) continue;
@@ -2088,9 +2150,12 @@ export class ParticleFusionSimulation {
         const endX = agent.x + nx * reach;
         const endY = agent.y + ny * reach;
 
-        const connectionColor = hasActiveMolecule
-          ? 'rgba(255, 215, 130, 0.8)'
-          : 'rgba(180, 220, 255, 0.7)';
+        // Yellow color for valid combinations, otherwise the existing color scheme
+        const connectionColor = hasValidCombo
+          ? 'rgba(255, 220, 80, 0.8)'
+          : hasActiveMolecule
+            ? 'rgba(255, 215, 130, 0.8)'
+            : 'rgba(180, 220, 255, 0.7)';
 
         ctx.save();
         ctx.strokeStyle = connectionColor;
@@ -2102,7 +2167,7 @@ export class ParticleFusionSimulation {
         ctx.restore();
       }
 
-      drawAgent(agent, { hasActiveMolecule });
+      drawAgent(agent, { hasActiveMolecule, hasValidCombo });
     }
   }
 
