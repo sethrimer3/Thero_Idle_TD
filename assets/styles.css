@@ -5269,7 +5269,8 @@ body.graphics-mode-low .control-button {
   top: 0;
   bottom: 0;
   width: clamp(36px, 14%, 68px);
-  --powder-wall-tile-height: 192px; /* Mirror POWDER_WALL_TEXTURE_REPEAT_PX so masonry tiles stay in phase. */
+  --powder-wall-tile-height: calc(var(--powder-wall-visual-width, clamp(36px, 14%, 68px)) * 8 / 3);
+  /* Keep masonry tiles at the native 1.5:4 sprite ratio (300px x 800px). */
   --powder-wall-shift: 0px; /* Updated by the viewport to keep wall sprites moving with rising glyphs. */
   display: flex;
   flex-direction: column;
