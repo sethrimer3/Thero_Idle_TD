@@ -1119,7 +1119,7 @@ export class ParticleFusionSimulation {
     if (!agent || !Array.isArray(agent.pendingDiscoveries) || !agent.pendingDiscoveries.length) {
       return false;
     }
-    let recorded = false;
+    let discoveredNew = false;
     while (agent.pendingDiscoveries.length) {
       const descriptor = agent.pendingDiscoveries.shift();
       if (!descriptor) {
@@ -1127,14 +1127,14 @@ export class ParticleFusionSimulation {
       }
       this.pendingMoleculeIds.delete(descriptor.id);
       if (this.finalizeMoleculeDiscovery(descriptor)) {
-        recorded = true;
+        discoveredNew = true;
       }
     }
     agent.pendingDiscoveries = [];
     agent.awaitingCodexTap = false;
-    // Trigger explosion effect when manually collecting discoveries
-    this.popBindingAgent(agent, recorded);
-    return recorded;
+    // Trigger explosion effect when manually collecting new discoveries
+    this.popBindingAgent(agent, discoveredNew);
+    return discoveredNew;
   }
 
   collectPendingMoleculesAt(position) {
@@ -1238,7 +1238,10 @@ export class ParticleFusionSimulation {
       });
       
       // Remove the binding agent from the simulation
-      this.bindingAgents = this.bindingAgents.filter((a) => a.id !== agent.id);
+      const agentIndex = this.bindingAgents.findIndex((a) => a.id === agent.id);
+      if (agentIndex !== -1) {
+        this.bindingAgents.splice(agentIndex, 1);
+      }
       // Don't refund the agent when it explodes with a discovery
     } else {
       // Standard pop without explosion - just release particles gently
