@@ -87,7 +87,10 @@ import {
 import {
   updateGammaBursts as updateGammaBurstsHelper,
 } from '../scripts/features/towers/gammaTower.js';
-import { updateKappaTower as updateKappaTowerHelper } from '../scripts/features/towers/kappaTower.js';
+import {
+  getKappaPreviewParameters as getKappaPreviewParametersHelper,
+  updateKappaTower as updateKappaTowerHelper,
+} from '../scripts/features/towers/kappaTower.js';
 import { updateLambdaTower as updateLambdaTowerHelper } from '../scripts/features/towers/lambdaTower.js';
 import {
   ensureMuState as ensureMuStateHelper,
@@ -2842,10 +2845,23 @@ export class SimplePlayfield {
         this.hoverPlacement.range = Number.isFinite(previewTower.range)
           ? previewTower.range
           : baseRange;
+      } else if (this.hoverPlacement.towerType === 'kappa') {
+        const kappaPreview = getKappaPreviewParametersHelper(this);
+        const rangeFactor = definition ? definition.range : 0.24;
+        const fallbackRange = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
+        this.hoverPlacement.range = kappaPreview?.rangePixels || fallbackRange;
       } else {
         const rangeFactor = definition ? definition.range : 0.24;
         this.hoverPlacement.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
       }
+      this.hoverPlacement.connections = this.computePlacementConnections(
+        this.hoverPlacement.position,
+        {
+          towerType: this.hoverPlacement.towerType,
+          range: this.hoverPlacement.range,
+          mergeTarget: this.hoverPlacement.mergeTarget,
+        },
+      );
     }
   }
 
@@ -2863,6 +2879,55 @@ export class SimplePlayfield {
 
   handleCanvasPointerUp(event) {
     return InputController.handleCanvasPointerUp.call(this, event);
+  }
+
+  /**
+   * Build a list of valid κ tripwire previews so the placement overlay can render connections.
+   */
+  computePlacementConnections(position, { towerType, range, mergeTarget } = {}) {
+    const connections = [];
+    if (!position || !towerType || !Number.isFinite(range) || range <= 0) {
+      return connections;
+    }
+
+    if (towerType === 'kappa') {
+      this.towers?.forEach?.((candidate) => {
+        if (!candidate || candidate.id === mergeTarget?.id) {
+          return;
+        }
+        const dx = candidate.x - position.x;
+        const dy = candidate.y - position.y;
+        const distance = Math.hypot(dx, dy);
+        if (Number.isFinite(distance) && distance > 0 && distance <= range) {
+          connections.push({
+            from: { ...position },
+            to: { x: candidate.x, y: candidate.y },
+            kappaPair: candidate.type === 'kappa',
+          });
+        }
+      });
+      return connections;
+    }
+
+    this.towers?.forEach?.((candidate) => {
+      if (!candidate || candidate.type !== 'kappa') {
+        return;
+      }
+      this.ensureKappaState(candidate);
+      const connectionRange = Math.max(0, candidate.kappaState?.rangePixels || candidate.range || 0);
+      const dx = position.x - candidate.x;
+      const dy = position.y - candidate.y;
+      const distance = Math.hypot(dx, dy);
+      if (Number.isFinite(distance) && distance > 0 && distance <= connectionRange) {
+        connections.push({
+          from: { x: candidate.x, y: candidate.y },
+          to: { ...position },
+          kappaPair: true,
+        });
+      }
+    });
+
+    return connections;
   }
 
   updatePlacementPreview(normalized, options = {}) {
@@ -2939,10 +3004,19 @@ export class SimplePlayfield {
     }
 
     const rangeFactor = definition ? definition.range : 0.24;
+    const kappaPreview = towerType === 'kappa' ? getKappaPreviewParametersHelper(this) : null;
+    const previewRange = towerType === 'kappa' && kappaPreview?.rangePixels
+      ? kappaPreview.rangePixels
+      : Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
+    const connections = this.computePlacementConnections(position, {
+      towerType,
+      range: previewRange,
+      mergeTarget: merging ? existing : null,
+    });
     this.hoverPlacement = {
       normalized: { ...placementNormalized },
       position,
-      range: Math.min(this.renderWidth, this.renderHeight) * rangeFactor,
+      range: previewRange,
       valid,
       reason,
       towerType,
@@ -2953,6 +3027,7 @@ export class SimplePlayfield {
       symbol: definition?.symbol || '·',
       definition: definition || null,
       tier: Number.isFinite(definition?.tier) ? definition.tier : null,
+      connections,
     };
   }
 
