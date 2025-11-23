@@ -1238,8 +1238,8 @@ export class ParticleFusionSimulation {
       });
       
       // Remove the binding agent from the simulation
-      if (agent.id != null) {
-        const agentIndex = this.bindingAgents.findIndex((a) => a && a.id === agent.id);
+      if (agent.id !== null && agent.id !== undefined) {
+        const agentIndex = this.bindingAgents.findIndex((a) => a.id === agent.id);
         if (agentIndex !== -1) {
           this.bindingAgents.splice(agentIndex, 1);
         }
