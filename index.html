@@ -524,6 +524,44 @@
                   Click the battlefield to place anchors. Drag markers to adjust, or Shift-click to remove the nearest anchor.
                   <span class="overlay-editor__count" id="level-editor-count">0 points</span>
                 </p>
+                <div class="overlay-editor__speed-controls">
+                  <label class="overlay-editor__tool-option-label">
+                    <span>Map Speed Multiplier</span>
+                    <input
+                      type="number"
+                      class="overlay-editor__tool-input"
+                      id="map-speed-multiplier-input"
+                      value="1"
+                      min="0.1"
+                      max="10"
+                      step="0.1"
+                      title="Global speed multiplier for all enemies on this map"
+                    />
+                  </label>
+                  <label class="overlay-editor__tool-option-label">
+                    <span>Point Speed Multiplier</span>
+                    <input
+                      type="number"
+                      class="overlay-editor__tool-input"
+                      id="point-speed-multiplier-input"
+                      value="1"
+                      min="0.1"
+                      max="10"
+                      step="0.1"
+                      disabled
+                      title="Speed multiplier for the selected path point"
+                    />
+                  </label>
+                  <button 
+                    class="overlay-editor__button" 
+                    type="button" 
+                    id="apply-point-speed-button"
+                    disabled
+                    title="Apply the speed multiplier to the selected point"
+                  >
+                    Apply to Point
+                  </button>
+                </div>
                 <div class="overlay-editor__actions">
                   <button class="overlay-editor__button" type="button" id="level-editor-clear" disabled>
                     Clear All

@@ -1936,17 +1936,31 @@ export class SimplePlayfield {
     const points = this.levelConfig.path.map((node) => ({
       x: node.x * this.renderWidth,
       y: node.y * this.renderHeight,
+      speedMultiplier: Number.isFinite(node.speedMultiplier) ? node.speedMultiplier : 1,
     }));
 
     const smoothPoints = this.generateSmoothPathPoints(points, 14);
 
     const segments = [];
     let totalLength = 0;
+    // Calculate speed multipliers for segments based on interpolation between original path points
+    const originalPathLength = points.length;
     for (let index = 0; index < smoothPoints.length - 1; index += 1) {
       const start = smoothPoints[index];
       const end = smoothPoints[index + 1];
       const length = this.distanceBetween(start, end);
-      segments.push({ start, end, length });
+      
+      // Find which original path segment this smooth segment corresponds to
+      // and interpolate the speed multiplier accordingly
+      let speedMultiplier = 1;
+      if (start.speedMultiplier !== undefined && end.speedMultiplier !== undefined) {
+        // Average the speed multipliers at the start and end of this segment
+        speedMultiplier = (start.speedMultiplier + end.speedMultiplier) / 2;
+      } else {
+        speedMultiplier = start.speedMultiplier || end.speedMultiplier || 1;
+      }
+      
+      segments.push({ start, end, length, speedMultiplier });
       totalLength += length;
     }
 
@@ -2109,7 +2123,13 @@ export class SimplePlayfield {
         const t = step / steps;
         const x = this.catmullRom(previous.x, current.x, next.x, afterNext.x, t);
         const y = this.catmullRom(previous.y, current.y, next.y, afterNext.y, t);
-        const point = { x, y };
+        
+        // Interpolate speed multiplier between current and next points
+        const currentSpeed = current.speedMultiplier !== undefined ? current.speedMultiplier : 1;
+        const nextSpeed = next.speedMultiplier !== undefined ? next.speedMultiplier : 1;
+        const speedMultiplier = currentSpeed + (nextSpeed - currentSpeed) * t;
+        
+        const point = { x, y, speedMultiplier };
         if (!smooth.length || this.distanceBetween(smooth[smooth.length - 1], point) > 0.5) {
           smooth.push(point);
         }
@@ -8306,7 +8326,11 @@ export class SimplePlayfield {
       this.syncEnemyDebuffIndicators(enemy, activeDebuffs);
       const baseSpeed = Number.isFinite(enemy.baseSpeed) ? enemy.baseSpeed : 0;
       const speedMultiplier = this.resolveEnemySlowMultiplier(enemy);
-      const effectiveSpeed = Math.max(0, baseSpeed * speedMultiplier);
+      const pathSpeedMultiplier = this.getPathSpeedMultiplierAtProgress(enemy.progress);
+      const mapSpeedMultiplier = Number.isFinite(this.levelConfig?.mapSpeedMultiplier) 
+        ? this.levelConfig.mapSpeedMultiplier 
+        : 1;
+      const effectiveSpeed = Math.max(0, baseSpeed * speedMultiplier * pathSpeedMultiplier * mapSpeedMultiplier);
       enemy.speed = effectiveSpeed;
       enemy.progress += enemy.speed * delta;
       if (enemy.progress >= 1) {
@@ -9575,6 +9599,31 @@ export class SimplePlayfield {
 
     const lastSegment = this.pathSegments[this.pathSegments.length - 1];
     return lastSegment ? { ...lastSegment.end } : { x: 0, y: 0 };
+  }
+
+  /**
+   * Get the path speed multiplier at a given progress point.
+   * Returns the speed multiplier of the segment the enemy is currently on.
+   */
+  getPathSpeedMultiplierAtProgress(progress) {
+    if (!this.pathSegments.length) {
+      return 1;
+    }
+
+    const target = Math.min(progress, 1) * this.pathLength;
+    let traversed = 0;
+
+    for (let index = 0; index < this.pathSegments.length; index += 1) {
+      const segment = this.pathSegments[index];
+      if (traversed + segment.length >= target) {
+        return Number.isFinite(segment.speedMultiplier) ? segment.speedMultiplier : 1;
+      }
+      traversed += segment.length;
+    }
+
+    // Default to 1 if no segment found
+    const lastSegment = this.pathSegments[this.pathSegments.length - 1];
+    return lastSegment && Number.isFinite(lastSegment.speedMultiplier) ? lastSegment.speedMultiplier : 1;
   }
 
   getEnemyPosition(enemy) {

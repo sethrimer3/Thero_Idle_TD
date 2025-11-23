@@ -68,6 +68,9 @@ export function createLevelEditorController({
     exportButton: null,
     output: null,
     status: null,
+    mapSpeedInput: null,
+    pointSpeedInput: null,
+    applyPointSpeedButton: null,
   };
 
   const levelEditorState = {
@@ -76,10 +79,12 @@ export function createLevelEditorController({
     originalPoints: [],
     editing: false,
     draggingIndex: -1,
+    selectedPointIndex: -1,
     pointerId: null,
     canvasListenersAttached: false,
     listenerOptions: false,
     statusTimeout: null,
+    mapSpeedMultiplier: 1,
   };
 
   const developerMapElements = {
@@ -263,14 +268,72 @@ export function createLevelEditorController({
       }
       return;
     }
-    const points = levelEditorState.points.map((point) => ({
-      x: Number(point.x.toFixed(4)),
-      y: Number(point.y.toFixed(4)),
-    }));
-    levelEditorElements.output.value = JSON.stringify(points, null, 2);
+    const points = levelEditorState.points.map((point) => {
+      const result = {
+        x: Number(point.x.toFixed(4)),
+        y: Number(point.y.toFixed(4)),
+      };
+      // Only include speedMultiplier if it's not the default value of 1
+      if (Number.isFinite(point.speedMultiplier) && point.speedMultiplier !== 1) {
+        result.speedMultiplier = Number(point.speedMultiplier.toFixed(2));
+      }
+      return result;
+    });
+    
+    // Create output object with path and optional mapSpeedMultiplier
+    const output = { path: points };
+    if (Number.isFinite(levelEditorState.mapSpeedMultiplier) && levelEditorState.mapSpeedMultiplier !== 1) {
+      output.mapSpeedMultiplier = Number(levelEditorState.mapSpeedMultiplier.toFixed(2));
+    }
+    
+    levelEditorElements.output.value = JSON.stringify(output, null, 2);
     if (levelEditorElements.count) {
       levelEditorElements.count.textContent = `${points.length}`;
     }
+  }
+
+  function updatePointSpeedUI() {
+    if (!levelEditorElements.pointSpeedInput || !levelEditorElements.applyPointSpeedButton) {
+      return;
+    }
+    
+    const hasValidSelection = levelEditorState.selectedPointIndex >= 0 
+      && levelEditorState.selectedPointIndex < levelEditorState.points.length;
+    
+    levelEditorElements.pointSpeedInput.disabled = !hasValidSelection;
+    levelEditorElements.applyPointSpeedButton.disabled = !hasValidSelection;
+    
+    if (hasValidSelection) {
+      const point = levelEditorState.points[levelEditorState.selectedPointIndex];
+      const speed = Number.isFinite(point.speedMultiplier) ? point.speedMultiplier : 1;
+      levelEditorElements.pointSpeedInput.value = speed.toFixed(2);
+    } else {
+      levelEditorElements.pointSpeedInput.value = '1.00';
+    }
+  }
+
+  function applyPointSpeedMultiplier() {
+    if (levelEditorState.selectedPointIndex < 0 
+        || levelEditorState.selectedPointIndex >= levelEditorState.points.length) {
+      return;
+    }
+    
+    if (!levelEditorElements.pointSpeedInput) {
+      return;
+    }
+    
+    const value = parseFloat(levelEditorElements.pointSpeedInput.value);
+    if (!Number.isFinite(value) || value <= 0) {
+      setLevelEditorStatus('Speed multiplier must be a positive number.', { tone: 'error' });
+      return;
+    }
+    
+    levelEditorState.points[levelEditorState.selectedPointIndex].speedMultiplier = value;
+    applyLevelEditorPoints();
+    
+    const pointNum = levelEditorState.selectedPointIndex + 1;
+    const speedText = value.toFixed(2);
+    setLevelEditorStatus(`Point ${pointNum} speed set to ${speedText}×`, { tone: 'info', duration: 2000 });
   }
 
   function updateLevelEditorUI() {
@@ -397,7 +460,9 @@ export function createLevelEditorController({
   function clearLevelEditorPoints() {
     levelEditorState.points = [];
     levelEditorState.draggingIndex = -1;
+    levelEditorState.selectedPointIndex = -1;
     applyLevelEditorPoints();
+    updatePointSpeedUI();
     setLevelEditorStatus('Cleared all anchors. Click to plot a new path.', { tone: 'warning' });
   }
 
@@ -407,7 +472,9 @@ export function createLevelEditorController({
     }
     levelEditorState.points = levelEditorState.originalPoints.map((point) => ({ ...point }));
     levelEditorState.draggingIndex = -1;
+    levelEditorState.selectedPointIndex = -1;
     applyLevelEditorPoints();
+    updatePointSpeedUI();
     setLevelEditorStatus('Restored path from level configuration.');
   }
 
@@ -431,7 +498,18 @@ export function createLevelEditorController({
     levelEditorState.points = levelEditorState.originalPoints.map((point) => ({ ...point }));
     levelEditorState.editing = false;
     levelEditorState.draggingIndex = -1;
+    levelEditorState.selectedPointIndex = -1;
     levelEditorState.pointerId = null;
+    
+    // Load map speed multiplier from config
+    levelEditorState.mapSpeedMultiplier = Number.isFinite(config?.mapSpeedMultiplier) 
+      ? config.mapSpeedMultiplier 
+      : 1;
+    if (levelEditorElements.mapSpeedInput) {
+      levelEditorElements.mapSpeedInput.value = levelEditorState.mapSpeedMultiplier.toFixed(2);
+    }
+    
+    updatePointSpeedUI();
 
     const canvas = levelEditorSurface.canvas;
     if (isOverlayEditorSurface() && canvas && canvas.classList) {
@@ -451,10 +529,10 @@ export function createLevelEditorController({
     if (levelEditorElements.note) {
       if (isPlayfieldEditorSurface()) {
         levelEditorElements.note.textContent =
-          'Click the battlefield to place anchors. Drag markers to adjust, or Shift-click to remove the nearest anchor.';
+          'Click the battlefield to place anchors. Drag markers to adjust, Shift-click to remove, or Alt-click to select for speed editing.';
       } else {
         levelEditorElements.note.textContent =
-          'Click the preview to place anchors. Drag markers to adjust, or Shift-click to remove the nearest anchor.';
+          'Click the preview to place anchors. Drag markers to adjust, Shift-click to remove, or Alt-click to select for speed editing.';
       }
     }
     const readyMessage = isPlayfieldEditorSurface()
@@ -671,7 +749,16 @@ export function createLevelEditorController({
 
     const selectionThreshold = 0.04;
     if (nearest.index >= 0 && nearest.distance <= selectionThreshold) {
+      // Alt+click to select point for speed editing (without dragging)
+      if (event.altKey) {
+        levelEditorState.selectedPointIndex = nearest.index;
+        updatePointSpeedUI();
+        setLevelEditorStatus(`Point ${nearest.index + 1} selected for speed editing.`, { tone: 'info' });
+        return;
+      }
+      
       levelEditorState.draggingIndex = nearest.index;
+      levelEditorState.selectedPointIndex = nearest.index;
       levelEditorState.pointerId = event.pointerId;
       try {
         canvas.setPointerCapture(event.pointerId);
@@ -683,6 +770,7 @@ export function createLevelEditorController({
       }
       levelEditorState.points[nearest.index] = point;
       applyLevelEditorPoints();
+      updatePointSpeedUI();
       return;
     }
 
@@ -1006,6 +1094,30 @@ export function createLevelEditorController({
     levelEditorElements.exportButton = document.getElementById('level-editor-export');
     levelEditorElements.output = document.getElementById('level-editor-output');
     levelEditorElements.status = document.getElementById('level-editor-status');
+    levelEditorElements.mapSpeedInput = document.getElementById('map-speed-multiplier-input');
+    levelEditorElements.pointSpeedInput = document.getElementById('point-speed-multiplier-input');
+    levelEditorElements.applyPointSpeedButton = document.getElementById('apply-point-speed-button');
+
+    // Initialize map speed multiplier input
+    if (levelEditorElements.mapSpeedInput) {
+      levelEditorElements.mapSpeedInput.addEventListener('change', (event) => {
+        const value = parseFloat(event.target.value);
+        if (Number.isFinite(value) && value > 0) {
+          levelEditorState.mapSpeedMultiplier = value;
+          updateLevelEditorOutput();
+          setLevelEditorStatus(`Map speed multiplier set to ${value.toFixed(2)}×`, { tone: 'info', duration: 2000 });
+        }
+      });
+    }
+
+    // Initialize point speed multiplier button
+    if (levelEditorElements.applyPointSpeedButton) {
+      levelEditorElements.applyPointSpeedButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        applyPointSpeedMultiplier();
+      });
+    }
 
     if (levelEditorElements.toggle) {
       levelEditorElements.toggle.addEventListener('click', (event) => {
