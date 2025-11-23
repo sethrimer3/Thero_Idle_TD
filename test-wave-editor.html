@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Wave Editor Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .test { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background: #d4edda; }
+        .fail { background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>Wave Editor Multi-Enemy Test</h1>
+    <div id="results"></div>
+    <script type="module">
+        import { encodeWavesToCompact, parseCompactWaveString } from '/assets/waveEncoder.js';
+        
+        const results = document.getElementById('results');
+        
+        function test(name, fn) {
+            const div = document.createElement('div');
+            div.className = 'test';
+            try {
+                fn();
+                div.className += ' success';
+                div.innerHTML = `<strong>${name}</strong>: PASSED`;
+            } catch (e) {
+                div.className += ' fail';
+                div.innerHTML = `<strong>${name}</strong>: FAILED<br>${e.message}`;
+            }
+            results.appendChild(div);
+        }
+        
+        // Test 1: Encode multiple enemy types
+        test('Encode multiple enemy types', () => {
+            const waves = [{
+                interval: 1.5,
+                enemyGroups: [
+                    { count: 10, hp: 100, enemyType: 'A' },
+                    { count: 5, hp: 200, enemyType: 'B' }
+                ]
+            }];
+            const encoded = encodeWavesToCompact(waves);
+            if (!encoded.includes('+')) throw new Error('Expected + separator');
+            console.log('Encoded:', encoded);
+        });
+        
+        // Test 2: Decode multiple enemy types
+        test('Decode multiple enemy types', () => {
+            const waveString = '1:10A1e2+5B2e2/1.5';
+            const decoded = parseCompactWaveString(waveString);
+            if (decoded[0].enemyGroups.length !== 2) {
+                throw new Error(`Expected 2 groups, got ${decoded[0].enemyGroups.length}`);
+            }
+            console.log('Decoded:', decoded);
+        });
+        
+        // Test 3: Round-trip encode/decode
+        test('Round-trip encode/decode', () => {
+            const original = '1:10A1e2+5B2e2+3C5e2/1.5';
+            const decoded = parseCompactWaveString(original);
+            const encoded = encodeWavesToCompact(decoded);
+            const reParsed = parseCompactWaveString(encoded);
+            if (reParsed[0].enemyGroups.length !== 3) {
+                throw new Error(`Expected 3 groups, got ${reParsed[0].enemyGroups.length}`);
+            }
+            console.log('Round-trip successful');
+        });
+    </script>
+</body>
+</html>
