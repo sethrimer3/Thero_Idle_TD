@@ -24,10 +24,15 @@ export function sanitizeNormalizedPoint(point) {
   }
   const rawX = Number.isFinite(point.x) ? point.x : 0.5;
   const rawY = Number.isFinite(point.y) ? point.y : 0.5;
-  return {
+  const result = {
     x: clampNormalizedCoordinate(rawX),
     y: clampNormalizedCoordinate(rawY),
   };
+  // Preserve speedMultiplier if present
+  if (Number.isFinite(point.speedMultiplier)) {
+    result.speedMultiplier = point.speedMultiplier;
+  }
+  return result;
 }
 
 /**
