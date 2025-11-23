@@ -1212,7 +1212,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const advancedUnlocked = (tsadiSimulationInstance?.areAdvancedMoleculesUnlocked?.() ?? false)
       || highestTier >= ADVANCED_MOLECULE_UNLOCK_TIER;
     const advancedSentence = advancedUnlocked
-      ? ' Advances Particles Unlocked — duplicate-tier molecules now weave through chained Waals anchors.'
+      ? ' Advanced Particles Unlocked — duplicate-tier molecules can combine through chained Waals anchors.'
       : '';
     tsadiStatusNoteElement.textContent = `${TSADI_STATUS_BASE_MESSAGE}${advancedSentence ? ` ${advancedSentence}` : ''}`;
   }
