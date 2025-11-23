@@ -69,8 +69,8 @@ const LEGACY_MOLECULE_RECIPES = [
   },
 ];
 
-// Tier threshold that unlocks automatic codex recording for newly discovered molecules.
-const AUTO_CODEX_UNLOCK_TIER = 20;
+// Tier threshold that unlocks advanced molecule weaving with repeated particle tiers.
+const ADVANCED_MOLECULE_UNLOCK_TIER = 20;
 
 /**
  * Normalize and sort a tier list so combinations ignore permutation order.
@@ -110,6 +110,19 @@ function hasValidMoleculeVariety(tiers = []) {
   }
   const uniqueTiers = new Set(tiers);
   return uniqueTiers.size >= 2;
+}
+
+/**
+ * Determine if a tier list contains duplicate particle types, indicating an advanced molecule.
+ * @param {Array<number>} tiers - Tier list to inspect.
+ * @returns {boolean} True when any tier appears more than once.
+ */
+function hasDuplicateTier(tiers = []) {
+  if (!Array.isArray(tiers)) {
+    return false;
+  }
+  const unique = new Set(tiers);
+  return unique.size !== tiers.length;
 }
 
 /**
@@ -455,7 +468,7 @@ export class ParticleFusionSimulation {
     this.discoveredMolecules = new Set();
     this.discoveredMoleculeEntries = new Map();
     this.pendingMoleculeIds = new Set();
-    this.autoCodexUnlocked = false;
+    this.advancedMoleculesUnlocked = false;
     this.seedDiscoveredMolecules(
       Array.isArray(options.initialDiscoveredMolecules) ? options.initialDiscoveredMolecules : [],
     );
@@ -1200,12 +1213,16 @@ export class ParticleFusionSimulation {
     }
   }
 
-  isAutoCodexUnlocked() {
-    if (!this.autoCodexUnlocked && this.highestTierReached >= AUTO_CODEX_UNLOCK_TIER) {
-      this.autoCodexUnlocked = true;
-      this.flushPendingMolecules();
+  /**
+   * Check whether advanced molecule rules are unlocked via particle progression.
+   * Advanced molecules allow duplicate particle tiers bound through layered Waals anchors.
+   * @returns {boolean} True once the advanced molecule unlock tier is reached.
+   */
+  areAdvancedMoleculesUnlocked() {
+    if (!this.advancedMoleculesUnlocked && this.highestTierReached >= ADVANCED_MOLECULE_UNLOCK_TIER) {
+      this.advancedMoleculesUnlocked = true;
     }
-    return this.autoCodexUnlocked;
+    return this.advancedMoleculesUnlocked;
   }
 
   /**
@@ -1425,16 +1442,22 @@ export class ParticleFusionSimulation {
       }
 
       // Resolve molecule completion and discovery based on tier combinations.
-      // Now preserves duplicate tiers to allow molecules like [alpha, beta, alpha].
-      const tiersPresent = sortTierListWithDuplicates(agent.connections.map((connection) => connection.tier));
+      // Preserve duplicate tiers only when advanced molecules have been unlocked.
+      const advancedMoleculesUnlocked = this.areAdvancedMoleculesUnlocked();
+      const tiersPresent = advancedMoleculesUnlocked
+        ? sortTierListWithDuplicates(agent.connections.map((connection) => connection.tier))
+        : normalizeTierList(agent.connections.map((connection) => connection.tier));
       const combinations = tiersPresent.length >= 2 ? generateTierCombinations(tiersPresent) : [];
       agent.activeMolecules = [];
       let discoveredNewMolecule = false;
       let queuedManualDiscovery = false;
-      const autoCodex = this.isAutoCodexUnlocked();
       for (const combo of combinations) {
         const descriptor = this.createCombinationDescriptor(combo);
         if (!descriptor) {
+          continue;
+        }
+        const isAdvancedCombo = hasDuplicateTier(descriptor.tiers);
+        if (isAdvancedCombo && !advancedMoleculesUnlocked) {
           continue;
         }
         agent.activeMolecules.push(descriptor.id);
@@ -1443,19 +1466,13 @@ export class ParticleFusionSimulation {
         if (alreadyRecorded || pendingRecording) {
           continue;
         }
-        if (autoCodex) {
-          if (this.finalizeMoleculeDiscovery(descriptor)) {
-            discoveredNewMolecule = true;
-          }
-        } else {
-          this.queuePendingMolecule(agent, descriptor);
-          discoveredNewMolecule = true;
-          queuedManualDiscovery = true;
-        }
+        this.queuePendingMolecule(agent, descriptor);
+        discoveredNewMolecule = true;
+        queuedManualDiscovery = true;
       }
 
       // Immediately process queued discoveries so the explosion, knockback, and codex entry
-      // happen without requiring a manual tap before Auto-Codex unlocks.
+      // happen without requiring a manual tap even before advanced molecules unlock.
       if (queuedManualDiscovery) {
         const processed = this.processPendingMolecules(agent);
         if (processed) {
@@ -1463,11 +1480,6 @@ export class ParticleFusionSimulation {
           continue;
         }
       }
-      if (discoveredNewMolecule && autoCodex) {
-        // Trigger explosion effect for newly discovered molecule
-        this.popBindingAgent(agent, true);
-      }
-
       // Constrain connected particles to move as if joined by rigid, weightless rods.
       for (const connection of agent.connections) {
         const target = particleMap.get(connection.particleId);
@@ -1692,7 +1704,7 @@ export class ParticleFusionSimulation {
           letter: newTierInfo.letter,
         });
       }
-      this.isAutoCodexUnlocked();
+      this.areAdvancedMoleculesUnlocked();
     }
   }
   
@@ -1771,7 +1783,7 @@ export class ParticleFusionSimulation {
           letter: tierInfo.letter,
         });
       }
-      this.isAutoCodexUnlocked();
+      this.areAdvancedMoleculesUnlocked();
     }
   }
   
@@ -1853,6 +1865,7 @@ export class ParticleFusionSimulation {
   resetSimulation() {
     this.particles = [];
     this.highestTierReached = NULL_TIER;
+    this.advancedMoleculesUnlocked = false;
     this.fusionEffects = [];
     this.alephParticleId = null;
     this.alephAbsorptionCount = 0;
@@ -2466,7 +2479,7 @@ export class ParticleFusionSimulation {
     
     if (typeof state.highestTierReached === 'number') {
       this.highestTierReached = state.highestTierReached;
-      this.autoCodexUnlocked = this.highestTierReached >= AUTO_CODEX_UNLOCK_TIER;
+      this.advancedMoleculesUnlocked = this.highestTierReached >= ADVANCED_MOLECULE_UNLOCK_TIER;
     }
 
     if (typeof state.glyphCount === 'number') {
@@ -2720,4 +2733,4 @@ function getGreekTierInfo(tier) {
 }
 
 // Export helper utilities for external use
-export { tierToColor, getGreekTierInfo };
+export { tierToColor, getGreekTierInfo, ADVANCED_MOLECULE_UNLOCK_TIER };
