@@ -103,6 +103,9 @@ export class FluidTerrariumTrees {
     this.playerPlacements = [];
     this.activeStoreItemId = null;
     this.isStoreOpen = false;
+    this.draggedStoreItemId = null;
+    this.dragPointerId = null;
+    this.dragGhost = null;
     this.placementPreview = null;
     this.pendingPlacementPoint = null;
     this.ephemeralIdCounter = 0;
@@ -131,6 +134,8 @@ export class FluidTerrariumTrees {
     this.handleContainerPointerLeave = this.handleContainerPointerLeave.bind(this);
     this.handleContainerClick = this.handleContainerClick.bind(this);
     this.handleMenuCloseEvent = this.handleMenuCloseEvent.bind(this);
+    this.handleDragPointerMove = this.handleDragPointerMove.bind(this);
+    this.handleDragPointerUp = this.handleDragPointerUp.bind(this);
 
     this.initializeOverlay();
     this.observeContainer();
@@ -167,6 +172,9 @@ export class FluidTerrariumTrees {
       label: typeof item?.label === 'string' ? item.label : 'Terrarium Object',
       description: typeof item?.description === 'string' ? item.description : '',
       icon: typeof item?.icon === 'string' ? item.icon : '🌿',
+      cost: Number.isFinite(item?.cost)
+        ? Math.max(1, Math.round(item.cost))
+        : Math.max(1, Math.round(Number.isFinite(item?.initialAllocation) ? item.initialAllocation : 4)),
       size: item?.size === 'small' ? 'small' : 'large',
       origin: item?.origin === 'island' ? 'island' : 'ground',
       minY: Number.isFinite(item?.minY) ? item.minY : 0.3,
@@ -244,16 +252,39 @@ export class FluidTerrariumTrees {
       button.type = 'button';
       button.className = 'fluid-tree-store-item';
       button.dataset.itemId = item.id;
+      const header = document.createElement('div');
+      header.className = 'fluid-tree-store-item__header';
+
+      const stub = document.createElement('span');
+      stub.className = 'fluid-tree-store-item__stub';
+      stub.title = 'Drag onto the basin to place';
       if (item.icon) {
         const icon = document.createElement('span');
         icon.className = 'fluid-tree-store-item__icon';
         icon.textContent = item.icon;
-        button.appendChild(icon);
+        stub.appendChild(icon);
       }
+      stub.addEventListener('pointerdown', (event) => {
+        this.handleStoreItemDragStart(item, event);
+      });
+      header.appendChild(stub);
+
+      const labelColumn = document.createElement('div');
+      labelColumn.className = 'fluid-tree-store-item__details';
+
       const label = document.createElement('span');
       label.className = 'fluid-tree-store-item__label';
       label.textContent = item.label;
-      button.appendChild(label);
+      labelColumn.appendChild(label);
+
+      const cost = document.createElement('span');
+      cost.className = 'fluid-tree-store-item__cost';
+      cost.textContent = `${item.cost} Serendipity`;
+      labelColumn.appendChild(cost);
+
+      header.appendChild(labelColumn);
+      button.appendChild(header);
+
       if (item.description) {
         const description = document.createElement('span');
         description.className = 'fluid-tree-store-item__description';
@@ -274,8 +305,9 @@ export class FluidTerrariumTrees {
    * Toggle the visibility of the store panel.
    * @param {boolean} [forceState]
    */
-  toggleStorePanel(forceState) {
+  toggleStorePanel(forceState, options = {}) {
     const nextState = typeof forceState === 'boolean' ? forceState : !this.isStoreOpen;
+    const preserveSelection = Boolean(options?.preserveSelection);
     this.isStoreOpen = nextState;
     
     // Update buttonMenuOpen state in powderState
@@ -292,7 +324,9 @@ export class FluidTerrariumTrees {
       this.storeButton.setAttribute('aria-expanded', nextState ? 'true' : 'false');
     }
     if (!nextState) {
-      this.clearStoreSelection();
+      if (!preserveSelection) {
+        this.clearStoreSelection();
+      }
       this.hidePlacementPreview();
       this.setStoreStatus(STORE_STATUS_DEFAULT);
     }
@@ -337,6 +371,48 @@ export class FluidTerrariumTrees {
   }
 
   /**
+   * Resolve a store item by id even if it is no longer the active selection.
+   * @param {string} itemId
+   */
+  getStoreItemById(itemId) {
+    if (!itemId) {
+      return null;
+    }
+    return this.availableStoreItems.find((item) => item.id === itemId) || null;
+  }
+
+  /**
+   * Confirm the player holds enough Serendipity to purchase a store item.
+   * @param {object|null} storeItem
+   */
+  canAffordStoreItem(storeItem) {
+    if (!storeItem) {
+      return false;
+    }
+    const balance = Math.max(0, Math.floor(this.getSerendipityBalance()));
+    return balance >= Math.max(0, Math.round(storeItem.cost || 0));
+  }
+
+  /**
+   * Spend Serendipity for a store purchase and return success status.
+   * @param {object|null} storeItem
+   */
+  purchaseStoreItem(storeItem) {
+    if (!storeItem) {
+      return false;
+    }
+    const cost = Math.max(0, Math.round(storeItem.cost || 0));
+    if (!cost) {
+      return true;
+    }
+    if (!this.canAffordStoreItem(storeItem)) {
+      return false;
+    }
+    const spent = this.spendSerendipity(cost);
+    return spent >= cost;
+  }
+
+  /**
    * Handle item selection and guide the player toward the placement gesture.
    * @param {string} itemId
    */
@@ -350,7 +426,143 @@ export class FluidTerrariumTrees {
     if (!this.isStoreOpen) {
       this.toggleStorePanel(true);
     }
-    this.setStoreStatus('Tap the terrain to place this object. These placements are temporary.');
+    const statusMessage = this.canAffordStoreItem(item)
+      ? `Drag the stub or tap the basin to spend ${item.cost} Serendipity. Placements are temporary.`
+      : `Requires ${item.cost} Serendipity. Earn more to place this object.`;
+    this.setStoreStatus(statusMessage);
+  }
+
+  /**
+   * Create the floating stub that mirrors the dragged store icon.
+   * @param {object} storeItem
+   */
+  createDragGhost(storeItem) {
+    if (typeof document === 'undefined' || !storeItem) {
+      return;
+    }
+    this.removeDragGhost();
+    const ghost = document.createElement('div');
+    ghost.className = 'fluid-tree-store-ghost';
+    const icon = document.createElement('span');
+    icon.className = 'fluid-tree-store-ghost__icon';
+    icon.textContent = storeItem.icon || '🌿';
+    ghost.appendChild(icon);
+    const label = document.createElement('span');
+    label.className = 'fluid-tree-store-ghost__label';
+    label.textContent = storeItem.label || 'Object';
+    ghost.appendChild(label);
+    document.body.appendChild(ghost);
+    this.dragGhost = ghost;
+  }
+
+  /**
+   * Remove any existing drag ghost from the DOM.
+   */
+  removeDragGhost() {
+    if (this.dragGhost?.parentNode) {
+      this.dragGhost.remove();
+    }
+    this.dragGhost = null;
+  }
+
+  /**
+   * Position the drag ghost at the active pointer location.
+   * @param {number} clientX
+   * @param {number} clientY
+   */
+  updateDragGhostPosition(clientX, clientY) {
+    if (!this.dragGhost) {
+      return;
+    }
+    this.dragGhost.style.left = `${clientX}px`;
+    this.dragGhost.style.top = `${clientY}px`;
+  }
+
+  /**
+   * Toggle validity styling on the drag ghost while hovering different terrain.
+   * @param {boolean} isValid
+   */
+  updateDragGhostValidity(isValid) {
+    if (this.dragGhost) {
+      this.dragGhost.classList.toggle('is-invalid', !isValid);
+    }
+  }
+
+  /**
+   * Begin dragging a store icon so the item can be placed on the terrarium.
+   * @param {object} storeItem
+   * @param {PointerEvent} event
+   */
+  handleStoreItemDragStart(storeItem, event) {
+    if (!storeItem || !event) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.activeStoreItemId = storeItem.id;
+    this.updateStoreSelectionVisuals(storeItem.id);
+    if (!this.canAffordStoreItem(storeItem)) {
+      this.setStoreStatus(`Requires ${storeItem.cost} Serendipity to place ${storeItem.label}.`);
+      return;
+    }
+    this.draggedStoreItemId = storeItem.id;
+    this.dragPointerId = event.pointerId;
+    this.createDragGhost(storeItem);
+    this.toggleStorePanel(false, { preserveSelection: true });
+    window.addEventListener('pointermove', this.handleDragPointerMove, { passive: false });
+    window.addEventListener('pointerup', this.handleDragPointerUp, { passive: false });
+    this.handleDragPointerMove(event);
+  }
+
+  /**
+   * Track pointer movement while a store item is being dragged.
+   * @param {PointerEvent} event
+   */
+  handleDragPointerMove(event) {
+    if (!this.draggedStoreItemId || (this.dragPointerId && event.pointerId !== this.dragPointerId)) {
+      return;
+    }
+    this.updateDragGhostPosition(event.clientX, event.clientY);
+    const storeItem = this.getStoreItemById(this.draggedStoreItemId);
+    const point = this.getNormalizedPointFromClient(event.clientX, event.clientY);
+    const isValid = Boolean(point && this.isPlacementLocationValid(point, storeItem));
+    if (point) {
+      this.pendingPlacementPoint = point;
+      this.updatePlacementPreview(point, isValid);
+    } else {
+      this.hidePlacementPreview();
+    }
+    this.updateDragGhostValidity(isValid);
+  }
+
+  /**
+   * Resolve placement when the player releases the dragged store icon.
+   * @param {PointerEvent} event
+   */
+  handleDragPointerUp(event) {
+    if (!this.draggedStoreItemId || (this.dragPointerId && event.pointerId !== this.dragPointerId)) {
+      return;
+    }
+    const storeItem = this.getStoreItemById(this.draggedStoreItemId);
+    const point = this.getNormalizedPointFromClient(event.clientX, event.clientY);
+    const isValid = point && this.isPlacementLocationValid(point, storeItem);
+    if (storeItem && isValid) {
+      this.placeActiveStoreItem(point, storeItem);
+    }
+    this.endStoreDrag();
+  }
+
+  /**
+   * Clean up drag-specific state and visuals.
+   */
+  endStoreDrag() {
+    window.removeEventListener('pointermove', this.handleDragPointerMove);
+    window.removeEventListener('pointerup', this.handleDragPointerUp);
+    this.removeDragGhost();
+    this.draggedStoreItemId = null;
+    this.dragPointerId = null;
+    this.hidePlacementPreview();
+    this.clearStoreSelection();
   }
 
   /**
@@ -469,19 +681,24 @@ export class FluidTerrariumTrees {
   }
 
   handleContainerPointerMove(event) {
-    if (!this.isStoreOpen || !this.activeStoreItemId) {
+    const isDragging = Boolean(this.draggedStoreItemId);
+    if ((!this.isStoreOpen || !this.activeStoreItemId) && !isDragging) {
+      return;
+    }
+    if (isDragging) {
       return;
     }
     if (this.storePanel && this.storePanel.contains(event.target)) {
       return;
     }
+    const storeItem = this.getActiveStoreItem();
     const point = this.getNormalizedPointFromClient(event.clientX, event.clientY);
     if (!point) {
       this.hidePlacementPreview();
       return;
     }
     this.pendingPlacementPoint = point;
-    const isValid = this.isPlacementLocationValid(point);
+    const isValid = this.isPlacementLocationValid(point, storeItem);
     this.updatePlacementPreview(point, isValid);
   }
 
@@ -496,14 +713,15 @@ export class FluidTerrariumTrees {
     if (this.storePanel && this.storePanel.contains(event.target)) {
       return;
     }
+    const storeItem = this.getActiveStoreItem();
     const point = this.getNormalizedPointFromClient(event.clientX, event.clientY);
-    if (!point || !this.isPlacementLocationValid(point)) {
+    if (!point || !this.isPlacementLocationValid(point, storeItem)) {
       this.setStoreStatus('Pick an open patch of terrain. Placements are not saved to your profile.');
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    this.placeActiveStoreItem(point);
+    this.placeActiveStoreItem(point, storeItem);
   }
 
   /**
@@ -612,16 +830,34 @@ export class FluidTerrariumTrees {
    * Convert a placement selection into a live tree without persisting to the player profile.
    * @param {{xRatio:number,yRatio:number}} point
    */
-  placeActiveStoreItem(point) {
-    const storeItem = this.getActiveStoreItem();
+  placeActiveStoreItem(point, storeItem = this.getActiveStoreItem()) {
     if (!storeItem) {
-      return;
+      return false;
+    }
+    if (!this.purchaseStoreItem(storeItem)) {
+      this.setStoreStatus(`Requires ${storeItem.cost} Serendipity to place ${storeItem.label}.`);
+      return false;
     }
     const anchor = this.createPlacementAnchor(point, storeItem);
     this.playerPlacements.push(anchor);
     this.refreshLayout();
     this.setStoreStatus(`${storeItem.label} planted. Placements reset when you leave this session.`);
     this.updatePlacementPreview(point, true);
+    this.consumeStoreItem(storeItem.id);
+    this.clearStoreSelection();
+    return true;
+  }
+
+  /**
+   * Remove a purchased item from the storefront roster.
+   * @param {string} itemId
+   */
+  consumeStoreItem(itemId) {
+    if (!itemId) {
+      return;
+    }
+    this.availableStoreItems = this.availableStoreItems.filter((item) => item.id !== itemId);
+    this.populateStoreItems();
   }
 
   /**
@@ -1363,6 +1599,9 @@ export class FluidTerrariumTrees {
     }
     if (typeof window !== 'undefined') {
       window.removeEventListener('betTerrariumMenuClose', this.handleMenuCloseEvent);
+      window.removeEventListener('pointermove', this.handleDragPointerMove);
+      window.removeEventListener('pointerup', this.handleDragPointerUp);
     }
+    this.removeDragGhost();
   }
 }

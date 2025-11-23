@@ -4781,10 +4781,49 @@ body.graphics-mode-low .control-button {
   background: rgba(32, 58, 84, 0.8);
 }
 
+.fluid-tree-store-item__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fluid-tree-store-item__stub {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.5);
+  background: rgba(32, 48, 66, 0.7);
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.35);
+  cursor: grab;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+.fluid-tree-store-item__stub:active {
+  cursor: grabbing;
+  border-color: rgba(133, 206, 255, 0.9);
+  box-shadow: inset 0 0 16px rgba(133, 206, 255, 0.35);
+}
+
+.fluid-tree-store-item__details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .fluid-tree-store-item__label {
   font-family: "Cormorant Garamond", serif;
   font-size: 0.85rem;
   letter-spacing: 0.06em;
+}
+
+.fluid-tree-store-item__cost {
+  font-family: "Space Mono", monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  color: rgba(210, 235, 255, 0.9);
 }
 
 .fluid-tree-store-item__description {
@@ -4798,6 +4837,41 @@ body.graphics-mode-low .control-button {
   font-size: 1.5rem;
   line-height: 1;
   margin-bottom: 2px;
+}
+
+.fluid-tree-store-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(133, 206, 255, 0.8);
+  background: rgba(12, 18, 28, 0.9);
+  color: rgba(238, 247, 255, 0.95);
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+.fluid-tree-store-ghost.is-invalid {
+  border-color: rgba(255, 110, 110, 0.9);
+  color: rgba(255, 180, 180, 0.95);
+  box-shadow: 0 10px 26px rgba(255, 110, 110, 0.35);
+}
+
+.fluid-tree-store-ghost__icon {
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.fluid-tree-store-ghost__label {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
 }
 
 .fluid-tree-store-status {
