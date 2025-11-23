@@ -2081,7 +2081,47 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let resourceTicker = null;
   let lastResourceTick = 0;
 
-  const POWDER_WALL_TEXTURE_REPEAT_PX = 192; // Mirror the tower wall sprite tile height so loops stay seamless.
+  const POWDER_WALL_TEXTURE_ASPECT = 800 / 300; // Preserve the native 1.5:4 wall sprite ratio (300px × 800px).
+  const POWDER_WALL_TEXTURE_FALLBACK_PX = 192; // Fallback repeat distance when wall sizing has not been measured yet.
+
+  /**
+   * Resolve the repeating wall texture height so the masonry tiles retain their native aspect ratio.
+   *
+   * @param {HTMLElement|null} wallElement - Wall element whose visual width drives the texture repeat distance.
+   * @returns {number} Pixel height used to repeat the wall texture.
+   */
+  function resolveWallTextureRepeatPx(wallElement) {
+    // Honor any inline tile height overrides first so CSS calculations stay in sync with JS scroll offsets.
+    const inlineTileHeight = wallElement?.style?.getPropertyValue?.('--powder-wall-tile-height');
+    const parsedTileHeight = inlineTileHeight ? Number.parseFloat(inlineTileHeight) : NaN;
+    if (Number.isFinite(parsedTileHeight) && parsedTileHeight > 0) {
+      return parsedTileHeight;
+    }
+
+    // Prefer an explicitly measured wall width when available to maintain the sprite's 1.5:4 ratio.
+    const inlineWidth = wallElement?.style?.getPropertyValue?.('--powder-wall-visual-width');
+    const parsedWidth = inlineWidth ? Number.parseFloat(inlineWidth) : NaN;
+    if (Number.isFinite(parsedWidth) && parsedWidth > 0) {
+      return parsedWidth * POWDER_WALL_TEXTURE_ASPECT;
+    }
+
+    if (wallElement && typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
+      const computedStyles = window.getComputedStyle(wallElement);
+      if (computedStyles) {
+        const computedTileHeight = Number.parseFloat(computedStyles.getPropertyValue('--powder-wall-tile-height'));
+        if (Number.isFinite(computedTileHeight) && computedTileHeight > 0) {
+          return computedTileHeight;
+        }
+
+        const computedWidth = Number.parseFloat(computedStyles.getPropertyValue('--powder-wall-visual-width'));
+        if (Number.isFinite(computedWidth) && computedWidth > 0) {
+          return computedWidth * POWDER_WALL_TEXTURE_ASPECT;
+        }
+      }
+    }
+
+    return POWDER_WALL_TEXTURE_FALLBACK_PX;
+  }
 
   // Wrapper functions to include alephChainUpgrades in tower upgrade persistence.
   function getTowerUpgradeStateSnapshotWithAleph() {
@@ -3987,8 +4027,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     // Apply wall offset for scrolling texture
     const wallShiftPx = scrollOffset * cellSize;
-    const textureRepeat = POWDER_WALL_TEXTURE_REPEAT_PX > 0 ? POWDER_WALL_TEXTURE_REPEAT_PX : null;
-    const rawTextureOffset = textureRepeat ? wallShiftPx % textureRepeat : wallShiftPx;
+    const textureRepeat = resolveWallTextureRepeatPx(fluidElements.leftWall || fluidElements.rightWall);
+    const rawTextureOffset =
+      Number.isFinite(textureRepeat) && textureRepeat > 0 ? wallShiftPx % textureRepeat : wallShiftPx;
     const wallTextureOffset = Number.isFinite(rawTextureOffset) ? rawTextureOffset : 0;
     const wallOffsetValue = `${wallTextureOffset.toFixed(1)}px`;
 
@@ -4121,8 +4162,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
 
     const wallShiftPx = scrollOffset * cellSize;
-    const textureRepeat = POWDER_WALL_TEXTURE_REPEAT_PX > 0 ? POWDER_WALL_TEXTURE_REPEAT_PX : null;
-    const rawTextureOffset = textureRepeat ? wallShiftPx % textureRepeat : wallShiftPx;
+    const textureRepeat = resolveWallTextureRepeatPx(powderElements.leftWall || powderElements.rightWall);
+    const rawTextureOffset =
+      Number.isFinite(textureRepeat) && textureRepeat > 0 ? wallShiftPx % textureRepeat : wallShiftPx;
     const wallTextureOffset = Number.isFinite(rawTextureOffset) ? rawTextureOffset : 0;
     const wallOffsetValue = `${wallTextureOffset.toFixed(1)}px`;
 
