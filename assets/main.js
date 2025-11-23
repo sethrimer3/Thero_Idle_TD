@@ -1196,6 +1196,24 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
   const SIGIL_LADDER_IS_STUB = true;
 
+  // Declare simulation instances early to avoid Temporal Dead Zone errors when referenced in initialization functions.
+  let sandSimulation = null;
+  let powderSimulation = null;
+  let fluidSimulationInstance = null;
+  let lamedSimulationInstance = null;
+  let lamedDeveloperSpamHandle = null;
+  let lamedDeveloperSpamActive = false;
+  let lamedDeveloperSpamAttached = false;
+  let tsadiDeveloperSpamHandle = null;
+  let tsadiDeveloperSpamActive = false;
+  let tsadiDeveloperSpamAttached = false;
+  let tsadiSimulationInstance = null;
+  let shinSimulationInstance = null;
+  let tsadiBindingUiInitialized = false;
+  let kufUiInitialized = false;
+  let pendingSpireResizeFrame = null;
+  let previousTabId = getActiveTabId();
+
   // Track Tsadi status messaging so advanced molecule unlocks surface clearly in the UI.
   const tsadiStatusNoteElement = document.getElementById('tsadi-status-note');
   const TSADI_STATUS_BASE_MESSAGE = (tsadiStatusNoteElement?.textContent || '').trim()
@@ -1444,23 +1462,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand',
     );
   };
-
-  let powderSimulation = null;
-  let sandSimulation = null;
-  let fluidSimulationInstance = null;
-  let lamedSimulationInstance = null;
-  let lamedDeveloperSpamHandle = null;
-  let lamedDeveloperSpamActive = false;
-  let lamedDeveloperSpamAttached = false;
-  let tsadiDeveloperSpamHandle = null;
-  let tsadiDeveloperSpamActive = false;
-  let tsadiDeveloperSpamAttached = false;
-  let tsadiSimulationInstance = null;
-  let shinSimulationInstance = null;
-  let tsadiBindingUiInitialized = false;
-  let kufUiInitialized = false;
-  let pendingSpireResizeFrame = null;
-  let previousTabId = getActiveTabId();
 
   const { initializeManualDropHandlers } = createManualDropController({
     getActiveTabId,
