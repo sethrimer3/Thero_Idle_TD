@@ -85,6 +85,34 @@ function normalizeTierList(tiers = []) {
 }
 
 /**
+ * Sort a tier list while preserving duplicates.
+ * This allows molecules to include multiple particles of the same tier.
+ * @param {Array<number>} tiers - Raw tier list with possible duplicates.
+ * @returns {Array<number>} Sorted tier list with duplicates preserved.
+ */
+function sortTierListWithDuplicates(tiers = []) {
+  const filtered = Array.isArray(tiers)
+    ? tiers.filter((tier) => Number.isFinite(tier))
+    : [];
+  return filtered.sort((a, b) => a - b);
+}
+
+/**
+ * Check if a tier list has sufficient variety to be a valid molecule.
+ * A valid molecule must have at least 2 particles and at least 2 different tier types.
+ * This prevents molecules like [alpha, alpha] while allowing [alpha, beta, alpha].
+ * @param {Array<number>} tiers - Tier list to validate.
+ * @returns {boolean} True if the molecule has sufficient variety.
+ */
+function hasValidMoleculeVariety(tiers = []) {
+  if (!Array.isArray(tiers) || tiers.length < 2) {
+    return false;
+  }
+  const uniqueTiers = new Set(tiers);
+  return uniqueTiers.size >= 2;
+}
+
+/**
  * Convert an internal tier index into the player-facing tier number.
  * Null sits at tier 0, Alpha at tier 1, and so on up the Greek ladder.
  * @param {number} tier - Internal tier index (NULL_TIER = -1, alpha = 0)
@@ -99,15 +127,25 @@ function toDisplayTier(tier) {
 
 /**
  * Build a deterministic identifier for a molecule combination.
- * @param {Array<number>} tiers - Sorted unique tier list.
- * @returns {string|null} Stable id or null when insufficient data.
+ * Now supports duplicate tiers to allow molecules like [alpha, beta, alpha].
+ * @param {Array<number>} tiers - Tier list (may contain duplicates).
+ * @param {boolean} [allowDuplicates=false] - If true, preserve duplicates in the ID. Defaults to false for backwards compatibility.
+ * @returns {string|null} Stable id or null when insufficient data or invalid variety.
  */
-function createCombinationIdFromTiers(tiers = []) {
-  const normalized = normalizeTierList(tiers);
-  if (normalized.length < 2) {
+function createCombinationIdFromTiers(tiers = [], allowDuplicates = false) {
+  const sorted = allowDuplicates ? sortTierListWithDuplicates(tiers) : normalizeTierList(tiers);
+  
+  // Validate that we have enough particles and sufficient variety
+  if (sorted.length < 2) {
     return null;
   }
-  return normalized.map((tier) => toDisplayTier(tier)).join('-');
+  
+  // Check for valid variety when duplicates are allowed
+  if (allowDuplicates && !hasValidMoleculeVariety(sorted)) {
+    return null;
+  }
+  
+  return sorted.map((tier) => toDisplayTier(tier)).join('-');
 }
 
 /**
@@ -1028,9 +1066,15 @@ export class ParticleFusionSimulation {
     const legacyRecipe = LEGACY_MOLECULE_RECIPES.find((entry) => entry.id === resolvedId) || null;
     const merged = typeof recipe === 'object' ? { ...(legacyRecipe || {}), ...recipe } : (legacyRecipe || { id: resolvedId });
 
-    const tiers = normalizeTierList(Array.isArray(merged.tiers) ? merged.tiers : legacyRecipe?.tiers || []);
+    // For loading persisted molecules, preserve tiers as provided (may include duplicates)
+    // But for legacy recipes, use normalizeTierList for backward compatibility
+    const rawTiers = Array.isArray(merged.tiers) ? merged.tiers : legacyRecipe?.tiers || [];
+    // Legacy recipes: from LEGACY_MOLECULE_RECIPES when recipe is a string or has no tiers property
+    const isLegacy = Boolean(legacyRecipe && (typeof recipe === 'string' || !recipe.tiers));
+    const tiers = isLegacy ? normalizeTierList(rawTiers) : sortTierListWithDuplicates(rawTiers);
     const particleCount = tiers.length;
-    const generatedId = createCombinationIdFromTiers(tiers);
+    // Legacy recipes use old behavior (no duplicates), new recipes allow duplicates
+    const generatedId = createCombinationIdFromTiers(tiers, !isLegacy);
     let id = merged.id || merged.name || generatedId || resolvedId || 'molecule';
     if (/^combo-/i.test(id) && generatedId) {
       id = generatedId;
@@ -1166,18 +1210,24 @@ export class ParticleFusionSimulation {
 
   /**
    * Create a normalized descriptor for a freeform molecule combination.
-   * @param {Array<number>} tiers - Unique tier list to capture.
+   * Now supports duplicate tiers to allow molecules like [alpha, beta, alpha].
+   * @param {Array<number>} tiers - Tier list (may contain duplicates).
    * @returns {Object|null} Molecule descriptor with id and particle count.
    */
   createCombinationDescriptor(tiers = []) {
-    const normalized = normalizeTierList(tiers);
-    if (normalized.length < 2) {
+    const sorted = sortTierListWithDuplicates(tiers);
+    if (sorted.length < 2) {
+      return null;
+    }
+    const id = createCombinationIdFromTiers(sorted, true);
+    if (!id) {
+      // Invalid molecule (e.g., insufficient particles or lacks variety)
       return null;
     }
     return this.normalizeMoleculeDescriptor({
-      id: createCombinationIdFromTiers(normalized),
-      tiers: normalized,
-      particleCount: normalized.length,
+      id,
+      tiers: sorted,
+      particleCount: sorted.length,
     });
   }
 
@@ -1308,7 +1358,6 @@ export class ParticleFusionSimulation {
         return true;
       });
 
-      const connectedTiers = new Set(agent.connections.map((connection) => connection.tier));
       const connectedIds = new Set(agent.connections.map((connection) => connection.particleId));
 
       const nearbyBodies = this.quadtree ? this.quadtree.retrieve(agent) : this.particles;
@@ -1327,7 +1376,8 @@ export class ParticleFusionSimulation {
 
         if (distance <= Math.max(connectionRange, minDistance)) {
           // Null particles cannot form bonds, but still collide to keep the chamber physical.
-          if (!isNullParticle && !connectedIds.has(target.id) && !connectedTiers.has(target.tier)) {
+          // Allow duplicate tiers - only check that we haven't already connected this specific particle
+          if (!isNullParticle && !connectedIds.has(target.id)) {
             const bondLength = Math.max(
               minimumBondLength,
               minDistance,
@@ -1339,7 +1389,6 @@ export class ParticleFusionSimulation {
               bondLength,
             });
             connectedIds.add(target.id);
-            connectedTiers.add(target.tier);
           }
         }
       }
@@ -1351,7 +1400,8 @@ export class ParticleFusionSimulation {
           if (particle.id === agent.id) return false;
           if (particle.isBindingAgent) return false;
           if (particle.tier <= NULL_TIER) return false;
-          if (connectedTiers.has(particle.tier)) return false;
+          // Allow duplicate tiers - only check that we haven't already connected this specific particle
+          if (connectedIds.has(particle.id)) return false;
 
           const dx = particle.x - agent.x;
           const dy = particle.y - agent.y;
@@ -1371,12 +1421,12 @@ export class ParticleFusionSimulation {
             tier: target.tier,
             bondLength,
           });
-          connectedTiers.add(target.tier);
         }
       }
 
-      // Resolve molecule completion and discovery based on unique tier combinations.
-      const tiersPresent = normalizeTierList(agent.connections.map((connection) => connection.tier));
+      // Resolve molecule completion and discovery based on tier combinations.
+      // Now preserves duplicate tiers to allow molecules like [alpha, beta, alpha].
+      const tiersPresent = sortTierListWithDuplicates(agent.connections.map((connection) => connection.tier));
       const combinations = tiersPresent.length >= 2 ? generateTierCombinations(tiersPresent) : [];
       agent.activeMolecules = [];
       let discoveredNewMolecule = false;
