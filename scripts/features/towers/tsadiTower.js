@@ -1238,9 +1238,11 @@ export class ParticleFusionSimulation {
       });
       
       // Remove the binding agent from the simulation
-      const agentIndex = this.bindingAgents.findIndex((a) => a.id === agent.id);
-      if (agentIndex !== -1) {
-        this.bindingAgents.splice(agentIndex, 1);
+      if (agent.id != null) {
+        const agentIndex = this.bindingAgents.findIndex((a) => a && a.id === agent.id);
+        if (agentIndex !== -1) {
+          this.bindingAgents.splice(agentIndex, 1);
+        }
       }
       // Don't refund the agent when it explodes with a discovery
     } else {
@@ -2062,7 +2064,11 @@ export class ParticleFusionSimulation {
     if (!agent || !Array.isArray(agent.connections)) {
       return false;
     }
-    const uniqueTiers = new Set(agent.connections.map((connection) => connection.tier));
+    const uniqueTiers = new Set(
+      agent.connections
+        .filter((connection) => connection && Number.isFinite(connection.tier))
+        .map((connection) => connection.tier)
+    );
     return uniqueTiers.size >= 2;
   }
 
