@@ -1033,10 +1033,19 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           levelingMode: Boolean(state?.levelingMode),
           trees: state?.trees ? { ...state.trees } : {},
           buttonMenuOpen: Boolean(state?.buttonMenuOpen),
+          cameraMode: Boolean(state?.cameraMode),
         };
         updateTerrariumTreeHappiness(powderState.betTerrarium.trees);
         schedulePowderBasinSave();
+        setFluidCameraMode(powderState.betTerrarium.cameraMode, {
+          skipTransformReset: true,
+          skipSave: true,
+        });
       },
+    });
+    setFluidCameraMode(Boolean(powderState.betTerrarium?.cameraMode), {
+      skipTransformReset: true,
+      skipSave: true,
     });
   }
 
@@ -1437,6 +1446,76 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     schedulePowderBasinSave,
     isDeveloperModeActive: () => developerModeActive,
   });
+
+  function resetFluidCameraTransform() {
+    if (!fluidSimulationInstance || typeof fluidSimulationInstance.getViewTransform !== 'function') {
+      return;
+    }
+    if (typeof fluidSimulationInstance.setViewScale === 'function') {
+      fluidSimulationInstance.setViewScale(1);
+    } else if (typeof fluidSimulationInstance.applyZoomFactor === 'function') {
+      const currentScale = fluidSimulationInstance.getViewTransform()?.scale || 1;
+      if (Math.abs(currentScale - 1) > 0.0001) {
+        fluidSimulationInstance.applyZoomFactor(1 / currentScale);
+      }
+    }
+    if (typeof fluidSimulationInstance.setViewCenterNormalized === 'function') {
+      fluidSimulationInstance.setViewCenterNormalized({ x: 0.5, y: 0.5 });
+    }
+    handlePowderViewTransformChange(fluidSimulationInstance.getViewTransform());
+  }
+
+  function syncFluidCameraModeUi() {
+    const enabled = Boolean(powderState.betTerrarium?.cameraMode);
+    if (fluidElements.viewport) {
+      fluidElements.viewport.classList.toggle('fluid-viewport--camera-locked', !enabled);
+    }
+    if (fluidElements.cameraModeToggle) {
+      fluidElements.cameraModeToggle.classList.toggle('is-active', enabled);
+      fluidElements.cameraModeToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    }
+    if (fluidElements.cameraModeStateLabel) {
+      fluidElements.cameraModeStateLabel.textContent = enabled ? 'On' : 'Off';
+    }
+    if (fluidElements.cameraModeHint) {
+      fluidElements.cameraModeHint.textContent = enabled
+        ? 'Camera mode hides the in-render buttons so you can pan and zoom.'
+        : 'Camera mode is off. Buttons stay visible and the viewport stays locked.';
+    }
+  }
+
+  function setFluidCameraMode(enabled, options = {}) {
+    const nextState = Boolean(enabled);
+    const skipTransformReset = Boolean(options.skipTransformReset);
+    const skipSave = Boolean(options.skipSave);
+    if (!powderState.betTerrarium) {
+      powderState.betTerrarium = {};
+    }
+    powderState.betTerrarium.cameraMode = nextState;
+
+    if (fluidTerrariumTrees?.setCameraMode) {
+      fluidTerrariumTrees.setCameraMode(nextState, { notifyHost: false });
+    }
+
+    syncFluidCameraModeUi();
+
+    if (!nextState && !skipTransformReset) {
+      resetFluidCameraTransform();
+    }
+
+    if (!skipSave) {
+      schedulePowderBasinSave();
+    }
+  }
+
+  function bindFluidCameraModeToggle() {
+    if (!fluidElements.cameraModeToggle) {
+      return;
+    }
+    fluidElements.cameraModeToggle.addEventListener('click', () => {
+      setFluidCameraMode(!powderState.betTerrarium?.cameraMode);
+    });
+  }
 
   const {
     idleLevelRuns,
@@ -1845,6 +1924,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         powderSimulation.start();
         initializePowderViewInteraction();
         handlePowderViewTransformChange(powderSimulation.getViewTransform());
+        syncFluidCameraModeUi();
         if (previousMode !== powderState.simulationMode) {
           recordPowderEvent('mode-switch', { mode: 'fluid', label: profile.label || 'Bet Spire' });
         }
@@ -1900,6 +1980,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         powderSimulation.start();
         initializePowderViewInteraction();
         handlePowderViewTransformChange(powderSimulation.getViewTransform());
+        syncFluidCameraModeUi();
         if (previousMode !== powderState.simulationMode) {
           recordPowderEvent('mode-switch', { mode: 'sand', label: 'Powderfall Study' });
         }
@@ -4924,6 +5005,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindStatusElements();
     bindPowderControls();
     bindFluidControls();
+    bindFluidCameraModeToggle();
+    syncFluidCameraModeUi();
     if (betHappinessSystem) {
       betHappinessSystem.bindDisplayElements(fluidElements);
       betHappinessSystem.updateDisplay(fluidElements);

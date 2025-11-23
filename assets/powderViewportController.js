@@ -294,6 +294,14 @@ export function createPowderViewportController({
       return isFluidSimulation() && Boolean(powderState.betTerrarium?.buttonMenuOpen);
     };
 
+    // Allow camera gestures only when camera mode is explicitly enabled for the Bet terrarium.
+    const isCameraModeActive = () => {
+      if (!isFluidSimulation()) {
+        return true;
+      }
+      return Boolean(powderState?.betTerrarium?.cameraMode);
+    };
+
     // Close any open button menus when user initiates camera gestures.
     const closeButtonMenus = () => {
       if (isFluidSimulation() && powderState.betTerrarium?.buttonMenuOpen) {
@@ -401,6 +409,9 @@ export function createPowderViewportController({
       if (event.pointerType === 'mouse' && event.button !== 0) {
         return;
       }
+      if (!isCameraModeActive()) {
+        return;
+      }
       // Skip camera pan initiation if clicking on buttons or a button menu is open
       if (isButtonOrMenu(event.target)) {
         return;
@@ -431,6 +442,11 @@ export function createPowderViewportController({
     };
 
     const handlePointerMove = (event) => {
+      if (isFluidSimulation() && !isCameraModeActive()) {
+        removePointerFromCache(event);
+        resetPinchState();
+        return;
+      }
       if (event.pointerType === 'touch') {
         interaction.activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
         if (interaction.activePointers.size >= 2) {
@@ -444,6 +460,9 @@ export function createPowderViewportController({
         }
       }
       if (interaction.pointerId === null || event.pointerId !== interaction.pointerId) {
+        return;
+      }
+      if (!isCameraModeActive()) {
         return;
       }
       const activeSimulation = getSimulation();
@@ -494,6 +513,9 @@ export function createPowderViewportController({
     const handleWheel = (event) => {
       const activeSimulation = getSimulation();
       if (!activeSimulation) {
+        return;
+      }
+      if (!isCameraModeActive()) {
         return;
       }
       const delta = Number.isFinite(event.deltaY) ? event.deltaY : 0;
