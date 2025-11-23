@@ -129,10 +129,10 @@ function toDisplayTier(tier) {
  * Build a deterministic identifier for a molecule combination.
  * Now supports duplicate tiers to allow molecules like [alpha, beta, alpha].
  * @param {Array<number>} tiers - Tier list (may contain duplicates).
- * @param {boolean} allowDuplicates - If true, preserve duplicates in the ID.
+ * @param {boolean} [allowDuplicates=false] - If true, preserve duplicates in the ID. Defaults to false for backwards compatibility.
  * @returns {string|null} Stable id or null when insufficient data or invalid variety.
  */
-function createCombinationIdFromTiers(tiers = [], allowDuplicates = true) {
+function createCombinationIdFromTiers(tiers = [], allowDuplicates = false) {
   const sorted = allowDuplicates ? sortTierListWithDuplicates(tiers) : normalizeTierList(tiers);
   
   // Validate that we have enough particles and sufficient variety
@@ -1069,9 +1069,11 @@ export class ParticleFusionSimulation {
     // For loading persisted molecules, preserve tiers as provided (may include duplicates)
     // But for legacy recipes, use normalizeTierList for backward compatibility
     const rawTiers = Array.isArray(merged.tiers) ? merged.tiers : legacyRecipe?.tiers || [];
-    const isLegacy = Boolean(legacyRecipe && !recipe.tiers);
+    // Legacy recipes: from LEGACY_MOLECULE_RECIPES when recipe is a string or has no tiers property
+    const isLegacy = Boolean(legacyRecipe && (typeof recipe === 'string' || !recipe.tiers));
     const tiers = isLegacy ? normalizeTierList(rawTiers) : sortTierListWithDuplicates(rawTiers);
     const particleCount = tiers.length;
+    // Legacy recipes use old behavior (no duplicates), new recipes allow duplicates
     const generatedId = createCombinationIdFromTiers(tiers, !isLegacy);
     let id = merged.id || merged.name || generatedId || resolvedId || 'molecule';
     if (/^combo-/i.test(id) && generatedId) {
@@ -1219,7 +1221,8 @@ export class ParticleFusionSimulation {
     }
     const id = createCombinationIdFromTiers(sorted, true);
     if (!id) {
-      return null; // Invalid molecule (e.g., lacks variety)
+      // Invalid molecule (e.g., insufficient particles or lacks variety)
+      return null;
     }
     return this.normalizeMoleculeDescriptor({
       id,
