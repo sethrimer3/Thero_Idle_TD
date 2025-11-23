@@ -482,7 +482,8 @@ export function updateTowerSelectionWheelDistances() {
   }
   const focusIndex = Number.isFinite(wheel.focusIndex) ? wheel.focusIndex : wheel.activeIndex;
   Array.from(wheel.list.children).forEach((child, index) => {
-    const distance = Math.min(2, Math.round(Math.abs(index - focusIndex)));
+    // Calculate distance without clamping to allow CSS to hide items beyond distance 2
+    const distance = Math.round(Math.abs(index - focusIndex));
     child.dataset.distance = String(distance);
   });
 }
