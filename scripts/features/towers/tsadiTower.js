@@ -54,6 +54,7 @@ const WAVE_EXPANSION_RATE = 200; // Radius expansion rate in pixels per second
 const WAVE_FORCE_DECAY_RATE = 0.3; // Force decay power per second (exponential)
 const WAVE_FORCE_DECAY_LOG = Math.log(WAVE_FORCE_DECAY_RATE); // Precomputed for efficient exponential decay
 const WAVE_MIN_FORCE_THRESHOLD = 0.1; // Skip waves below this force strength for performance
+const WAVE_MIN_DISTANCE = 0.001; // Minimum distance to prevent division by zero
 
 // Legacy molecule recipes kept for backward compatibility with old saves.
 const LEGACY_MOLECULE_RECIPES = [
@@ -862,7 +863,7 @@ export class ParticleFusionSimulation {
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         // Only affect particles within the wave's current radius
-        if (dist < wave.radius && dist > 0.001) {
+        if (dist < wave.radius && dist > WAVE_MIN_DISTANCE) {
           const nx = dx / dist;
           const ny = dy / dist;
           
@@ -913,7 +914,11 @@ export class ParticleFusionSimulation {
       const wave = this.interactiveWaves[i];
       wave.alpha -= dt * WAVE_FADE_RATE;
       wave.radius += dt * WAVE_EXPANSION_RATE;
-      wave.force *= Math.exp(WAVE_FORCE_DECAY_LOG * dt); // Efficient exponential decay
+      
+      // Efficient exponential decay with numerical stability check
+      const decayFactor = Math.exp(WAVE_FORCE_DECAY_LOG * dt);
+      // Clamp to prevent numerical instability (force should only decay, never grow)
+      wave.force *= Math.min(decayFactor, 1.0);
       
       // Remove when faded or reached max radius
       if (wave.alpha <= 0 || wave.radius >= wave.maxRadius) {
