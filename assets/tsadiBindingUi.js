@@ -368,13 +368,13 @@ export function createTsadiBindingUi({
   function scheduleDisband(event) {
     const simulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
     if (!simulation || typeof simulation.disbandBindingAgentAt !== 'function') {
-      return;
+      return false;
     }
 
     const coords = toCanvasCoords(event);
     const nearbyAgent = simulation.findBindingAgentNear?.(coords, 4);
     if (!nearbyAgent) {
-      return;
+      return false;
     }
 
     event.stopPropagation();
@@ -393,6 +393,22 @@ export function createTsadiBindingUi({
         refreshCodexList();
       }
     }, 400);
+    
+    return true;
+  }
+
+  /**
+   * Create an interactive wave force at the pointer location.
+   * @param {PointerEvent} event - Pointer event on the canvas.
+   */
+  function createInteractiveWave(event) {
+    const simulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
+    if (!simulation || typeof simulation.createInteractiveWave !== 'function') {
+      return;
+    }
+
+    const coords = toCanvasCoords(event);
+    simulation.createInteractiveWave(coords.x, coords.y);
   }
 
   function attemptCodexCollection(event) {
@@ -490,7 +506,12 @@ export function createTsadiBindingUi({
         if (attemptCodexCollection(event)) {
           return;
         }
-        scheduleDisband(event);
+        const scheduledDisband = scheduleDisband(event);
+        
+        // Create interactive wave if click didn't hit a binding agent
+        if (!scheduledDisband) {
+          createInteractiveWave(event);
+        }
       });
       canvasElement.addEventListener('pointermove', () => {
         if (!holdTriggered) {

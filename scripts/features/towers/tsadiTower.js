@@ -44,6 +44,18 @@ const NULL_TIER = -1;
 const GREEK_SEQUENCE_LENGTH = GREEK_TIER_SEQUENCE.length;
 // Canvas dimensions below this value indicate the spire view is collapsed or hidden.
 const COLLAPSED_DIMENSION_THRESHOLD = 2;
+
+// Interactive wave effect constants
+const WAVE_INITIAL_RADIUS_MULTIPLIER = 3; // Initial wave radius as multiple of null particle radius
+const WAVE_MAX_RADIUS_MULTIPLIER = 15; // Maximum wave radius as multiple of null particle radius
+const WAVE_INITIAL_FORCE = 300; // Initial force strength for pushing particles
+const WAVE_FADE_RATE = 3; // Alpha fade rate per second
+const WAVE_EXPANSION_RATE = 200; // Radius expansion rate in pixels per second
+const WAVE_FORCE_DECAY_RATE = 0.3; // Force decay power per second (exponential)
+const WAVE_FORCE_DECAY_LOG = Math.log(WAVE_FORCE_DECAY_RATE); // Precomputed for efficient exponential decay
+const WAVE_MIN_FORCE_THRESHOLD = 0.1; // Skip waves below this force strength for performance
+const WAVE_MIN_DISTANCE = 0.001; // Minimum distance to prevent division by zero
+
 // Legacy molecule recipes kept for backward compatibility with old saves.
 const LEGACY_MOLECULE_RECIPES = [
   {
@@ -451,6 +463,9 @@ export class ParticleFusionSimulation {
     // Spawn effects (flash and wave)
     this.spawnEffects = []; // {x, y, radius, alpha, maxRadius, type: 'flash' | 'wave'}
 
+    // Interactive wave effects (triggered by user clicks/taps)
+    this.interactiveWaves = []; // {x, y, radius, alpha, maxRadius, force, type: 'wave'}
+
     // Store active force links so the renderer can visualize attractive/repulsive pairs.
     this.forceLinks = [];
 
@@ -727,6 +742,31 @@ export class ParticleFusionSimulation {
   }
   
   /**
+   * Create an interactive wave force at the specified position.
+   * Pushes particles away from the click/tap point with a visual wave effect.
+   * @param {number} x - X coordinate in canvas space
+   * @param {number} y - Y coordinate in canvas space
+   */
+  createInteractiveWave(x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return;
+    }
+    
+    // Create visual wave effect
+    const waveRadius = this.nullParticleRadius * WAVE_INITIAL_RADIUS_MULTIPLIER;
+    const maxWaveRadius = this.nullParticleRadius * WAVE_MAX_RADIUS_MULTIPLIER;
+    this.interactiveWaves.push({
+      x,
+      y,
+      radius: waveRadius,
+      alpha: 1,
+      maxRadius: maxWaveRadius,
+      force: WAVE_INITIAL_FORCE,
+      type: 'wave',
+    });
+  }
+  
+  /**
    * Update physics for all particles
    */
   updateParticles(deltaTime) {
@@ -810,6 +850,34 @@ export class ParticleFusionSimulation {
       }
     }
 
+    // Apply forces from interactive waves
+    for (const wave of this.interactiveWaves) {
+      // Skip waves with negligible force for performance
+      if (wave.force < WAVE_MIN_FORCE_THRESHOLD) {
+        continue;
+      }
+      
+      for (const body of physicsBodies) {
+        const dx = body.x - wave.x;
+        const dy = body.y - wave.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Only affect particles within the wave's current radius
+        if (dist < wave.radius && dist > WAVE_MIN_DISTANCE) {
+          const nx = dx / dist;
+          const ny = dy / dist;
+          
+          // Force falls off with distance from wave center
+          const forceFalloff = 1 - (dist / wave.radius);
+          const forceMagnitude = wave.force * forceFalloff * dt;
+          
+          // Push particles away from wave center
+          body.vx += nx * forceMagnitude;
+          body.vy += ny * forceMagnitude;
+        }
+      }
+    }
+
     // Particle-particle collisions and fusion
     this.handleCollisions(physicsBodies);
     
@@ -838,6 +906,23 @@ export class ParticleFusionSimulation {
 
       if (effect.alpha <= 0) {
         this.spawnEffects.splice(i, 1);
+      }
+    }
+    
+    // Update interactive wave effects
+    for (let i = this.interactiveWaves.length - 1; i >= 0; i--) {
+      const wave = this.interactiveWaves[i];
+      wave.alpha -= dt * WAVE_FADE_RATE;
+      wave.radius += dt * WAVE_EXPANSION_RATE;
+      
+      // Efficient exponential decay with numerical stability check
+      const decayFactor = Math.exp(WAVE_FORCE_DECAY_LOG * dt);
+      // Clamp to prevent numerical instability (force should only decay, never grow)
+      wave.force *= Math.min(decayFactor, 1.0);
+      
+      // Remove when faded or reached max radius
+      if (wave.alpha <= 0 || wave.radius >= wave.maxRadius) {
+        this.interactiveWaves.splice(i, 1);
       }
     }
 
@@ -1985,6 +2070,30 @@ export class ParticleFusionSimulation {
         ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
         ctx.stroke();
       }
+    }
+    
+    // Draw interactive wave effects from user clicks/taps
+    for (const wave of this.interactiveWaves) {
+      // Draw expanding wave ring with cyan/blue color to distinguish from other effects
+      ctx.strokeStyle = `rgba(100, 200, 255, ${wave.alpha * 0.7})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Add inner glow effect
+      const gradient = ctx.createRadialGradient(
+        wave.x, wave.y, wave.radius * 0.7,
+        wave.x, wave.y, wave.radius
+      );
+      gradient.addColorStop(0, `rgba(100, 200, 255, 0)`);
+      gradient.addColorStop(0.5, `rgba(100, 200, 255, ${wave.alpha * 0.3})`);
+      gradient.addColorStop(1, `rgba(100, 200, 255, 0)`);
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+      ctx.fill();
     }
     
     // Draw fusion effects
