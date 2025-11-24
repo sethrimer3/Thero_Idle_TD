@@ -926,11 +926,38 @@ function drawChiLightTrails() {
 
 function drawDeveloperPathMarkers() {
   if (!this.ctx || !Array.isArray(this.developerPathMarkers) || !this.developerPathMarkers.length) {
+    // Still draw the map speed if developer tools are active even without markers
+    if (this.ctx && Number.isFinite(this.developerMapSpeedMultiplier)) {
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.font = 'bold 14px "Cormorant Garamond", serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = 'rgba(139, 247, 255, 0.85)';
+      const speedText = `Map Speed: ×${this.developerMapSpeedMultiplier.toFixed(2)}`;
+      const x = this.renderWidth / 2;
+      const y = 12;
+      ctx.fillText(speedText, x, y);
+      ctx.restore();
+    }
     return;
   }
 
   const ctx = this.ctx;
   ctx.save();
+
+  // Draw map speed multiplier at the top of the playfield
+  if (Number.isFinite(this.developerMapSpeedMultiplier)) {
+    ctx.font = 'bold 14px "Cormorant Garamond", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(139, 247, 255, 0.85)';
+    const speedText = `Map Speed: ×${this.developerMapSpeedMultiplier.toFixed(2)}`;
+    const x = this.renderWidth / 2;
+    const y = 12;
+    ctx.fillText(speedText, x, y);
+  }
+
   ctx.font = '12px "Cormorant Garamond", serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -956,6 +983,20 @@ function drawDeveloperPathMarkers() {
     if (label !== undefined && label !== null) {
       ctx.fillStyle = 'rgba(139, 247, 255, 0.9)';
       ctx.fillText(String(label), marker.x, marker.y);
+    }
+
+    // Draw speed multiplier under the marker if it's not the default value (1)
+    const speedMultiplier = Number.isFinite(marker.speedMultiplier) ? marker.speedMultiplier : 1;
+    if (speedMultiplier !== 1) {
+      this.clearCanvasShadow(ctx);
+      ctx.font = '9px "Cormorant Garamond", serif';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = 'rgba(255, 200, 100, 0.85)';
+      const speedLabel = `×${speedMultiplier.toFixed(2)}`;
+      ctx.fillText(speedLabel, marker.x, marker.y + radius + 3);
+      // Restore font for next marker
+      ctx.font = '12px "Cormorant Garamond", serif';
+      ctx.textBaseline = 'middle';
     }
   });
 

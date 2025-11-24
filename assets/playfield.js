@@ -9769,10 +9769,16 @@ export class SimplePlayfield {
     return CanvasRenderer.drawChiLightTrails.call(this);
   }
 
-  setDeveloperPathMarkers(markers) {
+  setDeveloperPathMarkers(markers, options = {}) {
     if (!Array.isArray(markers)) {
       this.developerPathMarkers = [];
+      this.developerMapSpeedMultiplier = null;
       return;
+    }
+
+    // Store the map speed multiplier for display on the canvas
+    if (Number.isFinite(options.mapSpeedMultiplier)) {
+      this.developerMapSpeedMultiplier = options.mapSpeedMultiplier;
     }
 
     this.developerPathMarkers = markers
@@ -9785,6 +9791,7 @@ export class SimplePlayfield {
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
           return null;
         }
+        const speedMultiplier = Number.isFinite(marker.speedMultiplier) ? marker.speedMultiplier : 1;
         return {
           x,
           y,
@@ -9793,6 +9800,7 @@ export class SimplePlayfield {
               ? marker.label
               : index + 1,
           active: Boolean(marker.active),
+          speedMultiplier,
         };
       })
       .filter(Boolean);
