@@ -5079,7 +5079,8 @@ body.graphics-mode-low .control-button {
   touch-action: none;
 }
 
-.fluid-viewport--camera-locked {
+/* When camera mode is off, fully disable the viewport overlay so underlying buttons remain tappable. */
+.powder-viewport.fluid-viewport.fluid-viewport--camera-locked {
   pointer-events: none;
   touch-action: auto;
 }
