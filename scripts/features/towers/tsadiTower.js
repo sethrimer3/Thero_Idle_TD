@@ -451,6 +451,9 @@ export class ParticleFusionSimulation {
     // Spawn effects (flash and wave)
     this.spawnEffects = []; // {x, y, radius, alpha, maxRadius, type: 'flash' | 'wave'}
 
+    // Interactive wave effects (triggered by user clicks/taps)
+    this.interactiveWaves = []; // {x, y, radius, alpha, maxRadius, force, type: 'wave'}
+
     // Store active force links so the renderer can visualize attractive/repulsive pairs.
     this.forceLinks = [];
 
@@ -727,6 +730,31 @@ export class ParticleFusionSimulation {
   }
   
   /**
+   * Create an interactive wave force at the specified position.
+   * Pushes particles away from the click/tap point with a visual wave effect.
+   * @param {number} x - X coordinate in canvas space
+   * @param {number} y - Y coordinate in canvas space
+   */
+  createInteractiveWave(x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return;
+    }
+    
+    // Create visual wave effect
+    const waveRadius = this.nullParticleRadius * 3;
+    const maxWaveRadius = this.nullParticleRadius * 15;
+    this.interactiveWaves.push({
+      x,
+      y,
+      radius: waveRadius,
+      alpha: 1,
+      maxRadius: maxWaveRadius,
+      force: 300, // Initial force strength
+      type: 'wave',
+    });
+  }
+  
+  /**
    * Update physics for all particles
    */
   updateParticles(deltaTime) {
@@ -810,6 +838,31 @@ export class ParticleFusionSimulation {
       }
     }
 
+    // Apply forces from interactive waves
+    for (const wave of this.interactiveWaves) {
+      if (wave.force > 0) {
+        for (const body of physicsBodies) {
+          const dx = body.x - wave.x;
+          const dy = body.y - wave.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          // Only affect particles within the wave's current radius
+          if (dist < wave.radius && dist > 0.001) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            
+            // Force falls off with distance from wave center
+            const forceFalloff = 1 - (dist / wave.radius);
+            const forceMagnitude = wave.force * forceFalloff * dt;
+            
+            // Push particles away from wave center
+            body.vx += nx * forceMagnitude;
+            body.vy += ny * forceMagnitude;
+          }
+        }
+      }
+    }
+
     // Particle-particle collisions and fusion
     this.handleCollisions(physicsBodies);
     
@@ -838,6 +891,19 @@ export class ParticleFusionSimulation {
 
       if (effect.alpha <= 0) {
         this.spawnEffects.splice(i, 1);
+      }
+    }
+    
+    // Update interactive wave effects
+    for (let i = this.interactiveWaves.length - 1; i >= 0; i--) {
+      const wave = this.interactiveWaves[i];
+      wave.alpha -= dt * 3; // Fade out over ~0.33 seconds
+      wave.radius += dt * 200; // Expand wave outward quickly
+      wave.force *= Math.pow(0.3, dt); // Force decays rapidly
+      
+      // Remove when faded or reached max radius
+      if (wave.alpha <= 0 || wave.radius >= wave.maxRadius) {
+        this.interactiveWaves.splice(i, 1);
       }
     }
 
@@ -1985,6 +2051,30 @@ export class ParticleFusionSimulation {
         ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
         ctx.stroke();
       }
+    }
+    
+    // Draw interactive wave effects from user clicks/taps
+    for (const wave of this.interactiveWaves) {
+      // Draw expanding wave ring with cyan/blue color to distinguish from other effects
+      ctx.strokeStyle = `rgba(100, 200, 255, ${wave.alpha * 0.7})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Add inner glow effect
+      const gradient = ctx.createRadialGradient(
+        wave.x, wave.y, wave.radius * 0.7,
+        wave.x, wave.y, wave.radius
+      );
+      gradient.addColorStop(0, `rgba(100, 200, 255, 0)`);
+      gradient.addColorStop(0.5, `rgba(100, 200, 255, ${wave.alpha * 0.3})`);
+      gradient.addColorStop(1, `rgba(100, 200, 255, 0)`);
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+      ctx.fill();
     }
     
     // Draw fusion effects
