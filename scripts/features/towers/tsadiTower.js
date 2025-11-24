@@ -52,6 +52,7 @@ const WAVE_INITIAL_FORCE = 300; // Initial force strength for pushing particles
 const WAVE_FADE_RATE = 3; // Alpha fade rate per second
 const WAVE_EXPANSION_RATE = 200; // Radius expansion rate in pixels per second
 const WAVE_FORCE_DECAY_RATE = 0.3; // Force decay power per second (exponential)
+const WAVE_FORCE_DECAY_LOG = Math.log(WAVE_FORCE_DECAY_RATE); // Precomputed for efficient exponential decay
 const WAVE_MIN_FORCE_THRESHOLD = 0.1; // Skip waves below this force strength for performance
 
 // Legacy molecule recipes kept for backward compatibility with old saves.
@@ -912,7 +913,7 @@ export class ParticleFusionSimulation {
       const wave = this.interactiveWaves[i];
       wave.alpha -= dt * WAVE_FADE_RATE;
       wave.radius += dt * WAVE_EXPANSION_RATE;
-      wave.force *= Math.pow(WAVE_FORCE_DECAY_RATE, dt);
+      wave.force *= Math.exp(WAVE_FORCE_DECAY_LOG * dt); // Efficient exponential decay
       
       // Remove when faded or reached max radius
       if (wave.alpha <= 0 || wave.radius >= wave.maxRadius) {
