@@ -47,9 +47,9 @@ function formatDisplayTierSequence(tiers = []) {
 }
 
 /**
- * Present a human-readable tier list using Greek tier names to match the codex flavor text.
+ * Present a human-readable tier list using actual Greek letters to match the codex flavor text.
  * @param {Array<number>} tiers - Raw tier collection.
- * @returns {string} Sequence label using Greek names.
+ * @returns {string} Sequence label using Greek letters (e.g., α-β instead of Alpha-Beta).
  */
 function formatGreekTierSequence(tiers = []) {
   if (!Array.isArray(tiers)) {
@@ -61,7 +61,8 @@ function formatGreekTierSequence(tiers = []) {
   return normalized
     .map((tier) => {
       const tierInfo = getGreekTierInfo(tier);
-      return tierInfo?.name || `Tier ${Math.max(0, tier + 1)}`;
+      // Use actual Greek letters (α, β, γ) instead of English names (Alpha, Beta, Gamma)
+      return tierInfo?.letter || tierInfo?.name || `Tier ${Math.max(0, tier + 1)}`;
     })
     .join('-');
 }
