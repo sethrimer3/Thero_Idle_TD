@@ -44,6 +44,15 @@ const NULL_TIER = -1;
 const GREEK_SEQUENCE_LENGTH = GREEK_TIER_SEQUENCE.length;
 // Canvas dimensions below this value indicate the spire view is collapsed or hidden.
 const COLLAPSED_DIMENSION_THRESHOLD = 2;
+
+// Interactive wave effect constants
+const WAVE_INITIAL_RADIUS_MULTIPLIER = 3; // Initial wave radius as multiple of null particle radius
+const WAVE_MAX_RADIUS_MULTIPLIER = 15; // Maximum wave radius as multiple of null particle radius
+const WAVE_INITIAL_FORCE = 300; // Initial force strength for pushing particles
+const WAVE_FADE_RATE = 3; // Alpha fade rate per second
+const WAVE_EXPANSION_RATE = 200; // Radius expansion rate in pixels per second
+const WAVE_FORCE_DECAY_RATE = 0.3; // Force decay power per second (exponential)
+
 // Legacy molecule recipes kept for backward compatibility with old saves.
 const LEGACY_MOLECULE_RECIPES = [
   {
@@ -741,15 +750,15 @@ export class ParticleFusionSimulation {
     }
     
     // Create visual wave effect
-    const waveRadius = this.nullParticleRadius * 3;
-    const maxWaveRadius = this.nullParticleRadius * 15;
+    const waveRadius = this.nullParticleRadius * WAVE_INITIAL_RADIUS_MULTIPLIER;
+    const maxWaveRadius = this.nullParticleRadius * WAVE_MAX_RADIUS_MULTIPLIER;
     this.interactiveWaves.push({
       x,
       y,
       radius: waveRadius,
       alpha: 1,
       maxRadius: maxWaveRadius,
-      force: 300, // Initial force strength
+      force: WAVE_INITIAL_FORCE,
       type: 'wave',
     });
   }
@@ -897,9 +906,9 @@ export class ParticleFusionSimulation {
     // Update interactive wave effects
     for (let i = this.interactiveWaves.length - 1; i >= 0; i--) {
       const wave = this.interactiveWaves[i];
-      wave.alpha -= dt * 3; // Fade out over ~0.33 seconds
-      wave.radius += dt * 200; // Expand wave outward quickly
-      wave.force *= Math.pow(0.3, dt); // Force decays rapidly
+      wave.alpha -= dt * WAVE_FADE_RATE;
+      wave.radius += dt * WAVE_EXPANSION_RATE;
+      wave.force *= Math.pow(WAVE_FORCE_DECAY_RATE, dt);
       
       // Remove when faded or reached max radius
       if (wave.alpha <= 0 || wave.radius >= wave.maxRadius) {
