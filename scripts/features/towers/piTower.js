@@ -26,11 +26,13 @@ import {
 const BASE_RANGE_METERS = 4;
 const BASE_NUM_LASERS = 2;
 const LASER_BASE_WIDTH = 3;
-const LASER_WIDTH_MAX = 12;
 const LOCK_ON_LINE_WIDTH = 1.5;
 const PI_TOWER_RADIUS_PIXELS = 15;
 const DEFAULT_ENEMY_RADIUS_PIXELS = 12;
 const DAMAGE_TICK_INTERVAL = 0.5; // Apply damage every 0.5 seconds
+
+/** Degrees of rotation for full gradient progression (2 full rotations). */
+const MAX_ROTATION_FOR_FULL_GRADIENT = 720;
 
 /**
  * Pi tower colors use the bottom of the gradient.
@@ -43,8 +45,8 @@ const PI_BASE_COLOR_OFFSET = 0.05;
  * @param {number} rotationDegrees - Total rotation in degrees for this laser
  */
 function resolvePiLaserColor(rotationDegrees = 0) {
-  // Normalize rotation to 0-1 range (360 degrees = full gradient)
-  const normalizedRotation = Math.min(1, Math.abs(rotationDegrees) / 720);
+  // Normalize rotation to 0-1 range (2 full rotations = full gradient)
+  const normalizedRotation = Math.min(1, Math.abs(rotationDegrees) / MAX_ROTATION_FOR_FULL_GRADIENT);
   const offset = PI_BASE_COLOR_OFFSET + normalizedRotation * 0.85;
   const color = samplePaletteGradient(offset);
   if (color && typeof color === 'object' && Number.isFinite(color.r)) {
