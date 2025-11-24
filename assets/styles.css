@@ -9229,6 +9229,11 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   touch-action: pan-y; /* Ensure scrolling works on child elements */
 }
 
+/* Allow Tsadi pointer interactions (waves, bindings) to reach the canvas instead of the overlay. */
+.tsadi-viewport {
+  pointer-events: none;
+}
+
 .tsadi-simulation-slot {
   grid-column: 1 / -1;
   display: flex;
