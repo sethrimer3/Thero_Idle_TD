@@ -82,6 +82,11 @@ export function createManualDropController({
       }
     };
 
+    // Keep a short debounce so duplicate listeners or rapid multi-clicks don't inject
+    // multiple manual drops for a single tap. The map tracks the last accepted click per spire.
+    const lastDropTimeByType = new Map();
+    const MIN_CLICK_INTERVAL_MS = 75;
+
     const spireTargets = [
       { type: 'aleph', selectors: ['powder-viewport', 'powder-basin', 'powder-canvas'] },
       { type: 'bet', selectors: ['fluid-viewport', 'fluid-basin', 'fluid-canvas'] },
@@ -128,9 +133,22 @@ export function createManualDropController({
             return;
           }
 
+          const lastDropTime = lastDropTimeByType.get(type) || 0;
+          if (Date.now() - lastDropTime < MIN_CLICK_INTERVAL_MS) {
+            return;
+          }
+
+          lastDropTimeByType.set(type, Date.now());
+
           handleManualDrop(type);
         };
 
+        // Avoid binding duplicate listeners if initialization runs more than once.
+        if (element.dataset.manualDropBound === 'true') {
+          return;
+        }
+
+        element.dataset.manualDropBound = 'true';
         element.addEventListener('pointerdown', handlePointerDown);
         element.addEventListener('pointermove', handlePointerMove);
         element.addEventListener('click', handleClick);
