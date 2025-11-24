@@ -52,6 +52,7 @@ const WAVE_INITIAL_FORCE = 300; // Initial force strength for pushing particles
 const WAVE_FADE_RATE = 3; // Alpha fade rate per second
 const WAVE_EXPANSION_RATE = 200; // Radius expansion rate in pixels per second
 const WAVE_FORCE_DECAY_RATE = 0.3; // Force decay power per second (exponential)
+const WAVE_MIN_FORCE_THRESHOLD = 0.1; // Skip waves below this force strength for performance
 
 // Legacy molecule recipes kept for backward compatibility with old saves.
 const LEGACY_MOLECULE_RECIPES = [
@@ -849,25 +850,28 @@ export class ParticleFusionSimulation {
 
     // Apply forces from interactive waves
     for (const wave of this.interactiveWaves) {
-      if (wave.force > 0) {
-        for (const body of physicsBodies) {
-          const dx = body.x - wave.x;
-          const dy = body.y - wave.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+      // Skip waves with negligible force for performance
+      if (wave.force < WAVE_MIN_FORCE_THRESHOLD) {
+        continue;
+      }
+      
+      for (const body of physicsBodies) {
+        const dx = body.x - wave.x;
+        const dy = body.y - wave.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Only affect particles within the wave's current radius
+        if (dist < wave.radius && dist > 0.001) {
+          const nx = dx / dist;
+          const ny = dy / dist;
           
-          // Only affect particles within the wave's current radius
-          if (dist < wave.radius && dist > 0.001) {
-            const nx = dx / dist;
-            const ny = dy / dist;
-            
-            // Force falls off with distance from wave center
-            const forceFalloff = 1 - (dist / wave.radius);
-            const forceMagnitude = wave.force * forceFalloff * dt;
-            
-            // Push particles away from wave center
-            body.vx += nx * forceMagnitude;
-            body.vy += ny * forceMagnitude;
-          }
+          // Force falls off with distance from wave center
+          const forceFalloff = 1 - (dist / wave.radius);
+          const forceMagnitude = wave.force * forceFalloff * dt;
+          
+          // Push particles away from wave center
+          body.vx += nx * forceMagnitude;
+          body.vy += ny * forceMagnitude;
         }
       }
     }
