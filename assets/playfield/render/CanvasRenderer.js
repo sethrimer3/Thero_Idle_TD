@@ -924,22 +924,24 @@ function drawChiLightTrails() {
   drawChiLightTrailsHelper(this);
 }
 
+function drawDeveloperMapSpeedLabel(ctx, mapSpeedMultiplier, renderWidth) {
+  if (!ctx || !Number.isFinite(mapSpeedMultiplier)) {
+    return;
+  }
+  ctx.save();
+  ctx.font = 'bold 14px "Cormorant Garamond", serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(139, 247, 255, 0.85)';
+  const speedText = `Map Speed: ×${mapSpeedMultiplier.toFixed(2)}`;
+  ctx.fillText(speedText, renderWidth / 2, 12);
+  ctx.restore();
+}
+
 function drawDeveloperPathMarkers() {
   if (!this.ctx || !Array.isArray(this.developerPathMarkers) || !this.developerPathMarkers.length) {
     // Still draw the map speed if developer tools are active even without markers
-    if (this.ctx && Number.isFinite(this.developerMapSpeedMultiplier)) {
-      const ctx = this.ctx;
-      ctx.save();
-      ctx.font = 'bold 14px "Cormorant Garamond", serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = 'rgba(139, 247, 255, 0.85)';
-      const speedText = `Map Speed: ×${this.developerMapSpeedMultiplier.toFixed(2)}`;
-      const x = this.renderWidth / 2;
-      const y = 12;
-      ctx.fillText(speedText, x, y);
-      ctx.restore();
-    }
+    drawDeveloperMapSpeedLabel(this.ctx, this.developerMapSpeedMultiplier, this.renderWidth);
     return;
   }
 
@@ -947,16 +949,7 @@ function drawDeveloperPathMarkers() {
   ctx.save();
 
   // Draw map speed multiplier at the top of the playfield
-  if (Number.isFinite(this.developerMapSpeedMultiplier)) {
-    ctx.font = 'bold 14px "Cormorant Garamond", serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(139, 247, 255, 0.85)';
-    const speedText = `Map Speed: ×${this.developerMapSpeedMultiplier.toFixed(2)}`;
-    const x = this.renderWidth / 2;
-    const y = 12;
-    ctx.fillText(speedText, x, y);
-  }
+  drawDeveloperMapSpeedLabel(ctx, this.developerMapSpeedMultiplier, this.renderWidth);
 
   ctx.font = '12px "Cormorant Garamond", serif';
   ctx.textAlign = 'center';

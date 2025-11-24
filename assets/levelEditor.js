@@ -966,25 +966,28 @@ export function createLevelEditorController({
         }
       }
       
-      // Try to remove crystal at position
-      if (context.position && typeof playfield.findCrystalAt === 'function' && typeof playfield.removeDeveloperCrystal === 'function') {
-        const crystal = playfield.findCrystalAt(context.position);
-        if (crystal) {
-          const removed = playfield.removeDeveloperCrystal(crystal.id);
-          if (removed) {
-            setLevelEditorStatus('Crystal removed from battlefield.', { tone: 'info', duration: 2000 });
-            return true;
+      // Try to remove crystal or tower at position (position is derived from normalized in InputController)
+      if (context.position) {
+        // Try to remove crystal at position
+        if (typeof playfield.findCrystalAt === 'function' && typeof playfield.removeDeveloperCrystal === 'function') {
+          const crystal = playfield.findCrystalAt(context.position);
+          if (crystal) {
+            const removed = playfield.removeDeveloperCrystal(crystal.id);
+            if (removed) {
+              setLevelEditorStatus('Crystal removed from battlefield.', { tone: 'info', duration: 2000 });
+              return true;
+            }
           }
         }
-      }
-      // Try to remove tower at position
-      if (context.position && typeof playfield.findDeveloperTowerAt === 'function' && typeof playfield.removeDeveloperTower === 'function') {
-        const tower = playfield.findDeveloperTowerAt(context.position);
-        if (tower) {
-          const removed = playfield.removeDeveloperTower(tower.id);
-          if (removed) {
-            setLevelEditorStatus('Tower removed from battlefield.', { tone: 'info', duration: 2000 });
-            return true;
+        // Try to remove tower at position
+        if (typeof playfield.findDeveloperTowerAt === 'function' && typeof playfield.removeDeveloperTower === 'function') {
+          const tower = playfield.findDeveloperTowerAt(context.position);
+          if (tower) {
+            const removed = playfield.removeDeveloperTower(tower.id);
+            if (removed) {
+              setLevelEditorStatus('Tower removed from battlefield.', { tone: 'info', duration: 2000 });
+              return true;
+            }
           }
         }
       }
