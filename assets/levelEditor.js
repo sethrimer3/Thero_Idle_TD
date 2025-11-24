@@ -251,7 +251,9 @@ export function createLevelEditorController({
       setLevelEditorStatus('Enable editing to adjust anchors.');
       return;
     }
-    if (levelEditorState.editing) {
+    // Only stop propagation when in path mode, so crystal/tower/erase modes can pass through to the playfield click handler
+    const currentMode = developerMapPlacementState.mode;
+    if (levelEditorState.editing && currentMode === 'path') {
       event.preventDefault();
       event.stopPropagation();
     }
