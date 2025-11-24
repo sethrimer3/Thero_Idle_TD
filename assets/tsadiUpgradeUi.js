@@ -27,6 +27,11 @@ export function createTsadiUpgradeUi({ getTsadiSimulation, spireMenuController }
     const repellingButton = document.getElementById('tsadi-upgrade-repelling-button');
     const repellingDesc = document.getElementById('tsadi-upgrade-repelling-description');
 
+    const waveLevel = document.getElementById('tsadi-upgrade-wave-level');
+    const waveCost = document.getElementById('tsadi-upgrade-wave-cost');
+    const waveButton = document.getElementById('tsadi-upgrade-wave-button');
+    const waveDesc = document.getElementById('tsadi-upgrade-wave-description');
+
     if (repellingLevel) {
       repellingLevel.textContent = `Level ${upgradeInfo.repellingForceReduction.level}`;
     }
@@ -39,6 +44,19 @@ export function createTsadiUpgradeUi({ getTsadiSimulation, spireMenuController }
     if (repellingDesc) {
       const effect = upgradeInfo.repellingForceReduction.effect;
       repellingDesc.textContent = `Reduces particle repelling force by 50% per level. Current: ${effect}. When force becomes negative, particles attract instead of repel.`;
+    }
+
+    if (waveLevel) {
+      waveLevel.textContent = `Level ${upgradeInfo.waveForce.level}`;
+    }
+    if (waveCost) {
+      waveCost.textContent = `Cost: ${upgradeInfo.waveForce.cost} Particles`;
+    }
+    if (waveButton) {
+      waveButton.disabled = !upgradeInfo.waveForce.canAfford;
+    }
+    if (waveDesc) {
+      waveDesc.textContent = `Empower the wave of force released on tap. Current: ${upgradeInfo.waveForce.effect}.`;
     }
 
     const tierLevel = document.getElementById('tsadi-upgrade-tier-level');
@@ -68,6 +86,7 @@ export function createTsadiUpgradeUi({ getTsadiSimulation, spireMenuController }
    */
   function bindTsadiUpgradeButtons() {
     const repellingButton = document.getElementById('tsadi-upgrade-repelling-button');
+    const waveButton = document.getElementById('tsadi-upgrade-wave-button');
     const tierButton = document.getElementById('tsadi-upgrade-tier-button');
 
     if (repellingButton) {
@@ -75,6 +94,20 @@ export function createTsadiUpgradeUi({ getTsadiSimulation, spireMenuController }
         const simulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
         if (simulation && typeof simulation.purchaseRepellingForceReduction === 'function') {
           if (simulation.purchaseRepellingForceReduction()) {
+            updateTsadiUpgradeUI();
+            if (spireMenuController && typeof spireMenuController.updateCounts === 'function') {
+              spireMenuController.updateCounts();
+            }
+          }
+        }
+      });
+    }
+
+    if (waveButton) {
+      waveButton.addEventListener('click', () => {
+        const simulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
+        if (simulation && typeof simulation.purchaseWaveForceUpgrade === 'function') {
+          if (simulation.purchaseWaveForceUpgrade()) {
             updateTsadiUpgradeUI();
             if (spireMenuController && typeof spireMenuController.updateCounts === 'function') {
               spireMenuController.updateCounts();

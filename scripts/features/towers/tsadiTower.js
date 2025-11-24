@@ -455,6 +455,7 @@ export class ParticleFusionSimulation {
     this.upgrades = {
       repellingForceReduction: 0, // Number of times purchased
       startingTier: 0, // Number of times purchased (0 = spawn null particles)
+      waveForce: 0, // Number of times the wave push upgrade has been purchased
     };
 
     // Fusion effects
@@ -666,7 +667,28 @@ export class ParticleFusionSimulation {
       }
     }
   }
-  
+
+  /**
+   * Calculate the current interactive wave stats based on upgrade level.
+   *
+   * Formula: baseValue × waveLevel where baseValue comes from the tuned constants
+   * so level 0 yields zero radius/force and level 1 matches the legacy behavior.
+   * @param {number} [waveLevel=this.upgrades.waveForce] - Purchased upgrade tier.
+   * @returns {{force:number, radius:number, maxRadius:number}} Wave stat bundle.
+   */
+  getWaveStats(waveLevel = this.upgrades.waveForce) {
+    const normalizedLevel = Math.max(0, waveLevel);
+    if (normalizedLevel <= 0) {
+      return { force: 0, radius: 0, maxRadius: 0 };
+    }
+
+    const radius = this.nullParticleRadius * WAVE_INITIAL_RADIUS_MULTIPLIER * normalizedLevel;
+    const maxRadius = this.nullParticleRadius * WAVE_MAX_RADIUS_MULTIPLIER * normalizedLevel;
+    const force = WAVE_INITIAL_FORCE * normalizedLevel;
+
+    return { force, radius, maxRadius };
+  }
+
   /**
    * Spawn a new particle with random position and velocity
    */
@@ -751,17 +773,20 @@ export class ParticleFusionSimulation {
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
       return;
     }
-    
+
+    const waveStats = this.getWaveStats();
+    if (waveStats.force <= 0 || waveStats.radius <= 0) {
+      return;
+    }
+
     // Create visual wave effect
-    const waveRadius = this.nullParticleRadius * WAVE_INITIAL_RADIUS_MULTIPLIER;
-    const maxWaveRadius = this.nullParticleRadius * WAVE_MAX_RADIUS_MULTIPLIER;
     this.interactiveWaves.push({
       x,
       y,
-      radius: waveRadius,
+      radius: waveStats.radius,
       alpha: 1,
-      maxRadius: maxWaveRadius,
-      force: WAVE_INITIAL_FORCE,
+      maxRadius: waveStats.maxRadius,
+      force: waveStats.force,
       type: 'wave',
     });
   }
@@ -2455,7 +2480,30 @@ export class ParticleFusionSimulation {
   getRepellingForceReductionCost() {
     return 3 * Math.pow(2, this.upgrades.repellingForceReduction);
   }
-  
+
+  /**
+   * Purchase interactive wave strength upgrade so clicks/taps apply meaningful force.
+   * @returns {boolean} True if purchase was successful
+   */
+  purchaseWaveForceUpgrade() {
+    const cost = this.getWaveForceUpgradeCost();
+    if (this.particleBank < cost) {
+      return false;
+    }
+
+    this.setParticleBank(this.particleBank - cost);
+    this.upgrades.waveForce += 1;
+    return true;
+  }
+
+  /**
+   * Get cost of next wave force upgrade (1, 10, 100, ...)
+   * @returns {number} Particle cost for the next tier
+   */
+  getWaveForceUpgradeCost() {
+    return Math.pow(10, this.upgrades.waveForce);
+  }
+
   /**
    * Purchase starting tier upgrade
    * @returns {boolean} True if purchase was successful
@@ -2478,11 +2526,13 @@ export class ParticleFusionSimulation {
   getStartingTierUpgradeCost() {
     return 5 * Math.pow(2, this.upgrades.startingTier);
   }
-  
+
   /**
    * Get upgrade information
    */
   getUpgradeInfo() {
+    const currentWaveStats = this.getWaveStats();
+
     return {
       repellingForceReduction: {
         level: this.upgrades.repellingForceReduction,
@@ -2490,10 +2540,18 @@ export class ParticleFusionSimulation {
         effect: `${this.upgrades.repellingForceReduction * 50}% force reduction`,
         canAfford: this.particleBank >= this.getRepellingForceReductionCost(),
       },
+      waveForce: {
+        level: this.upgrades.waveForce,
+        cost: this.getWaveForceUpgradeCost(),
+        effect: currentWaveStats.force > 0
+          ? `Push radius ~${Math.round(currentWaveStats.maxRadius)}px, peak force ${Math.round(currentWaveStats.force)}`
+          : 'Wave of force is inactive until upgraded.',
+        canAfford: this.particleBank >= this.getWaveForceUpgradeCost(),
+      },
       startingTier: {
         level: this.upgrades.startingTier,
         cost: this.getStartingTierUpgradeCost(),
-        effect: this.upgrades.startingTier > 0 
+        effect: this.upgrades.startingTier > 0
           ? `Spawn ${getGreekTierInfo(NULL_TIER + this.upgrades.startingTier).name} particles`
           : 'Spawn Null particles',
         canAfford: this.particleBank >= this.getStartingTierUpgradeCost(),
@@ -2525,6 +2583,7 @@ export class ParticleFusionSimulation {
       upgrades: {
         repellingForceReduction: this.upgrades.repellingForceReduction,
         startingTier: this.upgrades.startingTier,
+        waveForce: this.upgrades.waveForce,
       },
       permanentGlyphs: this.permanentGlyphs,
       alephAbsorptionCount: this.alephAbsorptionCount,
@@ -2632,6 +2691,9 @@ export class ParticleFusionSimulation {
       }
       if (typeof state.upgrades.startingTier === 'number') {
         this.upgrades.startingTier = state.upgrades.startingTier;
+      }
+      if (typeof state.upgrades.waveForce === 'number') {
+        this.upgrades.waveForce = state.upgrades.waveForce;
       }
     }
     
