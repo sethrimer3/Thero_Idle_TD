@@ -548,41 +548,41 @@ export const mu = {
 
 export const nu = {
   mathSymbol: String.raw`\nu`,
-  baseEquation: String.raw`\( \nu = \gamma + \text{OKdmg}_{\text{tot}} \)`,
+  baseEquation: String.raw`\( \nu = \mu + \text{dmgtot} \)`,
   variables: [
     {
-      key: 'gamma',
-      symbol: 'γ',
-      masterEquationSymbol: 'Gam',
-      name: 'Gamma Power',
-      description: 'Base power sourced from γ tower upgrades.',
-      reference: 'gamma',
+      key: 'mu',
+      symbol: 'μ',
+      masterEquationSymbol: 'Mu',
+      name: 'Attack',
+      description: 'Base attack sourced from μ tower upgrades.',
+      reference: 'mu',
       upgradable: false,
-      lockedNote: 'Upgrade γ to increase ν base power.',
+      lockedNote: 'Upgrade μ to increase ν base attack.',
       format: (value) => formatDecimal(value, 2),
       getSubEquations({ blueprint, towerId, value }) {
         const helpers = ctx();
         const effectiveBlueprint = blueprint || helpers.getTowerEquationBlueprint?.(towerId) || null;
-        const gammaValue = Math.max(0, Number.isFinite(value) ? value : 0);
-        const overkillRaw = helpers.computeTowerVariableValue?.(towerId, 'overkillTotal', effectiveBlueprint);
-        const overkill = Number.isFinite(overkillRaw) ? Math.max(0, overkillRaw) : 0;
-        const attack = gammaValue + overkill;
+        const muValue = Math.max(0, Number.isFinite(value) ? value : 0);
+        const totalDamageRaw = helpers.computeTowerVariableValue?.(towerId, 'damageTotal', effectiveBlueprint);
+        const damageTotal = Number.isFinite(totalDamageRaw) ? Math.max(0, totalDamageRaw) : 0;
+        const attack = muValue + damageTotal;
         return [
-          { expression: String.raw`\( atk = \gamma + \text{OKdmg}_{\text{tot}} \)` },
+          { expression: String.raw`\( atk = \mu + \text{dmgtot} \)` },
           {
-            values: String.raw`\( ${formatGameNumber(attack)} = ${formatGameNumber(gammaValue)} + ${formatGameNumber(overkill)} \)`,
+            values: String.raw`\( ${formatGameNumber(attack)} = ${formatGameNumber(muValue)} + ${formatGameNumber(damageTotal)} \)`,
             variant: 'values',
           },
         ];
       },
     },
     {
-      key: 'overkillTotal',
-      symbol: 'OKdmg',
-      equationSymbol: String.raw`\text{OKdmg}_{\text{tot}}`,
-      masterEquationSymbol: 'Ovr',
-      name: 'Overkill Total',
-      description: 'Accumulated overkill damage from all kills.',
+      key: 'damageTotal',
+      symbol: 'dmgtot',
+      equationSymbol: String.raw`\text{dmgtot}`,
+      masterEquationSymbol: 'Dmg',
+      name: 'Total Damage',
+      description: 'Accumulated damage dealt (including overkill).',
       baseValue: 0,
       upgradable: false,
       format: (value) => formatDecimal(value, 2),
@@ -596,9 +596,9 @@ export const nu = {
           ? Math.max(0, dynamicContext.stats.nuKills)
           : 0;
         return [
-          { expression: String.raw`\( \text{OKdmg}_{\text{tot}} = \sum (\text{dmg}_{\text{final}} - \text{hp}_{\text{remaining}}) \)` },
+          { expression: String.raw`\( \text{dmgtot} = \sum (\text{dmg}_{\text{final}} - \text{hp}_{\text{remaining}}) \)` },
           {
-            values: String.raw`\( ${formatDecimal(tracked, 2)} = \text{Overkill across } ${formatWholeNumber(kills)} \text{ kills} \)`,
+            values: String.raw`\( ${formatDecimal(tracked, 2)} = \text{Damage across } ${formatWholeNumber(kills)} \text{ kills} \)`,
             variant: 'values',
           },
         ];
@@ -653,7 +653,7 @@ export const nu = {
         return [
           { expression: String.raw`\( \text{spd} = 1 + 0.1 \times \text{kills} \)` },
           {
-            values: String.raw`\( ${formatDecimal(speed, 2)} = 1 + 0.1 \times ${formatWholeNumber(kills)} \)`,
+            values: String.raw`\( ${formatDecimal(speed, 2)} = 1 + 0.1 \times ${formatWholeNumber(kills)} \)` ,
             variant: 'values',
           },
         ];
@@ -661,8 +661,8 @@ export const nu = {
     },
     {
       key: 'rangeMeters',
-      symbol: 'spd',
-      equationSymbol: String.raw`\text{spd}`,
+      symbol: 'rng',
+      equationSymbol: String.raw`\text{rng}`,
       masterEquationSymbol: 'Rng',
       name: 'Range (m)',
       description: 'Beam reach in meters scaling with kills.',
@@ -683,7 +683,7 @@ export const nu = {
         return [
           { expression: String.raw`\( \text{rng} = 3 + 0.05 \times \text{kills} \)` },
           {
-            values: String.raw`\( ${formatDecimal(rangeMeters, 2)} = 3 + 0.05 \times ${formatWholeNumber(kills)} \)`,
+            values: String.raw`\( ${formatDecimal(rangeMeters, 2)} = 3 + 0.05 \times ${formatWholeNumber(kills)} \)` ,
             variant: 'values',
           },
         ];
@@ -691,17 +691,16 @@ export const nu = {
     },
   ],
   computeResult(values) {
-    const gammaValue = Math.max(0, Number.isFinite(values.gamma) ? values.gamma : 0);
-    const overkill = Math.max(0, Number.isFinite(values.overkillTotal) ? values.overkillTotal : 0);
-    return gammaValue + overkill;
+    const muAttack = Math.max(0, Number.isFinite(values.mu) ? values.mu : 0);
+    const damageTotal = Math.max(0, Number.isFinite(values.damageTotal) ? values.damageTotal : 0);
+    return muAttack + damageTotal;
   },
   formatBaseEquationValues({ values, result, formatComponent }) {
-    const gammaValue = Math.max(0, Number.isFinite(values.gamma) ? values.gamma : 0);
-    const overkill = Math.max(0, Number.isFinite(values.overkillTotal) ? values.overkillTotal : 0);
-    return `${formatComponent(result)} = ${formatComponent(gammaValue)} + ${formatComponent(overkill)}`;
+    const muAttack = Math.max(0, Number.isFinite(values.mu) ? values.mu : 0);
+    const damageTotal = Math.max(0, Number.isFinite(values.damageTotal) ? values.damageTotal : 0);
+    return `${formatComponent(result)} = ${formatComponent(muAttack)} + ${formatComponent(damageTotal)}`;
   },
 };
-
 export const xi = {
   mathSymbol: String.raw`\xi`,
   baseEquation: String.raw`\( \xi = \nu \times (\text{numChain}^{\text{numChnExp}}) \)`,
