@@ -24,6 +24,9 @@ export const enemyCodexOverlayElements = {
   closeButton: null,
 };
 
+// Track if the global escape key handler has been initialized
+let escapeKeyHandlerInitialized = false;
+
 // Track recent performance snapshots rendered in the Codex diagnostics card.
 const performanceCodexState = {
   log: [],
@@ -479,9 +482,9 @@ export function renderEnemyCodexOverlay() {
     entryDiv.className = 'enemy-codex-entry';
     entryDiv.setAttribute('role', 'listitem');
 
-    const header = document.createElement('div');
+    const header = document.createElement('button');
     header.className = 'enemy-codex-entry-header';
-    header.setAttribute('role', 'button');
+    header.type = 'button';
     header.setAttribute('aria-expanded', 'false');
 
     const title = document.createElement('h3');
@@ -643,6 +646,21 @@ export function closeEnemyCodexOverlay() {
   }, 220);
 }
 
+// Handler for backdrop clicks to close the overlay
+function handleOverlayBackdropClick(event) {
+  if (event.target === enemyCodexOverlayElements.overlay) {
+    closeEnemyCodexOverlay();
+  }
+}
+
+// Handler for escape key to close the overlay
+function handleEscapeKey(event) {
+  if (event.key === 'Escape' && enemyCodexOverlayElements.overlay && 
+      enemyCodexOverlayElements.overlay.classList.contains('active')) {
+    closeEnemyCodexOverlay();
+  }
+}
+
 // Initializes the enemy codex overlay controls.
 export function initializeEnemyCodexOverlay() {
   enemyCodexOverlayElements.overlay = document.getElementById('enemy-codex-overlay');
@@ -656,18 +674,13 @@ export function initializeEnemyCodexOverlay() {
 
   if (enemyCodexOverlayElements.overlay) {
     // Close on backdrop click
-    enemyCodexOverlayElements.overlay.addEventListener('click', (event) => {
-      if (event.target === enemyCodexOverlayElements.overlay) {
-        closeEnemyCodexOverlay();
-      }
-    });
+    enemyCodexOverlayElements.overlay.addEventListener('click', handleOverlayBackdropClick);
 
-    // Close on Escape key
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && enemyCodexOverlayElements.overlay.classList.contains('active')) {
-        closeEnemyCodexOverlay();
-      }
-    });
+    // Close on Escape key - only add once
+    if (!escapeKeyHandlerInitialized) {
+      document.addEventListener('keydown', handleEscapeKey);
+      escapeKeyHandlerInitialized = true;
+    }
   }
 
   const openButton = document.getElementById('open-enemy-codex-button');
