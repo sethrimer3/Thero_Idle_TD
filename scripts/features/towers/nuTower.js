@@ -9,7 +9,7 @@
  * - Tower flashes and ripples when absorbing kill particles
  * 
  * Formulas:
- * - atk = gamma + OKdmgTot (gamma power + total overkill damage)
+ * - atk = mu + dmgtot (μ attack + total damage)
  * - spd = 1 + 0.1 × kills (attack speed scales with kills)
  * - rng = baseRangeMeters + 0.05 × kills (base derived from tower config, clamped to ≥3m)
  * 
@@ -28,7 +28,6 @@ import {
 } from './alphaTower.js';
 import {
   calculateTowerEquationResult,
-  getTowerEquationBlueprint,
 } from '../../../assets/towersTab.js';
 import { canvasFractionToMeters, metersToPixels } from '../../../assets/gameUnits.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
@@ -127,33 +126,40 @@ function ensureNuStateInternal(playfield, tower) {
 /**
  * Refresh nu tower parameters from formulas.
  */
-function resolveGammaPowerSafe() {
-  // Guard against equation resolution failures so ν can't freeze the playfield when γ math is unavailable.
+function resolveMuAttackSafe() {
+  // Guard against equation resolution failures so ν can't freeze the playfield when μ math is unavailable.
   try {
-    const gammaRaw = calculateTowerEquationResult('gamma');
-    return Number.isFinite(gammaRaw) ? Math.max(0, gammaRaw) : 0;
+    const muRaw = calculateTowerEquationResult('mu');
+    return Number.isFinite(muRaw) ? Math.max(0, muRaw) : 0;
   } catch (error) {
-    console.warn('ν tower failed to resolve γ power; defaulting to 0.', error);
+    console.warn('ν tower failed to resolve μ attack; defaulting to 0.', error);
     return 0;
   }
 }
 
 function refreshNuParameters(playfield, tower, state) {
-  // Get gamma power for base damage with a safe fallback.
-  const gammaPower = resolveGammaPowerSafe();
-  
-  // atk = gamma + OKdmgTot
-  const attack = gammaPower + state.overkillDamageTotal;
+  // Get μ attack for base damage with a safe fallback.
+  const muAttack = resolveMuAttackSafe();
+
+  const kills = Number.isFinite(state.kills) ? state.kills : 0;
+
+  // atk = mu + dmgtot
+  const attack = muAttack + state.overkillDamageTotal;
   
   // spd = 1 + 0.1 × kills
-  const attackSpeed = BASE_ATTACK_SPEED + KILL_SPEED_BONUS * state.kills;
+  const attackSpeed = BASE_ATTACK_SPEED + KILL_SPEED_BONUS * kills;
 
   // rng = 3 + 0.05 × kills (in meters)
-  const baseRangeMeters = resolveBaseRangeMeters(tower);
-  const rangeMeters = baseRangeMeters + KILL_RANGE_BONUS * state.kills;
+  const baseRangeMeters = Math.max(BASE_RANGE_METERS, resolveBaseRangeMeters(tower));
+  const rangeMetersRaw = baseRangeMeters + KILL_RANGE_BONUS * kills;
+  const rangeMeters = Number.isFinite(rangeMetersRaw) ? Math.max(BASE_RANGE_METERS, rangeMetersRaw) : BASE_RANGE_METERS;
 
   const minDimension = resolvePlayfieldMinDimension(playfield);
-  const rangePixels = Math.max(24, metersToPixels(rangeMeters, minDimension));
+  const baseRangePixels = metersToPixels(BASE_RANGE_METERS, minDimension);
+  const computedRangePixels = metersToPixels(rangeMeters, minDimension);
+  const clampedRangePixels = Number.isFinite(computedRangePixels) && computedRangePixels > 0 ? computedRangePixels : 0;
+  const safeBasePixels = Number.isFinite(baseRangePixels) && baseRangePixels > 0 ? baseRangePixels : 0;
+  const rangePixels = Math.max(24, safeBasePixels, clampedRangePixels);
 
   // Update tower stats for display
   tower.baseDamage = attack;
