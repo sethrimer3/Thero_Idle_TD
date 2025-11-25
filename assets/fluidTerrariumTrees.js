@@ -1463,8 +1463,8 @@ export class FluidTerrariumTrees {
     const canopyCushion = this.renderBounds.height * 0.04;
     const height = Math.min(desiredHeight + canopyCushion, maxHeight);
 
-    const horizontalPadding = Math.max(8, width * 0.12);
-    const verticalPadding = Math.max(8, height * 0.12);
+    const horizontalPadding = Math.max(16, width * 0.25);
+    const verticalPadding = Math.max(12, height * 0.15);
     const paddedWidth = width + horizontalPadding * 2;
     const paddedHeight = height + verticalPadding;
 
@@ -1481,14 +1481,29 @@ export class FluidTerrariumTrees {
   createCanvas(layout) {
     const canvas = document.createElement('canvas');
     canvas.className = 'fluid-terrarium__tree';
-    canvas.width = Math.max(1, Math.round(layout.width));
-    canvas.height = Math.max(1, Math.round(layout.height));
+
+    // Use device pixel ratio with 3x multiplier for crisp rendering at mobile zoom levels.
+    const dpr = window.devicePixelRatio || 1;
+    const scaleFactor = dpr * 3;
+
+    // Set high-resolution buffer size for crisp rendering.
+    canvas.width = Math.round(layout.width * scaleFactor);
+    canvas.height = Math.round(layout.height * scaleFactor);
+
+    // Keep CSS display size unchanged.
     canvas.style.left = `${layout.left}px`;
     canvas.style.top = `${layout.top}px`;
     canvas.style.width = `${layout.width}px`;
     canvas.style.height = `${layout.height}px`;
     canvas.setAttribute('aria-hidden', 'true');
     canvas.setAttribute('role', 'presentation');
+
+    // Scale context so drawing operations use logical coordinates.
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.scale(scaleFactor, scaleFactor);
+    }
+
     return canvas;
   }
 
