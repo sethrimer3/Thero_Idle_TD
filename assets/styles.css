@@ -10676,3 +10676,181 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     font-size: 0.75rem;
   }
 }
+
+/* Enemy Codex Overlay Styles */
+
+.enemy-codex-overlay .overlay-panel {
+  max-width: min(90vw, 560px);
+  width: min(90vw, 560px);
+  max-height: min(90vh, 700px);
+  text-align: left;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.enemy-codex-overlay-intro {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0;
+}
+
+.enemy-codex-overlay-list {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.enemy-codex-overlay-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+  padding: 2rem 1rem;
+}
+
+.enemy-codex-entry {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  background: rgba(20, 20, 32, 0.6);
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.enemy-codex-entry:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.enemy-codex-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  cursor: var(--cursor-pointer);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  transition: background 0.2s ease;
+}
+
+.enemy-codex-entry-header:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.enemy-codex-entry-header:focus-visible {
+  outline: 2px solid var(--path-blue);
+  outline-offset: -2px;
+}
+
+.enemy-codex-entry-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.enemy-codex-entry-symbol {
+  font-size: 1.3rem;
+  color: var(--path-orange);
+}
+
+.enemy-codex-entry-toggle {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.5);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.enemy-codex-entry.expanded .enemy-codex-entry-toggle {
+  transform: rotate(90deg);
+  color: var(--path-orange);
+}
+
+.enemy-codex-entry-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.enemy-codex-entry.expanded .enemy-codex-entry-content {
+  max-height: 1000px;
+}
+
+.enemy-codex-entry-body {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.enemy-codex-field {
+  display: grid;
+  gap: 6px;
+}
+
+.enemy-codex-field-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+}
+
+.enemy-codex-field-value {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.enemy-codex-field-value.formula {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.95rem;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.enemy-codex-traits {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.enemy-codex-traits li {
+  padding-left: 20px;
+  position: relative;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.enemy-codex-traits li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: var(--path-orange);
+}
+
+@media (max-width: 600px) {
+  .enemy-codex-overlay .overlay-panel {
+    max-width: 95vw;
+    width: 95vw;
+    padding: 28px 20px;
+  }
+  
+  .enemy-codex-entry-header {
+    padding: 12px 14px;
+  }
+  
+  .enemy-codex-entry-title {
+    font-size: 1.05rem;
+  }
+}

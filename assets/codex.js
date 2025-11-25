@@ -16,6 +16,17 @@ export const enemyCodexElements = {
   note: null,
 };
 
+// Stores DOM elements for the enemy codex overlay.
+export const enemyCodexOverlayElements = {
+  overlay: null,
+  list: null,
+  empty: null,
+  closeButton: null,
+};
+
+// Track if the global escape key handler has been initialized
+let escapeKeyHandlerInitialized = false;
+
 // Track recent performance snapshots rendered in the Codex diagnostics card.
 const performanceCodexState = {
   log: [],
@@ -439,6 +450,243 @@ export function registerEnemyEncounter(enemyId) {
   }
   codexState.encounteredEnemies.add(enemyId);
   renderEnemyCodex();
+  renderEnemyCodexOverlay();
+}
+
+// Renders the enemy codex overlay with collapsible entries.
+export function renderEnemyCodexOverlay() {
+  if (!enemyCodexOverlayElements.list) {
+    return;
+  }
+
+  const encountered = Array.from(codexState.encounteredEnemies)
+    .map((id) => enemyCodexMap.get(id))
+    .filter(Boolean);
+
+  enemyCodexOverlayElements.list.innerHTML = '';
+
+  if (!encountered.length) {
+    if (enemyCodexOverlayElements.empty) {
+      enemyCodexOverlayElements.empty.hidden = false;
+    }
+    return;
+  }
+
+  if (enemyCodexOverlayElements.empty) {
+    enemyCodexOverlayElements.empty.hidden = true;
+  }
+
+  const fragment = document.createDocumentFragment();
+  encountered.forEach((entry) => {
+    const entryDiv = document.createElement('div');
+    entryDiv.className = 'enemy-codex-entry';
+    entryDiv.setAttribute('role', 'listitem');
+
+    const header = document.createElement('button');
+    header.className = 'enemy-codex-entry-header';
+    header.type = 'button';
+    header.setAttribute('aria-expanded', 'false');
+
+    const title = document.createElement('h3');
+    title.className = 'enemy-codex-entry-title';
+    
+    if (entry.symbol) {
+      const symbol = document.createElement('span');
+      symbol.className = 'enemy-codex-entry-symbol';
+      symbol.textContent = entry.symbol;
+      title.append(symbol);
+    }
+    
+    title.append(document.createTextNode(entry.name));
+
+    const toggle = document.createElement('span');
+    toggle.className = 'enemy-codex-entry-toggle';
+    toggle.setAttribute('aria-hidden', 'true');
+    toggle.textContent = '▸';
+
+    header.append(title, toggle);
+
+    const content = document.createElement('div');
+    content.className = 'enemy-codex-entry-content';
+
+    const body = document.createElement('div');
+    body.className = 'enemy-codex-entry-body';
+
+    if (entry.summary) {
+      const summaryField = document.createElement('div');
+      summaryField.className = 'enemy-codex-field';
+      
+      const summaryLabel = document.createElement('div');
+      summaryLabel.className = 'enemy-codex-field-label';
+      summaryLabel.textContent = 'Overview';
+      
+      const summaryValue = document.createElement('div');
+      summaryValue.className = 'enemy-codex-field-value';
+      summaryValue.textContent = annotateMathText(entry.summary);
+      
+      summaryField.append(summaryLabel, summaryValue);
+      body.append(summaryField);
+      renderMathElement(summaryValue);
+    }
+
+    if (entry.formula) {
+      const formulaField = document.createElement('div');
+      formulaField.className = 'enemy-codex-field';
+      
+      const formulaLabel = document.createElement('div');
+      formulaLabel.className = 'enemy-codex-field-label';
+      formulaLabel.textContent = entry.formulaLabel || 'Key Expression';
+      
+      const formulaValue = document.createElement('div');
+      formulaValue.className = 'enemy-codex-field-value formula';
+      formulaValue.textContent = annotateMathText(entry.formula);
+      
+      formulaField.append(formulaLabel, formulaValue);
+      body.append(formulaField);
+      renderMathElement(formulaValue);
+    }
+
+    if (Array.isArray(entry.traits) && entry.traits.length) {
+      const traitsField = document.createElement('div');
+      traitsField.className = 'enemy-codex-field';
+      
+      const traitsLabel = document.createElement('div');
+      traitsLabel.className = 'enemy-codex-field-label';
+      traitsLabel.textContent = 'Combat Traits';
+      
+      const traitsList = document.createElement('ul');
+      traitsList.className = 'enemy-codex-traits';
+      entry.traits.forEach((trait) => {
+        const item = document.createElement('li');
+        item.textContent = annotateMathText(trait);
+        traitsList.append(item);
+        renderMathElement(item);
+      });
+      
+      traitsField.append(traitsLabel, traitsList);
+      body.append(traitsField);
+    }
+
+    if (entry.counter) {
+      const counterField = document.createElement('div');
+      counterField.className = 'enemy-codex-field';
+      
+      const counterLabel = document.createElement('div');
+      counterLabel.className = 'enemy-codex-field-label';
+      counterLabel.textContent = 'Counter Strategy';
+      
+      const counterValue = document.createElement('div');
+      counterValue.className = 'enemy-codex-field-value';
+      counterValue.textContent = annotateMathText(entry.counter);
+      
+      counterField.append(counterLabel, counterValue);
+      body.append(counterField);
+      renderMathElement(counterValue);
+    }
+
+    if (entry.lore) {
+      const loreField = document.createElement('div');
+      loreField.className = 'enemy-codex-field';
+      
+      const loreLabel = document.createElement('div');
+      loreLabel.className = 'enemy-codex-field-label';
+      loreLabel.textContent = 'Lore';
+      
+      const loreValue = document.createElement('div');
+      loreValue.className = 'enemy-codex-field-value';
+      loreValue.textContent = annotateMathText(entry.lore);
+      
+      loreField.append(loreLabel, loreValue);
+      body.append(loreField);
+      renderMathElement(loreValue);
+    }
+
+    content.append(body);
+    entryDiv.append(header, content);
+
+    // Toggle expansion on click
+    header.addEventListener('click', () => {
+      const isExpanded = entryDiv.classList.toggle('expanded');
+      header.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+    });
+
+    fragment.append(entryDiv);
+  });
+
+  enemyCodexOverlayElements.list.append(fragment);
+}
+
+// Opens the enemy codex overlay.
+export function openEnemyCodexOverlay() {
+  if (!enemyCodexOverlayElements.overlay) {
+    return;
+  }
+  enemyCodexOverlayElements.overlay.hidden = false;
+  enemyCodexOverlayElements.overlay.setAttribute('aria-hidden', 'false');
+  
+  // Add active class after a frame to trigger transition
+  requestAnimationFrame(() => {
+    enemyCodexOverlayElements.overlay.classList.add('active');
+  });
+  
+  renderEnemyCodexOverlay();
+}
+
+// Closes the enemy codex overlay.
+export function closeEnemyCodexOverlay() {
+  if (!enemyCodexOverlayElements.overlay) {
+    return;
+  }
+  enemyCodexOverlayElements.overlay.classList.remove('active');
+  
+  // Wait for transition before hiding
+  setTimeout(() => {
+    enemyCodexOverlayElements.overlay.hidden = true;
+    enemyCodexOverlayElements.overlay.setAttribute('aria-hidden', 'true');
+  }, 220);
+}
+
+// Handler for backdrop clicks to close the overlay
+function handleOverlayBackdropClick(event) {
+  if (event.target === enemyCodexOverlayElements.overlay) {
+    closeEnemyCodexOverlay();
+  }
+}
+
+// Handler for escape key to close the overlay
+function handleEscapeKey(event) {
+  if (event.key === 'Escape' && enemyCodexOverlayElements.overlay && 
+      enemyCodexOverlayElements.overlay.classList.contains('active')) {
+    closeEnemyCodexOverlay();
+  }
+}
+
+// Initializes the enemy codex overlay controls.
+export function initializeEnemyCodexOverlay() {
+  enemyCodexOverlayElements.overlay = document.getElementById('enemy-codex-overlay');
+  enemyCodexOverlayElements.list = document.getElementById('enemy-codex-overlay-list');
+  enemyCodexOverlayElements.empty = document.getElementById('enemy-codex-overlay-empty');
+  enemyCodexOverlayElements.closeButton = document.getElementById('enemy-codex-overlay-close');
+
+  if (enemyCodexOverlayElements.closeButton) {
+    enemyCodexOverlayElements.closeButton.addEventListener('click', closeEnemyCodexOverlay);
+  }
+
+  if (enemyCodexOverlayElements.overlay) {
+    // Close on backdrop click
+    enemyCodexOverlayElements.overlay.addEventListener('click', handleOverlayBackdropClick);
+
+    // Close on Escape key - only add once
+    if (!escapeKeyHandlerInitialized) {
+      document.addEventListener('keydown', handleEscapeKey);
+      escapeKeyHandlerInitialized = true;
+    }
+  }
+
+  const openButton = document.getElementById('open-enemy-codex-button');
+  if (openButton) {
+    openButton.addEventListener('click', openEnemyCodexOverlay);
+  }
 }
 
 // Wires up codex UI buttons with helpers supplied by the main module.

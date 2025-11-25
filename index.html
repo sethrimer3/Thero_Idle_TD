@@ -3054,6 +3054,13 @@
                 Field Notes
               </button>
             </article>
+            <article class="card">
+              <h3>Enemy Codex</h3>
+              <p>Review encountered enemy types and their combat characteristics.</p>
+              <button class="action-button ghost" type="button" id="open-enemy-codex-button">
+                Enemy Codex
+              </button>
+            </article>
           </div>
           <section class="level-legend codex-roadmap" aria-labelledby="codex-proof-roadmap-title">
             <header class="codex-header">
@@ -3106,7 +3113,7 @@
               Enter a battle to populate performance samples.
             </p>
           </article>
-          <section class="enemy-codex" id="enemy-codex-section" aria-live="polite" tabindex="-1">
+          <section class="enemy-codex" id="enemy-codex-section" aria-live="polite" tabindex="-1" hidden>
             <header class="subsection-title">Enemy Codex</header>
             <div class="codex-controls">
               <button class="action-button ghost" type="button" id="codex-options-button">
@@ -3690,6 +3697,31 @@
           </p>
         </section>
         <ul class="crafting-list" id="crafting-list" role="list"></ul>
+        <p class="overlay-instruction">Tap outside or press Esc to close.</p>
+      </div>
+    </div>
+
+    <div
+      class="level-overlay enemy-codex-overlay"
+      id="enemy-codex-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+      tabindex="-1"
+      hidden
+    >
+      <div class="overlay-panel enemy-codex-panel" role="document" aria-labelledby="enemy-codex-overlay-title">
+        <button class="overlay-close" type="button" id="enemy-codex-overlay-close" aria-label="Close enemy codex">×</button>
+        <p class="overlay-label">Enemy Compendium</p>
+        <h2 class="overlay-title" id="enemy-codex-overlay-title">Enemy Codex</h2>
+        <p class="enemy-codex-overlay-intro" id="enemy-codex-overlay-intro">
+          Encountered enemy glyphs and their tactical signatures are cataloged below.
+        </p>
+        <div class="enemy-codex-overlay-list" id="enemy-codex-overlay-list" role="list">
+          <p class="enemy-codex-overlay-empty" id="enemy-codex-overlay-empty">
+            Encounter enemies in combat to unlock their entries.
+          </p>
+        </div>
         <p class="overlay-instruction">Tap outside or press Esc to close.</p>
       </div>
     </div>
