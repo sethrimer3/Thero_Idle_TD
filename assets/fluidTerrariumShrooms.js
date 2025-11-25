@@ -643,9 +643,6 @@ export class FluidTerrariumShrooms {
     // State callbacks
     this.onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : null;
     
-    // Shroom state from persistence
-    this.shroomState = options.state?.shrooms || {};
-    
     this.handleFrame = this.handleFrame.bind(this);
     this.handlePsiPulse = this.handlePsiPulse.bind(this);
     
@@ -1052,73 +1049,3 @@ export class FluidTerrariumShrooms {
     this.sporeLayer = null;
   }
 }
-
-// Export configuration for store integration
-export const SHROOM_STORE_ITEMS = [
-  {
-    id: 'bet-store-phi-yellow',
-    label: 'Yellow Φ Shroom',
-    description: 'A softly glowing golden mushroom. Generates 10 happiness/sec per level.',
-    icon: 'φ',
-    type: 'phi',
-    colorVariant: 'yellow',
-    cost: SHROOM_CONFIG.phi.baseCost,
-    costMultiplier: SHROOM_CONFIG.phi.costMultiplier,
-    maxLevel: SHROOM_CONFIG.phi.maxLevel,
-    happinessPerLevel: SHROOM_CONFIG.phi.happinessPerSecond,
-    caveOnly: true,
-  },
-  {
-    id: 'bet-store-phi-green',
-    label: 'Green Φ Shroom',
-    description: 'A verdant glowing mushroom. Generates 10 happiness/sec per level.',
-    icon: 'φ',
-    type: 'phi',
-    colorVariant: 'green',
-    cost: SHROOM_CONFIG.phi.baseCost,
-    costMultiplier: SHROOM_CONFIG.phi.costMultiplier,
-    maxLevel: SHROOM_CONFIG.phi.maxLevel,
-    happinessPerLevel: SHROOM_CONFIG.phi.happinessPerSecond,
-    caveOnly: true,
-  },
-  {
-    id: 'bet-store-phi-blue',
-    label: 'Blue Φ Shroom',
-    description: 'A sapphire glowing mushroom. Generates 10 happiness/sec per level.',
-    icon: 'φ',
-    type: 'phi',
-    colorVariant: 'blue',
-    cost: SHROOM_CONFIG.phi.baseCost,
-    costMultiplier: SHROOM_CONFIG.phi.costMultiplier,
-    maxLevel: SHROOM_CONFIG.phi.maxLevel,
-    happinessPerLevel: SHROOM_CONFIG.phi.happinessPerSecond,
-    caveOnly: true,
-  },
-  {
-    id: 'bet-store-psi-1',
-    label: 'Ψ Shroom',
-    description: 'A mysterious dark mushroom that pulses pink and releases spores. Generates 35 happiness/sec per level.',
-    icon: 'ψ',
-    type: 'psi',
-    cost: SHROOM_CONFIG.psi.baseCost,
-    costMultiplier: SHROOM_CONFIG.psi.costMultiplier,
-    maxLevel: SHROOM_CONFIG.psi.maxLevel,
-    happinessPerLevel: SHROOM_CONFIG.psi.happinessPerSecond,
-    caveOnly: true,
-  },
-  {
-    id: 'bet-store-psi-2',
-    label: 'Ψ Shroom',
-    description: 'A mysterious dark mushroom that pulses pink and releases spores. Generates 35 happiness/sec per level.',
-    icon: 'ψ',
-    type: 'psi',
-    cost: SHROOM_CONFIG.psi.baseCost,
-    costMultiplier: SHROOM_CONFIG.psi.costMultiplier,
-    maxLevel: SHROOM_CONFIG.psi.maxLevel,
-    happinessPerLevel: SHROOM_CONFIG.psi.happinessPerSecond,
-    caveOnly: true,
-  },
-];
-
-// Export configuration constants
-export { SHROOM_CONFIG, PHI_SHROOM_COLORS, PSI_SHROOM_STYLE };

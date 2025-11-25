@@ -141,7 +141,7 @@ import { FluidTerrariumGrass } from './fluidTerrariumGrass.js';
 // Day/night cycle that animates the Bet terrarium sky and celestial bodies.
 import { FluidTerrariumSkyCycle } from './fluidTerrariumSkyCycle.js';
 // Phi and Psi shrooms for the Bet terrarium cave zones.
-import { FluidTerrariumShrooms, SHROOM_STORE_ITEMS, SHROOM_CONFIG } from './fluidTerrariumShrooms.js';
+import { FluidTerrariumShrooms } from './fluidTerrariumShrooms.js';
 // Bet Spire happiness production tracker fed by Serendipity purchases.
 import { createBetHappinessSystem } from './betHappiness.js';
 import { createResourceHud } from './resourceHud.js';
@@ -1077,12 +1077,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (fluidTerrariumShrooms || !fluidElements?.viewport) {
       return;
     }
+    // Initialize betShrooms state if not present
+    if (!powderState.betShrooms) {
+      powderState.betShrooms = { shrooms: [] };
+    }
     fluidTerrariumShrooms = new FluidTerrariumShrooms({
       container: fluidElements.viewport,
       terrainElement: fluidElements.terrainSprite,
       terrainCollisionElement: fluidElements.terrainCollisionSprite,
       spawnZones: BET_CAVE_SPAWN_ZONES,
-      state: powderState.betShrooms,
       onStateChange: (state) => {
         powderState.betShrooms = state;
         updateShroomHappiness();
