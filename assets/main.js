@@ -140,6 +140,8 @@ import { FluidTerrariumTrees, resolveTerrariumTreeLevel } from './fluidTerrarium
 import { FluidTerrariumGrass } from './fluidTerrariumGrass.js';
 // Day/night cycle that animates the Bet terrarium sky and celestial bodies.
 import { FluidTerrariumSkyCycle } from './fluidTerrariumSkyCycle.js';
+// Phi and Psi shrooms for the Bet terrarium cave zones.
+import { FluidTerrariumShrooms } from './fluidTerrariumShrooms.js';
 // Bet Spire happiness production tracker fed by Serendipity purchases.
 import { createBetHappinessSystem } from './betHappiness.js';
 import { createResourceHud } from './resourceHud.js';
@@ -831,6 +833,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let fluidTerrariumGrass = null;
   // Drive the Bet terrarium day/night palette and celestial bodies.
   let fluidTerrariumSkyCycle = null;
+  // Phi and Psi shrooms that grow inside cave spawn zones.
+  let fluidTerrariumShrooms = null;
 
   /**
    * Force the Bet Spire Terrarium to remain locked and inactive while the feature is disabled.
@@ -1028,6 +1032,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       powderState: powderState,
       spendSerendipity: spendFluidSerendipity,
       getSerendipityBalance: getCurrentFluidDropBank,
+      onShroomPlace: handleShroomPlacement,
       onStateChange: (state) => {
         powderState.betTerrarium = {
           levelingMode: Boolean(state?.levelingMode),
@@ -1062,6 +1067,94 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       sunElement: fluidElements.terrariumSun,
       moonElement: fluidElements.terrariumMoon,
     });
+  }
+
+  // Initialize Phi and Psi shrooms inside the cave spawn zones.
+  function ensureFluidTerrariumShrooms() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
+    if (fluidTerrariumShrooms || !fluidElements?.viewport) {
+      return;
+    }
+    // Initialize betShrooms state if not present
+    if (!powderState.betShrooms) {
+      powderState.betShrooms = { shrooms: [] };
+    }
+    fluidTerrariumShrooms = new FluidTerrariumShrooms({
+      container: fluidElements.viewport,
+      terrainElement: fluidElements.terrainSprite,
+      terrainCollisionElement: fluidElements.terrainCollisionSprite,
+      spawnZones: BET_CAVE_SPAWN_ZONES,
+      onStateChange: (state) => {
+        powderState.betShrooms = state;
+        updateShroomHappiness();
+      },
+    });
+    fluidTerrariumShrooms.start();
+  }
+
+  // Update happiness system with shroom levels.
+  function updateShroomHappiness() {
+    if (!betHappinessSystem || !fluidTerrariumShrooms) {
+      return;
+    }
+    const shrooms = fluidTerrariumShrooms.getShrooms();
+    let phiYellowLevels = 0;
+    let phiGreenLevels = 0;
+    let phiBlueLevels = 0;
+    let psiLevels = 0;
+    for (const shroom of shrooms) {
+      if (shroom.type === 'phi') {
+        switch (shroom.colorVariant) {
+          case 'yellow':
+            phiYellowLevels += shroom.level;
+            break;
+          case 'green':
+            phiGreenLevels += shroom.level;
+            break;
+          case 'blue':
+            phiBlueLevels += shroom.level;
+            break;
+          default:
+            break;
+        }
+      } else if (shroom.type === 'psi') {
+        psiLevels += shroom.level;
+      }
+    }
+    betHappinessSystem.setProducerCount('phiShroomYellow', phiYellowLevels);
+    betHappinessSystem.setProducerCount('phiShroomGreen', phiGreenLevels);
+    betHappinessSystem.setProducerCount('phiShroomBlue', phiBlueLevels);
+    betHappinessSystem.setProducerCount('psiShroom', psiLevels);
+    betHappinessSystem.updateDisplay();
+  }
+
+  // Handle shroom placement from the terrarium store.
+  function handleShroomPlacement(options) {
+    if (!fluidTerrariumShrooms) {
+      return false;
+    }
+    const { type, colorVariant } = options;
+    if (type === 'phi') {
+      const shroom = fluidTerrariumShrooms.addPhiShroom({
+        colorVariant: colorVariant || 'yellow',
+        level: 1,
+      });
+      if (shroom) {
+        updateShroomHappiness();
+        return true;
+      }
+    } else if (type === 'psi') {
+      const shroom = fluidTerrariumShrooms.addPsiShroom({
+        level: 1,
+      });
+      if (shroom) {
+        updateShroomHappiness();
+        return true;
+      }
+    }
+    return false;
   }
 
   // Ensure compact autosave remains the active basin persistence strategy.
@@ -5017,6 +5110,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     ensureFluidTerrariumCrystal();
     ensureFluidTerrariumTrees();
     ensureFluidTerrariumSkyCycle();
+    ensureFluidTerrariumShrooms();
     ensurePowderBasinResizeObserver();
     bindSpireClickIncome();
     await applyPowderSimulationMode(powderState.simulationMode);

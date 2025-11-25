@@ -57,6 +57,79 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
     minSpacing: 0.07,
     initialAllocation: 5,
   },
+  {
+    id: 'bet-store-phi-yellow',
+    label: 'Yellow Φ Shroom',
+    description: 'A softly glowing golden mushroom. Cave-only. 10 hp/sec per level, max Lv 10.',
+    icon: 'φ',
+    itemType: 'shroom',
+    shroomType: 'phi',
+    colorVariant: 'yellow',
+    cost: 50,
+    size: 'small',
+    minY: 0.65,
+    maxY: 0.95,
+    minSpacing: 0.05,
+    caveOnly: true,
+  },
+  {
+    id: 'bet-store-phi-green',
+    label: 'Green Φ Shroom',
+    description: 'A verdant glowing mushroom. Cave-only. 10 hp/sec per level, max Lv 10.',
+    icon: 'φ',
+    itemType: 'shroom',
+    shroomType: 'phi',
+    colorVariant: 'green',
+    cost: 50,
+    size: 'small',
+    minY: 0.65,
+    maxY: 0.95,
+    minSpacing: 0.05,
+    caveOnly: true,
+  },
+  {
+    id: 'bet-store-phi-blue',
+    label: 'Blue Φ Shroom',
+    description: 'A sapphire glowing mushroom. Cave-only. 10 hp/sec per level, max Lv 10.',
+    icon: 'φ',
+    itemType: 'shroom',
+    shroomType: 'phi',
+    colorVariant: 'blue',
+    cost: 50,
+    size: 'small',
+    minY: 0.65,
+    maxY: 0.95,
+    minSpacing: 0.05,
+    caveOnly: true,
+  },
+  {
+    id: 'bet-store-psi-1',
+    label: 'Ψ Shroom',
+    description: 'Dark mushroom that pulses pink and releases spores. Cave-only. 35 hp/sec per level, max Lv 5.',
+    icon: 'ψ',
+    itemType: 'shroom',
+    shroomType: 'psi',
+    cost: 200,
+    size: 'small',
+    minY: 0.65,
+    maxY: 0.95,
+    minSpacing: 0.05,
+    caveOnly: true,
+  },
+  {
+    id: 'bet-store-psi-2',
+    label: 'Ψ Shroom',
+    description: 'Dark mushroom that pulses pink and releases spores. Cave-only. 35 hp/sec per level, max Lv 5.',
+    icon: 'ψ',
+    itemType: 'shroom',
+    shroomType: 'psi',
+    cost: 200,
+    size: 'small',
+    minY: 0.65,
+    maxY: 0.95,
+    minSpacing: 0.05,
+    caveOnly: true,
+  },
 ];
 
 const PLACEMENT_DIMENSIONS = {
@@ -122,6 +195,7 @@ export class FluidTerrariumTrees {
       typeof options.getSerendipityBalance === 'function' ? options.getSerendipityBalance : () => 0;
     this.spendSerendipity = typeof options.spendSerendipity === 'function' ? options.spendSerendipity : () => 0;
     this.onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : () => {};
+    this.onShroomPlace = typeof options.onShroomPlace === 'function' ? options.onShroomPlace : null;
     this.powderState = options.powderState || null;
 
     this.activeHold = null;
@@ -184,6 +258,11 @@ export class FluidTerrariumTrees {
       maxY: Number.isFinite(item?.maxY) ? item.maxY : 0.95,
       minSpacing: Number.isFinite(item?.minSpacing) ? Math.max(0.04, item.minSpacing) : 0.08,
       initialAllocation: Number.isFinite(item?.initialAllocation) ? Math.max(0, item.initialAllocation) : 6,
+      // Shroom-specific fields
+      itemType: item?.itemType || 'tree',
+      shroomType: item?.shroomType || null,
+      colorVariant: item?.colorVariant || null,
+      caveOnly: Boolean(item?.caveOnly),
     }));
   }
 
@@ -849,6 +928,26 @@ export class FluidTerrariumTrees {
       this.setStoreStatus(`Requires ${storeItem.cost} Serendipity to place ${storeItem.label}.`);
       return false;
     }
+
+    // Check if this is a shroom item - delegate to the shroom placement callback
+    if (storeItem.itemType === 'shroom' && this.onShroomPlace) {
+      const shroomPlaced = this.onShroomPlace({
+        type: storeItem.shroomType,
+        colorVariant: storeItem.colorVariant,
+        point,
+        storeItem,
+      });
+      if (shroomPlaced) {
+        this.setStoreStatus(`${storeItem.label} planted. Generates happiness in the cave.`);
+        this.updatePlacementPreview(point, true);
+        this.consumeStoreItem(storeItem.id);
+        this.clearStoreSelection();
+        return true;
+      }
+      this.setStoreStatus('Could not place shroom. Try a location inside a cave.');
+      return false;
+    }
+
     const anchor = this.createPlacementAnchor(point, storeItem);
     this.playerPlacements.push(anchor);
     this.refreshLayout();
