@@ -324,6 +324,81 @@ export function ensureNuState(playfield, tower) {
   return state;
 }
 
+// Helper to clamp a value between min and max.
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+// Calculate squared distance from a point to a line segment.
+function distancePointToSegmentSquared(point, start, end) {
+  if (!point || !start || !end) {
+    return Infinity;
+  }
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (!dx && !dy) {
+    const pdx = point.x - start.x;
+    const pdy = point.y - start.y;
+    return pdx * pdx + pdy * pdy;
+  }
+  const lengthSquared = dx * dx + dy * dy;
+  const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared;
+  const clampedT = clamp(t, 0, 1);
+  const projX = start.x + clampedT * dx;
+  const projY = start.y + clampedT * dy;
+  const offsetX = point.x - projX;
+  const offsetY = point.y - projY;
+  return offsetX * offsetX + offsetY * offsetY;
+}
+
+// Default beam thickness for Nu piercing laser collision detection.
+const NU_BEAM_THICKNESS = 8;
+
+/**
+ * Apply piercing laser damage to all enemies along a line from start to end.
+ * Similar to Lambda tower's applyLaserDamage but specific to Nu tower.
+ * @param {Object} playfield - The playfield instance
+ * @param {Object} tower - The Nu tower firing
+ * @param {Object} start - Starting position {x, y} (tower position)
+ * @param {Object} end - End position {x, y} (target position extended by range)
+ * @param {number} damage - Damage to apply to each enemy
+ * @returns {Array} Array of hit enemies with their positions
+ */
+export function applyNuPiercingDamage(playfield, tower, start, end, damage) {
+  const hits = [];
+  if (!playfield || !tower || !start || !end) {
+    return hits;
+  }
+  if (!Array.isArray(playfield.enemies) || !playfield.enemies.length) {
+    return hits;
+  }
+  const thickness = NU_BEAM_THICKNESS;
+  playfield.enemies.forEach((enemy) => {
+    if (!enemy) {
+      return;
+    }
+    const position = playfield.getEnemyPosition(enemy);
+    if (!position) {
+      return;
+    }
+    const metrics = typeof playfield.getEnemyVisualMetrics === 'function'
+      ? playfield.getEnemyVisualMetrics(enemy)
+      : null;
+    const enemyRadius = Math.max(10, metrics?.ringRadius || 12);
+    const limit = enemyRadius + thickness;
+    const distanceSquared = distancePointToSegmentSquared(position, start, end);
+    if (distanceSquared > limit * limit) {
+      return;
+    }
+    // Apply damage using playfield's damage application method
+    if (damage > 0 && typeof playfield.applyDamageToEnemy === 'function') {
+      playfield.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
+    }
+    hits.push({ enemy, position });
+  });
+  return hits;
+}
+
 /**
  * Update nu tower logic.
  */

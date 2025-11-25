@@ -107,6 +107,7 @@ import {
   updateNuBursts as updateNuBurstsHelper,
   teardownNuTower as teardownNuTowerHelper,
   clearNuCachedDimensions as clearNuCachedDimensionsHelper,
+  applyNuPiercingDamage as applyNuPiercingDamageHelper,
 } from '../scripts/features/towers/nuTower.js';
 import {
   ensureXiState as ensureXiStateHelper,
@@ -636,7 +637,7 @@ export class SimplePlayfield {
   }
 
   spawnDamageNumber(enemy, damage, { sourceTower, enemyHpBefore } = {}) {
-    if (!this.areDamageNumbersActive() || !enemy || !Number.isFinite(damage) || damage <= 0) {
+    if (!this.areDamageNumbersActive() || !enemy || !Number.isFinite(damage) || damage < 0) {
       return;
     }
     const enemyPosition = this.getEnemyPosition(enemy);
@@ -8211,6 +8212,32 @@ export class SimplePlayfield {
       return;
     }
     if (!enemy) {
+      return;
+    }
+    // Nu tower uses a piercing laser that damages all enemies along the beam path
+    if (tower.type === 'nu') {
+      const start = { x: tower.x, y: tower.y };
+      // Calculate the direction from tower to target
+      const dx = attackPosition.x - tower.x;
+      const dy = attackPosition.y - tower.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance > 0) {
+        // Extend the beam to the tower's range (or beyond target if target is closer)
+        const rangePixels = Number.isFinite(tower.range) ? tower.range : 200;
+        const beamLength = Math.max(distance, rangePixels);
+        const dirX = dx / distance;
+        const dirY = dy / distance;
+        const end = {
+          x: tower.x + dirX * beamLength,
+          y: tower.y + dirY * beamLength,
+        };
+        // Apply piercing damage to all enemies along the beam
+        applyNuPiercingDamageHelper(this, tower, start, end, damage);
+      } else {
+        // Fallback: if target is at tower position, just damage the target
+        this.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
+      }
+      this.emitTowerAttackVisuals(tower, { enemy, position: attackPosition });
       return;
     }
     this.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
