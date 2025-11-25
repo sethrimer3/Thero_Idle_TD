@@ -1483,8 +1483,11 @@ export class FluidTerrariumTrees {
     canvas.className = 'fluid-terrarium__tree';
 
     // Use device pixel ratio with 3x multiplier for crisp rendering at mobile zoom levels.
-    const dpr = window.devicePixelRatio || 1;
-    const scaleFactor = dpr * 3;
+    // Cap at 6x to avoid excessive memory usage on high-DPI devices.
+    const dpr = typeof window !== 'undefined' && Number.isFinite(window.devicePixelRatio)
+      ? window.devicePixelRatio
+      : 1;
+    const scaleFactor = Math.min(dpr * 3, 6);
 
     // Set high-resolution buffer size for crisp rendering.
     canvas.width = Math.round(layout.width * scaleFactor);
