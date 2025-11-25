@@ -1571,8 +1571,7 @@ export class FluidTerrariumTrees {
     const image = new Image();
     image.className = canvas.className;
     image.style.cssText = canvas.style.cssText;
-    image.width = canvas.width;
-    image.height = canvas.height;
+    // Intrinsic dimensions are encoded in the PNG; CSS styles control display size.
     image.setAttribute('aria-hidden', 'true');
     image.setAttribute('role', 'presentation');
     image.src = canvas.toDataURL('image/png');
