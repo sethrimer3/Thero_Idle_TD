@@ -381,9 +381,7 @@ export function applyNuPiercingDamage(playfield, tower, start, end, damage) {
     if (!position) {
       return;
     }
-    const metrics = typeof playfield.getEnemyVisualMetrics === 'function'
-      ? playfield.getEnemyVisualMetrics(enemy)
-      : null;
+    const metrics = playfield.getEnemyVisualMetrics(enemy);
     const enemyRadius = Math.max(10, metrics?.ringRadius || 12);
     const limit = enemyRadius + thickness;
     const distanceSquared = distancePointToSegmentSquared(position, start, end);
@@ -391,7 +389,7 @@ export function applyNuPiercingDamage(playfield, tower, start, end, damage) {
       return;
     }
     // Apply damage using playfield's damage application method
-    if (damage > 0 && typeof playfield.applyDamageToEnemy === 'function') {
+    if (damage > 0) {
       playfield.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
     }
     hits.push({ enemy, position });
