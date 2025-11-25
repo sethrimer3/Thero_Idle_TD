@@ -252,6 +252,7 @@ import {
   registerEnemyEncounter,
   bindCodexControls,
   initializePerformanceCodex,
+  initializeEnemyCodexOverlay,
 } from './codex.js';
 import {
   setTowerDefinitions,
@@ -5042,6 +5043,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     enemyCodexElements.list = document.getElementById('enemy-codex-list');
     enemyCodexElements.empty = document.getElementById('enemy-codex-empty');
     enemyCodexElements.note = document.getElementById('enemy-codex-note');
+    initializeEnemyCodexOverlay();
     bindDeveloperModeToggle();
     bindDeveloperControls();
     if (audioManager) {
