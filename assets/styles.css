@@ -4467,6 +4467,85 @@ body.graphics-mode-low .control-button {
   z-index: -1;
 }
 
+/* Layer that anchors Phi and Psi shrooms inside cave spawn zones. */
+.fluid-terrarium-shroom-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 10;
+}
+
+/* Layer for spore particles that fly between shrooms. */
+.fluid-terrarium-spore-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 11;
+}
+
+/* Base styling for all shrooms using Greek letter symbols. */
+.fluid-terrarium-shroom {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transform-origin: 50% 100%;
+  will-change: transform, filter, opacity;
+  pointer-events: none;
+  transition: filter 0.2s ease;
+}
+
+/* Phi shrooms (φ) - glowing colorful mushrooms with soft flicker. */
+.fluid-terrarium-shroom--phi {
+  text-shadow: 0 0 8px currentColor;
+  -webkit-text-stroke: 0.5px rgba(255, 255, 255, 0.3);
+}
+
+/* Yellow phi shroom variant */
+.fluid-terrarium-shroom--phi[data-color="yellow"] {
+  color: #ffe066;
+}
+
+/* Green phi shroom variant */
+.fluid-terrarium-shroom--phi[data-color="green"] {
+  color: #66ff99;
+}
+
+/* Blue phi shroom variant */
+.fluid-terrarium-shroom--phi[data-color="blue"] {
+  color: #66b3ff;
+}
+
+/* Psi shrooms (ψ) - dark blue with white outline, stretch animation. */
+.fluid-terrarium-shroom--psi {
+  color: #1a2a5c;
+  -webkit-text-stroke: 1px #ffffff;
+  text-shadow: 
+    0 0 2px rgba(255, 255, 255, 0.8),
+    0 0 4px rgba(255, 255, 255, 0.4);
+}
+
+/* Spore particles emitted by Psi shrooms. */
+.fluid-terrarium-spore {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, 
+    rgba(255, 150, 220, 1) 0%, 
+    rgba(255, 102, 204, 0.9) 40%, 
+    rgba(200, 50, 150, 0.6) 100%);
+  box-shadow: 
+    0 0 4px rgba(255, 102, 204, 0.8),
+    0 0 8px rgba(255, 102, 204, 0.5);
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
 
 /* Animate the Bet terrarium sky through a day/night palette driven by the sky cycle. */
 .fluid-terrarium__sky {
@@ -4837,6 +4916,28 @@ body.graphics-mode-low .control-button {
   font-size: 1.5rem;
   line-height: 1;
   margin-bottom: 2px;
+}
+
+/* Style phi and psi shroom icons in the store with their characteristic glows */
+.fluid-tree-store-item[data-item-id*="phi-yellow"] .fluid-tree-store-item__icon {
+  color: #ffe066;
+  text-shadow: 0 0 8px rgba(255, 224, 102, 0.8);
+}
+
+.fluid-tree-store-item[data-item-id*="phi-green"] .fluid-tree-store-item__icon {
+  color: #66ff99;
+  text-shadow: 0 0 8px rgba(102, 255, 153, 0.8);
+}
+
+.fluid-tree-store-item[data-item-id*="phi-blue"] .fluid-tree-store-item__icon {
+  color: #66b3ff;
+  text-shadow: 0 0 8px rgba(102, 179, 255, 0.8);
+}
+
+.fluid-tree-store-item[data-item-id*="psi"] .fluid-tree-store-item__icon {
+  color: #1a2a5c;
+  -webkit-text-stroke: 0.5px #ffffff;
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
 }
 
 .fluid-tree-store-ghost {
