@@ -737,8 +737,12 @@ export function createDeveloperModeManager(options = {}) {
     }
 
     // Bind the stage toggle change event to mirror the codex toggle behavior.
+    // Only handle user-initiated events to avoid potential recursion.
     if (developerModeElements.stageToggle) {
       developerModeElements.stageToggle.addEventListener('change', (event) => {
+        if (!event.isTrusted) {
+          return;
+        }
         if (event.target.checked) {
           enableDeveloperMode();
         } else {
@@ -770,6 +774,9 @@ export function createDeveloperModeManager(options = {}) {
     }
 
     developerModeElements.toggle.addEventListener('change', (event) => {
+      if (!event.isTrusted) {
+        return;
+      }
       if (event.target.checked) {
         enableDeveloperMode();
       } else {
