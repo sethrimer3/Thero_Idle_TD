@@ -403,8 +403,20 @@ import {
   loadTutorialState,
   checkTutorialCompletion,
   completeTutorial,
+  isTowersTabUnlocked,
+  unlockTowersTab as unlockTowersTabState,
+  isCodexUnlocked,
+  unlockCodex,
+  isAchievementsUnlocked,
+  unlockAchievements,
 } from './tutorialState.js';
-import { updateTabLockStates, initializeTabLockStates } from './tabLockManager.js';
+import {
+  updateTabLockStates,
+  initializeTabLockStates,
+  unlockCodexTab,
+  unlockAchievementsTab,
+  unlockTowersTab,
+} from './tabLockManager.js';
 import {
   createOverlayHelpers,
   setElementVisibility,
@@ -3985,7 +3997,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Handle story levels specially - show story and mark as completed
     if (isStoryOnlyLevel(level.id)) {
       if (levelStoryScreen) {
-        levelStoryScreen.showStory(level.id, {
+        levelStoryScreen.maybeShowStory(level, {
+          shouldShow: () => true, // Always show story for story-only levels
           onComplete: () => {
             // Mark the story level as completed
             if (!isLevelCompleted(level.id)) {
@@ -3994,9 +4007,19 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 ...currentState,
                 completed: true,
                 entered: true,
+                storySeen: true,
               });
               unlockNextInteractiveLevel(level.id);
-              refreshLevelCards();
+              updateLevelCards();
+              
+              // Special unlock for Prologue - Story: unlock Codex and Achievements tabs
+              if (level.id === 'Prologue - Story') {
+                unlockCodex();
+                unlockAchievements();
+                unlockCodexTab();
+                unlockAchievementsTab();
+              }
+              
               // Check if this completes tutorial
               checkTutorialCompletion(isLevelCompleted);
               updateTabLockStates(isTutorialCompleted());
@@ -4092,6 +4115,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       running: !isInteractive,
     };
     levelState.set(level.id, updatedState);
+    
+    // Unlock Towers tab when entering any interactive level for the first time
+    if (isInteractive && !currentState.entered && !isTowersTabUnlocked()) {
+      unlockTowersTabState();
+      unlockTowersTab();
+    }
 
     stopAllIdleRuns(level.id);
 
@@ -5487,6 +5516,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     checkTutorialCompletion(isLevelCompleted);
     // Initialize tab lock states based on tutorial completion
     initializeTabLockStates(isTutorialCompleted());
+    // Unlock tabs based on saved state
+    if (isTowersTabUnlocked()) {
+      unlockTowersTab();
+    }
+    if (isCodexUnlocked()) {
+      unlockCodexTab();
+    }
+    if (isAchievementsUnlocked()) {
+      unlockAchievementsTab();
+    }
     enforceFluidStudyDisabledState();
     // Reapply developer mode boosts after progression restore so level unlocks stay in sync.
     refreshDeveloperModeState();
