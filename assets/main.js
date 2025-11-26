@@ -3994,11 +3994,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
 
-    // Handle story levels specially - show story and mark as completed
+    // Handle story levels specially - always show story and mark as completed when finished
     if (isStoryOnlyLevel(level.id)) {
       if (levelStoryScreen) {
         levelStoryScreen.maybeShowStory(level, {
-          shouldShow: () => true, // Always show story for story-only levels
+          shouldShow: () => true, // Force story display for story-only levels
           onComplete: () => {
             // Mark the story level as completed
             if (!isLevelCompleted(level.id)) {
