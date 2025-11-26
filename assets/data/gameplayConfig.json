@@ -230,6 +230,30 @@
   ],
   "maps": [
     {
+      "set": "Prologue",
+      "id": "Prologue - 1",
+      "title": "First Lattice",
+      "path": "A straight path—the simplest proof.",
+      "focus": "Learn tower placement and basic defense.",
+      "example": "Tutorial: Place your first tower and defend the Mind Gate."
+    },
+    {
+      "set": "Prologue",
+      "id": "Prologue - 2",
+      "title": "Curved Path",
+      "path": "A gentle arc—position matters.",
+      "focus": "Master tower positioning on curved paths.",
+      "example": "Tutorial: Adapt your strategy to curved enemy movement."
+    },
+    {
+      "set": "Prologue",
+      "id": "Prologue - 3",
+      "title": "Final Test",
+      "path": "A winding proof—combine all techniques.",
+      "focus": "Demonstrate mastery of basic concepts.",
+      "example": "Tutorial: Complete your training to unlock the full game."
+    },
+    {
       "set": "Conjecture",
       "id": "Conjecture - 1",
       "title": "Lemniscate Hypothesis",
@@ -498,6 +522,252 @@
   ],
   "levels": [
     {
+      "id": "Prologue - 1",
+      "displayName": "First Lattice",
+      "startThero": 50,
+      "theroCap": 200,
+      "theroPerKill": 5,
+      "passiveTheroPerSecond": 2,
+      "lives": 20,
+      "waves": [
+        {
+          "label": "first glyphs",
+          "count": 3,
+          "interval": 2.0,
+          "hp": 50,
+          "speed": 0.08,
+          "reward": 5,
+          "color": "rgba(180, 232, 255, 0.88)",
+          "codexId": "etype"
+        },
+        {
+          "label": "practice wave",
+          "count": 4,
+          "interval": 1.8,
+          "hp": 80,
+          "speed": 0.09,
+          "reward": 8,
+          "color": "rgba(180, 232, 255, 0.88)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 1.0E+20,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.25,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.5
+        },
+        {
+          "x": 0.3,
+          "y": 0.5
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.7,
+          "y": 0.5
+        },
+        {
+          "x": 0.9,
+          "y": 0.5
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.3,
+          "y": 0.3
+        },
+        {
+          "x": 0.7,
+          "y": 0.3
+        }
+      ]
+    },
+    {
+      "id": "Prologue - 2",
+      "displayName": "Curved Path",
+      "startThero": 80,
+      "theroCap": 300,
+      "theroPerKill": 8,
+      "passiveTheroPerSecond": 3,
+      "lives": 15,
+      "waves": [
+        {
+          "label": "curved scouts",
+          "count": 5,
+          "interval": 1.5,
+          "hp": 100,
+          "speed": 0.09,
+          "reward": 8,
+          "color": "rgba(180, 232, 255, 0.88)",
+          "codexId": "etype"
+        },
+        {
+          "label": "arc runners",
+          "count": 6,
+          "interval": 1.4,
+          "hp": 150,
+          "speed": 0.1,
+          "reward": 12,
+          "color": "rgba(180, 232, 255, 0.88)",
+          "codexId": "etype"
+        },
+        {
+          "label": "mixed wave",
+          "count": 4,
+          "interval": 1.3,
+          "hp": 200,
+          "speed": 0.11,
+          "reward": 15,
+          "color": "rgba(255, 180, 240, 0.9)",
+          "codexId": "divisor"
+        }
+      ],
+      "rewardScore": 5.0E+20,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.22,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.3
+        },
+        {
+          "x": 0.3,
+          "y": 0.2
+        },
+        {
+          "x": 0.5,
+          "y": 0.3
+        },
+        {
+          "x": 0.7,
+          "y": 0.5
+        },
+        {
+          "x": 0.8,
+          "y": 0.7
+        },
+        {
+          "x": 0.9,
+          "y": 0.8
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.3,
+          "y": 0.4
+        },
+        {
+          "x": 0.6,
+          "y": 0.35
+        }
+      ]
+    },
+    {
+      "id": "Prologue - 3",
+      "displayName": "Final Test",
+      "startThero": 100,
+      "theroCap": 400,
+      "theroPerKill": 10,
+      "passiveTheroPerSecond": 4,
+      "lives": 12,
+      "waves": [
+        {
+          "label": "test scouts",
+          "count": 6,
+          "interval": 1.5,
+          "hp": 200,
+          "speed": 0.1,
+          "reward": 10,
+          "color": "rgba(180, 232, 255, 0.88)",
+          "codexId": "etype"
+        },
+        {
+          "label": "mid challenge",
+          "count": 5,
+          "interval": 1.4,
+          "hp": 250,
+          "speed": 0.11,
+          "reward": 15,
+          "color": "rgba(255, 180, 240, 0.9)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "combined assault",
+          "count": 7,
+          "interval": 1.3,
+          "hp": 300,
+          "speed": 0.12,
+          "reward": 18,
+          "color": "rgba(255, 180, 240, 0.9)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "final wave",
+          "count": 8,
+          "interval": 1.2,
+          "hp": 350,
+          "speed": 0.13,
+          "reward": 20,
+          "color": "rgba(255, 204, 160, 0.92)",
+          "codexId": "prime"
+        }
+      ],
+      "rewardScore": 1.0E+21,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.22,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.2
+        },
+        {
+          "x": 0.2,
+          "y": 0.4
+        },
+        {
+          "x": 0.4,
+          "y": 0.5
+        },
+        {
+          "x": 0.5,
+          "y": 0.3
+        },
+        {
+          "x": 0.6,
+          "y": 0.5
+        },
+        {
+          "x": 0.7,
+          "y": 0.7
+        },
+        {
+          "x": 0.85,
+          "y": 0.8
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.25,
+          "y": 0.45
+        },
+        {
+          "x": 0.55,
+          "y": 0.4
+        }
+      ]
+    },
+    {
       "id": "Conjecture - 1",
       "displayName": "Lemniscate Hypothesis",
       "startThero": 45,
@@ -555,7 +825,7 @@
           }
         }
       ],
-      "rewardScore": 1.8e+44,
+      "rewardScore": 1.8E+44,
       "rewardFlux": 1,
       "rewardThero": 0,
       "rewardEnergy": 0,
@@ -667,7 +937,7 @@
           "codexId": "reversal"
         }
       ],
-      "rewardScore": 2.4e+44,
+      "rewardScore": 2.4E+44,
       "rewardFlux": 1,
       "rewardThero": 0,
       "rewardEnergy": 0,
@@ -783,7 +1053,7 @@
           "codexId": "reversal"
         }
       ],
-      "rewardScore": 3.2000000000000004e+44,
+      "rewardScore": 3.2000000000000004E+44,
       "rewardFlux": 1,
       "rewardThero": 0,
       "rewardEnergy": 0,
@@ -917,7 +1187,7 @@
           "codexId": "prime"
         }
       ],
-      "rewardScore": 4.400000000000001e+44,
+      "rewardScore": 4.400000000000001E+44,
       "rewardFlux": 1,
       "rewardThero": 0,
       "rewardEnergy": 0,
@@ -1027,7 +1297,7 @@
           "codexId": "prime"
         }
       ],
-      "rewardScore": 6.0000000000000005e+44,
+      "rewardScore": 6.0000000000000005E+44,
       "rewardFlux": 1,
       "rewardThero": 0,
       "rewardEnergy": 0,
@@ -1094,7 +1364,7 @@
       "passiveTheroPerSecond": 28,
       "lives": 100,
       "waves": "1:8A1.0e5/1.5|2:10B1.5e6/1.4|3:12C2.0e7/1.3|4:14D2.5e8/1.2/0.8|5:16E3.0e9/1.1/0.9|6:18E3.5e10/1.0/1.0",
-      "rewardScore": 1.9600000000000005e+45,
+      "rewardScore": 1.9600000000000005E+45,
       "rewardFlux": 2,
       "rewardThero": 0,
       "rewardEnergy": 1,
@@ -1314,7 +1584,7 @@
       "passiveTheroPerSecond": 16,
       "lives": 100,
       "waves": "1:8A1.0e5/1.5|2:10B1.5e6/1.4|3:12C2.0e7/1.3|4:14D2.5e8/1.2/0.8|5:16E3.0e9/1.1/0.9|6:18E3.5e10/1.0/1.0",
-      "rewardScore": 8.2e+44,
+      "rewardScore": 8.2E+44,
       "rewardFlux": 1,
       "rewardThero": 0,
       "rewardEnergy": 0,
@@ -1534,7 +1804,7 @@
       "passiveTheroPerSecond": 18,
       "lives": 100,
       "waves": "1:8A1.0e5/1.5|2:10B1.5e6/1.4|3:12C2.0e7/1.3|4:14D2.5e8/1.2/0.8|5:16E3.0e9/1.1/0.9|6:18E3.5e10/1.0/1.0",
-      "rewardScore": 1.0100000000000001e+45,
+      "rewardScore": 1.0100000000000001E+45,
       "rewardFlux": 1,
       "rewardThero": 0,
       "rewardEnergy": 0,
@@ -1762,7 +2032,7 @@
       "passiveTheroPerSecond": 20,
       "lives": 100,
       "waves": "1:8A1.0e5/1.5|2:10B1.5e6/1.4|3:12C2.0e7/1.3|4:14D2.5e8/1.2/0.8|5:16E3.0e9/1.1/0.9|6:18E3.5e10/1.0/1.0|7:20E4.0e11/0.9/1.1",
-      "rewardScore": 1.2400000000000001e+45,
+      "rewardScore": 1.2400000000000001E+45,
       "rewardFlux": 1,
       "rewardThero": 0,
       "rewardEnergy": 0,
@@ -1974,7 +2244,7 @@
       "passiveTheroPerSecond": 22,
       "lives": 100,
       "waves": "1:8A1.0e5/1.5|2:10B1.5e6/1.4|3:12C2.0e7/1.3|4:14D2.5e8/1.2/0.8|5:16E3.0e9/1.1/0.9|6:18E3.5e10/1.0/1.0|7:20E4.0e11/0.9/1.1",
-      "rewardScore": 1.26e+45,
+      "rewardScore": 1.26E+45,
       "rewardFlux": 1,
       "rewardThero": 0,
       "rewardEnergy": 0,
@@ -2194,7 +2464,7 @@
       "passiveTheroPerSecond": 24,
       "lives": 100,
       "waves": "1:8A1.0e5/1.5|2:10B1.5e6/1.4|3:12C2.0e7/1.3|4:14D2.5e8/1.2/0.8|5:16E3.0e9/1.1/0.9|6:18E3.5e10/1.0/1.0|7:20E4.0e11/0.9/1.1|8:22E4.5e12/0.8/1.2/4.5e15",
-      "rewardScore": 1.52e+45,
+      "rewardScore": 1.52E+45,
       "rewardFlux": 1,
       "rewardThero": 0,
       "rewardEnergy": 0,
@@ -2406,7 +2676,7 @@
       "passiveTheroPerSecond": 32,
       "lives": 100,
       "waves": "1:8B1.0e8/1.5|2:10C1.5e9/1.4|3:12D2.0e10/1.3|4:14E2.5e11/1.2/0.8|5:16F3.0e12/1.1/0.9|6:18G3.5e13/1.0/1.0|7:20H4.0e14/0.9/1.1",
-      "rewardScore": 2.4800000000000003e+45,
+      "rewardScore": 2.4800000000000003E+45,
       "rewardFlux": 2,
       "rewardThero": 0,
       "rewardEnergy": 2,
