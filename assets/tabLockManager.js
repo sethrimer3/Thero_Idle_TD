@@ -1,5 +1,11 @@
 // Tab lock manager for controlling tab access based on tutorial completion.
 
+import {
+  isTowersTabUnlocked,
+  isCodexUnlocked,
+  isAchievementsUnlocked,
+} from './tutorialState.js';
+
 /**
  * Set tab button locked or unlocked state.
  * @param {HTMLButtonElement} tabButton - Target tab button.
@@ -32,6 +38,7 @@ function setTabButtonState(tabButton, { unlocked, lockedLabel = 'Locked' }) {
 
 /**
  * Update tab lock states based on tutorial completion.
+ * Tabs can be unlocked either by completing the tutorial or by individual unlock triggers.
  * @param {boolean} tutorialCompleted - Whether the tutorial has been completed.
  */
 export function updateTabLockStates(tutorialCompleted) {
@@ -43,22 +50,32 @@ export function updateTabLockStates(tutorialCompleted) {
     });
   }
 
-  // All other main tabs are locked until tutorial is complete
-  const lockedTabs = [
-    { id: 'tab-towers', label: 'Locked - Complete Tutorial' },
-    { id: 'tab-achievements', label: 'Locked - Complete Tutorial' },
-    { id: 'tab-options', label: 'Locked - Complete Tutorial' },
-  ];
+  // Towers tab: unlocked if tutorial completed OR if individually unlocked via entering first level
+  const towersTab = document.getElementById('tab-towers');
+  if (towersTab) {
+    setTabButtonState(towersTab, {
+      unlocked: tutorialCompleted || isTowersTabUnlocked(),
+      lockedLabel: 'Locked - Complete Tutorial',
+    });
+  }
 
-  lockedTabs.forEach(({ id, label }) => {
-    const tabButton = document.getElementById(id);
-    if (tabButton) {
-      setTabButtonState(tabButton, {
-        unlocked: tutorialCompleted,
-        lockedLabel: label,
-      });
-    }
-  });
+  // Achievements tab: unlocked if tutorial completed OR if individually unlocked
+  const achievementsTab = document.getElementById('tab-achievements');
+  if (achievementsTab) {
+    setTabButtonState(achievementsTab, {
+      unlocked: tutorialCompleted || isAchievementsUnlocked(),
+      lockedLabel: 'Locked - Complete Tutorial',
+    });
+  }
+
+  // Codex (options) tab: unlocked if tutorial completed OR if individually unlocked
+  const codexTab = document.getElementById('tab-options');
+  if (codexTab) {
+    setTabButtonState(codexTab, {
+      unlocked: tutorialCompleted || isCodexUnlocked(),
+      lockedLabel: 'Locked - Complete Tutorial',
+    });
+  }
 
   // Lock Aleph spire (powder tab) until tutorial is complete
   // Other spires will be handled by spireTabVisibility based on their unlock status
