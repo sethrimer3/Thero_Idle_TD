@@ -1,0 +1,32 @@
+{
+  "id": "level-00-prologue-01",
+  "name": "First Lattice",
+  "description": "Tutorial: Learn to place your first tower and defend the Mind Gate",
+  "waves": "1:3A5.0e1/2.0|2:4A8.0e1/1.8",
+  "path": [
+    {
+      "x": 0.1,
+      "y": 0.5
+    },
+    {
+      "x": 0.3,
+      "y": 0.5
+    },
+    {
+      "x": 0.5,
+      "y": 0.5
+    },
+    {
+      "x": 0.7,
+      "y": 0.5
+    },
+    {
+      "x": 0.9,
+      "y": 0.5
+    }
+  ],
+  "autoAnchors": [],
+  "startThero": 50,
+  "lives": 20,
+  "gateDefense": 0
+}

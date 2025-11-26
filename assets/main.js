@@ -398,6 +398,13 @@ import {
   setDeveloperModeUnlockOverride,
 } from './levels.js';
 import {
+  isTutorialCompleted,
+  loadTutorialState,
+  checkTutorialCompletion,
+  completeTutorial,
+} from './tutorialState.js';
+import { updateTabLockStates, initializeTabLockStates } from './tabLockManager.js';
+import {
   createOverlayHelpers,
   setElementVisibility,
   triggerButtonRipple,
@@ -3161,6 +3168,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         baseResources.energyRate += stats.rewardEnergy;
       }
       unlockNextInteractiveLevel(levelId);
+      // Check if tutorial completion should be triggered
+      checkTutorialCompletion(isLevelCompleted);
+      // Update tab lock states in case tutorial was just completed
+      updateTabLockStates(isTutorialCompleted());
       updateResourceRates();
       updatePowderLedger();
     } else {
@@ -5092,6 +5103,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     bindOfflineOverlayElements();
     loadPersistentState();
+    // Load tutorial state after persistent state is loaded
+    loadTutorialState();
+    // Check if tutorial should be completed based on level progress
+    checkTutorialCompletion(isLevelCompleted);
+    // Initialize tab lock states based on tutorial completion
+    initializeTabLockStates(isTutorialCompleted());
     enforceFluidStudyDisabledState();
     // Reapply developer mode boosts after progression restore so level unlocks stay in sync.
     refreshDeveloperModeState();

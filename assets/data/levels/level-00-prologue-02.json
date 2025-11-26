@@ -1,0 +1,36 @@
+{
+  "id": "level-00-prologue-02",
+  "name": "Curved Path",
+  "description": "Tutorial: Master curved enemy paths and tower positioning",
+  "waves": "1:5A1.0e2/1.5|2:6A1.5e2/1.4|3:4B2.0e2+3A1.2e2/1.3",
+  "path": [
+    {
+      "x": 0.1,
+      "y": 0.3
+    },
+    {
+      "x": 0.3,
+      "y": 0.2
+    },
+    {
+      "x": 0.5,
+      "y": 0.3
+    },
+    {
+      "x": 0.7,
+      "y": 0.5
+    },
+    {
+      "x": 0.8,
+      "y": 0.7
+    },
+    {
+      "x": 0.9,
+      "y": 0.8
+    }
+  ],
+  "autoAnchors": [],
+  "startThero": 80,
+  "lives": 15,
+  "gateDefense": 0
+}
