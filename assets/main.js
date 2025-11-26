@@ -541,6 +541,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let pendingLevel = null;
   let lastLevelTrigger = null;
   let expandedLevelSet = null;
+  let expandedCampaign = null;
+  let campaignRowElement = null;
+  let campaignButtons = [];
 
   const PERSISTENT_STORAGE_KEYS = [
     GRAPHICS_MODE_STORAGE_KEY,
@@ -3314,21 +3317,104 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     expandedLevelSet = element;
   }
 
+  // Reset an expanded campaign button so its sets slide back into the diamond.
+  function collapseCampaign(element, { focusTrigger = false } = {}) {
+    if (!element) {
+      return;
+    }
+
+    const trigger = element.querySelector('.campaign-button-trigger');
+    const setsContainer = element.querySelector('.campaign-button-sets');
+
+    element.classList.remove('expanded');
+
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'false');
+      if (focusTrigger && typeof trigger.focus === 'function') {
+        trigger.focus();
+      }
+    }
+
+    if (setsContainer) {
+      setsContainer.setAttribute('aria-hidden', 'true');
+      setsContainer.hidden = true;
+    }
+
+    element.querySelectorAll('.level-set.expanded').forEach((levelSet) => {
+      collapseLevelSet(levelSet);
+    });
+
+    if (expandedCampaign === element) {
+      expandedCampaign = null;
+      if (campaignRowElement) {
+        campaignRowElement.classList.remove('campaign-row--has-selection');
+      }
+    }
+  }
+
+  // Expand the chosen campaign while collapsing any others in the rail.
+  function expandCampaign(element) {
+    if (!element) {
+      return;
+    }
+
+    if (expandedCampaign && expandedCampaign !== element) {
+      collapseCampaign(expandedCampaign);
+    }
+
+    const trigger = element.querySelector('.campaign-button-trigger');
+    const setsContainer = element.querySelector('.campaign-button-sets');
+
+    element.classList.add('expanded');
+
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'true');
+    }
+
+    if (setsContainer) {
+      setsContainer.hidden = false;
+      setsContainer.setAttribute('aria-hidden', 'false');
+    }
+
+    if (expandedLevelSet) {
+      collapseLevelSet(expandedLevelSet);
+    }
+
+    if (campaignRowElement) {
+      campaignRowElement.classList.add('campaign-row--has-selection');
+    }
+
+    expandedCampaign = element;
+  }
+
   function handleDocumentPointerDown(event) {
-    if (!expandedLevelSet) {
+    const hasExpandedCampaign = Boolean(expandedCampaign);
+    const hasExpandedSet = Boolean(expandedLevelSet);
+
+    if (!hasExpandedCampaign && !hasExpandedSet) {
       return;
     }
 
-    if (event && expandedLevelSet.contains(event.target)) {
+    const clickedLevelSet = event?.target?.closest ? event.target.closest('.level-set') : null;
+    if (clickedLevelSet && expandedLevelSet && expandedLevelSet.contains(clickedLevelSet)) {
       return;
     }
 
-    if (event && event.target && event.target.closest('.level-set')) {
-      return;
+    let collapsedSomething = false;
+
+    // Collapse open level content when the player clicks anywhere else on the page.
+    if (!clickedLevelSet && expandedLevelSet) {
+      collapseLevelSet(expandedLevelSet);
+      collapsedSomething = true;
     }
 
-    collapseLevelSet(expandedLevelSet);
-    if (audioManager) {
+    // Fold the active campaign back into its diamond when clicking outside its sets.
+    if (!clickedLevelSet && expandedCampaign) {
+      collapseCampaign(expandedCampaign);
+      collapsedSomething = true;
+    }
+
+    if (collapsedSomething && audioManager) {
       audioManager.playSfx('menuSelect');
     }
   }
@@ -3496,6 +3582,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   function buildLevelCards() {
     if (!levelGrid) return;
     expandedLevelSet = null;
+    expandedCampaign = null;
+    campaignButtons = [];
+    campaignRowElement = null;
     levelGrid.innerHTML = '';
 
     const fragment = document.createDocumentFragment();
@@ -3529,6 +3618,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     });
 
     let groupIndex = 0;
+
+    // Horizontal rail to keep campaign diamonds side by side.
+    const campaignRow = document.createElement('div');
+    campaignRow.className = 'campaign-row';
+    campaignRowElement = campaignRow;
     
     // First, render Prologue (no campaign) at the top
     groups.forEach((groupData, setName) => {
@@ -3671,12 +3765,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const campaignElement = document.createElement('div');
       campaignElement.className = 'campaign-button';
       campaignElement.dataset.campaign = campaignName;
-      
+
       const campaignTrigger = document.createElement('button');
       campaignTrigger.type = 'button';
       campaignTrigger.className = 'campaign-button-trigger';
       campaignTrigger.setAttribute('aria-expanded', 'false');
-      
+
+      const campaignContent = document.createElement('span');
+      campaignContent.className = 'campaign-button-content';
+
       const campaignGlyph = document.createElement('span');
       campaignGlyph.className = 'campaign-button-glyph';
       campaignGlyph.setAttribute('aria-hidden', 'true');
@@ -3690,8 +3787,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       campaignCount.className = 'campaign-button-count';
       const setCount = setKeys.length;
       campaignCount.textContent = `${setCount} ${setCount === 1 ? 'set' : 'sets'}`;
-      
-      campaignTrigger.append(campaignGlyph, campaignTitle, campaignCount);
+
+      campaignContent.append(campaignGlyph, campaignTitle, campaignCount);
+      campaignTrigger.append(campaignContent);
       
       const campaignContainer = document.createElement('div');
       campaignContainer.className = 'campaign-button-sets';
@@ -3701,15 +3799,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       campaignTrigger.addEventListener('click', () => {
         const isExpanded = campaignElement.classList.contains('expanded');
         if (isExpanded) {
-          campaignElement.classList.remove('expanded');
-          campaignTrigger.setAttribute('aria-expanded', 'false');
-          campaignContainer.setAttribute('aria-hidden', 'true');
-          campaignContainer.hidden = true;
+          collapseCampaign(campaignElement);
         } else {
-          campaignElement.classList.add('expanded');
-          campaignTrigger.setAttribute('aria-expanded', 'true');
-          campaignContainer.setAttribute('aria-hidden', 'false');
-          campaignContainer.hidden = false;
+          expandCampaign(campaignElement);
         }
         if (audioManager) {
           audioManager.playSfx('menuSelect');
@@ -3736,7 +3828,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         const glyph = document.createElement('span');
         glyph.className = 'level-set-glyph';
         glyph.setAttribute('aria-hidden', 'true');
-        glyph.textContent = '∷';
+        glyph.textContent = groupData.campaign === 'Story' ? '✦' : '⚑';
         
         const title = document.createElement('span');
         title.className = 'level-set-title';
@@ -3853,8 +3945,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       });
       
       campaignElement.append(campaignTrigger, campaignContainer);
-      fragment.append(campaignElement);
+      campaignRow.append(campaignElement);
+      campaignButtons.push(campaignElement);
     });
+
+    if (campaignButtons.length) {
+      fragment.append(campaignRow);
+    }
 
     levelGrid.append(fragment);
     updateLevelSetLocks();
