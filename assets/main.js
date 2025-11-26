@@ -1790,6 +1790,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getPendingPowderResizeIsTimeout,
     setObservedPowderResizeElements,
     getObservedPowderResizeElements,
+    updateTabLockStates,
+    isTutorialCompleted,
   });
 
 

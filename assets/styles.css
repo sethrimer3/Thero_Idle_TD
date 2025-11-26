@@ -2884,6 +2884,24 @@ body.graphics-mode-low .control-button {
   color: var(--accent-2);
 }
 
+/* Stage tab developer mode toggle wrapper - positioned at the very bottom of the Stage tab. */
+.stage-developer-toggle-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px 16px;
+  margin-top: auto;
+}
+
+.stage-developer-mode-toggle {
+  opacity: 0.7;
+  transition: opacity var(--transition);
+}
+
+.stage-developer-mode-toggle:hover {
+  opacity: 1;
+}
+
 .enemy-grid {
   display: grid;
   gap: 16px;
