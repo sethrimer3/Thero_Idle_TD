@@ -2054,6 +2054,7 @@ body.graphics-mode-low .control-button {
 
 /* Horizontal rail for campaign selection diamonds */
 .campaign-row {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -2340,9 +2341,11 @@ body.graphics-mode-low .control-button {
 
 /* Fade unselected campaigns when one is open to center the active diamond */
 .campaign-row--has-selection .campaign-button:not(.expanded) {
+  position: absolute;
   opacity: 0;
   max-width: 0;
   width: 0;
+  height: 0;
   padding: 0;
   margin: 0;
   overflow: hidden;
