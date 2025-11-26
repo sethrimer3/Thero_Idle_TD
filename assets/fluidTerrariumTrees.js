@@ -724,7 +724,7 @@ export class FluidTerrariumTrees {
     if (this.container) {
       this.container.addEventListener('pointermove', this.handleContainerPointerMove);
       this.container.addEventListener('pointerleave', this.handleContainerPointerLeave);
-      this.container.addEventListener('click', this.handleContainerClick);
+      this.container.addEventListener('click', this.handleContainerClick, { capture: true });
     }
 
     if (this.overlay) {
@@ -797,12 +797,15 @@ export class FluidTerrariumTrees {
   }
 
   handleContainerClick(event) {
+    // Check if click originated from store panel FIRST, before any other logic
+    if (this.storePanel && (this.storePanel === event.target || this.storePanel.contains(event.target))) {
+      return; // Let the store panel handle its own clicks
+    }
+    
     if (!this.isStoreOpen || !this.activeStoreItemId) {
       return;
     }
-    if (this.storePanel && this.storePanel.contains(event.target)) {
-      return;
-    }
+    
     const storeItem = this.getActiveStoreItem();
     const point = this.getNormalizedPointFromClient(event.clientX, event.clientY);
     if (!point || !this.isPlacementLocationValid(point, storeItem)) {
