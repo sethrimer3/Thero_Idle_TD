@@ -231,6 +231,7 @@
   "maps": [
     {
       "set": "Prologue",
+      "campaign": "Story",
       "id": "Prologue - 1",
       "title": "First Lattice",
       "path": "A straight path\u2014the simplest proof.",
@@ -239,6 +240,7 @@
     },
     {
       "set": "Prologue",
+      "campaign": "Story",
       "id": "Prologue - 2",
       "title": "Curved Path",
       "path": "A gentle arc\u2014position matters.",
@@ -247,6 +249,7 @@
     },
     {
       "set": "Prologue",
+      "campaign": "Story",
       "id": "Prologue - 3",
       "title": "Final Test",
       "path": "A winding proof\u2014combine all techniques.",
@@ -255,6 +258,7 @@
     },
     {
       "set": "Prologue",
+      "campaign": "Story",
       "id": "Prologue - Story",
       "title": "The Beginning",
       "path": "Read the story to continue.",
@@ -606,6 +610,7 @@
     },
     {
       "set": "Developer",
+      "campaign": "Ladder",
       "id": "Developer - Test Range",
       "title": "Endless Codex Trials",
       "path": "Developer-only training lattice\u2014direct path reveals every glyph as it approaches.",
