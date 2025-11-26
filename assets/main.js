@@ -3496,25 +3496,42 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     const fragment = document.createDocumentFragment();
     const groups = new Map();
+    const campaigns = new Map();
 
     levelSetEntries.length = 0;
 
+    // Group levels by campaign and set
     levelBlueprints.forEach((level) => {
       if (level.developerOnly && !developerModeActive) {
         return;
       }
       const groupKey = level.set || level.id.split(' - ')[0] || 'Levels';
+      const campaignKey = level.campaign || null;
+      
       if (!groups.has(groupKey)) {
-        groups.set(groupKey, []);
+        groups.set(groupKey, { levels: [], campaign: campaignKey });
       }
-      groups.get(groupKey).push(level);
+      groups.get(groupKey).levels.push(level);
+      
+      // Track which campaigns exist
+      if (campaignKey) {
+        if (!campaigns.has(campaignKey)) {
+          campaigns.set(campaignKey, []);
+        }
+        if (!campaigns.get(campaignKey).includes(groupKey)) {
+          campaigns.get(campaignKey).push(groupKey);
+        }
+      }
     });
 
     let groupIndex = 0;
-    groups.forEach((levels, setName) => {
-      if (!levels.length) {
-        return;
-      }
+    
+    // First, render Prologue (no campaign) at the top
+    groups.forEach((groupData, setName) => {
+      if (groupData.campaign) return; // Skip campaign sets for now
+      const levels = groupData.levels;
+      if (!levels.length) return;
+      
       const setElement = document.createElement('div');
       setElement.className = 'level-set';
       setElement.dataset.set = setName;
@@ -3630,6 +3647,182 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       fragment.append(setElement);
       groupIndex += 1;
     });
+    
+    // Now render campaign buttons with their level sets
+    campaigns.forEach((setKeys, campaignName) => {
+      const campaignElement = document.createElement('div');
+      campaignElement.className = 'campaign-button';
+      campaignElement.dataset.campaign = campaignName;
+      
+      const campaignTrigger = document.createElement('button');
+      campaignTrigger.type = 'button';
+      campaignTrigger.className = 'campaign-button-trigger';
+      campaignTrigger.setAttribute('aria-expanded', 'false');
+      
+      const campaignGlyph = document.createElement('span');
+      campaignGlyph.className = 'campaign-button-glyph';
+      campaignGlyph.setAttribute('aria-hidden', 'true');
+      campaignGlyph.textContent = campaignName === 'Story' ? '◈' : '⚔';
+      
+      const campaignTitle = document.createElement('span');
+      campaignTitle.className = 'campaign-button-title';
+      campaignTitle.textContent = campaignName;
+      
+      const campaignCount = document.createElement('span');
+      campaignCount.className = 'campaign-button-count';
+      const setCount = setKeys.length;
+      campaignCount.textContent = `${setCount} ${setCount === 1 ? 'set' : 'sets'}`;
+      
+      campaignTrigger.append(campaignGlyph, campaignTitle, campaignCount);
+      
+      const campaignContainer = document.createElement('div');
+      campaignContainer.className = 'campaign-button-sets';
+      campaignContainer.setAttribute('aria-hidden', 'true');
+      campaignContainer.hidden = true;
+      
+      campaignTrigger.addEventListener('click', () => {
+        const isExpanded = campaignElement.classList.contains('expanded');
+        if (isExpanded) {
+          campaignElement.classList.remove('expanded');
+          campaignTrigger.setAttribute('aria-expanded', 'false');
+          campaignContainer.setAttribute('aria-hidden', 'true');
+          campaignContainer.hidden = true;
+        } else {
+          campaignElement.classList.add('expanded');
+          campaignTrigger.setAttribute('aria-expanded', 'true');
+          campaignContainer.setAttribute('aria-hidden', 'false');
+          campaignContainer.hidden = false;
+        }
+        if (audioManager) {
+          audioManager.playSfx('menuSelect');
+        }
+      });
+      
+      // Render level sets inside this campaign
+      setKeys.forEach((setName) => {
+        const groupData = groups.get(setName);
+        if (!groupData) return;
+        const levels = groupData.levels;
+        if (!levels.length) return;
+        
+        const setElement = document.createElement('div');
+        setElement.className = 'level-set';
+        setElement.dataset.set = setName;
+        
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'level-set-trigger';
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.setAttribute('aria-disabled', 'false');
+        
+        const glyph = document.createElement('span');
+        glyph.className = 'level-set-glyph';
+        glyph.setAttribute('aria-hidden', 'true');
+        glyph.textContent = '∷';
+        
+        const title = document.createElement('span');
+        title.className = 'level-set-title';
+        title.textContent = setName;
+        
+        const count = document.createElement('span');
+        count.className = 'level-set-count';
+        const countLabel = levels.length === 1 ? 'level' : 'levels';
+        count.textContent = `${levels.length} ${countLabel}`;
+        
+        trigger.append(glyph, title, count);
+        
+        const slug = setName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .trim() || `set-${groupIndex + 1}`;
+        const containerId = `level-set-${slug}-${groupIndex}`;
+        
+        const levelsContainer = document.createElement('div');
+        levelsContainer.className = 'level-set-levels';
+        levelsContainer.id = containerId;
+        levelsContainer.setAttribute('role', 'group');
+        levelsContainer.setAttribute('aria-hidden', 'true');
+        
+        trigger.setAttribute('aria-controls', containerId);
+        trigger.addEventListener('click', () => {
+          if (setElement.classList.contains('locked') || setElement.hidden) {
+            return;
+          }
+          if (setElement.classList.contains('expanded')) {
+            collapseLevelSet(setElement);
+          } else {
+            expandLevelSet(setElement);
+          }
+          if (audioManager) {
+            audioManager.playSfx('menuSelect');
+          }
+        });
+        
+        levels.forEach((level, index) => {
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = 'level-node';
+          card.dataset.level = level.id;
+          card.setAttribute('aria-pressed', 'false');
+          card.setAttribute(
+            'aria-label',
+            `${level.id}: ${level.title}. Path ${level.path}. Focus ${level.focus}.`,
+          );
+          card.tabIndex = -1;
+          card.style.setProperty('--level-delay', `${index * 40}ms`);
+          const pathLabel = typeof level.path === 'string' ? level.path : '—';
+          const focusLabel = typeof level.focus === 'string' ? level.focus : '—';
+          card.innerHTML = `
+            <span class="level-node-core">
+              <span class="level-status-pill">New</span>
+              <span class="level-id">${level.id}</span>
+              <span class="level-node-title">${level.title}</span>
+            </span>
+            <span class="level-best-wave" aria-hidden="true" hidden>Wave —</span>
+            <span class="screen-reader-only level-path">Path ${pathLabel}</span>
+            <span class="screen-reader-only level-focus">Focus ${focusLabel}</span>
+            <span class="screen-reader-only level-mode">—</span>
+            <span class="screen-reader-only level-duration">—</span>
+            <span class="screen-reader-only level-rewards">—</span>
+            <span class="screen-reader-only level-start-thero">Starting Thero —.</span>
+            <span class="screen-reader-only level-last-result">No attempts recorded.</span>
+            <span class="screen-reader-only level-best-wave-sr">Infinity wave record locked.</span>
+          `;
+          card.dataset.ariaLabelBase = `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
+          const levelPreview = createLevelNodePreview(level);
+          if (levelPreview) {
+            card.append(levelPreview);
+          }
+          card.addEventListener('click', () => {
+            handleLevelSelection(level);
+          });
+          card.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              handleLevelSelection(level);
+            }
+          });
+          levelsContainer.append(card);
+        });
+        
+        levelSetEntries.push({
+          name: setName,
+          element: setElement,
+          trigger,
+          titleEl: title,
+          countEl: count,
+          levels: levels.slice(),
+        });
+        
+        setElement.append(trigger, levelsContainer);
+        campaignContainer.append(setElement);
+        groupIndex += 1;
+      });
+      
+      campaignElement.append(campaignTrigger, campaignContainer);
+      fragment.append(campaignElement);
+    });
 
     levelGrid.append(fragment);
     updateLevelSetLocks();
@@ -3655,6 +3848,33 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       }
       if (audioManager) {
         audioManager.playSfx('error');
+      }
+      lastLevelTrigger = null;
+      return;
+    }
+
+    // Handle story levels specially - show story and mark as completed
+    if (level.isStoryLevel) {
+      if (levelStoryScreen) {
+        levelStoryScreen.showStory(level.id, {
+          onComplete: () => {
+            // Mark the story level as completed
+            if (!isLevelCompleted(level.id)) {
+              const currentState = levelState.get(level.id) || {};
+              levelState.set(level.id, {
+                ...currentState,
+                completed: true,
+                entered: true,
+              });
+              unlockNextInteractiveLevel(level.id);
+              refreshLevelCards();
+              // Check if this completes tutorial
+              checkTutorialCompletion(isLevelCompleted);
+              updateTabLockStates(isTutorialCompleted());
+              commitAutoSave();
+            }
+          },
+        });
       }
       lastLevelTrigger = null;
       return;

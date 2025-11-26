@@ -2197,6 +2197,129 @@ body.graphics-mode-low .control-button {
   color: rgba(247, 247, 245, 0.68);
 }
 
+/* Campaign button styles - similar to level-set but distinct */
+.campaign-button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 6px 0;
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 100%;
+  transition: transform 320ms ease;
+}
+
+.campaign-button.expanded {
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.campaign-button-trigger {
+  position: relative;
+  flex: 0 0 var(--level-node-size);
+  width: var(--level-node-size);
+  height: var(--level-node-size);
+  border-radius: 24px;
+  border: 2px solid rgba(255, 215, 100, 0.28);
+  background: rgba(15, 10, 5, 0.92);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: var(--cursor-pointer);
+  transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+  box-shadow: 0 12px 32px rgba(255, 215, 100, 0.15);
+}
+
+.campaign-button-trigger::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 215, 100, 0.22);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.campaign-button-trigger:hover,
+.campaign-button-trigger:focus-visible {
+  border-color: rgba(255, 215, 100, 0.52);
+  box-shadow: 0 18px 42px rgba(255, 215, 100, 0.32);
+  transform: scale(1.02);
+}
+
+.campaign-button-trigger:hover::after,
+.campaign-button-trigger:focus-visible::after,
+.campaign-button.expanded .campaign-button-trigger::after {
+  opacity: 1;
+}
+
+.campaign-button.expanded .campaign-button-trigger {
+  border-color: rgba(255, 215, 100, 0.55);
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 22px 48px rgba(255, 215, 100, 0.38);
+}
+
+.campaign-button-glyph {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: rgba(255, 215, 100, 0.95);
+  text-shadow: 0 0 18px rgba(255, 215, 100, 0.5);
+}
+
+.campaign-button-title {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1rem;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+}
+
+.campaign-button-count {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+
+.campaign-button-sets {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-18px);
+  transition: max-height 420ms ease, opacity 280ms ease, transform 360ms ease;
+  width: 100%;
+  padding: 0 12px;
+}
+
+.campaign-button.expanded .campaign-button-sets {
+  max-height: 2000px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  padding: 24px 12px;
+}
+
+/* Level sets inside campaign buttons have slightly different styling */
+.campaign-button-sets .level-set {
+  margin: 0 auto;
+}
+
 .level-set.locked .level-set-count {
   opacity: 0.45;
 }

@@ -6,7 +6,7 @@ import { readStorage, writeStorage } from './autoSave.js';
 const TUTORIAL_STATE_STORAGE_KEY = 'glyph-defense-idle:tutorial-state';
 
 // The IDs of the prologue levels that must be completed to unlock all tabs
-const PROLOGUE_LEVEL_IDS = ['Prologue - 1', 'Prologue - 2', 'Prologue - 3'];
+const PROLOGUE_LEVEL_IDS = ['Prologue - 1', 'Prologue - 2', 'Prologue - 3', 'Prologue - Story'];
 
 let tutorialCompleted = false;
 
