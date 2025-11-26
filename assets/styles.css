@@ -4995,11 +4995,27 @@ body.graphics-mode-low .control-button {
     box-shadow: 0 16px 32px rgba(4, 8, 16, 0.5);
     z-index: 16;
     color: rgba(241, 245, 250, 0.92);
+    transform: translateX(-110%);
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+    transition: transform 260ms ease, opacity 260ms ease;
   }
 
-.fluid-tree-store-panel[hidden] {
-  display: none;
-}
+  .fluid-tree-store-panel.is-open {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .fluid-tree-store-panel.is-transparent {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .fluid-tree-store-panel.is-closed {
+    transform: translateX(-110%);
+  }
 
 .fluid-tree-store-title {
   font-family: "Cormorant Garamond", serif;
@@ -5022,7 +5038,17 @@ body.graphics-mode-low .control-button {
   flex-direction: column;
   gap: 6px;
   margin-bottom: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  touch-action: none;
+  cursor: grab;
 }
+
+  .fluid-tree-store-list.is-dragging {
+    cursor: grabbing;
+  }
 
 .fluid-tree-store-item {
   display: flex;
@@ -5202,6 +5228,70 @@ body.graphics-mode-low .control-button {
     z-index: 16;
     opacity: 0;
     transition: opacity 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .fluid-tree-placement-confirm {
+    position: absolute;
+    transform: translate(-50%, -100%);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(8, 14, 24, 0.9);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 17;
+    transition: opacity 200ms ease, transform 200ms ease;
+  }
+
+  .fluid-tree-placement-confirm[data-visible="true"] {
+    opacity: 1;
+    transform: translate(-50%, -115%);
+    pointer-events: auto;
+  }
+
+  .fluid-tree-placement-confirm__text {
+    margin: 0;
+    font-family: "Cormorant Garamond", serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  .fluid-tree-placement-confirm__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .fluid-tree-placement-confirm__button {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(14, 22, 32, 0.8);
+    color: rgba(255, 255, 255, 0.9);
+    cursor: var(--cursor-pointer);
+    transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  }
+
+  .fluid-tree-placement-confirm__button:hover,
+  .fluid-tree-placement-confirm__button:focus-visible {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  }
+
+  .fluid-tree-placement-confirm__button--cancel {
+    border-color: rgba(255, 102, 102, 0.8);
+    color: #ff6b6b;
+  }
+
+  .fluid-tree-placement-confirm__button--confirm {
+    border-color: rgba(102, 255, 153, 0.8);
+    color: #87f5c7;
   }
 
 .fluid-tree-placement-preview[data-visible='true'] {
