@@ -393,6 +393,7 @@ import {
   interactiveLevelOrder,
   unlockedLevels,
   levelSetEntries,
+  isStoryOnlyLevel,
   getLevelProgressSnapshot,
   applyLevelProgressSnapshot,
   setDeveloperModeUnlockOverride,
@@ -3456,6 +3457,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
   // Draw a translucent version of the level's path behind the selection label so the card hints at its route.
   function createLevelNodePreview(level) {
+    if (isStoryOnlyLevel(level?.id)) {
+      return null;
+    }
     const previewPoints = getPreviewPointsForLevel(level, levelConfigs);
     if (!Array.isArray(previewPoints) || previewPoints.length < 2) {
       return null;
@@ -3590,6 +3594,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         const card = document.createElement('button');
         card.type = 'button';
         card.className = 'level-node';
+        card.classList.toggle('level-node--story', Boolean(level.isStoryLevel));
         card.dataset.level = level.id;
         card.setAttribute('aria-pressed', 'false');
         card.setAttribute(
@@ -3600,6 +3605,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         card.style.setProperty('--level-delay', `${index * 40}ms`);
         const pathLabel = typeof level.path === 'string' ? level.path : '—';
         const focusLabel = typeof level.focus === 'string' ? level.focus : '—';
+        const ariaBase = level.isStoryLevel
+          ? `${level.id}: ${level.title}. Story chapter.`
+          : `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
         card.innerHTML = `
           <span class="level-node-core">
             <span class="level-status-pill">New</span>
@@ -3607,8 +3615,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             <span class="level-node-title">${level.title}</span>
           </span>
           <span class="level-best-wave" aria-hidden="true" hidden>Wave —</span>
-          <span class="screen-reader-only level-path">Path ${pathLabel}</span>
-          <span class="screen-reader-only level-focus">Focus ${focusLabel}</span>
+          <span class="screen-reader-only level-path">${level.isStoryLevel ? 'Story chapter—no battlefield route.' : `Path ${pathLabel}`}</span>
+          <span class="screen-reader-only level-focus">${level.isStoryLevel ? 'Focus on dialogue and lore.' : `Focus ${focusLabel}`}</span>
           <span class="screen-reader-only level-mode">—</span>
           <span class="screen-reader-only level-duration">—</span>
           <span class="screen-reader-only level-rewards">—</span>
@@ -3616,7 +3624,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           <span class="screen-reader-only level-last-result">No attempts recorded.</span>
           <span class="screen-reader-only level-best-wave-sr">Infinity wave record locked.</span>
         `;
-        card.dataset.ariaLabelBase = `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
+        card.dataset.ariaLabelBase = ariaBase;
+        const core = card.querySelector('.level-node-core');
+        if (core && level.isStoryLevel) {
+          const storyMarker = document.createElement('span');
+          storyMarker.className = 'level-story-marker';
+          storyMarker.innerHTML = '<span class="level-story-marker__icon" aria-hidden="true">📖</span><span class="level-story-marker__label">Story</span>';
+          const storySrLabel = document.createElement('span');
+          storySrLabel.className = 'screen-reader-only level-story-label';
+          storySrLabel.textContent = 'Story chapter—no waves to defend.';
+          core.append(storyMarker, storySrLabel);
+        }
         const levelPreview = createLevelNodePreview(level);
         if (levelPreview) {
           // Seat the path trace behind the text so each card previews the map silhouette without affecting readability.
@@ -3763,6 +3781,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           const card = document.createElement('button');
           card.type = 'button';
           card.className = 'level-node';
+          card.classList.toggle('level-node--story', Boolean(level.isStoryLevel));
           card.dataset.level = level.id;
           card.setAttribute('aria-pressed', 'false');
           card.setAttribute(
@@ -3773,6 +3792,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           card.style.setProperty('--level-delay', `${index * 40}ms`);
           const pathLabel = typeof level.path === 'string' ? level.path : '—';
           const focusLabel = typeof level.focus === 'string' ? level.focus : '—';
+          const ariaBase = level.isStoryLevel
+            ? `${level.id}: ${level.title}. Story chapter.`
+            : `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
           card.innerHTML = `
             <span class="level-node-core">
               <span class="level-status-pill">New</span>
@@ -3780,8 +3802,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               <span class="level-node-title">${level.title}</span>
             </span>
             <span class="level-best-wave" aria-hidden="true" hidden>Wave —</span>
-            <span class="screen-reader-only level-path">Path ${pathLabel}</span>
-            <span class="screen-reader-only level-focus">Focus ${focusLabel}</span>
+            <span class="screen-reader-only level-path">${level.isStoryLevel ? 'Story chapter—no battlefield route.' : `Path ${pathLabel}`}</span>
+            <span class="screen-reader-only level-focus">${level.isStoryLevel ? 'Focus on dialogue and lore.' : `Focus ${focusLabel}`}</span>
             <span class="screen-reader-only level-mode">—</span>
             <span class="screen-reader-only level-duration">—</span>
             <span class="screen-reader-only level-rewards">—</span>
@@ -3789,7 +3811,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             <span class="screen-reader-only level-last-result">No attempts recorded.</span>
             <span class="screen-reader-only level-best-wave-sr">Infinity wave record locked.</span>
           `;
-          card.dataset.ariaLabelBase = `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
+          card.dataset.ariaLabelBase = ariaBase;
+          const core = card.querySelector('.level-node-core');
+          if (core && level.isStoryLevel) {
+            const storyMarker = document.createElement('span');
+            storyMarker.className = 'level-story-marker';
+            storyMarker.innerHTML = '<span class="level-story-marker__icon" aria-hidden="true">📖</span><span class="level-story-marker__label">Story</span>';
+            const storySrLabel = document.createElement('span');
+            storySrLabel.className = 'screen-reader-only level-story-label';
+            storySrLabel.textContent = 'Story chapter—no waves to defend.';
+            core.append(storyMarker, storySrLabel);
+          }
           const levelPreview = createLevelNodePreview(level);
           if (levelPreview) {
             card.append(levelPreview);
@@ -3854,7 +3886,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
 
     // Handle story levels specially - show story and mark as completed
-    if (level.isStoryLevel) {
+    if (isStoryOnlyLevel(level.id)) {
       if (levelStoryScreen) {
         levelStoryScreen.showStory(level.id, {
           onComplete: () => {
@@ -4050,6 +4082,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const waveEl = card.querySelector('.level-best-wave');
       const waveSrEl = card.querySelector('.level-best-wave-sr');
       const state = levelState.get(level.id);
+      const isStoryLevel = isStoryOnlyLevel(level.id);
 
       const entered = Boolean(state && state.entered);
       const running = Boolean(state && state.running);
@@ -4059,7 +4092,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const pathLabel = typeof level.path === 'string' ? level.path : '—';
       const focusLabel = typeof level.focus === 'string' ? level.focus : '—';
 
-      const summary = getLevelSummary(level);
+      const summary = isStoryLevel
+        ? {
+          mode: 'Story',
+          duration: 'Dialogue',
+          rewards: 'Lore entry',
+          start: '—',
+          startAria: 'Story chapter—no starting Thero required.',
+        }
+        : getLevelSummary(level);
       const modeEl = card.querySelector('.level-mode');
       const durationEl = card.querySelector('.level-duration');
       const rewardsEl = card.querySelector('.level-rewards');
@@ -4090,7 +4131,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const lastResultEl = card.querySelector('.level-last-result');
       if (lastResultEl) {
         if (unlocked) {
-          lastResultEl.textContent = describeLevelLastResult(level, state || null, runner);
+          if (isStoryLevel) {
+            const seen = Boolean(state?.storySeen);
+            lastResultEl.textContent = seen ? 'Story viewed.' : 'Story ready to read.';
+          } else {
+            lastResultEl.textContent = describeLevelLastResult(level, state || null, runner);
+          }
         } else {
           lastResultEl.textContent = 'Locked until preceding defenses are sealed.';
         }
@@ -4099,6 +4145,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       card.classList.toggle('entered', entered);
       card.classList.toggle('completed', completed);
       card.classList.toggle('locked', !unlocked);
+      card.classList.toggle('level-node--story', isStoryLevel);
       card.setAttribute('aria-pressed', running ? 'true' : 'false');
       card.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
       const parentSet = card.closest('.level-set');
@@ -4109,16 +4156,27 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         titleEl.textContent = unlocked ? level.title : 'LOCKED';
       }
       if (pathEl) {
-        pathEl.textContent = unlocked ? `Path ${pathLabel}` : 'Path details locked.';
+        pathEl.textContent = unlocked
+          ? isStoryLevel
+            ? 'Story chapter—no battlefield route.'
+            : `Path ${pathLabel}`
+          : 'Path details locked.';
       }
       if (focusEl) {
-        focusEl.textContent = unlocked ? `Focus ${focusLabel}` : 'Focus details locked.';
+        focusEl.textContent = unlocked
+          ? isStoryLevel
+            ? 'Focus on dialogue and lore.'
+            : `Focus ${focusLabel}`
+          : 'Focus details locked.';
       }
 
       if (pill) {
         let pillVisible = false;
         let pillText = '';
-        if (unlocked && !entered) {
+        if (isStoryLevel) {
+          pillText = 'Story';
+          pillVisible = true;
+        } else if (unlocked && !entered) {
           pillText = 'New';
           pillVisible = true;
         } else if (unlocked && running) {
@@ -4137,9 +4195,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         }
       }
 
-      const bestWave = Number.isFinite(state?.bestWave) ? state.bestWave : 0;
+      const bestWave = isStoryLevel ? 0 : Number.isFinite(state?.bestWave) ? state.bestWave : 0;
       if (waveEl) {
-        if (infinityUnlocked) {
+        if (infinityUnlocked && !isStoryLevel) {
           const displayWave = bestWave > 0 ? formatWholeNumber(bestWave) : '—';
           waveEl.textContent = `Wave ${displayWave}`;
           waveEl.removeAttribute('hidden');
@@ -4150,12 +4208,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         }
       }
       if (waveSrEl) {
-        if (infinityUnlocked) {
-          if (bestWave > 0) {
-            waveSrEl.textContent = `Infinity mode best wave ${formatWholeNumber(bestWave)}.`;
-          } else {
-            waveSrEl.textContent = 'Infinity mode ready—no wave record yet.';
-          }
+        if (isStoryLevel) {
+          waveSrEl.textContent = unlocked
+            ? 'Story chapter—no waves to track.'
+            : 'Story chapter locked.';
+        } else if (infinityUnlocked) {
+          waveSrEl.textContent = bestWave > 0
+            ? `Infinity mode best wave ${formatWholeNumber(bestWave)}.`
+            : 'Infinity mode ready—no wave record yet.';
         } else {
           waveSrEl.textContent = 'Infinity wave record locked.';
         }
@@ -4166,12 +4226,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         const startLabel = summary.startAria ? ` ${summary.startAria}` : summary.start && summary.start !== '—'
           ? ` Starting Thero ${summary.start}.`
           : '';
-        const waveLabel = infinityUnlocked
+        const waveLabel = !isStoryLevel && infinityUnlocked
           ? bestWave > 0
             ? ` Best wave reached: ${formatWholeNumber(bestWave)}.`
             : ' Infinity mode available—no wave record yet.'
           : '';
-        card.setAttribute('aria-label', `${baseLabel}${startLabel}${waveLabel}`.trim());
+        const storyLabel = isStoryLevel ? ' Story chapter—no combat required.' : '';
+        card.setAttribute('aria-label', `${baseLabel}${startLabel}${waveLabel}${storyLabel}`.trim());
       } else {
         card.setAttribute(
           'aria-label',
