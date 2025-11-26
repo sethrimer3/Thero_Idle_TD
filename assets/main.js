@@ -3791,7 +3791,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const campaignGlyph = document.createElement('span');
       campaignGlyph.className = 'campaign-button-glyph';
       campaignGlyph.setAttribute('aria-hidden', 'true');
-      campaignGlyph.textContent = campaignName === 'Story' ? '◈' : '⚔';
+      // Assign unique glyph symbols for each campaign type.
+      let glyphSymbol = '⚔';
+      if (campaignName === 'Story') {
+        glyphSymbol = '◈';
+      } else if (campaignName === 'Challenges') {
+        glyphSymbol = '⚡';
+      }
+      campaignGlyph.textContent = glyphSymbol;
       
       const campaignTitle = document.createElement('span');
       campaignTitle.className = 'campaign-button-title';

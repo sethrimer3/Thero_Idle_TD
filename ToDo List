@@ -6,7 +6,7 @@ Guideline: As you complete tasks, immediately update their checkbox from [ ] to 
 —
 [x] - The towers tab is supposed to STAY unlocked after the player enters the first level, currently it unlocks while the player is inside the first level then it locks again once the players finished it and leaves.
 [x] - Add a developer mode checkbox at the very bottom of the stage tab, that when checked, unlocks all tabs and turns on developer mode.
-[] - Let's add a third campaign button that says "Challenges." Add two stub level sets with three stub levels inside each level set.
+[x] - Let's add a third campaign button that says "Challenges." Add two stub level sets with three stub levels inside each level set.
 [] - Make it so campaign buttons only close when the player tabs on them a second time, as opposed to clicking anywhere on the screen. Make it so clicking and dragging upward on any level set also closes the campaign. Currently if the player has the Ladder campaign opened on a thinner window (such as on a phone), even though the story campaign button becomes transparent the Ladder campaign button moves down the page as if it's under a button. Fix this.  
 [] - 
 [] - 
