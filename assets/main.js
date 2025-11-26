@@ -3402,10 +3402,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   }
 
   function handleDocumentPointerDown(event) {
-    const hasExpandedCampaign = Boolean(expandedCampaign);
     const hasExpandedSet = Boolean(expandedLevelSet);
 
-    if (!hasExpandedCampaign && !hasExpandedSet) {
+    // Only handle level set collapse on outside click; campaigns require explicit toggle or swipe.
+    if (!hasExpandedSet) {
       return;
     }
 
@@ -3414,22 +3414,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
 
-    let collapsedSomething = false;
-
     // Collapse open level content when the player clicks anywhere else on the page.
     if (!clickedLevelSet && expandedLevelSet) {
       collapseLevelSet(expandedLevelSet);
-      collapsedSomething = true;
-    }
-
-    // Fold the active campaign back into its diamond when clicking outside its sets.
-    if (!clickedLevelSet && expandedCampaign) {
-      collapseCampaign(expandedCampaign);
-      collapsedSomething = true;
-    }
-
-    if (collapsedSomething && audioManager) {
-      audioManager.playSfx('menuSelect');
+      if (audioManager) {
+        audioManager.playSfx('menuSelect');
+      }
     }
   }
 
@@ -3827,6 +3817,45 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         if (audioManager) {
           audioManager.playSfx('menuSelect');
         }
+      });
+
+      // Add swipe-up gesture detection to close campaign.
+      // Track pointer state for detecting upward drag gestures.
+      const swipeState = {
+        startY: null,
+        pointerId: null,
+      };
+      const SWIPE_UP_THRESHOLD = 50;
+
+      campaignContainer.addEventListener('pointerdown', (event) => {
+        swipeState.startY = event.clientY;
+        swipeState.pointerId = event.pointerId;
+      });
+
+      campaignContainer.addEventListener('pointermove', (event) => {
+        if (swipeState.pointerId !== event.pointerId || swipeState.startY === null) {
+          return;
+        }
+        const deltaY = swipeState.startY - event.clientY;
+        // Close campaign if user drags upward beyond threshold.
+        if (deltaY > SWIPE_UP_THRESHOLD && campaignElement.classList.contains('expanded')) {
+          collapseCampaign(campaignElement);
+          if (audioManager) {
+            audioManager.playSfx('menuSelect');
+          }
+          swipeState.startY = null;
+          swipeState.pointerId = null;
+        }
+      });
+
+      campaignContainer.addEventListener('pointerup', () => {
+        swipeState.startY = null;
+        swipeState.pointerId = null;
+      });
+
+      campaignContainer.addEventListener('pointercancel', () => {
+        swipeState.startY = null;
+        swipeState.pointerId = null;
       });
       
       // Render level sets inside this campaign
