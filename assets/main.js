@@ -3827,6 +3827,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       };
       const SWIPE_UP_THRESHOLD = 50;
 
+      // Reset swipe state after pointer ends or is cancelled.
+      function resetSwipeState() {
+        swipeState.startY = null;
+        swipeState.pointerId = null;
+      }
+
       campaignContainer.addEventListener('pointerdown', (event) => {
         swipeState.startY = event.clientY;
         swipeState.pointerId = event.pointerId;
@@ -3843,20 +3849,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           if (audioManager) {
             audioManager.playSfx('menuSelect');
           }
-          swipeState.startY = null;
-          swipeState.pointerId = null;
+          resetSwipeState();
         }
       });
 
-      campaignContainer.addEventListener('pointerup', () => {
-        swipeState.startY = null;
-        swipeState.pointerId = null;
-      });
-
-      campaignContainer.addEventListener('pointercancel', () => {
-        swipeState.startY = null;
-        swipeState.pointerId = null;
-      });
+      campaignContainer.addEventListener('pointerup', resetSwipeState);
+      campaignContainer.addEventListener('pointercancel', resetSwipeState);
       
       // Render level sets inside this campaign
       setKeys.forEach((setName) => {
