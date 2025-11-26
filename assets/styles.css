@@ -2168,6 +2168,7 @@ body.graphics-mode-low .control-button {
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
+  overflow: visible;
 }
 
 .level-set.locked .level-set-trigger {
@@ -2420,6 +2421,31 @@ body.graphics-mode-low .control-button {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.level-node--story .level-node-preview {
+  display: none;
+}
+
+.level-story-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.level-story-marker__icon {
+  font-size: 1.1rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(139, 247, 255, 0.35));
+}
+
+.level-story-marker__label {
+  font-weight: 600;
 }
 
 .level-id {

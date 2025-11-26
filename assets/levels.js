@@ -70,7 +70,12 @@ export function cloneWaveArray(array) {
 
 // Normalize and store the map blueprints that drive the level select UI.
 export function setLevelBlueprints(maps = []) {
-  levelBlueprints = Array.isArray(maps) ? maps.map((map) => ({ ...map })) : [];
+  levelBlueprints = Array.isArray(maps)
+    ? maps.map((map) => ({
+      ...map,
+      isStoryLevel: Boolean(map?.isStoryLevel),
+    }))
+    : [];
   levelLookup = new Map(levelBlueprints.map((level) => [level.id, level]));
   return levelBlueprints;
 }
@@ -88,15 +93,29 @@ export function setLevelConfigs(levels = []) {
     if (typeof waves === 'string') {
       waves = parseCompactWaveString(waves);
     }
-    
+
     levelConfigs.set(level.id, {
       ...level,
+      isStoryLevel: Boolean(level?.isStoryLevel),
       waves: cloneWaveArray(waves),
       path: cloneVectorArray(level.path),
       autoAnchors: cloneVectorArray(level.autoAnchors),
     });
   });
   return levelConfigs;
+}
+
+// Identify levels that are purely narrative so the UI can route to the story overlay instead of a playfield.
+export function isStoryOnlyLevel(levelId) {
+  if (!levelId) {
+    return false;
+  }
+  const blueprint = levelLookup.get(levelId);
+  if (blueprint?.isStoryLevel) {
+    return true;
+  }
+  const config = levelConfigs.get(levelId);
+  return Boolean(config && config.isStoryLevel);
 }
 
 // Rebuild the ordered interactive level list and default unlocks.
