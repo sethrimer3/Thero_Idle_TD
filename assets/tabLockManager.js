@@ -93,3 +93,39 @@ export function updateTabLockStates(tutorialCompleted) {
 export function initializeTabLockStates(tutorialCompleted) {
   updateTabLockStates(tutorialCompleted);
 }
+
+/**
+ * Unlock the Codex tab.
+ */
+export function unlockCodexTab() {
+  const codexTab = document.getElementById('tab-options');
+  if (codexTab) {
+    setTabButtonState(codexTab, {
+      unlocked: true,
+    });
+  }
+}
+
+/**
+ * Unlock the Achievements tab.
+ */
+export function unlockAchievementsTab() {
+  const achievementsTab = document.getElementById('tab-achievements');
+  if (achievementsTab) {
+    setTabButtonState(achievementsTab, {
+      unlocked: true,
+    });
+  }
+}
+
+/**
+ * Unlock the Towers tab.
+ */
+export function unlockTowersTab() {
+  const towersTab = document.getElementById('tab-towers');
+  if (towersTab) {
+    setTabButtonState(towersTab, {
+      unlocked: true,
+    });
+  }
+}

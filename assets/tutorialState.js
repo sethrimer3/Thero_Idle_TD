@@ -4,11 +4,17 @@
 import { readStorage, writeStorage } from './autoSave.js';
 
 const TUTORIAL_STATE_STORAGE_KEY = 'glyph-defense-idle:tutorial-state';
+const TOWERS_TAB_UNLOCKED_KEY = 'glyph-defense-idle:towers-tab-unlocked';
+const CODEX_UNLOCKED_KEY = 'glyph-defense-idle:codex-unlocked';
+const ACHIEVEMENTS_UNLOCKED_KEY = 'glyph-defense-idle:achievements-unlocked';
 
 // The IDs of the prologue levels that must be completed to unlock all tabs
 const PROLOGUE_LEVEL_IDS = ['Prologue - 1', 'Prologue - 2', 'Prologue - 3', 'Prologue - Story'];
 
 let tutorialCompleted = false;
+let towersTabUnlocked = false;
+let codexUnlocked = false;
+let achievementsUnlocked = false;
 
 /**
  * Check if the prologue tutorial has been completed by the player.
@@ -34,6 +40,21 @@ export function loadTutorialState() {
   if (saved === 'completed') {
     tutorialCompleted = true;
   }
+  
+  const towersTabSaved = readStorage(TOWERS_TAB_UNLOCKED_KEY);
+  if (towersTabSaved === 'true') {
+    towersTabUnlocked = true;
+  }
+  
+  const codexSaved = readStorage(CODEX_UNLOCKED_KEY);
+  if (codexSaved === 'true') {
+    codexUnlocked = true;
+  }
+  
+  const achievementsSaved = readStorage(ACHIEVEMENTS_UNLOCKED_KEY);
+  if (achievementsSaved === 'true') {
+    achievementsUnlocked = true;
+  }
 }
 
 /**
@@ -50,7 +71,13 @@ function saveTutorialState() {
  */
 export function resetTutorialState() {
   tutorialCompleted = false;
+  towersTabUnlocked = false;
+  codexUnlocked = false;
+  achievementsUnlocked = false;
   writeStorage(TUTORIAL_STATE_STORAGE_KEY, '');
+  writeStorage(TOWERS_TAB_UNLOCKED_KEY, '');
+  writeStorage(CODEX_UNLOCKED_KEY, '');
+  writeStorage(ACHIEVEMENTS_UNLOCKED_KEY, '');
 }
 
 /**
@@ -89,4 +116,52 @@ export function checkTutorialCompletion(isLevelCompletedFn) {
   if (allPrologueComplete) {
     completeTutorial();
   }
+}
+
+/**
+ * Check if the Towers tab has been unlocked.
+ * @returns {boolean} True if the Towers tab is unlocked.
+ */
+export function isTowersTabUnlocked() {
+  return towersTabUnlocked;
+}
+
+/**
+ * Unlock the Towers tab and save the state.
+ */
+export function unlockTowersTab() {
+  towersTabUnlocked = true;
+  writeStorage(TOWERS_TAB_UNLOCKED_KEY, 'true');
+}
+
+/**
+ * Check if the Codex has been unlocked.
+ * @returns {boolean} True if the Codex is unlocked.
+ */
+export function isCodexUnlocked() {
+  return codexUnlocked;
+}
+
+/**
+ * Unlock the Codex and save the state.
+ */
+export function unlockCodex() {
+  codexUnlocked = true;
+  writeStorage(CODEX_UNLOCKED_KEY, 'true');
+}
+
+/**
+ * Check if the Achievements tab has been unlocked.
+ * @returns {boolean} True if the Achievements tab is unlocked.
+ */
+export function isAchievementsUnlocked() {
+  return achievementsUnlocked;
+}
+
+/**
+ * Unlock the Achievements tab and save the state.
+ */
+export function unlockAchievements() {
+  achievementsUnlocked = true;
+  writeStorage(ACHIEVEMENTS_UNLOCKED_KEY, 'true');
 }
