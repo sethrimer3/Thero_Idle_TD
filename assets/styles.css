@@ -8720,8 +8720,39 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: var(--path-orange);
 }
 
-#panel-towers {
+/* Enforce scrolling on the Towers and Codex panels for Android Chrome compatibility.
+   Android requires explicit touch-action on scrollable containers to prevent touch
+   events from being captured by child elements. */
+#panel-towers,
+#panel-options {
   position: relative;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  /* Prevent pointer-events on children from blocking scroll gestures on Android. */
+  overscroll-behavior-y: contain;
+}
+
+/* Ensure interactive children inside these panels still allow vertical scrolling. */
+#panel-towers > *,
+#panel-options > * {
+  touch-action: pan-y;
+}
+
+/* Buttons and interactive controls should not block panel scroll on touch. */
+#panel-towers button,
+#panel-towers .card,
+#panel-towers .tower-glyph-summary,
+#panel-towers .tower-panel-controls,
+#panel-options button,
+#panel-options .card,
+#panel-options .enemy-codex,
+#panel-options .codex-controls {
+  touch-action: pan-y;
+}
+
+/* Preserve custom touch handling for the tower tree map when it is visible. */
+#panel-towers .tower-tree-map {
+  touch-action: none;
 }
 
 /* Highlight glyph and mote summaries within the Towers tab. */
