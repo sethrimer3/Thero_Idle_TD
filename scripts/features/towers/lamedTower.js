@@ -2277,6 +2277,7 @@ export class GravitySimulation {
    * Get current state for serialization
    */
   getState() {
+    const { tierIndex } = this.getCurrentTier();
     return {
       starMass: this.starMass,
       sparkBank: this.sparkBank,
@@ -2288,6 +2289,8 @@ export class GravitySimulation {
       stats: {
         totalAbsorptions: this.stats.totalAbsorptions,
         totalMassGained: this.stats.totalMassGained,
+        // Star milestone (tier) reached - 1 glyph per milestone
+        starMilestoneReached: tierIndex + 1,
       },
     };
   }

@@ -277,6 +277,7 @@ export function createBetHappinessSystem({
     setProducerCount,
     getTotalRatePerHour,
     getTotalHappiness: () => normalizeBank(happinessState.bank),
+    getHappinessLevel: () => resolveHappinessProgress(normalizeBank(happinessState.bank)).level,
     addHappiness,
     calculateIdleHappiness,
     bindDisplayElements,
