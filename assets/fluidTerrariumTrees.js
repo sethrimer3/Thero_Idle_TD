@@ -137,7 +137,7 @@ const PLACEMENT_DIMENSIONS = {
   small: { widthRatio: 0.05, heightRatio: 0.18 },
 };
 
-const STORE_STATUS_DEFAULT = 'Select an object and tap the terrain to place it. Placements reset when you reload.';
+const STORE_STATUS_DEFAULT = '';
 
 /**
  * Render animated fractal trees on the Bet terrarium using color-block masks to anchor
@@ -315,6 +315,7 @@ export class FluidTerrariumTrees {
     status.className = 'fluid-tree-store-status';
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
+    status.hidden = true;
     status.textContent = STORE_STATUS_DEFAULT;
     panel.appendChild(status);
     this.storeStatus = status;
@@ -523,7 +524,9 @@ export class FluidTerrariumTrees {
    */
   setStoreStatus(message) {
     if (this.storeStatus) {
-      this.storeStatus.textContent = message || STORE_STATUS_DEFAULT;
+      const nextMessage = message || STORE_STATUS_DEFAULT;
+      this.storeStatus.textContent = nextMessage;
+      this.storeStatus.hidden = !nextMessage;
     }
   }
 
