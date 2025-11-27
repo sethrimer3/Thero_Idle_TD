@@ -1270,7 +1270,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   getTrackedKufGlyphs = resourceHud.getTrackedKufGlyphs;
   setTrackedKufGlyphs = resourceHud.setTrackedKufGlyphs;
 
-  setTrackedLamedGlyphs(spireResourceState.lamed?.stats?.totalAbsorptions || 0);
+  setTrackedLamedGlyphs(spireResourceState.lamed?.stats?.starMilestoneReached || 0);
   setTrackedTsadiGlyphs(
     Number.isFinite(spireResourceState.tsadi?.stats?.totalGlyphs)
       ? spireResourceState.tsadi.stats.totalGlyphs
@@ -4639,20 +4639,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     if (glyphMetrics) {
       const { glyphsLit } = glyphMetrics;
-      const previousAwarded = Number.isFinite(powderState.fluidGlyphsAwarded)
-        ? Math.max(0, powderState.fluidGlyphsAwarded)
-        : 0;
 
-      if (glyphsLit > previousAwarded) {
-        const newlyEarned = glyphsLit - previousAwarded;
-        awardBetGlyphs(newlyEarned);
-        powderState.fluidGlyphsAwarded = glyphsLit;
-        // Check if any spires should auto-unlock
-        checkAndUnlockSpires();
-      } else if (!Number.isFinite(powderState.fluidGlyphsAwarded) || powderState.fluidGlyphsAwarded < glyphsLit) {
-        powderState.fluidGlyphsAwarded = Math.max(previousAwarded, glyphsLit);
-      }
-
+      // The wall gap (visual effect showing basin capacity) scales with glyphsLit (water height thresholds).
+      // Note: Bet glyph currency is now earned based on happiness levels (see betHappinessSystem below),
+      // not water height. This section only handles the visual wall gap animation.
       const normalizedGlyphs = Number.isFinite(glyphsLit) ? Math.max(0, glyphsLit) : 0;
       const previousWallTarget = Number.isFinite(powderState.wallGapTarget)
         ? powderState.wallGapTarget
@@ -4727,6 +4717,19 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     if (betHappinessSystem) {
       betHappinessSystem.updateDisplay(fluidElements);
+
+      // Calculate Bet glyphs based on happiness level (1 glyph per happiness level)
+      const happinessLevel = betHappinessSystem.getHappinessLevel();
+      const previousBetGlyphsAwarded = Number.isFinite(powderState.fluidGlyphsAwarded)
+        ? Math.max(0, powderState.fluidGlyphsAwarded)
+        : 0;
+
+      if (happinessLevel > previousBetGlyphsAwarded) {
+        const newlyEarned = happinessLevel - previousBetGlyphsAwarded;
+        awardBetGlyphs(newlyEarned);
+        powderState.fluidGlyphsAwarded = happinessLevel;
+        checkAndUnlockSpires();
+      }
     }
   }
 
@@ -5203,10 +5206,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                   // Copy upgrade tiers so offline banking tracks new power.
                   spireResourceState.lamed.upgrades = state.upgrades;
                   spireResourceState.lamed.stats = state.stats;
-                  // Detect fresh spark absorptions so dependent spires unlock right away.
+                  // Detect star milestones reached - 1 glyph per milestone
                   const currentLamedGlyphs = Math.max(
                     0,
-                    Math.floor(state.stats?.totalAbsorptions || 0),
+                    Math.floor(state.stats?.starMilestoneReached || 0),
                   );
                   if (currentLamedGlyphs !== getTrackedLamedGlyphs()) {
                     setTrackedLamedGlyphs(currentLamedGlyphs);
