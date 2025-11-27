@@ -1595,9 +1595,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       fluidElements.cameraModeStateLabel.textContent = enabled ? 'On' : 'Off';
     }
     if (fluidElements.cameraModeHint) {
-      fluidElements.cameraModeHint.textContent = enabled
-        ? 'Camera mode hides the in-render buttons so you can pan and zoom.'
-        : 'Camera mode is off. Buttons stay visible and the viewport stays locked.';
+      fluidElements.cameraModeHint.textContent = '';
+      fluidElements.cameraModeHint.hidden = true;
     }
   }
 
