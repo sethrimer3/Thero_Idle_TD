@@ -559,7 +559,7 @@ export function createDeveloperModeManager(options = {}) {
         spireResourceState.lamed.dragLevel = 0;
         spireResourceState.lamed.starMass = 10;
         spireResourceState.lamed.upgrades = { starMass: 0 };
-        spireResourceState.lamed.stats = { totalAbsorptions: 0, totalMassGained: 0 };
+        spireResourceState.lamed.stats = { totalAbsorptions: 0, totalMassGained: 0, starMilestoneReached: 0 };
       }
       if (spireResourceState.tsadi) {
         spireResourceState.tsadi.unlocked = false;

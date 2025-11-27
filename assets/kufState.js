@@ -16,6 +16,9 @@ const DEFAULT_UPGRADES = Object.freeze({
 const DEFAULT_MAP_HIGH_SCORES = Object.freeze({});
 const DEFAULT_MAP_ID = 'forward-bastion';
 
+// Minimum gold required to earn Kuf glyphs (base for magnitude calculation)
+const KUF_GLYPH_GOLD_BASE = 5;
+
 // Unit costs in shards
 const UNIT_COSTS = Object.freeze({
   marines: 5,
@@ -93,11 +96,11 @@ function sanitizeInteger(value, fallback = 0) {
  */
 function calculateKufGlyphsFromGold(totalGold) {
   const normalized = Math.max(0, Number.isFinite(totalGold) ? totalGold : 0);
-  if (normalized < 5) {
+  if (normalized < KUF_GLYPH_GOLD_BASE) {
     return 0;
   }
-  // glyphs = floor(log5(totalGold)) = floor(ln(totalGold) / ln(5))
-  return Math.floor(Math.log(normalized) / Math.log(5));
+  // glyphs = floor(log_base(totalGold)) where base = KUF_GLYPH_GOLD_BASE
+  return Math.floor(Math.log(normalized) / Math.log(KUF_GLYPH_GOLD_BASE));
 }
 
 /**

@@ -4640,8 +4640,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (glyphMetrics) {
       const { glyphsLit } = glyphMetrics;
 
-      // Wall gap is now based on glyphsLit for visual effects only
-      // (Bet glyph earning is now based on happiness level)
+      // The wall gap (visual effect showing basin capacity) scales with glyphsLit (water height thresholds).
+      // Note: Bet glyph currency is now earned based on happiness levels (see betHappinessSystem below),
+      // not water height. This section only handles the visual wall gap animation.
       const normalizedGlyphs = Number.isFinite(glyphsLit) ? Math.max(0, glyphsLit) : 0;
       const previousWallTarget = Number.isFinite(powderState.wallGapTarget)
         ? powderState.wallGapTarget

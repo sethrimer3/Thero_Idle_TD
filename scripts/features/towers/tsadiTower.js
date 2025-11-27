@@ -2656,8 +2656,11 @@ export class ParticleFusionSimulation {
       this.advancedMoleculesUnlocked = this.highestTierReached >= ADVANCED_MOLECULE_UNLOCK_TIER;
       // Tsadi glyphs equal the highest tier reached (display tier)
       this.glyphCount = toDisplayTier(this.highestTierReached);
-    } else if (typeof state.glyphCount === 'number') {
-      // Fallback for old saves that may have glyphCount without highestTierReached
+    }
+    
+    // Legacy save migration: if highestTierReached is missing but glyphCount exists,
+    // preserve the old glyphCount until the simulation naturally updates the tier
+    if (typeof state.highestTierReached !== 'number' && typeof state.glyphCount === 'number') {
       this.glyphCount = state.glyphCount;
     }
 
