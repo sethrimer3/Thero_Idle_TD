@@ -463,11 +463,20 @@ export function renderEnemyCodexOverlay() {
     .map((id) => enemyCodexMap.get(id))
     .filter(Boolean);
 
+  // Detach the empty-state element before clearing so it can be re-attached when needed.
+  if (
+    enemyCodexOverlayElements.empty &&
+    enemyCodexOverlayElements.empty.parentElement === enemyCodexOverlayElements.list
+  ) {
+    enemyCodexOverlayElements.empty.remove();
+  }
+
   enemyCodexOverlayElements.list.innerHTML = '';
 
   if (!encountered.length) {
     if (enemyCodexOverlayElements.empty) {
       enemyCodexOverlayElements.empty.hidden = false;
+      enemyCodexOverlayElements.list.append(enemyCodexOverlayElements.empty);
     }
     return;
   }
