@@ -1375,15 +1375,17 @@ export class GravitySimulation {
         if (sDistSq < starRadius * starRadius) {
           // Shooting star merges into an orbiting spark and empowers it by doubling its mass.
           star.mass *= 2;
-          this.flashEffects.push({
-            x: star.x / dpr,
-            y: star.y / dpr,
-            radius: 6,
-            maxRadius: 18,
-            alpha: 1.0,
-            duration: 0.4,
-            elapsed: 0,
-          });
+          if (this.showSpawnFlashes) {
+            this.flashEffects.push({
+              x: star.x / dpr,
+              y: star.y / dpr,
+              radius: 6,
+              maxRadius: 18,
+              alpha: 1.0,
+              duration: 0.4,
+              elapsed: 0,
+            });
+          }
           this.shootingStars.splice(i, 1);
           merged = true;
           break;

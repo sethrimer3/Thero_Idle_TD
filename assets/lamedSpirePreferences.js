@@ -310,7 +310,6 @@ export function bindLamedSpireOptions() {
       const next = getNextGraphicsLevel(lamedSettings.graphicsLevel);
       applySetting('graphicsLevel', next);
       updateGraphicsLevelButton();
-      syncAllToggles();
     });
   }
 
