@@ -634,7 +634,7 @@ function updateFpsCounterVisibility() {
  * Persist and apply the FPS counter visibility preference.
  */
 export function applyFpsCounterPreference(preference, { persist = true } = {}) {
-  const enabled = normalizeGlyphEquationPreference(preference);
+  const enabled = normalizeDamageNumberPreference(preference);
   fpsCounterEnabled = enabled;
   updateFpsCounterToggleUi();
   updateFpsCounterVisibility();
