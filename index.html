@@ -190,6 +190,8 @@
       </div>
     </div>
     <div class="app-shell">
+      <!-- FPS counter displayed in the top-left corner regardless of active tab. -->
+      <div class="fps-counter" id="fps-counter" hidden aria-hidden="true" aria-label="Frames per second">--</div>
       <main class="main-stage">
         <section
           class="panel active"
@@ -3200,6 +3202,49 @@
                     />
                     <span class="settings-toggle-slider" aria-hidden="true"></span>
                     <span class="settings-toggle-state" id="wave-damage-tally-toggle-state">On</span>
+                  </label>
+                </div>
+                <!-- Frame rate limit slider for older devices. -->
+                <div class="slider-row visual-settings-slider-row" id="frame-rate-limit-row">
+                  <div class="slider-row-header">
+                    <label class="slider-label" for="frame-rate-limit" id="frame-rate-limit-label">Frame Rate Limit</label>
+                    <span class="slider-value" id="frame-rate-limit-value">60 fps</span>
+                  </div>
+                  <input
+                    class="slider-input"
+                    type="range"
+                    id="frame-rate-limit"
+                    min="30"
+                    max="120"
+                    step="5"
+                    value="60"
+                    aria-labelledby="frame-rate-limit-label"
+                    aria-describedby="frame-rate-limit-description"
+                  />
+                  <span class="slider-description" id="frame-rate-limit-description"
+                    >Lower values may improve performance on older devices.</span
+                  >
+                </div>
+                <!-- Toggle to show FPS counter in top-left corner. -->
+                <div class="settings-toggle" id="fps-counter-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="fps-counter-title">FPS Counter</span>
+                    <span class="settings-toggle-description" id="fps-counter-description"
+                      >Display current frames per second in the top-left corner.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="fps-counter-toggle">
+                    <input
+                      type="checkbox"
+                      id="fps-counter-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="fps-counter-title"
+                      aria-describedby="fps-counter-description"
+                      aria-checked="false"
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="fps-counter-toggle-state">Off</span>
                   </label>
                 </div>
               </div>

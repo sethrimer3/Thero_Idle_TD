@@ -88,6 +88,12 @@ import {
   initializeTrackRenderMode,
   initializeLoadoutSlotPreference,
   setLoadoutSlotChangeHandler,
+  bindFrameRateLimitSlider,
+  initializeFrameRateLimitPreference,
+  applyFrameRateLimitPreference,
+  bindFpsCounterToggle,
+  initializeFpsCounterPreference,
+  applyFpsCounterPreference,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
 import { configurePerformanceMonitor } from './performanceMonitor.js';
@@ -2643,6 +2649,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     applyWaveKillTallyPreference,
     applyWaveDamageTallyPreference,
     applyTrackTracerPreference,
+    applyFrameRateLimitPreference,
+    applyFpsCounterPreference,
     getGameStatsSnapshot: () => gameStats,
     mergeLoadedGameStats: (stored) => {
       if (!stored) {
@@ -5044,6 +5052,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Apply the preferred graphics fidelity before other controls render.
     initializeGraphicsMode();
     initializeTrackRenderMode();
+    initializeFrameRateLimitPreference();
+    initializeFpsCounterPreference();
     bindGraphicsModeToggle();
     bindVisualSettingsMenu();
     bindColorSchemeButton();
@@ -5056,6 +5066,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindDamageNumberToggle();
     bindWaveKillTallyToggle();
     bindWaveDamageTallyToggle();
+    bindFrameRateLimitSlider();
+    bindFpsCounterToggle();
     initializeColorScheme();
     bindAudioControls();
 

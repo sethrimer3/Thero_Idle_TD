@@ -239,6 +239,24 @@ body.graphics-mode-low .control-button {
   gap: 16px;
 }
 
+/* FPS counter overlay pinned to the top-left corner, visible regardless of active tab. */
+.fps-counter {
+  position: fixed;
+  top: 4px;
+  left: 4px;
+  z-index: 9999;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  user-select: none;
+  min-width: 24px;
+  text-align: center;
+}
+
 /* Display the relocated thero equation banner within the level selection tab. */
 .level-thero-banner {
   background: var(--panel);
@@ -3979,6 +3997,20 @@ body.graphics-mode-low .control-button {
 
 .visual-settings-menu .settings-toggle {
   margin-top: 14px;
+}
+
+/* Slider row styling for frame rate and similar controls in visual settings. */
+.visual-settings-menu .visual-settings-slider-row {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.slider-description {
+  font-size: 0.68rem;
+  color: rgba(247, 247, 245, 0.55);
+  margin-top: 4px;
+  display: block;
 }
 
 /* Visual cue for how floating damage numbers look under the selected notation. */

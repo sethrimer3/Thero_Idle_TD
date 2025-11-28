@@ -17,6 +17,8 @@ import {
   TRACK_RENDER_MODE_STORAGE_KEY,
   TRACK_TRACER_TOGGLE_STORAGE_KEY,
   TOWER_LOADOUT_SLOTS_STORAGE_KEY,
+  FRAME_RATE_LIMIT_STORAGE_KEY,
+  FPS_COUNTER_TOGGLE_STORAGE_KEY,
 } from './autoSave.js';
 
 const GRAPHICS_MODES = Object.freeze({
@@ -61,6 +63,21 @@ let trackTracerToggleStateLabel = null;
 let preferredLoadoutSlots = 2;
 let loadoutSlotButton = null;
 let loadoutSlotChangeHandler = () => {};
+
+// Frame rate limit preference; defaults to 60 fps, range 30–120.
+let frameRateLimit = 60;
+let frameRateLimitSlider = null;
+let frameRateLimitValueLabel = null;
+let frameRateLimitChangeHandler = () => {};
+
+// Toggle state for the FPS counter overlay.
+let fpsCounterEnabled = false;
+let fpsCounterToggleInput = null;
+let fpsCounterToggleStateLabel = null;
+// FPS counter element displayed in the top-left corner.
+let fpsCounterElement = null;
+let fpsCounterLastUpdate = 0;
+let fpsCounterFrameCount = 0;
 
 let graphicsModeButton = null;
 let trackRenderModeButton = null;
@@ -507,6 +524,181 @@ export function initializeLoadoutSlotPreference({ defaultSlots = 2 } = {}) {
  */
 export function getPreferredLoadoutSlots() {
   return preferredLoadoutSlots;
+}
+
+/**
+ * Clamp the frame rate limit between the supported 30–120 range.
+ */
+function normalizeFrameRateLimitPreference(value) {
+  if (!Number.isFinite(value)) {
+    return 60;
+  }
+  return Math.min(120, Math.max(30, Math.floor(value)));
+}
+
+/**
+ * Update the frame rate limit slider UI to reflect the current value.
+ */
+function updateFrameRateLimitUi() {
+  if (frameRateLimitSlider) {
+    frameRateLimitSlider.value = frameRateLimit;
+  }
+  if (frameRateLimitValueLabel) {
+    frameRateLimitValueLabel.textContent = `${frameRateLimit} fps`;
+  }
+}
+
+/**
+ * Allow the bootstrapper to register a callback whenever the frame rate limit changes.
+ */
+export function setFrameRateLimitChangeHandler(handler) {
+  frameRateLimitChangeHandler = typeof handler === 'function' ? handler : () => {};
+}
+
+/**
+ * Persist and apply the frame rate limit preference.
+ */
+export function applyFrameRateLimitPreference(preference, { persist = true } = {}) {
+  const normalized = normalizeFrameRateLimitPreference(preference);
+  frameRateLimit = normalized;
+  updateFrameRateLimitUi();
+  frameRateLimitChangeHandler(frameRateLimit);
+  if (persist) {
+    writeStorage(FRAME_RATE_LIMIT_STORAGE_KEY, String(frameRateLimit));
+  }
+  return frameRateLimit;
+}
+
+/**
+ * Bind the visual settings slider for frame rate limit.
+ */
+export function bindFrameRateLimitSlider() {
+  frameRateLimitSlider = document.getElementById('frame-rate-limit');
+  frameRateLimitValueLabel = document.getElementById('frame-rate-limit-value');
+  if (!frameRateLimitSlider) {
+    return;
+  }
+  frameRateLimitSlider.addEventListener('input', (event) => {
+    applyFrameRateLimitPreference(Number(event.target.value));
+  });
+  updateFrameRateLimitUi();
+}
+
+/**
+ * Initialize the frame rate limit preference from storage.
+ */
+export function initializeFrameRateLimitPreference() {
+  const stored = Number.parseInt(readStorage(FRAME_RATE_LIMIT_STORAGE_KEY), 10);
+  const normalized = Number.isFinite(stored) ? normalizeFrameRateLimitPreference(stored) : 60;
+  return applyFrameRateLimitPreference(normalized, { persist: false });
+}
+
+/**
+ * Report the current frame rate limit.
+ */
+export function getFrameRateLimit() {
+  return frameRateLimit;
+}
+
+/**
+ * Synchronize the FPS counter toggle control with the in-memory state.
+ */
+function updateFpsCounterToggleUi() {
+  if (fpsCounterToggleInput) {
+    fpsCounterToggleInput.checked = fpsCounterEnabled;
+    fpsCounterToggleInput.setAttribute('aria-checked', fpsCounterEnabled ? 'true' : 'false');
+    const controlShell = fpsCounterToggleInput.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', fpsCounterEnabled);
+    }
+  }
+  if (fpsCounterToggleStateLabel) {
+    fpsCounterToggleStateLabel.textContent = fpsCounterEnabled ? 'On' : 'Off';
+  }
+}
+
+/**
+ * Update the FPS counter element visibility based on the toggle state.
+ */
+function updateFpsCounterVisibility() {
+  if (!fpsCounterElement) {
+    fpsCounterElement = document.getElementById('fps-counter');
+  }
+  if (fpsCounterElement) {
+    fpsCounterElement.hidden = !fpsCounterEnabled;
+    fpsCounterElement.setAttribute('aria-hidden', fpsCounterEnabled ? 'false' : 'true');
+  }
+}
+
+/**
+ * Persist and apply the FPS counter visibility preference.
+ */
+export function applyFpsCounterPreference(preference, { persist = true } = {}) {
+  const enabled = normalizeGlyphEquationPreference(preference);
+  fpsCounterEnabled = enabled;
+  updateFpsCounterToggleUi();
+  updateFpsCounterVisibility();
+  if (persist) {
+    writeStorage(FPS_COUNTER_TOGGLE_STORAGE_KEY, fpsCounterEnabled ? '1' : '0');
+  }
+  return fpsCounterEnabled;
+}
+
+/**
+ * Bind the visual settings toggle for FPS counter visibility.
+ */
+export function bindFpsCounterToggle() {
+  fpsCounterToggleInput = document.getElementById('fps-counter-toggle');
+  fpsCounterToggleStateLabel = document.getElementById('fps-counter-toggle-state');
+  if (!fpsCounterToggleInput) {
+    return;
+  }
+  fpsCounterToggleInput.addEventListener('change', (event) => {
+    applyFpsCounterPreference(event?.target?.checked);
+  });
+  updateFpsCounterToggleUi();
+}
+
+/**
+ * Initialize the FPS counter preference from storage.
+ */
+export function initializeFpsCounterPreference() {
+  const stored = readStorage(FPS_COUNTER_TOGGLE_STORAGE_KEY);
+  const normalized = stored === '1' || stored === 'true';
+  return applyFpsCounterPreference(normalized, { persist: false });
+}
+
+/**
+ * Reports whether the FPS counter overlay is active.
+ */
+export function isFpsCounterEnabled() {
+  return fpsCounterEnabled;
+}
+
+/**
+ * Update the FPS counter display with the current frame rate.
+ * Call this from the game loop to update the displayed FPS.
+ */
+export function updateFpsCounter(timestamp) {
+  if (!fpsCounterEnabled) {
+    return;
+  }
+  if (!fpsCounterElement) {
+    fpsCounterElement = document.getElementById('fps-counter');
+  }
+  if (!fpsCounterElement) {
+    return;
+  }
+
+  fpsCounterFrameCount++;
+  const elapsed = timestamp - fpsCounterLastUpdate;
+  // Update the display approximately every 500ms for stability.
+  if (elapsed >= 500) {
+    const fps = Math.round((fpsCounterFrameCount * 1000) / elapsed);
+    fpsCounterElement.textContent = fps;
+    fpsCounterFrameCount = 0;
+    fpsCounterLastUpdate = timestamp;
+  }
 }
 
 function resolveGraphicsModeLabel(mode = activeGraphicsMode) {
