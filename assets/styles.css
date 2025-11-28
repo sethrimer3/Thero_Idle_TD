@@ -11533,3 +11533,154 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     font-size: 0.9rem;
   }
 }
+
+/* Warden Weapons Menu
+   ========================================================================== */
+
+.shin-weapons-card {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.shin-weapons-card h3 {
+  color: #d4af37;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.shin-weapons-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-bottom: 0.75rem;
+  font-style: italic;
+}
+
+.shin-weapons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.shin-weapon-item {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.75rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.shin-weapon-item:hover {
+  border-color: rgba(212, 175, 55, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.shin-weapon-item--locked {
+  opacity: 0.6;
+}
+
+.shin-weapon-item--locked:hover {
+  opacity: 0.8;
+}
+
+.shin-weapon-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.shin-weapon-symbol {
+  font-size: 1.2rem;
+  font-weight: 600;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.shin-weapon-name {
+  font-size: 0.85rem;
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shin-weapon-level {
+  font-size: 0.7rem;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.shin-weapon-description {
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-bottom: 0.5rem;
+  flex: 1;
+  min-height: 2.4rem;
+}
+
+.shin-weapon-action {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: #d4af37;
+  border: 1px solid #d4af37;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  cursor: var(--cursor-pointer);
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.shin-weapon-action:hover:not(:disabled) {
+  background: #d4af37;
+  color: #fff;
+}
+
+.shin-weapon-action:disabled {
+  opacity: 0.5;
+  cursor: var(--cursor-not-allowed);
+}
+
+.shin-weapon-action--owned {
+  background: rgba(212, 175, 55, 0.2);
+  border-color: rgba(212, 175, 55, 0.4);
+  color: #d4af37;
+}
+
+.shin-weapon-action--maxed {
+  background: rgba(139, 247, 255, 0.15);
+  border-color: rgba(139, 247, 255, 0.3);
+  color: var(--accent);
+}
+
+@media (max-width: 600px) {
+  .shin-weapons-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.4rem;
+  }
+  
+  .shin-weapon-item {
+    padding: 0.6rem;
+  }
+  
+  .shin-weapon-symbol {
+    font-size: 1rem;
+  }
+  
+  .shin-weapon-name {
+    font-size: 0.8rem;
+  }
+  
+  .shin-weapon-description {
+    font-size: 0.65rem;
+  }
+}

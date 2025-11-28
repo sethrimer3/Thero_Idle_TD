@@ -91,6 +91,52 @@ class OrbitalSquare {
 }
 
 /**
+ * Represents a large ring square that encompasses the warden.
+ * These squares rotate around the warden with transparent fill, creating a ring-like effect.
+ */
+class RingSquare {
+  constructor(config) {
+    // Size of the ring square (larger than the warden)
+    this.size = config.size || 80;
+    // Initial rotation angle
+    this.rotation = config.initialRotation || 0;
+    // Rotation speed in radians per second
+    this.rotationSpeed = config.rotationSpeed || 0.5;
+    // Rotation direction: 1 for clockwise, -1 for counter-clockwise
+    this.rotationDirection = config.rotationDirection || 1;
+    // Stroke color (golden to match theme)
+    this.strokeColor = config.strokeColor || '#d4af37';
+    // Stroke width
+    this.strokeWidth = config.strokeWidth || 2;
+    // Alpha transparency for the ring
+    this.alpha = config.alpha || 0.6;
+  }
+
+  update(deltaTime) {
+    const dt = deltaTime / 1000;
+    this.rotation += this.rotationSpeed * this.rotationDirection * dt;
+  }
+
+  /**
+   * Render the ring square centered on the given position.
+   */
+  render(ctx, centerX, centerY) {
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(this.rotation);
+    
+    ctx.globalAlpha = this.alpha;
+    ctx.strokeStyle = this.strokeColor;
+    ctx.lineWidth = this.strokeWidth;
+    
+    const halfSize = this.size / 2;
+    ctx.strokeRect(-halfSize, -halfSize, this.size, this.size);
+    
+    ctx.restore();
+  }
+}
+
+/**
  * Represents the Cardinal Warden - the player's boss entity.
  */
 class CardinalWarden {
@@ -101,8 +147,10 @@ class CardinalWarden {
     this.maxHealth = 100;
     this.coreRadius = 16;
     this.orbitalSquares = [];
+    this.ringSquares = [];
     this.rng = rng;
     this.initOrbitalSquares();
+    this.initRingSquares();
   }
 
   initOrbitalSquares() {
@@ -114,9 +162,37 @@ class CardinalWarden {
     }
   }
 
+  /**
+   * Initialize the large rotating ring squares that encompass the warden.
+   * Multiple rings with different sizes, speeds, and directions create visual depth.
+   */
+  initRingSquares() {
+    this.ringSquares = [];
+    
+    // Ring configurations: size, speed, direction, strokeWidth, alpha
+    const ringConfigs = [
+      { size: 70, rotationSpeed: 0.4, rotationDirection: 1, strokeWidth: 1.5, alpha: 0.5 },
+      { size: 95, rotationSpeed: 0.25, rotationDirection: -1, strokeWidth: 2, alpha: 0.4 },
+      { size: 120, rotationSpeed: 0.6, rotationDirection: 1, strokeWidth: 1, alpha: 0.35 },
+      { size: 150, rotationSpeed: 0.15, rotationDirection: -1, strokeWidth: 2.5, alpha: 0.3 },
+      { size: 180, rotationSpeed: 0.35, rotationDirection: 1, strokeWidth: 1.5, alpha: 0.25 },
+    ];
+    
+    for (let i = 0; i < ringConfigs.length; i++) {
+      const config = ringConfigs[i];
+      // Stagger initial rotations so they don't all start aligned
+      config.initialRotation = (i / ringConfigs.length) * Math.PI * 0.5;
+      config.strokeColor = '#d4af37';
+      this.ringSquares.push(new RingSquare(config));
+    }
+  }
+
   update(deltaTime) {
     for (const square of this.orbitalSquares) {
       square.update(deltaTime);
+    }
+    for (const ring of this.ringSquares) {
+      ring.update(deltaTime);
     }
   }
 
@@ -132,6 +208,7 @@ class CardinalWarden {
   reset() {
     this.health = this.maxHealth;
     this.initOrbitalSquares();
+    this.initRingSquares();
   }
 }
 
@@ -288,6 +365,198 @@ class Bullet {
 }
 
 /**
+ * Represents a mathematical function bullet that follows wave patterns.
+ * These bullets travel primarily in one direction but oscillate following a mathematical function.
+ */
+class MathBullet {
+  constructor(x, y, angle, config = {}) {
+    this.startX = x;
+    this.startY = y;
+    this.x = x;
+    this.y = y;
+    this.baseAngle = angle;
+    this.speed = config.speed || 200;
+    this.damage = config.damage || 1;
+    this.size = config.size || 4;
+    this.color = config.color || '#d4af37';
+    
+    // Mathematical pattern configuration
+    this.pattern = config.pattern || 'sine';
+    this.amplitude = config.amplitude || 20;
+    this.frequency = config.frequency || 3;
+    this.phase = config.phase || 0;
+    
+    // Distance traveled along the path
+    this.distance = 0;
+    this.time = 0;
+  }
+
+  update(deltaTime) {
+    const dt = deltaTime / 1000;
+    this.time += dt;
+    
+    // Move forward along the base angle
+    this.distance += this.speed * dt;
+    
+    // Calculate position along the primary direction
+    const primaryX = this.startX + Math.cos(this.baseAngle) * this.distance;
+    const primaryY = this.startY + Math.sin(this.baseAngle) * this.distance;
+    
+    // Calculate perpendicular offset based on mathematical pattern
+    let offset = 0;
+    const t = this.distance * this.frequency * 0.02 + this.phase;
+    
+    switch (this.pattern) {
+      case 'sine':
+        offset = Math.sin(t) * this.amplitude;
+        break;
+      case 'cosine':
+        offset = Math.cos(t) * this.amplitude;
+        break;
+      case 'tangent':
+        // Clamped tangent to prevent extreme values
+        offset = Math.max(-this.amplitude, Math.min(this.amplitude, Math.tan(t * 0.5) * this.amplitude * 0.3));
+        break;
+      case 'spiral':
+        // Expanding spiral pattern
+        offset = Math.sin(t) * this.amplitude * (1 + this.distance * 0.005);
+        break;
+      case 'damped':
+        // Damped oscillation (amplitude decreases over distance)
+        offset = Math.sin(t) * this.amplitude * Math.exp(-this.distance * 0.003);
+        break;
+      case 'square':
+        // Square wave approximation
+        offset = Math.sign(Math.sin(t)) * this.amplitude;
+        break;
+      default:
+        offset = Math.sin(t) * this.amplitude;
+    }
+    
+    // Apply perpendicular offset (90 degrees from base angle)
+    const perpAngle = this.baseAngle + Math.PI / 2;
+    this.x = primaryX + Math.cos(perpAngle) * offset;
+    this.y = primaryY + Math.sin(perpAngle) * offset;
+  }
+
+  isOffscreen(width, height) {
+    return this.x < -this.size || this.x > width + this.size ||
+           this.y < -this.size || this.y > height + this.size;
+  }
+}
+
+/**
+ * Weapon definitions for the Cardinal Warden.
+ * Each weapon has a unique mathematical pattern and upgrade path.
+ */
+const WEAPON_DEFINITIONS = {
+  sine: {
+    id: 'sine',
+    name: 'Sine Wave',
+    symbol: 'sin',
+    description: 'Fires bullets that follow a smooth sine wave pattern.',
+    baseDamage: 1,
+    baseSpeed: 180,
+    baseFireRate: 500, // ms between shots
+    pattern: 'sine',
+    amplitude: 20,
+    frequency: 3,
+    cost: 0, // Free - starter weapon
+    upgradeCosts: [10, 25, 50, 100, 200],
+    color: '#d4af37',
+  },
+  cosine: {
+    id: 'cosine',
+    name: 'Cosine Pulse',
+    symbol: 'cos',
+    description: 'Phase-shifted waves starting at peak amplitude.',
+    baseDamage: 1.2,
+    baseSpeed: 190,
+    baseFireRate: 450,
+    pattern: 'cosine',
+    amplitude: 25,
+    frequency: 2.5,
+    cost: 50,
+    upgradeCosts: [15, 40, 80, 150, 300],
+    color: '#ff9c66',
+  },
+  spiral: {
+    id: 'spiral',
+    name: 'Spiral Expansion',
+    symbol: 'φ',
+    description: 'Expanding spiral bullets that cover a wider area over distance.',
+    baseDamage: 0.8,
+    baseSpeed: 160,
+    baseFireRate: 400,
+    pattern: 'spiral',
+    amplitude: 15,
+    frequency: 4,
+    cost: 100,
+    upgradeCosts: [25, 60, 120, 250, 500],
+    color: '#9a6bff',
+  },
+  damped: {
+    id: 'damped',
+    name: 'Damped Oscillation',
+    symbol: 'e⁻ˣ',
+    description: 'Waves that stabilize over distance, focusing damage forward.',
+    baseDamage: 1.5,
+    baseSpeed: 200,
+    baseFireRate: 600,
+    pattern: 'damped',
+    amplitude: 30,
+    frequency: 3.5,
+    cost: 150,
+    upgradeCosts: [30, 75, 150, 300, 600],
+    color: '#50a0ff',
+  },
+  square: {
+    id: 'square',
+    name: 'Square Wave',
+    symbol: '⌐⌐',
+    description: 'Sharp alternating bullets that create a coverage corridor.',
+    baseDamage: 2,
+    baseSpeed: 170,
+    baseFireRate: 700,
+    pattern: 'square',
+    amplitude: 35,
+    frequency: 2,
+    cost: 200,
+    upgradeCosts: [50, 100, 200, 400, 800],
+    color: '#ff7deb',
+  },
+  tangent: {
+    id: 'tangent',
+    name: 'Tangent Burst',
+    symbol: 'tan',
+    description: 'Erratic burst patterns with extreme angles.',
+    baseDamage: 1.8,
+    baseSpeed: 220,
+    baseFireRate: 550,
+    pattern: 'tangent',
+    amplitude: 40,
+    frequency: 2,
+    cost: 250,
+    upgradeCosts: [40, 90, 180, 350, 700],
+    color: '#8bf7ff',
+  },
+};
+
+/**
+ * Get all available weapon IDs.
+ */
+export function getWeaponIds() {
+  return Object.keys(WEAPON_DEFINITIONS);
+}
+
+/**
+ * Get weapon definition by ID.
+ */
+export function getWeaponDefinition(weaponId) {
+  return WEAPON_DEFINITIONS[weaponId] || null;
+}
+
+/**
  * Enemy type configurations for different difficulty tiers.
  */
 const ENEMY_TYPES = {
@@ -395,11 +664,27 @@ export class CardinalWardenSimulation {
       patterns: ['radial'], // Unlocked patterns
     };
 
+    // Weapon system state
+    this.weapons = {
+      // Map of weapon ID to weapon state
+      purchased: { sine: true }, // Sine wave is the starter weapon
+      levels: { sine: 1 }, // Upgrade level (1-6)
+      activeWeaponId: 'sine', // Currently firing weapon
+    };
+    
+    // Weapon-specific timers (each weapon has its own fire rate)
+    this.weaponTimers = {
+      sine: 0,
+    };
+
     // Animation frame handle
     this.animationFrameId = null;
     
     // Auto-start flag (game starts immediately without menu)
     this.autoStart = options.autoStart !== false;
+
+    // Callback for weapon state changes
+    this.onWeaponChange = options.onWeaponChange || null;
 
     this.initialize();
   }
@@ -566,13 +851,8 @@ export class CardinalWardenSimulation {
       this.spawnEnemy();
     }
 
-    // Fire bullets
-    this.bulletSpawnTimer += deltaTime;
-    const bulletInterval = this.getBulletInterval();
-    if (this.bulletSpawnTimer >= bulletInterval) {
-      this.bulletSpawnTimer = 0;
-      this.fireBullets();
-    }
+    // Fire bullets for each purchased weapon based on their individual fire rates
+    this.updateWeaponTimers(deltaTime);
 
     // Update enemies
     this.updateEnemies(deltaTime);
@@ -585,6 +865,86 @@ export class CardinalWardenSimulation {
 
     // Check game over conditions
     this.checkGameOver();
+  }
+  
+  /**
+   * Update weapon timers and fire bullets when ready.
+   */
+  updateWeaponTimers(deltaTime) {
+    if (!this.warden || !this.canvas) return;
+    
+    for (const weaponId of Object.keys(this.weapons.purchased)) {
+      if (!this.weapons.purchased[weaponId]) continue;
+      
+      const weaponDef = WEAPON_DEFINITIONS[weaponId];
+      if (!weaponDef) continue;
+      
+      // Initialize timer if needed
+      if (this.weaponTimers[weaponId] === undefined) {
+        this.weaponTimers[weaponId] = 0;
+      }
+      
+      // Calculate fire rate based on level (higher level = faster fire rate)
+      const level = this.weapons.levels[weaponId] || 1;
+      const fireRateMultiplier = 1 - (level - 1) * 0.08; // 8% faster per level
+      const fireInterval = weaponDef.baseFireRate * fireRateMultiplier * (1 / this.upgrades.fireRate);
+      
+      this.weaponTimers[weaponId] += deltaTime;
+      
+      if (this.weaponTimers[weaponId] >= fireInterval) {
+        this.weaponTimers[weaponId] = 0;
+        this.fireWeapon(weaponId);
+      }
+    }
+  }
+  
+  /**
+   * Fire bullets from a specific weapon.
+   */
+  fireWeapon(weaponId) {
+    if (!this.warden || !this.canvas) return;
+    
+    const weaponDef = WEAPON_DEFINITIONS[weaponId];
+    if (!weaponDef) return;
+    
+    const cx = this.warden.x;
+    const cy = this.warden.y;
+    const level = this.weapons.levels[weaponId] || 1;
+    
+    // Calculate stats based on level
+    const damageMultiplier = 1 + (level - 1) * 0.25;
+    const speedMultiplier = 1 + (level - 1) * 0.1;
+    
+    const bulletConfig = {
+      speed: weaponDef.baseSpeed * speedMultiplier * this.upgrades.bulletSpeed,
+      damage: weaponDef.baseDamage * damageMultiplier * this.upgrades.bulletDamage,
+      size: 4 + Math.floor(level / 2),
+      color: weaponDef.color,
+      pattern: weaponDef.pattern,
+      amplitude: weaponDef.amplitude * (1 + (level - 1) * 0.15),
+      frequency: weaponDef.frequency,
+    };
+
+    // Number of bullets increases with level
+    const bulletCount = 1 + Math.floor(level / 2);
+    const spreadAngle = Math.PI * 0.6; // 108 degrees spread
+    
+    for (let i = 0; i < bulletCount; i++) {
+      // Calculate angle offset for multiple bullets
+      let angleOffset = 0;
+      if (bulletCount > 1) {
+        angleOffset = (i / (bulletCount - 1) - 0.5) * spreadAngle;
+      }
+      const angle = -Math.PI / 2 + angleOffset; // -90 degrees (pointing up)
+      
+      // Add phase offset for each bullet for visual variety
+      const phaseOffset = i * (Math.PI * 2 / bulletCount);
+      
+      this.bullets.push(new MathBullet(cx, cy - 20, angle, {
+        ...bulletConfig,
+        phase: phaseOffset,
+      }));
+    }
   }
   
   /**
@@ -721,13 +1081,6 @@ export class CardinalWardenSimulation {
   }
 
   /**
-   * Get current bullet interval based on upgrades.
-   */
-  getBulletInterval() {
-    return Math.max(100, this.baseBulletInterval / this.upgrades.fireRate);
-  }
-
-  /**
    * Spawn an enemy based on current difficulty.
    */
   spawnEnemy() {
@@ -778,69 +1131,6 @@ export class CardinalWardenSimulation {
     if (this.difficultyLevel >= 2) pool.push('tank');
     if (this.difficultyLevel >= 4) pool.push('elite');
     return pool;
-  }
-
-  /**
-   * Fire bullets from the Cardinal Warden.
-   */
-  fireBullets() {
-    if (!this.warden || !this.canvas) return;
-
-    const bulletConfig = {
-      speed: 200 * this.upgrades.bulletSpeed,
-      damage: this.upgrades.bulletDamage,
-      size: 4,
-      color: this.bulletColor,
-    };
-
-    // Fire based on current pattern
-    const pattern = this.upgrades.patterns[0] || 'radial';
-    this.firePattern(pattern, bulletConfig);
-  }
-
-  /**
-   * Fire bullets in a specific pattern.
-   */
-  firePattern(pattern, config) {
-    const cx = this.warden.x;
-    const cy = this.warden.y;
-    const bulletCount = 4 + this.upgrades.bulletCount * 2;
-
-    switch (pattern) {
-      case 'radial': {
-        // Fire in a circle pattern (spread around cardinal directions, mostly upward)
-        for (let i = 0; i < bulletCount; i++) {
-          const spread = Math.PI * 0.8; // 144 degrees spread (mostly upward)
-          const baseAngle = -Math.PI / 2; // Pointing up
-          const angleOffset = (i / (bulletCount - 1) - 0.5) * spread;
-          const angle = baseAngle + angleOffset;
-          this.bullets.push(new Bullet(cx, cy - 20, angle, config));
-        }
-        break;
-      }
-      case 'spiral': {
-        // Spiral pattern
-        const time = performance.now() / 1000;
-        for (let i = 0; i < bulletCount; i++) {
-          const angle = -Math.PI / 2 + (i / bulletCount) * Math.PI * 2 + time * 2;
-          this.bullets.push(new Bullet(cx, cy - 20, angle, config));
-        }
-        break;
-      }
-      case 'focused': {
-        // Focused burst toward top
-        for (let i = 0; i < bulletCount; i++) {
-          const spread = Math.PI * 0.3;
-          const angle = -Math.PI / 2 + (this.rng.next() - 0.5) * spread;
-          this.bullets.push(new Bullet(cx, cy - 20, angle, config));
-        }
-        break;
-      }
-      default: {
-        // Default single shot
-        this.bullets.push(new Bullet(cx, cy - 20, -Math.PI / 2, config));
-      }
-    }
   }
 
   /**
@@ -1093,6 +1383,11 @@ export class CardinalWardenSimulation {
     const ctx = this.ctx;
     const warden = this.warden;
 
+    // Draw ring squares first (behind everything else)
+    for (const ring of warden.ringSquares) {
+      ring.render(ctx, warden.x, warden.y);
+    }
+
     // Draw orbital squares
     ctx.fillStyle = this.wardenSquareColor;
     for (const square of warden.orbitalSquares) {
@@ -1260,6 +1555,11 @@ export class CardinalWardenSimulation {
       wave: this.wave,
       difficultyLevel: this.difficultyLevel,
       upgrades: { ...this.upgrades },
+      weapons: {
+        purchased: { ...this.weapons.purchased },
+        levels: { ...this.weapons.levels },
+        activeWeaponId: this.weapons.activeWeaponId,
+      },
     };
   }
 
@@ -1275,6 +1575,9 @@ export class CardinalWardenSimulation {
     }
     if (state.upgrades) {
       this.upgrades = { ...this.upgrades, ...state.upgrades };
+    }
+    if (state.weapons) {
+      this.setWeaponState(state.weapons);
     }
   }
 
@@ -1327,6 +1630,143 @@ export class CardinalWardenSimulation {
         break;
       default:
         break;
+    }
+  }
+
+  /**
+   * Get all available weapons with their purchase/upgrade status.
+   */
+  getAvailableWeapons() {
+    const weapons = [];
+    for (const weaponId of Object.keys(WEAPON_DEFINITIONS)) {
+      const def = WEAPON_DEFINITIONS[weaponId];
+      const isPurchased = this.weapons.purchased[weaponId] || false;
+      const level = this.weapons.levels[weaponId] || 0;
+      const maxLevel = 6;
+      const canUpgrade = isPurchased && level < maxLevel;
+      const upgradeCost = canUpgrade && def.upgradeCosts[level - 1] !== undefined 
+        ? def.upgradeCosts[level - 1] 
+        : null;
+      
+      weapons.push({
+        id: weaponId,
+        name: def.name,
+        symbol: def.symbol,
+        description: def.description,
+        color: def.color,
+        cost: def.cost,
+        isPurchased,
+        level,
+        maxLevel,
+        canUpgrade,
+        upgradeCost,
+      });
+    }
+    return weapons;
+  }
+
+  /**
+   * Purchase a weapon using score points.
+   * @param {string} weaponId - The ID of the weapon to purchase
+   * @returns {boolean} True if purchase successful
+   */
+  purchaseWeapon(weaponId) {
+    const def = WEAPON_DEFINITIONS[weaponId];
+    if (!def) return false;
+    
+    // Already purchased
+    if (this.weapons.purchased[weaponId]) return false;
+    
+    // Check if player has enough score
+    if (this.score < def.cost) return false;
+    
+    // Deduct cost and purchase
+    this.score -= def.cost;
+    this.weapons.purchased[weaponId] = true;
+    this.weapons.levels[weaponId] = 1;
+    this.weaponTimers[weaponId] = 0;
+    
+    // Notify callbacks
+    if (this.onScoreChange) {
+      this.onScoreChange(this.score);
+    }
+    if (this.onWeaponChange) {
+      this.onWeaponChange(this.weapons);
+    }
+    
+    return true;
+  }
+
+  /**
+   * Upgrade a purchased weapon.
+   * @param {string} weaponId - The ID of the weapon to upgrade
+   * @returns {boolean} True if upgrade successful
+   */
+  upgradeWeapon(weaponId) {
+    const def = WEAPON_DEFINITIONS[weaponId];
+    if (!def) return false;
+    
+    // Must be purchased first
+    if (!this.weapons.purchased[weaponId]) return false;
+    
+    const currentLevel = this.weapons.levels[weaponId] || 1;
+    const maxLevel = 6;
+    
+    // Already at max level
+    if (currentLevel >= maxLevel) return false;
+    
+    // Get upgrade cost
+    const upgradeCost = def.upgradeCosts[currentLevel - 1];
+    if (upgradeCost === undefined) return false;
+    
+    // Check if player has enough score
+    if (this.score < upgradeCost) return false;
+    
+    // Deduct cost and upgrade
+    this.score -= upgradeCost;
+    this.weapons.levels[weaponId] = currentLevel + 1;
+    
+    // Notify callbacks
+    if (this.onScoreChange) {
+      this.onScoreChange(this.score);
+    }
+    if (this.onWeaponChange) {
+      this.onWeaponChange(this.weapons);
+    }
+    
+    return true;
+  }
+
+  /**
+   * Get current weapon state for UI.
+   */
+  getWeaponState() {
+    return {
+      purchased: { ...this.weapons.purchased },
+      levels: { ...this.weapons.levels },
+      activeWeaponId: this.weapons.activeWeaponId,
+    };
+  }
+
+  /**
+   * Set weapon state from persistence.
+   */
+  setWeaponState(state) {
+    if (state?.purchased) {
+      this.weapons.purchased = { ...this.weapons.purchased, ...state.purchased };
+    }
+    if (state?.levels) {
+      this.weapons.levels = { ...this.weapons.levels, ...state.levels };
+    }
+    if (state?.activeWeaponId) {
+      this.weapons.activeWeaponId = state.activeWeaponId;
+    }
+    
+    // Initialize timers for all purchased weapons
+    for (const weaponId of Object.keys(this.weapons.purchased)) {
+      if (this.weapons.purchased[weaponId] && !this.weaponTimers[weaponId]) {
+        this.weaponTimers[weaponId] = 0;
+      }
     }
   }
 }
