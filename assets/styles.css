@@ -9641,6 +9641,66 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   max-width: 100%;
 }
 
+/* Lamed Spire Options Dropdown Card */
+.lamed-spire-options-card {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.lamed-spire-options-trigger {
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+}
+
+.lamed-spire-options-glyph {
+  font-size: 1.3em;
+  color: var(--accent-3);
+  text-shadow: 0 0 8px rgba(255, 228, 120, 0.35);
+}
+
+.lamed-spire-options-menu {
+  display: grid;
+  gap: 12px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 320ms ease, opacity 280ms ease;
+}
+
+.lamed-spire-options-menu[data-open='true'] {
+  opacity: 1;
+  margin-top: 8px;
+  pointer-events: auto;
+}
+
+.lamed-spire-options-menu[data-open='false'] {
+  pointer-events: none;
+}
+
+.lamed-spire-options-menu .action-button {
+  width: 100%;
+}
+
+.lamed-spire-options-menu .settings-toggle {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lamed-spire-options-menu .settings-toggle:first-of-type {
+  margin-top: 12px;
+}
+
 /* ============================================
    Tsadi Spire Styles
    ============================================ */

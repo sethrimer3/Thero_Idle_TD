@@ -2052,6 +2052,162 @@
                 Stars spawn in orbital rings around the central body. Drag causes inward spiral migration.
               </p>
             </article>
+            <!-- Lamed Spire Options dropdown for visual settings -->
+            <article class="card lamed-spire-options-card">
+              <button
+                class="action-button lamed-spire-options-trigger"
+                type="button"
+                id="lamed-options-toggle-button"
+                aria-expanded="false"
+                aria-controls="lamed-options-menu"
+              >
+                <span class="lamed-spire-options-glyph" aria-hidden="true">ל</span>
+                <span>Spire Options</span>
+              </button>
+              <div
+                class="lamed-spire-options-menu"
+                id="lamed-options-menu"
+                data-open="false"
+                aria-hidden="true"
+                hidden
+              >
+                <button class="action-button ghost" type="button" id="lamed-graphics-level-button">
+                  Graphics · High
+                </button>
+                <div class="settings-toggle" id="lamed-dust-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-dust-title">Dust Particles</span>
+                    <span class="settings-toggle-description" id="lamed-dust-description"
+                      >Swirling accretion disk particles around the celestial body.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-dust-toggle">
+                    <input
+                      type="checkbox"
+                      id="lamed-dust-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="lamed-dust-title"
+                      aria-describedby="lamed-dust-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="lamed-dust-toggle-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="lamed-trails-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-trails-title">Star Trails</span>
+                    <span class="settings-toggle-description" id="lamed-trails-description"
+                      >Colorful velocity trails behind orbiting stars.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-trails-toggle">
+                    <input
+                      type="checkbox"
+                      id="lamed-trails-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="lamed-trails-title"
+                      aria-describedby="lamed-trails-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="lamed-trails-toggle-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="lamed-sun-detail-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-sun-detail-title">Sun Detail</span>
+                    <span class="settings-toggle-description" id="lamed-sun-detail-description"
+                      >Animated sunspots, corona shimmer, and limb darkening effects.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-sun-detail-toggle">
+                    <input
+                      type="checkbox"
+                      id="lamed-sun-detail-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="lamed-sun-detail-title"
+                      aria-describedby="lamed-sun-detail-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="lamed-sun-detail-toggle-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="lamed-splashes-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-splashes-title">Sun Splashes</span>
+                    <span class="settings-toggle-description" id="lamed-splashes-description"
+                      >Lens flare and geyser bursts when stars enter the sun.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-splashes-toggle">
+                    <input
+                      type="checkbox"
+                      id="lamed-splashes-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="lamed-splashes-title"
+                      aria-describedby="lamed-splashes-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="lamed-splashes-toggle-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="lamed-shooting-trails-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-shooting-trails-title">Shooting Star Trails</span>
+                    <span class="settings-toggle-description" id="lamed-shooting-trails-description"
+                      >Luminous streaks following shooting stars across the sky.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-shooting-trails-toggle">
+                    <input
+                      type="checkbox"
+                      id="lamed-shooting-trails-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="lamed-shooting-trails-title"
+                      aria-describedby="lamed-shooting-trails-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="lamed-shooting-trails-toggle-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="lamed-flashes-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-flashes-title">Spawn Flashes</span>
+                    <span class="settings-toggle-description" id="lamed-flashes-description"
+                      >Bright flash effects when new stars spawn into orbit.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-flashes-toggle">
+                    <input
+                      type="checkbox"
+                      id="lamed-flashes-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="lamed-flashes-title"
+                      aria-describedby="lamed-flashes-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="lamed-flashes-toggle-state">On</span>
+                  </label>
+                </div>
+              </div>
+            </article>
           </section>
         </section>
 
