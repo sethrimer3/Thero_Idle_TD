@@ -385,10 +385,13 @@ class MathBullet {
     this.amplitude = config.amplitude || 20;
     this.frequency = config.frequency || 3;
     this.phase = config.phase || 0;
-    
+
     // Distance traveled along the path
     this.distance = 0;
     this.time = 0;
+
+    // Track pierced targets so mathematical bullets respect single-hit collisions.
+    this.hitEnemies = new Set();
   }
 
   update(deltaTime) {
@@ -1199,10 +1202,13 @@ export class CardinalWardenSimulation {
       const bullet = this.bullets[bi];
       if (bulletsToRemove.has(bi)) continue;
 
+      // Initialize collision memory for bullet variants that don't define it.
+      const hitEnemies = bullet.hitEnemies || (bullet.hitEnemies = new Set());
+
       for (let ei = 0; ei < this.enemies.length; ei++) {
         const enemy = this.enemies[ei];
         if (enemiesToRemove.has(ei)) continue;
-        if (bullet.hitEnemies.has(ei)) continue;
+        if (hitEnemies.has(ei)) continue;
 
         const dx = bullet.x - enemy.x;
         const dy = bullet.y - enemy.y;
@@ -1218,7 +1224,7 @@ export class CardinalWardenSimulation {
           }
 
           if (bullet.piercing) {
-            bullet.hitEnemies.add(ei);
+            hitEnemies.add(ei);
           } else {
             bulletsToRemove.add(bi);
             break;
