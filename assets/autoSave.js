@@ -35,6 +35,10 @@ export const SPIRE_RESOURCE_STORAGE_KEY = 'glyph-defense-idle:spires';
 export const LEVEL_PROGRESS_STORAGE_KEY = 'glyph-defense-idle:level-progress';
 // Storage key used to persist Lamed spire visual effect settings.
 export const LAMED_VISUAL_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:lamed-visual-settings';
+// Storage key used to persist the frame rate limit preference.
+export const FRAME_RATE_LIMIT_STORAGE_KEY = 'glyph-defense-idle:frame-rate-limit';
+// Storage key used to persist the FPS counter visibility toggle.
+export const FPS_COUNTER_TOGGLE_STORAGE_KEY = 'glyph-defense-idle:fps-counter-enabled';
 
 const DEFAULT_AUTOSAVE_INTERVAL_MS = 30000;
 const MIN_AUTOSAVE_INTERVAL_MS = 5000;
@@ -51,6 +55,8 @@ const dependencies = {
   applyWaveKillTallyPreference: null,
   applyWaveDamageTallyPreference: null,
   applyTrackTracerPreference: null,
+  applyFrameRateLimitPreference: null,
+  applyFpsCounterPreference: null,
   getGameStatsSnapshot: null,
   mergeLoadedGameStats: null,
   getPreferenceSnapshot: null,
