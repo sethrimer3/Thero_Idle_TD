@@ -58,13 +58,14 @@ export function createPowderStateContext() {
     // Persist Bet Spire happiness generation tied to Serendipity purchases.
     betHappiness: {
       bank: 0,
-      producers: { slime: 4 },
+      producers: { slime: 0 },
     },
     // Track Bet terrarium fractal leveling progress.
     betTerrarium: {
       levelingMode: false,
       trees: {},
       buttonMenuOpen: false, // Track when button menus are open
+      cameraMode: false, // Lock panning by default so buttons remain tappable until explicitly enabled
     },
   };
 
@@ -95,6 +96,9 @@ export function createPowderStateContext() {
     dripRateValue: null,
     statusNote: null,
     returnButton: null,
+    cameraModeToggle: null,
+    cameraModeStateLabel: null,
+    cameraModeHint: null,
     terrainSprite: null,
     terrainCollisionSprite: null, // Offscreen collision silhouette for the Bet terrarium ground.
     // Happiness ledger values mirrored in the Bet Spire HUD.

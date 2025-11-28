@@ -110,7 +110,7 @@ export function createResourceHud({
 
     const totalLamedGlyphs = Math.max(
       0,
-      Math.floor(spireResourceState.lamed?.stats?.totalAbsorptions || 0),
+      Math.floor(spireResourceState.lamed?.stats?.starMilestoneReached || 0),
     );
     if (resourceElements.glyphsLamedTotal) {
       resourceElements.glyphsLamedTotal.textContent = `${formatWholeNumber(totalLamedGlyphs)} ל`;

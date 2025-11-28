@@ -1,4 +1,5 @@
 import { getGreekTierInfo, tierToColor } from '../scripts/features/towers/tsadiTower.js';
+import { createTsadiMoleculeNameGenerator, TSADI_MOLECULE_LEXICON } from './tsadiMoleculeNameGenerator.js';
 import { samplePaletteGradient } from './colorSchemeUtils.js';
 
 /**
@@ -22,6 +23,9 @@ function createSeededRandom(seed) {
   };
 }
 
+// Dedicated generator used to supply flavorful molecule aliases in the codex UI.
+const tsadiCodexNameGenerator = createTsadiMoleculeNameGenerator('tsadi-codex-ui', TSADI_MOLECULE_LEXICON);
+
 function rgbToRgba(color, alpha = 1) {
   const safeColor = color && typeof color === 'object' ? color : { r: 22, g: 28, b: 42 };
   return `rgba(${safeColor.r ?? 22}, ${safeColor.g ?? 28}, ${safeColor.b ?? 42}, ${alpha})`;
@@ -40,6 +44,27 @@ function formatDisplayTierSequence(tiers = []) {
     new Set(tiers.filter((tier) => Number.isFinite(tier)).map((tier) => Math.floor(tier))),
   ).sort((a, b) => a - b);
   return normalized.map((tier) => Math.max(0, tier + 1)).join('-');
+}
+
+/**
+ * Present a human-readable tier list using actual Greek letters to match the codex flavor text.
+ * @param {Array<number>} tiers - Raw tier collection.
+ * @returns {string} Sequence label using Greek letters (e.g., α-β instead of Alpha-Beta).
+ */
+function formatGreekTierSequence(tiers = []) {
+  if (!Array.isArray(tiers)) {
+    return '';
+  }
+  const normalized = Array.from(
+    new Set(tiers.filter((tier) => Number.isFinite(tier)).map((tier) => Math.floor(tier))),
+  ).sort((a, b) => a - b);
+  return normalized
+    .map((tier) => {
+      const tierInfo = getGreekTierInfo(tier);
+      // Use actual Greek letters (α, β, γ) instead of English names (Alpha, Beta, Gamma)
+      return tierInfo?.letter || tierInfo?.name || `Tier ${Math.max(0, tier + 1)}`;
+    })
+    .join('-');
 }
 
 /**
@@ -190,6 +215,50 @@ export function createTsadiBindingUi({
   }
 
   /**
+   * Attach flavorful aliases to codex entries while preserving player-facing tier information.
+   * @param {Array<Object>} recipes - Molecule descriptors sourced from simulation or persistence.
+   * @returns {Array<Object>} Recipes enriched with generator-backed names.
+   */
+  function prepareCodexRecipes(recipes = []) {
+    const prepared = recipes.map((recipe) => {
+      if (!recipe || typeof recipe !== 'object') {
+        return recipe;
+      }
+      const hasReadableName = typeof recipe.name === 'string' && /[a-z]/i.test(recipe.name);
+      // Drop purely numeric names so the generator can supply a more thematic alias.
+      if (hasReadableName) {
+        return recipe;
+      }
+      const { name: _ignoredName, ...rest } = recipe;
+      return rest;
+    });
+    return tsadiCodexNameGenerator.normalizeRecipes(prepared);
+  }
+
+  /**
+   * Format the codex title string using Greek tier names, numeric tiers, and the generator alias.
+   * @param {Object} recipe - Molecule descriptor ready for display.
+   * @returns {string} Human-readable title for the codex entry.
+   */
+  function formatCodexEntryTitle(recipe = {}) {
+    const tiers = Array.isArray(recipe.tiers) ? recipe.tiers : [];
+    const greekSequence = formatGreekTierSequence(tiers);
+    const numericSequence = formatDisplayTierSequence(tiers);
+    const alias = typeof recipe.name === 'string' && recipe.name ? recipe.name : 'Unnamed Molecule';
+
+    if (greekSequence && numericSequence) {
+      return `${greekSequence} (${numericSequence}) ${alias}`;
+    }
+    if (greekSequence) {
+      return `${greekSequence} ${alias}`;
+    }
+    if (numericSequence) {
+      return `${numericSequence} ${alias}`;
+    }
+    return alias;
+  }
+
+  /**
    * Convert a pointer event into canvas-relative coordinates.
    * @param {PointerEvent} event - Pointer event emitted within the Tsadi basin.
    * @returns {{x:number, y:number}} Canvas-space coordinates.
@@ -263,16 +332,20 @@ export function createTsadiBindingUi({
     const recipes = (Array.isArray(discoveredRecipes) ? discoveredRecipes : fallbackRecipes)
       .map(normalizeRecipe)
       .filter((recipe) => recipe && recipe.name);
+    const namedRecipes = prepareCodexRecipes(recipes);
 
     codexList.innerHTML = '';
 
-    const entryCount = recipes?.length || 0;
-    const hourlyBonus = recipes.reduce((total, recipe) => total + Math.max(0, recipe.particleCount || 0), 0);
+    const entryCount = namedRecipes?.length || 0;
+    const hourlyBonus = namedRecipes.reduce(
+      (total, recipe) => total + Math.max(0, recipe.particleCount || 0),
+      0,
+    );
     if (codexSummary) {
       codexSummary.textContent = `(${entryCount} Entries: +${hourlyBonus} particles/hour)`;
     }
 
-    if (!recipes?.length) {
+    if (!namedRecipes?.length) {
       const emptyItem = document.createElement('li');
       emptyItem.className = 'tsadi-codex-empty';
       emptyItem.textContent = 'No molecules discovered yet.';
@@ -281,7 +354,7 @@ export function createTsadiBindingUi({
     }
 
     let expandedEntry = null;
-    recipes.forEach((recipe) => {
+    namedRecipes.forEach((recipe) => {
       const item = document.createElement('li');
       item.className = 'tsadi-codex-entry';
 
@@ -292,7 +365,7 @@ export function createTsadiBindingUi({
 
       const title = document.createElement('span');
       title.className = 'tsadi-codex-entry__name';
-      title.textContent = recipe.name;
+      title.textContent = formatCodexEntryTitle(recipe);
 
       toggle.appendChild(title);
 
@@ -368,13 +441,13 @@ export function createTsadiBindingUi({
   function scheduleDisband(event) {
     const simulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
     if (!simulation || typeof simulation.disbandBindingAgentAt !== 'function') {
-      return;
+      return false;
     }
 
     const coords = toCanvasCoords(event);
     const nearbyAgent = simulation.findBindingAgentNear?.(coords, 4);
     if (!nearbyAgent) {
-      return;
+      return false;
     }
 
     event.stopPropagation();
@@ -393,6 +466,22 @@ export function createTsadiBindingUi({
         refreshCodexList();
       }
     }, 400);
+    
+    return true;
+  }
+
+  /**
+   * Create an interactive wave force at the pointer location.
+   * @param {PointerEvent} event - Pointer event on the canvas.
+   */
+  function createInteractiveWave(event) {
+    const simulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
+    if (!simulation || typeof simulation.createInteractiveWave !== 'function') {
+      return;
+    }
+
+    const coords = toCanvasCoords(event);
+    simulation.createInteractiveWave(coords.x, coords.y);
   }
 
   function attemptCodexCollection(event) {
@@ -490,7 +579,12 @@ export function createTsadiBindingUi({
         if (attemptCodexCollection(event)) {
           return;
         }
-        scheduleDisband(event);
+        const scheduledDisband = scheduleDisband(event);
+        
+        // Create interactive wave if click didn't hit a binding agent
+        if (!scheduledDisband) {
+          createInteractiveWave(event);
+        }
       });
       canvasElement.addEventListener('pointermove', () => {
         if (!holdTriggered) {

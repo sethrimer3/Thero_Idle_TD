@@ -107,10 +107,13 @@ export function createDeveloperModeManager(options = {}) {
     getPendingPowderResizeIsTimeout,
     setObservedPowderResizeElements,
     getObservedPowderResizeElements,
+    updateTabLockStates,
+    isTutorialCompleted,
   } = options;
 
   const developerModeElements = {
     toggle: null,
+    stageToggle: null,
     note: null,
     resetButton: null,
   };
@@ -200,8 +203,14 @@ export function createDeveloperModeManager(options = {}) {
     if (developerModeElements.toggle && !developerModeElements.toggle.checked) {
       developerModeElements.toggle.checked = true;
     }
+    // Sync the stage tab toggle when enabling developer mode.
+    if (developerModeElements.stageToggle && !developerModeElements.stageToggle.checked) {
+      developerModeElements.stageToggle.checked = true;
+    }
     // Ensure level lock checks bypass progression when developer mode is active.
     setDeveloperModeUnlockOverride?.(true);
+    // Unlock all tabs by treating the tutorial as complete in developer mode.
+    updateTabLockStates?.(true);
 
     const towers = typeof getTowerDefinitions === 'function' ? getTowerDefinitions() : [];
     const loadoutState = typeof getTowerLoadoutState === 'function' ? getTowerLoadoutState() : null;
@@ -319,9 +328,18 @@ export function createDeveloperModeManager(options = {}) {
     if (developerModeElements.toggle && developerModeElements.toggle.checked) {
       developerModeElements.toggle.checked = false;
     }
+    // Sync the stage tab toggle when disabling developer mode.
+    if (developerModeElements.stageToggle && developerModeElements.stageToggle.checked) {
+      developerModeElements.stageToggle.checked = false;
+    }
     setDeveloperInfiniteTheroEnabled?.(false);
     // Restore normal level lock behavior once developer mode is disabled.
     setDeveloperModeUnlockOverride?.(false);
+    // Restore tab locks based on actual tutorial completion state.
+    const tutorialComplete = typeof isTutorialCompleted === 'function'
+      ? isTutorialCompleted()
+      : false;
+    updateTabLockStates?.(tutorialComplete);
     stopLamedDeveloperSpamLoop?.();
     persistDeveloperModeState(false);
 
@@ -541,7 +559,7 @@ export function createDeveloperModeManager(options = {}) {
         spireResourceState.lamed.dragLevel = 0;
         spireResourceState.lamed.starMass = 10;
         spireResourceState.lamed.upgrades = { starMass: 0 };
-        spireResourceState.lamed.stats = { totalAbsorptions: 0, totalMassGained: 0 };
+        spireResourceState.lamed.stats = { totalAbsorptions: 0, totalMassGained: 0, starMilestoneReached: 0 };
       }
       if (spireResourceState.tsadi) {
         spireResourceState.tsadi.unlocked = false;
@@ -710,17 +728,55 @@ export function createDeveloperModeManager(options = {}) {
     developerModeElements.toggle = document.getElementById('codex-developer-mode');
     developerModeElements.note = document.getElementById('codex-developer-note');
     developerModeElements.resetButton = document.getElementById('developer-reset-button');
+    // Bind the stage tab developer mode toggle for quick access.
+    developerModeElements.stageToggle = document.getElementById('stage-developer-mode');
 
     if (developerModeElements.resetButton) {
       developerModeElements.resetButton.addEventListener('click', handleDeveloperResetClick);
       resetDeveloperResetButtonConfirmation();
     }
 
+    // Bind the stage toggle change event to mirror the codex toggle behavior.
+    // Only handle user-initiated events to avoid potential recursion.
+    if (developerModeElements.stageToggle) {
+      developerModeElements.stageToggle.addEventListener('change', (event) => {
+        if (!event.isTrusted) {
+          return;
+        }
+        if (event.target.checked) {
+          enableDeveloperMode();
+        } else {
+          disableDeveloperMode();
+        }
+      });
+    }
+
     if (!developerModeElements.toggle) {
+      // If the codex toggle is missing, still sync state to the stage toggle.
+      let shouldEnableDeveloperMode = false;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const savedState = window.localStorage.getItem(DEVELOPER_MODE_STORAGE_KEY);
+          if (savedState !== null) {
+            shouldEnableDeveloperMode = savedState === 'true';
+          }
+        } catch (error) {
+          console.warn('Failed to restore developer mode state.', error);
+        }
+      }
+      if (developerModeElements.stageToggle) {
+        developerModeElements.stageToggle.checked = shouldEnableDeveloperMode;
+      }
+      if (shouldEnableDeveloperMode) {
+        enableDeveloperMode();
+      }
       return;
     }
 
     developerModeElements.toggle.addEventListener('change', (event) => {
+      if (!event.isTrusted) {
+        return;
+      }
       if (event.target.checked) {
         enableDeveloperMode();
       } else {
@@ -741,6 +797,10 @@ export function createDeveloperModeManager(options = {}) {
     }
 
     developerModeElements.toggle.checked = shouldEnableDeveloperMode;
+    // Sync the stage toggle state with the codex toggle on initialization.
+    if (developerModeElements.stageToggle) {
+      developerModeElements.stageToggle.checked = shouldEnableDeveloperMode;
+    }
     if (shouldEnableDeveloperMode) {
       enableDeveloperMode();
     } else {

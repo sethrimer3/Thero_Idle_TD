@@ -1,21 +1,17 @@
 /**
- * Pi (π) Tower - Laser Merge Rotational Attack
+ * Pi (π) Tower - Rotational Beam Lock-On System
  * 
  * Mechanics:
- * - Lock-on laser lines track all enemies within range (drawn from tower center to enemy center)
- * - Lines freeze when tower attacks
- * - Tower shoots a radial laser at the forward-most enemy on path
- * - Laser rotates clockwise 360 degrees, merging with frozen lock-on lines
- * - Each merge increases laser length, damage, and color gradient progression
- * - After 360° rotation, laser rotates 120° more while shrinking back into tower
- * - Laser tip leaves a burning trail as it moves
+ * - Locks onto enemies within range with individual beam lasers
+ * - Each beam tracks its own rotation angle from initial lock-on point
+ * - Damage increases based on how much each beam has rotated around the tower
+ * - Visual intensity and color scale with rotation degrees
+ * - Maximum number of simultaneous beams is limited by lamed1 upgrade
  * 
  * Formulas:
- * - atk = gamma^mrg (gamma power raised to merge count)
- * - rng = 4 + 0.1 × Aleph1 (base range in meters)
- * - rngInc = 0.1 × Aleph2 (range increase per merge in meters)
- * - atkSpd = 0.1 + 0.01 × Aleph3 (attack sequence speed in seconds)
- * - lasSpd = 5 - 0.1 × Aleph4 (laser rotation speed in seconds)
+ * - atk = omicron^(|degrees|/(100-Bet₁)) per laser
+ * - numLaser = 2 + Lamed₁ (max beams that can lock onto enemies)
+ * - rng = 4m (fixed base range)
  */
 
 import { metersToPixels } from '../../../assets/gameUnits.js';
@@ -28,17 +24,15 @@ import {
 
 // Constants
 const BASE_RANGE_METERS = 4;
-const BASE_ATTACK_SPEED_SECONDS = 0.1;
-const BASE_LASER_ROTATION_SPEED_SECONDS = 5;
-const MERGE_RANGE_INCREMENT_METERS = 0.1;
-const SHRINK_ROTATION_DEGREES = 120;
-const LASER_TRAIL_MAX_POINTS = 30;
-const LASER_TRAIL_FADE_TIME = 0.3; // seconds
+const BASE_NUM_LASERS = 2;
 const LASER_BASE_WIDTH = 3;
-const LASER_WIDTH_INCREMENT = 1.5;
 const LOCK_ON_LINE_WIDTH = 1.5;
 const PI_TOWER_RADIUS_PIXELS = 15;
 const DEFAULT_ENEMY_RADIUS_PIXELS = 12;
+const DAMAGE_TICK_INTERVAL = 0.5; // Apply damage every 0.5 seconds
+
+/** Degrees of rotation for full gradient progression (2 full rotations). */
+const MAX_ROTATION_FOR_FULL_GRADIENT = 720;
 
 /**
  * Pi tower colors use the bottom of the gradient.
@@ -47,10 +41,13 @@ const PI_BASE_COLOR_OFFSET = 0.05;
 
 /**
  * Resolve color for Pi tower lasers from palette gradient.
+ * Color intensity scales with rotation degrees (0-360+)
+ * @param {number} rotationDegrees - Total rotation in degrees for this laser
  */
-function resolvePiLaserColor(gradientProgress = 0) {
-  // Start at bottom of gradient, move up as we merge
-  const offset = PI_BASE_COLOR_OFFSET + gradientProgress * 0.7;
+function resolvePiLaserColor(rotationDegrees = 0) {
+  // Normalize rotation to 0-1 range (2 full rotations = full gradient)
+  const normalizedRotation = Math.min(1, Math.abs(rotationDegrees) / MAX_ROTATION_FOR_FULL_GRADIENT);
+  const offset = PI_BASE_COLOR_OFFSET + normalizedRotation * 0.85;
   const color = samplePaletteGradient(offset);
   if (color && typeof color === 'object' && Number.isFinite(color.r)) {
     return color;
@@ -63,45 +60,45 @@ function resolvePiLaserColor(gradientProgress = 0) {
  * Calculate Pi tower parameters from equations.
  */
 function calculatePiParameters(playfield, tower) {
-  // Get gamma power for damage calculation
-  const gammaPower = Math.max(1, calculateTowerEquationResult('gamma') || 1);
+  // Get omicron power for damage calculation
+  const omicronPower = Math.max(1, calculateTowerEquationResult('omicron') || 1);
 
-  // Get Aleph upgrade values
+  // Get upgrade values
   const blueprint = getTowerEquationBlueprint('pi');
-  const aleph1 = Math.max(0, computeTowerVariableValue('pi', 'aleph1', blueprint) || 0);
-  const aleph2 = Math.max(0, computeTowerVariableValue('pi', 'aleph2', blueprint) || 0);
-  const aleph3 = Math.max(0, computeTowerVariableValue('pi', 'aleph3', blueprint) || 0);
-  const aleph4 = Math.max(0, computeTowerVariableValue('pi', 'aleph4', blueprint) || 0);
+  
+  // Bet₁ - reduces divisor in damage formula (100 - bet1)
+  const bet1 = Math.min(99, Math.max(0, computeTowerVariableValue('pi', 'bet1', blueprint) || 0));
+  
+  // Lamed₁ - increases max number of lasers
+  const lamed1 = Math.max(0, computeTowerVariableValue('pi', 'lamed1', blueprint) || 0);
   
   // Calculate parameters
-  // rng = 4 + 0.1 * Aleph1
-  const rangeMeters = BASE_RANGE_METERS + 0.1 * aleph1;
-  
-  // rngInc = 0.1 * Aleph2 (range increment per merge)
-  const rangeIncrementMeters = MERGE_RANGE_INCREMENT_METERS * aleph2;
-  
-  // atkSpd = 0.1 + 0.01 * Aleph3 (attack sequence time in seconds)
-  const attackSpeed = BASE_ATTACK_SPEED_SECONDS + 0.01 * aleph3;
-  
-  // lasSpd = 5 - 0.1 * Aleph4 (laser rotation time in seconds)
-  const laserRotationSpeed = Math.max(0.5, BASE_LASER_ROTATION_SPEED_SECONDS - 0.1 * aleph4);
+  const rangeMeters = BASE_RANGE_METERS; // Fixed range of 4m
+  const maxLasers = BASE_NUM_LASERS + lamed1;
+  const divisor = Math.max(1, 100 - bet1); // Minimum divisor of 1 to prevent division issues
   
   return {
-    gammaPower,
+    omicronPower,
     rangeMeters,
-    rangeIncrementMeters,
-    attackSpeed,
-    laserRotationSpeed,
+    maxLasers,
+    divisor,
+    bet1,
+    lamed1,
   };
 }
 
 /**
- * Calculate damage for current merge count.
- * Formula: gamma^mrg
+ * Calculate damage for a specific laser based on its rotation.
+ * Formula: omicron^(|degrees|/(100-Bet₁))
+ * @param {number} omicronPower - Base power from omicron tower
+ * @param {number} rotationDegrees - Absolute rotation in degrees from initial lock angle
+ * @param {number} divisor - The divisor (100 - bet1)
  */
-function calculatePiDamage(gammaPower, mergeCount) {
-  const clampedMerges = Math.max(0, Math.min(50, mergeCount)); // Clamp to prevent overflow
-  return Math.pow(gammaPower, clampedMerges);
+function calculatePiDamage(omicronPower, rotationDegrees, divisor) {
+  const absRotation = Math.abs(rotationDegrees);
+  const exponent = Math.min(50, absRotation / divisor); // Clamp exponent to prevent overflow
+  const damage = Math.pow(omicronPower, exponent);
+  return Number.isFinite(damage) ? damage : 1;
 }
 
 /**
@@ -145,28 +142,11 @@ export function ensurePiState(playfield, tower) {
   
   if (!tower.piState) {
     tower.piState = {
-      // Lock-on tracking
-      lockedEnemies: new Map(), // enemy.id -> { x, y, angle }
-      lockOnLines: [], // Array of frozen lock-on lines
+      // Active beam tracking - Map of enemy.id -> beam state
+      activeBeams: new Map(),
       
-      // Attack sequence state
-      attackActive: false,
-      attackTimer: 0,
-      attackDuration: 0,
-      
-      // Laser state
-      laserActive: false,
-      laserAngle: 0, // Current angle in radians
-      laserLength: 0, // Current length in pixels
-      laserMergeCount: 0,
-      laserRotationProgress: 0, // 0-1 during main rotation, 1-1.33 during shrink
-      laserShrinking: false,
-      laserInitialLength: 0,
-      laserRotationElapsed: 0,
-      laserShrinkElapsed: 0,
-      
-      // Trail effect
-      laserTrail: [], // Array of { x, y, age, alpha }
+      // Damage tick timer
+      damageTickTimer: 0,
       
       // Cached parameters
       parameters: null,
@@ -186,13 +166,21 @@ export function ensurePiState(playfield, tower) {
     const rangePixels = metersToPixels(state.parameters.rangeMeters, minDim);
     tower.baseRange = rangePixels;
     tower.range = rangePixels;
-    tower.baseRate = 1 / state.parameters.attackSpeed; // Convert to attacks per second
-    tower.rate = tower.baseRate;
     
-    // Update damage calculation based on current merge count
-    const damage = calculatePiDamage(state.parameters.gammaPower, state.laserMergeCount || 0);
-    tower.baseDamage = damage;
-    tower.damage = damage;
+    // Calculate average damage across all active beams for display
+    let totalDamage = 0;
+    let beamCount = 0;
+    state.activeBeams.forEach((beam) => {
+      const damage = calculatePiDamage(
+        state.parameters.omicronPower,
+        beam.totalRotationDegrees,
+        state.parameters.divisor
+      );
+      totalDamage += damage;
+      beamCount++;
+    });
+    tower.baseDamage = beamCount > 0 ? totalDamage / beamCount : 1;
+    tower.damage = tower.baseDamage;
   }
   
   return state;
@@ -207,37 +195,9 @@ export function teardownPiTower(playfield, tower) {
   }
   
   if (tower.piState) {
-    tower.piState.lockedEnemies.clear();
-    tower.piState.lockOnLines = [];
-    tower.piState.laserTrail = [];
+    tower.piState.activeBeams.clear();
     tower.piState = null;
   }
-}
-
-/**
- * Find the forward-most enemy on the path within range.
- */
-function findForwardMostEnemy(playfield, tower, enemies) {
-  if (!enemies || !enemies.length) {
-    return null;
-  }
-  
-  // Forward-most means closest to the end of their path
-  let forwardMost = null;
-  let maxProgress = -1;
-  
-  enemies.forEach((enemy) => {
-    if (!enemy) return;
-    
-    // Calculate progress (higher pathProgress means more forward)
-    const progress = enemy.pathProgress || 0;
-    if (progress > maxProgress) {
-      maxProgress = progress;
-      forwardMost = enemy;
-    }
-  });
-  
-  return forwardMost;
 }
 
 /**
@@ -271,282 +231,114 @@ function getEnemiesInRange(playfield, tower) {
 }
 
 /**
- * Update lock-on lines tracking enemies.
+ * Calculate the angular difference between two angles in radians.
+ * Returns the signed difference (positive = clockwise, negative = counter-clockwise).
  */
-function updateLockOnTracking(playfield, tower, state, delta) {
-  // Don't update tracking during attack sequence
-  if (state.attackActive) {
-    return;
-  }
+function calculateAngularDifference(currentAngle, previousAngle) {
+  let diff = currentAngle - previousAngle;
   
-  const enemiesInRange = getEnemiesInRange(playfield, tower);
+  // Normalize to [-π, π]
+  while (diff > Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
   
-  // Update locked enemies map
-  state.lockedEnemies.clear();
-  enemiesInRange.forEach((enemy) => {
-    const pos = playfield.getEnemyPosition(enemy);
-    if (pos) {
-      const dx = pos.x - tower.x;
-      const dy = pos.y - tower.y;
-      const angle = Math.atan2(dy, dx);
-      
-      const metrics = enemy?.metrics || null;
-      const enemyRadius =
-        typeof playfield.getEnemyHitRadius === 'function'
-          ? playfield.getEnemyHitRadius(enemy, metrics)
-          : DEFAULT_ENEMY_RADIUS_PIXELS;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+  return diff;
+}
 
-      state.lockedEnemies.set(enemy.id, {
+/**
+ * Update beam tracking for enemies in range.
+ * Creates new beams for new enemies, updates angles for existing enemies,
+ * and removes beams for enemies that leave range.
+ */
+function updateBeamTracking(playfield, tower, state, delta) {
+  const enemiesInRange = getEnemiesInRange(playfield, tower);
+  const maxLasers = state.parameters.maxLasers;
+  
+  // Get set of current enemy IDs in range
+  const inRangeIds = new Set(enemiesInRange.map(e => e.id));
+  
+  // Remove beams for enemies no longer in range
+  const beamsToRemove = [];
+  state.activeBeams.forEach((beam, enemyId) => {
+    if (!inRangeIds.has(enemyId)) {
+      beamsToRemove.push(enemyId);
+    }
+  });
+  beamsToRemove.forEach(id => state.activeBeams.delete(id));
+  
+  // Sort enemies by path progress (forward-most first) for priority targeting
+  const sortedEnemies = [...enemiesInRange].sort((a, b) => {
+    const progressA = a.pathProgress || 0;
+    const progressB = b.pathProgress || 0;
+    return progressB - progressA;
+  });
+  
+  // Update existing beams and create new ones up to max limit
+  sortedEnemies.forEach((enemy) => {
+    const pos = playfield.getEnemyPosition(enemy);
+    if (!pos) return;
+    
+    const dx = pos.x - tower.x;
+    const dy = pos.y - tower.y;
+    const currentAngle = Math.atan2(dy, dx);
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    const metrics = enemy?.metrics || null;
+    const enemyRadius =
+      typeof playfield.getEnemyHitRadius === 'function'
+        ? playfield.getEnemyHitRadius(enemy, metrics)
+        : DEFAULT_ENEMY_RADIUS_PIXELS;
+    
+    if (state.activeBeams.has(enemy.id)) {
+      // Update existing beam
+      const beam = state.activeBeams.get(enemy.id);
+      const previousAngle = beam.currentAngle;
+      
+      // Calculate angular difference and add to total rotation
+      const angularDiff = calculateAngularDifference(currentAngle, previousAngle);
+      const degreeDiff = (angularDiff * 180) / Math.PI;
+      
+      beam.currentAngle = currentAngle;
+      beam.totalRotationDegrees += Math.abs(degreeDiff);
+      beam.x = pos.x;
+      beam.y = pos.y;
+      beam.distance = distance;
+      beam.enemyRadius = enemyRadius;
+    } else if (state.activeBeams.size < maxLasers) {
+      // Create new beam if under limit
+      state.activeBeams.set(enemy.id, {
+        enemyId: enemy.id,
+        initialAngle: currentAngle,
+        currentAngle: currentAngle,
+        totalRotationDegrees: 0,
         x: pos.x,
         y: pos.y,
-        angle,
-        enemyId: enemy.id,
-        distance,
-        enemyRadius,
+        distance: distance,
+        enemyRadius: enemyRadius,
       });
     }
   });
 }
 
 /**
- * Start attack sequence.
+ * Apply damage to enemies based on their beam rotation.
  */
-function startAttackSequence(playfield, tower, state) {
-  const enemiesInRange = getEnemiesInRange(playfield, tower);
-  if (!enemiesInRange.length) {
-    return false;
-  }
+function applyBeamDamage(playfield, tower, state) {
+  if (!playfield.combatActive) return;
   
-  // Freeze current lock-on lines
-  state.lockOnLines = Array.from(state.lockedEnemies.values()).map((lock) => ({
-    x: lock.x,
-    y: lock.y,
-    angle: lock.angle,
-    distance: lock.distance,
-    enemyRadius: lock.enemyRadius,
-  }));
-  
-  if (!state.lockOnLines.length) {
-    return false;
-  }
-  
-  // Find forward-most enemy and calculate initial laser angle
-  const target = findForwardMostEnemy(playfield, tower, enemiesInRange);
-  if (!target) {
-    return false;
-  }
-  
-  const targetPos = playfield.getEnemyPosition(target);
-  if (!targetPos) {
-    return false;
-  }
-  
-  const dx = targetPos.x - tower.x;
-  const dy = targetPos.y - tower.y;
-  const initialAngle = Math.atan2(dy, dx);
-  
-  // Initialize attack sequence
-  state.attackActive = true;
-  state.attackTimer = 0;
-  const totalRotationTime = state.parameters.laserRotationSpeed;
-  const shrinkTime = totalRotationTime * (SHRINK_ROTATION_DEGREES / 360);
-  state.attackDuration = totalRotationTime + shrinkTime;
-  
-  // Initialize laser
-  state.laserActive = true;
-  state.laserAngle = initialAngle;
-  const minDim = resolvePlayfieldMinDimension(playfield);
-  const baseRangePixels = metersToPixels(state.parameters.rangeMeters, minDim);
-  const targetDistance = Math.sqrt(dx * dx + dy * dy);
-  const targetRadius =
-    typeof playfield.getEnemyHitRadius === 'function'
-      ? playfield.getEnemyHitRadius(target, target.metrics)
-      : DEFAULT_ENEMY_RADIUS_PIXELS;
-  const desiredLength = Math.max(0, Math.min(baseRangePixels, targetDistance - targetRadius));
-  const startingLength = Math.max(PI_TOWER_RADIUS_PIXELS, desiredLength);
-  state.laserLength = startingLength;
-  state.laserMergeCount = 0;
-  state.laserRotationProgress = 0;
-  state.laserShrinking = false;
-  state.laserInitialLength = startingLength;
-  state.laserRotationElapsed = 0;
-  state.laserShrinkElapsed = 0;
-  state.laserTrail = [];
-
-  const baseDamage = calculatePiDamage(state.parameters.gammaPower, 0);
-  tower.baseDamage = baseDamage;
-  tower.damage = baseDamage;
-
-  return true;
-}
-
-/**
- * Check if laser passes over a lock-on line and merge.
- */
-function checkLaserMerges(playfield, tower, state, delta, prevAngle, currAngle) {
-  if (!state.laserActive || state.laserShrinking) {
-    return;
-  }
-
-  // Check each lock-on line
-  state.lockOnLines = state.lockOnLines.filter((line) => {
-    if (line.merged) {
-      return false; // Remove already merged lines
-    }
-
-    const dx = line.x - tower.x;
-    const dy = line.y - tower.y;
-    const storedDistance = Number.isFinite(line.distance) ? line.distance : Math.sqrt(dx * dx + dy * dy);
-
-    // Check if laser swept over this line's angle
-    // Normalize angles to [0, 2π]
-    const normalizedPrev = ((prevAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-    const normalizedCurr = ((currAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-    const lineAngle = ((line.angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-
-    // Check if line angle is between prev and curr
-    let crossed = false;
-    if (normalizedPrev < normalizedCurr) {
-      crossed = lineAngle >= normalizedPrev && lineAngle <= normalizedCurr;
-    } else {
-      // Handle wrap-around at 2π
-      crossed = lineAngle >= normalizedPrev || lineAngle <= normalizedCurr;
-    }
-
-    if (crossed) {
-      // Merge!
-      const minDim = resolvePlayfieldMinDimension(playfield);
-      const increment = metersToPixels(state.parameters.rangeIncrementMeters, minDim);
-      const lineReach = Math.max(0, storedDistance - (line.enemyRadius || 0));
-      const mergeThreshold = Math.max(state.laserLength, lineReach);
-
-      // Only merge if the laser tip currently reaches the frozen beam
-      const distanceTolerance = 6;
-      if (mergeThreshold - state.laserLength <= distanceTolerance) {
-        state.laserMergeCount += 1;
-        state.laserLength = Math.max(
-          PI_TOWER_RADIUS_PIXELS,
-          Math.max(state.laserLength, lineReach) + increment
-        );
-        state.laserInitialLength = state.laserLength;
-
-        const updatedDamage = calculatePiDamage(state.parameters.gammaPower, state.laserMergeCount);
-        tower.baseDamage = updatedDamage;
-        tower.damage = updatedDamage;
-
-        line.merged = true;
-        return false; // Remove from active lines
-      }
-    }
-
-    return true; // Keep line active
-  });
-}
-
-/**
- * Update laser rotation and trail.
- */
-function updateLaserRotation(playfield, tower, state, delta) {
-  if (!state.laserActive) {
-    return;
-  }
-
-  const totalRotationTime = state.parameters.laserRotationSpeed;
-  const shrinkTime = totalRotationTime * (SHRINK_ROTATION_DEGREES / 360);
-
-  if (!state.laserShrinking) {
-    // Main rotation phase (360 degrees)
-    const angularVelocity = (Math.PI * 2) / totalRotationTime;
-    const prevAngle = state.laserAngle;
-    state.laserAngle += angularVelocity * delta;
-    state.laserRotationElapsed += delta;
-    state.laserRotationProgress = Math.min(1, state.laserRotationElapsed / totalRotationTime);
-
-    // Check for merges
-    checkLaserMerges(playfield, tower, state, delta, prevAngle, state.laserAngle);
-
-    // Add trail point
-    const tipX = tower.x + Math.cos(state.laserAngle) * state.laserLength;
-    const tipY = tower.y + Math.sin(state.laserAngle) * state.laserLength;
+  state.activeBeams.forEach((beam, enemyId) => {
+    // Find the enemy
+    const enemy = playfield.enemies?.find(e => e.id === enemyId);
+    if (!enemy) return;
     
-    state.laserTrail.push({
-      x: tipX,
-      y: tipY,
-      age: 0,
-      alpha: 1.0,
-    });
+    // Calculate damage based on rotation
+    const damage = calculatePiDamage(
+      state.parameters.omicronPower,
+      beam.totalRotationDegrees,
+      state.parameters.divisor
+    );
     
-    // Limit trail points
-    if (state.laserTrail.length > LASER_TRAIL_MAX_POINTS) {
-      state.laserTrail.shift();
-    }
-    
-    // Check if main rotation complete
-    if (state.laserRotationProgress >= 1.0) {
-      state.laserShrinking = true;
-      state.laserShrinkElapsed = 0;
-      state.laserInitialLength = state.laserLength;
-    }
-  } else {
-    // Shrink phase (120 degrees)
-    const shrinkAngularVelocity = (Math.PI * 2 / 3) / shrinkTime; // 120 degrees
-    state.laserAngle += shrinkAngularVelocity * delta;
-
-    // Shrink laser length smoothly back into tower
-    state.laserShrinkElapsed += delta;
-    const shrinkProgress = shrinkTime > 0 ? Math.min(1, state.laserShrinkElapsed / shrinkTime) : 1;
-    const clampedProgress = Number.isFinite(shrinkProgress) ? shrinkProgress : 1;
-    state.laserLength = Math.max(0, state.laserInitialLength * (1 - clampedProgress));
-
-    // No trail during shrink phase
-  }
-  
-  // Update trail ages
-  state.laserTrail = state.laserTrail.filter((point) => {
-    point.age += delta;
-    point.alpha = Math.max(0, 1 - point.age / LASER_TRAIL_FADE_TIME);
-    return point.age < LASER_TRAIL_FADE_TIME;
-  });
-}
-
-/**
- * Apply damage to enemies hit by the laser.
- */
-function applyLaserDamage(playfield, tower, state) {
-  if (!state.laserActive || state.laserShrinking) {
-    return;
-  }
-  
-  const damage = calculatePiDamage(state.parameters.gammaPower, state.laserMergeCount);
-  
-  // Find enemies along the laser path
-  const enemiesInRange = getEnemiesInRange(playfield, tower);
-  const laserAngle = state.laserAngle;
-  const laserLength = state.laserLength;
-  
-  enemiesInRange.forEach((enemy) => {
-    const pos = playfield.getEnemyPosition(enemy);
-    if (!pos) return;
-    
-    const dx = pos.x - tower.x;
-    const dy = pos.y - tower.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    if (distance > laserLength) return;
-    
-    const angleToEnemy = Math.atan2(dy, dx);
-    const angleDiff = Math.abs(((angleToEnemy - laserAngle + Math.PI) % (Math.PI * 2)) - Math.PI);
-    
-    // Check if enemy is along the laser beam (within a small angular tolerance)
-    const tolerance = 0.1; // radians
-    if (angleDiff < tolerance) {
-      // Mark enemy as hit to prevent multiple hits per rotation
-      if (!enemy.piHitThisRotation) {
-        playfield.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
-        enemy.piHitThisRotation = true;
-      }
-    }
+    // Apply damage
+    playfield.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
   });
 }
 
@@ -563,65 +355,19 @@ export function updatePiTower(playfield, tower, delta) {
     return;
   }
   
-  // Update lock-on tracking (when not attacking)
-  updateLockOnTracking(playfield, tower, state, delta);
+  // Update beam tracking
+  updateBeamTracking(playfield, tower, state, delta);
   
-  // Handle attack sequence
-  if (state.attackActive) {
-    state.attackTimer += delta;
-    
-    // Update laser rotation
-    updateLaserRotation(playfield, tower, state, delta);
-    
-    // Apply damage during main rotation
-    if (!state.laserShrinking) {
-      applyLaserDamage(playfield, tower, state);
-    }
-    
-    // Check if attack sequence complete
-    if (state.attackTimer >= state.attackDuration) {
-      state.attackActive = false;
-      state.laserActive = false;
-      state.lockOnLines = [];
-      state.laserTrail = [];
-      state.laserMergeCount = 0;
-
-      // Clear hit markers
-      if (playfield.enemies) {
-        playfield.enemies.forEach((enemy) => {
-          if (enemy) {
-            delete enemy.piHitThisRotation;
-          }
-        });
-      }
-
-      const resetDamage = calculatePiDamage(state.parameters.gammaPower, 0);
-      tower.baseDamage = resetDamage;
-      tower.damage = resetDamage;
-
-      // Reset cooldown to allow next attack
-      tower.cooldown = 0;
-    }
-  } else {
-    // Check if ready to attack
-    if (!playfield.combatActive || tower.cooldown > 0) {
-      return;
-    }
-    
-    const enemiesInRange = getEnemiesInRange(playfield, tower);
-    if (!enemiesInRange.length) {
-      return;
-    }
-    
-    // Start attack sequence
-    if (startAttackSequence(playfield, tower, state)) {
-      tower.cooldown = 1 / tower.rate; // Set cooldown after attack sequence completes
-    }
+  // Apply damage periodically
+  state.damageTickTimer += delta;
+  if (state.damageTickTimer >= DAMAGE_TICK_INTERVAL) {
+    applyBeamDamage(playfield, tower, state);
+    state.damageTickTimer = 0;
   }
 }
 
 /**
- * Draw lock-on lines to enemies.
+ * Draw active beam lines to enemies with color/intensity based on rotation.
  */
 export function drawPiLockOnLines(playfield, tower) {
   if (!playfield?.ctx || !tower?.piState) {
@@ -631,32 +377,23 @@ export function drawPiLockOnLines(playfield, tower) {
   const ctx = playfield.ctx;
   const state = tower.piState;
   
-  // Don't draw during active attack (lines are frozen)
-  if (state.attackActive) {
-    return;
-  }
-  
-  if (!state.lockedEnemies.size) {
+  if (!state.activeBeams.size) {
     return;
   }
   
   ctx.save();
   
-  const color = resolvePiLaserColor(0);
-  ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.4)`;
-  ctx.lineWidth = LOCK_ON_LINE_WIDTH;
-  
-  // Draw lines to each locked enemy
-  state.lockedEnemies.forEach((lock) => {
-    const dx = lock.x - tower.x;
-    const dy = lock.y - tower.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+  // Draw each active beam with color based on rotation
+  state.activeBeams.forEach((beam) => {
+    const dx = beam.x - tower.x;
+    const dy = beam.y - tower.y;
+    const distance = beam.distance;
 
     if (distance < 1) return;
 
     // Calculate start and end points (not drawn over tower or enemy)
-    const towerRadius = PI_TOWER_RADIUS_PIXELS; // Approximate tower visual radius
-    const enemyRadius = lock.enemyRadius || DEFAULT_ENEMY_RADIUS_PIXELS; // Approximate enemy radius
+    const towerRadius = PI_TOWER_RADIUS_PIXELS;
+    const enemyRadius = beam.enemyRadius || DEFAULT_ENEMY_RADIUS_PIXELS;
 
     const startDistance = towerRadius;
     const endDistance = distance - enemyRadius;
@@ -668,6 +405,24 @@ export function drawPiLockOnLines(playfield, tower) {
     const endX = tower.x + (dx / distance) * endDistance;
     const endY = tower.y + (dy / distance) * endDistance;
     
+    // Color and width based on rotation degrees
+    const color = resolvePiLaserColor(beam.totalRotationDegrees);
+    const intensityFactor = Math.min(1, beam.totalRotationDegrees / 360);
+    const alpha = 0.4 + intensityFactor * 0.5;
+    const width = LOCK_ON_LINE_WIDTH + intensityFactor * (LASER_BASE_WIDTH - LOCK_ON_LINE_WIDTH);
+    
+    ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    
+    // Add glow effect for high-rotation beams
+    if (beam.totalRotationDegrees > 180) {
+      ctx.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, ${intensityFactor * 0.5})`;
+      ctx.shadowBlur = 5 + intensityFactor * 10;
+    } else {
+      ctx.shadowBlur = 0;
+    }
+    
     ctx.beginPath();
     ctx.moveTo(startX, startY);
     ctx.lineTo(endX, endY);
@@ -678,134 +433,19 @@ export function drawPiLockOnLines(playfield, tower) {
 }
 
 /**
- * Draw frozen lock-on lines during attack.
+ * Draw frozen lock-on lines during attack (deprecated - kept for compatibility).
  */
 export function drawPiFrozenLines(playfield, tower) {
-  if (!playfield?.ctx || !tower?.piState) {
-    return;
-  }
-  
-  const ctx = playfield.ctx;
-  const state = tower.piState;
-  
-  if (!state.attackActive || !state.lockOnLines.length) {
-    return;
-  }
-  
-  ctx.save();
-  
-  const color = resolvePiLaserColor(0);
-  ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.6)`;
-  ctx.lineWidth = LOCK_ON_LINE_WIDTH;
-  
-  // Draw frozen lines
-  state.lockOnLines.forEach((line) => {
-    if (line.merged) return; // Don't draw merged lines
-
-    const dx = line.x - tower.x;
-    const dy = line.y - tower.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance < 1) return;
-
-    const towerRadius = PI_TOWER_RADIUS_PIXELS;
-    const enemyRadius = line.enemyRadius || DEFAULT_ENEMY_RADIUS_PIXELS;
-
-    const startDistance = towerRadius;
-    const endDistance = distance - enemyRadius;
-    
-    if (endDistance <= startDistance) return;
-    
-    const startX = tower.x + (dx / distance) * startDistance;
-    const startY = tower.y + (dy / distance) * startDistance;
-    const endX = tower.x + (dx / distance) * endDistance;
-    const endY = tower.y + (dy / distance) * endDistance;
-    
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-  });
-  
-  ctx.restore();
+  // No longer used in new beam system - beams are always active
+  return;
 }
 
 /**
- * Draw rotating radial laser with trail.
+ * Draw rotating radial laser with trail (deprecated - kept for compatibility).
  */
 export function drawPiRadialLaser(playfield, tower) {
-  if (!playfield?.ctx || !tower?.piState) {
-    return;
-  }
-  
-  const ctx = playfield.ctx;
-  const state = tower.piState;
-  
-  if (!state.laserActive) {
-    return;
-  }
-  
-  ctx.save();
-  
-  // Calculate color based on merge count
-  const gradientProgress = Math.min(1.0, state.laserMergeCount / 10);
-  const color = resolvePiLaserColor(gradientProgress);
-  
-  // Draw laser trail (burning effect)
-  if (!state.laserShrinking && state.laserTrail.length > 1) {
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    
-    for (let i = 1; i < state.laserTrail.length; i++) {
-      const prev = state.laserTrail[i - 1];
-      const curr = state.laserTrail[i];
-      
-      const alpha = curr.alpha * 0.5;
-      ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
-      ctx.lineWidth = LASER_BASE_WIDTH * (1 + state.laserMergeCount * 0.15);
-      
-      ctx.beginPath();
-      ctx.moveTo(prev.x, prev.y);
-      ctx.lineTo(curr.x, curr.y);
-      ctx.stroke();
-    }
-  }
-  
-  // Draw main laser beam
-  const laserWidth = LASER_BASE_WIDTH + state.laserMergeCount * LASER_WIDTH_INCREMENT;
-
-  // Calculate end point (not drawn over tower)
-  const towerRadius = PI_TOWER_RADIUS_PIXELS;
-  if (state.laserLength <= towerRadius) {
-    ctx.restore();
-    return;
-  }
-  const startX = tower.x + Math.cos(state.laserAngle) * towerRadius;
-  const startY = tower.y + Math.sin(state.laserAngle) * towerRadius;
-  const endX = tower.x + Math.cos(state.laserAngle) * state.laserLength;
-  const endY = tower.y + Math.sin(state.laserAngle) * state.laserLength;
-  
-  // Draw laser with glow
-  ctx.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`;
-  ctx.shadowBlur = 10 + state.laserMergeCount * 2;
-  
-  ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.9)`;
-  ctx.lineWidth = laserWidth;
-  ctx.lineCap = 'round';
-  
-  ctx.beginPath();
-  ctx.moveTo(startX, startY);
-  ctx.lineTo(endX, endY);
-  ctx.stroke();
-  
-  // Draw laser tip
-  ctx.shadowBlur = 15;
-  ctx.fillStyle = `rgba(${Math.min(255, color.r + 50)}, ${Math.min(255, color.g + 50)}, ${Math.min(255, color.b + 50)}, 1.0)`;
-  ctx.beginPath();
-  ctx.arc(endX, endY, laserWidth * 0.8, 0, Math.PI * 2);
-  ctx.fill();
-  
-  ctx.restore();
+  // No longer used in new beam system - individual beams replace rotating laser
+  return;
 }
 
 export { calculatePiDamage, calculatePiParameters };

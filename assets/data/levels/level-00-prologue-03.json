@@ -1,0 +1,40 @@
+{
+  "id": "level-00-prologue-03",
+  "name": "Final Test",
+  "description": "Tutorial: Combine strategies to complete your training",
+  "waves": "1:6A2.0e2/1.5|2:5B2.5e2+3A2.0e2/1.4|3:7B3.0e2+4A2.5e2/1.3|4:8C3.5e2+4B3.0e2/1.2",
+  "path": [
+    {
+      "x": 0.1,
+      "y": 0.2
+    },
+    {
+      "x": 0.2,
+      "y": 0.4
+    },
+    {
+      "x": 0.4,
+      "y": 0.5
+    },
+    {
+      "x": 0.5,
+      "y": 0.3
+    },
+    {
+      "x": 0.6,
+      "y": 0.5
+    },
+    {
+      "x": 0.7,
+      "y": 0.7
+    },
+    {
+      "x": 0.85,
+      "y": 0.8
+    }
+  ],
+  "autoAnchors": [],
+  "startThero": 100,
+  "lives": 12,
+  "gateDefense": 0
+}

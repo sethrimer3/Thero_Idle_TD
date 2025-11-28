@@ -1103,6 +1103,22 @@ export class FluidSimulation {
     return true;
   }
 
+  // Directly set the view scale while clamping to the same bounds used by the zoom factor helper.
+  setViewScale(scale) {
+    if (!Number.isFinite(scale) || scale <= 0) {
+      return false;
+    }
+    const previous = Number.isFinite(this.viewScale) && this.viewScale > 0 ? this.viewScale : 1;
+    const clamped = Math.max(1, Math.min(3, scale));
+    if (Math.abs(previous - clamped) < 0.0001) {
+      return false;
+    }
+    this.viewScale = clamped;
+    this.applyViewConstraints();
+    this.notifyViewTransformChange();
+    return true;
+  }
+
   // Persist reservoir state so mode switches and reloads restore the water profile.
   exportState() {
     return {
