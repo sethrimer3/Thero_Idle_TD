@@ -275,11 +275,13 @@ function handleHighScoreChange(highScore) {
 
   // Award Shin glyphs based on high score milestones
   // 1 glyph per 100 points of high score
-  const glyphsEarned = Math.floor(highScore / 100);
-  const currentGlyphs = getShinGlyphs();
-  if (glyphsEarned > currentGlyphs) {
-    const newGlyphs = glyphsEarned - currentGlyphs;
-    addShinGlyphs(newGlyphs);
+  // Track glyphs earned from Cardinal Warden separately to avoid conflicts with other glyph sources
+  const glyphsFromHighScore = Math.floor(highScore / 100);
+  const previousGlyphsFromHighScore = Math.floor((highScore - 100) / 100);
+  
+  // Only award new glyphs when crossing a 100-point threshold
+  if (glyphsFromHighScore > previousGlyphsFromHighScore && glyphsFromHighScore > 0) {
+    addShinGlyphs(1);
     updateGlyphDisplay();
   }
 }

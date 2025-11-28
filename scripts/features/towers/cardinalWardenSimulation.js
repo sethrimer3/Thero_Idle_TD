@@ -16,6 +16,24 @@
  */
 
 /**
+ * Game configuration constants.
+ */
+const GAME_CONFIG = {
+  // Maximum enemies that can pass through before game over
+  MAX_ENEMIES_PASSED: 10,
+  // Cardinal Warden maximum health
+  WARDEN_MAX_HEALTH: 100,
+  // Time per wave in milliseconds
+  WAVE_DURATION_MS: 15000,
+  // Base time between enemy spawns in milliseconds
+  BASE_ENEMY_SPAWN_INTERVAL_MS: 2000,
+  // Base time between bullet volleys in milliseconds
+  BASE_BULLET_INTERVAL_MS: 500,
+  // Maximum delta time cap to prevent physics issues (ms)
+  MAX_DELTA_TIME_MS: 33,
+};
+
+/**
  * Simple seeded random number generator for consistent enemy patterns.
  */
 class SeededRandom {
@@ -42,17 +60,18 @@ class SeededRandom {
  * Represents a single rotating square in the Cardinal Warden formation.
  */
 class OrbitalSquare {
-  constructor(index, totalSquares, orbitRadius) {
+  constructor(index, totalSquares, orbitRadius, rng) {
     this.index = index;
     this.totalSquares = totalSquares;
     this.orbitRadius = orbitRadius;
     this.baseAngle = (index / totalSquares) * Math.PI * 2;
-    this.rotationSpeed = 0.5 + Math.random() * 1.5; // Varying rotation speeds
-    this.rotationDirection = Math.random() > 0.5 ? 1 : -1;
+    // Use seeded random for deterministic patterns
+    this.rotationSpeed = 0.5 + rng.next() * 1.5;
+    this.rotationDirection = rng.next() > 0.5 ? 1 : -1;
     this.selfRotation = 0;
-    this.selfRotationSpeed = 1 + Math.random() * 2;
-    this.size = 8 + Math.random() * 6;
-    this.orbitSpeed = 0.3 + Math.random() * 0.4;
+    this.selfRotationSpeed = 1 + rng.next() * 2;
+    this.size = 8 + rng.next() * 6;
+    this.orbitSpeed = 0.3 + rng.next() * 0.4;
     this.orbitOffset = 0;
   }
 
@@ -75,13 +94,14 @@ class OrbitalSquare {
  * Represents the Cardinal Warden - the player's boss entity.
  */
 class CardinalWarden {
-  constructor(x, y) {
+  constructor(x, y, rng) {
     this.x = x;
     this.y = y;
     this.health = 100;
     this.maxHealth = 100;
     this.coreRadius = 16;
     this.orbitalSquares = [];
+    this.rng = rng;
     this.initOrbitalSquares();
   }
 
@@ -90,7 +110,7 @@ class CardinalWarden {
     const squareCount = 8;
     const orbitRadius = 35;
     for (let i = 0; i < squareCount; i++) {
-      this.orbitalSquares.push(new OrbitalSquare(i, squareCount, orbitRadius));
+      this.orbitalSquares.push(new OrbitalSquare(i, squareCount, orbitRadius, this.rng));
     }
   }
 
@@ -232,8 +252,8 @@ export class CardinalWardenSimulation {
     this.wave = 0;
     this.difficultyLevel = 0;
     this.enemiesPassedThrough = 0;
-    this.maxEnemiesPassedThrough = 10;
-    this.damageThreshold = 100;
+    this.maxEnemiesPassedThrough = GAME_CONFIG.MAX_ENEMIES_PASSED;
+    this.damageThreshold = GAME_CONFIG.WARDEN_MAX_HEALTH;
 
     // Game objects
     this.warden = null;
@@ -245,11 +265,11 @@ export class CardinalWardenSimulation {
     this.enemySpawnTimer = 0;
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
-    this.waveDuration = 15000; // 15 seconds per wave
+    this.waveDuration = GAME_CONFIG.WAVE_DURATION_MS;
 
     // Spawn rates (adjusted by difficulty)
-    this.baseEnemySpawnInterval = 2000; // ms between enemy spawns
-    this.baseBulletInterval = 500; // ms between bullet volleys
+    this.baseEnemySpawnInterval = GAME_CONFIG.BASE_ENEMY_SPAWN_INTERVAL_MS;
+    this.baseBulletInterval = GAME_CONFIG.BASE_BULLET_INTERVAL_MS;
 
     // RNG
     this.rng = new SeededRandom(options.seed || Date.now());
@@ -286,7 +306,7 @@ export class CardinalWardenSimulation {
     // Position warden in lower third of canvas (boss position in danmaku)
     const x = this.canvas.width / 2;
     const y = this.canvas.height * 0.75;
-    this.warden = new CardinalWarden(x, y);
+    this.warden = new CardinalWarden(x, y, this.rng);
   }
 
   /**
@@ -367,7 +387,8 @@ export class CardinalWardenSimulation {
     if (!this.running) return;
 
     const now = performance.now();
-    const deltaTime = Math.min(now - this.lastFrameTime, 100); // Cap delta to prevent spiral
+    // Cap delta to ~2 frames at 60fps to prevent objects teleporting through each other
+    const deltaTime = Math.min(now - this.lastFrameTime, GAME_CONFIG.MAX_DELTA_TIME_MS);
     this.lastFrameTime = now;
 
     if (!this.paused) {

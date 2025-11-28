@@ -11257,6 +11257,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   aspect-ratio: 3 / 4;
   /* Expand until the viewport width or height limit is encountered. */
   width: min(100%, calc(100vw - 48px));
+  /* 220px accounts for the tab bar (~80px), panel header (~40px), resource card (~100px) and padding. */
   max-width: min(720px, calc((var(--stable-vh) - 220px) * 0.75));
   max-height: calc(var(--stable-vh) - 220px);
 }
