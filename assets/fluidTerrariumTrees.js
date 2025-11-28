@@ -1,6 +1,12 @@
 'use strict';
 
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
+import { FernLSystemSimulation } from '../scripts/features/towers/fernLSystemSimulation.js';
+import { FlameFractalSimulation } from '../scripts/features/towers/flameFractalSimulation.js';
+import { BrownianTreeSimulation } from '../scripts/features/towers/brownianTreeSimulation.js';
+import { DragonCurveSimulation } from '../scripts/features/towers/dragonCurveSimulation.js';
+import { KochSnowflakeSimulation } from '../scripts/features/towers/kochSnowflakeSimulation.js';
+import { VoronoiSubdivisionSimulation } from '../scripts/features/towers/voronoiSubdivisionSimulation.js';
 
 /**
  * Convert stored serendipity allocations into a terrarium tree level, remaining progress,
@@ -1318,6 +1324,8 @@ export class FluidTerrariumTrees {
       origin: storeItem.origin,
       ephemeral: true,
       initialAllocation: storeItem.initialAllocation,
+      itemType: storeItem.itemType || 'tree',
+      fractalType: storeItem.fractalType || null,
     };
     this.getPlacementId(anchor);
     return anchor;
@@ -1590,6 +1598,7 @@ export class FluidTerrariumTrees {
         size: mask.size,
         origin: mask.origin || 'ground',
         rawBaseY: anchor.baseY,
+        fractalType: 'tree',
       }))
       .map((anchor) => ({ ...anchor, baseY: this.getAdjustedBase(anchor) }));
     this.anchors.push(...anchors);
@@ -1741,6 +1750,46 @@ export class FluidTerrariumTrees {
       return;
     }
     const allocated = Math.max(0, tree.state.allocated || 0);
+    const layers = this.computeLevelInfo(allocated).level;
+    const fractalType = tree.anchor?.fractalType || 'tree';
+    // Route allocations into the appropriate Shin fractal renderer so each store item
+    // preserves its unique geometry.
+
+    if (fractalType === 'koch' && typeof tree.simulation.updateConfig === 'function') {
+      const snowflakeSize = Math.min(tree.canvas.width, tree.canvas.height) * 0.6;
+      tree.simulation.updateConfig({ allocated, iterations: Math.min(6, 3 + layers), initialSize: snowflakeSize });
+      return;
+    }
+
+    if (fractalType === 'fern' && typeof tree.simulation.updateConfig === 'function') {
+      tree.simulation.updateConfig({ allocated, layersCompleted: Math.min(6, layers) });
+      return;
+    }
+
+    if (fractalType === 'dragon' && typeof tree.simulation.updateConfig === 'function') {
+      tree.simulation.updateConfig({ allocated, iterations: Math.min(16, 6 + layers) });
+      return;
+    }
+
+    if (fractalType === 'voronoi' && typeof tree.simulation.updateConfig === 'function') {
+      tree.simulation.updateConfig({ allocated });
+      return;
+    }
+
+    if (fractalType === 'brownian' && typeof tree.simulation.updateConfig === 'function') {
+      tree.simulation.updateConfig({
+        allocated,
+        originX: (tree.canvas?.width || 0) / 2,
+        originY: Math.max(8, (tree.canvas?.height || 0) * 0.05),
+      });
+      return;
+    }
+
+    if (fractalType === 'flame' && typeof tree.simulation.updateConfig === 'function') {
+      tree.simulation.updateConfig({ allocated });
+      return;
+    }
+
     const growthBudget = Math.min(tree.simulation.maxSegments - 1, allocated);
     tree.simulation.setTargetSegments(1 + growthBudget);
   }
@@ -1959,7 +2008,7 @@ export class FluidTerrariumTrees {
         return;
       }
       const canvas = this.createCanvas(layout);
-      const simulation = this.buildSimulation(anchor.size, canvas, layout.visibleHeight || layout.height);
+      const simulation = this.buildSimulation(anchor, canvas, layout.visibleHeight || layout.height);
       if (!simulation) {
         return;
       }
@@ -1974,7 +2023,7 @@ export class FluidTerrariumTrees {
         this.badgeLayer.appendChild(badge.badge);
       }
 
-      const tree = { id: treeId, canvas, simulation, frozen: false, state, badge, isEphemeral };
+      const tree = { id: treeId, canvas, simulation, frozen: false, state, badge, isEphemeral, anchor };
       this.updateSimulationTarget(tree);
       if (badge) {
         this.updateTreeBadge(tree);
@@ -2067,10 +2116,78 @@ export class FluidTerrariumTrees {
    * @param {HTMLCanvasElement} canvas
    * @param {number} height
    */
-  buildSimulation(size, canvas, height) {
-    // Limit Bet terrarium trees to eight visible layers to match the stepped palette.
+  buildSimulation(anchor, canvas, height) {
+    const size = anchor?.size || 'large';
+    const type = anchor?.fractalType || 'tree';
+
+    if (type === 'koch') {
+      const snowflakeSize = Math.min(canvas.width, canvas.height) * 0.6;
+      return new KochSnowflakeSimulation({
+        canvas,
+        bgColor: 'rgba(0, 0, 0, 0)',
+        lineColor: '#9dd8ff',
+        lineWidth: 1.6,
+        initialSize: snowflakeSize,
+        iterations: 5,
+        drawSpeed: 0.02,
+      });
+    }
+
+    if (type === 'fern') {
+      return new FernLSystemSimulation({
+        canvas,
+        bgColor: 'rgba(0, 0, 0, 0)',
+        turnAngle: 25,
+        segmentLength: Math.max(3, Math.min(10, height * 0.02)),
+        segmentGrowthSpeed: 0.09,
+      });
+    }
+
+    if (type === 'dragon') {
+      return new DragonCurveSimulation({
+        canvas,
+        bgColor: 'rgba(0, 0, 0, 0)',
+        lineStartColor: '#7f9cff',
+        lineEndColor: '#ffd29d',
+        lineWidth: 1.25,
+        segmentLength: Math.max(2, Math.min(6, height * 0.015)),
+        iterations: 12,
+        drawSpeed: 0.018,
+      });
+    }
+
+    if (type === 'voronoi') {
+      return new VoronoiSubdivisionSimulation({
+        canvas,
+        bgColor: 'rgba(0, 0, 0, 0)',
+        palette: 'blue-aurora',
+        maxCells: 140,
+        maxDepth: 5,
+        splitDelay: 0.05,
+      });
+    }
+
+    if (type === 'brownian') {
+      return new BrownianTreeSimulation({
+        canvas,
+        bgColor: 'rgba(0, 0, 0, 0)',
+        particleLimit: 1600,
+        glowRadius: 5,
+      });
+    }
+
+    if (type === 'flame') {
+      return new FlameFractalSimulation({
+        canvas,
+        bgColor: 'rgba(0, 0, 0, 0)',
+        palette: 'aurora',
+        samplesPerIteron: 8000,
+        fadeRate: 0.18,
+      });
+    }
+
+    // Default: Shin fractal tree variant.
     const depth = 7;
-    // Keep the trees slender while preserving their full height on both mask sizes.
     const baseWidth = size === 'large' ? 4 : 3;
     const rootLength = Math.max(16, height * (size === 'large' ? 0.3 : 0.26));
 
@@ -2104,6 +2221,26 @@ export class FluidTerrariumTrees {
     });
 
     return simulation;
+  }
+
+  /**
+   * Determine whether the underlying fractal simulation still needs animation frames.
+   * @param {object|null} simulation
+   */
+  isSimulationComplete(simulation) {
+    if (!simulation) {
+      return true;
+    }
+    if (typeof simulation.isComplete === 'boolean') {
+      return simulation.isComplete;
+    }
+    if (typeof simulation.getCompletion === 'function') {
+      return simulation.getCompletion() >= 1;
+    }
+    if ('progress' in simulation && 'targetProgress' in simulation) {
+      return Number(simulation.progress) >= Number(simulation.targetProgress) - 0.001;
+    }
+    return false;
   }
 
   /**
@@ -2173,10 +2310,13 @@ export class FluidTerrariumTrees {
       if (!tree?.simulation) {
         return;
       }
-      tree.simulation.update();
-      tree.simulation.render();
 
-      if (tree.simulation.isComplete) {
+      if (!this.isSimulationComplete(tree.simulation)) {
+        tree.simulation.update();
+        tree.simulation.render();
+      }
+
+      if (this.isSimulationComplete(tree.simulation)) {
         // Replace fully grown fractals with a static bitmap to avoid ongoing renders.
         this.freezeTree(tree);
         return;
