@@ -8,7 +8,7 @@
 
 import { CardinalWardenSimulation } from '../scripts/features/towers/cardinalWardenSimulation.js';
 import { formatGameNumber } from '../scripts/core/formatting.js';
-import { getShinGlyphs, setShinGlyphs } from './shinState.js';
+import { getShinGlyphs, addShinGlyphs } from './shinState.js';
 
 // Cardinal Warden simulation instance
 let cardinalSimulation = null;
@@ -35,6 +35,8 @@ const CARDINAL_STATE_STORAGE_KEY = 'theroIdle_cardinalWarden';
 // High score and wave tracking
 let cardinalHighScore = 0;
 let cardinalHighestWave = 0;
+// Track glyphs earned from waves to avoid double-counting
+let glyphsAwardedFromWaves = 0;
 
 /**
  * Initialize the Cardinal Warden UI and simulation.
@@ -94,6 +96,7 @@ function loadCardinalState() {
       const state = JSON.parse(saved);
       cardinalHighScore = state.highScore || 0;
       cardinalHighestWave = state.highestWave || 0;
+      glyphsAwardedFromWaves = state.glyphsAwardedFromWaves || 0;
     }
   } catch (error) {
     console.warn('Failed to load Cardinal Warden state:', error);
@@ -108,6 +111,7 @@ function saveCardinalState() {
     const state = {
       highScore: cardinalHighScore,
       highestWave: cardinalHighestWave,
+      glyphsAwardedFromWaves: glyphsAwardedFromWaves,
     };
     localStorage.setItem(CARDINAL_STATE_STORAGE_KEY, JSON.stringify(state));
   } catch (error) {
@@ -228,15 +232,20 @@ function handleWaveChange(wave) {
 }
 
 /**
- * Handle highest wave changes - this awards Shin Glyphs.
+ * Handle highest wave changes - this awards Shin Glyphs incrementally.
+ * Only awards the difference between new and previously awarded glyphs.
  */
 function handleHighestWaveChange(highestWave) {
   cardinalHighestWave = highestWave;
+  
+  // Calculate how many new glyphs to award (highest wave - already awarded)
+  const newGlyphsToAward = highestWave - glyphsAwardedFromWaves;
+  if (newGlyphsToAward > 0) {
+    addShinGlyphs(newGlyphsToAward);
+    glyphsAwardedFromWaves = highestWave;
+  }
+  
   saveCardinalState();
-  
-  // Shin Glyphs earned equals highest wave reached
-  setShinGlyphs(highestWave);
-  
   updateHighestWaveDisplay();
   updateGlyphDisplay();
 }
@@ -253,8 +262,12 @@ function handleGameOver(data) {
   }
   if (data.highestWave !== undefined && data.highestWave > cardinalHighestWave) {
     cardinalHighestWave = data.highestWave;
-    // Update Shin Glyphs based on highest wave
-    setShinGlyphs(cardinalHighestWave);
+    // Award incremental glyphs based on highest wave
+    const newGlyphsToAward = data.highestWave - glyphsAwardedFromWaves;
+    if (newGlyphsToAward > 0) {
+      addShinGlyphs(newGlyphsToAward);
+      glyphsAwardedFromWaves = data.highestWave;
+    }
     updateGlyphDisplay();
   }
   saveCardinalState();
@@ -303,6 +316,7 @@ export function getCardinalWardenState() {
   return {
     highScore: cardinalHighScore,
     highestWave: cardinalHighestWave,
+    glyphsAwardedFromWaves: glyphsAwardedFromWaves,
   };
 }
 
@@ -321,8 +335,15 @@ export function setCardinalWardenState(state) {
     if (cardinalSimulation) {
       cardinalSimulation.setHighestWave(cardinalHighestWave);
     }
-    // Sync Shin Glyphs with highest wave
-    setShinGlyphs(cardinalHighestWave);
+  }
+  if (state?.glyphsAwardedFromWaves !== undefined) {
+    glyphsAwardedFromWaves = state.glyphsAwardedFromWaves;
+  }
+  // Ensure glyphs awarded matches highest wave if not set
+  if (glyphsAwardedFromWaves < cardinalHighestWave) {
+    const newGlyphs = cardinalHighestWave - glyphsAwardedFromWaves;
+    addShinGlyphs(newGlyphs);
+    glyphsAwardedFromWaves = cardinalHighestWave;
   }
   updateHighestWaveDisplay();
   updateGlyphDisplay();

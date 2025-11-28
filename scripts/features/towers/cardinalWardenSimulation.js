@@ -166,8 +166,8 @@ class EnemyShip {
     this.waveAmplitude = config.waveAmplitude || 30;
     this.waveFrequency = config.waveFrequency || 2;
     this.wavePhase = config.wavePhase || 0;
-    this.baseX = x; // Center line for weaving
     this.time = 0;
+    this.lastWaveOffset = 0; // Track previous wave offset for delta-based application
   }
 
   /**
@@ -240,11 +240,11 @@ class EnemyShip {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     
-    // Apply sine wave weaving if enabled
+    // Apply sine wave weaving as an additive offset if enabled
     if (this.weaving) {
       const waveOffset = Math.sin(this.time * this.waveFrequency * Math.PI * 2 + this.wavePhase) * this.waveAmplitude;
-      this.x = this.baseX + waveOffset;
-      this.baseX += this.vx * dt;
+      this.x += waveOffset - this.lastWaveOffset;
+      this.lastWaveOffset = waveOffset;
     }
     
     // Keep within horizontal bounds
@@ -610,10 +610,7 @@ export class CardinalWardenSimulation {
         particle.life -= dt;
         particle.alpha = Math.max(0, particle.life / particle.maxLife);
       }
-      // Also destroy all enemies during explosion
-      for (const enemy of this.enemies) {
-        enemy.health = 0;
-      }
+      // Clear all enemies during explosion
       this.enemies = [];
     }
     // Phase 3: Fade out particles and transition to respawn (1500 - 2500ms)
@@ -970,8 +967,11 @@ export class CardinalWardenSimulation {
                      (this.warden && this.warden.health <= 0);
 
     if (gameOver && this.gamePhase === 'playing') {
+      // Check for new high score before updating
+      const isNewHighScore = this.score > this.highScore;
+      
       // Update high score before death animation
-      if (this.score > this.highScore) {
+      if (isNewHighScore) {
         this.highScore = this.score;
         if (this.onHighScoreChange) {
           this.onHighScoreChange(this.highScore);
@@ -984,7 +984,7 @@ export class CardinalWardenSimulation {
           highScore: this.highScore,
           wave: this.wave,
           highestWave: this.highestWave,
-          isNewHighScore: this.score > this.highScore,
+          isNewHighScore: isNewHighScore,
         });
       }
 
