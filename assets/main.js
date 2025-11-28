@@ -325,6 +325,11 @@ import { createVariableLibraryController } from './variableLibraryController.js'
 import { createUpgradeMatrixOverlay } from './upgradeMatrixOverlay.js';
 import { createLevelSummaryHelpers } from './levelSummary.js';
 import { createLamedSpireUi } from './lamedSpireUi.js';
+import {
+  bindLamedSpireOptions,
+  setLamedSimulationGetter,
+  initializeLamedSpirePreferences,
+} from './lamedSpirePreferences.js';
 import { createDeveloperModeManager } from './developerModeManager.js';
 import {
   moteGemState,
@@ -5235,6 +5240,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
               spireMenuController.updateCounts();
               updateLamedStatistics();
+              // Connect Lamed visual preferences to the simulation instance.
+              setLamedSimulationGetter(() => lamedSimulationInstance);
+              initializeLamedSpirePreferences();
+              bindLamedSpireOptions();
               lamedSimulationInstance.start();
               // Ensure the gravity viewport adopts the new responsive dimensions.
               scheduleSpireResize();
