@@ -6,7 +6,7 @@
  * smoothly restarts after death with animations.
  */
 
-import { CardinalWardenSimulation } from '../scripts/features/towers/cardinalWardenSimulation.js';
+import { CardinalWardenSimulation, getWeaponIds, getWeaponDefinition } from '../scripts/features/towers/cardinalWardenSimulation.js';
 import { formatGameNumber } from '../scripts/core/formatting.js';
 import { getShinGlyphs, addShinGlyphs } from './shinState.js';
 
@@ -27,6 +27,7 @@ const cardinalElements = {
   glyphCount: null,
   waveDisplay: null,
   highestWaveDisplay: null,
+  weaponsGrid: null,
 };
 
 // State persistence key
@@ -37,6 +38,8 @@ let cardinalHighScore = 0;
 let cardinalHighestWave = 0;
 // Track glyphs earned from waves to avoid double-counting
 let glyphsAwardedFromWaves = 0;
+// Weapon state
+let weaponState = null;
 
 /**
  * Initialize the Cardinal Warden UI and simulation.
@@ -54,6 +57,7 @@ export function initializeCardinalWardenUI() {
   cardinalElements.glyphCount = document.getElementById('shin-glyph-count');
   cardinalElements.waveDisplay = document.getElementById('shin-wave-display');
   cardinalElements.highestWaveDisplay = document.getElementById('shin-highest-wave');
+  cardinalElements.weaponsGrid = document.getElementById('shin-weapons-grid');
 
   if (!cardinalElements.canvas) {
     console.warn('Cardinal Warden canvas not found');
@@ -80,10 +84,14 @@ export function initializeCardinalWardenUI() {
     cardinalSimulation.start();
   }
   
+  // Initialize weapons menu
+  initializeWeaponsMenu();
+  
   // Update displays
   updateWaveDisplay(0);
   updateHighestWaveDisplay();
   updateGlyphDisplay();
+  updateWeaponsDisplay();
 }
 
 /**
@@ -97,6 +105,7 @@ function loadCardinalState() {
       cardinalHighScore = state.highScore || 0;
       cardinalHighestWave = state.highestWave || 0;
       glyphsAwardedFromWaves = state.glyphsAwardedFromWaves || 0;
+      weaponState = state.weapons || null;
     }
   } catch (error) {
     console.warn('Failed to load Cardinal Warden state:', error);
@@ -112,6 +121,7 @@ function saveCardinalState() {
       highScore: cardinalHighScore,
       highestWave: cardinalHighestWave,
       glyphsAwardedFromWaves: glyphsAwardedFromWaves,
+      weapons: cardinalSimulation ? cardinalSimulation.getWeaponState() : weaponState,
     };
     localStorage.setItem(CARDINAL_STATE_STORAGE_KEY, JSON.stringify(state));
   } catch (error) {
@@ -185,7 +195,13 @@ function createCardinalSimulation() {
     onGameOver: handleGameOver,
     onHealthChange: handleHealthChange,
     onHighestWaveChange: handleHighestWaveChange,
+    onWeaponChange: handleWeaponChange,
   });
+  
+  // Restore weapon state if available
+  if (weaponState) {
+    cardinalSimulation.setWeaponState(weaponState);
+  }
 }
 
 /**
@@ -214,6 +230,8 @@ export function stopCardinalSimulation() {
  */
 function handleScoreChange(score) {
   // Score is displayed in the canvas UI, no external element needed
+  // Update weapons display to reflect purchasable/upgradeable states
+  updateWeaponsDisplay();
 }
 
 /**
@@ -347,6 +365,106 @@ export function setCardinalWardenState(state) {
   }
   updateHighestWaveDisplay();
   updateGlyphDisplay();
+}
+
+/**
+ * Handle weapon state changes.
+ */
+function handleWeaponChange(weapons) {
+  weaponState = weapons;
+  saveCardinalState();
+  updateWeaponsDisplay();
+}
+
+/**
+ * Initialize the weapons menu.
+ */
+function initializeWeaponsMenu() {
+  if (!cardinalElements.weaponsGrid) return;
+  
+  // Set up event delegation for weapon buttons
+  cardinalElements.weaponsGrid.addEventListener('click', (event) => {
+    const button = event.target.closest('.shin-weapon-action');
+    if (!button || !cardinalSimulation) return;
+    
+    const weaponId = button.dataset.weaponId;
+    const action = button.dataset.action;
+    
+    if (action === 'purchase') {
+      if (cardinalSimulation.purchaseWeapon(weaponId)) {
+        updateWeaponsDisplay();
+      }
+    } else if (action === 'upgrade') {
+      if (cardinalSimulation.upgradeWeapon(weaponId)) {
+        updateWeaponsDisplay();
+      }
+    }
+  });
+}
+
+/**
+ * Update the weapons display.
+ */
+function updateWeaponsDisplay() {
+  if (!cardinalElements.weaponsGrid || !cardinalSimulation) return;
+  
+  const weapons = cardinalSimulation.getAvailableWeapons();
+  const currentScore = cardinalSimulation.score;
+  
+  const html = weapons.map(weapon => {
+    const isLocked = !weapon.isPurchased;
+    const isMaxed = weapon.isPurchased && weapon.level >= weapon.maxLevel;
+    const canAffordPurchase = currentScore >= weapon.cost;
+    const canAffordUpgrade = weapon.upgradeCost !== null && currentScore >= weapon.upgradeCost;
+    
+    let actionButton = '';
+    if (isLocked) {
+      actionButton = `
+        <button 
+          class="shin-weapon-action"
+          data-weapon-id="${weapon.id}"
+          data-action="purchase"
+          ${!canAffordPurchase ? 'disabled' : ''}
+        >
+          Buy: ${formatGameNumber(weapon.cost)}
+        </button>
+      `;
+    } else if (isMaxed) {
+      actionButton = `
+        <button 
+          class="shin-weapon-action shin-weapon-action--maxed"
+          disabled
+        >
+          MAX
+        </button>
+      `;
+    } else {
+      actionButton = `
+        <button 
+          class="shin-weapon-action shin-weapon-action--owned"
+          data-weapon-id="${weapon.id}"
+          data-action="upgrade"
+          ${!canAffordUpgrade ? 'disabled' : ''}
+        >
+          Upgrade: ${formatGameNumber(weapon.upgradeCost)}
+        </button>
+      `;
+    }
+    
+    return `
+      <div class="shin-weapon-item ${isLocked ? 'shin-weapon-item--locked' : ''}" role="listitem">
+        <div class="shin-weapon-header">
+          <span class="shin-weapon-symbol" style="color: ${weapon.color}">${weapon.symbol}</span>
+          <span class="shin-weapon-name">${weapon.name}</span>
+          ${weapon.isPurchased ? `<span class="shin-weapon-level">Lv.${weapon.level}</span>` : ''}
+        </div>
+        <p class="shin-weapon-description">${weapon.description}</p>
+        ${actionButton}
+      </div>
+    `;
+  }).join('');
+  
+  cardinalElements.weaponsGrid.innerHTML = html;
 }
 
 /**
