@@ -965,7 +965,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (fluidTerrariumCreatures || !fluidElements?.viewport) {
       return;
     }
-    const slimeCount = Math.max(1, betHappinessSystem ? betHappinessSystem.getProducerCount('slime') : 4);
+    // Start with 0 slimes by default - players purchase them through the store.
+    const slimeCount = Math.max(0, betHappinessSystem ? betHappinessSystem.getProducerCount('slime') : 0);
+    // Skip creating the creatures layer if no slimes are owned yet.
+    if (slimeCount <= 0) {
+      return;
+    }
     fluidTerrariumCreatures = new FluidTerrariumCreatures({
       container: fluidElements.viewport,
       terrainElement: fluidElements.terrainSprite,
@@ -1049,14 +1054,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     fluidTerrariumTrees = new FluidTerrariumTrees({
       container: fluidElements.terrariumMedia,
-      largeMaskUrl: './assets/sprites/spires/betSpire/Tree.png',
-      smallMaskUrl: './assets/sprites/spires/betSpire/Small-Tree.png',
-      islandSmallMaskUrl: './assets/sprites/spires/betSpire/Island-Small-Tree.png',
+      // Masks removed so trees are only placed via the store. The store already has tree items.
+      // largeMaskUrl: './assets/sprites/spires/betSpire/Tree.png',
+      // smallMaskUrl: './assets/sprites/spires/betSpire/Small-Tree.png',
+      // islandSmallMaskUrl: './assets/sprites/spires/betSpire/Island-Small-Tree.png',
       state: powderState.betTerrarium,
       powderState: powderState,
       spendSerendipity: spendFluidSerendipity,
       getSerendipityBalance: getCurrentFluidDropBank,
       onShroomPlace: handleShroomPlacement,
+      onSlimePlace: handleSlimePlacement,
       onStateChange: (state) => {
         powderState.betTerrarium = {
           levelingMode: Boolean(state?.levelingMode),
@@ -1179,6 +1186,45 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       }
     }
     return false;
+  }
+
+  // Handle slime placement from the terrarium store by increasing slime count and re-initializing creatures.
+  function handleSlimePlacement() {
+    if (!betHappinessSystem) {
+      return false;
+    }
+    // Increment the slime count in the happiness system
+    const currentCount = betHappinessSystem.getProducerCount('slime');
+    const newCount = currentCount + 1;
+    betHappinessSystem.setProducerCount('slime', newCount);
+    
+    // Re-initialize the creatures system with the new count
+    if (fluidTerrariumCreatures) {
+      fluidTerrariumCreatures.destroy();
+      fluidTerrariumCreatures = null;
+    }
+    
+    // Create new creatures instance with updated count
+    if (fluidElements?.viewport) {
+      fluidTerrariumCreatures = new FluidTerrariumCreatures({
+        container: fluidElements.viewport,
+        terrainElement: fluidElements.terrainSprite,
+        terrainCollisionElement: fluidElements.terrainCollisionSprite,
+        creatureCount: newCount,
+        spawnZones: BET_CAVE_SPAWN_ZONES,
+      });
+      fluidTerrariumCreatures.start();
+    }
+    
+    // Update happiness display
+    if (betHappinessSystem.updateDisplay) {
+      betHappinessSystem.updateDisplay();
+    }
+    
+    // Schedule save to persist the slime count
+    schedulePowderBasinSave();
+    
+    return true;
   }
 
   // Ensure compact autosave remains the active basin persistence strategy.

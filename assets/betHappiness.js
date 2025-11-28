@@ -1,4 +1,4 @@
-const DEFAULT_SLIME_COUNT = 4;
+const DEFAULT_SLIME_COUNT = 0;
 
 const BET_HAPPINESS_PRODUCERS = {
   slime: {
