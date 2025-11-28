@@ -196,6 +196,13 @@ import {
   updateFractalSimulation,
   resizeShinFractalCanvases,
 } from './shinUI.js';
+// Cardinal Warden reverse danmaku game for Shin Spire.
+import {
+  initializeCardinalWardenUI,
+  resizeCardinalCanvas,
+  stopCardinalSimulation,
+  isCardinalSimulationRunning,
+} from './cardinalWardenUI.js';
 import {
   initializeKufState,
   getKufStateSnapshot,
@@ -1383,6 +1390,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let shinSimulationInstance = null;
   let tsadiBindingUiInitialized = false;
   let kufUiInitialized = false;
+  let cardinalWardenInitialized = false;
   let pendingSpireResizeFrame = null;
   let previousTabId = getActiveTabId();
 
@@ -5406,14 +5414,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           // Update upgrade UI every time the tab is shown
           updateTsadiUpgradeUI();
         } else if (tabId === 'shin') {
-          // Initialize Shin Spire UI when tab is first opened
-          if (!shinSimulationInstance) {
+          // Initialize Cardinal Warden reverse danmaku game when tab is first opened
+          if (!cardinalWardenInitialized) {
             try {
-              initializeShinUI();
+              initializeCardinalWardenUI();
+              cardinalWardenInitialized = true;
             } catch (error) {
-              console.error('Failed to initialize Shin UI:', error);
+              console.error('Failed to initialize Cardinal Warden UI:', error);
             }
           }
+          // Resize the Cardinal canvas when tab is shown
+          resizeCardinalCanvas();
           // Update display with current state
           updateShinDisplay();
           scheduleSpireResize();
