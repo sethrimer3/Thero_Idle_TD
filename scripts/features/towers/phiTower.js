@@ -326,8 +326,10 @@ export function updatePhiTower(playfield, tower, delta) {
     return;
   }
   
-  // Get current game time
-  const currentTime = playfield.gameTime || 0;
+  // Use the playfield's combat clock so passive growth advances with real time.
+  const currentTime = Number.isFinite(playfield?.combatStats?.elapsed)
+    ? playfield.combatStats.elapsed
+    : 0;
   
   // Update seed production
   updateSeedProduction(playfield, tower, state, currentTime);

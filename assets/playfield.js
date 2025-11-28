@@ -7151,6 +7151,20 @@ export class SimplePlayfield {
           return;
         }
         if (tower.type === 'phi') {
+          const phiState = ensurePhiStateHelper(this, tower);
+          const hasIdleSeed = phiState?.rows?.some((row) =>
+            row.seeds.some((seed) => !seed.inFlight)
+          );
+
+          const canTriggerBurst = hasIdleSeed && !phiState?.burstActive;
+
+          if (canTriggerBurst && this.combatActive && typeof this.findTarget === 'function') {
+            const targetInfo = this.findTarget(tower, { includeSigmaTargets: true });
+            if (targetInfo) {
+              this.triggerPhiBurst(tower);
+            }
+          }
+
           this.updatePhiTower(tower, delta);
           return;
         }
