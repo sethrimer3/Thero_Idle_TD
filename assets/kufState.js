@@ -16,6 +16,9 @@ const DEFAULT_UPGRADES = Object.freeze({
 const DEFAULT_MAP_HIGH_SCORES = Object.freeze({});
 const DEFAULT_MAP_ID = 'forward-bastion';
 
+// Minimum gold required to earn Kuf glyphs (base for magnitude calculation)
+const KUF_GLYPH_GOLD_BASE = 5;
+
 // Unit costs in shards
 const UNIT_COSTS = Object.freeze({
   marines: 5,
@@ -83,6 +86,29 @@ function sanitizeInteger(value, fallback = 0) {
     return fallback;
   }
   return Math.max(0, Math.floor(value));
+}
+
+/**
+ * Calculate Kuf glyphs based on total gold earned across all maps.
+ * Player gets 1 glyph for every 5x increase in magnitude (5, 25, 125, 625, etc.).
+ * @param {number} totalGold - Sum of all map high scores.
+ * @returns {number} Number of Kuf glyphs.
+ */
+function calculateKufGlyphsFromGold(totalGold) {
+  const normalized = Math.max(0, Number.isFinite(totalGold) ? totalGold : 0);
+  if (normalized < KUF_GLYPH_GOLD_BASE) {
+    return 0;
+  }
+  // glyphs = floor(log_base(totalGold)) where base = KUF_GLYPH_GOLD_BASE
+  return Math.floor(Math.log(normalized) / Math.log(KUF_GLYPH_GOLD_BASE));
+}
+
+/**
+ * Get the sum of all map high scores for glyph calculation.
+ * @returns {number} Total gold earned across all stages.
+ */
+function getTotalMapGold() {
+  return Object.values(kufState.mapHighScores).reduce((sum, score) => sum + sanitizeInteger(score, 0), 0);
 }
 
 function emitChange(type, payload = {}) {
@@ -164,7 +190,6 @@ export function initializeKufState(savedState = {}) {
   kufState.allocations = normalizeAllocations(savedState.allocations);
   kufState.units = normalizeUnits(savedState.units);
   kufState.upgrades = normalizeUpgrades(savedState.upgrades);
-  kufState.glyphs = sanitizeInteger(savedState.glyphs, 0);
   kufState.highScore = sanitizeInteger(savedState.highScore, 0);
   kufState.mapHighScores = normalizeMapHighScores(savedState.mapHighScores);
   // Seed legacy saves with the global high score so map buttons surface a real value immediately.
@@ -181,10 +206,9 @@ export function initializeKufState(savedState = {}) {
       }
     : null;
 
-  // Ensure glyphs never exceed the recorded high score.
-  if (kufState.glyphs > kufState.highScore) {
-    kufState.glyphs = kufState.highScore;
-  }
+  // Calculate glyphs based on total gold across all maps (1 glyph per 5x magnitude)
+  const totalMapGold = getTotalMapGold();
+  kufState.glyphs = calculateKufGlyphsFromGold(totalMapGold);
 
   emitChange('init', { snapshot: getKufStateSnapshot() });
 }
@@ -345,7 +369,6 @@ export function recordKufBattleOutcome({ goldEarned = 0, victory = false, destro
   let newHigh = false;
   if (sanitizedGold > kufState.highScore) {
     kufState.highScore = sanitizedGold;
-    kufState.glyphs = sanitizedGold;
     newHigh = true;
   }
 
@@ -355,6 +378,10 @@ export function recordKufBattleOutcome({ goldEarned = 0, victory = false, destro
       kufState.mapHighScores[normalizedMapId] = sanitizedGold;
     }
   }
+
+  // Calculate glyphs based on total gold across all maps (1 glyph per 5x magnitude)
+  const totalMapGold = getTotalMapGold();
+  kufState.glyphs = calculateKufGlyphsFromGold(totalMapGold);
 
   const glyphsAwarded = Math.max(0, kufState.glyphs - previousGlyphs);
   emitChange('result', {

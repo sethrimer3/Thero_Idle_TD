@@ -13,6 +13,7 @@ export const unlockedLevels = new Set();
 export const levelSetEntries = [];
 
 const LEVEL_PROGRESS_VERSION = 1;
+const PROLOGUE_STORY_ID = 'Prologue - Story';
 
 let developerTheroMultiplierOverride = null;
 // Flag to bypass level locks when developer mode is active so the UI always treats maps as available.
@@ -70,7 +71,12 @@ export function cloneWaveArray(array) {
 
 // Normalize and store the map blueprints that drive the level select UI.
 export function setLevelBlueprints(maps = []) {
-  levelBlueprints = Array.isArray(maps) ? maps.map((map) => ({ ...map })) : [];
+  levelBlueprints = Array.isArray(maps)
+    ? maps.map((map) => ({
+      ...map,
+      isStoryLevel: Boolean(map?.isStoryLevel),
+    }))
+    : [];
   levelLookup = new Map(levelBlueprints.map((level) => [level.id, level]));
   return levelBlueprints;
 }
@@ -88,15 +94,29 @@ export function setLevelConfigs(levels = []) {
     if (typeof waves === 'string') {
       waves = parseCompactWaveString(waves);
     }
-    
+
     levelConfigs.set(level.id, {
       ...level,
+      isStoryLevel: Boolean(level?.isStoryLevel),
       waves: cloneWaveArray(waves),
       path: cloneVectorArray(level.path),
       autoAnchors: cloneVectorArray(level.autoAnchors),
     });
   });
   return levelConfigs;
+}
+
+// Identify levels that are purely narrative so the UI can route to the story overlay instead of a playfield.
+export function isStoryOnlyLevel(levelId) {
+  if (!levelId) {
+    return false;
+  }
+  const blueprint = levelLookup.get(levelId);
+  if (blueprint?.isStoryLevel) {
+    return true;
+  }
+  const config = levelConfigs.get(levelId);
+  return Boolean(config && config.isStoryLevel);
 }
 
 // Rebuild the ordered interactive level list and default unlocks.
@@ -421,6 +441,29 @@ export function applyLevelProgressSnapshot(snapshot = {}) {
     const firstLevel = interactiveLevelOrder[0];
     if (firstLevel) {
       unlockedLevels.add(firstLevel);
+    }
+  }
+
+  // Migration for existing saves when the Prologue story level was added after the initial release.
+  // Players who completed Prologue 1–3 before this level existed would otherwise see later campaigns locked.
+  if (levelLookup.has(PROLOGUE_STORY_ID)) {
+    const prologuePrereqs = ['Prologue - 1', 'Prologue - 2', 'Prologue - 3'];
+    const prologueCompleted = prologuePrereqs.every((levelId) => levelState.get(levelId)?.completed);
+    const storyState = levelState.get(PROLOGUE_STORY_ID);
+
+    if (prologueCompleted && !unlockedLevels.has(PROLOGUE_STORY_ID)) {
+      unlockedLevels.add(PROLOGUE_STORY_ID);
+    }
+
+    if (prologueCompleted && (!storyState || !storyState.completed)) {
+      levelState.set(PROLOGUE_STORY_ID, {
+        entered: true,
+        running: false,
+        completed: true,
+        storySeen: true,
+        ...(storyState?.bestWave ? { bestWave: storyState.bestWave } : {}),
+        ...(storyState?.lastResult ? { lastResult: storyState.lastResult } : {}),
+      });
     }
   }
 
