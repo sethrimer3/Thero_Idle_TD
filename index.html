@@ -2560,37 +2560,24 @@
                   class="shin-cardinal-canvas"
                   aria-label="Cardinal Warden reverse danmaku game"
                 ></canvas>
-                <!-- Game overlay for start/restart -->
-                <div class="shin-cardinal-overlay" id="shin-cardinal-overlay">
-                  <h3 class="shin-cardinal-title">Cardinal Warden</h3>
-                  <p class="shin-cardinal-description">
-                    Defend against waves of enemy ships. The Cardinal Warden fires automatically—
-                    survive as long as possible and achieve the highest score.
-                  </p>
-                  <button class="action-button shin-cardinal-start" type="button" id="shin-cardinal-start">
-                    Begin Defense
-                  </button>
-                </div>
-                <!-- Game over panel -->
-                <div class="shin-cardinal-result" id="shin-cardinal-result" hidden>
-                  <h4 class="shin-cardinal-result-title">Defense Concluded</h4>
-                  <p class="shin-cardinal-result-score" id="shin-cardinal-result-score">Score: 0</p>
-                  <p class="shin-cardinal-result-high" id="shin-cardinal-result-high">High Score: 0</p>
-                  <p class="shin-cardinal-result-wave" id="shin-cardinal-result-wave">Waves Survived: 0</p>
-                  <button class="action-button ghost" type="button" id="shin-cardinal-restart">
-                    Defend Again
-                  </button>
-                </div>
               </div>
             </article>
           </section>
 
-          <!-- Shin Glyph Resource Display -->
+          <!-- Shin Spire Stats Display -->
           <article class="card shin-resource-card">
-            <h3>Shin Glyphs</h3>
+            <h3>Shin Spire Stats</h3>
             <dl class="shin-metrics">
               <div>
-                <dt>Shin Glyphs Earned</dt>
+                <dt>Current Wave</dt>
+                <dd id="shin-wave-display">Wave 1</dd>
+              </div>
+              <div>
+                <dt>Highest Wave</dt>
+                <dd id="shin-highest-wave">0</dd>
+              </div>
+              <div>
+                <dt>Shin Glyphs</dt>
                 <dd id="shin-glyph-count">0 ש</dd>
               </div>
             </dl>
@@ -2607,6 +2594,14 @@
             <div id="shin-fractal-tabs"></div>
             <dd id="shin-iteron-bank">0</dd>
             <dd id="shin-iteration-rate">0/sec</dd>
+            <!-- Keep legacy overlay and result elements for compatibility -->
+            <div id="shin-cardinal-overlay" hidden></div>
+            <div id="shin-cardinal-result" hidden></div>
+            <button id="shin-cardinal-start" hidden></button>
+            <button id="shin-cardinal-restart" hidden></button>
+            <p id="shin-cardinal-result-score"></p>
+            <p id="shin-cardinal-result-high"></p>
+            <p id="shin-cardinal-result-wave"></p>
           </div>
 
 
