@@ -1,4 +1,4 @@
-const DEFAULT_SLIME_COUNT = 4;
+const DEFAULT_SLIME_COUNT = 0;
 
 const BET_HAPPINESS_PRODUCERS = {
   slime: {
@@ -16,6 +16,30 @@ const BET_HAPPINESS_PRODUCERS = {
     id: 'betTreeSmall',
     label: 'Bonsai Trees',
     ratePerHour: 5,
+    countLabel: 'Lv',
+  },
+  phiShroomYellow: {
+    id: 'phiShroomYellow',
+    label: 'Yellow Φ Shroom',
+    ratePerHour: 36000, // 10 hp/second * 3600 = 36000 hp/hour per level
+    countLabel: 'Lv',
+  },
+  phiShroomGreen: {
+    id: 'phiShroomGreen',
+    label: 'Green Φ Shroom',
+    ratePerHour: 36000,
+    countLabel: 'Lv',
+  },
+  phiShroomBlue: {
+    id: 'phiShroomBlue',
+    label: 'Blue Φ Shroom',
+    ratePerHour: 36000,
+    countLabel: 'Lv',
+  },
+  psiShroom: {
+    id: 'psiShroom',
+    label: 'Ψ Shrooms',
+    ratePerHour: 126000, // 35 hp/second * 3600 = 126000 hp/hour per level
     countLabel: 'Lv',
   },
 };
@@ -253,6 +277,7 @@ export function createBetHappinessSystem({
     setProducerCount,
     getTotalRatePerHour,
     getTotalHappiness: () => normalizeBank(happinessState.bank),
+    getHappinessLevel: () => resolveHappinessProgress(normalizeBank(happinessState.bank)).level,
     addHappiness,
     calculateIdleHappiness,
     bindDisplayElements,

@@ -21,52 +21,52 @@
       "traits": [
         "Display as (E^{k}) with a crimson exponent tied to (10^{k}) maximum health; even reduced health never hides the power tier.",
         "March in geometric platoons whose health resolves to (H(k) = H_0 \times 10^{k}) for rank k within the current set.",
-        "Reward Σ mote gems on defeat using the same multiplier, making them ideal calibration targets for lattice tuning."
+        "Reward \u03a3 mote gems on defeat using the same multiplier, making them ideal calibration targets for lattice tuning."
       ],
-      "counter": "Layer multiplicative auras and β/γ towers so burst and splash damage keep pace with the exponential swell before specialist glyphs appear.",
+      "counter": "Layer multiplicative auras and \u03b2/\u03b3 towers so burst and splash damage keep pace with the exponential swell before specialist glyphs appear.",
       "lore": "Archivists open every defense proof against E glyphs; when their sigils begin to blur, heavier conjectures are on approach.",
       "formula": "(H(k) = H_0 \times 10^{k})",
       "formulaLabel": "Growth Law"
     },
     {
       "id": "divisor",
-      "symbol": "÷",
+      "symbol": "\u00f7",
       "name": "Divisors",
       "summary": "Factor-savvy husks that invert reckless power. They judge every incoming strike by its divisor weight and respond in kind.",
       "traits": [
-        "Appear as (÷^{k})—their glowing red exponent advertises the precise ten-power plateaus they occupy.",
+        "Appear as (\u00f7^{k})\u2014their glowing red exponent advertises the precise ten-power plateaus they occupy.",
         "Damage from one source collapses to (\\Delta H = 1 / \text{DPS}_{\\text{source}}), so slower cannons barely scratch the shell.",
         "Stacked beams add their DPS before inversion, rewarding multi-lane coverage and allied summons."
       ],
-      "counter": "Deploy swarm emitters, Ω slows, and status lattices to multiply projectile count while letting lingering damage-over-time finish the proof.",
+      "counter": "Deploy swarm emitters, \u03a9 slows, and status lattices to multiply projectile count while letting lingering damage-over-time finish the proof.",
       "lore": "Their chants enumerate divisors as they advance; silence one and the entire column hesitates for a breath.",
       "formula": "(\\Delta H = 1 / \text{DPS}_{\\text{source}})",
       "formulaLabel": "Mitigation Rule"
     },
     {
       "id": "prime",
-      "symbol": "ℙ",
+      "symbol": "\u2119",
       "name": "Prime Counters",
-      "summary": "Inquisitors that audit impact counts against the prime sequence. They do not care about damage—only how often they are struck.",
+      "summary": "Inquisitors that audit impact counts against the prime sequence. They do not care about damage\u2014only how often they are struck.",
       "traits": [
-        "Broadcast as (ℙ^{k}), letting you spot at a glance which prime threshold—scaled by (10^{k}) health—they are testing.",
-        "Maintain an internal counter η that increases with each hit until (η = p_n), the nth prime for their current wave.",
-        "Overflow resets η to the next prime threshold, so wasted barrages delay a collapse."
+        "Broadcast as (\u2119^{k}), letting you spot at a glance which prime threshold\u2014scaled by (10^{k}) health\u2014they are testing.",
+        "Maintain an internal counter \u03b7 that increases with each hit until (\u03b7 = p_n), the nth prime for their current wave.",
+        "Overflow resets \u03b7 to the next prime threshold, so wasted barrages delay a collapse."
       ],
-      "counter": "Favor rapid-fire towers, β resonance buffs, or allied reversals that deal consistent tap damage to meet each prime without overshooting.",
+      "counter": "Favor rapid-fire towers, \u03b2 resonance buffs, or allied reversals that deal consistent tap damage to meet each prime without overshooting.",
       "lore": "Their whispers recite primes in ascending order; the moment you match their cadence, the husk fractures.",
-      "formula": "(η = p_n)",
+      "formula": "(\u03b7 = p_n)",
       "formulaLabel": "Prime Threshold"
     },
     {
       "id": "reversal",
-      "symbol": "↺",
+      "symbol": "\u21ba",
       "name": "Reversal Sentinels",
       "summary": "Vanguard constructs tuned to flip allegiance. Defeat one and it races backward to join your formation with inverted statistics.",
       "traits": [
-        "Carry the mark (↺^{k})—the exponent glows brighter after conversion to highlight the retained ten-power health tier.",
+        "Carry the mark (\u21ba^{k})\u2014the exponent glows brighter after conversion to highlight the retained ten-power health tier.",
         "Upon collapse they sprint to the start of the path; if unblocked they respawn as allies with (H_{ally} = lfloor 0.5 H_{foe} \rfloor).",
-        "Allied reversals inherit your active tower modifiers and pulse Σ mote gems while retracing enemy ground."
+        "Allied reversals inherit your active tower modifiers and pulse \u03a3 mote gems while retracing enemy ground."
       ],
       "counter": "Catch them near choke points so the conversion occurs within supportive auras, otherwise their retreat might breach the core first.",
       "lore": "Legend says each sentinel carries a mirrored proof; persuade it to turn the page and the margin glows with your sigil.",
@@ -75,25 +75,25 @@
     },
     {
       "id": "tunneler",
-      "symbol": "⇥",
+      "symbol": "\u21e5",
       "name": "Quantum Tunnelers",
       "summary": "Phase-shifted glyphs that refuse to follow etched rails, boring a straight tunnel toward the core regardless of your lattice work.",
       "traits": [
         "Advance along the direct vector from spawn gate to core nexus, bypassing every bend, choke point, and slow field etched onto the lane.",
         "Treat their displacement as (\\vec{r}(t) = \\vec{r}_0 + \\vec{v} t); only raw damage intersecting that ray can arrest their collapse."
       ],
-      "counter": "Predict the tunnel vector and anchor lattices near the core or directly on that line—positioning, not crowd control, halts their breach.",
+      "counter": "Predict the tunnel vector and anchor lattices near the core or directly on that line\u2014positioning, not crowd control, halts their breach.",
       "lore": "Archivists describe them as qubits gone feral: collapse their waveform before it resolves inside the heart of your proof.",
       "formula": "(\\vec{r}(t) = \\vec{r}_0 + \\vec{v} t)",
       "formulaLabel": "Tunnel Vector"
     },
     {
       "id": "aleph-swarm",
-      "symbol": "ℵ₀",
+      "symbol": "\u2135\u2080",
       "name": "Aleph Swarm",
       "summary": "Countable-infinity splinters that multiply the longer they survive, overwhelming defenses with relentless recursion.",
       "traits": [
-        "Render as (ℵ_0^{k})—their red exponent pulses with each duplication to telegraph the growing (10^{k}) health pool.",
+        "Render as (\u2135_0^{k})\u2014their red exponent pulses with each duplication to telegraph the growing (10^{k}) health pool.",
         "Spawn additional copies at intervals determined by (\\lambda(t) = \\lambda_0 + \\lfloor t / T \rfloor), so survival time fuels the swarm."
       ],
       "counter": "Keep continuous-area effects engaged to prune duplicates before their exponent climbs beyond manageable tiers.",
@@ -103,11 +103,11 @@
     },
     {
       "id": "partial-wraith",
-      "symbol": "∂",
+      "symbol": "\u2202",
       "name": "Partial Wraith",
       "summary": "Spectral siphons that leech tower stats until slowed, modelling derivatives that refuse to settle.",
       "traits": [
-        "Stride in (∂^{k}) forms—the exponent glows fiercely while the wraith hoards stolen power tied to its (10^{k}) reserve.",
+        "Stride in (\u2202^{k}) forms\u2014the exponent glows fiercely while the wraith hoards stolen power tied to its (10^{k}) reserve.",
         "Absorb a fraction of nearby tower modifiers as (\\Delta S = \\alpha \\cdot S_{tower}); rooting them freezes the derivative at zero and returns the loss."
       ],
       "counter": "Leverage stuns or heavy slows to pin the wraith, forcing it to disgorge the stolen bonuses.",
@@ -117,11 +117,11 @@
     },
     {
       "id": "gradient-sapper",
-      "symbol": "∇",
+      "symbol": "\u2207",
       "name": "Gradient Sapper",
       "summary": "Vector-chasing saboteurs that accelerate toward downhill buffs while draining everything in their path.",
       "traits": [
-        "Marked as (∇^{k}); the exponent's red glow tilts in the direction of greatest descent, mirroring the sapper's chosen gradient.",
+        "Marked as (\u2207^{k}); the exponent's red glow tilts in the direction of greatest descent, mirroring the sapper's chosen gradient.",
         "Gain speed according to (v = v_0 + \beta \\|\nabla B\\|), with B representing nearby buff intensity."
       ],
       "counter": "Rotate support zones or erect knockback fields to flatten the gradient before they sprint through your defenses.",
@@ -131,11 +131,11 @@
     },
     {
       "id": "weierstrass-prism",
-      "symbol": "℘",
+      "symbol": "\u2118",
       "name": "Weierstrass Prism",
       "summary": "Fractal shifters that jitter between vulnerable and invulnerable states at nowhere-differentiable intervals.",
       "traits": [
-        "Manifest as (℘^{k}); the exponent flickers chaotically, hinting at the fractal rhythm governing their (10^{k}) shell.",
+        "Manifest as (\u2118^{k}); the exponent flickers chaotically, hinting at the fractal rhythm governing their (10^{k}) shell.",
         "Toggle immunity on a schedule approximating (f(t) = \\sum_{n=0}^{\\infty} a^n \\cos(b^n \\pi t)) with (0 < a < 1, b \\in \\mathbb{N})."
       ],
       "counter": "Sync burst damage to the brief windows when the prism's glow steadies, or lock them down with perfectly timed stasis.",
@@ -145,39 +145,39 @@
     },
     {
       "id": "planck-shade",
-      "symbol": "ħ",
+      "symbol": "\u0127",
       "name": "Planck Shade",
       "summary": "Quantum phantoms that phase in and out of reality, respecting only perfectly timed strikes.",
       "traits": [
-        "Wink into view as (ħ^{k}); the exponent flashes bright red exactly when they are tangible, revealing the active (10^{k}) reservoir.",
+        "Wink into view as (\u0127^{k}); the exponent flashes bright red exactly when they are tangible, revealing the active (10^{k}) reservoir.",
         "Phase according to (\\tau = 2\\pi / \\omega); missed beats reset the cycle and restore a slice of their health tier."
       ],
       "counter": "Coordinate rhythmic towers or metronome buffs to line up hits the instant the shade materializes.",
-      "lore": "They shed cold blue motes—quantized echoes of every missed opportunity.",
+      "lore": "They shed cold blue motes\u2014quantized echoes of every missed opportunity.",
       "formula": "(\\tau = 2\\pi / \\omega)",
       "formulaLabel": "Quantum Cadence"
     },
     {
       "id": "null-husk",
-      "symbol": "∅",
+      "symbol": "\u2205",
       "name": "Null Husk",
       "summary": "Empty-set shells that ignore your lanes until provoked, then redistribute their absence as lethal mass.",
       "traits": [
-        "Appear dormant as (∅^{k}); striking them ignites the exponent, signalling the (10^{k}) payload about to spill outward.",
-        "Upon collapse, transfer health (\\Delta H = \\gamma H_{∅}) evenly to nearby allies unless contained in a void field."
+        "Appear dormant as (\u2205^{k}); striking them ignites the exponent, signalling the (10^{k}) payload about to spill outward.",
+        "Upon collapse, transfer health (\\Delta H = \\gamma H_{\u2205}) evenly to nearby allies unless contained in a void field."
       ],
       "counter": "Ping them with sacrificial shots to control when and where the redistributed mass lands.",
       "lore": "Their translucent powderfall leaves outlines of nothing, framing the foes that absorbed their loss.",
-      "formula": "(\\Delta H = \\gamma H_{∅})",
+      "formula": "(\\Delta H = \\gamma H_{\u2205})",
       "formulaLabel": "Absence Transfer"
     },
     {
       "id": "imaginary-strider",
-      "symbol": "ℑ",
+      "symbol": "\u2111",
       "name": "Imaginary Strider",
       "summary": "Phase-dancing invaders that stack evasion whenever damage arrives out of phase with their complex stride.",
       "traits": [
-        "Stride as (ℑ^{k}); each alternating damage type reduces the glowing exponent, collapsing their complex facade.",
+        "Stride as (\u2111^{k}); each alternating damage type reduces the glowing exponent, collapsing their complex facade.",
         "Gain evasion stacks via (E_{new} = E_{old} + \\sigma \\sin(\\phi_{hit})), rewarding alternating real/imaginary damage inputs."
       ],
       "counter": "Alternate damage schools or use towers that naturally interleave phases to peel away their defenses.",
@@ -187,7 +187,7 @@
     },
     {
       "id": "combination-cohort",
-      "symbol": "ⁿCₖ",
+      "symbol": "\u207fC\u2096",
       "name": "Combination Cohort",
       "summary": "Squads bound by binomial ties that reshuffle total health every time a member collapses.",
       "traits": [
@@ -201,7 +201,7 @@
     },
     {
       "id": "polygon-splitter",
-      "symbol": "⬢",
+      "symbol": "\u2b22",
       "name": "Polygonal Splitter",
       "summary": "Recursive polygons that fracture into simpler shapes whenever they collapse.",
       "traits": [
@@ -215,7 +215,7 @@
     },
     {
       "id": "derivative-shield",
-      "symbol": "∂",
+      "symbol": "\u2202",
       "name": "Derivative Shield",
       "summary": "Calculus projectors that halve incoming damage for nearby allies and themselves.",
       "traits": [
@@ -230,56 +230,100 @@
   ],
   "maps": [
     {
+      "set": "Prologue",
+      "campaign": "Story",
+      "id": "Prologue - 1",
+      "title": "First Lattice",
+      "path": "A straight path\u2014the simplest proof.",
+      "focus": "Learn tower placement and basic defense.",
+      "example": "Tutorial: Place your first tower and defend the Mind Gate."
+    },
+    {
+      "set": "Prologue",
+      "campaign": "Story",
+      "id": "Prologue - 2",
+      "title": "Curved Path",
+      "path": "A gentle arc\u2014position matters.",
+      "focus": "Master tower positioning on curved paths.",
+      "example": "Tutorial: Adapt your strategy to curved enemy movement."
+    },
+    {
+      "set": "Prologue",
+      "campaign": "Story",
+      "id": "Prologue - 3",
+      "title": "Final Test",
+      "path": "A winding proof\u2014combine all techniques.",
+      "focus": "Demonstrate mastery of basic concepts.",
+      "example": "Tutorial: Complete your training to unlock the full game."
+    },
+    {
+      "set": "Prologue",
+      "campaign": "Story",
+      "id": "Prologue - Story",
+      "title": "The Beginning",
+      "path": "Read the story to continue.",
+      "focus": "Learn about the Tower of Inspiration.",
+      "example": "Story: Understand the origins of the Mind Gate.",
+      "isStoryLevel": true
+    },
+    {
       "set": "Conjecture",
       "id": "Conjecture - 1",
+      "campaign": "Story",
       "title": "Lemniscate Hypothesis",
-      "path": "∞ loop traced from r² = cos(2θ); mirrored spawn lanes cross twice.",
-      "focus": "Early E glyphs surge with divisor scouts—tempo control is vital.",
-      "example": "Goldbach’s Conjecture: Every even integer greater than 2 is the sum of two primes."
+      "path": "\u221e loop traced from r\u00b2 = cos(2\u03b8); mirrored spawn lanes cross twice.",
+      "focus": "Early E glyphs surge with divisor scouts\u2014tempo control is vital.",
+      "example": "Goldbach\u2019s Conjecture: Every even integer greater than 2 is the sum of two primes."
     },
     {
       "set": "Conjecture",
       "id": "Conjecture - 2",
+      "campaign": "Story",
       "title": "Collatz Cascade",
       "path": "Stepwise descent generated from the 3n + 1 map with teleport risers.",
       "focus": "Hit-count enemies appear on odd nodes; summon glyph soldiers to stall.",
-      "example": "Collatz Conjecture: Iterate n → n/2 or 3n + 1 and every positive integer reaches 1."
+      "example": "Collatz Conjecture: Iterate n \u2192 n/2 or 3n + 1 and every positive integer reaches 1."
     },
     {
       "set": "Conjecture",
       "id": "Conjecture - 3",
+      "campaign": "Story",
       "title": "Riemann Helix",
-      "path": "Logarithmic spiral with harmonic bulges keyed to ζ(s) zero estimates.",
-      "focus": "Divisor elites flank wave bosses—Ω previews excel at splash slows.",
-      "example": "Riemann Hypothesis: Every nontrivial zero of ζ(s) lies on the line Re(s) = 1/2."
+      "path": "Logarithmic spiral with harmonic bulges keyed to \u03b6(s) zero estimates.",
+      "focus": "Divisor elites flank wave bosses\u2014\u03a9 previews excel at splash slows.",
+      "example": "Riemann Hypothesis: Every nontrivial zero of \u03b6(s) lies on the line Re(s) = 1/2."
     },
     {
       "set": "Conjecture",
       "id": "Conjecture - 4",
+      "campaign": "Story",
       "title": "Twin Prime Fork",
       "path": "Dual lattice rails linked by prime gaps; enemies swap lanes unpredictably.",
-      "focus": "Prime counters demand rapid-fire towers—γ chaining resets their count.",
+      "focus": "Prime counters demand rapid-fire towers\u2014\u03b3 chaining resets their count.",
       "example": "Twin Prime Conjecture: Infinitely many primes p exist such that p + 2 is prime."
     },
     {
       "set": "Conjecture",
       "id": "Conjecture - 5",
+      "campaign": "Story",
       "title": "Birch Flow",
       "path": "Cardioid river influenced by elliptic curve rank gradients.",
-      "focus": "Reversal sentinels join late waves—δ soldiers can flip them to your side.",
+      "focus": "Reversal sentinels join late waves\u2014\u03b4 soldiers can flip them to your side.",
       "example": "Birch and Swinnerton-Dyer Conjecture: Rational points of elliptic curves link to L-series behavior."
     },
     {
       "set": "Conjecture",
       "id": "Conjecture - Secret",
+      "campaign": "Story",
       "title": "Apocrypha Loop",
       "path": "Hidden lemniscate mirrored through complex planes; portals bloom off-axis.",
-      "focus": "Only reveals during total glyph alignment—expect mixed archetypes in waves.",
+      "focus": "Only reveals during total glyph alignment\u2014expect mixed archetypes in waves.",
       "example": "Secret Lemma: When harmonic sums stabilize, an unseen proof thread emerges from the void."
     },
     {
       "set": "Level Set 2",
       "id": "level-06-trefoil",
+      "campaign": "Story",
       "title": "Trefoil",
       "path": "Three-lobed path with symmetry",
       "focus": "Three-lobed path with symmetry",
@@ -288,6 +332,7 @@
     {
       "set": "Level Set 2",
       "id": "level-07-rose-curve",
+      "campaign": "Story",
       "title": "Rose Curve",
       "path": "Petal pattern with multiple lobes",
       "focus": "Petal pattern with multiple lobes",
@@ -296,6 +341,7 @@
     {
       "set": "Level Set 2",
       "id": "level-08-astroid",
+      "campaign": "Story",
       "title": "Astroid",
       "path": "Four-cusped hypocycloid path",
       "focus": "Four-cusped hypocycloid path",
@@ -304,6 +350,7 @@
     {
       "set": "Level Set 2",
       "id": "level-09-deltoid",
+      "campaign": "Story",
       "title": "Deltoid",
       "path": "Three-cusped curve with sharp turns",
       "focus": "Three-cusped curve with sharp turns",
@@ -312,6 +359,7 @@
     {
       "set": "Level Set 2",
       "id": "level-10-nephroid",
+      "campaign": "Story",
       "title": "Nephroid",
       "path": "Kidney-shaped path with double focus",
       "focus": "Kidney-shaped path with double focus",
@@ -320,13 +368,15 @@
     {
       "set": "Corollary",
       "id": "Corollary - Secret",
+      "campaign": "Story",
       "title": "Shadow Integral",
       "path": "Phase-shifted archipelago of calculus islands hidden beneath modular petals.",
-      "focus": "Resource siphons and reversal elites stack together—prepare universal counters.",
+      "focus": "Resource siphons and reversal elites stack together\u2014prepare universal counters.",
       "example": "Secret Corollary: The boundary integral of concealed paths equals interior flux you never saw."
     },
     {
       "set": "Level Set 3",
+      "campaign": "Story",
       "id": "level-11-lissajous",
       "title": "Lissajous",
       "path": "Parametric curve with harmonic oscillation",
@@ -335,6 +385,7 @@
     },
     {
       "set": "Level Set 3",
+      "campaign": "Story",
       "id": "level-12-epicycloid",
       "title": "Epicycloid",
       "path": "Rolling circle traced path",
@@ -343,6 +394,7 @@
     },
     {
       "set": "Level Set 3",
+      "campaign": "Story",
       "id": "level-13-hypocycloid",
       "title": "Hypocycloid",
       "path": "Inner rolling circle path",
@@ -351,6 +403,7 @@
     },
     {
       "set": "Level Set 3",
+      "campaign": "Story",
       "id": "level-14-rhodonea",
       "title": "Rhodonea",
       "path": "Rose curve with prime petals",
@@ -359,6 +412,7 @@
     },
     {
       "set": "Level Set 3",
+      "campaign": "Story",
       "id": "level-15-butterfly",
       "title": "Butterfly",
       "path": "Transcendental butterfly curve",
@@ -371,7 +425,8 @@
       "title": "Double Spiral",
       "path": "Dual spirals converging to center",
       "focus": "Dual spirals converging to center",
-      "example": "Dual spirals converging to center"
+      "example": "Dual spirals converging to center",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 4",
@@ -379,7 +434,8 @@
       "title": "Conchoid",
       "path": "Shell-like curved path",
       "focus": "Shell-like curved path",
-      "example": "Shell-like curved path"
+      "example": "Shell-like curved path",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 4",
@@ -387,7 +443,8 @@
       "title": "Cissoid",
       "path": "Ivy-leaf shaped curve",
       "focus": "Ivy-leaf shaped curve",
-      "example": "Ivy-leaf shaped curve"
+      "example": "Ivy-leaf shaped curve",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 4",
@@ -395,7 +452,8 @@
       "title": "Trisectrix",
       "path": "Angle trisection curve",
       "focus": "Angle trisection curve",
-      "example": "Angle trisection curve"
+      "example": "Angle trisection curve",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 4",
@@ -403,7 +461,8 @@
       "title": "Witch of Agnesi",
       "path": "Bell-shaped versiera curve",
       "focus": "Bell-shaped versiera curve",
-      "example": "Bell-shaped versiera curve"
+      "example": "Bell-shaped versiera curve",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 5",
@@ -411,7 +470,8 @@
       "title": "Serpentine",
       "path": "Snake-like oscillating path",
       "focus": "Snake-like oscillating path",
-      "example": "Snake-like oscillating path"
+      "example": "Snake-like oscillating path",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 5",
@@ -419,7 +479,8 @@
       "title": "Kampyle",
       "path": "Curved euthymia path",
       "focus": "Curved euthymia path",
-      "example": "Curved euthymia path"
+      "example": "Curved euthymia path",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 5",
@@ -427,7 +488,8 @@
       "title": "Folium",
       "path": "Descartes folium with loop",
       "focus": "Descartes folium with loop",
-      "example": "Descartes folium with loop"
+      "example": "Descartes folium with loop",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 5",
@@ -435,7 +497,8 @@
       "title": "Strophoid",
       "path": "Twisted loop path",
       "focus": "Twisted loop path",
-      "example": "Twisted loop path"
+      "example": "Twisted loop path",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 5",
@@ -443,7 +506,8 @@
       "title": "Cochleoid",
       "path": "Spiral shell curve",
       "focus": "Spiral shell curve",
-      "example": "Spiral shell curve"
+      "example": "Spiral shell curve",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 6",
@@ -451,7 +515,8 @@
       "title": "Tractrix",
       "path": "Pursuit curve path",
       "focus": "Pursuit curve path",
-      "example": "Pursuit curve path"
+      "example": "Pursuit curve path",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 6",
@@ -459,7 +524,8 @@
       "title": "Catenary",
       "path": "Hanging chain curve",
       "focus": "Hanging chain curve",
-      "example": "Hanging chain curve"
+      "example": "Hanging chain curve",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 6",
@@ -467,7 +533,8 @@
       "title": "Cycloid",
       "path": "Rolling wheel traced path",
       "focus": "Rolling wheel traced path",
-      "example": "Rolling wheel traced path"
+      "example": "Rolling wheel traced path",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 6",
@@ -475,7 +542,8 @@
       "title": "Involute",
       "path": "Unwrapping string curve",
       "focus": "Unwrapping string curve",
-      "example": "Unwrapping string curve"
+      "example": "Unwrapping string curve",
+      "campaign": "Story"
     },
     {
       "set": "Level Set 6",
@@ -483,13 +551,123 @@
       "title": "Evolute",
       "path": "Center of curvature path",
       "focus": "Center of curvature path",
-      "example": "Center of curvature path"
+      "example": "Center of curvature path",
+      "campaign": "Story"
+    },
+    {
+      "set": "Ladder 1",
+      "id": "Ladder-1-1",
+      "campaign": "Ladder",
+      "title": "Ladder Set 1 - First Challenge",
+      "path": "Competitive tier challenges.",
+      "focus": "Prove your mastery.",
+      "example": "Ladder 1: Test your tactical prowess."
+    },
+    {
+      "set": "Ladder 2",
+      "id": "Ladder-2-1",
+      "campaign": "Ladder",
+      "title": "Ladder Set 2 - First Challenge",
+      "path": "Competitive tier challenges.",
+      "focus": "Prove your mastery.",
+      "example": "Ladder 2: Test your tactical prowess."
+    },
+    {
+      "set": "Ladder 3",
+      "id": "Ladder-3-1",
+      "campaign": "Ladder",
+      "title": "Ladder Set 3 - First Challenge",
+      "path": "Competitive tier challenges.",
+      "focus": "Prove your mastery.",
+      "example": "Ladder 3: Test your tactical prowess."
+    },
+    {
+      "set": "Ladder 4",
+      "id": "Ladder-4-1",
+      "campaign": "Ladder",
+      "title": "Ladder Set 4 - First Challenge",
+      "path": "Competitive tier challenges.",
+      "focus": "Prove your mastery.",
+      "example": "Ladder 4: Test your tactical prowess."
+    },
+    {
+      "set": "Ladder 5",
+      "id": "Ladder-5-1",
+      "campaign": "Ladder",
+      "title": "Ladder Set 5 - First Challenge",
+      "path": "Competitive tier challenges.",
+      "focus": "Prove your mastery.",
+      "example": "Ladder 5: Test your tactical prowess."
+    },
+    {
+      "set": "Ladder 6",
+      "id": "Ladder-6-1",
+      "campaign": "Ladder",
+      "title": "Ladder Set 6 - First Challenge",
+      "path": "Competitive tier challenges.",
+      "focus": "Prove your mastery.",
+      "example": "Ladder 6: Test your tactical prowess."
+    },
+    {
+      "set": "Challenge Set 1",
+      "id": "Challenge-1-1",
+      "campaign": "Challenges",
+      "title": "Endurance Trial I",
+      "path": "Extended wave sequences.",
+      "focus": "Test sustained defense.",
+      "example": "Challenge 1: Survive escalating waves."
+    },
+    {
+      "set": "Challenge Set 1",
+      "id": "Challenge-1-2",
+      "campaign": "Challenges",
+      "title": "Endurance Trial II",
+      "path": "Extended wave sequences.",
+      "focus": "Test sustained defense.",
+      "example": "Challenge 1: Survive escalating waves."
+    },
+    {
+      "set": "Challenge Set 1",
+      "id": "Challenge-1-3",
+      "campaign": "Challenges",
+      "title": "Endurance Trial III",
+      "path": "Extended wave sequences.",
+      "focus": "Test sustained defense.",
+      "example": "Challenge 1: Survive escalating waves."
+    },
+    {
+      "set": "Challenge Set 2",
+      "id": "Challenge-2-1",
+      "campaign": "Challenges",
+      "title": "Speed Run I",
+      "path": "Race against time.",
+      "focus": "Quick elimination required.",
+      "example": "Challenge 2: Clear waves rapidly."
+    },
+    {
+      "set": "Challenge Set 2",
+      "id": "Challenge-2-2",
+      "campaign": "Challenges",
+      "title": "Speed Run II",
+      "path": "Race against time.",
+      "focus": "Quick elimination required.",
+      "example": "Challenge 2: Clear waves rapidly."
+    },
+    {
+      "set": "Challenge Set 2",
+      "id": "Challenge-2-3",
+      "campaign": "Challenges",
+      "title": "Speed Run III",
+      "path": "Race against time.",
+      "focus": "Quick elimination required.",
+      "example": "Challenge 2: Clear waves rapidly."
     },
     {
       "set": "Developer",
+      "campaign": "Ladder",
       "id": "Developer - Test Range",
       "title": "Endless Codex Trials",
-      "path": "Developer-only training lattice—direct path reveals every glyph as it approaches.",
+      "path": "Developer-only training lattice\u2014direct path reveals every glyph as it approaches.",
       "focus": "Spawn one exemplar of every enemy archetype to validate balancing and visuals.",
       "example": "Developer Sandbox: Toggle endless codex trials to rehearse each glyph in slow motion.",
       "developerOnly": true,
@@ -497,6 +675,279 @@
     }
   ],
   "levels": [
+    {
+      "id": "Prologue - 1",
+      "displayName": "First Lattice",
+      "startThero": 50,
+      "theroCap": 200,
+      "theroPerKill": 5,
+      "passiveTheroPerSecond": 2,
+      "lives": 20,
+      "waves": [
+        {
+          "label": "first glyphs",
+          "count": 3,
+          "interval": 2.0,
+          "hp": 50,
+          "speed": 0.08,
+          "reward": 5,
+          "color": "rgba(180, 232, 255, 0.88)",
+          "codexId": "etype"
+        },
+        {
+          "label": "practice wave",
+          "count": 4,
+          "interval": 1.8,
+          "hp": 80,
+          "speed": 0.09,
+          "reward": 8,
+          "color": "rgba(180, 232, 255, 0.88)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 1e+20,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.25,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.5
+        },
+        {
+          "x": 0.3,
+          "y": 0.5
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.7,
+          "y": 0.5
+        },
+        {
+          "x": 0.9,
+          "y": 0.5
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.3,
+          "y": 0.3
+        },
+        {
+          "x": 0.7,
+          "y": 0.3
+        }
+      ]
+    },
+    {
+      "id": "Prologue - 2",
+      "displayName": "Curved Path",
+      "startThero": 80,
+      "theroCap": 300,
+      "theroPerKill": 8,
+      "passiveTheroPerSecond": 3,
+      "lives": 15,
+      "waves": [
+        {
+          "label": "curved scouts",
+          "count": 5,
+          "interval": 1.5,
+          "hp": 100,
+          "speed": 0.09,
+          "reward": 8,
+          "color": "rgba(180, 232, 255, 0.88)",
+          "codexId": "etype"
+        },
+        {
+          "label": "arc runners",
+          "count": 6,
+          "interval": 1.4,
+          "hp": 150,
+          "speed": 0.1,
+          "reward": 12,
+          "color": "rgba(180, 232, 255, 0.88)",
+          "codexId": "etype"
+        },
+        {
+          "label": "mixed wave",
+          "count": 4,
+          "interval": 1.3,
+          "hp": 200,
+          "speed": 0.11,
+          "reward": 15,
+          "color": "rgba(255, 180, 240, 0.9)",
+          "codexId": "divisor"
+        }
+      ],
+      "rewardScore": 5e+20,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.22,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.3
+        },
+        {
+          "x": 0.3,
+          "y": 0.2
+        },
+        {
+          "x": 0.5,
+          "y": 0.3
+        },
+        {
+          "x": 0.7,
+          "y": 0.5
+        },
+        {
+          "x": 0.8,
+          "y": 0.7
+        },
+        {
+          "x": 0.9,
+          "y": 0.8
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.3,
+          "y": 0.4
+        },
+        {
+          "x": 0.6,
+          "y": 0.35
+        }
+      ]
+    },
+    {
+      "id": "Prologue - 3",
+      "displayName": "Final Test",
+      "startThero": 100,
+      "theroCap": 400,
+      "theroPerKill": 10,
+      "passiveTheroPerSecond": 4,
+      "lives": 12,
+      "waves": [
+        {
+          "label": "test scouts",
+          "count": 6,
+          "interval": 1.5,
+          "hp": 200,
+          "speed": 0.1,
+          "reward": 10,
+          "color": "rgba(180, 232, 255, 0.88)",
+          "codexId": "etype"
+        },
+        {
+          "label": "mid challenge",
+          "count": 5,
+          "interval": 1.4,
+          "hp": 250,
+          "speed": 0.11,
+          "reward": 15,
+          "color": "rgba(255, 180, 240, 0.9)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "combined assault",
+          "count": 7,
+          "interval": 1.3,
+          "hp": 300,
+          "speed": 0.12,
+          "reward": 18,
+          "color": "rgba(255, 180, 240, 0.9)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "final wave",
+          "count": 8,
+          "interval": 1.2,
+          "hp": 350,
+          "speed": 0.13,
+          "reward": 20,
+          "color": "rgba(255, 204, 160, 0.92)",
+          "codexId": "prime"
+        }
+      ],
+      "rewardScore": 1e+21,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.22,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.2
+        },
+        {
+          "x": 0.2,
+          "y": 0.4
+        },
+        {
+          "x": 0.4,
+          "y": 0.5
+        },
+        {
+          "x": 0.5,
+          "y": 0.3
+        },
+        {
+          "x": 0.6,
+          "y": 0.5
+        },
+        {
+          "x": 0.7,
+          "y": 0.7
+        },
+        {
+          "x": 0.85,
+          "y": 0.8
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.25,
+          "y": 0.45
+        },
+        {
+          "x": 0.55,
+          "y": 0.4
+        }
+      ]
+    },
+    {
+      "id": "Prologue - Story",
+      "displayName": "The Beginning",
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 1,
+      "waves": [],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.25,
+      "isStoryLevel": true,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.5
+        },
+        {
+          "x": 0.9,
+          "y": 0.5
+        }
+      ],
+      "autoAnchors": []
+    },
     {
       "id": "Conjecture - 1",
       "displayName": "Lemniscate Hypothesis",
@@ -551,7 +1002,7 @@
             "speed": 0.02,
             "reward": 120,
             "color": "rgba(200, 236, 255, 0.95)",
-            "symbol": "Α"
+            "symbol": "\u0391"
           }
         }
       ],
@@ -743,7 +1194,7 @@
       "lives": 100,
       "waves": [
         {
-          "label": "ζ scouts",
+          "label": "\u03b6 scouts",
           "count": 8,
           "interval": 1.4,
           "hp": 150,

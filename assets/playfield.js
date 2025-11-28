@@ -50,7 +50,7 @@ import { notifyTowerPlaced } from './achievementsTab.js';
 import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import { formatCombatNumber } from './playfield/utils/formatting.js';
 import { easeInCubic, easeOutCubic } from './playfield/utils/math.js';
-import { areDamageNumbersEnabled } from './preferences.js';
+import { areDamageNumbersEnabled, getFrameRateLimit, updateFpsCounter } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
 import {
   PLAYFIELD_VIEW_DRAG_THRESHOLD,
@@ -107,6 +107,7 @@ import {
   updateNuBursts as updateNuBurstsHelper,
   teardownNuTower as teardownNuTowerHelper,
   clearNuCachedDimensions as clearNuCachedDimensionsHelper,
+  applyNuPiercingDamage as applyNuPiercingDamageHelper,
 } from '../scripts/features/towers/nuTower.js';
 import {
   ensureXiState as ensureXiStateHelper,
@@ -636,7 +637,7 @@ export class SimplePlayfield {
   }
 
   spawnDamageNumber(enemy, damage, { sourceTower, enemyHpBefore } = {}) {
-    if (!this.areDamageNumbersActive() || !enemy || !Number.isFinite(damage) || damage <= 0) {
+    if (!this.areDamageNumbersActive() || !enemy || !Number.isFinite(damage) || damage < 0) {
       return;
     }
     const enemyPosition = this.getEnemyPosition(enemy);
@@ -2192,6 +2193,14 @@ export class SimplePlayfield {
       return;
     }
 
+    // Frame rate limiting: skip frames if running faster than the configured limit.
+    const frameRateLimit = getFrameRateLimit();
+    const minFrameTime = 1000 / frameRateLimit;
+    if (this.lastTimestamp && timestamp - this.lastTimestamp < minFrameTime) {
+      this.animationId = requestAnimationFrame((nextTimestamp) => this.tick(nextTimestamp));
+      return;
+    }
+
     const delta = this.lastTimestamp ? (timestamp - this.lastTimestamp) / 1000 : 0;
     this.lastTimestamp = timestamp;
 
@@ -2214,6 +2223,9 @@ export class SimplePlayfield {
     } finally {
       endPerformanceFrame();
     }
+
+    // Update the FPS counter after the frame completes.
+    updateFpsCounter(timestamp);
 
     this.animationId = requestAnimationFrame((nextTimestamp) => this.tick(nextTimestamp));
   }
@@ -8213,6 +8225,32 @@ export class SimplePlayfield {
     if (!enemy) {
       return;
     }
+    // Nu tower uses a piercing laser that damages all enemies along the beam path
+    if (tower.type === 'nu') {
+      const start = { x: tower.x, y: tower.y };
+      // Calculate the direction from tower to target
+      const dx = attackPosition.x - tower.x;
+      const dy = attackPosition.y - tower.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance > 0) {
+        // Extend the beam to the tower's range (or beyond target if target is closer)
+        const rangePixels = Number.isFinite(tower.range) ? tower.range : 200;
+        const beamLength = Math.max(distance, rangePixels);
+        const dirX = dx / distance;
+        const dirY = dy / distance;
+        const end = {
+          x: tower.x + dirX * beamLength,
+          y: tower.y + dirY * beamLength,
+        };
+        // Apply piercing damage to all enemies along the beam
+        applyNuPiercingDamageHelper(this, tower, start, end, damage);
+      } else {
+        // Fallback: if target is at tower position, just damage the target
+        this.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
+      }
+      this.emitTowerAttackVisuals(tower, { enemy, position: attackPosition });
+      return;
+    }
     this.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
     this.emitTowerAttackVisuals(tower, { enemy, position: attackPosition });
   }
@@ -9769,10 +9807,16 @@ export class SimplePlayfield {
     return CanvasRenderer.drawChiLightTrails.call(this);
   }
 
-  setDeveloperPathMarkers(markers) {
+  setDeveloperPathMarkers(markers, options = {}) {
     if (!Array.isArray(markers)) {
       this.developerPathMarkers = [];
+      this.developerMapSpeedMultiplier = null;
       return;
+    }
+
+    // Store the map speed multiplier for display on the canvas
+    if (Number.isFinite(options.mapSpeedMultiplier)) {
+      this.developerMapSpeedMultiplier = options.mapSpeedMultiplier;
     }
 
     this.developerPathMarkers = markers
@@ -9785,6 +9829,7 @@ export class SimplePlayfield {
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
           return null;
         }
+        const speedMultiplier = Number.isFinite(marker.speedMultiplier) ? marker.speedMultiplier : 1;
         return {
           x,
           y,
@@ -9793,6 +9838,7 @@ export class SimplePlayfield {
               ? marker.label
               : index + 1,
           active: Boolean(marker.active),
+          speedMultiplier,
         };
       })
       .filter(Boolean);

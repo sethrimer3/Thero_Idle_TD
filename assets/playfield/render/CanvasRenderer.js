@@ -924,13 +924,33 @@ function drawChiLightTrails() {
   drawChiLightTrailsHelper(this);
 }
 
+function drawDeveloperMapSpeedLabel(ctx, mapSpeedMultiplier, renderWidth) {
+  if (!ctx || !Number.isFinite(mapSpeedMultiplier)) {
+    return;
+  }
+  ctx.save();
+  ctx.font = 'bold 14px "Cormorant Garamond", serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(139, 247, 255, 0.85)';
+  const speedText = `Map Speed: ×${mapSpeedMultiplier.toFixed(2)}`;
+  ctx.fillText(speedText, renderWidth / 2, 12);
+  ctx.restore();
+}
+
 function drawDeveloperPathMarkers() {
   if (!this.ctx || !Array.isArray(this.developerPathMarkers) || !this.developerPathMarkers.length) {
+    // Still draw the map speed if developer tools are active even without markers
+    drawDeveloperMapSpeedLabel(this.ctx, this.developerMapSpeedMultiplier, this.renderWidth);
     return;
   }
 
   const ctx = this.ctx;
   ctx.save();
+
+  // Draw map speed multiplier at the top of the playfield
+  drawDeveloperMapSpeedLabel(ctx, this.developerMapSpeedMultiplier, this.renderWidth);
+
   ctx.font = '12px "Cormorant Garamond", serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -956,6 +976,20 @@ function drawDeveloperPathMarkers() {
     if (label !== undefined && label !== null) {
       ctx.fillStyle = 'rgba(139, 247, 255, 0.9)';
       ctx.fillText(String(label), marker.x, marker.y);
+    }
+
+    // Draw speed multiplier under the marker if it's not the default value (1)
+    const speedMultiplier = Number.isFinite(marker.speedMultiplier) ? marker.speedMultiplier : 1;
+    if (speedMultiplier !== 1) {
+      this.clearCanvasShadow(ctx);
+      ctx.font = '9px "Cormorant Garamond", serif';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = 'rgba(255, 200, 100, 0.85)';
+      const speedLabel = `×${speedMultiplier.toFixed(2)}`;
+      ctx.fillText(speedLabel, marker.x, marker.y + radius + 3);
+      // Restore font for next marker
+      ctx.font = '12px "Cormorant Garamond", serif';
+      ctx.textBaseline = 'middle';
     }
   });
 

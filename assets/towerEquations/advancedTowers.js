@@ -548,41 +548,49 @@ export const mu = {
 
 export const nu = {
   mathSymbol: String.raw`\nu`,
-  baseEquation: String.raw`\( \nu = \gamma + \text{OKdmg}_{\text{tot}} \)`,
+  baseEquation: String.raw`\( \nu = \mu \times (\text{kills} + 1)^{\ln\left(\frac{\text{dmgtot}}{1000 / \text{Lamed}_{1}}\right)} \)`,
   variables: [
     {
-      key: 'gamma',
-      symbol: 'γ',
-      masterEquationSymbol: 'Gam',
-      name: 'Gamma Power',
-      description: 'Base power sourced from γ tower upgrades.',
-      reference: 'gamma',
+      key: 'mu',
+      symbol: 'μ',
+      masterEquationSymbol: 'Mu',
+      name: 'Attack',
+      description: 'Base attack sourced from μ tower upgrades.',
+      reference: 'mu',
       upgradable: false,
-      lockedNote: 'Upgrade γ to increase ν base power.',
+      lockedNote: 'Upgrade μ to increase ν base attack.',
       format: (value) => formatDecimal(value, 2),
       getSubEquations({ blueprint, towerId, value }) {
         const helpers = ctx();
         const effectiveBlueprint = blueprint || helpers.getTowerEquationBlueprint?.(towerId) || null;
-        const gammaValue = Math.max(0, Number.isFinite(value) ? value : 0);
-        const overkillRaw = helpers.computeTowerVariableValue?.(towerId, 'overkillTotal', effectiveBlueprint);
-        const overkill = Number.isFinite(overkillRaw) ? Math.max(0, overkillRaw) : 0;
-        const attack = gammaValue + overkill;
+        const muValue = Math.max(0, Number.isFinite(value) ? value : 0);
+        const totalDamageRaw = helpers.computeTowerVariableValue?.(towerId, 'damageTotal', effectiveBlueprint);
+        const damageTotal = Number.isFinite(totalDamageRaw) ? Math.max(0, totalDamageRaw) : 0;
+        const killsRaw = helpers.computeTowerVariableValue?.(towerId, 'kills', effectiveBlueprint);
+        const kills = Number.isFinite(killsRaw) ? Math.max(0, killsRaw) : 0;
+        const lamed1Raw = helpers.computeTowerVariableValue?.('pi', 'lamed1', helpers.getTowerEquationBlueprint?.('pi'));
+        const lamed1 = Math.max(1, Number.isFinite(lamed1Raw) ? lamed1Raw : 1);
+        const killsPlusOne = 1 + kills;
+        const exponentBase = damageTotal / (1000 / lamed1);
+        const exponent = Math.log(Math.max(exponentBase, 1e-6));
+        const attackRaw = muValue * Math.pow(killsPlusOne, exponent);
+        const attack = Number.isFinite(attackRaw) ? attackRaw : 0;
         return [
-          { expression: String.raw`\( atk = \gamma + \text{OKdmg}_{\text{tot}} \)` },
+          { expression: String.raw`\( atk = \mu \times (\text{kills} + 1)^{\ln\left(\frac{\text{dmgtot}}{1000 / \text{Lamed}_{1}}\right)} \)` },
           {
-            values: String.raw`\( ${formatGameNumber(attack)} = ${formatGameNumber(gammaValue)} + ${formatGameNumber(overkill)} \)`,
+            values: String.raw`\( ${formatGameNumber(attack)} = ${formatGameNumber(muValue)} \times (${formatWholeNumber(killsPlusOne)}^{\ln(${formatDecimal(exponentBase, 2)})}) \)`,
             variant: 'values',
           },
         ];
       },
     },
     {
-      key: 'overkillTotal',
-      symbol: 'OKdmg',
-      equationSymbol: String.raw`\text{OKdmg}_{\text{tot}}`,
-      masterEquationSymbol: 'Ovr',
-      name: 'Overkill Total',
-      description: 'Accumulated overkill damage from all kills.',
+      key: 'damageTotal',
+      symbol: 'dmgtot',
+      equationSymbol: String.raw`\text{dmgtot}`,
+      masterEquationSymbol: 'Dmg',
+      name: 'Total Damage',
+      description: 'Accumulated damage dealt (including overkill).',
       baseValue: 0,
       upgradable: false,
       format: (value) => formatDecimal(value, 2),
@@ -596,9 +604,9 @@ export const nu = {
           ? Math.max(0, dynamicContext.stats.nuKills)
           : 0;
         return [
-          { expression: String.raw`\( \text{OKdmg}_{\text{tot}} = \sum (\text{dmg}_{\text{final}} - \text{hp}_{\text{remaining}}) \)` },
+          { expression: String.raw`\( \text{dmgtot} = \sum (\text{dmg}_{\text{final}} - \text{hp}_{\text{remaining}}) \)` },
           {
-            values: String.raw`\( ${formatDecimal(tracked, 2)} = \text{Overkill across } ${formatWholeNumber(kills)} \text{ kills} \)`,
+            values: String.raw`\( ${formatDecimal(tracked, 2)} = \text{Damage across } ${formatWholeNumber(kills)} \text{ kills} \)`,
             variant: 'values',
           },
         ];
@@ -630,6 +638,34 @@ export const nu = {
       },
     },
     {
+      key: 'lamed1',
+      symbol: 'ל₁',
+      equationSymbol: String.raw`\text{Lamed}_{1}`,
+      masterEquationSymbol: 'Las',
+      name: 'Lamed₁ Beam Limit',
+      description: 'Pulls beam cap strength from π to amplify ν exponent growth.',
+      reference: 'pi',
+      upgradable: false,
+      lockedNote: 'Upgrade π (Lamed₁) to boost ν logarithmic scaling.',
+      format: (value) => formatWholeNumber(Math.max(1, value || 1)),
+      computeValue() {
+        const helpers = ctx();
+        const piBlueprint = helpers.getTowerEquationBlueprint?.('pi');
+        const lamed1Raw = helpers.computeTowerVariableValue?.('pi', 'lamed1', piBlueprint);
+        return Math.max(1, Number.isFinite(lamed1Raw) ? lamed1Raw : 1);
+      },
+      getSubEquations({ value }) {
+        const lamed1 = Math.max(1, Number.isFinite(value) ? value : 1);
+        return [
+          { expression: String.raw`\( \text{Lamed}_{1} = \max(1, \pi_{\text{Lamed}_{1}}) \)` },
+          {
+            values: String.raw`\( ${formatWholeNumber(lamed1)} = \max(1, \pi_{\text{Lamed}_{1}}) \)`,
+            variant: 'values',
+          },
+        ];
+      },
+    },
+    {
       key: 'attackSpeed',
       symbol: 'spd',
       equationSymbol: String.raw`\text{spd}`,
@@ -653,7 +689,7 @@ export const nu = {
         return [
           { expression: String.raw`\( \text{spd} = 1 + 0.1 \times \text{kills} \)` },
           {
-            values: String.raw`\( ${formatDecimal(speed, 2)} = 1 + 0.1 \times ${formatWholeNumber(kills)} \)`,
+            values: String.raw`\( ${formatDecimal(speed, 2)} = 1 + 0.1 \times ${formatWholeNumber(kills)} \)` ,
             variant: 'values',
           },
         ];
@@ -661,8 +697,8 @@ export const nu = {
     },
     {
       key: 'rangeMeters',
-      symbol: 'spd',
-      equationSymbol: String.raw`\text{spd}`,
+      symbol: 'rng',
+      equationSymbol: String.raw`\text{rng}`,
       masterEquationSymbol: 'Rng',
       name: 'Range (m)',
       description: 'Beam reach in meters scaling with kills.',
@@ -683,7 +719,7 @@ export const nu = {
         return [
           { expression: String.raw`\( \text{rng} = 3 + 0.05 \times \text{kills} \)` },
           {
-            values: String.raw`\( ${formatDecimal(rangeMeters, 2)} = 3 + 0.05 \times ${formatWholeNumber(kills)} \)`,
+            values: String.raw`\( ${formatDecimal(rangeMeters, 2)} = 3 + 0.05 \times ${formatWholeNumber(kills)} \)` ,
             variant: 'values',
           },
         ];
@@ -691,17 +727,29 @@ export const nu = {
     },
   ],
   computeResult(values) {
-    const gammaValue = Math.max(0, Number.isFinite(values.gamma) ? values.gamma : 0);
-    const overkill = Math.max(0, Number.isFinite(values.overkillTotal) ? values.overkillTotal : 0);
-    return gammaValue + overkill;
+    const muAttack = Math.max(0, Number.isFinite(values.mu) ? values.mu : 0);
+    const damageTotal = Math.max(0, Number.isFinite(values.damageTotal) ? values.damageTotal : 0);
+    const kills = Math.max(0, Number.isFinite(values.kills) ? values.kills : 0);
+    const lamed1 = Math.max(1, Number.isFinite(values.lamed1) ? values.lamed1 : 1);
+    const killsPlusOne = 1 + kills;
+    const exponentInput = damageTotal / (1000 / lamed1);
+    // Prevent log(0) and keep exponent finite for stable damage growth.
+    const exponent = Math.log(Math.max(exponentInput, 1e-6));
+    const attackRaw = muAttack * Math.pow(killsPlusOne, exponent);
+    const attack = Number.isFinite(attackRaw) ? attackRaw : 0;
+    return attack;
   },
   formatBaseEquationValues({ values, result, formatComponent }) {
-    const gammaValue = Math.max(0, Number.isFinite(values.gamma) ? values.gamma : 0);
-    const overkill = Math.max(0, Number.isFinite(values.overkillTotal) ? values.overkillTotal : 0);
-    return `${formatComponent(result)} = ${formatComponent(gammaValue)} + ${formatComponent(overkill)}`;
+    const muAttack = Math.max(0, Number.isFinite(values.mu) ? values.mu : 0);
+    const damageTotal = Math.max(0, Number.isFinite(values.damageTotal) ? values.damageTotal : 0);
+    const kills = Math.max(0, Number.isFinite(values.kills) ? values.kills : 0);
+    const lamed1 = Math.max(1, Number.isFinite(values.lamed1) ? values.lamed1 : 1);
+    const exponentInput = damageTotal / (1000 / lamed1);
+    const exponent = Math.log(Math.max(exponentInput, 1e-6));
+    const killsPlusOne = 1 + kills;
+    return `${formatComponent(result)} = ${formatComponent(muAttack)} × (${formatComponent(killsPlusOne)}^{${formatDecimal(exponent, 3)}})`;
   },
 };
-
 export const xi = {
   mathSymbol: String.raw`\xi`,
   baseEquation: String.raw`\( \xi = \nu \times (\text{numChain}^{\text{numChnExp}}) \)`,
@@ -1094,168 +1142,183 @@ export const omicron = {
   },
 };
 
+/**
+ * π tower blueprint - Rotational Beam Lock-On System
+ *
+ * Mechanics:
+ * - Locks onto enemies within range with individual beam lasers
+ * - Each beam tracks its own rotation angle from initial lock-on point
+ * - Damage increases based on how much each beam has rotated around the tower
+ * - Visual intensity and color scale with rotation degrees
+ *
+ * Formulas:
+ * - atk = omicron^(|degrees|/(100-Bet₁)) per laser, where degrees is the rotation from initial angle
+ * - numLaser = 2 + Lamed₁ (max beams that can lock onto enemies)
+ * - rng = 4m (fixed base range, uses omicron reference for damage base)
+ */
 export const pi = {
   mathSymbol: String.raw`\pi`,
-  baseEquation: String.raw`\( \pi = \gamma^{\text{mrg}} \)`,
+  baseEquation: String.raw`\( \pi = \omicron^{|\theta| / (100 - \text{Bet}_{1})} \)`,
   variables: [
     {
-      key: 'gamma',
-      symbol: 'γ',
-      masterEquationSymbol: 'Gam',
-      name: 'Gamma Power',
-      description: 'Base power sourced from γ tower upgrades.',
-      reference: 'gamma',
+      key: 'omicron',
+      symbol: 'ο',
+      masterEquationSymbol: 'Omi',
+      name: 'Omicron Power',
+      description: 'Base power sourced from ο tower upgrades. Powers the exponential beam damage.',
+      reference: 'omicron',
       upgradable: false,
-      lockedNote: 'Upgrade γ to increase π base power.',
+      lockedNote: 'Upgrade ο to increase π beam power.',
       format: (value) => formatDecimal(value, 2),
       getSubEquations({ blueprint, towerId, value }) {
         const helpers = ctx();
         const effectiveBlueprint = blueprint || helpers.getTowerEquationBlueprint?.(towerId) || null;
-        const gammaValue = Math.max(1, Number.isFinite(value) ? value : 1);
-        const mergesRaw = helpers.computeTowerVariableValue?.(towerId, 'mergeCount', effectiveBlueprint);
-        const merges = Math.min(50, Math.max(0, Number.isFinite(mergesRaw) ? mergesRaw : 0));
-        const attackRaw = Math.pow(gammaValue, merges);
+        const omicronValue = Math.max(1, Number.isFinite(value) ? value : 1);
+        const bet1Raw = helpers.computeTowerVariableValue?.(towerId, 'bet1', effectiveBlueprint);
+        const bet1 = Math.max(0, Math.min(99, Number.isFinite(bet1Raw) ? bet1Raw : 0));
+        const divisor = Math.max(1, 100 - bet1);
+        // Example calculation at 180 degrees rotation
+        const exampleDegrees = 180;
+        const exponent = exampleDegrees / divisor;
+        const attackRaw = Math.pow(omicronValue, exponent);
         const attack = Number.isFinite(attackRaw) ? attackRaw : Number.MAX_SAFE_INTEGER;
         return [
-          { expression: String.raw`\( atk = \gamma^{\text{mrg}} \)` },
+          { expression: String.raw`\( \text{atk} = \omicron^{|\theta| / (100 - \text{Bet}_{1})} \)` },
           {
-            values: String.raw`\( ${formatGameNumber(attack)} = ${formatGameNumber(gammaValue)}^{${formatWholeNumber(merges)}} \)`,
+            values: String.raw`\( ${formatGameNumber(attack)} = ${formatDecimal(omicronValue, 2)}^{${exampleDegrees} / ${formatWholeNumber(divisor)}} \text{ (at } ${exampleDegrees}°) \)`,
             variant: 'values',
           },
         ];
       },
     },
     {
-      key: 'mergeCount',
-      symbol: 'Mrg',
-      equationSymbol: String.raw`\text{mrg}`,
-      masterEquationSymbol: 'Mrg',
-      name: 'Merge Count',
-      description: 'Number of times the rotating laser has merged with lock-on lasers.',
+      key: 'bet1',
+      symbol: 'ב₁',
+      equationSymbol: String.raw`\text{Bet}_{1}`,
+      glyphLabel: 'ב₁',
+      masterEquationSymbol: 'Bet',
+      name: 'Bet₁ Divisor',
+      description: 'Reduces the divisor in damage calculation, making beams grow stronger faster with rotation.',
       baseValue: 0,
-      upgradable: false,
-      format: (value) => formatWholeNumber(value),
+      step: 1,
+      upgradable: true,
+      glyphCurrency: 'bet',
+      maxLevel: 50,
+      format: (value) => {
+        const bet1 = Math.max(0, Math.min(99, Number.isFinite(value) ? value : 0));
+        return `${formatWholeNumber(100 - bet1)} divisor`;
+      },
+      cost(level) {
+        const normalized = Math.max(0, Math.floor(Number.isFinite(level) ? level : 0));
+        return Math.max(1, 2 + normalized * 3);
+      },
+      getSubEquations({ blueprint, towerId, level, value }) {
+        const helpers = ctx();
+        const effectiveBlueprint = blueprint || helpers.getTowerEquationBlueprint?.(towerId) || null;
+        const resolvedLevel = Math.max(0, Math.floor(Number.isFinite(level) ? level : 0));
+        const bet1 = Math.max(0, Math.min(99, Number.isFinite(value) ? value : resolvedLevel));
+        const divisor = Math.max(1, 100 - bet1);
+        const omicronRaw = helpers.calculateTowerEquationResult?.('omicron');
+        const omicronValue = Math.max(1, Number.isFinite(omicronRaw) ? omicronRaw : 1);
+        // Show damage at 360 degrees for reference
+        const exampleDegrees = 360;
+        const exponent = exampleDegrees / divisor;
+        const attackRaw = Math.pow(omicronValue, exponent);
+        const attack = Number.isFinite(attackRaw) ? attackRaw : Number.MAX_SAFE_INTEGER;
+        return [
+          {
+            expression: String.raw`\( \text{divisor} = 100 - \text{Bet}_{1} \)`,
+          },
+          {
+            values: String.raw`\( ${formatWholeNumber(divisor)} = 100 - ${formatWholeNumber(bet1)} \)`,
+            variant: 'values',
+          },
+          {
+            expression: String.raw`\( \text{dmg at } ${exampleDegrees}° = ${formatGameNumber(attack)} \)`,
+            variant: 'values',
+            glyphEquation: true,
+          },
+        ];
+      },
     },
     {
-      key: 'aleph1',
+      key: 'lamed1',
+      symbol: 'ל₁',
+      equationSymbol: String.raw`\text{Lamed}_{1}`,
+      glyphLabel: 'ל₁',
+      masterEquationSymbol: 'Las',
+      name: 'Lamed₁ Max Lasers',
+      description: 'Increases the maximum number of beams that can lock onto enemies simultaneously.',
+      baseValue: 0,
+      step: 1,
+      upgradable: true,
+      glyphCurrency: 'lamed',
+      maxLevel: 10,
+      format: (value) => {
+        const lamed1 = Math.max(0, Number.isFinite(value) ? value : 0);
+        return `${formatWholeNumber(2 + lamed1)} lasers`;
+      },
+      cost(level) {
+        const normalized = Math.max(0, Math.floor(Number.isFinite(level) ? level : 0));
+        return Math.max(1, 5 + normalized * 5);
+      },
+      getSubEquations({ level, value }) {
+        const resolvedLevel = Math.max(0, Math.floor(Number.isFinite(level) ? level : 0));
+        const lamed1 = Math.max(0, Number.isFinite(value) ? value : resolvedLevel);
+        const numLasers = 2 + lamed1;
+        return [
+          {
+            expression: String.raw`\( \text{numLaser} = 2 + \text{Lamed}_{1} \)`,
+          },
+          {
+            values: String.raw`\( ${formatWholeNumber(numLasers)} = 2 + ${formatWholeNumber(lamed1)} \)`,
+            variant: 'values',
+          },
+        ];
+      },
+    },
+    {
+      key: 'rng',
       symbol: 'rng',
       equationSymbol: String.raw`\text{rng}`,
       masterEquationSymbol: 'Rng',
-      name: 'Aleph₁ Range',
-      description: 'Increases base range in meters.',
-      baseValue: 0,
-      step: 1,
-      upgradable: true,
-      format: (value) => `${formatDecimal(4 + 0.1 * Math.max(0, value), 2)}m`,
-      cost: (level) => Math.max(1, 2 + level * 2),
-      getSubEquations({ level, value }) {
-        const rank = Math.max(0, Number.isFinite(level) ? level : 0);
-        const resolved = Number.isFinite(value) ? value : rank;
-        const range = 4 + 0.1 * resolved;
+      name: 'Range',
+      description: 'Fixed base range for beam lock-on in meters.',
+      baseValue: 4,
+      upgradable: false,
+      includeInMasterEquation: false,
+      format: (value) => `${formatDecimal(4, 2)}m`,
+      getSubEquations() {
         return [
           {
-            expression: String.raw`\( \text{rng} = 4 + 0.1 \times \aleph_{1} \)`,
-          },
-          {
-            values: String.raw`\( ${formatDecimal(range, 2)} = 4 + 0.1 \times ${formatWholeNumber(resolved)} \)`,
-            variant: 'values',
-          },
-        ];
-      },
-    },
-    {
-      key: 'aleph2',
-      symbol: 'rngInc',
-      equationSymbol: String.raw`\text{rngInc}`,
-      masterEquationSymbol: 'Inc',
-      name: 'Aleph₂ Range Inc',
-      description: 'Amount of range the laser increases per merge in meters.',
-      baseValue: 0,
-      step: 1,
-      upgradable: true,
-      format: (value) => `${formatDecimal(0.1 * Math.max(0, value), 2)}m`,
-      cost: (level) => Math.max(1, 3 + level * 2),
-      getSubEquations({ level, value }) {
-        const rank = Math.max(0, Number.isFinite(level) ? level : 0);
-        const resolved = Number.isFinite(value) ? value : rank;
-        const rangeInc = 0.1 * resolved;
-        return [
-          {
-            expression: String.raw`\( \text{rngInc} = 0.1 \times \aleph_{2} \)`,
-          },
-          {
-            values: String.raw`\( ${formatDecimal(rangeInc, 2)} = 0.1 \times ${formatWholeNumber(resolved)} \)`,
-            variant: 'values',
-          },
-        ];
-      },
-    },
-    {
-      key: 'aleph3',
-      symbol: 'atkSpd',
-      equationSymbol: String.raw`\text{atkSpd}`,
-      masterEquationSymbol: 'Atk',
-      name: 'Aleph₃ Attack Speed',
-      description: 'How fast the tower completes its full attack sequence in seconds.',
-      baseValue: 0,
-      step: 1,
-      upgradable: true,
-      format: (value) => `${formatDecimal(0.1 + 0.01 * Math.max(0, value), 2)}s`,
-      cost: (level) => Math.max(1, 2 + level),
-      getSubEquations({ level, value }) {
-        const rank = Math.max(0, Number.isFinite(level) ? level : 0);
-        const resolved = Number.isFinite(value) ? value : rank;
-        const atkSpd = 0.1 + 0.01 * resolved;
-        return [
-          {
-            expression: String.raw`\( \text{atkSpd} = 0.1 + 0.01 \times \aleph_{3} \)`,
-          },
-          {
-            values: String.raw`\( ${formatDecimal(atkSpd, 2)} = 0.1 + 0.01 \times ${formatWholeNumber(resolved)} \)`,
-            variant: 'values',
-          },
-        ];
-      },
-    },
-    {
-      key: 'aleph4',
-      symbol: 'lasSpd',
-      equationSymbol: String.raw`\text{lasSpd}`,
-      masterEquationSymbol: 'Rot',
-      name: 'Aleph₄ Laser Speed',
-      description: 'How fast the laser completes its full rotation in seconds.',
-      baseValue: 0,
-      step: 1,
-      upgradable: true,
-      format: (value) => `${formatDecimal(Math.max(0.5, 5 - 0.1 * Math.max(0, value)), 2)}s`,
-      cost: (level) => Math.max(1, 3 + level),
-      getSubEquations({ level, value }) {
-        const rank = Math.max(0, Number.isFinite(level) ? level : 0);
-        const resolved = Number.isFinite(value) ? value : rank;
-        const lasSpd = Math.max(0.5, 5 - 0.1 * resolved);
-        return [
-          {
-            expression: String.raw`\( \text{lasSpd} = 5 - 0.1 \times \aleph_{4} \)`,
-          },
-          {
-            values: String.raw`\( ${formatDecimal(lasSpd, 2)} = 5 - 0.1 \times ${formatWholeNumber(resolved)} \)`,
-            variant: 'values',
+            expression: String.raw`\( \text{rng} = 4\text{m} \)`,
           },
         ];
       },
     },
   ],
   computeResult(values) {
-    const gammaValue = Math.max(1, Number.isFinite(values.gamma) ? values.gamma : 1);
-    const mergeCount = Math.max(0, Number.isFinite(values.mergeCount) ? values.mergeCount : 0);
-    // Clamp merge count to prevent overflow
-    const clampedMerges = Math.min(50, mergeCount);
-    return Math.pow(gammaValue, clampedMerges);
+    const helpers = ctx();
+    const omicronRaw = Number.isFinite(values.omicron)
+      ? values.omicron
+      : helpers.calculateTowerEquationResult?.('omicron') || 1;
+    const omicronValue = Math.max(1, Number.isFinite(omicronRaw) ? omicronRaw : 1);
+    const bet1 = Math.max(0, Math.min(99, Number.isFinite(values.bet1) ? values.bet1 : 0));
+    const divisor = Math.max(1, 100 - bet1);
+    // Base result shows damage at 360 degrees as representative value
+    const exampleDegrees = 360;
+    const exponent = Math.min(50, exampleDegrees / divisor);
+    return Math.pow(omicronValue, exponent);
   },
   formatBaseEquationValues({ values, result, formatComponent }) {
-    const gammaValue = Math.max(1, Number.isFinite(values.gamma) ? values.gamma : 1);
-    const mergeCount = Math.max(0, Number.isFinite(values.mergeCount) ? values.mergeCount : 0);
-    return `${formatComponent(result)} = ${formatComponent(gammaValue)}^${formatComponent(mergeCount)}`;
+    const helpers = ctx();
+    const omicronRaw = Number.isFinite(values.omicron)
+      ? values.omicron
+      : helpers.calculateTowerEquationResult?.('omicron') || 1;
+    const omicronValue = Math.max(1, Number.isFinite(omicronRaw) ? omicronRaw : 1);
+    const bet1 = Math.max(0, Math.min(99, Number.isFinite(values.bet1) ? values.bet1 : 0));
+    const divisor = Math.max(1, 100 - bet1);
+    return `${formatComponent(result)} = ${formatComponent(omicronValue)}^{360°/${formatComponent(divisor)}}`;
   },
 };
 

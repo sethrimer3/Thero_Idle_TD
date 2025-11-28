@@ -44,6 +44,18 @@ const NULL_TIER = -1;
 const GREEK_SEQUENCE_LENGTH = GREEK_TIER_SEQUENCE.length;
 // Canvas dimensions below this value indicate the spire view is collapsed or hidden.
 const COLLAPSED_DIMENSION_THRESHOLD = 2;
+
+// Interactive wave effect constants
+const WAVE_INITIAL_RADIUS_MULTIPLIER = 3; // Initial wave radius as multiple of null particle radius
+const WAVE_MAX_RADIUS_MULTIPLIER = 15; // Maximum wave radius as multiple of null particle radius
+const WAVE_INITIAL_FORCE = 300; // Initial force strength for pushing particles
+const WAVE_FADE_RATE = 3; // Alpha fade rate per second
+const WAVE_EXPANSION_RATE = 200; // Radius expansion rate in pixels per second
+const WAVE_FORCE_DECAY_RATE = 0.3; // Force decay power per second (exponential)
+const WAVE_FORCE_DECAY_LOG = Math.log(WAVE_FORCE_DECAY_RATE); // Precomputed for efficient exponential decay
+const WAVE_MIN_FORCE_THRESHOLD = 0.1; // Skip waves below this force strength for performance
+const WAVE_MIN_DISTANCE = 0.001; // Minimum distance to prevent division by zero
+
 // Legacy molecule recipes kept for backward compatibility with old saves.
 const LEGACY_MOLECULE_RECIPES = [
   {
@@ -443,6 +455,7 @@ export class ParticleFusionSimulation {
     this.upgrades = {
       repellingForceReduction: 0, // Number of times purchased
       startingTier: 0, // Number of times purchased (0 = spawn null particles)
+      waveForce: 0, // Number of times the wave push upgrade has been purchased
     };
 
     // Fusion effects
@@ -450,6 +463,9 @@ export class ParticleFusionSimulation {
 
     // Spawn effects (flash and wave)
     this.spawnEffects = []; // {x, y, radius, alpha, maxRadius, type: 'flash' | 'wave'}
+
+    // Interactive wave effects (triggered by user clicks/taps)
+    this.interactiveWaves = []; // {x, y, radius, alpha, maxRadius, force, type: 'wave'}
 
     // Store active force links so the renderer can visualize attractive/repulsive pairs.
     this.forceLinks = [];
@@ -651,7 +667,28 @@ export class ParticleFusionSimulation {
       }
     }
   }
-  
+
+  /**
+   * Calculate the current interactive wave stats based on upgrade level.
+   *
+   * Formula: baseValue × waveLevel where baseValue comes from the tuned constants
+   * so level 0 yields zero radius/force and level 1 matches the legacy behavior.
+   * @param {number} [waveLevel=this.upgrades.waveForce] - Purchased upgrade tier.
+   * @returns {{force:number, radius:number, maxRadius:number}} Wave stat bundle.
+   */
+  getWaveStats(waveLevel = this.upgrades.waveForce) {
+    const normalizedLevel = Math.max(0, waveLevel);
+    if (normalizedLevel <= 0) {
+      return { force: 0, radius: 0, maxRadius: 0 };
+    }
+
+    const radius = this.nullParticleRadius * WAVE_INITIAL_RADIUS_MULTIPLIER * normalizedLevel;
+    const maxRadius = this.nullParticleRadius * WAVE_MAX_RADIUS_MULTIPLIER * normalizedLevel;
+    const force = WAVE_INITIAL_FORCE * normalizedLevel;
+
+    return { force, radius, maxRadius };
+  }
+
   /**
    * Spawn a new particle with random position and velocity
    */
@@ -724,6 +761,34 @@ export class ParticleFusionSimulation {
       this.onParticleCountChange(this.particles.length);
     }
     return true;
+  }
+  
+  /**
+   * Create an interactive wave force at the specified position.
+   * Pushes particles away from the click/tap point with a visual wave effect.
+   * @param {number} x - X coordinate in canvas space
+   * @param {number} y - Y coordinate in canvas space
+   */
+  createInteractiveWave(x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return;
+    }
+
+    const waveStats = this.getWaveStats();
+    if (waveStats.force <= 0 || waveStats.radius <= 0) {
+      return;
+    }
+
+    // Create visual wave effect
+    this.interactiveWaves.push({
+      x,
+      y,
+      radius: waveStats.radius,
+      alpha: 1,
+      maxRadius: waveStats.maxRadius,
+      force: waveStats.force,
+      type: 'wave',
+    });
   }
   
   /**
@@ -810,6 +875,34 @@ export class ParticleFusionSimulation {
       }
     }
 
+    // Apply forces from interactive waves
+    for (const wave of this.interactiveWaves) {
+      // Skip waves with negligible force for performance
+      if (wave.force < WAVE_MIN_FORCE_THRESHOLD) {
+        continue;
+      }
+      
+      for (const body of physicsBodies) {
+        const dx = body.x - wave.x;
+        const dy = body.y - wave.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Only affect particles within the wave's current radius
+        if (dist < wave.radius && dist > WAVE_MIN_DISTANCE) {
+          const nx = dx / dist;
+          const ny = dy / dist;
+          
+          // Force falls off with distance from wave center
+          const forceFalloff = 1 - (dist / wave.radius);
+          const forceMagnitude = wave.force * forceFalloff * dt;
+          
+          // Push particles away from wave center
+          body.vx += nx * forceMagnitude;
+          body.vy += ny * forceMagnitude;
+        }
+      }
+    }
+
     // Particle-particle collisions and fusion
     this.handleCollisions(physicsBodies);
     
@@ -838,6 +931,23 @@ export class ParticleFusionSimulation {
 
       if (effect.alpha <= 0) {
         this.spawnEffects.splice(i, 1);
+      }
+    }
+    
+    // Update interactive wave effects
+    for (let i = this.interactiveWaves.length - 1; i >= 0; i--) {
+      const wave = this.interactiveWaves[i];
+      wave.alpha -= dt * WAVE_FADE_RATE;
+      wave.radius += dt * WAVE_EXPANSION_RATE;
+      
+      // Efficient exponential decay with numerical stability check
+      const decayFactor = Math.exp(WAVE_FORCE_DECAY_LOG * dt);
+      // Clamp to prevent numerical instability (force should only decay, never grow)
+      wave.force *= Math.min(decayFactor, 1.0);
+      
+      // Remove when faded or reached max radius
+      if (wave.alpha <= 0 || wave.radius >= wave.maxRadius) {
+        this.interactiveWaves.splice(i, 1);
       }
     }
 
@@ -1696,7 +1806,11 @@ export class ParticleFusionSimulation {
     // Update highest tier
     if (newTier > this.highestTierReached) {
       this.highestTierReached = newTier;
-      // Glyph count is now tracked separately
+      // Tsadi glyphs equal the highest tier reached (display tier)
+      this.glyphCount = toDisplayTier(this.highestTierReached);
+      if (this.onGlyphChange) {
+        this.onGlyphChange(this.glyphCount);
+      }
       if (this.onTierChange) {
         this.onTierChange({
           tier: newTier,
@@ -1775,6 +1889,11 @@ export class ParticleFusionSimulation {
     // Update highest tier
     if (nextCycleTier > this.highestTierReached) {
       this.highestTierReached = nextCycleTier;
+      // Tsadi glyphs equal the highest tier reached (display tier)
+      this.glyphCount = toDisplayTier(this.highestTierReached);
+      if (this.onGlyphChange) {
+        this.onGlyphChange(this.glyphCount);
+      }
       const tierInfo = getGreekTierInfo(nextCycleTier);
       if (this.onTierChange) {
         this.onTierChange({
@@ -1839,11 +1958,8 @@ export class ParticleFusionSimulation {
       { x: alephParticle.x, y: alephParticle.y, radius: this.width / 3, alpha: 1, type: 'ring' }
     );
     
-    // Award 100 Tsadi glyphs
-    this.glyphCount += 100;
-    if (this.onGlyphChange) {
-      this.onGlyphChange(this.glyphCount);
-    }
+    // Tsadi glyphs are based on highest tier reached (no bonus for Aleph explosion)
+    // The glyphCount was already updated when reaching this tier
     
     // Add permanent glyph to background
     this.permanentGlyphs.push({
@@ -1985,6 +2101,30 @@ export class ParticleFusionSimulation {
         ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
         ctx.stroke();
       }
+    }
+    
+    // Draw interactive wave effects from user clicks/taps
+    for (const wave of this.interactiveWaves) {
+      // Draw expanding wave ring with cyan/blue color to distinguish from other effects
+      ctx.strokeStyle = `rgba(100, 200, 255, ${wave.alpha * 0.7})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Add inner glow effect
+      const gradient = ctx.createRadialGradient(
+        wave.x, wave.y, wave.radius * 0.7,
+        wave.x, wave.y, wave.radius
+      );
+      gradient.addColorStop(0, `rgba(100, 200, 255, 0)`);
+      gradient.addColorStop(0.5, `rgba(100, 200, 255, ${wave.alpha * 0.3})`);
+      gradient.addColorStop(1, `rgba(100, 200, 255, 0)`);
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+      ctx.fill();
     }
     
     // Draw fusion effects
@@ -2346,7 +2486,30 @@ export class ParticleFusionSimulation {
   getRepellingForceReductionCost() {
     return 3 * Math.pow(2, this.upgrades.repellingForceReduction);
   }
-  
+
+  /**
+   * Purchase interactive wave strength upgrade so clicks/taps apply meaningful force.
+   * @returns {boolean} True if purchase was successful
+   */
+  purchaseWaveForceUpgrade() {
+    const cost = this.getWaveForceUpgradeCost();
+    if (this.particleBank < cost) {
+      return false;
+    }
+
+    this.setParticleBank(this.particleBank - cost);
+    this.upgrades.waveForce += 1;
+    return true;
+  }
+
+  /**
+   * Get cost of next wave force upgrade (1, 10, 100, ...)
+   * @returns {number} Particle cost for the next tier
+   */
+  getWaveForceUpgradeCost() {
+    return Math.pow(10, this.upgrades.waveForce);
+  }
+
   /**
    * Purchase starting tier upgrade
    * @returns {boolean} True if purchase was successful
@@ -2369,11 +2532,13 @@ export class ParticleFusionSimulation {
   getStartingTierUpgradeCost() {
     return 5 * Math.pow(2, this.upgrades.startingTier);
   }
-  
+
   /**
    * Get upgrade information
    */
   getUpgradeInfo() {
+    const currentWaveStats = this.getWaveStats();
+
     return {
       repellingForceReduction: {
         level: this.upgrades.repellingForceReduction,
@@ -2381,10 +2546,18 @@ export class ParticleFusionSimulation {
         effect: `${this.upgrades.repellingForceReduction * 50}% force reduction`,
         canAfford: this.particleBank >= this.getRepellingForceReductionCost(),
       },
+      waveForce: {
+        level: this.upgrades.waveForce,
+        cost: this.getWaveForceUpgradeCost(),
+        effect: currentWaveStats.force > 0
+          ? `Push radius ~${Math.round(currentWaveStats.maxRadius)}px, peak force ${Math.round(currentWaveStats.force)}`
+          : 'Wave of force is inactive until upgraded.',
+        canAfford: this.particleBank >= this.getWaveForceUpgradeCost(),
+      },
       startingTier: {
         level: this.upgrades.startingTier,
         cost: this.getStartingTierUpgradeCost(),
-        effect: this.upgrades.startingTier > 0 
+        effect: this.upgrades.startingTier > 0
           ? `Spawn ${getGreekTierInfo(NULL_TIER + this.upgrades.startingTier).name} particles`
           : 'Spawn Null particles',
         canAfford: this.particleBank >= this.getStartingTierUpgradeCost(),
@@ -2416,6 +2589,7 @@ export class ParticleFusionSimulation {
       upgrades: {
         repellingForceReduction: this.upgrades.repellingForceReduction,
         startingTier: this.upgrades.startingTier,
+        waveForce: this.upgrades.waveForce,
       },
       permanentGlyphs: this.permanentGlyphs,
       alephAbsorptionCount: this.alephAbsorptionCount,
@@ -2480,9 +2654,13 @@ export class ParticleFusionSimulation {
     if (typeof state.highestTierReached === 'number') {
       this.highestTierReached = state.highestTierReached;
       this.advancedMoleculesUnlocked = this.highestTierReached >= ADVANCED_MOLECULE_UNLOCK_TIER;
+      // Tsadi glyphs equal the highest tier reached (display tier)
+      this.glyphCount = toDisplayTier(this.highestTierReached);
     }
-
-    if (typeof state.glyphCount === 'number') {
+    
+    // Legacy save migration: if highestTierReached is missing but glyphCount exists,
+    // preserve the old glyphCount until the simulation naturally updates the tier
+    if (typeof state.highestTierReached !== 'number' && typeof state.glyphCount === 'number') {
       this.glyphCount = state.glyphCount;
     }
 
@@ -2523,6 +2701,9 @@ export class ParticleFusionSimulation {
       }
       if (typeof state.upgrades.startingTier === 'number') {
         this.upgrades.startingTier = state.upgrades.startingTier;
+      }
+      if (typeof state.upgrades.waveForce === 'number') {
+        this.upgrades.waveForce = state.upgrades.waveForce;
       }
     }
     

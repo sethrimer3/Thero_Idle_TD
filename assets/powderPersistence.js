@@ -177,7 +177,7 @@ export function createPowderPersistence({
             0,
             clampFiniteInteger(
               powderState.betHappiness?.producers?.slime ?? powderState.betHappiness?.producers?.grasshopper,
-              4,
+              0,
             ),
           ),
         },
@@ -286,7 +286,7 @@ export function createPowderPersistence({
       }
       powderState.fluidUnlocked = !!base.fluidUnlocked;
       const incomingHappiness = base.betHappiness || {};
-      const happinessState = powderState.betHappiness || { bank: 0, producers: { slime: 4 } };
+      const happinessState = powderState.betHappiness || { bank: 0, producers: { slime: 0 } };
       happinessState.bank = Math.max(
         0,
         Number.isFinite(incomingHappiness.bank) ? incomingHappiness.bank : happinessState.bank || 0,
@@ -299,7 +299,7 @@ export function createPowderPersistence({
           ? Math.max(0, Math.floor(legacyGrasshoppers))
           : Number.isFinite(happinessState.producers?.slime)
             ? Math.max(0, Math.floor(happinessState.producers.slime))
-            : 4;
+            : 0;
       happinessState.producers = { ...happinessState.producers, slime: normalizedSlimes };
       powderState.betHappiness = happinessState;
       // Restore Bet terrarium leveling progress for fractal trees.

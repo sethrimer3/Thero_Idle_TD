@@ -9,7 +9,7 @@
  * - Tower flashes and ripples when absorbing kill particles
  * 
  * Formulas:
- * - atk = gamma + OKdmgTot (gamma power + total overkill damage)
+ * - atk = mu + dmgtot (μ attack + total damage)
  * - spd = 1 + 0.1 × kills (attack speed scales with kills)
  * - rng = baseRangeMeters + 0.05 × kills (base derived from tower config, clamped to ≥3m)
  * 
@@ -28,7 +28,6 @@ import {
 } from './alphaTower.js';
 import {
   calculateTowerEquationResult,
-  getTowerEquationBlueprint,
 } from '../../../assets/towersTab.js';
 import { canvasFractionToMeters, metersToPixels } from '../../../assets/gameUnits.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
@@ -127,33 +126,40 @@ function ensureNuStateInternal(playfield, tower) {
 /**
  * Refresh nu tower parameters from formulas.
  */
-function resolveGammaPowerSafe() {
-  // Guard against equation resolution failures so ν can't freeze the playfield when γ math is unavailable.
+function resolveMuAttackSafe() {
+  // Guard against equation resolution failures so ν can't freeze the playfield when μ math is unavailable.
   try {
-    const gammaRaw = calculateTowerEquationResult('gamma');
-    return Number.isFinite(gammaRaw) ? Math.max(0, gammaRaw) : 0;
+    const muRaw = calculateTowerEquationResult('mu');
+    return Number.isFinite(muRaw) ? Math.max(0, muRaw) : 0;
   } catch (error) {
-    console.warn('ν tower failed to resolve γ power; defaulting to 0.', error);
+    console.warn('ν tower failed to resolve μ attack; defaulting to 0.', error);
     return 0;
   }
 }
 
 function refreshNuParameters(playfield, tower, state) {
-  // Get gamma power for base damage with a safe fallback.
-  const gammaPower = resolveGammaPowerSafe();
-  
-  // atk = gamma + OKdmgTot
-  const attack = gammaPower + state.overkillDamageTotal;
+  // Get μ attack for base damage with a safe fallback.
+  const muAttack = resolveMuAttackSafe();
+
+  const kills = Number.isFinite(state.kills) ? state.kills : 0;
+
+  // atk = mu + dmgtot
+  const attack = muAttack + state.overkillDamageTotal;
   
   // spd = 1 + 0.1 × kills
-  const attackSpeed = BASE_ATTACK_SPEED + KILL_SPEED_BONUS * state.kills;
+  const attackSpeed = BASE_ATTACK_SPEED + KILL_SPEED_BONUS * kills;
 
   // rng = 3 + 0.05 × kills (in meters)
-  const baseRangeMeters = resolveBaseRangeMeters(tower);
-  const rangeMeters = baseRangeMeters + KILL_RANGE_BONUS * state.kills;
+  const baseRangeMeters = Math.max(BASE_RANGE_METERS, resolveBaseRangeMeters(tower));
+  const rangeMetersRaw = baseRangeMeters + KILL_RANGE_BONUS * kills;
+  const rangeMeters = Number.isFinite(rangeMetersRaw) ? Math.max(BASE_RANGE_METERS, rangeMetersRaw) : BASE_RANGE_METERS;
 
   const minDimension = resolvePlayfieldMinDimension(playfield);
-  const rangePixels = Math.max(24, metersToPixels(rangeMeters, minDimension));
+  const baseRangePixels = metersToPixels(BASE_RANGE_METERS, minDimension);
+  const computedRangePixels = metersToPixels(rangeMeters, minDimension);
+  const clampedRangePixels = Number.isFinite(computedRangePixels) && computedRangePixels > 0 ? computedRangePixels : 0;
+  const safeBasePixels = Number.isFinite(baseRangePixels) && baseRangePixels > 0 ? baseRangePixels : 0;
+  const rangePixels = Math.max(24, safeBasePixels, clampedRangePixels);
 
   // Update tower stats for display
   tower.baseDamage = attack;
@@ -316,6 +322,79 @@ export function ensureNuState(playfield, tower) {
   state.needsRefresh = true;
   refreshNuParameters(playfield, tower, state);
   return state;
+}
+
+// Helper to clamp a value between min and max.
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+// Calculate squared distance from a point to a line segment.
+function distancePointToSegmentSquared(point, start, end) {
+  if (!point || !start || !end) {
+    return Infinity;
+  }
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (!dx && !dy) {
+    const pdx = point.x - start.x;
+    const pdy = point.y - start.y;
+    return pdx * pdx + pdy * pdy;
+  }
+  const lengthSquared = dx * dx + dy * dy;
+  const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared;
+  const clampedT = clamp(t, 0, 1);
+  const projX = start.x + clampedT * dx;
+  const projY = start.y + clampedT * dy;
+  const offsetX = point.x - projX;
+  const offsetY = point.y - projY;
+  return offsetX * offsetX + offsetY * offsetY;
+}
+
+// Default beam thickness for Nu piercing laser collision detection.
+const NU_BEAM_THICKNESS = 8;
+
+/**
+ * Apply piercing laser damage to all enemies along a line from start to end.
+ * Similar to Lambda tower's applyLaserDamage but specific to Nu tower.
+ * @param {Object} playfield - The playfield instance
+ * @param {Object} tower - The Nu tower firing
+ * @param {Object} start - Starting position {x, y} (tower position)
+ * @param {Object} end - End position {x, y} (target position extended by range)
+ * @param {number} damage - Damage to apply to each enemy
+ * @returns {Array} Array of hit enemies with their positions
+ */
+export function applyNuPiercingDamage(playfield, tower, start, end, damage) {
+  const hits = [];
+  if (!playfield || !tower || !start || !end) {
+    return hits;
+  }
+  if (!Array.isArray(playfield.enemies) || !playfield.enemies.length) {
+    return hits;
+  }
+  const thickness = NU_BEAM_THICKNESS;
+  playfield.enemies.forEach((enemy) => {
+    if (!enemy) {
+      return;
+    }
+    const position = playfield.getEnemyPosition(enemy);
+    if (!position) {
+      return;
+    }
+    const metrics = playfield.getEnemyVisualMetrics(enemy);
+    const enemyRadius = Math.max(10, metrics?.ringRadius || 12);
+    const limit = enemyRadius + thickness;
+    const distanceSquared = distancePointToSegmentSquared(position, start, end);
+    if (distanceSquared > limit * limit) {
+      return;
+    }
+    // Apply damage using playfield's damage application method
+    if (damage > 0) {
+      playfield.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
+    }
+    hits.push({ enemy, position });
+  });
+  return hits;
 }
 
 /**

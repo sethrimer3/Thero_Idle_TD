@@ -71,7 +71,9 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidElements.cameraModeHint = document.getElementById('fluid-camera-mode-hint');
     fluidElements.floatingIslandSprite = document.getElementById('fluid-terrarium-floating-island');
     fluidElements.terrainSprite = document.getElementById('fluid-terrarium-foreground');
-    fluidElements.terrainCollisionSprite = document.getElementById('fluid-terrarium-foreground-collision');
+    // Reuse the high-fidelity terrain SVG for collision sampling so silhouettes match visuals.
+    fluidElements.terrainCollisionSprite =
+      document.getElementById('fluid-terrarium-foreground-collision') || fluidElements.terrainSprite;
     fluidElements.happinessTotal = document.getElementById('fluid-happiness-total');
     fluidElements.happinessRate = document.getElementById('fluid-happiness-rate');
     fluidElements.happinessList = document.getElementById('fluid-happiness-list');

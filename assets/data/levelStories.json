@@ -305,5 +305,14 @@
       "The Kuf vault keeps its puzzles in mirrored corridors. Each reflection shows a different tower arrangement, daring you to decide which reality will defend the gate.",
       "Glyph fragments clink underfoot like ceramic tiles. You collect a few shards for luck, knowing the archivists will ask how the vault greeted you when you return."
     ]
+  },
+  "Prologue - Story": {
+    "title": "The Beginning",
+    "sections": [
+      "We finished the last entanglement requirements for the \u2118 gate. The WEIERSTRASS FRACTAL was the final key, resonating perfectly with the frequency of consciousness.",
+      "The Mind Gate stands before you now\u2014a threshold between thought and reality. Through it flows the essence of mathematical truth, channeled into defensive lattices that protect our understanding from the chaos beyond.",
+      "You have learned to place towers, to channel glyphs, to defend the gate. But this is only the beginning. Beyond the prologue lies a vast constellation of mathematical proofs waiting to be defended.",
+      "The Tower of Inspiration beckons. Will you answer its call?"
+    ]
   }
 }

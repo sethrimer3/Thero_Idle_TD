@@ -251,7 +251,9 @@ export function createLevelEditorController({
       setLevelEditorStatus('Enable editing to adjust anchors.');
       return;
     }
-    if (levelEditorState.editing) {
+    // Only stop propagation when in path mode, so crystal/tower/erase modes can pass through to the playfield click handler
+    const currentMode = developerMapPlacementState.mode;
+    if (levelEditorState.editing && currentMode === 'path') {
       event.preventDefault();
       event.stopPropagation();
     }
@@ -390,14 +392,19 @@ export function createLevelEditorController({
     const orientation = levelEditorSurface.orientation || targetPlayfield.layoutOrientation || 'portrait';
     const markers = levelEditorState.points.map((point, index) => {
       const oriented = transformPointForOrientation(point, orientation);
+      const speedMultiplier = Number.isFinite(point.speedMultiplier) ? point.speedMultiplier : 1;
       return {
         x: oriented.x * width,
         y: oriented.y * height,
         label: index + 1,
         active: levelEditorState.draggingIndex === index,
+        speedMultiplier,
       };
     });
-    targetPlayfield.setDeveloperPathMarkers(markers);
+    // Also pass the map speed multiplier so the playfield can display it
+    targetPlayfield.setDeveloperPathMarkers(markers, {
+      mapSpeedMultiplier: levelEditorState.mapSpeedMultiplier,
+    });
     if (redraw && typeof targetPlayfield.draw === 'function') {
       targetPlayfield.draw();
     }
@@ -940,32 +947,53 @@ export function createLevelEditorController({
 
     // Handle erase mode
     if (mode === 'erase') {
-      if (!playfield || !context.position) {
+      if (!playfield) {
         return false;
       }
-      // Try to remove crystal at position
-      if (typeof playfield.findCrystalAt === 'function' && typeof playfield.removeDeveloperCrystal === 'function') {
-        const crystal = playfield.findCrystalAt(context.position);
-        if (crystal) {
-          const removed = playfield.removeDeveloperCrystal(crystal.id);
-          if (removed) {
-            setLevelEditorStatus('Crystal removed from battlefield.', { tone: 'info', duration: 2000 });
-            return true;
+      
+      // Try to remove path point at normalized position first
+      if (levelEditorState.editing && context.normalized) {
+        const nearest = findNearestEditorPoint(context.normalized);
+        const removalThreshold = 0.045;
+        if (nearest.index >= 0 && nearest.distance <= removalThreshold) {
+          levelEditorState.points.splice(nearest.index, 1);
+          levelEditorState.draggingIndex = -1;
+          levelEditorState.selectedPointIndex = -1;
+          levelEditorState.pointerId = null;
+          applyLevelEditorPoints();
+          setLevelEditorStatus(`Removed anchor ${nearest.index + 1} from the battlefield.`, { tone: 'warning' });
+          return true;
+        }
+      }
+      
+      // Try to remove crystal or tower at position (position is derived from normalized in InputController)
+      if (context.position) {
+        // Try to remove crystal at position
+        if (typeof playfield.findCrystalAt === 'function' && typeof playfield.removeDeveloperCrystal === 'function') {
+          const crystal = playfield.findCrystalAt(context.position);
+          if (crystal) {
+            const removed = playfield.removeDeveloperCrystal(crystal.id);
+            if (removed) {
+              setLevelEditorStatus('Crystal removed from battlefield.', { tone: 'info', duration: 2000 });
+              return true;
+            }
+          }
+        }
+        // Try to remove tower at position
+        if (typeof playfield.findDeveloperTowerAt === 'function' && typeof playfield.removeDeveloperTower === 'function') {
+          const tower = playfield.findDeveloperTowerAt(context.position);
+          if (tower) {
+            const removed = playfield.removeDeveloperTower(tower.id);
+            if (removed) {
+              setLevelEditorStatus('Tower removed from battlefield.', { tone: 'info', duration: 2000 });
+              return true;
+            }
           }
         }
       }
-      // Try to remove tower at position
-      if (typeof playfield.findDeveloperTowerAt === 'function' && typeof playfield.removeDeveloperTower === 'function') {
-        const tower = playfield.findDeveloperTowerAt(context.position);
-        if (tower) {
-          const removed = playfield.removeDeveloperTower(tower.id);
-          if (removed) {
-            setLevelEditorStatus('Tower removed from battlefield.', { tone: 'info', duration: 2000 });
-            return true;
-          }
-        }
-      }
-      return false;
+      // Return true to consume the click even if nothing was removed
+      // This prevents the click from falling through to normal game handlers
+      return true;
     }
 
     // Path mode doesn't use this handler

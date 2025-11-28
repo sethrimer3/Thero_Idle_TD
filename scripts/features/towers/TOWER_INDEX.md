@@ -19,6 +19,7 @@ Quick lookup table for all implemented towers in Thero Idle.
 | λ | Lambda | `lambdaTower.js` | Lambda lambda calculus mechanics |
 | μ | Mu | `muTower.js` | Fractal mine layer (Sierpinski/Apollonian) |
 | ν | Nu | `nuTower.js` | Kill-scaling piercing laser with overkill tracking |
+| π | Pi | `piTower.js` | Rotational beam lock-on system with rotation-scaled damage |
 | χ | Chi | `chiTower.js` | Converts nearby enemy deaths into mind-gate thralls marching backward |
 | σ | Sigma | `sigmaTower.js` | Draws allied fire, sums the damage, and releases it as single shots |
 | τ | Tau | `tauTower.js` | Spiral bullets with returning arcs and upgradeable hit particles |
@@ -61,6 +62,31 @@ The Infinity Tower (∞) is a unique support tower that provides exponential dam
 - **Mul (ℵ₃)**: Multiplier base = e + 0.1(ℵ₃ - 1)
 
 **Master Equation**: ∞ = Exp × Rng
+
+## Pi Tower Details
+
+The Pi Tower (π) is a beam-based tower that locks onto enemies and deals increasing damage based on how much each beam rotates around the tower.
+
+**Key Features:**
+- **Range**: 4m (fixed)
+- **Max Lasers**: 2 + Lamed₁ (number of simultaneous enemy lock-ons)
+- **Damage Scaling**: Damage increases exponentially based on rotation degrees
+- **Visual Feedback**: Beam color and intensity scale with rotation
+
+**Sub-Equations:**
+- **Atk**: `atk = omicron^(|degrees|/(100-Bet₁))` - Damage per beam based on rotation
+- **numLaser**: `numLaser = 2 + Lamed₁` - Maximum simultaneous beams
+- **Bet₁**: Reduces divisor, making damage scale faster with rotation (max 50)
+- **Lamed₁**: Increases max laser count (max 10)
+
+**Master Equation**: π = ο^{|θ| / (100 - Bet₁)}
+
+**Mechanics:**
+1. Beams automatically lock onto enemies within range (prioritizing forward-most)
+2. Each beam tracks its own rotation from initial lock-on angle
+3. As enemies move, the beam angle changes, accumulating rotation degrees
+4. Damage applies periodically, scaling with each beam's total rotation
+5. Beams drop off when enemies leave range
 
 ## Common Tower Patterns
 
