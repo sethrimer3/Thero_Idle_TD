@@ -36,29 +36,32 @@ export const infinity = {
       cost: (level) => Math.max(1, Math.floor(10 * Math.pow(1.5, level))),
       computeValue({ blueprint, towerId, dynamicContext }) {
         // Get player's unspent thero (money) from dynamic context
-        const unspentThero = Number.isFinite(dynamicContext?.unspentThero) 
-          ? Math.max(1, dynamicContext.unspentThero) 
+        const unspentThero = Number.isFinite(dynamicContext?.unspentThero)
+          ? Math.max(1, dynamicContext.unspentThero)
           : 1;
-        
+
         // Get upgrade level for this variable
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const state = ctx().ensureTowerUpgradeState(towerId, effectiveBlueprint);
         const level = state.variables?.exponent?.level || 0;
-        // Base exponent is ln(unspentThero); upgrades influence other sub-equations
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
+
+        // Base exponent is ln(unspentThero), multiplied by glyph rank to reward upgrades
         const baseExponent = Math.log(unspentThero);
-        return Math.max(0, baseExponent);
+        return Math.max(0, baseExponent * glyphRank);
       },
       getSubEquations({ level, value, dynamicContext }) {
         const unspentThero = Number.isFinite(dynamicContext?.unspentThero)
           ? Math.max(1, dynamicContext.unspentThero)
           : 1;
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
         const baseExponent = Math.log(unspentThero);
-        const exponentValue = Number.isFinite(value) ? value : baseExponent;
+        const exponentValue = Number.isFinite(value) ? value : baseExponent * glyphRank;
 
         return [
           {
-            expression: String.raw`\( \text{Exp} = \ln(\text{þ}) \)`,
-            values: String.raw`\( ${formatDecimal(exponentValue, 2)} = \ln(${formatGameNumber(unspentThero)}) \)`,
+            expression: String.raw`\( \text{Exp} = \ln(\text{þ}) \times \aleph_{1} \)`,
+            values: String.raw`\( ${formatDecimal(exponentValue, 2)} = \ln(${formatGameNumber(unspentThero)}) \times ${formatWholeNumber(glyphRank)} \)`,
           },
           {
             expression: String.raw`\( \text{þ} = \text{unspent thero (player money)} \)`,
