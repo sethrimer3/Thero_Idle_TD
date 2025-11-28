@@ -137,12 +137,16 @@ class CardinalWarden {
 
 /**
  * Represents an enemy ship attacking the Cardinal Warden.
+ * Ships smoothly accelerate toward random target points, reaching top speed
+ * then decelerating as they approach. Some ships weave in sine wave patterns.
  */
 class EnemyShip {
   constructor(x, y, config = {}) {
     this.x = x;
     this.y = y;
-    this.speed = config.speed || 50;
+    this.vx = 0; // Velocity X
+    this.vy = 0; // Velocity Y
+    this.maxSpeed = config.speed || 50;
     this.health = config.health || 1;
     this.maxHealth = this.health;
     this.damage = config.damage || 1;
@@ -150,11 +154,102 @@ class EnemyShip {
     this.type = config.type || 'basic';
     this.scoreValue = config.scoreValue || 10;
     this.color = config.color || '#333';
+    
+    // Smooth movement properties
+    this.acceleration = config.acceleration || 80; // Pixels per second squared
+    this.targetX = x;
+    this.targetY = y + 100;
+    this.arrivalThreshold = 20; // How close to target before picking new one
+    
+    // Sine wave weaving properties
+    this.weaving = config.weaving || false;
+    this.waveAmplitude = config.waveAmplitude || 30;
+    this.waveFrequency = config.waveFrequency || 2;
+    this.wavePhase = config.wavePhase || 0;
+    this.baseX = x; // Center line for weaving
+    this.time = 0;
   }
 
-  update(deltaTime, targetY) {
+  /**
+   * Pick a new random target point that is lower on the screen.
+   */
+  pickNewTarget(canvasWidth, canvasHeight, rng) {
+    // Pick a random point that is lower than current position
+    const minY = this.y + 50;
+    const maxY = Math.min(this.y + 200, canvasHeight + 50);
+    this.targetY = rng.range(minY, maxY);
+    
+    // Random X within screen bounds with some margin
+    const margin = this.size * 2;
+    this.targetX = rng.range(margin, canvasWidth - margin);
+    
+    // Update base X for weaving ships
+    if (this.weaving) {
+      this.baseX = this.targetX;
+    }
+  }
+
+  update(deltaTime, targetY, canvasWidth, canvasHeight, rng) {
     const dt = deltaTime / 1000;
-    this.y += this.speed * dt;
+    this.time += dt;
+    
+    // Calculate direction and distance to target
+    const dx = this.targetX - this.x;
+    const dy = this.targetY - this.y;
+    const distToTarget = Math.sqrt(dx * dx + dy * dy);
+    
+    // Check if we need a new target
+    if (distToTarget < this.arrivalThreshold) {
+      this.pickNewTarget(canvasWidth, canvasHeight, rng);
+    }
+    
+    // Calculate desired velocity direction
+    const dirX = distToTarget > 0 ? dx / distToTarget : 0;
+    const dirY = distToTarget > 0 ? dy / distToTarget : 1;
+    
+    // Calculate braking distance (how far we need to decelerate)
+    const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    const brakingDistance = (currentSpeed * currentSpeed) / (2 * this.acceleration);
+    
+    // Determine if we should accelerate or decelerate
+    let desiredSpeed;
+    if (distToTarget > brakingDistance * 1.5) {
+      // Far from target - accelerate to max speed
+      desiredSpeed = this.maxSpeed;
+    } else {
+      // Close to target - decelerate
+      desiredSpeed = Math.max(10, (distToTarget / brakingDistance) * this.maxSpeed * 0.5);
+    }
+    
+    // Calculate desired velocity
+    let desiredVx = dirX * desiredSpeed;
+    let desiredVy = dirY * desiredSpeed;
+    
+    // Apply acceleration toward desired velocity
+    const dvx = desiredVx - this.vx;
+    const dvy = desiredVy - this.vy;
+    const dv = Math.sqrt(dvx * dvx + dvy * dvy);
+    
+    if (dv > 0) {
+      const accelAmount = Math.min(this.acceleration * dt, dv);
+      this.vx += (dvx / dv) * accelAmount;
+      this.vy += (dvy / dv) * accelAmount;
+    }
+    
+    // Apply velocity
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    
+    // Apply sine wave weaving if enabled
+    if (this.weaving) {
+      const waveOffset = Math.sin(this.time * this.waveFrequency * Math.PI * 2 + this.wavePhase) * this.waveAmplitude;
+      this.x = this.baseX + waveOffset;
+      this.baseX += this.vx * dt;
+    }
+    
+    // Keep within horizontal bounds
+    this.x = Math.max(this.size, Math.min(canvasWidth - this.size, this.x));
+    
     return this.y > targetY;
   }
 
@@ -249,6 +344,7 @@ export class CardinalWardenSimulation {
     this.paused = false;
     this.score = 0;
     this.highScore = options.highScore || 0;
+    this.highestWave = options.highestWave || 0; // Track highest wave reached
     this.wave = 0;
     this.difficultyLevel = 0;
     this.enemiesPassedThrough = 0;
@@ -259,6 +355,14 @@ export class CardinalWardenSimulation {
     this.warden = null;
     this.enemies = [];
     this.bullets = [];
+
+    // Death and respawn animation state
+    this.gamePhase = 'playing'; // 'playing', 'death', 'respawn'
+    this.deathAnimTimer = 0;
+    this.respawnAnimTimer = 0;
+    this.deathShakeIntensity = 0;
+    this.deathExplosionParticles = [];
+    this.respawnOpacity = 0;
 
     // Timing
     this.lastFrameTime = 0;
@@ -280,6 +384,7 @@ export class CardinalWardenSimulation {
     this.onWaveChange = options.onWaveChange || null;
     this.onGameOver = options.onGameOver || null;
     this.onHealthChange = options.onHealthChange || null;
+    this.onHighestWaveChange = options.onHighestWaveChange || null;
 
     // Upgrade state (for future expansion)
     this.upgrades = {
@@ -292,6 +397,9 @@ export class CardinalWardenSimulation {
 
     // Animation frame handle
     this.animationFrameId = null;
+    
+    // Auto-start flag (game starts immediately without menu)
+    this.autoStart = options.autoStart !== false;
 
     this.initialize();
   }
@@ -342,7 +450,7 @@ export class CardinalWardenSimulation {
   }
 
   /**
-   * Reset the game to initial state.
+   * Reset the game to initial state. Preserves highest wave for Shin Glyph tracking.
    */
   reset() {
     // Check for high score before resetting
@@ -362,6 +470,14 @@ export class CardinalWardenSimulation {
     this.enemySpawnTimer = 0;
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
+    
+    // Reset animation state
+    this.gamePhase = 'playing';
+    this.deathAnimTimer = 0;
+    this.respawnAnimTimer = 0;
+    this.deathShakeIntensity = 0;
+    this.deathExplosionParticles = [];
+    this.respawnOpacity = 1;
 
     if (this.warden) {
       this.warden.reset();
@@ -404,12 +520,34 @@ export class CardinalWardenSimulation {
    * Update game state.
    */
   update(deltaTime) {
+    // Handle different game phases
+    switch (this.gamePhase) {
+      case 'death':
+        this.updateDeathAnimation(deltaTime);
+        return;
+      case 'respawn':
+        this.updateRespawnAnimation(deltaTime);
+        return;
+      case 'playing':
+      default:
+        break;
+    }
+
     // Update wave timer
     this.waveTimer += deltaTime;
     if (this.waveTimer >= this.waveDuration) {
       this.waveTimer = 0;
       this.wave++;
       this.difficultyLevel = Math.floor(this.wave / 3);
+      
+      // Track highest wave reached
+      if (this.wave > this.highestWave) {
+        this.highestWave = this.wave;
+        if (this.onHighestWaveChange) {
+          this.onHighestWaveChange(this.highestWave);
+        }
+      }
+      
       if (this.onWaveChange) {
         this.onWaveChange(this.wave);
       }
@@ -448,6 +586,134 @@ export class CardinalWardenSimulation {
     // Check game over conditions
     this.checkGameOver();
   }
+  
+  /**
+   * Update death animation (Cardinal Warden shaking and exploding).
+   */
+  updateDeathAnimation(deltaTime) {
+    const dt = deltaTime / 1000;
+    this.deathAnimTimer += deltaTime;
+    
+    // Phase 1: Shake intensifies (0 - 1000ms)
+    if (this.deathAnimTimer < 1000) {
+      this.deathShakeIntensity = (this.deathAnimTimer / 1000) * 15;
+    }
+    // Phase 2: Explosion (1000 - 1500ms)
+    else if (this.deathAnimTimer < 1500) {
+      if (this.deathExplosionParticles.length === 0) {
+        this.createExplosionParticles();
+      }
+      // Update explosion particles
+      for (const particle of this.deathExplosionParticles) {
+        particle.x += particle.vx * dt;
+        particle.y += particle.vy * dt;
+        particle.life -= dt;
+        particle.alpha = Math.max(0, particle.life / particle.maxLife);
+      }
+      // Also destroy all enemies during explosion
+      for (const enemy of this.enemies) {
+        enemy.health = 0;
+      }
+      this.enemies = [];
+    }
+    // Phase 3: Fade out particles and transition to respawn (1500 - 2500ms)
+    else if (this.deathAnimTimer < 2500) {
+      for (const particle of this.deathExplosionParticles) {
+        particle.x += particle.vx * dt;
+        particle.y += particle.vy * dt;
+        particle.life -= dt;
+        particle.alpha = Math.max(0, particle.life / particle.maxLife);
+      }
+    }
+    // Phase 4: Start respawn animation
+    else {
+      this.startRespawnAnimation();
+    }
+  }
+  
+  /**
+   * Create explosion particles for death animation.
+   */
+  createExplosionParticles() {
+    if (!this.warden) return;
+    
+    const particleCount = 40;
+    for (let i = 0; i < particleCount; i++) {
+      const angle = this.rng.range(0, Math.PI * 2);
+      const speed = this.rng.range(50, 200);
+      this.deathExplosionParticles.push({
+        x: this.warden.x,
+        y: this.warden.y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: this.rng.range(3, 10),
+        color: this.rng.next() > 0.5 ? this.wardenCoreColor : this.wardenSquareColor,
+        life: this.rng.range(0.5, 1.5),
+        maxLife: 1.5,
+        alpha: 1,
+      });
+    }
+  }
+  
+  /**
+   * Start the respawn animation.
+   */
+  startRespawnAnimation() {
+    this.gamePhase = 'respawn';
+    this.respawnAnimTimer = 0;
+    this.respawnOpacity = 0;
+    this.deathExplosionParticles = [];
+    
+    // Reset game state but preserve highest wave and score tracking
+    this.score = 0;
+    this.wave = 0;
+    this.difficultyLevel = 0;
+    this.enemiesPassedThrough = 0;
+    this.enemies = [];
+    this.bullets = [];
+    this.enemySpawnTimer = 0;
+    this.bulletSpawnTimer = 0;
+    this.waveTimer = 0;
+    
+    // Reinitialize warden
+    this.initWarden();
+    if (this.warden) {
+      this.warden.health = this.warden.maxHealth;
+    }
+    
+    // Notify callbacks
+    if (this.onScoreChange) {
+      this.onScoreChange(this.score);
+    }
+    if (this.onWaveChange) {
+      this.onWaveChange(this.wave);
+    }
+    if (this.onHealthChange && this.warden) {
+      this.onHealthChange(this.warden.health, this.warden.maxHealth);
+    }
+  }
+  
+  /**
+   * Update respawn animation (Cardinal Warden fading in).
+   */
+  updateRespawnAnimation(deltaTime) {
+    this.respawnAnimTimer += deltaTime;
+    
+    // Fade in over 1.5 seconds
+    const fadeDuration = 1500;
+    this.respawnOpacity = Math.min(1, this.respawnAnimTimer / fadeDuration);
+    
+    // Update warden animation even during respawn
+    if (this.warden) {
+      this.warden.update(deltaTime);
+    }
+    
+    // After fade in complete, resume playing
+    if (this.respawnAnimTimer >= fadeDuration + 500) {
+      this.gamePhase = 'playing';
+      this.respawnOpacity = 1;
+    }
+  }
 
   /**
    * Get current enemy spawn interval based on difficulty.
@@ -477,6 +743,11 @@ export class CardinalWardenSimulation {
 
     // Scale stats by difficulty
     const difficultyMultiplier = 1 + this.difficultyLevel * 0.15;
+    
+    // Determine if this ship should weave (30% chance for fast/elite types)
+    const canWeave = typeKey === 'fast' || typeKey === 'elite';
+    const shouldWeave = canWeave && this.rng.next() < 0.3;
+    
     const config = {
       ...baseConfig,
       speed: baseConfig.speed * (1 + this.difficultyLevel * 0.1),
@@ -484,13 +755,21 @@ export class CardinalWardenSimulation {
       damage: Math.ceil(baseConfig.damage * (1 + this.difficultyLevel * 0.05)),
       scoreValue: Math.ceil(baseConfig.scoreValue * difficultyMultiplier),
       type: typeKey,
+      acceleration: baseConfig.speed * 1.5, // Acceleration scales with speed
+      weaving: shouldWeave,
+      waveAmplitude: shouldWeave ? this.rng.range(20, 50) : 0,
+      waveFrequency: shouldWeave ? this.rng.range(0.5, 2) : 0,
+      wavePhase: shouldWeave ? this.rng.range(0, Math.PI * 2) : 0,
     };
 
     // Random x position at top of screen
     const x = this.rng.range(config.size, this.canvas.width - config.size);
     const y = -config.size;
 
-    this.enemies.push(new EnemyShip(x, y, config));
+    const ship = new EnemyShip(x, y, config);
+    // Set initial target lower on screen
+    ship.pickNewTarget(this.canvas.width, this.canvas.height, this.rng);
+    this.enemies.push(ship);
   }
 
   /**
@@ -578,7 +857,7 @@ export class CardinalWardenSimulation {
 
     for (let i = 0; i < this.enemies.length; i++) {
       const enemy = this.enemies[i];
-      const passedThrough = enemy.update(deltaTime, bottomY);
+      const passedThrough = enemy.update(deltaTime, bottomY, this.canvas.width, this.canvas.height, this.rng);
 
       if (passedThrough) {
         this.enemiesPassedThrough++;
@@ -690,19 +969,38 @@ export class CardinalWardenSimulation {
     const gameOver = this.enemiesPassedThrough >= this.maxEnemiesPassedThrough ||
                      (this.warden && this.warden.health <= 0);
 
-    if (gameOver) {
+    if (gameOver && this.gamePhase === 'playing') {
+      // Update high score before death animation
+      if (this.score > this.highScore) {
+        this.highScore = this.score;
+        if (this.onHighScoreChange) {
+          this.onHighScoreChange(this.highScore);
+        }
+      }
+
       if (this.onGameOver) {
         this.onGameOver({
           score: this.score,
           highScore: this.highScore,
           wave: this.wave,
+          highestWave: this.highestWave,
           isNewHighScore: this.score > this.highScore,
         });
       }
 
-      // Reset the game (difficulty restarts)
-      this.reset();
+      // Start death animation instead of immediate reset
+      this.startDeathAnimation();
     }
+  }
+  
+  /**
+   * Start the death animation sequence.
+   */
+  startDeathAnimation() {
+    this.gamePhase = 'death';
+    this.deathAnimTimer = 0;
+    this.deathShakeIntensity = 0;
+    this.deathExplosionParticles = [];
   }
 
   /**
@@ -715,17 +1013,75 @@ export class CardinalWardenSimulation {
     this.ctx.fillStyle = this.bgColor;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Draw Cardinal Warden
-    this.renderWarden();
-
-    // Draw enemies
-    this.renderEnemies();
-
-    // Draw bullets
-    this.renderBullets();
+    // Render based on game phase
+    switch (this.gamePhase) {
+      case 'death':
+        this.renderDeathAnimation();
+        break;
+      case 'respawn':
+        this.renderRespawnAnimation();
+        break;
+      case 'playing':
+      default:
+        // Draw Cardinal Warden
+        this.renderWarden();
+        // Draw enemies
+        this.renderEnemies();
+        // Draw bullets
+        this.renderBullets();
+        break;
+    }
 
     // Draw UI overlays
     this.renderUI();
+  }
+  
+  /**
+   * Render the death animation.
+   */
+  renderDeathAnimation() {
+    const ctx = this.ctx;
+    
+    // During shake phase, render shaking warden
+    if (this.deathAnimTimer < 1000 && this.warden) {
+      ctx.save();
+      // Apply shake offset
+      const shakeX = (Math.random() - 0.5) * 2 * this.deathShakeIntensity;
+      const shakeY = (Math.random() - 0.5) * 2 * this.deathShakeIntensity;
+      ctx.translate(shakeX, shakeY);
+      this.renderWarden();
+      ctx.restore();
+      
+      // Still show enemies during shake
+      this.renderEnemies();
+      this.renderBullets();
+    }
+    
+    // Render explosion particles
+    for (const particle of this.deathExplosionParticles) {
+      if (particle.alpha <= 0) continue;
+      ctx.save();
+      ctx.globalAlpha = particle.alpha;
+      ctx.fillStyle = particle.color;
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+  
+  /**
+   * Render the respawn animation.
+   */
+  renderRespawnAnimation() {
+    const ctx = this.ctx;
+    
+    if (!this.warden) return;
+    
+    ctx.save();
+    ctx.globalAlpha = this.respawnOpacity;
+    this.renderWarden();
+    ctx.restore();
   }
 
   /**
@@ -900,6 +1256,7 @@ export class CardinalWardenSimulation {
     return {
       score: this.score,
       highScore: this.highScore,
+      highestWave: this.highestWave,
       wave: this.wave,
       difficultyLevel: this.difficultyLevel,
       upgrades: { ...this.upgrades },
@@ -913,6 +1270,9 @@ export class CardinalWardenSimulation {
     if (state.highScore !== undefined) {
       this.highScore = state.highScore;
     }
+    if (state.highestWave !== undefined) {
+      this.highestWave = state.highestWave;
+    }
     if (state.upgrades) {
       this.upgrades = { ...this.upgrades, ...state.upgrades };
     }
@@ -925,6 +1285,22 @@ export class CardinalWardenSimulation {
     if (Number.isFinite(value) && value >= 0) {
       this.highScore = value;
     }
+  }
+  
+  /**
+   * Set the highest wave externally.
+   */
+  setHighestWave(value) {
+    if (Number.isFinite(value) && value >= 0) {
+      this.highestWave = Math.floor(value);
+    }
+  }
+  
+  /**
+   * Get the highest wave reached.
+   */
+  getHighestWave() {
+    return this.highestWave;
   }
 
   /**
