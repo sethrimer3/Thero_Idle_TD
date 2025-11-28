@@ -379,8 +379,6 @@ class MathBullet {
     this.damage = config.damage || 1;
     this.size = config.size || 4;
     this.color = config.color || '#d4af37';
-    this.piercing = config.piercing || false;
-    this.hitEnemies = new Set();
     
     // Mathematical pattern configuration
     this.pattern = config.pattern || 'sine';
@@ -430,10 +428,6 @@ class MathBullet {
       case 'square':
         // Square wave approximation
         offset = Math.sign(Math.sin(t)) * this.amplitude;
-        break;
-      case 'sawtooth':
-        // Sawtooth wave
-        offset = ((t % (Math.PI * 2)) / Math.PI - 1) * this.amplitude;
         break;
       default:
         offset = Math.sin(t) * this.amplitude;
@@ -857,13 +851,8 @@ export class CardinalWardenSimulation {
       this.spawnEnemy();
     }
 
-    // Fire bullets
-    this.bulletSpawnTimer += deltaTime;
-    const bulletInterval = this.getBulletInterval();
-    if (this.bulletSpawnTimer >= bulletInterval) {
-      this.bulletSpawnTimer = 0;
-      this.fireBullets();
-    }
+    // Fire bullets for each purchased weapon based on their individual fire rates
+    this.updateWeaponTimers(deltaTime);
 
     // Update enemies
     this.updateEnemies(deltaTime);
@@ -876,6 +865,86 @@ export class CardinalWardenSimulation {
 
     // Check game over conditions
     this.checkGameOver();
+  }
+  
+  /**
+   * Update weapon timers and fire bullets when ready.
+   */
+  updateWeaponTimers(deltaTime) {
+    if (!this.warden || !this.canvas) return;
+    
+    for (const weaponId of Object.keys(this.weapons.purchased)) {
+      if (!this.weapons.purchased[weaponId]) continue;
+      
+      const weaponDef = WEAPON_DEFINITIONS[weaponId];
+      if (!weaponDef) continue;
+      
+      // Initialize timer if needed
+      if (this.weaponTimers[weaponId] === undefined) {
+        this.weaponTimers[weaponId] = 0;
+      }
+      
+      // Calculate fire rate based on level (higher level = faster fire rate)
+      const level = this.weapons.levels[weaponId] || 1;
+      const fireRateMultiplier = 1 - (level - 1) * 0.08; // 8% faster per level
+      const fireInterval = weaponDef.baseFireRate * fireRateMultiplier * (1 / this.upgrades.fireRate);
+      
+      this.weaponTimers[weaponId] += deltaTime;
+      
+      if (this.weaponTimers[weaponId] >= fireInterval) {
+        this.weaponTimers[weaponId] = 0;
+        this.fireWeapon(weaponId);
+      }
+    }
+  }
+  
+  /**
+   * Fire bullets from a specific weapon.
+   */
+  fireWeapon(weaponId) {
+    if (!this.warden || !this.canvas) return;
+    
+    const weaponDef = WEAPON_DEFINITIONS[weaponId];
+    if (!weaponDef) return;
+    
+    const cx = this.warden.x;
+    const cy = this.warden.y;
+    const level = this.weapons.levels[weaponId] || 1;
+    
+    // Calculate stats based on level
+    const damageMultiplier = 1 + (level - 1) * 0.25;
+    const speedMultiplier = 1 + (level - 1) * 0.1;
+    
+    const bulletConfig = {
+      speed: weaponDef.baseSpeed * speedMultiplier * this.upgrades.bulletSpeed,
+      damage: weaponDef.baseDamage * damageMultiplier * this.upgrades.bulletDamage,
+      size: 4 + Math.floor(level / 2),
+      color: weaponDef.color,
+      pattern: weaponDef.pattern,
+      amplitude: weaponDef.amplitude * (1 + (level - 1) * 0.15),
+      frequency: weaponDef.frequency,
+    };
+
+    // Number of bullets increases with level
+    const bulletCount = 1 + Math.floor(level / 2);
+    const spreadAngle = Math.PI * 0.6; // 108 degrees spread
+    
+    for (let i = 0; i < bulletCount; i++) {
+      // Calculate angle offset for multiple bullets
+      let angleOffset = 0;
+      if (bulletCount > 1) {
+        angleOffset = (i / (bulletCount - 1) - 0.5) * spreadAngle;
+      }
+      const angle = -Math.PI / 2 + angleOffset; // -90 degrees (pointing up)
+      
+      // Add phase offset for each bullet for visual variety
+      const phaseOffset = i * (Math.PI * 2 / bulletCount);
+      
+      this.bullets.push(new MathBullet(cx, cy - 20, angle, {
+        ...bulletConfig,
+        phase: phaseOffset,
+      }));
+    }
   }
   
   /**
@@ -1012,13 +1081,6 @@ export class CardinalWardenSimulation {
   }
 
   /**
-   * Get current bullet interval based on upgrades.
-   */
-  getBulletInterval() {
-    return Math.max(100, this.baseBulletInterval / this.upgrades.fireRate);
-  }
-
-  /**
    * Spawn an enemy based on current difficulty.
    */
   spawnEnemy() {
@@ -1069,107 +1131,6 @@ export class CardinalWardenSimulation {
     if (this.difficultyLevel >= 2) pool.push('tank');
     if (this.difficultyLevel >= 4) pool.push('elite');
     return pool;
-  }
-
-  /**
-   * Fire bullets from the Cardinal Warden.
-   * Now fires from all purchased weapons using their mathematical patterns.
-   */
-  fireBullets() {
-    if (!this.warden || !this.canvas) return;
-
-    const cx = this.warden.x;
-    const cy = this.warden.y;
-
-    // Fire from all purchased weapons
-    for (const weaponId of Object.keys(this.weapons.purchased)) {
-      if (!this.weapons.purchased[weaponId]) continue;
-      
-      const weaponDef = WEAPON_DEFINITIONS[weaponId];
-      if (!weaponDef) continue;
-      
-      const level = this.weapons.levels[weaponId] || 1;
-      
-      // Calculate stats based on level
-      const damageMultiplier = 1 + (level - 1) * 0.25;
-      const speedMultiplier = 1 + (level - 1) * 0.1;
-      
-      const bulletConfig = {
-        speed: weaponDef.baseSpeed * speedMultiplier * this.upgrades.bulletSpeed,
-        damage: weaponDef.baseDamage * damageMultiplier * this.upgrades.bulletDamage,
-        size: 4 + Math.floor(level / 2),
-        color: weaponDef.color,
-        pattern: weaponDef.pattern,
-        amplitude: weaponDef.amplitude * (1 + (level - 1) * 0.15),
-        frequency: weaponDef.frequency,
-      };
-
-      // Number of bullets increases with level
-      const bulletCount = 1 + Math.floor(level / 2);
-      const spreadAngle = Math.PI * 0.6; // 108 degrees spread
-      
-      for (let i = 0; i < bulletCount; i++) {
-        // Calculate angle offset for multiple bullets
-        let angleOffset = 0;
-        if (bulletCount > 1) {
-          angleOffset = (i / (bulletCount - 1) - 0.5) * spreadAngle;
-        }
-        const angle = -Math.PI / 2 + angleOffset; // -90 degrees (pointing up)
-        
-        // Add phase offset for each bullet for visual variety
-        const phaseOffset = i * (Math.PI * 2 / bulletCount);
-        
-        this.bullets.push(new MathBullet(cx, cy - 20, angle, {
-          ...bulletConfig,
-          phase: phaseOffset,
-        }));
-      }
-    }
-  }
-
-  /**
-   * Fire bullets in a specific pattern.
-   */
-  firePattern(pattern, config) {
-    const cx = this.warden.x;
-    const cy = this.warden.y;
-    const bulletCount = 4 + this.upgrades.bulletCount * 2;
-
-    switch (pattern) {
-      case 'radial': {
-        // Fire in a circle pattern (spread around cardinal directions, mostly upward)
-        for (let i = 0; i < bulletCount; i++) {
-          const spread = Math.PI * 0.8; // 144 degrees spread (mostly upward)
-          const baseAngle = -Math.PI / 2; // Pointing up
-          const angleOffset = (i / (bulletCount - 1) - 0.5) * spread;
-          const angle = baseAngle + angleOffset;
-          this.bullets.push(new Bullet(cx, cy - 20, angle, config));
-        }
-        break;
-      }
-      case 'spiral': {
-        // Spiral pattern
-        const time = performance.now() / 1000;
-        for (let i = 0; i < bulletCount; i++) {
-          const angle = -Math.PI / 2 + (i / bulletCount) * Math.PI * 2 + time * 2;
-          this.bullets.push(new Bullet(cx, cy - 20, angle, config));
-        }
-        break;
-      }
-      case 'focused': {
-        // Focused burst toward top
-        for (let i = 0; i < bulletCount; i++) {
-          const spread = Math.PI * 0.3;
-          const angle = -Math.PI / 2 + (this.rng.next() - 0.5) * spread;
-          this.bullets.push(new Bullet(cx, cy - 20, angle, config));
-        }
-        break;
-      }
-      default: {
-        // Default single shot
-        this.bullets.push(new Bullet(cx, cy - 20, -Math.PI / 2, config));
-      }
-    }
   }
 
   /**
