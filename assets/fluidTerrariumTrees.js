@@ -41,6 +41,55 @@ const BET_TREE_DEPTH_COLORS = [
 
 // Storefront configuration so the Bet terrarium can surface player-placed decorations.
 const DEFAULT_TERRARIUM_STORE_ITEMS = [
+  // Delta Slimes - purchasable creatures that hop around the terrarium
+  {
+    id: 'bet-store-delta-slime-1',
+    label: 'Delta Slime',
+    description: 'A bouncy Δ creature that hops around the basin. Generates 0.5 hp/hr.',
+    icon: 'Δ',
+    itemType: 'slime',
+    cost: 10,
+    size: 'small',
+    minY: 0.5,
+    maxY: 0.95,
+    minSpacing: 0.05,
+  },
+  {
+    id: 'bet-store-delta-slime-2',
+    label: 'Delta Slime',
+    description: 'A bouncy Δ creature that hops around the basin. Generates 0.5 hp/hr.',
+    icon: 'Δ',
+    itemType: 'slime',
+    cost: 10,
+    size: 'small',
+    minY: 0.5,
+    maxY: 0.95,
+    minSpacing: 0.05,
+  },
+  {
+    id: 'bet-store-delta-slime-3',
+    label: 'Delta Slime',
+    description: 'A bouncy Δ creature that hops around the basin. Generates 0.5 hp/hr.',
+    icon: 'Δ',
+    itemType: 'slime',
+    cost: 10,
+    size: 'small',
+    minY: 0.5,
+    maxY: 0.95,
+    minSpacing: 0.05,
+  },
+  {
+    id: 'bet-store-delta-slime-4',
+    label: 'Delta Slime',
+    description: 'A bouncy Δ creature that hops around the basin. Generates 0.5 hp/hr.',
+    icon: 'Δ',
+    itemType: 'slime',
+    cost: 10,
+    size: 'small',
+    minY: 0.5,
+    maxY: 0.95,
+    minSpacing: 0.05,
+  },
   {
     id: 'bet-store-large-tree',
     label: 'Large Fractal Tree',
@@ -54,10 +103,22 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
   },
   {
     id: 'bet-store-small-tree',
-    label: 'Island Bonsai',
+    label: 'Small Fractal Tree',
     description: 'Compact sapling suited for ridge lines.',
     icon: '🌱',
     size: 'small',
+    minY: 0.28,
+    maxY: 0.9,
+    minSpacing: 0.07,
+    initialAllocation: 5,
+  },
+  {
+    id: 'bet-store-island-bonsai',
+    label: 'Island Bonsai',
+    description: 'An elegant bonsai that grows on floating islands.',
+    icon: '🌲',
+    size: 'small',
+    origin: 'island',
     minY: 0.28,
     maxY: 0.9,
     minSpacing: 0.07,
@@ -308,6 +369,7 @@ export class FluidTerrariumTrees {
     this.spendSerendipity = typeof options.spendSerendipity === 'function' ? options.spendSerendipity : () => 0;
     this.onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : () => {};
     this.onShroomPlace = typeof options.onShroomPlace === 'function' ? options.onShroomPlace : null;
+    this.onSlimePlace = typeof options.onSlimePlace === 'function' ? options.onSlimePlace : null;
     this.powderState = options.powderState || null;
 
     this.activeHold = null;
@@ -1326,6 +1388,23 @@ export class FluidTerrariumTrees {
         return true;
       }
       this.setStoreStatus('Could not place shroom. Try a location inside a cave.');
+      return false;
+    }
+
+    // Check if this is a slime item - delegate to the slime placement callback
+    if (storeItem.itemType === 'slime' && this.onSlimePlace) {
+      const slimePlaced = this.onSlimePlace({
+        point,
+        storeItem,
+      });
+      if (slimePlaced) {
+        this.setStoreStatus(`${storeItem.label} released into the basin. Generates 0.5 hp/hr.`);
+        this.updatePlacementPreview(point, true);
+        this.consumeStoreItem(storeItem.id);
+        this.clearStoreSelection();
+        return true;
+      }
+      this.setStoreStatus('Could not release slime. Try again.');
       return false;
     }
 

@@ -50,7 +50,7 @@ import { notifyTowerPlaced } from './achievementsTab.js';
 import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import { formatCombatNumber } from './playfield/utils/formatting.js';
 import { easeInCubic, easeOutCubic } from './playfield/utils/math.js';
-import { areDamageNumbersEnabled } from './preferences.js';
+import { areDamageNumbersEnabled, getFrameRateLimit, updateFpsCounter } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
 import {
   PLAYFIELD_VIEW_DRAG_THRESHOLD,
@@ -2193,6 +2193,14 @@ export class SimplePlayfield {
       return;
     }
 
+    // Frame rate limiting: skip frames if running faster than the configured limit.
+    const frameRateLimit = getFrameRateLimit();
+    const minFrameTime = 1000 / frameRateLimit;
+    if (this.lastTimestamp && timestamp - this.lastTimestamp < minFrameTime) {
+      this.animationId = requestAnimationFrame((nextTimestamp) => this.tick(nextTimestamp));
+      return;
+    }
+
     const delta = this.lastTimestamp ? (timestamp - this.lastTimestamp) / 1000 : 0;
     this.lastTimestamp = timestamp;
 
@@ -2215,6 +2223,9 @@ export class SimplePlayfield {
     } finally {
       endPerformanceFrame();
     }
+
+    // Update the FPS counter after the frame completes.
+    updateFpsCounter(timestamp);
 
     this.animationId = requestAnimationFrame((nextTimestamp) => this.tick(nextTimestamp));
   }

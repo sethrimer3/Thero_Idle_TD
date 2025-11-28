@@ -239,6 +239,24 @@ body.graphics-mode-low .control-button {
   gap: 16px;
 }
 
+/* FPS counter overlay pinned to the top-left corner, visible regardless of active tab. */
+.fps-counter {
+  position: fixed;
+  top: 4px;
+  left: 4px;
+  z-index: 9999;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  user-select: none;
+  min-width: 24px;
+  text-align: center;
+}
+
 /* Display the relocated thero equation banner within the level selection tab. */
 .level-thero-banner {
   background: var(--panel);
@@ -3979,6 +3997,20 @@ body.graphics-mode-low .control-button {
 
 .visual-settings-menu .settings-toggle {
   margin-top: 14px;
+}
+
+/* Slider row styling for frame rate and similar controls in visual settings. */
+.visual-settings-menu .visual-settings-slider-row {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.slider-description {
+  font-size: 0.68rem;
+  color: rgba(247, 247, 245, 0.55);
+  margin-top: 4px;
+  display: block;
 }
 
 /* Visual cue for how floating damage numbers look under the selected notation. */
@@ -9641,6 +9673,66 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   max-width: 100%;
 }
 
+/* Lamed Spire Options Dropdown Card */
+.lamed-spire-options-card {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.lamed-spire-options-trigger {
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+}
+
+.lamed-spire-options-glyph {
+  font-size: 1.3em;
+  color: var(--accent-3);
+  text-shadow: 0 0 8px rgba(255, 228, 120, 0.35);
+}
+
+.lamed-spire-options-menu {
+  display: grid;
+  gap: 12px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 320ms ease, opacity 280ms ease;
+}
+
+.lamed-spire-options-menu[data-open='true'] {
+  opacity: 1;
+  margin-top: 8px;
+  pointer-events: auto;
+}
+
+.lamed-spire-options-menu[data-open='false'] {
+  pointer-events: none;
+}
+
+.lamed-spire-options-menu .action-button {
+  width: 100%;
+}
+
+.lamed-spire-options-menu .settings-toggle {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lamed-spire-options-menu .settings-toggle:first-of-type {
+  margin-top: 12px;
+}
+
 /* ============================================
    Tsadi Spire Styles
    ============================================ */
@@ -11220,5 +11312,375 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   
   .enemy-codex-entry-title {
     font-size: 1.05rem;
+  }
+}
+
+/* ==========================================================================
+   SHIN SPIRE – CARDINAL WARDEN REVERSE DANMAKU GAME
+   ========================================================================== */
+
+.shin-game-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem;
+  width: 100%;
+}
+
+.shin-cardinal-card {
+  width: 100%;
+  max-width: 600px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.shin-cardinal-viewport {
+  position: relative;
+  margin: 0 auto;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  box-shadow: inset 0 0 36px rgba(212, 175, 55, 0.15);
+  background: #ffffff;
+  /* Maintain the shared 3:4 portrait ratio used by other spire renders. */
+  aspect-ratio: 3 / 4;
+  /* Expand until the viewport width or height limit is encountered. */
+  width: min(100%, calc(100vw - 48px));
+  /* 220px accounts for the tab bar (~80px), panel header (~40px), resource card (~100px) and padding. */
+  max-width: min(720px, calc((var(--stable-vh) - 220px) * 0.75));
+  max-height: calc(var(--stable-vh) - 220px);
+}
+
+.shin-cardinal-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+}
+
+/* Start screen overlay */
+.shin-cardinal-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  gap: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  text-align: center;
+}
+
+.shin-cardinal-overlay[hidden] {
+  display: none;
+}
+
+.shin-cardinal-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #d4af37;
+  letter-spacing: 0.05em;
+  margin: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.shin-cardinal-description {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #666;
+  max-width: 300px;
+  margin: 0;
+}
+
+.shin-cardinal-start {
+  margin-top: 1rem;
+  background: linear-gradient(135deg, #d4af37 0%, #c9a227 100%);
+  color: #fff;
+  border: none;
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: var(--cursor-pointer);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.shin-cardinal-start:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+.shin-cardinal-start:active {
+  transform: translateY(0);
+}
+
+/* Game over result panel */
+.shin-cardinal-result {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  text-align: center;
+}
+
+.shin-cardinal-result[hidden] {
+  display: none;
+}
+
+.shin-cardinal-result-title {
+  font-size: 1.25rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d4af37;
+  margin: 0;
+}
+
+.shin-cardinal-result-score,
+.shin-cardinal-result-high,
+.shin-cardinal-result-wave {
+  margin: 0;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+.shin-cardinal-result-high {
+  color: #d4af37;
+  font-weight: 600;
+}
+
+.shin-cardinal-restart {
+  margin-top: 0.5rem;
+  background: transparent;
+  color: #d4af37;
+  border: 1px solid #d4af37;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.95rem;
+  border-radius: 6px;
+  cursor: var(--cursor-pointer);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.shin-cardinal-restart:hover {
+  background: #d4af37;
+  color: #fff;
+}
+
+/* Resource card styling */
+.shin-resource-card {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.shin-resource-card h3 {
+  color: #d4af37;
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.shin-metrics {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.shin-metrics > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shin-metrics dt {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.shin-metrics dd {
+  margin: 0;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.95rem;
+  color: #d4af37;
+}
+
+/* Mobile responsiveness for Cardinal Warden */
+@media (max-width: 600px) {
+  .shin-cardinal-viewport {
+    border-radius: 12px;
+  }
+  
+  .shin-cardinal-title {
+    font-size: 1.25rem;
+  }
+  
+  .shin-cardinal-description {
+    font-size: 0.85rem;
+  }
+  
+  .shin-cardinal-start {
+    padding: 0.65rem 1.5rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Warden Weapons Menu
+   ========================================================================== */
+
+.shin-weapons-card {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.shin-weapons-card h3 {
+  color: #d4af37;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.shin-weapons-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-bottom: 0.75rem;
+  font-style: italic;
+}
+
+.shin-weapons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.shin-weapon-item {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.75rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.shin-weapon-item:hover {
+  border-color: rgba(212, 175, 55, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.shin-weapon-item--locked {
+  opacity: 0.6;
+}
+
+.shin-weapon-item--locked:hover {
+  opacity: 0.8;
+}
+
+.shin-weapon-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.shin-weapon-symbol {
+  font-size: 1.2rem;
+  font-weight: 600;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.shin-weapon-name {
+  font-size: 0.85rem;
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shin-weapon-level {
+  font-size: 0.7rem;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.shin-weapon-description {
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-bottom: 0.5rem;
+  flex: 1;
+  min-height: 2.4rem;
+}
+
+.shin-weapon-action {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: #d4af37;
+  border: 1px solid #d4af37;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  cursor: var(--cursor-pointer);
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.shin-weapon-action:hover:not(:disabled) {
+  background: #d4af37;
+  color: #fff;
+}
+
+.shin-weapon-action:disabled {
+  opacity: 0.5;
+  cursor: var(--cursor-not-allowed);
+}
+
+.shin-weapon-action--owned {
+  background: rgba(212, 175, 55, 0.2);
+  border-color: rgba(212, 175, 55, 0.4);
+  color: #d4af37;
+}
+
+.shin-weapon-action--maxed {
+  background: rgba(139, 247, 255, 0.15);
+  border-color: rgba(139, 247, 255, 0.3);
+  color: var(--accent);
+}
+
+@media (max-width: 600px) {
+  .shin-weapons-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.4rem;
+  }
+  
+  .shin-weapon-item {
+    padding: 0.6rem;
+  }
+  
+  .shin-weapon-symbol {
+    font-size: 1rem;
+  }
+  
+  .shin-weapon-name {
+    font-size: 0.8rem;
+  }
+  
+  .shin-weapon-description {
+    font-size: 0.65rem;
   }
 }
