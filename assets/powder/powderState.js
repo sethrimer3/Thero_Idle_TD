@@ -58,7 +58,7 @@ export function createPowderStateContext() {
     // Persist Bet Spire happiness generation tied to Serendipity purchases.
     betHappiness: {
       bank: 0,
-      producers: { slime: 4 },
+      producers: { slime: 0 },
     },
     // Track Bet terrarium fractal leveling progress.
     betTerrarium: {
