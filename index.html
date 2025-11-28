@@ -190,6 +190,8 @@
       </div>
     </div>
     <div class="app-shell">
+      <!-- FPS counter displayed in the top-left corner regardless of active tab. -->
+      <div class="fps-counter" id="fps-counter" hidden aria-hidden="true" aria-label="Frames per second">--</div>
       <main class="main-stage">
         <section
           class="panel active"
@@ -732,6 +734,13 @@
             </p>
             <div class="level-grid" id="level-grid" aria-live="polite"></div>
           </section>
+          <!-- Developer mode toggle positioned at the very bottom of the Stage tab -->
+          <div class="stage-developer-toggle-wrapper" id="stage-developer-toggle-wrapper">
+            <label class="developer-mode-toggle stage-developer-mode-toggle" for="stage-developer-mode">
+              <input type="checkbox" id="stage-developer-mode" />
+              Developer Mode — unlock all towers, levels, and entries
+            </label>
+          </div>
         </section>
 
         <section
@@ -1796,9 +1805,7 @@
                   </span>
                   <span class="fluid-camera-toggle__state" id="fluid-camera-mode-state">Off</span>
                 </button>
-                <p class="fluid-camera-toggle__hint" id="fluid-camera-mode-hint">
-                  Pan the Bet terrarium when camera mode is on.
-                </p>
+                <p class="fluid-camera-toggle__hint" id="fluid-camera-mode-hint" hidden></p>
               </div>
               </article>
             </div>
@@ -2046,6 +2053,162 @@
               <p class="lamed-status-note" id="lamed-status-note">
                 Stars spawn in orbital rings around the central body. Drag causes inward spiral migration.
               </p>
+            </article>
+            <!-- Lamed Spire Options dropdown for visual settings -->
+            <article class="card lamed-spire-options-card">
+              <button
+                class="action-button lamed-spire-options-trigger"
+                type="button"
+                id="lamed-options-toggle-button"
+                aria-expanded="false"
+                aria-controls="lamed-options-menu"
+              >
+                <span class="lamed-spire-options-glyph" aria-hidden="true">ל</span>
+                <span>Spire Options</span>
+              </button>
+              <div
+                class="lamed-spire-options-menu"
+                id="lamed-options-menu"
+                data-open="false"
+                aria-hidden="true"
+                hidden
+              >
+                <button class="action-button ghost" type="button" id="lamed-graphics-level-button">
+                  Graphics · High
+                </button>
+                <div class="settings-toggle" id="lamed-dust-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-dust-title">Dust Particles</span>
+                    <span class="settings-toggle-description" id="lamed-dust-description"
+                      >Swirling accretion disk particles around the celestial body.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-dust-toggle">
+                    <input
+                      type="checkbox"
+                      id="lamed-dust-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="lamed-dust-title"
+                      aria-describedby="lamed-dust-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="lamed-dust-toggle-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="lamed-trails-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-trails-title">Star Trails</span>
+                    <span class="settings-toggle-description" id="lamed-trails-description"
+                      >Colorful velocity trails behind orbiting stars.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-trails-toggle">
+                    <input
+                      type="checkbox"
+                      id="lamed-trails-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="lamed-trails-title"
+                      aria-describedby="lamed-trails-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="lamed-trails-toggle-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="lamed-sun-detail-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-sun-detail-title">Sun Detail</span>
+                    <span class="settings-toggle-description" id="lamed-sun-detail-description"
+                      >Animated sunspots, corona shimmer, and limb darkening effects.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-sun-detail-toggle">
+                    <input
+                      type="checkbox"
+                      id="lamed-sun-detail-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="lamed-sun-detail-title"
+                      aria-describedby="lamed-sun-detail-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="lamed-sun-detail-toggle-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="lamed-splashes-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-splashes-title">Sun Splashes</span>
+                    <span class="settings-toggle-description" id="lamed-splashes-description"
+                      >Lens flare and geyser bursts when stars enter the sun.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-splashes-toggle">
+                    <input
+                      type="checkbox"
+                      id="lamed-splashes-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="lamed-splashes-title"
+                      aria-describedby="lamed-splashes-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="lamed-splashes-toggle-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="lamed-shooting-trails-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-shooting-trails-title">Shooting Star Trails</span>
+                    <span class="settings-toggle-description" id="lamed-shooting-trails-description"
+                      >Luminous streaks following shooting stars across the sky.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-shooting-trails-toggle">
+                    <input
+                      type="checkbox"
+                      id="lamed-shooting-trails-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="lamed-shooting-trails-title"
+                      aria-describedby="lamed-shooting-trails-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="lamed-shooting-trails-toggle-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="lamed-flashes-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-flashes-title">Spawn Flashes</span>
+                    <span class="settings-toggle-description" id="lamed-flashes-description"
+                      >Bright flash effects when new stars spawn into orbit.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-flashes-toggle">
+                    <input
+                      type="checkbox"
+                      id="lamed-flashes-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="lamed-flashes-title"
+                      aria-describedby="lamed-flashes-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="lamed-flashes-toggle-state">On</span>
+                  </label>
+                </div>
+              </div>
             </article>
           </section>
         </section>
@@ -2387,53 +2550,68 @@
           </nav>
           <header class="panel-header" aria-label="Shin Spire"></header>
           
-          <!-- Fractal Content Area -->
-          <section class="shin-fractal-content" id="shin-fractal-content" aria-label="Active fractal visualization">
-            <!-- Content will be dynamically generated -->
+          <!-- Shin Spire Game Content Area - Cardinal Warden Reverse Danmaku -->
+          <section class="shin-game-content" id="shin-game-content" aria-label="Shin Spire game area">
+            <!-- Cardinal Warden Reverse Danmaku Game -->
+            <article class="card shin-cardinal-card" id="shin-cardinal-card">
+              <div class="shin-cardinal-viewport">
+                <canvas
+                  id="shin-cardinal-canvas"
+                  class="shin-cardinal-canvas"
+                  aria-label="Cardinal Warden reverse danmaku game"
+                ></canvas>
+              </div>
+            </article>
           </section>
 
-          <!-- Layer Progress Display -->
-          <article class="card shin-progress-card">
-            <h3>Layer Progress</h3>
-            <div class="shin-layer-progress" id="shin-layer-progress">
-              <div class="shin-layer-progress-bar-wrapper">
-                <div class="shin-layer-progress-bar" id="shin-layer-progress-bar" style="width: 0%"></div>
-              </div>
-              <p class="shin-layer-progress-text" id="shin-layer-progress-text">Select a fractal to begin</p>
+          <!-- Warden Weapons Menu -->
+          <article class="card shin-weapons-card" id="shin-weapons-card">
+            <h3>Warden Weapons</h3>
+            <p class="shin-weapons-note">Mathematical projectile patterns. Spend score to purchase and upgrade.</p>
+            <div class="shin-weapons-grid" id="shin-weapons-grid" role="list" aria-live="polite">
+              <!-- Weapons populated dynamically -->
             </div>
           </article>
 
-          <!-- Fractal Details (populated dynamically) -->
-          <div id="shin-fractal-details">
-            <!-- Title, description, and stats will be dynamically generated here -->
-          </div>
-
-          <!-- Fractal Tab Selection -->
-          <div class="shin-fractal-tabs-wrapper">
-            <h3 class="shin-section-title">Select Fractal</h3>
-            <div class="shin-fractal-tabs" id="shin-fractal-tabs" role="tablist" aria-label="Fractal selection">
-              <!-- Tabs will be dynamically generated -->
-            </div>
-          </div>
-
-          <!-- Iteron Resource Display -->
+          <!-- Shin Spire Stats Display -->
           <article class="card shin-resource-card">
-            <h3>Iteron Bank</h3>
+            <h3>Shin Spire Stats</h3>
             <dl class="shin-metrics">
               <div>
-                <dt>Available Iterons</dt>
-                <dd id="shin-iteron-bank">0</dd>
+                <dt>Current Wave</dt>
+                <dd id="shin-wave-display">Wave 1</dd>
               </div>
               <div>
-                <dt>Iteration Rate</dt>
-                <dd id="shin-iteration-rate">1.00/sec</dd>
+                <dt>Highest Wave</dt>
+                <dd id="shin-highest-wave">0</dd>
               </div>
               <div>
-                <dt>Shin Glyphs Earned</dt>
+                <dt>Shin Glyphs</dt>
                 <dd id="shin-glyph-count">0 ש</dd>
               </div>
             </dl>
           </article>
+
+          <!-- Legacy elements kept for compatibility but hidden -->
+          <div hidden aria-hidden="true">
+            <div id="shin-fractal-content"></div>
+            <div id="shin-layer-progress">
+              <div id="shin-layer-progress-bar"></div>
+              <p id="shin-layer-progress-text"></p>
+            </div>
+            <div id="shin-fractal-details"></div>
+            <div id="shin-fractal-tabs"></div>
+            <dd id="shin-iteron-bank">0</dd>
+            <dd id="shin-iteration-rate">0/sec</dd>
+            <!-- Keep legacy overlay and result elements for compatibility -->
+            <div id="shin-cardinal-overlay" hidden></div>
+            <div id="shin-cardinal-result" hidden></div>
+            <button id="shin-cardinal-start" hidden></button>
+            <button id="shin-cardinal-restart" hidden></button>
+            <p id="shin-cardinal-result-score"></p>
+            <p id="shin-cardinal-result-high"></p>
+            <p id="shin-cardinal-result-wave"></p>
+          </div>
 
 
         </section>
@@ -3028,6 +3206,49 @@
                     />
                     <span class="settings-toggle-slider" aria-hidden="true"></span>
                     <span class="settings-toggle-state" id="wave-damage-tally-toggle-state">On</span>
+                  </label>
+                </div>
+                <!-- Frame rate limit slider for older devices. -->
+                <div class="slider-row visual-settings-slider-row" id="frame-rate-limit-row">
+                  <div class="slider-row-header">
+                    <label class="slider-label" for="frame-rate-limit" id="frame-rate-limit-label">Frame Rate Limit</label>
+                    <span class="slider-value" id="frame-rate-limit-value">60 fps</span>
+                  </div>
+                  <input
+                    class="slider-input"
+                    type="range"
+                    id="frame-rate-limit"
+                    min="30"
+                    max="120"
+                    step="5"
+                    value="60"
+                    aria-labelledby="frame-rate-limit-label"
+                    aria-describedby="frame-rate-limit-description"
+                  />
+                  <span class="slider-description" id="frame-rate-limit-description"
+                    >Lower values may improve performance on older devices.</span
+                  >
+                </div>
+                <!-- Toggle to show FPS counter in top-left corner. -->
+                <div class="settings-toggle" id="fps-counter-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="fps-counter-title">FPS Counter</span>
+                    <span class="settings-toggle-description" id="fps-counter-description"
+                      >Display current frames per second in the top-left corner.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="fps-counter-toggle">
+                    <input
+                      type="checkbox"
+                      id="fps-counter-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="fps-counter-title"
+                      aria-describedby="fps-counter-description"
+                      aria-checked="false"
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="fps-counter-toggle-state">Off</span>
                   </label>
                 </div>
               </div>

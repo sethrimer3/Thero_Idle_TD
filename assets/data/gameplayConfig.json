@@ -231,6 +231,7 @@
   "maps": [
     {
       "set": "Prologue",
+      "campaign": "Story",
       "id": "Prologue - 1",
       "title": "First Lattice",
       "path": "A straight path\u2014the simplest proof.",
@@ -239,6 +240,7 @@
     },
     {
       "set": "Prologue",
+      "campaign": "Story",
       "id": "Prologue - 2",
       "title": "Curved Path",
       "path": "A gentle arc\u2014position matters.",
@@ -247,6 +249,7 @@
     },
     {
       "set": "Prologue",
+      "campaign": "Story",
       "id": "Prologue - 3",
       "title": "Final Test",
       "path": "A winding proof\u2014combine all techniques.",
@@ -255,6 +258,7 @@
     },
     {
       "set": "Prologue",
+      "campaign": "Story",
       "id": "Prologue - Story",
       "title": "The Beginning",
       "path": "Read the story to continue.",
@@ -605,7 +609,62 @@
       "example": "Ladder 6: Test your tactical prowess."
     },
     {
+      "set": "Challenge Set 1",
+      "id": "Challenge-1-1",
+      "campaign": "Challenges",
+      "title": "Endurance Trial I",
+      "path": "Extended wave sequences.",
+      "focus": "Test sustained defense.",
+      "example": "Challenge 1: Survive escalating waves."
+    },
+    {
+      "set": "Challenge Set 1",
+      "id": "Challenge-1-2",
+      "campaign": "Challenges",
+      "title": "Endurance Trial II",
+      "path": "Extended wave sequences.",
+      "focus": "Test sustained defense.",
+      "example": "Challenge 1: Survive escalating waves."
+    },
+    {
+      "set": "Challenge Set 1",
+      "id": "Challenge-1-3",
+      "campaign": "Challenges",
+      "title": "Endurance Trial III",
+      "path": "Extended wave sequences.",
+      "focus": "Test sustained defense.",
+      "example": "Challenge 1: Survive escalating waves."
+    },
+    {
+      "set": "Challenge Set 2",
+      "id": "Challenge-2-1",
+      "campaign": "Challenges",
+      "title": "Speed Run I",
+      "path": "Race against time.",
+      "focus": "Quick elimination required.",
+      "example": "Challenge 2: Clear waves rapidly."
+    },
+    {
+      "set": "Challenge Set 2",
+      "id": "Challenge-2-2",
+      "campaign": "Challenges",
+      "title": "Speed Run II",
+      "path": "Race against time.",
+      "focus": "Quick elimination required.",
+      "example": "Challenge 2: Clear waves rapidly."
+    },
+    {
+      "set": "Challenge Set 2",
+      "id": "Challenge-2-3",
+      "campaign": "Challenges",
+      "title": "Speed Run III",
+      "path": "Race against time.",
+      "focus": "Quick elimination required.",
+      "example": "Challenge 2: Clear waves rapidly."
+    },
+    {
       "set": "Developer",
+      "campaign": "Ladder",
       "id": "Developer - Test Range",
       "title": "Endless Codex Trials",
       "path": "Developer-only training lattice\u2014direct path reveals every glyph as it approaches.",

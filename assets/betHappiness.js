@@ -1,4 +1,4 @@
-const DEFAULT_SLIME_COUNT = 4;
+const DEFAULT_SLIME_COUNT = 0;
 
 const BET_HAPPINESS_PRODUCERS = {
   slime: {
@@ -277,6 +277,7 @@ export function createBetHappinessSystem({
     setProducerCount,
     getTotalRatePerHour,
     getTotalHappiness: () => normalizeBank(happinessState.bank),
+    getHappinessLevel: () => resolveHappinessProgress(normalizeBank(happinessState.bank)).level,
     addHappiness,
     calculateIdleHappiness,
     bindDisplayElements,

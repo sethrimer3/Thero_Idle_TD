@@ -9,6 +9,7 @@ const DEFAULT_LAMED_STATE = {
   stats: {
     totalAbsorptions: 0,
     totalMassGained: 0,
+    starMilestoneReached: 0,
   },
 };
 

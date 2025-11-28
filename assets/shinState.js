@@ -307,6 +307,17 @@ export function getShinGlyphs() {
 }
 
 /**
+ * Add shin glyphs to the total.
+ * @param {number} amount - Number of glyphs to add
+ * @returns {number} The new total
+ */
+export function addShinGlyphs(amount) {
+  const normalized = Math.max(0, Math.floor(Number.isFinite(amount) ? amount : 0));
+  shinState.shinGlyphs += normalized;
+  return shinState.shinGlyphs;
+}
+
+/**
  * Override the stored Shin glyph total for developer workflows.
  */
 export function setShinGlyphs(value) {

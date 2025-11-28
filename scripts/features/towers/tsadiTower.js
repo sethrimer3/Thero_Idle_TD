@@ -1806,7 +1806,11 @@ export class ParticleFusionSimulation {
     // Update highest tier
     if (newTier > this.highestTierReached) {
       this.highestTierReached = newTier;
-      // Glyph count is now tracked separately
+      // Tsadi glyphs equal the highest tier reached (display tier)
+      this.glyphCount = toDisplayTier(this.highestTierReached);
+      if (this.onGlyphChange) {
+        this.onGlyphChange(this.glyphCount);
+      }
       if (this.onTierChange) {
         this.onTierChange({
           tier: newTier,
@@ -1885,6 +1889,11 @@ export class ParticleFusionSimulation {
     // Update highest tier
     if (nextCycleTier > this.highestTierReached) {
       this.highestTierReached = nextCycleTier;
+      // Tsadi glyphs equal the highest tier reached (display tier)
+      this.glyphCount = toDisplayTier(this.highestTierReached);
+      if (this.onGlyphChange) {
+        this.onGlyphChange(this.glyphCount);
+      }
       const tierInfo = getGreekTierInfo(nextCycleTier);
       if (this.onTierChange) {
         this.onTierChange({
@@ -1949,11 +1958,8 @@ export class ParticleFusionSimulation {
       { x: alephParticle.x, y: alephParticle.y, radius: this.width / 3, alpha: 1, type: 'ring' }
     );
     
-    // Award 100 Tsadi glyphs
-    this.glyphCount += 100;
-    if (this.onGlyphChange) {
-      this.onGlyphChange(this.glyphCount);
-    }
+    // Tsadi glyphs are based on highest tier reached (no bonus for Aleph explosion)
+    // The glyphCount was already updated when reaching this tier
     
     // Add permanent glyph to background
     this.permanentGlyphs.push({
@@ -2648,9 +2654,13 @@ export class ParticleFusionSimulation {
     if (typeof state.highestTierReached === 'number') {
       this.highestTierReached = state.highestTierReached;
       this.advancedMoleculesUnlocked = this.highestTierReached >= ADVANCED_MOLECULE_UNLOCK_TIER;
+      // Tsadi glyphs equal the highest tier reached (display tier)
+      this.glyphCount = toDisplayTier(this.highestTierReached);
     }
-
-    if (typeof state.glyphCount === 'number') {
+    
+    // Legacy save migration: if highestTierReached is missing but glyphCount exists,
+    // preserve the old glyphCount until the simulation naturally updates the tier
+    if (typeof state.highestTierReached !== 'number' && typeof state.glyphCount === 'number') {
       this.glyphCount = state.glyphCount;
     }
 

@@ -88,6 +88,12 @@ import {
   initializeTrackRenderMode,
   initializeLoadoutSlotPreference,
   setLoadoutSlotChangeHandler,
+  bindFrameRateLimitSlider,
+  initializeFrameRateLimitPreference,
+  applyFrameRateLimitPreference,
+  bindFpsCounterToggle,
+  initializeFpsCounterPreference,
+  applyFpsCounterPreference,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
 import { configurePerformanceMonitor } from './performanceMonitor.js';
@@ -196,6 +202,13 @@ import {
   updateFractalSimulation,
   resizeShinFractalCanvases,
 } from './shinUI.js';
+// Cardinal Warden reverse danmaku game for Shin Spire.
+import {
+  initializeCardinalWardenUI,
+  resizeCardinalCanvas,
+  stopCardinalSimulation,
+  isCardinalSimulationRunning,
+} from './cardinalWardenUI.js';
 import {
   initializeKufState,
   getKufStateSnapshot,
@@ -325,6 +338,11 @@ import { createVariableLibraryController } from './variableLibraryController.js'
 import { createUpgradeMatrixOverlay } from './upgradeMatrixOverlay.js';
 import { createLevelSummaryHelpers } from './levelSummary.js';
 import { createLamedSpireUi } from './lamedSpireUi.js';
+import {
+  bindLamedSpireOptions,
+  setLamedSimulationGetter,
+  initializeLamedSpirePreferences,
+} from './lamedSpirePreferences.js';
 import { createDeveloperModeManager } from './developerModeManager.js';
 import {
   moteGemState,
@@ -393,6 +411,7 @@ import {
   interactiveLevelOrder,
   unlockedLevels,
   levelSetEntries,
+  isStoryOnlyLevel,
   getLevelProgressSnapshot,
   applyLevelProgressSnapshot,
   setDeveloperModeUnlockOverride,
@@ -402,8 +421,20 @@ import {
   loadTutorialState,
   checkTutorialCompletion,
   completeTutorial,
+  isTowersTabUnlocked,
+  unlockTowersTab as unlockTowersTabState,
+  isCodexUnlocked,
+  unlockCodex,
+  isAchievementsUnlocked,
+  unlockAchievements,
 } from './tutorialState.js';
-import { updateTabLockStates, initializeTabLockStates } from './tabLockManager.js';
+import {
+  updateTabLockStates,
+  initializeTabLockStates,
+  unlockCodexTab,
+  unlockAchievementsTab,
+  unlockTowersTab,
+} from './tabLockManager.js';
 import {
   createOverlayHelpers,
   setElementVisibility,
@@ -540,6 +571,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let pendingLevel = null;
   let lastLevelTrigger = null;
   let expandedLevelSet = null;
+  let expandedCampaign = null;
+  let campaignRowElement = null;
+  let campaignButtons = [];
 
   const PERSISTENT_STORAGE_KEYS = [
     GRAPHICS_MODE_STORAGE_KEY,
@@ -949,7 +983,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (fluidTerrariumCreatures || !fluidElements?.viewport) {
       return;
     }
-    const slimeCount = Math.max(1, betHappinessSystem ? betHappinessSystem.getProducerCount('slime') : 4);
+    // Start with 0 slimes by default - players purchase them through the store.
+    const slimeCount = Math.max(0, betHappinessSystem ? betHappinessSystem.getProducerCount('slime') : 0);
+    // Skip creating the creatures layer if no slimes are owned yet.
+    if (slimeCount <= 0) {
+      return;
+    }
     fluidTerrariumCreatures = new FluidTerrariumCreatures({
       container: fluidElements.viewport,
       terrainElement: fluidElements.terrainSprite,
@@ -1033,14 +1072,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     fluidTerrariumTrees = new FluidTerrariumTrees({
       container: fluidElements.terrariumMedia,
-      largeMaskUrl: './assets/sprites/spires/betSpire/Tree.png',
-      smallMaskUrl: './assets/sprites/spires/betSpire/Small-Tree.png',
-      islandSmallMaskUrl: './assets/sprites/spires/betSpire/Island-Small-Tree.png',
+      // Masks removed so trees are only placed via the store. The store already has tree items.
+      // largeMaskUrl: './assets/sprites/spires/betSpire/Tree.png',
+      // smallMaskUrl: './assets/sprites/spires/betSpire/Small-Tree.png',
+      // islandSmallMaskUrl: './assets/sprites/spires/betSpire/Island-Small-Tree.png',
       state: powderState.betTerrarium,
       powderState: powderState,
       spendSerendipity: spendFluidSerendipity,
       getSerendipityBalance: getCurrentFluidDropBank,
       onShroomPlace: handleShroomPlacement,
+      onSlimePlace: handleSlimePlacement,
       onStateChange: (state) => {
         powderState.betTerrarium = {
           levelingMode: Boolean(state?.levelingMode),
@@ -1165,6 +1206,45 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     return false;
   }
 
+  // Handle slime placement from the terrarium store by increasing slime count and re-initializing creatures.
+  function handleSlimePlacement() {
+    if (!betHappinessSystem) {
+      return false;
+    }
+    // Increment the slime count in the happiness system
+    const currentCount = betHappinessSystem.getProducerCount('slime');
+    const newCount = currentCount + 1;
+    betHappinessSystem.setProducerCount('slime', newCount);
+    
+    // Re-initialize the creatures system with the new count
+    if (fluidTerrariumCreatures) {
+      fluidTerrariumCreatures.destroy();
+      fluidTerrariumCreatures = null;
+    }
+    
+    // Create new creatures instance with updated count
+    if (fluidElements?.viewport) {
+      fluidTerrariumCreatures = new FluidTerrariumCreatures({
+        container: fluidElements.viewport,
+        terrainElement: fluidElements.terrainSprite,
+        terrainCollisionElement: fluidElements.terrainCollisionSprite,
+        creatureCount: newCount,
+        spawnZones: BET_CAVE_SPAWN_ZONES,
+      });
+      fluidTerrariumCreatures.start();
+    }
+    
+    // Update happiness display
+    if (betHappinessSystem.updateDisplay) {
+      betHappinessSystem.updateDisplay();
+    }
+    
+    // Schedule save to persist the slime count
+    schedulePowderBasinSave();
+    
+    return true;
+  }
+
   // Ensure compact autosave remains the active basin persistence strategy.
   document.addEventListener('DOMContentLoaded', () => {
     try {
@@ -1254,7 +1334,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   getTrackedKufGlyphs = resourceHud.getTrackedKufGlyphs;
   setTrackedKufGlyphs = resourceHud.setTrackedKufGlyphs;
 
-  setTrackedLamedGlyphs(spireResourceState.lamed?.stats?.totalAbsorptions || 0);
+  setTrackedLamedGlyphs(spireResourceState.lamed?.stats?.starMilestoneReached || 0);
   setTrackedTsadiGlyphs(
     Number.isFinite(spireResourceState.tsadi?.stats?.totalGlyphs)
       ? spireResourceState.tsadi.stats.totalGlyphs
@@ -1321,6 +1401,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let shinSimulationInstance = null;
   let tsadiBindingUiInitialized = false;
   let kufUiInitialized = false;
+  let cardinalWardenInitialized = false;
   let pendingSpireResizeFrame = null;
   let previousTabId = getActiveTabId();
 
@@ -1579,9 +1660,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       fluidElements.cameraModeStateLabel.textContent = enabled ? 'On' : 'Off';
     }
     if (fluidElements.cameraModeHint) {
-      fluidElements.cameraModeHint.textContent = enabled
-        ? 'Camera mode hides the in-render buttons so you can pan and zoom.'
-        : 'Camera mode is off. Buttons stay visible and the viewport stays locked.';
+      fluidElements.cameraModeHint.textContent = '';
+      fluidElements.cameraModeHint.hidden = true;
     }
   }
 
@@ -1774,6 +1854,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getPendingPowderResizeIsTimeout,
     setObservedPowderResizeElements,
     getObservedPowderResizeElements,
+    updateTabLockStates,
+    isTutorialCompleted,
   });
 
 
@@ -2567,6 +2649,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     applyWaveKillTallyPreference,
     applyWaveDamageTallyPreference,
     applyTrackTracerPreference,
+    applyFrameRateLimitPreference,
+    applyFpsCounterPreference,
     getGameStatsSnapshot: () => gameStats,
     mergeLoadedGameStats: (stored) => {
       if (!stored) {
@@ -3313,22 +3397,95 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     expandedLevelSet = element;
   }
 
+  // Reset an expanded campaign button so its sets slide back into the diamond.
+  function collapseCampaign(element, { focusTrigger = false } = {}) {
+    if (!element) {
+      return;
+    }
+
+    const trigger = element.querySelector('.campaign-button-trigger');
+    const setsContainer = element.querySelector('.campaign-button-sets');
+
+    element.classList.remove('expanded');
+
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'false');
+      if (focusTrigger && typeof trigger.focus === 'function') {
+        trigger.focus();
+      }
+    }
+
+    if (setsContainer) {
+      setsContainer.setAttribute('aria-hidden', 'true');
+      setsContainer.hidden = true;
+    }
+
+    element.querySelectorAll('.level-set.expanded').forEach((levelSet) => {
+      collapseLevelSet(levelSet);
+    });
+
+    if (expandedCampaign === element) {
+      expandedCampaign = null;
+      if (campaignRowElement) {
+        campaignRowElement.classList.remove('campaign-row--has-selection');
+      }
+    }
+  }
+
+  // Expand the chosen campaign while collapsing any others in the rail.
+  function expandCampaign(element) {
+    if (!element) {
+      return;
+    }
+
+    if (expandedCampaign && expandedCampaign !== element) {
+      collapseCampaign(expandedCampaign);
+    }
+
+    const trigger = element.querySelector('.campaign-button-trigger');
+    const setsContainer = element.querySelector('.campaign-button-sets');
+
+    element.classList.add('expanded');
+
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'true');
+    }
+
+    if (setsContainer) {
+      setsContainer.hidden = false;
+      setsContainer.setAttribute('aria-hidden', 'false');
+    }
+
+    if (expandedLevelSet) {
+      collapseLevelSet(expandedLevelSet);
+    }
+
+    if (campaignRowElement) {
+      campaignRowElement.classList.add('campaign-row--has-selection');
+    }
+
+    expandedCampaign = element;
+  }
+
   function handleDocumentPointerDown(event) {
-    if (!expandedLevelSet) {
+    const hasExpandedSet = Boolean(expandedLevelSet);
+
+    // Only handle level set collapse on outside click; campaigns require explicit toggle or swipe.
+    if (!hasExpandedSet) {
       return;
     }
 
-    if (event && expandedLevelSet.contains(event.target)) {
+    const clickedLevelSet = event?.target?.closest ? event.target.closest('.level-set') : null;
+    if (clickedLevelSet && expandedLevelSet && expandedLevelSet.contains(clickedLevelSet)) {
       return;
     }
 
-    if (event && event.target && event.target.closest('.level-set')) {
-      return;
-    }
-
-    collapseLevelSet(expandedLevelSet);
-    if (audioManager) {
-      audioManager.playSfx('menuSelect');
+    // Collapse open level content when the player clicks anywhere else on the page.
+    if (!clickedLevelSet && expandedLevelSet) {
+      collapseLevelSet(expandedLevelSet);
+      if (audioManager) {
+        audioManager.playSfx('menuSelect');
+      }
     }
   }
 
@@ -3456,6 +3613,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
   // Draw a translucent version of the level's path behind the selection label so the card hints at its route.
   function createLevelNodePreview(level) {
+    if (isStoryOnlyLevel(level?.id)) {
+      return null;
+    }
     const previewPoints = getPreviewPointsForLevel(level, levelConfigs);
     if (!Array.isArray(previewPoints) || previewPoints.length < 2) {
       return null;
@@ -3492,6 +3652,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   function buildLevelCards() {
     if (!levelGrid) return;
     expandedLevelSet = null;
+    expandedCampaign = null;
+    campaignButtons = [];
+    campaignRowElement = null;
     levelGrid.innerHTML = '';
 
     const fragment = document.createDocumentFragment();
@@ -3525,6 +3688,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     });
 
     let groupIndex = 0;
+
+    // Horizontal rail to keep campaign diamonds side by side.
+    const campaignRow = document.createElement('div');
+    campaignRow.className = 'campaign-row';
+    campaignRowElement = campaignRow;
     
     // First, render Prologue (no campaign) at the top
     groups.forEach((groupData, setName) => {
@@ -3590,6 +3758,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         const card = document.createElement('button');
         card.type = 'button';
         card.className = 'level-node';
+        card.classList.toggle('level-node--story', Boolean(level.isStoryLevel));
         card.dataset.level = level.id;
         card.setAttribute('aria-pressed', 'false');
         card.setAttribute(
@@ -3600,6 +3769,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         card.style.setProperty('--level-delay', `${index * 40}ms`);
         const pathLabel = typeof level.path === 'string' ? level.path : '—';
         const focusLabel = typeof level.focus === 'string' ? level.focus : '—';
+        const ariaBase = level.isStoryLevel
+          ? `${level.id}: ${level.title}. Story chapter.`
+          : `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
         card.innerHTML = `
           <span class="level-node-core">
             <span class="level-status-pill">New</span>
@@ -3607,8 +3779,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             <span class="level-node-title">${level.title}</span>
           </span>
           <span class="level-best-wave" aria-hidden="true" hidden>Wave —</span>
-          <span class="screen-reader-only level-path">Path ${pathLabel}</span>
-          <span class="screen-reader-only level-focus">Focus ${focusLabel}</span>
+          <span class="screen-reader-only level-path">${level.isStoryLevel ? 'Story chapter—no battlefield route.' : `Path ${pathLabel}`}</span>
+          <span class="screen-reader-only level-focus">${level.isStoryLevel ? 'Focus on dialogue and lore.' : `Focus ${focusLabel}`}</span>
           <span class="screen-reader-only level-mode">—</span>
           <span class="screen-reader-only level-duration">—</span>
           <span class="screen-reader-only level-rewards">—</span>
@@ -3616,7 +3788,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           <span class="screen-reader-only level-last-result">No attempts recorded.</span>
           <span class="screen-reader-only level-best-wave-sr">Infinity wave record locked.</span>
         `;
-        card.dataset.ariaLabelBase = `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
+        card.dataset.ariaLabelBase = ariaBase;
+        const core = card.querySelector('.level-node-core');
+        if (core && level.isStoryLevel) {
+          const storyMarker = document.createElement('span');
+          storyMarker.className = 'level-story-marker';
+          storyMarker.innerHTML = '<span class="level-story-marker__icon" aria-hidden="true">📖</span><span class="level-story-marker__label">Story</span>';
+          const storySrLabel = document.createElement('span');
+          storySrLabel.className = 'screen-reader-only level-story-label';
+          storySrLabel.textContent = 'Story chapter—no waves to defend.';
+          core.append(storyMarker, storySrLabel);
+        }
         const levelPreview = createLevelNodePreview(level);
         if (levelPreview) {
           // Seat the path trace behind the text so each card previews the map silhouette without affecting readability.
@@ -3653,16 +3835,26 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const campaignElement = document.createElement('div');
       campaignElement.className = 'campaign-button';
       campaignElement.dataset.campaign = campaignName;
-      
+
       const campaignTrigger = document.createElement('button');
       campaignTrigger.type = 'button';
       campaignTrigger.className = 'campaign-button-trigger';
       campaignTrigger.setAttribute('aria-expanded', 'false');
-      
+
+      const campaignContent = document.createElement('span');
+      campaignContent.className = 'campaign-button-content';
+
       const campaignGlyph = document.createElement('span');
       campaignGlyph.className = 'campaign-button-glyph';
       campaignGlyph.setAttribute('aria-hidden', 'true');
-      campaignGlyph.textContent = campaignName === 'Story' ? '◈' : '⚔';
+      // Assign unique glyph symbols for each campaign type.
+      let glyphSymbol = '⚔';
+      if (campaignName === 'Story') {
+        glyphSymbol = '◈';
+      } else if (campaignName === 'Challenges') {
+        glyphSymbol = '⚡';
+      }
+      campaignGlyph.textContent = glyphSymbol;
       
       const campaignTitle = document.createElement('span');
       campaignTitle.className = 'campaign-button-title';
@@ -3672,8 +3864,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       campaignCount.className = 'campaign-button-count';
       const setCount = setKeys.length;
       campaignCount.textContent = `${setCount} ${setCount === 1 ? 'set' : 'sets'}`;
-      
-      campaignTrigger.append(campaignGlyph, campaignTitle, campaignCount);
+
+      campaignContent.append(campaignGlyph, campaignTitle, campaignCount);
+      campaignTrigger.append(campaignContent);
       
       const campaignContainer = document.createElement('div');
       campaignContainer.className = 'campaign-button-sets';
@@ -3683,20 +3876,51 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       campaignTrigger.addEventListener('click', () => {
         const isExpanded = campaignElement.classList.contains('expanded');
         if (isExpanded) {
-          campaignElement.classList.remove('expanded');
-          campaignTrigger.setAttribute('aria-expanded', 'false');
-          campaignContainer.setAttribute('aria-hidden', 'true');
-          campaignContainer.hidden = true;
+          collapseCampaign(campaignElement);
         } else {
-          campaignElement.classList.add('expanded');
-          campaignTrigger.setAttribute('aria-expanded', 'true');
-          campaignContainer.setAttribute('aria-hidden', 'false');
-          campaignContainer.hidden = false;
+          expandCampaign(campaignElement);
         }
         if (audioManager) {
           audioManager.playSfx('menuSelect');
         }
       });
+
+      // Add swipe-up gesture detection to close campaign.
+      // Track pointer state for detecting upward drag gestures.
+      const swipeState = {
+        startY: null,
+        pointerId: null,
+      };
+      const SWIPE_UP_THRESHOLD = 50;
+
+      // Reset swipe state after pointer ends or is cancelled.
+      function resetSwipeState() {
+        swipeState.startY = null;
+        swipeState.pointerId = null;
+      }
+
+      campaignContainer.addEventListener('pointerdown', (event) => {
+        swipeState.startY = event.clientY;
+        swipeState.pointerId = event.pointerId;
+      });
+
+      campaignContainer.addEventListener('pointermove', (event) => {
+        if (swipeState.pointerId !== event.pointerId || swipeState.startY === null) {
+          return;
+        }
+        const deltaY = swipeState.startY - event.clientY;
+        // Close campaign if user drags upward beyond threshold.
+        if (deltaY > SWIPE_UP_THRESHOLD && campaignElement.classList.contains('expanded')) {
+          collapseCampaign(campaignElement);
+          if (audioManager) {
+            audioManager.playSfx('menuSelect');
+          }
+          resetSwipeState();
+        }
+      });
+
+      campaignContainer.addEventListener('pointerup', resetSwipeState);
+      campaignContainer.addEventListener('pointercancel', resetSwipeState);
       
       // Render level sets inside this campaign
       setKeys.forEach((setName) => {
@@ -3718,7 +3942,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         const glyph = document.createElement('span');
         glyph.className = 'level-set-glyph';
         glyph.setAttribute('aria-hidden', 'true');
-        glyph.textContent = '∷';
+        glyph.textContent = groupData.campaign === 'Story' ? '✦' : '⚑';
         
         const title = document.createElement('span');
         title.className = 'level-set-title';
@@ -3763,6 +3987,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           const card = document.createElement('button');
           card.type = 'button';
           card.className = 'level-node';
+          card.classList.toggle('level-node--story', Boolean(level.isStoryLevel));
           card.dataset.level = level.id;
           card.setAttribute('aria-pressed', 'false');
           card.setAttribute(
@@ -3773,6 +3998,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           card.style.setProperty('--level-delay', `${index * 40}ms`);
           const pathLabel = typeof level.path === 'string' ? level.path : '—';
           const focusLabel = typeof level.focus === 'string' ? level.focus : '—';
+          const ariaBase = level.isStoryLevel
+            ? `${level.id}: ${level.title}. Story chapter.`
+            : `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
           card.innerHTML = `
             <span class="level-node-core">
               <span class="level-status-pill">New</span>
@@ -3780,8 +4008,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               <span class="level-node-title">${level.title}</span>
             </span>
             <span class="level-best-wave" aria-hidden="true" hidden>Wave —</span>
-            <span class="screen-reader-only level-path">Path ${pathLabel}</span>
-            <span class="screen-reader-only level-focus">Focus ${focusLabel}</span>
+            <span class="screen-reader-only level-path">${level.isStoryLevel ? 'Story chapter—no battlefield route.' : `Path ${pathLabel}`}</span>
+            <span class="screen-reader-only level-focus">${level.isStoryLevel ? 'Focus on dialogue and lore.' : `Focus ${focusLabel}`}</span>
             <span class="screen-reader-only level-mode">—</span>
             <span class="screen-reader-only level-duration">—</span>
             <span class="screen-reader-only level-rewards">—</span>
@@ -3789,7 +4017,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             <span class="screen-reader-only level-last-result">No attempts recorded.</span>
             <span class="screen-reader-only level-best-wave-sr">Infinity wave record locked.</span>
           `;
-          card.dataset.ariaLabelBase = `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
+          card.dataset.ariaLabelBase = ariaBase;
+          const core = card.querySelector('.level-node-core');
+          if (core && level.isStoryLevel) {
+            const storyMarker = document.createElement('span');
+            storyMarker.className = 'level-story-marker';
+            storyMarker.innerHTML = '<span class="level-story-marker__icon" aria-hidden="true">📖</span><span class="level-story-marker__label">Story</span>';
+            const storySrLabel = document.createElement('span');
+            storySrLabel.className = 'screen-reader-only level-story-label';
+            storySrLabel.textContent = 'Story chapter—no waves to defend.';
+            core.append(storyMarker, storySrLabel);
+          }
           const levelPreview = createLevelNodePreview(level);
           if (levelPreview) {
             card.append(levelPreview);
@@ -3821,8 +4059,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       });
       
       campaignElement.append(campaignTrigger, campaignContainer);
-      fragment.append(campaignElement);
+      campaignRow.append(campaignElement);
+      campaignButtons.push(campaignElement);
     });
+
+    if (campaignButtons.length) {
+      fragment.append(campaignRow);
+    }
 
     levelGrid.append(fragment);
     updateLevelSetLocks();
@@ -3853,10 +4096,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
 
-    // Handle story levels specially - show story and mark as completed
-    if (level.isStoryLevel) {
+    // Handle story levels specially - always show story and mark as completed when finished
+    if (isStoryOnlyLevel(level.id)) {
       if (levelStoryScreen) {
-        levelStoryScreen.showStory(level.id, {
+        levelStoryScreen.maybeShowStory(level, {
+          shouldShow: () => true, // Force story display for story-only levels
           onComplete: () => {
             // Mark the story level as completed
             if (!isLevelCompleted(level.id)) {
@@ -3865,9 +4109,19 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 ...currentState,
                 completed: true,
                 entered: true,
+                storySeen: true,
               });
               unlockNextInteractiveLevel(level.id);
-              refreshLevelCards();
+              updateLevelCards();
+              
+              // Special unlock for Prologue - Story: unlock Codex and Achievements tabs
+              if (level.id === 'Prologue - Story') {
+                unlockCodex();
+                unlockAchievements();
+                unlockCodexTab();
+                unlockAchievementsTab();
+              }
+              
               // Check if this completes tutorial
               checkTutorialCompletion(isLevelCompleted);
               updateTabLockStates(isTutorialCompleted());
@@ -3963,6 +4217,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       running: !isInteractive,
     };
     levelState.set(level.id, updatedState);
+    
+    // Unlock Towers tab when entering any interactive level for the first time
+    if (isInteractive && !currentState.entered && !isTowersTabUnlocked()) {
+      unlockTowersTabState();
+      unlockTowersTab();
+    }
 
     stopAllIdleRuns(level.id);
 
@@ -4050,6 +4310,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const waveEl = card.querySelector('.level-best-wave');
       const waveSrEl = card.querySelector('.level-best-wave-sr');
       const state = levelState.get(level.id);
+      const isStoryLevel = isStoryOnlyLevel(level.id);
 
       const entered = Boolean(state && state.entered);
       const running = Boolean(state && state.running);
@@ -4059,7 +4320,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const pathLabel = typeof level.path === 'string' ? level.path : '—';
       const focusLabel = typeof level.focus === 'string' ? level.focus : '—';
 
-      const summary = getLevelSummary(level);
+      const summary = isStoryLevel
+        ? {
+          mode: 'Story',
+          duration: 'Dialogue',
+          rewards: 'Lore entry',
+          start: '—',
+          startAria: 'Story chapter—no starting Thero required.',
+        }
+        : getLevelSummary(level);
       const modeEl = card.querySelector('.level-mode');
       const durationEl = card.querySelector('.level-duration');
       const rewardsEl = card.querySelector('.level-rewards');
@@ -4090,7 +4359,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const lastResultEl = card.querySelector('.level-last-result');
       if (lastResultEl) {
         if (unlocked) {
-          lastResultEl.textContent = describeLevelLastResult(level, state || null, runner);
+          if (isStoryLevel) {
+            const seen = Boolean(state?.storySeen);
+            lastResultEl.textContent = seen ? 'Story viewed.' : 'Story ready to read.';
+          } else {
+            lastResultEl.textContent = describeLevelLastResult(level, state || null, runner);
+          }
         } else {
           lastResultEl.textContent = 'Locked until preceding defenses are sealed.';
         }
@@ -4099,6 +4373,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       card.classList.toggle('entered', entered);
       card.classList.toggle('completed', completed);
       card.classList.toggle('locked', !unlocked);
+      card.classList.toggle('level-node--story', isStoryLevel);
       card.setAttribute('aria-pressed', running ? 'true' : 'false');
       card.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
       const parentSet = card.closest('.level-set');
@@ -4109,16 +4384,27 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         titleEl.textContent = unlocked ? level.title : 'LOCKED';
       }
       if (pathEl) {
-        pathEl.textContent = unlocked ? `Path ${pathLabel}` : 'Path details locked.';
+        pathEl.textContent = unlocked
+          ? isStoryLevel
+            ? 'Story chapter—no battlefield route.'
+            : `Path ${pathLabel}`
+          : 'Path details locked.';
       }
       if (focusEl) {
-        focusEl.textContent = unlocked ? `Focus ${focusLabel}` : 'Focus details locked.';
+        focusEl.textContent = unlocked
+          ? isStoryLevel
+            ? 'Focus on dialogue and lore.'
+            : `Focus ${focusLabel}`
+          : 'Focus details locked.';
       }
 
       if (pill) {
         let pillVisible = false;
         let pillText = '';
-        if (unlocked && !entered) {
+        if (isStoryLevel) {
+          pillText = 'Story';
+          pillVisible = true;
+        } else if (unlocked && !entered) {
           pillText = 'New';
           pillVisible = true;
         } else if (unlocked && running) {
@@ -4137,9 +4423,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         }
       }
 
-      const bestWave = Number.isFinite(state?.bestWave) ? state.bestWave : 0;
+      const bestWave = isStoryLevel ? 0 : Number.isFinite(state?.bestWave) ? state.bestWave : 0;
       if (waveEl) {
-        if (infinityUnlocked) {
+        if (infinityUnlocked && !isStoryLevel) {
           const displayWave = bestWave > 0 ? formatWholeNumber(bestWave) : '—';
           waveEl.textContent = `Wave ${displayWave}`;
           waveEl.removeAttribute('hidden');
@@ -4150,12 +4436,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         }
       }
       if (waveSrEl) {
-        if (infinityUnlocked) {
-          if (bestWave > 0) {
-            waveSrEl.textContent = `Infinity mode best wave ${formatWholeNumber(bestWave)}.`;
-          } else {
-            waveSrEl.textContent = 'Infinity mode ready—no wave record yet.';
-          }
+        if (isStoryLevel) {
+          waveSrEl.textContent = unlocked
+            ? 'Story chapter—no waves to track.'
+            : 'Story chapter locked.';
+        } else if (infinityUnlocked) {
+          waveSrEl.textContent = bestWave > 0
+            ? `Infinity mode best wave ${formatWholeNumber(bestWave)}.`
+            : 'Infinity mode ready—no wave record yet.';
         } else {
           waveSrEl.textContent = 'Infinity wave record locked.';
         }
@@ -4166,12 +4454,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         const startLabel = summary.startAria ? ` ${summary.startAria}` : summary.start && summary.start !== '—'
           ? ` Starting Thero ${summary.start}.`
           : '';
-        const waveLabel = infinityUnlocked
+        const waveLabel = !isStoryLevel && infinityUnlocked
           ? bestWave > 0
             ? ` Best wave reached: ${formatWholeNumber(bestWave)}.`
             : ' Infinity mode available—no wave record yet.'
           : '';
-        card.setAttribute('aria-label', `${baseLabel}${startLabel}${waveLabel}`.trim());
+        const storyLabel = isStoryLevel ? ' Story chapter—no combat required.' : '';
+        card.setAttribute('aria-label', `${baseLabel}${startLabel}${waveLabel}${storyLabel}`.trim());
       } else {
         card.setAttribute(
           'aria-label',
@@ -4416,20 +4705,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     if (glyphMetrics) {
       const { glyphsLit } = glyphMetrics;
-      const previousAwarded = Number.isFinite(powderState.fluidGlyphsAwarded)
-        ? Math.max(0, powderState.fluidGlyphsAwarded)
-        : 0;
 
-      if (glyphsLit > previousAwarded) {
-        const newlyEarned = glyphsLit - previousAwarded;
-        awardBetGlyphs(newlyEarned);
-        powderState.fluidGlyphsAwarded = glyphsLit;
-        // Check if any spires should auto-unlock
-        checkAndUnlockSpires();
-      } else if (!Number.isFinite(powderState.fluidGlyphsAwarded) || powderState.fluidGlyphsAwarded < glyphsLit) {
-        powderState.fluidGlyphsAwarded = Math.max(previousAwarded, glyphsLit);
-      }
-
+      // The wall gap (visual effect showing basin capacity) scales with glyphsLit (water height thresholds).
+      // Note: Bet glyph currency is now earned based on happiness levels (see betHappinessSystem below),
+      // not water height. This section only handles the visual wall gap animation.
       const normalizedGlyphs = Number.isFinite(glyphsLit) ? Math.max(0, glyphsLit) : 0;
       const previousWallTarget = Number.isFinite(powderState.wallGapTarget)
         ? powderState.wallGapTarget
@@ -4504,6 +4783,19 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     if (betHappinessSystem) {
       betHappinessSystem.updateDisplay(fluidElements);
+
+      // Calculate Bet glyphs based on happiness level (1 glyph per happiness level)
+      const happinessLevel = betHappinessSystem.getHappinessLevel();
+      const previousBetGlyphsAwarded = Number.isFinite(powderState.fluidGlyphsAwarded)
+        ? Math.max(0, powderState.fluidGlyphsAwarded)
+        : 0;
+
+      if (happinessLevel > previousBetGlyphsAwarded) {
+        const newlyEarned = happinessLevel - previousBetGlyphsAwarded;
+        awardBetGlyphs(newlyEarned);
+        powderState.fluidGlyphsAwarded = happinessLevel;
+        checkAndUnlockSpires();
+      }
     }
   }
 
@@ -4760,6 +5052,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Apply the preferred graphics fidelity before other controls render.
     initializeGraphicsMode();
     initializeTrackRenderMode();
+    initializeFrameRateLimitPreference();
+    initializeFpsCounterPreference();
     bindGraphicsModeToggle();
     bindVisualSettingsMenu();
     bindColorSchemeButton();
@@ -4772,6 +5066,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindDamageNumberToggle();
     bindWaveKillTallyToggle();
     bindWaveDamageTallyToggle();
+    bindFrameRateLimitSlider();
+    bindFpsCounterToggle();
     initializeColorScheme();
     bindAudioControls();
 
@@ -4964,6 +5260,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
               spireMenuController.updateCounts();
               updateLamedStatistics();
+              // Connect Lamed visual preferences to the simulation instance.
+              setLamedSimulationGetter(() => lamedSimulationInstance);
+              initializeLamedSpirePreferences();
+              bindLamedSpireOptions();
               lamedSimulationInstance.start();
               // Ensure the gravity viewport adopts the new responsive dimensions.
               scheduleSpireResize();
@@ -4980,10 +5280,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                   // Copy upgrade tiers so offline banking tracks new power.
                   spireResourceState.lamed.upgrades = state.upgrades;
                   spireResourceState.lamed.stats = state.stats;
-                  // Detect fresh spark absorptions so dependent spires unlock right away.
+                  // Detect star milestones reached - 1 glyph per milestone
                   const currentLamedGlyphs = Math.max(
                     0,
-                    Math.floor(state.stats?.totalAbsorptions || 0),
+                    Math.floor(state.stats?.starMilestoneReached || 0),
                   );
                   if (currentLamedGlyphs !== getTrackedLamedGlyphs()) {
                     setTrackedLamedGlyphs(currentLamedGlyphs);
@@ -5135,14 +5435,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           // Update upgrade UI every time the tab is shown
           updateTsadiUpgradeUI();
         } else if (tabId === 'shin') {
-          // Initialize Shin Spire UI when tab is first opened
-          if (!shinSimulationInstance) {
+          // Initialize Cardinal Warden reverse danmaku game when tab is first opened
+          if (!cardinalWardenInitialized) {
             try {
-              initializeShinUI();
+              initializeCardinalWardenUI();
+              cardinalWardenInitialized = true;
             } catch (error) {
-              console.error('Failed to initialize Shin UI:', error);
+              console.error('Failed to initialize Cardinal Warden UI:', error);
             }
           }
+          // Resize the Cardinal canvas when tab is shown
+          resizeCardinalCanvas();
           // Update display with current state
           updateShinDisplay();
           scheduleSpireResize();
@@ -5329,6 +5632,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     checkTutorialCompletion(isLevelCompleted);
     // Initialize tab lock states based on tutorial completion
     initializeTabLockStates(isTutorialCompleted());
+    // Unlock tabs based on saved state
+    if (isTowersTabUnlocked()) {
+      unlockTowersTab();
+    }
+    if (isCodexUnlocked()) {
+      unlockCodexTab();
+    }
+    if (isAchievementsUnlocked()) {
+      unlockAchievementsTab();
+    }
     enforceFluidStudyDisabledState();
     // Reapply developer mode boosts after progression restore so level unlocks stay in sync.
     refreshDeveloperModeState();

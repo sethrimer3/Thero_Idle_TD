@@ -149,6 +149,7 @@ export class GravitySimulation {
     this.dustSpawnRate = this.desiredDustParticles; // Refill quickly when particles expire or are removed.
     this.dustAccumulator = 0;
     this.flashEffects = []; // Spawn flash effects
+    this.showSpawnFlashes = true; // Toggle for spawn flash visibility (controlled by preferences).
     this.geyserParticles = []; // Geyser bursts triggered by high-tier absorptions
     this.visualEffectSettings = {
       /**
@@ -1089,15 +1090,17 @@ export class GravitySimulation {
     if (this.stars.length >= this.maxStars) {
       // Continue to surface the spawn flash even when the orbit is saturated so the tab stays lively.
       this.absorbStarImmediately(starMass);
-      this.flashEffects.push({
-        x: x / dpr,
-        y: y / dpr,
-        radius: 5,
-        maxRadius: 20,
-        alpha: 1.0,
-        duration: 0.3, // seconds
-        elapsed: 0,
-      });
+      if (this.showSpawnFlashes) {
+        this.flashEffects.push({
+          x: x / dpr,
+          y: y / dpr,
+          radius: 5,
+          maxRadius: 20,
+          alpha: 1.0,
+          duration: 0.3, // seconds
+          elapsed: 0,
+        });
+      }
       this.setSparkBank(this.sparkBank - 1);
       return true;
     }
@@ -1122,15 +1125,17 @@ export class GravitySimulation {
     }
     
     // Add spawn flash effect
-    this.flashEffects.push({
-      x: x / dpr,
-      y: y / dpr,
-      radius: 5,
-      maxRadius: 20,
-      alpha: 1.0,
-      duration: 0.3, // seconds
-      elapsed: 0,
-    });
+    if (this.showSpawnFlashes) {
+      this.flashEffects.push({
+        x: x / dpr,
+        y: y / dpr,
+        radius: 5,
+        maxRadius: 20,
+        alpha: 1.0,
+        duration: 0.3, // seconds
+        elapsed: 0,
+      });
+    }
 
     // Deduct from the idle bank when a new star is introduced to the simulation.
     this.setSparkBank(this.sparkBank - 1);
@@ -1370,15 +1375,17 @@ export class GravitySimulation {
         if (sDistSq < starRadius * starRadius) {
           // Shooting star merges into an orbiting spark and empowers it by doubling its mass.
           star.mass *= 2;
-          this.flashEffects.push({
-            x: star.x / dpr,
-            y: star.y / dpr,
-            radius: 6,
-            maxRadius: 18,
-            alpha: 1.0,
-            duration: 0.4,
-            elapsed: 0,
-          });
+          if (this.showSpawnFlashes) {
+            this.flashEffects.push({
+              x: star.x / dpr,
+              y: star.y / dpr,
+              radius: 6,
+              maxRadius: 18,
+              alpha: 1.0,
+              duration: 0.4,
+              elapsed: 0,
+            });
+          }
           this.shootingStars.splice(i, 1);
           merged = true;
           break;
@@ -2277,6 +2284,7 @@ export class GravitySimulation {
    * Get current state for serialization
    */
   getState() {
+    const { tierIndex } = this.getCurrentTier();
     return {
       starMass: this.starMass,
       sparkBank: this.sparkBank,
@@ -2288,6 +2296,8 @@ export class GravitySimulation {
       stats: {
         totalAbsorptions: this.stats.totalAbsorptions,
         totalMassGained: this.stats.totalMassGained,
+        // Star milestone (tier) reached - 1 glyph per milestone
+        starMilestoneReached: tierIndex + 1,
       },
     };
   }
