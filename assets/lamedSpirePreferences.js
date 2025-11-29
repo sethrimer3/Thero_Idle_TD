@@ -27,7 +27,38 @@ const DEFAULT_LAMED_SETTINGS = Object.freeze({
   spawnFlashes: true,
 });
 
-let lamedSettings = { ...DEFAULT_LAMED_SETTINGS };
+/**
+ * Prefer a saner default graphics tier on mobile/high-DPI devices to reduce render cost out of the box.
+ */
+function detectPreferredGraphicsLevel() {
+  try {
+    const isMobileUserAgent =
+      typeof navigator !== 'undefined'
+      && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent || '');
+    const highDevicePixelRatio = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) >= 2.5 : false;
+
+    if (isMobileUserAgent || highDevicePixelRatio) {
+      return LAMED_GRAPHICS_LEVELS.MEDIUM;
+    }
+  } catch (error) {
+    console.warn('Lamed visual settings fell back to default graphics level detection.', error);
+  }
+  return null;
+}
+
+/**
+ * Build a default settings object that respects device hints while staying user overridable.
+ */
+function createDefaultLamedSettings() {
+  const defaults = { ...DEFAULT_LAMED_SETTINGS };
+  const preferredLevel = detectPreferredGraphicsLevel();
+  if (preferredLevel) {
+    defaults.graphicsLevel = preferredLevel;
+  }
+  return defaults;
+}
+
+let lamedSettings = createDefaultLamedSettings();
 let simulationGetter = () => null;
 let optionsMenuOpen = false;
 
@@ -163,6 +194,15 @@ function applySettingsToSimulation() {
 
   // Track whether spawn flashes should render; the simulation checks this per-spawn.
   simulation.showSpawnFlashes = lamedSettings.spawnFlashes;
+
+  // Downscale extremely dense canvases on high-DPI devices to protect mobile GPUs from overdraw.
+  const targetMaxDpr = isLow ? 1.1 : isMedium ? 1.5 : 2;
+  if (simulation.maxDevicePixelRatio !== targetMaxDpr) {
+    simulation.maxDevicePixelRatio = targetMaxDpr;
+    if (typeof simulation.resize === 'function') {
+      simulation.resize();
+    }
+  }
 }
 
 /**
@@ -180,15 +220,15 @@ function persistSettings() {
  * Load persisted settings from localStorage.
  */
 function loadPersistedSettings() {
+  lamedSettings = createDefaultLamedSettings();
   try {
     const stored = readStorage(LAMED_VISUAL_SETTINGS_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      lamedSettings = { ...DEFAULT_LAMED_SETTINGS, ...parsed };
+      lamedSettings = { ...createDefaultLamedSettings(), ...parsed };
     }
   } catch (error) {
     console.warn('Failed to load Lamed visual settings; using defaults:', error);
-    lamedSettings = { ...DEFAULT_LAMED_SETTINGS };
   }
 }
 
@@ -386,7 +426,7 @@ export function getLamedVisualSettings() {
  * Programmatically apply a full settings object (e.g., from a save file).
  */
 export function applyLamedVisualSettings(settings, { persist = true } = {}) {
-  lamedSettings = { ...DEFAULT_LAMED_SETTINGS, ...settings };
+  lamedSettings = { ...createDefaultLamedSettings(), ...settings };
   if (persist) {
     persistSettings();
   }
