@@ -436,7 +436,7 @@ const BOSS_TYPES = {
     damage: 25,
     size: 35,
     scoreValue: 200,
-    color: '#1a1a1a',
+    color: '#000000',
     rotationSpeed: 0.5, // Radians per second
     spawnInterval: 3000, // ms between spawning ships
     spawnCount: 3, // Ships spawned per interval
@@ -447,7 +447,7 @@ const BOSS_TYPES = {
     damage: 20,
     size: 28,
     scoreValue: 150,
-    color: '#2d2d2d',
+    color: '#000000',
     rotationSpeed: 0.8,
     burstInterval: 2500, // Time between movement bursts
     burstSpeed: 80, // Speed during burst
@@ -458,7 +458,7 @@ const BOSS_TYPES = {
     damage: 30,
     size: 45,
     scoreValue: 300,
-    color: '#0a0a0a',
+    color: '#000000',
     rotationSpeed: 0.3,
     shieldRegenRate: 0.5, // Health regen per second
   },
@@ -889,12 +889,21 @@ class Bullet {
     this.color = config.color || this.baseColor;
     this.piercing = config.piercing || false;
     this.hitEnemies = new Set();
+    this.trail = [];
+    this.age = 0;
   }
 
   update(deltaTime) {
     const dt = deltaTime / 1000;
+    this.age += deltaTime;
     this.x += Math.cos(this.angle) * this.speed * dt;
     this.y += Math.sin(this.angle) * this.speed * dt;
+
+    // Leave behind a short luminous trail for rendering.
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 10) {
+      this.trail.shift();
+    }
   }
 
   isOffscreen(width, height) {
@@ -930,6 +939,9 @@ class MathBullet {
     this.distance = 0;
     this.time = 0;
 
+    this.trail = [];
+    this.age = 0;
+
     // Track pierced targets so mathematical bullets respect single-hit collisions.
     this.hitEnemies = new Set();
   }
@@ -937,7 +949,8 @@ class MathBullet {
   update(deltaTime) {
     const dt = deltaTime / 1000;
     this.time += dt;
-    
+    this.age += deltaTime;
+
     // Move forward along the base angle
     this.distance += this.speed * dt;
     
@@ -1000,6 +1013,12 @@ class MathBullet {
     const perpAngle = this.baseAngle + Math.PI / 2;
     this.x = primaryX + Math.cos(perpAngle) * offset;
     this.y = primaryY + Math.sin(perpAngle) * offset;
+
+    // Record a short trail so renders can draw motion streaks.
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 12) {
+      this.trail.shift();
+    }
   }
 
   isOffscreen(width, height) {
@@ -1197,7 +1216,7 @@ const ENEMY_TYPES = {
     damage: 5,
     size: 8,
     scoreValue: 10,
-    color: '#666',
+    color: '#000000',
   },
   fast: {
     speed: 80,
@@ -1205,7 +1224,7 @@ const ENEMY_TYPES = {
     damage: 3,
     size: 6,
     scoreValue: 15,
-    color: '#888',
+    color: '#000000',
   },
   tank: {
     speed: 25,
@@ -1213,7 +1232,7 @@ const ENEMY_TYPES = {
     damage: 10,
     size: 12,
     scoreValue: 25,
-    color: '#444',
+    color: '#000000',
   },
   elite: {
     speed: 50,
@@ -1221,7 +1240,7 @@ const ENEMY_TYPES = {
     damage: 15,
     size: 10,
     scoreValue: 50,
-    color: '#222',
+    color: '#000000',
   },
 };
 
@@ -1241,7 +1260,8 @@ export class CardinalWardenSimulation {
     this.bulletColor = '#d4af37';
     this.ringStrokeColor = '#d4af37';
     this.uiTextColor = '#333';
-    this.enemyTrailColor = 'rgba(0, 0, 0, 0.12)';
+    this.enemyTrailColor = '#000000';
+    this.enemySmokeColor = '#000000';
 
     // Game state
     this.running = false;
@@ -1350,7 +1370,8 @@ export class CardinalWardenSimulation {
       this.bulletColor = '#ffe585';
       this.ringStrokeColor = '#ffe9a3';
       this.uiTextColor = '#f5f5f5';
-      this.enemyTrailColor = 'rgba(255, 255, 255, 0.16)';
+      this.enemyTrailColor = '#ffffff';
+      this.enemySmokeColor = '#ffffff';
     } else {
       this.bgColor = '#ffffff';
       this.wardenCoreColor = '#d4af37';
@@ -1358,7 +1379,8 @@ export class CardinalWardenSimulation {
       this.bulletColor = '#d4af37';
       this.ringStrokeColor = '#d4af37';
       this.uiTextColor = '#333';
-      this.enemyTrailColor = 'rgba(0, 0, 0, 0.12)';
+      this.enemyTrailColor = '#000000';
+      this.enemySmokeColor = '#000000';
     }
   }
 
@@ -2521,7 +2543,7 @@ export class CardinalWardenSimulation {
       const baseSmokeRadius = Math.max(2, enemy.size * 0.3);
 
       ctx.save();
-      ctx.fillStyle = this.nightMode ? 'rgba(255, 255, 255, 0.28)' : 'rgba(22, 22, 22, 0.35)';
+      ctx.fillStyle = this.enemySmokeColor;
       for (let puffIndex = 0; puffIndex < 3; puffIndex += 1) {
         const falloff = puffIndex / 3;
         const radius = baseSmokeRadius * (1 - falloff * 0.5);
@@ -2798,15 +2820,60 @@ export class CardinalWardenSimulation {
     const ctx = this.ctx;
 
     for (const bullet of this.bullets) {
+      const trail = bullet.trail || [];
+      if (trail.length > 1) {
+        ctx.save();
+        ctx.lineCap = 'round';
+        for (let i = trail.length - 1; i > 0; i--) {
+          const start = trail[i];
+          const end = trail[i - 1];
+          const alpha = i / trail.length;
+          ctx.strokeStyle = this.nightMode
+            ? `rgba(255, 255, 255, ${0.12 + alpha * 0.28})`
+            : `rgba(0, 0, 0, ${0.12 + alpha * 0.32})`;
+          ctx.lineWidth = Math.max(1, bullet.size * 0.55 * alpha);
+          ctx.beginPath();
+          ctx.moveTo(start.x, start.y);
+          ctx.lineTo(end.x, end.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
       ctx.save();
+      const glowRadius = bullet.size * 2.4;
+      const gradient = ctx.createRadialGradient(bullet.x, bullet.y, 0, bullet.x, bullet.y, glowRadius);
+      gradient.addColorStop(0, this.nightMode ? '#ffffff' : '#fff8df');
+      gradient.addColorStop(0.45, bullet.color);
+      gradient.addColorStop(1, this.nightMode ? 'rgba(255, 255, 255, 0)' : 'rgba(0, 0, 0, 0)');
+
       if (this.nightMode) {
         ctx.shadowColor = bullet.color;
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 14;
       }
+
+      ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
-      ctx.fillStyle = bullet.color;
+      ctx.arc(bullet.x, bullet.y, glowRadius * 0.55, 0, Math.PI * 2);
       ctx.fill();
+
+      // Directional flare to emphasize travel direction.
+      const heading = bullet.baseAngle !== undefined ? bullet.baseAngle : bullet.angle || -Math.PI / 2;
+      const flareLength = bullet.size * 3.5;
+      ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.65)' : 'rgba(0, 0, 0, 0.55)';
+      ctx.lineWidth = Math.max(1.2, bullet.size * 0.45);
+      ctx.beginPath();
+      ctx.moveTo(bullet.x - Math.cos(heading) * bullet.size * 0.6, bullet.y - Math.sin(heading) * bullet.size * 0.6);
+      ctx.lineTo(bullet.x + Math.cos(heading) * flareLength, bullet.y + Math.sin(heading) * flareLength);
+      ctx.stroke();
+
+      // Thin rim for a crisp silhouette.
+      ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.65)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(bullet.x, bullet.y, Math.max(1, bullet.size * 0.9), 0, Math.PI * 2);
+      ctx.stroke();
+
       ctx.restore();
     }
   }
