@@ -57,6 +57,8 @@ const FRAME_COST_SMOOTHING = 0.08; // Exponential smoothing factor for frame tim
 const CAMERA_PAN_SPEED = 1.2;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.0;
+const SPAWN_AREA_MARGIN = 24; // Margin in pixels from canvas edge for spawn area.
+const BULLET_CULLING_MARGIN = 400; // World-space margin for keeping bullets alive during camera movement.
 
 // Grid system: 1 grid unit = 5 * marine diameter = 5 * (2 * MARINE_RADIUS) = 36 pixels
 const GRID_UNIT = 5 * (2 * MARINE_RADIUS); // 36 pixels
@@ -267,16 +269,20 @@ export class KufBattlefieldSimulation {
     // Reset overlay pacing so each run begins with full HUD fidelity before auto-throttling.
     this.overlaySkipCounter = 0;
 
-    const spawnY = this.bounds.height - 48;
-    const centerX = this.bounds.width / 2;
+    // Player units spawn randomly within the bottom half of the render area.
+    const spawnYMin = this.bounds.height / 2;
+    const spawnYMax = this.bounds.height - SPAWN_AREA_MARGIN;
+    const spawnXMin = SPAWN_AREA_MARGIN;
+    const spawnXMax = this.bounds.width - SPAWN_AREA_MARGIN;
     
-    // Spawn all purchased marines
+    // Spawn all purchased marines at random positions in bottom half.
     for (let i = 0; i < units.marines; i++) {
-      const offsetX = (i - (units.marines - 1) / 2) * 40;
+      const randomX = spawnXMin + Math.random() * (spawnXMax - spawnXMin);
+      const randomY = spawnYMin + Math.random() * (spawnYMax - spawnYMin);
       this.marines.push({
         type: 'marine',
-        x: centerX + offsetX,
-        y: spawnY,
+        x: randomX,
+        y: randomY,
         vx: 0,
         vy: 0,
         radius: MARINE_RADIUS,
@@ -292,13 +298,14 @@ export class KufBattlefieldSimulation {
       });
     }
     
-    // Spawn all purchased snipers
+    // Spawn all purchased snipers at random positions in bottom half.
     for (let i = 0; i < units.snipers; i++) {
-      const offsetX = (i - (units.snipers - 1) / 2) * 40;
+      const randomX = spawnXMin + Math.random() * (spawnXMax - spawnXMin);
+      const randomY = spawnYMin + Math.random() * (spawnYMax - spawnYMin);
       this.marines.push({
         type: 'sniper',
-        x: centerX + offsetX,
-        y: spawnY + 30,
+        x: randomX,
+        y: randomY,
         vx: 0,
         vy: 0,
         radius: SNIPER_RADIUS,
@@ -314,13 +321,14 @@ export class KufBattlefieldSimulation {
       });
     }
     
-    // Spawn all purchased splayers
+    // Spawn all purchased splayers at random positions in bottom half.
     for (let i = 0; i < units.splayers; i++) {
-      const offsetX = (i - (units.splayers - 1) / 2) * 40;
+      const randomX = spawnXMin + Math.random() * (spawnXMax - spawnXMin);
+      const randomY = spawnYMin + Math.random() * (spawnYMax - spawnYMin);
       this.marines.push({
         type: 'splayer',
-        x: centerX + offsetX,
-        y: spawnY + 60,
+        x: randomX,
+        y: randomY,
         vx: 0,
         vy: 0,
         radius: SPLAYER_RADIUS,
@@ -1278,12 +1286,17 @@ export class KufBattlefieldSimulation {
   }
 
   isOnscreen(bullet) {
-    const margin = 40;
+    // Use a larger margin in world space to prevent bullets from disappearing prematurely.
+    // Account for camera movement by using the visible area in world coordinates.
+    const viewLeft = this.camera.x - BULLET_CULLING_MARGIN;
+    const viewRight = this.camera.x + this.bounds.width / this.camera.zoom + BULLET_CULLING_MARGIN;
+    const viewTop = this.camera.y - BULLET_CULLING_MARGIN;
+    const viewBottom = this.camera.y + this.bounds.height / this.camera.zoom + BULLET_CULLING_MARGIN;
     return (
-      bullet.x > -margin &&
-      bullet.y > -margin &&
-      bullet.x < this.bounds.width + margin &&
-      bullet.y < this.bounds.height + margin
+      bullet.x > viewLeft &&
+      bullet.x < viewRight &&
+      bullet.y > viewTop &&
+      bullet.y < viewBottom
     );
   }
 
@@ -1316,16 +1329,12 @@ export class KufBattlefieldSimulation {
     }
     const ctx = this.ctx;
     ctx.save();
+    // Always fully clear the canvas for smooth rendering without trails or "exposure rate" effects.
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#050715';
+    ctx.fillRect(0, 0, this.bounds.width, this.bounds.height);
     if (force) {
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = '#050715';
-      ctx.fillRect(0, 0, this.bounds.width, this.bounds.height);
       this.drawTrianglePattern();
-    } else {
-      const trailAlpha = this.renderProfile === 'light' ? LOW_TRAIL_ALPHA : TRAIL_ALPHA;
-      ctx.globalAlpha = trailAlpha;
-      ctx.fillStyle = 'rgba(5, 7, 21, 0.6)';
-      ctx.fillRect(0, 0, this.bounds.width, this.bounds.height);
     }
     ctx.restore();
   }
