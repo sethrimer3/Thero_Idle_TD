@@ -244,6 +244,16 @@ export function stopCardinalSimulation() {
 }
 
 /**
+ * Start/restart the Cardinal Warden simulation.
+ * Used when returning to the Shin tab after the simulation was stopped.
+ */
+export function startCardinalSimulation() {
+  if (cardinalSimulation && !cardinalSimulation.running) {
+    cardinalSimulation.start();
+  }
+}
+
+/**
  * Handle score changes.
  */
 function handleScoreChange(score) {

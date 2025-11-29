@@ -211,6 +211,7 @@ import {
   initializeCardinalWardenUI,
   resizeCardinalCanvas,
   stopCardinalSimulation,
+  startCardinalSimulation,
   isCardinalSimulationRunning,
   getCardinalSimulation,
   getCardinalHighestWave,
@@ -225,7 +226,7 @@ import {
   resetKufState,
   setKufGlyphs,
 } from './kufState.js';
-import { initializeKufUI, updateKufDisplay } from './kufUI.js';
+import { initializeKufUI, updateKufDisplay, stopKufSimulation } from './kufUI.js';
 // Shared color palette orchestration utilities.
 import {
   configureColorSchemeSystem,
@@ -5438,6 +5439,53 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           tsadiSimulationInstance?.stageParticlesForReentry?.();
         }
 
+        // -------------------------------------------------------------------
+        // Freeze spire simulations when leaving their tabs to reduce resource
+        // usage. Exceptions: Aleph (powder) spire always runs, and the main
+        // playfield continues when an interactive level is active.
+        // -------------------------------------------------------------------
+
+        // Stop Lamed simulation when leaving the Lamed tab
+        if (previousTabId === 'lamed' && tabId !== 'lamed') {
+          if (lamedSimulationInstance && typeof lamedSimulationInstance.stop === 'function') {
+            lamedSimulationInstance.stop();
+          }
+        }
+
+        // Stop Tsadi simulation when leaving the Tsadi tab
+        if (previousTabId === 'tsadi' && tabId !== 'tsadi') {
+          if (tsadiSimulationInstance && typeof tsadiSimulationInstance.stop === 'function') {
+            tsadiSimulationInstance.stop();
+          }
+        }
+
+        // Stop Shin (Cardinal Warden) simulation when leaving the Shin tab
+        if (previousTabId === 'shin' && tabId !== 'shin') {
+          stopCardinalSimulation();
+        }
+
+        // Stop Kuf battlefield simulation when leaving the Kuf tab
+        if (previousTabId === 'kuf' && tabId !== 'kuf') {
+          stopKufSimulation();
+        }
+
+        // Stop Fluid/Bet terrarium animations when leaving the Fluid tab
+        // (Fluid simulation itself is stopped via applyPowderSimulationMode when switching modes)
+        if (previousTabId === 'fluid' && tabId !== 'fluid') {
+          if (fluidTerrariumCreatures && typeof fluidTerrariumCreatures.stop === 'function') {
+            fluidTerrariumCreatures.stop();
+          }
+          if (fluidTerrariumGrass && typeof fluidTerrariumGrass.stop === 'function') {
+            fluidTerrariumGrass.stop();
+          }
+          if (fluidTerrariumSkyCycle && typeof fluidTerrariumSkyCycle.stop === 'function') {
+            fluidTerrariumSkyCycle.stop();
+          }
+          if (fluidTerrariumShrooms && typeof fluidTerrariumShrooms.stop === 'function') {
+            fluidTerrariumShrooms.stop();
+          }
+        }
+
         // Surface spire briefings the first time each tab opens.
         maybeShowSpireStory(tabId);
 
@@ -5465,6 +5513,19 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 ? fluidSimulationInstance.getStatus()
                 : null;
             updateFluidDisplay(fluidStatus);
+          }
+          // Restart terrarium animations when returning to the Fluid/Bet tab
+          if (fluidTerrariumCreatures && typeof fluidTerrariumCreatures.start === 'function') {
+            fluidTerrariumCreatures.start();
+          }
+          if (fluidTerrariumGrass && typeof fluidTerrariumGrass.start === 'function') {
+            fluidTerrariumGrass.start();
+          }
+          if (fluidTerrariumSkyCycle && typeof fluidTerrariumSkyCycle.start === 'function') {
+            fluidTerrariumSkyCycle.start();
+          }
+          if (fluidTerrariumShrooms && typeof fluidTerrariumShrooms.start === 'function') {
+            fluidTerrariumShrooms.start();
           }
         } else if (tabId === 'powder') {
           if (powderState.simulationMode !== 'sand') {
@@ -5739,6 +5800,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             } catch (error) {
               console.error('Failed to initialize Cardinal Warden UI:', error);
             }
+          } else {
+            // Restart the simulation if it was stopped when leaving the tab
+            startCardinalSimulation();
           }
           // Resize the Cardinal canvas when tab is shown
           resizeCardinalCanvas();
