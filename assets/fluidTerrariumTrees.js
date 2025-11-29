@@ -271,16 +271,17 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
   {
     id: 'bet-store-fractal-brownian',
     label: 'Brownian Forest',
-    description: 'Crystalline trees crystallize from drifting motes of light. Shin lattice geometry.',
+    description: 'Crystalline trees crystallize from drifting motes of light. Cave-only. Grows per level in open air.',
     icon: '🌌',
     itemType: 'fractal',
     fractalType: 'brownian',
     cost: 140,
     size: 'large',
-    minY: 0.32,
-    maxY: 0.94,
+    minY: 0.65,
+    maxY: 0.95,
     minSpacing: 0.09,
     initialAllocation: 5,
+    caveOnly: true,
   },
   {
     id: 'bet-store-fractal-flame',
@@ -322,6 +323,14 @@ export class FluidTerrariumTrees {
     this.islandSmallMaskUrl = typeof options.islandSmallMaskUrl === 'string'
       ? options.islandSmallMaskUrl
       : null;
+
+    // Cave spawn zones for caveOnly fractal placement validation.
+    this.caveSpawnZones = Array.isArray(options.caveSpawnZones) ? options.caveSpawnZones : [];
+    this.resolvedCaveZones = [];
+
+    // Terrain collision element for building walkable masks.
+    this.terrainCollisionElement = options.terrainCollisionElement || null;
+    this.walkableMask = null;
 
     this.overlay = null;
     this.bounds = { width: 0, height: 0 };
@@ -397,6 +406,7 @@ export class FluidTerrariumTrees {
     this.observeContainer();
     this.loadMasks();
     this.listenForMenuClose();
+    this.buildWalkableMask();
   }
 
   /**
@@ -1294,6 +1304,10 @@ export class FluidTerrariumTrees {
     if (point.yRatio < storeItem.minY || point.yRatio > storeItem.maxY) {
       return false;
     }
+    // Cave-only items (like Brownian Forest) must be placed inside cave spawn zones.
+    if (storeItem.caveOnly && !this.isPointInCaveZone(point)) {
+      return false;
+    }
     const spacing = Math.max(0.02, storeItem.minSpacing || 0.08);
     const anchors = this.getCombinedAnchors();
     return !anchors.some((anchor) => {
@@ -1332,6 +1346,7 @@ export class FluidTerrariumTrees {
       initialAllocation: storeItem.initialAllocation,
       itemType: storeItem.itemType || 'tree',
       fractalType: storeItem.fractalType || null,
+      caveOnly: Boolean(storeItem.caveOnly),
     };
     this.getPlacementId(anchor);
     return anchor;
@@ -1495,6 +1510,98 @@ export class FluidTerrariumTrees {
     }
 
     this.renderBounds = { left, top, width, height };
+    this.resolveCaveZones();
+  }
+
+  /**
+   * Resolve normalized cave spawn zones to pixel coordinates within renderBounds.
+   */
+  resolveCaveZones() {
+    if (!this.caveSpawnZones.length || !this.renderBounds.width || !this.renderBounds.height) {
+      this.resolvedCaveZones = [];
+      return;
+    }
+
+    this.resolvedCaveZones = this.caveSpawnZones.map((zone) => {
+      if (!zone || !Number.isFinite(zone.x) || !Number.isFinite(zone.y)) {
+        return null;
+      }
+      const normalizedX = Math.max(0, Math.min(1, zone.x));
+      const normalizedY = Math.max(0, Math.min(1, zone.y));
+      const normalizedWidth = Math.max(0, Math.min(1 - normalizedX, zone.width ?? 0));
+      const normalizedHeight = Math.max(0, Math.min(1 - normalizedY, zone.height ?? 0));
+      if (normalizedWidth <= 0 || normalizedHeight <= 0) {
+        return null;
+      }
+      return {
+        xMin: normalizedX,
+        xMax: normalizedX + normalizedWidth,
+        yMin: normalizedY,
+        yMax: normalizedY + normalizedHeight,
+      };
+    }).filter(Boolean);
+  }
+
+  /**
+   * Check if a normalized point falls inside any cave spawn zone.
+   * @param {{xRatio:number, yRatio:number}} point
+   * @returns {boolean}
+   */
+  isPointInCaveZone(point) {
+    if (!point || !this.resolvedCaveZones.length) {
+      return false;
+    }
+    return this.resolvedCaveZones.some((zone) => (
+      point.xRatio >= zone.xMin &&
+      point.xRatio <= zone.xMax &&
+      point.yRatio >= zone.yMin &&
+      point.yRatio <= zone.yMax
+    ));
+  }
+
+  /**
+   * Build a walkable mask from the terrain collision sprite so Brownian growth avoids solid terrain.
+   */
+  buildWalkableMask() {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const source = this.terrainCollisionElement;
+    if (!source) {
+      return;
+    }
+
+    const sample = () => {
+      const width = source.naturalWidth;
+      const height = source.naturalHeight;
+      if (!width || !height) {
+        return;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return;
+      }
+      ctx.drawImage(source, 0, 0, width, height);
+      const { data } = ctx.getImageData(0, 0, width, height);
+      const pixelCount = width * height;
+      const walkable = new Uint8Array(pixelCount);
+      for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+        // Alpha indicates solid terrain; transparent pixels are safe for the cluster.
+        const alpha = data[pixel * 4 + 3];
+        walkable[pixel] = alpha === 0 ? 1 : 0;
+      }
+      this.walkableMask = { width, height, data: walkable };
+    };
+
+    if (source.complete && source.naturalWidth) {
+      sample();
+    } else {
+      source.addEventListener('load', sample, { once: true });
+    }
   }
 
   /**
@@ -2157,6 +2264,7 @@ export class FluidTerrariumTrees {
         bgColor: 'rgba(0, 0, 0, 0)',
         particleLimit: 1600,
         glowRadius: 5,
+        walkableMask: this.walkableMask,
       });
     }
 

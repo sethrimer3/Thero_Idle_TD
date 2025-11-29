@@ -1088,6 +1088,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       getSerendipityBalance: getCurrentFluidDropBank,
       onShroomPlace: handleShroomPlacement,
       onSlimePlace: handleSlimePlacement,
+      // Cave spawn zones enable cave-only fractal placement validation.
+      caveSpawnZones: BET_CAVE_SPAWN_ZONES,
+      // Terrain collision sprite enables walkable mask for Brownian growth.
+      terrainCollisionElement: fluidElements.terrainCollisionSprite,
       onStateChange: (state) => {
         powderState.betTerrarium = {
           levelingMode: Boolean(state?.levelingMode),
