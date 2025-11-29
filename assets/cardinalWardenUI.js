@@ -333,7 +333,7 @@ function updateGlyphDisplay() {
 /**
  * Update the total iterons display.
  */
-export function updateTotalIteronsDisplay() {
+function updateTotalIteronsDisplay() {
   if (cardinalElements.totalIterons) {
     const iterons = getIteronBank();
     cardinalElements.totalIterons.textContent = `${formatGameNumber(iterons)} ℸ`;
