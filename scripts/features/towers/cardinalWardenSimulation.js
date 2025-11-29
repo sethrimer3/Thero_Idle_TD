@@ -2365,7 +2365,7 @@ export class CardinalWardenSimulation {
       for (let i = 0; i < enemy.trail.length - 1; i++) {
         const point = enemy.trail[i];
         const alpha = (i + 1) / enemy.trail.length;
-        ctx.globalAlpha = alpha * 0.6;
+        ctx.globalAlpha = alpha * 0.8;
         ctx.beginPath();
         // Larger trail circles that scale with enemy size for better visibility
         ctx.arc(point.x, point.y, Math.max(2, enemy.size * 0.35 * alpha), 0, Math.PI * 2);
@@ -3095,7 +3095,7 @@ export class CardinalWardenSimulation {
     }
     
     // Ensure at least one weapon is equipped if any are purchased
-    if ((!this.weapons.equipped || this.weapons.equipped.length === 0)) {
+    if (!this.weapons.equipped || this.weapons.equipped.length === 0) {
       const purchasedIds = Object.keys(this.weapons.purchased).filter(id => this.weapons.purchased[id]);
       if (purchasedIds.length > 0) {
         this.weapons.equipped = [purchasedIds[0]];
