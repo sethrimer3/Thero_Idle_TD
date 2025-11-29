@@ -88,6 +88,10 @@ export class GravitySimulation {
     this.centerY = 0;
     this.cssWidth = 0; // CSS pixel width of the canvas for spawn calculations.
     this.cssHeight = 0; // CSS pixel height of the canvas for spawn calculations.
+    // Cap the render resolution so high-DPI devices do not overdraw the canvas and tank performance.
+    this.maxDevicePixelRatio = typeof options.maxDevicePixelRatio === 'number'
+      ? Math.max(1, options.maxDevicePixelRatio)
+      : 2;
     
     // Physics parameters
     this.G = 200; // Gravitational constant
@@ -333,6 +337,16 @@ export class GravitySimulation {
   }
 
   /**
+   * Resolve an effective device pixel ratio capped to protect mobile GPUs from excessive overdraw.
+   * @returns {number} Clamped device pixel ratio used for canvas sizing and coordinate math
+   */
+  getEffectiveDevicePixelRatio() {
+    const rawDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const cap = Number.isFinite(this.maxDevicePixelRatio) ? this.maxDevicePixelRatio : rawDpr;
+    return Math.max(1, Math.min(rawDpr, cap));
+  }
+
+  /**
    * Resolve how orbiting star trails should be rendered based on population and graphics settings.
    */
   resolveTrailRenderSettings(starCount = this.stars.length) {
@@ -363,9 +377,9 @@ export class GravitySimulation {
    */
   resize() {
     if (!this.canvas) return;
-    
+
     const rect = this.canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
     
     this.width = Math.floor(rect.width * dpr);
     this.height = Math.floor(rect.height * dpr);
@@ -419,7 +433,8 @@ export class GravitySimulation {
    * @returns {number} Radius of the core body in pixels
    */
   calculateCoreRadius() {
-    const cssWidth = this.cssWidth || (this.width / (window.devicePixelRatio || 1)) || 0;
+    const dpr = this.getEffectiveDevicePixelRatio();
+    const cssWidth = this.cssWidth || (this.width / dpr) || 0;
     const diameterPx = cssWidth * (this.coreSizeState?.percent || TIER_DIAMETER_PERCENTAGES[0]);
     // Safeguard against extremely small radii so the core remains visible even on narrow screens.
     return Math.max(2, diameterPx / 2);
@@ -430,7 +445,7 @@ export class GravitySimulation {
    * @returns {number} Maximum spawn radius in CSS pixels extending to the viewport corners
    */
   calculateMaxSpawnRadiusCss() {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
     const cssWidth = this.cssWidth || (this.width / dpr) || 0;
     const cssHeight = this.cssHeight || (this.height / dpr) || 0;
     const halfWidth = cssWidth / 2;
@@ -446,7 +461,7 @@ export class GravitySimulation {
    * @returns {number} Radius in CSS pixels respecting the minimum size rule
    */
   calculateStarRadiusCss(starMass, coreRadiusCss = this.calculateCoreRadius()) {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
     const cssWidth = this.cssWidth || (this.width / dpr) || 0;
     const minimumRadius = Math.max(1, cssWidth / 900);
     const normalizedMass = Math.max(0, Number.isFinite(starMass) ? starMass : 0);
@@ -545,7 +560,7 @@ export class GravitySimulation {
    * @returns {number} Blend between 0 (core) and 1 (edge) for palette sampling
    */
   calculateDustRadialBlend(x, y) {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
     const dx = (x - this.centerX) / dpr;
     const dy = (y - this.centerY) / dpr;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -989,7 +1004,7 @@ export class GravitySimulation {
    * Spawn a shooting star just outside the simulation bounds.
    */
   spawnShootingStar() {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
 
     // Use the shared radius helper so spawn logic mirrors rendering scale.
     const starVisualRadius = this.calculateCoreRadius();
@@ -1054,7 +1069,7 @@ export class GravitySimulation {
   spawnStar() {
     if (this.sparkBank <= 0) return false;
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
     const starMass = 1 + this.upgrades.starMass;
 
     // Calculate central body radius
@@ -1159,7 +1174,7 @@ export class GravitySimulation {
     }
 
     const dt = deltaTime / 1000;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
     
     // Calculate central body radius
     // Use the shared radius helper so dust drag remains centered on the rendered core.
@@ -1220,7 +1235,7 @@ export class GravitySimulation {
    */
   spawnGeyserBurst(impactAngle, massGain, tier, contactPointCss, starRadiusCss, sunRadiusCss) {
     const settings = this.visualEffectSettings.geyser;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
     const resolvedStarRadius = Math.max(2, Number.isFinite(starRadiusCss) ? starRadiusCss : 4);
     const resolvedSunRadius = Math.max(2, Number.isFinite(sunRadiusCss) ? sunRadiusCss : this.calculateCoreRadius());
     const normal = { x: Math.cos(impactAngle), y: Math.sin(impactAngle) };
@@ -1274,7 +1289,7 @@ export class GravitySimulation {
    */
   updateDustParticles(deltaTime) {
     const dt = deltaTime / 1000;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
 
     for (let i = this.dustParticles.length - 1; i >= 0; i--) {
       const dust = this.dustParticles[i];
@@ -1324,7 +1339,7 @@ export class GravitySimulation {
    */
   updateShootingStars(deltaTime) {
     const dt = deltaTime / 1000;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
 
     if (this.elapsedTime >= this.nextShootingStarTime) {
       this.spawnShootingStar();
@@ -1413,7 +1428,7 @@ export class GravitySimulation {
    */
   updateStars(deltaTime) {
     const dt = deltaTime / 1000; // Convert to seconds
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
 
     // Spawn new stars
     this.spawnAccumulator += dt * this.sparkSpawnRate;
@@ -1808,7 +1823,7 @@ export class GravitySimulation {
   render() {
     if (!this.ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
     const ctx = this.ctx;
     const activeTrailSettings = this.activeTrailSettings || this.resolveTrailRenderSettings(this.stars.length);
     const trailMode = activeTrailSettings.mode || 'full';
