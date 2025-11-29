@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   graphicsLevel: SHIN_GRAPHICS_LEVELS.HIGH,
   animatedGrowth: true,
   panZoomEnabled: true,
+  nightMode: false,
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -27,6 +28,8 @@ let animatedGrowthToggle = null;
 let animatedGrowthToggleState = null;
 let panZoomToggle = null;
 let panZoomToggleState = null;
+let nightModeToggle = null;
+let nightModeToggleState = null;
 
 /**
  * Prefer a saner default graphics tier on mobile/high-DPI devices to reduce render cost out of the box.
@@ -117,6 +120,11 @@ function applySettingsToSimulation() {
   if (typeof simulation.setPanZoomEnabled === 'function') {
     simulation.setPanZoomEnabled(settings.panZoomEnabled);
   }
+
+  // Control night mode palette for the danmaku renderer.
+  if (typeof simulation.setNightMode === 'function') {
+    simulation.setNightMode(settings.nightMode);
+  }
 }
 
 /**
@@ -181,6 +189,7 @@ function syncToggleState(input, stateLabel, enabled) {
 function syncAllToggles() {
   syncToggleState(animatedGrowthToggle, animatedGrowthToggleState, settings.animatedGrowth);
   syncToggleState(panZoomToggle, panZoomToggleState, settings.panZoomEnabled);
+  syncToggleState(nightModeToggle, nightModeToggleState, settings.nightMode);
 }
 
 /**
@@ -201,6 +210,8 @@ export function bindShinSpireOptions() {
   animatedGrowthToggleState = document.getElementById('shin-animated-growth-toggle-state');
   panZoomToggle = document.getElementById('shin-pan-zoom-toggle');
   panZoomToggleState = document.getElementById('shin-pan-zoom-toggle-state');
+  nightModeToggle = document.getElementById('shin-night-mode-toggle');
+  nightModeToggleState = document.getElementById('shin-night-mode-toggle-state');
 
   if (graphicsLevelButton) {
     graphicsLevelButton.addEventListener('click', cycleGraphicsLevel);
@@ -218,6 +229,13 @@ export function bindShinSpireOptions() {
     panZoomToggle.addEventListener('change', (event) => {
       applySetting('panZoomEnabled', event.target.checked);
       syncToggleState(panZoomToggle, panZoomToggleState, settings.panZoomEnabled);
+    });
+  }
+
+  if (nightModeToggle) {
+    nightModeToggle.addEventListener('change', (event) => {
+      applySetting('nightMode', event.target.checked);
+      syncToggleState(nightModeToggle, nightModeToggleState, settings.nightMode);
     });
   }
 

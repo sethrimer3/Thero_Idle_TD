@@ -34,6 +34,31 @@ const GAME_CONFIG = {
 };
 
 /**
+ * Lighten a hex color by blending it toward white.
+ */
+function lightenHexColor(hex, amount = 0.2) {
+  const normalized = hex.startsWith('#') ? hex.slice(1) : hex;
+  if (normalized.length !== 6) {
+    return hex;
+  }
+
+  const num = parseInt(normalized, 16);
+  const r = (num >> 16) & 0xff;
+  const g = (num >> 8) & 0xff;
+  const b = num & 0xff;
+
+  const mix = (channel) => Math.round(channel + (255 - channel) * amount);
+
+  const nr = mix(r);
+  const ng = mix(g);
+  const nb = mix(b);
+
+  return `#${nr.toString(16).padStart(2, '0')}${ng.toString(16).padStart(2, '0')}${nb
+    .toString(16)
+    .padStart(2, '0')}`;
+}
+
+/**
  * Simple seeded random number generator for consistent enemy patterns.
  */
 class SeededRandom {
@@ -223,6 +248,7 @@ class EnemyShip {
     this.y = y;
     this.vx = 0; // Velocity X
     this.vy = 0; // Velocity Y
+    this.headingAngle = Math.PI / 2; // Orientation of the ship
     this.maxSpeed = config.speed || 50;
     this.health = config.health || 1;
     this.maxHealth = this.health;
@@ -230,7 +256,8 @@ class EnemyShip {
     this.size = config.size || 8;
     this.type = config.type || 'basic';
     this.scoreValue = config.scoreValue || 10;
-    this.color = config.color || '#333';
+    this.baseColor = config.color || '#333';
+    this.color = this.baseColor;
     
     // Smooth movement properties
     this.acceleration = config.acceleration || 80; // Pixels per second squared
@@ -245,6 +272,7 @@ class EnemyShip {
     this.wavePhase = config.wavePhase || 0;
     this.time = 0;
     this.lastWaveOffset = 0; // Track previous wave offset for delta-based application
+    this.trail = []; // Recent positions to render an inky trail
   }
 
   /**
@@ -269,6 +297,10 @@ class EnemyShip {
   update(deltaTime, targetY, canvasWidth, canvasHeight, rng) {
     const dt = deltaTime / 1000;
     this.time += dt;
+
+    // Track previous position to derive orientation and trails.
+    const previousX = this.x;
+    const previousY = this.y;
     
     // Calculate direction and distance to target
     const dx = this.targetX - this.x;
@@ -326,7 +358,20 @@ class EnemyShip {
     
     // Keep within horizontal bounds
     this.x = Math.max(this.size, Math.min(canvasWidth - this.size, this.x));
-    
+
+    // Update orientation based on actual displacement including weaving.
+    const deltaX = this.x - previousX;
+    const deltaY = this.y - previousY;
+    if (deltaX !== 0 || deltaY !== 0) {
+      this.headingAngle = Math.atan2(deltaY, deltaX);
+    }
+
+    // Record trail positions while keeping memory small.
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 12) {
+      this.trail.shift();
+    }
+
     return this.y > targetY;
   }
 
@@ -347,7 +392,8 @@ class Bullet {
     this.speed = config.speed || 200;
     this.damage = config.damage || 1;
     this.size = config.size || 4;
-    this.color = config.color || '#d4af37';
+    this.baseColor = config.baseColor || config.color || '#d4af37';
+    this.color = config.color || this.baseColor;
     this.piercing = config.piercing || false;
     this.hitEnemies = new Set();
   }
@@ -378,6 +424,7 @@ class MathBullet {
     this.speed = config.speed || 200;
     this.damage = config.damage || 1;
     this.size = config.size || 4;
+    this.baseColor = config.baseColor || config.color || '#d4af37';
     this.color = config.color || '#d4af37';
     
     // Mathematical pattern configuration
@@ -606,10 +653,14 @@ export class CardinalWardenSimulation {
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
 
     // Visual style - pure white background, minimalist
+    this.nightMode = options.nightMode || false;
     this.bgColor = '#ffffff';
     this.wardenCoreColor = '#d4af37'; // Golden
     this.wardenSquareColor = '#c9a227'; // Slightly darker gold
     this.bulletColor = '#d4af37';
+    this.ringStrokeColor = '#d4af37';
+    this.uiTextColor = '#333';
+    this.enemyTrailColor = 'rgba(0, 0, 0, 0.12)';
 
     // Game state
     this.running = false;
@@ -689,12 +740,89 @@ export class CardinalWardenSimulation {
     // Callback for weapon state changes
     this.onWeaponChange = options.onWeaponChange || null;
 
+    // Apply the initial palette before creating objects.
+    this.applyColorMode();
+
     this.initialize();
+  }
+
+  /**
+   * Update palette values based on day/night render mode.
+   */
+  applyColorMode() {
+    if (this.nightMode) {
+      this.bgColor = '#000000';
+      this.wardenCoreColor = '#ffe9a3';
+      this.wardenSquareColor = '#ffd76f';
+      this.bulletColor = '#ffe585';
+      this.ringStrokeColor = '#ffe9a3';
+      this.uiTextColor = '#f5f5f5';
+      this.enemyTrailColor = 'rgba(255, 255, 255, 0.16)';
+    } else {
+      this.bgColor = '#ffffff';
+      this.wardenCoreColor = '#d4af37';
+      this.wardenSquareColor = '#c9a227';
+      this.bulletColor = '#d4af37';
+      this.ringStrokeColor = '#d4af37';
+      this.uiTextColor = '#333';
+      this.enemyTrailColor = 'rgba(0, 0, 0, 0.12)';
+    }
+  }
+
+  /**
+   * Propagate ring colors to existing warden rings so mode toggles are immediate.
+   */
+  applyRingColors() {
+    if (!this.warden) return;
+    for (const ring of this.warden.ringSquares) {
+      ring.strokeColor = this.ringStrokeColor;
+    }
   }
 
   initialize() {
     if (!this.canvas) return;
     this.initWarden();
+    this.applyRingColors();
+  }
+
+  /**
+   * Toggle the render palette between day and night variants.
+   */
+  setNightMode(enabled) {
+    this.nightMode = Boolean(enabled);
+    this.applyColorMode();
+    this.applyRingColors();
+    this.refreshEnemyColorsForMode();
+    this.refreshBulletColorsForMode();
+  }
+
+  /**
+   * Keep current enemies aligned with the active color mode.
+   */
+  refreshEnemyColorsForMode() {
+    for (const enemy of this.enemies) {
+      enemy.color = this.nightMode ? '#ffffff' : enemy.baseColor;
+    }
+  }
+
+  /**
+   * Lighten existing bullets when night mode is enabled for consistency.
+   */
+  refreshBulletColorsForMode() {
+    for (const bullet of this.bullets) {
+      const sourceColor = bullet.baseColor || bullet.color;
+      bullet.color = this.resolveBulletColor(sourceColor);
+    }
+  }
+
+  /**
+   * Resolve an appropriate bullet tint for the active palette.
+   */
+  resolveBulletColor(baseColor) {
+    if (this.nightMode) {
+      return lightenHexColor(baseColor || this.bulletColor, 0.35);
+    }
+    return baseColor || this.bulletColor;
   }
 
   initWarden() {
@@ -917,12 +1045,15 @@ export class CardinalWardenSimulation {
     // Calculate stats based on level
     const damageMultiplier = 1 + (level - 1) * 0.25;
     const speedMultiplier = 1 + (level - 1) * 0.1;
-    
+
+    const resolvedColor = this.resolveBulletColor(weaponDef.color);
+
     const bulletConfig = {
       speed: weaponDef.baseSpeed * speedMultiplier * this.upgrades.bulletSpeed,
       damage: weaponDef.baseDamage * damageMultiplier * this.upgrades.bulletDamage,
       size: 4 + Math.floor(level / 2),
-      color: weaponDef.color,
+      baseColor: weaponDef.color,
+      color: resolvedColor,
       pattern: weaponDef.pattern,
       amplitude: weaponDef.amplitude * (1 + (level - 1) * 0.15),
       frequency: weaponDef.frequency,
@@ -1034,9 +1165,10 @@ export class CardinalWardenSimulation {
     this.enemySpawnTimer = 0;
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
-    
+
     // Reinitialize warden
     this.initWarden();
+    this.applyRingColors();
     if (this.warden) {
       this.warden.health = this.warden.maxHealth;
     }
@@ -1120,6 +1252,7 @@ export class CardinalWardenSimulation {
     const y = -config.size;
 
     const ship = new EnemyShip(x, y, config);
+    ship.color = this.nightMode ? '#ffffff' : ship.baseColor;
     // Set initial target lower on screen
     ship.pickNewTarget(this.canvas.width, this.canvas.height, this.rng);
     this.enemies.push(ship);
@@ -1305,7 +1438,7 @@ export class CardinalWardenSimulation {
   render() {
     if (!this.ctx || !this.canvas) return;
 
-    // Clear with white background
+    // Clear with current background color
     this.ctx.fillStyle = this.bgColor;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -1395,6 +1528,12 @@ export class CardinalWardenSimulation {
     }
 
     // Draw orbital squares
+    ctx.save();
+    if (this.nightMode) {
+      ctx.shadowColor = this.wardenCoreColor;
+      ctx.shadowBlur = 18;
+    }
+
     ctx.fillStyle = this.wardenSquareColor;
     for (const square of warden.orbitalSquares) {
       const pos = square.getPosition(warden.x, warden.y);
@@ -1420,6 +1559,8 @@ export class CardinalWardenSimulation {
     ctx.arc(warden.x - 4, warden.y - 4, warden.coreRadius * 0.4, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.fill();
+
+    ctx.restore();
   }
 
   /**
@@ -1431,17 +1572,31 @@ export class CardinalWardenSimulation {
     const ctx = this.ctx;
 
     for (const enemy of this.enemies) {
+      // Render a small inky trail behind the ship's path.
+      ctx.save();
+      ctx.fillStyle = this.enemyTrailColor;
+      for (let i = 0; i < enemy.trail.length - 1; i++) {
+        const point = enemy.trail[i];
+        const alpha = (i + 1) / enemy.trail.length;
+        ctx.globalAlpha = alpha * 0.8;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, Math.max(1, enemy.size * 0.2 * alpha), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
       ctx.save();
       ctx.translate(enemy.x, enemy.y);
+      ctx.rotate(enemy.headingAngle - Math.PI / 2);
 
-      // Draw enemy ship as a simple triangle pointing down
+      // Draw enemy ship as a simple triangle pointing toward movement.
       ctx.beginPath();
       ctx.moveTo(0, enemy.size);
       ctx.lineTo(-enemy.size * 0.7, -enemy.size * 0.5);
       ctx.lineTo(enemy.size * 0.7, -enemy.size * 0.5);
       ctx.closePath();
 
-      ctx.fillStyle = enemy.color;
+      ctx.fillStyle = this.nightMode ? '#ffffff' : enemy.color;
       ctx.fill();
 
       // Health bar for multi-hit enemies
@@ -1451,10 +1606,10 @@ export class CardinalWardenSimulation {
         const barHeight = 2;
         const barY = -enemy.size - 4;
 
-        ctx.fillStyle = '#ddd';
+        ctx.fillStyle = this.nightMode ? 'rgba(255, 255, 255, 0.3)' : '#ddd';
         ctx.fillRect(-barWidth / 2, barY, barWidth, barHeight);
 
-        ctx.fillStyle = '#666';
+        ctx.fillStyle = this.nightMode ? 'rgba(255, 255, 255, 0.8)' : '#666';
         ctx.fillRect(-barWidth / 2, barY, barWidth * healthPercent, barHeight);
       }
 
@@ -1471,10 +1626,16 @@ export class CardinalWardenSimulation {
     const ctx = this.ctx;
 
     for (const bullet of this.bullets) {
+      ctx.save();
+      if (this.nightMode) {
+        ctx.shadowColor = bullet.color;
+        ctx.shadowBlur = 12;
+      }
       ctx.beginPath();
       ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
       ctx.fillStyle = bullet.color;
       ctx.fill();
+      ctx.restore();
     }
   }
 
@@ -1493,7 +1654,7 @@ export class CardinalWardenSimulation {
     ctx.textBaseline = 'top';
 
     // Score display (top left)
-    ctx.fillStyle = '#333';
+    ctx.fillStyle = this.uiTextColor;
     ctx.fillText(`Score: ${this.score}`, padding, padding);
     ctx.fillText(`High Score: ${this.highScore}`, padding, padding + 18);
 
@@ -1510,7 +1671,7 @@ export class CardinalWardenSimulation {
       const healthPercent = this.warden.health / this.warden.maxHealth;
 
       // Background
-      ctx.fillStyle = '#eee';
+      ctx.fillStyle = this.nightMode ? 'rgba(255, 255, 255, 0.2)' : '#eee';
       ctx.fillRect(barX, barY, barWidth, barHeight);
 
       // Health
@@ -1518,7 +1679,7 @@ export class CardinalWardenSimulation {
       ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
 
       // Border
-      ctx.strokeStyle = '#999';
+      ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.6)' : '#999';
       ctx.lineWidth = 1;
       ctx.strokeRect(barX, barY, barWidth, barHeight);
     }
@@ -1526,7 +1687,7 @@ export class CardinalWardenSimulation {
     // Enemies passed through indicator (bottom left)
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
-    ctx.fillStyle = '#666';
+    ctx.fillStyle = this.uiTextColor;
     ctx.fillText(
       `Ships Passed: ${this.enemiesPassedThrough}/${this.maxEnemiesPassedThrough}`,
       padding,
