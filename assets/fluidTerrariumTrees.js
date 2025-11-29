@@ -910,7 +910,7 @@ export class FluidTerrariumTrees {
     const isValid = Boolean(point && this.isPlacementLocationValid(point, storeItem));
     if (point) {
       this.pendingPlacementPoint = point;
-      this.updatePlacementPreview(point, isValid);
+      this.updatePlacementPreview(point, isValid, storeItem);
     } else {
       this.hidePlacementPreview();
     }
@@ -1086,16 +1086,19 @@ export class FluidTerrariumTrees {
       this.placementPreview.hidden = true;
       this.placementPreview.removeAttribute('data-visible');
       this.placementPreview.removeAttribute('data-valid');
+      this.placementPreview.textContent = '';
     }
     this.pendingPlacementPoint = null;
   }
 
   /**
    * Update the placement preview marker so the player knows where a store object will land.
+   * Shows the item's icon instead of a simple circle.
    * @param {{xRatio:number,yRatio:number,isInside:boolean}} point
    * @param {boolean} isValid
+   * @param {object|null} [storeItem] - The store item being placed, used to display its icon
    */
-  updatePlacementPreview(point, isValid) {
+  updatePlacementPreview(point, isValid, storeItem = null) {
     if (!this.placementPreview || !point?.isInside) {
       this.hidePlacementPreview();
       return;
@@ -1107,6 +1110,8 @@ export class FluidTerrariumTrees {
     this.placementPreview.hidden = false;
     this.placementPreview.dataset.visible = 'true';
     this.placementPreview.dataset.valid = isValid ? 'true' : 'false';
+    // Display the item's icon if available; otherwise show a fallback emoji
+    this.placementPreview.textContent = storeItem?.icon || '🌿';
   }
 
   /**
@@ -1154,7 +1159,7 @@ export class FluidTerrariumTrees {
       return;
     }
     const isValid = this.isPlacementLocationValid(point, storeItem);
-    this.updatePlacementPreview(point, isValid);
+    this.updatePlacementPreview(point, isValid, storeItem);
     if (!isValid) {
       this.pendingPlacement = null;
       this.setStoreStatus('Pick an open patch of terrain. Placements are not saved to your profile.');
@@ -1244,7 +1249,7 @@ export class FluidTerrariumTrees {
     }
     this.pendingPlacementPoint = point;
     const isValid = this.isPlacementLocationValid(point, storeItem);
-    this.updatePlacementPreview(point, isValid);
+    this.updatePlacementPreview(point, isValid, storeItem);
   }
 
   handleContainerPointerLeave() {
@@ -1424,7 +1429,7 @@ export class FluidTerrariumTrees {
       });
       if (shroomPlaced) {
         this.setStoreStatus(`${storeItem.label} planted. Generates happiness in the cave.`);
-        this.updatePlacementPreview(point, true);
+        this.updatePlacementPreview(point, true, storeItem);
         this.consumeStoreItem(storeItem.id);
         this.clearStoreSelection();
         return true;
@@ -1441,7 +1446,7 @@ export class FluidTerrariumTrees {
       });
       if (slimePlaced) {
         this.setStoreStatus(`${storeItem.label} released into the basin. Generates 0.5 hp/hr.`);
-        this.updatePlacementPreview(point, true);
+        this.updatePlacementPreview(point, true, storeItem);
         this.consumeStoreItem(storeItem.id);
         this.clearStoreSelection();
         return true;
@@ -1470,7 +1475,7 @@ export class FluidTerrariumTrees {
     this.playerPlacements.push(anchor);
     this.refreshLayout();
     this.setStoreStatus(`${storeItem.label} planted. Placements reset when you leave this session.`);
-    this.updatePlacementPreview(point, true);
+    this.updatePlacementPreview(point, true, storeItem);
     this.consumeStoreItem(storeItem.id);
     this.clearStoreSelection();
     return true;

@@ -5446,17 +5446,25 @@ body.graphics-mode-low .control-button {
 
   .fluid-tree-placement-preview {
     position: absolute;
-    width: 34px;
-    height: 34px;
-    margin-left: -17px;
-    margin-top: -17px;
-    border-radius: 50%;
-    border: 1px dashed rgba(255, 255, 255, 0.75);
-    box-shadow: 0 0 12px rgba(126, 203, 255, 0.4);
+    width: 42px;
+    height: 42px;
+    margin-left: -21px;
+    margin-top: -21px;
+    border-radius: 12px;
+    border: 2px dashed rgba(126, 203, 255, 0.85);
+    background: rgba(8, 18, 30, 0.65);
+    box-shadow: 0 0 16px rgba(126, 203, 255, 0.5);
     pointer-events: none;
     z-index: 16;
     opacity: 0;
-    transition: opacity 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    transition: opacity 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 0 6px rgba(126, 203, 255, 0.6);
   }
 
   .fluid-tree-placement-confirm {
@@ -5529,7 +5537,9 @@ body.graphics-mode-low .control-button {
 
 .fluid-tree-placement-preview[data-valid='false'] {
   border-color: rgba(255, 110, 110, 0.9);
-  box-shadow: 0 0 12px rgba(255, 110, 110, 0.4);
+  box-shadow: 0 0 16px rgba(255, 110, 110, 0.5);
+  background: rgba(40, 12, 12, 0.65);
+  text-shadow: 0 0 6px rgba(255, 110, 110, 0.6);
 }
 
   .fluid-tree-level {
