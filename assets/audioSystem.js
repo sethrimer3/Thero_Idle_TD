@@ -8,8 +8,8 @@
  * Individual tracks map to files stored under the audio asset folders.
  */
 export const DEFAULT_AUDIO_MANIFEST = {
-  musicVolume: 0.5,
-  sfxVolume: 0.5,
+  musicVolume: 1,
+  sfxVolume: 1,
   musicCrossfadeSeconds: 3,
   music: {
     levelSelect: { file: 'level_selection_music.mp3', loop: true, volume: 0.65 },
@@ -63,8 +63,8 @@ export class AudioManager {
     this.sfxFolder = 'assets/audio/sfx';
     this.musicDefinitions = manifest.music || {};
     this.sfxDefinitions = manifest.sfx || {};
-    this.musicVolume = this._clampVolume(manifest.musicVolume, 0.5);
-    this.sfxVolume = this._clampVolume(manifest.sfxVolume, 0.5);
+    this.musicVolume = this._clampVolume(manifest.musicVolume, 1);
+    this.sfxVolume = this._clampVolume(manifest.sfxVolume, 1);
     this.musicElements = new Map();
     this.sfxPools = new Map();
     // Track looping sound effects so they can be stopped or adjusted later.
