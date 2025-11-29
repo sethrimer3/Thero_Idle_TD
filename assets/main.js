@@ -212,6 +212,7 @@ import {
   resizeCardinalCanvas,
   stopCardinalSimulation,
   isCardinalSimulationRunning,
+  getCardinalSimulation,
 } from './cardinalWardenUI.js';
 import {
   initializeKufState,
@@ -360,6 +361,7 @@ import {
 } from './tsadiSpirePreferences.js';
 import { bindSpireOptionsDropdown, closeAllSpireDropdowns } from './spireOptionsDropdowns.js';
 import { bindKufSpireOptions, initializeKufSpirePreferences } from './kufSpirePreferences.js';
+import { bindShinSpireOptions, initializeShinSpirePreferences, setShinSimulationGetter } from './shinSpirePreferences.js';
 import { createDeveloperModeManager } from './developerModeManager.js';
 import {
   moteGemState,
@@ -5643,6 +5645,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           if (!cardinalWardenInitialized) {
             try {
               initializeCardinalWardenUI();
+              // Connect shin visual preferences to the Cardinal simulation instance.
+              setShinSimulationGetter(getCardinalSimulation);
+              initializeShinSpirePreferences();
+              bindShinSpireOptions();
               cardinalWardenInitialized = true;
             } catch (error) {
               console.error('Failed to initialize Cardinal Warden UI:', error);

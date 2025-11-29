@@ -475,6 +475,14 @@ export function isCardinalSimulationRunning() {
 }
 
 /**
+ * Get the Cardinal Warden simulation instance.
+ * Used for connecting visual preferences to the simulation.
+ */
+export function getCardinalSimulation() {
+  return cardinalSimulation;
+}
+
+/**
  * Clean up resources.
  */
 export function cleanupCardinalWarden() {
