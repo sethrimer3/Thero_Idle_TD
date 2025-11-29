@@ -229,15 +229,15 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
   {
     id: 'bet-store-fractal-fern',
     label: 'Natural Fern',
-    description: 'An elegant L-system fern drawing each frond as luminous ink. Shin lattice geometry.',
+    description: 'A small, detailed fern with dark green fronds that grows with each level. Shin lattice geometry.',
     icon: '🌿',
     itemType: 'fractal',
     fractalType: 'fern',
     cost: 75,
-    size: 'large',
-    minY: 0.32,
-    maxY: 0.94,
-    minSpacing: 0.09,
+    size: 'small',
+    minY: 0.28,
+    maxY: 0.9,
+    minSpacing: 0.07,
     initialAllocation: 5,
   },
   {
@@ -2120,6 +2120,7 @@ export class FluidTerrariumTrees {
       return new FernLSystemSimulation({
         canvas,
         bgColor: 'rgba(0, 0, 0, 0)',
+        palette: 'dark-fern',
         turnAngle: 25,
         segmentLength: Math.max(3, Math.min(10, height * 0.02)),
         segmentGrowthSpeed: 0.09,
