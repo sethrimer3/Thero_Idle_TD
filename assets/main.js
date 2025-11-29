@@ -212,6 +212,7 @@ import {
   resizeCardinalCanvas,
   stopCardinalSimulation,
   isCardinalSimulationRunning,
+  getCardinalSimulation,
 } from './cardinalWardenUI.js';
 import {
   initializeKufState,
@@ -5644,6 +5645,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           if (!cardinalWardenInitialized) {
             try {
               initializeCardinalWardenUI();
+              // Connect shin visual preferences to the Cardinal simulation instance.
+              setShinSimulationGetter(getCardinalSimulation);
               initializeShinSpirePreferences();
               bindShinSpireOptions();
               cardinalWardenInitialized = true;
