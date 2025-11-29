@@ -31,6 +31,16 @@ const GAME_CONFIG = {
   BASE_BULLET_INTERVAL_MS: 500,
   // Maximum delta time cap to prevent physics issues (ms)
   MAX_DELTA_TIME_MS: 33,
+  // Minimum difficulty level required for boss spawning
+  BOSS_MIN_DIFFICULTY: 3,
+  // Difficulty scaling factor for boss stats
+  BOSS_DIFFICULTY_SCALE: 0.2,
+  // Maximum reduction in boss spawn interval (ms)
+  BOSS_SPAWN_INTERVAL_MAX_REDUCTION: 20000,
+  // Reduction per difficulty level for boss spawn interval (ms)
+  BOSS_SPAWN_INTERVAL_REDUCTION_PER_LEVEL: 2000,
+  // Minimum boss spawn interval (ms)
+  BOSS_SPAWN_INTERVAL_MIN: 10000,
 };
 
 /**
@@ -1503,8 +1513,8 @@ export class CardinalWardenSimulation {
       this.spawnEnemy();
     }
 
-    // Spawn bosses (start spawning at difficulty level 3+)
-    if (this.difficultyLevel >= 3) {
+    // Spawn bosses (start spawning at minimum boss difficulty)
+    if (this.difficultyLevel >= GAME_CONFIG.BOSS_MIN_DIFFICULTY) {
       this.bossSpawnTimer += deltaTime;
       const bossSpawnInterval = this.getBossSpawnInterval();
       if (this.bossSpawnTimer >= bossSpawnInterval) {
@@ -1810,8 +1820,11 @@ export class CardinalWardenSimulation {
    * Higher difficulty = more frequent boss spawns.
    */
   getBossSpawnInterval() {
-    const reduction = Math.min(this.difficultyLevel * 2000, 20000);
-    return Math.max(10000, this.baseBossSpawnInterval - reduction);
+    const reduction = Math.min(
+      this.difficultyLevel * GAME_CONFIG.BOSS_SPAWN_INTERVAL_REDUCTION_PER_LEVEL,
+      GAME_CONFIG.BOSS_SPAWN_INTERVAL_MAX_REDUCTION
+    );
+    return Math.max(GAME_CONFIG.BOSS_SPAWN_INTERVAL_MIN, this.baseBossSpawnInterval - reduction);
   }
 
   /**
@@ -1819,12 +1832,12 @@ export class CardinalWardenSimulation {
    */
   getBossTypePool() {
     const pool = [];
-    // Circle Carrier available at difficulty 3+
-    if (this.difficultyLevel >= 3) pool.push('circleCarrier');
+    // Circle Carrier available at minimum boss difficulty
+    if (this.difficultyLevel >= GAME_CONFIG.BOSS_MIN_DIFFICULTY) pool.push('circleCarrier');
     // Pyramid Boss available at difficulty 5+
-    if (this.difficultyLevel >= 5) pool.push('pyramidBoss');
+    if (this.difficultyLevel >= GAME_CONFIG.BOSS_MIN_DIFFICULTY + 2) pool.push('pyramidBoss');
     // Hexagon Fortress available at difficulty 7+
-    if (this.difficultyLevel >= 7) pool.push('hexagonFortress');
+    if (this.difficultyLevel >= GAME_CONFIG.BOSS_MIN_DIFFICULTY + 4) pool.push('hexagonFortress');
     return pool.length > 0 ? pool : ['circleCarrier'];
   }
 
@@ -1839,11 +1852,11 @@ export class CardinalWardenSimulation {
     const baseConfig = BOSS_TYPES[typeKey];
 
     // Scale boss stats by difficulty
-    const difficultyMultiplier = 1 + (this.difficultyLevel - 3) * 0.2;
+    const difficultyMultiplier = 1 + (this.difficultyLevel - GAME_CONFIG.BOSS_MIN_DIFFICULTY) * GAME_CONFIG.BOSS_DIFFICULTY_SCALE;
 
     const config = {
       ...baseConfig,
-      speed: baseConfig.speed * (1 + (this.difficultyLevel - 3) * 0.05),
+      speed: baseConfig.speed * (1 + (this.difficultyLevel - GAME_CONFIG.BOSS_MIN_DIFFICULTY) * 0.05),
       health: Math.ceil(baseConfig.health * difficultyMultiplier),
       damage: Math.ceil(baseConfig.damage * difficultyMultiplier),
       scoreValue: Math.ceil(baseConfig.scoreValue * difficultyMultiplier),
@@ -2052,18 +2065,13 @@ export class CardinalWardenSimulation {
       }
     }
 
-    // Remove destroyed entities
-    const bulletIndices = Array.from(bulletsToRemove).sort((a, b) => b - a);
-    for (const i of bulletIndices) {
-      this.bullets.splice(i, 1);
-    }
-
+    // Remove destroyed enemies first (before boss collision check)
     const enemyIndices = Array.from(enemiesToRemove).sort((a, b) => b - a);
     for (const i of enemyIndices) {
       this.enemies.splice(i, 1);
     }
 
-    // Check collisions with bosses
+    // Check collisions with bosses (using remaining bullets)
     const bossesToRemove = new Set();
     for (let bi = 0; bi < this.bullets.length; bi++) {
       const bullet = this.bullets[bi];
@@ -2105,12 +2113,10 @@ export class CardinalWardenSimulation {
       this.bosses.splice(i, 1);
     }
 
-    // Remove bullets that hit bosses (second pass for any new removals)
-    const allBulletIndices = Array.from(bulletsToRemove).sort((a, b) => b - a);
-    for (const i of allBulletIndices) {
-      if (this.bullets[i]) {
-        this.bullets.splice(i, 1);
-      }
+    // Remove all bullets that hit enemies or bosses (single pass)
+    const bulletIndices = Array.from(bulletsToRemove).sort((a, b) => b - a);
+    for (const i of bulletIndices) {
+      this.bullets.splice(i, 1);
     }
   }
 
