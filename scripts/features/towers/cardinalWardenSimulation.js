@@ -251,6 +251,7 @@ class CardinalWarden {
  * Represents an enemy ship attacking the Cardinal Warden.
  * Ships smoothly accelerate toward random target points, reaching top speed
  * then decelerating as they approach. Some ships weave in sine wave patterns.
+ * Ships occasionally enter a "go straight" mode for more unpredictable movement.
  */
 class EnemyShip {
   constructor(x, y, config = {}) {
@@ -283,12 +284,32 @@ class EnemyShip {
     this.time = 0;
     this.lastWaveOffset = 0; // Track previous wave offset for delta-based application
     this.trail = []; // Recent positions to render an inky trail
+    
+    // "Go straight" behavior for unpredictability
+    this.goingStraight = false;
+    this.straightTimer = 0;
+    this.straightDuration = 0; // How long to go straight (in seconds)
+    this.straightChance = config.straightChance || 0.15; // 15% chance to go straight when picking new target
   }
 
   /**
    * Pick a new random target point that is lower on the screen.
+   * Occasionally decides to go straight instead of to a random target.
    */
   pickNewTarget(canvasWidth, canvasHeight, rng) {
+    // Chance to enter "go straight" mode
+    if (rng.next() < this.straightChance) {
+      this.goingStraight = true;
+      this.straightTimer = 0;
+      this.straightDuration = rng.range(0.8, 2.0); // Go straight for 0.8-2 seconds
+      // Target is directly below current position
+      this.targetX = this.x;
+      this.targetY = canvasHeight + 100;
+      return;
+    }
+    
+    this.goingStraight = false;
+    
     // Pick a random point that is lower than current position
     const minY = this.y + 50;
     const maxY = Math.min(this.y + 200, canvasHeight + 50);
@@ -312,13 +333,23 @@ class EnemyShip {
     const previousX = this.x;
     const previousY = this.y;
     
+    // Update "go straight" timer if in that mode
+    if (this.goingStraight) {
+      this.straightTimer += dt;
+      if (this.straightTimer >= this.straightDuration) {
+        // Exit straight mode and pick a new target
+        this.goingStraight = false;
+        this.pickNewTarget(canvasWidth, canvasHeight, rng);
+      }
+    }
+    
     // Calculate direction and distance to target
     const dx = this.targetX - this.x;
     const dy = this.targetY - this.y;
     const distToTarget = Math.sqrt(dx * dx + dy * dy);
     
-    // Check if we need a new target
-    if (distToTarget < this.arrivalThreshold) {
+    // Check if we need a new target (not when going straight)
+    if (!this.goingStraight && distToTarget < this.arrivalThreshold) {
       this.pickNewTarget(canvasWidth, canvasHeight, rng);
     }
     
@@ -332,7 +363,10 @@ class EnemyShip {
     
     // Determine if we should accelerate or decelerate
     let desiredSpeed;
-    if (distToTarget > brakingDistance * 1.5) {
+    if (this.goingStraight) {
+      // When going straight, maintain max speed
+      desiredSpeed = this.maxSpeed;
+    } else if (distToTarget > brakingDistance * 1.5) {
       // Far from target - accelerate to max speed
       desiredSpeed = this.maxSpeed;
     } else {
@@ -359,8 +393,8 @@ class EnemyShip {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     
-    // Apply sine wave weaving as an additive offset if enabled
-    if (this.weaving) {
+    // Apply sine wave weaving as an additive offset if enabled (disabled when going straight)
+    if (this.weaving && !this.goingStraight) {
       const waveOffset = Math.sin(this.time * this.waveFrequency * Math.PI * 2 + this.wavePhase) * this.waveAmplitude;
       this.x += waveOffset - this.lastWaveOffset;
       this.lastWaveOffset = waveOffset;
@@ -1243,7 +1277,11 @@ export class CardinalWardenSimulation {
       purchased: { sine: true }, // Sine wave is the starter weapon
       levels: { sine: 1 }, // Upgrade level (1-6)
       activeWeaponId: 'sine', // Currently firing weapon
+      equipped: ['sine'], // Up to 3 weapons can be equipped at a time
     };
+    
+    // Maximum number of weapons that can be equipped simultaneously
+    this.maxEquippedWeapons = 3;
     
     // Weapon-specific timers (each weapon has its own fire rate)
     this.weaponTimers = {
@@ -1544,11 +1582,15 @@ export class CardinalWardenSimulation {
   
   /**
    * Update weapon timers and fire bullets when ready.
+   * Only fires equipped weapons (limited to maxEquippedWeapons).
    */
   updateWeaponTimers(deltaTime) {
     if (!this.warden || !this.canvas) return;
     
-    for (const weaponId of Object.keys(this.weapons.purchased)) {
+    // Only fire weapons that are both purchased AND equipped
+    const equippedWeapons = this.weapons.equipped || [];
+    
+    for (const weaponId of equippedWeapons) {
       if (!this.weapons.purchased[weaponId]) continue;
       
       const weaponDef = WEAPON_DEFINITIONS[weaponId];
@@ -2325,7 +2367,8 @@ export class CardinalWardenSimulation {
         const alpha = (i + 1) / enemy.trail.length;
         ctx.globalAlpha = alpha * 0.8;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, Math.max(1, enemy.size * 0.2 * alpha), 0, Math.PI * 2);
+        // Larger trail circles that scale with enemy size for better visibility
+        ctx.arc(point.x, point.y, Math.max(2, enemy.size * 0.35 * alpha), 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
@@ -2780,6 +2823,9 @@ export class CardinalWardenSimulation {
       const upgradeCost = canUpgrade && def.upgradeCosts[level - 1] !== undefined 
         ? def.upgradeCosts[level - 1] 
         : null;
+      const isEquipped = this.weapons.equipped?.includes(weaponId) || false;
+      const canEquip = isPurchased && !isEquipped && (this.weapons.equipped?.length || 0) < this.maxEquippedWeapons;
+      const canUnequip = isEquipped && (this.weapons.equipped?.length || 0) > 1;
       
       weapons.push({
         id: weaponId,
@@ -2793,6 +2839,9 @@ export class CardinalWardenSimulation {
         maxLevel,
         canUpgrade,
         upgradeCost,
+        isEquipped,
+        canEquip,
+        canUnequip,
       });
     }
     return weapons;
@@ -2833,6 +2882,7 @@ export class CardinalWardenSimulation {
 
   /**
    * Purchase a weapon without deducting score (currency handled externally).
+   * Automatically equips the weapon if fewer than 3 are equipped.
    * @param {string} weaponId - The ID of the weapon to purchase
    * @returns {boolean} True if purchase successful
    */
@@ -2847,6 +2897,14 @@ export class CardinalWardenSimulation {
     this.weapons.purchased[weaponId] = true;
     this.weapons.levels[weaponId] = 1;
     this.weaponTimers[weaponId] = 0;
+    
+    // Auto-equip if there's room (less than maxEquippedWeapons equipped)
+    if (!this.weapons.equipped) {
+      this.weapons.equipped = [];
+    }
+    if (this.weapons.equipped.length < this.maxEquippedWeapons) {
+      this.weapons.equipped.push(weaponId);
+    }
     
     // Notify callbacks
     if (this.onWeaponChange) {
@@ -2927,6 +2985,84 @@ export class CardinalWardenSimulation {
   }
 
   /**
+   * Equip a purchased weapon. Only up to maxEquippedWeapons can be equipped.
+   * @param {string} weaponId - The ID of the weapon to equip
+   * @returns {boolean} True if equip successful
+   */
+  equipWeapon(weaponId) {
+    // Must be purchased first
+    if (!this.weapons.purchased[weaponId]) return false;
+    
+    // Initialize equipped array if needed
+    if (!this.weapons.equipped) {
+      this.weapons.equipped = [];
+    }
+    
+    // Already equipped
+    if (this.weapons.equipped.includes(weaponId)) return false;
+    
+    // Check if at max capacity
+    if (this.weapons.equipped.length >= this.maxEquippedWeapons) return false;
+    
+    // Equip the weapon
+    this.weapons.equipped.push(weaponId);
+    
+    // Notify callbacks
+    if (this.onWeaponChange) {
+      this.onWeaponChange(this.weapons);
+    }
+    
+    return true;
+  }
+
+  /**
+   * Unequip a weapon. At least one weapon must remain equipped.
+   * @param {string} weaponId - The ID of the weapon to unequip
+   * @returns {boolean} True if unequip successful
+   */
+  unequipWeapon(weaponId) {
+    // Initialize equipped array if needed
+    if (!this.weapons.equipped) {
+      this.weapons.equipped = [];
+      return false;
+    }
+    
+    // Check if weapon is equipped
+    const index = this.weapons.equipped.indexOf(weaponId);
+    if (index === -1) return false;
+    
+    // Must keep at least one weapon equipped
+    if (this.weapons.equipped.length <= 1) return false;
+    
+    // Unequip the weapon
+    this.weapons.equipped.splice(index, 1);
+    
+    // Notify callbacks
+    if (this.onWeaponChange) {
+      this.onWeaponChange(this.weapons);
+    }
+    
+    return true;
+  }
+
+  /**
+   * Check if a weapon is currently equipped.
+   * @param {string} weaponId - The ID of the weapon to check
+   * @returns {boolean} True if equipped
+   */
+  isWeaponEquipped(weaponId) {
+    return this.weapons.equipped?.includes(weaponId) || false;
+  }
+
+  /**
+   * Get the list of currently equipped weapon IDs.
+   * @returns {string[]} Array of equipped weapon IDs
+   */
+  getEquippedWeapons() {
+    return [...(this.weapons.equipped || [])];
+  }
+
+  /**
    * Get current weapon state for UI.
    */
   getWeaponState() {
@@ -2934,6 +3070,7 @@ export class CardinalWardenSimulation {
       purchased: { ...this.weapons.purchased },
       levels: { ...this.weapons.levels },
       activeWeaponId: this.weapons.activeWeaponId,
+      equipped: [...(this.weapons.equipped || [])],
     };
   }
 
@@ -2949,6 +3086,20 @@ export class CardinalWardenSimulation {
     }
     if (state?.activeWeaponId) {
       this.weapons.activeWeaponId = state.activeWeaponId;
+    }
+    if (state?.equipped) {
+      // Filter to only include purchased weapons and limit to maxEquippedWeapons
+      this.weapons.equipped = state.equipped
+        .filter(id => this.weapons.purchased[id])
+        .slice(0, this.maxEquippedWeapons);
+    }
+    
+    // Ensure at least one weapon is equipped if any are purchased
+    if (!this.weapons.equipped || this.weapons.equipped.length === 0) {
+      const purchasedIds = Object.keys(this.weapons.purchased).filter(id => this.weapons.purchased[id]);
+      if (purchasedIds.length > 0) {
+        this.weapons.equipped = [purchasedIds[0]];
+      }
     }
     
     // Initialize timers for all purchased weapons
