@@ -403,7 +403,7 @@ function initializeWeaponsMenu() {
     const weaponId = button.dataset.weaponId;
     const action = button.dataset.action;
     
-    // Get weapons list once for both purchase and upgrade actions
+    // Get weapons list once for all actions
     const weapons = cardinalSimulation.getAvailableWeapons();
     const weapon = weapons.find(w => w.id === weaponId);
     if (!weapon) return;
@@ -423,6 +423,18 @@ function initializeWeaponsMenu() {
         cardinalSimulation.upgradeWeaponWithoutCost(weaponId);
         updateWeaponsDisplay();
         updateTotalIteronsDisplay();
+      }
+    } else if (action === 'equip') {
+      // Equip the weapon if not already equipped and space available
+      if (weapon.canEquip) {
+        cardinalSimulation.equipWeapon(weaponId);
+        updateWeaponsDisplay();
+      }
+    } else if (action === 'unequip') {
+      // Unequip the weapon (must keep at least 1 equipped)
+      if (weapon.canUnequip) {
+        cardinalSimulation.unequipWeapon(weaponId);
+        updateWeaponsDisplay();
       }
     }
   });
@@ -444,6 +456,8 @@ function updateWeaponsDisplay() {
     const canAffordUpgrade = weapon.upgradeCost !== null && currentIterons >= weapon.upgradeCost;
     
     let actionButton = '';
+    let equipButton = '';
+    
     if (isLocked) {
       actionButton = `
         <button 
@@ -455,37 +469,69 @@ function updateWeaponsDisplay() {
           Buy: ${formatGameNumber(weapon.cost)} ℸ
         </button>
       `;
-    } else if (isMaxed) {
-      actionButton = `
-        <button 
-          class="shin-weapon-action shin-weapon-action--maxed"
-          disabled
-        >
-          MAX
-        </button>
-      `;
     } else {
-      actionButton = `
-        <button 
-          class="shin-weapon-action shin-weapon-action--owned"
-          data-weapon-id="${weapon.id}"
-          data-action="upgrade"
-          ${!canAffordUpgrade ? 'disabled' : ''}
-        >
-          Upgrade: ${formatGameNumber(weapon.upgradeCost)} ℸ
-        </button>
-      `;
+      // Show equip/unequip toggle for purchased weapons
+      if (weapon.isEquipped) {
+        equipButton = `
+          <button 
+            class="shin-weapon-action shin-weapon-action--equipped"
+            data-weapon-id="${weapon.id}"
+            data-action="unequip"
+            ${!weapon.canUnequip ? 'disabled' : ''}
+            title="${!weapon.canUnequip ? 'Must keep at least 1 weapon equipped' : 'Click to unequip'}"
+          >
+            ✓ Equipped
+          </button>
+        `;
+      } else {
+        equipButton = `
+          <button 
+            class="shin-weapon-action shin-weapon-action--unequipped"
+            data-weapon-id="${weapon.id}"
+            data-action="equip"
+            ${!weapon.canEquip ? 'disabled' : ''}
+            title="${!weapon.canEquip ? 'Max 3 weapons can be equipped' : 'Click to equip'}"
+          >
+            Equip
+          </button>
+        `;
+      }
+      
+      if (isMaxed) {
+        actionButton = `
+          <button 
+            class="shin-weapon-action shin-weapon-action--maxed"
+            disabled
+          >
+            MAX
+          </button>
+        `;
+      } else {
+        actionButton = `
+          <button 
+            class="shin-weapon-action shin-weapon-action--owned"
+            data-weapon-id="${weapon.id}"
+            data-action="upgrade"
+            ${!canAffordUpgrade ? 'disabled' : ''}
+          >
+            Upgrade: ${formatGameNumber(weapon.upgradeCost)} ℸ
+          </button>
+        `;
+      }
     }
     
     return `
-      <div class="shin-weapon-item ${isLocked ? 'shin-weapon-item--locked' : ''}" role="listitem">
+      <div class="shin-weapon-item ${isLocked ? 'shin-weapon-item--locked' : ''} ${weapon.isEquipped ? 'shin-weapon-item--equipped' : ''}" role="listitem">
         <div class="shin-weapon-header">
           <span class="shin-weapon-symbol" style="color: ${weapon.color}">${weapon.symbol}</span>
           <span class="shin-weapon-name">${weapon.name}</span>
           ${weapon.isPurchased ? `<span class="shin-weapon-level">Lv.${weapon.level}</span>` : ''}
         </div>
         <p class="shin-weapon-description">${weapon.description}</p>
-        ${actionButton}
+        <div class="shin-weapon-buttons">
+          ${equipButton}
+          ${actionButton}
+        </div>
       </div>
     `;
   }).join('');
