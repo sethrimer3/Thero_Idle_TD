@@ -1161,7 +1161,7 @@ export function getWeaponDefinition(weaponId) {
  */
 const ENEMY_TYPES = {
   basic: {
-    speed: 40,
+    speed: 80,
     health: 1,
     damage: 5,
     size: 8,
@@ -2369,6 +2369,29 @@ export class CardinalWardenSimulation {
         ctx.beginPath();
         // Larger trail circles that scale with enemy size for better visibility
         ctx.arc(point.x, point.y, Math.max(2, enemy.size * 0.35 * alpha), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // Paint shrinking exhaust puffs that emit from the back of each ship for motion clarity.
+      const tailDirectionX = Math.cos(enemy.headingAngle);
+      const tailDirectionY = Math.sin(enemy.headingAngle);
+      const tailOriginX = enemy.x - tailDirectionX * (enemy.size * 0.6);
+      const tailOriginY = enemy.y - tailDirectionY * (enemy.size * 0.6);
+      const baseSmokeRadius = Math.max(2, enemy.size * 0.3);
+
+      ctx.save();
+      ctx.fillStyle = this.nightMode ? 'rgba(255, 255, 255, 0.28)' : 'rgba(22, 22, 22, 0.35)';
+      for (let puffIndex = 0; puffIndex < 3; puffIndex += 1) {
+        const falloff = puffIndex / 3;
+        const radius = baseSmokeRadius * (1 - falloff * 0.5);
+        const distanceBehind = enemy.size * (1 + puffIndex * 0.7);
+        const x = tailOriginX - tailDirectionX * distanceBehind;
+        const y = tailOriginY - tailDirectionY * distanceBehind;
+
+        ctx.globalAlpha = (0.42 - falloff * 0.12) * (this.nightMode ? 1.15 : 1);
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
