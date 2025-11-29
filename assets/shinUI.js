@@ -166,7 +166,8 @@ export function initializeShinUI() {
     fractalDetails: document.getElementById('shin-fractal-details'),
     layerProgress: document.getElementById('shin-layer-progress'),
     layerProgressBar: document.getElementById('shin-layer-progress-bar'),
-    layerProgressText: document.getElementById('shin-layer-progress-text')
+    layerProgressText: document.getElementById('shin-layer-progress-text'),
+    totalIterons: document.getElementById('shin-total-iterons')
   };
 
   // Observe layout changes so fractal canvases can follow the responsive container size.
@@ -512,6 +513,11 @@ export function updateShinDisplay() {
   // Update resource displays
   if (shinElements.iteronBank) {
     shinElements.iteronBank.textContent = formatGameNumber(getIteronBank());
+  }
+  
+  // Update the visible total iterons display in the stats panel
+  if (shinElements.totalIterons) {
+    shinElements.totalIterons.textContent = `${formatGameNumber(getIteronBank())} ℸ`;
   }
   
   if (shinElements.iterationRate) {

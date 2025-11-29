@@ -8,7 +8,7 @@
 
 import { CardinalWardenSimulation, getWeaponIds, getWeaponDefinition } from '../scripts/features/towers/cardinalWardenSimulation.js';
 import { formatGameNumber } from '../scripts/core/formatting.js';
-import { getShinGlyphs, addShinGlyphs } from './shinState.js';
+import { getShinGlyphs, addShinGlyphs, getIteronBank } from './shinState.js';
 
 // Cardinal Warden simulation instance
 let cardinalSimulation = null;
@@ -28,6 +28,7 @@ const cardinalElements = {
   waveDisplay: null,
   highestWaveDisplay: null,
   weaponsGrid: null,
+  totalIterons: null,
 };
 
 // State persistence key
@@ -58,6 +59,7 @@ export function initializeCardinalWardenUI() {
   cardinalElements.waveDisplay = document.getElementById('shin-wave-display');
   cardinalElements.highestWaveDisplay = document.getElementById('shin-highest-wave');
   cardinalElements.weaponsGrid = document.getElementById('shin-weapons-grid');
+  cardinalElements.totalIterons = document.getElementById('shin-total-iterons');
 
   if (!cardinalElements.canvas) {
     console.warn('Cardinal Warden canvas not found');
@@ -91,6 +93,7 @@ export function initializeCardinalWardenUI() {
   updateWaveDisplay(0);
   updateHighestWaveDisplay();
   updateGlyphDisplay();
+  updateTotalIteronsDisplay();
   updateWeaponsDisplay();
 }
 
@@ -324,6 +327,16 @@ function updateGlyphDisplay() {
   if (cardinalElements.glyphCount) {
     const glyphs = getShinGlyphs();
     cardinalElements.glyphCount.textContent = `${formatGameNumber(glyphs)} ש`;
+  }
+}
+
+/**
+ * Update the total iterons display.
+ */
+function updateTotalIteronsDisplay() {
+  if (cardinalElements.totalIterons) {
+    const iterons = getIteronBank();
+    cardinalElements.totalIterons.textContent = `${formatGameNumber(iterons)} ℸ`;
   }
 }
 
