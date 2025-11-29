@@ -3753,6 +3753,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
 
+    // Track which campaigns should remain locked so their buttons can be dimmed and disabled.
+    const campaignLocks = new Map();
+
     levelSetEntries.forEach((entry, index) => {
       if (!entry || !entry.element || !entry.trigger) {
         return;
@@ -3766,6 +3769,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
       if (!unlocked && entry.element.classList.contains('expanded')) {
         collapseLevelSet(entry.element);
+      }
+
+      if (entry.campaign) {
+        const status = campaignLocks.get(entry.campaign) || { anyUnlocked: false };
+        campaignLocks.set(entry.campaign, { anyUnlocked: status.anyUnlocked || unlocked });
       }
 
       entry.element.hidden = false;
@@ -3794,6 +3802,39 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           entry.countEl.textContent = `${entry.levels.length} ${countLabel}`;
         } else {
           entry.countEl.textContent = 'LOCKED';
+        }
+      }
+    });
+
+    // Dim locked campaign diamonds, swap in a padlock glyph, and block interaction until their first set opens.
+    campaignButtons.forEach((campaignButton) => {
+      if (!campaignButton || !campaignButton.element || !campaignButton.trigger) {
+        return;
+      }
+      const status = campaignLocks.get(campaignButton.name);
+      const glyphEl = campaignButton.glyphEl;
+      const isLocked = !status || !status.anyUnlocked;
+
+      if (isLocked) {
+        collapseCampaign(campaignButton.element);
+        campaignButton.element.classList.add('campaign-button--locked');
+        campaignButton.trigger.disabled = true;
+        campaignButton.trigger.setAttribute('aria-disabled', 'true');
+        campaignButton.trigger.setAttribute('tabindex', '-1');
+        campaignButton.trigger.title = `${campaignButton.name} campaign locked`;
+        campaignButton.trigger.setAttribute('aria-label', `${campaignButton.name} campaign locked`);
+        if (glyphEl) {
+          glyphEl.textContent = '🔒';
+        }
+      } else {
+        campaignButton.element.classList.remove('campaign-button--locked');
+        campaignButton.trigger.disabled = false;
+        campaignButton.trigger.setAttribute('aria-disabled', 'false');
+        campaignButton.trigger.removeAttribute('tabindex');
+        campaignButton.trigger.title = `${campaignButton.name} campaign`;
+        campaignButton.trigger.setAttribute('aria-label', `${campaignButton.name} campaign`);
+        if (glyphEl) {
+          glyphEl.textContent = campaignButton.defaultGlyph;
         }
       }
     });
@@ -4011,6 +4052,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         titleEl: title,
         countEl: count,
         levels: levels.slice(),
+        campaign: groupData.campaign || null,
       });
 
       setElement.append(trigger, levelsContainer);
@@ -4018,8 +4060,23 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       groupIndex += 1;
     });
     
+    // Prioritize Story at the front of the rail and defer Challenges to the back for clearer progression.
+    const campaignPriority = ['Story', 'Ladder', 'Challenges'];
+    const orderedCampaigns = Array.from(campaigns.entries()).sort((a, b) => {
+      const [campaignA] = a;
+      const [campaignB] = b;
+      const priorityA = campaignPriority.indexOf(campaignA);
+      const priorityB = campaignPriority.indexOf(campaignB);
+      const normalizedA = priorityA === -1 ? campaignPriority.length : priorityA;
+      const normalizedB = priorityB === -1 ? campaignPriority.length : priorityB;
+      if (normalizedA !== normalizedB) {
+        return normalizedA - normalizedB;
+      }
+      return campaignA.localeCompare(campaignB);
+    });
+
     // Now render campaign buttons with their level sets
-    campaigns.forEach((setKeys, campaignName) => {
+    orderedCampaigns.forEach(([campaignName, setKeys]) => {
       const campaignElement = document.createElement('div');
       campaignElement.className = 'campaign-button';
       campaignElement.dataset.campaign = campaignName;
@@ -4040,7 +4097,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       if (campaignName === 'Story') {
         glyphSymbol = '◈';
       } else if (campaignName === 'Challenges') {
-        glyphSymbol = '⚡';
+        glyphSymbol = 'α²+β²≠γ²';
       }
       campaignGlyph.textContent = glyphSymbol;
       
@@ -4062,6 +4119,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       campaignContainer.hidden = true;
       
       campaignTrigger.addEventListener('click', () => {
+        if (campaignElement.classList.contains('campaign-button--locked')) {
+          return;
+        }
         const isExpanded = campaignElement.classList.contains('expanded');
         if (isExpanded) {
           collapseCampaign(campaignElement);
@@ -4239,6 +4299,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           titleEl: title,
           countEl: count,
           levels: levels.slice(),
+          campaign: campaignName,
         });
         
         setElement.append(trigger, levelsContainer);
@@ -4248,7 +4309,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       
       campaignElement.append(campaignTrigger, campaignContainer);
       campaignRow.append(campaignElement);
-      campaignButtons.push(campaignElement);
+      campaignButtons.push({
+        name: campaignName,
+        element: campaignElement,
+        trigger: campaignTrigger,
+        glyphEl: campaignGlyph,
+        defaultGlyph: glyphSymbol,
+      });
     });
 
     if (campaignButtons.length) {
