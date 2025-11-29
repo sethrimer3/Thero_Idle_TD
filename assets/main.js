@@ -214,6 +214,7 @@ import {
   isCardinalSimulationRunning,
   getCardinalSimulation,
   getCardinalHighestWave,
+  getCardinalHighScore,
 } from './cardinalWardenUI.js';
 import {
   initializeKufState,
@@ -3199,13 +3200,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         resourceState.score += scoreGain;
       }
 
-      // Generate iterons based on highest wave reached in Cardinal Warden
-      // Iterons per hour = highest wave reached
+      // Generate iterons based on highest score reached in Cardinal Warden
+      // Iterons per hour = highest score / 10
       try {
-        const highestWave = getCardinalHighestWave();
-        if (highestWave > 0) {
+        const highScore = getCardinalHighScore();
+        if (highScore > 0) {
           // Convert per-hour rate to per-second, then multiply by elapsed time
-          const iteronsPerSecond = highestWave / 3600;
+          const iteronsPerHour = highScore / 10;
+          const iteronsPerSecond = iteronsPerHour / 3600;
           const iteronGain = iteronsPerSecond * deltaSeconds;
           if (Number.isFinite(iteronGain) && iteronGain > 0) {
             addIterons(iteronGain);

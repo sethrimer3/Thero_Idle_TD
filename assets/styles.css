@@ -11877,6 +11877,16 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: var(--accent);
 }
 
+.shin-health-upgrade {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shin-health-upgrade .shin-weapon-action {
+  width: 100%;
+}
+
 @media (max-width: 600px) {
   .shin-weapons-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

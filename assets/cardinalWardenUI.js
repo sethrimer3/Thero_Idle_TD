@@ -29,6 +29,9 @@ const cardinalElements = {
   highestWaveDisplay: null,
   weaponsGrid: null,
   totalIterons: null,
+  baseHealthDisplay: null,
+  healthUpgradeBtn: null,
+  healthUpgradeCost: null,
 };
 
 // State persistence key
@@ -41,6 +44,8 @@ let cardinalHighestWave = 0;
 let glyphsAwardedFromWaves = 0;
 // Weapon state
 let weaponState = null;
+// Base health upgrade level
+let baseHealthLevel = 0;
 
 /**
  * Initialize the Cardinal Warden UI and simulation.
@@ -60,6 +65,9 @@ export function initializeCardinalWardenUI() {
   cardinalElements.highestWaveDisplay = document.getElementById('shin-highest-wave');
   cardinalElements.weaponsGrid = document.getElementById('shin-weapons-grid');
   cardinalElements.totalIterons = document.getElementById('shin-total-iterons');
+  cardinalElements.baseHealthDisplay = document.getElementById('shin-base-health');
+  cardinalElements.healthUpgradeBtn = document.getElementById('shin-health-upgrade-btn');
+  cardinalElements.healthUpgradeCost = document.getElementById('shin-health-upgrade-cost');
 
   if (!cardinalElements.canvas) {
     console.warn('Cardinal Warden canvas not found');
@@ -89,12 +97,16 @@ export function initializeCardinalWardenUI() {
   // Initialize weapons menu
   initializeWeaponsMenu();
   
+  // Initialize health upgrade button
+  initializeHealthUpgradeButton();
+  
   // Update displays
   updateWaveDisplay(0);
   updateHighestWaveDisplay();
   updateGlyphDisplay();
   updateTotalIteronsDisplay();
   updateWeaponsDisplay();
+  updateBaseHealthDisplay();
 }
 
 /**
@@ -109,6 +121,7 @@ function loadCardinalState() {
       cardinalHighestWave = state.highestWave || 0;
       glyphsAwardedFromWaves = state.glyphsAwardedFromWaves || 0;
       weaponState = state.weapons || null;
+      baseHealthLevel = state.baseHealthLevel || 0;
     }
   } catch (error) {
     console.warn('Failed to load Cardinal Warden state:', error);
@@ -125,6 +138,7 @@ function saveCardinalState() {
       highestWave: cardinalHighestWave,
       glyphsAwardedFromWaves: glyphsAwardedFromWaves,
       weapons: cardinalSimulation ? cardinalSimulation.getWeaponState() : weaponState,
+      baseHealthLevel: cardinalSimulation ? cardinalSimulation.getBaseHealthLevel() : baseHealthLevel,
     };
     localStorage.setItem(CARDINAL_STATE_STORAGE_KEY, JSON.stringify(state));
   } catch (error) {
@@ -191,6 +205,7 @@ function createCardinalSimulation() {
     canvas: cardinalElements.canvas,
     highScore: cardinalHighScore,
     highestWave: cardinalHighestWave,
+    baseHealthLevel: baseHealthLevel,
     autoStart: true,
     onScoreChange: handleScoreChange,
     onHighScoreChange: handleHighScoreChange,
@@ -337,6 +352,43 @@ function updateTotalIteronsDisplay() {
   if (cardinalElements.totalIterons) {
     const iterons = getIteronBank();
     cardinalElements.totalIterons.textContent = `${formatGameNumber(iterons)} ℸ`;
+  }
+  // Also update health upgrade button state
+  updateBaseHealthDisplay();
+}
+
+/**
+ * Initialize the health upgrade button.
+ */
+function initializeHealthUpgradeButton() {
+  if (!cardinalElements.healthUpgradeBtn) return;
+  
+  cardinalElements.healthUpgradeBtn.addEventListener('click', () => {
+    if (upgradeCardinalBaseHealth()) {
+      updateBaseHealthDisplay();
+    }
+  });
+}
+
+/**
+ * Update the base health display and upgrade button.
+ */
+function updateBaseHealthDisplay() {
+  const maxHealth = getCardinalMaxHealth();
+  const upgradeCost = getCardinalBaseHealthUpgradeCost();
+  const currentIterons = getIteronBank();
+  const canAfford = currentIterons >= upgradeCost;
+  
+  if (cardinalElements.baseHealthDisplay) {
+    cardinalElements.baseHealthDisplay.textContent = formatGameNumber(maxHealth);
+  }
+  
+  if (cardinalElements.healthUpgradeCost) {
+    cardinalElements.healthUpgradeCost.textContent = formatGameNumber(upgradeCost);
+  }
+  
+  if (cardinalElements.healthUpgradeBtn) {
+    cardinalElements.healthUpgradeBtn.disabled = !canAfford;
   }
 }
 
@@ -552,6 +604,68 @@ export function isCardinalSimulationRunning() {
  */
 export function getCardinalHighestWave() {
   return cardinalHighestWave;
+}
+
+/**
+ * Get the high score reached in Cardinal Warden.
+ * Used for calculating idle iteron rate (high score / 10 = iterons per hour).
+ * @returns {number} The highest score achieved
+ */
+export function getCardinalHighScore() {
+  return cardinalHighScore;
+}
+
+/**
+ * Get the current base health upgrade level.
+ * @returns {number} The current upgrade level (0 = no upgrades)
+ */
+export function getCardinalBaseHealthLevel() {
+  if (cardinalSimulation) {
+    return cardinalSimulation.getBaseHealthLevel();
+  }
+  return baseHealthLevel;
+}
+
+/**
+ * Get the cost to upgrade base health to the next level (in iterons).
+ * @returns {number} The iteron cost for the next upgrade
+ */
+export function getCardinalBaseHealthUpgradeCost() {
+  if (cardinalSimulation) {
+    return cardinalSimulation.getBaseHealthUpgradeCost();
+  }
+  // Default calculation if simulation not initialized
+  return Math.floor(50 * Math.pow(1.5, baseHealthLevel));
+}
+
+/**
+ * Get the current max health (base + upgrades).
+ * @returns {number} The maximum warden health
+ */
+export function getCardinalMaxHealth() {
+  if (cardinalSimulation) {
+    return cardinalSimulation.getMaxHealth();
+  }
+  // Default calculation if simulation not initialized
+  return 100 + baseHealthLevel * 10;
+}
+
+/**
+ * Upgrade base health using iterons.
+ * @returns {boolean} True if upgrade was successful
+ */
+export function upgradeCardinalBaseHealth() {
+  if (!cardinalSimulation) return false;
+  
+  const cost = cardinalSimulation.getBaseHealthUpgradeCost();
+  if (!spendIterons(cost)) return false;
+  
+  cardinalSimulation.upgradeBaseHealth();
+  baseHealthLevel = cardinalSimulation.getBaseHealthLevel();
+  saveCardinalState();
+  updateTotalIteronsDisplay();
+  
+  return true;
 }
 
 /**
