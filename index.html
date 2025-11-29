@@ -1850,6 +1850,29 @@
             <span class="fluid-happiness-progress__threshold" id="fluid-happiness-progress-next">5 hp</span>
           </div>
         </div>
+        <!-- Terrarium Items dropdown for managing and upgrading items in the spire -->
+        <article class="card fluid-terrarium-items-card">
+          <button
+            class="fluid-terrarium-items-toggle"
+            type="button"
+            id="fluid-terrarium-items-toggle"
+            aria-expanded="false"
+            aria-controls="fluid-terrarium-items-dropdown"
+          >
+            <span class="fluid-terrarium-items-toggle__title">Terrarium Items</span>
+            <span class="fluid-terrarium-items-toggle__chevron" aria-hidden="true">▼</span>
+          </button>
+          <div
+            class="fluid-terrarium-items-dropdown"
+            id="fluid-terrarium-items-dropdown"
+            data-open="false"
+            aria-hidden="true"
+            hidden
+          >
+            <p class="fluid-terrarium-items-empty" id="fluid-terrarium-items-empty">No items placed in the terrarium yet.</p>
+            <ul class="fluid-terrarium-items-list" id="fluid-terrarium-items-list" aria-label="Terrarium items list"></ul>
+          </div>
+        </article>
         <article class="card fluid-metrics-card">
           <h3>Terrarium</h3>
           <dl class="fluid-metrics">

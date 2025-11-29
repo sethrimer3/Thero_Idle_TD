@@ -114,6 +114,11 @@ export function createPowderStateContext() {
     happinessProgressNext: null,
     happinessProgressCurrent: null,
     wallGlyphColumns: [],
+    // Terrarium items dropdown for managing and upgrading items.
+    terrariumItemsToggle: null,
+    terrariumItemsDropdown: null,
+    terrariumItemsEmpty: null,
+    terrariumItemsList: null,
   };
 
   const powderGlyphColumns = [];

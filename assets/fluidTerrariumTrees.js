@@ -1802,6 +1802,7 @@ export class FluidTerrariumTrees {
 
   /**
    * Build the HUD elements that hover over a tree.
+   * Now only shows the level number in "Lv. X" format.
    */
   createLevelBadge(layout) {
     const badge = document.createElement('div');
@@ -1810,52 +1811,28 @@ export class FluidTerrariumTrees {
     badge.style.top = `${layout.top - 16}px`;
     badge.style.width = `${layout.width}px`;
 
+    // Simplified label showing only the level number
     const label = document.createElement('div');
     label.className = 'fluid-tree-level__label';
     badge.appendChild(label);
 
-    const bar = document.createElement('div');
-    bar.className = 'fluid-tree-level__bar';
-    const fill = document.createElement('div');
-    fill.className = 'fluid-tree-level__fill';
-    bar.appendChild(fill);
-    badge.appendChild(bar);
-
-    const progressText = document.createElement('div');
-    progressText.className = 'fluid-tree-level__progress';
-    badge.appendChild(progressText);
-
-    const upgradeButton = document.createElement('button');
-    upgradeButton.type = 'button';
-    upgradeButton.className = 'fluid-tree-level__upgrade';
-    upgradeButton.textContent = 'Upgrade';
-    upgradeButton.setAttribute('aria-label', 'Allocate serendipity into this tree');
-    badge.appendChild(upgradeButton);
-
-    return { badge, label, fill, progressText, upgradeButton };
+    return { badge, label, fill: null, progressText: null, upgradeButton: null };
   }
 
   /**
-   * Refresh the level label and progress bar for a given tree.
+   * Refresh the level label for a given tree.
+   * Now only shows "Lv. X" format without progress bar or upgrade button.
    */
   updateTreeBadge(tree) {
     if (!tree?.badge) {
       return;
     }
-    const { label, fill, progressText, upgradeButton } = tree.badge;
+    const { label } = tree.badge;
     const levelInfo = this.computeLevelInfo(tree.state.allocated || 0);
-    const progressRatio = levelInfo.nextCost ? Math.min(1, (levelInfo.progress || 0) / levelInfo.nextCost) : 0;
-    const remaining = Math.max(0, levelInfo.nextCost - levelInfo.progress);
 
-    label.textContent = `Lv ${levelInfo.level}`;
-    fill.style.width = `${Math.round(progressRatio * 100)}%`;
-    progressText.textContent = `${remaining} Serendipity to next level`;
-
-    if (upgradeButton) {
-      const nextLevel = levelInfo.level + 1;
-      upgradeButton.textContent = remaining > 0 ? `Upgrade (${remaining})` : 'Upgrade';
-      upgradeButton.title = `Spend serendipity to reach level ${nextLevel}`;
-      upgradeButton.disabled = !this.getSerendipityBalance();
+    // Show level in "Lv. X" format
+    if (label) {
+      label.textContent = `Lv. ${levelInfo.level}`;
     }
   }
 
