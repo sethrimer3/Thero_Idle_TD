@@ -37,6 +37,8 @@ export const LEVEL_PROGRESS_STORAGE_KEY = 'glyph-defense-idle:level-progress';
 export const LAMED_VISUAL_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:lamed-visual-settings';
 // Storage key used to persist Kuf spire performance toggles.
 export const KUF_VISUAL_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:kuf-visual-settings';
+// Storage key used to persist Tsadi spire fusion rendering preferences.
+export const TSADI_VISUAL_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:tsadi-visual-settings';
 // Storage key used to persist the frame rate limit preference.
 export const FRAME_RATE_LIMIT_STORAGE_KEY = 'glyph-defense-idle:frame-rate-limit';
 // Storage key used to persist the FPS counter visibility toggle.

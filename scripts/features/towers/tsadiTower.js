@@ -509,7 +509,13 @@ export class ParticleFusionSimulation {
 
     // Visual settings
     this.backgroundColor = '#0f1116'; // Dark background
-    this.glowIntensity = 0.6;
+    this.glowIntensity = 1.0;
+    this.visualSettings = {
+      graphicsLevel: 'high',
+      renderForceLinks: true,
+      renderFusionEffects: true,
+      renderSpawnEffects: true,
+    };
 
     // Track when the simulation needs to scatter particles after a collapsed resize.
     this.pendingScatterFromCollapse = false;
@@ -748,11 +754,13 @@ export class ParticleFusionSimulation {
       speedMultiplier,
     });
     
-    // Add spawn flash and wave effects
-    this.spawnEffects.push(
-      { x, y, radius: radius * 2, alpha: 1, maxRadius: radius * 2, type: 'flash' },
-      { x, y, radius: radius, alpha: 1, maxRadius: radius * 4, type: 'wave' }
-    );
+    // Add spawn flash and wave effects when the options menu allows it.
+    if (this.visualSettings.renderSpawnEffects) {
+      this.spawnEffects.push(
+        { x, y, radius: radius * 2, alpha: 1, maxRadius: radius * 2, type: 'flash' },
+        { x, y, radius: radius, alpha: 1, maxRadius: radius * 4, type: 'wave' },
+      );
+    }
 
     // Deduct a particle from the idle bank when it materializes inside the simulation.
     this.setParticleBank(this.particleBank - 1);
@@ -789,6 +797,39 @@ export class ParticleFusionSimulation {
       force: waveStats.force,
       type: 'wave',
     });
+  }
+
+  /**
+   * Apply rendering preferences from the Tsadi spire options menu.
+   * @param {Object} options - Visual settings (graphicsLevel, renderForceLinks, renderFusionEffects, renderSpawnEffects).
+   */
+  setVisualSettings(options = {}) {
+    this.visualSettings = { ...this.visualSettings, ...options };
+
+    switch (this.visualSettings.graphicsLevel) {
+      case 'low':
+        this.maxParticles = 70;
+        this.glowIntensity = 0.75;
+        break;
+      case 'medium':
+        this.maxParticles = 90;
+        this.glowIntensity = 0.9;
+        break;
+      default:
+        this.maxParticles = 100;
+        this.glowIntensity = 1.0;
+        break;
+    }
+
+    if (!this.visualSettings.renderFusionEffects) {
+      this.fusionEffects.length = 0;
+    }
+    if (!this.visualSettings.renderSpawnEffects) {
+      this.spawnEffects.length = 0;
+    }
+    if (!this.visualSettings.renderForceLinks) {
+      this.forceLinks.length = 0;
+    }
   }
   
   /**
@@ -907,31 +948,39 @@ export class ParticleFusionSimulation {
     this.handleCollisions(physicsBodies);
     
     // Update fusion effects
-    for (let i = this.fusionEffects.length - 1; i >= 0; i--) {
-      const effect = this.fusionEffects[i];
-      effect.alpha -= dt * 3; // Fade out over ~0.33 seconds
+    if (this.visualSettings.renderFusionEffects) {
+      for (let i = this.fusionEffects.length - 1; i >= 0; i--) {
+        const effect = this.fusionEffects[i];
+        effect.alpha -= dt * 3; // Fade out over ~0.33 seconds
 
-      if (effect.type === 'ring') {
-        effect.radius += dt * 100; // Expand ring
-      }
+        if (effect.type === 'ring') {
+          effect.radius += dt * 100; // Expand ring
+        }
 
-      if (effect.alpha <= 0) {
-        this.fusionEffects.splice(i, 1);
+        if (effect.alpha <= 0) {
+          this.fusionEffects.splice(i, 1);
+        }
       }
+    } else {
+      this.fusionEffects.length = 0;
     }
-    
+
     // Update spawn effects
-    for (let i = this.spawnEffects.length - 1; i >= 0; i--) {
-      const effect = this.spawnEffects[i];
-      effect.alpha -= dt * 4; // Fade out over ~0.25 seconds
+    if (this.visualSettings.renderSpawnEffects) {
+      for (let i = this.spawnEffects.length - 1; i >= 0; i--) {
+        const effect = this.spawnEffects[i];
+        effect.alpha -= dt * 4; // Fade out over ~0.25 seconds
 
-      if (effect.type === 'wave') {
-        effect.radius += dt * 150; // Expand wave
-      }
+        if (effect.type === 'wave') {
+          effect.radius += dt * 150; // Expand wave
+        }
 
-      if (effect.alpha <= 0) {
-        this.spawnEffects.splice(i, 1);
+        if (effect.alpha <= 0) {
+          this.spawnEffects.splice(i, 1);
+        }
       }
+    } else {
+      this.spawnEffects.length = 0;
     }
     
     // Update interactive wave effects
@@ -960,6 +1009,7 @@ export class ParticleFusionSimulation {
   applyRepellingForces(dt, bodies = this.particles) {
     const processedPairs = new Set();
     // Clear any previously recorded force links before evaluating the current frame.
+    const collectForceLinks = this.visualSettings.renderForceLinks;
     this.forceLinks.length = 0;
 
     for (const p1 of bodies) {
@@ -1001,14 +1051,16 @@ export class ParticleFusionSimulation {
           p2.vy += ny * forceMagnitude;
 
           // Record the interaction so the renderer can draw a connective filament.
-          this.forceLinks.push({
-            x1: p1.x,
-            y1: p1.y,
-            x2: p2.x,
-            y2: p2.y,
-            intensity: proximityStrength,
-            isRepelling: forceMagnitude >= 0,
-          });
+          if (collectForceLinks) {
+            this.forceLinks.push({
+              x1: p1.x,
+              y1: p1.y,
+              x2: p2.x,
+              y2: p2.y,
+              intensity: proximityStrength,
+              isRepelling: forceMagnitude >= 0,
+            });
+          }
         }
       }
     }
@@ -1394,10 +1446,12 @@ export class ParticleFusionSimulation {
     if (withExplosion) {
       // Create explosion effect at the binding agent's location
       const explosionRadius = this.getBindingAgentRadius() * 4;
-      this.fusionEffects.push(
-        { x: agent.x, y: agent.y, radius: explosionRadius, alpha: 1, type: 'flash' },
-        { x: agent.x, y: agent.y, radius: explosionRadius * 0.7, alpha: 0.8, type: 'ring' }
-      );
+      if (this.visualSettings.renderFusionEffects) {
+        this.fusionEffects.push(
+          { x: agent.x, y: agent.y, radius: explosionRadius, alpha: 1, type: 'flash' },
+          { x: agent.x, y: agent.y, radius: explosionRadius * 0.7, alpha: 0.8, type: 'ring' },
+        );
+      }
       
       // Free particles with stronger outward momentum
       agent.connections.forEach((connection) => {
@@ -1798,10 +1852,12 @@ export class ParticleFusionSimulation {
     particlesToRemove.add(p2.id);
     
     // Add fusion effects
-    this.fusionEffects.push(
-      { x: newX, y: newY, radius: newRadius * 1.2, alpha: 1, type: 'flash' },
-      { x: newX, y: newY, radius: newRadius, alpha: 0.8, type: 'ring' }
-    );
+    if (this.visualSettings.renderFusionEffects) {
+      this.fusionEffects.push(
+        { x: newX, y: newY, radius: newRadius * 1.2, alpha: 1, type: 'flash' },
+        { x: newX, y: newY, radius: newRadius, alpha: 0.8, type: 'ring' },
+      );
+    }
     
     // Update highest tier
     if (newTier > this.highestTierReached) {
@@ -1838,10 +1894,12 @@ export class ParticleFusionSimulation {
     particlesToRemove.add(p2.id);
     
     // Add large explosion effect
-    this.fusionEffects.push(
-      { x: explosionX, y: explosionY, radius: newRadius * 3, alpha: 1, type: 'flash' },
-      { x: explosionX, y: explosionY, radius: newRadius * 2, alpha: 1, type: 'ring' }
-    );
+    if (this.visualSettings.renderFusionEffects) {
+      this.fusionEffects.push(
+        { x: explosionX, y: explosionY, radius: newRadius * 3, alpha: 1, type: 'flash' },
+        { x: explosionX, y: explosionY, radius: newRadius * 2, alpha: 1, type: 'ring' },
+      );
+    }
     
     // Spawn 10 particles of the next tier in a circle
     const numSpawned = 10;
@@ -1927,13 +1985,15 @@ export class ParticleFusionSimulation {
         this.alephAbsorptionCount++;
         
         // Add small absorption effect
-        this.fusionEffects.push({
-          x: other.x,
-          y: other.y,
-          radius: other.radius * 1.5,
-          alpha: 0.8,
-          type: 'flash',
-        });
+        if (this.visualSettings.renderFusionEffects) {
+          this.fusionEffects.push({
+            x: other.x,
+            y: other.y,
+            radius: other.radius * 1.5,
+            alpha: 0.8,
+            type: 'flash',
+          });
+        }
         
         // Check if aleph has absorbed 1000 particles
         if (this.alephAbsorptionCount >= 1000) {
@@ -1953,10 +2013,12 @@ export class ParticleFusionSimulation {
     this.alephAbsorptionCount = 0;
     
     // Add massive explosion effect
-    this.fusionEffects.push(
-      { x: alephParticle.x, y: alephParticle.y, radius: this.width / 2, alpha: 1, type: 'flash' },
-      { x: alephParticle.x, y: alephParticle.y, radius: this.width / 3, alpha: 1, type: 'ring' }
-    );
+    if (this.visualSettings.renderFusionEffects) {
+      this.fusionEffects.push(
+        { x: alephParticle.x, y: alephParticle.y, radius: this.width / 2, alpha: 1, type: 'flash' },
+        { x: alephParticle.x, y: alephParticle.y, radius: this.width / 3, alpha: 1, type: 'ring' },
+      );
+    }
     
     // Tsadi glyphs are based on highest tier reached (no bonus for Aleph explosion)
     // The glyphCount was already updated when reaching this tier
@@ -2078,28 +2140,30 @@ export class ParticleFusionSimulation {
     }
     
     // Draw spawn effects
-    for (const effect of this.spawnEffects) {
-      if (effect.type === 'flash') {
-        // Radial flash
-        const gradient = ctx.createRadialGradient(
-          effect.x, effect.y, 0,
-          effect.x, effect.y, effect.radius
-        );
-        gradient.addColorStop(0, `rgba(255, 255, 255, ${effect.alpha})`);
-        gradient.addColorStop(0.6, `rgba(255, 255, 255, ${effect.alpha * 0.5})`);
-        gradient.addColorStop(1, `rgba(255, 255, 255, 0)`);
-        
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (effect.type === 'wave') {
-        // Expanding wave ring
-        ctx.strokeStyle = `rgba(255, 255, 255, ${effect.alpha * 0.5})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
-        ctx.stroke();
+    if (this.visualSettings.renderSpawnEffects) {
+      for (const effect of this.spawnEffects) {
+        if (effect.type === 'flash') {
+          // Radial flash
+          const gradient = ctx.createRadialGradient(
+            effect.x, effect.y, 0,
+            effect.x, effect.y, effect.radius,
+          );
+          gradient.addColorStop(0, `rgba(255, 255, 255, ${effect.alpha})`);
+          gradient.addColorStop(0.6, `rgba(255, 255, 255, ${effect.alpha * 0.5})`);
+          gradient.addColorStop(1, `rgba(255, 255, 255, 0)`);
+
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (effect.type === 'wave') {
+          // Expanding wave ring
+          ctx.strokeStyle = `rgba(255, 255, 255, ${effect.alpha * 0.5})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
       }
     }
     
@@ -2128,46 +2192,50 @@ export class ParticleFusionSimulation {
     }
     
     // Draw fusion effects
-    for (const effect of this.fusionEffects) {
-      if (effect.type === 'flash') {
-        // Radial flash
-        const gradient = ctx.createRadialGradient(
-          effect.x, effect.y, 0,
-          effect.x, effect.y, effect.radius
-        );
-        gradient.addColorStop(0, `rgba(255, 255, 255, ${effect.alpha * 0.8})`);
-        gradient.addColorStop(0.5, `rgba(255, 255, 200, ${effect.alpha * 0.4})`);
-        gradient.addColorStop(1, `rgba(255, 255, 200, 0)`);
-        
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (effect.type === 'ring') {
-        // Expanding ring
-        ctx.strokeStyle = `rgba(255, 255, 255, ${effect.alpha * 0.6})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
-        ctx.stroke();
+    if (this.visualSettings.renderFusionEffects) {
+      for (const effect of this.fusionEffects) {
+        if (effect.type === 'flash') {
+          // Radial flash
+          const gradient = ctx.createRadialGradient(
+            effect.x, effect.y, 0,
+            effect.x, effect.y, effect.radius,
+          );
+          gradient.addColorStop(0, `rgba(255, 255, 255, ${effect.alpha * 0.8})`);
+          gradient.addColorStop(0.5, `rgba(255, 255, 200, ${effect.alpha * 0.4})`);
+          gradient.addColorStop(1, `rgba(255, 255, 200, 0)`);
+
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (effect.type === 'ring') {
+          // Expanding ring
+          ctx.strokeStyle = `rgba(255, 255, 255, ${effect.alpha * 0.6})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
       }
     }
     
     // Draw blurred filaments between particles experiencing interaction forces.
-    for (const link of this.forceLinks) {
-      const baseRgb = link.isRepelling ? '255, 140, 190' : '130, 190, 255';
-      const alpha = 0.12 + link.intensity * 0.28;
+    if (this.visualSettings.renderForceLinks) {
+      for (const link of this.forceLinks) {
+        const baseRgb = link.isRepelling ? '255, 140, 190' : '130, 190, 255';
+        const alpha = 0.12 + link.intensity * 0.28;
 
-      ctx.save();
-      ctx.strokeStyle = `rgba(${baseRgb}, ${alpha})`;
-      ctx.lineWidth = 1.2;
-      ctx.shadowColor = `rgba(${baseRgb}, ${Math.min(0.5, alpha * 1.8)})`;
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.moveTo(link.x1, link.y1);
-      ctx.lineTo(link.x2, link.y2);
-      ctx.stroke();
-      ctx.restore();
+        ctx.save();
+        ctx.strokeStyle = `rgba(${baseRgb}, ${alpha})`;
+        ctx.lineWidth = 1.2;
+        ctx.shadowColor = `rgba(${baseRgb}, ${Math.min(0.5, alpha * 1.8)})`;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(link.x1, link.y1);
+        ctx.lineTo(link.x2, link.y2);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     this.renderBindingAgents(ctx);
@@ -2199,7 +2267,7 @@ export class ParticleFusionSimulation {
         
         const color = particle.color;
         // Extract RGB from the color and brighten it
-        const brightColor = this.brightenColor(color, glowIntensity);
+        const brightColor = this.brightenColor(color, glowIntensity * this.glowIntensity);
         
         brightGlowGradient.addColorStop(0, brightColor);
         brightGlowGradient.addColorStop(0.4, color);

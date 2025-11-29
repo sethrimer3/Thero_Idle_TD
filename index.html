@@ -2551,9 +2551,75 @@
                 aria-hidden="true"
                 hidden
               >
-                <p class="settings-toggle-description">
-                  Particle fusion quality controls will be added here alongside the Bet and Lamed menus.
-                </p>
+                <button class="action-button ghost" type="button" id="tsadi-graphics-level-button">
+                  Graphics · High
+                </button>
+                <div class="settings-toggle" id="tsadi-force-links-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="tsadi-force-links-title">Force Link Beams</span>
+                    <span class="settings-toggle-description" id="tsadi-force-links-description"
+                      >Render attractive and repelling filaments between nearby particles.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="tsadi-force-links-toggle">
+                    <input
+                      type="checkbox"
+                      id="tsadi-force-links-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="tsadi-force-links-title"
+                      aria-describedby="tsadi-force-links-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="tsadi-force-links-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="tsadi-fusion-effects-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="tsadi-fusion-effects-title">Fusion Flashes</span>
+                    <span class="settings-toggle-description" id="tsadi-fusion-effects-description"
+                      >Show glow rings when particles collide and fuse.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="tsadi-fusion-effects-toggle">
+                    <input
+                      type="checkbox"
+                      id="tsadi-fusion-effects-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="tsadi-fusion-effects-title"
+                      aria-describedby="tsadi-fusion-effects-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="tsadi-fusion-effects-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="tsadi-spawn-effects-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="tsadi-spawn-effects-title">Spawn Ripples</span>
+                    <span class="settings-toggle-description" id="tsadi-spawn-effects-description"
+                      >Animate flash and ripple effects when new particles enter the basin.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="tsadi-spawn-effects-toggle">
+                    <input
+                      type="checkbox"
+                      id="tsadi-spawn-effects-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="tsadi-spawn-effects-title"
+                      aria-describedby="tsadi-spawn-effects-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="tsadi-spawn-effects-state">On</span>
+                  </label>
+                </div>
               </div>
             </article>
           </section>
