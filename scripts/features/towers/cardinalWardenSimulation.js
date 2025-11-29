@@ -1539,8 +1539,9 @@ export class CardinalWardenSimulation {
       const bonusHealth = this.baseHealthLevel * this.baseHealthPerLevel;
       const oldMaxHealth = this.warden.maxHealth;
       this.warden.maxHealth = GAME_CONFIG.WARDEN_MAX_HEALTH + bonusHealth;
-      // Heal by the amount of new health gained
-      this.warden.health = Math.min(this.warden.maxHealth, this.warden.health + (this.warden.maxHealth - oldMaxHealth));
+      // Heal by the amount of new health gained from the upgrade
+      const healthGained = this.warden.maxHealth - oldMaxHealth;
+      this.warden.health = Math.min(this.warden.maxHealth, this.warden.health + healthGained);
       if (this.onHealthChange) {
         this.onHealthChange(this.warden.health, this.warden.maxHealth);
       }

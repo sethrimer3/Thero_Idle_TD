@@ -609,6 +609,7 @@ export function getCardinalHighestWave() {
 /**
  * Get the high score reached in Cardinal Warden.
  * Used for calculating idle iteron rate (high score / 10 = iterons per hour).
+ * @returns {number} The highest score achieved
  */
 export function getCardinalHighScore() {
   return cardinalHighScore;
@@ -616,6 +617,7 @@ export function getCardinalHighScore() {
 
 /**
  * Get the current base health upgrade level.
+ * @returns {number} The current upgrade level (0 = no upgrades)
  */
 export function getCardinalBaseHealthLevel() {
   if (cardinalSimulation) {
@@ -626,6 +628,7 @@ export function getCardinalBaseHealthLevel() {
 
 /**
  * Get the cost to upgrade base health to the next level (in iterons).
+ * @returns {number} The iteron cost for the next upgrade
  */
 export function getCardinalBaseHealthUpgradeCost() {
   if (cardinalSimulation) {
@@ -637,6 +640,7 @@ export function getCardinalBaseHealthUpgradeCost() {
 
 /**
  * Get the current max health (base + upgrades).
+ * @returns {number} The maximum warden health
  */
 export function getCardinalMaxHealth() {
   if (cardinalSimulation) {
