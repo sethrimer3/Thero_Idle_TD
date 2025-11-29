@@ -5014,17 +5014,28 @@ body.graphics-mode-low .control-button {
 }
 
 .fluid-terrarium__sun {
-  background: radial-gradient(circle at 30% 30%, #fff7d1 0, #ffe47a 65%, #f5c542 100%);
+  background: transparent;
   box-shadow:
     0 0 12px 6px rgba(255, 228, 122, 0.65),
     0 0 28px 14px rgba(255, 228, 122, 0.35);
 }
 
 .fluid-terrarium__moon {
-  background: radial-gradient(circle at 25% 25%, #f4f5f7 0, #cfd3da 60%, #9aa0ac 100%);
+  background: transparent;
   box-shadow:
-    0 0 10px 6px rgba(207, 211, 218, 0.55),
-    0 0 22px 12px rgba(154, 160, 172, 0.35);
+    0 0 10px 6px rgba(180, 200, 255, 0.55),
+    0 0 22px 12px rgba(140, 170, 255, 0.35);
+}
+
+/* Voronoi fractal celestial body canvas and image */
+.fluid-terrarium__celestial-canvas,
+.fluid-terrarium__celestial-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  pointer-events: none;
 }
 
 /* Anchor static Bet terrarium sprites, including the magma layer beneath the terrain. */

@@ -146,6 +146,8 @@ import { FluidTerrariumTrees, resolveTerrariumTreeLevel } from './fluidTerrarium
 import { FluidTerrariumGrass } from './fluidTerrariumGrass.js';
 // Day/night cycle that animates the Bet terrarium sky and celestial bodies.
 import { FluidTerrariumSkyCycle } from './fluidTerrariumSkyCycle.js';
+// Voronoi fractal sun and moon for the Bet terrarium sky.
+import { FluidTerrariumCelestialBodies } from './fluidTerrariumCelestialBodies.js';
 // Phi and Psi shrooms for the Bet terrarium cave zones.
 import { FluidTerrariumShrooms } from './fluidTerrariumShrooms.js';
 // Bet Spire happiness production tracker fed by Serendipity purchases.
@@ -879,6 +881,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let fluidTerrariumGrass = null;
   // Drive the Bet terrarium day/night palette and celestial bodies.
   let fluidTerrariumSkyCycle = null;
+  // Voronoi fractal sun and moon rendered in the Bet terrarium sky.
+  let fluidTerrariumCelestialBodies = null;
   // Phi and Psi shrooms that grow inside cave spawn zones.
   let fluidTerrariumShrooms = null;
   // Terrarium items dropdown for managing and upgrading items in the Bet Spire.
@@ -1088,6 +1092,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       getSerendipityBalance: getCurrentFluidDropBank,
       onShroomPlace: handleShroomPlacement,
       onSlimePlace: handleSlimePlacement,
+      onCelestialPlace: handleCelestialPlacement,
       // Cave spawn zones enable cave-only fractal placement validation.
       caveSpawnZones: BET_CAVE_SPAWN_ZONES,
       // Terrain collision sprite enables walkable mask for Brownian growth.
@@ -1098,6 +1103,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           trees: state?.trees ? { ...state.trees } : {},
           buttonMenuOpen: Boolean(state?.buttonMenuOpen),
           cameraMode: Boolean(state?.cameraMode),
+          celestialBodiesEnabled: Boolean(powderState.betTerrarium?.celestialBodiesEnabled),
         };
         updateTerrariumTreeHappiness(powderState.betTerrarium.trees);
         schedulePowderBasinSave();
@@ -1113,6 +1119,34 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     });
   }
 
+  /**
+   * Handle celestial bodies placement from the terrarium store.
+   * Enables the sun and moon Voronoi fractals and starts the day/night cycle.
+   * @returns {boolean} True if placement succeeded
+   */
+  function handleCelestialPlacement() {
+    if (!FLUID_STUDY_ENABLED) {
+      return false;
+    }
+
+    // Enable celestial bodies state
+    if (!powderState.betTerrarium) {
+      powderState.betTerrarium = {};
+    }
+    powderState.betTerrarium.celestialBodiesEnabled = true;
+
+    // Enable the sky cycle if it exists
+    if (fluidTerrariumSkyCycle) {
+      fluidTerrariumSkyCycle.enableCelestialBodies();
+    }
+
+    // Initialize celestial bodies renderer
+    ensureFluidTerrariumCelestialBodies();
+
+    schedulePowderBasinSave();
+    return true;
+  }
+
   // Paint the Bet terrarium sky with a looping day/night gradient and celestial path.
   function ensureFluidTerrariumSkyCycle() {
     if (!FLUID_STUDY_ENABLED) {
@@ -1121,10 +1155,41 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (fluidTerrariumSkyCycle || !fluidElements?.terrariumSky) {
       return;
     }
+    // Check if celestial bodies have been purchased
+    const celestialEnabled = Boolean(powderState.betTerrarium?.celestialBodiesEnabled);
     fluidTerrariumSkyCycle = new FluidTerrariumSkyCycle({
       skyElement: fluidElements.terrariumSky,
       sunElement: fluidElements.terrariumSun,
       moonElement: fluidElements.terrariumMoon,
+      celestialBodiesEnabled: celestialEnabled,
+    });
+  }
+
+  // Initialize Voronoi fractal sun and moon for the Bet terrarium.
+  function ensureFluidTerrariumCelestialBodies() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
+    const celestialEnabled = Boolean(powderState.betTerrarium?.celestialBodiesEnabled);
+    if (!celestialEnabled) {
+      return;
+    }
+    if (fluidTerrariumCelestialBodies || !fluidElements?.terrariumSun || !fluidElements?.terrariumMoon) {
+      return;
+    }
+    fluidTerrariumCelestialBodies = new FluidTerrariumCelestialBodies({
+      sunElement: fluidElements.terrariumSun,
+      moonElement: fluidElements.terrariumMoon,
+      enabled: true,
+      onStateChange: (state) => {
+        if (state.celestialBodiesEnabled !== undefined) {
+          if (!powderState.betTerrarium) {
+            powderState.betTerrarium = {};
+          }
+          powderState.betTerrarium.celestialBodiesEnabled = state.celestialBodiesEnabled;
+          schedulePowderBasinSave();
+        }
+      },
     });
   }
 
@@ -5774,6 +5839,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     ensureFluidTerrariumCrystal();
     ensureFluidTerrariumTrees();
     ensureFluidTerrariumSkyCycle();
+    ensureFluidTerrariumCelestialBodies();
     ensureFluidTerrariumShrooms();
     ensureFluidTerrariumItemsDropdown();
     ensurePowderBasinResizeObserver();
