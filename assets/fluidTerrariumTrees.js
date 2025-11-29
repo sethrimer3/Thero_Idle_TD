@@ -1563,6 +1563,10 @@ export class FluidTerrariumTrees {
    * Build a walkable mask from the terrain collision sprite so Brownian growth avoids solid terrain.
    */
   buildWalkableMask() {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
     const source = this.terrainCollisionElement;
     if (!source) {
       return;
@@ -1571,7 +1575,7 @@ export class FluidTerrariumTrees {
     const sample = () => {
       const width = source.naturalWidth;
       const height = source.naturalHeight;
-      if (!width || !height || typeof document === 'undefined') {
+      if (!width || !height) {
         return;
       }
       const canvas = document.createElement('canvas');
@@ -1583,11 +1587,12 @@ export class FluidTerrariumTrees {
       }
       ctx.drawImage(source, 0, 0, width, height);
       const { data } = ctx.getImageData(0, 0, width, height);
-      const walkable = new Uint8Array(width * height);
-      for (let index = 0; index < walkable.length; index += 1) {
+      const pixelCount = width * height;
+      const walkable = new Uint8Array(pixelCount);
+      for (let pixel = 0; pixel < pixelCount; pixel += 1) {
         // Alpha indicates solid terrain; transparent pixels are safe for the cluster.
-        const alpha = data[index * 4 + 3];
-        walkable[index] = alpha === 0 ? 1 : 0;
+        const alpha = data[pixel * 4 + 3];
+        walkable[pixel] = alpha === 0 ? 1 : 0;
       }
       this.walkableMask = { width, height, data: walkable };
     };
