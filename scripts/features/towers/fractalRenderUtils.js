@@ -24,6 +24,13 @@ const FRACTAL_PALETTES = {
     { t: 0.75, color: [120, 220, 126] },
     { t: 1, color: [214, 255, 214] }
   ],
+  'dark-fern': [
+    { t: 0, color: [8, 32, 12] },
+    { t: 0.3, color: [16, 56, 28] },
+    { t: 0.6, color: [28, 82, 42] },
+    { t: 0.85, color: [48, 110, 58] },
+    { t: 1, color: [72, 140, 78] }
+  ],
   'flame-nebula': [
     { t: 0, color: [16, 2, 32] },
     { t: 0.3, color: [120, 32, 120] },

@@ -19,6 +19,11 @@ export class FernLSystemSimulation {
       this.initPanZoom(this.canvas);
     }
 
+    // Background color for the canvas - defaults to dark green, can be transparent
+    this.bgColor = options.bgColor || '#050705';
+    // Palette name for coloring the fern segments - defaults to dark-fern for rich green tones
+    this.palette = options.palette || 'dark-fern';
+
     this.axiom = options.axiom || 'X';
     this.rules = options.rules || {
       X: 'F-[[X]+X]+F[+FX]-X',
@@ -172,8 +177,13 @@ export class FernLSystemSimulation {
     }
 
     const ctx = this.ctx;
-    ctx.fillStyle = '#050705';
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    // Clear the canvas with the configured background color (supports transparency)
+    if (this.bgColor === 'rgba(0, 0, 0, 0)' || this.bgColor === 'transparent') {
+      ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    } else {
+      ctx.fillStyle = this.bgColor;
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
     this.applyPanZoomTransform();
 
     ctx.lineCap = 'round';
@@ -190,7 +200,7 @@ export class FernLSystemSimulation {
       const px = seg.x1 + (seg.x2 - seg.x1) * clamped;
       const py = seg.y1 + (seg.y2 - seg.y1) * clamped;
       const t = this.segments.length > 0 ? i / this.segments.length : 0;
-      const color = samplePalette('emerald-ink', t);
+      const color = samplePalette(this.palette, t);
       ctx.strokeStyle = rgbToString(color, 0.9);
       ctx.lineWidth = Math.max(1, 4 - t * 3);
       ctx.beginPath();
