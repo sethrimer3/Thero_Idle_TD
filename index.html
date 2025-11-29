@@ -1926,9 +1926,119 @@
                 aria-hidden="true"
                 hidden
               >
-                <p class="settings-toggle-description">
-                  Terrarium performance toggles are planned here; for now the Bet Spire borrows the Aleph basin rendering.
-                </p>
+                <button class="action-button ghost" type="button" id="fluid-graphics-level-button">
+                  Graphics · High
+                </button>
+                <div class="settings-toggle" id="fluid-creatures-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="fluid-creatures-title">Ambient Creatures</span>
+                    <span class="settings-toggle-description" id="fluid-creatures-description"
+                      >Animated Deltas that lounge, hop, and glow across the terrarium floor.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="fluid-creatures-toggle">
+                    <input
+                      type="checkbox"
+                      id="fluid-creatures-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="fluid-creatures-title"
+                      aria-describedby="fluid-creatures-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="fluid-creatures-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="fluid-grass-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="fluid-grass-title">Terrarium Grass</span>
+                    <span class="settings-toggle-description" id="fluid-grass-description"
+                      >Swaying blades of grass masked to the Bet terrain silhouette.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="fluid-grass-toggle">
+                    <input
+                      type="checkbox"
+                      id="fluid-grass-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="fluid-grass-title"
+                      aria-describedby="fluid-grass-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="fluid-grass-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="fluid-sky-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="fluid-sky-title">Sky Cycle</span>
+                    <span class="settings-toggle-description" id="fluid-sky-description"
+                      >Gradient day/night cycle with drifting sun, moon, and star layers.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="fluid-sky-toggle">
+                    <input
+                      type="checkbox"
+                      id="fluid-sky-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="fluid-sky-title"
+                      aria-describedby="fluid-sky-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="fluid-sky-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="fluid-crystal-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="fluid-crystal-title">Crystal Bloom</span>
+                    <span class="settings-toggle-description" id="fluid-crystal-description"
+                      >Brownian crystal growth rendered in the alcove behind the basin.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="fluid-crystal-toggle">
+                    <input
+                      type="checkbox"
+                      id="fluid-crystal-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="fluid-crystal-title"
+                      aria-describedby="fluid-crystal-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="fluid-crystal-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="fluid-shrooms-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="fluid-shrooms-title">Shroom Spores</span>
+                    <span class="settings-toggle-description" id="fluid-shrooms-description"
+                      >Phi and Psi shrooms with drifting spores around the terrarium stage.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="fluid-shrooms-toggle">
+                    <input
+                      type="checkbox"
+                      id="fluid-shrooms-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="fluid-shrooms-title"
+                      aria-describedby="fluid-shrooms-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="fluid-shrooms-state">On</span>
+                  </label>
+                </div>
               </div>
             </article>
           </section>

@@ -346,6 +346,12 @@ import {
   initializeLamedSpirePreferences,
 } from './lamedSpirePreferences.js';
 import {
+  applyFluidVisualSettings,
+  bindFluidSpireOptions,
+  initializeFluidSpirePreferences,
+  setFluidTerrariumGetters,
+} from './fluidSpirePreferences.js';
+import {
   bindTsadiSpireOptions,
   initializeTsadiSpirePreferences,
   setTsadiSimulationGetter,
@@ -888,6 +894,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let fluidTerrariumShrooms = null;
   // Terrarium items dropdown for managing and upgrading items in the Bet Spire.
   let fluidTerrariumItemsDropdown = null;
+
+  // Expose Bet terrarium overlays to the visual settings module so the new options menu can pause heavy effects.
+  setFluidTerrariumGetters({
+    getCreatures: () => fluidTerrariumCreatures,
+    getGrass: () => fluidTerrariumGrass,
+    getSkyCycle: () => fluidTerrariumSkyCycle,
+    getCrystal: () => fluidTerrariumCrystal,
+    getShrooms: () => fluidTerrariumShrooms,
+  });
 
   /**
    * Force the Bet Spire Terrarium to remain locked and inactive while the feature is disabled.
@@ -5183,6 +5198,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       menuId: 'kuf-options-menu',
       spireId: 'kuf',
     });
+    initializeFluidSpirePreferences();
+    bindFluidSpireOptions();
     initializeColorScheme();
     bindAudioControls();
 
@@ -5788,6 +5805,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     ensureFluidTerrariumSkyCycle();
     ensureFluidTerrariumShrooms();
     ensureFluidTerrariumItemsDropdown();
+    applyFluidVisualSettings();
     ensurePowderBasinResizeObserver();
     bindSpireClickIncome();
     await applyPowderSimulationMode(powderState.simulationMode);
