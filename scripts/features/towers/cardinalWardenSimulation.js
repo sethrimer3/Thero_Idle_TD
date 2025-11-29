@@ -31,6 +31,16 @@ const GAME_CONFIG = {
   BASE_BULLET_INTERVAL_MS: 500,
   // Maximum delta time cap to prevent physics issues (ms)
   MAX_DELTA_TIME_MS: 33,
+  // Minimum difficulty level required for boss spawning
+  BOSS_MIN_DIFFICULTY: 3,
+  // Difficulty scaling factor for boss stats
+  BOSS_DIFFICULTY_SCALE: 0.2,
+  // Maximum reduction in boss spawn interval (ms)
+  BOSS_SPAWN_INTERVAL_MAX_REDUCTION: 20000,
+  // Reduction per difficulty level for boss spawn interval (ms)
+  BOSS_SPAWN_INTERVAL_REDUCTION_PER_LEVEL: 2000,
+  // Minimum boss spawn interval (ms)
+  BOSS_SPAWN_INTERVAL_MIN: 10000,
 };
 
 /**
@@ -377,6 +387,455 @@ class EnemyShip {
 
   takeDamage(amount) {
     this.health -= amount;
+    return this.health <= 0;
+  }
+}
+
+/**
+ * Boss ship types available in the game.
+ * These are larger, more dangerous enemies that appear periodically.
+ */
+const BOSS_TYPES = {
+  circleCarrier: {
+    speed: 15,
+    health: 30,
+    damage: 25,
+    size: 35,
+    scoreValue: 200,
+    color: '#1a1a1a',
+    rotationSpeed: 0.5, // Radians per second
+    spawnInterval: 3000, // ms between spawning ships
+    spawnCount: 3, // Ships spawned per interval
+  },
+  pyramidBoss: {
+    speed: 20,
+    health: 20,
+    damage: 20,
+    size: 28,
+    scoreValue: 150,
+    color: '#2d2d2d',
+    rotationSpeed: 0.8,
+    burstInterval: 2500, // Time between movement bursts
+    burstSpeed: 80, // Speed during burst
+  },
+  hexagonFortress: {
+    speed: 10,
+    health: 50,
+    damage: 30,
+    size: 45,
+    scoreValue: 300,
+    color: '#0a0a0a',
+    rotationSpeed: 0.3,
+    shieldRegenRate: 0.5, // Health regen per second
+  },
+};
+
+/**
+ * Circle Carrier Boss - A large circular ship that slowly rotates and periodically
+ * spawns smaller ships in a radial pattern.
+ */
+class CircleCarrierBoss {
+  constructor(x, y, config = {}) {
+    this.x = x;
+    this.y = y;
+    this.vx = 0;
+    this.vy = 0;
+    this.headingAngle = Math.PI / 2;
+    this.maxSpeed = config.speed || 15;
+    this.health = config.health || 30;
+    this.maxHealth = this.health;
+    this.damage = config.damage || 25;
+    this.size = config.size || 35;
+    this.type = 'circleCarrier';
+    this.isBoss = true;
+    this.scoreValue = config.scoreValue || 200;
+    this.baseColor = config.color || '#1a1a1a';
+    this.color = this.baseColor;
+
+    // Rotation properties
+    this.rotation = 0;
+    this.rotationSpeed = config.rotationSpeed || 0.5;
+
+    // Carrier properties - spawns smaller ships
+    this.spawnTimer = 0;
+    this.spawnInterval = config.spawnInterval || 3000;
+    this.spawnCount = config.spawnCount || 3;
+    this.spawnedShips = []; // Reference to spawned ships for visual connection
+
+    // Movement properties
+    this.acceleration = config.acceleration || 30;
+    this.targetX = x;
+    this.targetY = y + 100;
+    this.arrivalThreshold = 30;
+
+    // Visual trail
+    this.trail = [];
+    this.time = 0;
+
+    // Inner ring decorations
+    this.innerRings = [
+      { radius: 0.6, rotationOffset: 0 },
+      { radius: 0.4, rotationOffset: Math.PI / 3 },
+    ];
+  }
+
+  /**
+   * Pick a new target position that is generally lower on the screen.
+   */
+  pickNewTarget(canvasWidth, canvasHeight, rng) {
+    const minY = this.y + 30;
+    const maxY = Math.min(this.y + 150, canvasHeight * 0.6);
+    this.targetY = rng.range(minY, maxY);
+    const margin = this.size * 2;
+    this.targetX = rng.range(margin, canvasWidth - margin);
+  }
+
+  /**
+   * Update the boss state.
+   * Returns an array of newly spawned ships (empty if none spawned this frame).
+   */
+  update(deltaTime, targetY, canvasWidth, canvasHeight, rng) {
+    const dt = deltaTime / 1000;
+    this.time += dt;
+
+    // Update rotation
+    this.rotation += this.rotationSpeed * dt;
+
+    // Track previous position
+    const previousX = this.x;
+    const previousY = this.y;
+
+    // Movement toward target
+    const dx = this.targetX - this.x;
+    const dy = this.targetY - this.y;
+    const distToTarget = Math.sqrt(dx * dx + dy * dy);
+
+    if (distToTarget < this.arrivalThreshold) {
+      this.pickNewTarget(canvasWidth, canvasHeight, rng);
+    }
+
+    const dirX = distToTarget > 0 ? dx / distToTarget : 0;
+    const dirY = distToTarget > 0 ? dy / distToTarget : 1;
+
+    // Smooth acceleration toward target
+    const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    const brakingDistance = (currentSpeed * currentSpeed) / (2 * this.acceleration);
+
+    let desiredSpeed;
+    if (distToTarget > brakingDistance * 1.5) {
+      desiredSpeed = this.maxSpeed;
+    } else {
+      desiredSpeed = Math.max(5, (distToTarget / brakingDistance) * this.maxSpeed * 0.5);
+    }
+
+    const desiredVx = dirX * desiredSpeed;
+    const desiredVy = dirY * desiredSpeed;
+
+    const dvx = desiredVx - this.vx;
+    const dvy = desiredVy - this.vy;
+    const dv = Math.sqrt(dvx * dvx + dvy * dvy);
+
+    if (dv > 0) {
+      const accelAmount = Math.min(this.acceleration * dt, dv);
+      this.vx += (dvx / dv) * accelAmount;
+      this.vy += (dvy / dv) * accelAmount;
+    }
+
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    // Keep within bounds
+    this.x = Math.max(this.size, Math.min(canvasWidth - this.size, this.x));
+
+    // Update heading
+    const deltaX = this.x - previousX;
+    const deltaY = this.y - previousY;
+    if (deltaX !== 0 || deltaY !== 0) {
+      this.headingAngle = Math.atan2(deltaY, deltaX);
+    }
+
+    // Trail
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 20) {
+      this.trail.shift();
+    }
+
+    // Ship spawning logic
+    this.spawnTimer += deltaTime;
+    const newShips = [];
+    if (this.spawnTimer >= this.spawnInterval) {
+      this.spawnTimer = 0;
+      // Spawn ships in a radial pattern
+      for (let i = 0; i < this.spawnCount; i++) {
+        const spawnAngle = this.rotation + (i / this.spawnCount) * Math.PI * 2;
+        const spawnX = this.x + Math.cos(spawnAngle) * this.size * 0.8;
+        const spawnY = this.y + Math.sin(spawnAngle) * this.size * 0.8;
+        newShips.push({
+          x: spawnX,
+          y: spawnY,
+          angle: spawnAngle,
+        });
+      }
+    }
+
+    // Check if passed through bottom
+    const passedThrough = this.y > targetY;
+    return { passedThrough, newShips };
+  }
+
+  takeDamage(amount) {
+    this.health -= amount;
+    return this.health <= 0;
+  }
+}
+
+/**
+ * Pyramid Boss - A triangular boss that moves in sudden bursts and rotates menacingly.
+ */
+class PyramidBoss {
+  constructor(x, y, config = {}) {
+    this.x = x;
+    this.y = y;
+    this.vx = 0;
+    this.vy = 0;
+    this.headingAngle = Math.PI / 2;
+    this.maxSpeed = config.speed || 20;
+    this.health = config.health || 20;
+    this.maxHealth = this.health;
+    this.damage = config.damage || 20;
+    this.size = config.size || 28;
+    this.type = 'pyramidBoss';
+    this.isBoss = true;
+    this.scoreValue = config.scoreValue || 150;
+    this.baseColor = config.color || '#2d2d2d';
+    this.color = this.baseColor;
+
+    // Rotation
+    this.rotation = 0;
+    this.rotationSpeed = config.rotationSpeed || 0.8;
+
+    // Burst movement properties
+    this.burstTimer = 0;
+    this.burstInterval = config.burstInterval || 2500;
+    this.burstSpeed = config.burstSpeed || 80;
+    this.isBursting = false;
+    this.burstDuration = 300; // ms
+    this.burstTimeRemaining = 0;
+
+    // Movement
+    this.acceleration = config.acceleration || 40;
+    this.targetX = x;
+    this.targetY = y + 100;
+    this.arrivalThreshold = 25;
+
+    this.trail = [];
+    this.time = 0;
+  }
+
+  pickNewTarget(canvasWidth, canvasHeight, rng) {
+    const minY = this.y + 40;
+    const maxY = Math.min(this.y + 180, canvasHeight * 0.65);
+    this.targetY = rng.range(minY, maxY);
+    const margin = this.size * 2;
+    this.targetX = rng.range(margin, canvasWidth - margin);
+  }
+
+  update(deltaTime, targetY, canvasWidth, canvasHeight, rng) {
+    const dt = deltaTime / 1000;
+    this.time += dt;
+    this.rotation += this.rotationSpeed * dt;
+
+    const previousX = this.x;
+    const previousY = this.y;
+
+    // Handle burst movement
+    this.burstTimer += deltaTime;
+    if (this.burstTimer >= this.burstInterval && !this.isBursting) {
+      this.isBursting = true;
+      this.burstTimeRemaining = this.burstDuration;
+      this.burstTimer = 0;
+      this.pickNewTarget(canvasWidth, canvasHeight, rng);
+    }
+
+    if (this.isBursting) {
+      this.burstTimeRemaining -= deltaTime;
+      if (this.burstTimeRemaining <= 0) {
+        this.isBursting = false;
+      }
+    }
+
+    // Movement
+    const dx = this.targetX - this.x;
+    const dy = this.targetY - this.y;
+    const distToTarget = Math.sqrt(dx * dx + dy * dy);
+
+    if (distToTarget < this.arrivalThreshold && !this.isBursting) {
+      this.pickNewTarget(canvasWidth, canvasHeight, rng);
+    }
+
+    const currentMaxSpeed = this.isBursting ? this.burstSpeed : this.maxSpeed;
+    const dirX = distToTarget > 0 ? dx / distToTarget : 0;
+    const dirY = distToTarget > 0 ? dy / distToTarget : 1;
+
+    const desiredVx = dirX * currentMaxSpeed;
+    const desiredVy = dirY * currentMaxSpeed;
+
+    const accelRate = this.isBursting ? this.acceleration * 3 : this.acceleration;
+    const dvx = desiredVx - this.vx;
+    const dvy = desiredVy - this.vy;
+    const dv = Math.sqrt(dvx * dvx + dvy * dvy);
+
+    if (dv > 0) {
+      const accelAmount = Math.min(accelRate * dt, dv);
+      this.vx += (dvx / dv) * accelAmount;
+      this.vy += (dvy / dv) * accelAmount;
+    }
+
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    this.x = Math.max(this.size, Math.min(canvasWidth - this.size, this.x));
+
+    const deltaX = this.x - previousX;
+    const deltaY = this.y - previousY;
+    if (deltaX !== 0 || deltaY !== 0) {
+      this.headingAngle = Math.atan2(deltaY, deltaX);
+    }
+
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 15) {
+      this.trail.shift();
+    }
+
+    return this.y > targetY;
+  }
+
+  takeDamage(amount) {
+    this.health -= amount;
+    return this.health <= 0;
+  }
+}
+
+/**
+ * Hexagon Fortress Boss - A large hexagonal ship with regenerating health.
+ */
+class HexagonFortressBoss {
+  constructor(x, y, config = {}) {
+    this.x = x;
+    this.y = y;
+    this.vx = 0;
+    this.vy = 0;
+    this.headingAngle = Math.PI / 2;
+    this.maxSpeed = config.speed || 10;
+    this.health = config.health || 50;
+    this.maxHealth = this.health;
+    this.damage = config.damage || 30;
+    this.size = config.size || 45;
+    this.type = 'hexagonFortress';
+    this.isBoss = true;
+    this.scoreValue = config.scoreValue || 300;
+    this.baseColor = config.color || '#0a0a0a';
+    this.color = this.baseColor;
+
+    // Rotation
+    this.rotation = 0;
+    this.rotationSpeed = config.rotationSpeed || 0.3;
+
+    // Shield/regen properties
+    this.shieldRegenRate = config.shieldRegenRate || 0.5;
+    this.regenCooldown = 0;
+    this.regenCooldownMax = 2000; // ms after damage before regen starts
+
+    // Movement
+    this.acceleration = config.acceleration || 20;
+    this.targetX = x;
+    this.targetY = y + 80;
+    this.arrivalThreshold = 35;
+
+    this.trail = [];
+    this.time = 0;
+  }
+
+  pickNewTarget(canvasWidth, canvasHeight, rng) {
+    const minY = this.y + 20;
+    const maxY = Math.min(this.y + 120, canvasHeight * 0.55);
+    this.targetY = rng.range(minY, maxY);
+    const margin = this.size * 2;
+    this.targetX = rng.range(margin, canvasWidth - margin);
+  }
+
+  update(deltaTime, targetY, canvasWidth, canvasHeight, rng) {
+    const dt = deltaTime / 1000;
+    this.time += dt;
+    this.rotation += this.rotationSpeed * dt;
+
+    const previousX = this.x;
+    const previousY = this.y;
+
+    // Health regeneration
+    if (this.regenCooldown > 0) {
+      this.regenCooldown -= deltaTime;
+    } else if (this.health < this.maxHealth) {
+      this.health = Math.min(this.maxHealth, this.health + this.shieldRegenRate * dt);
+    }
+
+    // Movement
+    const dx = this.targetX - this.x;
+    const dy = this.targetY - this.y;
+    const distToTarget = Math.sqrt(dx * dx + dy * dy);
+
+    if (distToTarget < this.arrivalThreshold) {
+      this.pickNewTarget(canvasWidth, canvasHeight, rng);
+    }
+
+    const dirX = distToTarget > 0 ? dx / distToTarget : 0;
+    const dirY = distToTarget > 0 ? dy / distToTarget : 1;
+
+    const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    const brakingDistance = (currentSpeed * currentSpeed) / (2 * this.acceleration);
+
+    let desiredSpeed;
+    if (distToTarget > brakingDistance * 1.5) {
+      desiredSpeed = this.maxSpeed;
+    } else {
+      desiredSpeed = Math.max(3, (distToTarget / brakingDistance) * this.maxSpeed * 0.5);
+    }
+
+    const desiredVx = dirX * desiredSpeed;
+    const desiredVy = dirY * desiredSpeed;
+
+    const dvx = desiredVx - this.vx;
+    const dvy = desiredVy - this.vy;
+    const dv = Math.sqrt(dvx * dvx + dvy * dvy);
+
+    if (dv > 0) {
+      const accelAmount = Math.min(this.acceleration * dt, dv);
+      this.vx += (dvx / dv) * accelAmount;
+      this.vy += (dvy / dv) * accelAmount;
+    }
+
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    this.x = Math.max(this.size, Math.min(canvasWidth - this.size, this.x));
+
+    const deltaX = this.x - previousX;
+    const deltaY = this.y - previousY;
+    if (deltaX !== 0 || deltaY !== 0) {
+      this.headingAngle = Math.atan2(deltaY, deltaX);
+    }
+
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 25) {
+      this.trail.shift();
+    }
+
+    return this.y > targetY;
+  }
+
+  takeDamage(amount) {
+    this.health -= amount;
+    this.regenCooldown = this.regenCooldownMax;
     return this.health <= 0;
   }
 }
@@ -735,6 +1194,7 @@ export class CardinalWardenSimulation {
     this.warden = null;
     this.enemies = [];
     this.bullets = [];
+    this.bosses = []; // Boss ships array
 
     // Death and respawn animation state
     this.gamePhase = 'playing'; // 'playing', 'death', 'respawn'
@@ -750,6 +1210,8 @@ export class CardinalWardenSimulation {
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
     this.waveDuration = GAME_CONFIG.WAVE_DURATION_MS;
+    this.bossSpawnTimer = 0;
+    this.baseBossSpawnInterval = 30000; // Base time between boss spawns (30 seconds)
 
     // Spawn rates (adjusted by difficulty)
     this.baseEnemySpawnInterval = GAME_CONFIG.BASE_ENEMY_SPAWN_INTERVAL_MS;
@@ -851,6 +1313,7 @@ export class CardinalWardenSimulation {
     this.applyRingColors();
     this.refreshEnemyColorsForMode();
     this.refreshBulletColorsForMode();
+    this.refreshBossColorsForMode();
   }
 
   /**
@@ -859,6 +1322,15 @@ export class CardinalWardenSimulation {
   refreshEnemyColorsForMode() {
     for (const enemy of this.enemies) {
       enemy.color = this.nightMode ? '#ffffff' : enemy.baseColor;
+    }
+  }
+
+  /**
+   * Keep current bosses aligned with the active color mode.
+   */
+  refreshBossColorsForMode() {
+    for (const boss of this.bosses) {
+      boss.color = this.nightMode ? '#ffffff' : boss.baseColor;
     }
   }
 
@@ -940,9 +1412,11 @@ export class CardinalWardenSimulation {
     this.enemiesPassedThrough = 0;
     this.enemies = [];
     this.bullets = [];
+    this.bosses = [];
     this.enemySpawnTimer = 0;
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
+    this.bossSpawnTimer = 0;
     
     // Reset animation state
     this.gamePhase = 'playing';
@@ -1039,11 +1513,24 @@ export class CardinalWardenSimulation {
       this.spawnEnemy();
     }
 
+    // Spawn bosses (start spawning at minimum boss difficulty)
+    if (this.difficultyLevel >= GAME_CONFIG.BOSS_MIN_DIFFICULTY) {
+      this.bossSpawnTimer += deltaTime;
+      const bossSpawnInterval = this.getBossSpawnInterval();
+      if (this.bossSpawnTimer >= bossSpawnInterval) {
+        this.bossSpawnTimer = 0;
+        this.spawnBoss();
+      }
+    }
+
     // Fire bullets for each purchased weapon based on their individual fire rates
     this.updateWeaponTimers(deltaTime);
 
     // Update enemies
     this.updateEnemies(deltaTime);
+
+    // Update bosses
+    this.updateBosses(deltaTime);
 
     // Update bullets
     this.updateBullets(deltaTime);
@@ -1219,9 +1706,11 @@ export class CardinalWardenSimulation {
     this.enemiesPassedThrough = 0;
     this.enemies = [];
     this.bullets = [];
+    this.bosses = [];
     this.enemySpawnTimer = 0;
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
+    this.bossSpawnTimer = 0;
 
     // Reinitialize warden
     this.initWarden();
@@ -1327,6 +1816,159 @@ export class CardinalWardenSimulation {
   }
 
   /**
+   * Get boss spawn interval based on difficulty.
+   * Higher difficulty = more frequent boss spawns.
+   */
+  getBossSpawnInterval() {
+    const reduction = Math.min(
+      this.difficultyLevel * GAME_CONFIG.BOSS_SPAWN_INTERVAL_REDUCTION_PER_LEVEL,
+      GAME_CONFIG.BOSS_SPAWN_INTERVAL_MAX_REDUCTION
+    );
+    return Math.max(GAME_CONFIG.BOSS_SPAWN_INTERVAL_MIN, this.baseBossSpawnInterval - reduction);
+  }
+
+  /**
+   * Get pool of boss types available at current difficulty.
+   */
+  getBossTypePool() {
+    const pool = [];
+    // Circle Carrier available at minimum boss difficulty
+    if (this.difficultyLevel >= GAME_CONFIG.BOSS_MIN_DIFFICULTY) pool.push('circleCarrier');
+    // Pyramid Boss available at difficulty 5+
+    if (this.difficultyLevel >= GAME_CONFIG.BOSS_MIN_DIFFICULTY + 2) pool.push('pyramidBoss');
+    // Hexagon Fortress available at difficulty 7+
+    if (this.difficultyLevel >= GAME_CONFIG.BOSS_MIN_DIFFICULTY + 4) pool.push('hexagonFortress');
+    return pool.length > 0 ? pool : ['circleCarrier'];
+  }
+
+  /**
+   * Spawn a boss ship based on current difficulty.
+   */
+  spawnBoss() {
+    if (!this.canvas) return;
+
+    const typePool = this.getBossTypePool();
+    const typeKey = typePool[this.rng.int(0, typePool.length - 1)];
+    const baseConfig = BOSS_TYPES[typeKey];
+
+    // Scale boss stats by difficulty
+    const difficultyMultiplier = 1 + (this.difficultyLevel - GAME_CONFIG.BOSS_MIN_DIFFICULTY) * GAME_CONFIG.BOSS_DIFFICULTY_SCALE;
+
+    const config = {
+      ...baseConfig,
+      speed: baseConfig.speed * (1 + (this.difficultyLevel - GAME_CONFIG.BOSS_MIN_DIFFICULTY) * 0.05),
+      health: Math.ceil(baseConfig.health * difficultyMultiplier),
+      damage: Math.ceil(baseConfig.damage * difficultyMultiplier),
+      scoreValue: Math.ceil(baseConfig.scoreValue * difficultyMultiplier),
+    };
+
+    // Random x position at top of screen
+    const x = this.rng.range(config.size * 2, this.canvas.width - config.size * 2);
+    const y = -config.size;
+
+    let boss;
+    switch (typeKey) {
+      case 'circleCarrier':
+        boss = new CircleCarrierBoss(x, y, config);
+        break;
+      case 'pyramidBoss':
+        boss = new PyramidBoss(x, y, config);
+        break;
+      case 'hexagonFortress':
+        boss = new HexagonFortressBoss(x, y, config);
+        break;
+      default:
+        boss = new CircleCarrierBoss(x, y, config);
+    }
+
+    boss.color = this.nightMode ? '#ffffff' : boss.baseColor;
+    boss.pickNewTarget(this.canvas.width, this.canvas.height, this.rng);
+    this.bosses.push(boss);
+  }
+
+  /**
+   * Update all boss ships.
+   */
+  updateBosses(deltaTime) {
+    if (!this.canvas) return;
+
+    const bottomY = this.canvas.height + 20;
+    const toRemove = [];
+
+    for (let i = 0; i < this.bosses.length; i++) {
+      const boss = this.bosses[i];
+      const result = boss.update(deltaTime, bottomY, this.canvas.width, this.canvas.height, this.rng);
+
+      // Handle different return types
+      let passedThrough = false;
+      let newShips = [];
+
+      if (typeof result === 'object' && result !== null) {
+        passedThrough = result.passedThrough;
+        newShips = result.newShips || [];
+      } else {
+        passedThrough = result;
+      }
+
+      // Spawn ships from Circle Carrier bosses
+      for (const spawnData of newShips) {
+        this.spawnShipFromBoss(spawnData, boss);
+      }
+
+      if (passedThrough) {
+        this.enemiesPassedThrough += 2; // Bosses count as 2 ships passing through
+        toRemove.push(i);
+        // Bosses deal more damage when passing through
+        if (this.warden) {
+          this.warden.takeDamage(boss.damage);
+          if (this.onHealthChange) {
+            this.onHealthChange(this.warden.health, this.warden.maxHealth);
+          }
+        }
+      }
+    }
+
+    // Remove passed bosses
+    for (let i = toRemove.length - 1; i >= 0; i--) {
+      this.bosses.splice(toRemove[i], 1);
+    }
+  }
+
+  /**
+   * Spawn a small ship from a boss (used by Circle Carrier).
+   */
+  spawnShipFromBoss(spawnData, boss) {
+    if (!this.canvas) return;
+
+    // Create a small, fast ship that launches from the boss position
+    const config = {
+      speed: 60 + this.difficultyLevel * 5,
+      health: 1,
+      damage: 3,
+      size: 6,
+      scoreValue: 5,
+      color: '#555',
+      type: 'spawned',
+      acceleration: 100,
+      weaving: false,
+    };
+
+    const ship = new EnemyShip(spawnData.x, spawnData.y, config);
+    ship.color = this.nightMode ? '#ffffff' : ship.baseColor;
+
+    // Give the spawned ship initial velocity in the spawn direction
+    const launchSpeed = 40;
+    ship.vx = Math.cos(spawnData.angle) * launchSpeed;
+    ship.vy = Math.sin(spawnData.angle) * launchSpeed;
+
+    // Set target further down
+    ship.targetX = spawnData.x + Math.cos(spawnData.angle) * 100;
+    ship.targetY = spawnData.y + Math.sin(spawnData.angle) * 100 + 150;
+
+    this.enemies.push(ship);
+  }
+
+  /**
    * Update all enemies.
    */
   updateEnemies(deltaTime) {
@@ -1423,15 +2065,58 @@ export class CardinalWardenSimulation {
       }
     }
 
-    // Remove destroyed entities
-    const bulletIndices = Array.from(bulletsToRemove).sort((a, b) => b - a);
-    for (const i of bulletIndices) {
-      this.bullets.splice(i, 1);
-    }
-
+    // Remove destroyed enemies first (before boss collision check)
     const enemyIndices = Array.from(enemiesToRemove).sort((a, b) => b - a);
     for (const i of enemyIndices) {
       this.enemies.splice(i, 1);
+    }
+
+    // Check collisions with bosses (using remaining bullets)
+    const bossesToRemove = new Set();
+    for (let bi = 0; bi < this.bullets.length; bi++) {
+      const bullet = this.bullets[bi];
+      if (bulletsToRemove.has(bi)) continue;
+
+      const hitBosses = bullet.hitBosses || (bullet.hitBosses = new Set());
+
+      for (let boi = 0; boi < this.bosses.length; boi++) {
+        const boss = this.bosses[boi];
+        if (bossesToRemove.has(boi)) continue;
+        if (hitBosses.has(boi)) continue;
+
+        const dx = bullet.x - boss.x;
+        const dy = bullet.y - boss.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const collisionDist = bullet.size + boss.size;
+
+        if (dist < collisionDist) {
+          const killed = boss.takeDamage(bullet.damage);
+
+          if (killed) {
+            bossesToRemove.add(boi);
+            this.addScore(boss.scoreValue);
+          }
+
+          if (bullet.piercing) {
+            hitBosses.add(boi);
+          } else {
+            bulletsToRemove.add(bi);
+            break;
+          }
+        }
+      }
+    }
+
+    // Remove destroyed bosses
+    const bossIndices = Array.from(bossesToRemove).sort((a, b) => b - a);
+    for (const i of bossIndices) {
+      this.bosses.splice(i, 1);
+    }
+
+    // Remove all bullets that hit enemies or bosses (single pass)
+    const bulletIndices = Array.from(bulletsToRemove).sort((a, b) => b - a);
+    for (const i of bulletIndices) {
+      this.bullets.splice(i, 1);
     }
   }
 
@@ -1513,6 +2198,8 @@ export class CardinalWardenSimulation {
         this.renderWarden();
         // Draw enemies
         this.renderEnemies();
+        // Draw bosses
+        this.renderBosses();
         // Draw bullets
         this.renderBullets();
         break;
@@ -1540,6 +2227,7 @@ export class CardinalWardenSimulation {
       
       // Still show enemies during shake
       this.renderEnemies();
+      this.renderBosses();
       this.renderBullets();
     }
     
@@ -1671,6 +2359,227 @@ export class CardinalWardenSimulation {
       }
 
       ctx.restore();
+    }
+  }
+
+  /**
+   * Render all boss ships with distinctive visuals.
+   */
+  renderBosses() {
+    if (!this.ctx) return;
+
+    const ctx = this.ctx;
+
+    for (const boss of this.bosses) {
+      // Render trail
+      ctx.save();
+      ctx.fillStyle = this.enemyTrailColor;
+      for (let i = 0; i < boss.trail.length - 1; i++) {
+        const point = boss.trail[i];
+        const alpha = (i + 1) / boss.trail.length;
+        ctx.globalAlpha = alpha * 0.6;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, Math.max(2, boss.size * 0.15 * alpha), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.translate(boss.x, boss.y);
+
+      // Draw boss based on type
+      switch (boss.type) {
+        case 'circleCarrier':
+          this.renderCircleCarrierBoss(ctx, boss);
+          break;
+        case 'pyramidBoss':
+          this.renderPyramidBoss(ctx, boss);
+          break;
+        case 'hexagonFortress':
+          this.renderHexagonFortressBoss(ctx, boss);
+          break;
+        default:
+          this.renderCircleCarrierBoss(ctx, boss);
+      }
+
+      // Health bar for all bosses
+      const healthPercent = boss.health / boss.maxHealth;
+      const barWidth = boss.size * 2;
+      const barHeight = 4;
+      const barY = -boss.size - 10;
+
+      ctx.fillStyle = this.nightMode ? 'rgba(255, 255, 255, 0.3)' : '#ddd';
+      ctx.fillRect(-barWidth / 2, barY, barWidth, barHeight);
+
+      // Health bar color changes based on health
+      let healthColor;
+      if (healthPercent > 0.6) {
+        healthColor = this.nightMode ? '#90EE90' : '#4a4';
+      } else if (healthPercent > 0.3) {
+        healthColor = this.nightMode ? '#FFD700' : '#aa4';
+      } else {
+        healthColor = this.nightMode ? '#FF6B6B' : '#a44';
+      }
+      ctx.fillStyle = healthColor;
+      ctx.fillRect(-barWidth / 2, barY, barWidth * healthPercent, barHeight);
+
+      // Border
+      ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.6)' : '#666';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-barWidth / 2, barY, barWidth, barHeight);
+
+      ctx.restore();
+    }
+  }
+
+  /**
+   * Render Circle Carrier boss - large rotating circle with inner rings.
+   */
+  renderCircleCarrierBoss(ctx, boss) {
+    const fillColor = this.nightMode ? '#ffffff' : boss.color;
+    const strokeColor = this.nightMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.5)';
+
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(0, 0, boss.size, 0, Math.PI * 2);
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Inner rotating rings
+    ctx.save();
+    ctx.rotate(boss.rotation);
+    for (const ring of boss.innerRings) {
+      ctx.beginPath();
+      ctx.arc(0, 0, boss.size * ring.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(100, 100, 100, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Spawn indicator dots around the circle
+    ctx.save();
+    ctx.rotate(boss.rotation);
+    const dotCount = boss.spawnCount;
+    for (let i = 0; i < dotCount; i++) {
+      const angle = (i / dotCount) * Math.PI * 2;
+      const dotX = Math.cos(angle) * boss.size * 0.7;
+      const dotY = Math.sin(angle) * boss.size * 0.7;
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 3, 0, Math.PI * 2);
+      ctx.fillStyle = this.nightMode ? '#ffcc00' : '#d4af37';
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Center indicator
+    ctx.beginPath();
+    ctx.arc(0, 0, boss.size * 0.2, 0, Math.PI * 2);
+    ctx.fillStyle = this.nightMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(50, 50, 50, 0.8)';
+    ctx.fill();
+  }
+
+  /**
+   * Render Pyramid boss - rotating triangle with burst indicator.
+   */
+  renderPyramidBoss(ctx, boss) {
+    const fillColor = this.nightMode ? '#ffffff' : boss.color;
+    const strokeColor = this.nightMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.5)';
+
+    // Rotating triangle
+    ctx.save();
+    ctx.rotate(boss.rotation);
+
+    ctx.beginPath();
+    ctx.moveTo(0, -boss.size);
+    ctx.lineTo(-boss.size * 0.866, boss.size * 0.5);
+    ctx.lineTo(boss.size * 0.866, boss.size * 0.5);
+    ctx.closePath();
+
+    // Flash during burst
+    if (boss.isBursting) {
+      ctx.fillStyle = this.nightMode ? '#ff6666' : '#cc4444';
+    } else {
+      ctx.fillStyle = fillColor;
+    }
+    ctx.fill();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Inner triangle
+    const innerScale = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -boss.size * innerScale);
+    ctx.lineTo(-boss.size * 0.866 * innerScale, boss.size * 0.5 * innerScale);
+    ctx.lineTo(boss.size * 0.866 * innerScale, boss.size * 0.5 * innerScale);
+    ctx.closePath();
+    ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(100, 100, 100, 0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  /**
+   * Render Hexagon Fortress boss - large rotating hexagon with shield indicator.
+   */
+  renderHexagonFortressBoss(ctx, boss) {
+    const fillColor = this.nightMode ? '#ffffff' : boss.color;
+    const strokeColor = this.nightMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.5)';
+
+    // Rotating hexagon
+    ctx.save();
+    ctx.rotate(boss.rotation);
+
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const x = Math.cos(angle) * boss.size;
+      const y = Math.sin(angle) * boss.size;
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.closePath();
+
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Inner hexagon
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const x = Math.cos(angle) * boss.size * 0.6;
+      const y = Math.sin(angle) * boss.size * 0.6;
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.closePath();
+    ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(100, 100, 100, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.restore();
+
+    // Shield regeneration indicator (glowing when regenerating)
+    if (boss.regenCooldown <= 0 && boss.health < boss.maxHealth) {
+      ctx.beginPath();
+      ctx.arc(0, 0, boss.size + 5, 0, Math.PI * 2);
+      ctx.strokeStyle = this.nightMode ? 'rgba(100, 255, 100, 0.4)' : 'rgba(0, 200, 0, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
   }
 
