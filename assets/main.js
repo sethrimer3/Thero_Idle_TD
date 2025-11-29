@@ -343,6 +343,8 @@ import {
   setLamedSimulationGetter,
   initializeLamedSpirePreferences,
 } from './lamedSpirePreferences.js';
+import { bindSpireOptionsDropdown, closeAllSpireDropdowns } from './spireOptionsDropdowns.js';
+import { bindKufSpireOptions, initializeKufSpirePreferences } from './kufSpirePreferences.js';
 import { createDeveloperModeManager } from './developerModeManager.js';
 import {
   moteGemState,
@@ -5068,6 +5070,32 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindWaveDamageTallyToggle();
     bindFrameRateLimitSlider();
     bindFpsCounterToggle();
+    // Activate spire option dropdown toggles so every tab shares the same UX as Lamed.
+    bindSpireOptionsDropdown({
+      toggleId: 'powder-options-toggle-button',
+      menuId: 'powder-options-menu',
+      spireId: 'powder',
+    });
+    bindSpireOptionsDropdown({
+      toggleId: 'fluid-options-toggle-button',
+      menuId: 'fluid-options-menu',
+      spireId: 'fluid',
+    });
+    bindSpireOptionsDropdown({
+      toggleId: 'tsadi-options-toggle-button',
+      menuId: 'tsadi-options-menu',
+      spireId: 'tsadi',
+    });
+    bindSpireOptionsDropdown({
+      toggleId: 'shin-options-toggle-button',
+      menuId: 'shin-options-menu',
+      spireId: 'shin',
+    });
+    bindSpireOptionsDropdown({
+      toggleId: 'kuf-options-toggle-button',
+      menuId: 'kuf-options-menu',
+      spireId: 'kuf',
+    });
     initializeColorScheme();
     bindAudioControls();
 
@@ -5143,6 +5171,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       getOverlayActiveState: () => Boolean(levelOverlayController?.isOverlayActive()),
       isFieldNotesOverlayVisible,
       onTabChange: (tabId) => {
+        closeAllSpireDropdowns();
         // Hide the tower selection wheel whenever players leave the Stage tab.
         if (tabId !== 'tower' && playfield && typeof playfield.closeTowerSelectionWheel === 'function') {
           playfield.closeTowerSelectionWheel();
@@ -5457,6 +5486,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                   spireMenuController.updateCounts();
                 },
               });
+              initializeKufSpirePreferences();
+              bindKufSpireOptions();
               kufUiInitialized = true;
               updateKufDisplay();
             } catch (error) {

@@ -95,6 +95,8 @@ export class KufBattlefieldSimulation {
     this.smoothedFrameCost = 12;
     this.overlaySkipInterval = this.renderProfile === 'light' ? 2 : 1;
     this.overlaySkipCounter = 0;
+    this.userRenderMode = 'auto';
+    this.glowOverlaysEnabled = true;
     const providedMaps = Array.isArray(maps) ? maps : null;
     this.availableMaps = providedMaps && providedMaps.length
       ? providedMaps.map((map) => ({ ...map }))
@@ -679,16 +681,36 @@ export class KufBattlefieldSimulation {
    * @param {number} frameCostMs - Combined update+render duration for the last frame.
    */
   updateRenderProfile(frameCostMs) {
-    if (isLowGraphicsModeActive()) {
-      // Honor the explicit low graphics toggle even if frames are inexpensive.
+    const forceLightProfile = this.userRenderMode === 'minimal' || isLowGraphicsModeActive();
+    if (forceLightProfile) {
+      // Honor explicit performance mode and the global low graphics preference.
       this.renderProfile = 'light';
       this.overlaySkipInterval = 2;
+      return;
+    }
+    if (this.userRenderMode === 'cinematic') {
+      this.renderProfile = 'high';
+      this.overlaySkipInterval = 1;
       return;
     }
     this.smoothedFrameCost = (1 - FRAME_COST_SMOOTHING) * this.smoothedFrameCost + FRAME_COST_SMOOTHING * frameCostMs;
     const shouldDownshift = this.smoothedFrameCost > HIGH_QUALITY_FRAME_BUDGET_MS;
     this.renderProfile = shouldDownshift ? 'light' : 'high';
     this.overlaySkipInterval = shouldDownshift ? 2 : 1;
+  }
+
+  /**
+   * Apply player-driven visual preferences like glow overlays and fixed render modes.
+   * @param {{ renderMode?: 'auto' | 'minimal' | 'cinematic', glowOverlays?: boolean }} settings - Visual toggles.
+   */
+  setVisualSettings(settings = {}) {
+    if (settings.renderMode) {
+      this.userRenderMode = settings.renderMode;
+    }
+    if (typeof settings.glowOverlays === 'boolean') {
+      this.glowOverlaysEnabled = settings.glowOverlays;
+    }
+    this.updateRenderProfile(this.smoothedFrameCost);
   }
 
   update(delta) {
@@ -1371,6 +1393,7 @@ export class KufBattlefieldSimulation {
 
   drawMarines() {
     const ctx = this.ctx;
+    const glowsEnabled = this.glowOverlaysEnabled;
     this.marines.forEach((marine) => {
       const healthRatio = marine.health / marine.maxHealth;
       ctx.save();
@@ -1388,9 +1411,9 @@ export class KufBattlefieldSimulation {
         shadowColor = 'rgba(66, 224, 255, 0.8)';
       }
       
-      const marineGlow = this.renderProfile === 'light' ? 10 : 24;
+      const marineGlow = glowsEnabled ? (this.renderProfile === 'light' ? 10 : 24) : 0;
       ctx.shadowBlur = marineGlow;
-      ctx.shadowColor = shadowColor;
+      ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
       ctx.fillStyle = mainColor;
       ctx.beginPath();
       ctx.arc(marine.x, marine.y, marine.radius, 0, Math.PI * 2);
@@ -1409,6 +1432,7 @@ export class KufBattlefieldSimulation {
 
   drawTurrets() {
     const ctx = this.ctx;
+    const glowsEnabled = this.glowOverlaysEnabled;
     this.turrets.forEach((turret) => {
       const healthRatio = Math.max(0, turret.health / turret.maxHealth);
       ctx.save();
@@ -1521,9 +1545,9 @@ export class KufBattlefieldSimulation {
         strokeColor = `rgba(255, ${80 + healthRatio * 120}, 200, 0.9)`;
       }
 
-      const turretGlow = this.renderProfile === 'light' ? 10 : 18;
+      const turretGlow = glowsEnabled ? (this.renderProfile === 'light' ? 10 : 18) : 0;
       ctx.shadowBlur = turretGlow;
-      ctx.shadowColor = shadowColor;
+      ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
       ctx.fillStyle = mainColor;
       ctx.beginPath();
       ctx.arc(turret.x, turret.y, turret.radius, 0, Math.PI * 2);
@@ -1560,6 +1584,7 @@ export class KufBattlefieldSimulation {
 
   drawBullets() {
     const ctx = this.ctx;
+    const glowsEnabled = this.glowOverlaysEnabled;
     this.bullets.forEach((bullet) => {
       ctx.save();
       
@@ -1594,9 +1619,9 @@ export class KufBattlefieldSimulation {
         }
       }
       
-      const bulletGlow = this.renderProfile === 'light' ? 8 : 16;
+      const bulletGlow = glowsEnabled ? (this.renderProfile === 'light' ? 8 : 16) : 0;
       ctx.shadowBlur = bulletGlow;
-      ctx.shadowColor = shadowColor;
+      ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(bullet.x, bullet.y, size, 0, Math.PI * 2);

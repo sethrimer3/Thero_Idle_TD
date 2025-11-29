@@ -9674,7 +9674,8 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 /* Lamed Spire Options Dropdown Card */
-.lamed-spire-options-card {
+.lamed-spire-options-card,
+.spire-options-card {
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
@@ -9683,7 +9684,8 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   margin: 0 auto;
 }
 
-.lamed-spire-options-trigger {
+.lamed-spire-options-trigger,
+.spire-options-trigger {
   width: 100%;
   display: inline-flex;
   justify-content: center;
@@ -9694,13 +9696,15 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   letter-spacing: 0.06em;
 }
 
-.lamed-spire-options-glyph {
+.lamed-spire-options-glyph,
+.spire-options-glyph {
   font-size: 1.3em;
   color: var(--accent-3);
   text-shadow: 0 0 8px rgba(255, 228, 120, 0.35);
 }
 
-.lamed-spire-options-menu {
+.lamed-spire-options-menu,
+.spire-options-menu {
   display: grid;
   gap: 12px;
   overflow: hidden;
@@ -9709,27 +9713,32 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   transition: max-height 320ms ease, opacity 280ms ease;
 }
 
-.lamed-spire-options-menu[data-open='true'] {
+.lamed-spire-options-menu[data-open='true'],
+.spire-options-menu[data-open='true'] {
   opacity: 1;
   margin-top: 8px;
   pointer-events: auto;
 }
 
-.lamed-spire-options-menu[data-open='false'] {
+.lamed-spire-options-menu[data-open='false'],
+.spire-options-menu[data-open='false'] {
   pointer-events: none;
 }
 
-.lamed-spire-options-menu .action-button {
+.lamed-spire-options-menu .action-button,
+.spire-options-menu .action-button {
   width: 100%;
 }
 
-.lamed-spire-options-menu .settings-toggle {
+.lamed-spire-options-menu .settings-toggle,
+.spire-options-menu .settings-toggle {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.lamed-spire-options-menu .settings-toggle:first-of-type {
+.lamed-spire-options-menu .settings-toggle:first-of-type,
+.spire-options-menu .settings-toggle:first-of-type {
   margin-top: 12px;
 }
 
