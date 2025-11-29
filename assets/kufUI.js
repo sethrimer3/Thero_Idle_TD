@@ -39,6 +39,7 @@ import {
   loadKufMaps,
   onKufMapsReady,
 } from './kufMapData.js';
+import { setKufSimulationGetter } from './kufSpirePreferences.js';
 
 let simulation = null;
 let kufElements = {};
@@ -316,6 +317,8 @@ function ensureSimulationInstance() {
     },
     maps: kufMapList,
   });
+  // Share the simulation reference so spire options can downshift heavy effects on demand.
+  setKufSimulationGetter(() => simulation);
   simulation.resize();
   window.addEventListener('resize', () => simulation.resize());
 }
