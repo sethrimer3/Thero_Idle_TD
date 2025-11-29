@@ -11,6 +11,16 @@
  * Moon: Blue Voronoi fractal with thick blue circle rim and transparent blue stained glass center.
  */
 
+// Configuration constants for celestial body rendering
+/** Default size of the celestial body canvas in CSS pixels (matches CSS .fluid-terrarium__sun width/height) */
+const CELESTIAL_BODY_SIZE_PX = 52;
+/** Maximum scale factor to prevent overly large canvases on high-DPI screens */
+const MAX_CANVAS_SCALE_FACTOR = 4;
+/** Multiplier applied to device pixel ratio for crisp rendering */
+const CANVAS_DPR_MULTIPLIER = 2;
+/** Epsilon threshold for Voronoi cell boundary ray intersection calculations */
+const VORONOI_RAY_EPSILON = -1e-5;
+
 /**
  * Simplified Voronoi renderer for celestial bodies.
  * Generates a stained glass tessellation with a thick rim and transparent center.
@@ -111,7 +121,7 @@ class CelestialVoronoiRenderer {
           const dy = seed.y - other.y;
           const denom = 2 * (dirX * dx + dirY * dy);
 
-          if (denom < -1e-5) {
+          if (denom < VORONOI_RAY_EPSILON) {
             const candidate = (dx * dx + dy * dy) / -denom;
             if (candidate > 0 && candidate < radius) {
               radius = candidate;
@@ -278,12 +288,11 @@ export class FluidTerrariumCelestialBodies {
     const dpr = typeof window !== 'undefined' && Number.isFinite(window.devicePixelRatio)
       ? window.devicePixelRatio
       : 1;
-    const scaleFactor = Math.min(dpr * 2, 4);
+    const scaleFactor = Math.min(dpr * CANVAS_DPR_MULTIPLIER, MAX_CANVAS_SCALE_FACTOR);
 
-    // Match the container size (52px default from CSS)
-    const size = 52;
-    canvas.width = Math.round(size * scaleFactor);
-    canvas.height = Math.round(size * scaleFactor);
+    // Match the container size defined in CSS for .fluid-terrarium__sun and .fluid-terrarium__moon
+    canvas.width = Math.round(CELESTIAL_BODY_SIZE_PX * scaleFactor);
+    canvas.height = Math.round(CELESTIAL_BODY_SIZE_PX * scaleFactor);
     canvas.style.width = '100%';
     canvas.style.height = '100%';
     canvas.style.position = 'absolute';
