@@ -284,6 +284,7 @@ class EnemyShip {
     this.time = 0;
     this.lastWaveOffset = 0; // Track previous wave offset for delta-based application
     this.trail = []; // Recent positions to render an inky trail
+    this.smokePuffs = []; // Smoke puffs emitted from exhaust, stored with world-space positions
     
     // "Go straight" behavior for unpredictability
     this.goingStraight = false;
@@ -414,6 +415,41 @@ class EnemyShip {
     this.trail.push({ x: this.x, y: this.y });
     if (this.trail.length > 12) {
       this.trail.shift();
+    }
+
+    // Emit smoke puffs from the exhaust at the ship's current position/angle.
+    // These are stored in world space so they don't rotate with the ship.
+    const tailDirectionX = Math.cos(this.headingAngle);
+    const tailDirectionY = Math.sin(this.headingAngle);
+    const tailOriginX = this.x - tailDirectionX * (this.size * 0.6);
+    const tailOriginY = this.y - tailDirectionY * (this.size * 0.6);
+    const baseSmokeRadius = Math.max(2, this.size * 0.3);
+    
+    // Add a new smoke puff every few frames (controlled by time accumulation)
+    this.smokePuffs.push({
+      x: tailOriginX,
+      y: tailOriginY,
+      radius: baseSmokeRadius,
+      alpha: 0.42,
+      age: 0,
+    });
+    
+    // Update existing smoke puffs - they fade and shrink over time
+    for (let i = this.smokePuffs.length - 1; i >= 0; i--) {
+      const puff = this.smokePuffs[i];
+      puff.age += dt;
+      puff.alpha = Math.max(0, 0.42 - puff.age * 0.7);
+      puff.radius = baseSmokeRadius * Math.max(0.5, 1 - puff.age * 0.3);
+      
+      // Remove puffs that have fully faded
+      if (puff.alpha <= 0 || puff.age > 0.6) {
+        this.smokePuffs.splice(i, 1);
+      }
+    }
+    
+    // Limit smoke puffs to prevent memory growth
+    while (this.smokePuffs.length > 15) {
+      this.smokePuffs.shift();
     }
 
     return this.y > targetY;
@@ -1280,6 +1316,12 @@ export class CardinalWardenSimulation {
     this.enemies = [];
     this.bullets = [];
     this.bosses = []; // Boss ships array
+    this.scorePopups = []; // Floating score text when enemies are destroyed
+
+    // Base health upgrade system (can be upgraded with iterons)
+    this.baseHealthLevel = options.baseHealthLevel || 0;
+    this.baseHealthUpgradeCost = 50; // Base cost in iterons for first upgrade
+    this.baseHealthPerLevel = 10; // Additional health per upgrade level
 
     // Death and respawn animation state
     this.gamePhase = 'playing'; // 'playing', 'death', 'respawn'
@@ -1456,6 +1498,69 @@ export class CardinalWardenSimulation {
     const x = this.canvas.width / 2;
     const y = this.canvas.height * 0.75;
     this.warden = new CardinalWarden(x, y, this.rng);
+    
+    // Apply base health upgrade
+    const bonusHealth = this.baseHealthLevel * this.baseHealthPerLevel;
+    this.warden.maxHealth = GAME_CONFIG.WARDEN_MAX_HEALTH + bonusHealth;
+    this.warden.health = this.warden.maxHealth;
+  }
+
+  /**
+   * Get the current base health upgrade level.
+   */
+  getBaseHealthLevel() {
+    return this.baseHealthLevel;
+  }
+
+  /**
+   * Get the cost to upgrade base health to the next level.
+   * Cost increases by 50% each level: 50, 75, 112, 168, 252...
+   */
+  getBaseHealthUpgradeCost() {
+    return Math.floor(this.baseHealthUpgradeCost * Math.pow(1.5, this.baseHealthLevel));
+  }
+
+  /**
+   * Get the current max health (base + upgrades).
+   */
+  getMaxHealth() {
+    return GAME_CONFIG.WARDEN_MAX_HEALTH + this.baseHealthLevel * this.baseHealthPerLevel;
+  }
+
+  /**
+   * Upgrade base health (call after spending iterons externally).
+   * @returns {boolean} True if upgrade was applied
+   */
+  upgradeBaseHealth() {
+    this.baseHealthLevel += 1;
+    
+    // Apply to current warden if it exists
+    if (this.warden) {
+      const bonusHealth = this.baseHealthLevel * this.baseHealthPerLevel;
+      const oldMaxHealth = this.warden.maxHealth;
+      this.warden.maxHealth = GAME_CONFIG.WARDEN_MAX_HEALTH + bonusHealth;
+      // Heal by the amount of new health gained
+      this.warden.health = Math.min(this.warden.maxHealth, this.warden.health + (this.warden.maxHealth - oldMaxHealth));
+      if (this.onHealthChange) {
+        this.onHealthChange(this.warden.health, this.warden.maxHealth);
+      }
+    }
+    
+    return true;
+  }
+
+  /**
+   * Set the base health level (for loading saved state).
+   * @param {number} level - The level to set
+   */
+  setBaseHealthLevel(level) {
+    this.baseHealthLevel = Math.max(0, Math.floor(level));
+    // Apply to current warden if it exists
+    if (this.warden) {
+      const bonusHealth = this.baseHealthLevel * this.baseHealthPerLevel;
+      this.warden.maxHealth = GAME_CONFIG.WARDEN_MAX_HEALTH + bonusHealth;
+      this.warden.health = Math.min(this.warden.health, this.warden.maxHealth);
+    }
   }
 
   /**
@@ -1633,6 +1738,9 @@ export class CardinalWardenSimulation {
 
     // Check collisions
     this.checkCollisions();
+
+    // Update floating score popups
+    this.updateScorePopups(deltaTime);
 
     // Check game over conditions
     this.checkGameOver();
@@ -2257,6 +2365,8 @@ export class CardinalWardenSimulation {
           if (killed) {
             enemiesToRemove.add(ei);
             this.addScore(enemy.scoreValue);
+            // Spawn floating score popup at enemy position
+            this.spawnScorePopup(enemy.x, enemy.y, enemy.scoreValue);
           }
 
           if (bullet.piercing) {
@@ -2299,6 +2409,8 @@ export class CardinalWardenSimulation {
           if (killed) {
             bossesToRemove.add(boi);
             this.addScore(boss.scoreValue);
+            // Spawn floating score popup at boss position
+            this.spawnScorePopup(boss.x, boss.y, boss.scoreValue);
           }
 
           if (bullet.piercing) {
@@ -2332,6 +2444,64 @@ export class CardinalWardenSimulation {
     if (this.onScoreChange) {
       this.onScoreChange(this.score);
     }
+  }
+
+  /**
+   * Spawn a floating score popup at the given position.
+   * @param {number} x - X position
+   * @param {number} y - Y position
+   * @param {number} value - Score value to display
+   */
+  spawnScorePopup(x, y, value) {
+    this.scorePopups.push({
+      x,
+      y,
+      value,
+      age: 0,
+      alpha: 1,
+      offsetY: 0,
+    });
+  }
+
+  /**
+   * Update all floating score popups.
+   * @param {number} deltaTime - Time elapsed since last frame in ms
+   */
+  updateScorePopups(deltaTime) {
+    const dt = deltaTime / 1000;
+    for (let i = this.scorePopups.length - 1; i >= 0; i--) {
+      const popup = this.scorePopups[i];
+      popup.age += dt;
+      popup.offsetY -= 40 * dt; // Float upward
+      popup.alpha = Math.max(0, 1 - popup.age / 1.0); // Fade out over 1 second
+      
+      // Remove popups that have fully faded
+      if (popup.alpha <= 0 || popup.age > 1.0) {
+        this.scorePopups.splice(i, 1);
+      }
+    }
+  }
+
+  /**
+   * Render all floating score popups.
+   */
+  renderScorePopups() {
+    if (!this.ctx) return;
+    
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = 'bold 14px "Cormorant Garamond", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    for (const popup of this.scorePopups) {
+      ctx.globalAlpha = popup.alpha;
+      // Use a contrasting color based on night mode
+      ctx.fillStyle = this.nightMode ? '#ffcc00' : '#d4af37';
+      ctx.fillText(`+${popup.value}`, popup.x, popup.y + popup.offsetY);
+    }
+    
+    ctx.restore();
   }
 
   /**
@@ -2406,6 +2576,8 @@ export class CardinalWardenSimulation {
         this.renderBosses();
         // Draw bullets
         this.renderBullets();
+        // Draw floating score popups
+        this.renderScorePopups();
         break;
     }
 
@@ -2535,25 +2707,13 @@ export class CardinalWardenSimulation {
       }
       ctx.restore();
 
-      // Paint shrinking exhaust puffs that emit from the back of each ship for motion clarity.
-      const tailDirectionX = Math.cos(enemy.headingAngle);
-      const tailDirectionY = Math.sin(enemy.headingAngle);
-      const tailOriginX = enemy.x - tailDirectionX * (enemy.size * 0.6);
-      const tailOriginY = enemy.y - tailDirectionY * (enemy.size * 0.6);
-      const baseSmokeRadius = Math.max(2, enemy.size * 0.3);
-
+      // Render smoke puffs from the stored world-space positions (they don't rotate with the ship).
       ctx.save();
       ctx.fillStyle = this.enemySmokeColor;
-      for (let puffIndex = 0; puffIndex < 3; puffIndex += 1) {
-        const falloff = puffIndex / 3;
-        const radius = baseSmokeRadius * (1 - falloff * 0.5);
-        const distanceBehind = enemy.size * (1 + puffIndex * 0.7);
-        const x = tailOriginX - tailDirectionX * distanceBehind;
-        const y = tailOriginY - tailDirectionY * distanceBehind;
-
-        ctx.globalAlpha = (0.42 - falloff * 0.12) * (this.nightMode ? 1.15 : 1);
+      for (const puff of enemy.smokePuffs) {
+        ctx.globalAlpha = puff.alpha * (this.nightMode ? 1.15 : 1);
         ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.arc(puff.x, puff.y, puff.radius, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
@@ -2966,6 +3126,7 @@ export class CardinalWardenSimulation {
         levels: { ...this.weapons.levels },
         activeWeaponId: this.weapons.activeWeaponId,
       },
+      baseHealthLevel: this.baseHealthLevel,
     };
   }
 
@@ -2984,6 +3145,9 @@ export class CardinalWardenSimulation {
     }
     if (state.weapons) {
       this.setWeaponState(state.weapons);
+    }
+    if (state.baseHealthLevel !== undefined) {
+      this.setBaseHealthLevel(state.baseHealthLevel);
     }
   }
 

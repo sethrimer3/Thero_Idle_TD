@@ -41,6 +41,8 @@ let cardinalHighestWave = 0;
 let glyphsAwardedFromWaves = 0;
 // Weapon state
 let weaponState = null;
+// Base health upgrade level
+let baseHealthLevel = 0;
 
 /**
  * Initialize the Cardinal Warden UI and simulation.
@@ -109,6 +111,7 @@ function loadCardinalState() {
       cardinalHighestWave = state.highestWave || 0;
       glyphsAwardedFromWaves = state.glyphsAwardedFromWaves || 0;
       weaponState = state.weapons || null;
+      baseHealthLevel = state.baseHealthLevel || 0;
     }
   } catch (error) {
     console.warn('Failed to load Cardinal Warden state:', error);
@@ -125,6 +128,7 @@ function saveCardinalState() {
       highestWave: cardinalHighestWave,
       glyphsAwardedFromWaves: glyphsAwardedFromWaves,
       weapons: cardinalSimulation ? cardinalSimulation.getWeaponState() : weaponState,
+      baseHealthLevel: cardinalSimulation ? cardinalSimulation.getBaseHealthLevel() : baseHealthLevel,
     };
     localStorage.setItem(CARDINAL_STATE_STORAGE_KEY, JSON.stringify(state));
   } catch (error) {
@@ -191,6 +195,7 @@ function createCardinalSimulation() {
     canvas: cardinalElements.canvas,
     highScore: cardinalHighScore,
     highestWave: cardinalHighestWave,
+    baseHealthLevel: baseHealthLevel,
     autoStart: true,
     onScoreChange: handleScoreChange,
     onHighScoreChange: handleHighScoreChange,
@@ -552,6 +557,64 @@ export function isCardinalSimulationRunning() {
  */
 export function getCardinalHighestWave() {
   return cardinalHighestWave;
+}
+
+/**
+ * Get the high score reached in Cardinal Warden.
+ * Used for calculating idle iteron rate (high score / 10 = iterons per hour).
+ */
+export function getCardinalHighScore() {
+  return cardinalHighScore;
+}
+
+/**
+ * Get the current base health upgrade level.
+ */
+export function getCardinalBaseHealthLevel() {
+  if (cardinalSimulation) {
+    return cardinalSimulation.getBaseHealthLevel();
+  }
+  return baseHealthLevel;
+}
+
+/**
+ * Get the cost to upgrade base health to the next level (in iterons).
+ */
+export function getCardinalBaseHealthUpgradeCost() {
+  if (cardinalSimulation) {
+    return cardinalSimulation.getBaseHealthUpgradeCost();
+  }
+  // Default calculation if simulation not initialized
+  return Math.floor(50 * Math.pow(1.5, baseHealthLevel));
+}
+
+/**
+ * Get the current max health (base + upgrades).
+ */
+export function getCardinalMaxHealth() {
+  if (cardinalSimulation) {
+    return cardinalSimulation.getMaxHealth();
+  }
+  // Default calculation if simulation not initialized
+  return 100 + baseHealthLevel * 10;
+}
+
+/**
+ * Upgrade base health using iterons.
+ * @returns {boolean} True if upgrade was successful
+ */
+export function upgradeCardinalBaseHealth() {
+  if (!cardinalSimulation) return false;
+  
+  const cost = cardinalSimulation.getBaseHealthUpgradeCost();
+  if (!spendIterons(cost)) return false;
+  
+  cardinalSimulation.upgradeBaseHealth();
+  baseHealthLevel = cardinalSimulation.getBaseHealthLevel();
+  saveCardinalState();
+  updateTotalIteronsDisplay();
+  
+  return true;
 }
 
 /**
