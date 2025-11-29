@@ -2334,6 +2334,27 @@ body.graphics-mode-low .control-button {
   opacity: 0.75;
 }
 
+/* Locked campaign diamonds swap to a padlock and become visibly muted. */
+.campaign-button--locked .campaign-button-trigger {
+  filter: grayscale(0.75);
+  opacity: 0.55;
+  border-color: rgba(255, 215, 100, 0.18);
+  box-shadow: none;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.campaign-button--locked .campaign-button-trigger::after {
+  opacity: 0;
+}
+
+.campaign-button--locked .campaign-button-glyph,
+.campaign-button--locked .campaign-button-title,
+.campaign-button--locked .campaign-button-count {
+  color: rgba(255, 255, 255, 0.62);
+  text-shadow: none;
+}
+
 .campaign-button-sets {
   flex: 1 1 100%;
   display: flex;
