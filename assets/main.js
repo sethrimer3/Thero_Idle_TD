@@ -345,6 +345,11 @@ import {
   setLamedSimulationGetter,
   initializeLamedSpirePreferences,
 } from './lamedSpirePreferences.js';
+import {
+  bindTsadiSpireOptions,
+  initializeTsadiSpirePreferences,
+  setTsadiSimulationGetter,
+} from './tsadiSpirePreferences.js';
 import { bindSpireOptionsDropdown, closeAllSpireDropdowns } from './spireOptionsDropdowns.js';
 import { bindKufSpireOptions, initializeKufSpirePreferences } from './kufSpirePreferences.js';
 import { createDeveloperModeManager } from './developerModeManager.js';
@@ -1481,6 +1486,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let tsadiDeveloperSpamActive = false;
   let tsadiDeveloperSpamAttached = false;
   let tsadiSimulationInstance = null;
+  let tsadiOptionsBound = false;
   let shinSimulationInstance = null;
   let tsadiBindingUiInitialized = false;
   let kufUiInitialized = false;
@@ -5509,6 +5515,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 },
                 onMoleculeDiscovered: handleMoleculeDiscovery,
               });
+              setTsadiSimulationGetter(() => tsadiSimulationInstance);
+              initializeTsadiSpirePreferences();
+              if (!tsadiOptionsBound) {
+                bindTsadiSpireOptions();
+                tsadiOptionsBound = true;
+              }
               tsadiSimulationInstance.resize();
               tsadiSimulationInstance.setAvailableBindingAgents(getTsadiBindingAgents());
               tsadiSimulationInstance.beginPlacementFromStoredCounts?.();
