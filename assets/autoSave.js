@@ -33,6 +33,8 @@ export const KUF_STATE_STORAGE_KEY = 'glyph-defense-idle:kuf-state';
 export const SPIRE_RESOURCE_STORAGE_KEY = 'glyph-defense-idle:spires';
 // Storage key used to persist interactive level completion and unlock progress.
 export const LEVEL_PROGRESS_STORAGE_KEY = 'glyph-defense-idle:level-progress';
+// Storage key used to persist Bet Spire terrarium visual preferences.
+export const FLUID_VISUAL_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:fluid-visual-settings';
 // Storage key used to persist Lamed spire visual effect settings.
 export const LAMED_VISUAL_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:lamed-visual-settings';
 // Storage key used to persist Kuf spire performance toggles.
