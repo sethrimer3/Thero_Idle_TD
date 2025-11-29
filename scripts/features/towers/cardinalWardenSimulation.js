@@ -2802,6 +2802,7 @@ export class CardinalWardenSimulation {
    * Purchase a weapon using score points.
    * @param {string} weaponId - The ID of the weapon to purchase
    * @returns {boolean} True if purchase successful
+   * @deprecated Use purchaseWeaponWithoutCost and handle currency externally
    */
   purchaseWeapon(weaponId) {
     const def = WEAPON_DEFINITIONS[weaponId];
@@ -2831,9 +2832,35 @@ export class CardinalWardenSimulation {
   }
 
   /**
+   * Purchase a weapon without deducting score (currency handled externally).
+   * @param {string} weaponId - The ID of the weapon to purchase
+   * @returns {boolean} True if purchase successful
+   */
+  purchaseWeaponWithoutCost(weaponId) {
+    const def = WEAPON_DEFINITIONS[weaponId];
+    if (!def) return false;
+    
+    // Already purchased
+    if (this.weapons.purchased[weaponId]) return false;
+    
+    // Mark as purchased
+    this.weapons.purchased[weaponId] = true;
+    this.weapons.levels[weaponId] = 1;
+    this.weaponTimers[weaponId] = 0;
+    
+    // Notify callbacks
+    if (this.onWeaponChange) {
+      this.onWeaponChange(this.weapons);
+    }
+    
+    return true;
+  }
+
+  /**
    * Upgrade a purchased weapon.
    * @param {string} weaponId - The ID of the weapon to upgrade
    * @returns {boolean} True if upgrade successful
+   * @deprecated Use upgradeWeaponWithoutCost and handle currency externally
    */
   upgradeWeapon(weaponId) {
     const def = WEAPON_DEFINITIONS[weaponId];
@@ -2863,6 +2890,35 @@ export class CardinalWardenSimulation {
     if (this.onScoreChange) {
       this.onScoreChange(this.score);
     }
+    if (this.onWeaponChange) {
+      this.onWeaponChange(this.weapons);
+    }
+    
+    return true;
+  }
+
+  /**
+   * Upgrade a purchased weapon without deducting score (currency handled externally).
+   * @param {string} weaponId - The ID of the weapon to upgrade
+   * @returns {boolean} True if upgrade successful
+   */
+  upgradeWeaponWithoutCost(weaponId) {
+    const def = WEAPON_DEFINITIONS[weaponId];
+    if (!def) return false;
+    
+    // Must be purchased first
+    if (!this.weapons.purchased[weaponId]) return false;
+    
+    const currentLevel = this.weapons.levels[weaponId] || 1;
+    const maxLevel = 6;
+    
+    // Already at max level
+    if (currentLevel >= maxLevel) return false;
+    
+    // Upgrade
+    this.weapons.levels[weaponId] = currentLevel + 1;
+    
+    // Notify callbacks
     if (this.onWeaponChange) {
       this.onWeaponChange(this.weapons);
     }
