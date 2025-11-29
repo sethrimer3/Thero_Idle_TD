@@ -964,6 +964,14 @@ class MathBullet {
         // Logarithmic spiral growth: amplitude increases slowly with distance.
         offset = Math.sin(t) * this.amplitude * Math.log1p(1 + this.distance * 0.01);
         break;
+      case 'lissajous':
+        // Lissajous figure carving braided offsets for intricate weaving arcs.
+        offset = Math.sin(t * 0.75 + this.phase) * Math.cos(t * 1.35) * this.amplitude * 1.2;
+        break;
+      case 'petal':
+        // Petal pattern that blooms and closes to mirror danmaku flower rings.
+        offset = Math.sin(t) * Math.sin(t * 2 + this.phase) * this.amplitude * 1.4;
+        break;
       case 'parabola':
         // Parabolic drift: offset follows (sin(t))^2 for mirrored arcs.
         offset = (Math.pow(Math.sin(t), 2) * 2 - 1) * this.amplitude;
@@ -1022,123 +1030,146 @@ const WEAPON_DEFINITIONS = {
   },
   cosine: {
     id: 'cosine',
-    name: 'Cosine Pulse',
+    name: 'Cosine Lattice',
     symbol: 'cos',
-    description: 'Phase-shifted waves starting at peak amplitude.',
+    description: 'Alternating twin rails that swap sides every volley.',
     baseDamage: 1.2,
     baseSpeed: 190,
-    baseFireRate: 450,
+    baseFireRate: 440,
     pattern: 'cosine',
-    amplitude: 25,
-    frequency: 2.5,
+    amplitude: 26,
+    frequency: 2.8,
     cost: 50,
     upgradeCosts: [15, 40, 80, 150, 300],
     color: '#ff9c66',
+    firePattern: 'alternatingPair',
+    arcWidth: Math.PI / 5,
   },
   spiral: {
     id: 'spiral',
-    name: 'Spiral Expansion',
+    name: 'Spiral Bloom',
     symbol: 'φ',
-    description: 'Expanding spiral bullets that cover a wider area over distance.',
-    baseDamage: 0.8,
-    baseSpeed: 160,
-    baseFireRate: 400,
+    description: 'Rotating fan of petals that slowly precess like a danmaku wheel.',
+    baseDamage: 0.9,
+    baseSpeed: 165,
+    baseFireRate: 390,
     pattern: 'spiral',
-    amplitude: 15,
-    frequency: 4,
+    amplitude: 18,
+    frequency: 4.5,
     cost: 100,
     upgradeCosts: [25, 60, 120, 250, 500],
     color: '#9a6bff',
+    firePattern: 'rotatingFan',
+    fanCount: 5,
+    arcWidth: Math.PI * 0.9,
+    rotationStep: Math.PI / 16,
   },
   damped: {
     id: 'damped',
-    name: 'Damped Oscillation',
+    name: 'Convergent Rails',
     symbol: 'e⁻ˣ',
-    description: 'Waves that stabilize over distance, focusing damage forward.',
-    baseDamage: 1.5,
-    baseSpeed: 200,
-    baseFireRate: 600,
+    description: 'Staggered burst that squeezes into a narrow corridor.',
+    baseDamage: 1.6,
+    baseSpeed: 205,
+    baseFireRate: 590,
     pattern: 'damped',
     amplitude: 30,
     frequency: 3.5,
     cost: 150,
     upgradeCosts: [30, 75, 150, 300, 600],
     color: '#50a0ff',
+    firePattern: 'convergingBurst',
+    burstCount: 4,
+    arcWidth: Math.PI / 7,
   },
   square: {
     id: 'square',
-    name: 'Square Wave',
+    name: 'Binary Barrage',
     symbol: '⌐⌐',
-    description: 'Sharp alternating bullets that create a coverage corridor.',
+    description: 'Choppy stutter fire that sprays short-range packets.',
     baseDamage: 2,
-    baseSpeed: 170,
-    baseFireRate: 700,
+    baseSpeed: 175,
+    baseFireRate: 660,
     pattern: 'square',
-    amplitude: 35,
-    frequency: 2,
+    amplitude: 36,
+    frequency: 2.2,
     cost: 200,
     upgradeCosts: [50, 100, 200, 400, 800],
     color: '#ff7deb',
+    firePattern: 'rapidBurst',
+    pelletCount: 7,
+    arcWidth: Math.PI / 4,
   },
   tangent: {
     id: 'tangent',
-    name: 'Tangent Burst',
+    name: 'Asymptote Scatter',
     symbol: 'tan',
-    description: 'Erratic burst patterns with extreme angles.',
-    baseDamage: 1.8,
-    baseSpeed: 220,
-    baseFireRate: 550,
+    description: 'Chaotic angles with clipped spikes for evasive enemies.',
+    baseDamage: 1.9,
+    baseSpeed: 225,
+    baseFireRate: 540,
     pattern: 'tangent',
-    amplitude: 40,
-    frequency: 2,
+    amplitude: 42,
+    frequency: 2.1,
     cost: 250,
     upgradeCosts: [40, 90, 180, 350, 700],
     color: '#8bf7ff',
+    firePattern: 'chaoticSpray',
+    arcWidth: Math.PI / 3,
   },
   fourier: {
     id: 'fourier',
     name: 'Fourier Bloom',
     symbol: '∑sin',
-    description: 'Stacked harmonics weave overtone petals for wide coverage.',
+    description: 'Full danmaku ring that rotates and layers harmonic petals.',
     baseDamage: 1.6,
-    baseSpeed: 185,
-    baseFireRate: 520,
-    pattern: 'fourier',
-    amplitude: 28,
-    frequency: 3.2,
+    baseSpeed: 190,
+    baseFireRate: 510,
+    pattern: 'petal',
+    amplitude: 30,
+    frequency: 3.4,
     cost: 320,
     upgradeCosts: [70, 140, 280, 560, 1120],
     color: '#f2c44d',
+    firePattern: 'petalRing',
+    petalCount: 12,
+    rotationStep: Math.PI / 20,
   },
   logarithmic: {
     id: 'logarithmic',
     name: 'Log Spiral',
     symbol: 'ln(r)',
-    description: 'Logarithmic spirals that unfurl and accelerate as they travel.',
-    baseDamage: 1.3,
-    baseSpeed: 210,
-    baseFireRate: 480,
+    description: 'Twin spirals that peel apart with accelerating spin.',
+    baseDamage: 1.4,
+    baseSpeed: 215,
+    baseFireRate: 470,
     pattern: 'logarithmic',
-    amplitude: 18,
-    frequency: 2.8,
+    amplitude: 20,
+    frequency: 3,
     cost: 420,
     upgradeCosts: [80, 170, 340, 680, 1360],
     color: '#7cd1b8',
+    firePattern: 'spiralPair',
+    rotationStep: Math.PI / 24,
+    arcWidth: Math.PI / 6,
   },
   parabola: {
     id: 'parabola',
-    name: 'Parabolic Arc',
+    name: 'Parabolic Weave',
     symbol: 'x²',
-    description: 'Squared arcs that pinch inward then flare into mirrored lanes.',
-    baseDamage: 2.3,
-    baseSpeed: 175,
-    baseFireRate: 640,
-    pattern: 'parabola',
-    amplitude: 22,
-    frequency: 2.1,
+    description: 'Layered Lissajous lanes that braid into crossfire ribbons.',
+    baseDamage: 2.4,
+    baseSpeed: 178,
+    baseFireRate: 630,
+    pattern: 'lissajous',
+    amplitude: 24,
+    frequency: 2.2,
     cost: 500,
     upgradeCosts: [90, 190, 380, 760, 1520],
     color: '#c6a1ff',
+    firePattern: 'laneWeave',
+    laneCount: 4,
+    arcWidth: Math.PI * 0.55,
   },
 };
 
@@ -1285,6 +1316,11 @@ export class CardinalWardenSimulation {
     
     // Weapon-specific timers (each weapon has its own fire rate)
     this.weaponTimers = {
+      sine: 0,
+    };
+
+    // Weapon phase registry for rotating or alternating shot patterns.
+    this.weaponPhases = {
       sine: 0,
     };
 
@@ -1645,25 +1681,129 @@ export class CardinalWardenSimulation {
       frequency: weaponDef.frequency,
     };
 
-    // Number of bullets increases with level
-    const bulletCount = 1 + Math.floor(level / 2);
-    const spreadAngle = Math.PI * 0.6; // 108 degrees spread
-    
-    for (let i = 0; i < bulletCount; i++) {
-      // Calculate angle offset for multiple bullets
-      let angleOffset = 0;
-      if (bulletCount > 1) {
-        angleOffset = (i / (bulletCount - 1) - 0.5) * spreadAngle;
-      }
-      const angle = -Math.PI / 2 + angleOffset; // -90 degrees (pointing up)
-      
-      // Add phase offset for each bullet for visual variety
-      const phaseOffset = i * (Math.PI * 2 / bulletCount);
-      
+    // Track phase rotation per weapon for persistent fan and ring choreography.
+    if (this.weaponPhases[weaponId] === undefined) {
+      this.weaponPhases[weaponId] = 0;
+    }
+
+    // Helper to instantiate a math bullet with optional overrides for pattern variety.
+    const spawnBullet = (angle, overrides = {}, phaseOffset = 0) => {
       this.bullets.push(new MathBullet(cx, cy - 20, angle, {
         ...bulletConfig,
-        phase: phaseOffset,
+        ...overrides,
+        phase: overrides.phase !== undefined ? overrides.phase : phaseOffset,
       }));
+    };
+
+    // Default launch angle aims upward before pattern-specific offsets are applied.
+    const baseAngle = -Math.PI / 2;
+    const firePattern = weaponDef.firePattern || 'standard';
+    const basePhase = this.weaponPhases[weaponId];
+
+    switch (firePattern) {
+      case 'alternatingPair': {
+        // Swap sides each volley to create interlocking cosine rails.
+        const swing = weaponDef.arcWidth || Math.PI / 6;
+        const polarity = this.weaponPhases[weaponId] === 0 ? 1 : this.weaponPhases[weaponId];
+        this.weaponPhases[weaponId] = -polarity;
+        spawnBullet(baseAngle - swing * polarity, {}, basePhase);
+        spawnBullet(baseAngle + swing * polarity, {}, basePhase + Math.PI / 2);
+        return;
+      }
+      case 'rotatingFan': {
+        // Petal fan that rotates a few degrees each volley for danmaku coverage.
+        const fanCount = weaponDef.fanCount || 5;
+        const arcWidth = weaponDef.arcWidth || Math.PI * 0.75;
+        const rotationStep = weaponDef.rotationStep || Math.PI / 18;
+        const startAngle = baseAngle + this.weaponPhases[weaponId];
+        for (let i = 0; i < fanCount; i++) {
+          const offset = fanCount > 1 ? (i / (fanCount - 1) - 0.5) * arcWidth : 0;
+          spawnBullet(startAngle + offset, {}, basePhase + i * 0.35);
+        }
+        this.weaponPhases[weaponId] += rotationStep;
+        return;
+      }
+      case 'convergingBurst': {
+        // Tight staggered burst that squeezes inward for boss shredding.
+        const burstCount = weaponDef.burstCount || 3;
+        const arcWidth = weaponDef.arcWidth || Math.PI / 8;
+        for (let i = 0; i < burstCount; i++) {
+          const lerp = burstCount > 1 ? (i / (burstCount - 1) - 0.5) : 0;
+          const angle = baseAngle + lerp * arcWidth;
+          const amplitudeScale = 1 - Math.abs(lerp) * 0.25;
+          spawnBullet(angle, { amplitude: bulletConfig.amplitude * amplitudeScale }, basePhase + i * 0.2);
+        }
+        return;
+      }
+      case 'rapidBurst': {
+        // Short-range packet spray to clear dense enemy clusters.
+        const pelletCount = weaponDef.pelletCount || 6;
+        const arcWidth = weaponDef.arcWidth || Math.PI / 5;
+        for (let i = 0; i < pelletCount; i++) {
+          const jitter = this.rng.range(-arcWidth / 2, arcWidth / 2);
+          const speedScale = 0.9 + 0.05 * (i % 2);
+          spawnBullet(baseAngle + jitter, { speed: bulletConfig.speed * speedScale }, basePhase + i * 0.15);
+        }
+        return;
+      }
+      case 'chaoticSpray': {
+        // Chaotic spray that jitters angle and amplitude to mimic asymptotes.
+        const sprayWidth = weaponDef.arcWidth || Math.PI / 3;
+        const shardCount = 4 + Math.floor(level / 2);
+        for (let i = 0; i < shardCount; i++) {
+          const jitter = this.rng.range(-sprayWidth / 2, sprayWidth / 2);
+          const wobble = 0.6 + this.rng.next() * 0.8;
+          spawnBullet(baseAngle + jitter, { amplitude: bulletConfig.amplitude * wobble }, basePhase + i * 0.25);
+        }
+        return;
+      }
+      case 'petalRing': {
+        // Full radial danmaku ring with gentle rotation between volleys.
+        const petalCount = weaponDef.petalCount || 10;
+        const rotationStep = weaponDef.rotationStep || Math.PI / 24;
+        const ringStart = this.weaponPhases[weaponId];
+        for (let i = 0; i < petalCount; i++) {
+          const ringAngle = ringStart + (i * (Math.PI * 2 / petalCount));
+          const speedScale = i % 2 === 0 ? 1 : 0.9;
+          spawnBullet(ringAngle, { speed: bulletConfig.speed * speedScale, size: bulletConfig.size + 1 }, basePhase + i * 0.18);
+        }
+        this.weaponPhases[weaponId] += rotationStep;
+        return;
+      }
+      case 'spiralPair': {
+        // Counter-spinning spiral pair that peels apart with each volley.
+        const rotationStep = weaponDef.rotationStep || Math.PI / 28;
+        const spread = weaponDef.arcWidth || Math.PI / 6;
+        const phase = this.weaponPhases[weaponId];
+        const angles = [baseAngle + phase + spread, baseAngle - phase - spread];
+        angles.forEach((angle, index) => {
+          const amplitudeScale = 1 + 0.15 * index;
+          spawnBullet(angle, { amplitude: bulletConfig.amplitude * amplitudeScale }, basePhase + index * 0.4);
+        });
+        this.weaponPhases[weaponId] += rotationStep;
+        return;
+      }
+      case 'laneWeave': {
+        // Braided Lissajous lanes for wide-area suppression.
+        const lanes = weaponDef.laneCount || 3;
+        const arcWidth = weaponDef.arcWidth || Math.PI / 2;
+        for (let i = 0; i < lanes; i++) {
+          const offset = lanes > 1 ? (i / (lanes - 1) - 0.5) * arcWidth : 0;
+          spawnBullet(baseAngle + offset, {}, basePhase + i * 0.22);
+        }
+        this.weaponPhases[weaponId] += Math.PI / 30;
+        return;
+      }
+      default: {
+        // Standard volley: level-based multishot with gentle spread.
+        const bulletCount = 1 + Math.floor(level / 2);
+        const spreadAngle = weaponDef.arcWidth || Math.PI * 0.6;
+        for (let i = 0; i < bulletCount; i++) {
+          const angleOffset = bulletCount > 1 ? (i / (bulletCount - 1) - 0.5) * spreadAngle : 0;
+          const phaseOffset = i * (Math.PI * 2 / bulletCount);
+          spawnBullet(baseAngle + angleOffset, {}, phaseOffset);
+        }
+      }
     }
   }
   
@@ -2891,6 +3031,7 @@ export class CardinalWardenSimulation {
     this.weapons.purchased[weaponId] = true;
     this.weapons.levels[weaponId] = 1;
     this.weaponTimers[weaponId] = 0;
+    this.weaponPhases[weaponId] = this.weaponPhases[weaponId] || 0; // Initialize phase tracking for new weapon.
     
     // Notify callbacks
     if (this.onScoreChange) {
@@ -2920,6 +3061,7 @@ export class CardinalWardenSimulation {
     this.weapons.purchased[weaponId] = true;
     this.weapons.levels[weaponId] = 1;
     this.weaponTimers[weaponId] = 0;
+    this.weaponPhases[weaponId] = this.weaponPhases[weaponId] || 0; // Initialize phase tracking for auto-equipped weapon.
     
     // Auto-equip if there's room (less than maxEquippedWeapons equipped)
     if (!this.weapons.equipped) {
@@ -3129,6 +3271,9 @@ export class CardinalWardenSimulation {
     for (const weaponId of Object.keys(this.weapons.purchased)) {
       if (this.weapons.purchased[weaponId] && !this.weaponTimers[weaponId]) {
         this.weaponTimers[weaponId] = 0;
+      }
+      if (this.weapons.purchased[weaponId] && this.weaponPhases[weaponId] === undefined) {
+        this.weaponPhases[weaponId] = 0; // Ensure phase accumulator exists after loading state.
       }
     }
   }
