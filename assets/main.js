@@ -226,7 +226,7 @@ import {
   resetKufState,
   setKufGlyphs,
 } from './kufState.js';
-import { initializeKufUI, updateKufDisplay, stopKufSimulation } from './kufUI.js';
+import { initializeKufUI, updateKufDisplay, stopKufSimulation, resumeKufSimulation } from './kufUI.js';
 // Shared color palette orchestration utilities.
 import {
   configureColorSchemeSystem,
@@ -5825,6 +5825,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               console.error('Failed to initialize Kuf Spire UI:', error);
             }
           } else {
+            // Resume any paused battle when returning to the Kuf tab
+            resumeKufSimulation();
             updateKufDisplay();
           }
         }
