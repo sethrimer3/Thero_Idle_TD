@@ -463,6 +463,18 @@ class MathBullet {
       case 'cosine':
         offset = Math.cos(t) * this.amplitude;
         break;
+      case 'fourier':
+        // Layered harmonics: primary wave plus a smaller, faster overtone.
+        offset = (Math.sin(t) + 0.35 * Math.sin(3 * t)) * this.amplitude;
+        break;
+      case 'logarithmic':
+        // Logarithmic spiral growth: amplitude increases slowly with distance.
+        offset = Math.sin(t) * this.amplitude * Math.log1p(1 + this.distance * 0.01);
+        break;
+      case 'parabola':
+        // Parabolic drift: offset follows (sin(t))^2 for mirrored arcs.
+        offset = (Math.pow(Math.sin(t), 2) * 2 - 1) * this.amplitude;
+        break;
       case 'tangent':
         // Clamped tangent to prevent extreme values
         offset = Math.max(-this.amplitude, Math.min(this.amplitude, Math.tan(t * 0.5) * this.amplitude * 0.3));
@@ -589,6 +601,51 @@ const WEAPON_DEFINITIONS = {
     cost: 250,
     upgradeCosts: [40, 90, 180, 350, 700],
     color: '#8bf7ff',
+  },
+  fourier: {
+    id: 'fourier',
+    name: 'Fourier Bloom',
+    symbol: '∑sin',
+    description: 'Stacked harmonics weave overtone petals for wide coverage.',
+    baseDamage: 1.6,
+    baseSpeed: 185,
+    baseFireRate: 520,
+    pattern: 'fourier',
+    amplitude: 28,
+    frequency: 3.2,
+    cost: 320,
+    upgradeCosts: [70, 140, 280, 560, 1120],
+    color: '#f2c44d',
+  },
+  logarithmic: {
+    id: 'logarithmic',
+    name: 'Log Spiral',
+    symbol: 'ln(r)',
+    description: 'Logarithmic spirals that unfurl and accelerate as they travel.',
+    baseDamage: 1.3,
+    baseSpeed: 210,
+    baseFireRate: 480,
+    pattern: 'logarithmic',
+    amplitude: 18,
+    frequency: 2.8,
+    cost: 420,
+    upgradeCosts: [80, 170, 340, 680, 1360],
+    color: '#7cd1b8',
+  },
+  parabola: {
+    id: 'parabola',
+    name: 'Parabolic Arc',
+    symbol: 'x²',
+    description: 'Squared arcs that pinch inward then flare into mirrored lanes.',
+    baseDamage: 2.3,
+    baseSpeed: 175,
+    baseFireRate: 640,
+    pattern: 'parabola',
+    amplitude: 22,
+    frequency: 2.1,
+    cost: 500,
+    upgradeCosts: [90, 190, 380, 760, 1520],
+    color: '#c6a1ff',
   },
 };
 
