@@ -185,6 +185,7 @@ export function createPowderPersistence({
       // Persist Bet terrarium leveling progress for fractal trees.
       betTerrarium: {
         levelingMode: Boolean(powderState.betTerrarium?.levelingMode),
+        celestialBodiesEnabled: Boolean(powderState.betTerrarium?.celestialBodiesEnabled),
         trees: Object.entries(powderState.betTerrarium?.trees || {}).reduce((result, [key, tree]) => {
           const allocated = clampFiniteInteger(tree?.allocated, 0);
           if (allocated >= 0) {
@@ -307,6 +308,7 @@ export function createPowderPersistence({
       const storedTrees = storedTerrarium.trees && typeof storedTerrarium.trees === 'object' ? storedTerrarium.trees : {};
       powderState.betTerrarium = {
         levelingMode: Boolean(storedTerrarium.levelingMode),
+        celestialBodiesEnabled: Boolean(storedTerrarium.celestialBodiesEnabled),
         trees: Object.entries(storedTrees).reduce((result, [key, value]) => {
           const allocated = Number.isFinite(value?.allocated) ? Math.max(0, Math.floor(value.allocated)) : 0;
           result[key] = { allocated };

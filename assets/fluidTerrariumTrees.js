@@ -297,6 +297,19 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
     minSpacing: 0.07,
     initialAllocation: 4,
   },
+  // Celestial Bodies - Sun and Moon Voronoi fractals
+  {
+    id: 'bet-store-celestial-bodies',
+    label: 'Celestial Bodies',
+    description: 'Unlock the sun and moon. Yellow Voronoi sun and blue Voronoi moon begin their eternal orbits.',
+    icon: '☀️🌙',
+    itemType: 'celestial',
+    cost: 200,
+    size: 'large',
+    minY: 0,
+    maxY: 1,
+    minSpacing: 0,
+  },
 ];
 
 const PLACEMENT_DIMENSIONS = {
@@ -379,6 +392,7 @@ export class FluidTerrariumTrees {
     this.onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : () => {};
     this.onShroomPlace = typeof options.onShroomPlace === 'function' ? options.onShroomPlace : null;
     this.onSlimePlace = typeof options.onSlimePlace === 'function' ? options.onSlimePlace : null;
+    this.onCelestialPlace = typeof options.onCelestialPlace === 'function' ? options.onCelestialPlace : null;
     this.powderState = options.powderState || null;
 
     this.activeHold = null;
@@ -1298,7 +1312,14 @@ export class FluidTerrariumTrees {
    * @param {object|null} [storeItem]
    */
   isPlacementLocationValid(point, storeItem = this.getActiveStoreItem()) {
-    if (!point?.isInside || !storeItem) {
+    if (!storeItem) {
+      return false;
+    }
+    // Celestial bodies don't require a specific placement location - any click is valid
+    if (storeItem.itemType === 'celestial') {
+      return true;
+    }
+    if (!point?.isInside) {
       return false;
     }
     if (point.yRatio < storeItem.minY || point.yRatio > storeItem.maxY) {
@@ -1426,6 +1447,22 @@ export class FluidTerrariumTrees {
         return true;
       }
       this.setStoreStatus('Could not release slime. Try again.');
+      return false;
+    }
+
+    // Check if this is the celestial bodies item - delegate to the celestial placement callback
+    if (storeItem.itemType === 'celestial' && this.onCelestialPlace) {
+      const celestialPlaced = this.onCelestialPlace({
+        storeItem,
+      });
+      if (celestialPlaced) {
+        this.setStoreStatus('The sun and moon rise. Day and night begin their eternal dance.');
+        this.hidePlacementPreview();
+        this.consumeStoreItem(storeItem.id);
+        this.clearStoreSelection();
+        return true;
+      }
+      this.setStoreStatus('Could not unlock celestial bodies. Try again.');
       return false;
     }
 

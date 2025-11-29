@@ -2,6 +2,7 @@
 
 /**
  * Animate the Bet terrarium sky through a gentle day/night loop with sun and moon arcs.
+ * When celestial bodies are not purchased, the sky remains locked in night mode.
  */
 export class FluidTerrariumSkyCycle {
   constructor(options = {}) {
@@ -21,8 +22,18 @@ export class FluidTerrariumSkyCycle {
       ? Math.max(10000, options.cycleDurationMs)
       : 120000;
 
+    /**
+     * Whether the celestial bodies (sun/moon) have been purchased.
+     * When false, the sky remains stuck in night mode and the sun/moon are hidden.
+     * @type {boolean}
+     */
+    this.celestialBodiesEnabled = Boolean(options.celestialBodiesEnabled);
+
     this.animationFrame = null;
     this.startTime = null;
+
+    // Night mode state for when celestial bodies are not purchased
+    this.nightModeKeyframe = { skyTop: '#0d1c3c', skyBottom: '#060c21', starOpacity: 0.95 };
 
     this.phaseKeyframes = [
       { t: 0, skyTop: '#dff3ff', skyBottom: '#a4d9ff', starOpacity: 0 },
@@ -35,9 +46,55 @@ export class FluidTerrariumSkyCycle {
     this.handleFrame = this.handleFrame.bind(this);
 
     if (this.skyElement && typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-      this.applySkyState(0);
+      // If celestial bodies are not enabled, apply night mode immediately
+      if (!this.celestialBodiesEnabled) {
+        this.applyNightMode();
+      } else {
+        this.applySkyState(0);
+      }
       this.start();
     }
+  }
+
+  /**
+   * Enable the celestial bodies, allowing the day/night cycle to animate.
+   */
+  enableCelestialBodies() {
+    if (this.celestialBodiesEnabled) return;
+
+    this.celestialBodiesEnabled = true;
+    // Reset start time so the cycle begins fresh
+    this.startTime = null;
+  }
+
+  /**
+   * Disable the celestial bodies, locking the sky in night mode.
+   */
+  disableCelestialBodies() {
+    this.celestialBodiesEnabled = false;
+    this.applyNightMode();
+  }
+
+  /**
+   * Apply a static night sky state when celestial bodies are not purchased.
+   */
+  applyNightMode() {
+    if (!this.skyElement) return;
+
+    const { skyTop, skyBottom, starOpacity } = this.nightModeKeyframe;
+    this.skyElement.style.setProperty('--terrarium-sky-top', skyTop);
+    this.skyElement.style.setProperty('--terrarium-sky-bottom', skyBottom);
+    this.skyElement.style.setProperty('--terrarium-star-opacity', `${starOpacity}`);
+
+    // Hide sun and moon when in night mode
+    if (this.sunElement) {
+      this.sunElement.style.opacity = '0';
+    }
+    if (this.moonElement) {
+      this.moonElement.style.opacity = '0';
+    }
+
+    this.applyNightBrightness(starOpacity);
   }
 
   /**
@@ -68,6 +125,14 @@ export class FluidTerrariumSkyCycle {
     if (!this.skyElement) {
       return;
     }
+
+    // If celestial bodies are not enabled, maintain night mode
+    if (!this.celestialBodiesEnabled) {
+      this.applyNightMode();
+      this.animationFrame = window.requestAnimationFrame(this.handleFrame);
+      return;
+    }
+
     if (!this.startTime) {
       this.startTime = timestamp;
     }
