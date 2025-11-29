@@ -1257,11 +1257,17 @@ export class FluidTerrariumTrees {
 
   /**
    * Convert a screen coordinate into a normalized point relative to the terrarium sprite.
+   * Refreshes renderBounds first to ensure coordinates are accurate after resizes or pans.
    * @param {number} clientX
    * @param {number} clientY
    */
   getNormalizedPointFromClient(clientX, clientY) {
-    if (!this.container || !this.renderBounds.width || !this.renderBounds.height) {
+    if (!this.container) {
+      return null;
+    }
+    // Refresh bounds to ensure renderBounds is synchronized with the current container state.
+    this.refreshBounds();
+    if (!this.renderBounds.width || !this.renderBounds.height) {
       return null;
     }
     const rect = this.container.getBoundingClientRect();
