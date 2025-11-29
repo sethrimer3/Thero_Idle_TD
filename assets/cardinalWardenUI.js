@@ -29,6 +29,9 @@ const cardinalElements = {
   highestWaveDisplay: null,
   weaponsGrid: null,
   totalIterons: null,
+  baseHealthDisplay: null,
+  healthUpgradeBtn: null,
+  healthUpgradeCost: null,
 };
 
 // State persistence key
@@ -62,6 +65,9 @@ export function initializeCardinalWardenUI() {
   cardinalElements.highestWaveDisplay = document.getElementById('shin-highest-wave');
   cardinalElements.weaponsGrid = document.getElementById('shin-weapons-grid');
   cardinalElements.totalIterons = document.getElementById('shin-total-iterons');
+  cardinalElements.baseHealthDisplay = document.getElementById('shin-base-health');
+  cardinalElements.healthUpgradeBtn = document.getElementById('shin-health-upgrade-btn');
+  cardinalElements.healthUpgradeCost = document.getElementById('shin-health-upgrade-cost');
 
   if (!cardinalElements.canvas) {
     console.warn('Cardinal Warden canvas not found');
@@ -91,12 +97,16 @@ export function initializeCardinalWardenUI() {
   // Initialize weapons menu
   initializeWeaponsMenu();
   
+  // Initialize health upgrade button
+  initializeHealthUpgradeButton();
+  
   // Update displays
   updateWaveDisplay(0);
   updateHighestWaveDisplay();
   updateGlyphDisplay();
   updateTotalIteronsDisplay();
   updateWeaponsDisplay();
+  updateBaseHealthDisplay();
 }
 
 /**
@@ -342,6 +352,43 @@ function updateTotalIteronsDisplay() {
   if (cardinalElements.totalIterons) {
     const iterons = getIteronBank();
     cardinalElements.totalIterons.textContent = `${formatGameNumber(iterons)} ℸ`;
+  }
+  // Also update health upgrade button state
+  updateBaseHealthDisplay();
+}
+
+/**
+ * Initialize the health upgrade button.
+ */
+function initializeHealthUpgradeButton() {
+  if (!cardinalElements.healthUpgradeBtn) return;
+  
+  cardinalElements.healthUpgradeBtn.addEventListener('click', () => {
+    if (upgradeCardinalBaseHealth()) {
+      updateBaseHealthDisplay();
+    }
+  });
+}
+
+/**
+ * Update the base health display and upgrade button.
+ */
+function updateBaseHealthDisplay() {
+  const maxHealth = getCardinalMaxHealth();
+  const upgradeCost = getCardinalBaseHealthUpgradeCost();
+  const currentIterons = getIteronBank();
+  const canAfford = currentIterons >= upgradeCost;
+  
+  if (cardinalElements.baseHealthDisplay) {
+    cardinalElements.baseHealthDisplay.textContent = formatGameNumber(maxHealth);
+  }
+  
+  if (cardinalElements.healthUpgradeCost) {
+    cardinalElements.healthUpgradeCost.textContent = formatGameNumber(upgradeCost);
+  }
+  
+  if (cardinalElements.healthUpgradeBtn) {
+    cardinalElements.healthUpgradeBtn.disabled = !canAfford;
   }
 }
 
