@@ -5424,6 +5424,42 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     bindTowerUpgradeOverlay();
 
+    /**
+     * Stop all Fluid/Bet terrarium animations to conserve resources.
+     * Called when leaving the Fluid tab.
+     */
+    function stopTerrariumAnimations() {
+      const terrariumSystems = [
+        fluidTerrariumCreatures,
+        fluidTerrariumGrass,
+        fluidTerrariumSkyCycle,
+        fluidTerrariumShrooms,
+      ];
+      terrariumSystems.forEach((system) => {
+        if (system && typeof system.stop === 'function') {
+          system.stop();
+        }
+      });
+    }
+
+    /**
+     * Restart all Fluid/Bet terrarium animations.
+     * Called when entering the Fluid tab.
+     */
+    function startTerrariumAnimations() {
+      const terrariumSystems = [
+        fluidTerrariumCreatures,
+        fluidTerrariumGrass,
+        fluidTerrariumSkyCycle,
+        fluidTerrariumShrooms,
+      ];
+      terrariumSystems.forEach((system) => {
+        if (system && typeof system.start === 'function') {
+          system.start();
+        }
+      });
+    }
+
     // Synchronize tab interactions with overlay state, audio cues, and banner refreshes.
     configureTabManager({
       getOverlayActiveState: () => Boolean(levelOverlayController?.isOverlayActive()),
@@ -5472,18 +5508,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         // Stop Fluid/Bet terrarium animations when leaving the Fluid tab
         // (Fluid simulation itself is stopped via applyPowderSimulationMode when switching modes)
         if (previousTabId === 'fluid' && tabId !== 'fluid') {
-          if (fluidTerrariumCreatures && typeof fluidTerrariumCreatures.stop === 'function') {
-            fluidTerrariumCreatures.stop();
-          }
-          if (fluidTerrariumGrass && typeof fluidTerrariumGrass.stop === 'function') {
-            fluidTerrariumGrass.stop();
-          }
-          if (fluidTerrariumSkyCycle && typeof fluidTerrariumSkyCycle.stop === 'function') {
-            fluidTerrariumSkyCycle.stop();
-          }
-          if (fluidTerrariumShrooms && typeof fluidTerrariumShrooms.stop === 'function') {
-            fluidTerrariumShrooms.stop();
-          }
+          stopTerrariumAnimations();
         }
 
         // Surface spire briefings the first time each tab opens.
@@ -5515,18 +5540,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             updateFluidDisplay(fluidStatus);
           }
           // Restart terrarium animations when returning to the Fluid/Bet tab
-          if (fluidTerrariumCreatures && typeof fluidTerrariumCreatures.start === 'function') {
-            fluidTerrariumCreatures.start();
-          }
-          if (fluidTerrariumGrass && typeof fluidTerrariumGrass.start === 'function') {
-            fluidTerrariumGrass.start();
-          }
-          if (fluidTerrariumSkyCycle && typeof fluidTerrariumSkyCycle.start === 'function') {
-            fluidTerrariumSkyCycle.start();
-          }
-          if (fluidTerrariumShrooms && typeof fluidTerrariumShrooms.start === 'function') {
-            fluidTerrariumShrooms.start();
-          }
+          startTerrariumAnimations();
         } else if (tabId === 'powder') {
           if (powderState.simulationMode !== 'sand') {
             applyPowderSimulationMode('sand');

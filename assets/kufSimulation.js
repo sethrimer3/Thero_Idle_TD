@@ -374,7 +374,9 @@ export class KufBattlefieldSimulation {
     if (this.active) {
       return; // Already running
     }
-    // Only resume if there's an active battle in progress (marines exist)
+    // Only resume if there's an active battle in progress.
+    // A battle is considered active when either marines (player units) OR turrets (enemies) exist.
+    // Both being empty means no battle was started, or the battle has already concluded.
     if (this.marines.length === 0 && this.turrets.length === 0) {
       return; // No battle in progress to resume
     }
