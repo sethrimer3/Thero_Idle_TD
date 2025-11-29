@@ -150,6 +150,8 @@ import { FluidTerrariumSkyCycle } from './fluidTerrariumSkyCycle.js';
 import { FluidTerrariumShrooms } from './fluidTerrariumShrooms.js';
 // Bet Spire happiness production tracker fed by Serendipity purchases.
 import { createBetHappinessSystem } from './betHappiness.js';
+// Terrarium items dropdown for managing and upgrading items in the Bet Spire.
+import { FluidTerrariumItemsDropdown } from './fluidTerrariumItemsDropdown.js';
 import { createResourceHud } from './resourceHud.js';
 import { createTsadiUpgradeUi } from './tsadiUpgradeUi.js';
 import { createTsadiBindingUi } from './tsadiBindingUi.js';
@@ -879,6 +881,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let fluidTerrariumSkyCycle = null;
   // Phi and Psi shrooms that grow inside cave spawn zones.
   let fluidTerrariumShrooms = null;
+  // Terrarium items dropdown for managing and upgrading items in the Bet Spire.
+  let fluidTerrariumItemsDropdown = null;
 
   /**
    * Force the Bet Spire Terrarium to remain locked and inactive while the feature is disabled.
@@ -1245,6 +1249,79 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     schedulePowderBasinSave();
     
     return true;
+  }
+
+  /**
+   * Initialize the terrarium items dropdown for managing and upgrading items.
+   */
+  function ensureFluidTerrariumItemsDropdown() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
+    if (fluidTerrariumItemsDropdown || !fluidElements?.terrariumItemsToggle) {
+      return;
+    }
+    fluidTerrariumItemsDropdown = new FluidTerrariumItemsDropdown({
+      toggleButton: fluidElements.terrariumItemsToggle,
+      dropdownContainer: fluidElements.terrariumItemsDropdown,
+      emptyMessage: fluidElements.terrariumItemsEmpty,
+      itemsList: fluidElements.terrariumItemsList,
+      getSerendipityBalance: () => Math.max(0, Math.floor(powderState.fluidIdleBank || 0)),
+      spendSerendipity: (amount) => {
+        const cost = Math.max(0, Math.round(amount));
+        const balance = Math.max(0, powderState.fluidIdleBank || 0);
+        if (balance < cost) {
+          return 0;
+        }
+        powderState.fluidIdleBank = Math.max(0, balance - cost);
+        updatePowderDisplay();
+        schedulePowderBasinSave();
+        return cost;
+      },
+      getProducerCount: (id) => {
+        if (!betHappinessSystem) {
+          return 0;
+        }
+        return betHappinessSystem.getProducerCount(id);
+      },
+      setProducerCount: (id, count) => {
+        if (!betHappinessSystem) {
+          return;
+        }
+        betHappinessSystem.setProducerCount(id, count);
+        betHappinessSystem.updateDisplay();
+        schedulePowderBasinSave();
+      },
+      getTreesState: () => {
+        if (!fluidTerrariumTrees) {
+          return {};
+        }
+        return fluidTerrariumTrees.treeState || {};
+      },
+      setTreeAllocation: (treeKey, newAllocation) => {
+        if (!fluidTerrariumTrees) {
+          return;
+        }
+        // Find the tree and update its allocation
+        const tree = fluidTerrariumTrees.trees?.find((t) => t.id === treeKey);
+        if (tree) {
+          tree.state.allocated = newAllocation;
+          fluidTerrariumTrees.treeState[treeKey] = { allocated: newAllocation };
+          fluidTerrariumTrees.updateSimulationTarget(tree);
+          fluidTerrariumTrees.updateTreeBadge(tree);
+          updateTreeHappiness();
+          fluidTerrariumTrees.emitState();
+        }
+        schedulePowderBasinSave();
+      },
+      onUpgrade: () => {
+        // Refresh happiness display after any upgrade
+        if (betHappinessSystem) {
+          betHappinessSystem.updateDisplay();
+        }
+        updatePowderDisplay();
+      },
+    });
   }
 
   // Ensure compact autosave remains the active basin persistence strategy.
@@ -5694,6 +5771,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     ensureFluidTerrariumTrees();
     ensureFluidTerrariumSkyCycle();
     ensureFluidTerrariumShrooms();
+    ensureFluidTerrariumItemsDropdown();
     ensurePowderBasinResizeObserver();
     bindSpireClickIncome();
     await applyPowderSimulationMode(powderState.simulationMode);

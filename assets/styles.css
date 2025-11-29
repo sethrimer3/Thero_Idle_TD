@@ -4536,6 +4536,170 @@ body.graphics-mode-low .control-button {
   color: rgba(216, 234, 255, 0.75);
 }
 
+/* Terrarium items dropdown for managing and upgrading items in the Bet Spire. */
+.fluid-terrarium-items-card {
+  width: min(440px, 100%);
+  margin: 10px auto 0;
+  border-radius: 12px;
+  border: 1px solid rgba(138, 207, 255, 0.18);
+  background: linear-gradient(180deg, rgba(6, 14, 26, 0.72), rgba(6, 14, 26, 0.58));
+  box-shadow: inset 0 0 0 1px rgba(16, 54, 92, 0.38), 0 12px 24px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.fluid-terrarium-items-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 180ms ease;
+}
+
+.fluid-terrarium-items-toggle:hover,
+.fluid-terrarium-items-toggle:focus-visible {
+  background: rgba(138, 207, 255, 0.08);
+}
+
+.fluid-terrarium-items-toggle__title {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  color: rgba(234, 246, 255, 0.92);
+}
+
+.fluid-terrarium-items-toggle__chevron {
+  font-size: 0.75rem;
+  color: rgba(234, 246, 255, 0.7);
+  transition: transform 180ms ease;
+}
+
+.fluid-terrarium-items-toggle[aria-expanded="true"] .fluid-terrarium-items-toggle__chevron {
+  transform: rotate(180deg);
+}
+
+.fluid-terrarium-items-dropdown {
+  padding: 0 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fluid-terrarium-items-dropdown[hidden] {
+  display: none;
+}
+
+.fluid-terrarium-items-empty {
+  margin: 8px 0 0;
+  font-size: 0.88rem;
+  color: rgba(235, 243, 255, 0.68);
+}
+
+.fluid-terrarium-items-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.fluid-terrarium-items-list__item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(18, 28, 42, 0.65);
+  border: 1px solid rgba(138, 207, 255, 0.12);
+}
+
+.fluid-terrarium-items-list__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fluid-terrarium-items-list__name {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f5fcff;
+}
+
+.fluid-terrarium-items-list__level {
+  font-family: "Space Mono", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  color: rgba(138, 207, 255, 0.9);
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(138, 207, 255, 0.12);
+}
+
+.fluid-terrarium-items-list__stats {
+  font-size: 0.82rem;
+  color: rgba(235, 243, 255, 0.78);
+}
+
+.fluid-terrarium-items-list__progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fluid-terrarium-items-list__progress-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(18, 58, 96, 0.5);
+  overflow: hidden;
+}
+
+.fluid-terrarium-items-list__progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #2fa0ff, #6be1c7);
+  transition: width 0.3s ease;
+}
+
+.fluid-terrarium-items-list__progress-text {
+  font-size: 0.72rem;
+  color: rgba(216, 234, 255, 0.7);
+  white-space: nowrap;
+}
+
+.fluid-terrarium-items-list__upgrade-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  margin-top: 4px;
+  border: 1px solid rgba(138, 207, 255, 0.35);
+  border-radius: 6px;
+  background: rgba(24, 48, 72, 0.6);
+  color: rgba(234, 246, 255, 0.92);
+  font-family: "Space Mono", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.fluid-terrarium-items-list__upgrade-btn:hover:not(:disabled),
+.fluid-terrarium-items-list__upgrade-btn:focus-visible:not(:disabled) {
+  background: rgba(138, 207, 255, 0.2);
+  border-color: rgba(138, 207, 255, 0.6);
+}
+
+.fluid-terrarium-items-list__upgrade-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Summarize Bet Spire happiness production alongside fluid metrics. */
 .fluid-happiness-card {
   display: flex;

@@ -85,6 +85,11 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidElements.happinessProgressPrevious = document.getElementById('fluid-happiness-progress-previous');
     fluidElements.happinessProgressNext = document.getElementById('fluid-happiness-progress-next');
     fluidElements.happinessProgressCurrent = document.getElementById('fluid-happiness-progress-current');
+    // Terrarium items dropdown for managing and upgrading items.
+    fluidElements.terrariumItemsToggle = document.getElementById('fluid-terrarium-items-toggle');
+    fluidElements.terrariumItemsDropdown = document.getElementById('fluid-terrarium-items-dropdown');
+    fluidElements.terrariumItemsEmpty = document.getElementById('fluid-terrarium-items-empty');
+    fluidElements.terrariumItemsList = document.getElementById('fluid-terrarium-items-list');
     fluidElements.wallGlyphColumns = Array.from(
       document.querySelectorAll('[data-fluid-glyph-column]') || [],
     );
