@@ -1111,10 +1111,7 @@ export class FluidTerrariumTrees {
     this.placementPreview.dataset.visible = 'true';
     this.placementPreview.dataset.valid = isValid ? 'true' : 'false';
     // Display the item's icon if available; otherwise show a fallback emoji
-    const icon = storeItem?.icon || '🌿';
-    if (this.placementPreview.textContent !== icon) {
-      this.placementPreview.textContent = icon;
-    }
+    this.placementPreview.textContent = storeItem?.icon || '🌿';
   }
 
   /**
