@@ -8,7 +8,7 @@
 
 import { CardinalWardenSimulation, getWeaponIds, getWeaponDefinition } from '../scripts/features/towers/cardinalWardenSimulation.js';
 import { formatGameNumber } from '../scripts/core/formatting.js';
-import { getShinGlyphs, addShinGlyphs, getIteronBank } from './shinState.js';
+import { getShinGlyphs, addShinGlyphs, getIteronBank, spendIterons, addIterons } from './shinState.js';
 
 // Cardinal Warden simulation instance
 let cardinalSimulation = null;
@@ -403,13 +403,26 @@ function initializeWeaponsMenu() {
     const weaponId = button.dataset.weaponId;
     const action = button.dataset.action;
     
+    // Get weapons list once for both purchase and upgrade actions
+    const weapons = cardinalSimulation.getAvailableWeapons();
+    const weapon = weapons.find(w => w.id === weaponId);
+    if (!weapon) return;
+    
     if (action === 'purchase') {
-      if (cardinalSimulation.purchaseWeapon(weaponId)) {
+      // Use iterons instead of score for weapon purchases
+      if (!weapon.isPurchased && spendIterons(weapon.cost)) {
+        // Mark weapon as purchased in the simulation (without spending score)
+        cardinalSimulation.purchaseWeaponWithoutCost(weaponId);
         updateWeaponsDisplay();
+        updateTotalIteronsDisplay();
       }
     } else if (action === 'upgrade') {
-      if (cardinalSimulation.upgradeWeapon(weaponId)) {
+      // Use iterons instead of score for weapon upgrades
+      if (weapon.isPurchased && weapon.upgradeCost !== null && spendIterons(weapon.upgradeCost)) {
+        // Upgrade weapon in the simulation (without spending score)
+        cardinalSimulation.upgradeWeaponWithoutCost(weaponId);
         updateWeaponsDisplay();
+        updateTotalIteronsDisplay();
       }
     }
   });
@@ -422,13 +435,13 @@ function updateWeaponsDisplay() {
   if (!cardinalElements.weaponsGrid || !cardinalSimulation) return;
   
   const weapons = cardinalSimulation.getAvailableWeapons();
-  const currentScore = cardinalSimulation.score;
+  const currentIterons = getIteronBank();
   
   const html = weapons.map(weapon => {
     const isLocked = !weapon.isPurchased;
     const isMaxed = weapon.isPurchased && weapon.level >= weapon.maxLevel;
-    const canAffordPurchase = currentScore >= weapon.cost;
-    const canAffordUpgrade = weapon.upgradeCost !== null && currentScore >= weapon.upgradeCost;
+    const canAffordPurchase = currentIterons >= weapon.cost;
+    const canAffordUpgrade = weapon.upgradeCost !== null && currentIterons >= weapon.upgradeCost;
     
     let actionButton = '';
     if (isLocked) {
@@ -439,7 +452,7 @@ function updateWeaponsDisplay() {
           data-action="purchase"
           ${!canAffordPurchase ? 'disabled' : ''}
         >
-          Buy: ${formatGameNumber(weapon.cost)}
+          Buy: ${formatGameNumber(weapon.cost)} ℸ
         </button>
       `;
     } else if (isMaxed) {
@@ -459,7 +472,7 @@ function updateWeaponsDisplay() {
           data-action="upgrade"
           ${!canAffordUpgrade ? 'disabled' : ''}
         >
-          Upgrade: ${formatGameNumber(weapon.upgradeCost)}
+          Upgrade: ${formatGameNumber(weapon.upgradeCost)} ℸ
         </button>
       `;
     }
@@ -485,6 +498,14 @@ function updateWeaponsDisplay() {
  */
 export function isCardinalSimulationRunning() {
   return cardinalSimulation?.running || false;
+}
+
+/**
+ * Get the highest wave reached in Cardinal Warden.
+ * This is used for iteron generation rate (iterons per hour = highest wave).
+ */
+export function getCardinalHighestWave() {
+  return cardinalHighestWave;
 }
 
 /**

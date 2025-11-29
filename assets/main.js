@@ -213,6 +213,7 @@ import {
   stopCardinalSimulation,
   isCardinalSimulationRunning,
   getCardinalSimulation,
+  getCardinalHighestWave,
 } from './cardinalWardenUI.js';
 import {
   initializeKufState,
@@ -3196,6 +3197,22 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const scoreGain = resourceState.scoreRate * deltaSeconds;
       if (Number.isFinite(scoreGain) && scoreGain > 0) {
         resourceState.score += scoreGain;
+      }
+
+      // Generate iterons based on highest wave reached in Cardinal Warden
+      // Iterons per hour = highest wave reached
+      try {
+        const highestWave = getCardinalHighestWave();
+        if (highestWave > 0) {
+          // Convert per-hour rate to per-second, then multiply by elapsed time
+          const iteronsPerSecond = highestWave / 3600;
+          const iteronGain = iteronsPerSecond * deltaSeconds;
+          if (Number.isFinite(iteronGain) && iteronGain > 0) {
+            addIterons(iteronGain);
+          }
+        }
+      } catch {
+        // Expected: Cardinal Warden may not be initialized yet during early startup
       }
 
       // Update Shin Spire state (Iteron allocation)

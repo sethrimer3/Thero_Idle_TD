@@ -285,6 +285,18 @@ export function addIterons(amount) {
 }
 
 /**
+ * Spend iterons from the bank
+ * @param {number} amount - The number of iterons to spend
+ * @returns {boolean} True if the spend was successful (had enough iterons)
+ */
+export function spendIterons(amount) {
+  if (amount <= 0) return false;
+  if (shinState.iteronBank < amount) return false;
+  shinState.iteronBank -= amount;
+  return true;
+}
+
+/**
  * Get the current iteration rate
  */
 export function getIterationRate() {
