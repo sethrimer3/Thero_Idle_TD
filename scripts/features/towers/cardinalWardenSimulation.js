@@ -3078,13 +3078,12 @@ export class CardinalWardenSimulation {
         ctx.translate(bullet.x, bullet.y);
         ctx.rotate(rotation);
         
-        // Draw thin polygon with transparent fill
+        // Draw thin polygon outline (no fill)
         ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.55)' : 'rgba(0, 0, 0, 0.45)';
         ctx.lineWidth = 1;
-        ctx.fillStyle = 'transparent';
         ctx.beginPath();
         
-        for (let i = 0; i <= sides; i++) {
+        for (let i = 0; i < sides; i++) {
           const angle = (i / sides) * Math.PI * 2 - Math.PI / 2; // Start at top
           const px = Math.cos(angle) * shapeRadius;
           const py = Math.sin(angle) * shapeRadius;
