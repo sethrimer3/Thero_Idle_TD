@@ -743,6 +743,26 @@ export function updateKufDisplay() {
 }
 
 /**
+ * Stop the Kuf battlefield simulation without tearing down the UI.
+ * Used when the player navigates away from the Kuf tab to conserve resources.
+ */
+export function stopKufSimulation() {
+  if (simulation && typeof simulation.stop === 'function') {
+    simulation.stop();
+  }
+}
+
+/**
+ * Resume the Kuf battlefield simulation if a battle was in progress.
+ * Used when returning to the Kuf tab after the simulation was paused.
+ */
+export function resumeKufSimulation() {
+  if (simulation && typeof simulation.resume === 'function') {
+    simulation.resume();
+  }
+}
+
+/**
  * Dispose Kuf UI listeners.
  */
 export function teardownKufUI() {

@@ -366,6 +366,29 @@ export class KufBattlefieldSimulation {
     }
   }
 
+  /**
+   * Resume a paused simulation without resetting game state.
+   * Used when returning to the Kuf tab after the simulation was paused.
+   */
+  resume() {
+    if (this.active) {
+      return; // Already running
+    }
+    // Only resume if there's an active battle in progress.
+    // A battle is considered active when either marines (player units) OR turrets (enemies) exist.
+    // Both being empty means no battle was started, or the battle has already concluded.
+    if (this.marines.length === 0 && this.turrets.length === 0) {
+      return; // No battle in progress to resume
+    }
+    this.active = true;
+    this.attachCameraControls();
+    if (this.canvas) {
+      this.canvas.style.cursor = 'grab';
+    }
+    this.lastTimestamp = performance.now();
+    requestAnimationFrame(this.step);
+  }
+
   reset() {
     this.marines = [];
     this.turrets = [];

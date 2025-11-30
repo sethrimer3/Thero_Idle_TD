@@ -211,6 +211,7 @@ import {
   initializeCardinalWardenUI,
   resizeCardinalCanvas,
   stopCardinalSimulation,
+  startCardinalSimulation,
   isCardinalSimulationRunning,
   getCardinalSimulation,
   getCardinalHighestWave,
@@ -225,7 +226,7 @@ import {
   resetKufState,
   setKufGlyphs,
 } from './kufState.js';
-import { initializeKufUI, updateKufDisplay } from './kufUI.js';
+import { initializeKufUI, updateKufDisplay, stopKufSimulation, resumeKufSimulation } from './kufUI.js';
 // Shared color palette orchestration utilities.
 import {
   configureColorSchemeSystem,
@@ -5423,6 +5424,42 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     bindTowerUpgradeOverlay();
 
+    /**
+     * Stop all Fluid/Bet terrarium animations to conserve resources.
+     * Called when leaving the Fluid tab.
+     */
+    function stopTerrariumAnimations() {
+      const terrariumSystems = [
+        fluidTerrariumCreatures,
+        fluidTerrariumGrass,
+        fluidTerrariumSkyCycle,
+        fluidTerrariumShrooms,
+      ];
+      terrariumSystems.forEach((system) => {
+        if (system && typeof system.stop === 'function') {
+          system.stop();
+        }
+      });
+    }
+
+    /**
+     * Restart all Fluid/Bet terrarium animations.
+     * Called when entering the Fluid tab.
+     */
+    function startTerrariumAnimations() {
+      const terrariumSystems = [
+        fluidTerrariumCreatures,
+        fluidTerrariumGrass,
+        fluidTerrariumSkyCycle,
+        fluidTerrariumShrooms,
+      ];
+      terrariumSystems.forEach((system) => {
+        if (system && typeof system.start === 'function') {
+          system.start();
+        }
+      });
+    }
+
     // Synchronize tab interactions with overlay state, audio cues, and banner refreshes.
     configureTabManager({
       getOverlayActiveState: () => Boolean(levelOverlayController?.isOverlayActive()),
@@ -5436,6 +5473,42 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         if (previousTabId === 'tsadi' && tabId !== 'tsadi') {
           // Stash Tsadi particle counts before the viewport collapses so reentry can rebuild cleanly.
           tsadiSimulationInstance?.stageParticlesForReentry?.();
+        }
+
+        // -------------------------------------------------------------------
+        // Freeze spire simulations when leaving their tabs to reduce resource
+        // usage. Exceptions: Aleph (powder) spire always runs, and the main
+        // playfield continues when an interactive level is active.
+        // -------------------------------------------------------------------
+
+        // Stop Lamed simulation when leaving the Lamed tab
+        if (previousTabId === 'lamed' && tabId !== 'lamed') {
+          if (lamedSimulationInstance && typeof lamedSimulationInstance.stop === 'function') {
+            lamedSimulationInstance.stop();
+          }
+        }
+
+        // Stop Tsadi simulation when leaving the Tsadi tab
+        if (previousTabId === 'tsadi' && tabId !== 'tsadi') {
+          if (tsadiSimulationInstance && typeof tsadiSimulationInstance.stop === 'function') {
+            tsadiSimulationInstance.stop();
+          }
+        }
+
+        // Stop Shin (Cardinal Warden) simulation when leaving the Shin tab
+        if (previousTabId === 'shin' && tabId !== 'shin') {
+          stopCardinalSimulation();
+        }
+
+        // Stop Kuf battlefield simulation when leaving the Kuf tab
+        if (previousTabId === 'kuf' && tabId !== 'kuf') {
+          stopKufSimulation();
+        }
+
+        // Stop Fluid/Bet terrarium animations when leaving the Fluid tab
+        // (Fluid simulation itself is stopped via applyPowderSimulationMode when switching modes)
+        if (previousTabId === 'fluid' && tabId !== 'fluid') {
+          stopTerrariumAnimations();
         }
 
         // Surface spire briefings the first time each tab opens.
@@ -5466,6 +5539,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 : null;
             updateFluidDisplay(fluidStatus);
           }
+          // Restart terrarium animations when returning to the Fluid/Bet tab
+          startTerrariumAnimations();
         } else if (tabId === 'powder') {
           if (powderState.simulationMode !== 'sand') {
             applyPowderSimulationMode('sand');
@@ -5739,6 +5814,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             } catch (error) {
               console.error('Failed to initialize Cardinal Warden UI:', error);
             }
+          } else {
+            // Restart the simulation if it was stopped when leaving the tab
+            startCardinalSimulation();
           }
           // Resize the Cardinal canvas when tab is shown
           resizeCardinalCanvas();
@@ -5761,6 +5839,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               console.error('Failed to initialize Kuf Spire UI:', error);
             }
           } else {
+            // Resume any paused battle when returning to the Kuf tab
+            resumeKufSimulation();
             updateKufDisplay();
           }
         }
