@@ -1424,6 +1424,13 @@ export class CardinalWardenSimulation {
       sine: 0,
     };
 
+    // Aim target for player-controlled weapons (Sine Wave and Convergent Rails)
+    // When null, weapons fire straight up; when set, they aim toward this point
+    this.aimTarget = null;
+    
+    // Bind input handlers for aiming
+    this.handlePointerDown = this.handlePointerDown.bind(this);
+
     // Animation frame handle
     this.animationFrameId = null;
     
@@ -1478,6 +1485,57 @@ export class CardinalWardenSimulation {
     if (!this.canvas) return;
     this.initWarden();
     this.applyRingColors();
+    this.attachInputHandlers();
+  }
+
+  /**
+   * Attach input event handlers for aiming.
+   */
+  attachInputHandlers() {
+    if (!this.canvas) return;
+    this.canvas.addEventListener('pointerdown', this.handlePointerDown);
+  }
+
+  /**
+   * Detach input event handlers.
+   */
+  detachInputHandlers() {
+    if (!this.canvas) return;
+    this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
+  }
+
+  /**
+   * Handle pointer down events for setting aim target.
+   * @param {PointerEvent} event - The pointer event
+   */
+  handlePointerDown(event) {
+    if (!this.canvas || this.gamePhase !== 'playing') return;
+    
+    // Get canvas-relative coordinates
+    const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
+    
+    // Set the aim target
+    this.aimTarget = { x, y };
+  }
+
+  /**
+   * Clear the aim target (weapons will fire straight up).
+   */
+  clearAimTarget() {
+    this.aimTarget = null;
+  }
+
+  /**
+   * Get the current aim target.
+   * @returns {Object|null} The aim target {x, y} or null
+   */
+  getAimTarget() {
+    return this.aimTarget;
   }
 
   /**
@@ -1683,6 +1741,7 @@ export class CardinalWardenSimulation {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+    this.detachInputHandlers();
   }
 
   /**
@@ -1928,7 +1987,15 @@ export class CardinalWardenSimulation {
     };
 
     // Default launch angle aims upward before pattern-specific offsets are applied.
-    const baseAngle = -Math.PI / 2;
+    // For Sine Wave and Convergent Rails (damped) weapons, calculate angle toward aim target if set.
+    let baseAngle = -Math.PI / 2;
+    const isAimableWeapon = weaponId === 'sine' || weaponId === 'damped';
+    if (isAimableWeapon && this.aimTarget) {
+      const dx = this.aimTarget.x - cx;
+      const dy = this.aimTarget.y - (cy - 20); // Account for bullet spawn offset
+      baseAngle = Math.atan2(dy, dx);
+    }
+    
     const firePattern = weaponDef.firePattern || 'standard';
     const basePhase = this.weaponPhases[weaponId];
 
@@ -2672,6 +2739,8 @@ export class CardinalWardenSimulation {
       default:
         // Draw Cardinal Warden
         this.renderWarden();
+        // Draw aim target symbol if set
+        this.renderAimTarget();
         // Draw enemies
         this.renderEnemies();
         // Draw bosses
@@ -2783,6 +2852,62 @@ export class CardinalWardenSimulation {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.fill();
 
+    ctx.restore();
+  }
+
+  /**
+   * Render the aim target symbol where the player has clicked/tapped.
+   * This shows a crosshair-like symbol indicating where aimable weapons will fire.
+   */
+  renderAimTarget() {
+    if (!this.aimTarget || !this.ctx) return;
+
+    const ctx = this.ctx;
+    const { x, y } = this.aimTarget;
+    
+    // Use golden color to match the warden aesthetic
+    const targetColor = this.nightMode ? '#ffe9a3' : '#d4af37';
+    const outerRadius = 16;
+    const innerRadius = 6;
+    const crossSize = 24;
+    
+    ctx.save();
+    
+    // Set line style
+    ctx.strokeStyle = targetColor;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.85;
+    
+    // Draw outer circle
+    ctx.beginPath();
+    ctx.arc(x, y, outerRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Draw inner circle
+    ctx.beginPath();
+    ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Draw crosshair lines (extending beyond outer circle)
+    ctx.beginPath();
+    // Horizontal line
+    ctx.moveTo(x - crossSize, y);
+    ctx.lineTo(x - outerRadius - 4, y);
+    ctx.moveTo(x + outerRadius + 4, y);
+    ctx.lineTo(x + crossSize, y);
+    // Vertical line
+    ctx.moveTo(x, y - crossSize);
+    ctx.lineTo(x, y - outerRadius - 4);
+    ctx.moveTo(x, y + outerRadius + 4);
+    ctx.lineTo(x, y + crossSize);
+    ctx.stroke();
+    
+    // Draw center dot
+    ctx.fillStyle = targetColor;
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI * 2);
+    ctx.fill();
+    
     ctx.restore();
   }
 
