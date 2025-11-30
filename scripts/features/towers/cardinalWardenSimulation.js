@@ -1341,11 +1341,11 @@ export class CardinalWardenSimulation {
     this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay; // Current script tint
 
     // Script font sprite sheet for Cardinal Warden name display
-    // The sprite sheet is a 7x6 grid of characters
+    // The sprite sheet is a 7x5 grid of characters
     this.scriptSpriteSheet = null;
     this.scriptSpriteLoaded = false;
     this.scriptCols = 7;
-    this.scriptRows = 6;
+    this.scriptRows = 5;
     this.tintedScriptSheet = null; // Offscreen canvas containing the colorized script sheet
     this.loadScriptSpriteSheet();
 
@@ -1509,7 +1509,7 @@ export class CardinalWardenSimulation {
 
   /**
    * Load the script sprite sheet for the Cardinal Warden name display.
-   * The sprite sheet contains unique characters in a 7x6 grid.
+   * The sprite sheet contains unique characters in a 7x5 grid.
    */
   loadScriptSpriteSheet() {
     this.scriptSpriteSheet = new Image();
@@ -1529,7 +1529,7 @@ export class CardinalWardenSimulation {
   /**
    * Render a character from the script sprite sheet.
    * @param {CanvasRenderingContext2D} ctx - Canvas context
-   * @param {number} charIndex - Index of the character (0-41 for a 7x6 grid)
+   * @param {number} charIndex - Index of the character (0-34 for a 7x5 grid)
    * @param {number} x - X position to render at
    * @param {number} y - Y position to render at
    * @param {number} size - Size to render the character
