@@ -2037,6 +2037,55 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     lamedSpireUi.updateStatistics(lamedSimulationInstance);
   }
 
+  /**
+   * Preserve the active Lamed gravity simulation state so tab switches or reloads can resume seamlessly.
+   */
+  function captureLamedSimulationSnapshot() {
+    if (!lamedSimulationInstance || typeof lamedSimulationInstance.exportSnapshot !== 'function') {
+      return;
+    }
+    const snapshot = lamedSimulationInstance.exportSnapshot();
+    if (!snapshot || typeof snapshot !== 'object') {
+      return;
+    }
+    spireResourceState.lamed.simulationSnapshot = snapshot;
+    if (Number.isFinite(snapshot.sparkBank)) {
+      setLamedSparkBank(snapshot.sparkBank);
+    }
+    if (snapshot.stats) {
+      spireResourceState.lamed.stats = snapshot.stats;
+    }
+    if (snapshot.upgrades) {
+      spireResourceState.lamed.upgrades = snapshot.upgrades;
+    }
+    if (Number.isFinite(snapshot.starMass)) {
+      spireResourceState.lamed.starMass = snapshot.starMass;
+    }
+    if (Number.isFinite(snapshot.dragLevel)) {
+      spireResourceState.lamed.dragLevel = snapshot.dragLevel;
+    }
+  }
+
+  /**
+   * Capture Tsadi particle sandbox state for autosave hydration and tab resume.
+   */
+  function captureTsadiSimulationSnapshot() {
+    if (!tsadiSimulationInstance || typeof tsadiSimulationInstance.exportSnapshot !== 'function') {
+      return;
+    }
+    const snapshot = tsadiSimulationInstance.exportSnapshot();
+    if (!snapshot || typeof snapshot !== 'object') {
+      return;
+    }
+    spireResourceState.tsadi.simulationSnapshot = snapshot;
+    if (Number.isFinite(snapshot.particleBank)) {
+      setTsadiParticleBank(snapshot.particleBank);
+    }
+    if (Number.isFinite(snapshot.bindingAgentBank)) {
+      syncTsadiBindingAgents(snapshot.bindingAgentBank);
+    }
+  }
+
   // Normalize the aleph glyph tithe before using it for unlock checks or logs.
   function getFluidUnlockGlyphCost() {
     const rawCost = Number.isFinite(powderConfig.fluidUnlockGlyphCost)
@@ -2704,6 +2753,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           totalAbsorptions: clampPersistedValue(lamedState.stats?.totalAbsorptions, 0),
           totalMassGained: clampPersistedValue(lamedState.stats?.totalMassGained, 0),
         },
+        simulationSnapshot: lamedState.simulationSnapshot || null,
       },
       tsadi: {
         unlocked: Boolean(tsadiState.unlocked),
@@ -2716,6 +2766,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           totalGlyphs: clampPersistedValue(tsadiState.stats?.totalGlyphs, 0),
           highestTier: clampPersistedValue(tsadiState.stats?.highestTier, 0),
         },
+        simulationSnapshot: tsadiState.simulationSnapshot || null,
       },
       shin: {
         unlocked: Boolean(shinState.unlocked),
@@ -2772,6 +2823,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       ),
       totalMassGained: clampPersistedValue(lamedBranch.stats?.totalMassGained, lamedState.stats?.totalMassGained || 0),
     };
+    lamedState.simulationSnapshot = lamedBranch.simulationSnapshot || lamedState.simulationSnapshot || null;
 
     const tsadiState = spireResourceState.tsadi || {};
     tsadiState.unlocked = Boolean(tsadiBranch.unlocked || tsadiState.unlocked);
@@ -2788,6 +2840,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     tsadiState.discoveredMolecules = normalizeDiscoveredMolecules(
       tsadiBranch.discoveredMolecules || tsadiState.discoveredMolecules,
     );
+    tsadiState.simulationSnapshot = tsadiBranch.simulationSnapshot || tsadiState.simulationSnapshot || null;
     updateBindingAgentDisplay();
 
     const shinState = spireResourceState.shin || {};
@@ -5471,8 +5524,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           playfield.closeTowerSelectionWheel();
         }
         if (previousTabId === 'tsadi' && tabId !== 'tsadi') {
-          // Stash Tsadi particle counts before the viewport collapses so reentry can rebuild cleanly.
-          tsadiSimulationInstance?.stageParticlesForReentry?.();
+          captureTsadiSimulationSnapshot();
         }
 
         // -------------------------------------------------------------------
@@ -5483,6 +5535,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
         // Stop Lamed simulation when leaving the Lamed tab
         if (previousTabId === 'lamed' && tabId !== 'lamed') {
+          captureLamedSimulationSnapshot();
           if (lamedSimulationInstance && typeof lamedSimulationInstance.stop === 'function') {
             lamedSimulationInstance.stop();
           }
@@ -5490,6 +5543,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
         // Stop Tsadi simulation when leaving the Tsadi tab
         if (previousTabId === 'tsadi' && tabId !== 'tsadi') {
+          captureTsadiSimulationSnapshot();
           if (tsadiSimulationInstance && typeof tsadiSimulationInstance.stop === 'function') {
             tsadiSimulationInstance.stop();
           }
@@ -5570,18 +5624,22 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                   updateLamedStatistics();
                 },
               });
-              
-              // Restore saved state
-              lamedSimulationInstance.setState({
+
+              const lamedSnapshot = spireResourceState.lamed.simulationSnapshot || {
                 starMass: spireResourceState.lamed.starMass || 10,
                 sparkBank: getLamedSparkBank(),
                 dragLevel: spireResourceState.lamed.dragLevel || 0,
-                // Restore the stored star mass upgrade tier so UI and simulation stay in sync.
                 upgrades: {
                   starMass: spireResourceState.lamed.upgrades?.starMass || 0,
                 },
                 stats: spireResourceState.lamed.stats || { totalAbsorptions: 0, totalMassGained: 0 },
-              });
+              };
+
+              if (typeof lamedSimulationInstance.importSnapshot === 'function') {
+                lamedSimulationInstance.importSnapshot(lamedSnapshot);
+              } else {
+                lamedSimulationInstance.setState(lamedSnapshot);
+              }
 
               lamedSimulationInstance.resize();
               const growthRateEl = document.getElementById('lamed-growth-rate');
@@ -5760,6 +5818,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 },
                 onMoleculeDiscovered: handleMoleculeDiscovery,
               });
+              const tsadiSnapshot = {
+                particleBank: getTsadiParticleBank(),
+                bindingAgentBank: getTsadiBindingAgents(),
+                discoveredMolecules: spireResourceState.tsadi?.discoveredMolecules || [],
+                highestTierReached: spireResourceState.tsadi?.stats?.highestTier,
+                glyphCount: spireResourceState.tsadi?.stats?.totalGlyphs,
+                ...(spireResourceState.tsadi?.simulationSnapshot || {}),
+              };
               setTsadiSimulationGetter(() => tsadiSimulationInstance);
               initializeTsadiSpirePreferences();
               if (!tsadiOptionsBound) {
@@ -5767,8 +5833,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 tsadiOptionsBound = true;
               }
               tsadiSimulationInstance.resize();
+              if (typeof tsadiSimulationInstance.importSnapshot === 'function') {
+                tsadiSimulationInstance.importSnapshot(tsadiSnapshot);
+              } else {
+                tsadiSimulationInstance.importState(tsadiSnapshot, { preserveLayout: true });
+              }
               tsadiSimulationInstance.setAvailableBindingAgents(getTsadiBindingAgents());
-              tsadiSimulationInstance.beginPlacementFromStoredCounts?.();
               const generationRateEl = document.getElementById('tsadi-generation-rate');
               if (generationRateEl) {
                 generationRateEl.textContent = `${tsadiSimulationInstance.spawnRate.toFixed(2)} particles/sec`;
@@ -5790,7 +5860,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             }
           } else {
             tsadiSimulationInstance.resize();
-            tsadiSimulationInstance.beginPlacementFromStoredCounts?.();
             if (!tsadiSimulationInstance.running) {
               tsadiSimulationInstance.start();
             }

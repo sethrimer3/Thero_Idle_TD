@@ -2316,7 +2316,230 @@ export class GravitySimulation {
       },
     };
   }
-  
+
+  /**
+   * Capture a full simulation snapshot so the gravity well can resume after tab switches or reloads.
+   * @returns {Object} Plain snapshot containing particle positions, timers, and visual queues.
+   */
+  exportSnapshot() {
+    return {
+      ...this.getState(),
+      sparkSpawnRate: this.sparkSpawnRate,
+      spawnAccumulator: this.spawnAccumulator,
+      trailEnabledStarCount: this.trailEnabledStarCount,
+      pendingAbsorptions: this.pendingAbsorptions,
+      pendingMassGain: this.pendingMassGain,
+      sunBounce: { ...this.sunBounce },
+      coreSizeState: { ...this.coreSizeState },
+      lensFlareState: { ...this.lensFlareState },
+      stars: this.stars.map((star) => ({
+        x: star.x,
+        y: star.y,
+        vx: star.vx,
+        vy: star.vy,
+        mass: star.mass,
+        hasTrail: Boolean(star.hasTrail),
+        life: star.life,
+        trail: Array.isArray(star.trail)
+          ? star.trail.map((point) => ({ x: point.x, y: point.y, alpha: point.alpha, speed: point.speed }))
+          : [],
+      })),
+      shootingStars: this.shootingStars.map((star) => ({
+        x: star.x,
+        y: star.y,
+        vx: star.vx,
+        vy: star.vy,
+        mass: star.mass,
+        color: star.color,
+        trail: Array.isArray(star.trail)
+          ? star.trail.map((point) => ({ x: point.x, y: point.y, alpha: point.alpha }))
+          : [],
+      })),
+      dustParticles: this.dustParticles.map((dust) => ({
+        x: dust.x,
+        y: dust.y,
+        vx: dust.vx,
+        vy: dust.vy,
+        alpha: dust.alpha,
+      })),
+      shockRings: this.shockRings.map((ring) => ({
+        x: ring.x,
+        y: ring.y,
+        radius: ring.radius,
+        thickness: ring.thickness,
+        alpha: ring.alpha,
+      })),
+      flashEffects: this.flashEffects.map((flash) => ({
+        x: flash.x,
+        y: flash.y,
+        radius: flash.radius,
+        maxRadius: flash.maxRadius,
+        alpha: flash.alpha,
+        duration: flash.duration,
+        elapsed: flash.elapsed,
+      })),
+      geyserParticles: this.geyserParticles.map((particle) => ({
+        x: particle.x,
+        y: particle.y,
+        vx: particle.vx,
+        vy: particle.vy,
+        lifetime: particle.lifetime,
+        age: particle.age,
+        startSize: particle.startSize,
+        size: particle.size,
+        color: particle.color,
+        flashPhase: particle.flashPhase,
+        alpha: particle.alpha,
+        flashProgress: particle.flashProgress,
+        occlusionRadius: particle.occlusionRadius,
+      })),
+    };
+  }
+
+  /**
+   * Restore the simulation from a captured snapshot.
+   * @param {Object} snapshot - Serialized state captured by exportSnapshot.
+   */
+  importSnapshot(snapshot = {}) {
+    if (!snapshot || typeof snapshot !== 'object') {
+      return;
+    }
+
+    this.setState(snapshot);
+    this.sparkSpawnRate = Number.isFinite(snapshot.sparkSpawnRate)
+      ? Math.max(0, snapshot.sparkSpawnRate)
+      : this.sparkSpawnRate;
+    this.spawnAccumulator = Number.isFinite(snapshot.spawnAccumulator)
+      ? Math.max(0, snapshot.spawnAccumulator)
+      : this.spawnAccumulator;
+    this.pendingAbsorptions = Number.isFinite(snapshot.pendingAbsorptions)
+      ? Math.max(0, snapshot.pendingAbsorptions)
+      : 0;
+    this.pendingMassGain = Number.isFinite(snapshot.pendingMassGain) ? Math.max(0, snapshot.pendingMassGain) : 0;
+    if (snapshot.sunBounce && typeof snapshot.sunBounce === 'object') {
+      this.sunBounce = {
+        offset: Number.isFinite(snapshot.sunBounce.offset) ? snapshot.sunBounce.offset : this.sunBounce.offset,
+        velocity: Number.isFinite(snapshot.sunBounce.velocity) ? snapshot.sunBounce.velocity : this.sunBounce.velocity,
+      };
+    }
+    if (snapshot.coreSizeState && typeof snapshot.coreSizeState === 'object') {
+      this.coreSizeState = {
+        ...this.coreSizeState,
+        ...snapshot.coreSizeState,
+      };
+    }
+    if (snapshot.lensFlareState && typeof snapshot.lensFlareState === 'object') {
+      this.lensFlareState = {
+        ...this.lensFlareState,
+        ...snapshot.lensFlareState,
+      };
+    }
+
+    this.stars = Array.isArray(snapshot.stars)
+      ? snapshot.stars
+        .filter((star) => Number.isFinite(star?.x) && Number.isFinite(star?.y))
+        .map((star) => ({
+          x: star.x,
+          y: star.y,
+          vx: Number.isFinite(star.vx) ? star.vx : 0,
+          vy: Number.isFinite(star.vy) ? star.vy : 0,
+          mass: Number.isFinite(star.mass) ? Math.max(0, star.mass) : 1,
+          hasTrail: Boolean(star.hasTrail),
+          life: Number.isFinite(star.life) ? star.life : 1,
+          trail: Array.isArray(star.trail)
+            ? star.trail
+              .filter((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y))
+              .map((point) => ({
+                x: point.x,
+                y: point.y,
+                alpha: Number.isFinite(point.alpha) ? point.alpha : 1,
+                speed: Number.isFinite(point.speed) ? point.speed : undefined,
+              }))
+            : [],
+        }))
+      : [];
+    this.trailEnabledStarCount = this.stars.filter((star) => star.hasTrail).length;
+
+    this.shootingStars = Array.isArray(snapshot.shootingStars)
+      ? snapshot.shootingStars
+        .filter((star) => Number.isFinite(star?.x) && Number.isFinite(star?.y))
+        .map((star) => ({
+          x: star.x,
+          y: star.y,
+          vx: Number.isFinite(star.vx) ? star.vx : 0,
+          vy: Number.isFinite(star.vy) ? star.vy : 0,
+          mass: Number.isFinite(star.mass) ? Math.max(0, star.mass) : 1,
+          color: star.color,
+          trail: Array.isArray(star.trail)
+            ? star.trail
+              .filter((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y))
+              .map((point) => ({ x: point.x, y: point.y, alpha: Number.isFinite(point.alpha) ? point.alpha : 1 }))
+            : [],
+        }))
+      : [];
+
+    this.dustParticles = Array.isArray(snapshot.dustParticles)
+      ? snapshot.dustParticles
+        .filter((dust) => Number.isFinite(dust?.x) && Number.isFinite(dust?.y))
+        .map((dust) => ({
+          x: dust.x,
+          y: dust.y,
+          vx: Number.isFinite(dust.vx) ? dust.vx : 0,
+          vy: Number.isFinite(dust.vy) ? dust.vy : 0,
+          alpha: Number.isFinite(dust.alpha) ? dust.alpha : 1,
+        }))
+      : [];
+
+    this.shockRings = Array.isArray(snapshot.shockRings)
+      ? snapshot.shockRings
+        .filter((ring) => Number.isFinite(ring?.x) && Number.isFinite(ring?.y))
+        .map((ring) => ({
+          x: ring.x,
+          y: ring.y,
+          radius: Number.isFinite(ring.radius) ? ring.radius : 0,
+          thickness: Number.isFinite(ring.thickness) ? ring.thickness : 1,
+          alpha: Number.isFinite(ring.alpha) ? ring.alpha : 1,
+        }))
+      : [];
+
+    this.flashEffects = Array.isArray(snapshot.flashEffects)
+      ? snapshot.flashEffects
+        .filter((flash) => Number.isFinite(flash?.x) && Number.isFinite(flash?.y))
+        .map((flash) => ({
+          x: flash.x,
+          y: flash.y,
+          radius: Number.isFinite(flash.radius) ? flash.radius : 0,
+          maxRadius: Number.isFinite(flash.maxRadius) ? flash.maxRadius : 0,
+          alpha: Number.isFinite(flash.alpha) ? flash.alpha : 1,
+          duration: Number.isFinite(flash.duration) ? flash.duration : 0,
+          elapsed: Number.isFinite(flash.elapsed) ? flash.elapsed : 0,
+        }))
+      : [];
+
+    this.geyserParticles = Array.isArray(snapshot.geyserParticles)
+      ? snapshot.geyserParticles
+        .filter((particle) => Number.isFinite(particle?.x) && Number.isFinite(particle?.y))
+        .map((particle) => ({
+          x: particle.x,
+          y: particle.y,
+          vx: Number.isFinite(particle.vx) ? particle.vx : 0,
+          vy: Number.isFinite(particle.vy) ? particle.vy : 0,
+          lifetime: Number.isFinite(particle.lifetime) ? particle.lifetime : 0,
+          age: Number.isFinite(particle.age) ? particle.age : 0,
+          startSize: Number.isFinite(particle.startSize) ? particle.startSize : 0,
+          size: Number.isFinite(particle.size) ? particle.size : 0,
+          color: particle.color,
+          flashPhase: Number.isFinite(particle.flashPhase) ? particle.flashPhase : 0,
+          alpha: Number.isFinite(particle.alpha) ? particle.alpha : 1,
+          flashProgress: Number.isFinite(particle.flashProgress) ? particle.flashProgress : 0,
+          occlusionRadius: Number.isFinite(particle.occlusionRadius) ? particle.occlusionRadius : 0,
+        }))
+      : [];
+
+    // Refresh derived sizing state to keep rendering coherent after hydration.
+    this.updateCoreSizeState(0);
+  }
+
   /**
    * Restore state from serialized data
    */

@@ -11,6 +11,8 @@ const DEFAULT_LAMED_STATE = {
     totalMassGained: 0,
     starMilestoneReached: 0,
   },
+  // Serialized snapshot of the active gravity simulation so tab switches can resume seamlessly.
+  simulationSnapshot: null,
 };
 
 const DEFAULT_TSADI_STATE = {
@@ -24,6 +26,8 @@ const DEFAULT_TSADI_STATE = {
     totalGlyphs: 0,
     highestTier: 0,
   },
+  // Serialized snapshot of the particle fusion sandbox for pause/resume flows.
+  simulationSnapshot: null,
 };
 
 const DEFAULT_GENERIC_STATE = {
