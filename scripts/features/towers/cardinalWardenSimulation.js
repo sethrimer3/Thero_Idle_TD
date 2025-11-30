@@ -434,21 +434,23 @@ class EnemyShip {
       age: 0,
     });
     
-    // Update existing smoke puffs - they fade and shrink over time
+    // Update existing smoke puffs - they fade and shrink over time (4x longer trails)
     for (let i = this.smokePuffs.length - 1; i >= 0; i--) {
       const puff = this.smokePuffs[i];
       puff.age += dt;
-      puff.alpha = Math.max(0, 0.42 - puff.age * 0.7);
-      puff.radius = baseSmokeRadius * Math.max(0.5, 1 - puff.age * 0.3);
+      // Slower fade rate for longer trails: 0.175 vs original 0.7 (4x slower)
+      puff.alpha = Math.max(0, 0.42 - puff.age * 0.175);
+      // Slower shrink rate for longer trails
+      puff.radius = baseSmokeRadius * Math.max(0.5, 1 - puff.age * 0.075);
       
-      // Remove puffs that have fully faded
-      if (puff.alpha <= 0 || puff.age > 0.6) {
+      // Remove puffs that have fully faded (4x longer: 2.4 vs original 0.6)
+      if (puff.alpha <= 0 || puff.age > 2.4) {
         this.smokePuffs.splice(i, 1);
       }
     }
     
-    // Limit smoke puffs to prevent memory growth
-    while (this.smokePuffs.length > 15) {
+    // Limit smoke puffs to prevent memory growth (4x more: 60 vs original 15)
+    while (this.smokePuffs.length > 60) {
       this.smokePuffs.shift();
     }
 
@@ -927,6 +929,13 @@ class Bullet {
     this.hitEnemies = new Set();
     this.trail = [];
     this.age = 0;
+    
+    // Weapon level for visual effects (default 1 for backwards compatibility)
+    this.level = config.level || 1;
+    
+    // Geometric shape rotation for level 3+ bullets (random direction and speed)
+    this.shapeRotation = 0;
+    this.shapeRotationSpeed = (Math.random() - 0.5) * 8; // Random speed between -4 and 4 rad/s
   }
 
   update(deltaTime) {
@@ -939,6 +948,11 @@ class Bullet {
     this.trail.push({ x: this.x, y: this.y });
     if (this.trail.length > 10) {
       this.trail.shift();
+    }
+    
+    // Update geometric shape rotation for level 3+ bullets
+    if (this.level >= 3) {
+      this.shapeRotation += this.shapeRotationSpeed * dt;
     }
   }
 
@@ -980,6 +994,13 @@ class MathBullet {
 
     // Track pierced targets so mathematical bullets respect single-hit collisions.
     this.hitEnemies = new Set();
+    
+    // Weapon level for visual effects (default 1 for backwards compatibility)
+    this.level = config.level || 1;
+    
+    // Geometric shape rotation for level 3+ bullets (random direction and speed)
+    this.shapeRotation = 0;
+    this.shapeRotationSpeed = (Math.random() - 0.5) * 8; // Random speed between -4 and 4 rad/s
   }
 
   update(deltaTime) {
@@ -1055,6 +1076,11 @@ class MathBullet {
     if (this.trail.length > 12) {
       this.trail.shift();
     }
+    
+    // Update geometric shape rotation for level 3+ bullets
+    if (this.level >= 3) {
+      this.shapeRotation += this.shapeRotationSpeed * dt;
+    }
   }
 
   isOffscreen(width, height) {
@@ -1080,7 +1106,7 @@ const WEAPON_DEFINITIONS = {
     amplitude: 20,
     frequency: 3,
     cost: 0, // Free - starter weapon
-    upgradeCosts: [10, 25, 50, 100, 200],
+    upgradeCosts: [10, 25, 50, 100, 200, 400, 800, 1600, 3200, 6400, 12800], // Levels 2-12
     color: '#d4af37',
   },
   cosine: {
@@ -1095,7 +1121,7 @@ const WEAPON_DEFINITIONS = {
     amplitude: 26,
     frequency: 2.8,
     cost: 50,
-    upgradeCosts: [15, 40, 80, 150, 300],
+    upgradeCosts: [15, 40, 80, 150, 300, 600, 1200, 2400, 4800, 9600, 19200], // Levels 2-12
     color: '#ff9c66',
     firePattern: 'alternatingPair',
     arcWidth: Math.PI / 5,
@@ -1112,7 +1138,7 @@ const WEAPON_DEFINITIONS = {
     amplitude: 18,
     frequency: 4.5,
     cost: 100,
-    upgradeCosts: [25, 60, 120, 250, 500],
+    upgradeCosts: [25, 60, 120, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000], // Levels 2-12
     color: '#9a6bff',
     firePattern: 'rotatingFan',
     fanCount: 5,
@@ -1131,7 +1157,7 @@ const WEAPON_DEFINITIONS = {
     amplitude: 30,
     frequency: 3.5,
     cost: 150,
-    upgradeCosts: [30, 75, 150, 300, 600],
+    upgradeCosts: [30, 75, 150, 300, 600, 1200, 2400, 4800, 9600, 19200, 38400], // Levels 2-12
     color: '#50a0ff',
     firePattern: 'convergingBurst',
     burstCount: 4,
@@ -1149,7 +1175,7 @@ const WEAPON_DEFINITIONS = {
     amplitude: 36,
     frequency: 2.2,
     cost: 200,
-    upgradeCosts: [50, 100, 200, 400, 800],
+    upgradeCosts: [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200], // Levels 2-12
     color: '#ff7deb',
     firePattern: 'rapidBurst',
     pelletCount: 7,
@@ -1167,7 +1193,7 @@ const WEAPON_DEFINITIONS = {
     amplitude: 42,
     frequency: 2.1,
     cost: 250,
-    upgradeCosts: [40, 90, 180, 350, 700],
+    upgradeCosts: [40, 90, 180, 350, 700, 1400, 2800, 5600, 11200, 22400, 44800], // Levels 2-12
     color: '#8bf7ff',
     firePattern: 'chaoticSpray',
     arcWidth: Math.PI / 3,
@@ -1184,7 +1210,7 @@ const WEAPON_DEFINITIONS = {
     amplitude: 30,
     frequency: 3.4,
     cost: 320,
-    upgradeCosts: [70, 140, 280, 560, 1120],
+    upgradeCosts: [70, 140, 280, 560, 1120, 2240, 4480, 8960, 17920, 35840, 71680], // Levels 2-12
     color: '#f2c44d',
     firePattern: 'petalRing',
     petalCount: 12,
@@ -1202,7 +1228,7 @@ const WEAPON_DEFINITIONS = {
     amplitude: 20,
     frequency: 3,
     cost: 420,
-    upgradeCosts: [80, 170, 340, 680, 1360],
+    upgradeCosts: [80, 170, 340, 680, 1360, 2720, 5440, 10880, 21760, 43520, 87040], // Levels 2-12
     color: '#7cd1b8',
     firePattern: 'spiralPair',
     rotationStep: Math.PI / 24,
@@ -1220,7 +1246,7 @@ const WEAPON_DEFINITIONS = {
     amplitude: 24,
     frequency: 2.2,
     cost: 500,
-    upgradeCosts: [90, 190, 380, 760, 1520],
+    upgradeCosts: [90, 190, 380, 760, 1520, 3040, 6080, 12160, 24320, 48640, 97280], // Levels 2-12
     color: '#c6a1ff',
     firePattern: 'laneWeave',
     laneCount: 4,
@@ -1810,6 +1836,7 @@ export class CardinalWardenSimulation {
       pattern: weaponDef.pattern,
       amplitude: weaponDef.amplitude * (1 + (level - 1) * 0.15),
       frequency: weaponDef.frequency,
+      level: level, // Track weapon level for visual effects
     };
 
     // Track phase rotation per weapon for persistent fan and ring choreography.
@@ -3018,15 +3045,20 @@ export class CardinalWardenSimulation {
       ctx.arc(bullet.x, bullet.y, glowRadius * 0.55, 0, Math.PI * 2);
       ctx.fill();
 
-      // Directional flare to emphasize travel direction.
-      const heading = bullet.baseAngle !== undefined ? bullet.baseAngle : bullet.angle || -Math.PI / 2;
-      const flareLength = bullet.size * 3.5;
-      ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.65)' : 'rgba(0, 0, 0, 0.55)';
-      ctx.lineWidth = Math.max(1.2, bullet.size * 0.45);
-      ctx.beginPath();
-      ctx.moveTo(bullet.x - Math.cos(heading) * bullet.size * 0.6, bullet.y - Math.sin(heading) * bullet.size * 0.6);
-      ctx.lineTo(bullet.x + Math.cos(heading) * flareLength, bullet.y + Math.sin(heading) * flareLength);
-      ctx.stroke();
+      // Get bullet level (default to 1 for backwards compatibility)
+      const bulletLevel = bullet.level || 1;
+
+      // Directional flare to emphasize travel direction (only shown on level 2+)
+      if (bulletLevel >= 2) {
+        const heading = bullet.baseAngle !== undefined ? bullet.baseAngle : bullet.angle || -Math.PI / 2;
+        const flareLength = bullet.size * 3.5;
+        ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.65)' : 'rgba(0, 0, 0, 0.55)';
+        ctx.lineWidth = Math.max(1.2, bullet.size * 0.45);
+        ctx.beginPath();
+        ctx.moveTo(bullet.x - Math.cos(heading) * bullet.size * 0.6, bullet.y - Math.sin(heading) * bullet.size * 0.6);
+        ctx.lineTo(bullet.x + Math.cos(heading) * flareLength, bullet.y + Math.sin(heading) * flareLength);
+        ctx.stroke();
+      }
 
       // Thin rim for a crisp silhouette.
       ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.65)';
@@ -3034,6 +3066,39 @@ export class CardinalWardenSimulation {
       ctx.beginPath();
       ctx.arc(bullet.x, bullet.y, Math.max(1, bullet.size * 0.9), 0, Math.PI * 2);
       ctx.stroke();
+
+      // Rotating geometric shapes for level 3+ (capped at level 12)
+      // Level 3 = triangle (3 sides), level 4 = square (4 sides), etc.
+      if (bulletLevel >= 3) {
+        const sides = Math.min(bulletLevel, 12); // Cap at 12 sides
+        const shapeRadius = bullet.size * 2.2;
+        const rotation = bullet.shapeRotation || 0;
+        
+        ctx.save();
+        ctx.translate(bullet.x, bullet.y);
+        ctx.rotate(rotation);
+        
+        // Draw thin polygon with transparent fill
+        ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.55)' : 'rgba(0, 0, 0, 0.45)';
+        ctx.lineWidth = 1;
+        ctx.fillStyle = 'transparent';
+        ctx.beginPath();
+        
+        for (let i = 0; i <= sides; i++) {
+          const angle = (i / sides) * Math.PI * 2 - Math.PI / 2; // Start at top
+          const px = Math.cos(angle) * shapeRadius;
+          const py = Math.sin(angle) * shapeRadius;
+          if (i === 0) {
+            ctx.moveTo(px, py);
+          } else {
+            ctx.lineTo(px, py);
+          }
+        }
+        ctx.closePath();
+        ctx.stroke();
+        
+        ctx.restore();
+      }
 
       ctx.restore();
     }
@@ -3213,7 +3278,7 @@ export class CardinalWardenSimulation {
       const def = WEAPON_DEFINITIONS[weaponId];
       const isPurchased = this.weapons.purchased[weaponId] || false;
       const level = this.weapons.levels[weaponId] || 0;
-      const maxLevel = 6;
+      const maxLevel = 12;
       const canUpgrade = isPurchased && level < maxLevel;
       const upgradeCost = canUpgrade && def.upgradeCosts[level - 1] !== undefined 
         ? def.upgradeCosts[level - 1] 
@@ -3325,7 +3390,7 @@ export class CardinalWardenSimulation {
     if (!this.weapons.purchased[weaponId]) return false;
     
     const currentLevel = this.weapons.levels[weaponId] || 1;
-    const maxLevel = 6;
+    const maxLevel = 12;
     
     // Already at max level
     if (currentLevel >= maxLevel) return false;
@@ -3365,7 +3430,7 @@ export class CardinalWardenSimulation {
     if (!this.weapons.purchased[weaponId]) return false;
     
     const currentLevel = this.weapons.levels[weaponId] || 1;
-    const maxLevel = 6;
+    const maxLevel = 12;
     
     // Already at max level
     if (currentLevel >= maxLevel) return false;
