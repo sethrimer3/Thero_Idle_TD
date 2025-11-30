@@ -1003,8 +1003,8 @@ class MathBullet {
     // Weapon level for visual effects (default 1 for backwards compatibility)
     this.level = config.level || 1;
     
-    // Max trail length (default 48 - 4x original for longer bullet trails)
-    this.maxTrailLength = config.maxTrailLength !== undefined ? config.maxTrailLength : 48;
+    // Max trail length (default 40 - 4x original for longer bullet trails)
+    this.maxTrailLength = config.maxTrailLength !== undefined ? config.maxTrailLength : 40;
     
     // Geometric shape rotation for level 3+ bullets (random direction and speed)
     this.shapeRotation = 0;
@@ -1535,20 +1535,6 @@ export class CardinalWardenSimulation {
       case 'medium': return 30;
       case 'long': return 60;
       default: return 60;
-    }
-  }
-
-  /**
-   * Get smoke fade rate based on trail length setting.
-   * @returns {number} Fade rate
-   */
-  getEnemySmokeFadeRate() {
-    switch (this.enemyTrailLength) {
-      case 'none': return 1;
-      case 'short': return 0.7;
-      case 'medium': return 0.35;
-      case 'long': return 0.175;
-      default: return 0.175;
     }
   }
 
