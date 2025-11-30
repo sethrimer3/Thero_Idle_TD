@@ -1424,7 +1424,7 @@ export class CardinalWardenSimulation {
       sine: 0,
     };
 
-    // Aim target for player-controlled weapons (sine and damped/convergent)
+    // Aim target for player-controlled weapons (Sine Wave and Convergent Rails)
     // When null, weapons fire straight up; when set, they aim toward this point
     this.aimTarget = null;
     
@@ -1987,7 +1987,7 @@ export class CardinalWardenSimulation {
     };
 
     // Default launch angle aims upward before pattern-specific offsets are applied.
-    // For sine and damped weapons, calculate angle toward aim target if set.
+    // For Sine Wave and Convergent Rails (damped) weapons, calculate angle toward aim target if set.
     let baseAngle = -Math.PI / 2;
     const isAimableWeapon = weaponId === 'sine' || weaponId === 'damped';
     if (isAimableWeapon && this.aimTarget) {
