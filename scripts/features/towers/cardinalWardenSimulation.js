@@ -1337,6 +1337,14 @@ export class CardinalWardenSimulation {
     this.enemyTrailColor = '#000000';
     this.enemySmokeColor = '#000000';
 
+    // Script font sprite sheet for Cardinal Warden name display
+    // The sprite sheet is a 7x6 grid of characters
+    this.scriptSpriteSheet = null;
+    this.scriptSpriteLoaded = false;
+    this.scriptCols = 7;
+    this.scriptRows = 6;
+    this.loadScriptSpriteSheet();
+
     // Game state
     this.running = false;
     this.paused = false;
@@ -1468,6 +1476,91 @@ export class CardinalWardenSimulation {
       this.uiTextColor = '#333';
       this.enemyTrailColor = '#000000';
       this.enemySmokeColor = '#000000';
+    }
+  }
+
+  /**
+   * Load the script sprite sheet for the Cardinal Warden name display.
+   * The sprite sheet contains unique characters in a 7x6 grid.
+   */
+  loadScriptSpriteSheet() {
+    this.scriptSpriteSheet = new Image();
+    this.scriptSpriteSheet.onload = () => {
+      this.scriptSpriteLoaded = true;
+    };
+    this.scriptSpriteSheet.onerror = () => {
+      console.warn('Failed to load script sprite sheet for Cardinal Warden');
+    };
+    // Path is relative to the HTML page (index.html)
+    this.scriptSpriteSheet.src = './assets/sprites/spires/shinSpire/Script.png';
+  }
+
+  /**
+   * Render a character from the script sprite sheet.
+   * @param {CanvasRenderingContext2D} ctx - Canvas context
+   * @param {number} charIndex - Index of the character (0-41 for a 7x6 grid)
+   * @param {number} x - X position to render at
+   * @param {number} y - Y position to render at
+   * @param {number} size - Size to render the character
+   */
+  renderScriptChar(ctx, charIndex, x, y, size) {
+    if (!this.scriptSpriteLoaded || !this.scriptSpriteSheet) return;
+
+    const col = charIndex % this.scriptCols;
+    const row = Math.floor(charIndex / this.scriptCols);
+    const charWidth = this.scriptSpriteSheet.width / this.scriptCols;
+    const charHeight = this.scriptSpriteSheet.height / this.scriptRows;
+
+    ctx.drawImage(
+      this.scriptSpriteSheet,
+      col * charWidth,
+      row * charHeight,
+      charWidth,
+      charHeight,
+      x - size / 2,
+      y - size / 2,
+      size,
+      size
+    );
+  }
+
+  /**
+   * Render the Cardinal Warden's name in script font below the warden.
+   * First 7 characters on line 1, then 3 characters on line 2.
+   */
+  renderWardenName() {
+    if (!this.ctx || !this.warden || !this.scriptSpriteLoaded) return;
+
+    const ctx = this.ctx;
+    const warden = this.warden;
+
+    // Character size and spacing configuration
+    const charSize = 16;
+    const charSpacing = charSize * 0.9;
+    const lineSpacing = charSize * 1.1;
+
+    // Position just below the warden's outermost ring
+    // The warden is at 75% canvas height, so we need to calculate carefully
+    const canvasHeight = this.canvas ? this.canvas.height : 600;
+    const spaceBelow = canvasHeight - warden.y;
+    // Place name within the remaining space, closer to the warden
+    const nameStartY = warden.y + Math.min(70, spaceBelow * 0.4);
+
+    // First line: 7 characters (indices 0-6)
+    const line1Chars = 7;
+    const line1StartX = warden.x - ((line1Chars - 1) * charSpacing) / 2;
+
+    for (let i = 0; i < line1Chars; i++) {
+      this.renderScriptChar(ctx, i, line1StartX + i * charSpacing, nameStartY, charSize);
+    }
+
+    // Second line: 3 characters (indices 7-9)
+    const line2Chars = 3;
+    const line2StartX = warden.x - ((line2Chars - 1) * charSpacing) / 2;
+    const line2Y = nameStartY + lineSpacing;
+
+    for (let i = 0; i < line2Chars; i++) {
+      this.renderScriptChar(ctx, 7 + i, line2StartX + i * charSpacing, line2Y, charSize);
     }
   }
 
@@ -2853,6 +2946,9 @@ export class CardinalWardenSimulation {
     ctx.fill();
 
     ctx.restore();
+
+    // Render the warden's name in script font below
+    this.renderWardenName();
   }
 
   /**
