@@ -933,6 +933,9 @@ class Bullet {
     // Weapon level for visual effects (default 1 for backwards compatibility)
     this.level = config.level || 1;
     
+    // Max trail length (default 40 - 4x original for longer bullet trails)
+    this.maxTrailLength = config.maxTrailLength !== undefined ? config.maxTrailLength : 40;
+    
     // Geometric shape rotation for level 3+ bullets (random direction and speed)
     this.shapeRotation = 0;
     this.shapeRotationSpeed = (Math.random() - 0.5) * 8; // Random speed between -4 and 4 rad/s
@@ -944,10 +947,12 @@ class Bullet {
     this.x += Math.cos(this.angle) * this.speed * dt;
     this.y += Math.sin(this.angle) * this.speed * dt;
 
-    // Leave behind a short luminous trail for rendering.
-    this.trail.push({ x: this.x, y: this.y });
-    if (this.trail.length > 10) {
-      this.trail.shift();
+    // Leave behind a luminous trail for rendering (length based on settings).
+    if (this.maxTrailLength > 0) {
+      this.trail.push({ x: this.x, y: this.y });
+      if (this.trail.length > this.maxTrailLength) {
+        this.trail.shift();
+      }
     }
     
     // Update geometric shape rotation for level 3+ bullets
@@ -997,6 +1002,9 @@ class MathBullet {
     
     // Weapon level for visual effects (default 1 for backwards compatibility)
     this.level = config.level || 1;
+    
+    // Max trail length (default 48 - 4x original for longer bullet trails)
+    this.maxTrailLength = config.maxTrailLength !== undefined ? config.maxTrailLength : 48;
     
     // Geometric shape rotation for level 3+ bullets (random direction and speed)
     this.shapeRotation = 0;
@@ -1071,10 +1079,12 @@ class MathBullet {
     this.x = primaryX + Math.cos(perpAngle) * offset;
     this.y = primaryY + Math.sin(perpAngle) * offset;
 
-    // Record a short trail so renders can draw motion streaks.
-    this.trail.push({ x: this.x, y: this.y });
-    if (this.trail.length > 12) {
-      this.trail.shift();
+    // Record trail for motion streaks (length based on settings).
+    if (this.maxTrailLength > 0) {
+      this.trail.push({ x: this.x, y: this.y });
+      if (this.trail.length > this.maxTrailLength) {
+        this.trail.shift();
+      }
     }
     
     // Update geometric shape rotation for level 3+ bullets
@@ -1316,6 +1326,8 @@ export class CardinalWardenSimulation {
 
     // Visual style - pure white background, minimalist
     this.nightMode = options.nightMode || false;
+    this.enemyTrailLength = options.enemyTrailLength || 'long';
+    this.bulletTrailLength = options.bulletTrailLength || 'long';
     this.bgColor = '#ffffff';
     this.wardenCoreColor = '#d4af37'; // Golden
     this.wardenSquareColor = '#c9a227'; // Slightly darker gold
@@ -1478,6 +1490,81 @@ export class CardinalWardenSimulation {
     this.refreshEnemyColorsForMode();
     this.refreshBulletColorsForMode();
     this.refreshBossColorsForMode();
+  }
+
+  /**
+   * Set enemy trail length setting.
+   * @param {string} length - 'none', 'short', 'medium', or 'long'
+   */
+  setEnemyTrailLength(length) {
+    const validLengths = ['none', 'short', 'medium', 'long'];
+    this.enemyTrailLength = validLengths.includes(length) ? length : 'long';
+  }
+
+  /**
+   * Set bullet trail length setting.
+   * @param {string} length - 'none', 'short', 'medium', or 'long'
+   */
+  setBulletTrailLength(length) {
+    const validLengths = ['none', 'short', 'medium', 'long'];
+    this.bulletTrailLength = validLengths.includes(length) ? length : 'long';
+  }
+
+  /**
+   * Get the max trail length for enemies based on current setting.
+   * @returns {number} Max trail entries
+   */
+  getEnemyTrailMaxLength() {
+    switch (this.enemyTrailLength) {
+      case 'none': return 0;
+      case 'short': return 6;
+      case 'medium': return 12;
+      case 'long': return 24;
+      default: return 24;
+    }
+  }
+
+  /**
+   * Get the max smoke puffs for enemies based on current setting.
+   * @returns {number} Max smoke puffs
+   */
+  getEnemySmokeMaxCount() {
+    switch (this.enemyTrailLength) {
+      case 'none': return 0;
+      case 'short': return 15;
+      case 'medium': return 30;
+      case 'long': return 60;
+      default: return 60;
+    }
+  }
+
+  /**
+   * Get smoke fade rate based on trail length setting.
+   * @returns {number} Fade rate
+   */
+  getEnemySmokeFadeRate() {
+    switch (this.enemyTrailLength) {
+      case 'none': return 1;
+      case 'short': return 0.7;
+      case 'medium': return 0.35;
+      case 'long': return 0.175;
+      default: return 0.175;
+    }
+  }
+
+  /**
+   * Get the max trail length for bullets based on current setting.
+   * Bullets now have 4x longer trails by default (40 vs original 10).
+   * @returns {number} Max trail entries
+   */
+  getBulletTrailMaxLength() {
+    switch (this.bulletTrailLength) {
+      case 'none': return 0;
+      case 'short': return 10;
+      case 'medium': return 20;
+      case 'long': return 40;
+      default: return 40;
+    }
   }
 
   /**
@@ -1837,6 +1924,7 @@ export class CardinalWardenSimulation {
       amplitude: weaponDef.amplitude * (1 + (level - 1) * 0.15),
       frequency: weaponDef.frequency,
       level: level, // Track weapon level for visual effects
+      maxTrailLength: this.getBulletTrailMaxLength(), // Use settings-based trail length
     };
 
     // Track phase rotation per weapon for persistent fan and ring choreography.
@@ -2719,32 +2807,44 @@ export class CardinalWardenSimulation {
     if (!this.ctx) return;
 
     const ctx = this.ctx;
+    const maxTrailPoints = this.getEnemyTrailMaxLength();
+    const maxSmokePuffs = this.getEnemySmokeMaxCount();
 
     for (const enemy of this.enemies) {
-      // Render a small inky trail behind the ship's path.
-      ctx.save();
-      ctx.fillStyle = this.enemyTrailColor;
-      for (let i = 0; i < enemy.trail.length - 1; i++) {
-        const point = enemy.trail[i];
-        const alpha = (i + 1) / enemy.trail.length;
-        ctx.globalAlpha = alpha * 0.8;
-        ctx.beginPath();
-        // Larger trail circles that scale with enemy size for better visibility
-        ctx.arc(point.x, point.y, Math.max(2, enemy.size * 0.35 * alpha), 0, Math.PI * 2);
-        ctx.fill();
+      // Render a small inky trail behind the ship's path (respects trail length setting).
+      if (maxTrailPoints > 0) {
+        ctx.save();
+        ctx.fillStyle = this.enemyTrailColor;
+        // Only render up to maxTrailPoints from the end of the trail
+        const startIdx = Math.max(0, enemy.trail.length - maxTrailPoints);
+        const visibleTrail = enemy.trail.slice(startIdx);
+        for (let i = 0; i < visibleTrail.length - 1; i++) {
+          const point = visibleTrail[i];
+          const alpha = (i + 1) / visibleTrail.length;
+          ctx.globalAlpha = alpha * 0.8;
+          ctx.beginPath();
+          // Larger trail circles that scale with enemy size for better visibility
+          ctx.arc(point.x, point.y, Math.max(2, enemy.size * 0.35 * alpha), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
       }
-      ctx.restore();
 
-      // Render smoke puffs from the stored world-space positions (they don't rotate with the ship).
-      ctx.save();
-      ctx.fillStyle = this.enemySmokeColor;
-      for (const puff of enemy.smokePuffs) {
-        ctx.globalAlpha = puff.alpha * (this.nightMode ? 1.15 : 1);
-        ctx.beginPath();
-        ctx.arc(puff.x, puff.y, puff.radius, 0, Math.PI * 2);
-        ctx.fill();
+      // Render smoke puffs from the stored world-space positions (respects trail length setting).
+      if (maxSmokePuffs > 0) {
+        ctx.save();
+        ctx.fillStyle = this.enemySmokeColor;
+        // Only render up to maxSmokePuffs from the end of the smokePuffs array
+        const startIdx = Math.max(0, enemy.smokePuffs.length - maxSmokePuffs);
+        const visiblePuffs = enemy.smokePuffs.slice(startIdx);
+        for (const puff of visiblePuffs) {
+          ctx.globalAlpha = puff.alpha * (this.nightMode ? 1.15 : 1);
+          ctx.beginPath();
+          ctx.arc(puff.x, puff.y, puff.radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
       }
-      ctx.restore();
 
       ctx.save();
       ctx.translate(enemy.x, enemy.y);
@@ -2785,20 +2885,25 @@ export class CardinalWardenSimulation {
     if (!this.ctx) return;
 
     const ctx = this.ctx;
+    const maxTrailPoints = this.getEnemyTrailMaxLength();
 
     for (const boss of this.bosses) {
-      // Render trail
-      ctx.save();
-      ctx.fillStyle = this.enemyTrailColor;
-      for (let i = 0; i < boss.trail.length - 1; i++) {
-        const point = boss.trail[i];
-        const alpha = (i + 1) / boss.trail.length;
-        ctx.globalAlpha = alpha * 0.6;
-        ctx.beginPath();
-        ctx.arc(point.x, point.y, Math.max(2, boss.size * 0.15 * alpha), 0, Math.PI * 2);
-        ctx.fill();
+      // Render trail (respects trail length setting)
+      if (maxTrailPoints > 0) {
+        ctx.save();
+        ctx.fillStyle = this.enemyTrailColor;
+        const startIdx = Math.max(0, boss.trail.length - maxTrailPoints);
+        const visibleTrail = boss.trail.slice(startIdx);
+        for (let i = 0; i < visibleTrail.length - 1; i++) {
+          const point = visibleTrail[i];
+          const alpha = (i + 1) / visibleTrail.length;
+          ctx.globalAlpha = alpha * 0.6;
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, Math.max(2, boss.size * 0.15 * alpha), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
       }
-      ctx.restore();
 
       ctx.save();
       ctx.translate(boss.x, boss.y);
@@ -3006,16 +3111,21 @@ export class CardinalWardenSimulation {
     if (!this.ctx) return;
 
     const ctx = this.ctx;
+    const maxTrailPoints = this.getBulletTrailMaxLength();
 
     for (const bullet of this.bullets) {
       const trail = bullet.trail || [];
-      if (trail.length > 1) {
+      // Render bullet trail (respects trail length setting)
+      if (maxTrailPoints > 0 && trail.length > 1) {
         ctx.save();
         ctx.lineCap = 'round';
-        for (let i = trail.length - 1; i > 0; i--) {
-          const start = trail[i];
-          const end = trail[i - 1];
-          const alpha = i / trail.length;
+        // Only render up to maxTrailPoints from the end of the trail
+        const startIdx = Math.max(0, trail.length - maxTrailPoints);
+        const visibleTrail = trail.slice(startIdx);
+        for (let i = visibleTrail.length - 1; i > 0; i--) {
+          const start = visibleTrail[i];
+          const end = visibleTrail[i - 1];
+          const alpha = i / visibleTrail.length;
           ctx.strokeStyle = this.nightMode
             ? `rgba(255, 255, 255, ${0.12 + alpha * 0.28})`
             : `rgba(0, 0, 0, ${0.12 + alpha * 0.32})`;

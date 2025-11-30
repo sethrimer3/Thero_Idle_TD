@@ -11,12 +11,22 @@ const SHIN_GRAPHICS_LEVELS = Object.freeze({
   HIGH: 'high',
 });
 
+// Trail length options for enemy and bullet trails in the Cardinal Warden simulation.
+const TRAIL_LENGTH_OPTIONS = Object.freeze({
+  NONE: 'none',
+  SHORT: 'short',
+  MEDIUM: 'medium',
+  LONG: 'long',
+});
+
 // Default settings when no preferences are stored.
 const DEFAULT_SETTINGS = Object.freeze({
   graphicsLevel: SHIN_GRAPHICS_LEVELS.HIGH,
   animatedGrowth: true,
   panZoomEnabled: true,
   nightMode: false,
+  enemyTrailLength: TRAIL_LENGTH_OPTIONS.LONG,
+  bulletTrailLength: TRAIL_LENGTH_OPTIONS.LONG,
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -30,6 +40,8 @@ let panZoomToggle = null;
 let panZoomToggleState = null;
 let nightModeToggle = null;
 let nightModeToggleState = null;
+let enemyTrailLengthButton = null;
+let bulletTrailLengthButton = null;
 
 /**
  * Prefer a saner default graphics tier on mobile/high-DPI devices to reduce render cost out of the box.
@@ -125,6 +137,16 @@ function applySettingsToSimulation() {
   if (typeof simulation.setNightMode === 'function') {
     simulation.setNightMode(settings.nightMode);
   }
+
+  // Control enemy trail length for the danmaku renderer.
+  if (typeof simulation.setEnemyTrailLength === 'function') {
+    simulation.setEnemyTrailLength(settings.enemyTrailLength);
+  }
+
+  // Control bullet trail length for the danmaku renderer.
+  if (typeof simulation.setBulletTrailLength === 'function') {
+    simulation.setBulletTrailLength(settings.bulletTrailLength);
+  }
 }
 
 /**
@@ -164,6 +186,74 @@ function syncGraphicsLevelButton() {
   const label = resolveGraphicsLevelLabel();
   graphicsLevelButton.textContent = `Graphics · ${label}`;
   graphicsLevelButton.setAttribute('aria-label', `Cycle graphics quality (current: ${label})`);
+}
+
+/**
+ * Retrieve a human-readable label for a trail length option.
+ */
+function resolveTrailLengthLabel(length) {
+  switch (length) {
+    case TRAIL_LENGTH_OPTIONS.NONE:
+      return 'None';
+    case TRAIL_LENGTH_OPTIONS.SHORT:
+      return 'Short';
+    case TRAIL_LENGTH_OPTIONS.MEDIUM:
+      return 'Medium';
+    case TRAIL_LENGTH_OPTIONS.LONG:
+      return 'Long';
+    default:
+      return 'Long';
+  }
+}
+
+/**
+ * Cycle through enemy trail length options.
+ */
+function cycleEnemyTrailLength() {
+  const sequence = [TRAIL_LENGTH_OPTIONS.NONE, TRAIL_LENGTH_OPTIONS.SHORT, TRAIL_LENGTH_OPTIONS.MEDIUM, TRAIL_LENGTH_OPTIONS.LONG];
+  const currentIndex = sequence.indexOf(settings.enemyTrailLength);
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % sequence.length : 3;
+  settings.enemyTrailLength = sequence[nextIndex];
+  persistSettings();
+  applySettingsToSimulation();
+  syncEnemyTrailLengthButton();
+}
+
+/**
+ * Update the enemy trail length button label to reflect the current setting.
+ */
+function syncEnemyTrailLengthButton() {
+  if (!enemyTrailLengthButton) {
+    return;
+  }
+  const label = resolveTrailLengthLabel(settings.enemyTrailLength);
+  enemyTrailLengthButton.textContent = `Enemy Trails · ${label}`;
+  enemyTrailLengthButton.setAttribute('aria-label', `Cycle enemy trail length (current: ${label})`);
+}
+
+/**
+ * Cycle through bullet trail length options.
+ */
+function cycleBulletTrailLength() {
+  const sequence = [TRAIL_LENGTH_OPTIONS.NONE, TRAIL_LENGTH_OPTIONS.SHORT, TRAIL_LENGTH_OPTIONS.MEDIUM, TRAIL_LENGTH_OPTIONS.LONG];
+  const currentIndex = sequence.indexOf(settings.bulletTrailLength);
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % sequence.length : 3;
+  settings.bulletTrailLength = sequence[nextIndex];
+  persistSettings();
+  applySettingsToSimulation();
+  syncBulletTrailLengthButton();
+}
+
+/**
+ * Update the bullet trail length button label to reflect the current setting.
+ */
+function syncBulletTrailLengthButton() {
+  if (!bulletTrailLengthButton) {
+    return;
+  }
+  const label = resolveTrailLengthLabel(settings.bulletTrailLength);
+  bulletTrailLengthButton.textContent = `Bullet Trails · ${label}`;
+  bulletTrailLengthButton.setAttribute('aria-label', `Cycle bullet trail length (current: ${label})`);
 }
 
 /**
@@ -239,8 +329,23 @@ export function bindShinSpireOptions() {
     });
   }
 
+  enemyTrailLengthButton = document.getElementById('shin-enemy-trail-length-button');
+  bulletTrailLengthButton = document.getElementById('shin-bullet-trail-length-button');
+
+  if (enemyTrailLengthButton) {
+    enemyTrailLengthButton.addEventListener('click', cycleEnemyTrailLength);
+    syncEnemyTrailLengthButton();
+  }
+
+  if (bulletTrailLengthButton) {
+    bulletTrailLengthButton.addEventListener('click', cycleBulletTrailLength);
+    syncBulletTrailLengthButton();
+  }
+
   // Sync UI with persisted settings.
   syncGraphicsLevelButton();
+  syncEnemyTrailLengthButton();
+  syncBulletTrailLengthButton();
   syncAllToggles();
 }
 
@@ -277,7 +382,9 @@ export function applyShinVisualSettings(newSettings, { persist = true } = {}) {
   }
   applySettingsToSimulation();
   syncGraphicsLevelButton();
+  syncEnemyTrailLengthButton();
+  syncBulletTrailLengthButton();
   syncAllToggles();
 }
 
-export { SHIN_GRAPHICS_LEVELS };
+export { SHIN_GRAPHICS_LEVELS, TRAIL_LENGTH_OPTIONS };
