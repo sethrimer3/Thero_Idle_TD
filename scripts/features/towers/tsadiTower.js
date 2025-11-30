@@ -2638,20 +2638,29 @@ export class ParticleFusionSimulation {
    */
   exportState() {
     return {
-      particles: this.particles.map(p => ({
+      particles: this.particles.map((p) => ({
         x: p.x,
         y: p.y,
         vx: p.vx,
         vy: p.vy,
         tier: p.tier,
+        id: p.id,
       })),
       highestTierReached: this.highestTierReached,
       glyphCount: this.glyphCount,
       particleBank: this.particleBank,
       bindingAgentBank: this.availableBindingAgents,
       bindingAgents: this.bindingAgents.map((agent) => ({
+        id: agent.id,
         x: agent.x,
         y: agent.y,
+        vx: agent.vx,
+        vy: agent.vy,
+        connections: Array.isArray(agent.connections) ? agent.connections : [],
+        activeMolecules: Array.isArray(agent.activeMolecules) ? agent.activeMolecules : [],
+        pendingDiscoveries: Array.isArray(agent.pendingDiscoveries) ? agent.pendingDiscoveries : [],
+        awaitingCodexTap: Boolean(agent.awaitingCodexTap),
+        popTimer: Number.isFinite(agent.popTimer) ? agent.popTimer : 0,
       })),
       discoveredMolecules: Array.from(this.discoveredMoleculeEntries.values()),
       upgrades: {
@@ -2661,13 +2670,38 @@ export class ParticleFusionSimulation {
       },
       permanentGlyphs: this.permanentGlyphs,
       alephAbsorptionCount: this.alephAbsorptionCount,
+      spawnAccumulator: this.spawnAccumulator,
+      spawnRate: this.spawnRate,
+      placingStoredParticles: this.placingStoredParticles,
+      pendingPlacementQueue: [...this.pendingPlacementQueue],
+      storedTierCounts: this.storedTierCounts,
+      interactiveWaves: this.interactiveWaves,
+      spawnEffects: this.spawnEffects,
+      fusionEffects: this.fusionEffects,
+      forceLinks: this.forceLinks,
     };
   }
-  
+
+  /**
+   * Export a snapshot intended for tab pause/resume, preserving layout and transient effects.
+   * @returns {Object} Serialized snapshot ready for autosave.
+   */
+  exportSnapshot() {
+    return this.exportState();
+  }
+
+  /**
+   * Restore the simulation from a captured snapshot while preserving spatial layout.
+   * @param {Object} snapshot - Serialized state captured during a pause.
+   */
+  importSnapshot(snapshot) {
+    this.importState(snapshot, { preserveLayout: true });
+  }
+
   /**
    * Import simulation state from save
    */
-  importState(state) {
+  importState(state, { preserveLayout = false } = {}) {
     if (!state) return;
 
     this.particles = [];
@@ -2676,7 +2710,7 @@ export class ParticleFusionSimulation {
       for (const p of state.particles) {
         const radius = this.getRadiusForTier(p.tier);
         const tierInfo = getGreekTierInfo(p.tier);
-        
+
         // Calculate tier-based properties
         const tierAboveNull = p.tier - NULL_TIER;
         const speedMultiplier = Math.max(0.1, 1 - (0.1 * tierAboveNull));
@@ -2684,10 +2718,9 @@ export class ParticleFusionSimulation {
         const repellingReduction = this.upgrades.repellingForceReduction * 0.5;
         const repellingMultiplier = tierAboveNull - repellingReduction;
         const repellingForce = baseRepelling * repellingMultiplier;
-        
-        // Always randomize layout on load so returning players see particles scattered
-        // safely away from the edges. Fall back to the saved coordinates only if the
-        // canvas has not been sized yet.
+
+        // Always randomize layout on cold loads so particles scatter safely away from edges.
+        // Preserve exact positions and velocities when restoring an in-session snapshot.
         const margin = radius * 2;
         const hasSizedCanvas =
           Number.isFinite(this.width) && this.width > margin * 2 &&
@@ -2695,24 +2728,31 @@ export class ParticleFusionSimulation {
 
         let x = Number.isFinite(p.x) ? p.x : margin;
         let y = Number.isFinite(p.y) ? p.y : margin;
+        let vx = 0;
+        let vy = 0;
 
-        if (hasSizedCanvas) {
+        if (preserveLayout && hasSizedCanvas) {
+          x = p.x;
+          y = p.y;
+          vx = Number.isFinite(p.vx) ? p.vx : 0;
+          vy = Number.isFinite(p.vy) ? p.vy : 0;
+        } else if (hasSizedCanvas) {
           const spawnableWidth = this.width - margin * 2;
           const spawnableHeight = this.height - margin * 2;
           x = margin + Math.random() * spawnableWidth;
           y = margin + Math.random() * spawnableHeight;
         }
-        
+
         this.particles.push({
           x,
           y,
-          vx: 0, // Reset velocity so returning particles start from rest
-          vy: 0,
+          vx,
+          vy,
           radius,
           tier: p.tier,
           color: tierToColor(p.tier, this.samplePaletteGradient),
           label: tierInfo.letter,
-          id: Math.random(),
+          id: Number.isFinite(p.id) ? p.id : Math.random(),
           repellingForce,
           speedMultiplier,
         });
@@ -2744,14 +2784,16 @@ export class ParticleFusionSimulation {
       this.bindingAgents = state.bindingAgents
         .filter((agent) => Number.isFinite(agent?.x) && Number.isFinite(agent?.y))
         .map((agent) => ({
-          id: Math.random(),
+          id: Number.isFinite(agent.id) ? agent.id : Math.random(),
           x: agent.x,
           y: agent.y,
-          connections: [],
-          activeMolecules: [],
-          pendingDiscoveries: [],
-          awaitingCodexTap: false,
-          popTimer: 0,
+          vx: preserveLayout && Number.isFinite(agent.vx) ? agent.vx : 0,
+          vy: preserveLayout && Number.isFinite(agent.vy) ? agent.vy : 0,
+          connections: Array.isArray(agent.connections) ? agent.connections : [],
+          activeMolecules: Array.isArray(agent.activeMolecules) ? [...agent.activeMolecules] : [],
+          pendingDiscoveries: Array.isArray(agent.pendingDiscoveries) ? [...agent.pendingDiscoveries] : [],
+          awaitingCodexTap: Boolean(agent.awaitingCodexTap),
+          popTimer: Number.isFinite(agent.popTimer) ? agent.popTimer : 0,
         }));
     }
 
@@ -2778,9 +2820,60 @@ export class ParticleFusionSimulation {
     if (Array.isArray(state.permanentGlyphs)) {
       this.permanentGlyphs = state.permanentGlyphs;
     }
-    
+
     if (typeof state.alephAbsorptionCount === 'number') {
       this.alephAbsorptionCount = state.alephAbsorptionCount;
+    }
+
+    if (typeof state.bindingAgentBank === 'number') {
+      this.setAvailableBindingAgents(state.bindingAgentBank);
+    }
+
+    if (typeof state.spawnAccumulator === 'number') {
+      this.spawnAccumulator = Math.max(0, state.spawnAccumulator);
+    }
+    if (typeof state.spawnRate === 'number') {
+      this.spawnRate = Math.max(0, state.spawnRate);
+    }
+    if (Array.isArray(state.pendingPlacementQueue)) {
+      this.pendingPlacementQueue = [...state.pendingPlacementQueue];
+      this.placingStoredParticles = Boolean(state.placingStoredParticles) && this.pendingPlacementQueue.length > 0;
+    }
+    if (state.storedTierCounts && typeof state.storedTierCounts === 'object') {
+      this.storedTierCounts = { ...state.storedTierCounts };
+    }
+    if (Array.isArray(state.interactiveWaves)) {
+      this.interactiveWaves = state.interactiveWaves
+        .filter((wave) => Number.isFinite(wave?.x) && Number.isFinite(wave?.y))
+        .map((wave) => ({
+          ...wave,
+          radius: Number.isFinite(wave.radius) ? wave.radius : 0,
+          alpha: Number.isFinite(wave.alpha) ? wave.alpha : 0,
+          maxRadius: Number.isFinite(wave.maxRadius) ? wave.maxRadius : 0,
+          force: Number.isFinite(wave.force) ? wave.force : 0,
+        }));
+    }
+    if (Array.isArray(state.spawnEffects)) {
+      this.spawnEffects = state.spawnEffects
+        .filter((effect) => Number.isFinite(effect?.x) && Number.isFinite(effect?.y))
+        .map((effect) => ({
+          ...effect,
+          radius: Number.isFinite(effect.radius) ? effect.radius : 0,
+          alpha: Number.isFinite(effect.alpha) ? effect.alpha : 0,
+          maxRadius: Number.isFinite(effect.maxRadius) ? effect.maxRadius : 0,
+        }));
+    }
+    if (Array.isArray(state.fusionEffects)) {
+      this.fusionEffects = state.fusionEffects
+        .filter((effect) => Number.isFinite(effect?.x) && Number.isFinite(effect?.y))
+        .map((effect) => ({
+          ...effect,
+          radius: Number.isFinite(effect.radius) ? effect.radius : 0,
+          alpha: Number.isFinite(effect.alpha) ? effect.alpha : 0,
+        }));
+    }
+    if (Array.isArray(state.forceLinks)) {
+      this.forceLinks = state.forceLinks;
     }
 
     if (this.onParticleCountChange) {
