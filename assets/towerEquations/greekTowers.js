@@ -173,6 +173,43 @@ export const delta = {
         ];
       },
     },
+    {
+      key: 'aleph2',
+      symbol: 'ℵ₂',
+      equationSymbol: 'ℵ₂',
+      name: 'Aleph₂ Shift',
+      description:
+        'Delta shift force that knocks enemies backward along the track when a Δ soldier rams and dies.',
+      baseValue: 0,
+      step: 1,
+      upgradable: true,
+      includeInMasterEquation: false,
+      cost: (level) => {
+        const normalizedLevel = Number.isFinite(level) ? Math.max(0, Math.floor(level)) : 0;
+        return 3 * 2 ** normalizedLevel;
+      },
+      format: (value) => {
+        const rank = Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+        return `${formatWholeNumber(rank)} ℵ₂`;
+      },
+      getSubEquations({ value }) {
+        const alephRank = Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+        const shiftMeters = alephRank * 0.5;
+        const formattedShift = formatDecimal(shiftMeters, 2);
+        const formattedAleph = formatWholeNumber(alephRank);
+        return [
+          { expression: String.raw`\( \text{Sft} = 0.5 \times \aleph_{2} \)` },
+          {
+            values: String.raw`\( ${formattedShift}\,\text{m} = 0.5 \times ${formattedAleph} \)`,
+            variant: 'values',
+          },
+          {
+            expression: String.raw`\( \aleph_{2} = ${formattedAleph} \)`,
+            variant: 'values',
+          },
+        ];
+      },
+    },
   ],
   computeResult(values) {
     const gammaValue = Math.max(0, Number.isFinite(values.gamma) ? values.gamma : 0);
