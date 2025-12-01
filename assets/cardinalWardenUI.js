@@ -8,7 +8,19 @@
 
 import { CardinalWardenSimulation, getWeaponIds, getWeaponDefinition } from '../scripts/features/towers/cardinalWardenSimulation.js';
 import { formatGameNumber } from '../scripts/core/formatting.js';
-import { getShinGlyphs, addShinGlyphs, getIteronBank, spendIterons, addIterons } from './shinState.js';
+import { 
+  getShinGlyphs, 
+  addShinGlyphs, 
+  getIteronBank, 
+  spendIterons, 
+  addIterons,
+  spawnPhonemeDrop,
+  getActivePhonemeDrops,
+  collectPhonemeDrop,
+  clearActivePhonemeDrops,
+  getPhonemeCount,
+  getPhonemeCountsByChar,
+} from './shinState.js';
 
 // Cardinal Warden simulation instance
 let cardinalSimulation = null;
@@ -32,6 +44,8 @@ const cardinalElements = {
   baseHealthDisplay: null,
   healthUpgradeBtn: null,
   healthUpgradeCost: null,
+  phonemeInventory: null,
+  phonemeCount: null,
 };
 
 // State persistence key
@@ -68,6 +82,8 @@ export function initializeCardinalWardenUI() {
   cardinalElements.baseHealthDisplay = document.getElementById('shin-base-health');
   cardinalElements.healthUpgradeBtn = document.getElementById('shin-health-upgrade-btn');
   cardinalElements.healthUpgradeCost = document.getElementById('shin-health-upgrade-cost');
+  cardinalElements.phonemeInventory = document.getElementById('shin-phoneme-inventory');
+  cardinalElements.phonemeCount = document.getElementById('shin-phoneme-count');
 
   if (!cardinalElements.canvas) {
     console.warn('Cardinal Warden canvas not found');
@@ -107,6 +123,7 @@ export function initializeCardinalWardenUI() {
   updateTotalIteronsDisplay();
   updateWeaponsDisplay();
   updateBaseHealthDisplay();
+  updatePhonemeInventoryDisplay();
 }
 
 /**
@@ -214,12 +231,17 @@ function createCardinalSimulation() {
     onHealthChange: handleHealthChange,
     onHighestWaveChange: handleHighestWaveChange,
     onWeaponChange: handleWeaponChange,
+    onEnemyKill: handleEnemyKill,
+    onPostRender: renderPhonemeDrops,
   });
   
   // Restore weapon state if available
   if (weaponState) {
     cardinalSimulation.setWeaponState(weaponState);
   }
+  
+  // Set up click handler for phoneme collection
+  setupPhonemeCollection();
 }
 
 /**
@@ -316,8 +338,36 @@ function handleGameOver(data) {
     }
     updateGlyphDisplay();
   }
+  
+  // Clear all uncollected phoneme drops when warden dies
+  clearActivePhonemeDrops();
+  
   saveCardinalState();
   updateHighestWaveDisplay();
+}
+
+/**
+ * Handle enemy kills - spawn phoneme drops.
+ * @param {number} x - X coordinate of killed enemy
+ * @param {number} y - Y coordinate of killed enemy
+ * @param {boolean} isBoss - Whether the killed enemy is a boss
+ */
+function handleEnemyKill(x, y, isBoss) {
+  // Random chance to drop a phoneme (50% for regular, 100% for bosses)
+  const dropChance = isBoss ? 1.0 : 0.5;
+  if (Math.random() < dropChance) {
+    spawnPhonemeDrop(x, y);
+    // Bosses drop additional phonemes
+    if (isBoss) {
+      // Bosses drop 2-4 extra phonemes in a small scatter pattern
+      const extraDrops = Math.floor(Math.random() * 3) + 2;
+      for (let i = 0; i < extraDrops; i++) {
+        const offsetX = (Math.random() - 0.5) * 40;
+        const offsetY = (Math.random() - 0.5) * 40;
+        spawnPhonemeDrop(x + offsetX, y + offsetY);
+      }
+    }
+  }
 }
 
 /**
@@ -686,10 +736,161 @@ export function getCardinalSimulation() {
   return cardinalSimulation;
 }
 
+// ============================================================
+// Phoneme Collection System
+// ============================================================
+
+/**
+ * Render phoneme drops on top of the simulation.
+ * @param {CanvasRenderingContext2D} ctx - The canvas context
+ * @param {HTMLCanvasElement} canvas - The canvas element
+ * @param {string} gamePhase - Current game phase
+ */
+function renderPhonemeDrops(ctx, canvas, gamePhase) {
+  // Don't render drops during death/respawn animations
+  if (gamePhase !== 'playing') return;
+  
+  const drops = getActivePhonemeDrops();
+  if (drops.length === 0) return;
+  
+  const time = Date.now();
+  
+  for (const drop of drops) {
+    // Calculate pulse animation (gentle glow effect)
+    const age = (time - drop.spawnTime) / 1000;
+    const pulse = 0.85 + Math.sin(age * 4) * 0.15;
+    
+    // Calculate gentle floating animation
+    const floatY = Math.sin(age * 2) * 3;
+    
+    ctx.save();
+    
+    // Outer glow
+    const glowRadius = 20 * pulse;
+    const gradient = ctx.createRadialGradient(
+      drop.x, drop.y + floatY, 0,
+      drop.x, drop.y + floatY, glowRadius
+    );
+    gradient.addColorStop(0, 'rgba(212, 175, 55, 0.6)');
+    gradient.addColorStop(0.5, 'rgba(212, 175, 55, 0.2)');
+    gradient.addColorStop(1, 'rgba(212, 175, 55, 0)');
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(drop.x, drop.y + floatY, glowRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Inner circle background
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.beginPath();
+    ctx.arc(drop.x, drop.y + floatY, 12, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Border
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Script character
+    ctx.fillStyle = '#333';
+    ctx.font = 'bold 16px "Noto Sans Hebrew", "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(drop.char, drop.x, drop.y + floatY + 1);
+    
+    ctx.restore();
+  }
+}
+
+/**
+ * Set up phoneme collection click handler on the canvas.
+ */
+function setupPhonemeCollection() {
+  if (!cardinalElements.canvas) return;
+  
+  // Add click handler for collecting phonemes
+  cardinalElements.canvas.addEventListener('click', handlePhonemeClick);
+}
+
+/**
+ * Handle clicks on the canvas to collect phonemes.
+ * @param {MouseEvent} event - The click event
+ */
+function handlePhonemeClick(event) {
+  if (!cardinalElements.canvas || !cardinalSimulation) return;
+  
+  // Don't collect during death/respawn
+  if (cardinalSimulation.gamePhase !== 'playing') return;
+  
+  // Get canvas-relative coordinates
+  const rect = cardinalElements.canvas.getBoundingClientRect();
+  const scaleX = cardinalElements.canvas.width / rect.width;
+  const scaleY = cardinalElements.canvas.height / rect.height;
+  
+  const clickX = (event.clientX - rect.left) * scaleX;
+  const clickY = (event.clientY - rect.top) * scaleY;
+  
+  // Check if click is near any phoneme drop
+  const drops = getActivePhonemeDrops();
+  const collectRadius = 25; // Generous tap target
+  
+  for (const drop of drops) {
+    const dx = clickX - drop.x;
+    const dy = clickY - drop.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    if (dist <= collectRadius) {
+      // Collect this phoneme
+      const collected = collectPhonemeDrop(drop.id);
+      if (collected) {
+        updatePhonemeInventoryDisplay();
+        // Only collect one phoneme per click
+        return;
+      }
+    }
+  }
+}
+
+/**
+ * Update the phoneme inventory display in the UI.
+ */
+function updatePhonemeInventoryDisplay() {
+  if (!cardinalElements.phonemeInventory) return;
+  
+  const counts = getPhonemeCountsByChar();
+  const totalCount = getPhonemeCount();
+  
+  // Update total count display
+  if (cardinalElements.phonemeCount) {
+    cardinalElements.phonemeCount.textContent = formatGameNumber(totalCount);
+  }
+  
+  // Build inventory grid
+  const entries = Object.entries(counts);
+  if (entries.length === 0) {
+    cardinalElements.phonemeInventory.innerHTML = '<span class="shin-phoneme-empty">No phonemes collected</span>';
+    return;
+  }
+  
+  const html = entries.map(([char, count]) => `
+    <div class="shin-phoneme-slot" title="${char}">
+      <span class="shin-phoneme-char">${char}</span>
+      <span class="shin-phoneme-count">×${count}</span>
+    </div>
+  `).join('');
+  
+  cardinalElements.phonemeInventory.innerHTML = html;
+}
+
 /**
  * Clean up resources.
  */
 export function cleanupCardinalWarden() {
+  // Remove phoneme click handler
+  if (cardinalElements.canvas) {
+    cardinalElements.canvas.removeEventListener('click', handlePhonemeClick);
+  }
+  
   if (cardinalSimulation) {
     cardinalSimulation.stop();
     cardinalSimulation = null;

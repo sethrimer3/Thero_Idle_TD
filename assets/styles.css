@@ -11909,3 +11909,95 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     font-size: 0.65rem;
   }
 }
+
+
+/* ============================================================
+   Phoneme Inventory Styles
+   ============================================================ */
+
+.shin-phoneme-card {
+  background: linear-gradient(135deg, rgba(30, 25, 40, 0.95), rgba(20, 18, 30, 0.98));
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.shin-phoneme-card h3 {
+  color: #d4af37;
+  margin-bottom: 0.5rem;
+}
+
+.shin-phoneme-note {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.shin-phoneme-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.shin-phoneme-stats strong {
+  color: #d4af37;
+}
+
+.shin-phoneme-inventory {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+}
+
+.shin-phoneme-empty {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+.shin-phoneme-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 6px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.shin-phoneme-slot:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.4);
+}
+
+.shin-phoneme-char {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #d4af37;
+  line-height: 1;
+}
+
+.shin-phoneme-count {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 2px;
+}
+
+@media (max-width: 600px) {
+  .shin-phoneme-slot {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+  
+  .shin-phoneme-char {
+    font-size: 1rem;
+  }
+}
