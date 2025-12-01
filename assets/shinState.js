@@ -22,6 +22,9 @@ const shinState = {
   fractals: {},                     // State for each fractal: { id: { allocated: number, layersCompleted: number, unlocked: boolean } }
   lastUpdateTime: Date.now(),       // For calculating automatic allocation
   accumulatedIterons: 0,            // Accumulator for fractional iterons
+  phonemes: [],                     // Collected phonemes (script characters) - each entry: { id: string, char: string, collected: timestamp }
+  activePhonemeDrops: [],           // Currently visible phoneme drops on the battlefield - each entry: { id: string, char: string, x: number, y: number, spawnTime: number }
+  phonemeIdCounter: 0,              // Counter for generating unique phoneme IDs
 };
 
 /**
@@ -58,6 +61,18 @@ export function initializeShinState(savedState = {}) {
     shinState.lastUpdateTime = savedState.lastUpdateTime;
   }
   
+  // Initialize phonemes from saved state
+  if (Array.isArray(savedState.phonemes)) {
+    shinState.phonemes = savedState.phonemes;
+  } else {
+    shinState.phonemes = [];
+  }
+  // Active drops are never persisted - they disappear when the warden dies
+  shinState.activePhonemeDrops = [];
+  if (savedState.phonemeIdCounter !== undefined) {
+    shinState.phonemeIdCounter = savedState.phonemeIdCounter;
+  }
+  
   // Initialize tree fractal as unlocked by default
   if (!shinState.fractals['tree']) {
     shinState.fractals['tree'] = {
@@ -79,6 +94,11 @@ export function resetShinState() {
   shinState.activeFractalId = 'tree';
   shinState.accumulatedIterons = 0;
   shinState.lastUpdateTime = Date.now();
+  
+  // Reset phoneme state
+  shinState.phonemes = [];
+  shinState.activePhonemeDrops = [];
+  shinState.phonemeIdCounter = 0;
 
   // Rebuild fractal state map with only base progress unlocked by default.
   const resetFractals = {
@@ -139,7 +159,9 @@ export function getShinStateSnapshot() {
     shinGlyphs: shinState.shinGlyphs,
     activeFractalId: shinState.activeFractalId,
     fractals: { ...shinState.fractals },
-    lastUpdateTime: shinState.lastUpdateTime
+    lastUpdateTime: shinState.lastUpdateTime,
+    phonemes: [...shinState.phonemes],
+    phonemeIdCounter: shinState.phonemeIdCounter,
   };
 }
 
@@ -403,4 +425,136 @@ export function unlockAllFractals() {
       shinState.fractals[fractal.id].unlocked = true;
     }
   });
+}
+
+// ============================================================
+// Phoneme System
+// ============================================================
+
+/**
+ * Available phoneme characters from the custom script.
+ * Each phoneme has a unique glyph and associated weapon property.
+ */
+const PHONEME_CHARACTERS = [
+  { char: 'ש', name: 'shin', property: 'fire' },
+  { char: 'ב', name: 'bet', property: 'pierce' },
+  { char: 'ל', name: 'lamed', property: 'speed' },
+  { char: 'צ', name: 'tsadi', property: 'ice' },
+  { char: 'ק', name: 'qoph', property: 'homing' },
+  { char: 'ר', name: 'resh', property: 'spread' },
+  { char: 'ע', name: 'ayin', property: 'chain' },
+  { char: 'ת', name: 'tav', property: 'damage' },
+];
+
+/**
+ * Get a random phoneme character for drops.
+ * @returns {Object} A phoneme definition with char and property
+ */
+export function getRandomPhoneme() {
+  const index = Math.floor(Math.random() * PHONEME_CHARACTERS.length);
+  return { ...PHONEME_CHARACTERS[index] };
+}
+
+/**
+ * Spawn a phoneme drop at the given position.
+ * @param {number} x - X coordinate on the canvas
+ * @param {number} y - Y coordinate on the canvas
+ * @returns {Object} The created phoneme drop
+ */
+export function spawnPhonemeDrop(x, y) {
+  const phoneme = getRandomPhoneme();
+  shinState.phonemeIdCounter += 1;
+  const drop = {
+    id: `phoneme-${shinState.phonemeIdCounter}`,
+    char: phoneme.char,
+    name: phoneme.name,
+    property: phoneme.property,
+    x,
+    y,
+    spawnTime: Date.now(),
+    opacity: 1,
+    pulse: 0,
+  };
+  shinState.activePhonemeDrops.push(drop);
+  return drop;
+}
+
+/**
+ * Get all active phoneme drops on the battlefield.
+ * @returns {Array} Array of phoneme drop objects
+ */
+export function getActivePhonemeDrops() {
+  return shinState.activePhonemeDrops;
+}
+
+/**
+ * Collect a phoneme drop by its ID.
+ * Moves the drop from activePhonemeDrops to the collected phonemes array.
+ * @param {string} dropId - The ID of the drop to collect
+ * @returns {Object|null} The collected phoneme or null if not found
+ */
+export function collectPhonemeDrop(dropId) {
+  const index = shinState.activePhonemeDrops.findIndex(drop => drop.id === dropId);
+  if (index === -1) {
+    return null;
+  }
+  
+  const drop = shinState.activePhonemeDrops[index];
+  shinState.activePhonemeDrops.splice(index, 1);
+  
+  // Add to collected phonemes
+  const collected = {
+    id: drop.id,
+    char: drop.char,
+    name: drop.name,
+    property: drop.property,
+    collectedAt: Date.now(),
+  };
+  shinState.phonemes.push(collected);
+  
+  return collected;
+}
+
+/**
+ * Clear all active phoneme drops from the battlefield.
+ * Called when the Cardinal Warden dies.
+ */
+export function clearActivePhonemeDrops() {
+  shinState.activePhonemeDrops = [];
+}
+
+/**
+ * Get all collected phonemes.
+ * @returns {Array} Array of collected phoneme objects
+ */
+export function getCollectedPhonemes() {
+  return shinState.phonemes;
+}
+
+/**
+ * Get the count of collected phonemes.
+ * @returns {number} The number of collected phonemes
+ */
+export function getPhonemeCount() {
+  return shinState.phonemes.length;
+}
+
+/**
+ * Get phoneme count grouped by character.
+ * @returns {Object} Map of character to count
+ */
+export function getPhonemeCountsByChar() {
+  const counts = {};
+  for (const phoneme of shinState.phonemes) {
+    counts[phoneme.char] = (counts[phoneme.char] || 0) + 1;
+  }
+  return counts;
+}
+
+/**
+ * Get the list of all available phoneme characters.
+ * @returns {Array} Array of phoneme character definitions
+ */
+export function getPhonemeCharacters() {
+  return [...PHONEME_CHARACTERS];
 }
