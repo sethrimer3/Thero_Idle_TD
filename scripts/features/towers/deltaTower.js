@@ -632,6 +632,21 @@ function updateDeltaSoldier(playfield, tower, soldier, delta, state) {
           soldier.targetId = null;
         }
         if (soldier.health <= 0) {
+          // Apply delta shift knockback when soldier dies ramming into enemy
+          const blueprint = getTowerEquationBlueprint('delta');
+          const aleph2Value = computeTowerVariableValue('delta', 'aleph2', blueprint);
+          const aleph2Rank = Number.isFinite(aleph2Value) ? Math.max(0, Math.round(aleph2Value)) : 0;
+          if (aleph2Rank > 0 && target.hp > 0) {
+            const shiftMeters = aleph2Rank * 0.5;
+            const shiftPixels = metersToPixels(shiftMeters, minDimension);
+            const pathLength = Number.isFinite(playfield.pathLength) && playfield.pathLength > 0
+              ? playfield.pathLength
+              : 1;
+            const progressShift = shiftPixels / pathLength;
+            const oldProgress = Number.isFinite(target.progress) ? target.progress : 0;
+            const newProgress = Math.max(0, oldProgress - progressShift);
+            target.progress = newProgress;
+          }
           return false;
         }
       }
