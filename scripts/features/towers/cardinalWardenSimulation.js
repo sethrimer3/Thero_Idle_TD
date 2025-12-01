@@ -1336,6 +1336,9 @@ export class CardinalWardenSimulation {
     this.uiTextColor = '#333';
     this.enemyTrailColor = '#000000';
     this.enemySmokeColor = '#000000';
+    this.scriptColorDay = options.scriptColorDay || '#d4af37'; // Tint for daytime script glyphs
+    this.scriptColorNight = options.scriptColorNight || '#ffe9a3'; // Tint for night mode script glyphs
+    this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay; // Current script tint
 
     // Script font sprite sheet for Cardinal Warden name display
     // The sprite sheet is a 7x6 grid of characters
@@ -1343,6 +1346,7 @@ export class CardinalWardenSimulation {
     this.scriptSpriteLoaded = false;
     this.scriptCols = 7;
     this.scriptRows = 6;
+    this.tintedScriptSheet = null; // Offscreen canvas containing the colorized script sheet
     this.loadScriptSpriteSheet();
 
     // Game state
@@ -1467,6 +1471,7 @@ export class CardinalWardenSimulation {
       this.uiTextColor = '#f5f5f5';
       this.enemyTrailColor = '#ffffff';
       this.enemySmokeColor = '#ffffff';
+      this.activeScriptColor = this.scriptColorNight;
     } else {
       this.bgColor = '#ffffff';
       this.wardenCoreColor = '#d4af37';
@@ -1476,7 +1481,30 @@ export class CardinalWardenSimulation {
       this.uiTextColor = '#333';
       this.enemyTrailColor = '#000000';
       this.enemySmokeColor = '#000000';
+      this.activeScriptColor = this.scriptColorDay;
     }
+
+    // Rebuild the tinted script sheet so glyphs match the active palette immediately.
+    this.rebuildTintedScriptSheet();
+  }
+
+  /**
+   * Create a tinted copy of the script sprite sheet so glyphs follow the active palette.
+   */
+  rebuildTintedScriptSheet() {
+    if (!this.scriptSpriteLoaded || !this.scriptSpriteSheet) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = this.scriptSpriteSheet.width;
+    canvas.height = this.scriptSpriteSheet.height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(this.scriptSpriteSheet, 0, 0);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = this.activeScriptColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    this.tintedScriptSheet = canvas;
   }
 
   /**
@@ -1487,9 +1515,12 @@ export class CardinalWardenSimulation {
     this.scriptSpriteSheet = new Image();
     this.scriptSpriteSheet.onload = () => {
       this.scriptSpriteLoaded = true;
+      // Immediately build a tinted sheet so the glyphs pick up the current color mode.
+      this.rebuildTintedScriptSheet();
     };
     this.scriptSpriteSheet.onerror = () => {
       console.warn('Failed to load script sprite sheet for Cardinal Warden');
+      this.tintedScriptSheet = null;
     };
     // Path is relative to the HTML page (index.html)
     this.scriptSpriteSheet.src = './assets/sprites/spires/shinSpire/Script.png';
@@ -1506,13 +1537,14 @@ export class CardinalWardenSimulation {
   renderScriptChar(ctx, charIndex, x, y, size) {
     if (!this.scriptSpriteLoaded || !this.scriptSpriteSheet) return;
 
+    const sheet = this.tintedScriptSheet || this.scriptSpriteSheet;
     const col = charIndex % this.scriptCols;
     const row = Math.floor(charIndex / this.scriptCols);
-    const charWidth = this.scriptSpriteSheet.width / this.scriptCols;
-    const charHeight = this.scriptSpriteSheet.height / this.scriptRows;
+    const charWidth = sheet.width / this.scriptCols;
+    const charHeight = sheet.height / this.scriptRows;
 
     ctx.drawImage(
-      this.scriptSpriteSheet,
+      sheet,
       col * charWidth,
       row * charHeight,
       charWidth,
