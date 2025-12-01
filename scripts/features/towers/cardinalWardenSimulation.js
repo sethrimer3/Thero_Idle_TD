@@ -1341,11 +1341,11 @@ export class CardinalWardenSimulation {
     this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay; // Current script tint
 
     // Script font sprite sheet for Cardinal Warden name display
-    // The sprite sheet is a 7x6 grid of characters
+    // The sprite sheet is a 7x5 grid of characters
     this.scriptSpriteSheet = null;
     this.scriptSpriteLoaded = false;
     this.scriptCols = 7;
-    this.scriptRows = 6;
+    this.scriptRows = 5;
     this.tintedScriptSheet = null; // Offscreen canvas containing the colorized script sheet
     this.loadScriptSpriteSheet();
 
@@ -1404,6 +1404,8 @@ export class CardinalWardenSimulation {
     this.onGameOver = options.onGameOver || null;
     this.onHealthChange = options.onHealthChange || null;
     this.onHighestWaveChange = options.onHighestWaveChange || null;
+    this.onEnemyKill = options.onEnemyKill || null;
+    this.onPostRender = options.onPostRender || null;
 
     // Upgrade state (for future expansion)
     this.upgrades = {
@@ -1440,8 +1442,13 @@ export class CardinalWardenSimulation {
     // When null, weapons fire straight up; when set, they aim toward this point
     this.aimTarget = null;
     
+    // Track active pointer for drag-based aiming
+    this.aimPointerId = null;
+    
     // Bind input handlers for aiming
     this.handlePointerDown = this.handlePointerDown.bind(this);
+    this.handlePointerMove = this.handlePointerMove.bind(this);
+    this.handlePointerUp = this.handlePointerUp.bind(this);
 
     // Animation frame handle
     this.animationFrameId = null;
@@ -1509,7 +1516,7 @@ export class CardinalWardenSimulation {
 
   /**
    * Load the script sprite sheet for the Cardinal Warden name display.
-   * The sprite sheet contains unique characters in a 7x6 grid.
+   * The sprite sheet contains unique characters in a 7x5 grid.
    */
   loadScriptSpriteSheet() {
     this.scriptSpriteSheet = new Image();
@@ -1529,7 +1536,7 @@ export class CardinalWardenSimulation {
   /**
    * Render a character from the script sprite sheet.
    * @param {CanvasRenderingContext2D} ctx - Canvas context
-   * @param {number} charIndex - Index of the character (0-41 for a 7x6 grid)
+   * @param {number} charIndex - Index of the character (0-34 for a 7x5 grid)
    * @param {number} x - X position to render at
    * @param {number} y - Y position to render at
    * @param {number} size - Size to render the character
@@ -1619,6 +1626,10 @@ export class CardinalWardenSimulation {
   attachInputHandlers() {
     if (!this.canvas) return;
     this.canvas.addEventListener('pointerdown', this.handlePointerDown);
+    this.canvas.addEventListener('pointermove', this.handlePointerMove);
+    this.canvas.addEventListener('pointerup', this.handlePointerUp);
+    this.canvas.addEventListener('pointercancel', this.handlePointerUp);
+    this.canvas.addEventListener('pointerleave', this.handlePointerUp);
   }
 
   /**
@@ -1627,6 +1638,10 @@ export class CardinalWardenSimulation {
   detachInputHandlers() {
     if (!this.canvas) return;
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
+    this.canvas.removeEventListener('pointermove', this.handlePointerMove);
+    this.canvas.removeEventListener('pointerup', this.handlePointerUp);
+    this.canvas.removeEventListener('pointercancel', this.handlePointerUp);
+    this.canvas.removeEventListener('pointerleave', this.handlePointerUp);
   }
 
   /**
@@ -1635,6 +1650,9 @@ export class CardinalWardenSimulation {
    */
   handlePointerDown(event) {
     if (!this.canvas || this.gamePhase !== 'playing') return;
+    
+    // Track this pointer for drag-based aiming
+    this.aimPointerId = event.pointerId;
     
     // Get canvas-relative coordinates
     const rect = this.canvas.getBoundingClientRect();
@@ -1646,6 +1664,36 @@ export class CardinalWardenSimulation {
     
     // Set the aim target
     this.aimTarget = { x, y };
+  }
+
+  /**
+   * Handle pointer move events for dynamic aim target updating during drag.
+   * @param {PointerEvent} event - The pointer event
+   */
+  handlePointerMove(event) {
+    // Only update if we're tracking this pointer (started with pointerdown on canvas)
+    if (!this.canvas || this.aimPointerId !== event.pointerId || this.gamePhase !== 'playing') return;
+    
+    // Get canvas-relative coordinates
+    const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
+    
+    // Update the aim target dynamically
+    this.aimTarget = { x, y };
+  }
+
+  /**
+   * Handle pointer up/cancel/leave events to stop tracking aim pointer.
+   * @param {PointerEvent} event - The pointer event
+   */
+  handlePointerUp(event) {
+    if (this.aimPointerId === event.pointerId) {
+      this.aimPointerId = null;
+    }
   }
 
   /**
@@ -1910,6 +1958,9 @@ export class CardinalWardenSimulation {
     this.deathShakeIntensity = 0;
     this.deathExplosionParticles = [];
     this.respawnOpacity = 1;
+    
+    // Reset aim pointer tracking
+    this.aimPointerId = null;
 
     if (this.warden) {
       this.warden.reset();
@@ -2317,6 +2368,9 @@ export class CardinalWardenSimulation {
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
     this.bossSpawnTimer = 0;
+    
+    // Reset aim pointer tracking
+    this.aimPointerId = null;
 
     // Reinitialize warden
     this.initWarden();
@@ -2635,6 +2689,7 @@ export class CardinalWardenSimulation {
   checkCollisions() {
     const bulletsToRemove = new Set();
     const enemiesToRemove = new Set();
+    const killedEnemyPositions = []; // Track positions of killed enemies for phoneme drops
 
     for (let bi = 0; bi < this.bullets.length; bi++) {
       const bullet = this.bullets[bi];
@@ -2661,6 +2716,8 @@ export class CardinalWardenSimulation {
             this.addScore(enemy.scoreValue);
             // Spawn floating score popup at enemy position
             this.spawnScorePopup(enemy.x, enemy.y, enemy.scoreValue);
+            // Track position for phoneme drop
+            killedEnemyPositions.push({ x: enemy.x, y: enemy.y, isBoss: false });
           }
 
           if (bullet.piercing) {
@@ -2705,6 +2762,8 @@ export class CardinalWardenSimulation {
             this.addScore(boss.scoreValue);
             // Spawn floating score popup at boss position
             this.spawnScorePopup(boss.x, boss.y, boss.scoreValue);
+            // Track position for phoneme drop (bosses drop multiple)
+            killedEnemyPositions.push({ x: boss.x, y: boss.y, isBoss: true });
           }
 
           if (bullet.piercing) {
@@ -2727,6 +2786,13 @@ export class CardinalWardenSimulation {
     const bulletIndices = Array.from(bulletsToRemove).sort((a, b) => b - a);
     for (const i of bulletIndices) {
       this.bullets.splice(i, 1);
+    }
+    
+    // Notify about enemy kills for phoneme drops
+    if (this.onEnemyKill && killedEnemyPositions.length > 0) {
+      for (const killPos of killedEnemyPositions) {
+        this.onEnemyKill(killPos.x, killPos.y, killPos.isBoss);
+      }
     }
   }
 
@@ -2879,6 +2945,11 @@ export class CardinalWardenSimulation {
 
     // Draw UI overlays
     this.renderUI();
+    
+    // Allow external code to render on top (e.g., phoneme drops)
+    if (this.onPostRender) {
+      this.onPostRender(this.ctx, this.canvas, this.gamePhase);
+    }
   }
   
   /**
