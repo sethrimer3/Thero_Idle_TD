@@ -638,7 +638,8 @@ function updateDeltaSoldier(playfield, tower, soldier, delta, state) {
           const aleph2Rank = Number.isFinite(aleph2Value) ? Math.max(0, Math.round(aleph2Value)) : 0;
           if (aleph2Rank > 0 && target.hp > 0) {
             const shiftMeters = aleph2Rank * 0.5;
-            const shiftPixels = metersToPixels(shiftMeters, minDimension);
+            const minDim = Math.min(playfield.renderWidth || 0, playfield.renderHeight || 0) || 1;
+            const shiftPixels = metersToPixels(shiftMeters, minDim);
             const pathLength = Number.isFinite(playfield.pathLength) && playfield.pathLength > 0
               ? playfield.pathLength
               : 1;
