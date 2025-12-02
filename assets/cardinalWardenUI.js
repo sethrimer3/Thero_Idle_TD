@@ -20,6 +20,14 @@ import {
   clearActivePhonemeDrops,
   getPhonemeCount,
   getPhonemeCountsByChar,
+  getGraphemeDropChance,
+  unlockNextGrapheme,
+  getGraphemeUnlockCost,
+  upgradeDropChance,
+  getDropChanceUpgradeCost,
+  getDropChanceUpgradeLevel,
+  getUnlockedGraphemes,
+  getEquivalenceBank,
 } from './shinState.js';
 
 // Cardinal Warden simulation instance
@@ -46,6 +54,12 @@ const cardinalElements = {
   healthUpgradeCost: null,
   phonemeInventory: null,
   phonemeCount: null,
+  unlockedCount: null,
+  graphemeUnlockBtn: null,
+  graphemeUnlockCost: null,
+  dropChanceDisplay: null,
+  dropChanceUpgradeBtn: null,
+  dropChanceCost: null,
 };
 
 // State persistence key
@@ -84,6 +98,12 @@ export function initializeCardinalWardenUI() {
   cardinalElements.healthUpgradeCost = document.getElementById('shin-health-upgrade-cost');
   cardinalElements.phonemeInventory = document.getElementById('shin-phoneme-inventory');
   cardinalElements.phonemeCount = document.getElementById('shin-phoneme-count');
+  cardinalElements.unlockedCount = document.getElementById('shin-unlocked-count');
+  cardinalElements.graphemeUnlockBtn = document.getElementById('shin-grapheme-unlock-btn');
+  cardinalElements.graphemeUnlockCost = document.getElementById('shin-grapheme-unlock-cost');
+  cardinalElements.dropChanceDisplay = document.getElementById('shin-drop-chance-display');
+  cardinalElements.dropChanceUpgradeBtn = document.getElementById('shin-drop-chance-upgrade-btn');
+  cardinalElements.dropChanceCost = document.getElementById('shin-drop-chance-cost');
 
   if (!cardinalElements.canvas) {
     console.warn('Cardinal Warden canvas not found');
@@ -116,6 +136,10 @@ export function initializeCardinalWardenUI() {
   // Initialize health upgrade button
   initializeHealthUpgradeButton();
   
+  // Initialize grapheme unlock and drop chance upgrade buttons
+  initializeGraphemeUnlockButton();
+  initializeDropChanceUpgradeButton();
+  
   // Update displays
   updateWaveDisplay(0);
   updateHighestWaveDisplay();
@@ -124,6 +148,7 @@ export function initializeCardinalWardenUI() {
   updateWeaponsDisplay();
   updateBaseHealthDisplay();
   updatePhonemeInventoryDisplay();
+  updateGraphemeUI();
 }
 
 /**
@@ -347,24 +372,25 @@ function handleGameOver(data) {
 }
 
 /**
- * Handle enemy kills - spawn phoneme drops.
+ * Handle enemy kills - spawn grapheme drops.
  * @param {number} x - X coordinate of killed enemy
  * @param {number} y - Y coordinate of killed enemy
  * @param {boolean} isBoss - Whether the killed enemy is a boss
  */
 function handleEnemyKill(x, y, isBoss) {
-  // Random chance to drop a phoneme (50% for regular, 100% for bosses)
-  const dropChance = isBoss ? 1.0 : 0.5;
+  // Get current drop chance from state (starts at 1%, upgradable)
+  // Bosses always drop graphemes
+  const dropChance = isBoss ? 1.0 : getGraphemeDropChance();
   if (Math.random() < dropChance) {
-    spawnPhonemeDrop(x, y);
-    // Bosses drop additional phonemes
+    spawnPhonemeDrop(x, y); // Using legacy export which maps to spawnGraphemeDrop
+    // Bosses drop additional graphemes
     if (isBoss) {
-      // Bosses drop 2-4 extra phonemes in a small scatter pattern
+      // Bosses drop 2-4 extra graphemes in a small scatter pattern
       const extraDrops = Math.floor(Math.random() * 3) + 2;
       for (let i = 0; i < extraDrops; i++) {
         const offsetX = (Math.random() - 0.5) * 40;
         const offsetY = (Math.random() - 0.5) * 40;
-        spawnPhonemeDrop(x + offsetX, y + offsetY);
+        spawnPhonemeDrop(x + offsetX, y + offsetY); // Using legacy export which maps to spawnGraphemeDrop
       }
     }
   }
@@ -413,8 +439,9 @@ function updateTotalIteronsDisplay() {
     const iterons = getIteronBank();
     cardinalElements.totalIterons.textContent = `${formatGameNumber(iterons)} ℸ`;
   }
-  // Also update health upgrade button state
+  // Also update health upgrade button state and grapheme UI
   updateBaseHealthDisplay();
+  updateGraphemeUI();
 }
 
 /**
@@ -426,6 +453,42 @@ function initializeHealthUpgradeButton() {
   cardinalElements.healthUpgradeBtn.addEventListener('click', () => {
     if (upgradeCardinalBaseHealth()) {
       updateBaseHealthDisplay();
+    }
+  });
+}
+
+/**
+ * Initialize the grapheme unlock button.
+ */
+function initializeGraphemeUnlockButton() {
+  if (!cardinalElements.graphemeUnlockBtn) return;
+  
+  cardinalElements.graphemeUnlockBtn.addEventListener('click', () => {
+    const result = unlockNextGrapheme();
+    if (result.success) {
+      updateGraphemeUI();
+      updateTotalIteronsDisplay();
+      console.log(`Unlocked grapheme ${result.unlockedIndex}: ${result.grapheme.name}`);
+    } else {
+      console.log('Cannot unlock grapheme:', result.message);
+    }
+  });
+}
+
+/**
+ * Initialize the drop chance upgrade button.
+ */
+function initializeDropChanceUpgradeButton() {
+  if (!cardinalElements.dropChanceUpgradeBtn) return;
+  
+  cardinalElements.dropChanceUpgradeBtn.addEventListener('click', () => {
+    const result = upgradeDropChance();
+    if (result.success) {
+      updateGraphemeUI();
+      updateTotalIteronsDisplay();
+      console.log(`Drop chance upgraded to ${(result.newDropChance * 100).toFixed(1)}%`);
+    } else {
+      console.log('Cannot upgrade drop chance:', result.message);
     }
   });
 }
@@ -449,6 +512,55 @@ function updateBaseHealthDisplay() {
   
   if (cardinalElements.healthUpgradeBtn) {
     cardinalElements.healthUpgradeBtn.disabled = !canAfford;
+  }
+}
+
+/**
+ * Update the grapheme UI displays.
+ */
+function updateGraphemeUI() {
+  const unlockedGraphemes = getUnlockedGraphemes();
+  const unlockCost = getGraphemeUnlockCost();
+  const dropChance = getGraphemeDropChance();
+  const dropChanceCost = getDropChanceUpgradeCost();
+  const currentEquivalence = getEquivalenceBank();
+  
+  // Update unlocked count
+  if (cardinalElements.unlockedCount) {
+    cardinalElements.unlockedCount.textContent = unlockedGraphemes.length;
+  }
+  
+  // Update unlock button
+  if (cardinalElements.graphemeUnlockCost) {
+    cardinalElements.graphemeUnlockCost.textContent = formatGameNumber(unlockCost);
+  }
+  
+  if (cardinalElements.graphemeUnlockBtn) {
+    const canAffordUnlock = currentEquivalence >= unlockCost;
+    const allUnlocked = unlockedGraphemes.length >= 35;
+    cardinalElements.graphemeUnlockBtn.disabled = !canAffordUnlock || allUnlocked;
+    
+    if (allUnlocked) {
+      cardinalElements.graphemeUnlockBtn.textContent = 'All Graphemes Unlocked';
+    } else {
+      cardinalElements.graphemeUnlockBtn.innerHTML = `Unlock Next Grapheme: <span id="shin-grapheme-unlock-cost">${formatGameNumber(unlockCost)}</span> ℸ`;
+      cardinalElements.graphemeUnlockCost = document.getElementById('shin-grapheme-unlock-cost');
+    }
+  }
+  
+  // Update drop chance display
+  if (cardinalElements.dropChanceDisplay) {
+    cardinalElements.dropChanceDisplay.textContent = `${(dropChance * 100).toFixed(1)}%`;
+  }
+  
+  // Update drop chance upgrade button
+  if (cardinalElements.dropChanceCost) {
+    cardinalElements.dropChanceCost.textContent = formatGameNumber(dropChanceCost);
+  }
+  
+  if (cardinalElements.dropChanceUpgradeBtn) {
+    const canAffordUpgrade = currentEquivalence >= dropChanceCost;
+    cardinalElements.dropChanceUpgradeBtn.disabled = !canAffordUpgrade;
   }
 }
 
@@ -791,12 +903,15 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
     ctx.lineWidth = 2;
     ctx.stroke();
     
-    // Script character
+    // Script character (using index-based display for custom script)
+    // TODO: Load and render from Script.png sprite sheet for proper custom glyphs
     ctx.fillStyle = '#333';
-    ctx.font = 'bold 16px "Noto Sans Hebrew", "Segoe UI", sans-serif';
+    ctx.font = 'bold 16px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(drop.char, drop.x, drop.y + floatY + 1);
+    // For now, display the grapheme index until sprite rendering is implemented
+    const displayChar = drop.index !== undefined ? `#${drop.index}` : (drop.char || '?');
+    ctx.fillText(displayChar, drop.x, drop.y + floatY + 1);
     
     ctx.restore();
   }

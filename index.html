@@ -152,7 +152,7 @@
               <span class="offline-number" id="offline-shin-total">0</span>
               <span class="offline-symbol offline-symbol--glyph" aria-hidden="true">ש</span>
               <span class="offline-symbol">−</span>
-              <span class="offline-resource__label">Iterons</span>
+              <span class="offline-resource__label">Equivalence</span>
             </div>
           </div>
           <div class="offline-overlay__equation-row" id="offline-kuf-row" aria-label="Kuf idle gains">
@@ -2841,21 +2841,33 @@
           <!-- Warden Weapons Menu -->
           <article class="card shin-weapons-card" id="shin-weapons-card">
             <h3>Warden Weapons</h3>
-            <p class="shin-weapons-note">Mathematical projectile patterns. Spend iterons to purchase and upgrade.</p>
+            <p class="shin-weapons-note">Mathematical projectile patterns. Spend Equivalence to purchase and upgrade.</p>
             <div class="shin-weapons-grid" id="shin-weapons-grid" role="list" aria-live="polite">
               <!-- Weapons populated dynamically -->
             </div>
           </article>
 
-          <!-- Phoneme Inventory -->
+          <!-- Grapheme Inventory -->
           <article class="card shin-phoneme-card" id="shin-phoneme-card">
-            <h3>Phoneme Collection</h3>
+            <h3>Grapheme Collection</h3>
             <p class="shin-phoneme-note">Script characters dropped by enemies. Tap drops to collect.</p>
             <div class="shin-phoneme-stats">
               <span>Total Collected: <strong id="shin-phoneme-count">0</strong></span>
+              <span>Unlocked: <strong id="shin-unlocked-count">3</strong> / 35</span>
             </div>
             <div class="shin-phoneme-inventory" id="shin-phoneme-inventory" role="list" aria-live="polite">
-              <span class="shin-phoneme-empty">No phonemes collected</span>
+              <span class="shin-phoneme-empty">No graphemes collected</span>
+            </div>
+            <div class="shin-grapheme-upgrades">
+              <button id="shin-grapheme-unlock-btn" class="shin-weapon-action">
+                Unlock Next Grapheme: <span id="shin-grapheme-unlock-cost">250</span> ℸ
+              </button>
+              <div class="shin-drop-chance-upgrade">
+                <span>Drop Chance: <strong id="shin-drop-chance-display">1%</strong></span>
+                <button id="shin-drop-chance-upgrade-btn" class="shin-weapon-action">
+                  +1% Drop Chance: <span id="shin-drop-chance-cost">100</span> ℸ
+                </button>
+              </div>
             </div>
           </article>
 
@@ -2872,7 +2884,7 @@
                 <dd id="shin-highest-wave">0</dd>
               </div>
               <div>
-                <dt>Total Iterons</dt>
+                <dt>Total Equivalence</dt>
                 <dd id="shin-total-iterons">0 ℸ</dd>
               </div>
               <div>
@@ -4017,7 +4029,7 @@
                     step="0.1"
                     inputmode="decimal"
                   />
-                  <p class="developer-control-hint">Set iterons allocated per second for Shin Spire.</p>
+                  <p class="developer-control-hint">Set Equivalence allocated per second for Shin Spire.</p>
                 </div>
               </div>
             </div>
