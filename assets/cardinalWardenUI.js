@@ -20,6 +20,14 @@ import {
   clearActivePhonemeDrops,
   getPhonemeCount,
   getPhonemeCountsByChar,
+  getGraphemeDropChance,
+  unlockNextGrapheme,
+  getGraphemeUnlockCost,
+  upgradeDropChance,
+  getDropChanceUpgradeCost,
+  getDropChanceUpgradeLevel,
+  getUnlockedGraphemes,
+  getEquivalenceBank,
 } from './shinState.js';
 
 // Cardinal Warden simulation instance
@@ -347,24 +355,25 @@ function handleGameOver(data) {
 }
 
 /**
- * Handle enemy kills - spawn phoneme drops.
+ * Handle enemy kills - spawn grapheme drops.
  * @param {number} x - X coordinate of killed enemy
  * @param {number} y - Y coordinate of killed enemy
  * @param {boolean} isBoss - Whether the killed enemy is a boss
  */
 function handleEnemyKill(x, y, isBoss) {
-  // Random chance to drop a phoneme (50% for regular, 100% for bosses)
-  const dropChance = isBoss ? 1.0 : 0.5;
+  // Get current drop chance from state (starts at 1%, upgradable)
+  // Bosses always drop graphemes
+  const dropChance = isBoss ? 1.0 : getGraphemeDropChance();
   if (Math.random() < dropChance) {
-    spawnPhonemeDrop(x, y);
-    // Bosses drop additional phonemes
+    spawnPhonemeDrop(x, y); // Using legacy export which maps to spawnGraphemeDrop
+    // Bosses drop additional graphemes
     if (isBoss) {
-      // Bosses drop 2-4 extra phonemes in a small scatter pattern
+      // Bosses drop 2-4 extra graphemes in a small scatter pattern
       const extraDrops = Math.floor(Math.random() * 3) + 2;
       for (let i = 0; i < extraDrops; i++) {
         const offsetX = (Math.random() - 0.5) * 40;
         const offsetY = (Math.random() - 0.5) * 40;
-        spawnPhonemeDrop(x + offsetX, y + offsetY);
+        spawnPhonemeDrop(x + offsetX, y + offsetY); // Using legacy export which maps to spawnGraphemeDrop
       }
     }
   }

@@ -1,13 +1,13 @@
 /**
  * Shin Spire State Management
  * 
- * Manages the Iteron resource system and fractal progression for the Shin Spire.
- * Iterons are allocated to fractals to increase their complexity, and when a
+ * Manages the Equivalence resource system and fractal progression for the Shin Spire.
+ * Equivalence is allocated to fractals to increase their complexity, and when a
  * fractal completes a layer, the player earns a Shin glyph.
  */
 
 /**
- * Number of iterons required in a fractal before the next fractal unlocks
+ * Number of Equivalence required in a fractal before the next fractal unlocks
  */
 const FRACTAL_UNLOCK_THRESHOLD = 100;
 
@@ -15,16 +15,21 @@ const FRACTAL_UNLOCK_THRESHOLD = 100;
  * State for the Shin Spire system
  */
 const shinState = {
-  iteronBank: 0,                    // Total unallocated iterons available
+  equivalenceBank: 0,               // Total unallocated Equivalence available
   iterationRate: 0,                 // Allocations per second (starts at 0)
   shinGlyphs: 0,                    // Total Shin glyphs earned
   activeFractalId: 'tree',          // Currently selected fractal
   fractals: {},                     // State for each fractal: { id: { allocated: number, layersCompleted: number, unlocked: boolean } }
   lastUpdateTime: Date.now(),       // For calculating automatic allocation
-  accumulatedIterons: 0,            // Accumulator for fractional iterons
-  phonemes: [],                     // Collected phonemes (script characters) - each entry: { id: string, char: string, collected: timestamp }
-  activePhonemeDrops: [],           // Currently visible phoneme drops on the battlefield - each entry: { id: string, char: string, x: number, y: number, spawnTime: number }
-  phonemeIdCounter: 0,              // Counter for generating unique phoneme IDs
+  accumulatedEquivalence: 0,        // Accumulator for fractional Equivalence
+  graphemes: [],                    // Collected graphemes (script characters) - each entry: { id: string, char: string, index: number, collectedAt: timestamp }
+  activeGraphemeDrops: [],          // Currently visible grapheme drops on the battlefield - each entry: { id: string, char: string, index: number, x: number, y: number, spawnTime: number }
+  graphemeIdCounter: 0,             // Counter for generating unique grapheme IDs
+  unlockedGraphemes: [0, 1, 2],     // Indices of unlocked graphemes (starts with first 3)
+  graphemeDropChance: 0.01,         // 1% base drop chance
+  graphemeUnlockCost: 250,          // Cost to unlock next grapheme
+  dropChanceUpgradeCost: 100,       // Cost to upgrade drop chance
+  dropChanceUpgradeLevel: 0,        // Number of drop chance upgrades purchased
 };
 
 /**
@@ -36,12 +41,17 @@ let fractalDefinitions = [];
  * Initialize the Shin Spire system with saved state
  */
 export function initializeShinState(savedState = {}) {
-  if (savedState.iteronBank !== undefined) {
-    shinState.iteronBank = savedState.iteronBank;
+  // Migrate old iteronBank to equivalenceBank
+  if (savedState.equivalenceBank !== undefined) {
+    shinState.equivalenceBank = savedState.equivalenceBank;
+  } else if (savedState.iteronBank !== undefined) {
+    // Migration: convert old iteronBank to equivalenceBank
+    shinState.equivalenceBank = savedState.iteronBank;
   } else {
-    // Start with 0 Iterons in the bank for new games
-    shinState.iteronBank = 0;
+    // Start with 0 Equivalence in the bank for new games
+    shinState.equivalenceBank = 0;
   }
+  
   if (savedState.iterationRate !== undefined) {
     shinState.iterationRate = savedState.iterationRate;
   } else {
@@ -61,16 +71,56 @@ export function initializeShinState(savedState = {}) {
     shinState.lastUpdateTime = savedState.lastUpdateTime;
   }
   
-  // Initialize phonemes from saved state
-  if (Array.isArray(savedState.phonemes)) {
-    shinState.phonemes = savedState.phonemes;
+  // Initialize graphemes from saved state (with migration from old phonemes)
+  if (Array.isArray(savedState.graphemes)) {
+    shinState.graphemes = savedState.graphemes;
+  } else if (Array.isArray(savedState.phonemes)) {
+    // Migration: convert old phonemes to graphemes
+    shinState.graphemes = savedState.phonemes;
   } else {
-    shinState.phonemes = [];
+    shinState.graphemes = [];
   }
+  
   // Active drops are never persisted - they disappear when the warden dies
-  shinState.activePhonemeDrops = [];
-  if (savedState.phonemeIdCounter !== undefined) {
-    shinState.phonemeIdCounter = savedState.phonemeIdCounter;
+  shinState.activeGraphemeDrops = [];
+  
+  if (savedState.graphemeIdCounter !== undefined) {
+    shinState.graphemeIdCounter = savedState.graphemeIdCounter;
+  } else if (savedState.phonemeIdCounter !== undefined) {
+    // Migration: convert old phonemeIdCounter
+    shinState.graphemeIdCounter = savedState.phonemeIdCounter;
+  }
+  
+  // Initialize unlocked graphemes
+  if (Array.isArray(savedState.unlockedGraphemes)) {
+    shinState.unlockedGraphemes = savedState.unlockedGraphemes;
+  } else {
+    shinState.unlockedGraphemes = [0, 1, 2]; // Start with first 3 graphemes
+  }
+  
+  // Initialize drop chance and upgrade systems
+  if (savedState.graphemeDropChance !== undefined) {
+    shinState.graphemeDropChance = savedState.graphemeDropChance;
+  } else {
+    shinState.graphemeDropChance = 0.01; // 1% base drop chance
+  }
+  
+  if (savedState.graphemeUnlockCost !== undefined) {
+    shinState.graphemeUnlockCost = savedState.graphemeUnlockCost;
+  } else {
+    shinState.graphemeUnlockCost = 250;
+  }
+  
+  if (savedState.dropChanceUpgradeCost !== undefined) {
+    shinState.dropChanceUpgradeCost = savedState.dropChanceUpgradeCost;
+  } else {
+    shinState.dropChanceUpgradeCost = 100;
+  }
+  
+  if (savedState.dropChanceUpgradeLevel !== undefined) {
+    shinState.dropChanceUpgradeLevel = savedState.dropChanceUpgradeLevel;
+  } else {
+    shinState.dropChanceUpgradeLevel = 0;
   }
   
   // Initialize tree fractal as unlocked by default
@@ -88,17 +138,22 @@ export function initializeShinState(savedState = {}) {
  */
 export function resetShinState() {
   // Reset headline resources and selection.
-  shinState.iteronBank = 0;
+  shinState.equivalenceBank = 0;
   shinState.iterationRate = 0;
   shinState.shinGlyphs = 0;
   shinState.activeFractalId = 'tree';
-  shinState.accumulatedIterons = 0;
+  shinState.accumulatedEquivalence = 0;
   shinState.lastUpdateTime = Date.now();
   
-  // Reset phoneme state
-  shinState.phonemes = [];
-  shinState.activePhonemeDrops = [];
-  shinState.phonemeIdCounter = 0;
+  // Reset grapheme state
+  shinState.graphemes = [];
+  shinState.activeGraphemeDrops = [];
+  shinState.graphemeIdCounter = 0;
+  shinState.unlockedGraphemes = [0, 1, 2]; // Start with first 3 graphemes
+  shinState.graphemeDropChance = 0.01; // 1% base drop chance
+  shinState.graphemeUnlockCost = 250;
+  shinState.dropChanceUpgradeCost = 100;
+  shinState.dropChanceUpgradeLevel = 0;
 
   // Rebuild fractal state map with only base progress unlocked by default.
   const resetFractals = {
@@ -154,20 +209,25 @@ export async function loadFractalDefinitions() {
  */
 export function getShinStateSnapshot() {
   return {
-    iteronBank: shinState.iteronBank,
+    equivalenceBank: shinState.equivalenceBank,
     iterationRate: shinState.iterationRate,
     shinGlyphs: shinState.shinGlyphs,
     activeFractalId: shinState.activeFractalId,
     fractals: { ...shinState.fractals },
     lastUpdateTime: shinState.lastUpdateTime,
-    phonemes: [...shinState.phonemes],
-    phonemeIdCounter: shinState.phonemeIdCounter,
+    graphemes: [...shinState.graphemes],
+    graphemeIdCounter: shinState.graphemeIdCounter,
+    unlockedGraphemes: [...shinState.unlockedGraphemes],
+    graphemeDropChance: shinState.graphemeDropChance,
+    graphemeUnlockCost: shinState.graphemeUnlockCost,
+    dropChanceUpgradeCost: shinState.dropChanceUpgradeCost,
+    dropChanceUpgradeLevel: shinState.dropChanceUpgradeLevel,
   };
 }
 
 /**
  * Update the Shin Spire system (called on each frame or tick)
- * Iterons from the bank are allocated to the active fractal at the iteration rate.
+ * Equivalence from the bank is allocated to the active fractal at the iteration rate.
  */
 export function updateShinState(deltaTime) {
   if (!shinState.activeFractalId) {
@@ -179,19 +239,19 @@ export function updateShinState(deltaTime) {
     return;
   }
   
-  // Calculate how many iterons to allocate from the bank based on iteration rate
-  // and time elapsed. Accumulate fractional iterons across frames.
-  if (shinState.iteronBank > 0) {
-    shinState.accumulatedIterons += shinState.iterationRate * (deltaTime / 1000);
-    const wholIterons = Math.floor(shinState.accumulatedIterons);
+  // Calculate how many units of Equivalence to allocate from the bank based on iteration rate
+  // and time elapsed. Accumulate fractional Equivalence across frames.
+  if (shinState.equivalenceBank > 0) {
+    shinState.accumulatedEquivalence += shinState.iterationRate * (deltaTime / 1000);
+    const wholeEquivalence = Math.floor(shinState.accumulatedEquivalence);
     
-    if (wholIterons > 0) {
-      const actualIterons = Math.min(wholIterons, shinState.iteronBank);
-      if (actualIterons > 0) {
-        const result = allocateIterons(shinState.activeFractalId, actualIterons);
+    if (wholeEquivalence > 0) {
+      const actualEquivalence = Math.min(wholeEquivalence, shinState.equivalenceBank);
+      if (actualEquivalence > 0) {
+        const result = allocateEquivalence(shinState.activeFractalId, actualEquivalence);
         if (result.success) {
-          shinState.iteronBank -= actualIterons;
-          shinState.accumulatedIterons -= actualIterons;
+          shinState.equivalenceBank -= actualEquivalence;
+          shinState.accumulatedEquivalence -= actualEquivalence;
         }
       }
     }
@@ -201,12 +261,12 @@ export function updateShinState(deltaTime) {
 }
 
 /**
- * Allocate iterons to a specific fractal
+ * Allocate Equivalence to a specific fractal
  * @param {string} fractalId - The ID of the fractal to allocate to
- * @param {number} amount - The number of iterons to allocate
+ * @param {number} amount - The amount of Equivalence to allocate
  * @returns {Object} Result object with success status and any earned glyphs
  */
-export function allocateIterons(fractalId, amount) {
+export function allocateEquivalence(fractalId, amount) {
   const fractalState = shinState.fractals[fractalId];
   if (!fractalState || !fractalState.unlocked) {
     return { success: false, message: 'Fractal not unlocked' };
@@ -292,31 +352,37 @@ export function getFractalDefinitions() {
 }
 
 /**
- * Get the current iteron bank
+ * Get the current Equivalence bank
  */
-export function getIteronBank() {
-  return shinState.iteronBank;
+export function getEquivalenceBank() {
+  return shinState.equivalenceBank;
 }
 
 /**
- * Add iterons to the bank
+ * Add Equivalence to the bank
  */
-export function addIterons(amount) {
-  shinState.iteronBank += amount;
-  return shinState.iteronBank;
+export function addEquivalence(amount) {
+  shinState.equivalenceBank += amount;
+  return shinState.equivalenceBank;
 }
 
 /**
- * Spend iterons from the bank
- * @param {number} amount - The number of iterons to spend
- * @returns {boolean} True if the spend was successful (had enough iterons)
+ * Spend Equivalence from the bank
+ * @param {number} amount - The amount of Equivalence to spend
+ * @returns {boolean} True if the spend was successful (had enough Equivalence)
  */
-export function spendIterons(amount) {
+export function spendEquivalence(amount) {
   if (amount <= 0) return false;
-  if (shinState.iteronBank < amount) return false;
-  shinState.iteronBank -= amount;
+  if (shinState.equivalenceBank < amount) return false;
+  shinState.equivalenceBank -= amount;
   return true;
 }
+
+// Legacy exports for backward compatibility (to be removed after migration)
+export const getIteronBank = getEquivalenceBank;
+export const addIterons = addEquivalence;
+export const spendIterons = spendEquivalence;
+export const allocateIterons = allocateEquivalence;
 
 /**
  * Get the current iteration rate
@@ -428,133 +494,288 @@ export function unlockAllFractals() {
 }
 
 // ============================================================
-// Phoneme System
+// Grapheme System
 // ============================================================
 
 /**
- * Available phoneme characters from the custom script.
- * Each phoneme has a unique glyph and associated weapon property.
+ * Available grapheme characters from the custom script (Script.png).
+ * The script contains 35 unique characters arranged in a 7x5 grid.
+ * Each grapheme has a unique glyph and associated weapon property.
+ * Characters are represented by their index (0-34) and rendered from the sprite sheet.
  */
-const PHONEME_CHARACTERS = [
-  { char: 'ש', name: 'shin', property: 'fire' },
-  { char: 'ב', name: 'bet', property: 'pierce' },
-  { char: 'ל', name: 'lamed', property: 'speed' },
-  { char: 'צ', name: 'tsadi', property: 'ice' },
-  { char: 'ק', name: 'qoph', property: 'homing' },
-  { char: 'ר', name: 'resh', property: 'spread' },
-  { char: 'ע', name: 'ayin', property: 'chain' },
-  { char: 'ת', name: 'tav', property: 'damage' },
+const GRAPHEME_CHARACTERS = [
+  // Row 1 (indices 0-6)
+  { index: 0, name: 'alpha', property: 'fire', row: 0, col: 0 },
+  { index: 1, name: 'beta', property: 'pierce', row: 0, col: 1 },
+  { index: 2, name: 'gamma', property: 'speed', row: 0, col: 2 },
+  { index: 3, name: 'delta', property: 'ice', row: 0, col: 3 },
+  { index: 4, name: 'epsilon', property: 'homing', row: 0, col: 4 },
+  { index: 5, name: 'zeta', property: 'spread', row: 0, col: 5 },
+  { index: 6, name: 'eta', property: 'chain', row: 0, col: 6 },
+  // Row 2 (indices 7-13)
+  { index: 7, name: 'theta', property: 'damage', row: 1, col: 0 },
+  { index: 8, name: 'iota', property: 'range', row: 1, col: 1 },
+  { index: 9, name: 'kappa', property: 'splash', row: 1, col: 2 },
+  { index: 10, name: 'lambda', property: 'penetration', row: 1, col: 3 },
+  { index: 11, name: 'mu', property: 'lifesteal', row: 1, col: 4 },
+  { index: 12, name: 'nu', property: 'crit', row: 1, col: 5 },
+  { index: 13, name: 'xi', property: 'slow', row: 1, col: 6 },
+  // Row 3 (indices 14-20)
+  { index: 14, name: 'omicron', property: 'burn', row: 2, col: 0 },
+  { index: 15, name: 'pi', property: 'freeze', row: 2, col: 1 },
+  { index: 16, name: 'rho', property: 'shock', row: 2, col: 2 },
+  { index: 17, name: 'sigma', property: 'poison', row: 2, col: 3 },
+  { index: 18, name: 'tau', property: 'stun', row: 2, col: 4 },
+  { index: 19, name: 'upsilon', property: 'knockback', row: 2, col: 5 },
+  { index: 20, name: 'phi', property: 'reflect', row: 2, col: 6 },
+  // Row 4 (indices 21-27)
+  { index: 21, name: 'chi', property: 'leech', row: 3, col: 0 },
+  { index: 22, name: 'psi', property: 'execute', row: 3, col: 1 },
+  { index: 23, name: 'omega', property: 'resurrect', row: 3, col: 2 },
+  { index: 24, name: 'digamma', property: 'duplicate', row: 3, col: 3 },
+  { index: 25, name: 'stigma', property: 'amplify', row: 3, col: 4 },
+  { index: 26, name: 'heta', property: 'transform', row: 3, col: 5 },
+  { index: 27, name: 'san', property: 'corrupt', row: 3, col: 6 },
+  // Row 5 (indices 28-34)
+  { index: 28, name: 'koppa', property: 'fracture', row: 4, col: 0 },
+  { index: 29, name: 'sampi', property: 'siphon', row: 4, col: 1 },
+  { index: 30, name: 'sho', property: 'cascade', row: 4, col: 2 },
+  { index: 31, name: 'vau', property: 'rebound', row: 4, col: 3 },
+  { index: 32, name: 'khet', property: 'vortex', row: 4, col: 4 },
+  { index: 33, name: 'tsade', property: 'nova', row: 4, col: 5 },
+  { index: 34, name: 'shin', property: 'eclipse', row: 4, col: 6 },
 ];
 
 /**
- * Get a random phoneme character for drops.
- * @returns {Object} A phoneme definition with char and property
+ * Get a random grapheme character from the unlocked set for drops.
+ * @returns {Object} A grapheme definition with index and property
  */
-export function getRandomPhoneme() {
-  const index = Math.floor(Math.random() * PHONEME_CHARACTERS.length);
-  return { ...PHONEME_CHARACTERS[index] };
+export function getRandomGrapheme() {
+  const unlockedIndices = shinState.unlockedGraphemes;
+  if (unlockedIndices.length === 0) {
+    // Fallback to first grapheme if no graphemes are unlocked
+    return { ...GRAPHEME_CHARACTERS[0] };
+  }
+  const randomUnlockedIndex = unlockedIndices[Math.floor(Math.random() * unlockedIndices.length)];
+  return { ...GRAPHEME_CHARACTERS[randomUnlockedIndex] };
 }
 
 /**
- * Spawn a phoneme drop at the given position.
+ * Spawn a grapheme drop at the given position.
  * @param {number} x - X coordinate on the canvas
  * @param {number} y - Y coordinate on the canvas
- * @returns {Object} The created phoneme drop
+ * @returns {Object} The created grapheme drop
  */
-export function spawnPhonemeDrop(x, y) {
-  const phoneme = getRandomPhoneme();
-  shinState.phonemeIdCounter += 1;
+export function spawnGraphemeDrop(x, y) {
+  const grapheme = getRandomGrapheme();
+  shinState.graphemeIdCounter += 1;
   const drop = {
-    id: `phoneme-${shinState.phonemeIdCounter}`,
-    char: phoneme.char,
-    name: phoneme.name,
-    property: phoneme.property,
+    id: `grapheme-${shinState.graphemeIdCounter}`,
+    index: grapheme.index,
+    name: grapheme.name,
+    property: grapheme.property,
+    row: grapheme.row,
+    col: grapheme.col,
     x,
     y,
     spawnTime: Date.now(),
     opacity: 1,
     pulse: 0,
   };
-  shinState.activePhonemeDrops.push(drop);
+  shinState.activeGraphemeDrops.push(drop);
   return drop;
 }
 
 /**
- * Get all active phoneme drops on the battlefield.
- * @returns {Array} Array of phoneme drop objects
+ * Get all active grapheme drops on the battlefield.
+ * @returns {Array} Array of grapheme drop objects
  */
-export function getActivePhonemeDrops() {
-  return shinState.activePhonemeDrops;
+export function getActiveGraphemeDrops() {
+  return shinState.activeGraphemeDrops;
 }
 
 /**
- * Collect a phoneme drop by its ID.
- * Moves the drop from activePhonemeDrops to the collected phonemes array.
+ * Collect a grapheme drop by its ID.
+ * Moves the drop from activeGraphemeDrops to the collected graphemes array.
  * @param {string} dropId - The ID of the drop to collect
- * @returns {Object|null} The collected phoneme or null if not found
+ * @returns {Object|null} The collected grapheme or null if not found
  */
-export function collectPhonemeDrop(dropId) {
-  const index = shinState.activePhonemeDrops.findIndex(drop => drop.id === dropId);
+export function collectGraphemeDrop(dropId) {
+  const index = shinState.activeGraphemeDrops.findIndex(drop => drop.id === dropId);
   if (index === -1) {
     return null;
   }
   
-  const drop = shinState.activePhonemeDrops[index];
-  shinState.activePhonemeDrops.splice(index, 1);
+  const drop = shinState.activeGraphemeDrops[index];
+  shinState.activeGraphemeDrops.splice(index, 1);
   
-  // Add to collected phonemes
+  // Add to collected graphemes
   const collected = {
     id: drop.id,
-    char: drop.char,
+    index: drop.index,
     name: drop.name,
     property: drop.property,
     collectedAt: Date.now(),
   };
-  shinState.phonemes.push(collected);
+  shinState.graphemes.push(collected);
   
   return collected;
 }
 
 /**
- * Clear all active phoneme drops from the battlefield.
+ * Clear all active grapheme drops from the battlefield.
  * Called when the Cardinal Warden dies.
  */
-export function clearActivePhonemeDrops() {
-  shinState.activePhonemeDrops = [];
+export function clearActiveGraphemeDrops() {
+  shinState.activeGraphemeDrops = [];
 }
 
 /**
- * Get all collected phonemes.
- * @returns {Array} Array of collected phoneme objects
+ * Get all collected graphemes.
+ * @returns {Array} Array of collected grapheme objects
  */
-export function getCollectedPhonemes() {
-  return shinState.phonemes;
+export function getCollectedGraphemes() {
+  return shinState.graphemes;
 }
 
 /**
- * Get the count of collected phonemes.
- * @returns {number} The number of collected phonemes
+ * Get the count of collected graphemes.
+ * @returns {number} The number of collected graphemes
  */
-export function getPhonemeCount() {
-  return shinState.phonemes.length;
+export function getGraphemeCount() {
+  return shinState.graphemes.length;
 }
 
 /**
- * Get phoneme count grouped by character.
- * @returns {Object} Map of character to count
+ * Get grapheme count grouped by index.
+ * @returns {Object} Map of index to count
  */
-export function getPhonemeCountsByChar() {
+export function getGraphemeCountsByIndex() {
   const counts = {};
-  for (const phoneme of shinState.phonemes) {
-    counts[phoneme.char] = (counts[phoneme.char] || 0) + 1;
+  for (const grapheme of shinState.graphemes) {
+    const idx = grapheme.index !== undefined ? grapheme.index : -1;
+    counts[idx] = (counts[idx] || 0) + 1;
   }
   return counts;
 }
 
 /**
- * Get the list of all available phoneme characters.
- * @returns {Array} Array of phoneme character definitions
+ * Get the list of all available grapheme characters.
+ * @returns {Array} Array of grapheme character definitions
  */
-export function getPhonemeCharacters() {
-  return [...PHONEME_CHARACTERS];
+export function getGraphemeCharacters() {
+  return [...GRAPHEME_CHARACTERS];
 }
+
+/**
+ * Get the list of unlocked grapheme indices.
+ * @returns {Array} Array of unlocked indices
+ */
+export function getUnlockedGraphemes() {
+  return [...shinState.unlockedGraphemes];
+}
+
+/**
+ * Unlock the next grapheme in sequence.
+ * @returns {Object} Result with success status and the unlocked grapheme index
+ */
+export function unlockNextGrapheme() {
+  const cost = shinState.graphemeUnlockCost;
+  
+  if (shinState.equivalenceBank < cost) {
+    return { success: false, message: 'Not enough Equivalence' };
+  }
+  
+  // Find the next grapheme to unlock
+  const nextIndex = shinState.unlockedGraphemes.length;
+  if (nextIndex >= GRAPHEME_CHARACTERS.length) {
+    return { success: false, message: 'All graphemes already unlocked' };
+  }
+  
+  // Spend the Equivalence
+  shinState.equivalenceBank -= cost;
+  
+  // Unlock the grapheme
+  shinState.unlockedGraphemes.push(nextIndex);
+  
+  // Multiply cost by 5 for next unlock
+  shinState.graphemeUnlockCost = Math.floor(cost * 5);
+  
+  return {
+    success: true,
+    unlockedIndex: nextIndex,
+    grapheme: GRAPHEME_CHARACTERS[nextIndex],
+    newCost: shinState.graphemeUnlockCost
+  };
+}
+
+/**
+ * Get the current cost to unlock the next grapheme.
+ * @returns {number} Cost in Equivalence
+ */
+export function getGraphemeUnlockCost() {
+  return shinState.graphemeUnlockCost;
+}
+
+/**
+ * Upgrade the grapheme drop chance.
+ * @returns {Object} Result with success status and new drop chance
+ */
+export function upgradeDropChance() {
+  const cost = shinState.dropChanceUpgradeCost;
+  
+  if (shinState.equivalenceBank < cost) {
+    return { success: false, message: 'Not enough Equivalence' };
+  }
+  
+  // Spend the Equivalence
+  shinState.equivalenceBank -= cost;
+  
+  // Increase drop chance by 1%
+  shinState.graphemeDropChance += 0.01;
+  shinState.dropChanceUpgradeLevel += 1;
+  
+  // Multiply cost by 10 for next upgrade
+  shinState.dropChanceUpgradeCost = Math.floor(cost * 10);
+  
+  return {
+    success: true,
+    newDropChance: shinState.graphemeDropChance,
+    level: shinState.dropChanceUpgradeLevel,
+    newCost: shinState.dropChanceUpgradeCost
+  };
+}
+
+/**
+ * Get the current grapheme drop chance.
+ * @returns {number} Drop chance as a decimal (0.01 = 1%)
+ */
+export function getGraphemeDropChance() {
+  return shinState.graphemeDropChance;
+}
+
+/**
+ * Get the current cost to upgrade drop chance.
+ * @returns {number} Cost in Equivalence
+ */
+export function getDropChanceUpgradeCost() {
+  return shinState.dropChanceUpgradeCost;
+}
+
+/**
+ * Get the current drop chance upgrade level.
+ * @returns {number} Number of upgrades purchased
+ */
+export function getDropChanceUpgradeLevel() {
+  return shinState.dropChanceUpgradeLevel;
+}
+
+// Legacy exports for backward compatibility (to be removed after migration)
+export const spawnPhonemeDrop = spawnGraphemeDrop;
+export const getActivePhonemeDrops = getActiveGraphemeDrops;
+export const collectPhonemeDrop = collectGraphemeDrop;
+export const clearActivePhonemeDrops = clearActiveGraphemeDrops;
+export const getCollectedPhonemes = getCollectedGraphemes;
+export const getPhonemeCount = getGraphemeCount;
+export const getPhonemeCountsByChar = getGraphemeCountsByIndex;
+export const getPhonemeCharacters = getGraphemeCharacters;
