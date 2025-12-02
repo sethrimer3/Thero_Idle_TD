@@ -11910,6 +11910,146 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   }
 }
 
+/* ============================================================
+   Weapon Slots Styles (Simplified System)
+   ============================================================ */
+
+.shin-weapon-slots-card {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.shin-weapon-slots-card h3 {
+  color: #d4af37;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.shin-weapon-slots-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-bottom: 0.75rem;
+  font-style: italic;
+}
+
+.shin-weapon-slots-container {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.shin-weapon-slot {
+  flex: 1;
+  min-width: 180px;
+  max-width: 220px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.75rem;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Glow effect when weapon fires */
+.shin-weapon-slot--firing {
+  border-color: var(--weapon-color, #d4af37);
+  box-shadow: 0 0 15px rgba(var(--weapon-color, 212, 175, 55), var(--weapon-glow-opacity, 0.5)),
+              inset 0 0 20px rgba(var(--weapon-color, 212, 175, 55), calc(var(--weapon-glow-opacity, 0.5) * 0.3));
+  background: rgba(255, 255, 255, calc(0.03 + var(--weapon-glow-intensity, 0) * 0.07));
+}
+
+.shin-weapon-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.shin-weapon-slot-symbol {
+  font-size: 1.5rem;
+  font-weight: 600;
+  min-width: 2.5rem;
+  text-align: center;
+}
+
+.shin-weapon-slot-name {
+  font-size: 0.9rem;
+  color: var(--text);
+  flex: 1;
+}
+
+.shin-weapon-slot-description {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+  min-height: 2.4rem;
+}
+
+.shin-weapon-slot-cooldown-container {
+  margin-bottom: 0.5rem;
+}
+
+.shin-weapon-slot-cooldown-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.3rem;
+}
+
+.shin-weapon-slot-cooldown-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d4af37, #ffd700);
+  transition: width 0.1s linear;
+}
+
+.shin-weapon-slot-cooldown-text {
+  font-size: 0.7rem;
+  color: var(--muted);
+  display: block;
+  text-align: center;
+}
+
+.shin-weapon-slot-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shin-weapon-slot-info-item {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+@media (max-width: 600px) {
+  .shin-weapon-slots-container {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .shin-weapon-slot {
+    min-width: 100%;
+    max-width: 100%;
+  }
+  
+  .shin-weapon-slot-symbol {
+    font-size: 1.3rem;
+  }
+  
+  .shin-weapon-slot-name {
+    font-size: 0.85rem;
+  }
+}
+
 
 /* ============================================================
    Phoneme Inventory Styles

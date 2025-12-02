@@ -91,7 +91,7 @@ export function initializeCardinalWardenUI() {
   cardinalElements.glyphCount = document.getElementById('shin-glyph-count');
   cardinalElements.waveDisplay = document.getElementById('shin-wave-display');
   cardinalElements.highestWaveDisplay = document.getElementById('shin-highest-wave');
-  cardinalElements.weaponsGrid = document.getElementById('shin-weapons-grid');
+  cardinalElements.weaponsGrid = document.getElementById('shin-weapon-slots-container');
   cardinalElements.totalIterons = document.getElementById('shin-total-iterons');
   cardinalElements.baseHealthDisplay = document.getElementById('shin-base-health');
   cardinalElements.healthUpgradeBtn = document.getElementById('shin-health-upgrade-btn');
@@ -149,6 +149,38 @@ export function initializeCardinalWardenUI() {
   updateBaseHealthDisplay();
   updatePhonemeInventoryDisplay();
   updateGraphemeUI();
+  
+  // Start weapon display update loop
+  startWeaponDisplayLoop();
+}
+
+/**
+ * Animation loop to update weapon slot displays with glow and cooldown.
+ */
+let weaponDisplayAnimationId = null;
+function startWeaponDisplayLoop() {
+  const updateLoop = () => {
+    if (cardinalSimulation && cardinalElements.weaponsGrid) {
+      // Update weapon display at ~10 FPS to show glow and cooldown
+      updateWeaponsDisplay();
+    }
+    
+    // Continue loop
+    weaponDisplayAnimationId = requestAnimationFrame(updateLoop);
+  };
+  
+  // Start the loop
+  updateLoop();
+}
+
+/**
+ * Stop the weapon display update loop.
+ */
+function stopWeaponDisplayLoop() {
+  if (weaponDisplayAnimationId) {
+    cancelAnimationFrame(weaponDisplayAnimationId);
+    weaponDisplayAnimationId = null;
+  }
 }
 
 /**
@@ -619,142 +651,41 @@ function handleWeaponChange(weapons) {
 function initializeWeaponsMenu() {
   if (!cardinalElements.weaponsGrid) return;
   
-  // Set up event delegation for weapon buttons
-  cardinalElements.weaponsGrid.addEventListener('click', (event) => {
-    const button = event.target.closest('.shin-weapon-action');
-    if (!button || !cardinalSimulation) return;
-    
-    const weaponId = button.dataset.weaponId;
-    const action = button.dataset.action;
-    
-    // Get weapons list once for all actions
-    const weapons = cardinalSimulation.getAvailableWeapons();
-    const weapon = weapons.find(w => w.id === weaponId);
-    if (!weapon) return;
-    
-    if (action === 'purchase') {
-      // Use iterons instead of score for weapon purchases
-      if (!weapon.isPurchased && spendIterons(weapon.cost)) {
-        // Mark weapon as purchased in the simulation (without spending score)
-        cardinalSimulation.purchaseWeaponWithoutCost(weaponId);
-        updateWeaponsDisplay();
-        updateTotalIteronsDisplay();
-      }
-    } else if (action === 'upgrade') {
-      // Use iterons instead of score for weapon upgrades
-      if (weapon.isPurchased && weapon.upgradeCost !== null && spendIterons(weapon.upgradeCost)) {
-        // Upgrade weapon in the simulation (without spending score)
-        cardinalSimulation.upgradeWeaponWithoutCost(weaponId);
-        updateWeaponsDisplay();
-        updateTotalIteronsDisplay();
-      }
-    } else if (action === 'equip') {
-      // Equip the weapon if not already equipped and space available
-      if (weapon.canEquip) {
-        cardinalSimulation.equipWeapon(weaponId);
-        updateWeaponsDisplay();
-      }
-    } else if (action === 'unequip') {
-      // Unequip the weapon (must keep at least 1 equipped)
-      if (weapon.canUnequip) {
-        cardinalSimulation.unequipWeapon(weaponId);
-        updateWeaponsDisplay();
-      }
-    }
-  });
+  // Weapon slots are always active - no interactions needed
+  // In the future, lexemes can be dragged and dropped here
 }
 
 /**
- * Update the weapons display.
+ * Update the weapon slots display with glow animation.
  */
 function updateWeaponsDisplay() {
   if (!cardinalElements.weaponsGrid || !cardinalSimulation) return;
   
   const weapons = cardinalSimulation.getAvailableWeapons();
-  const currentIterons = getIteronBank();
   
   const html = weapons.map(weapon => {
-    const isLocked = !weapon.isPurchased;
-    const isMaxed = weapon.isPurchased && weapon.level >= weapon.maxLevel;
-    const canAffordPurchase = currentIterons >= weapon.cost;
-    const canAffordUpgrade = weapon.upgradeCost !== null && currentIterons >= weapon.upgradeCost;
-    
-    let actionButton = '';
-    let equipButton = '';
-    
-    if (isLocked) {
-      actionButton = `
-        <button 
-          class="shin-weapon-action"
-          data-weapon-id="${weapon.id}"
-          data-action="purchase"
-          ${!canAffordPurchase ? 'disabled' : ''}
-        >
-          Buy: ${formatGameNumber(weapon.cost)} ℸ
-        </button>
-      `;
-    } else {
-      // Show equip/unequip toggle for purchased weapons
-      if (weapon.isEquipped) {
-        equipButton = `
-          <button 
-            class="shin-weapon-action shin-weapon-action--equipped"
-            data-weapon-id="${weapon.id}"
-            data-action="unequip"
-            ${!weapon.canUnequip ? 'disabled' : ''}
-            title="${!weapon.canUnequip ? 'Must keep at least 1 weapon equipped' : 'Click to unequip'}"
-          >
-            ✓ Equipped
-          </button>
-        `;
-      } else {
-        equipButton = `
-          <button 
-            class="shin-weapon-action shin-weapon-action--unequipped"
-            data-weapon-id="${weapon.id}"
-            data-action="equip"
-            ${!weapon.canEquip ? 'disabled' : ''}
-            title="${!weapon.canEquip ? 'Max 3 weapons can be equipped' : 'Click to equip'}"
-          >
-            Equip
-          </button>
-        `;
-      }
-      
-      if (isMaxed) {
-        actionButton = `
-          <button 
-            class="shin-weapon-action shin-weapon-action--maxed"
-            disabled
-          >
-            MAX
-          </button>
-        `;
-      } else {
-        actionButton = `
-          <button 
-            class="shin-weapon-action shin-weapon-action--owned"
-            data-weapon-id="${weapon.id}"
-            data-action="upgrade"
-            ${!canAffordUpgrade ? 'disabled' : ''}
-          >
-            Upgrade: ${formatGameNumber(weapon.upgradeCost)} ℸ
-          </button>
-        `;
-      }
-    }
+    const cooldownPercent = (weapon.cooldownProgress / weapon.cooldownTotal) * 100;
+    const glowIntensity = weapon.glowIntensity; // 0-1 value
+    const glowOpacity = 0.3 + (glowIntensity * 0.7); // Scale from 0.3 to 1.0
     
     return `
-      <div class="shin-weapon-item ${isLocked ? 'shin-weapon-item--locked' : ''} ${weapon.isEquipped ? 'shin-weapon-item--equipped' : ''}" role="listitem">
-        <div class="shin-weapon-header">
-          <span class="shin-weapon-symbol" style="color: ${weapon.color}">${weapon.symbol}</span>
-          <span class="shin-weapon-name">${weapon.name}</span>
-          ${weapon.isPurchased ? `<span class="shin-weapon-level">Lv.${weapon.level}</span>` : ''}
+      <div class="shin-weapon-slot ${glowIntensity > 0 ? 'shin-weapon-slot--firing' : ''}" 
+           role="listitem" 
+           style="--weapon-glow-intensity: ${glowIntensity}; --weapon-glow-opacity: ${glowOpacity}; --weapon-color: ${weapon.color};">
+        <div class="shin-weapon-slot-header">
+          <span class="shin-weapon-slot-symbol" style="color: ${weapon.color}">${weapon.symbol}</span>
+          <span class="shin-weapon-slot-name">${weapon.name}</span>
         </div>
-        <p class="shin-weapon-description">${weapon.description}</p>
-        <div class="shin-weapon-buttons">
-          ${equipButton}
-          ${actionButton}
+        <p class="shin-weapon-slot-description">${weapon.description}</p>
+        <div class="shin-weapon-slot-cooldown-container">
+          <div class="shin-weapon-slot-cooldown-bar">
+            <div class="shin-weapon-slot-cooldown-fill" style="width: ${cooldownPercent}%"></div>
+          </div>
+          <span class="shin-weapon-slot-cooldown-text">${(weapon.cooldownProgress / 1000).toFixed(1)}s / ${(weapon.cooldownTotal / 1000).toFixed(1)}s</span>
+        </div>
+        <div class="shin-weapon-slot-info">
+          <span class="shin-weapon-slot-info-item">Fires every ${weapon.cooldownTotal / 1000}s</span>
+          <span class="shin-weapon-slot-info-item">Ready for lexemes</span>
         </div>
       </div>
     `;
