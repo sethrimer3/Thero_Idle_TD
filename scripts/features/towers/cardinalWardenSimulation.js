@@ -92,6 +92,32 @@ class SeededRandom {
 }
 
 /**
+ * Normalize an angle to the [0, 2π) range.
+ */
+function normalizeAngle(angle) {
+  const twoPi = Math.PI * 2;
+  let normalized = angle % twoPi;
+  if (normalized < 0) {
+    normalized += twoPi;
+  }
+  return normalized;
+}
+
+/**
+ * Reflect a vector across a provided surface normal.
+ */
+function reflectVector(vx, vy, normalX, normalY) {
+  const normalLength = Math.hypot(normalX, normalY) || 1;
+  const nx = normalX / normalLength;
+  const ny = normalY / normalLength;
+  const dot = vx * nx + vy * ny;
+  return {
+    vx: vx - 2 * dot * nx,
+    vy: vy - 2 * dot * ny,
+  };
+}
+
+/**
  * Represents a single rotating square in the Cardinal Warden formation.
  */
 class OrbitalSquare {
@@ -269,6 +295,12 @@ class EnemyShip {
     this.scoreValue = config.scoreValue || 10;
     this.baseColor = config.color || '#333';
     this.color = this.baseColor;
+
+    // Trail and exhaust controls for enemy-specific silhouettes.
+    this.trailLimit = config.trailLimit || 12;
+    this.trailRadiusScale = config.trailRadiusScale || 0.35;
+    this.trailAlphaScale = config.trailAlphaScale || 0.8;
+    this.maxSmokePuffs = config.maxSmokePuffs || 60;
     
     // Smooth movement properties
     this.acceleration = config.acceleration || 80; // Pixels per second squared
@@ -413,7 +445,7 @@ class EnemyShip {
 
     // Record trail positions while keeping memory small.
     this.trail.push({ x: this.x, y: this.y });
-    if (this.trail.length > 12) {
+    if (this.trail.length > this.trailLimit) {
       this.trail.shift();
     }
 
@@ -450,7 +482,7 @@ class EnemyShip {
     }
     
     // Limit smoke puffs to prevent memory growth (4x more: 60 vs original 15)
-    while (this.smokePuffs.length > 60) {
+    while (this.smokePuffs.length > this.maxSmokePuffs) {
       this.smokePuffs.shift();
     }
 
@@ -460,6 +492,136 @@ class EnemyShip {
   takeDamage(amount) {
     this.health -= amount;
     return this.health <= 0;
+  }
+}
+
+/**
+ * Ricochet Skimmer - Downward diagonal ship with thin, long trails that
+ * occasionally pivots ninety degrees toward the opposite diagonal lane and
+ * reflects off arena walls.
+ */
+class RicochetSkimmer extends EnemyShip {
+  constructor(x, y, config = {}) {
+    super(x, y, {
+      ...config,
+      weaving: false,
+    });
+    this.type = 'ricochet';
+    this.diagonalAngles = config.diagonalAngles || [Math.PI / 4, (3 * Math.PI) / 4];
+    this.turnTimer = 0;
+    this.nextTurnTime = config.initialStraightTime || 0.65;
+    this.turnIntervalRange = config.turnIntervalRange || { min: 0.75, max: 1.35 };
+    this.headingAngle = config.initialHeading || this.diagonalAngles[0];
+
+    // Extended trail tuning for the thin streak aesthetic.
+    this.trailLimit = config.trailLimit || 30;
+    this.trailRadiusScale = config.trailRadiusScale || 0.2;
+    this.trailAlphaScale = config.trailAlphaScale || 0.65;
+    this.maxSmokePuffs = config.maxSmokePuffs || 40;
+  }
+
+  pickDiagonalHeading(rng) {
+    // Alternate diagonals when possible to enforce 90° swings between lanes.
+    if (this.headingAngle === this.diagonalAngles[0]) {
+      return this.diagonalAngles[1];
+    }
+    if (this.headingAngle === this.diagonalAngles[1]) {
+      return this.diagonalAngles[0];
+    }
+    return rng.next() < 0.5 ? this.diagonalAngles[0] : this.diagonalAngles[1];
+  }
+
+  update(deltaTime, targetY, canvasWidth, canvasHeight, rng) {
+    const dt = deltaTime / 1000;
+    const previousX = this.x;
+    const previousY = this.y;
+
+    this.turnTimer += dt;
+    if (this.turnTimer >= this.nextTurnTime) {
+      this.turnTimer = 0;
+      this.nextTurnTime = rng.range(this.turnIntervalRange.min, this.turnIntervalRange.max);
+      this.headingAngle = this.pickDiagonalHeading(rng);
+    }
+
+    // Constant velocity along the chosen diagonal lane.
+    const speed = this.maxSpeed;
+    this.vx = Math.cos(this.headingAngle) * speed;
+    this.vy = Math.sin(this.headingAngle) * speed;
+
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    let bounced = false;
+    if (this.x < this.size) {
+      this.x = this.size;
+      this.headingAngle = Math.PI - this.headingAngle;
+      bounced = true;
+    } else if (this.x > canvasWidth - this.size) {
+      this.x = canvasWidth - this.size;
+      this.headingAngle = Math.PI - this.headingAngle;
+      bounced = true;
+    }
+
+    if (this.y < this.size) {
+      this.y = this.size;
+      this.headingAngle = -this.headingAngle;
+      bounced = true;
+    }
+
+    // Keep heading downward even after reflections.
+    this.headingAngle = normalizeAngle(this.headingAngle);
+    if (Math.sin(this.headingAngle) <= 0) {
+      this.headingAngle = this.headingAngle < Math.PI ? this.diagonalAngles[0] : this.diagonalAngles[1];
+      bounced = true;
+    }
+
+    if (bounced) {
+      this.vx = Math.cos(this.headingAngle) * speed;
+      this.vy = Math.sin(this.headingAngle) * speed;
+    }
+
+    // Update orientation based on actual displacement for accurate rendering.
+    const deltaX = this.x - previousX;
+    const deltaY = this.y - previousY;
+    if (deltaX !== 0 || deltaY !== 0) {
+      this.headingAngle = Math.atan2(deltaY, deltaX);
+    }
+
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > this.trailLimit) {
+      this.trail.shift();
+    }
+
+    const tailDirectionX = Math.cos(this.headingAngle);
+    const tailDirectionY = Math.sin(this.headingAngle);
+    const tailOriginX = this.x - tailDirectionX * (this.size * 0.6);
+    const tailOriginY = this.y - tailDirectionY * (this.size * 0.6);
+    const baseSmokeRadius = Math.max(1.5, this.size * 0.24);
+
+    this.smokePuffs.push({
+      x: tailOriginX,
+      y: tailOriginY,
+      radius: baseSmokeRadius,
+      alpha: 0.3,
+      age: 0,
+    });
+
+    for (let i = this.smokePuffs.length - 1; i >= 0; i--) {
+      const puff = this.smokePuffs[i];
+      puff.age += dt;
+      puff.alpha = Math.max(0, 0.3 - puff.age * 0.12);
+      puff.radius = baseSmokeRadius * Math.max(0.45, 1 - puff.age * 0.08);
+
+      if (puff.alpha <= 0 || puff.age > 2.2) {
+        this.smokePuffs.splice(i, 1);
+      }
+    }
+
+    while (this.smokePuffs.length > this.maxSmokePuffs) {
+      this.smokePuffs.shift();
+    }
+
+    return this.y > targetY;
   }
 }
 
@@ -919,6 +1081,8 @@ class Bullet {
   constructor(x, y, angle, config = {}) {
     this.x = x;
     this.y = y;
+    this.prevX = x;
+    this.prevY = y;
     this.angle = angle;
     this.speed = config.speed || 200;
     this.damage = config.damage || 1;
@@ -929,6 +1093,10 @@ class Bullet {
     this.hitEnemies = new Set();
     this.trail = [];
     this.age = 0;
+    this.lastTrailBounceTime = -Infinity;
+
+    // Bullets bounce off enemy trails by default to reward smart angles.
+    this.bounceOnTrails = config.bounceOnTrails !== false;
     
     // Weapon level for visual effects (default 1 for backwards compatibility)
     this.level = config.level || 1;
@@ -943,6 +1111,8 @@ class Bullet {
 
   update(deltaTime) {
     const dt = deltaTime / 1000;
+    this.prevX = this.x;
+    this.prevY = this.y;
     this.age += deltaTime;
     this.x += Math.cos(this.angle) * this.speed * dt;
     this.y += Math.sin(this.angle) * this.speed * dt;
@@ -961,6 +1131,21 @@ class Bullet {
     }
   }
 
+  /**
+   * Apply a reflected velocity when bouncing off a ship trail.
+   */
+  applyTrailBounce(normalX, normalY) {
+    const currentVx = Math.cos(this.angle) * this.speed;
+    const currentVy = Math.sin(this.angle) * this.speed;
+    const { vx, vy } = reflectVector(currentVx, currentVy, normalX, normalY);
+    this.angle = Math.atan2(vy, vx);
+
+    // Small positional nudge prevents the bullet from re-hitting the same segment instantly.
+    const magnitude = Math.hypot(vx, vy) || 1;
+    this.x += (vx / magnitude) * this.size * 0.35;
+    this.y += (vy / magnitude) * this.size * 0.35;
+  }
+
   isOffscreen(width, height) {
     return this.x < -this.size || this.x > width + this.size ||
            this.y < -this.size || this.y > height + this.size;
@@ -977,6 +1162,8 @@ class MathBullet {
     this.startY = y;
     this.x = x;
     this.y = y;
+    this.prevX = x;
+    this.prevY = y;
     this.baseAngle = angle;
     this.speed = config.speed || 200;
     this.damage = config.damage || 1;
@@ -997,6 +1184,12 @@ class MathBullet {
     this.trail = [];
     this.age = 0;
 
+    // Bounce bookkeeping to mirror trail ricochets without stutter.
+    this.lastTrailBounceTime = -Infinity;
+
+    // Bullets bounce off enemy trails by default to reward smart angles.
+    this.bounceOnTrails = config.bounceOnTrails !== false;
+
     // Track pierced targets so mathematical bullets respect single-hit collisions.
     this.hitEnemies = new Set();
     
@@ -1013,6 +1206,8 @@ class MathBullet {
 
   update(deltaTime) {
     const dt = deltaTime / 1000;
+    this.prevX = this.x;
+    this.prevY = this.y;
     this.time += dt;
     this.age += deltaTime;
 
@@ -1091,6 +1286,28 @@ class MathBullet {
     if (this.level >= 3) {
       this.shapeRotation += this.shapeRotationSpeed * dt;
     }
+  }
+
+  /**
+   * Reflect mathematical bullets while preserving their oscillation pattern.
+   */
+  applyTrailBounce(normalX, normalY) {
+    const travelDx = this.x - this.prevX;
+    const travelDy = this.y - this.prevY;
+    const { vx, vy } = reflectVector(
+      travelDx || Math.cos(this.baseAngle),
+      travelDy || Math.sin(this.baseAngle),
+      normalX,
+      normalY
+    );
+    const reflectedAngle = Math.atan2(vy, vx);
+
+    // Reset origin so the waveform continues cleanly along the new heading.
+    this.baseAngle = normalizeAngle(reflectedAngle);
+    this.startX = this.x;
+    this.startY = this.y;
+    this.distance = 0;
+    this.phase += Math.PI * 0.5; // phase hop keeps the oscillation from snapping
   }
 
   isOffscreen(width, height) {
@@ -1313,6 +1530,20 @@ const ENEMY_TYPES = {
     size: 10,
     scoreValue: 50,
     color: '#000000',
+  },
+  ricochet: {
+    speed: 70,
+    health: 2,
+    damage: 8,
+    size: 9,
+    scoreValue: 35,
+    color: '#000000',
+    trailLimit: 30,
+    trailRadiusScale: 0.2,
+    trailAlphaScale: 0.65,
+    maxSmokePuffs: 45,
+    initialStraightTime: 0.55,
+    turnIntervalRange: { min: 0.65, max: 1.2 },
   },
 };
 
@@ -1750,8 +1981,8 @@ export class CardinalWardenSimulation {
       case 'none': return 0;
       case 'short': return 6;
       case 'medium': return 12;
-      case 'long': return 24;
-      default: return 24;
+      case 'long': return 28;
+      default: return 28;
     }
   }
 
@@ -2457,10 +2688,16 @@ export class CardinalWardenSimulation {
     const x = this.rng.range(config.size, this.canvas.width - config.size);
     const y = -config.size;
 
-    const ship = new EnemyShip(x, y, config);
+    if (typeKey === 'ricochet') {
+      config.initialHeading = this.rng.next() < 0.5 ? Math.PI / 4 : (3 * Math.PI) / 4;
+    }
+
+    const ship = typeKey === 'ricochet' ? new RicochetSkimmer(x, y, config) : new EnemyShip(x, y, config);
     ship.color = this.nightMode ? '#ffffff' : ship.baseColor;
-    // Set initial target lower on screen
-    ship.pickNewTarget(this.canvas.width, this.canvas.height, this.rng);
+    // Set initial target lower on screen for standard ships
+    if (ship instanceof EnemyShip && !(ship instanceof RicochetSkimmer)) {
+      ship.pickNewTarget(this.canvas.width, this.canvas.height, this.rng);
+    }
     this.enemies.push(ship);
   }
 
@@ -2471,6 +2708,7 @@ export class CardinalWardenSimulation {
     const pool = ['basic'];
     if (this.difficultyLevel >= 1) pool.push('fast');
     if (this.difficultyLevel >= 2) pool.push('tank');
+    if (this.difficultyLevel >= 3) pool.push('ricochet');
     if (this.difficultyLevel >= 4) pool.push('elite');
     return pool;
   }
@@ -2661,6 +2899,63 @@ export class CardinalWardenSimulation {
   }
 
   /**
+   * Bounce a bullet off nearby ship trails when it grazes their wake.
+   */
+  tryBounceBulletOffTrails(bullet) {
+    if (!this.canvas) return false;
+    if (bullet.bounceOnTrails === false) return false;
+    if (typeof bullet.applyTrailBounce !== 'function') return false;
+    if (bullet.age - bullet.lastTrailBounceTime < 45) return false;
+
+    const proximityRadius = bullet.size + 2;
+    const proximityRadiusSq = proximityRadius * proximityRadius;
+    const segmentsToInspect = 8;
+
+    const checkTrail = (trail) => {
+      if (!trail || trail.length < 2) return false;
+      const startIdx = Math.max(1, trail.length - segmentsToInspect);
+      for (let i = trail.length - 1; i >= startIdx; i--) {
+        const p1 = trail[i - 1];
+        const p2 = trail[i];
+        const segDx = p2.x - p1.x;
+        const segDy = p2.y - p1.y;
+        const segLenSq = segDx * segDx + segDy * segDy;
+        if (segLenSq === 0) continue;
+
+        const t = Math.max(0, Math.min(1, ((bullet.x - p1.x) * segDx + (bullet.y - p1.y) * segDy) / segLenSq));
+        const closestX = p1.x + segDx * t;
+        const closestY = p1.y + segDy * t;
+        const distX = bullet.x - closestX;
+        const distY = bullet.y - closestY;
+
+        if (distX * distX + distY * distY <= proximityRadiusSq) {
+          // Trail tangent -> normal; approximate reflection cheaply.
+          const normalX = -segDy;
+          const normalY = segDx;
+          bullet.applyTrailBounce(normalX, normalY);
+          bullet.lastTrailBounceTime = bullet.age;
+          return true;
+        }
+      }
+      return false;
+    };
+
+    for (const enemy of this.enemies) {
+      if (checkTrail(enemy.trail)) {
+        return true;
+      }
+    }
+
+    for (const boss of this.bosses) {
+      if (checkTrail(boss.trail)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Update all bullets.
    */
   updateBullets(deltaTime) {
@@ -2671,6 +2966,8 @@ export class CardinalWardenSimulation {
     for (let i = 0; i < this.bullets.length; i++) {
       const bullet = this.bullets[i];
       bullet.update(deltaTime);
+
+      this.tryBounceBulletOffTrails(bullet);
 
       if (bullet.isOffscreen(this.canvas.width, this.canvas.height)) {
         toRemove.push(i);
@@ -3125,16 +3422,18 @@ export class CardinalWardenSimulation {
       if (maxTrailPoints > 0) {
         ctx.save();
         ctx.fillStyle = this.enemyTrailColor;
+        const radiusScale = enemy.trailRadiusScale || 0.35;
+        const alphaScale = enemy.trailAlphaScale || 0.8;
         // Only render up to maxTrailPoints from the end of the trail
         const startIdx = Math.max(0, enemy.trail.length - maxTrailPoints);
         const visibleTrail = enemy.trail.slice(startIdx);
         for (let i = 0; i < visibleTrail.length - 1; i++) {
           const point = visibleTrail[i];
           const alpha = (i + 1) / visibleTrail.length;
-          ctx.globalAlpha = alpha * 0.8;
+          ctx.globalAlpha = alpha * alphaScale;
           ctx.beginPath();
           // Larger trail circles that scale with enemy size for better visibility
-          ctx.arc(point.x, point.y, Math.max(2, enemy.size * 0.35 * alpha), 0, Math.PI * 2);
+          ctx.arc(point.x, point.y, Math.max(1.25, enemy.size * radiusScale * alpha), 0, Math.PI * 2);
           ctx.fill();
         }
         ctx.restore();
