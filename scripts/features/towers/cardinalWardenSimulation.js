@@ -1317,182 +1317,67 @@ class MathBullet {
 }
 
 /**
- * Weapon definitions for the Cardinal Warden.
- * Each weapon has a unique mathematical pattern and upgrade path.
+ * Simplified weapon slot definitions for the Cardinal Warden.
+ * Three weapon slots that fire simple bullets toward the click target.
+ * Later, lexemes can be placed into these slots to modify behavior.
  */
-const WEAPON_DEFINITIONS = {
-  sine: {
-    id: 'sine',
-    name: 'Sine Wave',
-    symbol: 'sin',
-    description: 'Fires bullets that follow a smooth sine wave pattern.',
+const WEAPON_SLOT_DEFINITIONS = {
+  slot1: {
+    id: 'slot1',
+    name: 'Weapon Slot 1',
+    symbol: 'Ⅰ',
+    description: 'Simple bullet that fires toward your target.',
     baseDamage: 1,
-    baseSpeed: 180,
-    baseFireRate: 500, // ms between shots
-    pattern: 'sine',
-    amplitude: 20,
-    frequency: 3,
-    cost: 0, // Free - starter weapon
-    upgradeCosts: [10, 25, 50, 100, 200, 400, 800, 1600, 3200, 6400, 12800], // Levels 2-12
+    baseSpeed: 200,
+    baseFireRate: 2000, // 2 seconds
+    pattern: 'straight', // Simple straight bullet
     color: '#d4af37',
+    slotIndex: 0,
   },
-  cosine: {
-    id: 'cosine',
-    name: 'Cosine Lattice',
-    symbol: 'cos',
-    description: 'Alternating twin rails that swap sides every volley.',
-    baseDamage: 1.2,
-    baseSpeed: 190,
-    baseFireRate: 440,
-    pattern: 'cosine',
-    amplitude: 26,
-    frequency: 2.8,
-    cost: 50,
-    upgradeCosts: [15, 40, 80, 150, 300, 600, 1200, 2400, 4800, 9600, 19200], // Levels 2-12
+  slot2: {
+    id: 'slot2',
+    name: 'Weapon Slot 2',
+    symbol: 'Ⅱ',
+    description: 'Simple bullet that fires toward your target.',
+    baseDamage: 1,
+    baseSpeed: 200,
+    baseFireRate: 3000, // 3 seconds
+    pattern: 'straight',
     color: '#ff9c66',
-    firePattern: 'alternatingPair',
-    arcWidth: Math.PI / 5,
+    slotIndex: 1,
   },
-  spiral: {
-    id: 'spiral',
-    name: 'Spiral Bloom',
-    symbol: 'φ',
-    description: 'Rotating fan of petals that slowly precess like a danmaku wheel.',
-    baseDamage: 0.9,
-    baseSpeed: 165,
-    baseFireRate: 390,
-    pattern: 'spiral',
-    amplitude: 18,
-    frequency: 4.5,
-    cost: 100,
-    upgradeCosts: [25, 60, 120, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000], // Levels 2-12
+  slot3: {
+    id: 'slot3',
+    name: 'Weapon Slot 3',
+    symbol: 'Ⅲ',
+    description: 'Simple bullet that fires toward your target.',
+    baseDamage: 1,
+    baseSpeed: 200,
+    baseFireRate: 5000, // 5 seconds
+    pattern: 'straight',
     color: '#9a6bff',
-    firePattern: 'rotatingFan',
-    fanCount: 5,
-    arcWidth: Math.PI * 0.9,
-    rotationStep: Math.PI / 16,
-  },
-  damped: {
-    id: 'damped',
-    name: 'Convergent Rails',
-    symbol: 'e⁻ˣ',
-    description: 'Staggered burst that squeezes into a narrow corridor.',
-    baseDamage: 1.6,
-    baseSpeed: 205,
-    baseFireRate: 590,
-    pattern: 'damped',
-    amplitude: 30,
-    frequency: 3.5,
-    cost: 150,
-    upgradeCosts: [30, 75, 150, 300, 600, 1200, 2400, 4800, 9600, 19200, 38400], // Levels 2-12
-    color: '#50a0ff',
-    firePattern: 'convergingBurst',
-    burstCount: 4,
-    arcWidth: Math.PI / 7,
-  },
-  square: {
-    id: 'square',
-    name: 'Binary Barrage',
-    symbol: '⌐⌐',
-    description: 'Choppy stutter fire that sprays short-range packets.',
-    baseDamage: 2,
-    baseSpeed: 175,
-    baseFireRate: 660,
-    pattern: 'square',
-    amplitude: 36,
-    frequency: 2.2,
-    cost: 200,
-    upgradeCosts: [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200], // Levels 2-12
-    color: '#ff7deb',
-    firePattern: 'rapidBurst',
-    pelletCount: 7,
-    arcWidth: Math.PI / 4,
-  },
-  tangent: {
-    id: 'tangent',
-    name: 'Asymptote Scatter',
-    symbol: 'tan',
-    description: 'Chaotic angles with clipped spikes for evasive enemies.',
-    baseDamage: 1.9,
-    baseSpeed: 225,
-    baseFireRate: 540,
-    pattern: 'tangent',
-    amplitude: 42,
-    frequency: 2.1,
-    cost: 250,
-    upgradeCosts: [40, 90, 180, 350, 700, 1400, 2800, 5600, 11200, 22400, 44800], // Levels 2-12
-    color: '#8bf7ff',
-    firePattern: 'chaoticSpray',
-    arcWidth: Math.PI / 3,
-  },
-  fourier: {
-    id: 'fourier',
-    name: 'Fourier Bloom',
-    symbol: '∑sin',
-    description: 'Full danmaku ring that rotates and layers harmonic petals.',
-    baseDamage: 1.6,
-    baseSpeed: 190,
-    baseFireRate: 510,
-    pattern: 'petal',
-    amplitude: 30,
-    frequency: 3.4,
-    cost: 320,
-    upgradeCosts: [70, 140, 280, 560, 1120, 2240, 4480, 8960, 17920, 35840, 71680], // Levels 2-12
-    color: '#f2c44d',
-    firePattern: 'petalRing',
-    petalCount: 12,
-    rotationStep: Math.PI / 20,
-  },
-  logarithmic: {
-    id: 'logarithmic',
-    name: 'Log Spiral',
-    symbol: 'ln(r)',
-    description: 'Twin spirals that peel apart with accelerating spin.',
-    baseDamage: 1.4,
-    baseSpeed: 215,
-    baseFireRate: 470,
-    pattern: 'logarithmic',
-    amplitude: 20,
-    frequency: 3,
-    cost: 420,
-    upgradeCosts: [80, 170, 340, 680, 1360, 2720, 5440, 10880, 21760, 43520, 87040], // Levels 2-12
-    color: '#7cd1b8',
-    firePattern: 'spiralPair',
-    rotationStep: Math.PI / 24,
-    arcWidth: Math.PI / 6,
-  },
-  parabola: {
-    id: 'parabola',
-    name: 'Parabolic Weave',
-    symbol: 'x²',
-    description: 'Layered Lissajous lanes that braid into crossfire ribbons.',
-    baseDamage: 2.4,
-    baseSpeed: 178,
-    baseFireRate: 630,
-    pattern: 'lissajous',
-    amplitude: 24,
-    frequency: 2.2,
-    cost: 500,
-    upgradeCosts: [90, 190, 380, 760, 1520, 3040, 6080, 12160, 24320, 48640, 97280], // Levels 2-12
-    color: '#c6a1ff',
-    firePattern: 'laneWeave',
-    laneCount: 4,
-    arcWidth: Math.PI * 0.55,
+    slotIndex: 2,
   },
 };
 
+// Legacy weapon definitions kept for reference but deactivated
+const LEGACY_WEAPON_DEFINITIONS = {
+  // All 9 previous weapons are now deactivated
+  // These definitions are kept for potential future lexeme system
+};
+
 /**
- * Get all available weapon IDs.
+ * Get all available weapon slot IDs.
  */
 export function getWeaponIds() {
-  return Object.keys(WEAPON_DEFINITIONS);
+  return Object.keys(WEAPON_SLOT_DEFINITIONS);
 }
 
 /**
- * Get weapon definition by ID.
+ * Get weapon slot definition by ID.
  */
 export function getWeaponDefinition(weaponId) {
-  return WEAPON_DEFINITIONS[weaponId] || null;
+  return WEAPON_SLOT_DEFINITIONS[weaponId] || null;
 }
 
 /**
@@ -1647,26 +1532,29 @@ export class CardinalWardenSimulation {
       patterns: ['radial'], // Unlocked patterns
     };
 
-    // Weapon system state
+    // Simplified weapon slot system - all 3 slots are always active
     this.weapons = {
-      // Map of weapon ID to weapon state
-      purchased: { sine: true }, // Sine wave is the starter weapon
-      levels: { sine: 1 }, // Upgrade level (1-6)
-      activeWeaponId: 'sine', // Currently firing weapon
-      equipped: ['sine'], // Up to 3 weapons can be equipped at a time
+      // All 3 weapon slots are always equipped (no purchase needed)
+      purchased: { slot1: true, slot2: true, slot3: true },
+      levels: { slot1: 1, slot2: 1, slot3: 1 }, // Level tracking for future lexeme upgrades
+      equipped: ['slot1', 'slot2', 'slot3'], // All 3 slots always active
     };
     
-    // Maximum number of weapons that can be equipped simultaneously
+    // Maximum number of weapons that can be equipped simultaneously (always 3)
     this.maxEquippedWeapons = 3;
     
-    // Weapon-specific timers (each weapon has its own fire rate)
+    // Weapon-specific timers (each slot has its own fire rate)
     this.weaponTimers = {
-      sine: 0,
+      slot1: 0,
+      slot2: 0,
+      slot3: 0,
     };
 
-    // Weapon phase registry for rotating or alternating shot patterns.
-    this.weaponPhases = {
-      sine: 0,
+    // Weapon glow state for visual feedback (0 = no glow, 1 = full glow)
+    this.weaponGlowState = {
+      slot1: 0,
+      slot2: 0,
+      slot3: 0,
     };
 
     // Aim target for player-controlled weapons (Sine Wave and Convergent Rails)
@@ -2314,18 +2202,26 @@ export class CardinalWardenSimulation {
   
   /**
    * Update weapon timers and fire bullets when ready.
-   * Only fires equipped weapons (limited to maxEquippedWeapons).
+   * All 3 weapon slots are always active.
    */
   updateWeaponTimers(deltaTime) {
     if (!this.warden || !this.canvas) return;
     
-    // Only fire weapons that are both purchased AND equipped
+    // All weapon slots are always active
     const equippedWeapons = this.weapons.equipped || [];
+    
+    // Decay glow state smoothly and quickly
+    const glowDecayRate = 3.0; // Higher = faster decay
+    for (const weaponId of equippedWeapons) {
+      if (this.weaponGlowState && this.weaponGlowState[weaponId] > 0) {
+        this.weaponGlowState[weaponId] = Math.max(0, this.weaponGlowState[weaponId] - (glowDecayRate * deltaTime / 1000));
+      }
+    }
     
     for (const weaponId of equippedWeapons) {
       if (!this.weapons.purchased[weaponId]) continue;
       
-      const weaponDef = WEAPON_DEFINITIONS[weaponId];
+      const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
       if (!weaponDef) continue;
       
       // Initialize timer if needed
@@ -2333,10 +2229,8 @@ export class CardinalWardenSimulation {
         this.weaponTimers[weaponId] = 0;
       }
       
-      // Calculate fire rate based on level (higher level = faster fire rate)
-      const level = this.weapons.levels[weaponId] || 1;
-      const fireRateMultiplier = 1 - (level - 1) * 0.08; // 8% faster per level
-      const fireInterval = weaponDef.baseFireRate * fireRateMultiplier * (1 / this.upgrades.fireRate);
+      // Simple fire rate (2s, 3s, 5s by default)
+      const fireInterval = weaponDef.baseFireRate;
       
       this.weaponTimers[weaponId] += deltaTime;
       
@@ -2348,19 +2242,24 @@ export class CardinalWardenSimulation {
   }
   
   /**
-   * Fire bullets from a specific weapon.
+   * Fire a simple bullet from a specific weapon slot toward the aim target.
    */
   fireWeapon(weaponId) {
     if (!this.warden || !this.canvas) return;
     
-    const weaponDef = WEAPON_DEFINITIONS[weaponId];
+    const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
     if (!weaponDef) return;
     
     const cx = this.warden.x;
     const cy = this.warden.y;
     const level = this.weapons.levels[weaponId] || 1;
     
-    // Calculate stats based on level
+    // Set glow state to full when firing (will decay in update loop)
+    if (this.weaponGlowState) {
+      this.weaponGlowState[weaponId] = 1.0;
+    }
+    
+    // Calculate stats based on level (for future lexeme upgrades)
     const damageMultiplier = 1 + (level - 1) * 0.25;
     const speedMultiplier = 1 + (level - 1) * 0.1;
 
@@ -2369,148 +2268,29 @@ export class CardinalWardenSimulation {
     const bulletConfig = {
       speed: weaponDef.baseSpeed * speedMultiplier * this.upgrades.bulletSpeed,
       damage: weaponDef.baseDamage * damageMultiplier * this.upgrades.bulletDamage,
-      size: 4 + Math.floor(level / 2),
+      size: 4,
       baseColor: weaponDef.color,
       color: resolvedColor,
-      pattern: weaponDef.pattern,
-      amplitude: weaponDef.amplitude * (1 + (level - 1) * 0.15),
-      frequency: weaponDef.frequency,
-      level: level, // Track weapon level for visual effects
-      maxTrailLength: this.getBulletTrailMaxLength(), // Use settings-based trail length
+      pattern: 'straight', // Simple straight pattern
+      amplitude: 0, // No wave motion
+      frequency: 0,
+      level: level,
+      maxTrailLength: this.getBulletTrailMaxLength(),
     };
 
-    // Track phase rotation per weapon for persistent fan and ring choreography.
-    if (this.weaponPhases[weaponId] === undefined) {
-      this.weaponPhases[weaponId] = 0;
-    }
-
-    // Helper to instantiate a math bullet with optional overrides for pattern variety.
-    const spawnBullet = (angle, overrides = {}, phaseOffset = 0) => {
-      this.bullets.push(new MathBullet(cx, cy - 20, angle, {
-        ...bulletConfig,
-        ...overrides,
-        phase: overrides.phase !== undefined ? overrides.phase : phaseOffset,
-      }));
-    };
-
-    // Default launch angle aims upward before pattern-specific offsets are applied.
-    // For Sine Wave and Convergent Rails (damped) weapons, calculate angle toward aim target if set.
-    let baseAngle = -Math.PI / 2;
-    const isAimableWeapon = weaponId === 'sine' || weaponId === 'damped';
-    if (isAimableWeapon && this.aimTarget) {
+    // Calculate angle toward aim target (or straight up if no target)
+    let baseAngle = -Math.PI / 2; // Default: straight up
+    if (this.aimTarget) {
       const dx = this.aimTarget.x - cx;
       const dy = this.aimTarget.y - (cy - 20); // Account for bullet spawn offset
       baseAngle = Math.atan2(dy, dx);
     }
     
-    const firePattern = weaponDef.firePattern || 'standard';
-    const basePhase = this.weaponPhases[weaponId];
-
-    switch (firePattern) {
-      case 'alternatingPair': {
-        // Swap sides each volley to create interlocking cosine rails.
-        const swing = weaponDef.arcWidth || Math.PI / 6;
-        const polarity = this.weaponPhases[weaponId] === 0 ? 1 : this.weaponPhases[weaponId];
-        this.weaponPhases[weaponId] = -polarity;
-        spawnBullet(baseAngle - swing * polarity, {}, basePhase);
-        spawnBullet(baseAngle + swing * polarity, {}, basePhase + Math.PI / 2);
-        return;
-      }
-      case 'rotatingFan': {
-        // Petal fan that rotates a few degrees each volley for danmaku coverage.
-        const fanCount = weaponDef.fanCount || 5;
-        const arcWidth = weaponDef.arcWidth || Math.PI * 0.75;
-        const rotationStep = weaponDef.rotationStep || Math.PI / 18;
-        const startAngle = baseAngle + this.weaponPhases[weaponId];
-        for (let i = 0; i < fanCount; i++) {
-          const offset = fanCount > 1 ? (i / (fanCount - 1) - 0.5) * arcWidth : 0;
-          spawnBullet(startAngle + offset, {}, basePhase + i * 0.35);
-        }
-        this.weaponPhases[weaponId] += rotationStep;
-        return;
-      }
-      case 'convergingBurst': {
-        // Tight staggered burst that squeezes inward for boss shredding.
-        const burstCount = weaponDef.burstCount || 3;
-        const arcWidth = weaponDef.arcWidth || Math.PI / 8;
-        for (let i = 0; i < burstCount; i++) {
-          const lerp = burstCount > 1 ? (i / (burstCount - 1) - 0.5) : 0;
-          const angle = baseAngle + lerp * arcWidth;
-          const amplitudeScale = 1 - Math.abs(lerp) * 0.25;
-          spawnBullet(angle, { amplitude: bulletConfig.amplitude * amplitudeScale }, basePhase + i * 0.2);
-        }
-        return;
-      }
-      case 'rapidBurst': {
-        // Short-range packet spray to clear dense enemy clusters.
-        const pelletCount = weaponDef.pelletCount || 6;
-        const arcWidth = weaponDef.arcWidth || Math.PI / 5;
-        for (let i = 0; i < pelletCount; i++) {
-          const jitter = this.rng.range(-arcWidth / 2, arcWidth / 2);
-          const speedScale = 0.9 + 0.05 * (i % 2);
-          spawnBullet(baseAngle + jitter, { speed: bulletConfig.speed * speedScale }, basePhase + i * 0.15);
-        }
-        return;
-      }
-      case 'chaoticSpray': {
-        // Chaotic spray that jitters angle and amplitude to mimic asymptotes.
-        const sprayWidth = weaponDef.arcWidth || Math.PI / 3;
-        const shardCount = 4 + Math.floor(level / 2);
-        for (let i = 0; i < shardCount; i++) {
-          const jitter = this.rng.range(-sprayWidth / 2, sprayWidth / 2);
-          const wobble = 0.6 + this.rng.next() * 0.8;
-          spawnBullet(baseAngle + jitter, { amplitude: bulletConfig.amplitude * wobble }, basePhase + i * 0.25);
-        }
-        return;
-      }
-      case 'petalRing': {
-        // Full radial danmaku ring with gentle rotation between volleys.
-        const petalCount = weaponDef.petalCount || 10;
-        const rotationStep = weaponDef.rotationStep || Math.PI / 24;
-        const ringStart = this.weaponPhases[weaponId];
-        for (let i = 0; i < petalCount; i++) {
-          const ringAngle = ringStart + (i * (Math.PI * 2 / petalCount));
-          const speedScale = i % 2 === 0 ? 1 : 0.9;
-          spawnBullet(ringAngle, { speed: bulletConfig.speed * speedScale, size: bulletConfig.size + 1 }, basePhase + i * 0.18);
-        }
-        this.weaponPhases[weaponId] += rotationStep;
-        return;
-      }
-      case 'spiralPair': {
-        // Counter-spinning spiral pair that peels apart with each volley.
-        const rotationStep = weaponDef.rotationStep || Math.PI / 28;
-        const spread = weaponDef.arcWidth || Math.PI / 6;
-        const phase = this.weaponPhases[weaponId];
-        const angles = [baseAngle + phase + spread, baseAngle - phase - spread];
-        angles.forEach((angle, index) => {
-          const amplitudeScale = 1 + 0.15 * index;
-          spawnBullet(angle, { amplitude: bulletConfig.amplitude * amplitudeScale }, basePhase + index * 0.4);
-        });
-        this.weaponPhases[weaponId] += rotationStep;
-        return;
-      }
-      case 'laneWeave': {
-        // Braided Lissajous lanes for wide-area suppression.
-        const lanes = weaponDef.laneCount || 3;
-        const arcWidth = weaponDef.arcWidth || Math.PI / 2;
-        for (let i = 0; i < lanes; i++) {
-          const offset = lanes > 1 ? (i / (lanes - 1) - 0.5) * arcWidth : 0;
-          spawnBullet(baseAngle + offset, {}, basePhase + i * 0.22);
-        }
-        this.weaponPhases[weaponId] += Math.PI / 30;
-        return;
-      }
-      default: {
-        // Standard volley: level-based multishot with gentle spread.
-        const bulletCount = 1 + Math.floor(level / 2);
-        const spreadAngle = weaponDef.arcWidth || Math.PI * 0.6;
-        for (let i = 0; i < bulletCount; i++) {
-          const angleOffset = bulletCount > 1 ? (i / (bulletCount - 1) - 0.5) * spreadAngle : 0;
-          const phaseOffset = i * (Math.PI * 2 / bulletCount);
-          spawnBullet(baseAngle + angleOffset, {}, phaseOffset);
-        }
-      }
-    }
+    // Spawn a simple bullet toward the target
+    this.bullets.push(new MathBullet(cx, cy - 20, baseAngle, {
+      ...bulletConfig,
+      phase: 0,
+    }));
   }
   
   /**
@@ -3988,22 +3768,20 @@ export class CardinalWardenSimulation {
   }
 
   /**
-   * Get all available weapons with their purchase/upgrade status.
+   * Get all available weapon slots with their state.
+   * All 3 slots are always active and cannot be purchased/upgraded individually.
+   * Later, lexemes can be placed into these slots to modify behavior.
    */
   getAvailableWeapons() {
     const weapons = [];
-    for (const weaponId of Object.keys(WEAPON_DEFINITIONS)) {
-      const def = WEAPON_DEFINITIONS[weaponId];
-      const isPurchased = this.weapons.purchased[weaponId] || false;
-      const level = this.weapons.levels[weaponId] || 0;
-      const maxLevel = 12;
-      const canUpgrade = isPurchased && level < maxLevel;
-      const upgradeCost = canUpgrade && def.upgradeCosts[level - 1] !== undefined 
-        ? def.upgradeCosts[level - 1] 
-        : null;
-      const isEquipped = this.weapons.equipped?.includes(weaponId) || false;
-      const canEquip = isPurchased && !isEquipped && (this.weapons.equipped?.length || 0) < this.maxEquippedWeapons;
-      const canUnequip = isEquipped && (this.weapons.equipped?.length || 0) > 1;
+    for (const weaponId of Object.keys(WEAPON_SLOT_DEFINITIONS)) {
+      const def = WEAPON_SLOT_DEFINITIONS[weaponId];
+      const isPurchased = true; // All slots are always active
+      const level = this.weapons.levels[weaponId] || 1;
+      const isEquipped = true; // All slots are always equipped
+      const glowIntensity = this.weaponGlowState?.[weaponId] || 0;
+      const cooldownProgress = this.weaponTimers?.[weaponId] || 0;
+      const cooldownTotal = def.baseFireRate;
       
       weapons.push({
         id: weaponId,
@@ -4011,218 +3789,82 @@ export class CardinalWardenSimulation {
         symbol: def.symbol,
         description: def.description,
         color: def.color,
-        cost: def.cost,
+        cost: 0, // No cost - always available
         isPurchased,
         level,
-        maxLevel,
-        canUpgrade,
-        upgradeCost,
+        maxLevel: 1, // No upgrades yet (lexemes will handle this later)
+        canUpgrade: false,
+        upgradeCost: null,
         isEquipped,
-        canEquip,
-        canUnequip,
+        canEquip: false,
+        canUnequip: false,
+        glowIntensity, // 0-1 value for UI glow effect
+        cooldownProgress, // Current cooldown timer value (ms)
+        cooldownTotal, // Total cooldown duration (ms)
+        slotIndex: def.slotIndex,
       });
     }
-    return weapons;
+    return weapons.sort((a, b) => a.slotIndex - b.slotIndex);
   }
 
   /**
    * Purchase a weapon using score points.
-   * @param {string} weaponId - The ID of the weapon to purchase
-   * @returns {boolean} True if purchase successful
-   * @deprecated Use purchaseWeaponWithoutCost and handle currency externally
+   * @deprecated All 3 weapon slots are always active - no purchase needed
+   * @returns {boolean} Always returns false
    */
   purchaseWeapon(weaponId) {
-    const def = WEAPON_DEFINITIONS[weaponId];
-    if (!def) return false;
-    
-    // Already purchased
-    if (this.weapons.purchased[weaponId]) return false;
-    
-    // Check if player has enough score
-    if (this.score < def.cost) return false;
-    
-    // Deduct cost and purchase
-    this.score -= def.cost;
-    this.weapons.purchased[weaponId] = true;
-    this.weapons.levels[weaponId] = 1;
-    this.weaponTimers[weaponId] = 0;
-    this.weaponPhases[weaponId] = this.weaponPhases[weaponId] || 0; // Initialize phase tracking for new weapon.
-    
-    // Notify callbacks
-    if (this.onScoreChange) {
-      this.onScoreChange(this.score);
-    }
-    if (this.onWeaponChange) {
-      this.onWeaponChange(this.weapons);
-    }
-    
-    return true;
+    // All weapon slots are always active - no purchase needed
+    return false;
   }
 
   /**
-   * Purchase a weapon without deducting score (currency handled externally).
-   * Automatically equips the weapon if fewer than 3 are equipped.
-   * @param {string} weaponId - The ID of the weapon to purchase
-   * @returns {boolean} True if purchase successful
+   * Purchase a weapon without deducting score.
+   * @deprecated All 3 weapon slots are always active - no purchase needed
+   * @returns {boolean} Always returns false
    */
   purchaseWeaponWithoutCost(weaponId) {
-    const def = WEAPON_DEFINITIONS[weaponId];
-    if (!def) return false;
-    
-    // Already purchased
-    if (this.weapons.purchased[weaponId]) return false;
-    
-    // Mark as purchased
-    this.weapons.purchased[weaponId] = true;
-    this.weapons.levels[weaponId] = 1;
-    this.weaponTimers[weaponId] = 0;
-    this.weaponPhases[weaponId] = this.weaponPhases[weaponId] || 0; // Initialize phase tracking for auto-equipped weapon.
-    
-    // Auto-equip if there's room (less than maxEquippedWeapons equipped)
-    if (!this.weapons.equipped) {
-      this.weapons.equipped = [];
-    }
-    if (this.weapons.equipped.length < this.maxEquippedWeapons) {
-      this.weapons.equipped.push(weaponId);
-    }
-    
-    // Notify callbacks
-    if (this.onWeaponChange) {
-      this.onWeaponChange(this.weapons);
-    }
-    
-    return true;
+    // All weapon slots are always active - no purchase needed
+    return false;
   }
 
   /**
    * Upgrade a purchased weapon.
-   * @param {string} weaponId - The ID of the weapon to upgrade
-   * @returns {boolean} True if upgrade successful
-   * @deprecated Use upgradeWeaponWithoutCost and handle currency externally
+   * @deprecated Weapon upgrades will be handled by lexemes in the future
+   * @returns {boolean} Always returns false
    */
   upgradeWeapon(weaponId) {
-    const def = WEAPON_DEFINITIONS[weaponId];
-    if (!def) return false;
-    
-    // Must be purchased first
-    if (!this.weapons.purchased[weaponId]) return false;
-    
-    const currentLevel = this.weapons.levels[weaponId] || 1;
-    const maxLevel = 12;
-    
-    // Already at max level
-    if (currentLevel >= maxLevel) return false;
-    
-    // Get upgrade cost
-    const upgradeCost = def.upgradeCosts[currentLevel - 1];
-    if (upgradeCost === undefined) return false;
-    
-    // Check if player has enough score
-    if (this.score < upgradeCost) return false;
-    
-    // Deduct cost and upgrade
-    this.score -= upgradeCost;
-    this.weapons.levels[weaponId] = currentLevel + 1;
-    
-    // Notify callbacks
-    if (this.onScoreChange) {
-      this.onScoreChange(this.score);
-    }
-    if (this.onWeaponChange) {
-      this.onWeaponChange(this.weapons);
-    }
-    
-    return true;
+    // Weapon upgrades will be handled by lexemes in the future
+    return false;
   }
 
   /**
-   * Upgrade a purchased weapon without deducting score (currency handled externally).
-   * @param {string} weaponId - The ID of the weapon to upgrade
-   * @returns {boolean} True if upgrade successful
+   * Upgrade a purchased weapon without deducting score.
+   * @deprecated Weapon upgrades will be handled by lexemes in the future
+   * @returns {boolean} Always returns false
    */
   upgradeWeaponWithoutCost(weaponId) {
-    const def = WEAPON_DEFINITIONS[weaponId];
-    if (!def) return false;
-    
-    // Must be purchased first
-    if (!this.weapons.purchased[weaponId]) return false;
-    
-    const currentLevel = this.weapons.levels[weaponId] || 1;
-    const maxLevel = 12;
-    
-    // Already at max level
-    if (currentLevel >= maxLevel) return false;
-    
-    // Upgrade
-    this.weapons.levels[weaponId] = currentLevel + 1;
-    
-    // Notify callbacks
-    if (this.onWeaponChange) {
-      this.onWeaponChange(this.weapons);
-    }
-    
-    return true;
+    // Weapon upgrades will be handled by lexemes in the future
+    return false;
   }
 
   /**
-   * Equip a purchased weapon. Only up to maxEquippedWeapons can be equipped.
-   * @param {string} weaponId - The ID of the weapon to equip
-   * @returns {boolean} True if equip successful
+   * Equip a weapon slot.
+   * @deprecated All 3 weapon slots are always equipped
+   * @returns {boolean} Always returns false
    */
   equipWeapon(weaponId) {
-    // Must be purchased first
-    if (!this.weapons.purchased[weaponId]) return false;
-    
-    // Initialize equipped array if needed
-    if (!this.weapons.equipped) {
-      this.weapons.equipped = [];
-    }
-    
-    // Already equipped
-    if (this.weapons.equipped.includes(weaponId)) return false;
-    
-    // Check if at max capacity
-    if (this.weapons.equipped.length >= this.maxEquippedWeapons) return false;
-    
-    // Equip the weapon
-    this.weapons.equipped.push(weaponId);
-    
-    // Notify callbacks
-    if (this.onWeaponChange) {
-      this.onWeaponChange(this.weapons);
-    }
-    
-    return true;
+    // All 3 weapon slots are always equipped
+    return false;
   }
 
   /**
-   * Unequip a weapon. At least one weapon must remain equipped.
-   * @param {string} weaponId - The ID of the weapon to unequip
-   * @returns {boolean} True if unequip successful
+   * Unequip a weapon slot.
+   * @deprecated All 3 weapon slots are always equipped
+   * @returns {boolean} Always returns false
    */
   unequipWeapon(weaponId) {
-    // Initialize equipped array if needed
-    if (!this.weapons.equipped) {
-      this.weapons.equipped = [];
-      return false;
-    }
-    
-    // Check if weapon is equipped
-    const index = this.weapons.equipped.indexOf(weaponId);
-    if (index === -1) return false;
-    
-    // Must keep at least one weapon equipped
-    if (this.weapons.equipped.length <= 1) return false;
-    
-    // Unequip the weapon
-    this.weapons.equipped.splice(index, 1);
-    
-    // Notify callbacks
-    if (this.onWeaponChange) {
-      this.onWeaponChange(this.weapons);
-    }
-    
-    return true;
+    // All 3 weapon slots are always equipped
+    return false;
   }
 
   /**
