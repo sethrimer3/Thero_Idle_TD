@@ -905,6 +905,7 @@ const lastTowerFiringSounds = new Map();
 /**
  * Plays a random tower firing sound for the specified tower type, ensuring
  * that the same sound is never played twice in a row.
+ * Silently returns if the tower type doesn't have firing sounds defined.
  * 
  * @param {import('./audioSystem.js').AudioManager} audio - The audio manager instance.
  * @param {string} towerType - Tower type ('alpha', 'beta', 'gamma', etc.).
@@ -915,6 +916,7 @@ export function playTowerFireSound(audio, towerType) {
   }
   
   const soundKeys = TOWER_FIRING_SOUNDS[towerType];
+  // Silently return if tower type doesn't have firing sounds defined yet
   if (!soundKeys || !Array.isArray(soundKeys) || soundKeys.length === 0) {
     return;
   }
