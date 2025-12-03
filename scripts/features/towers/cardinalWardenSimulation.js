@@ -1326,7 +1326,7 @@ const WEAPON_SLOT_DEFINITIONS = {
     id: 'slot1',
     name: 'Weapon Slot 1',
     symbol: 'Ⅰ',
-    description: 'Simple bullet that fires toward your target.',
+    description: '',
     baseDamage: 1,
     baseSpeed: 200,
     baseFireRate: 2000, // 2 seconds
@@ -1338,7 +1338,7 @@ const WEAPON_SLOT_DEFINITIONS = {
     id: 'slot2',
     name: 'Weapon Slot 2',
     symbol: 'Ⅱ',
-    description: 'Simple bullet that fires toward your target.',
+    description: '',
     baseDamage: 1,
     baseSpeed: 200,
     baseFireRate: 3000, // 3 seconds
@@ -1350,7 +1350,7 @@ const WEAPON_SLOT_DEFINITIONS = {
     id: 'slot3',
     name: 'Weapon Slot 3',
     symbol: 'Ⅲ',
-    description: 'Simple bullet that fires toward your target.',
+    description: '',
     baseDamage: 1,
     baseSpeed: 200,
     baseFireRate: 5000, // 5 seconds

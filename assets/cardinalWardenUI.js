@@ -8,11 +8,11 @@
 
 import { CardinalWardenSimulation, getWeaponIds, getWeaponDefinition } from '../scripts/features/towers/cardinalWardenSimulation.js';
 import { formatGameNumber } from '../scripts/core/formatting.js';
-import { 
-  getShinGlyphs, 
-  addShinGlyphs, 
-  getIteronBank, 
-  spendIterons, 
+import {
+  getShinGlyphs,
+  addShinGlyphs,
+  getIteronBank,
+  spendIterons,
   addIterons,
   spawnPhonemeDrop,
   getActivePhonemeDrops,
@@ -28,6 +28,7 @@ import {
   getDropChanceUpgradeLevel,
   getUnlockedGraphemes,
   getEquivalenceBank,
+  getGraphemeCharacters,
 } from './shinState.js';
 
 // Cardinal Warden simulation instance
@@ -74,6 +75,13 @@ let glyphsAwardedFromWaves = 0;
 let weaponState = null;
 // Base health upgrade level
 let baseHealthLevel = 0;
+// Grapheme selection and placement state
+let selectedGrapheme = null;
+let selectedGraphemeElement = null;
+let weaponGraphemeAssignments = {};
+const graphemeDictionary = new Map(getGraphemeCharacters().map(def => [def.index, def]));
+const weaponElements = new Map();
+const pointerState = { active: false, startX: 0, startY: 0, moved: false };
 
 /**
  * Initialize the Cardinal Warden UI and simulation.
@@ -149,7 +157,11 @@ export function initializeCardinalWardenUI() {
   updateBaseHealthDisplay();
   updatePhonemeInventoryDisplay();
   updateGraphemeUI();
-  
+
+  // Enable grapheme selection interactions
+  setupGraphemeInventoryInteraction();
+  setupGlobalPointerHandlers();
+
   // Start weapon display update loop
   startWeaponDisplayLoop();
 }
@@ -650,9 +662,10 @@ function handleWeaponChange(weapons) {
  */
 function initializeWeaponsMenu() {
   if (!cardinalElements.weaponsGrid) return;
-  
-  // Weapon slots are always active - no interactions needed
-  // In the future, lexemes can be dragged and dropped here
+
+  weaponGraphemeAssignments = {};
+  weaponElements.clear();
+  cardinalElements.weaponsGrid.innerHTML = '';
 }
 
 /**
@@ -660,54 +673,154 @@ function initializeWeaponsMenu() {
  */
 function updateWeaponsDisplay() {
   if (!cardinalElements.weaponsGrid || !cardinalSimulation) return;
-  
+
   const weapons = cardinalSimulation.getAvailableWeapons();
-  
-  const html = weapons.map(weapon => {
-    const cooldownPercent = (weapon.cooldownProgress / weapon.cooldownTotal) * 100;
-    const glowIntensity = weapon.glowIntensity; // 0-1 value
-    const glowOpacity = 0.3 + (glowIntensity * 0.7); // Scale from 0.3 to 1.0
-    
-    // Create 8 grapheme slots for this weapon
-    const graphemeSlots = Array.from({ length: 8 }, (_, index) => {
-      return `
-        <div class="shin-weapon-grapheme-slot" 
-             data-weapon-id="${weapon.id}" 
-             data-slot-index="${index}"
-             role="button"
-             tabindex="0"
-             aria-label="Grapheme slot ${index + 1} for ${weapon.name}">
-          <span class="shin-weapon-grapheme-slot-empty-indicator">+</span>
-        </div>
-      `;
-    }).join('');
-    
-    return `
-      <div class="shin-weapon-slot ${glowIntensity > 0 ? 'shin-weapon-slot--firing' : ''}" 
-           role="listitem" 
-           style="--weapon-glow-intensity: ${glowIntensity}; --weapon-glow-opacity: ${glowOpacity}; --weapon-color: ${weapon.color};">
-        <div class="shin-weapon-slot-header">
-          <span class="shin-weapon-slot-symbol" style="color: ${weapon.color}">${weapon.symbol}</span>
-          <span class="shin-weapon-slot-name">${weapon.name}</span>
-        </div>
-        <p class="shin-weapon-slot-description">${weapon.description}</p>
-        <div class="shin-weapon-slot-cooldown-container">
-          <div class="shin-weapon-slot-cooldown-bar">
-            <div class="shin-weapon-slot-cooldown-fill" style="width: ${cooldownPercent}%"></div>
-          </div>
-          <span class="shin-weapon-slot-cooldown-text">${(weapon.cooldownProgress / 1000).toFixed(1)}s / ${(weapon.cooldownTotal / 1000).toFixed(1)}s</span>
-        </div>
-        <div class="shin-weapon-grapheme-slots" aria-label="Grapheme slots for ${weapon.name}">
-          ${graphemeSlots}
-        </div>
-        <div class="shin-weapon-slot-info">
-          <span class="shin-weapon-slot-info-item">Drag graphemes here to modify weapon behavior</span>
-        </div>
-      </div>
-    `;
-  }).join('');
-  
-  cardinalElements.weaponsGrid.innerHTML = html;
+  const activeWeaponIds = new Set(weapons.map(weapon => weapon.id));
+
+  // Remove stale weapon cards if definitions change
+  for (const [weaponId, elements] of weaponElements.entries()) {
+    if (!activeWeaponIds.has(weaponId)) {
+      elements.container.remove();
+      weaponElements.delete(weaponId);
+      delete weaponGraphemeAssignments[weaponId];
+    }
+  }
+
+  for (const weapon of weapons) {
+    const assignments = ensureWeaponAssignments(weapon.id);
+    let elements = weaponElements.get(weapon.id);
+
+    if (!elements) {
+      elements = createWeaponElement(weapon);
+      weaponElements.set(weapon.id, elements);
+      cardinalElements.weaponsGrid.appendChild(elements.container);
+    }
+
+    updateWeaponElement(elements, weapon, assignments);
+  }
+}
+
+function ensureWeaponAssignments(weaponId) {
+  if (!weaponGraphemeAssignments[weaponId]) {
+    weaponGraphemeAssignments[weaponId] = Array(8).fill(null);
+  }
+  return weaponGraphemeAssignments[weaponId];
+}
+
+function createWeaponElement(weapon) {
+  const container = document.createElement('div');
+  container.className = 'shin-weapon-slot';
+  container.setAttribute('role', 'listitem');
+
+  const header = document.createElement('div');
+  header.className = 'shin-weapon-slot-header';
+
+  const symbol = document.createElement('span');
+  symbol.className = 'shin-weapon-slot-symbol';
+  symbol.textContent = weapon.symbol;
+  symbol.style.color = weapon.color;
+
+  const name = document.createElement('span');
+  name.className = 'shin-weapon-slot-name';
+  name.textContent = weapon.name;
+
+  header.appendChild(symbol);
+  header.appendChild(name);
+
+  const cooldownContainer = document.createElement('div');
+  cooldownContainer.className = 'shin-weapon-slot-cooldown-container';
+
+  const cooldownBar = document.createElement('div');
+  cooldownBar.className = 'shin-weapon-slot-cooldown-bar';
+
+  const cooldownFill = document.createElement('div');
+  cooldownFill.className = 'shin-weapon-slot-cooldown-fill';
+  cooldownBar.appendChild(cooldownFill);
+
+  const cooldownText = document.createElement('span');
+  cooldownText.className = 'shin-weapon-slot-cooldown-text';
+
+  cooldownContainer.appendChild(cooldownBar);
+  cooldownContainer.appendChild(cooldownText);
+
+  const slotsWrapper = document.createElement('div');
+  slotsWrapper.className = 'shin-weapon-grapheme-slots';
+  slotsWrapper.setAttribute('aria-label', `Grapheme slots for ${weapon.name}`);
+
+  const graphemeSlots = Array.from({ length: 8 }, (_, index) => {
+    const slot = document.createElement('div');
+    slot.className = 'shin-weapon-grapheme-slot';
+    slot.dataset.weaponId = weapon.id;
+    slot.dataset.slotIndex = index.toString();
+    slot.setAttribute('role', 'button');
+    slot.setAttribute('tabindex', '0');
+    slot.setAttribute('aria-label', `Grapheme slot ${index + 1} for ${weapon.name}`);
+
+    const content = document.createElement('span');
+    content.className = 'shin-weapon-grapheme-slot-content';
+
+    const emptyIndicator = document.createElement('span');
+    emptyIndicator.className = 'shin-weapon-grapheme-slot-empty-indicator';
+    emptyIndicator.textContent = '+';
+
+    slot.appendChild(content);
+    slot.appendChild(emptyIndicator);
+
+    slot.addEventListener('click', event => {
+      event.stopPropagation();
+      placeSelectedGrapheme(weapon.id, index);
+    });
+
+    slotsWrapper.appendChild(slot);
+
+    return { slot, content, emptyIndicator };
+  });
+
+  container.appendChild(header);
+  container.appendChild(cooldownContainer);
+  container.appendChild(slotsWrapper);
+
+  return { container, cooldownFill, cooldownText, graphemeSlots, symbol, name };
+}
+
+function updateWeaponElement(elements, weapon, assignments) {
+  const cooldownPercent = (weapon.cooldownProgress / weapon.cooldownTotal) * 100;
+  const glowOpacity = 0.3 + (weapon.glowIntensity * 0.7);
+
+  elements.container.style.setProperty('--weapon-glow-intensity', weapon.glowIntensity);
+  elements.container.style.setProperty('--weapon-glow-opacity', glowOpacity);
+  elements.container.style.setProperty('--weapon-color', weapon.color);
+  elements.container.classList.toggle('shin-weapon-slot--firing', weapon.glowIntensity > 0);
+
+  elements.symbol.textContent = weapon.symbol;
+  elements.symbol.style.color = weapon.color;
+  elements.name.textContent = weapon.name;
+
+  elements.cooldownFill.style.width = `${Math.max(0, Math.min(100, cooldownPercent))}%`;
+  elements.cooldownText.textContent = `${(weapon.cooldownProgress / 1000).toFixed(1)}s / ${(weapon.cooldownTotal / 1000).toFixed(1)}s`;
+
+  elements.graphemeSlots.forEach((slotElements, index) => {
+    const assignment = assignments[index];
+    updateWeaponSlot(slotElements, assignment, weapon, index);
+  });
+}
+
+function updateWeaponSlot(slotElements, assignment, weapon, index) {
+  if (assignment) {
+    slotElements.slot.classList.add('shin-weapon-grapheme-slot--filled');
+    slotElements.content.textContent = assignment.symbol;
+    slotElements.content.title = assignment.title;
+    slotElements.emptyIndicator.style.display = 'none';
+    slotElements.content.style.display = 'block';
+  } else {
+    slotElements.slot.classList.remove('shin-weapon-grapheme-slot--filled');
+    slotElements.content.textContent = '';
+    slotElements.content.removeAttribute('title');
+    slotElements.emptyIndicator.style.display = 'block';
+    slotElements.content.style.display = 'none';
+  }
+
+  slotElements.slot.setAttribute('aria-label', `Grapheme slot ${index + 1} for ${weapon.name}`);
 }
 
 /**
@@ -918,30 +1031,179 @@ function handlePhonemeClick(event) {
  */
 function updatePhonemeInventoryDisplay() {
   if (!cardinalElements.phonemeInventory) return;
-  
+
   const counts = getPhonemeCountsByChar();
   const totalCount = getPhonemeCount();
-  
+
+  if (selectedGrapheme && !counts[selectedGrapheme.index]) {
+    clearSelectedGrapheme();
+  }
+
   // Update total count display
   if (cardinalElements.phonemeCount) {
     cardinalElements.phonemeCount.textContent = formatGameNumber(totalCount);
   }
-  
+
   // Build inventory grid
   const entries = Object.entries(counts);
   if (entries.length === 0) {
-    cardinalElements.phonemeInventory.innerHTML = '<span class="shin-phoneme-empty">No phonemes collected</span>';
+    cardinalElements.phonemeInventory.innerHTML = '<span class="shin-phoneme-empty">No graphemes collected</span>';
     return;
   }
-  
-  const html = entries.map(([char, count]) => `
-    <div class="shin-phoneme-slot" title="${char}">
-      <span class="shin-phoneme-char">${char}</span>
-      <span class="shin-phoneme-count">×${count}</span>
-    </div>
-  `).join('');
-  
-  cardinalElements.phonemeInventory.innerHTML = html;
+
+  const fragment = document.createDocumentFragment();
+
+  for (const [indexKey, count] of entries) {
+    const index = Number(indexKey);
+    const slot = document.createElement('div');
+    slot.className = 'shin-phoneme-slot';
+    slot.dataset.graphemeIndex = index.toString();
+    slot.title = formatGraphemeTitle(index);
+
+    const charSpan = document.createElement('span');
+    charSpan.className = 'shin-phoneme-char';
+    charSpan.textContent = formatGraphemeSymbol(index);
+
+    const countSpan = document.createElement('span');
+    countSpan.className = 'shin-phoneme-count';
+    countSpan.textContent = `×${formatGameNumber(count)}`;
+
+    slot.appendChild(charSpan);
+    slot.appendChild(countSpan);
+
+    if (selectedGrapheme?.index === index) {
+      slot.classList.add('shin-phoneme-slot--selected');
+      selectedGraphemeElement = slot;
+    }
+
+    fragment.appendChild(slot);
+  }
+
+  cardinalElements.phonemeInventory.innerHTML = '';
+  cardinalElements.phonemeInventory.appendChild(fragment);
+}
+
+function setupGraphemeInventoryInteraction() {
+  if (!cardinalElements.phonemeInventory || cardinalElements.phonemeInventory.dataset.selectionBound === 'true') {
+    return;
+  }
+
+  cardinalElements.phonemeInventory.addEventListener('click', handleGraphemeInventoryClick);
+  cardinalElements.phonemeInventory.dataset.selectionBound = 'true';
+}
+
+function handleGraphemeInventoryClick(event) {
+  const slot = event.target.closest('.shin-phoneme-slot');
+  if (!slot) return;
+
+  const graphemeIndex = Number(slot.dataset.graphemeIndex);
+  if (Number.isNaN(graphemeIndex)) return;
+
+  event.stopPropagation();
+  selectGrapheme(graphemeIndex, slot);
+}
+
+function selectGrapheme(index, element) {
+  selectedGrapheme = {
+    index,
+    symbol: formatGraphemeSymbol(index),
+    title: formatGraphemeTitle(index),
+  };
+
+  if (selectedGraphemeElement && selectedGraphemeElement !== element) {
+    selectedGraphemeElement.classList.remove('shin-phoneme-slot--selected');
+  }
+
+  selectedGraphemeElement = element;
+  if (selectedGraphemeElement) {
+    selectedGraphemeElement.classList.add('shin-phoneme-slot--selected');
+  }
+}
+
+function clearSelectedGrapheme() {
+  if (selectedGraphemeElement) {
+    selectedGraphemeElement.classList.remove('shin-phoneme-slot--selected');
+  }
+  selectedGraphemeElement = null;
+  selectedGrapheme = null;
+}
+
+function placeSelectedGrapheme(weaponId, slotIndex) {
+  if (!selectedGrapheme) return;
+
+  const assignments = ensureWeaponAssignments(weaponId);
+  if (assignments[slotIndex]) return;
+
+  assignments[slotIndex] = { ...selectedGrapheme };
+  updateWeaponsDisplay();
+}
+
+function formatGraphemeSymbol(index) {
+  if (Number.isNaN(index) || index === -1) {
+    return '?';
+  }
+  return `#${index + 1}`;
+}
+
+function formatGraphemeTitle(index) {
+  const definition = graphemeDictionary.get(index);
+  if (definition) {
+    return `${definition.name} · ${definition.property}`;
+  }
+  return `Grapheme #${index + 1}`;
+}
+
+function setupGlobalPointerHandlers() {
+  if (pointerState.handlersAttached) return;
+
+  pointerState.handlersAttached = true;
+  document.addEventListener('pointerdown', handleGlobalPointerDown);
+  document.addEventListener('pointermove', handleGlobalPointerMove);
+  document.addEventListener('pointerup', handleGlobalPointerUp);
+}
+
+function removeGlobalPointerHandlers() {
+  if (!pointerState.handlersAttached) return;
+
+  document.removeEventListener('pointerdown', handleGlobalPointerDown);
+  document.removeEventListener('pointermove', handleGlobalPointerMove);
+  document.removeEventListener('pointerup', handleGlobalPointerUp);
+  pointerState.handlersAttached = false;
+}
+
+function handleGlobalPointerDown(event) {
+  if (!selectedGrapheme) return;
+
+  pointerState.active = true;
+  pointerState.startX = event.clientX;
+  pointerState.startY = event.clientY;
+  pointerState.moved = false;
+}
+
+function handleGlobalPointerMove(event) {
+  if (!pointerState.active) return;
+
+  const deltaX = Math.abs(event.clientX - pointerState.startX);
+  const deltaY = Math.abs(event.clientY - pointerState.startY);
+
+  if (deltaX > 6 || deltaY > 6) {
+    pointerState.moved = true;
+  }
+}
+
+function handleGlobalPointerUp(event) {
+  if (!pointerState.active) return;
+
+  const wasTap = !pointerState.moved;
+  pointerState.active = false;
+  pointerState.moved = false;
+
+  if (!selectedGrapheme || !wasTap) return;
+
+  const interactedWithSelection = event.target.closest('.shin-phoneme-slot') || event.target.closest('.shin-weapon-grapheme-slot');
+  if (!interactedWithSelection) {
+    clearSelectedGrapheme();
+  }
 }
 
 /**
@@ -962,4 +1224,14 @@ export function cleanupCardinalWarden() {
     cardinalResizeObserver.disconnect();
     cardinalResizeObserver = null;
   }
+
+  if (cardinalElements.phonemeInventory) {
+    cardinalElements.phonemeInventory.removeEventListener('click', handleGraphemeInventoryClick);
+    delete cardinalElements.phonemeInventory.dataset.selectionBound;
+  }
+
+  removeGlobalPointerHandlers();
+  weaponElements.clear();
+  weaponGraphemeAssignments = {};
+  clearSelectedGrapheme();
 }
