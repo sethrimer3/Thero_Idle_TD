@@ -1670,6 +1670,12 @@ export class CardinalWardenSimulation {
    */
   renderScriptChar(ctx, charIndex, x, y, size) {
     if (!this.scriptSpriteLoaded || !this.scriptSpriteSheet) return;
+    
+    // Validate charIndex bounds for 7x5 sprite sheet (0-34)
+    const maxIndex = (this.scriptCols * this.scriptRows) - 1;
+    if (charIndex < 0 || charIndex > maxIndex || !Number.isInteger(charIndex)) {
+      return; // Skip invalid indices silently
+    }
 
     const sheet = this.tintedScriptSheet || this.scriptSpriteSheet;
     const col = charIndex % this.scriptCols;
@@ -1711,9 +1717,10 @@ export class CardinalWardenSimulation {
     const spaceBelow = canvasHeight - warden.y;
     const nameStartY = warden.y + Math.min(70, spaceBelow * 0.4);
 
-    // Get weapon grapheme assignments from the 3 weapon slots
+    // Get weapon grapheme assignments from weapon slots
     const assignments = this.weaponGraphemeAssignments || {};
-    const weaponSlots = ['slot1', 'slot2', 'slot3'];
+    // Generate slot names based on maxEquippedWeapons to stay consistent
+    const weaponSlots = Array.from({ length: this.maxEquippedWeapons }, (_, i) => `slot${i + 1}`);
 
     // Render each weapon slot's graphemes as a line
     for (let slotIdx = 0; slotIdx < weaponSlots.length; slotIdx++) {
