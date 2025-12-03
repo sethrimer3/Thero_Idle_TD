@@ -170,7 +170,7 @@ function renderGraphemeSprite(ctx, frame, centerX, centerY) {
   ctx.save();
   ctx.imageSmoothingEnabled = true;
   
-  // Draw the sprite without tinting for now, as the sprite sheet has light backgrounds
+  // Draw the sprite without tinting for now, as the sprite sheet has light/white backgrounds
   // which causes golden squares when using source-atop tinting
   ctx.drawImage(
     shinScriptSpriteImage,
@@ -1267,7 +1267,7 @@ function placeSelectedGrapheme(weaponId, slotIndex) {
   // Check if we have this grapheme in inventory
   const counts = getPhonemeCountsByChar();
   if (!counts[selectedGrapheme.index] || counts[selectedGrapheme.index] <= 0) {
-    console.warn('No graphemes of this type available in inventory');
+    console.warn(`No graphemes of type ${selectedGrapheme.index} (${selectedGrapheme.title || 'unknown'}) available in inventory`);
     return;
   }
   
