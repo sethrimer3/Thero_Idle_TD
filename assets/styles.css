@@ -11936,15 +11936,13 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .shin-weapon-slots-container {
   display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
 }
 
 .shin-weapon-slot {
-  flex: 1;
-  min-width: 180px;
-  max-width: 220px;
+  width: 100%;
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.03);
@@ -11953,7 +11951,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   padding: 0.75rem;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Glow effect when weapon fires */
@@ -12030,6 +12028,62 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: var(--muted);
 }
 
+/* Grapheme slots container within weapon box */
+.shin-weapon-grapheme-slots {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.shin-weapon-grapheme-slot {
+  flex: 1;
+  aspect-ratio: 1 / 1;
+  max-width: calc((100% - 1.75rem) / 8); /* 8 slots with gaps */
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.shin-weapon-grapheme-slot:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(212, 175, 55, 0.4);
+}
+
+.shin-weapon-grapheme-slot--filled {
+  background: rgba(212, 175, 55, 0.1);
+  border-color: rgba(212, 175, 55, 0.4);
+}
+
+.shin-weapon-grapheme-slot--drag-over {
+  background: rgba(212, 175, 55, 0.2);
+  border-color: rgba(212, 175, 55, 0.6);
+  border-style: dashed;
+}
+
+.shin-weapon-grapheme-slot-content {
+  font-size: 1rem;
+  color: var(--text);
+  user-select: none;
+  pointer-events: none;
+}
+
+.shin-weapon-grapheme-slot-empty-indicator {
+  font-size: 0.7rem;
+  color: var(--muted);
+  opacity: 0.5;
+}
+
 @media (max-width: 600px) {
   .shin-weapon-slots-container {
     flex-direction: column;
@@ -12047,6 +12101,14 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   
   .shin-weapon-slot-name {
     font-size: 0.85rem;
+  }
+
+  .shin-weapon-grapheme-slots {
+    gap: 0.2rem;
+  }
+
+  .shin-weapon-grapheme-slot {
+    max-width: calc((100% - 1.4rem) / 8);
   }
 }
 

@@ -668,6 +668,20 @@ function updateWeaponsDisplay() {
     const glowIntensity = weapon.glowIntensity; // 0-1 value
     const glowOpacity = 0.3 + (glowIntensity * 0.7); // Scale from 0.3 to 1.0
     
+    // Create 8 grapheme slots for this weapon
+    const graphemeSlots = Array.from({ length: 8 }, (_, index) => {
+      return `
+        <div class="shin-weapon-grapheme-slot" 
+             data-weapon-id="${weapon.id}" 
+             data-slot-index="${index}"
+             role="button"
+             tabindex="0"
+             aria-label="Grapheme slot ${index + 1} for ${weapon.name}">
+          <span class="shin-weapon-grapheme-slot-empty-indicator">+</span>
+        </div>
+      `;
+    }).join('');
+    
     return `
       <div class="shin-weapon-slot ${glowIntensity > 0 ? 'shin-weapon-slot--firing' : ''}" 
            role="listitem" 
@@ -683,9 +697,11 @@ function updateWeaponsDisplay() {
           </div>
           <span class="shin-weapon-slot-cooldown-text">${(weapon.cooldownProgress / 1000).toFixed(1)}s / ${(weapon.cooldownTotal / 1000).toFixed(1)}s</span>
         </div>
+        <div class="shin-weapon-grapheme-slots" aria-label="Grapheme slots for ${weapon.name}">
+          ${graphemeSlots}
+        </div>
         <div class="shin-weapon-slot-info">
-          <span class="shin-weapon-slot-info-item">Fires every ${weapon.cooldownTotal / 1000}s</span>
-          <span class="shin-weapon-slot-info-item">Ready for lexemes</span>
+          <span class="shin-weapon-slot-info-item">Drag graphemes here to modify weapon behavior</span>
         </div>
       </div>
     `;
