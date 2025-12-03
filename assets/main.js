@@ -2521,74 +2521,93 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
   }
 
+  // Guard unlock evaluation so HUD refresh callbacks cannot recursively trigger unlock checks.
+  let unlockCheckInProgress = false;
+
+  // Defer unlock checks so HUD refresh callbacks can complete before unlock logic mutates tab state.
+  function scheduleUnlockCheck() {
+    queueMicrotask(() => {
+      checkAndUnlockSpires();
+    });
+  }
+
   /**
    * Check and automatically unlock spires based on glyph counts from previous spire.
    * Each spire unlocks when the player has 10 glyphs from the previous spire.
    * @returns {boolean} True if any spire was unlocked
    */
   function checkAndUnlockSpires() {
+    if (unlockCheckInProgress) {
+      return false;
+    }
+
+    unlockCheckInProgress = true;
     let anyUnlocked = false;
+    try {
 
-    // Get glyph counts for each spire
-    const alephGlyphs = Math.max(0, Math.floor(powderState.glyphsAwarded || 0));
-    const betGlyphs = Math.max(0, Math.floor(powderState.fluidGlyphsAwarded || 0));
+      // Get glyph counts for each spire
+      const alephGlyphs = Math.max(0, Math.floor(powderState.glyphsAwarded || 0));
+      const betGlyphs = Math.max(0, Math.floor(powderState.fluidGlyphsAwarded || 0));
     
-    // Bet Spire: Unlocks when player has 10 Aleph glyphs
-    if (FLUID_STUDY_ENABLED && !powderState.fluidUnlocked && alephGlyphs >= 10) {
-      unlockFluidStudy({ reason: 'auto-unlock', threshold: 10, glyphCost: 0 });
-      updateSpireTabVisibility();
-      spireMenuController.updateCounts();
-      anyUnlocked = true;
-    }
-
-    // Lamed Spire: Unlocks when player has 10 Bet glyphs
-    if (!spireResourceState.lamed.unlocked && betGlyphs >= 10) {
-      ensureLamedBankSeeded();
-      updateSpireTabVisibility();
-      spireMenuController.updateCounts();
-      anyUnlocked = true;
-    }
-
-    // Tsadi Spire: Unlocks when player has 10 Lamed glyphs (sparks)
-    // Use the tracked Lamed glyph counter to gate Tsadi so early spark absorptions do not prematurely unlock it.
-    const lamedUnlocked = Boolean(spireResourceState.lamed?.unlocked);
-    const lamedGlyphs = lamedUnlocked ? Math.max(0, Math.floor(getTrackedLamedGlyphs?.() || 0)) : 0;
-    if (!spireResourceState.tsadi.unlocked && lamedUnlocked && lamedGlyphs >= 10) {
-      ensureTsadiBankSeeded();
-      updateSpireTabVisibility();
-      spireMenuController.updateCounts();
-      anyUnlocked = true;
-    }
-
-    // Shin Spire: Unlocks when player has 10 Tsadi glyphs
-    const tsadiGlyphs = Math.max(
-      0,
-      Math.floor(
-        Number.isFinite(spireResourceState.tsadi?.stats?.totalGlyphs)
-          ? spireResourceState.tsadi.stats.totalGlyphs
-          : spireResourceState.tsadi?.stats?.totalParticles || 0,
-      ),
-    );
-    if (!spireResourceState.shin?.unlocked && tsadiGlyphs >= 10) {
-      if (!spireResourceState.shin) {
-        spireResourceState.shin = { unlocked: false };
+      // Bet Spire: Unlocks when player has 10 Aleph glyphs
+      if (FLUID_STUDY_ENABLED && !powderState.fluidUnlocked && alephGlyphs >= 10) {
+        unlockFluidStudy({ reason: 'auto-unlock', threshold: 10, glyphCost: 0 });
+        updateSpireTabVisibility();
+        spireMenuController.updateCounts();
+        anyUnlocked = true;
       }
-      spireResourceState.shin.unlocked = true;
-      updateSpireTabVisibility();
-      spireMenuController.updateCounts();
-      anyUnlocked = true;
-    }
 
-    // Kuf Spire: Unlocks when player has 10 Shin glyphs
-    const shinGlyphs = Math.max(0, Math.floor(getShinGlyphs()));
-    if (!spireResourceState.kuf?.unlocked && shinGlyphs >= 10) {
-      if (!spireResourceState.kuf) {
-        spireResourceState.kuf = { unlocked: false };
+      // Lamed Spire: Unlocks when player has 10 Bet glyphs
+      if (!spireResourceState.lamed.unlocked && betGlyphs >= 10) {
+        ensureLamedBankSeeded();
+        updateSpireTabVisibility();
+        spireMenuController.updateCounts();
+        anyUnlocked = true;
       }
-      spireResourceState.kuf.unlocked = true;
-      updateSpireTabVisibility();
-      spireMenuController.updateCounts();
-      anyUnlocked = true;
+
+      // Tsadi Spire: Unlocks when player has 10 Lamed glyphs (sparks)
+      // Use the tracked Lamed glyph counter to gate Tsadi so early spark absorptions do not prematurely unlock it.
+      const lamedUnlocked = Boolean(spireResourceState.lamed?.unlocked);
+      const lamedGlyphs = lamedUnlocked ? Math.max(0, Math.floor(getTrackedLamedGlyphs?.() || 0)) : 0;
+      if (!spireResourceState.tsadi.unlocked && lamedUnlocked && lamedGlyphs >= 10) {
+        ensureTsadiBankSeeded();
+        updateSpireTabVisibility();
+        spireMenuController.updateCounts();
+        anyUnlocked = true;
+      }
+
+      // Shin Spire: Unlocks when player has 10 Tsadi glyphs
+      const tsadiGlyphs = Math.max(
+        0,
+        Math.floor(
+          Number.isFinite(spireResourceState.tsadi?.stats?.totalGlyphs)
+            ? spireResourceState.tsadi.stats.totalGlyphs
+            : spireResourceState.tsadi?.stats?.totalParticles || 0,
+        ),
+      );
+      if (!spireResourceState.shin?.unlocked && tsadiGlyphs >= 10) {
+        if (!spireResourceState.shin) {
+          spireResourceState.shin = { unlocked: false };
+        }
+        spireResourceState.shin.unlocked = true;
+        updateSpireTabVisibility();
+        spireMenuController.updateCounts();
+        anyUnlocked = true;
+      }
+
+      // Kuf Spire: Unlocks when player has 10 Shin glyphs
+      const shinGlyphs = Math.max(0, Math.floor(getShinGlyphs()));
+      if (!spireResourceState.kuf?.unlocked && shinGlyphs >= 10) {
+        if (!spireResourceState.kuf) {
+          spireResourceState.kuf = { unlocked: false };
+        }
+        spireResourceState.kuf.unlocked = true;
+        updateSpireTabVisibility();
+        spireMenuController.updateCounts();
+        anyUnlocked = true;
+      }
+    } finally {
+      unlockCheckInProgress = false;
     }
 
     return anyUnlocked;
@@ -4950,163 +4969,174 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     evaluateAchievements();
   }
 
-  function updateFluidDisplay(status) {
-    // If the Bet Spire is locked or has been deleted, freeze the readouts and halt any
-    // lingering fluid simulation so the reservoir numbers stay static instead of drifting.
-    if (!powderState.fluidUnlocked) {
-      if (fluidSimulationInstance && typeof fluidSimulationInstance.stop === 'function') {
-        fluidSimulationInstance.stop();
-      }
+  let fluidDisplayRefreshInProgress = false;
 
-      if (fluidElements.reservoirValue) {
-        fluidElements.reservoirValue.textContent = '0 Serendipity';
-      }
-      if (fluidElements.dripRateValue) {
-        fluidElements.dripRateValue.textContent = '0 Serendipity/sec';
-      }
-      if (fluidElements.stateLabel) {
-        fluidElements.stateLabel.textContent = 'Dormant';
-        fluidElements.stateLabel.classList.remove('fluid-state-label--ready');
-        fluidElements.stateLabel.classList.remove('fluid-state-label--forming');
-      }
-      if (fluidElements.statusNote) {
-        fluidElements.statusNote.textContent = 'The Bet reservoir is sealed until the spire returns.';
-      }
+  function updateFluidDisplay(status) {
+    if (fluidDisplayRefreshInProgress) {
       return;
     }
 
-    const activeSimulation =
-      fluidSimulationInstance && typeof fluidSimulationInstance.getStatus === 'function'
-        ? fluidSimulationInstance
-        : null;
-    let info = null;
-    if (powderSimulation === fluidSimulationInstance && status) {
-      info = status;
-    } else if (activeSimulation) {
-      info = activeSimulation.getStatus();
-    }
+    fluidDisplayRefreshInProgress = true;
+    try {
+      // If the Bet Spire is locked or has been deleted, freeze the readouts and halt any
+      // lingering fluid simulation so the reservoir numbers stay static instead of drifting.
+      if (!powderState.fluidUnlocked) {
+        if (fluidSimulationInstance && typeof fluidSimulationInstance.stop === 'function') {
+          fluidSimulationInstance.stop();
+        }
 
-    const normalizedHeight = Number.isFinite(info?.normalizedHeight)
-      ? Math.max(0, Math.min(1, info.normalizedHeight))
-      : 0;
-    // Highest crest accounts for hidden overflow so the readout mirrors the tallest wave peak, not a fill gauge.
-    const crestNormalized = Number.isFinite(info?.highestNormalized)
-      ? Math.max(0, Math.min(2, info.highestNormalized))
-      : normalizedHeight;
-    const scrollOffset = Number.isFinite(info?.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
-    const totalNormalized = Number.isFinite(info?.totalNormalized)
-      ? Math.max(0, info.totalNormalized)
-      : normalizedHeight;
-    const cellSize = Number.isFinite(info?.cellSize)
-      ? Math.max(1, info.cellSize)
-      : POWDER_CELL_SIZE_PX;
-    const rows = Number.isFinite(info?.rows) ? Math.max(1, info.rows) : 1;
-    const highestNormalizedRaw = Number.isFinite(info?.highestNormalized)
-      ? Math.max(0, info.highestNormalized)
-      : totalNormalized;
+        if (fluidElements.reservoirValue) {
+          fluidElements.reservoirValue.textContent = '0 Serendipity';
+        }
+        if (fluidElements.dripRateValue) {
+          fluidElements.dripRateValue.textContent = '0 Serendipity/sec';
+        }
+        if (fluidElements.stateLabel) {
+          fluidElements.stateLabel.textContent = 'Dormant';
+          fluidElements.stateLabel.classList.remove('fluid-state-label--ready');
+          fluidElements.stateLabel.classList.remove('fluid-state-label--forming');
+        }
+        if (fluidElements.statusNote) {
+          fluidElements.statusNote.textContent = 'The Bet reservoir is sealed until the spire returns.';
+        }
+        return;
+      }
 
-    // Update glyph columns and track Bet glyph awards
-    const glyphMetrics = updateFluidGlyphColumns({
-      scrollOffset,
-      rows,
-      cellSize,
-      highestNormalized: highestNormalizedRaw,
-      totalNormalized,
-    });
+      const activeSimulation =
+        fluidSimulationInstance && typeof fluidSimulationInstance.getStatus === 'function'
+          ? fluidSimulationInstance
+          : null;
+      let info = null;
+      if (powderSimulation === fluidSimulationInstance && status) {
+        info = status;
+      } else if (activeSimulation) {
+        info = activeSimulation.getStatus();
+      }
 
-    if (glyphMetrics) {
-      const { glyphsLit } = glyphMetrics;
+      const normalizedHeight = Number.isFinite(info?.normalizedHeight)
+        ? Math.max(0, Math.min(1, info.normalizedHeight))
+        : 0;
+      // Highest crest accounts for hidden overflow so the readout mirrors the tallest wave peak, not a fill gauge.
+      const crestNormalized = Number.isFinite(info?.highestNormalized)
+        ? Math.max(0, Math.min(2, info.highestNormalized))
+        : normalizedHeight;
+      const scrollOffset = Number.isFinite(info?.scrollOffset) ? Math.max(0, info.scrollOffset) : 0;
+      const totalNormalized = Number.isFinite(info?.totalNormalized)
+        ? Math.max(0, info.totalNormalized)
+        : normalizedHeight;
+      const cellSize = Number.isFinite(info?.cellSize)
+        ? Math.max(1, info.cellSize)
+        : POWDER_CELL_SIZE_PX;
+      const rows = Number.isFinite(info?.rows) ? Math.max(1, info.rows) : 1;
+      const highestNormalizedRaw = Number.isFinite(info?.highestNormalized)
+        ? Math.max(0, info.highestNormalized)
+        : totalNormalized;
 
-      // The wall gap (visual effect showing basin capacity) scales with glyphsLit (water height thresholds).
-      // Note: Bet glyph currency is now earned based on happiness levels (see betHappinessSystem below),
-      // not water height. This section only handles the visual wall gap animation.
-      const normalizedGlyphs = Number.isFinite(glyphsLit) ? Math.max(0, glyphsLit) : 0;
-      const previousWallTarget = Number.isFinite(powderState.wallGapTarget)
-        ? powderState.wallGapTarget
-        : powderConfig.wallBaseGapMotes;
-      const rawNextWallTarget = powderConfig.wallBaseGapMotes + normalizedGlyphs * powderConfig.wallGapPerGlyph;
-      const nextWallTarget = Math.min(rawNextWallTarget, powderConfig.wallMaxGapMotes);
+      // Update glyph columns and track Bet glyph awards
+      const glyphMetrics = updateFluidGlyphColumns({
+        scrollOffset,
+        rows,
+        cellSize,
+        highestNormalized: highestNormalizedRaw,
+        totalNormalized,
+      });
 
-      if (nextWallTarget !== previousWallTarget) {
-        powderState.wallGapTarget = nextWallTarget;
-        const targetSimulation =
-          fluidSimulationInstance && typeof fluidSimulationInstance.setWallGapTarget === 'function'
-            ? fluidSimulationInstance
-            : null;
-        if (targetSimulation) {
-          const fluidIsActive = powderSimulation === targetSimulation;
-          const setOptions = fluidIsActive ? undefined : { skipRebuild: true };
-          targetSimulation.setWallGapTarget(nextWallTarget, setOptions);
-          const metrics = targetSimulation.getWallMetrics();
-          handlePowderWallMetricsChange(metrics, 'fluid');
-        } else {
+      if (glyphMetrics) {
+        const { glyphsLit } = glyphMetrics;
+
+        // The wall gap (visual effect showing basin capacity) scales with glyphsLit (water height thresholds).
+        // Note: Bet glyph currency is now earned based on happiness levels (see betHappinessSystem below),
+        // not water height. This section only handles the visual wall gap animation.
+        const normalizedGlyphs = Number.isFinite(glyphsLit) ? Math.max(0, glyphsLit) : 0;
+        const previousWallTarget = Number.isFinite(powderState.wallGapTarget)
+          ? powderState.wallGapTarget
+          : powderConfig.wallBaseGapMotes;
+        const rawNextWallTarget = powderConfig.wallBaseGapMotes + normalizedGlyphs * powderConfig.wallGapPerGlyph;
+        const nextWallTarget = Math.min(rawNextWallTarget, powderConfig.wallMaxGapMotes);
+
+        if (nextWallTarget !== previousWallTarget) {
+          powderState.wallGapTarget = nextWallTarget;
+          const targetSimulation =
+            fluidSimulationInstance && typeof fluidSimulationInstance.setWallGapTarget === 'function'
+              ? fluidSimulationInstance
+              : null;
+          if (targetSimulation) {
+            const fluidIsActive = powderSimulation === targetSimulation;
+            const setOptions = fluidIsActive ? undefined : { skipRebuild: true };
+            targetSimulation.setWallGapTarget(nextWallTarget, setOptions);
+            const metrics = targetSimulation.getWallMetrics();
+            handlePowderWallMetricsChange(metrics, 'fluid');
+          } else {
+            schedulePowderBasinSave();
+          }
+        }
+
+        if (glyphsLit !== powderState.fluidGlyphsLit) {
+          powderState.fluidGlyphsLit = glyphsLit;
           schedulePowderBasinSave();
         }
       }
 
-      if (glyphsLit !== powderState.fluidGlyphsLit) {
-        powderState.fluidGlyphsLit = glyphsLit;
-        schedulePowderBasinSave();
+      // Apply wall offset for scrolling texture
+      const wallShiftPx = scrollOffset * cellSize;
+      const textureRepeat = resolveWallTextureRepeatPx(fluidElements.leftWall || fluidElements.rightWall);
+      const rawTextureOffset =
+        Number.isFinite(textureRepeat) && textureRepeat > 0 ? wallShiftPx % textureRepeat : wallShiftPx;
+      const wallTextureOffset = Number.isFinite(rawTextureOffset) ? rawTextureOffset : 0;
+      const wallOffsetValue = `${wallTextureOffset.toFixed(1)}px`;
+
+      if (fluidElements.leftWall) {
+        fluidElements.leftWall.style.transform = '';
+        fluidElements.leftWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
       }
-    }
-
-    // Apply wall offset for scrolling texture
-    const wallShiftPx = scrollOffset * cellSize;
-    const textureRepeat = resolveWallTextureRepeatPx(fluidElements.leftWall || fluidElements.rightWall);
-    const rawTextureOffset =
-      Number.isFinite(textureRepeat) && textureRepeat > 0 ? wallShiftPx % textureRepeat : wallShiftPx;
-    const wallTextureOffset = Number.isFinite(rawTextureOffset) ? rawTextureOffset : 0;
-    const wallOffsetValue = `${wallTextureOffset.toFixed(1)}px`;
-
-    if (fluidElements.leftWall) {
-      fluidElements.leftWall.style.transform = '';
-      fluidElements.leftWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
-    }
-    if (fluidElements.rightWall) {
-      fluidElements.rightWall.style.transform = '';
-      fluidElements.rightWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
-    }
-
-    const idleBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
-    if (fluidElements.reservoirValue) {
-      fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} Serendipity`;
-    }
-
-    const drainRate = Number.isFinite(powderState.fluidIdleDrainRate)
-      ? Math.max(0, powderState.fluidIdleDrainRate)
-      : 0;
-    if (fluidElements.dripRateValue) {
-      fluidElements.dripRateValue.textContent = `${formatDecimal(drainRate, 2)} Serendipity/sec`;
-    }
-
-    if (fluidElements.statusNote) {
-      let message;
-      const crestPercent = formatDecimal(crestNormalized * 100, 1);
-      if (crestNormalized >= 1.2) {
-        message = `Crest is ${crestPercent}% of the viewport—overflow is cycling while idle Serendipity condenses.`;
-      } else if (crestNormalized >= 0.75) {
-        message = `Surface oscillates near the ridge (${crestPercent}%). This gauge tracks wave height, not stored Serendipity.`;
-      } else {
-        message = `Terrarium surface is calm (${crestPercent}%). Wave height is separate from the Serendipity reserve total.`;
+      if (fluidElements.rightWall) {
+        fluidElements.rightWall.style.transform = '';
+        fluidElements.rightWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
       }
-      fluidElements.statusNote.textContent = message;
-    }
 
-    if (betHappinessSystem) {
-      betHappinessSystem.updateDisplay(fluidElements);
+      const idleBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
+      if (fluidElements.reservoirValue) {
+        fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} Serendipity`;
+      }
 
-      // Calculate Bet glyphs based on happiness level (1 glyph per happiness level)
-      const happinessLevel = betHappinessSystem.getHappinessLevel();
-      const previousBetGlyphsAwarded = Number.isFinite(powderState.fluidGlyphsAwarded)
-        ? Math.max(0, powderState.fluidGlyphsAwarded)
+      const drainRate = Number.isFinite(powderState.fluidIdleDrainRate)
+        ? Math.max(0, powderState.fluidIdleDrainRate)
         : 0;
-
-      if (happinessLevel > previousBetGlyphsAwarded) {
-        const newlyEarned = happinessLevel - previousBetGlyphsAwarded;
-        awardBetGlyphs(newlyEarned);
-        powderState.fluidGlyphsAwarded = happinessLevel;
-        checkAndUnlockSpires();
+      if (fluidElements.dripRateValue) {
+        fluidElements.dripRateValue.textContent = `${formatDecimal(drainRate, 2)} Serendipity/sec`;
       }
+
+      if (fluidElements.statusNote) {
+        let message;
+        const crestPercent = formatDecimal(crestNormalized * 100, 1);
+        if (crestNormalized >= 1.2) {
+          message = `Crest is ${crestPercent}% of the viewport—overflow is cycling while idle Serendipity condenses.`;
+        } else if (crestNormalized >= 0.75) {
+          message = `Surface oscillates near the ridge (${crestPercent}%). This gauge tracks wave height, not stored Serendipity.`;
+        } else {
+          message = `Terrarium surface is calm (${crestPercent}%). Wave height is separate from the Serendipity reserve total.`;
+        }
+        fluidElements.statusNote.textContent = message;
+      }
+
+      if (betHappinessSystem) {
+        betHappinessSystem.updateDisplay(fluidElements);
+
+        // Calculate Bet glyphs based on happiness level (1 glyph per happiness level)
+        const happinessLevel = betHappinessSystem.getHappinessLevel();
+        const previousBetGlyphsAwarded = Number.isFinite(powderState.fluidGlyphsAwarded)
+          ? Math.max(0, powderState.fluidGlyphsAwarded)
+          : 0;
+
+        if (happinessLevel > previousBetGlyphsAwarded) {
+          const newlyEarned = happinessLevel - previousBetGlyphsAwarded;
+          awardBetGlyphs(newlyEarned);
+          powderState.fluidGlyphsAwarded = happinessLevel;
+          scheduleUnlockCheck();
+        }
+      }
+    } finally {
+      fluidDisplayRefreshInProgress = false;
     }
   }
 
