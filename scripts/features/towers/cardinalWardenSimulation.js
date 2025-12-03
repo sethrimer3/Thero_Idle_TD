@@ -1476,6 +1476,16 @@ export class CardinalWardenSimulation {
     this.enemiesPassedThrough = 0;
     this.maxEnemiesPassedThrough = GAME_CONFIG.MAX_ENEMIES_PASSED;
     this.damageThreshold = GAME_CONFIG.WARDEN_MAX_HEALTH;
+    
+    // Life lines visualization (5 lines, each representing 2 lives)
+    // States: 'solid' (2 lives), 'dashed' (1 life), 'gone' (0 lives)
+    this.lifeLines = [
+      { state: 'solid' }, // Line 1: Lives 1-2
+      { state: 'solid' }, // Line 2: Lives 3-4
+      { state: 'solid' }, // Line 3: Lives 5-6
+      { state: 'solid' }, // Line 4: Lives 7-8
+      { state: 'solid' }, // Line 5: Lives 9-10
+    ];
 
     // Game objects
     this.warden = null;
@@ -2062,6 +2072,16 @@ export class CardinalWardenSimulation {
     this.wave = 0;
     this.difficultyLevel = 0;
     this.enemiesPassedThrough = 0;
+    
+    // Reset life lines
+    this.lifeLines = [
+      { state: 'solid' },
+      { state: 'solid' },
+      { state: 'solid' },
+      { state: 'solid' },
+      { state: 'solid' },
+    ];
+    
     this.enemies = [];
     this.bullets = [];
     this.bosses = [];
@@ -2372,6 +2392,16 @@ export class CardinalWardenSimulation {
     this.wave = 0;
     this.difficultyLevel = 0;
     this.enemiesPassedThrough = 0;
+    
+    // Reset life lines
+    this.lifeLines = [
+      { state: 'solid' },
+      { state: 'solid' },
+      { state: 'solid' },
+      { state: 'solid' },
+      { state: 'solid' },
+    ];
+    
     this.enemies = [];
     this.bullets = [];
     this.bosses = [];
@@ -2595,6 +2625,8 @@ export class CardinalWardenSimulation {
 
       if (passedThrough) {
         this.enemiesPassedThrough += 2; // Bosses count as 2 ships passing through
+        this.updateLifeLine();
+        this.updateLifeLine();
         toRemove.push(i);
         // Bosses deal more damage when passing through
         if (this.warden) {
@@ -2661,6 +2693,7 @@ export class CardinalWardenSimulation {
 
       if (passedThrough) {
         this.enemiesPassedThrough++;
+        this.updateLifeLine();
         toRemove.push(i);
         // Enemies passing through also deal damage to warden
         if (this.warden) {
@@ -3603,6 +3636,23 @@ export class CardinalWardenSimulation {
   }
 
   /**
+   * Update life line states when a ship passes through.
+   * Each line represents 2 lives: solid → dashed → gone.
+   */
+  updateLifeLine() {
+    // Find the first line that isn't gone and update its state
+    for (let i = 0; i < this.lifeLines.length; i++) {
+      if (this.lifeLines[i].state === 'solid') {
+        this.lifeLines[i].state = 'dashed';
+        return;
+      } else if (this.lifeLines[i].state === 'dashed') {
+        this.lifeLines[i].state = 'gone';
+        return;
+      }
+    }
+  }
+
+  /**
    * Render UI elements.
    */
   renderUI() {
@@ -3647,15 +3697,42 @@ export class CardinalWardenSimulation {
       ctx.strokeRect(barX, barY, barWidth, barHeight);
     }
 
-    // Enemies passed through indicator (bottom left)
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'bottom';
-    ctx.fillStyle = this.uiTextColor;
-    ctx.fillText(
-      `Ships Passed: ${this.enemiesPassedThrough}/${this.maxEnemiesPassedThrough}`,
-      padding,
-      this.canvas.height - padding
-    );
+    // Life lines indicator (bottom left)
+    // 5 lines with small gaps, each representing 2 lives
+    const lineWidth = 30;
+    const lineHeight = 3;
+    const lineGap = 4;
+    const startX = padding;
+    const startY = this.canvas.height - padding - lineHeight;
+    
+    for (let i = 0; i < this.lifeLines.length; i++) {
+      const line = this.lifeLines[i];
+      const x = startX + i * (lineWidth + lineGap);
+      
+      if (line.state === 'gone') {
+        continue; // Don't draw gone lines
+      }
+      
+      ctx.strokeStyle = this.uiTextColor;
+      ctx.lineWidth = lineHeight;
+      ctx.lineCap = 'butt';
+      
+      if (line.state === 'solid') {
+        // Draw solid line
+        ctx.beginPath();
+        ctx.moveTo(x, startY);
+        ctx.lineTo(x + lineWidth, startY);
+        ctx.stroke();
+      } else if (line.state === 'dashed') {
+        // Draw dashed line
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(x, startY);
+        ctx.lineTo(x + lineWidth, startY);
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset to solid
+      }
+    }
   }
 
   /**
