@@ -83,6 +83,105 @@ const graphemeDictionary = new Map(getGraphemeCharacters().map(def => [def.index
 const weaponElements = new Map();
 const pointerState = { active: false, startX: 0, startY: 0, moved: false };
 
+// Sprite sheet metadata for rendering Shin graphemes from Script.png.
+const SHIN_SCRIPT_SPRITE = Object.freeze({
+  url: new URL('./sprites/spires/shinSpire/Script.png', import.meta.url).href,
+  columns: 7,
+  rows: 5,
+  cellWidth: 200,
+  cellHeight: 190,
+  scale: 0.14,
+  tint: '#d4af37',
+});
+
+// Derived dimensions for scaled grapheme frames.
+const SHIN_SCALED_CELL_WIDTH = SHIN_SCRIPT_SPRITE.cellWidth * SHIN_SCRIPT_SPRITE.scale;
+const SHIN_SCALED_CELL_HEIGHT = SHIN_SCRIPT_SPRITE.cellHeight * SHIN_SCRIPT_SPRITE.scale;
+const SHIN_SCALED_SHEET_WIDTH = SHIN_SCALED_CELL_WIDTH * SHIN_SCRIPT_SPRITE.columns;
+const SHIN_SCALED_SHEET_HEIGHT = SHIN_SCALED_CELL_HEIGHT * SHIN_SCRIPT_SPRITE.rows;
+
+// Preload the script sprite sheet so canvas drops and UI icons can share it.
+const shinScriptSpriteImage = new Image();
+let shinScriptSpriteLoaded = false;
+shinScriptSpriteImage.addEventListener('load', () => {
+  shinScriptSpriteLoaded = true;
+});
+shinScriptSpriteImage.addEventListener('error', (error) => {
+  console.warn('Failed to load Shin Script sprite sheet; falling back to text glyphs.', error);
+});
+shinScriptSpriteImage.src = SHIN_SCRIPT_SPRITE.url;
+
+/**
+ * Resolve the sprite frame for a grapheme using either explicit row/col data or the dictionary definition.
+ */
+function resolveGraphemeFrame(index, rowOverride, colOverride) {
+  const definition = graphemeDictionary.get(index);
+  return {
+    row: rowOverride ?? definition?.row ?? 0,
+    col: colOverride ?? definition?.col ?? 0,
+  };
+}
+
+/**
+ * Apply Script.png sprite background positioning to the provided element.
+ */
+function applyGraphemeSpriteStyles(element, frame) {
+  element.style.width = `${SHIN_SCALED_CELL_WIDTH}px`;
+  element.style.height = `${SHIN_SCALED_CELL_HEIGHT}px`;
+  element.style.backgroundSize = `${SHIN_SCALED_SHEET_WIDTH}px ${SHIN_SCALED_SHEET_HEIGHT}px`;
+  element.style.backgroundPosition = `-${frame.col * SHIN_SCALED_CELL_WIDTH}px -${frame.row * SHIN_SCALED_CELL_HEIGHT}px`;
+  element.style.backgroundImage = `url(${SHIN_SCRIPT_SPRITE.url})`;
+}
+
+/**
+ * Build a DOM element that displays a single grapheme tile from Script.png.
+ */
+function createGraphemeIconElement(index, rowOverride, colOverride, className = 'shin-grapheme-icon') {
+  const icon = document.createElement('span');
+  const frame = resolveGraphemeFrame(index, rowOverride, colOverride);
+  icon.className = className;
+  icon.setAttribute('role', 'img');
+  icon.setAttribute('aria-label', formatGraphemeTitle(index));
+  applyGraphemeSpriteStyles(icon, frame);
+  return icon;
+}
+
+/**
+ * Draw a gold-tinted grapheme sprite onto the Cardinal canvas.
+ */
+function renderGraphemeSprite(ctx, frame, centerX, centerY) {
+  if (!shinScriptSpriteLoaded) {
+    return false;
+  }
+
+  const drawWidth = SHIN_SCRIPT_SPRITE.cellWidth * SHIN_SCRIPT_SPRITE.scale;
+  const drawHeight = SHIN_SCRIPT_SPRITE.cellHeight * SHIN_SCRIPT_SPRITE.scale;
+  const drawX = centerX - (drawWidth / 2);
+  const drawY = centerY - (drawHeight / 2);
+  const sourceX = frame.col * SHIN_SCRIPT_SPRITE.cellWidth;
+  const sourceY = frame.row * SHIN_SCRIPT_SPRITE.cellHeight;
+
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(
+    shinScriptSpriteImage,
+    sourceX,
+    sourceY,
+    SHIN_SCRIPT_SPRITE.cellWidth,
+    SHIN_SCRIPT_SPRITE.cellHeight,
+    drawX,
+    drawY,
+    drawWidth,
+    drawHeight
+  );
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.fillStyle = SHIN_SCRIPT_SPRITE.tint;
+  ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.restore();
+  return true;
+}
+
 /**
  * Initialize the Cardinal Warden UI and simulation.
  */
@@ -806,16 +905,20 @@ function updateWeaponElement(elements, weapon, assignments) {
 }
 
 function updateWeaponSlot(slotElements, assignment, weapon, index) {
+  // Clear previous glyph nodes so the slot always reflects the latest assignment.
+  slotElements.content.replaceChildren();
   if (assignment) {
     slotElements.slot.classList.add('shin-weapon-grapheme-slot--filled');
-    slotElements.content.textContent = assignment.symbol;
+    const icon = createGraphemeIconElement(assignment.index, assignment.row, assignment.col, 'shin-grapheme-icon shin-grapheme-icon--slot');
+    slotElements.content.appendChild(icon);
     slotElements.content.title = assignment.title;
+    slotElements.content.setAttribute('aria-label', assignment.title);
     slotElements.emptyIndicator.style.display = 'none';
-    slotElements.content.style.display = 'block';
+    slotElements.content.style.display = 'flex';
   } else {
     slotElements.slot.classList.remove('shin-weapon-grapheme-slot--filled');
-    slotElements.content.textContent = '';
     slotElements.content.removeAttribute('title');
+    slotElements.content.removeAttribute('aria-label');
     slotElements.emptyIndicator.style.display = 'block';
     slotElements.content.style.display = 'none';
   }
@@ -962,17 +1065,21 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
     ctx.strokeStyle = '#d4af37';
     ctx.lineWidth = 2;
     ctx.stroke();
-    
-    // Script character (using index-based display for custom script)
-    // TODO: Load and render from Script.png sprite sheet for proper custom glyphs
-    ctx.fillStyle = '#333';
-    ctx.font = 'bold 16px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    // For now, display the grapheme index until sprite rendering is implemented
-    const displayChar = drop.index !== undefined ? `#${drop.index}` : (drop.char || '?');
-    ctx.fillText(displayChar, drop.x, drop.y + floatY + 1);
-    
+
+    // Script character rendered from Script.png with a gold tint.
+    const frame = resolveGraphemeFrame(drop.index, drop.row, drop.col);
+    const spriteDrawn = renderGraphemeSprite(ctx, frame, drop.x, drop.y + floatY + 1);
+
+    // Fallback to labeled text if the sprite is not yet available.
+    if (!spriteDrawn) {
+      ctx.fillStyle = SHIN_SCRIPT_SPRITE.tint;
+      ctx.font = 'bold 16px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const displayChar = drop.index !== undefined ? `#${drop.index + 1}` : (drop.char || '?');
+      ctx.fillText(displayChar, drop.x, drop.y + floatY + 1);
+    }
+
     ctx.restore();
   }
 }
@@ -1062,7 +1169,7 @@ function updatePhonemeInventoryDisplay() {
 
     const charSpan = document.createElement('span');
     charSpan.className = 'shin-phoneme-char';
-    charSpan.textContent = formatGraphemeSymbol(index);
+    charSpan.appendChild(createGraphemeIconElement(index));
 
     const countSpan = document.createElement('span');
     countSpan.className = 'shin-phoneme-count';
@@ -1104,10 +1211,13 @@ function handleGraphemeInventoryClick(event) {
 }
 
 function selectGrapheme(index, element) {
+  const frame = resolveGraphemeFrame(index);
   selectedGrapheme = {
     index,
     symbol: formatGraphemeSymbol(index),
     title: formatGraphemeTitle(index),
+    row: frame.row,
+    col: frame.col,
   };
 
   if (selectedGraphemeElement && selectedGraphemeElement !== element) {
