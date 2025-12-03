@@ -1479,13 +1479,7 @@ export class CardinalWardenSimulation {
     
     // Life lines visualization (5 lines, each representing 2 lives)
     // States: 'solid' (2 lives), 'dashed' (1 life), 'gone' (0 lives)
-    this.lifeLines = [
-      { state: 'solid' }, // Line 1: Lives 1-2
-      { state: 'solid' }, // Line 2: Lives 3-4
-      { state: 'solid' }, // Line 3: Lives 5-6
-      { state: 'solid' }, // Line 4: Lives 7-8
-      { state: 'solid' }, // Line 5: Lives 9-10
-    ];
+    this.initializeLifeLines();
 
     // Game objects
     this.warden = null;
@@ -2072,16 +2066,7 @@ export class CardinalWardenSimulation {
     this.wave = 0;
     this.difficultyLevel = 0;
     this.enemiesPassedThrough = 0;
-    
-    // Reset life lines
-    this.lifeLines = [
-      { state: 'solid' },
-      { state: 'solid' },
-      { state: 'solid' },
-      { state: 'solid' },
-      { state: 'solid' },
-    ];
-    
+    this.initializeLifeLines();
     this.enemies = [];
     this.bullets = [];
     this.bosses = [];
@@ -2392,16 +2377,7 @@ export class CardinalWardenSimulation {
     this.wave = 0;
     this.difficultyLevel = 0;
     this.enemiesPassedThrough = 0;
-    
-    // Reset life lines
-    this.lifeLines = [
-      { state: 'solid' },
-      { state: 'solid' },
-      { state: 'solid' },
-      { state: 'solid' },
-      { state: 'solid' },
-    ];
-    
+    this.initializeLifeLines();
     this.enemies = [];
     this.bullets = [];
     this.bosses = [];
@@ -2625,8 +2601,7 @@ export class CardinalWardenSimulation {
 
       if (passedThrough) {
         this.enemiesPassedThrough += 2; // Bosses count as 2 ships passing through
-        this.updateLifeLine();
-        this.updateLifeLine();
+        this.updateLifeLine(2); // Consume 2 lives for bosses
         toRemove.push(i);
         // Bosses deal more damage when passing through
         if (this.warden) {
@@ -3636,18 +3611,35 @@ export class CardinalWardenSimulation {
   }
 
   /**
-   * Update life line states when a ship passes through.
-   * Each line represents 2 lives: solid → dashed → gone.
+   * Initialize or reset life lines to their default state.
+   * @private
    */
-  updateLifeLine() {
-    // Find the first line that isn't gone and update its state
-    for (let i = 0; i < this.lifeLines.length; i++) {
-      if (this.lifeLines[i].state === 'solid') {
-        this.lifeLines[i].state = 'dashed';
-        return;
-      } else if (this.lifeLines[i].state === 'dashed') {
-        this.lifeLines[i].state = 'gone';
-        return;
+  initializeLifeLines() {
+    this.lifeLines = [
+      { state: 'solid' },
+      { state: 'solid' },
+      { state: 'solid' },
+      { state: 'solid' },
+      { state: 'solid' },
+    ];
+  }
+
+  /**
+   * Update life line states when ships pass through.
+   * Each line represents 2 lives: solid → dashed → gone.
+   * @param {number} count - Number of lives to consume (default: 1)
+   */
+  updateLifeLine(count = 1) {
+    for (let life = 0; life < count; life++) {
+      // Find the first line that isn't gone and update its state
+      for (let i = 0; i < this.lifeLines.length; i++) {
+        if (this.lifeLines[i].state === 'solid') {
+          this.lifeLines[i].state = 'dashed';
+          break;
+        } else if (this.lifeLines[i].state === 'dashed') {
+          this.lifeLines[i].state = 'gone';
+          break;
+        }
       }
     }
   }
