@@ -257,6 +257,9 @@ export function initializeCardinalWardenUI() {
   updatePhonemeInventoryDisplay();
   updateGraphemeUI();
 
+  // Sync grapheme assignments to simulation
+  syncGraphemeAssignmentsToSimulation();
+
   // Enable grapheme selection interactions
   setupGraphemeInventoryInteraction();
   setupGlobalPointerHandlers();
@@ -1246,6 +1249,26 @@ function placeSelectedGrapheme(weaponId, slotIndex) {
 
   assignments[slotIndex] = { ...selectedGrapheme };
   updateWeaponsDisplay();
+  
+  // Update simulation with new grapheme assignments
+  syncGraphemeAssignmentsToSimulation();
+}
+
+/**
+ * Sync weapon grapheme assignments to the simulation for rendering.
+ * Converts UI assignment objects to simple index arrays.
+ */
+function syncGraphemeAssignmentsToSimulation() {
+  if (!cardinalSimulation) return;
+  
+  // Convert assignment objects to arrays of indices for the simulation
+  const indexAssignments = {};
+  for (const weaponId in weaponGraphemeAssignments) {
+    const assignments = weaponGraphemeAssignments[weaponId];
+    indexAssignments[weaponId] = assignments.map(a => a ? a.index : null);
+  }
+  
+  cardinalSimulation.setWeaponGraphemeAssignments(indexAssignments);
 }
 
 function formatGraphemeSymbol(index) {
