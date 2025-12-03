@@ -12076,12 +12076,21 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: var(--text);
   user-select: none;
   pointer-events: none;
+  display: none;
 }
 
 .shin-weapon-grapheme-slot-empty-indicator {
   font-size: 0.7rem;
   color: var(--muted);
   opacity: 0.5;
+}
+
+.shin-weapon-grapheme-slot--filled .shin-weapon-grapheme-slot-content {
+  display: block;
+}
+
+.shin-weapon-grapheme-slot--filled .shin-weapon-grapheme-slot-empty-indicator {
+  display: none;
 }
 
 @media (max-width: 600px) {
@@ -12178,6 +12187,11 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .shin-phoneme-slot:hover {
   transform: scale(1.05);
   box-shadow: 0 0 8px rgba(212, 175, 55, 0.4);
+}
+
+.shin-phoneme-slot--selected {
+  outline: 2px solid rgba(212, 175, 55, 0.8);
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.5);
 }
 
 .shin-phoneme-char {
