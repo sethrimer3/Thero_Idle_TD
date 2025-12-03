@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   graphicsLevel: SHIN_GRAPHICS_LEVELS.HIGH,
   animatedGrowth: true,
   panZoomEnabled: true,
-  nightMode: false,
+  nightMode: true,
   enemyTrailLength: TRAIL_LENGTH_OPTIONS.LONG,
   bulletTrailLength: TRAIL_LENGTH_OPTIONS.LONG,
 });
