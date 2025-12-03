@@ -39,6 +39,13 @@ const BET_TREE_DEPTH_COLORS = [
   '#33803f',
 ];
 
+// Supported Shin fractal renderers to normalize store configuration and anchors.
+const FRACTAL_TYPE_OPTIONS = new Set(['tree', 'koch', 'fern', 'dragon', 'voronoi', 'brownian', 'flame']);
+
+function normalizeFractalType(type) {
+  return FRACTAL_TYPE_OPTIONS.has(type) ? type : 'tree';
+}
+
 // Storefront configuration so the Bet terrarium can surface player-placed decorations.
 const DEFAULT_TERRARIUM_STORE_ITEMS = [
   // Delta Slimes - purchasable creatures that hop around the terrarium
@@ -443,7 +450,7 @@ export class FluidTerrariumTrees {
       colorVariant: item?.colorVariant || null,
       caveOnly: Boolean(item?.caveOnly),
       // Fractal-specific fields (for Shin Spire fractals)
-      fractalType: item?.fractalType || null,
+      fractalType: item?.itemType === 'fractal' ? normalizeFractalType(item?.fractalType) : null,
     }));
   }
 
@@ -1325,7 +1332,7 @@ export class FluidTerrariumTrees {
       ephemeral: true,
       initialAllocation: storeItem.initialAllocation,
       itemType: storeItem.itemType || 'tree',
-      fractalType: storeItem.fractalType || null,
+      fractalType: normalizeFractalType(storeItem.fractalType),
     };
     this.getPlacementId(anchor);
     return anchor;
@@ -1751,7 +1758,7 @@ export class FluidTerrariumTrees {
     }
     const allocated = Math.max(0, tree.state.allocated || 0);
     const layers = this.computeLevelInfo(allocated).level;
-    const fractalType = tree.anchor?.fractalType || 'tree';
+    const fractalType = normalizeFractalType(tree.anchor?.fractalType);
     // Route allocations into the appropriate Shin fractal renderer so each store item
     // preserves its unique geometry.
 
@@ -2118,7 +2125,7 @@ export class FluidTerrariumTrees {
    */
   buildSimulation(anchor, canvas, height) {
     const size = anchor?.size || 'large';
-    const type = anchor?.fractalType || 'tree';
+    const type = normalizeFractalType(anchor?.fractalType);
 
     if (type === 'koch') {
       const snowflakeSize = Math.min(canvas.width, canvas.height) * 0.6;
