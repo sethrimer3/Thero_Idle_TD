@@ -3708,17 +3708,19 @@ export class CardinalWardenSimulation {
       ctx.strokeRect(barX, barY, barWidth, barHeight);
     }
 
-    // Life lines indicator (bottom left)
-    // 5 lines with small gaps, each representing 2 lives
-    const lineWidth = 30;
+    // Life lines indicator - defense visualization
+    // 5 horizontal lines stacked vertically, stretching full width
+    // Each line represents 2 lives: solid → dashed → gone
     const lineHeight = 3;
-    const lineGap = 4;
-    const startX = padding;
-    const startY = this.canvas.height - padding - lineHeight;
+    const lineGap = 2;
+    const horizontalPadding = padding;
+    const lineWidth = this.canvas.width - (horizontalPadding * 2);
+    const totalLinesHeight = (this.lifeLines.length * lineHeight) + ((this.lifeLines.length - 1) * lineGap);
+    const startY = this.canvas.height - padding - totalLinesHeight;
     
     for (let i = 0; i < this.lifeLines.length; i++) {
       const line = this.lifeLines[i];
-      const x = startX + i * (lineWidth + lineGap);
+      const y = startY + i * (lineHeight + lineGap);
       
       if (line.state === 'gone') {
         continue; // Don't draw gone lines
@@ -3729,17 +3731,17 @@ export class CardinalWardenSimulation {
       ctx.lineCap = 'butt';
       
       if (line.state === 'solid') {
-        // Draw solid line
+        // Draw solid line stretching full width
         ctx.beginPath();
-        ctx.moveTo(x, startY);
-        ctx.lineTo(x + lineWidth, startY);
+        ctx.moveTo(horizontalPadding, y);
+        ctx.lineTo(horizontalPadding + lineWidth, y);
         ctx.stroke();
       } else if (line.state === 'dashed') {
-        // Draw dashed line
-        ctx.setLineDash([4, 3]);
+        // Draw dashed line stretching full width
+        ctx.setLineDash([8, 6]);
         ctx.beginPath();
-        ctx.moveTo(x, startY);
-        ctx.lineTo(x + lineWidth, startY);
+        ctx.moveTo(horizontalPadding, y);
+        ctx.lineTo(horizontalPadding + lineWidth, y);
         ctx.stroke();
         ctx.setLineDash([]); // Reset to solid
       }
