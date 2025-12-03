@@ -33,7 +33,21 @@ export const DEFAULT_AUDIO_MANIFEST = {
     enterLevel: { file: 'enter_level.mp3', volume: 0.75, maxConcurrent: 2 },
     pageTurn: { file: 'page_turn.mp3', volume: 0.6, maxConcurrent: 2 },
     error: { file: 'error.mp3', volume: 0.8, maxConcurrent: 2 },
-    alphaTowerFire: { file: 'alpha_tower_firing.mp3', volume: 0.55, maxConcurrent: 5 },
+    // Alpha tower firing sounds (4 variations)
+    alphaTowerFire1: { file: 'towers/alphaTower/tower_shot_kalimba_C#5.mp3', volume: 0.55, maxConcurrent: 5 },
+    alphaTowerFire2: { file: 'towers/alphaTower/tower_shot_kalimba_D5.mp3', volume: 0.55, maxConcurrent: 5 },
+    alphaTowerFire3: { file: 'towers/alphaTower/tower_shot_kalimba_E5.mp3', volume: 0.55, maxConcurrent: 5 },
+    alphaTowerFire4: { file: 'towers/alphaTower/tower_shot_kalimba_F5.mp3', volume: 0.55, maxConcurrent: 5 },
+    // Beta tower firing sounds (4 variations)
+    betaTowerFire1: { file: 'towers/betaTower/tower_shot_kalimba_A4.m4a', volume: 0.55, maxConcurrent: 5 },
+    betaTowerFire2: { file: 'towers/betaTower/tower_shot_kalimba_B4.m4a', volume: 0.55, maxConcurrent: 5 },
+    betaTowerFire3: { file: 'towers/betaTower/tower_shot_kalimba_F4.m4a', volume: 0.55, maxConcurrent: 5 },
+    betaTowerFire4: { file: 'towers/betaTower/tower_shot_kalimba_G4.m4a', volume: 0.55, maxConcurrent: 5 },
+    // Gamma tower firing sounds (4 variations)
+    gammaTowerFire1: { file: 'towers/gammaTower/tower_shot_kalimba_B3.m4a', volume: 0.55, maxConcurrent: 5 },
+    gammaTowerFire2: { file: 'towers/gammaTower/tower_shot_kalimba_C4.m4a', volume: 0.55, maxConcurrent: 5 },
+    gammaTowerFire3: { file: 'towers/gammaTower/tower_shot_kalimba_D4.m4a', volume: 0.55, maxConcurrent: 5 },
+    gammaTowerFire4: { file: 'towers/gammaTower/tower_shot_kalimba_E4.m4a', volume: 0.55, maxConcurrent: 5 },
     noteA: { file: 'note_A.mp3', volume: 0.8, maxConcurrent: 3 },
     noteB: { file: 'note_B.mp3', volume: 0.8, maxConcurrent: 3 },
     noteDSharp: { file: 'note_D#.mp3', volume: 0.8, maxConcurrent: 3 },
@@ -48,6 +62,16 @@ export const DEFAULT_AUDIO_MANIFEST = {
  * Enumerates the tower placement note keys so helper functions can play scales.
  */
 export const TOWER_NOTE_SFX_KEYS = ['noteA', 'noteB', 'noteDSharp', 'noteFSharp', 'noteG'];
+
+/**
+ * Maps tower types to their firing sound variation keys.
+ * Each tower has 4 sound variations for variety.
+ */
+export const TOWER_FIRING_SOUNDS = {
+  alpha: ['alphaTowerFire1', 'alphaTowerFire2', 'alphaTowerFire3', 'alphaTowerFire4'],
+  beta: ['betaTowerFire1', 'betaTowerFire2', 'betaTowerFire3', 'betaTowerFire4'],
+  gamma: ['gammaTowerFire1', 'gammaTowerFire2', 'gammaTowerFire3', 'gammaTowerFire4'],
+};
 
 /**
  * Storage key used to persist player-selected audio levels across sessions.
@@ -870,4 +894,47 @@ export function playTowerPlacementNotes(audio, count = 1, noteKeys = TOWER_NOTE_
       play();
     }
   }
+}
+
+/**
+ * Tracks the last sound played for each tower type to avoid immediate repetition.
+ * Key is tower type, value is the last sound key played.
+ */
+const lastTowerFiringSounds = new Map();
+
+/**
+ * Plays a random tower firing sound for the specified tower type, ensuring
+ * that the same sound is never played twice in a row.
+ * Silently returns if the tower type doesn't have firing sounds defined.
+ * 
+ * @param {import('./audioSystem.js').AudioManager} audio - The audio manager instance.
+ * @param {string} towerType - Tower type ('alpha', 'beta', 'gamma', etc.).
+ */
+export function playTowerFireSound(audio, towerType) {
+  if (!audio || !towerType) {
+    return;
+  }
+  
+  const soundKeys = TOWER_FIRING_SOUNDS[towerType];
+  // Silently return if tower type doesn't have firing sounds defined yet
+  if (!soundKeys || !Array.isArray(soundKeys) || soundKeys.length === 0) {
+    return;
+  }
+  
+  const lastSound = lastTowerFiringSounds.get(towerType);
+  let availableSounds = soundKeys;
+  
+  // If we have more than one sound and played one before, filter it out
+  if (soundKeys.length > 1 && lastSound) {
+    availableSounds = soundKeys.filter(key => key !== lastSound);
+  }
+  
+  // Pick a random sound from the available ones
+  const selectedSound = availableSounds[Math.floor(Math.random() * availableSounds.length)];
+  
+  // Remember it for next time
+  lastTowerFiringSounds.set(towerType, selectedSound);
+  
+  // Play the sound
+  audio.playSfx(selectedSound);
 }

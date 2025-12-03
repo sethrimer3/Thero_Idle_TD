@@ -9,6 +9,7 @@ import {
 import { convertMathExpressionToPlainText } from '../scripts/core/mathText.js';
 import {
   playTowerPlacementNotes,
+  playTowerFireSound,
 } from './audioSystem.js';
 import {
   getTowerDefinition,
@@ -8166,8 +8167,8 @@ export class SimplePlayfield {
     if (getTowerTierValue(tower) >= 24) {
       this.spawnOmegaWave(tower);
     }
-    if (this.audio) {
-      this.audio.playSfx('alphaTowerFire');
+    if (this.audio && tower.type) {
+      playTowerFireSound(this.audio, tower.type);
     }
   }
 
