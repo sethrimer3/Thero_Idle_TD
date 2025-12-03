@@ -729,18 +729,34 @@ export function createTowerLoadoutController({
     const startY = event.clientY;
     const isTouchPointer = event.pointerType === 'touch';
     const cancelDistance = isTouchPointer ? LOADOUT_DRAG_CANCEL_DISTANCE_TOUCH : LOADOUT_DRAG_CANCEL_DISTANCE;
+    let dragStarted = false;
 
     const cancelHold = () => {
       clearWheelHoldTimer();
       element.removeEventListener('pointermove', handleMove);
+      element.removeEventListener('pointerup', handlePointerUp);
+      element.removeEventListener('pointercancel', handlePointerUp);
     };
 
     const handleMove = (moveEvent) => {
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
-      if (Math.hypot(dx, dy) > cancelDistance) {
+      const distance = Math.hypot(dx, dy);
+      
+      if (distance > cancelDistance) {
         cancelHold();
+        
+        // On touch devices, only start drag after movement threshold is exceeded
+        // This allows native scrolling for small movements
+        if (isTouchPointer && towerId && !dragStarted) {
+          dragStarted = true;
+          startTowerDrag(event, towerId, element);
+        }
       }
+    };
+
+    const handlePointerUp = () => {
+      cancelHold();
     };
 
     wheelState.timerId = setTimeout(() => {
@@ -750,10 +766,13 @@ export function createTowerLoadoutController({
     }, LOADOUT_WHEEL_HOLD_MS);
 
     element.addEventListener('pointermove', handleMove);
-    element.addEventListener('pointerup', cancelHold, { once: true });
-    element.addEventListener('pointercancel', cancelHold, { once: true });
+    element.addEventListener('pointerup', handlePointerUp, { once: true });
+    element.addEventListener('pointercancel', handlePointerUp, { once: true });
 
-    if (towerId) {
+    // For mouse/pen, start drag immediately for responsive desktop interaction
+    // For touch, defer drag start until movement is detected to allow native scrolling
+    if (towerId && !isTouchPointer) {
+      dragStarted = true;
       startTowerDrag(event, towerId, element);
     }
   }
