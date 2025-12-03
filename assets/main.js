@@ -3860,7 +3860,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     updateLevelSetLocks();
   }
 
-  function handleLevelSelection(level) {
+  async function handleLevelSelection(level) {
     const state = levelState.get(level.id) || { entered: false, running: false };
     const activeElement = document.activeElement;
     if (activeElement && typeof activeElement.focus === 'function') {
@@ -3888,7 +3888,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Handle story levels specially - show story and mark as completed
     if (isStoryOnlyLevel(level.id)) {
       if (levelStoryScreen) {
-        levelStoryScreen.showStory(level.id, {
+        const storyShown = await levelStoryScreen.maybeShowStory(level, {
+          // Force story-only entries to open their narrative overlay immediately
+          shouldShow: () => true,
           onComplete: () => {
             // Mark the story level as completed
             if (!isLevelCompleted(level.id)) {
@@ -3907,6 +3909,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             }
           },
         });
+        if (storyShown) {
+          return;
+        }
       }
       lastLevelTrigger = null;
       return;
