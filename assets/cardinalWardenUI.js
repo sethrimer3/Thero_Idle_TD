@@ -878,9 +878,10 @@ function createWeaponElement(weapon) {
     emptyIndicator.className = 'shin-weapon-grapheme-slot-empty-indicator';
     emptyIndicator.textContent = '+';
 
-    // Add slot number indicator using ThoughtSpeak numbers (25-34 map to 1-0)
-    // Slot 0 = number 1 (index 25), slot 1 = number 2 (index 26), ..., slot 7 = number 8 (index 32)
-    const slotNumberIndex = 25 + index; // Maps slots 0-7 to indices 25-32 (numbers 1-8)
+    // Add slot number indicator using ThoughtSpeak numbers
+    // ThoughtSpeak numbers start at index 25 (number 1)
+    const THOUGHTSPEAK_NUMBER_START_INDEX = 25;
+    const slotNumberIndex = THOUGHTSPEAK_NUMBER_START_INDEX + index; // Maps slots 0-7 to indices 25-32 (numbers 1-8)
     const slotNumber = createGraphemeIconElement(slotNumberIndex, undefined, undefined, 'shin-grapheme-icon shin-slot-number-indicator');
     slotNumber.setAttribute('aria-hidden', 'true');
     

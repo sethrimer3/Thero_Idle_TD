@@ -540,26 +540,17 @@ const GRAPHEME_CHARACTERS = [
   { index: 23, name: 'omega', property: 'resurrect', row: 3, col: 2, collectable: true },
   { index: 24, name: 'digamma', property: 'duplicate', row: 3, col: 3, collectable: true },
   
-  // Numbers (indices 25-34): ThoughtSpeak numbers 0-9, NOT collectable by player
-  // Number 1
+  // Numbers (indices 25-34): ThoughtSpeak numbers, NOT collectable by player
+  // Mapping: Index 25=1, 26=2, 27=3, 28=4, 29=5, 30=6, 31=7, 32=8, 33=9, 34=0
   { index: 25, name: 'number-1', property: 'numeral', row: 3, col: 4, collectable: false },
-  // Number 2
   { index: 26, name: 'number-2', property: 'numeral', row: 3, col: 5, collectable: false },
-  // Number 3
   { index: 27, name: 'number-3', property: 'numeral', row: 3, col: 6, collectable: false },
-  // Number 4
   { index: 28, name: 'number-4', property: 'numeral', row: 4, col: 0, collectable: false },
-  // Number 5
   { index: 29, name: 'number-5', property: 'numeral', row: 4, col: 1, collectable: false },
-  // Number 6
   { index: 30, name: 'number-6', property: 'numeral', row: 4, col: 2, collectable: false },
-  // Number 7
   { index: 31, name: 'number-7', property: 'numeral', row: 4, col: 3, collectable: false },
-  // Number 8
   { index: 32, name: 'number-8', property: 'numeral', row: 4, col: 4, collectable: false },
-  // Number 9
   { index: 33, name: 'number-9', property: 'numeral', row: 4, col: 5, collectable: false },
-  // Number 0
   { index: 34, name: 'number-0', property: 'numeral', row: 4, col: 6, collectable: false },
 ];
 

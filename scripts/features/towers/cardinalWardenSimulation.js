@@ -2317,14 +2317,12 @@ export class CardinalWardenSimulation {
       if (assignment && assignment.index === 0) {
         // First grapheme found! Apply slot-based mechanics
         // Slot 0 = triangle (3 sides), 3x damage
-        // Slot 1 = pentagon (5 sides), 5x damage
+        // Slot 1 = pentagon (5 sides), 5x damage  
         // Slot 2 = hexagon (6 sides), 6x damage
-        // Slot 3 = heptagon (7 sides), 7x damage
-        // etc.
-        const sides = slotIndex + 3; // Slot 0 → 3 sides, Slot 1 → 5 sides (skip 4 to go straight to pentagon)
-        const actualSides = slotIndex === 0 ? 3 : (slotIndex === 1 ? 5 : sides + 1);
-        bulletShape = actualSides;
-        damageMultiplier *= actualSides; // 3x, 5x, 6x, 7x, 8x, 9x, 10x, 11x
+        // Slot 3+ = continues pattern (7, 8, 9, 10, 11 sides)
+        const sidesMap = [3, 5, 6, 7, 8, 9, 10, 11];
+        bulletShape = sidesMap[slotIndex] || (slotIndex + 3);
+        damageMultiplier *= bulletShape; // 3x, 5x, 6x, 7x, 8x, 9x, 10x, 11x
         break; // Only apply the first occurrence
       }
     }
