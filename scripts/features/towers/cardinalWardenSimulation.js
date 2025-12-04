@@ -1568,6 +1568,14 @@ export class CardinalWardenSimulation {
       slot3: 0,
     };
 
+    // Weapon grapheme assignments for dynamic script rendering
+    // Each weapon slot can have up to 8 graphemes assigned
+    this.weaponGraphemeAssignments = {
+      slot1: [],
+      slot2: [],
+      slot3: [],
+    };
+
     // Aim target for player-controlled weapons (Sine Wave and Convergent Rails)
     // When null, weapons fire straight up; when set, they aim toward this point
     this.aimTarget = null;
@@ -1674,6 +1682,13 @@ export class CardinalWardenSimulation {
   renderScriptChar(ctx, charIndex, x, y, size) {
     if (!this.scriptSpriteLoaded || !this.scriptSpriteSheet) return;
 
+    // Validate bounds: sprite sheet is 7x5 grid = 35 total indices (0-34)
+    const maxIndex = this.scriptCols * this.scriptRows - 1;
+    if (charIndex < 0 || charIndex > maxIndex) {
+      console.warn(`Script character index ${charIndex} out of bounds (0-${maxIndex})`);
+      return;
+    }
+
     const sheet = this.tintedScriptSheet || this.scriptSpriteSheet;
     const col = charIndex % this.scriptCols;
     const row = Math.floor(charIndex / this.scriptCols);
@@ -1694,8 +1709,8 @@ export class CardinalWardenSimulation {
   }
 
   /**
-   * Render the Cardinal Warden's name in script font below the warden.
-   * First 7 characters on line 1, then 3 characters on line 2.
+   * Render the Cardinal Warden's script below the warden.
+   * Displays 3 lines of script, one per weapon slot, based on assigned graphemes.
    */
   renderWardenName() {
     if (!this.ctx || !this.warden || !this.scriptSpriteLoaded) return;
@@ -1709,27 +1724,34 @@ export class CardinalWardenSimulation {
     const lineSpacing = charSize * 1.1;
 
     // Position just below the warden's outermost ring
-    // The warden is at 75% canvas height, so we need to calculate carefully
     const canvasHeight = this.canvas ? this.canvas.height : 600;
     const spaceBelow = canvasHeight - warden.y;
-    // Place name within the remaining space, closer to the warden
     const nameStartY = warden.y + Math.min(70, spaceBelow * 0.4);
 
-    // First line: 7 characters (indices 0-6)
-    const line1Chars = 7;
-    const line1StartX = warden.x - ((line1Chars - 1) * charSpacing) / 2;
+    // Get weapon slot assignments
+    const assignments = this.weaponGraphemeAssignments || {};
+    const weaponSlots = Array.from({ length: this.maxEquippedWeapons }, (_, i) => `slot${i + 1}`);
 
-    for (let i = 0; i < line1Chars; i++) {
-      this.renderScriptChar(ctx, i, line1StartX + i * charSpacing, nameStartY, charSize);
-    }
+    // Render each weapon slot as a line of script
+    for (let slotIdx = 0; slotIdx < weaponSlots.length; slotIdx++) {
+      const slotId = weaponSlots[slotIdx];
+      const graphemes = (assignments[slotId] || []).filter(g => g != null);
+      
+      if (graphemes.length === 0) {
+        // Skip empty slots (no graphemes assigned)
+        continue;
+      }
 
-    // Second line: 3 characters (indices 7-9)
-    const line2Chars = 3;
-    const line2StartX = warden.x - ((line2Chars - 1) * charSpacing) / 2;
-    const line2Y = nameStartY + lineSpacing;
+      const lineY = nameStartY + slotIdx * lineSpacing;
+      const lineStartX = warden.x - ((graphemes.length - 1) * charSpacing) / 2;
 
-    for (let i = 0; i < line2Chars; i++) {
-      this.renderScriptChar(ctx, 7 + i, line2StartX + i * charSpacing, line2Y, charSize);
+      // Render each grapheme in this weapon slot's line
+      for (let i = 0; i < graphemes.length; i++) {
+        const grapheme = graphemes[i];
+        if (!grapheme || grapheme.index === undefined) continue;
+        
+        this.renderScriptChar(ctx, grapheme.index, lineStartX + i * charSpacing, lineY, charSize);
+      }
     }
   }
 
@@ -4009,5 +4031,32 @@ export class CardinalWardenSimulation {
         this.weaponPhases[weaponId] = 0; // Ensure phase accumulator exists after loading state.
       }
     }
+  }
+
+  /**
+   * Set weapon grapheme assignments for dynamic script rendering.
+   * @param {Object} assignments - Object mapping weapon IDs to arrays of grapheme assignments
+   */
+  setWeaponGraphemeAssignments(assignments) {
+    if (!assignments || typeof assignments !== 'object') return;
+    
+    // Update assignments for each weapon slot
+    for (const weaponId of ['slot1', 'slot2', 'slot3']) {
+      if (assignments[weaponId]) {
+        this.weaponGraphemeAssignments[weaponId] = assignments[weaponId];
+      }
+    }
+  }
+
+  /**
+   * Get current weapon grapheme assignments.
+   * @returns {Object} Object mapping weapon IDs to arrays of grapheme assignments
+   */
+  getWeaponGraphemeAssignments() {
+    return {
+      slot1: [...(this.weaponGraphemeAssignments.slot1 || [])],
+      slot2: [...(this.weaponGraphemeAssignments.slot2 || [])],
+      slot3: [...(this.weaponGraphemeAssignments.slot3 || [])],
+    };
   }
 }

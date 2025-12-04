@@ -1245,7 +1245,19 @@ function placeSelectedGrapheme(weaponId, slotIndex) {
   if (assignments[slotIndex]) return;
 
   assignments[slotIndex] = { ...selectedGrapheme };
+  syncGraphemeAssignmentsToSimulation();
   updateWeaponsDisplay();
+}
+
+/**
+ * Sync weapon grapheme assignments from UI to simulation.
+ * This propagates the player's grapheme placements to the Cardinal Warden simulation
+ * so they can be rendered as script below the warden.
+ */
+function syncGraphemeAssignmentsToSimulation() {
+  if (!cardinalSimulation) return;
+  
+  cardinalSimulation.setWeaponGraphemeAssignments(weaponGraphemeAssignments);
 }
 
 function formatGraphemeSymbol(index) {
