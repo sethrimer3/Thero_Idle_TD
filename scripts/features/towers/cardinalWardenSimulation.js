@@ -1317,6 +1317,11 @@ class MathBullet {
 }
 
 /**
+ * Weapon slot IDs in order.
+ */
+const WEAPON_SLOT_IDS = ['slot1', 'slot2', 'slot3'];
+
+/**
  * Simplified weapon slot definitions for the Cardinal Warden.
  * Three weapon slots that fire simple bullets toward the click target.
  * Later, lexemes can be placed into these slots to modify behavior.
@@ -1730,12 +1735,11 @@ export class CardinalWardenSimulation {
 
     // Get weapon slot assignments
     const assignments = this.weaponGraphemeAssignments || {};
-    const weaponSlots = Array.from({ length: this.maxEquippedWeapons }, (_, i) => `slot${i + 1}`);
 
     // Render each weapon slot as a line of script
-    for (let slotIdx = 0; slotIdx < weaponSlots.length; slotIdx++) {
-      const slotId = weaponSlots[slotIdx];
-      const graphemes = (assignments[slotId] || []).filter(g => g != null);
+    for (let slotIdx = 0; slotIdx < WEAPON_SLOT_IDS.length; slotIdx++) {
+      const slotId = WEAPON_SLOT_IDS[slotIdx];
+      const graphemes = (assignments[slotId] || []).filter(g => g !== null && g !== undefined);
       
       if (graphemes.length === 0) {
         // Skip empty slots (no graphemes assigned)
@@ -1748,7 +1752,7 @@ export class CardinalWardenSimulation {
       // Render each grapheme in this weapon slot's line
       for (let i = 0; i < graphemes.length; i++) {
         const grapheme = graphemes[i];
-        if (!grapheme || grapheme.index === undefined) continue;
+        if (!grapheme || typeof grapheme.index !== 'number') continue;
         
         this.renderScriptChar(ctx, grapheme.index, lineStartX + i * charSpacing, lineY, charSize);
       }
@@ -4041,7 +4045,7 @@ export class CardinalWardenSimulation {
     if (!assignments || typeof assignments !== 'object') return;
     
     // Update assignments for each weapon slot
-    for (const weaponId of ['slot1', 'slot2', 'slot3']) {
+    for (const weaponId of WEAPON_SLOT_IDS) {
       if (assignments[weaponId]) {
         this.weaponGraphemeAssignments[weaponId] = assignments[weaponId];
       }
