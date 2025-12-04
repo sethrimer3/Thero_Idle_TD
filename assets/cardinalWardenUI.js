@@ -1263,6 +1263,13 @@ function placeSelectedGrapheme(weaponId, slotIndex) {
  * Sync weapon grapheme assignments from UI to simulation.
  * This propagates the player's grapheme placements to the Cardinal Warden simulation
  * so they can be rendered as script below the warden.
+ * 
+ * This function should be called whenever:
+ * - A grapheme is placed in a weapon slot
+ * - A weapon slot is removed or cleared
+ * - The simulation is first initialized
+ * 
+ * @private
  */
 function syncGraphemeAssignmentsToSimulation() {
   if (!cardinalSimulation) return;

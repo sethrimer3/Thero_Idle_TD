@@ -1687,10 +1687,10 @@ export class CardinalWardenSimulation {
   renderScriptChar(ctx, charIndex, x, y, size) {
     if (!this.scriptSpriteLoaded || !this.scriptSpriteSheet) return;
 
-    // Validate bounds: sprite sheet is 7x5 grid = 35 total indices (0-34)
+    // Validate bounds: sprite sheet has scriptCols * scriptRows total indices
     const maxIndex = this.scriptCols * this.scriptRows - 1;
     if (charIndex < 0 || charIndex > maxIndex) {
-      console.warn(`Script character index ${charIndex} out of bounds (0-${maxIndex})`);
+      console.warn(`Script character index ${charIndex} out of bounds (0-${maxIndex}). Sprite sheet is ${this.scriptCols}x${this.scriptRows}.`);
       return;
     }
 
@@ -1739,7 +1739,7 @@ export class CardinalWardenSimulation {
     // Render each weapon slot as a line of script
     for (let slotIdx = 0; slotIdx < WEAPON_SLOT_IDS.length; slotIdx++) {
       const slotId = WEAPON_SLOT_IDS[slotIdx];
-      const graphemes = (assignments[slotId] || []).filter(g => g !== null && g !== undefined);
+      const graphemes = (assignments[slotId] || []).filter(g => g != null);
       
       if (graphemes.length === 0) {
         // Skip empty slots (no graphemes assigned)
