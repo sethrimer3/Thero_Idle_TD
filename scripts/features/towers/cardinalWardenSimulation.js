@@ -3723,16 +3723,17 @@ export class CardinalWardenSimulation {
     }
 
     // Life lines indicator (bottom left)
-    // 5 lines with small gaps, each representing 2 lives
-    const lineWidth = 30;
+    // 5 full-width lines stacked on top of each other, each representing 2 lives
+    const horizontalPadding = padding;
+    const lineWidth = this.canvas.width - (horizontalPadding * 2);
     const lineHeight = 3;
     const lineGap = 4;
-    const startX = padding;
-    const startY = this.canvas.height - padding - lineHeight;
+    const startX = horizontalPadding;
+    const startY = this.canvas.height - padding - (lineHeight + lineGap) * this.lifeLines.length;
     
     for (let i = 0; i < this.lifeLines.length; i++) {
       const line = this.lifeLines[i];
-      const x = startX + i * (lineWidth + lineGap);
+      const y = startY + i * (lineHeight + lineGap);
       
       if (line.state === 'gone') {
         continue; // Don't draw gone lines
@@ -3745,15 +3746,15 @@ export class CardinalWardenSimulation {
       if (line.state === 'solid') {
         // Draw solid line
         ctx.beginPath();
-        ctx.moveTo(x, startY);
-        ctx.lineTo(x + lineWidth, startY);
+        ctx.moveTo(startX, y);
+        ctx.lineTo(startX + lineWidth, y);
         ctx.stroke();
       } else if (line.state === 'dashed') {
         // Draw dashed line
         ctx.setLineDash([4, 3]);
         ctx.beginPath();
-        ctx.moveTo(x, startY);
-        ctx.lineTo(x + lineWidth, startY);
+        ctx.moveTo(startX, y);
+        ctx.lineTo(startX + lineWidth, y);
         ctx.stroke();
         ctx.setLineDash([]); // Reset to solid
       }
