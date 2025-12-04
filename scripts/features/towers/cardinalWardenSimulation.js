@@ -1561,6 +1561,13 @@ export class CardinalWardenSimulation {
       slot3: 0,
     };
 
+    // Weapon phase state for potential future grapheme phase accumulation
+    this.weaponPhases = {
+      slot1: 0,
+      slot2: 0,
+      slot3: 0,
+    };
+
     // Aim target for player-controlled weapons (Sine Wave and Convergent Rails)
     // When null, weapons fire straight up; when set, they aim toward this point
     this.aimTarget = null;

@@ -4950,10 +4950,20 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     evaluateAchievements();
   }
 
+  // Re-entrancy guard to prevent infinite recursion when awarding Bet glyphs
+  let isUpdatingFluidDisplay = false;
+
   function updateFluidDisplay(status) {
-    // If the Bet Spire is locked or has been deleted, freeze the readouts and halt any
-    // lingering fluid simulation so the reservoir numbers stay static instead of drifting.
-    if (!powderState.fluidUnlocked) {
+    // Prevent re-entrant calls that cause infinite recursion
+    if (isUpdatingFluidDisplay) {
+      return;
+    }
+    isUpdatingFluidDisplay = true;
+
+    try {
+      // If the Bet Spire is locked or has been deleted, freeze the readouts and halt any
+      // lingering fluid simulation so the reservoir numbers stay static instead of drifting.
+      if (!powderState.fluidUnlocked) {
       if (fluidSimulationInstance && typeof fluidSimulationInstance.stop === 'function') {
         fluidSimulationInstance.stop();
       }
@@ -5107,6 +5117,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         powderState.fluidGlyphsAwarded = happinessLevel;
         checkAndUnlockSpires();
       }
+    }
+    } finally {
+      isUpdatingFluidDisplay = false;
     }
   }
 
