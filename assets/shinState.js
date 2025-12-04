@@ -770,6 +770,52 @@ export function getDropChanceUpgradeLevel() {
   return shinState.dropChanceUpgradeLevel;
 }
 
+/**
+ * Consume a grapheme from inventory when placing it in a weapon slot.
+ * @param {number} index - The index of the grapheme to consume
+ * @returns {boolean} True if the grapheme was successfully consumed
+ */
+export function consumeGrapheme(index) {
+  // Validate index is within valid range
+  if (!Number.isInteger(index) || index < 0 || index >= GRAPHEME_CHARACTERS.length) {
+    return false;
+  }
+  
+  // Find the first grapheme with matching index
+  const graphemeIdx = shinState.graphemes.findIndex(g => g.index === index);
+  if (graphemeIdx === -1) {
+    return false;
+  }
+  
+  // Remove it from the inventory
+  shinState.graphemes.splice(graphemeIdx, 1);
+  return true;
+}
+
+/**
+ * Return a grapheme to inventory when removing it from a weapon slot.
+ * @param {number} index - The index of the grapheme to return
+ */
+export function returnGrapheme(index) {
+  // Validate index is within valid range
+  if (!Number.isInteger(index) || index < 0 || index >= GRAPHEME_CHARACTERS.length) {
+    return;
+  }
+  
+  const graphemeChar = GRAPHEME_CHARACTERS[index];
+  
+  // Add grapheme back to inventory
+  shinState.graphemeIdCounter += 1;
+  const returned = {
+    id: `grapheme-${shinState.graphemeIdCounter}`,
+    index: index,
+    name: graphemeChar.name,
+    property: graphemeChar.property,
+    collectedAt: Date.now(),
+  };
+  shinState.graphemes.push(returned);
+}
+
 // Legacy exports for backward compatibility (to be removed after migration)
 export const spawnPhonemeDrop = spawnGraphemeDrop;
 export const getActivePhonemeDrops = getActiveGraphemeDrops;

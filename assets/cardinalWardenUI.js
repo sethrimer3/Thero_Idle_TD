@@ -29,6 +29,8 @@ import {
   getUnlockedGraphemes,
   getEquivalenceBank,
   getGraphemeCharacters,
+  consumeGrapheme,
+  returnGrapheme,
 } from './shinState.js';
 
 // Cardinal Warden simulation instance
@@ -174,10 +176,6 @@ function renderGraphemeSprite(ctx, frame, centerX, centerY) {
     drawWidth,
     drawHeight
   );
-  ctx.globalCompositeOperation = 'source-atop';
-  ctx.fillStyle = SHIN_SCRIPT_SPRITE.tint;
-  ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
-  ctx.globalCompositeOperation = 'source-over';
   ctx.restore();
   return true;
 }
@@ -1249,14 +1247,42 @@ function clearSelectedGrapheme() {
 }
 
 function placeSelectedGrapheme(weaponId, slotIndex) {
+  const assignments = ensureWeaponAssignments(weaponId);
+  
+  // Handle click on filled slot without a selection - remove grapheme and return to inventory
+  if (assignments[slotIndex] && !selectedGrapheme) {
+    const currentAssignment = assignments[slotIndex];
+    returnGrapheme(currentAssignment.index);
+    assignments[slotIndex] = null;
+    syncGraphemeAssignmentsToSimulation();
+    updateWeaponsDisplay();
+    updateGraphemeInventoryDisplay();
+    return;
+  }
+  
+  // Handle placing a new grapheme
   if (!selectedGrapheme) return;
 
-  const assignments = ensureWeaponAssignments(weaponId);
-  if (assignments[slotIndex]) return;
+  // Try to consume the new grapheme from inventory first
+  if (!consumeGrapheme(selectedGrapheme.index)) {
+    // Not enough graphemes in inventory
+    return;
+  }
 
+  // Only after successfully consuming, return the old grapheme if slot was filled
+  if (assignments[slotIndex]) {
+    const currentAssignment = assignments[slotIndex];
+    returnGrapheme(currentAssignment.index);
+  }
+
+  // Assign the new grapheme to the slot
   assignments[slotIndex] = { ...selectedGrapheme };
+  
+  // Update UI
+  clearSelectedGrapheme();
   syncGraphemeAssignmentsToSimulation();
   updateWeaponsDisplay();
+  updateGraphemeInventoryDisplay();
 }
 
 /**
