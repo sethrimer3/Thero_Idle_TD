@@ -681,7 +681,8 @@ function updateGraphemeUI() {
   
   if (cardinalElements.graphemeUnlockBtn) {
     const canAffordUnlock = currentEquivalence >= unlockCost;
-    const allUnlocked = unlockedGraphemes.length >= 35;
+    // Only 25 graphemes are collectable (20 letters + 5 punctuation, numbers are not collectable)
+    const allUnlocked = unlockedGraphemes.length >= 25;
     cardinalElements.graphemeUnlockBtn.disabled = !canAffordUnlock || allUnlocked;
     
     if (allUnlocked) {
@@ -822,10 +823,17 @@ function createWeaponElement(weapon) {
   const header = document.createElement('div');
   header.className = 'shin-weapon-slot-header';
 
+  // Use ThoughtSpeak grapheme sprite for weapon symbol if available
   const symbol = document.createElement('span');
   symbol.className = 'shin-weapon-slot-symbol';
-  symbol.textContent = weapon.symbol;
-  symbol.style.color = weapon.color;
+  if (weapon.symbolGraphemeIndex !== undefined) {
+    const graphemeIcon = createGraphemeIconElement(weapon.symbolGraphemeIndex, undefined, undefined, 'shin-grapheme-icon shin-weapon-symbol-icon');
+    symbol.appendChild(graphemeIcon);
+  } else {
+    // Fallback to text symbol
+    symbol.textContent = weapon.symbol;
+    symbol.style.color = weapon.color;
+  }
 
   const name = document.createElement('span');
   name.className = 'shin-weapon-slot-name';
@@ -870,8 +878,15 @@ function createWeaponElement(weapon) {
     emptyIndicator.className = 'shin-weapon-grapheme-slot-empty-indicator';
     emptyIndicator.textContent = '+';
 
+    // Add slot number indicator using ThoughtSpeak numbers (25-34 map to 1-0)
+    // Slot 0 = number 1 (index 25), slot 1 = number 2 (index 26), ..., slot 7 = number 8 (index 32)
+    const slotNumberIndex = 25 + index; // Maps slots 0-7 to indices 25-32 (numbers 1-8)
+    const slotNumber = createGraphemeIconElement(slotNumberIndex, undefined, undefined, 'shin-grapheme-icon shin-slot-number-indicator');
+    slotNumber.setAttribute('aria-hidden', 'true');
+    
     slot.appendChild(content);
     slot.appendChild(emptyIndicator);
+    slot.appendChild(slotNumber);
 
     slot.addEventListener('click', event => {
       event.stopPropagation();
@@ -880,7 +895,7 @@ function createWeaponElement(weapon) {
 
     slotsWrapper.appendChild(slot);
 
-    return { slot, content, emptyIndicator };
+    return { slot, content, emptyIndicator, slotNumber };
   });
 
   container.appendChild(header);
@@ -899,8 +914,15 @@ function updateWeaponElement(elements, weapon, assignments) {
   elements.container.style.setProperty('--weapon-color', weapon.color);
   elements.container.classList.toggle('shin-weapon-slot--firing', weapon.glowIntensity > 0);
 
-  elements.symbol.textContent = weapon.symbol;
-  elements.symbol.style.color = weapon.color;
+  // Update symbol - use grapheme sprite if available, otherwise use text
+  if (weapon.symbolGraphemeIndex !== undefined) {
+    elements.symbol.replaceChildren();
+    const graphemeIcon = createGraphemeIconElement(weapon.symbolGraphemeIndex, undefined, undefined, 'shin-grapheme-icon shin-weapon-symbol-icon');
+    elements.symbol.appendChild(graphemeIcon);
+  } else {
+    elements.symbol.textContent = weapon.symbol;
+    elements.symbol.style.color = weapon.color;
+  }
   elements.name.textContent = weapon.name;
 
   elements.cooldownFill.style.width = `${Math.max(0, Math.min(100, cooldownPercent))}%`;

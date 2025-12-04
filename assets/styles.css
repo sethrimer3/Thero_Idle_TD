@@ -12095,6 +12095,24 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   display: none;
 }
 
+.shin-slot-number-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 8px !important;
+  height: 8px !important;
+  opacity: 0.5;
+  pointer-events: none;
+  background-size: contain !important;
+}
+
+.shin-weapon-symbol-icon {
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  display: inline-block;
+  vertical-align: middle;
+}
+
 @media (max-width: 600px) {
   .shin-weapon-slots-container {
     flex-direction: column;

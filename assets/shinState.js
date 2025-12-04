@@ -500,54 +500,72 @@ export function unlockAllFractals() {
 /**
  * Available grapheme characters from the custom script (Script.png).
  * The script contains 35 unique characters arranged in a 7x5 grid.
- * Each grapheme has a unique glyph and associated weapon property.
+ * ThoughtSpeak Language Structure:
+ * - Indices 0-19: Letters (20 total) - can be collected by player
+ * - Indices 20-24: Punctuation (5 total) - can be collected by player
+ * - Indices 25-34: Numbers 0-9 (10 total) - CANNOT be collected (used for UI only)
+ * 
  * Characters are represented by their index (0-34) and rendered from the sprite sheet.
  */
 const GRAPHEME_CHARACTERS = [
+  // Letters (indices 0-19): 20 letters that can be collected
   // Row 1 (indices 0-6)
-  { index: 0, name: 'alpha', property: 'fire', row: 0, col: 0 },
-  { index: 1, name: 'beta', property: 'pierce', row: 0, col: 1 },
-  { index: 2, name: 'gamma', property: 'speed', row: 0, col: 2 },
-  { index: 3, name: 'delta', property: 'ice', row: 0, col: 3 },
-  { index: 4, name: 'epsilon', property: 'homing', row: 0, col: 4 },
-  { index: 5, name: 'zeta', property: 'spread', row: 0, col: 5 },
-  { index: 6, name: 'eta', property: 'chain', row: 0, col: 6 },
+  { index: 0, name: 'alpha', property: 'fire', row: 0, col: 0, collectable: true },
+  { index: 1, name: 'beta', property: 'pierce', row: 0, col: 1, collectable: true },
+  { index: 2, name: 'gamma', property: 'speed', row: 0, col: 2, collectable: true },
+  { index: 3, name: 'delta', property: 'ice', row: 0, col: 3, collectable: true },
+  { index: 4, name: 'epsilon', property: 'homing', row: 0, col: 4, collectable: true },
+  { index: 5, name: 'zeta', property: 'spread', row: 0, col: 5, collectable: true },
+  { index: 6, name: 'eta', property: 'chain', row: 0, col: 6, collectable: true },
   // Row 2 (indices 7-13)
-  { index: 7, name: 'theta', property: 'damage', row: 1, col: 0 },
-  { index: 8, name: 'iota', property: 'range', row: 1, col: 1 },
-  { index: 9, name: 'kappa', property: 'splash', row: 1, col: 2 },
-  { index: 10, name: 'lambda', property: 'penetration', row: 1, col: 3 },
-  { index: 11, name: 'mu', property: 'lifesteal', row: 1, col: 4 },
-  { index: 12, name: 'nu', property: 'crit', row: 1, col: 5 },
-  { index: 13, name: 'xi', property: 'slow', row: 1, col: 6 },
-  // Row 3 (indices 14-20)
-  { index: 14, name: 'omicron', property: 'burn', row: 2, col: 0 },
-  { index: 15, name: 'pi', property: 'freeze', row: 2, col: 1 },
-  { index: 16, name: 'rho', property: 'shock', row: 2, col: 2 },
-  { index: 17, name: 'sigma', property: 'poison', row: 2, col: 3 },
-  { index: 18, name: 'tau', property: 'stun', row: 2, col: 4 },
-  { index: 19, name: 'upsilon', property: 'knockback', row: 2, col: 5 },
-  { index: 20, name: 'phi', property: 'reflect', row: 2, col: 6 },
-  // Row 4 (indices 21-27)
-  { index: 21, name: 'chi', property: 'leech', row: 3, col: 0 },
-  { index: 22, name: 'psi', property: 'execute', row: 3, col: 1 },
-  { index: 23, name: 'omega', property: 'resurrect', row: 3, col: 2 },
-  { index: 24, name: 'digamma', property: 'duplicate', row: 3, col: 3 },
-  { index: 25, name: 'stigma', property: 'amplify', row: 3, col: 4 },
-  { index: 26, name: 'heta', property: 'transform', row: 3, col: 5 },
-  { index: 27, name: 'san', property: 'corrupt', row: 3, col: 6 },
-  // Row 5 (indices 28-34)
-  { index: 28, name: 'koppa', property: 'fracture', row: 4, col: 0 },
-  { index: 29, name: 'sampi', property: 'siphon', row: 4, col: 1 },
-  { index: 30, name: 'sho', property: 'cascade', row: 4, col: 2 },
-  { index: 31, name: 'vau', property: 'rebound', row: 4, col: 3 },
-  { index: 32, name: 'khet', property: 'vortex', row: 4, col: 4 },
-  { index: 33, name: 'tsade', property: 'nova', row: 4, col: 5 },
-  { index: 34, name: 'shin', property: 'eclipse', row: 4, col: 6 },
+  { index: 7, name: 'theta', property: 'damage', row: 1, col: 0, collectable: true },
+  { index: 8, name: 'iota', property: 'range', row: 1, col: 1, collectable: true },
+  { index: 9, name: 'kappa', property: 'splash', row: 1, col: 2, collectable: true },
+  { index: 10, name: 'lambda', property: 'penetration', row: 1, col: 3, collectable: true },
+  { index: 11, name: 'mu', property: 'lifesteal', row: 1, col: 4, collectable: true },
+  { index: 12, name: 'nu', property: 'crit', row: 1, col: 5, collectable: true },
+  { index: 13, name: 'xi', property: 'slow', row: 1, col: 6, collectable: true },
+  // Row 3 (indices 14-19)
+  { index: 14, name: 'omicron', property: 'burn', row: 2, col: 0, collectable: true },
+  { index: 15, name: 'pi', property: 'freeze', row: 2, col: 1, collectable: true },
+  { index: 16, name: 'rho', property: 'shock', row: 2, col: 2, collectable: true },
+  { index: 17, name: 'sigma', property: 'poison', row: 2, col: 3, collectable: true },
+  { index: 18, name: 'tau', property: 'stun', row: 2, col: 4, collectable: true },
+  { index: 19, name: 'upsilon', property: 'knockback', row: 2, col: 5, collectable: true },
+  
+  // Punctuation (indices 20-24): 5 punctuation marks that can be collected
+  { index: 20, name: 'phi', property: 'reflect', row: 2, col: 6, collectable: true },
+  { index: 21, name: 'chi', property: 'leech', row: 3, col: 0, collectable: true },
+  { index: 22, name: 'psi', property: 'execute', row: 3, col: 1, collectable: true },
+  { index: 23, name: 'omega', property: 'resurrect', row: 3, col: 2, collectable: true },
+  { index: 24, name: 'digamma', property: 'duplicate', row: 3, col: 3, collectable: true },
+  
+  // Numbers (indices 25-34): ThoughtSpeak numbers 0-9, NOT collectable by player
+  // Number 1
+  { index: 25, name: 'number-1', property: 'numeral', row: 3, col: 4, collectable: false },
+  // Number 2
+  { index: 26, name: 'number-2', property: 'numeral', row: 3, col: 5, collectable: false },
+  // Number 3
+  { index: 27, name: 'number-3', property: 'numeral', row: 3, col: 6, collectable: false },
+  // Number 4
+  { index: 28, name: 'number-4', property: 'numeral', row: 4, col: 0, collectable: false },
+  // Number 5
+  { index: 29, name: 'number-5', property: 'numeral', row: 4, col: 1, collectable: false },
+  // Number 6
+  { index: 30, name: 'number-6', property: 'numeral', row: 4, col: 2, collectable: false },
+  // Number 7
+  { index: 31, name: 'number-7', property: 'numeral', row: 4, col: 3, collectable: false },
+  // Number 8
+  { index: 32, name: 'number-8', property: 'numeral', row: 4, col: 4, collectable: false },
+  // Number 9
+  { index: 33, name: 'number-9', property: 'numeral', row: 4, col: 5, collectable: false },
+  // Number 0
+  { index: 34, name: 'number-0', property: 'numeral', row: 4, col: 6, collectable: false },
 ];
 
 /**
  * Get a random grapheme character from the unlocked set for drops.
+ * Only returns collectable graphemes (letters and punctuation, not numbers).
  * @returns {Object} A grapheme definition with index and property
  */
 export function getRandomGrapheme() {
@@ -557,7 +575,12 @@ export function getRandomGrapheme() {
     return { ...GRAPHEME_CHARACTERS[0] };
   }
   const randomUnlockedIndex = unlockedIndices[Math.floor(Math.random() * unlockedIndices.length)];
-  return { ...GRAPHEME_CHARACTERS[randomUnlockedIndex] };
+  const grapheme = GRAPHEME_CHARACTERS[randomUnlockedIndex];
+  // Safety check: ensure only collectable graphemes can be dropped
+  if (!grapheme.collectable) {
+    return { ...GRAPHEME_CHARACTERS[0] };
+  }
+  return { ...grapheme };
 }
 
 /**
@@ -677,6 +700,7 @@ export function getUnlockedGraphemes() {
 
 /**
  * Unlock the next grapheme in sequence.
+ * Only unlocks collectable graphemes (letters and punctuation, not numbers).
  * @returns {Object} Result with success status and the unlocked grapheme index
  */
 export function unlockNextGrapheme() {
@@ -686,25 +710,29 @@ export function unlockNextGrapheme() {
     return { success: false, message: 'Not enough Equivalence' };
   }
   
-  // Find the next grapheme to unlock
+  // Find the next collectable grapheme to unlock
+  const collectableGraphemes = GRAPHEME_CHARACTERS.filter(g => g.collectable);
   const nextIndex = shinState.unlockedGraphemes.length;
-  if (nextIndex >= GRAPHEME_CHARACTERS.length) {
+  if (nextIndex >= collectableGraphemes.length) {
     return { success: false, message: 'All graphemes already unlocked' };
   }
+  
+  // Get the actual index of the next collectable grapheme
+  const graphemeToUnlock = collectableGraphemes[nextIndex];
   
   // Spend the Equivalence
   shinState.equivalenceBank -= cost;
   
   // Unlock the grapheme
-  shinState.unlockedGraphemes.push(nextIndex);
+  shinState.unlockedGraphemes.push(graphemeToUnlock.index);
   
   // Multiply cost by 5 for next unlock
   shinState.graphemeUnlockCost = Math.floor(cost * 5);
   
   return {
     success: true,
-    unlockedIndex: nextIndex,
-    grapheme: GRAPHEME_CHARACTERS[nextIndex],
+    unlockedIndex: graphemeToUnlock.index,
+    grapheme: graphemeToUnlock,
     newCost: shinState.graphemeUnlockCost
   };
 }
