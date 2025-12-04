@@ -408,6 +408,9 @@ function createCardinalSimulation() {
     cardinalSimulation.setWeaponState(weaponState);
   }
   
+  // Sync any existing grapheme assignments to the simulation
+  syncGraphemeAssignmentsToSimulation();
+  
   // Set up click handler for phoneme collection
   setupPhonemeCollection();
 }
@@ -777,12 +780,19 @@ function updateWeaponsDisplay() {
   const activeWeaponIds = new Set(weapons.map(weapon => weapon.id));
 
   // Remove stale weapon cards if definitions change
+  let assignmentsChanged = false;
   for (const [weaponId, elements] of weaponElements.entries()) {
     if (!activeWeaponIds.has(weaponId)) {
       elements.container.remove();
       weaponElements.delete(weaponId);
       delete weaponGraphemeAssignments[weaponId];
+      assignmentsChanged = true;
     }
+  }
+
+  // Sync changes to simulation if any assignments were removed
+  if (assignmentsChanged) {
+    syncGraphemeAssignmentsToSimulation();
   }
 
   for (const weapon of weapons) {
@@ -1245,7 +1255,26 @@ function placeSelectedGrapheme(weaponId, slotIndex) {
   if (assignments[slotIndex]) return;
 
   assignments[slotIndex] = { ...selectedGrapheme };
+  syncGraphemeAssignmentsToSimulation();
   updateWeaponsDisplay();
+}
+
+/**
+ * Sync weapon grapheme assignments from UI to simulation.
+ * This propagates the player's grapheme placements to the Cardinal Warden simulation
+ * so they can be rendered as script below the warden.
+ * 
+ * This function should be called whenever:
+ * - A grapheme is placed in a weapon slot
+ * - A weapon slot is removed or cleared
+ * - The simulation is first initialized
+ * 
+ * @private
+ */
+function syncGraphemeAssignmentsToSimulation() {
+  if (!cardinalSimulation) return;
+  
+  cardinalSimulation.setWeaponGraphemeAssignments(weaponGraphemeAssignments);
 }
 
 function formatGraphemeSymbol(index) {
