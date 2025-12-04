@@ -1263,19 +1263,22 @@ function placeSelectedGrapheme(weaponId, slotIndex) {
   // Handle placing a new grapheme
   if (!selectedGrapheme) return;
 
-  // If slot is filled, return the old grapheme to inventory first
-  if (assignments[slotIndex]) {
-    const currentAssignment = assignments[slotIndex];
-    returnGrapheme(currentAssignment.index);
-  }
-
-  // Try to consume the new grapheme from inventory
+  // Try to consume the new grapheme from inventory first
   if (!consumeGrapheme(selectedGrapheme.index)) {
     // Not enough graphemes in inventory
     return;
   }
 
+  // Only after successfully consuming, return the old grapheme if slot was filled
+  if (assignments[slotIndex]) {
+    const currentAssignment = assignments[slotIndex];
+    returnGrapheme(currentAssignment.index);
+  }
+
+  // Assign the new grapheme to the slot
   assignments[slotIndex] = { ...selectedGrapheme };
+  
+  // Update UI
   clearSelectedGrapheme();
   syncGraphemeAssignmentsToSimulation();
   updateWeaponsDisplay();

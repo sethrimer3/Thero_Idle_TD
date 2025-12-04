@@ -33,8 +33,6 @@ let simulationGetter = () => null;
 
 // DOM element references cached after binding.
 let graphicsLevelButton = null;
-let panZoomToggle = null;
-let panZoomToggleState = null;
 let nightModeToggle = null;
 let nightModeToggleState = null;
 let enemyTrailLengthButton = null;

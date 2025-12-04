@@ -776,6 +776,11 @@ export function getDropChanceUpgradeLevel() {
  * @returns {boolean} True if the grapheme was successfully consumed
  */
 export function consumeGrapheme(index) {
+  // Validate index is within valid range
+  if (!Number.isInteger(index) || index < 0 || index >= GRAPHEME_CHARACTERS.length) {
+    return false;
+  }
+  
   // Find the first grapheme with matching index
   const graphemeIdx = shinState.graphemes.findIndex(g => g.index === index);
   if (graphemeIdx === -1) {
@@ -792,16 +797,18 @@ export function consumeGrapheme(index) {
  * @param {number} index - The index of the grapheme to return
  */
 export function returnGrapheme(index) {
-  const graphemeChar = GRAPHEME_CHARACTERS[index];
-  if (!graphemeChar) {
+  // Validate index is within valid range
+  if (!Number.isInteger(index) || index < 0 || index >= GRAPHEME_CHARACTERS.length) {
     return;
   }
+  
+  const graphemeChar = GRAPHEME_CHARACTERS[index];
   
   // Add grapheme back to inventory
   shinState.graphemeIdCounter += 1;
   const returned = {
     id: `grapheme-${shinState.graphemeIdCounter}`,
-    index: graphemeChar.index,
+    index: index,
     name: graphemeChar.name,
     property: graphemeChar.property,
     collectedAt: Date.now(),
