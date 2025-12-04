@@ -1202,6 +1202,9 @@ class MathBullet {
     // Geometric shape rotation for level 3+ bullets (random direction and speed)
     this.shapeRotation = 0;
     this.shapeRotationSpeed = (Math.random() - 0.5) * 8; // Random speed between -4 and 4 rad/s
+    
+    // ThoughtSpeak shape override (null = use level-based rendering)
+    this.thoughtSpeakShape = config.thoughtSpeakShape || null;
   }
 
   update(deltaTime) {
@@ -1331,6 +1334,7 @@ const WEAPON_SLOT_DEFINITIONS = {
     id: 'slot1',
     name: 'Weapon Slot 1',
     symbol: 'Ⅰ',
+    symbolGraphemeIndex: 25, // ThoughtSpeak number 1
     description: '',
     baseDamage: 1,
     baseSpeed: 200,
@@ -1343,6 +1347,7 @@ const WEAPON_SLOT_DEFINITIONS = {
     id: 'slot2',
     name: 'Weapon Slot 2',
     symbol: 'Ⅱ',
+    symbolGraphemeIndex: 26, // ThoughtSpeak number 2
     description: '',
     baseDamage: 1,
     baseSpeed: 200,
@@ -1355,6 +1360,7 @@ const WEAPON_SLOT_DEFINITIONS = {
     id: 'slot3',
     name: 'Weapon Slot 3',
     symbol: 'Ⅲ',
+    symbolGraphemeIndex: 27, // ThoughtSpeak number 3
     description: '',
     baseDamage: 1,
     baseSpeed: 200,
@@ -2281,6 +2287,7 @@ export class CardinalWardenSimulation {
   
   /**
    * Fire a simple bullet from a specific weapon slot toward the aim target.
+   * Applies ThoughtSpeak grapheme mechanics if the first grapheme (index 0) is present.
    */
   fireWeapon(weaponId) {
     if (!this.warden || !this.canvas) return;
@@ -2298,8 +2305,27 @@ export class CardinalWardenSimulation {
     }
     
     // Calculate stats based on level (for future lexeme upgrades)
-    const damageMultiplier = 1 + (level - 1) * 0.25;
+    let damageMultiplier = 1 + (level - 1) * 0.25;
     const speedMultiplier = 1 + (level - 1) * 0.1;
+    
+    // ThoughtSpeak mechanics: Check for first grapheme (index 0) in any slot
+    // Shape and damage multiplier based on slot position
+    let bulletShape = null; // null = circle (default), otherwise number of sides
+    const assignments = this.weaponGraphemeAssignments[weaponId] || [];
+    for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
+      const assignment = assignments[slotIndex];
+      if (assignment && assignment.index === 0) {
+        // First grapheme found! Apply slot-based mechanics
+        // Slot 0 = triangle (3 sides), 3x damage
+        // Slot 1 = pentagon (5 sides), 5x damage  
+        // Slot 2 = hexagon (6 sides), 6x damage
+        // Slot 3+ = continues pattern (7, 8, 9, 10, 11 sides)
+        const sidesMap = [3, 5, 6, 7, 8, 9, 10, 11];
+        bulletShape = sidesMap[slotIndex] || (slotIndex + 3);
+        damageMultiplier *= bulletShape; // 3x, 5x, 6x, 7x, 8x, 9x, 10x, 11x
+        break; // Only apply the first occurrence
+      }
+    }
 
     const resolvedColor = this.resolveBulletColor(weaponDef.color);
 
@@ -2312,8 +2338,9 @@ export class CardinalWardenSimulation {
       pattern: 'straight', // Simple straight pattern
       amplitude: 0, // No wave motion
       frequency: 0,
-      level: level,
+      level: bulletShape !== null ? bulletShape : level, // Use shape as level for rendering
       maxTrailLength: this.getBulletTrailMaxLength(),
+      thoughtSpeakShape: bulletShape, // Custom property for ThoughtSpeak shapes
     };
 
     // Calculate angle toward aim target (or straight up if no target)
@@ -3587,9 +3614,13 @@ export class CardinalWardenSimulation {
 
       // Get bullet level (default to 1 for backwards compatibility)
       const bulletLevel = bullet.level || 1;
+      
+      // ThoughtSpeak shape override - use if present
+      const effectiveShape = bullet.thoughtSpeakShape !== null ? bullet.thoughtSpeakShape : bulletLevel;
+      const hasShape = effectiveShape >= 3;
 
-      // Directional flare to emphasize travel direction (only shown on level 2+)
-      if (bulletLevel >= 2) {
+      // Directional flare to emphasize travel direction (only shown on level 2+ or when shape is present)
+      if (bulletLevel >= 2 || hasShape) {
         const heading = bullet.baseAngle !== undefined ? bullet.baseAngle : bullet.angle || -Math.PI / 2;
         const flareLength = bullet.size * 3.5;
         ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.65)' : 'rgba(0, 0, 0, 0.55)';
@@ -3600,17 +3631,19 @@ export class CardinalWardenSimulation {
         ctx.stroke();
       }
 
-      // Thin rim for a crisp silhouette.
-      ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.65)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(bullet.x, bullet.y, Math.max(1, bullet.size * 0.9), 0, Math.PI * 2);
-      ctx.stroke();
+      // Thin rim for a crisp silhouette (only if no shape)
+      if (!hasShape) {
+        ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.65)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(bullet.x, bullet.y, Math.max(1, bullet.size * 0.9), 0, Math.PI * 2);
+        ctx.stroke();
+      }
 
-      // Rotating geometric shapes for level 3+ (capped at level 12)
-      // Level 3 = triangle (3 sides), level 4 = square (4 sides), etc.
-      if (bulletLevel >= 3) {
-        const sides = Math.min(bulletLevel, 12); // Cap at 12 sides
+      // Rotating geometric shapes for level 3+ or ThoughtSpeak shapes (capped at level 12)
+      // Level/Shape 3 = triangle (3 sides), 4 = square (4 sides), 5 = pentagon, etc.
+      if (hasShape) {
+        const sides = Math.min(effectiveShape, 12); // Cap at 12 sides
         const shapeRadius = bullet.size * 2.2;
         const rotation = bullet.shapeRotation || 0;
         
