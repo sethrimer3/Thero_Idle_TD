@@ -676,40 +676,6 @@ export function getUnlockedGraphemes() {
 }
 
 /**
- * Consume a grapheme from the inventory (remove one instance).
- * @param {number} index - The index of the grapheme to consume
- * @returns {boolean} True if a grapheme was consumed, false if none available
- */
-export function consumeGrapheme(index) {
-  const graphemeIndex = shinState.graphemes.findIndex(g => g.index === index);
-  if (graphemeIndex === -1) {
-    return false;
-  }
-  shinState.graphemes.splice(graphemeIndex, 1);
-  return true;
-}
-
-/**
- * Return a grapheme to the inventory (add one instance back).
- * @param {number} index - The index of the grapheme to return
- */
-export function returnGrapheme(index) {
-  const definition = GRAPHEME_CHARACTERS[index];
-  if (!definition) {
-    return;
-  }
-  
-  const grapheme = {
-    id: `grapheme-${shinState.graphemeIdCounter++}`,
-    index: index,
-    name: definition.name,
-    property: definition.property,
-    collectedAt: Date.now(),
-  };
-  shinState.graphemes.push(grapheme);
-}
-
-/**
  * Unlock the next grapheme in sequence.
  * @returns {Object} Result with success status and the unlocked grapheme index
  */

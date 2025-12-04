@@ -29,8 +29,6 @@ import {
   getUnlockedGraphemes,
   getEquivalenceBank,
   getGraphemeCharacters,
-  consumeGrapheme,
-  returnGrapheme,
 } from './shinState.js';
 
 // Cardinal Warden simulation instance
@@ -150,10 +148,6 @@ function createGraphemeIconElement(index, rowOverride, colOverride, className = 
 
 /**
  * Draw a gold-tinted grapheme sprite onto the Cardinal canvas.
- * Note: The current sprite sheet (Script.png) appears to have characters on a 
- * light/white background, which makes them render as golden squares when tinted.
- * For proper rendering, the sprite sheet should have transparent backgrounds with
- * black/dark characters, or we render without tinting.
  */
 function renderGraphemeSprite(ctx, frame, centerX, centerY) {
   if (!shinScriptSpriteLoaded) {
@@ -169,9 +163,6 @@ function renderGraphemeSprite(ctx, frame, centerX, centerY) {
 
   ctx.save();
   ctx.imageSmoothingEnabled = true;
-  
-  // Draw the sprite without tinting for now, as the sprite sheet has light/white backgrounds
-  // which causes golden squares when using source-atop tinting
   ctx.drawImage(
     shinScriptSpriteImage,
     sourceX,
@@ -183,7 +174,10 @@ function renderGraphemeSprite(ctx, frame, centerX, centerY) {
     drawWidth,
     drawHeight
   );
-  
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.fillStyle = SHIN_SCRIPT_SPRITE.tint;
+  ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
+  ctx.globalCompositeOperation = 'source-over';
   ctx.restore();
   return true;
 }
@@ -1248,42 +1242,16 @@ function clearSelectedGrapheme() {
 }
 
 function placeSelectedGrapheme(weaponId, slotIndex) {
+  if (!selectedGrapheme) return;
+
   const assignments = ensureWeaponAssignments(weaponId);
-  const currentAssignment = assignments[slotIndex];
+  if (assignments[slotIndex]) return;
+
+  assignments[slotIndex] = { ...selectedGrapheme };
+  updateWeaponsDisplay();
   
-  // If no grapheme is selected, remove the current assignment
-  if (!selectedGrapheme) {
-    if (currentAssignment) {
-      // Return the grapheme to inventory
-      returnGrapheme(currentAssignment.index);
-      assignments[slotIndex] = null;
-      updateWeaponsDisplay();
-      syncGraphemeAssignmentsToSimulation();
-      updatePhonemeInventoryDisplay();
-    }
-    return;
-  }
-  
-  // Check if we have this grapheme in inventory
-  const counts = getPhonemeCountsByChar();
-  if (!counts[selectedGrapheme.index] || counts[selectedGrapheme.index] <= 0) {
-    console.warn(`No graphemes of type ${selectedGrapheme.index} (${selectedGrapheme.title || 'unknown'}) available in inventory`);
-    return;
-  }
-  
-  // If there's already a grapheme in this slot, return it to inventory
-  if (currentAssignment) {
-    returnGrapheme(currentAssignment.index);
-  }
-  
-  // Consume the grapheme from inventory
-  if (consumeGrapheme(selectedGrapheme.index)) {
-    // Place the new grapheme
-    assignments[slotIndex] = { ...selectedGrapheme };
-    updateWeaponsDisplay();
-    syncGraphemeAssignmentsToSimulation();
-    updatePhonemeInventoryDisplay();
-  }
+  // Update simulation with new grapheme assignments
+  syncGraphemeAssignmentsToSimulation();
 }
 
 /**
