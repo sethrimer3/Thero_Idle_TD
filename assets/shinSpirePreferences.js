@@ -22,6 +22,7 @@ const TRAIL_LENGTH_OPTIONS = Object.freeze({
 // Default settings when no preferences are stored.
 const DEFAULT_SETTINGS = Object.freeze({
   graphicsLevel: SHIN_GRAPHICS_LEVELS.HIGH,
+  animatedGrowth: true,
   panZoomEnabled: true,
   nightMode: true,
   enemyTrailLength: TRAIL_LENGTH_OPTIONS.LONG,
@@ -33,6 +34,8 @@ let simulationGetter = () => null;
 
 // DOM element references cached after binding.
 let graphicsLevelButton = null;
+let animatedGrowthToggle = null;
+let animatedGrowthToggleState = null;
 let panZoomToggle = null;
 let panZoomToggleState = null;
 let nightModeToggle = null;
@@ -118,6 +121,11 @@ function applySettingsToSimulation() {
       growthRate,
       growthAnimationSpeed,
     });
+  }
+
+  // Control animated growth if the simulation supports it.
+  if (typeof simulation.setAnimatedGrowth === 'function') {
+    simulation.setAnimatedGrowth(settings.animatedGrowth);
   }
 
   // Control pan/zoom if the simulation supports it.
@@ -269,6 +277,7 @@ function syncToggleState(input, stateLabel, enabled) {
  * Refresh all toggle UI elements from the current settings state.
  */
 function syncAllToggles() {
+  syncToggleState(animatedGrowthToggle, animatedGrowthToggleState, settings.animatedGrowth);
   syncToggleState(panZoomToggle, panZoomToggleState, settings.panZoomEnabled);
   syncToggleState(nightModeToggle, nightModeToggleState, settings.nightMode);
 }
@@ -287,6 +296,8 @@ function applySetting(key, value) {
  */
 export function bindShinSpireOptions() {
   graphicsLevelButton = document.getElementById('shin-graphics-level-button');
+  animatedGrowthToggle = document.getElementById('shin-animated-growth-toggle');
+  animatedGrowthToggleState = document.getElementById('shin-animated-growth-toggle-state');
   panZoomToggle = document.getElementById('shin-pan-zoom-toggle');
   panZoomToggleState = document.getElementById('shin-pan-zoom-toggle-state');
   nightModeToggle = document.getElementById('shin-night-mode-toggle');
@@ -295,6 +306,13 @@ export function bindShinSpireOptions() {
   if (graphicsLevelButton) {
     graphicsLevelButton.addEventListener('click', cycleGraphicsLevel);
     syncGraphicsLevelButton();
+  }
+
+  if (animatedGrowthToggle) {
+    animatedGrowthToggle.addEventListener('change', (event) => {
+      applySetting('animatedGrowth', event.target.checked);
+      syncToggleState(animatedGrowthToggle, animatedGrowthToggleState, settings.animatedGrowth);
+    });
   }
 
   if (panZoomToggle) {

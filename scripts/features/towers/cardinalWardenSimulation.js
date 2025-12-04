@@ -1547,10 +1547,6 @@ export class CardinalWardenSimulation {
     // Maximum number of weapons that can be equipped simultaneously (always 3)
     this.maxEquippedWeapons = 3;
     
-    // Weapon grapheme assignments - each weapon has array of grapheme indices (or null)
-    // Format: { slot1: [index1, index2, ...], slot2: [...], slot3: [...] }
-    this.weaponGraphemeAssignments = options.weaponGraphemeAssignments || {};
-    
     // Weapon-specific timers (each slot has its own fire rate)
     this.weaponTimers = {
       slot1: 0,
@@ -1670,12 +1666,6 @@ export class CardinalWardenSimulation {
    */
   renderScriptChar(ctx, charIndex, x, y, size) {
     if (!this.scriptSpriteLoaded || !this.scriptSpriteSheet) return;
-    
-    // Validate charIndex bounds for 7x5 sprite sheet (0-34)
-    const maxIndex = (this.scriptCols * this.scriptRows) - 1;
-    if (charIndex < 0 || charIndex > maxIndex || !Number.isInteger(charIndex)) {
-      return; // Skip invalid indices silently
-    }
 
     const sheet = this.tintedScriptSheet || this.scriptSpriteSheet;
     const col = charIndex % this.scriptCols;
@@ -1697,9 +1687,8 @@ export class CardinalWardenSimulation {
   }
 
   /**
-   * Render script characters from weapon grapheme assignments below the warden.
-   * Shows 3 lines of script corresponding to the 3 weapon slots.
-   * Each line displays the graphemes assigned to that weapon slot.
+   * Render the Cardinal Warden's name in script font below the warden.
+   * First 7 characters on line 1, then 3 characters on line 2.
    */
   renderWardenName() {
     if (!this.ctx || !this.warden || !this.scriptSpriteLoaded) return;
@@ -1713,35 +1702,27 @@ export class CardinalWardenSimulation {
     const lineSpacing = charSize * 1.1;
 
     // Position just below the warden's outermost ring
+    // The warden is at 75% canvas height, so we need to calculate carefully
     const canvasHeight = this.canvas ? this.canvas.height : 600;
     const spaceBelow = canvasHeight - warden.y;
+    // Place name within the remaining space, closer to the warden
     const nameStartY = warden.y + Math.min(70, spaceBelow * 0.4);
 
-    // Get weapon grapheme assignments from weapon slots
-    const assignments = this.weaponGraphemeAssignments || {};
-    // Generate slot names based on maxEquippedWeapons to stay consistent
-    const weaponSlots = Array.from({ length: this.maxEquippedWeapons }, (_, i) => `slot${i + 1}`);
+    // First line: 7 characters (indices 0-6)
+    const line1Chars = 7;
+    const line1StartX = warden.x - ((line1Chars - 1) * charSpacing) / 2;
 
-    // Render each weapon slot's graphemes as a line
-    for (let slotIdx = 0; slotIdx < weaponSlots.length; slotIdx++) {
-      const slotId = weaponSlots[slotIdx];
-      const graphemes = assignments[slotId] || [];
-      
-      // Filter out null/undefined entries
-      const validGraphemes = graphemes.filter(g => g !== null && g !== undefined);
-      
-      if (validGraphemes.length === 0) {
-        continue; // Skip empty lines
-      }
+    for (let i = 0; i < line1Chars; i++) {
+      this.renderScriptChar(ctx, i, line1StartX + i * charSpacing, nameStartY, charSize);
+    }
 
-      const lineY = nameStartY + (slotIdx * lineSpacing);
-      const lineStartX = warden.x - ((validGraphemes.length - 1) * charSpacing) / 2;
+    // Second line: 3 characters (indices 7-9)
+    const line2Chars = 3;
+    const line2StartX = warden.x - ((line2Chars - 1) * charSpacing) / 2;
+    const line2Y = nameStartY + lineSpacing;
 
-      // Render each grapheme in the line
-      for (let i = 0; i < validGraphemes.length; i++) {
-        const graphemeIndex = validGraphemes[i];
-        this.renderScriptChar(ctx, graphemeIndex, lineStartX + i * charSpacing, lineY, charSize);
-      }
+    for (let i = 0; i < line2Chars; i++) {
+      this.renderScriptChar(ctx, 7 + i, line2StartX + i * charSpacing, line2Y, charSize);
     }
   }
 
@@ -4021,21 +4002,5 @@ export class CardinalWardenSimulation {
         this.weaponPhases[weaponId] = 0; // Ensure phase accumulator exists after loading state.
       }
     }
-  }
-  
-  /**
-   * Set weapon grapheme assignments for rendering below the warden.
-   * @param {Object} assignments - Object mapping weapon IDs to arrays of grapheme indices
-   */
-  setWeaponGraphemeAssignments(assignments) {
-    this.weaponGraphemeAssignments = assignments || {};
-  }
-  
-  /**
-   * Get current weapon grapheme assignments.
-   * @returns {Object} Object mapping weapon IDs to arrays of grapheme indices
-   */
-  getWeaponGraphemeAssignments() {
-    return this.weaponGraphemeAssignments || {};
   }
 }
