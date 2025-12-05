@@ -183,10 +183,13 @@
     }
     
     toggleMinesBtn.addEventListener('click', () => {
+      minesActive = !minesActive;
       if (game) {
         if (minesActive) {
           game.weaponGraphemeAssignments.slot1 = [
-            { index: 12, label: 'M' }
+            { index: 12, label: 'M' },
+            null, null, null, null, null, null,
+            { index: 1, label: 'B' }
           ];
         } else {
           game.weaponGraphemeAssignments.slot1 = [];

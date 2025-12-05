@@ -3854,16 +3854,8 @@ export class CardinalWardenSimulation {
       }
     }
     
-    // Check for grapheme M (index 12) - Drifting mines
-    let mineMode = false;
-    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
-      const assignment = effectiveAssignments[slotIndex];
-      if (assignment && assignment.index === GRAPHEME_INDEX.M) {
-        // Grapheme M found! Mine mode activated
-        mineMode = true;
-        break; // Only apply the first occurrence
-      }
-    }
+    // Note: Grapheme M (mines) spawning is handled separately in updateWeaponTimers()
+    // Mines are spawned alongside bullets, not instead of them
     
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
