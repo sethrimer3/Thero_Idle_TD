@@ -39,6 +39,9 @@
  * - Grapheme 9 (J): Elemental effects - burning or freezing based on slot position
  *   - Slots 0-3: Burning effect - 5% max health damage per second with red particles
  *   - Slots 4-7: Freeze effect - 0.5 second freeze (ice blue color), refreshes on hit
+ * - Grapheme 10 (K): Massive bullet mechanics - slot position determines behavior
+ *   - Slots 0-6 (indices 0-6): Fires one massive bullet (20x damage, 20x diameter, 1/10 speed, unlimited pierce, inflicts all effects, 1/20 attack speed)
+ *   - Slot 8 (index 7): Simple attack speed increase (10x faster)
  */
 
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
@@ -58,6 +61,7 @@ const GRAPHEME_INDEX = {
   H: 7,            // Weapon targeting (formerly Theta)
   I: 8,            // Spread bullets (formerly Iota)
   J: 9,            // Elemental effects (burning/freezing)
+  K: 10,           // Massive bullet (slots 0-6) or attack speed boost (slot 7)
 };
 
 /**
@@ -104,6 +108,21 @@ const ELEMENTAL_CONFIG = {
   // Freeze effect (slots 4-7)
   FREEZE_DURATION: 0.5,             // Freeze lasts 0.5 seconds
   FREEZE_COLOR: '#88ccff',          // Ice blue color
+};
+
+/**
+ * Massive bullet mechanics constants for grapheme K (index 10).
+ */
+const MASSIVE_BULLET_CONFIG = {
+  // Slots 0-6: Massive bullet mode
+  ATTACK_SPEED_DIVISOR: 20,        // Attack speed reduced by factor of 20
+  DAMAGE_MULTIPLIER: 20,           // Damage increased by 20x
+  SIZE_MULTIPLIER: 20,             // Bullet diameter increased by 20x
+  SPEED_DIVISOR: 10,               // Bullet speed reduced by factor of 10
+  // Note: Unlimited pierce and inflicts all effects automatically
+  
+  // Slot 7 (index 7): Speed boost mode
+  SPEED_BOOST_MULTIPLIER: 10,      // Attack speed increased by 10x
 };
 
 /**
@@ -3152,20 +3171,40 @@ export class CardinalWardenSimulation {
   }
   
   /**
-   * Calculate fire rate multiplier from second grapheme (index 1) in effective assignments.
+   * Calculate fire rate multiplier from second grapheme (index 1) and grapheme K (index 10) in effective assignments.
    * @param {Array} effectiveAssignments - The effective grapheme assignments for a weapon
    * @returns {number} Fire rate multiplier (1 = no change, 2 = 2x faster, etc.)
    */
   calculateFireRateMultiplier(effectiveAssignments) {
+    let baseMultiplier = 1;
+    
+    // Check for grapheme B (index 1) - fire rate based on slot
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === 1) {
         // Second grapheme found! Fire rate multiplier based on slot position
         // Slot 0 = 1x (no change), Slot 1 = 2x faster, Slot 2 = 3x faster, etc.
-        return slotIndex + 1;
+        baseMultiplier = slotIndex + 1;
+        break;
       }
     }
-    return 1; // Default: no multiplier
+    
+    // Check for grapheme K (index 10) - massive bullet or speed boost
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.K) {
+        if (slotIndex === 7) {
+          // Slot 8 (index 7): Speed boost mode - 10x attack speed
+          baseMultiplier *= MASSIVE_BULLET_CONFIG.SPEED_BOOST_MULTIPLIER;
+        } else {
+          // Slots 1-7 (indices 0-6): Massive bullet mode - 1/20 attack speed
+          baseMultiplier /= MASSIVE_BULLET_CONFIG.ATTACK_SPEED_DIVISOR;
+        }
+        break;
+      }
+    }
+    
+    return baseMultiplier;
   }
   
   /**
@@ -3477,6 +3516,23 @@ export class CardinalWardenSimulation {
       }
     }
     
+    // Check for eleventh grapheme (index 10 - K) - Massive bullet or speed boost
+    let massiveBulletMode = false;
+    let massiveBulletSlot = -1;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.K) {
+        // Eleventh grapheme found! Mode based on slot position
+        // Slots 0-6 (indices 0-6): Massive bullet mode
+        // Slot 8 (index 7): Speed boost only (already handled in fire rate calculation)
+        if (slotIndex !== 7) {
+          massiveBulletMode = true;
+          massiveBulletSlot = slotIndex;
+        }
+        break; // Only apply the first occurrence
+      }
+    }
+    
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === 0) {
@@ -3514,6 +3570,17 @@ export class CardinalWardenSimulation {
       waveRadius: waveRadius, // Seventh grapheme - max radius of expanding wave
       elementalEffect: elementalEffect, // Tenth grapheme - burning or freezing effect
     };
+    
+    // Apply massive bullet modifications if grapheme K is in slots 0-6
+    if (massiveBulletMode) {
+      bulletConfig.damage *= MASSIVE_BULLET_CONFIG.DAMAGE_MULTIPLIER;
+      bulletConfig.size *= MASSIVE_BULLET_CONFIG.SIZE_MULTIPLIER;
+      bulletConfig.speed /= MASSIVE_BULLET_CONFIG.SPEED_DIVISOR;
+      bulletConfig.piercing = true;
+      bulletConfig.piercingLimit = 0; // Unlimited pierce
+      // The bullet will apply all effects it touches (elemental effects already configured)
+      // hasWaveEffect and elementalEffect are preserved from other graphemes
+    }
 
     // Calculate angle toward aim target (or straight up if no target)
     let baseAngle = -Math.PI / 2; // Default: straight up
@@ -3523,8 +3590,8 @@ export class CardinalWardenSimulation {
       baseAngle = Math.atan2(dy, dx);
     }
     
-    // Spawn bullets based on spread count
-    if (spreadBulletCount > 0) {
+    // Spawn bullets based on spread count (disabled in massive bullet mode)
+    if (spreadBulletCount > 0 && !massiveBulletMode) {
       // Spawn multiple bullets in a spread pattern
       // Total bullets = 1 (center) + spreadBulletCount (extras)
       const totalBullets = 1 + spreadBulletCount;
@@ -3543,7 +3610,7 @@ export class CardinalWardenSimulation {
         }));
       }
     } else {
-      // Spawn a simple bullet toward the target
+      // Spawn a single bullet toward the target (or massive bullet in grapheme K mode)
       this.bullets.push(new MathBullet(cx, cy - 20, baseAngle, {
         ...bulletConfig,
         phase: 0,
