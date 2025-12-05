@@ -13,6 +13,20 @@
  * - Progressive difficulty scaling (speed, health, damage, variety)
  * - Score tracking with high score persistence
  * - Reset on death with difficulty restart
+ *
+ * Grapheme System:
+ * Each weapon has up to 8 grapheme slots (0-7) where lexemes can be placed to modify behavior.
+ * 
+ * - Grapheme 0 (Alpha): ThoughtSpeak - Shape and damage multiplier based on slot
+ * - Grapheme 1 (Beta): Fire rate multiplier based on slot position
+ * - Grapheme 2 (Gamma): Spawns friendly ships, deactivates graphemes to the RIGHT
+ * - Grapheme 3 (Delta): Shield regeneration based on slot position and attack speed
+ * - Grapheme 4 (Epsilon): Lightning movement - straight/zigzag/spiral based on slot
+ * - Grapheme 5 (Zeta): Piercing and trail passthrough based on slot position
+ * - Grapheme 6 (Eta): Slow splash damage - expanding wave on hit, deactivates graphemes to the LEFT
+ *   - Wave radius: (canvas.width / 10) × (slot + 1)
+ *   - Wave damage: 10% of shot damage
+ *   - Wave expansion: 3 seconds to reach max radius
  */
 
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
@@ -3927,8 +3941,9 @@ export class CardinalWardenSimulation {
         const dy = wave.y - enemy.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         
-        // Check if enemy is touching the wave ring (within a small threshold)
-        const ringThickness = 5; // Pixels of thickness for the wave ring
+        // Check if enemy is touching the wave ring
+        // Ring thickness includes enemy size for better collision detection
+        const ringThickness = 10 + (enemy.size || 8);
         const distFromRing = Math.abs(dist - wave.currentRadius);
         
         if (distFromRing < ringThickness && dist < wave.maxRadius) {
@@ -3949,7 +3964,8 @@ export class CardinalWardenSimulation {
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         // Check if boss is touching the wave ring
-        const ringThickness = 5;
+        // Ring thickness includes boss size for better collision detection
+        const ringThickness = 10 + (boss.size || 12);
         const distFromRing = Math.abs(dist - wave.currentRadius);
         
         if (distFromRing < ringThickness && dist < wave.maxRadius) {
