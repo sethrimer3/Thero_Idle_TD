@@ -31,6 +31,11 @@
  * - Grapheme 7 (H): Weapon targeting - draws target indicator on specific enemies
  *   - Slots 0-3: Target lowest enemy (closest to bottom of render)
  *   - Slots 4-7: Target lowest boss-class enemy
+ * - Grapheme 8 (I): Spread bullets - fires multiple bullets in a cone pattern
+ *   - Slots 1 and 8 (indices 0,7): +2 extra bullets (3 total)
+ *   - Slots 2 and 7 (indices 1,6): +4 extra bullets (5 total)
+ *   - Slots 3 and 6 (indices 2,5): +6 extra bullets (7 total)
+ *   - Slots 4 and 5 (indices 3,4): +8 extra bullets (9 total)
  */
 
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
@@ -48,6 +53,7 @@ const GRAPHEME_INDEX = {
   F: 5,            // Piercing and trail passthrough (formerly Zeta)
   G: 6,            // Expanding waves, deactivates LEFT (formerly Eta)
   H: 7,            // Weapon targeting (formerly Theta)
+  I: 8,            // Spread bullets (formerly Iota)
 };
 
 /**
@@ -3094,6 +3100,35 @@ export class CardinalWardenSimulation {
       this.weaponTargets[weaponId] = null;
     }
     
+    // Check for ninth grapheme (index 8 - I) - Spread bullets
+    let spreadBulletCount = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === 8) {
+        // Ninth grapheme found! Extra bullets based on slot position (0-indexed)
+        // Slot 0 (position 1): add 2 bullets
+        // Slot 1 (position 2): add 4 bullets
+        // Slot 2 (position 3): add 6 bullets
+        // Slot 3 (position 4): add 8 bullets
+        // Slot 4 (position 5): add 8 bullets
+        // Slot 5 (position 6): add 6 bullets
+        // Slot 6 (position 7): add 4 bullets
+        // Slot 7 (position 8): add 2 bullets
+        // Mirror pattern around center: slots 3 and 4 have max bullets
+        const distanceFromCenter = Math.abs(slotIndex - 3.5);
+        if (distanceFromCenter >= 3.5) {
+          spreadBulletCount = 2;
+        } else if (distanceFromCenter >= 2.5) {
+          spreadBulletCount = 4;
+        } else if (distanceFromCenter >= 1.5) {
+          spreadBulletCount = 6;
+        } else {
+          spreadBulletCount = 8;
+        }
+        break; // Only apply the first occurrence
+      }
+    }
+    
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === 0) {
@@ -3139,11 +3174,32 @@ export class CardinalWardenSimulation {
       baseAngle = Math.atan2(dy, dx);
     }
     
-    // Spawn a simple bullet toward the target
-    this.bullets.push(new MathBullet(cx, cy - 20, baseAngle, {
-      ...bulletConfig,
-      phase: 0,
-    }));
+    // Spawn bullets based on spread count
+    if (spreadBulletCount > 0) {
+      // Spawn multiple bullets in a spread pattern
+      // Total bullets = 1 (center) + spreadBulletCount (extras)
+      const totalBullets = 1 + spreadBulletCount;
+      
+      // Calculate spread angle (in radians)
+      // Spread out evenly across a cone, wider spread for more bullets
+      const spreadAngle = Math.PI / 6; // 30 degrees total spread
+      const angleStep = spreadAngle / (totalBullets - 1);
+      const startAngle = baseAngle - (spreadAngle / 2);
+      
+      for (let i = 0; i < totalBullets; i++) {
+        const bulletAngle = startAngle + (i * angleStep);
+        this.bullets.push(new MathBullet(cx, cy - 20, bulletAngle, {
+          ...bulletConfig,
+          phase: 0,
+        }));
+      }
+    } else {
+      // Spawn a simple bullet toward the target
+      this.bullets.push(new MathBullet(cx, cy - 20, baseAngle, {
+        ...bulletConfig,
+        phase: 0,
+      }));
+    }
   }
   
   /**
