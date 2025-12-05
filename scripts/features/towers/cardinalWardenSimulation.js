@@ -1090,7 +1090,9 @@ class Bullet {
     this.baseColor = config.baseColor || config.color || '#d4af37';
     this.color = config.color || this.baseColor;
     this.piercing = config.piercing || false;
+    this.piercingLimit = config.piercingLimit || 0; // Max number of targets (enemies + bosses) to hit (0 = unlimited)
     this.hitEnemies = new Set();
+    this.hitBosses = new Set();
     this.trail = [];
     this.age = 0;
     this.lastTrailBounceTime = -Infinity;
@@ -1330,6 +1332,9 @@ class MathBullet {
 
     // Track pierced targets so mathematical bullets respect single-hit collisions.
     this.hitEnemies = new Set();
+    this.hitBosses = new Set();
+    this.piercing = config.piercing || false;
+    this.piercingLimit = config.piercingLimit || 0; // Max number of targets (enemies + bosses) to hit (0 = unlimited)
     
     // Weapon level for visual effects (default 1 for backwards compatibility)
     this.level = config.level || 1;
@@ -2876,6 +2881,21 @@ export class CardinalWardenSimulation {
       }
     }
     
+    // Check for sixth grapheme (index 5 - Zeta) - Pierce and trail passthrough
+    let piercingCount = 0;
+    let bounceOnTrails = true; // Default: bullets bounce off trails
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === 5) {
+        // Sixth grapheme found! Pierce based on slot position
+        // Slot 0 = +1 pierce, slot 1 = +2 pierce, slot 2 = +3 pierce, etc.
+        piercingCount = slotIndex + 1;
+        // When this grapheme is equipped, bullets pass through enemy trails without bouncing
+        bounceOnTrails = false;
+        break; // Only apply the first occurrence
+      }
+    }
+    
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === 0) {
@@ -2906,6 +2926,9 @@ export class CardinalWardenSimulation {
       maxTrailLength: this.getBulletTrailMaxLength(),
       thoughtSpeakShape: bulletShape, // Custom property for ThoughtSpeak shapes
       epsilonBehavior: epsilonBehavior, // Fifth grapheme behavior
+      piercing: piercingCount > 0, // Sixth grapheme - enable piercing
+      piercingLimit: piercingCount, // Sixth grapheme - max pierce count based on slot (0 = unlimited)
+      bounceOnTrails: bounceOnTrails, // Sixth grapheme - disable trail bouncing when present
     };
 
     // Calculate angle toward aim target (or straight up if no target)
@@ -3611,6 +3634,13 @@ export class CardinalWardenSimulation {
 
           if (bullet.piercing) {
             hitEnemies.add(ei);
+            // Check if piercing limit has been reached (0 = unlimited)
+            // Count total hits including both enemies and bosses
+            const totalHits = bullet.hitEnemies.size + bullet.hitBosses.size;
+            if (bullet.piercingLimit > 0 && totalHits >= bullet.piercingLimit) {
+              bulletsToRemove.add(bi);
+              break;
+            }
           } else {
             bulletsToRemove.add(bi);
             break;
@@ -3660,6 +3690,13 @@ export class CardinalWardenSimulation {
 
           if (bullet.piercing) {
             hitBosses.add(boi);
+            // Check if piercing limit has been reached (0 = unlimited)
+            // Count total hits across both enemies and bosses
+            const totalHits = bullet.hitEnemies.size + bullet.hitBosses.size;
+            if (bullet.piercingLimit > 0 && totalHits >= bullet.piercingLimit) {
+              bulletsToRemove.add(bi);
+              break;
+            }
           } else {
             bulletsToRemove.add(bi);
             break;

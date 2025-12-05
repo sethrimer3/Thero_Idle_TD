@@ -9,6 +9,126 @@ The **Shin Spire** is a "Translation" spire where players collect phonemes from 
 3. **Words** – Two morphemes merged together
 4. **Grammar** – Three-word sentences for maximum power
 
+## Danmaku Render (Reverse Bullet Hell)
+
+The **Shin Spire** features a unique "reverse danmaku" gameplay mode called the **Cardinal Warden Simulation**. Instead of controlling a small ship dodging bullets, you play as a powerful boss (the Cardinal Warden) fighting off waves of incoming enemy ships.
+
+### The Cardinal Warden
+
+The **Cardinal Warden** is your player character in this reverse bullet-hell game:
+
+- **Visual Design:** A golden orb at the center surrounded by 8 rotating squares
+- **Ring Squares:** Multiple large rotating squares create a layered, ring-like effect around the warden
+- **Position:** Fixed near the bottom-center of the screen (approximately 75% down from the top)
+- **Health System:** Has a health bar displayed at the bottom center, can be damaged by enemy collisions or when enemies pass through
+- **Defense System:** Represented by 5 life lines at the bottom of the screen (each line represents 2 lives: solid → dashed → gone)
+- **Script Label:** The warden's name is displayed in ThoughtSpeak script below its position
+
+### Enemy Ships
+
+Enemy ships spawn from the top of the screen and move downward in various patterns:
+
+- **Basic Enemies:** Simple triangular ships that accelerate smoothly toward target points
+- **Weaving Enemies:** Ships that follow sine wave patterns while moving downward
+- **Ricochet Skimmers:** Diagonal-moving ships with thin trails that bounce off arena walls
+- **Boss Ships:** Large, powerful enemies with unique geometries:
+  - **Circle Carrier:** Large rotating circle that spawns smaller ships in a radial pattern
+  - **Pyramid Boss:** Triangular ship that moves in sudden bursts
+  - **Hexagon Fortress:** Massive hexagonal ship with regenerating health shield
+
+### Enemy Trails
+
+All enemy ships leave behind:
+- **Inky Trails:** Semi-transparent path trails showing recent positions
+- **Smoke Puffs:** Exhaust particles emitted from the ship's rear
+- **Trail Physics:** By default, bullets bounce off enemy trails (strategic aiming mechanic)
+
+### Three Weapon Slots
+
+The Cardinal Warden has **three weapon slots**, each with **8 grapheme slots** for customization:
+
+#### Weapon Slot 1 (Left)
+- **Symbol:** `⟨`
+- **Color:** Cyan (`#7ec8e3`)
+- **Description:** "Left bracket weapon - fires toward aim target"
+- **Base Stats:** 
+  - Fire Rate: 500ms between shots
+  - Bullet Speed: 250 px/s
+  - Damage: 1.5
+
+#### Weapon Slot 2 (Center)
+- **Symbol:** `|`
+- **Color:** Golden (`#d4af37`)
+- **Description:** "Center line weapon - fires toward aim target"
+- **Base Stats:**
+  - Fire Rate: 450ms between shots
+  - Bullet Speed: 280 px/s
+  - Damage: 2.0
+
+#### Weapon Slot 3 (Right)
+- **Symbol:** `⟩`
+- **Color:** Magenta (`#e377c2`)
+- **Description:** "Right bracket weapon - fires toward aim target"
+- **Base Stats:**
+  - Fire Rate: 550ms between shots
+  - Bullet Speed: 230 px/s
+  - Damage: 1.8
+
+#### Grapheme Slot System
+
+Each weapon has **8 slots** (indexed 0-7) where graphemes can be placed:
+- **Slot 0:** First slot - leftmost position
+- **Slot 1-6:** Middle slots
+- **Slot 7:** Last slot - rightmost position
+
+Graphemes placed in different slots have different effects based on their slot position. The slot number directly influences the grapheme's behavior, creating a strategic positioning system where placement matters as much as selection.
+
+### ThoughtSpeak Script (Script.png)
+
+The grapheme system uses a custom script language rendered from a sprite sheet located at:
+`/assets/sprites/spires/shinSpire/Script.png`
+
+#### Script Layout
+
+The sprite sheet contains **35 unique characters** arranged in a **7×5 grid**:
+
+- **Rows 0-2 (Indices 0-19):** 20 Letters - These are **collectable graphemes** that drop from enemies
+- **Row 3 (Indices 20-24):** 5 Punctuation marks - Also **collectable graphemes**
+- **Rows 3-4 (Indices 25-34):** 10 Numbers (0-9) - **NOT collectable**, used for UI display only
+
+#### Sprite Rendering
+
+Each grapheme character is rendered by:
+1. Looking up the character's index (0-34)
+2. Calculating its grid position: `row = floor(index / 7)`, `col = index % 7`
+3. Drawing the corresponding sprite from Script.png at the calculated grid position
+4. Characters are spaced evenly and rendered in golden colors matching the game's aesthetic
+
+#### Character Properties
+
+Each collectable grapheme (indices 0-24) has:
+- **Index:** Unique identifier (0-24)
+- **Name:** Greek letter or symbol name (e.g., "alpha", "beta", "gamma")
+- **Property:** Gameplay effect type (e.g., "fire", "pierce", "speed")
+- **Row/Col:** Position in the sprite sheet grid
+- **Collectable:** Boolean flag (always true for indices 0-24)
+
+### Aiming System
+
+Players control where the Cardinal Warden fires by:
+- **Click/Tap:** Setting an aim target position on the screen
+- **Aim Target Indicator:** A golden crosshair symbol shows where weapons will fire
+- **Bullets:** Fire toward the aim target from each active weapon slot
+
+### Visual Rendering
+
+The danmaku render features a clean, minimalist aesthetic:
+- **Background:** Pure white (day mode) or dark (`#0f1116` in night mode)
+- **Bullets:** Golden glow with geometric shapes based on grapheme configuration
+- **Enemy Colors:** Dark ships (basic) or white (night mode) with colored health bars
+- **UI Elements:** Scholarly typography using "Cormorant Garamond" font
+- **Mathematical Theme:** Greek letters, geometric patterns, and chalk-on-blackboard aesthetic
+
 ## Core Mechanics
 
 ### Phoneme Collection
@@ -103,6 +223,23 @@ Each grapheme (script character) has unique effects based on its position in a w
   - Bullets only disappear when they reach the top edge of the render area
   - Creates a defensive spiral screen that can catch enemies at various distances
   - Pattern expands continuously, creating wider coverage over time
+
+#### Index 5 - Zeta (Spread/Pierce)
+- **Effect:** Grants piercing ability and trail passthrough based on slot position
+- **Pierce Count:**
+  - Slot 0: +1 pierce (hits 1 enemy before disappearing)
+  - Slot 1: +2 pierce (hits 2 enemies before disappearing)
+  - Slot 2: +3 pierce (hits 3 enemies before disappearing)
+  - Slot 3-7: Continues pattern (+4, +5, +6, +7, +8 pierce)
+- **Special Mechanic: Trail Passthrough**
+  - When this grapheme is equipped, bullets **pass through enemy trails** without bouncing off them
+  - Normally, bullets bounce off enemy trails to reward strategic aiming
+  - With Zeta equipped, bullets ignore trails completely and maintain their trajectory
+  - Useful for guaranteed hits through dense enemy formations
+- **Strategic Use:**
+  - Higher slot positions allow bullets to pierce through multiple enemies
+  - Trail passthrough enables direct damage to enemies behind trails
+  - Combines well with high damage graphemes for maximum multi-target efficiency
 
 ## Implementation Notes
 
