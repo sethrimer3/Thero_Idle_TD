@@ -1458,7 +1458,7 @@ const WEAPON_SLOT_IDS = ['slot1', 'slot2', 'slot3'];
 /**
  * Simplified weapon definitions for the Cardinal Warden.
  * Three weapons that fire simple bullets toward the click target.
- * Later, lexemes can be placed into the 8 grapheme slots of each weapon to modify behavior.
+ * Each weapon has 8 grapheme slots where lexemes can be placed to modify behavior.
  */
 const WEAPON_SLOT_DEFINITIONS = {
   slot1: {
@@ -1713,7 +1713,7 @@ export class CardinalWardenSimulation {
     };
 
     // Weapon grapheme assignments for dynamic script rendering
-    // Each weapon has up to 8 grapheme slots
+    // Each weapon has up to 8 grapheme slots for lexeme placement
     this.weaponGraphemeAssignments = {
       slot1: [],
       slot2: [],
@@ -2835,9 +2835,10 @@ export class CardinalWardenSimulation {
       const x = this.warden.x + Math.cos(angle) * radius;
       const y = this.warden.y + Math.sin(angle) * radius;
       
-      // Pick a weapon color for variety
-      const weaponColors = ['#d4af37', '#ff9c66', '#9a6bff'];
-      const color = weaponColors[this.friendlyShips.length % weaponColors.length];
+      // Assign weapon color based on current ship count to distribute colors across weapons
+      const weaponIds = WEAPON_SLOT_IDS;
+      const weaponId = weaponIds[this.friendlyShips.length % weaponIds.length];
+      const color = WEAPON_SLOT_DEFINITIONS[weaponId].color;
       
       this.friendlyShips.push(new FriendlyShip(x, y, this.warden.x, this.warden.y, weaponDamage, color, this.rng));
     }
