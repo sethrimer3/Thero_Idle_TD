@@ -40,7 +40,7 @@
  *   - Slots 0-3: Burning effect - 5% max health damage per second with red particles
  *   - Slots 4-7: Freeze effect - 0.5 second freeze (ice blue color), refreshes on hit
  * - Grapheme 10 (K): Massive bullet mechanics - slot position determines behavior
- *   - Slots 0-6 (indices 0-6): Fires one massive bullet (20x damage, 20x diameter, 1/10 speed, unlimited pierce, inflicts all effects, 1/20 attack speed)
+ *   - Slots 1-7 (indices 0-6): Fires one massive bullet (20x damage, 20x diameter, 1/10 speed, unlimited pierce, inflicts all effects, 1/20 attack speed)
  *   - Slot 8 (index 7): Simple attack speed increase (10x faster)
  */
 
