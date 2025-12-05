@@ -1090,8 +1090,9 @@ class Bullet {
     this.baseColor = config.baseColor || config.color || '#d4af37';
     this.color = config.color || this.baseColor;
     this.piercing = config.piercing || false;
-    this.piercingLimit = config.piercingLimit || 0; // Max number of enemies to pierce (0 = unlimited)
+    this.piercingLimit = config.piercingLimit || 0; // Max number of targets (enemies + bosses) to hit (0 = unlimited)
     this.hitEnemies = new Set();
+    this.hitBosses = new Set();
     this.trail = [];
     this.age = 0;
     this.lastTrailBounceTime = -Infinity;
@@ -1331,8 +1332,9 @@ class MathBullet {
 
     // Track pierced targets so mathematical bullets respect single-hit collisions.
     this.hitEnemies = new Set();
+    this.hitBosses = new Set();
     this.piercing = config.piercing || false;
-    this.piercingLimit = config.piercingLimit || 0; // Max number of enemies to pierce (0 = unlimited)
+    this.piercingLimit = config.piercingLimit || 0; // Max number of targets (enemies + bosses) to hit (0 = unlimited)
     
     // Weapon level for visual effects (default 1 for backwards compatibility)
     this.level = config.level || 1;
