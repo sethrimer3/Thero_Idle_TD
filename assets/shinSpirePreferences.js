@@ -11,7 +11,15 @@ const SHIN_GRAPHICS_LEVELS = Object.freeze({
   HIGH: 'high',
 });
 
-// Trail length options for enemy and bullet trails in the Cardinal Warden simulation.
+// Trail quality options for enemy trails in the Cardinal Warden simulation.
+// Quality affects visual rendering complexity, not length (length is fixed for gameplay).
+const TRAIL_QUALITY_OPTIONS = Object.freeze({
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+});
+
+// Trail length options for bullet trails in the Cardinal Warden simulation.
 const TRAIL_LENGTH_OPTIONS = Object.freeze({
   NONE: 'none',
   SHORT: 'short',
@@ -24,7 +32,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   graphicsLevel: SHIN_GRAPHICS_LEVELS.HIGH,
   panZoomEnabled: false,
   nightMode: true,
-  enemyTrailLength: TRAIL_LENGTH_OPTIONS.LONG,
+  enemyTrailQuality: TRAIL_QUALITY_OPTIONS.HIGH,
   bulletTrailLength: TRAIL_LENGTH_OPTIONS.LONG,
 });
 
@@ -35,7 +43,7 @@ let simulationGetter = () => null;
 let graphicsLevelButton = null;
 let nightModeToggle = null;
 let nightModeToggleState = null;
-let enemyTrailLengthButton = null;
+let enemyTrailQualityButton = null;
 let bulletTrailLengthButton = null;
 
 /**
@@ -84,6 +92,13 @@ function loadSettings() {
   const stored = readStorageJson(SHIN_VISUAL_SETTINGS_STORAGE_KEY);
   if (stored && typeof stored === 'object') {
     settings = { ...createDefaultShinSettings(), ...stored };
+    
+    // Migrate old enemyTrailLength setting to enemyTrailQuality
+    // If old setting exists and new one doesn't, convert length to quality
+    if (stored.enemyTrailLength && !stored.enemyTrailQuality) {
+      // Map old length values to quality values (always use high quality by default)
+      settings.enemyTrailQuality = TRAIL_QUALITY_OPTIONS.HIGH;
+    }
   }
 }
 
@@ -128,9 +143,9 @@ function applySettingsToSimulation() {
     simulation.setNightMode(settings.nightMode);
   }
 
-  // Control enemy trail length for the danmaku renderer.
-  if (typeof simulation.setEnemyTrailLength === 'function') {
-    simulation.setEnemyTrailLength(settings.enemyTrailLength);
+  // Control enemy trail quality for the danmaku renderer.
+  if (typeof simulation.setEnemyTrailQuality === 'function') {
+    simulation.setEnemyTrailQuality(settings.enemyTrailQuality);
   }
 
   // Control bullet trail length for the danmaku renderer.
@@ -179,6 +194,22 @@ function syncGraphicsLevelButton() {
 }
 
 /**
+ * Retrieve a human-readable label for a trail quality option.
+ */
+function resolveTrailQualityLabel(quality) {
+  switch (quality) {
+    case TRAIL_QUALITY_OPTIONS.LOW:
+      return 'Low';
+    case TRAIL_QUALITY_OPTIONS.MEDIUM:
+      return 'Medium';
+    case TRAIL_QUALITY_OPTIONS.HIGH:
+      return 'High';
+    default:
+      return 'High';
+  }
+}
+
+/**
  * Retrieve a human-readable label for a trail length option.
  */
 function resolveTrailLengthLabel(length) {
@@ -197,28 +228,28 @@ function resolveTrailLengthLabel(length) {
 }
 
 /**
- * Cycle through enemy trail length options.
+ * Cycle through enemy trail quality options.
  */
-function cycleEnemyTrailLength() {
-  const sequence = [TRAIL_LENGTH_OPTIONS.NONE, TRAIL_LENGTH_OPTIONS.SHORT, TRAIL_LENGTH_OPTIONS.MEDIUM, TRAIL_LENGTH_OPTIONS.LONG];
-  const currentIndex = sequence.indexOf(settings.enemyTrailLength);
-  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % sequence.length : 3;
-  settings.enemyTrailLength = sequence[nextIndex];
+function cycleEnemyTrailQuality() {
+  const sequence = [TRAIL_QUALITY_OPTIONS.LOW, TRAIL_QUALITY_OPTIONS.MEDIUM, TRAIL_QUALITY_OPTIONS.HIGH];
+  const currentIndex = sequence.indexOf(settings.enemyTrailQuality);
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % sequence.length : 2;
+  settings.enemyTrailQuality = sequence[nextIndex];
   persistSettings();
   applySettingsToSimulation();
-  syncEnemyTrailLengthButton();
+  syncEnemyTrailQualityButton();
 }
 
 /**
- * Update the enemy trail length button label to reflect the current setting.
+ * Update the enemy trail quality button label to reflect the current setting.
  */
-function syncEnemyTrailLengthButton() {
-  if (!enemyTrailLengthButton) {
+function syncEnemyTrailQualityButton() {
+  if (!enemyTrailQualityButton) {
     return;
   }
-  const label = resolveTrailLengthLabel(settings.enemyTrailLength);
-  enemyTrailLengthButton.textContent = `Enemy Trails · ${label}`;
-  enemyTrailLengthButton.setAttribute('aria-label', `Cycle enemy trail length (current: ${label})`);
+  const label = resolveTrailQualityLabel(settings.enemyTrailQuality);
+  enemyTrailQualityButton.textContent = `Enemy Trail Quality · ${label}`;
+  enemyTrailQualityButton.setAttribute('aria-label', `Cycle enemy trail quality (current: ${label})`);
 }
 
 /**
@@ -299,12 +330,12 @@ export function bindShinSpireOptions() {
     });
   }
 
-  enemyTrailLengthButton = document.getElementById('shin-enemy-trail-length-button');
+  enemyTrailQualityButton = document.getElementById('shin-enemy-trail-quality-button');
   bulletTrailLengthButton = document.getElementById('shin-bullet-trail-length-button');
 
-  if (enemyTrailLengthButton) {
-    enemyTrailLengthButton.addEventListener('click', cycleEnemyTrailLength);
-    syncEnemyTrailLengthButton();
+  if (enemyTrailQualityButton) {
+    enemyTrailQualityButton.addEventListener('click', cycleEnemyTrailQuality);
+    syncEnemyTrailQualityButton();
   }
 
   if (bulletTrailLengthButton) {
