@@ -1569,7 +1569,7 @@ class MathBullet {
   }
 
   isOffscreen(width, height) {
-    // Spiral bullets (epsilon slots 5-7) only disappear at the top
+    // Spiral bullets (epsilon slots 5-7) only disappear when reaching the top edge of the render area
     if (this.epsilonBehavior === 'spiral') {
       return this.y < -this.size;
     }
