@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test 8th Grapheme - Cardinal Warden</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Georgia', serif;
+      background: #0f1116;
+      color: #e6e6ea;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 2rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+      opacity: 0.7;
+      text-align: center;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 20px;
+      border: 2px solid #e6e6ea;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 600px;
+      background: rgba(230, 230, 234, 0.05);
+      padding: 20px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: 2px solid #e6e6ea;
+      background: rgba(230, 230, 234, 0.1);
+      color: #e6e6ea;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: rgba(230, 230, 234, 0.2);
+    }
+
+    .info {
+      padding: 10px;
+      background: rgba(162, 227, 245, 0.1);
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .status {
+      font-size: 1.1rem;
+      text-align: center;
+      padding: 10px;
+      background: rgba(230, 230, 234, 0.1);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>8th Grapheme (Theta) Test</h1>
+  <p class="subtitle">Testing weapon targeting system</p>
+  
+  <div class="canvas-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+  
+  <div class="controls">
+    <div class="status" id="status">Loading...</div>
+    
+    <div class="info">
+      <p><strong>Test Instructions:</strong></p>
+      <ul style="margin-left: 20px; margin-top: 10px;">
+        <li>Click on screen to aim weapons</li>
+        <li>Weapon 1 has 8th grapheme in slot 0 (targets lowest enemy)</li>
+        <li>Weapon 2 has 8th grapheme in slot 5 (targets lowest boss)</li>
+        <li>Look for colored target indicators on enemies/bosses</li>
+      </ul>
+    </div>
+    
+    <button id="toggleGrapheme1">Toggle Weapon 1 Grapheme (Slot 0)</button>
+    <button id="toggleGrapheme2">Toggle Weapon 2 Grapheme (Slot 5)</button>
+    <button id="restart">Restart Game</button>
+  </div>
+
+  <script type="module">
+    import { CardinalWardenSimulation } from './scripts/features/towers/cardinalWardenSimulation.js';
+    
+    const canvas = document.getElementById('gameCanvas');
+    const status = document.getElementById('status');
+    const toggleBtn1 = document.getElementById('toggleGrapheme1');
+    const toggleBtn2 = document.getElementById('toggleGrapheme2');
+    const restartBtn = document.getElementById('restart');
+    
+    let game = null;
+    let grapheme1Active = true;
+    let grapheme2Active = true;
+    
+    function initGame() {
+      game = new CardinalWardenSimulation(canvas, {
+        autoStart: true,
+        onWeaponChange: () => {
+          updateStatus();
+        }
+      });
+      
+      // Add 8th grapheme (Theta - index 7) to weapon slots after initialization
+      setTimeout(() => {
+        if (grapheme1Active) {
+          // Weapon 1: 8th grapheme in slot 0 (targets lowest enemy)
+          game.weaponGraphemeAssignments.slot1 = [
+            { index: 7, label: 'Θ' }
+          ];
+        }
+        
+        if (grapheme2Active) {
+          // Weapon 2: 8th grapheme in slot 5 (targets lowest boss)
+          game.weaponGraphemeAssignments.slot2 = [
+            null, null, null, null, null,
+            { index: 7, label: 'Θ' }
+          ];
+        }
+        
+        updateStatus();
+      }, 100);
+    }
+    
+    function updateStatus() {
+      if (!game) {
+        status.textContent = 'Game not initialized';
+        return;
+      }
+      
+      const weapon1Target = game.weaponTargets?.slot1;
+      const weapon2Target = game.weaponTargets?.slot2;
+      
+      let statusText = '';
+      statusText += `Weapon 1: ${grapheme1Active ? 'Grapheme Active (Slot 0)' : 'No Grapheme'}`;
+      statusText += weapon1Target ? ' - Targeting Enemy' : ' - No Target';
+      statusText += '\n';
+      statusText += `Weapon 2: ${grapheme2Active ? 'Grapheme Active (Slot 5)' : 'No Grapheme'}`;
+      statusText += weapon2Target ? ' - Targeting Boss' : ' - No Target';
+      
+      status.textContent = statusText;
+      status.style.whiteSpace = 'pre-line';
+    }
+    
+    toggleBtn1.addEventListener('click', () => {
+      grapheme1Active = !grapheme1Active;
+      if (game) {
+        if (grapheme1Active) {
+          game.weaponGraphemeAssignments.slot1 = [
+            { index: 7, label: 'Θ' }
+          ];
+        } else {
+          game.weaponGraphemeAssignments.slot1 = [];
+        }
+      }
+      updateStatus();
+    });
+    
+    toggleBtn2.addEventListener('click', () => {
+      grapheme2Active = !grapheme2Active;
+      if (game) {
+        if (grapheme2Active) {
+          game.weaponGraphemeAssignments.slot2 = [
+            null, null, null, null, null,
+            { index: 7, label: 'Θ' }
+          ];
+        } else {
+          game.weaponGraphemeAssignments.slot2 = [];
+        }
+      }
+      updateStatus();
+    });
+    
+    restartBtn.addEventListener('click', () => {
+      if (game) {
+        game.stop();
+      }
+      initGame();
+    });
+    
+    // Start the game
+    initGame();
+    
+    // Update status every second
+    setInterval(updateStatus, 1000);
+  </script>
+</body>
+</html>

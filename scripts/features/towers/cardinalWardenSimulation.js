@@ -27,6 +27,9 @@
  *   - Wave radius: (canvas.width / 10) × (slot + 1)
  *   - Wave damage: 10% of shot damage
  *   - Wave expansion: 3 seconds to reach max radius
+ * - Grapheme 7 (Theta): Weapon targeting - draws target indicator on specific enemies
+ *   - Slots 0-3: Target lowest enemy (closest to bottom of render)
+ *   - Slots 4-7: Target lowest boss-class enemy
  */
 
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
@@ -42,6 +45,7 @@ const GRAPHEME_INDEX = {
   EPSILON: 4,      // Lightning movement
   ZETA: 5,         // Piercing and trail passthrough
   ETA: 6,          // Expanding waves, deactivates LEFT
+  THETA: 7,        // Weapon targeting
 };
 
 /**
@@ -1940,6 +1944,14 @@ export class CardinalWardenSimulation {
       slot2: [],
       slot3: [],
     };
+    
+    // Weapon target tracking for eighth grapheme (index 7 - theta)
+    // Stores the currently targeted enemy for each weapon
+    this.weaponTargets = {
+      slot1: null,
+      slot2: null,
+      slot3: null,
+    };
 
     // Shield regeneration tracking for fourth grapheme (index 3 - delta)
     // Tracks accumulated time toward next shield recovery
@@ -3020,6 +3032,48 @@ export class CardinalWardenSimulation {
         hasWaveEffect = true;
         break; // Only apply the first occurrence
       }
+    }
+    
+    // Check for eighth grapheme (Theta) - Weapon targeting
+    let targetedEnemy = null;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.THETA) {
+        // Eighth grapheme found! Targeting based on slot position
+        // Slots 0-3: Target lowest enemy (closest to bottom of render)
+        // Slots 4-7: Target lowest boss-class enemy
+        if (slotIndex <= 3) {
+          // Target lowest enemy (highest y coordinate)
+          let lowestEnemy = null;
+          let lowestY = -Infinity;
+          for (const enemy of this.enemies) {
+            if (enemy.y > lowestY) {
+              lowestY = enemy.y;
+              lowestEnemy = enemy;
+            }
+          }
+          targetedEnemy = lowestEnemy;
+        } else {
+          // Target lowest boss (highest y coordinate)
+          let lowestBoss = null;
+          let lowestY = -Infinity;
+          for (const boss of this.bosses) {
+            if (boss.y > lowestY) {
+              lowestY = boss.y;
+              lowestBoss = boss;
+            }
+          }
+          targetedEnemy = lowestBoss;
+        }
+        // Store the targeted enemy for this weapon
+        this.weaponTargets[weaponId] = targetedEnemy;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Clear target if no eighth grapheme is present
+    if (targetedEnemy === null) {
+      this.weaponTargets[weaponId] = null;
     }
     
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
@@ -4158,6 +4212,8 @@ export class CardinalWardenSimulation {
         this.renderWarden();
         // Draw aim target symbol if set
         this.renderAimTarget();
+        // Draw weapon targets for eighth grapheme (Theta)
+        this.renderWeaponTargets();
         // Draw friendly ships
         this.renderFriendlyShips();
         // Draw enemies
@@ -4340,6 +4396,73 @@ export class CardinalWardenSimulation {
     ctx.fill();
     
     ctx.restore();
+  }
+
+  /**
+   * Render target indicators for enemies targeted by the eighth grapheme (Theta).
+   * Draws a smaller target reticle colored with the weapon's color over targeted enemies.
+   */
+  renderWeaponTargets() {
+    if (!this.ctx) return;
+    
+    const ctx = this.ctx;
+    
+    // Iterate through each weapon and render its target if present
+    for (const weaponId of Object.keys(this.weaponTargets)) {
+      const target = this.weaponTargets[weaponId];
+      if (!target) continue;
+      
+      // Get weapon color
+      const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
+      if (!weaponDef) continue;
+      
+      const targetColor = this.resolveBulletColor(weaponDef.color);
+      const { x, y } = target;
+      
+      // Smaller circles than player aim target
+      const outerRadius = 10;
+      const innerRadius = 4;
+      const crossSize = 14;
+      
+      ctx.save();
+      
+      // Set line style with weapon color
+      ctx.strokeStyle = targetColor;
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.75;
+      
+      // Draw outer circle
+      ctx.beginPath();
+      ctx.arc(x, y, outerRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Draw inner circle
+      ctx.beginPath();
+      ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Draw crosshair lines (extending beyond outer circle)
+      ctx.beginPath();
+      // Horizontal line
+      ctx.moveTo(x - crossSize, y);
+      ctx.lineTo(x - outerRadius - 2, y);
+      ctx.moveTo(x + outerRadius + 2, y);
+      ctx.lineTo(x + crossSize, y);
+      // Vertical line
+      ctx.moveTo(x, y - crossSize);
+      ctx.lineTo(x, y - outerRadius - 2);
+      ctx.moveTo(x, y + outerRadius + 2);
+      ctx.lineTo(x, y + crossSize);
+      ctx.stroke();
+      
+      // Draw center dot
+      ctx.fillStyle = targetColor;
+      ctx.beginPath();
+      ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
+    }
   }
 
   /**
