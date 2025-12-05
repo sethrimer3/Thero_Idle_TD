@@ -521,7 +521,7 @@ const GRAPHEME_CHARACTERS = [
   { index: 8, name: 'I', property: 'spread', row: 1, col: 1, collectable: true },
   { index: 9, name: 'J', property: 'elemental', row: 1, col: 2, collectable: true },
   { index: 10, name: 'K', property: 'massive', row: 1, col: 3, collectable: true },
-  { index: 11, name: 'L', property: 'none', row: 1, col: 4, collectable: true },
+  { index: 11, name: 'L', property: 'beam', row: 1, col: 4, collectable: true },
   { index: 12, name: 'M', property: 'none', row: 1, col: 5, collectable: true },
   { index: 13, name: 'N', property: 'none', row: 1, col: 6, collectable: true },
   // Row 3 (indices 14-20)
