@@ -2672,6 +2672,7 @@ export class CardinalWardenSimulation {
    */
   checkFriendlyShipCollisions() {
     const enemiesToRemove = new Set();
+    const bossesToRemove = new Set();
     const shipsToRemove = new Set();
     const killedEnemyPositions = [];
     
@@ -2710,7 +2711,7 @@ export class CardinalWardenSimulation {
       
       for (let bi = 0; bi < this.bosses.length; bi++) {
         const boss = this.bosses[bi];
-        if (enemiesToRemove.has(bi)) continue;
+        if (bossesToRemove.has(bi)) continue;
         
         if (ship.checkCollision(boss)) {
           // Spawn damage number
@@ -2719,7 +2720,7 @@ export class CardinalWardenSimulation {
           const killed = boss.takeDamage(ship.damage);
           
           if (killed) {
-            enemiesToRemove.add(bi);
+            bossesToRemove.add(bi);
             this.addScore(boss.scoreValue);
             this.spawnScorePopup(boss.x, boss.y, boss.scoreValue);
             killedEnemyPositions.push({ x: boss.x, y: boss.y, isBoss: true });
@@ -2739,11 +2740,9 @@ export class CardinalWardenSimulation {
     }
     
     // Remove destroyed bosses
-    const bossIndices = Array.from(enemiesToRemove).sort((a, b) => b - a);
+    const bossIndices = Array.from(bossesToRemove).sort((a, b) => b - a);
     for (const i of bossIndices) {
-      if (i < this.bosses.length) {
-        this.bosses.splice(i, 1);
-      }
+      this.bosses.splice(i, 1);
     }
     
     // Remove destroyed friendly ships
@@ -3743,11 +3742,10 @@ export class CardinalWardenSimulation {
       // Render trail
       if (ship.trail.length > 1) {
         ctx.save();
-        ctx.fillStyle = this.nightMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(212, 175, 55, 0.6)';
         for (let i = 0; i < ship.trail.length - 1; i++) {
           const point = ship.trail[i];
-          const alpha = (i + 1) / ship.trail.length;
-          ctx.globalAlpha = alpha * 0.6;
+          const alpha = ((i + 1) / ship.trail.length) * 0.6;
+          ctx.fillStyle = this.nightMode ? `rgba(255, 255, 255, ${alpha})` : `rgba(212, 175, 55, ${alpha})`;
           ctx.beginPath();
           ctx.arc(point.x, point.y, ship.size * 0.3 * alpha, 0, Math.PI * 2);
           ctx.fill();
