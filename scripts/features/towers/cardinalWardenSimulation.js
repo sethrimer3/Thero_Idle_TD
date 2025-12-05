@@ -3680,7 +3680,7 @@ export class CardinalWardenSimulation {
       }
     }
     
-    // Check for twelfth grapheme (index 11 - L) - Continuous beam
+    // Check for grapheme L (index 11) - Continuous beam
     let beamMode = false;
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
