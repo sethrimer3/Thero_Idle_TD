@@ -345,7 +345,7 @@ export function bindShinSpireOptions() {
 
   // Sync UI with persisted settings.
   syncGraphicsLevelButton();
-  syncEnemyTrailLengthButton();
+  syncEnemyTrailQualityButton();
   syncBulletTrailLengthButton();
   syncAllToggles();
 }
@@ -383,9 +383,9 @@ export function applyShinVisualSettings(newSettings, { persist = true } = {}) {
   }
   applySettingsToSimulation();
   syncGraphicsLevelButton();
-  syncEnemyTrailLengthButton();
+  syncEnemyTrailQualityButton();
   syncBulletTrailLengthButton();
   syncAllToggles();
 }
 
-export { SHIN_GRAPHICS_LEVELS, TRAIL_LENGTH_OPTIONS };
+export { SHIN_GRAPHICS_LEVELS, TRAIL_LENGTH_OPTIONS, TRAIL_QUALITY_OPTIONS };
