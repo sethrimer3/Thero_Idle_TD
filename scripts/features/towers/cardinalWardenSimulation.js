@@ -32,6 +32,35 @@
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 
 /**
+ * Grapheme index constants for clear identification.
+ */
+const GRAPHEME_INDEX = {
+  ALPHA: 0,        // ThoughtSpeak shapes
+  BETA: 1,         // Fire rate multiplier
+  GAMMA: 2,        // Friendly ships, deactivates RIGHT
+  DELTA: 3,        // Shield regeneration
+  EPSILON: 4,      // Lightning movement
+  ZETA: 5,         // Piercing and trail passthrough
+  ETA: 6,          // Expanding waves, deactivates LEFT
+};
+
+/**
+ * Wave mechanics constants for seventh grapheme (Eta).
+ */
+const WAVE_CONFIG = {
+  // Time for wave to expand to full radius (seconds)
+  EXPANSION_DURATION_SECONDS: 3,
+  // Base ring thickness for collision detection (pixels)
+  RING_BASE_THICKNESS: 10,
+  // Default enemy size for collision calculations (pixels)
+  DEFAULT_ENEMY_SIZE: 8,
+  // Default boss size for collision calculations (pixels)
+  DEFAULT_BOSS_SIZE: 12,
+  // Damage multiplier (wave damage = shot damage × multiplier)
+  DAMAGE_MULTIPLIER: 0.1,
+};
+
+/**
  * Game configuration constants.
  */
 const GAME_CONFIG = {
@@ -222,10 +251,10 @@ class ExpandingWave {
   constructor(x, y, damage, maxRadius, color) {
     this.x = x;
     this.y = y;
-    this.damage = damage; // 10% of original shot damage
+    this.damage = damage;
     this.maxRadius = maxRadius;
     this.currentRadius = 0;
-    this.expansionSpeed = maxRadius / 3; // Takes 3 seconds to fully expand
+    this.expansionSpeed = maxRadius / WAVE_CONFIG.EXPANSION_DURATION_SECONDS;
     this.color = color || '#d4af37';
     this.hitEnemies = new Set(); // Track which enemies have been hit
     this.hitBosses = new Set(); // Track which bosses have been hit
@@ -2717,11 +2746,11 @@ export class CardinalWardenSimulation {
       return [];
     }
     
-    // Find the first occurrence of the seventh grapheme (index 6)
+    // Find the first occurrence of the seventh grapheme (Eta)
     let seventhGraphemeSlot = -1;
     for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
       const assignment = assignments[slotIndex];
-      if (assignment && assignment.index === 6) {
+      if (assignment && assignment.index === GRAPHEME_INDEX.ETA) {
         seventhGraphemeSlot = slotIndex;
         break;
       }
@@ -2733,11 +2762,11 @@ export class CardinalWardenSimulation {
       return assignments.slice(seventhGraphemeSlot);
     }
     
-    // Find the first occurrence of the third grapheme (index 2)
+    // Find the first occurrence of the third grapheme (Gamma)
     let thirdGraphemeSlot = -1;
     for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
       const assignment = assignments[slotIndex];
-      if (assignment && assignment.index === 2) {
+      if (assignment && assignment.index === GRAPHEME_INDEX.GAMMA) {
         thirdGraphemeSlot = slotIndex;
         break;
       }
@@ -2976,12 +3005,12 @@ export class CardinalWardenSimulation {
       }
     }
     
-    // Check for seventh grapheme (index 6 - Eta) - Slow splash damage wave
+    // Check for seventh grapheme (Eta) - Slow splash damage wave
     let waveRadius = 0;
     let hasWaveEffect = false;
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
-      if (assignment && assignment.index === 6) {
+      if (assignment && assignment.index === GRAPHEME_INDEX.ETA) {
         // Seventh grapheme found! Wave radius based on slot position
         // Base radius = 1/10th canvas width, multiplied by slot position (1-indexed)
         // Slot 0 = 1x, slot 1 = 2x, slot 2 = 3x, etc.
@@ -3724,7 +3753,7 @@ export class CardinalWardenSimulation {
           
           // Spawn expanding wave if seventh grapheme is present
           if (bullet.hasWaveEffect && bullet.waveRadius > 0) {
-            const waveDamage = bullet.damage * 0.1; // 10% of shot damage
+            const waveDamage = bullet.damage * WAVE_CONFIG.DAMAGE_MULTIPLIER;
             const waveColor = bullet.color || '#d4af37';
             this.expandingWaves.push(new ExpandingWave(enemy.x, enemy.y, waveDamage, bullet.waveRadius, waveColor));
           }
@@ -3787,7 +3816,7 @@ export class CardinalWardenSimulation {
           
           // Spawn expanding wave if seventh grapheme is present
           if (bullet.hasWaveEffect && bullet.waveRadius > 0) {
-            const waveDamage = bullet.damage * 0.1; // 10% of shot damage
+            const waveDamage = bullet.damage * WAVE_CONFIG.DAMAGE_MULTIPLIER;
             const waveColor = bullet.color || '#d4af37';
             this.expandingWaves.push(new ExpandingWave(boss.x, boss.y, waveDamage, bullet.waveRadius, waveColor));
           }
@@ -3944,7 +3973,8 @@ export class CardinalWardenSimulation {
         
         // Check if enemy is touching the wave ring
         // Ring thickness includes enemy size for better collision detection
-        const ringThickness = 10 + (enemy.size || 8);
+        const enemySize = enemy.size || WAVE_CONFIG.DEFAULT_ENEMY_SIZE;
+        const ringThickness = WAVE_CONFIG.RING_BASE_THICKNESS + enemySize;
         const distFromRing = Math.abs(dist - wave.currentRadius);
         
         if (distFromRing < ringThickness && dist < wave.maxRadius) {
@@ -3966,7 +3996,8 @@ export class CardinalWardenSimulation {
         
         // Check if boss is touching the wave ring
         // Ring thickness includes boss size for better collision detection
-        const ringThickness = 10 + (boss.size || 12);
+        const bossSize = boss.size || WAVE_CONFIG.DEFAULT_BOSS_SIZE;
+        const ringThickness = WAVE_CONFIG.RING_BASE_THICKNESS + bossSize;
         const distFromRing = Math.abs(dist - wave.currentRadius);
         
         if (distFromRing < ringThickness && dist < wave.maxRadius) {
