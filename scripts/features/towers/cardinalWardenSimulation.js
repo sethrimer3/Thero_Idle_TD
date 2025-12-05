@@ -31,6 +31,11 @@
  * - Grapheme 7 (H): Weapon targeting - draws target indicator on specific enemies
  *   - Slots 0-3: Target lowest enemy (closest to bottom of render)
  *   - Slots 4-7: Target lowest boss-class enemy
+ * - Grapheme 8 (I): Spread bullets - fires multiple bullets in a cone pattern
+ *   - Slots 1 and 8 (indices 0,7): +2 extra bullets (3 total)
+ *   - Slots 2 and 7 (indices 1,6): +4 extra bullets (5 total)
+ *   - Slots 3 and 6 (indices 2,5): +6 extra bullets (7 total)
+ *   - Slots 4 and 5 (indices 3,4): +8 extra bullets (9 total)
  */
 
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
@@ -48,10 +53,11 @@ const GRAPHEME_INDEX = {
   F: 5,            // Piercing and trail passthrough (formerly Zeta)
   G: 6,            // Expanding waves, deactivates LEFT (formerly Eta)
   H: 7,            // Weapon targeting (formerly Theta)
+  I: 8,            // Spread bullets (formerly Iota)
 };
 
 /**
- * Wave mechanics constants for seventh grapheme (Eta).
+ * Wave mechanics constants for grapheme G (index 6).
  */
 const WAVE_CONFIG = {
   // Time for wave to expand to full radius (seconds)
@@ -64,6 +70,17 @@ const WAVE_CONFIG = {
   DEFAULT_BOSS_SIZE: 12,
   // Damage multiplier (wave damage = shot damage × multiplier)
   DAMAGE_MULTIPLIER: 0.1,
+};
+
+/**
+ * Spread bullet mechanics constants for grapheme I (index 8).
+ */
+const SPREAD_CONFIG = {
+  // Total spread angle in radians (30 degrees)
+  SPREAD_ANGLE: Math.PI / 6,
+  // Slot position to extra bullet count mapping (0-indexed)
+  // Pattern mirrors around center: slots 3 and 4 have max bullets
+  SLOT_TO_EXTRA_BULLETS: [2, 4, 6, 8, 8, 6, 4, 2],
 };
 
 /**
@@ -249,7 +266,7 @@ class RingSquare {
 }
 
 /**
- * Represents an expanding damage wave spawned by the seventh grapheme (index 6).
+ * Represents an expanding damage wave spawned by grapheme G (index 6).
  * When a bullet hits an enemy, a wave slowly expands out doing 10% shot damage
  * to all enemies that come in contact with the wave.
  */
@@ -1857,7 +1874,7 @@ export class CardinalWardenSimulation {
     this.friendlyShips = []; // Friendly ships spawned by third grapheme (gamma)
     this.scorePopups = []; // Floating score text when enemies are destroyed
     this.damageNumbers = []; // Floating damage numbers when enemies are hit
-    this.expandingWaves = []; // Expanding damage waves spawned by seventh grapheme (eta)
+    this.expandingWaves = []; // Expanding damage waves spawned by grapheme G (index 6)
 
     // Base health upgrade system (can be upgraded with iterons)
     this.baseHealthLevel = options.baseHealthLevel || 0;
@@ -2764,27 +2781,27 @@ export class CardinalWardenSimulation {
       return [];
     }
     
-    // Find the first occurrence of the seventh grapheme (Eta)
+    // Find the first occurrence of grapheme G (index 6)
     let seventhGraphemeSlot = -1;
     for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
       const assignment = assignments[slotIndex];
-      if (assignment && assignment.index === GRAPHEME_INDEX.ETA) {
+      if (assignment && assignment.index === GRAPHEME_INDEX.G) {
         seventhGraphemeSlot = slotIndex;
         break;
       }
     }
     
-    // If seventh grapheme found, deactivate everything to the LEFT
+    // If grapheme G found, deactivate everything to the LEFT
     if (seventhGraphemeSlot !== -1) {
-      // Return assignments from the seventh grapheme's slot to the end
+      // Return assignments from grapheme G's slot to the end
       return assignments.slice(seventhGraphemeSlot);
     }
     
-    // Find the first occurrence of the third grapheme (Gamma)
+    // Find the first occurrence of grapheme C (index 2)
     let thirdGraphemeSlot = -1;
     for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
       const assignment = assignments[slotIndex];
-      if (assignment && assignment.index === GRAPHEME_INDEX.GAMMA) {
+      if (assignment && assignment.index === GRAPHEME_INDEX.C) {
         thirdGraphemeSlot = slotIndex;
         break;
       }
@@ -3035,13 +3052,13 @@ export class CardinalWardenSimulation {
       }
     }
     
-    // Check for seventh grapheme (Eta) - Slow splash damage wave
+    // Check for grapheme G (index 6) - Slow splash damage wave
     let waveRadius = 0;
     let hasWaveEffect = false;
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
-      if (assignment && assignment.index === GRAPHEME_INDEX.ETA) {
-        // Seventh grapheme found! Wave radius based on slot position
+      if (assignment && assignment.index === GRAPHEME_INDEX.G) {
+        // Grapheme G found! Wave radius based on slot position
         // Base radius = 1/10th canvas width, multiplied by slot position (1-indexed)
         // Slot 0 = 1x, slot 1 = 2x, slot 2 = 3x, etc.
         const slotMultiplier = slotIndex + 1;
@@ -3052,12 +3069,12 @@ export class CardinalWardenSimulation {
       }
     }
     
-    // Check for eighth grapheme (Theta) - Weapon targeting
+    // Check for grapheme H (index 7) - Weapon targeting
     let targetedEnemy = null;
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
-      if (assignment && assignment.index === GRAPHEME_INDEX.THETA) {
-        // Eighth grapheme found! Targeting based on slot position
+      if (assignment && assignment.index === GRAPHEME_INDEX.H) {
+        // Grapheme H found! Targeting based on slot position
         // Slots 0-3: Target lowest enemy (closest to bottom of render)
         // Slots 4-7: Target lowest boss-class enemy
         if (slotIndex <= 3) {
@@ -3092,6 +3109,20 @@ export class CardinalWardenSimulation {
     // Clear target if no eighth grapheme is present
     if (targetedEnemy === null) {
       this.weaponTargets[weaponId] = null;
+    }
+    
+    // Check for ninth grapheme (index 8 - I) - Spread bullets
+    let spreadBulletCount = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.I) {
+        // Ninth grapheme found! Extra bullets based on slot position
+        // Use lookup table for slot-to-bullet mapping
+        if (slotIndex >= 0 && slotIndex < SPREAD_CONFIG.SLOT_TO_EXTRA_BULLETS.length) {
+          spreadBulletCount = SPREAD_CONFIG.SLOT_TO_EXTRA_BULLETS[slotIndex];
+        }
+        break; // Only apply the first occurrence
+      }
     }
     
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
@@ -3139,11 +3170,32 @@ export class CardinalWardenSimulation {
       baseAngle = Math.atan2(dy, dx);
     }
     
-    // Spawn a simple bullet toward the target
-    this.bullets.push(new MathBullet(cx, cy - 20, baseAngle, {
-      ...bulletConfig,
-      phase: 0,
-    }));
+    // Spawn bullets based on spread count
+    if (spreadBulletCount > 0) {
+      // Spawn multiple bullets in a spread pattern
+      // Total bullets = 1 (center) + spreadBulletCount (extras)
+      const totalBullets = 1 + spreadBulletCount;
+      
+      // Calculate spread angle (in radians)
+      // Spread out evenly across a cone
+      const spreadAngle = SPREAD_CONFIG.SPREAD_ANGLE;
+      const angleStep = spreadAngle / (totalBullets - 1);
+      const startAngle = baseAngle - (spreadAngle / 2);
+      
+      for (let i = 0; i < totalBullets; i++) {
+        const bulletAngle = startAngle + (i * angleStep);
+        this.bullets.push(new MathBullet(cx, cy - 20, bulletAngle, {
+          ...bulletConfig,
+          phase: 0,
+        }));
+      }
+    } else {
+      // Spawn a simple bullet toward the target
+      this.bullets.push(new MathBullet(cx, cy - 20, baseAngle, {
+        ...bulletConfig,
+        phase: 0,
+      }));
+    }
   }
   
   /**
