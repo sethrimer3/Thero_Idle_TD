@@ -2575,15 +2575,21 @@ export class CardinalWardenSimulation {
   /**
    * Regenerate one shield/life for the player.
    * Reverses the life line state progression: gone → dashed → solid
+   * Priority: Restore dashed to solid before gone to dashed (complete partial healing first)
    */
   regenerateShield() {
-    // Find the first life line that isn't solid and restore it
+    // First pass: Look for dashed lines to restore to solid (prioritize completing partial healing)
+    for (let i = 0; i < this.lifeLines.length; i++) {
+      if (this.lifeLines[i].state === 'dashed') {
+        this.lifeLines[i].state = 'solid';
+        return;
+      }
+    }
+    
+    // Second pass: If no dashed lines, restore a gone line to dashed (start new healing)
     for (let i = 0; i < this.lifeLines.length; i++) {
       if (this.lifeLines[i].state === 'gone') {
         this.lifeLines[i].state = 'dashed';
-        return;
-      } else if (this.lifeLines[i].state === 'dashed') {
-        this.lifeLines[i].state = 'solid';
         return;
       }
     }
