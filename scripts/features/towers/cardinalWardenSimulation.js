@@ -47,6 +47,12 @@
  *   - Beam damage = tower damage × shots per second
  *   - Applies damage 4 times per second to enemies in contact with beam
  *   - Deactivates graphemes in slots immediately adjacent (left and right)
+ * - Grapheme 12 (M): Drifting mines - spawns mines that drift and explode on contact
+ *   - Mines released at rate: (shots per second) / 20
+ *   - Mines drift slowly in random directions
+ *   - On enemy contact: explodes with circular wave
+ *   - Explosion diameter: canvas.width / 10
+ *   - Explosion damage: 100x base weapon damage
  */
 
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
@@ -68,6 +74,7 @@ const GRAPHEME_INDEX = {
   J: 9,            // Elemental effects (burning/freezing)
   K: 10,           // Massive bullet (slots 0-6) or attack speed boost (slot 7)
   L: 11,           // Continuous beam, deactivates LEFT and RIGHT neighbors
+  M: 12,           // Drifting mines that explode on contact
 };
 
 /**
@@ -145,6 +152,27 @@ const BEAM_CONFIG = {
   BEAM_ALPHA: 0.8,
   // Maximum beam length (pixels) - extends to edge of canvas
   MAX_BEAM_LENGTH: 10000,
+};
+
+/**
+ * Mine mechanics constants for grapheme M (index 12).
+ * Spawns drifting mines that explode on enemy contact.
+ */
+const MINE_CONFIG = {
+  // Mine spawn rate divisor: (shots per second) / this value
+  SPAWN_RATE_DIVISOR: 20,
+  // Mine drift speed (pixels per second)
+  DRIFT_SPEED: 30,
+  // Mine size (radius in pixels)
+  MINE_SIZE: 5,
+  // Explosion damage multiplier (damage = base weapon damage × this)
+  EXPLOSION_DAMAGE_MULTIPLIER: 100,
+  // Explosion wave diameter divisor (diameter = canvas.width / this)
+  EXPLOSION_DIAMETER_DIVISOR: 10,
+  // Explosion wave expansion duration (seconds)
+  EXPLOSION_DURATION: 1.5,
+  // Mine lifetime before auto-despawn (seconds)
+  MINE_LIFETIME: 10,
 };
 
 /**
@@ -468,6 +496,99 @@ class Beam {
     ctx.moveTo(this.x, this.y);
     ctx.lineTo(end.x, end.y);
     ctx.stroke();
+    
+    ctx.restore();
+  }
+}
+
+/**
+ * Represents a drifting mine created by grapheme M.
+ * Mines drift slowly and explode on contact with enemies.
+ */
+class Mine {
+  constructor(x, y, config = {}) {
+    this.x = x;
+    this.y = y;
+    this.size = config.size || MINE_CONFIG.MINE_SIZE;
+    this.color = config.color || '#d4af37';
+    this.baseDamage = config.baseDamage || 1; // Base weapon damage for explosion calculation
+    this.explosionRadius = config.explosionRadius || 50; // Radius of explosion wave
+    this.weaponId = config.weaponId || 0;
+    
+    // Random drift direction
+    this.driftAngle = Math.random() * Math.PI * 2;
+    this.driftSpeed = MINE_CONFIG.DRIFT_SPEED;
+    
+    // Lifetime tracking
+    this.age = 0;
+    this.maxAge = MINE_CONFIG.MINE_LIFETIME * 1000; // Convert to milliseconds
+    
+    // Pulsing visual effect
+    this.pulsePhase = Math.random() * Math.PI * 2;
+    this.pulseSpeed = 3; // Radians per second
+    
+    // Explosion state
+    this.exploded = false;
+  }
+  
+  update(deltaTime) {
+    const dt = deltaTime / 1000; // Convert to seconds
+    
+    // Drift slowly
+    this.x += Math.cos(this.driftAngle) * this.driftSpeed * dt;
+    this.y += Math.sin(this.driftAngle) * this.driftSpeed * dt;
+    
+    // Update age
+    this.age += deltaTime;
+    
+    // Update pulse phase for visual effect
+    this.pulsePhase += this.pulseSpeed * dt;
+  }
+  
+  /**
+   * Check if mine has expired.
+   */
+  isExpired() {
+    return this.age >= this.maxAge;
+  }
+  
+  /**
+   * Check if mine is off screen.
+   */
+  isOffscreen(width, height) {
+    const margin = this.size * 2;
+    return this.x < -margin || this.x > width + margin ||
+           this.y < -margin || this.y > height + margin;
+  }
+  
+  /**
+   * Get the current visual size based on pulse effect.
+   */
+  getVisualSize() {
+    const pulseFactor = 0.2; // 20% size variation
+    return this.size * (1 + pulseFactor * Math.sin(this.pulsePhase));
+  }
+  
+  /**
+   * Render the mine on the canvas.
+   */
+  render(ctx) {
+    const visualSize = this.getVisualSize();
+    
+    ctx.save();
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = 0.8;
+    
+    // Draw mine as a circle
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, visualSize, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw inner glow
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, visualSize * 0.5, 0, Math.PI * 2);
+    ctx.fill();
     
     ctx.restore();
   }
@@ -2348,6 +2469,7 @@ export class CardinalWardenSimulation {
     this.damageNumbers = []; // Floating damage numbers when enemies are hit
     this.expandingWaves = []; // Expanding damage waves spawned by grapheme G (index 6)
     this.beams = []; // Continuous beams from grapheme L (index 11)
+    this.mines = []; // Drifting mines from grapheme M (index 12)
 
     // Base health upgrade system (can be upgraded with iterons)
     this.baseHealthLevel = options.baseHealthLevel || 0;
@@ -2452,6 +2574,14 @@ export class CardinalWardenSimulation {
     // Shield regeneration tracking for fourth grapheme (index 3 - delta)
     // Tracks accumulated time toward next shield recovery
     this.shieldRegenAccumulators = {};
+
+    // Mine spawn timing for grapheme M (index 12)
+    // Tracks accumulated time toward next mine spawn for each weapon
+    this.mineSpawnAccumulators = {
+      slot1: 0,
+      slot2: 0,
+      slot3: 0,
+    };
 
     // Aim target for player-controlled weapons (Sine Wave and Convergent Rails)
     // When null, weapons fire straight up; when set, they aim toward this point
@@ -3230,6 +3360,9 @@ export class CardinalWardenSimulation {
     
     // Update expanding waves
     this.updateExpandingWaves(deltaTime);
+    
+    // Update mines
+    this.updateMines(deltaTime);
 
     // Check game over conditions
     this.checkGameOver();
@@ -3495,6 +3628,34 @@ export class CardinalWardenSimulation {
         this.weaponTimers[weaponId] = 0;
         this.fireWeapon(weaponId);
       }
+      
+      // Check for grapheme M (index 12) - Mine spawning
+      let hasMineGrapheme = false;
+      for (const assignment of effectiveAssignments) {
+        if (assignment && assignment.index === GRAPHEME_INDEX.M) {
+          hasMineGrapheme = true;
+          break;
+        }
+      }
+      
+      if (hasMineGrapheme) {
+        // Initialize mine spawn accumulator if needed
+        if (this.mineSpawnAccumulators[weaponId] === undefined) {
+          this.mineSpawnAccumulators[weaponId] = 0;
+        }
+        
+        // Calculate mine spawn rate: (shots per second) / 20
+        const shotsPerSecond = this.calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier);
+        const mineSpawnRate = shotsPerSecond / MINE_CONFIG.SPAWN_RATE_DIVISOR;
+        const mineSpawnInterval = 1000 / mineSpawnRate; // Interval in milliseconds
+        
+        this.mineSpawnAccumulators[weaponId] += deltaTime;
+        
+        if (this.mineSpawnAccumulators[weaponId] >= mineSpawnInterval) {
+          this.mineSpawnAccumulators[weaponId] = 0;
+          this.spawnMine(weaponId);
+        }
+      }
     }
   }
   
@@ -3693,6 +3854,17 @@ export class CardinalWardenSimulation {
       }
     }
     
+    // Check for grapheme M (index 12) - Drifting mines
+    let mineMode = false;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.M) {
+        // Grapheme M found! Mine mode activated
+        mineMode = true;
+        break; // Only apply the first occurrence
+      }
+    }
+    
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === 0) {
@@ -3800,6 +3972,41 @@ export class CardinalWardenSimulation {
         phase: 0,
       }));
     }
+  }
+  
+  /**
+   * Spawn a mine from a specific weapon slot.
+   * Mines drift slowly and explode on contact with enemies.
+   */
+  spawnMine(weaponId) {
+    if (!this.warden || !this.canvas) return;
+    
+    const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
+    if (!weaponDef) return;
+    
+    const cx = this.warden.x;
+    const cy = this.warden.y;
+    
+    // Calculate explosion damage (100x base weapon damage)
+    const baseDamage = weaponDef.baseDamage * this.upgrades.bulletDamage;
+    const explosionDamage = baseDamage * MINE_CONFIG.EXPLOSION_DAMAGE_MULTIPLIER;
+    
+    // Calculate explosion radius (1/10th canvas width)
+    const explosionRadius = this.canvas.width / MINE_CONFIG.EXPLOSION_DIAMETER_DIVISOR;
+    
+    // Get weapon color
+    const color = this.resolveBulletColor(weaponDef.color);
+    
+    // Create mine at warden position
+    const mine = new Mine(cx, cy, {
+      size: MINE_CONFIG.MINE_SIZE,
+      color: color,
+      baseDamage: explosionDamage,
+      explosionRadius: explosionRadius,
+      weaponId: weaponId,
+    });
+    
+    this.mines.push(mine);
   }
   
   /**
@@ -4913,6 +5120,99 @@ export class CardinalWardenSimulation {
   }
 
   /**
+   * Update all mines and check for collisions with enemies.
+   * Mines explode on contact with enemies, creating expanding damage waves.
+   */
+  updateMines(deltaTime) {
+    if (!this.canvas) return;
+    
+    const minesToRemove = [];
+    const enemiesToRemove = new Set();
+    const bossesToRemove = new Set();
+    
+    // Update each mine
+    for (let i = 0; i < this.mines.length; i++) {
+      const mine = this.mines[i];
+      mine.update(deltaTime);
+      
+      // Remove expired or offscreen mines
+      if (mine.isExpired() || mine.isOffscreen(this.canvas.width, this.canvas.height)) {
+        minesToRemove.push(i);
+        continue;
+      }
+      
+      // Check collision with enemies
+      for (let ei = 0; ei < this.enemies.length; ei++) {
+        if (enemiesToRemove.has(ei)) continue;
+        
+        const enemy = this.enemies[ei];
+        const dx = mine.x - enemy.x;
+        const dy = mine.y - enemy.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const collisionDist = mine.size + enemy.size;
+        
+        if (dist < collisionDist) {
+          // Mine hit enemy - explode!
+          mine.exploded = true;
+          
+          // Create expanding wave at explosion point
+          const explosionWave = new ExpandingWave(
+            mine.x,
+            mine.y,
+            mine.baseDamage,
+            mine.explosionRadius,
+            mine.color
+          );
+          this.expandingWaves.push(explosionWave);
+          
+          // Remove the mine
+          minesToRemove.push(i);
+          break;
+        }
+      }
+      
+      // If mine already marked for removal, skip boss check
+      if (minesToRemove.includes(i)) continue;
+      
+      // Check collision with bosses
+      for (let bi = 0; bi < this.bosses.length; bi++) {
+        if (bossesToRemove.has(bi)) continue;
+        
+        const boss = this.bosses[bi];
+        const dx = mine.x - boss.x;
+        const dy = mine.y - boss.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const collisionDist = mine.size + boss.size;
+        
+        if (dist < collisionDist) {
+          // Mine hit boss - explode!
+          mine.exploded = true;
+          
+          // Create expanding wave at explosion point
+          const explosionWave = new ExpandingWave(
+            mine.x,
+            mine.y,
+            mine.baseDamage,
+            mine.explosionRadius,
+            mine.color
+          );
+          this.expandingWaves.push(explosionWave);
+          
+          // Remove the mine
+          minesToRemove.push(i);
+          break;
+        }
+      }
+    }
+    
+    // Remove mines that exploded, expired, or went offscreen (highest index first)
+    const sortedMineIndices = minesToRemove.sort((a, b) => b - a);
+    for (const i of sortedMineIndices) {
+      this.mines.splice(i, 1);
+    }
+  }
+
+  /**
    * Render all floating score popups.
    */
   renderScorePopups() {
@@ -5040,6 +5340,8 @@ export class CardinalWardenSimulation {
         this.renderBeams();
         // Draw expanding waves
         this.renderExpandingWaves();
+        // Draw mines
+        this.renderMines();
         // Draw floating damage numbers
         this.renderDamageNumbers();
         // Draw floating score popups
@@ -5077,6 +5379,7 @@ export class CardinalWardenSimulation {
       this.renderBosses();
       this.renderBullets();
       this.renderBeams();
+      this.renderMines();
     }
     
     // Render explosion particles
@@ -5896,6 +6199,17 @@ export class CardinalWardenSimulation {
     
     for (const wave of this.expandingWaves) {
       wave.render(this.ctx);
+    }
+  }
+
+  /**
+   * Render all drifting mines from grapheme M (index 12).
+   */
+  renderMines() {
+    if (!this.ctx || !this.mines || this.mines.length === 0) return;
+    
+    for (const mine of this.mines) {
+      mine.render(this.ctx);
     }
   }
 
