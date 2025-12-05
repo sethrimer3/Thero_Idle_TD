@@ -1146,11 +1146,8 @@ class Bullet {
     this.angle = normalizeAngle(this.angle);
 
     // Small positional nudge prevents the bullet from re-hitting the same segment instantly.
-    const currentVx = Math.cos(this.angle) * this.speed;
-    const currentVy = Math.sin(this.angle) * this.speed;
-    const magnitude = Math.hypot(currentVx, currentVy) || 1;
-    this.x += (currentVx / magnitude) * this.size * 0.35;
-    this.y += (currentVy / magnitude) * this.size * 0.35;
+    this.x += Math.cos(this.angle) * this.size * 0.35;
+    this.y += Math.sin(this.angle) * this.size * 0.35;
   }
 
   isOffscreen(width, height) {
