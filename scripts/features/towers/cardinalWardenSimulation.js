@@ -36,6 +36,9 @@
  *   - Slots 2 and 7 (indices 1,6): +4 extra bullets (5 total)
  *   - Slots 3 and 6 (indices 2,5): +6 extra bullets (7 total)
  *   - Slots 4 and 5 (indices 3,4): +8 extra bullets (9 total)
+ * - Grapheme 9 (J): Elemental effects - burning or freezing based on slot position
+ *   - Slots 0-3: Burning effect - 5% max health damage per second with red particles
+ *   - Slots 4-7: Freeze effect - 0.5 second freeze (ice blue color), refreshes on hit
  */
 
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
@@ -54,6 +57,7 @@ const GRAPHEME_INDEX = {
   G: 6,            // Expanding waves, deactivates LEFT (formerly Eta)
   H: 7,            // Weapon targeting (formerly Theta)
   I: 8,            // Spread bullets (formerly Iota)
+  J: 9,            // Elemental effects (burning/freezing)
 };
 
 /**
@@ -81,6 +85,22 @@ const SPREAD_CONFIG = {
   // Slot position to extra bullet count mapping (0-indexed)
   // Pattern mirrors around center: slots 3 and 4 have max bullets
   SLOT_TO_EXTRA_BULLETS: [2, 4, 6, 8, 8, 6, 4, 2],
+};
+
+/**
+ * Elemental effects constants for grapheme J (index 9).
+ */
+const ELEMENTAL_CONFIG = {
+  // Burning effect (slots 0-3)
+  BURN_DAMAGE_PERCENT: 0.05,        // 5% of max health per second
+  BURN_PARTICLE_SPAWN_RATE: 0.1,   // Spawn particle every 0.1 seconds
+  BURN_PARTICLE_LIFETIME: 1.0,     // Particles last 1 second
+  BURN_PARTICLE_SPEED: 20,         // Pixels per second upward
+  BURN_PARTICLE_COLOR: '#ff4444',  // Red color for burning particles
+  
+  // Freeze effect (slots 4-7)
+  FREEZE_DURATION: 0.5,             // Freeze lasts 0.5 seconds
+  FREEZE_COLOR: '#88ccff',          // Ice blue color
 };
 
 /**
@@ -439,6 +459,15 @@ class EnemyShip {
     this.straightTimer = 0;
     this.straightDuration = 0; // How long to go straight (in seconds)
     this.straightChance = config.straightChance || 0.15; // 15% chance to go straight when picking new target
+    
+    // Status effects for grapheme J
+    this.burning = false;
+    this.burnParticleTimer = 0;
+    this.burnParticles = []; // Array of burning particles
+    this.frozen = false;
+    this.frozenTimer = 0;
+    this.frozenDuration = 0;
+    this.originalSpeed = this.maxSpeed; // Store original speed for freeze restoration
   }
 
   /**
@@ -477,6 +506,58 @@ class EnemyShip {
   update(deltaTime, targetY, canvasWidth, canvasHeight, rng) {
     const dt = deltaTime / 1000;
     this.time += dt;
+
+    // Handle status effects
+    // Burning effect: Apply damage over time
+    if (this.burning) {
+      const burnDamage = this.maxHealth * ELEMENTAL_CONFIG.BURN_DAMAGE_PERCENT * dt;
+      this.health -= burnDamage;
+      
+      // Spawn burn particles periodically
+      this.burnParticleTimer += dt;
+      if (this.burnParticleTimer >= ELEMENTAL_CONFIG.BURN_PARTICLE_SPAWN_RATE) {
+        this.burnParticleTimer = 0;
+        // Spawn 2-3 particles
+        const particleCount = Math.floor(Math.random() * 2) + 2;
+        for (let i = 0; i < particleCount; i++) {
+          this.burnParticles.push({
+            x: this.x + (Math.random() - 0.5) * this.size,
+            y: this.y + (Math.random() - 0.5) * this.size,
+            vx: (Math.random() - 0.5) * 10,
+            vy: -ELEMENTAL_CONFIG.BURN_PARTICLE_SPEED,
+            life: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
+            maxLife: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
+            size: 2 + Math.random() * 2,
+          });
+        }
+      }
+      
+      // Update burn particles
+      for (let i = this.burnParticles.length - 1; i >= 0; i--) {
+        const particle = this.burnParticles[i];
+        particle.x += particle.vx * dt;
+        particle.y += particle.vy * dt;
+        particle.life -= dt;
+        if (particle.life <= 0) {
+          this.burnParticles.splice(i, 1);
+        }
+      }
+    }
+    
+    // Freeze effect: Temporarily disable movement
+    if (this.frozen) {
+      this.frozenTimer += dt;
+      if (this.frozenTimer >= this.frozenDuration) {
+        // Unfreeze
+        this.frozen = false;
+        this.frozenTimer = 0;
+        this.maxSpeed = this.originalSpeed;
+        this.color = this.baseColor;
+      } else {
+        // Skip movement updates while frozen
+        return this.y > targetY;
+      }
+    }
 
     // Track previous position to derive orientation and trails.
     const previousX = this.x;
@@ -608,6 +689,32 @@ class EnemyShip {
   takeDamage(amount) {
     this.health -= amount;
     return this.health <= 0;
+  }
+  
+  /**
+   * Apply burning effect from grapheme J (slots 0-3).
+   * Deals 5% max health damage per second until enemy dies.
+   */
+  applyBurning() {
+    if (!this.burning) {
+      this.burning = true;
+      this.burnParticleTimer = 0;
+    }
+  }
+  
+  /**
+   * Apply freeze effect from grapheme J (slots 4-7).
+   * Freezes enemy for 0.5 seconds, can be refreshed.
+   */
+  applyFreeze() {
+    this.frozen = true;
+    this.frozenTimer = 0;
+    this.frozenDuration = ELEMENTAL_CONFIG.FREEZE_DURATION;
+    if (!this.frozen || this.color !== ELEMENTAL_CONFIG.FREEZE_COLOR) {
+      this.originalSpeed = this.maxSpeed;
+    }
+    this.maxSpeed = 0;
+    this.color = ELEMENTAL_CONFIG.FREEZE_COLOR;
   }
 }
 
@@ -827,6 +934,15 @@ class CircleCarrierBoss {
       { radius: 0.6, rotationOffset: 0 },
       { radius: 0.4, rotationOffset: Math.PI / 3 },
     ];
+    
+    // Status effects for grapheme J
+    this.burning = false;
+    this.burnParticleTimer = 0;
+    this.burnParticles = [];
+    this.frozen = false;
+    this.frozenTimer = 0;
+    this.frozenDuration = 0;
+    this.originalSpeed = this.maxSpeed;
   }
 
   /**
@@ -847,6 +963,53 @@ class CircleCarrierBoss {
   update(deltaTime, targetY, canvasWidth, canvasHeight, rng) {
     const dt = deltaTime / 1000;
     this.time += dt;
+
+    // Handle status effects (same as EnemyShip)
+    if (this.burning) {
+      const burnDamage = this.maxHealth * ELEMENTAL_CONFIG.BURN_DAMAGE_PERCENT * dt;
+      this.health -= burnDamage;
+      
+      this.burnParticleTimer += dt;
+      if (this.burnParticleTimer >= ELEMENTAL_CONFIG.BURN_PARTICLE_SPAWN_RATE) {
+        this.burnParticleTimer = 0;
+        const particleCount = Math.floor(Math.random() * 2) + 2;
+        for (let i = 0; i < particleCount; i++) {
+          this.burnParticles.push({
+            x: this.x + (Math.random() - 0.5) * this.size,
+            y: this.y + (Math.random() - 0.5) * this.size,
+            vx: (Math.random() - 0.5) * 10,
+            vy: -ELEMENTAL_CONFIG.BURN_PARTICLE_SPEED,
+            life: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
+            maxLife: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
+            size: 2 + Math.random() * 2,
+          });
+        }
+      }
+      
+      for (let i = this.burnParticles.length - 1; i >= 0; i--) {
+        const particle = this.burnParticles[i];
+        particle.x += particle.vx * dt;
+        particle.y += particle.vy * dt;
+        particle.life -= dt;
+        if (particle.life <= 0) {
+          this.burnParticles.splice(i, 1);
+        }
+      }
+    }
+    
+    if (this.frozen) {
+      this.frozenTimer += dt;
+      if (this.frozenTimer >= this.frozenDuration) {
+        this.frozen = false;
+        this.frozenTimer = 0;
+        this.maxSpeed = this.originalSpeed;
+        this.color = this.baseColor;
+      } else {
+        // Skip movement updates while frozen but still update rotation
+        this.rotation += this.rotationSpeed * dt;
+        return { passedThrough: this.y > targetY, spawnedShips: [] };
+      }
+    }
 
     // Update rotation
     this.rotation += this.rotationSpeed * dt;
@@ -937,6 +1100,24 @@ class CircleCarrierBoss {
     this.health -= amount;
     return this.health <= 0;
   }
+  
+  applyBurning() {
+    if (!this.burning) {
+      this.burning = true;
+      this.burnParticleTimer = 0;
+    }
+  }
+  
+  applyFreeze() {
+    this.frozen = true;
+    this.frozenTimer = 0;
+    this.frozenDuration = ELEMENTAL_CONFIG.FREEZE_DURATION;
+    if (!this.frozen || this.color !== ELEMENTAL_CONFIG.FREEZE_COLOR) {
+      this.originalSpeed = this.maxSpeed;
+    }
+    this.maxSpeed = 0;
+    this.color = ELEMENTAL_CONFIG.FREEZE_COLOR;
+  }
 }
 
 /**
@@ -980,6 +1161,15 @@ class PyramidBoss {
 
     this.trail = [];
     this.time = 0;
+    
+    // Status effects for grapheme J
+    this.burning = false;
+    this.burnParticleTimer = 0;
+    this.burnParticles = [];
+    this.frozen = false;
+    this.frozenTimer = 0;
+    this.frozenDuration = 0;
+    this.originalSpeed = this.maxSpeed;
   }
 
   pickNewTarget(canvasWidth, canvasHeight, rng) {
@@ -993,6 +1183,53 @@ class PyramidBoss {
   update(deltaTime, targetY, canvasWidth, canvasHeight, rng) {
     const dt = deltaTime / 1000;
     this.time += dt;
+    
+    // Handle status effects
+    if (this.burning) {
+      const burnDamage = this.maxHealth * ELEMENTAL_CONFIG.BURN_DAMAGE_PERCENT * dt;
+      this.health -= burnDamage;
+      
+      this.burnParticleTimer += dt;
+      if (this.burnParticleTimer >= ELEMENTAL_CONFIG.BURN_PARTICLE_SPAWN_RATE) {
+        this.burnParticleTimer = 0;
+        const particleCount = Math.floor(Math.random() * 2) + 2;
+        for (let i = 0; i < particleCount; i++) {
+          this.burnParticles.push({
+            x: this.x + (Math.random() - 0.5) * this.size,
+            y: this.y + (Math.random() - 0.5) * this.size,
+            vx: (Math.random() - 0.5) * 10,
+            vy: -ELEMENTAL_CONFIG.BURN_PARTICLE_SPEED,
+            life: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
+            maxLife: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
+            size: 2 + Math.random() * 2,
+          });
+        }
+      }
+      
+      for (let i = this.burnParticles.length - 1; i >= 0; i--) {
+        const particle = this.burnParticles[i];
+        particle.x += particle.vx * dt;
+        particle.y += particle.vy * dt;
+        particle.life -= dt;
+        if (particle.life <= 0) {
+          this.burnParticles.splice(i, 1);
+        }
+      }
+    }
+    
+    if (this.frozen) {
+      this.frozenTimer += dt;
+      if (this.frozenTimer >= this.frozenDuration) {
+        this.frozen = false;
+        this.frozenTimer = 0;
+        this.maxSpeed = this.originalSpeed;
+        this.color = this.baseColor;
+      } else {
+        this.rotation += this.rotationSpeed * dt;
+        return this.y > targetY;
+      }
+    }
+    
     this.rotation += this.rotationSpeed * dt;
 
     const previousX = this.x;
@@ -1064,6 +1301,24 @@ class PyramidBoss {
     this.health -= amount;
     return this.health <= 0;
   }
+  
+  applyBurning() {
+    if (!this.burning) {
+      this.burning = true;
+      this.burnParticleTimer = 0;
+    }
+  }
+  
+  applyFreeze() {
+    this.frozen = true;
+    this.frozenTimer = 0;
+    this.frozenDuration = ELEMENTAL_CONFIG.FREEZE_DURATION;
+    if (!this.frozen || this.color !== ELEMENTAL_CONFIG.FREEZE_COLOR) {
+      this.originalSpeed = this.maxSpeed;
+    }
+    this.maxSpeed = 0;
+    this.color = ELEMENTAL_CONFIG.FREEZE_COLOR;
+  }
 }
 
 /**
@@ -1104,6 +1359,15 @@ class HexagonFortressBoss {
 
     this.trail = [];
     this.time = 0;
+    
+    // Status effects for grapheme J
+    this.burning = false;
+    this.burnParticleTimer = 0;
+    this.burnParticles = [];
+    this.frozen = false;
+    this.frozenTimer = 0;
+    this.frozenDuration = 0;
+    this.originalSpeed = this.maxSpeed;
   }
 
   pickNewTarget(canvasWidth, canvasHeight, rng) {
@@ -1117,6 +1381,53 @@ class HexagonFortressBoss {
   update(deltaTime, targetY, canvasWidth, canvasHeight, rng) {
     const dt = deltaTime / 1000;
     this.time += dt;
+    
+    // Handle status effects
+    if (this.burning) {
+      const burnDamage = this.maxHealth * ELEMENTAL_CONFIG.BURN_DAMAGE_PERCENT * dt;
+      this.health -= burnDamage;
+      
+      this.burnParticleTimer += dt;
+      if (this.burnParticleTimer >= ELEMENTAL_CONFIG.BURN_PARTICLE_SPAWN_RATE) {
+        this.burnParticleTimer = 0;
+        const particleCount = Math.floor(Math.random() * 2) + 2;
+        for (let i = 0; i < particleCount; i++) {
+          this.burnParticles.push({
+            x: this.x + (Math.random() - 0.5) * this.size,
+            y: this.y + (Math.random() - 0.5) * this.size,
+            vx: (Math.random() - 0.5) * 10,
+            vy: -ELEMENTAL_CONFIG.BURN_PARTICLE_SPEED,
+            life: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
+            maxLife: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
+            size: 2 + Math.random() * 2,
+          });
+        }
+      }
+      
+      for (let i = this.burnParticles.length - 1; i >= 0; i--) {
+        const particle = this.burnParticles[i];
+        particle.x += particle.vx * dt;
+        particle.y += particle.vy * dt;
+        particle.life -= dt;
+        if (particle.life <= 0) {
+          this.burnParticles.splice(i, 1);
+        }
+      }
+    }
+    
+    if (this.frozen) {
+      this.frozenTimer += dt;
+      if (this.frozenTimer >= this.frozenDuration) {
+        this.frozen = false;
+        this.frozenTimer = 0;
+        this.maxSpeed = this.originalSpeed;
+        this.color = this.baseColor;
+      } else {
+        this.rotation += this.rotationSpeed * dt;
+        return this.y > targetY;
+      }
+    }
+    
     this.rotation += this.rotationSpeed * dt;
 
     const previousX = this.x;
@@ -1187,6 +1498,24 @@ class HexagonFortressBoss {
     this.health -= amount;
     this.regenCooldown = this.regenCooldownMax;
     return this.health <= 0;
+  }
+  
+  applyBurning() {
+    if (!this.burning) {
+      this.burning = true;
+      this.burnParticleTimer = 0;
+    }
+  }
+  
+  applyFreeze() {
+    this.frozen = true;
+    this.frozenTimer = 0;
+    this.frozenDuration = ELEMENTAL_CONFIG.FREEZE_DURATION;
+    if (!this.frozen || this.color !== ELEMENTAL_CONFIG.FREEZE_COLOR) {
+      this.originalSpeed = this.maxSpeed;
+    }
+    this.maxSpeed = 0;
+    this.color = ELEMENTAL_CONFIG.FREEZE_COLOR;
   }
 }
 
@@ -1478,6 +1807,9 @@ class MathBullet {
       trackingEnemy: false,
     };
     this.epsilonSpiralAngle = 0; // Angle around the spiral center
+    
+    // Tenth grapheme (J - index 9) elemental effect
+    this.elementalEffect = config.elementalEffect || null; // 'burning' or 'freezing'
   }
   
   /**
@@ -3125,6 +3457,23 @@ export class CardinalWardenSimulation {
       }
     }
     
+    // Check for tenth grapheme (index 9 - J) - Elemental effects (burning/freezing)
+    let elementalEffect = null; // 'burning' or 'freezing'
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.J) {
+        // Tenth grapheme found! Effect based on slot position
+        // Slots 0-3: Burning effect (5% max health damage per second)
+        // Slots 4-7: Freeze effect (0.5 second freeze, ice blue color)
+        if (slotIndex <= 3) {
+          elementalEffect = 'burning';
+        } else {
+          elementalEffect = 'freezing';
+        }
+        break; // Only apply the first occurrence
+      }
+    }
+    
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === 0) {
@@ -3160,6 +3509,7 @@ export class CardinalWardenSimulation {
       bounceOnTrails: bounceOnTrails, // Sixth grapheme - disable trail bouncing when present
       hasWaveEffect: hasWaveEffect, // Seventh grapheme - spawn expanding wave on hit
       waveRadius: waveRadius, // Seventh grapheme - max radius of expanding wave
+      elementalEffect: elementalEffect, // Tenth grapheme - burning or freezing effect
     };
 
     // Calculate angle toward aim target (or straight up if no target)
@@ -3881,6 +4231,13 @@ export class CardinalWardenSimulation {
             const waveColor = bullet.color || '#d4af37';
             this.expandingWaves.push(new ExpandingWave(enemy.x, enemy.y, waveDamage, bullet.waveRadius, waveColor));
           }
+          
+          // Apply elemental effect from tenth grapheme (J)
+          if (bullet.elementalEffect === 'burning') {
+            enemy.applyBurning();
+          } else if (bullet.elementalEffect === 'freezing') {
+            enemy.applyFreeze();
+          }
 
           if (killed) {
             enemiesToRemove.add(ei);
@@ -3943,6 +4300,13 @@ export class CardinalWardenSimulation {
             const waveDamage = bullet.damage * WAVE_CONFIG.DAMAGE_MULTIPLIER;
             const waveColor = bullet.color || '#d4af37';
             this.expandingWaves.push(new ExpandingWave(boss.x, boss.y, waveDamage, bullet.waveRadius, waveColor));
+          }
+          
+          // Apply elemental effect from tenth grapheme (J)
+          if (bullet.elementalEffect === 'burning') {
+            boss.applyBurning();
+          } else if (bullet.elementalEffect === 'freezing') {
+            boss.applyFreeze();
           }
 
           if (killed) {
@@ -4719,6 +5083,20 @@ export class CardinalWardenSimulation {
       }
 
       ctx.restore();
+      
+      // Render burn particles if burning
+      if (enemy.burning && enemy.burnParticles.length > 0) {
+        ctx.save();
+        for (const particle of enemy.burnParticles) {
+          const alpha = particle.life / particle.maxLife;
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = ELEMENTAL_CONFIG.BURN_PARTICLE_COLOR;
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
     }
   }
 
@@ -4833,6 +5211,20 @@ export class CardinalWardenSimulation {
       ctx.strokeRect(-barWidth / 2, barY, barWidth, barHeight);
 
       ctx.restore();
+      
+      // Render burn particles if burning
+      if (boss.burning && boss.burnParticles.length > 0) {
+        ctx.save();
+        for (const particle of boss.burnParticles) {
+          const alpha = particle.life / particle.maxLife;
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = ELEMENTAL_CONFIG.BURN_PARTICLE_COLOR;
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
     }
   }
 
