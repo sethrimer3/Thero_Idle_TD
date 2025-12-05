@@ -1782,6 +1782,10 @@ export class CardinalWardenSimulation {
       slot8: [],
     };
 
+    // Shield regeneration tracking for fourth grapheme (index 3 - delta)
+    // Tracks accumulated time toward next shield recovery
+    this.shieldRegenAccumulators = {};
+
     // Aim target for player-controlled weapons (Sine Wave and Convergent Rails)
     // When null, weapons fire straight up; when set, they aim toward this point
     this.aimTarget = null;
@@ -2447,6 +2451,128 @@ export class CardinalWardenSimulation {
 
     // Check game over conditions
     this.checkGameOver();
+    
+    // Update shield regeneration from fourth grapheme
+    this.updateShieldRegeneration(deltaTime);
+  }
+  
+  /**
+   * Get the effective grapheme assignments for a weapon slot,
+   * applying the third grapheme (index 2) deactivation mechanic.
+   * 
+   * When the third grapheme is present in a slot, all graphemes to the RIGHT are deactivated.
+   * For example, if index 2 is in slot 3, only slots 0-3 are active, slots 4-7 are ignored.
+   * 
+   * @param {Array} assignments - The raw grapheme assignments for a weapon slot
+   * @returns {Array} The effective grapheme assignments after applying deactivation
+   */
+  getEffectiveGraphemeAssignments(assignments) {
+    if (!Array.isArray(assignments) || assignments.length === 0) {
+      return [];
+    }
+    
+    // Find the first occurrence of the third grapheme (index 2)
+    let thirdGraphemeSlot = -1;
+    for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
+      const assignment = assignments[slotIndex];
+      if (assignment && assignment.index === 2) {
+        thirdGraphemeSlot = slotIndex;
+        break;
+      }
+    }
+    
+    // If third grapheme not found, all assignments are active
+    if (thirdGraphemeSlot === -1) {
+      return assignments;
+    }
+    
+    // Otherwise, only return assignments up to and including the third grapheme's slot
+    // (deactivate everything to the RIGHT)
+    return assignments.slice(0, thirdGraphemeSlot + 1);
+  }
+  
+  /**
+   * Update shield regeneration based on fourth grapheme (index 3 - delta).
+   * Formula: 1 shield recovered over (slot_number × weapon_attack_speed) seconds
+   * where attack_speed is bullets per second for that weapon.
+   */
+  updateShieldRegeneration(deltaTime) {
+    if (!this.warden || !this.canvas) return;
+    
+    const equippedWeapons = this.weapons.equipped || [];
+    const dt = deltaTime / 1000; // Convert to seconds
+    
+    for (const weaponId of equippedWeapons) {
+      const assignments = this.weaponGraphemeAssignments[weaponId] || [];
+      const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
+      const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
+      if (!weaponDef) continue;
+      
+      // Check if fourth grapheme (index 3) is present in effective assignments
+      let fourthGraphemeSlot = -1;
+      for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+        const assignment = effectiveAssignments[slotIndex];
+        if (assignment && assignment.index === 3) {
+          fourthGraphemeSlot = slotIndex;
+          break;
+        }
+      }
+      
+      // Skip if no fourth grapheme found
+      if (fourthGraphemeSlot === -1) continue;
+      
+      // Calculate weapon's attack speed (bullets per second)
+      // Consider fire rate multiplier from second grapheme (index 1)
+      let fireRateMultiplier = 1;
+      for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+        const assignment = effectiveAssignments[slotIndex];
+        if (assignment && assignment.index === 1) {
+          fireRateMultiplier = slotIndex + 1;
+          break;
+        }
+      }
+      
+      const fireInterval = weaponDef.baseFireRate / fireRateMultiplier;
+      const attackSpeed = 1000 / fireInterval; // bullets per second
+      
+      // Calculate time needed to recover 1 shield
+      // Formula: 1 / (slot_number × attack_speed) seconds per shield
+      // Slot numbering starts at 1 for formula (slot 0 = 1, slot 1 = 2, etc.)
+      const slotNumber = fourthGraphemeSlot + 1;
+      const timePerShield = 1 / (slotNumber * attackSpeed);
+      
+      // Initialize accumulator if needed
+      const key = `${weaponId}_slot${fourthGraphemeSlot}`;
+      if (this.shieldRegenAccumulators[key] === undefined) {
+        this.shieldRegenAccumulators[key] = 0;
+      }
+      
+      // Accumulate time
+      this.shieldRegenAccumulators[key] += dt;
+      
+      // Check if we've accumulated enough time to recover a shield
+      while (this.shieldRegenAccumulators[key] >= timePerShield) {
+        this.shieldRegenAccumulators[key] -= timePerShield;
+        this.regenerateShield();
+      }
+    }
+  }
+  
+  /**
+   * Regenerate one shield/life for the player.
+   * Reverses the life line state progression: gone → dashed → solid
+   */
+  regenerateShield() {
+    // Find the first life line that isn't solid and restore it
+    for (let i = 0; i < this.lifeLines.length; i++) {
+      if (this.lifeLines[i].state === 'gone') {
+        this.lifeLines[i].state = 'dashed';
+        return;
+      } else if (this.lifeLines[i].state === 'dashed') {
+        this.lifeLines[i].state = 'solid';
+        return;
+      }
+    }
   }
   
   /**
@@ -2479,10 +2605,12 @@ export class CardinalWardenSimulation {
       }
       
       // Calculate fire rate multiplier from second grapheme (index 1)
+      // Use effective assignments to respect third grapheme deactivation
       let fireRateMultiplier = 1;
       const assignments = this.weaponGraphemeAssignments[weaponId] || [];
-      for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
-        const assignment = assignments[slotIndex];
+      const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
+      for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+        const assignment = effectiveAssignments[slotIndex];
         if (assignment && assignment.index === 1) {
           // Second grapheme found! Fire rate multiplier based on slot position
           // Slot 0 = 1x (no change), Slot 1 = 2x faster, Slot 2 = 3x faster, etc.
@@ -2528,10 +2656,12 @@ export class CardinalWardenSimulation {
     
     // ThoughtSpeak mechanics: Check for first grapheme (index 0) in any slot
     // Shape and damage multiplier based on slot position
+    // Use effective assignments to respect third grapheme deactivation
     let bulletShape = null; // null = circle (default), otherwise number of sides
     const assignments = this.weaponGraphemeAssignments[weaponId] || [];
-    for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
-      const assignment = assignments[slotIndex];
+    const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === 0) {
         // First grapheme found! Apply slot-based mechanics
         // Slot 0 = triangle (3 sides), 3x damage
@@ -2590,16 +2720,17 @@ export class CardinalWardenSimulation {
     
     for (const weaponId of this.weapons.equipped) {
       const assignments = this.weaponGraphemeAssignments[weaponId] || [];
+      const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
       const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
       
-      for (const assignment of assignments) {
+      for (const assignment of effectiveAssignments) {
         if (assignment && assignment.index === 2) {
           hasThirdGrapheme = true;
           
           // Calculate fire rate multiplier from second grapheme (index 1)
           let fireRateMultiplier = 1;
-          for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
-            const a = assignments[slotIndex];
+          for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+            const a = effectiveAssignments[slotIndex];
             if (a && a.index === 1) {
               fireRateMultiplier = slotIndex + 1;
               break;
@@ -2616,8 +2747,8 @@ export class CardinalWardenSimulation {
           let damageMultiplier = 1 + (level - 1) * 0.25;
           
           // Check for first grapheme damage multiplier
-          for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
-            const a = assignments[slotIndex];
+          for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+            const a = effectiveAssignments[slotIndex];
             if (a && a.index === 0) {
               const sidesMap = [3, 5, 6, 7, 8, 9, 10, 11];
               const bulletShape = sidesMap[slotIndex] !== undefined ? sidesMap[slotIndex] : Math.max(3, slotIndex + 3);
