@@ -3118,7 +3118,9 @@ export class CardinalWardenSimulation {
       if (assignment && assignment.index === GRAPHEME_INDEX.I) {
         // Ninth grapheme found! Extra bullets based on slot position
         // Use lookup table for slot-to-bullet mapping
-        spreadBulletCount = SPREAD_CONFIG.SLOT_TO_EXTRA_BULLETS[slotIndex] || 0;
+        if (slotIndex >= 0 && slotIndex < SPREAD_CONFIG.SLOT_TO_EXTRA_BULLETS.length) {
+          spreadBulletCount = SPREAD_CONFIG.SLOT_TO_EXTRA_BULLETS[slotIndex];
+        }
         break; // Only apply the first occurrence
       }
     }
