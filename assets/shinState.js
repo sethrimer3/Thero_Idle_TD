@@ -517,7 +517,7 @@ const GRAPHEME_CHARACTERS = [
   { index: 5, name: 'F', property: 'spread', row: 0, col: 5, collectable: true },
   { index: 6, name: 'G', property: 'chain', row: 0, col: 6, collectable: true },
   // Row 2 (indices 7-13)
-  { index: 7, name: 'H', property: 'damage', row: 1, col: 0, collectable: true },
+  { index: 7, name: 'H', property: 'targeting', row: 1, col: 0, collectable: true },
   { index: 8, name: 'I', property: 'range', row: 1, col: 1, collectable: true },
   { index: 9, name: 'J', property: 'splash', row: 1, col: 2, collectable: true },
   { index: 10, name: 'K', property: 'penetration', row: 1, col: 3, collectable: true },
