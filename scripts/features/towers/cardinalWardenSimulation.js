@@ -2546,6 +2546,7 @@ export class CardinalWardenSimulation {
     this.bullets = [];
     this.bosses = [];
     this.friendlyShips = [];
+    this.expandingWaves = [];
     this.enemySpawnTimer = 0;
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
