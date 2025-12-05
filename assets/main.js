@@ -1173,9 +1173,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       powderState.betTerrarium.moonEnabled = true;
     }
 
-    // Enable full celestial cycle only when both are unlocked
-    const bothEnabled = powderState.betTerrarium.sunEnabled && powderState.betTerrarium.moonEnabled;
-    powderState.betTerrarium.celestialBodiesEnabled = bothEnabled;
+    // Enable celestial cycle when either sun or moon is unlocked
+    const anyEnabled = powderState.betTerrarium.sunEnabled || powderState.betTerrarium.moonEnabled;
+    powderState.betTerrarium.celestialBodiesEnabled = anyEnabled;
 
     // Enable the sky cycle if it exists
     if (fluidTerrariumSkyCycle) {

@@ -209,8 +209,8 @@ export class FluidTerrariumSkyCycle {
     if (!this.sunElement) {
       return;
     }
-    // Hide sun if not purchased or celestial bodies are not enabled
-    if (!this.sunEnabled || !this.celestialBodiesEnabled) {
+    // Hide sun if not purchased
+    if (!this.sunEnabled) {
       this.sunElement.style.opacity = '0';
       return;
     }
@@ -233,8 +233,8 @@ export class FluidTerrariumSkyCycle {
     if (!this.moonElement) {
       return;
     }
-    // Hide moon if not purchased or celestial bodies are not enabled
-    if (!this.moonEnabled || !this.celestialBodiesEnabled) {
+    // Hide moon if not purchased
+    if (!this.moonEnabled) {
       this.moonElement.style.opacity = '0';
       return;
     }
