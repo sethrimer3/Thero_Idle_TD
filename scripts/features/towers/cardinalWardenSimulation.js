@@ -1175,13 +1175,14 @@ class FriendlyShip {
     this.orbitDirection = rng.next() > 0.5 ? 1 : -1; // Random direction
     
     // Attack behavior
-    this.mode = 'orbit'; // 'orbit' or 'attack'
+    this.mode = 'orbit'; // 'orbit', 'attack', or 'returning'
     this.targetEnemy = null;
     this.attackSpeed = 150;
+    this.returnSpeed = 120; // Speed when flying back to orbit
     
-    // Trail for visual effect
+    // Trail for visual effect (thin, colorful trails)
     this.trail = [];
-    this.maxTrailLength = 8;
+    this.maxTrailLength = 20; // Longer trails for better visibility
   }
   
   update(deltaTime, warden, enemies, canvasHeight) {
@@ -1202,8 +1203,8 @@ class FriendlyShip {
         enemy.y > lowest.y ? enemy : lowest
       );
     } else if (enemiesInBottom.length === 0 && this.mode === 'attack') {
-      // Switch back to orbit mode
-      this.mode = 'orbit';
+      // Switch to returning mode for smooth fly-back
+      this.mode = 'returning';
       this.targetEnemy = null;
     }
     
@@ -1215,6 +1216,28 @@ class FriendlyShip {
       this.orbitAngle += this.orbitSpeed * this.orbitDirection * dt;
       this.x = this.wardenX + Math.cos(this.orbitAngle) * this.orbitRadius;
       this.y = this.wardenY + Math.sin(this.orbitAngle) * this.orbitRadius;
+    } else if (this.mode === 'returning') {
+      // Smoothly fly back to orbit position
+      const targetX = this.wardenX + Math.cos(this.orbitAngle) * this.orbitRadius;
+      const targetY = this.wardenY + Math.sin(this.orbitAngle) * this.orbitRadius;
+      const dx = targetX - this.x;
+      const dy = targetY - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist > 5) {
+        // Still returning
+        const dirX = dx / dist;
+        const dirY = dy / dist;
+        this.x += dirX * this.returnSpeed * dt;
+        this.y += dirY * this.returnSpeed * dt;
+        // Continue orbiting while returning
+        this.orbitAngle += this.orbitSpeed * this.orbitDirection * dt * 0.5;
+      } else {
+        // Arrived at orbit, switch back to orbit mode
+        this.mode = 'orbit';
+        this.x = targetX;
+        this.y = targetY;
+      }
     } else if (this.mode === 'attack' && this.targetEnemy) {
       // Move toward target enemy
       const dx = this.targetEnemy.x - this.x;
@@ -1228,9 +1251,9 @@ class FriendlyShip {
         this.y += dirY * this.attackSpeed * dt;
       }
       
-      // If target is dead or not in bottom anymore, switch back to orbit
+      // If target is dead or not in bottom anymore, switch to returning
       if (!enemies.includes(this.targetEnemy) || this.targetEnemy.y < bottomThreshold) {
-        this.mode = 'orbit';
+        this.mode = 'returning';
         this.targetEnemy = null;
       }
     }
@@ -1433,14 +1456,14 @@ class MathBullet {
 const WEAPON_SLOT_IDS = ['slot1', 'slot2', 'slot3'];
 
 /**
- * Simplified weapon slot definitions for the Cardinal Warden.
- * Three weapon slots that fire simple bullets toward the click target.
- * Later, lexemes can be placed into these slots to modify behavior.
+ * Simplified weapon definitions for the Cardinal Warden.
+ * Three weapons that fire simple bullets toward the click target.
+ * Each weapon has 8 grapheme slots where lexemes can be placed to modify behavior.
  */
 const WEAPON_SLOT_DEFINITIONS = {
   slot1: {
     id: 'slot1',
-    name: 'Weapon Slot 1',
+    name: 'Weapon 1',
     symbol: 'Ⅰ',
     symbolGraphemeIndex: 25, // ThoughtSpeak number 1
     description: '',
@@ -1448,12 +1471,12 @@ const WEAPON_SLOT_DEFINITIONS = {
     baseSpeed: 200,
     baseFireRate: 2000, // 2 seconds
     pattern: 'straight', // Simple straight bullet
-    color: '#d4af37',
+    color: '#d4af37', // Will be overridden by gradient
     slotIndex: 0,
   },
   slot2: {
     id: 'slot2',
-    name: 'Weapon Slot 2',
+    name: 'Weapon 2',
     symbol: 'Ⅱ',
     symbolGraphemeIndex: 26, // ThoughtSpeak number 2
     description: '',
@@ -1461,12 +1484,12 @@ const WEAPON_SLOT_DEFINITIONS = {
     baseSpeed: 200,
     baseFireRate: 3000, // 3 seconds
     pattern: 'straight',
-    color: '#ff9c66',
+    color: '#ff9c66', // Will be overridden by gradient
     slotIndex: 1,
   },
   slot3: {
     id: 'slot3',
-    name: 'Weapon Slot 3',
+    name: 'Weapon 3',
     symbol: 'Ⅲ',
     symbolGraphemeIndex: 27, // ThoughtSpeak number 3
     description: '',
@@ -1474,73 +1497,8 @@ const WEAPON_SLOT_DEFINITIONS = {
     baseSpeed: 200,
     baseFireRate: 5000, // 5 seconds
     pattern: 'straight',
-    color: '#9a6bff',
+    color: '#9a6bff', // Will be overridden by gradient
     slotIndex: 2,
-  },
-  slot4: {
-    id: 'slot4',
-    name: 'Weapon Slot 4',
-    symbol: 'Ⅳ',
-    symbolGraphemeIndex: 28, // ThoughtSpeak number 4
-    description: '',
-    baseDamage: 1,
-    baseSpeed: 200,
-    baseFireRate: 7000, // 7 seconds
-    pattern: 'straight',
-    color: '#66ccff',
-    slotIndex: 3,
-  },
-  slot5: {
-    id: 'slot5',
-    name: 'Weapon Slot 5',
-    symbol: 'Ⅴ',
-    symbolGraphemeIndex: 29, // ThoughtSpeak number 5
-    description: '',
-    baseDamage: 1,
-    baseSpeed: 200,
-    baseFireRate: 9000, // 9 seconds
-    pattern: 'straight',
-    color: '#66ff99',
-    slotIndex: 4,
-  },
-  slot6: {
-    id: 'slot6',
-    name: 'Weapon Slot 6',
-    symbol: 'Ⅵ',
-    symbolGraphemeIndex: 30, // ThoughtSpeak number 6
-    description: '',
-    baseDamage: 1,
-    baseSpeed: 200,
-    baseFireRate: 11000, // 11 seconds
-    pattern: 'straight',
-    color: '#ff66ff',
-    slotIndex: 5,
-  },
-  slot7: {
-    id: 'slot7',
-    name: 'Weapon Slot 7',
-    symbol: 'Ⅶ',
-    symbolGraphemeIndex: 31, // ThoughtSpeak number 7
-    description: '',
-    baseDamage: 1,
-    baseSpeed: 200,
-    baseFireRate: 13000, // 13 seconds
-    pattern: 'straight',
-    color: '#ffcc66',
-    slotIndex: 6,
-  },
-  slot8: {
-    id: 'slot8',
-    name: 'Weapon Slot 8',
-    symbol: 'Ⅷ',
-    symbolGraphemeIndex: 32, // ThoughtSpeak number 8
-    description: '',
-    baseDamage: 1,
-    baseSpeed: 200,
-    baseFireRate: 15000, // 15 seconds
-    pattern: 'straight',
-    color: '#ff9999',
-    slotIndex: 7,
   },
 };
 
@@ -1722,27 +1680,22 @@ export class CardinalWardenSimulation {
       patterns: ['radial'], // Unlocked patterns
     };
 
-    // Simplified weapon slot system - all 8 slots are always active
+    // Simplified weapon system - all 3 weapons are always active
     this.weapons = {
-      // All 8 weapon slots are always equipped (no purchase needed)
-      purchased: { slot1: true, slot2: true, slot3: true, slot4: true, slot5: true, slot6: true, slot7: true, slot8: true },
-      levels: { slot1: 1, slot2: 1, slot3: 1, slot4: 1, slot5: 1, slot6: 1, slot7: 1, slot8: 1 }, // Level tracking for future lexeme upgrades
-      equipped: ['slot1', 'slot2', 'slot3', 'slot4', 'slot5', 'slot6', 'slot7', 'slot8'], // All 8 slots always active
+      // All 3 weapons are always equipped (no purchase needed)
+      purchased: { slot1: true, slot2: true, slot3: true },
+      levels: { slot1: 1, slot2: 1, slot3: 1 }, // Level tracking for future lexeme upgrades
+      equipped: ['slot1', 'slot2', 'slot3'], // All 3 weapons always active
     };
     
-    // Maximum number of weapons that can be equipped simultaneously (always 8)
-    this.maxEquippedWeapons = 8;
+    // Maximum number of weapons that can be equipped simultaneously (always 3)
+    this.maxEquippedWeapons = 3;
     
-    // Weapon-specific timers (each slot has its own fire rate)
+    // Weapon-specific timers (each weapon has its own fire rate)
     this.weaponTimers = {
       slot1: 0,
       slot2: 0,
       slot3: 0,
-      slot4: 0,
-      slot5: 0,
-      slot6: 0,
-      slot7: 0,
-      slot8: 0,
     };
 
     // Weapon glow state for visual feedback (0 = no glow, 1 = full glow)
@@ -1750,11 +1703,6 @@ export class CardinalWardenSimulation {
       slot1: 0,
       slot2: 0,
       slot3: 0,
-      slot4: 0,
-      slot5: 0,
-      slot6: 0,
-      slot7: 0,
-      slot8: 0,
     };
 
     // Weapon phase state for potential future grapheme phase accumulation
@@ -1762,24 +1710,14 @@ export class CardinalWardenSimulation {
       slot1: 0,
       slot2: 0,
       slot3: 0,
-      slot4: 0,
-      slot5: 0,
-      slot6: 0,
-      slot7: 0,
-      slot8: 0,
     };
 
     // Weapon grapheme assignments for dynamic script rendering
-    // Each weapon slot can have up to 8 graphemes assigned
+    // Each weapon has up to 8 grapheme slots for lexeme placement
     this.weaponGraphemeAssignments = {
       slot1: [],
       slot2: [],
       slot3: [],
-      slot4: [],
-      slot5: [],
-      slot6: [],
-      slot7: [],
-      slot8: [],
     };
 
     // Shield regeneration tracking for fourth grapheme (index 3 - delta)
@@ -1841,6 +1779,115 @@ export class CardinalWardenSimulation {
 
     // Rebuild the tinted script sheet so glyphs match the active palette immediately.
     this.rebuildTintedScriptSheet();
+    
+    // Update weapon colors based on gradient
+    this.updateWeaponColors();
+  }
+  
+  /**
+   * Calculate weapon colors based on a gradient from the universal color palette.
+   * For now, we use a simple gradient from the warden core color.
+   * Weapon 1: top of gradient (wardenCoreColor)
+   * Weapon 2: middle of gradient (interpolated)
+   * Weapon 3: bottom of gradient (complementary color)
+   */
+  updateWeaponColors() {
+    // Start with the warden core color
+    const baseColor = this.wardenCoreColor;
+    
+    // Parse base color to RGB
+    const r = parseInt(baseColor.slice(1, 3), 16);
+    const g = parseInt(baseColor.slice(3, 5), 16);
+    const b = parseInt(baseColor.slice(5, 7), 16);
+    
+    // Create a gradient with three colors
+    // Weapon 1: Base color (top of gradient)
+    const weapon1Color = baseColor;
+    
+    // Weapon 2: Shift hue by 120 degrees for middle color
+    const weapon2Color = this.shiftHue(r, g, b, 120);
+    
+    // Weapon 3: Shift hue by 240 degrees for bottom color
+    const weapon3Color = this.shiftHue(r, g, b, 240);
+    
+    // Update weapon definitions with new colors
+    if (WEAPON_SLOT_DEFINITIONS.slot1) {
+      WEAPON_SLOT_DEFINITIONS.slot1.color = weapon1Color;
+    }
+    if (WEAPON_SLOT_DEFINITIONS.slot2) {
+      WEAPON_SLOT_DEFINITIONS.slot2.color = weapon2Color;
+    }
+    if (WEAPON_SLOT_DEFINITIONS.slot3) {
+      WEAPON_SLOT_DEFINITIONS.slot3.color = weapon3Color;
+    }
+  }
+  
+  /**
+   * Shift the hue of an RGB color by a specified amount in degrees.
+   * @param {number} r - Red component (0-255)
+   * @param {number} g - Green component (0-255)
+   * @param {number} b - Blue component (0-255)
+   * @param {number} degrees - Degrees to shift hue (0-360)
+   * @returns {string} Hex color string
+   */
+  shiftHue(r, g, b, degrees) {
+    // Convert RGB to HSL
+    const rNorm = r / 255;
+    const gNorm = g / 255;
+    const bNorm = b / 255;
+    
+    const max = Math.max(rNorm, gNorm, bNorm);
+    const min = Math.min(rNorm, gNorm, bNorm);
+    const delta = max - min;
+    
+    let h = 0;
+    let s = 0;
+    const l = (max + min) / 2;
+    
+    if (delta !== 0) {
+      s = l > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+      
+      if (max === rNorm) {
+        h = ((gNorm - bNorm) / delta + (gNorm < bNorm ? 6 : 0)) / 6;
+      } else if (max === gNorm) {
+        h = ((bNorm - rNorm) / delta + 2) / 6;
+      } else {
+        h = ((rNorm - gNorm) / delta + 4) / 6;
+      }
+    }
+    
+    // Shift hue
+    h = (h + degrees / 360) % 1;
+    
+    // Convert HSL back to RGB
+    let rOut, gOut, bOut;
+    
+    if (s === 0) {
+      rOut = gOut = bOut = l;
+    } else {
+      const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+      
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      
+      rOut = hue2rgb(p, q, h + 1/3);
+      gOut = hue2rgb(p, q, h);
+      bOut = hue2rgb(p, q, h - 1/3);
+    }
+    
+    // Convert to hex
+    const rHex = Math.round(rOut * 255).toString(16).padStart(2, '0');
+    const gHex = Math.round(gOut * 255).toString(16).padStart(2, '0');
+    const bHex = Math.round(bOut * 255).toString(16).padStart(2, '0');
+    
+    return `#${rHex}${gHex}${bHex}`;
   }
 
   /**
@@ -2788,9 +2835,10 @@ export class CardinalWardenSimulation {
       const x = this.warden.x + Math.cos(angle) * radius;
       const y = this.warden.y + Math.sin(angle) * radius;
       
-      // Pick a weapon color for variety
-      const weaponColors = ['#d4af37', '#ff9c66', '#9a6bff'];
-      const color = weaponColors[this.friendlyShips.length % weaponColors.length];
+      // Assign weapon color based on current ship count to distribute colors across weapons
+      const weaponIds = WEAPON_SLOT_IDS;
+      const weaponId = weaponIds[this.friendlyShips.length % weaponIds.length];
+      const color = WEAPON_SLOT_DEFINITIONS[weaponId].color;
       
       this.friendlyShips.push(new FriendlyShip(x, y, this.warden.x, this.warden.y, weaponDamage, color, this.rng));
     }
@@ -3879,16 +3927,31 @@ export class CardinalWardenSimulation {
     const ctx = this.ctx;
     
     for (const ship of this.friendlyShips) {
-      // Render trail
+      // Render thin, colorful trail matching the weapon color
       if (ship.trail.length > 1) {
         ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        // Parse ship color to RGB for alpha blending
+        const hexColor = ship.color;
+        const r = parseInt(hexColor.slice(1, 3), 16);
+        const g = parseInt(hexColor.slice(3, 5), 16);
+        const b = parseInt(hexColor.slice(5, 7), 16);
+        
+        // Draw trail as connected line segments with fading alpha
         for (let i = 0; i < ship.trail.length - 1; i++) {
-          const point = ship.trail[i];
-          const alpha = ((i + 1) / ship.trail.length) * 0.6;
-          ctx.fillStyle = this.nightMode ? `rgba(255, 255, 255, ${alpha})` : `rgba(212, 175, 55, ${alpha})`;
+          const start = ship.trail[i];
+          const end = ship.trail[i + 1];
+          const alpha = ((i + 1) / ship.trail.length) * 0.7;
+          const lineWidth = 2.0 * alpha; // Thin trails
+          
+          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+          ctx.lineWidth = lineWidth;
           ctx.beginPath();
-          ctx.arc(point.x, point.y, ship.size * 0.3 * alpha, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.moveTo(start.x, start.y);
+          ctx.lineTo(end.x, end.y);
+          ctx.stroke();
         }
         ctx.restore();
       }
