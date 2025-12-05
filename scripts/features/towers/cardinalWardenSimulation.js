@@ -1336,15 +1336,143 @@ class MathBullet {
     
     // ThoughtSpeak shape override (null = use level-based rendering)
     this.thoughtSpeakShape = config.thoughtSpeakShape || null;
+    
+    // Fifth grapheme (Epsilon - index 4) behavior configuration
+    this.epsilonBehavior = config.epsilonBehavior || null; // 'straight', 'zigzag', or 'spiral'
+    this.epsilonZigzagState = {
+      waypointCount: 0,
+      maxWaypoints: 10,
+      holdTimer: 0,
+      holdDuration: 0.5, // seconds
+      isHolding: false,
+      targetX: null,
+      targetY: null,
+      trackingEnemy: false,
+    };
+    this.epsilonSpiralAngle = 0; // Angle around the spiral center
   }
 
-  update(deltaTime) {
+  update(deltaTime, canvasWidth, canvasHeight, enemies) {
     const dt = deltaTime / 1000;
     this.prevX = this.x;
     this.prevY = this.y;
     this.time += dt;
     this.age += deltaTime;
 
+    // Handle fifth grapheme (Epsilon) behaviors first
+    if (this.epsilonBehavior === 'straight') {
+      // Slots 0-2: Simple straight movement (no oscillation)
+      this.distance += this.speed * dt;
+      this.x = this.startX + Math.cos(this.baseAngle) * this.distance;
+      this.y = this.startY + Math.sin(this.baseAngle) * this.distance;
+      
+      // Record trail and update rotation, then return early
+      if (this.maxTrailLength > 0) {
+        this.trail.push({ x: this.x, y: this.y });
+        if (this.trail.length > this.maxTrailLength) {
+          this.trail.shift();
+        }
+      }
+      if (this.level >= 3) {
+        this.shapeRotation += this.shapeRotationSpeed * dt;
+      }
+      return;
+    } else if (this.epsilonBehavior === 'zigzag') {
+      // Slots 3-4: Zigzag to random positions with holds
+      const state = this.epsilonZigzagState;
+      
+      if (state.isHolding) {
+        // Hold at current position
+        state.holdTimer += dt;
+        if (state.holdTimer >= state.holdDuration) {
+          // Done holding, pick new target
+          state.isHolding = false;
+          state.holdTimer = 0;
+          state.waypointCount++;
+          
+          // After 10 waypoints, track nearest enemy if available
+          if (state.waypointCount >= state.maxWaypoints && enemies && enemies.length > 0) {
+            state.trackingEnemy = true;
+          }
+        }
+      } else {
+        // Move toward target or pick new target
+        if (state.trackingEnemy && enemies && enemies.length > 0) {
+          // Track nearest enemy
+          let nearestEnemy = null;
+          let nearestDist = Infinity;
+          for (const enemy of enemies) {
+            const dist = Math.hypot(enemy.x - this.x, enemy.y - this.y);
+            if (dist < nearestDist) {
+              nearestDist = dist;
+              nearestEnemy = enemy;
+            }
+          }
+          if (nearestEnemy) {
+            state.targetX = nearestEnemy.x;
+            state.targetY = nearestEnemy.y;
+          }
+        } else if (state.targetX === null || state.targetY === null) {
+          // Pick random target within canvas bounds
+          if (canvasWidth && canvasHeight) {
+            state.targetX = Math.random() * canvasWidth;
+            state.targetY = Math.random() * canvasHeight;
+          }
+        }
+        
+        // Move toward target
+        if (state.targetX !== null && state.targetY !== null) {
+          const dx = state.targetX - this.x;
+          const dy = state.targetY - this.y;
+          const dist = Math.hypot(dx, dy);
+          
+          if (dist < this.speed * dt * 2) {
+            // Reached target, start holding
+            state.isHolding = true;
+            state.holdTimer = 0;
+            state.targetX = null;
+            state.targetY = null;
+          } else {
+            // Move toward target
+            const angle = Math.atan2(dy, dx);
+            this.x += Math.cos(angle) * this.speed * dt;
+            this.y += Math.sin(angle) * this.speed * dt;
+          }
+        }
+      }
+      
+      // Record trail and update rotation
+      if (this.maxTrailLength > 0) {
+        this.trail.push({ x: this.x, y: this.y });
+        if (this.trail.length > this.maxTrailLength) {
+          this.trail.shift();
+        }
+      }
+      if (this.level >= 3) {
+        this.shapeRotation += this.shapeRotationSpeed * dt;
+      }
+      return;
+    } else if (this.epsilonBehavior === 'spiral') {
+      // Slots 5-7: Spiral outward from weapon
+      this.epsilonSpiralAngle += dt * 2; // Rotation speed
+      const radius = this.time * this.speed * 0.3; // Expand outward
+      this.x = this.startX + Math.cos(this.epsilonSpiralAngle) * radius;
+      this.y = this.startY + Math.sin(this.epsilonSpiralAngle) * radius;
+      
+      // Record trail and update rotation
+      if (this.maxTrailLength > 0) {
+        this.trail.push({ x: this.x, y: this.y });
+        if (this.trail.length > this.maxTrailLength) {
+          this.trail.shift();
+        }
+      }
+      if (this.level >= 3) {
+        this.shapeRotation += this.shapeRotationSpeed * dt;
+      }
+      return;
+    }
+
+    // Standard movement (no epsilon behavior)
     // Move forward along the base angle
     this.distance += this.speed * dt;
     
@@ -1445,6 +1573,11 @@ class MathBullet {
   }
 
   isOffscreen(width, height) {
+    // Spiral bullets (epsilon slots 5-7) only disappear at the top
+    if (this.epsilonBehavior === 'spiral') {
+      return this.y < -this.size;
+    }
+    
     return this.x < -this.size || this.x > width + this.size ||
            this.y < -this.size || this.y > height + this.size;
   }
@@ -2726,6 +2859,27 @@ export class CardinalWardenSimulation {
     let bulletShape = null; // null = circle (default), otherwise number of sides
     const assignments = this.weaponGraphemeAssignments[weaponId] || [];
     const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
+    
+    // Check for fifth grapheme (index 4 - Epsilon) - Lightning movement behavior
+    let epsilonBehavior = null;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === 4) {
+        // Fifth grapheme found! Behavior based on slot position
+        // Slots 0-2: straight bullets
+        // Slots 3-4: zigzag with holds
+        // Slots 5-7: spiral outward
+        if (slotIndex <= 2) {
+          epsilonBehavior = 'straight';
+        } else if (slotIndex <= 4) {
+          epsilonBehavior = 'zigzag';
+        } else {
+          epsilonBehavior = 'spiral';
+        }
+        break; // Only apply the first occurrence
+      }
+    }
+    
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === 0) {
@@ -2755,6 +2909,7 @@ export class CardinalWardenSimulation {
       level: bulletShape !== null ? bulletShape : level, // Use shape as level for rendering
       maxTrailLength: this.getBulletTrailMaxLength(),
       thoughtSpeakShape: bulletShape, // Custom property for ThoughtSpeak shapes
+      epsilonBehavior: epsilonBehavior, // Fifth grapheme behavior
     };
 
     // Calculate angle toward aim target (or straight up if no target)
@@ -3403,7 +3558,7 @@ export class CardinalWardenSimulation {
 
     for (let i = 0; i < this.bullets.length; i++) {
       const bullet = this.bullets[i];
-      bullet.update(deltaTime);
+      bullet.update(deltaTime, this.canvas.width, this.canvas.height, this.enemies);
 
       this.tryBounceBulletOffTrails(bullet);
 

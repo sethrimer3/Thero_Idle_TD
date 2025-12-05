@@ -87,6 +87,23 @@ Each grapheme (script character) has unique effects based on its position in a w
 - **Visual:** Reverses life line state progression at bottom of screen (gone → dashed → solid)
 - **Note:** Affected by third grapheme deactivation if positioned to the right of it
 
+#### Index 4 - Epsilon (Lightning)
+- **Effect:** Modifies bullet trajectory based on slot position
+- **Slots 0-2 (First Three Slots):**
+  - Bullets shoot straight toward the aim target
+  - No oscillation or deviation from the direct path
+  - Simple, reliable targeting
+- **Slots 3-4 (Middle Two Slots):**
+  - Bullets move in a zigzag pattern toward random positions
+  - Each waypoint: bullet travels straight, holds for 0.5 seconds, then changes direction
+  - After 10 waypoint holds, if the bullet still persists, it targets the nearest enemy
+  - Creates unpredictable attack patterns that can surprise enemies
+- **Slots 5-7 (Last Three Slots):**
+  - Bullets spiral outward from the weapon in an expanding pattern
+  - Bullets only disappear when they reach the top edge of the render area
+  - Creates a defensive spiral screen that can catch enemies at various distances
+  - Pattern expands continuously, creating wider coverage over time
+
 ## Implementation Notes
 
 ### Drop Mechanics
