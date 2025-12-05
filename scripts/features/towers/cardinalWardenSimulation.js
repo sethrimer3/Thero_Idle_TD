@@ -97,6 +97,9 @@ const ELEMENTAL_CONFIG = {
   BURN_PARTICLE_LIFETIME: 1.0,     // Particles last 1 second
   BURN_PARTICLE_SPEED: 20,         // Pixels per second upward
   BURN_PARTICLE_COLOR: '#ff4444',  // Red color for burning particles
+  BURN_PARTICLE_MIN_COUNT: 2,      // Minimum particles per spawn
+  BURN_PARTICLE_MAX_COUNT: 3,      // Maximum particles per spawn (exclusive)
+  BURN_PARTICLE_HORIZONTAL_SPREAD: 10, // Horizontal velocity spread (pixels/sec)
   
   // Freeze effect (slots 4-7)
   FREEZE_DURATION: 0.5,             // Freeze lasts 0.5 seconds
@@ -517,13 +520,12 @@ class EnemyShip {
       this.burnParticleTimer += dt;
       if (this.burnParticleTimer >= ELEMENTAL_CONFIG.BURN_PARTICLE_SPAWN_RATE) {
         this.burnParticleTimer = 0;
-        // Spawn 2-3 particles
-        const particleCount = Math.floor(Math.random() * 2) + 2;
+        const particleCount = Math.floor(Math.random() * (ELEMENTAL_CONFIG.BURN_PARTICLE_MAX_COUNT - ELEMENTAL_CONFIG.BURN_PARTICLE_MIN_COUNT)) + ELEMENTAL_CONFIG.BURN_PARTICLE_MIN_COUNT;
         for (let i = 0; i < particleCount; i++) {
           this.burnParticles.push({
             x: this.x + (Math.random() - 0.5) * this.size,
             y: this.y + (Math.random() - 0.5) * this.size,
-            vx: (Math.random() - 0.5) * 10,
+            vx: (Math.random() - 0.5) * ELEMENTAL_CONFIG.BURN_PARTICLE_HORIZONTAL_SPREAD,
             vy: -ELEMENTAL_CONFIG.BURN_PARTICLE_SPEED,
             life: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
             maxLife: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
@@ -707,12 +709,13 @@ class EnemyShip {
    * Freezes enemy for 0.5 seconds, can be refreshed.
    */
   applyFreeze() {
+    // Store original speed only if not already frozen
+    if (!this.frozen) {
+      this.originalSpeed = this.maxSpeed;
+    }
     this.frozen = true;
     this.frozenTimer = 0;
     this.frozenDuration = ELEMENTAL_CONFIG.FREEZE_DURATION;
-    if (!this.frozen || this.color !== ELEMENTAL_CONFIG.FREEZE_COLOR) {
-      this.originalSpeed = this.maxSpeed;
-    }
     this.maxSpeed = 0;
     this.color = ELEMENTAL_CONFIG.FREEZE_COLOR;
   }
@@ -972,12 +975,12 @@ class CircleCarrierBoss {
       this.burnParticleTimer += dt;
       if (this.burnParticleTimer >= ELEMENTAL_CONFIG.BURN_PARTICLE_SPAWN_RATE) {
         this.burnParticleTimer = 0;
-        const particleCount = Math.floor(Math.random() * 2) + 2;
+        const particleCount = Math.floor(Math.random() * (ELEMENTAL_CONFIG.BURN_PARTICLE_MAX_COUNT - ELEMENTAL_CONFIG.BURN_PARTICLE_MIN_COUNT)) + ELEMENTAL_CONFIG.BURN_PARTICLE_MIN_COUNT;
         for (let i = 0; i < particleCount; i++) {
           this.burnParticles.push({
             x: this.x + (Math.random() - 0.5) * this.size,
             y: this.y + (Math.random() - 0.5) * this.size,
-            vx: (Math.random() - 0.5) * 10,
+            vx: (Math.random() - 0.5) * ELEMENTAL_CONFIG.BURN_PARTICLE_HORIZONTAL_SPREAD,
             vy: -ELEMENTAL_CONFIG.BURN_PARTICLE_SPEED,
             life: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
             maxLife: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
@@ -1109,12 +1112,12 @@ class CircleCarrierBoss {
   }
   
   applyFreeze() {
+    if (!this.frozen) {
+      this.originalSpeed = this.maxSpeed;
+    }
     this.frozen = true;
     this.frozenTimer = 0;
     this.frozenDuration = ELEMENTAL_CONFIG.FREEZE_DURATION;
-    if (!this.frozen || this.color !== ELEMENTAL_CONFIG.FREEZE_COLOR) {
-      this.originalSpeed = this.maxSpeed;
-    }
     this.maxSpeed = 0;
     this.color = ELEMENTAL_CONFIG.FREEZE_COLOR;
   }
@@ -1192,12 +1195,12 @@ class PyramidBoss {
       this.burnParticleTimer += dt;
       if (this.burnParticleTimer >= ELEMENTAL_CONFIG.BURN_PARTICLE_SPAWN_RATE) {
         this.burnParticleTimer = 0;
-        const particleCount = Math.floor(Math.random() * 2) + 2;
+        const particleCount = Math.floor(Math.random() * (ELEMENTAL_CONFIG.BURN_PARTICLE_MAX_COUNT - ELEMENTAL_CONFIG.BURN_PARTICLE_MIN_COUNT)) + ELEMENTAL_CONFIG.BURN_PARTICLE_MIN_COUNT;
         for (let i = 0; i < particleCount; i++) {
           this.burnParticles.push({
             x: this.x + (Math.random() - 0.5) * this.size,
             y: this.y + (Math.random() - 0.5) * this.size,
-            vx: (Math.random() - 0.5) * 10,
+            vx: (Math.random() - 0.5) * ELEMENTAL_CONFIG.BURN_PARTICLE_HORIZONTAL_SPREAD,
             vy: -ELEMENTAL_CONFIG.BURN_PARTICLE_SPEED,
             life: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
             maxLife: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
@@ -1310,12 +1313,12 @@ class PyramidBoss {
   }
   
   applyFreeze() {
+    if (!this.frozen) {
+      this.originalSpeed = this.maxSpeed;
+    }
     this.frozen = true;
     this.frozenTimer = 0;
     this.frozenDuration = ELEMENTAL_CONFIG.FREEZE_DURATION;
-    if (!this.frozen || this.color !== ELEMENTAL_CONFIG.FREEZE_COLOR) {
-      this.originalSpeed = this.maxSpeed;
-    }
     this.maxSpeed = 0;
     this.color = ELEMENTAL_CONFIG.FREEZE_COLOR;
   }
@@ -1390,12 +1393,12 @@ class HexagonFortressBoss {
       this.burnParticleTimer += dt;
       if (this.burnParticleTimer >= ELEMENTAL_CONFIG.BURN_PARTICLE_SPAWN_RATE) {
         this.burnParticleTimer = 0;
-        const particleCount = Math.floor(Math.random() * 2) + 2;
+        const particleCount = Math.floor(Math.random() * (ELEMENTAL_CONFIG.BURN_PARTICLE_MAX_COUNT - ELEMENTAL_CONFIG.BURN_PARTICLE_MIN_COUNT)) + ELEMENTAL_CONFIG.BURN_PARTICLE_MIN_COUNT;
         for (let i = 0; i < particleCount; i++) {
           this.burnParticles.push({
             x: this.x + (Math.random() - 0.5) * this.size,
             y: this.y + (Math.random() - 0.5) * this.size,
-            vx: (Math.random() - 0.5) * 10,
+            vx: (Math.random() - 0.5) * ELEMENTAL_CONFIG.BURN_PARTICLE_HORIZONTAL_SPREAD,
             vy: -ELEMENTAL_CONFIG.BURN_PARTICLE_SPEED,
             life: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
             maxLife: ELEMENTAL_CONFIG.BURN_PARTICLE_LIFETIME,
@@ -1508,12 +1511,12 @@ class HexagonFortressBoss {
   }
   
   applyFreeze() {
+    if (!this.frozen) {
+      this.originalSpeed = this.maxSpeed;
+    }
     this.frozen = true;
     this.frozenTimer = 0;
     this.frozenDuration = ELEMENTAL_CONFIG.FREEZE_DURATION;
-    if (!this.frozen || this.color !== ELEMENTAL_CONFIG.FREEZE_COLOR) {
-      this.originalSpeed = this.maxSpeed;
-    }
     this.maxSpeed = 0;
     this.color = ELEMENTAL_CONFIG.FREEZE_COLOR;
   }

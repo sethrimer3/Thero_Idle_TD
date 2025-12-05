@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Grapheme J - Elemental Effects</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+    }
+    #test-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      margin-top: 0;
+      color: #333;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .test-section h2 {
+      margin-top: 0;
+      color: #666;
+      font-size: 18px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .info {
+      margin: 10px 0;
+      padding: 10px;
+      background: #e3f2fd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    #canvas-container {
+      text-align: center;
+      margin: 20px 0;
+    }
+    canvas {
+      border: 2px solid #333;
+      background: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="test-container">
+    <h1>Grapheme J - Elemental Effects Test</h1>
+    
+    <div class="info">
+      <strong>Testing:</strong> Grapheme J (index 9) - Elemental effects
+      <ul>
+        <li><strong>Slots 0-3:</strong> Burning effect - Red particles, 5% max health damage per second</li>
+        <li><strong>Slots 4-7:</strong> Freeze effect - Ice blue color, 0.5 second freeze</li>
+      </ul>
+    </div>
+
+    <div id="canvas-container">
+      <canvas id="game-canvas" width="400" height="533"></canvas>
+    </div>
+
+    <div class="test-section">
+      <h2>Test Controls</h2>
+      <button onclick="testBurningEffect()">Test Burning Effect (Slots 0-3)</button>
+      <button onclick="testFreezeEffect()">Test Freeze Effect (Slots 4-7)</button>
+      <button onclick="spawnTestEnemy()">Spawn Test Enemy</button>
+      <button onclick="clearEffects()">Clear All Effects</button>
+    </div>
+
+    <div class="test-section">
+      <h2>Status</h2>
+      <div id="status">Ready to test...</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { CardinalWardenSimulation } from './scripts/features/towers/cardinalWardenSimulation.js';
+
+    const canvas = document.getElementById('game-canvas');
+    let simulation = null;
+
+    function log(message) {
+      const statusDiv = document.getElementById('status');
+      const timestamp = new Date().toLocaleTimeString();
+      statusDiv.innerHTML = `[${timestamp}] ${message}<br>` + statusDiv.innerHTML;
+    }
+
+    // Initialize simulation
+    try {
+      simulation = new CardinalWardenSimulation(canvas, {
+        nightMode: false,
+        onScoreChange: (score) => {},
+        onHealthChange: (health, maxHealth) => {},
+        onGameOver: () => {},
+        onHighScore: (score) => {}
+      });
+      log('Simulation initialized successfully');
+    } catch (error) {
+      log(`Error initializing simulation: ${error.message}`);
+      console.error(error);
+    }
+
+    // Test functions
+    window.testBurningEffect = function() {
+      if (!simulation) return;
+      
+      // Add grapheme J to weapon in slot 1 (burning effect)
+      simulation.weaponGraphemeAssignments = simulation.weaponGraphemeAssignments || {};
+      simulation.weaponGraphemeAssignments[0] = [
+        { index: 9, name: 'J', property: 'elemental' }, // Slot 0 - burning
+        null, null, null, null, null, null, null
+      ];
+      
+      log('Applied Grapheme J in slot 0 - Burning effect enabled');
+      log('Fire at enemies to see red burn particles and DOT damage');
+    };
+
+    window.testFreezeEffect = function() {
+      if (!simulation) return;
+      
+      // Add grapheme J to weapon in slot 5 (freeze effect)
+      simulation.weaponGraphemeAssignments = simulation.weaponGraphemeAssignments || {};
+      simulation.weaponGraphemeAssignments[0] = [
+        null, null, null, null,
+        { index: 9, name: 'J', property: 'elemental' }, // Slot 4 - freezing
+        null, null, null
+      ];
+      
+      log('Applied Grapheme J in slot 4 - Freeze effect enabled');
+      log('Fire at enemies to see them turn ice blue and freeze for 0.5 seconds');
+    };
+
+    window.spawnTestEnemy = function() {
+      if (!simulation) return;
+      
+      // Spawn a test enemy in the middle of the screen
+      const x = canvas.width / 2;
+      const y = 100;
+      
+      simulation.spawnEnemy({
+        x: x,
+        y: y,
+        speed: 30,
+        health: 50,
+        damage: 5,
+        size: 12,
+        scoreValue: 100
+      });
+      
+      log(`Spawned test enemy at (${x}, ${y}) with 50 health`);
+    };
+
+    window.clearEffects = function() {
+      if (!simulation) return;
+      
+      // Clear grapheme assignments
+      simulation.weaponGraphemeAssignments = {};
+      
+      // Clear all enemies
+      simulation.enemies = [];
+      
+      log('Cleared all grapheme effects and enemies');
+    };
+
+    // Start the simulation
+    if (simulation) {
+      simulation.start();
+      log('Simulation started - Click on canvas to aim and fire');
+    }
+  </script>
+</body>
+</html>
