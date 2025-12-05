@@ -1153,6 +1153,114 @@ class Bullet {
 }
 
 /**
+ * Represents a friendly ship that orbits the Cardinal Warden and attacks enemies.
+ * Spawned by the third grapheme (index 2 - gamma).
+ */
+class FriendlyShip {
+  constructor(x, y, wardenX, wardenY, damage, color, rng) {
+    this.x = x;
+    this.y = y;
+    this.wardenX = wardenX;
+    this.wardenY = wardenY;
+    this.damage = damage;
+    this.color = color;
+    this.size = 6;
+    this.headingAngle = 0;
+    this.rng = rng;
+    
+    // Orbital behavior
+    this.orbitRadius = 60 + rng.range(-10, 10);
+    this.orbitAngle = rng.range(0, Math.PI * 2);
+    this.orbitSpeed = rng.range(0.8, 2.0); // Random speed
+    this.orbitDirection = rng.next() > 0.5 ? 1 : -1; // Random direction
+    
+    // Attack behavior
+    this.mode = 'orbit'; // 'orbit' or 'attack'
+    this.targetEnemy = null;
+    this.attackSpeed = 150;
+    
+    // Trail for visual effect
+    this.trail = [];
+    this.maxTrailLength = 8;
+  }
+  
+  update(deltaTime, warden, enemies, canvasHeight) {
+    const dt = deltaTime / 1000;
+    
+    // Update warden position reference
+    this.wardenX = warden.x;
+    this.wardenY = warden.y;
+    
+    // Check for enemies in bottom 25% of screen
+    const bottomThreshold = canvasHeight * 0.75;
+    const enemiesInBottom = enemies.filter(e => e.y >= bottomThreshold);
+    
+    if (enemiesInBottom.length > 0 && this.mode === 'orbit') {
+      // Switch to attack mode - target the lowest enemy
+      this.mode = 'attack';
+      this.targetEnemy = enemiesInBottom.reduce((lowest, enemy) => 
+        enemy.y > lowest.y ? enemy : lowest
+      );
+    } else if (enemiesInBottom.length === 0 && this.mode === 'attack') {
+      // Switch back to orbit mode
+      this.mode = 'orbit';
+      this.targetEnemy = null;
+    }
+    
+    const prevX = this.x;
+    const prevY = this.y;
+    
+    if (this.mode === 'orbit') {
+      // Circle around the warden
+      this.orbitAngle += this.orbitSpeed * this.orbitDirection * dt;
+      this.x = this.wardenX + Math.cos(this.orbitAngle) * this.orbitRadius;
+      this.y = this.wardenY + Math.sin(this.orbitAngle) * this.orbitRadius;
+    } else if (this.mode === 'attack' && this.targetEnemy) {
+      // Move toward target enemy
+      const dx = this.targetEnemy.x - this.x;
+      const dy = this.targetEnemy.y - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist > 0) {
+        const dirX = dx / dist;
+        const dirY = dy / dist;
+        this.x += dirX * this.attackSpeed * dt;
+        this.y += dirY * this.attackSpeed * dt;
+      }
+      
+      // If target is dead or not in bottom anymore, switch back to orbit
+      if (!enemies.includes(this.targetEnemy) || this.targetEnemy.y < bottomThreshold) {
+        this.mode = 'orbit';
+        this.targetEnemy = null;
+      }
+    }
+    
+    // Update heading based on movement
+    const deltaX = this.x - prevX;
+    const deltaY = this.y - prevY;
+    if (deltaX !== 0 || deltaY !== 0) {
+      this.headingAngle = Math.atan2(deltaY, deltaX);
+    }
+    
+    // Update trail
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > this.maxTrailLength) {
+      this.trail.shift();
+    }
+  }
+  
+  /**
+   * Check if this ship collides with an enemy.
+   */
+  checkCollision(enemy) {
+    const dx = this.x - enemy.x;
+    const dy = this.y - enemy.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    return dist < (this.size + enemy.size);
+  }
+}
+
+/**
  * Represents a mathematical function bullet that follows wave patterns.
  * These bullets travel primarily in one direction but oscillate following a mathematical function.
  */
@@ -1562,6 +1670,7 @@ export class CardinalWardenSimulation {
     this.enemies = [];
     this.bullets = [];
     this.bosses = []; // Boss ships array
+    this.friendlyShips = []; // Friendly ships spawned by third grapheme (gamma)
     this.scorePopups = []; // Floating score text when enemies are destroyed
     this.damageNumbers = []; // Floating damage numbers when enemies are hit
 
@@ -2195,6 +2304,7 @@ export class CardinalWardenSimulation {
     this.enemies = [];
     this.bullets = [];
     this.bosses = [];
+    this.friendlyShips = [];
     this.enemySpawnTimer = 0;
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
@@ -2311,6 +2421,9 @@ export class CardinalWardenSimulation {
     // Fire bullets for each purchased weapon based on their individual fire rates
     this.updateWeaponTimers(deltaTime);
 
+    // Update friendly ships
+    this.updateFriendlyShips(deltaTime);
+
     // Update enemies
     this.updateEnemies(deltaTime);
 
@@ -2322,6 +2435,9 @@ export class CardinalWardenSimulation {
 
     // Check collisions
     this.checkCollisions();
+    
+    // Check friendly ship collisions
+    this.checkFriendlyShipCollisions();
 
     // Update floating score popups
     this.updateScorePopups(deltaTime);
@@ -2461,6 +2577,190 @@ export class CardinalWardenSimulation {
   }
   
   /**
+   * Update friendly ships based on third grapheme (index 2 - gamma) assignments.
+   * Spawns ships up to the max count determined by fire rate.
+   */
+  updateFriendlyShips(deltaTime) {
+    if (!this.warden || !this.canvas) return;
+    
+    // Count how many weapons have third grapheme (index 2) and calculate total fire rate
+    let totalFireRate = 0; // bullets per second
+    let hasThirdGrapheme = false;
+    let weaponDamage = 1; // Track weapon damage for friendly ships
+    
+    for (const weaponId of this.weapons.equipped) {
+      const assignments = this.weaponGraphemeAssignments[weaponId] || [];
+      const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
+      
+      for (const assignment of assignments) {
+        if (assignment && assignment.index === 2) {
+          hasThirdGrapheme = true;
+          
+          // Calculate fire rate multiplier from second grapheme (index 1)
+          let fireRateMultiplier = 1;
+          for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
+            const a = assignments[slotIndex];
+            if (a && a.index === 1) {
+              fireRateMultiplier = slotIndex + 1;
+              break;
+            }
+          }
+          
+          // Calculate bullets per second for this weapon
+          const fireInterval = weaponDef.baseFireRate / fireRateMultiplier;
+          const bulletsPerSecond = 1000 / fireInterval;
+          totalFireRate += bulletsPerSecond;
+          
+          // Get weapon damage (using same calculation as fireWeapon)
+          const level = this.weapons.levels[weaponId] || 1;
+          let damageMultiplier = 1 + (level - 1) * 0.25;
+          
+          // Check for first grapheme damage multiplier
+          for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
+            const a = assignments[slotIndex];
+            if (a && a.index === 0) {
+              const sidesMap = [3, 5, 6, 7, 8, 9, 10, 11];
+              const bulletShape = sidesMap[slotIndex] !== undefined ? sidesMap[slotIndex] : Math.max(3, slotIndex + 3);
+              damageMultiplier *= bulletShape;
+              break;
+            }
+          }
+          
+          weaponDamage = Math.max(weaponDamage, weaponDef.baseDamage * damageMultiplier * this.upgrades.bulletDamage);
+          break; // Only count once per weapon
+        }
+      }
+    }
+    
+    if (!hasThirdGrapheme) {
+      // No third grapheme - clear all friendly ships
+      this.friendlyShips = [];
+      return;
+    }
+    
+    // Calculate max ships: 5 / bullets per second, rounded to nearest whole number
+    const maxShips = Math.max(1, Math.round(5 / totalFireRate));
+    
+    // Spawn ships if we have less than max
+    while (this.friendlyShips.length < maxShips) {
+      const angle = this.rng.range(0, Math.PI * 2);
+      const radius = 60;
+      const x = this.warden.x + Math.cos(angle) * radius;
+      const y = this.warden.y + Math.sin(angle) * radius;
+      
+      // Pick a weapon color for variety
+      const weaponColors = ['#d4af37', '#ff9c66', '#9a6bff'];
+      const color = weaponColors[this.friendlyShips.length % weaponColors.length];
+      
+      this.friendlyShips.push(new FriendlyShip(x, y, this.warden.x, this.warden.y, weaponDamage, color, this.rng));
+    }
+    
+    // Remove excess ships if max decreased
+    while (this.friendlyShips.length > maxShips) {
+      this.friendlyShips.pop();
+    }
+    
+    // Update all friendly ships
+    for (let i = this.friendlyShips.length - 1; i >= 0; i--) {
+      const ship = this.friendlyShips[i];
+      ship.update(deltaTime, this.warden, this.enemies, this.canvas.height);
+    }
+  }
+  
+  /**
+   * Check collisions between friendly ships and enemies.
+   */
+  checkFriendlyShipCollisions() {
+    const enemiesToRemove = new Set();
+    const shipsToRemove = new Set();
+    const killedEnemyPositions = [];
+    
+    for (let si = 0; si < this.friendlyShips.length; si++) {
+      const ship = this.friendlyShips[si];
+      if (shipsToRemove.has(si)) continue;
+      
+      for (let ei = 0; ei < this.enemies.length; ei++) {
+        const enemy = this.enemies[ei];
+        if (enemiesToRemove.has(ei)) continue;
+        
+        if (ship.checkCollision(enemy)) {
+          // Spawn damage number
+          this.spawnDamageNumber(enemy.x, enemy.y, ship.damage);
+          
+          const killed = enemy.takeDamage(ship.damage);
+          
+          if (killed) {
+            enemiesToRemove.add(ei);
+            this.addScore(enemy.scoreValue);
+            this.spawnScorePopup(enemy.x, enemy.y, enemy.scoreValue);
+            killedEnemyPositions.push({ x: enemy.x, y: enemy.y, isBoss: false });
+          }
+          
+          // Friendly ships are destroyed on impact
+          shipsToRemove.add(si);
+          break;
+        }
+      }
+    }
+    
+    // Also check collisions with bosses
+    for (let si = 0; si < this.friendlyShips.length; si++) {
+      const ship = this.friendlyShips[si];
+      if (shipsToRemove.has(si)) continue;
+      
+      for (let bi = 0; bi < this.bosses.length; bi++) {
+        const boss = this.bosses[bi];
+        if (enemiesToRemove.has(bi)) continue;
+        
+        if (ship.checkCollision(boss)) {
+          // Spawn damage number
+          this.spawnDamageNumber(boss.x, boss.y, ship.damage);
+          
+          const killed = boss.takeDamage(ship.damage);
+          
+          if (killed) {
+            enemiesToRemove.add(bi);
+            this.addScore(boss.scoreValue);
+            this.spawnScorePopup(boss.x, boss.y, boss.scoreValue);
+            killedEnemyPositions.push({ x: boss.x, y: boss.y, isBoss: true });
+          }
+          
+          // Friendly ships are destroyed on impact
+          shipsToRemove.add(si);
+          break;
+        }
+      }
+    }
+    
+    // Remove destroyed enemies
+    const enemyIndices = Array.from(enemiesToRemove).sort((a, b) => b - a);
+    for (const i of enemyIndices) {
+      this.enemies.splice(i, 1);
+    }
+    
+    // Remove destroyed bosses
+    const bossIndices = Array.from(enemiesToRemove).sort((a, b) => b - a);
+    for (const i of bossIndices) {
+      if (i < this.bosses.length) {
+        this.bosses.splice(i, 1);
+      }
+    }
+    
+    // Remove destroyed friendly ships
+    const shipIndices = Array.from(shipsToRemove).sort((a, b) => b - a);
+    for (const i of shipIndices) {
+      this.friendlyShips.splice(i, 1);
+    }
+    
+    // Notify about enemy kills for grapheme drops
+    if (this.onEnemyKill && killedEnemyPositions.length > 0) {
+      for (const killPos of killedEnemyPositions) {
+        this.onEnemyKill(killPos.x, killPos.y, killPos.isBoss);
+      }
+    }
+  }
+  
+  /**
    * Update death animation (Cardinal Warden shaking and exploding).
    */
   updateDeathAnimation(deltaTime) {
@@ -2543,6 +2843,7 @@ export class CardinalWardenSimulation {
     this.enemies = [];
     this.bullets = [];
     this.bosses = [];
+    this.friendlyShips = [];
     this.enemySpawnTimer = 0;
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
@@ -3248,6 +3549,8 @@ export class CardinalWardenSimulation {
         this.renderWarden();
         // Draw aim target symbol if set
         this.renderAimTarget();
+        // Draw friendly ships
+        this.renderFriendlyShips();
         // Draw enemies
         this.renderEnemies();
         // Draw bosses
@@ -3426,6 +3729,61 @@ export class CardinalWardenSimulation {
     ctx.fill();
     
     ctx.restore();
+  }
+
+  /**
+   * Render all friendly ships.
+   */
+  renderFriendlyShips() {
+    if (!this.ctx) return;
+    
+    const ctx = this.ctx;
+    
+    for (const ship of this.friendlyShips) {
+      // Render trail
+      if (ship.trail.length > 1) {
+        ctx.save();
+        ctx.fillStyle = this.nightMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(212, 175, 55, 0.6)';
+        for (let i = 0; i < ship.trail.length - 1; i++) {
+          const point = ship.trail[i];
+          const alpha = (i + 1) / ship.trail.length;
+          ctx.globalAlpha = alpha * 0.6;
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, ship.size * 0.3 * alpha, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      
+      // Render ship body
+      ctx.save();
+      ctx.translate(ship.x, ship.y);
+      ctx.rotate(ship.headingAngle - Math.PI / 2);
+      
+      // Draw ship as a triangle (friendly version)
+      ctx.beginPath();
+      ctx.moveTo(0, ship.size);
+      ctx.lineTo(-ship.size * 0.6, -ship.size * 0.4);
+      ctx.lineTo(ship.size * 0.6, -ship.size * 0.4);
+      ctx.closePath();
+      
+      // Use weapon color with golden tint
+      ctx.fillStyle = this.nightMode ? lightenHexColor(ship.color, 0.3) : ship.color;
+      ctx.fill();
+      
+      // Add a subtle outline to distinguish from enemies
+      ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(212, 175, 55, 0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      
+      // Draw a small golden core/gem in the center
+      ctx.fillStyle = this.nightMode ? '#ffe9a3' : '#d4af37';
+      ctx.beginPath();
+      ctx.arc(0, 0, ship.size * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
+    }
   }
 
   /**
