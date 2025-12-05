@@ -2421,10 +2421,10 @@ export class CardinalWardenSimulation {
         // Slot 0 = triangle (3 sides), 3x damage
         // Slot 1 = pentagon (5 sides), 5x damage  
         // Slot 2 = hexagon (6 sides), 6x damage
-        // Slot 3+ = continues pattern (7, 8, 9, 10, 11 sides)
+        // Slot 3+ = continues pattern (7, 8, 9, 10, 11 sides, etc.)
         const sidesMap = [3, 5, 6, 7, 8, 9, 10, 11];
-        bulletShape = sidesMap[slotIndex] || (slotIndex + 3);
-        damageMultiplier *= bulletShape; // 3x, 5x, 6x, 7x, 8x, 9x, 10x, 11x
+        bulletShape = sidesMap[slotIndex] !== undefined ? sidesMap[slotIndex] : Math.max(3, slotIndex + 3);
+        damageMultiplier *= bulletShape; // 3x, 5x, 6x, 7x, 8x, 9x, 10x, 11x, etc.
         break; // Only apply the first occurrence
       }
     }
@@ -3083,6 +3083,7 @@ export class CardinalWardenSimulation {
    * @param {number} damage - Damage value to display
    */
   spawnDamageNumber(x, y, damage) {
+    const DAMAGE_NUMBER_X_SPREAD = 10; // Horizontal spread to prevent overlapping numbers
     this.damageNumbers.push({
       x,
       y,
@@ -3091,7 +3092,7 @@ export class CardinalWardenSimulation {
       alpha: 1,
       offsetY: 0,
       // Add slight randomness to x position so overlapping numbers are visible
-      xOffset: (Math.random() - 0.5) * 10,
+      xOffset: (Math.random() - 0.5) * DAMAGE_NUMBER_X_SPREAD,
     });
   }
 
@@ -3171,8 +3172,8 @@ export class CardinalWardenSimulation {
       ctx.globalAlpha = dmg.alpha;
       // Use red color for damage
       ctx.fillStyle = this.nightMode ? '#ff6666' : '#ff3333';
-      // Format damage with one decimal place for clarity
-      const damageText = dmg.damage.toFixed(1);
+      // Format damage: show integers without decimals, floats with one decimal place
+      const damageText = dmg.damage % 1 === 0 ? dmg.damage.toString() : dmg.damage.toFixed(1);
       ctx.fillText(damageText, dmg.x + dmg.xOffset, dmg.y + dmg.offsetY);
     }
     
