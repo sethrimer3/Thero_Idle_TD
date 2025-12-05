@@ -2492,6 +2492,17 @@ export class CardinalWardenSimulation {
   }
   
   /**
+   * Calculate weapon attack speed (bullets per second) for a weapon.
+   * @param {Object} weaponDef - The weapon definition
+   * @param {number} fireRateMultiplier - Fire rate multiplier from graphemes
+   * @returns {number} Attack speed in bullets per second
+   */
+  calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier) {
+    const fireInterval = weaponDef.baseFireRate / fireRateMultiplier;
+    return 1000 / fireInterval; // bullets per second
+  }
+  
+  /**
    * Update shield regeneration based on fourth grapheme (index 3 - delta).
    * Formula: 1 shield recovered over (slot_number × weapon_attack_speed) seconds
    * where attack_speed is bullets per second for that weapon.
@@ -2532,13 +2543,16 @@ export class CardinalWardenSimulation {
         }
       }
       
-      const fireInterval = weaponDef.baseFireRate / fireRateMultiplier;
-      const attackSpeed = 1000 / fireInterval; // bullets per second
+      const attackSpeed = this.calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier);
       
       // Calculate time needed to recover 1 shield
       // Formula: 1 / (slot_number × attack_speed) seconds per shield
       // Slot numbering starts at 1 for formula (slot 0 = 1, slot 1 = 2, etc.)
       const slotNumber = fourthGraphemeSlot + 1;
+      
+      // Guard against division by zero
+      if (slotNumber <= 0 || attackSpeed <= 0) continue;
+      
       const timePerShield = 1 / (slotNumber * attackSpeed);
       
       // Initialize accumulator if needed
@@ -2738,8 +2752,7 @@ export class CardinalWardenSimulation {
           }
           
           // Calculate bullets per second for this weapon
-          const fireInterval = weaponDef.baseFireRate / fireRateMultiplier;
-          const bulletsPerSecond = 1000 / fireInterval;
+          const bulletsPerSecond = this.calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier);
           totalFireRate += bulletsPerSecond;
           
           // Get weapon damage (using same calculation as fireWeapon)

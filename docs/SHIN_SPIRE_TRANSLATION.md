@@ -81,9 +81,9 @@ Each grapheme (script character) has unique effects based on its position in a w
 - **Effect:** Regenerates player shields/life over time
 - **Formula:** 1 shield recovered over `(slot_number × attack_speed)` seconds
 - **Examples:**
-  - Slot 2 with 3 bullets/sec = 1 shield over 6 seconds (1/(2×3))
-  - Slot 0 with 1 bullet/sec = 1 shield per second (1/(1×1))
-  - Slot 4 with 2 bullets/sec = 1 shield over 10 seconds (1/(5×2))
+  - Slot 1 with 3 bullets/sec = 1 shield over 6 seconds (slot number 2: 1/(2×3))
+  - Slot 0 with 1 bullet/sec = 1 shield per second (slot number 1: 1/(1×1))
+  - Slot 4 with 2 bullets/sec = 1 shield over 10 seconds (slot number 5: 1/(5×2))
 - **Visual:** Reverses life line state progression at bottom of screen (gone → dashed → solid)
 - **Note:** Affected by third grapheme deactivation if positioned to the right of it
 
