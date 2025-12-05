@@ -3957,6 +3957,9 @@ export class CardinalWardenSimulation {
    * Waves expand outward and damage enemies they touch.
    */
   updateExpandingWaves(deltaTime) {
+    const enemiesToRemove = new Set();
+    const bossesToRemove = new Set();
+    
     // Update each wave
     for (let i = this.expandingWaves.length - 1; i >= 0; i--) {
       const wave = this.expandingWaves[i];
@@ -3965,6 +3968,7 @@ export class CardinalWardenSimulation {
       // Check collisions with enemies
       for (let ei = 0; ei < this.enemies.length; ei++) {
         if (wave.hitEnemies.has(ei)) continue; // Already hit this enemy
+        if (enemiesToRemove.has(ei)) continue; // Already killed
         
         const enemy = this.enemies[ei];
         const dx = wave.x - enemy.x;
@@ -3981,13 +3985,20 @@ export class CardinalWardenSimulation {
           // Enemy is touching the wave - apply damage
           wave.hitEnemies.add(ei);
           this.spawnDamageNumber(enemy.x, enemy.y, wave.damage);
-          enemy.takeDamage(wave.damage);
+          const killed = enemy.takeDamage(wave.damage);
+          
+          if (killed) {
+            enemiesToRemove.add(ei);
+            this.addScore(enemy.scoreValue);
+            this.spawnScorePopup(enemy.x, enemy.y, enemy.scoreValue);
+          }
         }
       }
       
       // Check collisions with bosses
       for (let bi = 0; bi < this.bosses.length; bi++) {
         if (wave.hitBosses.has(bi)) continue; // Already hit this boss
+        if (bossesToRemove.has(bi)) continue; // Already killed
         
         const boss = this.bosses[bi];
         const dx = wave.x - boss.x;
@@ -4004,7 +4015,13 @@ export class CardinalWardenSimulation {
           // Boss is touching the wave - apply damage
           wave.hitBosses.add(bi);
           this.spawnDamageNumber(boss.x, boss.y, wave.damage);
-          boss.takeDamage(wave.damage);
+          const killed = boss.takeDamage(wave.damage);
+          
+          if (killed) {
+            bossesToRemove.add(bi);
+            this.addScore(boss.scoreValue);
+            this.spawnScorePopup(boss.x, boss.y, boss.scoreValue);
+          }
         }
       }
       
@@ -4012,6 +4029,18 @@ export class CardinalWardenSimulation {
       if (wave.finished) {
         this.expandingWaves.splice(i, 1);
       }
+    }
+    
+    // Remove killed enemies (highest index first to avoid shifting issues)
+    const enemyIndices = Array.from(enemiesToRemove).sort((a, b) => b - a);
+    for (const i of enemyIndices) {
+      this.enemies.splice(i, 1);
+    }
+    
+    // Remove killed bosses (highest index first to avoid shifting issues)
+    const bossIndices = Array.from(bossesToRemove).sort((a, b) => b - a);
+    for (const i of bossIndices) {
+      this.bosses.splice(i, 1);
     }
   }
 
