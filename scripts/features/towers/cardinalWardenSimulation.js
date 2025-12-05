@@ -3633,7 +3633,9 @@ export class CardinalWardenSimulation {
           if (bullet.piercing) {
             hitEnemies.add(ei);
             // Check if piercing limit has been reached (0 = unlimited)
-            if (bullet.piercingLimit > 0 && hitEnemies.size >= bullet.piercingLimit) {
+            // Count total hits including both enemies and bosses
+            const totalHits = hitEnemies.size + (bullet.hitBosses ? bullet.hitBosses.size : 0);
+            if (bullet.piercingLimit > 0 && totalHits >= bullet.piercingLimit) {
               bulletsToRemove.add(bi);
               break;
             }
