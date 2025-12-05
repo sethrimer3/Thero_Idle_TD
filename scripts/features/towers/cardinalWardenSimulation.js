@@ -1404,13 +1404,13 @@ class MathBullet {
           state.waypointCount++;
           
           // After 10 waypoints, track nearest enemy if available
-          if (state.waypointCount >= state.maxWaypoints && enemies && enemies.length > 0) {
+          if (state.waypointCount >= state.maxWaypoints && Array.isArray(enemies) && enemies.length > 0) {
             state.trackingEnemy = true;
           }
         }
       } else {
         // Move toward target or pick new target
-        if (state.trackingEnemy && enemies && enemies.length > 0) {
+        if (state.trackingEnemy && Array.isArray(enemies) && enemies.length > 0) {
           // Track nearest enemy
           let nearestEnemy = null;
           let nearestDist = Infinity;
@@ -1426,8 +1426,8 @@ class MathBullet {
             state.targetY = nearestEnemy.y;
           }
         } else if (state.targetX === null || state.targetY === null) {
-          // Pick random target within canvas bounds
-          if (canvasWidth && canvasHeight) {
+          // Pick random target within canvas bounds (ensure positive dimensions)
+          if (canvasWidth > 0 && canvasHeight > 0) {
             state.targetX = Math.random() * canvasWidth;
             state.targetY = Math.random() * canvasHeight;
           }
