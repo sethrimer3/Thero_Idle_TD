@@ -15,6 +15,8 @@
  * - Reset on death with difficulty restart
  */
 
+import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
+
 /**
  * Game configuration constants.
  */
@@ -1134,18 +1136,18 @@ class Bullet {
   }
 
   /**
-   * Apply a reflected velocity when bouncing off a ship trail.
+   * Flip bullet 180 degrees when hitting a ship trail (simple reflection for cheap computation).
    */
   applyTrailBounce(normalX, normalY) {
-    const currentVx = Math.cos(this.angle) * this.speed;
-    const currentVy = Math.sin(this.angle) * this.speed;
-    const { vx, vy } = reflectVector(currentVx, currentVy, normalX, normalY);
-    this.angle = Math.atan2(vy, vx);
+    // Simple 180-degree flip: reverse the direction
+    this.angle += Math.PI;
+    
+    // Normalize angle to [0, 2π) range
+    this.angle = normalizeAngle(this.angle);
 
     // Small positional nudge prevents the bullet from re-hitting the same segment instantly.
-    const magnitude = Math.hypot(vx, vy) || 1;
-    this.x += (vx / magnitude) * this.size * 0.35;
-    this.y += (vy / magnitude) * this.size * 0.35;
+    this.x += Math.cos(this.angle) * this.size * 0.35;
+    this.y += Math.sin(this.angle) * this.size * 0.35;
   }
 
   isOffscreen(width, height) {
@@ -1552,21 +1554,14 @@ class MathBullet {
   }
 
   /**
-   * Reflect mathematical bullets while preserving their oscillation pattern.
+   * Flip mathematical bullets 180 degrees while preserving their oscillation pattern.
    */
   applyTrailBounce(normalX, normalY) {
-    const travelDx = this.x - this.prevX;
-    const travelDy = this.y - this.prevY;
-    const { vx, vy } = reflectVector(
-      travelDx || Math.cos(this.baseAngle),
-      travelDy || Math.sin(this.baseAngle),
-      normalX,
-      normalY
-    );
-    const reflectedAngle = Math.atan2(vy, vx);
+    // Simple 180-degree flip: reverse the base angle
+    this.baseAngle += Math.PI;
+    this.baseAngle = normalizeAngle(this.baseAngle);
 
     // Reset origin so the waveform continues cleanly along the new heading.
-    this.baseAngle = normalizeAngle(reflectedAngle);
     this.startX = this.x;
     this.startY = this.y;
     this.distance = 0;
@@ -1718,7 +1713,7 @@ export class CardinalWardenSimulation {
 
     // Visual style - pure white background, minimalist
     this.nightMode = options.nightMode || false;
-    this.enemyTrailLength = options.enemyTrailLength || 'long';
+    this.enemyTrailQuality = options.enemyTrailQuality || 'high';
     this.bulletTrailLength = options.bulletTrailLength || 'long';
     this.bgColor = '#ffffff';
     this.wardenCoreColor = '#d4af37'; // Golden
@@ -2266,12 +2261,12 @@ export class CardinalWardenSimulation {
   }
 
   /**
-   * Set enemy trail length setting.
-   * @param {string} length - 'none', 'short', 'medium', or 'long'
+   * Set enemy trail quality setting.
+   * @param {string} quality - 'low', 'medium', or 'high'
    */
-  setEnemyTrailLength(length) {
-    const validLengths = ['none', 'short', 'medium', 'long'];
-    this.enemyTrailLength = validLengths.includes(length) ? length : 'long';
+  setEnemyTrailQuality(quality) {
+    const validQualities = ['low', 'medium', 'high'];
+    this.enemyTrailQuality = validQualities.includes(quality) ? quality : 'high';
   }
 
   /**
@@ -2284,31 +2279,29 @@ export class CardinalWardenSimulation {
   }
 
   /**
-   * Get the max trail length for enemies based on current setting.
+   * Get the max trail length for enemies (always full length for gameplay).
    * @returns {number} Max trail entries
    */
   getEnemyTrailMaxLength() {
-    switch (this.enemyTrailLength) {
-      case 'none': return 0;
-      case 'short': return 6;
-      case 'medium': return 12;
-      case 'long': return 28;
-      default: return 28;
-    }
+    // Trail length is always max for gameplay (collision detection)
+    return 28;
   }
 
   /**
-   * Get the max smoke puffs for enemies based on current setting.
+   * Get the max smoke puffs for enemies (always full for gameplay).
    * @returns {number} Max smoke puffs
    */
   getEnemySmokeMaxCount() {
-    switch (this.enemyTrailLength) {
-      case 'none': return 0;
-      case 'short': return 15;
-      case 'medium': return 30;
-      case 'long': return 60;
-      default: return 60;
-    }
+    // Smoke puffs always at max for gameplay
+    return 60;
+  }
+  
+  /**
+   * Get the enemy trail quality for rendering.
+   * @returns {string} Quality level: 'low', 'medium', or 'high'
+   */
+  getEnemyTrailQuality() {
+    return this.enemyTrailQuality || 'high';
   }
 
   /**
@@ -4184,25 +4177,63 @@ export class CardinalWardenSimulation {
     const ctx = this.ctx;
     const maxTrailPoints = this.getEnemyTrailMaxLength();
     const maxSmokePuffs = this.getEnemySmokeMaxCount();
+    const quality = this.getEnemyTrailQuality();
 
     for (const enemy of this.enemies) {
-      // Render a small inky trail behind the ship's path (respects trail length setting).
-      if (maxTrailPoints > 0) {
+      // Render a small inky trail behind the ship's path (quality-based rendering).
+      if (maxTrailPoints > 0 && enemy.trail && enemy.trail.length > 0) {
         ctx.save();
-        ctx.fillStyle = this.enemyTrailColor;
         const radiusScale = enemy.trailRadiusScale || 0.35;
         const alphaScale = enemy.trailAlphaScale || 0.8;
-        // Only render up to maxTrailPoints from the end of the trail
         const startIdx = Math.max(0, enemy.trail.length - maxTrailPoints);
         const visibleTrail = enemy.trail.slice(startIdx);
-        for (let i = 0; i < visibleTrail.length - 1; i++) {
-          const point = visibleTrail[i];
-          const alpha = (i + 1) / visibleTrail.length;
-          ctx.globalAlpha = alpha * alphaScale;
-          ctx.beginPath();
-          // Larger trail circles that scale with enemy size for better visibility
-          ctx.arc(point.x, point.y, Math.max(1.25, enemy.size * radiusScale * alpha), 0, Math.PI * 2);
-          ctx.fill();
+        
+        if (quality === 'low') {
+          // Low quality: Simple solid circles
+          ctx.fillStyle = this.enemyTrailColor;
+          for (let i = 0; i < visibleTrail.length - 1; i++) {
+            const point = visibleTrail[i];
+            const alpha = (i + 1) / visibleTrail.length;
+            ctx.globalAlpha = alpha * alphaScale;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, Math.max(1.25, enemy.size * radiusScale * alpha), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else if (quality === 'medium') {
+          // Medium quality: Circles with slight taper
+          ctx.fillStyle = this.enemyTrailColor;
+          for (let i = 0; i < visibleTrail.length - 1; i++) {
+            const point = visibleTrail[i];
+            const progress = (i + 1) / visibleTrail.length;
+            const alpha = progress * alphaScale;
+            // Taper the radius slightly toward the tail
+            const taperFactor = 0.4 + 0.6 * progress;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, Math.max(0.5, enemy.size * radiusScale * taperFactor), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else {
+          // High quality: Diminish to a point with gradient matching color palette
+          for (let i = 0; i < visibleTrail.length - 1; i++) {
+            const point = visibleTrail[i];
+            const progress = (i + 1) / visibleTrail.length;
+            
+            // Sample gradient from palette based on progress along the trail
+            const gradientSample = samplePaletteGradient(progress);
+            const gradientColor = `rgb(${gradientSample.r}, ${gradientSample.g}, ${gradientSample.b})`;
+            
+            // Diminish radius to near-zero at the tail
+            const taperFactor = progress * progress; // Quadratic taper for smooth diminish
+            const radius = Math.max(0.25, enemy.size * radiusScale * taperFactor);
+            const alpha = progress * alphaScale;
+            
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = gradientColor;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
         ctx.restore();
       }
@@ -4263,21 +4294,60 @@ export class CardinalWardenSimulation {
 
     const ctx = this.ctx;
     const maxTrailPoints = this.getEnemyTrailMaxLength();
+    const quality = this.getEnemyTrailQuality();
 
     for (const boss of this.bosses) {
-      // Render trail (respects trail length setting)
-      if (maxTrailPoints > 0) {
+      // Render trail (quality-based rendering)
+      if (maxTrailPoints > 0 && boss.trail && boss.trail.length > 0) {
         ctx.save();
-        ctx.fillStyle = this.enemyTrailColor;
         const startIdx = Math.max(0, boss.trail.length - maxTrailPoints);
         const visibleTrail = boss.trail.slice(startIdx);
-        for (let i = 0; i < visibleTrail.length - 1; i++) {
-          const point = visibleTrail[i];
-          const alpha = (i + 1) / visibleTrail.length;
-          ctx.globalAlpha = alpha * 0.6;
-          ctx.beginPath();
-          ctx.arc(point.x, point.y, Math.max(2, boss.size * 0.15 * alpha), 0, Math.PI * 2);
-          ctx.fill();
+        
+        if (quality === 'low') {
+          // Low quality: Simple solid circles
+          ctx.fillStyle = this.enemyTrailColor;
+          for (let i = 0; i < visibleTrail.length - 1; i++) {
+            const point = visibleTrail[i];
+            const alpha = (i + 1) / visibleTrail.length;
+            ctx.globalAlpha = alpha * 0.6;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, Math.max(2, boss.size * 0.15 * alpha), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else if (quality === 'medium') {
+          // Medium quality: Circles with slight taper
+          ctx.fillStyle = this.enemyTrailColor;
+          for (let i = 0; i < visibleTrail.length - 1; i++) {
+            const point = visibleTrail[i];
+            const progress = (i + 1) / visibleTrail.length;
+            const alpha = progress * 0.6;
+            const taperFactor = 0.4 + 0.6 * progress;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, Math.max(1, boss.size * 0.15 * taperFactor), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else {
+          // High quality: Diminish to a point with gradient matching color palette
+          for (let i = 0; i < visibleTrail.length - 1; i++) {
+            const point = visibleTrail[i];
+            const progress = (i + 1) / visibleTrail.length;
+            
+            // Sample gradient from palette based on progress along the trail
+            const gradientSample = samplePaletteGradient(progress);
+            const gradientColor = `rgb(${gradientSample.r}, ${gradientSample.g}, ${gradientSample.b})`;
+            
+            // Diminish radius to near-zero at the tail
+            const taperFactor = progress * progress; // Quadratic taper for smooth diminish
+            const radius = Math.max(0.5, boss.size * 0.15 * taperFactor);
+            const alpha = progress * 0.6;
+            
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = gradientColor;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
         ctx.restore();
       }
