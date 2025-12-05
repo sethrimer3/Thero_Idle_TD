@@ -42,6 +42,11 @@
  * - Grapheme 10 (K): Massive bullet mechanics - slot position determines behavior
  *   - Slots 1-7 (indices 0-6): Fires one massive bullet (20x damage, 20x diameter, 1/10 speed, unlimited pierce, inflicts all effects, 1/20 attack speed)
  *   - Slot 8 (index 7): Simple attack speed increase (10x faster)
+ * - Grapheme 11 (L): Continuous beam - deactivates LEFT and RIGHT neighbor graphemes
+ *   - Converts bullets into a continuous beam
+ *   - Beam damage = tower damage × shots per second
+ *   - Applies damage 4 times per second to enemies in contact with beam
+ *   - Deactivates graphemes in slots immediately adjacent (left and right)
  */
 
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
@@ -62,6 +67,7 @@ const GRAPHEME_INDEX = {
   I: 8,            // Spread bullets (formerly Iota)
   J: 9,            // Elemental effects (burning/freezing)
   K: 10,           // Massive bullet (slots 0-6) or attack speed boost (slot 7)
+  L: 11,           // Continuous beam, deactivates LEFT and RIGHT neighbors
 };
 
 /**
@@ -123,6 +129,22 @@ const MASSIVE_BULLET_CONFIG = {
   
   // Slot 7 (index 7): Speed boost mode
   SPEED_BOOST_MULTIPLIER: 10,      // Attack speed increased by 10x
+};
+
+/**
+ * Beam mechanics constants for grapheme L (index 11).
+ * Converts bullets into continuous beams.
+ */
+const BEAM_CONFIG = {
+  // Beam damage is tower damage × shots per second
+  // Damage is applied 4 times per second when enemy is in contact
+  DAMAGE_TICKS_PER_SECOND: 4,
+  // Visual beam width (pixels)
+  BEAM_WIDTH: 3,
+  // Beam color alpha (transparency)
+  BEAM_ALPHA: 0.8,
+  // Maximum beam length (pixels) - extends to edge of canvas
+  MAX_BEAM_LENGTH: 10000,
 };
 
 /**
@@ -351,6 +373,102 @@ class ExpandingWave {
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.currentRadius, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/**
+ * Represents a continuous beam weapon created by grapheme L.
+ * The beam deals damage multiple times per second to all enemies it touches.
+ */
+class Beam {
+  constructor(x, y, angle, config = {}) {
+    this.x = x; // Origin x
+    this.y = y; // Origin y
+    this.angle = angle;
+    this.damage = config.damage || 1; // Damage per tick
+    this.damagePerSecond = config.damagePerSecond || 1; // Total damage per second
+    this.color = config.color || '#d4af37';
+    this.width = config.width || BEAM_CONFIG.BEAM_WIDTH;
+    this.maxLength = config.maxLength || BEAM_CONFIG.MAX_BEAM_LENGTH;
+    this.weaponId = config.weaponId || 0; // Track which weapon this beam belongs to
+    
+    // Track when each enemy was last damaged (to apply damage at correct rate)
+    this.enemyLastDamageTime = new Map(); // Maps enemy index to timestamp
+    this.bossLastDamageTime = new Map(); // Maps boss index to timestamp
+    
+    // Time between damage ticks (in milliseconds)
+    this.damageInterval = 1000 / BEAM_CONFIG.DAMAGE_TICKS_PER_SECOND;
+  }
+  
+  /**
+   * Check if enough time has passed to damage an enemy again.
+   */
+  canDamageEnemy(enemyIndex, currentTime) {
+    const lastTime = this.enemyLastDamageTime.get(enemyIndex);
+    if (lastTime === undefined) return true;
+    return (currentTime - lastTime) >= this.damageInterval;
+  }
+  
+  /**
+   * Check if enough time has passed to damage a boss again.
+   */
+  canDamageBoss(bossIndex, currentTime) {
+    const lastTime = this.bossLastDamageTime.get(bossIndex);
+    if (lastTime === undefined) return true;
+    return (currentTime - lastTime) >= this.damageInterval;
+  }
+  
+  /**
+   * Record that an enemy was damaged at the current time.
+   */
+  recordEnemyDamage(enemyIndex, currentTime) {
+    this.enemyLastDamageTime.set(enemyIndex, currentTime);
+  }
+  
+  /**
+   * Record that a boss was damaged at the current time.
+   */
+  recordBossDamage(bossIndex, currentTime) {
+    this.bossLastDamageTime.set(bossIndex, currentTime);
+  }
+  
+  /**
+   * Calculate the end point of the beam.
+   */
+  getEndPoint() {
+    return {
+      x: this.x + Math.cos(this.angle) * this.maxLength,
+      y: this.y + Math.sin(this.angle) * this.maxLength
+    };
+  }
+  
+  /**
+   * Render the beam on the canvas.
+   */
+  render(ctx) {
+    const end = this.getEndPoint();
+    
+    ctx.save();
+    ctx.globalAlpha = BEAM_CONFIG.BEAM_ALPHA;
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = this.width;
+    ctx.lineCap = 'round';
+    
+    // Draw the beam as a line
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+    
+    // Add a glow effect
+    ctx.globalAlpha = BEAM_CONFIG.BEAM_ALPHA * 0.3;
+    ctx.lineWidth = this.width * 3;
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+    
     ctx.restore();
   }
 }
@@ -2229,6 +2347,7 @@ export class CardinalWardenSimulation {
     this.scorePopups = []; // Floating score text when enemies are destroyed
     this.damageNumbers = []; // Floating damage numbers when enemies are hit
     this.expandingWaves = []; // Expanding damage waves spawned by grapheme G (index 6)
+    this.beams = []; // Continuous beams from grapheme L (index 11)
 
     // Base health upgrade system (can be upgraded with iterons)
     this.baseHealthLevel = options.baseHealthLevel || 0;
@@ -2965,6 +3084,7 @@ export class CardinalWardenSimulation {
     this.bosses = [];
     this.friendlyShips = [];
     this.expandingWaves = [];
+    this.beams = [];
     this.enemySpawnTimer = 0;
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
@@ -3096,6 +3216,9 @@ export class CardinalWardenSimulation {
     // Check collisions
     this.checkCollisions();
     
+    // Check beam collisions
+    this.checkBeamCollisions();
+    
     // Check friendly ship collisions
     this.checkFriendlyShipCollisions();
 
@@ -3117,15 +3240,14 @@ export class CardinalWardenSimulation {
   
   /**
    * Get the effective grapheme assignments for a weapon slot,
-   * applying the third grapheme (index 2) and seventh grapheme (index 6) deactivation mechanics.
+   * applying deactivation mechanics from various graphemes.
    * 
-   * When the third grapheme is present in a slot, all graphemes to the RIGHT are deactivated.
-   * For example, if index 2 is in slot 3, only slots 0-3 are active, slots 4-7 are ignored.
+   * Deactivation rules:
+   * - Grapheme C (index 2): Deactivates all graphemes to the RIGHT
+   * - Grapheme G (index 6): Deactivates all graphemes to the LEFT
+   * - Grapheme L (index 11): Deactivates immediate LEFT and RIGHT neighbors
    * 
-   * When the seventh grapheme is present in a slot, all graphemes to the LEFT are deactivated.
-   * For example, if index 6 is in slot 5, only slots 5-7 are active, slots 0-4 are ignored.
-   * 
-   * If both are present, seventh grapheme takes precedence (deactivates left side).
+   * Priority order: G > C > L (if both G and C are present, G takes precedence)
    * 
    * @param {Array} assignments - The raw grapheme assignments for a weapon slot
    * @returns {Array} The effective grapheme assignments after applying deactivation
@@ -3166,7 +3288,34 @@ export class CardinalWardenSimulation {
       return assignments.slice(0, thirdGraphemeSlot + 1);
     }
     
-    // If neither grapheme found, all assignments are active
+    // Find all occurrences of grapheme L (index 11) and deactivate adjacent slots
+    const graphemeLSlots = [];
+    for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
+      const assignment = assignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.L) {
+        graphemeLSlots.push(slotIndex);
+      }
+    }
+    
+    // If grapheme L found, create a copy with adjacent slots nullified
+    // Note: If multiple L graphemes are adjacent, the L graphemes themselves remain active
+    // while their respective neighbors are nullified (e.g., L in slots 3 and 4 deactivates 2 and 5)
+    if (graphemeLSlots.length > 0) {
+      const effectiveAssignments = [...assignments];
+      for (const lSlot of graphemeLSlots) {
+        // Deactivate left neighbor (slot - 1)
+        if (lSlot > 0) {
+          effectiveAssignments[lSlot - 1] = null;
+        }
+        // Deactivate right neighbor (slot + 1)
+        if (lSlot < effectiveAssignments.length - 1) {
+          effectiveAssignments[lSlot + 1] = null;
+        }
+      }
+      return effectiveAssignments;
+    }
+    
+    // If no deactivation graphemes found, all assignments are active
     return assignments;
   }
   
@@ -3533,6 +3682,17 @@ export class CardinalWardenSimulation {
       }
     }
     
+    // Check for grapheme L (index 11) - Continuous beam
+    let beamMode = false;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.L) {
+        // Grapheme L found! Beam mode activated
+        beamMode = true;
+        break; // Only apply the first occurrence
+      }
+    }
+    
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === 0) {
@@ -3588,6 +3748,30 @@ export class CardinalWardenSimulation {
       const dx = this.aimTarget.x - cx;
       const dy = this.aimTarget.y - (cy - 20); // Account for bullet spawn offset
       baseAngle = Math.atan2(dy, dx);
+    }
+    
+    // If beam mode is active, create/update beam instead of spawning bullets
+    if (beamMode) {
+      // Calculate weapon attack speed for beam damage
+      const fireRateMultiplier = this.calculateFireRateMultiplier(effectiveAssignments);
+      const attackSpeed = this.calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier);
+      
+      // Beam damage = tower damage × shots per second
+      const beamDamagePerSecond = bulletConfig.damage * attackSpeed;
+      
+      // Remove existing beam for this weapon (if any)
+      this.beams = this.beams.filter(b => b.weaponId !== weaponId);
+      
+      // Create new beam
+      const beam = new Beam(cx, cy - 20, baseAngle, {
+        damage: beamDamagePerSecond / BEAM_CONFIG.DAMAGE_TICKS_PER_SECOND,
+        damagePerSecond: beamDamagePerSecond,
+        color: resolvedColor,
+        weaponId: weaponId,
+      });
+      
+      this.beams.push(beam);
+      return; // Exit early - no bullets spawned
     }
     
     // Spawn bullets based on spread count (disabled in massive bullet mode)
@@ -4426,6 +4610,132 @@ export class CardinalWardenSimulation {
   }
 
   /**
+   * Check collisions between beams and enemies.
+   * Beams deal damage multiple times per second to all enemies they touch.
+   */
+  checkBeamCollisions() {
+    if (!this.beams || this.beams.length === 0) return;
+    
+    const currentTime = Date.now();
+    const enemiesToRemove = new Set();
+    const bossesToRemove = new Set();
+    const killedEnemyPositions = [];
+    
+    // For each beam, check collision with all enemies and bosses
+    for (const beam of this.beams) {
+      const beamEnd = beam.getEndPoint();
+      
+      // Check enemies
+      for (let ei = 0; ei < this.enemies.length; ei++) {
+        const enemy = this.enemies[ei];
+        if (enemiesToRemove.has(ei)) continue;
+        
+        // Check if enemy intersects with beam line
+        const dist = this.pointToLineDistance(
+          enemy.x, enemy.y,
+          beam.x, beam.y,
+          beamEnd.x, beamEnd.y
+        );
+        
+        if (dist < enemy.size + beam.width / 2) {
+          // Enemy is touching the beam - apply damage if enough time has passed
+          if (beam.canDamageEnemy(ei, currentTime)) {
+            this.spawnDamageNumber(enemy.x, enemy.y, beam.damage);
+            const killed = enemy.takeDamage(beam.damage);
+            beam.recordEnemyDamage(ei, currentTime);
+            
+            if (killed) {
+              enemiesToRemove.add(ei);
+              this.addScore(enemy.scoreValue);
+              this.spawnScorePopup(enemy.x, enemy.y, enemy.scoreValue);
+              killedEnemyPositions.push({ x: enemy.x, y: enemy.y, isBoss: false });
+            }
+          }
+        }
+      }
+      
+      // Check bosses
+      for (let bi = 0; bi < this.bosses.length; bi++) {
+        const boss = this.bosses[bi];
+        if (bossesToRemove.has(bi)) continue;
+        
+        // Check if boss intersects with beam line
+        const dist = this.pointToLineDistance(
+          boss.x, boss.y,
+          beam.x, beam.y,
+          beamEnd.x, beamEnd.y
+        );
+        
+        if (dist < boss.size + beam.width / 2) {
+          // Boss is touching the beam - apply damage if enough time has passed
+          if (beam.canDamageBoss(bi, currentTime)) {
+            this.spawnDamageNumber(boss.x, boss.y, beam.damage);
+            const killed = boss.takeDamage(beam.damage);
+            beam.recordBossDamage(bi, currentTime);
+            
+            if (killed) {
+              bossesToRemove.add(bi);
+              this.addScore(boss.scoreValue);
+              this.spawnScorePopup(boss.x, boss.y, boss.scoreValue);
+              killedEnemyPositions.push({ x: boss.x, y: boss.y, isBoss: true });
+            }
+          }
+        }
+      }
+    }
+    
+    // Remove destroyed enemies
+    const enemyIndices = Array.from(enemiesToRemove).sort((a, b) => b - a);
+    for (const i of enemyIndices) {
+      this.enemies.splice(i, 1);
+    }
+    
+    // Remove destroyed bosses
+    const bossIndices = Array.from(bossesToRemove).sort((a, b) => b - a);
+    for (const i of bossIndices) {
+      this.bosses.splice(i, 1);
+    }
+    
+    // Notify about enemy kills for phoneme drops
+    if (this.onEnemyKill && killedEnemyPositions.length > 0) {
+      for (const killPos of killedEnemyPositions) {
+        this.onEnemyKill(killPos.x, killPos.y, killPos.isBoss);
+      }
+    }
+  }
+  
+  /**
+   * Calculate the distance from a point to a line segment.
+   * Used for beam collision detection.
+   */
+  pointToLineDistance(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lengthSquared = dx * dx + dy * dy;
+    
+    // Use epsilon for floating-point comparison
+    if (lengthSquared < 1e-10) {
+      // Line segment is effectively a point
+      const dpx = px - x1;
+      const dpy = py - y1;
+      return Math.hypot(dpx, dpy);
+    }
+    
+    // Calculate projection of point onto line
+    let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
+    t = Math.max(0, Math.min(1, t)); // Clamp to line segment
+    
+    // Find closest point on line segment
+    const closestX = x1 + t * dx;
+    const closestY = y1 + t * dy;
+    
+    // Return distance to closest point
+    const distX = px - closestX;
+    const distY = py - closestY;
+    return Math.hypot(distX, distY);
+  }
+
+  /**
    * Add score and notify listeners.
    */
   addScore(amount) {
@@ -4726,6 +5036,8 @@ export class CardinalWardenSimulation {
         this.renderBosses();
         // Draw bullets
         this.renderBullets();
+        // Draw beams
+        this.renderBeams();
         // Draw expanding waves
         this.renderExpandingWaves();
         // Draw floating damage numbers
@@ -4764,6 +5076,7 @@ export class CardinalWardenSimulation {
       this.renderEnemies();
       this.renderBosses();
       this.renderBullets();
+      this.renderBeams();
     }
     
     // Render explosion particles
@@ -5561,6 +5874,17 @@ export class CardinalWardenSimulation {
       }
 
       ctx.restore();
+    }
+  }
+
+  /**
+   * Render all beams from grapheme L (index 11).
+   */
+  renderBeams() {
+    if (!this.ctx || !this.beams || this.beams.length === 0) return;
+    
+    for (const beam of this.beams) {
+      beam.render(this.ctx);
     }
   }
 
