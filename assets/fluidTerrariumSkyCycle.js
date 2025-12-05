@@ -28,6 +28,18 @@ export class FluidTerrariumSkyCycle {
      * @type {boolean}
      */
     this.celestialBodiesEnabled = Boolean(options.celestialBodiesEnabled);
+    
+    /**
+     * Whether sun specifically has been purchased.
+     * @type {boolean}
+     */
+    this.sunEnabled = Boolean(options.sunEnabled);
+    
+    /**
+     * Whether moon specifically has been purchased.
+     * @type {boolean}
+     */
+    this.moonEnabled = Boolean(options.moonEnabled);
 
     this.animationFrame = null;
     this.startTime = null;
@@ -197,8 +209,8 @@ export class FluidTerrariumSkyCycle {
     if (!this.sunElement) {
       return;
     }
-    // Hide sun if celestial bodies are not enabled
-    if (!this.celestialBodiesEnabled) {
+    // Hide sun if not purchased or celestial bodies are not enabled
+    if (!this.sunEnabled || !this.celestialBodiesEnabled) {
       this.sunElement.style.opacity = '0';
       return;
     }
@@ -221,8 +233,8 @@ export class FluidTerrariumSkyCycle {
     if (!this.moonElement) {
       return;
     }
-    // Hide moon if celestial bodies are not enabled
-    if (!this.celestialBodiesEnabled) {
+    // Hide moon if not purchased or celestial bodies are not enabled
+    if (!this.moonEnabled || !this.celestialBodiesEnabled) {
       this.moonElement.style.opacity = '0';
       return;
     }

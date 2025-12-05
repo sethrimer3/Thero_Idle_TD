@@ -1199,11 +1199,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     // Check if celestial bodies have been purchased
     const celestialEnabled = Boolean(powderState.betTerrarium?.celestialBodiesEnabled);
+    const sunEnabled = Boolean(powderState.betTerrarium?.sunEnabled);
+    const moonEnabled = Boolean(powderState.betTerrarium?.moonEnabled);
     fluidTerrariumSkyCycle = new FluidTerrariumSkyCycle({
       skyElement: fluidElements.terrariumSky,
       sunElement: fluidElements.terrariumSun,
       moonElement: fluidElements.terrariumMoon,
       celestialBodiesEnabled: celestialEnabled,
+      sunEnabled,
+      moonEnabled,
     });
   }
 

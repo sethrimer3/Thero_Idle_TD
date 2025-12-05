@@ -441,12 +441,17 @@ export class FluidTerrariumCreatures {
    * Displays "×N" above the creature group.
    */
   updateCountBadge() {
-    if (!this.badgeLayer || this.creatureCount <= 0) {
+    if (!this.badgeLayer) {
       return;
     }
     
     // Clear existing badge
     this.badgeLayer.innerHTML = '';
+    
+    // Don't show badge if count is 0
+    if (this.creatureCount <= 0) {
+      return;
+    }
     
     // Create badge element
     const badge = document.createElement('div');
@@ -490,7 +495,11 @@ export class FluidTerrariumCreatures {
     if (this.layer && this.layer.parentNode) {
       this.layer.parentNode.removeChild(this.layer);
     }
+    if (this.badgeLayer && this.badgeLayer.parentNode) {
+      this.badgeLayer.parentNode.removeChild(this.badgeLayer);
+    }
     this.layer = null;
+    this.badgeLayer = null;
     this.creatures.length = 0;
   }
 
