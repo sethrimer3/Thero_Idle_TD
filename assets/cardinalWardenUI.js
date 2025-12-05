@@ -681,8 +681,8 @@ function updateGraphemeUI() {
   
   if (cardinalElements.graphemeUnlockBtn) {
     const canAffordUnlock = currentEquivalence >= unlockCost;
-    // Only 25 graphemes are collectable (20 letters + 5 punctuation, numbers are not collectable)
-    const allUnlocked = unlockedGraphemes.length >= 25;
+    // Only 26 graphemes are collectable (letters A-Z, numbers 1-8 are not collectable)
+    const allUnlocked = unlockedGraphemes.length >= 26;
     cardinalElements.graphemeUnlockBtn.disabled = !canAffordUnlock || allUnlocked;
     
     if (allUnlocked) {
@@ -879,9 +879,9 @@ function createWeaponElement(weapon) {
     emptyIndicator.textContent = '+';
 
     // Add slot number indicator using ThoughtSpeak numbers
-    // ThoughtSpeak numbers start at index 25 (number 1)
-    const THOUGHTSPEAK_NUMBER_START_INDEX = 25;
-    const slotNumberIndex = THOUGHTSPEAK_NUMBER_START_INDEX + index; // Maps slots 0-7 to indices 25-32 (numbers 1-8)
+    // ThoughtSpeak numbers start at index 26 (number 1)
+    const THOUGHTSPEAK_NUMBER_START_INDEX = 26;
+    const slotNumberIndex = THOUGHTSPEAK_NUMBER_START_INDEX + index; // Maps slots 0-7 to indices 26-33 (numbers 1-8)
     const slotNumber = createGraphemeIconElement(slotNumberIndex, undefined, undefined, 'shin-grapheme-icon shin-slot-number-indicator');
     slotNumber.setAttribute('aria-hidden', 'true');
     
@@ -1182,6 +1182,11 @@ function updatePhonemeInventoryDisplay() {
     cardinalElements.phonemeCount.textContent = formatGameNumber(totalCount);
   }
 
+  // Sync inventory counts to simulation for excess grapheme bonus
+  if (cardinalSimulation) {
+    cardinalSimulation.setGraphemeInventoryCounts(counts);
+  }
+
   // Build inventory grid
   const entries = Object.entries(counts);
   if (entries.length === 0) {
@@ -1279,7 +1284,7 @@ function placeSelectedGrapheme(weaponId, slotIndex) {
     assignments[slotIndex] = null;
     syncGraphemeAssignmentsToSimulation();
     updateWeaponsDisplay();
-    updateGraphemeInventoryDisplay();
+    updatePhonemeInventoryDisplay();
     return;
   }
   
@@ -1305,7 +1310,7 @@ function placeSelectedGrapheme(weaponId, slotIndex) {
   clearSelectedGrapheme();
   syncGraphemeAssignmentsToSimulation();
   updateWeaponsDisplay();
-  updateGraphemeInventoryDisplay();
+  updatePhonemeInventoryDisplay();
 }
 
 /**
@@ -1313,10 +1318,13 @@ function placeSelectedGrapheme(weaponId, slotIndex) {
  * This propagates the player's grapheme placements to the Cardinal Warden simulation
  * so they can be rendered as script below the warden.
  * 
+ * Also syncs the grapheme inventory counts for calculating excess grapheme bonus damage.
+ * 
  * This function should be called whenever:
  * - A grapheme is placed in a weapon slot
  * - A weapon slot is removed or cleared
  * - The simulation is first initialized
+ * - The grapheme inventory changes (collection or consumption)
  * 
  * @private
  */
@@ -1324,6 +1332,10 @@ function syncGraphemeAssignmentsToSimulation() {
   if (!cardinalSimulation) return;
   
   cardinalSimulation.setWeaponGraphemeAssignments(weaponGraphemeAssignments);
+  
+  // Sync grapheme inventory counts for excess bonus calculation
+  const counts = getPhonemeCountsByChar();
+  cardinalSimulation.setGraphemeInventoryCounts(counts);
 }
 
 function formatGraphemeSymbol(index) {

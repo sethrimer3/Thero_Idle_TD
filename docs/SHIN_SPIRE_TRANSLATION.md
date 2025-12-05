@@ -90,11 +90,10 @@ The grapheme system uses a custom script language rendered from a sprite sheet l
 
 #### Script Layout
 
-The sprite sheet contains **35 unique characters** arranged in a **7×5 grid**:
+The sprite sheet contains **34 unique characters** arranged in a **7×5 grid**:
 
-- **Rows 0-2 (Indices 0-19):** 20 Letters - These are **collectable graphemes** that drop from enemies
-- **Row 3 (Indices 20-24):** 5 Punctuation marks - Also **collectable graphemes**
-- **Rows 3-4 (Indices 25-34):** 10 Numbers (0-9) - **NOT collectable**, used for UI display only
+- **Rows 0-3 (Indices 0-25):** 26 Letters (A-Z) - These are **collectable graphemes** that drop from enemies and can be equipped to weapons
+- **Rows 3-4 (Indices 26-33):** 8 Numbers (1-8) - **NOT collectable**, used for UI display only (weapon slot indicators)
 
 #### Sprite Rendering
 
@@ -106,12 +105,12 @@ Each grapheme character is rendered by:
 
 #### Character Properties
 
-Each collectable grapheme (indices 0-24) has:
-- **Index:** Unique identifier (0-24)
-- **Name:** Greek letter or symbol name (e.g., "alpha", "beta", "gamma")
+Each collectable grapheme (indices 0-25) has:
+- **Index:** Unique identifier (0-25)
+- **Name:** English letter (A-Z)
 - **Property:** Gameplay effect type (e.g., "fire", "pierce", "speed")
 - **Row/Col:** Position in the sprite sheet grid
-- **Collectable:** Boolean flag (always true for indices 0-24)
+- **Collectable:** Boolean flag (always true for indices 0-25)
 
 ### Aiming System
 
@@ -143,6 +142,15 @@ The danmaku render features a clean, minimalist aesthetic:
 The phoneme inventory is displayed in two locations:
 1. Below the Cardinal Warden spire render
 2. Below the weapons box
+
+**Inventory Capacity:** The inventory can hold up to 26 unique grapheme types (A-Z), but players can collect multiple copies of each type.
+
+**Excess Grapheme Bonus:** When a grapheme is equipped to a weapon, the weapon's base attack increases by the total number of that grapheme in the player's inventory. For example:
+- Player has 15 of grapheme "A" in inventory
+- Player equips "A" to Weapon 1
+- Weapon 1's base attack increases by +15 damage
+
+This bonus stacks with all other damage multipliers (level scaling, grapheme effects, etc.).
 
 ### Weapon Modification Slots
 
@@ -176,28 +184,28 @@ The custom script uses unique characters that each represent different weapon pr
 
 Each grapheme (script character) has unique effects based on its position in a weapon slot:
 
-#### Index 0 - Alpha (Fire)
+#### Index 0 - A (Fire)
 - **Effect:** Modifies bullet shape and damage multiplier based on slot position
 - **Slot 0:** Triangle (3 sides), 3× damage
 - **Slot 1:** Pentagon (5 sides), 5× damage
 - **Slot 2:** Hexagon (6 sides), 6× damage
 - **Slot 3+:** Continues pattern (7, 8, 9, 10, 11 sides) with matching damage multipliers
 
-#### Index 1 - Beta (Pierce)
+#### Index 1 - B (Pierce)
 - **Effect:** Increases weapon fire rate based on slot position
 - **Slot 0:** 1× (no change)
 - **Slot 1:** 2× faster
 - **Slot 2:** 3× faster
 - **Slot 3+:** Continues pattern (4×, 5×, 6×, etc.)
 
-#### Index 2 - Gamma (Speed)
+#### Index 2 - C (Speed)
 - **Effect:** Spawns friendly ships that orbit the Cardinal Warden and attack enemies
 - **Ship Count:** Inversely proportional to total weapon fire rate (5 / bullets per second)
 - **Special Mechanic:** **Deactivates all graphemes to the RIGHT** of its position
   - Example: If placed in slot 3, only slots 0-3 are active; slots 4-7 become inactive
   - This allows strategic positioning for limiting unwanted effects
 
-#### Index 3 - Delta (Ice)
+#### Index 3 - D (Ice)
 - **Effect:** Regenerates player shields/life over time
 - **Formula:** 1 shield recovered over `(slot_number × attack_speed)` seconds
 - **Examples:**
@@ -207,7 +215,7 @@ Each grapheme (script character) has unique effects based on its position in a w
 - **Visual:** Reverses life line state progression at bottom of screen (gone → dashed → solid)
 - **Note:** Affected by third grapheme deactivation if positioned to the right of it
 
-#### Index 4 - Epsilon (Lightning)
+#### Index 4 - E (Lightning)
 - **Effect:** Modifies bullet trajectory based on slot position
 - **Slots 0-2 (First Three Slots):**
   - Bullets shoot straight toward the aim target
@@ -224,7 +232,7 @@ Each grapheme (script character) has unique effects based on its position in a w
   - Creates a defensive spiral screen that can catch enemies at various distances
   - Pattern expands continuously, creating wider coverage over time
 
-#### Index 5 - Zeta (Spread/Pierce)
+#### Index 5 - F (Spread/Pierce)
 - **Effect:** Grants piercing ability and trail passthrough based on slot position
 - **Pierce Count:**
   - Slot 0: +1 pierce (hits 1 enemy before disappearing)
@@ -234,7 +242,7 @@ Each grapheme (script character) has unique effects based on its position in a w
 - **Special Mechanic: Trail Passthrough**
   - When this grapheme is equipped, bullets **pass through enemy trails** without bouncing off them
   - Normally, bullets bounce off enemy trails to reward strategic aiming
-  - With Zeta equipped, bullets ignore trails completely and maintain their trajectory
+  - With F equipped, bullets ignore trails completely and maintain their trajectory
   - Useful for guaranteed hits through dense enemy formations
 - **Strategic Use:**
   - Higher slot positions allow bullets to pierce through multiple enemies
