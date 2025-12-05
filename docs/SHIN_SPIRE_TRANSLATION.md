@@ -52,6 +52,41 @@ The custom script uses unique characters that each represent different weapon pr
 - **Base property:** Primary weapon attribute
 - **Modifier role:** How it affects other phonemes when combined
 
+### Grapheme Mechanics (ThoughtSpeak System)
+
+Each grapheme (script character) has unique effects based on its position in a weapon slot:
+
+#### Index 0 - Alpha (Fire)
+- **Effect:** Modifies bullet shape and damage multiplier based on slot position
+- **Slot 0:** Triangle (3 sides), 3× damage
+- **Slot 1:** Pentagon (5 sides), 5× damage
+- **Slot 2:** Hexagon (6 sides), 6× damage
+- **Slot 3+:** Continues pattern (7, 8, 9, 10, 11 sides) with matching damage multipliers
+
+#### Index 1 - Beta (Pierce)
+- **Effect:** Increases weapon fire rate based on slot position
+- **Slot 0:** 1× (no change)
+- **Slot 1:** 2× faster
+- **Slot 2:** 3× faster
+- **Slot 3+:** Continues pattern (4×, 5×, 6×, etc.)
+
+#### Index 2 - Gamma (Speed)
+- **Effect:** Spawns friendly ships that orbit the Cardinal Warden and attack enemies
+- **Ship Count:** Inversely proportional to total weapon fire rate (5 / bullets per second)
+- **Special Mechanic:** **Deactivates all graphemes to the RIGHT** of its position
+  - Example: If placed in slot 3, only slots 0-3 are active; slots 4-7 become inactive
+  - This allows strategic positioning for limiting unwanted effects
+
+#### Index 3 - Delta (Ice)
+- **Effect:** Regenerates player shields/life over time
+- **Formula:** 1 shield recovered over `(slot_number × attack_speed)` seconds
+- **Examples:**
+  - Slot 2 with 3 bullets/sec = 1 shield over 6 seconds (1/(2×3))
+  - Slot 0 with 1 bullet/sec = 1 shield per second (1/(1×1))
+  - Slot 4 with 2 bullets/sec = 1 shield over 10 seconds (1/(5×2))
+- **Visual:** Reverses life line state progression at bottom of screen (gone → dashed → solid)
+- **Note:** Affected by third grapheme deactivation if positioned to the right of it
+
 ## Implementation Notes
 
 ### Drop Mechanics
