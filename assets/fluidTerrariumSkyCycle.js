@@ -197,6 +197,11 @@ export class FluidTerrariumSkyCycle {
     if (!this.sunElement) {
       return;
     }
+    // Hide sun if celestial bodies are not enabled
+    if (!this.celestialBodiesEnabled) {
+      this.sunElement.style.opacity = '0';
+      return;
+    }
     const sunStart = 0.02;
     const sunEnd = 0.65;
     const sunProgress = this.computeLocalProgress(progress, sunStart, sunEnd);
@@ -214,6 +219,11 @@ export class FluidTerrariumSkyCycle {
    */
   updateMoon(progress) {
     if (!this.moonElement) {
+      return;
+    }
+    // Hide moon if celestial bodies are not enabled
+    if (!this.celestialBodiesEnabled) {
+      this.moonElement.style.opacity = '0';
       return;
     }
     const moonStart = 0.48;

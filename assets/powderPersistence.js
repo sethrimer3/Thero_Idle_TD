@@ -186,6 +186,8 @@ export function createPowderPersistence({
       betTerrarium: {
         levelingMode: Boolean(powderState.betTerrarium?.levelingMode),
         celestialBodiesEnabled: Boolean(powderState.betTerrarium?.celestialBodiesEnabled),
+        sunEnabled: Boolean(powderState.betTerrarium?.sunEnabled),
+        moonEnabled: Boolean(powderState.betTerrarium?.moonEnabled),
         trees: Object.entries(powderState.betTerrarium?.trees || {}).reduce((result, [key, tree]) => {
           const allocated = clampFiniteInteger(tree?.allocated, 0);
           if (allocated >= 0) {
@@ -309,6 +311,8 @@ export function createPowderPersistence({
       powderState.betTerrarium = {
         levelingMode: Boolean(storedTerrarium.levelingMode),
         celestialBodiesEnabled: Boolean(storedTerrarium.celestialBodiesEnabled),
+        sunEnabled: Boolean(storedTerrarium.sunEnabled),
+        moonEnabled: Boolean(storedTerrarium.moonEnabled),
         trees: Object.entries(storedTrees).reduce((result, [key, value]) => {
           const allocated = Number.isFinite(value?.allocated) ? Math.max(0, Math.floor(value.allocated)) : 0;
           result[key] = { allocated };
