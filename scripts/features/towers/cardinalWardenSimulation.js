@@ -1369,6 +1369,71 @@ const WEAPON_SLOT_DEFINITIONS = {
     color: '#9a6bff',
     slotIndex: 2,
   },
+  slot4: {
+    id: 'slot4',
+    name: 'Weapon Slot 4',
+    symbol: 'Ⅳ',
+    symbolGraphemeIndex: 28, // ThoughtSpeak number 4
+    description: '',
+    baseDamage: 1,
+    baseSpeed: 200,
+    baseFireRate: 7000, // 7 seconds
+    pattern: 'straight',
+    color: '#66ccff',
+    slotIndex: 3,
+  },
+  slot5: {
+    id: 'slot5',
+    name: 'Weapon Slot 5',
+    symbol: 'Ⅴ',
+    symbolGraphemeIndex: 29, // ThoughtSpeak number 5
+    description: '',
+    baseDamage: 1,
+    baseSpeed: 200,
+    baseFireRate: 9000, // 9 seconds
+    pattern: 'straight',
+    color: '#66ff99',
+    slotIndex: 4,
+  },
+  slot6: {
+    id: 'slot6',
+    name: 'Weapon Slot 6',
+    symbol: 'Ⅵ',
+    symbolGraphemeIndex: 30, // ThoughtSpeak number 6
+    description: '',
+    baseDamage: 1,
+    baseSpeed: 200,
+    baseFireRate: 11000, // 11 seconds
+    pattern: 'straight',
+    color: '#ff66ff',
+    slotIndex: 5,
+  },
+  slot7: {
+    id: 'slot7',
+    name: 'Weapon Slot 7',
+    symbol: 'Ⅶ',
+    symbolGraphemeIndex: 31, // ThoughtSpeak number 7
+    description: '',
+    baseDamage: 1,
+    baseSpeed: 200,
+    baseFireRate: 13000, // 13 seconds
+    pattern: 'straight',
+    color: '#ffcc66',
+    slotIndex: 6,
+  },
+  slot8: {
+    id: 'slot8',
+    name: 'Weapon Slot 8',
+    symbol: 'Ⅷ',
+    symbolGraphemeIndex: 32, // ThoughtSpeak number 8
+    description: '',
+    baseDamage: 1,
+    baseSpeed: 200,
+    baseFireRate: 15000, // 15 seconds
+    pattern: 'straight',
+    color: '#ff9999',
+    slotIndex: 7,
+  },
 };
 
 // Legacy weapon definitions kept for reference but deactivated
@@ -1498,6 +1563,7 @@ export class CardinalWardenSimulation {
     this.bullets = [];
     this.bosses = []; // Boss ships array
     this.scorePopups = []; // Floating score text when enemies are destroyed
+    this.damageNumbers = []; // Floating damage numbers when enemies are hit
 
     // Base health upgrade system (can be upgraded with iterons)
     this.baseHealthLevel = options.baseHealthLevel || 0;
@@ -1547,22 +1613,27 @@ export class CardinalWardenSimulation {
       patterns: ['radial'], // Unlocked patterns
     };
 
-    // Simplified weapon slot system - all 3 slots are always active
+    // Simplified weapon slot system - all 8 slots are always active
     this.weapons = {
-      // All 3 weapon slots are always equipped (no purchase needed)
-      purchased: { slot1: true, slot2: true, slot3: true },
-      levels: { slot1: 1, slot2: 1, slot3: 1 }, // Level tracking for future lexeme upgrades
-      equipped: ['slot1', 'slot2', 'slot3'], // All 3 slots always active
+      // All 8 weapon slots are always equipped (no purchase needed)
+      purchased: { slot1: true, slot2: true, slot3: true, slot4: true, slot5: true, slot6: true, slot7: true, slot8: true },
+      levels: { slot1: 1, slot2: 1, slot3: 1, slot4: 1, slot5: 1, slot6: 1, slot7: 1, slot8: 1 }, // Level tracking for future lexeme upgrades
+      equipped: ['slot1', 'slot2', 'slot3', 'slot4', 'slot5', 'slot6', 'slot7', 'slot8'], // All 8 slots always active
     };
     
-    // Maximum number of weapons that can be equipped simultaneously (always 3)
-    this.maxEquippedWeapons = 3;
+    // Maximum number of weapons that can be equipped simultaneously (always 8)
+    this.maxEquippedWeapons = 8;
     
     // Weapon-specific timers (each slot has its own fire rate)
     this.weaponTimers = {
       slot1: 0,
       slot2: 0,
       slot3: 0,
+      slot4: 0,
+      slot5: 0,
+      slot6: 0,
+      slot7: 0,
+      slot8: 0,
     };
 
     // Weapon glow state for visual feedback (0 = no glow, 1 = full glow)
@@ -1570,6 +1641,11 @@ export class CardinalWardenSimulation {
       slot1: 0,
       slot2: 0,
       slot3: 0,
+      slot4: 0,
+      slot5: 0,
+      slot6: 0,
+      slot7: 0,
+      slot8: 0,
     };
 
     // Weapon phase state for potential future grapheme phase accumulation
@@ -1577,6 +1653,11 @@ export class CardinalWardenSimulation {
       slot1: 0,
       slot2: 0,
       slot3: 0,
+      slot4: 0,
+      slot5: 0,
+      slot6: 0,
+      slot7: 0,
+      slot8: 0,
     };
 
     // Weapon grapheme assignments for dynamic script rendering
@@ -1585,6 +1666,11 @@ export class CardinalWardenSimulation {
       slot1: [],
       slot2: [],
       slot3: [],
+      slot4: [],
+      slot5: [],
+      slot6: [],
+      slot7: [],
+      slot8: [],
     };
 
     // Aim target for player-controlled weapons (Sine Wave and Convergent Rails)
@@ -1721,7 +1807,7 @@ export class CardinalWardenSimulation {
 
   /**
    * Render the Cardinal Warden's script below the warden.
-   * Displays 3 lines of script, one per weapon slot, based on assigned graphemes.
+   * Displays 8 lines of script, one per weapon slot, based on assigned graphemes.
    */
   renderWardenName() {
     if (!this.ctx || !this.warden || !this.scriptSpriteLoaded) return;
@@ -2240,13 +2326,16 @@ export class CardinalWardenSimulation {
     // Update floating score popups
     this.updateScorePopups(deltaTime);
 
+    // Update floating damage numbers
+    this.updateDamageNumbers(deltaTime);
+
     // Check game over conditions
     this.checkGameOver();
   }
   
   /**
    * Update weapon timers and fire bullets when ready.
-   * All 3 weapon slots are always active.
+   * All 8 weapon slots are always active.
    */
   updateWeaponTimers(deltaTime) {
     if (!this.warden || !this.canvas) return;
@@ -2273,8 +2362,21 @@ export class CardinalWardenSimulation {
         this.weaponTimers[weaponId] = 0;
       }
       
-      // Simple fire rate (2s, 3s, 5s by default)
-      const fireInterval = weaponDef.baseFireRate;
+      // Calculate fire rate multiplier from second grapheme (index 1)
+      let fireRateMultiplier = 1;
+      const assignments = this.weaponGraphemeAssignments[weaponId] || [];
+      for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
+        const assignment = assignments[slotIndex];
+        if (assignment && assignment.index === 1) {
+          // Second grapheme found! Fire rate multiplier based on slot position
+          // Slot 0 = 1x (no change), Slot 1 = 2x faster, Slot 2 = 3x faster, etc.
+          fireRateMultiplier = slotIndex + 1;
+          break; // Only apply the first occurrence
+        }
+      }
+      
+      // Apply fire rate multiplier by dividing the interval (higher multiplier = faster shooting)
+      const fireInterval = weaponDef.baseFireRate / fireRateMultiplier;
       
       this.weaponTimers[weaponId] += deltaTime;
       
@@ -2319,10 +2421,10 @@ export class CardinalWardenSimulation {
         // Slot 0 = triangle (3 sides), 3x damage
         // Slot 1 = pentagon (5 sides), 5x damage  
         // Slot 2 = hexagon (6 sides), 6x damage
-        // Slot 3+ = continues pattern (7, 8, 9, 10, 11 sides)
+        // Slot 3+ = continues pattern (7, 8, 9, 10, 11 sides, etc.)
         const sidesMap = [3, 5, 6, 7, 8, 9, 10, 11];
-        bulletShape = sidesMap[slotIndex] || (slotIndex + 3);
-        damageMultiplier *= bulletShape; // 3x, 5x, 6x, 7x, 8x, 9x, 10x, 11x
+        bulletShape = sidesMap[slotIndex] !== undefined ? sidesMap[slotIndex] : Math.max(3, slotIndex + 3);
+        damageMultiplier *= bulletShape; // 3x, 5x, 6x, 7x, 8x, 9x, 10x, 11x, etc.
         break; // Only apply the first occurrence
       }
     }
@@ -2854,6 +2956,9 @@ export class CardinalWardenSimulation {
         const collisionDist = bullet.size + enemy.size;
 
         if (dist < collisionDist) {
+          // Spawn damage number to show how much damage was dealt
+          this.spawnDamageNumber(enemy.x, enemy.y, bullet.damage);
+          
           const killed = enemy.takeDamage(bullet.damage);
 
           if (killed) {
@@ -2900,6 +3005,9 @@ export class CardinalWardenSimulation {
         const collisionDist = bullet.size + boss.size;
 
         if (dist < collisionDist) {
+          // Spawn damage number to show how much damage was dealt
+          this.spawnDamageNumber(boss.x, boss.y, bullet.damage);
+          
           const killed = boss.takeDamage(bullet.damage);
 
           if (killed) {
@@ -2969,6 +3077,26 @@ export class CardinalWardenSimulation {
   }
 
   /**
+   * Spawn a floating damage number at the given position.
+   * @param {number} x - X position
+   * @param {number} y - Y position
+   * @param {number} damage - Damage value to display
+   */
+  spawnDamageNumber(x, y, damage) {
+    const DAMAGE_NUMBER_X_SPREAD = 10; // Horizontal spread to prevent overlapping numbers
+    this.damageNumbers.push({
+      x,
+      y,
+      damage,
+      age: 0,
+      alpha: 1,
+      offsetY: 0,
+      // Add slight randomness to x position so overlapping numbers are visible
+      xOffset: (Math.random() - 0.5) * DAMAGE_NUMBER_X_SPREAD,
+    });
+  }
+
+  /**
    * Update all floating score popups.
    * @param {number} deltaTime - Time elapsed since last frame in ms
    */
@@ -2983,6 +3111,25 @@ export class CardinalWardenSimulation {
       // Remove popups that have fully faded
       if (popup.alpha <= 0 || popup.age > 1.0) {
         this.scorePopups.splice(i, 1);
+      }
+    }
+  }
+
+  /**
+   * Update all floating damage numbers.
+   * @param {number} deltaTime - Time elapsed since last frame in ms
+   */
+  updateDamageNumbers(deltaTime) {
+    const dt = deltaTime / 1000;
+    for (let i = this.damageNumbers.length - 1; i >= 0; i--) {
+      const dmg = this.damageNumbers[i];
+      dmg.age += dt;
+      dmg.offsetY -= 50 * dt; // Float upward slightly faster than score popups
+      dmg.alpha = Math.max(0, 1 - dmg.age / 0.8); // Fade out over 0.8 seconds
+      
+      // Remove damage numbers that have fully faded
+      if (dmg.alpha <= 0 || dmg.age > 0.8) {
+        this.damageNumbers.splice(i, 1);
       }
     }
   }
@@ -3004,6 +3151,30 @@ export class CardinalWardenSimulation {
       // Use a contrasting color based on night mode
       ctx.fillStyle = this.nightMode ? '#ffcc00' : '#d4af37';
       ctx.fillText(`+${popup.value}`, popup.x, popup.y + popup.offsetY);
+    }
+    
+    ctx.restore();
+  }
+
+  /**
+   * Render all floating damage numbers.
+   */
+  renderDamageNumbers() {
+    if (!this.ctx) return;
+    
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = 'bold 12px "Cormorant Garamond", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    for (const dmg of this.damageNumbers) {
+      ctx.globalAlpha = dmg.alpha;
+      // Use red color for damage
+      ctx.fillStyle = this.nightMode ? '#ff6666' : '#ff3333';
+      // Format damage: show integers without decimals, floats with one decimal place
+      const damageText = dmg.damage % 1 === 0 ? dmg.damage.toString() : dmg.damage.toFixed(1);
+      ctx.fillText(damageText, dmg.x + dmg.xOffset, dmg.y + dmg.offsetY);
     }
     
     ctx.restore();
@@ -3083,6 +3254,8 @@ export class CardinalWardenSimulation {
         this.renderBosses();
         // Draw bullets
         this.renderBullets();
+        // Draw floating damage numbers
+        this.renderDamageNumbers();
         // Draw floating score popups
         this.renderScorePopups();
         break;
