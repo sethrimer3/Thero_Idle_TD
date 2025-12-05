@@ -1988,7 +1988,7 @@ export class FluidTerrariumTrees {
 
   /**
    * Refresh the level label for a given tree.
-   * Now only shows "Lv. X" format without progress bar or upgrade button.
+   * Shows "Lv. X" format or "MAX" if at maximum practical level.
    */
   updateTreeBadge(tree) {
     if (!tree?.badge) {
@@ -1997,9 +1997,13 @@ export class FluidTerrariumTrees {
     const { label } = tree.badge;
     const levelInfo = this.computeLevelInfo(tree.state.allocated || 0);
 
-    // Show level in "Lv. X" format
+    // Consider level 20 as "MAX" for display purposes (2^20 = ~1M serendipity)
+    const MAX_DISPLAY_LEVEL = 20;
+    
+    // Show level in "Lv. X" format or "MAX" if at max
     if (label) {
-      label.textContent = `Lv. ${levelInfo.level}`;
+      const levelText = levelInfo.level >= MAX_DISPLAY_LEVEL ? 'MAX' : `Lv. ${levelInfo.level}`;
+      label.textContent = levelText;
     }
   }
 

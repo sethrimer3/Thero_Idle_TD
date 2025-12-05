@@ -364,6 +364,7 @@ class BaseShroom {
     this.maxLevel = options.maxLevel || 10;
     this.element = null;
     this.glowElement = null;
+    this.badgeElement = null;
     this.dead = false;
     
     // Glow boost from spore hits
@@ -397,6 +398,46 @@ class BaseShroom {
   }
 
   /**
+   * Create a level badge that shows above the shroom.
+   */
+  createBadge() {
+    if (typeof document === 'undefined' || this.badgeElement) {
+      return;
+    }
+    const badge = document.createElement('div');
+    badge.className = 'fluid-terrarium-shroom-badge';
+    badge.style.cssText = `
+      position: absolute;
+      left: ${this.x.toFixed(1)}px;
+      top: ${(this.y - this.size - 12).toFixed(1)}px;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: bold;
+      text-align: center;
+      white-space: nowrap;
+      pointer-events: none;
+    `;
+    this.updateBadgeText(badge);
+    this.badgeElement = badge;
+    return badge;
+  }
+
+  /**
+   * Update the badge text based on current level.
+   */
+  updateBadgeText(badge = this.badgeElement) {
+    if (!badge) {
+      return;
+    }
+    const levelText = this.level >= this.maxLevel ? 'MAX' : `Lv. ${this.level}`;
+    badge.textContent = levelText;
+  }
+
+  /**
    * Update the DOM element transform.
    */
   updateTransform() {
@@ -405,14 +446,24 @@ class BaseShroom {
     }
     const rotation = (this.surfaceAngle * 180) / Math.PI;
     this.element.style.transform = `translate(${this.x.toFixed(1)}px, ${this.y.toFixed(1)}px) translate(-50%, -100%) rotate(${rotation.toFixed(1)}deg)`;
+    
+    // Update badge position
+    if (this.badgeElement) {
+      this.badgeElement.style.left = `${this.x.toFixed(1)}px`;
+      this.badgeElement.style.top = `${(this.y - this.size - 12).toFixed(1)}px`;
+    }
   }
 
   destroy() {
     if (this.element?.parentNode) {
       this.element.remove();
     }
+    if (this.badgeElement?.parentNode) {
+      this.badgeElement.remove();
+    }
     this.element = null;
     this.glowElement = null;
+    this.badgeElement = null;
     this.dead = true;
   }
 }
@@ -446,6 +497,7 @@ class PhiShroom extends BaseShroom {
     el.style.color = this.colors.primary;
     
     this.element = el;
+    this.createBadge(); // Create level badge
     this.updateTransform();
     this.updateGlow();
   }
@@ -518,6 +570,7 @@ class PsiShroom extends BaseShroom {
     el.style.color = this.colors.primary;
     
     this.element = el;
+    this.createBadge(); // Create level badge
     this.updateTransform();
     this.updateVisuals();
   }
@@ -822,6 +875,9 @@ export class FluidTerrariumShrooms {
     this.shrooms.push(shroom);
     if (this.layer && shroom.element) {
       this.layer.appendChild(shroom.element);
+      if (shroom.badgeElement) {
+        this.layer.appendChild(shroom.badgeElement);
+      }
     }
 
     this.emitStateChange();
@@ -855,6 +911,9 @@ export class FluidTerrariumShrooms {
     this.shrooms.push(shroom);
     if (this.layer && shroom.element) {
       this.layer.appendChild(shroom.element);
+      if (shroom.badgeElement) {
+        this.layer.appendChild(shroom.badgeElement);
+      }
     }
 
     this.emitStateChange();

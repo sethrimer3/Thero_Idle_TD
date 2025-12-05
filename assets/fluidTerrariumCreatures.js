@@ -55,6 +55,7 @@ export class FluidTerrariumCreatures {
     this.spawnZones = Array.isArray(options.spawnZones) ? options.spawnZones : [];
     this.creatures = [];
     this.layer = null;
+    this.badgeLayer = null;
     this.bounds = { width: 0, height: 0 };
     this.terrainBounds = { left: 0, right: 0, width: 0, top: 0, bottom: 0, height: 0 };
     this.resolvedSpawnZones = [];
@@ -96,6 +97,19 @@ export class FluidTerrariumCreatures {
     layer.className = 'fluid-terrarium-creature-layer';
     this.layer = layer;
     this.container.appendChild(layer);
+
+    // Create badge layer for showing count above slimes
+    const badgeLayer = document.createElement('div');
+    badgeLayer.className = 'fluid-terrarium-creature-badges';
+    badgeLayer.style.position = 'absolute';
+    badgeLayer.style.inset = '0';
+    badgeLayer.style.pointerEvents = 'none';
+    badgeLayer.style.zIndex = '1';
+    this.badgeLayer = badgeLayer;
+    this.container.appendChild(badgeLayer);
+    
+    // Create and show the count badge
+    this.updateCountBadge();
   }
 
   /**
@@ -420,6 +434,41 @@ export class FluidTerrariumCreatures {
       cancelAnimationFrame(this.animationFrame);
       this.animationFrame = null;
     }
+  }
+
+  /**
+   * Create or update the count badge showing number of slimes.
+   * Displays "×N" above the creature group.
+   */
+  updateCountBadge() {
+    if (!this.badgeLayer || this.creatureCount <= 0) {
+      return;
+    }
+    
+    // Clear existing badge
+    this.badgeLayer.innerHTML = '';
+    
+    // Create badge element
+    const badge = document.createElement('div');
+    badge.className = 'fluid-creature-count-badge';
+    badge.textContent = `×${this.creatureCount}`;
+    badge.style.cssText = `
+      position: absolute;
+      left: 50%;
+      top: 20%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: bold;
+      text-align: center;
+      white-space: nowrap;
+      pointer-events: none;
+    `;
+    
+    this.badgeLayer.appendChild(badge);
   }
 
   /**
