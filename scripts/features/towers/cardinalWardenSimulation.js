@@ -3298,6 +3298,8 @@ export class CardinalWardenSimulation {
     }
     
     // If grapheme L found, create a copy with adjacent slots nullified
+    // Note: If multiple L graphemes are adjacent, the L graphemes themselves remain active
+    // while their respective neighbors are nullified (e.g., L in slots 3 and 4 deactivates 2 and 5)
     if (graphemeLSlots.length > 0) {
       const effectiveAssignments = [...assignments];
       for (const lSlot of graphemeLSlots) {
@@ -4711,8 +4713,9 @@ export class CardinalWardenSimulation {
     const dy = y2 - y1;
     const lengthSquared = dx * dx + dy * dy;
     
-    if (lengthSquared === 0) {
-      // Line segment is a point
+    // Use epsilon for floating-point comparison
+    if (lengthSquared < 1e-10) {
+      // Line segment is effectively a point
       const dpx = px - x1;
       const dpy = py - y1;
       return Math.hypot(dpx, dpy);
