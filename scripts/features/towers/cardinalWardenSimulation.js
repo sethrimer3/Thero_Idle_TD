@@ -1288,6 +1288,13 @@ class FriendlyShip {
  * These bullets travel primarily in one direction but oscillate following a mathematical function.
  */
 class MathBullet {
+  // Epsilon (fifth grapheme) behavior constants
+  static EPSILON_ZIGZAG_MAX_WAYPOINTS = 10;
+  static EPSILON_ZIGZAG_HOLD_DURATION = 0.5; // seconds
+  static EPSILON_ZIGZAG_TARGET_PROXIMITY_MULTIPLIER = 2;
+  static EPSILON_SPIRAL_ROTATION_SPEED = 2; // radians per second
+  static EPSILON_SPIRAL_EXPANSION_RATE = 0.3;
+  
   constructor(x, y, angle, config = {}) {
     this.startX = x;
     this.startY = y;
@@ -1341,15 +1348,30 @@ class MathBullet {
     this.epsilonBehavior = config.epsilonBehavior || null; // 'straight', 'zigzag', or 'spiral'
     this.epsilonZigzagState = {
       waypointCount: 0,
-      maxWaypoints: 10,
+      maxWaypoints: MathBullet.EPSILON_ZIGZAG_MAX_WAYPOINTS,
       holdTimer: 0,
-      holdDuration: 0.5, // seconds
+      holdDuration: MathBullet.EPSILON_ZIGZAG_HOLD_DURATION,
       isHolding: false,
       targetX: null,
       targetY: null,
       trackingEnemy: false,
     };
     this.epsilonSpiralAngle = 0; // Angle around the spiral center
+  }
+  
+  /**
+   * Update bullet trail and rotation (common logic for all epsilon behaviors).
+   */
+  updateTrailAndRotation(dt) {
+    if (this.maxTrailLength > 0) {
+      this.trail.push({ x: this.x, y: this.y });
+      if (this.trail.length > this.maxTrailLength) {
+        this.trail.shift();
+      }
+    }
+    if (this.level >= 3) {
+      this.shapeRotation += this.shapeRotationSpeed * dt;
+    }
   }
 
   update(deltaTime, canvasWidth, canvasHeight, enemies) {
@@ -1366,16 +1388,7 @@ class MathBullet {
       this.x = this.startX + Math.cos(this.baseAngle) * this.distance;
       this.y = this.startY + Math.sin(this.baseAngle) * this.distance;
       
-      // Record trail and update rotation, then return early
-      if (this.maxTrailLength > 0) {
-        this.trail.push({ x: this.x, y: this.y });
-        if (this.trail.length > this.maxTrailLength) {
-          this.trail.shift();
-        }
-      }
-      if (this.level >= 3) {
-        this.shapeRotation += this.shapeRotationSpeed * dt;
-      }
+      this.updateTrailAndRotation(dt);
       return;
     } else if (this.epsilonBehavior === 'zigzag') {
       // Slots 3-4: Zigzag to random positions with holds
@@ -1426,7 +1439,8 @@ class MathBullet {
           const dy = state.targetY - this.y;
           const dist = Math.hypot(dx, dy);
           
-          if (dist < this.speed * dt * 2) {
+          // Check if we've reached the target (within proximity threshold)
+          if (dist < this.speed * dt * MathBullet.EPSILON_ZIGZAG_TARGET_PROXIMITY_MULTIPLIER) {
             // Reached target, start holding
             state.isHolding = true;
             state.holdTimer = 0;
@@ -1441,34 +1455,16 @@ class MathBullet {
         }
       }
       
-      // Record trail and update rotation
-      if (this.maxTrailLength > 0) {
-        this.trail.push({ x: this.x, y: this.y });
-        if (this.trail.length > this.maxTrailLength) {
-          this.trail.shift();
-        }
-      }
-      if (this.level >= 3) {
-        this.shapeRotation += this.shapeRotationSpeed * dt;
-      }
+      this.updateTrailAndRotation(dt);
       return;
     } else if (this.epsilonBehavior === 'spiral') {
       // Slots 5-7: Spiral outward from weapon
-      this.epsilonSpiralAngle += dt * 2; // Rotation speed
-      const radius = this.time * this.speed * 0.3; // Expand outward
+      this.epsilonSpiralAngle += dt * MathBullet.EPSILON_SPIRAL_ROTATION_SPEED;
+      const radius = this.time * this.speed * MathBullet.EPSILON_SPIRAL_EXPANSION_RATE;
       this.x = this.startX + Math.cos(this.epsilonSpiralAngle) * radius;
       this.y = this.startY + Math.sin(this.epsilonSpiralAngle) * radius;
       
-      // Record trail and update rotation
-      if (this.maxTrailLength > 0) {
-        this.trail.push({ x: this.x, y: this.y });
-        if (this.trail.length > this.maxTrailLength) {
-          this.trail.shift();
-        }
-      }
-      if (this.level >= 3) {
-        this.shapeRotation += this.shapeRotationSpeed * dt;
-      }
+      this.updateTrailAndRotation(dt);
       return;
     }
 
