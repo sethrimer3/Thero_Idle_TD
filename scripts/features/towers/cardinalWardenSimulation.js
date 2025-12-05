@@ -3685,7 +3685,7 @@ export class CardinalWardenSimulation {
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === GRAPHEME_INDEX.L) {
-        // Twelfth grapheme found! Beam mode activated
+        // Grapheme L found! Beam mode activated
         beamMode = true;
         break; // Only apply the first occurrence
       }
@@ -4715,7 +4715,7 @@ export class CardinalWardenSimulation {
       // Line segment is a point
       const dpx = px - x1;
       const dpy = py - y1;
-      return Math.sqrt(dpx * dpx + dpy * dpy);
+      return Math.hypot(dpx, dpy);
     }
     
     // Calculate projection of point onto line
@@ -4729,7 +4729,7 @@ export class CardinalWardenSimulation {
     // Return distance to closest point
     const distX = px - closestX;
     const distY = py - closestY;
-    return Math.sqrt(distX * distX + distY * distY);
+    return Math.hypot(distX, distY);
   }
 
   /**
