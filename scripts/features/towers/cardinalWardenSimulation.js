@@ -73,6 +73,17 @@ const WAVE_CONFIG = {
 };
 
 /**
+ * Spread bullet mechanics constants for grapheme I (index 8).
+ */
+const SPREAD_CONFIG = {
+  // Total spread angle in radians (30 degrees)
+  SPREAD_ANGLE: Math.PI / 6,
+  // Slot position to extra bullet count mapping (0-indexed)
+  // Pattern mirrors around center: slots 3 and 4 have max bullets
+  SLOT_TO_EXTRA_BULLETS: [2, 4, 6, 8, 8, 6, 4, 2],
+};
+
+/**
  * Game configuration constants.
  */
 const GAME_CONFIG = {
@@ -3105,26 +3116,9 @@ export class CardinalWardenSimulation {
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === GRAPHEME_INDEX.I) {
-        // Ninth grapheme found! Extra bullets based on slot position (0-indexed)
-        // Slot 0 (position 1): add 2 bullets
-        // Slot 1 (position 2): add 4 bullets
-        // Slot 2 (position 3): add 6 bullets
-        // Slot 3 (position 4): add 8 bullets
-        // Slot 4 (position 5): add 8 bullets
-        // Slot 5 (position 6): add 6 bullets
-        // Slot 6 (position 7): add 4 bullets
-        // Slot 7 (position 8): add 2 bullets
-        // Mirror pattern around center: slots 3 and 4 have max bullets
-        const distanceFromCenter = Math.abs(slotIndex - 3.5);
-        if (distanceFromCenter >= 3.5) {
-          spreadBulletCount = 2;
-        } else if (distanceFromCenter >= 2.5) {
-          spreadBulletCount = 4;
-        } else if (distanceFromCenter >= 1.5) {
-          spreadBulletCount = 6;
-        } else {
-          spreadBulletCount = 8;
-        }
+        // Ninth grapheme found! Extra bullets based on slot position
+        // Use lookup table for slot-to-bullet mapping
+        spreadBulletCount = SPREAD_CONFIG.SLOT_TO_EXTRA_BULLETS[slotIndex] || 0;
         break; // Only apply the first occurrence
       }
     }
@@ -3181,8 +3175,8 @@ export class CardinalWardenSimulation {
       const totalBullets = 1 + spreadBulletCount;
       
       // Calculate spread angle (in radians)
-      // Spread out evenly across a cone, wider spread for more bullets
-      const spreadAngle = Math.PI / 6; // 30 degrees total spread
+      // Spread out evenly across a cone
+      const spreadAngle = SPREAD_CONFIG.SPREAD_ANGLE;
       const angleStep = spreadAngle / (totalBullets - 1);
       const startAngle = baseAngle - (spreadAngle / 2);
       
