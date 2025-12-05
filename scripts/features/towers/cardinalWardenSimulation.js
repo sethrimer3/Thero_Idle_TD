@@ -2632,8 +2632,8 @@ export class CardinalWardenSimulation {
       }
     }
     
-    if (!hasThirdGrapheme) {
-      // No third grapheme - clear all friendly ships
+    if (!hasThirdGrapheme || totalFireRate <= 0) {
+      // No third grapheme or no fire rate - clear all friendly ships
       this.friendlyShips = [];
       return;
     }
