@@ -501,57 +501,53 @@ export function unlockAllFractals() {
  * Available grapheme characters from the custom script (Script.png).
  * The script contains 35 unique characters arranged in a 7x5 grid.
  * ThoughtSpeak Language Structure:
- * - Indices 0-19: Letters (20 total) - can be collected by player
- * - Indices 20-24: Punctuation (5 total) - can be collected by player
- * - Indices 25-34: Numbers 0-9 (10 total) - CANNOT be collected (used for UI only)
+ * - Indices 0-25: Letters A-Z (26 total) - can be collected by player and equipped to weapons
+ * - Indices 26-33: Numbers 1-8 (8 total) - CANNOT be collected (used for UI only)
  * 
- * Characters are represented by their index (0-34) and rendered from the sprite sheet.
+ * Characters are represented by their index (0-33) and rendered from the sprite sheet.
  */
 const GRAPHEME_CHARACTERS = [
-  // Letters (indices 0-19): 20 letters that can be collected
+  // Letters (indices 0-25): 26 letters A-Z that can be collected and equipped
   // Row 1 (indices 0-6)
-  { index: 0, name: 'alpha', property: 'fire', row: 0, col: 0, collectable: true },
-  { index: 1, name: 'beta', property: 'pierce', row: 0, col: 1, collectable: true },
-  { index: 2, name: 'gamma', property: 'speed', row: 0, col: 2, collectable: true },
-  { index: 3, name: 'delta', property: 'ice', row: 0, col: 3, collectable: true },
-  { index: 4, name: 'epsilon', property: 'homing', row: 0, col: 4, collectable: true },
-  { index: 5, name: 'zeta', property: 'spread', row: 0, col: 5, collectable: true },
-  { index: 6, name: 'eta', property: 'chain', row: 0, col: 6, collectable: true },
+  { index: 0, name: 'A', property: 'fire', row: 0, col: 0, collectable: true },
+  { index: 1, name: 'B', property: 'pierce', row: 0, col: 1, collectable: true },
+  { index: 2, name: 'C', property: 'speed', row: 0, col: 2, collectable: true },
+  { index: 3, name: 'D', property: 'ice', row: 0, col: 3, collectable: true },
+  { index: 4, name: 'E', property: 'homing', row: 0, col: 4, collectable: true },
+  { index: 5, name: 'F', property: 'spread', row: 0, col: 5, collectable: true },
+  { index: 6, name: 'G', property: 'chain', row: 0, col: 6, collectable: true },
   // Row 2 (indices 7-13)
-  { index: 7, name: 'theta', property: 'damage', row: 1, col: 0, collectable: true },
-  { index: 8, name: 'iota', property: 'range', row: 1, col: 1, collectable: true },
-  { index: 9, name: 'kappa', property: 'splash', row: 1, col: 2, collectable: true },
-  { index: 10, name: 'lambda', property: 'penetration', row: 1, col: 3, collectable: true },
-  { index: 11, name: 'mu', property: 'lifesteal', row: 1, col: 4, collectable: true },
-  { index: 12, name: 'nu', property: 'crit', row: 1, col: 5, collectable: true },
-  { index: 13, name: 'xi', property: 'slow', row: 1, col: 6, collectable: true },
-  // Row 3 (indices 14-19)
-  { index: 14, name: 'omicron', property: 'burn', row: 2, col: 0, collectable: true },
-  { index: 15, name: 'pi', property: 'freeze', row: 2, col: 1, collectable: true },
-  { index: 16, name: 'rho', property: 'shock', row: 2, col: 2, collectable: true },
-  { index: 17, name: 'sigma', property: 'poison', row: 2, col: 3, collectable: true },
-  { index: 18, name: 'tau', property: 'stun', row: 2, col: 4, collectable: true },
-  { index: 19, name: 'upsilon', property: 'knockback', row: 2, col: 5, collectable: true },
+  { index: 7, name: 'H', property: 'damage', row: 1, col: 0, collectable: true },
+  { index: 8, name: 'I', property: 'range', row: 1, col: 1, collectable: true },
+  { index: 9, name: 'J', property: 'splash', row: 1, col: 2, collectable: true },
+  { index: 10, name: 'K', property: 'penetration', row: 1, col: 3, collectable: true },
+  { index: 11, name: 'L', property: 'lifesteal', row: 1, col: 4, collectable: true },
+  { index: 12, name: 'M', property: 'crit', row: 1, col: 5, collectable: true },
+  { index: 13, name: 'N', property: 'slow', row: 1, col: 6, collectable: true },
+  // Row 3 (indices 14-20)
+  { index: 14, name: 'O', property: 'burn', row: 2, col: 0, collectable: true },
+  { index: 15, name: 'P', property: 'freeze', row: 2, col: 1, collectable: true },
+  { index: 16, name: 'Q', property: 'shock', row: 2, col: 2, collectable: true },
+  { index: 17, name: 'R', property: 'poison', row: 2, col: 3, collectable: true },
+  { index: 18, name: 'S', property: 'stun', row: 2, col: 4, collectable: true },
+  { index: 19, name: 'T', property: 'knockback', row: 2, col: 5, collectable: true },
+  { index: 20, name: 'U', property: 'reflect', row: 2, col: 6, collectable: true },
+  // Row 4 (indices 21-25)
+  { index: 21, name: 'V', property: 'leech', row: 3, col: 0, collectable: true },
+  { index: 22, name: 'W', property: 'execute', row: 3, col: 1, collectable: true },
+  { index: 23, name: 'X', property: 'resurrect', row: 3, col: 2, collectable: true },
+  { index: 24, name: 'Y', property: 'duplicate', row: 3, col: 3, collectable: true },
+  { index: 25, name: 'Z', property: 'expand', row: 3, col: 4, collectable: true },
   
-  // Punctuation (indices 20-24): 5 punctuation marks that can be collected
-  { index: 20, name: 'phi', property: 'reflect', row: 2, col: 6, collectable: true },
-  { index: 21, name: 'chi', property: 'leech', row: 3, col: 0, collectable: true },
-  { index: 22, name: 'psi', property: 'execute', row: 3, col: 1, collectable: true },
-  { index: 23, name: 'omega', property: 'resurrect', row: 3, col: 2, collectable: true },
-  { index: 24, name: 'digamma', property: 'duplicate', row: 3, col: 3, collectable: true },
-  
-  // Numbers (indices 25-34): ThoughtSpeak numbers, NOT collectable by player
-  // Mapping: Index 25=1, 26=2, 27=3, 28=4, 29=5, 30=6, 31=7, 32=8, 33=9, 34=0
-  { index: 25, name: 'number-1', property: 'numeral', row: 3, col: 4, collectable: false },
-  { index: 26, name: 'number-2', property: 'numeral', row: 3, col: 5, collectable: false },
-  { index: 27, name: 'number-3', property: 'numeral', row: 3, col: 6, collectable: false },
-  { index: 28, name: 'number-4', property: 'numeral', row: 4, col: 0, collectable: false },
-  { index: 29, name: 'number-5', property: 'numeral', row: 4, col: 1, collectable: false },
-  { index: 30, name: 'number-6', property: 'numeral', row: 4, col: 2, collectable: false },
-  { index: 31, name: 'number-7', property: 'numeral', row: 4, col: 3, collectable: false },
-  { index: 32, name: 'number-8', property: 'numeral', row: 4, col: 4, collectable: false },
-  { index: 33, name: 'number-9', property: 'numeral', row: 4, col: 5, collectable: false },
-  { index: 34, name: 'number-0', property: 'numeral', row: 4, col: 6, collectable: false },
+  // Numbers (indices 26-33): ThoughtSpeak numbers 1-8, NOT collectable by player
+  { index: 26, name: 'number-1', property: 'numeral', row: 3, col: 5, collectable: false },
+  { index: 27, name: 'number-2', property: 'numeral', row: 3, col: 6, collectable: false },
+  { index: 28, name: 'number-3', property: 'numeral', row: 4, col: 0, collectable: false },
+  { index: 29, name: 'number-4', property: 'numeral', row: 4, col: 1, collectable: false },
+  { index: 30, name: 'number-5', property: 'numeral', row: 4, col: 2, collectable: false },
+  { index: 31, name: 'number-6', property: 'numeral', row: 4, col: 3, collectable: false },
+  { index: 32, name: 'number-7', property: 'numeral', row: 4, col: 4, collectable: false },
+  { index: 33, name: 'number-8', property: 'numeral', row: 4, col: 5, collectable: false },
 ];
 
 /**

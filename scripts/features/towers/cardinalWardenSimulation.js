@@ -16,18 +16,19 @@
  *
  * Grapheme System:
  * Each weapon has up to 8 grapheme slots (0-7) where lexemes can be placed to modify behavior.
+ * Graphemes are named A-Z (English letters), indices 0-25.
  * 
- * - Grapheme 0 (Alpha): ThoughtSpeak - Shape and damage multiplier based on slot
- * - Grapheme 1 (Beta): Fire rate multiplier based on slot position
- * - Grapheme 2 (Gamma): Spawns friendly ships, deactivates graphemes to the RIGHT
- * - Grapheme 3 (Delta): Shield regeneration based on slot position and attack speed
- * - Grapheme 4 (Epsilon): Lightning movement - straight/zigzag/spiral based on slot
- * - Grapheme 5 (Zeta): Piercing and trail passthrough based on slot position
- * - Grapheme 6 (Eta): Slow splash damage - expanding wave on hit, deactivates graphemes to the LEFT
+ * - Grapheme 0 (A): ThoughtSpeak - Shape and damage multiplier based on slot
+ * - Grapheme 1 (B): Fire rate multiplier based on slot position
+ * - Grapheme 2 (C): Spawns friendly ships, deactivates graphemes to the RIGHT
+ * - Grapheme 3 (D): Shield regeneration based on slot position and attack speed
+ * - Grapheme 4 (E): Lightning movement - straight/zigzag/spiral based on slot
+ * - Grapheme 5 (F): Piercing and trail passthrough based on slot position
+ * - Grapheme 6 (G): Slow splash damage - expanding wave on hit, deactivates graphemes to the LEFT
  *   - Wave radius: (canvas.width / 10) × (slot + 1)
  *   - Wave damage: 10% of shot damage
  *   - Wave expansion: 3 seconds to reach max radius
- * - Grapheme 7 (Theta): Weapon targeting - draws target indicator on specific enemies
+ * - Grapheme 7 (H): Weapon targeting - draws target indicator on specific enemies
  *   - Slots 0-3: Target lowest enemy (closest to bottom of render)
  *   - Slots 4-7: Target lowest boss-class enemy
  */
@@ -36,16 +37,17 @@ import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 
 /**
  * Grapheme index constants for clear identification.
+ * Graphemes are now named using English letters (A-Z).
  */
 const GRAPHEME_INDEX = {
-  ALPHA: 0,        // ThoughtSpeak shapes
-  BETA: 1,         // Fire rate multiplier
-  GAMMA: 2,        // Friendly ships, deactivates RIGHT
-  DELTA: 3,        // Shield regeneration
-  EPSILON: 4,      // Lightning movement
-  ZETA: 5,         // Piercing and trail passthrough
-  ETA: 6,          // Expanding waves, deactivates LEFT
-  THETA: 7,        // Weapon targeting
+  A: 0,            // ThoughtSpeak shapes (formerly Alpha)
+  B: 1,            // Fire rate multiplier (formerly Beta)
+  C: 2,            // Friendly ships, deactivates RIGHT (formerly Gamma)
+  D: 3,            // Shield regeneration (formerly Delta)
+  E: 4,            // Lightning movement (formerly Epsilon)
+  F: 5,            // Piercing and trail passthrough (formerly Zeta)
+  G: 6,            // Expanding waves, deactivates LEFT (formerly Eta)
+  H: 7,            // Weapon targeting (formerly Theta)
 };
 
 /**
@@ -1689,7 +1691,7 @@ const WEAPON_SLOT_DEFINITIONS = {
     id: 'slot1',
     name: 'Weapon 1',
     symbol: 'Ⅰ',
-    symbolGraphemeIndex: 25, // ThoughtSpeak number 1
+    symbolGraphemeIndex: 26, // ThoughtSpeak number 1
     description: '',
     baseDamage: 1,
     baseSpeed: 200,
@@ -1702,7 +1704,7 @@ const WEAPON_SLOT_DEFINITIONS = {
     id: 'slot2',
     name: 'Weapon 2',
     symbol: 'Ⅱ',
-    symbolGraphemeIndex: 26, // ThoughtSpeak number 2
+    symbolGraphemeIndex: 27, // ThoughtSpeak number 2
     description: '',
     baseDamage: 1,
     baseSpeed: 200,
@@ -1715,7 +1717,7 @@ const WEAPON_SLOT_DEFINITIONS = {
     id: 'slot3',
     name: 'Weapon 3',
     symbol: 'Ⅲ',
-    symbolGraphemeIndex: 27, // ThoughtSpeak number 3
+    symbolGraphemeIndex: 28, // ThoughtSpeak number 3
     description: '',
     baseDamage: 1,
     baseSpeed: 200,
@@ -1944,6 +1946,10 @@ export class CardinalWardenSimulation {
       slot2: [],
       slot3: [],
     };
+    
+    // Grapheme inventory counts for excess bonus calculation
+    // Maps grapheme index to count in player's inventory
+    this.graphemeInventoryCounts = {};
     
     // Weapon target tracking for eighth grapheme (index 7 - theta)
     // Stores the currently targeted enemy for each weapon
@@ -2975,11 +2981,23 @@ export class CardinalWardenSimulation {
     let damageMultiplier = 1 + (level - 1) * 0.25;
     const speedMultiplier = 1 + (level - 1) * 0.1;
     
+    // Calculate excess grapheme bonus
+    // For each equipped grapheme, add bonus damage equal to inventory count
+    // Example: If player has 15 of grapheme "A" and A is equipped, add +15 to base damage
+    const assignments = this.weaponGraphemeAssignments[weaponId] || [];
+    let excessGraphemeBonus = 0;
+    for (const assignment of assignments) {
+      if (assignment && assignment.index !== undefined) {
+        const inventoryCount = this.graphemeInventoryCounts[assignment.index] || 0;
+        // Each excess grapheme adds +1 to damage bonus
+        excessGraphemeBonus += inventoryCount;
+      }
+    }
+    
     // ThoughtSpeak mechanics: Check for first grapheme (index 0) in any slot
     // Shape and damage multiplier based on slot position
     // Use effective assignments to respect third grapheme deactivation
     let bulletShape = null; // null = circle (default), otherwise number of sides
-    const assignments = this.weaponGraphemeAssignments[weaponId] || [];
     const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
     
     // Check for fifth grapheme (index 4 - Epsilon) - Lightning movement behavior
@@ -3095,7 +3113,7 @@ export class CardinalWardenSimulation {
 
     const bulletConfig = {
       speed: weaponDef.baseSpeed * speedMultiplier * this.upgrades.bulletSpeed,
-      damage: weaponDef.baseDamage * damageMultiplier * this.upgrades.bulletDamage,
+      damage: (weaponDef.baseDamage + excessGraphemeBonus) * damageMultiplier * this.upgrades.bulletDamage,
       size: 4,
       baseColor: weaponDef.color,
       color: resolvedColor,
@@ -5463,5 +5481,17 @@ export class CardinalWardenSimulation {
       slot2: [...(this.weaponGraphemeAssignments.slot2 || [])],
       slot3: [...(this.weaponGraphemeAssignments.slot3 || [])],
     };
+  }
+
+  /**
+   * Set grapheme inventory counts for calculating excess grapheme bonus.
+   * @param {Object} counts - Map of grapheme index to count
+   */
+  setGraphemeInventoryCounts(counts) {
+    if (!counts || typeof counts !== 'object') {
+      this.graphemeInventoryCounts = {};
+      return;
+    }
+    this.graphemeInventoryCounts = { ...counts };
   }
 }
