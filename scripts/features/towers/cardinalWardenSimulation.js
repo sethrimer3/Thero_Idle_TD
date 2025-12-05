@@ -2492,6 +2492,23 @@ export class CardinalWardenSimulation {
   }
   
   /**
+   * Calculate fire rate multiplier from second grapheme (index 1) in effective assignments.
+   * @param {Array} effectiveAssignments - The effective grapheme assignments for a weapon
+   * @returns {number} Fire rate multiplier (1 = no change, 2 = 2x faster, etc.)
+   */
+  calculateFireRateMultiplier(effectiveAssignments) {
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === 1) {
+        // Second grapheme found! Fire rate multiplier based on slot position
+        // Slot 0 = 1x (no change), Slot 1 = 2x faster, Slot 2 = 3x faster, etc.
+        return slotIndex + 1;
+      }
+    }
+    return 1; // Default: no multiplier
+  }
+  
+  /**
    * Calculate weapon attack speed (bullets per second) for a weapon.
    * @param {Object} weaponDef - The weapon definition
    * @param {number} fireRateMultiplier - Fire rate multiplier from graphemes
@@ -2533,16 +2550,7 @@ export class CardinalWardenSimulation {
       if (fourthGraphemeSlot === -1) continue;
       
       // Calculate weapon's attack speed (bullets per second)
-      // Consider fire rate multiplier from second grapheme (index 1)
-      let fireRateMultiplier = 1;
-      for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
-        const assignment = effectiveAssignments[slotIndex];
-        if (assignment && assignment.index === 1) {
-          fireRateMultiplier = slotIndex + 1;
-          break;
-        }
-      }
-      
+      const fireRateMultiplier = this.calculateFireRateMultiplier(effectiveAssignments);
       const attackSpeed = this.calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier);
       
       // Calculate time needed to recover 1 shield
@@ -2626,18 +2634,9 @@ export class CardinalWardenSimulation {
       
       // Calculate fire rate multiplier from second grapheme (index 1)
       // Use effective assignments to respect third grapheme deactivation
-      let fireRateMultiplier = 1;
       const assignments = this.weaponGraphemeAssignments[weaponId] || [];
       const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
-      for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
-        const assignment = effectiveAssignments[slotIndex];
-        if (assignment && assignment.index === 1) {
-          // Second grapheme found! Fire rate multiplier based on slot position
-          // Slot 0 = 1x (no change), Slot 1 = 2x faster, Slot 2 = 3x faster, etc.
-          fireRateMultiplier = slotIndex + 1;
-          break; // Only apply the first occurrence
-        }
-      }
+      const fireRateMultiplier = this.calculateFireRateMultiplier(effectiveAssignments);
       
       // Apply fire rate multiplier by dividing the interval (higher multiplier = faster shooting)
       const fireInterval = weaponDef.baseFireRate / fireRateMultiplier;
@@ -2747,17 +2746,8 @@ export class CardinalWardenSimulation {
         if (assignment && assignment.index === 2) {
           hasThirdGrapheme = true;
           
-          // Calculate fire rate multiplier from second grapheme (index 1)
-          let fireRateMultiplier = 1;
-          for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
-            const a = effectiveAssignments[slotIndex];
-            if (a && a.index === 1) {
-              fireRateMultiplier = slotIndex + 1;
-              break;
-            }
-          }
-          
-          // Calculate bullets per second for this weapon
+          // Calculate fire rate multiplier and bullets per second for this weapon
+          const fireRateMultiplier = this.calculateFireRateMultiplier(effectiveAssignments);
           const bulletsPerSecond = this.calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier);
           totalFireRate += bulletsPerSecond;
           
