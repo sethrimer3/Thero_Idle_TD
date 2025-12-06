@@ -6589,12 +6589,12 @@ export class CardinalWardenSimulation {
     // All 3 weapons must always be equipped (no conditional logic needed)
     this.weapons.equipped = [...WEAPON_SLOT_IDS];
     
-    // Initialize timers for all purchased weapons
-    for (const weaponId of Object.keys(this.weapons.purchased)) {
-      if (this.weapons.purchased[weaponId] && !this.weaponTimers[weaponId]) {
+    // Initialize timers for all weapons (all weapons are always purchased)
+    for (const weaponId of WEAPON_SLOT_IDS) {
+      if (!this.weaponTimers[weaponId]) {
         this.weaponTimers[weaponId] = 0;
       }
-      if (this.weapons.purchased[weaponId] && this.weaponPhases[weaponId] === undefined) {
+      if (this.weaponPhases[weaponId] === undefined) {
         this.weaponPhases[weaponId] = 0; // Ensure phase accumulator exists after loading state.
       }
     }
