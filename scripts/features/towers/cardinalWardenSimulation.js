@@ -6585,6 +6585,8 @@ export class CardinalWardenSimulation {
     if (state?.activeWeaponId) {
       this.weapons.activeWeaponId = state.activeWeaponId;
     }
+    
+    // Process equipped state after purchased state is finalized
     if (state?.equipped) {
       // Filter to only include purchased weapons and limit to maxEquippedWeapons
       this.weapons.equipped = state.equipped
