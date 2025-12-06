@@ -1082,7 +1082,9 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
   
   // Auto-collect graphemes if all 26 are unlocked
   if (allGraphemesUnlocked) {
-    // Process drops in reverse to safely remove them during iteration
+    // Process drops in reverse to safely remove them during iteration.
+    // collectPhonemeDrop() modifies the drops array (which is a reference to activeGraphemeDrops),
+    // so collected drops are removed before the rendering loop below.
     for (let i = drops.length - 1; i >= 0; i--) {
       const drop = drops[i];
       const age = (time - drop.spawnTime) / 1000;
@@ -1093,7 +1095,6 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
         if (collected) {
           updatePhonemeInventoryDisplay();
         }
-        continue; // Skip rendering this drop as it's being collected
       }
     }
   }
