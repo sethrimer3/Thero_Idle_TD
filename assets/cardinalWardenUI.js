@@ -31,6 +31,7 @@ import {
   getGraphemeCharacters,
   consumeGrapheme,
   returnGrapheme,
+  hasAllGraphemesUnlocked,
 } from './shinState.js';
 
 // Cardinal Warden simulation instance
@@ -137,15 +138,32 @@ function applyGraphemeSpriteStyles(element, frame) {
 
 /**
  * Build a DOM element that displays a single grapheme tile from Script.png.
+ * For collectable graphemes (A-Z, indices 0-25), adds a small capital letter label in the bottom-right corner.
  */
 function createGraphemeIconElement(index, rowOverride, colOverride, className = 'shin-grapheme-icon') {
+  const wrapper = document.createElement('span');
+  wrapper.className = 'shin-grapheme-icon-wrapper';
+  
   const icon = document.createElement('span');
   const frame = resolveGraphemeFrame(index, rowOverride, colOverride);
   icon.className = className;
   icon.setAttribute('role', 'img');
   icon.setAttribute('aria-label', formatGraphemeTitle(index));
   applyGraphemeSpriteStyles(icon, frame);
-  return icon;
+  
+  wrapper.appendChild(icon);
+  
+  // Add letter label for collectable graphemes (A-Z, indices 0-25)
+  if (index >= 0 && index <= 25) {
+    const letter = String.fromCharCode(65 + index); // A=65 in ASCII
+    const label = document.createElement('span');
+    label.className = 'shin-grapheme-letter-label';
+    label.textContent = letter;
+    label.setAttribute('aria-hidden', 'true');
+    wrapper.appendChild(label);
+  }
+  
+  return wrapper;
 }
 
 /**
@@ -1060,6 +1078,26 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
   if (drops.length === 0) return;
   
   const time = Date.now();
+  const allGraphemesUnlocked = hasAllGraphemesUnlocked();
+  
+  // Auto-collect graphemes if all 26 are unlocked
+  if (allGraphemesUnlocked) {
+    // Process drops in reverse to safely remove them during iteration.
+    // collectPhonemeDrop() modifies the drops array (which is a reference to activeGraphemeDrops),
+    // so collected drops are removed before the rendering loop below.
+    for (let i = drops.length - 1; i >= 0; i--) {
+      const drop = drops[i];
+      const age = (time - drop.spawnTime) / 1000;
+      
+      // Auto-collect after 0.5 seconds of existence
+      if (age >= 0.5) {
+        const collected = collectPhonemeDrop(drop.id);
+        if (collected) {
+          updatePhonemeInventoryDisplay();
+        }
+      }
+    }
+  }
   
   for (const drop of drops) {
     // Calculate pulse animation (gentle glow effect)
@@ -1067,15 +1105,32 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
     const pulse = 0.85 + Math.sin(age * 4) * 0.15;
     
     // Calculate gentle floating animation
-    const floatY = Math.sin(age * 2) * 3;
+    let floatY = Math.sin(age * 2) * 3;
+    let dropX = drop.x;
+    let dropY = drop.y;
+    
+    // If auto-collect is enabled and drop is older than 0.2 seconds, animate toward warden
+    if (allGraphemesUnlocked && age >= 0.2) {
+      const wardenX = canvas.width / 2;
+      const wardenY = canvas.height / 2;
+      
+      // Calculate progress of "sucking in" animation (0.2s to 0.5s)
+      const animProgress = Math.min(1, (age - 0.2) / 0.3);
+      const easeProgress = 1 - Math.pow(1 - animProgress, 3); // Cubic ease-in
+      
+      // Interpolate position toward warden
+      dropX = drop.x + (wardenX - drop.x) * easeProgress;
+      dropY = drop.y + (wardenY - drop.y) * easeProgress;
+      floatY *= (1 - easeProgress); // Reduce float animation during collection
+    }
     
     ctx.save();
     
     // Outer glow
     const glowRadius = 20 * pulse;
     const gradient = ctx.createRadialGradient(
-      drop.x, drop.y + floatY, 0,
-      drop.x, drop.y + floatY, glowRadius
+      dropX, dropY + floatY, 0,
+      dropX, dropY + floatY, glowRadius
     );
     gradient.addColorStop(0, 'rgba(212, 175, 55, 0.6)');
     gradient.addColorStop(0.5, 'rgba(212, 175, 55, 0.2)');
@@ -1083,13 +1138,13 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
     
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(drop.x, drop.y + floatY, glowRadius, 0, Math.PI * 2);
+    ctx.arc(dropX, dropY + floatY, glowRadius, 0, Math.PI * 2);
     ctx.fill();
     
     // Inner circle background
     ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
     ctx.beginPath();
-    ctx.arc(drop.x, drop.y + floatY, 12, 0, Math.PI * 2);
+    ctx.arc(dropX, dropY + floatY, 12, 0, Math.PI * 2);
     ctx.fill();
     
     // Border
@@ -1099,7 +1154,7 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
 
     // Script character rendered from Script.png with a gold tint.
     const frame = resolveGraphemeFrame(drop.index, drop.row, drop.col);
-    const spriteDrawn = renderGraphemeSprite(ctx, frame, drop.x, drop.y + floatY + 1);
+    const spriteDrawn = renderGraphemeSprite(ctx, frame, dropX, dropY + floatY + 1);
 
     // Fallback to labeled text if the sprite is not yet available.
     if (!spriteDrawn) {
@@ -1108,7 +1163,7 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const displayChar = drop.index !== undefined ? `#${drop.index + 1}` : (drop.char || '?');
-      ctx.fillText(displayChar, drop.x, drop.y + floatY + 1);
+      ctx.fillText(displayChar, dropX, dropY + floatY + 1);
     }
 
     ctx.restore();

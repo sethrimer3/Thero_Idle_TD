@@ -686,6 +686,15 @@ export function getUnlockedGraphemes() {
 }
 
 /**
+ * Check if all 26 collectable graphemes (A-Z) are unlocked.
+ * @returns {boolean} True if all 26 graphemes are unlocked
+ */
+export function hasAllGraphemesUnlocked() {
+  // There are 26 collectable graphemes (A-Z, indices 0-25)
+  return shinState.unlockedGraphemes.length >= 26;
+}
+
+/**
  * Unlock the next grapheme in sequence.
  * Only unlocks collectable graphemes (letters and punctuation, not numbers).
  * @returns {Object} Result with success status and the unlocked grapheme index
