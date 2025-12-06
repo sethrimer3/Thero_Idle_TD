@@ -64,6 +64,8 @@ const cardinalElements = {
   dropChanceDisplay: null,
   dropChanceUpgradeBtn: null,
   dropChanceCost: null,
+  waveStartSelect: null,
+  waveStartApplyBtn: null,
 };
 
 // State persistence key
@@ -78,6 +80,8 @@ let glyphsAwardedFromWaves = 0;
 let weaponState = null;
 // Base health upgrade level
 let baseHealthLevel = 0;
+// Starting wave selection (0-indexed, 0 = wave 1)
+let startingWave = 0;
 // Grapheme selection and placement state
 let selectedGrapheme = null;
 let selectedGraphemeElement = null;
@@ -227,6 +231,8 @@ export function initializeCardinalWardenUI() {
   cardinalElements.dropChanceDisplay = document.getElementById('shin-drop-chance-display');
   cardinalElements.dropChanceUpgradeBtn = document.getElementById('shin-drop-chance-upgrade-btn');
   cardinalElements.dropChanceCost = document.getElementById('shin-drop-chance-cost');
+  cardinalElements.waveStartSelect = document.getElementById('shin-wave-start-select');
+  cardinalElements.waveStartApplyBtn = document.getElementById('shin-wave-start-apply-btn');
 
   if (!cardinalElements.canvas) {
     console.warn('Cardinal Warden canvas not found');
@@ -262,6 +268,9 @@ export function initializeCardinalWardenUI() {
   // Initialize grapheme unlock and drop chance upgrade buttons
   initializeGraphemeUnlockButton();
   initializeDropChanceUpgradeButton();
+  
+  // Initialize wave start selector
+  initializeWaveStartSelector();
   
   // Update displays
   updateWaveDisplay(0);
@@ -417,6 +426,7 @@ function createCardinalSimulation() {
     onWeaponChange: handleWeaponChange,
     onEnemyKill: handleEnemyKill,
     onPostRender: renderPhonemeDrops,
+    onGuaranteedGraphemeDrop: handleGuaranteedGraphemeDrop,
   });
   
   // Restore weapon state if available
@@ -503,6 +513,7 @@ function handleHighestWaveChange(highestWave) {
   saveCardinalState();
   updateHighestWaveDisplay();
   updateGlyphDisplay();
+  updateWaveStartOptions();
 }
 
 /**
@@ -531,6 +542,7 @@ function handleGameOver(data) {
   
   saveCardinalState();
   updateHighestWaveDisplay();
+  updateWaveStartOptions();
 }
 
 /**
@@ -553,6 +565,31 @@ function handleEnemyKill(x, y, isBoss) {
         const offsetX = (Math.random() - 0.5) * 40;
         const offsetY = (Math.random() - 0.5) * 40;
         spawnPhonemeDrop(x + offsetX, y + offsetY); // Using legacy export which maps to spawnGraphemeDrop
+      }
+    }
+  }
+}
+
+/**
+ * Handle guaranteed grapheme drops every 10 waves.
+ * @param {number} waveNumber - The 1-indexed wave number (10, 20, 30, etc.)
+ */
+function handleGuaranteedGraphemeDrop(waveNumber) {
+  // Calculate which grapheme should drop based on wave number
+  // Wave 10 = A (index 0), Wave 20 = B (index 1), ..., Wave 260 = Z (index 25)
+  const graphemeIndex = (waveNumber / 10) - 1;
+  
+  // Only drop if it's a valid grapheme (A-Z, indices 0-25)
+  if (graphemeIndex >= 0 && graphemeIndex <= 25) {
+    const unlockedGraphemes = getUnlockedGraphemes();
+    
+    // Check if player already has this grapheme
+    if (!unlockedGraphemes.includes(graphemeIndex)) {
+      // Spawn the guaranteed grapheme at center of canvas
+      if (cardinalSimulation && cardinalSimulation.canvas) {
+        const x = cardinalSimulation.canvas.width / 2;
+        const y = cardinalSimulation.canvas.height / 2;
+        spawnPhonemeDrop(x, y);
       }
     }
   }
@@ -653,6 +690,61 @@ function initializeDropChanceUpgradeButton() {
       console.log('Cannot upgrade drop chance:', result.message);
     }
   });
+}
+
+/**
+ * Initialize the wave start selector.
+ */
+function initializeWaveStartSelector() {
+  if (!cardinalElements.waveStartSelect || !cardinalElements.waveStartApplyBtn) return;
+  
+  // Update the selector options based on highest wave reached
+  updateWaveStartOptions();
+  
+  // Handle apply button click
+  cardinalElements.waveStartApplyBtn.addEventListener('click', () => {
+    const selectedWave = parseInt(cardinalElements.waveStartSelect.value, 10);
+    if (!isNaN(selectedWave) && selectedWave >= 0) {
+      startingWave = selectedWave;
+      // Restart the simulation at the selected wave
+      if (cardinalSimulation) {
+        cardinalSimulation.stop();
+        cardinalSimulation = null;
+      }
+      createCardinalSimulation();
+      if (cardinalSimulation) {
+        // Set the starting wave before starting
+        cardinalSimulation.wave = startingWave;
+        cardinalSimulation.difficultyLevel = Math.floor(startingWave / 3);
+        cardinalSimulation.start();
+      }
+    }
+  });
+}
+
+/**
+ * Update the wave start selector options based on highest wave reached.
+ */
+function updateWaveStartOptions() {
+  if (!cardinalElements.waveStartSelect) return;
+  
+  // Clear existing options
+  cardinalElements.waveStartSelect.innerHTML = '';
+  
+  // Always add wave 1 option
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '0';
+  defaultOption.textContent = 'Wave 1 (Default)';
+  cardinalElements.waveStartSelect.appendChild(defaultOption);
+  
+  // Add options for every multiple of 10 waves reached
+  const highestWaveReached = cardinalHighestWave + 1; // Convert to 1-indexed
+  for (let wave = 10; wave <= highestWaveReached; wave += 10) {
+    const option = document.createElement('option');
+    option.value = (wave - 1).toString(); // Convert to 0-indexed
+    option.textContent = `Wave ${wave}`;
+    cardinalElements.waveStartSelect.appendChild(option);
+  }
 }
 
 /**
@@ -1181,14 +1273,11 @@ function setupPhonemeCollection() {
 }
 
 /**
- * Handle clicks on the canvas to collect phonemes.
+ * Handle clicks on the canvas to collect phonemes and interact with speed button.
  * @param {MouseEvent} event - The click event
  */
 function handlePhonemeClick(event) {
   if (!cardinalElements.canvas || !cardinalSimulation) return;
-  
-  // Don't collect during death/respawn
-  if (cardinalSimulation.gamePhase !== 'playing') return;
   
   // Get canvas-relative coordinates
   const rect = cardinalElements.canvas.getBoundingClientRect();
@@ -1197,6 +1286,28 @@ function handlePhonemeClick(event) {
   
   const clickX = (event.clientX - rect.left) * scaleX;
   const clickY = (event.clientY - rect.top) * scaleY;
+  
+  // Check if click is on speed button (top right)
+  const padding = 10;
+  const speedButtonSize = 50;
+  const speedButtonX = cardinalElements.canvas.width - padding - speedButtonSize;
+  const speedButtonY = padding;
+  
+  if (clickX >= speedButtonX && clickX <= speedButtonX + speedButtonSize &&
+      clickY >= speedButtonY && clickY <= speedButtonY + speedButtonSize) {
+    // Cycle through speeds: 1x -> 2x -> 3x -> 1x
+    if (cardinalSimulation.gameSpeed === 1) {
+      cardinalSimulation.gameSpeed = 2;
+    } else if (cardinalSimulation.gameSpeed === 2) {
+      cardinalSimulation.gameSpeed = 3;
+    } else {
+      cardinalSimulation.gameSpeed = 1;
+    }
+    return;
+  }
+  
+  // Don't collect during death/respawn
+  if (cardinalSimulation.gamePhase !== 'playing') return;
   
   // Check if click is near any phoneme drop
   const drops = getActivePhonemeDrops();
