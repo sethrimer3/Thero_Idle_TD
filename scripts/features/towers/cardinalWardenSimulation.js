@@ -6573,33 +6573,28 @@ export class CardinalWardenSimulation {
     if (state?.purchased) {
       this.weapons.purchased = { ...this.weapons.purchased, ...state.purchased };
     }
+    
+    // Ensure all 3 weapon slots are always marked as purchased (they are always active)
+    for (const weaponId of WEAPON_SLOT_IDS) {
+      this.weapons.purchased[weaponId] = true;
+    }
+    
     if (state?.levels) {
       this.weapons.levels = { ...this.weapons.levels, ...state.levels };
     }
     if (state?.activeWeaponId) {
       this.weapons.activeWeaponId = state.activeWeaponId;
     }
-    if (state?.equipped) {
-      // Filter to only include purchased weapons and limit to maxEquippedWeapons
-      this.weapons.equipped = state.equipped
-        .filter(id => this.weapons.purchased[id])
-        .slice(0, this.maxEquippedWeapons);
-    }
     
-    // Ensure at least one weapon is equipped if any are purchased
-    if (!this.weapons.equipped || this.weapons.equipped.length === 0) {
-      const purchasedIds = Object.keys(this.weapons.purchased).filter(id => this.weapons.purchased[id]);
-      if (purchasedIds.length > 0) {
-        this.weapons.equipped = [purchasedIds[0]];
-      }
-    }
+    // All 3 weapons must always be equipped (no conditional logic needed)
+    this.weapons.equipped = [...WEAPON_SLOT_IDS];
     
-    // Initialize timers for all purchased weapons
-    for (const weaponId of Object.keys(this.weapons.purchased)) {
-      if (this.weapons.purchased[weaponId] && !this.weaponTimers[weaponId]) {
+    // Initialize timers for all weapons (all weapons are always purchased)
+    for (const weaponId of WEAPON_SLOT_IDS) {
+      if (!this.weaponTimers[weaponId]) {
         this.weaponTimers[weaponId] = 0;
       }
-      if (this.weapons.purchased[weaponId] && this.weaponPhases[weaponId] === undefined) {
+      if (this.weaponPhases[weaponId] === undefined) {
         this.weaponPhases[weaponId] = 0; // Ensure phase accumulator exists after loading state.
       }
     }
