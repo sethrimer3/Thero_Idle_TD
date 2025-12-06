@@ -6575,9 +6575,9 @@ export class CardinalWardenSimulation {
     }
     
     // Ensure all 3 weapon slots are always marked as purchased (they are always active)
-    this.weapons.purchased.slot1 = true;
-    this.weapons.purchased.slot2 = true;
-    this.weapons.purchased.slot3 = true;
+    for (const weaponId of WEAPON_SLOT_IDS) {
+      this.weapons.purchased[weaponId] = true;
+    }
     
     if (state?.levels) {
       this.weapons.levels = { ...this.weapons.levels, ...state.levels };
@@ -6594,11 +6594,10 @@ export class CardinalWardenSimulation {
     
     // Ensure all 3 weapons are equipped if equipped list is empty or incomplete
     if (!this.weapons.equipped || this.weapons.equipped.length === 0) {
-      this.weapons.equipped = ['slot1', 'slot2', 'slot3'];
+      this.weapons.equipped = [...WEAPON_SLOT_IDS];
     } else {
       // Ensure all 3 slots are in the equipped list
-      const requiredSlots = ['slot1', 'slot2', 'slot3'];
-      for (const slot of requiredSlots) {
+      for (const slot of WEAPON_SLOT_IDS) {
         if (!this.weapons.equipped.includes(slot)) {
           this.weapons.equipped.push(slot);
         }
