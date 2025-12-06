@@ -11,7 +11,15 @@ const SHIN_GRAPHICS_LEVELS = Object.freeze({
   HIGH: 'high',
 });
 
-// Trail length options for enemy and bullet trails in the Cardinal Warden simulation.
+// Trail quality options for enemy trails in the Cardinal Warden simulation.
+// Quality affects visual rendering complexity, not length (length is fixed for gameplay).
+const TRAIL_QUALITY_OPTIONS = Object.freeze({
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+});
+
+// Trail length options for bullet trails in the Cardinal Warden simulation.
 const TRAIL_LENGTH_OPTIONS = Object.freeze({
   NONE: 'none',
   SHORT: 'short',
@@ -22,10 +30,9 @@ const TRAIL_LENGTH_OPTIONS = Object.freeze({
 // Default settings when no preferences are stored.
 const DEFAULT_SETTINGS = Object.freeze({
   graphicsLevel: SHIN_GRAPHICS_LEVELS.HIGH,
-  animatedGrowth: true,
-  panZoomEnabled: true,
-  nightMode: false,
-  enemyTrailLength: TRAIL_LENGTH_OPTIONS.LONG,
+  panZoomEnabled: false,
+  nightMode: true,
+  enemyTrailQuality: TRAIL_QUALITY_OPTIONS.HIGH,
   bulletTrailLength: TRAIL_LENGTH_OPTIONS.LONG,
 });
 
@@ -34,13 +41,9 @@ let simulationGetter = () => null;
 
 // DOM element references cached after binding.
 let graphicsLevelButton = null;
-let animatedGrowthToggle = null;
-let animatedGrowthToggleState = null;
-let panZoomToggle = null;
-let panZoomToggleState = null;
 let nightModeToggle = null;
 let nightModeToggleState = null;
-let enemyTrailLengthButton = null;
+let enemyTrailQualityButton = null;
 let bulletTrailLengthButton = null;
 
 /**
@@ -89,6 +92,13 @@ function loadSettings() {
   const stored = readStorageJson(SHIN_VISUAL_SETTINGS_STORAGE_KEY);
   if (stored && typeof stored === 'object') {
     settings = { ...createDefaultShinSettings(), ...stored };
+    
+    // Migrate old enemyTrailLength setting to enemyTrailQuality
+    // If old setting exists and new one doesn't, convert length to quality
+    if (stored.enemyTrailLength && !stored.enemyTrailQuality) {
+      // Map old length values to quality values (always use high quality by default)
+      settings.enemyTrailQuality = TRAIL_QUALITY_OPTIONS.HIGH;
+    }
   }
 }
 
@@ -123,11 +133,6 @@ function applySettingsToSimulation() {
     });
   }
 
-  // Control animated growth if the simulation supports it.
-  if (typeof simulation.setAnimatedGrowth === 'function') {
-    simulation.setAnimatedGrowth(settings.animatedGrowth);
-  }
-
   // Control pan/zoom if the simulation supports it.
   if (typeof simulation.setPanZoomEnabled === 'function') {
     simulation.setPanZoomEnabled(settings.panZoomEnabled);
@@ -138,9 +143,9 @@ function applySettingsToSimulation() {
     simulation.setNightMode(settings.nightMode);
   }
 
-  // Control enemy trail length for the danmaku renderer.
-  if (typeof simulation.setEnemyTrailLength === 'function') {
-    simulation.setEnemyTrailLength(settings.enemyTrailLength);
+  // Control enemy trail quality for the danmaku renderer.
+  if (typeof simulation.setEnemyTrailQuality === 'function') {
+    simulation.setEnemyTrailQuality(settings.enemyTrailQuality);
   }
 
   // Control bullet trail length for the danmaku renderer.
@@ -189,6 +194,22 @@ function syncGraphicsLevelButton() {
 }
 
 /**
+ * Retrieve a human-readable label for a trail quality option.
+ */
+function resolveTrailQualityLabel(quality) {
+  switch (quality) {
+    case TRAIL_QUALITY_OPTIONS.LOW:
+      return 'Low';
+    case TRAIL_QUALITY_OPTIONS.MEDIUM:
+      return 'Medium';
+    case TRAIL_QUALITY_OPTIONS.HIGH:
+      return 'High';
+    default:
+      return 'High';
+  }
+}
+
+/**
  * Retrieve a human-readable label for a trail length option.
  */
 function resolveTrailLengthLabel(length) {
@@ -207,28 +228,28 @@ function resolveTrailLengthLabel(length) {
 }
 
 /**
- * Cycle through enemy trail length options.
+ * Cycle through enemy trail quality options.
  */
-function cycleEnemyTrailLength() {
-  const sequence = [TRAIL_LENGTH_OPTIONS.NONE, TRAIL_LENGTH_OPTIONS.SHORT, TRAIL_LENGTH_OPTIONS.MEDIUM, TRAIL_LENGTH_OPTIONS.LONG];
-  const currentIndex = sequence.indexOf(settings.enemyTrailLength);
-  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % sequence.length : 3;
-  settings.enemyTrailLength = sequence[nextIndex];
+function cycleEnemyTrailQuality() {
+  const sequence = [TRAIL_QUALITY_OPTIONS.LOW, TRAIL_QUALITY_OPTIONS.MEDIUM, TRAIL_QUALITY_OPTIONS.HIGH];
+  const currentIndex = sequence.indexOf(settings.enemyTrailQuality);
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % sequence.length : 2;
+  settings.enemyTrailQuality = sequence[nextIndex];
   persistSettings();
   applySettingsToSimulation();
-  syncEnemyTrailLengthButton();
+  syncEnemyTrailQualityButton();
 }
 
 /**
- * Update the enemy trail length button label to reflect the current setting.
+ * Update the enemy trail quality button label to reflect the current setting.
  */
-function syncEnemyTrailLengthButton() {
-  if (!enemyTrailLengthButton) {
+function syncEnemyTrailQualityButton() {
+  if (!enemyTrailQualityButton) {
     return;
   }
-  const label = resolveTrailLengthLabel(settings.enemyTrailLength);
-  enemyTrailLengthButton.textContent = `Enemy Trails · ${label}`;
-  enemyTrailLengthButton.setAttribute('aria-label', `Cycle enemy trail length (current: ${label})`);
+  const label = resolveTrailQualityLabel(settings.enemyTrailQuality);
+  enemyTrailQualityButton.textContent = `Enemy Trail Quality · ${label}`;
+  enemyTrailQualityButton.setAttribute('aria-label', `Cycle enemy trail quality (current: ${label})`);
 }
 
 /**
@@ -277,8 +298,6 @@ function syncToggleState(input, stateLabel, enabled) {
  * Refresh all toggle UI elements from the current settings state.
  */
 function syncAllToggles() {
-  syncToggleState(animatedGrowthToggle, animatedGrowthToggleState, settings.animatedGrowth);
-  syncToggleState(panZoomToggle, panZoomToggleState, settings.panZoomEnabled);
   syncToggleState(nightModeToggle, nightModeToggleState, settings.nightMode);
 }
 
@@ -296,30 +315,12 @@ function applySetting(key, value) {
  */
 export function bindShinSpireOptions() {
   graphicsLevelButton = document.getElementById('shin-graphics-level-button');
-  animatedGrowthToggle = document.getElementById('shin-animated-growth-toggle');
-  animatedGrowthToggleState = document.getElementById('shin-animated-growth-toggle-state');
-  panZoomToggle = document.getElementById('shin-pan-zoom-toggle');
-  panZoomToggleState = document.getElementById('shin-pan-zoom-toggle-state');
   nightModeToggle = document.getElementById('shin-night-mode-toggle');
   nightModeToggleState = document.getElementById('shin-night-mode-toggle-state');
 
   if (graphicsLevelButton) {
     graphicsLevelButton.addEventListener('click', cycleGraphicsLevel);
     syncGraphicsLevelButton();
-  }
-
-  if (animatedGrowthToggle) {
-    animatedGrowthToggle.addEventListener('change', (event) => {
-      applySetting('animatedGrowth', event.target.checked);
-      syncToggleState(animatedGrowthToggle, animatedGrowthToggleState, settings.animatedGrowth);
-    });
-  }
-
-  if (panZoomToggle) {
-    panZoomToggle.addEventListener('change', (event) => {
-      applySetting('panZoomEnabled', event.target.checked);
-      syncToggleState(panZoomToggle, panZoomToggleState, settings.panZoomEnabled);
-    });
   }
 
   if (nightModeToggle) {
@@ -329,12 +330,12 @@ export function bindShinSpireOptions() {
     });
   }
 
-  enemyTrailLengthButton = document.getElementById('shin-enemy-trail-length-button');
+  enemyTrailQualityButton = document.getElementById('shin-enemy-trail-quality-button');
   bulletTrailLengthButton = document.getElementById('shin-bullet-trail-length-button');
 
-  if (enemyTrailLengthButton) {
-    enemyTrailLengthButton.addEventListener('click', cycleEnemyTrailLength);
-    syncEnemyTrailLengthButton();
+  if (enemyTrailQualityButton) {
+    enemyTrailQualityButton.addEventListener('click', cycleEnemyTrailQuality);
+    syncEnemyTrailQualityButton();
   }
 
   if (bulletTrailLengthButton) {
@@ -344,7 +345,7 @@ export function bindShinSpireOptions() {
 
   // Sync UI with persisted settings.
   syncGraphicsLevelButton();
-  syncEnemyTrailLengthButton();
+  syncEnemyTrailQualityButton();
   syncBulletTrailLengthButton();
   syncAllToggles();
 }
@@ -382,9 +383,9 @@ export function applyShinVisualSettings(newSettings, { persist = true } = {}) {
   }
   applySettingsToSimulation();
   syncGraphicsLevelButton();
-  syncEnemyTrailLengthButton();
+  syncEnemyTrailQualityButton();
   syncBulletTrailLengthButton();
   syncAllToggles();
 }
 
-export { SHIN_GRAPHICS_LEVELS, TRAIL_LENGTH_OPTIONS };
+export { SHIN_GRAPHICS_LEVELS, TRAIL_LENGTH_OPTIONS, TRAIL_QUALITY_OPTIONS };

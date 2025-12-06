@@ -11909,3 +11909,366 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     font-size: 0.65rem;
   }
 }
+
+/* ============================================================
+   Weapon Slots Styles (Simplified System)
+   ============================================================ */
+
+.shin-weapon-slots-card {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.shin-weapon-slots-card h3 {
+  color: #d4af37;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.shin-weapon-slots-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-bottom: 0.75rem;
+  font-style: italic;
+}
+
+.shin-weapon-slots-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.shin-weapon-slot {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.75rem;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: visible;
+}
+
+/* Glow effect when weapon fires */
+.shin-weapon-slot--firing {
+  border-color: var(--weapon-color, #d4af37);
+  box-shadow: 0 0 15px rgba(var(--weapon-color, 212, 175, 55), var(--weapon-glow-opacity, 0.5)),
+              inset 0 0 20px rgba(var(--weapon-color, 212, 175, 55), calc(var(--weapon-glow-opacity, 0.5) * 0.3));
+  background: rgba(255, 255, 255, calc(0.03 + var(--weapon-glow-intensity, 0) * 0.07));
+}
+
+.shin-weapon-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.shin-weapon-slot-symbol {
+  font-size: 1.5rem;
+  font-weight: 600;
+  min-width: 2.5rem;
+  text-align: center;
+}
+
+.shin-weapon-slot-name {
+  font-size: 0.9rem;
+  color: var(--text);
+  flex: 1;
+}
+
+.shin-weapon-slot-description {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+  min-height: 2.4rem;
+}
+
+.shin-weapon-slot-cooldown-container {
+  margin-bottom: 0.5rem;
+}
+
+.shin-weapon-slot-cooldown-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.3rem;
+}
+
+.shin-weapon-slot-cooldown-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d4af37, #ffd700);
+  transition: width 0.1s linear;
+}
+
+.shin-weapon-slot-cooldown-text {
+  font-size: 0.7rem;
+  color: var(--muted);
+  display: block;
+  text-align: center;
+}
+
+.shin-weapon-slot-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shin-weapon-slot-info-item {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+/* Grapheme slots container within weapon box */
+.shin-weapon-grapheme-slots {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.shin-weapon-grapheme-slot {
+  flex: 1;
+  aspect-ratio: 1 / 1;
+  max-width: calc((100% - 1.75rem) / 8); /* 8 slots with gaps */
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.shin-weapon-grapheme-slot:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(212, 175, 55, 0.4);
+}
+
+.shin-weapon-grapheme-slot--filled {
+  background: rgba(212, 175, 55, 0.1);
+  border-color: rgba(212, 175, 55, 0.4);
+}
+
+.shin-weapon-grapheme-slot--drag-over {
+  background: rgba(212, 175, 55, 0.2);
+  border-color: rgba(212, 175, 55, 0.6);
+  border-style: dashed;
+}
+
+.shin-weapon-grapheme-slot-content {
+  font-size: 1rem;
+  color: var(--text);
+  user-select: none;
+  pointer-events: none;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.shin-weapon-grapheme-slot-empty-indicator {
+  font-size: 0.7rem;
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+.shin-weapon-grapheme-slot--filled .shin-weapon-grapheme-slot-content {
+  display: flex;
+}
+
+.shin-weapon-grapheme-slot--filled .shin-weapon-grapheme-slot-empty-indicator {
+  display: none;
+}
+
+.shin-slot-number-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 8px !important;
+  height: 8px !important;
+  opacity: 0.5;
+  pointer-events: none;
+  background-size: contain !important;
+}
+
+.shin-weapon-symbol-icon {
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+@media (max-width: 600px) {
+  .shin-weapon-slots-container {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .shin-weapon-slot {
+    min-width: 100%;
+    max-width: 100%;
+  }
+  
+  .shin-weapon-slot-symbol {
+    font-size: 1.3rem;
+  }
+  
+  .shin-weapon-slot-name {
+    font-size: 0.85rem;
+  }
+
+  .shin-weapon-grapheme-slots {
+    gap: 0.2rem;
+  }
+
+  .shin-weapon-grapheme-slot {
+    max-width: calc((100% - 1.4rem) / 8);
+  }
+}
+
+
+/* ============================================================
+   Phoneme Inventory Styles
+   ============================================================ */
+
+.shin-phoneme-card {
+  background: linear-gradient(135deg, rgba(30, 25, 40, 0.95), rgba(20, 18, 30, 0.98));
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.shin-phoneme-card h3 {
+  color: #d4af37;
+  margin-bottom: 0.5rem;
+}
+
+.shin-phoneme-note {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.shin-phoneme-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.shin-phoneme-stats strong {
+  color: #d4af37;
+}
+
+.shin-phoneme-inventory {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+}
+
+.shin-phoneme-empty {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+.shin-phoneme-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 6px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.shin-phoneme-slot:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.4);
+}
+
+.shin-phoneme-slot--selected {
+  outline: 2px solid rgba(212, 175, 55, 0.8);
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.5);
+}
+
+.shin-phoneme-char {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+}
+
+.shin-grapheme-icon {
+  display: inline-block;
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: brightness(0) saturate(100%) sepia(85%) hue-rotate(10deg) saturate(250%) contrast(1.1);
+}
+
+.shin-grapheme-icon--slot {
+  filter: brightness(0) saturate(100%) sepia(85%) hue-rotate(10deg) saturate(250%) contrast(1.1) drop-shadow(0 0 6px rgba(212, 175, 55, 0.4));
+}
+
+.shin-grapheme-icon-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.shin-grapheme-letter-label {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  font-size: 0.5rem;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 
+    0 0 2px rgba(0, 0, 0, 0.8),
+    0 0 4px rgba(212, 175, 55, 0.6);
+  font-variant: small-caps;
+  line-height: 1;
+  padding: 1px 2px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.shin-phoneme-count {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 2px;
+}
+
+@media (max-width: 600px) {
+  .shin-phoneme-slot {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .shin-phoneme-char {
+    width: 1.6rem;
+    height: 1.6rem;
+  }
+}

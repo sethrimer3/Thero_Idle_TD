@@ -33,7 +33,21 @@ export const DEFAULT_AUDIO_MANIFEST = {
     enterLevel: { file: 'enter_level.mp3', volume: 0.75, maxConcurrent: 2 },
     pageTurn: { file: 'page_turn.mp3', volume: 0.6, maxConcurrent: 2 },
     error: { file: 'error.mp3', volume: 0.8, maxConcurrent: 2 },
-    alphaTowerFire: { file: 'alpha_tower_firing.mp3', volume: 0.55, maxConcurrent: 5 },
+    // Alpha tower firing sounds (kalimba variations)
+    alphaTowerFire1: { file: 'towers/alphaTower/tower_shot_kalimba_C#5.mp3', volume: 0.55, maxConcurrent: 5 },
+    alphaTowerFire2: { file: 'towers/alphaTower/tower_shot_kalimba_D5.mp3', volume: 0.55, maxConcurrent: 5 },
+    alphaTowerFire3: { file: 'towers/alphaTower/tower_shot_kalimba_E5.mp3', volume: 0.55, maxConcurrent: 5 },
+    alphaTowerFire4: { file: 'towers/alphaTower/tower_shot_kalimba_F5.mp3', volume: 0.55, maxConcurrent: 5 },
+    // Beta tower firing sounds (kalimba variations)
+    betaTowerFire1: { file: 'towers/betaTower/tower_shot_kalimba_A4.m4a', volume: 0.55, maxConcurrent: 5 },
+    betaTowerFire2: { file: 'towers/betaTower/tower_shot_kalimba_B4.m4a', volume: 0.55, maxConcurrent: 5 },
+    betaTowerFire3: { file: 'towers/betaTower/tower_shot_kalimba_F4.m4a', volume: 0.55, maxConcurrent: 5 },
+    betaTowerFire4: { file: 'towers/betaTower/tower_shot_kalimba_G4.m4a', volume: 0.55, maxConcurrent: 5 },
+    // Gamma tower firing sounds (kalimba variations)
+    gammaTowerFire1: { file: 'towers/gammaTower/tower_shot_kalimba_B3.m4a', volume: 0.55, maxConcurrent: 5 },
+    gammaTowerFire2: { file: 'towers/gammaTower/tower_shot_kalimba_C4.m4a', volume: 0.55, maxConcurrent: 5 },
+    gammaTowerFire3: { file: 'towers/gammaTower/tower_shot_kalimba_D4.m4a', volume: 0.55, maxConcurrent: 5 },
+    gammaTowerFire4: { file: 'towers/gammaTower/tower_shot_kalimba_E4.m4a', volume: 0.55, maxConcurrent: 5 },
     noteA: { file: 'note_A.mp3', volume: 0.8, maxConcurrent: 3 },
     noteB: { file: 'note_B.mp3', volume: 0.8, maxConcurrent: 3 },
     noteDSharp: { file: 'note_D#.mp3', volume: 0.8, maxConcurrent: 3 },
@@ -870,4 +884,40 @@ export function playTowerPlacementNotes(audio, count = 1, noteKeys = TOWER_NOTE_
       play();
     }
   }
+}
+
+/**
+ * Configuration mapping tower types to their sound effect variations.
+ */
+export const TOWER_FIRING_SOUNDS = {
+  alpha: ['alphaTowerFire1', 'alphaTowerFire2', 'alphaTowerFire3', 'alphaTowerFire4'],
+  beta: ['betaTowerFire1', 'betaTowerFire2', 'betaTowerFire3', 'betaTowerFire4'],
+  gamma: ['gammaTowerFire1', 'gammaTowerFire2', 'gammaTowerFire3', 'gammaTowerFire4'],
+};
+
+/**
+ * Track last sound played per tower type to prevent immediate repetition.
+ */
+const lastTowerFiringSounds = new Map();
+
+/**
+ * Plays a random tower firing sound for the given tower type, avoiding consecutive repeats.
+ * @param {AudioManager} audio - The audio manager instance
+ * @param {string} towerType - The type of tower (e.g., 'alpha', 'beta', 'gamma')
+ */
+export function playTowerFireSound(audio, towerType) {
+  const soundKeys = TOWER_FIRING_SOUNDS[towerType];
+  if (!soundKeys?.length) {
+    return;
+  }
+  
+  const lastSound = lastTowerFiringSounds.get(towerType);
+  // Filter out last sound if multiple variations exist
+  const availableSounds = soundKeys.length > 1 && lastSound
+    ? soundKeys.filter(key => key !== lastSound)
+    : soundKeys;
+  
+  const selectedSound = availableSounds[Math.floor(Math.random() * availableSounds.length)];
+  lastTowerFiringSounds.set(towerType, selectedSound);
+  audio.playSfx(selectedSound);
 }

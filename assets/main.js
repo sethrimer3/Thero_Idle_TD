@@ -1149,8 +1149,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
    * Enables the sun and moon Voronoi fractals and starts the day/night cycle.
    * @returns {boolean} True if placement succeeded
    */
-  function handleCelestialPlacement() {
+  function handleCelestialPlacement(options = {}) {
     if (!FLUID_STUDY_ENABLED) {
+      return false;
+    }
+
+    const storeItem = options.storeItem;
+    const celestialBody = storeItem?.celestialBody; // 'sun' or 'moon'
+
+    if (!celestialBody || (celestialBody !== 'sun' && celestialBody !== 'moon')) {
       return false;
     }
 
@@ -1158,7 +1165,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (!powderState.betTerrarium) {
       powderState.betTerrarium = {};
     }
-    powderState.betTerrarium.celestialBodiesEnabled = true;
+
+    // Track sun and moon separately
+    if (celestialBody === 'sun') {
+      powderState.betTerrarium.sunEnabled = true;
+    } else if (celestialBody === 'moon') {
+      powderState.betTerrarium.moonEnabled = true;
+    }
+
+    // Enable celestial cycle when either sun or moon is unlocked
+    const anyEnabled = powderState.betTerrarium.sunEnabled || powderState.betTerrarium.moonEnabled;
+    powderState.betTerrarium.celestialBodiesEnabled = anyEnabled;
 
     // Enable the sky cycle if it exists
     if (fluidTerrariumSkyCycle) {
@@ -1182,11 +1199,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     // Check if celestial bodies have been purchased
     const celestialEnabled = Boolean(powderState.betTerrarium?.celestialBodiesEnabled);
+    const sunEnabled = Boolean(powderState.betTerrarium?.sunEnabled);
+    const moonEnabled = Boolean(powderState.betTerrarium?.moonEnabled);
     fluidTerrariumSkyCycle = new FluidTerrariumSkyCycle({
       skyElement: fluidElements.terrariumSky,
       sunElement: fluidElements.terrariumSun,
       moonElement: fluidElements.terrariumMoon,
       celestialBodiesEnabled: celestialEnabled,
+      sunEnabled,
+      moonEnabled,
     });
   }
 
@@ -1195,8 +1216,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (!FLUID_STUDY_ENABLED) {
       return;
     }
-    const celestialEnabled = Boolean(powderState.betTerrarium?.celestialBodiesEnabled);
-    if (!celestialEnabled) {
+    const sunEnabled = Boolean(powderState.betTerrarium?.sunEnabled);
+    const moonEnabled = Boolean(powderState.betTerrarium?.moonEnabled);
+    
+    if (!sunEnabled && !moonEnabled) {
       return;
     }
     if (fluidTerrariumCelestialBodies || !fluidElements?.terrariumSun || !fluidElements?.terrariumMoon) {
@@ -1205,7 +1228,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     fluidTerrariumCelestialBodies = new FluidTerrariumCelestialBodies({
       sunElement: fluidElements.terrariumSun,
       moonElement: fluidElements.terrariumMoon,
-      enabled: true,
+      sunEnabled,
+      moonEnabled,
+      enabled: sunEnabled || moonEnabled,
       onStateChange: (state) => {
         if (state.celestialBodiesEnabled !== undefined) {
           if (!powderState.betTerrarium) {
@@ -4950,10 +4975,20 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     evaluateAchievements();
   }
 
+  // Re-entrancy guard to prevent infinite recursion when awarding Bet glyphs
+  let isUpdatingFluidDisplay = false;
+
   function updateFluidDisplay(status) {
-    // If the Bet Spire is locked or has been deleted, freeze the readouts and halt any
-    // lingering fluid simulation so the reservoir numbers stay static instead of drifting.
-    if (!powderState.fluidUnlocked) {
+    // Prevent re-entrant calls that cause infinite recursion
+    if (isUpdatingFluidDisplay) {
+      return;
+    }
+    isUpdatingFluidDisplay = true;
+
+    try {
+      // If the Bet Spire is locked or has been deleted, freeze the readouts and halt any
+      // lingering fluid simulation so the reservoir numbers stay static instead of drifting.
+      if (!powderState.fluidUnlocked) {
       if (fluidSimulationInstance && typeof fluidSimulationInstance.stop === 'function') {
         fluidSimulationInstance.stop();
       }
@@ -5107,6 +5142,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         powderState.fluidGlyphsAwarded = happinessLevel;
         checkAndUnlockSpires();
       }
+    }
+    } finally {
+      isUpdatingFluidDisplay = false;
     }
   }
 

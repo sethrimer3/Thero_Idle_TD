@@ -152,7 +152,7 @@
               <span class="offline-number" id="offline-shin-total">0</span>
               <span class="offline-symbol offline-symbol--glyph" aria-hidden="true">ש</span>
               <span class="offline-symbol">−</span>
-              <span class="offline-resource__label">Iterons</span>
+              <span class="offline-resource__label">Equivalence</span>
             </div>
           </div>
           <div class="offline-overlay__equation-row" id="offline-kuf-row" aria-label="Kuf idle gains">
@@ -2838,12 +2838,47 @@
             </article>
           </section>
 
-          <!-- Warden Weapons Menu -->
-          <article class="card shin-weapons-card" id="shin-weapons-card">
-            <h3>Warden Weapons</h3>
-            <p class="shin-weapons-note">Mathematical projectile patterns. Spend iterons to purchase and upgrade.</p>
-            <div class="shin-weapons-grid" id="shin-weapons-grid" role="list" aria-live="polite">
-              <!-- Weapons populated dynamically -->
+          <!-- Weapon Slots - Simple slots for firing bullets (positioned between render and grapheme inventory) -->
+          <article class="card shin-weapon-slots-card" id="shin-weapon-slots-card">
+            <h3>Weapon Slots</h3>
+            <div class="shin-weapon-slots-container" id="shin-weapon-slots-container" role="list" aria-live="polite">
+              <!-- Weapon slots populated dynamically -->
+            </div>
+          </article>
+
+          <!-- Grapheme Inventory -->
+          <article class="card shin-phoneme-card" id="shin-phoneme-card">
+            <h3>Grapheme Collection</h3>
+            <div class="shin-phoneme-stats">
+              <span>Total Collected: <strong id="shin-phoneme-count">0</strong></span>
+              <span>Unlocked: <strong id="shin-unlocked-count">3</strong> / 26</span>
+            </div>
+            <div class="shin-phoneme-inventory" id="shin-phoneme-inventory" role="list" aria-live="polite">
+              <span class="shin-phoneme-empty">No graphemes collected</span>
+            </div>
+            <div class="shin-grapheme-upgrades">
+              <button id="shin-grapheme-unlock-btn" class="shin-weapon-action">
+                Unlock Next Grapheme: <span id="shin-grapheme-unlock-cost">250</span> ℸ
+              </button>
+              <div class="shin-drop-chance-upgrade">
+                <span>Drop Chance: <strong id="shin-drop-chance-display">1%</strong></span>
+                <button id="shin-drop-chance-upgrade-btn" class="shin-weapon-action">
+                  +1% Drop Chance: <span id="shin-drop-chance-cost">100</span> ℸ
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <!-- Wave Starting Options -->
+          <article class="card shin-wave-start-card">
+            <h3>Wave Start Options</h3>
+            <p class="shin-wave-start-description">Start at any multiple of 10 waves you've reached.</p>
+            <div class="shin-wave-start-controls">
+              <label for="shin-wave-start-select">Starting Wave:</label>
+              <select id="shin-wave-start-select" class="shin-wave-select">
+                <option value="0">Wave 1 (Default)</option>
+              </select>
+              <button id="shin-wave-start-apply-btn" class="shin-weapon-action">Apply & Restart</button>
             </div>
           </article>
 
@@ -2860,7 +2895,7 @@
                 <dd id="shin-highest-wave">0</dd>
               </div>
               <div>
-                <dt>Total Iterons</dt>
+                <dt>Total Equivalence</dt>
                 <dd id="shin-total-iterons">0 ℸ</dd>
               </div>
               <div>
@@ -2920,50 +2955,6 @@
                 hidden
               >
                 <button class="action-button ghost" type="button" id="shin-graphics-level-button">Graphics · High</button>
-                <div class="settings-toggle" id="shin-animated-growth-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="shin-animated-growth-title">Animated Growth</span>
-                    <span class="settings-toggle-description" id="shin-animated-growth-description"
-                      >Disable stepwise fractal growth animations to improve performance on slower devices.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="shin-animated-growth-toggle">
-                    <input
-                      type="checkbox"
-                      id="shin-animated-growth-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="shin-animated-growth-title"
-                      aria-describedby="shin-animated-growth-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="shin-animated-growth-toggle-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="shin-pan-zoom-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="shin-pan-zoom-title">Pan & Zoom</span>
-                    <span class="settings-toggle-description" id="shin-pan-zoom-description"
-                      >Enable mouse drag and pinch-to-zoom gestures to explore fractal detail.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="shin-pan-zoom-toggle">
-                    <input
-                      type="checkbox"
-                      id="shin-pan-zoom-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="shin-pan-zoom-title"
-                      aria-describedby="shin-pan-zoom-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="shin-pan-zoom-toggle-state">On</span>
-                  </label>
-                </div>
                 <div class="settings-toggle" id="shin-night-mode-toggle-row">
                   <div class="settings-toggle-text">
                     <span class="settings-toggle-title" id="shin-night-mode-title">Night Mode</span>
@@ -2985,7 +2976,7 @@
                     <span class="settings-toggle-state" id="shin-night-mode-toggle-state">Off</span>
                   </label>
                 </div>
-                <button class="action-button ghost" type="button" id="shin-enemy-trail-length-button">Enemy Trails · Long</button>
+                <button class="action-button ghost" type="button" id="shin-enemy-trail-quality-button">Enemy Trail Quality · High</button>
                 <button class="action-button ghost" type="button" id="shin-bullet-trail-length-button">Bullet Trails · Long</button>
               </div>
             </article>
@@ -4005,7 +3996,7 @@
                     step="0.1"
                     inputmode="decimal"
                   />
-                  <p class="developer-control-hint">Set iterons allocated per second for Shin Spire.</p>
+                  <p class="developer-control-hint">Set Equivalence allocated per second for Shin Spire.</p>
                 </div>
               </div>
             </div>

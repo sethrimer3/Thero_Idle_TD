@@ -222,12 +222,16 @@ export class FluidTerrariumCelestialBodies {
    * @param {HTMLElement|null} options.sunElement - The sun DOM container
    * @param {HTMLElement|null} options.moonElement - The moon DOM container
    * @param {boolean} [options.enabled=false] - Whether celestial bodies are unlocked
+   * @param {boolean} [options.sunEnabled=false] - Whether sun is unlocked
+   * @param {boolean} [options.moonEnabled=false] - Whether moon is unlocked
    * @param {Function} [options.onStateChange] - Callback when state changes
    */
   constructor(options = {}) {
     this.sunElement = options.sunElement || null;
     this.moonElement = options.moonElement || null;
     this.enabled = Boolean(options.enabled);
+    this.sunEnabled = Boolean(options.sunEnabled);
+    this.moonEnabled = Boolean(options.moonEnabled);
     this.onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : () => {};
 
     this.sunCanvas = null;
@@ -252,7 +256,7 @@ export class FluidTerrariumCelestialBodies {
    * Initialize the celestial body canvases and simulations.
    */
   initialize() {
-    if (this.sunElement && !this.sunCanvas) {
+    if (this.sunEnabled && this.sunElement && !this.sunCanvas) {
       this.sunCanvas = this.createCanvas(this.sunElement);
       this.sunSimulation = new CelestialVoronoiRenderer({
         canvas: this.sunCanvas,
@@ -261,7 +265,7 @@ export class FluidTerrariumCelestialBodies {
       });
     }
 
-    if (this.moonElement && !this.moonCanvas) {
+    if (this.moonEnabled && this.moonElement && !this.moonCanvas) {
       this.moonCanvas = this.createCanvas(this.moonElement);
       this.moonSimulation = new CelestialVoronoiRenderer({
         canvas: this.moonCanvas,

@@ -297,14 +297,28 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
     minSpacing: 0.07,
     initialAllocation: 4,
   },
-  // Celestial Bodies - Sun and Moon Voronoi fractals
+  // Celestial Bodies - Sun and Moon Voronoi fractals (separate items)
   {
-    id: 'bet-store-celestial-bodies',
-    label: 'Celestial Bodies',
-    description: 'Unlock the sun and moon. Yellow Voronoi sun and blue Voronoi moon begin their eternal orbits.',
-    icon: '☀️🌙',
+    id: 'bet-store-moon',
+    label: 'Moon',
+    description: 'Unlock the moon. Blue Voronoi moon begins its eternal orbit across the night sky.',
+    icon: '🌙',
     itemType: 'celestial',
-    cost: 200,
+    celestialBody: 'moon',
+    cost: 100,
+    size: 'large',
+    minY: 0,
+    maxY: 1,
+    minSpacing: 0,
+  },
+  {
+    id: 'bet-store-sun',
+    label: 'Sun',
+    description: 'Unlock the sun. Yellow Voronoi sun begins its eternal orbit, bringing day and night to the terrarium.',
+    icon: '☀️',
+    itemType: 'celestial',
+    celestialBody: 'sun',
+    cost: 10000,
     size: 'large',
     minY: 0,
     maxY: 1,
@@ -1461,13 +1475,17 @@ export class FluidTerrariumTrees {
         storeItem,
       });
       if (celestialPlaced) {
-        this.setStoreStatus('The sun and moon rise. Day and night begin their eternal dance.');
+        const bodyName = storeItem.celestialBody === 'sun' ? 'sun' : 'moon';
+        const message = storeItem.celestialBody === 'sun' 
+          ? 'The sun rises. Day comes to the terrarium.'
+          : 'The moon rises. Night illuminates the sky.';
+        this.setStoreStatus(message);
         this.hidePlacementPreview();
         this.consumeStoreItem(storeItem.id);
         this.clearStoreSelection();
         return true;
       }
-      this.setStoreStatus('Could not unlock celestial bodies. Try again.');
+      this.setStoreStatus(`Could not unlock ${storeItem.label}. Try again.`);
       return false;
     }
 
@@ -1970,7 +1988,7 @@ export class FluidTerrariumTrees {
 
   /**
    * Refresh the level label for a given tree.
-   * Now only shows "Lv. X" format without progress bar or upgrade button.
+   * Shows "Lv. X" format or "MAX" if at maximum practical level.
    */
   updateTreeBadge(tree) {
     if (!tree?.badge) {
@@ -1979,9 +1997,13 @@ export class FluidTerrariumTrees {
     const { label } = tree.badge;
     const levelInfo = this.computeLevelInfo(tree.state.allocated || 0);
 
-    // Show level in "Lv. X" format
+    // Consider level 20 as "MAX" for display purposes (2^20 = ~1M serendipity)
+    const MAX_DISPLAY_LEVEL = 20;
+    
+    // Show level in "Lv. X" format or "MAX" if at max
     if (label) {
-      label.textContent = `Lv. ${levelInfo.level}`;
+      const levelText = levelInfo.level >= MAX_DISPLAY_LEVEL ? 'MAX' : `Lv. ${levelInfo.level}`;
+      label.textContent = levelText;
     }
   }
 
