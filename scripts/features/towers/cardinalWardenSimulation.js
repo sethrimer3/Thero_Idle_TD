@@ -2608,6 +2608,11 @@ export class CardinalWardenSimulation {
     this.applyColorMode();
 
     this.initialize();
+    
+    // Auto-start the game if autoStart option is true
+    if (this.autoStart) {
+      this.start();
+    }
   }
 
   /**
