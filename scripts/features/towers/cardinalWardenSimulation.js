@@ -6586,25 +6586,8 @@ export class CardinalWardenSimulation {
       this.weapons.activeWeaponId = state.activeWeaponId;
     }
     
-    // Process equipped state after purchased state is finalized
-    if (state?.equipped) {
-      // Filter to only include purchased weapons and limit to maxEquippedWeapons
-      this.weapons.equipped = state.equipped
-        .filter(id => this.weapons.purchased[id])
-        .slice(0, this.maxEquippedWeapons);
-    }
-    
-    // Ensure all 3 weapons are equipped if equipped list is empty or incomplete
-    if (!this.weapons.equipped || this.weapons.equipped.length === 0) {
-      this.weapons.equipped = [...WEAPON_SLOT_IDS];
-    } else {
-      // Ensure all 3 slots are in the equipped list
-      for (const slot of WEAPON_SLOT_IDS) {
-        if (!this.weapons.equipped.includes(slot)) {
-          this.weapons.equipped.push(slot);
-        }
-      }
-    }
+    // All 3 weapons must always be equipped (no conditional logic needed)
+    this.weapons.equipped = [...WEAPON_SLOT_IDS];
     
     // Initialize timers for all purchased weapons
     for (const weaponId of Object.keys(this.weapons.purchased)) {
