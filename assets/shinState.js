@@ -597,6 +597,41 @@ export function spawnGraphemeDrop(x, y) {
 }
 
 /**
+ * Spawn a specific grapheme drop at the given position.
+ * @param {number} x - X coordinate on the canvas
+ * @param {number} y - Y coordinate on the canvas
+ * @param {number} graphemeIndex - Index of the specific grapheme to spawn (0-25 for A-Z)
+ * @returns {Object} The created grapheme drop, or null if invalid index
+ */
+export function spawnSpecificGraphemeDrop(x, y, graphemeIndex) {
+  if (graphemeIndex < 0 || graphemeIndex >= GRAPHEME_CHARACTERS.length) {
+    return null;
+  }
+  
+  const grapheme = GRAPHEME_CHARACTERS[graphemeIndex];
+  if (!grapheme.collectable) {
+    return null; // Don't spawn non-collectable graphemes
+  }
+  
+  shinState.graphemeIdCounter += 1;
+  const drop = {
+    id: `grapheme-${shinState.graphemeIdCounter}`,
+    index: grapheme.index,
+    name: grapheme.name,
+    property: grapheme.property,
+    row: grapheme.row,
+    col: grapheme.col,
+    x,
+    y,
+    spawnTime: Date.now(),
+    opacity: 1,
+    pulse: 0,
+  };
+  shinState.activeGraphemeDrops.push(drop);
+  return drop;
+}
+
+/**
  * Get all active grapheme drops on the battlefield.
  * @returns {Array} Array of grapheme drop objects
  */

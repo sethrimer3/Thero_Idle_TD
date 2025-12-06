@@ -1146,6 +1146,26 @@ const BOSS_TYPES = {
     rotationSpeed: 0.3,
     shieldRegenRate: 0.5, // Health regen per second
   },
+  megaBoss: {
+    speed: 12,
+    health: 100,
+    damage: 50,
+    size: 55,
+    scoreValue: 500,
+    color: '#000000',
+    rotationSpeed: 0.4,
+    shieldRegenRate: 1.0,
+  },
+  ultraBoss: {
+    speed: 15,
+    health: 200,
+    damage: 75,
+    size: 65,
+    scoreValue: 1000,
+    color: '#000000',
+    rotationSpeed: 0.5,
+    shieldRegenRate: 2.0,
+  },
 };
 
 /**
@@ -1777,6 +1797,30 @@ class HexagonFortressBoss {
     this.frozenDuration = ELEMENTAL_CONFIG.FREEZE_DURATION;
     this.maxSpeed = 0;
     this.color = ELEMENTAL_CONFIG.FREEZE_COLOR;
+  }
+}
+
+/**
+ * Mega Boss - An enhanced fortress with more health and power.
+ * Placeholder implementation using HexagonFortress mechanics.
+ */
+class MegaBoss extends HexagonFortressBoss {
+  constructor(x, y, config = {}) {
+    super(x, y, config);
+    this.type = 'megaBoss';
+    this.size = config.size || 55;
+  }
+}
+
+/**
+ * Ultra Boss - The most powerful boss type with massive health and damage.
+ * Placeholder implementation using HexagonFortress mechanics.
+ */
+class UltraBoss extends HexagonFortressBoss {
+  constructor(x, y, config = {}) {
+    super(x, y, config);
+    this.type = 'ultraBoss';
+    this.size = config.size || 65;
   }
 }
 
@@ -2500,6 +2544,10 @@ export class CardinalWardenSimulation {
     // RNG
     this.rng = new SeededRandom(options.seed || Date.now());
 
+    // Game speed control (1x, 2x, 3x)
+    this.gameSpeed = 1;
+    this.speedButtonHover = false;
+
     // Callbacks
     this.onScoreChange = options.onScoreChange || null;
     this.onHighScoreChange = options.onHighScoreChange || null;
@@ -2509,6 +2557,7 @@ export class CardinalWardenSimulation {
     this.onHighestWaveChange = options.onHighestWaveChange || null;
     this.onEnemyKill = options.onEnemyKill || null;
     this.onPostRender = options.onPostRender || null;
+    this.onGuaranteedGraphemeDrop = options.onGuaranteedGraphemeDrop || null;
 
     // Upgrade state (for future expansion)
     this.upgrades = {
@@ -3265,7 +3314,8 @@ export class CardinalWardenSimulation {
     this.lastFrameTime = now;
 
     if (!this.paused) {
-      this.update(deltaTime);
+      // Apply game speed multiplier
+      this.update(deltaTime * this.gameSpeed);
     }
 
     this.render();
@@ -3304,6 +3354,18 @@ export class CardinalWardenSimulation {
           this.onHighestWaveChange(this.highestWave);
         }
       }
+      
+      // Handle guaranteed grapheme drops every 10 waves (waves 10, 20, 30, etc. up to 260)
+      const waveNumber = this.wave + 1; // Convert from 0-indexed to 1-indexed
+      if (waveNumber % 10 === 0 && waveNumber <= 260) {
+        // Guaranteed grapheme drop for wave milestone
+        if (this.onGuaranteedGraphemeDrop) {
+          this.onGuaranteedGraphemeDrop(waveNumber);
+        }
+      }
+      
+      // Handle wave-based boss spawning rules
+      this.handleWaveBossSpawns();
       
       if (this.onWaveChange) {
         this.onWaveChange(this.wave);
@@ -4336,6 +4398,9 @@ export class CardinalWardenSimulation {
     // Scale stats by difficulty
     const difficultyMultiplier = 1 + this.difficultyLevel * 0.15;
     
+    // Multiply base health by wave number (wave is 0-indexed, so wave+1)
+    const waveMultiplier = this.wave + 1;
+    
     // Determine if this ship should weave (30% chance for fast/elite types)
     const canWeave = typeKey === 'fast' || typeKey === 'elite';
     const shouldWeave = canWeave && this.rng.next() < 0.3;
@@ -4343,7 +4408,7 @@ export class CardinalWardenSimulation {
     const config = {
       ...baseConfig,
       speed: baseConfig.speed * (1 + this.difficultyLevel * 0.1),
-      health: Math.ceil(baseConfig.health * difficultyMultiplier),
+      health: Math.ceil(baseConfig.health * waveMultiplier),
       damage: Math.ceil(baseConfig.damage * (1 + this.difficultyLevel * 0.05)),
       scoreValue: Math.ceil(baseConfig.scoreValue * difficultyMultiplier),
       type: typeKey,
@@ -4422,10 +4487,13 @@ export class CardinalWardenSimulation {
     // Scale boss stats by difficulty
     const difficultyMultiplier = 1 + (this.difficultyLevel - GAME_CONFIG.BOSS_MIN_DIFFICULTY) * GAME_CONFIG.BOSS_DIFFICULTY_SCALE;
 
+    // Multiply base health by wave number (wave is 0-indexed, so wave+1)
+    const waveMultiplier = this.wave + 1;
+
     const config = {
       ...baseConfig,
       speed: baseConfig.speed * (1 + (this.difficultyLevel - GAME_CONFIG.BOSS_MIN_DIFFICULTY) * 0.05),
-      health: Math.ceil(baseConfig.health * difficultyMultiplier),
+      health: Math.ceil(baseConfig.health * waveMultiplier),
       damage: Math.ceil(baseConfig.damage * difficultyMultiplier),
       scoreValue: Math.ceil(baseConfig.scoreValue * difficultyMultiplier),
     };
@@ -4444,6 +4512,120 @@ export class CardinalWardenSimulation {
         break;
       case 'hexagonFortress':
         boss = new HexagonFortressBoss(x, y, config);
+        break;
+      case 'megaBoss':
+        boss = new MegaBoss(x, y, config);
+        break;
+      case 'ultraBoss':
+        boss = new UltraBoss(x, y, config);
+        break;
+      default:
+        boss = new CircleCarrierBoss(x, y, config);
+    }
+
+    boss.color = this.nightMode ? '#ffffff' : boss.baseColor;
+    boss.pickNewTarget(this.canvas.width, this.canvas.height, this.rng);
+    this.bosses.push(boss);
+  }
+
+  /**
+   * Handle wave-based boss spawning rules.
+   * Called when a new wave starts.
+   */
+  handleWaveBossSpawns() {
+    const waveNumber = this.wave + 1; // Convert from 0-indexed to 1-indexed
+    
+    // Wave 50+: One boss every 5 waves
+    // Wave 100+: One boss every wave
+    // Wave 150+: One mega boss every 5 waves
+    // Wave 200+: One mega boss every wave + 5 regular bosses
+    // Wave 250+: One ultra boss every 5 waves + 2 mega bosses + 10 normal bosses
+    // Wave 300+: One ultra boss every wave + two bosses per wave
+    
+    if (waveNumber >= 300) {
+      // Wave 300+: One ultra boss every wave + two normal bosses
+      this.spawnSpecificBoss('ultraBoss');
+      this.spawnSpecificBoss('hexagonFortress');
+      this.spawnSpecificBoss('pyramidBoss');
+    } else if (waveNumber >= 250) {
+      // Wave 250+: One ultra boss every 5 waves + 2 mega bosses + 10 normal bosses every wave
+      if (waveNumber % 5 === 0) {
+        this.spawnSpecificBoss('ultraBoss');
+      }
+      for (let i = 0; i < 2; i++) {
+        this.spawnSpecificBoss('megaBoss');
+      }
+      for (let i = 0; i < 10; i++) {
+        this.spawnBoss();
+      }
+    } else if (waveNumber >= 200) {
+      // Wave 200+: One mega boss every wave + 5 regular bosses
+      this.spawnSpecificBoss('megaBoss');
+      for (let i = 0; i < 5; i++) {
+        this.spawnBoss();
+      }
+    } else if (waveNumber >= 150) {
+      // Wave 150+: One mega boss every 5 waves
+      if (waveNumber % 5 === 0) {
+        this.spawnSpecificBoss('megaBoss');
+      }
+    } else if (waveNumber >= 100) {
+      // Wave 100+: One boss every wave
+      this.spawnBoss();
+    } else if (waveNumber >= 50) {
+      // Wave 50+: One boss every 5 waves
+      if (waveNumber % 5 === 0) {
+        this.spawnBoss();
+      }
+    }
+  }
+
+  /**
+   * Spawn a specific boss type.
+   */
+  spawnSpecificBoss(bossType) {
+    if (!this.canvas) return;
+
+    const baseConfig = BOSS_TYPES[bossType];
+    if (!baseConfig) {
+      console.warn(`Unknown boss type: ${bossType}`);
+      return;
+    }
+
+    // Scale boss stats by difficulty
+    const difficultyMultiplier = 1 + (this.difficultyLevel - GAME_CONFIG.BOSS_MIN_DIFFICULTY) * GAME_CONFIG.BOSS_DIFFICULTY_SCALE;
+
+    // Multiply base health by wave number
+    const waveMultiplier = this.wave + 1;
+
+    const config = {
+      ...baseConfig,
+      speed: baseConfig.speed * (1 + (this.difficultyLevel - GAME_CONFIG.BOSS_MIN_DIFFICULTY) * 0.05),
+      health: Math.ceil(baseConfig.health * waveMultiplier),
+      damage: Math.ceil(baseConfig.damage * difficultyMultiplier),
+      scoreValue: Math.ceil(baseConfig.scoreValue * difficultyMultiplier),
+    };
+
+    // Random x position at top of screen
+    const x = this.rng.range(config.size * 2, this.canvas.width - config.size * 2);
+    const y = -config.size;
+
+    let boss;
+    switch (bossType) {
+      case 'circleCarrier':
+        boss = new CircleCarrierBoss(x, y, config);
+        break;
+      case 'pyramidBoss':
+        boss = new PyramidBoss(x, y, config);
+        break;
+      case 'hexagonFortress':
+        boss = new HexagonFortressBoss(x, y, config);
+        break;
+      case 'megaBoss':
+        boss = new MegaBoss(x, y, config);
+        break;
+      case 'ultraBoss':
+        boss = new UltraBoss(x, y, config);
         break;
       default:
         boss = new CircleCarrierBoss(x, y, config);
@@ -5863,6 +6045,12 @@ export class CardinalWardenSimulation {
         case 'hexagonFortress':
           this.renderHexagonFortressBoss(ctx, boss);
           break;
+        case 'megaBoss':
+          this.renderMegaBoss(ctx, boss);
+          break;
+        case 'ultraBoss':
+          this.renderUltraBoss(ctx, boss);
+          break;
         default:
           this.renderCircleCarrierBoss(ctx, boss);
       }
@@ -6063,6 +6251,125 @@ export class CardinalWardenSimulation {
   }
 
   /**
+   * Render Mega Boss - enhanced hexagon with larger size.
+   */
+  renderMegaBoss(ctx, boss) {
+    // Render similar to hexagon fortress but with distinctive visual
+    const fillColor = this.nightMode ? '#ffffff' : boss.color;
+    const strokeColor = this.nightMode ? 'rgba(255, 215, 0, 0.9)' : 'rgba(212, 175, 55, 0.8)'; // Golden outline
+
+    // Rotating hexagon
+    ctx.save();
+    ctx.rotate(boss.rotation);
+
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const x = Math.cos(angle) * boss.size;
+      const y = Math.sin(angle) * boss.size;
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.closePath();
+
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 4; // Thicker outline
+    ctx.stroke();
+
+    // Additional layer for mega boss
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const x = Math.cos(angle) * boss.size * 0.7;
+      const y = Math.sin(angle) * boss.size * 0.7;
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.closePath();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  /**
+   * Render Ultra Boss - largest and most powerful boss with distinctive visual.
+   */
+  renderUltraBoss(ctx, boss) {
+    // Render similar to hexagon fortress but with distinctive visual
+    const fillColor = this.nightMode ? '#ffffff' : boss.color;
+    const strokeColor = this.nightMode ? 'rgba(255, 100, 100, 0.9)' : 'rgba(220, 20, 60, 0.8)'; // Crimson outline
+
+    // Rotating hexagon
+    ctx.save();
+    ctx.rotate(boss.rotation);
+
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const x = Math.cos(angle) * boss.size;
+      const y = Math.sin(angle) * boss.size;
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.closePath();
+
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 5; // Very thick outline
+    ctx.stroke();
+
+    // Additional layers for ultra boss
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const x = Math.cos(angle) * boss.size * 0.8;
+      const y = Math.sin(angle) * boss.size * 0.8;
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.closePath();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Inner layer
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const x = Math.cos(angle) * boss.size * 0.5;
+      const y = Math.sin(angle) * boss.size * 0.5;
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.closePath();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  /**
    * Render all bullets.
    */
   renderBullets() {
@@ -6253,19 +6560,41 @@ export class CardinalWardenSimulation {
     const ctx = this.ctx;
     const padding = 10;
 
-    // Set font for UI
-    ctx.font = '14px "Cormorant Garamond", serif';
+    // Set font for UI - using Cormorant Garamond (universal game font)
+    ctx.font = '16px "Cormorant Garamond", serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
 
-    // Score display (top left)
-    ctx.fillStyle = this.uiTextColor;
-    ctx.fillText(`Score: ${this.score}`, padding, padding);
-    ctx.fillText(`High Score: ${this.highScore}`, padding, padding + 18);
+    // Golden color for text
+    const goldColor = '#d4af37';
 
-    // Wave display (top right)
-    ctx.textAlign = 'right';
-    ctx.fillText(`Wave: ${this.wave + 1}`, this.canvas.width - padding, padding);
+    // Wave number display (top left)
+    ctx.fillStyle = goldColor;
+    ctx.fillText(`Wave: ${this.wave + 1}`, padding, padding);
+    
+    // Player score display under wave number (top left)
+    ctx.fillText(`Score: ${this.score}`, padding, padding + 20);
+
+    // Speed button (top right)
+    const speedButtonSize = 50;
+    const speedButtonX = this.canvas.width - padding - speedButtonSize;
+    const speedButtonY = padding;
+    
+    // Draw button background
+    ctx.fillStyle = this.speedButtonHover ? 'rgba(212, 175, 55, 0.3)' : 'rgba(212, 175, 55, 0.2)';
+    ctx.fillRect(speedButtonX, speedButtonY, speedButtonSize, speedButtonSize);
+    
+    // Draw button border
+    ctx.strokeStyle = goldColor;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(speedButtonX, speedButtonY, speedButtonSize, speedButtonSize);
+    
+    // Draw speed text
+    ctx.fillStyle = goldColor;
+    ctx.font = '20px "Cormorant Garamond", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${this.gameSpeed}x`, speedButtonX + speedButtonSize / 2, speedButtonY + speedButtonSize / 2);
 
     // Health bar (bottom center)
     if (this.warden) {
