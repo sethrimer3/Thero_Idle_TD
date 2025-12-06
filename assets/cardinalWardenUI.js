@@ -15,6 +15,7 @@ import {
   spendIterons,
   addIterons,
   spawnPhonemeDrop,
+  spawnSpecificGraphemeDrop,
   getActivePhonemeDrops,
   collectPhonemeDrop,
   clearActivePhonemeDrops,
@@ -585,11 +586,11 @@ function handleGuaranteedGraphemeDrop(waveNumber) {
     
     // Check if player already has this grapheme
     if (!unlockedGraphemes.includes(graphemeIndex)) {
-      // Spawn the guaranteed grapheme at center of canvas
+      // Spawn the specific guaranteed grapheme at center of canvas
       if (cardinalSimulation && cardinalSimulation.canvas) {
         const x = cardinalSimulation.canvas.width / 2;
         const y = cardinalSimulation.canvas.height / 2;
-        spawnPhonemeDrop(x, y);
+        spawnSpecificGraphemeDrop(x, y, graphemeIndex);
       }
     }
   }
