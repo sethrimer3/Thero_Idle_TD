@@ -143,8 +143,6 @@ function applyGraphemeSpriteStyles(element, frame) {
 function createGraphemeIconElement(index, rowOverride, colOverride, className = 'shin-grapheme-icon') {
   const wrapper = document.createElement('span');
   wrapper.className = 'shin-grapheme-icon-wrapper';
-  wrapper.style.position = 'relative';
-  wrapper.style.display = 'inline-block';
   
   const icon = document.createElement('span');
   const frame = resolveGraphemeFrame(index, rowOverride, colOverride);
@@ -1084,10 +1082,6 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
   
   // Auto-collect graphemes if all 26 are unlocked
   if (allGraphemesUnlocked) {
-    const simulation = cardinalSimulation;
-    const wardenX = simulation ? canvas.width / 2 : canvas.width / 2;
-    const wardenY = simulation ? canvas.height / 2 : canvas.height / 2;
-    
     // Process drops in reverse to safely remove them during iteration
     for (let i = drops.length - 1; i >= 0; i--) {
       const drop = drops[i];
@@ -1116,9 +1110,8 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
     
     // If auto-collect is enabled and drop is older than 0.2 seconds, animate toward warden
     if (allGraphemesUnlocked && age >= 0.2) {
-      const simulation = cardinalSimulation;
-      const wardenX = simulation ? canvas.width / 2 : canvas.width / 2;
-      const wardenY = simulation ? canvas.height / 2 : canvas.height / 2;
+      const wardenX = canvas.width / 2;
+      const wardenY = canvas.height / 2;
       
       // Calculate progress of "sucking in" animation (0.2s to 0.5s)
       const animProgress = Math.min(1, (age - 0.2) / 0.3);
