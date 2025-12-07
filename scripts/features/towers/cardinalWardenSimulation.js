@@ -1320,11 +1320,6 @@ class MathBullet {
 }
 
 /**
- * Weapon slot IDs in order.
- */
-const WEAPON_SLOT_IDS = ['slot1', 'slot2', 'slot3'];
-
-/**
  * Simplified weapon slot definitions for the Cardinal Warden.
  * Three weapon slots that fire simple bullets toward the click target.
  * Later, lexemes can be placed into these slots to modify behavior.
@@ -1435,6 +1430,11 @@ const WEAPON_SLOT_DEFINITIONS = {
     slotIndex: 7,
   },
 };
+
+/**
+ * Weapon slot IDs in order. Derived from definitions to keep the lists in sync.
+ */
+const WEAPON_SLOT_IDS = Object.keys(WEAPON_SLOT_DEFINITIONS);
 
 // Legacy weapon definitions kept for reference but deactivated
 const LEGACY_WEAPON_DEFINITIONS = {
@@ -4250,11 +4250,11 @@ export class CardinalWardenSimulation {
    */
   setWeaponGraphemeAssignments(assignments) {
     if (!assignments || typeof assignments !== 'object') return;
-    
+
     // Update assignments for each weapon slot
     for (const weaponId of WEAPON_SLOT_IDS) {
-      if (assignments[weaponId]) {
-        this.weaponGraphemeAssignments[weaponId] = assignments[weaponId];
+      if (Object.prototype.hasOwnProperty.call(assignments, weaponId)) {
+        this.weaponGraphemeAssignments[weaponId] = assignments[weaponId] || [];
       }
     }
   }
@@ -4264,10 +4264,10 @@ export class CardinalWardenSimulation {
    * @returns {Object} Object mapping weapon IDs to arrays of grapheme assignments
    */
   getWeaponGraphemeAssignments() {
-    return {
-      slot1: [...(this.weaponGraphemeAssignments.slot1 || [])],
-      slot2: [...(this.weaponGraphemeAssignments.slot2 || [])],
-      slot3: [...(this.weaponGraphemeAssignments.slot3 || [])],
-    };
+    const assignments = {};
+    for (const weaponId of WEAPON_SLOT_IDS) {
+      assignments[weaponId] = [...(this.weaponGraphemeAssignments[weaponId] || [])];
+    }
+    return assignments;
   }
 }
