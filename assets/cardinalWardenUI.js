@@ -91,9 +91,11 @@ const graphemeDictionary = new Map(getGraphemeCharacters().map(def => [def.index
 const weaponElements = new Map();
 const pointerState = { active: false, startX: 0, startY: 0, moved: false };
 
-// Sprite sheet metadata for rendering Shin graphemes from Script.png.
+// Sprite sheet metadata for rendering Shin graphemes from Script.svg (vector for crisp scaling).
 const SHIN_SCRIPT_SPRITE = Object.freeze({
-  url: new URL('./sprites/spires/shinSpire/Script.png', import.meta.url).href,
+  url: new URL('./sprites/spires/shinSpire/Script.svg', import.meta.url).href,
+  // Legacy PNG fallback in case SVG rendering fails on older browsers.
+  fallbackUrl: new URL('./sprites/spires/shinSpire/Script.png', import.meta.url).href,
   columns: 7,
   rows: 5,
   cellWidth: 200,
@@ -111,10 +113,18 @@ const SHIN_SCALED_SHEET_HEIGHT = SHIN_SCALED_CELL_HEIGHT * SHIN_SCRIPT_SPRITE.ro
 // Preload the script sprite sheet so canvas drops and UI icons can share it.
 const shinScriptSpriteImage = new Image();
 let shinScriptSpriteLoaded = false;
+// Guard to ensure we only attempt the PNG fallback once.
+let shinScriptSpriteFallbackAttempted = false;
 shinScriptSpriteImage.addEventListener('load', () => {
   shinScriptSpriteLoaded = true;
 });
 shinScriptSpriteImage.addEventListener('error', (error) => {
+  if (!shinScriptSpriteFallbackAttempted && SHIN_SCRIPT_SPRITE.fallbackUrl) {
+    shinScriptSpriteFallbackAttempted = true;
+    console.warn('Failed to load Shin Script SVG sheet; trying PNG fallback.', error);
+    shinScriptSpriteImage.src = SHIN_SCRIPT_SPRITE.fallbackUrl;
+    return;
+  }
   console.warn('Failed to load Shin Script sprite sheet; falling back to text glyphs.', error);
 });
 shinScriptSpriteImage.src = SHIN_SCRIPT_SPRITE.url;
@@ -131,7 +141,7 @@ function resolveGraphemeFrame(index, rowOverride, colOverride) {
 }
 
 /**
- * Apply Script.png sprite background positioning to the provided element.
+ * Apply Script.svg sprite background positioning to the provided element.
  */
 function applyGraphemeSpriteStyles(element, frame) {
   element.style.width = `${SHIN_SCALED_CELL_WIDTH}px`;
@@ -142,7 +152,7 @@ function applyGraphemeSpriteStyles(element, frame) {
 }
 
 /**
- * Build a DOM element that displays a single grapheme tile from Script.png.
+ * Build a DOM element that displays a single grapheme tile from Script.svg.
  * For collectable graphemes (A-Z, indices 0-25), adds a small capital letter label in the bottom-right corner.
  */
 function createGraphemeIconElement(index, rowOverride, colOverride, className = 'shin-grapheme-icon') {
@@ -1245,7 +1255,7 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Script character rendered from Script.png with a gold tint.
+    // Script character rendered from Script.svg with a gold tint.
     const frame = resolveGraphemeFrame(drop.index, drop.row, drop.col);
     const spriteDrawn = renderGraphemeSprite(ctx, frame, dropX, dropY + floatY + 1);
 
