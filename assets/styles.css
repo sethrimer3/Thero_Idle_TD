@@ -12226,11 +12226,11 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   display: inline-block;
   background-repeat: no-repeat;
   background-position: center;
-  filter: brightness(0) saturate(100%) sepia(85%) hue-rotate(10deg) saturate(250%) contrast(1.1);
+  filter: drop-shadow(0 0 4px rgba(212, 175, 55, 0.35));
 }
 
 .shin-grapheme-icon--slot {
-  filter: brightness(0) saturate(100%) sepia(85%) hue-rotate(10deg) saturate(250%) contrast(1.1) drop-shadow(0 0 6px rgba(212, 175, 55, 0.4));
+  filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.4));
 }
 
 .shin-grapheme-icon-wrapper {

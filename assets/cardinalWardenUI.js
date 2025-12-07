@@ -146,9 +146,20 @@ function resolveGraphemeFrame(index, rowOverride, colOverride) {
 function applyGraphemeSpriteStyles(element, frame) {
   element.style.width = `${SHIN_SCALED_CELL_WIDTH}px`;
   element.style.height = `${SHIN_SCALED_CELL_HEIGHT}px`;
+  // Use the SVG as a mask so we can paint collected graphemes with the golden tint while
+  // still falling back to the direct background image when masking is unavailable.
+  element.style.backgroundColor = SHIN_SCRIPT_SPRITE.tint;
   element.style.backgroundSize = `${SHIN_SCALED_SHEET_WIDTH}px ${SHIN_SCALED_SHEET_HEIGHT}px`;
   element.style.backgroundPosition = `-${frame.col * SHIN_SCALED_CELL_WIDTH}px -${frame.row * SHIN_SCALED_CELL_HEIGHT}px`;
   element.style.backgroundImage = `url(${SHIN_SCRIPT_SPRITE.url})`;
+  element.style.maskImage = `url(${SHIN_SCRIPT_SPRITE.url})`;
+  element.style.webkitMaskImage = `url(${SHIN_SCRIPT_SPRITE.url})`;
+  element.style.maskSize = `${SHIN_SCALED_SHEET_WIDTH}px ${SHIN_SCALED_SHEET_HEIGHT}px`;
+  element.style.webkitMaskSize = `${SHIN_SCALED_SHEET_WIDTH}px ${SHIN_SCALED_SHEET_HEIGHT}px`;
+  element.style.maskPosition = `-${frame.col * SHIN_SCALED_CELL_WIDTH}px -${frame.row * SHIN_SCALED_CELL_HEIGHT}px`;
+  element.style.webkitMaskPosition = `-${frame.col * SHIN_SCALED_CELL_WIDTH}px -${frame.row * SHIN_SCALED_CELL_HEIGHT}px`;
+  element.style.maskRepeat = 'no-repeat';
+  element.style.webkitMaskRepeat = 'no-repeat';
 }
 
 /**
@@ -209,6 +220,9 @@ function renderGraphemeSprite(ctx, frame, centerX, centerY) {
     drawWidth,
     drawHeight
   );
+  ctx.globalCompositeOperation = 'source-in';
+  ctx.fillStyle = SHIN_SCRIPT_SPRITE.tint;
+  ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
   ctx.restore();
   return true;
 }
