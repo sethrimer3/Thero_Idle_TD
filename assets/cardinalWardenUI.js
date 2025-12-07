@@ -209,6 +209,8 @@ function renderGraphemeSprite(ctx, frame, centerX, centerY) {
   const sourceY = frame.row * SHIN_SCRIPT_SPRITE.cellHeight;
 
   // Use an offscreen canvas to apply the tint without affecting the main canvas
+  // Note: Creating a new canvas each time is acceptable here since grapheme drops are infrequent
+  // and the canvas is small (28x27 pixels scaled). Caching would add complexity without meaningful benefit.
   const offscreen = document.createElement('canvas');
   offscreen.width = drawWidth;
   offscreen.height = drawHeight;
