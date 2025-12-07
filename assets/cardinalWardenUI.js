@@ -722,6 +722,12 @@ function initializeDropChanceUpgradeButton() {
   });
 }
 
+// Wave start confirmation state (moved to module scope for clarity)
+let waveStartConfirmationState = {
+  showing: false,
+  originalText: ''
+};
+
 /**
  * Initialize the wave start selector.
  */
@@ -731,24 +737,20 @@ function initializeWaveStartSelector() {
   // Update the selector options based on highest wave reached
   updateWaveStartOptions();
   
-  // Track if we're showing confirmation warning
-  let showingConfirmation = false;
-  let originalButtonText = '';
-  
   // Handle apply button click with confirmation
   cardinalElements.waveStartApplyBtn.addEventListener('click', () => {
-    if (!showingConfirmation) {
+    if (!waveStartConfirmationState.showing) {
       // First click: Show warning
-      showingConfirmation = true;
-      originalButtonText = cardinalElements.waveStartApplyBtn.textContent;
+      waveStartConfirmationState.showing = true;
+      waveStartConfirmationState.originalText = cardinalElements.waveStartApplyBtn.textContent;
       cardinalElements.waveStartApplyBtn.textContent = 'Progress will be lost, confirm?';
       cardinalElements.waveStartApplyBtn.style.color = '#ff4444';
       
       // Reset after 3 seconds if not clicked again
       setTimeout(() => {
-        if (showingConfirmation) {
-          showingConfirmation = false;
-          cardinalElements.waveStartApplyBtn.textContent = originalButtonText;
+        if (waveStartConfirmationState.showing) {
+          waveStartConfirmationState.showing = false;
+          cardinalElements.waveStartApplyBtn.textContent = waveStartConfirmationState.originalText;
           cardinalElements.waveStartApplyBtn.style.color = '';
         }
       }, 3000);
@@ -757,8 +759,8 @@ function initializeWaveStartSelector() {
     }
     
     // Second click: Confirm and restart
-    showingConfirmation = false;
-    cardinalElements.waveStartApplyBtn.textContent = originalButtonText;
+    waveStartConfirmationState.showing = false;
+    cardinalElements.waveStartApplyBtn.textContent = waveStartConfirmationState.originalText;
     cardinalElements.waveStartApplyBtn.style.color = '';
     
     const selectedWave = parseInt(cardinalElements.waveStartSelect.value, 10);

@@ -2463,7 +2463,7 @@ export class CardinalWardenSimulation {
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
 
     // Visual style - accept nightMode from options or default to false (light mode)
-    this.nightMode = options.nightMode !== undefined ? Boolean(options.nightMode) : false;
+    this.nightMode = !!options.nightMode;
     this.enemyTrailQuality = options.enemyTrailQuality || 'high';
     this.bulletTrailLength = options.bulletTrailLength || 'long';
     this.bgColor = '#ffffff';
