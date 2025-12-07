@@ -208,22 +208,32 @@ function renderGraphemeSprite(ctx, frame, centerX, centerY) {
   const sourceX = frame.col * SHIN_SCRIPT_SPRITE.cellWidth;
   const sourceY = frame.row * SHIN_SCRIPT_SPRITE.cellHeight;
 
-  ctx.save();
-  ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(
+  // Use an offscreen canvas to apply the tint without affecting the main canvas
+  const offscreen = document.createElement('canvas');
+  offscreen.width = drawWidth;
+  offscreen.height = drawHeight;
+  const offCtx = offscreen.getContext('2d');
+  
+  offCtx.imageSmoothingEnabled = true;
+  offCtx.drawImage(
     shinScriptSpriteImage,
     sourceX,
     sourceY,
     SHIN_SCRIPT_SPRITE.cellWidth,
     SHIN_SCRIPT_SPRITE.cellHeight,
-    drawX,
-    drawY,
+    0,
+    0,
     drawWidth,
     drawHeight
   );
-  ctx.globalCompositeOperation = 'source-in';
-  ctx.fillStyle = SHIN_SCRIPT_SPRITE.tint;
-  ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
+  offCtx.globalCompositeOperation = 'source-in';
+  offCtx.fillStyle = SHIN_SCRIPT_SPRITE.tint;
+  offCtx.fillRect(0, 0, drawWidth, drawHeight);
+  
+  // Draw the tinted result onto the main canvas
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(offscreen, drawX, drawY);
   ctx.restore();
   return true;
 }
