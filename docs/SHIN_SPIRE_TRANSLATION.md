@@ -83,10 +83,10 @@ Each weapon has **8 slots** (indexed 0-7) where graphemes can be placed:
 
 Graphemes placed in different slots have different effects based on their slot position. The slot number directly influences the grapheme's behavior, creating a strategic positioning system where placement matters as much as selection.
 
-### ThoughtSpeak Script (Script.png)
+### ThoughtSpeak Script (Script.svg)
 
 The grapheme system uses a custom script language rendered from a sprite sheet located at:
-`/assets/sprites/spires/shinSpire/Script.png`
+`/assets/sprites/spires/shinSpire/Script.svg`
 
 #### Script Layout
 
@@ -100,7 +100,7 @@ The sprite sheet contains **34 unique characters** arranged in a **7×5 grid**:
 Each grapheme character is rendered by:
 1. Looking up the character's index (0-34)
 2. Calculating its grid position: `row = floor(index / 7)`, `col = index % 7`
-3. Drawing the corresponding sprite from Script.png at the calculated grid position
+3. Drawing the corresponding sprite from Script.svg at the calculated grid position
 4. Characters are spaced evenly and rendered in golden colors matching the game's aesthetic
 
 #### Character Properties

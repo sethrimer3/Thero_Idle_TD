@@ -498,7 +498,7 @@ export function unlockAllFractals() {
 // ============================================================
 
 /**
- * Available grapheme characters from the custom script (Script.png).
+ * Available grapheme characters from the custom script (Script.svg).
  * The script contains 35 unique characters arranged in a 7x5 grid.
  * ThoughtSpeak Language Structure:
  * - Indices 0-25: Letters A-Z (26 total) - can be collected by player and equipped to weapons

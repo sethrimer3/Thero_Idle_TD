@@ -2479,12 +2479,13 @@ export class CardinalWardenSimulation {
     this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay; // Current script tint
 
     // Script font sprite sheet for Cardinal Warden name display
-    // The sprite sheet is a 7x5 grid of characters
+    // The sprite sheet is a 7x5 grid of characters stored as an SVG for crisp scaling
     this.scriptSpriteSheet = null;
     this.scriptSpriteLoaded = false;
     this.scriptCols = 7;
     this.scriptRows = 5;
     this.tintedScriptSheet = null; // Offscreen canvas containing the colorized script sheet
+    this.scriptSpriteFallbackTried = false; // Only retry once with the legacy PNG sheet if SVG fails
     this.loadScriptSpriteSheet();
 
     // Game state
@@ -2828,17 +2829,26 @@ export class CardinalWardenSimulation {
    */
   loadScriptSpriteSheet() {
     this.scriptSpriteSheet = new Image();
+    // Explicit sizing keeps the SVG sheet aligned to the 200x190 grid cells used across the UI and canvas renderers.
+    this.scriptSpriteSheet.width = this.scriptCols * 200;
+    this.scriptSpriteSheet.height = this.scriptRows * 190;
     this.scriptSpriteSheet.onload = () => {
       this.scriptSpriteLoaded = true;
       // Immediately build a tinted sheet so the glyphs pick up the current color mode.
       this.rebuildTintedScriptSheet();
     };
     this.scriptSpriteSheet.onerror = () => {
+      if (!this.scriptSpriteFallbackTried) {
+        this.scriptSpriteFallbackTried = true;
+        console.warn('Failed to load script SVG for Cardinal Warden; trying PNG fallback.');
+        this.scriptSpriteSheet.src = './assets/sprites/spires/shinSpire/Script.png';
+        return;
+      }
       console.warn('Failed to load script sprite sheet for Cardinal Warden');
       this.tintedScriptSheet = null;
     };
     // Path is relative to the HTML page (index.html)
-    this.scriptSpriteSheet.src = './assets/sprites/spires/shinSpire/Script.png';
+    this.scriptSpriteSheet.src = './assets/sprites/spires/shinSpire/Script.svg';
   }
 
   /**
