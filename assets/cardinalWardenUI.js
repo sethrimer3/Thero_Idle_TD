@@ -34,6 +34,7 @@ import {
   returnGrapheme,
   hasAllGraphemesUnlocked,
 } from './shinState.js';
+import { getShinVisualSettings } from './shinSpirePreferences.js';
 
 // Cardinal Warden simulation instance
 let cardinalSimulation = null;
@@ -436,11 +437,15 @@ export function resizeCardinalCanvas() {
 function createCardinalSimulation() {
   if (!cardinalElements.canvas) return;
 
+  // Get current visual settings including night mode
+  const visualSettings = getShinVisualSettings();
+
   cardinalSimulation = new CardinalWardenSimulation({
     canvas: cardinalElements.canvas,
     highScore: cardinalHighScore,
     highestWave: cardinalHighestWave,
     baseHealthLevel: baseHealthLevel,
+    nightMode: visualSettings.nightMode,
     autoStart: true,
     onScoreChange: handleScoreChange,
     onHighScoreChange: handleHighScoreChange,
@@ -726,8 +731,36 @@ function initializeWaveStartSelector() {
   // Update the selector options based on highest wave reached
   updateWaveStartOptions();
   
-  // Handle apply button click
+  // Track if we're showing confirmation warning
+  let showingConfirmation = false;
+  let originalButtonText = '';
+  
+  // Handle apply button click with confirmation
   cardinalElements.waveStartApplyBtn.addEventListener('click', () => {
+    if (!showingConfirmation) {
+      // First click: Show warning
+      showingConfirmation = true;
+      originalButtonText = cardinalElements.waveStartApplyBtn.textContent;
+      cardinalElements.waveStartApplyBtn.textContent = 'Progress will be lost, confirm?';
+      cardinalElements.waveStartApplyBtn.style.color = '#ff4444';
+      
+      // Reset after 3 seconds if not clicked again
+      setTimeout(() => {
+        if (showingConfirmation) {
+          showingConfirmation = false;
+          cardinalElements.waveStartApplyBtn.textContent = originalButtonText;
+          cardinalElements.waveStartApplyBtn.style.color = '';
+        }
+      }, 3000);
+      
+      return;
+    }
+    
+    // Second click: Confirm and restart
+    showingConfirmation = false;
+    cardinalElements.waveStartApplyBtn.textContent = originalButtonText;
+    cardinalElements.waveStartApplyBtn.style.color = '';
+    
     const selectedWave = parseInt(cardinalElements.waveStartSelect.value, 10);
     if (!isNaN(selectedWave) && selectedWave >= 0) {
       startingWave = selectedWave;

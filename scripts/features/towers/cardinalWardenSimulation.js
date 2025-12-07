@@ -2462,8 +2462,8 @@ export class CardinalWardenSimulation {
     this.canvas = options.canvas || null;
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
 
-    // Visual style - pure white background, minimalist
-    this.nightMode = options.nightMode || false;
+    // Visual style - accept nightMode from options or default to false (light mode)
+    this.nightMode = options.nightMode !== undefined ? Boolean(options.nightMode) : false;
     this.enemyTrailQuality = options.enemyTrailQuality || 'high';
     this.bulletTrailLength = options.bulletTrailLength || 'long';
     this.bgColor = '#ffffff';
@@ -2644,6 +2644,9 @@ export class CardinalWardenSimulation {
     this.handlePointerDown = this.handlePointerDown.bind(this);
     this.handlePointerMove = this.handlePointerMove.bind(this);
     this.handlePointerUp = this.handlePointerUp.bind(this);
+    
+    // Bind visibility change handler
+    this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
 
     // Animation frame handle
     this.animationFrameId = null;
@@ -2949,6 +2952,7 @@ export class CardinalWardenSimulation {
     this.initWarden();
     this.applyRingColors();
     this.attachInputHandlers();
+    this.attachVisibilityHandler();
   }
 
   /**
@@ -2973,6 +2977,33 @@ export class CardinalWardenSimulation {
     this.canvas.removeEventListener('pointerup', this.handlePointerUp);
     this.canvas.removeEventListener('pointercancel', this.handlePointerUp);
     this.canvas.removeEventListener('pointerleave', this.handlePointerUp);
+  }
+
+  /**
+   * Attach visibility change handler to re-enable input when tab becomes visible.
+   */
+  attachVisibilityHandler() {
+    if (typeof document === 'undefined') return;
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+  }
+
+  /**
+   * Detach visibility change handler.
+   */
+  detachVisibilityHandler() {
+    if (typeof document === 'undefined') return;
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+  }
+
+  /**
+   * Handle visibility change events - re-attach input handlers when tab becomes visible.
+   */
+  handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+      // Re-attach input handlers when tab becomes visible
+      this.detachInputHandlers();
+      this.attachInputHandlers();
+    }
   }
 
   /**
@@ -3244,6 +3275,7 @@ export class CardinalWardenSimulation {
       this.animationFrameId = null;
     }
     this.detachInputHandlers();
+    this.detachVisibilityHandler();
   }
 
   /**
@@ -4408,8 +4440,8 @@ export class CardinalWardenSimulation {
     // Scale stats by difficulty
     const difficultyMultiplier = 1 + this.difficultyLevel * 0.15;
     
-    // Multiply base health by wave number (wave is 0-indexed, so wave+1)
-    const waveMultiplier = this.wave + 1;
+    // Additive HP scaling: each wave adds 10% more HP (1.1x, 1.2x, 1.3x... 2x at wave 10, etc.)
+    const waveMultiplier = 1 + (this.wave * 0.1);
     
     // Determine if this ship should weave (30% chance for fast/elite types)
     const canWeave = typeKey === 'fast' || typeKey === 'elite';
