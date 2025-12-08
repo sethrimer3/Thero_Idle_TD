@@ -267,6 +267,10 @@ export function applyCrystalHit(crystal, damage, options = {}) {
   if (!crystal || !Number.isFinite(damage) || damage <= 0) {
     return;
   }
+  
+  // Check if addThero is available once at the start
+  const canAwardThero = typeof this.addThero === 'function';
+  
   const position = options.position || this.getCrystalPosition(crystal);
   const radius = this.getCrystalRadius(crystal);
   const intensity = Math.min(1, damage / Math.max(1, crystal.maxIntegrity || 1));
@@ -282,11 +286,9 @@ export function applyCrystalHit(crystal, damage, options = {}) {
   }
   
   // Award Thero per hit if crystal has a multiplier
-  if (Number.isFinite(crystal.theroMultiplier) && crystal.theroMultiplier !== 0) {
+  if (canAwardThero && Number.isFinite(crystal.theroMultiplier) && crystal.theroMultiplier !== 0) {
     const theroGained = damage * crystal.theroMultiplier;
-    if (typeof this.addThero === 'function') {
-      this.addThero(theroGained);
-    }
+    this.addThero(theroGained);
   }
   
   const currentIntegrity = Number.isFinite(crystal.integrity) ? crystal.integrity : 0;
@@ -298,7 +300,7 @@ export function applyCrystalHit(crystal, damage, options = {}) {
     }
     // Award thero if the crystal has a reward
     if (Number.isFinite(crystal.theroReward) && crystal.theroReward > 0) {
-      if (typeof this.addThero === 'function') {
+      if (canAwardThero) {
         this.addThero(crystal.theroReward);
       }
       if (this.messageEl) {

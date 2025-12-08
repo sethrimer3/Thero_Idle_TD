@@ -49,7 +49,7 @@
   "_documentation": {
     "purpose": "Developer test level demonstrating all tower types and crystal mechanics",
     "mapElements": {
-      "autoAnchors": "Pre-placed tower positions showcasing one of each tower type (alpha through kappa)",
+      "autoAnchors": "Pre-placed tower positions showcasing one of each tower type (alpha through kappa). The 'type' field in autoAnchors specifies which tower to place.",
       "crystals": "Damage-to-Thero conversion crystals with various multipliers",
       "path": "Simple horizontal path for enemy movement"
     },
@@ -59,6 +59,6 @@
       "x10": "Converts damage into 10x Thero per hit",
       "x0.1": "Converts damage into 0.1x Thero per hit"
     },
-    "usage": "This level is for testing tower mechanics and crystal reward systems. Towers will not auto-place yet as the autoAnchors.type field needs implementation."
+    "usage": "This level is for testing tower mechanics and crystal reward systems. Click the Auto-Lattice button to place all towers from autoAnchors. Crystals spawn automatically when the level loads."
   }
 }
