@@ -248,6 +248,13 @@ import {
   getAchievementPowderRate,
 } from './achievementsTab.js';
 import {
+  configureBoostsSection,
+  initializeBoostsSection,
+} from './boostsSection.js';
+import {
+  loadMonetizationState,
+} from './state/monetizationState.js';
+import {
   configureFieldNotesOverlay,
   initializeFieldNotesOverlay,
   openFieldNotesOverlay,
@@ -377,6 +384,7 @@ import {
   setMoteGemAutoCollectUnlocked,
   getMoteGemColor,
   getGemSpriteAssetPath,
+  rollGemDropDefinition,
 } from './enemies.js';
 import {
   initializeCraftingOverlay,
@@ -1790,6 +1798,51 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   });
 
   configureEnemyHandlers({ queueMoteDrop, recordPowderEvent });
+
+  // Helper function to apply idle time for a specific spire (for ad boosts)
+  function applyIdleTimeToSpire(spireId, idleTimeSeconds) {
+    const idleTimeMs = idleTimeSeconds * 1000;
+    // Call notifyIdleTime which will distribute resources to all unlocked spires
+    notifyIdleTime(idleTimeMs);
+    // Record the boost event
+    recordPowderEvent('boost-applied', {
+      spireId,
+      idleTimeSeconds,
+    });
+    // Update displays
+    updateResourceRates();
+    updatePowderDisplay();
+  }
+
+  // Helper function to grant random gems (for ad boosts)
+  function grantRandomGems(count) {
+    let gemsGranted = 0;
+    // Roll for each gem according to drop chances
+    for (let i = 0; i < count; i++) {
+      const gem = rollGemDropDefinition({ hp: 1000 }); // Use moderate HP for balanced distribution
+      if (gem) {
+        const record = moteGemState.inventory.get(gem.id) || { label: gem.name, total: 0, count: 0 };
+        record.total += gem.moteSize;
+        record.count = (record.count || 0) + 1;
+        record.label = gem.name || record.label;
+        moteGemState.inventory.set(gem.id, record);
+        gemsGranted++;
+      }
+    }
+    // Update gem inventory display
+    updateMoteGemInventoryDisplay();
+    // Record the boost event
+    recordPowderEvent('boost-gems-granted', {
+      count: gemsGranted,
+    });
+    return gemsGranted;
+  }
+
+  // Configure the boosts section with dependencies
+  configureBoostsSection({
+    applyIdleTimeToSpire,
+    grantRandomGems,
+  });
 
   // Wire the standalone offline persistence helpers to the shared gameplay state and utilities.
   configureOfflinePersistence({
@@ -6161,6 +6214,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       onRequestInventoryRefresh: updateMoteGemInventoryDisplay,
     });
     bindAchievements();
+    // Initialize boosts section in achievements tab
+    loadMonetizationState();
+    initializeBoostsSection();
     updatePowderLogDisplay();
     updateResourceRates();
     updatePowderDisplay();
