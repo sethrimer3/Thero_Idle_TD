@@ -53,6 +53,12 @@
  *   - On enemy contact: explodes with circular wave
  *   - Explosion diameter: canvas.width / 10
  *   - Explosion damage: 100x base weapon damage
+ * - Grapheme 13 (N): Swarm ships - spawns tiny friendly triangles that fire green lasers
+ *   - Number of ships: (total graphemes player has) / 10, max 100
+ *   - Ships swarm randomly around player's aim target
+ *   - Fire green lasers at closest enemy to aim target
+ *   - Laser fire rate: weapon attack speed / 10
+ *   - Laser damage: weapon damage / 10
  */
 
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
@@ -75,6 +81,7 @@ const GRAPHEME_INDEX = {
   K: 10,           // Massive bullet (slots 0-6) or attack speed boost (slot 7)
   L: 11,           // Continuous beam, deactivates LEFT and RIGHT neighbors
   M: 12,           // Drifting mines that explode on contact
+  N: 13,           // Swarm ships that fire green lasers at enemies
 };
 
 /**
@@ -173,6 +180,36 @@ const MINE_CONFIG = {
   EXPLOSION_DURATION: 1.5,
   // Mine lifetime before auto-despawn (seconds)
   MINE_LIFETIME: 10,
+};
+
+/**
+ * Swarm ship mechanics constants for grapheme N (index 13).
+ * Spawns tiny friendly triangle ships that swarm around the aim target.
+ */
+const SWARM_CONFIG = {
+  // Number of ships = (total graphemes) / this divisor, max 100
+  GRAPHEME_COUNT_DIVISOR: 10,
+  // Maximum number of swarm ships
+  MAX_SWARM_SHIPS: 100,
+  // Ship size (triangle base width in pixels)
+  SHIP_SIZE: 8,
+  // Ship movement speed (pixels per second)
+  MOVEMENT_SPEED: 100,
+  // Random movement range around target (pixels)
+  SWARM_RADIUS: 80,
+  // Trail length for visual effect
+  TRAIL_LENGTH: 15,
+  // Laser fire rate divisor: weapon attack speed / this value
+  FIRE_RATE_DIVISOR: 10,
+  // Laser damage divisor: weapon damage / this value
+  DAMAGE_DIVISOR: 10,
+  // Laser speed (pixels per second)
+  LASER_SPEED: 300,
+  // Laser size (length × width in pixels)
+  LASER_LENGTH: 10,
+  LASER_WIDTH: 2,
+  // Laser color (green)
+  LASER_COLOR: '#00ff00',
 };
 
 /**
@@ -589,6 +626,187 @@ class Mine {
     ctx.beginPath();
     ctx.arc(this.x, this.y, visualSize * 0.5, 0, Math.PI * 2);
     ctx.fill();
+    
+    ctx.restore();
+  }
+}
+
+/**
+ * Represents a swarm ship spawned by grapheme N (index 13).
+ * These tiny triangle ships swarm around the player's aim target and fire green lasers.
+ */
+class SwarmShip {
+  constructor(x, y, targetX, targetY, damage, fireRate, rng) {
+    this.x = x;
+    this.y = y;
+    this.targetX = targetX;
+    this.targetY = targetY;
+    this.damage = damage;
+    this.fireRate = fireRate; // Time between shots in milliseconds
+    this.rng = rng;
+    
+    // Visual properties
+    this.size = SWARM_CONFIG.SHIP_SIZE;
+    this.color = '#88ff88'; // Light green color for the ship
+    this.headingAngle = 0;
+    
+    // Movement behavior - swarm randomly around target
+    this.swarmOffsetAngle = rng.range(0, Math.PI * 2);
+    this.swarmOffsetDistance = rng.range(0, SWARM_CONFIG.SWARM_RADIUS);
+    this.swarmRotationSpeed = rng.range(0.5, 1.5); // Radians per second
+    this.swarmRotationDirection = rng.next() > 0.5 ? 1 : -1;
+    
+    // Trail for visual effect
+    this.trail = [];
+    this.maxTrailLength = SWARM_CONFIG.TRAIL_LENGTH;
+    
+    // Firing timer
+    this.fireTimer = 0;
+  }
+  
+  update(deltaTime, targetX, targetY) {
+    const dt = deltaTime / 1000; // Convert to seconds
+    
+    // Update target position
+    this.targetX = targetX;
+    this.targetY = targetY;
+    
+    // Update swarm rotation
+    this.swarmOffsetAngle += this.swarmRotationSpeed * this.swarmRotationDirection * dt;
+    
+    // Calculate desired position around target
+    const desiredX = this.targetX + Math.cos(this.swarmOffsetAngle) * this.swarmOffsetDistance;
+    const desiredY = this.targetY + Math.sin(this.swarmOffsetAngle) * this.swarmOffsetDistance;
+    
+    // Move toward desired position
+    const dx = desiredX - this.x;
+    const dy = desiredY - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    if (dist > 1) {
+      const dirX = dx / dist;
+      const dirY = dy / dist;
+      this.x += dirX * SWARM_CONFIG.MOVEMENT_SPEED * dt;
+      this.y += dirY * SWARM_CONFIG.MOVEMENT_SPEED * dt;
+      
+      // Update heading based on movement
+      this.headingAngle = Math.atan2(dy, dx);
+    }
+    
+    // Update trail
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > this.maxTrailLength) {
+      this.trail.shift();
+    }
+    
+    // Update fire timer
+    this.fireTimer += deltaTime;
+  }
+  
+  /**
+   * Check if the ship is ready to fire.
+   */
+  canFire() {
+    return this.fireTimer >= this.fireRate;
+  }
+  
+  /**
+   * Reset the fire timer after firing.
+   */
+  resetFireTimer() {
+    this.fireTimer = 0;
+  }
+  
+  /**
+   * Render the swarm ship as a triangle with a thin trail.
+   */
+  render(ctx) {
+    // Draw trail
+    if (this.trail.length > 1) {
+      ctx.save();
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath();
+      ctx.moveTo(this.trail[0].x, this.trail[0].y);
+      for (let i = 1; i < this.trail.length; i++) {
+        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    
+    // Draw triangle ship
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.headingAngle);
+    
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.moveTo(this.size / 2, 0); // Tip of triangle (pointing right when angle is 0)
+    ctx.lineTo(-this.size / 2, -this.size / 3);
+    ctx.lineTo(-this.size / 2, this.size / 3);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.restore();
+  }
+}
+
+/**
+ * Represents a laser projectile fired by swarm ships.
+ */
+class SwarmLaser {
+  constructor(x, y, targetX, targetY, damage, color) {
+    this.x = x;
+    this.y = y;
+    this.damage = damage;
+    this.color = color || SWARM_CONFIG.LASER_COLOR;
+    
+    // Calculate direction toward target
+    const dx = targetX - x;
+    const dy = targetY - y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    if (dist > 0) {
+      this.vx = (dx / dist) * SWARM_CONFIG.LASER_SPEED;
+      this.vy = (dy / dist) * SWARM_CONFIG.LASER_SPEED;
+    } else {
+      this.vx = 0;
+      this.vy = -SWARM_CONFIG.LASER_SPEED; // Default upward
+    }
+    
+    this.angle = Math.atan2(this.vy, this.vx);
+    this.length = SWARM_CONFIG.LASER_LENGTH;
+    this.width = SWARM_CONFIG.LASER_WIDTH;
+  }
+  
+  update(deltaTime) {
+    const dt = deltaTime / 1000; // Convert to seconds
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+  }
+  
+  isOffscreen(width, height) {
+    return this.x < -this.length || this.x > width + this.length ||
+           this.y < -this.length || this.y > height + this.length;
+  }
+  
+  render(ctx) {
+    ctx.save();
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = this.width;
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.9;
+    
+    // Draw laser as a line
+    const endX = this.x + Math.cos(this.angle) * this.length;
+    const endY = this.y + Math.sin(this.angle) * this.length;
+    
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
     
     ctx.restore();
   }
@@ -2515,6 +2733,8 @@ export class CardinalWardenSimulation {
     this.expandingWaves = []; // Expanding damage waves spawned by grapheme G (index 6)
     this.beams = []; // Continuous beams from grapheme L (index 11)
     this.mines = []; // Drifting mines from grapheme M (index 12)
+    this.swarmShips = []; // Swarm ships from grapheme N (index 13)
+    this.swarmLasers = []; // Lasers fired by swarm ships
 
     // Base health upgrade system (can be upgraded with iterons)
     this.baseHealthLevel = options.baseHealthLevel || 0;
@@ -3311,6 +3531,8 @@ export class CardinalWardenSimulation {
     this.friendlyShips = [];
     this.expandingWaves = [];
     this.beams = [];
+    this.swarmShips = [];
+    this.swarmLasers = [];
     this.enemySpawnTimer = 0;
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
@@ -3442,6 +3664,9 @@ export class CardinalWardenSimulation {
 
     // Update friendly ships
     this.updateFriendlyShips(deltaTime);
+    
+    // Update swarm ships
+    this.updateSwarmShips(deltaTime);
 
     // Update enemies
     this.updateEnemies(deltaTime);
@@ -4275,6 +4500,245 @@ export class CardinalWardenSimulation {
     const shipIndices = Array.from(shipsToRemove).sort((a, b) => b - a);
     for (const i of shipIndices) {
       this.friendlyShips.splice(i, 1);
+    }
+    
+    // Notify about enemy kills for grapheme drops
+    if (this.onEnemyKill && killedEnemyPositions.length > 0) {
+      for (const killPos of killedEnemyPositions) {
+        this.onEnemyKill(killPos.x, killPos.y, killPos.isBoss);
+      }
+    }
+  }
+  
+  /**
+   * Update swarm ships from grapheme N (index 13).
+   * Number of ships = (total graphemes) / 10, max 100.
+   */
+  updateSwarmShips(deltaTime) {
+    if (!this.warden || !this.canvas) return;
+    
+    // Check if any weapon has grapheme N (index 13)
+    let hasSwarmGrapheme = false;
+    let weaponDamage = 1;
+    let weaponFireRate = 500; // Default fire rate in milliseconds
+    
+    for (const weaponId of this.weapons.equipped) {
+      const assignments = this.weaponGraphemeAssignments[weaponId] || [];
+      const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
+      const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
+      
+      for (const assignment of effectiveAssignments) {
+        if (assignment && assignment.index === GRAPHEME_INDEX.N) {
+          hasSwarmGrapheme = true;
+          
+          // Calculate weapon stats
+          const level = this.weapons.levels[weaponId] || 1;
+          let damageMultiplier = 1 + (level - 1) * 0.25;
+          
+          // Check for first grapheme damage multiplier
+          for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+            const a = effectiveAssignments[slotIndex];
+            if (a && a.index === 0) {
+              const sidesMap = [3, 5, 6, 7, 8, 9, 10, 11];
+              const bulletShape = sidesMap[slotIndex] !== undefined ? sidesMap[slotIndex] : Math.max(3, slotIndex + 3);
+              damageMultiplier *= bulletShape;
+              break;
+            }
+          }
+          
+          weaponDamage = Math.max(weaponDamage, weaponDef.baseDamage * damageMultiplier * this.upgrades.bulletDamage);
+          
+          // Calculate fire rate
+          const fireRateMultiplier = this.calculateFireRateMultiplier(effectiveAssignments);
+          const attackSpeed = this.calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier);
+          weaponFireRate = Math.min(weaponFireRate, 1000 / attackSpeed); // Convert to milliseconds
+          
+          break; // Only use the first weapon with grapheme N
+        }
+      }
+      
+      if (hasSwarmGrapheme) break;
+    }
+    
+    if (!hasSwarmGrapheme) {
+      // No swarm grapheme - clear all swarm ships and lasers
+      this.swarmShips = [];
+      this.swarmLasers = [];
+      return;
+    }
+    
+    // Calculate number of swarm ships based on total grapheme count
+    let totalGraphemes = 0;
+    for (const count of Object.values(this.graphemeInventoryCounts)) {
+      totalGraphemes += count;
+    }
+    
+    const maxShips = Math.min(
+      Math.floor(totalGraphemes / SWARM_CONFIG.GRAPHEME_COUNT_DIVISOR),
+      SWARM_CONFIG.MAX_SWARM_SHIPS
+    );
+    
+    // Default target position (aim target or screen center)
+    const targetX = this.aimTarget ? this.aimTarget.x : this.canvas.width / 2;
+    const targetY = this.aimTarget ? this.aimTarget.y : this.canvas.height / 4;
+    
+    // Spawn ships if we have less than max
+    while (this.swarmShips.length < maxShips) {
+      const angle = this.rng.range(0, Math.PI * 2);
+      const radius = this.rng.range(0, SWARM_CONFIG.SWARM_RADIUS);
+      const x = targetX + Math.cos(angle) * radius;
+      const y = targetY + Math.sin(angle) * radius;
+      
+      // Swarm ships fire at 1/10th weapon attack speed with 1/10th damage
+      const swarmDamage = weaponDamage / SWARM_CONFIG.DAMAGE_DIVISOR;
+      const swarmFireRate = weaponFireRate * SWARM_CONFIG.FIRE_RATE_DIVISOR;
+      
+      this.swarmShips.push(new SwarmShip(x, y, targetX, targetY, swarmDamage, swarmFireRate, this.rng));
+    }
+    
+    // Remove excess ships if max decreased
+    while (this.swarmShips.length > maxShips) {
+      this.swarmShips.pop();
+    }
+    
+    // Update all swarm ships
+    for (const ship of this.swarmShips) {
+      ship.update(deltaTime, targetX, targetY);
+      
+      // Check if ship can fire
+      if (ship.canFire() && (this.enemies.length > 0 || this.bosses.length > 0)) {
+        // Find closest enemy to the aim target
+        let closestEnemy = null;
+        let closestDist = Infinity;
+        
+        for (const enemy of this.enemies) {
+          const dx = enemy.x - targetX;
+          const dy = enemy.y - targetY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestEnemy = enemy;
+          }
+        }
+        
+        for (const boss of this.bosses) {
+          const dx = boss.x - targetX;
+          const dy = boss.y - targetY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestEnemy = boss;
+          }
+        }
+        
+        // Fire laser at closest enemy
+        if (closestEnemy) {
+          const laser = new SwarmLaser(ship.x, ship.y, closestEnemy.x, closestEnemy.y, ship.damage, SWARM_CONFIG.LASER_COLOR);
+          this.swarmLasers.push(laser);
+          ship.resetFireTimer();
+        }
+      }
+    }
+    
+    // Update swarm lasers
+    for (let i = this.swarmLasers.length - 1; i >= 0; i--) {
+      const laser = this.swarmLasers[i];
+      laser.update(deltaTime);
+      
+      // Remove if offscreen
+      if (laser.isOffscreen(this.canvas.width, this.canvas.height)) {
+        this.swarmLasers.splice(i, 1);
+      }
+    }
+    
+    // Check laser collisions with enemies
+    this.checkSwarmLaserCollisions();
+  }
+  
+  /**
+   * Check collisions between swarm lasers and enemies.
+   */
+  checkSwarmLaserCollisions() {
+    const lasersToRemove = new Set();
+    const enemiesToRemove = new Set();
+    const bossesToRemove = new Set();
+    const killedEnemyPositions = [];
+    
+    for (let li = 0; li < this.swarmLasers.length; li++) {
+      const laser = this.swarmLasers[li];
+      if (lasersToRemove.has(li)) continue;
+      
+      // Check collision with regular enemies
+      for (let ei = 0; ei < this.enemies.length; ei++) {
+        const enemy = this.enemies[ei];
+        if (enemiesToRemove.has(ei)) continue;
+        
+        const dx = laser.x - enemy.x;
+        const dy = laser.y - enemy.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < enemy.size + laser.width) {
+          // Hit!
+          this.spawnDamageNumber(enemy.x, enemy.y, laser.damage);
+          const killed = enemy.takeDamage(laser.damage);
+          
+          if (killed) {
+            enemiesToRemove.add(ei);
+            this.addScore(enemy.scoreValue);
+            this.spawnScorePopup(enemy.x, enemy.y, enemy.scoreValue);
+            killedEnemyPositions.push({ x: enemy.x, y: enemy.y, isBoss: false });
+          }
+          
+          lasersToRemove.add(li);
+          break;
+        }
+      }
+      
+      // Check collision with bosses
+      if (!lasersToRemove.has(li)) {
+        for (let bi = 0; bi < this.bosses.length; bi++) {
+          const boss = this.bosses[bi];
+          if (bossesToRemove.has(bi)) continue;
+          
+          const dx = laser.x - boss.x;
+          const dy = laser.y - boss.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < boss.size + laser.width) {
+            // Hit!
+            this.spawnDamageNumber(boss.x, boss.y, laser.damage);
+            const killed = boss.takeDamage(laser.damage);
+            
+            if (killed) {
+              bossesToRemove.add(bi);
+              this.addScore(boss.scoreValue);
+              this.spawnScorePopup(boss.x, boss.y, boss.scoreValue);
+              killedEnemyPositions.push({ x: boss.x, y: boss.y, isBoss: true });
+            }
+            
+            lasersToRemove.add(li);
+            break;
+          }
+        }
+      }
+    }
+    
+    // Remove dead enemies
+    const enemyIndices = Array.from(enemiesToRemove).sort((a, b) => b - a);
+    for (const i of enemyIndices) {
+      this.enemies.splice(i, 1);
+    }
+    
+    // Remove dead bosses
+    const bossIndices = Array.from(bossesToRemove).sort((a, b) => b - a);
+    for (const i of bossIndices) {
+      this.bosses.splice(i, 1);
+    }
+    
+    // Remove hit lasers
+    const laserIndices = Array.from(lasersToRemove).sort((a, b) => b - a);
+    for (const i of laserIndices) {
+      this.swarmLasers.splice(i, 1);
     }
     
     // Notify about enemy kills for grapheme drops
@@ -5551,6 +6015,9 @@ export class CardinalWardenSimulation {
         this.renderWeaponTargets();
         // Draw friendly ships
         this.renderFriendlyShips();
+        // Draw swarm ships and lasers
+        this.renderSwarmShips();
+        this.renderSwarmLasers();
         // Draw enemies
         this.renderEnemies();
         // Draw bosses
@@ -6556,6 +7023,28 @@ export class CardinalWardenSimulation {
     
     for (const mine of this.mines) {
       mine.render(this.ctx);
+    }
+  }
+  
+  /**
+   * Render all swarm ships from grapheme N (index 13).
+   */
+  renderSwarmShips() {
+    if (!this.ctx || !this.swarmShips || this.swarmShips.length === 0) return;
+    
+    for (const ship of this.swarmShips) {
+      ship.render(this.ctx);
+    }
+  }
+  
+  /**
+   * Render all swarm lasers from grapheme N (index 13).
+   */
+  renderSwarmLasers() {
+    if (!this.ctx || !this.swarmLasers || this.swarmLasers.length === 0) return;
+    
+    for (const laser of this.swarmLasers) {
+      laser.render(this.ctx);
     }
   }
 
