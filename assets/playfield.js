@@ -5038,7 +5038,9 @@ export class SimplePlayfield {
       return false;
     }
 
-    if (!this.availableTowers.includes(selectedType)) {
+    // Allow autoAnchors with explicit tower types to bypass loadout restrictions
+    const isAutoAnchorPlacement = towerType && options.silent;
+    if (!isAutoAnchorPlacement && !this.availableTowers.includes(selectedType)) {
       if (this.messageEl && !silent) {
         this.messageEl.textContent = `${definition.symbol} is not prepared in your loadout.`;
       }
