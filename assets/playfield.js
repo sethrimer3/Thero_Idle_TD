@@ -343,6 +343,10 @@ export class SimplePlayfield {
     this.pathSegments = [];
     this.pathPoints = [];
     this.pathLength = 0;
+    // Support for second path (e.g., for imaginary-negative-i enemies)
+    this.path2Segments = [];
+    this.path2Points = [];
+    this.path2Length = 0;
     // Store both the ambient river particles and the luminous tracer sparks.
     this.trackRiverParticles = [];
     this.trackRiverTracerParticles = [];
@@ -1973,6 +1977,46 @@ export class SimplePlayfield {
     this.pathPoints = smoothPoints;
     this.pathSegments = segments;
     this.pathLength = totalLength || 1;
+    
+    // Build path2 if it exists (for boss levels with multiple paths)
+    if (Array.isArray(this.levelConfig.path2) && this.levelConfig.path2.length >= 2) {
+      const points2 = this.levelConfig.path2.map((node) => ({
+        x: node.x * this.renderWidth,
+        y: node.y * this.renderHeight,
+        speedMultiplier: Number.isFinite(node.speedMultiplier) ? node.speedMultiplier : 1,
+      }));
+      
+      const smoothPoints2 = this.generateSmoothPathPoints(points2, 14);
+      
+      const segments2 = [];
+      let totalLength2 = 0;
+      for (let index = 0; index < smoothPoints2.length - 1; index += 1) {
+        const start = smoothPoints2[index];
+        const end = smoothPoints2[index + 1];
+        const length = this.distanceBetween(start, end);
+        
+        let speedMultiplier = 1;
+        if (Number.isFinite(start.speedMultiplier) && Number.isFinite(end.speedMultiplier)) {
+          speedMultiplier = (start.speedMultiplier + end.speedMultiplier) / 2;
+        } else if (Number.isFinite(start.speedMultiplier)) {
+          speedMultiplier = start.speedMultiplier;
+        } else if (Number.isFinite(end.speedMultiplier)) {
+          speedMultiplier = end.speedMultiplier;
+        }
+        
+        segments2.push({ start, end, length, speedMultiplier });
+        totalLength2 += length;
+      }
+      
+      this.path2Points = smoothPoints2;
+      this.path2Segments = segments2;
+      this.path2Length = totalLength2 || 1;
+    } else {
+      this.path2Segments = [];
+      this.path2Points = [];
+      this.path2Length = 0;
+    }
+    
     this.initializeTrackRiverParticles();
   }
 
@@ -6440,17 +6484,21 @@ export class SimplePlayfield {
     return Math.hypot(point.x - projX, point.y - projY);
   }
 
-  getPositionAlongPath(progress) {
-    if (!this.pathSegments.length || !Number.isFinite(this.pathLength) || this.pathLength <= 0) {
+  getPositionAlongPath(progress, pathIndex = 0) {
+    // Select the appropriate path based on pathIndex (0 for main path, 1 for path2)
+    const segments = pathIndex === 1 ? this.path2Segments : this.pathSegments;
+    const pathLength = pathIndex === 1 ? this.path2Length : this.pathLength;
+    
+    if (!segments.length || !Number.isFinite(pathLength) || pathLength <= 0) {
       return null;
     }
 
     const clamped = Number.isFinite(progress) ? Math.max(0, Math.min(1, progress)) : 0;
-    const targetDistance = clamped * this.pathLength;
+    const targetDistance = clamped * pathLength;
     let traversed = 0;
 
-    for (let index = 0; index < this.pathSegments.length; index += 1) {
-      const segment = this.pathSegments[index];
+    for (let index = 0; index < segments.length; index += 1) {
+      const segment = segments[index];
       const length = Number.isFinite(segment.length)
         ? segment.length
         : this.distanceBetween(segment.start, segment.end);
@@ -6458,7 +6506,7 @@ export class SimplePlayfield {
         continue;
       }
       const next = traversed + length;
-      if (targetDistance <= next || index === this.pathSegments.length - 1) {
+      if (targetDistance <= next || index === segments.length - 1) {
         const ratio = Math.max(0, Math.min(1, (targetDistance - traversed) / length));
         const x = segment.start.x + (segment.end.x - segment.start.x) * ratio;
         const y = segment.start.y + (segment.end.y - segment.start.y) * ratio;
@@ -6468,7 +6516,7 @@ export class SimplePlayfield {
       traversed = next;
     }
 
-    const fallbackSegment = this.pathSegments[this.pathSegments.length - 1];
+    const fallbackSegment = segments[segments.length - 1];
     if (!fallbackSegment) {
       return null;
     }
@@ -7452,6 +7500,11 @@ export class SimplePlayfield {
         polygonSides,
         hpExponent,
         gemDropMultiplier,
+        enemyType: spawnConfig.enemyType || null,
+        pathIndex: Number.isFinite(spawnConfig.pathIndex) ? spawnConfig.pathIndex : 0,
+        phaseTime: 0,
+        phaseOpacity: 1,
+        isPhased: false,
       };
       if (spawningBoss) {
         enemy.isBoss = true;
@@ -8126,6 +8179,11 @@ export class SimplePlayfield {
     if (!enemy || !Number.isFinite(baseDamage) || baseDamage <= 0) {
       return 0;
     }
+    
+    // Imaginary enemies cannot take damage when phased out
+    if (enemy.isPhased) {
+      return 0;
+    }
     const mitigatedBase = this.applyDerivativeShieldMitigation(enemy, baseDamage);
     const multiplier = this.computeEnemyDamageMultiplier(enemy);
     const applied = mitigatedBase * multiplier;
@@ -8438,6 +8496,24 @@ export class SimplePlayfield {
       }
       if (!Number.isFinite(enemy.baseSpeed)) {
         enemy.baseSpeed = Number.isFinite(enemy.speed) ? enemy.speed : 0;
+      }
+      
+      // Update phasing for imaginary enemies (i and -i)
+      if (enemy.enemyType === 'imaginary-i' || enemy.enemyType === 'imaginary-negative-i') {
+        enemy.phaseTime = (enemy.phaseTime || 0) + delta;
+        const phaseFrequency = 0.5; // Phase period of 2 seconds (omega = pi)
+        const phaseAngle = enemy.phaseTime * Math.PI * phaseFrequency;
+        
+        // i enemies use cos, -i enemies use -cos (pi out of phase)
+        const phaseFactor = enemy.enemyType === 'imaginary-i' 
+          ? Math.cos(phaseAngle) 
+          : -Math.cos(phaseAngle);
+        
+        // Opacity from 0 (fully phased out) to 1 (fully materialized)
+        enemy.phaseOpacity = (1 + phaseFactor) / 2;
+        
+        // Enemy is considered phased out (invulnerable) when opacity < 0.5
+        enemy.isPhased = enemy.phaseOpacity < 0.5;
       }
       if (enemy.damageAmplifiers instanceof Map) {
         const expired = [];
@@ -9725,16 +9801,20 @@ export class SimplePlayfield {
     };
   }
 
-  getPointAlongPath(progress) {
-    if (!this.pathSegments.length) {
+  getPointAlongPath(progress, pathIndex = 0) {
+    // Select the appropriate path based on pathIndex
+    const segments = pathIndex === 1 ? this.path2Segments : this.pathSegments;
+    const pathLength = pathIndex === 1 ? this.path2Length : this.pathLength;
+    
+    if (!segments.length) {
       return { x: 0, y: 0 };
     }
 
-    const target = Math.min(progress, 1) * this.pathLength;
+    const target = Math.min(progress, 1) * pathLength;
     let traversed = 0;
 
-    for (let index = 0; index < this.pathSegments.length; index += 1) {
-      const segment = this.pathSegments[index];
+    for (let index = 0; index < segments.length; index += 1) {
+      const segment = segments[index];
       if (traversed + segment.length >= target) {
         const ratio = segment.length > 0 ? (target - traversed) / segment.length : 0;
         return {
@@ -9745,7 +9825,7 @@ export class SimplePlayfield {
       traversed += segment.length;
     }
 
-    const lastSegment = this.pathSegments[this.pathSegments.length - 1];
+    const lastSegment = segments[segments.length - 1];
     return lastSegment ? { ...lastSegment.end } : { x: 0, y: 0 };
   }
 
@@ -9778,10 +9858,14 @@ export class SimplePlayfield {
     if (!enemy) {
       return { x: 0, y: 0 };
     }
+    
+    // Use pathIndex to select the correct path (for multi-path boss levels)
+    const pathIndex = Number.isFinite(enemy.pathIndex) ? enemy.pathIndex : 0;
+    const segments = pathIndex === 1 ? this.path2Segments : this.pathSegments;
 
-    if (enemy.pathMode === 'direct' && this.pathSegments.length) {
-      const startSegment = this.pathSegments[0];
-      const endSegment = this.pathSegments[this.pathSegments.length - 1];
+    if (enemy.pathMode === 'direct' && segments.length) {
+      const startSegment = segments[0];
+      const endSegment = segments[segments.length - 1];
       const start = startSegment ? startSegment.start : { x: 0, y: 0 };
       const end = endSegment ? endSegment.end : start;
       const clamped = Math.max(0, Math.min(1, enemy.progress));
@@ -9791,7 +9875,7 @@ export class SimplePlayfield {
       };
     }
 
-    return this.getPointAlongPath(enemy.progress);
+    return this.getPointAlongPath(enemy.progress, pathIndex);
   }
 
   draw() {
