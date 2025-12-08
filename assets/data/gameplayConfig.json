@@ -226,36 +226,6 @@
       "lore": "Their sigils sketch partial derivatives across the lane, bending trajectories until only an infinitesimal puncture remains.",
       "formula": "(D_{n+1} = 0.5^{n+1} D_0)",
       "formulaLabel": "Diminishing Derivative"
-    },
-    {
-      "id": "imaginary-i",
-      "symbol": "i",
-      "name": "Imaginary Unit i",
-      "summary": "Positive imaginary constructs that phase in and out of existence on the complex plane.",
-      "traits": [
-        "Fade between real and imaginary states with period \u03c4; only vulnerable when manifested in the real plane.",
-        "Follow invisible paths while phased out, immune to all damage and detection until materialization.",
-        "Phase cycle: (\\cos(\\omega t)) determines visibility and vulnerability, with period (2\\pi / \\omega)."
-      ],
-      "counter": "Time your attacks to strike when they materialize; rapid-fire towers can catch multiple phase windows.",
-      "lore": "Blue-violet phantoms that flicker like quantum probability, existing and not existing in superposition.",
-      "formula": "(\\alpha(t) = \\frac{1 + \\cos(\\omega t)}{2})",
-      "formulaLabel": "Phase Function"
-    },
-    {
-      "id": "imaginary-negative-i",
-      "symbol": "-i",
-      "name": "Imaginary Unit -i",
-      "summary": "Negative imaginary constructs that phase opposite to their positive counterparts.",
-      "traits": [
-        "Fade between real and imaginary states \\pi radians out of phase with i units.",
-        "Follow separate invisible paths while maintaining the same phase mechanics.",
-        "Phase cycle: (-\\cos(\\omega t)) ensures they never materialize simultaneously with i units."
-      ],
-      "counter": "Coordinate defenses to handle alternating materializations; both paths must be covered.",
-      "lore": "Crimson-orange phantoms that materialize when their counterparts vanish, completing the complex dance.",
-      "formula": "(\\alpha(t) = \\frac{1 - \\cos(\\omega t)}{2})",
-      "formulaLabel": "Inverse Phase"
     }
   ],
   "maps": [
@@ -343,17 +313,15 @@
     },
     {
       "set": "Conjecture",
-      "id": "Conjecture - Boss",
+      "id": "Conjecture - Secret",
       "campaign": "Story",
-      "title": "Imaginary Plane",
-      "path": "Enemies fade in and out of existence on an imaginary plane with no visible track.",
-      "focus": "i and -i enemies phase between real and imaginary states\u2014time your strikes when they're tangible.",
-      "example": "Boss Level: Complex numbers dance across invisible paths, vulnerable only when materialized.",
-      "isBossLevel": true,
-      "hideTrack": true
+      "title": "Apocrypha Loop",
+      "path": "Hidden lemniscate mirrored through complex planes; portals bloom off-axis.",
+      "focus": "Only reveals during total glyph alignment\u2014expect mixed archetypes in waves.",
+      "example": "Secret Lemma: When harmonic sums stabilize, an unseen proof thread emerges from the void."
     },
     {
-      "set": "Corollary",
+      "set": "Level Set 2",
       "id": "level-06-trefoil",
       "campaign": "Story",
       "title": "Trefoil",
@@ -362,7 +330,7 @@
       "example": "Three-lobed path with symmetry"
     },
     {
-      "set": "Corollary",
+      "set": "Level Set 2",
       "id": "level-07-rose-curve",
       "campaign": "Story",
       "title": "Rose Curve",
@@ -371,7 +339,7 @@
       "example": "Petal pattern with multiple lobes"
     },
     {
-      "set": "Corollary",
+      "set": "Level Set 2",
       "id": "level-08-astroid",
       "campaign": "Story",
       "title": "Astroid",
@@ -380,7 +348,7 @@
       "example": "Four-cusped hypocycloid path"
     },
     {
-      "set": "Corollary",
+      "set": "Level Set 2",
       "id": "level-09-deltoid",
       "campaign": "Story",
       "title": "Deltoid",
@@ -389,7 +357,7 @@
       "example": "Three-cusped curve with sharp turns"
     },
     {
-      "set": "Corollary",
+      "set": "Level Set 2",
       "id": "level-10-nephroid",
       "campaign": "Story",
       "title": "Nephroid",
@@ -399,7 +367,7 @@
     },
     {
       "set": "Corollary",
-      "id": "Corollary - 6",
+      "id": "Corollary - Secret",
       "campaign": "Story",
       "title": "Shadow Integral",
       "path": "Phase-shifted archipelago of calculus islands hidden beneath modular petals.",
@@ -407,7 +375,7 @@
       "example": "Secret Corollary: The boundary integral of concealed paths equals interior flux you never saw."
     },
     {
-      "set": "Lemma",
+      "set": "Level Set 3",
       "campaign": "Story",
       "id": "level-11-lissajous",
       "title": "Lissajous",
@@ -416,7 +384,7 @@
       "example": "Parametric curve with harmonic oscillation"
     },
     {
-      "set": "Lemma",
+      "set": "Level Set 3",
       "campaign": "Story",
       "id": "level-12-epicycloid",
       "title": "Epicycloid",
@@ -425,7 +393,7 @@
       "example": "Rolling circle traced path"
     },
     {
-      "set": "Lemma",
+      "set": "Level Set 3",
       "campaign": "Story",
       "id": "level-13-hypocycloid",
       "title": "Hypocycloid",
@@ -434,7 +402,7 @@
       "example": "Inner rolling circle path"
     },
     {
-      "set": "Lemma",
+      "set": "Level Set 3",
       "campaign": "Story",
       "id": "level-14-rhodonea",
       "title": "Rhodonea",
@@ -443,7 +411,7 @@
       "example": "Rose curve with prime petals"
     },
     {
-      "set": "Lemma",
+      "set": "Level Set 3",
       "campaign": "Story",
       "id": "level-15-butterfly",
       "title": "Butterfly",
@@ -452,7 +420,7 @@
       "example": "Transcendental butterfly curve"
     },
     {
-      "set": "Theorem",
+      "set": "Level Set 4",
       "id": "level-16-double-spiral",
       "title": "Double Spiral",
       "path": "Dual spirals converging to center",
@@ -461,7 +429,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Theorem",
+      "set": "Level Set 4",
       "id": "level-17-conchoid",
       "title": "Conchoid",
       "path": "Shell-like curved path",
@@ -470,7 +438,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Theorem",
+      "set": "Level Set 4",
       "id": "level-18-cissoid",
       "title": "Cissoid",
       "path": "Ivy-leaf shaped curve",
@@ -479,7 +447,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Theorem",
+      "set": "Level Set 4",
       "id": "level-19-trisectrix",
       "title": "Trisectrix",
       "path": "Angle trisection curve",
@@ -488,7 +456,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Theorem",
+      "set": "Level Set 4",
       "id": "level-20-witch-of-agnesi",
       "title": "Witch of Agnesi",
       "path": "Bell-shaped versiera curve",
@@ -497,7 +465,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Axiom",
+      "set": "Level Set 5",
       "id": "level-21-serpentine",
       "title": "Serpentine",
       "path": "Snake-like oscillating path",
@@ -506,7 +474,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Axiom",
+      "set": "Level Set 5",
       "id": "level-22-kampyle",
       "title": "Kampyle",
       "path": "Curved euthymia path",
@@ -515,7 +483,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Axiom",
+      "set": "Level Set 5",
       "id": "level-23-folium",
       "title": "Folium",
       "path": "Descartes folium with loop",
@@ -524,7 +492,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Axiom",
+      "set": "Level Set 5",
       "id": "level-24-strophoid",
       "title": "Strophoid",
       "path": "Twisted loop path",
@@ -533,7 +501,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Axiom",
+      "set": "Level Set 5",
       "id": "level-25-cochleoid",
       "title": "Cochleoid",
       "path": "Spiral shell curve",
@@ -542,7 +510,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Proposition",
+      "set": "Level Set 6",
       "id": "level-26-tractrix",
       "title": "Tractrix",
       "path": "Pursuit curve path",
@@ -551,7 +519,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Proposition",
+      "set": "Level Set 6",
       "id": "level-27-catenary",
       "title": "Catenary",
       "path": "Hanging chain curve",
@@ -560,7 +528,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Proposition",
+      "set": "Level Set 6",
       "id": "level-28-cycloid",
       "title": "Cycloid",
       "path": "Rolling wheel traced path",
@@ -569,7 +537,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Proposition",
+      "set": "Level Set 6",
       "id": "level-29-involute",
       "title": "Involute",
       "path": "Unwrapping string curve",
@@ -578,7 +546,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Proposition",
+      "set": "Level Set 6",
       "id": "level-30-evolute",
       "title": "Evolute",
       "path": "Center of curvature path",
@@ -7192,172 +7160,6 @@
           "y": 0.28
         }
       ]
-    },
-    {
-      "id": "Conjecture - Boss",
-      "displayName": "Imaginary Plane",
-      "startThero": 200,
-      "theroCap": 500,
-      "theroPerKill": 10,
-      "passiveTheroPerSecond": 5,
-      "lives": 10,
-      "hideTrack": true,
-      "isBossLevel": true,
-      "waves": [
-        {
-          "label": "imaginary phase 1",
-          "enemyGroups": [
-            {
-              "count": 3,
-              "interval": 2.5,
-              "hp": 500,
-              "speed": 0.06,
-              "reward": 15,
-              "color": "rgba(120, 100, 255, 0.88)",
-              "codexId": "imaginary-i",
-              "symbol": "i",
-              "enemyType": "imaginary-i",
-              "pathIndex": 0
-            },
-            {
-              "count": 3,
-              "interval": 2.5,
-              "hp": 500,
-              "speed": 0.06,
-              "reward": 15,
-              "color": "rgba(255, 100, 120, 0.88)",
-              "codexId": "imaginary-negative-i",
-              "symbol": "-i",
-              "enemyType": "imaginary-negative-i",
-              "pathIndex": 1
-            }
-          ]
-        },
-        {
-          "label": "complex convergence",
-          "enemyGroups": [
-            {
-              "count": 5,
-              "interval": 2.0,
-              "hp": 800,
-              "speed": 0.07,
-              "reward": 20,
-              "color": "rgba(120, 100, 255, 0.88)",
-              "codexId": "imaginary-i",
-              "symbol": "i",
-              "enemyType": "imaginary-i",
-              "pathIndex": 0
-            },
-            {
-              "count": 5,
-              "interval": 2.0,
-              "hp": 800,
-              "speed": 0.07,
-              "reward": 20,
-              "color": "rgba(255, 100, 120, 0.88)",
-              "codexId": "imaginary-negative-i",
-              "symbol": "-i",
-              "enemyType": "imaginary-negative-i",
-              "pathIndex": 1
-            }
-          ]
-        },
-        {
-          "label": "phase chaos",
-          "enemyGroups": [
-            {
-              "count": 8,
-              "interval": 1.5,
-              "hp": 1200,
-              "speed": 0.08,
-              "reward": 25,
-              "color": "rgba(120, 100, 255, 0.88)",
-              "codexId": "imaginary-i",
-              "symbol": "i",
-              "enemyType": "imaginary-i",
-              "pathIndex": 0
-            },
-            {
-              "count": 8,
-              "interval": 1.5,
-              "hp": 1200,
-              "speed": 0.08,
-              "reward": 25,
-              "color": "rgba(255, 100, 120, 0.88)",
-              "codexId": "imaginary-negative-i",
-              "symbol": "-i",
-              "enemyType": "imaginary-negative-i",
-              "pathIndex": 1
-            }
-          ]
-        }
-      ],
-      "rewardScore": 1e+25,
-      "rewardFlux": 100,
-      "rewardThero": 0,
-      "rewardEnergy": 0,
-      "arcSpeed": 0.3,
-      "path": [
-        {
-          "x": 0.1,
-          "y": 0.7
-        },
-        {
-          "x": 0.25,
-          "y": 0.65
-        },
-        {
-          "x": 0.4,
-          "y": 0.55
-        },
-        {
-          "x": 0.5,
-          "y": 0.5
-        },
-        {
-          "x": 0.6,
-          "y": 0.45
-        },
-        {
-          "x": 0.75,
-          "y": 0.35
-        },
-        {
-          "x": 0.9,
-          "y": 0.3
-        }
-      ],
-      "path2": [
-        {
-          "x": 0.1,
-          "y": 0.3
-        },
-        {
-          "x": 0.25,
-          "y": 0.35
-        },
-        {
-          "x": 0.4,
-          "y": 0.45
-        },
-        {
-          "x": 0.5,
-          "y": 0.5
-        },
-        {
-          "x": 0.6,
-          "y": 0.55
-        },
-        {
-          "x": 0.75,
-          "y": 0.65
-        },
-        {
-          "x": 0.9,
-          "y": 0.7
-        }
-      ],
-      "autoAnchors": []
     }
   ]
 }

@@ -538,12 +538,6 @@ function drawPath() {
   if (!this.ctx || !this.pathSegments.length || this.pathPoints.length < 2) {
     return;
   }
-  
-  // Check if track should be hidden (for boss levels like Imaginary Plane)
-  if (this.levelConfig && this.levelConfig.hideTrack) {
-    return;
-  }
-  
   const ctx = this.ctx;
   const points = this.pathPoints;
   const start = points[0];
@@ -2130,11 +2124,6 @@ function drawEnemies() {
 
     ctx.save();
     ctx.translate(position.x, position.y);
-    
-    // Apply phase opacity for imaginary enemies
-    if (Number.isFinite(enemy.phaseOpacity) && enemy.phaseOpacity < 1) {
-      ctx.globalAlpha = enemy.phaseOpacity;
-    }
 
     if (fallbackRendering) {
       drawEnemyFallbackBody(ctx, metrics, inversionActive);
