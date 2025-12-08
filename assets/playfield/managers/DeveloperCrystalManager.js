@@ -32,7 +32,7 @@ export function getCrystalPosition(crystal) {
  * Spawn a developer crystal for sandbox testing at the supplied normalized coordinates.
  * @this {SimplePlayfield}
  * @param {{x:number,y:number}} normalized
- * @param {{integrity?:number,thero?:number}} options
+ * @param {{integrity?:number,thero?:number,theroMultiplier?:number}} options
  * @returns {boolean}
  */
 export function addDeveloperCrystal(normalized, options = {}) {
@@ -50,6 +50,7 @@ export function addDeveloperCrystal(normalized, options = {}) {
   const outline = Array.from({ length: 7 }, () => 0.72 + Math.random() * 0.28);
   const integrity = Number.isFinite(options.integrity) && options.integrity > 0 ? options.integrity : 900;
   const thero = Number.isFinite(options.thero) && options.thero >= 0 ? options.thero : 0;
+  const theroMultiplier = Number.isFinite(options.theroMultiplier) ? options.theroMultiplier : 0;
   const crystal = {
     id,
     normalized: clamped,
@@ -60,6 +61,7 @@ export function addDeveloperCrystal(normalized, options = {}) {
     maxIntegrity: integrity,
     orientation: Math.random() * Math.PI * 2,
     theroReward: thero,
+    theroMultiplier,
   };
   this.developerCrystals.push(crystal);
   if (this.messageEl) {
@@ -278,6 +280,15 @@ export function applyCrystalHit(crystal, damage, options = {}) {
       paletteRatio: crystal.paletteRatio,
     });
   }
+  
+  // Award Thero per hit if crystal has a multiplier
+  if (Number.isFinite(crystal.theroMultiplier) && crystal.theroMultiplier !== 0) {
+    const theroGained = damage * crystal.theroMultiplier;
+    if (typeof this.addThero === 'function') {
+      this.addThero(theroGained);
+    }
+  }
+  
   const currentIntegrity = Number.isFinite(crystal.integrity) ? crystal.integrity : 0;
   crystal.integrity = Math.max(0, currentIntegrity - damage);
   if (crystal.integrity <= 0) {

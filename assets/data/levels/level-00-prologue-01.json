@@ -1,7 +1,7 @@
 {
   "id": "level-00-prologue-01",
-  "name": "First Lattice",
-  "description": "Tutorial: Learn to place your first tower and defend the Mind Gate",
+  "name": "Developer Test Level",
+  "description": "Developer testing environment with sample towers and crystals demonstrating various multipliers",
   "waves": "1:3A5.0e1/2.0|2:4A8.0e1/1.8",
   "path": [
     {
@@ -25,8 +25,40 @@
       "y": 0.5
     }
   ],
-  "autoAnchors": [],
+  "autoAnchors": [
+    { "x": 0.2, "y": 0.3, "type": "alpha" },
+    { "x": 0.35, "y": 0.3, "type": "beta" },
+    { "x": 0.5, "y": 0.3, "type": "gamma" },
+    { "x": 0.65, "y": 0.3, "type": "delta" },
+    { "x": 0.8, "y": 0.3, "type": "epsilon" },
+    { "x": 0.2, "y": 0.7, "type": "zeta" },
+    { "x": 0.35, "y": 0.7, "type": "eta" },
+    { "x": 0.5, "y": 0.7, "type": "theta" },
+    { "x": 0.65, "y": 0.7, "type": "iota" },
+    { "x": 0.8, "y": 0.7, "type": "kappa" }
+  ],
+  "crystals": [
+    { "x": 0.15, "y": 0.5, "integrity": 1000, "theroMultiplier": 5, "label": "x5" },
+    { "x": 0.4, "y": 0.5, "integrity": 1000, "theroMultiplier": 1e-9, "label": "x1e-9" },
+    { "x": 0.6, "y": 0.5, "integrity": 1000, "theroMultiplier": 10, "label": "x10" },
+    { "x": 0.85, "y": 0.5, "integrity": 1000, "theroMultiplier": 0.1, "label": "x0.1" }
+  ],
   "startThero": 50,
   "lives": 20,
-  "gateDefense": 0
+  "gateDefense": 0,
+  "_documentation": {
+    "purpose": "Developer test level demonstrating all tower types and crystal mechanics",
+    "mapElements": {
+      "autoAnchors": "Pre-placed tower positions showcasing one of each tower type (alpha through kappa)",
+      "crystals": "Damage-to-Thero conversion crystals with various multipliers",
+      "path": "Simple horizontal path for enemy movement"
+    },
+    "crystalMultipliers": {
+      "x5": "Converts damage dealt to crystal into 5x Thero per hit",
+      "x1e-9": "Converts damage to extremely small Thero amounts (scientific notation test)",
+      "x10": "Converts damage into 10x Thero per hit",
+      "x0.1": "Converts damage into 0.1x Thero per hit"
+    },
+    "usage": "This level is for testing tower mechanics and crystal reward systems. Towers will not auto-place yet as the autoAnchors.type field needs implementation."
+  }
 }
