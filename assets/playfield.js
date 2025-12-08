@@ -2420,6 +2420,7 @@ export class SimplePlayfield {
     this.setAvailableTowers(getTowerLoadoutState().selected);
     this.shouldAnimate = true;
     this.resetState();
+    this.loadLevelCrystals();
     this.enableSlots();
     this.syncCanvasSize();
     this.ensureLoop();
@@ -2643,6 +2644,35 @@ export class SimplePlayfield {
     this.scheduleStatsPanelRefresh();
     this.refreshStatsPanel({ force: true });
     refreshTowerLoadoutDisplay();
+  }
+
+  loadLevelCrystals() {
+    // Clear any existing developer crystals
+    if (typeof this.clearDeveloperCrystals === 'function') {
+      this.clearDeveloperCrystals({ silent: true });
+    }
+    
+    // Load crystals from level config if present
+    if (!this.levelConfig || !Array.isArray(this.levelConfig.crystals)) {
+      return;
+    }
+    
+    this.levelConfig.crystals.forEach((crystalConfig) => {
+      if (!crystalConfig || typeof crystalConfig.x !== 'number' || typeof crystalConfig.y !== 'number') {
+        return;
+      }
+      
+      const normalized = { x: crystalConfig.x, y: crystalConfig.y };
+      const options = {
+        integrity: crystalConfig.integrity,
+        thero: crystalConfig.thero || 0,
+        theroMultiplier: crystalConfig.theroMultiplier || 0,
+      };
+      
+      if (typeof this.addDeveloperCrystal === 'function') {
+        this.addDeveloperCrystal(normalized, options);
+      }
+    });
   }
 
   enableSlots() {
@@ -5008,7 +5038,9 @@ export class SimplePlayfield {
       return false;
     }
 
-    if (!this.availableTowers.includes(selectedType)) {
+    // Allow autoAnchors with explicit tower types to bypass loadout restrictions
+    const isAutoAnchorPlacement = towerType && options.silent;
+    if (!isAutoAnchorPlacement && !this.availableTowers.includes(selectedType)) {
       if (this.messageEl && !silent) {
         this.messageEl.textContent = `${definition.symbol} is not prepared in your loadout.`;
       }
