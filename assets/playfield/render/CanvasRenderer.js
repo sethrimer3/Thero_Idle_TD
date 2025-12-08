@@ -623,6 +623,12 @@ function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
     for (const tunnel of this.tunnelSegments) {
       if (index >= tunnel.startIndex && index <= tunnel.endIndex) {
         const tunnelLength = tunnel.endIndex - tunnel.startIndex;
+        
+        // Guard against zero-length tunnels
+        if (tunnelLength <= 0) {
+          return 0; // Treat as fully transparent
+        }
+        
         const progressInTunnel = (index - tunnel.startIndex) / tunnelLength;
         
         if (progressInTunnel < FADE_ZONE_RATIO) {

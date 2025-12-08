@@ -2233,8 +2233,8 @@ export class SimplePlayfield {
         const nextSpeed = Number.isFinite(next.speedMultiplier) ? next.speedMultiplier : 1;
         const speedMultiplier = currentSpeed + (nextSpeed - currentSpeed) * t;
         
-        // Preserve tunnel property - point is in tunnel if either current or next is a tunnel
-        const tunnel = Boolean(current.tunnel || next.tunnel);
+        // Preserve tunnel property - point is in tunnel only if both current and next are tunnels
+        const tunnel = Boolean(current.tunnel && next.tunnel);
         
         const point = { x, y, speedMultiplier, tunnel };
         if (!smooth.length || this.distanceBetween(smooth[smooth.length - 1], point) > 0.5) {
@@ -9909,6 +9909,10 @@ export class SimplePlayfield {
           // Find which tunnel zone this segment belongs to
           for (const tunnel of this.tunnelSegments) {
             // Check if this segment falls within the tunnel zone
+            // Guard against zero pathLength
+            if (this.pathLength <= 0) {
+              continue;
+            }
             const segmentProgress = traversed / this.pathLength;
             const segmentEndProgress = segmentEnd / this.pathLength;
             const tunnelStartProgress = this.getProgressAtPointIndex(tunnel.startIndex);
@@ -9922,6 +9926,12 @@ export class SimplePlayfield {
               // Define fade zones: first 20% and last 20% of tunnel
               const FADE_ZONE_RATIO = 0.2;
               const tunnelLength = tunnelEndProgress - tunnelStartProgress;
+              
+              // Guard against zero-length tunnels
+              if (!Number.isFinite(tunnelLength) || tunnelLength <= 0) {
+                return { inTunnel: true, opacity: 0, isFadeZone: false };
+              }
+              
               const progressInTunnel = (progress - tunnelStartProgress) / tunnelLength;
               
               let opacity = 0; // Default to invisible in tunnel
