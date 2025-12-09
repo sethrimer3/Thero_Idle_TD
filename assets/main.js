@@ -138,6 +138,8 @@ import { createPowderResizeObserver } from './powderResizeObserver.js';
 import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
 // Lightweight animation overlay that keeps the Bet terrarium lively.
 import { FluidTerrariumCreatures } from './fluidTerrariumCreatures.js';
+// Flying gamma birds that soar through the Bet terrarium.
+import { FluidTerrariumBirds } from './fluidTerrariumBirds.js';
 // Brownian forest crystal growth pinned to the Bet cavern walls.
 import { FluidTerrariumCrystal } from './fluidTerrariumCrystal.js';
 // Fractal trees anchored by the Bet terrarium placement masks.
@@ -897,6 +899,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let betHappinessSystem = null;
   // Animate Delta slimes once the fluid viewport is bound.
   let fluidTerrariumCreatures = null;
+  // Animate flying gamma birds in the Bet terrarium.
+  let fluidTerrariumBirds = null;
   // Grow a Shin-inspired Brownian forest along the Bet cavern walls.
   let fluidTerrariumCrystal = null;
   // Grow Shin-inspired fractal trees on top of the Bet terrain silhouettes.
@@ -1045,6 +1049,32 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     fluidTerrariumCreatures.start();
   }
 
+  function ensureFluidTerrariumBirds() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
+    // Lazily create the bird overlay
+    if (fluidTerrariumBirds || !fluidElements?.viewport) {
+      return;
+    }
+    // Start with 0 birds by default - players purchase them through the store.
+    const birdCount = Math.max(0, betHappinessSystem ? betHappinessSystem.getProducerCount('bird') : 0);
+    // Skip creating the bird layer if no birds are owned yet.
+    if (birdCount <= 0) {
+      return;
+    }
+    fluidTerrariumBirds = new FluidTerrariumBirds({
+      container: fluidElements.viewport,
+      terrainElement: fluidElements.terrainSprite,
+      terrainCollisionElement: fluidElements.terrainCollisionSprite,
+      birdCount: birdCount,
+    });
+    if (betHappinessSystem) {
+      betHappinessSystem.setProducerCount('bird', birdCount);
+    }
+    fluidTerrariumBirds.start();
+  }
+
   // Lazily generate the terrarium grass overlay once the stage media is available.
   function ensureFluidTerrariumGrass() {
     if (!FLUID_STUDY_ENABLED) {
@@ -1125,6 +1155,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       getSerendipityBalance: getCurrentFluidDropBank,
       onShroomPlace: handleShroomPlacement,
       onSlimePlace: handleSlimePlacement,
+      onBirdPlace: handleBirdPlacement,
       onCelestialPlace: handleCelestialPlacement,
       // Cave spawn zones enable cave-only fractal placement validation.
       caveSpawnZones: BET_CAVE_SPAWN_ZONES,
@@ -1373,6 +1404,44 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     
     // Schedule save to persist the slime count
+    schedulePowderBasinSave();
+    
+    return true;
+  }
+
+  // Handle bird placement from the terrarium store by increasing bird count and re-initializing bird system.
+  function handleBirdPlacement() {
+    if (!betHappinessSystem) {
+      return false;
+    }
+    // Increment the bird count in the happiness system
+    const currentCount = betHappinessSystem.getProducerCount('bird') || 0;
+    const newCount = currentCount + 1;
+    betHappinessSystem.setProducerCount('bird', newCount);
+    
+    // Re-initialize the bird system with the new count
+    if (fluidTerrariumBirds) {
+      fluidTerrariumBirds.destroy();
+      fluidTerrariumBirds = null;
+    }
+    
+    // Create new bird instance with updated count
+    if (fluidElements?.viewport) {
+      fluidTerrariumBirds = new FluidTerrariumBirds({
+        container: fluidElements.viewport,
+        terrainElement: fluidElements.terrainSprite,
+        terrainCollisionElement: fluidElements.terrainCollisionSprite,
+        birdCount: newCount,
+      });
+      fluidTerrariumBirds.start();
+    }
+    
+    // Update happiness display
+    if (betHappinessSystem.updateDisplay) {
+      betHappinessSystem.updateDisplay();
+    }
+    
+    // Schedule save to persist the bird count
     schedulePowderBasinSave();
     
     return true;
@@ -6210,6 +6279,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     await ensureTerrariumSurfacesReady();
     ensureFluidTerrariumCreatures();
+    ensureFluidTerrariumBirds();
     ensureFluidTerrariumGrass();
     ensureFluidTerrariumCrystal();
     ensureFluidTerrariumTrees();

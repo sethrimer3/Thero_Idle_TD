@@ -90,6 +90,67 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
     maxY: 0.95,
     minSpacing: 0.05,
   },
+  // Gamma Birds - flying creatures that avoid surfaces
+  {
+    id: 'bet-store-gamma-bird-1',
+    label: 'Gamma Bird',
+    description: 'A flying γ bird that soars through the open air and occasionally lands on trees.',
+    icon: 'γ',
+    itemType: 'bird',
+    cost: 15,
+    size: 'small',
+    minY: 0.1,
+    maxY: 0.7,
+    minSpacing: 0.05,
+  },
+  {
+    id: 'bet-store-gamma-bird-2',
+    label: 'Gamma Bird',
+    description: 'A flying γ bird that soars through the open air and occasionally lands on trees.',
+    icon: 'γ',
+    itemType: 'bird',
+    cost: 15,
+    size: 'small',
+    minY: 0.1,
+    maxY: 0.7,
+    minSpacing: 0.05,
+  },
+  {
+    id: 'bet-store-gamma-bird-3',
+    label: 'Gamma Bird',
+    description: 'A flying γ bird that soars through the open air and occasionally lands on trees.',
+    icon: 'γ',
+    itemType: 'bird',
+    cost: 15,
+    size: 'small',
+    minY: 0.1,
+    maxY: 0.7,
+    minSpacing: 0.05,
+  },
+  {
+    id: 'bet-store-gamma-bird-4',
+    label: 'Gamma Bird',
+    description: 'A flying γ bird that soars through the open air and occasionally lands on trees.',
+    icon: 'γ',
+    itemType: 'bird',
+    cost: 15,
+    size: 'small',
+    minY: 0.1,
+    maxY: 0.7,
+    minSpacing: 0.05,
+  },
+  {
+    id: 'bet-store-gamma-bird-5',
+    label: 'Gamma Bird',
+    description: 'A flying γ bird that soars through the open air and occasionally lands on trees.',
+    icon: 'γ',
+    itemType: 'bird',
+    cost: 15,
+    size: 'small',
+    minY: 0.1,
+    maxY: 0.7,
+    minSpacing: 0.05,
+  },
   {
     id: 'bet-store-large-tree',
     label: 'Large Fractal Tree',
@@ -406,6 +467,7 @@ export class FluidTerrariumTrees {
     this.onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : () => {};
     this.onShroomPlace = typeof options.onShroomPlace === 'function' ? options.onShroomPlace : null;
     this.onSlimePlace = typeof options.onSlimePlace === 'function' ? options.onSlimePlace : null;
+    this.onBirdPlace = typeof options.onBirdPlace === 'function' ? options.onBirdPlace : null;
     this.onCelestialPlace = typeof options.onCelestialPlace === 'function' ? options.onCelestialPlace : null;
     this.powderState = options.powderState || null;
 
@@ -1137,10 +1199,30 @@ export class FluidTerrariumTrees {
     if (!this.confirmationPrompt || !point?.isInside) {
       return;
     }
-    const left = this.renderBounds.left + point.xRatio * this.renderBounds.width;
-    const top = this.renderBounds.top + point.yRatio * this.renderBounds.height - 32;
+    // Calculate base position
+    let left = this.renderBounds.left + point.xRatio * this.renderBounds.width;
+    let top = this.renderBounds.top + point.yRatio * this.renderBounds.height - 32;
+    
+    // The dialog uses translate(-50%, -100%), so we need to account for its dimensions
+    // Estimate dialog width as ~200px and height as ~60px (including transform offset)
+    const estimatedHalfWidth = 100;
+    const estimatedHeight = 80;
+    const padding = 10;
+    
+    // Get viewport bounds (use window dimensions as the limiting container)
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Clamp horizontal position to keep dialog on screen
+    // Account for the -50% transform by ensuring left position allows for half-width on each side
+    left = Math.max(estimatedHalfWidth + padding, Math.min(viewportWidth - estimatedHalfWidth - padding, left));
+    
+    // Clamp vertical position to keep dialog on screen
+    // The dialog appears above the point, so ensure there's room above
+    top = Math.max(estimatedHeight + padding, Math.min(viewportHeight - padding, top));
+    
     this.confirmationPrompt.style.left = `${left}px`;
-    this.confirmationPrompt.style.top = `${Math.max(0, top)}px`;
+    this.confirmationPrompt.style.top = `${top}px`;
     this.confirmationPrompt.hidden = false;
     this.confirmationPrompt.dataset.visible = 'true';
     this.confirmationPrompt.setAttribute('aria-hidden', 'false');
@@ -1466,6 +1548,23 @@ export class FluidTerrariumTrees {
         return true;
       }
       this.setStoreStatus('Could not release slime. Try again.');
+      return false;
+    }
+
+    // Check if this is a bird item - delegate to the bird placement callback
+    if (storeItem.itemType === 'bird' && this.onBirdPlace) {
+      const birdPlaced = this.onBirdPlace({
+        point,
+        storeItem,
+      });
+      if (birdPlaced) {
+        this.setStoreStatus(`${storeItem.label} released into the sky.`);
+        this.updatePlacementPreview(point, true, storeItem);
+        this.consumeStoreItem(storeItem.id);
+        this.clearStoreSelection();
+        return true;
+      }
+      this.setStoreStatus('Could not release bird. Try again.');
       return false;
     }
 
