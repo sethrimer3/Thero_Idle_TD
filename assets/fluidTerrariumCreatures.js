@@ -563,9 +563,10 @@ export class FluidTerrariumCreatures {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const samples = new Float32Array(canvas.width);
     const alphaThreshold = 8;
+    // Scan from bottom to top to find the ground level, not floating islands
     for (let x = 0; x < canvas.width; x += 1) {
       let sampleY = canvas.height;
-      for (let y = 0; y < canvas.height; y += 1) {
+      for (let y = canvas.height - 1; y >= 0; y -= 1) {
         const index = (y * canvas.width + x) * 4 + 3;
         if (imageData.data[index] > alphaThreshold) {
           sampleY = y;
