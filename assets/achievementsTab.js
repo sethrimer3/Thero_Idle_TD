@@ -257,6 +257,27 @@ function createLevelAchievementDefinition(levelId, ordinal, metadataMap) {
   };
 }
 
+// Helper to get glyph count for a spire (handles powder/fluid differently)
+function getSpireGlyphCount(spireId) {
+  const { spireResourceState, powderState } = getContext();
+  
+  // Powder and fluid use powderState tracking
+  if (spireId === 'powder' && powderState) {
+    return powderState.glyphsAwarded || 0;
+  }
+  if (spireId === 'fluid' && powderState) {
+    return powderState.fluidGlyphsAwarded || 0;
+  }
+  
+  // Advanced spires use their own stats tracking
+  if (spireResourceState && spireResourceState[spireId]) {
+    const stats = spireResourceState[spireId].stats || {};
+    return stats.totalGlyphs || 0;
+  }
+  
+  return 0;
+}
+
 // Generate spire glyph achievements for a single spire
 function generateSpireAchievements(spireId, spireName, spireIcon) {
   const achievements = [];
@@ -271,21 +292,9 @@ function generateSpireAchievements(spireId, spireName, spireIcon) {
     icon: spireIcon,
     rewardFlux: ACHIEVEMENT_REWARD_FLUX,
     description: `Earn your first ${spireName} glyph. Unlocking adds +${ACHIEVEMENT_REWARD_FLUX} Motes/min to idle reserves.`,
-    condition: () => {
-      const { spireResourceState } = getContext();
-      if (!spireResourceState || !spireResourceState[spireId]) {
-        return false;
-      }
-      const stats = spireResourceState[spireId].stats || {};
-      return (stats.totalGlyphs || 0) >= 1;
-    },
+    condition: () => getSpireGlyphCount(spireId) >= 1,
     progress: () => {
-      const { spireResourceState } = getContext();
-      if (!spireResourceState || !spireResourceState[spireId]) {
-        return 'Locked — Earn 1 glyph to unlock.';
-      }
-      const stats = spireResourceState[spireId].stats || {};
-      const glyphs = stats.totalGlyphs || 0;
+      const glyphs = getSpireGlyphCount(spireId);
       return glyphs >= 1 ? 'Unlocked' : `Locked — ${glyphs}/1 glyphs earned.`;
     },
   });
@@ -299,21 +308,9 @@ function generateSpireAchievements(spireId, spireName, spireIcon) {
     icon: spireIcon,
     rewardFlux: ACHIEVEMENT_REWARD_FLUX * 2,
     description: `Earn 10 ${spireName} glyphs. Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * 2} Motes/min to idle reserves.`,
-    condition: () => {
-      const { spireResourceState } = getContext();
-      if (!spireResourceState || !spireResourceState[spireId]) {
-        return false;
-      }
-      const stats = spireResourceState[spireId].stats || {};
-      return (stats.totalGlyphs || 0) >= 10;
-    },
+    condition: () => getSpireGlyphCount(spireId) >= 10,
     progress: () => {
-      const { spireResourceState } = getContext();
-      if (!spireResourceState || !spireResourceState[spireId]) {
-        return 'Locked — Earn 10 glyphs to unlock.';
-      }
-      const stats = spireResourceState[spireId].stats || {};
-      const glyphs = stats.totalGlyphs || 0;
+      const glyphs = getSpireGlyphCount(spireId);
       return glyphs >= 10 ? 'Unlocked' : `Locked — ${glyphs}/10 glyphs earned.`;
     },
   });
@@ -327,21 +324,9 @@ function generateSpireAchievements(spireId, spireName, spireIcon) {
     icon: spireIcon,
     rewardFlux: ACHIEVEMENT_REWARD_FLUX * 5,
     description: `Earn 100 ${spireName} glyphs. Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * 5} Motes/min to idle reserves.`,
-    condition: () => {
-      const { spireResourceState } = getContext();
-      if (!spireResourceState || !spireResourceState[spireId]) {
-        return false;
-      }
-      const stats = spireResourceState[spireId].stats || {};
-      return (stats.totalGlyphs || 0) >= 100;
-    },
+    condition: () => getSpireGlyphCount(spireId) >= 100,
     progress: () => {
-      const { spireResourceState } = getContext();
-      if (!spireResourceState || !spireResourceState[spireId]) {
-        return 'Locked — Earn 100 glyphs to unlock.';
-      }
-      const stats = spireResourceState[spireId].stats || {};
-      const glyphs = stats.totalGlyphs || 0;
+      const glyphs = getSpireGlyphCount(spireId);
       return glyphs >= 100 ? 'Unlocked' : `Locked — ${glyphs}/100 glyphs earned.`;
     },
   });

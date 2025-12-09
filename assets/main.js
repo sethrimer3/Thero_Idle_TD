@@ -5382,6 +5382,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     gameStats,
     spireResourceState,
     moteGemInventory: moteGemState.inventory,
+    powderState,
   });
 
   async function init() {
