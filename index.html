@@ -4257,6 +4257,15 @@
     >
       <div class="overlay-panel field-notes-panel" role="document" aria-labelledby="field-notes-title">
         <button class="overlay-close" type="button" id="field-notes-close" aria-label="Close field notes">×</button>
+        <button
+          class="field-notes-back"
+          type="button"
+          id="field-notes-back"
+          aria-label="Back to field notes list"
+          hidden
+        >
+          ←
+        </button>
         <figure class="field-notes-figure">
           <img
             src="./assets/sprites/glyph_book_glowing.png"
@@ -4265,9 +4274,15 @@
           <figcaption>Glowing Glyph Codex</figcaption>
         </figure>
         <p class="overlay-label">Field Notes Dispatch</p>
-        <h2 class="overlay-title" id="field-notes-title">The Tower of Inspiration Briefing</h2>
-        <div class="field-notes-copy" id="field-notes-copy">
-          <p class="field-notes-loading" aria-live="polite">Loading field notes…</p>
+        <h2 class="overlay-title" id="field-notes-title">Field Notes Archive</h2>
+        <div class="field-notes-views">
+          <div class="field-notes-copy field-notes-view field-notes-list-view" id="field-notes-list-view" aria-live="polite">
+            <p class="field-notes-empty" id="field-notes-empty">No story dispatches logged yet.</p>
+            <ul class="field-notes-entries" id="field-notes-list" role="list"></ul>
+          </div>
+          <div class="field-notes-copy field-notes-view" id="field-notes-copy" aria-live="polite">
+            <p class="field-notes-loading" aria-live="polite">Loading field notes…</p>
+          </div>
         </div>
         <div class="field-notes-pagination" id="field-notes-pagination">
           <button class="field-notes-page-button" type="button" id="field-notes-prev" aria-label="Previous field notes page" disabled>
