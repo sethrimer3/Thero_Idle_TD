@@ -1073,19 +1073,17 @@ function drawDeveloperPathMarkers() {
       ctx.fillText(String(label), marker.x, marker.y);
     }
 
-    // Draw speed multiplier under the marker if it's not the default value (1)
+    // Draw speed multiplier under the marker for all points
     const speedMultiplier = Number.isFinite(marker.speedMultiplier) ? marker.speedMultiplier : 1;
-    if (speedMultiplier !== 1) {
-      this.clearCanvasShadow(ctx);
-      ctx.font = '9px "Cormorant Garamond", serif';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = 'rgba(255, 200, 100, 0.85)';
-      const speedLabel = `×${speedMultiplier.toFixed(2)}`;
-      ctx.fillText(speedLabel, marker.x, marker.y + radius + 3);
-      // Restore font for next marker
-      ctx.font = '12px "Cormorant Garamond", serif';
-      ctx.textBaseline = 'middle';
-    }
+    this.clearCanvasShadow(ctx);
+    ctx.font = '9px "Cormorant Garamond", serif';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(255, 200, 100, 0.85)';
+    const speedLabel = `×${speedMultiplier.toFixed(2)}`;
+    ctx.fillText(speedLabel, marker.x, marker.y + radius + 3);
+    // Restore font for next marker
+    ctx.font = '12px "Cormorant Garamond", serif';
+    ctx.textBaseline = 'middle';
   });
 
   ctx.restore();

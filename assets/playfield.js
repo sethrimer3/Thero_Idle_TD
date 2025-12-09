@@ -9875,14 +9875,24 @@ export class SimplePlayfield {
     for (let index = 0; index < this.pathSegments.length; index += 1) {
       const segment = this.pathSegments[index];
       if (traversed + segment.length >= target) {
-        return Number.isFinite(segment.speedMultiplier) ? segment.speedMultiplier : 1;
+        // Interpolate speed multiplier within the segment based on position
+        const distanceIntoSegment = target - traversed;
+        const t = segment.length > 0 ? distanceIntoSegment / segment.length : 0;
+        
+        const startSpeed = Number.isFinite(segment.start.speedMultiplier) ? segment.start.speedMultiplier : 1;
+        const endSpeed = Number.isFinite(segment.end.speedMultiplier) ? segment.end.speedMultiplier : 1;
+        
+        return startSpeed + (endSpeed - startSpeed) * t;
       }
       traversed += segment.length;
     }
 
-    // Default to 1 if no segment found
+    // Default to the last point's speed if no segment found
     const lastSegment = this.pathSegments[this.pathSegments.length - 1];
-    return lastSegment && Number.isFinite(lastSegment.speedMultiplier) ? lastSegment.speedMultiplier : 1;
+    if (lastSegment && lastSegment.end && Number.isFinite(lastSegment.end.speedMultiplier)) {
+      return lastSegment.end.speedMultiplier;
+    }
+    return 1;
   }
 
   /**
