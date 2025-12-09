@@ -4600,6 +4600,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const isInteractive = isInteractiveLevel(level.id);
     const levelConfig = levelConfigs.get(level.id);
     const forceEndlessMode = Boolean(level?.forceEndlessMode || levelConfig?.forceEndlessMode);
+    const endlessCampaign = level?.campaign === 'Ladder';
     if (isInteractive && !isLevelUnlocked(level.id)) {
       if (playfield?.messageEl) {
         const requiredId = getPreviousInteractiveLevelId(level.id);
@@ -4642,7 +4643,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     if (playfield) {
       playfield.enterLevel(level, {
-        endlessMode: forceEndlessMode || Boolean(updatedState.completed),
+        endlessMode: forceEndlessMode || endlessCampaign,
       });
     }
 
