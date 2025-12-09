@@ -338,7 +338,8 @@ export class FluidTerrariumBirds {
     const samples = new Float32Array(canvas.width);
     const alphaThreshold = 8;
     
-    // Scan from top to bottom to find terrain surface
+    // Scan from top to bottom to find the topmost terrain surface (including floating islands)
+    // Birds avoid ALL surfaces from above, unlike slimes which walk on the ground
     for (let x = 0; x < canvas.width; x += 1) {
       let sampleY = canvas.height;
       for (let y = 0; y < canvas.height; y += 1) {

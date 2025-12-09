@@ -39,6 +39,11 @@ const BET_TREE_DEPTH_COLORS = [
   '#33803f',
 ];
 
+// Estimated dimensions for the placement confirmation dialog to prevent off-screen positioning
+const CONFIRMATION_DIALOG_ESTIMATED_HALF_WIDTH = 100; // Dialog is centered with translate(-50%, ...)
+const CONFIRMATION_DIALOG_ESTIMATED_HEIGHT = 80; // Includes transform offset
+const CONFIRMATION_DIALOG_PADDING = 10; // Minimum distance from viewport edges
+
 // Storefront configuration so the Bet terrarium can surface player-placed decorations.
 const DEFAULT_TERRARIUM_STORE_ITEMS = [
   // Delta Slimes - purchasable creatures that hop around the terrarium
@@ -1203,23 +1208,23 @@ export class FluidTerrariumTrees {
     let left = this.renderBounds.left + point.xRatio * this.renderBounds.width;
     let top = this.renderBounds.top + point.yRatio * this.renderBounds.height - 32;
     
-    // The dialog uses translate(-50%, -100%), so we need to account for its dimensions
-    // Estimate dialog width as ~200px and height as ~60px (including transform offset)
-    const estimatedHalfWidth = 100;
-    const estimatedHeight = 80;
-    const padding = 10;
-    
     // Get viewport bounds (use window dimensions as the limiting container)
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     
     // Clamp horizontal position to keep dialog on screen
     // Account for the -50% transform by ensuring left position allows for half-width on each side
-    left = Math.max(estimatedHalfWidth + padding, Math.min(viewportWidth - estimatedHalfWidth - padding, left));
+    left = Math.max(
+      CONFIRMATION_DIALOG_ESTIMATED_HALF_WIDTH + CONFIRMATION_DIALOG_PADDING,
+      Math.min(viewportWidth - CONFIRMATION_DIALOG_ESTIMATED_HALF_WIDTH - CONFIRMATION_DIALOG_PADDING, left)
+    );
     
     // Clamp vertical position to keep dialog on screen
     // The dialog appears above the point, so ensure there's room above
-    top = Math.max(estimatedHeight + padding, Math.min(viewportHeight - padding, top));
+    top = Math.max(
+      CONFIRMATION_DIALOG_ESTIMATED_HEIGHT + CONFIRMATION_DIALOG_PADDING,
+      Math.min(viewportHeight - CONFIRMATION_DIALOG_PADDING, top)
+    );
     
     this.confirmationPrompt.style.left = `${left}px`;
     this.confirmationPrompt.style.top = `${top}px`;
