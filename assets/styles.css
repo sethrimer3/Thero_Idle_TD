@@ -2072,11 +2072,12 @@ body.graphics-mode-low .control-button {
 
 /* Horizontal rail for campaign selection diamonds */
 .campaign-row {
+  --campaign-overlap: 0px;
   position: relative;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 18px;
+  gap: clamp(12px, 3vw, 18px);
   width: 100%;
   transition: gap 260ms ease;
 }
@@ -2239,7 +2240,12 @@ body.graphics-mode-low .control-button {
   flex: 0 0 auto;
   width: var(--level-node-size);
   max-width: 100%;
+  margin-inline-start: calc(-1 * var(--campaign-overlap));
   transition: transform 320ms ease, opacity 320ms ease, width 320ms ease, max-width 320ms ease;
+}
+
+.campaign-button:first-child {
+  margin-inline-start: 0;
 }
 
 .campaign-button.expanded {
@@ -2315,22 +2321,23 @@ body.graphics-mode-low .control-button {
 }
 
 .campaign-button-glyph {
-  font-size: 1.8rem;
+  font-size: 1.35rem;
   line-height: 1;
   color: rgba(255, 215, 100, 0.95);
   text-shadow: 0 0 18px rgba(255, 215, 100, 0.5);
+  text-transform: none;
 }
 
 .campaign-button-title {
   font-family: "Cormorant Garamond", serif;
-  font-size: 1rem;
+  font-size: 0.78rem;
   letter-spacing: 0.16em;
   font-weight: 600;
 }
 
 .campaign-button-count {
   font-family: "Cormorant Garamond", serif;
-  font-size: 0.72rem;
+  font-size: 0.6rem;
   opacity: 0.75;
 }
 
@@ -2376,6 +2383,19 @@ body.graphics-mode-low .control-button {
   pointer-events: auto;
   transform: translateY(0);
   padding: 24px 12px;
+}
+
+@media (max-width: 900px) {
+  .campaign-row {
+    --campaign-overlap: 32px;
+  }
+}
+
+@media (max-width: 720px) {
+  .campaign-row {
+    flex-wrap: nowrap;
+    --campaign-overlap: 48px;
+  }
 }
 
 /* Fade unselected campaigns when one is open to center the active diamond */
