@@ -5380,6 +5380,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     updatePowderLedger,
     updateStatusDisplays,
     gameStats,
+    spireResourceState,
+    moteGemInventory: moteGemState.inventory,
   });
 
   async function init() {

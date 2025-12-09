@@ -1,5 +1,6 @@
 import { formatGameNumber, formatWholeNumber } from '../scripts/core/formatting.js';
 import { fetchJsonWithFallback } from './gameplayConfigLoaders.js';
+import { GEM_DEFINITIONS } from './enemies.js';
 
 // Achievements tab logic extracted from the main script to keep state and rendering scoped here.
 
@@ -10,9 +11,24 @@ const ACHIEVEMENT_DISMISS_TIMEOUT_MS = 520; // Ensures the overlay always resets
 const ACHIEVEMENT_DATA_RELATIVE_PATH = './data/achievements.json';
 const ACHIEVEMENT_DATA_URL = new URL(ACHIEVEMENT_DATA_RELATIVE_PATH, import.meta.url);
 
+// Achievement categories with their configuration
+const ACHIEVEMENT_CATEGORIES = [
+  { id: 'campaign-story', name: 'Campaign: Story', icon: '📖', type: 'campaign', campaign: 'Story' },
+  { id: 'campaign-challenges', name: 'Campaign: Challenges', icon: '⚔️', type: 'campaign', campaign: 'Challenges' },
+  { id: 'campaign-ladder', name: 'Campaign: Ladder', icon: '🪜', type: 'campaign', campaign: 'Ladder' },
+  { id: 'spire-powder', name: 'Aleph Spire Glyphs', icon: 'ℵ', type: 'spire', spireId: 'powder' },
+  { id: 'spire-fluid', name: 'Bet Spire Glyphs', icon: 'בּ', type: 'spire', spireId: 'fluid' },
+  { id: 'spire-lamed', name: 'Lamed Spire Glyphs', icon: 'ל', type: 'spire', spireId: 'lamed' },
+  { id: 'spire-tsadi', name: 'Tsadi Spire Glyphs', icon: 'צ', type: 'spire', spireId: 'tsadi' },
+  { id: 'spire-shin', name: 'Shin Spire Glyphs', icon: 'ש', type: 'spire', spireId: 'shin' },
+  { id: 'spire-kuf', name: 'Kuf Spire Glyphs', icon: 'ק', type: 'spire', spireId: 'kuf' },
+  { id: 'secret', name: 'Secret Achievements', icon: '❓', type: 'secret' },
+];
+
 const achievementState = new Map();
 const achievementElements = new Map();
 let achievementDefinitions = [];
+let achievementsByCategory = new Map();
 let achievementGridEl = null;
 let achievementPowderRate = 0;
 let context = null;
@@ -20,6 +36,7 @@ let overlayElements = null; // Stores the lazily created overlay nodes for cinem
 let overlayState = null; // Tracks the currently animating achievement so it can return home.
 let achievementMetadata = [];
 let achievementMetadataLoadPromise = null;
+let openDropdowns = new Set(); // Track which dropdowns are currently open
 
 // Clear any pending timeout that would reveal the overlay text.
 function clearOverlayRevealTimer() {
@@ -216,9 +233,19 @@ function createLevelAchievementDefinition(levelId, ordinal, metadataMap) {
     ? `${metadata.description}`
     : `${displayName} — seal ${shortLabel} to claim the idle mote seal. ${rewardSummary}`.trim();
 
+  // Determine campaign category based on level config
+  const campaign = levelConfig.campaign || 'Story';
+  let categoryId = 'campaign-story';
+  if (campaign === 'Challenges') {
+    categoryId = 'campaign-challenges';
+  } else if (campaign === 'Ladder') {
+    categoryId = 'campaign-ladder';
+  }
+
   return {
     id,
     levelId,
+    categoryId,
     title: displayName,
     subtitle: shortLabel,
     icon,
@@ -229,25 +256,185 @@ function createLevelAchievementDefinition(levelId, ordinal, metadataMap) {
   };
 }
 
-// Recomputes the full achievements list using the current interactive level order.
+// Generate spire glyph achievements for a single spire
+function generateSpireAchievements(spireId, spireName, spireIcon) {
+  const achievements = [];
+  const categoryId = `spire-${spireId}`;
+  
+  // Achievement for earning 1 glyph
+  achievements.push({
+    id: `${spireId}-glyph-1`,
+    categoryId,
+    title: `First ${spireName} Glyph`,
+    subtitle: 'Novice',
+    icon: spireIcon,
+    rewardFlux: ACHIEVEMENT_REWARD_FLUX,
+    description: `Earn your first ${spireName} glyph. Unlocking adds +${ACHIEVEMENT_REWARD_FLUX} Motes/min to idle reserves.`,
+    condition: () => {
+      const { spireResourceState } = getContext();
+      if (!spireResourceState || !spireResourceState[spireId]) {
+        return false;
+      }
+      const stats = spireResourceState[spireId].stats || {};
+      return (stats.totalGlyphs || 0) >= 1;
+    },
+    progress: () => {
+      const { spireResourceState } = getContext();
+      if (!spireResourceState || !spireResourceState[spireId]) {
+        return 'Locked — Earn 1 glyph to unlock.';
+      }
+      const stats = spireResourceState[spireId].stats || {};
+      const glyphs = stats.totalGlyphs || 0;
+      return glyphs >= 1 ? 'Unlocked' : `Locked — ${glyphs}/1 glyphs earned.`;
+    },
+  });
+
+  // Achievement for earning 10 glyphs
+  achievements.push({
+    id: `${spireId}-glyph-10`,
+    categoryId,
+    title: `${spireName} Adept`,
+    subtitle: 'Intermediate',
+    icon: spireIcon,
+    rewardFlux: ACHIEVEMENT_REWARD_FLUX * 2,
+    description: `Earn 10 ${spireName} glyphs. Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * 2} Motes/min to idle reserves.`,
+    condition: () => {
+      const { spireResourceState } = getContext();
+      if (!spireResourceState || !spireResourceState[spireId]) {
+        return false;
+      }
+      const stats = spireResourceState[spireId].stats || {};
+      return (stats.totalGlyphs || 0) >= 10;
+    },
+    progress: () => {
+      const { spireResourceState } = getContext();
+      if (!spireResourceState || !spireResourceState[spireId]) {
+        return 'Locked — Earn 10 glyphs to unlock.';
+      }
+      const stats = spireResourceState[spireId].stats || {};
+      const glyphs = stats.totalGlyphs || 0;
+      return glyphs >= 10 ? 'Unlocked' : `Locked — ${glyphs}/10 glyphs earned.`;
+    },
+  });
+
+  // Achievement for earning 100 glyphs
+  achievements.push({
+    id: `${spireId}-glyph-100`,
+    categoryId,
+    title: `${spireName} Master`,
+    subtitle: 'Advanced',
+    icon: spireIcon,
+    rewardFlux: ACHIEVEMENT_REWARD_FLUX * 5,
+    description: `Earn 100 ${spireName} glyphs. Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * 5} Motes/min to idle reserves.`,
+    condition: () => {
+      const { spireResourceState } = getContext();
+      if (!spireResourceState || !spireResourceState[spireId]) {
+        return false;
+      }
+      const stats = spireResourceState[spireId].stats || {};
+      return (stats.totalGlyphs || 0) >= 100;
+    },
+    progress: () => {
+      const { spireResourceState } = getContext();
+      if (!spireResourceState || !spireResourceState[spireId]) {
+        return 'Locked — Earn 100 glyphs to unlock.';
+      }
+      const stats = spireResourceState[spireId].stats || {};
+      const glyphs = stats.totalGlyphs || 0;
+      return glyphs >= 100 ? 'Unlocked' : `Locked — ${glyphs}/100 glyphs earned.`;
+    },
+  });
+
+  return achievements;
+}
+
+// Generate secret achievements for gem collection
+function generateSecretAchievements() {
+  const achievements = [];
+  const categoryId = 'secret';
+
+  GEM_DEFINITIONS.forEach((gem, index) => {
+    const hints = [
+      'Quartz whispers in the shadows...',
+      'Ruby gleams in darkness...',
+      'Sunstone radiates mystery...',
+      'Citrine hides its golden secret...',
+      'Emerald\'s verdant enigma awaits...',
+      'Sapphire\'s azure mystery beckons...',
+      'Iolite\'s violet puzzle unfolds...',
+      'Amethyst conceals its purple truth...',
+      'Diamond\'s crystalline riddle persists...',
+      'Nullstone\'s void mystery endures...',
+    ];
+
+    achievements.push({
+      id: `secret-gem-${gem.id}`,
+      categoryId,
+      title: `??? ${gem.name}`,
+      subtitle: gem.name,
+      icon: '❓',
+      rewardFlux: ACHIEVEMENT_REWARD_FLUX * (index + 1),
+      description: `Obtain a ${gem.name} gem. ${hints[index] || 'A secret awaits...'} Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * (index + 1)} Motes/min to idle reserves.`,
+      condition: () => {
+        const { moteGemInventory } = getContext();
+        if (!moteGemInventory) {
+          return false;
+        }
+        return (moteGemInventory.get(gem.id) || 0) > 0;
+      },
+      progress: () => {
+        const { moteGemInventory } = getContext();
+        if (!moteGemInventory) {
+          return `Locked — ${hints[index] || 'A secret awaits...'}`;
+        }
+        const count = moteGemInventory.get(gem.id) || 0;
+        return count > 0 ? 'Unlocked — Secret revealed!' : `Locked — ${hints[index] || 'A secret awaits...'}`;
+      },
+      secret: true,
+    });
+  });
+
+  return achievements;
+}
+
+// Recomputes the full achievements list including levels, spires, and secrets.
 export async function generateLevelAchievements() {
   try {
     const metadata = await loadAchievementMetadata();
     const metadataMap = new Map((metadata || []).map((entry) => [entry.levelId, entry]));
     const { getInteractiveLevelOrder, updateResourceRates, updatePowderLedger } = getContext();
     const levelOrder = typeof getInteractiveLevelOrder === 'function' ? getInteractiveLevelOrder() : [];
-    if (!levelOrder.length) {
-      achievementDefinitions = [];
-      return achievementDefinitions;
-    }
 
     const definitions = [];
-    levelOrder.forEach((levelId, index) => {
-      const definition = createLevelAchievementDefinition(levelId, index + 1, metadataMap);
-      if (definition) {
-        definitions.push(definition);
-      }
+
+    // Generate level-based achievements
+    if (levelOrder.length > 0) {
+      levelOrder.forEach((levelId, index) => {
+        const definition = createLevelAchievementDefinition(levelId, index + 1, metadataMap);
+        if (definition) {
+          definitions.push(definition);
+        }
+      });
+    }
+
+    // Generate spire glyph achievements
+    const spires = [
+      { id: 'powder', name: 'Aleph', icon: 'ℵ' },
+      { id: 'fluid', name: 'Bet', icon: 'בּ' },
+      { id: 'lamed', name: 'Lamed', icon: 'ל' },
+      { id: 'tsadi', name: 'Tsadi', icon: 'צ' },
+      { id: 'shin', name: 'Shin', icon: 'ש' },
+      { id: 'kuf', name: 'Kuf', icon: 'ק' },
+    ];
+
+    spires.forEach(spire => {
+      const spireAchievements = generateSpireAchievements(spire.id, spire.name, spire.icon);
+      definitions.push(...spireAchievements);
     });
+
+    // Generate secret achievements
+    const secretAchievements = generateSecretAchievements();
+    definitions.push(...secretAchievements);
 
     achievementDefinitions = definitions;
     const allowedIds = new Set(definitions.map((definition) => definition.id));
@@ -277,7 +464,57 @@ export async function generateLevelAchievements() {
   }
 }
 
-// Renders the tile grid for the achievements tab.
+// Toggle a dropdown section
+function toggleDropdown(categoryId) {
+  const isOpen = openDropdowns.has(categoryId);
+  const dropdownContent = document.querySelector(`[data-dropdown-content="${categoryId}"]`);
+  const toggleButton = document.querySelector(`[data-dropdown-toggle="${categoryId}"]`);
+  
+  if (!dropdownContent || !toggleButton) {
+    return;
+  }
+  
+  if (isOpen) {
+    openDropdowns.delete(categoryId);
+    dropdownContent.hidden = true;
+    dropdownContent.style.display = 'none';
+    toggleButton.setAttribute('aria-expanded', 'false');
+    toggleButton.classList.remove('achievement-category-toggle--expanded');
+  } else {
+    openDropdowns.add(categoryId);
+    dropdownContent.hidden = false;
+    dropdownContent.style.display = 'block';
+    toggleButton.setAttribute('aria-expanded', 'true');
+    toggleButton.classList.add('achievement-category-toggle--expanded');
+  }
+}
+
+// Calculate total bonuses for a category
+function calculateCategoryBonuses(categoryAchievements) {
+  const unlocked = categoryAchievements.filter(def => achievementState.get(def.id)?.unlocked);
+  const totalFlux = unlocked.reduce((sum, def) => sum + (def.rewardFlux || ACHIEVEMENT_REWARD_FLUX), 0);
+  return { count: unlocked.length, totalFlux };
+}
+
+// Render bonuses summary for a category
+function renderBonusSummary(categoryAchievements) {
+  const { count, totalFlux } = calculateCategoryBonuses(categoryAchievements);
+  if (count === 0) {
+    return null;
+  }
+  
+  const summary = document.createElement('div');
+  summary.className = 'achievement-category-bonuses';
+  summary.innerHTML = `
+    <p class="achievement-category-bonuses__title">Bonuses Earned:</p>
+    <ul class="achievement-category-bonuses__list">
+      <li>+${formatGameNumber(totalFlux)} Motes/min idle</li>
+    </ul>
+  `;
+  return summary;
+}
+
+// Renders the tile grid for the achievements tab with dropdown categories.
 function renderAchievementGrid() {
   if (!achievementGridEl) {
     achievementGridEl = document.getElementById('achievement-grid');
@@ -290,70 +527,154 @@ function renderAchievementGrid() {
   achievementGridEl.innerHTML = '';
 
   if (!achievementDefinitions.length) {
-    achievementGridEl.setAttribute('role', 'list');
-    activeAchievementId = null;
+    achievementGridEl.setAttribute('role', 'region');
     return;
   }
 
   const fragment = document.createDocumentFragment();
 
-  achievementDefinitions.forEach((definition, index) => {
-    const tile = document.createElement('button');
-    tile.type = 'button';
-    tile.className = 'achievement-tile';
-    tile.dataset.achievementId = definition.id;
-    tile.setAttribute('role', 'listitem');
-    tile.setAttribute('aria-haspopup', 'dialog');
-    tile.setAttribute('aria-label', `${definition.title} achievement. Activate to view reward details.`);
-    tile.addEventListener('click', () => {
-      // Launch the cinematic overlay describing this achievement.
-      presentAchievementCinematic(definition.id);
-    });
-
-    const icon = document.createElement('span');
-    icon.className = 'achievement-icon';
-    icon.textContent = definition.icon || String(index + 1);
-    icon.setAttribute('aria-hidden', 'true');
-
-    const label = document.createElement('span');
-    label.className = 'achievement-label';
-    label.textContent = definition.title;
-
-    const detail = document.createElement('div');
-    detail.className = 'achievement-detail';
-    detail.hidden = true;
-
-    if (definition.subtitle && definition.subtitle !== definition.title) {
-      const subtitle = document.createElement('p');
-      subtitle.className = 'achievement-subtitle';
-      subtitle.textContent = definition.subtitle;
-      detail.append(subtitle);
+  // Group achievements by category
+  achievementsByCategory.clear();
+  achievementDefinitions.forEach(definition => {
+    const categoryId = definition.categoryId || 'campaign-story';
+    if (!achievementsByCategory.has(categoryId)) {
+      achievementsByCategory.set(categoryId, []);
     }
-
-    if (definition.description) {
-      const description = document.createElement('p');
-      description.className = 'achievement-description';
-      description.textContent = definition.description;
-      detail.append(description);
-    }
-
-    const status = document.createElement('p');
-    status.className = 'achievement-status';
-    status.textContent = 'Locked — Seal this level to unlock.';
-    detail.append(status);
-
-    tile.append(icon, label, detail);
-    fragment.append(tile);
-
-    achievementElements.set(definition.id, {
-      container: tile,
-      status,
-      detail,
-      icon,
-    });
+    achievementsByCategory.get(categoryId).push(definition);
   });
 
-  achievementGridEl.setAttribute('role', 'list');
+  // Render each category as a dropdown
+  ACHIEVEMENT_CATEGORIES.forEach(category => {
+    const categoryAchievements = achievementsByCategory.get(category.id) || [];
+    if (categoryAchievements.length === 0) {
+      return;
+    }
+
+    const categoryContainer = document.createElement('div');
+    categoryContainer.className = 'achievement-category';
+    categoryContainer.dataset.category = category.id;
+
+    // Toggle button
+    const toggleButton = document.createElement('button');
+    toggleButton.type = 'button';
+    toggleButton.className = 'achievement-category-toggle action-button';
+    toggleButton.dataset.dropdownToggle = category.id;
+    toggleButton.setAttribute('aria-expanded', 'false');
+    
+    const unlocked = categoryAchievements.filter(def => achievementState.get(def.id)?.unlocked).length;
+    const total = categoryAchievements.length;
+    
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'achievement-category-icon';
+    iconSpan.textContent = category.icon;
+    iconSpan.setAttribute('aria-hidden', 'true');
+    
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'achievement-category-label';
+    labelSpan.textContent = category.name;
+    
+    const countSpan = document.createElement('span');
+    countSpan.className = 'achievement-category-count';
+    countSpan.textContent = `${unlocked}/${total}`;
+    
+    toggleButton.append(iconSpan, labelSpan, countSpan);
+    toggleButton.addEventListener('click', () => toggleDropdown(category.id));
+    
+    categoryContainer.append(toggleButton);
+
+    // Dropdown content
+    const dropdownContent = document.createElement('div');
+    dropdownContent.className = 'achievement-category-content';
+    dropdownContent.dataset.dropdownContent = category.id;
+    dropdownContent.hidden = true;
+    dropdownContent.style.display = 'none';
+
+    // Add bonus summary
+    const bonusSummary = renderBonusSummary(categoryAchievements);
+    if (bonusSummary) {
+      dropdownContent.append(bonusSummary);
+    }
+
+    // Add achievements grid
+    const achievementsGrid = document.createElement('div');
+    achievementsGrid.className = 'achievement-tiles-grid';
+    achievementsGrid.setAttribute('role', 'list');
+
+    categoryAchievements.forEach((definition, index) => {
+      const tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'achievement-tile';
+      tile.dataset.achievementId = definition.id;
+      tile.setAttribute('role', 'listitem');
+      tile.setAttribute('aria-haspopup', 'dialog');
+      tile.setAttribute('aria-label', `${definition.title} achievement. Activate to view reward details.`);
+      tile.addEventListener('click', () => {
+        presentAchievementCinematic(definition.id);
+      });
+
+      const icon = document.createElement('span');
+      icon.className = 'achievement-icon';
+      const state = achievementState.get(definition.id);
+      const isUnlocked = state?.unlocked;
+      
+      // For secret achievements, show question mark when locked
+      if (definition.secret && !isUnlocked) {
+        icon.textContent = '❓';
+        tile.classList.add('achievement-tile--secret-locked');
+      } else {
+        icon.textContent = definition.icon || String(index + 1);
+      }
+      icon.setAttribute('aria-hidden', 'true');
+
+      const label = document.createElement('span');
+      label.className = 'achievement-label';
+      // For secret achievements, hide title when locked
+      if (definition.secret && !isUnlocked) {
+        label.textContent = '???';
+      } else {
+        label.textContent = definition.title;
+      }
+
+      const detail = document.createElement('div');
+      detail.className = 'achievement-detail';
+      detail.hidden = true;
+
+      if (definition.subtitle && definition.subtitle !== definition.title) {
+        const subtitle = document.createElement('p');
+        subtitle.className = 'achievement-subtitle';
+        subtitle.textContent = definition.subtitle;
+        detail.append(subtitle);
+      }
+
+      if (definition.description) {
+        const description = document.createElement('p');
+        description.className = 'achievement-description';
+        description.textContent = definition.description;
+        detail.append(description);
+      }
+
+      const status = document.createElement('p');
+      status.className = 'achievement-status';
+      status.textContent = 'Locked — Seal this level to unlock.';
+      detail.append(status);
+
+      tile.append(icon, label, detail);
+      achievementsGrid.append(tile);
+
+      achievementElements.set(definition.id, {
+        container: tile,
+        status,
+        detail,
+        icon,
+      });
+    });
+
+    dropdownContent.append(achievementsGrid);
+    categoryContainer.append(dropdownContent);
+    fragment.append(categoryContainer);
+  });
+
+  achievementGridEl.setAttribute('role', 'region');
   achievementGridEl.append(fragment);
 }
 
@@ -606,30 +927,91 @@ function updateAchievementStatus(definition, element, state) {
   if (!definition || !element) {
     return;
   }
-  const { container, status } = element;
-  if (state?.unlocked) {
+  const { container, status, icon } = element;
+  const isUnlocked = state?.unlocked;
+  
+  if (isUnlocked) {
     if (container) {
       container.classList.add('achievement-unlocked');
+      container.classList.remove('achievement-tile--secret-locked');
     }
+    
+    // Update icon and label for secret achievements when unlocked
+    if (definition.secret && icon) {
+      icon.textContent = definition.icon || '✓';
+      const label = container?.querySelector('.achievement-label');
+      if (label) {
+        label.textContent = definition.title;
+      }
+    }
+    
     if (status) {
-      status.textContent = 'Unlocked · +1 Motes/min secured.';
+      const rewardFlux = definition.rewardFlux || ACHIEVEMENT_REWARD_FLUX;
+      status.textContent = `Unlocked · +${rewardFlux} Motes/min secured.`;
     }
     if (container && status) {
       container.setAttribute('aria-label', `${definition.title} achievement. ${status.textContent} Activate to view reward details.`);
     }
-    return;
+  } else {
+    if (container) {
+      container.classList.remove('achievement-unlocked');
+    }
+    
+    // Keep secret locked styling for secret achievements
+    if (definition.secret && container) {
+      container.classList.add('achievement-tile--secret-locked');
+    }
+    
+    if (status) {
+      const progress = typeof definition.progress === 'function' ? definition.progress() : 'Locked';
+      status.textContent = progress.startsWith('Locked') ? progress : `Locked — ${progress}`;
+    }
+    if (container && status) {
+      const titleText = definition.secret ? '???' : definition.title;
+      container.setAttribute('aria-label', `${titleText} achievement. ${status.textContent} Activate to view reward details.`);
+    }
   }
+}
 
-  if (container) {
-    container.classList.remove('achievement-unlocked');
-  }
-  if (status) {
-    const progress = typeof definition.progress === 'function' ? definition.progress() : 'Locked';
-    status.textContent = progress.startsWith('Locked') ? progress : `Locked — ${progress}`;
-  }
-  if (container && status) {
-    container.setAttribute('aria-label', `${definition.title} achievement. ${status.textContent} Activate to view reward details.`);
-  }
+// Update category button counts
+function updateCategoryButtonCounts() {
+  ACHIEVEMENT_CATEGORIES.forEach(category => {
+    const categoryAchievements = achievementsByCategory.get(category.id) || [];
+    if (categoryAchievements.length === 0) {
+      return;
+    }
+    
+    const unlocked = categoryAchievements.filter(def => achievementState.get(def.id)?.unlocked).length;
+    const total = categoryAchievements.length;
+    
+    const toggleButton = document.querySelector(`[data-dropdown-toggle="${category.id}"]`);
+    if (toggleButton) {
+      const countSpan = toggleButton.querySelector('.achievement-category-count');
+      if (countSpan) {
+        countSpan.textContent = `${unlocked}/${total}`;
+      }
+    }
+    
+    // Update bonus summary if dropdown is open
+    if (openDropdowns.has(category.id)) {
+      const dropdownContent = document.querySelector(`[data-dropdown-content="${category.id}"]`);
+      if (dropdownContent) {
+        const existingSummary = dropdownContent.querySelector('.achievement-category-bonuses');
+        const newSummary = renderBonusSummary(categoryAchievements);
+        
+        if (newSummary && existingSummary) {
+          existingSummary.replaceWith(newSummary);
+        } else if (newSummary && !existingSummary) {
+          const achievementsGrid = dropdownContent.querySelector('.achievement-tiles-grid');
+          if (achievementsGrid) {
+            dropdownContent.insertBefore(newSummary, achievementsGrid);
+          }
+        } else if (!newSummary && existingSummary) {
+          existingSummary.remove();
+        }
+      }
+    }
+  });
 }
 
 // Checks all achievements to unlock any that now satisfy their condition.
@@ -642,6 +1024,9 @@ export function evaluateAchievements() {
       updateAchievementStatus(definition, achievementElements.get(definition.id), state || null);
     }
   });
+  
+  // Update category button counts after evaluating all achievements
+  updateCategoryButtonCounts();
 }
 
 // Unlocks an achievement and propagates reward updates through dependent systems.
