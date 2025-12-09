@@ -3947,6 +3947,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       }
       const status = campaignLocks.get(campaignButton.name);
       const glyphEl = campaignButton.glyphEl;
+      const displayName = campaignButton.displayName || campaignButton.name;
       const isLocked = !status || !status.anyUnlocked;
 
       if (isLocked) {
@@ -3955,8 +3956,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         campaignButton.trigger.disabled = true;
         campaignButton.trigger.setAttribute('aria-disabled', 'true');
         campaignButton.trigger.setAttribute('tabindex', '-1');
-        campaignButton.trigger.title = `${campaignButton.name} campaign locked`;
-        campaignButton.trigger.setAttribute('aria-label', `${campaignButton.name} campaign locked`);
+        campaignButton.trigger.title = `${displayName} campaign locked`;
+        campaignButton.trigger.setAttribute('aria-label', `${displayName} campaign locked`);
         if (glyphEl) {
           glyphEl.textContent = '🔒';
         }
@@ -3965,8 +3966,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         campaignButton.trigger.disabled = false;
         campaignButton.trigger.setAttribute('aria-disabled', 'false');
         campaignButton.trigger.removeAttribute('tabindex');
-        campaignButton.trigger.title = `${campaignButton.name} campaign`;
-        campaignButton.trigger.setAttribute('aria-label', `${campaignButton.name} campaign`);
+        campaignButton.trigger.title = `${displayName} campaign`;
+        campaignButton.trigger.setAttribute('aria-label', `${displayName} campaign`);
         if (glyphEl) {
           glyphEl.textContent = campaignButton.defaultGlyph;
         }
@@ -4196,6 +4197,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     
     // Prioritize Story at the front of the rail and defer Challenges to the back for clearer progression.
     const campaignPriority = ['Story', 'Ladder', 'Challenges'];
+    // Player-facing names can differ from campaign keys so data remains stable while UI copy evolves.
+    const campaignDisplayNames = { Challenges: 'Trials' };
     const orderedCampaigns = Array.from(campaigns.entries()).sort((a, b) => {
       const [campaignA] = a;
       const [campaignB] = b;
@@ -4214,6 +4217,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const campaignElement = document.createElement('div');
       campaignElement.className = 'campaign-button';
       campaignElement.dataset.campaign = campaignName;
+
+      const displayName = campaignDisplayNames[campaignName] || campaignName;
+      const stackRank = campaignPriority.indexOf(campaignName);
+      if (stackRank !== -1) {
+        // Higher z-index ensures Story sits above Ladder which sits above Trials when icons overlap.
+        campaignElement.style.zIndex = `${campaignPriority.length - stackRank}`;
+      }
 
       const campaignTrigger = document.createElement('button');
       campaignTrigger.type = 'button';
@@ -4237,7 +4247,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       
       const campaignTitle = document.createElement('span');
       campaignTitle.className = 'campaign-button-title';
-      campaignTitle.textContent = campaignName;
+      campaignTitle.textContent = displayName;
       
       const campaignCount = document.createElement('span');
       campaignCount.className = 'campaign-button-count';
@@ -4445,6 +4455,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       campaignRow.append(campaignElement);
       campaignButtons.push({
         name: campaignName,
+        displayName,
         element: campaignElement,
         trigger: campaignTrigger,
         glyphEl: campaignGlyph,
