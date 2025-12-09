@@ -167,6 +167,25 @@ export function createLevelStoryScreen({
     }
   }
 
+  /**
+   * Retrieve the authored story entry for a given level id with normalized text sections.
+   * @param {string} levelId - Level or spire story identifier.
+   * @returns {Promise<{id:string,title:string,sections:string[]} | null>} Story entry if defined.
+   */
+  async function getStoryEntry(levelId) {
+    if (!levelId) {
+      return null;
+    }
+    await loadStoryData();
+    const entry = findStoryEntry(levelId);
+    const sections = sanitizeSections(entry);
+    if (!sections.length) {
+      return null;
+    }
+    const title = typeof entry?.title === 'string' && entry.title.trim() ? entry.title.trim() : levelId;
+    return { id: levelId, title, sections };
+  }
+
   // Match modern level ids to legacy story definitions so the first-entry narrative still appears.
   function findStoryEntry(levelId) {
     if (!levelId || !storyData || typeof storyData !== 'object') {
@@ -421,6 +440,7 @@ export function createLevelStoryScreen({
     bindElements,
     preloadStories,
     maybeShowStory,
+    getStoryEntry,
     isVisible: () => isVisible,
   };
 }

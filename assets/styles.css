@@ -7348,6 +7348,104 @@ body.graphics-mode-low .control-button {
   box-shadow: inset 0 0 0 1px rgba(139, 247, 255, 0.05);
 }
 
+.field-notes-views {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.field-notes-view--hidden {
+  display: none;
+}
+
+.field-notes-list-view {
+  overflow: auto;
+  padding: 10px 8px;
+}
+
+.field-notes-empty {
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0.04em;
+  color: rgba(139, 247, 255, 0.72);
+}
+
+.field-notes-entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.field-notes-entry-row {
+  list-style: none;
+}
+
+.field-notes-entry {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(139, 247, 255, 0.16);
+  background: rgba(12, 16, 26, 0.45);
+  color: inherit;
+  text-align: left;
+  cursor: var(--cursor-pointer);
+  display: grid;
+  gap: 6px;
+  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+}
+
+.field-notes-entry:hover,
+.field-notes-entry:focus-visible {
+  border-color: rgba(255, 228, 160, 0.8);
+  box-shadow: 0 8px 24px rgba(255, 228, 160, 0.12);
+}
+
+.field-notes-entry--active {
+  border-color: rgba(139, 247, 255, 0.8);
+  background: linear-gradient(180deg, rgba(14, 32, 48, 0.55), rgba(10, 20, 34, 0.55));
+  box-shadow: 0 10px 28px rgba(139, 247, 255, 0.18);
+}
+
+.field-notes-entry__title {
+  font-family: 'Cormorant Garamond', serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.98rem;
+  color: rgba(255, 228, 160, 0.92);
+}
+
+.field-notes-entry__preview {
+  display: block;
+  font-size: 0.9rem;
+  color: rgba(200, 210, 255, 0.82);
+}
+
+.field-notes-back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 247, 255, 0.35);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: var(--cursor-pointer);
+  z-index: 2;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+
+.field-notes-back:hover,
+.field-notes-back:focus-visible {
+  border-color: rgba(255, 228, 160, 0.85);
+  background: rgba(255, 228, 160, 0.12);
+  color: rgba(255, 228, 160, 0.95);
+}
+
 .field-notes-page {
   position: absolute;
   inset: 0;

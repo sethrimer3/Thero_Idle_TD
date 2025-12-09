@@ -50,6 +50,56 @@ let BASE_CORE_INTEGRITY = FALLBACK_BASE_CORE_INTEGRITY;
 let baseResourcesRef = null;
 let resourceStateRef = null;
 
+function buildLadderCampaignMirrors(config = {}) {
+  const maps = Array.isArray(config.maps) ? config.maps : [];
+  const levels = Array.isArray(config.levels) ? config.levels : [];
+  const levelLookup = new Map(levels.map((level) => [level.id, level]));
+
+  const preservedMaps = maps.filter((map) => map?.campaign !== 'Ladder' || map?.developerOnly);
+  const ladderMaps = [];
+  const ladderLevels = [];
+
+  preservedMaps.forEach((map) => {
+    if (!map || map.campaign !== 'Story' || map.isStoryLevel) {
+      return;
+    }
+
+    const matchingLevel = levelLookup.get(map.id);
+    if (!matchingLevel) {
+      return;
+    }
+
+    const ladderId = `Ladder - ${map.id}`;
+    const ladderTitle = `${map.title} (Endless)`;
+    const ladderDisplayName = `${matchingLevel.displayName || map.title} (Endless)`;
+
+    ladderMaps.push({
+      ...map,
+      id: ladderId,
+      title: ladderTitle,
+      campaign: 'Ladder',
+      focus: map.focus || map.path,
+      example: map.example ? `${map.example} (Endless)` : 'Endless mirror of the story map.',
+      forceEndlessMode: true,
+    });
+
+    ladderLevels.push({
+      ...matchingLevel,
+      id: ladderId,
+      displayName: ladderDisplayName,
+      campaign: 'Ladder',
+      forceEndlessMode: true,
+      isStoryLevel: false,
+    });
+  });
+
+  return {
+    ...config,
+    maps: [...preservedMaps, ...ladderMaps],
+    levels: [...levels, ...ladderLevels],
+  };
+}
+
 function assertResourceContainers() {
   if (!baseResourcesRef || !resourceStateRef) {
     throw new Error('Resource containers have not been registered. Call registerResourceContainers first.');
@@ -231,6 +281,8 @@ async function applyGameplayConfigInternal(config = {}) {
   initializeDiscoveredVariablesFromUnlocks(unlocked);
 
   setEnemyCodexEntries(gameplayConfigData.enemies);
+
+  gameplayConfigData = buildLadderCampaignMirrors(gameplayConfigData);
 
   setLevelBlueprints(gameplayConfigData.maps);
   setLevelConfigs(gameplayConfigData.levels);

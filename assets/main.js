@@ -828,6 +828,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     revealOverlay,
     scheduleOverlayHide,
     audioManager,
+    getStoryEntries: buildSeenStoryEntries,
   });
 
   const {
@@ -3125,6 +3126,51 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   }
 
   /**
+   * Build the ordered list of story screens the player has unlocked for the codex field notes view.
+   * Story-only levels are listed in campaign order, followed by any spire briefings that have been read.
+   * @returns {Promise<Array<{id:string,title:string,sections:string[]}>>} Authored story entries the player has seen.
+   */
+  async function buildSeenStoryEntries() {
+    if (!levelStoryScreen || typeof levelStoryScreen.getStoryEntry !== 'function') {
+      return [];
+    }
+
+    const storyIds = [];
+
+    levelBlueprints.forEach((level) => {
+      if (!isStoryOnlyLevel(level.id)) {
+        return;
+      }
+      const state = levelState.get(level.id);
+      if (state?.storySeen) {
+        storyIds.push(level.id);
+      }
+    });
+
+    Object.entries(spireStoryTargets).forEach(([spireId, storyTarget]) => {
+      const branch = getSpireStoryBranch(spireId);
+      if (storyTarget?.id && branch?.storySeen) {
+        storyIds.push(storyTarget.id);
+      }
+    });
+
+    const uniqueStoryIds = [...new Set(storyIds)];
+    const seenEntries = [];
+    for (const storyId of uniqueStoryIds) {
+      try {
+        const entry = await levelStoryScreen.getStoryEntry(storyId);
+        if (entry) {
+          seenEntries.push(entry);
+        }
+      } catch (error) {
+        console.warn('Unable to load story entry for field notes', storyId, error);
+      }
+    }
+
+    return seenEntries;
+  }
+
+  /**
    * Trigger the shared story overlay when a spire tab opens for the first time.
    * @param {string} spireId - Identifier for the spire tab being opened.
    */
@@ -4669,6 +4715,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const isInteractive = isInteractiveLevel(level.id);
     const levelConfig = levelConfigs.get(level.id);
     const forceEndlessMode = Boolean(level?.forceEndlessMode || levelConfig?.forceEndlessMode);
+    const endlessCampaign = level?.campaign === 'Ladder';
     if (isInteractive && !isLevelUnlocked(level.id)) {
       if (playfield?.messageEl) {
         const requiredId = getPreviousInteractiveLevelId(level.id);
@@ -4711,7 +4758,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     if (playfield) {
       playfield.enterLevel(level, {
-        endlessMode: forceEndlessMode || Boolean(updatedState.completed),
+        endlessMode: forceEndlessMode || endlessCampaign,
       });
     }
 
