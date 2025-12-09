@@ -7,6 +7,7 @@ import { GEM_DEFINITIONS } from './enemies.js';
 const ACHIEVEMENT_REWARD_FLUX = 1;
 const ACHIEVEMENT_REVEAL_TIMEOUT_MS = 420; // Fallback delay before forcing the overlay text to appear.
 const ACHIEVEMENT_DISMISS_TIMEOUT_MS = 520; // Ensures the overlay always resets even if transitions are interrupted.
+const SECRET_PLACEHOLDER_TEXT = '???'; // Placeholder for locked secret achievements
 
 const ACHIEVEMENT_DATA_RELATIVE_PATH = './data/achievements.json';
 const ACHIEVEMENT_DATA_URL = new URL(ACHIEVEMENT_DATA_RELATIVE_PATH, import.meta.url);
@@ -348,33 +349,36 @@ function generateSpireAchievements(spireId, spireName, spireIcon) {
   return achievements;
 }
 
+// Map gem hints by ID for better maintainability
+const GEM_HINTS = new Map([
+  ['quartz', 'Quartz whispers in the shadows...'],
+  ['ruby', 'Ruby gleams in darkness...'],
+  ['sunstone', 'Sunstone radiates mystery...'],
+  ['citrine', 'Citrine hides its golden secret...'],
+  ['emerald', 'Emerald\'s verdant enigma awaits...'],
+  ['sapphire', 'Sapphire\'s azure mystery beckons...'],
+  ['iolite', 'Iolite\'s violet puzzle unfolds...'],
+  ['amethyst', 'Amethyst conceals its purple truth...'],
+  ['diamond', 'Diamond\'s crystalline riddle persists...'],
+  ['nullstone', 'Nullstone\'s void mystery endures...'],
+]);
+
 // Generate secret achievements for gem collection
 function generateSecretAchievements() {
   const achievements = [];
   const categoryId = 'secret';
 
   GEM_DEFINITIONS.forEach((gem, index) => {
-    const hints = [
-      'Quartz whispers in the shadows...',
-      'Ruby gleams in darkness...',
-      'Sunstone radiates mystery...',
-      'Citrine hides its golden secret...',
-      'Emerald\'s verdant enigma awaits...',
-      'Sapphire\'s azure mystery beckons...',
-      'Iolite\'s violet puzzle unfolds...',
-      'Amethyst conceals its purple truth...',
-      'Diamond\'s crystalline riddle persists...',
-      'Nullstone\'s void mystery endures...',
-    ];
+    const hint = GEM_HINTS.get(gem.id) || 'A secret awaits...';
 
     achievements.push({
       id: `secret-gem-${gem.id}`,
       categoryId,
-      title: `??? ${gem.name}`,
+      title: `${SECRET_PLACEHOLDER_TEXT} ${gem.name}`,
       subtitle: gem.name,
       icon: '❓',
       rewardFlux: ACHIEVEMENT_REWARD_FLUX * (index + 1),
-      description: `Obtain a ${gem.name} gem. ${hints[index] || 'A secret awaits...'} Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * (index + 1)} Motes/min to idle reserves.`,
+      description: `Obtain a ${gem.name} gem. ${hint} Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * (index + 1)} Motes/min to idle reserves.`,
       condition: () => {
         const { moteGemInventory } = getContext();
         if (!moteGemInventory) {
@@ -385,10 +389,10 @@ function generateSecretAchievements() {
       progress: () => {
         const { moteGemInventory } = getContext();
         if (!moteGemInventory) {
-          return `Locked — ${hints[index] || 'A secret awaits...'}`;
+          return `Locked — ${hint}`;
         }
         const count = moteGemInventory.get(gem.id) || 0;
-        return count > 0 ? 'Unlocked — Secret revealed!' : `Locked — ${hints[index] || 'A secret awaits...'}`;
+        return count > 0 ? 'Unlocked — Secret revealed!' : `Locked — ${hint}`;
       },
       secret: true,
     });
@@ -630,7 +634,7 @@ function renderAchievementGrid() {
       label.className = 'achievement-label';
       // For secret achievements, hide title when locked
       if (definition.secret && !isUnlocked) {
-        label.textContent = '???';
+        label.textContent = SECRET_PLACEHOLDER_TEXT;
       } else {
         label.textContent = definition.title;
       }
@@ -967,7 +971,7 @@ function updateAchievementStatus(definition, element, state) {
       status.textContent = progress.startsWith('Locked') ? progress : `Locked — ${progress}`;
     }
     if (container && status) {
-      const titleText = definition.secret ? '???' : definition.title;
+      const titleText = definition.secret ? SECRET_PLACEHOLDER_TEXT : definition.title;
       container.setAttribute('aria-label', `${titleText} achievement. ${status.textContent} Activate to view reward details.`);
     }
   }
