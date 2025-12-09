@@ -555,60 +555,6 @@
       "campaign": "Story"
     },
     {
-      "set": "Ladder 1",
-      "id": "Ladder-1-1",
-      "campaign": "Ladder",
-      "title": "Ladder Set 1 - First Challenge",
-      "path": "Competitive tier challenges.",
-      "focus": "Prove your mastery.",
-      "example": "Ladder 1: Test your tactical prowess."
-    },
-    {
-      "set": "Ladder 2",
-      "id": "Ladder-2-1",
-      "campaign": "Ladder",
-      "title": "Ladder Set 2 - First Challenge",
-      "path": "Competitive tier challenges.",
-      "focus": "Prove your mastery.",
-      "example": "Ladder 2: Test your tactical prowess."
-    },
-    {
-      "set": "Ladder 3",
-      "id": "Ladder-3-1",
-      "campaign": "Ladder",
-      "title": "Ladder Set 3 - First Challenge",
-      "path": "Competitive tier challenges.",
-      "focus": "Prove your mastery.",
-      "example": "Ladder 3: Test your tactical prowess."
-    },
-    {
-      "set": "Ladder 4",
-      "id": "Ladder-4-1",
-      "campaign": "Ladder",
-      "title": "Ladder Set 4 - First Challenge",
-      "path": "Competitive tier challenges.",
-      "focus": "Prove your mastery.",
-      "example": "Ladder 4: Test your tactical prowess."
-    },
-    {
-      "set": "Ladder 5",
-      "id": "Ladder-5-1",
-      "campaign": "Ladder",
-      "title": "Ladder Set 5 - First Challenge",
-      "path": "Competitive tier challenges.",
-      "focus": "Prove your mastery.",
-      "example": "Ladder 5: Test your tactical prowess."
-    },
-    {
-      "set": "Ladder 6",
-      "id": "Ladder-6-1",
-      "campaign": "Ladder",
-      "title": "Ladder Set 6 - First Challenge",
-      "path": "Competitive tier challenges.",
-      "focus": "Prove your mastery.",
-      "example": "Ladder 6: Test your tactical prowess."
-    },
-    {
       "set": "Challenge Set 1",
       "id": "Challenge-1-1",
       "campaign": "Challenges",
