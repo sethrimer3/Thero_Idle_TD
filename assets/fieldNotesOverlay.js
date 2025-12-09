@@ -2,6 +2,11 @@ const fieldNotesElements = {
   overlay: null,
   closeButton: null,
   openButton: null,
+  backButton: null,
+  title: null,
+  listView: null,
+  list: null,
+  empty: null,
   copy: null,
   pagination: null,
   pages: [],
@@ -15,59 +20,20 @@ const fieldNotesState = {
   currentIndex: 0,
   animating: false,
   touchStart: null,
+  view: 'list',
+  entries: [],
 };
 
 const fieldNotesDependencies = {
   revealOverlay: () => {},
   scheduleOverlayHide: () => {},
   audioManager: null,
+  getStoryEntries: async () => [],
 };
-
-// Cache the in-flight fetch so multiple callers reuse the same request.
-let fieldNotesDataPromise = null;
 
 // Message shown when the external data file fails to load.
 const FIELD_NOTES_FALLBACK_MESSAGE =
   'Field notes are unavailable right now. Please return once the codex stabilizes.';
-
-function getFieldNotesDataUrl() {
-  try {
-    return new URL('./data/fieldNotes.json', import.meta.url);
-  } catch (error) {
-    return null;
-  }
-}
-
-// Retrieve the authored field notes dataset from disk.
-async function loadFieldNotesData() {
-  if (fieldNotesDataPromise) {
-    return fieldNotesDataPromise;
-  }
-
-  fieldNotesDataPromise = (async () => {
-    const url = getFieldNotesDataUrl();
-    if (!url) {
-      return [];
-    }
-
-    try {
-      const response = await fetch(url, { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(`Field notes request failed with status ${response.status}`);
-      }
-      const data = await response.json();
-      if (!data || !Array.isArray(data.pages)) {
-        return [];
-      }
-      return data.pages;
-    } catch (error) {
-      console.error('Failed to load field notes data:', error);
-      return [];
-    }
-  })();
-
-  return fieldNotesDataPromise;
-}
 
 // Build the decorative heading shown at the top of each page.
 function createFieldNotesHeading(title) {
@@ -123,7 +89,11 @@ function populateFieldNotesArticle(article, pageData) {
     }
   }
 
-  const blocks = Array.isArray(pageData.content) ? pageData.content : [];
+  const blocks = Array.isArray(pageData.content) && pageData.content.length
+    ? pageData.content
+    : Array.isArray(pageData.sections)
+      ? pageData.sections.map((text) => ({ type: 'paragraph', text }))
+      : [];
   blocks.forEach((block) => {
     if (!block || typeof block !== 'object') {
       return;
@@ -187,6 +157,139 @@ function createFallbackFieldNotesPage() {
   return article;
 }
 
+// Locate the active story entry so navigation controls can fetch its metadata.
+function getCurrentEntry(index = fieldNotesState.currentIndex) {
+  if (!Array.isArray(fieldNotesState.entries)) {
+    return null;
+  }
+  const clamped = Math.max(0, Math.min(fieldNotesState.entries.length - 1, index));
+  return fieldNotesState.entries[clamped] || null;
+}
+
+// Update the overlay heading when swapping between list and detail states.
+function setFieldNotesTitle(title) {
+  if (!fieldNotesElements.title) {
+    return;
+  }
+  const nextTitle = title || 'Field Notes Archive';
+  fieldNotesElements.title.textContent = nextTitle;
+}
+
+// Keep the archive list selection synchronized with the active entry index.
+function highlightActiveListEntry(index) {
+  if (!fieldNotesElements.list) {
+    return;
+  }
+  const buttons = Array.from(fieldNotesElements.list.querySelectorAll('.field-notes-entry'));
+  buttons.forEach((button, buttonIndex) => {
+    const active = buttonIndex === index;
+    button.classList.toggle('field-notes-entry--active', active);
+    if (active) {
+      button.setAttribute('aria-current', 'true');
+    } else {
+      button.removeAttribute('aria-current');
+    }
+  });
+}
+
+// Toggle between the archive list and the detailed story page view.
+function setFieldNotesView(view) {
+  const normalized = view === 'detail' ? 'detail' : 'list';
+  const hasPages = getFieldNotesPages().length > 0;
+  fieldNotesState.view = normalized === 'detail' && hasPages ? 'detail' : 'list';
+
+  const showList = fieldNotesState.view === 'list';
+  if (fieldNotesElements.listView) {
+    fieldNotesElements.listView.classList.toggle('field-notes-view--hidden', !showList);
+    fieldNotesElements.listView.hidden = !showList;
+    fieldNotesElements.listView.setAttribute('aria-hidden', showList ? 'false' : 'true');
+  }
+
+  if (fieldNotesElements.copy) {
+    fieldNotesElements.copy.classList.toggle('field-notes-view--hidden', showList);
+    fieldNotesElements.copy.hidden = showList;
+    fieldNotesElements.copy.setAttribute('aria-hidden', showList ? 'true' : 'false');
+  }
+
+  if (fieldNotesElements.backButton) {
+    fieldNotesElements.backButton.hidden = showList;
+    fieldNotesElements.backButton.setAttribute('aria-hidden', showList ? 'true' : 'false');
+  }
+
+  const activeEntry = getCurrentEntry();
+  setFieldNotesTitle(showList ? 'Field Notes Archive' : activeEntry?.title);
+  if (showList) {
+    clearFieldNotesPointerTracking();
+  }
+  highlightActiveListEntry(fieldNotesState.currentIndex);
+  updateFieldNotesControls();
+}
+
+// Generate a short summary snippet for each list entry.
+function createEntryPreview(text) {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+  const snippet = text.replace(/\s+/g, ' ').trim();
+  if (snippet.length <= 120) {
+    return snippet;
+  }
+  return `${snippet.slice(0, 117)}…`;
+}
+
+// Render the button used for each archive entry in the list view.
+function createFieldNotesListEntry(entry, index) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'field-notes-entry';
+  button.dataset.entryIndex = String(index);
+  button.setAttribute('aria-label', `Read story ${entry.title}`);
+
+  const title = document.createElement('span');
+  title.className = 'field-notes-entry__title';
+  title.textContent = entry.title;
+
+  const previewText = createEntryPreview((entry.sections || []).find((section) => section));
+
+  button.appendChild(title);
+  if (previewText) {
+    button.appendChild(document.createElement('br'));
+    const preview = document.createElement('span');
+    preview.className = 'field-notes-entry__preview';
+    preview.textContent = previewText;
+    button.appendChild(preview);
+  }
+  return button;
+}
+
+// Populate the archive list with every seen story entry.
+function renderFieldNotesList(entries) {
+  if (!fieldNotesElements.list) {
+    return;
+  }
+  fieldNotesElements.list.innerHTML = '';
+
+  const fragment = document.createDocumentFragment();
+  const normalizedEntries = Array.isArray(entries) ? entries : [];
+  normalizedEntries.forEach((entry, index) => {
+    if (!entry || !entry.title) {
+      return;
+    }
+    const item = document.createElement('li');
+    item.className = 'field-notes-entry-row';
+    const button = createFieldNotesListEntry(entry, index);
+    item.appendChild(button);
+    fragment.appendChild(item);
+  });
+
+  fieldNotesElements.list.appendChild(fragment);
+  if (fieldNotesElements.empty) {
+    fieldNotesElements.empty.hidden = normalizedEntries.length > 0;
+  }
+
+  highlightActiveListEntry(fieldNotesState.currentIndex);
+}
+
 // Make sure the DOM reflects the latest dataset before the overlay is shown.
 async function ensureFieldNotesPages() {
   const container = fieldNotesElements.copy;
@@ -195,26 +298,65 @@ async function ensureFieldNotesPages() {
     return;
   }
 
-  const pagesData = await loadFieldNotesData();
+  let entries = [];
+  try {
+    entries = await fieldNotesDependencies.getStoryEntries();
+  } catch (error) {
+    console.error('Failed to build field notes entries', error);
+  }
+
+  const normalizedEntries = Array.isArray(entries)
+    ? entries
+      .map((entry) => {
+        const title = typeof entry?.title === 'string' ? entry.title.trim() : '';
+        const sections = Array.isArray(entry?.sections)
+          ? entry.sections.map((section) => (typeof section === 'string' ? section : '')).filter(Boolean)
+          : [];
+        return title && sections.length ? { ...entry, title, sections } : null;
+      })
+      .filter(Boolean)
+    : [];
+
+  fieldNotesState.entries = normalizedEntries;
+  renderFieldNotesList(normalizedEntries);
 
   container.innerHTML = '';
-
   const fragment = document.createDocumentFragment();
-  const normalizedPages = Array.isArray(pagesData) && pagesData.length ? pagesData : null;
 
-  if (!normalizedPages) {
+  if (!normalizedEntries.length) {
     fragment.appendChild(createFallbackFieldNotesPage());
   } else {
-    normalizedPages.forEach((page, index) => {
-      fragment.appendChild(createFieldNotesArticle(page, index));
+    normalizedEntries.forEach((entry, index) => {
+      fragment.appendChild(
+        createFieldNotesArticle(
+          {
+            title: entry.title,
+            sections: entry.sections,
+          },
+          index,
+        ),
+      );
     });
   }
 
   container.appendChild(fragment);
   fieldNotesElements.pages = Array.from(container.querySelectorAll('.field-notes-page'));
+
+  const totalPages = fieldNotesElements.pages.length;
+  fieldNotesState.currentIndex = totalPages > 0
+    ? Math.max(0, Math.min(totalPages - 1, fieldNotesState.currentIndex))
+    : 0;
+
+  if (normalizedEntries.length && fieldNotesState.view === 'detail') {
+    setFieldNotesView('detail');
+    setFieldNotesPage(fieldNotesState.currentIndex, { immediate: true });
+  } else {
+    setFieldNotesView('list');
+    updateFieldNotesControls();
+  }
 }
 
-export function configureFieldNotesOverlay({ revealOverlay, scheduleOverlayHide, audioManager } = {}) {
+export function configureFieldNotesOverlay({ revealOverlay, scheduleOverlayHide, audioManager, getStoryEntries } = {}) {
   if (typeof revealOverlay === 'function') {
     fieldNotesDependencies.revealOverlay = revealOverlay;
   }
@@ -223,6 +365,9 @@ export function configureFieldNotesOverlay({ revealOverlay, scheduleOverlayHide,
   }
   if (audioManager !== undefined) {
     fieldNotesDependencies.audioManager = audioManager || null;
+  }
+  if (typeof getStoryEntries === 'function') {
+    fieldNotesDependencies.getStoryEntries = getStoryEntries;
   }
 }
 
@@ -257,25 +402,26 @@ function updateFieldNotesControls() {
   const pages = getFieldNotesPages();
   const total = pages.length;
   const current = Math.max(0, Math.min(total - 1, fieldNotesState.currentIndex));
+  const showingDetail = fieldNotesState.view === 'detail' && total > 0;
 
   if (fieldNotesElements.pageIndicator) {
-    const label = total > 0 ? `${current + 1} / ${total}` : '?';
+    const label = showingDetail && total > 0 ? `${current + 1} / ${total}` : 'Story Archive';
     fieldNotesElements.pageIndicator.textContent = label;
-    fieldNotesElements.pageIndicator.hidden = total <= 1;
+    fieldNotesElements.pageIndicator.hidden = !showingDetail || total <= 1;
   }
 
   if (fieldNotesElements.prevButton) {
-    fieldNotesElements.prevButton.disabled = current <= 0 || total <= 1;
-    fieldNotesElements.prevButton.hidden = total <= 1;
+    fieldNotesElements.prevButton.disabled = !showingDetail || current <= 0 || total <= 1;
+    fieldNotesElements.prevButton.hidden = !showingDetail || total <= 1;
   }
 
   if (fieldNotesElements.nextButton) {
-    fieldNotesElements.nextButton.disabled = current >= total - 1 || total <= 1;
-    fieldNotesElements.nextButton.hidden = total <= 1;
+    fieldNotesElements.nextButton.disabled = !showingDetail || current >= total - 1 || total <= 1;
+    fieldNotesElements.nextButton.hidden = !showingDetail || total <= 1;
   }
 
   if (fieldNotesElements.pagination) {
-    if (total <= 1) {
+    if (!showingDetail || total <= 1) {
       fieldNotesElements.pagination.setAttribute('hidden', '');
     } else {
       fieldNotesElements.pagination.removeAttribute('hidden');
@@ -287,6 +433,7 @@ function setFieldNotesPage(targetIndex, options = {}) {
   const pages = getFieldNotesPages();
   if (!pages.length) {
     fieldNotesState.currentIndex = 0;
+    setFieldNotesView('list');
     updateFieldNotesControls();
     return;
   }
@@ -300,6 +447,9 @@ function setFieldNotesPage(targetIndex, options = {}) {
   if (!nextPage) {
     return;
   }
+
+  const wasDetailView = fieldNotesState.view === 'detail';
+  setFieldNotesView('detail');
 
   if (!immediate && clampedIndex !== currentIndex) {
     const audioManager = getAudioManager();
@@ -326,11 +476,13 @@ function setFieldNotesPage(targetIndex, options = {}) {
         page.scrollTop = 0;
       }
     });
+    setFieldNotesTitle(getCurrentEntry(clampedIndex)?.title);
+    highlightActiveListEntry(clampedIndex);
     updateFieldNotesControls();
     return;
   }
 
-  if (fieldNotesState.animating || clampedIndex === currentIndex) {
+  if (fieldNotesState.animating || (clampedIndex === currentIndex && wasDetailView)) {
     return;
   }
 
@@ -394,6 +546,8 @@ function setFieldNotesPage(targetIndex, options = {}) {
     }
     fieldNotesState.currentIndex = clampedIndex;
     fieldNotesState.animating = false;
+    setFieldNotesTitle(getCurrentEntry(clampedIndex)?.title);
+    highlightActiveListEntry(clampedIndex);
     updateFieldNotesControls();
   };
 
@@ -409,6 +563,9 @@ function setFieldNotesPage(targetIndex, options = {}) {
 }
 
 function showNextFieldNotesPage() {
+  if (fieldNotesState.view !== 'detail') {
+    return;
+  }
   const pages = getFieldNotesPages();
   if (!pages.length) {
     return;
@@ -418,12 +575,34 @@ function showNextFieldNotesPage() {
 }
 
 function showPreviousFieldNotesPage() {
+  if (fieldNotesState.view !== 'detail') {
+    return;
+  }
   const pages = getFieldNotesPages();
   if (!pages.length) {
     return;
   }
   const nextIndex = Math.max(0, fieldNotesState.currentIndex - 1);
   setFieldNotesPage(nextIndex, { direction: -1 });
+}
+
+// Return focus to a specific archive entry when leaving the reader view.
+function focusFieldNotesListEntry(index) {
+  if (!fieldNotesElements.list) {
+    return;
+  }
+  const button = fieldNotesElements.list.querySelector(
+    `.field-notes-entry[data-entry-index="${index}"]`,
+  );
+  if (button) {
+    focusFieldNotesElement(button);
+  }
+}
+
+// Switch back to the archive list and highlight the current entry.
+function showFieldNotesList() {
+  setFieldNotesView('list');
+  focusFieldNotesListEntry(fieldNotesState.currentIndex);
 }
 
 function handleFieldNotesOverlayKeydown(event) {
@@ -434,18 +613,28 @@ function handleFieldNotesOverlayKeydown(event) {
     event.stopPropagation();
   }
   if (event.key === 'ArrowRight') {
+    if (fieldNotesState.view !== 'detail') {
+      return;
+    }
     event.preventDefault();
     showNextFieldNotesPage();
     return;
   }
   if (event.key === 'ArrowLeft') {
+    if (fieldNotesState.view !== 'detail') {
+      return;
+    }
     event.preventDefault();
     showPreviousFieldNotesPage();
   }
 }
 
 function handleFieldNotesPointerDown(event) {
-  if (!event || (event.pointerType !== 'touch' && event.pointerType !== 'pen')) {
+  if (
+    !event ||
+    fieldNotesState.view !== 'detail' ||
+    (event.pointerType !== 'touch' && event.pointerType !== 'pen')
+  ) {
     fieldNotesState.touchStart = null;
     return;
   }
@@ -487,6 +676,27 @@ function clearFieldNotesPointerTracking() {
   fieldNotesState.touchStart = null;
 }
 
+// Open the selected story page when a list row is activated.
+function handleFieldNotesListClick(event) {
+  if (!event || !fieldNotesElements.list) {
+    return;
+  }
+  const button = event.target?.closest?.('.field-notes-entry');
+  if (!button || !fieldNotesElements.list.contains(button)) {
+    return;
+  }
+  event.preventDefault();
+  const targetIndex = Number.parseInt(button.dataset.entryIndex || '-1', 10);
+  const totalPages = getFieldNotesPages().length;
+  if (!Number.isFinite(targetIndex) || targetIndex < 0 || targetIndex >= totalPages) {
+    return;
+  }
+  const previousIndex = fieldNotesState.currentIndex;
+  fieldNotesState.currentIndex = targetIndex;
+  const direction = targetIndex === previousIndex ? 0 : targetIndex > previousIndex ? 1 : -1;
+  setFieldNotesPage(targetIndex, { direction });
+}
+
 export function closeFieldNotesOverlay() {
   const { overlay } = fieldNotesElements;
   if (!overlay || !isFieldNotesOverlayVisible()) {
@@ -499,6 +709,7 @@ export function closeFieldNotesOverlay() {
   fieldNotesDependencies.scheduleOverlayHide(overlay);
   fieldNotesState.animating = false;
   clearFieldNotesPointerTracking();
+  setFieldNotesView('list');
 
   const focusTarget =
     fieldNotesElements.lastFocus && typeof fieldNotesElements.lastFocus.focus === 'function'
@@ -512,17 +723,18 @@ export function closeFieldNotesOverlay() {
   fieldNotesElements.lastFocus = null;
 }
 
-export function openFieldNotesOverlay() {
+export async function openFieldNotesOverlay() {
   const { overlay, closeButton } = fieldNotesElements;
   if (!overlay || isFieldNotesOverlayVisible()) {
     return;
   }
 
+  await ensureFieldNotesPages();
   fieldNotesElements.lastFocus = typeof document !== 'undefined' ? document.activeElement : null;
   fieldNotesDependencies.revealOverlay(overlay);
   overlay.setAttribute('aria-hidden', 'false');
   fieldNotesState.touchStart = null;
-  setFieldNotesPage(0, { immediate: true });
+  setFieldNotesView('list');
 
   requestAnimationFrame(() => {
     overlay.classList.add('active');
@@ -537,6 +749,11 @@ export function openFieldNotesOverlay() {
 export async function initializeFieldNotesOverlay() {
   fieldNotesElements.overlay = document.getElementById('field-notes-overlay');
   fieldNotesElements.closeButton = document.getElementById('field-notes-close');
+  fieldNotesElements.backButton = document.getElementById('field-notes-back');
+  fieldNotesElements.title = document.getElementById('field-notes-title');
+  fieldNotesElements.listView = document.getElementById('field-notes-list-view');
+  fieldNotesElements.list = document.getElementById('field-notes-list');
+  fieldNotesElements.empty = document.getElementById('field-notes-empty');
   fieldNotesElements.copy = document.getElementById('field-notes-copy');
   fieldNotesElements.pagination = document.getElementById('field-notes-pagination');
   fieldNotesElements.pageIndicator = document.getElementById('field-notes-page-indicator');
@@ -544,8 +761,8 @@ export async function initializeFieldNotesOverlay() {
   fieldNotesElements.nextButton = document.getElementById('field-notes-next');
 
   await ensureFieldNotesPages();
-  fieldNotesState.currentIndex = 0;
-  setFieldNotesPage(0, { immediate: true });
+  fieldNotesState.currentIndex = Math.max(0, Math.min(getFieldNotesPages().length - 1, 0));
+  setFieldNotesView('list');
   updateFieldNotesControls();
 
   const { overlay, closeButton } = fieldNotesElements;
@@ -574,6 +791,13 @@ export async function initializeFieldNotesOverlay() {
     });
   }
 
+  if (fieldNotesElements.backButton) {
+    fieldNotesElements.backButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      showFieldNotesList();
+    });
+  }
+
   if (fieldNotesElements.prevButton) {
     fieldNotesElements.prevButton.addEventListener('click', () => {
       showPreviousFieldNotesPage();
@@ -597,5 +821,9 @@ export async function initializeFieldNotesOverlay() {
         clearFieldNotesPointerTracking();
       }
     });
+  }
+
+  if (fieldNotesElements.list) {
+    fieldNotesElements.list.addEventListener('click', handleFieldNotesListClick);
   }
 }
