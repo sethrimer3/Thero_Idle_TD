@@ -343,6 +343,8 @@ export class SimplePlayfield {
     this.pathSegments = [];
     this.pathPoints = [];
     this.pathLength = 0;
+    // Track tunnel segments for path fading and enemy invulnerability
+    this.tunnelSegments = [];
     // Store both the ambient river particles and the luminous tracer sparks.
     this.trackRiverParticles = [];
     this.trackRiverTracerParticles = [];
@@ -683,6 +685,42 @@ export class SimplePlayfield {
       alpha: 1,
       // Store how intense the outline highlight should be for this impact.
       outlineAlpha,
+    };
+    this.damageNumbers.push(entry);
+    const maxEntries = 90;
+    if (this.damageNumbers.length > maxEntries) {
+      this.damageNumbers.splice(0, this.damageNumbers.length - maxEntries);
+    }
+  }
+
+  spawnMissText(enemy) {
+    if (!this.areDamageNumbersActive() || !enemy) {
+      return;
+    }
+    const enemyPosition = this.getEnemyPosition(enemy);
+    if (!enemyPosition) {
+      return;
+    }
+    const metrics = this.getEnemyVisualMetrics(enemy);
+    const offsetDistance = (metrics?.ringRadius || 12) + 6;
+    const spawnPosition = {
+      x: enemyPosition.x,
+      y: enemyPosition.y - offsetDistance,
+    };
+    const entry = {
+      id: (this.damageNumberIdCounter += 1),
+      position: spawnPosition,
+      velocity: {
+        x: 0,
+        y: -80,
+      },
+      text: 'Miss',
+      color: { r: 180, g: 180, b: 180 },
+      fontSize: 18,
+      elapsed: 0,
+      lifetime: 1.0,
+      alpha: 1,
+      outlineAlpha: 0.3,
     };
     this.damageNumbers.push(entry);
     const maxEntries = 90;
@@ -1942,6 +1980,7 @@ export class SimplePlayfield {
       x: node.x * this.renderWidth,
       y: node.y * this.renderHeight,
       speedMultiplier: Number.isFinite(node.speedMultiplier) ? node.speedMultiplier : 1,
+      tunnel: Boolean(node.tunnel),
     }));
 
     const smoothPoints = this.generateSmoothPathPoints(points, 14);
@@ -1966,14 +2005,73 @@ export class SimplePlayfield {
         speedMultiplier = end.speedMultiplier;
       }
       
-      segments.push({ start, end, length, speedMultiplier });
+      // Mark if this segment is inside a tunnel
+      const inTunnel = Boolean(start.tunnel && end.tunnel);
+      
+      segments.push({ start, end, length, speedMultiplier, inTunnel });
       totalLength += length;
     }
 
     this.pathPoints = smoothPoints;
     this.pathSegments = segments;
     this.pathLength = totalLength || 1;
+    
+    // Identify tunnel zones: consecutive tunnel segments with fade zones at entry/exit
+    this.buildTunnelSegments(smoothPoints);
+    
     this.initializeTrackRiverParticles();
+  }
+
+  buildTunnelSegments(points) {
+    this.tunnelSegments = [];
+    
+    if (!Array.isArray(points) || points.length < 2) {
+      return;
+    }
+    
+    // Find consecutive tunnel points to identify tunnel zones
+    let tunnelStart = null;
+    let tunnelStartIndex = -1;
+    
+    for (let i = 0; i < points.length; i += 1) {
+      const point = points[i];
+      const isTunnel = Boolean(point.tunnel);
+      
+      if (isTunnel && tunnelStart === null) {
+        // Entering a tunnel zone
+        tunnelStart = i;
+        tunnelStartIndex = i;
+      } else if (!isTunnel && tunnelStart !== null) {
+        // Exiting a tunnel zone
+        const tunnelEnd = i - 1;
+        
+        // Only create tunnel segment if there are at least 2 points
+        if (tunnelEnd >= tunnelStart) {
+          this.tunnelSegments.push({
+            startIndex: tunnelStart,
+            endIndex: tunnelEnd,
+            startPoint: points[tunnelStart],
+            endPoint: points[tunnelEnd],
+          });
+        }
+        
+        tunnelStart = null;
+        tunnelStartIndex = -1;
+      }
+    }
+    
+    // Handle case where tunnel extends to the end of the path
+    if (tunnelStart !== null) {
+      const tunnelEnd = points.length - 1;
+      if (tunnelEnd >= tunnelStart) {
+        this.tunnelSegments.push({
+          startIndex: tunnelStart,
+          endIndex: tunnelEnd,
+          startPoint: points[tunnelStart],
+          endPoint: points[tunnelEnd],
+        });
+      }
+    }
   }
 
   initializeTrackRiverParticles() {
@@ -2135,7 +2233,10 @@ export class SimplePlayfield {
         const nextSpeed = Number.isFinite(next.speedMultiplier) ? next.speedMultiplier : 1;
         const speedMultiplier = currentSpeed + (nextSpeed - currentSpeed) * t;
         
-        const point = { x, y, speedMultiplier };
+        // Preserve tunnel property - point is in tunnel only if both current and next are tunnels
+        const tunnel = Boolean(current.tunnel && next.tunnel);
+        
+        const point = { x, y, speedMultiplier, tunnel };
         if (!smooth.length || this.distanceBetween(smooth[smooth.length - 1], point) > 0.5) {
           smooth.push(point);
         }
@@ -2145,7 +2246,8 @@ export class SimplePlayfield {
     const lastPoint = points[points.length - 1];
     if (!smooth.length || this.distanceBetween(smooth[smooth.length - 1], lastPoint) > 0) {
       const speedMultiplier = Number.isFinite(lastPoint.speedMultiplier) ? lastPoint.speedMultiplier : 1;
-      smooth.push({ ...lastPoint, speedMultiplier });
+      const tunnel = Boolean(lastPoint.tunnel);
+      smooth.push({ ...lastPoint, speedMultiplier, tunnel });
     }
 
     return smooth;
@@ -8126,6 +8228,15 @@ export class SimplePlayfield {
     if (!enemy || !Number.isFinite(baseDamage) || baseDamage <= 0) {
       return 0;
     }
+    
+    // Check if enemy is in a tunnel - if so, they cannot take damage
+    const tunnelState = this.getEnemyTunnelState(enemy);
+    if (tunnelState.inTunnel) {
+      // Enemy is in a tunnel, show "Miss" instead of damage
+      this.spawnMissText(enemy);
+      return 0;
+    }
+    
     const mitigatedBase = this.applyDerivativeShieldMitigation(enemy, baseDamage);
     const multiplier = this.computeEnemyDamageMultiplier(enemy);
     const applied = mitigatedBase * multiplier;
@@ -9772,6 +9883,97 @@ export class SimplePlayfield {
     // Default to 1 if no segment found
     const lastSegment = this.pathSegments[this.pathSegments.length - 1];
     return lastSegment && Number.isFinite(lastSegment.speedMultiplier) ? lastSegment.speedMultiplier : 1;
+  }
+
+  /**
+   * Check if an enemy is currently in a tunnel and get tunnel opacity info
+   * Returns { inTunnel: boolean, opacity: number, isFadeZone: boolean }
+   */
+  getEnemyTunnelState(enemy) {
+    if (!enemy || !this.tunnelSegments.length || !this.pathPoints.length) {
+      return { inTunnel: false, opacity: 1, isFadeZone: false };
+    }
+
+    const progress = Number.isFinite(enemy.progress) ? enemy.progress : 0;
+    const targetDistance = progress * this.pathLength;
+    let traversed = 0;
+
+    // Find which segment the enemy is on
+    for (let i = 0; i < this.pathSegments.length; i += 1) {
+      const segment = this.pathSegments[i];
+      const segmentEnd = traversed + segment.length;
+      
+      if (targetDistance <= segmentEnd) {
+        // Enemy is on this segment - check if it's in a tunnel
+        if (segment.inTunnel) {
+          // Find which tunnel zone this segment belongs to
+          for (const tunnel of this.tunnelSegments) {
+            // Check if this segment falls within the tunnel zone
+            // Guard against zero pathLength
+            if (this.pathLength <= 0) {
+              continue;
+            }
+            const segmentProgress = traversed / this.pathLength;
+            const segmentEndProgress = segmentEnd / this.pathLength;
+            const tunnelStartProgress = this.getProgressAtPointIndex(tunnel.startIndex);
+            const tunnelEndProgress = this.getProgressAtPointIndex(tunnel.endIndex);
+            
+            if (segmentProgress >= tunnelStartProgress && segmentEndProgress <= tunnelEndProgress) {
+              // Enemy is in this tunnel - calculate opacity based on position
+              const distanceIntoSegment = targetDistance - traversed;
+              const segmentRatio = segment.length > 0 ? distanceIntoSegment / segment.length : 0;
+              
+              // Define fade zones: first 20% and last 20% of tunnel
+              const FADE_ZONE_RATIO = 0.2;
+              const tunnelLength = tunnelEndProgress - tunnelStartProgress;
+              
+              // Guard against zero-length tunnels
+              if (!Number.isFinite(tunnelLength) || tunnelLength <= 0) {
+                return { inTunnel: true, opacity: 0, isFadeZone: false };
+              }
+              
+              const progressInTunnel = (progress - tunnelStartProgress) / tunnelLength;
+              
+              let opacity = 0; // Default to invisible in tunnel
+              let isFadeZone = false;
+              
+              if (progressInTunnel < FADE_ZONE_RATIO) {
+                // Entry fade zone - fade from 1 to 0
+                opacity = 1 - (progressInTunnel / FADE_ZONE_RATIO);
+                isFadeZone = true;
+              } else if (progressInTunnel > (1 - FADE_ZONE_RATIO)) {
+                // Exit fade zone - fade from 0 to 1
+                opacity = (progressInTunnel - (1 - FADE_ZONE_RATIO)) / FADE_ZONE_RATIO;
+                isFadeZone = true;
+              }
+              
+              return { inTunnel: true, opacity, isFadeZone };
+            }
+          }
+        }
+        break;
+      }
+      
+      traversed = segmentEnd;
+    }
+
+    return { inTunnel: false, opacity: 1, isFadeZone: false };
+  }
+
+  /**
+   * Get the progress (0-1) at a specific path point index
+   */
+  getProgressAtPointIndex(pointIndex) {
+    if (!this.pathPoints.length || pointIndex < 0 || pointIndex >= this.pathPoints.length) {
+      return 0;
+    }
+    
+    let distance = 0;
+    for (let i = 0; i < pointIndex && i < this.pathSegments.length; i += 1) {
+      distance += this.pathSegments[i].length;
+    }
+    
+    return this.pathLength > 0 ? distance / this.pathLength : 0;
   }
 
   getEnemyPosition(enemy) {

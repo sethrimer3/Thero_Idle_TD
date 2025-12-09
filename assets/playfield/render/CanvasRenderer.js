@@ -554,48 +554,143 @@ function drawPath() {
     { stop: 0.5, color: samplePaletteGradient(0.5) },
     { stop: 1, color: samplePaletteGradient(1) },
   ];
-  const baseGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
-  const highlightGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+  
+  // If there are tunnels, we need to draw segments with varying opacity
+  const hasTunnels = Array.isArray(this.tunnelSegments) && this.tunnelSegments.length > 0;
+  
+  if (hasTunnels) {
+    drawPathWithTunnels.call(this, ctx, points, paletteStops, trackMode);
+  } else {
+    // Original path drawing for non-tunnel paths
+    const baseGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+    const highlightGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+    const baseAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.78 : 0.55;
+    const highlightAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.32 : 0.18;
+    paletteStops.forEach((entry) => {
+      baseGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, baseAlpha));
+      highlightGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, highlightAlpha));
+    });
+
+    const tracePath = () => {
+      ctx.moveTo(start.x, start.y);
+      for (let index = 1; index < points.length; index += 1) {
+        const point = points[index];
+        ctx.lineTo(point.x, point.y);
+      }
+    };
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 7;
+    const shadowColor = colorToRgbaString(
+      paletteStops[0]?.color || { r: 88, g: 160, b: 255 },
+      trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2,
+    );
+    this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
+    tracePath();
+    ctx.strokeStyle = baseGradient;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 : 1;
+    ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 3.8 : 2;
+    tracePath();
+    ctx.strokeStyle = highlightGradient;
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
+  if (!points || points.length < 2 || !this.tunnelSegments) {
+    return;
+  }
+
   const baseAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.78 : 0.55;
   const highlightAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.32 : 0.18;
-  paletteStops.forEach((entry) => {
-    baseGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, baseAlpha));
-    highlightGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, highlightAlpha));
-  });
+  const baseLineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 7;
+  const highlightLineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 3.8 : 2;
+  const FADE_ZONE_RATIO = 0.2;
 
-  const tracePath = () => {
-    ctx.moveTo(start.x, start.y);
-    for (let index = 1; index < points.length; index += 1) {
-      const point = points[index];
-      ctx.lineTo(point.x, point.y);
+  // Helper to get opacity for a point index based on tunnel zones
+  const getOpacityForPointIndex = (index) => {
+    for (const tunnel of this.tunnelSegments) {
+      if (index >= tunnel.startIndex && index <= tunnel.endIndex) {
+        const tunnelLength = tunnel.endIndex - tunnel.startIndex;
+        
+        // Guard against zero-length tunnels
+        if (tunnelLength <= 0) {
+          return 0; // Treat as fully transparent
+        }
+        
+        const progressInTunnel = (index - tunnel.startIndex) / tunnelLength;
+        
+        if (progressInTunnel < FADE_ZONE_RATIO) {
+          // Entry fade zone - fade from 1 to 0
+          return 1 - (progressInTunnel / FADE_ZONE_RATIO);
+        } else if (progressInTunnel > (1 - FADE_ZONE_RATIO)) {
+          // Exit fade zone - fade from 0 to 1
+          return (progressInTunnel - (1 - FADE_ZONE_RATIO)) / FADE_ZONE_RATIO;
+        } else {
+          // Middle of tunnel - fully transparent
+          return 0;
+        }
+      }
     }
+    return 1; // Not in tunnel, fully opaque
   };
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 7;
-  const shadowColor = colorToRgbaString(
-    paletteStops[0]?.color || { r: 88, g: 160, b: 255 },
-    trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2,
-  );
-  this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
-  tracePath();
-  ctx.strokeStyle = baseGradient;
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 : 1;
-  ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 3.8 : 2;
-  tracePath();
-  ctx.strokeStyle = highlightGradient;
-  ctx.stroke();
-  ctx.restore();
+  // Draw path segments with varying opacity
+  for (let layer = 0; layer < 2; layer += 1) {
+    const isBase = layer === 0;
+    const lineWidth = isBase ? baseLineWidth : highlightLineWidth;
+    const alphaMultiplier = isBase ? baseAlpha : highlightAlpha;
+    
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const point = points[i];
+      const nextPoint = points[i + 1];
+      
+      // Calculate opacity for this segment
+      const startOpacity = getOpacityForPointIndex(i);
+      const endOpacity = getOpacityForPointIndex(i + 1);
+      const segmentOpacity = (startOpacity + endOpacity) / 2;
+      
+      // Skip fully transparent segments
+      if (segmentOpacity <= 0.01) {
+        continue;
+      }
+      
+      // Sample color based on position along path
+      const pathProgress = i / (points.length - 1);
+      const color = samplePaletteGradient(pathProgress);
+      const alpha = alphaMultiplier * segmentOpacity;
+      
+      ctx.save();
+      ctx.beginPath();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = lineWidth;
+      
+      if (isBase) {
+        const shadowColor = colorToRgbaString(color, (trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2) * segmentOpacity);
+        this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
+      } else {
+        ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 * segmentOpacity : segmentOpacity;
+      }
+      
+      ctx.moveTo(point.x, point.y);
+      ctx.lineTo(nextPoint.x, nextPoint.y);
+      ctx.strokeStyle = colorToRgbaString(color, alpha);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
 }
 
 function drawTrackParticleRiver() {
@@ -2112,6 +2207,11 @@ function drawEnemies() {
       return;
     }
 
+    // Check if enemy is in a tunnel and get opacity
+    const tunnelState = typeof this.getEnemyTunnelState === 'function'
+      ? this.getEnemyTunnelState(enemy)
+      : { inTunnel: false, opacity: 1, isFadeZone: false };
+
     const metrics = this.getEnemyVisualMetrics(enemy);
     const symbol = typeof enemy.symbol === 'string' ? enemy.symbol : this.resolveEnemySymbol(enemy);
     const exponent = this.calculateHealthExponent(Math.max(1, enemy.hp ?? enemy.maxHp ?? 1));
@@ -2124,6 +2224,11 @@ function drawEnemies() {
 
     ctx.save();
     ctx.translate(position.x, position.y);
+    
+    // Apply tunnel opacity
+    if (tunnelState.inTunnel || tunnelState.isFadeZone) {
+      ctx.globalAlpha = tunnelState.opacity;
+    }
 
     if (fallbackRendering) {
       drawEnemyFallbackBody(ctx, metrics, inversionActive);
