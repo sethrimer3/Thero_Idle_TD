@@ -2369,6 +2369,29 @@ body.graphics-mode-low .control-button {
   text-transform: none;
 }
 
+.campaign-button[data-campaign='Story'] .campaign-button-glyph,
+.campaign-button[data-campaign='Ladder'] .campaign-button-glyph {
+  font-size: 4.05rem;
+}
+
+.campaign-button[data-campaign='Story'] .campaign-button-glyph {
+  color: #0b0b0b;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.32);
+}
+
+.campaign-button[data-campaign='Ladder'] .campaign-button-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 30%, #ffe699 0%, #ffcc33 60%, #b37c00 100%);
+  color: #080808;
+  border-radius: 999px;
+  padding: 8px;
+  line-height: 1;
+  box-shadow: 0 0 18px rgba(255, 215, 100, 0.45), inset 0 0 6px rgba(255, 255, 255, 0.35);
+  text-shadow: none;
+}
+
 .campaign-button-title {
   font-family: "Cormorant Garamond", serif;
   font-size: 1.17rem;

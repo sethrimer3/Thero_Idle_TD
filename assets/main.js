@@ -3935,24 +3935,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   }
 
   function handleDocumentPointerDown(event) {
-    const hasExpandedSet = Boolean(expandedLevelSet);
+    // Allow level sets to remain open while the player scrolls; rely on the set trigger toggle to close them.
+    const clickedTrigger = event?.target?.closest ? event.target.closest('.level-set-trigger') : null;
+    const interactingWithOpenSet =
+      clickedTrigger && expandedLevelSet && expandedLevelSet.contains(clickedTrigger);
 
-    // Only handle level set collapse on outside click; campaigns require explicit toggle or swipe.
-    if (!hasExpandedSet) {
+    if (!interactingWithOpenSet) {
       return;
-    }
-
-    const clickedLevelSet = event?.target?.closest ? event.target.closest('.level-set') : null;
-    if (clickedLevelSet && expandedLevelSet && expandedLevelSet.contains(clickedLevelSet)) {
-      return;
-    }
-
-    // Collapse open level content when the player clicks anywhere else on the page.
-    if (!clickedLevelSet && expandedLevelSet) {
-      collapseLevelSet(expandedLevelSet);
-      if (audioManager) {
-        audioManager.playSfx('menuSelect');
-      }
     }
   }
 
@@ -3965,9 +3954,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
 
-    collapseLevelSet(expandedLevelSet, { focusTrigger: true });
-    if (audioManager) {
-      audioManager.playSfx('menuSelect');
+    const trigger = expandedLevelSet.querySelector('.level-set-trigger');
+    if (trigger && typeof trigger.focus === 'function') {
+      trigger.focus();
     }
   }
 
@@ -4177,11 +4166,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       if (level.developerOnly && !developerModeActive) {
         return;
       }
-      const groupKey = level.set || level.id.split(' - ')[0] || 'Levels';
+      const setName = level.set || level.id.split(' - ')[0] || 'Levels';
       const campaignKey = level.campaign || null;
-      
+      const groupKey = campaignKey ? `${campaignKey}::${setName}` : setName;
+
       if (!groups.has(groupKey)) {
-        groups.set(groupKey, { levels: [], campaign: campaignKey });
+        groups.set(groupKey, { levels: [], campaign: campaignKey, name: setName });
       }
       groups.get(groupKey).levels.push(level);
       
@@ -4208,10 +4198,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       if (groupData.campaign) return; // Skip campaign sets for now
       const levels = groupData.levels;
       if (!levels.length) return;
+
+      const displaySetName = groupData.name || setName;
       
       const setElement = document.createElement('div');
       setElement.className = 'level-set';
-      setElement.dataset.set = setName;
+      setElement.dataset.set = displaySetName;
 
       const trigger = document.createElement('button');
       trigger.type = 'button';
@@ -4226,7 +4218,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
       const title = document.createElement('span');
       title.className = 'level-set-title';
-      title.textContent = setName;
+      title.textContent = displaySetName;
 
       const count = document.createElement('span');
       count.className = 'level-set-count';
@@ -4235,7 +4227,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
       trigger.append(glyph, title, count);
 
-      const slug = setName
+      const slug = displaySetName
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
@@ -4326,7 +4318,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       });
 
       levelSetEntries.push({
-        name: setName,
+        name: displaySetName,
         element: setElement,
         trigger,
         titleEl: title,
@@ -4384,7 +4376,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       // Assign unique glyph symbols for each campaign type.
       let glyphSymbol = '⚔';
       if (campaignName === 'Story') {
-        glyphSymbol = '◈';
+        glyphSymbol = 'Þ';
       } else if (campaignName === 'Ladder') {
         glyphSymbol = '∞';
       } else if (campaignName === 'Challenges') {
@@ -4462,15 +4454,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       campaignContainer.addEventListener('pointercancel', resetSwipeState);
       
       // Render level sets inside this campaign
-      setKeys.forEach((setName) => {
-        const groupData = groups.get(setName);
+      setKeys.forEach((setKey) => {
+        const groupData = groups.get(setKey);
         if (!groupData) return;
         const levels = groupData.levels;
         if (!levels.length) return;
+
+        const displaySetName = groupData.name || setKey;
         
         const setElement = document.createElement('div');
         setElement.className = 'level-set';
-        setElement.dataset.set = setName;
+        setElement.dataset.set = displaySetName;
         
         const trigger = document.createElement('button');
         trigger.type = 'button';
@@ -4485,7 +4479,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         
         const title = document.createElement('span');
         title.className = 'level-set-title';
-        title.textContent = setName;
+        title.textContent = displaySetName;
         
         const count = document.createElement('span');
         count.className = 'level-set-count';
@@ -4494,7 +4488,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         
         trigger.append(glyph, title, count);
         
-        const slug = setName
+        const slug = displaySetName
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '')
@@ -4584,7 +4578,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         });
         
         levelSetEntries.push({
-          name: setName,
+          name: displaySetName,
           element: setElement,
           trigger,
           titleEl: title,
