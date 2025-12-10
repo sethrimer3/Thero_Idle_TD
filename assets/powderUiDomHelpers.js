@@ -70,6 +70,9 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidElements.cameraModeStateLabel = document.getElementById('fluid-camera-mode-state');
     fluidElements.cameraModeHint = document.getElementById('fluid-camera-mode-hint');
     fluidElements.floatingIslandSprite = document.getElementById('fluid-terrarium-floating-island');
+    fluidElements.floatingIslandCollisionSprite =
+      document.getElementById('fluid-terrarium-floating-island-collision') ||
+      fluidElements.floatingIslandSprite;
     fluidElements.terrainSprite = document.getElementById('fluid-terrarium-foreground');
     // Reuse the high-fidelity terrain SVG for collision sampling so silhouettes match visuals.
     fluidElements.terrainCollisionSprite =

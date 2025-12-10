@@ -146,6 +146,8 @@ import { FluidTerrariumCrystal } from './fluidTerrariumCrystal.js';
 import { FluidTerrariumTrees, resolveTerrariumTreeLevel } from './fluidTerrariumTrees.js';
 // Procedural grass that sprouts from the terrarium silhouettes.
 import { FluidTerrariumGrass } from './fluidTerrariumGrass.js';
+// Water layer tinted with Bet cyan and a gentle ripple.
+import { FluidTerrariumWater } from './fluidTerrariumWater.js';
 // Day/night cycle that animates the Bet terrarium sky and celestial bodies.
 import { FluidTerrariumSkyCycle } from './fluidTerrariumSkyCycle.js';
 // Voronoi fractal sun and moon for the Bet terrarium sky.
@@ -908,6 +910,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let fluidTerrariumTrees = null;
   // Render swaying grass blades that cling to the Bet spire silhouettes.
   let fluidTerrariumGrass = null;
+  // Tint the Bet caverns with a shimmering cyan water layer.
+  let fluidTerrariumWater = null;
   // Drive the Bet terrarium day/night palette and celestial bodies.
   let fluidTerrariumSkyCycle = null;
   // Voronoi fractal sun and moon rendered in the Bet terrarium sky.
@@ -1020,6 +1024,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       await waitForTerrariumSprite(collisionSprite);
     }
     await waitForTerrariumSprite(fluidElements.terrainSprite);
+    const islandCollisionSprite = fluidElements.floatingIslandCollisionSprite;
+    if (islandCollisionSprite && islandCollisionSprite !== fluidElements.floatingIslandSprite) {
+      await waitForTerrariumSprite(islandCollisionSprite);
+    }
     await waitForTerrariumSprite(fluidElements.floatingIslandSprite);
   }
 
@@ -1041,6 +1049,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       container: fluidElements.viewport,
       terrainElement: fluidElements.terrainSprite,
       terrainCollisionElement: fluidElements.terrainCollisionSprite,
+      floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
       creatureCount: slimeCount,
       spawnZones: BET_CAVE_SPAWN_ZONES,
     });
@@ -1068,6 +1077,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       container: fluidElements.viewport,
       terrainElement: fluidElements.terrainSprite,
       terrainCollisionElement: fluidElements.terrainCollisionSprite,
+      floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
       birdCount: birdCount,
     });
     if (betHappinessSystem) {
@@ -1087,7 +1097,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     fluidTerrariumGrass = new FluidTerrariumGrass({
       container: fluidElements.terrariumMedia,
       terrainElement: fluidElements.terrainSprite,
+      terrainCollisionElement: fluidElements.terrainCollisionSprite,
       floatingIslandElement: fluidElements.floatingIslandSprite,
+      floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
       // Use both ground and floating island placement masks so grass sprouts in each marked zone.
       maskUrls: [
         './assets/sprites/spires/betSpire/Grass.png',
@@ -1095,6 +1107,21 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       ],
     });
     fluidTerrariumGrass.start();
+  }
+
+  // Paint the Bet terrarium water mask with a cyan tint and animated ripples.
+  function ensureFluidTerrariumWater() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
+    if (fluidTerrariumWater || !fluidElements?.terrariumMedia) {
+      return;
+    }
+    fluidTerrariumWater = new FluidTerrariumWater({
+      container: fluidElements.terrariumMedia,
+      maskUrl: './assets/sprites/spires/betSpire/Water.png',
+    });
+    fluidTerrariumWater.start();
   }
 
   // Grow a Brownian forest inside the growing crystal alcove, constrained by the collision silhouette.
@@ -1162,6 +1189,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       caveSpawnZones: BET_CAVE_SPAWN_ZONES,
       // Terrain collision sprite enables walkable mask for Brownian growth.
       terrainCollisionElement: fluidElements.terrainCollisionSprite,
+      floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
       onStateChange: (state) => {
         powderState.betTerrarium = {
           levelingMode: Boolean(state?.levelingMode),
@@ -1393,6 +1421,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         container: fluidElements.viewport,
         terrainElement: fluidElements.terrainSprite,
         terrainCollisionElement: fluidElements.terrainCollisionSprite,
+        floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
         creatureCount: newCount,
         spawnZones: BET_CAVE_SPAWN_ZONES,
       });
@@ -1432,6 +1461,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         container: fluidElements.viewport,
         terrainElement: fluidElements.terrainSprite,
         terrainCollisionElement: fluidElements.terrainCollisionSprite,
+        floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
         birdCount: newCount,
       });
       fluidTerrariumBirds.start();
@@ -6325,6 +6355,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       betHappinessSystem.updateDisplay(fluidElements);
     }
     await ensureTerrariumSurfacesReady();
+    ensureFluidTerrariumWater();
     ensureFluidTerrariumCreatures();
     ensureFluidTerrariumBirds();
     ensureFluidTerrariumGrass();

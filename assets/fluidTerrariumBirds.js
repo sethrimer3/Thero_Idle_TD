@@ -48,6 +48,7 @@ export class FluidTerrariumBirds {
     this.birdCount = Number.isFinite(options.birdCount) ? Math.max(1, Math.round(options.birdCount)) : 1;
     this.terrainElement = options.terrainElement || null;
     this.terrainCollisionElement = options.terrainCollisionElement || null;
+    this.floatingIslandCollisionElement = options.floatingIslandCollisionElement || null;
     this.birds = [];
     this.layer = null;
     this.bounds = { width: 0, height: 0 };
@@ -69,14 +70,29 @@ export class FluidTerrariumBirds {
     }
 
     this.observeTerrainElement(this.getTerrainProfileSource());
+    this.observeAdditionalSurface(this.floatingIslandCollisionElement);
   }
 
   /**
    * Resolve the image element that should be sampled for terrain avoidance.
    * @returns {HTMLImageElement|null}
    */
+  getTerrainProfileSources() {
+    const sources = [];
+    if (this.terrainCollisionElement) {
+      sources.push(this.terrainCollisionElement);
+    } else if (this.terrainElement) {
+      sources.push(this.terrainElement);
+    }
+    if (this.floatingIslandCollisionElement) {
+      sources.push(this.floatingIslandCollisionElement);
+    }
+    return sources;
+  }
+
   getTerrainProfileSource() {
-    return this.terrainCollisionElement || this.terrainElement;
+    const sources = this.getTerrainProfileSources();
+    return sources.length ? sources[0] : null;
   }
 
   /**
@@ -120,7 +136,8 @@ export class FluidTerrariumBirds {
     this.bounds.width = this.container.clientWidth || rect.width;
     this.bounds.height = this.container.clientHeight || rect.height;
 
-    const boundsElement = this.terrainElement || this.terrainCollisionElement;
+    const boundsElement =
+      this.terrainCollisionElement || this.terrainElement || this.floatingIslandCollisionElement;
     if (boundsElement) {
       const terrainRect = boundsElement.getBoundingClientRect();
       this.terrainBounds = {
@@ -311,35 +328,77 @@ export class FluidTerrariumBirds {
    * Sample the terrain collision sprite.
    */
   sampleTerrainProfile() {
-    const sourceElement = this.getTerrainProfileSource();
+    const sources = this.getTerrainProfileSources();
+    const primary = sources.find(
+      (element) => element && element.naturalWidth > 0 && element.naturalHeight > 0,
+    );
 
-    if (
-      !sourceElement ||
-      !Number.isFinite(sourceElement.naturalWidth) ||
-      !Number.isFinite(sourceElement.naturalHeight) ||
-      sourceElement.naturalWidth <= 0 ||
-      sourceElement.naturalHeight <= 0
-    ) {
+    if (!primary) {
       return;
     }
-    const sampleWidth = Math.min(256, Math.max(48, Math.round(sourceElement.naturalWidth / 4)));
-    const aspectRatio = sourceElement.naturalHeight / sourceElement.naturalWidth;
+
+    const sampleWidth = Math.min(256, Math.max(48, Math.round(primary.naturalWidth / 4)));
+    const aspectRatio = primary.naturalHeight / primary.naturalWidth;
     const sampleHeight = Math.max(1, Math.round(sampleWidth * aspectRatio));
+    const compositeSamples = new Float32Array(sampleWidth);
+    let initialized = false;
+
+    sources.forEach((element) => {
+      const profile = this.sampleSurfaceProfile(element, sampleWidth, sampleHeight);
+      if (!profile) {
+        return;
+      }
+      if (!initialized) {
+        compositeSamples.set(profile);
+        initialized = true;
+        return;
+      }
+      for (let x = 0; x < compositeSamples.length; x += 1) {
+        compositeSamples[x] = Math.min(compositeSamples[x], profile[x]);
+      }
+    });
+
+    if (!initialized) {
+      return;
+    }
+
+    this.terrainProfile = {
+      width: sampleWidth,
+      height: sampleHeight,
+      samples: compositeSamples,
+    };
+  }
+
+  /**
+   * Downsample a collision sprite into a column profile for avoidance.
+   * @param {HTMLImageElement|null} element
+   * @param {number} sampleWidth
+   * @param {number} sampleHeight
+   * @returns {Float32Array|null}
+   */
+  sampleSurfaceProfile(element, sampleWidth, sampleHeight) {
+    if (
+      !element ||
+      !Number.isFinite(element.naturalWidth) ||
+      !Number.isFinite(element.naturalHeight) ||
+      element.naturalWidth <= 0 ||
+      element.naturalHeight <= 0
+    ) {
+      return null;
+    }
     const canvas = document.createElement('canvas');
     canvas.width = sampleWidth;
     canvas.height = sampleHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-      return;
+      return null;
     }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(sourceElement, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(element, 0, 0, canvas.width, canvas.height);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const samples = new Float32Array(canvas.width);
     const alphaThreshold = 8;
-    
-    // Scan from top to bottom to find the topmost terrain surface (including floating islands)
-    // Birds avoid ALL surfaces from above, unlike slimes which walk on the ground
+
     for (let x = 0; x < canvas.width; x += 1) {
       let sampleY = canvas.height;
       for (let y = 0; y < canvas.height; y += 1) {
@@ -351,11 +410,8 @@ export class FluidTerrariumBirds {
       }
       samples[x] = sampleY;
     }
-    this.terrainProfile = {
-      width: canvas.width,
-      height: canvas.height,
-      samples,
-    };
+
+    return samples;
   }
 
   /**
@@ -381,6 +437,21 @@ export class FluidTerrariumBirds {
         this.sampleTerrainProfile();
       }
     }
+  }
+
+  /**
+   * Observe auxiliary collision sprites to keep avoidance aligned to SVG silhouettes.
+   * @param {HTMLImageElement|null} element
+   */
+  observeAdditionalSurface(element) {
+    if (!element || element === this.terrainProfileSource) {
+      return;
+    }
+    if (element.complete && element.naturalWidth > 0 && element.naturalHeight > 0) {
+      this.sampleTerrainProfile();
+      return;
+    }
+    element.addEventListener('load', this.handleTerrainImageLoad, { once: true });
   }
 
   /**
