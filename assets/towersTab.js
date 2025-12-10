@@ -36,6 +36,7 @@ import { createTowerBlueprintPresenter } from './towerBlueprintPresenter.js';
 import { createTowerVariableDiscoveryManager } from './towerVariableDiscovery.js';
 import { createTowerLoadoutController } from './towerLoadoutController.js';
 import { createTowerEquipmentBindings } from './towerEquipmentBindings.js';
+import { getTowerVisualConfig } from './colorSchemeUtils.js';
 
 // Callback to update status displays when glyphs change. Set via configureTowersTabCallbacks.
 let updateStatusDisplaysCallback = null;
@@ -222,6 +223,70 @@ const towerTabState = {
   discoveredVariableListeners: new Set(),
   dynamicContext: null,
 };
+
+// Default palette values ensure tower icons remain legible before the active scheme resolves.
+const DEFAULT_TOWER_ICON_COLORS = Object.freeze({
+  primary: 'rgba(255, 228, 120, 0.85)',
+  secondary: 'rgba(8, 9, 14, 0.9)',
+  symbol: 'rgba(255, 228, 120, 0.85)',
+});
+
+// Resolve palette-aware colors for a tower icon so Codex palette swaps recolor every glyph chip consistently.
+function resolveTowerIconPalette(tower) {
+  const visuals = getTowerVisualConfig(tower) || {};
+  const primary = visuals.outerStroke || DEFAULT_TOWER_ICON_COLORS.primary;
+  const secondary = visuals.innerFill || DEFAULT_TOWER_ICON_COLORS.secondary;
+  const symbol = visuals.symbolFill || primary;
+  return { primary, secondary, symbol };
+}
+
+// Apply the active palette colors and mask to a tower icon element.
+function applyPaletteToTowerIconElement(element, tower) {
+  if (!(element instanceof HTMLElement) || !tower) {
+    return;
+  }
+  const palette = resolveTowerIconPalette(tower);
+  element.dataset.towerId = tower.id || element.dataset.towerId || '';
+  element.style.setProperty('--tower-icon-primary', palette.primary);
+  element.style.setProperty('--tower-icon-secondary', palette.secondary);
+  element.style.setProperty('--tower-icon-symbol', palette.symbol);
+  if (tower.icon && element.tagName !== 'IMG') {
+    const maskUrl = `url(${tower.icon})`;
+    element.style.setProperty('--tower-icon-mask', maskUrl);
+    element.style.maskImage = maskUrl;
+    element.style.webkitMaskImage = maskUrl;
+  }
+}
+
+// Build a palette-aware tower icon with accessible labeling.
+function createTowerIconElement(tower, { className = '', alt = '' } = {}) {
+  if (!tower?.icon) {
+    return null;
+  }
+  const icon = document.createElement('span');
+  icon.className = ['tower-icon', className].filter(Boolean).join(' ');
+  icon.dataset.towerId = tower.id || '';
+  icon.setAttribute('role', 'img');
+  icon.setAttribute('aria-label', alt || tower.name || tower.id || 'Tower icon');
+
+  applyPaletteToTowerIconElement(icon, tower);
+  return icon;
+}
+
+// Reapply palette colors to all rendered tower icons so Codex palette swaps cascade through the Towers tab.
+export function refreshTowerIconPalettes() {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  const icons = document.querySelectorAll('.tower-icon[data-tower-id]');
+  icons.forEach((icon) => {
+    const towerId = icon.dataset.towerId;
+    const definition = getTowerDefinition(towerId);
+    if (definition) {
+      applyPaletteToTowerIconElement(icon, definition);
+    }
+  });
+}
 
 // Instantiate a blueprint presenter so glyph math and caching live outside the UI wiring.
 const {
@@ -824,6 +889,7 @@ const {
   getPlayfield: () => towerTabState.playfield,
   getAudioManager: () => towerTabState.audioManager,
   formatCombatNumber,
+  createTowerIconElement,
   syncLoadoutToPlayfield,
 });
 
@@ -1000,12 +1066,13 @@ function showLoadoutReplacementPrompt(targetTowerId, anchorButton) {
     option.setAttribute('aria-label', `Replace ${definition?.name || currentTowerId}`);
 
     if (definition?.icon) {
-      const icon = document.createElement('img');
-      icon.src = definition.icon;
-      icon.alt = `${definition.name || currentTowerId} icon`;
-      icon.loading = 'lazy';
-      icon.decoding = 'async';
-      option.append(icon);
+      const icon = createTowerIconElement(definition, {
+        className: 'tower-replace-popup__icon',
+        alt: `${definition.name || currentTowerId} icon`,
+      });
+      if (icon) {
+        option.append(icon);
+      }
     }
 
     const label = document.createElement('span');
@@ -1424,13 +1491,15 @@ export function injectTowerCardPreviews() {
     }
     const preview = document.createElement('figure');
     preview.className = 'tower-preview';
-    const image = document.createElement('img');
-    image.src = iconPath;
     const labelBase = composeTowerDisplayLabel(definition, towerId);
-    image.alt = `${labelBase} placement preview`;
-    image.loading = 'lazy';
-    image.decoding = 'async';
-    preview.append(image);
+    const icon = createTowerIconElement(definition, {
+      className: 'tower-preview__icon',
+      alt: `${labelBase} placement preview`,
+    });
+    if (!icon) {
+      return;
+    }
+    preview.append(icon);
     const header = card.querySelector('.tower-header');
     if (header && header.parentNode) {
       header.parentNode.insertBefore(preview, header.nextSibling);

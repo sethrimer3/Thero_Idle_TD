@@ -339,6 +339,7 @@ import {
   calculateInvestedGlyphs,
   clearTowerUpgradeState,
   configureTowersTabCallbacks,
+  refreshTowerIconPalettes,
 } from './towersTab.js';
 import towers from './data/towers/index.js'; // Modular tower definitions sourced from dedicated files.
 import { initializeEquipmentState, EQUIPMENT_STORAGE_KEY } from './equipment.js';
@@ -3257,6 +3258,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       powderState.motePalette = palette;
       // Broadcast palette swaps to the Mind Gate badge so theme toggles remain cohesive.
       applyMindGatePaletteToDom(powderState.motePalette);
+      refreshTowerIconPalettes();
       if (powderSimulation && typeof powderSimulation.setMotePalette === 'function') {
         powderSimulation.setMotePalette(palette);
         powderSimulation.render();
@@ -3266,6 +3268,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       if (playfield) {
         playfield.draw();
       }
+      refreshTowerIconPalettes();
     },
   });
 
