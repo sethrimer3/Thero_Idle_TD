@@ -1432,9 +1432,19 @@ const WEAPON_SLOT_DEFINITIONS = {
 };
 
 /**
- * Weapon slot IDs in order. Derived from definitions to keep the lists in sync.
+ * Weapon slot IDs in rendering/order sequence. Explicit list ensures new slots 4-8
+ * participate in grapheme handling even if object key order changes.
  */
-const WEAPON_SLOT_IDS = Object.keys(WEAPON_SLOT_DEFINITIONS);
+const WEAPON_SLOT_IDS = [
+  'slot1',
+  'slot2',
+  'slot3',
+  'slot4',
+  'slot5',
+  'slot6',
+  'slot7',
+  'slot8',
+];
 
 // Legacy weapon definitions kept for reference but deactivated
 const LEGACY_WEAPON_DEFINITIONS = {
