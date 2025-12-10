@@ -2052,6 +2052,7 @@ body.graphics-mode-low .control-button {
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(10, 10, 16, 0.6);
+  position: relative;
 }
 
 .level-intro {
@@ -2059,6 +2060,37 @@ body.graphics-mode-low .control-button {
   font-size: 0.98rem;
   color: var(--muted);
   text-align: center;
+}
+
+/* Oversized headline for the Defense tab banner. */
+.subsection-title--level {
+  font-size: clamp(1.95rem, 3.45vw, 2.7rem);
+}
+
+/* Sword icon for leaderboards tucked in the upper-right of the defense tab. */
+.defense-leaderboard-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 215, 100, 0.35);
+  background: rgba(15, 10, 5, 0.55);
+  color: rgba(255, 215, 100, 0.92);
+  font-size: 1.3rem;
+  display: grid;
+  place-items: center;
+  cursor: var(--cursor-pointer);
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  box-shadow: 0 10px 26px rgba(255, 215, 100, 0.28);
+}
+
+.defense-leaderboard-button:hover,
+.defense-leaderboard-button:focus-visible {
+  border-color: rgba(255, 215, 100, 0.6);
+  box-shadow: 0 14px 32px rgba(255, 215, 100, 0.36);
+  transform: translateY(-1px);
 }
 
 .level-grid {
@@ -2248,6 +2280,15 @@ body.graphics-mode-low .control-button {
   margin-inline-start: 0;
 }
 
+/* Offset specific campaigns so Ladder and Trials sit lower in the rail. */
+.campaign-button[data-campaign='Ladder'] {
+  margin-top: calc(var(--level-node-size) * 0.5);
+}
+
+.campaign-button[data-campaign='Challenges'] {
+  margin-top: var(--level-node-size);
+}
+
 .campaign-button.expanded {
   width: min(560px, 100%);
   flex-direction: column;
@@ -2263,7 +2304,7 @@ body.graphics-mode-low .control-button {
   height: var(--level-node-size);
   border-radius: 24px;
   border: 2px solid rgba(255, 215, 100, 0.28);
-  background: rgba(15, 10, 5, 0.92);
+  background: rgba(15, 10, 5, 0.46);
   color: var(--text);
   display: flex;
   flex-direction: column;
@@ -2330,7 +2371,7 @@ body.graphics-mode-low .control-button {
 
 .campaign-button-title {
   font-family: "Cormorant Garamond", serif;
-  font-size: 0.78rem;
+  font-size: 1.17rem;
   letter-spacing: 0.16em;
   font-weight: 600;
 }
