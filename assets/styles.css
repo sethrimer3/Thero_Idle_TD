@@ -6110,6 +6110,169 @@ body.graphics-mode-low .control-button {
   height: 100%;
 }
 
+.spire-gem-selector {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  opacity: 0.4;
+  z-index: 4;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.spire-gem-selector:hover,
+.spire-gem-selector:focus-within,
+.spire-gem-selector--open {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.spire-gem-selector__slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: rgba(12, 16, 22, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: rgba(245, 245, 255, 0.88);
+  font-family: 'Cormorant Garamond', serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.22s ease, border-color 0.22s ease;
+}
+
+.spire-gem-selector__slot:hover,
+.spire-gem-selector__slot:focus-visible {
+  background: rgba(22, 30, 44, 0.9);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.spire-gem-selector__slot-art {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.spire-gem-selector__slot-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.spire-gem-selector__slot-placeholder {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.spire-gem-selector__slot-label {
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+}
+
+.spire-gem-menu {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  min-width: 220px;
+  max-width: 260px;
+  background: rgba(8, 10, 16, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+  transition: max-height 0.28s ease, opacity 0.24s ease, transform 0.24s ease;
+}
+
+.spire-gem-menu--open {
+  max-height: 340px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.spire-gem-menu__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+}
+
+.spire-gem-option {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #f5f5ff;
+  font-family: 'Cormorant Garamond', serif;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.18s ease;
+}
+
+.spire-gem-option:hover,
+.spire-gem-option:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+
+.spire-gem-option__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-size: 1.15rem;
+}
+
+.spire-gem-option__icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.spire-gem-option__name {
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.spire-gem-option__count {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.spire-gem-option--close {
+  background: rgba(255, 255, 255, 0.03);
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.spire-gem-option--depleted {
+  opacity: 0.68;
+}
+
 .powder-alt-render-panel {
   margin-top: 18px;
   display: flex;

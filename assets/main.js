@@ -351,6 +351,7 @@ import { createLevelPreviewRenderer, getPreviewPointsForLevel } from './levelPre
 import { createLevelOverlayController } from './levelOverlayController.js';
 import { createLevelStoryScreen } from './levelStoryScreen.js';
 import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
+import { createSpireGemMenuController } from './spireGemMenu.js';
 import { createPlayfieldMenuController } from './playfieldMenu.js';
 import { createManualDropController } from './manualDropController.js';
 import { bindPageLifecycleEvents } from './pageLifecycle.js';
@@ -395,6 +396,7 @@ import {
   setMoteGemAutoCollectUnlocked,
   getMoteGemColor,
   getGemSpriteAssetPath,
+  GEM_DEFINITIONS,
   rollGemDropDefinition,
 } from './enemies.js';
 import {
@@ -1573,6 +1575,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   });
 
   let spireMenuController = null;
+  let spireGemMenuController = null;
 
   const {
     getLamedSparkBank,
@@ -1613,6 +1616,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         audioManager.playSfx('menuSelect');
       }
     },
+  });
+
+  // Shared gem selector that plugs into Aleph, Lamed, and Tsadi spire renders.
+  spireGemMenuController = createSpireGemMenuController({
+    documentRef: typeof document !== 'undefined' ? document : null,
+    moteGemInventory: moteGemState?.inventory,
+    gemDefinitions: GEM_DEFINITIONS,
   });
 
   const lamedSpireUi = createLamedSpireUi({
@@ -1666,7 +1676,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   const {
     bindFluidControls,
     applyMindGatePaletteToDom,
-    updateMoteGemInventoryDisplay,
+    updateMoteGemInventoryDisplay: renderMoteGemInventoryDisplay,
     updatePowderGlyphColumns,
     updateFluidGlyphColumns,
   } = createPowderUiDomHelpers({
@@ -1680,6 +1690,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getMoteGemColor,
     getGemSpriteAssetPath,
   });
+
+  const updateMoteGemInventoryDisplay = () => {
+    renderMoteGemInventoryDisplay();
+    spireGemMenuController?.updateCounts();
+  };
 
   const powderPersistence = createPowderPersistence({
     powderState,
@@ -1854,6 +1869,23 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   });
 
   setPowderElements(powderElements);
+
+  function initializeSpireGemMenus() {
+    if (!spireGemMenuController) {
+      return;
+    }
+    const hosts = [
+      { spireId: 'powder', element: powderElements?.basin || document.getElementById('powder-basin') },
+      { spireId: 'lamed', element: document.getElementById('lamed-basin') },
+      { spireId: 'tsadi', element: document.getElementById('tsadi-basin') },
+    ];
+    hosts.forEach(({ spireId, element }) => {
+      if (element) {
+        spireGemMenuController.registerMenu({ spireId, hostElement: element });
+      }
+    });
+    spireGemMenuController.updateCounts();
+  }
 
   registerResourceHudRefreshCallback(updateMoteStatsDisplays);
   registerResourceHudRefreshCallback(updatePowderModeButton);
@@ -6360,6 +6392,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindStatusElements();
     bindPowderControls();
     bindFluidControls();
+    initializeSpireGemMenus();
     bindFluidCameraModeToggle();
     syncFluidCameraModeUi();
     if (betHappinessSystem) {
