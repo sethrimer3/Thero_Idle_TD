@@ -422,6 +422,23 @@ function drawFloaters() {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
+  const swimmers = Array.isArray(this.backgroundSwimmers) ? this.backgroundSwimmers : [];
+  if (swimmers.length) {
+    // Render faint white swimmers beneath the lattice lines so the background feels fluid.
+    const baseSize = Math.max(0.6, minDimension * 0.0038);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    swimmers.forEach((swimmer) => {
+      const flicker = Math.sin(Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0) * 0.15 + 0.85;
+      const size = baseSize * (Number.isFinite(swimmer.sizeScale) ? swimmer.sizeScale : 1) * flicker;
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0.08, 0.18 * flicker)})`;
+      ctx.arc(swimmer.x, swimmer.y, size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+
   this.floaterConnections.forEach((connection) => {
     const from = this.floaters[connection.from];
     const to = this.floaters[connection.to];
