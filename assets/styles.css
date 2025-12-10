@@ -5082,6 +5082,7 @@ body.graphics-mode-low .control-button {
 /* Anchor static Bet terrarium sprites, including the magma layer beneath the terrain. */
 .fluid-terrarium__background,
 .fluid-terrarium__magma,
+.fluid-terrarium__water,
 .fluid-terrarium__floating-island,
 .fluid-terrarium__foreground {
   position: absolute;
@@ -5112,9 +5113,14 @@ body.graphics-mode-low .control-button {
   filter: drop-shadow(0 0 16px rgba(255, 96, 48, 0.6));
 }
 
-.fluid-terrarium__floating-island { z-index: 2; }
+.fluid-terrarium__water {
+  pointer-events: none;
+  z-index: 3;
+}
 
-.fluid-terrarium__foreground { z-index: 3; }
+.fluid-terrarium__floating-island { z-index: 4; }
+
+.fluid-terrarium__foreground { z-index: 5; }
 
 /* Screened glow keeps magma light visible even though the sprite sits behind the terrain. */
 .fluid-terrarium__magma-glow {
@@ -5125,10 +5131,11 @@ body.graphics-mode-low .control-button {
   mix-blend-mode: screen;
   filter: blur(14px);
   opacity: 0.9;
-  z-index: 4;
+  z-index: 2;
 }
 
 .fluid-terrarium__background,
+.fluid-terrarium__water,
 .fluid-terrarium__floating-island,
 .fluid-terrarium__foreground,
 .fluid-terrarium__grass {
@@ -5143,7 +5150,7 @@ body.graphics-mode-low .control-button {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 5;
+  z-index: 6;
   transition: filter 900ms ease;
 }
 
@@ -5155,7 +5162,7 @@ body.graphics-mode-low .control-button {
   height: 100%;
   pointer-events: none;
   mix-blend-mode: screen;
-  z-index: 5;
+  z-index: 6;
   filter: brightness(var(--terrarium-night-brightness, 1));
   transition: filter 900ms ease;
 }

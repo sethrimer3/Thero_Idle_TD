@@ -423,6 +423,7 @@ export class FluidTerrariumTrees {
 
     // Terrain collision element for building walkable masks.
     this.terrainCollisionElement = options.terrainCollisionElement || null;
+    this.floatingIslandCollisionElement = options.floatingIslandCollisionElement || null;
     this.walkableMask = null;
 
     this.overlay = null;
@@ -1731,14 +1732,21 @@ export class FluidTerrariumTrees {
       return;
     }
 
-    const source = this.terrainCollisionElement;
-    if (!source) {
+    const sources = [this.terrainCollisionElement, this.floatingIslandCollisionElement].filter(
+      (element) => element,
+    );
+
+    if (!sources.length) {
       return;
     }
 
     const sample = () => {
-      const width = source.naturalWidth;
-      const height = source.naturalHeight;
+      const primary = sources.find((element) => element?.naturalWidth && element?.naturalHeight);
+      if (!primary) {
+        return;
+      }
+      const width = primary.naturalWidth;
+      const height = primary.naturalHeight;
       if (!width || !height) {
         return;
       }
@@ -1749,7 +1757,14 @@ export class FluidTerrariumTrees {
       if (!ctx) {
         return;
       }
-      ctx.drawImage(source, 0, 0, width, height);
+
+      ctx.clearRect(0, 0, width, height);
+      sources.forEach((element) => {
+        if (element) {
+          ctx.drawImage(element, 0, 0, width, height);
+        }
+      });
+
       const { data } = ctx.getImageData(0, 0, width, height);
       const pixelCount = width * height;
       const walkable = new Uint8Array(pixelCount);
@@ -1761,10 +1776,17 @@ export class FluidTerrariumTrees {
       this.walkableMask = { width, height, data: walkable };
     };
 
-    if (source.complete && source.naturalWidth) {
+    const readySources = sources.filter(
+      (element) => element && element.complete && element.naturalWidth > 0 && element.naturalHeight > 0,
+    );
+    if (readySources.length === sources.length) {
       sample();
     } else {
-      source.addEventListener('load', sample, { once: true });
+      sources.forEach((element) => {
+        if (element) {
+          element.addEventListener('load', sample, { once: true });
+        }
+      });
     }
   }
 

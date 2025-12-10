@@ -8,9 +8,14 @@ export class FluidTerrariumGrass {
     /** @type {HTMLElement|null} */
     this.container = options.container || null;
     /** @type {HTMLImageElement|null} */
-    this.terrainElement = options.terrainElement || null;
+    this.terrainCollisionElement = options.terrainCollisionElement || null;
     /** @type {HTMLImageElement|null} */
-    this.floatingIslandElement = options.floatingIslandElement || null;
+    this.terrainElement = options.terrainCollisionElement || options.terrainElement || null;
+    /** @type {HTMLImageElement|null} */
+    this.floatingIslandCollisionElement = options.floatingIslandCollisionElement || null;
+    /** @type {HTMLImageElement|null} */
+    this.floatingIslandElement =
+      options.floatingIslandCollisionElement || options.floatingIslandElement || null;
     /** @type {string[]} */
     this.maskUrls = Array.isArray(options.maskUrls)
       ? options.maskUrls.filter((url) => typeof url === 'string')

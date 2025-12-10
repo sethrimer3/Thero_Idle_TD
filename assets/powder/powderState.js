@@ -87,6 +87,7 @@ export function createPowderStateContext() {
     terrariumSun: null,
     terrariumMoon: null,
     floatingIslandSprite: null,
+    floatingIslandCollisionSprite: null,
     viewport: null,
     leftWall: null,
     rightWall: null,
