@@ -1641,9 +1641,30 @@
                 aria-hidden="true"
                 hidden
               >
-                <p class="settings-toggle-description">
-                  Gentle render toggles for the Aleph powder basin will live here soon.
-                </p>
+                <div class="settings-toggle" id="powder-mote-glow-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="powder-mote-glow-title">Luminous motes</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="powder-mote-glow-description"
+                      >Soft glow on resting motes and a trailing shimmer while they fall.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="powder-mote-glow-toggle">
+                    <input
+                      type="checkbox"
+                      id="powder-mote-glow-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="powder-mote-glow-title"
+                      aria-describedby="powder-mote-glow-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="powder-mote-glow-state">On</span>
+                  </label>
+                </div>
               </div>
             </article>
           </section>

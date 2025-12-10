@@ -6427,7 +6427,9 @@ body.graphics-mode-low .control-button {
   font-size: clamp(1.3rem, 2.6vw, 2rem);
   letter-spacing: 0.14em;
   color: rgba(6, 6, 6, 0.92);
-  text-shadow: 0 0 6px rgba(0, 0, 0, 0.35);
+  text-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.75),
+    0 1px 3px rgba(0, 0, 0, 0.85);
   transition: color 0.3s ease, text-shadow 0.3s ease;
   pointer-events: none;
 }
