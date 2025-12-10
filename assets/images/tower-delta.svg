@@ -12,14 +12,14 @@
         <!-- Color animation alternating between cyan and magenta -->
         <animate attributeName="fill" 
           values="#8af7ff;#ff8ad8;#8af7ff" 
-          dur="6s" 
+          dur="4s" 
           repeatCount="indefinite" />
       </polygon>
       <!-- Small trail effect -->
       <line x1="-1" y1="0" x2="-3" y2="0" stroke="#8af7ff" stroke-width="0.5" opacity="0.5">
         <animate attributeName="stroke" 
           values="#8af7ff;#ff8ad8;#8af7ff" 
-          dur="6s" 
+          dur="4s" 
           repeatCount="indefinite" />
       </line>
     </g>
