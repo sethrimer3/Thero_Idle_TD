@@ -6662,30 +6662,16 @@ body.graphics-mode-low .control-button {
 }
 
 .tower-icon {
-  --tower-icon-primary: rgba(255, 228, 120, 0.85);
-  --tower-icon-secondary: rgba(8, 9, 14, 0.9);
-  --tower-icon-symbol: rgba(255, 228, 120, 0.85);
-  --tower-icon-mask: none;
   display: block;
   width: 100%;
   height: 100%;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.08), transparent 58%),
-    radial-gradient(circle at 50% 54%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 72%),
-    linear-gradient(140deg, var(--tower-icon-secondary), var(--tower-icon-primary));
-  background-color: var(--tower-icon-secondary);
-  mask-image: var(--tower-icon-mask);
-  -webkit-mask-image: var(--tower-icon-mask);
-  mask-repeat: no-repeat;
-  -webkit-mask-repeat: no-repeat;
-  mask-position: center;
-  -webkit-mask-position: center;
-  mask-size: contain;
-  -webkit-mask-size: contain;
-  border-radius: 14px;
-  box-shadow:
-    0 10px 18px rgba(0, 0, 0, 0.5),
-    0 0 18px var(--tower-icon-primary);
+  position: relative;
+}
+
+.tower-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .tower-preview {

@@ -231,6 +231,9 @@ const DEFAULT_TOWER_ICON_COLORS = Object.freeze({
   symbol: 'rgba(255, 228, 120, 0.85)',
 });
 
+// Cache for loaded SVG content to avoid redundant fetches.
+const svgContentCache = new Map();
+
 // Resolve palette-aware colors for a tower icon so Codex palette swaps recolor every glyph chip consistently.
 function resolveTowerIconPalette(tower) {
   const visuals = getTowerVisualConfig(tower) || {};
@@ -240,21 +243,198 @@ function resolveTowerIconPalette(tower) {
   return { primary, secondary, symbol };
 }
 
-// Apply the active palette colors and mask to a tower icon element.
-function applyPaletteToTowerIconElement(element, tower) {
+// Parse color string to extract RGB values for gradient application.
+function parseColorToRgb(colorString) {
+  if (!colorString) {
+    return null;
+  }
+  
+  // Handle rgba format
+  const rgbaMatch = colorString.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/);
+  if (rgbaMatch) {
+    return {
+      r: parseInt(rgbaMatch[1], 10),
+      g: parseInt(rgbaMatch[2], 10),
+      b: parseInt(rgbaMatch[3], 10),
+      a: rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1,
+    };
+  }
+  
+  // Handle hsl format
+  const hslMatch = colorString.match(/hsla?\s*\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*(?:,\s*([\d.]+)\s*)?\)/);
+  if (hslMatch) {
+    const h = parseFloat(hslMatch[1]) / 360;
+    const s = parseFloat(hslMatch[2]) / 100;
+    const l = parseFloat(hslMatch[3]) / 100;
+    const a = hslMatch[4] ? parseFloat(hslMatch[4]) : 1;
+    
+    // Convert HSL to RGB
+    let r, g, b;
+    if (s === 0) {
+      r = g = b = l;
+    } else {
+      const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1/3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1/3);
+    }
+    
+    return {
+      r: Math.round(r * 255),
+      g: Math.round(g * 255),
+      b: Math.round(b * 255),
+      a,
+    };
+  }
+  
+  return null;
+}
+
+// Convert RGB object to hex color for SVG attributes.
+function rgbToHex(rgb) {
+  if (!rgb) {
+    return '#ffffff';
+  }
+  const toHex = (n) => {
+    const hex = Math.max(0, Math.min(255, Math.round(n))).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+  return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
+}
+
+// Apply palette colors to an inline SVG element by modifying its internal elements.
+function applySvgPaletteColors(svgElement, palette) {
+  if (!(svgElement instanceof SVGElement) || !palette) {
+    return;
+  }
+
+  const primaryRgb = parseColorToRgb(palette.primary);
+  const secondaryRgb = parseColorToRgb(palette.secondary);
+  const symbolRgb = parseColorToRgb(palette.symbol);
+
+  const primaryHex = rgbToHex(primaryRgb);
+  const secondaryHex = rgbToHex(secondaryRgb);
+  const symbolHex = rgbToHex(symbolRgb);
+
+  // Update gradient stops if they exist
+  const gradientStops = svgElement.querySelectorAll('linearGradient stop, radialGradient stop');
+  gradientStops.forEach((stop) => {
+    const offset = parseFloat(stop.getAttribute('offset') || 0);
+    // Apply gradient from secondary (dark) to primary (light)
+    if (offset < 0.5) {
+      stop.setAttribute('stop-color', secondaryHex);
+      if (secondaryRgb?.a !== undefined && secondaryRgb.a < 1) {
+        stop.setAttribute('stop-opacity', String(secondaryRgb.a));
+      }
+    } else {
+      stop.setAttribute('stop-color', primaryHex);
+      if (primaryRgb?.a !== undefined && primaryRgb.a < 1) {
+        stop.setAttribute('stop-opacity', String(primaryRgb.a));
+      }
+    }
+  });
+
+  // Update circles (background and rings)
+  const circles = svgElement.querySelectorAll('circle');
+  circles.forEach((circle, index) => {
+    if (circle.hasAttribute('fill') && !circle.getAttribute('fill').startsWith('url(')) {
+      // Outer circles get secondary color
+      if (index === 0) {
+        circle.setAttribute('fill', secondaryHex);
+      } else {
+        // Inner circles get primary color
+        circle.setAttribute('fill', primaryHex);
+      }
+    }
+    if (circle.hasAttribute('stroke')) {
+      circle.setAttribute('stroke', primaryHex);
+    }
+  });
+
+  // Update text (tower symbol) with symbol color
+  const textElements = svgElement.querySelectorAll('text');
+  textElements.forEach((text) => {
+    text.setAttribute('fill', symbolHex);
+  });
+
+  // Update rectangles (background)
+  const rects = svgElement.querySelectorAll('rect');
+  rects.forEach((rect) => {
+    if (rect.hasAttribute('fill')) {
+      rect.setAttribute('fill', secondaryHex);
+    }
+  });
+}
+
+// Load SVG content and apply palette colors.
+async function loadAndColorSvg(iconUrl, palette) {
+  if (!iconUrl) {
+    return null;
+  }
+
+  try {
+    // Check cache first
+    let svgText = svgContentCache.get(iconUrl);
+    
+    if (!svgText) {
+      const response = await fetch(iconUrl);
+      if (!response.ok) {
+        console.warn(`Failed to load tower icon: ${iconUrl}`);
+        return null;
+      }
+      svgText = await response.text();
+      svgContentCache.set(iconUrl, svgText);
+    }
+
+    // Parse SVG
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+    const svgElement = svgDoc.querySelector('svg');
+    
+    if (!svgElement) {
+      console.warn(`Invalid SVG content: ${iconUrl}`);
+      return null;
+    }
+
+    // Apply palette colors
+    applySvgPaletteColors(svgElement, palette);
+    
+    return svgElement;
+  } catch (error) {
+    console.warn(`Error loading tower icon SVG: ${iconUrl}`, error);
+    return null;
+  }
+}
+
+// Apply the active palette colors to a tower icon element.
+async function applyPaletteToTowerIconElement(element, tower) {
   if (!(element instanceof HTMLElement) || !tower) {
     return;
   }
+  
   const palette = resolveTowerIconPalette(tower);
   element.dataset.towerId = tower.id || element.dataset.towerId || '';
-  element.style.setProperty('--tower-icon-primary', palette.primary);
-  element.style.setProperty('--tower-icon-secondary', palette.secondary);
-  element.style.setProperty('--tower-icon-symbol', palette.symbol);
-  if (tower.icon && element.tagName !== 'IMG') {
-    const maskUrl = `url(${tower.icon})`;
-    element.style.setProperty('--tower-icon-mask', maskUrl);
-    element.style.maskImage = maskUrl;
-    element.style.webkitMaskImage = maskUrl;
+
+  if (tower.icon) {
+    // Load and inject colored SVG
+    const svgElement = await loadAndColorSvg(tower.icon, palette);
+    if (svgElement) {
+      // Clear existing content
+      element.innerHTML = '';
+      // Make SVG fill the container
+      svgElement.setAttribute('width', '100%');
+      svgElement.setAttribute('height', '100%');
+      element.appendChild(svgElement);
+    }
   }
 }
 
@@ -269,7 +449,9 @@ function createTowerIconElement(tower, { className = '', alt = '' } = {}) {
   icon.setAttribute('role', 'img');
   icon.setAttribute('aria-label', alt || tower.name || tower.id || 'Tower icon');
 
+  // Apply palette asynchronously (will populate the icon)
   applyPaletteToTowerIconElement(icon, tower);
+  
   return icon;
 }
 
