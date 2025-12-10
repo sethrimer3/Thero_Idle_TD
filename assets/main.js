@@ -4385,6 +4385,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       let glyphSymbol = '⚔';
       if (campaignName === 'Story') {
         glyphSymbol = '◈';
+      } else if (campaignName === 'Ladder') {
+        glyphSymbol = '∞';
       } else if (campaignName === 'Challenges') {
         glyphSymbol = 'α²+β²≠γ²';
       }

@@ -718,23 +718,26 @@
             </div>
           </section>
           <section class="level-section" id="level-selection">
-            <!-- Surface the live thero multiplier and starting equation at the top of the level list. -->
+            <!-- Leaderboard shortcut anchored in the upper corner of the Defense tab. -->
+            <button
+              class="defense-leaderboard-button"
+              type="button"
+              id="defense-leaderboard-button"
+              aria-label="View defense leaderboards"
+            >
+              <span aria-hidden="true">⚔</span>
+            </button>
+            <header class="subsection-title subsection-title--level">Project: Thero</header>
+            <div class="level-grid" id="level-grid" aria-live="polite"></div>
+            <!-- Surface the live thero multiplier and starting equation beneath the level list. -->
             <div class="level-thero-banner" id="level-thero-banner" aria-live="polite">
               <div class="level-thero-row">
                 <span class="level-thero-label">Thero Multiplier</span>
                 <span class="level-thero-value" id="level-thero-multiplier">×0.00</span>
               </div>
             </div>
-            <header class="subsection-title">Conjecture Set</header>
-            <p class="level-intro">
-              The opening proofs trace immortal-defense style figure-eights,
-              cardioids, and logarithmic spirals. Each path is derived from a
-              math-graph expression and rewards towers that can flex their
-              formulas mid-curve.
-            </p>
-            <div class="level-grid" id="level-grid" aria-live="polite"></div>
           </section>
-          <!-- Developer mode toggle positioned at the very bottom of the Stage tab -->
+          <!-- Developer mode toggle positioned at the very bottom of the Defense tab -->
           <div class="stage-developer-toggle-wrapper" id="stage-developer-toggle-wrapper">
             <label class="developer-mode-toggle stage-developer-mode-toggle" for="stage-developer-mode">
               <input type="checkbox" id="stage-developer-mode" />
@@ -4020,13 +4023,13 @@
           id="tab-tower"
           type="button"
           role="tab"
-          aria-label="Tower Stage"
+          aria-label="Defense"
           aria-controls="panel-tower"
           aria-selected="true"
           aria-pressed="true"
         >
           <span class="tab-icon">℘</span>
-          <span class="tab-label">Stage</span>
+          <span class="tab-label">Defense</span>
         </button>
         <button
           class="tab-button"
