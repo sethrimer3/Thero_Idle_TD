@@ -16,6 +16,7 @@ export function createTowerLoadoutController({
   getPlayfield,
   getAudioManager,
   formatCombatNumber,
+  createTowerIconElement,
   syncLoadoutToPlayfield,
 } = {}) {
   const LOADOUT_WHEEL_HOLD_MS = 500; // Require an intentional hold before opening the wheel overlay.
@@ -69,6 +70,26 @@ export function createTowerLoadoutController({
       return formatCombatNumber(value);
     }
     return String(value);
+  };
+
+  // Build a palette-aware icon element using the injected factory with a safe image fallback.
+  const safeCreateTowerIconElement = (definition, options = {}) => {
+    if (typeof createTowerIconElement === 'function') {
+      const icon = createTowerIconElement(definition, options);
+      if (icon) {
+        return icon;
+      }
+    }
+    if (definition?.icon) {
+      const fallbackIcon = document.createElement('img');
+      fallbackIcon.src = definition.icon;
+      fallbackIcon.alt = options.alt || `${definition.name || definition.id || 'Tower'} icon`;
+      fallbackIcon.decoding = 'async';
+      fallbackIcon.loading = 'lazy';
+      fallbackIcon.className = ['tower-icon', options.className || ''].filter(Boolean).join(' ');
+      return fallbackIcon;
+    }
+    return null;
   };
 
   /**
@@ -301,24 +322,21 @@ export function createTowerLoadoutController({
       item.setAttribute('aria-label', definition?.name || 'Empty loadout slot');
 
       if (definition && definition.placeable !== false) {
-        const artwork = document.createElement('img');
-        artwork.className = 'tower-loadout-art';
-        if (definition.icon) {
-          artwork.src = definition.icon;
-          artwork.alt = `${definition.name} sigil`;
-          artwork.decoding = 'async';
-          artwork.loading = 'lazy';
-        } else {
-          artwork.alt = '';
-          artwork.setAttribute('aria-hidden', 'true');
-        }
+        const artwork = safeCreateTowerIconElement(definition, {
+          className: 'tower-loadout-art',
+          alt: `${definition.name} sigil`,
+        });
 
         const costEl = document.createElement('span');
         costEl.className = 'tower-loadout-cost';
         costEl.textContent = '—';
         costEl.dataset.affordable = 'false';
 
-        item.append(artwork, costEl);
+        if (artwork) {
+          item.append(artwork, costEl);
+        } else {
+          item.append(costEl);
+        }
       } else {
         item.classList.add('tower-loadout-item--empty');
         const emptyArt = document.createElement('span');
@@ -529,13 +547,11 @@ export function createTowerLoadoutController({
       item.dataset.distance = String(Math.abs(index - clampedIndex));
 
       const costState = resolveTowerCostState(definition.id);
-      if (definition.icon) {
-        const art = document.createElement('img');
-        art.className = 'tower-loadout-wheel__icon';
-        art.src = definition.icon;
-        art.alt = `${definition.name} icon`;
-        art.decoding = 'async';
-        art.loading = 'lazy';
+      const art = safeCreateTowerIconElement(definition, {
+        className: 'tower-loadout-wheel__icon',
+        alt: `${definition.name} icon`,
+      });
+      if (art) {
         item.append(art);
       }
 
