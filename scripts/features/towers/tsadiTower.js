@@ -273,6 +273,50 @@ function tierToColor(tier, sampleGradientFn = null) {
 }
 
 /**
+ * Normalize a gem or palette color into a CSS color string.
+ * @param {string|Object} color - Raw color input ({r,g,b} or {hue,saturation,lightness}).
+ * @returns {string|null} CSS color string when resolvable.
+ */
+function colorToCssString(color) {
+  if (!color) {
+    return null;
+  }
+  if (typeof color === 'string') {
+    return color;
+  }
+  if (typeof color === 'object') {
+    if (Number.isFinite(color.r) && Number.isFinite(color.g) && Number.isFinite(color.b)) {
+      return `rgb(${color.r}, ${color.g}, ${color.b})`;
+    }
+    if (
+      Number.isFinite(color.hue) &&
+      Number.isFinite(color.saturation) &&
+      Number.isFinite(color.lightness)
+    ) {
+      return `hsl(${color.hue}, ${color.saturation}%, ${color.lightness}%)`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Apply an alpha multiplier to an rgb() color string, falling back to the base color when parsing fails.
+ * @param {string} colorStr - CSS color string.
+ * @param {number} alpha - Alpha channel between 0 and 1.
+ * @returns {string} rgba() string with the provided alpha.
+ */
+function applyAlphaToColor(colorStr, alpha) {
+  if (!colorStr) {
+    return `rgba(255, 255, 255, ${alpha})`;
+  }
+  const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  if (match) {
+    return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha})`;
+  }
+  return colorStr;
+}
+
+/**
  * Classify a tier into its cycle and position.
  * @param {number} tier - The particle tier
  * @returns {Object} Classification info
@@ -698,7 +742,7 @@ export class ParticleFusionSimulation {
   /**
    * Spawn a new particle with random position and velocity
    */
-  spawnParticle(tier = NULL_TIER) {
+  spawnParticle(config = NULL_TIER) {
     if (this.particles.length >= this.maxParticles) return false;
     if (this.particleBank <= 0) return false;
 
@@ -707,8 +751,28 @@ export class ParticleFusionSimulation {
       return false;
     }
 
-    // Apply starting tier upgrade
-    const effectiveTier = tier + this.upgrades.startingTier;
+    let tier = NULL_TIER;
+    let tierOffset = 0;
+    let colorOverride = null;
+    let shimmer = false;
+
+    if (typeof config === 'number') {
+      tier = config;
+    } else if (config && typeof config === 'object') {
+      if (Number.isFinite(config.tier)) {
+        tier = config.tier;
+      }
+      if (Number.isFinite(config.tierOffset)) {
+        tierOffset = config.tierOffset;
+      }
+      if (config.color) {
+        colorOverride = colorToCssString(config.color);
+      }
+      shimmer = Boolean(config.shimmer);
+    }
+
+    // Apply starting tier upgrade and any gem-driven offsets.
+    const effectiveTier = tier + tierOffset + this.upgrades.startingTier;
     
     const radius = this.getRadiusForTier(effectiveTier);
     const tierInfo = getGreekTierInfo(effectiveTier);
@@ -747,11 +811,14 @@ export class ParticleFusionSimulation {
       vy,
       radius,
       tier: effectiveTier,
-      color: tierToColor(effectiveTier, this.samplePaletteGradient),
+      color: colorOverride || tierToColor(effectiveTier, this.samplePaletteGradient),
       label: tierInfo.letter,
       id: Math.random(), // Unique ID for tracking
       repellingForce,
       speedMultiplier,
+      shimmer,
+      shimmerPhase: Math.random() * Math.PI * 2, // Offset shimmer so stacked particles do not pulse in sync.
+      shimmerColor: colorOverride || null,
     });
     
     // Add spawn flash and wave effects when the options menu allows it.
@@ -2289,12 +2356,29 @@ export class ParticleFusionSimulation {
       glowGradient.addColorStop(0, color);
       glowGradient.addColorStop(0.7, color);
       glowGradient.addColorStop(1, this.backgroundColor);
-      
+
       ctx.fillStyle = glowGradient;
       ctx.beginPath();
       ctx.arc(particle.x, particle.y, particle.radius * 1.5, 0, Math.PI * 2);
       ctx.fill();
-      
+
+      if (particle.shimmer) {
+        const shimmerAlpha = 0.35 + 0.25 * Math.sin((Date.now() / 240) + (particle.shimmerPhase || 0));
+        const shimmerColor = particle.shimmerColor || particle.color;
+        ctx.save();
+        ctx.strokeStyle = applyAlphaToColor(shimmerColor, shimmerAlpha);
+        ctx.lineWidth = Math.max(1.5, particle.radius * 0.35);
+        ctx.setLineDash([
+          Math.max(2, particle.radius * 0.8),
+          Math.max(2, particle.radius * 0.6),
+        ]);
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.radius * 1.25, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
       // Main particle body
       ctx.fillStyle = color;
       ctx.beginPath();

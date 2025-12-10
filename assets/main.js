@@ -1625,6 +1625,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     gemDefinitions: GEM_DEFINITIONS,
   });
 
+  // Quick lookup for gem definitions so gem consumption can reference mote size and palette data.
+  const gemDefinitionLookup = new Map((GEM_DEFINITIONS || []).map((gem) => [gem.id, gem]));
+
   const lamedSpireUi = createLamedSpireUi({
     formatWholeNumber,
   });
@@ -1695,6 +1698,25 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     renderMoteGemInventoryDisplay();
     spireGemMenuController?.updateCounts();
   };
+
+  /**
+   * Decrement a gem from the shared inventory and return its definition so spire consumers can react.
+   * @param {string} gemId - Unique gem identifier.
+   * @returns {Object|null} Gem definition when successfully consumed.
+   */
+  function consumeGemFromInventory(gemId) {
+    if (!gemId) {
+      return null;
+    }
+    const record = moteGemState.inventory.get(gemId);
+    if (!record || !Number.isFinite(record.count) || record.count <= 0) {
+      return null;
+    }
+    const nextCount = Math.max(0, record.count - 1);
+    moteGemState.inventory.set(gemId, { ...record, count: nextCount });
+    updateMoteGemInventoryDisplay();
+    return gemDefinitionLookup.get(gemId) || null;
+  }
 
   const powderPersistence = createPowderPersistence({
     powderState,
@@ -2123,6 +2145,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getFluidSimulation: () => fluidSimulationInstance,
     getLamedSimulation: () => lamedSimulationInstance,
     getTsadiSimulation: () => tsadiSimulationInstance,
+    getSelectedGem: (spireId) => spireGemMenuController?.getSelection(spireId),
+    consumeGem: consumeGemFromInventory,
     addIterons,
   });
 

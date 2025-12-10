@@ -7,6 +7,8 @@
  * @param {() => any} options.getFluidSimulation - Getter for the Bet fluid simulation instance.
  * @param {() => any} options.getLamedSimulation - Getter for the Lamed gravity simulation instance.
  * @param {() => any} options.getTsadiSimulation - Getter for the Tsadi binding simulation instance.
+ * @param {(spireId: string) => string|null} [options.getSelectedGem] - Resolver for the currently slotted spire gem.
+ * @param {(gemId: string) => object|null} [options.consumeGem] - Consumer that decrements a gem from the inventory and returns its definition.
  * @param {(count: number) => void} options.addIterons - Adds iterons to the Shin bank.
  * @returns {{ initializeManualDropHandlers: () => void }} Controller helpers.
  */
@@ -16,8 +18,68 @@ export function createManualDropController({
   getFluidSimulation,
   getLamedSimulation,
   getTsadiSimulation,
+  getSelectedGem,
+  consumeGem,
   addIterons,
 }) {
+  /**
+   * Convert a gem palette entry into a normalized RGB payload so all spires can reuse it safely.
+   * @param {Object} color - Gem palette color sourced from GEM_DEFINITIONS.
+   * @returns {{ css: string, rgb: {r:number,g:number,b:number} }|null} Normalized color payload.
+   */
+  function normalizeGemColor(color) {
+    if (!color || !Number.isFinite(color.hue) || !Number.isFinite(color.saturation) || !Number.isFinite(color.lightness)) {
+      return null;
+    }
+
+    const h = ((color.hue % 360) + 360) % 360;
+    const s = Math.max(0, Math.min(100, color.saturation)) / 100;
+    const l = Math.max(0, Math.min(100, color.lightness)) / 100;
+
+    // Standard HSL to RGB conversion to keep gradients in sync across spires.
+    const hueToRgb = (p, q, t) => {
+      let temp = t;
+      if (temp < 0) temp += 1;
+      if (temp > 1) temp -= 1;
+      if (temp < 1 / 6) return p + (q - p) * 6 * temp;
+      if (temp < 1 / 2) return q;
+      if (temp < 2 / 3) return p + (q - p) * (2 / 3 - temp) * 6;
+      return p;
+    };
+
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const r = Math.round(hueToRgb(p, q, h / 360 + 1 / 3) * 255);
+    const g = Math.round(hueToRgb(p, q, h / 360) * 255);
+    const b = Math.round(hueToRgb(p, q, h / 360 - 1 / 3) * 255);
+
+    return {
+      css: `rgb(${r}, ${g}, ${b})`,
+      rgb: { r, g, b },
+    };
+  }
+
+  /**
+   * Consume the selected gem for a spire and return its definition and normalized color data.
+   * @param {string} spireType - Target spire identifier.
+   * @returns {{definition: object, color: {css:string,rgb:{r:number,g:number,b:number}}}|null} Resolved gem payload.
+   */
+  function resolveGemForSpire(spireType) {
+    if (typeof getSelectedGem !== 'function' || typeof consumeGem !== 'function') {
+      return null;
+    }
+    const gemId = getSelectedGem(spireType);
+    if (!gemId) {
+      return null;
+    }
+    const definition = consumeGem(gemId);
+    if (!definition) {
+      return null;
+    }
+    const color = normalizeGemColor(definition.color);
+    return { definition, color };
+  }
+
   /**
    * Attach manual drop listeners so each spire can spawn one resource on click or Space.
    * Guards remain inline to mirror the original behavior without altering gameplay.
@@ -54,6 +116,17 @@ export function createManualDropController({
       switch (spireType) {
         case 'aleph':
           if (sandSimulation && typeof sandSimulation.spawnGrain === 'function') {
+            const gem = resolveGemForSpire('aleph');
+            if (gem) {
+              const moteSize = gem.definition.moteSize || sandSimulation.maxDropSize || 1;
+              // Spawn a gem-colored mote so Aleph visually echoes the selected crystal.
+              sandSimulation.spawnGrain({
+                size: moteSize,
+                color: gem.color?.rgb,
+                source: 'gem',
+              });
+              break;
+            }
             const moteSize = sandSimulation.maxDropSize || 1;
             sandSimulation.spawnGrain({ size: moteSize, source: 'manual' });
           }
@@ -66,11 +139,33 @@ export function createManualDropController({
           break;
         case 'lamed':
           if (lamedSimulation && typeof lamedSimulation.spawnStar === 'function') {
+            const gem = resolveGemForSpire('lamed');
+            if (gem) {
+              // Gem tiers map directly to mass multipliers (Quartz=2, Ruby=3, ...).
+              const massMultiplier = Math.max(1, gem.definition.moteSize || 1);
+              lamedSimulation.spawnStar({
+                massMultiplier,
+                color: gem.color?.rgb,
+              });
+              break;
+            }
             lamedSimulation.spawnStar();
           }
           break;
         case 'tsadi':
           if (tsadiSimulation && typeof tsadiSimulation.spawnParticle === 'function') {
+            const gem = resolveGemForSpire('tsadi');
+            if (gem) {
+              // Each gem tier pushes the spawn to a higher particle tier while applying shimmer.
+              const bonusTierOffset = Math.max(0, (gem.definition.moteSize || 1) - 1);
+              tsadiSimulation.spawnParticle({
+                tier: -1,
+                tierOffset: bonusTierOffset,
+                color: gem.color?.css,
+                shimmer: true,
+              });
+              break;
+            }
             tsadiSimulation.spawnParticle();
           }
           break;

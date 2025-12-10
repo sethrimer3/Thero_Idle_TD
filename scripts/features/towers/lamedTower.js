@@ -696,6 +696,64 @@ export class GravitySimulation {
   }
 
   /**
+   * Convert HSL inputs into an RGB payload so gem-driven stars inherit accurate hues.
+   * @param {number} h - Hue in degrees.
+   * @param {number} s - Saturation as a fraction (0-1).
+   * @param {number} l - Lightness as a fraction (0-1).
+   * @returns {{r:number,g:number,b:number}} RGB triplet.
+   */
+  static hslToRgbColor(h, s, l) {
+    const hueToRgb = (p, q, t) => {
+      let temp = t;
+      if (temp < 0) temp += 1;
+      if (temp > 1) temp -= 1;
+      if (temp < 1 / 6) return p + (q - p) * 6 * temp;
+      if (temp < 1 / 2) return q;
+      if (temp < 2 / 3) return p + (q - p) * (2 / 3 - temp) * 6;
+      return p;
+    };
+
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const r = Math.round(hueToRgb(p, q, h + 1 / 3) * 255);
+    const g = Math.round(hueToRgb(p, q, h) * 255);
+    const b = Math.round(hueToRgb(p, q, h - 1 / 3) * 255);
+    return { r, g, b };
+  }
+
+  /**
+   * Normalize gem palette input into an RGB color payload.
+   * @param {Object|string} color - Raw gem color definition.
+   * @returns {{r:number,g:number,b:number}|null} RGB payload when resolvable.
+   */
+  static normalizeGemColor(color) {
+    if (!color) {
+      return null;
+    }
+    if (typeof color === 'object') {
+      if (Number.isFinite(color.r) && Number.isFinite(color.g) && Number.isFinite(color.b)) {
+        return {
+          r: Math.max(0, Math.min(255, color.r)),
+          g: Math.max(0, Math.min(255, color.g)),
+          b: Math.max(0, Math.min(255, color.b)),
+        };
+      }
+      if (
+        Number.isFinite(color.hue) &&
+        Number.isFinite(color.saturation) &&
+        Number.isFinite(color.lightness)
+      ) {
+        return GravitySimulation.hslToRgbColor(
+          ((color.hue % 360) + 360) % 360 / 360,
+          Math.max(0, Math.min(1, color.saturation / 100)),
+          Math.max(0, Math.min(1, color.lightness / 100)),
+        );
+      }
+    }
+    return null;
+  }
+
+  /**
    * Generate seamless value noise so surface sampling can animate without flicker.
    * @param {number} size - Resolution of the texture square
    * @param {number} cellSize - Size of the interpolation cell controlling frequency
@@ -1161,11 +1219,15 @@ export class GravitySimulation {
    * Spawn a new star randomly between the central body edge and simulation edge.
    * Uses near-circular orbital velocity.
    */
-  spawnStar() {
+  spawnStar(options = {}) {
     if (this.sparkBank <= 0) return false;
 
     const dpr = this.getEffectiveDevicePixelRatio();
-    const starMass = 1 + this.upgrades.starMass;
+    const massMultiplier = Number.isFinite(options.massMultiplier)
+      ? Math.max(1, options.massMultiplier)
+      : 1;
+    const starMass = (1 + this.upgrades.starMass) * massMultiplier;
+    const colorOverride = GravitySimulation.normalizeGemColor(options.color);
 
     // Calculate central body radius
     // Use the shared radius helper so trail generation respects the current star size.
@@ -1226,6 +1288,7 @@ export class GravitySimulation {
       mass: starMass,
       // Persist whether this spark is allowed to render a trail for its entire lifetime.
       hasTrail: starHasTrail,
+      color: colorOverride,
       trail: [], // Array of {x, y, alpha, speed} points
       life: 1.0,
     });
@@ -2181,21 +2244,26 @@ export class GravitySimulation {
       const starSize = this.calculateStarRadiusCss(star.mass, starVisualRadius);
       
       // Glow effect
+      const baseStarColor = star.color || { r: 255, g: 255, b: 255 };
+      const glowColor = star.color || { r: 200, g: 220, b: 255 };
       const starGradient = ctx.createRadialGradient(
         starX, starY, 0,
         starX, starY, starSize * 2
       );
-      starGradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-      starGradient.addColorStop(0.5, 'rgba(200, 220, 255, 0.6)');
-      starGradient.addColorStop(1, 'rgba(200, 220, 255, 0)');
-      
+      starGradient.addColorStop(0, `rgba(${baseStarColor.r}, ${baseStarColor.g}, ${baseStarColor.b}, 1)`);
+      starGradient.addColorStop(
+        0.5,
+        `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, 0.6)`,
+      );
+      starGradient.addColorStop(1, `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, 0)`);
+
       ctx.fillStyle = starGradient;
       ctx.beginPath();
       ctx.arc(starX, starY, starSize * 2, 0, Math.PI * 2);
       ctx.fill();
-      
+
       // Core star
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = `rgb(${baseStarColor.r}, ${baseStarColor.g}, ${baseStarColor.b})`;
       ctx.beginPath();
       ctx.arc(starX, starY, starSize, 0, Math.PI * 2);
       ctx.fill();
