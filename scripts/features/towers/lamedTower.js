@@ -142,6 +142,27 @@ export class GravitySimulation {
     };
     this.lowGraphicsModeResolver = typeof options.isLowGraphicsMode === 'function' ? options.isLowGraphicsMode : null;
     this.lowGraphicsMode = typeof options.lowGraphicsMode === 'boolean' ? options.lowGraphicsMode : false;
+
+    // Performance safeguards to automatically dial back heavy effects when frame times spike.
+    this.frameTimeSamples = [];
+    this.frameSampleLimit = 45;
+    this.performanceMode = 'balanced';
+    this.performanceThresholds = {
+      degradeMs: 22, // ~45 FPS target triggers fallbacks
+      recoverMs: 17, // ~58 FPS restores full fidelity
+    };
+    this.initialCaps = {
+      devicePixelRatio: this.maxDevicePixelRatio,
+      trailCount: this.maxStarsWithTrails,
+      starCount: this.maxStars,
+    };
+    this.performanceCaps = {
+      reducedDevicePixelRatio: Math.min(this.maxDevicePixelRatio, 1.5),
+      reducedTrailCount: Math.max(6, Math.min(this.maxStarsWithTrails, 24)),
+      reducedStarCount: Math.min(this.maxStars, 160),
+      reducedDustCap: 80,
+    };
+    this.performanceDustCap = MAX_DUST_PARTICLES;
     
     // Visual effects
     this.backgroundColor = '#000000'; // Black space
@@ -350,8 +371,9 @@ export class GravitySimulation {
    * Resolve how orbiting star trails should be rendered based on population and graphics settings.
    */
   resolveTrailRenderSettings(starCount = this.stars.length) {
+    const performanceLimited = this.performanceMode === 'reduced';
     const lowGraphicsActive = this.isLowGraphicsModeEnabled();
-    if (lowGraphicsActive || starCount > this.trailComplexityThresholds.disable) {
+    if (performanceLimited || lowGraphicsActive || starCount > this.trailComplexityThresholds.disable) {
       return {
         mode: 'simple',
         maxLength: this.simpleTrailLength,
@@ -370,6 +392,79 @@ export class GravitySimulation {
       maxLength: this.baseTrailLength,
       fadeRate: this.baseTrailFadeRate,
     };
+  }
+
+  /**
+   * Track frame pacing and toggle lighter rendering paths when the average delta climbs.
+   * @param {number} deltaTimeMs - Elapsed milliseconds since last frame
+   */
+  trackPerformanceSample(deltaTimeMs) {
+    if (!Number.isFinite(deltaTimeMs)) {
+      return;
+    }
+
+    this.frameTimeSamples.push(deltaTimeMs);
+    if (this.frameTimeSamples.length > this.frameSampleLimit) {
+      this.frameTimeSamples.shift();
+    }
+
+    const sum = this.frameTimeSamples.reduce((acc, value) => acc + value, 0);
+    const average = sum / Math.max(1, this.frameTimeSamples.length);
+
+    if (average > this.performanceThresholds.degradeMs && this.performanceMode !== 'reduced') {
+      this.applyPerformanceMode('reduced');
+    } else if (average < this.performanceThresholds.recoverMs && this.performanceMode !== 'balanced') {
+      this.applyPerformanceMode('balanced');
+    }
+  }
+
+  /**
+   * Apply or restore render-friendly caps based on recent performance measurements.
+   * @param {'balanced'|'reduced'} mode - Target performance profile
+   */
+  applyPerformanceMode(mode) {
+    if (this.performanceMode === mode) {
+      return;
+    }
+
+    this.performanceMode = mode;
+    if (mode === 'reduced') {
+      this.maxDevicePixelRatio = this.performanceCaps.reducedDevicePixelRatio;
+      this.maxStarsWithTrails = this.performanceCaps.reducedTrailCount;
+      this.maxStars = this.performanceCaps.reducedStarCount;
+      this.performanceDustCap = this.performanceCaps.reducedDustCap;
+      this.activeTrailSettings = {
+        mode: 'simple',
+        maxLength: this.simpleTrailLength,
+        fadeRate: this.simpleTrailFadeRate,
+      };
+      const overflow = Math.max(0, this.stars.length - this.maxStars);
+      for (let i = 0; i < overflow; i++) {
+        const star = this.stars.pop();
+        if (star) {
+          this.absorbStarImmediately(star.mass);
+        }
+      }
+      this.trailEnabledStarCount = Math.min(this.trailEnabledStarCount, this.maxStarsWithTrails);
+    } else {
+      this.maxDevicePixelRatio = this.initialCaps.devicePixelRatio;
+      this.maxStarsWithTrails = this.initialCaps.trailCount;
+      this.maxStars = this.initialCaps.starCount;
+      this.performanceDustCap = MAX_DUST_PARTICLES;
+      this.activeTrailSettings = null;
+    }
+
+    // Rescale the canvas so the new DPR cap applies immediately.
+    this.resize();
+  }
+
+  /**
+   * Resolve the current dust cap after factoring in adaptive performance limits.
+   * @returns {number} Maximum decorative dust particles allowed
+   */
+  resolveDustCap() {
+    const reducedCap = Math.max(0, this.performanceDustCap);
+    return this.performanceMode === 'reduced' ? reducedCap : MAX_DUST_PARTICLES;
   }
 
   /**
@@ -1164,7 +1259,9 @@ export class GravitySimulation {
    */
   spawnDustParticles(deltaTime) {
     // Dynamically scale dust population to fade out as the starfield reaches maximum density.
-    this.desiredDustParticles = Math.max(0, MAX_DUST_PARTICLES - Math.min(this.stars.length, this.maxStars));
+    const dustCap = this.resolveDustCap();
+    const scaledDust = Math.max(0, dustCap - Math.min(this.stars.length, this.maxStars));
+    this.desiredDustParticles = Math.min(dustCap, scaledDust);
     this.maxDustParticles = this.desiredDustParticles;
     this.dustSpawnRate = this.desiredDustParticles;
 
@@ -1867,8 +1964,9 @@ export class GravitySimulation {
       const b = parseInt(hex.slice(5, 7), 16);
       return { r, g, b };
     };
-    
+
     const tierColor = parseColor(tier.color);
+    const skipLensFlare = this.performanceMode === 'reduced';
 
     // Derive the rendered core radius up front so blur passes and texture placement reference the same scale.
     const coreRadius = starVisualRadius * pulseScale;
@@ -1890,7 +1988,9 @@ export class GravitySimulation {
     }
 
     // Lay down the refined lens flare before the glow so the core renders above it.
-    this.renderLensFlare(ctx, centerXScaled, centerYScaled, coreRadius, tierColor);
+    if (!skipLensFlare) {
+      this.renderLensFlare(ctx, centerXScaled, centerYScaled, coreRadius, tierColor);
+    }
 
     // Bright white halo that hugs the core and only extends 5% beyond the radius.
     const whiteGlowRadius = coreRadius * 1.05;
@@ -2131,6 +2231,9 @@ export class GravitySimulation {
     const MAX_FRAME_DELTA_MS = 100; // Prevent physics instability on frame drops
     const deltaTime = Math.min(timestamp - this.lastFrame, MAX_FRAME_DELTA_MS);
     this.lastFrame = timestamp;
+
+    // Measure frame pacing so the renderer can shed work during spikes.
+    this.trackPerformanceSample(deltaTime);
 
     // Update elapsed time for statistics
     const deltaSeconds = deltaTime / 1000;
