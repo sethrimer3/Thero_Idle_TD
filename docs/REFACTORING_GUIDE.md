@@ -4,6 +4,38 @@
 
 This document outlines the strategy for refactoring `assets/main.js` (originally 10,002 lines) into smaller, more maintainable modules without changing any game functionality.
 
+## Largest-file refactor roadmap (line-count snapshot)
+
+**Agent note:** Re-run `find assets scripts docs -type f \( -name '*.js' -o -name '*.html' -o -name '*.md' -o -name '*.css' \) -print0 | xargs -0 wc -l | sort -nr | head` before starting any tranche. Update the line counts and append adjustments to the bullets below so this remains a living plan as files shrink or new monoliths appear.
+
+- `assets/styles.css` (~12,737 lines)
+  - **Non-invasive plan:** Follow the layered partials approach outlined below (base/theme/utilities/components) while keeping selectors and specificity identical. Stage the split by copying sections into new files, importing them with `@layer`, and only deleting original blocks after visual diffs confirm parity.
+  - **Agent instruction:** When adding a new component stylesheet, record the import order and any temporary `@layer` scaffolding here so future agents keep the cascade stable.
+- `assets/playfield.js` (~10,495 lines)
+  - **Non-invasive plan:** Continue the controller composition strategy in the "Split SimplePlayfield responsibilities" section. Start by relocating methods that already delegate to `playfield/` helpers, then move constructor wiring into a factory that accepts explicit dependencies.
+  - **Agent instruction:** Note each controller extraction and where its methods landed (e.g., `PlayfieldPlacementController`) in `docs/main_refactor_contexts.md` so later refactors can chain off your work.
+- `scripts/features/towers/cardinalWardenSimulation.js` (~7,501 lines)
+  - **Non-invasive plan:** Carve out pure math helpers (damage curves, wave scheduling) into a `simulation/` subfolder, leaving DOM/event wiring behind in the original file until parity is confirmed. Use factories that accept tower config, RNG hooks, and logging callbacks to avoid touching global state.
+  - **Agent instruction:** Keep a running list of extracted helper names in this section; future agents should extend the list rather than rewriting it to preserve traceability.
+- `assets/main.js` (~6,495 lines)
+  - **Non-invasive plan:** Continue peeling off focused factories (e.g., lifecycle, idle runs, level summaries). Prioritize clusters that only consume injected dependencies so that orchestration call sites stay stable.
+  - **Agent instruction:** Each time a cluster moves out, annotate the old call-site area with a brief comment pointing to the new module to aid future diff reviews.
+- `scripts/features/towers/tsadiTower.js` (~3,078 lines)
+  - **Non-invasive plan:** Separate upgrade math tables and UI copy into data modules first, then extract targeting/behavior helpers behind a factory that receives the playfield API. Avoid touching projectile definitions during the first pass.
+  - **Agent instruction:** Document which data tables moved (and their new paths) here so balancing changes later know which file to edit.
+- `assets/playfield/render/CanvasRenderer.js` (~2,865 lines)
+  - **Non-invasive plan:** Split by render layer: background + grid, tower sprites, projectile trails, overlay effects. Introduce a renderer registry object that `SimplePlayfield` can assemble without changing drawing order.
+  - **Agent instruction:** When you peel off a layer, list the new file and any shared constants you relocated to prevent duplicate gradients or palettes.
+- `assets/fluidTerrariumTrees.js` (~2,642 lines)
+  - **Non-invasive plan:** Extract static tree data and spawn tables into JSON or `data/` modules first. Then wrap simulation steps (growth ticks, resource rewards) in a factory that accepts RNG and balance hooks so callers can inject mocks during testing.
+  - **Agent instruction:** Note which data blocks were externalized to keep future tuning PRs from modifying simulation code unnecessarily.
+- `scripts/features/towers/lamedTower.js` (~2,583 lines)
+  - **Non-invasive plan:** Move passive upgrade definitions and display strings into a data module. Next, isolate targeting/placement helpers that do not mutate globals. Leave complex synergy effects for a later pass once supporting modules exist.
+  - **Agent instruction:** Track which helpers were relocated and how signatures stayed the same to preserve compatibility with tower menus.
+- `assets/towerEquations/advancedTowers.js` (~2,432 lines)
+  - **Non-invasive plan:** Break out equation templates per tower into separate files under `towerEquations/advanced/`, exporting factories that accept formatting helpers. Keep the current export surface identical by re-exporting from an index file.
+  - **Agent instruction:** Log each tower equation you move and any shared token files you create so the documentation stays aligned with the code.
+
 ## Upcoming High-Impact Refactoring Targets
 
 ### `assets/styles.css` – Layered stylesheet plan
