@@ -162,6 +162,11 @@ export class PowderSimulation {
     this.flowOffset = 0;
     const fallbackPalette = options.fallbackMotePalette || DEFAULT_MOTE_PALETTE;
     this.motePalette = mergeMotePalette(options.motePalette || fallbackPalette);
+    // Enable luminous motes and glowing trails by default to keep the Aleph basin readable.
+    this.moteGlowEnabled = options.glowTrailsEnabled !== false;
+    this.moteTrailStretch = Number.isFinite(options.moteTrailStretch)
+      ? Math.max(0, options.moteTrailStretch)
+      : 0.35;
     this.onWallMetricsChange =
       typeof options.onWallMetricsChange === 'function' ? options.onWallMetricsChange : null;
     // Surface camera changes so UI overlays can mirror the simulation transform.
@@ -758,6 +763,7 @@ export class PowderSimulation {
       freefall: !this.stabilized,
       inGrid: false,
       resting: false,
+      previousY: spawnY,
       color: this.normalizeDropColor(drop.color),
     };
     this.nextId += 1;
@@ -849,6 +855,7 @@ export class PowderSimulation {
         grain.colliderSize = this.computeColliderSize(grain.size);
       }
       const colliderSize = Math.max(1, Math.round(grain.colliderSize));
+      grain.previousY = Number.isFinite(grain.y) ? grain.y : 0;
       if (!this.stabilized || grain.freefall) {
         grain.freefall = true;
         grain.inGrid = false;
@@ -1267,6 +1274,9 @@ export class PowderSimulation {
     this.ctx.fillRect(0, height - 2, width, 2);
 
     const cellSizePx = this.cellSize;
+    const glowEnabled = this.moteGlowEnabled !== false;
+    const baseGlowBlur = Math.max(6, cellSizePx * 2.2);
+    const fallbackGlowColor = { r: 235, g: 214, b: 170 };
     for (const grain of this.grains) {
       const visualSize = Number.isFinite(grain.size) ? Math.max(1, grain.size) : 1;
       const colliderSize = Number.isFinite(grain.colliderSize)
@@ -1283,9 +1293,42 @@ export class PowderSimulation {
         continue;
       }
 
+      const resolvedColor = this.normalizeDropColor(grain.color) || fallbackGlowColor;
+      const glowColor = colorToRgbaString(
+        mixRgbColors(resolvedColor, { r: 255, g: 255, b: 255 }, 0.35),
+        0.75,
+      );
+      if (glowEnabled) {
+        this.ctx.shadowColor = glowColor;
+        this.ctx.shadowBlur = Math.max(baseGlowBlur, sizePx * 1.15);
+      } else {
+        this.ctx.shadowBlur = 0;
+        this.ctx.shadowColor = 'transparent';
+      }
+
+      if (
+        glowEnabled
+        && grain.freefall
+        && Number.isFinite(grain.previousY)
+        && Math.abs(grain.previousY - grain.y) > Number.EPSILON
+      ) {
+        const trailHeight = Math.abs(grain.previousY - grain.y) * cellSizePx + sizePx * this.moteTrailStretch;
+        const trailTop = Math.min(grain.previousY, grain.y) * cellSizePx - offsetPx;
+        this.ctx.save();
+        this.ctx.globalAlpha = 0.38;
+        this.ctx.shadowColor = glowColor;
+        this.ctx.shadowBlur = Math.max(baseGlowBlur, sizePx * 1.4);
+        this.ctx.fillStyle = colorToRgbaString(resolvedColor, 0.6);
+        this.ctx.fillRect(px, trailTop, sizePx, trailHeight);
+        this.ctx.restore();
+      }
+
       this.ctx.fillStyle = this.getMoteColorForSize(visualSize, grain.freefall, grain.color);
       this.ctx.fillRect(px, py, sizePx, sizePx);
     }
+
+    this.ctx.shadowBlur = 0;
+    this.ctx.shadowColor = 'transparent';
 
     this.ctx.restore();
   }
@@ -1364,6 +1407,16 @@ export class PowderSimulation {
 
   setMotePalette(palette) {
     this.motePalette = mergeMotePalette(palette);
+  }
+
+  /**
+   * Toggle luminous mote rendering and apply the change immediately.
+   * @param {{ glowTrailsEnabled?: boolean }} settings - Visual preference payload from the UI.
+   */
+  applyMoteGlowSettings(settings = {}) {
+    const enabled = settings.glowTrailsEnabled !== false;
+    this.moteGlowEnabled = enabled;
+    this.render();
   }
 
   normalizeDropColor(color) {

@@ -369,6 +369,12 @@ import {
   setFluidTerrariumGetters,
 } from './fluidSpirePreferences.js';
 import {
+  applyPowderVisualSettings,
+  bindPowderSpireOptions,
+  initializePowderSpirePreferences,
+  setPowderSimulationGetter,
+} from './powderSpirePreferences.js';
+import {
   bindTsadiSpireOptions,
   initializeTsadiSpirePreferences,
   setTsadiSimulationGetter,
@@ -1712,6 +1718,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let pendingSpireResizeFrame = null;
   let previousTabId = getActiveTabId();
 
+  // Surface the active powder simulation so Aleph visual preferences can reapply on swaps.
+  setPowderSimulationGetter(() => powderSimulation);
+
   // Track Tsadi status messaging so advanced molecule unlocks surface clearly in the UI.
   const tsadiStatusNoteElement = document.getElementById('tsadi-status-note');
   const TSADI_STATUS_BASE_MESSAGE = (tsadiStatusNoteElement?.textContent || '').trim()
@@ -2506,6 +2515,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         applyLoadedPowderSimulationState(powderSimulation);
         flushPendingMoteDrops();
         powderSimulation.start();
+        applyPowderVisualSettings();
         initializePowderViewInteraction();
         handlePowderViewTransformChange(powderSimulation.getViewTransform());
         syncFluidCameraModeUi();
@@ -2562,6 +2572,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         applyLoadedPowderSimulationState(powderSimulation);
         flushPendingMoteDrops();
         powderSimulation.start();
+        applyPowderVisualSettings();
         initializePowderViewInteraction();
         handlePowderViewTransformChange(powderSimulation.getViewTransform());
         syncFluidCameraModeUi();
@@ -5652,6 +5663,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       menuId: 'kuf-options-menu',
       spireId: 'kuf',
     });
+    initializePowderSpirePreferences();
+    bindPowderSpireOptions();
     initializeFluidSpirePreferences();
     bindFluidSpireOptions();
     initializeColorScheme();
