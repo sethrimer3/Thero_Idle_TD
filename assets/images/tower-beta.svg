@@ -4,10 +4,94 @@
       <stop offset="0%" stop-color="#c8f7ff" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#3a9bd1" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Beta homing triangle particles -->
+    <polygon id="betaTriangle1" points="-1.5,-1.5 1.5,0 -1.5,1.5" fill="#ff8ad8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="2.8s" 
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="20,32; 20,32; 26,28; 44,32; 44,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="2.8s" 
+        repeatCount="indefinite" />
+    </polygon>
+    
+    <polygon id="betaTriangle2" points="-1.5,-1.5 1.5,0 -1.5,1.5" fill="#8af7ff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="2.8s" 
+        begin="0.35s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="20,32; 20,32; 26,36; 44,32; 44,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="2.8s" 
+        begin="0.35s"
+        repeatCount="indefinite" />
+    </polygon>
+    
+    <polygon id="betaTriangle3" points="-1.5,-1.5 1.5,0 -1.5,1.5" fill="#ff8ad8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="2.8s" 
+        begin="0.7s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="20,32; 20,32; 24,30; 44,32; 44,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="2.8s" 
+        begin="0.7s"
+        repeatCount="indefinite" />
+    </polygon>
+    
+    <polygon id="betaTriangle4" points="-1.5,-1.5 1.5,0 -1.5,1.5" fill="#8af7ff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="2.8s" 
+        begin="1.05s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="20,32; 20,32; 24,34; 44,32; 44,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="2.8s" 
+        begin="1.05s"
+        repeatCount="indefinite" />
+    </polygon>
+    
+    <polygon id="betaTriangle5" points="-1.5,-1.5 1.5,0 -1.5,1.5" fill="#ff8ad8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="2.8s" 
+        begin="1.4s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="20,32; 20,32; 28,34; 44,32; 44,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="2.8s" 
+        begin="1.4s"
+        repeatCount="indefinite" />
+    </polygon>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#betaAura)" opacity="0.92" />
+  
+  <!-- Triangle particles (behind the letter) -->
+  <g id="particles">
+    <use href="#betaTriangle1" />
+    <use href="#betaTriangle2" />
+    <use href="#betaTriangle3" />
+    <use href="#betaTriangle4" />
+    <use href="#betaTriangle5" />
+  </g>
+  
   <text
     x="32"
     y="39"
