@@ -8505,6 +8505,7 @@ export class SimplePlayfield {
     }
     const enemy = targetInfo.enemy || null;
     const crystal = targetInfo.crystal || null;
+    const resolvedDamage = Number.isFinite(targetInfo.damage) ? Math.max(0, targetInfo.damage) : 0;
     const effectPosition =
       targetInfo.position ||
       (enemy ? this.getEnemyPosition(enemy) : crystal ? this.getCrystalPosition(crystal) : null);
@@ -8517,13 +8518,27 @@ export class SimplePlayfield {
     } else if (tower.type === 'nu') {
       this.spawnNuAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
     } else {
+      const sourcePosition = { x: tower.x, y: tower.y };
+      const targetPosition = effectPosition || sourcePosition;
+      const hasPendingHit = enemy && resolvedDamage > 0;
+      // Track a simple projectile travel time so damage is applied on impact instead of immediately on firing.
+      const baseTravelSpeed = 520;
+      const travelDistance = hasPendingHit
+        ? Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.y - sourcePosition.y)
+        : 0;
+      const travelTime = hasPendingHit ? Math.max(0.08, travelDistance / baseTravelSpeed) : 0;
+      const maxLifetime = hasPendingHit ? Math.max(0.24, travelTime) : 0.24;
+
       this.projectiles.push({
-        source: { x: tower.x, y: tower.y },
+        source: sourcePosition,
         targetId: enemy ? enemy.id : null,
         targetCrystalId: crystal ? crystal.id : null,
-        target: effectPosition,
+        target: targetPosition,
         lifetime: 0,
-        maxLifetime: 0.24,
+        maxLifetime,
+        travelTime,
+        damage: hasPendingHit ? resolvedDamage : 0,
+        towerId: tower.id,
       });
     }
     if ((tower.type === 'beta' || tower.type === 'gamma' || tower.type === 'nu')) {
@@ -8617,8 +8632,7 @@ export class SimplePlayfield {
       this.emitTowerAttackVisuals(tower, { enemy, position: attackPosition });
       return;
     }
-    this.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
-    this.emitTowerAttackVisuals(tower, { enemy, position: attackPosition });
+    this.emitTowerAttackVisuals(tower, { enemy, position: attackPosition, damage });
   }
 
   /**
@@ -9148,6 +9162,31 @@ export class SimplePlayfield {
           continue;
         }
         continue;
+      }
+
+      if (
+        !projectile.patternType &&
+        projectile.damage > 0 &&
+        Number.isFinite(projectile.travelTime) &&
+        projectile.travelTime > 0
+      ) {
+        const enemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId);
+        if (!enemy) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        const position = this.getEnemyPosition(enemy);
+        if (position) {
+          projectile.target = position;
+        }
+
+        if (projectile.lifetime >= projectile.travelTime) {
+          const tower = this.towers.find((candidate) => candidate && candidate.id === projectile.towerId) || null;
+          // Resolve the pending hit once the projectile has reached its target.
+          this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
+          this.projectiles.splice(index, 1);
+          continue;
+        }
       }
 
       if (projectile.lifetime >= projectile.maxLifetime) {
