@@ -64,13 +64,21 @@ const easeOutCubic = (value) => {
 
 // Geometric constants for shape animations
 const EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2; // ~0.866
+const PENTAGRAM_ANGLE_INCREMENT = (2 * Math.PI) / 5; // 72 degrees
 const PENTAGRAM_ANGLES = [
   -Math.PI / 2, // Top point (0 degrees, upward)
-  -Math.PI / 2 + (1 * 2 * Math.PI / 5), // Point 1
-  -Math.PI / 2 + (2 * 2 * Math.PI / 5), // Point 2
-  -Math.PI / 2 + (3 * 2 * Math.PI / 5), // Point 3
-  -Math.PI / 2 + (4 * 2 * Math.PI / 5), // Point 4
+  -Math.PI / 2 + PENTAGRAM_ANGLE_INCREMENT, // Point 1
+  -Math.PI / 2 + 2 * PENTAGRAM_ANGLE_INCREMENT, // Point 2
+  -Math.PI / 2 + 3 * PENTAGRAM_ANGLE_INCREMENT, // Point 3
+  -Math.PI / 2 + 4 * PENTAGRAM_ANGLE_INCREMENT, // Point 4
 ];
+const PENTAGRAM_EDGE_START = [0, 2, 4, 1, 3]; // Start vertices for each edge
+const PENTAGRAM_EDGE_END = [2, 4, 1, 3, 0]; // End vertices for each edge
+
+// Animation cycle configuration
+const ALPHA_OSCILLATION_CYCLES = 2; // Back-and-forth movements
+const BETA_TRIANGLE_CYCLES = 1; // Complete triangle traversals
+const GAMMA_PENTAGRAM_CYCLES = 1; // Complete star traversals
 
 let burstIdCounter = 0;
 
@@ -399,9 +407,8 @@ function updateDashPhase(playfield, burst, delta) {
       const pathAngle = Math.atan2(dy, dx);
       if (behavior === 'oscillate') {
         // Alpha tower: particles oscillate back and forth - converge to center, spread out, converge to far side
-        const oscillationCycles = 2; // number of back-and-forth movements
-        const cycleProgress = (progress * oscillationCycles) % 1;
-        const currentCycle = Math.floor(progress * oscillationCycles);
+        const cycleProgress = (progress * ALPHA_OSCILLATION_CYCLES) % 1;
+        const currentCycle = Math.floor(progress * ALPHA_OSCILLATION_CYCLES);
         
         // Calculate key points
         const distance = Math.hypot(dx, dy);
@@ -454,8 +461,8 @@ function updateDashPhase(playfield, burst, delta) {
           x: baseX + Math.cos(angle) * swirl,
           y: baseY + Math.sin(angle) * swirl,
         };
-        particle.opacity = 0.85 + Math.abs(Math.sin(progress * Math.PI * oscillationCycles)) * 0.15;
-        particle.renderSize = particle.size * (0.9 + Math.abs(Math.sin(progress * Math.PI * oscillationCycles)) * 0.3);
+        particle.opacity = 0.85 + Math.abs(Math.sin(progress * Math.PI * ALPHA_OSCILLATION_CYCLES)) * 0.15;
+        particle.renderSize = particle.size * (0.9 + Math.abs(Math.sin(progress * Math.PI * ALPHA_OSCILLATION_CYCLES)) * 0.3);
         
         if (progress >= 1) {
           if (alive) {
@@ -471,8 +478,7 @@ function updateDashPhase(playfield, burst, delta) {
       if (behavior === 'triangle') {
         // Beta tower: particles move in equilateral triangle pattern
         const triangleSides = 3;
-        const triangleCycles = 1; // Complete triangle traversals
-        const totalSides = triangleCycles * triangleSides;
+        const totalSides = BETA_TRIANGLE_CYCLES * triangleSides;
         const cycleProgress = (progress * totalSides) % 1; // Progress along current side
         const currentSide = Math.floor(progress * totalSides) % triangleSides;
         
@@ -523,8 +529,7 @@ function updateDashPhase(playfield, burst, delta) {
         // Gamma tower: particles move in 5-pointed star (pentagram) pattern
         // A pentagram has 5 edges connecting every second vertex
         const pentagramEdges = 5;
-        const pentagramCycles = 1; // Complete star traversals
-        const totalEdges = pentagramCycles * pentagramEdges;
+        const totalEdges = GAMMA_PENTAGRAM_CYCLES * pentagramEdges;
         const cycleProgress = (progress * totalEdges) % 1; // Progress along current edge
         const currentEdge = Math.floor(progress * totalEdges) % pentagramEdges;
         
@@ -545,11 +550,8 @@ function updateDashPhase(playfield, burst, delta) {
         
         // Pentagram edges: connect each point to the point 2 positions away
         // Edge pattern: 0→2, 2→4, 4→1, 1→3, 3→0
-        const edgeStart = [0, 2, 4, 1, 3];
-        const edgeEnd = [2, 4, 1, 3, 0];
-        
-        const p1 = starPoints[edgeStart[currentEdge]];
-        const p2 = starPoints[edgeEnd[currentEdge]];
+        const p1 = starPoints[PENTAGRAM_EDGE_START[currentEdge]];
+        const p2 = starPoints[PENTAGRAM_EDGE_END[currentEdge]];
         
         // Interpolate along current edge
         const eased = easeInCubic(cycleProgress);
