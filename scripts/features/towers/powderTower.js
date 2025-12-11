@@ -1275,7 +1275,8 @@ export class PowderSimulation {
 
     const cellSizePx = this.cellSize;
     const glowEnabled = this.moteGlowEnabled !== false;
-    const baseGlowBlur = Math.max(6, cellSizePx * 2.2);
+    // Expand the halo so resting motes remain legible even when zoomed out.
+    const baseGlowBlur = Math.max(6, cellSizePx * 2.2) * 2;
     const fallbackGlowColor = { r: 235, g: 214, b: 170 };
     for (const grain of this.grains) {
       const visualSize = Number.isFinite(grain.size) ? Math.max(1, grain.size) : 1;
@@ -1300,7 +1301,8 @@ export class PowderSimulation {
       );
       if (glowEnabled) {
         this.ctx.shadowColor = glowColor;
-        this.ctx.shadowBlur = Math.max(baseGlowBlur, sizePx * 1.15);
+        const glowBlur = Math.max(baseGlowBlur, sizePx * 2.3);
+        this.ctx.shadowBlur = glowBlur;
       } else {
         this.ctx.shadowBlur = 0;
         this.ctx.shadowColor = 'transparent';
@@ -1312,13 +1314,25 @@ export class PowderSimulation {
         && Number.isFinite(grain.previousY)
         && Math.abs(grain.previousY - grain.y) > Number.EPSILON
       ) {
-        const trailHeight = Math.abs(grain.previousY - grain.y) * cellSizePx + sizePx * this.moteTrailStretch;
+        const trailHeight = Math.max(
+          sizePx * 1.2,
+          Math.abs(grain.previousY - grain.y) * cellSizePx + sizePx * this.moteTrailStretch,
+        );
         const trailTop = Math.min(grain.previousY, grain.y) * cellSizePx - offsetPx;
         this.ctx.save();
-        this.ctx.globalAlpha = 0.38;
+        this.ctx.globalAlpha = 0.6;
         this.ctx.shadowColor = glowColor;
-        this.ctx.shadowBlur = Math.max(baseGlowBlur, sizePx * 1.4);
-        this.ctx.fillStyle = colorToRgbaString(resolvedColor, 0.6);
+        this.ctx.shadowBlur = Math.max(baseGlowBlur, sizePx * 1.8);
+        // Paint a brighter gradient trail so falling motes leave a visible shimmer.
+        const trailGradient = this.ctx.createLinearGradient(
+          px,
+          trailTop,
+          px,
+          trailTop + trailHeight,
+        );
+        trailGradient.addColorStop(0, colorToRgbaString(resolvedColor, 0.32));
+        trailGradient.addColorStop(1, colorToRgbaString(resolvedColor, 0.08));
+        this.ctx.fillStyle = trailGradient;
         this.ctx.fillRect(px, trailTop, sizePx, trailHeight);
         this.ctx.restore();
       }
