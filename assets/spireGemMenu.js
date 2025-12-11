@@ -109,10 +109,12 @@ export function createSpireGemMenuController({
         menu.slotPlaceholder.hidden = true;
       } else {
         menu.slotImage.hidden = true;
+        menu.slotImage.src = '';
         menu.slotPlaceholder.hidden = false;
       }
     } else {
       menu.slotImage.hidden = true;
+      menu.slotImage.src = '';
       menu.slotPlaceholder.hidden = false;
     }
 
@@ -189,7 +191,12 @@ export function createSpireGemMenuController({
 
     const count = documentRef.createElement('span');
     count.className = 'spire-gem-option__count';
-    count.textContent = gemId ? `×${getGemCount(gemId)}` : 'Default';
+    if (gemId) {
+      count.textContent = `×${getGemCount(gemId)}`;
+    } else {
+      count.textContent = '';
+      count.classList.add('spire-gem-option__count--empty');
+    }
 
     button.append(icon, name, count);
     return button;
@@ -321,7 +328,8 @@ export function createSpireGemMenuController({
         if (key === 'none') {
           const countElement = button.querySelector('.spire-gem-option__count');
           if (countElement) {
-            countElement.textContent = 'Default';
+            countElement.textContent = '';
+            countElement.classList.add('spire-gem-option__count--empty');
           }
           return;
         }
