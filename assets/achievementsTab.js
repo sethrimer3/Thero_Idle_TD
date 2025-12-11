@@ -17,13 +17,13 @@ const ACHIEVEMENT_CATEGORIES = [
   { id: 'campaign-story', name: 'Campaign: Story', icon: 'assets/images/campaign-story.svg', iconType: 'svg', type: 'campaign', campaign: 'Story' },
   { id: 'campaign-challenges', name: 'Campaign: Challenges', icon: '⚔️', type: 'campaign', campaign: 'Challenges' },
   { id: 'campaign-ladder', name: 'Campaign: Ladder', icon: 'assets/images/campaign-ladder.svg', iconType: 'svg', type: 'campaign', campaign: 'Ladder' },
-  { id: 'spire-powder', name: 'Aleph Spire Glyphs', icon: 'ℵ', type: 'spire', spireId: 'powder' },
-  { id: 'spire-fluid', name: 'Bet Spire Glyphs', icon: 'בּ', type: 'spire', spireId: 'fluid' },
-  { id: 'spire-lamed', name: 'Lamed Spire Glyphs', icon: 'ל', type: 'spire', spireId: 'lamed' },
-  { id: 'spire-tsadi', name: 'Tsadi Spire Glyphs', icon: 'צ', type: 'spire', spireId: 'tsadi' },
-  { id: 'spire-shin', name: 'Shin Spire Glyphs', icon: 'ש', type: 'spire', spireId: 'shin' },
-  { id: 'spire-kuf', name: 'Kuf Spire Glyphs', icon: 'ק', type: 'spire', spireId: 'kuf' },
-  { id: 'secret', name: 'Secret Achievements', icon: '❓', type: 'secret' },
+  { id: 'spire-powder', name: 'Aleph Spire', icon: 'ℵ', type: 'spire', spireId: 'powder' },
+  { id: 'spire-fluid', name: 'Bet Spire', icon: 'בּ', type: 'spire', spireId: 'fluid' },
+  { id: 'spire-lamed', name: 'Lamed Spire', icon: 'ל', type: 'spire', spireId: 'lamed' },
+  { id: 'spire-tsadi', name: 'Tsadi Spire', icon: 'צ', type: 'spire', spireId: 'tsadi' },
+  { id: 'spire-shin', name: 'Shin Spire', icon: 'ש', type: 'spire', spireId: 'shin' },
+  { id: 'spire-kuf', name: 'Kuf Spire', icon: 'ק', type: 'spire', spireId: 'kuf' },
+  { id: 'secret', name: 'Secret Achievements', icon: '?', type: 'secret' },
 ];
 
 const achievementState = new Map();
@@ -361,7 +361,7 @@ function generateSecretAchievements() {
       categoryId,
       title: `${SECRET_PLACEHOLDER_TEXT} ${gem.name}`,
       subtitle: gem.name,
-      icon: '❓',
+      icon: '?',
       rewardFlux: ACHIEVEMENT_REWARD_FLUX * (index + 1),
       description: `Obtain a ${gem.name} gem. ${hint} Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * (index + 1)} Motes/min to idle reserves.`,
       condition: () => {

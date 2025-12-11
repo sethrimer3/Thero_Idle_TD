@@ -4504,16 +4504,26 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const campaignGlyph = document.createElement('span');
       campaignGlyph.className = 'campaign-button-glyph';
       campaignGlyph.setAttribute('aria-hidden', 'true');
-      // Assign unique glyph symbols for each campaign type.
-      let glyphSymbol = '⚔';
-      if (campaignName === 'Story') {
-        glyphSymbol = 'Þ';
-      } else if (campaignName === 'Ladder') {
-        glyphSymbol = '∞';
-      } else if (campaignName === 'Challenges') {
-        glyphSymbol = 'α²+β²≠γ²';
+      // Assign campaign glyphs; Story and Ladder reuse the achievement SVGs for consistent iconography.
+      const campaignIcons = {
+        Story: 'assets/images/campaign-story.svg',
+        Ladder: 'assets/images/campaign-ladder.svg',
+      };
+      const iconPath = campaignIcons[campaignName] || null;
+      if (iconPath) {
+        campaignGlyph.classList.add('campaign-button-glyph--svg');
+        const glyphImage = document.createElement('img');
+        glyphImage.src = iconPath;
+        glyphImage.alt = '';
+        glyphImage.className = 'campaign-button-glyph__image';
+        campaignGlyph.append(glyphImage);
+      } else {
+        let glyphSymbol = '⚔';
+        if (campaignName === 'Challenges') {
+          glyphSymbol = 'α²+β²≠γ²';
+        }
+        campaignGlyph.textContent = glyphSymbol;
       }
-      campaignGlyph.textContent = glyphSymbol;
       
       const campaignTitle = document.createElement('span');
       campaignTitle.className = 'campaign-button-title';
