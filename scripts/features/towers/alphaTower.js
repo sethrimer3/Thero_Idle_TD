@@ -466,15 +466,20 @@ function updateDashPhase(playfield, burst, delta) {
         
         // Calculate triangle vertices (equilateral)
         const distance = Math.hypot(dx, dy);
-        const centerX = start.x + dx * 0.5;
-        const centerY = start.y + dy * 0.5;
-        const height = distance * Math.sqrt(3) / 2;
+        const baseAngle = Math.atan2(dy, dx);
         
         // Three vertices of equilateral triangle
+        // Vertex 1: tower position (start)
+        // Vertex 2: target position (forms one edge)
+        // Vertex 3: perpendicular to edge 1-2, at distance * sqrt(3)/2
         const vertices = [
           { x: start.x, y: start.y }, // Point 1: tower position
           { x: targetPosition.x, y: targetPosition.y }, // Point 2: target position
-          { x: centerX + (targetPosition.y - start.y) * 0.5, y: centerY - (targetPosition.x - start.x) * 0.5 }, // Point 3: perpendicular
+          { 
+            // Point 3: perpendicular from midpoint of edge 1-2
+            x: start.x + dx * 0.5 + Math.cos(baseAngle + Math.PI / 2) * distance * Math.sqrt(3) / 2,
+            y: start.y + dy * 0.5 + Math.sin(baseAngle + Math.PI / 2) * distance * Math.sqrt(3) / 2
+          },
         ];
         
         // Get current edge endpoints
@@ -505,7 +510,7 @@ function updateDashPhase(playfield, burst, delta) {
       if (behavior === 'pentagram') {
         // Gamma tower: particles move in 5-pointed star (pentagram) pattern
         const pentagramCycles = 1; // Complete star traversals
-        const cycleProgress = (progress * pentagramCycles * 5) % 1; // *5 for five points
+        const cycleProgress = (progress * pentagramCycles * 5) % 1; // *5 for five edges
         const currentEdge = Math.floor(progress * pentagramCycles * 5) % 5;
         
         // Calculate pentagram vertices (5-pointed star, upward pointing)
@@ -525,7 +530,9 @@ function updateDashPhase(playfield, burst, delta) {
         }
         
         // Pentagram draws star by connecting every second point
-        const connectionPattern = [0, 2, 4, 1, 3, 0]; // Pattern to draw a pentagram
+        // Pattern: 0→2→4→1→3→0 (connects each point to the point 2 positions away)
+        const connectionPattern = [0, 2, 4, 1, 3, 0];
+        // currentEdge ranges 0-4, so currentEdge+1 ranges 1-5, all valid indices
         const p1 = starPoints[connectionPattern[currentEdge]];
         const p2 = starPoints[connectionPattern[currentEdge + 1]];
         
