@@ -44,7 +44,7 @@ const ALPHA_PARTICLE_CONFIG = {
   idPrefix: 'alpha',
   colors: ALPHA_PARTICLE_COLORS,
   colorResolver: resolveAlphaParticleColors,
-  behavior: 'swirlBounce',
+  behavior: 'oscillate',
   homing: true,
   particleCountRange: { min: 5, max: 10 },
   dashDelayRange: 0.08,
@@ -146,7 +146,7 @@ function createParticleCloud(playfield, tower, burst) {
       swirlSeed: Math.random() * Math.PI * 2,
       direction: Math.random() < 0.5 ? -1 : 1,
       baseRadius,
-      size: baseRadius * (0.18 + Math.random() * 0.08),
+      size: baseRadius * (0.14 + Math.random() * 0.06),
       opacity: 0,
       state: 'swirl',
       dashDelay: Math.random() * dashDelayCap,
@@ -387,6 +387,169 @@ function updateDashPhase(playfield, burst, delta) {
       const dx = targetPosition.x - start.x;
       const dy = targetPosition.y - start.y;
       const pathAngle = Math.atan2(dy, dx);
+      if (behavior === 'oscillate') {
+        // Alpha tower: particles oscillate back and forth - converge to center, spread out, converge to far side
+        const oscillationCycles = 2; // number of back-and-forth movements
+        const cycleProgress = (progress * oscillationCycles) % 1;
+        const currentCycle = Math.floor(progress * oscillationCycles);
+        
+        // Calculate key points
+        const distance = Math.hypot(dx, dy);
+        const midX = start.x + dx * 0.5;
+        const midY = start.y + dy * 0.5;
+        
+        // Oscillation pattern: start -> mid -> target -> mid -> target (repeat)
+        // Even cycles (0, 2, 4...): move from current to next convergence point
+        // Odd cycles (1, 3, 5...): move from convergence point outward
+        let fromX, fromY, toX, toY;
+        
+        if (currentCycle === 0) {
+          // First: start position -> midpoint (converge)
+          fromX = start.x;
+          fromY = start.y;
+          toX = midX;
+          toY = midY;
+        } else if (currentCycle === 1) {
+          // Second: midpoint -> target (spread)
+          fromX = midX;
+          fromY = midY;
+          toX = targetPosition.x;
+          toY = targetPosition.y;
+        } else if (currentCycle % 2 === 0) {
+          // Even: target -> midpoint (converge back)
+          fromX = targetPosition.x;
+          fromY = targetPosition.y;
+          toX = midX;
+          toY = midY;
+        } else {
+          // Odd: midpoint -> target (spread again)
+          fromX = midX;
+          fromY = midY;
+          toX = targetPosition.x;
+          toY = targetPosition.y;
+        }
+        
+        // Smooth easing for motion
+        const eased = easeInCubic(cycleProgress);
+        
+        // Calculate position along the current oscillation segment
+        const baseX = fromX + (toX - fromX) * eased;
+        const baseY = fromY + (toY - fromY) * eased;
+        
+        // Add slight circular motion
+        const swirl = Math.sin((burst.phaseTime + particle.swirlSeed) * 6) * particle.size * 0.5;
+        const angle = particle.initialAngle + burst.phaseTime * particle.angularVelocity;
+        
+        particle.position = {
+          x: baseX + Math.cos(angle) * swirl,
+          y: baseY + Math.sin(angle) * swirl,
+        };
+        particle.opacity = 0.85 + Math.abs(Math.sin(progress * Math.PI * oscillationCycles)) * 0.15;
+        particle.renderSize = particle.size * (0.9 + Math.abs(Math.sin(progress * Math.PI * oscillationCycles)) * 0.3);
+        
+        if (progress >= 1) {
+          if (alive) {
+            enterBounceState(particle, targetPosition, pathAngle);
+          } else {
+            enterFadeState(particle, targetPosition);
+          }
+        } else {
+          unfinished = true;
+        }
+        return;
+      }
+      if (behavior === 'triangle') {
+        // Beta tower: particles move in equilateral triangle pattern
+        const triangleCycles = 1.5; // Complete triangle traversals
+        const cycleProgress = (progress * triangleCycles * 3) % 1; // *3 for three sides
+        const currentSide = Math.floor(progress * triangleCycles * 3) % 3;
+        
+        // Calculate triangle vertices (equilateral)
+        const distance = Math.hypot(dx, dy);
+        const centerX = start.x + dx * 0.5;
+        const centerY = start.y + dy * 0.5;
+        const height = distance * Math.sqrt(3) / 2;
+        
+        // Three vertices of equilateral triangle
+        const vertices = [
+          { x: start.x, y: start.y }, // Point 1: tower position
+          { x: targetPosition.x, y: targetPosition.y }, // Point 2: target position
+          { x: centerX + (targetPosition.y - start.y) * 0.5, y: centerY - (targetPosition.x - start.x) * 0.5 }, // Point 3: perpendicular
+        ];
+        
+        // Get current edge endpoints
+        const p1 = vertices[currentSide];
+        const p2 = vertices[(currentSide + 1) % 3];
+        
+        // Interpolate along current edge
+        const eased = easeInCubic(cycleProgress);
+        particle.position = {
+          x: p1.x + (p2.x - p1.x) * eased,
+          y: p1.y + (p2.y - p1.y) * eased,
+        };
+        
+        particle.opacity = 0.9;
+        particle.renderSize = particle.size * 0.95;
+        
+        if (progress >= 1) {
+          if (alive) {
+            enterBounceState(particle, targetPosition, pathAngle);
+          } else {
+            enterFadeState(particle, targetPosition);
+          }
+        } else {
+          unfinished = true;
+        }
+        return;
+      }
+      if (behavior === 'pentagram') {
+        // Gamma tower: particles move in 5-pointed star (pentagram) pattern
+        const pentagramCycles = 1; // Complete star traversals
+        const cycleProgress = (progress * pentagramCycles * 5) % 1; // *5 for five points
+        const currentEdge = Math.floor(progress * pentagramCycles * 5) % 5;
+        
+        // Calculate pentagram vertices (5-pointed star, upward pointing)
+        const distance = Math.hypot(dx, dy);
+        const centerX = start.x + dx * 0.5;
+        const centerY = start.y + dy * 0.5;
+        const radius = distance * 0.6;
+        
+        // Five outer points of pentagram (upward pointing, starting at top)
+        const starPoints = [];
+        for (let i = 0; i < 5; i++) {
+          const angle = -Math.PI / 2 + (i * 2 * Math.PI / 5); // Start at top (-90 degrees)
+          starPoints.push({
+            x: centerX + Math.cos(angle) * radius,
+            y: centerY + Math.sin(angle) * radius,
+          });
+        }
+        
+        // Pentagram draws star by connecting every second point
+        const connectionPattern = [0, 2, 4, 1, 3, 0]; // Pattern to draw a pentagram
+        const p1 = starPoints[connectionPattern[currentEdge]];
+        const p2 = starPoints[connectionPattern[currentEdge + 1]];
+        
+        // Interpolate along current edge
+        const eased = easeInCubic(cycleProgress);
+        particle.position = {
+          x: p1.x + (p2.x - p1.x) * eased,
+          y: p1.y + (p2.y - p1.y) * eased,
+        };
+        
+        particle.opacity = 0.95;
+        particle.renderSize = particle.size * 1.0;
+        
+        if (progress >= 1) {
+          if (alive) {
+            enterBounceState(particle, targetPosition, pathAngle);
+          } else {
+            enterFadeState(particle, targetPosition);
+          }
+        } else {
+          unfinished = true;
+        }
+        return;
+      }
       if (behavior === 'pierceLaser') {
         const distance = Math.hypot(dx, dy);
         const eased = easeInCubic(progress);

@@ -34,7 +34,7 @@ const GAMMA_PARTICLE_CONFIG = {
   idPrefix: 'gamma',
   colors: GAMMA_PARTICLE_COLORS,
   colorResolver: resolveGammaParticleColors,
-  behavior: 'pierceLaser',
+  behavior: 'pentagram',
   particleCountRange: { min: 5, max: 10 },
   dashDelayRange: 0.02,
   timings: {
