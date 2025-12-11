@@ -460,9 +460,11 @@ function updateDashPhase(playfield, burst, delta) {
       }
       if (behavior === 'triangle') {
         // Beta tower: particles move in equilateral triangle pattern
-        const triangleCycles = 1.5; // Complete triangle traversals
-        const cycleProgress = (progress * triangleCycles * 3) % 1; // *3 for three sides
-        const currentSide = Math.floor(progress * triangleCycles * 3) % 3;
+        const triangleSides = 3;
+        const triangleCycles = 1; // Complete triangle traversals
+        const totalSides = triangleCycles * triangleSides;
+        const cycleProgress = (progress * totalSides) % 1; // Progress along current side
+        const currentSide = Math.floor(progress * totalSides) % triangleSides;
         
         // Calculate triangle vertices (equilateral)
         const distance = Math.hypot(dx, dy);
@@ -484,7 +486,7 @@ function updateDashPhase(playfield, burst, delta) {
         
         // Get current edge endpoints
         const p1 = vertices[currentSide];
-        const p2 = vertices[(currentSide + 1) % 3];
+        const p2 = vertices[(currentSide + 1) % triangleSides];
         
         // Interpolate along current edge
         const eased = easeInCubic(cycleProgress);
@@ -509,9 +511,12 @@ function updateDashPhase(playfield, burst, delta) {
       }
       if (behavior === 'pentagram') {
         // Gamma tower: particles move in 5-pointed star (pentagram) pattern
+        // A pentagram has 5 edges connecting every second vertex
+        const pentagramEdges = 5;
         const pentagramCycles = 1; // Complete star traversals
-        const cycleProgress = (progress * pentagramCycles * 5) % 1; // *5 for five edges
-        const currentEdge = Math.floor(progress * pentagramCycles * 5) % 5;
+        const totalEdges = pentagramCycles * pentagramEdges;
+        const cycleProgress = (progress * totalEdges) % 1; // Progress along current edge
+        const currentEdge = Math.floor(progress * totalEdges) % pentagramEdges;
         
         // Calculate pentagram vertices (5-pointed star, upward pointing)
         const distance = Math.hypot(dx, dy);
@@ -529,12 +534,13 @@ function updateDashPhase(playfield, burst, delta) {
           });
         }
         
-        // Pentagram draws star by connecting every second point
-        // Pattern: 0→2→4→1→3→0 (connects each point to the point 2 positions away)
-        const connectionPattern = [0, 2, 4, 1, 3, 0];
-        // currentEdge ranges 0-4, so currentEdge+1 ranges 1-5, all valid indices
-        const p1 = starPoints[connectionPattern[currentEdge]];
-        const p2 = starPoints[connectionPattern[currentEdge + 1]];
+        // Pentagram edges: connect each point to the point 2 positions away
+        // Edge pattern: 0→2, 2→4, 4→1, 1→3, 3→0
+        const edgeStart = [0, 2, 4, 1, 3];
+        const edgeEnd = [2, 4, 1, 3, 0];
+        
+        const p1 = starPoints[edgeStart[currentEdge]];
+        const p2 = starPoints[edgeEnd[currentEdge]];
         
         // Interpolate along current edge
         const eased = easeInCubic(cycleProgress);
