@@ -82,6 +82,22 @@ export function createSpireGemMenuController({
     menu.dropdown.hidden = false;
     // Trigger transition after next frame so max-height animation runs.
     requestAnimationFrame(() => {
+      // Position the dropdown relative to the viewport so basin overflow does not clip the menu.
+      const viewportPadding = 10;
+      const slotRect = menu.slotButton.getBoundingClientRect();
+      const dropdownWidth = menu.dropdown.offsetWidth || menu.dropdown.getBoundingClientRect().width || 240;
+      const maxWidth = Math.max(viewportPadding * 2, Math.min(dropdownWidth, window.innerWidth - viewportPadding * 2));
+      const left = Math.min(
+        window.innerWidth - viewportPadding - maxWidth,
+        Math.max(viewportPadding, slotRect.right - maxWidth),
+      );
+      const maxHeight = Math.max(220, window.innerHeight - slotRect.bottom - viewportPadding * 2);
+      const top = Math.min(slotRect.bottom + viewportPadding, window.innerHeight - viewportPadding - 120);
+
+      menu.dropdown.style.width = `${maxWidth}px`;
+      menu.dropdown.style.left = `${left}px`;
+      menu.dropdown.style.top = `${top}px`;
+      menu.dropdown.style.maxHeight = `${maxHeight}px`;
       menu.dropdown.classList.add('spire-gem-menu--open');
     });
     menu.slotButton.setAttribute('aria-expanded', 'true');
@@ -108,13 +124,15 @@ export function createSpireGemMenuController({
         menu.slotImage.hidden = false;
         menu.slotPlaceholder.hidden = true;
       } else {
+        // Clear the src so empty slots do not show a broken image glyph.
         menu.slotImage.hidden = true;
-        menu.slotImage.src = '';
+        menu.slotImage.removeAttribute('src');
         menu.slotPlaceholder.hidden = false;
       }
     } else {
+      // Clear the src so empty slots do not show a broken image glyph.
       menu.slotImage.hidden = true;
-      menu.slotImage.src = '';
+      menu.slotImage.removeAttribute('src');
       menu.slotPlaceholder.hidden = false;
     }
 
