@@ -4482,6 +4482,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     // Now render campaign buttons with their level sets
     orderedCampaigns.forEach(([campaignName, setKeys]) => {
+      // Defensive copy keeps the campaign rail rendering even if the data payload is malformed.
+      const orderedSetKeys = Array.isArray(setKeys) ? setKeys : [];
       const campaignElement = document.createElement('div');
       campaignElement.className = 'campaign-button';
       campaignElement.dataset.campaign = campaignName;
@@ -4595,7 +4597,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       campaignContainer.addEventListener('pointercancel', resetSwipeState);
       
       // Render level sets inside this campaign
-      setKeys.forEach((setKey) => {
+      orderedSetKeys.forEach((setKey) => {
         const groupData = groups.get(setKey);
         if (!groupData) return;
         const levels = groupData.levels;

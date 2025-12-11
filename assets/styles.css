@@ -6187,6 +6187,10 @@ body.graphics-mode-low .control-button {
   display: block;
 }
 
+.spire-gem-selector__slot-image[hidden] {
+  display: none;
+}
+
 .spire-gem-selector__slot-placeholder {
   font-size: 1rem;
   color: rgba(255, 255, 255, 0.7);
@@ -6197,11 +6201,11 @@ body.graphics-mode-low .control-button {
 }
 
 .spire-gem-menu {
-  position: absolute;
+  position: fixed;
   top: 52px;
   right: 0;
   min-width: 220px;
-  max-width: 260px;
+  max-width: 320px;
   background: rgba(8, 10, 16, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 14px;
@@ -6211,11 +6215,12 @@ body.graphics-mode-low .control-button {
   opacity: 0;
   pointer-events: none;
   transform: translateY(-6px);
-  transition: max-height 0.28s ease, opacity 0.24s ease, transform 0.24s ease;
+  transition: max-height 0.28s ease, opacity 0.24s ease, transform 0.24s ease, left 0.2s ease,
+    top 0.2s ease;
 }
 
 .spire-gem-menu--open {
-  max-height: 340px;
+  max-height: 480px;
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
