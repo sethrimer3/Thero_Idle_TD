@@ -34,7 +34,7 @@ const BETA_PARTICLE_CONFIG = {
   idPrefix: 'beta',
   colors: BETA_PARTICLE_COLORS,
   colorResolver: resolveBetaParticleColors,
-  behavior: 'swirlBounce',
+  behavior: 'triangle',
   homing: true,
   particleCountRange: { min: 5, max: 10 },
   dashDelayRange: 0.06,

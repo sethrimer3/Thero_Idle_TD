@@ -1,3 +1,5 @@
 node_modules/
 .env
 test-tsadi-wave.html
+test-animation-capture.js
+test-tower-animations.html

@@ -44,7 +44,7 @@ const ALPHA_PARTICLE_CONFIG = {
   idPrefix: 'alpha',
   colors: ALPHA_PARTICLE_COLORS,
   colorResolver: resolveAlphaParticleColors,
-  behavior: 'swirlBounce',
+  behavior: 'oscillate',
   homing: true,
   particleCountRange: { min: 5, max: 10 },
   dashDelayRange: 0.08,
@@ -61,6 +61,24 @@ const easeOutCubic = (value) => {
   const inverted = 1 - value;
   return 1 - inverted * inverted * inverted;
 };
+
+// Geometric constants for shape animations
+const EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2; // ~0.866
+const PENTAGRAM_ANGLE_INCREMENT = (2 * Math.PI) / 5; // 72 degrees
+const PENTAGRAM_ANGLES = [
+  -Math.PI / 2, // Top point (0 degrees, upward)
+  -Math.PI / 2 + PENTAGRAM_ANGLE_INCREMENT, // Point 1
+  -Math.PI / 2 + 2 * PENTAGRAM_ANGLE_INCREMENT, // Point 2
+  -Math.PI / 2 + 3 * PENTAGRAM_ANGLE_INCREMENT, // Point 3
+  -Math.PI / 2 + 4 * PENTAGRAM_ANGLE_INCREMENT, // Point 4
+];
+const PENTAGRAM_EDGE_START = [0, 2, 4, 1, 3]; // Start vertices for each edge
+const PENTAGRAM_EDGE_END = [2, 4, 1, 3, 0]; // End vertices for each edge
+
+// Animation cycle configuration
+const ALPHA_OSCILLATION_CYCLES = 2; // Back-and-forth movements
+const BETA_TRIANGLE_CYCLES = 1; // Complete triangle traversals
+const GAMMA_PENTAGRAM_CYCLES = 1; // Complete star traversals
 
 let burstIdCounter = 0;
 
@@ -146,7 +164,7 @@ function createParticleCloud(playfield, tower, burst) {
       swirlSeed: Math.random() * Math.PI * 2,
       direction: Math.random() < 0.5 ? -1 : 1,
       baseRadius,
-      size: baseRadius * (0.18 + Math.random() * 0.08),
+      size: baseRadius * (0.14 + Math.random() * 0.06),
       opacity: 0,
       state: 'swirl',
       dashDelay: Math.random() * dashDelayCap,
@@ -387,6 +405,175 @@ function updateDashPhase(playfield, burst, delta) {
       const dx = targetPosition.x - start.x;
       const dy = targetPosition.y - start.y;
       const pathAngle = Math.atan2(dy, dx);
+      if (behavior === 'oscillate') {
+        // Alpha tower: particles oscillate back and forth - converge to center, spread out, converge to far side
+        const cycleProgress = (progress * ALPHA_OSCILLATION_CYCLES) % 1;
+        const currentCycle = Math.floor(progress * ALPHA_OSCILLATION_CYCLES);
+        
+        // Calculate key points
+        const distance = Math.hypot(dx, dy);
+        const midX = start.x + dx * 0.5;
+        const midY = start.y + dy * 0.5;
+        
+        // Oscillation pattern: start -> mid -> target -> mid -> target (repeat)
+        // Even cycles (0, 2, 4...): move from current to next convergence point
+        // Odd cycles (1, 3, 5...): move from convergence point outward
+        let fromX, fromY, toX, toY;
+        
+        if (currentCycle === 0) {
+          // First: start position -> midpoint (converge)
+          fromX = start.x;
+          fromY = start.y;
+          toX = midX;
+          toY = midY;
+        } else if (currentCycle === 1) {
+          // Second: midpoint -> target (spread)
+          fromX = midX;
+          fromY = midY;
+          toX = targetPosition.x;
+          toY = targetPosition.y;
+        } else if (currentCycle % 2 === 0) {
+          // Even: target -> midpoint (converge back)
+          fromX = targetPosition.x;
+          fromY = targetPosition.y;
+          toX = midX;
+          toY = midY;
+        } else {
+          // Odd: midpoint -> target (spread again)
+          fromX = midX;
+          fromY = midY;
+          toX = targetPosition.x;
+          toY = targetPosition.y;
+        }
+        
+        // Smooth easing for motion
+        const eased = easeInCubic(cycleProgress);
+        
+        // Calculate position along the current oscillation segment
+        const baseX = fromX + (toX - fromX) * eased;
+        const baseY = fromY + (toY - fromY) * eased;
+        
+        // Add slight circular motion
+        const swirl = Math.sin((burst.phaseTime + particle.swirlSeed) * 6) * particle.size * 0.5;
+        const angle = particle.initialAngle + burst.phaseTime * particle.angularVelocity;
+        
+        particle.position = {
+          x: baseX + Math.cos(angle) * swirl,
+          y: baseY + Math.sin(angle) * swirl,
+        };
+        particle.opacity = 0.85 + Math.abs(Math.sin(progress * Math.PI * ALPHA_OSCILLATION_CYCLES)) * 0.15;
+        particle.renderSize = particle.size * (0.9 + Math.abs(Math.sin(progress * Math.PI * ALPHA_OSCILLATION_CYCLES)) * 0.3);
+        
+        if (progress >= 1) {
+          if (alive) {
+            enterBounceState(particle, targetPosition, pathAngle);
+          } else {
+            enterFadeState(particle, targetPosition);
+          }
+        } else {
+          unfinished = true;
+        }
+        return;
+      }
+      if (behavior === 'triangle') {
+        // Beta tower: particles move in equilateral triangle pattern
+        const triangleSides = 3;
+        const totalSides = BETA_TRIANGLE_CYCLES * triangleSides;
+        const cycleProgress = (progress * totalSides) % 1; // Progress along current side
+        const currentSide = Math.floor(progress * totalSides) % triangleSides;
+        
+        // Calculate triangle vertices (equilateral)
+        const distance = Math.hypot(dx, dy);
+        const baseAngle = Math.atan2(dy, dx);
+        
+        // Three vertices of equilateral triangle
+        // Vertex 1: tower position (start)
+        // Vertex 2: target position (forms one edge)
+        // Vertex 3: perpendicular to edge 1-2, at distance * sqrt(3)/2
+        const vertices = [
+          { x: start.x, y: start.y }, // Point 1: tower position
+          { x: targetPosition.x, y: targetPosition.y }, // Point 2: target position
+          { 
+            // Point 3: perpendicular from midpoint of edge 1-2
+            x: start.x + dx * 0.5 + Math.cos(baseAngle + Math.PI / 2) * distance * EQUILATERAL_TRIANGLE_HEIGHT_RATIO,
+            y: start.y + dy * 0.5 + Math.sin(baseAngle + Math.PI / 2) * distance * EQUILATERAL_TRIANGLE_HEIGHT_RATIO
+          },
+        ];
+        
+        // Get current edge endpoints
+        const p1 = vertices[currentSide];
+        const p2 = vertices[(currentSide + 1) % triangleSides];
+        
+        // Interpolate along current edge
+        const eased = easeInCubic(cycleProgress);
+        particle.position = {
+          x: p1.x + (p2.x - p1.x) * eased,
+          y: p1.y + (p2.y - p1.y) * eased,
+        };
+        
+        particle.opacity = 0.9;
+        particle.renderSize = particle.size * 0.95;
+        
+        if (progress >= 1) {
+          if (alive) {
+            enterBounceState(particle, targetPosition, pathAngle);
+          } else {
+            enterFadeState(particle, targetPosition);
+          }
+        } else {
+          unfinished = true;
+        }
+        return;
+      }
+      if (behavior === 'pentagram') {
+        // Gamma tower: particles move in 5-pointed star (pentagram) pattern
+        // A pentagram has 5 edges connecting every second vertex
+        const pentagramEdges = 5;
+        const totalEdges = GAMMA_PENTAGRAM_CYCLES * pentagramEdges;
+        const cycleProgress = (progress * totalEdges) % 1; // Progress along current edge
+        const currentEdge = Math.floor(progress * totalEdges) % pentagramEdges;
+        
+        // Calculate pentagram vertices (5-pointed star, upward pointing)
+        const distance = Math.hypot(dx, dy);
+        const centerX = start.x + dx * 0.5;
+        const centerY = start.y + dy * 0.5;
+        const radius = distance * 0.6;
+        
+        // Five outer points of pentagram (upward pointing, starting at top)
+        const starPoints = [];
+        for (let i = 0; i < 5; i++) {
+          starPoints.push({
+            x: centerX + Math.cos(PENTAGRAM_ANGLES[i]) * radius,
+            y: centerY + Math.sin(PENTAGRAM_ANGLES[i]) * radius,
+          });
+        }
+        
+        // Pentagram edges: connect each point to the point 2 positions away
+        // Edge pattern: 0→2, 2→4, 4→1, 1→3, 3→0
+        const p1 = starPoints[PENTAGRAM_EDGE_START[currentEdge]];
+        const p2 = starPoints[PENTAGRAM_EDGE_END[currentEdge]];
+        
+        // Interpolate along current edge
+        const eased = easeInCubic(cycleProgress);
+        particle.position = {
+          x: p1.x + (p2.x - p1.x) * eased,
+          y: p1.y + (p2.y - p1.y) * eased,
+        };
+        
+        particle.opacity = 0.95;
+        particle.renderSize = particle.size * 1.0;
+        
+        if (progress >= 1) {
+          if (alive) {
+            enterBounceState(particle, targetPosition, pathAngle);
+          } else {
+            enterFadeState(particle, targetPosition);
+          }
+        } else {
+          unfinished = true;
+        }
+        return;
+      }
       if (behavior === 'pierceLaser') {
         const distance = Math.hypot(dx, dy);
         const eased = easeInCubic(progress);
