@@ -2093,13 +2093,13 @@ body.graphics-mode-low .control-button {
   place-items: center;
   cursor: var(--cursor-pointer);
   transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
-  box-shadow: 0 10px 26px rgba(255, 215, 100, 0.28);
+  box-shadow: 0 0 26px rgba(255, 215, 100, 0.28);
 }
 
 .defense-leaderboard-button:hover,
 .defense-leaderboard-button:focus-visible {
   border-color: rgba(255, 215, 100, 0.6);
-  box-shadow: 0 14px 32px rgba(255, 215, 100, 0.36);
+  box-shadow: 0 0 34px rgba(255, 215, 100, 0.36);
   transform: translateY(-1px);
 }
 
@@ -2115,6 +2115,7 @@ body.graphics-mode-low .control-button {
 /* Horizontal rail for campaign selection diamonds */
 .campaign-row {
   --campaign-overlap: 0px;
+  --campaign-expanded-height: auto;
   position: relative;
   display: flex;
   flex-wrap: wrap;
@@ -2292,11 +2293,11 @@ body.graphics-mode-low .control-button {
 
 /* Offset specific campaigns so Ladder and Trials sit lower in the rail. */
 .campaign-button[data-campaign='Ladder'] {
-  margin-top: calc(var(--level-node-size) * 0.5);
+  margin-top: calc(var(--level-node-size) * 0.55 + 4px);
 }
 
 .campaign-button[data-campaign='Challenges'] {
-  margin-top: var(--level-node-size);
+  margin-top: calc(var(--level-node-size) * 1.1 + 6px);
 }
 
 .campaign-button.expanded {
@@ -2304,6 +2305,7 @@ body.graphics-mode-low .control-button {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
+  min-height: var(--campaign-expanded-height, auto);
 }
 
 .campaign-button-trigger {
@@ -2327,7 +2329,7 @@ body.graphics-mode-low .control-button {
   text-transform: uppercase;
   cursor: var(--cursor-pointer);
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
-  box-shadow: 0 12px 32px rgba(255, 215, 100, 0.15);
+  box-shadow: 0 0 32px rgba(255, 215, 100, 0.18);
   transform: rotate(var(--campaign-rotation));
 }
 
@@ -2354,7 +2356,7 @@ body.graphics-mode-low .control-button {
 .campaign-button-trigger:hover,
 .campaign-button-trigger:focus-visible {
   border-color: rgba(255, 215, 100, 0.52);
-  box-shadow: 0 18px 42px rgba(255, 215, 100, 0.32);
+  box-shadow: 0 0 42px rgba(255, 215, 100, 0.38);
   transform: rotate(var(--campaign-rotation)) scale(1.02);
 }
 
@@ -2368,7 +2370,7 @@ body.graphics-mode-low .control-button {
   --campaign-rotation: 225deg;
   border-color: rgba(255, 215, 100, 0.55);
   transform: translateY(-6px) rotate(var(--campaign-rotation)) scale(1.02);
-  box-shadow: 0 22px 48px rgba(255, 215, 100, 0.38);
+  box-shadow: 0 0 48px rgba(255, 215, 100, 0.42);
 }
 
 .campaign-button-glyph {
@@ -2457,6 +2459,8 @@ body.graphics-mode-low .control-button {
   pointer-events: auto;
   transform: translateY(0);
   padding: 24px 12px;
+  /* Allow glow and shadow effects inside expanded campaigns to render fully. */
+  overflow: visible;
 }
 
 @media (max-width: 900px) {

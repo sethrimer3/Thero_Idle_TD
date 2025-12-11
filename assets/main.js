@@ -617,6 +617,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let expandedCampaign = null;
   let campaignRowElement = null;
   let campaignButtons = [];
+  // Track the tallest expanded campaign so every diamond can align to the same height.
+  let tallestCampaignHeight = 0;
 
   const PERSISTENT_STORAGE_KEYS = [
     GRAPHICS_MODE_STORAGE_KEY,
@@ -3934,6 +3936,62 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     expandedLevelSet = element;
   }
 
+  // Measure the expanded height of a campaign without flashing it on screen.
+  function measureExpandedCampaignHeight(element) {
+    if (!element || !campaignRowElement) {
+      return 0;
+    }
+
+    const clone = element.cloneNode(true);
+    const referenceWidth = element.getBoundingClientRect().width || element.offsetWidth;
+
+    clone.style.position = 'absolute';
+    clone.style.visibility = 'hidden';
+    clone.style.pointerEvents = 'none';
+    clone.style.opacity = '0';
+    clone.style.width = `${referenceWidth}px`;
+    clone.classList.add('expanded');
+
+    const setsContainer = clone.querySelector('.campaign-button-sets');
+    if (setsContainer) {
+      setsContainer.hidden = false;
+      setsContainer.setAttribute('aria-hidden', 'false');
+      setsContainer.style.maxHeight = 'none';
+      setsContainer.style.opacity = '1';
+      setsContainer.style.transform = 'translateY(0)';
+      setsContainer.style.padding = '24px 12px';
+    }
+
+    campaignRowElement.append(clone);
+    const height = clone.getBoundingClientRect().height;
+    clone.remove();
+
+    return height;
+  }
+
+  // Apply the shared expanded height so every campaign diamond lines up when opened.
+  function updateCampaignExpandedHeight(height) {
+    if (!campaignRowElement || !height) {
+      return;
+    }
+
+    tallestCampaignHeight = Math.max(tallestCampaignHeight, height);
+    campaignRowElement.style.setProperty('--campaign-expanded-height', `${tallestCampaignHeight}px`);
+  }
+
+  // Ensure campaigns inherit the tallest option (Story) even before interaction.
+  function primeCampaignHeightBaseline() {
+    const storyCampaign = campaignButtons.find((campaign) => campaign.name === 'Story');
+    if (!storyCampaign || !storyCampaign.element) {
+      return;
+    }
+
+    const measuredHeight = measureExpandedCampaignHeight(storyCampaign.element);
+    if (measuredHeight) {
+      updateCampaignExpandedHeight(measuredHeight);
+    }
+  }
+
   // Reset an expanded campaign button so its sets slide back into the diamond.
   function collapseCampaign(element, { focusTrigger = false } = {}) {
     if (!element) {
@@ -4001,6 +4059,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       campaignRowElement.classList.add('campaign-row--has-selection');
     }
 
+    updateCampaignExpandedHeight(element.getBoundingClientRect().height);
     expandedCampaign = element;
   }
 
@@ -4223,6 +4282,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     expandedCampaign = null;
     campaignButtons = [];
     campaignRowElement = null;
+    // Reset the campaign height baseline before rebuilding the grid.
+    tallestCampaignHeight = 0;
     levelGrid.innerHTML = '';
 
     const fragment = document.createDocumentFragment();
@@ -4679,6 +4740,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
 
     levelGrid.append(fragment);
+    primeCampaignHeightBaseline();
     updateLevelSetLocks();
   }
 
