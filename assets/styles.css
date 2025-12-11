@@ -128,8 +128,18 @@ body.color-scheme-aurora {
   background: radial-gradient(circle at 50% 0, rgba(139, 247, 255, 0.12), transparent 55%), var(--bg);
 }
 
-/* CoolingEmbers palette leans into ember reds tempered with cool violets. */
+/* Chromatic palette keeps the rainbow tower sweep with a prismatic backdrop. */
 body.color-scheme-chromatic {
+  --accent: #ffb347;
+  --accent-2: #7ad7f0;
+  --accent-3: #ff8ad8;
+  background: radial-gradient(circle at 48% -6%, rgba(255, 179, 71, 0.18), transparent 54%),
+    radial-gradient(circle at 52% 124%, rgba(122, 215, 240, 0.18), transparent 58%),
+    radial-gradient(circle at 50% 40%, rgba(255, 138, 216, 0.12), transparent 60%), var(--bg);
+}
+
+/* CoolingEmbers palette leans into ember reds tempered with cool violets. */
+body.color-scheme-cooling-embers {
   --accent: #ff6b6b;
   --accent-2: #8e54e9;
   --accent-3: #ffd166;
@@ -173,8 +183,14 @@ body::before {
   opacity: 0.9;
 }
 
-/* CoolingEmbers foreground glow refreshes to match renamed palette. */
+/* Chromatic foreground glow adds a prismatic haze for the rainbow palette. */
 body.color-scheme-chromatic::before {
+  background: radial-gradient(circle at 50% 110%, rgba(255, 138, 216, 0.2), transparent 48%);
+  opacity: 0.82;
+}
+
+/* CoolingEmbers foreground glow refreshes to match renamed palette. */
+body.color-scheme-cooling-embers::before {
   background: radial-gradient(circle at 50% 120%, rgba(142, 84, 233, 0.2), transparent 48%);
   opacity: 0.85;
 }

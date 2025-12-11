@@ -137,13 +137,23 @@ const colorSchemeDefinitions = [
       return gradientFromHex('#8bf7ff', '#ff8ad8');
     },
   },
-  // CoolingEmbers palette keeps backward compatibility with legacy saves while updating the player-facing label.
   {
     id: 'chromatic',
-    label: 'CoolingEmbers',
+    label: 'Chromatic',
     className: 'color-scheme-chromatic',
     getTowerVisuals: computeChromaticTowerVisuals,
     getOmegaWaveVisuals: computeChromaticOmegaWaveVisuals,
+    getProjectileGradient() {
+      return gradientFromHex('#ff6b6b', '#8e54e9');
+    },
+  },
+  // CoolingEmbers palette leans into ember reds tempered with cool violets for a steady temperature drop.
+  {
+    id: 'cooling-embers',
+    label: 'CoolingEmbers',
+    className: 'color-scheme-cooling-embers',
+    getTowerVisuals: computeCoolingEmbersTowerVisuals,
+    getOmegaWaveVisuals: computeCoolingEmbersOmegaWaveVisuals,
     getProjectileGradient() {
       return gradientFromHex('#ff6b6b', '#8e54e9');
     },
@@ -312,6 +322,65 @@ function computeChromaticOmegaWaveVisuals(tower) {
     trailColor: trail,
     glowColor: glow,
     glowBlur: 30,
+    size,
+  };
+}
+
+// Maps tower tiers onto the ember-to-violet gradient that inspired the palette name.
+function computeCoolingEmbersMetrics(tower) {
+  const tier = Math.max(1, getTowerTierValue(tower));
+  const clamped = Math.min(tier, 20);
+  const ratio = clamped > 1 ? (clamped - 1) / 19 : 0;
+  const hue = 18 + ratio * 240;
+  const saturation = 80 - ratio * 10;
+  const baseLightness = 40 + ratio * 14;
+  return { tier, clamped, ratio, hue, saturation, baseLightness };
+}
+
+// Applies ember reds and cooling violets to tower visuals for the CoolingEmbers palette.
+function computeCoolingEmbersTowerVisuals(tower) {
+  const { ratio, hue, saturation, baseLightness } = computeCoolingEmbersMetrics(tower);
+  const outerStroke = `hsl(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.round(baseLightness + 6)}%)`;
+  const innerFill = `hsl(${Math.round(hue - 8)}, ${Math.round(saturation * 0.9)}%, ${Math.round(baseLightness - 8)}%)`;
+  const symbolFill = `hsl(${Math.round(hue + 6)}, 88%, ${Math.round(70 + ratio * 8)}%)`;
+  const rangeLightness = Math.min(88, baseLightness + 24);
+  const rangeOpacity = 0.26 + ratio * 0.22;
+  const rangeStroke = `hsla(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.round(rangeLightness)}%, ${rangeOpacity.toFixed(2)})`;
+  const symbolShadow = {
+    color: `hsla(${Math.round(hue + 12)}, 92%, ${Math.round(78 + ratio * 10)}%, ${0.72 + ratio * 0.12})`,
+    blur: 18,
+  };
+  const outerShadow = {
+    color: `hsla(${Math.round(hue - 16)}, ${Math.round(saturation)}%, ${Math.round(baseLightness + 18)}%, 0.58)`,
+    blur: 26,
+  };
+
+  return {
+    outerStroke,
+    outerShadow,
+    innerFill,
+    symbolFill,
+    symbolShadow,
+    rangeStroke,
+  };
+}
+
+// Keeps omega waves aligned with the ember gradient so projectiles glow as they cool.
+function computeCoolingEmbersOmegaWaveVisuals(tower) {
+  const { ratio, hue, saturation, baseLightness } = computeCoolingEmbersMetrics(tower);
+  const colorLightness = baseLightness + 16 + ratio * 6;
+  const color = `hsla(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.round(colorLightness)}%, ${0.6 + ratio * 0.24})`;
+  const trailLightness = Math.min(92, colorLightness + 8);
+  const trailColor = `hsla(${Math.round(hue + 10)}, ${Math.round(saturation)}%, ${Math.round(trailLightness)}%, 0.52)`;
+  const glowLightness = Math.min(96, colorLightness + 14);
+  const glowColor = `hsla(${Math.round(hue - 6)}, 88%, ${Math.round(glowLightness)}%, 0.88)`;
+  const size = 4.2 + ratio * 3.4;
+
+  return {
+    color,
+    trailColor,
+    glowColor,
+    glowBlur: 32,
     size,
   };
 }
