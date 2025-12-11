@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="storyDiamondGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffe478" stop-opacity="0.96" />
+      <stop offset="100%" stop-color="#d1a73a" stop-opacity="0.82" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="64" height="64" rx="14" fill="#0a0c13" />
+  
+  <!-- Outer diamond (rotated square) -->
+  <g transform="translate(32, 32) rotate(45)">
+    <rect x="-16" y="-16" width="32" height="32" fill="none" stroke="url(#storyDiamondGradient)" stroke-width="2.5" opacity="0.85" />
+  </g>
+  
+  <!-- Inner diamond (rotated square) -->
+  <g transform="translate(32, 32) rotate(45)">
+    <rect x="-10" y="-10" width="20" height="20" fill="url(#storyDiamondGradient)" opacity="0.92" />
+  </g>
+  
+  <!-- Black thorn overlay -->
+  <g transform="translate(32, 32)">
+    <!-- Thorn shape: vertical line with angled branches -->
+    <path d="M 0,-8 L 0,10" stroke="#1a1612" stroke-width="2.5" stroke-linecap="round" fill="none" />
+    <!-- Left branch -->
+    <path d="M 0,-2 L -4,-6" stroke="#1a1612" stroke-width="2" stroke-linecap="round" fill="none" />
+    <!-- Right branch -->
+    <path d="M 0,-2 L 4,-6" stroke="#1a1612" stroke-width="2" stroke-linecap="round" fill="none" />
+    <!-- Lower left branch -->
+    <path d="M 0,3 L -3,0" stroke="#1a1612" stroke-width="1.8" stroke-linecap="round" fill="none" />
+    <!-- Lower right branch -->
+    <path d="M 0,3 L 3,0" stroke="#1a1612" stroke-width="1.8" stroke-linecap="round" fill="none" />
+  </g>
+</svg>

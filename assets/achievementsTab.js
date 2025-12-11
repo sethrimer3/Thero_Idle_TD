@@ -14,9 +14,9 @@ const ACHIEVEMENT_DATA_URL = new URL(ACHIEVEMENT_DATA_RELATIVE_PATH, import.meta
 
 // Achievement categories with their configuration
 const ACHIEVEMENT_CATEGORIES = [
-  { id: 'campaign-story', name: 'Campaign: Story', icon: '📖', type: 'campaign', campaign: 'Story' },
+  { id: 'campaign-story', name: 'Campaign: Story', icon: 'assets/images/campaign-story.svg', iconType: 'svg', type: 'campaign', campaign: 'Story' },
   { id: 'campaign-challenges', name: 'Campaign: Challenges', icon: '⚔️', type: 'campaign', campaign: 'Challenges' },
-  { id: 'campaign-ladder', name: 'Campaign: Ladder', icon: '🪜', type: 'campaign', campaign: 'Ladder' },
+  { id: 'campaign-ladder', name: 'Campaign: Ladder', icon: 'assets/images/campaign-ladder.svg', iconType: 'svg', type: 'campaign', campaign: 'Ladder' },
   { id: 'spire-powder', name: 'Aleph Spire Glyphs', icon: 'ℵ', type: 'spire', spireId: 'powder' },
   { id: 'spire-fluid', name: 'Bet Spire Glyphs', icon: 'בּ', type: 'spire', spireId: 'fluid' },
   { id: 'spire-lamed', name: 'Lamed Spire Glyphs', icon: 'ל', type: 'spire', spireId: 'lamed' },
@@ -503,6 +503,27 @@ function renderBonusSummary(categoryAchievements) {
   return summary;
 }
 
+// Helper to create an icon element (supports both emoji and SVG)
+function createIconElement(category) {
+  const iconContainer = document.createElement('span');
+  iconContainer.className = 'achievement-category-icon';
+  iconContainer.setAttribute('aria-hidden', 'true');
+  
+  if (category.iconType === 'svg') {
+    // For SVG icons, create an img element
+    const img = document.createElement('img');
+    img.src = category.icon;
+    img.alt = '';
+    img.className = 'achievement-category-icon__svg';
+    iconContainer.appendChild(img);
+  } else {
+    // For emoji icons, use text content
+    iconContainer.textContent = category.icon;
+  }
+  
+  return iconContainer;
+}
+
 // Renders the tile grid for the achievements tab with dropdown categories.
 function renderAchievementGrid() {
   if (!achievementGridEl) {
@@ -553,10 +574,7 @@ function renderAchievementGrid() {
     const unlocked = categoryAchievements.filter(def => achievementState.get(def.id)?.unlocked).length;
     const total = categoryAchievements.length;
     
-    const iconSpan = document.createElement('span');
-    iconSpan.className = 'achievement-category-icon';
-    iconSpan.textContent = category.icon;
-    iconSpan.setAttribute('aria-hidden', 'true');
+    const iconSpan = createIconElement(category);
     
     const labelSpan = document.createElement('span');
     labelSpan.className = 'achievement-category-label';

@@ -7126,6 +7126,16 @@ body.graphics-mode-low .control-button {
 .achievement-category-icon {
   font-size: 1.4em;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.achievement-category-icon__svg {
+  width: 1.8em;
+  height: 1.8em;
+  object-fit: contain;
+  display: block;
 }
 
 .achievement-category-label {
