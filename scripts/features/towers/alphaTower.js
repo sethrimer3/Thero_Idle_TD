@@ -62,6 +62,16 @@ const easeOutCubic = (value) => {
   return 1 - inverted * inverted * inverted;
 };
 
+// Geometric constants for shape animations
+const EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2; // ~0.866
+const PENTAGRAM_ANGLES = [
+  -Math.PI / 2, // Top point (0 degrees, upward)
+  -Math.PI / 2 + (1 * 2 * Math.PI / 5), // Point 1
+  -Math.PI / 2 + (2 * 2 * Math.PI / 5), // Point 2
+  -Math.PI / 2 + (3 * 2 * Math.PI / 5), // Point 3
+  -Math.PI / 2 + (4 * 2 * Math.PI / 5), // Point 4
+];
+
 let burstIdCounter = 0;
 
 // Clamp helper keeps eased transitions within the unit interval.
@@ -479,8 +489,8 @@ function updateDashPhase(playfield, burst, delta) {
           { x: targetPosition.x, y: targetPosition.y }, // Point 2: target position
           { 
             // Point 3: perpendicular from midpoint of edge 1-2
-            x: start.x + dx * 0.5 + Math.cos(baseAngle + Math.PI / 2) * distance * Math.sqrt(3) / 2,
-            y: start.y + dy * 0.5 + Math.sin(baseAngle + Math.PI / 2) * distance * Math.sqrt(3) / 2
+            x: start.x + dx * 0.5 + Math.cos(baseAngle + Math.PI / 2) * distance * EQUILATERAL_TRIANGLE_HEIGHT_RATIO,
+            y: start.y + dy * 0.5 + Math.sin(baseAngle + Math.PI / 2) * distance * EQUILATERAL_TRIANGLE_HEIGHT_RATIO
           },
         ];
         
@@ -527,10 +537,9 @@ function updateDashPhase(playfield, burst, delta) {
         // Five outer points of pentagram (upward pointing, starting at top)
         const starPoints = [];
         for (let i = 0; i < 5; i++) {
-          const angle = -Math.PI / 2 + (i * 2 * Math.PI / 5); // Start at top (-90 degrees)
           starPoints.push({
-            x: centerX + Math.cos(angle) * radius,
-            y: centerY + Math.sin(angle) * radius,
+            x: centerX + Math.cos(PENTAGRAM_ANGLES[i]) * radius,
+            y: centerY + Math.sin(PENTAGRAM_ANGLES[i]) * radius,
           });
         }
         
