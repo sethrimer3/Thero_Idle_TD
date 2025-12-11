@@ -4,10 +4,79 @@
       <stop offset="0%" stop-color="#fff4e8" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#ffb27d" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Orbital rings at different radii -->
+    <!-- Inner orbit ring -->
+    <circle id="orbit1" cx="32" cy="32" r="8" fill="none" stroke="#8bf7ff" stroke-width="0.5" opacity="0.3" />
+    
+    <!-- Middle orbit ring -->
+    <circle id="orbit2" cx="32" cy="32" r="12" fill="none" stroke="#ff8ad8" stroke-width="0.5" opacity="0.3" />
+    
+    <!-- Orb 1: Inner orbit, cyan -->
+    <circle id="orb1" cx="32" cy="24" r="1.5" fill="#8bf7ff" opacity="0.85">
+      <animateTransform 
+        attributeName="transform" 
+        type="rotate"
+        values="0,32,32; 360,32,32"
+        dur="3s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Orb 2: Inner orbit, opposite side, magenta -->
+    <circle id="orb2" cx="32" cy="40" r="1.5" fill="#ff8ad8" opacity="0.85">
+      <animateTransform 
+        attributeName="transform" 
+        type="rotate"
+        values="0,32,32; 360,32,32"
+        dur="3s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Orb 3: Middle orbit, slower, cyan -->
+    <circle id="orb3" cx="44" cy="32" r="1.5" fill="#8bf7ff" opacity="0.85">
+      <animateTransform 
+        attributeName="transform" 
+        type="rotate"
+        values="0,32,32; -360,32,32"
+        dur="4.5s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Orb 4: Middle orbit, offset position, orange -->
+    <circle id="orb4" cx="32" cy="20" r="1.5" fill="#ffb27d" opacity="0.85">
+      <animateTransform 
+        attributeName="transform" 
+        type="rotate"
+        values="120,32,32; -240,32,32"
+        dur="4.5s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Orb 5: Middle orbit, another offset, magenta -->
+    <circle id="orb5" cx="20" cy="32" r="1.5" fill="#ff8ad8" opacity="0.85">
+      <animateTransform 
+        attributeName="transform" 
+        type="rotate"
+        values="240,32,32; -120,32,32"
+        dur="4.5s" 
+        repeatCount="indefinite" />
+    </circle>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#etaAura)" opacity="0.92" />
+  
+  <!-- Orbital system (behind the letter) -->
+  <g id="orbitalSystem">
+    <use href="#orbit1" />
+    <use href="#orbit2" />
+    <use href="#orb1" />
+    <use href="#orb2" />
+    <use href="#orb3" />
+    <use href="#orb4" />
+    <use href="#orb5" />
+  </g>
+  
   <text
     x="32"
     y="39"

@@ -4,10 +4,83 @@
       <stop offset="0%" stop-color="#fdefff" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#d68bff" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Chaotic double pendulum simulation -->
+    <!-- First pendulum arm and bob -->
+    <g id="pendulum1">
+      <line x1="32" y1="32" x2="32" y2="42" stroke="#8bf7ff" stroke-width="1" opacity="0.7" />
+      <circle cx="32" cy="42" r="2" fill="#8bf7ff" opacity="0.85" />
+      <!-- Chaotic rotation with irregular timing -->
+      <animateTransform 
+        attributeName="transform" 
+        type="rotate"
+        values="0,32,32; 45,32,32; -30,32,32; 60,32,32; -45,32,32; 75,32,32; -15,32,32; 30,32,32; 0,32,32"
+        keyTimes="0;0.12;0.26;0.38;0.52;0.64;0.76;0.88;1"
+        dur="4.2s" 
+        repeatCount="indefinite" />
+    </g>
+    
+    <!-- Second pendulum arm and bob (attached to first) -->
+    <g id="pendulum2">
+      <circle cx="32" cy="42" r="2" fill="#d68bff" opacity="0.85">
+        <!-- Trail effect for the second bob -->
+        <animate attributeName="opacity" 
+          values="0.85;0.5;0.85" 
+          dur="4.2s" 
+          repeatCount="indefinite" />
+      </circle>
+      <!-- Complex chaotic motion combining both pendulum movements -->
+      <animateTransform 
+        attributeName="transform" 
+        type="rotate"
+        values="0,32,32; 45,32,32; -30,32,32; 60,32,32; -45,32,32; 75,32,32; -15,32,32; 30,32,32; 0,32,32"
+        keyTimes="0;0.12;0.26;0.38;0.52;0.64;0.76;0.88;1"
+        dur="4.2s" 
+        repeatCount="indefinite" />
+      <!-- Additional rotation around the first bob position -->
+      <animateTransform 
+        attributeName="transform" 
+        type="rotate"
+        values="0,32,42; -80,32,42; 120,32,42; -100,32,42; 90,32,42; -60,32,42; 110,32,42; -40,32,42; 0,32,42"
+        keyTimes="0;0.14;0.28;0.42;0.56;0.68;0.78;0.92;1"
+        dur="3.8s" 
+        repeatCount="indefinite"
+        additive="sum" />
+    </g>
+    
+    <!-- Trail circles at key positions to show chaotic path -->
+    <circle cx="32" cy="32" r="1" fill="#ff8ad8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.6;0" 
+        dur="4.2s" 
+        repeatCount="indefinite" />
+      <animateTransform 
+        attributeName="transform" 
+        type="rotate"
+        values="0,32,32; 45,32,32; -30,32,32; 60,32,32; -45,32,32; 75,32,32; -15,32,32; 30,32,32; 0,32,32"
+        keyTimes="0;0.12;0.26;0.38;0.52;0.64;0.76;0.88;1"
+        dur="4.2s" 
+        repeatCount="indefinite" />
+      <animateTransform 
+        attributeName="transform" 
+        type="translate"
+        values="0,0; 0,10; 0,10; 0,10; 0,10; 0,10; 0,10; 0,10; 0,0"
+        keyTimes="0;0.12;0.26;0.38;0.52;0.64;0.76;0.88;1"
+        dur="4.2s" 
+        repeatCount="indefinite"
+        additive="sum" />
+    </animateTransform>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#zetaAura)" opacity="0.92" />
+  
+  <!-- Double pendulum animation (behind the letter) -->
+  <g id="doublePendulum" opacity="0.8">
+    <use href="#pendulum1" />
+    <use href="#pendulum2" />
+  </g>
+  
   <text
     x="32"
     y="39"

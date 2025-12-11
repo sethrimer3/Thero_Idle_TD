@@ -4,10 +4,99 @@
       <stop offset="0%" stop-color="#f5e6ff" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#6d4aa4" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Gamma piercing laser beams forming a pentagram pattern -->
+    <!-- Beam 1: Top point -->
+    <line id="gammaBeam1" x1="32" y1="32" x2="32" y2="18" stroke="#b0ffcd" stroke-width="1.5" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.85;0.85;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="2.5s" 
+        repeatCount="indefinite" />
+      <animate attributeName="stroke-width" 
+        values="1.5;2.5;2.5;1.5" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="2.5s" 
+        repeatCount="indefinite" />
+    </line>
+    
+    <!-- Beam 2: Top-right point -->
+    <line id="gammaBeam2" x1="32" y1="32" x2="43" y2="23" stroke="#78dbff" stroke-width="1.5" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.85;0.85;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="2.5s" 
+        begin="0.5s"
+        repeatCount="indefinite" />
+      <animate attributeName="stroke-width" 
+        values="1.5;2.5;2.5;1.5" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="2.5s" 
+        begin="0.5s"
+        repeatCount="indefinite" />
+    </line>
+    
+    <!-- Beam 3: Bottom-right point -->
+    <line id="gammaBeam3" x1="32" y1="32" x2="41" y2="44" stroke="#b0ffcd" stroke-width="1.5" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.85;0.85;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="2.5s" 
+        begin="1.0s"
+        repeatCount="indefinite" />
+      <animate attributeName="stroke-width" 
+        values="1.5;2.5;2.5;1.5" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="2.5s" 
+        begin="1.0s"
+        repeatCount="indefinite" />
+    </line>
+    
+    <!-- Beam 4: Bottom-left point -->
+    <line id="gammaBeam4" x1="32" y1="32" x2="23" y2="44" stroke="#78dbff" stroke-width="1.5" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.85;0.85;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="2.5s" 
+        begin="1.5s"
+        repeatCount="indefinite" />
+      <animate attributeName="stroke-width" 
+        values="1.5;2.5;2.5;1.5" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="2.5s" 
+        begin="1.5s"
+        repeatCount="indefinite" />
+    </line>
+    
+    <!-- Beam 5: Top-left point -->
+    <line id="gammaBeam5" x1="32" y1="32" x2="21" y2="23" stroke="#b0ffcd" stroke-width="1.5" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.85;0.85;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="2.5s" 
+        begin="2.0s"
+        repeatCount="indefinite" />
+      <animate attributeName="stroke-width" 
+        values="1.5;2.5;2.5;1.5" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="2.5s" 
+        begin="2.0s"
+        repeatCount="indefinite" />
+    </line>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#gammaAura)" opacity="0.92" />
+  
+  <!-- Laser beams (behind the letter) -->
+  <g id="beams">
+    <use href="#gammaBeam1" />
+    <use href="#gammaBeam2" />
+    <use href="#gammaBeam3" />
+    <use href="#gammaBeam4" />
+    <use href="#gammaBeam5" />
+  </g>
+  
   <text
     x="32"
     y="39"
