@@ -60,6 +60,12 @@ export const POWDER_CELL_SIZE_PX = 1;
 export const MOTE_RENDER_SCALE = 1;
 export const MOTE_COLLISION_SCALE = 1;
 
+// Background star configuration constants
+const MIN_STAR_SIZE = 0.5;
+const MAX_STAR_SIZE = 2.5;
+const STAR_MAX_SPEED = 0.0002;
+const GOLD_STAR_PROBABILITY = 0.3;
+
 export class PowderSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
@@ -1343,8 +1349,8 @@ export class PowderSimulation {
       }
 
       if (
-        glowEnabled
-        && this.moteTrailsEnabled
+        this.moteTrailsEnabled
+        && glowEnabled
         && grain.freefall
         && Number.isFinite(grain.previousY)
         && Math.abs(grain.previousY - grain.y) > Number.EPSILON
@@ -1478,13 +1484,13 @@ export class PowderSimulation {
       this.stars.push({
         x: Math.random(),
         y: Math.random(),
-        size: Math.random() * 2 + 0.5,
-        speedX: (Math.random() - 0.5) * 0.0002,
-        speedY: (Math.random() - 0.5) * 0.0002,
+        size: Math.random() * (MAX_STAR_SIZE - MIN_STAR_SIZE) + MIN_STAR_SIZE,
+        speedX: (Math.random() - 0.5) * STAR_MAX_SPEED,
+        speedY: (Math.random() - 0.5) * STAR_MAX_SPEED,
         opacity: Math.random() * 0.6 + 0.2,
         twinklePhase: Math.random() * Math.PI * 2,
         twinkleSpeed: Math.random() * 0.02 + 0.01,
-        isGold: Math.random() < 0.3, // 30% chance of gold stars
+        isGold: Math.random() < GOLD_STAR_PROBABILITY,
       });
     }
   }
