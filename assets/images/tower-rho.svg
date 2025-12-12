@@ -4,10 +4,72 @@
       <stop offset="0%" stop-color="#ffdfe3" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#f26c7f" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Rho energy flow particles -->
+    <circle id="rhoFlow1" r="1.2" fill="#ff9aa8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0" 
+        keyTimes="0;0.3;0.7;1" 
+        dur="2.8s" 
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,20; 32,26; 32,32; 32,38"
+        keyTimes="0;0.33;0.66;1"
+        dur="2.8s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="rhoFlow2" r="1.2" fill="#ffb0ba" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0" 
+        keyTimes="0;0.3;0.7;1" 
+        dur="2.8s" 
+        begin="0.7s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,20; 32,26; 32,32; 32,38"
+        keyTimes="0;0.33;0.66;1"
+        dur="2.8s" 
+        begin="0.7s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="rhoFlow3" r="1.2" fill="#ff9aa8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0" 
+        keyTimes="0;0.3;0.7;1" 
+        dur="2.8s" 
+        begin="1.4s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,20; 32,26; 32,32; 32,38"
+        keyTimes="0;0.33;0.66;1"
+        dur="2.8s" 
+        begin="1.4s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Energy loop -->
+    <path id="rhoLoop" d="M 32,24 Q 36,28 32,32 Q 28,36 32,40" fill="none" stroke="#ffc0ca" stroke-width="0.8" opacity="0.4">
+      <animate attributeName="opacity" 
+        values="0.4;0.6;0.4" 
+        keyTimes="0;0.5;1" 
+        dur="2s" 
+        repeatCount="indefinite" />
+    </path>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#rhoAura)" opacity="0.92" />
+  
+  <!-- Energy flow (behind the letter) -->
+  <g id="flow">
+    <use href="#rhoLoop" />
+    <use href="#rhoFlow1" />
+    <use href="#rhoFlow2" />
+    <use href="#rhoFlow3" />
+  </g>
+  
   <text
     x="32"
     y="39"

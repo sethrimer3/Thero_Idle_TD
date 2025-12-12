@@ -4,10 +4,72 @@
       <stop offset="0%" stop-color="#fff7d8" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#ffd16d" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Phi sunflower spiral seed particles -->
+    <circle id="phiSeed1" r="1" fill="#ffe090" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.5;0.85;1" 
+        dur="4s" 
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 32,28; 36,26; 40,28; 42,32; 40,36; 36,38; 32,40"
+        keyTimes="0;0.14;0.28;0.42;0.56;0.70;0.84;1"
+        dur="4s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="phiSeed2" r="1" fill="#ffd87f" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.5;0.85;1" 
+        dur="4s" 
+        begin="1s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 28,32; 26,28; 28,24; 32,22; 36,24; 38,28; 36,32"
+        keyTimes="0;0.14;0.28;0.42;0.56;0.70;0.84;1"
+        dur="4s" 
+        begin="1s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="phiSeed3" r="1" fill="#ffe090" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.5;0.85;1" 
+        dur="4s" 
+        begin="2s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 36,32; 38,36; 36,40; 32,42; 28,40; 26,36; 28,32"
+        keyTimes="0;0.14;0.28;0.42;0.56;0.70;0.84;1"
+        dur="4s" 
+        begin="2s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Central golden ratio spiral indicator -->
+    <circle id="phiCore" cx="32" cy="32" r="1.5" fill="#ffdf90" opacity="0.6">
+      <animate attributeName="opacity" 
+        values="0.6;0.9;0.6" 
+        keyTimes="0;0.5;1" 
+        dur="2s" 
+        repeatCount="indefinite" />
+    </circle>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#phiAura)" opacity="0.92" />
+  
+  <!-- Sunflower spiral seeds (behind the letter) -->
+  <g id="seeds">
+    <use href="#phiCore" />
+    <use href="#phiSeed1" />
+    <use href="#phiSeed2" />
+    <use href="#phiSeed3" />
+  </g>
+  
   <text
     x="32"
     y="39"
