@@ -57,6 +57,10 @@
     font-family="'Cormorant Garamond', serif"
     font-size="22"
     text-anchor="middle"
-    fill="#2a0731"
+  
+    fill="#ffffff"
+    stroke="#000000"
+    stroke-width="1.5"
+    paint-order="stroke"
   >ℵ₅</text>
 </svg>

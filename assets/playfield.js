@@ -8499,6 +8499,31 @@ export class SimplePlayfield {
     return applied;
   }
 
+  // Helper to create a damage projectile with travel time for towers that use particle bursts
+  createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, baseTravelSpeed) {
+    if (!tower || !enemy || !resolvedDamage || resolvedDamage <= 0) {
+      return;
+    }
+    if (!Number.isFinite(baseTravelSpeed) || baseTravelSpeed <= 0) {
+      baseTravelSpeed = 300; // Default fallback speed
+    }
+    const sourcePosition = { x: tower.x, y: tower.y };
+    const targetPosition = effectPosition || sourcePosition;
+    const travelDistance = Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.y - sourcePosition.y);
+    const travelTime = Math.max(0.08, travelDistance / baseTravelSpeed);
+    const maxLifetime = Math.max(0.24, travelTime);
+    this.projectiles.push({
+      source: sourcePosition,
+      targetId: enemy.id,
+      target: targetPosition,
+      lifetime: 0,
+      maxLifetime,
+      travelTime,
+      damage: resolvedDamage,
+      towerId: tower.id,
+    });
+  }
+
   emitTowerAttackVisuals(tower, targetInfo = {}) {
     if (!tower) {
       return;
@@ -8511,10 +8536,16 @@ export class SimplePlayfield {
       (enemy ? this.getEnemyPosition(enemy) : crystal ? this.getCrystalPosition(crystal) : null);
     if (tower.type === 'alpha') {
       this.spawnAlphaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
+      // Create a projectile for damage application when particles reach target
+      this.createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, 300);
     } else if (tower.type === 'beta') {
       this.spawnBetaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
+      // Create a projectile for damage application when particles reach target
+      this.createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, 350);
     } else if (tower.type === 'gamma') {
       this.spawnGammaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
+      // Create a projectile for damage application when particles reach target
+      this.createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, 400);
     } else if (tower.type === 'nu') {
       this.spawnNuAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
     } else {
