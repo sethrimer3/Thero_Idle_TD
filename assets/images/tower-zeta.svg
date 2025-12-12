@@ -69,7 +69,6 @@
         dur="4.2s" 
         repeatCount="indefinite"
         additive="sum" />
-    </animateTransform>
     </circle>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
