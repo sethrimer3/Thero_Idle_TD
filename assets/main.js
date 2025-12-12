@@ -4512,6 +4512,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         Ladder: 'assets/images/campaign-ladder.svg',
       };
       const iconPath = campaignIcons[campaignName] || null;
+      let glyphSymbol = '⚔';
       if (iconPath) {
         campaignGlyph.classList.add('campaign-button-glyph--svg');
         const glyphImage = document.createElement('img');
@@ -4520,7 +4521,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         glyphImage.className = 'campaign-button-glyph__image';
         campaignGlyph.append(glyphImage);
       } else {
-        let glyphSymbol = '⚔';
         if (campaignName === 'Challenges') {
           glyphSymbol = 'α²+β²≠γ²';
         }
