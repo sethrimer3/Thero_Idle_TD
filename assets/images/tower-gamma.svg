@@ -5,96 +5,97 @@
       <stop offset="100%" stop-color="#6d4aa4" stop-opacity="0.72" />
     </linearGradient>
     
-    <!-- Gamma piercing laser beams forming a pentagram pattern -->
-    <!-- Beam 1: Top point -->
-    <line id="gammaBeam1" x1="32" y1="32" x2="32" y2="18" stroke="#b0ffcd" stroke-width="1.5" opacity="0">
+    <!-- Gamma particles moving in pentagram (5-pointed star) pattern -->
+    <!-- Particle 1: Traverses the pentagram continuously -->
+    <circle id="gammaParticle1" cx="0" cy="0" r="1.5" fill="#b0ffcd" opacity="0">
       <animate attributeName="opacity" 
-        values="0;0.85;0.85;0" 
-        keyTimes="0;0.2;0.7;1" 
-        dur="2.5s" 
+        values="0;0.9;0.9;0.9;0.9;0.9;0.9;0" 
+        keyTimes="0;0.1;0.25;0.45;0.65;0.85;0.95;1" 
+        dur="3.5s" 
         repeatCount="indefinite" />
-      <animate attributeName="stroke-width" 
-        values="1.5;2.5;2.5;1.5" 
-        keyTimes="0;0.2;0.7;1" 
-        dur="2.5s" 
+      <!-- Pentagram path: v0 -> v2 -> v4 -> v1 -> v3 -> v0 -->
+      <animateTransform attributeName="transform" type="translate"
+        values="32.0,22.0; 37.9,40.1; 22.5,28.9; 41.5,28.9; 26.1,40.1; 32.0,22.0"
+        keyTimes="0;0.2;0.4;0.6;0.8;1"
+        dur="3.5s" 
         repeatCount="indefinite" />
-    </line>
+    </circle>
     
-    <!-- Beam 2: Top-right point -->
-    <line id="gammaBeam2" x1="32" y1="32" x2="43" y2="23" stroke="#78dbff" stroke-width="1.5" opacity="0">
+    <!-- Particle 2: Same path, offset timing -->
+    <circle id="gammaParticle2" cx="0" cy="0" r="1.5" fill="#78dbff" opacity="0">
       <animate attributeName="opacity" 
-        values="0;0.85;0.85;0" 
-        keyTimes="0;0.2;0.7;1" 
-        dur="2.5s" 
-        begin="0.5s"
+        values="0;0.9;0.9;0.9;0.9;0.9;0.9;0" 
+        keyTimes="0;0.1;0.25;0.45;0.65;0.85;0.95;1" 
+        dur="3.5s" 
+        begin="0.7s"
         repeatCount="indefinite" />
-      <animate attributeName="stroke-width" 
-        values="1.5;2.5;2.5;1.5" 
-        keyTimes="0;0.2;0.7;1" 
-        dur="2.5s" 
-        begin="0.5s"
+      <animateTransform attributeName="transform" type="translate"
+        values="32.0,22.0; 37.9,40.1; 22.5,28.9; 41.5,28.9; 26.1,40.1; 32.0,22.0"
+        keyTimes="0;0.2;0.4;0.6;0.8;1"
+        dur="3.5s" 
+        begin="0.7s"
         repeatCount="indefinite" />
-    </line>
+    </circle>
     
-    <!-- Beam 3: Bottom-right point -->
-    <line id="gammaBeam3" x1="32" y1="32" x2="41" y2="44" stroke="#b0ffcd" stroke-width="1.5" opacity="0">
+    <!-- Particle 3: Same path, different offset -->
+    <circle id="gammaParticle3" cx="0" cy="0" r="1.5" fill="#b0ffcd" opacity="0">
       <animate attributeName="opacity" 
-        values="0;0.85;0.85;0" 
-        keyTimes="0;0.2;0.7;1" 
-        dur="2.5s" 
-        begin="1.0s"
+        values="0;0.9;0.9;0.9;0.9;0.9;0.9;0" 
+        keyTimes="0;0.1;0.25;0.45;0.65;0.85;0.95;1" 
+        dur="3.5s" 
+        begin="1.4s"
         repeatCount="indefinite" />
-      <animate attributeName="stroke-width" 
-        values="1.5;2.5;2.5;1.5" 
-        keyTimes="0;0.2;0.7;1" 
-        dur="2.5s" 
-        begin="1.0s"
+      <animateTransform attributeName="transform" type="translate"
+        values="32.0,22.0; 37.9,40.1; 22.5,28.9; 41.5,28.9; 26.1,40.1; 32.0,22.0"
+        keyTimes="0;0.2;0.4;0.6;0.8;1"
+        dur="3.5s" 
+        begin="1.4s"
         repeatCount="indefinite" />
-    </line>
+    </circle>
     
-    <!-- Beam 4: Bottom-left point -->
-    <line id="gammaBeam4" x1="32" y1="32" x2="23" y2="44" stroke="#78dbff" stroke-width="1.5" opacity="0">
+    <!-- Particle 4: Same path, another offset -->
+    <circle id="gammaParticle4" cx="0" cy="0" r="1.5" fill="#78dbff" opacity="0">
       <animate attributeName="opacity" 
-        values="0;0.85;0.85;0" 
-        keyTimes="0;0.2;0.7;1" 
-        dur="2.5s" 
-        begin="1.5s"
+        values="0;0.9;0.9;0.9;0.9;0.9;0.9;0" 
+        keyTimes="0;0.1;0.25;0.45;0.65;0.85;0.95;1" 
+        dur="3.5s" 
+        begin="2.1s"
         repeatCount="indefinite" />
-      <animate attributeName="stroke-width" 
-        values="1.5;2.5;2.5;1.5" 
-        keyTimes="0;0.2;0.7;1" 
-        dur="2.5s" 
-        begin="1.5s"
+      <animateTransform attributeName="transform" type="translate"
+        values="32.0,22.0; 37.9,40.1; 22.5,28.9; 41.5,28.9; 26.1,40.1; 32.0,22.0"
+        keyTimes="0;0.2;0.4;0.6;0.8;1"
+        dur="3.5s" 
+        begin="2.1s"
         repeatCount="indefinite" />
-    </line>
+    </circle>
     
-    <!-- Beam 5: Top-left point -->
-    <line id="gammaBeam5" x1="32" y1="32" x2="21" y2="23" stroke="#b0ffcd" stroke-width="1.5" opacity="0">
+    <!-- Particle 5: Same path, final offset -->
+    <circle id="gammaParticle5" cx="0" cy="0" r="1.5" fill="#b0ffcd" opacity="0">
       <animate attributeName="opacity" 
-        values="0;0.85;0.85;0" 
-        keyTimes="0;0.2;0.7;1" 
-        dur="2.5s" 
-        begin="2.0s"
+        values="0;0.9;0.9;0.9;0.9;0.9;0.9;0" 
+        keyTimes="0;0.1;0.25;0.45;0.65;0.85;0.95;1" 
+        dur="3.5s" 
+        begin="2.8s"
         repeatCount="indefinite" />
-      <animate attributeName="stroke-width" 
-        values="1.5;2.5;2.5;1.5" 
-        keyTimes="0;0.2;0.7;1" 
-        dur="2.5s" 
-        begin="2.0s"
+      <animateTransform attributeName="transform" type="translate"
+        values="32.0,22.0; 37.9,40.1; 22.5,28.9; 41.5,28.9; 26.1,40.1; 32.0,22.0"
+        keyTimes="0;0.2;0.4;0.6;0.8;1"
+        dur="3.5s" 
+        begin="2.8s"
         repeatCount="indefinite" />
-    </line>
+    </circle>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#gammaAura)" opacity="0.92" />
   
-  <!-- Laser beams (behind the letter) -->
-  <g id="beams">
-    <use href="#gammaBeam1" />
-    <use href="#gammaBeam2" />
-    <use href="#gammaBeam3" />
-    <use href="#gammaBeam4" />
-    <use href="#gammaBeam5" />
+  <!-- Pentagram particles (behind the letter) -->
+  <g id="particles">
+    <use href="#gammaParticle1" />
+    <use href="#gammaParticle2" />
+    <use href="#gammaParticle3" />
+    <use href="#gammaParticle4" />
+    <use href="#gammaParticle5" />
   </g>
   
   <text
