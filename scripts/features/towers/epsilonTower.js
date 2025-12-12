@@ -70,6 +70,7 @@ export function updateEpsilonTower(playfield, tower, delta) {
   const angle = baseAngle + offset;
   const vx = Math.cos(angle) * projectileSpeed;
   const vy = Math.sin(angle) * projectileSpeed;
+  const hitRadius = playfield.getStandardShotHitRadius ? playfield.getStandardShotHitRadius() : 4.2;
   playfield.projectiles.push({
     patternType: 'epsilonNeedle',
     origin,
@@ -82,7 +83,7 @@ export function updateEpsilonTower(playfield, tower, delta) {
     enemyId: enemy.id,
     damage: 1,
     turnRate: Math.PI * 2.2, // radians per second steering
-    hitRadius: 4.2,
+    hitRadius,
     stickDuration: 5 + Math.random() * 5, // linger between 5-10s when embedded
     alpha: 1,
   });

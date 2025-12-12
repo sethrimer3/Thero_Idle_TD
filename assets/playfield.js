@@ -260,6 +260,8 @@ const DEBUFF_ICON_SYMBOLS = {
 };
 // Normalize α/β/γ projectile hitboxes to a 0.3 meter diameter so collision checks stay consistent across view sizes.
 const STANDARD_SHOT_RADIUS_METERS = 0.15;
+// Standardize enemy hitboxes using a 0.4 meter diameter circle for consistent collision detection.
+const STANDARD_ENEMY_RADIUS_METERS = 0.2;
 // Preserve β triangle proportions when reflecting shots back to the tower.
 const EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2;
 // Tunables for the β sticking sequence and slow effect cadence.
@@ -3328,9 +3330,9 @@ export class SimplePlayfield {
   }
 
   getEnemyHitRadius(enemy = null, metrics = null) {
-    const width = Number.isFinite(this.renderWidth) ? this.renderWidth : 0;
-    const height = Number.isFinite(this.renderHeight) ? this.renderHeight : 0;
-    const baseRadius = Math.max(16, Math.min(width, height) * 0.05);
+    const minDimension = Math.max(1, Math.min(this.renderWidth || 0, this.renderHeight || 0));
+    const standardRadius = metersToPixels(STANDARD_ENEMY_RADIUS_METERS, minDimension);
+    const baseRadius = Math.max(12, standardRadius);
     if (!enemy || !metrics) {
       return baseRadius;
     }
@@ -8674,6 +8676,7 @@ export class SimplePlayfield {
         travelTime,
         damage: hasPendingHit ? resolvedDamage : 0,
         towerId: tower.id,
+        hitRadius: this.getStandardShotHitRadius(),
       });
     }
     if ((tower.type === 'beta' || tower.type === 'gamma' || tower.type === 'nu')) {
@@ -9666,14 +9669,37 @@ export class SimplePlayfield {
           continue;
         }
         const position = this.getEnemyPosition(enemy);
-        if (position) {
+        if (!position) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        if (projectile.target) {
           projectile.target = position;
         }
 
-        if (projectile.lifetime >= projectile.travelTime) {
+        // Check for collision using hitbox detection
+        const metrics = this.getEnemyVisualMetrics(enemy);
+        const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
+        const hitRadius = Math.max(2, Number.isFinite(projectile.hitRadius) ? projectile.hitRadius : this.getStandardShotHitRadius());
+        const combinedRadius = enemyRadius + hitRadius;
+
+        // Calculate current projectile position based on travel progress
+        const progress = Math.min(1, projectile.lifetime / projectile.travelTime);
+        const source = projectile.source || { x: 0, y: 0 };
+        const currentX = source.x + (position.x - source.x) * progress;
+        const currentY = source.y + (position.y - source.y) * progress;
+        const separation = Math.hypot(currentX - position.x, currentY - position.y);
+
+        // Apply damage on collision
+        if (separation <= combinedRadius) {
           const tower = this.towers.find((candidate) => candidate && candidate.id === projectile.towerId) || null;
-          // Resolve the pending hit once the projectile has reached its target.
           this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+
+        // Remove projectile if it exceeded max lifetime
+        if (projectile.lifetime >= projectile.maxLifetime) {
           this.projectiles.splice(index, 1);
           continue;
         }
