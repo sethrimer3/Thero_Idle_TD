@@ -1898,8 +1898,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (!spireGemMenuController) {
       return;
     }
+    const powder = getPowderElements();
     const hosts = [
-      { spireId: 'powder', element: powderElements?.basin || document.getElementById('powder-basin') },
+      { spireId: 'powder', element: powder?.basin || document.getElementById('powder-basin') },
       { spireId: 'lamed', element: document.getElementById('lamed-basin') },
       { spireId: 'tsadi', element: document.getElementById('tsadi-basin') },
     ];
