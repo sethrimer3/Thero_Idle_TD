@@ -4145,6 +4145,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     return false;
   }
 
+  // Helper function to check if a campaign uses an SVG icon
+  function isSvgCampaign(glyphEl) {
+    return glyphEl && glyphEl.querySelector('.campaign-button-glyph__image') !== null;
+  }
+
   function updateLevelSetLocks() {
     if (!levelSetEntries.length) {
       return;
@@ -4202,11 +4207,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         }
       }
     });
-
-    // Helper function to check if a campaign uses an SVG icon
-    const isSvgCampaign = (glyphEl) => {
-      return glyphEl && glyphEl.querySelector('.campaign-button-glyph__image') !== null;
-    };
 
     // Dim locked campaign diamonds, swap in a padlock glyph, and block interaction until their first set opens.
     campaignButtons.forEach((campaignButton) => {
