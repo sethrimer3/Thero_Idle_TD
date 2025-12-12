@@ -4,10 +4,93 @@
       <stop offset="0%" stop-color="#ffffff" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#bff0ff" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Mu fractal mine particles floating -->
+    <circle id="muMine1" r="1.2" fill="#8fd4ff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.7;0.7;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="3.5s" 
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 28,26; 24,28; 20,32"
+        keyTimes="0;0.3;0.6;1"
+        dur="3.5s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="muMine2" r="1.2" fill="#a8e0ff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.7;0.7;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="3.5s" 
+        begin="0.7s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 36,26; 40,28; 44,32"
+        keyTimes="0;0.3;0.6;1"
+        dur="3.5s" 
+        begin="0.7s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="muMine3" r="1.2" fill="#8fd4ff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.7;0.7;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="3.5s" 
+        begin="1.4s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 28,36; 26,40; 24,44"
+        keyTimes="0;0.3;0.6;1"
+        dur="3.5s" 
+        begin="1.4s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="muMine4" r="1.2" fill="#a8e0ff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.7;0.7;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="3.5s" 
+        begin="2.1s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 36,36; 38,40; 40,44"
+        keyTimes="0;0.3;0.6;1"
+        dur="3.5s" 
+        begin="2.1s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Small fractal patterns (triangles) -->
+    <polygon id="muFractal" points="0,-1.5 1.3,0.75 -1.3,0.75" fill="#c0ecff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.5;0.5;0" 
+        keyTimes="0;0.2;0.6;1" 
+        dur="4s" 
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 26,28; 28,34; 32,32"
+        keyTimes="0;0.33;0.66;1"
+        dur="4s" 
+        repeatCount="indefinite" />
+    </polygon>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#muAura)" opacity="0.92" />
+  
+  <!-- Fractal mine particles (behind the letter) -->
+  <g id="mines">
+    <use href="#muMine1" />
+    <use href="#muMine2" />
+    <use href="#muMine3" />
+    <use href="#muMine4" />
+    <use href="#muFractal" />
+  </g>
+  
   <text
     x="32"
     y="39"

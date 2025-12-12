@@ -4,10 +4,53 @@
       <stop offset="0%" stop-color="#ffe4f9" stop-opacity="0.92" />
       <stop offset="100%" stop-color="#ff8fb7" stop-opacity="0.65" />
     </linearGradient>
+    
+    <!-- Aleph-five penta-dimensional particles (pentagram) -->
+    <circle id="alephFive1" r="1" fill="#ffb8d8" opacity="0.7">
+      <animateTransform attributeName="transform" type="translate"
+        values="32,22; 40,32; 36,40; 28,40; 24,32; 32,22"
+        keyTimes="0;0.2;0.4;0.6;0.8;1"
+        dur="5s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="alephFive2" r="1" fill="#ffd0e8" opacity="0.7">
+      <animateTransform attributeName="transform" type="translate"
+        values="40,32; 36,40; 28,40; 24,32; 32,22; 40,32"
+        keyTimes="0;0.2;0.4;0.6;0.8;1"
+        dur="5s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="alephFive3" r="1" fill="#ffb8d8" opacity="0.7">
+      <animateTransform attributeName="transform" type="translate"
+        values="36,40; 28,40; 24,32; 32,22; 40,32; 36,40"
+        keyTimes="0;0.2;0.4;0.6;0.8;1"
+        dur="5s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Pentagram outline -->
+    <polygon id="alephFivePenta" points="32,22 40,32 36,40 28,40 24,32" fill="none" stroke="#ffe0f0" stroke-width="0.5" opacity="0.3">
+      <animate attributeName="opacity" 
+        values="0.3;0.5;0.3" 
+        keyTimes="0;0.5;1" 
+        dur="2.5s" 
+        repeatCount="indefinite" />
+    </polygon>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#20132e" stroke="#ffe8f7" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#alephFiveAura)" opacity="0.94" />
+  
+  <!-- Penta-dimensional pentagram (behind the letter) -->
+  <g id="pentagram">
+    <use href="#alephFivePenta" />
+    <use href="#alephFive1" />
+    <use href="#alephFive2" />
+    <use href="#alephFive3" />
+  </g>
+  
   <text
     x="32"
     y="39"
