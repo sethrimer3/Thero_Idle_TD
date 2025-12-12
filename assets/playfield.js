@@ -258,6 +258,22 @@ const DEBUFF_ICON_SYMBOLS = {
   theta: 'θ',
   'derivative-shield': DERIVATIVE_SHIELD_SYMBOL,
 };
+// Normalize α/β/γ projectile hitboxes to a 0.3 meter diameter so collision checks stay consistent across view sizes.
+const STANDARD_SHOT_RADIUS_METERS = 0.15;
+// Preserve β triangle proportions when reflecting shots back to the tower.
+const EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2;
+// Tunables for the β sticking sequence and slow effect cadence.
+const BETA_STICK_HIT_COUNT = 3;
+const BETA_STICK_HIT_INTERVAL = 0.18;
+const BETA_SLOW_DURATION_SECONDS = 1.2;
+const BETA_TRIANGLE_SPEED = 180;
+// Tunables for the γ piercing/star/return sequence.
+const GAMMA_OUTBOUND_SPEED = 260;
+const GAMMA_STAR_SPEED = 200;
+const GAMMA_RETURN_SPEED = 260;
+const GAMMA_STAR_HIT_COUNT = 5;
+const GAMMA_STAR_RADIUS_METERS = 1.1;
+const GAMMA_STAR_SEQUENCE = [0, 2, 4, 1, 3, 0];
 
 export class SimplePlayfield {
   constructor(options) {
@@ -3320,6 +3336,13 @@ export class SimplePlayfield {
     }
     const { focusRadius = 0, ringRadius = 0 } = metrics;
     return Math.max(baseRadius, focusRadius || ringRadius || baseRadius);
+  }
+
+  // Standardize α/β/γ projectile hitboxes using a shared 0.3 m diameter circle.
+  getStandardShotHitRadius() {
+    const minDimension = Math.max(1, Math.min(this.renderWidth || 0, this.renderHeight || 0));
+    const radiusPixels = metersToPixels(STANDARD_SHOT_RADIUS_METERS, minDimension);
+    return Math.max(2, radiusPixels);
   }
 
   getTowerHoldScribbleText(tower) {
@@ -8521,6 +8544,87 @@ export class SimplePlayfield {
       travelTime,
       damage: resolvedDamage,
       towerId: tower.id,
+      hitRadius: this.getStandardShotHitRadius(),
+    });
+  }
+
+  // Apply the β slow formula while a triangle bolt is attached to an enemy.
+  applyBetaStickSlow(enemy, tower, glyphRank = 0) {
+    if (!enemy || !tower) {
+      return;
+    }
+    const bet1 = Math.max(0, Number.isFinite(glyphRank) ? glyphRank : 0);
+    const slowPercent = Math.min(60, 20 + 2 * bet1);
+    const multiplier = Math.max(0, 1 - slowPercent / 100);
+    const expiresAt =
+      (typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now()) /
+      1000 +
+      BETA_SLOW_DURATION_SECONDS;
+    if (!(enemy.slowEffects instanceof Map)) {
+      enemy.slowEffects = new Map();
+    }
+    enemy.slowEffects.set(tower.id, {
+      type: 'beta',
+      multiplier,
+      slowPercent,
+      expiresAt,
+    });
+  }
+
+  // Spawn a β projectile that sticks to enemies, applies slow ticks, and traces a returning triangle.
+  spawnBetaTriangleProjectile(tower, enemy, effectPosition, resolvedDamage) {
+    if (!tower || !enemy || !resolvedDamage || resolvedDamage <= 0) {
+      return;
+    }
+    const attackValue = computeTowerVariableValue('beta', 'attack');
+    const alphaValue = Math.max(1e-6, calculateTowerEquationResult('alpha'));
+    const bet1 = Math.max(0, attackValue / alphaValue);
+    this.projectiles.push({
+      patternType: 'betaTriangle',
+      towerId: tower.id,
+      damage: resolvedDamage,
+      position: { x: tower.x, y: tower.y },
+      previousPosition: { x: tower.x, y: tower.y },
+      origin: { x: tower.x, y: tower.y },
+      targetId: enemy.id,
+      targetPosition: effectPosition || { x: tower.x, y: tower.y },
+      hitRadius: this.getStandardShotHitRadius(),
+      speed: BETA_TRIANGLE_SPEED,
+      phase: 'seek',
+      bet1,
+      lifetime: 0,
+      maxLifetime: 10,
+    });
+  }
+
+  // Spawn a γ projectile that pierces outbound, traces a star burst, then pierces back to the tower.
+  spawnGammaStarProjectile(tower, enemy, effectPosition, resolvedDamage) {
+    if (!tower || !enemy || !resolvedDamage || resolvedDamage <= 0) {
+      return;
+    }
+    const minDimension = Math.max(1, Math.min(this.renderWidth || 0, this.renderHeight || 0));
+    const starRadius = metersToPixels(GAMMA_STAR_RADIUS_METERS, minDimension);
+    this.projectiles.push({
+      patternType: 'gammaStar',
+      towerId: tower.id,
+      damage: resolvedDamage,
+      position: { x: tower.x, y: tower.y },
+      previousPosition: { x: tower.x, y: tower.y },
+      origin: { x: tower.x, y: tower.y },
+      targetId: enemy.id,
+      targetPosition: effectPosition || { x: tower.x, y: tower.y },
+      hitRadius: this.getStandardShotHitRadius(),
+      outboundSpeed: GAMMA_OUTBOUND_SPEED,
+      starSpeed: GAMMA_STAR_SPEED,
+      returnSpeed: GAMMA_RETURN_SPEED,
+      starRadius: Math.max(12, starRadius),
+      starHits: 0,
+      phase: 'outbound',
+      outboundHits: new Set(),
+      returnHits: new Set(),
+      maxLifetime: 12,
     });
   }
 
@@ -8540,12 +8644,12 @@ export class SimplePlayfield {
       this.createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, 300);
     } else if (tower.type === 'beta') {
       this.spawnBetaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
-      // Create a projectile for damage application when particles reach target
-      this.createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, 350);
+      // Launch a sticky triangle projectile that slows, multi-hits, and returns to the tower.
+      this.spawnBetaTriangleProjectile(tower, enemy, effectPosition, resolvedDamage);
     } else if (tower.type === 'gamma') {
       this.spawnGammaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
-      // Create a projectile for damage application when particles reach target
-      this.createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, 400);
+      // Launch a piercing pentagram projectile that multi-hits on a return arc.
+      this.spawnGammaStarProjectile(tower, enemy, effectPosition, resolvedDamage);
     } else if (tower.type === 'nu') {
       this.spawnNuAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
     } else {
@@ -8727,12 +8831,21 @@ export class SimplePlayfield {
     if (!enemy) {
       return 1;
     }
+    const nowSeconds =
+      typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now() / 1000
+        : Date.now() / 1000;
     const slowEffects = enemy.slowEffects;
     if (slowEffects instanceof Map) {
       let multiplier = 1;
       const stale = [];
       slowEffects.forEach((effect, key) => {
         if (!effect || !Number.isFinite(effect.multiplier)) {
+          stale.push(key);
+          return;
+        }
+        const expired = Number.isFinite(effect.expiresAt) && effect.expiresAt <= nowSeconds;
+        if (expired) {
           stale.push(key);
           return;
         }
@@ -8752,6 +8865,11 @@ export class SimplePlayfield {
     Object.keys(slowEffects).forEach((key) => {
       const effect = slowEffects[key];
       if (!effect || !Number.isFinite(effect.multiplier)) {
+        delete slowEffects[key];
+        return;
+      }
+      const expired = Number.isFinite(effect.expiresAt) && effect.expiresAt <= nowSeconds;
+      if (expired) {
         delete slowEffects[key];
         return;
       }
@@ -9056,6 +9174,347 @@ export class SimplePlayfield {
         if (maxLifetime > 0 && projectile.lifetime >= maxLifetime) {
           this.projectiles.splice(index, 1);
         }
+        continue;
+      }
+
+      if (projectile.patternType === 'gammaStar') {
+        const tower = this.towers.find((candidate) => candidate && candidate.id === projectile.towerId) || null;
+        if (!tower) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        if (Number.isFinite(projectile.maxLifetime) && projectile.lifetime >= projectile.maxLifetime) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        const hitRadius = Math.max(
+          2,
+          Number.isFinite(projectile.hitRadius) ? projectile.hitRadius : this.getStandardShotHitRadius(),
+        );
+        const towerPosition = { x: tower.x, y: tower.y };
+        const currentPosition = projectile.position || towerPosition;
+        const registryFallback = (set) => (set instanceof Set ? set : new Set());
+        const processPierceCollisions = (start, end, registry) => {
+          this.enemies.forEach((enemy) => {
+            if (!enemy) {
+              return;
+            }
+            if (registry && registry.has(enemy.id)) {
+              return;
+            }
+            const position = this.getEnemyPosition(enemy);
+            if (!position) {
+              return;
+            }
+            const metrics = this.getEnemyVisualMetrics(enemy);
+            const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
+            const combined = enemyRadius + hitRadius;
+            const distanceSq = distanceSquaredToSegment(position, start, end);
+            if (distanceSq <= combined * combined) {
+              this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
+              if (registry) {
+                registry.add(enemy.id);
+              }
+            }
+          });
+        };
+
+        if (projectile.phase === 'outbound') {
+          const targetEnemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId) || null;
+          const targetPosition = targetEnemy
+            ? this.getEnemyPosition(targetEnemy)
+            : projectile.targetPosition || towerPosition;
+          const outboundSpeed = Number.isFinite(projectile.outboundSpeed)
+            ? projectile.outboundSpeed
+            : GAMMA_OUTBOUND_SPEED;
+          if (!targetPosition) {
+            projectile.phase = 'return';
+            projectile.position = { ...currentPosition };
+            continue;
+          }
+          const dx = targetPosition.x - currentPosition.x;
+          const dy = targetPosition.y - currentPosition.y;
+          const distance = Math.hypot(dx, dy) || 1;
+          const travel = outboundSpeed * delta;
+          const reached = distance <= travel;
+          const nextPosition = reached
+            ? { ...targetPosition }
+            : { x: currentPosition.x + (dx / distance) * travel, y: currentPosition.y + (dy / distance) * travel };
+          processPierceCollisions(currentPosition, nextPosition, registryFallback(projectile.outboundHits));
+          projectile.previousPosition = { ...currentPosition };
+          projectile.position = nextPosition;
+          projectile.outboundHits = registryFallback(projectile.outboundHits);
+          if (reached) {
+            projectile.phase = 'star';
+            projectile.starEdgeIndex = 0;
+            projectile.starEdgeProgress = 0;
+            projectile.starCenter = { ...targetPosition };
+            projectile.starSequence = Array.isArray(projectile.starSequence)
+              ? projectile.starSequence
+              : GAMMA_STAR_SEQUENCE;
+            projectile.starHitRegistry = new Set();
+            projectile.starHits = 0;
+          }
+          continue;
+        }
+
+        if (projectile.phase === 'star') {
+          const center = projectile.starCenter || currentPosition;
+          const radius = Math.max(
+            12,
+            Number.isFinite(projectile.starRadius) ? projectile.starRadius : this.getStandardShotHitRadius() * 8,
+          );
+          const sequence = Array.isArray(projectile.starSequence) && projectile.starSequence.length >= 2
+            ? projectile.starSequence
+            : GAMMA_STAR_SEQUENCE;
+          const edgeIndex = Number.isFinite(projectile.starEdgeIndex) ? projectile.starEdgeIndex : 0;
+          if (edgeIndex >= sequence.length - 1) {
+            projectile.phase = 'return';
+            continue;
+          }
+          const angles = [];
+          for (let step = 0; step < 5; step += 1) {
+            angles.push(-Math.PI / 2 + (step * Math.PI * 2) / 5);
+          }
+          const starPoints = angles.map((angle) => ({
+            x: center.x + Math.cos(angle) * radius,
+            y: center.y + Math.sin(angle) * radius,
+          }));
+          const fromIndex = sequence[edgeIndex];
+          const toIndex = sequence[edgeIndex + 1];
+          const fromPoint = starPoints[fromIndex];
+          const toPoint = starPoints[toIndex];
+          if (!fromPoint || !toPoint) {
+            projectile.phase = 'return';
+            continue;
+          }
+          const edgeDistance = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y) || 1;
+          const starSpeed = Number.isFinite(projectile.starSpeed) ? projectile.starSpeed : GAMMA_STAR_SPEED;
+          const edgeDuration = Math.max(0.0001, edgeDistance / Math.max(1, starSpeed));
+          const progress = Math.min(1, (projectile.starEdgeProgress || 0) + delta / edgeDuration);
+          const previousPosition = projectile.position || { ...fromPoint };
+          const nextPosition = {
+            x: fromPoint.x + (toPoint.x - fromPoint.x) * progress,
+            y: fromPoint.y + (toPoint.y - fromPoint.y) * progress,
+          };
+          processPierceCollisions(previousPosition, nextPosition, registryFallback(projectile.starHitRegistry));
+          projectile.previousPosition = { ...previousPosition };
+          projectile.position = nextPosition;
+          projectile.starEdgeProgress = progress;
+          projectile.starHitRegistry = registryFallback(projectile.starHitRegistry);
+
+          if (progress >= 1) {
+            const targetEnemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId) || null;
+            const targetPosition = targetEnemy ? this.getEnemyPosition(targetEnemy) : center;
+            if (targetPosition) {
+              if (targetEnemy) {
+                this.applyDamageToEnemy(targetEnemy, projectile.damage, { sourceTower: tower });
+              } else {
+                this.enemies.forEach((enemy) => {
+                  if (!enemy) {
+                    return;
+                  }
+                  const position = this.getEnemyPosition(enemy);
+                  if (!position) {
+                    return;
+                  }
+                  const metrics = this.getEnemyVisualMetrics(enemy);
+                  const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
+                  const combined = enemyRadius + hitRadius;
+                  const separation = Math.hypot(position.x - targetPosition.x, position.y - targetPosition.y);
+                  if (separation <= combined) {
+                    this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
+                  }
+                });
+              }
+            }
+            projectile.starHits = (projectile.starHits || 0) + 1;
+            projectile.starEdgeIndex = edgeIndex + 1;
+            projectile.starEdgeProgress = 0;
+            if (
+              projectile.starHits >= GAMMA_STAR_HIT_COUNT ||
+              projectile.starEdgeIndex >= sequence.length - 1
+            ) {
+              projectile.phase = 'return';
+            }
+          }
+          continue;
+        }
+
+        const returnPosition = towerPosition;
+        const dx = returnPosition.x - currentPosition.x;
+        const dy = returnPosition.y - currentPosition.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const returnSpeed = Number.isFinite(projectile.returnSpeed) ? projectile.returnSpeed : GAMMA_RETURN_SPEED;
+        const travel = returnSpeed * delta;
+        const reachedTower = distance <= travel;
+        const nextPosition = reachedTower
+          ? { ...returnPosition }
+          : { x: currentPosition.x + (dx / distance) * travel, y: currentPosition.y + (dy / distance) * travel };
+        processPierceCollisions(currentPosition, nextPosition, registryFallback(projectile.returnHits));
+        projectile.previousPosition = { ...currentPosition };
+        projectile.position = nextPosition;
+        projectile.returnHits = registryFallback(projectile.returnHits);
+        if (reachedTower || (Number.isFinite(projectile.maxLifetime) && projectile.lifetime >= projectile.maxLifetime)) {
+          this.projectiles.splice(index, 1);
+        }
+        continue;
+      }
+
+      if (projectile.patternType === 'betaTriangle') {
+        const tower = this.towers.find((candidate) => candidate && candidate.id === projectile.towerId) || null;
+        if (!tower) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        if (Number.isFinite(projectile.maxLifetime) && projectile.lifetime >= projectile.maxLifetime) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        const hitRadius = Math.max(
+          2,
+          Number.isFinite(projectile.hitRadius) ? projectile.hitRadius : this.getStandardShotHitRadius(),
+        );
+        const towerPosition = { x: tower.x, y: tower.y };
+        const currentPosition = projectile.position || towerPosition;
+        const resolveCollisionTarget = (start, end) => {
+          for (let enemyIndex = 0; enemyIndex < this.enemies.length; enemyIndex += 1) {
+            const enemy = this.enemies[enemyIndex];
+            if (!enemy) {
+              continue;
+            }
+            const position = this.getEnemyPosition(enemy);
+            if (!position) {
+              continue;
+            }
+            const metrics = this.getEnemyVisualMetrics(enemy);
+            const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
+            const combined = enemyRadius + hitRadius;
+            const distanceSq = distanceSquaredToSegment(position, start, end);
+            if (distanceSq <= combined * combined) {
+              return { enemy, position };
+            }
+          }
+          return null;
+        };
+        const beginTriangleReturn = (anchorPosition) => {
+          const anchor = anchorPosition || currentPosition;
+          const dx = towerPosition.x - anchor.x;
+          const dy = towerPosition.y - anchor.y;
+          const midX = anchor.x + dx * 0.5;
+          const midY = anchor.y + dy * 0.5;
+          const baseAngle = Math.atan2(dy, dx) + Math.PI / 2;
+          const distance = Math.hypot(dx, dy);
+          const height = distance * EQUILATERAL_TRIANGLE_HEIGHT_RATIO;
+          const thirdVertex = {
+            x: midX + Math.cos(baseAngle) * height,
+            y: midY + Math.sin(baseAngle) * height,
+          };
+          projectile.pathNodes = [thirdVertex, { ...towerPosition }];
+          projectile.phase = 'triangle';
+          projectile.pathProgress = 0;
+        };
+        const stickToEnemy = (enemy, impactPosition) => {
+          projectile.phase = 'attached';
+          projectile.attachedEnemyId = enemy?.id || null;
+          projectile.attachPosition = impactPosition || this.getEnemyPosition(enemy) || { ...currentPosition };
+          projectile.hitsApplied = 0;
+          projectile.hitTimer = 0;
+          projectile.previousPosition = { ...currentPosition };
+          projectile.position = impactPosition || projectile.position || { ...currentPosition };
+          if (enemy) {
+            this.applyBetaStickSlow(enemy, tower, projectile.bet1);
+          }
+        };
+
+        if (projectile.phase === 'seek') {
+          const targetEnemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId) || null;
+          const targetPosition = targetEnemy
+            ? this.getEnemyPosition(targetEnemy)
+            : projectile.targetPosition || towerPosition;
+          if (!targetPosition) {
+            this.projectiles.splice(index, 1);
+            continue;
+          }
+          const dx = targetPosition.x - currentPosition.x;
+          const dy = targetPosition.y - currentPosition.y;
+          const distance = Math.hypot(dx, dy) || 1;
+          const travel = (Number.isFinite(projectile.speed) ? projectile.speed : BETA_TRIANGLE_SPEED) * delta;
+          const reached = distance <= travel;
+          const nextPosition = reached
+            ? { ...targetPosition }
+            : { x: currentPosition.x + (dx / distance) * travel, y: currentPosition.y + (dy / distance) * travel };
+          const collision = resolveCollisionTarget(currentPosition, nextPosition);
+          projectile.previousPosition = { ...currentPosition };
+          projectile.position = nextPosition;
+          if (collision && collision.enemy) {
+            stickToEnemy(collision.enemy, collision.position || nextPosition);
+          } else if (reached) {
+            if (targetEnemy) {
+              stickToEnemy(targetEnemy, nextPosition);
+            } else {
+              beginTriangleReturn(nextPosition);
+            }
+          }
+          continue;
+        }
+
+        if (projectile.phase === 'attached') {
+          const enemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.attachedEnemyId) || null;
+          const position = enemy ? this.getEnemyPosition(enemy) : projectile.attachPosition || currentPosition;
+          const previousPosition = projectile.position || position || currentPosition;
+          projectile.previousPosition = { ...previousPosition };
+          projectile.position = position || previousPosition;
+          projectile.hitTimer = (projectile.hitTimer || 0) + delta;
+          if (enemy) {
+            this.applyBetaStickSlow(enemy, tower, projectile.bet1);
+          }
+          while (projectile.hitsApplied < BETA_STICK_HIT_COUNT && projectile.hitTimer >= BETA_STICK_HIT_INTERVAL) {
+            projectile.hitTimer -= BETA_STICK_HIT_INTERVAL;
+            if (enemy) {
+              this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
+              this.applyBetaStickSlow(enemy, tower, projectile.bet1);
+              const enemyStillAlive = this.enemies.some((candidate) => candidate && candidate.id === enemy.id);
+              if (!enemyStillAlive) {
+                break;
+              }
+            }
+            projectile.hitsApplied += 1;
+          }
+          if (projectile.hitsApplied >= BETA_STICK_HIT_COUNT || !enemy) {
+            beginTriangleReturn(position || previousPosition);
+          }
+          continue;
+        }
+
+        if (projectile.phase === 'triangle') {
+          const pathNodes = Array.isArray(projectile.pathNodes) ? projectile.pathNodes : [];
+          const nextNode = pathNodes.length ? pathNodes[0] : towerPosition;
+          const dx = nextNode.x - currentPosition.x;
+          const dy = nextNode.y - currentPosition.y;
+          const distance = Math.hypot(dx, dy) || 1;
+          const travel = (Number.isFinite(projectile.speed) ? projectile.speed : BETA_TRIANGLE_SPEED) * delta;
+          const reached = distance <= travel;
+          const nextPosition = reached
+            ? { ...nextNode }
+            : { x: currentPosition.x + (dx / distance) * travel, y: currentPosition.y + (dy / distance) * travel };
+          const collision = resolveCollisionTarget(currentPosition, nextPosition);
+          projectile.previousPosition = { ...currentPosition };
+          projectile.position = nextPosition;
+          if (collision && collision.enemy) {
+            stickToEnemy(collision.enemy, collision.position || nextPosition);
+            continue;
+          }
+          if (reached) {
+            projectile.pathNodes.shift();
+            if (!projectile.pathNodes.length) {
+              this.projectiles.splice(index, 1);
+            }
+          }
+          continue;
+        }
+
+        this.projectiles.splice(index, 1);
         continue;
       }
 

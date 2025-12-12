@@ -40,7 +40,8 @@ const GAMMA_PARTICLE_CONFIG = {
   timings: {
     swirl: { base: 0.26, variance: 0.12 },
     charge: { base: 0.08, variance: 0.06 },
-    dash: { base: 0.2, variance: 0.1 },
+    // Slow the pentagram sweep so γ's tracing is legible during multi-hit passes.
+    dash: { base: 0.4, variance: 0.2 },
   },
   laser: {
     minExtension: 160,
