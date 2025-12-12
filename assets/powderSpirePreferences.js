@@ -11,12 +11,18 @@ import {
 
 const DEFAULT_SETTINGS = Object.freeze({
   moteGlow: true,
+  backgroundStars: true,
+  moteTrails: true,
 });
 
 let settings = { ...DEFAULT_SETTINGS };
 let simulationGetter = () => null;
 let glowToggle = null;
 let glowStateLabel = null;
+let starsToggle = null;
+let starsStateLabel = null;
+let trailsToggle = null;
+let trailsStateLabel = null;
 
 /**
  * Persist the current Aleph spire visual settings into storage.
@@ -33,6 +39,8 @@ function loadSettings() {
   if (stored && typeof stored === 'object') {
     settings = { ...DEFAULT_SETTINGS, ...stored };
     settings.moteGlow = stored.moteGlow !== false;
+    settings.backgroundStars = stored.backgroundStars !== false;
+    settings.moteTrails = stored.moteTrails !== false;
   }
 }
 
@@ -41,10 +49,18 @@ function loadSettings() {
  */
 function applySettingsToSimulation() {
   const simulation = simulationGetter();
-  if (!simulation || typeof simulation.applyMoteGlowSettings !== 'function') {
+  if (!simulation) {
     return;
   }
-  simulation.applyMoteGlowSettings({ glowTrailsEnabled: settings.moteGlow });
+  if (typeof simulation.applyMoteGlowSettings === 'function') {
+    simulation.applyMoteGlowSettings({ glowTrailsEnabled: settings.moteGlow });
+  }
+  if (typeof simulation.setBackgroundStarsEnabled === 'function') {
+    simulation.setBackgroundStarsEnabled(settings.backgroundStars);
+  }
+  if (typeof simulation.setMoteTrailsEnabled === 'function') {
+    simulation.setMoteTrailsEnabled(settings.moteTrails);
+  }
 }
 
 /**
@@ -61,6 +77,30 @@ function syncToggleUi() {
   }
   if (glowStateLabel) {
     glowStateLabel.textContent = settings.moteGlow ? 'On' : 'Off';
+  }
+  
+  if (starsToggle) {
+    starsToggle.checked = !!settings.backgroundStars;
+    starsToggle.setAttribute('aria-checked', settings.backgroundStars ? 'true' : 'false');
+    const controlShell = starsToggle.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', !!settings.backgroundStars);
+    }
+  }
+  if (starsStateLabel) {
+    starsStateLabel.textContent = settings.backgroundStars ? 'On' : 'Off';
+  }
+  
+  if (trailsToggle) {
+    trailsToggle.checked = !!settings.moteTrails;
+    trailsToggle.setAttribute('aria-checked', settings.moteTrails ? 'true' : 'false');
+    const controlShell = trailsToggle.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', !!settings.moteTrails);
+    }
+  }
+  if (trailsStateLabel) {
+    trailsStateLabel.textContent = settings.moteTrails ? 'On' : 'Off';
   }
 }
 
@@ -81,10 +121,32 @@ export function setPowderSimulationGetter(getter) {
 export function bindPowderSpireOptions() {
   glowToggle = document.getElementById('powder-mote-glow-toggle');
   glowStateLabel = document.getElementById('powder-mote-glow-state');
+  starsToggle = document.getElementById('powder-background-stars-toggle');
+  starsStateLabel = document.getElementById('powder-background-stars-state');
+  trailsToggle = document.getElementById('powder-mote-trails-toggle');
+  trailsStateLabel = document.getElementById('powder-mote-trails-state');
 
   if (glowToggle) {
     glowToggle.addEventListener('change', (event) => {
       settings.moteGlow = event.target.checked;
+      persistSettings();
+      syncToggleUi();
+      applySettingsToSimulation();
+    });
+  }
+
+  if (starsToggle) {
+    starsToggle.addEventListener('change', (event) => {
+      settings.backgroundStars = event.target.checked;
+      persistSettings();
+      syncToggleUi();
+      applySettingsToSimulation();
+    });
+  }
+
+  if (trailsToggle) {
+    trailsToggle.addEventListener('change', (event) => {
+      settings.moteTrails = event.target.checked;
       persistSettings();
       syncToggleUi();
       applySettingsToSimulation();

@@ -173,6 +173,12 @@ export class PowderSimulation {
     this.onViewTransformChange =
       typeof options.onViewTransformChange === 'function' ? options.onViewTransformChange : null;
 
+    // Background star particles
+    this.backgroundStarsEnabled = options.backgroundStarsEnabled !== false;
+    this.moteTrailsEnabled = options.moteTrailsEnabled !== false;
+    this.stars = [];
+    this.initializeStars();
+
     this.defaultProfile = {
       grainSizes: [...this.grainSizes],
       idleDrainRate: this.idleDrainRate,
@@ -472,6 +478,7 @@ export class PowderSimulation {
       return;
     }
 
+    this.updateStars(delta);
     this.convertIdleBank(delta);
     this.advanceSpawnTimer(delta); // Continuously queue natural mote drops so the basin never starves between enemy events.
 
@@ -1273,6 +1280,33 @@ export class PowderSimulation {
     this.ctx.fillRect(width - 2, gradientTop, 2, gradientHeight);
     this.ctx.fillRect(0, height - 2, width, 2);
 
+    // Draw background stars
+    if (this.backgroundStarsEnabled) {
+      for (const star of this.stars) {
+        const starX = star.x * width;
+        const starY = star.y * height;
+        const twinkle = Math.sin(star.twinklePhase) * 0.5 + 0.5;
+        const opacity = star.opacity * twinkle;
+        
+        this.ctx.save();
+        this.ctx.globalAlpha = opacity;
+        this.ctx.shadowBlur = star.size * 3;
+        
+        if (star.isGold) {
+          this.ctx.fillStyle = 'rgb(255, 215, 100)';
+          this.ctx.shadowColor = 'rgba(255, 215, 100, 0.8)';
+        } else {
+          this.ctx.fillStyle = 'rgb(255, 255, 255)';
+          this.ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+        }
+        
+        this.ctx.beginPath();
+        this.ctx.arc(starX, starY, star.size, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+      }
+    }
+
     const cellSizePx = this.cellSize;
     const glowEnabled = this.moteGlowEnabled !== false;
     // Expand the halo so resting motes remain legible even when zoomed out.
@@ -1310,6 +1344,7 @@ export class PowderSimulation {
 
       if (
         glowEnabled
+        && this.moteTrailsEnabled
         && grain.freefall
         && Number.isFinite(grain.previousY)
         && Math.abs(grain.previousY - grain.y) > Number.EPSILON
@@ -1430,6 +1465,66 @@ export class PowderSimulation {
   applyMoteGlowSettings(settings = {}) {
     const enabled = settings.glowTrailsEnabled !== false;
     this.moteGlowEnabled = enabled;
+    this.render();
+  }
+
+  /**
+   * Initialize background star particles
+   */
+  initializeStars() {
+    this.stars = [];
+    const starCount = 100;
+    for (let i = 0; i < starCount; i++) {
+      this.stars.push({
+        x: Math.random(),
+        y: Math.random(),
+        size: Math.random() * 2 + 0.5,
+        speedX: (Math.random() - 0.5) * 0.0002,
+        speedY: (Math.random() - 0.5) * 0.0002,
+        opacity: Math.random() * 0.6 + 0.2,
+        twinklePhase: Math.random() * Math.PI * 2,
+        twinkleSpeed: Math.random() * 0.02 + 0.01,
+        isGold: Math.random() < 0.3, // 30% chance of gold stars
+      });
+    }
+  }
+
+  /**
+   * Update star positions and twinkle effect
+   */
+  updateStars(deltaMs) {
+    if (!this.backgroundStarsEnabled) {
+      return;
+    }
+    const deltaSeconds = deltaMs / 1000;
+    for (const star of this.stars) {
+      star.x += star.speedX * deltaSeconds;
+      star.y += star.speedY * deltaSeconds;
+      
+      // Wrap around edges
+      if (star.x < 0) star.x += 1;
+      if (star.x > 1) star.x -= 1;
+      if (star.y < 0) star.y += 1;
+      if (star.y > 1) star.y -= 1;
+      
+      // Update twinkle
+      star.twinklePhase += star.twinkleSpeed * deltaSeconds;
+    }
+  }
+
+  /**
+   * Set background stars enabled/disabled
+   */
+  setBackgroundStarsEnabled(enabled) {
+    this.backgroundStarsEnabled = enabled;
+    this.render();
+  }
+
+  /**
+   * Set mote trails enabled/disabled
+   */
+  setMoteTrailsEnabled(enabled) {
+    this.moteTrailsEnabled = enabled;
     this.render();
   }
 

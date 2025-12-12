@@ -10,14 +10,14 @@
  */
 export const DEFAULT_MOTE_PALETTE = {
   stops: [
-    { r: 255, g: 222, b: 137 },
-    { r: 139, g: 247, b: 255 },
-    { r: 164, g: 182, b: 255 },
+    { r: 255, g: 215, b: 100 },
+    { r: 255, g: 235, b: 140 },
+    { r: 255, g: 200, b: 80 },
   ],
   restAlpha: 0.9,
   freefallAlpha: 0.6,
-  backgroundTop: '#0f1018',
-  backgroundBottom: '#171a27',
+  backgroundTop: '#000000',
+  backgroundBottom: '#000000',
 };
 
 /**
