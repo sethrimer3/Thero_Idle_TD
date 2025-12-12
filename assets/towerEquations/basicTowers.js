@@ -102,10 +102,15 @@ export const beta = {
         const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
         const alphaValue = ctx().calculateTowerEquationResult('alpha');
         const attackValue = alphaValue * glyphRank;
+        const slowPercent = Math.min(60, 20 + 2 * glyphRank);
         return [
           {
             expression: String.raw`\( \text{Atk} = \alpha \times \aleph_{1} \)`,
             values: String.raw`\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(alphaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
+          },
+          {
+            expression: String.raw`\( \text{slw\%} = 20 + 2\,\text{Bet}_{1} \leq 60 \)`,
+            values: String.raw`\( ${formatDecimal(slowPercent, 2)}\% = 20 + 2 \times ${formatWholeNumber(glyphRank)} \)`,
           },
         ];
       },

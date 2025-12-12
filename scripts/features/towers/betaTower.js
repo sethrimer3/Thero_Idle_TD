@@ -41,7 +41,8 @@ const BETA_PARTICLE_CONFIG = {
   timings: {
     swirl: { base: 0.28, variance: 0.16 },
     charge: { base: 0.1, variance: 0.06 },
-    dash: { base: 0.22, variance: 0.12 },
+    // Slow the triangle traversal so β's geometry is easier to read on impact return.
+    dash: { base: 0.44, variance: 0.24 },
   },
 };
 
