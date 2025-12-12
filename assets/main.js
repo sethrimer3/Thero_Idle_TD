@@ -4145,6 +4145,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     return false;
   }
 
+  // Helper function to check if a campaign uses an SVG icon
+  function isSvgCampaign(glyphEl) {
+    return glyphEl && glyphEl.querySelector('.campaign-button-glyph__image') !== null;
+  }
+
   function updateLevelSetLocks() {
     if (!levelSetEntries.length) {
       return;
@@ -4222,7 +4227,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         campaignButton.trigger.title = `${displayName} campaign locked`;
         campaignButton.trigger.setAttribute('aria-label', `${displayName} campaign locked`);
         if (glyphEl) {
-          glyphEl.textContent = '🔒';
+          if (isSvgCampaign(glyphEl)) {
+            // For SVG icons, show locked state visually without replacing the image
+            glyphEl.style.opacity = '0.4';
+            glyphEl.style.filter = 'grayscale(1)';
+          } else {
+            // For text-based glyphs, replace with lock emoji
+            glyphEl.textContent = '🔒';
+          }
         }
       } else {
         campaignButton.element.classList.remove('campaign-button--locked');
@@ -4232,7 +4244,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         campaignButton.trigger.title = `${displayName} campaign`;
         campaignButton.trigger.setAttribute('aria-label', `${displayName} campaign`);
         if (glyphEl) {
-          glyphEl.textContent = campaignButton.defaultGlyph;
+          if (isSvgCampaign(glyphEl)) {
+            // For SVG icons, restore normal appearance
+            glyphEl.style.opacity = '';
+            glyphEl.style.filter = '';
+          } else {
+            // For text-based glyphs, set the text content
+            glyphEl.textContent = campaignButton.defaultGlyph;
+          }
         }
       }
     });
