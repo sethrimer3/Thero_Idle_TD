@@ -2309,11 +2309,11 @@ body.graphics-mode-low .control-button {
 
 /* Offset specific campaigns so Ladder and Trials sit lower in the rail. */
 .campaign-button[data-campaign='Ladder'] {
-  margin-top: calc(var(--level-node-size) * 0.55 + 4px);
+  margin-top: calc(var(--level-node-size) * 0.75 + 4px);
 }
 
 .campaign-button[data-campaign='Challenges'] {
-  margin-top: calc(var(--level-node-size) * 1.1 + 6px);
+  margin-top: calc(var(--level-node-size) * 1.5 + 6px);
 }
 
 .campaign-button.expanded {
@@ -2322,6 +2322,8 @@ body.graphics-mode-low .control-button {
   align-items: center;
   justify-content: flex-start;
   min-height: var(--campaign-expanded-height, auto);
+  /* Remove vertical offset when expanded to center properly */
+  margin-top: 0 !important;
 }
 
 .campaign-button-trigger {
