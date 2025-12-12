@@ -8501,8 +8501,11 @@ export class SimplePlayfield {
 
   // Helper to create a damage projectile with travel time for towers that use particle bursts
   createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, baseTravelSpeed) {
-    if (!enemy || !resolvedDamage || resolvedDamage <= 0) {
+    if (!tower || !enemy || !resolvedDamage || resolvedDamage <= 0) {
       return;
+    }
+    if (!Number.isFinite(baseTravelSpeed) || baseTravelSpeed <= 0) {
+      baseTravelSpeed = 300; // Default fallback speed
     }
     const sourcePosition = { x: tower.x, y: tower.y };
     const targetPosition = effectPosition || sourcePosition;
