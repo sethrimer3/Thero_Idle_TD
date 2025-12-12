@@ -16,9 +16,91 @@
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
+    
+    <!-- Mind-gate psychic energy particles -->
+    <circle id="mindGate1" r="2" fill="#ffe890" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.7;0.7;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="4s" 
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="64,64; 50,40; 40,30; 30,20"
+        keyTimes="0;0.33;0.66;1"
+        dur="4s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="mindGate2" r="2" fill="#ffd47a" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.7;0.7;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="4s" 
+        begin="1s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="64,64; 78,40; 88,30; 98,20"
+        keyTimes="0;0.33;0.66;1"
+        dur="4s" 
+        begin="1s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="mindGate3" r="2" fill="#ffe890" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.7;0.7;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="4s" 
+        begin="2s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="64,64; 50,88; 40,98; 30,108"
+        keyTimes="0;0.33;0.66;1"
+        dur="4s" 
+        begin="2s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="mindGate4" r="2" fill="#ffd47a" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.7;0.7;0" 
+        keyTimes="0;0.2;0.7;1" 
+        dur="4s" 
+        begin="3s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="64,64; 78,88; 88,98; 98,108"
+        keyTimes="0;0.33;0.66;1"
+        dur="4s" 
+        begin="3s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Pulsing aura ring -->
+    <circle id="mindGateRing" cx="64" cy="64" r="40" fill="none" stroke="#ffde90" stroke-width="1" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.4;0" 
+        keyTimes="0;0.5;1" 
+        dur="3s" 
+        repeatCount="indefinite" />
+      <animate attributeName="r" 
+        values="40;50;56" 
+        keyTimes="0;0.5;1" 
+        dur="3s" 
+        repeatCount="indefinite" />
+    </circle>
   </defs>
 
   <circle cx="64" cy="64" r="56" fill="url(#mindGateAura)" opacity="1" />
+  
+  <!-- Mind-gate psychic particles (behind the rune) -->
+  <g id="particles">
+    <use href="#mindGateRing" />
+    <use href="#mindGate1" />
+    <use href="#mindGate2" />
+    <use href="#mindGate3" />
+    <use href="#mindGate4" />
+  </g>
 
   <!-- Convert the 𝔊℘ glyphs into explicit outlines so they render without bundling a binary font. -->
   <g filter="url(#glow)" fill="#fffed6" stroke="#06063b" stroke-linejoin="round">

@@ -4,10 +4,72 @@
       <stop offset="0%" stop-color="#ffe6ff" stop-opacity="0.9" />
       <stop offset="100%" stop-color="#b28dff" stop-opacity="0.6" />
     </radialGradient>
+    
+    <!-- Aleph-one uncountable infinity waves -->
+    <circle id="alephOne1" cx="32" cy="32" r="6" fill="none" stroke="#d4b8ff" stroke-width="0.8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.6;0.6;0" 
+        keyTimes="0;0.3;0.7;1" 
+        dur="3s" 
+        repeatCount="indefinite" />
+      <animate attributeName="r" 
+        values="6;10;13;13" 
+        keyTimes="0;0.5;0.8;1" 
+        dur="3s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="alephOne2" cx="32" cy="32" r="6" fill="none" stroke="#e0c8ff" stroke-width="0.8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.6;0.6;0" 
+        keyTimes="0;0.3;0.7;1" 
+        dur="3s" 
+        begin="1s"
+        repeatCount="indefinite" />
+      <animate attributeName="r" 
+        values="6;10;13;13" 
+        keyTimes="0;0.5;0.8;1" 
+        dur="3s" 
+        begin="1s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="alephOne3" cx="32" cy="32" r="6" fill="none" stroke="#d4b8ff" stroke-width="0.8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.6;0.6;0" 
+        keyTimes="0;0.3;0.7;1" 
+        dur="3s" 
+        begin="2s"
+        repeatCount="indefinite" />
+      <animate attributeName="r" 
+        values="6;10;13;13" 
+        keyTimes="0;0.5;0.8;1" 
+        dur="3s" 
+        begin="2s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Ethereal shimmer -->
+    <circle id="alephOneShimmer" cx="32" cy="32" r="8" fill="none" stroke="#e8d0ff" stroke-width="0.4" opacity="0.25">
+      <animate attributeName="opacity" 
+        values="0.25;0.45;0.25" 
+        keyTimes="0;0.5;1" 
+        dur="2.5s" 
+        repeatCount="indefinite" />
+    </circle>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#16172b" stroke="#f0e8ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#alephOneAura)" opacity="0.92" />
+  
+  <!-- Uncountable infinity waves (behind the letter) -->
+  <g id="waves">
+    <use href="#alephOneShimmer" />
+    <use href="#alephOne1" />
+    <use href="#alephOne2" />
+    <use href="#alephOne3" />
+  </g>
+  
   <text
     x="32"
     y="39"
