@@ -258,6 +258,22 @@ const DEBUFF_ICON_SYMBOLS = {
   theta: 'θ',
   'derivative-shield': DERIVATIVE_SHIELD_SYMBOL,
 };
+/**
+ * Standardized Hitbox System
+ * 
+ * All projectiles and enemies use meter-based hitbox radii that scale consistently
+ * with viewport size. This ensures collision detection stays accurate across devices.
+ * 
+ * Projectile Hitbox: 0.3m diameter (0.15m radius) ≈ 11px mobile, 23px tablet
+ * Enemy Hitbox: 0.4m diameter (0.2m radius) ≈ 15px mobile, 31px tablet
+ * 
+ * Collision occurs when: distance <= (projectileRadius + enemyRadius)
+ * 
+ * Usage:
+ * - Projectiles: Set hitRadius using playfield.getStandardShotHitRadius()
+ * - Enemies: hitRadius calculated via playfield.getEnemyHitRadius(enemy, metrics)
+ * - Both methods convert meters to pixels using the viewport's minimum dimension
+ */
 // Normalize α/β/γ projectile hitboxes to a 0.3 meter diameter so collision checks stay consistent across view sizes.
 const STANDARD_SHOT_RADIUS_METERS = 0.15;
 // Standardize enemy hitboxes using a 0.4 meter diameter circle for consistent collision detection.
