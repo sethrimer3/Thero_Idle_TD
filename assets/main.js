@@ -4203,6 +4203,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       }
     });
 
+    // Helper function to check if a campaign uses an SVG icon
+    const isSvgCampaign = (glyphEl) => {
+      return glyphEl && glyphEl.querySelector('.campaign-button-glyph__image') !== null;
+    };
+
     // Dim locked campaign diamonds, swap in a padlock glyph, and block interaction until their first set opens.
     campaignButtons.forEach((campaignButton) => {
       if (!campaignButton || !campaignButton.element || !campaignButton.trigger) {
@@ -4222,11 +4227,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         campaignButton.trigger.title = `${displayName} campaign locked`;
         campaignButton.trigger.setAttribute('aria-label', `${displayName} campaign locked`);
         if (glyphEl) {
-          // Check if this campaign uses an SVG icon
-          const glyphImage = glyphEl.querySelector('.campaign-button-glyph__image');
-          if (glyphImage) {
-            // For SVG icons, show a lock overlay by changing opacity or adding a class
-            // Keep the original SVG but indicate locked state visually
+          if (isSvgCampaign(glyphEl)) {
+            // For SVG icons, show locked state visually without replacing the image
             glyphEl.style.opacity = '0.4';
             glyphEl.style.filter = 'grayscale(1)';
           } else {
@@ -4242,9 +4244,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         campaignButton.trigger.title = `${displayName} campaign`;
         campaignButton.trigger.setAttribute('aria-label', `${displayName} campaign`);
         if (glyphEl) {
-          // Check if this campaign uses an SVG icon
-          const glyphImage = glyphEl.querySelector('.campaign-button-glyph__image');
-          if (glyphImage) {
+          if (isSvgCampaign(glyphEl)) {
             // For SVG icons, restore normal appearance
             glyphEl.style.opacity = '';
             glyphEl.style.filter = '';
