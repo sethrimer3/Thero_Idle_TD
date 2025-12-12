@@ -8499,6 +8499,28 @@ export class SimplePlayfield {
     return applied;
   }
 
+  // Helper to create a damage projectile with travel time for towers that use particle bursts
+  createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, baseTravelSpeed) {
+    if (!enemy || !resolvedDamage || resolvedDamage <= 0) {
+      return;
+    }
+    const sourcePosition = { x: tower.x, y: tower.y };
+    const targetPosition = effectPosition || sourcePosition;
+    const travelDistance = Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.y - sourcePosition.y);
+    const travelTime = Math.max(0.08, travelDistance / baseTravelSpeed);
+    const maxLifetime = Math.max(0.24, travelTime);
+    this.projectiles.push({
+      source: sourcePosition,
+      targetId: enemy.id,
+      target: targetPosition,
+      lifetime: 0,
+      maxLifetime,
+      travelTime,
+      damage: resolvedDamage,
+      towerId: tower.id,
+    });
+  }
+
   emitTowerAttackVisuals(tower, targetInfo = {}) {
     if (!tower) {
       return;
@@ -8512,66 +8534,15 @@ export class SimplePlayfield {
     if (tower.type === 'alpha') {
       this.spawnAlphaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
       // Create a projectile for damage application when particles reach target
-      if (enemy && resolvedDamage > 0) {
-        const sourcePosition = { x: tower.x, y: tower.y };
-        const targetPosition = effectPosition || sourcePosition;
-        const baseTravelSpeed = 300; // Alpha particles are slower
-        const travelDistance = Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.y - sourcePosition.y);
-        const travelTime = Math.max(0.08, travelDistance / baseTravelSpeed);
-        const maxLifetime = Math.max(0.24, travelTime);
-        this.projectiles.push({
-          source: sourcePosition,
-          targetId: enemy.id,
-          target: targetPosition,
-          lifetime: 0,
-          maxLifetime,
-          travelTime,
-          damage: resolvedDamage,
-          towerId: tower.id,
-        });
-      }
+      this.createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, 300);
     } else if (tower.type === 'beta') {
       this.spawnBetaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
       // Create a projectile for damage application when particles reach target
-      if (enemy && resolvedDamage > 0) {
-        const sourcePosition = { x: tower.x, y: tower.y };
-        const targetPosition = effectPosition || sourcePosition;
-        const baseTravelSpeed = 350; // Beta particles are slightly faster
-        const travelDistance = Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.y - sourcePosition.y);
-        const travelTime = Math.max(0.08, travelDistance / baseTravelSpeed);
-        const maxLifetime = Math.max(0.24, travelTime);
-        this.projectiles.push({
-          source: sourcePosition,
-          targetId: enemy.id,
-          target: targetPosition,
-          lifetime: 0,
-          maxLifetime,
-          travelTime,
-          damage: resolvedDamage,
-          towerId: tower.id,
-        });
-      }
+      this.createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, 350);
     } else if (tower.type === 'gamma') {
       this.spawnGammaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
       // Create a projectile for damage application when particles reach target
-      if (enemy && resolvedDamage > 0) {
-        const sourcePosition = { x: tower.x, y: tower.y };
-        const targetPosition = effectPosition || sourcePosition;
-        const baseTravelSpeed = 400; // Gamma particles are faster (piercing laser beams)
-        const travelDistance = Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.y - sourcePosition.y);
-        const travelTime = Math.max(0.08, travelDistance / baseTravelSpeed);
-        const maxLifetime = Math.max(0.24, travelTime);
-        this.projectiles.push({
-          source: sourcePosition,
-          targetId: enemy.id,
-          target: targetPosition,
-          lifetime: 0,
-          maxLifetime,
-          travelTime,
-          damage: resolvedDamage,
-          towerId: tower.id,
-        });
-      }
+      this.createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, 400);
     } else if (tower.type === 'nu') {
       this.spawnNuAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
     } else {
