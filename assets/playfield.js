@@ -9699,11 +9699,12 @@ export class SimplePlayfield {
         const hitRadius = Math.max(2, Number.isFinite(projectile.hitRadius) ? projectile.hitRadius : this.getStandardShotHitRadius());
         const combinedRadius = enemyRadius + hitRadius;
 
-        // Calculate current projectile position based on travel progress
+        // Calculate current projectile position based on travel progress, tracking toward enemy's current position
         const progress = Math.min(1, projectile.lifetime / projectile.travelTime);
         const source = projectile.source || { x: 0, y: 0 };
         const currentX = source.x + (position.x - source.x) * progress;
         const currentY = source.y + (position.y - source.y) * progress;
+        // Check distance from projectile's interpolated position to enemy's current position
         const separation = Math.hypot(currentX - position.x, currentY - position.y);
 
         // Apply damage on collision
@@ -9713,12 +9714,7 @@ export class SimplePlayfield {
           this.projectiles.splice(index, 1);
           continue;
         }
-
-        // Remove projectile if it exceeded max lifetime
-        if (projectile.lifetime >= projectile.maxLifetime) {
-          this.projectiles.splice(index, 1);
-          continue;
-        }
+        // Continue to let the fallback maxLifetime check handle expiration
       }
 
       if (projectile.lifetime >= projectile.maxLifetime) {
