@@ -79,7 +79,7 @@ export const alpha = {
 
 export const beta = {
   mathSymbol: String.raw`\beta`,
-  baseEquation: 'β = Atk × Spd × Rng',
+  baseEquation: 'β = Atk × Spd × Rng × Slw',
   variables: [
     {
       key: 'attack',
@@ -102,15 +102,10 @@ export const beta = {
         const glyphRank = ctx().deriveGlyphRankFromLevel(level, 1);
         const alphaValue = ctx().calculateTowerEquationResult('alpha');
         const attackValue = alphaValue * glyphRank;
-        const slowPercent = Math.min(60, 20 + 2 * glyphRank);
         return [
           {
             expression: String.raw`\( \text{Atk} = \alpha \times \aleph_{1} \)`,
             values: String.raw`\( ${formatDecimal(attackValue, 2)} = ${formatDecimal(alphaValue, 2)} \times ${formatWholeNumber(glyphRank)} \)`,
-          },
-          {
-            expression: String.raw`\( \text{slw\%} = 20 + 2\,\text{Bet}_{1} \leq 60 \)`,
-            values: String.raw`\( ${formatDecimal(slowPercent, 2)}\% = 20 + 2 \times ${formatWholeNumber(glyphRank)} \)`,
           },
         ];
       },
@@ -162,18 +157,84 @@ export const beta = {
         ];
       },
     },
+    // Bet glyph sink that fuels β's slowing field potency for the Bet Spire.
+    {
+      key: 'betSlow',
+      symbol: 'ב₁',
+      equationSymbol: 'Bet₁',
+      glyphLabel: 'ב₁',
+      name: 'Bet₁ Slow Weave',
+      description: 'Invest Bet glyphs to deepen β’s slowing field.',
+      baseValue: 0,
+      step: 1,
+      upgradable: true,
+      glyphCurrency: 'bet',
+      attachedToVariable: 'slw',
+      format: (value) => formatWholeNumber(Math.max(0, value)),
+      cost: (level) => Math.max(1, 1 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0))),
+      getSubEquations({ level, value }) {
+        const rank = Math.max(0, Math.floor(Number.isFinite(level) ? level : 0));
+        const resolved = Math.max(0, Number.isFinite(value) ? value : rank);
+        return [
+          {
+            expression: String.raw`\( \text{Bet}_{1} = \text{Level} \)`,
+          },
+          {
+            values: String.raw`\( ${formatWholeNumber(resolved)} = ${formatWholeNumber(rank)} \)`,
+            variant: 'values',
+            glyphEquation: true,
+          },
+        ];
+      },
+    },
+    // Derived slow percentage surfaced as its own sub-equation box for clarity.
+    {
+      key: 'slw',
+      symbol: 'Slw%',
+      equationSymbol: 'Slw%',
+      masterEquationSymbol: 'Slw',
+      name: 'Slow Field',
+      description: 'Percentage of enemy speed β shears away within its conduit.',
+      upgradable: false,
+      format: (value) => `${formatDecimal(Math.max(0, value), 2)}% slow`,
+      computeValue({ blueprint, towerId }) {
+        const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
+        const bet1 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'betSlow', effectiveBlueprint));
+        const slowPercent = 20 + 2 * bet1;
+        return Math.min(60, Math.max(0, slowPercent));
+      },
+      getSubEquations({ blueprint, towerId }) {
+        const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
+        const bet1 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'betSlow', effectiveBlueprint));
+        const slowPercent = Math.min(60, Math.max(0, 20 + 2 * bet1));
+        return [
+          {
+            expression: String.raw`\( \text{Slw\%} = 20 + 2\,\text{Bet}_{1} \)`,
+            values: String.raw`\( ${formatDecimal(slowPercent, 2)}\% = 20 + 2 \times ${formatWholeNumber(bet1)} \)`,
+          },
+          {
+            expression: String.raw`\( \text{Slw\%} \leq 60 \)`,
+            glyphEquation: true,
+          },
+        ];
+      },
+    },
   ],
   computeResult(values) {
     const attack = Number.isFinite(values.attack) ? values.attack : 0;
     const speed = Number.isFinite(values.speed) ? values.speed : 0;
     const range = Number.isFinite(values.range) ? values.range : 0;
-    return attack * speed * range;
+    const slowPercent = Number.isFinite(values.slw) ? Math.max(0, values.slw) : 0;
+    const slowFactor = slowPercent / 100;
+    return attack * speed * range * slowFactor;
   },
   formatBaseEquationValues({ values, result, formatComponent }) {
     const attack = Number.isFinite(values.attack) ? values.attack : 0;
     const speed = Number.isFinite(values.speed) ? values.speed : 0;
     const range = Number.isFinite(values.range) ? values.range : 0;
-    return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)}`;
+    const slowPercent = Number.isFinite(values.slw) ? Math.max(0, values.slw) : 0;
+    const slowText = `${formatComponent(slowPercent)}%`;
+    return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${slowText}`;
   },
 };
 
