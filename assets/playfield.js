@@ -284,7 +284,7 @@ const EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2;
 const BETA_STICK_HIT_COUNT = 3;
 const BETA_STICK_HIT_INTERVAL = 0.18;
 const BETA_SLOW_DURATION_SECONDS = 1.2;
-const BETA_TRIANGLE_SPEED = 180;
+const BETA_TRIANGLE_SPEED = 144;
 // Tunables for the γ piercing/star/return sequence.
 const GAMMA_OUTBOUND_SPEED = 260;
 const GAMMA_STAR_SPEED = 200;
@@ -8566,6 +8566,19 @@ export class SimplePlayfield {
     });
   }
 
+  // Alternate β triangle shots so successive returns mirror across the firing line.
+  resolveNextBetaTriangleOrientation(tower) {
+    if (!tower) {
+      return 1;
+    }
+    const lastOrientation = Number.isFinite(tower.nextBetaTriangleOrientation)
+      ? tower.nextBetaTriangleOrientation
+      : 1;
+    const orientation = lastOrientation === -1 ? -1 : 1;
+    tower.nextBetaTriangleOrientation = orientation * -1;
+    return orientation;
+  }
+
   // Apply the β slow formula while a triangle bolt is attached to an enemy.
   applyBetaStickSlow(enemy, tower, glyphRank = 0) {
     if (!enemy || !tower) {
@@ -8592,7 +8605,7 @@ export class SimplePlayfield {
   }
 
   // Spawn a β projectile that sticks to enemies, applies slow ticks, and traces a returning triangle.
-  spawnBetaTriangleProjectile(tower, enemy, effectPosition, resolvedDamage) {
+  spawnBetaTriangleProjectile(tower, enemy, effectPosition, resolvedDamage, triangleOrientation = 1) {
     if (!tower || !enemy || !resolvedDamage || resolvedDamage <= 0) {
       return;
     }
@@ -8614,6 +8627,9 @@ export class SimplePlayfield {
       bet1,
       lifetime: 0,
       maxLifetime: 10,
+      triangleOrientation: Number.isFinite(triangleOrientation)
+        ? Math.sign(triangleOrientation) || 1
+        : 1,
     });
   }
 
@@ -8661,9 +8677,14 @@ export class SimplePlayfield {
       // Create a projectile for damage application when particles reach target
       this.createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, 300);
     } else if (tower.type === 'beta') {
-      this.spawnBetaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
+      // Keep visuals and hitbox traversal aligned while alternating the return side.
+      const triangleOrientation = this.resolveNextBetaTriangleOrientation(tower);
+      const betaOptions = enemy
+        ? { enemyId: enemy.id, triangleOrientation }
+        : { triangleOrientation };
+      this.spawnBetaAttackBurst(tower, { enemy, position: effectPosition }, betaOptions);
       // Launch a sticky triangle projectile that slows, multi-hits, and returns to the tower.
-      this.spawnBetaTriangleProjectile(tower, enemy, effectPosition, resolvedDamage);
+      this.spawnBetaTriangleProjectile(tower, enemy, effectPosition, resolvedDamage, triangleOrientation);
     } else if (tower.type === 'gamma') {
       this.spawnGammaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
       // Launch a piercing pentagram projectile that multi-hits on a return arc.
@@ -9422,7 +9443,11 @@ export class SimplePlayfield {
           const dy = towerPosition.y - anchor.y;
           const midX = anchor.x + dx * 0.5;
           const midY = anchor.y + dy * 0.5;
-          const baseAngle = Math.atan2(dy, dx) + Math.PI / 2;
+          // Flip the perpendicular vertex each shot so the return path alternates sides.
+          const triangleOrientation = Number.isFinite(projectile.triangleOrientation)
+            ? Math.sign(projectile.triangleOrientation) || 1
+            : 1;
+          const baseAngle = Math.atan2(dy, dx) + triangleOrientation * (Math.PI / 2);
           const distance = Math.hypot(dx, dy);
           const height = distance * EQUILATERAL_TRIANGLE_HEIGHT_RATIO;
           const thirdVertex = {
@@ -9517,6 +9542,7 @@ export class SimplePlayfield {
           const nextPosition = reached
             ? { ...nextNode }
             : { x: currentPosition.x + (dx / distance) * travel, y: currentPosition.y + (dy / distance) * travel };
+          // Keep collision checks active on the return legs so the slowing bolt can grab new targets on the way back.
           const collision = resolveCollisionTarget(currentPosition, nextPosition);
           projectile.previousPosition = { ...currentPosition };
           projectile.position = nextPosition;

@@ -16,6 +16,9 @@ import { blueprintContext } from './blueprintContext.js';
 // Helper function accessor for cleaner code
 const ctx = () => blueprintContext;
 
+// Normalize Bet₁ rendering with a dagesh and left-to-right isolation so the subscript sits on the right edge.
+const BET1_GLYPH = '\u2066\u05D1\u05BC\u2081\u2069';
+
 export const delta = {
   mathSymbol: String.raw`\delta`,
   baseEquation: String.raw`\( \delta = \gamma \cdot \ln(\gamma + 1) \)`,
@@ -737,9 +740,9 @@ export const eta = {
     },
     {
       key: 'bet1',
-      symbol: 'ב₁',
+      symbol: BET1_GLYPH,
       equationSymbol: 'Bet₁',
-      glyphLabel: 'ב₁',
+      glyphLabel: BET1_GLYPH,
       name: 'Bet₁',
       description: 'Bet glyph infusion that unfolds additional η rings.',
       baseValue: 0,
