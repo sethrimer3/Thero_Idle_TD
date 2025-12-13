@@ -1627,7 +1627,7 @@ export class FluidTerrariumTrees {
       return { valid: false, reason: 'This bloom prefers the cave shadow.' };
     }
     
-    // Items that need to be placed ON solid terrain (not inside ground or in water)
+    // Items that need to be placed ON terrain surfaces (not inside ground or floating in water)
     // This includes: slimes, trees, and fractals (but NOT shrooms which go in caves, or birds which fly)
     const requiresSolidTerrain = 
       storeItem.itemType === 'slime' || 
@@ -1636,12 +1636,12 @@ export class FluidTerrariumTrees {
     
     if (requiresSolidTerrain && !this.isPointOnWalkableTerrain(point)) {
       if (storeItem.itemType === 'slime') {
-        return { valid: false, reason: 'Delta slimes need solid ground above the terrain. Try a spot on the surface.' };
+        return { valid: false, reason: 'Delta slimes need a terrain surface to hop on. Try clicking on the ground or ledges.' };
       }
       if (storeItem.itemType === 'tree' || storeItem.itemType === 'fractal') {
-        return { valid: false, reason: 'Trees need to root in solid terrain above ground, not in water or underground.' };
+        return { valid: false, reason: 'Trees must be rooted on solid terrain, not buried underground or floating in water.' };
       }
-      return { valid: false, reason: 'This item needs to be placed on solid terrain.' };
+      return { valid: false, reason: 'This item needs to be placed on a terrain surface.' };
     }
     
     const spacing = Math.max(0.02, storeItem.minSpacing || 0.08);
@@ -1968,9 +1968,10 @@ export class FluidTerrariumTrees {
 
   /**
    * Check if a normalized point is on walkable terrain (not inside solid ground).
-   * Uses the walkable mask to determine if the point is in an area where items can be placed.
+   * For slimes and trees, we want them in walkable space (not inside terrain) 
+   * but near a terrain surface (not floating in deep water/air).
    * @param {{xRatio:number,yRatio:number}} point
-   * @returns {boolean} True if the point is on walkable terrain (transparent in collision mask)
+   * @returns {boolean} True if the point is suitable for placement
    */
   isPointOnWalkableTerrain(point) {
     if (!point || !this.walkableMask) {
@@ -1993,8 +1994,29 @@ export class FluidTerrariumTrees {
 
     const pixelIndex = clampedY * width + clampedX;
 
-    // walkable[pixel] = 1 means transparent (walkable), 0 means solid terrain
-    return data[pixelIndex] === 1;
+    // walkable[pixel] = 1 means empty space (air/water), 0 means solid terrain
+    // The point itself should be in walkable space (not inside solid terrain)
+    if (data[pixelIndex] === 0) {
+      // Point is inside solid terrain - not allowed
+      return false;
+    }
+
+    // Point is in walkable space. Now check if there's terrain nearby below
+    // to ensure we're placing on a surface, not floating in deep water/air
+    const searchRadius = Math.max(5, Math.floor(height * 0.05)); // 5% of height or 5 pixels
+    for (let dy = 0; dy <= searchRadius; dy++) {
+      const checkY = clampedY + dy;
+      if (checkY >= height) break;
+      
+      const checkIndex = checkY * width + clampedX;
+      if (data[checkIndex] === 0) {
+        // Found terrain below - this is a valid surface placement
+        return true;
+      }
+    }
+
+    // No terrain found nearby below - point is floating in deep water/air
+    return false;
   }
 
   /**
