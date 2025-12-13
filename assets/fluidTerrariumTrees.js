@@ -44,6 +44,10 @@ const CONFIRMATION_DIALOG_ESTIMATED_HALF_WIDTH = 100; // Dialog is centered with
 const CONFIRMATION_DIALOG_ESTIMATED_HEIGHT = 80; // Includes transform offset
 const CONFIRMATION_DIALOG_PADDING = 10; // Minimum distance from viewport edges
 
+// Terrain validation constants for placement checking
+const TERRAIN_SEARCH_MIN_RADIUS = 5; // Minimum pixels to search below placement point
+const TERRAIN_SEARCH_PERCENTAGE = 0.05; // Search up to 5% of terrain height below point
+
 // Storefront configuration so the Bet terrarium can surface player-placed decorations.
 const DEFAULT_TERRARIUM_STORE_ITEMS = [
   // Delta Slimes - purchasable creatures that hop around the terrarium
@@ -1626,6 +1630,19 @@ export class FluidTerrariumTrees {
     if (storeItem.caveOnly && !this.isPointInCaveZone(point)) {
       return { valid: false, reason: 'This bloom prefers the cave shadow.' };
     }
+    
+    // Items that need to be placed ON terrain surfaces (not inside ground or floating in water)
+    // This includes: slimes, trees, and fractals (but NOT shrooms which go in caves, or birds which fly)
+    if (this.requiresTerrainSurface(storeItem.itemType) && !this.isPointOnWalkableTerrain(point)) {
+      if (storeItem.itemType === 'slime') {
+        return { valid: false, reason: 'Delta slimes need a terrain surface to hop on. Try clicking on the ground or ledges.' };
+      }
+      if (storeItem.itemType === 'tree' || storeItem.itemType === 'fractal') {
+        return { valid: false, reason: 'Trees must be rooted on solid terrain, not buried underground or floating in water.' };
+      }
+      return { valid: false, reason: 'This item needs to be placed on a terrain surface.' };
+    }
+    
     const spacing = Math.max(0.02, storeItem.minSpacing || 0.08);
     const anchors = this.getCombinedAnchors();
     const colliding = anchors.some((anchor) => {
@@ -1800,6 +1817,26 @@ export class FluidTerrariumTrees {
 
     const anchor = this.createPlacementAnchor(point, storeItem);
     this.playerPlacements.push(anchor);
+    
+    // Register tree/fractal in tree state so it appears in the dropdown for upgrading
+    if (storeItem.itemType === 'tree' || storeItem.itemType === 'fractal') {
+      const placementId = this.getPlacementId(anchor);
+      const initialAllocation = Number.isFinite(storeItem.initialAllocation) 
+        ? storeItem.initialAllocation 
+        : (storeItem.size === 'small' ? 5 : 8);
+      
+      // Add to tree state with the placement ID as key
+      this.treeState[placementId] = {
+        allocated: initialAllocation,
+        size: storeItem.size,
+        fractalType: storeItem.fractalType,
+        itemType: storeItem.itemType,
+      };
+      
+      // Emit state change to persist the tree
+      this.emitState();
+    }
+    
     this.refreshLayout();
     this.setStoreStatus(`${storeItem.label} planted. Placements reset when you leave this session.`);
     this.updatePlacementPreview(point, true, storeItem);
@@ -1926,6 +1963,68 @@ export class FluidTerrariumTrees {
       point.yRatio >= zone.yMin &&
       point.yRatio <= zone.yMax
     ));
+  }
+
+  /**
+   * Check if an item type requires terrain surface validation.
+   * @param {string} itemType
+   * @returns {boolean}
+   */
+  requiresTerrainSurface(itemType) {
+    return itemType === 'slime' || itemType === 'tree' || itemType === 'fractal';
+  }
+
+  /**
+   * Check if a normalized point is on walkable terrain (not inside solid ground).
+   * For slimes and trees, we want them in walkable space (not inside terrain) 
+   * but near a terrain surface (not floating in deep water/air).
+   * @param {{xRatio:number,yRatio:number}} point
+   * @returns {boolean} True if the point is suitable for placement
+   */
+  isPointOnWalkableTerrain(point) {
+    if (!point || !this.walkableMask) {
+      // If no walkable mask, allow placement (fallback to legacy behavior)
+      return true;
+    }
+
+    const { width, height, data } = this.walkableMask;
+    if (!width || !height || !data) {
+      return true;
+    }
+
+    // Convert normalized coordinates to pixel coordinates in the mask
+    const x = Math.floor(point.xRatio * width);
+    const y = Math.floor(point.yRatio * height);
+
+    // Clamp to mask bounds
+    const clampedX = Math.max(0, Math.min(width - 1, x));
+    const clampedY = Math.max(0, Math.min(height - 1, y));
+
+    const pixelIndex = clampedY * width + clampedX;
+
+    // walkable[pixel] = 1 means empty space (air/water), 0 means solid terrain
+    // The point itself should be in walkable space (not inside solid terrain)
+    if (data[pixelIndex] === 0) {
+      // Point is inside solid terrain - not allowed
+      return false;
+    }
+
+    // Point is in walkable space. Now check if there's terrain nearby below
+    // to ensure we're placing on a surface, not floating in deep water/air
+    const searchRadius = Math.max(TERRAIN_SEARCH_MIN_RADIUS, Math.floor(height * TERRAIN_SEARCH_PERCENTAGE));
+    for (let dy = 0; dy <= searchRadius; dy++) {
+      const checkY = clampedY + dy;
+      if (checkY >= height) break;
+      
+      const checkIndex = checkY * width + clampedX;
+      if (data[checkIndex] === 0) {
+        // Found terrain below - this is a valid surface placement
+        return true;
+      }
+    }
+
+    // No terrain found nearby below - point is floating in deep water/air
+    return false;
   }
 
   /**

@@ -6,6 +6,11 @@ const BET_HAPPINESS_PRODUCERS = {
     label: 'Slimes',
     ratePerHour: 0.5,
   },
+  bird: {
+    id: 'bird',
+    label: 'Gamma Birds',
+    ratePerHour: 0,
+  },
   betTreeLarge: {
     id: 'betTreeLarge',
     label: 'Ancient Tree',
