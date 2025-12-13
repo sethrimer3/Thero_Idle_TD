@@ -481,11 +481,17 @@ function updateDashPhase(playfield, burst, delta) {
         const totalSides = BETA_TRIANGLE_CYCLES * triangleSides;
         const cycleProgress = (progress * totalSides) % 1; // Progress along current side
         const currentSide = Math.floor(progress * totalSides) % triangleSides;
-        
+
         // Calculate triangle vertices (equilateral)
         const distance = Math.hypot(dx, dy);
         const baseAngle = Math.atan2(dy, dx);
-        
+        const triangleOrientation = Number.isFinite(burst.triangleOrientation)
+          ? Math.sign(burst.triangleOrientation) || 1
+          : 1;
+        // Respect the assigned orientation so successive bursts flip the returning edge side.
+        const triangleNormalAngle = baseAngle + triangleOrientation * (Math.PI / 2);
+        const triangleHeight = distance * EQUILATERAL_TRIANGLE_HEIGHT_RATIO;
+
         // Three vertices of equilateral triangle
         // Vertex 1: tower position (start)
         // Vertex 2: target position (forms one edge)
@@ -493,10 +499,10 @@ function updateDashPhase(playfield, burst, delta) {
         const vertices = [
           { x: start.x, y: start.y }, // Point 1: tower position
           { x: targetPosition.x, y: targetPosition.y }, // Point 2: target position
-          { 
+          {
             // Point 3: perpendicular from midpoint of edge 1-2
-            x: start.x + dx * 0.5 + Math.cos(baseAngle + Math.PI / 2) * distance * EQUILATERAL_TRIANGLE_HEIGHT_RATIO,
-            y: start.y + dy * 0.5 + Math.sin(baseAngle + Math.PI / 2) * distance * EQUILATERAL_TRIANGLE_HEIGHT_RATIO
+            x: start.x + dx * 0.5 + Math.cos(triangleNormalAngle) * triangleHeight,
+            y: start.y + dy * 0.5 + Math.sin(triangleNormalAngle) * triangleHeight,
           },
         ];
         
@@ -763,6 +769,9 @@ export function spawnTowerAttackBurst(playfield, tower, targetInfo = {}, options
     : enemy
     ? playfield.getEnemyPosition(enemy)
     : { x: tower.x, y: tower.y };
+  const triangleOrientation = Number.isFinite(options?.triangleOrientation)
+    ? Math.sign(options.triangleOrientation) || 1
+    : null;
   const burst = {
     id: `${config.idPrefix || config.towerType || 'burst'}-${(burstIdCounter += 1)}`,
     towerId: tower.id,
@@ -776,6 +785,7 @@ export function spawnTowerAttackBurst(playfield, tower, targetInfo = {}, options
     phase: 'swirl',
     phaseTime: 0,
     config,
+    triangleOrientation,
   };
   burst.particles = createParticleCloud(playfield, tower, burst);
   if (!Array.isArray(playfield[config.burstListKey])) {

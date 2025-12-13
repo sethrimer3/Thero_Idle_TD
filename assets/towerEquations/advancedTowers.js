@@ -16,6 +16,9 @@ import { blueprintContext } from './blueprintContext.js';
 // Helper function accessor for cleaner code
 const ctx = () => blueprintContext;
 
+// Standardize the Bet₁ glyph with a dagesh and left-to-right isolation so the subscript renders on the right.
+const BET1_GLYPH = '\u2066\u05D1\u05BC\u2081\u2069';
+
 const PHI_MAX_SEEDS = 32; // 1 + 2 + 3 + 5 + 8 + 13 golden seeds across Fibonacci rings.
 const PHI_SEED_DAMAGE = 10; // Damage per seed hit.
 const PHI_SEED_PIERCE = 2; // Enemies a seed can pierce before reseeding.
@@ -1193,9 +1196,9 @@ export const pi = {
     },
     {
       key: 'bet1',
-      symbol: 'ב₁',
+      symbol: BET1_GLYPH,
       equationSymbol: String.raw`\text{Bet}_{1}`,
-      glyphLabel: 'ב₁',
+      glyphLabel: BET1_GLYPH,
       masterEquationSymbol: 'Bet',
       name: 'Bet₁ Divisor',
       description: 'Reduces the divisor in damage calculation, making beams grow stronger faster with rotation.',

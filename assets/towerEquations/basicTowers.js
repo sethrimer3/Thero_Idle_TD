@@ -15,6 +15,9 @@ import { blueprintContext } from './blueprintContext.js';
 // Helper function accessors for cleaner code
 const ctx = () => blueprintContext;
 
+// Render Bet₁ with a dagesh and an enforced left-to-right order so the subscript stays on the right.
+const BET1_GLYPH = '\u2066\u05D1\u05BC\u2081\u2069';
+
 export const alpha = {
   mathSymbol: String.raw`\alpha`,
   baseEquation: 'α = Atk × Spd',
@@ -160,9 +163,9 @@ export const beta = {
     // Bet glyph sink that fuels β's slowing field potency for the Bet Spire.
     {
       key: 'betSlow',
-      symbol: 'ב₁',
+      symbol: BET1_GLYPH,
       equationSymbol: 'Bet₁',
-      glyphLabel: 'ב₁',
+      glyphLabel: BET1_GLYPH,
       name: 'Bet₁ Slow Weave',
       description: 'Invest Bet glyphs to deepen β’s slowing field.',
       baseValue: 0,
@@ -172,20 +175,7 @@ export const beta = {
       attachedToVariable: 'slw',
       format: (value) => formatWholeNumber(Math.max(0, value)),
       cost: (level) => Math.max(1, 1 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0))),
-      getSubEquations({ level, value }) {
-        const rank = Math.max(0, Math.floor(Number.isFinite(level) ? level : 0));
-        const resolved = Math.max(0, Number.isFinite(value) ? value : rank);
-        return [
-          {
-            expression: String.raw`\( \text{Bet}_{1} = \text{Level} \)`,
-          },
-          {
-            values: String.raw`\( ${formatWholeNumber(resolved)} = ${formatWholeNumber(rank)} \)`,
-            variant: 'values',
-            glyphEquation: true,
-          },
-        ];
-      },
+      renderControlsInline: true,
     },
     // Derived slow percentage surfaced as its own sub-equation box for clarity.
     {
