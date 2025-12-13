@@ -1626,6 +1626,24 @@ export class FluidTerrariumTrees {
     if (storeItem.caveOnly && !this.isPointInCaveZone(point)) {
       return { valid: false, reason: 'This bloom prefers the cave shadow.' };
     }
+    
+    // Items that need to be placed ON solid terrain (not inside ground or in water)
+    // This includes: slimes, trees, and fractals (but NOT shrooms which go in caves, or birds which fly)
+    const requiresSolidTerrain = 
+      storeItem.itemType === 'slime' || 
+      storeItem.itemType === 'tree' || 
+      storeItem.itemType === 'fractal';
+    
+    if (requiresSolidTerrain && !this.isPointOnWalkableTerrain(point)) {
+      if (storeItem.itemType === 'slime') {
+        return { valid: false, reason: 'Delta slimes need solid ground above the terrain. Try a spot on the surface.' };
+      }
+      if (storeItem.itemType === 'tree' || storeItem.itemType === 'fractal') {
+        return { valid: false, reason: 'Trees need to root in solid terrain above ground, not in water or underground.' };
+      }
+      return { valid: false, reason: 'This item needs to be placed on solid terrain.' };
+    }
+    
     const spacing = Math.max(0.02, storeItem.minSpacing || 0.08);
     const anchors = this.getCombinedAnchors();
     const colliding = anchors.some((anchor) => {
@@ -1800,6 +1818,26 @@ export class FluidTerrariumTrees {
 
     const anchor = this.createPlacementAnchor(point, storeItem);
     this.playerPlacements.push(anchor);
+    
+    // Register tree/fractal in tree state so it appears in the dropdown for upgrading
+    if (storeItem.itemType === 'tree' || storeItem.itemType === 'fractal') {
+      const placementId = this.getPlacementId(anchor);
+      const initialAllocation = Number.isFinite(storeItem.initialAllocation) 
+        ? storeItem.initialAllocation 
+        : (storeItem.size === 'small' ? 5 : 8);
+      
+      // Add to tree state with the placement ID as key
+      this.treeState[placementId] = {
+        allocated: initialAllocation,
+        size: storeItem.size,
+        fractalType: storeItem.fractalType,
+        itemType: storeItem.itemType,
+      };
+      
+      // Emit state change to persist the tree
+      this.emitState();
+    }
+    
     this.refreshLayout();
     this.setStoreStatus(`${storeItem.label} planted. Placements reset when you leave this session.`);
     this.updatePlacementPreview(point, true, storeItem);
@@ -1926,6 +1964,37 @@ export class FluidTerrariumTrees {
       point.yRatio >= zone.yMin &&
       point.yRatio <= zone.yMax
     ));
+  }
+
+  /**
+   * Check if a normalized point is on walkable terrain (not inside solid ground).
+   * Uses the walkable mask to determine if the point is in an area where items can be placed.
+   * @param {{xRatio:number,yRatio:number}} point
+   * @returns {boolean} True if the point is on walkable terrain (transparent in collision mask)
+   */
+  isPointOnWalkableTerrain(point) {
+    if (!point || !this.walkableMask) {
+      // If no walkable mask, allow placement (fallback to legacy behavior)
+      return true;
+    }
+
+    const { width, height, data } = this.walkableMask;
+    if (!width || !height || !data) {
+      return true;
+    }
+
+    // Convert normalized coordinates to pixel coordinates in the mask
+    const x = Math.floor(point.xRatio * width);
+    const y = Math.floor(point.yRatio * height);
+
+    // Clamp to mask bounds
+    const clampedX = Math.max(0, Math.min(width - 1, x));
+    const clampedY = Math.max(0, Math.min(height - 1, y));
+
+    const pixelIndex = clampedY * width + clampedX;
+
+    // walkable[pixel] = 1 means transparent (walkable), 0 means solid terrain
+    return data[pixelIndex] === 1;
   }
 
   /**

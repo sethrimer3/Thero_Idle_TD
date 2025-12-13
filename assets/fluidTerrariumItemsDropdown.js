@@ -15,6 +15,14 @@ const PRODUCER_DEFINITIONS = {
     countLabel: '',
     levelBased: false, // Slimes count as quantity, not levels
   },
+  bird: {
+    id: 'bird',
+    label: 'Gamma Bird',
+    icon: 'γ',
+    ratePerHour: 0,
+    countLabel: '',
+    levelBased: false, // Birds count as quantity, not levels
+  },
   betTreeLarge: {
     id: 'betTreeLarge',
     label: 'Ancient Tree',
