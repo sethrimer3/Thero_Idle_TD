@@ -44,6 +44,10 @@ const CONFIRMATION_DIALOG_ESTIMATED_HALF_WIDTH = 100; // Dialog is centered with
 const CONFIRMATION_DIALOG_ESTIMATED_HEIGHT = 80; // Includes transform offset
 const CONFIRMATION_DIALOG_PADDING = 10; // Minimum distance from viewport edges
 
+// Terrain validation constants for placement checking
+const TERRAIN_SEARCH_MIN_RADIUS = 5; // Minimum pixels to search below placement point
+const TERRAIN_SEARCH_PERCENTAGE = 0.05; // Search up to 5% of terrain height below point
+
 // Storefront configuration so the Bet terrarium can surface player-placed decorations.
 const DEFAULT_TERRARIUM_STORE_ITEMS = [
   // Delta Slimes - purchasable creatures that hop around the terrarium
@@ -1629,12 +1633,7 @@ export class FluidTerrariumTrees {
     
     // Items that need to be placed ON terrain surfaces (not inside ground or floating in water)
     // This includes: slimes, trees, and fractals (but NOT shrooms which go in caves, or birds which fly)
-    const requiresSolidTerrain = 
-      storeItem.itemType === 'slime' || 
-      storeItem.itemType === 'tree' || 
-      storeItem.itemType === 'fractal';
-    
-    if (requiresSolidTerrain && !this.isPointOnWalkableTerrain(point)) {
+    if (this.requiresTerrainSurface(storeItem.itemType) && !this.isPointOnWalkableTerrain(point)) {
       if (storeItem.itemType === 'slime') {
         return { valid: false, reason: 'Delta slimes need a terrain surface to hop on. Try clicking on the ground or ledges.' };
       }
@@ -1967,6 +1966,15 @@ export class FluidTerrariumTrees {
   }
 
   /**
+   * Check if an item type requires terrain surface validation.
+   * @param {string} itemType
+   * @returns {boolean}
+   */
+  requiresTerrainSurface(itemType) {
+    return itemType === 'slime' || itemType === 'tree' || itemType === 'fractal';
+  }
+
+  /**
    * Check if a normalized point is on walkable terrain (not inside solid ground).
    * For slimes and trees, we want them in walkable space (not inside terrain) 
    * but near a terrain surface (not floating in deep water/air).
@@ -2003,7 +2011,7 @@ export class FluidTerrariumTrees {
 
     // Point is in walkable space. Now check if there's terrain nearby below
     // to ensure we're placing on a surface, not floating in deep water/air
-    const searchRadius = Math.max(5, Math.floor(height * 0.05)); // 5% of height or 5 pixels
+    const searchRadius = Math.max(TERRAIN_SEARCH_MIN_RADIUS, Math.floor(height * TERRAIN_SEARCH_PERCENTAGE));
     for (let dy = 0; dy <= searchRadius; dy++) {
       const checkY = clampedY + dy;
       if (checkY >= height) break;
