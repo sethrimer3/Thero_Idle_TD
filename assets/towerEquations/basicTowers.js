@@ -209,6 +209,33 @@ export const beta = {
         ];
       },
     },
+    {
+      key: 'slwTime',
+      symbol: 'SlwTime',
+      equationSymbol: 'SlwTime',
+      masterEquationSymbol: 'SlwTime',
+      name: 'Slow Duration',
+      description: 'Length of β’s slowing tether after it sticks to a target.',
+      attachedToVariable: 'slw',
+      includeInMasterEquation: false,
+      baseValue: 0.5,
+      step: 0.1,
+      upgradable: true,
+      cost: (level) => Math.max(1, Math.pow(2, Math.max(0, level))),
+      format: (value) => `${formatDecimal(Math.max(0, value), 2)} s`,
+      getSubEquations({ level, value }) {
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 0);
+        const durationSeconds = Number.isFinite(value) ? Math.max(0, value) : 0.5 + 0.1 * glyphRank;
+        return [
+          {
+            expression: String.raw`\( \text{SlwTime} = 0.5 + 0.1\,\aleph \)`,
+            values: String.raw`\( ${formatDecimal(durationSeconds, 2)} = 0.5 + 0.1 \times ${formatWholeNumber(
+              glyphRank,
+            )} \)`,
+          },
+        ];
+      },
+    },
   ],
   computeResult(values) {
     const attack = Number.isFinite(values.attack) ? values.attack : 0;
@@ -230,7 +257,7 @@ export const beta = {
 
 export const gamma = {
   mathSymbol: String.raw`\gamma`,
-  baseEquation: 'γ = Atk × Spd × Rng × Prc',
+  baseEquation: 'γ = Atk × Spd × Rng × Prc × Brst',
   variables: [
     {
       key: 'attack',
@@ -331,19 +358,46 @@ export const gamma = {
         ];
       },
     },
+    {
+      key: 'brst',
+      symbol: 'Brst',
+      equationSymbol: 'Brst',
+      masterEquationSymbol: 'Brst',
+      glyphLabel: 'ℵ',
+      name: 'Brst',
+      description: 'Time γ keeps orbiting a target with star-tracing hits.',
+      baseValue: 5,
+      step: 5,
+      upgradable: true,
+      cost: (level) => Math.max(1, 5 * Math.pow(5, Math.max(0, level))),
+      format: (value) => `${formatDecimal(Math.max(0, value), 2)} s`,
+      getSubEquations({ level, value }) {
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 0);
+        const burstSeconds = Number.isFinite(value) ? Math.max(0, value) : 5 * (1 + glyphRank);
+        return [
+          {
+            expression: String.raw`\( \text{Brst} = 5 \times (1 + \aleph) \)`,
+            values: String.raw`\( ${formatDecimal(burstSeconds, 2)} = 5 \times (1 + ${formatWholeNumber(glyphRank)}) \)`,
+          },
+        ];
+      },
+    },
   ],
   computeResult(values) {
     const attack = Number.isFinite(values.attack) ? values.attack : 0;
     const speed = Number.isFinite(values.speed) ? values.speed : 0;
     const range = Number.isFinite(values.range) ? values.range : 0;
     const pierce = Number.isFinite(values.pierce) ? values.pierce : 0;
-    return attack * speed * range * pierce;
+    const burst = Number.isFinite(values.brst) ? values.brst : 0;
+    return attack * speed * range * pierce * burst;
   },
   formatBaseEquationValues({ values, result, formatComponent }) {
     const attack = Number.isFinite(values.attack) ? values.attack : 0;
     const speed = Number.isFinite(values.speed) ? values.speed : 0;
     const range = Number.isFinite(values.range) ? values.range : 0;
     const pierce = Number.isFinite(values.pierce) ? values.pierce : 0;
-    return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${formatComponent(pierce)}`;
+    const burst = Number.isFinite(values.brst) ? values.brst : 0;
+    const burstText = `${formatComponent(burst)}s`;
+    return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${formatComponent(pierce)} × ${burstText}`;
   },
 };
