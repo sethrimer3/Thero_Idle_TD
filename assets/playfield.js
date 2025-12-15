@@ -283,7 +283,7 @@ const EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2;
 // Tunables for the β sticking sequence and slow effect cadence.
 const BETA_STICK_HIT_COUNT = 3;
 const BETA_STICK_HIT_INTERVAL = 0.18;
-const BETA_SLOW_DURATION_SECONDS = 1.2;
+const BETA_SLOW_DURATION_SECONDS = 0.5;
 const BETA_TRIANGLE_SPEED = 144;
 // Tunables for the γ piercing/star/return sequence.
 const GAMMA_OUTBOUND_SPEED = 260;
@@ -8832,12 +8832,16 @@ export class SimplePlayfield {
     const bet1 = Math.max(0, Number.isFinite(glyphRank) ? glyphRank : 0);
     const slowPercent = Math.min(60, 20 + 2 * bet1);
     const multiplier = Math.max(0, 1 - slowPercent / 100);
+    const slwTime = computeTowerVariableValue('beta', 'slwTime');
+    const slowDurationSeconds = Number.isFinite(slwTime)
+      ? Math.max(0, slwTime)
+      : BETA_SLOW_DURATION_SECONDS;
     const expiresAt =
       (typeof performance !== 'undefined' && typeof performance.now === 'function'
         ? performance.now()
         : Date.now()) /
       1000 +
-      BETA_SLOW_DURATION_SECONDS;
+      slowDurationSeconds;
     if (!(enemy.slowEffects instanceof Map)) {
       enemy.slowEffects = new Map();
     }
@@ -8883,6 +8887,9 @@ export class SimplePlayfield {
     if (!tower || !enemy || !resolvedDamage || resolvedDamage <= 0) {
       return;
     }
+    // Allow the pentagram orbit to persist based on the Brst glyph allocation.
+    const burstDuration = Math.max(0, computeTowerVariableValue('gamma', 'brst'));
+    const maxLifetime = Math.max(12, burstDuration + 2);
     const minDimension = Math.max(1, Math.min(this.renderWidth || 0, this.renderHeight || 0));
     const starRadius = metersToPixels(GAMMA_STAR_RADIUS_METERS, minDimension);
     this.projectiles.push({
@@ -8900,10 +8907,12 @@ export class SimplePlayfield {
       returnSpeed: GAMMA_RETURN_SPEED,
       starRadius: Math.max(12, starRadius),
       starHits: 0,
+      starBurstDuration: burstDuration,
+      starElapsed: 0,
       phase: 'outbound',
       outboundHits: new Set(),
       returnHits: new Set(),
-      maxLifetime: 12,
+      maxLifetime,
     });
   }
 
@@ -9611,6 +9620,8 @@ export class SimplePlayfield {
           // Update center to track enemy position
           const targetEnemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId) || null;
           const center = targetEnemy ? this.getEnemyPosition(targetEnemy) : (projectile.starCenter || currentPosition);
+          const burstDuration = Number.isFinite(projectile.starBurstDuration) ? projectile.starBurstDuration : 0;
+          projectile.starElapsed = Math.max(0, (projectile.starElapsed || 0) + delta);
           
           const radius = Math.max(
             12,
@@ -9620,9 +9631,14 @@ export class SimplePlayfield {
             ? projectile.starSequence
             : GAMMA_STAR_SEQUENCE;
           const edgeIndex = Number.isFinite(projectile.starEdgeIndex) ? projectile.starEdgeIndex : 0;
-          if (edgeIndex >= sequence.length - 1) {
+          const atEndOfSequence = edgeIndex >= sequence.length - 1;
+          if (atEndOfSequence && burstDuration <= 0) {
             projectile.phase = 'return';
             continue;
+          }
+          if (atEndOfSequence && burstDuration > 0) {
+            projectile.starEdgeIndex = 0;
+            projectile.starEdgeProgress = 0;
           }
           const angles = [];
           for (let step = 0; step < 5; step += 1) {
@@ -9682,7 +9698,16 @@ export class SimplePlayfield {
             projectile.starHits = (projectile.starHits || 0) + 1;
             projectile.starEdgeIndex = edgeIndex + 1;
             projectile.starEdgeProgress = 0;
-            if (
+            const completedLoop = projectile.starEdgeIndex >= sequence.length - 1;
+            if (burstDuration > 0) {
+              if (completedLoop) {
+                if (projectile.starElapsed >= burstDuration) {
+                  projectile.phase = 'return';
+                } else {
+                  projectile.starEdgeIndex = 0;
+                }
+              }
+            } else if (
               projectile.starHits >= GAMMA_STAR_HIT_COUNT ||
               projectile.starEdgeIndex >= sequence.length - 1
             ) {
@@ -9728,10 +9753,23 @@ export class SimplePlayfield {
         );
         const towerPosition = { x: tower.x, y: tower.y };
         const currentPosition = projectile.position || towerPosition;
+        const registryFallback = (set) => (set instanceof Set ? set : new Set());
+        // Remember enemies already pinned so the sticky bolt cannot latch onto the same target twice.
+        const stuckRegistry = registryFallback(projectile.stuckRegistry);
+        const hasStuckEnemy = (enemy) => enemy && stuckRegistry.has(enemy.id);
+        const registerStuckEnemy = (enemy) => {
+          if (enemy && Number.isFinite(enemy.id)) {
+            stuckRegistry.add(enemy.id);
+            projectile.stuckRegistry = stuckRegistry;
+          }
+        };
         const resolveCollisionTarget = (start, end) => {
           for (let enemyIndex = 0; enemyIndex < this.enemies.length; enemyIndex += 1) {
             const enemy = this.enemies[enemyIndex];
             if (!enemy) {
+              continue;
+            }
+            if (hasStuckEnemy(enemy)) {
               continue;
             }
             const position = this.getEnemyPosition(enemy);
@@ -9778,6 +9816,7 @@ export class SimplePlayfield {
           projectile.previousPosition = { ...currentPosition };
           projectile.position = impactPosition || projectile.position || { ...currentPosition };
           if (enemy) {
+            registerStuckEnemy(enemy);
             this.applyBetaStickSlow(enemy, tower, projectile.bet1);
           }
         };
@@ -9805,7 +9844,7 @@ export class SimplePlayfield {
           if (collision && collision.enemy) {
             stickToEnemy(collision.enemy, collision.position || nextPosition);
           } else if (reached) {
-            if (targetEnemy) {
+            if (targetEnemy && !hasStuckEnemy(targetEnemy)) {
               stickToEnemy(targetEnemy, nextPosition);
             } else {
               beginTriangleReturn(nextPosition);
