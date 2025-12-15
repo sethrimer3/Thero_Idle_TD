@@ -396,6 +396,7 @@ function draw() {
   this.drawOmicronUnits();
   this.drawEnemies();
   this.drawEnemyDeathParticles();
+  this.drawSwarmClouds();
   this.drawDamageNumbers();
   this.drawWaveTallies();
   this.drawChiLightTrails();
@@ -2335,6 +2336,79 @@ function drawEnemyDeathParticles() {
   ctx.restore();
 }
 
+function drawSwarmClouds() {
+  if (!this.ctx || !Array.isArray(this.swarmClouds) || !this.swarmClouds.length) {
+    return;
+  }
+
+  const ctx = this.ctx;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  this.swarmClouds.forEach((cloud) => {
+    if (!cloud || !cloud.position) {
+      return;
+    }
+    
+    const progress = cloud.duration > 0 ? Math.min(1, cloud.lifetime / cloud.duration) : 1;
+    const alpha = clamp(0.25 * (1 - progress * 0.5), 0, 0.3);
+    
+    if (alpha <= 0) {
+      return;
+    }
+    
+    const radius = cloud.radius || 20;
+    const x = cloud.position.x;
+    const y = cloud.position.y;
+    
+    // Draw pulsing cloud effect
+    const pulsePhase = (cloud.lifetime || 0) * 3;
+    const pulseScale = 1 + Math.sin(pulsePhase) * 0.15;
+    const effectiveRadius = radius * pulseScale;
+    
+    // Determine color based on shot types
+    const hasAlpha = (cloud.alphaCount || 0) > 0;
+    const hasBeta = (cloud.betaCount || 0) > 0;
+    
+    let color1, color2;
+    if (hasAlpha && hasBeta) {
+      // Mix of both - use a blend
+      color1 = samplePaletteGradient(0.18); // Alpha offset
+      color2 = samplePaletteGradient(0.45); // Beta offset
+    } else if (hasAlpha) {
+      color1 = samplePaletteGradient(0.18);
+      color2 = samplePaletteGradient(0.22);
+    } else {
+      color1 = samplePaletteGradient(0.42);
+      color2 = samplePaletteGradient(0.48);
+    }
+    
+    // Draw outer glow
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, effectiveRadius);
+    gradient.addColorStop(0, colorToRgbaString(color1, alpha * 0.4));
+    gradient.addColorStop(0.5, colorToRgbaString(color2, alpha * 0.25));
+    gradient.addColorStop(1, colorToRgbaString(color1, 0));
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, effectiveRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw inner core
+    const coreRadius = effectiveRadius * 0.3;
+    const coreGradient = ctx.createRadialGradient(x, y, 0, x, y, coreRadius);
+    coreGradient.addColorStop(0, colorToRgbaString(color2, alpha * 0.6));
+    coreGradient.addColorStop(1, colorToRgbaString(color1, 0));
+    
+    ctx.fillStyle = coreGradient;
+    ctx.beginPath();
+    ctx.arc(x, y, coreRadius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.restore();
+}
+
 function drawDamageNumbers() {
   if (!this.ctx || !Array.isArray(this.damageNumbers) || !this.damageNumbers.length) {
     return;
@@ -2852,6 +2926,7 @@ export {
   drawOmicronUnits,
   drawEnemies,
   drawEnemyDeathParticles,
+  drawSwarmClouds,
   drawDamageNumbers,
   drawWaveTallies,
   drawProjectiles,

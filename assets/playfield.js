@@ -290,8 +290,18 @@ const GAMMA_OUTBOUND_SPEED = 260;
 const GAMMA_STAR_SPEED = 200;
 const GAMMA_RETURN_SPEED = 260;
 const GAMMA_STAR_HIT_COUNT = 5;
-const GAMMA_STAR_RADIUS_METERS = 1.1;
+const GAMMA_STAR_RADIUS_METERS = 1.0;
 const GAMMA_STAR_SEQUENCE = [0, 2, 4, 1, 3, 0];
+// Stun durations for stored shots (in seconds)
+const ALPHA_STORED_SHOT_STUN_DURATION = 0.02; // 20 milliseconds
+const BETA_STORED_SHOT_STUN_DURATION = 0.1;   // 100 milliseconds
+// Swarm cloud persistence and behavior
+const SWARM_CLOUD_BASE_DURATION = 1.0; // 1 second base
+const SWARM_CLOUD_DURATION_PER_SHOT = 0.02; // 20 milliseconds per stored shot
+const SWARM_CLOUD_RADIUS_METERS = 0.8; // Localized area for swarming
+const SWARM_PARTICLE_FADE_DURATION = 0.6; // Fade out over 600ms
+const SWARM_PARTICLE_SPREAD_SPEED = 80; // Pixels per second when dissipating
+const SWARM_CLOUD_DAMAGE_MULTIPLIER = 0.5; // Damage dealt by cloud as fraction of base tower damage
 
 export class SimplePlayfield {
   constructor(options) {
@@ -399,6 +409,8 @@ export class SimplePlayfield {
     this.betaBursts = [];
     this.gammaBursts = [];
     this.nuBursts = [];
+    // Track swarm clouds from stored shot particles
+    this.swarmClouds = [];
     this.chiThralls = [];
     this.chiLightTrails = [];
     this.chiThrallIdCounter = 0;
@@ -2491,6 +2503,7 @@ export class SimplePlayfield {
       this.betaBursts = [];
       this.gammaBursts = [];
       this.nuBursts = [];
+      this.swarmClouds = [];
       this.towers = [];
       // Clear cached Nu tower dimensions when entering non-interactive mode.
       clearNuCachedDimensionsHelper();
@@ -2602,6 +2615,7 @@ export class SimplePlayfield {
       this.betaBursts = [];
       this.gammaBursts = [];
       this.nuBursts = [];
+      this.swarmClouds = [];
       this.towers = [];
       this.hoverPlacement = null;
       this.pointerPosition = null;
@@ -2828,6 +2842,7 @@ export class SimplePlayfield {
     this.betaBursts = [];
     this.gammaBursts = [];
     this.nuBursts = [];
+    this.swarmClouds = [];
     this.floaters = [];
     this.floaterConnections = [];
     // Reset ambient swimmers whenever the battlefield is rebuilt for a new run.
@@ -3005,6 +3020,7 @@ export class SimplePlayfield {
     this.betaBursts = [];
     this.gammaBursts = [];
     this.nuBursts = [];
+    this.swarmClouds = [];
     this.floaters = [];
     this.floaterConnections = [];
     // Reset ambient swimmers when replaying a wave so the background loop restarts cleanly.
@@ -6147,17 +6163,31 @@ export class SimplePlayfield {
         return;
       }
       const particles = tower.connectionParticles.filter((particle) => particle && particle.state !== 'done');
+      const newSwarmParticles = [];
       particles.forEach((particle) => {
         if (particle.state === 'launch') {
           this.updateConnectionLaunchParticle(particle, step);
+          // Check if particle just hit and needs to create a swarm cloud
+          if (particle.justHit && particle.state === 'swarm') {
+            particle.justHit = false;
+            newSwarmParticles.push(particle);
+          }
           return;
         }
         if (particle.state === 'arrive') {
           this.updateConnectionArriveParticle(tower, particle, step);
           return;
         }
+        if (particle.state === 'swarm') {
+          this.updateConnectionSwarmParticle(particle, step);
+          return;
+        }
         this.updateConnectionOrbitParticle(particle, step);
       });
+      // Process newly swarming particles to create/update swarm clouds
+      if (newSwarmParticles.length > 0) {
+        this.processSwarmParticleHits(tower, newSwarmParticles);
+      }
       tower.connectionParticles = particles.filter((particle) => particle && particle.state !== 'done');
     });
 
@@ -6340,8 +6370,136 @@ export class SimplePlayfield {
     };
     particle.pulse = (particle.pulse || 0) + step * 1.5;
     if (progress >= 1) {
-      particle.state = 'done';
+      // When particle completes its launch, transition to swarm state
+      particle.state = 'swarm';
+      particle.swarmTime = 0;
+      particle.swarmCenter = { ...target };
+      particle.swarmAngle = Math.random() * Math.PI * 2;
+      particle.swarmSpeed = 2 + Math.random() * 1.5;
+      particle.swarmRadius = 8 + Math.random() * 12;
+      // Mark for swarm cloud creation (handled by tower update logic)
+      particle.justHit = true;
     }
+  }
+
+  /**
+   * Update connection particle in swarm state, circling around impact point before dissipating.
+   */
+  updateConnectionSwarmParticle(particle, step) {
+    if (!particle || particle.state !== 'swarm') {
+      return;
+    }
+    particle.swarmTime = (particle.swarmTime || 0) + step;
+    const swarmDuration = Number.isFinite(particle.swarmDuration) ? particle.swarmDuration : 1.2;
+    const fadeDuration = Number.isFinite(particle.fadeDuration) ? particle.fadeDuration : SWARM_PARTICLE_FADE_DURATION;
+    const totalDuration = swarmDuration + fadeDuration;
+    
+    if (particle.swarmTime >= totalDuration) {
+      particle.state = 'done';
+      return;
+    }
+    
+    const center = particle.swarmCenter || { x: 0, y: 0 };
+    const angle = (particle.swarmAngle || 0) + (particle.swarmSpeed || 2) * particle.swarmTime;
+    const radius = particle.swarmRadius || 10;
+    
+    // During swarm phase, circle around the impact point
+    if (particle.swarmTime < swarmDuration) {
+      particle.position = {
+        x: center.x + Math.cos(angle) * radius,
+        y: center.y + Math.sin(angle) * radius,
+      };
+      particle.opacity = 0.85;
+    } else {
+      // During fade phase, spread outward and fade
+      const fadeProgress = (particle.swarmTime - swarmDuration) / fadeDuration;
+      const spreadDistance = SWARM_PARTICLE_SPREAD_SPEED * (particle.swarmTime - swarmDuration);
+      particle.position = {
+        x: center.x + Math.cos(angle) * (radius + spreadDistance),
+        y: center.y + Math.sin(angle) * (radius + spreadDistance),
+      };
+      particle.opacity = Math.max(0, 0.85 * (1 - fadeProgress));
+    }
+    
+    particle.pulse = (particle.pulse || 0) + step;
+  }
+
+  /**
+   * Process particles that just hit enemies to create/update swarm clouds.
+   */
+  processSwarmParticleHits(tower, particles) {
+    if (!tower || !Array.isArray(particles) || particles.length === 0) {
+      return;
+    }
+    
+    // Group particles by their swarm center (impact location)
+    const impactGroups = new Map();
+    particles.forEach((particle) => {
+      if (!particle.swarmCenter) {
+        return;
+      }
+      const key = `${Math.round(particle.swarmCenter.x)}_${Math.round(particle.swarmCenter.y)}`;
+      if (!impactGroups.has(key)) {
+        impactGroups.set(key, { center: particle.swarmCenter, particles: [], types: {} });
+      }
+      const group = impactGroups.get(key);
+      group.particles.push(particle);
+      group.types[particle.type] = (group.types[particle.type] || 0) + 1;
+    });
+    
+    // Create or update swarm clouds for each impact location
+    impactGroups.forEach((group) => {
+      const alphaCount = group.types.alpha || 0;
+      const betaCount = group.types.beta || 0;
+      const totalShots = alphaCount + betaCount;
+      
+      if (totalShots === 0) {
+        return;
+      }
+      
+      // Calculate swarm duration based on shot count
+      const swarmDuration = SWARM_CLOUD_BASE_DURATION + totalShots * SWARM_CLOUD_DURATION_PER_SHOT;
+      
+      // Update particle durations to match cloud duration
+      group.particles.forEach((particle) => {
+        particle.swarmDuration = swarmDuration;
+      });
+      
+      // Find or create swarm cloud
+      const minDimension = Math.max(1, Math.min(this.renderWidth || 0, this.renderHeight || 0));
+      const cloudRadius = metersToPixels(SWARM_CLOUD_RADIUS_METERS, minDimension);
+      
+      this.swarmClouds.push({
+        position: { ...group.center },
+        radius: cloudRadius,
+        alphaCount,
+        betaCount,
+        totalShots,
+        duration: swarmDuration,
+        lifetime: 0,
+        towerId: tower.id,
+        damage: tower.damage || 0,
+        hitEnemies: new Set(),
+      });
+      
+      // Apply immediate stun to any enemy at the impact location
+      const stunDuration = alphaCount * ALPHA_STORED_SHOT_STUN_DURATION + betaCount * BETA_STORED_SHOT_STUN_DURATION;
+      if (stunDuration > 0) {
+        this.enemies.forEach((enemy) => {
+          if (!enemy) {
+            return;
+          }
+          const enemyPos = this.getEnemyPosition(enemy);
+          if (!enemyPos) {
+            return;
+          }
+          const distance = Math.hypot(enemyPos.x - group.center.x, enemyPos.y - group.center.y);
+          if (distance <= cloudRadius) {
+            this.applyStunEffect(enemy, stunDuration, `swarm_${tower.id}`);
+          }
+        });
+      }
+    });
   }
 
   /**
@@ -6591,6 +6749,76 @@ export class SimplePlayfield {
       tower.connectionParticles.push(particle);
       activeSwirlCounts[type] += 1;
     });
+  }
+
+  /**
+   * Update swarm clouds that persist after stored shots hit enemies.
+   */
+  updateSwarmClouds(delta) {
+    if (!Array.isArray(this.swarmClouds) || this.swarmClouds.length === 0) {
+      return;
+    }
+    
+    const step = Math.max(0, delta);
+    const survivors = [];
+    
+    this.swarmClouds.forEach((cloud) => {
+      if (!cloud) {
+        return;
+      }
+      
+      cloud.lifetime = (cloud.lifetime || 0) + step;
+      
+      // Remove expired clouds
+      if (cloud.lifetime >= cloud.duration) {
+        return;
+      }
+      
+      // Check for enemies entering the cloud
+      this.enemies.forEach((enemy) => {
+        if (!enemy) {
+          return;
+        }
+        
+        // Skip enemies we've already hit
+        if (cloud.hitEnemies.has(enemy.id)) {
+          return;
+        }
+        
+        const enemyPos = this.getEnemyPosition(enemy);
+        if (!enemyPos) {
+          return;
+        }
+        
+        const distance = Math.hypot(enemyPos.x - cloud.position.x, enemyPos.y - cloud.position.y);
+        const metrics = this.getEnemyVisualMetrics(enemy);
+        const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
+        
+        // Check if enemy is within cloud radius
+        if (distance <= cloud.radius + enemyRadius) {
+          // Apply damage (scaled by shot count)
+          const damagePerShot = cloud.damage || 0;
+          const totalDamage = damagePerShot * SWARM_CLOUD_DAMAGE_MULTIPLIER;
+          
+          const tower = this.towers.find((t) => t && t.id === cloud.towerId);
+          this.applyDamageToEnemy(enemy, totalDamage, { sourceTower: tower });
+          
+          // Apply stun based on shot types
+          const stunDuration = cloud.alphaCount * ALPHA_STORED_SHOT_STUN_DURATION + 
+                               cloud.betaCount * BETA_STORED_SHOT_STUN_DURATION;
+          if (stunDuration > 0) {
+            this.applyStunEffect(enemy, stunDuration, `swarm_${cloud.towerId}`);
+          }
+          
+          // Mark this enemy as hit by this cloud
+          cloud.hitEnemies.add(enemy.id);
+        }
+      });
+      
+      survivors.push(cloud);
+    });
+    
+    this.swarmClouds = survivors;
   }
 
   /**
@@ -6862,6 +7090,7 @@ export class SimplePlayfield {
     this.betaBursts = [];
     this.gammaBursts = [];
     this.nuBursts = [];
+    this.swarmClouds = [];
     this.activeWave = this.createWaveState(this.levelConfig.waves[0], { initialWave: true });
     this.lives = this.levelConfig.lives;
     this.markWaveStart();
@@ -7497,6 +7726,7 @@ export class SimplePlayfield {
       this.updateNuBursts(speedDelta);
       this.updateCrystals(speedDelta);
       this.updateConnectionParticles(speedDelta);
+      this.updateSwarmClouds(speedDelta);
       this.updateTowerGlyphTransitions(speedDelta);
       this.updateDamageNumbers(speedDelta);
       // Advance collapse shards so fallen enemies leave a brief, graceful trail.
@@ -8978,6 +9208,68 @@ export class SimplePlayfield {
     this.syncEnemyDebuffIndicators(enemy, this.resolveActiveDebuffTypes(enemy));
   }
 
+  // Apply stun effect to an enemy from stored shots
+  applyStunEffect(enemy, duration, sourceId = 'stored_shots') {
+    if (!enemy || !Number.isFinite(duration) || duration <= 0) {
+      return;
+    }
+    const nowSeconds = (typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now()) / 1000;
+    const expiresAt = nowSeconds + duration;
+    if (!(enemy.stunEffects instanceof Map)) {
+      enemy.stunEffects = new Map();
+    }
+    const existing = enemy.stunEffects.get(sourceId);
+    // Extend the stun duration if we're already stunned
+    if (existing && Number.isFinite(existing.expiresAt)) {
+      enemy.stunEffects.set(sourceId, {
+        expiresAt: Math.max(existing.expiresAt, expiresAt),
+      });
+    } else {
+      enemy.stunEffects.set(sourceId, { expiresAt });
+    }
+  }
+
+  // Check if enemy is stunned and return the stun status
+  isEnemyStunned(enemy) {
+    if (!enemy || !(enemy.stunEffects instanceof Map)) {
+      return false;
+    }
+    const nowSeconds = (typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now()) / 1000;
+    const stale = [];
+    let isStunned = false;
+    enemy.stunEffects.forEach((effect, key) => {
+      if (!effect || !Number.isFinite(effect.expiresAt)) {
+        stale.push(key);
+        return;
+      }
+      if (effect.expiresAt <= nowSeconds) {
+        stale.push(key);
+        return;
+      }
+      isStunned = true;
+    });
+    stale.forEach((key) => enemy.stunEffects.delete(key));
+    if (enemy.stunEffects.size === 0) {
+      delete enemy.stunEffects;
+    }
+    return isStunned;
+  }
+
+  // Clear all stun effects from an enemy
+  clearEnemyStunEffects(enemy) {
+    if (!enemy) {
+      return;
+    }
+    if (enemy.stunEffects instanceof Map) {
+      enemy.stunEffects.clear();
+    }
+    delete enemy.stunEffects;
+  }
+
   updateEnemies(delta) {
     this.updateDerivativeShieldStates(delta);
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
@@ -9029,7 +9321,9 @@ export class SimplePlayfield {
       const mapSpeedMultiplier = Number.isFinite(this.levelConfig?.mapSpeedMultiplier) 
         ? this.levelConfig.mapSpeedMultiplier 
         : 1;
-      const effectiveSpeed = Math.max(0, baseSpeed * speedMultiplier * pathSpeedMultiplier * mapSpeedMultiplier);
+      // Apply stun - stunned enemies cannot move
+      const stunMultiplier = this.isEnemyStunned(enemy) ? 0 : 1;
+      const effectiveSpeed = Math.max(0, baseSpeed * speedMultiplier * pathSpeedMultiplier * mapSpeedMultiplier * stunMultiplier);
       enemy.speed = effectiveSpeed;
       enemy.progress += enemy.speed * delta;
       if (enemy.progress >= 1) {
@@ -9314,7 +9608,10 @@ export class SimplePlayfield {
         }
 
         if (projectile.phase === 'star') {
-          const center = projectile.starCenter || currentPosition;
+          // Update center to track enemy position
+          const targetEnemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId) || null;
+          const center = targetEnemy ? this.getEnemyPosition(targetEnemy) : (projectile.starCenter || currentPosition);
+          
           const radius = Math.max(
             12,
             Number.isFinite(projectile.starRadius) ? projectile.starRadius : this.getStandardShotHitRadius() * 8,
@@ -9359,8 +9656,7 @@ export class SimplePlayfield {
           projectile.starHitRegistry = registryFallback(projectile.starHitRegistry);
 
           if (progress >= 1) {
-            const targetEnemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId) || null;
-            const targetPosition = targetEnemy ? this.getEnemyPosition(targetEnemy) : center;
+            const targetPosition = center;
             if (targetPosition) {
               if (targetEnemy) {
                 this.applyDamageToEnemy(targetEnemy, projectile.damage, { sourceTower: tower });
@@ -10141,6 +10437,7 @@ export class SimplePlayfield {
     this.betaBursts = [];
     this.gammaBursts = [];
     this.nuBursts = [];
+    this.swarmClouds = [];
     this.floaters = [];
     this.floaterConnections = [];
     // Refresh ambient swimmers so checkpoint restores regenerate the soft background motion.
