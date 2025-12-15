@@ -301,6 +301,7 @@ const SWARM_CLOUD_DURATION_PER_SHOT = 0.02; // 20 milliseconds per stored shot
 const SWARM_CLOUD_RADIUS_METERS = 0.8; // Localized area for swarming
 const SWARM_PARTICLE_FADE_DURATION = 0.6; // Fade out over 600ms
 const SWARM_PARTICLE_SPREAD_SPEED = 80; // Pixels per second when dissipating
+const SWARM_CLOUD_DAMAGE_MULTIPLIER = 0.5; // Damage dealt by cloud as fraction of base tower damage
 
 export class SimplePlayfield {
   constructor(options) {
@@ -6797,7 +6798,7 @@ export class SimplePlayfield {
         if (distance <= cloud.radius + enemyRadius) {
           // Apply damage (scaled by shot count)
           const damagePerShot = cloud.damage || 0;
-          const totalDamage = damagePerShot * 0.5; // 50% of base damage per cloud hit
+          const totalDamage = damagePerShot * SWARM_CLOUD_DAMAGE_MULTIPLIER;
           
           const tower = this.towers.find((t) => t && t.id === cloud.towerId);
           this.applyDamageToEnemy(enemy, totalDamage, { sourceTower: tower });
