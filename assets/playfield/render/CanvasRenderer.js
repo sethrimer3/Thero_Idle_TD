@@ -1742,31 +1742,31 @@ function drawTowers() {
 
     if (tower.type === 'beta') {
       const alphaShots = Math.max(0, Math.floor(tower.storedAlphaShots || 0));
-      if (alphaShots > 0) {
+      if (alphaShots >= 3) {
         ctx.save();
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.font = `${Math.round(bodyRadius * 0.75)}px "Cormorant Garamond", serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(`? ? ${alphaShots}`, tower.x, tower.y + bodyRadius + 6);
+        ctx.fillText(`${alphaShots}α`, tower.x, tower.y + bodyRadius + 6);
         ctx.restore();
       }
     } else if (tower.type === 'gamma') {
       const betaShots = Math.max(0, Math.floor(tower.storedBetaShots || 0));
       const alphaShots = Math.max(0, Math.floor(tower.storedAlphaShots || 0));
-      if (betaShots > 0 || alphaShots > 0) {
+      if (betaShots >= 3 || alphaShots >= 3) {
         ctx.save();
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.font = `${Math.round(bodyRadius * 0.7)}px "Cormorant Garamond", serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         let labelY = tower.y + bodyRadius + 6;
-        if (betaShots > 0) {
-          ctx.fillText(`? ? ${betaShots}`, tower.x, labelY);
+        if (betaShots >= 3) {
+          ctx.fillText(`${betaShots}β`, tower.x, labelY);
           labelY += Math.round(bodyRadius * 0.7) + 4;
         }
-        if (alphaShots > 0) {
-          ctx.fillText(`? ? ${alphaShots}`, tower.x, labelY);
+        if (alphaShots >= 3) {
+          ctx.fillText(`${alphaShots}α`, tower.x, labelY);
         }
         ctx.restore();
       }
