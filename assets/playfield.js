@@ -6319,7 +6319,21 @@ export class SimplePlayfield {
     const progress = duration > 0 ? Math.min(1, particle.launchTime / duration) : 1;
     const eased = easeInCubic(progress);
     const start = particle.launchStart || particle.position || { x: 0, y: 0 };
-    const target = particle.targetPosition || start;
+    
+    // Track the enemy if we have a target enemy ID
+    let target = particle.targetPosition || start;
+    if (particle.targetEnemyId) {
+      const targetEnemy = this.enemies.find((enemy) => enemy && enemy.id === particle.targetEnemyId);
+      if (targetEnemy) {
+        // Update target position to enemy's current position
+        const enemyPos = this.getEnemyPosition(targetEnemy);
+        if (enemyPos) {
+          target = enemyPos;
+          particle.targetPosition = { ...enemyPos };
+        }
+      }
+    }
+    
     particle.position = {
       x: start.x + (target.x - start.x) * eased,
       y: start.y + (target.y - start.y) * eased,
@@ -6389,7 +6403,7 @@ export class SimplePlayfield {
   /**
    * Trigger any queued swirl launches toward the resolved attack position.
    */
-  triggerQueuedSwirlLaunches(tower, targetPosition) {
+  triggerQueuedSwirlLaunches(tower, targetPosition, targetEnemy = null) {
     if (!tower || !Array.isArray(tower.pendingSwirlLaunches) || !tower.pendingSwirlLaunches.length) {
       return;
     }
@@ -6397,14 +6411,14 @@ export class SimplePlayfield {
       tower.pendingSwirlLaunches = [];
       return;
     }
-    this.launchTowerConnectionParticles(tower, tower.pendingSwirlLaunches, targetPosition);
+    this.launchTowerConnectionParticles(tower, tower.pendingSwirlLaunches, targetPosition, targetEnemy);
     tower.pendingSwirlLaunches = [];
   }
 
   /**
    * Convert orbiting motes into travelling bursts aimed at the provided target.
    */
-  launchTowerConnectionParticles(tower, entries, targetPosition) {
+  launchTowerConnectionParticles(tower, entries, targetPosition, targetEnemy = null) {
     if (!tower || !Array.isArray(tower.connectionParticles) || !Array.isArray(entries) || !targetPosition) {
       return;
     }
@@ -6432,6 +6446,7 @@ export class SimplePlayfield {
           particle.launchStart = startPosition;
           particle.position = { ...startPosition };
           particle.targetPosition = { ...targetPosition };
+          particle.targetEnemyId = targetEnemy ? targetEnemy.id : null;
           particle.launchTime = 0;
           particle.launchDuration = 0.28 + Math.random() * 0.14;
           remaining -= 1;
@@ -8717,7 +8732,7 @@ export class SimplePlayfield {
       });
     }
     if ((tower.type === 'beta' || tower.type === 'gamma' || tower.type === 'nu')) {
-      this.triggerQueuedSwirlLaunches(tower, effectPosition);
+      this.triggerQueuedSwirlLaunches(tower, effectPosition, enemy);
     }
     if (getTowerTierValue(tower) >= 24) {
       this.spawnOmegaWave(tower);
