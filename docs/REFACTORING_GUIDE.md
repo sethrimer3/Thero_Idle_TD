@@ -848,6 +848,48 @@ Following this plan will shrink the single-source files, align them with the dis
 - Developer-only systems now live under `assets/playfield/managers/`, making future sandbox tooling easier to locate and iterate
 - The refactor demonstrates the repeatable mixin pattern for isolating additional state clusters (projectiles, enemy spawns, etc.) in future slices
 
+### scripts/features/towers/tsadiTowerData.js (Tsadi particle fusion static data)
+
+**Status:** ✅ Complete (Build 181)
+
+**What was extracted:**
+- `GREEK_TIER_SEQUENCE` - 24-element array mapping particle tiers to Greek letter metadata
+- Wave interaction constants (`WAVE_INITIAL_RADIUS_MULTIPLIER`, `WAVE_MAX_RADIUS_MULTIPLIER`, `WAVE_INITIAL_FORCE`, etc.)
+- `LEGACY_MOLECULE_RECIPES` - Backward compatibility data for old save files
+- Tier classification constants (`NULL_TIER`, `GREEK_SEQUENCE_LENGTH`, `COLLAPSED_DIMENSION_THRESHOLD`, `ADVANCED_MOLECULE_UNLOCK_TIER`)
+
+**Integration approach:**
+- Created dedicated `scripts/features/towers/tsadiTowerData.js` module (82 lines)
+- `tsadiTower.js` imports constants via ES6 named imports
+- All static data moved out, leaving only simulation logic and helper functions in main file
+
+**Result:**
+- Reduced `tsadiTower.js` from 3,162 to 3,103 lines (59 lines saved)
+- Static configuration now isolated for easier tuning without touching simulation code
+- Future balance changes can modify data file without risk of breaking particle physics
+
+### scripts/features/towers/cardinalWardenConfig.js (Cardinal Warden grapheme configuration)
+
+**Status:** ✅ Complete (Build 181)
+
+**What was extracted:**
+- `GRAPHEME_INDEX` - English letter (A-Z) to grapheme index mapping for 14 grapheme types
+- Grapheme behavior configuration objects:
+  - `WAVE_CONFIG` - Expanding wave mechanics (grapheme G)
+  - `SPREAD_CONFIG` - Spread bullet patterns (grapheme I)
+  - `ELEMENTAL_CONFIG` - Burning/freezing effects (grapheme J)
+  - `MASSIVE_BULLET_CONFIG` - Massive bullet/speed boost mechanics (grapheme K)
+
+**Integration approach:**
+- Created dedicated `scripts/features/towers/cardinalWardenConfig.js` module (158 lines)
+- `cardinalWardenSimulation.js` imports configuration objects via ES6 named imports
+- Simulation logic remains unchanged, only data source relocated
+
+**Result:**
+- Reduced `cardinalWardenSimulation.js` from 7,501 to 7,426 lines (75 lines saved)
+- Grapheme tuning constants now centralized for easier gameplay balance adjustments
+- Clear separation between configuration data and game logic improves code navigability
+
 ## Upcoming High-Impact Refactor Targets
 
 ### assets/playfield.js (222 KB, core battle orchestration)
