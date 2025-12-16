@@ -2953,12 +2953,17 @@
           <!-- Wave Starting Options -->
           <article class="card shin-wave-start-card">
             <h3>Wave Start Options</h3>
-            <p class="shin-wave-start-description">Start at any multiple of 10 waves you've reached.</p>
+            <p class="shin-wave-start-description">Drag the wheel to select a starting wave.</p>
             <div class="shin-wave-start-controls">
-              <label for="shin-wave-start-select">Starting Wave:</label>
-              <select id="shin-wave-start-select" class="shin-wave-select">
-                <option value="0">Wave 1 (Default)</option>
-              </select>
+              <label for="shin-wave-carousel">Starting Wave:</label>
+              <div class="shin-wave-carousel" id="shin-wave-carousel">
+                <div class="shin-wave-carousel-container">
+                  <div class="shin-wave-carousel-track" id="shin-wave-carousel-track">
+                    <!-- Wave numbers populated dynamically -->
+                  </div>
+                  <div class="shin-wave-carousel-selector"></div>
+                </div>
+              </div>
               <button id="shin-wave-start-apply-btn" class="shin-weapon-action">Apply & Restart</button>
             </div>
           </article>
