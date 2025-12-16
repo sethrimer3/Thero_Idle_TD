@@ -131,3 +131,21 @@ export function getGridUnit() {
 
 // For backward compatibility, export as constant
 export const GRID_UNIT = getGridUnit();
+
+/**
+ * Default unit statistics used as fallbacks when starting a simulation.
+ */
+export const DEFAULT_UNIT_STATS = {
+  MARINE: { health: 10, attack: 1, attackSpeed: 1 },
+  SNIPER: { health: 8, attack: 2, attackSpeed: 0.5 },
+  SPLAYER: { health: 12, attack: 0.8, attackSpeed: 0.7 },
+};
+
+/**
+ * Default unit counts used when starting a simulation.
+ */
+export const DEFAULT_UNIT_COUNTS = {
+  marines: 1,
+  snipers: 0,
+  splayers: 0,
+};

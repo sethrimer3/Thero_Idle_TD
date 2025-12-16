@@ -15,6 +15,8 @@ import {
   CAMERA_CONFIG,
   GAMEPLAY_CONFIG,
   GRID_UNIT,
+  DEFAULT_UNIT_STATS,
+  DEFAULT_UNIT_COUNTS,
 } from './kufSimulationConfig.js';
 // Mirror the latest loaded map data so new simulation instances can start in sync.
 let sharedAvailableKufMaps = getCachedKufMaps();
@@ -282,10 +284,10 @@ export class KufBattlefieldSimulation {
       return;
     }
     this.reset();
-    const marineStats = config?.marineStats || { health: 10, attack: 1, attackSpeed: 1 };
-    const sniperStats = config?.sniperStats || { health: 8, attack: 2, attackSpeed: 0.5 };
-    const splayerStats = config?.splayerStats || { health: 12, attack: 0.8, attackSpeed: 0.7 };
-    const units = config?.units || { marines: 1, snipers: 0, splayers: 0 };
+    const marineStats = config?.marineStats || DEFAULT_UNIT_STATS.MARINE;
+    const sniperStats = config?.sniperStats || DEFAULT_UNIT_STATS.SNIPER;
+    const splayerStats = config?.splayerStats || DEFAULT_UNIT_STATS.SPLAYER;
+    const units = config?.units || DEFAULT_UNIT_COUNTS;
     const requestedMap = config?.mapId || this.defaultMapId;
     this.setActiveMap(requestedMap);
     // Reset overlay pacing so each run begins with full HUD fidelity before auto-throttling.

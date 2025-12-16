@@ -77,6 +77,12 @@ import {
   WEAPON_SLOT_DEFINITIONS,
   LEGACY_WEAPON_DEFINITIONS,
   ENEMY_TYPES,
+  VISUAL_CONFIG,
+  RING_SQUARE_CONFIGS,
+  INNER_RING_CONFIGS,
+  ORBITAL_SQUARE_CONFIG,
+  LIFE_LINES_CONFIG,
+  UI_CONFIG,
 } from './cardinalWardenConfig.js';
 
 // Configuration constants now imported from cardinalWardenConfig.js
@@ -204,7 +210,7 @@ class RingSquare {
     // Rotation direction: 1 for clockwise, -1 for counter-clockwise
     this.rotationDirection = config.rotationDirection || 1;
     // Stroke color (golden to match theme)
-    this.strokeColor = config.strokeColor || '#d4af37';
+    this.strokeColor = config.strokeColor || VISUAL_CONFIG.DEFAULT_GOLDEN;
     // Stroke width
     this.strokeWidth = config.strokeWidth || 2;
     // Alpha transparency for the ring
@@ -248,7 +254,7 @@ class ExpandingWave {
     this.maxRadius = maxRadius;
     this.currentRadius = 0;
     this.expansionSpeed = maxRadius / WAVE_CONFIG.EXPANSION_DURATION_SECONDS;
-    this.color = color || '#d4af37';
+    this.color = color || VISUAL_CONFIG.DEFAULT_GOLDEN;
     this.hitEnemies = new Set(); // Track which enemies have been hit
     this.hitBosses = new Set(); // Track which bosses have been hit
     this.alpha = 1.0; // Start fully opaque
@@ -294,7 +300,7 @@ class Beam {
     this.angle = angle;
     this.damage = config.damage || 1; // Damage per tick
     this.damagePerSecond = config.damagePerSecond || 1; // Total damage per second
-    this.color = config.color || '#d4af37';
+    this.color = config.color || VISUAL_CONFIG.DEFAULT_GOLDEN;
     this.width = config.width || BEAM_CONFIG.BEAM_WIDTH;
     this.maxLength = config.maxLength || BEAM_CONFIG.MAX_BEAM_LENGTH;
     this.weaponId = config.weaponId || 0; // Track which weapon this beam belongs to
@@ -388,7 +394,7 @@ class Mine {
     this.x = x;
     this.y = y;
     this.size = config.size || MINE_CONFIG.MINE_SIZE;
-    this.color = config.color || '#d4af37';
+    this.color = config.color || VISUAL_CONFIG.DEFAULT_GOLDEN;
     this.baseDamage = config.baseDamage || 1; // Base weapon damage for explosion calculation
     this.explosionRadius = config.explosionRadius || 50; // Radius of explosion wave
     this.weaponId = config.weaponId || 0;
@@ -488,7 +494,7 @@ class SwarmShip {
     
     // Visual properties
     this.size = SWARM_CONFIG.SHIP_SIZE;
-    this.color = '#88ff88'; // Light green color for the ship
+    this.color = VISUAL_CONFIG.DEFAULT_SWARM_SHIP_COLOR;
     this.headingAngle = 0;
     
     // Movement behavior - swarm randomly around target
@@ -662,7 +668,7 @@ class CardinalWarden {
     this.y = y;
     this.health = 100;
     this.maxHealth = 100;
-    this.coreRadius = 16;
+    this.coreRadius = ORBITAL_SQUARE_CONFIG.CORE_RADIUS;
     this.orbitalSquares = [];
     this.ringSquares = [];
     this.rng = rng;
@@ -672,8 +678,8 @@ class CardinalWarden {
 
   initOrbitalSquares() {
     this.orbitalSquares = [];
-    const squareCount = 8;
-    const orbitRadius = 35;
+    const squareCount = ORBITAL_SQUARE_CONFIG.COUNT;
+    const orbitRadius = ORBITAL_SQUARE_CONFIG.ORBIT_RADIUS;
     for (let i = 0; i < squareCount; i++) {
       this.orbitalSquares.push(new OrbitalSquare(i, squareCount, orbitRadius, this.rng));
     }
@@ -686,20 +692,14 @@ class CardinalWarden {
   initRingSquares() {
     this.ringSquares = [];
     
-    // Ring configurations: size, speed, direction, strokeWidth, alpha
-    const ringConfigs = [
-      { size: 70, rotationSpeed: 0.4, rotationDirection: 1, strokeWidth: 1.5, alpha: 0.5 },
-      { size: 95, rotationSpeed: 0.25, rotationDirection: -1, strokeWidth: 2, alpha: 0.4 },
-      { size: 120, rotationSpeed: 0.6, rotationDirection: 1, strokeWidth: 1, alpha: 0.35 },
-      { size: 150, rotationSpeed: 0.15, rotationDirection: -1, strokeWidth: 2.5, alpha: 0.3 },
-      { size: 180, rotationSpeed: 0.35, rotationDirection: 1, strokeWidth: 1.5, alpha: 0.25 },
-    ];
+    // Ring configurations from cardinalWardenConfig.js
+    const ringConfigs = RING_SQUARE_CONFIGS;
     
     for (let i = 0; i < ringConfigs.length; i++) {
-      const config = ringConfigs[i];
+      const config = { ...ringConfigs[i] };
       // Stagger initial rotations so they don't all start aligned
       config.initialRotation = (i / ringConfigs.length) * Math.PI * 0.5;
-      config.strokeColor = '#d4af37';
+      config.strokeColor = VISUAL_CONFIG.DEFAULT_GOLDEN;
       this.ringSquares.push(new RingSquare(config));
     }
   }
@@ -749,7 +749,7 @@ class EnemyShip {
     this.size = config.size || 8;
     this.type = config.type || 'basic';
     this.scoreValue = config.scoreValue || 10;
-    this.baseColor = config.color || '#333';
+    this.baseColor = config.color || VISUAL_CONFIG.DEFAULT_ENEMY_COLOR;
     this.color = this.baseColor;
 
     // Trail and exhaust controls for enemy-specific silhouettes.
@@ -1193,7 +1193,7 @@ class CircleCarrierBoss {
     this.type = 'circleCarrier';
     this.isBoss = true;
     this.scoreValue = config.scoreValue || 200;
-    this.baseColor = config.color || '#1a1a1a';
+    this.baseColor = config.color || VISUAL_CONFIG.DEFAULT_ENEMY_DARK;
     this.color = this.baseColor;
 
     // Rotation properties
@@ -1217,10 +1217,7 @@ class CircleCarrierBoss {
     this.time = 0;
 
     // Inner ring decorations
-    this.innerRings = [
-      { radius: 0.6, rotationOffset: 0 },
-      { radius: 0.4, rotationOffset: Math.PI / 3 },
-    ];
+    this.innerRings = INNER_RING_CONFIGS;
     
     // Status effects for grapheme J
     this.burning = false;
@@ -1425,7 +1422,7 @@ class PyramidBoss {
     this.type = 'pyramidBoss';
     this.isBoss = true;
     this.scoreValue = config.scoreValue || 150;
-    this.baseColor = config.color || '#2d2d2d';
+    this.baseColor = config.color || VISUAL_CONFIG.DEFAULT_ENEMY_DARKER;
     this.color = this.baseColor;
 
     // Rotation
@@ -1626,7 +1623,7 @@ class HexagonFortressBoss {
     this.type = 'hexagonFortress';
     this.isBoss = true;
     this.scoreValue = config.scoreValue || 300;
-    this.baseColor = config.color || '#0a0a0a';
+    this.baseColor = config.color || VISUAL_CONFIG.DEFAULT_ENEMY_DARKEST;
     this.color = this.baseColor;
 
     // Rotation
@@ -1843,7 +1840,7 @@ class Bullet {
     this.speed = config.speed || 200;
     this.damage = config.damage || 1;
     this.size = config.size || 4;
-    this.baseColor = config.baseColor || config.color || '#d4af37';
+    this.baseColor = config.baseColor || config.color || VISUAL_CONFIG.DEFAULT_GOLDEN;
     this.color = config.color || this.baseColor;
     this.piercing = config.piercing || false;
     this.piercingLimit = config.piercingLimit || 0; // Max number of targets (enemies + bosses) to hit (0 = unlimited)
@@ -2064,8 +2061,8 @@ class MathBullet {
     this.speed = config.speed || 200;
     this.damage = config.damage || 1;
     this.size = config.size || 4;
-    this.baseColor = config.baseColor || config.color || '#d4af37';
-    this.color = config.color || '#d4af37';
+    this.baseColor = config.baseColor || config.color || VISUAL_CONFIG.DEFAULT_GOLDEN;
+    this.color = config.color || VISUAL_CONFIG.DEFAULT_GOLDEN;
     
     // Mathematical pattern configuration
     this.pattern = config.pattern || 'sine';
@@ -2365,24 +2362,27 @@ export class CardinalWardenSimulation {
     this.nightMode = !!options.nightMode;
     this.enemyTrailQuality = options.enemyTrailQuality || 'high';
     this.bulletTrailLength = options.bulletTrailLength || 'long';
-    this.bgColor = '#ffffff';
-    this.wardenCoreColor = '#d4af37'; // Golden
-    this.wardenSquareColor = '#c9a227'; // Slightly darker gold
-    this.bulletColor = '#d4af37';
-    this.ringStrokeColor = '#d4af37';
-    this.uiTextColor = '#333';
-    this.enemyTrailColor = '#000000';
-    this.enemySmokeColor = '#000000';
-    this.scriptColorDay = options.scriptColorDay || '#d4af37'; // Tint for daytime script glyphs
-    this.scriptColorNight = options.scriptColorNight || '#ffe9a3'; // Tint for night mode script glyphs
-    this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay; // Current script tint
+    
+    // Load colors from config based on mode
+    const colorMode = this.nightMode ? VISUAL_CONFIG.NIGHT : VISUAL_CONFIG.DAY;
+    this.bgColor = colorMode.BG_COLOR;
+    this.wardenCoreColor = colorMode.WARDEN_CORE_COLOR;
+    this.wardenSquareColor = colorMode.WARDEN_SQUARE_COLOR;
+    this.bulletColor = colorMode.BULLET_COLOR;
+    this.ringStrokeColor = colorMode.RING_STROKE_COLOR;
+    this.uiTextColor = colorMode.UI_TEXT_COLOR;
+    this.enemyTrailColor = colorMode.ENEMY_TRAIL_COLOR;
+    this.enemySmokeColor = colorMode.ENEMY_SMOKE_COLOR;
+    this.scriptColorDay = options.scriptColorDay || VISUAL_CONFIG.DAY.SCRIPT_COLOR;
+    this.scriptColorNight = options.scriptColorNight || VISUAL_CONFIG.NIGHT.SCRIPT_COLOR;
+    this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay;
 
     // Script font sprite sheet for Cardinal Warden name display
     // The sprite sheet is a 7x5 grid of characters stored as an SVG for crisp scaling
     this.scriptSpriteSheet = null;
     this.scriptSpriteLoaded = false;
-    this.scriptCols = 7;
-    this.scriptRows = 5;
+    this.scriptCols = VISUAL_CONFIG.SCRIPT_SPRITE_COLS;
+    this.scriptRows = VISUAL_CONFIG.SCRIPT_SPRITE_ROWS;
     this.tintedScriptSheet = null; // Offscreen canvas containing the colorized script sheet
     this.scriptSpriteFallbackTried = false; // Only retry once with the legacy PNG sheet if SVG fails
     this.loadScriptSpriteSheet();
@@ -2573,27 +2573,16 @@ export class CardinalWardenSimulation {
    * Update palette values based on day/night render mode.
    */
   applyColorMode() {
-    if (this.nightMode) {
-      this.bgColor = '#000000';
-      this.wardenCoreColor = '#ffe9a3';
-      this.wardenSquareColor = '#ffd76f';
-      this.bulletColor = '#ffe585';
-      this.ringStrokeColor = '#ffe9a3';
-      this.uiTextColor = '#f5f5f5';
-      this.enemyTrailColor = '#ffffff';
-      this.enemySmokeColor = '#ffffff';
-      this.activeScriptColor = this.scriptColorNight;
-    } else {
-      this.bgColor = '#ffffff';
-      this.wardenCoreColor = '#d4af37';
-      this.wardenSquareColor = '#c9a227';
-      this.bulletColor = '#d4af37';
-      this.ringStrokeColor = '#d4af37';
-      this.uiTextColor = '#333';
-      this.enemyTrailColor = '#000000';
-      this.enemySmokeColor = '#000000';
-      this.activeScriptColor = this.scriptColorDay;
-    }
+    const colorMode = this.nightMode ? VISUAL_CONFIG.NIGHT : VISUAL_CONFIG.DAY;
+    this.bgColor = colorMode.BG_COLOR;
+    this.wardenCoreColor = colorMode.WARDEN_CORE_COLOR;
+    this.wardenSquareColor = colorMode.WARDEN_SQUARE_COLOR;
+    this.bulletColor = colorMode.BULLET_COLOR;
+    this.ringStrokeColor = colorMode.RING_STROKE_COLOR;
+    this.uiTextColor = colorMode.UI_TEXT_COLOR;
+    this.enemyTrailColor = colorMode.ENEMY_TRAIL_COLOR;
+    this.enemySmokeColor = colorMode.ENEMY_SMOKE_COLOR;
+    this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay;
 
     // Rebuild the tinted script sheet so glyphs match the active palette immediately.
     this.rebuildTintedScriptSheet();
@@ -6734,13 +6723,10 @@ export class CardinalWardenSimulation {
    * @private
    */
   initializeLifeLines() {
-    this.lifeLines = [
-      { state: 'solid' },
-      { state: 'solid' },
-      { state: 'solid' },
-      { state: 'solid' },
-      { state: 'solid' },
-    ];
+    this.lifeLines = [];
+    for (let i = 0; i < LIFE_LINES_CONFIG.COUNT; i++) {
+      this.lifeLines.push({ state: LIFE_LINES_CONFIG.INITIAL_STATE });
+    }
   }
 
   /**
@@ -6770,15 +6756,15 @@ export class CardinalWardenSimulation {
     if (!this.ctx || !this.canvas) return;
 
     const ctx = this.ctx;
-    const padding = 10;
+    const padding = UI_CONFIG.PADDING;
 
     // Set font for UI - using Cormorant Garamond (universal game font)
-    ctx.font = '16px "Cormorant Garamond", serif';
+    ctx.font = `${UI_CONFIG.FONT_SIZE}px ${UI_CONFIG.FONT_FAMILY}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
 
     // Golden color for text
-    const goldColor = '#d4af37';
+    const goldColor = VISUAL_CONFIG.DEFAULT_GOLDEN;
 
     // Wave number display (top left)
     ctx.fillStyle = goldColor;
@@ -6788,7 +6774,7 @@ export class CardinalWardenSimulation {
     ctx.fillText(`Score: ${this.score}`, padding, padding + 20);
 
     // Speed button (top right)
-    const speedButtonSize = 50;
+    const speedButtonSize = UI_CONFIG.SPEED_BUTTON_SIZE;
     const speedButtonX = this.canvas.width - padding - speedButtonSize;
     const speedButtonY = padding;
     
@@ -6803,15 +6789,15 @@ export class CardinalWardenSimulation {
     
     // Draw speed text
     ctx.fillStyle = goldColor;
-    ctx.font = '20px "Cormorant Garamond", serif';
+    ctx.font = `${UI_CONFIG.LARGE_FONT_SIZE}px ${UI_CONFIG.FONT_FAMILY}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(`${this.gameSpeed}x`, speedButtonX + speedButtonSize / 2, speedButtonY + speedButtonSize / 2);
 
     // Health bar (bottom center)
     if (this.warden) {
-      const barWidth = 120;
-      const barHeight = 8;
+      const barWidth = UI_CONFIG.HEALTH_BAR_WIDTH;
+      const barHeight = UI_CONFIG.HEALTH_BAR_HEIGHT;
       const barX = (this.canvas.width - barWidth) / 2;
       const barY = this.canvas.height - padding - barHeight;
       const healthPercent = this.warden.health / this.warden.maxHealth;
@@ -6831,11 +6817,11 @@ export class CardinalWardenSimulation {
     }
 
     // Life lines indicator (bottom left)
-    // 5 full-width lines stacked on top of each other, each representing 2 lives
+    // Lines stacked on top of each other, each representing 2 lives
     const horizontalPadding = padding;
     const lineWidth = this.canvas.width - (horizontalPadding * 2);
-    const lineHeight = 3;
-    const lineGap = 4;
+    const lineHeight = UI_CONFIG.LIFE_LINE_HEIGHT;
+    const lineGap = UI_CONFIG.LIFE_LINE_GAP;
     const startX = horizontalPadding;
     const startY = this.canvas.height - padding - (lineHeight + lineGap) * this.lifeLines.length;
     
