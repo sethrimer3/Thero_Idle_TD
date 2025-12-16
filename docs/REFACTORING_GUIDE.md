@@ -14,9 +14,10 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - `assets/playfield.js` (~10,495 lines)
   - **Non-invasive plan:** Continue the controller composition strategy in the "Split SimplePlayfield responsibilities" section. Start by relocating methods that already delegate to `playfield/` helpers, then move constructor wiring into a factory that accepts explicit dependencies.
   - **Agent instruction:** Note each controller extraction and where its methods landed (e.g., `PlayfieldPlacementController`) in `docs/main_refactor_contexts.md` so later refactors can chain off your work.
-- `scripts/features/towers/cardinalWardenSimulation.js` (~7,501 lines)
+- `scripts/features/towers/cardinalWardenSimulation.js` (~7,426 lines, reduced from 7,501)
   - **Non-invasive plan:** Carve out pure math helpers (damage curves, wave scheduling) into a `simulation/` subfolder, leaving DOM/event wiring behind in the original file until parity is confirmed. Use factories that accept tower config, RNG hooks, and logging callbacks to avoid touching global state.
   - **Agent instruction:** Keep a running list of extracted helper names in this section; future agents should extend the list rather than rewriting it to preserve traceability.
+  - **Progress (Build 181):** Extracted grapheme configuration constants (GRAPHEME_INDEX, WAVE_CONFIG, SPREAD_CONFIG, ELEMENTAL_CONFIG, MASSIVE_BULLET_CONFIG) to `scripts/features/towers/cardinalWardenConfig.js` (158 lines). Reduced main file by 75 lines.
 - `assets/main.js` (~6,495 lines)
   - **Non-invasive plan:** Continue peeling off focused factories (e.g., lifecycle, idle runs, level summaries). Prioritize clusters that only consume injected dependencies so that orchestration call sites stay stable.
   - **Agent instruction:** Each time a cluster moves out, annotate the old call-site area with a brief comment pointing to the new module to aid future diff reviews.
