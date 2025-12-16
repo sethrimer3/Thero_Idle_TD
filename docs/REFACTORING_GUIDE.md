@@ -14,15 +14,17 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - `assets/playfield.js` (~10,495 lines)
   - **Non-invasive plan:** Continue the controller composition strategy in the "Split SimplePlayfield responsibilities" section. Start by relocating methods that already delegate to `playfield/` helpers, then move constructor wiring into a factory that accepts explicit dependencies.
   - **Agent instruction:** Note each controller extraction and where its methods landed (e.g., `PlayfieldPlacementController`) in `docs/main_refactor_contexts.md` so later refactors can chain off your work.
-- `scripts/features/towers/cardinalWardenSimulation.js` (~7,501 lines)
+- `scripts/features/towers/cardinalWardenSimulation.js` (~7,426 lines, reduced from 7,501)
   - **Non-invasive plan:** Carve out pure math helpers (damage curves, wave scheduling) into a `simulation/` subfolder, leaving DOM/event wiring behind in the original file until parity is confirmed. Use factories that accept tower config, RNG hooks, and logging callbacks to avoid touching global state.
   - **Agent instruction:** Keep a running list of extracted helper names in this section; future agents should extend the list rather than rewriting it to preserve traceability.
+  - **Progress (Build 181):** Extracted grapheme configuration constants (GRAPHEME_INDEX, WAVE_CONFIG, SPREAD_CONFIG, ELEMENTAL_CONFIG, MASSIVE_BULLET_CONFIG) to `scripts/features/towers/cardinalWardenConfig.js` (158 lines). Reduced main file by 75 lines.
 - `assets/main.js` (~6,495 lines)
   - **Non-invasive plan:** Continue peeling off focused factories (e.g., lifecycle, idle runs, level summaries). Prioritize clusters that only consume injected dependencies so that orchestration call sites stay stable.
   - **Agent instruction:** Each time a cluster moves out, annotate the old call-site area with a brief comment pointing to the new module to aid future diff reviews.
-- `scripts/features/towers/tsadiTower.js` (~3,078 lines)
+- `scripts/features/towers/tsadiTower.js` (~3,103 lines, reduced from 3,162)
   - **Non-invasive plan:** Separate upgrade math tables and UI copy into data modules first, then extract targeting/behavior helpers behind a factory that receives the playfield API. Avoid touching projectile definitions during the first pass.
   - **Agent instruction:** Document which data tables moved (and their new paths) here so balancing changes later know which file to edit.
+  - **Progress (Build 181):** Extracted static data (GREEK_TIER_SEQUENCE, wave constants, molecule recipes) to `scripts/features/towers/tsadiTowerData.js` (82 lines). Reduced main file by 59 lines while maintaining all functionality.
 - `assets/playfield/render/CanvasRenderer.js` (~2,865 lines)
   - **Non-invasive plan:** Split by render layer: background + grid, tower sprites, projectile trails, overlay effects. Introduce a renderer registry object that `SimplePlayfield` can assemble without changing drawing order.
   - **Agent instruction:** When you peel off a layer, list the new file and any shared constants you relocated to prevent duplicate gradients or palettes.
@@ -845,6 +847,48 @@ Following this plan will shrink the single-source files, align them with the dis
 - Removes ~300 lines of crystal-only logic from the 7,500-line playfield monolith without changing gameplay behavior
 - Developer-only systems now live under `assets/playfield/managers/`, making future sandbox tooling easier to locate and iterate
 - The refactor demonstrates the repeatable mixin pattern for isolating additional state clusters (projectiles, enemy spawns, etc.) in future slices
+
+### scripts/features/towers/tsadiTowerData.js (Tsadi particle fusion static data)
+
+**Status:** ✅ Complete (Build 181)
+
+**What was extracted:**
+- `GREEK_TIER_SEQUENCE` - 24-element array mapping particle tiers to Greek letter metadata
+- Wave interaction constants (`WAVE_INITIAL_RADIUS_MULTIPLIER`, `WAVE_MAX_RADIUS_MULTIPLIER`, `WAVE_INITIAL_FORCE`, etc.)
+- `LEGACY_MOLECULE_RECIPES` - Backward compatibility data for old save files
+- Tier classification constants (`NULL_TIER`, `GREEK_SEQUENCE_LENGTH`, `COLLAPSED_DIMENSION_THRESHOLD`, `ADVANCED_MOLECULE_UNLOCK_TIER`)
+
+**Integration approach:**
+- Created dedicated `scripts/features/towers/tsadiTowerData.js` module (82 lines)
+- `tsadiTower.js` imports constants via ES6 named imports
+- All static data moved out, leaving only simulation logic and helper functions in main file
+
+**Result:**
+- Reduced `tsadiTower.js` from 3,162 to 3,103 lines (59 lines saved)
+- Static configuration now isolated for easier tuning without touching simulation code
+- Future balance changes can modify data file without risk of breaking particle physics
+
+### scripts/features/towers/cardinalWardenConfig.js (Cardinal Warden grapheme configuration)
+
+**Status:** ✅ Complete (Build 181)
+
+**What was extracted:**
+- `GRAPHEME_INDEX` - English letter (A-Z) to grapheme index mapping for 14 grapheme types
+- Grapheme behavior configuration objects:
+  - `WAVE_CONFIG` - Expanding wave mechanics (grapheme G)
+  - `SPREAD_CONFIG` - Spread bullet patterns (grapheme I)
+  - `ELEMENTAL_CONFIG` - Burning/freezing effects (grapheme J)
+  - `MASSIVE_BULLET_CONFIG` - Massive bullet/speed boost mechanics (grapheme K)
+
+**Integration approach:**
+- Created dedicated `scripts/features/towers/cardinalWardenConfig.js` module (158 lines)
+- `cardinalWardenSimulation.js` imports configuration objects via ES6 named imports
+- Simulation logic remains unchanged, only data source relocated
+
+**Result:**
+- Reduced `cardinalWardenSimulation.js` from 7,501 to 7,426 lines (75 lines saved)
+- Grapheme tuning constants now centralized for easier gameplay balance adjustments
+- Clear separation between configuration data and game logic improves code navigability
 
 ## Upcoming High-Impact Refactor Targets
 
