@@ -350,4 +350,100 @@ export const ENEMY_TYPES = {
   },
 };
 
+/**
+ * Visual configuration for Cardinal Warden and UI elements.
+ */
+export const VISUAL_CONFIG = {
+  // Day mode colors (light mode)
+  DAY: {
+    BG_COLOR: '#ffffff',
+    WARDEN_CORE_COLOR: '#d4af37',        // Golden
+    WARDEN_SQUARE_COLOR: '#c9a227',      // Slightly darker gold
+    BULLET_COLOR: '#d4af37',
+    RING_STROKE_COLOR: '#d4af37',
+    UI_TEXT_COLOR: '#333',
+    ENEMY_TRAIL_COLOR: '#000000',
+    ENEMY_SMOKE_COLOR: '#000000',
+    SCRIPT_COLOR: '#d4af37',
+  },
+  
+  // Night mode colors (dark mode)
+  NIGHT: {
+    BG_COLOR: '#000000',
+    WARDEN_CORE_COLOR: '#ffe9a3',
+    WARDEN_SQUARE_COLOR: '#ffd76f',
+    BULLET_COLOR: '#ffe585',
+    RING_STROKE_COLOR: '#ffe9a3',
+    UI_TEXT_COLOR: '#f5f5f5',
+    ENEMY_TRAIL_COLOR: '#ffffff',
+    ENEMY_SMOKE_COLOR: '#ffffff',
+    SCRIPT_COLOR: '#ffe9a3',
+  },
+  
+  // Default colors used in various classes
+  DEFAULT_GOLDEN: '#d4af37',
+  DEFAULT_ENEMY_COLOR: '#333',
+  DEFAULT_ENEMY_DARK: '#1a1a1a',
+  DEFAULT_ENEMY_DARKER: '#2d2d2d',
+  DEFAULT_ENEMY_DARKEST: '#0a0a0a',
+  DEFAULT_SWARM_SHIP_COLOR: '#88ff88',
+  
+  // Script sprite sheet configuration
+  SCRIPT_SPRITE_COLS: 7,
+  SCRIPT_SPRITE_ROWS: 5,
+};
+
+/**
+ * Ring square configurations for the Cardinal Warden.
+ * These are the large rotating rings that encompass the warden.
+ */
+export const RING_SQUARE_CONFIGS = [
+  { size: 70, rotationSpeed: 0.4, rotationDirection: 1, strokeWidth: 1.5, alpha: 0.5 },
+  { size: 95, rotationSpeed: 0.25, rotationDirection: -1, strokeWidth: 2, alpha: 0.4 },
+  { size: 120, rotationSpeed: 0.6, rotationDirection: 1, strokeWidth: 1, alpha: 0.35 },
+  { size: 150, rotationSpeed: 0.15, rotationDirection: -1, strokeWidth: 2.5, alpha: 0.3 },
+  { size: 180, rotationSpeed: 0.35, rotationDirection: 1, strokeWidth: 1.5, alpha: 0.25 },
+];
+
+/**
+ * Inner ring configurations for boss carriers.
+ */
+export const INNER_RING_CONFIGS = [
+  { radius: 0.6, rotationOffset: 0 },
+  { radius: 0.4, rotationOffset: Math.PI / 3 },
+];
+
+/**
+ * Orbital square configuration for Cardinal Warden.
+ */
+export const ORBITAL_SQUARE_CONFIG = {
+  COUNT: 8,              // Number of orbital squares
+  ORBIT_RADIUS: 35,      // Distance from center
+  CORE_RADIUS: 16,       // Radius of the center orb
+};
+
+/**
+ * Life lines configuration.
+ * Each line represents 2 lives and can be: 'solid' (2 lives), 'dashed' (1 life), or 'gone' (0 lives).
+ */
+export const LIFE_LINES_CONFIG = {
+  COUNT: 5,              // Number of life lines
+  INITIAL_STATE: 'solid', // Starting state for each line
+};
+
+/**
+ * UI layout configuration.
+ */
+export const UI_CONFIG = {
+  PADDING: 10,
+  SPEED_BUTTON_SIZE: 50,
+  HEALTH_BAR_WIDTH: 120,
+  HEALTH_BAR_HEIGHT: 8,
+  LIFE_LINE_HEIGHT: 3,
+  LIFE_LINE_GAP: 4,
+  FONT_SIZE: 16,
+  LARGE_FONT_SIZE: 20,
+  FONT_FAMILY: '"Cormorant Garamond", serif',
+};
+
 
