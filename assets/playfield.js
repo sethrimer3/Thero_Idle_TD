@@ -11371,6 +11371,10 @@ export class SimplePlayfield {
     return CanvasRenderer.drawEnemyDeathParticles.call(this);
   }
 
+  drawSwarmClouds() {
+    return CanvasRenderer.drawSwarmClouds.call(this);
+  }
+
   drawDamageNumbers() {
     return CanvasRenderer.drawDamageNumbers.call(this);
   }
