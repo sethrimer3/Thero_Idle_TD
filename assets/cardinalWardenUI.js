@@ -1154,6 +1154,7 @@ function createWeaponElement(weapon) {
   const container = document.createElement('div');
   container.className = 'shin-weapon-slot';
   container.setAttribute('role', 'listitem');
+  container.style.position = 'relative';
 
   const header = document.createElement('div');
   header.className = 'shin-weapon-slot-header';
@@ -1220,9 +1221,24 @@ function createWeaponElement(weapon) {
     const slotNumber = createGraphemeIconElement(slotNumberIndex, undefined, undefined, 'shin-grapheme-icon shin-slot-number-indicator');
     slotNumber.setAttribute('aria-hidden', 'true');
     
+    // Add slot lock overlay
+    const slotLock = document.createElement('div');
+    slotLock.className = 'shin-slot-lock-overlay';
+    slotLock.style.display = 'none';
+    const lockIcon = document.createElement('span');
+    lockIcon.className = 'shin-slot-lock-icon';
+    lockIcon.textContent = '🔒';
+    slotLock.appendChild(lockIcon);
+    
+    slotLock.addEventListener('click', event => {
+      event.stopPropagation();
+      handleSlotUnlock(weapon.id, index);
+    });
+    
     slot.appendChild(content);
     slot.appendChild(emptyIndicator);
     slot.appendChild(slotNumber);
+    slot.appendChild(slotLock);
 
     slot.addEventListener('click', event => {
       event.stopPropagation();
@@ -1231,17 +1247,104 @@ function createWeaponElement(weapon) {
 
     slotsWrapper.appendChild(slot);
 
-    return { slot, content, emptyIndicator, slotNumber };
+    return { slot, content, emptyIndicator, slotNumber, slotLock };
   });
+
+  // Add weapon upgrades section
+  const upgradesWrapper = document.createElement('div');
+  upgradesWrapper.className = 'shin-weapon-upgrades';
+  
+  const attackUpgradeBtn = document.createElement('button');
+  attackUpgradeBtn.className = 'shin-weapon-upgrade-btn';
+  attackUpgradeBtn.innerHTML = `
+    <span class="shin-weapon-upgrade-label">⚔️ Attack</span>
+    <span class="shin-weapon-upgrade-level">Level: <span class="attack-level">0</span></span>
+    <span class="shin-weapon-upgrade-cost"><span class="attack-cost">100</span> ℸ</span>
+  `;
+  attackUpgradeBtn.addEventListener('click', () => handleAttackUpgrade(weapon.id));
+  
+  const speedUpgradeBtn = document.createElement('button');
+  speedUpgradeBtn.className = 'shin-weapon-upgrade-btn';
+  speedUpgradeBtn.innerHTML = `
+    <span class="shin-weapon-upgrade-label">⚡ Speed</span>
+    <span class="shin-weapon-upgrade-level">Level: <span class="speed-level">0</span></span>
+    <span class="shin-weapon-upgrade-cost"><span class="speed-cost">100</span> ℸ</span>
+  `;
+  speedUpgradeBtn.addEventListener('click', () => handleSpeedUpgrade(weapon.id));
+  
+  upgradesWrapper.appendChild(attackUpgradeBtn);
+  upgradesWrapper.appendChild(speedUpgradeBtn);
+
+  // Add weapon lock overlay (will be shown/hidden dynamically)
+  const weaponLock = document.createElement('div');
+  weaponLock.className = 'shin-weapon-lock-overlay';
+  weaponLock.style.display = 'none';
+  const weaponLockIcon = document.createElement('div');
+  weaponLockIcon.className = 'shin-weapon-lock-icon';
+  weaponLockIcon.textContent = '🔒';
+  const weaponLockCost = document.createElement('div');
+  weaponLockCost.className = 'shin-weapon-lock-cost';
+  weaponLockCost.innerHTML = `Unlock: <span class="weapon-unlock-cost">100</span> ℸ`;
+  weaponLock.appendChild(weaponLockIcon);
+  weaponLock.appendChild(weaponLockCost);
+  
+  weaponLock.addEventListener('click', () => handleWeaponUnlock(weapon.id));
 
   container.appendChild(header);
   container.appendChild(cooldownContainer);
   container.appendChild(slotsWrapper);
+  container.appendChild(upgradesWrapper);
+  container.appendChild(weaponLock);
 
-  return { container, cooldownFill, cooldownText, graphemeSlots, symbol, name };
+  return { 
+    container, 
+    cooldownFill, 
+    cooldownText, 
+    graphemeSlots, 
+    symbol, 
+    name,
+    attackUpgradeBtn,
+    speedUpgradeBtn,
+    weaponLock,
+    upgradesWrapper
+  };
 }
 
 function updateWeaponElement(elements, weapon, assignments) {
+  const weaponId = weapon.id;
+  const isPurchased = isWeaponPurchased(weaponId);
+  const equivalence = getEquivalenceBank();
+  
+  // Show/hide weapon lock overlay
+  if (isPurchased) {
+    elements.weaponLock.style.display = 'none';
+  } else {
+    elements.weaponLock.style.display = 'flex';
+    const cost = getWeaponUnlockCost();
+    elements.weaponLock.querySelector('.weapon-unlock-cost').textContent = formatGameNumber(cost);
+  }
+  
+  // Update weapon upgrades (only if purchased)
+  if (isPurchased) {
+    // Update attack upgrade button
+    const attackLevel = getWeaponAttackLevel(weaponId);
+    const attackCost = getAttackUpgradeCost(weaponId);
+    elements.attackUpgradeBtn.querySelector('.attack-level').textContent = attackLevel;
+    elements.attackUpgradeBtn.querySelector('.attack-cost').textContent = formatGameNumber(attackCost);
+    elements.attackUpgradeBtn.disabled = equivalence < attackCost;
+    
+    // Update speed upgrade button
+    const speedLevel = getWeaponSpeedLevel(weaponId);
+    const speedCost = getSpeedUpgradeCost(weaponId);
+    elements.speedUpgradeBtn.querySelector('.speed-level').textContent = speedLevel;
+    elements.speedUpgradeBtn.querySelector('.speed-cost').textContent = formatGameNumber(speedCost);
+    elements.speedUpgradeBtn.disabled = equivalence < speedCost;
+    
+    elements.upgradesWrapper.style.display = 'flex';
+  } else {
+    elements.upgradesWrapper.style.display = 'none';
+  }
+
   const cooldownPercent = (weapon.cooldownProgress / weapon.cooldownTotal) * 100;
   const glowOpacity = 0.3 + (weapon.glowIntensity * 0.7);
 
@@ -1266,6 +1369,15 @@ function updateWeaponElement(elements, weapon, assignments) {
 
   elements.graphemeSlots.forEach((slotElements, index) => {
     const assignment = assignments[index];
+    const isSlotUnlockedState = isSlotUnlocked(weaponId, index);
+    
+    // Show/hide slot lock
+    if (isPurchased && !isSlotUnlockedState) {
+      slotElements.slotLock.style.display = 'flex';
+    } else {
+      slotElements.slotLock.style.display = 'none';
+    }
+    
     updateWeaponSlot(slotElements, assignment, weapon, index);
   });
 }
@@ -1290,6 +1402,94 @@ function updateWeaponSlot(slotElements, assignment, weapon, index) {
   }
 
   slotElements.slot.setAttribute('aria-label', `Grapheme slot ${index + 1} for ${weapon.name}`);
+}
+
+/**
+ * Handle weapon unlock purchase.
+ */
+function handleWeaponUnlock(weaponId) {
+  const cost = getWeaponUnlockCost();
+  const equivalence = getEquivalenceBank();
+  
+  if (equivalence < cost) {
+    console.log(`Not enough Equivalence to unlock ${weaponId}. Need ${cost}, have ${equivalence}`);
+    return;
+  }
+  
+  const result = purchaseWeapon(weaponId);
+  if (result.success) {
+    console.log(`Unlocked weapon ${weaponId} for ${cost} Equivalence`);
+    updateWeaponsDisplay();
+    updateTotalIterons();
+  }
+}
+
+/**
+ * Handle slot unlock purchase.
+ */
+function handleSlotUnlock(weaponId, slotIndex) {
+  const cost = getSlotUnlockCost();
+  const equivalence = getEquivalenceBank();
+  
+  if (equivalence < cost) {
+    console.log(`Not enough Equivalence to unlock slot ${slotIndex} for ${weaponId}. Need ${cost}, have ${equivalence}`);
+    return;
+  }
+  
+  const result = unlockSlot(weaponId, slotIndex);
+  if (result.success) {
+    console.log(`Unlocked slot ${slotIndex} for weapon ${weaponId} for ${cost} Equivalence`);
+    updateWeaponsDisplay();
+    updateTotalIterons();
+  }
+}
+
+/**
+ * Handle attack upgrade purchase.
+ */
+function handleAttackUpgrade(weaponId) {
+  const cost = getAttackUpgradeCost(weaponId);
+  const equivalence = getEquivalenceBank();
+  
+  if (equivalence < cost) {
+    console.log(`Not enough Equivalence to upgrade attack for ${weaponId}. Need ${cost}, have ${equivalence}`);
+    return;
+  }
+  
+  const result = upgradeWeaponAttack(weaponId);
+  if (result.success) {
+    console.log(`Upgraded attack for weapon ${weaponId} to level ${result.newLevel} for ${cost} Equivalence`);
+    // Apply the upgrade to the simulation
+    if (cardinalSimulation) {
+      cardinalSimulation.applyWeaponUpgrades(weaponId, result.newLevel, getWeaponSpeedLevel(weaponId));
+    }
+    updateWeaponsDisplay();
+    updateTotalIterons();
+  }
+}
+
+/**
+ * Handle speed upgrade purchase.
+ */
+function handleSpeedUpgrade(weaponId) {
+  const cost = getSpeedUpgradeCost(weaponId);
+  const equivalence = getEquivalenceBank();
+  
+  if (equivalence < cost) {
+    console.log(`Not enough Equivalence to upgrade speed for ${weaponId}. Need ${cost}, have ${equivalence}`);
+    return;
+  }
+  
+  const result = upgradeWeaponSpeed(weaponId);
+  if (result.success) {
+    console.log(`Upgraded speed for weapon ${weaponId} to level ${result.newLevel} for ${cost} Equivalence`);
+    // Apply the upgrade to the simulation
+    if (cardinalSimulation) {
+      cardinalSimulation.applyWeaponUpgrades(weaponId, getWeaponAttackLevel(weaponId), result.newLevel);
+    }
+    updateWeaponsDisplay();
+    updateTotalIterons();
+  }
 }
 
 /**
@@ -1666,6 +1866,18 @@ function clearSelectedGrapheme() {
 }
 
 function placeSelectedGrapheme(weaponId, slotIndex) {
+  // Check if weapon is purchased
+  if (!isWeaponPurchased(weaponId)) {
+    console.log(`Weapon ${weaponId} is not purchased`);
+    return;
+  }
+  
+  // Check if slot is unlocked
+  if (!isSlotUnlocked(weaponId, slotIndex)) {
+    console.log(`Slot ${slotIndex} for weapon ${weaponId} is locked`);
+    return;
+  }
+  
   const assignments = ensureWeaponAssignments(weaponId);
   
   // Handle click on filled slot without a selection - remove grapheme and return to inventory

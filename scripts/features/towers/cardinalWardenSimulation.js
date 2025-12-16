@@ -2478,6 +2478,13 @@ export class CardinalWardenSimulation {
       equipped: ['slot1', 'slot2', 'slot3'], // All 3 weapons always active
     };
     
+    // Weapon-specific upgrades (attack and speed levels per weapon)
+    this.weaponUpgrades = {
+      slot1: { attackLevel: 0, speedLevel: 0 },
+      slot2: { attackLevel: 0, speedLevel: 0 },
+      slot3: { attackLevel: 0, speedLevel: 0 },
+    };
+    
     // Maximum number of weapons that can be equipped simultaneously (always 3)
     this.maxEquippedWeapons = 3;
     
@@ -3623,8 +3630,11 @@ export class CardinalWardenSimulation {
       const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
       const fireRateMultiplier = this.calculateFireRateMultiplier(effectiveAssignments);
       
+      // Apply weapon-specific speed upgrade multiplier
+      const weaponSpeedMult = this.getWeaponSpeedMultiplier(weaponId);
+      
       // Apply fire rate multiplier by dividing the interval (higher multiplier = faster shooting)
-      const fireInterval = weaponDef.baseFireRate / fireRateMultiplier;
+      const fireInterval = weaponDef.baseFireRate / (fireRateMultiplier * weaponSpeedMult);
       
       this.weaponTimers[weaponId] += deltaTime;
       
@@ -3877,10 +3887,14 @@ export class CardinalWardenSimulation {
     }
 
     const resolvedColor = this.resolveBulletColor(weaponDef.color);
+    
+    // Apply weapon-specific upgrades
+    const weaponAttackMult = this.getWeaponAttackMultiplier(weaponId);
+    const weaponSpeedMult = this.getWeaponSpeedMultiplier(weaponId);
 
     const bulletConfig = {
-      speed: weaponDef.baseSpeed * speedMultiplier * this.upgrades.bulletSpeed,
-      damage: (weaponDef.baseDamage + excessGraphemeBonus) * damageMultiplier * this.upgrades.bulletDamage,
+      speed: weaponDef.baseSpeed * speedMultiplier * weaponSpeedMult * this.upgrades.bulletSpeed,
+      damage: (weaponDef.baseDamage + excessGraphemeBonus) * damageMultiplier * weaponAttackMult * this.upgrades.bulletDamage,
       size: 4,
       baseColor: weaponDef.color,
       color: resolvedColor,
@@ -7042,6 +7056,42 @@ export class CardinalWardenSimulation {
   upgradeWeaponWithoutCost(weaponId) {
     // Weapon upgrades will be handled by lexemes in the future
     return false;
+  }
+
+  /**
+   * Apply weapon-specific upgrades (attack and speed levels).
+   * @param {string} weaponId - The weapon ID (slot1, slot2, slot3)
+   * @param {number} attackLevel - Attack upgrade level
+   * @param {number} speedLevel - Speed upgrade level
+   */
+  applyWeaponUpgrades(weaponId, attackLevel, speedLevel) {
+    if (!this.weaponUpgrades[weaponId]) {
+      this.weaponUpgrades[weaponId] = { attackLevel: 0, speedLevel: 0 };
+    }
+    this.weaponUpgrades[weaponId].attackLevel = attackLevel;
+    this.weaponUpgrades[weaponId].speedLevel = speedLevel;
+  }
+
+  /**
+   * Get weapon-specific attack multiplier based on upgrade level.
+   * @param {string} weaponId - The weapon ID
+   * @returns {number} Attack multiplier (1.0 = no upgrades, increases with level)
+   */
+  getWeaponAttackMultiplier(weaponId) {
+    const attackLevel = this.weaponUpgrades[weaponId]?.attackLevel || 0;
+    // Each level adds 10% damage
+    return 1 + (attackLevel * 0.1);
+  }
+
+  /**
+   * Get weapon-specific speed multiplier based on upgrade level.
+   * @param {string} weaponId - The weapon ID
+   * @returns {number} Speed multiplier (1.0 = no upgrades, increases with level)
+   */
+  getWeaponSpeedMultiplier(weaponId) {
+    const speedLevel = this.weaponUpgrades[weaponId]?.speedLevel || 0;
+    // Each level adds 10% fire rate
+    return 1 + (speedLevel * 0.1);
   }
 
   /**

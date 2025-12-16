@@ -12744,6 +12744,113 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   vertical-align: middle;
 }
 
+/* Lock overlay for weapons and slots */
+.shin-weapon-lock-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.shin-weapon-lock-overlay:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.shin-weapon-lock-icon {
+  font-size: 2rem;
+  color: #d4af37;
+  margin-bottom: 0.5rem;
+}
+
+.shin-weapon-lock-cost {
+  font-size: 0.8rem;
+  color: #d4af37;
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.shin-slot-lock-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.shin-slot-lock-overlay:hover {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.shin-slot-lock-icon {
+  font-size: 0.9rem;
+  color: rgba(212, 175, 55, 0.7);
+}
+
+/* Weapon upgrade buttons */
+.shin-weapon-upgrades {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shin-weapon-upgrade-btn {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 4px;
+  color: #d4af37;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.shin-weapon-upgrade-btn:hover:not(:disabled) {
+  background: rgba(212, 175, 55, 0.2);
+  border-color: rgba(212, 175, 55, 0.5);
+}
+
+.shin-weapon-upgrade-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.shin-weapon-upgrade-label {
+  font-weight: 600;
+}
+
+.shin-weapon-upgrade-level {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.shin-weapon-upgrade-cost {
+  font-size: 0.7rem;
+  color: #d4af37;
+}
+
 /* Wave Carousel Styles */
 .shin-wave-start-card {
   max-width: 600px;
