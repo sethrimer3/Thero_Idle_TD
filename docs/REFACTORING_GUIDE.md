@@ -20,9 +20,10 @@ This document outlines the strategy for refactoring `assets/main.js` (originally
 - `assets/main.js` (~6,495 lines)
   - **Non-invasive plan:** Continue peeling off focused factories (e.g., lifecycle, idle runs, level summaries). Prioritize clusters that only consume injected dependencies so that orchestration call sites stay stable.
   - **Agent instruction:** Each time a cluster moves out, annotate the old call-site area with a brief comment pointing to the new module to aid future diff reviews.
-- `scripts/features/towers/tsadiTower.js` (~3,078 lines)
+- `scripts/features/towers/tsadiTower.js` (~3,103 lines, reduced from 3,162)
   - **Non-invasive plan:** Separate upgrade math tables and UI copy into data modules first, then extract targeting/behavior helpers behind a factory that receives the playfield API. Avoid touching projectile definitions during the first pass.
   - **Agent instruction:** Document which data tables moved (and their new paths) here so balancing changes later know which file to edit.
+  - **Progress (Build 181):** Extracted static data (GREEK_TIER_SEQUENCE, wave constants, molecule recipes) to `scripts/features/towers/tsadiTowerData.js` (82 lines). Reduced main file by 59 lines while maintaining all functionality.
 - `assets/playfield/render/CanvasRenderer.js` (~2,865 lines)
   - **Non-invasive plan:** Split by render layer: background + grid, tower sprites, projectile trails, overlay effects. Introduce a renderer registry object that `SimplePlayfield` can assemble without changing drawing order.
   - **Agent instruction:** When you peel off a layer, list the new file and any shared constants you relocated to prevent duplicate gradients or palettes.
