@@ -93,8 +93,12 @@ export const MASSIVE_BULLET_CONFIG = {
  * Converts bullets into continuous beams.
  */
 export const BEAM_CONFIG = {
-  WIDTH: 8,                        // Beam width in pixels
+  BEAM_WIDTH: 3,                   // Visual beam width (pixels)
   DAMAGE_TICKS_PER_SECOND: 4,      // How many times per second beam applies damage
+  BEAM_ALPHA: 0.8,                 // Beam color alpha (transparency)
+  MAX_BEAM_LENGTH: 10000,          // Maximum beam length (pixels) - extends to edge of canvas
+  // Legacy properties for future enhancements
+  WIDTH: 8,                        // Beam width in pixels (alternative)
   MIN_ALPHA: 0.3,                  // Minimum beam opacity
   MAX_ALPHA: 0.8,                  // Maximum beam opacity
   PULSE_FREQUENCY: 4,              // Pulses per second for visual effect
@@ -105,13 +109,17 @@ export const BEAM_CONFIG = {
  * Spawns drifting mines that explode on contact.
  */
 export const MINE_CONFIG = {
-  SPAWN_RATE_DIVISOR: 20,          // Mines spawned at (shots per second) / 20
+  SPAWN_RATE_DIVISOR: 20,          // Mine spawn rate divisor: (shots per second) / this value
+  DRIFT_SPEED: 30,                 // Mine drift speed (pixels per second)
+  MINE_SIZE: 5,                    // Mine size (radius in pixels)
+  EXPLOSION_DAMAGE_MULTIPLIER: 100, // Explosion damage multiplier (damage = base weapon damage × this)
+  EXPLOSION_DIAMETER_DIVISOR: 10,  // Explosion wave diameter divisor (diameter = canvas.width / this)
+  EXPLOSION_DURATION: 1.5,         // Explosion wave expansion duration (seconds)
+  MINE_LIFETIME: 10,               // Mine lifetime before auto-despawn (seconds)
+  // Future enhancements
   DRIFT_SPEED_MIN: 10,             // Minimum drift speed (pixels/sec)
   DRIFT_SPEED_MAX: 30,             // Maximum drift speed (pixels/sec)
   RADIUS: 6,                       // Visual and collision radius (pixels)
-  EXPLOSION_DIAMETER_DIVISOR: 10,  // Explosion diameter = canvas.width / 10
-  EXPLOSION_DAMAGE_MULTIPLIER: 100, // Explosion damage = 100x base weapon damage
-  EXPLOSION_DURATION: 0.3,         // Explosion animation duration (seconds)
   COLOR: '#ff8800',                // Orange color for mines
   EXPLOSION_COLOR: '#ff4400',      // Red-orange for explosions
 };
@@ -121,24 +129,41 @@ export const MINE_CONFIG = {
  * Spawns tiny friendly triangles that fire green lasers.
  */
 export const SWARM_CONFIG = {
-  // Number of ships = (total graphemes / divisor), capped at max
-  GRAPHEME_COUNT_DIVISOR: 10,      // Ships = graphemes / 10
-  MAX_SHIPS: 100,                  // Maximum number of swarm ships
-  SHIP_SIZE: 4,                    // Triangle size (pixels)
+  GRAPHEME_COUNT_DIVISOR: 10,      // Number of ships = (total graphemes) / this divisor, max 100
+  MAX_SWARM_SHIPS: 100,            // Maximum number of swarm ships
+  SHIP_SIZE: 8,                    // Ship size (triangle base width in pixels)
+  MOVEMENT_SPEED: 100,             // Ship movement speed (pixels per second)
+  SWARM_RADIUS: 80,                // Random movement range around target (pixels)
+  TRAIL_LENGTH: 15,                // Trail length for visual effect
+  FIRE_RATE_DIVISOR: 10,           // Laser fire rate divisor: weapon attack speed / this value
+  DAMAGE_DIVISOR: 10,              // Laser damage divisor: weapon damage / this value
+  LASER_SPEED: 300,                // Laser speed (pixels per second)
+  LASER_LENGTH: 10,                // Laser size (length in pixels)
+  LASER_WIDTH: 2,                  // Laser size (width in pixels)
+  LASER_COLOR: '#00ff00',          // Laser color (green)
+  // Future enhancements
+  MAX_SHIPS: 100,                  // Maximum number of swarm ships (alternative)
   SHIP_COLOR: '#00ff88',           // Cyan-green color
-  SWARM_RADIUS: 50,                // Radius around target to swarm (pixels)
   MOVE_SPEED: 100,                 // Movement speed toward target (pixels/sec)
   LASER_FIRE_RATE_DIVISOR: 10,     // Fire rate = weapon attack speed / 10
   LASER_DAMAGE_DIVISOR: 10,        // Laser damage = weapon damage / 10
-  LASER_SPEED: 300,                // Laser travel speed (pixels/sec)
-  LASER_LENGTH: 20,                // Laser beam length (pixels)
-  LASER_COLOR: '#00ff00',          // Green color for lasers
 };
 
 /**
  * General game configuration constants.
  */
 export const GAME_CONFIG = {
+  MAX_ENEMIES_PASSED: 10,          // Maximum enemies that can pass through before game over
+  WARDEN_MAX_HEALTH: 100,          // Cardinal Warden maximum health
+  WAVE_DURATION_MS: 15000,         // Time per wave in milliseconds
+  BASE_ENEMY_SPAWN_INTERVAL_MS: 2000, // Base time between enemy spawns in milliseconds
+  BASE_BULLET_INTERVAL_MS: 500,    // Base time between bullet volleys in milliseconds
+  MAX_DELTA_TIME_MS: 33,           // Maximum delta time cap to prevent physics issues (ms)
+  BOSS_MIN_DIFFICULTY: 3,          // Minimum difficulty level required for boss spawning
+  BOSS_DIFFICULTY_SCALE: 0.2,      // Difficulty scaling factor for boss stats
+  BOSS_SPAWN_INTERVAL_MAX_REDUCTION: 20000, // Maximum reduction in boss spawn interval (ms)
+  BOSS_SPAWN_INTERVAL_REDUCTION_PER_LEVEL: 2000, // Reduction per difficulty level for boss spawn interval (ms)
+  BOSS_SPAWN_INTERVAL_MIN: 10000,  // Minimum boss spawn interval (ms)
   // Canvas aspect ratio (width:height)
   ASPECT_RATIO_WIDTH: 3,
   ASPECT_RATIO_HEIGHT: 4,
@@ -153,6 +178,176 @@ export const GAME_CONFIG = {
   // Visual effects
   BACKGROUND_COLOR: '#ffffff',     // Pure white background
   WARDEN_ORB_COLOR: '#ffcc00',     // Golden color for center orb
+};
+
+/**
+ * Boss type configurations for different boss classes.
+ */
+export const BOSS_TYPES = {
+  circleCarrier: {
+    speed: 15,
+    health: 30,
+    damage: 25,
+    size: 35,
+    scoreValue: 200,
+    color: '#000000',
+    rotationSpeed: 0.5, // Radians per second
+    spawnInterval: 3000, // ms between spawning ships
+    spawnCount: 3, // Ships spawned per interval
+  },
+  pyramidBoss: {
+    speed: 20,
+    health: 20,
+    damage: 20,
+    size: 28,
+    scoreValue: 150,
+    color: '#000000',
+    rotationSpeed: 0.8,
+    burstInterval: 2500, // Time between movement bursts
+    burstSpeed: 80, // Speed during burst
+  },
+  hexagonFortress: {
+    speed: 10,
+    health: 50,
+    damage: 30,
+    size: 45,
+    scoreValue: 300,
+    color: '#000000',
+    rotationSpeed: 0.3,
+    shieldRegenRate: 0.5, // Health regen per second
+  },
+  megaBoss: {
+    speed: 12,
+    health: 100,
+    damage: 50,
+    size: 55,
+    scoreValue: 500,
+    color: '#000000',
+    rotationSpeed: 0.4,
+    shieldRegenRate: 1.0,
+  },
+  ultraBoss: {
+    speed: 15,
+    health: 200,
+    damage: 75,
+    size: 65,
+    scoreValue: 1000,
+    color: '#000000',
+    rotationSpeed: 0.5,
+    shieldRegenRate: 2.0,
+  },
+};
+
+/**
+ * Weapon slot IDs for the Cardinal Warden.
+ */
+export const WEAPON_SLOT_IDS = ['slot1', 'slot2', 'slot3'];
+
+/**
+ * Simplified weapon definitions for the Cardinal Warden.
+ * Three weapons that fire simple bullets toward the click target.
+ * Each weapon has 8 grapheme slots where lexemes can be placed to modify behavior.
+ */
+export const WEAPON_SLOT_DEFINITIONS = {
+  slot1: {
+    id: 'slot1',
+    name: 'Weapon 1',
+    symbol: 'Ⅰ',
+    symbolGraphemeIndex: 26, // ThoughtSpeak number 1
+    description: '',
+    baseDamage: 1,
+    baseSpeed: 200,
+    baseFireRate: 2000, // 2 seconds
+    pattern: 'straight', // Simple straight bullet
+    color: '#d4af37', // Will be overridden by gradient
+    slotIndex: 0,
+  },
+  slot2: {
+    id: 'slot2',
+    name: 'Weapon 2',
+    symbol: 'Ⅱ',
+    symbolGraphemeIndex: 27, // ThoughtSpeak number 2
+    description: '',
+    baseDamage: 1,
+    baseSpeed: 200,
+    baseFireRate: 3000, // 3 seconds
+    pattern: 'straight',
+    color: '#ff9c66', // Will be overridden by gradient
+    slotIndex: 1,
+  },
+  slot3: {
+    id: 'slot3',
+    name: 'Weapon 3',
+    symbol: 'Ⅲ',
+    symbolGraphemeIndex: 28, // ThoughtSpeak number 3
+    description: '',
+    baseDamage: 1,
+    baseSpeed: 200,
+    baseFireRate: 5000, // 5 seconds
+    pattern: 'straight',
+    color: '#9a6bff', // Will be overridden by gradient
+    slotIndex: 2,
+  },
+};
+
+/**
+ * Legacy weapon definitions kept for reference but deactivated.
+ */
+export const LEGACY_WEAPON_DEFINITIONS = {
+  // All 9 previous weapons are now deactivated
+  // These definitions are kept for potential future lexeme system
+};
+
+/**
+ * Enemy type configurations for different difficulty tiers.
+ */
+export const ENEMY_TYPES = {
+  basic: {
+    speed: 80,
+    health: 1,
+    damage: 5,
+    size: 8,
+    scoreValue: 10,
+    color: '#000000',
+  },
+  fast: {
+    speed: 80,
+    health: 1,
+    damage: 3,
+    size: 6,
+    scoreValue: 15,
+    color: '#000000',
+  },
+  tank: {
+    speed: 25,
+    health: 3,
+    damage: 10,
+    size: 12,
+    scoreValue: 25,
+    color: '#000000',
+  },
+  elite: {
+    speed: 50,
+    health: 5,
+    damage: 15,
+    size: 10,
+    scoreValue: 50,
+    color: '#000000',
+  },
+  ricochet: {
+    speed: 70,
+    health: 2,
+    damage: 8,
+    size: 9,
+    scoreValue: 35,
+    color: '#000000',
+    trailLimit: 30,
+    trailRadiusScale: 0.2,
+    trailAlphaScale: 0.65,
+    maxSmokePuffs: 45,
+    initialStraightTime: 0.55,
+    turnIntervalRange: { min: 0.65, max: 1.2 },
+  },
 };
 
 
