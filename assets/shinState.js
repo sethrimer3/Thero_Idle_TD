@@ -30,6 +30,12 @@ const shinState = {
   graphemeUnlockCost: 250,          // Cost to unlock next grapheme
   dropChanceUpgradeCost: 100,       // Cost to upgrade drop chance
   dropChanceUpgradeLevel: 0,        // Number of drop chance upgrades purchased
+  purchasedWeapons: ['slot1'],      // Purchased weapons (weapon IDs) - starts with slot1
+  weaponAttackLevels: {},           // Attack upgrade levels per weapon { weaponId: level }
+  weaponSpeedLevels: {},            // Speed upgrade levels per weapon { weaponId: level }
+  unlockedSlots: {},                // Unlocked slots per weapon { weaponId: [slotIndices] } - starts empty, all locked
+  weaponUnlockCost: 100,            // Cost to unlock a weapon
+  slotUnlockCost: 100,              // Cost to unlock a grapheme slot
 };
 
 /**
@@ -123,6 +129,46 @@ export function initializeShinState(savedState = {}) {
     shinState.dropChanceUpgradeLevel = 0;
   }
   
+  // Initialize weapon purchase state
+  if (Array.isArray(savedState.purchasedWeapons)) {
+    shinState.purchasedWeapons = savedState.purchasedWeapons;
+  } else {
+    shinState.purchasedWeapons = ['slot1']; // Start with slot1 only
+  }
+  
+  // Initialize weapon upgrade levels
+  if (savedState.weaponAttackLevels !== undefined) {
+    shinState.weaponAttackLevels = savedState.weaponAttackLevels;
+  } else {
+    shinState.weaponAttackLevels = {};
+  }
+  
+  if (savedState.weaponSpeedLevels !== undefined) {
+    shinState.weaponSpeedLevels = savedState.weaponSpeedLevels;
+  } else {
+    shinState.weaponSpeedLevels = {};
+  }
+  
+  // Initialize unlocked slots
+  if (savedState.unlockedSlots !== undefined) {
+    shinState.unlockedSlots = savedState.unlockedSlots;
+  } else {
+    shinState.unlockedSlots = {};
+  }
+  
+  // Initialize unlock costs
+  if (savedState.weaponUnlockCost !== undefined) {
+    shinState.weaponUnlockCost = savedState.weaponUnlockCost;
+  } else {
+    shinState.weaponUnlockCost = 100;
+  }
+  
+  if (savedState.slotUnlockCost !== undefined) {
+    shinState.slotUnlockCost = savedState.slotUnlockCost;
+  } else {
+    shinState.slotUnlockCost = 100;
+  }
+  
   // Initialize tree fractal as unlocked by default
   if (!shinState.fractals['tree']) {
     shinState.fractals['tree'] = {
@@ -154,6 +200,14 @@ export function resetShinState() {
   shinState.graphemeUnlockCost = 250;
   shinState.dropChanceUpgradeCost = 100;
   shinState.dropChanceUpgradeLevel = 0;
+
+  // Reset weapon and slot state
+  shinState.purchasedWeapons = ['slot1']; // Start with slot1 only
+  shinState.weaponAttackLevels = {};
+  shinState.weaponSpeedLevels = {};
+  shinState.unlockedSlots = {};
+  shinState.weaponUnlockCost = 100;
+  shinState.slotUnlockCost = 100;
 
   // Rebuild fractal state map with only base progress unlocked by default.
   const resetFractals = {
@@ -222,6 +276,12 @@ export function getShinStateSnapshot() {
     graphemeUnlockCost: shinState.graphemeUnlockCost,
     dropChanceUpgradeCost: shinState.dropChanceUpgradeCost,
     dropChanceUpgradeLevel: shinState.dropChanceUpgradeLevel,
+    purchasedWeapons: [...shinState.purchasedWeapons],
+    weaponAttackLevels: { ...shinState.weaponAttackLevels },
+    weaponSpeedLevels: { ...shinState.weaponSpeedLevels },
+    unlockedSlots: { ...shinState.unlockedSlots },
+    weaponUnlockCost: shinState.weaponUnlockCost,
+    slotUnlockCost: shinState.slotUnlockCost,
   };
 }
 
@@ -884,3 +944,199 @@ export const getCollectedPhonemes = getCollectedGraphemes;
 export const getPhonemeCount = getGraphemeCount;
 export const getPhonemeCountsByChar = getGraphemeCountsByIndex;
 export const getPhonemeCharacters = getGraphemeCharacters;
+
+// ============================================================
+// Weapon and Slot Management System
+// ============================================================
+
+/**
+ * Check if a weapon has been purchased.
+ * @param {string} weaponId - The weapon ID to check
+ * @returns {boolean} True if the weapon is purchased
+ */
+export function isWeaponPurchased(weaponId) {
+  return shinState.purchasedWeapons.includes(weaponId);
+}
+
+/**
+ * Get all purchased weapon IDs.
+ * @returns {Array<string>} Array of purchased weapon IDs
+ */
+export function getPurchasedWeapons() {
+  return [...shinState.purchasedWeapons];
+}
+
+/**
+ * Purchase a weapon.
+ * @param {string} weaponId - The weapon ID to purchase
+ * @returns {Object} Result with success status
+ */
+export function purchaseWeapon(weaponId) {
+  if (isWeaponPurchased(weaponId)) {
+    return { success: false, message: 'Weapon already purchased' };
+  }
+  
+  const cost = shinState.weaponUnlockCost;
+  if (shinState.equivalenceBank < cost) {
+    return { success: false, message: 'Not enough Equivalence' };
+  }
+  
+  shinState.equivalenceBank -= cost;
+  shinState.purchasedWeapons.push(weaponId);
+  
+  return { success: true, cost };
+}
+
+/**
+ * Get weapon unlock cost.
+ * @returns {number} Cost in Equivalence
+ */
+export function getWeaponUnlockCost() {
+  return shinState.weaponUnlockCost;
+}
+
+/**
+ * Check if a specific slot in a weapon is unlocked.
+ * @param {string} weaponId - The weapon ID
+ * @param {number} slotIndex - The slot index (0-7)
+ * @returns {boolean} True if the slot is unlocked
+ */
+export function isSlotUnlocked(weaponId, slotIndex) {
+  if (!shinState.unlockedSlots[weaponId]) {
+    return false;
+  }
+  return shinState.unlockedSlots[weaponId].includes(slotIndex);
+}
+
+/**
+ * Get all unlocked slot indices for a weapon.
+ * @param {string} weaponId - The weapon ID
+ * @returns {Array<number>} Array of unlocked slot indices
+ */
+export function getUnlockedSlots(weaponId) {
+  return shinState.unlockedSlots[weaponId] ? [...shinState.unlockedSlots[weaponId]] : [];
+}
+
+/**
+ * Unlock a grapheme slot for a weapon.
+ * @param {string} weaponId - The weapon ID
+ * @param {number} slotIndex - The slot index (0-7)
+ * @returns {Object} Result with success status
+ */
+export function unlockSlot(weaponId, slotIndex) {
+  if (slotIndex < 0 || slotIndex > 7) {
+    return { success: false, message: 'Invalid slot index' };
+  }
+  
+  if (isSlotUnlocked(weaponId, slotIndex)) {
+    return { success: false, message: 'Slot already unlocked' };
+  }
+  
+  const cost = shinState.slotUnlockCost;
+  if (shinState.equivalenceBank < cost) {
+    return { success: false, message: 'Not enough Equivalence' };
+  }
+  
+  shinState.equivalenceBank -= cost;
+  
+  if (!shinState.unlockedSlots[weaponId]) {
+    shinState.unlockedSlots[weaponId] = [];
+  }
+  shinState.unlockedSlots[weaponId].push(slotIndex);
+  
+  return { success: true, cost };
+}
+
+/**
+ * Get slot unlock cost.
+ * @returns {number} Cost in Equivalence
+ */
+export function getSlotUnlockCost() {
+  return shinState.slotUnlockCost;
+}
+
+/**
+ * Get weapon attack upgrade level.
+ * @param {string} weaponId - The weapon ID
+ * @returns {number} Attack upgrade level (0 if never upgraded)
+ */
+export function getWeaponAttackLevel(weaponId) {
+  return shinState.weaponAttackLevels[weaponId] || 0;
+}
+
+/**
+ * Get weapon speed upgrade level.
+ * @param {string} weaponId - The weapon ID
+ * @returns {number} Speed upgrade level (0 if never upgraded)
+ */
+export function getWeaponSpeedLevel(weaponId) {
+  return shinState.weaponSpeedLevels[weaponId] || 0;
+}
+
+/**
+ * Calculate the cost for the next attack upgrade.
+ * @param {string} weaponId - The weapon ID
+ * @returns {number} Cost in Equivalence
+ */
+export function getAttackUpgradeCost(weaponId) {
+  const level = getWeaponAttackLevel(weaponId);
+  return Math.floor(100 * Math.pow(1.5, level));
+}
+
+/**
+ * Calculate the cost for the next speed upgrade.
+ * @param {string} weaponId - The weapon ID
+ * @returns {number} Cost in Equivalence
+ */
+export function getSpeedUpgradeCost(weaponId) {
+  const level = getWeaponSpeedLevel(weaponId);
+  return Math.floor(100 * Math.pow(1.5, level));
+}
+
+/**
+ * Upgrade weapon attack.
+ * @param {string} weaponId - The weapon ID
+ * @returns {Object} Result with success status and new level
+ */
+export function upgradeWeaponAttack(weaponId) {
+  const cost = getAttackUpgradeCost(weaponId);
+  
+  if (shinState.equivalenceBank < cost) {
+    return { success: false, message: 'Not enough Equivalence' };
+  }
+  
+  shinState.equivalenceBank -= cost;
+  
+  const currentLevel = getWeaponAttackLevel(weaponId);
+  shinState.weaponAttackLevels[weaponId] = currentLevel + 1;
+  
+  return {
+    success: true,
+    newLevel: shinState.weaponAttackLevels[weaponId],
+    cost
+  };
+}
+
+/**
+ * Upgrade weapon speed.
+ * @param {string} weaponId - The weapon ID
+ * @returns {Object} Result with success status and new level
+ */
+export function upgradeWeaponSpeed(weaponId) {
+  const cost = getSpeedUpgradeCost(weaponId);
+  
+  if (shinState.equivalenceBank < cost) {
+    return { success: false, message: 'Not enough Equivalence' };
+  }
+  
+  shinState.equivalenceBank -= cost;
+  
+  const currentLevel = getWeaponSpeedLevel(weaponId);
+  shinState.weaponSpeedLevels[weaponId] = currentLevel + 1;
+  
+  return {
+    success: true,
+    newLevel: shinState.weaponSpeedLevels[weaponId],
+    cost
+  };
+}

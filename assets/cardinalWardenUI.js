@@ -33,6 +33,20 @@ import {
   consumeGrapheme,
   returnGrapheme,
   hasAllGraphemesUnlocked,
+  isWeaponPurchased,
+  getPurchasedWeapons,
+  purchaseWeapon,
+  getWeaponUnlockCost,
+  isSlotUnlocked,
+  getUnlockedSlots,
+  unlockSlot,
+  getSlotUnlockCost,
+  getWeaponAttackLevel,
+  getWeaponSpeedLevel,
+  getAttackUpgradeCost,
+  getSpeedUpgradeCost,
+  upgradeWeaponAttack,
+  upgradeWeaponSpeed,
 } from './shinState.js';
 import { getShinVisualSettings } from './shinSpirePreferences.js';
 
@@ -66,7 +80,8 @@ const cardinalElements = {
   dropChanceDisplay: null,
   dropChanceUpgradeBtn: null,
   dropChanceCost: null,
-  waveStartSelect: null,
+  waveCarousel: null,
+  waveCarouselTrack: null,
   waveStartApplyBtn: null,
 };
 
@@ -269,7 +284,8 @@ export function initializeCardinalWardenUI() {
   cardinalElements.dropChanceDisplay = document.getElementById('shin-drop-chance-display');
   cardinalElements.dropChanceUpgradeBtn = document.getElementById('shin-drop-chance-upgrade-btn');
   cardinalElements.dropChanceCost = document.getElementById('shin-drop-chance-cost');
-  cardinalElements.waveStartSelect = document.getElementById('shin-wave-start-select');
+  cardinalElements.waveCarousel = document.getElementById('shin-wave-carousel');
+  cardinalElements.waveCarouselTrack = document.getElementById('shin-wave-carousel-track');
   cardinalElements.waveStartApplyBtn = document.getElementById('shin-wave-start-apply-btn');
 
   if (!cardinalElements.canvas) {
@@ -740,14 +756,28 @@ let waveStartConfirmationState = {
   originalText: ''
 };
 
+// Carousel state
+let carouselState = {
+  isDragging: false,
+  startY: 0,
+  startTranslate: 0,
+  currentTranslate: 0,
+  selectedIndex: 0,
+  availableWaves: [],
+  itemHeight: 40,
+};
+
 /**
- * Initialize the wave start selector.
+ * Initialize the wave start carousel.
  */
 function initializeWaveStartSelector() {
-  if (!cardinalElements.waveStartSelect || !cardinalElements.waveStartApplyBtn) return;
+  if (!cardinalElements.waveCarouselTrack || !cardinalElements.waveStartApplyBtn) return;
   
-  // Update the selector options based on highest wave reached
+  // Update the carousel items based on highest wave reached
   updateWaveStartOptions();
+  
+  // Set up carousel drag interaction
+  setupCarouselInteraction();
   
   // Handle apply button click with confirmation
   cardinalElements.waveStartApplyBtn.addEventListener('click', () => {
@@ -775,7 +805,7 @@ function initializeWaveStartSelector() {
     cardinalElements.waveStartApplyBtn.textContent = waveStartConfirmationState.originalText;
     cardinalElements.waveStartApplyBtn.style.color = '';
     
-    const selectedWave = parseInt(cardinalElements.waveStartSelect.value, 10);
+    const selectedWave = carouselState.availableWaves[carouselState.selectedIndex];
     if (!isNaN(selectedWave) && selectedWave >= 0) {
       startingWave = selectedWave;
       // Restart the simulation at the selected wave
@@ -795,28 +825,151 @@ function initializeWaveStartSelector() {
 }
 
 /**
- * Update the wave start selector options based on highest wave reached.
+ * Set up carousel drag/touch interaction.
+ */
+function setupCarouselInteraction() {
+  const track = cardinalElements.waveCarouselTrack;
+  if (!track) return;
+
+  const handleStart = (clientY) => {
+    carouselState.isDragging = true;
+    carouselState.startY = clientY;
+    carouselState.startTranslate = carouselState.currentTranslate;
+    track.classList.add('dragging');
+  };
+
+  const handleMove = (clientY) => {
+    if (!carouselState.isDragging) return;
+    
+    const deltaY = clientY - carouselState.startY;
+    carouselState.currentTranslate = carouselState.startTranslate + deltaY;
+    updateCarouselPosition();
+  };
+
+  const handleEnd = () => {
+    if (!carouselState.isDragging) return;
+    
+    carouselState.isDragging = false;
+    track.classList.remove('dragging');
+    
+    // Snap to nearest item
+    snapToNearestItem();
+  };
+
+  // Mouse events
+  track.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    handleStart(e.clientY);
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    handleMove(e.clientY);
+  });
+
+  document.addEventListener('mouseup', () => {
+    handleEnd();
+  });
+
+  // Touch events
+  track.addEventListener('touchstart', (e) => {
+    handleStart(e.touches[0].clientY);
+  });
+
+  track.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    handleMove(e.touches[0].clientY);
+  });
+
+  track.addEventListener('touchend', () => {
+    handleEnd();
+  });
+}
+
+/**
+ * Update carousel position without snapping.
+ */
+function updateCarouselPosition() {
+  const track = cardinalElements.waveCarouselTrack;
+  if (!track) return;
+  
+  track.style.transform = `translateY(${carouselState.currentTranslate}px)`;
+  updateCarouselSelection();
+}
+
+/**
+ * Snap to the nearest item and update selection.
+ */
+function snapToNearestItem() {
+  const itemCount = carouselState.availableWaves.length;
+  if (itemCount === 0) return;
+  
+  // Calculate which item should be selected based on position
+  // Center of carousel is at 60px (half of 120px height)
+  const centerOffset = 60 - (carouselState.itemHeight / 2);
+  const rawIndex = Math.round(-carouselState.currentTranslate / carouselState.itemHeight + centerOffset / carouselState.itemHeight);
+  
+  // Clamp to valid range
+  carouselState.selectedIndex = Math.max(0, Math.min(itemCount - 1, rawIndex));
+  
+  // Calculate target position to center the selected item
+  carouselState.currentTranslate = centerOffset - (carouselState.selectedIndex * carouselState.itemHeight);
+  
+  updateCarouselPosition();
+}
+
+/**
+ * Update which item appears selected based on current position.
+ */
+function updateCarouselSelection() {
+  const track = cardinalElements.waveCarouselTrack;
+  if (!track) return;
+  
+  const items = track.querySelectorAll('.shin-wave-carousel-item');
+  const centerOffset = 60;
+  
+  items.forEach((item, index) => {
+    const itemCenter = carouselState.currentTranslate + (index * carouselState.itemHeight) + (carouselState.itemHeight / 2);
+    const distance = Math.abs(itemCenter - centerOffset);
+    
+    if (distance < carouselState.itemHeight / 2) {
+      item.classList.add('selected');
+    } else {
+      item.classList.remove('selected');
+    }
+  });
+}
+
+/**
+ * Update the wave start carousel items based on highest wave reached.
  */
 function updateWaveStartOptions() {
-  if (!cardinalElements.waveStartSelect) return;
+  if (!cardinalElements.waveCarouselTrack) return;
   
-  // Clear existing options
-  cardinalElements.waveStartSelect.innerHTML = '';
+  // Clear existing items
+  cardinalElements.waveCarouselTrack.innerHTML = '';
   
-  // Always add wave 1 option
-  const defaultOption = document.createElement('option');
-  defaultOption.value = '0';
-  defaultOption.textContent = 'Wave 1 (Default)';
-  cardinalElements.waveStartSelect.appendChild(defaultOption);
+  // Build list of available waves
+  carouselState.availableWaves = [0]; // Wave 1 (0-indexed)
   
-  // Add options for every multiple of 10 waves reached
   const highestWaveReached = cardinalHighestWave + 1; // Convert to 1-indexed
   for (let wave = 10; wave <= highestWaveReached; wave += 10) {
-    const option = document.createElement('option');
-    option.value = (wave - 1).toString(); // Convert to 0-indexed
-    option.textContent = `Wave ${wave}`;
-    cardinalElements.waveStartSelect.appendChild(option);
+    carouselState.availableWaves.push(wave - 1); // Store as 0-indexed
   }
+  
+  // Create carousel items
+  carouselState.availableWaves.forEach((waveIndex, index) => {
+    const item = document.createElement('div');
+    item.className = 'shin-wave-carousel-item';
+    const displayWave = waveIndex + 1; // Display as 1-indexed
+    item.textContent = displayWave === 1 ? 'Wave 1' : `Wave ${displayWave}`;
+    item.dataset.waveIndex = waveIndex;
+    cardinalElements.waveCarouselTrack.appendChild(item);
+  });
+  
+  // Initialize position to center first item
+  carouselState.selectedIndex = 0;
+  carouselState.currentTranslate = 60 - (carouselState.itemHeight / 2);
+  updateCarouselPosition();
 }
 
 /**
