@@ -87,7 +87,25 @@ export function renderTowerSelectionWheel() {
     item.type = 'button';
     item.className = 'tower-loadout-wheel__item';
     item.dataset.towerId = definition.id;
-    item.dataset.distance = String(Math.abs(index - clampedIndex));
+    
+    // Calculate initial distance and styling for smooth wheel effect
+    const distance = Math.abs(index - clampedIndex);
+    const roundedDistance = Math.round(distance);
+    item.dataset.distance = String(roundedDistance);
+    item.style.setProperty('--item-distance', distance.toFixed(3));
+    
+    // Set initial opacity and scale based on distance
+    let opacity = 1.0;
+    let scale = 1.0;
+    if (distance > 0) {
+      opacity = Math.max(0, Math.min(1.0, 1.0 - (distance * 0.35)));
+      scale = Math.max(0.75, 1.0 - (distance * 0.08));
+    }
+    item.style.opacity = opacity.toFixed(3);
+    item.style.transform = `scale(${scale.toFixed(3)})`;
+    if (distance > 2.5) {
+      item.style.pointerEvents = 'none';
+    }
 
     if (definition.id === 'sell') {
       item.dataset.role = 'sell';
@@ -482,9 +500,35 @@ export function updateTowerSelectionWheelDistances() {
   }
   const focusIndex = Number.isFinite(wheel.focusIndex) ? wheel.focusIndex : wheel.activeIndex;
   Array.from(wheel.list.children).forEach((child, index) => {
-    // Calculate distance without clamping to allow CSS to hide items beyond distance 2
-    const distance = Math.round(Math.abs(index - focusIndex));
-    child.dataset.distance = String(distance);
+    // Calculate distance without rounding to allow smooth transitions
+    const distance = Math.abs(index - focusIndex);
+    const roundedDistance = Math.round(distance);
+    
+    // Set both the rounded distance (for CSS selectors) and exact distance (for smooth scaling)
+    child.dataset.distance = String(roundedDistance);
+    child.style.setProperty('--item-distance', distance.toFixed(3));
+    
+    // Calculate opacity and scale based on exact distance for smooth wheel effect
+    let opacity = 1.0;
+    let scale = 1.0;
+    
+    if (distance > 0) {
+      // Linear falloff for opacity: 1.0 at distance 0, 0.70 at distance 1, 0.30 at distance 2, 0 beyond
+      opacity = Math.max(0, Math.min(1.0, 1.0 - (distance * 0.35)));
+      // Scale falloff: 1.0 at distance 0, 0.92 at distance 1, 0.84 at distance 2, continues to shrink
+      scale = Math.max(0.75, 1.0 - (distance * 0.08));
+    }
+    
+    // Apply the calculated values directly to the element for smooth transitions
+    child.style.opacity = opacity.toFixed(3);
+    child.style.transform = `scale(${scale.toFixed(3)})`;
+    
+    // Hide items beyond distance 2.5 to keep the wheel focused
+    if (distance > 2.5) {
+      child.style.pointerEvents = 'none';
+    } else {
+      child.style.pointerEvents = 'auto';
+    }
   });
 }
 
