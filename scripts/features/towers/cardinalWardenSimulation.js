@@ -68,102 +68,18 @@ import {
   SPREAD_CONFIG,
   ELEMENTAL_CONFIG,
   MASSIVE_BULLET_CONFIG,
+  BEAM_CONFIG,
+  MINE_CONFIG,
+  SWARM_CONFIG,
+  GAME_CONFIG,
+  BOSS_TYPES,
+  WEAPON_SLOT_IDS,
+  WEAPON_SLOT_DEFINITIONS,
+  LEGACY_WEAPON_DEFINITIONS,
+  ENEMY_TYPES,
 } from './cardinalWardenConfig.js';
 
-/**
- * Beam mechanics constants for grapheme L (index 11).
- * Converts bullets into continuous beams.
- */
-const BEAM_CONFIG = {
-  // Beam damage is tower damage × shots per second
-  // Damage is applied 4 times per second when enemy is in contact
-  DAMAGE_TICKS_PER_SECOND: 4,
-  // Visual beam width (pixels)
-  BEAM_WIDTH: 3,
-  // Beam color alpha (transparency)
-  BEAM_ALPHA: 0.8,
-  // Maximum beam length (pixels) - extends to edge of canvas
-  MAX_BEAM_LENGTH: 10000,
-};
-
-/**
- * Mine mechanics constants for grapheme M (index 12).
- * Spawns drifting mines that explode on enemy contact.
- */
-const MINE_CONFIG = {
-  // Mine spawn rate divisor: (shots per second) / this value
-  SPAWN_RATE_DIVISOR: 20,
-  // Mine drift speed (pixels per second)
-  DRIFT_SPEED: 30,
-  // Mine size (radius in pixels)
-  MINE_SIZE: 5,
-  // Explosion damage multiplier (damage = base weapon damage × this)
-  EXPLOSION_DAMAGE_MULTIPLIER: 100,
-  // Explosion wave diameter divisor (diameter = canvas.width / this)
-  EXPLOSION_DIAMETER_DIVISOR: 10,
-  // Explosion wave expansion duration (seconds)
-  EXPLOSION_DURATION: 1.5,
-  // Mine lifetime before auto-despawn (seconds)
-  MINE_LIFETIME: 10,
-};
-
-/**
- * Swarm ship mechanics constants for grapheme N (index 13).
- * Spawns tiny friendly triangle ships that swarm around the aim target.
- */
-const SWARM_CONFIG = {
-  // Number of ships = (total graphemes) / this divisor, max 100
-  GRAPHEME_COUNT_DIVISOR: 10,
-  // Maximum number of swarm ships
-  MAX_SWARM_SHIPS: 100,
-  // Ship size (triangle base width in pixels)
-  SHIP_SIZE: 8,
-  // Ship movement speed (pixels per second)
-  MOVEMENT_SPEED: 100,
-  // Random movement range around target (pixels)
-  SWARM_RADIUS: 80,
-  // Trail length for visual effect
-  TRAIL_LENGTH: 15,
-  // Laser fire rate divisor: weapon attack speed / this value
-  FIRE_RATE_DIVISOR: 10,
-  // Laser damage divisor: weapon damage / this value
-  DAMAGE_DIVISOR: 10,
-  // Laser speed (pixels per second)
-  LASER_SPEED: 300,
-  // Laser size (length × width in pixels)
-  LASER_LENGTH: 10,
-  LASER_WIDTH: 2,
-  // Laser color (green)
-  LASER_COLOR: '#00ff00',
-};
-
-/**
- * Game configuration constants.
- */
-const GAME_CONFIG = {
-  // Maximum enemies that can pass through before game over
-  MAX_ENEMIES_PASSED: 10,
-  // Cardinal Warden maximum health
-  WARDEN_MAX_HEALTH: 100,
-  // Time per wave in milliseconds
-  WAVE_DURATION_MS: 15000,
-  // Base time between enemy spawns in milliseconds
-  BASE_ENEMY_SPAWN_INTERVAL_MS: 2000,
-  // Base time between bullet volleys in milliseconds
-  BASE_BULLET_INTERVAL_MS: 500,
-  // Maximum delta time cap to prevent physics issues (ms)
-  MAX_DELTA_TIME_MS: 33,
-  // Minimum difficulty level required for boss spawning
-  BOSS_MIN_DIFFICULTY: 3,
-  // Difficulty scaling factor for boss stats
-  BOSS_DIFFICULTY_SCALE: 0.2,
-  // Maximum reduction in boss spawn interval (ms)
-  BOSS_SPAWN_INTERVAL_MAX_REDUCTION: 20000,
-  // Reduction per difficulty level for boss spawn interval (ms)
-  BOSS_SPAWN_INTERVAL_REDUCTION_PER_LEVEL: 2000,
-  // Minimum boss spawn interval (ms)
-  BOSS_SPAWN_INTERVAL_MIN: 10000,
-};
+// Configuration constants now imported from cardinalWardenConfig.js
 
 /**
  * Lighten a hex color by blending it toward white.
@@ -1256,60 +1172,7 @@ class RicochetSkimmer extends EnemyShip {
  * Boss ship types available in the game.
  * These are larger, more dangerous enemies that appear periodically.
  */
-const BOSS_TYPES = {
-  circleCarrier: {
-    speed: 15,
-    health: 30,
-    damage: 25,
-    size: 35,
-    scoreValue: 200,
-    color: '#000000',
-    rotationSpeed: 0.5, // Radians per second
-    spawnInterval: 3000, // ms between spawning ships
-    spawnCount: 3, // Ships spawned per interval
-  },
-  pyramidBoss: {
-    speed: 20,
-    health: 20,
-    damage: 20,
-    size: 28,
-    scoreValue: 150,
-    color: '#000000',
-    rotationSpeed: 0.8,
-    burstInterval: 2500, // Time between movement bursts
-    burstSpeed: 80, // Speed during burst
-  },
-  hexagonFortress: {
-    speed: 10,
-    health: 50,
-    damage: 30,
-    size: 45,
-    scoreValue: 300,
-    color: '#000000',
-    rotationSpeed: 0.3,
-    shieldRegenRate: 0.5, // Health regen per second
-  },
-  megaBoss: {
-    speed: 12,
-    health: 100,
-    damage: 50,
-    size: 55,
-    scoreValue: 500,
-    color: '#000000',
-    rotationSpeed: 0.4,
-    shieldRegenRate: 1.0,
-  },
-  ultraBoss: {
-    speed: 15,
-    health: 200,
-    damage: 75,
-    size: 65,
-    scoreValue: 1000,
-    color: '#000000',
-    rotationSpeed: 0.5,
-    shieldRegenRate: 2.0,
-  },
-};
+// BOSS_TYPES now imported from cardinalWardenConfig.js
 
 /**
  * Circle Carrier Boss - A large circular ship that slowly rotates and periodically
@@ -2473,63 +2336,8 @@ class MathBullet {
   }
 }
 
-/**
- * Weapon slot IDs in order.
- */
-const WEAPON_SLOT_IDS = ['slot1', 'slot2', 'slot3'];
-
-/**
- * Simplified weapon definitions for the Cardinal Warden.
- * Three weapons that fire simple bullets toward the click target.
- * Each weapon has 8 grapheme slots where lexemes can be placed to modify behavior.
- */
-const WEAPON_SLOT_DEFINITIONS = {
-  slot1: {
-    id: 'slot1',
-    name: 'Weapon 1',
-    symbol: 'Ⅰ',
-    symbolGraphemeIndex: 26, // ThoughtSpeak number 1
-    description: '',
-    baseDamage: 1,
-    baseSpeed: 200,
-    baseFireRate: 2000, // 2 seconds
-    pattern: 'straight', // Simple straight bullet
-    color: '#d4af37', // Will be overridden by gradient
-    slotIndex: 0,
-  },
-  slot2: {
-    id: 'slot2',
-    name: 'Weapon 2',
-    symbol: 'Ⅱ',
-    symbolGraphemeIndex: 27, // ThoughtSpeak number 2
-    description: '',
-    baseDamage: 1,
-    baseSpeed: 200,
-    baseFireRate: 3000, // 3 seconds
-    pattern: 'straight',
-    color: '#ff9c66', // Will be overridden by gradient
-    slotIndex: 1,
-  },
-  slot3: {
-    id: 'slot3',
-    name: 'Weapon 3',
-    symbol: 'Ⅲ',
-    symbolGraphemeIndex: 28, // ThoughtSpeak number 3
-    description: '',
-    baseDamage: 1,
-    baseSpeed: 200,
-    baseFireRate: 5000, // 5 seconds
-    pattern: 'straight',
-    color: '#9a6bff', // Will be overridden by gradient
-    slotIndex: 2,
-  },
-};
-
-// Legacy weapon definitions kept for reference but deactivated
-const LEGACY_WEAPON_DEFINITIONS = {
-  // All 9 previous weapons are now deactivated
-  // These definitions are kept for potential future lexeme system
-};
+// WEAPON_SLOT_IDS, WEAPON_SLOT_DEFINITIONS, LEGACY_WEAPON_DEFINITIONS, and ENEMY_TYPES
+// now imported from cardinalWardenConfig.js
 
 /**
  * Get all available weapon slot IDs.
@@ -2544,58 +2352,6 @@ export function getWeaponIds() {
 export function getWeaponDefinition(weaponId) {
   return WEAPON_SLOT_DEFINITIONS[weaponId] || null;
 }
-
-/**
- * Enemy type configurations for different difficulty tiers.
- */
-const ENEMY_TYPES = {
-  basic: {
-    speed: 80,
-    health: 1,
-    damage: 5,
-    size: 8,
-    scoreValue: 10,
-    color: '#000000',
-  },
-  fast: {
-    speed: 80,
-    health: 1,
-    damage: 3,
-    size: 6,
-    scoreValue: 15,
-    color: '#000000',
-  },
-  tank: {
-    speed: 25,
-    health: 3,
-    damage: 10,
-    size: 12,
-    scoreValue: 25,
-    color: '#000000',
-  },
-  elite: {
-    speed: 50,
-    health: 5,
-    damage: 15,
-    size: 10,
-    scoreValue: 50,
-    color: '#000000',
-  },
-  ricochet: {
-    speed: 70,
-    health: 2,
-    damage: 8,
-    size: 9,
-    scoreValue: 35,
-    color: '#000000',
-    trailLimit: 30,
-    trailRadiusScale: 0.2,
-    trailAlphaScale: 0.65,
-    maxSmokePuffs: 45,
-    initialStraightTime: 0.55,
-    turnIntervalRange: { min: 0.65, max: 1.2 },
-  },
-};
 
 /**
  * Main Cardinal Warden reverse danmaku simulation.

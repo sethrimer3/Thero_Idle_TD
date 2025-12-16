@@ -1,8 +1,21 @@
 import { getCachedKufMaps, onKufMapsReady } from './kufMapData.js';
 import { isLowGraphicsModeActive } from './preferences.js';
-
-// Default map identifier used when the external dataset is unavailable.
-const KUF_FALLBACK_MAP_ID = 'forward-bastion';
+import {
+  KUF_FALLBACK_MAP_ID,
+  MARINE_CONFIG,
+  SNIPER_CONFIG,
+  SPLAYER_CONFIG,
+  TURRET_CONFIG,
+  BIG_TURRET_CONFIG,
+  MELEE_UNIT_CONFIG,
+  RANGED_UNIT_CONFIG,
+  STRUCTURE_CONFIG,
+  PROJECTILE_SPEEDS,
+  RENDERING_CONFIG,
+  CAMERA_CONFIG,
+  GAMEPLAY_CONFIG,
+  GRID_UNIT,
+} from './kufSimulationConfig.js';
 // Mirror the latest loaded map data so new simulation instances can start in sync.
 let sharedAvailableKufMaps = getCachedKufMaps();
 let sharedDefaultKufMapId = sharedAvailableKufMaps[0]?.id || KUF_FALLBACK_MAP_ID;
@@ -20,48 +33,57 @@ onKufMapsReady((maps) => {
  * either side is defeated.
  */
 
+// All configuration constants now imported from kufSimulationConfig.js
+// Legacy constant names mapped to new config structure for backward compatibility
+const MARINE_MOVE_SPEED = MARINE_CONFIG.MOVE_SPEED;
+const MARINE_ACCELERATION = MARINE_CONFIG.ACCELERATION;
+const MARINE_RANGE = MARINE_CONFIG.RANGE;
+const MARINE_RADIUS = MARINE_CONFIG.RADIUS;
+const MARINE_BULLET_SPEED = MARINE_CONFIG.BULLET_SPEED;
 
-const MARINE_MOVE_SPEED = 70; // Pixels per second.
-const MARINE_ACCELERATION = 120; // Pixels per second squared.
-const MARINE_RANGE = 160; // Attack range in pixels.
-const MARINE_RADIUS = 3.6; // 20% of original 18
-const SNIPER_RADIUS = 3.2; // 20% of original 16
-const SNIPER_RANGE = 280;
-const SPLAYER_RADIUS = 4; // 20% of original 20
-const SPLAYER_RANGE = 200;
-const TURRET_RADIUS = 2.4; // 20% of original 12
-const TURRET_RANGE = 200;
-const BIG_TURRET_RADIUS = 4.8; // 2x turret size
-const BIG_TURRET_RANGE = 250;
-const MELEE_UNIT_RADIUS = 3.2;
-const MELEE_UNIT_RANGE = 20;
-const MELEE_UNIT_SIGHT_RANGE = 150;
-const MELEE_UNIT_SPEED = 60;
-const RANGED_UNIT_RADIUS = 3.0;
-const RANGED_UNIT_RANGE = 120;
-const RANGED_UNIT_SIGHT_RANGE = 180;
-const RANGED_UNIT_SPEED = 50;
-const BARRACKS_RADIUS = 6;
-const MINE_RADIUS = 2;
-const MINE_EXPLOSION_RADIUS = 60;
-const WALL_RADIUS = 8;
-const MARINE_BULLET_SPEED = 360;
-const SNIPER_BULLET_SPEED = 500;
-const SPLAYER_ROCKET_SPEED = 200;
-const TURRET_BULLET_SPEED = 280;
-const PLASMA_BULLET_SPEED = 260;
-const TRAIL_ALPHA = 0.22;
-const LOW_TRAIL_ALPHA = 0.14; // Softer fade for lightweight rendering while preserving trails.
-const HIGH_QUALITY_FRAME_BUDGET_MS = 18; // Target frame cost before we start trimming glow work.
-const FRAME_COST_SMOOTHING = 0.08; // Exponential smoothing factor for frame time measurements.
-const CAMERA_PAN_SPEED = 1.2;
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 2.0;
-const SPAWN_AREA_MARGIN = 24; // Margin in pixels from canvas edge for spawn area.
-const BULLET_CULLING_MARGIN = 400; // World-space margin for keeping bullets alive during camera movement.
+const SNIPER_RADIUS = SNIPER_CONFIG.RADIUS;
+const SNIPER_RANGE = SNIPER_CONFIG.RANGE;
+const SNIPER_BULLET_SPEED = SNIPER_CONFIG.BULLET_SPEED;
 
-// Grid system: 1 grid unit = 5 * marine diameter = 5 * (2 * MARINE_RADIUS) = 36 pixels
-const GRID_UNIT = 5 * (2 * MARINE_RADIUS); // 36 pixels
+const SPLAYER_RADIUS = SPLAYER_CONFIG.RADIUS;
+const SPLAYER_RANGE = SPLAYER_CONFIG.RANGE;
+const SPLAYER_ROCKET_SPEED = SPLAYER_CONFIG.ROCKET_SPEED;
+
+const TURRET_RADIUS = TURRET_CONFIG.RADIUS;
+const TURRET_RANGE = TURRET_CONFIG.RANGE;
+const TURRET_BULLET_SPEED = TURRET_CONFIG.BULLET_SPEED;
+
+const BIG_TURRET_RADIUS = BIG_TURRET_CONFIG.RADIUS;
+const BIG_TURRET_RANGE = BIG_TURRET_CONFIG.RANGE;
+
+const MELEE_UNIT_RADIUS = MELEE_UNIT_CONFIG.RADIUS;
+const MELEE_UNIT_RANGE = MELEE_UNIT_CONFIG.RANGE;
+const MELEE_UNIT_SIGHT_RANGE = MELEE_UNIT_CONFIG.SIGHT_RANGE;
+const MELEE_UNIT_SPEED = MELEE_UNIT_CONFIG.SPEED;
+
+const RANGED_UNIT_RADIUS = RANGED_UNIT_CONFIG.RADIUS;
+const RANGED_UNIT_RANGE = RANGED_UNIT_CONFIG.RANGE;
+const RANGED_UNIT_SIGHT_RANGE = RANGED_UNIT_CONFIG.SIGHT_RANGE;
+const RANGED_UNIT_SPEED = RANGED_UNIT_CONFIG.SPEED;
+
+const BARRACKS_RADIUS = STRUCTURE_CONFIG.BARRACKS_RADIUS;
+const MINE_RADIUS = STRUCTURE_CONFIG.MINE_RADIUS;
+const MINE_EXPLOSION_RADIUS = STRUCTURE_CONFIG.MINE_EXPLOSION_RADIUS;
+const WALL_RADIUS = STRUCTURE_CONFIG.WALL_RADIUS;
+
+const PLASMA_BULLET_SPEED = PROJECTILE_SPEEDS.PLASMA_BULLET_SPEED;
+
+const TRAIL_ALPHA = RENDERING_CONFIG.TRAIL_ALPHA;
+const LOW_TRAIL_ALPHA = RENDERING_CONFIG.LOW_TRAIL_ALPHA;
+const HIGH_QUALITY_FRAME_BUDGET_MS = RENDERING_CONFIG.HIGH_QUALITY_FRAME_BUDGET_MS;
+const FRAME_COST_SMOOTHING = RENDERING_CONFIG.FRAME_COST_SMOOTHING;
+
+const CAMERA_PAN_SPEED = CAMERA_CONFIG.PAN_SPEED;
+const MIN_ZOOM = CAMERA_CONFIG.MIN_ZOOM;
+const MAX_ZOOM = CAMERA_CONFIG.MAX_ZOOM;
+
+const SPAWN_AREA_MARGIN = GAMEPLAY_CONFIG.SPAWN_AREA_MARGIN;
+const BULLET_CULLING_MARGIN = GAMEPLAY_CONFIG.BULLET_CULLING_MARGIN;
 
 /**
  * @typedef {Object} KufSimulationConfig
