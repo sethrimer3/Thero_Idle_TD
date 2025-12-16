@@ -1609,35 +1609,13 @@ body.graphics-mode-low .control-button {
   border: none;
   background: transparent;
   box-shadow: none;
-  opacity: 1;
-  transition: transform var(--transition), opacity var(--transition), border-color var(--transition);
+  /* Opacity and transform are now set inline by JavaScript for smooth wheel transitions */
+  transition: transform 140ms ease-out, opacity 140ms ease-out, border-color var(--transition);
 }
 
-.tower-loadout-wheel__item[data-distance='1'] {
-  opacity: 0.70;
-  transform: scale(0.92);
-}
-
-.tower-loadout-wheel__item[data-distance='2'] {
-  opacity: 0.30;
-  transform: scale(0.84);
-}
-
-/* Hide all items beyond distance 2 to show only 5 options at a time (center ± 2) */
-.tower-loadout-wheel__item[data-distance='3'],
-.tower-loadout-wheel__item[data-distance='4'],
-.tower-loadout-wheel__item[data-distance='5'],
-.tower-loadout-wheel__item[data-distance='6'],
-.tower-loadout-wheel__item[data-distance='7'],
-.tower-loadout-wheel__item[data-distance='8'],
-.tower-loadout-wheel__item[data-distance='9'] {
-  opacity: 0;
-  pointer-events: none;
-  transform: scale(0.75);
-}
-
+/* Affordability reduces opacity slightly to indicate unaffordable options */
 .tower-loadout-wheel__item[data-affordable='false'] {
-  opacity: 0.65;
+  opacity: 0.65 !important;
 }
 
 .tower-loadout-wheel__item[data-affordable='false'] .tower-loadout-wheel__cost {
