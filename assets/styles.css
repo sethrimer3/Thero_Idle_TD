@@ -310,6 +310,64 @@ body.graphics-mode-low .control-button {
   }
 }
 
+/* Cognitive Realm Territories Map */
+.cognitive-realm-section {
+  margin-top: clamp(24px, 5vw, 36px);
+  margin-bottom: clamp(24px, 5vw, 36px);
+}
+
+.subsection-title--cognitive-realm {
+  margin-bottom: 12px;
+  text-align: center;
+  font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  text-shadow: 0 0 14px rgba(139, 247, 255, 0.35);
+}
+
+.cognitive-realm-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 16px;
+  font-style: italic;
+  letter-spacing: 0.05em;
+}
+
+.cognitive-realm-container {
+  position: relative;
+  width: 100%;
+  height: clamp(280px, 50vh, 440px);
+  background: rgba(11, 11, 15, 0.95);
+  border: 1px solid rgba(139, 247, 255, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.6), var(--shadow);
+}
+
+.cognitive-realm-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.cognitive-realm-canvas:active {
+  cursor: grabbing;
+}
+
+@media (max-width: 640px) {
+  .cognitive-realm-container {
+    height: clamp(240px, 45vh, 360px);
+  }
+  
+  .cognitive-realm-hint {
+    font-size: 0.7rem;
+  }
+}
+
 .status-bar {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
