@@ -44,6 +44,10 @@ const COLOR_BACKGROUND_BLUE = 'rgba(64, 112, 160, 0.2)';
 const COLOR_BACKGROUND_EMBER = 'rgba(120, 40, 60, 0.25)';
 const BACKGROUND_NEURON_COUNT = 72;
 const FLOATING_LIGHT_COUNT = 56;
+const PARALLAX_LAYERS = 7;
+const COLOR_PLAYER_GLOW = 'rgba(160, 242, 255, 0.36)';
+const COLOR_ENEMY_GLOW = 'rgba(255, 84, 130, 0.36)';
+const COLOR_NEUTRAL_GLOW = 'rgba(255, 221, 120, 0.32)';
 
 // Zoom and pan state
 let currentZoom = 1.0;
@@ -54,6 +58,7 @@ let lastPointerX = 0;
 let lastPointerY = 0;
 let pointerStartX = 0;
 let pointerStartY = 0;
+let pointerMoved = false;
 
 // Canvas and container references
 let mapCanvas = null;
@@ -98,23 +103,58 @@ function getNodeLabel(territory) {
 
 // Seed background neuron wisps and floating lights for parallax depth
 function seedBackgroundElements(width, height) {
-  parallaxNeurons = Array.from({ length: BACKGROUND_NEURON_COUNT }, (_, index) => ({
-    x: Math.random(),
-    y: Math.random(),
-    depth: 0.35 + Math.random() * 0.65,
-    sway: 6 + Math.random() * 14,
-    speed: 0.04 + Math.random() * 0.06,
-    phase: organicNoise(index + 1) * Math.PI * 2,
-  }));
+  parallaxNeurons = Array.from({ length: BACKGROUND_NEURON_COUNT }, (_, index) => {
+    const layer = index % PARALLAX_LAYERS;
+    const depth = (layer + 1) / PARALLAX_LAYERS;
+    return {
+      x: Math.random(),
+      y: Math.random(),
+      depth,
+      layer,
+      sway: 6 + Math.random() * 14,
+      speed: 0.03 + Math.random() * 0.07,
+      phase: organicNoise(index + 1) * Math.PI * 2,
+    };
+  });
 
-  floatingLights = Array.from({ length: FLOATING_LIGHT_COUNT }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
-    vx: (Math.random() - 0.5) * 0.12,
-    vy: (Math.random() - 0.5) * 0.12,
-    size: 1.5 + Math.random() * 2.2,
-    hue: Math.random() < 0.6 ? 'player' : 'enemy',
-  }));
+  floatingLights = Array.from({ length: FLOATING_LIGHT_COUNT }, (_, index) => {
+    const ownershipRoll = Math.random();
+    const hue = ownershipRoll < 0.4 ? 'player' : ownershipRoll < 0.8 ? 'enemy' : 'neutral';
+    return {
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.12,
+      vy: (Math.random() - 0.5) * 0.12,
+      size: 0.9 + Math.random() * 3.6,
+      hue,
+      layer: index % PARALLAX_LAYERS,
+    };
+  });
+}
+
+// Clamp pan offsets so the map cannot drift too far off-screen
+function clampPanToBounds() {
+  if (!mapCanvas) {
+    return;
+  }
+
+  const dpr = window.devicePixelRatio || 1;
+  const width = mapCanvas.width / dpr;
+  const height = mapCanvas.height / dpr;
+
+  const gridDims = getGridDimensions();
+  const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+
+  const mapWidth = totalWidth * currentZoom;
+  const mapHeight = totalHeight * currentZoom;
+  const panMargin = MAP_PADDING + 40;
+
+  const maxPanX = Math.max(0, (mapWidth - width) / 2 + panMargin);
+  const maxPanY = Math.max(0, (mapHeight - height) / 2 + panMargin);
+
+  currentPanX = Math.min(maxPanX, Math.max(-maxPanX, currentPanX));
+  currentPanY = Math.min(maxPanY, Math.max(-maxPanY, currentPanY));
 }
 
 /**
@@ -172,6 +212,7 @@ function resizeCanvas() {
   }
 
   seedBackgroundElements(width, height);
+  clampPanToBounds();
 }
 
 /**
@@ -189,36 +230,43 @@ function bindMapInteractions() {
     lastPointerY = e.clientY;
     pointerStartX = e.clientX;
     pointerStartY = e.clientY;
+    pointerMoved = false;
     mapCanvas.style.cursor = 'grabbing';
   });
-  
+
   // Pointer move - pan the map
   mapCanvas.addEventListener('pointermove', (e) => {
     if (!isDragging) {
       return;
     }
-    
+
     const deltaX = e.clientX - lastPointerX;
     const deltaY = e.clientY - lastPointerY;
-    
+
+    pointerMoved =
+      pointerMoved ||
+      Math.abs(e.clientX - pointerStartX) > 4 ||
+      Math.abs(e.clientY - pointerStartY) > 4;
+
     currentPanX += deltaX;
     currentPanY += deltaY;
-    
+
+    clampPanToBounds();
+
     lastPointerX = e.clientX;
     lastPointerY = e.clientY;
   });
   
   // Pointer up - stop dragging or handle click
   mapCanvas.addEventListener('pointerup', (e) => {
-    const wasDragging = isDragging;
     isDragging = false;
     mapCanvas.style.cursor = 'grab';
-    
+
     // Only treat as click if pointer didn't move much
     const deltaX = Math.abs(e.clientX - pointerStartX);
     const deltaY = Math.abs(e.clientY - pointerStartY);
-    const isClick = deltaX < 5 && deltaY < 5 && !wasDragging;
-    
+    const isClick = deltaX < 5 && deltaY < 5 && !pointerMoved;
+
     if (isClick) {
       handleNodeClick(e);
     }
@@ -233,12 +281,13 @@ function bindMapInteractions() {
   // Wheel - zoom
   mapCanvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    
+
     const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
     const newZoom = currentZoom * zoomDelta;
-    
+
     // Clamp zoom between configured limits
     currentZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+    clampPanToBounds();
   }, { passive: false });
   
   // Touch gestures for pinch zoom
@@ -264,9 +313,10 @@ function bindMapInteractions() {
       
       const scale = distance / touchStartDistance;
       const newZoom = touchStartZoom * scale;
-      
+
       // Clamp zoom between configured limits
       currentZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+      clampPanToBounds();
     }
   }, { passive: false });
   
@@ -275,6 +325,7 @@ function bindMapInteractions() {
     currentZoom = 1.0;
     currentPanX = 0;
     currentPanY = 0;
+    clampPanToBounds();
   });
   
   // Handle window resize
@@ -481,6 +532,7 @@ function renderMap(deltaMs = 16) {
 
   renderBackgroundParallax(mapContext, width, height, deltaMs);
   updateFloatingLights(deltaMs, width, height);
+  renderFloatingLightsOverlay(mapContext, width, height);
 
   // Save context state for transformations
   mapContext.save();
@@ -513,8 +565,6 @@ function renderMap(deltaMs = 16) {
   // Restore context state
   mapContext.restore();
 
-  renderFloatingLightsOverlay(mapContext, width, height);
-
   // Render UI overlay (zoom level, stats)
   renderUIOverlay(mapContext, width, height);
 }
@@ -536,19 +586,31 @@ function renderBackgroundParallax(ctx, width, height, deltaMs) {
 
   parallaxNeurons.forEach((neuron, index) => {
     neuron.phase += neuron.speed * deltaMs * 0.001;
-    const px = neuron.x * width + currentPanX * 0.06 * neuron.depth;
-    const py = neuron.y * height + currentPanY * 0.06 * neuron.depth;
+    const parallaxOffset = 0.05 + neuron.layer * 0.01;
+    const px = neuron.x * width + currentPanX * parallaxOffset;
+    const py = neuron.y * height + currentPanY * parallaxOffset;
     const wobble = Math.sin(neuron.phase * 2) * neuron.sway;
-    const radius = 12 * neuron.depth;
+    const radius = 10 * neuron.depth + neuron.layer * 0.8;
+    const alpha = 0.14 - neuron.layer * 0.01;
 
-    const gradient = ctx.createRadialGradient(px, py + wobble * 0.1, radius * 0.2, px, py + wobble * 0.1, radius * 1.6);
+    ctx.filter = `blur(${0.6 + neuron.layer * 0.85}px)`;
+
+    const gradient = ctx.createRadialGradient(
+      px,
+      py + wobble * 0.1,
+      radius * 0.18,
+      px,
+      py + wobble * 0.1,
+      radius * 1.8
+    );
     gradient.addColorStop(0, COLOR_BACKGROUND_BLUE);
     gradient.addColorStop(0.45, COLOR_NEURON_WEB);
     gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
+    ctx.globalAlpha = Math.max(0.04, alpha);
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(px, py + wobble, radius * 1.6, 0, Math.PI * 2);
+    ctx.arc(px, py + wobble, radius * 1.8, 0, Math.PI * 2);
     ctx.fill();
 
     if (index % 5 === 0) {
@@ -561,6 +623,8 @@ function renderBackgroundParallax(ctx, width, height, deltaMs) {
     }
   });
 
+  ctx.filter = 'none';
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -587,20 +651,29 @@ function updateFloatingLights(deltaMs, width, height) {
 function renderFloatingLightsOverlay(ctx, width, height) {
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.32;
 
   floatingLights.forEach((light) => {
-    const color = light.hue === 'player' ? COLOR_PLAYER_STROKE : COLOR_ENEMY_STROKE;
-    const radius = light.size * 6;
-    const gradient = ctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, radius);
+    const parallaxOffset = 0.03 + light.layer * 0.01;
+    const px = light.x + currentPanX * parallaxOffset;
+    const py = light.y + currentPanY * parallaxOffset;
+    const color = light.hue === 'player'
+      ? COLOR_PLAYER_GLOW
+      : light.hue === 'enemy'
+        ? COLOR_ENEMY_GLOW
+        : COLOR_NEUTRAL_GLOW;
+    const radius = light.size * 6.4;
+    const gradient = ctx.createRadialGradient(px, py, 0, px, py, radius);
     gradient.addColorStop(0, color);
     gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(light.x, light.y, radius, 0, Math.PI * 2);
+    ctx.arc(px, py, radius, 0, Math.PI * 2);
     ctx.fill();
   });
 
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -763,21 +836,24 @@ function renderRealmNode(ctx, node) {
   if (territory.owner === TERRITORY_PLAYER) {
     fillColor = COLOR_PLAYER_FILL;
     strokeColor = COLOR_PLAYER_STROKE;
-    glowColor = COLOR_PLAYER_STROKE;
+    glowColor = COLOR_PLAYER_GLOW;
   } else if (territory.owner === TERRITORY_ENEMY) {
     fillColor = COLOR_ENEMY_FILL;
     strokeColor = COLOR_ENEMY_STROKE;
-    glowColor = COLOR_ENEMY_STROKE;
+    glowColor = COLOR_ENEMY_GLOW;
   } else {
     fillColor = COLOR_NEUTRAL_FILL;
     strokeColor = COLOR_NEUTRAL_STROKE;
-    glowColor = null;
+    glowColor = COLOR_NEUTRAL_GLOW;
   }
 
   // Draw outer glow for captured nodes
   if (glowColor) {
+    const glowSeed = (territory.x + 1) * 17 + (territory.y + 1) * 23;
+    const glowVariance = 0.75 + organicNoise(glowSeed) * 0.85;
+    const baseBlur = territory.nodeType === 'archetype' ? 18 : 12;
     ctx.shadowColor = glowColor;
-    ctx.shadowBlur = territory.owner === TERRITORY_ENEMY ? 20 : 14;
+    ctx.shadowBlur = baseBlur * glowVariance;
   }
 
   // Draw main node circle
@@ -860,6 +936,7 @@ export function resetCognitiveRealmView() {
   currentZoom = 1.0;
   currentPanX = 0;
   currentPanY = 0;
+  clampPanToBounds();
 }
 
 /**
