@@ -259,6 +259,21 @@ import {
   loadMonetizationState,
 } from './state/monetizationState.js';
 import {
+  cognitiveRealmState,
+  isCognitiveRealmUnlocked,
+  unlockCognitiveRealm,
+  updateTerritoriesForLevel,
+  serializeCognitiveRealmState,
+  deserializeCognitiveRealmState,
+} from './state/cognitiveRealmState.js';
+import {
+  initializeCognitiveRealmMap,
+  stopCognitiveRealmMap,
+  showCognitiveRealmMap,
+  hideCognitiveRealmMap,
+  resetCognitiveRealmView,
+} from './cognitiveRealmMap.js';
+import {
   configureFieldNotesOverlay,
   initializeFieldNotesOverlay,
   openFieldNotesOverlay,
@@ -3152,6 +3167,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }),
     getSpireResourceStateSnapshot,
     applySpireResourceStateSnapshot,
+    getCognitiveRealmStateSnapshot: serializeCognitiveRealmState,
+    applyCognitiveRealmStateSnapshot: (snapshot) => {
+      deserializeCognitiveRealmState(snapshot);
+      updateCognitiveRealmVisibility();
+    },
   });
 
   levelOverlayController = createLevelOverlayController({
@@ -3805,6 +3825,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     updateActiveLevelBanner();
     updateLevelCards();
+    
+    // Update cognitive realm territories on level victory
+    if (isCognitiveRealmUnlocked()) {
+      updateTerritoriesForLevel(levelId, true);
+    }
+    
     commitAutoSave();
 
     if (activeLevelId === levelId && activeLevelIsInteractive && playfield) {
@@ -3843,6 +3869,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     resourceState.running = false;
     updateActiveLevelBanner();
     updateLevelCards();
+    
+    // Update cognitive realm territories on level defeat
+    if (isCognitiveRealmUnlocked()) {
+      updateTerritoriesForLevel(levelId, false);
+    }
+    
     commitAutoSave();
 
     if (activeLevelId === levelId && activeLevelIsInteractive && playfield) {
@@ -4170,6 +4202,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         || index === 0
         || areSetNormalLevelsCompleted(previous?.levels);
 
+      // Check if we should unlock the cognitive realm (level set 3+ unlocked)
+      // Level set 3 is typically at index 3 (0=Hypothesis, 1=Conjecture, 2=Corollary, 3+=...)
+      if (unlocked && index >= 2 && !isCognitiveRealmUnlocked()) {
+        unlockCognitiveRealm();
+        updateCognitiveRealmVisibility();
+      }
+
       if (!unlocked && entry.element.classList.contains('expanded')) {
         collapseLevelSet(entry.element);
       }
@@ -4256,6 +4295,24 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         }
       }
     });
+  }
+
+  // Update cognitive realm map visibility based on unlock status
+  function updateCognitiveRealmVisibility() {
+    const cognitiveRealmSection = document.getElementById('cognitive-realm-section');
+    if (!cognitiveRealmSection) {
+      return;
+    }
+
+    if (isCognitiveRealmUnlocked()) {
+      cognitiveRealmSection.hidden = false;
+      cognitiveRealmSection.setAttribute('aria-hidden', 'false');
+      showCognitiveRealmMap();
+    } else {
+      cognitiveRealmSection.hidden = true;
+      cognitiveRealmSection.setAttribute('aria-hidden', 'true');
+      hideCognitiveRealmMap();
+    }
   }
 
   // Draw a translucent version of the level's path behind the selection label so the card hints at its route.
@@ -5770,6 +5827,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     initializeLevelEditorElements();
     initializeDeveloperMapElements();
+
+    // Initialize cognitive realm map
+    const cognitiveRealmContainer = document.getElementById('cognitive-realm-container');
+    const cognitiveRealmCanvas = document.getElementById('cognitive-realm-canvas');
+    if (cognitiveRealmContainer && cognitiveRealmCanvas) {
+      initializeCognitiveRealmMap(cognitiveRealmContainer, cognitiveRealmCanvas);
+    }
 
     // Apply the preferred graphics fidelity before other controls render.
     initializeGraphicsMode();
