@@ -425,16 +425,16 @@ function bindMapInteractions() {
   
   // Pointer down - check if clicking on a node, otherwise start panning
   mapCanvas.addEventListener('pointerdown', (e) => {
-    const node = getNodeAtPointer(e.clientX, e.clientY);
-    
+    const node = getNodeAtPointer(e.clientX, e.clientY, { includeNeutral: true });
+
     // Only allow dragging captured nodes (player or enemy)
     if (node && node.territory.owner !== TERRITORY_NEUTRAL) {
       isDraggingNode = true;
       draggedNode = node;
-      mapCanvas.style.cursor = 'move';
+      mapCanvas.style.cursor = 'var(--cursor-grabbing)';
     } else {
       isDragging = true;
-      mapCanvas.style.cursor = 'grabbing';
+      mapCanvas.style.cursor = 'var(--cursor-grabbing)';
     }
     
     lastPointerX = e.clientX;
@@ -494,6 +494,10 @@ function bindMapInteractions() {
       currentPanY += deltaY;
 
       clampPanToBounds();
+    } else {
+      // Update hover cursor to communicate interactivity
+      const hoverNode = getNodeAtPointer(e.clientX, e.clientY, { includeNeutral: true });
+      mapCanvas.style.cursor = hoverNode ? 'var(--cursor-pointer)' : 'var(--cursor-grab)';
     }
 
     lastPointerX = e.clientX;
@@ -505,10 +509,10 @@ function bindMapInteractions() {
     if (isDraggingNode) {
       isDraggingNode = false;
       draggedNode = null;
-      mapCanvas.style.cursor = 'grab';
+      mapCanvas.style.cursor = 'var(--cursor-grab)';
     } else {
       isDragging = false;
-      mapCanvas.style.cursor = 'grab';
+      mapCanvas.style.cursor = 'var(--cursor-grab)';
 
       // Only treat as click if pointer didn't move much
       const deltaX = Math.abs(e.clientX - pointerStartX);
@@ -526,7 +530,7 @@ function bindMapInteractions() {
     isDragging = false;
     isDraggingNode = false;
     draggedNode = null;
-    mapCanvas.style.cursor = 'grab';
+    mapCanvas.style.cursor = 'var(--cursor-grab)';
   });
   
   // Wheel - zoom
@@ -726,7 +730,7 @@ function showNodeDescription(territory) {
 /**
  * Get node at pointer position (only captured player nodes can be dragged)
  */
-function getNodeAtPointer(clientX, clientY) {
+function getNodeAtPointer(clientX, clientY, { includeNeutral = false } = {}) {
   if (!mapCanvas || !mapContext) {
     return null;
   }
@@ -759,7 +763,7 @@ function getNodeAtPointer(clientX, clientY) {
   // Check if pointer is on any captured node
   for (const node of nodePositions) {
     // Only captured nodes can be interacted with
-    if (node.territory.owner === TERRITORY_NEUTRAL) {
+    if (!includeNeutral && node.territory.owner === TERRITORY_NEUTRAL) {
       continue;
     }
     
@@ -778,7 +782,7 @@ function getNodeAtPointer(clientX, clientY) {
  * Handle click on canvas to detect node selection
  */
 function handleNodeClick(e) {
-  const node = getNodeAtPointer(e.clientX, e.clientY);
+  const node = getNodeAtPointer(e.clientX, e.clientY, { includeNeutral: true });
   if (node) {
     // Check if developer mode is active
     const isDeveloperMode = getDeveloperModeActive && getDeveloperModeActive();
