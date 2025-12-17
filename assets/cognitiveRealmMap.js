@@ -8,6 +8,7 @@ import {
   TERRITORY_NEUTRAL,
   TERRITORY_PLAYER,
   TERRITORY_ENEMY,
+  setOnTerritoriesChanged,
 } from './state/cognitiveRealmState.js';
 
 import { getCognitiveRealmVisualSettings } from './cognitiveRealmPreferences.js';
@@ -62,6 +63,10 @@ let pointerStartX = 0;
 let pointerStartY = 0;
 let pointerMoved = false;
 
+// Node dragging state
+let isDraggingNode = false;
+let draggedNode = null;
+
 // Canvas and container references
 let mapCanvas = null;
 let mapContext = null;
@@ -88,6 +93,14 @@ const NODE_DRIFT_RANGE = 12; // Maximum drift distance from center position
 const NODE_DRIFT_DAMPING = 0.92; // Velocity damping for smooth motion
 const NODE_DRIFT_CHANGE_INTERVAL = 8000; // Time between drift target changes (ms)
 const ROPE_SEGMENTS = 5; // Number of segments in each rope connection
+
+// Connection limits for different node types
+const MAX_CONNECTIONS_MAJOR = 5; // Maximum connections for archetype (major) nodes
+const MAX_CONNECTIONS_MINOR = 3; // Maximum connections for emotion (minor) nodes
+
+// Cached connections between nodes to avoid recalculating every frame
+let nodeConnections = new Map(); // Map<territoryId, Set<territoryId>>
+let connectionsDirty = true; // Flag to recalculate connections when needed
 
 // Lightweight deterministic jitter so organic lines stay stable per node pair
 function organicNoise(seed) {
@@ -179,6 +192,96 @@ function getNodePosition(node) {
   return { x: node.x, y: node.y };
 }
 
+/**
+ * Calculate connections between captured nodes based on new rules:
+ * - Only captured (non-neutral) nodes can have connections
+ * - Connect to nearest nodes
+ * - Major nodes cannot connect directly to other major nodes (must go through minor nodes)
+ * - Major nodes max 5 connections, minor nodes max 3 connections
+ */
+function calculateNodeConnections(nodePositions) {
+  nodeConnections.clear();
+  
+  // Filter to only captured nodes
+  const capturedNodes = nodePositions.filter(node => node.territory.owner !== TERRITORY_NEUTRAL);
+  
+  // Initialize connection sets for each captured node
+  capturedNodes.forEach(node => {
+    nodeConnections.set(node.territory.id, new Set());
+  });
+  
+  // For each captured node, find nearest neighbors and create connections
+  capturedNodes.forEach(node1 => {
+    const maxConnections = node1.territory.nodeType === 'archetype' 
+      ? MAX_CONNECTIONS_MAJOR 
+      : MAX_CONNECTIONS_MINOR;
+    
+    const currentConnections = nodeConnections.get(node1.territory.id);
+    if (currentConnections.size >= maxConnections) {
+      return; // Already at max connections
+    }
+    
+    // Calculate distances to all other captured nodes
+    const distances = capturedNodes
+      .filter(node2 => node2.territory.id !== node1.territory.id)
+      .map(node2 => {
+        const dx = node1.territory.x - node2.territory.x;
+        const dy = node1.territory.y - node2.territory.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return { node: node2, distance };
+      })
+      .sort((a, b) => a.distance - b.distance);
+    
+    // Add connections to nearest nodes, respecting constraints
+    for (const { node: node2, distance } of distances) {
+      // Check if we've reached max connections for this node
+      if (currentConnections.size >= maxConnections) {
+        break;
+      }
+      
+      // Check if the other node has reached max connections
+      const node2Connections = nodeConnections.get(node2.territory.id);
+      const node2MaxConnections = node2.territory.nodeType === 'archetype' 
+        ? MAX_CONNECTIONS_MAJOR 
+        : MAX_CONNECTIONS_MINOR;
+      
+      if (node2Connections.size >= node2MaxConnections) {
+        continue; // Skip this node, it's at capacity
+      }
+      
+      // Check if already connected (bidirectional)
+      if (currentConnections.has(node2.territory.id)) {
+        continue;
+      }
+      
+      // Rule: Major nodes cannot connect directly to other major nodes
+      const bothMajor = node1.territory.nodeType === 'archetype' && node2.territory.nodeType === 'archetype';
+      if (bothMajor) {
+        continue; // Skip direct major-to-major connections
+      }
+      
+      // Add bidirectional connection
+      currentConnections.add(node2.territory.id);
+      node2Connections.add(node1.territory.id);
+    }
+  });
+  
+  connectionsDirty = false;
+}
+
+/**
+ * Check if two nodes should be connected
+ */
+function areNodesConnected(node1, node2) {
+  const connections = nodeConnections.get(node1.territory.id);
+  return connections && connections.has(node2.territory.id);
+}
+
+// Mark connections as dirty when territories change ownership
+export function markConnectionsDirty() {
+  connectionsDirty = true;
+}
+
 // Seed background neuron wisps and floating lights for parallax depth
 function seedBackgroundElements(width, height) {
   parallaxNeurons = Array.from({ length: BACKGROUND_NEURON_COUNT }, (_, index) => {
@@ -260,6 +363,14 @@ export function initializeCognitiveRealmMap(container, canvas) {
   // Bind interaction handlers
   bindMapInteractions();
   
+  // Register callback for territory changes
+  setOnTerritoriesChanged(() => {
+    markConnectionsDirty();
+  });
+  
+  // Mark connections as dirty initially
+  markConnectionsDirty();
+  
   // Start render loop
   startRenderLoop();
 }
@@ -301,35 +412,78 @@ function bindMapInteractions() {
     return;
   }
   
-  // Pointer down - start dragging
+  // Pointer down - check if clicking on a node, otherwise start panning
   mapCanvas.addEventListener('pointerdown', (e) => {
-    isDragging = true;
+    const node = getNodeAtPointer(e.clientX, e.clientY);
+    
+    // Only allow dragging captured nodes (player or enemy)
+    if (node && node.territory.owner !== TERRITORY_NEUTRAL) {
+      isDraggingNode = true;
+      draggedNode = node;
+      mapCanvas.style.cursor = 'move';
+    } else {
+      isDragging = true;
+      mapCanvas.style.cursor = 'grabbing';
+    }
+    
     lastPointerX = e.clientX;
     lastPointerY = e.clientY;
     pointerStartX = e.clientX;
     pointerStartY = e.clientY;
     pointerMoved = false;
-    mapCanvas.style.cursor = 'grabbing';
   });
 
-  // Pointer move - pan the map
+  // Pointer move - drag node or pan the map
   mapCanvas.addEventListener('pointermove', (e) => {
-    if (!isDragging) {
-      return;
+    if (isDraggingNode && draggedNode) {
+      // Dragging a node - apply force to node physics
+      const deltaX = e.clientX - lastPointerX;
+      const deltaY = e.clientY - lastPointerY;
+      
+      pointerMoved =
+        pointerMoved ||
+        Math.abs(e.clientX - pointerStartX) > 4 ||
+        Math.abs(e.clientY - pointerStartY) > 4;
+
+      // Apply drag force to node physics
+      const physics = nodePhysicsState.get(draggedNode.territory.id);
+      if (physics) {
+        // Convert screen delta to map space
+        const mapDeltaX = deltaX / currentZoom;
+        const mapDeltaY = deltaY / currentZoom;
+        
+        // Apply as direct offset
+        physics.offsetX += mapDeltaX;
+        physics.offsetY += mapDeltaY;
+        
+        // Clamp to max range
+        const distance = Math.sqrt(physics.offsetX ** 2 + physics.offsetY ** 2);
+        const maxDragRange = NODE_DRIFT_RANGE * 3; // Allow more range during drag
+        if (distance > maxDragRange) {
+          const scale = maxDragRange / distance;
+          physics.offsetX *= scale;
+          physics.offsetY *= scale;
+        }
+        
+        // Update target to current position for smooth return
+        physics.targetOffsetX = physics.offsetX;
+        physics.targetOffsetY = physics.offsetY;
+      }
+    } else if (isDragging) {
+      // Panning the map
+      const deltaX = e.clientX - lastPointerX;
+      const deltaY = e.clientY - lastPointerY;
+
+      pointerMoved =
+        pointerMoved ||
+        Math.abs(e.clientX - pointerStartX) > 4 ||
+        Math.abs(e.clientY - pointerStartY) > 4;
+
+      currentPanX += deltaX;
+      currentPanY += deltaY;
+
+      clampPanToBounds();
     }
-
-    const deltaX = e.clientX - lastPointerX;
-    const deltaY = e.clientY - lastPointerY;
-
-    pointerMoved =
-      pointerMoved ||
-      Math.abs(e.clientX - pointerStartX) > 4 ||
-      Math.abs(e.clientY - pointerStartY) > 4;
-
-    currentPanX += deltaX;
-    currentPanY += deltaY;
-
-    clampPanToBounds();
 
     lastPointerX = e.clientX;
     lastPointerY = e.clientY;
@@ -337,22 +491,30 @@ function bindMapInteractions() {
   
   // Pointer up - stop dragging or handle click
   mapCanvas.addEventListener('pointerup', (e) => {
-    isDragging = false;
-    mapCanvas.style.cursor = 'grab';
+    if (isDraggingNode) {
+      isDraggingNode = false;
+      draggedNode = null;
+      mapCanvas.style.cursor = 'grab';
+    } else {
+      isDragging = false;
+      mapCanvas.style.cursor = 'grab';
 
-    // Only treat as click if pointer didn't move much
-    const deltaX = Math.abs(e.clientX - pointerStartX);
-    const deltaY = Math.abs(e.clientY - pointerStartY);
-    const isClick = deltaX < 5 && deltaY < 5 && !pointerMoved;
+      // Only treat as click if pointer didn't move much
+      const deltaX = Math.abs(e.clientX - pointerStartX);
+      const deltaY = Math.abs(e.clientY - pointerStartY);
+      const isClick = deltaX < 5 && deltaY < 5 && !pointerMoved;
 
-    if (isClick) {
-      handleNodeClick(e);
+      if (isClick) {
+        handleNodeClick(e);
+      }
     }
   });
   
   // Pointer cancel - stop dragging
   mapCanvas.addEventListener('pointercancel', () => {
     isDragging = false;
+    isDraggingNode = false;
+    draggedNode = null;
     mapCanvas.style.cursor = 'grab';
   });
   
@@ -549,26 +711,26 @@ function showNodeDescription(territory) {
 }
 
 /**
- * Handle click on canvas to detect node selection
+ * Get node at pointer position (only captured player nodes can be dragged)
  */
-function handleNodeClick(e) {
+function getNodeAtPointer(clientX, clientY) {
   if (!mapCanvas || !mapContext) {
-    return;
+    return null;
   }
   
   const rect = mapCanvas.getBoundingClientRect();
-  const clickX = e.clientX - rect.left;
-  const clickY = e.clientY - rect.top;
+  const pointerX = clientX - rect.left;
+  const pointerY = clientY - rect.top;
   
   const width = mapCanvas.width / (window.devicePixelRatio || 1);
   const height = mapCanvas.height / (window.devicePixelRatio || 1);
   
-  // Transform click coordinates to map space
+  // Transform pointer coordinates to map space
   const centerX = width / 2;
   const centerY = height / 2;
   
-  const mapX = (clickX - centerX - currentPanX) / currentZoom;
-  const mapY = (clickY - centerY - currentPanY) / currentZoom;
+  const mapX = (pointerX - centerX - currentPanX) / currentZoom;
+  const mapY = (pointerY - centerY - currentPanY) / currentZoom;
   
   // Get territories and calculate positions
   const territories = getTerritories();
@@ -581,15 +743,31 @@ function handleNodeClick(e) {
   
   const nodePositions = buildNodePositions(territories, offsetX, offsetY);
 
-  // Check if click is on any node (using physics-offset positions)
+  // Check if pointer is on any captured node
   for (const node of nodePositions) {
+    // Only captured nodes can be interacted with
+    if (node.territory.owner === TERRITORY_NEUTRAL) {
+      continue;
+    }
+    
     const pos = getNodePosition(node);
     const distance = Math.sqrt((mapX - pos.x) ** 2 + (mapY - pos.y) ** 2);
 
     if (distance <= node.radius) {
-      showNodeDescription(node.territory);
-      return;
+      return node;
     }
+  }
+  
+  return null;
+}
+
+/**
+ * Handle click on canvas to detect node selection
+ */
+function handleNodeClick(e) {
+  const node = getNodeAtPointer(e.clientX, e.clientY);
+  if (node) {
+    showNodeDescription(node.territory);
   }
 }
 
@@ -642,6 +820,11 @@ function renderMap(deltaMs = 16) {
   const offsetY = -totalHeight / 2;
 
   const nodePositions = buildNodePositions(territories, offsetX, offsetY);
+  
+  // Recalculate connections if territories have changed
+  if (connectionsDirty) {
+    calculateNodeConnections(nodePositions);
+  }
   
   // Update physics for all nodes
   nodePositions.forEach((node) => {
@@ -865,25 +1048,29 @@ function renderTerritoryFields(ctx, nodePositions, glowEnabled = true) {
 
 // Soft-body rope connections that flex and sway as nodes drift
 // Enhanced with gradient opacity fading from 100% at nodes to 25% in the middle
+// Now only connects captured nodes based on calculated connection rules
 function renderSoftBodyConnections(ctx, nodePositions) {
   ctx.save();
   nodePositions.forEach((node1, i) => {
     nodePositions.forEach((node2, j) => {
       if (i >= j) return;
 
-      const dx = node1.territory.x - node2.territory.x;
-      const dy = node1.territory.y - node2.territory.y;
-      const gridDistance = Math.sqrt(dx * dx + dy * dy);
-      const sharedOwner = node1.territory.owner === node2.territory.owner && node1.territory.owner !== TERRITORY_NEUTRAL;
-      const shouldConnect = sharedOwner ? gridDistance <= 3.6 : gridDistance <= 1.8;
-
-      if (!shouldConnect) {
+      // Only render connections that have been calculated
+      if (!areNodesConnected(node1, node2)) {
+        return;
+      }
+      
+      // Both nodes must be captured (non-neutral)
+      if (node1.territory.owner === TERRITORY_NEUTRAL || node2.territory.owner === TERRITORY_NEUTRAL) {
         return;
       }
 
       // Get actual positions with physics offsets
       const pos1 = getNodePosition(node1);
       const pos2 = getNodePosition(node2);
+      
+      // Check if nodes share the same owner
+      const sharedOwner = node1.territory.owner === node2.territory.owner;
       
       // Calculate rope physics - simulate a hanging rope with gravity-like sag
       const actualDx = pos2.x - pos1.x;
@@ -1057,12 +1244,15 @@ function renderRealmNode(ctx, node, glowEnabled = true) {
   ctx.stroke();
   ctx.globalAlpha = 1.0;
 
-  const label = getNodeLabel(territory);
-  ctx.fillStyle = strokeColor;
-  ctx.font = `bold ${territory.nodeType === 'archetype' ? 14 : 11}px "${FONT_FAMILY}", serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(label, x, y);
+  // Only show text for captured nodes
+  if (territory.owner !== TERRITORY_NEUTRAL) {
+    const label = getNodeLabel(territory);
+    ctx.fillStyle = strokeColor;
+    ctx.font = `bold ${territory.nodeType === 'archetype' ? 14 : 11}px "${FONT_FAMILY}", serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y);
+  }
 }
 
 /**

@@ -2,6 +2,19 @@
 // This module tracks which territories are controlled by the player versus enemies.
 // The cognitive realm represents the "collective unconscious" with Jungian archetype nodes.
 
+// Callback to notify when territories change ownership
+let onTerritoriesChangedCallback = null;
+
+export function setOnTerritoriesChanged(callback) {
+  onTerritoriesChangedCallback = callback;
+}
+
+function notifyTerritoriesChanged() {
+  if (onTerritoriesChangedCallback) {
+    onTerritoriesChangedCallback();
+  }
+}
+
 // Jungian Archetypes - Each major node represents an archetype with positive and negative expressions
 export const ARCHETYPES = [
   {
@@ -469,6 +482,9 @@ export function updateTerritoriesForLevel(levelId, victory) {
         }
       });
     }
+    
+    // Notify that territories have changed
+    notifyTerritoriesChanged();
   }
 }
 
@@ -477,6 +493,9 @@ export function resetTerritories() {
   cognitiveRealmState.territories.forEach((territory) => {
     territory.owner = TERRITORY_NEUTRAL;
   });
+  
+  // Notify that territories have changed
+  notifyTerritoriesChanged();
 }
 
 // Get territory statistics for display
