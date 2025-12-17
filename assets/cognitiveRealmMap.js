@@ -9,9 +9,13 @@ import {
   TERRITORY_PLAYER,
   TERRITORY_ENEMY,
   setOnTerritoriesChanged,
+  setTerritoryOwner,
 } from './state/cognitiveRealmState.js';
 
 import { getCognitiveRealmVisualSettings } from './cognitiveRealmPreferences.js';
+
+// Developer mode accessor - injected during initialization
+let getDeveloperModeActive = null;
 
 // Map rendering configuration
 const MAP_PADDING = 40;
@@ -35,8 +39,8 @@ const COLOR_ENEMY_TERRITORY = 'rgba(120, 24, 36, 0.45)';
 const COLOR_ENEMY_CONNECTION = 'rgba(255, 84, 130, 0.32)';
 const COLOR_NEUTRAL_FILL = 'rgba(247, 247, 245, 0.05)';
 const COLOR_NEUTRAL_STROKE = 'rgba(247, 247, 245, 0.25)';
-const COLOR_BG = '#000000'; // Solid black background
-const COLOR_UI_BG = 'rgba(0, 0, 0, 0.85)';
+const COLOR_BG = '#000a14'; // Very very dark blue background
+const COLOR_UI_BG = 'rgba(0, 10, 20, 0.85)';
 const COLOR_UI_BORDER = 'rgba(139, 247, 255, 0.3)';
 const COLOR_TEXT = 'rgba(247, 247, 245, 0.9)';
 const COLOR_TEXT_PLAYER = 'rgba(139, 247, 255, 0.9)';
@@ -342,10 +346,17 @@ function clampPanToBounds() {
  * Initialize the cognitive realm map with container and canvas elements.
  * @param {HTMLElement} container - The container element for the map
  * @param {HTMLCanvasElement} canvas - The canvas element for rendering
+ * @param {Object} options - Optional configuration
+ * @param {Function} options.getDeveloperModeActive - Function to check if developer mode is active
  */
-export function initializeCognitiveRealmMap(container, canvas) {
+export function initializeCognitiveRealmMap(container, canvas, options = {}) {
   mapContainer = container;
   mapCanvas = canvas;
+  
+  // Store developer mode accessor
+  if (options.getDeveloperModeActive) {
+    getDeveloperModeActive = options.getDeveloperModeActive;
+  }
   
   if (!mapCanvas) {
     console.warn('Cognitive realm map canvas not found');
@@ -767,7 +778,29 @@ function getNodeAtPointer(clientX, clientY) {
 function handleNodeClick(e) {
   const node = getNodeAtPointer(e.clientX, e.clientY);
   if (node) {
-    showNodeDescription(node.territory);
+    // Check if developer mode is active
+    const isDeveloperMode = getDeveloperModeActive && getDeveloperModeActive();
+    
+    if (isDeveloperMode) {
+      // Cycle through states: neutral → player → enemy → neutral
+      let newOwner;
+      if (node.territory.owner === TERRITORY_NEUTRAL) {
+        newOwner = TERRITORY_PLAYER;
+      } else if (node.territory.owner === TERRITORY_PLAYER) {
+        newOwner = TERRITORY_ENEMY;
+      } else {
+        newOwner = TERRITORY_NEUTRAL;
+      }
+      
+      // Update the territory owner
+      setTerritoryOwner(node.territory.id, newOwner);
+      
+      // Mark connections as dirty so they recalculate
+      markConnectionsDirty();
+    } else {
+      // Normal behavior: show description modal
+      showNodeDescription(node.territory);
+    }
   }
 }
 

@@ -5835,7 +5835,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (cognitiveRealmContainer && cognitiveRealmCanvas) {
       initializeCognitiveRealmPreferences();
       bindCognitiveRealmOptions();
-      initializeCognitiveRealmMap(cognitiveRealmContainer, cognitiveRealmCanvas);
+      initializeCognitiveRealmMap(cognitiveRealmContainer, cognitiveRealmCanvas, {
+        getDeveloperModeActive: () => developerModeActive,
+      });
     }
 
     // Apply the preferred graphics fidelity before other controls render.
