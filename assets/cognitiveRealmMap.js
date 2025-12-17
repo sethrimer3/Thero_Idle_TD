@@ -21,13 +21,17 @@ const MAX_ZOOM = 3.0;
 
 // Visual configuration
 const FONT_FAMILY = 'Cormorant Garamond';
-const COLOR_NEURON_WEB = 'rgba(139, 247, 255, 0.15)';
-const COLOR_PLAYER_FILL = 'rgba(139, 247, 255, 0.3)';
-const COLOR_PLAYER_STROKE = 'rgba(139, 247, 255, 0.9)';
-const COLOR_ENEMY_FILL = 'rgba(255, 125, 235, 0.3)';
-const COLOR_ENEMY_STROKE = 'rgba(255, 125, 235, 0.9)';
-const COLOR_NEUTRAL_FILL = 'rgba(247, 247, 245, 0.08)';
-const COLOR_NEUTRAL_STROKE = 'rgba(247, 247, 245, 0.3)';
+const COLOR_NEURON_WEB = 'rgba(139, 247, 255, 0.12)';
+const COLOR_PLAYER_FILL = 'rgba(108, 193, 255, 0.32)';
+const COLOR_PLAYER_STROKE = 'rgba(160, 242, 255, 0.95)';
+const COLOR_PLAYER_TERRITORY = 'rgba(54, 129, 255, 0.35)';
+const COLOR_PLAYER_CONNECTION = 'rgba(160, 242, 255, 0.35)';
+const COLOR_ENEMY_FILL = 'rgba(255, 96, 128, 0.32)';
+const COLOR_ENEMY_STROKE = 'rgba(255, 70, 110, 0.9)';
+const COLOR_ENEMY_TERRITORY = 'rgba(120, 24, 36, 0.45)';
+const COLOR_ENEMY_CONNECTION = 'rgba(255, 84, 130, 0.32)';
+const COLOR_NEUTRAL_FILL = 'rgba(247, 247, 245, 0.05)';
+const COLOR_NEUTRAL_STROKE = 'rgba(247, 247, 245, 0.25)';
 const COLOR_BG = '#000000'; // Solid black background
 const COLOR_UI_BG = 'rgba(0, 0, 0, 0.85)';
 const COLOR_UI_BORDER = 'rgba(139, 247, 255, 0.3)';
@@ -36,6 +40,10 @@ const COLOR_TEXT_PLAYER = 'rgba(139, 247, 255, 0.9)';
 const COLOR_TEXT_ENEMY = 'rgba(255, 125, 235, 0.9)';
 const COLOR_TEXT_MUTED = 'rgba(247, 247, 245, 0.6)';
 const COLOR_NODE_GLOW = 'rgba(139, 247, 255, 0.5)';
+const COLOR_BACKGROUND_BLUE = 'rgba(64, 112, 160, 0.2)';
+const COLOR_BACKGROUND_EMBER = 'rgba(120, 40, 60, 0.25)';
+const BACKGROUND_NEURON_COUNT = 72;
+const FLOATING_LIGHT_COUNT = 56;
 
 // Zoom and pan state
 let currentZoom = 1.0;
@@ -51,13 +59,63 @@ let pointerStartY = 0;
 let mapCanvas = null;
 let mapContext = null;
 let mapContainer = null;
+let backgroundWidth = 0;
+let backgroundHeight = 0;
 
 // Animation frame reference
 let animationFrameId = null;
+let lastRenderTimestamp = performance.now ? performance.now() : Date.now();
 
 // Selected node for showing description
 let selectedNode = null;
 let descriptionModal = null;
+let parallaxNeurons = [];
+let floatingLights = [];
+
+// Lightweight deterministic jitter so organic lines stay stable per node pair
+function organicNoise(seed) {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+// Normalize radius sizing between archetype anchors and emotion satellites
+function getNodeRadius(territory) {
+  return BASE_TERRITORY_SIZE * (territory.nodeType === 'archetype' ? 0.46 : 0.32);
+}
+
+// Build node label from archetype or emotion identity
+function getNodeLabel(territory) {
+  if (territory.archetype) {
+    return territory.archetype.id.split('-')[0].toUpperCase().substring(0, 3);
+  }
+
+  if (territory.emotion) {
+    return territory.emotion.name.toUpperCase().substring(0, 3);
+  }
+
+  return '---';
+}
+
+// Seed background neuron wisps and floating lights for parallax depth
+function seedBackgroundElements(width, height) {
+  parallaxNeurons = Array.from({ length: BACKGROUND_NEURON_COUNT }, (_, index) => ({
+    x: Math.random(),
+    y: Math.random(),
+    depth: 0.35 + Math.random() * 0.65,
+    sway: 6 + Math.random() * 14,
+    speed: 0.04 + Math.random() * 0.06,
+    phase: organicNoise(index + 1) * Math.PI * 2,
+  }));
+
+  floatingLights = Array.from({ length: FLOATING_LIGHT_COUNT }, () => ({
+    x: Math.random() * width,
+    y: Math.random() * height,
+    vx: (Math.random() - 0.5) * 0.12,
+    vy: (Math.random() - 0.5) * 0.12,
+    size: 1.5 + Math.random() * 2.2,
+    hue: Math.random() < 0.6 ? 'player' : 'enemy',
+  }));
+}
 
 /**
  * Initialize the cognitive realm map with container and canvas elements.
@@ -95,18 +153,25 @@ function resizeCanvas() {
   if (!mapCanvas || !mapContainer) {
     return;
   }
-  
+
   const rect = mapContainer.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  
-  mapCanvas.width = rect.width * dpr;
-  mapCanvas.height = rect.height * dpr;
-  mapCanvas.style.width = `${rect.width}px`;
-  mapCanvas.style.height = `${rect.height}px`;
-  
+
+  const width = rect.width || mapContainer.clientWidth || 1;
+  const height = rect.height || mapContainer.clientHeight || 1;
+
+  mapCanvas.width = width * dpr;
+  mapCanvas.height = height * dpr;
+  mapCanvas.style.width = `${width}px`;
+  mapCanvas.style.height = `${height}px`;
+  backgroundWidth = width;
+  backgroundHeight = height;
+
   if (mapContext) {
-    mapContext.scale(dpr, dpr);
+    mapContext.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
+
+  seedBackgroundElements(width, height);
 }
 
 /**
@@ -225,13 +290,19 @@ function startRenderLoop() {
   if (animationFrameId) {
     return;
   }
-  
-  function render() {
-    renderMap();
+
+  function render(timestamp) {
+    const deltaMs = Math.min(64, Math.max(0, timestamp - lastRenderTimestamp));
+    lastRenderTimestamp = timestamp;
+
+    renderMap(deltaMs);
     animationFrameId = requestAnimationFrame(render);
   }
-  
-  animationFrameId = requestAnimationFrame(render);
+
+  animationFrameId = requestAnimationFrame((timestamp) => {
+    lastRenderTimestamp = timestamp;
+    render(timestamp);
+  });
 }
 
 /**
@@ -285,37 +356,54 @@ function closeDescriptionModal() {
 }
 
 /**
- * Show archetype description in modal
+ * Show node description in modal
  */
-function showArchetypeDescription(territory) {
-  if (!descriptionModal || !territory || !territory.archetype) {
+function showNodeDescription(territory) {
+  if (!descriptionModal || !territory) {
     return;
   }
-  
-  const archetype = territory.archetype;
+
   const isPlayerOwned = territory.owner === TERRITORY_PLAYER;
   const isEnemyOwned = territory.owner === TERRITORY_ENEMY;
-  
-  // Determine which version to show
-  let displayName, displayDescription;
-  if (isPlayerOwned) {
-    displayName = archetype.positive.name;
-    displayDescription = archetype.positive.description;
-  } else if (isEnemyOwned) {
-    displayName = archetype.negative.name;
-    displayDescription = archetype.negative.description;
-  } else {
-    // Neutral - show both
-    displayName = `${archetype.positive.name} ↔ ${archetype.negative.name}`;
-    displayDescription = `Positive: ${archetype.positive.description}\n\nNegative: ${archetype.negative.description}`;
+
+  // Determine which version to show for archetypes and emotional nodes
+  let displayName = 'Unlabeled Node';
+  let displayDescription = 'Neutral drift with no active imprint yet.';
+
+  if (territory.archetype) {
+    const archetype = territory.archetype;
+    if (isPlayerOwned) {
+      displayName = archetype.positive.name;
+      displayDescription = archetype.positive.description;
+    } else if (isEnemyOwned) {
+      displayName = archetype.negative.name;
+      displayDescription = archetype.negative.description;
+    } else {
+      displayName = `${archetype.positive.name} ↔ ${archetype.negative.name}`;
+      displayDescription = `Positive: ${archetype.positive.description}\n\nNegative: ${archetype.negative.description}`;
+    }
+  } else if (territory.emotion) {
+    const emotion = territory.emotion;
+    const polarityLabel = emotion.polarity === 'positive' ? 'Positive affect' : 'Shadow affect';
+
+    if (isPlayerOwned && emotion.polarity === 'negative') {
+      displayName = `${emotion.counterpart} (stabilized from ${emotion.name})`;
+      displayDescription = `${polarityLabel}: ${emotion.description}\nCounterpart reclaimed: ${emotion.counterpart}`;
+    } else if (isEnemyOwned && emotion.polarity === 'positive') {
+      displayName = `${emotion.counterpart} (inverted from ${emotion.name})`;
+      displayDescription = `${polarityLabel}: ${emotion.description}\nShadow counterpart: ${emotion.counterpart}`;
+    } else {
+      displayName = `${emotion.name} ↔ ${emotion.counterpart}`;
+      displayDescription = `${polarityLabel}: ${emotion.description}\nCounterpart: ${emotion.counterpart}`;
+    }
   }
-  
+
   const titleEl = descriptionModal.querySelector('.cognitive-realm-modal__title');
   const descEl = descriptionModal.querySelector('.cognitive-realm-modal__description');
-  
+
   titleEl.textContent = displayName;
   descEl.textContent = displayDescription;
-  
+
   // Apply styling based on ownership
   const contentEl = descriptionModal.querySelector('.cognitive-realm-modal__content');
   contentEl.classList.remove('modal-player', 'modal-enemy', 'modal-neutral');
@@ -326,7 +414,7 @@ function showArchetypeDescription(territory) {
   } else {
     contentEl.classList.add('modal-neutral');
   }
-  
+
   descriptionModal.hidden = false;
   selectedNode = territory;
 }
@@ -362,16 +450,14 @@ function handleNodeClick(e) {
   const offsetX = -totalWidth / 2;
   const offsetY = -totalHeight / 2;
   
+  const nodePositions = buildNodePositions(territories, offsetX, offsetY);
+
   // Check if click is on any node
-  for (const territory of territories) {
-    const nodeX = offsetX + territory.x * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2;
-    const nodeY = offsetY + territory.y * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2;
-    const nodeRadius = BASE_TERRITORY_SIZE * 0.5;
-    
-    const distance = Math.sqrt((mapX - nodeX) ** 2 + (mapY - nodeY) ** 2);
-    
-    if (distance <= nodeRadius) {
-      showArchetypeDescription(territory);
+  for (const node of nodePositions) {
+    const distance = Math.sqrt((mapX - node.x) ** 2 + (mapY - node.y) ** 2);
+
+    if (distance <= node.radius) {
+      showNodeDescription(node.territory);
       return;
     }
   }
@@ -380,106 +466,298 @@ function handleNodeClick(e) {
 /**
  * Render the cognitive realm map with territories
  */
-function renderMap() {
+function renderMap(deltaMs = 16) {
   if (!mapContext || !mapCanvas) {
     return;
   }
-  
-  const width = mapCanvas.width / (window.devicePixelRatio || 1);
-  const height = mapCanvas.height / (window.devicePixelRatio || 1);
-  
+
+  const dpr = window.devicePixelRatio || 1;
+  const width = mapCanvas.width / dpr;
+  const height = mapCanvas.height / dpr;
+
   // Clear canvas with dark background
   mapContext.fillStyle = COLOR_BG;
   mapContext.fillRect(0, 0, width, height);
-  
+
+  renderBackgroundParallax(mapContext, width, height, deltaMs);
+  updateFloatingLights(deltaMs, width, height);
+
   // Save context state for transformations
   mapContext.save();
-  
+
   // Apply pan and zoom transformations
   mapContext.translate(currentPanX, currentPanY);
   mapContext.translate(width / 2, height / 2);
   mapContext.scale(currentZoom, currentZoom);
-  
+
   // Get territories and grid dimensions
   const territories = getTerritories();
   const gridDims = getGridDimensions();
-  
+
   // Calculate map centering offset
   const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
   const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
   const offsetX = -totalWidth / 2;
   const offsetY = -totalHeight / 2;
-  
-  // Render neuron-like web connections between nodes
-  renderNeuronWeb(mapContext, territories, offsetX, offsetY);
-  
-  // Render each territory as an archetype node
-  territories.forEach((territory) => {
-    renderArchetypeNode(mapContext, territory, offsetX, offsetY);
+
+  const nodePositions = buildNodePositions(territories, offsetX, offsetY);
+
+  renderTerritoryFields(mapContext, nodePositions);
+  renderOrganicConnections(mapContext, nodePositions);
+  renderSignalSparks(mapContext, nodePositions, deltaMs);
+
+  nodePositions.forEach((node) => {
+    renderRealmNode(mapContext, node);
   });
-  
+
   // Restore context state
   mapContext.restore();
-  
+
+  renderFloatingLightsOverlay(mapContext, width, height);
+
   // Render UI overlay (zoom level, stats)
   renderUIOverlay(mapContext, width, height);
 }
 
-/**
- * Render neuron-like web connections between archetype nodes
- */
-function renderNeuronWeb(ctx, territories, offsetX, offsetY) {
-  ctx.strokeStyle = COLOR_NEURON_WEB;
-  ctx.lineWidth = 1.5;
-  
-  // Calculate node positions
-  const nodePositions = territories.map((territory) => ({
+// Build node positions so multiple render passes can share a single layout calculation
+function buildNodePositions(territories, offsetX, offsetY) {
+  return territories.map((territory) => ({
     x: offsetX + territory.x * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2,
     y: offsetY + territory.y * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2,
+    radius: getNodeRadius(territory),
     territory,
   }));
-  
-  // Draw connections between adjacent nodes (like a neural network)
-  nodePositions.forEach((node1, i) => {
-    nodePositions.forEach((node2, j) => {
-      if (i >= j) return; // Avoid duplicate lines
-      
-      const dx = node1.territory.x - node2.territory.x;
-      const dy = node1.territory.y - node2.territory.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      // Connect adjacent nodes and some diagonal connections
-      if (distance <= 1.5) {
-        ctx.beginPath();
-        ctx.moveTo(node1.x, node1.y);
-        ctx.lineTo(node2.x, node2.y);
-        ctx.stroke();
-        
-        // Add small circles along the connection to simulate synapses
-        const synapseCount = Math.floor(distance * 2);
-        for (let s = 1; s <= synapseCount; s++) {
-          const t = s / (synapseCount + 1);
-          const sx = node1.x + (node2.x - node1.x) * t;
-          const sy = node1.y + (node2.y - node1.y) * t;
-          
-          ctx.beginPath();
-          ctx.arc(sx, sy, 2, 0, Math.PI * 2);
-          ctx.fillStyle = COLOR_NEURON_WEB;
-          ctx.fill();
-        }
-      }
-    });
+}
+
+// Render atmospheric parallax layers with blurred neuron wisps
+function renderBackgroundParallax(ctx, width, height, deltaMs) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  parallaxNeurons.forEach((neuron, index) => {
+    neuron.phase += neuron.speed * deltaMs * 0.001;
+    const px = neuron.x * width + currentPanX * 0.06 * neuron.depth;
+    const py = neuron.y * height + currentPanY * 0.06 * neuron.depth;
+    const wobble = Math.sin(neuron.phase * 2) * neuron.sway;
+    const radius = 12 * neuron.depth;
+
+    const gradient = ctx.createRadialGradient(px, py + wobble * 0.1, radius * 0.2, px, py + wobble * 0.1, radius * 1.6);
+    gradient.addColorStop(0, COLOR_BACKGROUND_BLUE);
+    gradient.addColorStop(0.45, COLOR_NEURON_WEB);
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(px, py + wobble, radius * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (index % 5 === 0) {
+      ctx.strokeStyle = COLOR_BACKGROUND_EMBER;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(px - wobble * 0.1, py - radius * 0.8);
+      ctx.quadraticCurveTo(px + wobble * 0.2, py, px + radius * 0.8, py + wobble * 0.1);
+      ctx.stroke();
+    }
+  });
+
+  ctx.restore();
+}
+
+// Drift floating motes in screen space for mystical ambiance
+function updateFloatingLights(deltaMs, width, height) {
+  const delta = deltaMs * 0.06;
+  floatingLights.forEach((light, index) => {
+    light.x += light.vx * delta;
+    light.y += light.vy * delta;
+
+    if (light.x < -10) light.x = width + 10;
+    if (light.x > width + 10) light.x = -10;
+    if (light.y < -10) light.y = height + 10;
+    if (light.y > height + 10) light.y = -10;
+
+    if (organicNoise(index + lastRenderTimestamp) > 0.995) {
+      light.vx = (Math.random() - 0.5) * 0.12;
+      light.vy = (Math.random() - 0.5) * 0.12;
+    }
   });
 }
 
-/**
- * Render a single archetype node as a circular neuron-like structure
- */
-function renderArchetypeNode(ctx, territory, offsetX, offsetY) {
-  const x = offsetX + territory.x * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2;
-  const y = offsetY + territory.y * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2;
-  const radius = BASE_TERRITORY_SIZE * 0.4;
-  
+// Paint softly glowing floating lights above the map layer
+function renderFloatingLightsOverlay(ctx, width, height) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  floatingLights.forEach((light) => {
+    const color = light.hue === 'player' ? COLOR_PLAYER_STROKE : COLOR_ENEMY_STROKE;
+    const radius = light.size * 6;
+    const gradient = ctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, radius);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(light.x, light.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.restore();
+}
+
+// Render faction territories as blended heat fields and connective tissue
+function renderTerritoryFields(ctx, nodePositions) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  nodePositions.forEach((node) => {
+    if (node.territory.owner === TERRITORY_NEUTRAL) {
+      return;
+    }
+
+    const isPlayer = node.territory.owner === TERRITORY_PLAYER;
+    const baseRadius = node.radius * 3.2;
+    const gradient = ctx.createRadialGradient(node.x, node.y, baseRadius * 0.25, node.x, node.y, baseRadius);
+
+    if (isPlayer) {
+      gradient.addColorStop(0, 'rgba(120, 200, 255, 0.55)');
+      gradient.addColorStop(0.45, COLOR_PLAYER_TERRITORY);
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    } else {
+      gradient.addColorStop(0, 'rgba(255, 70, 110, 0.55)');
+      gradient.addColorStop(0.45, COLOR_ENEMY_TERRITORY);
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    }
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, baseRadius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Blend connective tissue between adjacent same-faction nodes
+  for (let i = 0; i < nodePositions.length; i++) {
+    for (let j = i + 1; j < nodePositions.length; j++) {
+      const nodeA = nodePositions[i];
+      const nodeB = nodePositions[j];
+
+      if (nodeA.territory.owner === TERRITORY_NEUTRAL || nodeA.territory.owner !== nodeB.territory.owner) {
+        continue;
+      }
+
+      const dx = nodeA.territory.x - nodeB.territory.x;
+      const dy = nodeA.territory.y - nodeB.territory.y;
+      const gridDistance = Math.sqrt(dx * dx + dy * dy);
+      if (gridDistance > 2.4) {
+        continue;
+      }
+
+      const isPlayer = nodeA.territory.owner === TERRITORY_PLAYER;
+      const color = isPlayer ? 'rgba(120, 200, 255, 0.35)' : 'rgba(255, 70, 110, 0.35)';
+      const controlSeed = (i + 1) * (j + 3);
+      const controlJitter = (organicNoise(controlSeed) - 0.5) * 18;
+      const ctrlX = (nodeA.x + nodeB.x) / 2 + controlJitter;
+      const ctrlY = (nodeA.y + nodeB.y) / 2 - controlJitter;
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = (nodeA.radius + nodeB.radius) * 0.8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(nodeA.x, nodeA.y);
+      ctx.quadraticCurveTo(ctrlX, ctrlY, nodeB.x, nodeB.y);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+// Organic neuron-style connections with curved strands and synapse highlights
+function renderOrganicConnections(ctx, nodePositions) {
+  ctx.save();
+  nodePositions.forEach((node1, i) => {
+    nodePositions.forEach((node2, j) => {
+      if (i >= j) return;
+
+      const dx = node1.territory.x - node2.territory.x;
+      const dy = node1.territory.y - node2.territory.y;
+      const gridDistance = Math.sqrt(dx * dx + dy * dy);
+      const sharedOwner = node1.territory.owner === node2.territory.owner && node1.territory.owner !== TERRITORY_NEUTRAL;
+      const shouldConnect = sharedOwner ? gridDistance <= 3.6 : gridDistance <= 1.8;
+
+      if (!shouldConnect) {
+        return;
+      }
+
+      const color = sharedOwner
+        ? (node1.territory.owner === TERRITORY_PLAYER ? COLOR_PLAYER_CONNECTION : COLOR_ENEMY_CONNECTION)
+        : COLOR_NEURON_WEB;
+
+      const intensity = sharedOwner ? 0.9 : 0.5;
+      const controlSeed = (i + 7) * (j + 11);
+      const controlJitter = (organicNoise(controlSeed) - 0.5) * 24;
+      const ctrlX = (node1.x + node2.x) / 2 + controlJitter;
+      const ctrlY = (node1.y + node2.y) / 2 - controlJitter;
+
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = intensity;
+      ctx.lineWidth = 1.3 + (sharedOwner ? 0.8 : 0);
+      ctx.beginPath();
+      ctx.moveTo(node1.x, node1.y);
+      ctx.quadraticCurveTo(ctrlX, ctrlY, node2.x, node2.y);
+      ctx.stroke();
+
+      // Synapse sparks that hint at signal traffic
+      const synapseCount = sharedOwner ? 3 : 1;
+      for (let s = 1; s <= synapseCount; s++) {
+        const t = s / (synapseCount + 1);
+        const sx = node1.x + (node2.x - node1.x) * t + controlJitter * 0.1;
+        const sy = node1.y + (node2.y - node1.y) * t - controlJitter * 0.1;
+
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(sx, sy, sharedOwner ? 2.2 : 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+  });
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+// Light pulses orbiting owned nodes to keep the map feeling alive
+function renderSignalSparks(ctx, nodePositions, deltaMs) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  nodePositions.forEach((node, index) => {
+    const isPlayer = node.territory.owner === TERRITORY_PLAYER;
+    const isEnemy = node.territory.owner === TERRITORY_ENEMY;
+    const color = isPlayer ? COLOR_PLAYER_STROKE : (isEnemy ? COLOR_ENEMY_STROKE : COLOR_NEURON_WEB);
+
+    const baseOrbit = node.radius * (node.territory.nodeType === 'archetype' ? 1.6 : 1.2);
+    const t = ((lastRenderTimestamp + deltaMs) * 0.001 + index * 0.21) % 1;
+    const angle = t * Math.PI * 2;
+    const sparkX = node.x + Math.cos(angle) * baseOrbit;
+    const sparkY = node.y + Math.sin(angle) * baseOrbit;
+
+    ctx.fillStyle = color;
+    ctx.globalAlpha = isEnemy ? 0.85 : 0.9;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = isEnemy ? 18 : 12;
+    ctx.beginPath();
+    ctx.arc(sparkX, sparkY, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+// Render a single node as a circular neuron-like structure with faction theming
+function renderRealmNode(ctx, node) {
+  const { territory, x, y, radius } = node;
+
   // Determine color based on ownership
   let fillColor, strokeColor, glowColor;
   if (territory.owner === TERRITORY_PLAYER) {
@@ -495,44 +773,41 @@ function renderArchetypeNode(ctx, territory, offsetX, offsetY) {
     strokeColor = COLOR_NEUTRAL_STROKE;
     glowColor = null;
   }
-  
+
   // Draw outer glow for captured nodes
   if (glowColor) {
     ctx.shadowColor = glowColor;
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = territory.owner === TERRITORY_ENEMY ? 20 : 14;
   }
-  
+
   // Draw main node circle
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fillStyle = fillColor;
   ctx.fill();
-  
+
   ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = territory.nodeType === 'archetype' ? 2.8 : 1.8;
   ctx.stroke();
-  
+
   // Reset shadow
   ctx.shadowBlur = 0;
-  
+
   // Draw inner detail circles (neuron nucleus effect)
   ctx.beginPath();
-  ctx.arc(x, y, radius * 0.6, 0, Math.PI * 2);
+  ctx.arc(x, y, radius * 0.65, 0, Math.PI * 2);
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = 1;
   ctx.globalAlpha = 0.5;
   ctx.stroke();
   ctx.globalAlpha = 1.0;
-  
-  // Add archetype label abbreviation
-  if (territory.archetype) {
-    const label = territory.archetype.id.split('-')[0].toUpperCase().substring(0, 2);
-    ctx.fillStyle = strokeColor;
-    ctx.font = `bold 14px "${FONT_FAMILY}", serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, x, y);
-  }
+
+  const label = getNodeLabel(territory);
+  ctx.fillStyle = strokeColor;
+  ctx.font = `bold ${territory.nodeType === 'archetype' ? 14 : 11}px "${FONT_FAMILY}", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, x, y);
 }
 
 /**
