@@ -7,8 +7,31 @@
  * Default manifest describing background music and sound effects used by the game.
  * Individual tracks map to files stored under the audio asset folders.
  */
+const MOBILE_USER_AGENT_PATTERN = /android|iphone|ipad|ipod|iemobile|mobile/i;
+
+/**
+ * Detect whether the game is running in a mobile browser environment so audio defaults can
+ * avoid hijacking the device-wide media session (which would pause Spotify/audiobooks).
+ */
+function isLikelyMobileBrowser() {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+  const userAgent = (navigator.userAgent || '').toLowerCase();
+  const hasTouch = typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 0;
+  return MOBILE_USER_AGENT_PATTERN.test(userAgent) || hasTouch;
+}
+
+/**
+ * Resolve a platform-aware default music volume so mobile players keep their own audio playing
+ * unless they explicitly raise the in-game music slider.
+ */
+function resolveDefaultMusicVolume() {
+  return isLikelyMobileBrowser() ? 0 : 1;
+}
+
 export const DEFAULT_AUDIO_MANIFEST = {
-  musicVolume: 1,
+  musicVolume: resolveDefaultMusicVolume(),
   sfxVolume: 1,
   musicCrossfadeSeconds: 3,
   music: {
