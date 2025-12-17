@@ -532,6 +532,7 @@ function bindMapInteractions() {
   // Wheel - zoom
   mapCanvas.addEventListener('wheel', (e) => {
     e.preventDefault();
+    e.stopPropagation();
 
     const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
     const newZoom = currentZoom * zoomDelta;
@@ -557,6 +558,7 @@ function bindMapInteractions() {
   mapCanvas.addEventListener('touchmove', (e) => {
     if (e.touches.length === 2) {
       e.preventDefault();
+      e.stopPropagation();
       
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
