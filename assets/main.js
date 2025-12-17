@@ -399,6 +399,7 @@ import {
 import { bindSpireOptionsDropdown, closeAllSpireDropdowns } from './spireOptionsDropdowns.js';
 import { bindKufSpireOptions, initializeKufSpirePreferences } from './kufSpirePreferences.js';
 import { bindShinSpireOptions, initializeShinSpirePreferences, setShinSimulationGetter } from './shinSpirePreferences.js';
+import { bindCognitiveRealmOptions, initializeCognitiveRealmPreferences } from './cognitiveRealmPreferences.js';
 import { createDeveloperModeManager } from './developerModeManager.js';
 import {
   moteGemState,
@@ -5832,6 +5833,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const cognitiveRealmContainer = document.getElementById('cognitive-realm-container');
     const cognitiveRealmCanvas = document.getElementById('cognitive-realm-canvas');
     if (cognitiveRealmContainer && cognitiveRealmCanvas) {
+      initializeCognitiveRealmPreferences();
+      bindCognitiveRealmOptions();
       initializeCognitiveRealmMap(cognitiveRealmContainer, cognitiveRealmCanvas);
     }
 
@@ -5879,6 +5882,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       toggleId: 'kuf-options-toggle-button',
       menuId: 'kuf-options-menu',
       spireId: 'kuf',
+    });
+    bindSpireOptionsDropdown({
+      toggleId: 'cognitive-realm-options-toggle',
+      menuId: 'cognitive-realm-options-menu',
+      spireId: 'cognitive-realm',
     });
     initializePowderSpirePreferences();
     bindPowderSpireOptions();
