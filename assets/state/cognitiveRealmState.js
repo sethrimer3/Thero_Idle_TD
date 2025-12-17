@@ -498,6 +498,16 @@ export function resetTerritories() {
   notifyTerritoriesChanged();
 }
 
+// Set a specific territory's owner (for developer mode cycling)
+export function setTerritoryOwner(territoryId, owner) {
+  const territory = cognitiveRealmState.territories.find((t) => t.id === territoryId);
+  if (territory) {
+    territory.owner = owner;
+    // Notify that territories have changed
+    notifyTerritoriesChanged();
+  }
+}
+
 // Get territory statistics for display
 export function getTerritoryStats() {
   const stats = {
