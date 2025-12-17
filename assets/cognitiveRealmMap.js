@@ -21,20 +21,21 @@ const MAX_ZOOM = 3.0;
 
 // Visual configuration
 const FONT_FAMILY = 'Cormorant Garamond';
-const COLOR_GRID = 'rgba(139, 247, 255, 0.08)';
-const COLOR_PLAYER_FILL = 'rgba(139, 247, 255, 0.25)';
-const COLOR_PLAYER_STROKE = 'rgba(139, 247, 255, 0.7)';
-const COLOR_ENEMY_FILL = 'rgba(255, 125, 235, 0.25)';
-const COLOR_ENEMY_STROKE = 'rgba(255, 125, 235, 0.7)';
-const COLOR_NEUTRAL_FILL = 'rgba(247, 247, 245, 0.05)';
-const COLOR_NEUTRAL_STROKE = 'rgba(247, 247, 245, 0.2)';
-const COLOR_BG = 'rgba(11, 11, 15, 0.95)';
-const COLOR_UI_BG = 'rgba(5, 6, 12, 0.85)';
+const COLOR_NEURON_WEB = 'rgba(139, 247, 255, 0.15)';
+const COLOR_PLAYER_FILL = 'rgba(139, 247, 255, 0.3)';
+const COLOR_PLAYER_STROKE = 'rgba(139, 247, 255, 0.9)';
+const COLOR_ENEMY_FILL = 'rgba(255, 125, 235, 0.3)';
+const COLOR_ENEMY_STROKE = 'rgba(255, 125, 235, 0.9)';
+const COLOR_NEUTRAL_FILL = 'rgba(247, 247, 245, 0.08)';
+const COLOR_NEUTRAL_STROKE = 'rgba(247, 247, 245, 0.3)';
+const COLOR_BG = '#000000'; // Solid black background
+const COLOR_UI_BG = 'rgba(0, 0, 0, 0.85)';
 const COLOR_UI_BORDER = 'rgba(139, 247, 255, 0.3)';
 const COLOR_TEXT = 'rgba(247, 247, 245, 0.9)';
-const COLOR_TEXT_PLAYER = 'rgba(139, 247, 255, 0.8)';
-const COLOR_TEXT_ENEMY = 'rgba(255, 125, 235, 0.8)';
+const COLOR_TEXT_PLAYER = 'rgba(139, 247, 255, 0.9)';
+const COLOR_TEXT_ENEMY = 'rgba(255, 125, 235, 0.9)';
 const COLOR_TEXT_MUTED = 'rgba(247, 247, 245, 0.6)';
+const COLOR_NODE_GLOW = 'rgba(139, 247, 255, 0.5)';
 
 // Zoom and pan state
 let currentZoom = 1.0;
@@ -54,6 +55,10 @@ let mapContainer = null;
 // Animation frame reference
 let animationFrameId = null;
 
+// Selected node for showing description
+let selectedNode = null;
+let descriptionModal = null;
+
 /**
  * Initialize the cognitive realm map with container and canvas elements.
  * @param {HTMLElement} container - The container element for the map
@@ -72,6 +77,9 @@ export function initializeCognitiveRealmMap(container, canvas) {
   
   // Set up canvas size
   resizeCanvas();
+  
+  // Create description modal
+  createDescriptionModal();
   
   // Bind interaction handlers
   bindMapInteractions();
@@ -135,10 +143,20 @@ function bindMapInteractions() {
     lastPointerY = e.clientY;
   });
   
-  // Pointer up - stop dragging
-  mapCanvas.addEventListener('pointerup', () => {
+  // Pointer up - stop dragging or handle click
+  mapCanvas.addEventListener('pointerup', (e) => {
+    const wasDragging = isDragging;
     isDragging = false;
     mapCanvas.style.cursor = 'grab';
+    
+    // Only treat as click if pointer didn't move much
+    const deltaX = Math.abs(e.clientX - pointerStartX);
+    const deltaY = Math.abs(e.clientY - pointerStartY);
+    const isClick = deltaX < 5 && deltaY < 5 && !wasDragging;
+    
+    if (isClick) {
+      handleNodeClick(e);
+    }
   });
   
   // Pointer cancel - stop dragging
@@ -227,6 +245,139 @@ export function stopCognitiveRealmMap() {
 }
 
 /**
+ * Create a modal element for displaying archetype descriptions
+ */
+function createDescriptionModal() {
+  if (descriptionModal) {
+    return; // Already created
+  }
+  
+  descriptionModal = document.createElement('div');
+  descriptionModal.className = 'cognitive-realm-modal';
+  descriptionModal.hidden = true;
+  descriptionModal.innerHTML = `
+    <div class="cognitive-realm-modal__backdrop"></div>
+    <div class="cognitive-realm-modal__content">
+      <button class="cognitive-realm-modal__close" aria-label="Close description">&times;</button>
+      <h3 class="cognitive-realm-modal__title"></h3>
+      <p class="cognitive-realm-modal__description"></p>
+    </div>
+  `;
+  
+  document.body.appendChild(descriptionModal);
+  
+  // Close modal when clicking backdrop or close button
+  const backdrop = descriptionModal.querySelector('.cognitive-realm-modal__backdrop');
+  const closeBtn = descriptionModal.querySelector('.cognitive-realm-modal__close');
+  
+  backdrop.addEventListener('click', closeDescriptionModal);
+  closeBtn.addEventListener('click', closeDescriptionModal);
+}
+
+/**
+ * Close the description modal
+ */
+function closeDescriptionModal() {
+  if (descriptionModal) {
+    descriptionModal.hidden = true;
+    selectedNode = null;
+  }
+}
+
+/**
+ * Show archetype description in modal
+ */
+function showArchetypeDescription(territory) {
+  if (!descriptionModal || !territory || !territory.archetype) {
+    return;
+  }
+  
+  const archetype = territory.archetype;
+  const isPlayerOwned = territory.owner === TERRITORY_PLAYER;
+  const isEnemyOwned = territory.owner === TERRITORY_ENEMY;
+  
+  // Determine which version to show
+  let displayName, displayDescription;
+  if (isPlayerOwned) {
+    displayName = archetype.positive.name;
+    displayDescription = archetype.positive.description;
+  } else if (isEnemyOwned) {
+    displayName = archetype.negative.name;
+    displayDescription = archetype.negative.description;
+  } else {
+    // Neutral - show both
+    displayName = `${archetype.positive.name} ↔ ${archetype.negative.name}`;
+    displayDescription = `Positive: ${archetype.positive.description}\n\nNegative: ${archetype.negative.description}`;
+  }
+  
+  const titleEl = descriptionModal.querySelector('.cognitive-realm-modal__title');
+  const descEl = descriptionModal.querySelector('.cognitive-realm-modal__description');
+  
+  titleEl.textContent = displayName;
+  descEl.textContent = displayDescription;
+  
+  // Apply styling based on ownership
+  const contentEl = descriptionModal.querySelector('.cognitive-realm-modal__content');
+  contentEl.classList.remove('modal-player', 'modal-enemy', 'modal-neutral');
+  if (isPlayerOwned) {
+    contentEl.classList.add('modal-player');
+  } else if (isEnemyOwned) {
+    contentEl.classList.add('modal-enemy');
+  } else {
+    contentEl.classList.add('modal-neutral');
+  }
+  
+  descriptionModal.hidden = false;
+  selectedNode = territory;
+}
+
+/**
+ * Handle click on canvas to detect node selection
+ */
+function handleNodeClick(e) {
+  if (!mapCanvas || !mapContext) {
+    return;
+  }
+  
+  const rect = mapCanvas.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
+  
+  const width = mapCanvas.width / (window.devicePixelRatio || 1);
+  const height = mapCanvas.height / (window.devicePixelRatio || 1);
+  
+  // Transform click coordinates to map space
+  const centerX = width / 2;
+  const centerY = height / 2;
+  
+  const mapX = (clickX - centerX - currentPanX) / currentZoom;
+  const mapY = (clickY - centerY - currentPanY) / currentZoom;
+  
+  // Get territories and calculate positions
+  const territories = getTerritories();
+  const gridDims = getGridDimensions();
+  
+  const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const offsetX = -totalWidth / 2;
+  const offsetY = -totalHeight / 2;
+  
+  // Check if click is on any node
+  for (const territory of territories) {
+    const nodeX = offsetX + territory.x * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2;
+    const nodeY = offsetY + territory.y * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2;
+    const nodeRadius = BASE_TERRITORY_SIZE * 0.5;
+    
+    const distance = Math.sqrt((mapX - nodeX) ** 2 + (mapY - nodeY) ** 2);
+    
+    if (distance <= nodeRadius) {
+      showArchetypeDescription(territory);
+      return;
+    }
+  }
+}
+
+/**
  * Render the cognitive realm map with territories
  */
 function renderMap() {
@@ -259,12 +410,12 @@ function renderMap() {
   const offsetX = -totalWidth / 2;
   const offsetY = -totalHeight / 2;
   
-  // Render grid background pattern (subtle mathematical grid)
-  renderGridPattern(mapContext, offsetX, offsetY, totalWidth, totalHeight);
+  // Render neuron-like web connections between nodes
+  renderNeuronWeb(mapContext, territories, offsetX, offsetY);
   
-  // Render each territory
+  // Render each territory as an archetype node
   territories.forEach((territory) => {
-    renderTerritory(mapContext, territory, offsetX, offsetY);
+    renderArchetypeNode(mapContext, territory, offsetX, offsetY);
   });
   
   // Restore context state
@@ -275,101 +426,112 @@ function renderMap() {
 }
 
 /**
- * Render a subtle mathematical grid pattern in the background
+ * Render neuron-like web connections between archetype nodes
  */
-function renderGridPattern(ctx, offsetX, offsetY, width, height) {
-  ctx.strokeStyle = COLOR_GRID;
-  ctx.lineWidth = 0.5;
+function renderNeuronWeb(ctx, territories, offsetX, offsetY) {
+  ctx.strokeStyle = COLOR_NEURON_WEB;
+  ctx.lineWidth = 1.5;
   
-  const gridSpacing = BASE_TERRITORY_SIZE + TERRITORY_GAP;
+  // Calculate node positions
+  const nodePositions = territories.map((territory) => ({
+    x: offsetX + territory.x * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2,
+    y: offsetY + territory.y * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2,
+    territory,
+  }));
   
-  // Vertical lines
-  for (let i = 0; i <= getGridDimensions().width; i++) {
-    const x = offsetX + i * gridSpacing;
-    ctx.beginPath();
-    ctx.moveTo(x, offsetY);
-    ctx.lineTo(x, offsetY + height);
-    ctx.stroke();
-  }
-  
-  // Horizontal lines
-  for (let i = 0; i <= getGridDimensions().height; i++) {
-    const y = offsetY + i * gridSpacing;
-    ctx.beginPath();
-    ctx.moveTo(offsetX, y);
-    ctx.lineTo(offsetX + width, y);
-    ctx.stroke();
-  }
+  // Draw connections between adjacent nodes (like a neural network)
+  nodePositions.forEach((node1, i) => {
+    nodePositions.forEach((node2, j) => {
+      if (i >= j) return; // Avoid duplicate lines
+      
+      const dx = node1.territory.x - node2.territory.x;
+      const dy = node1.territory.y - node2.territory.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Connect adjacent nodes and some diagonal connections
+      if (distance <= 1.5) {
+        ctx.beginPath();
+        ctx.moveTo(node1.x, node1.y);
+        ctx.lineTo(node2.x, node2.y);
+        ctx.stroke();
+        
+        // Add small circles along the connection to simulate synapses
+        const synapseCount = Math.floor(distance * 2);
+        for (let s = 1; s <= synapseCount; s++) {
+          const t = s / (synapseCount + 1);
+          const sx = node1.x + (node2.x - node1.x) * t;
+          const sy = node1.y + (node2.y - node1.y) * t;
+          
+          ctx.beginPath();
+          ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+          ctx.fillStyle = COLOR_NEURON_WEB;
+          ctx.fill();
+        }
+      }
+    });
+  });
 }
 
 /**
- * Render a single territory with abstract geometric shape
+ * Render a single archetype node as a circular neuron-like structure
  */
-function renderTerritory(ctx, territory, offsetX, offsetY) {
+function renderArchetypeNode(ctx, territory, offsetX, offsetY) {
   const x = offsetX + territory.x * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2;
   const y = offsetY + territory.y * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2;
-  const size = BASE_TERRITORY_SIZE * 0.8;
+  const radius = BASE_TERRITORY_SIZE * 0.4;
   
   // Determine color based on ownership
-  let fillColor, strokeColor;
+  let fillColor, strokeColor, glowColor;
   if (territory.owner === TERRITORY_PLAYER) {
     fillColor = COLOR_PLAYER_FILL;
     strokeColor = COLOR_PLAYER_STROKE;
+    glowColor = COLOR_PLAYER_STROKE;
   } else if (territory.owner === TERRITORY_ENEMY) {
     fillColor = COLOR_ENEMY_FILL;
     strokeColor = COLOR_ENEMY_STROKE;
+    glowColor = COLOR_ENEMY_STROKE;
   } else {
     fillColor = COLOR_NEUTRAL_FILL;
     strokeColor = COLOR_NEUTRAL_STROKE;
+    glowColor = null;
   }
   
-  ctx.fillStyle = fillColor;
-  ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = 2;
+  // Draw outer glow for captured nodes
+  if (glowColor) {
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 15;
+  }
   
-  // Render different shapes based on shapeType
+  // Draw main node circle
   ctx.beginPath();
-  
-  switch (territory.shapeType) {
-    case 0: // Circle
-      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
-      break;
-    
-    case 1: // Triangle
-      ctx.moveTo(x, y - size / 2);
-      ctx.lineTo(x + size / 2, y + size / 2);
-      ctx.lineTo(x - size / 2, y + size / 2);
-      ctx.closePath();
-      break;
-    
-    case 2: // Square
-      ctx.rect(x - size / 2, y - size / 2, size, size);
-      break;
-    
-    case 3: // Hexagon
-      for (let i = 0; i < 6; i++) {
-        const angle = (Math.PI / 3) * i;
-        const px = x + (size / 2) * Math.cos(angle);
-        const py = y + (size / 2) * Math.sin(angle);
-        if (i === 0) {
-          ctx.moveTo(px, py);
-        } else {
-          ctx.lineTo(px, py);
-        }
-      }
-      ctx.closePath();
-      break;
-  }
-  
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = fillColor;
   ctx.fill();
+  
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = 2.5;
   ctx.stroke();
   
-  // Add subtle glow for non-neutral territories
-  if (territory.owner !== TERRITORY_NEUTRAL) {
-    ctx.shadowColor = strokeColor;
-    ctx.shadowBlur = 10;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+  // Reset shadow
+  ctx.shadowBlur = 0;
+  
+  // Draw inner detail circles (neuron nucleus effect)
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.6, 0, Math.PI * 2);
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.5;
+  ctx.stroke();
+  ctx.globalAlpha = 1.0;
+  
+  // Add archetype label abbreviation
+  if (territory.archetype) {
+    const label = territory.archetype.id.split('-')[0].toUpperCase().substring(0, 2);
+    ctx.fillStyle = strokeColor;
+    ctx.font = `bold 14px "${FONT_FAMILY}", serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y);
   }
 }
 
@@ -392,7 +554,7 @@ function renderUIOverlay(ctx, width, height) {
   ctx.fillStyle = COLOR_TEXT;
   ctx.font = `14px "${FONT_FAMILY}", serif`;
   
-  ctx.fillText('Cognitive Realm', 20, 30);
+  ctx.fillText('Collective Unconscious', 20, 30);
   
   ctx.font = `12px "${FONT_FAMILY}", serif`;
   ctx.fillStyle = COLOR_TEXT_PLAYER;
