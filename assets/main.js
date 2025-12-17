@@ -2146,6 +2146,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getLamedSimulation: () => lamedSimulationInstance,
     getTsadiSimulation: () => tsadiSimulationInstance,
     getSelectedGem: (spireId) => spireGemMenuController?.getSelection(spireId),
+    getGemDefinition: (gemId) => gemDefinitionLookup.get(gemId) || null,
     consumeGem: consumeGemFromInventory,
     addIterons,
   });
