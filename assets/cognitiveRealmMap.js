@@ -15,6 +15,27 @@ const MAP_PADDING = 40;
 const BASE_TERRITORY_SIZE = 50;
 const TERRITORY_GAP = 8;
 
+// Zoom configuration
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 3.0;
+
+// Visual configuration
+const FONT_FAMILY = 'Cormorant Garamond';
+const COLOR_GRID = 'rgba(139, 247, 255, 0.08)';
+const COLOR_PLAYER_FILL = 'rgba(139, 247, 255, 0.25)';
+const COLOR_PLAYER_STROKE = 'rgba(139, 247, 255, 0.7)';
+const COLOR_ENEMY_FILL = 'rgba(255, 125, 235, 0.25)';
+const COLOR_ENEMY_STROKE = 'rgba(255, 125, 235, 0.7)';
+const COLOR_NEUTRAL_FILL = 'rgba(247, 247, 245, 0.05)';
+const COLOR_NEUTRAL_STROKE = 'rgba(247, 247, 245, 0.2)';
+const COLOR_BG = 'rgba(11, 11, 15, 0.95)';
+const COLOR_UI_BG = 'rgba(5, 6, 12, 0.85)';
+const COLOR_UI_BORDER = 'rgba(139, 247, 255, 0.3)';
+const COLOR_TEXT = 'rgba(247, 247, 245, 0.9)';
+const COLOR_TEXT_PLAYER = 'rgba(139, 247, 255, 0.8)';
+const COLOR_TEXT_ENEMY = 'rgba(255, 125, 235, 0.8)';
+const COLOR_TEXT_MUTED = 'rgba(247, 247, 245, 0.6)';
+
 // Zoom and pan state
 let currentZoom = 1.0;
 let currentPanX = 0;
@@ -133,8 +154,8 @@ function bindMapInteractions() {
     const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
     const newZoom = currentZoom * zoomDelta;
     
-    // Clamp zoom between 0.5x and 3x
-    currentZoom = Math.max(0.5, Math.min(3.0, newZoom));
+    // Clamp zoom between configured limits
+    currentZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
   }, { passive: false });
   
   // Touch gestures for pinch zoom
@@ -161,8 +182,8 @@ function bindMapInteractions() {
       const scale = distance / touchStartDistance;
       const newZoom = touchStartZoom * scale;
       
-      // Clamp zoom between 0.5x and 3x
-      currentZoom = Math.max(0.5, Math.min(3.0, newZoom));
+      // Clamp zoom between configured limits
+      currentZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
     }
   }, { passive: false });
   
@@ -217,7 +238,7 @@ function renderMap() {
   const height = mapCanvas.height / (window.devicePixelRatio || 1);
   
   // Clear canvas with dark background
-  mapContext.fillStyle = 'rgba(11, 11, 15, 0.95)';
+  mapContext.fillStyle = COLOR_BG;
   mapContext.fillRect(0, 0, width, height);
   
   // Save context state for transformations
@@ -257,7 +278,7 @@ function renderMap() {
  * Render a subtle mathematical grid pattern in the background
  */
 function renderGridPattern(ctx, offsetX, offsetY, width, height) {
-  ctx.strokeStyle = 'rgba(139, 247, 255, 0.08)';
+  ctx.strokeStyle = COLOR_GRID;
   ctx.lineWidth = 0.5;
   
   const gridSpacing = BASE_TERRITORY_SIZE + TERRITORY_GAP;
@@ -292,14 +313,14 @@ function renderTerritory(ctx, territory, offsetX, offsetY) {
   // Determine color based on ownership
   let fillColor, strokeColor;
   if (territory.owner === TERRITORY_PLAYER) {
-    fillColor = 'rgba(139, 247, 255, 0.25)';
-    strokeColor = 'rgba(139, 247, 255, 0.7)';
+    fillColor = COLOR_PLAYER_FILL;
+    strokeColor = COLOR_PLAYER_STROKE;
   } else if (territory.owner === TERRITORY_ENEMY) {
-    fillColor = 'rgba(255, 125, 235, 0.25)';
-    strokeColor = 'rgba(255, 125, 235, 0.7)';
+    fillColor = COLOR_ENEMY_FILL;
+    strokeColor = COLOR_ENEMY_STROKE;
   } else {
-    fillColor = 'rgba(247, 247, 245, 0.05)';
-    strokeColor = 'rgba(247, 247, 245, 0.2)';
+    fillColor = COLOR_NEUTRAL_FILL;
+    strokeColor = COLOR_NEUTRAL_STROKE;
   }
   
   ctx.fillStyle = fillColor;
@@ -359,39 +380,39 @@ function renderUIOverlay(ctx, width, height) {
   const stats = getTerritoryStats();
   
   // Draw semi-transparent background for stats
-  ctx.fillStyle = 'rgba(5, 6, 12, 0.85)';
+  ctx.fillStyle = COLOR_UI_BG;
   ctx.fillRect(10, 10, 220, 90);
   
   // Draw border
-  ctx.strokeStyle = 'rgba(139, 247, 255, 0.3)';
+  ctx.strokeStyle = COLOR_UI_BORDER;
   ctx.lineWidth = 1;
   ctx.strokeRect(10, 10, 220, 90);
   
   // Draw text
-  ctx.fillStyle = 'rgba(247, 247, 245, 0.9)';
-  ctx.font = '14px "Cormorant Garamond", serif';
+  ctx.fillStyle = COLOR_TEXT;
+  ctx.font = `14px "${FONT_FAMILY}", serif`;
   
   ctx.fillText('Cognitive Realm', 20, 30);
   
-  ctx.font = '12px "Cormorant Garamond", serif';
-  ctx.fillStyle = 'rgba(139, 247, 255, 0.8)';
+  ctx.font = `12px "${FONT_FAMILY}", serif`;
+  ctx.fillStyle = COLOR_TEXT_PLAYER;
   ctx.fillText(`Player: ${stats.player} territories`, 20, 50);
   
-  ctx.fillStyle = 'rgba(255, 125, 235, 0.8)';
+  ctx.fillStyle = COLOR_TEXT_ENEMY;
   ctx.fillText(`Enemy: ${stats.enemy} territories`, 20, 68);
   
-  ctx.fillStyle = 'rgba(247, 247, 245, 0.6)';
+  ctx.fillStyle = COLOR_TEXT_MUTED;
   ctx.fillText(`Neutral: ${stats.neutral}`, 20, 86);
   
   // Draw zoom indicator
-  ctx.fillStyle = 'rgba(5, 6, 12, 0.85)';
+  ctx.fillStyle = COLOR_UI_BG;
   ctx.fillRect(width - 100, height - 40, 90, 30);
   
-  ctx.strokeStyle = 'rgba(139, 247, 255, 0.3)';
+  ctx.strokeStyle = COLOR_UI_BORDER;
   ctx.strokeRect(width - 100, height - 40, 90, 30);
   
-  ctx.fillStyle = 'rgba(247, 247, 245, 0.9)';
-  ctx.font = '12px "Cormorant Garamond", serif';
+  ctx.fillStyle = COLOR_TEXT;
+  ctx.font = `12px "${FONT_FAMILY}", serif`;
   ctx.fillText(`Zoom: ${currentZoom.toFixed(1)}x`, width - 90, height - 20);
 }
 

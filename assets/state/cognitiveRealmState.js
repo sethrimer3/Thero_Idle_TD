@@ -10,6 +10,10 @@ export const TERRITORY_NEUTRAL = 0;
 export const TERRITORY_PLAYER = 1;
 export const TERRITORY_ENEMY = 2;
 
+// Territory conquest probabilities (for spreading influence on victory)
+const CONQUEST_CHANCE_FROM_ENEMY = 0.5; // 50% chance to convert adjacent enemy territories
+const CONQUEST_CHANCE_FROM_NEUTRAL = 0.3; // 30% chance to convert adjacent neutral territories
+
 // Initialize the cognitive realm state with a grid of territories.
 // Each territory has an id, position, and ownership state.
 function createInitialTerritories() {
@@ -88,10 +92,10 @@ export function updateTerritoriesForLevel(levelId, victory) {
         const adjY = territory.y + offset.dy;
         const adjacent = getTerritory(adjX, adjY);
         
-        // Convert enemy territories to player control (50% chance for drama)
-        if (adjacent && adjacent.owner === TERRITORY_ENEMY && Math.random() > 0.5) {
+        // Convert enemy territories to player control with configured probability
+        if (adjacent && adjacent.owner === TERRITORY_ENEMY && Math.random() < CONQUEST_CHANCE_FROM_ENEMY) {
           adjacent.owner = TERRITORY_PLAYER;
-        } else if (adjacent && adjacent.owner === TERRITORY_NEUTRAL && Math.random() > 0.3) {
+        } else if (adjacent && adjacent.owner === TERRITORY_NEUTRAL && Math.random() < CONQUEST_CHANCE_FROM_NEUTRAL) {
           adjacent.owner = TERRITORY_PLAYER;
         }
       });
