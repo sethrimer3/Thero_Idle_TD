@@ -77,6 +77,16 @@ let descriptionModal = null;
 let parallaxNeurons = [];
 let floatingLights = [];
 
+// Physics state for drifting nodes
+let nodePhysicsState = new Map(); // Map<territoryId, { offsetX, offsetY, vx, vy, targetOffsetX, targetOffsetY }>
+
+// Node drift configuration
+const NODE_DRIFT_SPEED = 0.0008; // Speed of drift movement
+const NODE_DRIFT_RANGE = 12; // Maximum drift distance from center position
+const NODE_DRIFT_DAMPING = 0.92; // Velocity damping for smooth motion
+const NODE_DRIFT_CHANGE_INTERVAL = 8000; // Time between drift target changes (ms)
+const ROPE_SEGMENTS = 5; // Number of segments in each rope connection
+
 // Lightweight deterministic jitter so organic lines stay stable per node pair
 function organicNoise(seed) {
   const x = Math.sin(seed) * 10000;
@@ -99,6 +109,72 @@ function getNodeLabel(territory) {
   }
 
   return '---';
+}
+
+// Initialize physics state for a territory node
+function initializeNodePhysics(territory) {
+  if (!nodePhysicsState.has(territory.id)) {
+    nodePhysicsState.set(territory.id, {
+      offsetX: 0,
+      offsetY: 0,
+      vx: 0,
+      vy: 0,
+      targetOffsetX: (Math.random() - 0.5) * NODE_DRIFT_RANGE,
+      targetOffsetY: (Math.random() - 0.5) * NODE_DRIFT_RANGE,
+      lastTargetChange: performance.now ? performance.now() : Date.now(),
+    });
+  }
+}
+
+// Update node physics to create gentle drifting motion
+function updateNodePhysics(territory, deltaMs) {
+  initializeNodePhysics(territory);
+  const physics = nodePhysicsState.get(territory.id);
+  const now = performance.now ? performance.now() : Date.now();
+  
+  // Change drift target periodically
+  if (now - physics.lastTargetChange > NODE_DRIFT_CHANGE_INTERVAL) {
+    physics.targetOffsetX = (Math.random() - 0.5) * NODE_DRIFT_RANGE * 2;
+    physics.targetOffsetY = (Math.random() - 0.5) * NODE_DRIFT_RANGE * 2;
+    physics.lastTargetChange = now;
+  }
+  
+  // Apply spring force toward target
+  const dx = physics.targetOffsetX - physics.offsetX;
+  const dy = physics.targetOffsetY - physics.offsetY;
+  
+  physics.vx += dx * NODE_DRIFT_SPEED * deltaMs;
+  physics.vy += dy * NODE_DRIFT_SPEED * deltaMs;
+  
+  // Apply damping
+  physics.vx *= NODE_DRIFT_DAMPING;
+  physics.vy *= NODE_DRIFT_DAMPING;
+  
+  // Update position
+  physics.offsetX += physics.vx * deltaMs * 0.01;
+  physics.offsetY += physics.vy * deltaMs * 0.01;
+  
+  // Clamp to max range
+  const distance = Math.sqrt(physics.offsetX ** 2 + physics.offsetY ** 2);
+  if (distance > NODE_DRIFT_RANGE) {
+    const scale = NODE_DRIFT_RANGE / distance;
+    physics.offsetX *= scale;
+    physics.offsetY *= scale;
+    physics.vx *= 0.5;
+    physics.vy *= 0.5;
+  }
+}
+
+// Get node position with physics offset applied
+function getNodePosition(node) {
+  const physics = nodePhysicsState.get(node.territory.id);
+  if (physics) {
+    return {
+      x: node.x + physics.offsetX,
+      y: node.y + physics.offsetY,
+    };
+  }
+  return { x: node.x, y: node.y };
 }
 
 // Seed background neuron wisps and floating lights for parallax depth
@@ -503,9 +579,10 @@ function handleNodeClick(e) {
   
   const nodePositions = buildNodePositions(territories, offsetX, offsetY);
 
-  // Check if click is on any node
+  // Check if click is on any node (using physics-offset positions)
   for (const node of nodePositions) {
-    const distance = Math.sqrt((mapX - node.x) ** 2 + (mapY - node.y) ** 2);
+    const pos = getNodePosition(node);
+    const distance = Math.sqrt((mapX - pos.x) ** 2 + (mapY - pos.y) ** 2);
 
     if (distance <= node.radius) {
       showNodeDescription(node.territory);
@@ -553,9 +630,14 @@ function renderMap(deltaMs = 16) {
   const offsetY = -totalHeight / 2;
 
   const nodePositions = buildNodePositions(territories, offsetX, offsetY);
+  
+  // Update physics for all nodes
+  nodePositions.forEach((node) => {
+    updateNodePhysics(node.territory, deltaMs);
+  });
 
   renderTerritoryFields(mapContext, nodePositions);
-  renderOrganicConnections(mapContext, nodePositions);
+  renderSoftBodyConnections(mapContext, nodePositions);
   renderSignalSparks(mapContext, nodePositions, deltaMs);
 
   nodePositions.forEach((node) => {
@@ -687,9 +769,12 @@ function renderTerritoryFields(ctx, nodePositions) {
       return;
     }
 
+    // Get actual position with physics offset
+    const pos = getNodePosition(node);
+    
     const isPlayer = node.territory.owner === TERRITORY_PLAYER;
     const baseRadius = node.radius * 3.2;
-    const gradient = ctx.createRadialGradient(node.x, node.y, baseRadius * 0.25, node.x, node.y, baseRadius);
+    const gradient = ctx.createRadialGradient(pos.x, pos.y, baseRadius * 0.25, pos.x, pos.y, baseRadius);
 
     if (isPlayer) {
       gradient.addColorStop(0, 'rgba(120, 200, 255, 0.55)');
@@ -703,7 +788,7 @@ function renderTerritoryFields(ctx, nodePositions) {
 
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(node.x, node.y, baseRadius, 0, Math.PI * 2);
+    ctx.arc(pos.x, pos.y, baseRadius, 0, Math.PI * 2);
     ctx.fill();
   });
 
@@ -724,19 +809,23 @@ function renderTerritoryFields(ctx, nodePositions) {
         continue;
       }
 
+      // Get actual positions with physics offsets
+      const posA = getNodePosition(nodeA);
+      const posB = getNodePosition(nodeB);
+      
       const isPlayer = nodeA.territory.owner === TERRITORY_PLAYER;
       const color = isPlayer ? 'rgba(120, 200, 255, 0.35)' : 'rgba(255, 70, 110, 0.35)';
       const controlSeed = (i + 1) * (j + 3);
       const controlJitter = (organicNoise(controlSeed) - 0.5) * 18;
-      const ctrlX = (nodeA.x + nodeB.x) / 2 + controlJitter;
-      const ctrlY = (nodeA.y + nodeB.y) / 2 - controlJitter;
+      const ctrlX = (posA.x + posB.x) / 2 + controlJitter;
+      const ctrlY = (posA.y + posB.y) / 2 - controlJitter;
 
       ctx.strokeStyle = color;
       ctx.lineWidth = (nodeA.radius + nodeB.radius) * 0.8;
       ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(nodeA.x, nodeA.y);
-      ctx.quadraticCurveTo(ctrlX, ctrlY, nodeB.x, nodeB.y);
+      ctx.moveTo(posA.x, posA.y);
+      ctx.quadraticCurveTo(ctrlX, ctrlY, posB.x, posB.y);
       ctx.stroke();
     }
   }
@@ -744,8 +833,8 @@ function renderTerritoryFields(ctx, nodePositions) {
   ctx.restore();
 }
 
-// Organic neuron-style connections with curved strands and synapse highlights
-function renderOrganicConnections(ctx, nodePositions) {
+// Soft-body rope connections that flex and sway as nodes drift
+function renderSoftBodyConnections(ctx, nodePositions) {
   ctx.save();
   nodePositions.forEach((node1, i) => {
     nodePositions.forEach((node2, j) => {
@@ -766,25 +855,60 @@ function renderOrganicConnections(ctx, nodePositions) {
         : COLOR_NEURON_WEB;
 
       const intensity = sharedOwner ? 0.9 : 0.5;
-      const controlSeed = (i + 7) * (j + 11);
-      const controlJitter = (organicNoise(controlSeed) - 0.5) * 24;
-      const ctrlX = (node1.x + node2.x) / 2 + controlJitter;
-      const ctrlY = (node1.y + node2.y) / 2 - controlJitter;
-
+      
+      // Get actual positions with physics offsets
+      const pos1 = getNodePosition(node1);
+      const pos2 = getNodePosition(node2);
+      
+      // Calculate rope physics - simulate a hanging rope with gravity-like sag
+      const actualDx = pos2.x - pos1.x;
+      const actualDy = pos2.y - pos1.y;
+      const actualDistance = Math.sqrt(actualDx * actualDx + actualDy * actualDy);
+      
+      // Rope sag amount based on distance and a bit of physics seed for variation
+      const sagSeed = (i + 7) * (j + 11);
+      const sagAmount = actualDistance * 0.15 + organicNoise(sagSeed) * 8;
+      
+      // Perpendicular direction for sag
+      const perpX = -actualDy / actualDistance;
+      const perpY = actualDx / actualDistance;
+      
+      // Draw rope as multiple connected segments for flexibility
       ctx.strokeStyle = color;
       ctx.globalAlpha = intensity;
       ctx.lineWidth = 1.3 + (sharedOwner ? 0.8 : 0);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
       ctx.beginPath();
-      ctx.moveTo(node1.x, node1.y);
-      ctx.quadraticCurveTo(ctrlX, ctrlY, node2.x, node2.y);
+      ctx.moveTo(pos1.x, pos1.y);
+      
+      // Create rope segments with catenary-like curve
+      for (let seg = 1; seg <= ROPE_SEGMENTS; seg++) {
+        const t = seg / ROPE_SEGMENTS;
+        
+        // Parabolic sag - strongest in middle
+        const sagFactor = Math.sin(t * Math.PI);
+        const sag = sagAmount * sagFactor;
+        
+        // Interpolate between start and end
+        const segX = pos1.x + actualDx * t + perpX * sag;
+        const segY = pos1.y + actualDy * t + perpY * sag;
+        
+        ctx.lineTo(segX, segY);
+      }
+      
       ctx.stroke();
 
-      // Synapse sparks that hint at signal traffic
+      // Synapse sparks that hint at signal traffic along the rope
       const synapseCount = sharedOwner ? 3 : 1;
       for (let s = 1; s <= synapseCount; s++) {
         const t = s / (synapseCount + 1);
-        const sx = node1.x + (node2.x - node1.x) * t + controlJitter * 0.1;
-        const sy = node1.y + (node2.y - node1.y) * t - controlJitter * 0.1;
+        const sagFactor = Math.sin(t * Math.PI);
+        const sag = sagAmount * sagFactor;
+        
+        const sx = pos1.x + actualDx * t + perpX * sag;
+        const sy = pos1.y + actualDy * t + perpY * sag;
 
         ctx.fillStyle = color;
         ctx.beginPath();
@@ -807,11 +931,14 @@ function renderSignalSparks(ctx, nodePositions, deltaMs) {
     const isEnemy = node.territory.owner === TERRITORY_ENEMY;
     const color = isPlayer ? COLOR_PLAYER_STROKE : (isEnemy ? COLOR_ENEMY_STROKE : COLOR_NEURON_WEB);
 
+    // Get actual position with physics offset
+    const pos = getNodePosition(node);
+    
     const baseOrbit = node.radius * (node.territory.nodeType === 'archetype' ? 1.6 : 1.2);
     const t = ((lastRenderTimestamp + deltaMs) * 0.001 + index * 0.21) % 1;
     const angle = t * Math.PI * 2;
-    const sparkX = node.x + Math.cos(angle) * baseOrbit;
-    const sparkY = node.y + Math.sin(angle) * baseOrbit;
+    const sparkX = pos.x + Math.cos(angle) * baseOrbit;
+    const sparkY = pos.y + Math.sin(angle) * baseOrbit;
 
     ctx.fillStyle = color;
     ctx.globalAlpha = isEnemy ? 0.85 : 0.9;
@@ -829,7 +956,12 @@ function renderSignalSparks(ctx, nodePositions, deltaMs) {
 
 // Render a single node as a circular neuron-like structure with faction theming
 function renderRealmNode(ctx, node) {
-  const { territory, x, y, radius } = node;
+  const { territory, radius } = node;
+  
+  // Get actual position with physics offset
+  const pos = getNodePosition(node);
+  const x = pos.x;
+  const y = pos.y;
 
   // Determine color based on ownership
   let fillColor, strokeColor, glowColor;
