@@ -8,6 +8,7 @@
  * @param {() => any} options.getLamedSimulation - Getter for the Lamed gravity simulation instance.
  * @param {() => any} options.getTsadiSimulation - Getter for the Tsadi binding simulation instance.
  * @param {(spireId: string) => string|null} [options.getSelectedGem] - Resolver for the currently slotted spire gem.
+ * @param {(gemId: string) => object|null} [options.getGemDefinition] - Lookup for a gem definition without consuming inventory.
  * @param {(gemId: string) => object|null} [options.consumeGem] - Consumer that decrements a gem from the inventory and returns its definition.
  * @param {(count: number) => void} options.addIterons - Adds iterons to the Shin bank.
  * @returns {{ initializeManualDropHandlers: () => void }} Controller helpers.
@@ -19,6 +20,7 @@ export function createManualDropController({
   getLamedSimulation,
   getTsadiSimulation,
   getSelectedGem,
+  getGemDefinition,
   consumeGem,
   addIterons,
 }) {
@@ -60,24 +62,24 @@ export function createManualDropController({
   }
 
   /**
-   * Consume the selected gem for a spire and return its definition and normalized color data.
+   * Resolve the selected gem for a spire without consuming inventory so spawn failures don't burn resources.
    * @param {string} spireType - Target spire identifier.
-   * @returns {{definition: object, color: {css:string,rgb:{r:number,g:number,b:number}}}|null} Resolved gem payload.
+   * @returns {{id: string, definition: object, color: {css:string,rgb:{r:number,g:number,b:number}}}|null} Resolved gem payload.
    */
   function resolveGemForSpire(spireType) {
-    if (typeof getSelectedGem !== 'function' || typeof consumeGem !== 'function') {
+    if (typeof getSelectedGem !== 'function' || typeof getGemDefinition !== 'function') {
       return null;
     }
     const gemId = getSelectedGem(spireType);
     if (!gemId) {
       return null;
     }
-    const definition = consumeGem(gemId);
+    const definition = getGemDefinition(gemId);
     if (!definition) {
       return null;
     }
     const color = normalizeGemColor(definition.color);
-    return { definition, color };
+    return { id: gemId, definition, color };
   }
 
   /**
@@ -143,10 +145,13 @@ export function createManualDropController({
             if (gem) {
               // Gem tiers map directly to mass multipliers (Quartz=2, Ruby=3, ...).
               const massMultiplier = Math.max(1, gem.definition.moteSize || 1);
-              lamedSimulation.spawnStar({
+              const spawned = lamedSimulation.spawnStar({
                 massMultiplier,
                 color: gem.color?.rgb,
               });
+              if (spawned && typeof consumeGem === 'function') {
+                consumeGem(gem.id);
+              }
               break;
             }
             lamedSimulation.spawnStar();
@@ -158,12 +163,15 @@ export function createManualDropController({
             if (gem) {
               // Each gem tier pushes the spawn to a higher particle tier while applying shimmer.
               const bonusTierOffset = Math.max(0, (gem.definition.moteSize || 1) - 1);
-              tsadiSimulation.spawnParticle({
+              const spawned = tsadiSimulation.spawnParticle({
                 tier: -1,
                 tierOffset: bonusTierOffset,
                 color: gem.color?.css,
                 shimmer: true,
               });
+              if (spawned && typeof consumeGem === 'function') {
+                consumeGem(gem.id);
+              }
               break;
             }
             tsadiSimulation.spawnParticle();
