@@ -738,7 +738,115 @@
             </div>
             <!-- Cognitive Realm: Collective Unconscious - unlocked at level set 3 -->
             <section class="cognitive-realm-section" id="cognitive-realm-section" hidden aria-hidden="true">
-              <header class="subsection-title subsection-title--cognitive-realm">Collective Unconscious</header>
+              <header class="subsection-title subsection-title--cognitive-realm">
+                Collective Unconscious
+                <button
+                  type="button"
+                  class="spire-options-toggle"
+                  id="cognitive-realm-options-toggle"
+                  aria-expanded="false"
+                  aria-controls="cognitive-realm-options-menu"
+                  aria-label="Toggle visual settings"
+                >
+                  <svg class="icon-settings" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"
+                    />
+                  </svg>
+                </button>
+              </header>
+              <div
+                class="spire-options-menu"
+                id="cognitive-realm-options-menu"
+                data-open="false"
+                aria-hidden="true"
+                hidden
+              >
+                <button class="action-button ghost" type="button" id="cognitive-realm-parallax-layers-button">
+                  Parallax Layers · 7
+                </button>
+                <div class="settings-toggle" id="cognitive-realm-neuron-connections-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="cognitive-realm-neuron-connections-title">Neuron Connections</span>
+                    <span class="settings-toggle-description" id="cognitive-realm-neuron-connections-description"
+                      >Soft-body rope connections between nodes with gradient opacity fade.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="cognitive-realm-neuron-connections-toggle">
+                    <input
+                      type="checkbox"
+                      id="cognitive-realm-neuron-connections-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-thumb"></span>
+                    <span class="settings-toggle-state" id="cognitive-realm-neuron-connections-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="cognitive-realm-neuron-pulses-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="cognitive-realm-neuron-pulses-title">Neuron Pulses</span>
+                    <span class="settings-toggle-description" id="cognitive-realm-neuron-pulses-description"
+                      >Orbital light sparks that animate around nodes.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="cognitive-realm-neuron-pulses-toggle">
+                    <input
+                      type="checkbox"
+                      id="cognitive-realm-neuron-pulses-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-thumb"></span>
+                    <span class="settings-toggle-state" id="cognitive-realm-neuron-pulses-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="cognitive-realm-ambient-particles-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="cognitive-realm-ambient-particles-title">Ambient Particles</span>
+                    <span class="settings-toggle-description" id="cognitive-realm-ambient-particles-description"
+                      >Floating light motes that drift across the background.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="cognitive-realm-ambient-particles-toggle">
+                    <input
+                      type="checkbox"
+                      id="cognitive-realm-ambient-particles-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-thumb"></span>
+                    <span class="settings-toggle-state" id="cognitive-realm-ambient-particles-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="cognitive-realm-glow-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="cognitive-realm-glow-title">Glow Effects</span>
+                    <span class="settings-toggle-description" id="cognitive-realm-glow-description"
+                      >Node halos, territory fields, and shadow blur effects.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="cognitive-realm-glow-toggle">
+                    <input
+                      type="checkbox"
+                      id="cognitive-realm-glow-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-thumb"></span>
+                    <span class="settings-toggle-state" id="cognitive-realm-glow-state">On</span>
+                  </label>
+                </div>
+              </div>
               <p class="cognitive-realm-hint">Tap nodes to learn about archetypes • Pan to explore • Zoom with scroll or pinch</p>
               <div class="cognitive-realm-container" id="cognitive-realm-container">
                 <canvas class="cognitive-realm-canvas" id="cognitive-realm-canvas" aria-label="Interactive collective unconscious archetype map"></canvas>

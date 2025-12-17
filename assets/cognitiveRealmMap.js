@@ -10,6 +10,8 @@ import {
   TERRITORY_ENEMY,
 } from './state/cognitiveRealmState.js';
 
+import { getCognitiveRealmVisualSettings } from './cognitiveRealmPreferences.js';
+
 // Map rendering configuration
 const MAP_PADDING = 40;
 const BASE_TERRITORY_SIZE = 50;
@@ -603,13 +605,23 @@ function renderMap(deltaMs = 16) {
   const width = mapCanvas.width / dpr;
   const height = mapCanvas.height / dpr;
 
+  // Get visual settings to conditionally render effects
+  const settings = getCognitiveRealmVisualSettings();
+
   // Clear canvas with dark background
   mapContext.fillStyle = COLOR_BG;
   mapContext.fillRect(0, 0, width, height);
 
-  renderBackgroundParallax(mapContext, width, height, deltaMs);
-  updateFloatingLights(deltaMs, width, height);
-  renderFloatingLightsOverlay(mapContext, width, height);
+  // Render parallax background if enabled
+  if (settings.parallaxLayers > 0) {
+    renderBackgroundParallax(mapContext, width, height, deltaMs, settings.parallaxLayers);
+  }
+
+  // Render ambient particles if enabled
+  if (settings.ambientParticles) {
+    updateFloatingLights(deltaMs, width, height);
+    renderFloatingLightsOverlay(mapContext, width, height);
+  }
 
   // Save context state for transformations
   mapContext.save();
@@ -636,12 +648,20 @@ function renderMap(deltaMs = 16) {
     updateNodePhysics(node.territory, deltaMs);
   });
 
-  renderTerritoryFields(mapContext, nodePositions);
-  renderSoftBodyConnections(mapContext, nodePositions);
-  renderSignalSparks(mapContext, nodePositions, deltaMs);
+  renderTerritoryFields(mapContext, nodePositions, settings.glow);
+
+  // Render neuron connections if enabled
+  if (settings.neuronConnections) {
+    renderSoftBodyConnections(mapContext, nodePositions);
+  }
+
+  // Render neuron pulses if enabled
+  if (settings.neuronPulses) {
+    renderSignalSparks(mapContext, nodePositions, deltaMs);
+  }
 
   nodePositions.forEach((node) => {
-    renderRealmNode(mapContext, node);
+    renderRealmNode(mapContext, node, settings.glow);
   });
 
   // Restore context state
@@ -662,11 +682,16 @@ function buildNodePositions(territories, offsetX, offsetY) {
 }
 
 // Render atmospheric parallax layers with blurred neuron wisps
-function renderBackgroundParallax(ctx, width, height, deltaMs) {
+function renderBackgroundParallax(ctx, width, height, deltaMs, maxLayers = PARALLAX_LAYERS) {
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
 
   parallaxNeurons.forEach((neuron, index) => {
+    // Skip layers beyond the max setting
+    if (neuron.layer >= maxLayers) {
+      return;
+    }
+
     neuron.phase += neuron.speed * deltaMs * 0.001;
     const parallaxOffset = 0.05 + neuron.layer * 0.01;
     const px = neuron.x * width + currentPanX * parallaxOffset;
@@ -760,7 +785,12 @@ function renderFloatingLightsOverlay(ctx, width, height) {
 }
 
 // Render faction territories as blended heat fields and connective tissue
-function renderTerritoryFields(ctx, nodePositions) {
+function renderTerritoryFields(ctx, nodePositions, glowEnabled = true) {
+  // Skip territory glow fields if glow is disabled
+  if (!glowEnabled) {
+    return;
+  }
+
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
 
@@ -834,6 +864,7 @@ function renderTerritoryFields(ctx, nodePositions) {
 }
 
 // Soft-body rope connections that flex and sway as nodes drift
+// Enhanced with gradient opacity fading from 100% at nodes to 25% in the middle
 function renderSoftBodyConnections(ctx, nodePositions) {
   ctx.save();
   nodePositions.forEach((node1, i) => {
@@ -850,12 +881,6 @@ function renderSoftBodyConnections(ctx, nodePositions) {
         return;
       }
 
-      const color = sharedOwner
-        ? (node1.territory.owner === TERRITORY_PLAYER ? COLOR_PLAYER_CONNECTION : COLOR_ENEMY_CONNECTION)
-        : COLOR_NEURON_WEB;
-
-      const intensity = sharedOwner ? 0.9 : 0.5;
-      
       // Get actual positions with physics offsets
       const pos1 = getNodePosition(node1);
       const pos2 = getNodePosition(node2);
@@ -873,32 +898,54 @@ function renderSoftBodyConnections(ctx, nodePositions) {
       const perpX = -actualDy / actualDistance;
       const perpY = actualDx / actualDistance;
       
-      // Draw rope as multiple connected segments for flexibility
-      ctx.strokeStyle = color;
-      ctx.globalAlpha = intensity;
-      ctx.lineWidth = 1.3 + (sharedOwner ? 0.8 : 0);
+      // Parse base color to extract RGB for gradient
+      const colorStr = sharedOwner
+        ? (node1.territory.owner === TERRITORY_PLAYER ? COLOR_PLAYER_CONNECTION : COLOR_ENEMY_CONNECTION)
+        : COLOR_NEURON_WEB;
+      
+      const baseIntensity = sharedOwner ? 0.9 : 0.5;
+      const baseLineWidth = 2.4 + (sharedOwner ? 1.2 : 0); // Thicker connections
+      
+      // Draw rope as multiple connected segments with gradient opacity
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       
-      ctx.beginPath();
-      ctx.moveTo(pos1.x, pos1.y);
-      
-      // Create rope segments with catenary-like curve
-      for (let seg = 1; seg <= ROPE_SEGMENTS; seg++) {
-        const t = seg / ROPE_SEGMENTS;
+      // Create rope segments with catenary-like curve and varying opacity
+      for (let seg = 0; seg < ROPE_SEGMENTS; seg++) {
+        const t1 = seg / ROPE_SEGMENTS;
+        const t2 = (seg + 1) / ROPE_SEGMENTS;
+        
+        // Calculate opacity based on distance from nodes (100% at nodes, 25% at midpoint)
+        // Use a parabolic curve to fade from 1.0 to 0.25 and back to 1.0
+        const midpointFade1 = 1.0 - (0.75 * Math.sin(t1 * Math.PI));
+        const midpointFade2 = 1.0 - (0.75 * Math.sin(t2 * Math.PI));
         
         // Parabolic sag - strongest in middle
-        const sagFactor = Math.sin(t * Math.PI);
-        const sag = sagAmount * sagFactor;
+        const sagFactor1 = Math.sin(t1 * Math.PI);
+        const sag1 = sagAmount * sagFactor1;
+        const sagFactor2 = Math.sin(t2 * Math.PI);
+        const sag2 = sagAmount * sagFactor2;
         
-        // Interpolate between start and end
-        const segX = pos1.x + actualDx * t + perpX * sag;
-        const segY = pos1.y + actualDy * t + perpY * sag;
+        // Interpolate segment positions
+        const segX1 = pos1.x + actualDx * t1 + perpX * sag1;
+        const segY1 = pos1.y + actualDy * t1 + perpY * sag1;
+        const segX2 = pos1.x + actualDx * t2 + perpX * sag2;
+        const segY2 = pos1.y + actualDy * t2 + perpY * sag2;
         
-        ctx.lineTo(segX, segY);
+        // Use gradient opacity for this segment
+        const gradient = ctx.createLinearGradient(segX1, segY1, segX2, segY2);
+        const color1 = colorStr.replace(/[\d.]+\)$/, `${midpointFade1 * baseIntensity})`);
+        const color2 = colorStr.replace(/[\d.]+\)$/, `${midpointFade2 * baseIntensity})`);
+        gradient.addColorStop(0, color1);
+        gradient.addColorStop(1, color2);
+        
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = baseLineWidth;
+        ctx.beginPath();
+        ctx.moveTo(segX1, segY1);
+        ctx.lineTo(segX2, segY2);
+        ctx.stroke();
       }
-      
-      ctx.stroke();
 
       // Synapse sparks that hint at signal traffic along the rope
       const synapseCount = sharedOwner ? 3 : 1;
@@ -906,18 +953,18 @@ function renderSoftBodyConnections(ctx, nodePositions) {
         const t = s / (synapseCount + 1);
         const sagFactor = Math.sin(t * Math.PI);
         const sag = sagAmount * sagFactor;
+        const midpointFade = 1.0 - (0.75 * Math.sin(t * Math.PI));
         
         const sx = pos1.x + actualDx * t + perpX * sag;
         const sy = pos1.y + actualDy * t + perpY * sag;
 
-        ctx.fillStyle = color;
+        ctx.fillStyle = colorStr.replace(/[\d.]+\)$/, `${midpointFade * baseIntensity})`);
         ctx.beginPath();
         ctx.arc(sx, sy, sharedOwner ? 2.2 : 1.6, 0, Math.PI * 2);
         ctx.fill();
       }
     });
   });
-  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -955,7 +1002,7 @@ function renderSignalSparks(ctx, nodePositions, deltaMs) {
 }
 
 // Render a single node as a circular neuron-like structure with faction theming
-function renderRealmNode(ctx, node) {
+function renderRealmNode(ctx, node, glowEnabled = true) {
   const { territory, radius } = node;
   
   // Get actual position with physics offset
@@ -979,8 +1026,8 @@ function renderRealmNode(ctx, node) {
     glowColor = COLOR_NEUTRAL_GLOW;
   }
 
-  // Draw outer glow for captured nodes
-  if (glowColor) {
+  // Draw outer glow for captured nodes if glow is enabled
+  if (glowColor && glowEnabled) {
     const glowSeed = (territory.x + 1) * 17 + (territory.y + 1) * 23;
     const glowVariance = 0.75 + organicNoise(glowSeed) * 0.85;
     const baseBlur = territory.nodeType === 'archetype' ? 18 : 12;
