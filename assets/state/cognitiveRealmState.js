@@ -1,9 +1,113 @@
 // Cognitive Realm Territories - State management for the abstract territory map.
 // This module tracks which territories are controlled by the player versus enemies.
+// The cognitive realm represents the "collective unconscious" with Jungian archetype nodes.
 
-// Territory grid dimensions (abstract map layout)
-const TERRITORY_GRID_WIDTH = 12;
-const TERRITORY_GRID_HEIGHT = 8;
+// Jungian Archetypes - Each node represents an archetype with positive and negative expressions
+export const ARCHETYPES = [
+  {
+    id: 'self',
+    positive: {
+      name: 'Self (Integrated Wholeness)',
+      description: 'Balance, coherence, harmony between systems'
+    },
+    negative: {
+      name: 'Fragmented Self (Disintegration)',
+      description: 'Chaos, dissociation, system collapse'
+    }
+  },
+  {
+    id: 'hero',
+    positive: {
+      name: 'Hero (Purposeful Agency)',
+      description: 'Courage, forward motion, meaningful struggle'
+    },
+    negative: {
+      name: 'Tyrant / Martyr Hero',
+      description: 'Obsession, self-destruction, domination'
+    }
+  },
+  {
+    id: 'shadow',
+    positive: {
+      name: 'Shadow (Acknowledged Instinct)',
+      description: 'Honesty, vitality, grounded power'
+    },
+    negative: {
+      name: 'Shadow (Possession)',
+      description: 'Rage, compulsion, unchecked aggression'
+    }
+  },
+  {
+    id: 'persona',
+    positive: {
+      name: 'Persona (Social Adaptability)',
+      description: 'Healthy communication, cooperation, role-flexibility'
+    },
+    negative: {
+      name: 'Persona (False Self)',
+      description: 'Emptiness, conformity, loss of authenticity'
+    }
+  },
+  {
+    id: 'anima-animus',
+    positive: {
+      name: 'Anima / Animus (Inner Integration)',
+      description: 'Emotional intelligence, relational depth, intuition'
+    },
+    negative: {
+      name: 'Anima / Animus (Projection)',
+      description: 'Dependency, idealization, emotional volatility'
+    }
+  },
+  {
+    id: 'great-mother',
+    positive: {
+      name: 'Great Mother (Nurturance)',
+      description: 'Healing, growth, protection, regeneration'
+    },
+    negative: {
+      name: 'Devouring Mother',
+      description: 'Smothering control, stagnation, dependency'
+    }
+  },
+  {
+    id: 'wise-elder',
+    positive: {
+      name: 'Wise Elder (Guidance)',
+      description: 'Insight, pattern recognition, long-range understanding'
+    },
+    negative: {
+      name: 'Dogmatic Elder',
+      description: 'Rigidity, dead tradition, resistance to change'
+    }
+  },
+  {
+    id: 'child',
+    positive: {
+      name: 'Child (Potential)',
+      description: 'Creativity, curiosity, openness to change'
+    },
+    negative: {
+      name: 'Abandoned Child',
+      description: 'Fear, helplessness, regression'
+    }
+  },
+  {
+    id: 'trickster',
+    positive: {
+      name: 'Trickster (Transformative Play)',
+      description: 'Innovation, humor, breaking stagnation'
+    },
+    negative: {
+      name: 'Trickster (Sabotage)',
+      description: 'Nihilism, deception, rule-breaking without meaning'
+    }
+  }
+];
+
+// Territory grid dimensions (abstract map layout) - 3x3 grid for 9 archetypes
+const TERRITORY_GRID_WIDTH = 3;
+const TERRITORY_GRID_HEIGHT = 3;
 
 // Territory ownership states
 export const TERRITORY_NEUTRAL = 0;
@@ -15,19 +119,22 @@ const CONQUEST_CHANCE_FROM_ENEMY = 0.5; // 50% chance to convert adjacent enemy 
 const CONQUEST_CHANCE_FROM_NEUTRAL = 0.3; // 30% chance to convert adjacent neutral territories
 
 // Initialize the cognitive realm state with a grid of territories.
-// Each territory has an id, position, and ownership state.
+// Each territory represents a Jungian archetype node.
 function createInitialTerritories() {
   const territories = [];
+  let archetypeIndex = 0;
+  
   for (let y = 0; y < TERRITORY_GRID_HEIGHT; y++) {
     for (let x = 0; x < TERRITORY_GRID_WIDTH; x++) {
+      const archetype = ARCHETYPES[archetypeIndex];
       territories.push({
         id: `territory-${x}-${y}`,
         x,
         y,
         owner: TERRITORY_NEUTRAL,
-        // Add some visual variety - territories can be different abstract shapes
-        shapeType: Math.floor(Math.random() * 4), // 0=circle, 1=triangle, 2=square, 3=polygon
+        archetype: archetype,
       });
+      archetypeIndex++;
     }
   }
   return territories;
@@ -141,7 +248,7 @@ export function serializeCognitiveRealmState() {
       x: t.x,
       y: t.y,
       owner: t.owner,
-      shapeType: t.shapeType,
+      archetypeId: t.archetype ? t.archetype.id : null,
     })),
     lastLevelCompleted: cognitiveRealmState.lastLevelCompleted,
   };
@@ -158,13 +265,20 @@ export function deserializeCognitiveRealmState(data) {
   }
   
   if (Array.isArray(data.territories)) {
-    cognitiveRealmState.territories = data.territories.map((t) => ({
-      id: t.id,
-      x: Number.isFinite(t.x) ? t.x : 0,
-      y: Number.isFinite(t.y) ? t.y : 0,
-      owner: Number.isFinite(t.owner) ? t.owner : TERRITORY_NEUTRAL,
-      shapeType: Number.isFinite(t.shapeType) ? t.shapeType : 0,
-    }));
+    cognitiveRealmState.territories = data.territories.map((t, index) => {
+      // Find archetype by ID, or use index as fallback
+      const archetype = t.archetypeId 
+        ? ARCHETYPES.find(a => a.id === t.archetypeId) || ARCHETYPES[index % ARCHETYPES.length]
+        : ARCHETYPES[index % ARCHETYPES.length];
+      
+      return {
+        id: t.id,
+        x: Number.isFinite(t.x) ? t.x : 0,
+        y: Number.isFinite(t.y) ? t.y : 0,
+        owner: Number.isFinite(t.owner) ? t.owner : TERRITORY_NEUTRAL,
+        archetype: archetype,
+      };
+    });
   }
   
   if (typeof data.lastLevelCompleted === 'string') {
