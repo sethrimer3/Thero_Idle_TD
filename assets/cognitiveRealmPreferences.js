@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   neuronPulses: true,
   ambientParticles: true,
   glow: true,
+  nodeDrift: false,
   parallaxLayers: 7, // Max parallax layers (can be reduced for performance)
 });
 
@@ -25,6 +26,8 @@ let ambientParticlesToggle = null;
 let ambientParticlesState = null;
 let glowToggle = null;
 let glowState = null;
+let nodeDriftToggle = null;
+let nodeDriftState = null;
 let parallaxLayersButton = null;
 
 /**
@@ -91,6 +94,7 @@ function syncAllToggles() {
   syncToggleState(neuronPulsesToggle, neuronPulsesState, settings.neuronPulses);
   syncToggleState(ambientParticlesToggle, ambientParticlesState, settings.ambientParticles);
   syncToggleState(glowToggle, glowState, settings.glow);
+  syncToggleState(nodeDriftToggle, nodeDriftState, settings.nodeDrift);
 }
 
 /**
@@ -113,6 +117,8 @@ export function bindCognitiveRealmOptions() {
   ambientParticlesState = document.getElementById('cognitive-realm-ambient-particles-state');
   glowToggle = document.getElementById('cognitive-realm-glow-toggle');
   glowState = document.getElementById('cognitive-realm-glow-state');
+  nodeDriftToggle = document.getElementById('cognitive-realm-node-drift-toggle');
+  nodeDriftState = document.getElementById('cognitive-realm-node-drift-state');
   parallaxLayersButton = document.getElementById('cognitive-realm-parallax-layers-button');
 
   if (neuronConnectionsToggle) {
@@ -140,6 +146,13 @@ export function bindCognitiveRealmOptions() {
     glowToggle.addEventListener('change', (event) => {
       applySetting('glow', event.target.checked);
       syncToggleState(glowToggle, glowState, settings.glow);
+    });
+  }
+
+  if (nodeDriftToggle) {
+    nodeDriftToggle.addEventListener('change', (event) => {
+      applySetting('nodeDrift', event.target.checked);
+      syncToggleState(nodeDriftToggle, nodeDriftState, settings.nodeDrift);
     });
   }
 
