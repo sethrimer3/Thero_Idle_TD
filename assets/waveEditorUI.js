@@ -826,8 +826,13 @@ function createDefaultGroup(overrides = {}) {
  */
 function extractWaveGroups(waveData) {
   const fallbackType = resolveEnemyTypeLetter(waveData, 'A');
-  const groups = Array.isArray(waveData?.enemyGroups) ? waveData.enemyGroups : null;
+  const groups = Array.isArray(waveData?.enemyGroups) && waveData.enemyGroups.length
+    ? waveData.enemyGroups
+    : Array.isArray(waveData?.groups) && waveData.groups.length
+      ? waveData.groups
+      : null;
   if (Array.isArray(groups) && groups.length) {
+    // Support both decoded wave data and the editor's in-memory `groups` structure.
     return groups
       .map((group) => {
         const count = Number.isFinite(group?.count) ? Math.max(1, Math.floor(group.count)) : 10;
