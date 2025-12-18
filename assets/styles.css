@@ -6770,13 +6770,15 @@ body.graphics-mode-low .control-button {
   display: block;
   text-align: center;
   font-family: 'Cormorant Garamond', serif;
-  font-size: clamp(1.3rem, 2.6vw, 2rem);
+  font-size: clamp(2.6rem, 5.2vw, 4rem);
   letter-spacing: 0.14em;
-  color: rgba(6, 6, 6, 0.92);
-  text-shadow:
-    0 3px 10px rgba(0, 0, 0, 0.75),
-    0 1px 3px rgba(0, 0, 0, 0.85);
-  transition: color 0.3s ease, text-shadow 0.3s ease;
+  --powder-glyph-fill: #000;
+  color: var(--powder-glyph-fill);
+  -webkit-text-fill-color: var(--powder-glyph-fill);
+  -webkit-text-stroke: 3px #000;
+  paint-order: stroke fill;
+  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.65);
+  transition: color 0.3s ease, text-shadow 0.3s ease, -webkit-text-fill-color 0.3s ease;
   pointer-events: none;
 }
 
@@ -6797,7 +6799,7 @@ body.graphics-mode-low .control-button {
 
 /* Palette-aware glow lights reached glyphs with a golden outline. */
 .powder-glyph--achieved {
-  color: var(--accent);
+  --powder-glyph-fill: var(--accent);
   text-shadow: 0 0 10px rgba(255, 220, 120, 0.55), 0 0 18px rgba(255, 186, 92, 0.45);
 }
 
@@ -6808,8 +6810,8 @@ body.graphics-mode-low .control-button {
 
 /* Target glyphs lean into the secondary palette hue while keeping the golden halo. */
 .powder-glyph--target {
-  color: var(--accent-2);
-  text-shadow: 0 0 12px rgba(255, 232, 150, 0.65), 0 0 22px rgba(255, 200, 120, 0.55), 0 0 30px rgba(255, 210, 140, 0.45);
+  text-shadow: 0 0 12px rgba(255, 232, 150, 0.55), 0 0 22px rgba(255, 200, 120, 0.45),
+    0 0 30px rgba(255, 210, 140, 0.35);
 }
 
 .powder-glyph--target::before {
