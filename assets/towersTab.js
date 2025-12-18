@@ -373,20 +373,6 @@ function applySvgPaletteColors(svgElement, palette) {
       rect.setAttribute('fill', secondaryHex);
     }
   });
-
-  // Update animated elements (polygons, lines, circles with animated-element class)
-  // These are used in tower icon animations and need to be palette-aware
-  const animatedElements = svgElement.querySelectorAll('.animated-element');
-  animatedElements.forEach((element) => {
-    // Update fill colors for polygons and circles
-    if (element.hasAttribute('fill') && !element.getAttribute('fill').startsWith('url(')) {
-      element.setAttribute('fill', primaryHex);
-    }
-    // Update stroke colors for lines and other stroked elements
-    if (element.hasAttribute('stroke')) {
-      element.setAttribute('stroke', primaryHex);
-    }
-  });
 }
 
 // Load SVG content and apply palette colors.

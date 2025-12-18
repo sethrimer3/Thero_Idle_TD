@@ -5,41 +5,21 @@
       <stop offset="100%" stop-color="#ff9b3f" stop-opacity="0.72" />
     </linearGradient>
     
-    <!-- Delta triangle ship assembly (palette-aware) -->
-    <g id="delta-ship">
-      <!-- Main triangle ship pointing right (will be recolored by palette) -->
-      <polygon class="animated-element" points="0,-3 6,0 0,3" fill="#8af7ff" opacity="0.85" />
-      <!-- Small trail effect (will be recolored by palette) -->
-      <line class="animated-element" x1="-1" y1="0" x2="-4" y2="0" stroke="#8af7ff" stroke-width="0.8" opacity="0.5" />
-    </g>
-    
-    <!-- Assembly parts (will appear to construct the ship) -->
-    <g id="assembly-part-1">
-      <line class="animated-element" x1="0" y1="-3" x2="6" y2="0" stroke="#8af7ff" stroke-width="1.2" opacity="0">
-        <animate attributeName="opacity" 
-          values="0;0.9;0.9;0" 
-          keyTimes="0;0.05;0.12;0.15" 
-          dur="6s" 
+    <!-- Delta infantry unit (small triangle) -->
+    <g id="infantry-unit">
+      <!-- Small triangle ship pointing right with gradient colors -->
+      <polygon points="0,-2 4,0 0,2" fill="#8af7ff" opacity="0.85">
+        <!-- Color animation alternating between cyan and magenta -->
+        <animate attributeName="fill" 
+          values="#8af7ff;#ff8ad8;#8af7ff" 
+          dur="4s" 
           repeatCount="indefinite" />
-      </line>
-    </g>
-    
-    <g id="assembly-part-2">
-      <line class="animated-element" x1="6" y1="0" x2="0" y2="3" stroke="#8af7ff" stroke-width="1.2" opacity="0">
-        <animate attributeName="opacity" 
-          values="0;0;0.9;0.9;0" 
-          keyTimes="0;0.05;0.1;0.17;0.2" 
-          dur="6s" 
-          repeatCount="indefinite" />
-      </line>
-    </g>
-    
-    <g id="assembly-part-3">
-      <line class="animated-element" x1="0" y1="3" x2="0" y2="-3" stroke="#8af7ff" stroke-width="1.2" opacity="0">
-        <animate attributeName="opacity" 
-          values="0;0;0;0.9;0.9;0" 
-          keyTimes="0;0.1;0.15;0.2;0.27;0.3" 
-          dur="6s" 
+      </polygon>
+      <!-- Small trail effect -->
+      <line x1="-1" y1="0" x2="-3" y2="0" stroke="#8af7ff" stroke-width="0.5" opacity="0.5">
+        <animate attributeName="stroke" 
+          values="#8af7ff;#ff8ad8;#8af7ff" 
+          dur="4s" 
           repeatCount="indefinite" />
       </line>
     </g>
@@ -49,43 +29,27 @@
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#deltaAura)" opacity="0.92" />
   
-  <!-- Ship assembly animation at center, then orbiting around tower -->
-  <g id="delta-animation">
-    <!-- Assembly parts appear first (frames 0-30% at center) -->
-    <g transform="translate(32, 32)">
-      <use href="#assembly-part-1" />
-      <use href="#assembly-part-2" />
-      <use href="#assembly-part-3" />
-    </g>
-    
-    <!-- Assembled ship orbits around the circumference (frames 30-90%) then flies off -->
-    <g id="orbiting-ship" opacity="0">
-      <use href="#delta-ship">
-        <!-- Movement around circumference and fly-off -->
-        <animateTransform 
-          attributeName="transform" 
-          type="translate"
-          values="32,32; 32,32; 32,18; 42,22; 46,32; 42,42; 32,46; 22,42; 18,32; 22,22; 32,18; 48,12; 58,8"
-          keyTimes="0;0.3;0.35;0.45;0.55;0.65;0.7;0.75;0.8;0.85;0.9;0.95;1"
-          dur="6s" 
-          repeatCount="indefinite" />
-        <!-- Rotation to face direction of movement -->
-        <animateTransform 
-          attributeName="transform" 
-          type="rotate"
-          values="0,0,0; 0,0,0; -90,0,0; -45,0,0; 0,0,0; 45,0,0; 90,0,0; 135,0,0; 180,0,0; -135,0,0; -90,0,0; -45,0,0; -15,0,0"
-          keyTimes="0;0.3;0.35;0.45;0.55;0.65;0.7;0.75;0.8;0.85;0.9;0.95;1"
-          dur="6s" 
-          repeatCount="indefinite"
-          additive="sum" />
-      </use>
-      <!-- Ship opacity -->
-      <animate attributeName="opacity" 
-        values="0;0;0.85;0.85;0.85;0.85;0.85;0.85;0.85;0.85;0.85;0.5;0" 
-        keyTimes="0;0.3;0.35;0.45;0.55;0.65;0.7;0.75;0.8;0.85;0.9;0.95;1" 
-        dur="6s" 
+  <!-- Infantry unit flying in a circle (behind the letter) -->
+  <g id="circling-infantry">
+    <use href="#infantry-unit">
+      <!-- Circular motion animation -->
+      <animateTransform 
+        attributeName="transform" 
+        type="translate"
+        values="32,20; 40,24; 42,32; 40,40; 32,44; 24,40; 22,32; 24,24; 32,20"
+        keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1"
+        dur="4s" 
         repeatCount="indefinite" />
-    </g>
+      <!-- Rotation to face direction of travel -->
+      <animateTransform 
+        attributeName="transform" 
+        type="rotate"
+        values="0,32,20; 45,40,24; 90,42,32; 135,40,40; 180,32,44; 225,24,40; 270,22,32; 315,24,24; 360,32,20"
+        keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1"
+        dur="4s" 
+        repeatCount="indefinite"
+        additive="sum" />
+    </use>
   </g>
   
   <!-- Tower letter with white fill and black outline -->
