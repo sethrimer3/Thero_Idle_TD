@@ -4310,7 +4310,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       cognitiveRealmSection.setAttribute('aria-hidden', 'false');
       
       // Only show map if on Defense tab AND not inside a level
-      const activeTabId = typeof getActiveTabId === 'function' ? getActiveTabId() : null;
+      const activeTabId = getActiveTabId();
       const isDefenseTab = activeTabId === 'tower';
       const isInsideLevel = activeLevelId && activeLevelIsInteractive;
       const shouldShowMap = isDefenseTab && !isInsideLevel;
@@ -5075,7 +5075,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     
     // Show cognitive realm map when leaving a level if on Defense tab
     if (isCognitiveRealmUnlocked()) {
-      const activeTabId = typeof getActiveTabId === 'function' ? getActiveTabId() : null;
+      const activeTabId = getActiveTabId();
       if (activeTabId === 'tower') {
         showCognitiveRealmMap();
       }

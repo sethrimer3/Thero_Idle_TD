@@ -1006,7 +1006,7 @@ function buildNodePositions(territories, offsetX, offsetY, randomizeStarts = fal
 }
 
 // Render atmospheric parallax layers with blurred neuron wisps
-function renderBackgroundParallax(ctx, width, height, deltaMs, maxLayers = 3) {
+function renderBackgroundParallax(ctx, width, height, deltaMs, maxLayers = PARALLAX_LAYERS) {
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
 
