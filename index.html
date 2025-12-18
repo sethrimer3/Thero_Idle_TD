@@ -1873,6 +1873,20 @@
           aria-labelledby="tab-fluid"
           hidden
         >
+          <header class="panel-header">Bet Spire</header>
+          
+          <!-- Placeholder render with tap interaction -->
+          <section class="fluid-grid" aria-label="Bet Spire Placeholder">
+            <article class="card bet-placeholder-card">
+              <div class="bet-placeholder-container" id="bet-placeholder-container">
+                <div class="bet-placeholder-stage" id="bet-placeholder-stage">
+                  <p class="bet-placeholder-message">Tap anywhere to test</p>
+                  <div class="bet-placeholder-taps" id="bet-placeholder-taps" aria-live="polite" aria-atomic="false"></div>
+                </div>
+              </div>
+            </article>
+          </section>
+          
           <!-- Floating toggle button for spire menu (mobile) -->
           <button
             class="spire-menu-toggle"
@@ -1952,324 +1966,6 @@
               <span class="spire-menu-count" id="spire-menu-kuf-count-fluid">0</span>
             </button>
           </nav>
-          <header class="panel-header" aria-label="Bet Spire"></header>
-          <section class="fluid-grid" aria-label="Bet Spire Overview">
-            <div class="fluid-simulation-slot" id="fluid-simulation-host">
-              <article class="card powder-simulation fluid-simulation-card" id="fluid-simulation-card">
-                <div class="powder-basin fluid-basin" id="fluid-basin">
-                  <canvas
-                    id="fluid-canvas"
-                    class="fluid-canvas"
-                    width="240"
-                    height="320"
-                    role="presentation"
-                    aria-hidden="true"
-                  ></canvas>
-                  <div class="fluid-terrarium-layer" id="fluid-terrarium-layer">
-                    <div
-                      class="fluid-terrarium-stage"
-                      id="fluid-terrarium-stage"
-                      role="img"
-                      aria-label="Bet terrarium shimmering beneath a starlit sky"
-                    >
-                      <div class="fluid-terrarium-stage__media" id="fluid-terrarium-stage-media">
-                        <div class="fluid-terrarium__sky" id="fluid-terrarium-sky" aria-hidden="true">
-                          <div class="fluid-terrarium__sun" id="fluid-terrarium-sun" aria-hidden="true"></div>
-                          <div class="fluid-terrarium__moon" id="fluid-terrarium-moon" aria-hidden="true"></div>
-                          <div
-                            class="fluid-terrarium__stars fluid-terrarium__stars--near"
-                            id="fluid-terrarium-stars-near"
-                          ></div>
-                          <div
-                            class="fluid-terrarium__stars fluid-terrarium__stars--far"
-                            id="fluid-terrarium-stars-far"
-                          ></div>
-                        </div>
-                        <img
-                          class="fluid-terrarium__background"
-                          src="./assets/sprites/spires/betSpire/Cave-Background.svg"
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          aria-hidden="true"
-                        />
-                        <img
-                          class="fluid-terrarium__magma"
-                          src="./assets/sprites/spires/betSpire/Magma.png"
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          aria-hidden="true"
-                        />
-                        <div class="fluid-terrarium__magma-glow" aria-hidden="true"></div>
-                        <img
-                          class="fluid-terrarium__floating-island"
-                          id="fluid-terrarium-floating-island"
-                          src="./assets/sprites/spires/betSpire/Floating-Island.png"
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          aria-hidden="true"
-                        />
-                        <img
-                          class="fluid-terrarium__collision-map"
-                          id="fluid-terrarium-floating-island-collision"
-                          src="./assets/sprites/spires/betSpire/Floating-Island.svg"
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          aria-hidden="true"
-                        />
-                        <img
-                          class="fluid-terrarium__foreground fluid-terrarium__terrain"
-                          id="fluid-terrarium-foreground"
-                          src="./assets/sprites/spires/betSpire/Terrain.svg"
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          aria-hidden="true"
-                        />
-                        <!-- Hidden collision silhouette sampled by the Bet terrarium overlays (shares the full-res terrain art). -->
-                        <img
-                          class="fluid-terrarium__collision-map"
-                          id="fluid-terrarium-foreground-collision"
-                          src="./assets/sprites/spires/betSpire/Terrain.svg"
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          aria-hidden="true"
-                        />
-                      </div>
-                    </div>
-                  <div class="powder-viewport fluid-viewport" id="fluid-viewport"></div>
-                </div>
-              </div>
-              <div class="fluid-camera-toggle" id="fluid-camera-toggle">
-                <button
-                  class="fluid-camera-toggle__button"
-                  id="fluid-camera-mode-toggle"
-                  type="button"
-                  aria-pressed="false"
-                  aria-label="Toggle Bet terrarium camera mode"
-                >
-                  <span class="fluid-camera-toggle__label">Camera mode</span>
-                  <span class="fluid-camera-toggle__pill" aria-hidden="true">
-                    <span class="fluid-camera-toggle__thumb"></span>
-                  </span>
-                  <span class="fluid-camera-toggle__state" id="fluid-camera-mode-state">Off</span>
-                </button>
-                <p class="fluid-camera-toggle__hint" id="fluid-camera-mode-hint" hidden></p>
-              </div>
-              </article>
-            </div>
-        <!-- Progress bar that reveals how close the Bet Spire is to its next happiness glyph. -->
-        <div class="fluid-happiness-progress" id="fluid-happiness-progress" aria-live="polite">
-          <div class="fluid-happiness-progress__label" id="fluid-happiness-progress-label">
-            Happiness Level 1
-          </div>
-          <div class="fluid-happiness-progress__bar-row">
-            <span class="fluid-happiness-progress__threshold" id="fluid-happiness-progress-previous">0 hp</span>
-            <div class="fluid-happiness-progress__track">
-              <div class="fluid-happiness-progress__fill" id="fluid-happiness-progress-fill"></div>
-              <div class="fluid-happiness-progress__current" id="fluid-happiness-progress-current">
-                0.0 hp
-              </div>
-            </div>
-            <span class="fluid-happiness-progress__threshold" id="fluid-happiness-progress-next">5 hp</span>
-          </div>
-        </div>
-        <!-- Terrarium Items dropdown for managing and upgrading items in the spire -->
-        <article class="card fluid-terrarium-items-card">
-          <button
-            class="fluid-terrarium-items-toggle"
-            type="button"
-            id="fluid-terrarium-items-toggle"
-            aria-expanded="false"
-            aria-controls="fluid-terrarium-items-dropdown"
-          >
-            <span class="fluid-terrarium-items-toggle__title">Terrarium Items</span>
-            <span class="fluid-terrarium-items-toggle__chevron" aria-hidden="true">▼</span>
-          </button>
-          <div
-            class="fluid-terrarium-items-dropdown"
-            id="fluid-terrarium-items-dropdown"
-            data-open="false"
-            aria-hidden="true"
-            hidden
-          >
-            <p class="fluid-terrarium-items-empty" id="fluid-terrarium-items-empty">No items placed in the terrarium yet.</p>
-            <ul class="fluid-terrarium-items-list" id="fluid-terrarium-items-list" aria-label="Terrarium items list"></ul>
-          </div>
-        </article>
-        <article class="card fluid-metrics-card">
-          <h3>Terrarium</h3>
-          <dl class="fluid-metrics">
-            <div>
-              <dt>Serendipity Reserve</dt>
-              <dd id="fluid-reservoir">0 Serendipity</dd>
-            </div>
-            <div>
-              <dt>Inspiration Rate</dt>
-              <dd id="fluid-drip-rate">0.00 Serendipity/sec</dd>
-            </div>
-          </dl>
-          <p class="fluid-status-note" id="fluid-status-note">
-            The Bet terrarium is a visual reflection; stored Serendipity is tracked in the reserve readout.
-          </p>
-        </article>
-            <article class="card fluid-happiness-card">
-              <h3>Happiness Ledger</h3>
-              <dl class="fluid-happiness-summary">
-                <div>
-                  <dt>Total Happiness</dt>
-                  <dd id="fluid-happiness-total">0 hp</dd>
-                </div>
-                <div>
-                  <dt>Happiness per Hour</dt>
-                  <dd id="fluid-happiness-rate">0 hp/hr</dd>
-                </div>
-              </dl>
-              <div class="fluid-happiness-breakdown">
-                <p class="fluid-happiness-empty" id="fluid-happiness-empty">No habitats are generating happiness yet.</p>
-                <ul class="fluid-happiness-list" id="fluid-happiness-list"></ul>
-              </div>
-            </article>
-          </section>
-          <section class="panel-grid spire-options-grid" aria-label="Bet Spire options">
-            <article class="card spire-options-card">
-              <button
-                class="action-button spire-options-trigger"
-                type="button"
-                id="fluid-options-toggle-button"
-                aria-expanded="false"
-                aria-controls="fluid-options-menu"
-              >
-                <span class="spire-options-glyph" aria-hidden="true">בּ</span>
-                <span>Spire Options</span>
-              </button>
-              <div
-                class="spire-options-menu"
-                id="fluid-options-menu"
-                data-open="false"
-                aria-hidden="true"
-                hidden
-              >
-                <button class="action-button ghost" type="button" id="fluid-graphics-level-button">
-                  Graphics · High
-                </button>
-                <div class="settings-toggle" id="fluid-creatures-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="fluid-creatures-title">Ambient Creatures</span>
-                    <span class="settings-toggle-description" id="fluid-creatures-description"
-                      >Animated Deltas that lounge, hop, and glow across the terrarium floor.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="fluid-creatures-toggle">
-                    <input
-                      type="checkbox"
-                      id="fluid-creatures-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="fluid-creatures-title"
-                      aria-describedby="fluid-creatures-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="fluid-creatures-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="fluid-grass-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="fluid-grass-title">Terrarium Grass</span>
-                    <span class="settings-toggle-description" id="fluid-grass-description"
-                      >Swaying blades of grass masked to the Bet terrain silhouette.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="fluid-grass-toggle">
-                    <input
-                      type="checkbox"
-                      id="fluid-grass-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="fluid-grass-title"
-                      aria-describedby="fluid-grass-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="fluid-grass-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="fluid-sky-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="fluid-sky-title">Sky Cycle</span>
-                    <span class="settings-toggle-description" id="fluid-sky-description"
-                      >Gradient day/night cycle with drifting sun, moon, and star layers.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="fluid-sky-toggle">
-                    <input
-                      type="checkbox"
-                      id="fluid-sky-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="fluid-sky-title"
-                      aria-describedby="fluid-sky-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="fluid-sky-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="fluid-crystal-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="fluid-crystal-title">Crystal Bloom</span>
-                    <span class="settings-toggle-description" id="fluid-crystal-description"
-                      >Brownian crystal growth rendered in the alcove behind the basin.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="fluid-crystal-toggle">
-                    <input
-                      type="checkbox"
-                      id="fluid-crystal-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="fluid-crystal-title"
-                      aria-describedby="fluid-crystal-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="fluid-crystal-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="fluid-shrooms-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="fluid-shrooms-title">Shroom Spores</span>
-                    <span class="settings-toggle-description" id="fluid-shrooms-description"
-                      >Phi and Psi shrooms with drifting spores around the terrarium stage.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="fluid-shrooms-toggle">
-                    <input
-                      type="checkbox"
-                      id="fluid-shrooms-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="fluid-shrooms-title"
-                      aria-describedby="fluid-shrooms-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="fluid-shrooms-state">On</span>
-                  </label>
-                </div>
-              </div>
-            </article>
-          </section>
         </section>
 
         <section
@@ -3647,11 +3343,146 @@
           aria-labelledby="tab-achievements"
           hidden
         >
-          <header class="panel-header">Achievements</header>
+          <header class="panel-header">Achievements Terrarium</header>
           <p class="achievement-note">
-              Each sealed proof adds <strong>+1 mote per minute</strong> to the idle bank. Tap an icon to
-            review its victory details.
+            Each sealed proof adds <strong>+1 mote per minute</strong> to the idle bank and grants terrarium creatures and items.
           </p>
+          
+          <!-- Terrarium rendering section moved from Bet Spire -->
+          <section class="fluid-grid" aria-label="Achievements Terrarium">
+            <div class="fluid-simulation-slot" id="achievements-terrarium-host">
+              <article class="card powder-simulation fluid-simulation-card" id="achievements-terrarium-card">
+                <div class="powder-basin fluid-basin" id="achievements-terrarium-basin">
+                  <canvas
+                    id="achievements-terrarium-canvas"
+                    class="fluid-canvas"
+                    width="240"
+                    height="320"
+                    role="presentation"
+                    aria-hidden="true"
+                  ></canvas>
+                  <div class="fluid-terrarium-layer" id="achievements-terrarium-layer">
+                    <div
+                      class="fluid-terrarium-stage"
+                      id="achievements-terrarium-stage"
+                      role="img"
+                      aria-label="Achievement terrarium with creatures and items"
+                    >
+                      <div class="fluid-terrarium-stage__media" id="achievements-terrarium-stage-media">
+                        <div class="fluid-terrarium__sky" id="achievements-terrarium-sky" aria-hidden="true">
+                          <div class="fluid-terrarium__sun" id="achievements-terrarium-sun" aria-hidden="true"></div>
+                          <div class="fluid-terrarium__moon" id="achievements-terrarium-moon" aria-hidden="true"></div>
+                          <div
+                            class="fluid-terrarium__stars fluid-terrarium__stars--near"
+                            id="achievements-terrarium-stars-near"
+                          ></div>
+                          <div
+                            class="fluid-terrarium__stars fluid-terrarium__stars--far"
+                            id="achievements-terrarium-stars-far"
+                          ></div>
+                        </div>
+                        <img
+                          class="fluid-terrarium__background"
+                          src="./assets/sprites/spires/betSpire/Cave-Background.svg"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                        <img
+                          class="fluid-terrarium__magma"
+                          src="./assets/sprites/spires/betSpire/Magma.png"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                        <div class="fluid-terrarium__magma-glow" aria-hidden="true"></div>
+                        <img
+                          class="fluid-terrarium__floating-island"
+                          id="achievements-terrarium-floating-island"
+                          src="./assets/sprites/spires/betSpire/Floating-Island.png"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                        <img
+                          class="fluid-terrarium__collision-map"
+                          id="achievements-terrarium-floating-island-collision"
+                          src="./assets/sprites/spires/betSpire/Floating-Island.svg"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                        <img
+                          class="fluid-terrarium__foreground fluid-terrarium__terrain"
+                          id="achievements-terrarium-foreground"
+                          src="./assets/sprites/spires/betSpire/Terrain.svg"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                        <img
+                          class="fluid-terrarium__collision-map"
+                          id="achievements-terrarium-foreground-collision"
+                          src="./assets/sprites/spires/betSpire/Terrain.svg"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                      </div>
+                    </div>
+                  <div class="powder-viewport fluid-viewport" id="achievements-terrarium-viewport"></div>
+                </div>
+              </div>
+              <div class="fluid-camera-toggle" id="achievements-camera-toggle">
+                <button
+                  class="fluid-camera-toggle__button"
+                  id="achievements-camera-mode-toggle"
+                  type="button"
+                  aria-pressed="false"
+                  aria-label="Toggle terrarium camera mode"
+                >
+                  <span class="fluid-camera-toggle__label">Camera mode</span>
+                  <span class="fluid-camera-toggle__pill" aria-hidden="true">
+                    <span class="fluid-camera-toggle__thumb"></span>
+                  </span>
+                  <span class="fluid-camera-toggle__state" id="achievements-camera-mode-state">Off</span>
+                </button>
+                <p class="fluid-camera-toggle__hint" id="achievements-camera-mode-hint" hidden></p>
+              </div>
+              </article>
+            </div>
+            
+            <!-- Terrarium Items dropdown -->
+            <article class="card fluid-terrarium-items-card">
+              <button
+                class="fluid-terrarium-items-toggle"
+                type="button"
+                id="achievements-terrarium-items-toggle"
+                aria-expanded="false"
+                aria-controls="achievements-terrarium-items-dropdown"
+              >
+                <span class="fluid-terrarium-items-toggle__title">Terrarium Items</span>
+                <span class="fluid-terrarium-items-toggle__chevron" aria-hidden="true">▼</span>
+              </button>
+              <div
+                class="fluid-terrarium-items-dropdown"
+                id="achievements-terrarium-items-dropdown"
+                data-open="false"
+                aria-hidden="true"
+                hidden
+              >
+                <p class="fluid-terrarium-items-empty" id="achievements-terrarium-items-empty">No items earned yet. Complete achievements to populate your terrarium.</p>
+                <ul class="fluid-terrarium-items-list" id="achievements-terrarium-items-list" aria-label="Terrarium items list"></ul>
+              </div>
+            </article>
+          </section>
+          
           <div class="achievement-grid" id="achievement-grid" role="list"></div>
         </section>
 
