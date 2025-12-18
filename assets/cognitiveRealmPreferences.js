@@ -10,10 +10,10 @@ const DEFAULT_SETTINGS = Object.freeze({
   neuronConnections: true,
   neuronPulses: true,
   ambientParticles: true,
-  glow: true,
+  glow: false,
   nodeDrift: false,
   randomizedLayout: true, // Scatter nodes to new starting positions on load
-  parallaxLayers: 7, // Max parallax layers (can be reduced for performance)
+  parallaxLayers: 3, // Max parallax layers (can be reduced for performance)
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -25,8 +25,6 @@ let neuronPulsesToggle = null;
 let neuronPulsesState = null;
 let ambientParticlesToggle = null;
 let ambientParticlesState = null;
-let glowToggle = null;
-let glowState = null;
 let nodeDriftToggle = null;
 let nodeDriftState = null;
 let randomizedLayoutToggle = null;
@@ -81,10 +79,10 @@ function syncParallaxLayersButton() {
 }
 
 /**
- * Cycle through parallax layer counts (decrement each click: 7, 6, 5, 4, 3, 2, 1, 0, 7, ...)
+ * Cycle through parallax layer counts (increment each click: 0, 1, 2, 3, 0, ...)
  */
 function cycleParallaxLayers() {
-  settings.parallaxLayers = settings.parallaxLayers > 0 ? settings.parallaxLayers - 1 : 7;
+  settings.parallaxLayers = settings.parallaxLayers >= 3 ? 0 : settings.parallaxLayers + 1;
   persistSettings();
   syncParallaxLayersButton();
 }
@@ -96,7 +94,6 @@ function syncAllToggles() {
   syncToggleState(neuronConnectionsToggle, neuronConnectionsState, settings.neuronConnections);
   syncToggleState(neuronPulsesToggle, neuronPulsesState, settings.neuronPulses);
   syncToggleState(ambientParticlesToggle, ambientParticlesState, settings.ambientParticles);
-  syncToggleState(glowToggle, glowState, settings.glow);
   syncToggleState(nodeDriftToggle, nodeDriftState, settings.nodeDrift);
   syncToggleState(randomizedLayoutToggle, randomizedLayoutState, settings.randomizedLayout);
 }
@@ -119,8 +116,6 @@ export function bindCognitiveRealmOptions() {
   neuronPulsesState = document.getElementById('cognitive-realm-neuron-pulses-state');
   ambientParticlesToggle = document.getElementById('cognitive-realm-ambient-particles-toggle');
   ambientParticlesState = document.getElementById('cognitive-realm-ambient-particles-state');
-  glowToggle = document.getElementById('cognitive-realm-glow-toggle');
-  glowState = document.getElementById('cognitive-realm-glow-state');
   nodeDriftToggle = document.getElementById('cognitive-realm-node-drift-toggle');
   nodeDriftState = document.getElementById('cognitive-realm-node-drift-state');
   randomizedLayoutToggle = document.getElementById('cognitive-realm-randomized-layout-toggle');
@@ -145,13 +140,6 @@ export function bindCognitiveRealmOptions() {
     ambientParticlesToggle.addEventListener('change', (event) => {
       applySetting('ambientParticles', event.target.checked);
       syncToggleState(ambientParticlesToggle, ambientParticlesState, settings.ambientParticles);
-    });
-  }
-
-  if (glowToggle) {
-    glowToggle.addEventListener('change', (event) => {
-      applySetting('glow', event.target.checked);
-      syncToggleState(glowToggle, glowState, settings.glow);
     });
   }
 
