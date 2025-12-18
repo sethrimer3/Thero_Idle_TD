@@ -91,11 +91,15 @@ let floatingLights = [];
 
 // Physics state for drifting nodes
 let nodePhysicsState = new Map(); // Map<territoryId, { offsetX, offsetY, vx, vy, targetOffsetX, targetOffsetY }>
+let lastNodeDriftEnabled = null; // Track drift toggle changes so we can zero offsets when disabled
+let nodeInitialOffsets = new Map(); // Map<territoryId, { offsetX, offsetY }> for randomized start positions
+let lastRandomizedLayoutEnabled = null; // Track randomized layout toggle transitions
 
 // Node drift configuration
 const NODE_DRIFT_SPEED = 0.0008; // Speed of drift movement
 const NODE_DRIFT_DAMPING = 0.92; // Velocity damping for smooth motion
 const NODE_DRIFT_CHANGE_INTERVAL = 8000; // Time between drift target changes (ms)
+const INITIAL_LAYOUT_SPREAD = 0.44; // Fraction of map width/height used for randomized start scatter
 const ROPE_SEGMENTS = 5; // Number of segments in each rope connection
 
 // Connection limits for different node types
@@ -192,6 +196,20 @@ function updateNodePhysics(territory, deltaMs) {
   physics.offsetY = Math.max(-maxDriftY, Math.min(maxDriftY, physics.offsetY));
 }
 
+// Reset drift offsets when the feature is disabled so nodes return to their base grid positions
+function resetNodeDrift(territory) {
+  initializeNodePhysics(territory);
+  const physics = nodePhysicsState.get(territory.id);
+  physics.offsetX = 0;
+  physics.offsetY = 0;
+  physics.vx = 0;
+  physics.vy = 0;
+  physics.targetOffsetX = 0;
+  physics.targetOffsetY = 0;
+  const now = performance.now ? performance.now() : Date.now();
+  physics.lastTargetChange = now - NODE_DRIFT_CHANGE_INTERVAL; // Force an immediate target refresh when re-enabled
+}
+
 // Get node position with physics offset applied
 function getNodePosition(node) {
   const physics = nodePhysicsState.get(node.territory.id);
@@ -202,6 +220,34 @@ function getNodePosition(node) {
     };
   }
   return { x: node.x, y: node.y };
+}
+
+// Create a randomized starting offset for a node so the map can start from a unique layout when enabled
+function seedInitialNodeOffset(territory) {
+  if (nodeInitialOffsets.has(territory.id)) {
+    return;
+  }
+
+  const gridDims = getGridDimensions();
+  const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const spreadX = totalWidth * INITIAL_LAYOUT_SPREAD;
+  const spreadY = totalHeight * INITIAL_LAYOUT_SPREAD;
+
+  nodeInitialOffsets.set(territory.id, {
+    offsetX: (Math.random() - 0.5) * spreadX,
+    offsetY: (Math.random() - 0.5) * spreadY,
+  });
+}
+
+// Retrieve the randomized offset when enabled or return a neutral offset when the layout toggle is off
+function getInitialNodeOffset(territory, randomizedLayoutEnabled) {
+  if (!randomizedLayoutEnabled) {
+    return { offsetX: 0, offsetY: 0 };
+  }
+
+  seedInitialNodeOffset(territory);
+  return nodeInitialOffsets.get(territory.id);
 }
 
 /**
@@ -880,17 +926,40 @@ function renderMap(deltaMs = 16) {
   const offsetX = -totalWidth / 2;
   const offsetY = -totalHeight / 2;
 
-  const nodePositions = buildNodePositions(territories, offsetX, offsetY);
-  
+  if (lastRandomizedLayoutEnabled !== settings.randomizedLayout) {
+    nodeInitialOffsets.clear();
+    lastRandomizedLayoutEnabled = settings.randomizedLayout;
+    markConnectionsDirty(); // Rebuild connections once layout changes
+  }
+
+  if (settings.randomizedLayout && nodeInitialOffsets.size === 0) {
+    territories.forEach((territory) => seedInitialNodeOffset(territory));
+    markConnectionsDirty(); // Seeded offsets change node spacing, so refresh links
+  }
+
+  const nodePositions = buildNodePositions(territories, offsetX, offsetY, settings.randomizedLayout);
+
   // Recalculate connections if territories have changed
   if (connectionsDirty) {
     calculateNodeConnections(nodePositions);
   }
-  
-  // Update physics for all nodes
-  nodePositions.forEach((node) => {
-    updateNodePhysics(node.territory, deltaMs);
-  });
+
+  // Sync drift state with the active preference toggle
+  if (lastNodeDriftEnabled !== settings.nodeDrift) {
+    if (!settings.nodeDrift) {
+      nodePositions.forEach((node) => {
+        resetNodeDrift(node.territory);
+      });
+    }
+    lastNodeDriftEnabled = settings.nodeDrift;
+  }
+
+  // Update physics for all nodes when drift is enabled
+  if (settings.nodeDrift) {
+    nodePositions.forEach((node) => {
+      updateNodePhysics(node.territory, deltaMs);
+    });
+  }
 
   renderTerritoryFields(mapContext, nodePositions, settings.glow);
 
@@ -916,13 +985,24 @@ function renderMap(deltaMs = 16) {
 }
 
 // Build node positions so multiple render passes can share a single layout calculation
-function buildNodePositions(territories, offsetX, offsetY) {
-  return territories.map((territory) => ({
-    x: offsetX + territory.x * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2,
-    y: offsetY + territory.y * (BASE_TERRITORY_SIZE + TERRITORY_GAP) + BASE_TERRITORY_SIZE / 2,
-    radius: getNodeRadius(territory),
-    territory,
-  }));
+function buildNodePositions(territories, offsetX, offsetY, randomizeStarts = false) {
+  return territories.map((territory) => {
+    const initialOffset = getInitialNodeOffset(territory, randomizeStarts);
+    return {
+      x:
+        offsetX +
+        territory.x * (BASE_TERRITORY_SIZE + TERRITORY_GAP) +
+        BASE_TERRITORY_SIZE / 2 +
+        initialOffset.offsetX,
+      y:
+        offsetY +
+        territory.y * (BASE_TERRITORY_SIZE + TERRITORY_GAP) +
+        BASE_TERRITORY_SIZE / 2 +
+        initialOffset.offsetY,
+      radius: getNodeRadius(territory),
+      territory,
+    };
+  });
 }
 
 // Render atmospheric parallax layers with blurred neuron wisps
