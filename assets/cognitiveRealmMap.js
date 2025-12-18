@@ -81,6 +81,7 @@ let backgroundHeight = 0;
 // Animation frame reference
 let animationFrameId = null;
 let lastRenderTimestamp = performance.now ? performance.now() : Date.now();
+let lastStatsUpdate = 0;
 
 // Selected node for showing description
 let selectedNode = null;
@@ -93,7 +94,6 @@ let nodePhysicsState = new Map(); // Map<territoryId, { offsetX, offsetY, vx, vy
 
 // Node drift configuration
 const NODE_DRIFT_SPEED = 0.0008; // Speed of drift movement
-const NODE_DRIFT_RANGE = 12; // Maximum drift distance from center position
 const NODE_DRIFT_DAMPING = 0.92; // Velocity damping for smooth motion
 const NODE_DRIFT_CHANGE_INTERVAL = 8000; // Time between drift target changes (ms)
 const ROPE_SEGMENTS = 5; // Number of segments in each rope connection
@@ -133,13 +133,20 @@ function getNodeLabel(territory) {
 // Initialize physics state for a territory node
 function initializeNodePhysics(territory) {
   if (!nodePhysicsState.has(territory.id)) {
+    // Calculate map dimensions to allow full map movement
+    const gridDims = getGridDimensions();
+    const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+    const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+    const maxDriftX = totalWidth / 2;
+    const maxDriftY = totalHeight / 2;
+    
     nodePhysicsState.set(territory.id, {
       offsetX: 0,
       offsetY: 0,
       vx: 0,
       vy: 0,
-      targetOffsetX: (Math.random() - 0.5) * NODE_DRIFT_RANGE,
-      targetOffsetY: (Math.random() - 0.5) * NODE_DRIFT_RANGE,
+      targetOffsetX: (Math.random() - 0.5) * maxDriftX * 0.3, // Start with 30% of max range
+      targetOffsetY: (Math.random() - 0.5) * maxDriftY * 0.3,
       lastTargetChange: performance.now ? performance.now() : Date.now(),
     });
   }
@@ -151,10 +158,17 @@ function updateNodePhysics(territory, deltaMs) {
   const physics = nodePhysicsState.get(territory.id);
   const now = performance.now ? performance.now() : Date.now();
   
+  // Calculate map dimensions for full map movement
+  const gridDims = getGridDimensions();
+  const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const maxDriftX = totalWidth / 2;
+  const maxDriftY = totalHeight / 2;
+  
   // Change drift target periodically
   if (now - physics.lastTargetChange > NODE_DRIFT_CHANGE_INTERVAL) {
-    physics.targetOffsetX = (Math.random() - 0.5) * NODE_DRIFT_RANGE * 2;
-    physics.targetOffsetY = (Math.random() - 0.5) * NODE_DRIFT_RANGE * 2;
+    physics.targetOffsetX = (Math.random() - 0.5) * maxDriftX * 2;
+    physics.targetOffsetY = (Math.random() - 0.5) * maxDriftY * 2;
     physics.lastTargetChange = now;
   }
   
@@ -173,15 +187,9 @@ function updateNodePhysics(territory, deltaMs) {
   physics.offsetX += physics.vx * deltaMs * 0.01;
   physics.offsetY += physics.vy * deltaMs * 0.01;
   
-  // Clamp to max range
-  const distance = Math.sqrt(physics.offsetX ** 2 + physics.offsetY ** 2);
-  if (distance > NODE_DRIFT_RANGE) {
-    const scale = NODE_DRIFT_RANGE / distance;
-    physics.offsetX *= scale;
-    physics.offsetY *= scale;
-    physics.vx *= 0.5;
-    physics.vy *= 0.5;
-  }
+  // Clamp to map boundaries
+  physics.offsetX = Math.max(-maxDriftX, Math.min(maxDriftX, physics.offsetX));
+  physics.offsetY = Math.max(-maxDriftY, Math.min(maxDriftY, physics.offsetY));
 }
 
 // Get node position with physics offset applied
@@ -467,14 +475,16 @@ function bindMapInteractions() {
         physics.offsetX += mapDeltaX;
         physics.offsetY += mapDeltaY;
         
-        // Clamp to max range
-        const distance = Math.sqrt(physics.offsetX ** 2 + physics.offsetY ** 2);
-        const maxDragRange = NODE_DRIFT_RANGE * 3; // Allow more range during drag
-        if (distance > maxDragRange) {
-          const scale = maxDragRange / distance;
-          physics.offsetX *= scale;
-          physics.offsetY *= scale;
-        }
+        // Calculate map dimensions for boundary clamping
+        const gridDims = getGridDimensions();
+        const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+        const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+        const maxDriftX = totalWidth / 2;
+        const maxDriftY = totalHeight / 2;
+        
+        // Clamp to map boundaries
+        physics.offsetX = Math.max(-maxDriftX, Math.min(maxDriftX, physics.offsetX));
+        physics.offsetY = Math.max(-maxDriftY, Math.min(maxDriftY, physics.offsetY));
         
         // Update target to current position for smooth return
         physics.targetOffsetX = physics.offsetX;
@@ -506,18 +516,23 @@ function bindMapInteractions() {
   
   // Pointer up - stop dragging or handle click
   mapCanvas.addEventListener('pointerup', (e) => {
+    // Only treat as click if pointer didn't move much
+    const deltaX = Math.abs(e.clientX - pointerStartX);
+    const deltaY = Math.abs(e.clientY - pointerStartY);
+    const isClick = deltaX < 5 && deltaY < 5 && !pointerMoved;
+    
     if (isDraggingNode) {
       isDraggingNode = false;
       draggedNode = null;
       mapCanvas.style.cursor = 'var(--cursor-grab)';
+      
+      // Allow click even when on a draggable node if there was minimal movement
+      if (isClick) {
+        handleNodeClick(e);
+      }
     } else {
       isDragging = false;
       mapCanvas.style.cursor = 'var(--cursor-grab)';
-
-      // Only treat as click if pointer didn't move much
-      const deltaX = Math.abs(e.clientX - pointerStartX);
-      const deltaY = Math.abs(e.clientY - pointerStartY);
-      const isClick = deltaX < 5 && deltaY < 5 && !pointerMoved;
 
       if (isClick) {
         handleNodeClick(e);
@@ -604,6 +619,13 @@ function startRenderLoop() {
     lastRenderTimestamp = timestamp;
 
     renderMap(deltaMs);
+    
+    // Update DOM stats display every 500ms to avoid unnecessary DOM operations
+    if (timestamp - lastStatsUpdate > 500) {
+      updateTerritoryStatsDisplay();
+      lastStatsUpdate = timestamp;
+    }
+    
     animationFrameId = requestAnimationFrame(render);
   }
 
@@ -1295,46 +1317,31 @@ function renderRealmNode(ctx, node, glowEnabled = true) {
 }
 
 /**
- * Render UI overlay with zoom level and territory stats
+ * Render UI overlay (currently empty - stats moved to DOM)
  */
 function renderUIOverlay(ctx, width, height) {
+  // UI overlay removed - stats are now in the DOM below the map
+}
+
+/**
+ * Update territory statistics in the DOM
+ */
+function updateTerritoryStatsDisplay() {
   const stats = getTerritoryStats();
   
-  // Draw semi-transparent background for stats
-  ctx.fillStyle = COLOR_UI_BG;
-  ctx.fillRect(10, 10, 220, 90);
+  const playerEl = document.getElementById('cognitive-realm-stat-player');
+  const enemyEl = document.getElementById('cognitive-realm-stat-enemy');
+  const neutralEl = document.getElementById('cognitive-realm-stat-neutral');
   
-  // Draw border
-  ctx.strokeStyle = COLOR_UI_BORDER;
-  ctx.lineWidth = 1;
-  ctx.strokeRect(10, 10, 220, 90);
-  
-  // Draw text
-  ctx.fillStyle = COLOR_TEXT;
-  ctx.font = `14px "${FONT_FAMILY}", serif`;
-  
-  ctx.fillText('Collective Unconscious', 20, 30);
-  
-  ctx.font = `12px "${FONT_FAMILY}", serif`;
-  ctx.fillStyle = COLOR_TEXT_PLAYER;
-  ctx.fillText(`Player: ${stats.player} territories`, 20, 50);
-  
-  ctx.fillStyle = COLOR_TEXT_ENEMY;
-  ctx.fillText(`Enemy: ${stats.enemy} territories`, 20, 68);
-  
-  ctx.fillStyle = COLOR_TEXT_MUTED;
-  ctx.fillText(`Neutral: ${stats.neutral}`, 20, 86);
-  
-  // Draw zoom indicator
-  ctx.fillStyle = COLOR_UI_BG;
-  ctx.fillRect(width - 100, height - 40, 90, 30);
-  
-  ctx.strokeStyle = COLOR_UI_BORDER;
-  ctx.strokeRect(width - 100, height - 40, 90, 30);
-  
-  ctx.fillStyle = COLOR_TEXT;
-  ctx.font = `12px "${FONT_FAMILY}", serif`;
-  ctx.fillText(`Zoom: ${currentZoom.toFixed(1)}x`, width - 90, height - 20);
+  if (playerEl) {
+    playerEl.textContent = stats.player;
+  }
+  if (enemyEl) {
+    enemyEl.textContent = stats.enemy;
+  }
+  if (neutralEl) {
+    neutralEl.textContent = stats.neutral;
+  }
 }
 
 /**

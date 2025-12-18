@@ -486,6 +486,78 @@ body.graphics-mode-low .control-button {
   }
 }
 
+/* Cognitive Realm Territory Statistics */
+.cognitive-realm-stats {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(16px, 4vw, 32px);
+  margin-top: 16px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(0, 10, 20, 0.5);
+  border: 1px solid rgba(139, 247, 255, 0.15);
+  border-radius: 8px;
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.cognitive-realm-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cognitive-realm-stat-label {
+  font-size: clamp(0.85rem, 2vw, 1rem);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+.cognitive-realm-stat-label--player {
+  color: rgba(139, 247, 255, 0.9);
+}
+
+.cognitive-realm-stat-label--enemy {
+  color: rgba(255, 125, 235, 0.9);
+}
+
+.cognitive-realm-stat-label--neutral {
+  color: rgba(247, 247, 245, 0.6);
+}
+
+.cognitive-realm-stat-value {
+  font-size: clamp(1rem, 2.2vw, 1.2rem);
+  font-weight: 600;
+  color: rgba(247, 247, 245, 0.95);
+  min-width: 2ch;
+  text-align: right;
+}
+
+/* Cognitive Realm Options Button */
+.cognitive-realm-options-wrapper {
+  margin-top: 24px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.cognitive-realm-options-trigger {
+  min-width: 200px;
+}
+
+@media (max-width: 640px) {
+  .cognitive-realm-stats {
+    gap: 12px;
+    padding: 10px;
+    margin-top: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .cognitive-realm-stat {
+    gap: 6px;
+  }
+}
+
 .status-bar {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
