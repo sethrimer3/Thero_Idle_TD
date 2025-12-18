@@ -371,10 +371,10 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
     id: `delta-soldier-${(playfield.deltaSoldierIdCounter += 1)}`,
     towerId: tower.id,
     slotIndex: spawnIndex,
-    x: tower.x, // Start at tower center during assembly
-    y: tower.y,
-    prevX: tower.x,
-    prevY: tower.y,
+    x: spawnX,
+    y: spawnY,
+    prevX: spawnX,
+    prevY: spawnY,
     vx: 0,
     vy: 0,
     heading: angle,
@@ -388,7 +388,7 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
     mode: tower.behaviorMode || 'pursuit',
     trailPoints: [],
     trailAccumulator: 0,
-    lastTrailSample: { x: tower.x, y: tower.y },
+    lastTrailSample: { x: spawnX, y: spawnY },
     color,
     gradientProgress,
     ramCooldown: 0,
@@ -399,11 +399,6 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
     swarmPhase: Math.random() * Math.PI * 2,
     swarmSpeedMultiplier: 0.85 + Math.random() * 0.35,
     swarmRadiusMultiplier: 0.8 + Math.random() * 0.6,
-    // Ship assembly and launch animation states
-    lifecycleState: 'assembling', // 'assembling' -> 'circling' -> 'active'
-    assemblyPhase: 0, // 0 to 1 during assembly
-    circlePhase: angle, // Current angle around tower during circling
-    circleRadius: Math.max(24, minDimension * 0.06), // Radius for circling animation
   };
 
   state.soldiers.push(soldier);
@@ -413,53 +408,6 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
 function updateDeltaSoldier(playfield, tower, soldier, delta, state) {
   if (!soldier || soldier.health <= 0) {
     return false;
-  }
-
-  // Handle ship assembly animation inside the tower
-  if (soldier.lifecycleState === 'assembling') {
-    const assemblyDuration = 1.5; // Seconds to complete assembly
-    soldier.assemblyPhase = Math.min(1, (soldier.assemblyPhase || 0) + delta / assemblyDuration);
-    
-    // Keep ship at tower center during assembly
-    soldier.x = tower.x;
-    soldier.y = tower.y;
-    soldier.prevX = tower.x;
-    soldier.prevY = tower.y;
-    
-    if (soldier.assemblyPhase >= 1) {
-      soldier.lifecycleState = 'circling';
-      soldier.circlePhase = soldier.idleAngleOffset || -Math.PI / 2;
-    }
-    return true;
-  }
-  
-  // Handle circling animation around tower circumference
-  if (soldier.lifecycleState === 'circling') {
-    const circlingSpeed = Math.PI * 1.2; // Radians per second
-    const circlingDuration = 2.5; // Seconds to complete circling before launching
-    
-    if (!Number.isFinite(soldier.circlingTimer)) {
-      soldier.circlingTimer = 0;
-    }
-    soldier.circlingTimer += delta;
-    
-    soldier.circlePhase = (soldier.circlePhase || 0) + delta * circlingSpeed;
-    if (soldier.circlePhase > Math.PI * 2) {
-      soldier.circlePhase -= Math.PI * 2;
-    }
-    
-    const radius = soldier.circleRadius || Math.max(24, Math.min(playfield.renderWidth || 0, playfield.renderHeight || 0) * 0.06);
-    soldier.prevX = soldier.x;
-    soldier.prevY = soldier.y;
-    soldier.x = tower.x + Math.cos(soldier.circlePhase) * radius;
-    soldier.y = tower.y + Math.sin(soldier.circlePhase) * radius;
-    soldier.heading = soldier.circlePhase + Math.PI / 2; // Face tangent to circle
-    
-    // After circling for a bit, transition to active state
-    if (soldier.circlingTimer >= circlingDuration) {
-      soldier.lifecycleState = 'active';
-    }
-    return true;
   }
 
   // Track-hold uses personal swarm timers so sentries drift independently instead of marching in a single orbit.
@@ -856,70 +804,25 @@ export function drawDeltaSoldiers(playfield) {
         ctx.restore();
       }
 
-      // Special rendering for assembling state - show ship being constructed
-      if (soldier.lifecycleState === 'assembling') {
-        const phase = soldier.assemblyPhase || 0;
-        const assemblySize = size * phase;
-        const particleCount = 8;
-        const particleRadius = size * 1.5;
-        
-        ctx.save();
-        ctx.translate(soldier.x, soldier.y);
-        
-        // Draw swirling assembly particles
-        for (let i = 0; i < particleCount; i++) {
-          const particleAngle = (i / particleCount) * Math.PI * 2 + phase * Math.PI * 4;
-          const radius = particleRadius * (1 - phase * 0.5);
-          const px = Math.cos(particleAngle) * radius;
-          const py = Math.sin(particleAngle) * radius;
-          const particleAlpha = 0.6 * (1 - phase * 0.3);
-          
-          ctx.fillStyle = toRgba(color, particleAlpha);
-          ctx.beginPath();
-          ctx.arc(px, py, 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        
-        // Draw partially assembled ship
-        if (phase > 0.2) {
-          ctx.rotate(angle + Math.PI / 2);
-          ctx.globalAlpha = phase;
-          ctx.beginPath();
-          ctx.moveTo(0, -assemblySize);
-          ctx.lineTo(-assemblySize * 0.6, assemblySize * 0.9);
-          ctx.lineTo(assemblySize * 0.6, assemblySize * 0.9);
-          ctx.closePath();
-          ctx.fillStyle = toRgba(color, 0.5);
-          ctx.strokeStyle = toRgba({ r: 12, g: 16, b: 26 }, 0.7);
-          ctx.lineWidth = Math.max(1.2, assemblySize * 0.12);
-          ctx.fill();
-          ctx.stroke();
-        }
-        
-        ctx.restore();
-      } else {
-        // Normal rendering for circling and active states
-        ctx.save();
-        ctx.translate(soldier.x, soldier.y);
-        ctx.rotate(angle + Math.PI / 2);
-        ctx.beginPath();
-        ctx.moveTo(0, -size);
-        ctx.lineTo(-size * 0.6, size * 0.9);
-        ctx.lineTo(size * 0.6, size * 0.9);
-        ctx.closePath();
-        const shipAlpha = soldier.lifecycleState === 'circling' ? 0.5 + healthRatio * 0.3 : 0.35 + healthRatio * 0.45;
-        ctx.fillStyle = toRgba(color, shipAlpha);
-        ctx.strokeStyle = toRgba({ r: 12, g: 16, b: 26 }, 0.9);
-        ctx.lineWidth = Math.max(1.2, size * 0.12);
-        ctx.fill();
-        ctx.stroke();
+      ctx.save();
+      ctx.translate(soldier.x, soldier.y);
+      ctx.rotate(angle + Math.PI / 2);
+      ctx.beginPath();
+      ctx.moveTo(0, -size);
+      ctx.lineTo(-size * 0.6, size * 0.9);
+      ctx.lineTo(size * 0.6, size * 0.9);
+      ctx.closePath();
+      ctx.fillStyle = toRgba(color, 0.35 + healthRatio * 0.45);
+      ctx.strokeStyle = toRgba({ r: 12, g: 16, b: 26 }, 0.9);
+      ctx.lineWidth = Math.max(1.2, size * 0.12);
+      ctx.fill();
+      ctx.stroke();
 
-        ctx.beginPath();
-        ctx.fillStyle = toRgba({ r: 6, g: 8, b: 14 }, 0.65 + (1 - healthRatio) * 0.25);
-        ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
+      ctx.beginPath();
+      ctx.fillStyle = toRgba({ r: 6, g: 8, b: 14 }, 0.65 + (1 - healthRatio) * 0.25);
+      ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     });
   });
   ctx.restore();
