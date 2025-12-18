@@ -4298,7 +4298,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     });
   }
 
-  // Update cognitive realm map visibility based on unlock status
+  // Update cognitive realm map visibility based on unlock status, tab, and level state
   function updateCognitiveRealmVisibility() {
     const cognitiveRealmSection = document.getElementById('cognitive-realm-section');
     if (!cognitiveRealmSection) {
@@ -4308,7 +4308,18 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (isCognitiveRealmUnlocked()) {
       cognitiveRealmSection.hidden = false;
       cognitiveRealmSection.setAttribute('aria-hidden', 'false');
-      showCognitiveRealmMap();
+      
+      // Only show map if on Defense tab AND not inside a level
+      const activeTabId = typeof getActiveTabId === 'function' ? getActiveTabId() : null;
+      const isDefenseTab = activeTabId === 'tower';
+      const isInsideLevel = activeLevelId && activeLevelIsInteractive;
+      const shouldShowMap = isDefenseTab && !isInsideLevel;
+      
+      if (shouldShowMap) {
+        showCognitiveRealmMap();
+      } else {
+        hideCognitiveRealmMap();
+      }
     } else {
       cognitiveRealmSection.hidden = true;
       cognitiveRealmSection.setAttribute('aria-hidden', 'true');
@@ -5003,6 +5014,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     ensureResourceTicker();
     updateActiveLevelBanner();
     updateLevelCards();
+    
+    // Hide cognitive realm map when entering a level on Defense tab
+    if (isCognitiveRealmUnlocked() && isInteractive) {
+      hideCognitiveRealmMap();
+    }
 
     if (playfield) {
       playfield.enterLevel(level, {
@@ -5056,6 +5072,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Ensure the battlefield stays hidden until another level begins.
     updateLayoutVisibility();
     updateTowerSelectionButtons();
+    
+    // Show cognitive realm map when leaving a level if on Defense tab
+    if (isCognitiveRealmUnlocked()) {
+      const activeTabId = typeof getActiveTabId === 'function' ? getActiveTabId() : null;
+      if (activeTabId === 'tower') {
+        showCognitiveRealmMap();
+      }
+    }
     if (playfieldMenuController) {
       playfieldMenuController.updateMenuState();
     }
@@ -6409,6 +6433,20 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               handlePowderViewTransformChange(powderSimulation.getViewTransform());
             }
           });
+        }
+
+        // Update cognitive realm map visibility based on tab and level state
+        // Hide the map if not on Defense tab OR if player is inside a level
+        if (isCognitiveRealmUnlocked()) {
+          const isDefenseTab = tabId === 'tower';
+          const isInsideLevel = activeLevelId && activeLevelIsInteractive;
+          const shouldShowMap = isDefenseTab && !isInsideLevel;
+          
+          if (shouldShowMap) {
+            showCognitiveRealmMap();
+          } else {
+            hideCognitiveRealmMap();
+          }
         }
 
         previousTabId = tabId;

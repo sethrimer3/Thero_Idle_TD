@@ -51,7 +51,7 @@ const COLOR_BACKGROUND_BLUE = 'rgba(64, 112, 160, 0.2)';
 const COLOR_BACKGROUND_EMBER = 'rgba(120, 40, 60, 0.25)';
 const BACKGROUND_NEURON_COUNT = 72;
 const FLOATING_LIGHT_COUNT = 56;
-const PARALLAX_LAYERS = 7;
+const PARALLAX_LAYERS = 3;
 const COLOR_PLAYER_GLOW = 'rgba(160, 242, 255, 0.36)';
 const COLOR_ENEMY_GLOW = 'rgba(255, 84, 130, 0.36)';
 const COLOR_NEUTRAL_GLOW = 'rgba(255, 221, 120, 0.32)';
@@ -1006,7 +1006,7 @@ function buildNodePositions(territories, offsetX, offsetY, randomizeStarts = fal
 }
 
 // Render atmospheric parallax layers with blurred neuron wisps
-function renderBackgroundParallax(ctx, width, height, deltaMs, maxLayers = PARALLAX_LAYERS) {
+function renderBackgroundParallax(ctx, width, height, deltaMs, maxLayers = 3) {
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
 
