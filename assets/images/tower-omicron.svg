@@ -5,64 +5,105 @@
       <stop offset="100%" stop-color="#5de3c5" stop-opacity="0.72" />
     </linearGradient>
     
-    <!-- Omicron circular energy particles -->
-    <circle id="omicronRing1" cx="32" cy="32" r="6" fill="none" stroke="#90f5dd" stroke-width="1" opacity="0">
-      <animate attributeName="opacity" 
-        values="0;0.7;0.7;0" 
-        keyTimes="0;0.3;0.7;1" 
-        dur="2.5s" 
-        repeatCount="indefinite" />
-      <animate attributeName="r" 
-        values="6;10;13;13" 
-        keyTimes="0;0.5;0.8;1" 
-        dur="2.5s" 
-        repeatCount="indefinite" />
-    </circle>
+    <!-- Large triangle ship for Omicron (palette-aware) -->
+    <g id="omicron-ship">
+      <!-- Larger triangle ship pointing right -->
+      <polygon class="animated-element" points="0,-5 10,0 0,5" fill="#8af7ff" opacity="0.85" />
+      <!-- Engine trail -->
+      <line class="animated-element" x1="-2" y1="0" x2="-6" y2="0" stroke="#8af7ff" stroke-width="1.2" opacity="0.6" />
+    </g>
     
-    <circle id="omicronRing2" cx="32" cy="32" r="6" fill="none" stroke="#a8fae8" stroke-width="1" opacity="0">
-      <animate attributeName="opacity" 
-        values="0;0.7;0.7;0" 
-        keyTimes="0;0.3;0.7;1" 
-        dur="2.5s" 
-        begin="0.8s"
-        repeatCount="indefinite" />
-      <animate attributeName="r" 
-        values="6;10;13;13" 
-        keyTimes="0;0.5;0.8;1" 
-        dur="2.5s" 
-        begin="0.8s"
-        repeatCount="indefinite" />
-    </circle>
+    <!-- Force field effect (palette-aware) -->
+    <g id="force-field">
+      <circle class="animated-element" cx="0" cy="0" r="8" fill="none" stroke="#90f5dd" stroke-width="1.5" opacity="0" />
+      <circle class="animated-element" cx="0" cy="0" r="8" fill="#90f5dd" opacity="0" />
+    </g>
     
-    <!-- Orbiting dots -->
-    <circle id="omicronDot1" r="1" fill="#78f0d8" opacity="0.7">
-      <animateTransform attributeName="transform" 
-        type="translate"
-        values="40,32; 32,24; 24,32; 32,40; 40,32"
-        keyTimes="0;0.25;0.5;0.75;1"
-        dur="3s" 
-        repeatCount="indefinite" />
-    </circle>
+    <!-- Assembly parts for larger ship -->
+    <g id="omicron-assembly-1">
+      <line class="animated-element" x1="0" y1="-5" x2="10" y2="0" stroke="#8af7ff" stroke-width="1.5" opacity="0" />
+    </g>
     
-    <circle id="omicronDot2" r="1" fill="#90f8e0" opacity="0.7">
-      <animateTransform attributeName="transform" 
-        type="translate"
-        values="24,32; 32,40; 40,32; 32,24; 24,32"
-        keyTimes="0;0.25;0.5;0.75;1"
-        dur="3s" 
-        repeatCount="indefinite" />
-    </circle>
+    <g id="omicron-assembly-2">
+      <line class="animated-element" x1="10" y1="0" x2="0" y2="5" stroke="#8af7ff" stroke-width="1.5" opacity="0" />
+    </g>
+    
+    <g id="omicron-assembly-3">
+      <line class="animated-element" x1="0" y1="5" x2="0" y2="-5" stroke="#8af7ff" stroke-width="1.5" opacity="0" />
+    </g>
   </defs>
+  
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#omicronAura)" opacity="0.92" />
   
-  <!-- Circular rings and orbits (behind the letter) -->
-  <g id="circles">
-    <use href="#omicronRing1" />
-    <use href="#omicronRing2" />
-    <use href="#omicronDot1" />
-    <use href="#omicronDot2" />
+  <!-- Ship assembly, force field, and launch animation -->
+  <g id="omicron-animation">
+    <!-- Assembly phase at center (0-25%) -->
+    <g transform="translate(32, 32)">
+      <g id="assembly-lines">
+        <use href="#omicron-assembly-1">
+          <animate attributeName="opacity" 
+            values="0;0.9;0.9;0" 
+            keyTimes="0;0.05;0.15;0.2" 
+            dur="7s" 
+            repeatCount="indefinite" />
+        </use>
+        <use href="#omicron-assembly-2">
+          <animate attributeName="opacity" 
+            values="0;0;0.9;0.9;0" 
+            keyTimes="0;0.05;0.1;0.2;0.25" 
+            dur="7s" 
+            repeatCount="indefinite" />
+        </use>
+        <use href="#omicron-assembly-3">
+          <animate attributeName="opacity" 
+            values="0;0;0;0.9;0.9;0" 
+            keyTimes="0;0.1;0.15;0.2;0.3;0.35" 
+            dur="7s" 
+            repeatCount="indefinite" />
+        </use>
+      </g>
+      
+      <!-- Assembled ship with force field (25-50%) -->
+      <g id="ship-with-field" opacity="0">
+        <use href="#omicron-ship" />
+        <g id="field-glow">
+          <!-- Force field appears and pulses -->
+          <use href="#force-field">
+            <!-- Stroke version of force field -->
+            <animate attributeName="opacity" 
+              values="0;0;0;0.7;0.7;0" 
+              keyTimes="0;0.35;0.4;0.45;0.5;0.55" 
+              dur="7s" 
+              repeatCount="indefinite" />
+          </use>
+        </g>
+        <!-- Ship and field visibility -->
+        <animate attributeName="opacity" 
+          values="0;0;0.85;0.85;0.85;0.85;0" 
+          keyTimes="0;0.3;0.35;0.5;0.55;0.7;1" 
+          dur="7s" 
+          repeatCount="indefinite" />
+        <!-- Launch movement (50-100%) -->
+        <animateTransform 
+          attributeName="transform" 
+          type="translate"
+          values="0,0; 0,0; 0,0; 0,0; 12,0; 24,0; 36,-6"
+          keyTimes="0;0.3;0.4;0.55;0.65;0.8;1"
+          dur="7s" 
+          repeatCount="indefinite" />
+        <!-- Rotation during launch -->
+        <animateTransform 
+          attributeName="transform" 
+          type="rotate"
+          values="0,0,0; 0,0,0; 0,0,0; 0,0,0; -15,0,0; -25,0,0; -30,0,0"
+          keyTimes="0;0.3;0.4;0.55;0.65;0.8;1"
+          dur="7s" 
+          repeatCount="indefinite"
+          additive="sum" />
+      </g>
+    </g>
   </g>
   
   <text
