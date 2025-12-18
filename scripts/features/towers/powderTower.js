@@ -65,6 +65,19 @@ const MIN_STAR_SIZE = 0.5;
 const MAX_STAR_SIZE = 2.5;
 const STAR_MAX_SPEED = 0.0002;
 const GOLD_STAR_PROBABILITY = 0.3;
+const STAR_MIN_LIFETIME_SECONDS = 6;
+const STAR_MAX_LIFETIME_SECONDS = 12;
+const STAR_FADE_MIN_SECONDS = 1.25;
+const STAR_FADE_MAX_SECONDS = 2.4;
+
+function randomInRange(min, max) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return min;
+  }
+  const clampedMin = Math.min(min, max);
+  const clampedMax = Math.max(min, max);
+  return clampedMin + Math.random() * (clampedMax - clampedMin);
+}
 
 export class PowderSimulation {
   constructor(options = {}) {
@@ -1286,18 +1299,27 @@ export class PowderSimulation {
     this.ctx.fillRect(width - 2, gradientTop, 2, gradientHeight);
     this.ctx.fillRect(0, height - 2, width, 2);
 
+    const cellSizePx = this.cellSize;
+    const laneLeftPx = Math.max(0, this.wallInsetLeftCells * cellSizePx);
+    const laneRightPx = Math.max(0, this.wallInsetRightCells * cellSizePx);
+    const laneWidthPx = Math.max(0, width - laneLeftPx - laneRightPx);
+
     // Draw background stars
-    if (this.backgroundStarsEnabled) {
+    if (this.backgroundStarsEnabled && laneWidthPx > 0) {
       for (const star of this.stars) {
-        const starX = star.x * width;
+        const starX = laneLeftPx + star.x * laneWidthPx;
         const starY = star.y * height;
         const twinkle = Math.sin(star.twinklePhase) * 0.5 + 0.5;
-        const opacity = star.opacity * twinkle;
-        
+        const fade = this.getStarFadeFactor(star);
+        const opacity = Math.max(0, Math.min(1, (star.opacity || 0) * twinkle * fade));
+        if (opacity <= 0) {
+          continue;
+        }
+
         this.ctx.save();
         this.ctx.globalAlpha = opacity;
         this.ctx.shadowBlur = star.size * 3;
-        
+
         if (star.isGold) {
           this.ctx.fillStyle = 'rgb(255, 215, 100)';
           this.ctx.shadowColor = 'rgba(255, 215, 100, 0.8)';
@@ -1305,15 +1327,13 @@ export class PowderSimulation {
           this.ctx.fillStyle = 'rgb(255, 255, 255)';
           this.ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
         }
-        
+
         this.ctx.beginPath();
         this.ctx.arc(starX, starY, star.size, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.restore();
       }
     }
-
-    const cellSizePx = this.cellSize;
     const glowEnabled = this.moteGlowEnabled !== false;
     // Expand the halo so resting motes remain legible even when zoomed out.
     const baseGlowBlur = Math.max(6, cellSizePx * 2.2) * 2;
@@ -1339,9 +1359,20 @@ export class PowderSimulation {
         mixRgbColors(resolvedColor, { r: 255, g: 255, b: 255 }, 0.35),
         0.75,
       );
+      const fillColor = this.getMoteColorForSize(visualSize, grain.freefall, grain.color);
+      const seamlessPadding = Math.max(0.25, sizePx * 0.06);
+      const seamlessX = px - seamlessPadding;
+      const seamlessY = py - seamlessPadding;
+      const seamlessSize = sizePx + seamlessPadding * 2;
+
+      this.ctx.shadowBlur = 0;
+      this.ctx.shadowColor = 'transparent';
+      this.ctx.fillStyle = fillColor;
+      this.ctx.fillRect(seamlessX, seamlessY, seamlessSize, seamlessSize);
+
+      const glowBlur = Math.max(baseGlowBlur, sizePx * 2.3);
       if (glowEnabled) {
         this.ctx.shadowColor = glowColor;
-        const glowBlur = Math.max(baseGlowBlur, sizePx * 2.3);
         this.ctx.shadowBlur = glowBlur;
       } else {
         this.ctx.shadowBlur = 0;
@@ -1378,7 +1409,7 @@ export class PowderSimulation {
         this.ctx.restore();
       }
 
-      this.ctx.fillStyle = this.getMoteColorForSize(visualSize, grain.freefall, grain.color);
+      this.ctx.fillStyle = fillColor;
       this.ctx.fillRect(px, py, sizePx, sizePx);
     }
 
@@ -1481,17 +1512,7 @@ export class PowderSimulation {
     this.stars = [];
     const starCount = 100;
     for (let i = 0; i < starCount; i++) {
-      this.stars.push({
-        x: Math.random(),
-        y: Math.random(),
-        size: Math.random() * (MAX_STAR_SIZE - MIN_STAR_SIZE) + MIN_STAR_SIZE,
-        speedX: (Math.random() - 0.5) * STAR_MAX_SPEED,
-        speedY: (Math.random() - 0.5) * STAR_MAX_SPEED,
-        opacity: Math.random() * 0.6 + 0.2,
-        twinklePhase: Math.random() * Math.PI * 2,
-        twinkleSpeed: Math.random() * 0.02 + 0.01,
-        isGold: Math.random() < GOLD_STAR_PROBABILITY,
-      });
+      this.stars.push(this.seedStar());
     }
   }
 
@@ -1504,18 +1525,56 @@ export class PowderSimulation {
     }
     const deltaSeconds = deltaMs / 1000;
     for (const star of this.stars) {
+      star.age = Number.isFinite(star.age) ? star.age + deltaSeconds : deltaSeconds;
+      if (!Number.isFinite(star.life) || star.age >= star.life) {
+        this.seedStar(star);
+      }
       star.x += star.speedX * deltaSeconds;
       star.y += star.speedY * deltaSeconds;
-      
+
       // Wrap around edges
       if (star.x < 0) star.x += 1;
       if (star.x > 1) star.x -= 1;
       if (star.y < 0) star.y += 1;
       if (star.y > 1) star.y -= 1;
-      
+
       // Update twinkle
       star.twinklePhase += star.twinkleSpeed * deltaSeconds;
     }
+  }
+
+  seedStar(existing = null) {
+    const star = existing || {};
+    star.x = Math.random();
+    star.y = Math.random();
+    star.size = Math.random() * (MAX_STAR_SIZE - MIN_STAR_SIZE) + MIN_STAR_SIZE;
+    star.speedX = (Math.random() - 0.5) * STAR_MAX_SPEED;
+    star.speedY = (Math.random() - 0.5) * STAR_MAX_SPEED;
+    star.opacity = Math.random() * 0.6 + 0.2;
+    star.twinklePhase = Math.random() * Math.PI * 2;
+    star.twinkleSpeed = Math.random() * 0.02 + 0.01;
+    star.isGold = Math.random() < GOLD_STAR_PROBABILITY;
+    const life = randomInRange(STAR_MIN_LIFETIME_SECONDS, STAR_MAX_LIFETIME_SECONDS);
+    const fadeIn = randomInRange(STAR_FADE_MIN_SECONDS, STAR_FADE_MAX_SECONDS);
+    const fadeOut = randomInRange(STAR_FADE_MIN_SECONDS, STAR_FADE_MAX_SECONDS);
+    const safeFadeOut = Math.min(fadeOut, Math.max(0.25, life * 0.5));
+    star.age = 0;
+    star.life = Math.max(fadeIn + safeFadeOut + 1, life);
+    star.fadeIn = Math.max(0.25, fadeIn);
+    star.fadeOut = Math.max(0.25, safeFadeOut);
+    return star;
+  }
+
+  getStarFadeFactor(star) {
+    const fadeIn = Number.isFinite(star?.fadeIn) ? Math.max(0.25, star.fadeIn) : STAR_FADE_MIN_SECONDS;
+    const fadeOut = Number.isFinite(star?.fadeOut) ? Math.max(0.25, star.fadeOut) : STAR_FADE_MIN_SECONDS;
+    const life = Number.isFinite(star?.life)
+      ? Math.max(fadeIn + fadeOut, star.life)
+      : fadeIn + fadeOut;
+    const age = Math.max(0, Number.isFinite(star?.age) ? star.age : 0);
+    const fadeInFactor = clampUnitInterval(age / fadeIn);
+    const fadeOutFactor = clampUnitInterval((life - age) / fadeOut);
+    return Math.min(fadeInFactor, fadeOutFactor);
   }
 
   /**
