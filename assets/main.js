@@ -1285,6 +1285,112 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     return true;
   }
 
+  /**
+   * Unlock a celestial body (sun or moon) in the achievements terrarium.
+   * Called when achievements are unlocked.
+   * @param {string} celestialBody - 'sun' or 'moon'
+   */
+  function unlockTerrariumCelestialBody(celestialBody) {
+    if (!celestialBody || (celestialBody !== 'sun' && celestialBody !== 'moon')) {
+      return;
+    }
+    handleCelestialPlacement({ storeItem: { celestialBody } });
+  }
+
+  /**
+   * Add creatures to the achievements terrarium.
+   * Called when achievements are unlocked.
+   * @param {string} creatureType - Type of creature ('slime', 'bird')
+   * @param {number} count - Number to add
+   */
+  function addTerrariumCreature(creatureType, count = 1) {
+    if (!FLUID_STUDY_ENABLED || !betHappinessSystem) {
+      return;
+    }
+    
+    if (creatureType === 'slime') {
+      const currentCount = betHappinessSystem.getProducerCount('slime');
+      const newCount = currentCount + count;
+      betHappinessSystem.setProducerCount('slime', newCount);
+      
+      // Recreate creatures with new count
+      if (fluidTerrariumCreatures) {
+        fluidTerrariumCreatures.destroy();
+        fluidTerrariumCreatures = null;
+      }
+      ensureFluidTerrariumCreatures();
+      
+      schedulePowderBasinSave();
+    } else if (creatureType === 'bird') {
+      const currentCount = betHappinessSystem.getProducerCount('bird');
+      const newCount = currentCount + count;
+      betHappinessSystem.setProducerCount('bird', newCount);
+      
+      // Recreate birds with new count
+      if (fluidTerrariumBirds) {
+        fluidTerrariumBirds.destroy();
+        fluidTerrariumBirds = null;
+      }
+      ensureFluidTerrariumBirds();
+      
+      schedulePowderBasinSave();
+    }
+  }
+
+  /**
+   * Add items (trees, shrooms) to the achievements terrarium.
+   * Called when achievements are unlocked.
+   * @param {string} itemType - Type of item ('betTreeLarge', 'betTreeSmall', 'phiShroomYellow', etc.)
+   * @param {number} count - Number/level to add
+   */
+  function addTerrariumItem(itemType, count = 1) {
+    if (!FLUID_STUDY_ENABLED || !betHappinessSystem) {
+      return;
+    }
+    
+    const currentCount = betHappinessSystem.getProducerCount(itemType);
+    const newCount = currentCount + count;
+    betHappinessSystem.setProducerCount(itemType, newCount);
+    
+    // Refresh terrarium visuals based on item type
+    if (itemType.includes('Tree')) {
+      // Trees need special handling via the tree system
+      if (!powderState.betTerrarium) {
+        powderState.betTerrarium = {};
+      }
+      if (!powderState.betTerrarium.trees) {
+        powderState.betTerrarium.trees = {};
+      }
+      
+      // Add allocation to the appropriate tree
+      const treeKey = itemType === 'betTreeLarge' ? 'largeTree1' : 'smallTree1';
+      const currentAllocation = powderState.betTerrarium.trees[treeKey]?.allocated || 0;
+      const newAllocation = currentAllocation + count;
+      
+      if (!powderState.betTerrarium.trees[treeKey]) {
+        powderState.betTerrarium.trees[treeKey] = { allocated: 0 };
+      }
+      powderState.betTerrarium.trees[treeKey].allocated = newAllocation;
+      
+      // Recreate trees
+      if (fluidTerrariumTrees) {
+        fluidTerrariumTrees.destroy();
+        fluidTerrariumTrees = null;
+      }
+      updateTerrariumTreeHappiness(powderState.betTerrarium.trees);
+      ensureFluidTerrariumTrees();
+    } else if (itemType.includes('Shroom')) {
+      // Shrooms are rendered via the shrooms system
+      if (fluidTerrariumShrooms) {
+        fluidTerrariumShrooms.destroy();
+        fluidTerrariumShrooms = null;
+      }
+      ensureFluidTerrariumShrooms();
+    }
+    
+    schedulePowderBasinSave();
+  }
+
   // Paint the Bet terrarium sky with a looping day/night gradient and celestial path.
   function ensureFluidTerrariumSkyCycle() {
     if (!FLUID_STUDY_ENABLED) {
@@ -5783,6 +5889,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     spireResourceState,
     moteGemInventory: moteGemState.inventory,
     powderState,
+    unlockTerrariumCelestialBody,
+    addTerrariumCreature,
+    addTerrariumItem,
   });
 
   async function init() {

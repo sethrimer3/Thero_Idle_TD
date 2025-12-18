@@ -284,7 +284,7 @@ function generateSpireAchievements(spireId, spireName, spireIcon) {
   const categoryId = `spire-${spireId}`;
   
   // Achievement for earning 1 glyph
-  achievements.push({
+  const firstGlyphAchievement = {
     id: `${spireId}-glyph-1`,
     categoryId,
     title: `First ${spireName} Glyph`,
@@ -297,10 +297,21 @@ function generateSpireAchievements(spireId, spireName, spireIcon) {
       const glyphs = getSpireGlyphCount(spireId);
       return glyphs >= 1 ? 'Unlocked' : `Locked — ${glyphs}/1 glyphs earned.`;
     },
-  });
+  };
+  
+  // Add terrarium rewards based on spire type
+  if (spireId === 'powder') {
+    // First Aleph glyph adds the first slime
+    firstGlyphAchievement.terrariumReward = { type: 'creature', item: 'slime', count: 1 };
+  } else if (spireId === 'fluid') {
+    // First Bet glyph adds 2 more slimes
+    firstGlyphAchievement.terrariumReward = { type: 'creature', item: 'slime', count: 2 };
+  }
+  
+  achievements.push(firstGlyphAchievement);
 
   // Achievement for earning 10 glyphs
-  achievements.push({
+  const tenGlyphAchievement = {
     id: `${spireId}-glyph-10`,
     categoryId,
     title: `${spireName} Adept`,
@@ -313,10 +324,21 @@ function generateSpireAchievements(spireId, spireName, spireIcon) {
       const glyphs = getSpireGlyphCount(spireId);
       return glyphs >= 10 ? 'Unlocked' : `Locked — ${glyphs}/10 glyphs earned.`;
     },
-  });
+  };
+  
+  // Add terrarium rewards based on spire type
+  if (spireId === 'powder') {
+    // 10 Aleph glyphs adds a small tree
+    tenGlyphAchievement.terrariumReward = { type: 'item', item: 'betTreeSmall', count: 1 };
+  } else if (spireId === 'fluid') {
+    // 10 Bet glyphs adds a large tree
+    tenGlyphAchievement.terrariumReward = { type: 'item', item: 'betTreeLarge', count: 1 };
+  }
+  
+  achievements.push(tenGlyphAchievement);
 
   // Achievement for earning 100 glyphs
-  achievements.push({
+  const hundredGlyphAchievement = {
     id: `${spireId}-glyph-100`,
     categoryId,
     title: `${spireName} Master`,
@@ -329,7 +351,24 @@ function generateSpireAchievements(spireId, spireName, spireIcon) {
       const glyphs = getSpireGlyphCount(spireId);
       return glyphs >= 100 ? 'Unlocked' : `Locked — ${glyphs}/100 glyphs earned.`;
     },
-  });
+  };
+  
+  // Add terrarium rewards based on spire type
+  if (spireId === 'powder') {
+    // 100 Aleph glyphs adds yellow shrooms
+    hundredGlyphAchievement.terrariumReward = { type: 'item', item: 'phiShroomYellow', count: 1 };
+  } else if (spireId === 'fluid') {
+    // 100 Bet glyphs adds green shrooms
+    hundredGlyphAchievement.terrariumReward = { type: 'item', item: 'phiShroomGreen', count: 1 };
+  } else if (spireId === 'lamed') {
+    // 100 Lamed glyphs adds blue shrooms
+    hundredGlyphAchievement.terrariumReward = { type: 'item', item: 'phiShroomBlue', count: 1 };
+  } else if (spireId === 'tsadi' || spireId === 'shin' || spireId === 'kuf') {
+    // Advanced spires add psi shrooms
+    hundredGlyphAchievement.terrariumReward = { type: 'item', item: 'psiShroom', count: 1 };
+  }
+  
+  achievements.push(hundredGlyphAchievement);
 
   return achievements;
 }
@@ -386,6 +425,39 @@ function generateSecretAchievements() {
   return achievements;
 }
 
+// Generate special story achievements (like prologue completion)
+function generateStoryAchievements() {
+  const { isLevelCompleted } = getContext();
+  const achievements = [];
+  
+  // Prologue completion achievement - unlocks the moon in achievements terrarium
+  achievements.push({
+    id: 'prologue-complete',
+    categoryId: 'campaign-story',
+    title: 'Scholar Awakened',
+    subtitle: 'Complete the Prologue',
+    icon: '🌙',
+    rewardFlux: ACHIEVEMENT_REWARD_FLUX * 2,
+    description: `Complete all prologue levels to awaken as a scholar. The moon appears in your achievements terrarium. Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * 2} Motes/min to idle reserves.`,
+    condition: () => {
+      const prologueLevels = ['Prologue - 1', 'Prologue - 2', 'Prologue - 3', 'Prologue - Story'];
+      return prologueLevels.every(levelId => isLevelCompleted(levelId));
+    },
+    progress: () => {
+      const prologueLevels = ['Prologue - 1', 'Prologue - 2', 'Prologue - 3', 'Prologue - Story'];
+      const completed = prologueLevels.filter(levelId => isLevelCompleted(levelId)).length;
+      const total = prologueLevels.length;
+      return completed >= total ? 'Unlocked — The moon illuminates your path.' : `Locked — Complete ${completed}/${total} prologue levels.`;
+    },
+    terrariumReward: {
+      type: 'celestialBody',
+      item: 'moon',
+    },
+  });
+  
+  return achievements;
+}
+
 // Recomputes the full achievements list including levels, spires, and secrets.
 export async function generateLevelAchievements() {
   try {
@@ -424,6 +496,10 @@ export async function generateLevelAchievements() {
     // Generate secret achievements
     const secretAchievements = generateSecretAchievements();
     definitions.push(...secretAchievements);
+
+    // Generate story achievements (prologue, etc.)
+    const storyAchievements = generateStoryAchievements();
+    definitions.push(...storyAchievements);
 
     achievementDefinitions = definitions;
     const allowedIds = new Set(definitions.map((definition) => definition.id));
@@ -1021,6 +1097,38 @@ function updateCategoryButtonCounts() {
   });
 }
 
+// Apply terrarium rewards when achievements are unlocked
+function applyTerrariumReward(reward) {
+  if (!reward || typeof reward !== 'object') {
+    return;
+  }
+
+  const { unlockTerrariumCelestialBody, addTerrariumCreature, addTerrariumItem } = getContext();
+
+  // Handle celestial body rewards (sun/moon)
+  if (reward.type === 'celestialBody' && reward.item) {
+    if (typeof unlockTerrariumCelestialBody === 'function') {
+      unlockTerrariumCelestialBody(reward.item);
+    }
+  }
+
+  // Handle creature rewards (slimes, birds)
+  if (reward.type === 'creature' && reward.item) {
+    if (typeof addTerrariumCreature === 'function') {
+      const count = reward.count || 1;
+      addTerrariumCreature(reward.item, count);
+    }
+  }
+
+  // Handle item rewards (trees, shrooms)
+  if (reward.type === 'item' && reward.item) {
+    if (typeof addTerrariumItem === 'function') {
+      const count = reward.count || 1;
+      addTerrariumItem(reward.item, count);
+    }
+  }
+}
+
 // Checks all achievements to unlock any that now satisfy their condition.
 export function evaluateAchievements() {
   achievementDefinitions.forEach((definition) => {
@@ -1052,6 +1160,11 @@ function unlockAchievement(definition) {
 
   const element = achievementElements.get(definition.id);
   updateAchievementStatus(definition, element, state);
+
+  // Process terrarium rewards if this achievement grants them
+  if (definition.terrariumReward) {
+    applyTerrariumReward(definition.terrariumReward);
+  }
 
   const { recordPowderEvent, updateResourceRates, updatePowderLedger, updateStatusDisplays } = getContext();
 
