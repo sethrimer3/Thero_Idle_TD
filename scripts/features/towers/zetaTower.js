@@ -116,8 +116,7 @@ export function ensureZetaState(playfield, tower) {
   const baseDamage = criticalMultiplier > 0 ? attackValue / criticalMultiplier : attackValue;
   const speedValue = Math.max(0.05, Number.isFinite(metrics.speed) ? metrics.speed : 0.25);
   const rangeScalar = Math.max(1.5, Number.isFinite(metrics.range) ? metrics.range : 1.5);
-  // Force exactly 2 pendulums that swing in opposite directions for a cleaner, more controlled animation.
-  const totalPendulums = 2;
+  const totalPendulums = Math.max(1, Math.round(Number.isFinite(metrics.total) ? metrics.total : 1));
   const baseRangeFraction = Number.isFinite(tower.definition?.range) ? tower.definition.range : 0.3;
   const normalizedRangeFraction = baseRangeFraction * (rangeScalar / 1.5);
   const effectiveRangeFraction = Math.max(0.05, normalizedRangeFraction);
@@ -174,9 +173,8 @@ export function ensureZetaState(playfield, tower) {
       pendulums[index] = pendulum;
     }
 
-    // Make the two pendulums swing in opposite directions: one clockwise, one counter-clockwise.
-    const direction = index === 0 ? 1 : -1;
-    const angularVelocity = speedValue * direction;
+    const normalizedIndex = index / Math.max(1, totalPendulums - 1);
+    const angularVelocity = speedValue * (0.6 + 0.4 * normalizedIndex);
     pendulum.angularVelocity = angularVelocity * Math.PI * 2;
     pendulum.length = baseArmLength * (1 + normalizedIndex * 0.08); // Small offsets keep the double pendulum silhouette dynamic.
     pendulum.headRadius = Math.max(12, detectionRadius * (0.06 + normalizedIndex * 0.02));
@@ -196,9 +194,8 @@ export function ensureZetaState(playfield, tower) {
     if (!pendulum) {
       return;
     }
-    // Maintain opposite swing directions when refreshing parameters.
-    const direction = index === 0 ? 1 : -1;
-    pendulum.angularVelocity = speedValue * direction * Math.PI * 2;
+    const normalizedIndex = index / Math.max(1, totalPendulums - 1);
+    pendulum.angularVelocity = speedValue * (0.6 + 0.4 * normalizedIndex) * Math.PI * 2;
     pendulum.length = baseArmLength * (1 + normalizedIndex * 0.08); // Maintain variation without scaling with range upgrades.
     pendulum.headRadius = Math.max(12, detectionRadius * (0.06 + normalizedIndex * 0.02));
     pendulum.trailWidth = Math.max(4, detectionRadius * (0.12 + normalizedIndex * 0.05));

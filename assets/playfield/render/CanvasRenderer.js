@@ -2650,26 +2650,22 @@ function drawProjectiles() {
       if (!position) {
         return;
       }
-      const origin = projectile.origin || position;
-      // Make spikes point outward from the tower center, not based on velocity.
-      const heading = Math.atan2(position.y - origin.y, position.x - origin.x);
-      // Thin triangular spike shape pointing outward.
-      const length = 12;
-      const width = 1.8;
+      const prev = projectile.previousPosition || position;
+      const heading = Math.atan2((position.y - prev.y) || 0.0001, (position.x - prev.x) || 0.0001);
+      const length = 10;
+      const width = 1.2;
       // Fade embedded thorns by honoring the projectile alpha computed in the simulation.
       const alpha = Number.isFinite(projectile.alpha) ? Math.max(0, Math.min(1, projectile.alpha)) : 1;
-      // Use palette-aware color instead of hardcoded cyan.
-      const paletteColor = samplePaletteGradient(0.3);
       ctx.save();
       ctx.translate(position.x, position.y);
       ctx.rotate(heading);
-      ctx.fillStyle = `rgba(${paletteColor.r}, ${paletteColor.g}, ${paletteColor.b}, ${0.85 * alpha})`;
+      ctx.fillStyle = `rgba(139, 247, 255, ${0.85 * alpha})`;
       ctx.strokeStyle = `rgba(12, 16, 26, ${0.9 * alpha})`;
       ctx.lineWidth = 0.9;
       ctx.beginPath();
       ctx.moveTo(length, 0);
-      ctx.lineTo(-length * 0.4, width);
-      ctx.lineTo(-length * 0.4, -width);
+      ctx.lineTo(-length * 0.6, width);
+      ctx.lineTo(-length * 0.6, -width);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
