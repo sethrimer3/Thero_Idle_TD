@@ -7,21 +7,10 @@
     
     <!-- Delta infantry unit (small triangle) -->
     <g id="infantry-unit">
-      <!-- Small triangle ship pointing right with gradient colors -->
-      <polygon points="0,-2 4,0 0,2" fill="#8af7ff" opacity="0.85">
-        <!-- Color animation alternating between cyan and magenta -->
-        <animate attributeName="fill" 
-          values="#8af7ff;#ff8ad8;#8af7ff" 
-          dur="4s" 
-          repeatCount="indefinite" />
-      </polygon>
-      <!-- Small trail effect -->
-      <line x1="-1" y1="0" x2="-3" y2="0" stroke="#8af7ff" stroke-width="0.5" opacity="0.5">
-        <animate attributeName="stroke" 
-          values="#8af7ff;#ff8ad8;#8af7ff" 
-          dur="4s" 
-          repeatCount="indefinite" />
-      </line>
+      <!-- Small triangle ship pointing right - use static neutral color -->
+      <polygon points="0,-2 4,0 0,2" fill="#b0d8e8" opacity="0.85" />
+      <!-- Small trail effect - use static neutral color -->
+      <line x1="-1" y1="0" x2="-3" y2="0" stroke="#b0d8e8" stroke-width="0.5" opacity="0.5" />
     </g>
   </defs>
   

@@ -5,11 +5,11 @@
       <stop offset="100%" stop-color="#d68bff" stop-opacity="0.72" />
     </linearGradient>
     
-    <!-- Chaotic double pendulum simulation -->
+    <!-- Chaotic double pendulum simulation - use static neutral colors -->
     <!-- First pendulum arm and bob -->
     <g id="pendulum1">
-      <line x1="32" y1="32" x2="32" y2="42" stroke="#8bf7ff" stroke-width="1" opacity="0.7" />
-      <circle cx="32" cy="42" r="2" fill="#8bf7ff" opacity="0.85" />
+      <line x1="32" y1="32" x2="32" y2="42" stroke="#a8b8c8" stroke-width="1" opacity="0.7" />
+      <circle cx="32" cy="42" r="2" fill="#a8b8c8" opacity="0.85" />
       <!-- Chaotic rotation with irregular timing -->
       <animateTransform 
         attributeName="transform" 
@@ -22,7 +22,7 @@
     
     <!-- Second pendulum arm and bob (attached to first) -->
     <g id="pendulum2">
-      <circle cx="32" cy="42" r="2" fill="#d68bff" opacity="0.85">
+      <circle cx="32" cy="42" r="2" fill="#b8c4d0" opacity="0.85">
         <!-- Trail effect for the second bob -->
         <animate attributeName="opacity" 
           values="0.85;0.5;0.85" 
@@ -49,7 +49,7 @@
     </g>
     
     <!-- Trail circles at key positions to show chaotic path -->
-    <circle cx="32" cy="32" r="1" fill="#ff8ad8" opacity="0">
+    <circle cx="32" cy="32" r="1" fill="#c0ccd8" opacity="0">
       <animate attributeName="opacity" 
         values="0;0.6;0" 
         dur="4.2s" 

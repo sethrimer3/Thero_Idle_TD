@@ -83,6 +83,7 @@ function ensureOmicronStateInternal(playfield, tower) {
       trackHoldProgress: 0,
       trackHoldTangent: null,
       trackHoldManual: false,
+      spawnWaves: [], // Array of wave animations when units are spawned
     };
   }
   return tower.omicronState;
@@ -334,6 +335,20 @@ function deployOmicronUnit(playfield, tower, state) {
   };
   
   state.units.push(unit);
+  
+  // Create spawn wave animation
+  if (!Array.isArray(state.spawnWaves)) {
+    state.spawnWaves = [];
+  }
+  state.spawnWaves.push({
+    x: tower.x,
+    y: tower.y,
+    radius: 0,
+    maxRadius: Math.max(28, minDimension * 0.07),
+    age: 0,
+    duration: 0.6,
+    color: baseColor,
+  });
 }
 
 /**
@@ -760,6 +775,19 @@ export function updateOmicronTower(playfield, tower, delta) {
   // Update fragments
   updateFragments(state, delta);
   
+  // Update spawn wave animations
+  if (Array.isArray(state.spawnWaves)) {
+    for (let index = state.spawnWaves.length - 1; index >= 0; index -= 1) {
+      const wave = state.spawnWaves[index];
+      wave.age += delta;
+      const progress = wave.age / wave.duration;
+      wave.radius = wave.maxRadius * progress;
+      if (wave.age >= wave.duration) {
+        state.spawnWaves.splice(index, 1);
+      }
+    }
+  }
+  
   // Spawn new units if below cap
   const spawnCap = Math.max(1, state.maxUnits || 1);
   if (state.units.length < spawnCap) {
@@ -786,6 +814,7 @@ export function drawOmicronUnits(playfield) {
   }
   
   const ctx = playfield.ctx;
+  const minDimension = Math.min(playfield.renderWidth || 0, playfield.renderHeight || 0) || 1;
   
   ctx.save();
   playfield.towers.forEach((tower) => {
@@ -794,6 +823,21 @@ export function drawOmicronUnits(playfield) {
     }
     
     const state = tower.omicronState;
+    
+    // Draw spawn wave animations
+    if (Array.isArray(state.spawnWaves)) {
+      state.spawnWaves.forEach((wave) => {
+        const progress = wave.age / wave.duration;
+        const alpha = Math.max(0, 1 - progress);
+        ctx.save();
+        ctx.strokeStyle = `rgba(${wave.color.r}, ${wave.color.g}, ${wave.color.b}, ${alpha * 0.5})`;
+        ctx.lineWidth = Math.max(2, minDimension * 0.005);
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
     
     // Draw death fragments first (behind units)
     if (Array.isArray(state.fragments)) {
