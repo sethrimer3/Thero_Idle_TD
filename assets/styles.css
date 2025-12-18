@@ -13484,3 +13484,69 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     padding: 0.85rem 1rem;
   }
 }
+
+/* Bet Spire Placeholder Styles */
+.bet-placeholder-card {
+  margin: 1rem auto;
+  max-width: 600px;
+}
+
+.bet-placeholder-container {
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+  background: linear-gradient(135deg, rgba(139, 247, 255, 0.03), rgba(255, 125, 235, 0.02));
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+}
+
+.bet-placeholder-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bet-placeholder-message {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem;
+  color: var(--muted);
+  text-align: center;
+  pointer-events: none;
+}
+
+.bet-placeholder-taps {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.bet-tap-indicator {
+  position: absolute;
+  font-family: 'Space Mono', monospace;
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: var(--accent);
+  animation: tap-float 0.8s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes tap-float {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50px) scale(1.2);
+  }
+}
