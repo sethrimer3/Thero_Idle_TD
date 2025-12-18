@@ -26,7 +26,7 @@ import { metersToPixels } from '../../../assets/gameUnits.js';
 // Keep the parameter refresh lightweight so UI displays stay in sync with glyph upgrades.
 const PARAM_REFRESH_SECONDS = 0.5;
 // Slow turning rate so ship paths sketch arcs instead of straight lines.
-const MAX_TURN_RATE = Math.PI * 1.3;
+const MAX_TURN_RATE = Math.PI * 0.8;
 // Keep ship collision checks compact for performance.
 const SHIP_ATTACK_RADIUS = 34;
 // Visual footprint of each triangle ship (pixels) – quarter scale for tighter swarms.

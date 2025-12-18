@@ -5,9 +5,8 @@
       <stop offset="100%" stop-color="#7ec4ff" stop-opacity="0.72" />
     </linearGradient>
     
-    <!-- Epsilon needle projectiles spraying randomly -->
-    <!-- Each needle is a small line that appears and moves outward in random directions -->
-    <line id="needle1" x1="0" y1="0" x2="0" y2="-6" stroke="#8af7ff" stroke-width="0.8" opacity="0">
+    <!-- Epsilon needle projectiles spraying randomly - use static neutral color -->
+    <line id="needle1" x1="0" y1="0" x2="0" y2="-6" stroke="#a8c8d8" stroke-width="0.8" opacity="0">
       <animate attributeName="opacity" 
         values="0;0.9;0.9;0" 
         keyTimes="0;0.1;0.6;1" 
@@ -26,7 +25,7 @@
         additive="sum" />
     </line>
     
-    <line id="needle2" x1="0" y1="0" x2="0" y2="-6" stroke="#ff8ad8" stroke-width="0.8" opacity="0">
+    <line id="needle2" x1="0" y1="0" x2="0" y2="-6" stroke="#b8d0e0" stroke-width="0.8" opacity="0">
       <animate attributeName="opacity" 
         values="0;0.9;0.9;0" 
         keyTimes="0;0.1;0.6;1" 
@@ -48,7 +47,7 @@
         additive="sum" />
     </line>
     
-    <line id="needle3" x1="0" y1="0" x2="0" y2="-6" stroke="#8af7ff" stroke-width="0.8" opacity="0">
+    <line id="needle3" x1="0" y1="0" x2="0" y2="-6" stroke="#a8c8d8" stroke-width="0.8" opacity="0">
       <animate attributeName="opacity" 
         values="0;0.9;0.9;0" 
         keyTimes="0;0.1;0.6;1" 
@@ -70,7 +69,7 @@
         additive="sum" />
     </line>
     
-    <line id="needle4" x1="0" y1="0" x2="0" y2="-6" stroke="#ff8ad8" stroke-width="0.8" opacity="0">
+    <line id="needle4" x1="0" y1="0" x2="0" y2="-6" stroke="#b8d0e0" stroke-width="0.8" opacity="0">
       <animate attributeName="opacity" 
         values="0;0.9;0.9;0" 
         keyTimes="0;0.1;0.6;1" 
@@ -92,7 +91,7 @@
         additive="sum" />
     </line>
     
-    <line id="needle5" x1="0" y1="0" x2="0" y2="-6" stroke="#8af7ff" stroke-width="0.8" opacity="0">
+    <line id="needle5" x1="0" y1="0" x2="0" y2="-6" stroke="#a8c8d8" stroke-width="0.8" opacity="0">
       <animate attributeName="opacity" 
         values="0;0.9;0.9;0" 
         keyTimes="0;0.1;0.6;1" 
@@ -114,7 +113,7 @@
         additive="sum" />
     </line>
     
-    <line id="needle6" x1="0" y1="0" x2="0" y2="-6" stroke="#ff8ad8" stroke-width="0.8" opacity="0">
+    <line id="needle6" x1="0" y1="0" x2="0" y2="-6" stroke="#b8d0e0" stroke-width="0.8" opacity="0">
       <animate attributeName="opacity" 
         values="0;0.9;0.9;0" 
         keyTimes="0;0.1;0.6;1" 
