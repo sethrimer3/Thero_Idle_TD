@@ -305,25 +305,25 @@ function deployOmicronUnit(playfield, tower, state) {
     id: `omicron-unit-${(playfield.omicronUnitIdCounter = (playfield.omicronUnitIdCounter || 0) + 1)}`,
     towerId: tower.id,
     slotIndex: spawnIndex,
-    x: tower.x, // Start at tower center during assembly
-    y: tower.y,
-    prevX: tower.x,
-    prevY: tower.y,
+    x: spawnX,
+    y: spawnY,
+    prevX: spawnX,
+    prevY: spawnY,
     vx: 0,
     vy: 0,
     heading: angle,
     idleAngleOffset: angle,
-    size: unitSize * 1.5, // Bigger ships than Delta
+    size: unitSize,
     attack: state.triangleAttack,
     shieldDamagePercent: state.shieldDamagePercent,
     hasShield: true,
-    shieldParticles: createShieldParticles({ x: tower.x, y: tower.y, size: unitSize * 1.5 }, gradientProgress),
+    shieldParticles: createShieldParticles({ x: spawnX, y: spawnY, size: unitSize }, gradientProgress),
     shieldOrbitPhase: 0,
     targetId: null,
     mode: 'idle',
     trailPoints: [],
     trailAccumulator: 0,
-    lastTrailSample: { x: tower.x, y: tower.y },
+    lastTrailSample: { x: spawnX, y: spawnY },
     color: baseColor,
     gradientProgress,
     flybyPhase: (spawnIndex / Math.max(1, limit)) * Math.PI,
@@ -331,12 +331,6 @@ function deployOmicronUnit(playfield, tower, state) {
     ramCooldown: 0,
     ramHeading: angle,
     ramTurn: 1,
-    // Ship assembly and launch animation states
-    lifecycleState: 'assembling', // 'assembling' -> 'forcefield' -> 'circling' -> 'active'
-    assemblyPhase: 0, // 0 to 1 during assembly
-    forcefieldPhase: 0, // 0 to 1 during force field activation
-    circlePhase: angle, // Current angle around tower during circling
-    circleRadius: Math.max(32, minDimension * 0.08), // Larger radius for bigger ships
   };
   
   state.units.push(unit);
@@ -446,71 +440,6 @@ function updateTrailAges(unit, delta) {
 function updateOmicronUnit(playfield, tower, unit, state, delta) {
   if (!unit) {
     return false;
-  }
-
-  // Handle ship assembly animation inside the tower
-  if (unit.lifecycleState === 'assembling') {
-    const assemblyDuration = 2.0; // Longer assembly for bigger ships
-    unit.assemblyPhase = Math.min(1, (unit.assemblyPhase || 0) + delta / assemblyDuration);
-    
-    // Keep ship at tower center during assembly
-    unit.x = tower.x;
-    unit.y = tower.y;
-    unit.prevX = tower.x;
-    unit.prevY = tower.y;
-    
-    if (unit.assemblyPhase >= 1) {
-      unit.lifecycleState = 'forcefield';
-      unit.forcefieldPhase = 0;
-    }
-    return true;
-  }
-  
-  // Handle force field activation animation
-  if (unit.lifecycleState === 'forcefield') {
-    const forcefieldDuration = 1.0; // Force field lights up over 1 second
-    unit.forcefieldPhase = Math.min(1, (unit.forcefieldPhase || 0) + delta / forcefieldDuration);
-    
-    // Keep ship at tower center during force field activation
-    unit.x = tower.x;
-    unit.y = tower.y;
-    unit.prevX = tower.x;
-    unit.prevY = tower.y;
-    
-    if (unit.forcefieldPhase >= 1) {
-      unit.lifecycleState = 'circling';
-      unit.circlePhase = unit.idleAngleOffset || -Math.PI / 2;
-    }
-    return true;
-  }
-  
-  // Handle circling animation around tower circumference
-  if (unit.lifecycleState === 'circling') {
-    const circlingSpeed = Math.PI * 0.9; // Slower circling for bigger ships
-    const circlingDuration = 3.0; // Longer circling duration
-    
-    if (!Number.isFinite(unit.circlingTimer)) {
-      unit.circlingTimer = 0;
-    }
-    unit.circlingTimer += delta;
-    
-    unit.circlePhase = (unit.circlePhase || 0) + delta * circlingSpeed;
-    if (unit.circlePhase > Math.PI * 2) {
-      unit.circlePhase -= Math.PI * 2;
-    }
-    
-    const radius = unit.circleRadius || Math.max(32, Math.min(playfield.renderWidth || 0, playfield.renderHeight || 0) * 0.08);
-    unit.prevX = unit.x;
-    unit.prevY = unit.y;
-    unit.x = tower.x + Math.cos(unit.circlePhase) * radius;
-    unit.y = tower.y + Math.sin(unit.circlePhase) * radius;
-    unit.heading = unit.circlePhase + Math.PI / 2; // Face tangent to circle
-    
-    // After circling for a bit, transition to active state
-    if (unit.circlingTimer >= circlingDuration) {
-      unit.lifecycleState = 'active';
-    }
-    return true;
   }
 
   // Update shield particle orbit
@@ -923,140 +852,57 @@ export function drawOmicronUnits(playfield) {
           ctx.restore();
         }
         
-        // Special rendering for assembling state
-        if (unit.lifecycleState === 'assembling') {
-          const phase = unit.assemblyPhase || 0;
-          const assemblySize = unit.size * phase;
-          const particleCount = 12;
-          const particleRadius = unit.size * 2;
-          
+        // Draw shield particles if unit has shield
+        if (unit.hasShield && Array.isArray(unit.shieldParticles)) {
           ctx.save();
-          ctx.translate(unit.x, unit.y);
+          ctx.globalCompositeOperation = 'lighter';
           
-          // Draw swirling assembly particles
-          for (let i = 0; i < particleCount; i++) {
-            const particleAngle = (i / particleCount) * Math.PI * 2 + phase * Math.PI * 3;
-            const radius = particleRadius * (1 - phase * 0.6);
-            const px = Math.cos(particleAngle) * radius;
-            const py = Math.sin(particleAngle) * radius;
-            const particleAlpha = 0.7 * (1 - phase * 0.4);
+          const shieldRadius = unit.size * SHIELD_ORBIT_RADIUS_MULTIPLIER;
+          unit.shieldParticles.forEach((particle) => {
+            const angle = particle.baseAngle + unit.shieldOrbitPhase;
+            const px = unit.x + Math.cos(angle) * shieldRadius;
+            const py = unit.y + Math.sin(angle) * shieldRadius;
             
-            ctx.fillStyle = `rgba(${unit.color.r}, ${unit.color.g}, ${unit.color.b}, ${particleAlpha})`;
+            const gradient = ctx.createRadialGradient(px, py, 0, px, py, particle.size);
+            gradient.addColorStop(0, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, 0.9)`);
+            gradient.addColorStop(0.6, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, 0.4)`);
+            gradient.addColorStop(1, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, 0)`);
+            
+            ctx.fillStyle = gradient;
             ctx.beginPath();
-            ctx.arc(px, py, 3, 0, Math.PI * 2);
+            ctx.arc(px, py, particle.size, 0, Math.PI * 2);
             ctx.fill();
-          }
-          
-          // Draw partially assembled ship
-          if (phase > 0.3) {
-            ctx.rotate(unit.heading + Math.PI / 2);
-            ctx.globalAlpha = phase;
-            ctx.beginPath();
-            ctx.moveTo(0, -assemblySize);
-            ctx.lineTo(-assemblySize * 0.866, assemblySize * 0.5);
-            ctx.lineTo(assemblySize * 0.866, assemblySize * 0.5);
-            ctx.closePath();
-            ctx.fillStyle = `rgba(${unit.color.r}, ${unit.color.g}, ${unit.color.b}, 0.5)`;
-            ctx.strokeStyle = `rgba(12, 16, 26, 0.7)`;
-            ctx.lineWidth = Math.max(1.5, assemblySize * 0.1);
-            ctx.fill();
-            ctx.stroke();
-          }
+          });
           
           ctx.restore();
         }
-        // Special rendering for force field activation state
-        else if (unit.lifecycleState === 'forcefield') {
-          const phase = unit.forcefieldPhase || 0;
-          const forcefieldRadius = unit.size * (2 + phase * 1.5);
-          
-          ctx.save();
-          ctx.translate(unit.x, unit.y);
-          
-          // Draw expanding force field rings
-          for (let i = 0; i < 3; i++) {
-            const ringPhase = (phase + i * 0.33) % 1;
-            const radius = forcefieldRadius * ringPhase;
-            const alpha = 0.6 * (1 - ringPhase);
-            
-            ctx.strokeStyle = `rgba(${unit.color.r}, ${unit.color.g}, ${unit.color.b}, ${alpha})`;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(0, 0, radius, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-          
-          // Draw ship with brightening effect
-          ctx.rotate(unit.heading + Math.PI / 2);
-          ctx.globalAlpha = 0.7 + phase * 0.3;
-          ctx.beginPath();
-          ctx.moveTo(0, -unit.size);
-          ctx.lineTo(-unit.size * 0.866, unit.size * 0.5);
-          ctx.lineTo(unit.size * 0.866, unit.size * 0.5);
-          ctx.closePath();
-          ctx.fillStyle = `rgba(${unit.color.r}, ${unit.color.g}, ${unit.color.b}, ${0.6 + phase * 0.3})`;
-          ctx.strokeStyle = `rgba(12, 16, 26, 0.9)`;
-          ctx.lineWidth = Math.max(1.5, unit.size * 0.1);
-          ctx.fill();
-          ctx.stroke();
-          
-          ctx.restore();
-        }
-        // Normal rendering for circling and active states
-        else {
-          // Draw shield particles if unit has shield
-          if (unit.hasShield && Array.isArray(unit.shieldParticles)) {
-            ctx.save();
-            ctx.globalCompositeOperation = 'lighter';
-            
-            const shieldRadius = unit.size * SHIELD_ORBIT_RADIUS_MULTIPLIER;
-            unit.shieldParticles.forEach((particle) => {
-              const angle = particle.baseAngle + unit.shieldOrbitPhase;
-              const px = unit.x + Math.cos(angle) * shieldRadius;
-              const py = unit.y + Math.sin(angle) * shieldRadius;
-              
-              const gradient = ctx.createRadialGradient(px, py, 0, px, py, particle.size);
-              gradient.addColorStop(0, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, 0.9)`);
-              gradient.addColorStop(0.6, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, 0.4)`);
-              gradient.addColorStop(1, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, 0)`);
-              
-              ctx.fillStyle = gradient;
-              ctx.beginPath();
-              ctx.arc(px, py, particle.size, 0, Math.PI * 2);
-              ctx.fill();
-            });
-            
-            ctx.restore();
-          }
-          
-          // Draw triangle unit
-          ctx.save();
-          ctx.translate(unit.x, unit.y);
-          ctx.rotate(unit.heading + Math.PI / 2);
-          
-          // Inverted equilateral triangle (pointing down in local space, up in world space)
-          ctx.beginPath();
-          ctx.moveTo(0, -unit.size);
-          ctx.lineTo(-unit.size * 0.866, unit.size * 0.5); // 0.866 = cos(30°)
-          ctx.lineTo(unit.size * 0.866, unit.size * 0.5);
-          ctx.closePath();
-          
-          const alpha = unit.hasShield ? 0.8 : 0.5;
-          const shipAlpha = unit.lifecycleState === 'circling' ? alpha * 0.85 : alpha;
-          ctx.fillStyle = `rgba(${unit.color.r}, ${unit.color.g}, ${unit.color.b}, ${shipAlpha})`;
-          ctx.strokeStyle = `rgba(12, 16, 26, 0.9)`;
-          ctx.lineWidth = Math.max(1.5, unit.size * 0.1);
-          ctx.fill();
-          ctx.stroke();
-          
-          // Add center dot
-          ctx.beginPath();
-          ctx.fillStyle = `rgba(6, 8, 14, ${unit.hasShield ? 0.7 : 0.5})`;
-          ctx.arc(0, 0, unit.size * 0.25, 0, Math.PI * 2);
-          ctx.fill();
-          
-          ctx.restore();
-        }
+        
+        // Draw triangle unit
+        ctx.save();
+        ctx.translate(unit.x, unit.y);
+        ctx.rotate(unit.heading + Math.PI / 2);
+        
+        // Inverted equilateral triangle (pointing down in local space, up in world space)
+        ctx.beginPath();
+        ctx.moveTo(0, -unit.size);
+        ctx.lineTo(-unit.size * 0.866, unit.size * 0.5); // 0.866 = cos(30°)
+        ctx.lineTo(unit.size * 0.866, unit.size * 0.5);
+        ctx.closePath();
+        
+        const alpha = unit.hasShield ? 0.8 : 0.5;
+        ctx.fillStyle = `rgba(${unit.color.r}, ${unit.color.g}, ${unit.color.b}, ${alpha})`;
+        ctx.strokeStyle = `rgba(12, 16, 26, 0.9)`;
+        ctx.lineWidth = Math.max(1.5, unit.size * 0.1);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Add center dot
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(6, 8, 14, ${unit.hasShield ? 0.7 : 0.5})`;
+        ctx.arc(0, 0, unit.size * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
       });
     }
   });
