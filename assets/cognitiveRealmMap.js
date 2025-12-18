@@ -91,7 +91,6 @@ let floatingLights = [];
 
 // Physics state for drifting nodes
 let nodePhysicsState = new Map(); // Map<territoryId, { offsetX, offsetY, vx, vy, targetOffsetX, targetOffsetY }>
-let lastNodeDriftEnabled = null; // Track drift toggle changes so we can zero offsets when disabled
 
 // Node drift configuration
 const NODE_DRIFT_SPEED = 0.0008; // Speed of drift movement
@@ -191,20 +190,6 @@ function updateNodePhysics(territory, deltaMs) {
   // Clamp to map boundaries
   physics.offsetX = Math.max(-maxDriftX, Math.min(maxDriftX, physics.offsetX));
   physics.offsetY = Math.max(-maxDriftY, Math.min(maxDriftY, physics.offsetY));
-}
-
-// Reset drift offsets when the feature is disabled so nodes return to their base grid positions
-function resetNodeDrift(territory) {
-  initializeNodePhysics(territory);
-  const physics = nodePhysicsState.get(territory.id);
-  physics.offsetX = 0;
-  physics.offsetY = 0;
-  physics.vx = 0;
-  physics.vy = 0;
-  physics.targetOffsetX = 0;
-  physics.targetOffsetY = 0;
-  const now = performance.now ? performance.now() : Date.now();
-  physics.lastTargetChange = now - NODE_DRIFT_CHANGE_INTERVAL; // Force an immediate target refresh when re-enabled
 }
 
 // Get node position with physics offset applied
@@ -896,28 +881,16 @@ function renderMap(deltaMs = 16) {
   const offsetY = -totalHeight / 2;
 
   const nodePositions = buildNodePositions(territories, offsetX, offsetY);
-
+  
   // Recalculate connections if territories have changed
   if (connectionsDirty) {
     calculateNodeConnections(nodePositions);
   }
-
-  // Sync drift state with the active preference toggle
-  if (lastNodeDriftEnabled !== settings.nodeDrift) {
-    if (!settings.nodeDrift) {
-      nodePositions.forEach((node) => {
-        resetNodeDrift(node.territory);
-      });
-    }
-    lastNodeDriftEnabled = settings.nodeDrift;
-  }
-
-  // Update physics for all nodes when drift is enabled
-  if (settings.nodeDrift) {
-    nodePositions.forEach((node) => {
-      updateNodePhysics(node.territory, deltaMs);
-    });
-  }
+  
+  // Update physics for all nodes
+  nodePositions.forEach((node) => {
+    updateNodePhysics(node.territory, deltaMs);
+  });
 
   renderTerritoryFields(mapContext, nodePositions, settings.glow);
 
