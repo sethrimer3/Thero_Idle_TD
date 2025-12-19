@@ -538,41 +538,6 @@ body.graphics-mode-low .control-button {
 .cognitive-realm-options-wrapper {
   margin-top: 24px;
   margin-bottom: 24px;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  gap: 12px;
-}
-
-.cognitive-realm-options-trigger {
-  min-width: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: min-width 260ms ease, width 260ms ease, padding 260ms ease,
-    border-radius 260ms ease, opacity 200ms ease;
-}
-
-.cognitive-realm-options-trigger[aria-expanded='true'] {
-  min-width: 10px;
-  width: 10px;
-  padding: 0;
-  border-radius: 12px;
-  align-self: stretch;
-}
-
-.cognitive-realm-options-trigger[aria-expanded='true'] span {
-  opacity: 0;
-  width: 0;
-  overflow: hidden;
-}
-
-.cognitive-realm-options-wrapper .spire-options-menu {
-  flex: 1;
-}
-
-.cognitive-realm-options-wrapper .spire-options-menu[data-open='true'] {
-  margin-top: 0;
 }
 
 @media (max-width: 640px) {
@@ -10779,9 +10744,25 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   margin: 0 auto;
 }
 
+.cognitive-realm-options-wrapper,
+.lamed-spire-options-card,
+.spire-options-card {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.options-open.cognitive-realm-options-wrapper,
+.options-open.lamed-spire-options-card,
+.options-open.spire-options-card {
+  flex-direction: row;
+}
+
 .lamed-spire-options-trigger,
-.spire-options-trigger {
+.spire-options-trigger,
+.cognitive-realm-options-trigger {
   width: 100%;
+  min-width: 220px;
   display: inline-flex;
   justify-content: center;
   align-items: center;
@@ -10789,6 +10770,26 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   font-family: "Cormorant Garamond", serif;
   font-size: 0.95rem;
   letter-spacing: 0.06em;
+  transition: min-width 260ms ease, width 260ms ease, padding 260ms ease,
+    border-radius 260ms ease, opacity 200ms ease;
+}
+
+.options-open .lamed-spire-options-trigger,
+.options-open .spire-options-trigger,
+.options-open .cognitive-realm-options-trigger {
+  min-width: 12px;
+  width: 12px;
+  padding: 0;
+  border-radius: 12px;
+  align-self: stretch;
+}
+
+.options-open .lamed-spire-options-trigger span,
+.options-open .spire-options-trigger span,
+.options-open .cognitive-realm-options-trigger span {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
 }
 
 .lamed-spire-options-glyph,
@@ -10804,14 +10805,17 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   gap: 12px;
   overflow: hidden;
   max-height: 0;
+  max-width: 0;
+  flex: 1;
   opacity: 0;
-  transition: max-height 320ms ease, opacity 280ms ease;
+  transition: max-height 320ms ease, max-width 240ms ease 220ms, opacity 240ms ease;
 }
 
 .lamed-spire-options-menu[data-open='true'],
 .spire-options-menu[data-open='true'] {
   opacity: 1;
-  margin-top: 8px;
+  margin-top: 0;
+  max-width: 100%;
   pointer-events: auto;
 }
 
@@ -10835,6 +10839,24 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .lamed-spire-options-menu .settings-toggle:first-of-type,
 .spire-options-menu .settings-toggle:first-of-type {
   margin-top: 12px;
+}
+
+.spire-options-close {
+  justify-content: center;
+}
+
+.lamed-spire-options-menu .spire-options-close,
+.spire-options-menu .spire-options-close {
+  margin-top: 4px;
+}
+
+@media (max-width: 720px) {
+  .cognitive-realm-options-wrapper,
+  .lamed-spire-options-card,
+  .spire-options-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 /* ============================================
