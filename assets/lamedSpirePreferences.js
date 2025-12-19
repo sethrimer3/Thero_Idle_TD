@@ -154,28 +154,20 @@ function applySettingsToSimulation() {
     simulation.surfaceTextureDirty = true;
   }
 
-  // Configure lens flare and geyser splash effects.
+  // Configure geyser splash effects.
   if (simulation.visualEffectSettings) {
-    const flareSettings = simulation.visualEffectSettings.lensFlare;
     const geyserSettings = simulation.visualEffectSettings.geyser;
 
     if (!lamedSettings.sunSplashes) {
-      flareSettings.baseAlpha = 0;
       geyserSettings.particleCountMin = 0;
       geyserSettings.particleCountMax = 0;
     } else if (isLow) {
-      flareSettings.baseAlpha = 0.15;
-      flareSettings.ghostCount = 1;
       geyserSettings.particleCountMin = 2;
       geyserSettings.particleCountMax = 4;
     } else if (isMedium) {
-      flareSettings.baseAlpha = 0.25;
-      flareSettings.ghostCount = 2;
       geyserSettings.particleCountMin = 4;
       geyserSettings.particleCountMax = 8;
     } else {
-      flareSettings.baseAlpha = 0.35;
-      flareSettings.ghostCount = 3;
       geyserSettings.particleCountMin = 6;
       geyserSettings.particleCountMax = 14;
     }
@@ -196,7 +188,7 @@ function applySettingsToSimulation() {
   simulation.showSpawnFlashes = lamedSettings.spawnFlashes;
 
   // Downscale extremely dense canvases on high-DPI devices to protect mobile GPUs from overdraw.
-  const targetMaxDpr = isLow ? 1.1 : isMedium ? 1.5 : 2;
+  const targetMaxDpr = isLow ? 1.1 : isMedium ? 1.35 : 1.5;
   if (simulation.maxDevicePixelRatio !== targetMaxDpr) {
     simulation.maxDevicePixelRatio = targetMaxDpr;
     if (typeof simulation.resize === 'function') {

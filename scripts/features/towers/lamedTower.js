@@ -8,7 +8,7 @@
  * - Drag system with upgradable k parameter
  * - Accretion disk visual effects with dust particles
  * - Trajectory trails colored by velocity
- * - Diamond lens flare and geyser particle bursts on high-mass absorptions
+ * - Geyser particle bursts on high-mass absorptions
  * - Statistics tracking (mass inflow, absorptions)
  */
 
@@ -91,7 +91,7 @@ export class GravitySimulation {
     // Cap the render resolution so high-DPI devices do not overdraw the canvas and tank performance.
     this.maxDevicePixelRatio = typeof options.maxDevicePixelRatio === 'number'
       ? Math.max(1, options.maxDevicePixelRatio)
-      : 2;
+      : 1.5;
     
     // Physics parameters
     this.G = 200; // Gravitational constant
@@ -125,9 +125,9 @@ export class GravitySimulation {
     this.velocityNoiseFactor = 0.15; // Noise added to circular velocity
     
     // Trail rendering
-    this.trailLength = 40; // Number of trail points to keep
+    this.trailLength = 28; // Number of trail points to keep so per-particle memory stays modest
     this.baseTrailLength = this.trailLength;
-    this.trailFadeRate = 0.025; // How quickly trails fade
+    this.trailFadeRate = 0.035; // How quickly trails fade to reduce blending work per frame
     this.baseTrailFadeRate = this.trailFadeRate;
     this.simpleTrailLength = typeof options.simpleTrailLength === 'number' ? options.simpleTrailLength : 12;
     this.simpleTrailFadeRate = typeof options.simpleTrailFadeRate === 'number' ? options.simpleTrailFadeRate : 0.05;
@@ -157,7 +157,7 @@ export class GravitySimulation {
       starCount: this.maxStars,
     };
     this.performanceCaps = {
-      reducedDevicePixelRatio: Math.min(this.maxDevicePixelRatio, 1.5),
+      reducedDevicePixelRatio: Math.min(this.maxDevicePixelRatio, 1.25),
       reducedTrailCount: Math.max(6, Math.min(this.maxStarsWithTrails, 24)),
       reducedStarCount: Math.min(this.maxStars, 160),
       reducedDustCap: 80,
@@ -178,23 +178,6 @@ export class GravitySimulation {
     this.geyserParticles = []; // Geyser bursts triggered by high-tier absorptions
     this.visualEffectSettings = {
       /**
-       * Multi-ghost lens flare inspired by telescope footage.
-       */
-      lensFlare: {
-        baseAlpha: typeof options.lensFlareBaseAlpha === 'number' ? options.lensFlareBaseAlpha : 0.35,
-        flickerSpeed: typeof options.lensFlareFlickerSpeed === 'number' ? options.lensFlareFlickerSpeed : 1.6,
-        flickerAmount: typeof options.lensFlareFlickerAmount === 'number' ? options.lensFlareFlickerAmount : 0.45,
-        ghostCount: typeof options.lensFlareGhostCount === 'number' ? options.lensFlareGhostCount : 3,
-        ghostSpacing: typeof options.lensFlareGhostSpacing === 'number' ? options.lensFlareGhostSpacing : 0.65,
-        ghostScale: typeof options.lensFlareGhostScale === 'number' ? options.lensFlareGhostScale : 0.26,
-        ghostAlpha: typeof options.lensFlareGhostAlpha === 'number' ? options.lensFlareGhostAlpha : 0.35,
-        ringRadiusOffset: typeof options.lensFlareRingRadiusOffset === 'number' ? options.lensFlareRingRadiusOffset : 0.18,
-        ringBlur: typeof options.lensFlareRingBlur === 'number' ? options.lensFlareRingBlur : 0.12,
-        streakLength: typeof options.lensFlareStreakLength === 'number' ? options.lensFlareStreakLength : 1.4,
-        streakThickness: typeof options.lensFlareStreakThickness === 'number' ? options.lensFlareStreakThickness : 0.08,
-        streakAlpha: typeof options.lensFlareStreakAlpha === 'number' ? options.lensFlareStreakAlpha : 0.25,
-      },
-      /**
        * Particle system controls for the geyser burst effect.
        */
       geyser: {
@@ -210,8 +193,6 @@ export class GravitySimulation {
         flashFraction: typeof options.geyserFlashFraction === 'number' ? options.geyserFlashFraction : 0.1,
       },
     };
-    this.lensFlareState = { time: 0 };
-
     // Track the spring-based bounce so the sun can wobble outward when it absorbs a star.
     this.sunBounce = { offset: 0, velocity: 0 };
 
@@ -261,7 +242,8 @@ export class GravitySimulation {
     };
 
     // Precompute canvases for the sun surface so the render loop only blits textures.
-    this.surfaceTextureSize = 192;
+    // Keep the procedural surface texture crisp without rendering excessive texels on mobile GPUs.
+    this.surfaceTextureSize = 160;
     if (typeof document !== 'undefined') {
       this.surfaceCanvas = document.createElement('canvas');
       this.surfaceCanvas.width = this.surfaceTextureSize;
@@ -276,8 +258,6 @@ export class GravitySimulation {
 
     // Deterministic RNG
     this.rng = new SeededRandom(options.seed || Date.now());
-    this.lensFlareNoiseSeed = this.rng.next(); // Keep lens flare flicker deterministic per simulation instance.
-
     // Build tiled noise fields so animated sampling can avoid regenerating noise each frame.
     this.surfaceNoise = {
       primary: this.generateValueNoiseTexture(this.surfaceTextureSize, 32),
@@ -295,8 +275,6 @@ export class GravitySimulation {
       secondaryOffsetY: 0,
       tertiaryOffsetX: 0,
       tertiaryOffsetY: 0,
-      coronaOffset: 0,
-      distortionOffset: 0,
       time: 0,
     };
 
@@ -855,28 +833,6 @@ export class GravitySimulation {
   }
 
   /**
-   * Lightweight 1D noise based on sine hashing so the lens flare shimmer feels organic.
-   * @param {number} time - Sample time in seconds
-   * @param {number} seedOffset - Offset so multiple channels can be sampled independently
-   * @returns {number} Noise value in the 0-1 range
-   */
-  sampleLensNoise(time, seedOffset = 0) {
-    const base = time + seedOffset + this.lensFlareNoiseSeed;
-    const integerPart = Math.floor(base);
-    const fractional = base - integerPart;
-
-    const hash = (n) => {
-      const x = Math.sin((n + this.lensFlareNoiseSeed) * 43758.5453);
-      return x - Math.floor(x);
-    };
-
-    const v1 = hash(integerPart);
-    const v2 = hash(integerPart + 1);
-    const smoothT = fractional * fractional * (3 - 2 * fractional); // Smoothstep for softer interpolation
-    return GravitySimulation.lerp(v1, v2, smoothT);
-  }
-
-  /**
    * Advance UV offsets so the precomputed noise scrolls slowly across the star surface.
    * @param {number} dt - Delta time in seconds
    */
@@ -888,8 +844,6 @@ export class GravitySimulation {
     this.surfaceAnimationState.secondaryOffsetY += settings.animationSpeedSecondary * dt;
     this.surfaceAnimationState.tertiaryOffsetX += settings.animationSpeedMain * 0.4 * dt;
     this.surfaceAnimationState.tertiaryOffsetY += settings.animationSpeedSecondary * 0.6 * dt;
-    this.surfaceAnimationState.coronaOffset += settings.coronaWobbleSpeed * dt;
-    this.surfaceAnimationState.distortionOffset += settings.animationSpeedSecondary * 0.45 * dt;
     this.surfaceAnimationState.time += dt;
     this.surfaceTextureDirty = true;
   }
@@ -1038,93 +992,6 @@ export class GravitySimulation {
    * @param {{r:number,g:number,b:number}} tierColor - Tier tint for halo colouring
    * @param {number} luminosity - Glow multiplier derived from tier progress
    */
-  renderCorona(ctx, centerX, centerY, starVisualRadius, tierColor, luminosity) {
-    const settings = this.sunSurfaceSettings;
-    const baseRadius = starVisualRadius * (1.3 + settings.coronaIntensity * 0.4);
-    const gradient = ctx.createRadialGradient(centerX, centerY, starVisualRadius * 0.95, centerX, centerY, baseRadius);
-
-    // Build a gentle outer halo before adding the shimmering band.
-    gradient.addColorStop(0, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.25 * luminosity})`);
-    gradient.addColorStop(0.6, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.18 * luminosity})`);
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    // Blur the inner halo so the glow appears diffused instead of forming a solid ring.
-    const haloBlur = Math.max(4, starVisualRadius * 0.12);
-    ctx.filter = `blur(${haloBlur}px)`;
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
-    // Overlay a noise-driven shimmer ring for the corona so the edge appears to dance.
-    const segments = 42;
-    const wobbleRadius = starVisualRadius * 0.14;
-    const wobbleOffset = this.surfaceAnimationState.coronaOffset;
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    // Add a light blur to the shimmer ring to create a hazy corona band.
-    ctx.filter = `blur(${Math.max(1.5, starVisualRadius * 0.05)}px)`;
-    ctx.lineWidth = Math.max(1.5, starVisualRadius * 0.08);
-    ctx.shadowBlur = starVisualRadius * 0.18;
-    ctx.shadowColor = `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.22 * luminosity})`;
-
-    for (let i = 0; i < segments; i++) {
-      const startAngle = (i / segments) * Math.PI * 2;
-      const endAngle = ((i + 1) / segments) * Math.PI * 2;
-      const sampleU = i / segments + wobbleOffset;
-      const noise = this.sampleNoise(this.surfaceNoise.corona, sampleU, 0.5, 1.2);
-      const intensity = settings.coronaIntensity * (0.35 + noise * 0.65) * luminosity;
-      const radius = baseRadius + (noise - 0.5) * wobbleRadius;
-
-      ctx.strokeStyle = `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${Math.max(0, Math.min(0.45, intensity))})`;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-      ctx.stroke();
-    }
-
-    ctx.restore();
-  }
-
-  /**
-   * Draw a subtle heat distortion ring to hint at refractive shimmer without heavy processing.
-   * @param {CanvasRenderingContext2D} ctx - Rendering context
-   * @param {number} centerX - Horizontal centre of the star
-   * @param {number} centerY - Vertical centre of the star
-   * @param {number} starVisualRadius - Base radius of the star core
-   * @param {{r:number,g:number,b:number}} tierColor - Tier tint for halo colouring
-   */
-  renderHeatDistortion(ctx, centerX, centerY, starVisualRadius, tierColor) {
-    const strength = this.sunSurfaceSettings.heatDistortionStrength;
-    if (strength <= 0) {
-      return;
-    }
-
-    const segments = 28;
-    const wobbleOffset = this.surfaceAnimationState.distortionOffset;
-    const distortionRadius = starVisualRadius * 1.05;
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.filter = 'blur(0.6px)';
-    ctx.lineWidth = Math.max(1, starVisualRadius * 0.04);
-
-    for (let i = 0; i < segments; i++) {
-      const startAngle = (i / segments) * Math.PI * 2;
-      const endAngle = ((i + 1) / segments) * Math.PI * 2;
-      const sample = this.sampleNoise(this.surfaceNoise.distortion, i / segments + wobbleOffset, 0.25, 1.1);
-      const wobble = (sample - 0.5) * strength * starVisualRadius * 2;
-      const alpha = 0.05 + Math.max(0, sample - 0.4) * 0.12;
-      ctx.strokeStyle = `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${alpha})`;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, distortionRadius + wobble, startAngle, endAngle);
-      ctx.stroke();
-    }
-
-    ctx.restore();
-  }
-
   /**
    * Update the spring simulation that drives the bounce animation.
    * @param {number} dt - Delta time in seconds
@@ -1814,91 +1681,11 @@ export class GravitySimulation {
     // Update geyser particles for high-tier absorptions.
     this.updateGeyserParticles(dt);
 
-    // Advance the lens flare animation clock so the shimmer can flicker over time.
-    this.lensFlareState.time += dt;
-
     // Advance the spring that powers the sun bounce so render() can apply the new scale.
     this.updateSunBounce(dt);
 
     // Scroll the procedural textures so surface turbulence and corona wobble stay animated.
     this.updateSurfaceAnimation(dt);
-  }
-
-  /**
-   * Render a multi-ghost telescope-inspired lens flare.
-   * @param {CanvasRenderingContext2D} ctx - Drawing context
-   * @param {number} centerX - Sun center X in CSS pixels
-   * @param {number} centerY - Sun center Y in CSS pixels
-   * @param {number} coreRadius - Radius of the rendered core in CSS pixels
-   * @param {{r:number,g:number,b:number}} tierColor - Current tier tint
-   */
-  renderLensFlare(ctx, centerX, centerY, coreRadius, tierColor) {
-    const settings = this.visualEffectSettings.lensFlare;
-    const t = this.lensFlareState.time;
-
-    const flicker = this.sampleLensNoise(t * settings.flickerSpeed, 0.37);
-    const flickerDelta = (flicker - 0.5) * settings.flickerAmount;
-    const alpha = GravitySimulation.clamp(settings.baseAlpha + flickerDelta, 0, 1);
-    if (alpha <= 0.001) {
-      return;
-    }
-
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.globalCompositeOperation = 'screen';
-
-    const ringRadius = coreRadius * (1 + settings.ringRadiusOffset);
-    const ringGradient = ctx.createRadialGradient(0, 0, ringRadius * 0.55, 0, 0, ringRadius);
-    ringGradient.addColorStop(0, `rgba(255, 255, 255, ${alpha * 0.9})`);
-    ringGradient.addColorStop(0.45, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${alpha * 0.35})`);
-    ringGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.filter = `blur(${Math.max(1, ringRadius * settings.ringBlur)}px)`;
-    ctx.fillStyle = ringGradient;
-    ctx.beginPath();
-    ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.filter = 'none';
-
-    const ghostCount = Math.max(0, Math.floor(settings.ghostCount));
-    for (let i = 1; i <= ghostCount; i++) {
-      const offset = coreRadius * settings.ghostSpacing * i;
-      const radius = coreRadius * settings.ghostScale / Math.max(1, i * 0.9);
-      const ghostIntensity = alpha * settings.ghostAlpha / Math.max(1, i);
-      const hueShift = this.sampleLensNoise(t * 0.6, i * 0.71);
-      const mix = GravitySimulation.lerp(0.3, 0.9, hueShift);
-      const ghostColor = {
-        r: Math.round(GravitySimulation.lerp(255, tierColor.r, mix)),
-        g: Math.round(GravitySimulation.lerp(255, tierColor.g, mix)),
-        b: Math.round(GravitySimulation.lerp(255, tierColor.b, mix)),
-      };
-
-      const ghostGradient = ctx.createRadialGradient(offset, 0, 0, offset, 0, radius);
-      ghostGradient.addColorStop(0, `rgba(255, 255, 255, ${ghostIntensity})`);
-      ghostGradient.addColorStop(1, `rgba(${ghostColor.r}, ${ghostColor.g}, ${ghostColor.b}, 0)`);
-      ctx.beginPath();
-      ctx.fillStyle = ghostGradient;
-      ctx.arc(offset, 0, radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      const mirroredGradient = ctx.createRadialGradient(-offset, 0, 0, -offset, 0, radius * 0.85);
-      mirroredGradient.addColorStop(0, `rgba(255, 255, 255, ${ghostIntensity * 0.9})`);
-      mirroredGradient.addColorStop(1, `rgba(${ghostColor.r}, ${ghostColor.g}, ${ghostColor.b}, 0)`);
-      ctx.beginPath();
-      ctx.fillStyle = mirroredGradient;
-      ctx.arc(-offset, 0, radius * 0.85, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    const streakLength = coreRadius * settings.streakLength;
-    const streakThickness = Math.max(1, coreRadius * settings.streakThickness);
-    ctx.lineWidth = streakThickness;
-    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * settings.streakAlpha})`;
-    ctx.beginPath();
-    ctx.moveTo(-streakLength, 0);
-    ctx.lineTo(streakLength, 0);
-    ctx.stroke();
-
-    ctx.restore();
   }
 
   /**
@@ -2029,7 +1816,6 @@ export class GravitySimulation {
     };
 
     const tierColor = parseColor(tier.color);
-    const skipLensFlare = this.performanceMode === 'reduced';
 
     // Derive the rendered core radius up front so blur passes and texture placement reference the same scale.
     const coreRadius = starVisualRadius * pulseScale;
@@ -2050,48 +1836,8 @@ export class GravitySimulation {
       ctx.setLineDash([]);
     }
 
-    // Lay down the refined lens flare before the glow so the core renders above it.
-    if (!skipLensFlare) {
-      this.renderLensFlare(ctx, centerXScaled, centerYScaled, coreRadius, tierColor);
-    }
-
-    // Bright white halo that hugs the core and only extends 5% beyond the radius.
-    const whiteGlowRadius = coreRadius * 1.05;
-    const whiteGlow = ctx.createRadialGradient(
-      centerXScaled, centerYScaled, coreRadius * 0.65,
-      centerXScaled, centerYScaled, whiteGlowRadius,
-    );
-    whiteGlow.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, 0.95 * luminosity)})`);
-    whiteGlow.addColorStop(0.75, `rgba(255, 255, 255, ${0.35 * luminosity})`);
-    whiteGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    ctx.fillStyle = whiteGlow;
-    ctx.beginPath();
-    ctx.arc(centerXScaled, centerYScaled, whiteGlowRadius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
-    // Draw glow effect with tier-based luminosity (outer color fringe)
-    const glowRadius = starVisualRadius * (1.8 + baseGlowIntensity) * glowProgressScale * pulseScale;
-    const gradient = ctx.createRadialGradient(
-      centerXScaled, centerYScaled, 0,
-      centerXScaled, centerYScaled, glowRadius
-    );
-    gradient.addColorStop(0, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.4 * luminosity})`);
-    gradient.addColorStop(0.3, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.25 * luminosity})`);
-    gradient.addColorStop(0.6, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, ${0.1 * luminosity})`);
-    gradient.addColorStop(1, `rgba(${tierColor.r}, ${tierColor.g}, ${tierColor.b}, 0)`);
-    
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(centerXScaled, centerYScaled, glowRadius, 0, Math.PI * 2);
-    ctx.fill();
-
     // Render shock rings beneath the core so the expanding wave emerges from behind the sun.
     ctx.save();
-    // Feather the shock rings so the expansion looks gaseous instead of razor sharp.
-    ctx.filter = `blur(${Math.max(1.2, coreRadius * 0.04)}px)`;
     for (const ring of this.shockRings) {
       ctx.strokeStyle = `rgba(255, 255, 255, ${ring.alpha * 0.8})`;
       ctx.lineWidth = 2;
@@ -2122,12 +1868,6 @@ export class GravitySimulation {
       ctx.fill();
     }
 
-    // Overlay the shimmering corona and rim glow for atmospheric depth.
-    this.renderCorona(ctx, centerXScaled, centerYScaled, coreRadius, tierColor, luminosity);
-
-    // Apply a lightweight heat shimmer so the star subtly distorts nearby space.
-    this.renderHeatDistortion(ctx, centerXScaled, centerYScaled, coreRadius, tierColor);
-    
     // Draw dust particles (accretion disk) with color palette gradient
     for (const dust of this.dustParticles) {
       const dustX = dust.x / dpr;
@@ -2151,11 +1891,9 @@ export class GravitySimulation {
     for (const shard of this.shootingStars) {
       if (shard.trail.length > 1) {
         ctx.save();
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
         ctx.lineCap = 'round';
-        ctx.globalCompositeOperation = 'lighter'; // Blend streaks additively so overlapping segments intensify the glow.
-        ctx.shadowBlur = 12; // Apply a soft halo that makes the trail appear diffused.
-        ctx.shadowColor = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, 0.9)`; // Reuse shard color for the luminous blur.
+        ctx.globalCompositeOperation = 'source-over'; // Keep shooting star trails cheap while preserving readability.
         for (let i = 1; i < shard.trail.length; i++) {
           const prev = shard.trail[i - 1];
           const curr = shard.trail[i];
@@ -2177,12 +1915,10 @@ export class GravitySimulation {
       const shardX = shard.x / dpr;
       const shardY = shard.y / dpr;
       ctx.save();
-      ctx.globalCompositeOperation = 'lighter'; // Let the meteor head bloom brightly on top of the trail.
-      ctx.shadowBlur = 20; // Stronger blur around the core star for a glowing nucleus.
-      ctx.shadowColor = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, 1)`; // Mirror the meteor hue in the glow to keep palette cohesion.
-      ctx.fillStyle = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, 1)`;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, 0.9)`;
       ctx.beginPath();
-      ctx.arc(shardX, shardY, 3.5, 0, Math.PI * 2);
+      ctx.arc(shardX, shardY, 3, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
@@ -2502,7 +2238,6 @@ export class GravitySimulation {
       pendingMassGain: this.pendingMassGain,
       sunBounce: { ...this.sunBounce },
       coreSizeState: { ...this.coreSizeState },
-      lensFlareState: { ...this.lensFlareState },
       stars: this.stars.map((star) => ({
         x: star.x,
         y: star.y,
@@ -2597,12 +2332,6 @@ export class GravitySimulation {
       this.coreSizeState = {
         ...this.coreSizeState,
         ...snapshot.coreSizeState,
-      };
-    }
-    if (snapshot.lensFlareState && typeof snapshot.lensFlareState === 'object') {
-      this.lensFlareState = {
-        ...this.lensFlareState,
-        ...snapshot.lensFlareState,
       };
     }
 
