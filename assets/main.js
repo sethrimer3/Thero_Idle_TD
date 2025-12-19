@@ -159,7 +159,7 @@ import { createBetHappinessSystem } from './betHappiness.js';
 // Terrarium items dropdown for managing and upgrading items in the Bet Spire.
 import { FluidTerrariumItemsDropdown } from './fluidTerrariumItemsDropdown.js';
 import { createResourceHud } from './resourceHud.js';
-import { initBetSpirePlaceholder } from './betSpirePlaceholder.js';
+import { initBetSpireRender } from './betSpireRender.js';
 import { createTsadiUpgradeUi } from './tsadiUpgradeUi.js';
 import { createTsadiBindingUi } from './tsadiBindingUi.js';
 import { createSpireTabVisibilityManager } from './spireTabVisibility.js';
@@ -6801,8 +6801,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindLeaveLevelButton();
     initializeManualDropHandlers();
     
-    // Initialize Bet Spire placeholder with tap interaction
-    initBetSpirePlaceholder();
+    // Initialize Bet Spire particle physics render
+    initBetSpireRender();
   }
 
   if (document.readyState === 'loading') {

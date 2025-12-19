@@ -1875,14 +1875,17 @@
         >
           <header class="panel-header">Bet Spire</header>
           
-          <!-- Placeholder render with tap interaction -->
-          <section class="fluid-grid" aria-label="Bet Spire Placeholder">
-            <article class="card bet-placeholder-card">
-              <div class="bet-placeholder-container" id="bet-placeholder-container">
-                <div class="bet-placeholder-stage" id="bet-placeholder-stage">
-                  <p class="bet-placeholder-message">Tap anywhere to test</p>
-                  <div class="bet-placeholder-taps" id="bet-placeholder-taps" aria-live="polite" aria-atomic="false"></div>
-                </div>
+          <!-- Particle physics render -->
+          <section class="fluid-grid" aria-label="Bet Spire Render">
+            <article class="card powder-simulation" id="bet-spire-simulation-card">
+              <div class="powder-basin" id="bet-spire-basin">
+                <canvas
+                  id="bet-spire-canvas"
+                  width="240"
+                  height="320"
+                  role="img"
+                  aria-label="Bet Spire particle simulation"
+                ></canvas>
               </div>
             </article>
           </section>
