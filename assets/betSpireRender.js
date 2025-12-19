@@ -13,6 +13,9 @@ const PARTICLE_SIZE = 2;
 const MAX_VELOCITY = 2;
 const ATTRACTION_STRENGTH = 0.5;
 const ATTRACTOR_RADIUS = 40;
+const DISTANCE_SCALE = 0.01; // Scale factor for distance calculations
+const FORCE_SCALE = 0.01; // Scale factor for force application
+const ORBITAL_FORCE = 0.1; // Tangential orbital force strength
 
 // Attractor positions (distributed in a triangular pattern)
 const ATTRACTOR_POSITIONS = [
@@ -54,17 +57,17 @@ class Particle {
     
     // Apply attraction force (inverse square law simplified)
     if (dist > 1) {
-      const force = ATTRACTION_STRENGTH / (dist * 0.01);
+      const force = ATTRACTION_STRENGTH / (dist * DISTANCE_SCALE);
       const angle = Math.atan2(dy, dx);
-      this.vx += Math.cos(angle) * force * 0.01;
-      this.vy += Math.sin(angle) * force * 0.01;
+      this.vx += Math.cos(angle) * force * FORCE_SCALE;
+      this.vy += Math.sin(angle) * force * FORCE_SCALE;
     }
     
     // Add slight orbital motion around attractor
     if (dist < ATTRACTOR_RADIUS && dist > 5) {
       const tangentAngle = Math.atan2(dy, dx) + Math.PI / 2;
-      this.vx += Math.cos(tangentAngle) * 0.1;
-      this.vy += Math.sin(tangentAngle) * 0.1;
+      this.vx += Math.cos(tangentAngle) * ORBITAL_FORCE;
+      this.vy += Math.sin(tangentAngle) * ORBITAL_FORCE;
     }
     
     // Limit velocity
@@ -113,11 +116,14 @@ class Particle {
 export class BetSpireRender {
   constructor(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d', { alpha: false });
+    this.ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
     this.particles = [];
     this.attractors = ATTRACTOR_POSITIONS;
     this.animationId = null;
     this.isRunning = false;
+    
+    // Bind animate method for requestAnimationFrame
+    this.animate = this.animate.bind(this);
     
     // Set canvas dimensions
     this.canvas.width = CANVAS_WIDTH;
@@ -168,7 +174,7 @@ export class BetSpireRender {
       particle.draw(this.ctx);
     }
     
-    this.animationId = requestAnimationFrame(() => this.animate());
+    this.animationId = requestAnimationFrame(this.animate);
   }
 
   resize() {
