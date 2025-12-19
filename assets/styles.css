@@ -534,15 +534,45 @@ body.graphics-mode-low .control-button {
 }
 
 /* Cognitive Realm Options Button */
+/* Keep the Cognitive Realm options trigger slim and aligned beside the menu when expanded. */
 .cognitive-realm-options-wrapper {
   margin-top: 24px;
   margin-bottom: 24px;
   display: flex;
+  align-items: stretch;
   justify-content: center;
+  gap: 12px;
 }
 
 .cognitive-realm-options-trigger {
   min-width: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: min-width 260ms ease, width 260ms ease, padding 260ms ease,
+    border-radius 260ms ease, opacity 200ms ease;
+}
+
+.cognitive-realm-options-trigger[aria-expanded='true'] {
+  min-width: 10px;
+  width: 10px;
+  padding: 0;
+  border-radius: 12px;
+  align-self: stretch;
+}
+
+.cognitive-realm-options-trigger[aria-expanded='true'] span {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+.cognitive-realm-options-wrapper .spire-options-menu {
+  flex: 1;
+}
+
+.cognitive-realm-options-wrapper .spire-options-menu[data-open='true'] {
+  margin-top: 0;
 }
 
 @media (max-width: 640px) {
