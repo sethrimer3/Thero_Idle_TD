@@ -1,62 +1,135 @@
 // Bet Spire Particle Physics Render
-// Simple particle system with three attractors and fading trails
+// Tiered particle system with merging, forging, and a central forge attractor
 
 // Canvas dimensions matching Aleph Spire render
 const CANVAS_WIDTH = 240;
 const CANVAS_HEIGHT = 320;
 
 // Particle system configuration
-const NUM_PARTICLES = 150;
-const ATTRACTOR_COUNT = 3;
 const TRAIL_FADE = 0.15; // Lower = longer trails
-const PARTICLE_SIZE = 1; // Reduced from 2 to 1 (half size)
+const BASE_PARTICLE_SIZE = 1.5; // Base size for small particles
+const SIZE_MULTIPLIER = 2.5; // Each size tier is 2.5x bigger
 const MAX_VELOCITY = 2;
 const ATTRACTION_STRENGTH = 0.5;
-const ATTRACTOR_RADIUS = 40;
+const FORGE_RADIUS = 30; // Radius for forge attraction
 const DISTANCE_SCALE = 0.01; // Scale factor for distance calculations
 const FORCE_SCALE = 0.01; // Scale factor for force application
 const ORBITAL_FORCE = 0.1; // Tangential orbital force strength
+const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
 
 // User interaction configuration
-const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 20; // 1/20th of simulation diameter
-const MOUSE_ATTRACTION_STRENGTH = 3.0; // Stronger attraction for mouse/touch
+const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 20;
+const MOUSE_ATTRACTION_STRENGTH = 3.0;
 const INTERACTION_FADE_DURATION = 300; // milliseconds for circle fade
 
-// Attractor positions (distributed in a triangular pattern)
-// Each attractor now has a color affinity (0 = blue only, 1 = white only, 2 = shifting only)
-const ATTRACTOR_POSITIONS = [
-  { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.25, colorAffinity: 0 },  // Top center - Blue particles
-  { x: CANVAS_WIDTH * 0.25, y: CANVAS_HEIGHT * 0.7, colorAffinity: 1 },  // Bottom left - White particles
-  { x: CANVAS_WIDTH * 0.75, y: CANVAS_HEIGHT * 0.7, colorAffinity: 2 },  // Bottom right - Shifting particles
+// Forge position at center of canvas
+const FORGE_POSITION = { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.5 };
+
+// Particle tier definitions matching gem hierarchy
+// Sand is the base tier (pale yellow like motes from tower of inspiration)
+const PARTICLE_TIERS = [
+  {
+    id: 'sand',
+    name: 'Sand',
+    color: { r: 255, g: 215, b: 100 }, // Pale yellow like motes
+    glowColor: null, // No special glow
+  },
+  {
+    id: 'quartz',
+    name: 'Quartz',
+    color: { r: 245, g: 240, b: 235 }, // Light beige/off-white
+    glowColor: null,
+  },
+  {
+    id: 'ruby',
+    name: 'Ruby',
+    color: { r: 220, g: 50, b: 50 }, // Red
+    glowColor: null,
+  },
+  {
+    id: 'sunstone',
+    name: 'Sunstone',
+    color: { r: 255, g: 140, b: 60 }, // Orange
+    glowColor: null,
+  },
+  {
+    id: 'citrine',
+    name: 'Citrine',
+    color: { r: 230, g: 200, b: 80 }, // Yellow
+    glowColor: null,
+  },
+  {
+    id: 'emerald',
+    name: 'Emerald',
+    color: { r: 80, g: 180, b: 100 }, // Green
+    glowColor: null,
+  },
+  {
+    id: 'sapphire',
+    name: 'Sapphire',
+    color: { r: 60, g: 120, b: 200 }, // Blue
+    glowColor: null,
+  },
+  {
+    id: 'iolite',
+    name: 'Iolite',
+    color: { r: 100, g: 100, b: 180 }, // Indigo
+    glowColor: null,
+  },
+  {
+    id: 'amethyst',
+    name: 'Amethyst',
+    color: { r: 180, g: 100, b: 200 }, // Purple
+    glowColor: null,
+  },
+  {
+    id: 'diamond',
+    name: 'Diamond',
+    color: { r: 240, g: 245, b: 250 }, // Bright white/cyan
+    glowColor: null,
+  },
+  {
+    id: 'nullstone',
+    name: 'Nullstone',
+    color: { r: 30, g: 30, b: 40 }, // Nearly black
+    glowColor: { r: 150, g: 100, b: 200 }, // Purple glow
+  },
 ];
 
-// Particle class with simple physics
+// Size tiers: small, medium, large
+const SIZE_TIERS = ['small', 'medium', 'large'];
+const MERGE_THRESHOLD = 100; // 100 particles merge into 1 of next size
+
+// Particle class with tier and size
 class Particle {
-  constructor() {
+  constructor(tierId = 'sand', sizeIndex = 0) {
     this.x = Math.random() * CANVAS_WIDTH;
     this.y = Math.random() * CANVAS_HEIGHT;
     this.vx = (Math.random() - 0.5) * 2;
     this.vy = (Math.random() - 0.5) * 2;
     
-    // Assign particle type: 0 = blue, 1 = white, 2 = shifting color
-    const rand = Math.random();
-    if (rand < 0.4) {
-      this.type = 0; // Blue (40%)
-    } else if (rand < 0.7) {
-      this.type = 1; // White (30%)
-    } else {
-      this.type = 2; // Shifting color (30%)
-    }
+    // Tier and size properties
+    this.tierId = tierId;
+    this.sizeIndex = sizeIndex; // 0 = small, 1 = medium, 2 = large
     
-    // Assign attractor that matches this particle's color affinity
-    this.attractorIndex = this.type;
-    
-    this.hue = Math.random() * 360; // For shifting color particles
     this.lockedToMouse = false; // Whether particle is locked to mouse/touch
     this.mouseTarget = null; // Target position when locked to mouse
   }
 
-  update(attractors) {
+  getTier() {
+    return PARTICLE_TIERS.find(t => t.id === this.tierId) || PARTICLE_TIERS[0];
+  }
+
+  getSizeName() {
+    return SIZE_TIERS[this.sizeIndex] || 'small';
+  }
+
+  getSize() {
+    // Calculate actual render size
+    return BASE_PARTICLE_SIZE * Math.pow(SIZE_MULTIPLIER, this.sizeIndex);
+  }
+
+  update(forge) {
     // If locked to mouse, strongly attract to mouse position
     if (this.lockedToMouse && this.mouseTarget) {
       const dx = this.mouseTarget.x - this.x;
@@ -74,13 +147,9 @@ class Particle {
         this.vy *= 0.8;
       }
     } else {
-      // Normal attractor behavior
-      // Get assigned attractor (now color-specific)
-      const attractor = attractors[this.attractorIndex];
-      
-      // Calculate distance and direction to attractor
-      const dx = attractor.x - this.x;
-      const dy = attractor.y - this.y;
+      // Normal forge attractor behavior
+      const dx = forge.x - this.x;
+      const dy = forge.y - this.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       
       // Apply attraction force (inverse square law simplified)
@@ -91,8 +160,8 @@ class Particle {
         this.vy += Math.sin(angle) * force * FORCE_SCALE;
       }
       
-      // Add slight orbital motion around attractor
-      if (dist < ATTRACTOR_RADIUS && dist > 5) {
+      // Add slight orbital motion around forge
+      if (dist < FORGE_RADIUS && dist > 5) {
         const tangentAngle = Math.atan2(dy, dx) + Math.PI / 2;
         this.vx += Math.cos(tangentAngle) * ORBITAL_FORCE;
         this.vy += Math.sin(tangentAngle) * ORBITAL_FORCE;
@@ -123,29 +192,38 @@ class Particle {
       if (this.y < 0) this.y = 0;
       if (this.y > CANVAS_HEIGHT) this.y = CANVAS_HEIGHT;
     }
-    
-    // Update hue for shifting color particles
-    if (this.type === 2) {
-      this.hue = (this.hue + 1) % 360;
-    }
   }
 
   getColor() {
-    switch (this.type) {
-      case 0: // Bright blue
-        return 'rgba(100, 200, 255, 0.9)';
-      case 1: // White
-        return 'rgba(255, 255, 255, 0.95)';
-      case 2: // Shifting color
-        return `hsla(${this.hue}, 100%, 70%, 0.9)`;
-      default:
-        return 'rgba(255, 255, 255, 0.9)';
-    }
+    const tier = this.getTier();
+    const color = tier.color;
+    return `rgba(${color.r}, ${color.g}, ${color.b}, 0.9)`;
   }
 
   draw(ctx) {
+    const tier = this.getTier();
+    const size = this.getSize();
+    
+    // Draw particle
     ctx.fillStyle = this.getColor();
-    ctx.fillRect(Math.floor(this.x), Math.floor(this.y), PARTICLE_SIZE, PARTICLE_SIZE);
+    
+    // If tier has a glow, add shadow effect
+    if (tier.glowColor) {
+      ctx.shadowBlur = size * 3;
+      ctx.shadowColor = `rgba(${tier.glowColor.r}, ${tier.glowColor.g}, ${tier.glowColor.b}, 0.8)`;
+    } else {
+      ctx.shadowBlur = 0;
+    }
+    
+    ctx.fillRect(
+      Math.floor(this.x - size / 2),
+      Math.floor(this.y - size / 2),
+      Math.ceil(size),
+      Math.ceil(size)
+    );
+    
+    // Reset shadow
+    ctx.shadowBlur = 0;
   }
 }
 
@@ -155,9 +233,16 @@ export class BetSpireRender {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
     this.particles = [];
-    this.attractors = ATTRACTOR_POSITIONS;
+    this.forge = FORGE_POSITION;
+    this.forgeRotation = 0; // Rotation angle for forge triangles
     this.animationId = null;
     this.isRunning = false;
+    
+    // Particle inventory: tracks count by tier (sum of all sizes)
+    this.inventory = new Map();
+    PARTICLE_TIERS.forEach(tier => {
+      this.inventory.set(tier.id, 0);
+    });
     
     // Mouse/touch interaction state
     this.isInteracting = false;
@@ -175,9 +260,9 @@ export class BetSpireRender {
     this.canvas.width = CANVAS_WIDTH;
     this.canvas.height = CANVAS_HEIGHT;
     
-    // Initialize particles
-    for (let i = 0; i < NUM_PARTICLES; i++) {
-      this.particles.push(new Particle());
+    // Initialize with some sand particles for testing
+    for (let i = 0; i < 50; i++) {
+      this.addParticle('sand', 0);
     }
     
     // Initialize with black background
@@ -186,6 +271,115 @@ export class BetSpireRender {
     
     // Set up event listeners
     this.setupEventListeners();
+  }
+
+  addParticle(tierId, sizeIndex) {
+    const particle = new Particle(tierId, sizeIndex);
+    this.particles.push(particle);
+    this.updateInventory();
+  }
+
+  removeParticle(particle) {
+    const index = this.particles.indexOf(particle);
+    if (index !== -1) {
+      this.particles.splice(index, 1);
+      this.updateInventory();
+    }
+  }
+
+  updateInventory() {
+    // Clear inventory
+    this.inventory.forEach((_, key) => {
+      this.inventory.set(key, 0);
+    });
+    
+    // Count particles by tier (combining all sizes using conversion rules)
+    this.particles.forEach(particle => {
+      const tierId = particle.tierId;
+      const sizeIndex = particle.sizeIndex;
+      
+      // Convert to small particle equivalent
+      // 1 medium = 100 small, 1 large = 10000 small
+      const smallEquivalent = Math.pow(MERGE_THRESHOLD, sizeIndex);
+      const currentCount = this.inventory.get(tierId) || 0;
+      this.inventory.set(tierId, currentCount + smallEquivalent);
+    });
+  }
+
+  // Attempt to merge particles of the same tier and size
+  attemptMerge() {
+    const particlesByTierAndSize = new Map();
+    
+    // Group particles by tier and size
+    this.particles.forEach(particle => {
+      const key = `${particle.tierId}-${particle.sizeIndex}`;
+      if (!particlesByTierAndSize.has(key)) {
+        particlesByTierAndSize.set(key, []);
+      }
+      particlesByTierAndSize.get(key).push(particle);
+    });
+    
+    // Check each group for merging
+    particlesByTierAndSize.forEach((group, key) => {
+      if (group.length >= MERGE_THRESHOLD) {
+        const [tierId, sizeIndexStr] = key.split('-');
+        const sizeIndex = parseInt(sizeIndexStr);
+        
+        // Can only merge if not already at max size
+        if (sizeIndex < SIZE_TIERS.length - 1) {
+          // Remove 100 particles
+          for (let i = 0; i < MERGE_THRESHOLD; i++) {
+            this.removeParticle(group[i]);
+          }
+          
+          // Add 1 particle of next size
+          this.addParticle(tierId, sizeIndex + 1);
+        }
+      }
+    });
+  }
+
+  // Forge particles into the next tier
+  forgeParticle(particle) {
+    const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === particle.tierId);
+    
+    // Can't forge if already at max tier
+    if (tierIndex >= PARTICLE_TIERS.length - 1) {
+      return;
+    }
+    
+    const nextTierId = PARTICLE_TIERS[tierIndex + 1].id;
+    
+    // Forging rules:
+    // - 100 small of tier N → 1 small of tier N+1
+    // - 1 medium of tier N → 1 small of tier N+1 (since 1 medium = 100 small)
+    // - 1 large of tier N → 100 small of tier N+1 (since 1 large = 10000 small = 100 medium)
+    
+    if (particle.sizeIndex === 0) {
+      // Small particle: need 100 to forge
+      const smallParticles = this.particles.filter(
+        p => p.tierId === particle.tierId && p.sizeIndex === 0
+      );
+      
+      if (smallParticles.length >= MERGE_THRESHOLD) {
+        // Remove 100 small particles
+        for (let i = 0; i < MERGE_THRESHOLD; i++) {
+          this.removeParticle(smallParticles[i]);
+        }
+        // Add 1 small particle of next tier
+        this.addParticle(nextTierId, 0);
+      }
+    } else if (particle.sizeIndex === 1) {
+      // Medium particle: converts to 1 small of next tier
+      this.removeParticle(particle);
+      this.addParticle(nextTierId, 0);
+    } else if (particle.sizeIndex === 2) {
+      // Large particle: converts to 100 small of next tier
+      this.removeParticle(particle);
+      for (let i = 0; i < MERGE_THRESHOLD; i++) {
+        this.addParticle(nextTierId, 0);
+      }
+    }
   }
 
   setupEventListeners() {
@@ -327,13 +521,11 @@ export class BetSpireRender {
     this.ctx.fillStyle = `rgba(0, 0, 0, ${TRAIL_FADE})`;
     this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-    // Draw subtle attractor indicators
-    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-    for (const attractor of this.attractors) {
-      this.ctx.beginPath();
-      this.ctx.arc(attractor.x, attractor.y, ATTRACTOR_RADIUS, 0, Math.PI * 2);
-      this.ctx.fill();
-    }
+    // Update forge rotation
+    this.forgeRotation += FORGE_ROTATION_SPEED;
+    
+    // Draw the forge (Star of David with counter-rotating triangles)
+    this.drawForge();
     
     // Draw and fade interaction circles
     const now = Date.now();
@@ -356,16 +548,76 @@ export class BetSpireRender {
     
     // Update and draw particles
     for (const particle of this.particles) {
-      particle.update(this.attractors);
+      particle.update(this.forge);
       particle.draw(this.ctx);
+    }
+    
+    // Periodically attempt to merge particles
+    if (Math.random() < 0.01) { // 1% chance per frame
+      this.attemptMerge();
     }
     
     this.animationId = requestAnimationFrame(this.animate);
   }
 
+  drawForge() {
+    const ctx = this.ctx;
+    const forgeSize = 20; // Size of triangles
+    
+    ctx.save();
+    ctx.translate(this.forge.x, this.forge.y);
+    
+    // Draw first triangle (pointing up, rotating clockwise)
+    ctx.rotate(this.forgeRotation);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, -forgeSize);
+    ctx.lineTo(forgeSize * Math.cos(Math.PI / 6), forgeSize * Math.sin(Math.PI / 6));
+    ctx.lineTo(-forgeSize * Math.cos(Math.PI / 6), forgeSize * Math.sin(Math.PI / 6));
+    ctx.closePath();
+    ctx.stroke();
+    
+    // Draw second triangle (pointing down, rotating counter-clockwise)
+    ctx.rotate(-this.forgeRotation * 2); // Reset and rotate opposite direction
+    ctx.strokeStyle = 'rgba(200, 200, 255, 0.6)';
+    ctx.beginPath();
+    ctx.moveTo(0, forgeSize);
+    ctx.lineTo(forgeSize * Math.cos(Math.PI / 6), -forgeSize * Math.sin(Math.PI / 6));
+    ctx.lineTo(-forgeSize * Math.cos(Math.PI / 6), -forgeSize * Math.sin(Math.PI / 6));
+    ctx.closePath();
+    ctx.stroke();
+    
+    // Draw center glow
+    ctx.rotate(this.forgeRotation); // Rotate back to center
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, forgeSize);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(0, 0, forgeSize, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+  }
+
   resize() {
     // Canvas maintains fixed dimensions to match Aleph spire
     // The CSS will handle scaling to fit container
+  }
+
+  getInventory() {
+    // Return a copy of the inventory map
+    return new Map(this.inventory);
+  }
+
+  getInventoryDisplay() {
+    // Return an array of tier information for display
+    return PARTICLE_TIERS.map(tier => ({
+      id: tier.id,
+      name: tier.name,
+      count: this.inventory.get(tier.id) || 0,
+    }));
   }
 }
 
@@ -400,3 +652,10 @@ export function resumeBetSpireRender() {
     betSpireRenderInstance.start();
   }
 }
+
+export function getBetSpireRenderInstance() {
+  return betSpireRenderInstance;
+}
+
+// Export tier definitions for use in other modules
+export { PARTICLE_TIERS };

@@ -160,6 +160,7 @@ import { createBetHappinessSystem } from './betHappiness.js';
 import { FluidTerrariumItemsDropdown } from './fluidTerrariumItemsDropdown.js';
 import { createResourceHud } from './resourceHud.js';
 import { initBetSpireRender } from './betSpireRender.js';
+import { initParticleInventoryDisplay } from './betParticleInventory.js';
 import { createTsadiUpgradeUi } from './tsadiUpgradeUi.js';
 import { createTsadiBindingUi } from './tsadiBindingUi.js';
 import { createSpireTabVisibilityManager } from './spireTabVisibility.js';
@@ -6801,8 +6802,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindLeaveLevelButton();
     initializeManualDropHandlers();
     
-    // Initialize Bet Spire particle physics render
+    // Initialize Bet Spire particle physics render and inventory display
     initBetSpireRender();
+    initParticleInventoryDisplay();
   }
 
   if (document.readyState === 'loading') {
