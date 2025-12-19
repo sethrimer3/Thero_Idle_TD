@@ -327,6 +327,31 @@ function calculateNodeConnections(nodePositions) {
   connectionsDirty = false;
 }
 
+// Build a list of connected node pairs from the cached connection map so we can render edges efficiently
+function buildConnectedNodePairs(nodePositions) {
+  const nodeLookup = new Map();
+  nodePositions.forEach((node) => nodeLookup.set(node.territory.id, node));
+
+  const pairs = [];
+  nodeConnections.forEach((connections, sourceId) => {
+    connections.forEach((targetId) => {
+      // Ensure each pair is only rendered once
+      if (sourceId >= targetId) {
+        return;
+      }
+
+      const sourceNode = nodeLookup.get(sourceId);
+      const targetNode = nodeLookup.get(targetId);
+
+      if (sourceNode && targetNode) {
+        pairs.push({ source: sourceNode, target: targetNode });
+      }
+    });
+  });
+
+  return pairs;
+}
+
 /**
  * Check if two nodes should be connected
  */
@@ -1192,106 +1217,81 @@ function renderTerritoryFields(ctx, nodePositions, glowEnabled = true) {
 // Now only connects captured nodes based on calculated connection rules
 function renderSoftBodyConnections(ctx, nodePositions) {
   ctx.save();
-  nodePositions.forEach((node1, i) => {
-    nodePositions.forEach((node2, j) => {
-      if (i >= j) return;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
 
-      // Only render connections that have been calculated
-      if (!areNodesConnected(node1, node2)) {
-        return;
-      }
-      
-      // Both nodes must be captured (non-neutral)
-      if (node1.territory.owner === TERRITORY_NEUTRAL || node2.territory.owner === TERRITORY_NEUTRAL) {
-        return;
-      }
+  const connectedPairs = buildConnectedNodePairs(nodePositions);
 
-      // Get actual positions with physics offsets
-      const pos1 = getNodePosition(node1);
-      const pos2 = getNodePosition(node2);
-      
-      // Check if nodes share the same owner
-      const sharedOwner = node1.territory.owner === node2.territory.owner;
-      
-      // Calculate rope physics - simulate a hanging rope with gravity-like sag
-      const actualDx = pos2.x - pos1.x;
-      const actualDy = pos2.y - pos1.y;
-      const actualDistance = Math.sqrt(actualDx * actualDx + actualDy * actualDy);
-      
-      // Rope sag amount based on distance and a bit of physics seed for variation
-      const sagSeed = (i + 7) * (j + 11);
-      const sagAmount = actualDistance * 0.15 + organicNoise(sagSeed) * 8;
-      
-      // Perpendicular direction for sag
-      const perpX = -actualDy / actualDistance;
-      const perpY = actualDx / actualDistance;
-      
-      // Parse base color to extract RGB for gradient
-      const colorStr = sharedOwner
-        ? (node1.territory.owner === TERRITORY_PLAYER ? COLOR_PLAYER_CONNECTION : COLOR_ENEMY_CONNECTION)
-        : COLOR_NEURON_WEB;
-      
-      const baseIntensity = sharedOwner ? 0.9 : 0.5;
-      const baseLineWidth = 2.4 + (sharedOwner ? 1.2 : 0); // Thicker connections
-      
-      // Draw rope as multiple connected segments with gradient opacity
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      
-      // Create rope segments with catenary-like curve and varying opacity
-      for (let seg = 0; seg < ROPE_SEGMENTS; seg++) {
-        const t1 = seg / ROPE_SEGMENTS;
-        const t2 = (seg + 1) / ROPE_SEGMENTS;
-        
-        // Calculate opacity based on distance from nodes (100% at nodes, 25% at midpoint)
-        // Use a parabolic curve to fade from 1.0 to 0.25 and back to 1.0
-        const midpointFade1 = 1.0 - (0.75 * Math.sin(t1 * Math.PI));
-        const midpointFade2 = 1.0 - (0.75 * Math.sin(t2 * Math.PI));
-        
-        // Parabolic sag - strongest in middle
-        const sagFactor1 = Math.sin(t1 * Math.PI);
-        const sag1 = sagAmount * sagFactor1;
-        const sagFactor2 = Math.sin(t2 * Math.PI);
-        const sag2 = sagAmount * sagFactor2;
-        
-        // Interpolate segment positions
-        const segX1 = pos1.x + actualDx * t1 + perpX * sag1;
-        const segY1 = pos1.y + actualDy * t1 + perpY * sag1;
-        const segX2 = pos1.x + actualDx * t2 + perpX * sag2;
-        const segY2 = pos1.y + actualDy * t2 + perpY * sag2;
-        
-        // Use gradient opacity for this segment
-        const gradient = ctx.createLinearGradient(segX1, segY1, segX2, segY2);
-        const color1 = colorStr.replace(/[\d.]+\)$/, `${midpointFade1 * baseIntensity})`);
-        const color2 = colorStr.replace(/[\d.]+\)$/, `${midpointFade2 * baseIntensity})`);
-        gradient.addColorStop(0, color1);
-        gradient.addColorStop(1, color2);
-        
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = baseLineWidth;
-        ctx.beginPath();
-        ctx.moveTo(segX1, segY1);
-        ctx.lineTo(segX2, segY2);
-        ctx.stroke();
-      }
+  connectedPairs.forEach(({ source, target }, index) => {
+    // Both nodes must be captured (non-neutral)
+    if (source.territory.owner === TERRITORY_NEUTRAL || target.territory.owner === TERRITORY_NEUTRAL) {
+      return;
+    }
 
-      // Synapse sparks that hint at signal traffic along the rope
-      const synapseCount = sharedOwner ? 3 : 1;
-      for (let s = 1; s <= synapseCount; s++) {
-        const t = s / (synapseCount + 1);
-        const sagFactor = Math.sin(t * Math.PI);
-        const sag = sagAmount * sagFactor;
-        const midpointFade = 1.0 - (0.75 * Math.sin(t * Math.PI));
-        
-        const sx = pos1.x + actualDx * t + perpX * sag;
-        const sy = pos1.y + actualDy * t + perpY * sag;
+    // Get actual positions with physics offsets
+    const pos1 = getNodePosition(source);
+    const pos2 = getNodePosition(target);
 
-        ctx.fillStyle = colorStr.replace(/[\d.]+\)$/, `${midpointFade * baseIntensity})`);
-        ctx.beginPath();
-        ctx.arc(sx, sy, sharedOwner ? 2.2 : 1.6, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    });
+    // Check if nodes share the same owner
+    const sharedOwner = source.territory.owner === target.territory.owner;
+
+    // Calculate rope physics - simulate a hanging rope with gravity-like sag
+    const actualDx = pos2.x - pos1.x;
+    const actualDy = pos2.y - pos1.y;
+    const actualDistance = Math.max(1, Math.sqrt(actualDx * actualDx + actualDy * actualDy));
+
+    // Rope sag amount based on distance and a bit of physics seed for variation
+    const sagSeed = (index + 7) * 11;
+    const sagAmount = actualDistance * 0.15 + organicNoise(sagSeed) * 8;
+
+    // Perpendicular direction for sag
+    const perpX = -actualDy / actualDistance;
+    const perpY = actualDx / actualDistance;
+
+    const midpointX = (pos1.x + pos2.x) * 0.5 + perpX * sagAmount;
+    const midpointY = (pos1.y + pos2.y) * 0.5 + perpY * sagAmount;
+
+    // Parse base color to extract RGB for gradient
+    const colorStr = sharedOwner
+      ? (source.territory.owner === TERRITORY_PLAYER ? COLOR_PLAYER_CONNECTION : COLOR_ENEMY_CONNECTION)
+      : COLOR_NEURON_WEB;
+
+    const baseIntensity = sharedOwner ? 0.9 : 0.5;
+    const baseLineWidth = 2.4 + (sharedOwner ? 1.2 : 0); // Thicker connections
+
+    // Smooth rope with a single quadratic curve and gradient fade to reduce draw calls
+    const gradient = ctx.createLinearGradient(pos1.x, pos1.y, pos2.x, pos2.y);
+    gradient.addColorStop(0, colorStr.replace(/[\d.]+\)$/, `${baseIntensity})`));
+    gradient.addColorStop(0.5, colorStr.replace(/[\d.]+\)$/, `${baseIntensity * 0.25})`));
+    gradient.addColorStop(1, colorStr.replace(/[\d.]+\)$/, `${baseIntensity})`));
+
+    ctx.strokeStyle = gradient;
+    ctx.lineWidth = baseLineWidth;
+    ctx.beginPath();
+    ctx.moveTo(pos1.x, pos1.y);
+    ctx.quadraticCurveTo(midpointX, midpointY, pos2.x, pos2.y);
+    ctx.stroke();
+
+    // Synapse sparks that hint at signal traffic along the rope
+    const synapseCount = sharedOwner ? 3 : 1;
+    for (let s = 1; s <= synapseCount; s++) {
+      const t = s / (synapseCount + 1);
+      const oneMinusT = 1 - t;
+      const sagFactor = Math.sin(t * Math.PI);
+      const midpointFade = 1.0 - (0.75 * Math.sin(t * Math.PI));
+
+      // Quadratic Bezier interpolation for smooth spark placement
+      const sx = oneMinusT * oneMinusT * pos1.x + 2 * oneMinusT * t * midpointX + t * t * pos2.x;
+      const sy = oneMinusT * oneMinusT * pos1.y + 2 * oneMinusT * t * midpointY + t * t * pos2.y;
+
+      const sparkOffsetX = perpX * sagAmount * 0.1 * sagFactor;
+      const sparkOffsetY = perpY * sagAmount * 0.1 * sagFactor;
+
+      ctx.fillStyle = colorStr.replace(/[\d.]+\)$/, `${midpointFade * baseIntensity})`);
+      ctx.beginPath();
+      ctx.arc(sx + sparkOffsetX, sy + sparkOffsetY, sharedOwner ? 2.2 : 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
   });
   ctx.restore();
 }
