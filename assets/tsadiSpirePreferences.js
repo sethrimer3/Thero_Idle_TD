@@ -9,12 +9,9 @@ export const TSADI_GRAPHICS_LEVELS = Object.freeze({
   MEDIUM: 'medium',
   HIGH: 'high',
 });
-const PIXELATION_LEVELS = [0, 1, 2];
-const PIXELATION_LABELS = ['None', 'Mild', 'Strong'];
 
 const DEFAULT_SETTINGS = Object.freeze({
   graphicsLevel: TSADI_GRAPHICS_LEVELS.HIGH,
-  pixelationLevel: 0,
   renderForceLinks: true,
   renderFusionEffects: true,
   renderSpawnEffects: true,
@@ -24,7 +21,6 @@ let settings = { ...DEFAULT_SETTINGS };
 let simulationGetter = () => null;
 
 let graphicsLevelButton = null;
-let pixelationLevelButton = null;
 let forceLinkToggle = null;
 let fusionEffectsToggle = null;
 let spawnEffectsToggle = null;
@@ -59,7 +55,6 @@ function applySettingsToSimulation() {
   }
   simulation.setVisualSettings({
     graphicsLevel: settings.graphicsLevel,
-    pixelationLevel: settings.pixelationLevel,
     renderForceLinks: settings.renderForceLinks,
     renderFusionEffects: settings.renderFusionEffects,
     renderSpawnEffects: settings.renderSpawnEffects,
@@ -77,11 +72,6 @@ function resolveGraphicsLabel(level = settings.graphicsLevel) {
   }
 }
 
-function resolvePixelationLabel(level = settings.pixelationLevel) {
-  const index = Math.max(0, Math.min(PIXELATION_LEVELS.length - 1, Math.round(level)));
-  return PIXELATION_LABELS[index] || PIXELATION_LABELS[0];
-}
-
 function cycleGraphicsLevel() {
   const sequence = [TSADI_GRAPHICS_LEVELS.LOW, TSADI_GRAPHICS_LEVELS.MEDIUM, TSADI_GRAPHICS_LEVELS.HIGH];
   const index = sequence.indexOf(settings.graphicsLevel);
@@ -92,15 +82,6 @@ function cycleGraphicsLevel() {
   syncGraphicsButton();
 }
 
-function cyclePixelationLevel() {
-  const index = PIXELATION_LEVELS.indexOf(Math.round(settings.pixelationLevel));
-  const nextIndex = index >= 0 ? (index + 1) % PIXELATION_LEVELS.length : 0;
-  settings.pixelationLevel = PIXELATION_LEVELS[nextIndex];
-  persistSettings();
-  applySettingsToSimulation();
-  syncPixelationButton();
-}
-
 function syncGraphicsButton() {
   if (!graphicsLevelButton) {
     return;
@@ -108,15 +89,6 @@ function syncGraphicsButton() {
   const label = resolveGraphicsLabel();
   graphicsLevelButton.textContent = `Graphics · ${label}`;
   graphicsLevelButton.setAttribute('aria-label', `Cycle Tsadi fusion graphics quality (current: ${label})`);
-}
-
-function syncPixelationButton() {
-  if (!pixelationLevelButton) {
-    return;
-  }
-  const label = resolvePixelationLabel();
-  pixelationLevelButton.textContent = `Pixelation · ${label}`;
-  pixelationLevelButton.setAttribute('aria-label', `Cycle Tsadi fusion pixelation (current: ${label})`);
 }
 
 function syncToggleState(input, stateLabel, enabled) {
@@ -151,7 +123,6 @@ function syncAllToggles() {
  */
 export function bindTsadiSpireOptions() {
   graphicsLevelButton = document.getElementById('tsadi-graphics-level-button');
-  pixelationLevelButton = document.getElementById('tsadi-pixelation-level-button');
   forceLinkToggle = document.getElementById('tsadi-force-links-toggle');
   fusionEffectsToggle = document.getElementById('tsadi-fusion-effects-toggle');
   spawnEffectsToggle = document.getElementById('tsadi-spawn-effects-toggle');
@@ -161,10 +132,6 @@ export function bindTsadiSpireOptions() {
 
   if (graphicsLevelButton) {
     graphicsLevelButton.addEventListener('click', cycleGraphicsLevel);
-  }
-
-  if (pixelationLevelButton) {
-    pixelationLevelButton.addEventListener('click', cyclePixelationLevel);
   }
 
   if (forceLinkToggle) {
@@ -186,7 +153,6 @@ export function bindTsadiSpireOptions() {
   }
 
   syncGraphicsButton();
-  syncPixelationButton();
   syncAllToggles();
 }
 
@@ -197,7 +163,6 @@ export function initializeTsadiSpirePreferences() {
   loadSettings();
   applySettingsToSimulation();
   syncGraphicsButton();
-  syncPixelationButton();
   syncAllToggles();
 }
 

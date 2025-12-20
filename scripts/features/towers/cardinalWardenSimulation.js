@@ -2353,14 +2353,10 @@ export function getWeaponDefinition(weaponId) {
 /**
  * Main Cardinal Warden reverse danmaku simulation.
  */
-const PIXELATION_SCALES = [1, 0.75, 0.5]; // Downscale factors for pixelated rendering tiers.
-
 export class CardinalWardenSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
-    this.pixelationLevel = 0;
-    this.pixelationScale = PIXELATION_SCALES[this.pixelationLevel];
 
     // Visual style - accept nightMode from options or default to false (light mode)
     this.nightMode = !!options.nightMode;
@@ -6887,16 +6883,6 @@ export class CardinalWardenSimulation {
       this.warden.x = width / 2;
       this.warden.y = height * 0.75;
     }
-  }
-
-  setPixelationLevel(level = 0) {
-    const clamped = Math.max(0, Math.min(PIXELATION_SCALES.length - 1, Math.round(level)));
-    this.pixelationLevel = clamped;
-    this.pixelationScale = PIXELATION_SCALES[clamped] || 1;
-  }
-
-  getPixelationScale() {
-    return this.pixelationScale || 1;
   }
 
   /**
