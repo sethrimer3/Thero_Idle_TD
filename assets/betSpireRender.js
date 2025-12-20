@@ -244,6 +244,10 @@ export class BetSpireRender {
       this.inventory.set(tier.id, 0);
     });
     
+    // Particle Factor tracking for BET glyph awards
+    this.particleFactorMilestone = 10; // Start at 10, then 100, 1000, etc.
+    this.betGlyphsAwarded = 0;
+    
     // Mouse/touch interaction state
     this.isInteracting = false;
     this.mouseX = 0;
@@ -557,6 +561,16 @@ export class BetSpireRender {
       this.attemptMerge();
     }
     
+    // Periodically check for particle factor milestones
+    if (Math.random() < 0.01) { // 1% chance per frame
+      const glyphsAwarded = this.checkParticleFactorMilestone();
+      if (glyphsAwarded > 0) {
+        // Trigger an event or notification that glyphs were awarded
+        const event = new CustomEvent('betGlyphsAwarded', { detail: { count: glyphsAwarded } });
+        this.canvas.dispatchEvent(event);
+      }
+    }
+    
     this.animationId = requestAnimationFrame(this.animate);
   }
 
@@ -604,6 +618,52 @@ export class BetSpireRender {
   resize() {
     // Canvas maintains fixed dimensions to match Aleph spire
     // The CSS will handle scaling to fit container
+  }
+
+  /**
+   * Calculate the Particle Factor by multiplying the number of particles from each tier.
+   * If a tier has 0 particles, it contributes 1 to avoid zeroing out the entire factor.
+   * This is the player's total score in the BET spire.
+   */
+  calculateParticleFactor() {
+    let factor = 1;
+    PARTICLE_TIERS.forEach(tier => {
+      const count = this.inventory.get(tier.id) || 0;
+      // Multiply by the count, but use 1 if count is 0 to avoid zero multiplication
+      factor *= (count > 0 ? count : 1);
+    });
+    return factor;
+  }
+
+  /**
+   * Check if the particle factor has reached a new milestone and award BET glyphs.
+   * Returns the number of glyphs awarded this check (0 if no new milestone reached).
+   */
+  checkParticleFactorMilestone() {
+    const currentFactor = this.calculateParticleFactor();
+    let glyphsAwarded = 0;
+    
+    // Award glyphs for each 10x milestone reached
+    while (currentFactor >= this.particleFactorMilestone) {
+      glyphsAwarded++;
+      this.betGlyphsAwarded++;
+      this.particleFactorMilestone *= 10; // Next milestone is 10x higher
+    }
+    
+    return glyphsAwarded;
+  }
+
+  /**
+   * Get the current particle factor and milestone progress.
+   */
+  getParticleFactorStatus() {
+    const currentFactor = this.calculateParticleFactor();
+    return {
+      particleFactor: currentFactor,
+      currentMilestone: this.particleFactorMilestone,
+      betGlyphsAwarded: this.betGlyphsAwarded,
+      progressToNext: currentFactor / this.particleFactorMilestone,
+    };
   }
 
   getInventory() {

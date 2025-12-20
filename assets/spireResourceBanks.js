@@ -27,9 +27,13 @@ export function createSpireResourceBanks({
   if (!spireResourceState.tsadi) {
     spireResourceState.tsadi = {};
   }
+  if (!spireResourceState.fluid) {
+    spireResourceState.fluid = {};
+  }
 
   const lamedState = spireResourceState.lamed;
   const tsadiState = spireResourceState.tsadi;
+  const fluidState = spireResourceState.fluid;
 
   /**
    * Utility to coerce a numeric input into a non-negative finite value.
@@ -126,6 +130,23 @@ export function createSpireResourceBanks({
     return { awarded, invested, available };
   }
 
+  function getBetSandBank() {
+    // Use the fluidIdleBank from powderState for BET spire sand
+    return normalizeBankValue(powderState?.fluidIdleBank);
+  }
+
+  function setBetSandBank(value) {
+    const normalized = normalizeBankValue(value);
+    if (normalized === getBetSandBank()) {
+      return normalized;
+    }
+    if (powderState) {
+      powderState.fluidIdleBank = normalized;
+    }
+    updateSpireMenuCounts();
+    return normalized;
+  }
+
   return {
     getLamedSparkBank,
     setLamedSparkBank,
@@ -136,5 +157,7 @@ export function createSpireResourceBanks({
     setTsadiBindingAgents,
     ensureTsadiBankSeeded,
     reconcileGlyphCurrencyFromState,
+    getBetSandBank,
+    setBetSandBank,
   };
 }

@@ -13657,3 +13657,117 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .particle-inventory-table tr.has-particles .particle-count {
   color: var(--accent);
 }
+
+/* BET Spire Upgrade Menu Styles */
+.bet-upgrade-card {
+  margin-top: 16px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.bet-upgrade-card .card-header {
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.bet-upgrade-card .card-header h3 {
+  margin: 0;
+  font-size: 1.2em;
+  color: var(--text);
+}
+
+.bet-factor-display {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.bet-factor-stat {
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
+.bet-factor-stat:first-child {
+  font-size: 1.1em;
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.bet-generator-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bet-generator-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  transition: var(--transition);
+}
+
+.bet-generator-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--accent);
+}
+
+.bet-generator-item--disabled {
+  opacity: 0.5;
+}
+
+.bet-generator-item--disabled:hover {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: var(--panel-border);
+}
+
+.bet-generator-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bet-generator-name {
+  font-size: 1em;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.bet-generator-stats {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.bet-generator-purchase {
+  padding: 8px 16px;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: var(--cursor-pointer);
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.bet-generator-purchase:hover:not(:disabled) {
+  background: var(--accent-2);
+  transform: translateY(-2px);
+}
+
+.bet-generator-purchase:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--muted);
+  cursor: var(--cursor-not-allowed);
+}
