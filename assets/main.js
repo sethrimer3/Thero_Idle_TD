@@ -404,6 +404,7 @@ import { bindSpireOptionsDropdown, closeAllSpireDropdowns } from './spireOptions
 import { bindKufSpireOptions, initializeKufSpirePreferences } from './kufSpirePreferences.js';
 import { bindShinSpireOptions, initializeShinSpirePreferences, setShinSimulationGetter } from './shinSpirePreferences.js';
 import { bindCognitiveRealmOptions, initializeCognitiveRealmPreferences } from './cognitiveRealmPreferences.js';
+import { bindAchievementsTerrariumOptions, initializeAchievementsTerrariumPreferences } from './achievementsTerrariumPreferences.js';
 import { createDeveloperModeManager } from './developerModeManager.js';
 import {
   moteGemState,
@@ -6771,6 +6772,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       onRequestInventoryRefresh: updateMoteGemInventoryDisplay,
     });
     bindAchievements();
+    initializeAchievementsTerrariumPreferences();
+    bindAchievementsTerrariumOptions();
     // Initialize boosts section in achievements tab
     loadMonetizationState();
     initializeBoostsSection();
