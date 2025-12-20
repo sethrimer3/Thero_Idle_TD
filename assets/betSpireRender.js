@@ -24,6 +24,12 @@ const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
 const SPAWNER_GRAVITY_STRENGTH = 0.75; // Gentle attraction strength used by individual spawners
 const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four times its radius for a wider pull
 
+// Shockwave configuration
+const SHOCKWAVE_EXPANSION_SPEED = 3; // Pixels per frame
+const SHOCKWAVE_MAX_RADIUS = 80; // Maximum shockwave radius before dissipating
+const SHOCKWAVE_PUSH_FORCE = 2.5; // Force applied to particles hit by shockwave
+const SHOCKWAVE_DURATION = 600; // Milliseconds for shockwave to fully expand and fade
+
 // Pixelation levels downscale the internal render buffer to improve performance on high-DPI displays.
 const PIXELATION_SCALES = [1, 0.75, 0.5]; // 0 = crisp, 1 = mild pixelation, 2 = aggressive pixelation
 
@@ -225,13 +231,6 @@ class Particle {
           this.vx += Math.cos(tangentAngle) * ORBITAL_FORCE;
           this.vy += Math.sin(tangentAngle) * ORBITAL_FORCE;
         }
-
-        // If a particle is fleeing the forge, dampen that repelling motion to keep the forge more magnetic than pushy.
-        const radialVelocity = (this.vx * Math.cos(angle)) + (this.vy * Math.sin(angle));
-        if (radialVelocity > 0) {
-          this.vx -= Math.cos(angle) * radialVelocity * FORGE_REPULSION_DAMPING;
-          this.vy -= Math.sin(angle) * radialVelocity * FORGE_REPULSION_DAMPING;
-        }
       }
     }
     
@@ -367,6 +366,9 @@ export class BetSpireRender {
     this.mouseY = 0;
     this.interactionCircles = []; // Array of {x, y, radius, alpha, timestamp}
     
+    // Shockwave state for merge effects
+    this.shockwaves = []; // Array of {x, y, radius, alpha, timestamp, maxRadius}
+    
     // Bind methods for requestAnimationFrame and event listeners
     this.animate = this.animate.bind(this);
     this.handlePointerDown = this.handlePointerDown.bind(this);
@@ -422,6 +424,18 @@ export class BetSpireRender {
     }
   }
 
+  createShockwave(x, y) {
+    // Create a new shockwave at the specified location
+    this.shockwaves.push({
+      x: x,
+      y: y,
+      radius: 0,
+      alpha: 0.8,
+      timestamp: Date.now(),
+      maxRadius: SHOCKWAVE_MAX_RADIUS
+    });
+  }
+
   updateInventory() {
     // Clear inventory
     this.inventory.forEach((_, key) => {
@@ -445,13 +459,21 @@ export class BetSpireRender {
   attemptMerge() {
     const particlesByTierAndSize = new Map();
     
-    // Group particles by tier and size
+    // Group particles by tier and size, only including particles within forge influence
     this.particles.forEach(particle => {
-      const key = `${particle.tierId}-${particle.sizeIndex}`;
-      if (!particlesByTierAndSize.has(key)) {
-        particlesByTierAndSize.set(key, []);
+      // Check if particle is within forge influence (2x forge radius)
+      const dx = this.forge.x - particle.x;
+      const dy = this.forge.y - particle.y;
+      const distToForge = Math.sqrt(dx * dx + dy * dy);
+      
+      // Only consider particles within the forge influence for merging
+      if (distToForge <= MAX_FORGE_ATTRACTION_DISTANCE) {
+        const key = `${particle.tierId}-${particle.sizeIndex}`;
+        if (!particlesByTierAndSize.has(key)) {
+          particlesByTierAndSize.set(key, []);
+        }
+        particlesByTierAndSize.get(key).push(particle);
       }
-      particlesByTierAndSize.get(key).push(particle);
     });
     
     // Check each group for merging
@@ -462,13 +484,45 @@ export class BetSpireRender {
         
         // Can only merge if not already at max size
         if (sizeIndex < SIZE_TIERS.length - 1) {
+          // Calculate center point of particles being merged
+          let centerX = 0;
+          let centerY = 0;
+          for (let i = 0; i < MERGE_THRESHOLD; i++) {
+            centerX += group[i].x;
+            centerY += group[i].y;
+          }
+          centerX /= MERGE_THRESHOLD;
+          centerY /= MERGE_THRESHOLD;
+          
+          // Make particles converge at high speed to center point before merging
+          for (let i = 0; i < MERGE_THRESHOLD; i++) {
+            const particle = group[i];
+            const dx = centerX - particle.x;
+            const dy = centerY - particle.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist > 1) {
+              // High-speed convergence
+              const speed = 5; // Fast convergence speed
+              particle.vx = (dx / dist) * speed;
+              particle.vy = (dy / dist) * speed;
+            }
+          }
+          
+          // Create a shockwave at the merge location
+          this.createShockwave(centerX, centerY);
+          
           // Remove 100 particles
           for (let i = 0; i < MERGE_THRESHOLD; i++) {
             this.removeParticle(group[i]);
           }
           
-          // Add 1 particle of next size
-          this.addParticle(tierId, sizeIndex + 1);
+          // Add 1 particle of next size at the merge location
+          const newParticle = new Particle(tierId, sizeIndex + 1, null);
+          newParticle.x = centerX;
+          newParticle.y = centerY;
+          this.particles.push(newParticle);
+          this.updateInventory();
         }
       }
     });
@@ -690,6 +744,45 @@ export class BetSpireRender {
       this.ctx.stroke();
       
       return true; // Keep circle for next frame
+    });
+    
+    // Update and draw shockwaves
+    this.shockwaves = this.shockwaves.filter(shockwave => {
+      const elapsed = now - shockwave.timestamp;
+      const progress = elapsed / SHOCKWAVE_DURATION;
+      
+      if (progress >= 1) return false; // Remove completed shockwaves
+      
+      // Expand shockwave radius
+      shockwave.radius += SHOCKWAVE_EXPANSION_SPEED;
+      
+      // Fade out as it expands
+      shockwave.alpha = 0.8 * (1 - progress);
+      
+      // Apply push force to nearby particles
+      for (const particle of this.particles) {
+        const dx = particle.x - shockwave.x;
+        const dy = particle.y - shockwave.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Check if particle is near the shockwave edge (within a threshold)
+        const edgeThreshold = 15; // Pixels from shockwave edge
+        if (Math.abs(dist - shockwave.radius) < edgeThreshold && dist > 1) {
+          // Push particle away from shockwave center
+          const angle = Math.atan2(dy, dx);
+          particle.vx += Math.cos(angle) * SHOCKWAVE_PUSH_FORCE;
+          particle.vy += Math.sin(angle) * SHOCKWAVE_PUSH_FORCE;
+        }
+      }
+      
+      // Draw shockwave ring
+      this.ctx.strokeStyle = `rgba(255, 255, 255, ${shockwave.alpha})`;
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.arc(shockwave.x, shockwave.y, shockwave.radius, 0, Math.PI * 2);
+      this.ctx.stroke();
+      
+      return true; // Keep shockwave for next frame
     });
     
     // Update and draw particles
