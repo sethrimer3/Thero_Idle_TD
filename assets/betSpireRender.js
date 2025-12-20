@@ -9,7 +9,7 @@ const CANVAS_HEIGHT = 320;
 const TRAIL_FADE = 0.15; // Lower = longer trails
 const BASE_PARTICLE_SIZE = 0.75; // Base size for small particles (reduced from 1.5 to half size)
 const SIZE_MULTIPLIER = 2.5; // Each size tier is 2.5x bigger
-const MIN_VELOCITY = 0.3; // Minimum speed to keep particles swirling
+const MIN_VELOCITY = 0.24; // Minimum speed to keep particles swirling (20% slower: 0.3 * 0.8 = 0.24)
 const MAX_VELOCITY = 2;
 const ATTRACTION_STRENGTH = 1.5; // Increased to keep particles within field (was 0.5)
 const FORGE_RADIUS = 30; // Radius for forge attraction
@@ -24,9 +24,19 @@ const SPAWNER_GRAVITY_STRENGTH = 0.75; // Gentle attraction strength used by ind
 const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four times its radius for a wider pull
 
 // User interaction configuration
-const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 20;
+const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 10; // Doubled from /20 to /10
 const MOUSE_ATTRACTION_STRENGTH = 3.0;
 const INTERACTION_FADE_DURATION = 300; // milliseconds for circle fade
+
+// Merge animation configuration
+const MERGE_GATHER_SPEED = 8.0; // High speed for particles flying together during merge
+const MERGE_GATHER_THRESHOLD = 2; // Distance threshold to consider particles gathered (pixels)
+const MERGE_TIMEOUT_MS = 2000; // Maximum time for merge animation (milliseconds)
+const SHOCKWAVE_SPEED = 3.0; // Speed at which shockwave expands
+const SHOCKWAVE_MAX_RADIUS = 40; // Maximum shockwave radius
+const SHOCKWAVE_DURATION = 500; // milliseconds for shockwave animation
+const SHOCKWAVE_PUSH_FORCE = 2.5; // Force applied to nearby particles by shockwave
+const SHOCKWAVE_EDGE_THICKNESS = 10; // Thickness of shockwave edge for force application (pixels)
 
 // Forge position at center of canvas
 const FORGE_POSITION = { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.5 };
@@ -123,6 +133,7 @@ const PARTICLE_TIERS = [
 // Size tiers: small, medium, large
 const SIZE_TIERS = ['small', 'medium', 'large'];
 const MERGE_THRESHOLD = 100; // 100 particles merge into 1 of next size
+const SIZE_VELOCITY_MODIFIERS = [1.0, 0.8, 0.64]; // Small: 100%, Medium: 80%, Large: 64% (20% slower than medium: 0.8 * 0.8 = 0.64)
 
 // Particle class with tier and size
 class Particle {
@@ -144,6 +155,8 @@ class Particle {
     
     this.lockedToMouse = false; // Whether particle is locked to mouse/touch
     this.mouseTarget = null; // Target position when locked to mouse
+    this.merging = false; // Whether particle is being merged
+    this.mergeTarget = null; // Target position during merge animation
   }
 
   getTier() {
@@ -160,8 +173,24 @@ class Particle {
   }
 
   update(forge, spawners = []) {
+    // If particle is merging, fly to merge target at high speed
+    if (this.merging && this.mergeTarget) {
+      const dx = this.mergeTarget.x - this.x;
+      const dy = this.mergeTarget.y - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist > 1) {
+        const angle = Math.atan2(dy, dx);
+        this.vx = Math.cos(angle) * MERGE_GATHER_SPEED;
+        this.vy = Math.sin(angle) * MERGE_GATHER_SPEED;
+      } else {
+        // Reached target, zero velocity
+        this.vx = 0;
+        this.vy = 0;
+      }
+    }
     // If locked to mouse, strongly attract to mouse position
-    if (this.lockedToMouse && this.mouseTarget) {
+    else if (this.lockedToMouse && this.mouseTarget) {
       const dx = this.mouseTarget.x - this.x;
       const dy = this.mouseTarget.y - this.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -204,39 +233,30 @@ class Particle {
           this.vx += Math.cos(angle) * force * FORCE_SCALE;
           this.vy += Math.sin(angle) * force * FORCE_SCALE;
         }
-
-        // Add slight orbital motion around forge to keep particles swirling
-        if (dist < FORGE_RADIUS * ORBITAL_RADIUS_MULTIPLIER) { // Apply orbital force in a wider area
-          const tangentAngle = angle + Math.PI / 2;
-          this.vx += Math.cos(tangentAngle) * ORBITAL_FORCE;
-          this.vy += Math.sin(tangentAngle) * ORBITAL_FORCE;
-        }
-
-        // If a particle is fleeing the forge, dampen that repelling motion to keep the forge more magnetic than pushy.
-        const radialVelocity = (this.vx * Math.cos(angle)) + (this.vy * Math.sin(angle));
-        if (radialVelocity > 0) {
-          this.vx -= Math.cos(angle) * radialVelocity * FORGE_REPULSION_DAMPING;
-          this.vy -= Math.sin(angle) * radialVelocity * FORGE_REPULSION_DAMPING;
-        }
+        // Forge now attracts particles toward center like generators do (removed orbital spin behavior)
       }
     }
     
-    // Limit velocity
+    // Limit velocity with size-based modifier
+    const sizeModifier = SIZE_VELOCITY_MODIFIERS[this.sizeIndex] || 1.0;
+    const maxVelocity = MAX_VELOCITY * sizeModifier;
+    const minVelocity = MIN_VELOCITY * sizeModifier;
+    
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-    if (speed > MAX_VELOCITY) {
-      this.vx = (this.vx / speed) * MAX_VELOCITY;
-      this.vy = (this.vy / speed) * MAX_VELOCITY;
+    if (speed > maxVelocity) {
+      this.vx = (this.vx / speed) * maxVelocity;
+      this.vy = (this.vy / speed) * maxVelocity;
     }
     
     // Enforce minimum velocity to keep particles always moving
-    if (speed < MIN_VELOCITY && speed > 0) {
-      this.vx = (this.vx / speed) * MIN_VELOCITY;
-      this.vy = (this.vy / speed) * MIN_VELOCITY;
+    if (speed < minVelocity && speed > 0) {
+      this.vx = (this.vx / speed) * minVelocity;
+      this.vy = (this.vy / speed) * minVelocity;
     } else if (speed === 0) {
       // Give particles a random initial velocity if they're stopped
       const randomAngle = Math.random() * Math.PI * 2;
-      this.vx = Math.cos(randomAngle) * MIN_VELOCITY;
-      this.vy = Math.sin(randomAngle) * MIN_VELOCITY;
+      this.vx = Math.cos(randomAngle) * minVelocity;
+      this.vy = Math.sin(randomAngle) * minVelocity;
     }
     
     // Update position
@@ -350,6 +370,10 @@ export class BetSpireRender {
     this.mouseY = 0;
     this.interactionCircles = []; // Array of {x, y, radius, alpha, timestamp}
     
+    // Merge animation state
+    this.activeMerges = []; // Array of {particles, targetX, targetY, tierId, sizeIndex, startTime}
+    this.shockwaves = []; // Array of {x, y, radius, alpha, timestamp, color}
+    
     // Bind methods for requestAnimationFrame and event listeners
     this.animate = this.animate.bind(this);
     this.handlePointerDown = this.handlePointerDown.bind(this);
@@ -424,16 +448,27 @@ export class BetSpireRender {
   }
 
   // Attempt to merge particles of the same tier and size
+  // Particles can only merge if they are within the forge's influence radius (2x the forge radius)
   attemptMerge() {
     const particlesByTierAndSize = new Map();
     
-    // Group particles by tier and size
+    // Group particles by tier and size, only including those within forge influence
     this.particles.forEach(particle => {
-      const key = `${particle.tierId}-${particle.sizeIndex}`;
-      if (!particlesByTierAndSize.has(key)) {
-        particlesByTierAndSize.set(key, []);
+      // Skip particles that are already merging
+      if (particle.merging) return;
+      
+      // Check if particle is within forge influence (2x forge radius)
+      const dx = particle.x - this.forge.x;
+      const dy = particle.y - this.forge.y;
+      const distToForge = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distToForge <= MAX_FORGE_ATTRACTION_DISTANCE) {
+        const key = `${particle.tierId}-${particle.sizeIndex}`;
+        if (!particlesByTierAndSize.has(key)) {
+          particlesByTierAndSize.set(key, []);
+        }
+        particlesByTierAndSize.get(key).push(particle);
       }
-      particlesByTierAndSize.get(key).push(particle);
     });
     
     // Check each group for merging
@@ -444,15 +479,94 @@ export class BetSpireRender {
         
         // Can only merge if not already at max size
         if (sizeIndex < SIZE_TIERS.length - 1) {
-          // Remove 100 particles
-          for (let i = 0; i < MERGE_THRESHOLD; i++) {
-            this.removeParticle(group[i]);
-          }
+          // Calculate center point of the particles to merge
+          let centerX = 0;
+          let centerY = 0;
+          const particlesToMerge = group.slice(0, MERGE_THRESHOLD);
           
-          // Add 1 particle of next size
-          this.addParticle(tierId, sizeIndex + 1);
+          particlesToMerge.forEach(p => {
+            centerX += p.x;
+            centerY += p.y;
+          });
+          centerX /= particlesToMerge.length;
+          centerY /= particlesToMerge.length;
+          
+          // Mark particles as merging and set their target
+          particlesToMerge.forEach(p => {
+            p.merging = true;
+            p.mergeTarget = { x: centerX, y: centerY };
+          });
+          
+          // Create a merge animation entry
+          this.activeMerges.push({
+            particles: particlesToMerge,
+            targetX: centerX,
+            targetY: centerY,
+            tierId: tierId,
+            sizeIndex: sizeIndex + 1, // Next size tier
+            startTime: Date.now()
+          });
         }
       }
+    });
+  }
+
+  // Process active merges and check if particles have gathered
+  processActiveMerges() {
+    const now = Date.now();
+    this.activeMerges = this.activeMerges.filter(merge => {
+      // Check if all particles in the merge have reached the target
+      const allGathered = merge.particles.every(p => {
+        const dx = p.x - merge.targetX;
+        const dy = p.y - merge.targetY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        return dist < MERGE_GATHER_THRESHOLD;
+      });
+      
+      if (allGathered || (now - merge.startTime > MERGE_TIMEOUT_MS)) { // Complete after timeout
+        // Remove the merged particles
+        merge.particles.forEach(p => {
+          this.removeParticle(p);
+        });
+        
+        // Create the new particle at the merge location
+        const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === merge.tierId);
+        const spawnPos = tierIndex >= 0 && tierIndex < SPAWNER_POSITIONS.length 
+          ? SPAWNER_POSITIONS[tierIndex] 
+          : null;
+        
+        const newParticle = new Particle(merge.tierId, merge.sizeIndex, spawnPos);
+        newParticle.x = merge.targetX;
+        newParticle.y = merge.targetY;
+        this.particles.push(newParticle);
+        
+        // Unlock the tier if needed
+        if (!this.unlockedTiers.has(merge.tierId)) {
+          this.unlockedTiers.add(merge.tierId);
+          if (!this.spawnerRotations.has(merge.tierId)) {
+            this.spawnerRotations.set(merge.tierId, Math.random() * Math.PI * 2);
+          }
+        }
+        
+        this.updateInventory();
+        
+        // Create shockwave
+        const tier = PARTICLE_TIERS.find(t => t.id === merge.tierId) || PARTICLE_TIERS[0];
+        this.shockwaves.push({
+          x: merge.targetX,
+          y: merge.targetY,
+          radius: 0,
+          alpha: 0.8,
+          timestamp: now,
+          color: tier.color
+        });
+        
+        // This merge is complete
+        return false;
+      }
+      
+      // Keep this merge active
+      return true;
     });
   }
 
@@ -634,6 +748,8 @@ export class BetSpireRender {
   animate() {
     if (!this.isRunning) return;
     
+    const now = Date.now(); // Track current time for animations
+    
     // Create trail effect by drawing semi-transparent black over the canvas
     this.ctx.fillStyle = `rgba(0, 0, 0, ${TRAIL_FADE})`;
     this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -648,6 +764,9 @@ export class BetSpireRender {
     
     // Draw the forge (Star of David with counter-rotating triangles)
     this.drawForge();
+    
+    // Draw forge influence ring
+    this.drawForgeInfluenceRing();
 
     // Draw particle spawners for unlocked tiers
     this.drawSpawners();
@@ -655,8 +774,50 @@ export class BetSpireRender {
     // Gather gravity sources for unlocked spawners so nearby particles feel a local pull.
     const activeSpawners = this.getActiveSpawnerGravityFields();
     
+    // Process active merges
+    this.processActiveMerges();
+    
+    // Apply shockwave forces and draw shockwaves
+    this.shockwaves = this.shockwaves.filter(shockwave => {
+      const elapsed = now - shockwave.timestamp;
+      const progress = elapsed / SHOCKWAVE_DURATION;
+      
+      if (progress >= 1) return false; // Remove completed shockwaves
+      
+      // Expand shockwave radius
+      shockwave.radius = SHOCKWAVE_MAX_RADIUS * progress;
+      shockwave.alpha = 0.8 * (1 - progress);
+      
+      // Apply push force to nearby particles
+      for (const particle of this.particles) {
+        // Skip particles that are merging
+        if (particle.merging) continue;
+        
+        const dx = particle.x - shockwave.x;
+        const dy = particle.y - shockwave.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Apply force if particle is near the expanding shockwave edge
+        if (Math.abs(dist - shockwave.radius) < SHOCKWAVE_EDGE_THICKNESS && dist > 0) {
+          const angle = Math.atan2(dy, dx);
+          const force = SHOCKWAVE_PUSH_FORCE * (1 - progress); // Force diminishes over time
+          particle.vx += Math.cos(angle) * force;
+          particle.vy += Math.sin(angle) * force;
+        }
+      }
+      
+      // Draw shockwave ring
+      const color = shockwave.color;
+      this.ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${shockwave.alpha})`;
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.arc(shockwave.x, shockwave.y, shockwave.radius, 0, Math.PI * 2);
+      this.ctx.stroke();
+      
+      return true; // Keep shockwave for next frame
+    });
+    
     // Draw and fade interaction circles
-    const now = Date.now();
     this.interactionCircles = this.interactionCircles.filter(circle => {
       const elapsed = now - circle.timestamp;
       const progress = elapsed / INTERACTION_FADE_DURATION;
@@ -737,6 +898,19 @@ export class BetSpireRender {
     ctx.fill();
     
     ctx.restore();
+  }
+
+  drawForgeInfluenceRing() {
+    const ctx = this.ctx;
+    
+    // Draw a faint ring at the edge of the forge's influence radius
+    ctx.strokeStyle = 'rgba(150, 150, 200, 0.2)'; // Faint bluish-white
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]); // Dashed line for subtlety
+    ctx.beginPath();
+    ctx.arc(this.forge.x, this.forge.y, MAX_FORGE_ATTRACTION_DISTANCE, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]); // Reset to solid lines
   }
 
   drawSpawners() {
