@@ -35,6 +35,9 @@ onKufMapsReady((maps) => {
  * either side is defeated.
  */
 
+// Pixelation levels downscale the internal render buffer to improve performance on high-DPI displays.
+const PIXELATION_SCALES = [1, 0.75, 0.5]; // 0 = crisp, 1 = mild pixelation, 2 = aggressive pixelation
+
 // All configuration constants now imported from kufSimulationConfig.js
 // Legacy constant names mapped to new config structure for backward compatibility
 const MARINE_MOVE_SPEED = MARINE_CONFIG.MOVE_SPEED;
@@ -113,6 +116,8 @@ export class KufBattlefieldSimulation {
     this.destroyedTurrets = 0;
     this.bounds = { width: this.canvas?.width || 640, height: this.canvas?.height || 360 };
     this.pixelRatio = 1;
+    this.pixelationLevel = 0;
+    this.pixelationScale = PIXELATION_SCALES[this.pixelationLevel];
     this.camera = { x: 0, y: 0, zoom: 1.0 };
     this.cameraDrag = { active: false, startX: 0, startY: 0, camStartX: 0, camStartY: 0 };
     this.selectedEnemy = null;
@@ -160,13 +165,20 @@ export class KufBattlefieldSimulation {
     const width = Math.min(parentWidth, viewportWidth, maxWidthByHeight);
     const height = width / aspectRatio;
     const dpr = window.devicePixelRatio || 1;
-    this.pixelRatio = dpr;
-    this.canvas.width = Math.round(width * dpr);
-    this.canvas.height = Math.round(height * dpr);
+    // Apply pixelation scale to reduce internal rendering resolution
+    this.pixelRatio = dpr * this.pixelationScale;
+    this.canvas.width = Math.round(width * this.pixelRatio);
+    this.canvas.height = Math.round(height * this.pixelRatio);
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
+    // Apply pixelated rendering style when downscaling
+    if (this.pixelationScale < 1) {
+      this.canvas.style.imageRendering = 'pixelated';
+    } else {
+      this.canvas.style.imageRendering = 'auto';
+    }
     if (this.ctx) {
-      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      this.ctx.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0);
       this.bounds = { width, height };
       this.drawBackground(true);
     }
@@ -756,7 +768,7 @@ export class KufBattlefieldSimulation {
 
   /**
    * Apply player-driven visual preferences like glow overlays and fixed render modes.
-   * @param {{ renderMode?: 'auto' | 'minimal' | 'cinematic', glowOverlays?: boolean }} settings - Visual toggles.
+   * @param {{ renderMode?: 'auto' | 'minimal' | 'cinematic', glowOverlays?: boolean, pixelationLevel?: number }} settings - Visual toggles.
    */
   setVisualSettings(settings = {}) {
     if (settings.renderMode) {
@@ -765,7 +777,29 @@ export class KufBattlefieldSimulation {
     if (typeof settings.glowOverlays === 'boolean') {
       this.glowOverlaysEnabled = settings.glowOverlays;
     }
+    if (typeof settings.pixelationLevel === 'number') {
+      this.setPixelationLevel(settings.pixelationLevel);
+    }
     this.updateRenderProfile(this.smoothedFrameCost);
+  }
+
+  /**
+   * Get the current pixelation scale factor.
+   * @returns {number} Current pixelation scale (1 = no pixelation, 0.5 = strong pixelation).
+   */
+  getPixelationScale() {
+    return this.pixelationScale || 1;
+  }
+
+  /**
+   * Set the pixelation level to trade visual sharpness for performance.
+   * @param {number} level - Pixelation level (0 = none, 1 = mild, 2 = strong).
+   */
+  setPixelationLevel(level = 0) {
+    const clamped = Math.max(0, Math.min(PIXELATION_SCALES.length - 1, Math.round(level)));
+    this.pixelationLevel = clamped;
+    this.pixelationScale = PIXELATION_SCALES[clamped] || 1;
+    this.resize();
   }
 
   update(delta) {
