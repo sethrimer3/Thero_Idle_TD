@@ -973,5 +973,9 @@ export function getBetSpireRenderInstance() {
   return betSpireRenderInstance;
 }
 
+export function getBetSpireRenderInstance() {
+  return betSpireRenderInstance;
+}
+
 // Export tier definitions for use in other modules
 export { PARTICLE_TIERS };
