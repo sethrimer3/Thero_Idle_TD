@@ -229,7 +229,7 @@ class Particle {
 
 // Main render system
 export class BetSpireRender {
-  constructor(canvas) {
+  constructor(canvas, state = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
     this.particles = [];
@@ -243,6 +243,17 @@ export class BetSpireRender {
     PARTICLE_TIERS.forEach(tier => {
       this.inventory.set(tier.id, 0);
     });
+    
+    // Particle Factor tracking for BET glyph awards - load from state or use defaults
+    this.particleFactorMilestone = Number.isFinite(state.particleFactorMilestone) 
+      ? state.particleFactorMilestone 
+      : 10; // Start at 10, then 100, 1000, etc.
+    this.betGlyphsAwarded = Number.isFinite(state.betGlyphsAwarded)
+      ? state.betGlyphsAwarded
+      : 0;
+    
+    // Store state reference for persistence
+    this.state = state;
     
     // Mouse/touch interaction state
     this.isInteracting = false;
@@ -557,6 +568,16 @@ export class BetSpireRender {
       this.attemptMerge();
     }
     
+    // Periodically check for particle factor milestones
+    if (Math.random() < 0.01) { // 1% chance per frame
+      const glyphsAwarded = this.checkParticleFactorMilestone();
+      if (glyphsAwarded > 0) {
+        // Trigger an event or notification that glyphs were awarded
+        const event = new CustomEvent('betGlyphsAwarded', { detail: { count: glyphsAwarded } });
+        this.canvas.dispatchEvent(event);
+      }
+    }
+    
     this.animationId = requestAnimationFrame(this.animate);
   }
 
@@ -606,6 +627,58 @@ export class BetSpireRender {
     // The CSS will handle scaling to fit container
   }
 
+  /**
+   * Calculate the Particle Factor by multiplying the number of particles from each tier.
+   * If a tier has 0 particles, it contributes 1 to avoid zeroing out the entire factor.
+   * This is the player's total score in the BET spire.
+   */
+  calculateParticleFactor() {
+    let factor = 1;
+    PARTICLE_TIERS.forEach(tier => {
+      const count = this.inventory.get(tier.id) || 0;
+      // Multiply by the count, but use 1 if count is 0 to avoid zero multiplication
+      factor *= (count > 0 ? count : 1);
+    });
+    return factor;
+  }
+
+  /**
+   * Check if the particle factor has reached a new milestone and award BET glyphs.
+   * Returns the number of glyphs awarded this check (0 if no new milestone reached).
+   */
+  checkParticleFactorMilestone() {
+    const currentFactor = this.calculateParticleFactor();
+    let glyphsAwarded = 0;
+    
+    // Award glyphs for each 10x milestone reached
+    while (currentFactor >= this.particleFactorMilestone) {
+      glyphsAwarded++;
+      this.betGlyphsAwarded++;
+      this.particleFactorMilestone *= 10; // Next milestone is 10x higher
+    }
+    
+    // Persist state changes
+    if (glyphsAwarded > 0 && this.state) {
+      this.state.betGlyphsAwarded = this.betGlyphsAwarded;
+      this.state.particleFactorMilestone = this.particleFactorMilestone;
+    }
+    
+    return glyphsAwarded;
+  }
+
+  /**
+   * Get the current particle factor and milestone progress.
+   */
+  getParticleFactorStatus() {
+    const currentFactor = this.calculateParticleFactor();
+    return {
+      particleFactor: currentFactor,
+      currentMilestone: this.particleFactorMilestone,
+      betGlyphsAwarded: this.betGlyphsAwarded,
+      progressToNext: currentFactor / this.particleFactorMilestone,
+    };
+  }
+
   getInventory() {
     // Return a copy of the inventory map
     return new Map(this.inventory);
@@ -624,7 +697,7 @@ export class BetSpireRender {
 // Initialize the Bet Spire render
 let betSpireRenderInstance = null;
 
-export function initBetSpireRender() {
+export function initBetSpireRender(state = {}) {
   const canvas = document.getElementById('bet-spire-canvas');
   if (!canvas) {
     console.warn('Bet Spire canvas element not found');
@@ -635,7 +708,7 @@ export function initBetSpireRender() {
     betSpireRenderInstance.stop();
   }
   
-  betSpireRenderInstance = new BetSpireRender(canvas);
+  betSpireRenderInstance = new BetSpireRender(canvas, state);
   betSpireRenderInstance.start();
   
   return betSpireRenderInstance;

@@ -161,6 +161,7 @@ import { FluidTerrariumItemsDropdown } from './fluidTerrariumItemsDropdown.js';
 import { createResourceHud } from './resourceHud.js';
 import { initBetSpireRender } from './betSpireRender.js';
 import { initParticleInventoryDisplay } from './betParticleInventory.js';
+import { createBetSpireUpgradeMenu } from './betSpireUpgradeMenu.js';
 import { createTsadiUpgradeUi } from './tsadiUpgradeUi.js';
 import { createTsadiBindingUi } from './tsadiBindingUi.js';
 import { createSpireTabVisibilityManager } from './spireTabVisibility.js';
@@ -1713,6 +1714,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     setTsadiBindingAgents,
     ensureTsadiBankSeeded,
     reconcileGlyphCurrencyFromState,
+    getBetSandBank,
+    setBetSandBank,
   } = createSpireResourceBanks({
     spireResourceState,
     getSpireMenuController: () => spireMenuController,
@@ -6803,8 +6806,39 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     initializeManualDropHandlers();
     
     // Initialize Bet Spire particle physics render and inventory display
-    initBetSpireRender();
+    initBetSpireRender(spireResourceState.fluid);
     initParticleInventoryDisplay();
+    
+    // Initialize BET spire upgrade menu
+    const betUpgradeMenu = createBetSpireUpgradeMenu({
+      formatWholeNumber,
+      formatGameNumber,
+      formatDecimal,
+      state: spireResourceState.fluid,
+    });
+    
+    betUpgradeMenu.bindPurchaseButtons(getBetSandBank, setBetSandBank);
+    betUpgradeMenu.startGenerationLoop();
+    
+    // Update the upgrade menu display every second
+    setInterval(() => {
+      betUpgradeMenu.updateDisplay(getBetSandBank());
+    }, 1000);
+    
+    // Listen for BET glyph awards
+    const betCanvas = document.getElementById('bet-spire-canvas');
+    if (betCanvas) {
+      betCanvas.addEventListener('betGlyphsAwarded', (event) => {
+        const count = event.detail?.count || 0;
+        if (count > 0) {
+          // Award BET glyphs to the player
+          setBetGlyphCurrency(getBetGlyphCurrency() + count);
+          recordPowderEvent('bet-glyph-award', { count });
+          // Trigger autosave to persist the milestone achievement
+          schedulePowderSave();
+        }
+      });
+    }
   }
 
   if (document.readyState === 'loading') {
