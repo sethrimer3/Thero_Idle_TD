@@ -18,9 +18,10 @@ const DISTANCE_SCALE = 0.01; // Scale factor for distance calculations
 const FORCE_SCALE = 0.01; // Scale factor for force application
 const ORBITAL_FORCE = 0.15; // Increased tangential orbital force strength (was 0.1)
 const ORBITAL_RADIUS_MULTIPLIER = 2; // Multiplier for orbital effect radius
+const FORGE_REPULSION_DAMPING = 0.6; // Dampen outward push when particles slingshot past the forge
 const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
 const SPAWNER_GRAVITY_STRENGTH = 0.75; // Gentle attraction strength used by individual spawners
-const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 3; // Spawner gravity reaches three times its radius
+const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four times its radius for a wider pull
 
 // User interaction configuration
 const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 20;
@@ -197,18 +198,25 @@ class Particle {
 
       // Apply attraction force (inverse square law simplified) only while within the localized forge gravity well
       if (dist <= MAX_FORGE_ATTRACTION_DISTANCE) {
+        const angle = Math.atan2(dy, dx);
         if (dist > 1) {
           const force = ATTRACTION_STRENGTH / (dist * DISTANCE_SCALE);
-          const angle = Math.atan2(dy, dx);
           this.vx += Math.cos(angle) * force * FORCE_SCALE;
           this.vy += Math.sin(angle) * force * FORCE_SCALE;
         }
 
         // Add slight orbital motion around forge to keep particles swirling
         if (dist < FORGE_RADIUS * ORBITAL_RADIUS_MULTIPLIER) { // Apply orbital force in a wider area
-          const tangentAngle = Math.atan2(dy, dx) + Math.PI / 2;
+          const tangentAngle = angle + Math.PI / 2;
           this.vx += Math.cos(tangentAngle) * ORBITAL_FORCE;
           this.vy += Math.sin(tangentAngle) * ORBITAL_FORCE;
+        }
+
+        // If a particle is fleeing the forge, dampen that repelling motion to keep the forge more magnetic than pushy.
+        const radialVelocity = (this.vx * Math.cos(angle)) + (this.vy * Math.sin(angle));
+        if (radialVelocity > 0) {
+          this.vx -= Math.cos(angle) * radialVelocity * FORGE_REPULSION_DAMPING;
+          this.vy -= Math.sin(angle) * radialVelocity * FORGE_REPULSION_DAMPING;
         }
       }
     }
@@ -319,6 +327,11 @@ export class BetSpireRender {
     
     // Spawner rotation tracking
     this.spawnerRotations = new Map();
+
+    // Initialize rotation entries for any tiers that start unlocked so their forge triangles counter-rotate immediately.
+    this.unlockedTiers.forEach((tierId) => {
+      this.spawnerRotations.set(tierId, Math.random() * Math.PI * 2);
+    });
     
     // Particle Factor tracking for BET glyph awards - load from state or use defaults
     this.particleFactorMilestone = Number.isFinite(state.particleFactorMilestone) 
@@ -628,7 +641,7 @@ export class BetSpireRender {
     // Update forge rotation
     this.forgeRotation += FORGE_ROTATION_SPEED;
     
-    // Update spawner rotations
+    // Update spawner rotations so paired triangles spin in opposing directions like the central forge.
     this.spawnerRotations.forEach((rotation, tierId) => {
       this.spawnerRotations.set(tierId, rotation + SPAWNER_ROTATION_SPEED);
     });

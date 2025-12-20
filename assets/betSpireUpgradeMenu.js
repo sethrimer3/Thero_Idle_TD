@@ -63,10 +63,13 @@ export function createBetSpireUpgradeMenu({
 } = {}) {
   // Generator state: tracks owned count for each generator
   const generatorState = state.generators || {};
+  const generatorRemainders = {}; // Carry fractional generation so slow generators still produce over time
   PARTICLE_GENERATORS.forEach(gen => {
     if (!Number.isFinite(generatorState[gen.id])) {
       generatorState[gen.id] = 0;
     }
+
+    generatorRemainders[gen.id] = 0;
   });
   
   // Store reference for external access
@@ -128,13 +131,17 @@ export function createBetSpireUpgradeMenu({
     PARTICLE_GENERATORS.forEach(generator => {
       const owned = generatorState[generator.id] || 0;
       if (owned > 0) {
-        const particlesToGenerate = owned * generator.particlesPerSecond * elapsedSeconds;
-        
+        const particlesToGenerate = generatorRemainders[generator.id]
+          + owned * generator.particlesPerSecond * elapsedSeconds;
+
         // Add whole particles
         const wholeParticles = Math.floor(particlesToGenerate);
         for (let i = 0; i < wholeParticles; i++) {
           renderInstance.addParticle(generator.tierId, 0); // Add small particles
         }
+
+        // Keep fractional remainder so low-output generators eventually create particles
+        generatorRemainders[generator.id] = particlesToGenerate - wholeParticles;
       }
     });
   }
