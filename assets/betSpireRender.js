@@ -16,6 +16,7 @@ const FORGE_RADIUS = 30; // Radius for forge attraction
 const DISTANCE_SCALE = 0.01; // Scale factor for distance calculations
 const FORCE_SCALE = 0.01; // Scale factor for force application
 const ORBITAL_FORCE = 0.15; // Increased tangential orbital force strength (was 0.1)
+const ORBITAL_RADIUS_MULTIPLIER = 2; // Multiplier for orbital effect radius
 const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
 
 // User interaction configuration
@@ -26,6 +27,7 @@ const INTERACTION_FADE_DURATION = 300; // milliseconds for circle fade
 // Particle spawner configuration (mini forges for each unlocked particle type)
 const SPAWNER_SIZE = 8; // Size of spawner forge triangles (smaller than main forge)
 const SPAWNER_ROTATION_SPEED = 0.03; // Rotation speed for spawner triangles
+const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
 const SPAWNER_POSITIONS = [
   { x: CANVAS_WIDTH * 0.15, y: CANVAS_HEIGHT * 0.15 },
   { x: CANVAS_WIDTH * 0.85, y: CANVAS_HEIGHT * 0.15 },
@@ -179,7 +181,7 @@ class Particle {
       }
       
       // Add slight orbital motion around forge to keep particles swirling
-      if (dist < FORGE_RADIUS * 2) { // Apply orbital force in a wider area
+      if (dist < FORGE_RADIUS * ORBITAL_RADIUS_MULTIPLIER) { // Apply orbital force in a wider area
         const tangentAngle = Math.atan2(dy, dx) + Math.PI / 2;
         this.vx += Math.cos(tangentAngle) * ORBITAL_FORCE;
         this.vy += Math.sin(tangentAngle) * ORBITAL_FORCE;
@@ -712,7 +714,7 @@ export class BetSpireRender {
       // Draw second triangle (pointing down, rotating counter-clockwise)
       ctx.rotate(-rotation * 2); // Reset and rotate opposite direction
       // Use slightly lighter/darker variant for second triangle
-      const lightColorString = `rgba(${Math.min(255, color.r + 30)}, ${Math.min(255, color.g + 30)}, ${Math.min(255, color.b + 30)}, 0.6)`;
+      const lightColorString = `rgba(${Math.min(255, color.r + SPAWNER_COLOR_BRIGHTNESS_OFFSET)}, ${Math.min(255, color.g + SPAWNER_COLOR_BRIGHTNESS_OFFSET)}, ${Math.min(255, color.b + SPAWNER_COLOR_BRIGHTNESS_OFFSET)}, 0.6)`;
       ctx.strokeStyle = lightColorString;
       ctx.beginPath();
       ctx.moveTo(0, SPAWNER_SIZE);
