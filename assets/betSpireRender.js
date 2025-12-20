@@ -388,7 +388,7 @@ export class BetSpireRender {
     this.interactionCircles = []; // Array of {x, y, radius, alpha, timestamp}
     
     // Shockwave state for merge effects
-    this.shockwaves = []; // Array of {x, y, radius, alpha, timestamp, maxRadius}
+    this.shockwaves = []; // Array of {x, y, radius, alpha, timestamp}
     
     // Pending merges that need to complete convergence before creating new particle
     this.pendingMerges = []; // Array of {particles, tierId, sizeIndex, centerX, centerY, timestamp}
@@ -455,8 +455,7 @@ export class BetSpireRender {
       y: y,
       radius: 0,
       alpha: 0.8,
-      timestamp: Date.now(),
-      maxRadius: SHOCKWAVE_MAX_RADIUS
+      timestamp: Date.now()
     });
   }
 
