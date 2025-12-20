@@ -9,7 +9,8 @@ const CANVAS_HEIGHT = 320;
 const TRAIL_FADE = 0.15; // Lower = longer trails
 const BASE_PARTICLE_SIZE = 0.75; // Base size for small particles (reduced from 1.5 to half size)
 const SIZE_MULTIPLIER = 2.5; // Each size tier is 2.5x bigger
-const MIN_VELOCITY = 0.3; // Minimum speed to keep particles swirling
+const BASE_MIN_VELOCITY = 0.24; // Minimum speed to keep particles swirling (20% slower than before)
+const MIN_VELOCITY_MULTIPLIERS = [1, 0.8, 0.64]; // Medium and large particles slow by successive 20% steps
 const MAX_VELOCITY = 2;
 const ATTRACTION_STRENGTH = 1.5; // Increased to keep particles within field (was 0.5)
 const FORGE_RADIUS = 30; // Radius for forge attraction
@@ -23,8 +24,16 @@ const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
 const SPAWNER_GRAVITY_STRENGTH = 0.75; // Gentle attraction strength used by individual spawners
 const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four times its radius for a wider pull
 
+// Pixelation levels downscale the internal render buffer to improve performance on high-DPI displays.
+const PIXELATION_SCALES = [1, 0.75, 0.5]; // 0 = crisp, 1 = mild pixelation, 2 = aggressive pixelation
+
+function resolvePixelationScale(level = 0) {
+  const index = Math.max(0, Math.min(PIXELATION_SCALES.length - 1, Math.round(level)));
+  return PIXELATION_SCALES[index];
+}
+
 // User interaction configuration
-const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 20;
+const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 10;
 const MOUSE_ATTRACTION_STRENGTH = 3.0;
 const INTERACTION_FADE_DURATION = 300; // milliseconds for circle fade
 
@@ -159,6 +168,11 @@ class Particle {
     return BASE_PARTICLE_SIZE * Math.pow(SIZE_MULTIPLIER, this.sizeIndex);
   }
 
+  getMinVelocity() {
+    const multiplier = MIN_VELOCITY_MULTIPLIERS[this.sizeIndex] ?? MIN_VELOCITY_MULTIPLIERS[0];
+    return BASE_MIN_VELOCITY * multiplier;
+  }
+
   update(forge, spawners = []) {
     // If locked to mouse, strongly attract to mouse position
     if (this.lockedToMouse && this.mouseTarget) {
@@ -229,14 +243,15 @@ class Particle {
     }
     
     // Enforce minimum velocity to keep particles always moving
-    if (speed < MIN_VELOCITY && speed > 0) {
-      this.vx = (this.vx / speed) * MIN_VELOCITY;
-      this.vy = (this.vy / speed) * MIN_VELOCITY;
+    const minVelocity = this.getMinVelocity();
+    if (speed < minVelocity && speed > 0) {
+      this.vx = (this.vx / speed) * minVelocity;
+      this.vy = (this.vy / speed) * minVelocity;
     } else if (speed === 0) {
       // Give particles a random initial velocity if they're stopped
       const randomAngle = Math.random() * Math.PI * 2;
-      this.vx = Math.cos(randomAngle) * MIN_VELOCITY;
-      this.vy = Math.sin(randomAngle) * MIN_VELOCITY;
+      this.vx = Math.cos(randomAngle) * minVelocity;
+      this.vy = Math.sin(randomAngle) * minVelocity;
     }
     
     // Update position
@@ -315,6 +330,8 @@ export class BetSpireRender {
     this.forgeRotation = 0; // Rotation angle for forge triangles
     this.animationId = null;
     this.isRunning = false;
+    this.pixelationLevel = Number.isFinite(state.pixelationLevel) ? state.pixelationLevel : 0;
+    this.pixelationScale = resolvePixelationScale(this.pixelationLevel);
     
     // Particle inventory: tracks count by tier (sum of all sizes)
     this.inventory = new Map();
@@ -357,8 +374,9 @@ export class BetSpireRender {
     this.handlePointerUp = this.handlePointerUp.bind(this);
     
     // Set canvas dimensions
-    this.canvas.width = CANVAS_WIDTH;
-    this.canvas.height = CANVAS_HEIGHT;
+    this.canvas.style.width = `${CANVAS_WIDTH}px`;
+    this.canvas.style.height = `${CANVAS_HEIGHT}px`;
+    this.applyPixelationScale();
     
     // Initialize with some sand particles for testing
     for (let i = 0; i < 50; i++) {
@@ -820,6 +838,38 @@ export class BetSpireRender {
     // The CSS will handle scaling to fit container
   }
 
+  getPixelationScale() {
+    return this.pixelationScale;
+  }
+
+  setPixelationLevel(level = 0) {
+    const clamped = Math.max(0, Math.min(PIXELATION_SCALES.length - 1, Math.round(level)));
+    this.pixelationLevel = clamped;
+    this.pixelationScale = resolvePixelationScale(clamped);
+    if (this.state) {
+      this.state.pixelationLevel = clamped;
+    }
+    this.applyPixelationScale();
+  }
+
+  applyPixelationScale() {
+    const scale = this.getPixelationScale();
+    const targetWidth = Math.max(1, Math.floor(CANVAS_WIDTH * scale));
+    const targetHeight = Math.max(1, Math.floor(CANVAS_HEIGHT * scale));
+
+    if (this.canvas.width !== targetWidth) {
+      this.canvas.width = targetWidth;
+    }
+    if (this.canvas.height !== targetHeight) {
+      this.canvas.height = targetHeight;
+    }
+
+    if (this.ctx) {
+      this.ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      this.ctx.imageSmoothingEnabled = false;
+    }
+  }
+
   /**
    * Calculate the Particle Factor by multiplying the number of particles from each tier.
    * If a tier has 0 particles, it contributes 1 to avoid zeroing out the entire factor.
@@ -917,6 +967,10 @@ export function resumeBetSpireRender() {
   if (betSpireRenderInstance) {
     betSpireRenderInstance.start();
   }
+}
+
+export function getBetSpireRenderInstance() {
+  return betSpireRenderInstance;
 }
 
 export function getBetSpireRenderInstance() {

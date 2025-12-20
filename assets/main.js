@@ -382,6 +382,7 @@ import {
   setLamedSimulationGetter,
   initializeLamedSpirePreferences,
 } from './lamedSpirePreferences.js';
+import { bindBetSpireOptions, initializeBetSpirePreferences } from './betSpirePreferences.js';
 import {
   applyFluidVisualSettings,
   bindFluidSpireOptions,
@@ -6009,6 +6010,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       spireId: 'fluid',
     });
     bindSpireOptionsDropdown({
+      toggleId: 'bet-options-toggle-button',
+      menuId: 'bet-options-menu',
+      spireId: 'bet',
+    });
+    bindSpireOptionsDropdown({
       toggleId: 'tsadi-options-toggle-button',
       menuId: 'tsadi-options-menu',
       spireId: 'tsadi',
@@ -6807,6 +6813,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     
     // Initialize Bet Spire particle physics render and inventory display
     initBetSpireRender(spireResourceState.fluid);
+    initializeBetSpirePreferences();
+    bindBetSpireOptions();
     initParticleInventoryDisplay();
     
     // Initialize BET spire upgrade menu

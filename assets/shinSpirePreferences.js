@@ -10,6 +10,9 @@ const SHIN_GRAPHICS_LEVELS = Object.freeze({
   MEDIUM: 'medium',
   HIGH: 'high',
 });
+const PIXELATION_LEVELS = [0, 1, 2];
+const PIXELATION_LABELS = ['None', 'Mild', 'Strong'];
+const PIXELATION_SCALES = [1, 0.75, 0.5];
 
 // Trail quality options for enemy trails in the Cardinal Warden simulation.
 // Quality affects visual rendering complexity, not length (length is fixed for gameplay).
@@ -30,6 +33,7 @@ const TRAIL_LENGTH_OPTIONS = Object.freeze({
 // Default settings when no preferences are stored.
 const DEFAULT_SETTINGS = Object.freeze({
   graphicsLevel: SHIN_GRAPHICS_LEVELS.HIGH,
+  pixelationLevel: 0,
   panZoomEnabled: false,
   nightMode: true,
   enemyTrailQuality: TRAIL_QUALITY_OPTIONS.HIGH,
@@ -41,6 +45,7 @@ let simulationGetter = () => null;
 
 // DOM element references cached after binding.
 let graphicsLevelButton = null;
+let pixelationLevelButton = null;
 let nightModeToggle = null;
 let nightModeToggleState = null;
 let enemyTrailQualityButton = null;
@@ -133,6 +138,10 @@ function applySettingsToSimulation() {
     });
   }
 
+  if (typeof simulation.setPixelationLevel === 'function') {
+    simulation.setPixelationLevel(settings.pixelationLevel);
+  }
+
   // Control pan/zoom if the simulation supports it.
   if (typeof simulation.setPanZoomEnabled === 'function') {
     simulation.setPanZoomEnabled(settings.panZoomEnabled);
@@ -167,6 +176,15 @@ function cycleGraphicsLevel() {
   syncGraphicsLevelButton();
 }
 
+function cyclePixelationLevel() {
+  const currentIndex = PIXELATION_LEVELS.indexOf(Math.round(settings.pixelationLevel));
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % PIXELATION_LEVELS.length : 0;
+  settings.pixelationLevel = PIXELATION_LEVELS[nextIndex];
+  persistSettings();
+  applySettingsToSimulation();
+  syncPixelationButton();
+}
+
 /**
  * Retrieve the current graphics level label for the UI.
  */
@@ -181,6 +199,11 @@ function resolveGraphicsLevelLabel(level = settings.graphicsLevel) {
   }
 }
 
+function resolvePixelationLabel(level = settings.pixelationLevel) {
+  const index = Math.max(0, Math.min(PIXELATION_LEVELS.length - 1, Math.round(level)));
+  return PIXELATION_LABELS[index] || PIXELATION_LABELS[0];
+}
+
 /**
  * Update the graphics level button label to reflect the current setting.
  */
@@ -191,6 +214,15 @@ function syncGraphicsLevelButton() {
   const label = resolveGraphicsLevelLabel();
   graphicsLevelButton.textContent = `Graphics · ${label}`;
   graphicsLevelButton.setAttribute('aria-label', `Cycle graphics quality (current: ${label})`);
+}
+
+function syncPixelationButton() {
+  if (!pixelationLevelButton) {
+    return;
+  }
+  const label = resolvePixelationLabel();
+  pixelationLevelButton.textContent = `Pixelation · ${label}`;
+  pixelationLevelButton.setAttribute('aria-label', `Cycle pixelation level (current: ${label})`);
 }
 
 /**
@@ -315,12 +347,18 @@ function applySetting(key, value) {
  */
 export function bindShinSpireOptions() {
   graphicsLevelButton = document.getElementById('shin-graphics-level-button');
+  pixelationLevelButton = document.getElementById('shin-pixelation-level-button');
   nightModeToggle = document.getElementById('shin-night-mode-toggle');
   nightModeToggleState = document.getElementById('shin-night-mode-toggle-state');
 
   if (graphicsLevelButton) {
     graphicsLevelButton.addEventListener('click', cycleGraphicsLevel);
     syncGraphicsLevelButton();
+  }
+
+  if (pixelationLevelButton) {
+    pixelationLevelButton.addEventListener('click', cyclePixelationLevel);
+    syncPixelationButton();
   }
 
   if (nightModeToggle) {
@@ -345,6 +383,7 @@ export function bindShinSpireOptions() {
 
   // Sync UI with persisted settings.
   syncGraphicsLevelButton();
+  syncPixelationButton();
   syncEnemyTrailQualityButton();
   syncBulletTrailLengthButton();
   syncAllToggles();
@@ -383,9 +422,15 @@ export function applyShinVisualSettings(newSettings, { persist = true } = {}) {
   }
   applySettingsToSimulation();
   syncGraphicsLevelButton();
+  syncPixelationButton();
   syncEnemyTrailQualityButton();
   syncBulletTrailLengthButton();
   syncAllToggles();
+}
+
+export function getShinPixelationScale() {
+  const index = Math.max(0, Math.min(PIXELATION_SCALES.length - 1, Math.round(settings.pixelationLevel)));
+  return PIXELATION_SCALES[index];
 }
 
 export { SHIN_GRAPHICS_LEVELS, TRAIL_LENGTH_OPTIONS, TRAIL_QUALITY_OPTIONS };
