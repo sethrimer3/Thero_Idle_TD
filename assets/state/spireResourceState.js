@@ -35,6 +35,14 @@ const DEFAULT_GENERIC_STATE = {
   storySeen: false,
 };
 
+const DEFAULT_FLUID_STATE = {
+  unlocked: false,
+  storySeen: false,
+  generators: {}, // Particle generators for BET spire upgrade menu
+  particleFactorMilestone: 10, // Next milestone for BET glyph awards
+  betGlyphsAwarded: 0, // Total BET glyphs awarded from particle factor
+};
+
 function mergeBranch(base, overrides = {}) {
   return {
     ...base,
@@ -46,6 +54,10 @@ function mergeBranch(base, overrides = {}) {
     stats: {
       ...(base.stats || {}),
       ...(overrides.stats || {}),
+    },
+    generators: {
+      ...(base.generators || {}),
+      ...(overrides.generators || {}),
     },
   };
 }
@@ -60,10 +72,7 @@ export function createSpireResourceState(overrides = {}) {
       ...DEFAULT_GENERIC_STATE,
       ...(overrides.powder || {}),
     },
-    fluid: {
-      ...DEFAULT_GENERIC_STATE,
-      ...(overrides.fluid || {}),
-    },
+    fluid: mergeBranch(DEFAULT_FLUID_STATE, overrides.fluid),
     lamed: mergeBranch(DEFAULT_LAMED_STATE, overrides.lamed),
     tsadi: mergeBranch(DEFAULT_TSADI_STATE, overrides.tsadi),
     shin: {

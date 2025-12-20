@@ -59,12 +59,20 @@ export function createBetSpireUpgradeMenu({
   formatWholeNumber = (value) => String(Math.floor(value)),
   formatGameNumber = (value) => String(value),
   formatDecimal = (value, places = 2) => value?.toFixed ? value.toFixed(places) : String(value),
+  state = {},
 } = {}) {
   // Generator state: tracks owned count for each generator
-  const generatorState = {};
+  const generatorState = state.generators || {};
   PARTICLE_GENERATORS.forEach(gen => {
-    generatorState[gen.id] = 0;
+    if (!Number.isFinite(generatorState[gen.id])) {
+      generatorState[gen.id] = 0;
+    }
   });
+  
+  // Store reference for external access
+  if (!state.generators) {
+    state.generators = generatorState;
+  }
 
   // Accumulated time for particle generation
   let lastGenerationTime = Date.now();
@@ -249,5 +257,6 @@ export function createBetSpireUpgradeMenu({
     updateDisplay,
     bindPurchaseButtons,
     startGenerationLoop,
+    getState: () => state,
   };
 }

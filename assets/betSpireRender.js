@@ -229,7 +229,7 @@ class Particle {
 
 // Main render system
 export class BetSpireRender {
-  constructor(canvas) {
+  constructor(canvas, state = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
     this.particles = [];
@@ -244,9 +244,16 @@ export class BetSpireRender {
       this.inventory.set(tier.id, 0);
     });
     
-    // Particle Factor tracking for BET glyph awards
-    this.particleFactorMilestone = 10; // Start at 10, then 100, 1000, etc.
-    this.betGlyphsAwarded = 0;
+    // Particle Factor tracking for BET glyph awards - load from state or use defaults
+    this.particleFactorMilestone = Number.isFinite(state.particleFactorMilestone) 
+      ? state.particleFactorMilestone 
+      : 10; // Start at 10, then 100, 1000, etc.
+    this.betGlyphsAwarded = Number.isFinite(state.betGlyphsAwarded)
+      ? state.betGlyphsAwarded
+      : 0;
+    
+    // Store state reference for persistence
+    this.state = state;
     
     // Mouse/touch interaction state
     this.isInteracting = false;
@@ -650,6 +657,12 @@ export class BetSpireRender {
       this.particleFactorMilestone *= 10; // Next milestone is 10x higher
     }
     
+    // Persist state changes
+    if (glyphsAwarded > 0 && this.state) {
+      this.state.betGlyphsAwarded = this.betGlyphsAwarded;
+      this.state.particleFactorMilestone = this.particleFactorMilestone;
+    }
+    
     return glyphsAwarded;
   }
 
@@ -684,7 +697,7 @@ export class BetSpireRender {
 // Initialize the Bet Spire render
 let betSpireRenderInstance = null;
 
-export function initBetSpireRender() {
+export function initBetSpireRender(state = {}) {
   const canvas = document.getElementById('bet-spire-canvas');
   if (!canvas) {
     console.warn('Bet Spire canvas element not found');
@@ -695,7 +708,7 @@ export function initBetSpireRender() {
     betSpireRenderInstance.stop();
   }
   
-  betSpireRenderInstance = new BetSpireRender(canvas);
+  betSpireRenderInstance = new BetSpireRender(canvas, state);
   betSpireRenderInstance.start();
   
   return betSpireRenderInstance;

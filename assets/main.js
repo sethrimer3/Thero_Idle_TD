@@ -6806,7 +6806,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     initializeManualDropHandlers();
     
     // Initialize Bet Spire particle physics render and inventory display
-    initBetSpireRender();
+    initBetSpireRender(spireResourceState.fluid);
     initParticleInventoryDisplay();
     
     // Initialize BET spire upgrade menu
@@ -6814,6 +6814,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       formatWholeNumber,
       formatGameNumber,
       formatDecimal,
+      state: spireResourceState.fluid,
     });
     
     betUpgradeMenu.bindPurchaseButtons(getBetSandBank, setBetSandBank);
@@ -6833,6 +6834,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           // Award BET glyphs to the player
           setBetGlyphCurrency(getBetGlyphCurrency() + count);
           recordPowderEvent('bet-glyph-award', { count });
+          // Trigger autosave to persist the milestone achievement
+          schedulePowderSave();
         }
       });
     }
