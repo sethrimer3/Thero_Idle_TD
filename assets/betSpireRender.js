@@ -19,6 +19,8 @@ const FORCE_SCALE = 0.01; // Scale factor for force application
 const ORBITAL_FORCE = 0.15; // Increased tangential orbital force strength (was 0.1)
 const ORBITAL_RADIUS_MULTIPLIER = 2; // Multiplier for orbital effect radius
 const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
+const SPAWNER_GRAVITY_STRENGTH = 0.75; // Gentle attraction strength used by individual spawners
+const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 3; // Spawner gravity reaches three times its radius
 
 // User interaction configuration
 const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 20;
@@ -32,6 +34,7 @@ const FORGE_POSITION = { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.5 };
 const SPAWNER_SIZE = 8; // Size of spawner forge triangles (smaller than main forge)
 const SPAWNER_ROTATION_SPEED = 0.03; // Rotation speed for spawner triangles
 const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
+const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER; // Influence radius for each spawner
 
 // Generator positions: sand at top center (12 o'clock), then 10 more in clockwise circle
 // All 11 generators are equidistant from each other on a circle around the forge
@@ -155,7 +158,7 @@ class Particle {
     return BASE_PARTICLE_SIZE * Math.pow(SIZE_MULTIPLIER, this.sizeIndex);
   }
 
-  update(forge) {
+  update(forge, spawners = []) {
     // If locked to mouse, strongly attract to mouse position
     if (this.lockedToMouse && this.mouseTarget) {
       const dx = this.mouseTarget.x - this.x;
@@ -173,6 +176,20 @@ class Particle {
         this.vy *= 0.8;
       }
     } else {
+      // Apply gravity from each unlocked spawner within its local field so particles stay near their forge of origin.
+      for (const spawner of spawners) {
+        const dx = spawner.x - this.x;
+        const dy = spawner.y - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist <= spawner.range && dist > 0.5) {
+          const force = SPAWNER_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE);
+          const angle = Math.atan2(dy, dx);
+          this.vx += Math.cos(angle) * force * FORCE_SCALE;
+          this.vy += Math.sin(angle) * force * FORCE_SCALE;
+        }
+      }
+
       // Normal forge attractor behavior
       const dx = forge.x - this.x;
       const dy = forge.y - this.y;
@@ -618,9 +635,12 @@ export class BetSpireRender {
     
     // Draw the forge (Star of David with counter-rotating triangles)
     this.drawForge();
-    
+
     // Draw particle spawners for unlocked tiers
     this.drawSpawners();
+
+    // Gather gravity sources for unlocked spawners so nearby particles feel a local pull.
+    const activeSpawners = this.getActiveSpawnerGravityFields();
     
     // Draw and fade interaction circles
     const now = Date.now();
@@ -643,7 +663,7 @@ export class BetSpireRender {
     
     // Update and draw particles
     for (const particle of this.particles) {
-      particle.update(this.forge);
+      particle.update(this.forge, activeSpawners);
       particle.draw(this.ctx);
     }
     
@@ -763,6 +783,23 @@ export class BetSpireRender {
       
       ctx.restore();
     });
+  }
+
+  getActiveSpawnerGravityFields() {
+    // Collect unlocked spawner positions paired with their gravity reach so particles can orbit their origin tiers.
+    const activeSpawners = [];
+
+    this.unlockedTiers.forEach((tierId) => {
+      const tierIndex = PARTICLE_TIERS.findIndex(tier => tier.id === tierId);
+      if (tierIndex < 0 || tierIndex >= SPAWNER_POSITIONS.length) {
+        return;
+      }
+
+      const position = SPAWNER_POSITIONS[tierIndex];
+      activeSpawners.push({ x: position.x, y: position.y, range: SPAWNER_GRAVITY_RADIUS });
+    });
+
+    return activeSpawners;
   }
 
   resize() {
