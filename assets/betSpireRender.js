@@ -13,6 +13,7 @@ const MIN_VELOCITY = 0.3; // Minimum speed to keep particles swirling
 const MAX_VELOCITY = 2;
 const ATTRACTION_STRENGTH = 1.5; // Increased to keep particles within field (was 0.5)
 const FORGE_RADIUS = 30; // Radius for forge attraction
+const MAX_FORGE_ATTRACTION_DISTANCE = FORGE_RADIUS * 2; // Particles only feel forge gravity when within twice the forge radius
 const DISTANCE_SCALE = 0.01; // Scale factor for distance calculations
 const FORCE_SCALE = 0.01; // Scale factor for force application
 const ORBITAL_FORCE = 0.15; // Increased tangential orbital force strength (was 0.1)
@@ -176,20 +177,22 @@ class Particle {
       const dx = forge.x - this.x;
       const dy = forge.y - this.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      
-      // Apply attraction force (inverse square law simplified)
-      if (dist > 1) {
-        const force = ATTRACTION_STRENGTH / (dist * DISTANCE_SCALE);
-        const angle = Math.atan2(dy, dx);
-        this.vx += Math.cos(angle) * force * FORCE_SCALE;
-        this.vy += Math.sin(angle) * force * FORCE_SCALE;
-      }
-      
-      // Add slight orbital motion around forge to keep particles swirling
-      if (dist < FORGE_RADIUS * ORBITAL_RADIUS_MULTIPLIER) { // Apply orbital force in a wider area
-        const tangentAngle = Math.atan2(dy, dx) + Math.PI / 2;
-        this.vx += Math.cos(tangentAngle) * ORBITAL_FORCE;
-        this.vy += Math.sin(tangentAngle) * ORBITAL_FORCE;
+
+      // Apply attraction force (inverse square law simplified) only while within the localized forge gravity well
+      if (dist <= MAX_FORGE_ATTRACTION_DISTANCE) {
+        if (dist > 1) {
+          const force = ATTRACTION_STRENGTH / (dist * DISTANCE_SCALE);
+          const angle = Math.atan2(dy, dx);
+          this.vx += Math.cos(angle) * force * FORCE_SCALE;
+          this.vy += Math.sin(angle) * force * FORCE_SCALE;
+        }
+
+        // Add slight orbital motion around forge to keep particles swirling
+        if (dist < FORGE_RADIUS * ORBITAL_RADIUS_MULTIPLIER) { // Apply orbital force in a wider area
+          const tangentAngle = Math.atan2(dy, dx) + Math.PI / 2;
+          this.vx += Math.cos(tangentAngle) * ORBITAL_FORCE;
+          this.vy += Math.sin(tangentAngle) * ORBITAL_FORCE;
+        }
       }
     }
     
