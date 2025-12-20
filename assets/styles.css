@@ -13602,3 +13602,58 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
     transform: translateY(-50px) scale(1.2);
   }
 }
+
+/* Bet Spire Particle Inventory Table */
+.particle-inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+}
+
+.particle-inventory-table thead {
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.particle-inventory-table th {
+  padding: 0.5rem;
+  text-align: left;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.particle-inventory-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.particle-inventory-table tr {
+  opacity: 0.4;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.particle-inventory-table tr.has-particles {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.particle-inventory-table tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.particle-tier-name {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.particle-count {
+  text-align: right;
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+}
+
+.particle-inventory-table tr.has-particles .particle-count {
+  color: var(--accent);
+}
