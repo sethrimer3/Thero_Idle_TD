@@ -30,6 +30,10 @@ const SHOCKWAVE_MAX_RADIUS = 80; // Maximum shockwave radius before dissipating
 const SHOCKWAVE_PUSH_FORCE = 2.5; // Force applied to particles hit by shockwave
 const SHOCKWAVE_DURATION = 600; // Milliseconds for shockwave to fully expand and fade
 
+// Merge convergence configuration
+const CONVERGENCE_SPEED = 8; // High-speed convergence for particles being merged
+const CONVERGENCE_DISTANCE_THRESHOLD = 5; // Distance at which particles are considered converged
+
 // Pixelation levels downscale the internal render buffer to improve performance on high-DPI displays.
 const PIXELATION_SCALES = [1, 0.75, 0.5]; // 0 = crisp, 1 = mild pixelation, 2 = aggressive pixelation
 
@@ -159,6 +163,8 @@ class Particle {
     
     this.lockedToMouse = false; // Whether particle is locked to mouse/touch
     this.mouseTarget = null; // Target position when locked to mouse
+    this.converging = false; // Whether particle is converging for a merge
+    this.convergenceTarget = null; // Target position when converging
   }
 
   getTier() {
@@ -195,6 +201,22 @@ class Particle {
         // Very close to target, dampen velocity
         this.vx *= 0.8;
         this.vy *= 0.8;
+      }
+    } else if (this.converging && this.convergenceTarget) {
+      // High-speed convergence for merging particles
+      const dx = this.convergenceTarget.x - this.x;
+      const dy = this.convergenceTarget.y - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist > 1) {
+        // Move at constant high speed toward convergence point
+        const angle = Math.atan2(dy, dx);
+        this.vx = Math.cos(angle) * CONVERGENCE_SPEED;
+        this.vy = Math.sin(angle) * CONVERGENCE_SPEED;
+      } else {
+        // Very close to target, stop
+        this.vx = 0;
+        this.vy = 0;
       }
     } else {
       // Apply gravity from each unlocked spawner within its local field so particles stay near their forge of origin.
@@ -369,6 +391,9 @@ export class BetSpireRender {
     // Shockwave state for merge effects
     this.shockwaves = []; // Array of {x, y, radius, alpha, timestamp, maxRadius}
     
+    // Pending merges that need to complete convergence before creating new particle
+    this.pendingMerges = []; // Array of {particles, tierId, sizeIndex, centerX, centerY, timestamp}
+    
     // Bind methods for requestAnimationFrame and event listeners
     this.animate = this.animate.bind(this);
     this.handlePointerDown = this.handlePointerDown.bind(this);
@@ -460,7 +485,11 @@ export class BetSpireRender {
     const particlesByTierAndSize = new Map();
     
     // Group particles by tier and size, only including particles within forge influence
+    // and not already converging
     this.particles.forEach(particle => {
+      // Skip particles already converging
+      if (particle.converging) return;
+      
       // Check if particle is within forge influence (2x forge radius)
       const dx = this.forge.x - particle.x;
       const dy = this.forge.y - particle.y;
@@ -494,35 +523,24 @@ export class BetSpireRender {
           centerX /= MERGE_THRESHOLD;
           centerY /= MERGE_THRESHOLD;
           
-          // Make particles converge at high speed to center point before merging
+          // Mark particles as converging and set their target
+          const convergingParticles = [];
           for (let i = 0; i < MERGE_THRESHOLD; i++) {
             const particle = group[i];
-            const dx = centerX - particle.x;
-            const dy = centerY - particle.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            if (dist > 1) {
-              // High-speed convergence
-              const speed = 5; // Fast convergence speed
-              particle.vx = (dx / dist) * speed;
-              particle.vy = (dy / dist) * speed;
-            }
+            particle.converging = true;
+            particle.convergenceTarget = { x: centerX, y: centerY };
+            convergingParticles.push(particle);
           }
           
-          // Create a shockwave at the merge location
-          this.createShockwave(centerX, centerY);
-          
-          // Remove 100 particles
-          for (let i = 0; i < MERGE_THRESHOLD; i++) {
-            this.removeParticle(group[i]);
-          }
-          
-          // Add 1 particle of next size at the merge location
-          const newParticle = new Particle(tierId, sizeIndex + 1, null);
-          newParticle.x = centerX;
-          newParticle.y = centerY;
-          this.particles.push(newParticle);
-          this.updateInventory();
+          // Add to pending merges
+          this.pendingMerges.push({
+            particles: convergingParticles,
+            tierId: tierId,
+            sizeIndex: sizeIndex,
+            centerX: centerX,
+            centerY: centerY,
+            timestamp: Date.now()
+          });
         }
       }
     });
@@ -783,6 +801,44 @@ export class BetSpireRender {
       this.ctx.stroke();
       
       return true; // Keep shockwave for next frame
+    });
+    
+    // Process pending merges - check if particles have converged
+    this.pendingMerges = this.pendingMerges.filter(merge => {
+      // Check if all particles have converged to the center
+      let allConverged = true;
+      for (const particle of merge.particles) {
+        const dx = merge.centerX - particle.x;
+        const dy = merge.centerY - particle.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist > CONVERGENCE_DISTANCE_THRESHOLD) {
+          allConverged = false;
+          break;
+        }
+      }
+      
+      // If all converged, complete the merge
+      if (allConverged) {
+        // Create a shockwave at the merge location
+        this.createShockwave(merge.centerX, merge.centerY);
+        
+        // Remove all converged particles
+        for (const particle of merge.particles) {
+          this.removeParticle(particle);
+        }
+        
+        // Add 1 particle of next size at the merge location
+        const newParticle = new Particle(merge.tierId, merge.sizeIndex + 1, null);
+        newParticle.x = merge.centerX;
+        newParticle.y = merge.centerY;
+        this.particles.push(newParticle);
+        this.updateInventory();
+        
+        return false; // Remove this merge from pending list
+      }
+      
+      return true; // Keep waiting for convergence
     });
     
     // Update and draw particles
