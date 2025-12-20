@@ -24,26 +24,25 @@ const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 20;
 const MOUSE_ATTRACTION_STRENGTH = 3.0;
 const INTERACTION_FADE_DURATION = 300; // milliseconds for circle fade
 
+// Forge position at center of canvas
+const FORGE_POSITION = { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.5 };
+
 // Particle spawner configuration (mini forges for each unlocked particle type)
 const SPAWNER_SIZE = 8; // Size of spawner forge triangles (smaller than main forge)
 const SPAWNER_ROTATION_SPEED = 0.03; // Rotation speed for spawner triangles
 const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
-const SPAWNER_POSITIONS = [
-  { x: CANVAS_WIDTH * 0.15, y: CANVAS_HEIGHT * 0.15 },
-  { x: CANVAS_WIDTH * 0.85, y: CANVAS_HEIGHT * 0.15 },
-  { x: CANVAS_WIDTH * 0.15, y: CANVAS_HEIGHT * 0.85 },
-  { x: CANVAS_WIDTH * 0.85, y: CANVAS_HEIGHT * 0.85 },
-  { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.15 },
-  { x: CANVAS_WIDTH * 0.15, y: CANVAS_HEIGHT * 0.5 },
-  { x: CANVAS_WIDTH * 0.85, y: CANVAS_HEIGHT * 0.5 },
-  { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.85 },
-  { x: CANVAS_WIDTH * 0.3, y: CANVAS_HEIGHT * 0.3 },
-  { x: CANVAS_WIDTH * 0.7, y: CANVAS_HEIGHT * 0.3 },
-  { x: CANVAS_WIDTH * 0.3, y: CANVAS_HEIGHT * 0.7 },
-]; // Positions for up to 11 particle spawners
 
-// Forge position at center of canvas
-const FORGE_POSITION = { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.5 };
+// Generator positions: sand at top center (12 o'clock), then 10 more in clockwise circle
+// All 11 generators are equidistant from each other on a circle around the forge
+const GENERATOR_CIRCLE_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.35; // Circle radius for generators
+const SPAWNER_POSITIONS = Array.from({ length: 11 }, (_, i) => {
+  // Start at top (12 o'clock = -90 degrees), then proceed clockwise
+  const angle = (-Math.PI / 2) + (i * 2 * Math.PI / 11);
+  return {
+    x: FORGE_POSITION.x + Math.cos(angle) * GENERATOR_CIRCLE_RADIUS,
+    y: FORGE_POSITION.y + Math.sin(angle) * GENERATOR_CIRCLE_RADIUS
+  };
+});
 
 // Particle tier definitions matching gem hierarchy
 // Sand is the base tier (pale yellow like motes from tower of inspiration)
@@ -122,9 +121,15 @@ const MERGE_THRESHOLD = 100; // 100 particles merge into 1 of next size
 
 // Particle class with tier and size
 class Particle {
-  constructor(tierId = 'sand', sizeIndex = 0) {
-    this.x = Math.random() * CANVAS_WIDTH;
-    this.y = Math.random() * CANVAS_HEIGHT;
+  constructor(tierId = 'sand', sizeIndex = 0, spawnPosition = null) {
+    // Spawn at generator position if provided, otherwise at random location
+    if (spawnPosition) {
+      this.x = spawnPosition.x;
+      this.y = spawnPosition.y;
+    } else {
+      this.x = Math.random() * CANVAS_WIDTH;
+      this.y = Math.random() * CANVAS_HEIGHT;
+    }
     this.vx = (Math.random() - 0.5) * 2;
     this.vy = (Math.random() - 0.5) * 2;
     
@@ -210,12 +215,26 @@ class Particle {
     this.x += this.vx;
     this.y += this.vy;
     
-    // Wrap around edges (only when not locked to mouse)
+    // Keep particles within gravitational field (bounce off canvas bounds instead of wrapping)
     if (!this.lockedToMouse) {
-      if (this.x < 0) this.x += CANVAS_WIDTH;
-      if (this.x > CANVAS_WIDTH) this.x -= CANVAS_WIDTH;
-      if (this.y < 0) this.y += CANVAS_HEIGHT;
-      if (this.y > CANVAS_HEIGHT) this.y -= CANVAS_HEIGHT;
+      const bounce = 0.8; // Bounce dampening factor
+      
+      if (this.x < 0) {
+        this.x = 0;
+        this.vx = Math.abs(this.vx) * bounce;
+      }
+      if (this.x > CANVAS_WIDTH) {
+        this.x = CANVAS_WIDTH;
+        this.vx = -Math.abs(this.vx) * bounce;
+      }
+      if (this.y < 0) {
+        this.y = 0;
+        this.vy = Math.abs(this.vy) * bounce;
+      }
+      if (this.y > CANVAS_HEIGHT) {
+        this.y = CANVAS_HEIGHT;
+        this.vy = -Math.abs(this.vy) * bounce;
+      }
     } else {
       // Clamp to canvas bounds when locked
       if (this.x < 0) this.x = 0;
@@ -322,7 +341,13 @@ export class BetSpireRender {
   }
 
   addParticle(tierId, sizeIndex) {
-    const particle = new Particle(tierId, sizeIndex);
+    // Get the generator position for this tier
+    const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === tierId);
+    const spawnPosition = tierIndex >= 0 && tierIndex < SPAWNER_POSITIONS.length 
+      ? SPAWNER_POSITIONS[tierIndex] 
+      : null;
+    
+    const particle = new Particle(tierId, sizeIndex, spawnPosition);
     this.particles.push(particle);
     
     // Unlock the tier if it hasn't been unlocked yet
@@ -681,16 +706,16 @@ export class BetSpireRender {
   drawSpawners() {
     const ctx = this.ctx;
     
-    // Draw a mini forge for each unlocked particle tier (except sand, which is the default)
-    const unlockedTiersList = Array.from(this.unlockedTiers).filter(id => id !== 'sand');
-    
-    unlockedTiersList.forEach((tierId, index) => {
-      if (index >= SPAWNER_POSITIONS.length) return; // Safety check
-      
+    // Draw a mini forge for each unlocked particle tier
+    // Each tier is positioned at its corresponding generator position
+    this.unlockedTiers.forEach((tierId) => {
       const tier = PARTICLE_TIERS.find(t => t.id === tierId);
       if (!tier) return;
       
-      const position = SPAWNER_POSITIONS[index];
+      const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === tierId);
+      if (tierIndex < 0 || tierIndex >= SPAWNER_POSITIONS.length) return; // Safety check
+      
+      const position = SPAWNER_POSITIONS[tierIndex];
       const rotation = this.spawnerRotations.get(tierId) || 0;
       
       ctx.save();
