@@ -48,7 +48,7 @@ import {
   upgradeWeaponAttack,
   upgradeWeaponSpeed,
 } from './shinState.js';
-import { getShinPixelationScale, getShinVisualSettings } from './shinSpirePreferences.js';
+import { getShinVisualSettings } from './shinSpirePreferences.js';
 
 // Cardinal Warden simulation instance
 let cardinalSimulation = null;
@@ -441,8 +441,7 @@ export function resizeCardinalCanvas() {
   if (!viewport) return;
 
   const rect = viewport.getBoundingClientRect();
-  const pixelationScale = getShinPixelationScale ? getShinPixelationScale() : 1;
-  const dpr = (window.devicePixelRatio || 1) * pixelationScale;
+  const dpr = window.devicePixelRatio || 1;
 
   const cssWidth = Math.max(1, rect.width);
   const cssHeight = Math.max(1, rect.height);
@@ -452,9 +451,6 @@ export function resizeCardinalCanvas() {
   if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
     canvas.width = targetWidth;
     canvas.height = targetHeight;
-    canvas.style.imageRendering = pixelationScale < 1 ? 'pixelated' : 'auto';
-    canvas.style.width = `${cssWidth}px`;
-    canvas.style.height = `${cssHeight}px`;
 
     // Notify the simulation of the resize
     if (cardinalSimulation) {

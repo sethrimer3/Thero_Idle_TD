@@ -15,8 +15,6 @@ const LAMED_GRAPHICS_LEVELS = Object.freeze({
   MEDIUM: 'medium',
   HIGH: 'high',
 });
-const PIXELATION_LEVELS = [0, 1, 2];
-const PIXELATION_LABELS = ['None', 'Mild', 'Strong'];
 
 // Default settings when no preferences are stored.
 const DEFAULT_LAMED_SETTINGS = Object.freeze({
@@ -27,7 +25,6 @@ const DEFAULT_LAMED_SETTINGS = Object.freeze({
   sunSplashes: true,
   shootingStarTrails: true,
   spawnFlashes: true,
-  pixelationLevel: 0,
 });
 
 /**
@@ -69,7 +66,6 @@ let optionsMenuOpen = false;
 let optionsToggleButton = null;
 let optionsMenu = null;
 let graphicsLevelButton = null;
-let pixelationButton = null;
 let dustParticlesToggle = null;
 let starTrailsToggle = null;
 let sunDetailToggle = null;
@@ -91,11 +87,6 @@ function resolveGraphicsLevelLabel(level = lamedSettings.graphicsLevel) {
   }
 }
 
-function resolvePixelationLabel(level = lamedSettings.pixelationLevel) {
-  const index = Math.max(0, Math.min(PIXELATION_LEVELS.length - 1, Math.round(level)));
-  return PIXELATION_LABELS[index] || PIXELATION_LABELS[0];
-}
-
 /**
  * Cycle through available graphics quality levels.
  */
@@ -104,12 +95,6 @@ function getNextGraphicsLevel(current) {
   const index = sequence.indexOf(current);
   const nextIndex = index >= 0 ? (index + 1) % sequence.length : 0;
   return sequence[nextIndex];
-}
-
-function getNextPixelationLevel(current) {
-  const index = PIXELATION_LEVELS.indexOf(Math.round(current));
-  const nextIndex = index >= 0 ? (index + 1) % PIXELATION_LEVELS.length : 0;
-  return PIXELATION_LEVELS[nextIndex];
 }
 
 /**
@@ -202,10 +187,6 @@ function applySettingsToSimulation() {
   // Track whether spawn flashes should render; the simulation checks this per-spawn.
   simulation.showSpawnFlashes = lamedSettings.spawnFlashes;
 
-  if (typeof simulation.setPixelationLevel === 'function') {
-    simulation.setPixelationLevel(lamedSettings.pixelationLevel);
-  }
-
   // Downscale extremely dense canvases on high-DPI devices to protect mobile GPUs from overdraw.
   const targetMaxDpr = isLow ? 1.1 : isMedium ? 1.35 : 1.5;
   if (simulation.maxDevicePixelRatio !== targetMaxDpr) {
@@ -253,15 +234,6 @@ function updateGraphicsLevelButton() {
   const label = resolveGraphicsLevelLabel();
   graphicsLevelButton.textContent = `Graphics · ${label}`;
   graphicsLevelButton.setAttribute('aria-label', `Cycle graphics quality (current: ${label})`);
-}
-
-function updatePixelationButton() {
-  if (!pixelationButton) {
-    return;
-  }
-  const label = resolvePixelationLabel();
-  pixelationButton.textContent = `Pixelation · ${label}`;
-  pixelationButton.setAttribute('aria-label', `Cycle pixelation level (current: ${label})`);
 }
 
 /**
@@ -354,7 +326,6 @@ export function bindLamedSpireOptions() {
   optionsToggleButton = document.getElementById('lamed-options-toggle-button');
   optionsMenu = document.getElementById('lamed-options-menu');
   graphicsLevelButton = document.getElementById('lamed-graphics-level-button');
-  pixelationButton = document.getElementById('lamed-pixelation-level-button');
   dustParticlesToggle = document.getElementById('lamed-dust-toggle');
   starTrailsToggle = document.getElementById('lamed-trails-toggle');
   sunDetailToggle = document.getElementById('lamed-sun-detail-toggle');
@@ -371,14 +342,6 @@ export function bindLamedSpireOptions() {
       const next = getNextGraphicsLevel(lamedSettings.graphicsLevel);
       applySetting('graphicsLevel', next);
       updateGraphicsLevelButton();
-    });
-  }
-
-  if (pixelationButton) {
-    pixelationButton.addEventListener('click', () => {
-      const next = getNextPixelationLevel(lamedSettings.pixelationLevel);
-      applySetting('pixelationLevel', next);
-      updatePixelationButton();
     });
   }
 
@@ -426,7 +389,6 @@ export function bindLamedSpireOptions() {
 
   // Sync UI with persisted settings.
   updateGraphicsLevelButton();
-  updatePixelationButton();
   syncAllToggles();
 }
 
@@ -462,7 +424,6 @@ export function applyLamedVisualSettings(settings, { persist = true } = {}) {
   }
   applySettingsToSimulation();
   updateGraphicsLevelButton();
-  updatePixelationButton();
   syncAllToggles();
 }
 
