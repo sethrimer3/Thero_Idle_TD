@@ -30,10 +30,13 @@ const INTERACTION_FADE_DURATION = 300; // milliseconds for circle fade
 
 // Merge animation configuration
 const MERGE_GATHER_SPEED = 8.0; // High speed for particles flying together during merge
+const MERGE_GATHER_THRESHOLD = 2; // Distance threshold to consider particles gathered (pixels)
+const MERGE_TIMEOUT_MS = 2000; // Maximum time for merge animation (milliseconds)
 const SHOCKWAVE_SPEED = 3.0; // Speed at which shockwave expands
 const SHOCKWAVE_MAX_RADIUS = 40; // Maximum shockwave radius
 const SHOCKWAVE_DURATION = 500; // milliseconds for shockwave animation
 const SHOCKWAVE_PUSH_FORCE = 2.5; // Force applied to nearby particles by shockwave
+const SHOCKWAVE_EDGE_THICKNESS = 10; // Thickness of shockwave edge for force application (pixels)
 
 // Forge position at center of canvas
 const FORGE_POSITION = { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.5 };
@@ -130,7 +133,7 @@ const PARTICLE_TIERS = [
 // Size tiers: small, medium, large
 const SIZE_TIERS = ['small', 'medium', 'large'];
 const MERGE_THRESHOLD = 100; // 100 particles merge into 1 of next size
-const SIZE_VELOCITY_MODIFIERS = [1.0, 0.8, 0.64]; // Small: 100%, Medium: 80%, Large: 64% (80% of 80%)
+const SIZE_VELOCITY_MODIFIERS = [1.0, 0.8, 0.64]; // Small: 100%, Medium: 80%, Large: 64% (20% slower than medium: 0.8 * 0.8 = 0.64)
 
 // Particle class with tier and size
 class Particle {
@@ -445,7 +448,7 @@ export class BetSpireRender {
   }
 
   // Attempt to merge particles of the same tier and size
-  // Particles can only merge if they are within the forge's influence radius
+  // Particles can only merge if they are within the forge's influence radius (2x the forge radius)
   attemptMerge() {
     const particlesByTierAndSize = new Map();
     
@@ -517,10 +520,10 @@ export class BetSpireRender {
         const dx = p.x - merge.targetX;
         const dy = p.y - merge.targetY;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        return dist < 2; // Within 2 pixels of target
+        return dist < MERGE_GATHER_THRESHOLD;
       });
       
-      if (allGathered || (now - merge.startTime > 2000)) { // Complete after 2 seconds max
+      if (allGathered || (now - merge.startTime > MERGE_TIMEOUT_MS)) { // Complete after timeout
         // Remove the merged particles
         merge.particles.forEach(p => {
           this.removeParticle(p);
@@ -795,8 +798,7 @@ export class BetSpireRender {
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         // Apply force if particle is near the expanding shockwave edge
-        const edgeThickness = 10;
-        if (Math.abs(dist - shockwave.radius) < edgeThickness && dist > 0) {
+        if (Math.abs(dist - shockwave.radius) < SHOCKWAVE_EDGE_THICKNESS && dist > 0) {
           const angle = Math.atan2(dy, dx);
           const force = SHOCKWAVE_PUSH_FORCE * (1 - progress); // Force diminishes over time
           particle.vx += Math.cos(angle) * force;
