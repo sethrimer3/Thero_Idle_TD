@@ -13645,6 +13645,24 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .particle-tier-name {
   font-weight: 500;
   color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.particle-tier-text {
+  flex: 1;
+}
+
+.particle-count-badge {
+  font-family: var(--font-mono);
+  font-weight: bold;
+  font-size: 1.1em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.3);
+  min-width: 2em;
+  text-align: center;
 }
 
 .particle-count {
