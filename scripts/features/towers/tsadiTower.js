@@ -25,6 +25,8 @@ import {
   ADVANCED_MOLECULE_UNLOCK_TIER,
 } from './tsadiTowerData.js';
 
+const PIXELATION_SCALES = [1, 0.75, 0.5]; // Downscale factors for pixelated rendering tiers.
+
 /**
  * Normalize and sort a tier list so combinations ignore permutation order.
  * @param {Array<number>} tiers - Raw tier list.
@@ -416,6 +418,8 @@ export class ParticleFusionSimulation {
     // Dimensions
     this.width = 0;
     this.height = 0;
+    this.pixelationLevel = 0;
+    this.pixelationScale = PIXELATION_SCALES[this.pixelationLevel];
     
     // Physics parameters
     this.gravity = 0; // No gravity for this simulation
@@ -497,6 +501,7 @@ export class ParticleFusionSimulation {
     this.glowIntensity = 1.0;
     this.visualSettings = {
       graphicsLevel: 'high',
+      pixelationLevel: 0,
       renderForceLinks: true,
       renderFusionEffects: true,
       renderSpawnEffects: true,
@@ -525,7 +530,21 @@ export class ParticleFusionSimulation {
     this.setParticleBank(initialParticleBank);
     this.spawnInitialParticles();
   }
-  
+
+  getPixelationScale() {
+    return this.pixelationScale || 1;
+  }
+
+  setPixelationLevel(level = 0) {
+    const clamped = Math.max(0, Math.min(PIXELATION_SCALES.length - 1, Math.round(level)));
+    this.pixelationLevel = clamped;
+    this.pixelationScale = PIXELATION_SCALES[clamped] || 1;
+    if (this.canvas) {
+      this.canvas.style.imageRendering = this.pixelationScale < 1 ? 'pixelated' : 'auto';
+    }
+    this.resize();
+  }
+
   /**
    * Resize the simulation to match canvas dimensions
    */
@@ -533,7 +552,7 @@ export class ParticleFusionSimulation {
     if (!this.canvas) return;
 
     const rect = this.canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = (window.devicePixelRatio || 1) * this.getPixelationScale();
 
     const previousWidth = this.width;
     const previousHeight = this.height;
@@ -547,6 +566,9 @@ export class ParticleFusionSimulation {
     this.height = rect.height;
     this.canvas.width = Math.floor(rect.width * dpr);
     this.canvas.height = Math.floor(rect.height * dpr);
+    this.canvas.style.imageRendering = this.getPixelationScale() < 1 ? 'pixelated' : 'auto';
+    this.canvas.style.width = `${rect.width}px`;
+    this.canvas.style.height = `${rect.height}px`;
 
     if (this.ctx) {
       // Reset transform before applying DPR scaling to avoid cumulative scaling.
@@ -813,6 +835,10 @@ export class ParticleFusionSimulation {
    */
   setVisualSettings(options = {}) {
     this.visualSettings = { ...this.visualSettings, ...options };
+
+    if (Number.isFinite(this.visualSettings.pixelationLevel)) {
+      this.setPixelationLevel(this.visualSettings.pixelationLevel);
+    }
 
     switch (this.visualSettings.graphicsLevel) {
       case 'low':

@@ -67,10 +67,12 @@ class SeededRandom {
 
 /**
  * GravitySimulation for the Lamed Spire.
- * 
+ *
  * Simulates stars spawning at random orbital distances, orbiting around a central celestial body,
  * and eventually being absorbed to increase the central body's mass.
  */
+const PIXELATION_SCALES = [1, 0.75, 0.5]; // Downscale factors for pixelated rendering tiers.
+
 export class GravitySimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
@@ -88,6 +90,8 @@ export class GravitySimulation {
     this.centerY = 0;
     this.cssWidth = 0; // CSS pixel width of the canvas for spawn calculations.
     this.cssHeight = 0; // CSS pixel height of the canvas for spawn calculations.
+    this.pixelationLevel = 0;
+    this.pixelationScale = PIXELATION_SCALES[this.pixelationLevel];
     // Cap the render resolution so high-DPI devices do not overdraw the canvas and tank performance.
     this.maxDevicePixelRatio = typeof options.maxDevicePixelRatio === 'number'
       ? Math.max(1, options.maxDevicePixelRatio)
@@ -345,6 +349,20 @@ export class GravitySimulation {
     return Math.max(1, Math.min(rawDpr, cap));
   }
 
+  getPixelationScale() {
+    return this.pixelationScale || 1;
+  }
+
+  setPixelationLevel(level = 0) {
+    const clamped = Math.max(0, Math.min(PIXELATION_SCALES.length - 1, Math.round(level)));
+    this.pixelationLevel = clamped;
+    this.pixelationScale = PIXELATION_SCALES[clamped] || 1;
+    if (this.canvas) {
+      this.canvas.style.imageRendering = this.pixelationScale < 1 ? 'pixelated' : 'auto';
+    }
+    this.resize();
+  }
+
   /**
    * Resolve how orbiting star trails should be rendered based on population and graphics settings.
    */
@@ -452,7 +470,8 @@ export class GravitySimulation {
     if (!this.canvas) return;
 
     const rect = this.canvas.getBoundingClientRect();
-    const dpr = this.getEffectiveDevicePixelRatio();
+    const pixelationScale = this.getPixelationScale();
+    const dpr = this.getEffectiveDevicePixelRatio() * pixelationScale;
     
     this.width = Math.floor(rect.width * dpr);
     this.height = Math.floor(rect.height * dpr);
@@ -461,6 +480,9 @@ export class GravitySimulation {
 
     this.canvas.width = this.width;
     this.canvas.height = this.height;
+    this.canvas.style.imageRendering = pixelationScale < 1 ? 'pixelated' : 'auto';
+    this.canvas.style.width = `${rect.width}px`;
+    this.canvas.style.height = `${rect.height}px`;
 
     this.centerX = this.width / 2;
     this.centerY = this.height / 2;
