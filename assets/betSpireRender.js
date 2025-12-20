@@ -19,16 +19,15 @@ const DISTANCE_SCALE = 0.01; // Scale factor for distance calculations
 const FORCE_SCALE = 0.01; // Scale factor for force application
 const ORBITAL_FORCE = 0.15; // Increased tangential orbital force strength (was 0.1)
 const ORBITAL_RADIUS_MULTIPLIER = 2; // Multiplier for orbital effect radius
-const FORGE_REPULSION_DAMPING = 0.6; // Dampen outward push when particles slingshot past the forge
 const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
 const SPAWNER_GRAVITY_STRENGTH = 0.75; // Gentle attraction strength used by individual spawners
 const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four times its radius for a wider pull
 
 // Shockwave configuration
 const SHOCKWAVE_EXPANSION_SPEED = 3; // Pixels per frame
-const SHOCKWAVE_MAX_RADIUS = 80; // Maximum shockwave radius before dissipating
 const SHOCKWAVE_PUSH_FORCE = 2.5; // Force applied to particles hit by shockwave
 const SHOCKWAVE_DURATION = 600; // Milliseconds for shockwave to fully expand and fade
+const SHOCKWAVE_EDGE_THRESHOLD = 15; // Pixels from shockwave edge where push force applies
 
 // Merge convergence configuration
 const CONVERGENCE_SPEED = 8; // High-speed convergence for particles being merged
@@ -784,8 +783,7 @@ export class BetSpireRender {
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         // Check if particle is near the shockwave edge (within a threshold)
-        const edgeThreshold = 15; // Pixels from shockwave edge
-        if (Math.abs(dist - shockwave.radius) < edgeThreshold && dist > 1) {
+        if (Math.abs(dist - shockwave.radius) < SHOCKWAVE_EDGE_THRESHOLD && dist > 1) {
           // Push particle away from shockwave center
           const angle = Math.atan2(dy, dx);
           particle.vx += Math.cos(angle) * SHOCKWAVE_PUSH_FORCE;
