@@ -21,16 +21,25 @@ export function initParticleInventoryDisplay() {
     row.dataset.tierId = tier.id;
     
     const nameCell = document.createElement('td');
-    nameCell.textContent = tier.name;
     nameCell.className = 'particle-tier-name';
     
-    const countCell = document.createElement('td');
-    countCell.textContent = '0';
-    countCell.className = 'particle-count';
-    countCell.id = `particle-count-${tier.id}`;
+    // Create particle name text node
+    const tierNameSpan = document.createElement('span');
+    tierNameSpan.textContent = tier.name;
+    tierNameSpan.className = 'particle-tier-text';
+    
+    // Create count badge that appears next to the name
+    const countBadge = document.createElement('span');
+    countBadge.textContent = '0';
+    countBadge.className = 'particle-count-badge';
+    countBadge.id = `particle-count-badge-${tier.id}`;
+    countBadge.style.color = `rgb(${tier.color.r}, ${tier.color.g}, ${tier.color.b})`;
+    countBadge.style.fontWeight = 'bold';
+    
+    nameCell.appendChild(tierNameSpan);
+    nameCell.appendChild(countBadge);
     
     row.appendChild(nameCell);
-    row.appendChild(countCell);
     tableBody.appendChild(row);
   });
 
@@ -50,12 +59,12 @@ export function updateParticleInventoryDisplay() {
   const inventory = renderInstance.getInventoryDisplay();
   
   inventory.forEach(tierInfo => {
-    const countCell = document.getElementById(`particle-count-${tierInfo.id}`);
-    if (countCell) {
-      countCell.textContent = tierInfo.count.toString();
+    const countBadge = document.getElementById(`particle-count-badge-${tierInfo.id}`);
+    if (countBadge) {
+      countBadge.textContent = tierInfo.count.toString();
       
       // Highlight non-zero counts
-      const row = countCell.parentElement;
+      const row = countBadge.closest('tr');
       if (tierInfo.count > 0) {
         row.classList.add('has-particles');
       } else {

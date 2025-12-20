@@ -7,20 +7,40 @@ const CANVAS_HEIGHT = 320;
 
 // Particle system configuration
 const TRAIL_FADE = 0.15; // Lower = longer trails
-const BASE_PARTICLE_SIZE = 1.5; // Base size for small particles
+const BASE_PARTICLE_SIZE = 0.75; // Base size for small particles (reduced from 1.5 to half size)
 const SIZE_MULTIPLIER = 2.5; // Each size tier is 2.5x bigger
+const MIN_VELOCITY = 0.3; // Minimum speed to keep particles swirling
 const MAX_VELOCITY = 2;
-const ATTRACTION_STRENGTH = 0.5;
+const ATTRACTION_STRENGTH = 1.5; // Increased to keep particles within field (was 0.5)
 const FORGE_RADIUS = 30; // Radius for forge attraction
 const DISTANCE_SCALE = 0.01; // Scale factor for distance calculations
 const FORCE_SCALE = 0.01; // Scale factor for force application
-const ORBITAL_FORCE = 0.1; // Tangential orbital force strength
+const ORBITAL_FORCE = 0.15; // Increased tangential orbital force strength (was 0.1)
+const ORBITAL_RADIUS_MULTIPLIER = 2; // Multiplier for orbital effect radius
 const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
 
 // User interaction configuration
 const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 20;
 const MOUSE_ATTRACTION_STRENGTH = 3.0;
 const INTERACTION_FADE_DURATION = 300; // milliseconds for circle fade
+
+// Particle spawner configuration (mini forges for each unlocked particle type)
+const SPAWNER_SIZE = 8; // Size of spawner forge triangles (smaller than main forge)
+const SPAWNER_ROTATION_SPEED = 0.03; // Rotation speed for spawner triangles
+const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
+const SPAWNER_POSITIONS = [
+  { x: CANVAS_WIDTH * 0.15, y: CANVAS_HEIGHT * 0.15 },
+  { x: CANVAS_WIDTH * 0.85, y: CANVAS_HEIGHT * 0.15 },
+  { x: CANVAS_WIDTH * 0.15, y: CANVAS_HEIGHT * 0.85 },
+  { x: CANVAS_WIDTH * 0.85, y: CANVAS_HEIGHT * 0.85 },
+  { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.15 },
+  { x: CANVAS_WIDTH * 0.15, y: CANVAS_HEIGHT * 0.5 },
+  { x: CANVAS_WIDTH * 0.85, y: CANVAS_HEIGHT * 0.5 },
+  { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.85 },
+  { x: CANVAS_WIDTH * 0.3, y: CANVAS_HEIGHT * 0.3 },
+  { x: CANVAS_WIDTH * 0.7, y: CANVAS_HEIGHT * 0.3 },
+  { x: CANVAS_WIDTH * 0.3, y: CANVAS_HEIGHT * 0.7 },
+]; // Positions for up to 11 particle spawners
 
 // Forge position at center of canvas
 const FORGE_POSITION = { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.5 };
@@ -160,8 +180,8 @@ class Particle {
         this.vy += Math.sin(angle) * force * FORCE_SCALE;
       }
       
-      // Add slight orbital motion around forge
-      if (dist < FORGE_RADIUS && dist > 5) {
+      // Add slight orbital motion around forge to keep particles swirling
+      if (dist < FORGE_RADIUS * ORBITAL_RADIUS_MULTIPLIER) { // Apply orbital force in a wider area
         const tangentAngle = Math.atan2(dy, dx) + Math.PI / 2;
         this.vx += Math.cos(tangentAngle) * ORBITAL_FORCE;
         this.vy += Math.sin(tangentAngle) * ORBITAL_FORCE;
@@ -173,6 +193,17 @@ class Particle {
     if (speed > MAX_VELOCITY) {
       this.vx = (this.vx / speed) * MAX_VELOCITY;
       this.vy = (this.vy / speed) * MAX_VELOCITY;
+    }
+    
+    // Enforce minimum velocity to keep particles always moving
+    if (speed < MIN_VELOCITY && speed > 0) {
+      this.vx = (this.vx / speed) * MIN_VELOCITY;
+      this.vy = (this.vy / speed) * MIN_VELOCITY;
+    } else if (speed === 0) {
+      // Give particles a random initial velocity if they're stopped
+      const randomAngle = Math.random() * Math.PI * 2;
+      this.vx = Math.cos(randomAngle) * MIN_VELOCITY;
+      this.vy = Math.sin(randomAngle) * MIN_VELOCITY;
     }
     
     // Update position
@@ -244,6 +275,12 @@ export class BetSpireRender {
       this.inventory.set(tier.id, 0);
     });
     
+    // Track which particle tiers have been unlocked (spawners appear when unlocked)
+    this.unlockedTiers = new Set(['sand']); // Sand is always unlocked
+    
+    // Spawner rotation tracking
+    this.spawnerRotations = new Map();
+    
     // Particle Factor tracking for BET glyph awards - load from state or use defaults
     this.particleFactorMilestone = Number.isFinite(state.particleFactorMilestone) 
       ? state.particleFactorMilestone 
@@ -287,6 +324,17 @@ export class BetSpireRender {
   addParticle(tierId, sizeIndex) {
     const particle = new Particle(tierId, sizeIndex);
     this.particles.push(particle);
+    
+    // Unlock the tier if it hasn't been unlocked yet
+    if (!this.unlockedTiers.has(tierId)) {
+      this.unlockedTiers.add(tierId);
+      
+      // Initialize rotation for the spawner
+      if (!this.spawnerRotations.has(tierId)) {
+        this.spawnerRotations.set(tierId, Math.random() * Math.PI * 2);
+      }
+    }
+    
     this.updateInventory();
   }
 
@@ -535,8 +583,16 @@ export class BetSpireRender {
     // Update forge rotation
     this.forgeRotation += FORGE_ROTATION_SPEED;
     
+    // Update spawner rotations
+    this.spawnerRotations.forEach((rotation, tierId) => {
+      this.spawnerRotations.set(tierId, rotation + SPAWNER_ROTATION_SPEED);
+    });
+    
     // Draw the forge (Star of David with counter-rotating triangles)
     this.drawForge();
+    
+    // Draw particle spawners for unlocked tiers
+    this.drawSpawners();
     
     // Draw and fade interaction circles
     const now = Date.now();
@@ -620,6 +676,65 @@ export class BetSpireRender {
     ctx.fill();
     
     ctx.restore();
+  }
+
+  drawSpawners() {
+    const ctx = this.ctx;
+    
+    // Draw a mini forge for each unlocked particle tier (except sand, which is the default)
+    const unlockedTiersList = Array.from(this.unlockedTiers).filter(id => id !== 'sand');
+    
+    unlockedTiersList.forEach((tierId, index) => {
+      if (index >= SPAWNER_POSITIONS.length) return; // Safety check
+      
+      const tier = PARTICLE_TIERS.find(t => t.id === tierId);
+      if (!tier) return;
+      
+      const position = SPAWNER_POSITIONS[index];
+      const rotation = this.spawnerRotations.get(tierId) || 0;
+      
+      ctx.save();
+      ctx.translate(position.x, position.y);
+      
+      // Create color string from tier color
+      const color = tier.color;
+      const colorString = `rgba(${color.r}, ${color.g}, ${color.b}, 0.7)`;
+      
+      // Draw first triangle (pointing up, rotating clockwise)
+      ctx.rotate(rotation);
+      ctx.strokeStyle = colorString;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -SPAWNER_SIZE);
+      ctx.lineTo(SPAWNER_SIZE * Math.cos(Math.PI / 6), SPAWNER_SIZE * Math.sin(Math.PI / 6));
+      ctx.lineTo(-SPAWNER_SIZE * Math.cos(Math.PI / 6), SPAWNER_SIZE * Math.sin(Math.PI / 6));
+      ctx.closePath();
+      ctx.stroke();
+      
+      // Draw second triangle (pointing down, rotating counter-clockwise)
+      ctx.rotate(-rotation * 2); // Reset and rotate opposite direction
+      // Use slightly lighter/darker variant for second triangle
+      const lightColorString = `rgba(${Math.min(255, color.r + SPAWNER_COLOR_BRIGHTNESS_OFFSET)}, ${Math.min(255, color.g + SPAWNER_COLOR_BRIGHTNESS_OFFSET)}, ${Math.min(255, color.b + SPAWNER_COLOR_BRIGHTNESS_OFFSET)}, 0.6)`;
+      ctx.strokeStyle = lightColorString;
+      ctx.beginPath();
+      ctx.moveTo(0, SPAWNER_SIZE);
+      ctx.lineTo(SPAWNER_SIZE * Math.cos(Math.PI / 6), -SPAWNER_SIZE * Math.sin(Math.PI / 6));
+      ctx.lineTo(-SPAWNER_SIZE * Math.cos(Math.PI / 6), -SPAWNER_SIZE * Math.sin(Math.PI / 6));
+      ctx.closePath();
+      ctx.stroke();
+      
+      // Draw center glow with tier color
+      ctx.rotate(rotation); // Rotate back to center
+      const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, SPAWNER_SIZE);
+      gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.4)`);
+      gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, SPAWNER_SIZE, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
+    });
   }
 
   resize() {
