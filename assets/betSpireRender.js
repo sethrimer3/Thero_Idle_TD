@@ -366,8 +366,8 @@ export class BetSpireRender {
       ? state.betGlyphsAwarded
       : 0;
 
-    // Disable manual interactions so clicks/taps no longer spawn particles or tug on them.
-    this.interactionsEnabled = false;
+    // Keep manual interactions enabled for particle gathering visuals while blocking manual spawning.
+    this.interactionsEnabled = true;
     
     // Store state reference for persistence
     this.state = state;
@@ -840,9 +840,6 @@ export class BetSpireRender {
 
     const coords = this.getCanvasCoordinates(event);
     if (!coords) return;
-    
-    // Spawn a single sand particle at the edge of the screen closest to tap
-    this.spawnSandParticleAtEdge(coords);
     
     this.isInteracting = true;
     this.mouseX = coords.x;
