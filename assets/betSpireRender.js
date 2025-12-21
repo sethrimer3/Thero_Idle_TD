@@ -384,10 +384,7 @@ export class BetSpireRender {
     this.canvas.width = CANVAS_WIDTH;
     this.canvas.height = CANVAS_HEIGHT;
     
-    // Initialize with some sand particles for testing
-    for (let i = 0; i < 50; i++) {
-      this.addParticle('sand', 0);
-    }
+    // No initial sand particles - player must tap to spawn them
     
     // Initialize with black background
     this.ctx.fillStyle = '#000000';
@@ -426,6 +423,74 @@ export class BetSpireRender {
       this.particles.splice(index, 1);
       this.updateInventory();
     }
+  }
+
+  /**
+   * Remove a specific number of particles of a given tier.
+   * Removes small particles first, then converts medium/large if needed.
+   * Returns the number of particles actually removed (in small equivalent units).
+   */
+  removeParticlesByType(tierId, count) {
+    let remaining = count;
+    
+    // First, remove small particles
+    const smallParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === 0);
+    const smallToRemove = Math.min(smallParticles.length, remaining);
+    for (let i = 0; i < smallToRemove; i++) {
+      this.removeParticle(smallParticles[i]);
+    }
+    remaining -= smallToRemove;
+    
+    // If we need more, convert medium particles (1 medium = 100 small)
+    if (remaining > 0) {
+      const mediumParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === 1);
+      while (remaining > 0 && mediumParticles.length > 0) {
+        const mediumParticle = mediumParticles.pop();
+        this.removeParticle(mediumParticle);
+        
+        // Add back small particles if we removed more than needed
+        const mediumValue = MERGE_THRESHOLD; // 100 small
+        if (remaining < mediumValue) {
+          const changeBack = mediumValue - remaining;
+          for (let i = 0; i < changeBack; i++) {
+            this.addParticle(tierId, 0);
+          }
+          remaining = 0;
+        } else {
+          remaining -= mediumValue;
+        }
+      }
+    }
+    
+    // If we still need more, convert large particles (1 large = 10000 small)
+    if (remaining > 0) {
+      const largeParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === 2);
+      while (remaining > 0 && largeParticles.length > 0) {
+        const largeParticle = largeParticles.pop();
+        this.removeParticle(largeParticle);
+        
+        // Add back particles if we removed more than needed
+        const largeValue = Math.pow(MERGE_THRESHOLD, 2); // 10000 small
+        if (remaining < largeValue) {
+          const changeBack = largeValue - remaining;
+          // Add back as medium and small particles
+          const mediumsToAdd = Math.floor(changeBack / MERGE_THRESHOLD);
+          const smallsToAdd = changeBack % MERGE_THRESHOLD;
+          for (let i = 0; i < mediumsToAdd; i++) {
+            this.addParticle(tierId, 1);
+          }
+          for (let i = 0; i < smallsToAdd; i++) {
+            this.addParticle(tierId, 0);
+          }
+          remaining = 0;
+        } else {
+          remaining -= largeValue;
+        }
+      }
+    }
+    
+    this.updateInventory();
+    return count - remaining; // Return how many we actually removed
   }
 
   updateInventory() {
@@ -667,11 +732,60 @@ export class BetSpireRender {
     };
   }
 
+  spawnSandParticleAtEdge(tapCoords) {
+    // Determine which edge is closest to the tap location
+    const distToTop = tapCoords.y;
+    const distToBottom = CANVAS_HEIGHT - tapCoords.y;
+    const distToLeft = tapCoords.x;
+    const distToRight = CANVAS_WIDTH - tapCoords.x;
+    
+    const minDist = Math.min(distToTop, distToBottom, distToLeft, distToRight);
+    
+    let spawnX, spawnY;
+    
+    if (minDist === distToTop) {
+      // Spawn at top edge
+      spawnX = tapCoords.x;
+      spawnY = 0;
+    } else if (minDist === distToBottom) {
+      // Spawn at bottom edge
+      spawnX = tapCoords.x;
+      spawnY = CANVAS_HEIGHT;
+    } else if (minDist === distToLeft) {
+      // Spawn at left edge
+      spawnX = 0;
+      spawnY = tapCoords.y;
+    } else {
+      // Spawn at right edge
+      spawnX = CANVAS_WIDTH;
+      spawnY = tapCoords.y;
+    }
+    
+    // Create a sand particle at the edge location
+    const particle = new Particle('sand', 0, null);
+    particle.x = spawnX;
+    particle.y = spawnY;
+    this.particles.push(particle);
+    
+    // Unlock sand tier if needed (should already be unlocked, but ensure it)
+    if (!this.unlockedTiers.has('sand')) {
+      this.unlockedTiers.add('sand');
+      if (!this.spawnerRotations.has('sand')) {
+        this.spawnerRotations.set('sand', Math.random() * Math.PI * 2);
+      }
+    }
+    
+    this.updateInventory();
+  }
+
   handlePointerDown(event) {
     event.preventDefault();
     
     const coords = this.getCanvasCoordinates(event);
     if (!coords) return;
+    
+    // Spawn a single sand particle at the edge of the screen closest to tap
+    this.spawnSandParticleAtEdge(coords);
     
     this.isInteracting = true;
     this.mouseX = coords.x;

@@ -6817,12 +6817,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       state: spireResourceState.fluid,
     });
     
-    betUpgradeMenu.bindPurchaseButtons(getBetSandBank, setBetSandBank);
+    betUpgradeMenu.bindPurchaseButtons();
     betUpgradeMenu.startGenerationLoop();
     
     // Update the upgrade menu display every second
     setInterval(() => {
-      betUpgradeMenu.updateDisplay(getBetSandBank());
+      betUpgradeMenu.updateDisplay();
     }, 1000);
     
     // Listen for BET glyph awards
