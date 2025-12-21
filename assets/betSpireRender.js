@@ -1,5 +1,5 @@
 // Bet Spire Particle Physics Render
-// Tiered particle system with merging, forging, and a central forge attractor
+// Tiered particle system with size merging (anywhere) and tier conversion (at generators)
 
 // Canvas dimensions matching Aleph Spire render
 const CANVAS_WIDTH = 240;
@@ -22,6 +22,7 @@ const FORGE_REPULSION_DAMPING = 0.6; // Dampen outward push when particles sling
 const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
 const SPAWNER_GRAVITY_STRENGTH = 0.75; // Gentle attraction strength used by individual spawners
 const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four times its radius for a wider pull
+const GENERATOR_CONVERSION_RADIUS = 15; // Distance particles must be within generator center to convert to next tier
 
 // User interaction configuration
 const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 10; // Doubled from /20 to /10
@@ -132,8 +133,12 @@ const PARTICLE_TIERS = [
 
 // Size tiers: small, medium, large
 const SIZE_TIERS = ['small', 'medium', 'large'];
+const SMALL_SIZE_INDEX = 0;
+const MEDIUM_SIZE_INDEX = 1;
+const LARGE_SIZE_INDEX = 2;
 const MERGE_THRESHOLD = 100; // 100 particles merge into 1 of next size
 const SIZE_VELOCITY_MODIFIERS = [1.0, 0.8, 0.64]; // Small: 100%, Medium: 80%, Large: 64% (20% slower than medium: 0.8 * 0.8 = 0.64)
+const CONVERSION_SPREAD_VELOCITY = 3; // Velocity multiplier for spreading converted particles
 
 // Particle class with tier and size
 class Particle {
@@ -512,28 +517,21 @@ export class BetSpireRender {
     });
   }
 
-  // Attempt to merge particles of the same tier and size
-  // Particles can only merge if they are within the forge's influence radius (2x the forge radius)
+  // Attempt to merge particles of the same tier and size (100 small → 1 medium, 100 medium → 1 large)
+  // This can happen anywhere on the screen
   attemptMerge() {
     const particlesByTierAndSize = new Map();
     
-    // Group particles by tier and size, only including those within forge influence
+    // Group particles by tier and size anywhere on screen
     this.particles.forEach(particle => {
       // Skip particles that are already merging
       if (particle.merging) return;
       
-      // Check if particle is within forge influence (2x forge radius)
-      const dx = particle.x - this.forge.x;
-      const dy = particle.y - this.forge.y;
-      const distToForge = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distToForge <= MAX_FORGE_ATTRACTION_DISTANCE) {
-        const key = `${particle.tierId}-${particle.sizeIndex}`;
-        if (!particlesByTierAndSize.has(key)) {
-          particlesByTierAndSize.set(key, []);
-        }
-        particlesByTierAndSize.get(key).push(particle);
+      const key = `${particle.tierId}-${particle.sizeIndex}`;
+      if (!particlesByTierAndSize.has(key)) {
+        particlesByTierAndSize.set(key, []);
       }
+      particlesByTierAndSize.get(key).push(particle);
     });
     
     // Check each group for merging
@@ -570,9 +568,82 @@ export class BetSpireRender {
             tierId: tierId,
             sizeIndex: sizeIndex + 1, // Next size tier
             startTime: Date.now()
+            // No isTierConversion flag means this is a size merge
           });
         }
       }
+    });
+  }
+
+  // Attempt to convert medium and large particles to next tier at their generator positions
+  // Medium particles convert to 1 small of next tier, large particles convert to 100 small of next tier
+  attemptTierConversion() {
+    // Group particles by their tier, checking if they're at their generator position
+    PARTICLE_TIERS.forEach((tier, tierIndex) => {
+      // Can't convert the last tier
+      if (tierIndex >= PARTICLE_TIERS.length - 1) return;
+      
+      const generatorPos = SPAWNER_POSITIONS[tierIndex];
+      const nextTier = PARTICLE_TIERS[tierIndex + 1];
+      
+      // Find medium and large particles of this tier near their generator
+      const mediumParticlesAtGenerator = [];
+      const largeParticlesAtGenerator = [];
+      
+      this.particles.forEach(particle => {
+        if (particle.tierId !== tier.id || particle.merging) return;
+        
+        // Check if particle is within conversion radius of its generator
+        const dx = particle.x - generatorPos.x;
+        const dy = particle.y - generatorPos.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist <= GENERATOR_CONVERSION_RADIUS) {
+          if (particle.sizeIndex === MEDIUM_SIZE_INDEX) {
+            mediumParticlesAtGenerator.push(particle);
+          } else if (particle.sizeIndex === LARGE_SIZE_INDEX) {
+            largeParticlesAtGenerator.push(particle);
+          }
+        }
+      });
+      
+      // Convert medium particles: 1 medium → 1 small of next tier
+      mediumParticlesAtGenerator.forEach(particle => {
+        // Mark as merging and attract to generator center
+        particle.merging = true;
+        particle.mergeTarget = { x: generatorPos.x, y: generatorPos.y };
+        
+        // Create conversion animation
+        this.activeMerges.push({
+          particles: [particle],
+          targetX: generatorPos.x,
+          targetY: generatorPos.y,
+          tierId: nextTier.id,
+          sizeIndex: 0, // Small particle
+          startTime: Date.now(),
+          isTierConversion: true,
+          conversionCount: 1 // 1 small particle
+        });
+      });
+      
+      // Convert large particles: 1 large → 100 small of next tier
+      largeParticlesAtGenerator.forEach(particle => {
+        // Mark as merging and attract to generator center
+        particle.merging = true;
+        particle.mergeTarget = { x: generatorPos.x, y: generatorPos.y };
+        
+        // Create conversion animation
+        this.activeMerges.push({
+          particles: [particle],
+          targetX: generatorPos.x,
+          targetY: generatorPos.y,
+          tierId: nextTier.id,
+          sizeIndex: 0, // Small particle
+          startTime: Date.now(),
+          isTierConversion: true,
+          conversionCount: 100 // 100 small particles
+        });
+      });
     });
   }
 
@@ -594,16 +665,35 @@ export class BetSpireRender {
           this.removeParticle(p);
         });
         
-        // Create the new particle at the merge location
+        // Calculate spawn position once (used by both size merges and tier conversions)
         const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === merge.tierId);
         const spawnPos = tierIndex >= 0 && tierIndex < SPAWNER_POSITIONS.length 
           ? SPAWNER_POSITIONS[tierIndex] 
           : null;
         
-        const newParticle = new Particle(merge.tierId, merge.sizeIndex, spawnPos);
-        newParticle.x = merge.targetX;
-        newParticle.y = merge.targetY;
-        this.particles.push(newParticle);
+        // Handle tier conversion differently from size merges
+        if (merge.isTierConversion) {
+          // Tier conversion: create multiple small particles of next tier
+          // Note: Creating 100 particles at once (for large conversions) is intentional
+          // for the visual effect and game feel. The particles spread out with random velocities.
+          const conversionCount = merge.conversionCount || 1;
+          
+          for (let i = 0; i < conversionCount; i++) {
+            const newParticle = new Particle(merge.tierId, merge.sizeIndex, spawnPos);
+            newParticle.x = merge.targetX;
+            newParticle.y = merge.targetY;
+            // Add slight random velocity to spread out converted particles
+            newParticle.vx = (Math.random() - 0.5) * CONVERSION_SPREAD_VELOCITY;
+            newParticle.vy = (Math.random() - 0.5) * CONVERSION_SPREAD_VELOCITY;
+            this.particles.push(newParticle);
+          }
+        } else {
+          // Size merge: create one particle of next size
+          const newParticle = new Particle(merge.tierId, merge.sizeIndex, spawnPos);
+          newParticle.x = merge.targetX;
+          newParticle.y = merge.targetY;
+          this.particles.push(newParticle);
+        }
         
         // Unlock the tier if needed
         if (!this.unlockedTiers.has(merge.tierId)) {
@@ -633,49 +723,6 @@ export class BetSpireRender {
       // Keep this merge active
       return true;
     });
-  }
-
-  // Forge particles into the next tier
-  forgeParticle(particle) {
-    const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === particle.tierId);
-    
-    // Can't forge if already at max tier
-    if (tierIndex >= PARTICLE_TIERS.length - 1) {
-      return;
-    }
-    
-    const nextTierId = PARTICLE_TIERS[tierIndex + 1].id;
-    
-    // Forging rules:
-    // - 100 small of tier N → 1 small of tier N+1
-    // - 1 medium of tier N → 1 small of tier N+1 (since 1 medium = 100 small)
-    // - 1 large of tier N → 100 small of tier N+1 (since 1 large = 10000 small = 100 medium)
-    
-    if (particle.sizeIndex === 0) {
-      // Small particle: need 100 to forge
-      const smallParticles = this.particles.filter(
-        p => p.tierId === particle.tierId && p.sizeIndex === 0
-      );
-      
-      if (smallParticles.length >= MERGE_THRESHOLD) {
-        // Remove 100 small particles
-        for (let i = 0; i < MERGE_THRESHOLD; i++) {
-          this.removeParticle(smallParticles[i]);
-        }
-        // Add 1 small particle of next tier
-        this.addParticle(nextTierId, 0);
-      }
-    } else if (particle.sizeIndex === 1) {
-      // Medium particle: converts to 1 small of next tier
-      this.removeParticle(particle);
-      this.addParticle(nextTierId, 0);
-    } else if (particle.sizeIndex === 2) {
-      // Large particle: converts to 100 small of next tier
-      this.removeParticle(particle);
-      for (let i = 0; i < MERGE_THRESHOLD; i++) {
-        this.addParticle(nextTierId, 0);
-      }
-    }
   }
 
   setupEventListeners() {
@@ -955,9 +1002,14 @@ export class BetSpireRender {
       particle.draw(this.ctx);
     }
     
-    // Periodically attempt to merge particles
+    // Periodically attempt to merge particles (size merging)
     if (Math.random() < 0.01) { // 1% chance per frame
       this.attemptMerge();
+    }
+    
+    // Periodically attempt tier conversion at generators
+    if (Math.random() < 0.01) { // 1% chance per frame
+      this.attemptTierConversion();
     }
     
     // Periodically check for particle factor milestones
