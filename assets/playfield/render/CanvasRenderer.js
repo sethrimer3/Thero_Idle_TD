@@ -59,14 +59,14 @@ const ENEMY_SWIRL_MIN_DURATION_MS = 500;
 const ENEMY_SWIRL_MAX_DURATION_MS = 2000;
 const ENEMY_SWIRL_MIN_HOLD_MS = 140;
 const ENEMY_SWIRL_MAX_HOLD_MS = 360;
-const ENEMY_SWIRL_PARTICLE_BASE = 18;
-const ENEMY_SWIRL_PARTICLE_LOW = 10;
+const ENEMY_SWIRL_PARTICLE_BASE = 14; // Trimmed to lighten per-enemy swirl load on dense waves.
+const ENEMY_SWIRL_PARTICLE_LOW = 8; // Low-fidelity fallback uses a smaller ring budget to reduce GPU cost.
 // Anchor for the high-fidelity spawn budget so designers can tune the swirl curve quickly.
 const ENEMY_SWIRL_HIGH_PARTICLE_ANCHOR = 30;
 // Knockback tuning keeps hit reactions energetic without throwing particles off-screen.
 const ENEMY_SWIRL_KNOCKBACK_DISTANCE = 14;
 const ENEMY_SWIRL_KNOCKBACK_DURATION_MS = 360;
-const ENEMY_SWIRL_FALLBACK_THRESHOLD = 60;
+const ENEMY_SWIRL_FALLBACK_THRESHOLD = 48; // Trigger the simplified enemy body sooner to keep frame pacing stable.
 const ENEMY_GATE_DARK_BLUE = 'rgba(15, 27, 63, 0.95)';
 const ENEMY_GATE_DARK_BLUE_CORE = 'rgba(5, 8, 18, 0.92)';
 // Match the bright glyph on the enemy gate symbol so outlines stay consistent with the UI motif.
@@ -717,6 +717,7 @@ function drawTrackParticleRiver() {
   }
   const ctx = this.ctx;
   const particles = this.trackRiverParticles;
+  const lowGraphicsEnabled = this.isLowGraphicsMode?.();
   const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
   const laneRadius = Math.max(4, minDimension * 0.014);
   ctx.save();
@@ -747,6 +748,8 @@ function drawTrackParticleRiver() {
 
   // Overlay the luminous tracer sparks whenever the preference is enabled.
   if (
+    // Skip tracer halos in low graphics mode to cut overlapping glow draws on weaker devices.
+    !lowGraphicsEnabled &&
     areTrackTracersEnabled() &&
     Array.isArray(this.trackRiverTracerParticles) &&
     this.trackRiverTracerParticles.length
@@ -799,6 +802,10 @@ function drawArcLight() {
   const trackMode = getTrackRenderMode();
   if (trackMode === TRACK_RENDER_MODES.RIVER) {
     // The river track effect replaces the solid path lines, so skip the arc tracer.
+    return;
+  }
+  if (this.isLowGraphicsMode?.()) {
+    // Dropping the tracer overlay in low fidelity reduces per-frame fill and shadow work.
     return;
   }
   if (!areTrackTracersEnabled()) {
