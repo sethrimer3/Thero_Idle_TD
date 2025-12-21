@@ -101,6 +101,11 @@ export class FluidSimulation {
     }
     this.dropVolumeScale = Number.isFinite(options.dropVolumeScale) ? Math.max(0.2, options.dropVolumeScale) : 0.75;
 
+    // Cap active droplets to prevent runaway spawn loops from freezing the render.
+    this.maxActiveDrops = Number.isFinite(options.maxActiveDrops) && options.maxActiveDrops > 0
+      ? Math.max(50, Math.round(options.maxActiveDrops))
+      : 220;
+
     this.maxDuneGain = Number.isFinite(options.maxDuneGain) ? Math.max(0, options.maxDuneGain) : 1;
 
     const fallbackPalette = options.fallbackMotePalette || DEFAULT_MOTE_PALETTE;
@@ -480,7 +485,25 @@ export class FluidSimulation {
     return { start, end };
   }
 
+  enforceDropBudget(incoming = 0) {
+    const cap = Math.max(50, this.maxActiveDrops || 0);
+    const projected = this.drops.length + this.pendingDrops.length + Math.max(0, incoming);
+    if (projected <= cap) {
+      return true;
+    }
+
+    const overflow = projected - cap;
+    if (overflow > 0 && this.pendingDrops.length) {
+      this.pendingDrops.splice(0, Math.min(overflow, this.pendingDrops.length));
+    }
+
+    return this.drops.length + this.pendingDrops.length + Math.max(0, incoming) <= cap;
+  }
+
   addDrop(x, size = 1) {
+    if (!this.enforceDropBudget(1)) {
+      return;
+    }
     const radius = Math.max(1, Math.min(this.maxDropRadius, size)) * this.cellSize * 0.5;
     const drop = {
       x: Math.max(0, Math.min(this.width, x ?? this.width * Math.random())),
@@ -518,7 +541,8 @@ export class FluidSimulation {
     if (!this.pendingDrops.length) {
       return;
     }
-    const count = Math.min(limit, this.pendingDrops.length);
+    const activeBudget = Math.max(0, (this.maxActiveDrops || 0) - this.drops.length);
+    const count = Math.min(limit, this.pendingDrops.length, activeBudget);
     for (let index = 0; index < count; index += 1) {
       const drop = this.pendingDrops.shift();
       if (!drop) {

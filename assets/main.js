@@ -6138,6 +6138,27 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       });
     }
 
+    function stopFluidSimulationLoop() {
+      if (powderState.simulationMode !== 'fluid') {
+        return;
+      }
+      if (fluidSimulationInstance && typeof fluidSimulationInstance.stop === 'function') {
+        fluidSimulationInstance.stop();
+      }
+    }
+
+    function resumeFluidSimulationLoop() {
+      if (powderState.simulationMode !== 'fluid') {
+        return;
+      }
+      if (fluidSimulationInstance && typeof fluidSimulationInstance.start === 'function') {
+        fluidSimulationInstance.start();
+        if (typeof fluidSimulationInstance.handleResize === 'function') {
+          fluidSimulationInstance.handleResize();
+        }
+      }
+    }
+
     // Synchronize tab interactions with overlay state, audio cues, and banner refreshes.
     configureTabManager({
       getOverlayActiveState: () => Boolean(levelOverlayController?.isOverlayActive()),
@@ -6188,6 +6209,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         // (Fluid simulation itself is stopped via applyPowderSimulationMode when switching modes)
         if (previousTabId === 'fluid' && tabId !== 'fluid') {
           stopTerrariumAnimations();
+          stopFluidSimulationLoop();
         }
 
         // Surface spire briefings the first time each tab opens.
@@ -6218,6 +6240,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 : null;
             updateFluidDisplay(fluidStatus);
           }
+          resumeFluidSimulationLoop();
           // Restart terrarium animations when returning to the Fluid/Bet tab
           startTerrariumAnimations();
         } else if (tabId === 'powder') {
