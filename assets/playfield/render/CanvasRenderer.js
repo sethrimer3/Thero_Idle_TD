@@ -109,6 +109,55 @@ const TOWER_MENU_OPEN_SPIN_RADIANS = Math.PI * 0.75;
 const TOWER_MENU_DISMISS_SPIN_RADIANS = Math.PI * 0.65;
 const TOWER_MENU_DISMISS_SCALE = 1.25;
 
+// Viewport culling margin: buffer zone beyond visible area to prevent pop-in
+const VIEWPORT_CULL_MARGIN = 100;
+
+/**
+ * Calculate the visible viewport bounds in world coordinates.
+ * Returns an object with min/max x/y coordinates for culling.
+ */
+function getViewportBounds() {
+  if (!this.canvas || !this.ctx) {
+    return null;
+  }
+  const width = this.renderWidth || this.canvas.clientWidth || 0;
+  const height = this.renderHeight || this.canvas.clientHeight || 0;
+  const viewCenter = this.getViewCenter();
+  const scale = this.viewScale || 1;
+  
+  // Calculate world-space bounds with margin
+  const halfWidth = (width / scale / 2) + VIEWPORT_CULL_MARGIN;
+  const halfHeight = (height / scale / 2) + VIEWPORT_CULL_MARGIN;
+  
+  return {
+    minX: viewCenter.x - halfWidth,
+    maxX: viewCenter.x + halfWidth,
+    minY: viewCenter.y - halfHeight,
+    maxY: viewCenter.y + halfHeight,
+  };
+}
+
+/**
+ * Check if a position is within the visible viewport.
+ * @param {Object} position - Object with x, y coordinates
+ * @param {Object} bounds - Viewport bounds from getViewportBounds
+ * @param {number} radius - Optional radius for circular objects
+ * @returns {boolean} True if visible
+ */
+function isInViewport(position, bounds, radius = 0) {
+  if (!position || !bounds) {
+    return true; // Render if we can't determine visibility
+  }
+  const x = position.x || 0;
+  const y = position.y || 0;
+  return (
+    x + radius >= bounds.minX &&
+    x - radius <= bounds.maxX &&
+    y + radius >= bounds.minY &&
+    y - radius <= bounds.maxY
+  );
+}
+
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) {
     return min;
@@ -504,7 +553,15 @@ function drawMoteGems() {
   const moteUnit = Math.max(6, minDimension * GEM_MOTE_BASE_RATIO);
   const pulseMagnitude = moteUnit * 0.35;
 
+  // Calculate viewport bounds once for all mote gems
+  const viewportBounds = getViewportBounds.call(this);
+
   moteGemState.active.forEach((gem) => {
+    // Skip rendering mote gems outside viewport
+    if (viewportBounds && !isInViewport({ x: gem.x, y: gem.y }, viewportBounds, 50)) {
+      return;
+    }
+    
     const hue = gem.color?.hue ?? 48;
     const saturation = gem.color?.saturation ?? 68;
     const lightness = gem.color?.lightness ?? 56;
@@ -2220,6 +2277,9 @@ function drawEnemies() {
     this.enemySwirlImpacts.length = 0;
   }
 
+  // Calculate viewport bounds once for all enemies
+  const viewportBounds = getViewportBounds.call(this);
+
   this.enemies.forEach((enemy) => {
     if (!enemy) {
       return;
@@ -2227,6 +2287,11 @@ function drawEnemies() {
 
     const position = this.getEnemyPosition(enemy);
     if (!position) {
+      return;
+    }
+
+    // Skip rendering enemies outside viewport
+    if (viewportBounds && !isInViewport(position, viewportBounds, 100)) {
       return;
     }
 
@@ -2312,6 +2377,9 @@ function drawEnemyDeathParticles() {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
 
+  // Calculate viewport bounds once for all death particles
+  const viewportBounds = getViewportBounds.call(this);
+
   this.enemyDeathParticles.forEach((particle) => {
     if (!particle || !particle.position) {
       return;
@@ -2320,6 +2388,12 @@ function drawEnemyDeathParticles() {
     if (alpha <= 0) {
       return;
     }
+    
+    // Skip rendering death particles outside viewport
+    if (viewportBounds && !isInViewport(particle.position, viewportBounds, 30)) {
+      return;
+    }
+    
     const wobbleFrequency = Number.isFinite(particle.wobbleFrequency) ? particle.wobbleFrequency : 0;
     const wobbleAmplitude = Number.isFinite(particle.wobbleAmplitude) ? particle.wobbleAmplitude : 0;
     const wobblePhase = (Number.isFinite(particle.phase) ? particle.phase : 0)
@@ -2427,10 +2501,19 @@ function drawDamageNumbers() {
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
 
+  // Calculate viewport bounds once for all damage numbers
+  const viewportBounds = getViewportBounds.call(this);
+
   this.damageNumbers.forEach((entry) => {
     if (!entry || !entry.position || !entry.text || entry.alpha <= 0) {
       return;
     }
+    
+    // Skip rendering damage numbers outside viewport
+    if (viewportBounds && !isInViewport(entry.position, viewportBounds, 50)) {
+      return;
+    }
+    
     const fontSize = Number.isFinite(entry.fontSize) ? entry.fontSize : 16;
     // Fade the highlight outline based on how much of the target's health the hit removed.
     const highlightAlpha = Number.isFinite(entry.outlineAlpha)
@@ -2541,6 +2624,11 @@ function drawProjectiles() {
   }
 
   const ctx = this.ctx;
+  // Calculate viewport bounds once for all projectiles
+  const viewportBounds = getViewportBounds.call(this);
+  let renderedCount = 0;
+  let culledCount = 0;
+
   if (this.projectiles.length) {
     ctx.save();
   }
@@ -2549,6 +2637,24 @@ function drawProjectiles() {
     if (!projectile) {
       return;
     }
+
+    // Get projectile position for culling check
+    const projectilePosition = projectile.currentPosition || projectile.position || projectile.origin || projectile.source;
+    
+    // Skip rendering projectiles outside viewport (with generous margin for special effects)
+    if (viewportBounds && projectilePosition) {
+      // Use larger radius for special projectile types that may extend beyond their origin
+      const cullRadius = projectile.patternType === 'etaLaser' ? 300 :
+                        projectile.patternType === 'omegaWave' ? 200 :
+                        projectile.patternType === 'iotaPulse' ? 150 : 50;
+      
+      if (!isInViewport(projectilePosition, viewportBounds, cullRadius)) {
+        culledCount++;
+        return;
+      }
+    }
+    
+    renderedCount++;
 
     if (projectile.patternType === 'supply') {
       const position = projectile.currentPosition || projectile.target || projectile.source;
