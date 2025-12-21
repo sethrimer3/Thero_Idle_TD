@@ -158,6 +158,17 @@ class Particle {
     this.tierId = tierId;
     this.sizeIndex = sizeIndex; // 0 = small, 1 = medium, 2 = large
     
+    // Cache tier reference and color strings for performance
+    this._tier = PARTICLE_TIERS.find(t => t.id === tierId) || PARTICLE_TIERS[0];
+    this._colorString = `rgba(${this._tier.color.r}, ${this._tier.color.g}, ${this._tier.color.b}, 0.9)`;
+    this._glowColorString = this._tier.glowColor 
+      ? `rgba(${this._tier.glowColor.r}, ${this._tier.glowColor.g}, ${this._tier.glowColor.b}, 0.8)`
+      : null;
+    this._size = BASE_PARTICLE_SIZE * Math.pow(SIZE_MULTIPLIER, sizeIndex);
+    this._sizeModifier = SIZE_VELOCITY_MODIFIERS[sizeIndex] || 1.0;
+    this._maxVelocity = MAX_VELOCITY * this._sizeModifier;
+    this._minVelocity = MIN_VELOCITY * this._sizeModifier;
+    
     this.lockedToMouse = false; // Whether particle is locked to mouse/touch
     this.mouseTarget = null; // Target position when locked to mouse
     this.merging = false; // Whether particle is being merged
@@ -165,7 +176,7 @@ class Particle {
   }
 
   getTier() {
-    return PARTICLE_TIERS.find(t => t.id === this.tierId) || PARTICLE_TIERS[0];
+    return this._tier;
   }
 
   getSizeName() {
@@ -173,8 +184,7 @@ class Particle {
   }
 
   getSize() {
-    // Calculate actual render size
-    return BASE_PARTICLE_SIZE * Math.pow(SIZE_MULTIPLIER, this.sizeIndex);
+    return this._size;
   }
 
   update(forge, spawners = []) {
@@ -243,9 +253,8 @@ class Particle {
     }
     
     // Limit velocity with size-based modifier
-    const sizeModifier = SIZE_VELOCITY_MODIFIERS[this.sizeIndex] || 1.0;
-    const maxVelocity = MAX_VELOCITY * sizeModifier;
-    const minVelocity = MIN_VELOCITY * sizeModifier;
+    const maxVelocity = this._maxVelocity;
+    const minVelocity = this._minVelocity;
     
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
     if (speed > maxVelocity) {
@@ -298,22 +307,19 @@ class Particle {
   }
 
   getColor() {
-    const tier = this.getTier();
-    const color = tier.color;
-    return `rgba(${color.r}, ${color.g}, ${color.b}, 0.9)`;
+    return this._colorString;
   }
 
   draw(ctx) {
-    const tier = this.getTier();
-    const size = this.getSize();
+    const size = this._size;
     
     // Draw particle
-    ctx.fillStyle = this.getColor();
+    ctx.fillStyle = this._colorString;
     
     // If tier has a glow, add shadow effect
-    if (tier.glowColor) {
+    if (this._glowColorString) {
       ctx.shadowBlur = size * 3;
-      ctx.shadowColor = `rgba(${tier.glowColor.r}, ${tier.glowColor.g}, ${tier.glowColor.b}, 0.8)`;
+      ctx.shadowColor = this._glowColorString;
     } else {
       ctx.shadowBlur = 0;
     }
@@ -648,6 +654,70 @@ export class BetSpireRender {
           conversionCount: 100 // 100 small particles
         });
       });
+    });
+  }
+
+  // Attempt to merge large particles to next tier (performance optimization)
+  // When 100 large particles of the same tier exist, convert them to 10 large particles of the next tier
+  // This can happen anywhere on the screen to reduce particle count for better performance
+  attemptLargeTierMerge() {
+    const largeParticlesByTier = new Map();
+    
+    // Group large particles by tier anywhere on screen
+    this.particles.forEach(particle => {
+      // Skip particles that are already merging
+      if (particle.merging) return;
+      
+      // Only consider large particles
+      if (particle.sizeIndex !== LARGE_SIZE_INDEX) return;
+      
+      const tierId = particle.tierId;
+      if (!largeParticlesByTier.has(tierId)) {
+        largeParticlesByTier.set(tierId, []);
+      }
+      largeParticlesByTier.get(tierId).push(particle);
+    });
+    
+    // Check each tier group for bulk conversion
+    largeParticlesByTier.forEach((group, tierId) => {
+      if (group.length >= MERGE_THRESHOLD) {
+        const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === tierId);
+        
+        // Can only convert if not already at max tier
+        if (tierIndex >= 0 && tierIndex < PARTICLE_TIERS.length - 1) {
+          const nextTier = PARTICLE_TIERS[tierIndex + 1];
+          
+          // Calculate center point of the particles to merge
+          let centerX = 0;
+          let centerY = 0;
+          const particlesToMerge = group.slice(0, MERGE_THRESHOLD);
+          
+          particlesToMerge.forEach(p => {
+            centerX += p.x;
+            centerY += p.y;
+          });
+          centerX /= particlesToMerge.length;
+          centerY /= particlesToMerge.length;
+          
+          // Mark particles as merging and set their target
+          particlesToMerge.forEach(p => {
+            p.merging = true;
+            p.mergeTarget = { x: centerX, y: centerY };
+          });
+          
+          // Create a merge animation entry that converts 100 large to 10 large of next tier
+          this.activeMerges.push({
+            particles: particlesToMerge,
+            targetX: centerX,
+            targetY: centerY,
+            tierId: nextTier.id,
+            sizeIndex: LARGE_SIZE_INDEX, // Large particles
+            startTime: Date.now(),
+            isTierConversion: true,
+            conversionCount: 10 // 10 large particles of next tier
+          });
+        }
+      }
     });
   }
 
@@ -1021,6 +1091,11 @@ export class BetSpireRender {
     // Periodically attempt tier conversion at generators
     if (Math.random() < 0.01) { // 1% chance per frame
       this.attemptTierConversion();
+    }
+    
+    // Periodically attempt large particle tier merging for performance (100 large → 10 large of next tier)
+    if (Math.random() < 0.01) { // 1% chance per frame
+      this.attemptLargeTierMerge();
     }
     
     // Periodically check for particle factor milestones
