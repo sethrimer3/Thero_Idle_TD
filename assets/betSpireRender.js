@@ -12,7 +12,7 @@ const SIZE_MULTIPLIER = 2.5; // Each size tier is 2.5x bigger
 const MIN_VELOCITY = 0.24; // Minimum speed to keep particles swirling (20% slower: 0.3 * 0.8 = 0.24)
 const MAX_VELOCITY = 2;
 const ATTRACTION_STRENGTH = 1.5; // Increased to keep particles within field (was 0.5)
-const FORGE_RADIUS = 30; // Radius for forge attraction
+const FORGE_RADIUS = 21; // Radius for forge attraction (30% smaller to tighten the forge well)
 const MAX_FORGE_ATTRACTION_DISTANCE = FORGE_RADIUS * 2; // Particles only feel forge gravity when within twice the forge radius
 const DISTANCE_SCALE = 0.01; // Scale factor for distance calculations
 const FORCE_SCALE = 0.01; // Scale factor for force application
@@ -365,6 +365,9 @@ export class BetSpireRender {
     this.betGlyphsAwarded = Number.isFinite(state.betGlyphsAwarded)
       ? state.betGlyphsAwarded
       : 0;
+
+    // Disable manual interactions so clicks/taps no longer spawn particles or tug on them.
+    this.interactionsEnabled = false;
     
     // Store state reference for persistence
     this.state = state;
@@ -388,13 +391,14 @@ export class BetSpireRender {
     // Set canvas dimensions
     this.canvas.width = CANVAS_WIDTH;
     this.canvas.height = CANVAS_HEIGHT;
-    
-    // No initial sand particles - player must tap to spawn them
-    
+
+    // Seed the simulation with a level 1 sand generator so it begins active without user input.
+    this.addParticle('sand', SMALL_SIZE_INDEX);
+
     // Initialize with black background
     this.ctx.fillStyle = '#000000';
     this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    
+
     // Set up event listeners
     this.setupEventListeners();
   }
@@ -726,6 +730,10 @@ export class BetSpireRender {
   }
 
   setupEventListeners() {
+    if (!this.interactionsEnabled) {
+      return;
+    }
+
     // Support both mouse and touch events
     this.canvas.addEventListener('mousedown', this.handlePointerDown);
     this.canvas.addEventListener('mousemove', this.handlePointerMove);
@@ -826,8 +834,10 @@ export class BetSpireRender {
   }
 
   handlePointerDown(event) {
+    if (!this.interactionsEnabled) return;
+
     event.preventDefault();
-    
+
     const coords = this.getCanvasCoordinates(event);
     if (!coords) return;
     
@@ -861,6 +871,8 @@ export class BetSpireRender {
   }
 
   handlePointerMove(event) {
+    if (!this.interactionsEnabled) return;
+
     if (!this.isInteracting) return;
     
     event.preventDefault();
@@ -880,6 +892,8 @@ export class BetSpireRender {
   }
 
   handlePointerUp(event) {
+    if (!this.interactionsEnabled) return;
+
     if (!this.isInteracting) return;
     
     this.isInteracting = false;
@@ -1068,9 +1082,9 @@ export class BetSpireRender {
 
   drawForgeInfluenceRing() {
     const ctx = this.ctx;
-    
+
     // Draw a faint ring at the edge of the forge's influence radius
-    ctx.strokeStyle = 'rgba(150, 150, 200, 0.2)'; // Faint bluish-white
+    ctx.strokeStyle = 'rgba(150, 150, 200, 0.1)'; // Faint bluish-white
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 5]); // Dashed line for subtlety
     ctx.beginPath();
@@ -1100,7 +1114,16 @@ export class BetSpireRender {
       // Create color string from tier color
       const color = tier.color;
       const colorString = `rgba(${color.r}, ${color.g}, ${color.b}, 0.7)`;
-      
+
+      // Draw the generator's influence ring to visualize its pull radius.
+      ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.1)`;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.arc(0, 0, SPAWNER_GRAVITY_RADIUS, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
       // Draw first triangle (pointing up, rotating clockwise)
       ctx.rotate(rotation);
       ctx.strokeStyle = colorString;
