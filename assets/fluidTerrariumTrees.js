@@ -1,3 +1,5 @@
+import { resolveTerrariumDevicePixelRatio } from './fluidTerrariumResolution.js';
+
 'use strict';
 
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
@@ -2667,9 +2669,7 @@ export class FluidTerrariumTrees {
 
     // Use device pixel ratio with 3x multiplier for crisp rendering at mobile zoom levels.
     // Cap at 6x to avoid excessive memory usage on high-DPI devices.
-    const dpr = typeof window !== 'undefined' && Number.isFinite(window.devicePixelRatio)
-      ? window.devicePixelRatio
-      : 1;
+    const dpr = resolveTerrariumDevicePixelRatio();
     const scaleFactor = Math.min(dpr * 3, 6);
 
     // Set high-resolution buffer size for crisp rendering.

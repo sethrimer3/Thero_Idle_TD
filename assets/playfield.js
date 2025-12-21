@@ -197,6 +197,9 @@ import {
   drawOmegaParticles as drawOmegaParticlesHelper,
 } from '../scripts/features/towers/omegaTower.js';
 
+// Limit the backing resolution for the playfield canvas to keep GPU memory usage stable on dense displays.
+const MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 2;
+
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
   theroSymbol: 'þ',
@@ -1991,7 +1994,8 @@ export class SimplePlayfield {
       return;
     }
     const rect = this.canvas.getBoundingClientRect();
-    const ratio = window.devicePixelRatio || 1;
+    // Clamp the device pixel ratio so the canvas backing store does not balloon on high-resolution devices.
+    const ratio = Math.min(window.devicePixelRatio || 1, MAX_PLAYFIELD_DEVICE_PIXEL_RATIO);
     const width = Math.max(1, Math.floor(rect.width * ratio));
     const height = Math.max(1, Math.floor(rect.height * ratio));
     if (this.canvas.width !== width || this.canvas.height !== height) {

@@ -1,3 +1,5 @@
+import { resolveTerrariumDevicePixelRatio } from './fluidTerrariumResolution.js';
+
 'use strict';
 
 /**
@@ -289,9 +291,7 @@ export class FluidTerrariumCelestialBodies {
     canvas.className = 'fluid-terrarium__celestial-canvas';
 
     // Use device pixel ratio for crisp rendering
-    const dpr = typeof window !== 'undefined' && Number.isFinite(window.devicePixelRatio)
-      ? window.devicePixelRatio
-      : 1;
+    const dpr = resolveTerrariumDevicePixelRatio();
     const scaleFactor = Math.min(dpr * CANVAS_DPR_MULTIPLIER, MAX_CANVAS_SCALE_FACTOR);
 
     // Match the container size defined in CSS for .fluid-terrarium__sun and .fluid-terrarium__moon
