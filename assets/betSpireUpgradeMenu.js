@@ -29,7 +29,7 @@ export function createBetSpireUpgradeMenu({
   const generatorRemainders = {}; // Carry fractional generation so slow generators still produce over time
   PARTICLE_GENERATORS.forEach(gen => {
     if (!Number.isFinite(generatorState[gen.id])) {
-      generatorState[gen.id] = 0;
+      generatorState[gen.id] = gen.id === 'sand-generator' ? 1 : 0; // Start with a level 1 sand generator
     }
 
     generatorRemainders[gen.id] = 0;
