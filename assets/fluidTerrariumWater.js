@@ -1,3 +1,5 @@
+import { resolveTerrariumDevicePixelRatio } from './fluidTerrariumResolution.js';
+
 'use strict';
 
 /**
@@ -77,9 +79,7 @@ export class FluidTerrariumWater {
     const rect = this.container.getBoundingClientRect();
     this.bounds.width = this.container.clientWidth || rect.width;
     this.bounds.height = this.container.clientHeight || rect.height;
-    const dpr = typeof window !== 'undefined' && Number.isFinite(window.devicePixelRatio)
-      ? window.devicePixelRatio
-      : 1;
+    const dpr = resolveTerrariumDevicePixelRatio();
     this.canvas.width = Math.max(1, Math.round(this.bounds.width * dpr));
     this.canvas.height = Math.max(1, Math.round(this.bounds.height * dpr));
     this.canvas.style.width = `${this.bounds.width}px`;

@@ -86,7 +86,11 @@ export class PowderSimulation {
     const baseCellSize = Number.isFinite(options.cellSize) && options.cellSize > 0
       ? options.cellSize
       : POWDER_CELL_SIZE_PX;
-    const deviceScale = window.devicePixelRatio || 1;
+    // Cap the effective device pixel ratio so the Aleph basin canvas stays lightweight on dense screens.
+    this.maxDevicePixelRatio = Number.isFinite(options.maxDevicePixelRatio) && options.maxDevicePixelRatio > 0
+      ? options.maxDevicePixelRatio
+      : 1.8;
+    const deviceScale = this.getEffectiveDeviceScale();
     this.cellSize = Math.max(1, Math.round(baseCellSize * deviceScale));
     this.deviceScale = deviceScale;
     this.collisionScale =
@@ -218,6 +222,20 @@ export class PowderSimulation {
     }
   }
 
+  /**
+   * Resolve a capped device pixel ratio so Aleph Spire renders never exceed budget on high-resolution hardware.
+   * @returns {number} Effective device pixel ratio for the powder canvas
+   */
+  getEffectiveDeviceScale() {
+    const rawRatio = Number.isFinite(window?.devicePixelRatio) && window.devicePixelRatio > 0
+      ? window.devicePixelRatio
+      : 1;
+    const maxRatio = Number.isFinite(this.maxDevicePixelRatio) && this.maxDevicePixelRatio > 0
+      ? this.maxDevicePixelRatio
+      : rawRatio;
+    return Math.max(1, Math.min(rawRatio, maxRatio));
+  }
+
   handleResize() {
     if (!this.canvas || !this.ctx) {
       return;
@@ -244,9 +262,8 @@ export class PowderSimulation {
           scrollOffsetCells: this.scrollOffsetCells,
         }
       : null; // Cache the previous grid metrics so we can rescale grains after the resize.
-    const ratio = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
-      ? window.devicePixelRatio
-      : 1;
+    // Use the capped DPR to prevent giant backing stores on ultra-dense screens.
+    const ratio = this.getEffectiveDeviceScale();
     const rect =
       typeof this.canvas.getBoundingClientRect === 'function'
         ? this.canvas.getBoundingClientRect()

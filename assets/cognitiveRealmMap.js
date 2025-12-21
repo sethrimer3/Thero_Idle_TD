@@ -55,6 +55,13 @@ const PARALLAX_LAYERS = 3;
 const COLOR_PLAYER_GLOW = 'rgba(160, 242, 255, 0.36)';
 const COLOR_ENEMY_GLOW = 'rgba(255, 84, 130, 0.36)';
 const COLOR_NEUTRAL_GLOW = 'rgba(255, 221, 120, 0.32)';
+// Limit the canvas pixel ratio so the collective unconscious map stays performant on high-DPI devices.
+const MAX_MAP_DEVICE_PIXEL_RATIO = 2;
+
+function getEffectiveMapDevicePixelRatio() {
+  // Use a capped DPR to avoid allocating enormous backing stores while keeping text legible.
+  return Math.min(window.devicePixelRatio || 1, MAX_MAP_DEVICE_PIXEL_RATIO);
+}
 
 // Zoom and pan state
 let currentZoom = 1.0;
@@ -402,7 +409,7 @@ function clampPanToBounds() {
     return;
   }
 
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = getEffectiveMapDevicePixelRatio();
   const width = mapCanvas.width / dpr;
   const height = mapCanvas.height / dpr;
 
@@ -474,7 +481,7 @@ function resizeCanvas() {
   }
 
   const rect = mapContainer.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = getEffectiveMapDevicePixelRatio();
 
   const width = rect.width || mapContainer.clientWidth || 1;
   const height = rect.height || mapContainer.clientHeight || 1;
@@ -832,8 +839,9 @@ function getNodeAtPointer(clientX, clientY, { includeNeutral = false } = {}) {
   const pointerX = clientX - rect.left;
   const pointerY = clientY - rect.top;
   
-  const width = mapCanvas.width / (window.devicePixelRatio || 1);
-  const height = mapCanvas.height / (window.devicePixelRatio || 1);
+  const dpr = getEffectiveMapDevicePixelRatio();
+  const width = mapCanvas.width / dpr;
+  const height = mapCanvas.height / dpr;
   
   // Transform pointer coordinates to map space
   const centerX = width / 2;
@@ -911,7 +919,7 @@ function renderMap(deltaMs = 16) {
     return;
   }
 
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = getEffectiveMapDevicePixelRatio();
   const width = mapCanvas.width / dpr;
   const height = mapCanvas.height / dpr;
 
