@@ -524,11 +524,15 @@ export class SimplePlayfield {
       startClientX: 0,
       startClientY: 0,
       lastClientY: 0,
+      activationClientX: 0,
+      activationClientY: 0,
       holdTimeoutId: null,
       holdActivated: false,
       scribbleCleanup: null,
       actionTriggered: null,
       pointerType: null,
+      swipeStepPixels: 0,
+      appliedSteps: 0,
     };
     this.towerSelectionWheel = {
       container: null,
@@ -3393,7 +3397,7 @@ export class SimplePlayfield {
     }
     const nextCost = this.getCurrentTowerCost(nextId);
     const costLabel = formatCombatNumber(Math.max(0, Number.isFinite(nextCost) ? nextCost : 0));
-    return `Upgrade · ${this.theroSymbol}${costLabel} · Swipe ↓ to demote`;
+    return `Swipe ↑ to upgrade (${this.theroSymbol}${costLabel}) · Swipe ↓ to demote`;
   }
 
   spawnTowerUpgradeCostScribble(tower, text = '') {
@@ -3588,9 +3592,14 @@ export class SimplePlayfield {
     this.towerHoldState.startClientX = event.clientX;
     this.towerHoldState.startClientY = event.clientY;
     this.towerHoldState.lastClientY = event.clientY;
+    this.towerHoldState.activationClientX = event.clientX;
+    this.towerHoldState.activationClientY = event.clientY;
     this.towerHoldState.pointerType = event.pointerType || 'mouse';
     this.towerHoldState.holdActivated = false;
     this.towerHoldState.actionTriggered = null;
+    this.towerHoldState.appliedSteps = 0;
+    const stepPixels = this.getPixelsForMeters(2);
+    this.towerHoldState.swipeStepPixels = Math.max(1, Number.isFinite(stepPixels) ? stepPixels : 1);
     this.towerHoldState.holdTimeoutId = setTimeout(
       () => this.activateTowerHoldGesture(),
       TOWER_HOLD_ACTIVATION_MS,
@@ -3611,9 +3620,7 @@ export class SimplePlayfield {
     state.holdActivated = true;
     this.resetTowerTapState();
     this.suppressNextCanvasClick = true;
-    state.scribbleCleanup = null;
-    this.openTowerSelectionWheel(tower);
-    this.startTowerSelectionWheelDrag({ pointerId: state.pointerId, initialClientY: state.lastClientY });
+    state.scribbleCleanup = this.spawnTowerUpgradeCostScribble(tower);
     if (this.connectionDragState.pointerId === state.pointerId) {
       this.clearConnectionDragState();
     }
@@ -3648,10 +3655,29 @@ export class SimplePlayfield {
     if (typeof event.preventDefault === 'function') {
       event.preventDefault();
     }
-    if (this.towerSelectionWheel?.container && state.towerId) {
+    const rawStepPixels = Number.isFinite(state.swipeStepPixels) ? state.swipeStepPixels : this.getPixelsForMeters(2);
+    const stepPixels = Math.max(1, Number.isFinite(rawStepPixels) ? rawStepPixels : 1);
+    const anchorY = Number.isFinite(state.activationClientY) ? state.activationClientY : state.startClientY;
+    const deltaY = event.clientY - anchorY;
+    const currentSteps = Math.trunc(deltaY / stepPixels);
+    const appliedSteps = Number.isFinite(state.appliedSteps) ? state.appliedSteps : 0;
+    const pendingSteps = currentSteps - appliedSteps;
+    if (pendingSteps !== 0 && state.towerId) {
       const tower = this.getTowerById(state.towerId);
-      if (tower) {
-        this.positionTowerSelectionWheel(tower);
+      const direction = pendingSteps > 0 ? 1 : -1;
+      const swipeVector = { x: state.activationClientX - state.startClientX, y: deltaY };
+      let remaining = Math.abs(pendingSteps);
+      while (remaining > 0 && tower) {
+        const applied =
+          direction > 0
+            ? this.commitTowerHoldDemotion({ swipeVector })
+            : this.commitTowerHoldUpgrade({ swipeVector });
+        if (!applied) {
+          state.appliedSteps = currentSteps;
+          break;
+        }
+        state.appliedSteps += direction;
+        remaining -= 1;
       }
     }
   }
@@ -3678,11 +3704,15 @@ export class SimplePlayfield {
     state.startClientX = 0;
     state.startClientY = 0;
     state.lastClientY = 0;
+    state.activationClientX = 0;
+    state.activationClientY = 0;
     state.holdTimeoutId = null;
     state.holdActivated = false;
     state.scribbleCleanup = null;
     state.actionTriggered = null;
     state.pointerType = null;
+    state.swipeStepPixels = 0;
+    state.appliedSteps = 0;
     if (!pointerId || this.viewPanLockPointerId === pointerId) {
       this.viewPanLockPointerId = null;
     }
