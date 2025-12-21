@@ -670,6 +670,8 @@ export class BetSpireRender {
         // Handle tier conversion differently from size merges
         if (merge.isTierConversion) {
           // Tier conversion: create multiple small particles of next tier
+          // Note: Creating 100 particles at once (for large conversions) is intentional
+          // for the visual effect and game feel. The particles spread out with random velocities.
           const conversionCount = merge.conversionCount || 1;
           
           for (let i = 0; i < conversionCount; i++) {
@@ -717,50 +719,6 @@ export class BetSpireRender {
       // Keep this merge active
       return true;
     });
-  }
-
-  // DEPRECATED: Old forge method - tier conversion now handled by attemptTierConversion at generators
-  // Kept for backward compatibility but not used in the new system
-  forgeParticle(particle) {
-    const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === particle.tierId);
-    
-    // Can't forge if already at max tier
-    if (tierIndex >= PARTICLE_TIERS.length - 1) {
-      return;
-    }
-    
-    const nextTierId = PARTICLE_TIERS[tierIndex + 1].id;
-    
-    // Forging rules:
-    // - 100 small of tier N → 1 small of tier N+1
-    // - 1 medium of tier N → 1 small of tier N+1 (since 1 medium = 100 small)
-    // - 1 large of tier N → 100 small of tier N+1 (since 1 large = 10000 small = 100 medium)
-    
-    if (particle.sizeIndex === 0) {
-      // Small particle: need 100 to forge
-      const smallParticles = this.particles.filter(
-        p => p.tierId === particle.tierId && p.sizeIndex === 0
-      );
-      
-      if (smallParticles.length >= MERGE_THRESHOLD) {
-        // Remove 100 small particles
-        for (let i = 0; i < MERGE_THRESHOLD; i++) {
-          this.removeParticle(smallParticles[i]);
-        }
-        // Add 1 small particle of next tier
-        this.addParticle(nextTierId, 0);
-      }
-    } else if (particle.sizeIndex === 1) {
-      // Medium particle: converts to 1 small of next tier
-      this.removeParticle(particle);
-      this.addParticle(nextTierId, 0);
-    } else if (particle.sizeIndex === 2) {
-      // Large particle: converts to 100 small of next tier
-      this.removeParticle(particle);
-      for (let i = 0; i < MERGE_THRESHOLD; i++) {
-        this.addParticle(nextTierId, 0);
-      }
-    }
   }
 
   setupEventListeners() {
