@@ -39,60 +39,149 @@ export function createPowderUiDomHelpers(options = {}) {
     return null;
   };
 
+  // Resolve an element by trying the provided IDs in order. This allows the Bet Spire UI
+  // to fall back to the relocated Achievements terrarium markup while keeping legacy ID
+  // support for older layouts.
+  const queryElement = (...ids) => {
+    if (typeof document === 'undefined') {
+      return null;
+    }
+    for (const id of ids) {
+      if (typeof id !== 'string' || !id) {
+        continue;
+      }
+      const node = document.getElementById(id);
+      if (node) {
+        return node;
+      }
+    }
+    return null;
+  };
+
   // Collect references to the Bet Spire UI so powderDisplay can hydrate the fluid viewport.
   function bindFluidControls() {
     if (!fluidElements || typeof document === 'undefined') {
       return;
     }
-    fluidElements.panel = document.getElementById('panel-fluid');
-    fluidElements.host = document.getElementById('fluid-simulation-host');
-    fluidElements.simulationCard = document.getElementById('fluid-simulation-card');
-    fluidElements.canvas = document.getElementById('fluid-canvas');
-    fluidElements.basin = document.getElementById('fluid-basin');
-    fluidElements.terrariumLayer = document.getElementById('fluid-terrarium-layer');
-    fluidElements.terrariumStage = document.getElementById('fluid-terrarium-stage');
-    fluidElements.terrariumMedia = document.getElementById('fluid-terrarium-stage-media');
+    fluidElements.panel = queryElement('panel-achievements', 'panel-fluid');
+    fluidElements.host = queryElement('achievements-terrarium-host', 'fluid-simulation-host');
+    fluidElements.simulationCard = queryElement(
+      'achievements-terrarium-card',
+      'fluid-simulation-card',
+    );
+    fluidElements.canvas = queryElement('achievements-terrarium-canvas', 'fluid-canvas');
+    fluidElements.basin = queryElement('achievements-terrarium-basin', 'fluid-basin');
+    fluidElements.terrariumLayer = queryElement(
+      'achievements-terrarium-layer',
+      'fluid-terrarium-layer',
+    );
+    fluidElements.terrariumStage = queryElement(
+      'achievements-terrarium-stage',
+      'fluid-terrarium-stage',
+    );
+    fluidElements.terrariumMedia = queryElement(
+      'achievements-terrarium-stage-media',
+      'fluid-terrarium-stage-media',
+    );
     // Cache terrarium sky layers for the day/night cycle renderer.
-    fluidElements.terrariumSky = document.getElementById('fluid-terrarium-sky');
-    fluidElements.terrariumStarsNear = document.getElementById('fluid-terrarium-stars-near');
-    fluidElements.terrariumStarsFar = document.getElementById('fluid-terrarium-stars-far');
-    fluidElements.terrariumSun = document.getElementById('fluid-terrarium-sun');
-    fluidElements.terrariumMoon = document.getElementById('fluid-terrarium-moon');
-    fluidElements.viewport = document.getElementById('fluid-viewport');
-    fluidElements.leftWall = document.getElementById('fluid-wall-left');
-    fluidElements.rightWall = document.getElementById('fluid-wall-right');
-    fluidElements.leftHitbox = document.getElementById('fluid-wall-hitbox-left');
-    fluidElements.rightHitbox = document.getElementById('fluid-wall-hitbox-right');
-    fluidElements.reservoirValue = document.getElementById('fluid-reservoir');
-    fluidElements.dripRateValue = document.getElementById('fluid-drip-rate');
-    fluidElements.statusNote = document.getElementById('fluid-status-note');
-    fluidElements.cameraModeToggle = document.getElementById('fluid-camera-mode-toggle');
-    fluidElements.cameraModeStateLabel = document.getElementById('fluid-camera-mode-state');
-    fluidElements.cameraModeHint = document.getElementById('fluid-camera-mode-hint');
-    fluidElements.floatingIslandSprite = document.getElementById('fluid-terrarium-floating-island');
+    fluidElements.terrariumSky = queryElement('achievements-terrarium-sky', 'fluid-terrarium-sky');
+    fluidElements.terrariumStarsNear = queryElement(
+      'achievements-terrarium-stars-near',
+      'fluid-terrarium-stars-near',
+    );
+    fluidElements.terrariumStarsFar = queryElement(
+      'achievements-terrarium-stars-far',
+      'fluid-terrarium-stars-far',
+    );
+    fluidElements.terrariumSun = queryElement('achievements-terrarium-sun', 'fluid-terrarium-sun');
+    fluidElements.terrariumMoon = queryElement('achievements-terrarium-moon', 'fluid-terrarium-moon');
+    fluidElements.viewport = queryElement('achievements-terrarium-viewport', 'fluid-viewport');
+    fluidElements.leftWall = queryElement('achievements-terrarium-wall-left', 'fluid-wall-left');
+    fluidElements.rightWall = queryElement('achievements-terrarium-wall-right', 'fluid-wall-right');
+    fluidElements.leftHitbox = queryElement(
+      'achievements-terrarium-wall-hitbox-left',
+      'fluid-wall-hitbox-left',
+    );
+    fluidElements.rightHitbox = queryElement(
+      'achievements-terrarium-wall-hitbox-right',
+      'fluid-wall-hitbox-right',
+    );
+    fluidElements.reservoirValue = queryElement('achievements-reservoir', 'fluid-reservoir');
+    fluidElements.dripRateValue = queryElement('achievements-drip-rate', 'fluid-drip-rate');
+    fluidElements.statusNote = queryElement('achievements-status-note', 'fluid-status-note');
+    fluidElements.cameraModeToggle = queryElement(
+      'achievements-camera-mode-toggle',
+      'fluid-camera-mode-toggle',
+    );
+    fluidElements.cameraModeStateLabel = queryElement(
+      'achievements-camera-mode-state',
+      'fluid-camera-mode-state',
+    );
+    fluidElements.cameraModeHint = queryElement(
+      'achievements-camera-mode-hint',
+      'fluid-camera-mode-hint',
+    );
+    fluidElements.floatingIslandSprite = queryElement(
+      'achievements-terrarium-floating-island',
+      'fluid-terrarium-floating-island',
+    );
     fluidElements.floatingIslandCollisionSprite =
-      document.getElementById('fluid-terrarium-floating-island-collision') ||
+      queryElement('achievements-terrarium-floating-island-collision', 'fluid-terrarium-floating-island-collision') ||
       fluidElements.floatingIslandSprite;
-    fluidElements.terrainSprite = document.getElementById('fluid-terrarium-foreground');
+    fluidElements.terrainSprite = queryElement(
+      'achievements-terrarium-foreground',
+      'fluid-terrarium-foreground',
+    );
     // Reuse the high-fidelity terrain SVG for collision sampling so silhouettes match visuals.
     fluidElements.terrainCollisionSprite =
-      document.getElementById('fluid-terrarium-foreground-collision') || fluidElements.terrainSprite;
-    fluidElements.happinessTotal = document.getElementById('fluid-happiness-total');
-    fluidElements.happinessRate = document.getElementById('fluid-happiness-rate');
-    fluidElements.happinessList = document.getElementById('fluid-happiness-list');
-    fluidElements.happinessEmpty = document.getElementById('fluid-happiness-empty');
+      queryElement('achievements-terrarium-foreground-collision', 'fluid-terrarium-foreground-collision') ||
+      fluidElements.terrainSprite;
+    fluidElements.happinessTotal = queryElement('achievements-happiness-total', 'fluid-happiness-total');
+    fluidElements.happinessRate = queryElement('achievements-happiness-rate', 'fluid-happiness-rate');
+    fluidElements.happinessList = queryElement('achievements-happiness-list', 'fluid-happiness-list');
+    fluidElements.happinessEmpty = queryElement('achievements-happiness-empty', 'fluid-happiness-empty');
     // Track progress toward the next Bet glyph unlock.
-    fluidElements.happinessProgressBar = document.getElementById('fluid-happiness-progress');
-    fluidElements.happinessProgressFill = document.getElementById('fluid-happiness-progress-fill');
-    fluidElements.happinessProgressLabel = document.getElementById('fluid-happiness-progress-label');
-    fluidElements.happinessProgressPrevious = document.getElementById('fluid-happiness-progress-previous');
-    fluidElements.happinessProgressNext = document.getElementById('fluid-happiness-progress-next');
-    fluidElements.happinessProgressCurrent = document.getElementById('fluid-happiness-progress-current');
+    fluidElements.happinessProgressBar = queryElement(
+      'achievements-happiness-progress',
+      'fluid-happiness-progress',
+    );
+    fluidElements.happinessProgressFill = queryElement(
+      'achievements-happiness-progress-fill',
+      'fluid-happiness-progress-fill',
+    );
+    fluidElements.happinessProgressLabel = queryElement(
+      'achievements-happiness-progress-label',
+      'fluid-happiness-progress-label',
+    );
+    fluidElements.happinessProgressPrevious = queryElement(
+      'achievements-happiness-progress-previous',
+      'fluid-happiness-progress-previous',
+    );
+    fluidElements.happinessProgressNext = queryElement(
+      'achievements-happiness-progress-next',
+      'fluid-happiness-progress-next',
+    );
+    fluidElements.happinessProgressCurrent = queryElement(
+      'achievements-happiness-progress-current',
+      'fluid-happiness-progress-current',
+    );
     // Terrarium items dropdown for managing and upgrading items.
-    fluidElements.terrariumItemsToggle = document.getElementById('fluid-terrarium-items-toggle');
-    fluidElements.terrariumItemsDropdown = document.getElementById('fluid-terrarium-items-dropdown');
-    fluidElements.terrariumItemsEmpty = document.getElementById('fluid-terrarium-items-empty');
-    fluidElements.terrariumItemsList = document.getElementById('fluid-terrarium-items-list');
+    fluidElements.terrariumItemsToggle = queryElement(
+      'achievements-terrarium-items-toggle',
+      'fluid-terrarium-items-toggle',
+    );
+    fluidElements.terrariumItemsDropdown = queryElement(
+      'achievements-terrarium-items-dropdown',
+      'fluid-terrarium-items-dropdown',
+    );
+    fluidElements.terrariumItemsEmpty = queryElement(
+      'achievements-terrarium-items-empty',
+      'fluid-terrarium-items-empty',
+    );
+    fluidElements.terrariumItemsList = queryElement(
+      'achievements-terrarium-items-list',
+      'fluid-terrarium-items-list',
+    );
     fluidElements.wallGlyphColumns = Array.from(
       document.querySelectorAll('[data-fluid-glyph-column]') || [],
     );
