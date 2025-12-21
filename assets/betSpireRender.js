@@ -579,8 +579,6 @@ export class BetSpireRender {
       // Can't convert the last tier
       if (tierIndex >= PARTICLE_TIERS.length - 1) return;
       
-      // Get the generator position for this tier
-      if (tierIndex >= SPAWNER_POSITIONS.length) return;
       const generatorPos = SPAWNER_POSITIONS[tierIndex];
       const nextTier = PARTICLE_TIERS[tierIndex + 1];
       
@@ -663,17 +661,18 @@ export class BetSpireRender {
           this.removeParticle(p);
         });
         
+        // Calculate spawn position once (used by both size merges and tier conversions)
+        const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === merge.tierId);
+        const spawnPos = tierIndex >= 0 && tierIndex < SPAWNER_POSITIONS.length 
+          ? SPAWNER_POSITIONS[tierIndex] 
+          : null;
+        
         // Handle tier conversion differently from size merges
         if (merge.isTierConversion) {
           // Tier conversion: create multiple small particles of next tier
           const conversionCount = merge.conversionCount || 1;
           
           for (let i = 0; i < conversionCount; i++) {
-            const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === merge.tierId);
-            const spawnPos = tierIndex >= 0 && tierIndex < SPAWNER_POSITIONS.length 
-              ? SPAWNER_POSITIONS[tierIndex] 
-              : null;
-            
             const newParticle = new Particle(merge.tierId, merge.sizeIndex, spawnPos);
             newParticle.x = merge.targetX;
             newParticle.y = merge.targetY;
@@ -684,11 +683,6 @@ export class BetSpireRender {
           }
         } else {
           // Size merge: create one particle of next size
-          const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === merge.tierId);
-          const spawnPos = tierIndex >= 0 && tierIndex < SPAWNER_POSITIONS.length 
-            ? SPAWNER_POSITIONS[tierIndex] 
-            : null;
-          
           const newParticle = new Particle(merge.tierId, merge.sizeIndex, spawnPos);
           newParticle.x = merge.targetX;
           newParticle.y = merge.targetY;
