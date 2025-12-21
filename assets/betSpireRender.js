@@ -133,8 +133,12 @@ const PARTICLE_TIERS = [
 
 // Size tiers: small, medium, large
 const SIZE_TIERS = ['small', 'medium', 'large'];
+const SMALL_SIZE_INDEX = 0;
+const MEDIUM_SIZE_INDEX = 1;
+const LARGE_SIZE_INDEX = 2;
 const MERGE_THRESHOLD = 100; // 100 particles merge into 1 of next size
 const SIZE_VELOCITY_MODIFIERS = [1.0, 0.8, 0.64]; // Small: 100%, Medium: 80%, Large: 64% (20% slower than medium: 0.8 * 0.8 = 0.64)
+const CONVERSION_SPREAD_VELOCITY = 3; // Velocity multiplier for spreading converted particles
 
 // Particle class with tier and size
 class Particle {
@@ -595,9 +599,9 @@ export class BetSpireRender {
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         if (dist <= GENERATOR_CONVERSION_RADIUS) {
-          if (particle.sizeIndex === 1) { // Medium
+          if (particle.sizeIndex === MEDIUM_SIZE_INDEX) {
             mediumParticlesAtGenerator.push(particle);
-          } else if (particle.sizeIndex === 2) { // Large
+          } else if (particle.sizeIndex === LARGE_SIZE_INDEX) {
             largeParticlesAtGenerator.push(particle);
           }
         }
@@ -679,8 +683,8 @@ export class BetSpireRender {
             newParticle.x = merge.targetX;
             newParticle.y = merge.targetY;
             // Add slight random velocity to spread out converted particles
-            newParticle.vx = (Math.random() - 0.5) * 3;
-            newParticle.vy = (Math.random() - 0.5) * 3;
+            newParticle.vx = (Math.random() - 0.5) * CONVERSION_SPREAD_VELOCITY;
+            newParticle.vy = (Math.random() - 0.5) * CONVERSION_SPREAD_VELOCITY;
             this.particles.push(newParticle);
           }
         } else {
