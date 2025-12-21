@@ -293,7 +293,8 @@ const GAMMA_OUTBOUND_SPEED = 260;
 const GAMMA_STAR_SPEED = 200;
 const GAMMA_RETURN_SPEED = 260;
 const GAMMA_STAR_HIT_COUNT = 5;
-const GAMMA_STAR_RADIUS_METERS = 1.0;
+// Keep γ's impact star compact so the pattern hugs the enemy model.
+const GAMMA_STAR_RADIUS_METERS = 0.45;
 const GAMMA_STAR_SEQUENCE = [0, 2, 4, 1, 3, 0];
 // Stun durations for stored shots (in seconds)
 const ALPHA_STORED_SHOT_STUN_DURATION = 0.02; // 20 milliseconds
@@ -8951,6 +8952,7 @@ export class SimplePlayfield {
       starHits: 0,
       starBurstDuration: burstDuration,
       starElapsed: 0,
+      starDamageApplied: false,
       phase: 'outbound',
       outboundHits: new Set(),
       returnHits: new Set(),
@@ -9654,6 +9656,30 @@ export class SimplePlayfield {
               : GAMMA_STAR_SEQUENCE;
             projectile.starHitRegistry = new Set();
             projectile.starHits = 0;
+            if (!projectile.starDamageApplied) {
+              if (targetEnemy) {
+                this.applyDamageToEnemy(targetEnemy, projectile.damage, { sourceTower: tower });
+              }
+              if (targetPosition) {
+                this.enemies.forEach((enemy) => {
+                  if (!enemy || (targetEnemy && enemy.id === targetEnemy.id)) {
+                    return;
+                  }
+                  const position = this.getEnemyPosition(enemy);
+                  if (!position) {
+                    return;
+                  }
+                  const metrics = this.getEnemyVisualMetrics(enemy);
+                  const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
+                  const combined = enemyRadius + hitRadius;
+                  const separation = Math.hypot(position.x - targetPosition.x, position.y - targetPosition.y);
+                  if (separation <= combined) {
+                    this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
+                  }
+                });
+              }
+              projectile.starDamageApplied = true;
+            }
           }
           continue;
         }
@@ -9714,13 +9740,14 @@ export class SimplePlayfield {
           projectile.starHitRegistry = registryFallback(projectile.starHitRegistry);
 
           if (progress >= 1) {
-            const targetPosition = center;
-            if (targetPosition) {
-              if (targetEnemy) {
-                this.applyDamageToEnemy(targetEnemy, projectile.damage, { sourceTower: tower });
-              } else {
+            if (!projectile.starDamageApplied) {
+              const targetPosition = center;
+              if (targetPosition) {
+                if (targetEnemy) {
+                  this.applyDamageToEnemy(targetEnemy, projectile.damage, { sourceTower: tower });
+                }
                 this.enemies.forEach((enemy) => {
-                  if (!enemy) {
+                  if (!enemy || (targetEnemy && enemy.id === targetEnemy.id)) {
                     return;
                   }
                   const position = this.getEnemyPosition(enemy);
@@ -9736,6 +9763,7 @@ export class SimplePlayfield {
                   }
                 });
               }
+              projectile.starDamageApplied = true;
             }
             projectile.starHits = (projectile.starHits || 0) + 1;
             projectile.starEdgeIndex = edgeIndex + 1;

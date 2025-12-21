@@ -330,6 +330,58 @@ function enterPierceState(particle, targetPosition, pathAngle, burst) {
   }
 }
 
+// Keep γ motes anchored to the enemy while drawing a compact pentagram on impact.
+function enterImpactStarState(particle, targetPosition, burst) {
+  const config = burst?.config || {};
+  particle.state = 'impactStar';
+  particle.starEdgeIndex = 0;
+  particle.starEdgeProgress = 0;
+  particle.starCenter = { ...(targetPosition || burst?.fallbackTarget || burst?.origin || { x: 0, y: 0 }) };
+  particle.starRadius = Math.max(6, Number.isFinite(config.impactStarRadius) ? config.impactStarRadius : particle.size * 3);
+  particle.starEdgeDuration = Number.isFinite(config.impactStarEdgeDuration)
+    ? Math.max(0.01, config.impactStarEdgeDuration)
+    : 0.12;
+  particle.fadeDuration = Number.isFinite(particle.fadeDuration) ? particle.fadeDuration : 0.22;
+}
+
+// Trace a short pentagram loop around the impact point before fading away.
+function updateImpactStarParticle(particle, center, delta) {
+  const radius = Math.max(4, particle.starRadius || particle.size * 2.4);
+  const starPoints = PENTAGRAM_ANGLES.map((angle) => ({
+    x: center.x + Math.cos(angle) * radius,
+    y: center.y + Math.sin(angle) * radius,
+  }));
+  const edgeIndex = Number.isFinite(particle.starEdgeIndex) ? particle.starEdgeIndex : 0;
+  const maxIndex = PENTAGRAM_EDGE_START.length - 1;
+  const clampedIndex = Math.max(0, Math.min(maxIndex, edgeIndex));
+  const fromPoint = starPoints[PENTAGRAM_EDGE_START[clampedIndex]];
+  const toPoint = starPoints[PENTAGRAM_EDGE_END[clampedIndex]];
+  if (!fromPoint || !toPoint) {
+    particle.state = 'fade';
+    particle.fadeTime = 0;
+    return;
+  }
+  const edgeDuration = Math.max(0.001, particle.starEdgeDuration || 0.12);
+  const progress = Math.min(1, (particle.starEdgeProgress || 0) + delta / edgeDuration);
+  const eased = easeInCubic(progress);
+  particle.position = {
+    x: fromPoint.x + (toPoint.x - fromPoint.x) * eased,
+    y: fromPoint.y + (toPoint.y - fromPoint.y) * eased,
+  };
+  particle.opacity = 0.95;
+  particle.renderSize = particle.size * 1.05;
+  particle.starEdgeProgress = progress;
+  if (progress >= 1) {
+    if (clampedIndex >= maxIndex) {
+      particle.state = 'fade';
+      particle.fadeTime = 0;
+    } else {
+      particle.starEdgeIndex = clampedIndex + 1;
+      particle.starEdgeProgress = 0;
+    }
+  }
+}
+
 // Advance ricocheting motes while damping their velocity for a soft dissipation.
 function updateBounceParticle(particle, delta) {
   particle.bounceTime += delta;
@@ -390,6 +442,14 @@ function updateDashPhase(playfield, burst, delta) {
   }
   let unfinished = false;
   burst.particles.forEach((particle) => {
+    if (particle.state === 'impactStar') {
+      const center = targetPosition || burst.fallbackTarget || burst.origin || { x: 0, y: 0 };
+      updateImpactStarParticle(particle, center, delta);
+      if (particle.state === 'impactStar') {
+        unfinished = true;
+      }
+      return;
+    }
     if (particle.state === 'dash') {
       const dashAnchor = Number.isFinite(particle.dashRetargetTime)
         ? particle.dashRetargetTime
@@ -405,6 +465,26 @@ function updateDashPhase(playfield, burst, delta) {
       const dx = targetPosition.x - start.x;
       const dy = targetPosition.y - start.y;
       const pathAngle = Math.atan2(dy, dx);
+      if (behavior === 'impactStar') {
+        const eased = easeInCubic(progress);
+        particle.position = {
+          x: start.x + dx * eased,
+          y: start.y + dy * eased,
+        };
+        particle.opacity = 0.98;
+        particle.renderSize = particle.size * (0.95 + eased * 0.2);
+        if (progress >= 1) {
+          if (alive) {
+            enterImpactStarState(particle, targetPosition, burst);
+            unfinished = true;
+          } else {
+            enterFadeState(particle, targetPosition);
+          }
+        } else {
+          unfinished = true;
+        }
+        return;
+      }
       if (behavior === 'oscillate') {
         // Alpha tower: particles oscillate back and forth - converge to center, spread out, converge to far side
         const cycleProgress = (progress * ALPHA_OSCILLATION_CYCLES) % 1;
