@@ -194,75 +194,72 @@ export function createBetSpireUpgradeMenu({
     }
 
     // Update the particle factor display
-    const renderInstance = getBetSpireRenderInstance();
-    if (renderInstance) {
-      const status = renderInstance.getParticleFactorStatus();
+    const status = renderInstance.getParticleFactorStatus();
+    
+    const factorElement = document.getElementById('bet-particle-factor');
+    if (factorElement) {
+      factorElement.textContent = `Particle Factor: ${formatGameNumber(status.particleFactor)}`;
+    }
+    
+    // Add particle factor equation display
+    const equationElement = document.getElementById('bet-particle-equation');
+    if (equationElement) {
+      const equationParts = [];
+      const unlockedTiers = [];
       
-      const factorElement = document.getElementById('bet-particle-factor');
-      if (factorElement) {
-        factorElement.textContent = `Particle Factor: ${formatGameNumber(status.particleFactor)}`;
-      }
-      
-      // Add particle factor equation display
-      const equationElement = document.getElementById('bet-particle-equation');
-      if (equationElement) {
-        const equationParts = [];
-        const unlockedTiers = [];
-        
-        // Get unlocked tiers from render instance
-        PARTICLE_TIERS.forEach(tier => {
-          const count = inventory.get(tier.id) || 0;
-          if (count > 0) {
-            unlockedTiers.push(tier);
-          }
-        });
-        
-        // Build equation with colored text
-        equationElement.innerHTML = '';
-        unlockedTiers.forEach((tier, index) => {
-          const count = inventory.get(tier.id) || 0;
-          
-          // Add the particle count with its color
-          const countSpan = document.createElement('span');
-          countSpan.style.color = `rgb(${tier.color.r}, ${tier.color.g}, ${tier.color.b})`;
-          countSpan.textContent = formatGameNumber(count);
-          equationElement.appendChild(countSpan);
-          
-          // Add multiplication symbol if not the last item
-          if (index < unlockedTiers.length - 1) {
-            const multSpan = document.createElement('span');
-            multSpan.style.color = 'white';
-            multSpan.textContent = ' × ';
-            equationElement.appendChild(multSpan);
-          }
-        });
-        
-        // Add equals and result
-        if (unlockedTiers.length > 0) {
-          const equalsSpan = document.createElement('span');
-          equalsSpan.style.color = 'white';
-          equalsSpan.textContent = ' = ';
-          equationElement.appendChild(equalsSpan);
-          
-          const resultSpan = document.createElement('span');
-          resultSpan.style.color = 'white';
-          resultSpan.textContent = formatGameNumber(status.particleFactor);
-          equationElement.appendChild(resultSpan);
-        } else {
-          equationElement.textContent = 'No particles yet';
+      // Get unlocked tiers from render instance
+      PARTICLE_TIERS.forEach(tier => {
+        const count = inventory.get(tier.id) || 0;
+        if (count > 0) {
+          unlockedTiers.push(tier);
         }
+      });
+      
+      // Build equation with colored text
+      equationElement.innerHTML = '';
+      unlockedTiers.forEach((tier, index) => {
+        const count = inventory.get(tier.id) || 0;
+        
+        // Add the particle count with its color
+        const countSpan = document.createElement('span');
+        countSpan.style.color = `rgb(${tier.color.r}, ${tier.color.g}, ${tier.color.b})`;
+        countSpan.textContent = formatGameNumber(count);
+        equationElement.appendChild(countSpan);
+        
+        // Add multiplication symbol if not the last item
+        if (index < unlockedTiers.length - 1) {
+          const multSpan = document.createElement('span');
+          multSpan.style.color = 'white';
+          multSpan.textContent = ' × ';
+          equationElement.appendChild(multSpan);
+        }
+      });
+      
+      // Add equals and result
+      if (unlockedTiers.length > 0) {
+        const equalsSpan = document.createElement('span');
+        equalsSpan.style.color = 'white';
+        equalsSpan.textContent = ' = ';
+        equationElement.appendChild(equalsSpan);
+        
+        const resultSpan = document.createElement('span');
+        resultSpan.style.color = 'white';
+        resultSpan.textContent = formatGameNumber(status.particleFactor);
+        equationElement.appendChild(resultSpan);
+      } else {
+        equationElement.textContent = 'No particles yet';
       }
+    }
 
-      const milestoneElement = document.getElementById('bet-milestone-progress');
-      if (milestoneElement) {
-        const progressPercent = Math.min(100, status.progressToNext * 100);
-        milestoneElement.textContent = `Next BET glyph at ${formatGameNumber(status.currentMilestone)} (${formatDecimal(progressPercent, 1)}%)`;
-      }
+    const milestoneElement = document.getElementById('bet-milestone-progress');
+    if (milestoneElement) {
+      const progressPercent = Math.min(100, status.progressToNext * 100);
+      milestoneElement.textContent = `Next BET glyph at ${formatGameNumber(status.currentMilestone)} (${formatDecimal(progressPercent, 1)}%)`;
+    }
 
-      const glyphsElement = document.getElementById('bet-glyphs-earned');
-      if (glyphsElement) {
-        glyphsElement.textContent = `BET Glyphs Earned: ${status.betGlyphsAwarded}`;
-      }
+    const glyphsElement = document.getElementById('bet-glyphs-earned');
+    if (glyphsElement) {
+      glyphsElement.textContent = `BET Glyphs Earned: ${status.betGlyphsAwarded}`;
     }
   }
 
