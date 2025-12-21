@@ -25,6 +25,7 @@ import { DragonCurveSimulation } from '../scripts/features/towers/dragonCurveSim
 import { VoronoiSubdivisionSimulation } from '../scripts/features/towers/voronoiSubdivisionSimulation.js';
 import { BrownianTreeSimulation } from '../scripts/features/towers/brownianTreeSimulation.js';
 import { FlameFractalSimulation } from '../scripts/features/towers/flameFractalSimulation.js';
+import { getShinVisualSettings } from './shinSpirePreferences.js';
 
 let shinElements = {};
 let activeFractalTabId = null;
@@ -32,6 +33,17 @@ let updateCallback = null;
 let fractalSimulations = new Map(); // Store simulation instances keyed by fractal ID
 let animationFrameId = null;
 let fractalResizeObserver = null;
+
+function resolveShinMaxDevicePixelRatio() {
+  const { graphicsLevel } = getShinVisualSettings();
+  if (graphicsLevel === 'low') {
+    return 1.1;
+  }
+  if (graphicsLevel === 'medium') {
+    return 1.35;
+  }
+  return 1.5;
+}
 
 const FRACTAL_RENDER_HANDLERS = new Map([
   ['tree', {
@@ -455,7 +467,8 @@ export function resizeShinFractalCanvases() {
   }
 
   const wrappers = shinElements.fractalContent.querySelectorAll('.shin-fractal-canvas-wrapper');
-  const dpr = window.devicePixelRatio || 1;
+  // Clamp device pixel ratio so fractal canvases render at a capped resolution per graphics preset.
+  const dpr = Math.min(window.devicePixelRatio || 1, resolveShinMaxDevicePixelRatio());
 
   wrappers.forEach((wrapper) => {
     const canvas = wrapper.querySelector('canvas');

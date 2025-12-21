@@ -501,6 +501,8 @@ export class ParticleFusionSimulation {
       renderFusionEffects: true,
       renderSpawnEffects: true,
     };
+    // Cap the render resolution on high-DPI devices so the fusion viewport does not overdraw.
+    this.maxDevicePixelRatio = Math.max(1, typeof options.maxDevicePixelRatio === 'number' ? options.maxDevicePixelRatio : 1.5);
 
     // Track when the simulation needs to scatter particles after a collapsed resize.
     this.pendingScatterFromCollapse = false;
@@ -533,7 +535,7 @@ export class ParticleFusionSimulation {
     if (!this.canvas) return;
 
     const rect = this.canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
 
     const previousWidth = this.width;
     const previousHeight = this.height;
@@ -575,6 +577,16 @@ export class ParticleFusionSimulation {
       this.scatterParticlesRandomly();
       this.pendingScatterFromCollapse = false;
     }
+  }
+
+  /**
+   * Determine a sane device pixel ratio for the fusion canvas to avoid runaway resolution.
+   * @returns {number} Clamped DPR respecting the configured graphics preset
+   */
+  getEffectiveDevicePixelRatio() {
+    const rawDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const cap = Number.isFinite(this.maxDevicePixelRatio) ? this.maxDevicePixelRatio : rawDpr;
+    return Math.max(1, Math.min(rawDpr, cap));
   }
 
   /**
@@ -818,16 +830,22 @@ export class ParticleFusionSimulation {
       case 'low':
         this.maxParticles = 70;
         this.glowIntensity = 0.75;
+        this.maxDevicePixelRatio = 1.1;
         break;
       case 'medium':
         this.maxParticles = 90;
         this.glowIntensity = 0.9;
+        this.maxDevicePixelRatio = 1.35;
         break;
       default:
         this.maxParticles = 100;
         this.glowIntensity = 1.0;
+        this.maxDevicePixelRatio = 1.5;
         break;
     }
+
+    // Apply resolution cap changes immediately so the canvas resizes to the new target.
+    this.resize();
 
     if (!this.visualSettings.renderFusionEffects) {
       this.fusionEffects.length = 0;

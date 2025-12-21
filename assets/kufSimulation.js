@@ -123,6 +123,8 @@ export class KufBattlefieldSimulation {
     this.overlaySkipCounter = 0;
     this.userRenderMode = 'auto';
     this.glowOverlaysEnabled = true;
+    // Protect the canvas resolution from running wild on high-DPI displays.
+    this.maxDevicePixelRatio = this.renderProfile === 'light' ? 1.1 : 1.5;
     const providedMaps = Array.isArray(maps) ? maps : null;
     this.availableMaps = providedMaps && providedMaps.length
       ? providedMaps.map((map) => ({ ...map }))
@@ -159,7 +161,7 @@ export class KufBattlefieldSimulation {
     const maxWidthByHeight = Math.max(240, viewportHeight * aspectRatio);
     const width = Math.min(parentWidth, viewportWidth, maxWidthByHeight);
     const height = width / aspectRatio;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
     this.pixelRatio = dpr;
     this.canvas.width = Math.round(width * dpr);
     this.canvas.height = Math.round(height * dpr);
@@ -170,6 +172,16 @@ export class KufBattlefieldSimulation {
       this.bounds = { width, height };
       this.drawBackground(true);
     }
+  }
+
+  /**
+   * Clamp the canvas resolution to keep the Kuf encounter playable on high-DPI hardware.
+   * @returns {number} Effective device pixel ratio for rendering
+   */
+  getEffectiveDevicePixelRatio() {
+    const rawDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const cap = Number.isFinite(this.maxDevicePixelRatio) ? this.maxDevicePixelRatio : rawDpr;
+    return Math.max(1, Math.min(rawDpr, cap));
   }
 
   /**
@@ -736,22 +748,29 @@ export class KufBattlefieldSimulation {
    * @param {number} frameCostMs - Combined update+render duration for the last frame.
    */
   updateRenderProfile(frameCostMs) {
+    const previousProfile = this.renderProfile;
     const forceLightProfile = this.userRenderMode === 'minimal' || isLowGraphicsModeActive();
     if (forceLightProfile) {
       // Honor explicit performance mode and the global low graphics preference.
       this.renderProfile = 'light';
       this.overlaySkipInterval = 2;
-      return;
-    }
-    if (this.userRenderMode === 'cinematic') {
+    } else if (this.userRenderMode === 'cinematic') {
       this.renderProfile = 'high';
       this.overlaySkipInterval = 1;
-      return;
+    } else {
+      this.smoothedFrameCost = (1 - FRAME_COST_SMOOTHING) * this.smoothedFrameCost + FRAME_COST_SMOOTHING * frameCostMs;
+      const shouldDownshift = this.smoothedFrameCost > HIGH_QUALITY_FRAME_BUDGET_MS;
+      this.renderProfile = shouldDownshift ? 'light' : 'high';
+      this.overlaySkipInterval = shouldDownshift ? 2 : 1;
     }
-    this.smoothedFrameCost = (1 - FRAME_COST_SMOOTHING) * this.smoothedFrameCost + FRAME_COST_SMOOTHING * frameCostMs;
-    const shouldDownshift = this.smoothedFrameCost > HIGH_QUALITY_FRAME_BUDGET_MS;
-    this.renderProfile = shouldDownshift ? 'light' : 'high';
-    this.overlaySkipInterval = shouldDownshift ? 2 : 1;
+
+    // Reduce canvas resolution when shifting into a lighter render profile to keep frame times healthy.
+    const targetMaxDpr = this.renderProfile === 'light' ? 1.1 : 1.5;
+    const resolutionChanged = targetMaxDpr !== this.maxDevicePixelRatio;
+    this.maxDevicePixelRatio = targetMaxDpr;
+    if (resolutionChanged || previousProfile !== this.renderProfile) {
+      this.resize();
+    }
   }
 
   /**
