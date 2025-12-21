@@ -563,8 +563,8 @@ export class BetSpireRender {
             targetY: centerY,
             tierId: tierId,
             sizeIndex: sizeIndex + 1, // Next size tier
-            startTime: Date.now(),
-            isSizeMerge: true // Mark as size merge, not tier conversion
+            startTime: Date.now()
+            // No isTierConversion flag means this is a size merge
           });
         }
       }
