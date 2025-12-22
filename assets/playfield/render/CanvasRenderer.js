@@ -111,6 +111,16 @@ const TOWER_MENU_DISMISS_SCALE = 1.25;
 
 // Viewport culling margin: buffer zone beyond visible area to prevent pop-in
 const VIEWPORT_CULL_MARGIN = 100;
+// Projectile culling radii for different pattern types
+const PROJECTILE_CULL_RADIUS_DEFAULT = 50;
+const PROJECTILE_CULL_RADIUS_IOTA_PULSE = 150;
+const PROJECTILE_CULL_RADIUS_OMEGA_WAVE = 200;
+const PROJECTILE_CULL_RADIUS_ETA_LASER = 300;
+// Other entity culling radii
+const ENEMY_CULL_RADIUS = 100;
+const DAMAGE_NUMBER_CULL_RADIUS = 50;
+const DEATH_PARTICLE_CULL_RADIUS = 30;
+const MOTE_GEM_CULL_RADIUS = 50;
 
 /**
  * Calculate the visible viewport bounds in world coordinates.
@@ -148,11 +158,11 @@ function getViewportBounds() {
  * @param {Object} position - Object with x, y coordinates
  * @param {Object} bounds - Viewport bounds from getViewportBounds
  * @param {number} radius - Optional radius for circular objects
- * @returns {boolean} True if visible
+ * @returns {boolean} True if visible, false if not visible or bounds unavailable
  */
 function isInViewport(position, bounds, radius = 0) {
   if (!position || !bounds) {
-    return true; // Render if we can't determine visibility
+    return false; // Skip rendering if we can't determine visibility
   }
   const x = position.x || 0;
   const y = position.y || 0;
@@ -580,7 +590,7 @@ function drawMoteGems() {
 
   moteGemState.active.forEach((gem) => {
     // Skip rendering mote gems outside viewport
-    if (viewportBounds && !isInViewport({ x: gem.x, y: gem.y }, viewportBounds, 50)) {
+    if (viewportBounds && !isInViewport({ x: gem.x, y: gem.y }, viewportBounds, MOTE_GEM_CULL_RADIUS)) {
       return;
     }
     
@@ -2313,7 +2323,7 @@ function drawEnemies() {
     }
 
     // Skip rendering enemies outside viewport
-    if (viewportBounds && !isInViewport(position, viewportBounds, 100)) {
+    if (viewportBounds && !isInViewport(position, viewportBounds, ENEMY_CULL_RADIUS)) {
       return;
     }
 
@@ -2412,7 +2422,7 @@ function drawEnemyDeathParticles() {
     }
     
     // Skip rendering death particles outside viewport
-    if (viewportBounds && !isInViewport(particle.position, viewportBounds, 30)) {
+    if (viewportBounds && !isInViewport(particle.position, viewportBounds, DEATH_PARTICLE_CULL_RADIUS)) {
       return;
     }
     
@@ -2532,7 +2542,7 @@ function drawDamageNumbers() {
     }
     
     // Skip rendering damage numbers outside viewport
-    if (viewportBounds && !isInViewport(entry.position, viewportBounds, 50)) {
+    if (viewportBounds && !isInViewport(entry.position, viewportBounds, DAMAGE_NUMBER_CULL_RADIUS)) {
       return;
     }
     
@@ -2666,9 +2676,10 @@ function drawProjectiles() {
     // Skip rendering projectiles outside viewport (with generous margin for special effects)
     if (viewportBounds && projectilePosition) {
       // Use larger radius for special projectile types that may extend beyond their origin
-      const cullRadius = projectile.patternType === 'etaLaser' ? 300 :
-                        projectile.patternType === 'omegaWave' ? 200 :
-                        projectile.patternType === 'iotaPulse' ? 150 : 50;
+      const cullRadius = projectile.patternType === 'etaLaser' ? PROJECTILE_CULL_RADIUS_ETA_LASER :
+                        projectile.patternType === 'omegaWave' ? PROJECTILE_CULL_RADIUS_OMEGA_WAVE :
+                        projectile.patternType === 'iotaPulse' ? PROJECTILE_CULL_RADIUS_IOTA_PULSE : 
+                        PROJECTILE_CULL_RADIUS_DEFAULT;
       
       if (!isInViewport(projectilePosition, viewportBounds, cullRadius)) {
         culledCount++;
@@ -2814,7 +2825,10 @@ function drawProjectiles() {
       : projectile.targetId
       ? (() => {
           // Cache enemy lookups to avoid repeated find operations
-          if (!this._frameCache.enemyPositionCache) {
+          if (!this._frameCache?.enemyPositionCache) {
+            if (!this._frameCache) {
+              this._frameCache = {};
+            }
             this._frameCache.enemyPositionCache = new Map();
           }
           let pos = this._frameCache.enemyPositionCache.get(projectile.targetId);
