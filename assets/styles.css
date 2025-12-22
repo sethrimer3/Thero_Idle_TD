@@ -7142,6 +7142,90 @@ body.graphics-mode-low .control-button {
   text-transform: uppercase;
 }
 
+/* Earned but unclaimed achievement - glow and sparkle effects */
+.achievement-tile.achievement-earned-unclaimed {
+  border-color: rgba(255, 228, 120, 0.8);
+  background: rgba(42, 38, 12, 0.85);
+  transform: translateY(-2px);
+  animation: achievement-glow 2s ease-in-out infinite;
+  position: relative;
+  overflow: visible;
+}
+
+@keyframes achievement-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 228, 120, 0.4), var(--shadow);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 228, 120, 0.7), var(--shadow);
+  }
+}
+
+.achievement-tile.achievement-earned-unclaimed::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 16px;
+  background: linear-gradient(45deg, 
+    transparent 0%, 
+    rgba(255, 228, 120, 0.3) 25%, 
+    transparent 50%, 
+    rgba(255, 228, 120, 0.3) 75%, 
+    transparent 100%);
+  background-size: 200% 200%;
+  animation: sparkle-sweep 3s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes sparkle-sweep {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 200% 200%;
+  }
+}
+
+.achievement-tile.achievement-earned-unclaimed .achievement-icon {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    filter: brightness(1) drop-shadow(0 0 4px rgba(255, 228, 120, 0.6));
+  }
+  50% {
+    filter: brightness(1.2) drop-shadow(0 0 8px rgba(255, 228, 120, 0.9));
+  }
+}
+
+.achievement-tile.achievement-earned-unclaimed .achievement-status {
+  color: rgba(255, 228, 120, 1);
+  font-weight: 600;
+  animation: text-pulse 2s ease-in-out infinite;
+}
+
+@keyframes text-pulse {
+  0%, 100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Claimed achievement styling */
+.achievement-tile.achievement-claimed {
+  border-color: rgba(255, 228, 120, 0.4);
+  background: rgba(32, 28, 12, 0.6);
+  transform: translateY(-2px);
+}
+
+.achievement-tile.achievement-claimed .achievement-status {
+  color: rgba(255, 228, 120, 0.85);
+}
+
 .achievement-tile.achievement-unlocked {
   border-color: rgba(255, 228, 120, 0.6);
   background: rgba(32, 28, 12, 0.75);
@@ -7454,6 +7538,56 @@ body.graphics-mode-low .control-button {
 .achievement-tile--secret-locked .achievement-label {
   color: rgba(247, 247, 245, 0.5);
   font-style: italic;
+}
+
+/* Golden text container for achievement rewards */
+.golden-text-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1400;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 90vw;
+  max-width: 600px;
+}
+
+.golden-text-line {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 228, 120, 1);
+  text-align: center;
+  text-shadow: 
+    0 0 10px rgba(255, 228, 120, 0.8),
+    0 0 20px rgba(255, 228, 120, 0.6),
+    0 0 30px rgba(255, 228, 120, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transform: translateY(20px) scale(0.9);
+  transition: opacity 400ms ease, transform 400ms ease;
+}
+
+.golden-text-line--visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.golden-text-line--fading {
+  opacity: 0;
+  transform: translateY(-20px) scale(0.9);
+}
+
+@media (max-width: 768px) {
+  .golden-text-line {
+    font-size: 1.2rem;
+  }
 }
 
 .developer-control-panel {
