@@ -158,11 +158,14 @@ function getViewportBounds() {
  * @param {Object} position - Object with x, y coordinates
  * @param {Object} bounds - Viewport bounds from getViewportBounds
  * @param {number} radius - Optional radius for circular objects
- * @returns {boolean} True if visible, false if not visible or bounds unavailable
+ * @returns {boolean} True if visible (or if bounds unavailable), false if position invalid or not visible
  */
 function isInViewport(position, bounds, radius = 0) {
-  if (!position || !bounds) {
-    return false; // Skip rendering if we can't determine visibility
+  if (!position) {
+    return false; // No position means nothing to render
+  }
+  if (!bounds) {
+    return true; // Can't determine visibility, so render everything to be safe
   }
   const x = position.x || 0;
   const y = position.y || 0;
