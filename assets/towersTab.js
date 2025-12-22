@@ -1057,6 +1057,7 @@ const {
   renderTowerLoadout,
   startTowerDrag,
   cancelTowerDrag,
+  closeLoadoutWheel,
 } = createTowerLoadoutController({
   getLoadoutState: () => towerTabState.loadoutState,
   getLoadoutElements: () => towerTabState.loadoutElements,
@@ -1075,7 +1076,7 @@ const {
   syncLoadoutToPlayfield,
 });
 
-export { setLoadoutElements, pruneLockedTowersFromLoadout, refreshTowerLoadoutDisplay, startTowerDrag, cancelTowerDrag };
+export { setLoadoutElements, pruneLockedTowersFromLoadout, refreshTowerLoadoutDisplay, startTowerDrag, cancelTowerDrag, closeLoadoutWheel };
 
 const { initializeTowerEquipmentInterface, getEquipmentSlotRecord } = createTowerEquipmentBindings({
   equipmentUiState: towerTabState.equipmentUi,

@@ -358,6 +358,7 @@ import {
   clearTowerUpgradeState,
   configureTowersTabCallbacks,
   refreshTowerIconPalettes,
+  closeLoadoutWheel,
 } from './towersTab.js';
 import towers from './data/towers/index.js'; // Modular tower definitions sourced from dedicated files.
 import { initializeEquipmentState, EQUIPMENT_STORAGE_KEY } from './equipment.js';
@@ -5179,7 +5180,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     stopIdleLevelRun(activeLevelId);
     if (playfield) {
+      // Close any open tower selection wheels when leaving the level
+      if (typeof playfield.closeTowerSelectionWheel === 'function') {
+        playfield.closeTowerSelectionWheel();
+      }
       playfield.leaveLevel();
+    }
+    // Close the loadout wheel when leaving the level
+    if (typeof closeLoadoutWheel === 'function') {
+      closeLoadoutWheel();
     }
     refreshTabMusic({ restart: true });
     activeLevelId = null;
@@ -6176,6 +6185,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         // Hide the tower selection wheel whenever players leave the Stage tab.
         if (tabId !== 'tower' && playfield && typeof playfield.closeTowerSelectionWheel === 'function') {
           playfield.closeTowerSelectionWheel();
+        }
+        // Hide the loadout wheel whenever players leave the Tower tab.
+        if (tabId !== 'tower' && typeof closeLoadoutWheel === 'function') {
+          closeLoadoutWheel();
         }
         if (previousTabId === 'tsadi' && tabId !== 'tsadi') {
           captureTsadiSimulationSnapshot();
