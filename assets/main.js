@@ -3115,6 +3115,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       fluid: {
         unlocked: Boolean(fluidStoryState.unlocked || powderState.fluidUnlocked),
         storySeen: Boolean(fluidStoryState.storySeen),
+        generators: fluidStoryState.generators || {},
+        particleFactorMilestone: fluidStoryState.particleFactorMilestone || 10,
+        betGlyphsAwarded: fluidStoryState.betGlyphsAwarded || 0,
+        particlesByTierAndSize: betSpireRenderInstance ? betSpireRenderInstance.getParticleStateSnapshot() : null,
       },
       lamed: {
         unlocked: Boolean(lamedState.unlocked),
@@ -3178,6 +3182,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const fluidStoryState = spireResourceState.fluid || {};
     fluidStoryState.unlocked = Boolean(fluidBranch.unlocked || fluidStoryState.unlocked);
     fluidStoryState.storySeen = Boolean(fluidBranch.storySeen || fluidStoryState.storySeen);
+    fluidStoryState.generators = fluidBranch.generators || fluidStoryState.generators || {};
+    fluidStoryState.particleFactorMilestone = fluidBranch.particleFactorMilestone || fluidStoryState.particleFactorMilestone || 10;
+    fluidStoryState.betGlyphsAwarded = fluidBranch.betGlyphsAwarded || fluidStoryState.betGlyphsAwarded || 0;
+    fluidStoryState.particlesByTierAndSize = fluidBranch.particlesByTierAndSize || fluidStoryState.particlesByTierAndSize || null;
     spireResourceState.fluid = fluidStoryState;
     powderState.fluidUnlocked = Boolean(fluidStoryState.unlocked || powderState.fluidUnlocked);
 

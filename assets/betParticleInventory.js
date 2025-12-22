@@ -56,19 +56,25 @@ export function updateParticleInventoryDisplay() {
     return;
   }
 
-  const inventory = renderInstance.getInventoryDisplay();
+  const inventoryBySize = renderInstance.getInventoryBySize();
   
-  inventory.forEach(tierInfo => {
-    const countBadge = document.getElementById(`particle-count-badge-${tierInfo.id}`);
+  PARTICLE_TIERS.forEach(tier => {
+    const countBadge = document.getElementById(`particle-count-badge-${tier.id}`);
     if (countBadge) {
-      countBadge.textContent = tierInfo.count.toString();
-      
-      // Highlight non-zero counts
-      const row = countBadge.closest('tr');
-      if (tierInfo.count > 0) {
-        row.classList.add('has-particles');
-      } else {
-        row.classList.remove('has-particles');
+      const counts = inventoryBySize.get(tier.id);
+      if (counts) {
+        // Format as "small,medium,large"
+        const formattedCount = `${counts.small},${counts.medium},${counts.large}`;
+        countBadge.textContent = formattedCount;
+        
+        // Highlight non-zero counts (check if any size has particles)
+        const row = countBadge.closest('tr');
+        const hasParticles = counts.small > 0 || counts.medium > 0 || counts.large > 0;
+        if (hasParticles) {
+          row.classList.add('has-particles');
+        } else {
+          row.classList.remove('has-particles');
+        }
       }
     }
   });
