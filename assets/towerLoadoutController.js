@@ -926,5 +926,6 @@ export function createTowerLoadoutController({
     renderTowerLoadout,
     startTowerDrag,
     cancelTowerDrag,
+    closeLoadoutWheel,
   };
 }
