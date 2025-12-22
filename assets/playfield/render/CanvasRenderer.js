@@ -109,6 +109,71 @@ const TOWER_MENU_OPEN_SPIN_RADIANS = Math.PI * 0.75;
 const TOWER_MENU_DISMISS_SPIN_RADIANS = Math.PI * 0.65;
 const TOWER_MENU_DISMISS_SCALE = 1.25;
 
+// Viewport culling margin: buffer zone beyond visible area to prevent pop-in
+const VIEWPORT_CULL_MARGIN = 100;
+// Projectile culling radii for different pattern types
+const PROJECTILE_CULL_RADIUS_DEFAULT = 50;
+const PROJECTILE_CULL_RADIUS_IOTA_PULSE = 150;
+const PROJECTILE_CULL_RADIUS_OMEGA_WAVE = 200;
+const PROJECTILE_CULL_RADIUS_ETA_LASER = 300;
+// Other entity culling radii
+const ENEMY_CULL_RADIUS = 100;
+const DAMAGE_NUMBER_CULL_RADIUS = 50;
+const DEATH_PARTICLE_CULL_RADIUS = 30;
+const MOTE_GEM_CULL_RADIUS = 50;
+
+/**
+ * Calculate the visible viewport bounds in world coordinates.
+ * Returns an object with min/max x/y coordinates for culling.
+ * Uses cached values when available to reduce redundant calculations.
+ */
+function getViewportBounds() {
+  // Use cached value if available from current frame
+  if (this._frameCache?.viewportBounds) {
+    return this._frameCache.viewportBounds;
+  }
+  
+  if (!this.canvas || !this.ctx) {
+    return null;
+  }
+  const width = this.renderWidth || this.canvas.clientWidth || 0;
+  const height = this.renderHeight || this.canvas.clientHeight || 0;
+  const viewCenter = this.getViewCenter();
+  const scale = this.viewScale || 1;
+  
+  // Calculate world-space bounds with margin
+  const halfWidth = (width / scale / 2) + VIEWPORT_CULL_MARGIN;
+  const halfHeight = (height / scale / 2) + VIEWPORT_CULL_MARGIN;
+  
+  return {
+    minX: viewCenter.x - halfWidth,
+    maxX: viewCenter.x + halfWidth,
+    minY: viewCenter.y - halfHeight,
+    maxY: viewCenter.y + halfHeight,
+  };
+}
+
+/**
+ * Check if a position is within the visible viewport.
+ * @param {Object} position - Object with x, y coordinates
+ * @param {Object} bounds - Viewport bounds from getViewportBounds
+ * @param {number} radius - Optional radius for circular objects
+ * @returns {boolean} True if visible, false if not visible or bounds unavailable
+ */
+function isInViewport(position, bounds, radius = 0) {
+  if (!position || !bounds) {
+    return false; // Skip rendering if we can't determine visibility
+  }
+  const x = position.x || 0;
+  const y = position.y || 0;
+  return (
+    x + radius >= bounds.minX &&
+    x - radius <= bounds.maxX &&
+    y + radius >= bounds.minY &&
+    y - radius <= bounds.maxY
+  );
+}
+
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) {
     return min;
@@ -381,6 +446,16 @@ function draw() {
   ctx.scale(this.viewScale, this.viewScale);
   ctx.translate(-viewCenter.x, -viewCenter.y);
 
+  // Cache commonly used values for this frame to reduce redundant calculations
+  this._frameCache = {
+    width,
+    height,
+    minDimension: Math.min(width, height) || 1,
+    viewportBounds: getViewportBounds.call(this),
+    timestamp: getNowTimestamp(),
+    enemyPositionCache: new Map(), // Cache enemy positions for projectile targeting
+  };
+
   this.drawFloaters();
   this.drawPath();
   this.drawDeltaCommandPreview();
@@ -404,18 +479,22 @@ function draw() {
   this.drawProjectiles();
   this.drawTowerMenu();
   this.updateEnemyTooltipPosition();
+  
+  // Clear frame cache after rendering
+  this._frameCache = null;
 }
 
 function drawFloaters() {
   if (!this.ctx || !this.floaters.length || !this.levelConfig) {
     return;
   }
-  const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+  // Use cached frame values to reduce redundant calculations
+  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
+  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
   if (!width || !height) {
     return;
   }
-  const minDimension = Math.min(width, height) || 1;
+  const minDimension = this._frameCache?.minDimension || (Math.min(width, height) || 1);
   const connectionWidth = Math.max(0.6, minDimension * 0.0014);
 
   const ctx = this.ctx;
@@ -488,23 +567,33 @@ function drawMoteGems() {
   }
   const ctx = this.ctx;
   ctx.save();
-  const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-  const dimensionCandidates = [];
-  if (Number.isFinite(width) && width > 0) {
-    dimensionCandidates.push(width);
-  }
-  if (Number.isFinite(height) && height > 0) {
-    dimensionCandidates.push(height);
-  }
-  const minDimension = Math.max(
-    1,
-    dimensionCandidates.length ? Math.min(...dimensionCandidates) : 320,
-  );
+  
+  // Use cached frame values to reduce redundant calculations
+  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
+  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
+  const minDimension = this._frameCache?.minDimension || (() => {
+    const dimensionCandidates = [];
+    if (Number.isFinite(width) && width > 0) {
+      dimensionCandidates.push(width);
+    }
+    if (Number.isFinite(height) && height > 0) {
+      dimensionCandidates.push(height);
+    }
+    return Math.max(1, dimensionCandidates.length ? Math.min(...dimensionCandidates) : 320);
+  })();
+  
   const moteUnit = Math.max(6, minDimension * GEM_MOTE_BASE_RATIO);
   const pulseMagnitude = moteUnit * 0.35;
 
+  // Calculate viewport bounds once for all mote gems
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+
   moteGemState.active.forEach((gem) => {
+    // Skip rendering mote gems outside viewport
+    if (viewportBounds && !isInViewport({ x: gem.x, y: gem.y }, viewportBounds, MOTE_GEM_CULL_RADIUS)) {
+      return;
+    }
+    
     const hue = gem.color?.hue ?? 48;
     const saturation = gem.color?.saturation ?? 68;
     const lightness = gem.color?.lightness ?? 56;
@@ -2211,7 +2300,7 @@ function drawEnemies() {
   ctx.save();
 
   const fallbackRendering = shouldUseEnemyFallbackRendering.call(this);
-  const timestamp = fallbackRendering ? 0 : getNowTimestamp();
+  const timestamp = fallbackRendering ? 0 : (this._frameCache?.timestamp || getNowTimestamp());
   const activeEnemies = fallbackRendering ? null : new Set();
   if (fallbackRendering && this.enemySwirlParticles) {
     this.enemySwirlParticles.clear();
@@ -2220,6 +2309,9 @@ function drawEnemies() {
     this.enemySwirlImpacts.length = 0;
   }
 
+  // Use cached viewport bounds to reduce redundant calculations
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+
   this.enemies.forEach((enemy) => {
     if (!enemy) {
       return;
@@ -2227,6 +2319,11 @@ function drawEnemies() {
 
     const position = this.getEnemyPosition(enemy);
     if (!position) {
+      return;
+    }
+
+    // Skip rendering enemies outside viewport
+    if (viewportBounds && !isInViewport(position, viewportBounds, ENEMY_CULL_RADIUS)) {
       return;
     }
 
@@ -2312,6 +2409,9 @@ function drawEnemyDeathParticles() {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
 
+  // Use cached viewport bounds to reduce redundant calculations
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+
   this.enemyDeathParticles.forEach((particle) => {
     if (!particle || !particle.position) {
       return;
@@ -2320,6 +2420,12 @@ function drawEnemyDeathParticles() {
     if (alpha <= 0) {
       return;
     }
+    
+    // Skip rendering death particles outside viewport
+    if (viewportBounds && !isInViewport(particle.position, viewportBounds, DEATH_PARTICLE_CULL_RADIUS)) {
+      return;
+    }
+    
     const wobbleFrequency = Number.isFinite(particle.wobbleFrequency) ? particle.wobbleFrequency : 0;
     const wobbleAmplitude = Number.isFinite(particle.wobbleAmplitude) ? particle.wobbleAmplitude : 0;
     const wobblePhase = (Number.isFinite(particle.phase) ? particle.phase : 0)
@@ -2427,10 +2533,19 @@ function drawDamageNumbers() {
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
 
+  // Use cached viewport bounds to reduce redundant calculations
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+
   this.damageNumbers.forEach((entry) => {
     if (!entry || !entry.position || !entry.text || entry.alpha <= 0) {
       return;
     }
+    
+    // Skip rendering damage numbers outside viewport
+    if (viewportBounds && !isInViewport(entry.position, viewportBounds, DAMAGE_NUMBER_CULL_RADIUS)) {
+      return;
+    }
+    
     const fontSize = Number.isFinite(entry.fontSize) ? entry.fontSize : 16;
     // Fade the highlight outline based on how much of the target's health the hit removed.
     const highlightAlpha = Number.isFinite(entry.outlineAlpha)
@@ -2541,6 +2656,11 @@ function drawProjectiles() {
   }
 
   const ctx = this.ctx;
+  // Use cached viewport bounds to reduce redundant calculations
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+  let renderedCount = 0;
+  let culledCount = 0;
+
   if (this.projectiles.length) {
     ctx.save();
   }
@@ -2549,6 +2669,25 @@ function drawProjectiles() {
     if (!projectile) {
       return;
     }
+
+    // Get projectile position for culling check
+    const projectilePosition = projectile.currentPosition || projectile.position || projectile.origin || projectile.source;
+    
+    // Skip rendering projectiles outside viewport (with generous margin for special effects)
+    if (viewportBounds && projectilePosition) {
+      // Use larger radius for special projectile types that may extend beyond their origin
+      const cullRadius = projectile.patternType === 'etaLaser' ? PROJECTILE_CULL_RADIUS_ETA_LASER :
+                        projectile.patternType === 'omegaWave' ? PROJECTILE_CULL_RADIUS_OMEGA_WAVE :
+                        projectile.patternType === 'iotaPulse' ? PROJECTILE_CULL_RADIUS_IOTA_PULSE : 
+                        PROJECTILE_CULL_RADIUS_DEFAULT;
+      
+      if (!isInViewport(projectilePosition, viewportBounds, cullRadius)) {
+        culledCount++;
+        return;
+      }
+    }
+    
+    renderedCount++;
 
     if (projectile.patternType === 'supply') {
       const position = projectile.currentPosition || projectile.target || projectile.source;
@@ -2685,8 +2824,22 @@ function drawProjectiles() {
       ? projectile.target
       : projectile.targetId
       ? (() => {
-          const enemy = this.enemies.find((candidate) => candidate.id === projectile.targetId);
-          return enemy ? this.getEnemyPosition(enemy) : null;
+          // Cache enemy lookups to avoid repeated find operations
+          if (!this._frameCache?.enemyPositionCache) {
+            if (!this._frameCache) {
+              this._frameCache = {};
+            }
+            this._frameCache.enemyPositionCache = new Map();
+          }
+          let pos = this._frameCache.enemyPositionCache.get(projectile.targetId);
+          if (!pos) {
+            const enemy = this.enemies.find((candidate) => candidate.id === projectile.targetId);
+            pos = enemy ? this.getEnemyPosition(enemy) : null;
+            if (pos) {
+              this._frameCache.enemyPositionCache.set(projectile.targetId, pos);
+            }
+          }
+          return pos;
         })()
       : projectile.targetCrystalId
       ? (() => {
