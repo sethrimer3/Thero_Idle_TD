@@ -412,6 +412,8 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+      this.gammaStarBursts = [];
+    this.gammaStarBursts = []; // Track star burst effects on enemies hit by gamma projectiles
     this.nuBursts = [];
     // Track swarm clouds from stored shot particles
     this.swarmClouds = [];
@@ -2519,6 +2521,7 @@ export class SimplePlayfield {
       this.alphaBursts = [];
       this.betaBursts = [];
       this.gammaBursts = [];
+      this.gammaStarBursts = [];
       this.nuBursts = [];
       this.swarmClouds = [];
       this.towers = [];
@@ -2631,6 +2634,7 @@ export class SimplePlayfield {
       this.alphaBursts = [];
       this.betaBursts = [];
       this.gammaBursts = [];
+      this.gammaStarBursts = [];
       this.nuBursts = [];
       this.swarmClouds = [];
       this.towers = [];
@@ -2858,6 +2862,7 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+      this.gammaStarBursts = [];
     this.nuBursts = [];
     this.swarmClouds = [];
     this.floaters = [];
@@ -3036,6 +3041,7 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+      this.gammaStarBursts = [];
     this.nuBursts = [];
     this.swarmClouds = [];
     this.floaters = [];
@@ -7132,6 +7138,8 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+      this.gammaStarBursts = [];
+    this.gammaStarBursts = [];
     this.nuBursts = [];
     this.swarmClouds = [];
     this.activeWave = this.createWaveState(this.levelConfig.waves[0], { initialWave: true });
@@ -7766,6 +7774,7 @@ export class SimplePlayfield {
       this.updateAlphaBursts(speedDelta);
       this.updateBetaBursts(speedDelta);
       this.updateGammaBursts(speedDelta);
+      this.updateGammaStarBursts(speedDelta);
       this.updateNuBursts(speedDelta);
       this.updateCrystals(speedDelta);
       this.updateConnectionParticles(speedDelta);
@@ -8326,6 +8335,95 @@ export class SimplePlayfield {
    */
   updateGammaBursts(delta) {
     updateGammaBurstsHelper(this, delta);
+  }
+
+  /**
+   * Update gamma star burst effects on enemies that were hit by gamma projectiles.
+   */
+  updateGammaStarBursts(delta) {
+    if (!Array.isArray(this.gammaStarBursts) || this.gammaStarBursts.length === 0) {
+      return;
+    }
+    
+    const sequence = GAMMA_STAR_SEQUENCE;
+    
+    for (let i = this.gammaStarBursts.length - 1; i >= 0; i--) {
+      const burst = this.gammaStarBursts[i];
+      burst.lifetime = (burst.lifetime || 0) + delta;
+      burst.starElapsed = (burst.starElapsed || 0) + delta;
+      
+      // Remove if lifetime exceeded
+      if (burst.lifetime >= burst.maxLifetime) {
+        this.gammaStarBursts.splice(i, 1);
+        continue;
+      }
+      
+      // Update center to track enemy if it still exists
+      const enemy = this.enemies.find(e => e && e.id === burst.enemyId);
+      if (enemy) {
+        const enemyPos = this.getEnemyPosition(enemy);
+        if (enemyPos) {
+          burst.center = { ...enemyPos };
+        }
+      }
+      
+      // Update star tracing animation
+      const edgeIndex = Number.isFinite(burst.starEdgeIndex) ? burst.starEdgeIndex : 0;
+      const atEndOfSequence = edgeIndex >= sequence.length - 1;
+      
+      if (atEndOfSequence && burst.burstDuration <= 0) {
+        this.gammaStarBursts.splice(i, 1);
+        continue;
+      }
+      
+      if (atEndOfSequence && burst.burstDuration > 0 && burst.starElapsed >= burst.burstDuration) {
+        this.gammaStarBursts.splice(i, 1);
+        continue;
+      }
+      
+      if (atEndOfSequence && burst.burstDuration > 0) {
+        burst.starEdgeIndex = 0;
+        burst.starEdgeProgress = 0;
+        continue;
+      }
+      
+      // Calculate star edge distance and progress
+      const radius = burst.starRadius || 22;
+      const angles = [];
+      for (let step = 0; step < 5; step += 1) {
+        angles.push(-Math.PI / 2 + (step * Math.PI * 2) / 5);
+      }
+      const starPoints = angles.map((angle) => ({
+        x: burst.center.x + Math.cos(angle) * radius,
+        y: burst.center.y + Math.sin(angle) * radius,
+      }));
+      
+      const fromIndex = sequence[edgeIndex];
+      const toIndex = sequence[edgeIndex + 1];
+      const fromPoint = starPoints[fromIndex];
+      const toPoint = starPoints[toIndex];
+      
+      if (!fromPoint || !toPoint) {
+        this.gammaStarBursts.splice(i, 1);
+        continue;
+      }
+      
+      const edgeDistance = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y) || 1;
+      const starSpeed = burst.starSpeed || GAMMA_STAR_SPEED;
+      const edgeDuration = Math.max(0.0001, edgeDistance / Math.max(1, starSpeed));
+      const progress = Math.min(1, (burst.starEdgeProgress || 0) + delta / edgeDuration);
+      
+      burst.currentPosition = {
+        x: fromPoint.x + (toPoint.x - fromPoint.x) * progress,
+        y: fromPoint.y + (toPoint.y - fromPoint.y) * progress,
+      };
+      burst.starEdgeProgress = progress;
+      
+      if (progress >= 1) {
+        burst.starEdgeIndex = edgeIndex + 1;
+        burst.starEdgeProgress = 0;
+      }
+    }
   }
 
   /**
@@ -8925,16 +9023,51 @@ export class SimplePlayfield {
     });
   }
 
-  // Spawn a γ projectile that pierces outbound, traces a star burst, then pierces back to the tower.
+  // Spawn a γ projectile that shoots straight to the screen edge, piercing all enemies and spawning star bursts on each hit.
   spawnGammaStarProjectile(tower, enemy, effectPosition, resolvedDamage) {
-    if (!tower || !enemy || !resolvedDamage || resolvedDamage <= 0) {
+    if (!tower || !resolvedDamage || resolvedDamage <= 0) {
       return;
     }
+    
+    // Calculate direction from tower to target (or enemy position if available)
+    const targetPos = effectPosition || (enemy ? this.getEnemyPosition(enemy) : null);
+    if (!targetPos) {
+      return;
+    }
+    
+    const dx = targetPos.x - tower.x;
+    const dy = targetPos.y - tower.y;
+    const distance = Math.hypot(dx, dy);
+    
+    if (distance < 0.1) {
+      return; // No valid direction
+    }
+    
+    // Calculate direction vector
+    const dirX = dx / distance;
+    const dirY = dy / distance;
+    
+    // Calculate screen edge position in this direction
+    const renderWidth = this.renderWidth || 800;
+    const renderHeight = this.renderHeight || 600;
+    
+    // Find intersection with screen edges
+    let endX, endY;
+    const tX = dirX > 0 ? (renderWidth - tower.x) / dirX : (0 - tower.x) / dirX;
+    const tY = dirY > 0 ? (renderHeight - tower.y) / dirY : (0 - tower.y) / dirY;
+    const t = Math.min(Math.abs(tX), Math.abs(tY));
+    
+    endX = tower.x + dirX * t;
+    endY = tower.y + dirY * t;
+    
     // Allow the pentagram orbit to persist based on the Brst glyph allocation.
     const burstDuration = Math.max(0, computeTowerVariableValue('gamma', 'brst'));
-    const maxLifetime = Math.max(12, burstDuration + 2);
+    const beamLength = Math.hypot(endX - tower.x, endY - tower.y);
+    const travelTime = beamLength / GAMMA_OUTBOUND_SPEED;
+    const maxLifetime = Math.max(travelTime + 1, burstDuration + travelTime + 1);
     const minDimension = Math.max(1, Math.min(this.renderWidth || 0, this.renderHeight || 0));
     const starRadius = metersToPixels(GAMMA_STAR_RADIUS_METERS, minDimension);
+    
     this.projectiles.push({
       patternType: 'gammaStar',
       towerId: tower.id,
@@ -8942,20 +9075,16 @@ export class SimplePlayfield {
       position: { x: tower.x, y: tower.y },
       previousPosition: { x: tower.x, y: tower.y },
       origin: { x: tower.x, y: tower.y },
-      targetId: enemy.id,
-      targetPosition: effectPosition || { x: tower.x, y: tower.y },
+      targetPosition: { x: endX, y: endY },
+      direction: { x: dirX, y: dirY },
       hitRadius: this.getStandardShotHitRadius(),
       outboundSpeed: GAMMA_OUTBOUND_SPEED,
       starSpeed: GAMMA_STAR_SPEED,
-      returnSpeed: GAMMA_RETURN_SPEED,
       starRadius: Math.max(12, starRadius),
-      starHits: 0,
       starBurstDuration: burstDuration,
-      starElapsed: 0,
-      starDamageApplied: false,
       phase: 'outbound',
-      outboundHits: new Set(),
-      returnHits: new Set(),
+      hitEnemies: new Set(), // Track all enemies hit for piercing
+      enemyBursts: new Map(), // Track star burst state for each enemy hit
       maxLifetime,
     });
   }
@@ -9593,217 +9722,87 @@ export class SimplePlayfield {
           2,
           Number.isFinite(projectile.hitRadius) ? projectile.hitRadius : this.getStandardShotHitRadius(),
         );
-        const towerPosition = { x: tower.x, y: tower.y };
-        const currentPosition = projectile.position || towerPosition;
-        const registryFallback = (set) => (set instanceof Set ? set : new Set());
-        const processPierceCollisions = (start, end, registry) => {
-          this.enemies.forEach((enemy) => {
-            if (!enemy) {
-              return;
-            }
-            if (registry && registry.has(enemy.id)) {
-              return;
-            }
-            const position = this.getEnemyPosition(enemy);
-            if (!position) {
-              return;
-            }
-            const metrics = this.getEnemyVisualMetrics(enemy);
-            const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
-            const combined = enemyRadius + hitRadius;
-            const distanceSq = distanceSquaredToSegment(position, start, end);
-            if (distanceSq <= combined * combined) {
-              this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
-              if (registry) {
-                registry.add(enemy.id);
-              }
-            }
-          });
-        };
-
+        const currentPosition = projectile.position || { x: tower.x, y: tower.y };
+        
         if (projectile.phase === 'outbound') {
-          const targetEnemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId) || null;
-          const targetPosition = targetEnemy
-            ? this.getEnemyPosition(targetEnemy)
-            : projectile.targetPosition || towerPosition;
+          const targetPosition = projectile.targetPosition || { x: tower.x, y: tower.y };
           const outboundSpeed = Number.isFinite(projectile.outboundSpeed)
             ? projectile.outboundSpeed
             : GAMMA_OUTBOUND_SPEED;
-          if (!targetPosition) {
-            projectile.phase = 'return';
-            projectile.position = { ...currentPosition };
-            continue;
-          }
+          
           const dx = targetPosition.x - currentPosition.x;
           const dy = targetPosition.y - currentPosition.y;
-          const distance = Math.hypot(dx, dy) || 1;
+          const distance = Math.hypot(dx, dy);
+          
+          if (distance <= 1) {
+            // Reached screen edge, projectile is done
+            this.projectiles.splice(index, 1);
+            continue;
+          }
+          
           const travel = outboundSpeed * delta;
           const reached = distance <= travel;
           const nextPosition = reached
             ? { ...targetPosition }
             : { x: currentPosition.x + (dx / distance) * travel, y: currentPosition.y + (dy / distance) * travel };
-          processPierceCollisions(currentPosition, nextPosition, registryFallback(projectile.outboundHits));
+          
+          // Check for enemy collisions along the beam path
+          const hitEnemies = projectile.hitEnemies || new Set();
+          
+          this.enemies.forEach((enemy) => {
+            if (!enemy) {
+              return;
+            }
+            if (hitEnemies.has(enemy.id)) {
+              return;
+            }
+            const enemyPosition = this.getEnemyPosition(enemy);
+            if (!enemyPosition) {
+              return;
+            }
+            const metrics = this.getEnemyVisualMetrics(enemy);
+            const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
+            const combined = enemyRadius + hitRadius;
+            const distanceSq = distanceSquaredToSegment(enemyPosition, currentPosition, nextPosition);
+            if (distanceSq <= combined * combined) {
+              // Apply damage to this enemy
+              this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
+              hitEnemies.add(enemy.id);
+              
+              // Create star burst effect on this enemy
+              const burstDuration = Number.isFinite(projectile.starBurstDuration) ? projectile.starBurstDuration : 0;
+              const starRadius = Math.max(12, projectile.starRadius || 22);
+              const starSpeed = Number.isFinite(projectile.starSpeed) ? projectile.starSpeed : GAMMA_STAR_SPEED;
+              
+              this.gammaStarBursts.push({
+                enemyId: enemy.id,
+                towerId: tower.id,
+                center: { ...enemyPosition },
+                starEdgeIndex: 0,
+                starEdgeProgress: 0,
+                starElapsed: 0,
+                starRadius,
+                starSpeed,
+                burstDuration,
+                lifetime: 0,
+                maxLifetime: burstDuration > 0 ? burstDuration + 2 : 2,
+              });
+            }
+          });
+          
           projectile.previousPosition = { ...currentPosition };
           projectile.position = nextPosition;
-          projectile.outboundHits = registryFallback(projectile.outboundHits);
-          if (reached) {
-            projectile.phase = 'star';
-            projectile.starEdgeIndex = 0;
-            projectile.starEdgeProgress = 0;
-            projectile.starCenter = { ...targetPosition };
-            projectile.starSequence = Array.isArray(projectile.starSequence)
-              ? projectile.starSequence
-              : GAMMA_STAR_SEQUENCE;
-            projectile.starHitRegistry = new Set();
-            projectile.starHits = 0;
-            if (!projectile.starDamageApplied) {
-              if (targetEnemy) {
-                this.applyDamageToEnemy(targetEnemy, projectile.damage, { sourceTower: tower });
-              }
-              if (targetPosition) {
-                this.enemies.forEach((enemy) => {
-                  if (!enemy || (targetEnemy && enemy.id === targetEnemy.id)) {
-                    return;
-                  }
-                  const position = this.getEnemyPosition(enemy);
-                  if (!position) {
-                    return;
-                  }
-                  const metrics = this.getEnemyVisualMetrics(enemy);
-                  const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
-                  const combined = enemyRadius + hitRadius;
-                  const separation = Math.hypot(position.x - targetPosition.x, position.y - targetPosition.y);
-                  if (separation <= combined) {
-                    this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
-                  }
-                });
-              }
-              projectile.starDamageApplied = true;
-            }
-          }
-          continue;
-        }
-
-        if (projectile.phase === 'star') {
-          // Update center to track enemy position
-          const targetEnemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId) || null;
-          const center = targetEnemy ? this.getEnemyPosition(targetEnemy) : (projectile.starCenter || currentPosition);
-          const burstDuration = Number.isFinite(projectile.starBurstDuration) ? projectile.starBurstDuration : 0;
-          projectile.starElapsed = Math.max(0, (projectile.starElapsed || 0) + delta);
+          projectile.hitEnemies = hitEnemies;
           
-          const radius = Math.max(
-            12,
-            Number.isFinite(projectile.starRadius) ? projectile.starRadius : this.getStandardShotHitRadius() * 8,
-          );
-          const sequence = Array.isArray(projectile.starSequence) && projectile.starSequence.length >= 2
-            ? projectile.starSequence
-            : GAMMA_STAR_SEQUENCE;
-          const edgeIndex = Number.isFinite(projectile.starEdgeIndex) ? projectile.starEdgeIndex : 0;
-          const atEndOfSequence = edgeIndex >= sequence.length - 1;
-          if (atEndOfSequence && burstDuration <= 0) {
-            projectile.phase = 'return';
-            continue;
-          }
-          if (atEndOfSequence && burstDuration > 0) {
-            projectile.starEdgeIndex = 0;
-            projectile.starEdgeProgress = 0;
-          }
-          const angles = [];
-          for (let step = 0; step < 5; step += 1) {
-            angles.push(-Math.PI / 2 + (step * Math.PI * 2) / 5);
-          }
-          const starPoints = angles.map((angle) => ({
-            x: center.x + Math.cos(angle) * radius,
-            y: center.y + Math.sin(angle) * radius,
-          }));
-          const fromIndex = sequence[edgeIndex];
-          const toIndex = sequence[edgeIndex + 1];
-          const fromPoint = starPoints[fromIndex];
-          const toPoint = starPoints[toIndex];
-          if (!fromPoint || !toPoint) {
-            projectile.phase = 'return';
-            continue;
-          }
-          const edgeDistance = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y) || 1;
-          const starSpeed = Number.isFinite(projectile.starSpeed) ? projectile.starSpeed : GAMMA_STAR_SPEED;
-          const edgeDuration = Math.max(0.0001, edgeDistance / Math.max(1, starSpeed));
-          const progress = Math.min(1, (projectile.starEdgeProgress || 0) + delta / edgeDuration);
-          const previousPosition = projectile.position || { ...fromPoint };
-          const nextPosition = {
-            x: fromPoint.x + (toPoint.x - fromPoint.x) * progress,
-            y: fromPoint.y + (toPoint.y - fromPoint.y) * progress,
-          };
-          processPierceCollisions(previousPosition, nextPosition, registryFallback(projectile.starHitRegistry));
-          projectile.previousPosition = { ...previousPosition };
-          projectile.position = nextPosition;
-          projectile.starEdgeProgress = progress;
-          projectile.starHitRegistry = registryFallback(projectile.starHitRegistry);
-
-          if (progress >= 1) {
-            if (!projectile.starDamageApplied) {
-              const targetPosition = center;
-              if (targetPosition) {
-                if (targetEnemy) {
-                  this.applyDamageToEnemy(targetEnemy, projectile.damage, { sourceTower: tower });
-                }
-                this.enemies.forEach((enemy) => {
-                  if (!enemy || (targetEnemy && enemy.id === targetEnemy.id)) {
-                    return;
-                  }
-                  const position = this.getEnemyPosition(enemy);
-                  if (!position) {
-                    return;
-                  }
-                  const metrics = this.getEnemyVisualMetrics(enemy);
-                  const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
-                  const combined = enemyRadius + hitRadius;
-                  const separation = Math.hypot(position.x - targetPosition.x, position.y - targetPosition.y);
-                  if (separation <= combined) {
-                    this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
-                  }
-                });
-              }
-              projectile.starDamageApplied = true;
-            }
-            projectile.starHits = (projectile.starHits || 0) + 1;
-            projectile.starEdgeIndex = edgeIndex + 1;
-            projectile.starEdgeProgress = 0;
-            const completedLoop = projectile.starEdgeIndex >= sequence.length - 1;
-            if (burstDuration > 0) {
-              if (completedLoop) {
-                if (projectile.starElapsed >= burstDuration) {
-                  projectile.phase = 'return';
-                } else {
-                  projectile.starEdgeIndex = 0;
-                }
-              }
-            } else if (
-              projectile.starHits >= GAMMA_STAR_HIT_COUNT ||
-              projectile.starEdgeIndex >= sequence.length - 1
-            ) {
-              projectile.phase = 'return';
-            }
+          if (reached) {
+            // Reached screen edge, projectile is done
+            this.projectiles.splice(index, 1);
           }
           continue;
         }
-
-        const returnPosition = towerPosition;
-        const dx = returnPosition.x - currentPosition.x;
-        const dy = returnPosition.y - currentPosition.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const returnSpeed = Number.isFinite(projectile.returnSpeed) ? projectile.returnSpeed : GAMMA_RETURN_SPEED;
-        const travel = returnSpeed * delta;
-        const reachedTower = distance <= travel;
-        const nextPosition = reachedTower
-          ? { ...returnPosition }
-          : { x: currentPosition.x + (dx / distance) * travel, y: currentPosition.y + (dy / distance) * travel };
-        processPierceCollisions(currentPosition, nextPosition, registryFallback(projectile.returnHits));
-        projectile.previousPosition = { ...currentPosition };
-        projectile.position = nextPosition;
-        projectile.returnHits = registryFallback(projectile.returnHits);
-        if (reachedTower || (Number.isFinite(projectile.maxLifetime) && projectile.lifetime >= projectile.maxLifetime)) {
-          this.projectiles.splice(index, 1);
-        }
+        
+        // If not in outbound phase, remove projectile
+        this.projectiles.splice(index, 1);
         continue;
       }
 
@@ -10545,6 +10544,7 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+      this.gammaStarBursts = [];
     this.nuBursts = [];
     this.swarmClouds = [];
     this.floaters = [];
@@ -11476,6 +11476,13 @@ export class SimplePlayfield {
    */
   drawGammaBursts() {
     return CanvasRenderer.drawGammaBursts.call(this);
+  }
+
+  /**
+   * Render gamma star burst effects on enemies hit by gamma projectiles.
+   */
+  drawGammaStarBursts() {
+    return CanvasRenderer.drawGammaStarBursts.call(this);
   }
 
   drawNuBursts() {
