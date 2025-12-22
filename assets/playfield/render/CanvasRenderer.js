@@ -2822,6 +2822,41 @@ function drawProjectiles() {
       return;
     }
 
+    // Render gamma star piercing beam projectile
+    if (projectile.patternType === 'gammaStar') {
+      const position = projectile.position || projectile.origin;
+      const previousPosition = projectile.previousPosition || projectile.origin;
+      if (!position || !previousPosition) {
+        return;
+      }
+      
+      // Draw the piercing beam from previous to current position
+      const beamColor = samplePaletteGradient(0.66) || { r: 120, g: 219, b: 255 };
+      const gradient = ctx.createLinearGradient(previousPosition.x, previousPosition.y, position.x, position.y);
+      gradient.addColorStop(0, colorToRgbaString(beamColor, 0.5));
+      gradient.addColorStop(1, colorToRgbaString(beamColor, 0.95));
+      
+      ctx.save();
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = colorToRgbaString(beamColor, 0.6);
+      ctx.beginPath();
+      ctx.moveTo(previousPosition.x, previousPosition.y);
+      ctx.lineTo(position.x, position.y);
+      ctx.stroke();
+      
+      // Draw a glow at the current position
+      ctx.fillStyle = colorToRgbaString(beamColor, 0.8);
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(position.x, position.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
     const source = projectile.source;
     const targetPosition = projectile.target
       ? projectile.target
@@ -2880,6 +2915,7 @@ function drawProjectiles() {
   this.drawBetaBursts();
   this.drawAlphaBursts();
   this.drawGammaBursts();
+  this.drawGammaStarBursts();
   this.drawNuBursts();
   this.drawOmegaParticles();
 }
@@ -2894,6 +2930,91 @@ function drawBetaBursts() {
 
 function drawGammaBursts() {
   drawGammaBurstsHelper(this);
+}
+
+/**
+ * Render star burst effects on enemies hit by gamma projectiles.
+ */
+function drawGammaStarBursts() {
+  const ctx = this.ctx;
+  if (!ctx || !Array.isArray(this.gammaStarBursts) || this.gammaStarBursts.length === 0) {
+    return;
+  }
+  
+  // Use gamma particle color
+  const color = samplePaletteGradient(0.66) || { r: 120, g: 219, b: 255 };
+  const rgbaStr = `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, 0.9)`;
+  
+  ctx.save();
+  ctx.strokeStyle = rgbaStr;
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  
+  const GAMMA_STAR_SEQUENCE = [0, 2, 4, 1, 3, 0];
+  
+  this.gammaStarBursts.forEach((burst) => {
+    if (!burst || !burst.center) {
+      return;
+    }
+    
+    const radius = burst.starRadius || 22;
+    const center = burst.center;
+    
+    // Calculate pentagram star points
+    const angles = [];
+    for (let step = 0; step < 5; step += 1) {
+      angles.push(-Math.PI / 2 + (step * Math.PI * 2) / 5);
+    }
+    const starPoints = angles.map((angle) => ({
+      x: center.x + Math.cos(angle) * radius,
+      y: center.y + Math.sin(angle) * radius,
+    }));
+    
+    // Draw the current edge being traced
+    const edgeIndex = Number.isFinite(burst.starEdgeIndex) ? burst.starEdgeIndex : 0;
+    if (edgeIndex < GAMMA_STAR_SEQUENCE.length - 1) {
+      const fromIndex = GAMMA_STAR_SEQUENCE[edgeIndex];
+      const toIndex = GAMMA_STAR_SEQUENCE[edgeIndex + 1];
+      const fromPoint = starPoints[fromIndex];
+      const toPoint = starPoints[toIndex];
+      
+      if (fromPoint && toPoint && burst.currentPosition) {
+        // Draw completed edges with fading opacity
+        const fadePerEdge = 0.15;
+        for (let i = 0; i < edgeIndex; i++) {
+          const fi = GAMMA_STAR_SEQUENCE[i];
+          const ti = GAMMA_STAR_SEQUENCE[i + 1];
+          const fp = starPoints[fi];
+          const tp = starPoints[ti];
+          if (fp && tp) {
+            const opacity = Math.max(0.2, 0.9 - (edgeIndex - i) * fadePerEdge);
+            ctx.strokeStyle = `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, ${opacity})`;
+            ctx.beginPath();
+            ctx.moveTo(fp.x, fp.y);
+            ctx.lineTo(tp.x, tp.y);
+            ctx.stroke();
+          }
+        }
+        
+        // Draw current edge from start to current position
+        ctx.strokeStyle = rgbaStr;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(fromPoint.x, fromPoint.y);
+        ctx.lineTo(burst.currentPosition.x, burst.currentPosition.y);
+        ctx.stroke();
+        
+        // Draw a glow at current position
+        ctx.fillStyle = `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, 0.7)`;
+        ctx.beginPath();
+        ctx.arc(burst.currentPosition.x, burst.currentPosition.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  });
+  
+  ctx.restore();
 }
 
 function drawNuBursts() {
@@ -3096,6 +3217,7 @@ export {
   drawAlphaBursts,
   drawBetaBursts,
   drawGammaBursts,
+  drawGammaStarBursts,
   drawNuBursts,
   drawOmegaParticles,
   drawTowerMenu,
