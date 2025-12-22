@@ -153,12 +153,19 @@ class Particle {
     if (spawnPosition) {
       this.x = spawnPosition.x;
       this.y = spawnPosition.y;
+      
+      // Give particles spawned at generator a small circular/orbital velocity
+      // This helps them stay within the gravitational field immediately
+      const randomAngle = Math.random() * Math.PI * 2;
+      const initialSpeed = MIN_VELOCITY * 0.5; // Start with lower speed
+      this.vx = Math.cos(randomAngle) * initialSpeed;
+      this.vy = Math.sin(randomAngle) * initialSpeed;
     } else {
       this.x = Math.random() * CANVAS_WIDTH;
       this.y = Math.random() * CANVAS_HEIGHT;
+      this.vx = (Math.random() - 0.5) * 2;
+      this.vy = (Math.random() - 0.5) * 2;
     }
-    this.vx = (Math.random() - 0.5) * 2;
-    this.vy = (Math.random() - 0.5) * 2;
     
     // Tier and size properties
     this.tierId = tierId;
@@ -197,7 +204,7 @@ class Particle {
     // Guard against invalid delta ratios so taps can't destabilize the integrator.
     const clampedDelta = Math.max(deltaFrameRatio, 0.01);
 
-    // If particle is merging, fly to merge target at high speed
+    // If particle is merging, fly to merge target at high speed with a swirl effect
     if (this.merging && this.mergeTarget) {
       const dx = this.mergeTarget.x - this.x;
       const dy = this.mergeTarget.y - this.y;
@@ -206,8 +213,15 @@ class Particle {
       if (dist > 1) {
         const angle = Math.atan2(dy, dx);
         const gatherSpeed = MERGE_GATHER_SPEED * clampedDelta;
-        this.vx = Math.cos(angle) * gatherSpeed;
-        this.vy = Math.sin(angle) * gatherSpeed;
+        
+        // Add tangential (perpendicular) velocity for swirl effect
+        // The swirl gets stronger as particles get closer to the target
+        const swirl_strength = 0.3 * (1 - Math.min(dist / 50, 1)); // Stronger when closer
+        const tangentAngle = angle + Math.PI / 2; // Perpendicular to radial direction
+        
+        // Combine radial (toward target) and tangential (swirl) velocities
+        this.vx = Math.cos(angle) * gatherSpeed + Math.cos(tangentAngle) * swirl_strength * gatherSpeed;
+        this.vy = Math.sin(angle) * gatherSpeed + Math.sin(tangentAngle) * swirl_strength * gatherSpeed;
       } else {
         // Reached target, zero velocity
         this.vx = 0;
@@ -400,6 +414,10 @@ export class BetSpireRender {
     this.activeMerges = []; // Array of {particles, targetX, targetY, tierId, sizeIndex, startTime}
     this.shockwaves = []; // Array of {x, y, radius, alpha, timestamp, color}
     
+    // Spawn queue for gradual particle restoration on load
+    this.spawnQueue = [];
+    this.spawnQueueIndex = 0;
+    
     // Bind methods for requestAnimationFrame and event listeners
     this.animate = this.animate.bind(this);
     this.handlePointerDown = this.handlePointerDown.bind(this);
@@ -410,12 +428,17 @@ export class BetSpireRender {
     this.canvas.width = CANVAS_WIDTH;
     this.canvas.height = CANVAS_HEIGHT;
 
-    // Seed the simulation with a level 1 sand generator so it begins active without user input.
-    this.addParticle('sand', SMALL_SIZE_INDEX);
-
     // Initialize with black background
     this.ctx.fillStyle = '#000000';
     this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // Restore particles from saved state if available
+    if (state.particlesByTierAndSize) {
+      this.restoreParticleState(state.particlesByTierAndSize);
+    } else {
+      // Seed the simulation with a level 1 sand generator so it begins active without user input.
+      this.addParticle('sand', SMALL_SIZE_INDEX);
+    }
 
     // Set up event listeners
     this.setupEventListeners();
@@ -1121,6 +1144,9 @@ export class BetSpireRender {
     // Gather gravity sources for unlocked spawners so nearby particles feel a local pull.
     const activeSpawners = this.getActiveSpawnerGravityFields();
     
+    // Process spawn queue for gradual particle restoration
+    this.processSpawnQueue();
+    
     // Process active merges
     this.processActiveMerges();
     
@@ -1450,6 +1476,127 @@ export class BetSpireRender {
       name: tier.name,
       count: this.inventory.get(tier.id) || 0,
     }));
+  }
+
+  getInventoryBySize() {
+    // Return particle counts broken down by tier and size
+    const counts = new Map();
+    
+    PARTICLE_TIERS.forEach(tier => {
+      counts.set(tier.id, {
+        small: 0,
+        medium: 0,
+        large: 0
+      });
+    });
+    
+    // Count particles by tier and size
+    this.particles.forEach(particle => {
+      const sizeKey = SIZE_TIERS[particle.sizeIndex];
+      const tierCounts = counts.get(particle.tierId);
+      if (tierCounts && sizeKey) {
+        tierCounts[sizeKey]++;
+      }
+    });
+    
+    return counts;
+  }
+
+  /**
+   * Get a snapshot of the current particle state for saving
+   */
+  getParticleStateSnapshot() {
+    const particlesByTierAndSize = {};
+    
+    PARTICLE_TIERS.forEach(tier => {
+      particlesByTierAndSize[tier.id] = {
+        small: 0,
+        medium: 0,
+        large: 0
+      };
+    });
+    
+    // Count particles by tier and size
+    this.particles.forEach(particle => {
+      const sizeKey = SIZE_TIERS[particle.sizeIndex];
+      if (particlesByTierAndSize[particle.tierId] && sizeKey) {
+        particlesByTierAndSize[particle.tierId][sizeKey]++;
+      }
+    });
+    
+    return particlesByTierAndSize;
+  }
+
+  /**
+   * Restore particles from a saved state snapshot
+   * Spawns particles gradually at generators (dehydration)
+   */
+  restoreParticleState(snapshot) {
+    if (!snapshot) return;
+    
+    // Clear existing particles
+    this.particles = [];
+    
+    // Create a queue of particles to spawn
+    const spawnQueue = [];
+    
+    PARTICLE_TIERS.forEach((tier, tierIndex) => {
+      const counts = snapshot[tier.id];
+      if (counts) {
+        // Add small particles to spawn queue
+        for (let i = 0; i < counts.small; i++) {
+          spawnQueue.push({ tierId: tier.id, sizeIndex: 0, tierIndex });
+        }
+        // Add medium particles to spawn queue
+        for (let i = 0; i < counts.medium; i++) {
+          spawnQueue.push({ tierId: tier.id, sizeIndex: 1, tierIndex });
+        }
+        // Add large particles to spawn queue
+        for (let i = 0; i < counts.large; i++) {
+          spawnQueue.push({ tierId: tier.id, sizeIndex: 2, tierIndex });
+        }
+      }
+    });
+    
+    // Store the spawn queue for gradual spawning
+    this.spawnQueue = spawnQueue;
+    this.spawnQueueIndex = 0;
+  }
+
+  /**
+   * Process the spawn queue, spawning one particle per tier per frame
+   */
+  processSpawnQueue() {
+    if (!this.spawnQueue || this.spawnQueueIndex >= this.spawnQueue.length) {
+      return;
+    }
+    
+    // Group remaining particles by tier
+    const tierGroups = {};
+    for (let i = this.spawnQueueIndex; i < this.spawnQueue.length; i++) {
+      const particle = this.spawnQueue[i];
+      if (!tierGroups[particle.tierId]) {
+        tierGroups[particle.tierId] = [];
+      }
+      tierGroups[particle.tierId].push(i);
+    }
+    
+    // Spawn one particle per tier (if available)
+    Object.keys(tierGroups).forEach(tierId => {
+      const indices = tierGroups[tierId];
+      if (indices.length > 0) {
+        const idx = indices[0];
+        const particleData = this.spawnQueue[idx];
+        this.addParticle(particleData.tierId, particleData.sizeIndex);
+        
+        // Mark as spawned by setting to null
+        this.spawnQueue[idx] = null;
+      }
+    });
+    
+    // Clean up spawned particles
+    this.spawnQueue = this.spawnQueue.filter(p => p !== null);
+    this.spawnQueueIndex = 0;
   }
 }
 
