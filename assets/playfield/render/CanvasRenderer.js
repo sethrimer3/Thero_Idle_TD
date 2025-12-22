@@ -443,6 +443,7 @@ function draw() {
     minDimension: Math.min(width, height) || 1,
     viewportBounds: getViewportBounds.call(this),
     timestamp: getNowTimestamp(),
+    enemyPositionCache: new Map(), // Cache enemy positions for projectile targeting
   };
 
   this.drawFloaters();
@@ -2812,8 +2813,19 @@ function drawProjectiles() {
       ? projectile.target
       : projectile.targetId
       ? (() => {
-          const enemy = this.enemies.find((candidate) => candidate.id === projectile.targetId);
-          return enemy ? this.getEnemyPosition(enemy) : null;
+          // Cache enemy lookups to avoid repeated find operations
+          if (!this._frameCache.enemyPositionCache) {
+            this._frameCache.enemyPositionCache = new Map();
+          }
+          let pos = this._frameCache.enemyPositionCache.get(projectile.targetId);
+          if (!pos) {
+            const enemy = this.enemies.find((candidate) => candidate.id === projectile.targetId);
+            pos = enemy ? this.getEnemyPosition(enemy) : null;
+            if (pos) {
+              this._frameCache.enemyPositionCache.set(projectile.targetId, pos);
+            }
+          }
+          return pos;
         })()
       : projectile.targetCrystalId
       ? (() => {
