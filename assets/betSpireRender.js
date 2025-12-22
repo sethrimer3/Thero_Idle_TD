@@ -28,6 +28,7 @@ const GENERATOR_CONVERSION_RADIUS = 15; // Distance particles must be within gen
 const MAX_PARTICLES = 2000; // Hard limit on total particle count to prevent freezing
 const PERFORMANCE_THRESHOLD = 1500; // Start aggressive merging above this count
 const MAX_FRAME_TIME_MS = 16; // Target 60fps, skip updates if frame takes longer
+const TARGET_FRAME_TIME_MS = 1000 / 60; // Normalize physics updates so taps don't change simulation speed
 
 // User interaction configuration
 const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 10; // Doubled from /20 to /10
@@ -192,17 +193,21 @@ class Particle {
     return this._size;
   }
 
-  update(forge, spawners = []) {
+  update(forge, spawners = [], deltaFrameRatio = 1) {
+    // Guard against invalid delta ratios so taps can't destabilize the integrator.
+    const clampedDelta = Math.max(deltaFrameRatio, 0.01);
+
     // If particle is merging, fly to merge target at high speed
     if (this.merging && this.mergeTarget) {
       const dx = this.mergeTarget.x - this.x;
       const dy = this.mergeTarget.y - this.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      
+
       if (dist > 1) {
         const angle = Math.atan2(dy, dx);
-        this.vx = Math.cos(angle) * MERGE_GATHER_SPEED;
-        this.vy = Math.sin(angle) * MERGE_GATHER_SPEED;
+        const gatherSpeed = MERGE_GATHER_SPEED * clampedDelta;
+        this.vx = Math.cos(angle) * gatherSpeed;
+        this.vy = Math.sin(angle) * gatherSpeed;
       } else {
         // Reached target, zero velocity
         this.vx = 0;
@@ -214,16 +219,17 @@ class Particle {
       const dx = this.mouseTarget.x - this.x;
       const dy = this.mouseTarget.y - this.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      
+
       if (dist > 1) {
         const force = MOUSE_ATTRACTION_STRENGTH;
         const angle = Math.atan2(dy, dx);
-        this.vx += Math.cos(angle) * force;
-        this.vy += Math.sin(angle) * force;
+        this.vx += Math.cos(angle) * force * clampedDelta;
+        this.vy += Math.sin(angle) * force * clampedDelta;
       } else {
         // Very close to target, dampen velocity
-        this.vx *= 0.8;
-        this.vy *= 0.8;
+        const damping = Math.pow(0.8, clampedDelta);
+        this.vx *= damping;
+        this.vy *= damping;
       }
     } else {
       // Apply gravity from each unlocked spawner within its local field so particles stay near their forge of origin.
@@ -235,8 +241,8 @@ class Particle {
         if (dist <= spawner.range && dist > 0.5) {
           const force = SPAWNER_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE);
           const angle = Math.atan2(dy, dx);
-          this.vx += Math.cos(angle) * force * FORCE_SCALE;
-          this.vy += Math.sin(angle) * force * FORCE_SCALE;
+          this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
+          this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
         }
       }
 
@@ -250,8 +256,8 @@ class Particle {
         const angle = Math.atan2(dy, dx);
         if (dist > 1) {
           const force = ATTRACTION_STRENGTH / (dist * DISTANCE_SCALE);
-          this.vx += Math.cos(angle) * force * FORCE_SCALE;
-          this.vy += Math.sin(angle) * force * FORCE_SCALE;
+          this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
+          this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
         }
         // Forge now attracts particles toward center like generators do (removed orbital spin behavior)
       }
@@ -279,8 +285,8 @@ class Particle {
     }
     
     // Update position
-    this.x += this.vx;
-    this.y += this.vy;
+    this.x += this.vx * clampedDelta;
+    this.y += this.vy * clampedDelta;
     
     // Keep particles within gravitational field (bounce off canvas bounds instead of wrapping)
     if (!this.lockedToMouse) {
@@ -351,6 +357,7 @@ export class BetSpireRender {
     this.forgeRotation = 0; // Rotation angle for forge triangles
     this.animationId = null;
     this.isRunning = false;
+    this.lastFrameTime = performance.now(); // Anchor delta time so physics stays frame-rate independent
     
     // Particle inventory: tracks count by tier (sum of all sizes)
     this.inventory = new Map();
@@ -1065,6 +1072,7 @@ export class BetSpireRender {
   start() {
     if (this.isRunning) return;
     this.isRunning = true;
+    this.lastFrameTime = performance.now(); // Reset delta baseline whenever the loop restarts
     this.animate();
   }
 
@@ -1081,6 +1089,9 @@ export class BetSpireRender {
     if (!this.isRunning) return;
     
     const frameStartTime = performance.now(); // Track frame start time for performance monitoring
+    const deltaTimeMs = Math.min(frameStartTime - this.lastFrameTime, MAX_FRAME_TIME_MS * 4); // Clamp to avoid huge catch-up steps
+    const deltaFrameRatio = deltaTimeMs / TARGET_FRAME_TIME_MS || 1; // Scale motion relative to 60fps baseline
+    this.lastFrameTime = frameStartTime;
     const now = Date.now(); // Track current time for animations
     
     // Create trail effect by drawing semi-transparent black over the canvas
@@ -1088,11 +1099,11 @@ export class BetSpireRender {
     this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
     // Update forge rotation
-    this.forgeRotation += FORGE_ROTATION_SPEED;
+    this.forgeRotation += FORGE_ROTATION_SPEED * deltaFrameRatio;
     
     // Update spawner rotations so paired triangles spin in opposing directions like the central forge.
     this.spawnerRotations.forEach((rotation, tierId) => {
-      this.spawnerRotations.set(tierId, rotation + SPAWNER_ROTATION_SPEED);
+      this.spawnerRotations.set(tierId, rotation + SPAWNER_ROTATION_SPEED * deltaFrameRatio);
     });
     
     // Draw the forge (Star of David with counter-rotating triangles)
@@ -1178,7 +1189,7 @@ export class BetSpireRender {
       
       // When performance is stressed, only update every nth particle per frame
       if (!isHighParticleCount || i % updateInterval === (now % updateInterval)) {
-        particle.update(this.forge, activeSpawners);
+        particle.update(this.forge, activeSpawners, deltaFrameRatio);
       }
       
       particle.draw(this.ctx);
