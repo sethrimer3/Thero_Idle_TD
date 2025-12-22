@@ -454,11 +454,14 @@ export class BetSpireRender {
     this.updateInventory();
   }
 
-  removeParticle(particle) {
+  // Optional skipInventoryUpdate flag lets batch operations defer expensive recounts until they finish.
+  removeParticle(particle, skipInventoryUpdate = false) {
     const index = this.particles.indexOf(particle);
     if (index !== -1) {
       this.particles.splice(index, 1);
-      this.updateInventory();
+      if (!skipInventoryUpdate) {
+        this.updateInventory();
+      }
     }
   }
 
@@ -474,7 +477,7 @@ export class BetSpireRender {
     const smallParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === 0);
     const smallToRemove = Math.min(smallParticles.length, remaining);
     for (let i = 0; i < smallToRemove; i++) {
-      this.removeParticle(smallParticles[i]);
+      this.removeParticle(smallParticles[i], true);
     }
     remaining -= smallToRemove;
     
@@ -483,7 +486,7 @@ export class BetSpireRender {
       const mediumParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === 1);
       while (remaining > 0 && mediumParticles.length > 0) {
         const mediumParticle = mediumParticles.pop();
-        this.removeParticle(mediumParticle);
+        this.removeParticle(mediumParticle, true);
         
         // Add back small particles if we removed more than needed
         const mediumValue = MERGE_THRESHOLD; // 100 small
@@ -504,7 +507,7 @@ export class BetSpireRender {
       const largeParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === 2);
       while (remaining > 0 && largeParticles.length > 0) {
         const largeParticle = largeParticles.pop();
-        this.removeParticle(largeParticle);
+        this.removeParticle(largeParticle, true);
         
         // Add back particles if we removed more than needed
         const largeValue = Math.pow(MERGE_THRESHOLD, 2); // 10000 small
@@ -590,7 +593,7 @@ export class BetSpireRender {
         
         // Remove the small particles
         particlesToMerge.forEach(p => {
-          this.removeParticle(p);
+          this.removeParticle(p, true);
         });
         
         // Create one medium particle instantly (no animation)
@@ -818,7 +821,7 @@ export class BetSpireRender {
       if (allGathered || (now - merge.startTime > MERGE_TIMEOUT_MS)) { // Complete after timeout
         // Remove the merged particles
         merge.particles.forEach(p => {
-          this.removeParticle(p);
+          this.removeParticle(p, true);
         });
         
         // Calculate spawn position once (used by both size merges and tier conversions)
