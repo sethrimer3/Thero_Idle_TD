@@ -158,7 +158,7 @@ function getViewportBounds() {
  * @param {Object} position - Object with x, y coordinates
  * @param {Object} bounds - Viewport bounds from getViewportBounds
  * @param {number} radius - Optional radius for circular objects
- * @returns {boolean} True if visible, false if not visible or bounds unavailable
+ * @returns {boolean} True if visible (or if bounds unavailable), false if position invalid or not visible
  */
 function isInViewport(position, bounds, radius = 0) {
   if (!position) {
