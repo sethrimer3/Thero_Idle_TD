@@ -38,6 +38,74 @@ let overlayState = null; // Tracks the currently animating achievement so it can
 let achievementMetadata = [];
 let achievementMetadataLoadPromise = null;
 let openDropdowns = new Set(); // Track which dropdowns are currently open
+let goldenTextContainer = null; // Container for golden text animations
+let goldenTextQueue = []; // Queue of text lines waiting to be displayed
+let goldenTextAnimating = false; // Whether golden text is currently animating
+
+// Ensure the golden text container exists
+function ensureGoldenTextContainer() {
+  if (goldenTextContainer) {
+    return goldenTextContainer;
+  }
+  
+  const container = document.createElement('div');
+  container.className = 'golden-text-container';
+  container.setAttribute('aria-live', 'polite');
+  container.setAttribute('aria-atomic', 'false');
+  document.body.appendChild(container);
+  
+  goldenTextContainer = container;
+  return container;
+}
+
+// Display golden text rewards one line at a time
+function showGoldenTextRewards(rewards) {
+  if (!rewards || rewards.length === 0) {
+    return;
+  }
+  
+  // Add rewards to queue
+  goldenTextQueue.push(...rewards);
+  
+  // Start animation if not already running
+  if (!goldenTextAnimating) {
+    animateNextGoldenText();
+  }
+}
+
+// Animate the next line of golden text
+function animateNextGoldenText() {
+  if (goldenTextQueue.length === 0) {
+    goldenTextAnimating = false;
+    return;
+  }
+  
+  goldenTextAnimating = true;
+  const container = ensureGoldenTextContainer();
+  const text = goldenTextQueue.shift();
+  
+  // Create text element
+  const textEl = document.createElement('div');
+  textEl.className = 'golden-text-line';
+  textEl.textContent = text;
+  container.appendChild(textEl);
+  
+  // Trigger animation
+  requestAnimationFrame(() => {
+    textEl.classList.add('golden-text-line--visible');
+  });
+  
+  // Wait for animation, then remove and show next
+  setTimeout(() => {
+    textEl.classList.remove('golden-text-line--visible');
+    textEl.classList.add('golden-text-line--fading');
+    
+    setTimeout(() => {
+      textEl.remove();
+      animateNextGoldenText();
+    }, 400);
+  }, 2000);
+}
 
 // Clear any pending timeout that would reveal the overlay text.
 function clearOverlayRevealTimer() {
@@ -556,9 +624,12 @@ function toggleDropdown(categoryId) {
 
 // Calculate total bonuses for a category
 function calculateCategoryBonuses(categoryAchievements) {
-  const unlocked = categoryAchievements.filter(def => achievementState.get(def.id)?.unlocked);
-  const totalFlux = unlocked.reduce((sum, def) => sum + (def.rewardFlux || ACHIEVEMENT_REWARD_FLUX), 0);
-  return { count: unlocked.length, totalFlux };
+  const claimed = categoryAchievements.filter(def => {
+    const state = achievementState.get(def.id);
+    return state?.earned && state?.claimed;
+  });
+  const totalFlux = claimed.reduce((sum, def) => sum + (def.rewardFlux || ACHIEVEMENT_REWARD_FLUX), 0);
+  return { count: claimed.length, totalFlux };
 }
 
 // Render bonuses summary for a category
@@ -647,7 +718,10 @@ function renderAchievementGrid() {
     toggleButton.dataset.dropdownToggle = category.id;
     toggleButton.setAttribute('aria-expanded', 'false');
     
-    const unlocked = categoryAchievements.filter(def => achievementState.get(def.id)?.unlocked).length;
+    const claimed = categoryAchievements.filter(def => {
+      const state = achievementState.get(def.id);
+      return state?.earned && state?.claimed;
+    }).length;
     const total = categoryAchievements.length;
     
     const iconSpan = createIconElement(category);
@@ -658,7 +732,7 @@ function renderAchievementGrid() {
     
     const countSpan = document.createElement('span');
     countSpan.className = 'achievement-category-count';
-    countSpan.textContent = `${unlocked}/${total}`;
+    countSpan.textContent = `${claimed}/${total}`;
     
     toggleButton.append(iconSpan, labelSpan, countSpan);
     toggleButton.addEventListener('click', () => toggleDropdown(category.id));
@@ -692,16 +766,16 @@ function renderAchievementGrid() {
       tile.setAttribute('aria-haspopup', 'dialog');
       tile.setAttribute('aria-label', `${definition.title} achievement. Activate to view reward details.`);
       tile.addEventListener('click', () => {
-        presentAchievementCinematic(definition.id);
+        handleAchievementClick(definition.id);
       });
 
       const icon = document.createElement('span');
       icon.className = 'achievement-icon';
       const state = achievementState.get(definition.id);
-      const isUnlocked = state?.unlocked;
+      const isEarned = state?.earned;
       
-      // For secret achievements, show question mark when locked
-      if (definition.secret && !isUnlocked) {
+      // For secret achievements, show question mark when not earned
+      if (definition.secret && !isEarned) {
         icon.textContent = '❓';
         tile.classList.add('achievement-tile--secret-locked');
       } else {
@@ -711,8 +785,8 @@ function renderAchievementGrid() {
 
       const label = document.createElement('span');
       label.className = 'achievement-label';
-      // For secret achievements, hide title when locked
-      if (definition.secret && !isUnlocked) {
+      // For secret achievements, hide title when not earned
+      if (definition.secret && !isEarned) {
         label.textContent = SECRET_PLACEHOLDER_TEXT;
       } else {
         label.textContent = definition.title;
@@ -863,6 +937,25 @@ function ensureAchievementOverlay() {
   return overlayElements;
 }
 
+// Handle clicking on an achievement tile
+function handleAchievementClick(id) {
+  const definition = achievementDefinitions.find((candidate) => candidate.id === id);
+  if (!definition) {
+    return;
+  }
+  
+  const state = achievementState.get(id);
+  
+  // If earned but not claimed, claim it
+  if (state?.earned && !state?.claimed) {
+    claimAchievement(definition);
+    return;
+  }
+  
+  // Otherwise show the cinematic overlay
+  presentAchievementCinematic(id);
+}
+
 // Animates the tapped achievement icon into the overlay and reveals its supporting text.
 function presentAchievementCinematic(id) {
   if (overlayState) {
@@ -896,11 +989,11 @@ function presentAchievementCinematic(id) {
   overlayEls.description.hidden = !definition.description;
 
   const state = achievementState.get(id);
-  const isUnlocked = state?.unlocked;
+  const isClaimed = state?.earned && state?.claimed;
   const statusText = elements.status?.textContent || '';
   overlayEls.status.textContent = statusText;
-  // Hide the status line when achievement is unlocked, keep only the reward line
-  overlayEls.status.hidden = !statusText || isUnlocked;
+  // Hide the status line when achievement is claimed, keep only the reward line
+  overlayEls.status.hidden = !statusText || isClaimed;
 
   const rewardFlux = Number.isFinite(definition.rewardFlux) ? definition.rewardFlux : ACHIEVEMENT_REWARD_FLUX;
   overlayEls.reward.textContent = `Reward · +${formatGameNumber(rewardFlux)} Motes/min idle.`;
@@ -1011,15 +1104,18 @@ function updateAchievementStatus(definition, element, state) {
     return;
   }
   const { container, status, icon } = element;
-  const isUnlocked = state?.unlocked;
+  const isEarned = state?.earned;
+  const isClaimed = state?.claimed;
   
-  if (isUnlocked) {
+  if (isEarned && isClaimed) {
+    // Claimed state - show as completed
     if (container) {
-      container.classList.add('achievement-unlocked');
+      container.classList.add('achievement-claimed');
+      container.classList.remove('achievement-earned-unclaimed');
       container.classList.remove('achievement-tile--secret-locked');
     }
     
-    // Update icon and label for secret achievements when unlocked
+    // Update icon and label for secret achievements when claimed
     if (definition.secret && icon) {
       icon.textContent = definition.icon || '✓';
       const label = container?.querySelector('.achievement-label');
@@ -1030,14 +1126,39 @@ function updateAchievementStatus(definition, element, state) {
     
     if (status) {
       const rewardFlux = definition.rewardFlux || ACHIEVEMENT_REWARD_FLUX;
-      status.textContent = `Unlocked · +${rewardFlux} Motes/min secured.`;
+      status.textContent = `Claimed · +${rewardFlux} Motes/min secured.`;
     }
     if (container && status) {
-      container.setAttribute('aria-label', `${definition.title} achievement. ${status.textContent} Activate to view reward details.`);
+      container.setAttribute('aria-label', `${definition.title} achievement. ${status.textContent} Activate to view details.`);
+    }
+  } else if (isEarned && !isClaimed) {
+    // Earned but not claimed - show with glow and sparkle
+    if (container) {
+      container.classList.add('achievement-earned-unclaimed');
+      container.classList.remove('achievement-claimed');
+      container.classList.remove('achievement-tile--secret-locked');
+    }
+    
+    // Update icon and label for secret achievements when earned
+    if (definition.secret && icon) {
+      icon.textContent = definition.icon || '✓';
+      const label = container?.querySelector('.achievement-label');
+      if (label) {
+        label.textContent = definition.title;
+      }
+    }
+    
+    if (status) {
+      status.textContent = 'Ready to claim! Click to collect rewards.';
+    }
+    if (container && status) {
+      container.setAttribute('aria-label', `${definition.title} achievement. Ready to claim. Click to collect rewards.`);
     }
   } else {
+    // Not yet earned
     if (container) {
-      container.classList.remove('achievement-unlocked');
+      container.classList.remove('achievement-claimed');
+      container.classList.remove('achievement-earned-unclaimed');
     }
     
     // Keep secret locked styling for secret achievements
@@ -1051,7 +1172,7 @@ function updateAchievementStatus(definition, element, state) {
     }
     if (container && status) {
       const titleText = definition.secret ? SECRET_PLACEHOLDER_TEXT : definition.title;
-      container.setAttribute('aria-label', `${titleText} achievement. ${status.textContent} Activate to view reward details.`);
+      container.setAttribute('aria-label', `${titleText} achievement. ${status.textContent} Activate to view details.`);
     }
   }
 }
@@ -1064,14 +1185,17 @@ function updateCategoryButtonCounts() {
       return;
     }
     
-    const unlocked = categoryAchievements.filter(def => achievementState.get(def.id)?.unlocked).length;
+    const claimed = categoryAchievements.filter(def => {
+      const state = achievementState.get(def.id);
+      return state?.earned && state?.claimed;
+    }).length;
     const total = categoryAchievements.length;
     
     const toggleButton = document.querySelector(`[data-dropdown-toggle="${category.id}"]`);
     if (toggleButton) {
       const countSpan = toggleButton.querySelector('.achievement-category-count');
       if (countSpan) {
-        countSpan.textContent = `${unlocked}/${total}`;
+        countSpan.textContent = `${claimed}/${total}`;
       }
     }
     
@@ -1133,7 +1257,7 @@ function applyTerrariumReward(reward) {
 export function evaluateAchievements() {
   achievementDefinitions.forEach((definition) => {
     const state = achievementState.get(definition.id);
-    if (!state?.unlocked && typeof definition.condition === 'function' && definition.condition()) {
+    if (!state?.earned && typeof definition.condition === 'function' && definition.condition()) {
       unlockAchievement(definition);
     } else {
       updateAchievementStatus(definition, achievementElements.get(definition.id), state || null);
@@ -1144,24 +1268,69 @@ export function evaluateAchievements() {
   updateCategoryButtonCounts();
 }
 
-// Unlocks an achievement and propagates reward updates through dependent systems.
+// Unlocks an achievement (marks it as earned but not yet claimed).
 function unlockAchievement(definition) {
   if (!definition) {
     return;
   }
   const existing = achievementState.get(definition.id);
-  if (existing?.unlocked) {
+  if (existing?.earned) {
     updateAchievementStatus(definition, achievementElements.get(definition.id), existing);
     return;
   }
 
-  const state = { unlocked: true, unlockedAt: Date.now() };
+  // Mark as earned but not claimed - player must click to claim rewards
+  const state = { earned: true, claimed: false, earnedAt: Date.now() };
   achievementState.set(definition.id, state);
 
   const element = achievementElements.get(definition.id);
   updateAchievementStatus(definition, element, state);
+}
 
-  // Process terrarium rewards if this achievement grants them
+// Claims an achievement and applies its rewards.
+function claimAchievement(definition) {
+  if (!definition) {
+    return;
+  }
+  
+  const state = achievementState.get(definition.id);
+  if (!state?.earned || state?.claimed) {
+    // Can't claim if not earned or already claimed
+    return;
+  }
+  
+  // Mark as claimed
+  state.claimed = true;
+  state.claimedAt = Date.now();
+  achievementState.set(definition.id, state);
+  
+  const element = achievementElements.get(definition.id);
+  updateAchievementStatus(definition, element, state);
+  
+  // Build list of rewards to display
+  const rewards = [];
+  const rewardFlux = Number.isFinite(definition.rewardFlux) ? definition.rewardFlux : ACHIEVEMENT_REWARD_FLUX;
+  rewards.push(`+${formatGameNumber(rewardFlux)} Motes/min`);
+  
+  // Add terrarium reward descriptions
+  if (definition.terrariumReward) {
+    const reward = definition.terrariumReward;
+    if (reward.type === 'celestialBody' && reward.item) {
+      rewards.push(`${reward.item === 'moon' ? 'Moon' : 'Sun'} added to terrarium`);
+    } else if (reward.type === 'creature' && reward.item) {
+      const count = reward.count || 1;
+      const itemName = reward.item === 'slime' ? 'Slime' : reward.item;
+      rewards.push(`${count} ${itemName}${count > 1 ? 's' : ''} added to terrarium`);
+    } else if (reward.type === 'item' && reward.item) {
+      const count = reward.count || 1;
+      rewards.push(`${count} terrarium item${count > 1 ? 's' : ''} added`);
+    }
+  }
+  
+  // Show golden text animation for rewards
+  showGoldenTextRewards(rewards);
+  
+  // Process terrarium rewards
   if (definition.terrariumReward) {
     applyTerrariumReward(definition.terrariumReward);
   }
@@ -1184,9 +1353,9 @@ function unlockAchievement(definition) {
   }
 }
 
-// Returns the count of achievements that have been sealed.
+// Returns the count of achievements that have been claimed.
 export function getUnlockedAchievementCount() {
-  return Array.from(achievementState.values()).filter((state) => state?.unlocked).length;
+  return Array.from(achievementState.values()).filter((state) => state?.earned && state?.claimed).length;
 }
 
 // Recomputes the idle powder reward provided by unlocked achievements.
