@@ -115,8 +115,14 @@ const VIEWPORT_CULL_MARGIN = 100;
 /**
  * Calculate the visible viewport bounds in world coordinates.
  * Returns an object with min/max x/y coordinates for culling.
+ * Uses cached values when available to reduce redundant calculations.
  */
 function getViewportBounds() {
+  // Use cached value if available from current frame
+  if (this._frameCache?.viewportBounds) {
+    return this._frameCache.viewportBounds;
+  }
+  
   if (!this.canvas || !this.ctx) {
     return null;
   }
@@ -430,6 +436,15 @@ function draw() {
   ctx.scale(this.viewScale, this.viewScale);
   ctx.translate(-viewCenter.x, -viewCenter.y);
 
+  // Cache commonly used values for this frame to reduce redundant calculations
+  this._frameCache = {
+    width,
+    height,
+    minDimension: Math.min(width, height) || 1,
+    viewportBounds: getViewportBounds.call(this),
+    timestamp: getNowTimestamp(),
+  };
+
   this.drawFloaters();
   this.drawPath();
   this.drawDeltaCommandPreview();
@@ -453,18 +468,22 @@ function draw() {
   this.drawProjectiles();
   this.drawTowerMenu();
   this.updateEnemyTooltipPosition();
+  
+  // Clear frame cache after rendering
+  this._frameCache = null;
 }
 
 function drawFloaters() {
   if (!this.ctx || !this.floaters.length || !this.levelConfig) {
     return;
   }
-  const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+  // Use cached frame values to reduce redundant calculations
+  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
+  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
   if (!width || !height) {
     return;
   }
-  const minDimension = Math.min(width, height) || 1;
+  const minDimension = this._frameCache?.minDimension || (Math.min(width, height) || 1);
   const connectionWidth = Math.max(0.6, minDimension * 0.0014);
 
   const ctx = this.ctx;
@@ -537,24 +556,26 @@ function drawMoteGems() {
   }
   const ctx = this.ctx;
   ctx.save();
-  const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-  const dimensionCandidates = [];
-  if (Number.isFinite(width) && width > 0) {
-    dimensionCandidates.push(width);
-  }
-  if (Number.isFinite(height) && height > 0) {
-    dimensionCandidates.push(height);
-  }
-  const minDimension = Math.max(
-    1,
-    dimensionCandidates.length ? Math.min(...dimensionCandidates) : 320,
-  );
+  
+  // Use cached frame values to reduce redundant calculations
+  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
+  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
+  const minDimension = this._frameCache?.minDimension || (() => {
+    const dimensionCandidates = [];
+    if (Number.isFinite(width) && width > 0) {
+      dimensionCandidates.push(width);
+    }
+    if (Number.isFinite(height) && height > 0) {
+      dimensionCandidates.push(height);
+    }
+    return Math.max(1, dimensionCandidates.length ? Math.min(...dimensionCandidates) : 320);
+  })();
+  
   const moteUnit = Math.max(6, minDimension * GEM_MOTE_BASE_RATIO);
   const pulseMagnitude = moteUnit * 0.35;
 
   // Calculate viewport bounds once for all mote gems
-  const viewportBounds = getViewportBounds.call(this);
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
 
   moteGemState.active.forEach((gem) => {
     // Skip rendering mote gems outside viewport
@@ -2268,7 +2289,7 @@ function drawEnemies() {
   ctx.save();
 
   const fallbackRendering = shouldUseEnemyFallbackRendering.call(this);
-  const timestamp = fallbackRendering ? 0 : getNowTimestamp();
+  const timestamp = fallbackRendering ? 0 : (this._frameCache?.timestamp || getNowTimestamp());
   const activeEnemies = fallbackRendering ? null : new Set();
   if (fallbackRendering && this.enemySwirlParticles) {
     this.enemySwirlParticles.clear();
@@ -2277,8 +2298,8 @@ function drawEnemies() {
     this.enemySwirlImpacts.length = 0;
   }
 
-  // Calculate viewport bounds once for all enemies
-  const viewportBounds = getViewportBounds.call(this);
+  // Use cached viewport bounds to reduce redundant calculations
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
 
   this.enemies.forEach((enemy) => {
     if (!enemy) {
@@ -2377,8 +2398,8 @@ function drawEnemyDeathParticles() {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
 
-  // Calculate viewport bounds once for all death particles
-  const viewportBounds = getViewportBounds.call(this);
+  // Use cached viewport bounds to reduce redundant calculations
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
 
   this.enemyDeathParticles.forEach((particle) => {
     if (!particle || !particle.position) {
@@ -2501,8 +2522,8 @@ function drawDamageNumbers() {
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
 
-  // Calculate viewport bounds once for all damage numbers
-  const viewportBounds = getViewportBounds.call(this);
+  // Use cached viewport bounds to reduce redundant calculations
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
 
   this.damageNumbers.forEach((entry) => {
     if (!entry || !entry.position || !entry.text || entry.alpha <= 0) {
@@ -2624,8 +2645,8 @@ function drawProjectiles() {
   }
 
   const ctx = this.ctx;
-  // Calculate viewport bounds once for all projectiles
-  const viewportBounds = getViewportBounds.call(this);
+  // Use cached viewport bounds to reduce redundant calculations
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
   let renderedCount = 0;
   let culledCount = 0;
 
