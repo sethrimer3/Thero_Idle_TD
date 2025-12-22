@@ -10,6 +10,8 @@
  * @param {Function} options.refreshTabMusic - Resumes tab-specific music routing.
  * @param {Function} options.checkOfflineRewards - Reconciles idle progression when returning.
  * @param {object} [options.audioManager] - Optional audio manager for hard stops on unload.
+ * @param {Function} [options.stopBetSpireRender] - Optional function to stop Bet spire render.
+ * @param {Function} [options.resumeBetSpireRender] - Optional function to resume Bet spire render.
  * @returns {Function} Cleanup function that removes all registered listeners.
  */
 export function bindPageLifecycleEvents({
@@ -20,6 +22,8 @@ export function bindPageLifecycleEvents({
   refreshTabMusic,
   checkOfflineRewards,
   audioManager,
+  stopBetSpireRender,
+  resumeBetSpireRender,
 }) {
   // Prepare helper that halts any active soundtrack before the session exits.
   const stopMusicIfAvailable = () => {
@@ -34,6 +38,7 @@ export function bindPageLifecycleEvents({
       commitAutoSave?.();
       markLastActive?.();
       suppressAudioPlayback?.('document-hidden');
+      stopBetSpireRender?.(); // Stop Bet spire render to prevent particle accumulation
       return;
     }
     if (document.visibilityState === 'visible') {
@@ -41,6 +46,7 @@ export function bindPageLifecycleEvents({
       refreshTabMusic?.();
       checkOfflineRewards?.();
       markLastActive?.();
+      resumeBetSpireRender?.(); // Resume Bet spire render when tab becomes visible
     }
   };
 
@@ -61,12 +67,14 @@ export function bindPageLifecycleEvents({
     markLastActive?.();
     suppressAudioPlayback?.('pagehide');
     stopMusicIfAvailable();
+    stopBetSpireRender?.(); // Stop Bet spire render on page hide
   };
 
   // Re-enable audio when the page is restored after a navigation transition.
   const handlePageShow = () => {
     releaseAudioSuppression?.('pagehide');
     refreshTabMusic?.();
+    resumeBetSpireRender?.(); // Resume Bet spire render on page show
   };
 
   // Persist state before unloading the page to cover hard exits.
