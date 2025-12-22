@@ -24,6 +24,11 @@ const SPAWNER_GRAVITY_STRENGTH = 0.75; // Gentle attraction strength used by ind
 const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four times its radius for a wider pull
 const GENERATOR_CONVERSION_RADIUS = 15; // Distance particles must be within generator center to convert to next tier
 
+// Performance optimization configuration
+const MAX_PARTICLES = 2000; // Hard limit on total particle count to prevent freezing
+const PERFORMANCE_THRESHOLD = 1500; // Start aggressive merging above this count
+const MAX_FRAME_TIME_MS = 16; // Target 60fps, skip updates if frame takes longer
+
 // User interaction configuration
 const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 10; // Doubled from /20 to /10
 const MOUSE_ATTRACTION_STRENGTH = 3.0;
@@ -410,6 +415,16 @@ export class BetSpireRender {
   }
 
   addParticle(tierId, sizeIndex) {
+    // Enforce maximum particle limit to prevent freezing
+    if (this.particles.length >= MAX_PARTICLES) {
+      // Try to consolidate particles instead of adding new ones
+      this.enforceParticleLimit();
+      // If still at limit after consolidation, don't add
+      if (this.particles.length >= MAX_PARTICLES) {
+        return;
+      }
+    }
+    
     // Get the generator position for this tier
     const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === tierId);
     const spawnPosition = tierIndex >= 0 && tierIndex < SPAWNER_POSITIONS.length 
@@ -525,6 +540,66 @@ export class BetSpireRender {
       const currentCount = this.inventory.get(tierId) || 0;
       this.inventory.set(tierId, currentCount + smallEquivalent);
     });
+  }
+
+  /**
+   * Enforce particle limit by aggressively merging small particles when count is too high.
+   * This prevents freezing when there are too many particles.
+   */
+  enforceParticleLimit() {
+    // If under threshold, no action needed
+    if (this.particles.length < PERFORMANCE_THRESHOLD) {
+      return;
+    }
+
+    // Group small particles by tier
+    const smallParticlesByTier = new Map();
+    
+    this.particles.forEach(particle => {
+      if (particle.sizeIndex === SMALL_SIZE_INDEX && !particle.merging) {
+        const tierId = particle.tierId;
+        if (!smallParticlesByTier.has(tierId)) {
+          smallParticlesByTier.set(tierId, []);
+        }
+        smallParticlesByTier.get(tierId).push(particle);
+      }
+    });
+
+    // Aggressively merge small particles in groups of MERGE_THRESHOLD
+    smallParticlesByTier.forEach((group, tierId) => {
+      while (group.length >= MERGE_THRESHOLD && this.particles.length > PERFORMANCE_THRESHOLD) {
+        // Take MERGE_THRESHOLD particles and convert them instantly to one medium particle
+        const particlesToMerge = group.splice(0, MERGE_THRESHOLD);
+        
+        // Calculate center point
+        let centerX = 0;
+        let centerY = 0;
+        particlesToMerge.forEach(p => {
+          centerX += p.x;
+          centerY += p.y;
+        });
+        centerX /= particlesToMerge.length;
+        centerY /= particlesToMerge.length;
+        
+        // Remove the small particles
+        particlesToMerge.forEach(p => {
+          this.removeParticle(p);
+        });
+        
+        // Create one medium particle instantly (no animation)
+        const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === tierId);
+        const spawnPos = tierIndex >= 0 && tierIndex < SPAWNER_POSITIONS.length 
+          ? SPAWNER_POSITIONS[tierIndex] 
+          : null;
+        
+        const mediumParticle = new Particle(tierId, MEDIUM_SIZE_INDEX, spawnPos);
+        mediumParticle.x = centerX;
+        mediumParticle.y = centerY;
+        this.particles.push(mediumParticle);
+      }
+    });
+
+    this.updateInventory();
   }
 
   // Attempt to merge particles of the same tier and size (100 small → 1 medium, 100 medium → 1 large)
@@ -747,19 +822,34 @@ export class BetSpireRender {
         
         // Handle tier conversion differently from size merges
         if (merge.isTierConversion) {
-          // Tier conversion: create multiple small particles of next tier
-          // Note: Creating 100 particles at once (for large conversions) is intentional
-          // for the visual effect and game feel. The particles spread out with random velocities.
+          // Tier conversion: create particles of next tier
           const conversionCount = merge.conversionCount || 1;
           
-          for (let i = 0; i < conversionCount; i++) {
-            const newParticle = new Particle(merge.tierId, merge.sizeIndex, spawnPos);
+          // Performance optimization: If we're at high particle count, directly create
+          // medium particles instead of 100 small ones
+          if (this.particles.length > PERFORMANCE_THRESHOLD && conversionCount === 100) {
+            // Create 1 medium particle instead of 100 small particles
+            const newParticle = new Particle(merge.tierId, MEDIUM_SIZE_INDEX, spawnPos);
             newParticle.x = merge.targetX;
             newParticle.y = merge.targetY;
-            // Add slight random velocity to spread out converted particles
+            // Add slight random velocity
             newParticle.vx = (Math.random() - 0.5) * CONVERSION_SPREAD_VELOCITY;
             newParticle.vy = (Math.random() - 0.5) * CONVERSION_SPREAD_VELOCITY;
             this.particles.push(newParticle);
+          } else {
+            // Normal behavior: create multiple particles with spread
+            // Limit creation if approaching MAX_PARTICLES
+            const maxToCreate = Math.min(conversionCount, MAX_PARTICLES - this.particles.length);
+            
+            for (let i = 0; i < maxToCreate; i++) {
+              const newParticle = new Particle(merge.tierId, merge.sizeIndex, spawnPos);
+              newParticle.x = merge.targetX;
+              newParticle.y = merge.targetY;
+              // Add slight random velocity to spread out converted particles
+              newParticle.vx = (Math.random() - 0.5) * CONVERSION_SPREAD_VELOCITY;
+              newParticle.vy = (Math.random() - 0.5) * CONVERSION_SPREAD_VELOCITY;
+              this.particles.push(newParticle);
+            }
           }
         } else {
           // Size merge: create one particle of next size
@@ -990,6 +1080,7 @@ export class BetSpireRender {
   animate() {
     if (!this.isRunning) return;
     
+    const frameStartTime = performance.now(); // Track frame start time for performance monitoring
     const now = Date.now(); // Track current time for animations
     
     // Create trail effect by drawing semi-transparent black over the canvas
@@ -1077,14 +1168,26 @@ export class BetSpireRender {
       return true; // Keep circle for next frame
     });
     
+    // Performance optimization: When particle count is high, reduce update frequency
+    const isHighParticleCount = this.particles.length > PERFORMANCE_THRESHOLD;
+    const updateInterval = isHighParticleCount ? 2 : 1; // Update every 2nd frame when high
+    
     // Update and draw particles
-    for (const particle of this.particles) {
-      particle.update(this.forge, activeSpawners);
+    for (let i = 0; i < this.particles.length; i++) {
+      const particle = this.particles[i];
+      
+      // When performance is stressed, only update every nth particle per frame
+      if (!isHighParticleCount || i % updateInterval === (now % updateInterval)) {
+        particle.update(this.forge, activeSpawners);
+      }
+      
       particle.draw(this.ctx);
     }
     
     // Periodically attempt to merge particles (size merging)
-    if (Math.random() < 0.01) { // 1% chance per frame
+    // Increase merge frequency when particle count is high
+    const mergeChance = isHighParticleCount ? 0.05 : 0.01; // 5% when high, 1% normally
+    if (Math.random() < mergeChance) {
       this.attemptMerge();
     }
     
@@ -1094,8 +1197,15 @@ export class BetSpireRender {
     }
     
     // Periodically attempt large particle tier merging for performance (100 large → 10 large of next tier)
-    if (Math.random() < 0.01) { // 1% chance per frame
+    // More frequent when particle count is high
+    const largeMergeChance = isHighParticleCount ? 0.05 : 0.01;
+    if (Math.random() < largeMergeChance) {
       this.attemptLargeTierMerge();
+    }
+    
+    // Enforce particle limit periodically
+    if (isHighParticleCount && Math.random() < 0.1) { // 10% chance when high count
+      this.enforceParticleLimit();
     }
     
     // Periodically check for particle factor milestones
@@ -1106,6 +1216,13 @@ export class BetSpireRender {
         const event = new CustomEvent('betGlyphsAwarded', { detail: { count: glyphsAwarded } });
         this.canvas.dispatchEvent(event);
       }
+    }
+    
+    // Track frame time for performance monitoring
+    const frameTime = performance.now() - frameStartTime;
+    if (frameTime > MAX_FRAME_TIME_MS * 2) {
+      // If frame took too long (more than 2x target), log warning
+      console.warn(`Bet Spire frame took ${frameTime.toFixed(2)}ms with ${this.particles.length} particles`);
     }
     
     this.animationId = requestAnimationFrame(this.animate);
