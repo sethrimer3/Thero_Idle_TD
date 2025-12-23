@@ -907,7 +907,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     registerResourceContainers,
   });
 
-  // Fluid simulation has been disabled as requested
+  // Fluid simulation has been disabled to prevent creation errors and resolve console warnings
   const FLUID_STUDY_ENABLED = false;
 
   const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the Bet Spire Terrarium with a base reservoir of Serendipity upon unlock.
@@ -3120,8 +3120,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const shinState = spireResourceState.shin || {};
     const kufState = spireResourceState.kuf || {};
 
-    const betSpireInstance = getBetSpireRenderInstance();
-
     return {
       powder: {
         unlocked: true,
@@ -3133,7 +3131,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         generators: fluidStoryState.generators || {},
         particleFactorMilestone: fluidStoryState.particleFactorMilestone || 10,
         betGlyphsAwarded: fluidStoryState.betGlyphsAwarded || 0,
-        particlesByTierAndSize: betSpireInstance ? betSpireInstance.getParticleStateSnapshot() : null,
+        particlesByTierAndSize: getBetSpireRenderInstance()?.getParticleStateSnapshot() || null,
       },
       lamed: {
         unlocked: Boolean(lamedState.unlocked),
