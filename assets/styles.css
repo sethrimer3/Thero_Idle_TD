@@ -1671,10 +1671,14 @@ body.graphics-mode-low .control-button {
 
 
 .tower-loadout-shell {
+  /* Match toggle spacing to consistent edge offsets regardless of which side is active. */
+  --tower-loadout-edge-offset: 12px;
+  --tower-loadout-toggle-size: 20px;
+  --tower-loadout-gap: var(--tower-loadout-toggle-size);
   position: absolute;
-  left: 12px;
+  left: var(--tower-loadout-edge-offset);
   right: auto;
-  bottom: 12px;
+  bottom: var(--tower-loadout-edge-offset);
   width: min(92vw, 440px);
   pointer-events: none;
   /* Establish a stacking context so the toggle can rise above the tray. */
@@ -1683,16 +1687,16 @@ body.graphics-mode-low .control-button {
 
 .tower-loadout-shell[data-toggle-side='right'] {
   left: auto;
-  right: 12px;
+  right: var(--tower-loadout-edge-offset);
 }
 
 .tower-loadout-toggle {
   position: absolute;
-  left: 20px;
+  left: var(--tower-loadout-edge-offset);
   /* Raise the toggle above the loadout tray so it stays clickable. */
-  bottom: calc(100% + 6px);
-  width: 20px;
-  height: 20px;
+  bottom: calc(100% + var(--tower-loadout-edge-offset));
+  width: var(--tower-loadout-toggle-size);
+  height: var(--tower-loadout-toggle-size);
   display: grid;
   place-items: center;
   border-radius: 4px;
@@ -1722,11 +1726,11 @@ body.graphics-mode-low .control-button {
 
 .tower-loadout-shell[data-toggle-side='right'] .tower-loadout-toggle {
   left: auto;
-  right: 20px;
+  right: var(--tower-loadout-edge-offset);
 }
 
 .tower-loadout-shell--collapsed .tower-loadout-toggle {
-  bottom: 6px;
+  bottom: var(--tower-loadout-edge-offset);
 }
 
 .tower-loadout-shell--collapsed .tower-loadout-toggle__icon {
@@ -1745,7 +1749,9 @@ body.graphics-mode-low .control-button {
   transition: transform var(--transition), opacity var(--transition);
   opacity: 1;
   z-index: 1;
-  padding-left: 42px;
+  padding-left: calc(
+    var(--tower-loadout-edge-offset) + var(--tower-loadout-toggle-size) + var(--tower-loadout-gap)
+  );
   padding-right: 8px;
 }
 
@@ -1759,7 +1765,9 @@ body.graphics-mode-low .control-button {
   left: auto;
   right: 0;
   padding-left: 8px;
-  padding-right: 42px;
+  padding-right: calc(
+    var(--tower-loadout-edge-offset) + var(--tower-loadout-toggle-size) + var(--tower-loadout-gap)
+  );
   justify-content: flex-end;
 }
 
@@ -1771,6 +1779,10 @@ body.graphics-mode-low .control-button {
   gap: 8px;
   width: 100%;
   pointer-events: none; /* Allow empty portions of the loadout tray to pass clicks through to the battlefield. */
+}
+
+.tower-loadout-shell[data-toggle-side='right'] .tower-loadout-grid {
+  justify-content: flex-end;
 }
 
 .tower-loadout-item {

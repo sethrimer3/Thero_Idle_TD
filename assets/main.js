@@ -712,12 +712,27 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let playfieldMenuController = null;
   let audioManager = null;
 
+  // Keep the playfield visual settings toggle in sync with whether an interactive defense is running.
+  function syncPlayfieldSettingsVisibility() {
+    const playfieldSettingsWrapper = document.getElementById('playfield-settings-wrapper');
+    if (!playfieldSettingsWrapper) {
+      return;
+    }
+
+    const shouldShowSettings = Boolean(activeLevelId && activeLevelIsInteractive);
+    playfieldSettingsWrapper.hidden = !shouldShowSettings;
+    playfieldSettingsWrapper.setAttribute('aria-hidden', shouldShowSettings ? 'false' : 'true');
+  }
+
   function updateLayoutVisibility() {
     // Hide the battlefield until an interactive level is in progress.
     const shouldShowPlayfield = Boolean(activeLevelId && activeLevelIsInteractive);
     setElementVisibility(playfieldWrapper, shouldShowPlayfield);
     setElementVisibility(stageControls, shouldShowPlayfield);
     setElementVisibility(levelSelectionSection, !shouldShowPlayfield);
+
+    // Keep the playfield settings panel aligned with the current layout state.
+    syncPlayfieldSettingsVisibility();
 
     if (!shouldShowPlayfield) {
       if (playfieldMenuController) {
@@ -4446,7 +4461,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       // Only show map if on Defense tab AND not inside a level
       const activeTabId = getActiveTabId();
       const isDefenseTab = activeTabId === 'tower';
-      const isInsideLevel = activeLevelId && activeLevelIsInteractive;
+      const isInsideLevel = Boolean(activeLevelId);
       const shouldShowMap = isDefenseTab && !isInsideLevel;
       
       if (shouldShowMap) {
@@ -5148,9 +5163,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     ensureResourceTicker();
     updateActiveLevelBanner();
     updateLevelCards();
-    
-    // Hide cognitive realm map when entering a level on Defense tab
-    if (isCognitiveRealmUnlocked() && isInteractive) {
+
+    // Hide cognitive realm map whenever a level begins so rendering pauses inside encounters
+    if (isCognitiveRealmUnlocked()) {
       hideCognitiveRealmMap();
     }
 
@@ -5180,16 +5195,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
 
     updateTowerSelectionButtons();
-    
-    // Show playfield visual settings when in interactive mode
-    if (isInteractive) {
-      const playfieldSettingsWrapper = document.getElementById('playfield-settings-wrapper');
-      if (playfieldSettingsWrapper) {
-        playfieldSettingsWrapper.hidden = false;
-        playfieldSettingsWrapper.setAttribute('aria-hidden', 'false');
-      }
-    }
-    
+
     // Swap the visible UI surfaces to match the new level state.
     updateLayoutVisibility();
   }
@@ -5216,14 +5222,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     refreshTabMusic({ restart: true });
     activeLevelId = null;
-    
-    // Hide playfield visual settings when leaving a level
-    const playfieldSettingsWrapper = document.getElementById('playfield-settings-wrapper');
-    if (playfieldSettingsWrapper) {
-      playfieldSettingsWrapper.hidden = true;
-      playfieldSettingsWrapper.setAttribute('aria-hidden', 'true');
-    }
-    
+
     // Reset the interaction flag so the level grid is visible again.
     activeLevelIsInteractive = false;
     resourceState.running = false;
@@ -6025,6 +6024,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       initializeCognitiveRealmMap(cognitiveRealmContainer, cognitiveRealmCanvas, {
         getDeveloperModeActive: () => developerModeActive,
       });
+      // Ensure visibility and render state line up with the current tab and level status.
+      updateCognitiveRealmVisibility();
     }
 
     // Apply the preferred graphics fidelity before other controls render.
@@ -6673,9 +6674,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         // Hide the map if not on Defense tab OR if player is inside a level
         if (isCognitiveRealmUnlocked()) {
           const isDefenseTab = tabId === 'tower';
-          const isInsideLevel = activeLevelId && activeLevelIsInteractive;
+          const isInsideLevel = Boolean(activeLevelId);
           const shouldShowMap = isDefenseTab && !isInsideLevel;
-          
+
           if (shouldShowMap) {
             showCognitiveRealmMap();
           } else {
