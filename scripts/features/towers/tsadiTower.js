@@ -500,6 +500,7 @@ export class ParticleFusionSimulation {
       renderForceLinks: true,
       renderFusionEffects: true,
       renderSpawnEffects: true,
+      smoothRendering: true, // Enable subpixel rendering by default for smooth particle motion
     };
     // Cap the render resolution on high-DPI devices so the fusion viewport does not overdraw.
     this.maxDevicePixelRatio = Math.max(1, typeof options.maxDevicePixelRatio === 'number' ? options.maxDevicePixelRatio : 1.5);
@@ -554,6 +555,9 @@ export class ParticleFusionSimulation {
       // Reset transform before applying DPR scaling to avoid cumulative scaling.
       this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.scale(dpr, dpr);
+      
+      // Apply smooth rendering settings after context reset
+      this.applySmoothRenderingSettings();
     }
 
     if (this.width <= COLLAPSED_DIMENSION_THRESHOLD || this.height <= COLLAPSED_DIMENSION_THRESHOLD) {
@@ -855,6 +859,30 @@ export class ParticleFusionSimulation {
     }
     if (!this.visualSettings.renderForceLinks) {
       this.forceLinks.length = 0;
+    }
+    
+    // Apply smooth rendering settings to canvas context if available
+    this.applySmoothRenderingSettings();
+  }
+  
+  /**
+   * Apply smooth rendering settings to the canvas context.
+   * Enables subpixel rendering when smooth mode is active.
+   */
+  applySmoothRenderingSettings() {
+    if (!this.ctx) {
+      return;
+    }
+    
+    // Enable image smoothing for antialiased subpixel rendering in smooth mode
+    // Default to true if smoothRendering is undefined
+    const smoothingEnabled = this.visualSettings.smoothRendering !== false;
+    this.ctx.imageSmoothingEnabled = smoothingEnabled;
+    
+    // Set the quality of image smoothing to high for best subpixel results
+    // Note: imageSmoothingQuality is not supported in older browsers (IE, older Safari versions)
+    if (smoothingEnabled && this.ctx.imageSmoothingQuality) {
+      this.ctx.imageSmoothingQuality = 'high';
     }
   }
   

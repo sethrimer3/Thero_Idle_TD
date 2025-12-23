@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   renderForceLinks: true,
   renderFusionEffects: true,
   renderSpawnEffects: true,
+  smoothRendering: true,
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -24,9 +25,11 @@ let graphicsLevelButton = null;
 let forceLinkToggle = null;
 let fusionEffectsToggle = null;
 let spawnEffectsToggle = null;
+let smoothRenderingToggle = null;
 let forceLinkStateLabel = null;
 let fusionEffectsStateLabel = null;
 let spawnEffectsStateLabel = null;
+let smoothRenderingStateLabel = null;
 
 /**
  * Persist the latest Tsadi visual settings to localStorage.
@@ -58,6 +61,7 @@ function applySettingsToSimulation() {
     renderForceLinks: settings.renderForceLinks,
     renderFusionEffects: settings.renderFusionEffects,
     renderSpawnEffects: settings.renderSpawnEffects,
+    smoothRendering: settings.smoothRendering,
   });
 }
 
@@ -116,6 +120,7 @@ function syncAllToggles() {
   syncToggleState(forceLinkToggle, forceLinkStateLabel, settings.renderForceLinks);
   syncToggleState(fusionEffectsToggle, fusionEffectsStateLabel, settings.renderFusionEffects);
   syncToggleState(spawnEffectsToggle, spawnEffectsStateLabel, settings.renderSpawnEffects);
+  syncToggleState(smoothRenderingToggle, smoothRenderingStateLabel, settings.smoothRendering);
 }
 
 /**
@@ -126,9 +131,11 @@ export function bindTsadiSpireOptions() {
   forceLinkToggle = document.getElementById('tsadi-force-links-toggle');
   fusionEffectsToggle = document.getElementById('tsadi-fusion-effects-toggle');
   spawnEffectsToggle = document.getElementById('tsadi-spawn-effects-toggle');
+  smoothRenderingToggle = document.getElementById('tsadi-smooth-rendering-toggle');
   forceLinkStateLabel = document.getElementById('tsadi-force-links-state');
   fusionEffectsStateLabel = document.getElementById('tsadi-fusion-effects-state');
   spawnEffectsStateLabel = document.getElementById('tsadi-spawn-effects-state');
+  smoothRenderingStateLabel = document.getElementById('tsadi-smooth-rendering-state');
 
   if (graphicsLevelButton) {
     graphicsLevelButton.addEventListener('click', cycleGraphicsLevel);
@@ -149,6 +156,12 @@ export function bindTsadiSpireOptions() {
   if (spawnEffectsToggle) {
     spawnEffectsToggle.addEventListener('change', (event) => {
       handleToggleChange('renderSpawnEffects', event.target, spawnEffectsStateLabel);
+    });
+  }
+
+  if (smoothRenderingToggle) {
+    smoothRenderingToggle.addEventListener('change', (event) => {
+      handleToggleChange('smoothRendering', event.target, smoothRenderingStateLabel);
     });
   }
 
