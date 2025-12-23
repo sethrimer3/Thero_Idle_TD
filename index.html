@@ -328,6 +328,54 @@
                     <dd id="playfield-energy">—</dd>
                   </div>
                 </dl>
+                <!-- Playfield Visual Settings - Only visible when in a level -->
+                <div class="playfield-settings-wrapper" id="playfield-settings-wrapper" hidden aria-hidden="true">
+                  <button
+                    class="action-button playfield-settings-trigger"
+                    type="button"
+                    id="playfield-settings-toggle"
+                    aria-expanded="false"
+                    aria-controls="playfield-settings-menu"
+                  >
+                    <span>Visual Settings</span>
+                  </button>
+                  <div
+                    class="playfield-settings-menu"
+                    id="playfield-settings-menu"
+                    data-open="false"
+                    aria-hidden="true"
+                    hidden
+                  >
+                    <div class="settings-toggle" id="playfield-enemy-particles-toggle-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="playfield-enemy-particles-title">Enemy Particles</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="playfield-enemy-particles-description"
+                          >Particle effects around enemies for enhanced visual feedback.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="playfield-enemy-particles-toggle">
+                        <input
+                          type="checkbox"
+                          id="playfield-enemy-particles-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="playfield-enemy-particles-title"
+                          aria-describedby="playfield-enemy-particles-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="playfield-enemy-particles-state">On</span>
+                      </label>
+                    </div>
+                    <button class="action-button ghost" type="button" id="playfield-track-type-button">
+                      Track Type · Gradient
+                    </button>
+                    <button class="action-button ghost playfield-settings-close" type="button">Close</button>
+                  </div>
+                </div>
                 <div class="tower-loadout-shell" id="tower-loadout-shell">
                   <button
                     class="tower-loadout-toggle"
@@ -1930,6 +1978,79 @@
               <!-- Generator List -->
               <div class="bet-generator-list">
                 <!-- Generator items will be populated by JavaScript -->
+              </div>
+            </article>
+          </section>
+          
+          <!-- Bet Spire Options -->
+          <section class="panel-grid spire-options-grid" aria-label="Bet Spire options">
+            <article class="card spire-options-card">
+              <button
+                class="action-button spire-options-trigger"
+                type="button"
+                id="bet-spire-options-toggle-button"
+                aria-expanded="false"
+                aria-controls="bet-spire-options-menu"
+              >
+                <span class="spire-options-glyph" aria-hidden="true">בּ</span>
+                <span>Spire Options</span>
+              </button>
+              <div
+                class="spire-options-menu"
+                id="bet-spire-options-menu"
+                data-open="false"
+                aria-hidden="true"
+                hidden
+              >
+                <div class="settings-toggle" id="bet-particle-trails-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-particle-trails-title">Particle Trails</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-particle-trails-description"
+                      >Glowing trails behind moving particles for enhanced visual effect.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-particle-trails-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-particle-trails-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-particle-trails-title"
+                      aria-describedby="bet-particle-trails-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-particle-trails-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="bet-forge-glow-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-forge-glow-title">Forge & Generator Glow</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-forge-glow-description"
+                      >Soft glow effect on the central forge and particle generators.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-forge-glow-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-forge-glow-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-forge-glow-title"
+                      aria-describedby="bet-forge-glow-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-forge-glow-state">On</span>
+                  </label>
+                </div>
+                <button class="action-button ghost spire-options-close" type="button">Close</button>
               </div>
             </article>
           </section>

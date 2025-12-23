@@ -401,6 +401,10 @@ export class BetSpireRender {
     // Keep manual interactions enabled for particle gathering visuals while blocking manual spawning.
     this.interactionsEnabled = true;
     
+    // Visual settings that control rendering effects
+    this.particleTrailsEnabled = true; // Controls whether particles leave trails
+    this.forgeGlowEnabled = true; // Controls whether forge and generators have glow effects
+    
     // Store state reference for persistence
     this.state = state;
     
@@ -1121,7 +1125,9 @@ export class BetSpireRender {
     const now = Date.now(); // Track current time for animations
     
     // Create trail effect by drawing semi-transparent black over the canvas
-    this.ctx.fillStyle = `rgba(0, 0, 0, ${TRAIL_FADE})`;
+    // If trails are disabled, draw fully opaque black to clear the canvas completely
+    const trailFade = this.particleTrailsEnabled ? TRAIL_FADE : 1.0;
+    this.ctx.fillStyle = `rgba(0, 0, 0, ${trailFade})`;
     this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
     // Update forge rotation
@@ -1296,15 +1302,17 @@ export class BetSpireRender {
     ctx.closePath();
     ctx.stroke();
     
-    // Draw center glow
-    ctx.rotate(this.forgeRotation); // Rotate back to center
-    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, forgeSize);
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
-    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(0, 0, forgeSize, 0, Math.PI * 2);
-    ctx.fill();
+    // Draw center glow (only if glow is enabled)
+    if (this.forgeGlowEnabled) {
+      ctx.rotate(this.forgeRotation); // Rotate back to center
+      const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, forgeSize);
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, forgeSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
     
     ctx.restore();
   }
@@ -1376,15 +1384,17 @@ export class BetSpireRender {
       ctx.closePath();
       ctx.stroke();
       
-      // Draw center glow with tier color
-      ctx.rotate(rotation); // Rotate back to center
-      const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, SPAWNER_SIZE);
-      gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.4)`);
-      gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(0, 0, SPAWNER_SIZE, 0, Math.PI * 2);
-      ctx.fill();
+      // Draw center glow with tier color (only if glow is enabled)
+      if (this.forgeGlowEnabled) {
+        ctx.rotate(rotation); // Rotate back to center
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, SPAWNER_SIZE);
+        gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.4)`);
+        gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, SPAWNER_SIZE, 0, Math.PI * 2);
+        ctx.fill();
+      }
       
       ctx.restore();
     });

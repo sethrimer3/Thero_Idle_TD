@@ -94,6 +94,10 @@ import {
   bindFpsCounterToggle,
   initializeFpsCounterPreference,
   applyFpsCounterPreference,
+  bindEnemyParticlesToggle,
+  initializeEnemyParticlesPreference,
+  areEnemyParticlesEnabled,
+  bindPlayfieldTrackTypeButton,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
 import { configurePerformanceMonitor } from './performanceMonitor.js';
@@ -159,7 +163,7 @@ import { createBetHappinessSystem } from './betHappiness.js';
 // Terrarium items dropdown for managing and upgrading items in the Bet Spire.
 import { FluidTerrariumItemsDropdown } from './fluidTerrariumItemsDropdown.js';
 import { createResourceHud } from './resourceHud.js';
-import { initBetSpireRender, stopBetSpireRender, resumeBetSpireRender } from './betSpireRender.js';
+import { initBetSpireRender, stopBetSpireRender, resumeBetSpireRender, getBetSpireRenderInstance } from './betSpireRender.js';
 import { initParticleInventoryDisplay } from './betParticleInventory.js';
 import { createBetSpireUpgradeMenu } from './betSpireUpgradeMenu.js';
 import { createTsadiUpgradeUi } from './tsadiUpgradeUi.js';
@@ -389,6 +393,11 @@ import {
   initializeFluidSpirePreferences,
   setFluidTerrariumGetters,
 } from './fluidSpirePreferences.js';
+import {
+  bindBetSpireParticleOptions,
+  initializeBetSpireParticlePreferences,
+  setBetSpireRenderGetter,
+} from './betSpireParticlePreferences.js';
 import {
   applyPowderVisualSettings,
   bindPowderSpireOptions,
@@ -5166,6 +5175,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
 
     updateTowerSelectionButtons();
+    
+    // Show playfield visual settings when in interactive mode
+    if (isInteractive) {
+      const playfieldSettingsWrapper = document.getElementById('playfield-settings-wrapper');
+      if (playfieldSettingsWrapper) {
+        playfieldSettingsWrapper.hidden = false;
+        playfieldSettingsWrapper.setAttribute('aria-hidden', 'false');
+      }
+    }
+    
     // Swap the visible UI surfaces to match the new level state.
     updateLayoutVisibility();
   }
@@ -5192,6 +5211,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     refreshTabMusic({ restart: true });
     activeLevelId = null;
+    
+    // Hide playfield visual settings when leaving a level
+    const playfieldSettingsWrapper = document.getElementById('playfield-settings-wrapper');
+    if (playfieldSettingsWrapper) {
+      playfieldSettingsWrapper.hidden = true;
+      playfieldSettingsWrapper.setAttribute('aria-hidden', 'true');
+    }
+    
     // Reset the interaction flag so the level grid is visible again.
     activeLevelIsInteractive = false;
     resourceState.running = false;
@@ -6014,6 +6041,41 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindWaveDamageTallyToggle();
     bindFrameRateLimitSlider();
     bindFpsCounterToggle();
+    
+    // Bind playfield visual settings
+    bindEnemyParticlesToggle();
+    initializeEnemyParticlesPreference();
+    bindPlayfieldTrackTypeButton();
+    
+    // Bind playfield settings dropdown
+    const playfieldSettingsToggle = document.getElementById('playfield-settings-toggle');
+    const playfieldSettingsMenu = document.getElementById('playfield-settings-menu');
+    const playfieldSettingsClose = playfieldSettingsMenu?.querySelector('.playfield-settings-close');
+    if (playfieldSettingsToggle && playfieldSettingsMenu) {
+      let playfieldSettingsOpen = false;
+      const syncPlayfieldSettingsState = (open) => {
+        playfieldSettingsMenu.setAttribute('data-open', open ? 'true' : 'false');
+        playfieldSettingsMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
+        playfieldSettingsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) {
+          playfieldSettingsMenu.hidden = false;
+        } else {
+          playfieldSettingsMenu.hidden = true;
+        }
+      };
+      playfieldSettingsToggle.addEventListener('click', () => {
+        playfieldSettingsOpen = !playfieldSettingsOpen;
+        syncPlayfieldSettingsState(playfieldSettingsOpen);
+      });
+      if (playfieldSettingsClose) {
+        playfieldSettingsClose.addEventListener('click', () => {
+          playfieldSettingsOpen = false;
+          syncPlayfieldSettingsState(playfieldSettingsOpen);
+        });
+      }
+      syncPlayfieldSettingsState(false);
+    }
+    
     // Activate spire option dropdown toggles so every tab shares the same UX as Lamed.
     bindSpireOptionsDropdown({
       toggleId: 'powder-options-toggle-button',
@@ -6023,6 +6085,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindSpireOptionsDropdown({
       toggleId: 'fluid-options-toggle-button',
       menuId: 'fluid-options-menu',
+      spireId: 'fluid',
+    });
+    bindSpireOptionsDropdown({
+      toggleId: 'bet-spire-options-toggle-button',
+      menuId: 'bet-spire-options-menu',
       spireId: 'fluid',
     });
     bindSpireOptionsDropdown({
@@ -6049,6 +6116,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindPowderSpireOptions();
     initializeFluidSpirePreferences();
     bindFluidSpireOptions();
+    initializeBetSpireParticlePreferences();
+    bindBetSpireParticleOptions();
     initializeColorScheme();
     bindAudioControls();
 
@@ -6851,6 +6920,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     
     // Initialize Bet Spire particle physics render and inventory display
     initBetSpireRender(spireResourceState.fluid);
+    setBetSpireRenderGetter(getBetSpireRenderInstance);
     initParticleInventoryDisplay();
     
     // Initialize BET spire upgrade menu
