@@ -335,6 +335,20 @@ class Particle {
     return this._colorString;
   }
 
+  // Return a stable key that groups particles by draw style so the renderer can batch fill calls efficiently.
+  getDrawStyleKey() {
+    return `${this._colorString}|${this._glowColorString || 'no-glow'}|${this._size}`;
+  }
+
+  // Provide the cached draw style so the renderer can set canvas state once per bucket instead of per particle.
+  getDrawStyle() {
+    return {
+      colorString: this._colorString,
+      glowColorString: this._glowColorString,
+      size: this._size,
+    };
+  }
+
   draw(ctx) {
     const size = this._size;
     
@@ -1218,17 +1232,29 @@ export class BetSpireRender {
     const isHighParticleCount = this.particles.length > PERFORMANCE_THRESHOLD;
     const updateInterval = isHighParticleCount ? 2 : 1; // Update every 2nd frame when high
     
-    // Update and draw particles
+    // Bucket particles by draw style so canvas state only changes a handful of times even with thousands of particles.
+    const drawBuckets = new Map();
+
+    // Update particles and collect their draw intents
     for (let i = 0; i < this.particles.length; i++) {
       const particle = this.particles[i];
-      
+
       // When performance is stressed, only update every nth particle per frame
       if (!isHighParticleCount || i % updateInterval === (now % updateInterval)) {
         particle.update(this.forge, activeSpawners, deltaFrameRatio);
       }
-      
-      particle.draw(this.ctx);
+
+      const styleKey = particle.getDrawStyleKey();
+      if (!drawBuckets.has(styleKey)) {
+        drawBuckets.set(styleKey, { style: particle.getDrawStyle(), positions: [] });
+      }
+
+      const bucket = drawBuckets.get(styleKey);
+      bucket.positions.push({ x: particle.x, y: particle.y });
     }
+
+    // Draw each bucket in a single fill pass to minimize expensive shadow/style switches.
+    this.drawBatchedParticles(drawBuckets);
     
     // Periodically attempt to merge particles (size merging)
     // Increase merge frequency when particle count is high
@@ -1272,6 +1298,36 @@ export class BetSpireRender {
     }
     
     this.animationId = requestAnimationFrame(this.animate);
+  }
+
+  // Batch particle draw calls by style so canvas state (fill, shadow) changes happen at most once per tier-size combo.
+  drawBatchedParticles(drawBuckets) {
+    const ctx = this.ctx;
+
+    drawBuckets.forEach(({ style, positions }) => {
+      const halfSize = style.size * 0.5;
+      const drawSize = Math.ceil(style.size);
+
+      ctx.fillStyle = style.colorString;
+
+      if (style.glowColorString) {
+        ctx.shadowBlur = style.size * 3;
+        ctx.shadowColor = style.glowColorString;
+      } else {
+        ctx.shadowBlur = 0;
+      }
+
+      positions.forEach(({ x, y }) => {
+        ctx.fillRect(
+          Math.floor(x - halfSize),
+          Math.floor(y - halfSize),
+          drawSize,
+          drawSize
+        );
+      });
+    });
+
+    ctx.shadowBlur = 0; // Reset so later draws are unaffected by any glow buckets.
   }
 
   drawForge() {
