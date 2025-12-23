@@ -6530,7 +6530,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 onParticleCountChange: (count) => {
                   const countEl = document.getElementById('tsadi-particle-count');
                   if (countEl) {
-                    countEl.textContent = `${count} particles`;
+                    countEl.textContent = `${count} atoms`;
                   }
                 },
                 onGlyphChange: (glyphCount) => {
@@ -6582,7 +6582,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               tsadiSimulationInstance.setAvailableBindingAgents(getTsadiBindingAgents());
               const generationRateEl = document.getElementById('tsadi-generation-rate');
               if (generationRateEl) {
-                generationRateEl.textContent = `${tsadiSimulationInstance.spawnRate.toFixed(2)} particles/sec`;
+                generationRateEl.textContent = `${tsadiSimulationInstance.spawnRate.toFixed(2)} atoms/sec`;
               }
               spireMenuController.updateCounts();
               tsadiSimulationInstance.start();

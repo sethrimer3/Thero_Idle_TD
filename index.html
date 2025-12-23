@@ -1941,14 +1941,14 @@
           </section>
           
           <!-- Particle Inventory Table -->
-          <section class="fluid-grid" aria-label="Particle Inventory">
+          <section class="fluid-grid" aria-label="Scintilla Inventory">
             <article class="card">
-              <header class="card-header">Particle Inventory</header>
+              <header class="card-header">Scintilla Inventory</header>
               <div class="card-content">
                 <table class="particle-inventory-table" id="bet-particle-inventory">
                   <thead>
                     <tr>
-                      <th>Particle Type</th>
+                      <th>Scintilla Type</th>
                     </tr>
                   </thead>
                   <tbody id="bet-particle-inventory-body">
@@ -2048,6 +2048,30 @@
                     />
                     <span class="settings-toggle-slider" aria-hidden="true"></span>
                     <span class="settings-toggle-state" id="bet-forge-glow-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="bet-smooth-rendering-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-smooth-rendering-title">Smooth Rendering</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-smooth-rendering-description"
+                      >Toggle between smooth (anti-aliased) and pixelated (crisp) rendering.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-smooth-rendering-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-smooth-rendering-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-smooth-rendering-title"
+                      aria-describedby="bet-smooth-rendering-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-smooth-rendering-state">On</span>
                   </label>
                 </div>
                 
@@ -2712,17 +2736,17 @@
                   <dd id="tsadi-binding-agent-count">0 Waals</dd>
                 </div>
                 <div>
-                  <dt>Particle Generation Rate</dt>
-                  <dd id="tsadi-generation-rate">2.00 particles/sec</dd>
+                  <dt>Atom Generation Rate</dt>
+                  <dd id="tsadi-generation-rate">2.00 atoms/sec</dd>
                 </div>
                 <div>
-                  <dt>Active Particles</dt>
-                  <dd id="tsadi-particle-count">0 particles</dd>
+                  <dt>Active Atoms</dt>
+                  <dd id="tsadi-particle-count">0 atoms</dd>
                 </div>
               </dl>
               <p class="tsadi-status-note" id="tsadi-status-note">
-                Particles bounce and collide. When two particles of the same tier collide, they fuse into a higher tier.
-                Each new tier reached earns a Tsadi glyph. Calm particles (with zero or negative repelling force) can be tied
+                Atoms bounce and collide. When two atoms of the same tier collide, they fuse into a higher tier.
+                Each new tier reached earns a Tsadi glyph. Calm atoms (with zero or negative repelling force) can be tied
                 together with binding agents to form molecules for bonus effects.
               </p>
             </article>
