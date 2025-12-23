@@ -98,6 +98,8 @@ import {
   initializeEnemyParticlesPreference,
   areEnemyParticlesEnabled,
   bindPlayfieldTrackTypeButton,
+  bindTowerLoadoutToggleSideButton,
+  initializeTowerLoadoutToggleSidePreference,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
 import { configurePerformanceMonitor } from './performanceMonitor.js';
@@ -6044,12 +6046,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindWaveDamageTallyToggle();
     bindFrameRateLimitSlider();
     bindFpsCounterToggle();
-    
+
     // Bind playfield visual settings
     bindEnemyParticlesToggle();
     initializeEnemyParticlesPreference();
     bindPlayfieldTrackTypeButton();
-    
+    initializeTowerLoadoutToggleSidePreference();
+    bindTowerLoadoutToggleSideButton();
+
     // Bind playfield settings dropdown
     const playfieldSettingsToggle = document.getElementById('playfield-settings-toggle');
     const playfieldSettingsMenu = document.getElementById('playfield-settings-menu');
