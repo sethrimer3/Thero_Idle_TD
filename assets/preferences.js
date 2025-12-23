@@ -22,6 +22,8 @@ import {
   PLAYFIELD_ENEMY_PARTICLES_STORAGE_KEY,
 } from './autoSave.js';
 
+const TOWER_LOADOUT_TOGGLE_SIDE_STORAGE_KEY = 'towerLoadoutToggleSide';
+
 const GRAPHICS_MODES = Object.freeze({
   LOW: 'low',
   HIGH: 'high',
@@ -89,6 +91,13 @@ let desktopCursorMediaQuery = null;
 let desktopCursorActive = false;
 let activeGraphicsMode = GRAPHICS_MODES.HIGH;
 let activeTrackRenderMode = TRACK_RENDER_MODES.GRADIENT;
+const LOADOUT_TOGGLE_SIDES = Object.freeze({
+  LEFT: 'left',
+  RIGHT: 'right',
+});
+let towerLoadoutToggleSide = LOADOUT_TOGGLE_SIDES.LEFT;
+let towerLoadoutShell = null;
+let loadoutToggleSideButton = null;
 
 let powderSimulationGetter = () => null;
 let playfieldGetter = () => null;
@@ -1059,4 +1068,67 @@ export function bindPlayfieldTrackTypeButton() {
     updatePlayfieldTrackTypeButton();
   });
   updatePlayfieldTrackTypeButton();
+}
+
+// Tower Loadout Toggle Side
+
+// Apply the preferred toggle side to the shell so the button sits beside the tray.
+function applyTowerLoadoutToggleSideDom() {
+  if (!towerLoadoutShell) {
+    towerLoadoutShell = document.getElementById('tower-loadout-shell');
+  }
+  if (!towerLoadoutShell) {
+    return;
+  }
+  towerLoadoutShell.dataset.toggleSide = towerLoadoutToggleSide;
+}
+
+// Refresh the toggle-side button label to mirror the current position.
+function updateTowerLoadoutToggleSideUi() {
+  if (!loadoutToggleSideButton) {
+    return;
+  }
+  const label = towerLoadoutToggleSide === LOADOUT_TOGGLE_SIDES.RIGHT ? 'Right' : 'Left';
+  loadoutToggleSideButton.textContent = `Tower Toggle · ${label}`;
+  loadoutToggleSideButton.setAttribute('aria-label', `Move tower toggle to the ${label.toLowerCase()} side`);
+}
+
+// Persist and apply the requested side so the loadout toggle slides beside the tower chips.
+export function applyTowerLoadoutToggleSidePreference(preference, { persist = true } = {}) {
+  const normalized = preference === LOADOUT_TOGGLE_SIDES.RIGHT
+    ? LOADOUT_TOGGLE_SIDES.RIGHT
+    : LOADOUT_TOGGLE_SIDES.LEFT;
+  towerLoadoutToggleSide = normalized;
+  updateTowerLoadoutToggleSideUi();
+  applyTowerLoadoutToggleSideDom();
+  if (persist) {
+    writeStorage(TOWER_LOADOUT_TOGGLE_SIDE_STORAGE_KEY, normalized);
+  }
+  return normalized;
+}
+
+// Initialize the loadout toggle side from persisted storage without forcing a write.
+export function initializeTowerLoadoutToggleSidePreference() {
+  const stored = readStorage(TOWER_LOADOUT_TOGGLE_SIDE_STORAGE_KEY);
+  const normalized = stored === LOADOUT_TOGGLE_SIDES.RIGHT
+    ? LOADOUT_TOGGLE_SIDES.RIGHT
+    : LOADOUT_TOGGLE_SIDES.LEFT;
+  return applyTowerLoadoutToggleSidePreference(normalized, { persist: false });
+}
+
+// Wire the playfield settings control so players can flip the loadout toggle side.
+export function bindTowerLoadoutToggleSideButton() {
+  loadoutToggleSideButton = document.getElementById('tower-loadout-toggle-side-button');
+  towerLoadoutShell = document.getElementById('tower-loadout-shell');
+  if (!loadoutToggleSideButton) {
+    return;
+  }
+  loadoutToggleSideButton.addEventListener('click', () => {
+    const nextSide = towerLoadoutToggleSide === LOADOUT_TOGGLE_SIDES.LEFT
+      ? LOADOUT_TOGGLE_SIDES.RIGHT
+      : LOADOUT_TOGGLE_SIDES.LEFT;
+    applyTowerLoadoutToggleSidePreference(nextSide);
+  });
+  updateTowerLoadoutToggleSideUi();
+  applyTowerLoadoutToggleSideDom();
 }

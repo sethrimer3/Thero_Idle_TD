@@ -337,7 +337,8 @@
                     aria-expanded="false"
                     aria-controls="playfield-settings-menu"
                   >
-                    <span>Visual Settings</span>
+                    <span class="playfield-settings-trigger__icon" aria-hidden="true">℘</span>
+                    <span class="playfield-settings-trigger__label">Settings</span>
                   </button>
                   <div
                     class="playfield-settings-menu"
@@ -373,10 +374,13 @@
                     <button class="action-button ghost" type="button" id="playfield-track-type-button">
                       Track Type · Gradient
                     </button>
+                    <button class="action-button ghost" type="button" id="tower-loadout-toggle-side-button">
+                      Tower Toggle · Left
+                    </button>
                     <button class="action-button ghost playfield-settings-close" type="button">Close</button>
                   </div>
                 </div>
-                <div class="tower-loadout-shell" id="tower-loadout-shell">
+                <div class="tower-loadout-shell" id="tower-loadout-shell" data-toggle-side="left">
                   <button
                     class="tower-loadout-toggle"
                     id="tower-loadout-toggle"
