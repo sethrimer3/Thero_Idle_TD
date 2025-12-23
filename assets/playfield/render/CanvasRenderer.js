@@ -3,7 +3,7 @@ import { getTowerVisualConfig, samplePaletteGradient } from '../../colorSchemeUt
 import { getTowerDefinition } from '../../towersTab.js';
 import { moteGemState, getGemSpriteImage } from '../../enemies.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../../../scripts/features/towers/powderTower.js';
-import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled } from '../../preferences.js';
+import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled, areEnemyParticlesEnabled } from '../../preferences.js';
 import {
   drawAlphaBursts as drawAlphaBurstsHelper,
 } from '../../../scripts/features/towers/alphaTower.js';
@@ -1911,6 +1911,11 @@ function drawOmicronUnits() {
 }
 
 function shouldUseEnemyFallbackRendering() {
+  // If enemy particles are disabled by user preference, always use fallback rendering
+  if (typeof areEnemyParticlesEnabled === 'function' && !areEnemyParticlesEnabled()) {
+    return true;
+  }
+  
   const enemyCount = Array.isArray(this.enemies) ? this.enemies.length : 0;
   if (!enemyCount) {
     return false;

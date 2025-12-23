@@ -19,6 +19,7 @@ import {
   TOWER_LOADOUT_SLOTS_STORAGE_KEY,
   FRAME_RATE_LIMIT_STORAGE_KEY,
   FPS_COUNTER_TOGGLE_STORAGE_KEY,
+  PLAYFIELD_ENEMY_PARTICLES_STORAGE_KEY,
 } from './autoSave.js';
 
 const GRAPHICS_MODES = Object.freeze({
@@ -958,4 +959,104 @@ export function initializeTrackRenderMode() {
   const validModes = Object.values(TRACK_RENDER_MODES);
   const normalized = stored && validModes.includes(stored) ? stored : TRACK_RENDER_MODES.GRADIENT;
   applyTrackRenderMode(normalized, { persist: false });
+}
+
+// Enemy Particles Settings
+let enemyParticlesEnabled = true;
+let enemyParticlesToggle = null;
+let enemyParticlesStateLabel = null;
+
+/**
+ * Synchronize the enemy particles toggle control with the in-memory state.
+ */
+function updateEnemyParticlesToggleUi() {
+  if (enemyParticlesToggle) {
+    enemyParticlesToggle.checked = enemyParticlesEnabled;
+    enemyParticlesToggle.setAttribute('aria-checked', enemyParticlesEnabled ? 'true' : 'false');
+    const controlShell = enemyParticlesToggle.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', enemyParticlesEnabled);
+    }
+  }
+  if (enemyParticlesStateLabel) {
+    enemyParticlesStateLabel.textContent = enemyParticlesEnabled ? 'On' : 'Off';
+  }
+}
+
+/**
+ * Persist and apply the enemy particles preference.
+ */
+export function applyEnemyParticlesPreference(preference, { persist = true } = {}) {
+  const enabled = normalizeGlyphEquationPreference(preference);
+  enemyParticlesEnabled = enabled;
+  updateEnemyParticlesToggleUi();
+  if (persist) {
+    writeStorage(PLAYFIELD_ENEMY_PARTICLES_STORAGE_KEY, enemyParticlesEnabled ? '1' : '0');
+  }
+  const playfield = playfieldGetter();
+  if (playfield && typeof playfield.draw === 'function') {
+    playfield.draw();
+  }
+  return enemyParticlesEnabled;
+}
+
+/**
+ * Bind the visual settings toggle for enemy particles.
+ */
+export function bindEnemyParticlesToggle() {
+  enemyParticlesToggle = document.getElementById('playfield-enemy-particles-toggle');
+  enemyParticlesStateLabel = document.getElementById('playfield-enemy-particles-state');
+  if (!enemyParticlesToggle) {
+    return;
+  }
+  enemyParticlesToggle.addEventListener('change', (event) => {
+    applyEnemyParticlesPreference(event?.target?.checked);
+  });
+  updateEnemyParticlesToggleUi();
+}
+
+/**
+ * Initialize the enemy particles preference from storage.
+ */
+export function initializeEnemyParticlesPreference() {
+  const stored = readStorage(PLAYFIELD_ENEMY_PARTICLES_STORAGE_KEY);
+  const normalized = stored === '0' || stored === 'false' ? false : true;
+  return applyEnemyParticlesPreference(normalized, { persist: false });
+}
+
+/**
+ * Reports whether enemy particles are enabled.
+ */
+export function areEnemyParticlesEnabled() {
+  return enemyParticlesEnabled;
+}
+
+// Playfield Track Type Button
+let playfieldTrackTypeButton = null;
+
+/**
+ * Update the playfield track type button to show current mode.
+ */
+function updatePlayfieldTrackTypeButton() {
+  if (!playfieldTrackTypeButton) {
+    return;
+  }
+  const label = resolveTrackRenderModeLabel();
+  playfieldTrackTypeButton.textContent = `Track Type · ${label}`;
+  playfieldTrackTypeButton.setAttribute('aria-label', `Switch track type (current: ${label})`);
+}
+
+/**
+ * Bind the playfield track type button to cycle through modes.
+ */
+export function bindPlayfieldTrackTypeButton() {
+  playfieldTrackTypeButton = document.getElementById('playfield-track-type-button');
+  if (!playfieldTrackTypeButton) {
+    return;
+  }
+  playfieldTrackTypeButton.addEventListener('click', () => {
+    cycleTrackRenderMode();
+    updatePlayfieldTrackTypeButton();
+  });
+  updatePlayfieldTrackTypeButton();
 }
