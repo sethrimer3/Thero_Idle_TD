@@ -556,14 +556,8 @@ export class ParticleFusionSimulation {
       this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.scale(dpr, dpr);
       
-      // Apply smooth rendering settings
-      const smoothingEnabled = this.visualSettings.smoothRendering !== false;
-      this.ctx.imageSmoothingEnabled = smoothingEnabled;
-      
-      // Set the quality of image smoothing to high for best subpixel results
-      if (smoothingEnabled && this.ctx.imageSmoothingQuality) {
-        this.ctx.imageSmoothingQuality = 'high';
-      }
+      // Apply smooth rendering settings after context reset
+      this.applySmoothRenderingSettings();
     }
 
     if (this.width <= COLLAPSED_DIMENSION_THRESHOLD || this.height <= COLLAPSED_DIMENSION_THRESHOLD) {
@@ -868,15 +862,25 @@ export class ParticleFusionSimulation {
     }
     
     // Apply smooth rendering settings to canvas context if available
-    if (this.ctx) {
-      // Enable image smoothing for antialiased subpixel rendering in smooth mode
-      const smoothingEnabled = this.visualSettings.smoothRendering !== false;
-      this.ctx.imageSmoothingEnabled = smoothingEnabled;
-      
-      // Set the quality of image smoothing to high for best subpixel results
-      if (smoothingEnabled && this.ctx.imageSmoothingQuality) {
-        this.ctx.imageSmoothingQuality = 'high';
-      }
+    this.applySmoothRenderingSettings();
+  }
+  
+  /**
+   * Apply smooth rendering settings to the canvas context.
+   * Enables subpixel rendering when smooth mode is active.
+   */
+  applySmoothRenderingSettings() {
+    if (!this.ctx) {
+      return;
+    }
+    
+    // Enable image smoothing for antialiased subpixel rendering in smooth mode
+    const smoothingEnabled = this.visualSettings.smoothRendering !== false;
+    this.ctx.imageSmoothingEnabled = smoothingEnabled;
+    
+    // Set the quality of image smoothing to high for best subpixel results
+    if (smoothingEnabled && this.ctx.imageSmoothingQuality) {
+      this.ctx.imageSmoothingQuality = 'high';
     }
   }
   
