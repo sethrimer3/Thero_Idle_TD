@@ -1877,7 +1877,7 @@ body.graphics-mode-low .control-button {
   display: grid;
   /* Reserve a fixed art column so tower icons remain full-size. */
   grid-template-columns: 52px 1fr;
-  gap: 6px;
+  gap: 2px; /* Reduced from 6px to bring icon and cost closer */
   align-items: center;
   padding: 8px 10px;
   overflow: visible;

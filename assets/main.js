@@ -6964,9 +6964,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => init().catch(console.error));
   } else {
-    init();
+    init().catch(console.error);
   }
 
   bindPageLifecycleEvents({
