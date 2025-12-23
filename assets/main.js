@@ -397,6 +397,7 @@ import {
   bindBetSpireParticleOptions,
   initializeBetSpireParticlePreferences,
   setBetSpireRenderGetter,
+  updateBetSpireDebugControlsVisibility,
 } from './betSpireParticlePreferences.js';
 import {
   applyPowderVisualSettings,
@@ -2097,6 +2098,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     setIterationRate,
     updateShinDisplay,
     updateDeveloperMapElementsVisibility,
+    updateBetSpireDebugControlsVisibility,
     getCurrentIdleMoteBank,
     getCurrentMoteDispenseRate,
   });
@@ -2366,6 +2368,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     syncDeveloperControlValues,
     syncLevelEditorVisibility,
     updateDeveloperMapElementsVisibility,
+    updateBetSpireDebugControlsVisibility,
     getPlayfield: () => playfield,
     getPlayfieldMenuController: () => playfieldMenuController,
     unlockAllFractals,

@@ -11,6 +11,10 @@ import {
 const DEFAULT_SETTINGS = Object.freeze({
   particleTrails: true,
   forgeGlow: true,
+  // Developer-only debug flags
+  particleSpawning: true,
+  particleMerging: true,
+  particlePromotion: true,
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -19,6 +23,13 @@ let particleTrailsToggle = null;
 let particleTrailsStateLabel = null;
 let forgeGlowToggle = null;
 let forgeGlowStateLabel = null;
+// Developer-only debug toggles
+let particleSpawningToggle = null;
+let particleSpawningStateLabel = null;
+let particleMergingToggle = null;
+let particleMergingStateLabel = null;
+let particlePromotionToggle = null;
+let particlePromotionStateLabel = null;
 
 // Getter for the active BetSpireRender instance
 let getBetSpireRenderInstance = () => null;
@@ -51,6 +62,10 @@ function syncToggleState(input, stateLabel, enabled) {
 function syncAllToggles() {
   syncToggleState(particleTrailsToggle, particleTrailsStateLabel, settings.particleTrails);
   syncToggleState(forgeGlowToggle, forgeGlowStateLabel, settings.forgeGlow);
+  // Developer-only toggles
+  syncToggleState(particleSpawningToggle, particleSpawningStateLabel, settings.particleSpawning);
+  syncToggleState(particleMergingToggle, particleMergingStateLabel, settings.particleMerging);
+  syncToggleState(particlePromotionToggle, particlePromotionStateLabel, settings.particlePromotion);
 }
 
 function applySettings() {
@@ -59,6 +74,10 @@ function applySettings() {
     // The BetSpireRender instance will read these settings during its draw cycle
     renderInstance.particleTrailsEnabled = settings.particleTrails;
     renderInstance.forgeGlowEnabled = settings.forgeGlow;
+    // Developer-only debug flags
+    renderInstance.particleSpawningEnabled = settings.particleSpawning;
+    renderInstance.particleMergingEnabled = settings.particleMerging;
+    renderInstance.particlePromotionEnabled = settings.particlePromotion;
   }
 }
 
@@ -86,9 +105,20 @@ export function bindBetSpireParticleOptions() {
   particleTrailsStateLabel = document.getElementById('bet-particle-trails-state');
   forgeGlowToggle = document.getElementById('bet-forge-glow-toggle');
   forgeGlowStateLabel = document.getElementById('bet-forge-glow-state');
+  // Developer-only debug toggles
+  particleSpawningToggle = document.getElementById('bet-particle-spawning-toggle');
+  particleSpawningStateLabel = document.getElementById('bet-particle-spawning-state');
+  particleMergingToggle = document.getElementById('bet-particle-merging-toggle');
+  particleMergingStateLabel = document.getElementById('bet-particle-merging-state');
+  particlePromotionToggle = document.getElementById('bet-particle-promotion-toggle');
+  particlePromotionStateLabel = document.getElementById('bet-particle-promotion-state');
 
   bindToggle(particleTrailsToggle, particleTrailsStateLabel, 'particleTrails');
   bindToggle(forgeGlowToggle, forgeGlowStateLabel, 'forgeGlow');
+  // Developer-only debug toggles
+  bindToggle(particleSpawningToggle, particleSpawningStateLabel, 'particleSpawning');
+  bindToggle(particleMergingToggle, particleMergingStateLabel, 'particleMerging');
+  bindToggle(particlePromotionToggle, particlePromotionStateLabel, 'particlePromotion');
 
   syncAllToggles();
 }
@@ -129,4 +159,22 @@ export function areParticleTrailsEnabled() {
  */
 export function isForgeGlowEnabled() {
   return settings.forgeGlow;
+}
+
+/**
+ * Update visibility of developer-only debug controls based on developer mode state.
+ */
+export function updateBetSpireDebugControlsVisibility(isDeveloperModeActive) {
+  const debugControls = [
+    document.getElementById('bet-particle-spawning-toggle-row'),
+    document.getElementById('bet-particle-merging-toggle-row'),
+    document.getElementById('bet-particle-promotion-toggle-row'),
+  ];
+  
+  debugControls.forEach(control => {
+    if (control) {
+      control.hidden = !isDeveloperModeActive;
+      control.setAttribute('aria-hidden', isDeveloperModeActive ? 'false' : 'true');
+    }
+  });
 }

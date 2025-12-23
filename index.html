@@ -2050,6 +2050,83 @@
                     <span class="settings-toggle-state" id="bet-forge-glow-state">On</span>
                   </label>
                 </div>
+                
+                <!-- Developer-only debug controls (hidden unless developer mode is active) -->
+                <div class="settings-toggle" id="bet-particle-spawning-toggle-row" hidden aria-hidden="true">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-particle-spawning-title">🔧 Particle Spawning</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-particle-spawning-description"
+                      >Developer: Enable or disable particle spawning.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-particle-spawning-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-particle-spawning-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-particle-spawning-title"
+                      aria-describedby="bet-particle-spawning-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-particle-spawning-state">On</span>
+                  </label>
+                </div>
+                
+                <div class="settings-toggle" id="bet-particle-merging-toggle-row" hidden aria-hidden="true">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-particle-merging-title">🔧 Particle Merging</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-particle-merging-description"
+                      >Developer: Enable or disable particle size merging (100 small → 1 medium).</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-particle-merging-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-particle-merging-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-particle-merging-title"
+                      aria-describedby="bet-particle-merging-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-particle-merging-state">On</span>
+                  </label>
+                </div>
+                
+                <div class="settings-toggle" id="bet-particle-promotion-toggle-row" hidden aria-hidden="true">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-particle-promotion-title">🔧 Particle Promotion</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-particle-promotion-description"
+                      >Developer: Enable or disable particle tier promotion at the forge (medium → next tier small).</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-particle-promotion-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-particle-promotion-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-particle-promotion-title"
+                      aria-describedby="bet-particle-promotion-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-particle-promotion-state">On</span>
+                  </label>
+                </div>
+                
                 <button class="action-button ghost spire-options-close" type="button">Close</button>
               </div>
             </article>
