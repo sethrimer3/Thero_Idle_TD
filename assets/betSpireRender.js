@@ -34,6 +34,8 @@ const TARGET_FRAME_TIME_MS = 1000 / 60; // Normalize physics updates so taps don
 const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 10; // Doubled from /20 to /10
 const MOUSE_ATTRACTION_STRENGTH = 3.0;
 const INTERACTION_FADE_DURATION = 300; // milliseconds for circle fade
+const DRAG_RELEASE_STILLNESS_MS = 120; // Time threshold to consider the pointer held still before release.
+const DRAG_RELEASE_SPEED_THRESHOLD = 0.02; // Velocity threshold (px/ms) to treat the release as stationary.
 
 // Merge animation configuration
 const MERGE_GATHER_SPEED = 8.0; // High speed for particles flying together during merge
@@ -248,6 +250,10 @@ class Particle {
     } else {
       // Apply gravity from each unlocked spawner within its local field so particles stay near their forge of origin.
       for (const spawner of spawners) {
+        // Only attract particles to their matching generator tier.
+        if (spawner.tierId !== this.tierId) {
+          continue;
+        }
         const dx = spawner.x - this.x;
         const dy = spawner.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -266,7 +272,9 @@ class Particle {
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       // Apply attraction force (inverse square law simplified) only while within the localized forge gravity well
-      if (dist <= MAX_FORGE_ATTRACTION_DISTANCE) {
+      // Restrict forge attraction to medium and large particles only.
+      const isForgeAttractable = this.sizeIndex >= MEDIUM_SIZE_INDEX;
+      if (isForgeAttractable && dist <= MAX_FORGE_ATTRACTION_DISTANCE) {
         const angle = Math.atan2(dy, dx);
         if (dist > 1) {
           const force = ATTRACTION_STRENGTH / (dist * DISTANCE_SCALE);
@@ -349,6 +357,21 @@ class Particle {
     };
   }
 
+  // Reset particle velocity to the minimum swirl speed when a drag is released without movement.
+  applyMinimumReleaseVelocity() {
+    const minVelocity = this._minVelocity;
+    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+
+    if (speed > 0) {
+      this.vx = (this.vx / speed) * minVelocity;
+      this.vy = (this.vy / speed) * minVelocity;
+    } else {
+      const randomAngle = Math.random() * Math.PI * 2;
+      this.vx = Math.cos(randomAngle) * minVelocity;
+      this.vy = Math.sin(randomAngle) * minVelocity;
+    }
+  }
+
   draw(ctx) {
     const size = this._size;
     
@@ -424,6 +447,7 @@ export class BetSpireRender {
     this.particleSpawningEnabled = true; // Controls whether particles can spawn
     this.particleMergingEnabled = true; // Controls whether particles can merge (size increases)
     this.particlePromotionEnabled = true; // Controls whether particles can promote to higher tier
+    this.mergeShockwavesEnabled = true; // Controls whether merge shockwaves push nearby particles.
     
     // Store state reference for persistence
     this.state = state;
@@ -433,6 +457,9 @@ export class BetSpireRender {
     this.mouseX = 0;
     this.mouseY = 0;
     this.interactionCircles = []; // Array of {x, y, radius, alpha, timestamp}
+    this.lastPointerMoveTime = 0; // Timestamp of the last pointer movement for drag-release velocity checks.
+    this.lastPointerPosition = null; // Tracks the last pointer coordinates for drag-release velocity checks.
+    this.lastPointerSpeed = 0; // Cached pointer speed for drag-release velocity checks.
     
     // Merge animation state
     this.activeMerges = []; // Array of {particles, targetX, targetY, tierId, sizeIndex, startTime}
@@ -1166,14 +1193,17 @@ export class BetSpireRender {
         
         // Create shockwave
         const tier = PARTICLE_TIERS.find(t => t.id === merge.tierId) || PARTICLE_TIERS[0];
-        this.shockwaves.push({
-          x: merge.targetX,
-          y: merge.targetY,
-          radius: 0,
-          alpha: 0.8,
-          timestamp: now,
-          color: tier.color
-        });
+        if (this.mergeShockwavesEnabled) {
+          // Emit a shockwave ring when merge bursts are enabled.
+          this.shockwaves.push({
+            x: merge.targetX,
+            y: merge.targetY,
+            radius: 0,
+            alpha: 0.8,
+            timestamp: now,
+            color: tier.color
+          });
+        }
         
         // This merge is complete
         return false;
@@ -1311,6 +1341,10 @@ export class BetSpireRender {
     this.isInteracting = true;
     this.mouseX = coords.x;
     this.mouseY = coords.y;
+    // Seed pointer movement tracking so release velocity can be clamped.
+    this.lastPointerMoveTime = Date.now();
+    this.lastPointerPosition = { x: coords.x, y: coords.y };
+    this.lastPointerSpeed = 0;
     
     // Add visual feedback circle
     this.interactionCircles.push({
@@ -1346,6 +1380,16 @@ export class BetSpireRender {
     
     this.mouseX = coords.x;
     this.mouseY = coords.y;
+    // Track pointer velocity so stationary drags can release at minimum speed.
+    const now = Date.now();
+    if (this.lastPointerPosition) {
+      const dx = coords.x - this.lastPointerPosition.x;
+      const dy = coords.y - this.lastPointerPosition.y;
+      const deltaTime = Math.max(now - this.lastPointerMoveTime, 1);
+      this.lastPointerSpeed = Math.sqrt(dx * dx + dy * dy) / deltaTime;
+    }
+    this.lastPointerMoveTime = now;
+    this.lastPointerPosition = { x: coords.x, y: coords.y };
     
     // Update locked particles' target position
     for (const particle of this.particles) {
@@ -1361,9 +1405,18 @@ export class BetSpireRender {
     if (!this.isInteracting) return;
     
     this.isInteracting = false;
+    // Detect stationary drags so particles settle to minimum velocity on release.
+    const now = Date.now();
+    const timeSinceMove = now - this.lastPointerMoveTime;
+    const shouldClampRelease = timeSinceMove > DRAG_RELEASE_STILLNESS_MS
+      || this.lastPointerSpeed < DRAG_RELEASE_SPEED_THRESHOLD;
     
     // Release all locked particles
     for (const particle of this.particles) {
+      if (particle.lockedToMouse && shouldClampRelease) {
+        // Clamp velocity so stationary releases don't launch particles at high speed.
+        particle.applyMinimumReleaseVelocity();
+      }
       particle.lockedToMouse = false;
       particle.mouseTarget = null;
     }
@@ -1445,7 +1498,9 @@ export class BetSpireRender {
     this.processActiveMerges();
     
     // Apply shockwave forces and draw shockwaves
-    this.shockwaves = this.shockwaves.filter(shockwave => {
+    if (this.mergeShockwavesEnabled) {
+      // Apply shockwave forces and draw shockwaves while merge bursts are enabled.
+      this.shockwaves = this.shockwaves.filter(shockwave => {
       const elapsed = now - shockwave.timestamp;
       const progress = elapsed / SHOCKWAVE_DURATION;
       
@@ -1482,7 +1537,11 @@ export class BetSpireRender {
       this.ctx.stroke();
       
       return true; // Keep shockwave for next frame
-    });
+      });
+    } else if (this.shockwaves.length > 0) {
+      // Clear shockwaves immediately when merge bursts are disabled.
+      this.shockwaves = [];
+    }
     
     // Draw and fade interaction circles
     this.interactionCircles = this.interactionCircles.filter(circle => {
@@ -1741,7 +1800,8 @@ export class BetSpireRender {
       }
 
       const position = SPAWNER_POSITIONS[tierIndex];
-      activeSpawners.push({ x: position.x, y: position.y, range: SPAWNER_GRAVITY_RADIUS });
+      // Tag spawner with tier so only matching particles feel the pull.
+      activeSpawners.push({ x: position.x, y: position.y, range: SPAWNER_GRAVITY_RADIUS, tierId });
     });
 
     return activeSpawners;

@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   particleSpawning: true,
   particleMerging: true,
   particlePromotion: true,
+  mergeShockwaves: true, // Developer toggle for merge burst shockwaves.
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -33,6 +34,11 @@ let particleMergingToggle = null;
 let particleMergingStateLabel = null;
 let particlePromotionToggle = null;
 let particlePromotionStateLabel = null;
+// Developer-only merge shockwave toggle elements.
+let mergeShockwavesToggle = null;
+let mergeShockwavesStateLabel = null;
+let mergeShockwavesToggle = null;
+let mergeShockwavesStateLabel = null;
 
 // Getter for the active BetSpireRender instance
 let getBetSpireRenderInstance = () => null;
@@ -70,6 +76,7 @@ function syncAllToggles() {
   syncToggleState(particleSpawningToggle, particleSpawningStateLabel, settings.particleSpawning);
   syncToggleState(particleMergingToggle, particleMergingStateLabel, settings.particleMerging);
   syncToggleState(particlePromotionToggle, particlePromotionStateLabel, settings.particlePromotion);
+  syncToggleState(mergeShockwavesToggle, mergeShockwavesStateLabel, settings.mergeShockwaves);
 }
 
 function applySettings() {
@@ -83,6 +90,11 @@ function applySettings() {
     renderInstance.particleSpawningEnabled = settings.particleSpawning;
     renderInstance.particleMergingEnabled = settings.particleMerging;
     renderInstance.particlePromotionEnabled = settings.particlePromotion;
+    renderInstance.mergeShockwavesEnabled = settings.mergeShockwaves;
+    // Clear any lingering shockwaves when the merge burst toggle is disabled.
+    if (!settings.mergeShockwaves) {
+      renderInstance.shockwaves = [];
+    }
   }
 }
 
@@ -119,6 +131,8 @@ export function bindBetSpireParticleOptions() {
   particleMergingStateLabel = document.getElementById('bet-particle-merging-state');
   particlePromotionToggle = document.getElementById('bet-particle-promotion-toggle');
   particlePromotionStateLabel = document.getElementById('bet-particle-promotion-state');
+  mergeShockwavesToggle = document.getElementById('bet-merge-shockwaves-toggle');
+  mergeShockwavesStateLabel = document.getElementById('bet-merge-shockwaves-state');
 
   bindToggle(particleTrailsToggle, particleTrailsStateLabel, 'particleTrails');
   bindToggle(forgeGlowToggle, forgeGlowStateLabel, 'forgeGlow');
@@ -127,6 +141,7 @@ export function bindBetSpireParticleOptions() {
   bindToggle(particleSpawningToggle, particleSpawningStateLabel, 'particleSpawning');
   bindToggle(particleMergingToggle, particleMergingStateLabel, 'particleMerging');
   bindToggle(particlePromotionToggle, particlePromotionStateLabel, 'particlePromotion');
+  bindToggle(mergeShockwavesToggle, mergeShockwavesStateLabel, 'mergeShockwaves');
 
   syncAllToggles();
 }
@@ -177,6 +192,7 @@ export function updateBetSpireDebugControlsVisibility(isDeveloperModeActive) {
     document.getElementById('bet-particle-spawning-toggle-row'),
     document.getElementById('bet-particle-merging-toggle-row'),
     document.getElementById('bet-particle-promotion-toggle-row'),
+    document.getElementById('bet-merge-shockwaves-toggle-row'),
   ];
   
   debugControls.forEach(control => {
