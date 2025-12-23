@@ -229,6 +229,28 @@ function getNodePosition(node) {
   return { x: node.x, y: node.y };
 }
 
+// Translate a client pointer into canvas space while respecting CSS scaling and DPR caps
+function getCanvasPointer(clientX, clientY) {
+  if (!mapCanvas) {
+    return { x: 0, y: 0 };
+  }
+
+  const rect = mapCanvas.getBoundingClientRect();
+  const cssWidth = rect.width || mapCanvas.clientWidth || 1;
+  const cssHeight = rect.height || mapCanvas.clientHeight || 1;
+  const dpr = getEffectiveMapDevicePixelRatio();
+
+  const canvasWidth = mapCanvas.width / dpr;
+  const canvasHeight = mapCanvas.height / dpr;
+  const scaleX = canvasWidth / cssWidth;
+  const scaleY = canvasHeight / cssHeight;
+
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY,
+  };
+}
+
 // Create a randomized starting offset for a node so the map can start from a unique layout when enabled
 function seedInitialNodeOffset(territory) {
   if (nodeInitialOffsets.has(territory.id)) {
@@ -834,11 +856,9 @@ function getNodeAtPointer(clientX, clientY, { includeNeutral = false } = {}) {
   if (!mapCanvas || !mapContext) {
     return null;
   }
-  
-  const rect = mapCanvas.getBoundingClientRect();
-  const pointerX = clientX - rect.left;
-  const pointerY = clientY - rect.top;
-  
+
+  const { x: pointerX, y: pointerY } = getCanvasPointer(clientX, clientY);
+
   const dpr = getEffectiveMapDevicePixelRatio();
   const width = mapCanvas.width / dpr;
   const height = mapCanvas.height / dpr;
