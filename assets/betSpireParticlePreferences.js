@@ -37,8 +37,6 @@ let particlePromotionStateLabel = null;
 // Developer-only merge shockwave toggle elements.
 let mergeShockwavesToggle = null;
 let mergeShockwavesStateLabel = null;
-let mergeShockwavesToggle = null;
-let mergeShockwavesStateLabel = null;
 
 // Getter for the active BetSpireRender instance
 let getBetSpireRenderInstance = () => null;
