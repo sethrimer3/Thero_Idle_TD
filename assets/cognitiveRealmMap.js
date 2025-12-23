@@ -489,9 +489,11 @@ export function initializeCognitiveRealmMap(container, canvas, options = {}) {
   
   // Mark connections as dirty initially
   markConnectionsDirty();
-  
-  // Start render loop
-  startRenderLoop();
+
+  // Start render loop only if the map is already visible to avoid background work when hidden.
+  if (!mapContainer.hidden) {
+    startRenderLoop();
+  }
 }
 
 /**
@@ -713,6 +715,13 @@ function startRenderLoop() {
   if (animationFrameId) {
     return;
   }
+
+  if (!mapCanvas || !mapContext) {
+    return;
+  }
+
+  // Reset the render timer whenever the loop restarts so delta calculations stay stable.
+  lastRenderTimestamp = performance.now ? performance.now() : Date.now();
 
   function render(timestamp) {
     const deltaMs = Math.min(64, Math.max(0, timestamp - lastRenderTimestamp));
@@ -1471,6 +1480,9 @@ export function showCognitiveRealmMap() {
     mapContainer.setAttribute('aria-hidden', 'false');
     resizeCanvas();
   }
+
+  // Resume rendering only when the map is visible on the Defense tab.
+  startRenderLoop();
 }
 
 /**
@@ -1481,4 +1493,7 @@ export function hideCognitiveRealmMap() {
     mapContainer.hidden = true;
     mapContainer.setAttribute('aria-hidden', 'true');
   }
+
+  // Pause rendering while the map is hidden so it doesn't consume resources on other tabs.
+  stopCognitiveRealmMap();
 }
