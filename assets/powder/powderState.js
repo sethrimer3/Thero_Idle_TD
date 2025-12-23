@@ -65,7 +65,7 @@ export function createPowderStateContext() {
       levelingMode: false,
       trees: {},
       buttonMenuOpen: false, // Track when button menus are open
-      cameraMode: false, // Lock panning by default so buttons remain tappable until explicitly enabled
+      cameraMode: true, // Camera mode always enabled for achievements terrarium
     },
   };
 
