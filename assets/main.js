@@ -3120,6 +3120,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const shinState = spireResourceState.shin || {};
     const kufState = spireResourceState.kuf || {};
 
+    const betSpireInstance = getBetSpireRenderInstance();
+
     return {
       powder: {
         unlocked: true,
@@ -3131,7 +3133,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         generators: fluidStoryState.generators || {},
         particleFactorMilestone: fluidStoryState.particleFactorMilestone || 10,
         betGlyphsAwarded: fluidStoryState.betGlyphsAwarded || 0,
-        particlesByTierAndSize: getBetSpireRenderInstance() ? getBetSpireRenderInstance().getParticleStateSnapshot() : null,
+        particlesByTierAndSize: betSpireInstance ? betSpireInstance.getParticleStateSnapshot() : null,
       },
       lamed: {
         unlocked: Boolean(lamedState.unlocked),
