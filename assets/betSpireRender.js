@@ -441,6 +441,10 @@ export class BetSpireRender {
     // Spawn queue for gradual particle restoration on load
     this.spawnQueue = [];
     this.spawnQueueIndex = 0;
+
+    // Track frame progression so merge attempts can throttle themselves between frames.
+    this.frameCounter = 0;
+    this.mergeCooldownFrames = 0; // Prevents back-to-back merge launches in the same frame
     
     // Forge crunch effect state
     this.forgeValidParticlesTimer = null; // Timestamp when valid particles first entered forge
@@ -614,6 +618,26 @@ export class BetSpireRender {
     });
   }
 
+  // Determine whether a new merge can begin without violating the one-at-a-time rule.
+  canStartNewMerge() {
+    return this.activeMerges.length === 0 && this.mergeCooldownFrames === 0;
+  }
+
+  // Select a random subset of particles without mutating the source collection.
+  selectRandomParticles(group, count) {
+    const pool = group.slice();
+    const selected = [];
+    const targetCount = Math.min(count, pool.length);
+
+    for (let i = 0; i < targetCount; i++) {
+      const index = Math.floor(Math.random() * pool.length);
+      selected.push(pool[index]);
+      pool.splice(index, 1);
+    }
+
+    return selected;
+  }
+
   /**
    * Enforce particle limit by aggressively merging small particles when count is too high.
    * This prevents freezing when there are too many particles.
@@ -678,12 +702,12 @@ export class BetSpireRender {
   // This can happen anywhere on the screen
   attemptMerge() {
     // Skip merging if disabled via developer controls
-    if (!this.particleMergingEnabled) {
+    if (!this.particleMergingEnabled || !this.canStartNewMerge()) {
       return;
     }
-    
+
     const particlesByTierAndSize = new Map();
-    
+
     // Group particles by tier and size anywhere on screen
     this.particles.forEach(particle => {
       // Skip particles that are already merging
@@ -695,45 +719,57 @@ export class BetSpireRender {
       }
       particlesByTierAndSize.get(key).push(particle);
     });
-    
+
+    // Identify all eligible merge candidates so one can be chosen at random.
+    const mergeCandidates = [];
+
     // Check each group for merging
     particlesByTierAndSize.forEach((group, key) => {
       if (group.length >= MERGE_THRESHOLD) {
         const [tierId, sizeIndexStr] = key.split('-');
-        const sizeIndex = parseInt(sizeIndexStr);
-        
+        const sizeIndex = parseInt(sizeIndexStr, 10);
+
         // Can only merge if not already at max size
         if (sizeIndex < SIZE_TIERS.length - 1) {
-          // Calculate center point of the particles to merge
-          let centerX = 0;
-          let centerY = 0;
-          const particlesToMerge = group.slice(0, MERGE_THRESHOLD);
-          
-          particlesToMerge.forEach(p => {
-            centerX += p.x;
-            centerY += p.y;
-          });
-          centerX /= particlesToMerge.length;
-          centerY /= particlesToMerge.length;
-          
-          // Mark particles as merging and set their target
-          particlesToMerge.forEach(p => {
-            p.merging = true;
-            p.mergeTarget = { x: centerX, y: centerY };
-          });
-          
-          // Create a merge animation entry
-          this.activeMerges.push({
-            particles: particlesToMerge,
-            targetX: centerX,
-            targetY: centerY,
-            tierId: tierId,
-            sizeIndex: sizeIndex + 1, // Next size tier
-            startTime: Date.now()
-            // No isTierConversion flag means this is a size merge
-          });
+          mergeCandidates.push({ tierId, sizeIndex, group });
         }
       }
+    });
+
+    if (mergeCandidates.length === 0) {
+      return;
+    }
+
+    // Pick one candidate group and one random batch within that group to merge this frame.
+    const selectedCandidate = mergeCandidates[Math.floor(Math.random() * mergeCandidates.length)];
+    const particlesToMerge = this.selectRandomParticles(selectedCandidate.group, MERGE_THRESHOLD);
+
+    // Calculate center point of the particles to merge
+    let centerX = 0;
+    let centerY = 0;
+
+    particlesToMerge.forEach(p => {
+      centerX += p.x;
+      centerY += p.y;
+    });
+    centerX /= particlesToMerge.length;
+    centerY /= particlesToMerge.length;
+
+    // Mark particles as merging and set their target
+    particlesToMerge.forEach(p => {
+      p.merging = true;
+      p.mergeTarget = { x: centerX, y: centerY };
+    });
+
+    // Create a merge animation entry
+    this.activeMerges.push({
+      particles: particlesToMerge,
+      targetX: centerX,
+      targetY: centerY,
+      tierId: selectedCandidate.tierId,
+      sizeIndex: selectedCandidate.sizeIndex + 1, // Next size tier
+      startTime: Date.now()
+      // No isTierConversion flag means this is a size merge
     });
   }
 
@@ -741,75 +777,62 @@ export class BetSpireRender {
   // Medium particles convert to 1 small of next tier, large particles convert to 100 small of next tier
   attemptTierConversion() {
     // Skip tier conversion if disabled via developer controls
-    if (!this.particlePromotionEnabled) {
+    if (!this.particlePromotionEnabled || !this.canStartNewMerge()) {
       return;
     }
-    
+
+    const conversionCandidates = [];
+
     // Group particles by their tier, checking if they're at the forge (center) position
     PARTICLE_TIERS.forEach((tier, tierIndex) => {
       // Can't convert the last tier
       if (tierIndex >= PARTICLE_TIERS.length - 1) return;
-      
+
       const nextTier = PARTICLE_TIERS[tierIndex + 1];
-      
-      // Find medium and large particles of this tier near the forge (center)
-      const mediumParticlesAtForge = [];
-      const largeParticlesAtForge = [];
-      
+
       this.particles.forEach(particle => {
         if (particle.tierId !== tier.id || particle.merging) return;
-        
+
         // Check if particle is within conversion radius of the forge (center)
         const dx = particle.x - this.forge.x;
         const dy = particle.y - this.forge.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (dist <= GENERATOR_CONVERSION_RADIUS) {
-          if (particle.sizeIndex === MEDIUM_SIZE_INDEX) {
-            mediumParticlesAtForge.push(particle);
-          } else if (particle.sizeIndex === LARGE_SIZE_INDEX) {
-            largeParticlesAtForge.push(particle);
+          if (particle.sizeIndex === MEDIUM_SIZE_INDEX || particle.sizeIndex === LARGE_SIZE_INDEX) {
+            const conversionCount = particle.sizeIndex === MEDIUM_SIZE_INDEX ? 1 : 100;
+            conversionCandidates.push({
+              particle,
+              nextTierId: nextTier.id,
+              conversionCount,
+            });
           }
         }
       });
-      
-      // Convert medium particles: 1 medium → 1 small of next tier
-      mediumParticlesAtForge.forEach(particle => {
-        // Mark as merging and attract to forge center
-        particle.merging = true;
-        particle.mergeTarget = { x: this.forge.x, y: this.forge.y };
-        
-        // Create conversion animation
-        this.activeMerges.push({
-          particles: [particle],
-          targetX: this.forge.x,
-          targetY: this.forge.y,
-          tierId: nextTier.id,
-          sizeIndex: 0, // Small particle
-          startTime: Date.now(),
-          isTierConversion: true,
-          conversionCount: 1 // 1 small particle
-        });
-      });
-      
-      // Convert large particles: 1 large → 100 small of next tier
-      largeParticlesAtForge.forEach(particle => {
-        // Mark as merging and attract to forge center
-        particle.merging = true;
-        particle.mergeTarget = { x: this.forge.x, y: this.forge.y };
-        
-        // Create conversion animation
-        this.activeMerges.push({
-          particles: [particle],
-          targetX: this.forge.x,
-          targetY: this.forge.y,
-          tierId: nextTier.id,
-          sizeIndex: 0, // Small particle
-          startTime: Date.now(),
-          isTierConversion: true,
-          conversionCount: 100 // 100 small particles
-        });
-      });
+    });
+
+    if (conversionCandidates.length === 0) {
+      return;
+    }
+
+    // Convert a single candidate so forge promotions also respect the one-at-a-time merge pacing.
+    const selectedConversion = conversionCandidates[Math.floor(Math.random() * conversionCandidates.length)];
+    const particle = selectedConversion.particle;
+
+    // Mark as merging and attract to forge center
+    particle.merging = true;
+    particle.mergeTarget = { x: this.forge.x, y: this.forge.y };
+
+    // Create conversion animation
+    this.activeMerges.push({
+      particles: [particle],
+      targetX: this.forge.x,
+      targetY: this.forge.y,
+      tierId: selectedConversion.nextTierId,
+      sizeIndex: 0, // Small particle
+      startTime: Date.now(),
+      isTierConversion: true,
+      conversionCount: selectedConversion.conversionCount
     });
   }
 
@@ -976,12 +999,12 @@ export class BetSpireRender {
   // This can happen anywhere on the screen to reduce particle count for better performance
   attemptLargeTierMerge() {
     // Skip tier merging if promotion is disabled via developer controls
-    if (!this.particlePromotionEnabled) {
+    if (!this.particlePromotionEnabled || !this.canStartNewMerge()) {
       return;
     }
-    
+
     const largeParticlesByTier = new Map();
-    
+
     // Group large particles by tier anywhere on screen
     this.particles.forEach(particle => {
       // Skip particles that are already merging
@@ -996,47 +1019,57 @@ export class BetSpireRender {
       }
       largeParticlesByTier.get(tierId).push(particle);
     });
-    
-    // Check each tier group for bulk conversion
+
+    const mergeCandidates = [];
+
+    // Check each tier group for bulk conversion and queue up potential merges.
     largeParticlesByTier.forEach((group, tierId) => {
       if (group.length >= MERGE_THRESHOLD) {
         const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === tierId);
-        
+
         // Can only convert if not already at max tier
         if (tierIndex >= 0 && tierIndex < PARTICLE_TIERS.length - 1) {
           const nextTier = PARTICLE_TIERS[tierIndex + 1];
-          
-          // Calculate center point of the particles to merge
-          let centerX = 0;
-          let centerY = 0;
-          const particlesToMerge = group.slice(0, MERGE_THRESHOLD);
-          
-          particlesToMerge.forEach(p => {
-            centerX += p.x;
-            centerY += p.y;
-          });
-          centerX /= particlesToMerge.length;
-          centerY /= particlesToMerge.length;
-          
-          // Mark particles as merging and set their target
-          particlesToMerge.forEach(p => {
-            p.merging = true;
-            p.mergeTarget = { x: centerX, y: centerY };
-          });
-          
-          // Create a merge animation entry that converts 100 large to 10 large of next tier
-          this.activeMerges.push({
-            particles: particlesToMerge,
-            targetX: centerX,
-            targetY: centerY,
-            tierId: nextTier.id,
-            sizeIndex: LARGE_SIZE_INDEX, // Large particles
-            startTime: Date.now(),
-            isTierConversion: true,
-            conversionCount: 10 // 10 large particles of next tier
-          });
+          mergeCandidates.push({ group, nextTier });
         }
       }
+    });
+
+    if (mergeCandidates.length === 0) {
+      return;
+    }
+
+    // Select one candidate to process this frame so large-tier merges remain serialized.
+    const selectedCandidate = mergeCandidates[Math.floor(Math.random() * mergeCandidates.length)];
+    const particlesToMerge = this.selectRandomParticles(selectedCandidate.group, MERGE_THRESHOLD);
+
+    // Calculate center point of the particles to merge
+    let centerX = 0;
+    let centerY = 0;
+
+    particlesToMerge.forEach(p => {
+      centerX += p.x;
+      centerY += p.y;
+    });
+    centerX /= particlesToMerge.length;
+    centerY /= particlesToMerge.length;
+
+    // Mark particles as merging and set their target
+    particlesToMerge.forEach(p => {
+      p.merging = true;
+      p.mergeTarget = { x: centerX, y: centerY };
+    });
+
+    // Create a merge animation entry that converts 100 large to 10 large of next tier
+    this.activeMerges.push({
+      particles: particlesToMerge,
+      targetX: centerX,
+      targetY: centerY,
+      tierId: selectedCandidate.nextTier.id,
+      sizeIndex: LARGE_SIZE_INDEX, // Large particles
+      startTime: Date.now(),
+      isTierConversion: true,
+      conversionCount: 10 // 10 large particles of next tier
     });
   }
 
@@ -1134,9 +1167,11 @@ export class BetSpireRender {
       // Keep this merge active
       return true;
     });
-    
+
     // Update inventory once after processing all merges (performance optimization)
     if (anyMergeCompleted) {
+      // Enforce a one-frame delay before the next merge begins to keep animations serialized.
+      this.mergeCooldownFrames = Math.max(this.mergeCooldownFrames, 1);
       this.updateInventory();
     }
   }
@@ -1332,7 +1367,13 @@ export class BetSpireRender {
 
   animate() {
     if (!this.isRunning) return;
-    
+
+    // Track frame progression so merge attempts can insert a one-frame pause between batches.
+    this.frameCounter += 1;
+    if (this.mergeCooldownFrames > 0) {
+      this.mergeCooldownFrames -= 1; // Count down the inter-merge cooldown
+    }
+
     const frameStartTime = performance.now(); // Track frame start time for performance monitoring
     const deltaTimeMs = Math.min(frameStartTime - this.lastFrameTime, MAX_FRAME_TIME_MS * 4); // Clamp to avoid huge catch-up steps
     const deltaFrameRatio = deltaTimeMs / TARGET_FRAME_TIME_MS || 1; // Scale motion relative to 60fps baseline
