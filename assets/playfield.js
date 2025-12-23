@@ -7796,11 +7796,29 @@ export class SimplePlayfield {
       this.arcOffset += wrapDistance;
     }
 
-    if (!this.combatActive) {
-      // Keep unique tower behaviors alive even while waves are paused.
-      // Keep a tower bucket active even when waves are paused so idle behaviors are tracked.
-      const finishMaintenanceSegment = beginPerformanceSegment('update:towers');
+    // Update enemies and spawn logic only while combat is active
+    if (this.combatActive) {
+      this.waveTimer += speedDelta;
+      // Group enemy spawning and marching updates to weigh pathfinding cost.
+      const finishEnemySegment = beginPerformanceSegment('update:enemies');
       try {
+        this.spawnEnemies();
+        this.updateEnemies(speedDelta);
+        this.updateChiThralls(speedDelta);
+        this.updateChiLightTrails(speedDelta);
+      } finally {
+        finishEnemySegment();
+      }
+    }
+
+    // Keep unique tower behaviors alive even while waves are paused or after victory.
+    // Keep a tower bucket active so idle behaviors and maintenance are tracked.
+    const finishTowerSegment = beginPerformanceSegment('update:towers');
+    try {
+      if (this.combatActive) {
+        this.updateTowers(speedDelta);
+      } else {
+        // When combat is paused or finished, only update towers with special maintenance needs
         this.towers.forEach((tower) => {
           if (tower.type === 'zeta') {
             this.updateZetaTower(tower, speedDelta);
@@ -7820,36 +7838,7 @@ export class SimplePlayfield {
           tower.cooldown = Math.max(0, tower.cooldown - speedDelta);
           this.updateDeltaTower(tower, speedDelta);
         });
-      } finally {
-        finishMaintenanceSegment();
       }
-      // Record HUD/progress refresh time for the paused state separately.
-      const finishHudSegment = beginPerformanceSegment('update:hud');
-      try {
-        this.updateHud();
-        this.updateProgress();
-      } finally {
-        finishHudSegment();
-      }
-      return;
-    }
-
-    this.waveTimer += speedDelta;
-    // Group enemy spawning and marching updates to weigh pathfinding cost.
-    const finishEnemySegment = beginPerformanceSegment('update:enemies');
-    try {
-      this.spawnEnemies();
-      this.updateEnemies(speedDelta);
-      this.updateChiThralls(speedDelta);
-      this.updateChiLightTrails(speedDelta);
-    } finally {
-      finishEnemySegment();
-    }
-
-    // Track the live tower loop while combat is active.
-    const finishTowerSegment = beginPerformanceSegment('update:towers');
-    try {
-      this.updateTowers(speedDelta);
     } finally {
       finishTowerSegment();
     }
