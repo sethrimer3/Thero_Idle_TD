@@ -30,9 +30,19 @@ function resolveDefaultMusicVolume() {
   return isLikelyMobileBrowser() ? 0 : 1;
 }
 
+/**
+ * Resolve a platform-aware default SFX volume so mobile sessions avoid
+ * interrupting external media playback unless the player opts in.
+ */
+function resolveDefaultSfxVolume() {
+  return isLikelyMobileBrowser() ? 0 : 1;
+}
+
 export const DEFAULT_AUDIO_MANIFEST = {
   musicVolume: resolveDefaultMusicVolume(),
-  sfxVolume: 1,
+  sfxVolume: resolveDefaultSfxVolume(),
+  // Default to suppressing audio playback on mobile to avoid hijacking device media sessions.
+  avoidDeviceAudio: isLikelyMobileBrowser(),
   musicCrossfadeSeconds: 3,
   music: {
     levelSelect: { file: 'level_selection_music.mp3', loop: true, volume: 0.65 },
@@ -102,6 +112,8 @@ export class AudioManager {
     this.sfxDefinitions = manifest.sfx || {};
     this.musicVolume = this._clampVolume(manifest.musicVolume, 1);
     this.sfxVolume = this._clampVolume(manifest.sfxVolume, 1);
+    // Honor platform-aware suppression so mobile devices keep their own audio playing.
+    this.avoidDeviceAudio = Boolean(manifest.avoidDeviceAudio);
     this.musicElements = new Map();
     this.sfxPools = new Map();
     // Track looping sound effects so they can be stopped or adjusted later.
@@ -202,6 +214,11 @@ export class AudioManager {
       return;
     }
 
+    // Skip playback entirely when device audio should remain untouched.
+    if (this.avoidDeviceAudio) {
+      return;
+    }
+
     this.suspendedMusic = null;
 
     const startPlayback = () => {
@@ -211,9 +228,14 @@ export class AudioManager {
       }
 
       const { audio, definition } = entry;
+      // Avoid engaging the media session when the effective volume is silent.
+      const resolvedVolume = this._resolveMusicVolume(definition, options.volume);
+      if (resolvedVolume <= 0) {
+        return;
+      }
       const loop = typeof options.loop === 'boolean' ? options.loop : definition.loop !== false;
       audio.loop = loop;
-      const targetVolume = this._resolveMusicVolume(definition, options.volume);
+      const targetVolume = resolvedVolume;
       const currentKey = this.currentMusicKey;
       const sameTrack = currentKey === key;
       const shouldRestart = Boolean(options.restart) || !sameTrack || audio.paused;
@@ -311,6 +333,11 @@ export class AudioManager {
       return;
     }
 
+    // Skip playback entirely when device audio should remain untouched.
+    if (this.avoidDeviceAudio) {
+      return;
+    }
+
     const startPlayback = () => {
       const entry = this._ensureSfxEntry(key);
       if (!entry) {
@@ -346,7 +373,12 @@ export class AudioManager {
       }
 
       audio.loop = shouldLoop;
-      audio.volume = this._resolveSfxVolume(definition, options.volume);
+      // Avoid engaging the media session when the effective volume is silent.
+      const resolvedVolume = this._resolveSfxVolume(definition, options.volume);
+      if (resolvedVolume <= 0) {
+        return;
+      }
+      audio.volume = resolvedVolume;
 
       if (restartLoop || !shouldLoop || audio.paused) {
         try {
