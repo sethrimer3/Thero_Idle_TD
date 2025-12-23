@@ -63,8 +63,11 @@ export function updateParticleInventoryDisplay() {
     if (countBadge) {
       const counts = inventoryBySize.get(tier.id);
       if (counts) {
-        // Format as "small,medium,large"
-        const formattedCount = `${counts.small},${counts.medium},${counts.large}`;
+        // Format as "large.medium.small" with leading zeros (e.g., "00.00.00")
+        const formattedLarge = String(counts.large).padStart(2, '0');
+        const formattedMedium = String(counts.medium).padStart(2, '0');
+        const formattedSmall = String(counts.small).padStart(2, '0');
+        const formattedCount = `${formattedLarge}.${formattedMedium}.${formattedSmall}`;
         countBadge.textContent = formattedCount;
         
         // Highlight non-zero counts (check if any size has particles)

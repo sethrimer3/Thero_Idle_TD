@@ -11,6 +11,7 @@ import {
 const DEFAULT_SETTINGS = Object.freeze({
   particleTrails: true,
   forgeGlow: true,
+  smoothRendering: true, // Enable/disable image-smoothing for pixelated vs smooth rendering
   // Developer-only debug flags
   particleSpawning: true,
   particleMerging: true,
@@ -23,6 +24,8 @@ let particleTrailsToggle = null;
 let particleTrailsStateLabel = null;
 let forgeGlowToggle = null;
 let forgeGlowStateLabel = null;
+let smoothRenderingToggle = null;
+let smoothRenderingStateLabel = null;
 // Developer-only debug toggles
 let particleSpawningToggle = null;
 let particleSpawningStateLabel = null;
@@ -62,6 +65,7 @@ function syncToggleState(input, stateLabel, enabled) {
 function syncAllToggles() {
   syncToggleState(particleTrailsToggle, particleTrailsStateLabel, settings.particleTrails);
   syncToggleState(forgeGlowToggle, forgeGlowStateLabel, settings.forgeGlow);
+  syncToggleState(smoothRenderingToggle, smoothRenderingStateLabel, settings.smoothRendering);
   // Developer-only toggles
   syncToggleState(particleSpawningToggle, particleSpawningStateLabel, settings.particleSpawning);
   syncToggleState(particleMergingToggle, particleMergingStateLabel, settings.particleMerging);
@@ -74,6 +78,7 @@ function applySettings() {
     // The BetSpireRender instance will read these settings during its draw cycle
     renderInstance.particleTrailsEnabled = settings.particleTrails;
     renderInstance.forgeGlowEnabled = settings.forgeGlow;
+    renderInstance.smoothRenderingEnabled = settings.smoothRendering;
     // Developer-only debug flags
     renderInstance.particleSpawningEnabled = settings.particleSpawning;
     renderInstance.particleMergingEnabled = settings.particleMerging;
@@ -105,6 +110,8 @@ export function bindBetSpireParticleOptions() {
   particleTrailsStateLabel = document.getElementById('bet-particle-trails-state');
   forgeGlowToggle = document.getElementById('bet-forge-glow-toggle');
   forgeGlowStateLabel = document.getElementById('bet-forge-glow-state');
+  smoothRenderingToggle = document.getElementById('bet-smooth-rendering-toggle');
+  smoothRenderingStateLabel = document.getElementById('bet-smooth-rendering-state');
   // Developer-only debug toggles
   particleSpawningToggle = document.getElementById('bet-particle-spawning-toggle');
   particleSpawningStateLabel = document.getElementById('bet-particle-spawning-state');
@@ -115,6 +122,7 @@ export function bindBetSpireParticleOptions() {
 
   bindToggle(particleTrailsToggle, particleTrailsStateLabel, 'particleTrails');
   bindToggle(forgeGlowToggle, forgeGlowStateLabel, 'forgeGlow');
+  bindToggle(smoothRenderingToggle, smoothRenderingStateLabel, 'smoothRendering');
   // Developer-only debug toggles
   bindToggle(particleSpawningToggle, particleSpawningStateLabel, 'particleSpawning');
   bindToggle(particleMergingToggle, particleMergingStateLabel, 'particleMerging');

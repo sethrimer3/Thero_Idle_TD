@@ -13,7 +13,7 @@ const MIN_VELOCITY = 0.24; // Minimum speed to keep particles swirling (20% slow
 const MAX_VELOCITY = 2;
 const ATTRACTION_STRENGTH = 1.5; // Increased to keep particles within field (was 0.5)
 const FORGE_RADIUS = 21; // Radius for forge attraction (30% smaller to tighten the forge well)
-const MAX_FORGE_ATTRACTION_DISTANCE = FORGE_RADIUS * 2; // Particles only feel forge gravity when within twice the forge radius
+const MAX_FORGE_ATTRACTION_DISTANCE = FORGE_RADIUS * 2 * 0.9; // Particles only feel forge gravity when within twice the forge radius (decreased by 10%)
 const DISTANCE_SCALE = 0.01; // Scale factor for distance calculations
 const FORCE_SCALE = 0.01; // Scale factor for force application
 const ORBITAL_FORCE = 0.15; // Increased tangential orbital force strength (was 0.1)
@@ -52,7 +52,7 @@ const FORGE_POSITION = { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.5 };
 const SPAWNER_SIZE = 8; // Size of spawner forge triangles (smaller than main forge)
 const SPAWNER_ROTATION_SPEED = 0.03; // Rotation speed for spawner triangles
 const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
-const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER; // Influence radius for each spawner
+const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER * 1.15; // Influence radius for each spawner (increased by 15%)
 
 // Generator positions: sand at top center (12 o'clock), then 10 more in clockwise circle
 // All 11 generators are equidistant from each other on a circle around the forge
@@ -418,6 +418,7 @@ export class BetSpireRender {
     // Visual settings that control rendering effects
     this.particleTrailsEnabled = true; // Controls whether particles leave trails
     this.forgeGlowEnabled = true; // Controls whether forge and generators have glow effects
+    this.smoothRenderingEnabled = true; // Controls whether rendering is smooth (anti-aliased) or pixelated
     
     // Developer debug flags (only visible when developer mode is active)
     this.particleSpawningEnabled = true; // Controls whether particles can spawn
@@ -440,6 +441,16 @@ export class BetSpireRender {
     // Spawn queue for gradual particle restoration on load
     this.spawnQueue = [];
     this.spawnQueueIndex = 0;
+    
+    // Forge crunch effect state
+    this.forgeValidParticlesTimer = null; // Timestamp when valid particles first entered forge
+    this.forgeCrunchActive = false; // Whether crunch animation is active
+    this.forgeCrunchProgress = 0; // Progress of crunch animation (0 to 1)
+    this.forgeCrunchStartTime = null; // When crunch animation started
+    const FORGE_CRUNCH_DURATION = 1000; // Duration of crunch animation in ms
+    const FORGE_VALID_WAIT_TIME = 5000; // Wait 5 seconds before crunching
+    this.FORGE_CRUNCH_DURATION = FORGE_CRUNCH_DURATION;
+    this.FORGE_VALID_WAIT_TIME = FORGE_VALID_WAIT_TIME;
     
     // Bind methods for requestAnimationFrame and event listeners
     this.animate = this.animate.bind(this);
@@ -802,6 +813,164 @@ export class BetSpireRender {
     });
   }
 
+  // Check for valid particles in the forge and handle crunch effect
+  checkForgeCreunch(now) {
+    // Skip if promotion is disabled
+    if (!this.particlePromotionEnabled) {
+      this.forgeValidParticlesTimer = null;
+      return;
+    }
+
+    // If crunch is already active, don't check for new valid particles
+    if (this.forgeCrunchActive) {
+      return;
+    }
+
+    // Find medium and large particles within forge radius that can be upgraded
+    const validParticles = [];
+    
+    PARTICLE_TIERS.forEach((tier, tierIndex) => {
+      // Can't convert the last tier
+      if (tierIndex >= PARTICLE_TIERS.length - 1) return;
+      
+      this.particles.forEach(particle => {
+        if (particle.tierId !== tier.id || particle.merging) return;
+        
+        // Only medium and large particles can be upgraded
+        if (particle.sizeIndex !== MEDIUM_SIZE_INDEX && particle.sizeIndex !== LARGE_SIZE_INDEX) return;
+        
+        // Check if particle is within forge radius
+        const dx = particle.x - this.forge.x;
+        const dy = particle.y - this.forge.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist <= FORGE_RADIUS) {
+          validParticles.push(particle);
+        }
+      });
+    });
+
+    // If there are valid particles, start or continue the timer
+    if (validParticles.length > 0) {
+      if (!this.forgeValidParticlesTimer) {
+        this.forgeValidParticlesTimer = now;
+      } else {
+        // Check if 5 seconds have passed
+        const elapsed = now - this.forgeValidParticlesTimer;
+        if (elapsed >= this.FORGE_VALID_WAIT_TIME) {
+          // Start the crunch animation
+          this.startForgeCrunch(validParticles, now);
+        }
+      }
+    } else {
+      // No valid particles, reset timer
+      this.forgeValidParticlesTimer = null;
+    }
+  }
+
+  // Start the forge crunch animation and mark particles for upgrade
+  startForgeCrunch(validParticles, now) {
+    this.forgeCrunchActive = true;
+    this.forgeCrunchStartTime = now;
+    this.forgeCrunchProgress = 0;
+    
+    // Mark all valid particles for upgrade and attract them to forge center
+    validParticles.forEach(particle => {
+      particle.merging = true;
+      particle.mergeTarget = { x: this.forge.x, y: this.forge.y };
+      particle.forgeCrunchParticle = true; // Mark for crunch upgrade
+    });
+    
+    // Reset the timer
+    this.forgeValidParticlesTimer = null;
+  }
+
+  // Update the forge crunch animation
+  updateForgeCrunch(now) {
+    if (!this.forgeCrunchActive) return;
+
+    const elapsed = now - this.forgeCrunchStartTime;
+    this.forgeCrunchProgress = Math.min(elapsed / this.FORGE_CRUNCH_DURATION, 1);
+
+    // When animation completes, upgrade all marked particles
+    if (this.forgeCrunchProgress >= 1) {
+      this.completeForgeCrunch();
+    }
+  }
+
+  // Complete the forge crunch and upgrade particles
+  completeForgeCrunch() {
+    // Find all particles marked for crunch upgrade
+    const crunchParticles = this.particles.filter(p => p.forgeCrunchParticle && p.merging);
+    
+    // Group by tier for tier conversion
+    const particlesByTier = new Map();
+    crunchParticles.forEach(particle => {
+      if (!particlesByTier.has(particle.tierId)) {
+        particlesByTier.set(particle.tierId, []);
+      }
+      particlesByTier.get(particle.tierId).push(particle);
+    });
+
+    // Convert each particle to next tier
+    particlesByTier.forEach((particles, tierId) => {
+      const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === tierId);
+      if (tierIndex < 0 || tierIndex >= PARTICLE_TIERS.length - 1) return;
+      
+      const nextTier = PARTICLE_TIERS[tierIndex + 1];
+      
+      particles.forEach(particle => {
+        // Create conversion animation entry
+        const conversionCount = particle.sizeIndex === MEDIUM_SIZE_INDEX ? 1 : 100;
+        
+        this.activeMerges.push({
+          particles: [particle],
+          targetX: this.forge.x,
+          targetY: this.forge.y,
+          tierId: nextTier.id,
+          sizeIndex: 0, // Small particle
+          startTime: Date.now(),
+          isTierConversion: true,
+          conversionCount: conversionCount
+        });
+      });
+    });
+
+    // Reset crunch state
+    this.forgeCrunchActive = false;
+    this.forgeCrunchProgress = 0;
+    this.forgeCrunchStartTime = null;
+  }
+
+  // Draw the forge crunch effect (shrinking circle)
+  drawForgeCrunch() {
+    if (!this.forgeCrunchActive) return;
+
+    const ctx = this.ctx;
+    
+    // Calculate current radius (starts at FORGE_RADIUS, shrinks to 0)
+    const currentRadius = FORGE_RADIUS * (1 - this.forgeCrunchProgress);
+    
+    // Calculate alpha (goes from 0 to 0.8 to 0)
+    // Peak at middle of animation
+    const alphaCurve = Math.sin(this.forgeCrunchProgress * Math.PI);
+    const alpha = alphaCurve * 0.8;
+    
+    // Draw shrinking circle
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(this.forge.x, this.forge.y, currentRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Draw inner glow
+    ctx.strokeStyle = `rgba(200, 200, 255, ${alpha * 0.5})`;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(this.forge.x, this.forge.y, currentRadius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
   // Attempt to merge large particles to next tier (performance optimization)
   // When 100 large particles of the same tier exist, convert them to 10 large particles of the next tier
   // This can happen anywhere on the screen to reduce particle count for better performance
@@ -1162,6 +1331,9 @@ export class BetSpireRender {
     this.lastFrameTime = frameStartTime;
     const now = Date.now(); // Track current time for animations
     
+    // Apply smooth rendering setting
+    this.ctx.imageSmoothingEnabled = this.smoothRenderingEnabled;
+    
     // Create trail effect by drawing semi-transparent black over the canvas
     // If trails are disabled, draw fully opaque black to clear the canvas completely
     const trailFade = this.particleTrailsEnabled ? TRAIL_FADE : 1.0;
@@ -1184,6 +1356,15 @@ export class BetSpireRender {
 
     // Draw particle spawners for unlocked tiers
     this.drawSpawners();
+
+    // Check for forge crunch effect (valid particles for 5 seconds)
+    this.checkForgeCreunch(now);
+    
+    // Update forge crunch animation
+    this.updateForgeCrunch(now);
+    
+    // Draw forge crunch effect
+    this.drawForgeCrunch();
 
     // Gather gravity sources for unlocked spawners so nearby particles feel a local pull.
     const activeSpawners = this.getActiveSpawnerGravityFields();
