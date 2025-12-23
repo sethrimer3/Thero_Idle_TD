@@ -61,6 +61,7 @@ export function createDeveloperModeManager(options = {}) {
     syncDeveloperControlValues,
     syncLevelEditorVisibility,
     updateDeveloperMapElementsVisibility,
+    updateBetSpireDebugControlsVisibility,
     getPlayfield,
     getPlayfieldMenuController,
     unlockAllFractals,
