@@ -907,8 +907,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     registerResourceContainers,
   });
 
-  // Re-enable the Bet Spire Terrarium so its ambient terrarium renders (slimes, grass, trees, sky cycle).
-  const FLUID_STUDY_ENABLED = true;
+  // Fluid simulation has been disabled as requested
+  const FLUID_STUDY_ENABLED = false;
 
   const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the Bet Spire Terrarium with a base reservoir of Serendipity upon unlock.
 
@@ -3131,7 +3131,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         generators: fluidStoryState.generators || {},
         particleFactorMilestone: fluidStoryState.particleFactorMilestone || 10,
         betGlyphsAwarded: fluidStoryState.betGlyphsAwarded || 0,
-        particlesByTierAndSize: betSpireRenderInstance ? betSpireRenderInstance.getParticleStateSnapshot() : null,
+        particlesByTierAndSize: getBetSpireRenderInstance() ? getBetSpireRenderInstance().getParticleStateSnapshot() : null,
       },
       lamed: {
         unlocked: Boolean(lamedState.unlocked),
