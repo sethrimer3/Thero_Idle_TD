@@ -538,12 +538,13 @@ export class BetSpireRender {
    */
   removeParticlesByType(tierId, count) {
     let remaining = count;
+    const particlesToRemove = new Set();
     
     // First, remove small particles
     const smallParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === 0);
     const smallToRemove = Math.min(smallParticles.length, remaining);
     for (let i = 0; i < smallToRemove; i++) {
-      this.removeParticle(smallParticles[i], true);
+      particlesToRemove.add(smallParticles[i]);
     }
     remaining -= smallToRemove;
     
@@ -552,7 +553,7 @@ export class BetSpireRender {
       const mediumParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === 1);
       while (remaining > 0 && mediumParticles.length > 0) {
         const mediumParticle = mediumParticles.pop();
-        this.removeParticle(mediumParticle, true);
+        particlesToRemove.add(mediumParticle);
         
         // Add back small particles if we removed more than needed
         const mediumValue = MERGE_THRESHOLD; // 100 small
@@ -573,7 +574,7 @@ export class BetSpireRender {
       const largeParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === 2);
       while (remaining > 0 && largeParticles.length > 0) {
         const largeParticle = largeParticles.pop();
-        this.removeParticle(largeParticle, true);
+        particlesToRemove.add(largeParticle);
         
         // Add back particles if we removed more than needed
         const largeValue = Math.pow(MERGE_THRESHOLD, 2); // 10000 small
@@ -593,6 +594,11 @@ export class BetSpireRender {
           remaining -= largeValue;
         }
       }
+    }
+    
+    // Batch remove all marked particles (O(n) instead of O(n²))
+    if (particlesToRemove.size > 0) {
+      this.particles = this.particles.filter(p => !particlesToRemove.has(p));
     }
     
     this.updateInventory();
@@ -661,6 +667,9 @@ export class BetSpireRender {
       }
     });
 
+    // Collect all particles to remove for efficient batch removal
+    const particlesToRemove = new Set();
+
     // Aggressively merge small particles in groups of MERGE_THRESHOLD
     smallParticlesByTier.forEach((group, tierId) => {
       while (group.length >= MERGE_THRESHOLD && this.particles.length > PERFORMANCE_THRESHOLD) {
@@ -677,9 +686,9 @@ export class BetSpireRender {
         centerX /= particlesToMerge.length;
         centerY /= particlesToMerge.length;
         
-        // Remove the small particles
+        // Mark particles for batch removal
         particlesToMerge.forEach(p => {
-          this.removeParticle(p, true);
+          particlesToRemove.add(p);
         });
         
         // Create one medium particle instantly (no animation)
@@ -694,6 +703,11 @@ export class BetSpireRender {
         this.particles.push(mediumParticle);
       }
     });
+
+    // Batch remove all marked particles (O(n) instead of O(n²))
+    if (particlesToRemove.size > 0) {
+      this.particles = this.particles.filter(p => !particlesToRemove.has(p));
+    }
 
     this.updateInventory();
   }
@@ -1077,6 +1091,7 @@ export class BetSpireRender {
   processActiveMerges() {
     const now = Date.now();
     let anyMergeCompleted = false; // Track if any merge completed to defer inventory update
+    const particlesToRemove = new Set(); // Collect all particles to remove for efficient batch removal
     
     this.activeMerges = this.activeMerges.filter(merge => {
       // Check if all particles in the merge have reached the target
@@ -1088,9 +1103,9 @@ export class BetSpireRender {
       });
       
       if (allGathered || (now - merge.startTime > MERGE_TIMEOUT_MS)) { // Complete after timeout
-        // Remove the merged particles (skip inventory update for now)
+        // Mark particles for batch removal (much more efficient than removing one by one)
         merge.particles.forEach(p => {
-          this.removeParticle(p, true);
+          particlesToRemove.add(p);
         });
         
         // Calculate spawn position once (used by both size merges and tier conversions)
@@ -1167,6 +1182,11 @@ export class BetSpireRender {
       // Keep this merge active
       return true;
     });
+
+    // Batch remove all particles marked for removal (O(n) instead of O(n²))
+    if (particlesToRemove.size > 0) {
+      this.particles = this.particles.filter(p => !particlesToRemove.has(p));
+    }
 
     // Update inventory once after processing all merges (performance optimization)
     if (anyMergeCompleted) {
