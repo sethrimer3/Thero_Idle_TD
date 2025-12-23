@@ -41,7 +41,7 @@ export const DEFAULT_AUDIO_MANIFEST = {
     powder: { file: 'mote_screen_music.mp3', loop: true, volume: 0.65 },
     achievements: { file: 'achievements_music.mp3', loop: true, volume: 0.6 },
     codex: { file: 'codex_music.mp3', loop: true, volume: 0.6 },
-    // Ambient loop for the Lamed Spire tab - commented out as file doesn't exist and fluid simulation is disabled.
+    // Ambient loop for the Lamed Spire tab - commented out because the audio file doesn't exist.
     // lamedSpire: { file: 'lamed_spire_loop.ogg', loop: true, volume: 0.6 },
   },
   sfx: {
