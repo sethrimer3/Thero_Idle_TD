@@ -6090,7 +6090,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindSpireOptionsDropdown({
       toggleId: 'bet-spire-options-toggle-button',
       menuId: 'bet-spire-options-menu',
-      spireId: 'fluid',
+      spireId: 'bet',
     });
     bindSpireOptionsDropdown({
       toggleId: 'tsadi-options-toggle-button',

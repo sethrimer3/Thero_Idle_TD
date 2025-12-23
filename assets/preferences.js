@@ -987,7 +987,7 @@ function updateEnemyParticlesToggleUi() {
  * Persist and apply the enemy particles preference.
  */
 export function applyEnemyParticlesPreference(preference, { persist = true } = {}) {
-  const enabled = normalizeDamageNumberPreference(preference);
+  const enabled = normalizeGlyphEquationPreference(preference);
   enemyParticlesEnabled = enabled;
   updateEnemyParticlesToggleUi();
   if (persist) {
