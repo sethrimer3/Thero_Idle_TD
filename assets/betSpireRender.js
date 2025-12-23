@@ -1043,6 +1043,8 @@ export class BetSpireRender {
   // Process active merges and check if particles have gathered
   processActiveMerges() {
     const now = Date.now();
+    let anyMergeCompleted = false; // Track if any merge completed to defer inventory update
+    
     this.activeMerges = this.activeMerges.filter(merge => {
       // Check if all particles in the merge have reached the target
       const allGathered = merge.particles.every(p => {
@@ -1053,7 +1055,7 @@ export class BetSpireRender {
       });
       
       if (allGathered || (now - merge.startTime > MERGE_TIMEOUT_MS)) { // Complete after timeout
-        // Remove the merged particles
+        // Remove the merged particles (skip inventory update for now)
         merge.particles.forEach(p => {
           this.removeParticle(p, true);
         });
@@ -1111,7 +1113,8 @@ export class BetSpireRender {
           }
         }
         
-        this.updateInventory();
+        // Mark that a merge completed (defer inventory update until after all merges processed)
+        anyMergeCompleted = true;
         
         // Create shockwave
         const tier = PARTICLE_TIERS.find(t => t.id === merge.tierId) || PARTICLE_TIERS[0];
@@ -1131,6 +1134,11 @@ export class BetSpireRender {
       // Keep this merge active
       return true;
     });
+    
+    // Update inventory once after processing all merges (performance optimization)
+    if (anyMergeCompleted) {
+      this.updateInventory();
+    }
   }
 
   setupEventListeners() {
