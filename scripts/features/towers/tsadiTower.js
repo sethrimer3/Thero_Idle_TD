@@ -875,10 +875,12 @@ export class ParticleFusionSimulation {
     }
     
     // Enable image smoothing for antialiased subpixel rendering in smooth mode
+    // Default to true if smoothRendering is undefined
     const smoothingEnabled = this.visualSettings.smoothRendering !== false;
     this.ctx.imageSmoothingEnabled = smoothingEnabled;
     
     // Set the quality of image smoothing to high for best subpixel results
+    // Note: imageSmoothingQuality is not supported in older browsers (IE, older Safari versions)
     if (smoothingEnabled && this.ctx.imageSmoothingQuality) {
       this.ctx.imageSmoothingQuality = 'high';
     }
