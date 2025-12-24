@@ -1,5 +1,5 @@
 // Bet Spire Particle Physics Render
-// Tiered particle system with size merging (anywhere) and tier conversion (at generators)
+// Tiered particle system with size merging at generator centers and tier conversion at the forge.
 
 // Canvas dimensions matching Aleph Spire render
 const CANVAS_WIDTH = 240;
@@ -22,7 +22,7 @@ const FORGE_REPULSION_DAMPING = 0.6; // Dampen outward push when particles sling
 const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
 const SPAWNER_GRAVITY_STRENGTH = 0.75; // Gentle attraction strength used by individual spawners
 const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four times its radius for a wider pull
-const GENERATOR_CONVERSION_RADIUS = 15; // Distance particles must be within generator center to convert to next tier
+const GENERATOR_CONVERSION_RADIUS = 16.5; // 10% larger radius for generator-centered conversions
 
 // Performance optimization configuration
 const MAX_PARTICLES = 2000; // Hard limit on total particle count to prevent freezing
@@ -38,7 +38,7 @@ const DRAG_RELEASE_STILLNESS_MS = 120; // Time threshold to consider the pointer
 const DRAG_RELEASE_SPEED_THRESHOLD = 0.02; // Velocity threshold (px/ms) to treat the release as stationary.
 
 // Merge animation configuration
-const MERGE_GATHER_SPEED = 8.0; // High speed for particles flying together during merge
+const MERGE_GATHER_SPEED = 10.0; // Faster gather speed so size merges keep up with higher spawn rates
 const MERGE_GATHER_THRESHOLD = 2; // Distance threshold to consider particles gathered (pixels)
 const MERGE_TIMEOUT_MS = 2000; // Maximum time for merge animation (milliseconds)
 const SHOCKWAVE_SPEED = 3.0; // Speed at which shockwave expands
@@ -51,11 +51,20 @@ const SHOCKWAVE_EDGE_THICKNESS = 10; // Thickness of shockwave edge for force ap
 const FORGE_POSITION = { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.5 };
 
 // Particle spawner configuration (mini forges for each unlocked particle type)
-const SPAWNER_SIZE = 8; // Size of spawner forge triangles (smaller than main forge)
+const SPAWNER_SIZE = 8.8; // Size of spawner forge triangles (10% larger than before)
 const SPAWNER_ROTATION_SPEED = 0.03; // Rotation speed for spawner triangles
 const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
 const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER * 1.15; // Influence radius for each spawner (increased by 15%)
-const SPAWNER_TANGENTIAL_STRENGTH = 0.01; // Add a gentle orbit bias so spawner gravity isn't perfectly radial.
+const SPAWNER_TANGENTIAL_STRENGTH = -0.0005; // Apply a slight counter-orbit bias to soften tangential gravity.
+
+// Particle veer behavior configuration (developer-toggleable).
+const VEER_ANGLE_MIN_DEG = 0.1; // Minimum veer angle in degrees.
+const VEER_ANGLE_MAX_DEG = 1; // Maximum veer angle in degrees.
+const VEER_INTERVAL_MIN_MS = 100; // Minimum interval between veer nudges in milliseconds.
+const VEER_INTERVAL_MAX_MS = 1000; // Maximum interval between veer nudges in milliseconds.
+
+// Utility to generate a random number within an inclusive range.
+const getRandomInRange = (min, max) => min + Math.random() * (max - min);
 
 // Generator positions: sand at top center (12 o'clock), then 10 more in clockwise circle
 // All 11 generators are equidistant from each other on a circle around the forge
@@ -184,6 +193,9 @@ class Particle {
     this._sizeModifier = SIZE_VELOCITY_MODIFIERS[sizeIndex] || 1.0;
     this._maxVelocity = MAX_VELOCITY * this._sizeModifier;
     this._minVelocity = MIN_VELOCITY * this._sizeModifier;
+
+    // Track when this particle should apply its next random veer adjustment.
+    this.nextVeerTime = performance.now() + getRandomInRange(VEER_INTERVAL_MIN_MS, VEER_INTERVAL_MAX_MS);
     
     this.lockedToMouse = false; // Whether particle is locked to mouse/touch
     this.mouseTarget = null; // Target position when locked to mouse
@@ -203,7 +215,7 @@ class Particle {
     return this._size;
   }
 
-  update(forge, spawners = [], deltaFrameRatio = 1) {
+  update(forge, spawners = [], deltaFrameRatio = 1, now = Date.now(), veerEnabled = false) {
     // Guard against invalid delta ratios so taps can't destabilize the integrator.
     const clampedDelta = Math.max(deltaFrameRatio, 0.01);
 
@@ -291,6 +303,24 @@ class Particle {
       }
     }
     
+    // Apply a subtle randomized veer to the velocity vector when enabled.
+    if (veerEnabled && !this.merging && !this.lockedToMouse && now >= this.nextVeerTime) {
+      const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+      if (speed > 0) {
+        const veerDegrees = getRandomInRange(VEER_ANGLE_MIN_DEG, VEER_ANGLE_MAX_DEG);
+        const veerAngle = (veerDegrees * Math.PI) / 180;
+        const direction = Math.random() < 0.5 ? -1 : 1;
+        const rotation = veerAngle * direction;
+        const cosTheta = Math.cos(rotation);
+        const sinTheta = Math.sin(rotation);
+        const rotatedVx = this.vx * cosTheta - this.vy * sinTheta;
+        const rotatedVy = this.vx * sinTheta + this.vy * cosTheta;
+        this.vx = rotatedVx;
+        this.vy = rotatedVy;
+      }
+      this.nextVeerTime = now + getRandomInRange(VEER_INTERVAL_MIN_MS, VEER_INTERVAL_MAX_MS);
+    }
+
     // Limit velocity with size-based modifier
     const maxVelocity = this._maxVelocity;
     const minVelocity = this._minVelocity;
@@ -448,12 +478,13 @@ export class BetSpireRender {
     this.particleTrailsEnabled = true; // Controls whether particles leave trails
     this.forgeGlowEnabled = true; // Controls whether forge and generators have glow effects
     this.smoothRenderingEnabled = true; // Controls whether rendering is smooth (anti-aliased) or pixelated
+    this.particleVeerEnabled = true; // Developer toggle for subtle randomized particle veer behavior
     
     // Developer debug flags (only visible when developer mode is active)
     this.particleSpawningEnabled = true; // Controls whether particles can spawn
     this.particleMergingEnabled = true; // Controls whether particles can merge (size increases)
     this.particlePromotionEnabled = true; // Controls whether particles can promote to higher tier
-    this.mergeShockwavesEnabled = true; // Controls whether merge shockwaves push nearby particles.
+    this.mergeShockwavesEnabled = false; // Controls whether merge shockwaves push nearby particles.
     
     // Store state reference for persistence
     this.state = state;
@@ -677,6 +708,15 @@ export class BetSpireRender {
     return selected;
   }
 
+  // Resolve the generator center position for a given particle tier.
+  getGeneratorCenterForTier(tierId) {
+    const tierIndex = PARTICLE_TIERS.findIndex(tier => tier.id === tierId);
+    if (tierIndex < 0 || tierIndex >= SPAWNER_POSITIONS.length) {
+      return null;
+    }
+    return SPAWNER_POSITIONS[tierIndex];
+  }
+
   /**
    * Enforce particle limit by aggressively merging small particles when count is too high.
    * This prevents freezing when there are too many particles.
@@ -687,11 +727,21 @@ export class BetSpireRender {
       return;
     }
 
-    // Group small particles by tier
+    // Group small particles by tier, only if they are in the generator center.
     const smallParticlesByTier = new Map();
     
     this.particles.forEach(particle => {
       if (particle.sizeIndex === SMALL_SIZE_INDEX && !particle.merging) {
+        const generatorCenter = this.getGeneratorCenterForTier(particle.tierId);
+        if (!generatorCenter) {
+          return;
+        }
+        const dx = particle.x - generatorCenter.x;
+        const dy = particle.y - generatorCenter.y;
+        const distanceSquared = dx * dx + dy * dy;
+        if (distanceSquared > GENERATOR_CONVERSION_RADIUS * GENERATOR_CONVERSION_RADIUS) {
+          return;
+        }
         const tierId = particle.tierId;
         if (!smallParticlesByTier.has(tierId)) {
           smallParticlesByTier.set(tierId, []);
@@ -709,15 +759,11 @@ export class BetSpireRender {
         // Take MERGE_THRESHOLD particles and convert them instantly to one medium particle
         const particlesToMerge = group.splice(0, MERGE_THRESHOLD);
         
-        // Calculate center point
-        let centerX = 0;
-        let centerY = 0;
-        particlesToMerge.forEach(p => {
-          centerX += p.x;
-          centerY += p.y;
-        });
-        centerX /= particlesToMerge.length;
-        centerY /= particlesToMerge.length;
+        // Use generator center so size merges only happen at the generator core.
+        const generatorCenter = this.getGeneratorCenterForTier(tierId);
+        if (!generatorCenter) {
+          return;
+        }
         
         // Mark particles for batch removal
         particlesToMerge.forEach(p => {
@@ -731,8 +777,8 @@ export class BetSpireRender {
           : null;
         
         const mediumParticle = new Particle(tierId, MEDIUM_SIZE_INDEX, spawnPos);
-        mediumParticle.x = centerX;
-        mediumParticle.y = centerY;
+        mediumParticle.x = generatorCenter.x;
+        mediumParticle.y = generatorCenter.y;
         this.particles.push(mediumParticle);
       }
     });
@@ -755,10 +801,22 @@ export class BetSpireRender {
 
     const particlesByTierAndSize = new Map();
 
-    // Group particles by tier and size anywhere on screen
+    // Group particles by tier and size, but only when they are within generator centers.
     this.particles.forEach(particle => {
       // Skip particles that are already merging
       if (particle.merging) return;
+
+      // Require the particle to be close to its generator center before merging.
+      const generatorCenter = this.getGeneratorCenterForTier(particle.tierId);
+      if (!generatorCenter) {
+        return;
+      }
+      const dx = particle.x - generatorCenter.x;
+      const dy = particle.y - generatorCenter.y;
+      const distanceSquared = dx * dx + dy * dy;
+      if (distanceSquared > GENERATOR_CONVERSION_RADIUS * GENERATOR_CONVERSION_RADIUS) {
+        return;
+      }
       
       const key = `${particle.tierId}-${particle.sizeIndex}`;
       if (!particlesByTierAndSize.has(key)) {
@@ -791,28 +849,23 @@ export class BetSpireRender {
     const selectedCandidate = mergeCandidates[Math.floor(Math.random() * mergeCandidates.length)];
     const particlesToMerge = this.selectRandomParticles(selectedCandidate.group, MERGE_THRESHOLD);
 
-    // Calculate center point of the particles to merge
-    let centerX = 0;
-    let centerY = 0;
-
-    particlesToMerge.forEach(p => {
-      centerX += p.x;
-      centerY += p.y;
-    });
-    centerX /= particlesToMerge.length;
-    centerY /= particlesToMerge.length;
+    // Use the generator center so size merges happen at the generator core.
+    const generatorCenter = this.getGeneratorCenterForTier(selectedCandidate.tierId);
+    if (!generatorCenter) {
+      return;
+    }
 
     // Mark particles as merging and set their target
     particlesToMerge.forEach(p => {
       p.merging = true;
-      p.mergeTarget = { x: centerX, y: centerY };
+      p.mergeTarget = { x: generatorCenter.x, y: generatorCenter.y };
     });
 
     // Create a merge animation entry
     this.activeMerges.push({
       particles: particlesToMerge,
-      targetX: centerX,
-      targetY: centerY,
+      targetX: generatorCenter.x,
+      targetY: generatorCenter.y,
       tierId: selectedCandidate.tierId,
       sizeIndex: selectedCandidate.sizeIndex + 1, // Next size tier
       startTime: Date.now()
@@ -1600,7 +1653,7 @@ export class BetSpireRender {
 
       // When performance is stressed, only update every nth particle per frame
       if (!isHighParticleCount || i % updateInterval === (now % updateInterval)) {
-        particle.update(this.forge, activeSpawners, deltaFrameRatio);
+        particle.update(this.forge, activeSpawners, deltaFrameRatio, now, this.particleVeerEnabled);
       }
 
       const styleKey = particle.getDrawStyleKey();
@@ -1617,7 +1670,7 @@ export class BetSpireRender {
     
     // Periodically attempt to merge particles (size merging)
     // Increase merge frequency when particle count is high
-    const mergeChance = isHighParticleCount ? 0.05 : 0.01; // 5% when high, 1% normally
+    const mergeChance = isHighParticleCount ? 0.1 : 0.03; // Faster size merges to keep up with higher spawn rates
     if (Math.random() < mergeChance) {
       this.attemptMerge();
     }
