@@ -47,11 +47,7 @@ const COLOR_TEXT_PLAYER = 'rgba(139, 247, 255, 0.9)';
 const COLOR_TEXT_ENEMY = 'rgba(255, 125, 235, 0.9)';
 const COLOR_TEXT_MUTED = 'rgba(247, 247, 245, 0.6)';
 const COLOR_NODE_GLOW = 'rgba(139, 247, 255, 0.5)';
-const COLOR_BACKGROUND_BLUE = 'rgba(64, 112, 160, 0.2)';
-const COLOR_BACKGROUND_EMBER = 'rgba(120, 40, 60, 0.25)';
-const BACKGROUND_NEURON_COUNT = 72;
 const FLOATING_LIGHT_COUNT = 56;
-const PARALLAX_LAYERS = 3;
 const COLOR_PLAYER_GLOW = 'rgba(160, 242, 255, 0.36)';
 const COLOR_ENEMY_GLOW = 'rgba(255, 84, 130, 0.36)';
 const COLOR_NEUTRAL_GLOW = 'rgba(255, 221, 120, 0.32)';
@@ -93,7 +89,6 @@ let lastStatsUpdate = 0;
 // Selected node for showing description
 let selectedNode = null;
 let descriptionModal = null;
-let parallaxNeurons = [];
 let floatingLights = [];
 
 // Physics state for drifting nodes
@@ -394,22 +389,8 @@ export function markConnectionsDirty() {
   connectionsDirty = true;
 }
 
-// Seed background neuron wisps and floating lights for parallax depth
+// Seed background neuron wisps and floating lights for ambient depth.
 function seedBackgroundElements(width, height) {
-  parallaxNeurons = Array.from({ length: BACKGROUND_NEURON_COUNT }, (_, index) => {
-    const layer = index % PARALLAX_LAYERS;
-    const depth = (layer + 1) / PARALLAX_LAYERS;
-    return {
-      x: Math.random(),
-      y: Math.random(),
-      depth,
-      layer,
-      sway: 6 + Math.random() * 14,
-      speed: 0.03 + Math.random() * 0.07,
-      phase: organicNoise(index + 1) * Math.PI * 2,
-    };
-  });
-
   floatingLights = Array.from({ length: FLOATING_LIGHT_COUNT }, (_, index) => {
     const ownershipRoll = Math.random();
     const hue = ownershipRoll < 0.4 ? 'player' : ownershipRoll < 0.8 ? 'enemy' : 'neutral';
@@ -420,7 +401,6 @@ function seedBackgroundElements(width, height) {
       vy: (Math.random() - 0.5) * 0.12,
       size: 0.9 + Math.random() * 3.6,
       hue,
-      layer: index % PARALLAX_LAYERS,
     };
   });
 }
@@ -959,11 +939,6 @@ function renderMap(deltaMs = 16) {
   mapContext.fillStyle = COLOR_BG;
   mapContext.fillRect(0, 0, width, height);
 
-  // Render parallax background if enabled
-  if (settings.parallaxLayers > 0) {
-    renderBackgroundParallax(mapContext, width, height, deltaMs, settings.parallaxLayers);
-  }
-
   // Render ambient particles if enabled
   if (settings.ambientParticles) {
     updateFloatingLights(deltaMs, width, height);
@@ -1067,60 +1042,6 @@ function buildNodePositions(territories, offsetX, offsetY, randomizeStarts = fal
   });
 }
 
-// Render atmospheric parallax layers with blurred neuron wisps
-function renderBackgroundParallax(ctx, width, height, deltaMs, maxLayers = PARALLAX_LAYERS) {
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-
-  parallaxNeurons.forEach((neuron, index) => {
-    // Skip layers beyond the max setting
-    if (neuron.layer >= maxLayers) {
-      return;
-    }
-
-    neuron.phase += neuron.speed * deltaMs * 0.001;
-    const parallaxOffset = 0.05 + neuron.layer * 0.01;
-    const px = neuron.x * width + currentPanX * parallaxOffset;
-    const py = neuron.y * height + currentPanY * parallaxOffset;
-    const wobble = Math.sin(neuron.phase * 2) * neuron.sway;
-    const radius = 10 * neuron.depth + neuron.layer * 0.8;
-    const alpha = 0.14 - neuron.layer * 0.01;
-
-    ctx.filter = `blur(${0.6 + neuron.layer * 0.85}px)`;
-
-    const gradient = ctx.createRadialGradient(
-      px,
-      py + wobble * 0.1,
-      radius * 0.18,
-      px,
-      py + wobble * 0.1,
-      radius * 1.8
-    );
-    gradient.addColorStop(0, COLOR_BACKGROUND_BLUE);
-    gradient.addColorStop(0.45, COLOR_NEURON_WEB);
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-    ctx.globalAlpha = Math.max(0.04, alpha);
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(px, py + wobble, radius * 1.8, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (index % 5 === 0) {
-      ctx.strokeStyle = COLOR_BACKGROUND_EMBER;
-      ctx.lineWidth = 0.5;
-      ctx.beginPath();
-      ctx.moveTo(px - wobble * 0.1, py - radius * 0.8);
-      ctx.quadraticCurveTo(px + wobble * 0.2, py, px + radius * 0.8, py + wobble * 0.1);
-      ctx.stroke();
-    }
-  });
-
-  ctx.filter = 'none';
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
 // Drift floating motes in screen space for mystical ambiance
 function updateFloatingLights(deltaMs, width, height) {
   const delta = deltaMs * 0.06;
@@ -1147,9 +1068,8 @@ function renderFloatingLightsOverlay(ctx, width, height) {
   ctx.globalAlpha = 0.32;
 
   floatingLights.forEach((light) => {
-    const parallaxOffset = 0.03 + light.layer * 0.01;
-    const px = light.x + currentPanX * parallaxOffset;
-    const py = light.y + currentPanY * parallaxOffset;
+    const px = light.x;
+    const py = light.y;
     const color = light.hue === 'player'
       ? COLOR_PLAYER_GLOW
       : light.hue === 'enemy'

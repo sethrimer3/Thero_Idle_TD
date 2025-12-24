@@ -7231,71 +7231,52 @@ body.graphics-mode-low .control-button {
   border-color: rgba(255, 228, 120, 0.8);
   background: rgba(42, 38, 12, 0.85);
   transform: translateY(-2px);
-  animation: achievement-glow 2s ease-in-out infinite;
   position: relative;
   overflow: visible;
 }
 
-@keyframes achievement-glow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(255, 228, 120, 0.4), var(--shadow);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(255, 228, 120, 0.7), var(--shadow);
-  }
-}
-
-.achievement-tile.achievement-earned-unclaimed::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 16px;
-  background: linear-gradient(45deg, 
-    transparent 0%, 
-    rgba(255, 228, 120, 0.3) 25%, 
-    transparent 50%, 
-    rgba(255, 228, 120, 0.3) 75%, 
-    transparent 100%);
-  background-size: 200% 200%;
-  animation: sparkle-sweep 3s linear infinite;
-  pointer-events: none;
-  z-index: -1;
-}
-
-@keyframes sparkle-sweep {
-  0% {
-    background-position: 0% 0%;
-  }
-  100% {
-    background-position: 200% 200%;
-  }
-}
-
 .achievement-tile.achievement-earned-unclaimed .achievement-icon {
-  animation: pulse-glow 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse-glow {
-  0%, 100% {
-    filter: brightness(1) drop-shadow(0 0 4px rgba(255, 228, 120, 0.6));
-  }
-  50% {
-    filter: brightness(1.2) drop-shadow(0 0 8px rgba(255, 228, 120, 0.9));
-  }
+  filter: brightness(1.1) drop-shadow(0 0 6px rgba(255, 228, 120, 0.6));
 }
 
 .achievement-tile.achievement-earned-unclaimed .achievement-status {
   color: rgba(255, 228, 120, 1);
   font-weight: 600;
-  animation: text-pulse 2s ease-in-out infinite;
 }
 
-@keyframes text-pulse {
-  0%, 100% {
-    opacity: 0.9;
+/* Sparkle hosts provide a coordinate space for firefly particles. */
+.achievement-sparkle-host {
+  position: relative;
+}
+
+/* Firefly-style sparkles for unclaimed achievements and buttons. */
+.achievement-sparkle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 236, 170, 0.95) 0%, rgba(255, 208, 110, 0.7) 45%, rgba(255, 208, 110, 0) 70%);
+  box-shadow: 0 0 10px rgba(255, 221, 130, 0.8);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(0, 0) scale(var(--sparkle-scale, 0.8));
+  animation: achievement-sparkle-float var(--sparkle-duration, 4s) ease-in-out forwards;
+  z-index: 2;
+}
+
+@keyframes achievement-sparkle-float {
+  0% {
+    opacity: 0;
   }
-  50% {
+  18% {
     opacity: 1;
+  }
+  70% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--sparkle-dx, 0px), var(--sparkle-dy, -12px)) scale(1.1);
   }
 }
 
@@ -9972,28 +9953,9 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .tab-button--unclaimed-achievements {
   position: relative;
   border-color: rgba(255, 228, 120, 0.6);
-  animation: achievement-glow 2s ease-in-out infinite;
-}
-
-.tab-button--unclaimed-achievements::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 12px;
-  background: linear-gradient(45deg, 
-    transparent 0%, 
-    rgba(255, 228, 120, 0.25) 25%, 
-    transparent 50%, 
-    rgba(255, 228, 120, 0.25) 75%, 
-    transparent 100%);
-  background-size: 200% 200%;
-  animation: sparkle-sweep 3s linear infinite;
-  pointer-events: none;
-  z-index: -1;
 }
 
 .tab-button--unclaimed-achievements .tab-icon {
-  animation: pulse-glow 1.5s ease-in-out infinite;
   text-shadow: 0 0 8px rgba(255, 228, 120, 0.7);
 }
 
@@ -10001,28 +9963,10 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .achievement-category-toggle--has-unclaimed {
   position: relative;
   border-color: rgba(255, 228, 120, 0.6);
-  animation: achievement-glow 2s ease-in-out infinite;
-}
-
-.achievement-category-toggle--has-unclaimed::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: 12px;
-  background: linear-gradient(45deg, 
-    transparent 0%, 
-    rgba(255, 228, 120, 0.2) 25%, 
-    transparent 50%, 
-    rgba(255, 228, 120, 0.2) 75%, 
-    transparent 100%);
-  background-size: 200% 200%;
-  animation: sparkle-sweep 3s linear infinite;
-  pointer-events: none;
-  z-index: -1;
 }
 
 .achievement-category-toggle--has-unclaimed .achievement-category-icon {
-  animation: pulse-glow 1.5s ease-in-out infinite;
+  text-shadow: 0 0 8px rgba(255, 228, 120, 0.7);
 }
 
 .tab-icon img {

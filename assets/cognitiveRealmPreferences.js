@@ -13,7 +13,6 @@ const DEFAULT_SETTINGS = Object.freeze({
   glow: false,
   nodeDrift: false,
   randomizedLayout: true, // Scatter nodes to new starting positions on load
-  parallaxLayers: 3, // Max parallax layers (can be reduced for performance)
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -29,7 +28,6 @@ let nodeDriftToggle = null;
 let nodeDriftState = null;
 let randomizedLayoutToggle = null;
 let randomizedLayoutState = null;
-let parallaxLayersButton = null;
 
 /**
  * Persist the current settings to localStorage.
@@ -47,6 +45,8 @@ function loadSettings() {
   if (stored && typeof stored === 'object') {
     settings = { ...DEFAULT_SETTINGS, ...stored };
   }
+  // Remove deprecated parallax settings now that the effect is disabled.
+  delete settings.parallaxLayers;
 }
 
 /**
@@ -64,27 +64,6 @@ function syncToggleState(input, stateLabel, enabled) {
   if (stateLabel) {
     stateLabel.textContent = enabled ? 'On' : 'Off';
   }
-}
-
-/**
- * Update the parallax layers button label to reflect the current setting.
- */
-function syncParallaxLayersButton() {
-  if (!parallaxLayersButton) {
-    return;
-  }
-  const label = settings.parallaxLayers === 0 ? 'Off' : settings.parallaxLayers;
-  parallaxLayersButton.textContent = `Parallax Layers · ${label}`;
-  parallaxLayersButton.setAttribute('aria-label', `Cycle parallax layers (current: ${label})`);
-}
-
-/**
- * Cycle through parallax layer counts (increment each click: 0, 1, 2, 3, 0, ...)
- */
-function cycleParallaxLayers() {
-  settings.parallaxLayers = settings.parallaxLayers >= 3 ? 0 : settings.parallaxLayers + 1;
-  persistSettings();
-  syncParallaxLayersButton();
 }
 
 /**
@@ -120,7 +99,6 @@ export function bindCognitiveRealmOptions() {
   nodeDriftState = document.getElementById('cognitive-realm-node-drift-state');
   randomizedLayoutToggle = document.getElementById('cognitive-realm-randomized-layout-toggle');
   randomizedLayoutState = document.getElementById('cognitive-realm-randomized-layout-state');
-  parallaxLayersButton = document.getElementById('cognitive-realm-parallax-layers-button');
 
   if (neuronConnectionsToggle) {
     neuronConnectionsToggle.addEventListener('change', (event) => {
@@ -157,13 +135,7 @@ export function bindCognitiveRealmOptions() {
     });
   }
 
-  if (parallaxLayersButton) {
-    parallaxLayersButton.addEventListener('click', cycleParallaxLayers);
-    syncParallaxLayersButton();
-  }
-
   // Sync UI with persisted settings
-  syncParallaxLayersButton();
   syncAllToggles();
 }
 
@@ -186,9 +158,10 @@ export function getCognitiveRealmVisualSettings() {
  */
 export function applyCognitiveRealmVisualSettings(newSettings, { persist = true } = {}) {
   settings = { ...DEFAULT_SETTINGS, ...newSettings };
+  // Drop deprecated parallax settings if an older save still includes them.
+  delete settings.parallaxLayers;
   if (persist) {
     persistSettings();
   }
-  syncParallaxLayersButton();
   syncAllToggles();
 }
