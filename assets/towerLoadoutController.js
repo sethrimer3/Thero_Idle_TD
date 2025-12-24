@@ -424,16 +424,27 @@ export function createTowerLoadoutController({
       width: wheelState.container.offsetWidth || 0,
       height: wheelState.container.offsetHeight || 0,
     };
+    // Prefer the active playfield bounds so the wheel stays inside the battlefield when a level is running.
+    const playfield = safeGetPlayfield();
+    const playfieldBounds =
+      playfield?.isInteractiveLevelActive?.() && playfield?.container?.getBoundingClientRect?.()
+        ? playfield.container.getBoundingClientRect()
+        : null;
+    const boundaryRect = loadoutContainer?.getBoundingClientRect?.() || playfieldBounds;
     const anchorCenterY = anchorRect.top + anchorRect.height / 2;
     const scrollX = window.scrollX || window.pageXOffset || 0;
     const scrollY = window.scrollY || window.pageYOffset || 0;
-    const maxLeft = Math.max(0, viewportWidth - containerRect.width - 8);
-    const maxTop = Math.max(0, viewportHeight - containerRect.height - 8);
+    const minLeft = (boundaryRect?.left ?? 0) + 8;
+    const minTop = (boundaryRect?.top ?? 0) + 8;
+    const maxLeft = (boundaryRect?.right ?? viewportWidth) - containerRect.width - 8;
+    const maxTop = (boundaryRect?.bottom ?? viewportHeight) - containerRect.height - 8;
+    const boundedMaxLeft = Math.max(minLeft, maxLeft);
+    const boundedMaxTop = Math.max(minTop, maxTop);
     // Anchor the wheel to the slot's left edge so the glyph column sits directly atop the held slot.
     const desiredLeft = anchorRect.left;
     const desiredTop = anchorCenterY - containerRect.height / 2;
-    const left = Math.min(maxLeft, Math.max(8, desiredLeft));
-    const top = Math.min(maxTop, Math.max(8, desiredTop));
+    const left = Math.min(boundedMaxLeft, Math.max(minLeft, desiredLeft));
+    const top = Math.min(boundedMaxTop, Math.max(minTop, desiredTop));
     // Track how far the wheel was clamped vertically so the list can be nudged to stay aligned with the held slot.
     wheelState.verticalOffset = desiredTop - top;
     // Track horizontal clamp offset so the wheel contents can stay centered on the slot even near the viewport edge.
@@ -558,12 +569,6 @@ export function createTowerLoadoutController({
       const infoRow = document.createElement('div');
       infoRow.className = 'tower-loadout-wheel__info';
 
-      // Keep the glyph and its price paired so the wheel stays text-light.
-      const label = document.createElement('span');
-      label.className = 'tower-loadout-wheel__label';
-      label.textContent = definition.symbol || definition.name || definition.id;
-      infoRow.append(label);
-
       const costValue = Number.isFinite(costState.anchorCostValue) ? costState.anchorCostValue : 0;
       const costLabel = document.createElement('span');
       costLabel.className = 'tower-loadout-wheel__cost';
@@ -605,8 +610,15 @@ export function createTowerLoadoutController({
     const listGap = Number.parseFloat(gapValue) || 0;
     const totalHeight = itemHeight * Math.max(1, towers.length) + listGap * Math.max(0, towers.length - 1);
     const viewportHeight = document.documentElement?.clientHeight || window.innerHeight || totalHeight;
+    // Keep the wheel height within the active playfield to prevent overflow beyond the battlefield.
+    const playfield = safeGetPlayfield();
+    const playfieldBounds =
+      playfield?.isInteractiveLevelActive?.() && playfield?.container?.getBoundingClientRect?.()
+        ? playfield.container.getBoundingClientRect()
+        : null;
+    const availableHeight = playfieldBounds?.height ? playfieldBounds.height - 24 : viewportHeight - 24;
     // Clamp the wheel height to the viewport so the active option can sit over the slot without clipping off-screen.
-    const clampedHeight = Math.min(totalHeight, Math.max(itemHeight * 3, viewportHeight - 24));
+    const clampedHeight = Math.min(totalHeight, Math.max(itemHeight * 3, availableHeight));
     list.style.setProperty('--tower-loadout-wheel-height', `${clampedHeight}px`);
     updateLoadoutWheelTransform({ immediate });
   }
@@ -723,6 +735,12 @@ export function createTowerLoadoutController({
       setLoadoutWheelTarget(currentTarget + deltaIndex);
     });
 
+    // Anchor the wheel within the playfield during active levels to prevent bleed outside the battlefield.
+    const playfield = safeGetPlayfield();
+    const loadoutContainer =
+      playfield?.isInteractiveLevelActive?.() && playfield?.container
+        ? playfield.container
+        : safeGetLoadoutElements()?.container || null;
     positionLoadoutWheel(anchorElement, loadoutContainer);
 
     wheelState.outsideHandler = (event) => {

@@ -328,58 +328,6 @@
                     <dd id="playfield-energy">—</dd>
                   </div>
                 </dl>
-                <!-- Playfield Visual Settings - Only visible when in a level -->
-                <div class="playfield-settings-wrapper" id="playfield-settings-wrapper" hidden aria-hidden="true">
-                  <button
-                    class="action-button playfield-settings-trigger"
-                    type="button"
-                    id="playfield-settings-toggle"
-                    aria-expanded="false"
-                    aria-controls="playfield-settings-menu"
-                  >
-                    <span class="playfield-settings-trigger__icon" aria-hidden="true">℘</span>
-                    <span class="playfield-settings-trigger__label">Settings</span>
-                  </button>
-                  <div
-                    class="playfield-settings-menu"
-                    id="playfield-settings-menu"
-                    data-open="false"
-                    aria-hidden="true"
-                    hidden
-                  >
-                    <div class="settings-toggle" id="playfield-enemy-particles-toggle-row">
-                      <div class="settings-toggle-text">
-                        <span class="settings-toggle-title" id="playfield-enemy-particles-title">Enemy Particles</span>
-                        <span
-                          class="settings-toggle-description"
-                          id="playfield-enemy-particles-description"
-                          >Particle effects around enemies for enhanced visual feedback.</span
-                        >
-                      </div>
-                      <label class="settings-toggle-control" for="playfield-enemy-particles-toggle">
-                        <input
-                          type="checkbox"
-                          id="playfield-enemy-particles-toggle"
-                          class="settings-toggle-input"
-                          role="switch"
-                          aria-labelledby="playfield-enemy-particles-title"
-                          aria-describedby="playfield-enemy-particles-description"
-                          aria-checked="true"
-                          checked
-                        />
-                        <span class="settings-toggle-slider" aria-hidden="true"></span>
-                        <span class="settings-toggle-state" id="playfield-enemy-particles-state">On</span>
-                      </label>
-                    </div>
-                    <button class="action-button ghost" type="button" id="playfield-track-type-button">
-                      Track Type · Gradient
-                    </button>
-                    <button class="action-button ghost" type="button" id="tower-loadout-toggle-side-button">
-                      Tower Toggle · Left
-                    </button>
-                    <button class="action-button ghost playfield-settings-close" type="button">Close</button>
-                  </div>
-                </div>
                 <div class="tower-loadout-shell" id="tower-loadout-shell" data-toggle-side="left">
                   <button
                     class="tower-loadout-toggle"
@@ -398,6 +346,58 @@
                     </p>
                     <div class="tower-loadout-grid" id="tower-loadout-grid" role="list"></div>
                   </div>
+                </div>
+              </div>
+              <!-- Playfield Visual Settings - Only visible when in a level -->
+              <div class="playfield-settings-wrapper" id="playfield-settings-wrapper" hidden aria-hidden="true">
+                <button
+                  class="action-button playfield-settings-trigger"
+                  type="button"
+                  id="playfield-settings-toggle"
+                  aria-expanded="false"
+                  aria-controls="playfield-settings-menu"
+                >
+                  <span class="playfield-settings-trigger__icon" aria-hidden="true">℘</span>
+                  <span class="playfield-settings-trigger__label">Settings</span>
+                </button>
+                <div
+                  class="playfield-settings-menu"
+                  id="playfield-settings-menu"
+                  data-open="false"
+                  aria-hidden="true"
+                  hidden
+                >
+                  <div class="settings-toggle" id="playfield-enemy-particles-toggle-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="playfield-enemy-particles-title">Enemy Particles</span>
+                      <span
+                        class="settings-toggle-description"
+                        id="playfield-enemy-particles-description"
+                        >Particle effects around enemies for enhanced visual feedback.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="playfield-enemy-particles-toggle">
+                      <input
+                        type="checkbox"
+                        id="playfield-enemy-particles-toggle"
+                        class="settings-toggle-input"
+                        role="switch"
+                        aria-labelledby="playfield-enemy-particles-title"
+                        aria-describedby="playfield-enemy-particles-description"
+                        aria-checked="true"
+                        checked
+                      />
+                      <span class="settings-toggle-slider" aria-hidden="true"></span>
+                      <span class="settings-toggle-state" id="playfield-enemy-particles-state">On</span>
+                    </label>
+                  </div>
+                  <button class="action-button ghost" type="button" id="playfield-track-type-button">
+                    Track Type · Gradient
+                  </button>
+                  <button class="action-button ghost" type="button" id="tower-loadout-toggle-side-button">
+                    Tower Toggle · Left
+                  </button>
+                  <button class="action-button ghost playfield-settings-close" type="button">Close</button>
                 </div>
               </div>
               <!-- Combat stats panel sits below the battlefield so gameplay remains interactive. -->
