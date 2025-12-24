@@ -981,6 +981,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   // Terrarium items dropdown for managing and upgrading items in the Bet Spire.
   let fluidTerrariumItemsDropdown = null;
 
+  // Achievements terrarium visual components - mirrors Bet terrarium but in achievements tab
+  let achievementsTerrariumCreatures = null;
+  let achievementsTerrariumBirds = null;
+  let achievementsTerrariumCrystal = null;
+  let achievementsTerrariumTrees = null;
+  let achievementsTerrariumGrass = null;
+  let achievementsTerrariumWater = null;
+  let achievementsTerrariumSkyCycle = null;
+  let achievementsTerrariumCelestialBodies = null;
+  let achievementsTerrariumShrooms = null;
+
   // Expose Bet terrarium overlays to the visual settings module so the new options menu can pause heavy effects.
   setFluidTerrariumGetters({
     getCreatures: () => fluidTerrariumCreatures,
@@ -1327,6 +1338,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
     handleCelestialPlacement({ storeItem: { celestialBody } });
+    
+    // Also show in achievements terrarium
+    if (achievementsTerrariumElements.terrariumSun && celestialBody === 'sun') {
+      achievementsTerrariumElements.terrariumSun.hidden = false;
+      achievementsTerrariumElements.terrariumSun.style.display = '';
+    }
+    if (achievementsTerrariumElements.terrariumMoon && celestialBody === 'moon') {
+      achievementsTerrariumElements.terrariumMoon.hidden = false;
+      achievementsTerrariumElements.terrariumMoon.style.display = '';
+    }
   }
 
   /**
