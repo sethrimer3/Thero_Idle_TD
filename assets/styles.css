@@ -9952,6 +9952,63 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   box-shadow: 0 0 20px rgba(168, 107, 255, 0.35), 0 12px 20px rgba(0, 0, 0, 0.28);
 }
 
+/* Golden shimmer effect for achievement tab button when unclaimed achievements exist */
+.tab-button--unclaimed-achievements {
+  position: relative;
+  border-color: rgba(255, 228, 120, 0.6);
+  animation: achievement-glow 2s ease-in-out infinite;
+}
+
+.tab-button--unclaimed-achievements::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 12px;
+  background: linear-gradient(45deg, 
+    transparent 0%, 
+    rgba(255, 228, 120, 0.25) 25%, 
+    transparent 50%, 
+    rgba(255, 228, 120, 0.25) 75%, 
+    transparent 100%);
+  background-size: 200% 200%;
+  animation: sparkle-sweep 3s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.tab-button--unclaimed-achievements .tab-icon {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+  text-shadow: 0 0 8px rgba(255, 228, 120, 0.7);
+}
+
+/* Golden shimmer effect for achievement category dropdowns with unclaimed achievements */
+.achievement-category-toggle--has-unclaimed {
+  position: relative;
+  border-color: rgba(255, 228, 120, 0.6);
+  animation: achievement-glow 2s ease-in-out infinite;
+}
+
+.achievement-category-toggle--has-unclaimed::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 12px;
+  background: linear-gradient(45deg, 
+    transparent 0%, 
+    rgba(255, 228, 120, 0.2) 25%, 
+    transparent 50%, 
+    rgba(255, 228, 120, 0.2) 75%, 
+    transparent 100%);
+  background-size: 200% 200%;
+  animation: sparkle-sweep 3s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.achievement-category-toggle--has-unclaimed .achievement-category-icon {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
 .tab-icon img {
   display: block;
   width: 1.75rem;
