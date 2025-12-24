@@ -9956,18 +9956,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .tab-button--unclaimed-achievements {
   position: relative;
   border-color: rgba(255, 228, 120, 0.6);
-  animation: tab-achievement-glow 2s ease-in-out infinite;
-}
-
-@keyframes tab-achievement-glow {
-  0%, 100% {
-    box-shadow: 0 0 15px rgba(255, 228, 120, 0.4), var(--shadow);
-    border-color: rgba(255, 228, 120, 0.6);
-  }
-  50% {
-    box-shadow: 0 0 25px rgba(255, 228, 120, 0.7), var(--shadow);
-    border-color: rgba(255, 228, 120, 0.9);
-  }
+  animation: achievement-glow 2s ease-in-out infinite;
 }
 
 .tab-button--unclaimed-achievements::before {
@@ -9996,18 +9985,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .achievement-category-toggle--has-unclaimed {
   position: relative;
   border-color: rgba(255, 228, 120, 0.6);
-  animation: category-achievement-glow 2s ease-in-out infinite;
-}
-
-@keyframes category-achievement-glow {
-  0%, 100% {
-    box-shadow: 0 0 12px rgba(255, 228, 120, 0.3);
-    border-color: rgba(255, 228, 120, 0.6);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(255, 228, 120, 0.6);
-    border-color: rgba(255, 228, 120, 0.9);
-  }
+  animation: achievement-glow 2s ease-in-out infinite;
 }
 
 .achievement-category-toggle--has-unclaimed::after {
