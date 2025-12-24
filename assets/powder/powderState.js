@@ -125,6 +125,31 @@ export function createPowderStateContext() {
   const powderGlyphColumns = [];
   const fluidGlyphColumns = [];
 
+  // Achievements terrarium elements - separate visual from Bet spire terrarium
+  const achievementsTerrariumElements = {
+    host: null,
+    card: null,
+    canvas: null,
+    basin: null,
+    terrariumLayer: null,
+    terrariumStage: null,
+    terrariumMedia: null,
+    terrariumSky: null,
+    terrariumStarsNear: null,
+    terrariumStarsFar: null,
+    terrariumSun: null,
+    terrariumMoon: null,
+    floatingIslandSprite: null,
+    floatingIslandCollisionSprite: null,
+    terrainSprite: null,
+    terrainCollisionSprite: null,
+    viewport: null,
+    terrariumItemsToggle: null,
+    terrariumItemsDropdown: null,
+    terrariumItemsEmpty: null,
+    terrariumItemsList: null,
+  };
+
   let powderElementsRef = null;
 
   // Getter for powder overlay elements that preserves the shared reference used by DOM helpers.
@@ -138,6 +163,7 @@ export function createPowderStateContext() {
     powderConfig,
     powderState,
     fluidElements,
+    achievementsTerrariumElements,
     powderGlyphColumns,
     fluidGlyphColumns,
     getPowderElements,

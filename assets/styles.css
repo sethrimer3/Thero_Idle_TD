@@ -7178,6 +7178,18 @@ body.graphics-mode-low .control-button {
   color: var(--bg);
   font-family: "Cormorant Garamond", serif;
   font-size: 1.5rem;
+  /* Add white outline around achievement icons */
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.95);
+}
+
+/* Locked (unearned) achievements - grayscale and dimmer */
+.achievement-tile:not(.achievement-earned-unclaimed):not(.achievement-claimed) .achievement-icon {
+  filter: grayscale(100%) brightness(0.6);
+  opacity: 0.75;
+}
+
+.achievement-tile:not(.achievement-earned-unclaimed):not(.achievement-claimed) .achievement-label {
+  opacity: 0.7;
 }
 
 .achievement-label {

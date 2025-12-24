@@ -157,6 +157,7 @@ function scheduleAchievementSparkles(host) {
 }
 
 // Enable or disable sparkles for a given host element.
+// When enabled, includes a 1-second initial delay to prevent buildup when becoming visible.
 function setAchievementSparkleEmitter(host, enabled) {
   if (!host) {
     return;
@@ -167,7 +168,15 @@ function setAchievementSparkleEmitter(host, enabled) {
     }
     host.classList.add('achievement-sparkle-host');
     sparkleEmitters.set(host, { timeoutId: null });
-    scheduleAchievementSparkles(host);
+    // Add 1-second initial delay before sparkles start to prevent buildup
+    const initialDelay = 1000;
+    const emitter = sparkleEmitters.get(host);
+    emitter.timeoutId = window.setTimeout(() => {
+      if (!sparkleEmitters.has(host)) {
+        return;
+      }
+      scheduleAchievementSparkles(host);
+    }, initialDelay);
   } else if (sparkleEmitters.has(host)) {
     const emitter = sparkleEmitters.get(host);
     if (emitter?.timeoutId) {
@@ -179,7 +188,7 @@ function setAchievementSparkleEmitter(host, enabled) {
 }
 
 // Stop all sparkle emitters before tearing down or rebuilding DOM elements.
-function stopAllAchievementSparkles() {
+export function stopAllAchievementSparkles() {
   sparkleEmitters.forEach((emitter, host) => {
     if (emitter?.timeoutId) {
       window.clearTimeout(emitter.timeoutId);
@@ -695,12 +704,32 @@ function toggleDropdown(categoryId) {
     dropdownContent.style.display = 'none';
     toggleButton.setAttribute('aria-expanded', 'false');
     toggleButton.classList.remove('achievement-category-toggle--expanded');
+    
+    // Stop sparkles for achievements in this category when closing
+    const categoryAchievements = achievementsByCategory.get(categoryId) || [];
+    categoryAchievements.forEach(def => {
+      const element = achievementElements.get(def.id);
+      if (element?.container) {
+        setAchievementSparkleEmitter(element.container, false);
+      }
+    });
   } else {
     openDropdowns.add(categoryId);
     dropdownContent.hidden = false;
     dropdownContent.style.display = 'block';
     toggleButton.setAttribute('aria-expanded', 'true');
     toggleButton.classList.add('achievement-category-toggle--expanded');
+    
+    // Re-enable sparkles for unclaimed achievements in this category after opening
+    // The 1-second delay in setAchievementSparkleEmitter prevents buildup
+    const categoryAchievements = achievementsByCategory.get(categoryId) || [];
+    categoryAchievements.forEach(def => {
+      const state = achievementState.get(def.id);
+      const element = achievementElements.get(def.id);
+      if (element?.container && state?.earned && !state?.claimed) {
+        setAchievementSparkleEmitter(element.container, true);
+      }
+    });
   }
 }
 
