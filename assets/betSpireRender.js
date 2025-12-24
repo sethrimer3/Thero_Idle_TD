@@ -1514,8 +1514,10 @@ export class BetSpireRender {
       shockwave.alpha = 0.8 * (1 - progress);
       
       // Performance optimization: Calculate maximum distance a particle can be from shockwave
-      // to be affected. Only check particles within this range to avoid O(shockwaves × all_particles).
-      const maxAffectDistance = SHOCKWAVE_MAX_RADIUS + SHOCKWAVE_EDGE_THICKNESS;
+      // to be affected by its force. Includes SHOCKWAVE_EDGE_THICKNESS because particles
+      // within this distance from the expanding edge receive push force.
+      // Only check particles within this range to avoid O(shockwaves × all_particles).
+      const maxEffectDistance = SHOCKWAVE_MAX_RADIUS + SHOCKWAVE_EDGE_THICKNESS;
       
       // Apply push force to nearby particles
       for (const particle of this.particles) {
@@ -1528,7 +1530,7 @@ export class BetSpireRender {
         // Early bailout: Skip particles that are too far from shockwave center
         // This reduces complexity from O(all_particles) to O(nearby_particles)
         const distSquared = dx * dx + dy * dy;
-        if (distSquared > maxAffectDistance * maxAffectDistance) continue;
+        if (distSquared > maxEffectDistance * maxEffectDistance) continue;
         
         const dist = Math.sqrt(distSquared);
         
