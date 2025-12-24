@@ -833,6 +833,10 @@ function renderAchievementGrid() {
 
   achievementGridEl.setAttribute('role', 'region');
   achievementGridEl.append(fragment);
+  
+  // Update shimmer effects after rendering
+  updateAchievementTabShimmer();
+  updateCategoryDropdownShimmers();
 }
 
 // Lazily creates the overlay elements that provide the cinematic achievement reveal.
@@ -1266,6 +1270,10 @@ export function evaluateAchievements() {
   
   // Update category button counts after evaluating all achievements
   updateCategoryButtonCounts();
+  
+  // Update shimmer effects on tab button and category dropdowns
+  updateAchievementTabShimmer();
+  updateCategoryDropdownShimmers();
 }
 
 // Unlocks an achievement (marks it as earned but not yet claimed).
@@ -1351,11 +1359,59 @@ function claimAchievement(definition) {
   if (typeof updateStatusDisplays === 'function') {
     updateStatusDisplays();
   }
+  
+  // Update shimmer effects after claiming
+  updateAchievementTabShimmer();
+  updateCategoryDropdownShimmers();
 }
 
 // Returns the count of achievements that have been claimed.
 export function getUnlockedAchievementCount() {
   return Array.from(achievementState.values()).filter((state) => state?.earned && state?.claimed).length;
+}
+
+// Returns true if there are any unclaimed achievements (earned but not claimed)
+export function hasUnclaimedAchievements() {
+  return Array.from(achievementState.values()).some((state) => state?.earned && !state?.claimed);
+}
+
+// Check if a specific category has unclaimed achievements
+function categoryHasUnclaimedAchievements(categoryId) {
+  const categoryAchievements = achievementsByCategory.get(categoryId) || [];
+  return categoryAchievements.some(def => {
+    const state = achievementState.get(def.id);
+    return state?.earned && !state?.claimed;
+  });
+}
+
+// Update shimmer effect on achievement tab button
+function updateAchievementTabShimmer() {
+  const achievementTabButton = document.getElementById('tab-achievements');
+  if (!achievementTabButton) {
+    return;
+  }
+  
+  if (hasUnclaimedAchievements()) {
+    achievementTabButton.classList.add('tab-button--unclaimed-achievements');
+  } else {
+    achievementTabButton.classList.remove('tab-button--unclaimed-achievements');
+  }
+}
+
+// Update shimmer effect on category dropdowns
+function updateCategoryDropdownShimmers() {
+  ACHIEVEMENT_CATEGORIES.forEach(category => {
+    const toggleButton = document.querySelector(`[data-dropdown-toggle="${category.id}"]`);
+    if (!toggleButton) {
+      return;
+    }
+    
+    if (categoryHasUnclaimedAchievements(category.id)) {
+      toggleButton.classList.add('achievement-category-toggle--has-unclaimed');
+    } else {
+      toggleButton.classList.remove('achievement-category-toggle--has-unclaimed');
+    }
+  });
 }
 
 // Recomputes the idle powder reward provided by unlocked achievements.
