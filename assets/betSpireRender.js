@@ -55,6 +55,7 @@ const SPAWNER_SIZE = 8; // Size of spawner forge triangles (smaller than main fo
 const SPAWNER_ROTATION_SPEED = 0.03; // Rotation speed for spawner triangles
 const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
 const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER * 1.15; // Influence radius for each spawner (increased by 15%)
+const SPAWNER_TANGENTIAL_STRENGTH = 0.25; // Add a gentle orbit bias so spawner gravity isn't perfectly radial.
 
 // Generator positions: sand at top center (12 o'clock), then 10 more in clockwise circle
 // All 11 generators are equidistant from each other on a circle around the forge
@@ -263,6 +264,11 @@ class Particle {
           const angle = Math.atan2(dy, dx);
           this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
           this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
+          // Add a small tangential nudge so particles enter the generator field at a slight angle.
+          const tangentialAngle = angle + Math.PI / 2;
+          const tangentialForce = force * SPAWNER_TANGENTIAL_STRENGTH;
+          this.vx += Math.cos(tangentialAngle) * tangentialForce * FORCE_SCALE * clampedDelta;
+          this.vy += Math.sin(tangentialAngle) * tangentialForce * FORCE_SCALE * clampedDelta;
         }
       }
 
