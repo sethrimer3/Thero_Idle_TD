@@ -198,7 +198,7 @@ import {
 } from '../scripts/features/towers/omegaTower.js';
 
 // Limit the backing resolution for the playfield canvas to keep GPU memory usage stable on dense displays.
-const MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 2;
+const MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
