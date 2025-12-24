@@ -1876,7 +1876,7 @@ body.graphics-mode-low .control-button {
 .tower-loadout-wheel__item {
   display: grid;
   /* Reserve a fixed art column so tower icons remain full-size. */
-  grid-template-columns: 52px 1fr;
+  grid-template-columns: 52px max-content;
   gap: 2px; /* Reduced from 6px to bring icon and cost closer */
   align-items: center;
   padding: 8px 10px;
@@ -1907,8 +1907,9 @@ body.graphics-mode-low .control-button {
   grid-column: 2;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  /* Keep cost text tucked next to the icon instead of spreading across the row. */
+  justify-content: flex-start;
+  gap: 6px;
 }
 
 .tower-loadout-wheel__label {
