@@ -135,7 +135,8 @@ export function renderTowerSelectionWheel() {
     const absoluteDelta = Math.max(0, Math.abs(costDelta));
     const formattedDelta = formatCombatNumber(absoluteDelta);
     const prefix = costDelta < 0 ? '+' : '';
-    costLabel.textContent = `${prefix}${formattedDelta} ${this.theroSymbol}`;
+    // Remove space between number and symbol, display just the cost value and symbol
+    costLabel.textContent = `${prefix}${formattedDelta}${this.theroSymbol}`;
     item.append(costLabel);
 
     const netAffordable = costDelta <= 0 || this.energy >= costDelta;
@@ -337,20 +338,21 @@ export function positionTowerSelectionWheel(tower) {
   }
   const screen = this.worldToScreen({ x: tower.x, y: tower.y });
   const canvasRect = this.canvas.getBoundingClientRect();
-  const viewportWidth = document.documentElement?.clientWidth || window.innerWidth || 0;
-  const viewportHeight = document.documentElement?.clientHeight || window.innerHeight || 0;
   const scrollX = window.scrollX || window.pageXOffset || 0;
   const scrollY = window.scrollY || window.pageYOffset || 0;
   if (!screen || !canvasRect) {
     return;
   }
-  // Keep the selector inside the viewport so the scroll column is fully readable on edge towers.
+  // Constrain the selector to the playfield (canvas) boundaries only
   const baseLeft = canvasRect.left + screen.x - (wheel.container.offsetWidth || 0) / 2;
   const baseTop = canvasRect.top + screen.y - (wheel.container.offsetHeight || 0) / 2;
-  const maxLeft = Math.max(0, viewportWidth - (wheel.container.offsetWidth || 0) - 8);
-  const maxTop = Math.max(0, viewportHeight - (wheel.container.offsetHeight || 0) - 8);
-  let absoluteLeft = Math.min(maxLeft, Math.max(8, baseLeft)) + scrollX;
-  let absoluteTop = Math.min(maxTop, Math.max(8, baseTop)) + scrollY;
+  // Use canvas bounds instead of viewport to keep wheel within playfield
+  const maxLeft = canvasRect.left + canvasRect.width - (wheel.container.offsetWidth || 0) - 8;
+  const maxTop = canvasRect.top + canvasRect.height - (wheel.container.offsetHeight || 0) - 8;
+  const minLeft = canvasRect.left + 8;
+  const minTop = canvasRect.top + 8;
+  let absoluteLeft = Math.min(maxLeft, Math.max(minLeft, baseLeft)) + scrollX;
+  let absoluteTop = Math.min(maxTop, Math.max(minTop, baseTop)) + scrollY;
 
   wheel.container.style.left = `${absoluteLeft}px`;
   wheel.container.style.top = `${absoluteTop}px`;
@@ -369,17 +371,20 @@ export function positionTowerSelectionWheel(tower) {
     if (itemRect?.height) {
       const itemCenterY = (itemRect.top + itemRect.bottom) / 2;
       const deltaY = targetY - itemCenterY;
-      absoluteTop = Math.max(0, absoluteTop + deltaY);
+      // Clamp adjustments to keep within canvas bounds
+      absoluteTop = Math.min(maxTop, Math.max(minTop, absoluteTop + deltaY));
     }
 
     if (iconRect?.width) {
       const desiredIconRight = targetX - 8;
       const deltaX = desiredIconRight - iconRect.right;
-      absoluteLeft = Math.max(0, absoluteLeft + deltaX);
+      // Clamp adjustments to keep within canvas bounds
+      absoluteLeft = Math.min(maxLeft, Math.max(minLeft, absoluteLeft + deltaX));
     } else if (costRect?.left) {
       const desiredCostLeft = targetX + 6;
       const deltaX = desiredCostLeft - costRect.left;
-      absoluteLeft = Math.max(0, absoluteLeft + deltaX);
+      // Clamp adjustments to keep within canvas bounds
+      absoluteLeft = Math.min(maxLeft, Math.max(minLeft, absoluteLeft + deltaX));
     }
   }
 
