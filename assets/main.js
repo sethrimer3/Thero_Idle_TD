@@ -259,6 +259,7 @@ import {
   getUnlockedAchievementCount,
   notifyTowerPlaced,
   getAchievementPowderRate,
+  stopAllAchievementSparkles,
 } from './achievementsTab.js';
 import {
   configureBoostsSection,
@@ -6681,6 +6682,23 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             showCognitiveRealmMap();
           } else {
             hideCognitiveRealmMap();
+          }
+        }
+
+        // Handle achievements tab visibility for sparkle management
+        // Stop sparkles when leaving achievements tab, restart when entering
+        if (previousTabId === 'achievements' && tabId !== 'achievements') {
+          // Stop all achievement sparkles when leaving the tab
+          if (typeof stopAllAchievementSparkles === 'function') {
+            stopAllAchievementSparkles();
+          }
+        } else if (tabId === 'achievements' && previousTabId !== 'achievements') {
+          // Re-evaluate and restart sparkles after a brief delay when entering
+          // The 1-second delay in setAchievementSparkleEmitter prevents buildup
+          if (typeof evaluateAchievements === 'function') {
+            window.setTimeout(() => {
+              evaluateAchievements();
+            }, 50);
           }
         }
 
