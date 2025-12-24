@@ -41,6 +41,13 @@ let openDropdowns = new Set(); // Track which dropdowns are currently open
 let goldenTextContainer = null; // Container for golden text animations
 let goldenTextQueue = []; // Queue of text lines waiting to be displayed
 let goldenTextAnimating = false; // Whether golden text is currently animating
+// Track sparkle emitter timers for achievement glow replacements.
+const sparkleEmitters = new Map();
+// Define sparkle timing so fireflies feel occasional instead of constant.
+const SPARKLE_MIN_DURATION_MS = 3000;
+const SPARKLE_MAX_DURATION_MS = 5000;
+const SPARKLE_MIN_DELAY_MS = 1400;
+const SPARKLE_MAX_DELAY_MS = 2600;
 
 // Ensure the golden text container exists
 function ensureGoldenTextContainer() {
@@ -105,6 +112,81 @@ function animateNextGoldenText() {
       animateNextGoldenText();
     }, 400);
   }, 2000);
+}
+
+// Spawn a single golden sparkle that drifts like a firefly before fading.
+function createAchievementSparkle(host) {
+  const sparkle = document.createElement('span');
+  sparkle.className = 'achievement-sparkle';
+
+  const hostWidth = host.clientWidth || 1;
+  const hostHeight = host.clientHeight || 1;
+  const size = 6;
+  const left = Math.random() * Math.max(1, hostWidth - size);
+  const top = Math.random() * Math.max(1, hostHeight - size);
+  const driftX = (Math.random() - 0.5) * 32;
+  const driftY = (Math.random() - 0.5) * 26 - 8;
+  const scale = 0.6 + Math.random() * 0.7;
+  const duration = SPARKLE_MIN_DURATION_MS + Math.random() * (SPARKLE_MAX_DURATION_MS - SPARKLE_MIN_DURATION_MS);
+
+  sparkle.style.left = `${left}px`;
+  sparkle.style.top = `${top}px`;
+  sparkle.style.setProperty('--sparkle-dx', `${driftX}px`);
+  sparkle.style.setProperty('--sparkle-dy', `${driftY}px`);
+  sparkle.style.setProperty('--sparkle-scale', scale.toFixed(2));
+  sparkle.style.setProperty('--sparkle-duration', `${duration.toFixed(0)}ms`);
+
+  host.appendChild(sparkle);
+  sparkle.addEventListener('animationend', () => sparkle.remove(), { once: true });
+}
+
+// Schedule occasional sparkle spawns for a host element.
+function scheduleAchievementSparkles(host) {
+  const emitter = sparkleEmitters.get(host);
+  if (!emitter) {
+    return;
+  }
+  const delay = SPARKLE_MIN_DELAY_MS + Math.random() * (SPARKLE_MAX_DELAY_MS - SPARKLE_MIN_DELAY_MS);
+  emitter.timeoutId = window.setTimeout(() => {
+    if (!sparkleEmitters.has(host)) {
+      return;
+    }
+    createAchievementSparkle(host);
+    scheduleAchievementSparkles(host);
+  }, delay);
+}
+
+// Enable or disable sparkles for a given host element.
+function setAchievementSparkleEmitter(host, enabled) {
+  if (!host) {
+    return;
+  }
+  if (enabled) {
+    if (sparkleEmitters.has(host)) {
+      return;
+    }
+    host.classList.add('achievement-sparkle-host');
+    sparkleEmitters.set(host, { timeoutId: null });
+    scheduleAchievementSparkles(host);
+  } else if (sparkleEmitters.has(host)) {
+    const emitter = sparkleEmitters.get(host);
+    if (emitter?.timeoutId) {
+      window.clearTimeout(emitter.timeoutId);
+    }
+    sparkleEmitters.delete(host);
+    host.classList.remove('achievement-sparkle-host');
+  }
+}
+
+// Stop all sparkle emitters before tearing down or rebuilding DOM elements.
+function stopAllAchievementSparkles() {
+  sparkleEmitters.forEach((emitter, host) => {
+    if (emitter?.timeoutId) {
+      window.clearTimeout(emitter.timeoutId);
+    }
+    host.classList.remove('achievement-sparkle-host');
+  });
+  sparkleEmitters.clear();
 }
 
 // Clear any pending timeout that would reveal the overlay text.
@@ -680,6 +762,7 @@ function renderAchievementGrid() {
     return;
   }
 
+  stopAllAchievementSparkles();
   achievementElements.clear();
   achievementGridEl.innerHTML = '';
 
@@ -1135,6 +1218,8 @@ function updateAchievementStatus(definition, element, state) {
     if (container && status) {
       container.setAttribute('aria-label', `${definition.title} achievement. ${status.textContent} Activate to view details.`);
     }
+    // Disable sparkles for claimed achievements.
+    setAchievementSparkleEmitter(container, false);
   } else if (isEarned && !isClaimed) {
     // Earned but not claimed - show with glow and sparkle
     if (container) {
@@ -1158,6 +1243,8 @@ function updateAchievementStatus(definition, element, state) {
     if (container && status) {
       container.setAttribute('aria-label', `${definition.title} achievement. Ready to claim. Click to collect rewards.`);
     }
+    // Activate firefly sparkles for unclaimed achievements.
+    setAchievementSparkleEmitter(container, true);
   } else {
     // Not yet earned
     if (container) {
@@ -1178,6 +1265,8 @@ function updateAchievementStatus(definition, element, state) {
       const titleText = definition.secret ? SECRET_PLACEHOLDER_TEXT : definition.title;
       container.setAttribute('aria-label', `${titleText} achievement. ${status.textContent} Activate to view details.`);
     }
+    // Disable sparkles when achievements are locked or claimed.
+    setAchievementSparkleEmitter(container, false);
   }
 }
 
@@ -1396,6 +1485,8 @@ function updateAchievementTabShimmer() {
   } else {
     achievementTabButton.classList.remove('tab-button--unclaimed-achievements');
   }
+  // Keep the tab button sparkles in sync with unclaimed achievements.
+  setAchievementSparkleEmitter(achievementTabButton, hasUnclaimedAchievements());
 }
 
 // Update shimmer effect on category dropdowns
@@ -1411,6 +1502,8 @@ function updateCategoryDropdownShimmers() {
     } else {
       toggleButton.classList.remove('achievement-category-toggle--has-unclaimed');
     }
+    // Synchronize category sparkles with unclaimed achievements.
+    setAchievementSparkleEmitter(toggleButton, categoryHasUnclaimedAchievements(category.id));
   });
 }
 
