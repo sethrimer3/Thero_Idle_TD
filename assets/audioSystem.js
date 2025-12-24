@@ -41,8 +41,6 @@ function resolveDefaultSfxVolume() {
 export const DEFAULT_AUDIO_MANIFEST = {
   musicVolume: resolveDefaultMusicVolume(),
   sfxVolume: resolveDefaultSfxVolume(),
-  // Default to suppressing audio playback on mobile to avoid hijacking device media sessions.
-  avoidDeviceAudio: isLikelyMobileBrowser(),
   musicCrossfadeSeconds: 3,
   music: {
     levelSelect: { file: 'level_selection_music.mp3', loop: true, volume: 0.65 },
@@ -112,8 +110,6 @@ export class AudioManager {
     this.sfxDefinitions = manifest.sfx || {};
     this.musicVolume = this._clampVolume(manifest.musicVolume, 1);
     this.sfxVolume = this._clampVolume(manifest.sfxVolume, 1);
-    // Honor platform-aware suppression so mobile devices keep their own audio playing.
-    this.avoidDeviceAudio = Boolean(manifest.avoidDeviceAudio);
     this.musicElements = new Map();
     this.sfxPools = new Map();
     // Track looping sound effects so they can be stopped or adjusted later.
@@ -211,11 +207,6 @@ export class AudioManager {
    */
   playMusic(key, options = {}) {
     if (!key) {
-      return;
-    }
-
-    // Skip playback entirely when device audio should remain untouched.
-    if (this.avoidDeviceAudio) {
       return;
     }
 
@@ -330,11 +321,6 @@ export class AudioManager {
    */
   playSfx(key, options = {}) {
     if (!key) {
-      return;
-    }
-
-    // Skip playback entirely when device audio should remain untouched.
-    if (this.avoidDeviceAudio) {
       return;
     }
 
