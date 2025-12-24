@@ -1191,12 +1191,12 @@ export class BetSpireRender {
         // Mark that a merge completed (defer inventory update until after all merges processed)
         anyMergeCompleted = true;
         
-        // Create shockwave only for medium->large size merges (not for tier conversions or small->medium merges)
-        // Tier conversions use the "crunch" effect instead, and small->medium merges can cause crashes
+        // Create shockwave for size merges (not for tier conversions)
+        // Tier conversions use the "crunch" effect instead
         const tier = PARTICLE_TIERS.find(t => t.id === merge.tierId) || PARTICLE_TIERS[0];
-        const isMediumToLargeMerge = !merge.isTierConversion && merge.sizeIndex === LARGE_SIZE_INDEX;
-        if (this.mergeShockwavesEnabled && isMediumToLargeMerge) {
-          // Emit a shockwave ring only for medium->large merges
+        const isSizeMerge = !merge.isTierConversion;
+        if (this.mergeShockwavesEnabled && isSizeMerge) {
+          // Emit a shockwave ring for all size merges (small->medium and medium->large)
           this.shockwaves.push({
             x: merge.targetX,
             y: merge.targetY,
@@ -1513,6 +1513,10 @@ export class BetSpireRender {
       shockwave.radius = SHOCKWAVE_MAX_RADIUS * progress;
       shockwave.alpha = 0.8 * (1 - progress);
       
+      // Performance optimization: Calculate maximum distance a particle can be from shockwave
+      // to be affected. Only check particles within this range to avoid O(shockwaves × all_particles).
+      const maxAffectDistance = SHOCKWAVE_MAX_RADIUS + SHOCKWAVE_EDGE_THICKNESS;
+      
       // Apply push force to nearby particles
       for (const particle of this.particles) {
         // Skip particles that are merging
@@ -1520,7 +1524,13 @@ export class BetSpireRender {
         
         const dx = particle.x - shockwave.x;
         const dy = particle.y - shockwave.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Early bailout: Skip particles that are too far from shockwave center
+        // This reduces complexity from O(all_particles) to O(nearby_particles)
+        const distSquared = dx * dx + dy * dy;
+        if (distSquared > maxAffectDistance * maxAffectDistance) continue;
+        
+        const dist = Math.sqrt(distSquared);
         
         // Apply force if particle is near the expanding shockwave edge
         if (Math.abs(dist - shockwave.radius) < SHOCKWAVE_EDGE_THICKNESS && dist > 0) {
