@@ -1343,10 +1343,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (achievementsTerrariumElements.terrariumSun && celestialBody === 'sun') {
       achievementsTerrariumElements.terrariumSun.hidden = false;
       achievementsTerrariumElements.terrariumSun.style.display = '';
+      achievementsTerrariumElements.terrariumSun.style.opacity = '1';
     }
     if (achievementsTerrariumElements.terrariumMoon && celestialBody === 'moon') {
       achievementsTerrariumElements.terrariumMoon.hidden = false;
       achievementsTerrariumElements.terrariumMoon.style.display = '';
+      achievementsTerrariumElements.terrariumMoon.style.opacity = '1';
     }
   }
 
