@@ -9491,12 +9491,28 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   align-items: center;
 }
 
+/* Style the wave editor column header row. */
+.wave-editor-item--header {
+  padding: 0.4rem 0.75rem;
+  background: transparent;
+  border: none;
+  margin-bottom: 0.25rem;
+}
+
 .wave-editor-item__label {
   font-family: "Cormorant Garamond", serif;
   font-size: 0.85rem;
   font-weight: 600;
   color: rgba(255, 244, 212, 0.75);
   text-align: center;
+}
+
+/* Make header labels smaller and more understated than row labels. */
+.wave-editor-item__label--header {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 244, 212, 0.55);
 }
 
 .wave-editor-item__input {
