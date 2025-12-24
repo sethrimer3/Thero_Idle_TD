@@ -1191,10 +1191,12 @@ export class BetSpireRender {
         // Mark that a merge completed (defer inventory update until after all merges processed)
         anyMergeCompleted = true;
         
-        // Create shockwave
+        // Create shockwave only for medium->large size merges (not for tier conversions or small->medium merges)
+        // Tier conversions use the "crunch" effect instead, and small->medium merges can cause crashes
         const tier = PARTICLE_TIERS.find(t => t.id === merge.tierId) || PARTICLE_TIERS[0];
-        if (this.mergeShockwavesEnabled) {
-          // Emit a shockwave ring when merge bursts are enabled.
+        const isMediumToLargeMerge = !merge.isTierConversion && merge.sizeIndex === LARGE_SIZE_INDEX;
+        if (this.mergeShockwavesEnabled && isMediumToLargeMerge) {
+          // Emit a shockwave ring only for medium->large merges
           this.shockwaves.push({
             x: merge.targetX,
             y: merge.targetY,
@@ -1426,6 +1428,7 @@ export class BetSpireRender {
     if (this.isRunning) return;
     this.isRunning = true;
     this.lastFrameTime = performance.now(); // Reset delta baseline whenever the loop restarts
+    this.setupEventListeners(); // Re-attach event listeners when resuming
     this.animate();
   }
 
