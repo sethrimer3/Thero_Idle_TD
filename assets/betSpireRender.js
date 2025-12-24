@@ -55,7 +55,7 @@ const SPAWNER_SIZE = 8; // Size of spawner forge triangles (smaller than main fo
 const SPAWNER_ROTATION_SPEED = 0.03; // Rotation speed for spawner triangles
 const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
 const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER * 1.15; // Influence radius for each spawner (increased by 15%)
-const SPAWNER_TANGENTIAL_STRENGTH = 0.25; // Add a gentle orbit bias so spawner gravity isn't perfectly radial.
+const SPAWNER_TANGENTIAL_STRENGTH = 0.01; // Add a gentle orbit bias so spawner gravity isn't perfectly radial.
 
 // Generator positions: sand at top center (12 o'clock), then 10 more in clockwise circle
 // All 11 generators are equidistant from each other on a circle around the forge
@@ -825,6 +825,11 @@ export class BetSpireRender {
   attemptTierConversion() {
     // Skip tier conversion if disabled via developer controls
     if (!this.particlePromotionEnabled || !this.canStartNewMerge()) {
+      return;
+    }
+
+    // Only allow forge promotions during an active crunch effect so tiers advance on crunches only.
+    if (!this.forgeCrunchActive) {
       return;
     }
 
