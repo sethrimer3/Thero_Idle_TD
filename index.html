@@ -2145,11 +2145,36 @@
                       role="switch"
                       aria-labelledby="bet-merge-shockwaves-title"
                       aria-describedby="bet-merge-shockwaves-description"
+                      aria-checked="false"
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-merge-shockwaves-state">Off</span>
+                  </label>
+                </div>
+
+                <!-- Developer-only toggle for subtle particle veer motion. -->
+                <div class="settings-toggle" id="bet-particle-veer-toggle-row" hidden aria-hidden="true">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-particle-veer-title">🔧 Particle Veer</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-particle-veer-description"
+                      >Developer: Apply subtle randomized veering to particle motion.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-particle-veer-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-particle-veer-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-particle-veer-title"
+                      aria-describedby="bet-particle-veer-description"
                       aria-checked="true"
                       checked
                     />
                     <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="bet-merge-shockwaves-state">On</span>
+                    <span class="settings-toggle-state" id="bet-particle-veer-state">On</span>
                   </label>
                 </div>
 

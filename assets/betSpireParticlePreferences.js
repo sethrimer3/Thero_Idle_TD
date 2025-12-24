@@ -16,7 +16,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   particleSpawning: true,
   particleMerging: true,
   particlePromotion: true,
-  mergeShockwaves: true, // Developer toggle for merge burst shockwaves.
+  mergeShockwaves: false, // Developer toggle for merge burst shockwaves.
+  particleVeer: true, // Developer toggle for subtle particle veer behavior.
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -37,6 +38,9 @@ let particlePromotionStateLabel = null;
 // Developer-only merge shockwave toggle elements.
 let mergeShockwavesToggle = null;
 let mergeShockwavesStateLabel = null;
+// Developer-only particle veer toggle elements.
+let particleVeerToggle = null;
+let particleVeerStateLabel = null;
 
 // Getter for the active BetSpireRender instance
 let getBetSpireRenderInstance = () => null;
@@ -75,6 +79,7 @@ function syncAllToggles() {
   syncToggleState(particleMergingToggle, particleMergingStateLabel, settings.particleMerging);
   syncToggleState(particlePromotionToggle, particlePromotionStateLabel, settings.particlePromotion);
   syncToggleState(mergeShockwavesToggle, mergeShockwavesStateLabel, settings.mergeShockwaves);
+  syncToggleState(particleVeerToggle, particleVeerStateLabel, settings.particleVeer);
 }
 
 function applySettings() {
@@ -89,6 +94,7 @@ function applySettings() {
     renderInstance.particleMergingEnabled = settings.particleMerging;
     renderInstance.particlePromotionEnabled = settings.particlePromotion;
     renderInstance.mergeShockwavesEnabled = settings.mergeShockwaves;
+    renderInstance.particleVeerEnabled = settings.particleVeer;
     // Clear any lingering shockwaves when the merge burst toggle is disabled.
     if (!settings.mergeShockwaves) {
       renderInstance.shockwaves = [];
@@ -131,6 +137,8 @@ export function bindBetSpireParticleOptions() {
   particlePromotionStateLabel = document.getElementById('bet-particle-promotion-state');
   mergeShockwavesToggle = document.getElementById('bet-merge-shockwaves-toggle');
   mergeShockwavesStateLabel = document.getElementById('bet-merge-shockwaves-state');
+  particleVeerToggle = document.getElementById('bet-particle-veer-toggle');
+  particleVeerStateLabel = document.getElementById('bet-particle-veer-state');
 
   bindToggle(particleTrailsToggle, particleTrailsStateLabel, 'particleTrails');
   bindToggle(forgeGlowToggle, forgeGlowStateLabel, 'forgeGlow');
@@ -140,6 +148,7 @@ export function bindBetSpireParticleOptions() {
   bindToggle(particleMergingToggle, particleMergingStateLabel, 'particleMerging');
   bindToggle(particlePromotionToggle, particlePromotionStateLabel, 'particlePromotion');
   bindToggle(mergeShockwavesToggle, mergeShockwavesStateLabel, 'mergeShockwaves');
+  bindToggle(particleVeerToggle, particleVeerStateLabel, 'particleVeer');
 
   syncAllToggles();
 }
@@ -191,6 +200,7 @@ export function updateBetSpireDebugControlsVisibility(isDeveloperModeActive) {
     document.getElementById('bet-particle-merging-toggle-row'),
     document.getElementById('bet-particle-promotion-toggle-row'),
     document.getElementById('bet-merge-shockwaves-toggle-row'),
+    document.getElementById('bet-particle-veer-toggle-row'),
   ];
   
   debugControls.forEach(control => {
