@@ -934,6 +934,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     powderConfig,
     powderState,
     fluidElements,
+    achievementsTerrariumElements,
     powderGlyphColumns,
     fluidGlyphColumns,
     getPowderElements,
@@ -1836,6 +1837,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
   const {
     bindFluidControls,
+    bindAchievementsTerrariumControls,
     applyMindGatePaletteToDom,
     updateMoteGemInventoryDisplay: renderMoteGemInventoryDisplay,
     updatePowderGlyphColumns,
@@ -1843,6 +1845,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   } = createPowderUiDomHelpers({
     getPowderElements,
     fluidElements,
+    achievementsTerrariumElements,
     powderGlyphColumns,
     fluidGlyphColumns,
     moteGemState,
@@ -6875,6 +6878,125 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindStatusElements();
     bindPowderControls();
     bindFluidControls();
+    bindAchievementsTerrariumControls(); // Bind achievements terrarium elements
+    
+    // Initialize basic pan/zoom for achievements terrarium viewport
+    if (achievementsTerrariumElements.viewport && achievementsTerrariumElements.terrariumLayer) {
+      const viewport = achievementsTerrariumElements.viewport;
+      const layer = achievementsTerrariumElements.terrariumLayer;
+      let scale = 1;
+      let translateX = 0;
+      let translateY = 0;
+      let isDragging = false;
+      let startX = 0;
+      let startY = 0;
+      let startTranslateX = 0;
+      let startTranslateY = 0;
+      
+      const updateTransform = () => {
+        layer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+      };
+      
+      // Mouse wheel zoom
+      viewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomSpeed = 0.001;
+        const delta = -e.deltaY * zoomSpeed;
+        const newScale = Math.max(0.5, Math.min(3, scale * (1 + delta)));
+        
+        if (newScale !== scale) {
+          // Zoom towards mouse position
+          const rect = viewport.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left;
+          const mouseY = e.clientY - rect.top;
+          
+          const scaleDiff = newScale / scale;
+          translateX = mouseX - (mouseX - translateX) * scaleDiff;
+          translateY = mouseY - (mouseY - translateY) * scaleDiff;
+          scale = newScale;
+          
+          updateTransform();
+        }
+      }, { passive: false });
+      
+      // Mouse drag pan
+      viewport.addEventListener('mousedown', (e) => {
+        if (e.button === 0) { // Left mouse button
+          isDragging = true;
+          startX = e.clientX;
+          startY = e.clientY;
+          startTranslateX = translateX;
+          startTranslateY = translateY;
+          viewport.style.cursor = 'grabbing';
+        }
+      });
+      
+      viewport.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+          translateX = startTranslateX + (e.clientX - startX);
+          translateY = startTranslateY + (e.clientY - startY);
+          updateTransform();
+        }
+      });
+      
+      const stopDrag = () => {
+        if (isDragging) {
+          isDragging = false;
+          viewport.style.cursor = 'grab';
+        }
+      };
+      
+      viewport.addEventListener('mouseup', stopDrag);
+      viewport.addEventListener('mouseleave', stopDrag);
+      viewport.style.cursor = 'grab';
+      
+      // Touch support for mobile
+      let touchStartDist = 0;
+      let touchStartScale = 1;
+      
+      viewport.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          // Single touch - pan
+          isDragging = true;
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+          startTranslateX = translateX;
+          startTranslateY = translateY;
+        } else if (e.touches.length === 2) {
+          // Two finger pinch - zoom
+          const dx = e.touches[1].clientX - e.touches[0].clientX;
+          const dy = e.touches[1].clientY - e.touches[0].clientY;
+          touchStartDist = Math.sqrt(dx * dx + dy * dy);
+          touchStartScale = scale;
+        }
+      }, { passive: true });
+      
+      viewport.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1 && isDragging) {
+          e.preventDefault();
+          translateX = startTranslateX + (e.touches[0].clientX - startX);
+          translateY = startTranslateY + (e.touches[0].clientY - startY);
+          updateTransform();
+        } else if (e.touches.length === 2) {
+          e.preventDefault();
+          const dx = e.touches[1].clientX - e.touches[0].clientX;
+          const dy = e.touches[1].clientY - e.touches[0].clientY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const newScale = Math.max(0.5, Math.min(3, touchStartScale * (dist / touchStartDist)));
+          
+          if (newScale !== scale) {
+            scale = newScale;
+            updateTransform();
+          }
+        }
+      }, { passive: false });
+      
+      viewport.addEventListener('touchend', () => {
+        isDragging = false;
+        touchStartDist = 0;
+      }, { passive: true });
+    }
+    
     initializeSpireGemMenus();
     bindFluidCameraModeToggle();
     syncFluidCameraModeUi();
