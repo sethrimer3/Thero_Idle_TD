@@ -626,6 +626,11 @@ function updateDeveloperControlsVisibility() {
   if (typeof context.updateBetSpireDebugControlsVisibility === 'function') {
     context.updateBetSpireDebugControlsVisibility(active);
   }
+
+  // Update Aleph Spire debug controls visibility.
+  if (typeof context.updatePowderSpireDebugControlsVisibility === 'function') {
+    context.updatePowderSpireDebugControlsVisibility(active);
+  }
 }
 
 function handleDeveloperFieldCommit(event) {

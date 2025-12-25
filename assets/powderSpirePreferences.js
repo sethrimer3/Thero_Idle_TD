@@ -13,7 +13,11 @@ const DEFAULT_SETTINGS = Object.freeze({
   moteGlow: true,
   backgroundStars: true,
   moteTrails: true,
+  renderOverlapLevel: 0,
 });
+
+// Clamp developer overlap controls to the documented 0-3 range.
+const MAX_RENDER_OVERLAP_LEVEL = 3;
 
 let settings = { ...DEFAULT_SETTINGS };
 let simulationGetter = () => null;
@@ -23,6 +27,12 @@ let starsToggle = null;
 let starsStateLabel = null;
 let trailsToggle = null;
 let trailsStateLabel = null;
+// Developer-only overlap controls for the Aleph spire layout.
+let renderOverlapSelect = null;
+let renderOverlapRow = null;
+// Track the current developer mode flag so overlap effects can be disabled automatically.
+let developerModeActive = false;
+let developerModeActive = false;
 
 /**
  * Persist the current Aleph spire visual settings into storage.
@@ -41,6 +51,7 @@ function loadSettings() {
     settings.moteGlow = stored.moteGlow !== false;
     settings.backgroundStars = stored.backgroundStars !== false;
     settings.moteTrails = stored.moteTrails !== false;
+    settings.renderOverlapLevel = normalizeRenderOverlapLevel(stored.renderOverlapLevel);
   }
 }
 
@@ -102,6 +113,54 @@ function syncToggleUi() {
   if (trailsStateLabel) {
     trailsStateLabel.textContent = settings.moteTrails ? 'On' : 'Off';
   }
+
+  if (renderOverlapSelect) {
+    renderOverlapSelect.value = String(normalizeRenderOverlapLevel(settings.renderOverlapLevel));
+  }
+}
+
+// Normalize the developer overlap level to a safe 0-3 range.
+function normalizeRenderOverlapLevel(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+  return Math.min(MAX_RENDER_OVERLAP_LEVEL, Math.max(0, parsed));
+}
+
+// Apply the Aleph render overlap settings by offsetting the spire container.
+function applyRenderOverlapLayout() {
+  const powderStage = document.getElementById('powder-stage');
+  if (!powderStage) {
+    return;
+  }
+
+  const overlapLevel = developerModeActive ? normalizeRenderOverlapLevel(settings.renderOverlapLevel) : 0;
+  const panel = powderStage.closest('.panel');
+  const appShell = document.querySelector('.app-shell');
+
+  const readPadding = (element) => {
+    if (!element || typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+      return { top: 0, left: 0, right: 0 };
+    }
+    const styles = window.getComputedStyle(element);
+    return {
+      top: Number.parseFloat(styles.paddingTop) || 0,
+      left: Number.parseFloat(styles.paddingLeft) || 0,
+      right: Number.parseFloat(styles.paddingRight) || 0,
+    };
+  };
+
+  const panelPadding = readPadding(panel);
+  const shellPadding = readPadding(appShell);
+  const inlineLeft = (overlapLevel >= 2 ? panelPadding.left : 0) + (overlapLevel >= 3 ? shellPadding.left : 0);
+  const inlineRight = (overlapLevel >= 2 ? panelPadding.right : 0) + (overlapLevel >= 3 ? shellPadding.right : 0);
+  const topOffset = (overlapLevel >= 2 ? panelPadding.top : 0) + (overlapLevel >= 3 ? shellPadding.top : 0);
+
+  powderStage.dataset.overlapLevel = String(overlapLevel);
+  powderStage.style.setProperty('--powder-overlap-inline-left', `${inlineLeft}px`);
+  powderStage.style.setProperty('--powder-overlap-inline-right', `${inlineRight}px`);
+  powderStage.style.setProperty('--powder-overlap-top', `${topOffset}px`);
 }
 
 /**
@@ -125,6 +184,8 @@ export function bindPowderSpireOptions() {
   starsStateLabel = document.getElementById('powder-background-stars-state');
   trailsToggle = document.getElementById('powder-mote-trails-toggle');
   trailsStateLabel = document.getElementById('powder-mote-trails-state');
+  renderOverlapSelect = document.getElementById('powder-render-overlap-select');
+  renderOverlapRow = document.getElementById('powder-render-overlap-row');
 
   if (glowToggle) {
     glowToggle.addEventListener('change', (event) => {
@@ -153,6 +214,15 @@ export function bindPowderSpireOptions() {
     });
   }
 
+  if (renderOverlapSelect) {
+    renderOverlapSelect.addEventListener('change', (event) => {
+      settings.renderOverlapLevel = normalizeRenderOverlapLevel(event.target.value);
+      persistSettings();
+      syncToggleUi();
+      applyRenderOverlapLayout();
+    });
+  }
+
   syncToggleUi();
 }
 
@@ -163,6 +233,7 @@ export function initializePowderSpirePreferences() {
   loadSettings();
   syncToggleUi();
   applySettingsToSimulation();
+  applyRenderOverlapLayout();
 }
 
 /**
@@ -170,4 +241,24 @@ export function initializePowderSpirePreferences() {
  */
 export function applyPowderVisualSettings() {
   applySettingsToSimulation();
+}
+
+/**
+ * Update visibility of developer-only Aleph spire layout controls.
+ * @param {boolean} isDeveloperModeEnabled
+ */
+export function updatePowderSpireDebugControlsVisibility(isDeveloperModeEnabled) {
+  developerModeActive = Boolean(isDeveloperModeEnabled);
+  if (renderOverlapRow) {
+    renderOverlapRow.hidden = !developerModeActive;
+    renderOverlapRow.setAttribute('aria-hidden', developerModeActive ? 'false' : 'true');
+  }
+  applyRenderOverlapLayout();
+}
+
+// Recalculate overlap offsets on viewport changes to keep the render aligned.
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', () => {
+    applyRenderOverlapLayout();
+  });
 }
