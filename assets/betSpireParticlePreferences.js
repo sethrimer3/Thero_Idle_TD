@@ -18,6 +18,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   particlePromotion: true,
   mergeShockwaves: false, // Developer toggle for merge burst shockwaves.
   particleVeer: true, // Developer toggle for subtle particle veer behavior.
+  smallTierGeneratorGravity: true, // Developer toggle for extra small particle pull toward generators.
+  mediumTierForgeGravity: true, // Developer toggle for extra medium particle pull toward the forge.
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -41,6 +43,12 @@ let mergeShockwavesStateLabel = null;
 // Developer-only particle veer toggle elements.
 let particleVeerToggle = null;
 let particleVeerStateLabel = null;
+// Developer-only small-tier generator gravity toggle elements.
+let smallTierGeneratorGravityToggle = null;
+let smallTierGeneratorGravityStateLabel = null;
+// Developer-only medium-tier forge gravity toggle elements.
+let mediumTierForgeGravityToggle = null;
+let mediumTierForgeGravityStateLabel = null;
 
 // Getter for the active BetSpireRender instance
 let getBetSpireRenderInstance = () => null;
@@ -80,6 +88,17 @@ function syncAllToggles() {
   syncToggleState(particlePromotionToggle, particlePromotionStateLabel, settings.particlePromotion);
   syncToggleState(mergeShockwavesToggle, mergeShockwavesStateLabel, settings.mergeShockwaves);
   syncToggleState(particleVeerToggle, particleVeerStateLabel, settings.particleVeer);
+  // Developer-only gravity toggles for extra Bet spire pull behavior.
+  syncToggleState(
+    smallTierGeneratorGravityToggle,
+    smallTierGeneratorGravityStateLabel,
+    settings.smallTierGeneratorGravity
+  );
+  syncToggleState(
+    mediumTierForgeGravityToggle,
+    mediumTierForgeGravityStateLabel,
+    settings.mediumTierForgeGravity
+  );
 }
 
 function applySettings() {
@@ -95,6 +114,9 @@ function applySettings() {
     renderInstance.particlePromotionEnabled = settings.particlePromotion;
     renderInstance.mergeShockwavesEnabled = settings.mergeShockwaves;
     renderInstance.particleVeerEnabled = settings.particleVeer;
+    // Developer-only gravity adjustments for Bet spire particles.
+    renderInstance.smallTierGeneratorGravityEnabled = settings.smallTierGeneratorGravity;
+    renderInstance.mediumTierForgeGravityEnabled = settings.mediumTierForgeGravity;
     // Clear any lingering shockwaves when the merge burst toggle is disabled.
     if (!settings.mergeShockwaves) {
       renderInstance.shockwaves = [];
@@ -139,6 +161,10 @@ export function bindBetSpireParticleOptions() {
   mergeShockwavesStateLabel = document.getElementById('bet-merge-shockwaves-state');
   particleVeerToggle = document.getElementById('bet-particle-veer-toggle');
   particleVeerStateLabel = document.getElementById('bet-particle-veer-state');
+  smallTierGeneratorGravityToggle = document.getElementById('bet-small-tier-generator-gravity-toggle');
+  smallTierGeneratorGravityStateLabel = document.getElementById('bet-small-tier-generator-gravity-state');
+  mediumTierForgeGravityToggle = document.getElementById('bet-medium-tier-forge-gravity-toggle');
+  mediumTierForgeGravityStateLabel = document.getElementById('bet-medium-tier-forge-gravity-state');
 
   bindToggle(particleTrailsToggle, particleTrailsStateLabel, 'particleTrails');
   bindToggle(forgeGlowToggle, forgeGlowStateLabel, 'forgeGlow');
@@ -149,6 +175,17 @@ export function bindBetSpireParticleOptions() {
   bindToggle(particlePromotionToggle, particlePromotionStateLabel, 'particlePromotion');
   bindToggle(mergeShockwavesToggle, mergeShockwavesStateLabel, 'mergeShockwaves');
   bindToggle(particleVeerToggle, particleVeerStateLabel, 'particleVeer');
+  // Developer-only gravity toggles for optional small/medium pull forces.
+  bindToggle(
+    smallTierGeneratorGravityToggle,
+    smallTierGeneratorGravityStateLabel,
+    'smallTierGeneratorGravity'
+  );
+  bindToggle(
+    mediumTierForgeGravityToggle,
+    mediumTierForgeGravityStateLabel,
+    'mediumTierForgeGravity'
+  );
 
   syncAllToggles();
 }
@@ -201,6 +238,8 @@ export function updateBetSpireDebugControlsVisibility(isDeveloperModeActive) {
     document.getElementById('bet-particle-promotion-toggle-row'),
     document.getElementById('bet-merge-shockwaves-toggle-row'),
     document.getElementById('bet-particle-veer-toggle-row'),
+    document.getElementById('bet-small-tier-generator-gravity-toggle-row'),
+    document.getElementById('bet-medium-tier-forge-gravity-toggle-row'),
   ];
   
   debugControls.forEach(control => {
