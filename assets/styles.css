@@ -4674,6 +4674,37 @@ body.playfield-fullscreen .playfield {
   user-select: none;
 }
 
+/* Shared select styling for settings menus (developer and player-facing). */
+.settings-select {
+  appearance: none;
+  min-width: 160px;
+  padding: 8px 28px 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(8, 12, 20, 0.85);
+  color: rgba(245, 245, 255, 0.88);
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: var(--cursor-pointer);
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(245, 245, 255, 0.75) 50%),
+    linear-gradient(135deg, rgba(245, 245, 255, 0.75) 50%, transparent 50%),
+    linear-gradient(to right, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12));
+  background-position:
+    calc(100% - 18px) 55%,
+    calc(100% - 13px) 55%,
+    calc(100% - 32px) 50%;
+  background-size: 6px 6px, 6px 6px, 1px 18px;
+  background-repeat: no-repeat;
+}
+
+.settings-select:focus-visible {
+  outline: 2px solid rgba(139, 247, 255, 0.6);
+  outline-offset: 2px;
+}
+
 .settings-toggle-input {
   position: absolute;
   inset: 0;
@@ -6475,6 +6506,12 @@ body.playfield-fullscreen .playfield {
   justify-content: center;
   margin: 0 auto 32px;
   padding-inline: clamp(6px, 2vw, 18px);
+  /* Default overlap offsets are zero until a developer override is applied. */
+  --powder-overlap-inline-left: 0px;
+  --powder-overlap-inline-right: 0px;
+  --powder-overlap-top: 0px;
+  --powder-simulation-width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  --powder-simulation-max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
 .powder-simulation {
@@ -6483,16 +6520,39 @@ body.playfield-fullscreen .playfield {
   align-items: center;
   gap: 9px;
   /* Let spire simulations expand until they meet the screen bounds while staying centered. */
-  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
-  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  width: var(--powder-simulation-width);
+  max-width: var(--powder-simulation-max-width);
   margin-inline: auto;
+}
+
+/* Developer-only overlap mode allows the Aleph render to bleed into the surrounding margins. */
+.powder-stage[data-overlap-level]:not([data-overlap-level='0']) {
+  padding-inline: 0;
+  margin-top: calc(-1 * var(--powder-overlap-top));
+  width: calc(100% + var(--powder-overlap-inline-left) + var(--powder-overlap-inline-right));
+  margin-left: calc(-1 * var(--powder-overlap-inline-left));
+  margin-right: calc(-1 * var(--powder-overlap-inline-right));
+  --powder-simulation-width: 100%;
+  --powder-simulation-max-width: 100%;
+}
+
+/* Full-bleed mode uses viewport width to reach the screen edges regardless of container width. */
+.powder-stage[data-overlap-level='3'] {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+/* Remove the card padding so the basin aligns with the selected overlap level. */
+.powder-stage[data-overlap-level]:not([data-overlap-level='0']) .powder-simulation {
+  padding: 0;
 }
 
 @media (max-width: 640px) {
   /* Allow the Spire basin to use the full mobile width so walls no longer overlap. */
   .powder-simulation {
-    width: min(100%, calc(var(--stable-vh) * 0.75));
-    max-width: min(100%, calc(var(--stable-vh) * 0.75));
+    width: var(--powder-simulation-width, min(100%, calc(var(--stable-vh) * 0.75)));
+    max-width: var(--powder-simulation-max-width, min(100%, calc(var(--stable-vh) * 0.75)));
   }
 }
 

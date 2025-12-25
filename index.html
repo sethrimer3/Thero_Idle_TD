@@ -1931,6 +1931,31 @@
                     <span class="settings-toggle-state" id="powder-mote-trails-state">On</span>
                   </label>
                 </div>
+                <!-- Developer-only option to overlap Aleph spire render margins. -->
+                <div class="settings-toggle" id="powder-render-overlap-row" hidden aria-hidden="true">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="powder-render-overlap-title">🔧 Render overlap</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="powder-render-overlap-description"
+                      >Developer: Extend the Aleph render to overlap 0-3 layout margins.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="powder-render-overlap-select">
+                    <span class="screen-reader-only">Render overlap level</span>
+                    <select
+                      id="powder-render-overlap-select"
+                      class="settings-select"
+                      aria-labelledby="powder-render-overlap-title"
+                      aria-describedby="powder-render-overlap-description"
+                    >
+                      <option value="0">No overlap</option>
+                      <option value="1">Overlap 1 margin</option>
+                      <option value="2">Overlap 2 margins</option>
+                      <option value="3">Overlap 3 margins</option>
+                    </select>
+                  </label>
+                </div>
                 <button class="action-button ghost spire-options-close" type="button">Close</button>
               </div>
             </article>
