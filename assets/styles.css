@@ -3607,6 +3607,46 @@ body.playfield-fullscreen .playfield {
   border-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Tower visibility controls for developer mode toggle at bottom of towers tab */
+.tower-visibility-controls {
+  margin-top: 24px;
+  padding: 20px;
+  border-top: 1px solid rgba(139, 247, 255, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tower-visibility-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: var(--cursor-pointer);
+  user-select: none;
+}
+
+.tower-visibility-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: var(--cursor-pointer);
+}
+
+.tower-visibility-label {
+  letter-spacing: 0.04em;
+}
+
+.tower-visibility-note {
+  margin: 0;
+  padding-left: 32px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+}
+
 /* Present a compact replacement chooser beneath an equip button when the loadout is full. */
 .tower-replace-popup {
   margin-top: 10px;
