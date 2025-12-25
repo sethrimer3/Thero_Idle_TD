@@ -7226,12 +7226,16 @@ body.playfield-fullscreen .playfield {
   width: 100%;
   height: 100%;
   position: relative;
+  /* Allow touch events to pass through for mobile scrolling */
+  touch-action: pan-y;
 }
 
 .tower-icon svg {
   width: 100%;
   height: 100%;
   display: block;
+  /* Prevent SVG from blocking scroll gestures on mobile */
+  touch-action: pan-y;
 }
 
 .tower-preview {
@@ -7249,6 +7253,8 @@ body.playfield-fullscreen .playfield {
   display: grid;
   place-items: center;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  /* Ensure tower previews don't block scrolling on mobile */
+  touch-action: pan-y;
 }
 
 .tower-preview::before,
@@ -7277,6 +7283,8 @@ body.playfield-fullscreen .playfield {
   filter:
     drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6))
     drop-shadow(0 0 18px var(--tower-icon-primary, rgba(255, 220, 160, 0.45)));
+  /* Ensure child icons don't interfere with scrolling */
+  touch-action: pan-y;
 }
 
 .tower-tier {
