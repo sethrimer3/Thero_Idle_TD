@@ -1855,6 +1855,88 @@ export function initializeTowerVisibilityToggle() {
   
   // Initialize visibility state based on current checkbox state
   updateTowerCardVisibility();
+  
+  // Initialize individual tower card toggles
+  initializeIndividualTowerToggles();
+}
+
+/**
+ * Initialize individual tower card visibility toggles for debugging scrolling issues
+ */
+function initializeIndividualTowerToggles() {
+  const grid = document.getElementById('tower-individual-toggles-grid');
+  if (!grid) {
+    return;
+  }
+  
+  // Get all tower cards
+  const cards = document.querySelectorAll(TOWER_CARD_SELECTOR);
+  
+  // Clear existing toggles
+  grid.innerHTML = '';
+  
+  // Create a toggle for each tower card
+  cards.forEach((card) => {
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+    
+    const towerId = card.dataset.towerId;
+    if (!towerId) {
+      return;
+    }
+    
+    // Get tower name from the card
+    const towerHeader = card.querySelector('.tower-header h3');
+    const towerName = towerHeader ? towerHeader.textContent : towerId;
+    
+    // Create toggle container
+    const toggleContainer = document.createElement('label');
+    toggleContainer.className = 'tower-individual-toggle';
+    
+    // Create checkbox
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = `tower-toggle-${towerId}`;
+    checkbox.checked = true; // Start with all cards visible
+    checkbox.dataset.towerId = towerId;
+    
+    // Add event listener to checkbox
+    checkbox.addEventListener('change', () => {
+      updateIndividualTowerCardVisibility(towerId, checkbox.checked);
+    });
+    
+    // Create label text
+    const labelText = document.createElement('span');
+    labelText.textContent = towerName;
+    
+    // Assemble the toggle
+    toggleContainer.appendChild(checkbox);
+    toggleContainer.appendChild(labelText);
+    
+    // Add to grid
+    grid.appendChild(toggleContainer);
+  });
+}
+
+/**
+ * Update visibility of an individual tower card
+ */
+function updateIndividualTowerCardVisibility(towerId, visible) {
+  const card = document.querySelector(`[data-tower-id="${towerId}"]`);
+  if (!card || !(card instanceof HTMLElement)) {
+    return;
+  }
+  
+  if (visible) {
+    card.style.removeProperty('display');
+    card.removeAttribute('hidden');
+    card.setAttribute('aria-hidden', 'false');
+  } else {
+    card.style.display = 'none';
+    card.setAttribute('hidden', '');
+    card.setAttribute('aria-hidden', 'true');
+  }
 }
 
 export function syncLoadoutToPlayfield() {
