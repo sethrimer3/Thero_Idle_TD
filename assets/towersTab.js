@@ -1627,6 +1627,9 @@ export function bindTowerCardUpgradeInteractions() {
 }
 export function updateTowerCardVisibility() {
   const cards = document.querySelectorAll(TOWER_CARD_SELECTOR);
+  const developerVisibilityToggle = document.getElementById('tower-visibility-developer-mode');
+  const showAllCards = developerVisibilityToggle?.checked || false;
+  
   cards.forEach((card) => {
     if (!(card instanceof HTMLElement)) {
       return;
@@ -1637,14 +1640,24 @@ export function updateTowerCardVisibility() {
     }
     const unlocked = isTowerUnlocked(towerId);
     card.dataset.locked = unlocked ? 'false' : 'true';
-    card.setAttribute('tabindex', unlocked ? '0' : '-1');
-    card.hidden = !unlocked;
-    if (unlocked) {
+    
+    // If developer visibility is enabled, show all cards regardless of unlock status
+    if (showAllCards) {
+      card.setAttribute('tabindex', '0');
+      card.hidden = false;
       card.style.removeProperty('display');
+      card.setAttribute('aria-hidden', 'false');
     } else {
-      card.style.display = 'none';
+      // Otherwise, only show unlocked cards
+      card.setAttribute('tabindex', unlocked ? '0' : '-1');
+      card.hidden = !unlocked;
+      if (unlocked) {
+        card.style.removeProperty('display');
+      } else {
+        card.style.display = 'none';
+      }
+      card.setAttribute('aria-hidden', unlocked ? 'false' : 'true');
     }
-    card.setAttribute('aria-hidden', unlocked ? 'false' : 'true');
 
     const slot = getEquipmentSlotRecord(towerId);
     if (slot) {
@@ -1827,6 +1840,21 @@ export function initializeTowerSelection() {
     button.addEventListener('click', () => toggleTowerSelection(towerId, { anchorButton: button }));
   });
   updateTowerSelectionButtons();
+}
+
+export function initializeTowerVisibilityToggle() {
+  const toggle = document.getElementById('tower-visibility-developer-mode');
+  if (!toggle) {
+    return;
+  }
+  
+  // Add event listener for toggle changes
+  toggle.addEventListener('change', () => {
+    updateTowerCardVisibility();
+  });
+  
+  // Initialize visibility state based on current checkbox state
+  updateTowerCardVisibility();
 }
 
 export function syncLoadoutToPlayfield() {

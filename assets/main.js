@@ -350,6 +350,7 @@ import {
   simplifyTowerCards,
   annotateTowerCardsWithCost,
   initializeTowerSelection,
+  initializeTowerVisibilityToggle,
   initializeTowerEquipmentInterface,
   synchronizeTowerCardMasterEquations,
   syncLoadoutToPlayfield,
@@ -7200,6 +7201,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     });
     refreshTowerTreeMap();
     initializeTowerSelection();
+    initializeTowerVisibilityToggle();
     bindTowerCardUpgradeInteractions();
     syncLoadoutToPlayfield();
     renderEnemyCodex();
