@@ -23,6 +23,8 @@ const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
 const SPAWNER_GRAVITY_STRENGTH = 0.75; // Gentle attraction strength used by individual spawners
 const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four times its radius for a wider pull
 const GENERATOR_CONVERSION_RADIUS = 16.5; // 10% larger radius for generator-centered conversions
+const SMALL_TIER_GENERATOR_GRAVITY_STRENGTH = 0.08; // Extremely gentle pull that nudges small particles toward their generator.
+const MEDIUM_TIER_FORGE_GRAVITY_STRENGTH = 0.05; // Extremely weak pull that guides medium particles toward the central forge.
 
 // Performance optimization configuration
 const MAX_PARTICLES = 2000; // Hard limit on total particle count to prevent freezing
@@ -215,7 +217,15 @@ class Particle {
     return this._size;
   }
 
-  update(forge, spawners = [], deltaFrameRatio = 1, now = Date.now(), veerEnabled = false) {
+  update(
+    forge,
+    spawners = [],
+    deltaFrameRatio = 1,
+    now = Date.now(),
+    veerEnabled = false,
+    smallTierGravityEnabled = false,
+    mediumTierGravityEnabled = false
+  ) {
     // Guard against invalid delta ratios so taps can't destabilize the integrator.
     const clampedDelta = Math.max(deltaFrameRatio, 0.01);
 
@@ -282,6 +292,14 @@ class Particle {
           this.vx += Math.cos(tangentialAngle) * tangentialForce * FORCE_SCALE * clampedDelta;
           this.vy += Math.sin(tangentialAngle) * tangentialForce * FORCE_SCALE * clampedDelta;
         }
+
+        // Apply an additional, extremely gentle pull for small particles toward their matching generator.
+        if (smallTierGravityEnabled && this.sizeIndex === SMALL_SIZE_INDEX && dist > 0.5) {
+          const force = SMALL_TIER_GENERATOR_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE);
+          const angle = Math.atan2(dy, dx);
+          this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
+          this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
+        }
       }
 
       // Normal forge attractor behavior
@@ -300,6 +318,14 @@ class Particle {
           this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
         }
         // Forge now attracts particles toward center like generators do (removed orbital spin behavior)
+      }
+
+      // Apply an additional, extremely weak pull for medium particles toward the central forge.
+      if (mediumTierGravityEnabled && this.sizeIndex === MEDIUM_SIZE_INDEX && dist > 0.5) {
+        const angle = Math.atan2(dy, dx);
+        const force = MEDIUM_TIER_FORGE_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE);
+        this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
+        this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
       }
     }
     
@@ -479,6 +505,8 @@ export class BetSpireRender {
     this.forgeGlowEnabled = true; // Controls whether forge and generators have glow effects
     this.smoothRenderingEnabled = true; // Controls whether rendering is smooth (anti-aliased) or pixelated
     this.particleVeerEnabled = true; // Developer toggle for subtle randomized particle veer behavior
+    this.smallTierGeneratorGravityEnabled = true; // Developer toggle for extra small particle pull toward generators.
+    this.mediumTierForgeGravityEnabled = true; // Developer toggle for extra medium particle pull toward the forge.
     
     // Developer debug flags (only visible when developer mode is active)
     this.particleSpawningEnabled = true; // Controls whether particles can spawn
@@ -1653,7 +1681,16 @@ export class BetSpireRender {
 
       // When performance is stressed, only update every nth particle per frame
       if (!isHighParticleCount || i % updateInterval === (now % updateInterval)) {
-        particle.update(this.forge, activeSpawners, deltaFrameRatio, now, this.particleVeerEnabled);
+        // Pass developer toggles so particle updates can apply optional gravity behaviors.
+        particle.update(
+          this.forge,
+          activeSpawners,
+          deltaFrameRatio,
+          now,
+          this.particleVeerEnabled,
+          this.smallTierGeneratorGravityEnabled,
+          this.mediumTierForgeGravityEnabled
+        );
       }
 
       const styleKey = particle.getDrawStyleKey();
