@@ -1902,7 +1902,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     },
   });
 
-  // Shared gem selector that plugs into Aleph, Lamed, and Tsadi spire renders.
+  // Shared gem selector that plugs into every spire render.
   spireGemMenuController = createSpireGemMenuController({
     documentRef: typeof document !== 'undefined' ? document : null,
     moteGemInventory: moteGemState?.inventory,
@@ -2183,10 +2183,19 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
     const powder = getPowderElements();
+    // Capture the Bet spire basin so its terrarium can host the gem selector.
+    const betBasin = document.getElementById('bet-spire-basin');
+    // Capture Shin and Kuf viewports so their primary renders can host the gem selector.
+    const shinViewport = document.querySelector('.shin-cardinal-viewport');
+    const kufViewport = document.querySelector('.kuf-sim-viewport');
+    // Register each spire render so the gem selector appears on every spire.
     const hosts = [
       { spireId: 'powder', element: powder?.basin || document.getElementById('powder-basin') },
+      { spireId: 'fluid', element: betBasin },
       { spireId: 'lamed', element: document.getElementById('lamed-basin') },
       { spireId: 'tsadi', element: document.getElementById('tsadi-basin') },
+      { spireId: 'shin', element: shinViewport },
+      { spireId: 'kuf', element: kufViewport },
     ];
     hosts.forEach(({ spireId, element }) => {
       if (element) {
