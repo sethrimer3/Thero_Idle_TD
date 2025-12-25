@@ -7255,6 +7255,8 @@ body.playfield-fullscreen .playfield {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   /* Ensure tower previews don't block scrolling on mobile */
   touch-action: pan-y;
+  /* Prevent animated SVG previews from capturing touch scroll gestures. */
+  pointer-events: none;
 }
 
 .tower-preview::before,
