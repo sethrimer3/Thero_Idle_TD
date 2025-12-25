@@ -32,7 +32,6 @@ let renderOverlapSelect = null;
 let renderOverlapRow = null;
 // Track the current developer mode flag so overlap effects can be disabled automatically.
 let developerModeActive = false;
-let developerModeActive = false;
 
 /**
  * Persist the current Aleph spire visual settings into storage.
