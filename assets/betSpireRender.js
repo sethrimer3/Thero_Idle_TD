@@ -23,8 +23,8 @@ const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
 const SPAWNER_GRAVITY_STRENGTH = 0.75; // Gentle attraction strength used by individual spawners
 const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four times its radius for a wider pull
 const GENERATOR_CONVERSION_RADIUS = 16.5; // 10% larger radius for generator-centered conversions
-const SMALL_TIER_GENERATOR_GRAVITY_STRENGTH = 0.08; // Extremely gentle pull that nudges small particles toward their generator.
-const MEDIUM_TIER_FORGE_GRAVITY_STRENGTH = 0.05; // Extremely weak pull that guides medium particles toward the central forge.
+const SMALL_TIER_GENERATOR_GRAVITY_STRENGTH = 0.24; // Extremely gentle pull that nudges small particles toward their generator.
+const MEDIUM_TIER_FORGE_GRAVITY_STRENGTH = 0.15; // Extremely weak pull that guides medium particles toward the central forge.
 
 // Performance optimization configuration
 const MAX_PARTICLES = 2000; // Hard limit on total particle count to prevent freezing
