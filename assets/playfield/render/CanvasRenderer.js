@@ -496,6 +496,7 @@ function draw() {
   this.drawEnemyDeathParticles();
   this.drawSwarmClouds();
   this.drawDamageNumbers();
+  this.drawFloatingFeedback();
   this.drawWaveTallies();
   this.drawChiLightTrails();
   this.drawChiThralls();
@@ -2672,6 +2673,14 @@ function drawDamageNumbers() {
   ctx.restore();
 }
 
+function drawFloatingFeedback() {
+  if (!this.floatingFeedback || typeof this.floatingFeedback.update !== 'function') {
+    return;
+  }
+  const now = this._frameCache?.timestamp || getNowTimestamp();
+  this.floatingFeedback.update(now);
+}
+
 function drawWaveTallies() {
   if (!this.ctx || !Array.isArray(this.waveTallyLabels) || !this.waveTallyLabels.length) {
     return;
@@ -3308,6 +3317,7 @@ export {
   drawEnemyDeathParticles,
   drawSwarmClouds,
   drawDamageNumbers,
+  drawFloatingFeedback,
   drawWaveTallies,
   drawProjectiles,
   drawAlphaBursts,

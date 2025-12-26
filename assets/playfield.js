@@ -34,6 +34,7 @@ import {
   resetActiveMoteGems,
   resolveEnemyGemDropMultiplier,
   getGemSpriteImage,
+  updateGemSuctionAnimations,
 } from './enemies.js';
 import {
   registerEnemyEncounter,
@@ -61,6 +62,7 @@ import * as InputController from './playfield/input/InputController.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
 import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
+import { createFloatingFeedbackController } from './playfield/ui/FloatingFeedback.js';
 import * as TowerManager from './playfield/managers/TowerManager.js';
 import * as DeveloperCrystalManager from './playfield/managers/DeveloperCrystalManager.js';
 import * as DeveloperTowerManager from './playfield/managers/DeveloperTowerManager.js';
@@ -595,6 +597,7 @@ export class SimplePlayfield {
       this.attachResizeObservers();
       this.attachCanvasInteractions();
       this.createEnemyTooltip();
+      this.initializeFloatingFeedback();
 
       this.disableSlots(true);
       this.updateHud();
@@ -1994,6 +1997,19 @@ export class SimplePlayfield {
 
   createEnemyTooltip() {
     return HudBindings.createEnemyTooltip.call(this);
+  }
+
+  initializeFloatingFeedback() {
+    if (!this.canvas || !this.ctx) {
+      return;
+    }
+    this.floatingFeedback = createFloatingFeedbackController({
+      canvas: this.canvas,
+      ctx: this.ctx,
+      getCanvasPosition: (worldPos) => {
+        return worldPos; // Gems are already in canvas coordinates
+      },
+    });
   }
 
   syncCanvasSize() {
@@ -10162,6 +10178,35 @@ export class SimplePlayfield {
     if (!moteGemState.active.length || !Number.isFinite(delta)) {
       return;
     }
+
+    // Update gem suction animations and collect completed gems
+    const collectedGems = updateGemSuctionAnimations(delta);
+    
+    // Show floating feedback for collected gems
+    if (collectedGems.length > 0 && this.floatingFeedback) {
+      // Group by collection point and show feedback
+      const byTarget = new Map();
+      collectedGems.forEach((gem) => {
+        const key = `${gem.targetX},${gem.targetY}`;
+        if (!byTarget.has(key)) {
+          byTarget.set(key, {
+            x: gem.targetX,
+            y: gem.targetY,
+            gems: [],
+          });
+        }
+        byTarget.get(key).gems.push(gem);
+      });
+
+      byTarget.forEach((group) => {
+        this.floatingFeedback.show({
+          x: group.x,
+          y: group.y,
+          gems: group.gems,
+        });
+      });
+    }
+
     const step = Math.max(0, delta);
     const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
     const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
@@ -10172,6 +10217,11 @@ export class SimplePlayfield {
     const toCollect = [];
 
     moteGemState.active.forEach((gem) => {
+      // Skip gems that are being sucked toward a target
+      if (gem.suction && gem.suction.active) {
+        return;
+      }
+
       if (!Number.isFinite(gem.pulse)) {
         gem.pulse = 0;
       }
@@ -11439,6 +11489,10 @@ export class SimplePlayfield {
 
   drawDamageNumbers() {
     return CanvasRenderer.drawDamageNumbers.call(this);
+  }
+
+  drawFloatingFeedback() {
+    return CanvasRenderer.drawFloatingFeedback.call(this);
   }
 
   drawWaveTallies() {

@@ -142,6 +142,10 @@ const ENEMY_GEM_MULTIPLIERS = new Map([
 // Radius used when sweeping the battlefield for mote gem pickups.
 export const MOTE_GEM_COLLECTION_RADIUS = 48;
 
+// Gem suction animation configuration
+const GEM_SUCTION_SPEED = 8; // Speed multiplier for gem attraction
+const GEM_SUCTION_THRESHOLD = 3; // Distance threshold to consider gem collected (pixels)
+
 let queueMoteDropHandler = null;
 let recordPowderEventHandler = null;
 
@@ -286,17 +290,8 @@ export function spawnMoteGemDrop(enemy, position) {
   return gem;
 }
 
-// Transfer a mote gem into the player's reserves and remove it from the field.
-export function collectMoteGemDrop(gem, context = {}) {
-  if (!gem) {
-    return false;
-  }
-  const index = moteGemState.active.findIndex((candidate) => candidate && candidate.id === gem.id);
-  if (index === -1) {
-    return false;
-  }
-  moteGemState.active.splice(index, 1);
-
+// Helper function to add a gem to the player's inventory and invoke handlers.
+function addGemToInventory(gem, reason = 'manual') {
   const record =
     moteGemState.inventory.get(gem.typeKey) ||
     { label: gem.typeLabel, total: 0, count: 0 };
@@ -315,26 +310,102 @@ export function collectMoteGemDrop(gem, context = {}) {
     recordPowderEventHandler('mote-gem-collected', {
       type: gem.typeLabel,
       value: gem.value,
-      reason: context.reason || 'manual',
+      reason,
     });
   }
+}
+
+// Transfer a mote gem into the player's reserves and remove it from the field.
+export function collectMoteGemDrop(gem, context = {}) {
+  if (!gem) {
+    return false;
+  }
+  const index = moteGemState.active.findIndex((candidate) => candidate && candidate.id === gem.id);
+  if (index === -1) {
+    return false;
+  }
+  moteGemState.active.splice(index, 1);
+  addGemToInventory(gem, context.reason || 'manual');
   return true;
 }
 
 // Collect any mote gems within a radius of the provided battlefield point.
+// Returns an object with the count and details of collected gems.
 export function collectMoteGemsWithinRadius(center, radius, context = {}) {
   if (!center || !Number.isFinite(center.x) || !Number.isFinite(center.y)) {
-    return 0;
+    return { count: 0, gems: [] };
   }
   const effectiveRadius = Number.isFinite(radius) ? Math.max(1, radius) : MOTE_GEM_COLLECTION_RADIUS;
   const radiusSquared = effectiveRadius * effectiveRadius;
-  const harvested = moteGemState.active.filter((gem) => {
+  const gemsInRange = moteGemState.active.filter((gem) => {
     const dx = gem.x - center.x;
     const dy = gem.y - center.y;
     return dx * dx + dy * dy <= radiusSquared;
   });
-  harvested.forEach((gem) => collectMoteGemDrop(gem, context));
-  return harvested.length;
+
+  // Start suction animation for all gems in range
+  gemsInRange.forEach((gem) => {
+    if (!gem.suction) {
+      gem.suction = {
+        targetX: center.x,
+        targetY: center.y,
+        startTime: Date.now(),
+        active: true,
+      };
+    }
+  });
+
+  return { count: gemsInRange.length, gems: gemsInRange };
+}
+
+// Update gem suction animations and collect gems that reach their target.
+// Returns an array of collected gems grouped by type.
+export function updateGemSuctionAnimations(deltaTime = 16) {
+  const collectedByType = new Map();
+
+  moteGemState.active = moteGemState.active.filter((gem) => {
+    if (!gem.suction || !gem.suction.active) {
+      return true; // Keep gems without active suction
+    }
+
+    const dx = gem.suction.targetX - gem.x;
+    const dy = gem.suction.targetY - gem.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Check if gem has reached its target
+    if (distance <= GEM_SUCTION_THRESHOLD) {
+      // Add to inventory using shared helper
+      addGemToInventory(gem, 'suction');
+
+      // Track collected gems by type for feedback display
+      if (!collectedByType.has(gem.typeKey)) {
+        collectedByType.set(gem.typeKey, {
+          count: 0,
+          typeKey: gem.typeKey,
+          typeName: gem.typeLabel,
+          color: gem.color,
+          targetX: gem.suction.targetX,
+          targetY: gem.suction.targetY,
+        });
+      }
+      const typeGroup = collectedByType.get(gem.typeKey);
+      typeGroup.count += gem.value;
+
+      return false; // Remove collected gem
+    }
+
+    // Move gem toward target
+    const speed = (GEM_SUCTION_SPEED * deltaTime) / 16; // Normalize for 60fps
+    const moveDistance = Math.min(distance, speed);
+    const angle = Math.atan2(dy, dx);
+    gem.x += Math.cos(angle) * moveDistance;
+    gem.y += Math.sin(angle) * moveDistance;
+
+    return true; // Keep gem
+  });
+
+  // Convert collected gems map to array
+  return Array.from(collectedByType.values());
 }
 
 // Automatically collect every mote gem currently active on the field.
