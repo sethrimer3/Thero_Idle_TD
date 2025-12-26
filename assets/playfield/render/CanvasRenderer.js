@@ -1103,9 +1103,16 @@ function drawMindGateSymbol(ctx, position) {
   const WAVE_HARMONIC_SCALE = 0.15; // Secondary harmonic amplitude
   const WAVE_FLUCTUATION_SPEED = 3; // Speed of subtle fluctuations
   const WAVE_FLUCTUATION_SCALE = 0.08; // Amplitude of subtle fluctuations
+  const WAVE_LINE_WIDTH_MIN = 1.5; // Minimum line width for first layer
+  const WAVE_LINE_WIDTH_SCALE = 0.08; // Line width scaling relative to radius
+  const WAVE_SHADOW_BLUR_SCALE = 0.3; // Shadow blur scaling for first layer
+  const WAVE_LAYER2_ALPHA = 0.5; // Opacity of second layer
+  const WAVE_LAYER2_LINE_WIDTH_MIN = 2.5; // Minimum line width for second layer
+  const WAVE_LAYER2_LINE_WIDTH_SCALE = 0.12; // Line width scaling for second layer
+  const WAVE_LAYER2_SHADOW_BLUR_SCALE = 0.5; // Shadow blur scaling for second layer
   
-  // Use frame timestamp if available, otherwise fall back to Date.now()
-  const currentTime = (this.lastRenderTime || Date.now()) / 1000;
+  // Use performance timestamp if available to ensure consistent animation timing
+  const currentTime = (this.lastRenderTime !== undefined ? this.lastRenderTime : Date.now()) / 1000;
   const waveOffset = currentTime * WAVE_SPEED;
   
   // Draw consciousness wave through the gate
@@ -1152,20 +1159,20 @@ function drawMindGateSymbol(ctx, position) {
   waveGradient.addColorStop(1, 'rgba(139, 247, 255, 0)');
   
   ctx.strokeStyle = waveGradient;
-  ctx.lineWidth = Math.max(1.5, radius * 0.08);
+  ctx.lineWidth = Math.max(WAVE_LINE_WIDTH_MIN, radius * WAVE_LINE_WIDTH_SCALE);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   
   // Add glow effect to the wave
   ctx.shadowColor = `rgba(139, 247, 255, ${0.8 * healthPercentage})`;
-  ctx.shadowBlur = radius * 0.3;
+  ctx.shadowBlur = radius * WAVE_SHADOW_BLUR_SCALE;
   ctx.stroke();
   
   // Draw second layer for enhanced visibility with explicit alpha management
   ctx.save();
-  ctx.globalAlpha = 0.5;
-  ctx.lineWidth = Math.max(2.5, radius * 0.12);
-  ctx.shadowBlur = radius * 0.5;
+  ctx.globalAlpha = WAVE_LAYER2_ALPHA;
+  ctx.lineWidth = Math.max(WAVE_LAYER2_LINE_WIDTH_MIN, radius * WAVE_LAYER2_LINE_WIDTH_SCALE);
+  ctx.shadowBlur = radius * WAVE_LAYER2_SHADOW_BLUR_SCALE;
   ctx.stroke();
   ctx.restore();
   
