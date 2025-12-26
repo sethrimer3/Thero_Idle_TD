@@ -4528,18 +4528,6 @@ body.playfield-fullscreen .playfield {
   touch-action: pan-y;
 }
 
-/* Keep Nu/Xi tower cards from capturing touch gestures that should scroll the Towers panel. */
-#panel-towers .card[data-tower-id='nu'],
-#panel-towers .card[data-tower-id='xi'] {
-  touch-action: pan-y;
-  pointer-events: auto;
-}
-
-#panel-towers .card[data-tower-id='nu'] *,
-#panel-towers .card[data-tower-id='xi'] * {
-  touch-action: pan-y;
-}
-
 .card[data-tower-id][data-locked='false'] {
   cursor: var(--cursor-pointer);
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
