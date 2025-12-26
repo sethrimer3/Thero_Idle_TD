@@ -410,8 +410,11 @@ import {
   bindPowderSpireOptions,
   initializePowderSpirePreferences,
   setPowderSimulationGetter,
-  updatePowderSpireDebugControlsVisibility,
 } from './powderSpirePreferences.js';
+import {
+  bindAchievementsTerrariumOptions,
+  initializeAchievementsTerrariumPreferences,
+} from './achievementsTerrariumPreferences.js';
 import {
   bindTsadiSpireOptions,
   initializeTsadiSpirePreferences,
@@ -421,6 +424,7 @@ import { bindSpireOptionsDropdown, closeAllSpireDropdowns } from './spireOptions
 import { bindKufSpireOptions, initializeKufSpirePreferences } from './kufSpirePreferences.js';
 import { bindShinSpireOptions, initializeShinSpirePreferences, setShinSimulationGetter } from './shinSpirePreferences.js';
 import { bindCognitiveRealmOptions, initializeCognitiveRealmPreferences } from './cognitiveRealmPreferences.js';
+import { bindPlayfieldOptions, initializePlayfieldPreferences } from './playfield/playfieldPreferences.js';
 import { createDeveloperModeManager } from './developerModeManager.js';
 import {
   moteGemState,
@@ -2258,8 +2262,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     updateShinDisplay,
     updateDeveloperMapElementsVisibility,
     updateBetSpireDebugControlsVisibility,
-    // Keep Aleph spire developer layout controls in sync with developer mode.
-    updatePowderSpireDebugControlsVisibility,
     getCurrentIdleMoteBank,
     getCurrentMoteDispenseRate,
   });
@@ -6209,6 +6211,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindPlayfieldTrackTypeButton();
     initializeTowerLoadoutToggleSidePreference();
     bindTowerLoadoutToggleSideButton();
+    initializePlayfieldPreferences();
+    bindPlayfieldOptions();
 
     // Bind playfield settings dropdown
     const playfieldSettingsToggle = document.getElementById('playfield-settings-toggle');
@@ -6275,14 +6279,19 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       menuId: 'cognitive-realm-options-menu',
       spireId: 'cognitive-realm',
     });
+    bindSpireOptionsDropdown({
+      toggleId: 'achievements-terrarium-options-toggle-button',
+      menuId: 'achievements-terrarium-options-menu',
+      spireId: 'achievements-terrarium',
+    });
     initializePowderSpirePreferences();
     bindPowderSpireOptions();
-    // Sync Aleph spire developer-only controls once the options menu is bound.
-    updatePowderSpireDebugControlsVisibility(developerModeActive);
     initializeFluidSpirePreferences();
     bindFluidSpireOptions();
     initializeBetSpireParticlePreferences();
     bindBetSpireParticleOptions();
+    initializeAchievementsTerrariumPreferences();
+    bindAchievementsTerrariumOptions();
     initializeColorScheme();
     bindAudioControls();
 

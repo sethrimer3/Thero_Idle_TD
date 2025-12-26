@@ -13,7 +13,11 @@ const DEFAULT_SETTINGS = Object.freeze({
   glow: false,
   nodeDrift: false,
   randomizedLayout: true, // Scatter nodes to new starting positions on load
+  renderOverlapLevel: 1, // Default to Medium (overlap 1 margin)
 });
+
+// Clamp render size controls to 0-2 range (Small, Medium, Large).
+const MAX_RENDER_OVERLAP_LEVEL = 2;
 
 let settings = { ...DEFAULT_SETTINGS };
 
@@ -28,6 +32,8 @@ let nodeDriftToggle = null;
 let nodeDriftState = null;
 let randomizedLayoutToggle = null;
 let randomizedLayoutState = null;
+let renderOverlapSelect = null;
+let renderOverlapRow = null;
 
 /**
  * Persist the current settings to localStorage.
@@ -44,9 +50,54 @@ function loadSettings() {
   const stored = readStorageJson(COGNITIVE_REALM_VISUAL_SETTINGS_KEY);
   if (stored && typeof stored === 'object') {
     settings = { ...DEFAULT_SETTINGS, ...stored };
+    settings.renderOverlapLevel = normalizeRenderOverlapLevel(stored.renderOverlapLevel);
   }
   // Remove deprecated parallax settings now that the effect is disabled.
   delete settings.parallaxLayers;
+}
+
+// Normalize the render size level to a safe 0-2 range.
+function normalizeRenderOverlapLevel(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return 1; // Default to Medium if invalid
+  }
+  return Math.min(MAX_RENDER_OVERLAP_LEVEL, Math.max(0, parsed));
+}
+
+// Apply the Cognitive Realm render size settings by offsetting the container.
+function applyRenderOverlapLayout() {
+  const cognitiveRealmSection = document.getElementById('cognitive-realm-section');
+  if (!cognitiveRealmSection) {
+    return;
+  }
+
+  const overlapLevel = normalizeRenderOverlapLevel(settings.renderOverlapLevel);
+  const panel = cognitiveRealmSection.closest('.panel');
+  const appShell = document.querySelector('.app-shell');
+
+  const readPadding = (element) => {
+    if (!element || typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+      return { top: 0, left: 0, right: 0 };
+    }
+    const styles = window.getComputedStyle(element);
+    return {
+      top: Number.parseFloat(styles.paddingTop) || 0,
+      left: Number.parseFloat(styles.paddingLeft) || 0,
+      right: Number.parseFloat(styles.paddingRight) || 0,
+    };
+  };
+
+  const panelPadding = readPadding(panel);
+  const shellPadding = readPadding(appShell);
+  const inlineLeft = (overlapLevel >= 2 ? panelPadding.left : 0) + (overlapLevel >= 3 ? shellPadding.left : 0);
+  const inlineRight = (overlapLevel >= 2 ? panelPadding.right : 0) + (overlapLevel >= 3 ? shellPadding.right : 0);
+  const topOffset = (overlapLevel >= 2 ? panelPadding.top : 0) + (overlapLevel >= 3 ? shellPadding.top : 0);
+
+  cognitiveRealmSection.dataset.overlapLevel = String(overlapLevel);
+  cognitiveRealmSection.style.setProperty('--cognitive-realm-overlap-inline-left', `${inlineLeft}px`);
+  cognitiveRealmSection.style.setProperty('--cognitive-realm-overlap-inline-right', `${inlineRight}px`);
+  cognitiveRealmSection.style.setProperty('--cognitive-realm-overlap-top', `${topOffset}px`);
 }
 
 /**
@@ -75,6 +126,10 @@ function syncAllToggles() {
   syncToggleState(ambientParticlesToggle, ambientParticlesState, settings.ambientParticles);
   syncToggleState(nodeDriftToggle, nodeDriftState, settings.nodeDrift);
   syncToggleState(randomizedLayoutToggle, randomizedLayoutState, settings.randomizedLayout);
+  
+  if (renderOverlapSelect) {
+    renderOverlapSelect.value = String(normalizeRenderOverlapLevel(settings.renderOverlapLevel));
+  }
 }
 
 /**
@@ -135,6 +190,18 @@ export function bindCognitiveRealmOptions() {
     });
   }
 
+  renderOverlapSelect = document.getElementById('cognitive-realm-render-size-select');
+  renderOverlapRow = document.getElementById('cognitive-realm-render-size-row');
+
+  if (renderOverlapSelect) {
+    renderOverlapSelect.addEventListener('change', (event) => {
+      settings.renderOverlapLevel = normalizeRenderOverlapLevel(event.target.value);
+      persistSettings();
+      syncAllToggles();
+      applyRenderOverlapLayout();
+    });
+  }
+
   // Sync UI with persisted settings
   syncAllToggles();
 }
@@ -144,6 +211,14 @@ export function bindCognitiveRealmOptions() {
  */
 export function initializeCognitiveRealmPreferences() {
   loadSettings();
+  applyRenderOverlapLayout();
+}
+
+// Recalculate overlap offsets on viewport changes to keep the render aligned.
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', () => {
+    applyRenderOverlapLayout();
+  });
 }
 
 /**
