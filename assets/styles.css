@@ -8848,6 +8848,8 @@ body.playfield-fullscreen .playfield {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable both-edges;
+  /* Enable vertical scrolling on mobile devices when touching equation blocks or MathJax elements. */
+  touch-action: pan-y;
 }
 
 .tower-upgrade-header {
@@ -9044,6 +9046,8 @@ body.playfield-fullscreen .playfield {
   transform: translateY(16px);
   transition: opacity 320ms ease, transform 320ms ease;
   transition-delay: calc(var(--tower-upgrade-variable-index, 0) * 40ms);
+  /* Allow vertical scrolling through variable cards on mobile. */
+  touch-action: pan-y;
 }
 
 .tower-upgrade-variable--upgradable {
@@ -9063,6 +9067,8 @@ body.playfield-fullscreen .playfield {
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 240ms ease, transform 240ms ease;
+  /* Allow vertical scrolling through equation blocks on mobile when touching MathJax content. */
+  touch-action: pan-y;
 }
 
 .tower-upgrade-variable.is-visible .tower-upgrade-variable-equations {
@@ -9083,6 +9089,8 @@ body.playfield-fullscreen .playfield {
   text-align: left;
   color: #ffe769;
   text-shadow: 0 0 10px rgba(255, 246, 140, 0.4);
+  /* Allow vertical scrolling through equation text lines on mobile. */
+  touch-action: pan-y;
 }
 
 .tower-upgrade-variable-equation-line--values {
@@ -9126,6 +9134,8 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   justify-content: flex-start;
   color: inherit;
   text-shadow: 0 0 8px rgba(255, 246, 180, 0.35);
+  /* Allow vertical scrolling through MathJax rendered equations on mobile. */
+  touch-action: pan-y;
 }
 
 .tower-upgrade-variable-equation-line--glyph mjx-container {
