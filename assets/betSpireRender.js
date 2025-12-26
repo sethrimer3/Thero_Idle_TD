@@ -1,6 +1,8 @@
 // Bet Spire Particle Physics Render
 // Tiered particle system with size merging at generator centers and tier conversion at the forge.
 
+import { moteGemState, resolveGemDefinition } from './enemies.js';
+
 // Canvas dimensions matching Aleph Spire render
 const CANVAS_WIDTH = 240;
 const CANVAS_HEIGHT = 320;
@@ -556,6 +558,9 @@ export class BetSpireRender {
     this.FORGE_CRUNCH_DURATION = FORGE_CRUNCH_DURATION;
     this.FORGE_VALID_WAIT_TIME = FORGE_VALID_WAIT_TIME;
     
+    // Track gems awarded from forge crunches for floating feedback display
+    this.crunchGemAwards = []; // Array of {tierId, count, startTime}
+    
     // Bind methods for requestAnimationFrame and event listeners
     this.animate = this.animate.bind(this);
     this.handlePointerDown = this.handlePointerDown.bind(this);
@@ -1076,6 +1081,9 @@ export class BetSpireRender {
       particlesByTier.get(particle.tierId).push(particle);
     });
 
+    // Track gems to award for floating feedback
+    const gemsToAward = new Map(); // tierId -> count
+
     // Convert each particle to next tier
     particlesByTier.forEach((particles, tierId) => {
       const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === tierId);
@@ -1084,6 +1092,28 @@ export class BetSpireRender {
       const nextTier = PARTICLE_TIERS[tierIndex + 1];
       
       particles.forEach(particle => {
+        // Award 1 gem per large particle crushed
+        if (particle.sizeIndex === LARGE_SIZE_INDEX) {
+          const gemTierId = nextTier.id; // Award gem of the tier it converts to
+          const gemDefinition = resolveGemDefinition(gemTierId);
+          
+          if (gemDefinition) {
+            // Add to player's gem inventory
+            const record = moteGemState.inventory.get(gemTierId) || {
+              label: gemDefinition.name,
+              total: 0,
+              count: 0,
+            };
+            record.total += 1;
+            record.count = (record.count || 0) + 1;
+            record.label = gemDefinition.name || record.label;
+            moteGemState.inventory.set(gemTierId, record);
+            
+            // Track for floating feedback display
+            gemsToAward.set(gemTierId, (gemsToAward.get(gemTierId) || 0) + 1);
+          }
+        }
+        
         // Create conversion animation entry
         const conversionCount = particle.sizeIndex === MEDIUM_SIZE_INDEX ? 1 : 100;
         
@@ -1099,6 +1129,18 @@ export class BetSpireRender {
         });
       });
     });
+
+    // Add gem awards to floating feedback queue
+    if (gemsToAward.size > 0) {
+      const now = Date.now();
+      gemsToAward.forEach((count, tierId) => {
+        this.crunchGemAwards.push({
+          tierId,
+          count,
+          startTime: now,
+        });
+      });
+    }
 
     // Reset crunch state
     this.forgeCrunchActive = false;
@@ -1133,6 +1175,108 @@ export class BetSpireRender {
     ctx.beginPath();
     ctx.arc(this.forge.x, this.forge.y, currentRadius, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+  // Draw floating gem award notifications in top-left corner
+  drawCrunchGemAwards(now) {
+    if (!this.crunchGemAwards || this.crunchGemAwards.length === 0) {
+      return;
+    }
+
+    const ctx = this.ctx;
+    const AWARD_DURATION_MS = 2000; // 2 seconds total
+    const AWARD_FADE_IN_MS = 200; // Fade in over 200ms
+    const AWARD_FADE_OUT_START_MS = 1500; // Start fading out at 1.5s
+    const AWARD_FLOAT_DISTANCE = 40; // Float upward 40px
+    const AWARD_STACK_SPACING = 30; // Vertical spacing between awards
+    const START_X = 20; // Left margin
+    const START_Y = 30; // Top margin
+
+    ctx.save();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
+    // Update and render each award
+    for (let i = this.crunchGemAwards.length - 1; i >= 0; i--) {
+      const award = this.crunchGemAwards[i];
+      const elapsed = now - award.startTime;
+
+      // Remove expired awards
+      if (elapsed >= AWARD_DURATION_MS) {
+        this.crunchGemAwards.splice(i, 1);
+        continue;
+      }
+
+      // Calculate animation progress
+      const progress = elapsed / AWARD_DURATION_MS;
+      const yOffset = progress * AWARD_FLOAT_DISTANCE;
+      const stackOffset = i * AWARD_STACK_SPACING;
+
+      // Calculate opacity with fade in and fade out
+      let opacity = 1;
+      if (elapsed < AWARD_FADE_IN_MS) {
+        opacity = elapsed / AWARD_FADE_IN_MS;
+      } else if (elapsed > AWARD_FADE_OUT_START_MS) {
+        const fadeOutElapsed = elapsed - AWARD_FADE_OUT_START_MS;
+        const fadeOutDuration = AWARD_DURATION_MS - AWARD_FADE_OUT_START_MS;
+        opacity = 1 - (fadeOutElapsed / fadeOutDuration);
+      }
+
+      // Calculate current position
+      const currentY = START_Y + stackOffset - yOffset;
+
+      // Get gem definition
+      const gemDefinition = resolveGemDefinition(award.tierId);
+      if (!gemDefinition) {
+        continue;
+      }
+
+      // Get tier color for fallback
+      const tier = PARTICLE_TIERS.find(t => t.id === award.tierId);
+      const color = tier ? tier.color : { r: 255, g: 215, b: 100 };
+
+      // Draw the award text with icon
+      const fontSize = 16;
+      const iconSize = 18;
+      const spacing = 6;
+
+      ctx.font = `bold ${fontSize}px "Courier New", monospace`;
+      const text = `+${award.count}`;
+      const textMetrics = ctx.measureText(text);
+      const textWidth = textMetrics.width;
+
+      // Draw drop shadow for better visibility
+      ctx.globalAlpha = opacity * 0.4;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.fillText(text, START_X + 2, currentY + 2);
+
+      // Draw text
+      ctx.globalAlpha = opacity;
+      ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 3;
+      ctx.strokeText(text, START_X, currentY);
+      ctx.fillText(text, START_X, currentY);
+
+      // Draw gem icon (simple diamond shape as fallback)
+      const iconX = START_X + textWidth + spacing + iconSize / 2;
+      const iconY = currentY;
+
+      ctx.globalAlpha = opacity;
+      ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(iconX, iconY - iconSize / 2);
+      ctx.lineTo(iconX + iconSize / 2, iconY);
+      ctx.lineTo(iconX, iconY + iconSize / 2);
+      ctx.lineTo(iconX - iconSize / 2, iconY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    ctx.restore();
   }
 
   // Attempt to merge large particles to next tier (performance optimization)
@@ -1590,6 +1734,9 @@ export class BetSpireRender {
     
     // Draw forge crunch effect
     this.drawForgeCrunch();
+    
+    // Draw gem awards from forge crunches
+    this.drawCrunchGemAwards(now);
 
     // Gather gravity sources for unlocked spawners so nearby particles feel a local pull.
     const activeSpawners = this.getActiveSpawnerGravityFields();
