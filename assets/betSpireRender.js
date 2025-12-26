@@ -226,6 +226,8 @@ class Particle {
     smallTierGravityEnabled = false,
     mediumTierGravityEnabled = false
   ) {
+    // Track whether the particle is inside its generator's gravity field for velocity clamping.
+    let isInsideGeneratorField = false;
     // Guard against invalid delta ratios so taps can't destabilize the integrator.
     const clampedDelta = Math.max(deltaFrameRatio, 0.01);
 
@@ -282,6 +284,8 @@ class Particle {
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist <= spawner.range && dist > 0.5) {
+          // Record that the particle is inside its generator field so we can cap its top speed there.
+          isInsideGeneratorField = true;
           const force = SPAWNER_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE);
           const angle = Math.atan2(dy, dx);
           this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
@@ -352,9 +356,12 @@ class Particle {
     const minVelocity = this._minVelocity;
     
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-    if (speed > maxVelocity) {
-      this.vx = (this.vx / speed) * maxVelocity;
-      this.vy = (this.vy / speed) * maxVelocity;
+    // Clamp speed based on whether the particle is caught in its generator gravity field.
+    const generatorMaxVelocity = this._minVelocity * 5;
+    const allowedMaxVelocity = isInsideGeneratorField ? Math.min(maxVelocity, generatorMaxVelocity) : maxVelocity;
+    if (speed > allowedMaxVelocity) {
+      this.vx = (this.vx / speed) * allowedMaxVelocity;
+      this.vy = (this.vy / speed) * allowedMaxVelocity;
     }
     
     // Enforce minimum velocity to keep particles always moving
