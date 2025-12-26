@@ -1090,41 +1090,50 @@ function drawMindGateSymbol(ctx, position) {
   // Calculate health percentage to scale wave amplitude
   const healthPercentage = maxIntegrity > 0 ? gateIntegrity / maxIntegrity : 1;
   
-  // Animate the wave using current time
-  const currentTime = Date.now() / 1000; // Convert to seconds
-  const waveSpeed = 2; // Speed of wave movement
-  const waveOffset = currentTime * waveSpeed;
+  // Consciousness wave animation constants
+  const WAVE_SPEED = 2; // Speed of wave movement
+  const WAVE_WIDTH_SCALE = 2.4; // Wave extends beyond gate
+  const WAVE_HEIGHT_SCALE = 0.5; // Base amplitude relative to radius
+  const WAVE_PEAKS = 3; // Number of complete sine waves
+  const WAVE_POINTS = 80; // Number of points for smooth curve
+  const WAVE_PEAK_PHASE_SCALE = 0.7; // Phase offset between peaks
+  const WAVE_PEAK_TIME_SCALE = 0.5; // Time-based peak variation speed
+  const WAVE_AMPLITUDE_MIN = 0.7; // Minimum peak amplitude multiplier
+  const WAVE_AMPLITUDE_RANGE = 0.3; // Range of peak amplitude variation
+  const WAVE_HARMONIC_SCALE = 0.15; // Secondary harmonic amplitude
+  const WAVE_FLUCTUATION_SPEED = 3; // Speed of subtle fluctuations
+  const WAVE_FLUCTUATION_SCALE = 0.08; // Amplitude of subtle fluctuations
+  
+  // Use frame timestamp if available, otherwise fall back to Date.now()
+  const currentTime = (this.lastRenderTime || Date.now()) / 1000;
+  const waveOffset = currentTime * WAVE_SPEED;
   
   // Draw consciousness wave through the gate
-  const waveWidth = radius * 2.4; // Wave extends beyond gate
-  const waveHeight = radius * 0.5 * healthPercentage; // Amplitude scales with health
-  const numPeaks = 3; // Number of complete sine waves
-  const wavelength = waveWidth / numPeaks;
-  const points = 80; // Number of points for smooth curve
+  const waveWidth = radius * WAVE_WIDTH_SCALE;
+  const waveHeight = radius * WAVE_HEIGHT_SCALE * healthPercentage;
   
   ctx.save();
   ctx.beginPath();
   
   // Generate sine wave with varying amplitudes for each peak
-  for (let i = 0; i <= points; i++) {
-    const x = -waveWidth / 2 + (i / points) * waveWidth;
-    const normalizedX = (i / points) * numPeaks * Math.PI * 2;
+  for (let i = 0; i <= WAVE_POINTS; i++) {
+    const x = -waveWidth / 2 + (i / WAVE_POINTS) * waveWidth;
+    const normalizedX = (i / WAVE_POINTS) * WAVE_PEAKS * Math.PI * 2;
     
     // Base sine wave
     let y = Math.sin(normalizedX + waveOffset) * waveHeight;
     
     // Add amplitude variation per peak to create dynamic effect
-    // Each peak gets a slightly different amplitude based on its position
-    const peakIndex = Math.floor((i / points) * numPeaks);
-    const peakPhase = (peakIndex * 0.7 + currentTime * 0.5) % (Math.PI * 2);
-    const peakAmplitudeMod = 0.7 + 0.3 * Math.sin(peakPhase); // Varies between 0.7 and 1.0
+    const peakIndex = Math.floor((i / WAVE_POINTS) * WAVE_PEAKS);
+    const peakPhase = (peakIndex * WAVE_PEAK_PHASE_SCALE + currentTime * WAVE_PEAK_TIME_SCALE) % (Math.PI * 2);
+    const peakAmplitudeMod = WAVE_AMPLITUDE_MIN + WAVE_AMPLITUDE_RANGE * Math.sin(peakPhase);
     y *= peakAmplitudeMod;
     
     // Add secondary harmonic for more organic feel
-    y += Math.sin(normalizedX * 2 + waveOffset * 1.5) * waveHeight * 0.15;
+    y += Math.sin(normalizedX * 2 + waveOffset * 1.5) * waveHeight * WAVE_HARMONIC_SCALE;
     
     // Add subtle fluctuation to make it feel alive
-    const fluctuation = Math.sin(currentTime * 3 + i * 0.1) * waveHeight * 0.08;
+    const fluctuation = Math.sin(currentTime * WAVE_FLUCTUATION_SPEED + i * 0.1) * waveHeight * WAVE_FLUCTUATION_SCALE;
     y += fluctuation;
     
     if (i === 0) {
@@ -1152,11 +1161,13 @@ function drawMindGateSymbol(ctx, position) {
   ctx.shadowBlur = radius * 0.3;
   ctx.stroke();
   
-  // Draw second layer for enhanced visibility
+  // Draw second layer for enhanced visibility with explicit alpha management
+  ctx.save();
   ctx.globalAlpha = 0.5;
   ctx.lineWidth = Math.max(2.5, radius * 0.12);
   ctx.shadowBlur = radius * 0.5;
   ctx.stroke();
+  ctx.restore();
   
   ctx.restore();
   
