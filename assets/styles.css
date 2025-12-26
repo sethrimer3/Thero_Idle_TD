@@ -6743,6 +6743,25 @@ body.playfield-fullscreen .playfield {
   padding: 0;
 }
 
+/* Achievement Terrarium overlap styles (similar to powder-stage) */
+#achievements-terrarium-host {
+  --terrarium-overlap-inline-left: 0px;
+  --terrarium-overlap-inline-right: 0px;
+  --terrarium-overlap-top: 0px;
+}
+
+#achievements-terrarium-host[data-overlap-level]:not([data-overlap-level='0']) {
+  padding-inline: 0;
+  margin-top: calc(-1 * var(--terrarium-overlap-top));
+  width: calc(100% + var(--terrarium-overlap-inline-left) + var(--terrarium-overlap-inline-right));
+  margin-left: calc(-1 * var(--terrarium-overlap-inline-left));
+  margin-right: calc(-1 * var(--terrarium-overlap-inline-right));
+}
+
+#achievements-terrarium-host[data-overlap-level]:not([data-overlap-level='0']) .fluid-simulation-card {
+  padding: 0;
+}
+
 @media (max-width: 640px) {
   /* Allow the Spire basin to use the full mobile width so walls no longer overlap. */
   .powder-simulation {

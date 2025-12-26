@@ -412,6 +412,10 @@ import {
   setPowderSimulationGetter,
 } from './powderSpirePreferences.js';
 import {
+  bindAchievementsTerrariumOptions,
+  initializeAchievementsTerrariumPreferences,
+} from './achievementsTerrariumPreferences.js';
+import {
   bindTsadiSpireOptions,
   initializeTsadiSpirePreferences,
   setTsadiSimulationGetter,
@@ -6272,12 +6276,19 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       menuId: 'cognitive-realm-options-menu',
       spireId: 'cognitive-realm',
     });
+    bindSpireOptionsDropdown({
+      toggleId: 'achievements-terrarium-options-toggle-button',
+      menuId: 'achievements-terrarium-options-menu',
+      spireId: 'achievements-terrarium',
+    });
     initializePowderSpirePreferences();
     bindPowderSpireOptions();
     initializeFluidSpirePreferences();
     bindFluidSpireOptions();
     initializeBetSpireParticlePreferences();
     bindBetSpireParticleOptions();
+    initializeAchievementsTerrariumPreferences();
+    bindAchievementsTerrariumOptions();
     initializeColorScheme();
     bindAudioControls();
 

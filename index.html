@@ -3964,6 +3964,52 @@
               </article>
             </div>
             
+            <!-- Terrarium Options -->
+            <article class="card spire-options-card">
+              <button
+                class="action-button spire-options-trigger"
+                type="button"
+                id="achievements-terrarium-options-toggle-button"
+                aria-expanded="false"
+                aria-controls="achievements-terrarium-options-menu"
+              >
+                <span>Terrarium Options</span>
+              </button>
+              <div
+                class="spire-options-menu"
+                id="achievements-terrarium-options-menu"
+                data-open="false"
+                aria-hidden="true"
+                hidden
+              >
+                <!-- Render size option for Achievement Terrarium. -->
+                <div class="settings-toggle" id="achievements-terrarium-render-size-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="achievements-terrarium-render-size-title">Render Size</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="achievements-terrarium-render-size-description"
+                      >Adjust the Achievement Terrarium render size.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="achievements-terrarium-render-size-select">
+                    <span class="screen-reader-only">Render size</span>
+                    <select
+                      id="achievements-terrarium-render-size-select"
+                      class="settings-select"
+                      aria-labelledby="achievements-terrarium-render-size-title"
+                      aria-describedby="achievements-terrarium-render-size-description"
+                    >
+                      <option value="0">Small</option>
+                      <option value="1" selected>Medium</option>
+                      <option value="2">Large</option>
+                    </select>
+                  </label>
+                </div>
+                <button class="action-button ghost spire-options-close" type="button">Close</button>
+              </div>
+            </article>
+            
             <!-- Terrarium Items dropdown -->
             <article class="card fluid-terrarium-items-card">
               <button
