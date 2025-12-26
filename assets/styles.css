@@ -4528,6 +4528,7 @@ body.playfield-fullscreen .playfield {
   touch-action: pan-y;
 }
 
+
 .card[data-tower-id][data-locked='false'] {
   cursor: var(--cursor-pointer);
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
