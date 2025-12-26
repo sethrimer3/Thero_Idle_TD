@@ -353,7 +353,8 @@ class Particle {
 
     // Limit velocity with size-based modifier
     const maxVelocity = this._maxVelocity;
-    const minVelocity = this._minVelocity;
+    // Triple the minimum speed while particles are within their generator's influence to keep them lively near spawners.
+    const minVelocity = isInsideGeneratorField ? this._minVelocity * 3 : this._minVelocity;
     
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
     // Clamp speed based on whether the particle is caught in its generator gravity field.
