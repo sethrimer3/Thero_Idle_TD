@@ -27,7 +27,7 @@ function isLikelyMobileBrowser() {
  * unless they explicitly raise the in-game music slider.
  */
 function resolveDefaultMusicVolume() {
-  return isLikelyMobileBrowser() ? 0 : 1;
+  return 1;
 }
 
 /**
@@ -35,7 +35,7 @@ function resolveDefaultMusicVolume() {
  * interrupting external media playback unless the player opts in.
  */
 function resolveDefaultSfxVolume() {
-  return isLikelyMobileBrowser() ? 0 : 1;
+  return 1;
 }
 
 export const DEFAULT_AUDIO_MANIFEST = {

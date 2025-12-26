@@ -43,6 +43,8 @@ let goldenTextQueue = []; // Queue of text lines waiting to be displayed
 let goldenTextAnimating = false; // Whether golden text is currently animating
 // Track sparkle emitter timers for achievement glow replacements.
 const sparkleEmitters = new Map();
+// Track whether the achievements tab is currently visible
+let isAchievementsTabVisible = false;
 // Define sparkle timing so fireflies feel occasional instead of constant.
 const SPARKLE_MIN_DURATION_MS = 3000;
 const SPARKLE_MAX_DURATION_MS = 5000;
@@ -714,6 +716,31 @@ function toggleDropdown(categoryId) {
       }
     });
   } else {
+    // Auto-close all other open dropdowns first
+    Array.from(openDropdowns).forEach(otherId => {
+      if (otherId !== categoryId) {
+        const otherDropdown = document.querySelector(`[data-dropdown-content="${otherId}"]`);
+        const otherButton = document.querySelector(`[data-dropdown-toggle="${otherId}"]`);
+        if (otherDropdown && otherButton) {
+          openDropdowns.delete(otherId);
+          otherDropdown.hidden = true;
+          otherDropdown.style.display = 'none';
+          otherButton.setAttribute('aria-expanded', 'false');
+          otherButton.classList.remove('achievement-category-toggle--expanded');
+          
+          // Stop sparkles for achievements in the closed category
+          const otherCategoryAchievements = achievementsByCategory.get(otherId) || [];
+          otherCategoryAchievements.forEach(def => {
+            const element = achievementElements.get(def.id);
+            if (element?.container) {
+              setAchievementSparkleEmitter(element.container, false);
+            }
+          });
+        }
+      }
+    });
+    
+    // Now open the requested dropdown
     openDropdowns.add(categoryId);
     dropdownContent.hidden = false;
     dropdownContent.style.display = 'block';
@@ -1514,7 +1541,8 @@ function updateAchievementTabShimmer() {
   } else {
     achievementTabButton.classList.remove('tab-button--unclaimed-achievements');
   }
-  // Keep the tab button sparkles in sync with unclaimed achievements.
+  // Keep the tab button sparkles always active when there are unclaimed achievements,
+  // since the tab button is always visible.
   setAchievementSparkleEmitter(achievementTabButton, hasUnclaimedAchievements());
 }
 
@@ -1526,14 +1554,57 @@ function updateCategoryDropdownShimmers() {
       return;
     }
     
-    if (categoryHasUnclaimedAchievements(category.id)) {
+    const hasUnclaimed = categoryHasUnclaimedAchievements(category.id);
+    
+    if (hasUnclaimed) {
       toggleButton.classList.add('achievement-category-toggle--has-unclaimed');
     } else {
       toggleButton.classList.remove('achievement-category-toggle--has-unclaimed');
     }
-    // Synchronize category sparkles with unclaimed achievements.
-    setAchievementSparkleEmitter(toggleButton, categoryHasUnclaimedAchievements(category.id));
+    // Category button sparkles should only be active when the achievements tab is visible.
+    setAchievementSparkleEmitter(toggleButton, hasUnclaimed && isAchievementsTabVisible);
   });
+}
+
+// Notify the achievements tab when visibility changes (e.g., tab switching)
+export function notifyAchievementsTabVisibilityChange(visible) {
+  isAchievementsTabVisible = Boolean(visible);
+  
+  // Update sparkles on category buttons based on new visibility
+  ACHIEVEMENT_CATEGORIES.forEach(category => {
+    const toggleButton = document.querySelector(`[data-dropdown-toggle="${category.id}"]`);
+    if (!toggleButton) {
+      return;
+    }
+    
+    const hasUnclaimed = categoryHasUnclaimedAchievements(category.id);
+    
+    // Category sparkles: enabled when tab is visible AND category has unclaimed achievements
+    setAchievementSparkleEmitter(toggleButton, hasUnclaimed && isAchievementsTabVisible);
+  });
+  
+  // Achievement sparkles within open dropdowns should also update
+  if (!isAchievementsTabVisible) {
+    // When tab becomes hidden, stop all achievement sparkles
+    achievementDefinitions.forEach((definition) => {
+      const element = achievementElements.get(definition.id);
+      if (element?.container) {
+        setAchievementSparkleEmitter(element.container, false);
+      }
+    });
+  } else {
+    // When tab becomes visible, restart sparkles for unclaimed achievements in open dropdowns
+    openDropdowns.forEach(categoryId => {
+      const categoryAchievements = achievementsByCategory.get(categoryId) || [];
+      categoryAchievements.forEach(def => {
+        const state = achievementState.get(def.id);
+        const element = achievementElements.get(def.id);
+        if (element?.container && state?.earned && !state?.claimed) {
+          setAchievementSparkleEmitter(element.container, true);
+        }
+      });
+    });
+  }
 }
 
 // Recomputes the idle powder reward provided by unlocked achievements.
