@@ -14321,6 +14321,23 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   font-weight: bold;
 }
 
+.bet-equation-display {
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50px;
+}
+
+.bet-equation-text {
+  font-size: 1.2em;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+
 .bet-generator-list {
   display: flex;
   flex-direction: column;
