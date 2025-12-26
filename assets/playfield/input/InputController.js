@@ -2,6 +2,7 @@ import {
   collectMoteGemsWithinRadius,
   MOTE_GEM_COLLECTION_RADIUS,
 } from '../../enemies.js';
+import { metersToPixels } from '../../gameUnits.js';
 import { PLAYFIELD_VIEW_DRAG_THRESHOLD } from '../constants.js';
 
 // Input controller routines extracted from SimplePlayfield for modularized input handling.
@@ -572,13 +573,19 @@ function collectMoteGemsNear(position) {
   if (!position) {
     return 0;
   }
-  const collected = collectMoteGemsWithinRadius(position, MOTE_GEM_COLLECTION_RADIUS, {
+  // Calculate 4 meters in pixels based on the current playfield dimensions
+  const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+  const minDimension = width > 0 && height > 0 ? Math.min(width, height) : 320;
+  const collectionRadiusPixels = metersToPixels(4, minDimension);
+  
+  const result = collectMoteGemsWithinRadius(position, collectionRadiusPixels, {
     reason: 'manual',
   });
-  if (collected > 0 && this.audio) {
+  if (result.count > 0 && this.audio) {
     this.audio.playSfx('uiConfirm');
   }
-  return collected;
+  return result.count;
 }
 
 function handleCanvasClick(event) {
