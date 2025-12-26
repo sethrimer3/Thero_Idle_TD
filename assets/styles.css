@@ -6777,6 +6777,21 @@ body.playfield-fullscreen .playfield {
   margin-right: calc(-1 * var(--cognitive-realm-overlap-inline-right));
 }
 
+/* Playfield overlap styles */
+#playfield {
+  --playfield-overlap-inline-left: 0px;
+  --playfield-overlap-inline-right: 0px;
+  --playfield-overlap-top: 0px;
+}
+
+#playfield[data-overlap-level]:not([data-overlap-level='0']) {
+  padding-inline: 0;
+  margin-top: calc(-1 * var(--playfield-overlap-top));
+  width: calc(100% + var(--playfield-overlap-inline-left) + var(--playfield-overlap-inline-right));
+  margin-left: calc(-1 * var(--playfield-overlap-inline-left));
+  margin-right: calc(-1 * var(--playfield-overlap-inline-right));
+}
+
 @media (max-width: 640px) {
   /* Allow the Spire basin to use the full mobile width so walls no longer overlap. */
   .powder-simulation {

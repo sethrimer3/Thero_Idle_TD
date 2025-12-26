@@ -401,6 +401,30 @@
                       <span class="settings-toggle-state" id="playfield-enemy-particles-state">On</span>
                     </label>
                   </div>
+                  <!-- Render size option for Playfield. -->
+                  <div class="settings-toggle" id="playfield-render-size-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="playfield-render-size-title">Render Size</span>
+                      <span
+                        class="settings-toggle-description"
+                        id="playfield-render-size-description"
+                        >Adjust the Playfield render size.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="playfield-render-size-select">
+                      <span class="screen-reader-only">Render size</span>
+                      <select
+                        id="playfield-render-size-select"
+                        class="settings-select"
+                        aria-labelledby="playfield-render-size-title"
+                        aria-describedby="playfield-render-size-description"
+                      >
+                        <option value="0">Small</option>
+                        <option value="1" selected>Medium</option>
+                        <option value="2">Large</option>
+                      </select>
+                    </label>
+                  </div>
                   <button class="action-button ghost" type="button" id="playfield-track-type-button">
                     Track Type · Gradient
                   </button>

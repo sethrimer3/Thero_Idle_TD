@@ -424,6 +424,7 @@ import { bindSpireOptionsDropdown, closeAllSpireDropdowns } from './spireOptions
 import { bindKufSpireOptions, initializeKufSpirePreferences } from './kufSpirePreferences.js';
 import { bindShinSpireOptions, initializeShinSpirePreferences, setShinSimulationGetter } from './shinSpirePreferences.js';
 import { bindCognitiveRealmOptions, initializeCognitiveRealmPreferences } from './cognitiveRealmPreferences.js';
+import { bindPlayfieldOptions, initializePlayfieldPreferences } from './playfield/playfieldPreferences.js';
 import { createDeveloperModeManager } from './developerModeManager.js';
 import {
   moteGemState,
@@ -6210,6 +6211,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindPlayfieldTrackTypeButton();
     initializeTowerLoadoutToggleSidePreference();
     bindTowerLoadoutToggleSideButton();
+    initializePlayfieldPreferences();
+    bindPlayfieldOptions();
 
     // Bind playfield settings dropdown
     const playfieldSettingsToggle = document.getElementById('playfield-settings-toggle');
