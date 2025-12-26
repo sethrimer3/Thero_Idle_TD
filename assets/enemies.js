@@ -290,17 +290,8 @@ export function spawnMoteGemDrop(enemy, position) {
   return gem;
 }
 
-// Transfer a mote gem into the player's reserves and remove it from the field.
-export function collectMoteGemDrop(gem, context = {}) {
-  if (!gem) {
-    return false;
-  }
-  const index = moteGemState.active.findIndex((candidate) => candidate && candidate.id === gem.id);
-  if (index === -1) {
-    return false;
-  }
-  moteGemState.active.splice(index, 1);
-
+// Helper function to add a gem to the player's inventory and invoke handlers.
+function addGemToInventory(gem, reason = 'manual') {
   const record =
     moteGemState.inventory.get(gem.typeKey) ||
     { label: gem.typeLabel, total: 0, count: 0 };
@@ -319,9 +310,22 @@ export function collectMoteGemDrop(gem, context = {}) {
     recordPowderEventHandler('mote-gem-collected', {
       type: gem.typeLabel,
       value: gem.value,
-      reason: context.reason || 'manual',
+      reason,
     });
   }
+}
+
+// Transfer a mote gem into the player's reserves and remove it from the field.
+export function collectMoteGemDrop(gem, context = {}) {
+  if (!gem) {
+    return false;
+  }
+  const index = moteGemState.active.findIndex((candidate) => candidate && candidate.id === gem.id);
+  if (index === -1) {
+    return false;
+  }
+  moteGemState.active.splice(index, 1);
+  addGemToInventory(gem, context.reason || 'manual');
   return true;
 }
 
@@ -370,14 +374,8 @@ export function updateGemSuctionAnimations(deltaTime = 16) {
 
     // Check if gem has reached its target
     if (distance <= GEM_SUCTION_THRESHOLD) {
-      // Collect the gem
-      const record =
-        moteGemState.inventory.get(gem.typeKey) ||
-        { label: gem.typeLabel, total: 0, count: 0 };
-      record.total += gem.value;
-      record.count = (record.count || 0) + 1;
-      record.label = gem.typeLabel || record.label;
-      moteGemState.inventory.set(gem.typeKey, record);
+      // Add to inventory using shared helper
+      addGemToInventory(gem, 'suction');
 
       // Track collected gems by type for feedback display
       if (!collectedByType.has(gem.typeKey)) {
@@ -392,21 +390,6 @@ export function updateGemSuctionAnimations(deltaTime = 16) {
       }
       const typeGroup = collectedByType.get(gem.typeKey);
       typeGroup.count += gem.value;
-
-      // Call powder handlers if configured
-      if (queueMoteDropHandler) {
-        queueMoteDropHandler({
-          size: gem.value,
-          color: gem.color ? { ...gem.color } : null,
-        });
-      }
-      if (recordPowderEventHandler) {
-        recordPowderEventHandler('mote-gem-collected', {
-          type: gem.typeLabel,
-          value: gem.value,
-          reason: 'suction',
-        });
-      }
 
       return false; // Remove collected gem
     }
