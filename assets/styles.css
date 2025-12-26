@@ -6762,6 +6762,21 @@ body.playfield-fullscreen .playfield {
   padding: 0;
 }
 
+/* Collective Unconscious (Cognitive Realm) overlap styles */
+#cognitive-realm-section {
+  --cognitive-realm-overlap-inline-left: 0px;
+  --cognitive-realm-overlap-inline-right: 0px;
+  --cognitive-realm-overlap-top: 0px;
+}
+
+#cognitive-realm-section[data-overlap-level]:not([data-overlap-level='0']) {
+  padding-inline: 0;
+  margin-top: calc(-1 * var(--cognitive-realm-overlap-top));
+  width: calc(100% + var(--cognitive-realm-overlap-inline-left) + var(--cognitive-realm-overlap-inline-right));
+  margin-left: calc(-1 * var(--cognitive-realm-overlap-inline-left));
+  margin-right: calc(-1 * var(--cognitive-realm-overlap-inline-right));
+}
+
 @media (max-width: 640px) {
   /* Allow the Spire basin to use the full mobile width so walls no longer overlap. */
   .powder-simulation {
