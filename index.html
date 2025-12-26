@@ -1681,6 +1681,75 @@
                 <!-- Individual checkboxes will be populated by JavaScript -->
               </div>
             </details>
+            
+            <!-- Nu and Xi tower card element debugging controls -->
+            <details class="tower-element-debug" id="tower-element-debug">
+              <summary class="tower-element-debug__summary">Nu/Xi Card Element Debug (Scroll Issue)</summary>
+              <p class="tower-element-debug__note">
+                Toggle specific elements of Nu and Xi tower cards to identify which element is blocking scroll gestures.
+              </p>
+              <div class="tower-element-debug__grid">
+                <fieldset class="tower-element-debug__section">
+                  <legend>Nu Tower (ν) Elements</legend>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-nu-preview" checked />
+                    <span>Show Preview Icon</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-nu-header" checked />
+                    <span>Show Header</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-nu-formula" checked />
+                    <span>Show Formula Block</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-nu-footer" checked />
+                    <span>Show Footer</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-nu-button" checked />
+                    <span>Show Equip Button</span>
+                  </label>
+                  <label class="tower-element-debug__toggle tower-element-debug__toggle--master">
+                    <input type="checkbox" id="debug-nu-card" checked />
+                    <span><strong>Show Entire Card</strong></span>
+                  </label>
+                </fieldset>
+                
+                <fieldset class="tower-element-debug__section">
+                  <legend>Xi Tower (ξ) Elements</legend>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-xi-preview" checked />
+                    <span>Show Preview Icon</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-xi-header" checked />
+                    <span>Show Header</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-xi-formula" checked />
+                    <span>Show Formula Block</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-xi-footer" checked />
+                    <span>Show Footer</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-xi-button" checked />
+                    <span>Show Equip Button</span>
+                  </label>
+                  <label class="tower-element-debug__toggle tower-element-debug__toggle--master">
+                    <input type="checkbox" id="debug-xi-card" checked />
+                    <span><strong>Show Entire Card</strong></span>
+                  </label>
+                </fieldset>
+              </div>
+              <p class="tower-element-debug__instructions">
+                💡 <strong>Instructions:</strong> Uncheck elements one at a time to identify which one is preventing scrolling. 
+                If scrolling works after hiding an element, that element likely has <code>pointer-events</code> or <code>touch-action</code> CSS that's blocking the gesture.
+              </p>
+            </details>
           </div>
         </section>
 

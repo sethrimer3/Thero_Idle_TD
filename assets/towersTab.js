@@ -1939,6 +1939,93 @@ function updateIndividualTowerCardVisibility(towerId, visible) {
   }
 }
 
+/**
+ * Initialize Nu and Xi tower card element debugging controls
+ * to help identify which specific elements are blocking scroll gestures.
+ */
+export function initializeTowerElementDebugControls() {
+  const debugSection = document.getElementById('tower-element-debug');
+  if (!debugSection) {
+    return;
+  }
+  
+  // Define the element debug controls for Nu and Xi towers
+  const elementControls = [
+    { id: 'debug-nu-card', towerId: 'nu', selector: '[data-tower-id="nu"]' },
+    { id: 'debug-nu-preview', towerId: 'nu', selector: '[data-tower-id="nu"] .tower-preview' },
+    { id: 'debug-nu-header', towerId: 'nu', selector: '[data-tower-id="nu"] .tower-header' },
+    { id: 'debug-nu-formula', towerId: 'nu', selector: '[data-tower-id="nu"] .formula-block' },
+    { id: 'debug-nu-footer', towerId: 'nu', selector: '[data-tower-id="nu"] .card-footer' },
+    { id: 'debug-nu-button', towerId: 'nu', selector: '[data-tower-id="nu"] .tower-equip-button' },
+    { id: 'debug-xi-card', towerId: 'xi', selector: '[data-tower-id="xi"]' },
+    { id: 'debug-xi-preview', towerId: 'xi', selector: '[data-tower-id="xi"] .tower-preview' },
+    { id: 'debug-xi-header', towerId: 'xi', selector: '[data-tower-id="xi"] .tower-header' },
+    { id: 'debug-xi-formula', towerId: 'xi', selector: '[data-tower-id="xi"] .formula-block' },
+    { id: 'debug-xi-footer', towerId: 'xi', selector: '[data-tower-id="xi"] .card-footer' },
+    { id: 'debug-xi-button', towerId: 'xi', selector: '[data-tower-id="xi"] .tower-equip-button' },
+  ];
+  
+  // Set up event listeners for each toggle
+  elementControls.forEach(({ id, selector }) => {
+    const checkbox = document.getElementById(id);
+    if (!checkbox) {
+      return;
+    }
+    
+    // Add change event listener
+    checkbox.addEventListener('change', () => {
+      const element = document.querySelector(selector);
+      if (!element || !(element instanceof HTMLElement)) {
+        return;
+      }
+      
+      if (checkbox.checked) {
+        // Show the element
+        element.style.removeProperty('display');
+        element.style.removeProperty('visibility');
+        element.removeAttribute('hidden');
+        element.setAttribute('aria-hidden', 'false');
+      } else {
+        // Hide the element
+        element.style.display = 'none';
+        element.setAttribute('aria-hidden', 'true');
+      }
+    });
+  });
+  
+  // Add special handling for master card toggles
+  const nuCardToggle = document.getElementById('debug-nu-card');
+  const xiCardToggle = document.getElementById('debug-xi-card');
+  
+  if (nuCardToggle) {
+    nuCardToggle.addEventListener('change', () => {
+      // When master toggle changes, update all child element toggles
+      const isChecked = nuCardToggle.checked;
+      ['debug-nu-preview', 'debug-nu-header', 'debug-nu-formula', 'debug-nu-footer', 'debug-nu-button'].forEach((id) => {
+        const childToggle = document.getElementById(id);
+        if (childToggle && childToggle.checked !== isChecked) {
+          childToggle.checked = isChecked;
+          childToggle.dispatchEvent(new Event('change'));
+        }
+      });
+    });
+  }
+  
+  if (xiCardToggle) {
+    xiCardToggle.addEventListener('change', () => {
+      // When master toggle changes, update all child element toggles
+      const isChecked = xiCardToggle.checked;
+      ['debug-xi-preview', 'debug-xi-header', 'debug-xi-formula', 'debug-xi-footer', 'debug-xi-button'].forEach((id) => {
+        const childToggle = document.getElementById(id);
+        if (childToggle && childToggle.checked !== isChecked) {
+          childToggle.checked = isChecked;
+          childToggle.dispatchEvent(new Event('change'));
+        }
+      });
+    });
+  }
+}
+
 export function syncLoadoutToPlayfield() {
   // Clear any replacement prompt before mutating the loadout so UI mirrors the new state.
   hideLoadoutReplacementPrompt();
