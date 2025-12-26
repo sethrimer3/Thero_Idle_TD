@@ -13,11 +13,11 @@ const DEFAULT_SETTINGS = Object.freeze({
   moteGlow: true,
   backgroundStars: true,
   moteTrails: true,
-  renderOverlapLevel: 0,
+  renderOverlapLevel: 1, // Default to Medium (overlap 1 margin)
 });
 
-// Clamp developer overlap controls to the documented 0-3 range.
-const MAX_RENDER_OVERLAP_LEVEL = 3;
+// Clamp render size controls to 0-2 range (Small, Medium, Large).
+const MAX_RENDER_OVERLAP_LEVEL = 2;
 
 let settings = { ...DEFAULT_SETTINGS };
 let simulationGetter = () => null;
@@ -27,11 +27,9 @@ let starsToggle = null;
 let starsStateLabel = null;
 let trailsToggle = null;
 let trailsStateLabel = null;
-// Developer-only overlap controls for the Aleph spire layout.
+// Render size controls for the Aleph spire layout.
 let renderOverlapSelect = null;
 let renderOverlapRow = null;
-// Track the current developer mode flag so overlap effects can be disabled automatically.
-let developerModeActive = false;
 
 /**
  * Persist the current Aleph spire visual settings into storage.
@@ -118,23 +116,23 @@ function syncToggleUi() {
   }
 }
 
-// Normalize the developer overlap level to a safe 0-3 range.
+// Normalize the render size level to a safe 0-2 range.
 function normalizeRenderOverlapLevel(value) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) {
-    return 0;
+    return 1; // Default to Medium if invalid
   }
   return Math.min(MAX_RENDER_OVERLAP_LEVEL, Math.max(0, parsed));
 }
 
-// Apply the Aleph render overlap settings by offsetting the spire container.
+// Apply the Aleph render size settings by offsetting the spire container.
 function applyRenderOverlapLayout() {
   const powderStage = document.getElementById('powder-stage');
   if (!powderStage) {
     return;
   }
 
-  const overlapLevel = developerModeActive ? normalizeRenderOverlapLevel(settings.renderOverlapLevel) : 0;
+  const overlapLevel = normalizeRenderOverlapLevel(settings.renderOverlapLevel);
   const panel = powderStage.closest('.panel');
   const appShell = document.querySelector('.app-shell');
 
@@ -240,19 +238,6 @@ export function initializePowderSpirePreferences() {
  */
 export function applyPowderVisualSettings() {
   applySettingsToSimulation();
-}
-
-/**
- * Update visibility of developer-only Aleph spire layout controls.
- * @param {boolean} isDeveloperModeEnabled
- */
-export function updatePowderSpireDebugControlsVisibility(isDeveloperModeEnabled) {
-  developerModeActive = Boolean(isDeveloperModeEnabled);
-  if (renderOverlapRow) {
-    renderOverlapRow.hidden = !developerModeActive;
-    renderOverlapRow.setAttribute('aria-hidden', developerModeActive ? 'false' : 'true');
-  }
-  applyRenderOverlapLayout();
 }
 
 // Recalculate overlap offsets on viewport changes to keep the render aligned.

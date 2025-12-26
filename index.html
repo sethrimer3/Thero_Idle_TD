@@ -1997,28 +1997,27 @@
                     <span class="settings-toggle-state" id="powder-mote-trails-state">On</span>
                   </label>
                 </div>
-                <!-- Developer-only option to overlap Aleph spire render margins. -->
-                <div class="settings-toggle" id="powder-render-overlap-row" hidden aria-hidden="true">
+                <!-- Render size option for Aleph spire. -->
+                <div class="settings-toggle" id="powder-render-overlap-row">
                   <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="powder-render-overlap-title">🔧 Render overlap</span>
+                    <span class="settings-toggle-title" id="powder-render-overlap-title">Render Size</span>
                     <span
                       class="settings-toggle-description"
                       id="powder-render-overlap-description"
-                      >Developer: Extend the Aleph render to overlap 0-3 layout margins.</span
+                      >Adjust the Aleph spire render size.</span
                     >
                   </div>
                   <label class="settings-toggle-control" for="powder-render-overlap-select">
-                    <span class="screen-reader-only">Render overlap level</span>
+                    <span class="screen-reader-only">Render size</span>
                     <select
                       id="powder-render-overlap-select"
                       class="settings-select"
                       aria-labelledby="powder-render-overlap-title"
                       aria-describedby="powder-render-overlap-description"
                     >
-                      <option value="0">No overlap</option>
-                      <option value="1">Overlap 1 margin</option>
-                      <option value="2">Overlap 2 margins</option>
-                      <option value="3">Overlap 3 margins</option>
+                      <option value="0">Small</option>
+                      <option value="1" selected>Medium</option>
+                      <option value="2">Large</option>
                     </select>
                   </label>
                 </div>

@@ -410,7 +410,6 @@ import {
   bindPowderSpireOptions,
   initializePowderSpirePreferences,
   setPowderSimulationGetter,
-  updatePowderSpireDebugControlsVisibility,
 } from './powderSpirePreferences.js';
 import {
   bindTsadiSpireOptions,
@@ -2258,8 +2257,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     updateShinDisplay,
     updateDeveloperMapElementsVisibility,
     updateBetSpireDebugControlsVisibility,
-    // Keep Aleph spire developer layout controls in sync with developer mode.
-    updatePowderSpireDebugControlsVisibility,
     getCurrentIdleMoteBank,
     getCurrentMoteDispenseRate,
   });
@@ -6277,8 +6274,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     });
     initializePowderSpirePreferences();
     bindPowderSpireOptions();
-    // Sync Aleph spire developer-only controls once the options menu is bound.
-    updatePowderSpireDebugControlsVisibility(developerModeActive);
     initializeFluidSpirePreferences();
     bindFluidSpireOptions();
     initializeBetSpireParticlePreferences();
