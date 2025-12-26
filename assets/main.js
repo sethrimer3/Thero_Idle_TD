@@ -7045,7 +7045,36 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       let startTranslateX = 0;
       let startTranslateY = 0;
       
+      // Anchor transforms from the top-left so clamping math stays predictable across zoom levels.
+      layer.style.transformOrigin = '0 0';
+
+      // Clamp the terrarium translation so the viewport never exposes empty space beyond the edges.
+      const clampTerrariumTranslation = () => {
+        const viewportWidth = viewport.clientWidth;
+        const viewportHeight = viewport.clientHeight;
+        const contentWidth = layer.offsetWidth;
+        const contentHeight = layer.offsetHeight;
+        if (!viewportWidth || !viewportHeight || !contentWidth || !contentHeight) {
+          return;
+        }
+        const scaledWidth = contentWidth * scale;
+        const scaledHeight = contentHeight * scale;
+        const maxTranslateX = 0;
+        const maxTranslateY = 0;
+        const minTranslateX = viewportWidth - scaledWidth;
+        const minTranslateY = viewportHeight - scaledHeight;
+        const resolveTranslation = (current, min, max, viewportSize, scaledSize) => {
+          if (min > max) {
+            return (viewportSize - scaledSize) / 2;
+          }
+          return Math.min(max, Math.max(min, current));
+        };
+        translateX = resolveTranslation(translateX, minTranslateX, maxTranslateX, viewportWidth, scaledWidth);
+        translateY = resolveTranslation(translateY, minTranslateY, maxTranslateY, viewportHeight, scaledHeight);
+      };
+
       const updateTransform = () => {
+        clampTerrariumTranslation();
         layer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
       };
       
