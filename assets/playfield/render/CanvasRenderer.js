@@ -98,6 +98,26 @@ const DEBUFF_ICON_COLORS = {
 const DEBUFF_BAR_BACKGROUND = 'rgba(6, 8, 14, 0.82)';
 const DEBUFF_BAR_STROKE = 'rgba(255, 255, 255, 0.16)';
 const GLYPH_DEFAULT_PROMOTION_VECTOR = { x: 0, y: -1 };
+// Consciousness wave configuration for the Mind Gate visualization.
+const CONSCIOUSNESS_WAVE_SPEED = 2; // Speed of wave movement
+const CONSCIOUSNESS_WAVE_WIDTH_SCALE = 2.4; // Wave extends beyond gate
+const CONSCIOUSNESS_WAVE_HEIGHT_SCALE = 0.5; // Base amplitude relative to radius
+const CONSCIOUSNESS_WAVE_PEAKS = 3; // Number of complete sine waves
+const CONSCIOUSNESS_WAVE_POINTS = 80; // Number of points for smooth curve
+const CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE = 0.7; // Phase offset between peaks
+const CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE = 0.5; // Time-based peak variation speed
+const CONSCIOUSNESS_WAVE_AMPLITUDE_MIN = 0.7; // Minimum peak amplitude multiplier
+const CONSCIOUSNESS_WAVE_AMPLITUDE_RANGE = 0.3; // Range of peak amplitude variation
+const CONSCIOUSNESS_WAVE_HARMONIC_SCALE = 0.15; // Secondary harmonic amplitude
+const CONSCIOUSNESS_WAVE_FLUCTUATION_SPEED = 3; // Speed of subtle fluctuations
+const CONSCIOUSNESS_WAVE_FLUCTUATION_SCALE = 0.08; // Amplitude of subtle fluctuations
+const CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN = 1.5; // Minimum line width for first layer
+const CONSCIOUSNESS_WAVE_LINE_WIDTH_SCALE = 0.08; // Line width scaling relative to radius
+const CONSCIOUSNESS_WAVE_SHADOW_BLUR_SCALE = 0.3; // Shadow blur scaling for first layer
+const CONSCIOUSNESS_WAVE_LAYER2_ALPHA = 0.5; // Opacity of second layer
+const CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN = 2.5; // Minimum line width for second layer
+const CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE = 0.12; // Line width scaling for second layer
+const CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE = 0.5; // Shadow blur scaling for second layer
 const GLYPH_DEFAULT_DEMOTION_VECTOR = { x: 0, y: 1 };
 const PROMOTION_GLYPH_COLOR = { r: 139, g: 247, b: 255 };
 const DEMOTION_GLYPH_COLOR = { r: 255, g: 196, b: 150 };
@@ -1081,11 +1101,82 @@ function drawMindGateSymbol(ctx, position) {
     ctx.stroke();
   }
 
+  // Draw the consciousness wavelength - a sine wave that fluctuates through the gate
   const gateIntegrity = Math.max(0, Math.floor(this.lives || 0));
   const maxIntegrity = Math.max(
     gateIntegrity,
     Math.floor(this.levelConfig?.lives || gateIntegrity || 1),
   );
+  // Calculate health percentage to scale wave amplitude
+  const healthPercentage = maxIntegrity > 0 ? gateIntegrity / maxIntegrity : 1;
+  
+  // Use performance timestamp if available to ensure consistent animation timing
+  const currentTime = (this.lastRenderTime !== undefined ? this.lastRenderTime : Date.now()) / 1000;
+  const waveOffset = currentTime * CONSCIOUSNESS_WAVE_SPEED;
+  
+  // Draw consciousness wave through the gate
+  const waveWidth = radius * CONSCIOUSNESS_WAVE_WIDTH_SCALE;
+  const waveHeight = radius * CONSCIOUSNESS_WAVE_HEIGHT_SCALE * healthPercentage;
+  
+  ctx.save();
+  ctx.beginPath();
+  
+  // Generate sine wave with varying amplitudes for each peak
+  for (let i = 0; i <= CONSCIOUSNESS_WAVE_POINTS; i++) {
+    const x = -waveWidth / 2 + (i / CONSCIOUSNESS_WAVE_POINTS) * waveWidth;
+    const normalizedX = (i / CONSCIOUSNESS_WAVE_POINTS) * CONSCIOUSNESS_WAVE_PEAKS * Math.PI * 2;
+    
+    // Base sine wave
+    let y = Math.sin(normalizedX + waveOffset) * waveHeight;
+    
+    // Add amplitude variation per peak to create dynamic effect
+    const peakIndex = Math.floor((i / CONSCIOUSNESS_WAVE_POINTS) * CONSCIOUSNESS_WAVE_PEAKS);
+    const peakPhase = (peakIndex * CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE + currentTime * CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE) % (Math.PI * 2);
+    const peakAmplitudeMod = CONSCIOUSNESS_WAVE_AMPLITUDE_MIN + CONSCIOUSNESS_WAVE_AMPLITUDE_RANGE * Math.sin(peakPhase);
+    y *= peakAmplitudeMod;
+    
+    // Add secondary harmonic for more organic feel
+    y += Math.sin(normalizedX * 2 + waveOffset * 1.5) * waveHeight * CONSCIOUSNESS_WAVE_HARMONIC_SCALE;
+    
+    // Add subtle fluctuation to make it feel alive
+    const fluctuation = Math.sin(currentTime * CONSCIOUSNESS_WAVE_FLUCTUATION_SPEED + i * 0.1) * waveHeight * CONSCIOUSNESS_WAVE_FLUCTUATION_SCALE;
+    y += fluctuation;
+    
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  
+  // Create gradient for the wave
+  const waveGradient = ctx.createLinearGradient(-waveWidth / 2, 0, waveWidth / 2, 0);
+  waveGradient.addColorStop(0, 'rgba(139, 247, 255, 0)');
+  waveGradient.addColorStop(0.2, `rgba(139, 247, 255, ${0.6 * healthPercentage})`);
+  waveGradient.addColorStop(0.5, `rgba(179, 227, 255, ${0.8 * healthPercentage})`);
+  waveGradient.addColorStop(0.8, `rgba(139, 247, 255, ${0.6 * healthPercentage})`);
+  waveGradient.addColorStop(1, 'rgba(139, 247, 255, 0)');
+  
+  ctx.strokeStyle = waveGradient;
+  ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LINE_WIDTH_SCALE);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  
+  // Add glow effect to the wave
+  ctx.shadowColor = `rgba(139, 247, 255, ${0.8 * healthPercentage})`;
+  ctx.shadowBlur = radius * CONSCIOUSNESS_WAVE_SHADOW_BLUR_SCALE;
+  ctx.stroke();
+  
+  // Draw second layer for enhanced visibility with explicit alpha management
+  ctx.save();
+  ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA;
+  ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE);
+  ctx.shadowBlur = radius * CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE;
+  ctx.stroke();
+  ctx.restore();
+  
+  ctx.restore();
+  
   const gateExponentSource = gateIntegrity > 0 ? gateIntegrity : maxIntegrity || 1;
   const gateExponent = this.calculateHealthExponent(gateExponentSource);
   const palette =
