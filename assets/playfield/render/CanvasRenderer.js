@@ -1081,11 +1081,85 @@ function drawMindGateSymbol(ctx, position) {
     ctx.stroke();
   }
 
+  // Draw the consciousness wavelength - a sine wave that fluctuates through the gate
   const gateIntegrity = Math.max(0, Math.floor(this.lives || 0));
   const maxIntegrity = Math.max(
     gateIntegrity,
     Math.floor(this.levelConfig?.lives || gateIntegrity || 1),
   );
+  // Calculate health percentage to scale wave amplitude
+  const healthPercentage = maxIntegrity > 0 ? gateIntegrity / maxIntegrity : 1;
+  
+  // Animate the wave using current time
+  const currentTime = Date.now() / 1000; // Convert to seconds
+  const waveSpeed = 2; // Speed of wave movement
+  const waveOffset = currentTime * waveSpeed;
+  
+  // Draw consciousness wave through the gate
+  const waveWidth = radius * 2.4; // Wave extends beyond gate
+  const waveHeight = radius * 0.5 * healthPercentage; // Amplitude scales with health
+  const numPeaks = 3; // Number of complete sine waves
+  const wavelength = waveWidth / numPeaks;
+  const points = 80; // Number of points for smooth curve
+  
+  ctx.save();
+  ctx.beginPath();
+  
+  // Generate sine wave with varying amplitudes for each peak
+  for (let i = 0; i <= points; i++) {
+    const x = -waveWidth / 2 + (i / points) * waveWidth;
+    const normalizedX = (i / points) * numPeaks * Math.PI * 2;
+    
+    // Base sine wave
+    let y = Math.sin(normalizedX + waveOffset) * waveHeight;
+    
+    // Add amplitude variation per peak to create dynamic effect
+    // Each peak gets a slightly different amplitude based on its position
+    const peakIndex = Math.floor((i / points) * numPeaks);
+    const peakPhase = (peakIndex * 0.7 + currentTime * 0.5) % (Math.PI * 2);
+    const peakAmplitudeMod = 0.7 + 0.3 * Math.sin(peakPhase); // Varies between 0.7 and 1.0
+    y *= peakAmplitudeMod;
+    
+    // Add secondary harmonic for more organic feel
+    y += Math.sin(normalizedX * 2 + waveOffset * 1.5) * waveHeight * 0.15;
+    
+    // Add subtle fluctuation to make it feel alive
+    const fluctuation = Math.sin(currentTime * 3 + i * 0.1) * waveHeight * 0.08;
+    y += fluctuation;
+    
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  
+  // Create gradient for the wave
+  const waveGradient = ctx.createLinearGradient(-waveWidth / 2, 0, waveWidth / 2, 0);
+  waveGradient.addColorStop(0, 'rgba(139, 247, 255, 0)');
+  waveGradient.addColorStop(0.2, `rgba(139, 247, 255, ${0.6 * healthPercentage})`);
+  waveGradient.addColorStop(0.5, `rgba(179, 227, 255, ${0.8 * healthPercentage})`);
+  waveGradient.addColorStop(0.8, `rgba(139, 247, 255, ${0.6 * healthPercentage})`);
+  waveGradient.addColorStop(1, 'rgba(139, 247, 255, 0)');
+  
+  ctx.strokeStyle = waveGradient;
+  ctx.lineWidth = Math.max(1.5, radius * 0.08);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  
+  // Add glow effect to the wave
+  ctx.shadowColor = `rgba(139, 247, 255, ${0.8 * healthPercentage})`;
+  ctx.shadowBlur = radius * 0.3;
+  ctx.stroke();
+  
+  // Draw second layer for enhanced visibility
+  ctx.globalAlpha = 0.5;
+  ctx.lineWidth = Math.max(2.5, radius * 0.12);
+  ctx.shadowBlur = radius * 0.5;
+  ctx.stroke();
+  
+  ctx.restore();
+  
   const gateExponentSource = gateIntegrity > 0 ? gateIntegrity : maxIntegrity || 1;
   const gateExponent = this.calculateHealthExponent(gateExponentSource);
   const palette =
