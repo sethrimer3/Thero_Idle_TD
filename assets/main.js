@@ -260,6 +260,7 @@ import {
   notifyTowerPlaced,
   getAchievementPowderRate,
   stopAllAchievementSparkles,
+  notifyAchievementsTabVisibilityChange,
 } from './achievementsTab.js';
 import {
   configureBoostsSection,
@@ -6841,20 +6842,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         }
 
         // Handle achievements tab visibility for sparkle management
-        // Stop sparkles when leaving achievements tab, restart when entering
-        if (previousTabId === 'achievements' && tabId !== 'achievements') {
-          // Stop all achievement sparkles when leaving the tab
-          if (typeof stopAllAchievementSparkles === 'function') {
-            stopAllAchievementSparkles();
-          }
-        } else if (tabId === 'achievements' && previousTabId !== 'achievements') {
-          // Re-evaluate and restart sparkles after a brief delay when entering
-          // The 1-second delay in setAchievementSparkleEmitter prevents buildup
-          if (typeof evaluateAchievements === 'function') {
-            window.setTimeout(() => {
-              evaluateAchievements();
-            }, 50);
-          }
+        // Notify achievements tab when visibility changes
+        if (typeof notifyAchievementsTabVisibilityChange === 'function') {
+          notifyAchievementsTabVisibilityChange(tabId === 'achievements');
         }
 
         previousTabId = tabId;
@@ -7059,18 +7049,34 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         }
         const scaledWidth = contentWidth * scale;
         const scaledHeight = contentHeight * scale;
+        
+        // Prevent zooming out past the terrarium bounds
+        // Calculate minimum scale to ensure content fills the viewport
+        const minScaleX = viewportWidth / contentWidth;
+        const minScaleY = viewportHeight / contentHeight;
+        const minScale = Math.max(minScaleX, minScaleY, 0.5); // Use 0.5 as absolute minimum
+        
+        // Clamp scale to prevent zooming out too far
+        if (scale < minScale) {
+          scale = minScale;
+        }
+        
+        // Recalculate scaled dimensions with clamped scale
+        const clampedScaledWidth = contentWidth * scale;
+        const clampedScaledHeight = contentHeight * scale;
+        
         const maxTranslateX = 0;
         const maxTranslateY = 0;
-        const minTranslateX = viewportWidth - scaledWidth;
-        const minTranslateY = viewportHeight - scaledHeight;
+        const minTranslateX = viewportWidth - clampedScaledWidth;
+        const minTranslateY = viewportHeight - clampedScaledHeight;
         const resolveTranslation = (current, min, max, viewportSize, scaledSize) => {
           if (min > max) {
             return (viewportSize - scaledSize) / 2;
           }
           return Math.min(max, Math.max(min, current));
         };
-        translateX = resolveTranslation(translateX, minTranslateX, maxTranslateX, viewportWidth, scaledWidth);
-        translateY = resolveTranslation(translateY, minTranslateY, maxTranslateY, viewportHeight, scaledHeight);
+        translateX = resolveTranslation(translateX, minTranslateX, maxTranslateX, viewportWidth, clampedScaledWidth);
+        translateY = resolveTranslation(translateY, minTranslateY, maxTranslateY, viewportHeight, clampedScaledHeight);
       };
 
       const updateTransform = () => {
