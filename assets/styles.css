@@ -14333,9 +14333,16 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 .bet-equation-text {
   font-size: 1.2em;
-  font-family: 'Courier New', monospace;
+  /* Use the primary serif theme font for the BET particle factor equation. */
+  font-family: "Cormorant Garamond", serif;
   text-align: center;
   letter-spacing: 0.05em;
+}
+
+/* Let the BET spire simulation stretch to the full card width on desktop while preserving the basin aspect ratio. */
+#bet-spire-simulation-card {
+  width: 100%;
+  max-width: 100%;
 }
 
 .bet-generator-list {
