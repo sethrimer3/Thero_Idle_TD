@@ -11491,6 +11491,10 @@ export class SimplePlayfield {
     return CanvasRenderer.drawDamageNumbers.call(this);
   }
 
+  drawFloatingFeedback() {
+    return CanvasRenderer.drawFloatingFeedback.call(this);
+  }
+
   drawWaveTallies() {
     return CanvasRenderer.drawWaveTallies.call(this);
   }
