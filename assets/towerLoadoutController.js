@@ -23,6 +23,7 @@ export function createTowerLoadoutController({
   const LOADOUT_SCROLL_STEP_PX = 28; // Drag distance required to advance the wheel to the next item.
   const LOADOUT_DRAG_CANCEL_DISTANCE = 6; // Mouse/pen threshold that cancels the hold timer so drags can begin immediately.
   const LOADOUT_DRAG_CANCEL_DISTANCE_TOUCH = 14; // Slightly looser touch threshold to tolerate finger jitter during holds.
+  const MAX_VISIBLE_LOADOUT_ITEMS = 3; // Maximum number of tower options visible in the loadout wheel at once.
   // Store the last rendered tower order signature so the DOM only rebuilds when selection changes.
   let renderedLoadoutSignature = null;
   // Track the active drag interaction so pointer events can be cancelled cleanly.
@@ -618,7 +619,7 @@ export function createTowerLoadoutController({
         : null;
     const availableHeight = playfieldBounds?.height ? playfieldBounds.height - 24 : viewportHeight - 24;
     // Clamp the wheel height to the viewport so the active option can sit over the slot without clipping off-screen.
-    const clampedHeight = Math.min(totalHeight, Math.max(itemHeight * 3, availableHeight));
+    const clampedHeight = Math.min(totalHeight, Math.max(itemHeight * MAX_VISIBLE_LOADOUT_ITEMS, availableHeight));
     list.style.setProperty('--tower-loadout-wheel-height', `${clampedHeight}px`);
     updateLoadoutWheelTransform({ immediate });
   }
@@ -727,12 +728,16 @@ export function createTowerLoadoutController({
     list.addEventListener('pointerdown', beginWheelDrag);
     list.addEventListener('wheel', (event) => {
       event.preventDefault();
-      const itemHeight = Math.max(1, wheelState.itemHeight || LOADOUT_SCROLL_STEP_PX);
-      const deltaIndex = (event.deltaY || 0) / itemHeight;
-      const currentTarget = Number.isFinite(wheelState.targetIndex)
-        ? wheelState.targetIndex
-        : wheelState.activeIndex;
-      setLoadoutWheelTarget(currentTarget + deltaIndex);
+      const delta = event.deltaY || 0;
+      const direction = delta > 0 ? 1 : -1;
+      const currentIndex = Math.round(Number.isFinite(wheelState.targetIndex) ? wheelState.targetIndex : wheelState.activeIndex);
+      const newTarget = currentIndex + direction;
+      const clampedTarget = Math.min(Math.max(newTarget, 0), Math.max(0, wheelState.towers.length - 1));
+      // Use immediate snapping by setting all indices directly and updating transform immediately
+      wheelState.focusIndex = clampedTarget;
+      wheelState.targetIndex = clampedTarget;
+      wheelState.activeIndex = clampedTarget;
+      updateLoadoutWheelTransform({ immediate: true });
     });
 
     // Anchor the wheel within the playfield during active levels to prevent bleed outside the battlefield.
