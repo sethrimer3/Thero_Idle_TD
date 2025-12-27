@@ -97,7 +97,8 @@ export function createManualDropController({
         case 'aleph':
           return 'powder';
         case 'bet':
-          return 'fluid';
+          // Route Bet Spire manual drops to the Achievements tab now hosting the terrarium.
+          return 'achievements';
         default:
           return spireType;
       }
@@ -184,7 +185,15 @@ export function createManualDropController({
 
     const spireTargets = [
       { type: 'aleph', selectors: ['powder-viewport', 'powder-basin', 'powder-canvas'] },
-      { type: 'bet', selectors: ['fluid-viewport', 'fluid-basin', 'fluid-canvas'] },
+      {
+        type: 'bet',
+        // Bind manual drops to the Achievements terrarium canvas/basin after the tab move.
+        selectors: [
+          'achievements-terrarium-viewport',
+          'achievements-terrarium-basin',
+          'achievements-terrarium-canvas',
+        ],
+      },
       { type: 'lamed', selectors: ['lamed-basin'] },
       { type: 'tsadi', selectors: ['tsadi-basin'] },
       { type: 'shin', selectors: ['shin-fractal-content'] },
@@ -287,4 +296,3 @@ export function createManualDropController({
     initializeManualDropHandlers,
   };
 }
-
