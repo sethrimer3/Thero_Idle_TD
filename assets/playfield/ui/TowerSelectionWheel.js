@@ -160,11 +160,24 @@ export function renderTowerSelectionWheel() {
     : 0;
   wheel.itemHeight = Math.max(averageHeight, TOWER_SELECTION_SCROLL_STEP_PX);
 
+  // Set wheel height to show exactly 3 items
+  const listStyles = window.getComputedStyle(wheel.list);
+  const gapValue = listStyles?.rowGap || listStyles?.gap || '0';
+  const listGap = Number.parseFloat(gapValue) || 0;
+  const threeItemsHeight = wheel.itemHeight * 3 + listGap * 2;
+  wheel.list.style.setProperty('--tower-loadout-wheel-height', `${threeItemsHeight}px`);
+
   const handleScroll = (event) => {
     const delta = event.deltaY || event.detail || event.wheelDelta || 0;
     const direction = delta > 0 ? 1 : -1;
-    const newTarget = (Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex) + direction;
-    this.setTowerSelectionWheelTarget(newTarget);
+    const currentIndex = Math.round(Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex);
+    const newTarget = currentIndex + direction;
+    const clampedTarget = Math.min(Math.max(newTarget, 0), Math.max(0, wheel.towers.length - 1));
+    // Set focus and target to the same value for immediate snapping
+    wheel.focusIndex = clampedTarget;
+    wheel.targetIndex = clampedTarget;
+    wheel.activeIndex = clampedTarget;
+    this.updateTowerSelectionWheelTransform({ immediate: true });
     if (typeof event.preventDefault === 'function') {
       event.preventDefault();
     }
@@ -172,6 +185,11 @@ export function renderTowerSelectionWheel() {
 
   const handleOutsideInteraction = (event) => {
     if (!wheel?.container) {
+      return;
+    }
+    // Ignore events from the pointer that just opened the wheel (within grace period)
+    const timeSinceRelease = performance.now() - (wheel.releaseTimestamp || 0);
+    if (wheel.justReleasedPointerId === event.pointerId && timeSinceRelease < POINTER_RELEASE_GRACE_PERIOD_MS) {
       return;
     }
     const target = event.target instanceof Node ? event.target : null;
@@ -461,8 +479,14 @@ export function openTowerSelectionWheel(tower) {
   const handleWheelEvent = (event) => {
     const delta = event.deltaY || event.detail || event.wheelDelta || 0;
     const direction = delta > 0 ? 1 : -1;
-    const newTarget = (Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex) + direction;
-    this.setTowerSelectionWheelTarget(newTarget);
+    const currentIndex = Math.round(Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex);
+    const newTarget = currentIndex + direction;
+    const clampedTarget = Math.min(Math.max(newTarget, 0), Math.max(0, wheel.towers.length - 1));
+    // Set focus and target to the same value for immediate snapping
+    wheel.focusIndex = clampedTarget;
+    wheel.targetIndex = clampedTarget;
+    wheel.activeIndex = clampedTarget;
+    this.updateTowerSelectionWheelTransform({ immediate: true });
     if (typeof event.preventDefault === 'function') {
       event.preventDefault();
     }

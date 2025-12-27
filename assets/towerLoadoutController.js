@@ -727,12 +727,16 @@ export function createTowerLoadoutController({
     list.addEventListener('pointerdown', beginWheelDrag);
     list.addEventListener('wheel', (event) => {
       event.preventDefault();
-      const itemHeight = Math.max(1, wheelState.itemHeight || LOADOUT_SCROLL_STEP_PX);
-      const deltaIndex = (event.deltaY || 0) / itemHeight;
-      const currentTarget = Number.isFinite(wheelState.targetIndex)
-        ? wheelState.targetIndex
-        : wheelState.activeIndex;
-      setLoadoutWheelTarget(currentTarget + deltaIndex);
+      const delta = event.deltaY || 0;
+      const direction = delta > 0 ? 1 : -1;
+      const currentIndex = Math.round(Number.isFinite(wheelState.targetIndex) ? wheelState.targetIndex : wheelState.activeIndex);
+      const newTarget = currentIndex + direction;
+      const clampedTarget = Math.min(Math.max(newTarget, 0), Math.max(0, wheelState.towers.length - 1));
+      // Set focus and target to the same value for immediate snapping
+      wheelState.focusIndex = clampedTarget;
+      wheelState.targetIndex = clampedTarget;
+      wheelState.activeIndex = clampedTarget;
+      updateLoadoutWheelTransform({ immediate: true });
     });
 
     // Anchor the wheel within the playfield during active levels to prevent bleed outside the battlefield.
