@@ -11050,27 +11050,13 @@ export class SimplePlayfield {
       return { x: 0.5, y: 0.5 };
     }
     const scale = Math.max(this.viewScale || 1, 0.0001);
-    const halfWidth = Math.min(0.5, 0.5 / scale);
-    const halfHeight = Math.min(0.5, 0.5 / scale);
-    const width =
-      this.renderWidth ||
-      (this.canvas ? this.canvas.clientWidth || this.canvas.width || 0 : 0);
-    const height =
-      this.renderHeight ||
-      (this.canvas ? this.canvas.clientHeight || this.canvas.height || 0 : 0);
-    const minDimension = width && height ? Math.min(width, height) : 0;
-    const marginPixels =
-      minDimension > 0 && PLAYFIELD_VIEW_PAN_MARGIN_METERS > 0
-        ? metersToPixels(PLAYFIELD_VIEW_PAN_MARGIN_METERS, minDimension)
-        : 0;
-    // Keep the camera inside the rendered walls by shrinking the clamp window instead of extending it past the bounds.
-    const marginNormalizedX = width > 0 ? Math.max(0, marginPixels / width) : 0;
-    const marginNormalizedY = height > 0 ? Math.max(0, marginPixels / height) : 0;
-    // Cap the pan margins so zoomed-in views can still move within valid bounds.
-    const maxPanMarginX = Math.max(0, 0.5 - halfWidth - 0.001);
-    const maxPanMarginY = Math.max(0, 0.5 - halfHeight - 0.001);
-    const safeMarginX = Math.min(marginNormalizedX, maxPanMarginX);
-    const safeMarginY = Math.min(marginNormalizedY, maxPanMarginY);
+    // Calculate the half-viewport size in normalized coordinates (0-1 space)
+    const halfWidth = 0.5 / scale;
+    const halfHeight = 0.5 / scale;
+    
+    // Allow camera to move right up to the edges when zoomed in
+    // The camera center can be as close to the edge as halfWidth/halfHeight
+    // This ensures the viewport edge aligns with the playfield boundary
     const clamp = (value, min, max) => {
       if (min > max) {
         return 0.5;
@@ -11078,8 +11064,8 @@ export class SimplePlayfield {
       return Math.min(Math.max(value, min), max);
     };
     return {
-      x: clamp(normalized.x, halfWidth + safeMarginX, 1 - halfWidth - safeMarginX),
-      y: clamp(normalized.y, halfHeight + safeMarginY, 1 - halfHeight - safeMarginY),
+      x: clamp(normalized.x, halfWidth, 1 - halfWidth),
+      y: clamp(normalized.y, halfHeight, 1 - halfHeight),
     };
   }
 

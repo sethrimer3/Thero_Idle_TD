@@ -13,7 +13,7 @@ const MINIMUM_DISTANCE_FROM_TRACK_METERS = 5; // Only render triangles 5+ meters
 const TRIANGLE_SIZE_MIN = 15; // Minimum triangle size in pixels
 const TRIANGLE_SIZE_MAX = 80; // Maximum triangle size in pixels
 const TRIANGLE_DENSITY = 0.0008; // Triangles per square pixel (controls spacing)
-const FADE_SPEED = 0.0005; // Speed of brightness/color fade animation
+const FADE_SPEED = 0.000025; // Speed of brightness/color fade animation (5% of original speed)
 const BRIGHTNESS_MIN = 0.3; // Minimum brightness multiplier
 const BRIGHTNESS_MAX = 0.9; // Maximum brightness multiplier
 const ALPHA_BASE = 0.15; // Base transparency for triangles
@@ -29,6 +29,8 @@ class CrystallineTriangle {
     this.size = size;
     this.colorStop = colorStop; // Position along gradient (0-1)
     this.rotation = Math.random() * Math.PI * 2;
+    // Make triangles interlocking by varying orientation (some point up, some down)
+    this.pointsUp = Math.random() < 0.5;
     this.phase = phase; // Animation phase offset
     this.brightness = BRIGHTNESS_MIN + Math.random() * (BRIGHTNESS_MAX - BRIGHTNESS_MIN);
   }
@@ -59,12 +61,20 @@ class CrystallineTriangle {
 
     ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
     
-    // Draw equilateral triangle
+    // Draw interlocking triangle (pointing up or down based on orientation)
     ctx.beginPath();
     const h = this.size * Math.sqrt(3) / 2;
-    ctx.moveTo(0, -h / 2);
-    ctx.lineTo(-this.size / 2, h / 2);
-    ctx.lineTo(this.size / 2, h / 2);
+    if (this.pointsUp) {
+      // Triangle pointing up
+      ctx.moveTo(0, -h / 2);
+      ctx.lineTo(-this.size / 2, h / 2);
+      ctx.lineTo(this.size / 2, h / 2);
+    } else {
+      // Triangle pointing down (interlocking)
+      ctx.moveTo(0, h / 2);
+      ctx.lineTo(-this.size / 2, -h / 2);
+      ctx.lineTo(this.size / 2, -h / 2);
+    }
     ctx.closePath();
     ctx.fill();
 
