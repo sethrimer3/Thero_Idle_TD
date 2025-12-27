@@ -38,6 +38,7 @@ import { drawOmegaParticles as drawOmegaParticlesHelper } from '../../../scripts
 
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rendering.js';
 import { easeInCubic, easeOutCubic } from '../utils/math.js';
+import { getCrystallineMosaicManager } from './CrystallineMosaic.js';
 
 const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
 const mindGateSprite = new Image();
@@ -479,6 +480,7 @@ function draw() {
     enemyPositionCache: new Map(), // Cache enemy positions for projectile targeting
   };
 
+  this.drawCrystallineMosaic();
   this.drawFloaters();
   this.drawPath();
   this.drawDeltaCommandPreview();
@@ -583,6 +585,33 @@ function drawFloaters() {
   });
 
   ctx.restore();
+}
+
+function drawCrystallineMosaic() {
+  if (!this.ctx) {
+    return;
+  }
+  
+  const mosaicManager = getCrystallineMosaicManager();
+  if (!mosaicManager) {
+    return;
+  }
+  
+  // Get viewport bounds for culling
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+  if (!viewportBounds) {
+    return;
+  }
+  
+  // Get path points for distance checking
+  const pathPoints = this.pathPoints || [];
+  
+  // Use level config as version tracker (regenerate if level changes)
+  const pathVersion = this.levelConfig?.id || null;
+  
+  // Render the crystalline mosaic
+  const ctx = this.ctx;
+  mosaicManager.render(ctx, viewportBounds, pathPoints, pathVersion);
 }
 
 function drawMoteGems() {
@@ -3295,6 +3324,7 @@ export {
   drawTowerConnectionParticles,
   drawConnectionEffects,
   draw,
+  drawCrystallineMosaic,
   drawFloaters,
   drawMoteGems,
   drawPath,
