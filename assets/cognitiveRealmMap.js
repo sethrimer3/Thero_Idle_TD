@@ -484,16 +484,26 @@ function resizeCanvas() {
     return;
   }
 
-  const rect = mapContainer.getBoundingClientRect();
+  // Use the container's size to set the canvas CSS size, which makes it fill the container
+  const containerRect = mapContainer.getBoundingClientRect();
+  const containerWidth = containerRect.width || mapContainer.clientWidth || 1;
+  const containerHeight = containerRect.height || mapContainer.clientHeight || 1;
+
+  // Set the canvas CSS size to match the container
+  mapCanvas.style.width = `${containerWidth}px`;
+  mapCanvas.style.height = `${containerHeight}px`;
+
+  // Now get the canvas's actual rendered size, which should match what we just set
+  // but could be affected by CSS rules, borders, etc.
+  const canvasRect = mapCanvas.getBoundingClientRect();
+  const width = canvasRect.width || mapCanvas.clientWidth || containerWidth;
+  const height = canvasRect.height || mapCanvas.clientHeight || containerHeight;
+
   const dpr = getEffectiveMapDevicePixelRatio();
 
-  const width = rect.width || mapContainer.clientWidth || 1;
-  const height = rect.height || mapContainer.clientHeight || 1;
-
+  // Set the internal canvas buffer size with DPR scaling
   mapCanvas.width = width * dpr;
   mapCanvas.height = height * dpr;
-  mapCanvas.style.width = `${width}px`;
-  mapCanvas.style.height = `${height}px`;
   backgroundWidth = width;
   backgroundHeight = height;
 
