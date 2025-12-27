@@ -425,6 +425,30 @@
                       </select>
                     </label>
                   </div>
+                  <!-- High-resolution toggle for the Playfield canvas. -->
+                  <div class="settings-toggle" id="playfield-high-res-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="playfield-high-res-title">Playfield Resolution</span>
+                      <span
+                        class="settings-toggle-description"
+                        id="playfield-high-res-description"
+                        >Increase render resolution for sharper playfield visuals.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="playfield-high-res-toggle">
+                      <input
+                        type="checkbox"
+                        id="playfield-high-res-toggle"
+                        class="settings-toggle-input"
+                        role="switch"
+                        aria-labelledby="playfield-high-res-title"
+                        aria-describedby="playfield-high-res-description"
+                        aria-checked="false"
+                      />
+                      <span class="settings-toggle-slider" aria-hidden="true"></span>
+                      <span class="settings-toggle-state" id="playfield-high-res-state">Standard</span>
+                    </label>
+                  </div>
                   <button class="action-button ghost" type="button" id="playfield-track-type-button">
                     Track Type · Gradient
                   </button>
