@@ -83,6 +83,18 @@ export function createManualDropController({
   }
 
   /**
+   * Consume the selected gem only when a spawn succeeds to prevent losing inventory on failed drops.
+   * @param {boolean} spawned - Whether the simulation accepted the spawn request.
+   * @param {string} gemId - Identifier for the gem to consume.
+   */
+  function consumeGemAfterSpawn(spawned, gemId) {
+    if (!spawned || typeof consumeGem !== 'function') {
+      return;
+    }
+    consumeGem(gemId);
+  }
+
+  /**
    * Attach manual drop listeners so each spire can spawn one resource on click or Space.
    * Guards remain inline to mirror the original behavior without altering gameplay.
    */
@@ -149,9 +161,8 @@ export function createManualDropController({
                 massMultiplier,
                 color: gem.color?.rgb,
               });
-              if (spawned && typeof consumeGem === 'function') {
-                consumeGem(gem.id);
-              }
+              // Only spend the gem when the simulation confirms a star was created.
+              consumeGemAfterSpawn(spawned, gem.id);
               break;
             }
             lamedSimulation.spawnStar();
@@ -169,9 +180,8 @@ export function createManualDropController({
                 color: gem.color?.css,
                 shimmer: true,
               });
-              if (spawned && typeof consumeGem === 'function') {
-                consumeGem(gem.id);
-              }
+              // Only spend the gem when the particle spawn is accepted.
+              consumeGemAfterSpawn(spawned, gem.id);
               break;
             }
             tsadiSimulation.spawnParticle();
@@ -295,4 +305,3 @@ export function createManualDropController({
     initializeManualDropHandlers,
   };
 }
-
