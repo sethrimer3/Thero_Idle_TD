@@ -54,6 +54,7 @@ import { formatCombatNumber } from './playfield/utils/formatting.js';
 import { easeInCubic, easeOutCubic } from './playfield/utils/math.js';
 import { areDamageNumbersEnabled, getFrameRateLimit, updateFpsCounter } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
+import { getCrystallineMosaicManager } from './playfield/render/CrystallineMosaic.js';
 import {
   PLAYFIELD_VIEW_DRAG_THRESHOLD,
   PLAYFIELD_VIEW_PAN_MARGIN_METERS,
@@ -7782,6 +7783,11 @@ export class SimplePlayfield {
     // Measure passive ambient effects (particles, floaters, connections) as a single bucket.
     const finishAmbientSegment = beginPerformanceSegment('update:ambient');
     try {
+      // Update crystalline background mosaic
+      const mosaicManager = getCrystallineMosaicManager();
+      if (mosaicManager) {
+        mosaicManager.update(speedDelta * 1000); // Convert to milliseconds for animation
+      }
       // Drift ambient swimmers before the wider floater network updates.
       this.updateBackgroundSwimmers(speedDelta);
       this.updateFloaters(speedDelta);
@@ -11293,6 +11299,10 @@ export class SimplePlayfield {
 
   drawFloaters() {
     return CanvasRenderer.drawFloaters.call(this);
+  }
+
+  drawCrystallineMosaic() {
+    return CanvasRenderer.drawCrystallineMosaic.call(this);
   }
 
   // Render each mote gem using its sprite when available so drops mirror the inventory art.

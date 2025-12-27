@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   particleTrails: true,
   forgeGlow: true,
   smoothRendering: true, // Enable/disable image-smoothing for pixelated vs smooth rendering
+  renderSizeLevel: 1, // Default to Medium (0=Small, 1=Medium, 2=Large)
   // Developer-only debug flags
   particleSpawning: true,
   particleMerging: true,
@@ -49,6 +50,9 @@ let smallTierGeneratorGravityStateLabel = null;
 // Developer-only medium-tier forge gravity toggle elements.
 let mediumTierForgeGravityToggle = null;
 let mediumTierForgeGravityStateLabel = null;
+// Render size controls for the Bet spire layout.
+let renderSizeSelect = null;
+let renderSizeRow = null;
 
 // Getter for the active BetSpireRender instance
 let getBetSpireRenderInstance = () => null;
@@ -61,6 +65,7 @@ function loadSettings() {
   const stored = readStorageJson(BET_SPIRE_VISUAL_SETTINGS_STORAGE_KEY);
   if (stored && typeof stored === 'object') {
     settings = { ...DEFAULT_SETTINGS, ...stored };
+    settings.renderSizeLevel = normalizeRenderSizeLevel(stored.renderSizeLevel);
   }
 }
 
@@ -99,6 +104,54 @@ function syncAllToggles() {
     mediumTierForgeGravityStateLabel,
     settings.mediumTierForgeGravity
   );
+  
+  if (renderSizeSelect) {
+    renderSizeSelect.value = String(normalizeRenderSizeLevel(settings.renderSizeLevel));
+  }
+}
+
+// Normalize the render size level to a safe 0-2 range.
+function normalizeRenderSizeLevel(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return 1; // Default to Medium if invalid
+  }
+  return Math.min(2, Math.max(0, parsed));
+}
+
+// Apply the Bet render size settings by offsetting the spire container.
+function applyRenderSizeLayout() {
+  const betStage = document.getElementById('bet-spire-canvas');
+  if (!betStage) {
+    return;
+  }
+
+  const sizeLevel = normalizeRenderSizeLevel(settings.renderSizeLevel);
+  const panel = betStage.closest('.panel');
+  const appShell = document.querySelector('.app-shell');
+
+  const readPadding = (element) => {
+    if (!element || typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+      return { top: 0, left: 0, right: 0 };
+    }
+    const styles = window.getComputedStyle(element);
+    return {
+      top: Number.parseFloat(styles.paddingTop) || 0,
+      left: Number.parseFloat(styles.paddingLeft) || 0,
+      right: Number.parseFloat(styles.paddingRight) || 0,
+    };
+  };
+
+  const panelPadding = readPadding(panel);
+  const shellPadding = readPadding(appShell);
+  const inlineLeft = (sizeLevel >= 2 ? panelPadding.left : 0) + (sizeLevel >= 3 ? shellPadding.left : 0);
+  const inlineRight = (sizeLevel >= 2 ? panelPadding.right : 0) + (sizeLevel >= 3 ? shellPadding.right : 0);
+  const topOffset = (sizeLevel >= 2 ? panelPadding.top : 0) + (sizeLevel >= 3 ? shellPadding.top : 0);
+
+  betStage.dataset.sizeLevel = String(sizeLevel);
+  betStage.style.setProperty('--bet-size-inline-left', `${inlineLeft}px`);
+  betStage.style.setProperty('--bet-size-inline-right', `${inlineRight}px`);
+  betStage.style.setProperty('--bet-size-top', `${topOffset}px`);
 }
 
 function applySettings() {
@@ -165,6 +218,8 @@ export function bindBetSpireParticleOptions() {
   smallTierGeneratorGravityStateLabel = document.getElementById('bet-small-tier-generator-gravity-state');
   mediumTierForgeGravityToggle = document.getElementById('bet-medium-tier-forge-gravity-toggle');
   mediumTierForgeGravityStateLabel = document.getElementById('bet-medium-tier-forge-gravity-state');
+  renderSizeSelect = document.getElementById('bet-render-size-select');
+  renderSizeRow = document.getElementById('bet-render-size-row');
 
   bindToggle(particleTrailsToggle, particleTrailsStateLabel, 'particleTrails');
   bindToggle(forgeGlowToggle, forgeGlowStateLabel, 'forgeGlow');
@@ -187,6 +242,15 @@ export function bindBetSpireParticleOptions() {
     'mediumTierForgeGravity'
   );
 
+  if (renderSizeSelect) {
+    renderSizeSelect.addEventListener('change', (event) => {
+      settings.renderSizeLevel = normalizeRenderSizeLevel(event.target.value);
+      persistSettings();
+      syncAllToggles();
+      applyRenderSizeLayout();
+    });
+  }
+
   syncAllToggles();
 }
 
@@ -197,6 +261,7 @@ export function initializeBetSpireParticlePreferences() {
   loadSettings();
   syncAllToggles();
   applySettings();
+  applyRenderSizeLayout();
 }
 
 /**
@@ -247,5 +312,12 @@ export function updateBetSpireDebugControlsVisibility(isDeveloperModeActive) {
       control.hidden = !isDeveloperModeActive;
       control.setAttribute('aria-hidden', isDeveloperModeActive ? 'false' : 'true');
     }
+  });
+}
+
+// Recalculate size offsets on viewport changes to keep the render aligned.
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', () => {
+    applyRenderSizeLayout();
   });
 }
