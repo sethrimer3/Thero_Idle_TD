@@ -25,8 +25,18 @@ const ALPHA_BASE = 0.16; // Base transparency for polygon cells.
 const ALPHA_VARIATION = 0.08; // Additional alpha variation for subtle depth.
 const COLOR_DRIFT = 0.08; // Gradient travel distance for slow color drift.
 
+// Cell health and destruction constants
+const CELL_MAX_HEALTH = 50; // Health points for each cell
+const CELL_HEALTH_BAR_WIDTH = 30; // Width of health bar in pixels
+const CELL_HEALTH_BAR_HEIGHT = 3; // Height of health bar in pixels
+const CELL_DESTRUCTION_FADE_TIME = 500; // Milliseconds for destruction fade animation
+
+// Counter for unique cell IDs
+let cellIdCounter = 0;
+
 /**
  * Polygon cell representing a single crystalline Voronoi-like region.
+ * Now targetable and destructible by towers.
  */
 class CrystallineCell {
   constructor(x, y, size, colorStop, phase, vertexCount) {
@@ -40,6 +50,14 @@ class CrystallineCell {
     this.vertices = this.buildCellVertices(); // Cache vertices for a stable interlocking feel.
     this.colorShift = colorStop; // Track the animated gradient position.
     this.alphaBase = ALPHA_BASE + Math.random() * ALPHA_VARIATION; // Cache alpha for steady translucency.
+    
+    // Targetable properties
+    this.id = `cell_${cellIdCounter++}`; // Unique identifier
+    this.maxHealth = CELL_MAX_HEALTH;
+    this.health = CELL_MAX_HEALTH;
+    this.isDestroyed = false;
+    this.destroyStartTime = null;
+    this.hitRadius = size; // Use size as hit detection radius
   }
 
   /**
@@ -61,9 +79,14 @@ class CrystallineCell {
   }
 
   /**
-   * Update polygon animation state.
+   * Update polygon animation state and destruction.
    */
   update(deltaTime) {
+    // Handle destruction fade
+    if (this.isDestroyed) {
+      return; // Don't update destroyed cells
+    }
+    
     // Slowly oscillate brightness for the crystalline shimmer.
     this.phase += FADE_SPEED * deltaTime;
     this.brightness =
@@ -72,11 +95,57 @@ class CrystallineCell {
     // Drift along the palette gradient to mimic slow chromatic refraction.
     this.colorShift = (this.colorStop + COLOR_DRIFT * (0.5 + 0.5 * Math.sin(this.phase * 0.6))) % 1;
   }
+  
+  /**
+   * Damage the cell and check if it should be destroyed.
+   * @param {number} damage - Amount of damage to apply
+   * @returns {boolean} True if cell was destroyed
+   */
+  takeDamage(damage) {
+    if (this.isDestroyed) {
+      return false;
+    }
+    
+    this.health = Math.max(0, this.health - damage);
+    if (this.health <= 0) {
+      this.isDestroyed = true;
+      this.destroyStartTime = Date.now();
+      return true;
+    }
+    return false;
+  }
+  
+  /**
+   * Check if a point is inside this cell.
+   * @param {number} px - Point X coordinate
+   * @param {number} py - Point Y coordinate
+   * @returns {boolean} True if point is inside cell
+   */
+  containsPoint(px, py) {
+    if (this.isDestroyed) {
+      return false;
+    }
+    
+    // Simple circular hit detection using hit radius
+    const dx = px - this.x;
+    const dy = py - this.y;
+    return (dx * dx + dy * dy) <= (this.hitRadius * this.hitRadius);
+  }
 
   /**
    * Render the polygon cell to the canvas.
    */
-  draw(ctx, paletteColor) {
+  draw(ctx, paletteColor, showHealthBar = false) {
+    if (this.isDestroyed) {
+      // Fade out destroyed cells
+      const elapsed = Date.now() - this.destroyStartTime;
+      if (elapsed > CELL_DESTRUCTION_FADE_TIME) {
+        return; // Fully faded, don't render
+      }
+      const fadeAlpha = 1 - (elapsed / CELL_DESTRUCTION_FADE_TIME);
+      ctx.globalAlpha = fadeAlpha;
+    }
+    
     ctx.save();
     ctx.translate(this.x, this.y);
 
@@ -102,12 +171,45 @@ class CrystallineCell {
     ctx.closePath();
     ctx.fill();
 
-    // Subtle stroke for definition.
-    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.5})`;
-    ctx.lineWidth = 0.5;
+    // Subtle stroke for definition - make it more visible for unified appearance.
+    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.8})`;
+    ctx.lineWidth = 1.5;
     ctx.stroke();
+    
+    // Draw health bar if requested and cell is damaged
+    if (showHealthBar && this.health < this.maxHealth && !this.isDestroyed) {
+      this.drawHealthBar(ctx);
+    }
 
     ctx.restore();
+    
+    if (this.isDestroyed) {
+      ctx.globalAlpha = 1; // Reset alpha
+    }
+  }
+  
+  /**
+   * Draw health bar above the cell.
+   */
+  drawHealthBar(ctx) {
+    const barX = -CELL_HEALTH_BAR_WIDTH / 2;
+    const barY = -this.size - 10; // Position above cell
+    const healthPercent = this.health / this.maxHealth;
+    
+    // Background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(barX, barY, CELL_HEALTH_BAR_WIDTH, CELL_HEALTH_BAR_HEIGHT);
+    
+    // Health bar
+    ctx.fillStyle = healthPercent > 0.5 ? 'rgba(100, 200, 100, 0.9)' : 
+                    healthPercent > 0.25 ? 'rgba(200, 200, 50, 0.9)' : 
+                    'rgba(200, 50, 50, 0.9)';
+    ctx.fillRect(barX, barY, CELL_HEALTH_BAR_WIDTH * healthPercent, CELL_HEALTH_BAR_HEIGHT);
+    
+    // Border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(barX, barY, CELL_HEALTH_BAR_WIDTH, CELL_HEALTH_BAR_HEIGHT);
   }
 }
 
@@ -292,22 +394,85 @@ export class CrystallineMosaicManager {
   }
 
   /**
-   * Update polygon animations.
+   * Update polygon animations and remove destroyed cells.
    */
   update(deltaTime) {
     if (!this.enabled) {
       return;
     }
     
+    // Update all cells
     for (const cell of this.cells) {
       cell.update(deltaTime);
     }
+    
+    // Remove fully faded destroyed cells
+    const now = Date.now();
+    this.cells = this.cells.filter(cell => {
+      if (!cell.isDestroyed) {
+        return true;
+      }
+      const elapsed = now - cell.destroyStartTime;
+      return elapsed <= CELL_DESTRUCTION_FADE_TIME;
+    });
+  }
+  
+  /**
+   * Find a cell at the given position.
+   * @param {Object} position - {x, y} coordinates
+   * @returns {CrystallineCell|null} The cell at this position, or null
+   */
+  findCellAt(position) {
+    if (!this.enabled || !position) {
+      return null;
+    }
+    
+    // Check cells in reverse order (render order) for better hit detection
+    for (let i = this.cells.length - 1; i >= 0; i--) {
+      const cell = this.cells[i];
+      if (cell.containsPoint(position.x, position.y)) {
+        return cell;
+      }
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Get all alive (non-destroyed) cells.
+   * @returns {Array<CrystallineCell>} Array of alive cells
+   */
+  getAliveCells() {
+    return this.cells.filter(cell => !cell.isDestroyed);
+  }
+  
+  /**
+   * Damage a cell by ID.
+   * @param {string} cellId - The cell ID to damage
+   * @param {number} damage - Amount of damage
+   * @returns {boolean} True if cell was destroyed
+   */
+  damageCellById(cellId, damage) {
+    const cell = this.cells.find(c => c.id === cellId);
+    if (cell) {
+      return cell.takeDamage(damage);
+    }
+    return false;
+  }
+  
+  /**
+   * Get cell by ID.
+   * @param {string} cellId - The cell ID
+   * @returns {CrystallineCell|null} The cell or null
+   */
+  getCellById(cellId) {
+    return this.cells.find(c => c.id === cellId) || null;
   }
 
   /**
-   * Render all polygon cells.
+   * Render all polygon cells with unified appearance.
    */
-  render(ctx, viewBounds, pathPoints, pathVersion) {
+  render(ctx, viewBounds, pathPoints, pathVersion, focusedCellId = null) {
     if (!this.enabled) {
       return;
     }
@@ -325,10 +490,41 @@ export class CrystallineMosaicManager {
     
     ctx.save();
     
-    // Render each polygon cell with its gradient color.
+    // First pass: Render all cell fills to create unified mass
     for (const cell of this.cells) {
       const paletteColor = samplePaletteGradient(cell.colorShift);
-      cell.draw(ctx, paletteColor);
+      const showHealthBar = focusedCellId && cell.id === focusedCellId;
+      cell.draw(ctx, paletteColor, showHealthBar);
+    }
+    
+    // Second pass: Draw unified outline/edges to make them look connected
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; // Subtle unified edge color
+    ctx.lineWidth = 2;
+    ctx.globalCompositeOperation = 'source-over';
+    
+    // Draw connecting lines between nearby cells to enhance unified appearance
+    for (let i = 0; i < this.cells.length; i++) {
+      const cell1 = this.cells[i];
+      if (cell1.isDestroyed) continue;
+      
+      for (let j = i + 1; j < this.cells.length; j++) {
+        const cell2 = this.cells[j];
+        if (cell2.isDestroyed) continue;
+        
+        const dx = cell2.x - cell1.x;
+        const dy = cell2.y - cell1.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Connect cells that are close together
+        if (distance < (cell1.size + cell2.size) * 1.5) {
+          ctx.beginPath();
+          ctx.moveTo(cell1.x, cell1.y);
+          ctx.lineTo(cell2.x, cell2.y);
+          ctx.globalAlpha = 0.1;
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+      }
     }
     
     ctx.restore();

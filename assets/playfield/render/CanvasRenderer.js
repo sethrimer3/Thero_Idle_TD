@@ -609,9 +609,12 @@ function drawCrystallineMosaic() {
   // Use level config as version tracker (regenerate if level changes)
   const pathVersion = this.levelConfig?.id || null;
   
+  // Get focused cell ID if any
+  const focusedCellId = this.focusedCellId || null;
+  
   // Render the crystalline mosaic
   const ctx = this.ctx;
-  mosaicManager.render(ctx, viewportBounds, pathPoints, pathVersion);
+  mosaicManager.render(ctx, viewportBounds, pathPoints, pathVersion, focusedCellId);
 }
 
 function drawMoteGems() {

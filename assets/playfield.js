@@ -493,6 +493,7 @@ export class SimplePlayfield {
     this.hoverEnemy = null;
     this.pointerPosition = null;
     this.focusedEnemyId = null;
+    this.focusedCellId = null; // Track focused Voronoi/Delaunay cell
     this.focusMarkerAngle = 0;
     this.anchorTolerance = 0.06;
 
@@ -5100,6 +5101,67 @@ export class SimplePlayfield {
     return true;
   }
 
+  /**
+   * Find a Voronoi/Delaunay cell at the given position.
+   */
+  findCellAt(position) {
+    if (!position) {
+      return null;
+    }
+    const mosaicManager = getCrystallineMosaicManager();
+    if (!mosaicManager) {
+      return null;
+    }
+    return mosaicManager.findCellAt(position);
+  }
+
+  /**
+   * Toggle focus on a Voronoi/Delaunay cell.
+   */
+  toggleCellFocus(cell) {
+    if (!cell) {
+      this.clearFocusedCell();
+      return;
+    }
+    if (this.focusedCellId === cell.id) {
+      this.clearFocusedCell();
+    } else {
+      this.setFocusedCell(cell);
+    }
+  }
+
+  /**
+   * Set focused cell.
+   */
+  setFocusedCell(cell) {
+    if (!cell) {
+      this.clearFocusedCell();
+      return;
+    }
+    this.focusedCellId = cell.id;
+  }
+
+  /**
+   * Clear focused cell.
+   */
+  clearFocusedCell() {
+    this.focusedCellId = null;
+  }
+
+  /**
+   * Get the currently focused cell.
+   */
+  getFocusedCell() {
+    if (!this.focusedCellId) {
+      return null;
+    }
+    const mosaicManager = getCrystallineMosaicManager();
+    if (!mosaicManager) {
+      return null;
+    }
+    return mosaicManager.getCellById(this.focusedCellId);
+  }
+
   renderEnemyTooltip(enemy) {
     if (!this.enemyTooltip || !this.pointerPosition) {
       this.clearEnemyHover();
@@ -6944,6 +7006,12 @@ export class SimplePlayfield {
       if (clearance < pathBuffer) {
         return { valid: false, reason: 'Maintain clearance from the glyph lane.', position };
       }
+    }
+
+    // Check for Voronoi/Delaunay cell overlap
+    const cellAtPosition = this.findCellAt(position);
+    if (cellAtPosition && !cellAtPosition.isDestroyed) {
+      return { valid: false, reason: 'Cannot place tower on crystalline formation.', position };
     }
 
     return { valid: true, position };

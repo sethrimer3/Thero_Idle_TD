@@ -653,6 +653,16 @@ function handleCanvasClick(event) {
     return;
   }
 
+  // Check for Voronoi/Delaunay cell clicks
+  const cellTarget = this.findCellAt(position);
+  if (cellTarget) {
+    if (typeof this.resetTowerTapState === 'function') {
+      this.resetTowerTapState();
+    }
+    this.toggleCellFocus(cellTarget);
+    return;
+  }
+
   if (this.activeTowerMenu && this.handleTowerMenuClick(position)) {
     if (typeof this.resetTowerTapState === 'function') {
       this.resetTowerTapState();
