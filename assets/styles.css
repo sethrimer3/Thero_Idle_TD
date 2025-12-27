@@ -14465,3 +14465,35 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: var(--muted);
   cursor: var(--cursor-not-allowed);
 }
+
+/* Render size adjustments for spire canvases */
+/* These allow the canvas to expand beyond panel padding when size is set to Large */
+#bet-spire-canvas {
+  margin-left: calc(-1 * var(--bet-size-inline-left, 0px));
+  margin-right: calc(-1 * var(--bet-size-inline-right, 0px));
+  margin-top: calc(-1 * var(--bet-size-top, 0px));
+}
+
+#lamed-canvas {
+  margin-left: calc(-1 * var(--lamed-size-inline-left, 0px));
+  margin-right: calc(-1 * var(--lamed-size-inline-right, 0px));
+  margin-top: calc(-1 * var(--lamed-size-top, 0px));
+}
+
+#tsadi-canvas {
+  margin-left: calc(-1 * var(--tsadi-size-inline-left, 0px));
+  margin-right: calc(-1 * var(--tsadi-size-inline-right, 0px));
+  margin-top: calc(-1 * var(--tsadi-size-top, 0px));
+}
+
+#shin-cardinal-canvas {
+  margin-left: calc(-1 * var(--shin-size-inline-left, 0px));
+  margin-right: calc(-1 * var(--shin-size-inline-right, 0px));
+  margin-top: calc(-1 * var(--shin-size-top, 0px));
+}
+
+#kuf-canvas {
+  margin-left: calc(-1 * var(--kuf-size-inline-left, 0px));
+  margin-right: calc(-1 * var(--kuf-size-inline-right, 0px));
+  margin-top: calc(-1 * var(--kuf-size-top, 0px));
+}
