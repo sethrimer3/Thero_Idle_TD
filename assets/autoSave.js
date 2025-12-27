@@ -57,6 +57,10 @@ export const COGNITIVE_REALM_VISUAL_SETTINGS_KEY = 'glyph-defense-idle:cognitive
 export const BET_SPIRE_VISUAL_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:bet-spire-visual-settings';
 // Storage key used to persist playfield enemy particle visibility.
 export const PLAYFIELD_ENEMY_PARTICLES_STORAGE_KEY = 'glyph-defense-idle:playfield-enemy-particles';
+// Storage key used to persist playfield edge crystals visibility.
+export const PLAYFIELD_EDGE_CRYSTALS_STORAGE_KEY = 'glyph-defense-idle:playfield-edge-crystals';
+// Storage key used to persist playfield background particles visibility.
+export const PLAYFIELD_BACKGROUND_PARTICLES_STORAGE_KEY = 'glyph-defense-idle:playfield-background-particles';
 
 const DEFAULT_AUTOSAVE_INTERVAL_MS = 30000;
 const MIN_AUTOSAVE_INTERVAL_MS = 5000;

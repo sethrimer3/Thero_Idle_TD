@@ -3,7 +3,7 @@ import { getTowerVisualConfig, samplePaletteGradient } from '../../colorSchemeUt
 import { getTowerDefinition } from '../../towersTab.js';
 import { moteGemState, getGemSpriteImage } from '../../enemies.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../../../scripts/features/towers/powderTower.js';
-import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled, areEnemyParticlesEnabled } from '../../preferences.js';
+import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled, areEnemyParticlesEnabled, areEdgeCrystalsEnabled, areBackgroundParticlesEnabled } from '../../preferences.js';
 import {
   drawAlphaBursts as drawAlphaBurstsHelper,
 } from '../../../scripts/features/towers/alphaTower.js';
@@ -514,6 +514,10 @@ function drawFloaters() {
   if (!this.ctx || !this.floaters.length || !this.levelConfig) {
     return;
   }
+  // Skip rendering if background particles are disabled in preferences
+  if (!areBackgroundParticlesEnabled()) {
+    return;
+  }
   // Use cached frame values to reduce redundant calculations
   const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
   const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
@@ -589,6 +593,11 @@ function drawFloaters() {
 
 function drawCrystallineMosaic() {
   if (!this.ctx) {
+    return;
+  }
+  
+  // Skip rendering if edge crystals are disabled in preferences
+  if (!areEdgeCrystalsEnabled()) {
     return;
   }
   

@@ -2105,15 +2105,21 @@ body.playfield-fullscreen .playfield {
   border: 1px solid rgba(247, 247, 245, 0.12);
   background: rgba(6, 8, 18, 0.9);
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  max-height: 0;
+  max-width: 0;
+  opacity: 0;
+  transition: max-height 320ms ease, max-width 240ms ease 220ms, opacity 240ms ease;
 }
 
 .playfield-settings-menu[data-open='false'] {
   pointer-events: none;
-  opacity: 0;
 }
 
 .playfield-settings-menu[data-open='true'] {
   opacity: 1;
+  max-width: 100%;
+  pointer-events: auto;
 }
 
 .playfield-settings-menu .action-button {
