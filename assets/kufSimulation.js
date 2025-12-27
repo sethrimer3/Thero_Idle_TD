@@ -116,6 +116,15 @@ export class KufBattlefieldSimulation {
     this.camera = { x: 0, y: 0, zoom: 1.0 };
     this.cameraDrag = { active: false, startX: 0, startY: 0, camStartX: 0, camStartY: 0 };
     this.selectedEnemy = null;
+    // Unit selection and attack-move state
+    this.selectedUnits = []; // Array of selected marine units
+    this.selectionMode = 'all'; // 'all' or 'specific'
+    this.selectionBox = { active: false, startX: 0, startY: 0, endX: 0, endY: 0 };
+    this.dragStartTime = 0;
+    this.dragThreshold = 150; // ms to distinguish tap from drag
+    this.lastTapTime = 0;
+    this.doubleTapThreshold = 300; // ms for double-tap detection
+    this.attackMoveWaypoint = null; // {x, y} target for attack-move
     // Track runtime rendering profile so we can gracefully downshift on slower devices without losing glow aesthetics.
     this.renderProfile = isLowGraphicsModeActive() ? 'light' : 'high';
     this.smoothedFrameCost = 12;
@@ -138,6 +147,9 @@ export class KufBattlefieldSimulation {
     this.handleMouseUp = this.handleMouseUp.bind(this);
     this.handleWheel = this.handleWheel.bind(this);
     this.handleClick = this.handleClick.bind(this);
+    this.handleTouchStart = this.handleTouchStart.bind(this);
+    this.handleTouchMove = this.handleTouchMove.bind(this);
+    this.handleTouchEnd = this.handleTouchEnd.bind(this);
   }
 
   /**
@@ -197,6 +209,10 @@ export class KufBattlefieldSimulation {
     this.canvas.addEventListener('mouseleave', this.handleMouseUp);
     this.canvas.addEventListener('wheel', this.handleWheel, { passive: false });
     this.canvas.addEventListener('click', this.handleClick);
+    this.canvas.addEventListener('touchstart', this.handleTouchStart, { passive: false });
+    this.canvas.addEventListener('touchmove', this.handleTouchMove, { passive: false });
+    this.canvas.addEventListener('touchend', this.handleTouchEnd);
+    this.canvas.addEventListener('touchcancel', this.handleTouchEnd);
   }
 
   /**
@@ -212,28 +228,76 @@ export class KufBattlefieldSimulation {
     this.canvas.removeEventListener('mouseleave', this.handleMouseUp);
     this.canvas.removeEventListener('wheel', this.handleWheel);
     this.canvas.removeEventListener('click', this.handleClick);
+    this.canvas.removeEventListener('touchstart', this.handleTouchStart);
+    this.canvas.removeEventListener('touchmove', this.handleTouchMove);
+    this.canvas.removeEventListener('touchend', this.handleTouchEnd);
+    this.canvas.removeEventListener('touchcancel', this.handleTouchEnd);
   }
 
   handleMouseDown(e) {
-    this.cameraDrag.active = true;
+    this.dragStartTime = performance.now();
+    const rect = this.canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    
+    this.selectionBox.startX = canvasX;
+    this.selectionBox.startY = canvasY;
+    this.selectionBox.endX = canvasX;
+    this.selectionBox.endY = canvasY;
+    this.selectionBox.active = false; // Will activate if drag continues
+    
+    // Also prepare camera drag in case it becomes a pan
     this.cameraDrag.startX = e.clientX;
     this.cameraDrag.startY = e.clientY;
     this.cameraDrag.camStartX = this.camera.x;
     this.cameraDrag.camStartY = this.camera.y;
-    this.canvas.style.cursor = 'grabbing';
   }
 
   handleMouseMove(e) {
-    if (!this.cameraDrag.active) {
-      return;
+    const elapsed = performance.now() - this.dragStartTime;
+    const rect = this.canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    
+    // If we've been dragging for more than threshold, it's a selection drag
+    if (elapsed > this.dragThreshold) {
+      this.selectionBox.active = true;
+      this.selectionBox.endX = canvasX;
+      this.selectionBox.endY = canvasY;
+      this.canvas.style.cursor = 'crosshair';
     }
-    const dx = (e.clientX - this.cameraDrag.startX) * CAMERA_PAN_SPEED;
-    const dy = (e.clientY - this.cameraDrag.startY) * CAMERA_PAN_SPEED;
-    this.camera.x = this.cameraDrag.camStartX - dx / this.camera.zoom;
-    this.camera.y = this.cameraDrag.camStartY - dy / this.camera.zoom;
   }
 
-  handleMouseUp() {
+  handleMouseUp(e) {
+    const elapsed = performance.now() - this.dragStartTime;
+    const rect = this.canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    
+    if (this.selectionBox.active) {
+      // Complete selection - select units in the box
+      this.completeSelection();
+      this.selectionBox.active = false;
+      this.canvas.style.cursor = 'grab';
+    } else if (elapsed < this.dragThreshold) {
+      // It was a tap/click - issue attack-move command or handle double-tap
+      const now = performance.now();
+      const isDoubleTap = (now - this.lastTapTime) < this.doubleTapThreshold;
+      this.lastTapTime = now;
+      
+      if (isDoubleTap) {
+        // Double-tap: deselect all units and return to "all units" mode
+        this.selectedUnits = [];
+        this.selectionMode = 'all';
+        this.attackMoveWaypoint = null;
+      } else {
+        // Single tap: set attack-move waypoint
+        const worldX = (canvasX - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x;
+        const worldY = (canvasY - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y;
+        this.setAttackMoveWaypoint(worldX, worldY);
+      }
+    }
+    
     this.cameraDrag.active = false;
     this.canvas.style.cursor = 'grab';
   }
@@ -245,28 +309,117 @@ export class KufBattlefieldSimulation {
   }
 
   handleClick(e) {
-    // Convert canvas coordinates to world coordinates
-    const rect = this.canvas.getBoundingClientRect();
-    const canvasX = e.clientX - rect.left;
-    const canvasY = e.clientY - rect.top;
-    
-    // Account for camera transform
-    const worldX = (canvasX - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x;
-    const worldY = (canvasY - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y;
-    
-    // Check if clicked on any enemy
-    let clickedEnemy = null;
-    for (const turret of this.turrets) {
-      const dx = turret.x - worldX;
-      const dy = turret.y - worldY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= turret.radius) {
-        clickedEnemy = turret;
-        break;
+    // This is now mostly handled by handleMouseUp to detect taps vs drags
+    // Keep this for compatibility but the main logic is in handleMouseUp
+  }
+
+  handleTouchStart(e) {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      this.dragStartTime = performance.now();
+      const rect = this.canvas.getBoundingClientRect();
+      const canvasX = touch.clientX - rect.left;
+      const canvasY = touch.clientY - rect.top;
+      
+      this.selectionBox.startX = canvasX;
+      this.selectionBox.startY = canvasY;
+      this.selectionBox.endX = canvasX;
+      this.selectionBox.endY = canvasY;
+      this.selectionBox.active = false;
+      
+      this.cameraDrag.startX = touch.clientX;
+      this.cameraDrag.startY = touch.clientY;
+      this.cameraDrag.camStartX = this.camera.x;
+      this.cameraDrag.camStartY = this.camera.y;
+    }
+  }
+
+  handleTouchMove(e) {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const elapsed = performance.now() - this.dragStartTime;
+      const rect = this.canvas.getBoundingClientRect();
+      const canvasX = touch.clientX - rect.left;
+      const canvasY = touch.clientY - rect.top;
+      
+      if (elapsed > this.dragThreshold) {
+        this.selectionBox.active = true;
+        this.selectionBox.endX = canvasX;
+        this.selectionBox.endY = canvasY;
       }
     }
+  }
+
+  handleTouchEnd(e) {
+    e.preventDefault();
+    const elapsed = performance.now() - this.dragStartTime;
     
-    this.selectedEnemy = clickedEnemy;
+    if (this.selectionBox.active) {
+      this.completeSelection();
+      this.selectionBox.active = false;
+    } else if (elapsed < this.dragThreshold && e.changedTouches.length === 1) {
+      const touch = e.changedTouches[0];
+      const rect = this.canvas.getBoundingClientRect();
+      const canvasX = touch.clientX - rect.left;
+      const canvasY = touch.clientY - rect.top;
+      
+      const now = performance.now();
+      const isDoubleTap = (now - this.lastTapTime) < this.doubleTapThreshold;
+      this.lastTapTime = now;
+      
+      if (isDoubleTap) {
+        this.selectedUnits = [];
+        this.selectionMode = 'all';
+        this.attackMoveWaypoint = null;
+      } else {
+        const worldX = (canvasX - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x;
+        const worldY = (canvasY - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y;
+        this.setAttackMoveWaypoint(worldX, worldY);
+      }
+    }
+  }
+
+  /**
+   * Complete selection by finding all units within the selection rectangle.
+   */
+  completeSelection() {
+    const rect = this.canvas.getBoundingClientRect();
+    
+    // Convert selection box canvas coordinates to world coordinates
+    const minX = Math.min(this.selectionBox.startX, this.selectionBox.endX);
+    const maxX = Math.max(this.selectionBox.startX, this.selectionBox.endX);
+    const minY = Math.min(this.selectionBox.startY, this.selectionBox.endY);
+    const maxY = Math.max(this.selectionBox.startY, this.selectionBox.endY);
+    
+    // Select all marines within the box
+    this.selectedUnits = this.marines.filter((marine) => {
+      // Convert marine world position to canvas coordinates
+      const screenX = (marine.x - this.camera.x - this.bounds.width / 2) * this.camera.zoom + this.bounds.width / 2;
+      const screenY = (marine.y - this.camera.y - this.bounds.height / 2) * this.camera.zoom + this.bounds.height / 2;
+      
+      return screenX >= minX && screenX <= maxX && screenY >= minY && screenY <= maxY;
+    });
+    
+    if (this.selectedUnits.length > 0) {
+      this.selectionMode = 'specific';
+    } else {
+      this.selectionMode = 'all';
+    }
+  }
+
+  /**
+   * Set attack-move waypoint for units.
+   */
+  setAttackMoveWaypoint(worldX, worldY) {
+    this.attackMoveWaypoint = { x: worldX, y: worldY };
+    
+    // Assign waypoint to selected units or all units
+    const unitsToCommand = this.selectionMode === 'specific' ? this.selectedUnits : this.marines;
+    unitsToCommand.forEach((marine) => {
+      marine.waypoint = { x: worldX, y: worldY };
+    });
   }
 
   /**
@@ -825,7 +978,11 @@ export class KufBattlefieldSimulation {
       marine.cooldown = Math.max(0, marine.cooldown - delta);
       const target = this.findClosestTurret(marine.x, marine.y, marine.range);
       
-      // Stop and fire if enemy in range, otherwise move forward
+      // Check if unit has a waypoint and hasn't reached it yet
+      const hasWaypoint = marine.waypoint && 
+        (Math.abs(marine.x - marine.waypoint.x) > 5 || Math.abs(marine.y - marine.waypoint.y) > 5);
+      
+      // Stop and fire if enemy in range, otherwise move forward or toward waypoint
       if (target) {
         // Decelerate to a stop
         const deceleration = MARINE_ACCELERATION * delta;
@@ -833,6 +990,11 @@ export class KufBattlefieldSimulation {
           marine.vy += marine.vy > 0 ? -deceleration : deceleration;
         } else {
           marine.vy = 0;
+        }
+        if (Math.abs(marine.vx) > deceleration) {
+          marine.vx += marine.vx > 0 ? -deceleration : deceleration;
+        } else {
+          marine.vx = 0;
         }
         
         // Fire at target
@@ -874,8 +1036,37 @@ export class KufBattlefieldSimulation {
           
           marine.cooldown = 1 / marine.attackSpeed;
         }
+      } else if (hasWaypoint) {
+        // Move toward waypoint (attack-move behavior)
+        const dx = marine.waypoint.x - marine.x;
+        const dy = marine.waypoint.y - marine.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist > 5) {
+          const targetVx = (dx / dist) * marine.moveSpeed;
+          const targetVy = (dy / dist) * marine.moveSpeed;
+          const acceleration = MARINE_ACCELERATION * delta;
+          
+          // Accelerate toward waypoint
+          if (marine.vx < targetVx) {
+            marine.vx = Math.min(targetVx, marine.vx + acceleration);
+          } else if (marine.vx > targetVx) {
+            marine.vx = Math.max(targetVx, marine.vx - acceleration);
+          }
+          
+          if (marine.vy < targetVy) {
+            marine.vy = Math.min(targetVy, marine.vy + acceleration);
+          } else if (marine.vy > targetVy) {
+            marine.vy = Math.max(targetVy, marine.vy - acceleration);
+          }
+        } else {
+          // Reached waypoint - clear it and stop
+          marine.waypoint = null;
+          marine.vx = 0;
+          marine.vy = 0;
+        }
       } else {
-        // Accelerate forward (negative y is up)
+        // No waypoint, default behavior: accelerate forward (negative y is up)
         const targetVy = -marine.moveSpeed;
         const acceleration = MARINE_ACCELERATION * delta;
         if (marine.vy > targetVy) {
@@ -883,9 +1074,18 @@ export class KufBattlefieldSimulation {
         } else if (marine.vy < targetVy) {
           marine.vy = Math.min(targetVy, marine.vy + acceleration);
         }
+        
+        // Decelerate x velocity to 0 when moving in default mode
+        const deceleration = MARINE_ACCELERATION * delta;
+        if (Math.abs(marine.vx) > deceleration) {
+          marine.vx += marine.vx > 0 ? -deceleration : deceleration;
+        } else {
+          marine.vx = 0;
+        }
       }
       
       // Apply velocity
+      marine.x += marine.vx * delta;
       marine.y += marine.vy * delta;
     });
     this.marines = this.marines.filter((marine) => marine.health > 0 && marine.y + marine.radius > -40);
@@ -1444,10 +1644,14 @@ export class KufBattlefieldSimulation {
       this.drawLevelIndicators();
       this.drawSelectedEnemyBox();
     }
+    
+    // Draw waypoint marker if set
+    this.drawWaypointMarker();
 
     ctx.restore();
 
-    // Draw HUD without camera transform
+    // Draw selection box and HUD without camera transform
+    this.drawSelectionBox();
     this.drawHud();
   }
 
@@ -1471,7 +1675,17 @@ export class KufBattlefieldSimulation {
     const glowsEnabled = this.glowOverlaysEnabled;
     this.marines.forEach((marine) => {
       const healthRatio = marine.health / marine.maxHealth;
+      const isSelected = this.selectionMode === 'specific' && this.selectedUnits.includes(marine);
       ctx.save();
+      
+      // Draw selection indicator for selected units
+      if (isSelected) {
+        ctx.strokeStyle = 'rgba(100, 255, 100, 0.8)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(marine.x, marine.y, marine.radius + 4, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       
       // Different colors for different unit types
       let mainColor, shadowColor;
@@ -1842,6 +2056,80 @@ export class KufBattlefieldSimulation {
       ctx.font = '600 12px "Space Mono", monospace';
       ctx.fillText(`Map: ${this.currentMap.name}`, 20, hudY - 48);
     }
+    ctx.restore();
+  }
+  
+  /**
+   * Draw the selection rectangle while dragging.
+   */
+  drawSelectionBox() {
+    if (!this.selectionBox.active) {
+      return;
+    }
+    const ctx = this.ctx;
+    ctx.save();
+    
+    const minX = Math.min(this.selectionBox.startX, this.selectionBox.endX);
+    const maxX = Math.max(this.selectionBox.startX, this.selectionBox.endX);
+    const minY = Math.min(this.selectionBox.startY, this.selectionBox.endY);
+    const maxY = Math.max(this.selectionBox.startY, this.selectionBox.endY);
+    
+    // Draw selection box fill
+    ctx.fillStyle = 'rgba(100, 255, 100, 0.1)';
+    ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
+    
+    // Draw selection box border
+    ctx.strokeStyle = 'rgba(100, 255, 100, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+    ctx.setLineDash([]);
+    
+    ctx.restore();
+  }
+  
+  /**
+   * Draw waypoint marker in the world.
+   */
+  drawWaypointMarker() {
+    if (!this.attackMoveWaypoint) {
+      return;
+    }
+    const ctx = this.ctx;
+    ctx.save();
+    
+    const wp = this.attackMoveWaypoint;
+    const time = performance.now() / 1000;
+    const pulse = Math.sin(time * 4) * 0.3 + 0.7;
+    
+    // Draw outer circle
+    ctx.strokeStyle = `rgba(100, 255, 100, ${pulse * 0.6})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(wp.x, wp.y, 15, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Draw inner circle
+    ctx.strokeStyle = `rgba(100, 255, 100, ${pulse})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(wp.x, wp.y, 8, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Draw crosshair
+    ctx.strokeStyle = `rgba(100, 255, 100, ${pulse})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(wp.x - 12, wp.y);
+    ctx.lineTo(wp.x - 4, wp.y);
+    ctx.moveTo(wp.x + 4, wp.y);
+    ctx.lineTo(wp.x + 12, wp.y);
+    ctx.moveTo(wp.x, wp.y - 12);
+    ctx.lineTo(wp.x, wp.y - 4);
+    ctx.moveTo(wp.x, wp.y + 4);
+    ctx.lineTo(wp.x, wp.y + 12);
+    ctx.stroke();
+    
     ctx.restore();
   }
 }
