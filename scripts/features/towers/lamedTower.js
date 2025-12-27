@@ -427,6 +427,7 @@ export class GravitySimulation {
       return;
     }
 
+    const previousDpr = this.getEffectiveDevicePixelRatio();
     this.performanceMode = mode;
     if (mode === 'reduced') {
       this.maxDevicePixelRatio = this.performanceCaps.reducedDevicePixelRatio;
@@ -454,8 +455,60 @@ export class GravitySimulation {
       this.activeTrailSettings = null;
     }
 
+    const nextDpr = this.getEffectiveDevicePixelRatio();
+    const scaleFactor = Number.isFinite(nextDpr) && nextDpr > 0 ? nextDpr / previousDpr : 1;
+
+    // Preserve existing particle trajectories when DPR caps change so orbit distances remain stable.
+    this.rescaleDeviceSpaceParticles(scaleFactor);
+
     // Rescale the canvas so the new DPR cap applies immediately.
     this.resize();
+  }
+
+  /**
+   * Scale device-space particle coordinates and velocities so live simulations stay aligned after DPR changes.
+   * @param {number} scaleFactor - Multiplier applied to device-pixel coordinates
+   */
+  rescaleDeviceSpaceParticles(scaleFactor) {
+    if (!Number.isFinite(scaleFactor) || scaleFactor <= 0 || scaleFactor === 1) {
+      return;
+    }
+
+    // Rescale orbiting stars and their retained trails to keep circular paths centered after canvas DPR shifts.
+    for (const star of this.stars) {
+      star.x *= scaleFactor;
+      star.y *= scaleFactor;
+      star.vx *= scaleFactor;
+      star.vy *= scaleFactor;
+      if (Array.isArray(star.trail)) {
+        for (const point of star.trail) {
+          point.x *= scaleFactor;
+          point.y *= scaleFactor;
+        }
+      }
+    }
+
+    // Reflow decorative dust so the accretion disk retains its radial distribution when DPR shrinks or grows.
+    for (const dust of this.dustParticles) {
+      dust.x *= scaleFactor;
+      dust.y *= scaleFactor;
+      dust.vx *= scaleFactor;
+      dust.vy *= scaleFactor;
+    }
+
+    // Maintain in-flight meteor animations without sudden jumps when adaptive performance toggles mid-run.
+    for (const shard of this.shootingStars) {
+      shard.x *= scaleFactor;
+      shard.y *= scaleFactor;
+      shard.vx *= scaleFactor;
+      shard.vy *= scaleFactor;
+      if (Array.isArray(shard.trail)) {
+        for (const point of shard.trail) {
+          point.x *= scaleFactor;
+          point.y *= scaleFactor;
+        }
+      }
+    }
   }
 
   /**
