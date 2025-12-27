@@ -97,6 +97,10 @@ import {
   bindEnemyParticlesToggle,
   initializeEnemyParticlesPreference,
   areEnemyParticlesEnabled,
+  bindEdgeCrystalsToggle,
+  initializeEdgeCrystalsPreference,
+  bindBackgroundParticlesToggle,
+  initializeBackgroundParticlesPreference,
   bindPlayfieldTrackTypeButton,
   bindTowerLoadoutToggleSideButton,
   initializeTowerLoadoutToggleSidePreference,
@@ -6208,40 +6212,22 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Bind playfield visual settings
     bindEnemyParticlesToggle();
     initializeEnemyParticlesPreference();
+    bindEdgeCrystalsToggle();
+    initializeEdgeCrystalsPreference();
+    bindBackgroundParticlesToggle();
+    initializeBackgroundParticlesPreference();
     bindPlayfieldTrackTypeButton();
     initializeTowerLoadoutToggleSidePreference();
     bindTowerLoadoutToggleSideButton();
     initializePlayfieldPreferences();
     bindPlayfieldOptions();
 
-    // Bind playfield settings dropdown
-    const playfieldSettingsToggle = document.getElementById('playfield-settings-toggle');
-    const playfieldSettingsMenu = document.getElementById('playfield-settings-menu');
-    const playfieldSettingsClose = playfieldSettingsMenu?.querySelector('.playfield-settings-close');
-    if (playfieldSettingsToggle && playfieldSettingsMenu) {
-      let playfieldSettingsOpen = false;
-      const syncPlayfieldSettingsState = (open) => {
-        playfieldSettingsMenu.setAttribute('data-open', open ? 'true' : 'false');
-        playfieldSettingsMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
-        playfieldSettingsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-        if (open) {
-          playfieldSettingsMenu.hidden = false;
-        } else {
-          playfieldSettingsMenu.hidden = true;
-        }
-      };
-      playfieldSettingsToggle.addEventListener('click', () => {
-        playfieldSettingsOpen = !playfieldSettingsOpen;
-        syncPlayfieldSettingsState(playfieldSettingsOpen);
-      });
-      if (playfieldSettingsClose) {
-        playfieldSettingsClose.addEventListener('click', () => {
-          playfieldSettingsOpen = false;
-          syncPlayfieldSettingsState(playfieldSettingsOpen);
-        });
-      }
-      syncPlayfieldSettingsState(false);
-    }
+    // Bind playfield settings dropdown using the spire options dropdown behavior
+    bindSpireOptionsDropdown({
+      toggleId: 'playfield-settings-toggle',
+      menuId: 'playfield-settings-menu',
+      spireId: 'playfield-settings',
+    });
     
     // Activate spire option dropdown toggles so every tab shares the same UX as Lamed.
     bindSpireOptionsDropdown({
