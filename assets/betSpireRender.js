@@ -167,15 +167,12 @@ class Particle {
   constructor(tierId = 'sand', sizeIndex = 0, spawnPosition = null) {
     // Spawn at generator position if provided, otherwise at random location
     if (spawnPosition) {
-      this.x = spawnPosition.x;
-      this.y = spawnPosition.y;
-
-      // Give particles spawned at generator a small circular/orbital velocity
-      // This helps them stay within the gravitational field immediately
-      const randomAngle = Math.random() * Math.PI * 2;
-      const initialSpeed = MIN_VELOCITY * 0.25; // Halved spawn kick to keep particles orbiting their source
-      this.vx = Math.cos(randomAngle) * initialSpeed;
-      this.vy = Math.sin(randomAngle) * initialSpeed;
+      const spawnAngle = Math.random() * Math.PI * 2; // Jitter the spawn angle so particles cluster near the generator center.
+      const spawnRadius = Math.random() * 3; // Keep new particles close to the generator so they stay within its influence.
+      this.x = spawnPosition.x + Math.cos(spawnAngle) * spawnRadius;
+      this.y = spawnPosition.y + Math.sin(spawnAngle) * spawnRadius;
+      this.vx = 0; // Spawn particles at rest so they start centered before gravity nudges them outward.
+      this.vy = 0; // Keep initial velocity zero to avoid launching particles outside the generator field.
     } else {
       this.x = Math.random() * CANVAS_WIDTH;
       this.y = Math.random() * CANVAS_HEIGHT;
