@@ -742,34 +742,37 @@ export function createPowderDisplaySystem({
 
   function bindSpireClickIncome() {
     const clickTargets = [
-      { elementId: 'powder-simulation-card', spireId: 'aleph' },
-      { elementId: 'fluid-simulation-card', spireId: 'bet' },
-      { elementId: 'lamed-simulation-card', spireId: 'lamed' },
-      { elementId: 'tsadi-simulation-card', spireId: 'tsadi' },
-      { elementId: 'shin-fractal-content', spireId: 'shin' },
-      { elementId: 'kuf-simulation-card', spireId: 'kuf' },
+      { elementIds: ['powder-simulation-card'], spireId: 'aleph' },
+      // Bind Bet Spire click income to both the Achievements terrarium and the placeholder tap zone.
+      { elementIds: ['achievements-terrarium-card', 'bet-placeholder-container'], spireId: 'bet' },
+      { elementIds: ['lamed-simulation-card'], spireId: 'lamed' },
+      { elementIds: ['tsadi-simulation-card'], spireId: 'tsadi' },
+      { elementIds: ['shin-fractal-content'], spireId: 'shin' },
+      { elementIds: ['kuf-simulation-card'], spireId: 'kuf' },
     ];
 
-    clickTargets.forEach(({ elementId, spireId }) => {
-      const element = document.getElementById(elementId);
-      if (!element) {
-        return;
-      }
-      element.addEventListener('click', (event) => {
-        if (event.defaultPrevented) {
+    clickTargets.forEach(({ elementIds, spireId }) => {
+      elementIds.forEach((elementId) => {
+        const element = document.getElementById(elementId);
+        if (!element) {
           return;
         }
-        if (typeof event.button === 'number' && event.button !== 0) {
-          return;
-        }
-        const interactiveTarget =
-          event.target instanceof HTMLElement
-            ? event.target.closest('button, a, input, select, textarea')
-            : null;
-        if (interactiveTarget) {
-          return;
-        }
-        grantSpireMinuteIncome(spireId);
+        element.addEventListener('click', (event) => {
+          if (event.defaultPrevented) {
+            return;
+          }
+          if (typeof event.button === 'number' && event.button !== 0) {
+            return;
+          }
+          const interactiveTarget =
+            event.target instanceof HTMLElement
+              ? event.target.closest('button, a, input, select, textarea')
+              : null;
+          if (interactiveTarget) {
+            return;
+          }
+          grantSpireMinuteIncome(spireId);
+        });
       });
     });
   }
