@@ -13,6 +13,9 @@ const TOWER_SELECTION_SCROLL_STEP_PX = 28;
 // Grace period to prevent hold release from being treated as an outside click.
 const POINTER_RELEASE_GRACE_PERIOD_MS = 100;
 
+// Maximum number of tower options visible in the selection wheel at once.
+const MAX_VISIBLE_TOWER_ITEMS = 3;
+
 /**
  * Remove the tower selection wheel overlay and detach related listeners.
  */
@@ -160,12 +163,12 @@ export function renderTowerSelectionWheel() {
     : 0;
   wheel.itemHeight = Math.max(averageHeight, TOWER_SELECTION_SCROLL_STEP_PX);
 
-  // Set wheel height to show exactly 3 items
+  // Set wheel height to show exactly MAX_VISIBLE_TOWER_ITEMS
   const listStyles = window.getComputedStyle(wheel.list);
   const gapValue = listStyles?.rowGap || listStyles?.gap || '0';
   const listGap = Number.parseFloat(gapValue) || 0;
-  const threeItemsHeight = wheel.itemHeight * 3 + listGap * 2;
-  wheel.list.style.setProperty('--tower-loadout-wheel-height', `${threeItemsHeight}px`);
+  const visibleItemsHeight = wheel.itemHeight * MAX_VISIBLE_TOWER_ITEMS + listGap * (MAX_VISIBLE_TOWER_ITEMS - 1);
+  wheel.list.style.setProperty('--tower-loadout-wheel-height', `${visibleItemsHeight}px`);
 
   const handleScroll = (event) => {
     const delta = event.deltaY || event.detail || event.wheelDelta || 0;
@@ -173,7 +176,7 @@ export function renderTowerSelectionWheel() {
     const currentIndex = Math.round(Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex);
     const newTarget = currentIndex + direction;
     const clampedTarget = Math.min(Math.max(newTarget, 0), Math.max(0, wheel.towers.length - 1));
-    // Set focus and target to the same value for immediate snapping
+    // Use immediate snapping by setting all indices directly and updating transform immediately
     wheel.focusIndex = clampedTarget;
     wheel.targetIndex = clampedTarget;
     wheel.activeIndex = clampedTarget;
@@ -482,7 +485,7 @@ export function openTowerSelectionWheel(tower) {
     const currentIndex = Math.round(Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex);
     const newTarget = currentIndex + direction;
     const clampedTarget = Math.min(Math.max(newTarget, 0), Math.max(0, wheel.towers.length - 1));
-    // Set focus and target to the same value for immediate snapping
+    // Use immediate snapping by setting all indices directly and updating transform immediately
     wheel.focusIndex = clampedTarget;
     wheel.targetIndex = clampedTarget;
     wheel.activeIndex = clampedTarget;
