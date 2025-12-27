@@ -14394,6 +14394,21 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   max-width: 100%;
 }
 
+/* Expand simulation renders to full available width like powder-stage does */
+.fluid-grid .powder-simulation,
+.lamed-grid .powder-simulation,
+.tsadi-grid .powder-simulation {
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+}
+
+/* Shin and Kuf spires use custom viewport containers but need similar treatment */
+.shin-game-content .shin-cardinal-card,
+.kuf-grid .kuf-card--simulation {
+  width: 100%;
+  max-width: 100%;
+}
+
 .bet-generator-list {
   display: flex;
   flex-direction: column;
