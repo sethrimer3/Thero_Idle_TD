@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   renderFusionEffects: true,
   renderSpawnEffects: true,
   smoothRendering: true,
+  renderSizeLevel: 1, // Default to Medium (0=Small, 1=Medium, 2=Large)
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -30,6 +31,8 @@ let forceLinkStateLabel = null;
 let fusionEffectsStateLabel = null;
 let spawnEffectsStateLabel = null;
 let smoothRenderingStateLabel = null;
+let renderSizeSelect = null;
+let renderSizeRow = null;
 
 /**
  * Persist the latest Tsadi visual settings to localStorage.
@@ -45,6 +48,7 @@ function loadSettings() {
   const stored = readStorageJson(TSADI_VISUAL_SETTINGS_STORAGE_KEY);
   if (stored && typeof stored === 'object') {
     settings = { ...DEFAULT_SETTINGS, ...stored };
+    settings.renderSizeLevel = normalizeRenderSizeLevel(stored.renderSizeLevel);
   }
 }
 
@@ -121,6 +125,58 @@ function syncAllToggles() {
   syncToggleState(fusionEffectsToggle, fusionEffectsStateLabel, settings.renderFusionEffects);
   syncToggleState(spawnEffectsToggle, spawnEffectsStateLabel, settings.renderSpawnEffects);
   syncToggleState(smoothRenderingToggle, smoothRenderingStateLabel, settings.smoothRendering);
+  
+  if (renderSizeSelect) {
+    renderSizeSelect.value = String(normalizeRenderSizeLevel(settings.renderSizeLevel));
+  }
+}
+
+/**
+ * Normalize the render size level to a safe 0-2 range.
+ */
+function normalizeRenderSizeLevel(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return 1; // Default to Medium if invalid
+  }
+  return Math.min(2, Math.max(0, parsed));
+}
+
+/**
+ * Apply the Tsadi render size settings by offsetting the spire container.
+ */
+function applyRenderSizeLayout() {
+  const tsadiStage = document.getElementById('tsadi-canvas');
+  if (!tsadiStage) {
+    return;
+  }
+
+  const sizeLevel = normalizeRenderSizeLevel(settings.renderSizeLevel);
+  const panel = tsadiStage.closest('.panel');
+  const appShell = document.querySelector('.app-shell');
+
+  const readPadding = (element) => {
+    if (!element || typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+      return { top: 0, left: 0, right: 0 };
+    }
+    const styles = window.getComputedStyle(element);
+    return {
+      top: Number.parseFloat(styles.paddingTop) || 0,
+      left: Number.parseFloat(styles.paddingLeft) || 0,
+      right: Number.parseFloat(styles.paddingRight) || 0,
+    };
+  };
+
+  const panelPadding = readPadding(panel);
+  const shellPadding = readPadding(appShell);
+  const inlineLeft = (sizeLevel >= 2 ? panelPadding.left : 0) + (sizeLevel >= 3 ? shellPadding.left : 0);
+  const inlineRight = (sizeLevel >= 2 ? panelPadding.right : 0) + (sizeLevel >= 3 ? shellPadding.right : 0);
+  const topOffset = (sizeLevel >= 2 ? panelPadding.top : 0) + (sizeLevel >= 3 ? shellPadding.top : 0);
+
+  tsadiStage.dataset.sizeLevel = String(sizeLevel);
+  tsadiStage.style.setProperty('--tsadi-size-inline-left', `${inlineLeft}px`);
+  tsadiStage.style.setProperty('--tsadi-size-inline-right', `${inlineRight}px`);
+  tsadiStage.style.setProperty('--tsadi-size-top', `${topOffset}px`);
 }
 
 /**
@@ -136,6 +192,8 @@ export function bindTsadiSpireOptions() {
   fusionEffectsStateLabel = document.getElementById('tsadi-fusion-effects-state');
   spawnEffectsStateLabel = document.getElementById('tsadi-spawn-effects-state');
   smoothRenderingStateLabel = document.getElementById('tsadi-smooth-rendering-state');
+  renderSizeSelect = document.getElementById('tsadi-render-size-select');
+  renderSizeRow = document.getElementById('tsadi-render-size-row');
 
   if (graphicsLevelButton) {
     graphicsLevelButton.addEventListener('click', cycleGraphicsLevel);
@@ -165,6 +223,15 @@ export function bindTsadiSpireOptions() {
     });
   }
 
+  if (renderSizeSelect) {
+    renderSizeSelect.addEventListener('change', (event) => {
+      settings.renderSizeLevel = normalizeRenderSizeLevel(event.target.value);
+      persistSettings();
+      syncAllToggles();
+      applyRenderSizeLayout();
+    });
+  }
+
   syncGraphicsButton();
   syncAllToggles();
 }
@@ -175,6 +242,7 @@ export function bindTsadiSpireOptions() {
 export function initializeTsadiSpirePreferences() {
   loadSettings();
   applySettingsToSimulation();
+  applyRenderSizeLayout();
   syncGraphicsButton();
   syncAllToggles();
 }
@@ -192,4 +260,11 @@ export function setTsadiSimulationGetter(getter) {
  */
 export function getTsadiVisualSettings() {
   return { ...settings };
+}
+
+// Recalculate size offsets on viewport changes to keep the render aligned.
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', () => {
+    applyRenderSizeLayout();
+  });
 }
