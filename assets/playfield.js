@@ -199,6 +199,10 @@ import {
   teardownOmegaTower as teardownOmegaTowerHelper,
   drawOmegaParticles as drawOmegaParticlesHelper,
 } from '../scripts/features/towers/omegaTower.js';
+import {
+  getPlayfieldResolutionCap,
+  PLAYFIELD_RESOLUTION_EVENT,
+} from './playfield/playfieldPreferences.js';
 
 // Limit the backing resolution for the playfield canvas to keep GPU memory usage stable on dense displays.
 const MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
@@ -352,6 +356,13 @@ export class SimplePlayfield {
     this.renderWidth = this.canvas ? this.canvas.clientWidth : 0;
     this.renderHeight = this.canvas ? this.canvas.clientHeight : 0;
     this.pixelRatio = 1;
+    // Rebuild the canvas backing store when the resolution preference changes.
+    this.handleResolutionChange = () => {
+      this.syncCanvasSize();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener(PLAYFIELD_RESOLUTION_EVENT, this.handleResolutionChange);
+    }
 
     this.arcOffset = 0;
     this.energy = 0;
@@ -2020,7 +2031,9 @@ export class SimplePlayfield {
     }
     const rect = this.canvas.getBoundingClientRect();
     // Clamp the device pixel ratio so the canvas backing store does not balloon on high-resolution devices.
-    const ratio = Math.min(window.devicePixelRatio || 1, MAX_PLAYFIELD_DEVICE_PIXEL_RATIO);
+    // Respect the user-selected playfield resolution cap when calculating backing scale.
+    const resolutionCap = Math.max(MAX_PLAYFIELD_DEVICE_PIXEL_RATIO, getPlayfieldResolutionCap());
+    const ratio = Math.min(window.devicePixelRatio || 1, resolutionCap);
     const width = Math.max(1, Math.floor(rect.width * ratio));
     const height = Math.max(1, Math.floor(rect.height * ratio));
     if (this.canvas.width !== width || this.canvas.height !== height) {
