@@ -1,84 +1,108 @@
 /**
- * Crystalline Triangle Mosaic Background
- * Renders a mosaic of differently-sized triangles in the empty space of the playing field,
- * using shades from the selected color palette gradient. Triangles slowly fade in brightness
- * and along the color palette gradient for a dynamic crystalline effect.
+ * Crystalline Voronoi Mosaic Background
+ * Renders a mosaic of Voronoi-like polygon cells near the edge of the playing field,
+ * using shades from the selected color palette gradient. Cells slowly fade in brightness
+ * and drift along the color palette gradient for a dynamic crystalline effect.
  */
 
 import { metersToPixels } from '../../gameUnits.js';
 import { samplePaletteGradient } from '../../colorSchemeUtils.js';
 
 // Configuration constants
-const MINIMUM_DISTANCE_FROM_TRACK_METERS = 5; // Only render triangles 5+ meters from track
-const TRIANGLE_SIZE_MIN = 15; // Minimum triangle size in pixels
-const TRIANGLE_SIZE_MAX = 80; // Maximum triangle size in pixels
-const TRIANGLE_DENSITY = 0.0008; // Triangles per square pixel (controls spacing)
-const FADE_SPEED = 0.000025; // Speed of brightness/color fade animation (5% of original speed)
-const BRIGHTNESS_MIN = 0.3; // Minimum brightness multiplier
-const BRIGHTNESS_MAX = 0.9; // Maximum brightness multiplier
-const ALPHA_BASE = 0.15; // Base transparency for triangles
-const ALPHA_VARIATION = 0.1; // Additional alpha variation
+const MINIMUM_DISTANCE_FROM_TRACK_METERS = 7; // Only render cells 7+ meters from the track.
+const EDGE_BAND_FRACTION = 0.22; // Keep the mosaic concentrated around the playfield edges.
+const EDGE_BAND_MIN_PIXELS = 80; // Ensure a minimum edge band thickness in pixels.
+const CELL_SIZE_MIN = 28; // Minimum cell radius in pixels for polygon cells.
+const CELL_SIZE_MAX = 110; // Maximum cell radius in pixels for polygon cells.
+const CELL_DENSITY = 0.00035; // Polygon cells per square pixel (controls spacing).
+const CELL_VERTEX_MIN = 5; // Minimum number of polygon vertices per cell.
+const CELL_VERTEX_MAX = 8; // Maximum number of polygon vertices per cell.
+const CELL_SPACING_RATIO = 0.9; // Minimum spacing between seeds relative to cell size.
+const FADE_SPEED = 0.000018; // Slow the brightness/color fade animation.
+const BRIGHTNESS_MIN = 0.35; // Minimum brightness multiplier.
+const BRIGHTNESS_MAX = 0.85; // Maximum brightness multiplier.
+const ALPHA_BASE = 0.16; // Base transparency for polygon cells.
+const ALPHA_VARIATION = 0.08; // Additional alpha variation for subtle depth.
+const COLOR_DRIFT = 0.08; // Gradient travel distance for slow color drift.
 
 /**
- * Triangle class representing a single crystalline triangle
+ * Polygon cell representing a single crystalline Voronoi-like region.
  */
-class CrystallineTriangle {
-  constructor(x, y, size, colorStop, phase) {
+class CrystallineCell {
+  constructor(x, y, size, colorStop, phase, vertexCount) {
     this.x = x;
     this.y = y;
     this.size = size;
-    this.colorStop = colorStop; // Position along gradient (0-1)
-    this.rotation = Math.random() * Math.PI * 2;
-    // Make triangles interlocking by varying orientation (some point up, some down)
-    this.pointsUp = Math.random() < 0.5;
-    this.phase = phase; // Animation phase offset
+    this.colorStop = colorStop; // Base position along gradient (0-1).
+    this.phase = phase; // Animation phase offset.
+    this.vertexCount = vertexCount;
     this.brightness = BRIGHTNESS_MIN + Math.random() * (BRIGHTNESS_MAX - BRIGHTNESS_MIN);
+    this.vertices = this.buildCellVertices(); // Cache vertices for a stable interlocking feel.
+    this.colorShift = colorStop; // Track the animated gradient position.
+    this.alphaBase = ALPHA_BASE + Math.random() * ALPHA_VARIATION; // Cache alpha for steady translucency.
   }
 
   /**
-   * Update triangle animation state
+   * Build the polygon vertices for a Voronoi-like cell silhouette.
+   */
+  buildCellVertices() {
+    // Randomize vertex angles to mimic irregular Voronoi edges.
+    const angles = [];
+    for (let i = 0; i < this.vertexCount; i += 1) {
+      angles.push(Math.random() * Math.PI * 2);
+    }
+    angles.sort((a, b) => a - b);
+
+    // Scale each radius slightly to create a faceted cell edge.
+    return angles.map((angle) => ({
+      angle,
+      radius: this.size * (0.7 + Math.random() * 0.35),
+    }));
+  }
+
+  /**
+   * Update polygon animation state.
    */
   update(deltaTime) {
-    // Slowly oscillate brightness
+    // Slowly oscillate brightness for the crystalline shimmer.
     this.phase += FADE_SPEED * deltaTime;
-    this.brightness = BRIGHTNESS_MIN + (BRIGHTNESS_MAX - BRIGHTNESS_MIN) * 
-                      (0.5 + 0.5 * Math.sin(this.phase));
+    this.brightness =
+      BRIGHTNESS_MIN +
+      (BRIGHTNESS_MAX - BRIGHTNESS_MIN) * (0.5 + 0.5 * Math.sin(this.phase));
+    // Drift along the palette gradient to mimic slow chromatic refraction.
+    this.colorShift = (this.colorStop + COLOR_DRIFT * (0.5 + 0.5 * Math.sin(this.phase * 0.6))) % 1;
   }
 
   /**
-   * Render the triangle to the canvas
+   * Render the polygon cell to the canvas.
    */
   draw(ctx, paletteColor) {
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.rotate(this.rotation);
 
-    // Apply brightness multiplier to the palette color
+    // Apply brightness multiplier to the palette color.
     const r = Math.floor(paletteColor.r * this.brightness);
     const g = Math.floor(paletteColor.g * this.brightness);
     const b = Math.floor(paletteColor.b * this.brightness);
-    const alpha = ALPHA_BASE + Math.random() * ALPHA_VARIATION;
+    const alpha = this.alphaBase + 0.05 * Math.sin(this.phase * 0.4);
 
     ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
     
-    // Draw interlocking triangle (pointing up or down based on orientation)
+    // Draw irregular polygon to mimic a Voronoi cell.
     ctx.beginPath();
-    const h = this.size * Math.sqrt(3) / 2;
-    if (this.pointsUp) {
-      // Triangle pointing up
-      ctx.moveTo(0, -h / 2);
-      ctx.lineTo(-this.size / 2, h / 2);
-      ctx.lineTo(this.size / 2, h / 2);
-    } else {
-      // Triangle pointing down (interlocking)
-      ctx.moveTo(0, h / 2);
-      ctx.lineTo(-this.size / 2, -h / 2);
-      ctx.lineTo(this.size / 2, -h / 2);
-    }
+    this.vertices.forEach((vertex, index) => {
+      const vx = Math.cos(vertex.angle) * vertex.radius;
+      const vy = Math.sin(vertex.angle) * vertex.radius;
+      if (index === 0) {
+        ctx.moveTo(vx, vy);
+      } else {
+        ctx.lineTo(vx, vy);
+      }
+    });
     ctx.closePath();
     ctx.fill();
 
-    // Optional subtle stroke for definition
+    // Subtle stroke for definition.
     ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.5})`;
     ctx.lineWidth = 0.5;
     ctx.stroke();
@@ -131,11 +155,40 @@ function isPointFarFromTrack(x, y, pathPoints, minDistance) {
 }
 
 /**
+ * Check if a point sits inside the desired edge band around the playfield.
+ */
+function isPointNearEdge(x, y, viewBounds, edgeBandPixels) {
+  // Measure the nearest distance to any edge of the viewport.
+  const edgeDistance = Math.min(
+    x - viewBounds.minX,
+    viewBounds.maxX - x,
+    y - viewBounds.minY,
+    viewBounds.maxY - y,
+  );
+  return edgeDistance <= edgeBandPixels;
+}
+
+/**
+ * Check if a point is far enough from existing cell seeds.
+ */
+function isPointFarFromSeeds(x, y, seeds, minSpacing) {
+  // Enforce spacing so cells feel interlocked instead of overlapping heavily.
+  for (const seed of seeds) {
+    const dx = x - seed.x;
+    const dy = y - seed.y;
+    if (dx * dx + dy * dy < minSpacing * minSpacing) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Main Crystalline Mosaic Manager
  */
 export class CrystallineMosaicManager {
   constructor() {
-    this.triangles = [];
+    this.cells = [];
     this.enabled = true;
     this.needsRegeneration = true;
     this.lastViewBounds = null;
@@ -143,52 +196,69 @@ export class CrystallineMosaicManager {
   }
 
   /**
-   * Generate triangles for the visible viewport
+   * Generate polygon cells for the visible viewport.
    */
-  generateTriangles(viewBounds, pathPoints) {
+  generateCells(viewBounds, pathPoints) {
     if (!this.enabled || !viewBounds) {
       return;
     }
 
     const minDistancePixels = metersToPixels(MINIMUM_DISTANCE_FROM_TRACK_METERS);
+    // Use a pixel-based edge band so the mosaic hugs the playfield borders.
+    const edgeBandPixels = Math.max(
+      EDGE_BAND_MIN_PIXELS,
+      Math.min(viewBounds.maxX - viewBounds.minX, viewBounds.maxY - viewBounds.minY) * EDGE_BAND_FRACTION,
+    );
     
     // Calculate area to cover
     const width = viewBounds.maxX - viewBounds.minX;
     const height = viewBounds.maxY - viewBounds.minY;
     const area = width * height;
     
-    // Calculate number of triangles based on density
-    const targetCount = Math.floor(area * TRIANGLE_DENSITY);
+    // Calculate number of cells based on density.
+    const targetCount = Math.floor(area * CELL_DENSITY);
     
-    this.triangles = [];
+    this.cells = [];
     let attempts = 0;
-    const maxAttempts = targetCount * 3; // Limit attempts to avoid infinite loops
+    const maxAttempts = targetCount * 5; // Limit attempts to avoid infinite loops.
     
-    while (this.triangles.length < targetCount && attempts < maxAttempts) {
+    while (this.cells.length < targetCount && attempts < maxAttempts) {
       attempts++;
       
-      // Random position within view bounds
+      // Random position within view bounds.
       const x = viewBounds.minX + Math.random() * width;
       const y = viewBounds.minY + Math.random() * height;
       
-      // Check if far enough from track
+      // Keep the mosaic close to the viewport edges.
+      if (!isPointNearEdge(x, y, viewBounds, edgeBandPixels)) {
+        continue;
+      }
+
+      // Check if far enough from track.
       if (!isPointFarFromTrack(x, y, pathPoints, minDistancePixels)) {
         continue;
       }
       
-      // Random size and gradient position
-      const size = TRIANGLE_SIZE_MIN + Math.random() * (TRIANGLE_SIZE_MAX - TRIANGLE_SIZE_MIN);
-      const colorStop = Math.random(); // Position along gradient
-      const phase = Math.random() * Math.PI * 2; // Random animation phase
+      // Random size and gradient position.
+      const size = CELL_SIZE_MIN + Math.random() * (CELL_SIZE_MAX - CELL_SIZE_MIN);
+      // Set seed spacing based on the cell size to prevent heavy overlap.
+      const minSpacing = size * CELL_SPACING_RATIO;
+      if (!isPointFarFromSeeds(x, y, this.cells, minSpacing)) {
+        continue;
+      }
+      const colorStop = Math.random(); // Position along gradient.
+      const phase = Math.random() * Math.PI * 2; // Random animation phase.
+      const vertexCount =
+        CELL_VERTEX_MIN + Math.floor(Math.random() * (CELL_VERTEX_MAX - CELL_VERTEX_MIN + 1));
       
-      this.triangles.push(new CrystallineTriangle(x, y, size, colorStop, phase));
+      this.cells.push(new CrystallineCell(x, y, size, colorStop, phase, vertexCount));
     }
     
     this.needsRegeneration = false;
   }
 
   /**
-   * Check if triangles need regeneration (viewport changed significantly)
+   * Check if cells need regeneration (viewport changed significantly).
    */
   shouldRegenerate(viewBounds, pathVersion) {
     if (this.needsRegeneration) {
@@ -222,43 +292,43 @@ export class CrystallineMosaicManager {
   }
 
   /**
-   * Update triangle animations
+   * Update polygon animations.
    */
   update(deltaTime) {
     if (!this.enabled) {
       return;
     }
     
-    for (const triangle of this.triangles) {
-      triangle.update(deltaTime);
+    for (const cell of this.cells) {
+      cell.update(deltaTime);
     }
   }
 
   /**
-   * Render all triangles
+   * Render all polygon cells.
    */
   render(ctx, viewBounds, pathPoints, pathVersion) {
     if (!this.enabled) {
       return;
     }
     
-    // Check if we need to regenerate triangles
+    // Check if we need to regenerate cells.
     if (this.shouldRegenerate(viewBounds, pathVersion)) {
-      this.generateTriangles(viewBounds, pathPoints);
+      this.generateCells(viewBounds, pathPoints);
       this.lastViewBounds = viewBounds ? { ...viewBounds } : null;
       this.lastPathVersion = pathVersion;
     }
     
-    if (this.triangles.length === 0) {
+    if (this.cells.length === 0) {
       return;
     }
     
     ctx.save();
     
-    // Render each triangle with its gradient color
-    for (const triangle of this.triangles) {
-      const paletteColor = samplePaletteGradient(triangle.colorStop);
-      triangle.draw(ctx, paletteColor);
+    // Render each polygon cell with its gradient color.
+    for (const cell of this.cells) {
+      const paletteColor = samplePaletteGradient(cell.colorShift);
+      cell.draw(ctx, paletteColor);
     }
     
     ctx.restore();
@@ -270,7 +340,7 @@ export class CrystallineMosaicManager {
   setEnabled(enabled) {
     this.enabled = !!enabled;
     if (!this.enabled) {
-      this.triangles = [];
+      this.cells = [];
     } else {
       this.needsRegeneration = true;
     }
@@ -287,7 +357,7 @@ export class CrystallineMosaicManager {
    * Clear all triangles
    */
   clear() {
-    this.triangles = [];
+    this.cells = [];
     this.needsRegeneration = true;
   }
 }
