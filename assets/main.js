@@ -7092,10 +7092,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           const mouseX = e.clientX - rect.left;
           const mouseY = e.clientY - rect.top;
           
-          const scaleDiff = newScale / scale;
-          translateX = mouseX - (mouseX - translateX) * scaleDiff;
-          translateY = mouseY - (mouseY - translateY) * scaleDiff;
+          // Calculate point in content space before zoom
+          const contentX = (mouseX - translateX) / scale;
+          const contentY = (mouseY - translateY) / scale;
+          
+          // Update scale
           scale = newScale;
+          
+          // Calculate new translation to keep the content point under the mouse
+          translateX = mouseX - contentX * scale;
+          translateY = mouseY - contentY * scale;
           
           updateTransform();
         }
@@ -7135,6 +7141,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       // Touch support for mobile
       let touchStartDist = 0;
       let touchStartScale = 1;
+      let pinchCenterX = 0;
+      let pinchCenterY = 0;
       
       viewport.addEventListener('touchstart', (e) => {
         if (e.touches.length === 1) {
@@ -7146,10 +7154,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           startTranslateY = translateY;
         } else if (e.touches.length === 2) {
           // Two finger pinch - zoom
+          isDragging = false; // Cancel panning when pinch starts
           const dx = e.touches[1].clientX - e.touches[0].clientX;
           const dy = e.touches[1].clientY - e.touches[0].clientY;
           touchStartDist = Math.sqrt(dx * dx + dy * dy);
           touchStartScale = scale;
+          
+          // Calculate pinch center in viewport coordinates
+          const rect = viewport.getBoundingClientRect();
+          pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+          pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
         }
       }, { passive: true });
       
@@ -7167,7 +7181,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           const newScale = Math.max(0.5, Math.min(3, touchStartScale * (dist / touchStartDist)));
           
           if (newScale !== scale) {
+            // Calculate point in content space before zoom
+            const contentX = (pinchCenterX - translateX) / scale;
+            const contentY = (pinchCenterY - translateY) / scale;
+            
+            // Update scale
             scale = newScale;
+            
+            // Calculate new translation to keep the content point under the pinch center
+            translateX = pinchCenterX - contentX * scale;
+            translateY = pinchCenterY - contentY * scale;
+            
             updateTransform();
           }
         }
