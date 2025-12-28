@@ -110,6 +110,103 @@ export const GEM_DEFINITIONS = [
 
 const GEM_LOOKUP = new Map(GEM_DEFINITIONS.map((gem) => [gem.id, gem]));
 
+// Enemy shell sprite definitions. Each shell has a front sprite (rendered in front of enemy)
+// and a back sprite (rendered behind enemy). Shells are randomly assigned to enemies.
+export const ENEMY_SHELL_DEFINITIONS = [
+  {
+    id: 'shell1',
+    name: 'Oval Shell',
+    frontSprite: './assets/sprites/spires/enemyShells/shell1-front.svg',
+    backSprite: './assets/sprites/spires/enemyShells/shell1-back.svg',
+  },
+  {
+    id: 'shell2',
+    name: 'Spiky Shell',
+    frontSprite: './assets/sprites/spires/enemyShells/shell2-front.svg',
+    backSprite: './assets/sprites/spires/enemyShells/shell2-back.svg',
+  },
+  {
+    id: 'shell3',
+    name: 'Hexagonal Shell',
+    frontSprite: './assets/sprites/spires/enemyShells/shell3-front.svg',
+    backSprite: './assets/sprites/spires/enemyShells/shell3-back.svg',
+  },
+];
+
+// Cache shell sprite images for efficient rendering
+const SHELL_SPRITE_CACHE = new Map();
+
+// Load and cache a shell sprite image
+function loadShellSprite(spritePath) {
+  if (!spritePath || typeof Image === 'undefined') {
+    return null;
+  }
+  
+  const cached = SHELL_SPRITE_CACHE.get(spritePath);
+  if (cached && cached.loaded && !cached.error) {
+    return cached.image;
+  }
+  if (cached && cached.error) {
+    return null;
+  }
+  
+  const image = new Image();
+  const record = { image, loaded: false, error: false };
+  image.addEventListener('load', () => {
+    record.loaded = true;
+  });
+  image.addEventListener('error', () => {
+    record.error = true;
+  });
+  image.src = spritePath;
+  SHELL_SPRITE_CACHE.set(spritePath, record);
+  return null;
+}
+
+// Assign a random shell to an enemy. The shell persists on the enemy object.
+export function assignRandomShell(enemy) {
+  if (!enemy || enemy.shellId) {
+    return; // Enemy already has a shell assigned
+  }
+  
+  if (ENEMY_SHELL_DEFINITIONS.length === 0) {
+    return; // No shells available
+  }
+  
+  // Select a random shell
+  const randomIndex = Math.floor(Math.random() * ENEMY_SHELL_DEFINITIONS.length);
+  const shell = ENEMY_SHELL_DEFINITIONS[randomIndex];
+  
+  // Store shell info on enemy
+  enemy.shellId = shell.id;
+  enemy.shellFrontSprite = shell.frontSprite;
+  enemy.shellBackSprite = shell.backSprite;
+  
+  // Pre-load the sprite images
+  loadShellSprite(shell.frontSprite);
+  loadShellSprite(shell.backSprite);
+}
+
+// Get the loaded shell sprite images for an enemy
+export function getEnemyShellSprites(enemy) {
+  if (!enemy || !enemy.shellFrontSprite || !enemy.shellBackSprite) {
+    return null;
+  }
+  
+  const frontImage = SHELL_SPRITE_CACHE.get(enemy.shellFrontSprite);
+  const backImage = SHELL_SPRITE_CACHE.get(enemy.shellBackSprite);
+  
+  // Only return if both are loaded successfully
+  if (frontImage?.loaded && !frontImage?.error && backImage?.loaded && !backImage?.error) {
+    return {
+      front: frontImage.image,
+      back: backImage.image,
+    };
+  }
+  
+  return null;
+}
+
 // Maintain a direct lookup so modules can access gem sprite paths without duplicating strings.
 const GEM_SPRITE_LOOKUP = new Map(
   GEM_DEFINITIONS.filter((gem) => gem.sprite).map((gem) => [gem.id, gem.sprite])

@@ -1,0 +1,6 @@
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Front shell: spiky edges -->
+  <g>
+    <path d="M 32 6 L 36 28 L 58 24 L 40 36 L 54 52 L 32 42 L 10 52 L 24 36 L 6 24 L 28 28 Z" fill="rgba(100, 80, 120, 0.4)" stroke="rgba(140, 120, 160, 0.7)" stroke-width="2"/>
+  </g>
+</svg>

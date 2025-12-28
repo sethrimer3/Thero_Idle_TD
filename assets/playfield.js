@@ -35,6 +35,7 @@ import {
   resolveEnemyGemDropMultiplier,
   getGemSpriteImage,
   updateGemSuctionAnimations,
+  assignRandomShell,
 } from './enemies.js';
 import {
   registerEnemyEncounter,
@@ -8210,6 +8211,7 @@ export class SimplePlayfield {
       if (spawningBoss) {
         enemy.isBoss = true;
       }
+      assignRandomShell(enemy);
       this.enemies.push(enemy);
       this.activeWave.spawned += 1;
       this.activeWave.nextSpawn += interval;
@@ -10946,6 +10948,7 @@ export class SimplePlayfield {
     if (parent.isBoss) {
       shard.isBoss = true;
     }
+    assignRandomShell(shard);
     this.enemies.push(shard);
     this.scheduleStatsPanelRefresh();
     return shard;
