@@ -1164,7 +1164,8 @@ body.playfield-fullscreen .playfield-wrapper {
   inset: 0;
   z-index: 50;
   width: 100vw;
-  height: 100dvh;
+  height: 100vh;
+  height: 100svh;
   padding: calc(12px + env(safe-area-inset-top))
     calc(12px + env(safe-area-inset-right))
     calc(12px + env(safe-area-inset-bottom))
@@ -1196,6 +1197,11 @@ body.playfield-fullscreen .playfield {
   height: 100%;
   max-height: none;
   aspect-ratio: auto;
+}
+
+/* Ensure the canvas fills the playfield container in fullscreen mode. */
+body.playfield-fullscreen .playfield canvas {
+  height: 100%;
 }
 
 .playfield-shell {
