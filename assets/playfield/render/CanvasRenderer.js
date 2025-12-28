@@ -623,7 +623,7 @@ function generateLevelSketches(levelId, width, height) {
   }
   
   // Simple seeded random number generator for consistent sketch placement per level
-  const seed = Array.from(String(levelId)).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const seed = Array.from(String(levelId)).reduce((acc, char) => acc + char.charCodeAt(0), 1) || 1;
   let randomState = seed;
   const seededRandom = () => {
     randomState = (randomState * 1103515245 + 12345) & 0x7fffffff;
@@ -670,12 +670,18 @@ function drawSketches() {
   
   const ctx = this.ctx;
   
-  // Generate sketches for this level if not already cached
-  if (!this._levelSketches || this._levelSketchesId !== this.levelConfig.id) {
-    const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
-    const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
+  // Generate sketches for this level if not already cached or if dimensions changed
+  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
+  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
+  
+  if (!this._levelSketches || 
+      this._levelSketchesId !== this.levelConfig.id ||
+      this._levelSketchesWidth !== width ||
+      this._levelSketchesHeight !== height) {
     this._levelSketches = generateLevelSketches(this.levelConfig.id, width, height);
     this._levelSketchesId = this.levelConfig.id;
+    this._levelSketchesWidth = width;
+    this._levelSketchesHeight = height;
   }
   
   if (!this._levelSketches || !this._levelSketches.length) {
