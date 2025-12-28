@@ -6841,7 +6841,7 @@ body.playfield-fullscreen .playfield {
   align-items: flex-end;
   gap: 6px;
   opacity: 0.4;
-  z-index: 4;
+  z-index: 1610;
   transition: opacity 0.22s ease, transform 0.22s ease;
 }
 
