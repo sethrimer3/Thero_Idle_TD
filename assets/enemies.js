@@ -114,22 +114,64 @@ const GEM_LOOKUP = new Map(GEM_DEFINITIONS.map((gem) => [gem.id, gem]));
 // and a back sprite (rendered behind enemy). Shells are randomly assigned to enemies.
 export const ENEMY_SHELL_DEFINITIONS = [
   {
-    id: 'shell1',
-    name: 'Oval Shell',
-    frontSprite: './assets/sprites/spires/enemyShells/shell1-front.svg',
-    backSprite: './assets/sprites/spires/enemyShells/shell1-back.svg',
+    id: 'armadillo_blue',
+    name: 'Blue Armadillo Shell',
+    frontSprite: './assets/sprites/enemies/shells/front/armadillo_shell_blue_front.png',
+    backSprite: './assets/sprites/enemies/shells/back/armadillo_shell_blue_back.png',
   },
   {
-    id: 'shell2',
-    name: 'Spiky Shell',
-    frontSprite: './assets/sprites/spires/enemyShells/shell2-front.svg',
-    backSprite: './assets/sprites/spires/enemyShells/shell2-back.svg',
+    id: 'armadillo_white',
+    name: 'White Armadillo Shell',
+    frontSprite: './assets/sprites/enemies/shells/front/armadillo_shell_white_front.png',
+    backSprite: './assets/sprites/enemies/shells/back/armadillo_shell_white_back.png',
   },
   {
-    id: 'shell3',
-    name: 'Hexagonal Shell',
-    frontSprite: './assets/sprites/spires/enemyShells/shell3-front.svg',
-    backSprite: './assets/sprites/spires/enemyShells/shell3-back.svg',
+    id: 'hecatontagon_pink',
+    name: 'Pink Hecatontagon Shell',
+    frontSprite: './assets/sprites/enemies/shells/front/hecatontagon_pink_front.png',
+    backSprite: './assets/sprites/enemies/shells/back/hecatontagon_pink_back.png',
+  },
+  {
+    id: 'octahedron_purple',
+    name: 'Purple Octahedron Shell',
+    frontSprite: './assets/sprites/enemies/shells/front/octahedron_purple_front.png',
+    backSprite: './assets/sprites/enemies/shells/back/octahedron_purple_back.png',
+  },
+  {
+    id: 'icosahedron_purple',
+    name: 'Purple Icosahedron',
+    frontSprite: './assets/sprites/enemies/shells/front/icosahedron_purple.png',
+    backSprite: null, // No back sprite for this one
+  },
+  {
+    id: 'dodecahedron_red',
+    name: 'Red Dodecahedron',
+    frontSprite: './assets/sprites/enemies/shells/front/dodecahedron_red.png',
+    backSprite: null, // No back sprite for this one
+  },
+  {
+    id: 'dodecahedron_yellow',
+    name: 'Yellow Dodecahedron',
+    frontSprite: './assets/sprites/enemies/shells/front/dodecahedron_yellow.png',
+    backSprite: null, // No back sprite for this one
+  },
+  {
+    id: 'metatron_purple',
+    name: 'Purple Metatron Cube',
+    frontSprite: './assets/sprites/enemies/shells/front/metatron_cube_purple.png',
+    backSprite: null, // No back sprite for this one
+  },
+  {
+    id: 'metatron_white',
+    name: 'White Metatron Cube',
+    frontSprite: './assets/sprites/enemies/shells/front/metatron_cube_white.png',
+    backSprite: null, // No back sprite for this one
+  },
+  {
+    id: 'pyramid_red',
+    name: 'Red Pyramid',
+    frontSprite: './assets/sprites/enemies/shells/front/pyramid_red.png',
+    backSprite: null, // No back sprite for this one
   },
 ];
 
@@ -194,19 +236,31 @@ export function assignRandomShell(enemy) {
 
 // Get the loaded shell sprite images for an enemy
 export function getEnemyShellSprites(enemy) {
-  if (!enemy || !enemy.shellFrontSprite || !enemy.shellBackSprite) {
+  if (!enemy || !enemy.shellFrontSprite) {
     return null;
   }
   
   const frontImage = SHELL_SPRITE_CACHE.get(enemy.shellFrontSprite);
-  const backImage = SHELL_SPRITE_CACHE.get(enemy.shellBackSprite);
   
-  // Only return if both are loaded successfully
-  if (frontImage?.loaded && !frontImage?.error && backImage?.loaded && !backImage?.error) {
-    return {
-      front: frontImage.image,
-      back: backImage.image,
-    };
+  // If there's a back sprite, check if both are loaded
+  if (enemy.shellBackSprite) {
+    const backImage = SHELL_SPRITE_CACHE.get(enemy.shellBackSprite);
+    
+    // Only return if both are loaded successfully
+    if (frontImage?.loaded && !frontImage?.error && backImage?.loaded && !backImage?.error) {
+      return {
+        front: frontImage.image,
+        back: backImage.image,
+      };
+    }
+  } else {
+    // No back sprite, only return front if loaded
+    if (frontImage?.loaded && !frontImage?.error) {
+      return {
+        front: frontImage.image,
+        back: null,
+      };
+    }
   }
   
   return null;
