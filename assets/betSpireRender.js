@@ -59,7 +59,6 @@ const SPAWNER_SIZE = 8.8; // Size of spawner forge triangles (10% larger than be
 const SPAWNER_ROTATION_SPEED = 0.03; // Rotation speed for spawner triangles
 const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
 const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER * 1.15; // Influence radius for each spawner (increased by 15%)
-const SPAWNER_TANGENTIAL_STRENGTH = -0.0005; // Apply a slight counter-orbit bias to soften tangential gravity.
 
 // Particle veer behavior configuration (developer-toggleable).
 const VEER_ANGLE_MIN_DEG = 0.1; // Minimum veer angle in degrees.
@@ -289,11 +288,6 @@ class Particle {
           const angle = Math.atan2(dy, dx);
           this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
           this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
-          // Add a small tangential nudge so particles enter the generator field at a slight angle.
-          const tangentialAngle = angle + Math.PI / 2;
-          const tangentialForce = force * SPAWNER_TANGENTIAL_STRENGTH;
-          this.vx += Math.cos(tangentialAngle) * tangentialForce * FORCE_SCALE * clampedDelta;
-          this.vy += Math.sin(tangentialAngle) * tangentialForce * FORCE_SCALE * clampedDelta;
         }
 
         // Apply an additional, extremely gentle pull for small particles toward their matching generator.
@@ -358,7 +352,9 @@ class Particle {
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
     // Clamp speed based on whether the particle is caught in its generator gravity field.
     const generatorMaxVelocity = this._minVelocity * 5;
-    const allowedMaxVelocity = isInsideGeneratorField ? Math.min(maxVelocity, generatorMaxVelocity) : maxVelocity;
+    // Reduce the generator field speed cap by 10% so particles drift more gently near their spawner.
+    const generatorVelocityCap = generatorMaxVelocity * 0.9;
+    const allowedMaxVelocity = isInsideGeneratorField ? Math.min(maxVelocity, generatorVelocityCap) : maxVelocity;
     if (speed > allowedMaxVelocity) {
       this.vx = (this.vx / speed) * allowedMaxVelocity;
       this.vy = (this.vy / speed) * allowedMaxVelocity;
