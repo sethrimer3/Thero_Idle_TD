@@ -150,6 +150,11 @@ function loadShellSprite(spritePath) {
     return null;
   }
   
+  // If already loading, return the cached image (even if not yet loaded)
+  if (cached) {
+    return cached.image;
+  }
+  
   const image = new Image();
   const record = { image, loaded: false, error: false };
   image.addEventListener('load', () => {
@@ -160,7 +165,7 @@ function loadShellSprite(spritePath) {
   });
   image.src = spritePath;
   SHELL_SPRITE_CACHE.set(spritePath, record);
-  return null;
+  return image;
 }
 
 // Assign a random shell to an enemy. The shell persists on the enemy object.
