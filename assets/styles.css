@@ -14489,7 +14489,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 /* Render size adjustments for spire canvases */
 /* These allow the canvas to expand beyond panel padding when size is set to Large */
-#bet-spire-canvas {
+#bet-spire-basin {
   margin-left: calc(-1 * var(--bet-size-inline-left, 0px));
   margin-right: calc(-1 * var(--bet-size-inline-right, 0px));
   margin-top: calc(-1 * var(--bet-size-top, 0px));
