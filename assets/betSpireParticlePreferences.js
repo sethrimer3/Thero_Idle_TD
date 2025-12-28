@@ -121,13 +121,13 @@ function normalizeRenderSizeLevel(value) {
 
 // Apply the Bet render size settings by offsetting the spire container.
 function applyRenderSizeLayout() {
-  const betStage = document.getElementById('bet-spire-canvas');
-  if (!betStage) {
+  const betBasin = document.getElementById('bet-spire-basin');
+  if (!betBasin) {
     return;
   }
 
   const sizeLevel = normalizeRenderSizeLevel(settings.renderSizeLevel);
-  const panel = betStage.closest('.panel');
+  const panel = betBasin.closest('.panel');
   const appShell = document.querySelector('.app-shell');
 
   const readPadding = (element) => {
@@ -144,14 +144,17 @@ function applyRenderSizeLayout() {
 
   const panelPadding = readPadding(panel);
   const shellPadding = readPadding(appShell);
-  const inlineLeft = (sizeLevel >= 2 ? panelPadding.left : 0) + (sizeLevel >= 3 ? shellPadding.left : 0);
-  const inlineRight = (sizeLevel >= 2 ? panelPadding.right : 0) + (sizeLevel >= 3 ? shellPadding.right : 0);
-  const topOffset = (sizeLevel >= 2 ? panelPadding.top : 0) + (sizeLevel >= 3 ? shellPadding.top : 0);
+  // Size level 0 (Small): no offset
+  // Size level 1 (Medium): offset by panel padding
+  // Size level 2 (Large): offset by panel padding
+  const inlineLeft = (sizeLevel >= 1 ? panelPadding.left : 0);
+  const inlineRight = (sizeLevel >= 1 ? panelPadding.right : 0);
+  const topOffset = (sizeLevel >= 1 ? panelPadding.top : 0);
 
-  betStage.dataset.sizeLevel = String(sizeLevel);
-  betStage.style.setProperty('--bet-size-inline-left', `${inlineLeft}px`);
-  betStage.style.setProperty('--bet-size-inline-right', `${inlineRight}px`);
-  betStage.style.setProperty('--bet-size-top', `${topOffset}px`);
+  betBasin.dataset.sizeLevel = String(sizeLevel);
+  betBasin.style.setProperty('--bet-size-inline-left', `${inlineLeft}px`);
+  betBasin.style.setProperty('--bet-size-inline-right', `${inlineRight}px`);
+  betBasin.style.setProperty('--bet-size-top', `${topOffset}px`);
 }
 
 function applySettings() {
