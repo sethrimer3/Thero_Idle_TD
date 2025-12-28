@@ -11375,6 +11375,10 @@ export class SimplePlayfield {
     return CanvasRenderer.drawCrystallineMosaic.call(this);
   }
 
+  drawSketches() {
+    return CanvasRenderer.drawSketches.call(this);
+  }
+
   // Render each mote gem using its sprite when available so drops mirror the inventory art.
   drawMoteGems() {
     return CanvasRenderer.drawMoteGems.call(this);
