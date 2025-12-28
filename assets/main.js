@@ -1287,8 +1287,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
       // Use both ground and floating island placement masks so grass sprouts in each marked zone.
       maskUrls: [
-        './assets/sprites/spires/betSpire/Grass.png',
-        './assets/sprites/spires/betSpire/Island-Grass.png',
+        './assets/sprites/spires/betSpire/terrarium/Grass.png',
+        './assets/sprites/spires/betSpire/terrarium/Island-Grass.png',
       ],
     });
     fluidTerrariumGrass.start();
@@ -1304,7 +1304,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     fluidTerrariumWater = new FluidTerrariumWater({
       container: fluidElements.terrariumMedia,
-      maskUrl: './assets/sprites/spires/betSpire/Water.png',
+      maskUrl: './assets/sprites/spires/betSpire/terrarium/Water.png',
     });
     fluidTerrariumWater.start();
   }
@@ -1320,7 +1320,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     fluidTerrariumCrystal = new FluidTerrariumCrystal({
       container: fluidElements.terrariumMedia,
       collisionElement: fluidElements.terrainCollisionSprite,
-      maskUrl: './assets/sprites/spires/betSpire/Growing-Crystal.png',
+      maskUrl: './assets/sprites/spires/betSpire/terrarium/Growing-Crystal.png',
     });
   }
 
@@ -1359,9 +1359,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     fluidTerrariumTrees = new FluidTerrariumTrees({
       container: fluidElements.terrariumMedia,
       // Masks removed so trees are only placed via the store. The store already has tree items.
-      // largeMaskUrl: './assets/sprites/spires/betSpire/Tree.png',
-      // smallMaskUrl: './assets/sprites/spires/betSpire/Small-Tree.png',
-      // islandSmallMaskUrl: './assets/sprites/spires/betSpire/Island-Small-Tree.png',
+      // largeMaskUrl: './assets/sprites/spires/betSpire/terrarium/Tree.png',
+      // smallMaskUrl: './assets/sprites/spires/betSpire/terrarium/Small-Tree.png',
+      // islandSmallMaskUrl: './assets/sprites/spires/betSpire/terrarium/Island-Small-Tree.png',
       state: powderState.betTerrarium,
       powderState: powderState,
       spendSerendipity: spendFluidSerendipity,
