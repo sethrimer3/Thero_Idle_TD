@@ -16,7 +16,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   renderFusionEffects: true,
   renderSpawnEffects: true,
   smoothRendering: true,
-  renderSizeLevel: 1, // Default to Medium (0=Small, 1=Medium, 2=Large)
+  renderSizeLevel: 2, // Default to Large (0=Small, 1=Medium, 2=Large)
 });
 
 let settings = { ...DEFAULT_SETTINGS };

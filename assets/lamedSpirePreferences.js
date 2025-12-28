@@ -25,7 +25,7 @@ const DEFAULT_LAMED_SETTINGS = Object.freeze({
   sunSplashes: true,
   shootingStarTrails: true,
   spawnFlashes: true,
-  renderSizeLevel: 1, // Default to Medium (0=Small, 1=Medium, 2=Large)
+  renderSizeLevel: 2, // Default to Large (0=Small, 1=Medium, 2=Large)
 });
 
 /**
