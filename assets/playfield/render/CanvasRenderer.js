@@ -52,6 +52,12 @@ enemyGateSprite.src = ENEMY_GATE_SPRITE_URL;
 enemyGateSprite.decoding = 'async';
 enemyGateSprite.loading = 'eager';
 
+const ENEMY_PARTICLE_SPRITE_URL = 'assets/sprites/enemies/particles/star_particle.png';
+const enemyParticleSprite = new Image();
+enemyParticleSprite.src = ENEMY_PARTICLE_SPRITE_URL;
+enemyParticleSprite.decoding = 'async';
+enemyParticleSprite.loading = 'eager';
+
 const GEM_MOTE_BASE_RATIO = 0.02;
 const TRACK_GATE_SIZE_SCALE = 0.5;
 // Scale the enemy gate glyph up so the spawn marker remains legible at a glance.
@@ -2219,6 +2225,10 @@ function spawnEnemySwirlParticle(metrics, now) {
   const scale = Math.max(0.65, Math.min(1.45, metrics.scale || 1));
   const size = randomBetween(0.9, 2.3) * scale;
   const jitter = Math.random();
+  // Random rotation speed (in radians per second) - range from 0.5 to 2.5 rad/s
+  const rotationSpeed = randomBetween(0.5, 2.5);
+  // Random rotation direction: 1 for clockwise, -1 for counter-clockwise
+  const rotationDirection = Math.random() < 0.5 ? 1 : -1;
   return {
     color: sampleEnemyParticleColor(),
     startAngle: angle,
@@ -2231,6 +2241,9 @@ function spawnEnemySwirlParticle(metrics, now) {
     startedAt: now - jitter * duration,
     holdUntil: 0,
     size,
+    rotation: Math.random() * Math.PI * 2, // Initial random rotation angle
+    rotationSpeed,
+    rotationDirection,
   };
 }
 
@@ -2246,6 +2259,18 @@ function advanceEnemySwirlParticle(particle, metrics, now) {
   if (!particle.duration || particle.duration <= 0) {
     particle.duration = ENEMY_SWIRL_MIN_DURATION_MS;
   }
+  
+  // Update rotation based on rotation speed and direction
+  if (Number.isFinite(particle.rotation) && Number.isFinite(particle.rotationSpeed) && Number.isFinite(particle.rotationDirection)) {
+    const deltaTime = 16; // Assume ~60fps (16ms per frame)
+    particle.rotation += (particle.rotationSpeed * particle.rotationDirection * deltaTime) / 1000;
+    // Keep rotation normalized between 0 and 2π
+    particle.rotation = particle.rotation % (Math.PI * 2);
+    if (particle.rotation < 0) {
+      particle.rotation += Math.PI * 2;
+    }
+  }
+  
   if (particle.state === 'in') {
     const elapsed = now - particle.startedAt;
     const progress = clamp(elapsed / particle.duration, 0, 1);
@@ -2332,7 +2357,11 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
   if (entry.particles.length > desiredCount) {
     entry.particles.splice(desiredCount);
   }
+  
+  // Check if sprite is loaded
+  const spriteReady = enemyParticleSprite?.complete && enemyParticleSprite.naturalWidth > 0;
   const alphaBase = inversionActive ? 0.55 : 0.85;
+  
   entry.particles.forEach((particle) => {
     advanceEnemySwirlParticle(particle, metrics, now);
     const radius = clamp(particle.currentRadius ?? metrics.ringRadius, 0, metrics.ringRadius);
@@ -2341,15 +2370,46 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
     const jitterSeed = Number.isFinite(particle.startAngle) ? particle.startAngle : angle;
     const position = applyEnemySwirlImpactOffset(entry, particle, basePosition, now, jitterSeed) || basePosition;
     const alpha = clamp(alphaBase * (particle.state === 'hold' ? 0.9 : 0.7 + Math.random() * 0.2), 0.25, 0.95);
-    ctx.beginPath();
-    ctx.fillStyle = colorToRgbaString(particle.color || sampleEnemyParticleColor(), alpha);
-    const size = Math.max(0.6, particle.size || 1.2);
-    ctx.arc(position.x, position.y, size, 0, Math.PI * 2);
-    ctx.fill();
-    // Outline each mote with a bright gate-gold halo so the swirl reads clearly against dark bodies.
-    ctx.lineWidth = Math.max(0.2, size * 0.25);
-    ctx.strokeStyle = colorToRgbaString(ENEMY_GATE_SYMBOL_GOLD, Math.min(1, alpha + 0.1));
-    ctx.stroke();
+    
+    // Render sprite if loaded, otherwise fall back to circles
+    if (spriteReady) {
+      ctx.save();
+      ctx.translate(position.x, position.y);
+      
+      // Apply rotation
+      const rotation = Number.isFinite(particle.rotation) ? particle.rotation : 0;
+      ctx.rotate(rotation);
+      
+      // Make particles small and transparent
+      const size = Math.max(0.6, particle.size || 1.2);
+      const spriteSize = size * 4; // Scale sprite to reasonable size
+      const halfSize = spriteSize / 2;
+      
+      // Apply transparency
+      ctx.globalAlpha = alpha * 0.6; // Make it more transparent
+      
+      // Draw the sprite
+      ctx.drawImage(
+        enemyParticleSprite,
+        -halfSize,
+        -halfSize,
+        spriteSize,
+        spriteSize
+      );
+      
+      ctx.restore();
+    } else {
+      // Fallback to original circle rendering if sprite not loaded
+      ctx.beginPath();
+      ctx.fillStyle = colorToRgbaString(particle.color || sampleEnemyParticleColor(), alpha);
+      const size = Math.max(0.6, particle.size || 1.2);
+      ctx.arc(position.x, position.y, size, 0, Math.PI * 2);
+      ctx.fill();
+      // Outline each mote with a bright gate-gold halo so the swirl reads clearly against dark bodies.
+      ctx.lineWidth = Math.max(0.2, size * 0.25);
+      ctx.strokeStyle = colorToRgbaString(ENEMY_GATE_SYMBOL_GOLD, Math.min(1, alpha + 0.1));
+      ctx.stroke();
+    }
   });
 }
 
