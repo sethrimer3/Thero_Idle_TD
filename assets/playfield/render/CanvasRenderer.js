@@ -1,7 +1,7 @@
 import { ALPHA_BASE_RADIUS_FACTOR } from '../../gameUnits.js';
 import { getTowerVisualConfig, samplePaletteGradient } from '../../colorSchemeUtils.js';
 import { getTowerDefinition } from '../../towersTab.js';
-import { moteGemState, getGemSpriteImage } from '../../enemies.js';
+import { moteGemState, getGemSpriteImage, getEnemyShellSprites } from '../../enemies.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../../../scripts/features/towers/powderTower.js';
 import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled, areEnemyParticlesEnabled, areEdgeCrystalsEnabled, areBackgroundParticlesEnabled } from '../../preferences.js';
 import {
@@ -2406,6 +2406,25 @@ function drawEnemySymbolAndExponent(ctx, options = {}) {
   ctx.fillText(exponentLabel, exponentOffsetX, exponentOffsetY);
 }
 
+// Draw enemy shell sprite (either back or front layer)
+function drawEnemyShellSprite(ctx, image, metrics) {
+  if (!ctx || !image || !metrics) {
+    return;
+  }
+  
+  // Scale shell to match enemy size (slightly larger than the ring radius)
+  const shellSize = metrics.ringRadius * 2.2;
+  const halfSize = shellSize / 2;
+  
+  ctx.drawImage(
+    image,
+    -halfSize,
+    -halfSize,
+    shellSize,
+    shellSize
+  );
+}
+
 // Remove stale knockback entries so the queue never references defeated enemies.
 function cleanupEnemySwirlImpactQueue(activeEnemies) {
   if (!Array.isArray(this.enemySwirlImpacts) || !this.enemySwirlImpacts.length) {
@@ -2486,6 +2505,9 @@ function drawEnemies() {
         ? this.getEnemyDebuffIndicators(enemy)
         : [];
     const rhoSparklesActive = Number.isFinite(enemy.rhoSparkleTimer) && enemy.rhoSparkleTimer > 0;
+    
+    // Get shell sprites if enemy has them
+    const shellSprites = getEnemyShellSprites(enemy);
 
     ctx.save();
     ctx.translate(position.x, position.y);
@@ -2493,6 +2515,11 @@ function drawEnemies() {
     // Apply tunnel opacity
     if (tunnelState.inTunnel || tunnelState.isFadeZone) {
       ctx.globalAlpha = tunnelState.opacity;
+    }
+
+    // Draw back shell sprite behind enemy
+    if (shellSprites?.back) {
+      drawEnemyShellSprite(ctx, shellSprites.back, metrics);
     }
 
     if (fallbackRendering) {
@@ -2515,6 +2542,11 @@ function drawEnemies() {
     });
 
     drawEnemyDebuffBar(ctx, metrics, debuffIndicators);
+    
+    // Draw front shell sprite in front of enemy
+    if (shellSprites?.front) {
+      drawEnemyShellSprite(ctx, shellSprites.front, metrics);
+    }
 
     if (this.focusedEnemyId === enemy.id) {
       const markerRadius = metrics.focusRadius || metrics.ringRadius + 8;
