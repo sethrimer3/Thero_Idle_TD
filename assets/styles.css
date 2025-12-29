@@ -2441,7 +2441,7 @@ body.playfield-fullscreen .playfield canvas {
 
 .level-section {
   display: grid;
-  gap: 18px;
+  gap: 6px;
   padding: 24px;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
