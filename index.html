@@ -3909,6 +3909,58 @@
                   <p id="kuf-result-glyphs">Surpass your high score to earn more glyphs.</p>
                   <button class="action-button ghost" type="button" id="kuf-result-close">Close</button>
                 </div>
+                
+                <!-- Training Toolbar -->
+                <div class="kuf-training-toolbar" id="kuf-training-toolbar">
+                  <div class="kuf-training-gold">
+                    <span class="kuf-training-gold-label">Gold:</span>
+                    <span class="kuf-training-gold-available" id="kuf-gold-available">0</span>
+                    <span class="kuf-training-gold-separator">/</span>
+                    <span class="kuf-training-gold-total" id="kuf-gold-total">0</span>
+                  </div>
+                  <div class="kuf-training-slots" id="kuf-training-slots">
+                    <!-- Slot 0: Always Workers -->
+                    <button class="kuf-training-slot" type="button" data-slot="0" id="kuf-slot-0">
+                      <div class="kuf-training-slot-icon" data-unit-type="worker">
+                        <span class="kuf-training-slot-label">Worker</span>
+                      </div>
+                      <div class="kuf-training-slot-cost">10g</div>
+                      <div class="kuf-training-slot-progress" id="kuf-slot-0-progress" hidden>
+                        <div class="kuf-training-slot-progress-bar" id="kuf-slot-0-progress-bar"></div>
+                      </div>
+                    </button>
+                    <!-- Slot 1: Equippable -->
+                    <button class="kuf-training-slot kuf-training-slot--empty" type="button" data-slot="1" id="kuf-slot-1">
+                      <div class="kuf-training-slot-icon kuf-training-slot-icon--empty">
+                        <span class="kuf-training-slot-label">Empty</span>
+                      </div>
+                      <div class="kuf-training-slot-cost" hidden>?g</div>
+                      <div class="kuf-training-slot-progress" id="kuf-slot-1-progress" hidden>
+                        <div class="kuf-training-slot-progress-bar" id="kuf-slot-1-progress-bar"></div>
+                      </div>
+                    </button>
+                    <!-- Slot 2: Equippable -->
+                    <button class="kuf-training-slot kuf-training-slot--empty" type="button" data-slot="2" id="kuf-slot-2">
+                      <div class="kuf-training-slot-icon kuf-training-slot-icon--empty">
+                        <span class="kuf-training-slot-label">Empty</span>
+                      </div>
+                      <div class="kuf-training-slot-cost" hidden>?g</div>
+                      <div class="kuf-training-slot-progress" id="kuf-slot-2-progress" hidden>
+                        <div class="kuf-training-slot-progress-bar" id="kuf-slot-2-progress-bar"></div>
+                      </div>
+                    </button>
+                    <!-- Slot 3: Equippable -->
+                    <button class="kuf-training-slot kuf-training-slot--empty" type="button" data-slot="3" id="kuf-slot-3">
+                      <div class="kuf-training-slot-icon kuf-training-slot-icon--empty">
+                        <span class="kuf-training-slot-label">Empty</span>
+                      </div>
+                      <div class="kuf-training-slot-cost" hidden>?g</div>
+                      <div class="kuf-training-slot-progress" id="kuf-slot-3-progress" hidden>
+                        <div class="kuf-training-slot-progress-bar" id="kuf-slot-3-progress-bar"></div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
               </div>
             </article>
 
