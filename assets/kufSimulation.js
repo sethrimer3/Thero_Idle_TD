@@ -141,8 +141,14 @@ export class KufBattlefieldSimulation {
     this.defaultMapId = this.availableMaps[0]?.id || sharedDefaultKufMapId;
     this.activeMapId = this.defaultMapId;
     this.currentMap = this.getMapById(this.activeMapId);
-    // Base (giant flying core) at the bottom center
-    this.base = null;
+    // Base and training system
+    this.base = null; // Player's flying core base
+    this.trainingQueue = []; // Units currently being trained
+    this.availableGold = 0; // Gold available for training (earned in simulation)
+    this.equippedUnits = ['worker', null, null, null]; // 4 toolbar slots
+    this.toolbarSlots = 4;
+    this.lastToolbarTapTime = [0, 0, 0, 0]; // For double-tap detection per slot
+    this.toolbarDoubleTapThreshold = 300; // ms for double-tap
     this.step = this.step.bind(this);
     this.handleMouseDown = this.handleMouseDown.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
@@ -282,21 +288,32 @@ export class KufBattlefieldSimulation {
       this.selectionBox.active = false;
       this.canvas.style.cursor = 'grab';
     } else if (elapsed < this.dragThreshold) {
-      // It was a tap/click - issue attack-move command or handle double-tap
-      const now = performance.now();
-      const isDoubleTap = (now - this.lastTapTime) < this.doubleTapThreshold;
-      this.lastTapTime = now;
-      
-      if (isDoubleTap) {
-        // Double-tap: deselect all units and return to "all units" mode
-        this.selectedUnits = [];
-        this.selectionMode = 'all';
-        this.attackMoveWaypoint = null;
+      // Check if tap was on toolbar
+      const toolbarY = this.bounds.height - 60;
+      if (canvasY >= toolbarY) {
+        // Tap on toolbar - check for double-tap on slot
+        const slotWidth = this.bounds.width / this.toolbarSlots;
+        const slotIndex = Math.floor(canvasX / slotWidth);
+        if (slotIndex >= 0 && slotIndex < this.toolbarSlots) {
+          this.handleToolbarTap(slotIndex, canvasX, canvasY);
+        }
       } else {
-        // Single tap: set attack-move waypoint
-        const worldX = (canvasX - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x;
-        const worldY = (canvasY - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y;
-        this.setAttackMoveWaypoint(worldX, worldY);
+        // It was a tap/click in game area - issue attack-move command or handle double-tap
+        const now = performance.now();
+        const isDoubleTap = (now - this.lastTapTime) < this.doubleTapThreshold;
+        this.lastTapTime = now;
+        
+        if (isDoubleTap) {
+          // Double-tap: deselect all units and return to "all units" mode
+          this.selectedUnits = [];
+          this.selectionMode = 'all';
+          this.attackMoveWaypoint = null;
+        } else {
+          // Single tap: set attack-move waypoint
+          const worldX = (canvasX - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x;
+          const worldY = (canvasY - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y;
+          this.setAttackMoveWaypoint(worldX, worldY);
+        }
       }
     }
     
@@ -367,18 +384,29 @@ export class KufBattlefieldSimulation {
       const canvasX = touch.clientX - rect.left;
       const canvasY = touch.clientY - rect.top;
       
-      const now = performance.now();
-      const isDoubleTap = (now - this.lastTapTime) < this.doubleTapThreshold;
-      this.lastTapTime = now;
-      
-      if (isDoubleTap) {
-        this.selectedUnits = [];
-        this.selectionMode = 'all';
-        this.attackMoveWaypoint = null;
+      // Check if tap was on toolbar
+      const toolbarY = this.bounds.height - 60;
+      if (canvasY >= toolbarY) {
+        // Tap on toolbar - check for double-tap on slot
+        const slotWidth = this.bounds.width / this.toolbarSlots;
+        const slotIndex = Math.floor(canvasX / slotWidth);
+        if (slotIndex >= 0 && slotIndex < this.toolbarSlots) {
+          this.handleToolbarTap(slotIndex, canvasX, canvasY);
+        }
       } else {
-        const worldX = (canvasX - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x;
-        const worldY = (canvasY - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y;
-        this.setAttackMoveWaypoint(worldX, worldY);
+        const now = performance.now();
+        const isDoubleTap = (now - this.lastTapTime) < this.doubleTapThreshold;
+        this.lastTapTime = now;
+        
+        if (isDoubleTap) {
+          this.selectedUnits = [];
+          this.selectionMode = 'all';
+          this.attackMoveWaypoint = null;
+        } else {
+          const worldX = (canvasX - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x;
+          const worldY = (canvasY - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y;
+          this.setAttackMoveWaypoint(worldX, worldY);
+        }
       }
     }
   }
@@ -536,6 +564,8 @@ export class KufBattlefieldSimulation {
     }
     
     this.buildTurrets();
+    this.initializeBase();
+    this.availableGold = 0; // Start with no gold for training
     this.attachCameraControls();
     this.canvas.style.cursor = 'grab';
     this.camera = { x: 0, y: 0, zoom: 1.0 };
@@ -597,8 +627,191 @@ export class KufBattlefieldSimulation {
     this.goldEarned = 0;
     this.destroyedTurrets = 0;
     this.selectedEnemy = null;
+    this.trainingQueue = [];
     this.base = null;
     this.drawBackground(true);
+  }
+
+  /**
+   * Initialize the player's base (giant flying core).
+   */
+  initializeBase() {
+    const baseX = this.bounds.width / 2;
+    const baseY = this.bounds.height - 120; // Near bottom but above toolbar
+    this.base = {
+      x: baseX,
+      y: baseY,
+      radius: 40,
+      health: 100,
+      maxHealth: 100,
+      floatOffset: 0, // For floating animation
+    };
+  }
+
+  /**
+   * Get unit training cost in gold.
+   */
+  getUnitCost(unitType) {
+    const costs = {
+      worker: 10,
+      marines: 20,
+      snipers: 50,
+      splayers: 100,
+    };
+    return costs[unitType] || 20;
+  }
+
+  /**
+   * Get unit training time in seconds.
+   */
+  getUnitTrainingTime(unitType) {
+    const times = {
+      worker: 2,
+      marines: 3,
+      snipers: 5,
+      splayers: 8,
+    };
+    return times[unitType] || 3;
+  }
+
+  /**
+   * Equip a unit type to a toolbar slot.
+   */
+  equipUnit(slotIndex, unitType) {
+    if (slotIndex < 0 || slotIndex >= this.toolbarSlots) {
+      return;
+    }
+    if (slotIndex === 0 && unitType !== 'worker') {
+      return; // First slot is always worker
+    }
+    this.equippedUnits[slotIndex] = unitType;
+  }
+
+  /**
+   * Check if toolbar slot was double-tapped and start training if conditions met.
+   */
+  handleToolbarTap(slotIndex, canvasX, canvasY) {
+    // Check if tap is within toolbar region
+    const toolbarY = this.bounds.height - 60;
+    if (canvasY < toolbarY) {
+      return;
+    }
+
+    const slotWidth = this.bounds.width / this.toolbarSlots;
+    const tappedSlot = Math.floor(canvasX / slotWidth);
+    
+    if (tappedSlot !== slotIndex || tappedSlot < 0 || tappedSlot >= this.toolbarSlots) {
+      return;
+    }
+
+    const now = performance.now();
+    const isDoubleTap = (now - this.lastToolbarTapTime[tappedSlot]) < this.toolbarDoubleTapThreshold;
+    this.lastToolbarTapTime[tappedSlot] = now;
+
+    if (isDoubleTap) {
+      const unitType = this.equippedUnits[tappedSlot];
+      if (unitType) {
+        this.startTraining(unitType);
+      }
+    }
+  }
+
+  /**
+   * Start training a unit if player has enough gold.
+   */
+  startTraining(unitType) {
+    const cost = this.getUnitCost(unitType);
+    if (this.availableGold < cost) {
+      return; // Not enough gold
+    }
+
+    // Deduct cost and add to training queue
+    this.availableGold -= cost;
+    this.trainingQueue.push({
+      unitType,
+      progress: 0,
+      totalTime: this.getUnitTrainingTime(unitType),
+    });
+  }
+
+  /**
+   * Update training queue.
+   */
+  updateTraining(delta) {
+    this.trainingQueue.forEach((training, index) => {
+      training.progress += delta;
+      if (training.progress >= training.totalTime) {
+        // Training complete - spawn unit from base
+        this.spawnTrainedUnit(training.unitType);
+        this.trainingQueue.splice(index, 1);
+      }
+    });
+  }
+
+  /**
+   * Spawn a trained unit from the base.
+   */
+  spawnTrainedUnit(unitType) {
+    if (!this.base) {
+      return;
+    }
+
+    // Get stats based on unit type
+    let stats, type, radius, range, moveSpeed;
+    if (unitType === 'worker') {
+      type = 'marine'; // Workers are basic marines
+      stats = { health: 10, attack: 1, attackSpeed: 1 };
+      radius = MARINE_RADIUS;
+      range = MARINE_RANGE;
+      moveSpeed = MARINE_MOVE_SPEED;
+    } else if (unitType === 'marines') {
+      type = 'marine';
+      stats = { health: 10, attack: 1, attackSpeed: 1 };
+      radius = MARINE_RADIUS;
+      range = MARINE_RANGE;
+      moveSpeed = MARINE_MOVE_SPEED;
+    } else if (unitType === 'snipers') {
+      type = 'sniper';
+      stats = { health: 8, attack: 2, attackSpeed: 0.5 };
+      radius = SNIPER_RADIUS;
+      range = SNIPER_RANGE;
+      moveSpeed = MARINE_MOVE_SPEED * 0.8; // Snipers slower
+    } else if (unitType === 'splayers') {
+      type = 'splayer';
+      stats = { health: 12, attack: 0.8, attackSpeed: 0.7 };
+      radius = SPLAYER_RADIUS;
+      range = SPLAYER_RANGE;
+      moveSpeed = MARINE_MOVE_SPEED * 0.9; // Splayers slightly slower
+    } else {
+      // Default to marine
+      type = 'marine';
+      stats = { health: 10, attack: 1, attackSpeed: 1 };
+      radius = MARINE_RADIUS;
+      range = MARINE_RANGE;
+      moveSpeed = MARINE_MOVE_SPEED;
+    }
+
+    // Spawn near base with slight offset
+    const offsetX = (Math.random() - 0.5) * 60;
+    const offsetY = (Math.random() - 0.5) * 40;
+    
+    this.marines.push({
+      type,
+      x: this.base.x + offsetX,
+      y: this.base.y + offsetY,
+      vx: 0,
+      vy: 0,
+      radius,
+      health: stats.health,
+      maxHealth: stats.health,
+      attack: stats.attack,
+      attackSpeed: Math.max(0.1, stats.attackSpeed),
+      cooldown: Math.random() * 0.5,
+      baseMoveSpeed: moveSpeed,
+      moveSpeed,
+      range,
+      statusEffects: [],
+    });
   }
 
   buildTurrets() {
@@ -958,7 +1171,19 @@ export class KufBattlefieldSimulation {
     this.updateBullets(delta);
     this.updateExplosions(delta);
     this.updateCamera(delta);
+    this.updateTraining(delta);
+    this.updateBase(delta);
     this.checkVictoryConditions();
+  }
+
+  /**
+   * Update base animation (floating effect).
+   */
+  updateBase(delta) {
+    if (!this.base) {
+      return;
+    }
+    this.base.floatOffset += delta * 2; // Speed of floating animation
   }
 
   updateCamera(delta) {
@@ -1265,6 +1490,7 @@ export class KufBattlefieldSimulation {
             // Reward players based on the defeated enemy's configured payout.
             const reward = typeof hit.goldValue === 'number' ? hit.goldValue : 5;
             this.goldEarned += reward;
+            this.availableGold += reward; // Add to training budget
             this.destroyedTurrets += 1;
           }
         }
@@ -1648,6 +1874,7 @@ export class KufBattlefieldSimulation {
 
     this.drawBase();
     this.drawTurrets();
+    this.drawBase();
     this.drawMarines();
     this.drawBullets();
     this.drawExplosions();
@@ -1663,9 +1890,10 @@ export class KufBattlefieldSimulation {
 
     ctx.restore();
 
-    // Draw selection box and HUD without camera transform
+    // Draw selection box, HUD, and toolbar without camera transform
     this.drawSelectionBox();
     this.drawHud();
+    this.drawToolbar();
   }
 
 
@@ -2133,7 +2361,7 @@ export class KufBattlefieldSimulation {
     ctx.save();
     ctx.fillStyle = 'rgba(170, 220, 255, 0.92)';
     ctx.font = '600 16px "Space Mono", monospace';
-    const hudY = this.bounds.height - 24;
+    const hudY = this.bounds.height - 90; // Move up to avoid toolbar
     ctx.fillText(`Gold: ${this.goldEarned}`, 20, hudY);
     ctx.fillText(`Enemies: ${this.turrets.length}`, 20, hudY - 24);
     if (this.currentMap?.name) {
@@ -2213,6 +2441,172 @@ export class KufBattlefieldSimulation {
     ctx.moveTo(wp.x, wp.y + 4);
     ctx.lineTo(wp.x, wp.y + 12);
     ctx.stroke();
+    
+    ctx.restore();
+  }
+
+  /**
+   * Draw the player's base (giant flying core).
+   */
+  drawBase() {
+    if (!this.base) {
+      return;
+    }
+    const ctx = this.ctx;
+    const glowsEnabled = this.glowOverlaysEnabled;
+    
+    ctx.save();
+    
+    // Floating animation
+    const floatY = Math.sin(this.base.floatOffset) * 8;
+    
+    // Draw glow
+    if (glowsEnabled) {
+      const gradient = ctx.createRadialGradient(
+        this.base.x, this.base.y + floatY, this.base.radius * 0.3,
+        this.base.x, this.base.y + floatY, this.base.radius * 1.5
+      );
+      gradient.addColorStop(0, 'rgba(100, 200, 255, 0.6)');
+      gradient.addColorStop(1, 'rgba(100, 200, 255, 0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(this.base.x, this.base.y + floatY, this.base.radius * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Draw core
+    const baseGlow = glowsEnabled ? (this.renderProfile === 'light' ? 15 : 30) : 0;
+    ctx.shadowBlur = baseGlow;
+    ctx.shadowColor = glowsEnabled ? 'rgba(100, 200, 255, 0.9)' : 'transparent';
+    ctx.fillStyle = 'rgba(120, 220, 255, 0.9)';
+    ctx.beginPath();
+    ctx.arc(this.base.x, this.base.y + floatY, this.base.radius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw core pattern
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(180, 240, 255, 0.8)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(this.base.x, this.base.y + floatY, this.base.radius * 0.7, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Draw inner core
+    ctx.fillStyle = 'rgba(200, 240, 255, 0.95)';
+    ctx.beginPath();
+    ctx.arc(this.base.x, this.base.y + floatY, this.base.radius * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+  }
+
+  /**
+   * Draw the training toolbar at the bottom of the screen.
+   */
+  drawToolbar() {
+    const ctx = this.ctx;
+    const toolbarHeight = 60;
+    const toolbarY = this.bounds.height - toolbarHeight;
+    const slotWidth = this.bounds.width / this.toolbarSlots;
+    
+    ctx.save();
+    
+    // Draw toolbar background
+    ctx.fillStyle = 'rgba(20, 30, 50, 0.9)';
+    ctx.fillRect(0, toolbarY, this.bounds.width, toolbarHeight);
+    
+    // Draw slots
+    for (let i = 0; i < this.toolbarSlots; i++) {
+      const slotX = i * slotWidth;
+      const unitType = this.equippedUnits[i];
+      
+      // Draw slot background
+      ctx.fillStyle = 'rgba(40, 50, 70, 0.8)';
+      ctx.fillRect(slotX + 4, toolbarY + 4, slotWidth - 8, toolbarHeight - 8);
+      
+      // Draw slot border
+      ctx.strokeStyle = 'rgba(100, 150, 200, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(slotX + 4, toolbarY + 4, slotWidth - 8, toolbarHeight - 8);
+      
+      if (unitType) {
+        const cost = this.getUnitCost(unitType);
+        const trainingUnits = this.trainingQueue.filter(t => t.unitType === unitType);
+        const training = trainingUnits.length > 0 ? trainingUnits[0] : null;
+        
+        // Draw unit icon (simple colored circle)
+        const iconCenterX = slotX + slotWidth / 2;
+        const iconCenterY = toolbarY + 25;
+        const iconRadius = 12;
+        
+        let iconColor;
+        if (unitType === 'worker') {
+          iconColor = 'rgba(200, 200, 200, 0.9)';
+        } else if (unitType === 'marines') {
+          iconColor = 'rgba(140, 255, 255, 0.9)';
+        } else if (unitType === 'snipers') {
+          iconColor = 'rgba(255, 200, 100, 0.9)';
+        } else if (unitType === 'splayers') {
+          iconColor = 'rgba(255, 100, 200, 0.9)';
+        } else {
+          iconColor = 'rgba(200, 200, 200, 0.9)';
+        }
+        
+        // If training, darken and show progress
+        if (training) {
+          const progress = training.progress / training.totalTime;
+          
+          // Draw dark background
+          ctx.fillStyle = 'rgba(20, 20, 30, 0.8)';
+          ctx.beginPath();
+          ctx.arc(iconCenterX, iconCenterY, iconRadius, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Draw progress fill
+          ctx.fillStyle = iconColor;
+          ctx.beginPath();
+          ctx.arc(iconCenterX, iconCenterY, iconRadius, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
+          ctx.lineTo(iconCenterX, iconCenterY);
+          ctx.fill();
+          
+          // Draw queue count if more than one
+          if (trainingUnits.length > 1) {
+            ctx.fillStyle = 'rgba(255, 220, 100, 0.95)';
+            ctx.font = '600 10px "Space Mono", monospace';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`×${trainingUnits.length}`, iconCenterX + iconRadius, iconCenterY - iconRadius);
+          }
+        } else {
+          // Draw normal icon
+          ctx.fillStyle = iconColor;
+          ctx.beginPath();
+          ctx.arc(iconCenterX, iconCenterY, iconRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        
+        // Draw cost
+        ctx.fillStyle = this.availableGold >= cost && !training ? 'rgba(200, 255, 200, 0.95)' : 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '500 10px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${cost}g`, iconCenterX, toolbarY + 42);
+      } else {
+        // Empty slot
+        ctx.fillStyle = 'rgba(100, 100, 120, 0.4)';
+        ctx.font = '500 12px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Empty', slotX + slotWidth / 2, toolbarY + toolbarHeight / 2);
+      }
+    }
+    
+    // Draw available gold
+    ctx.fillStyle = 'rgba(255, 220, 100, 0.95)';
+    ctx.font = '600 14px "Space Mono", monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`Training Gold: ${this.availableGold}`, 10, toolbarY - 20);
     
     ctx.restore();
   }
