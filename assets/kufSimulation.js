@@ -716,12 +716,7 @@ export class KufBattlefieldSimulation {
       return; // Not enough gold
     }
 
-    // Check if already training this unit type
-    const alreadyTraining = this.trainingQueue.find(t => t.unitType === unitType);
-    if (alreadyTraining) {
-      return; // Already training
-    }
-
+    // Deduct cost and add to training queue
     this.availableGold -= cost;
     this.trainingQueue.push({
       unitType,
@@ -753,27 +748,38 @@ export class KufBattlefieldSimulation {
     }
 
     // Get stats based on unit type
-    let stats;
-    if (unitType === 'marines' || unitType === 'worker') {
-      stats = {
-        health: 10,
-        attack: 1,
-        attackSpeed: 1,
-      };
-    } else if (unitType === 'snipers') {
-      stats = {
-        health: 8,
-        attack: 2,
-        attackSpeed: 0.5,
-      };
-    } else if (unitType === 'splayers') {
-      stats = {
-        health: 12,
-        attack: 0.8,
-        attackSpeed: 0.7,
-      };
-    } else {
+    let stats, type, radius, range, moveSpeed;
+    if (unitType === 'worker') {
+      type = 'marine'; // Workers are basic marines
       stats = { health: 10, attack: 1, attackSpeed: 1 };
+      radius = MARINE_RADIUS;
+      range = MARINE_RANGE;
+      moveSpeed = MARINE_MOVE_SPEED;
+    } else if (unitType === 'marines') {
+      type = 'marine';
+      stats = { health: 10, attack: 1, attackSpeed: 1 };
+      radius = MARINE_RADIUS;
+      range = MARINE_RANGE;
+      moveSpeed = MARINE_MOVE_SPEED;
+    } else if (unitType === 'snipers') {
+      type = 'sniper';
+      stats = { health: 8, attack: 2, attackSpeed: 0.5 };
+      radius = SNIPER_RADIUS;
+      range = SNIPER_RANGE;
+      moveSpeed = MARINE_MOVE_SPEED * 0.8; // Snipers slower
+    } else if (unitType === 'splayers') {
+      type = 'splayer';
+      stats = { health: 12, attack: 0.8, attackSpeed: 0.7 };
+      radius = SPLAYER_RADIUS;
+      range = SPLAYER_RANGE;
+      moveSpeed = MARINE_MOVE_SPEED * 0.9; // Splayers slightly slower
+    } else {
+      // Default to marine
+      type = 'marine';
+      stats = { health: 10, attack: 1, attackSpeed: 1 };
+      radius = MARINE_RADIUS;
+      range = MARINE_RANGE;
+      moveSpeed = MARINE_MOVE_SPEED;
     }
 
     // Spawn near base with slight offset
@@ -781,22 +787,20 @@ export class KufBattlefieldSimulation {
     const offsetY = (Math.random() - 0.5) * 40;
     
     this.marines.push({
-      type: unitType === 'worker' ? 'marine' : unitType,
+      type,
       x: this.base.x + offsetX,
       y: this.base.y + offsetY,
       vx: 0,
       vy: 0,
-      radius: unitType === 'splayers' ? SPLAYER_RADIUS : 
-              unitType === 'snipers' ? SNIPER_RADIUS : MARINE_RADIUS,
+      radius,
       health: stats.health,
       maxHealth: stats.health,
       attack: stats.attack,
       attackSpeed: Math.max(0.1, stats.attackSpeed),
       cooldown: Math.random() * 0.5,
-      baseMoveSpeed: MARINE_MOVE_SPEED,
-      moveSpeed: MARINE_MOVE_SPEED,
-      range: unitType === 'snipers' ? SNIPER_RANGE :
-             unitType === 'splayers' ? SPLAYER_RANGE : MARINE_RANGE,
+      baseMoveSpeed: moveSpeed,
+      moveSpeed,
+      range,
       statusEffects: [],
     });
   }
@@ -2446,7 +2450,8 @@ export class KufBattlefieldSimulation {
       
       if (unitType) {
         const cost = this.getUnitCost(unitType);
-        const training = this.trainingQueue.find(t => t.unitType === unitType);
+        const trainingUnits = this.trainingQueue.filter(t => t.unitType === unitType);
+        const training = trainingUnits.length > 0 ? trainingUnits[0] : null;
         
         // Draw unit icon (simple colored circle)
         const iconCenterX = slotX + slotWidth / 2;
@@ -2482,6 +2487,15 @@ export class KufBattlefieldSimulation {
           ctx.arc(iconCenterX, iconCenterY, iconRadius, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
           ctx.lineTo(iconCenterX, iconCenterY);
           ctx.fill();
+          
+          // Draw queue count if more than one
+          if (trainingUnits.length > 1) {
+            ctx.fillStyle = 'rgba(255, 220, 100, 0.95)';
+            ctx.font = '600 10px "Space Mono", monospace';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`×${trainingUnits.length}`, iconCenterX + iconRadius, iconCenterY - iconRadius);
+          }
         } else {
           // Draw normal icon
           ctx.fillStyle = iconColor;
