@@ -69,6 +69,33 @@ export function cloneWaveArray(array) {
   });
 }
 
+// Enforce a shared baseline enemy speed across all waves in a level.
+function applyBaseEnemySpeed(waves, baseSpeed) {
+  return waves.map((wave) => {
+    if (!wave || typeof wave !== 'object') {
+      return wave;
+    }
+    const enemyGroups = Array.isArray(wave.enemyGroups)
+      ? wave.enemyGroups.map((group) => ({
+        ...group,
+        speed: baseSpeed,
+      }))
+      : wave.enemyGroups;
+    const boss = wave.boss
+      ? {
+        ...wave.boss,
+        speed: baseSpeed,
+      }
+      : wave.boss;
+    return {
+      ...wave,
+      speed: baseSpeed,
+      enemyGroups,
+      boss,
+    };
+  });
+}
+
 // Normalize and store the map blueprints that drive the level select UI.
 export function setLevelBlueprints(maps = []) {
   levelBlueprints = Array.isArray(maps)
@@ -84,9 +111,10 @@ export function setLevelBlueprints(maps = []) {
 // Normalize and store the interactive level configurations.
 export function setLevelConfigs(levels = []) {
   levelConfigs.clear();
-  // Scale enemy movement so the prologue starts slower and ramps by ~5% per level.
-  const baseMapSpeedMultiplier = 0.25;
+  // Scale enemy movement so the prologue starts at baseline and ramps by ~5% per level.
+  const baseMapSpeedMultiplier = 1;
   const perLevelSpeedGrowth = 1.05;
+  const baseEnemySpeed = 0.05;
   (Array.isArray(levels) ? levels : []).forEach((level, index) => {
     if (!level || !level.id) {
       return;
@@ -103,7 +131,7 @@ export function setLevelConfigs(levels = []) {
       ...level,
       isStoryLevel: Boolean(level?.isStoryLevel),
       mapSpeedMultiplier,
-      waves: cloneWaveArray(waves),
+      waves: applyBaseEnemySpeed(cloneWaveArray(waves), baseEnemySpeed),
       path: cloneVectorArray(level.path),
       autoAnchors: cloneVectorArray(level.autoAnchors),
     });
