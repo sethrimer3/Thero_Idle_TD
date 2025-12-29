@@ -267,7 +267,7 @@
       "isStoryLevel": true
     },
     {
-      "set": "Conjecture",
+      "set": "Chapter 1",
       "id": "Conjecture - 1",
       "campaign": "Story",
       "title": "Lemniscate Hypothesis",
@@ -276,7 +276,7 @@
       "example": "Goldbach\u2019s Conjecture: Every even integer greater than 2 is the sum of two primes."
     },
     {
-      "set": "Conjecture",
+      "set": "Chapter 1",
       "id": "Conjecture - 2",
       "campaign": "Story",
       "title": "Collatz Cascade",
@@ -285,7 +285,7 @@
       "example": "Collatz Conjecture: Iterate n \u2192 n/2 or 3n + 1 and every positive integer reaches 1."
     },
     {
-      "set": "Conjecture",
+      "set": "Chapter 1",
       "id": "Conjecture - 3",
       "campaign": "Story",
       "title": "Riemann Helix",
@@ -294,7 +294,7 @@
       "example": "Riemann Hypothesis: Every nontrivial zero of \u03b6(s) lies on the line Re(s) = 1/2."
     },
     {
-      "set": "Conjecture",
+      "set": "Chapter 1",
       "id": "Conjecture - 4",
       "campaign": "Story",
       "title": "Twin Prime Fork",
@@ -303,7 +303,7 @@
       "example": "Twin Prime Conjecture: Infinitely many primes p exist such that p + 2 is prime."
     },
     {
-      "set": "Conjecture",
+      "set": "Chapter 1",
       "id": "Conjecture - 5",
       "campaign": "Story",
       "title": "Birch Flow",
@@ -312,7 +312,7 @@
       "example": "Birch and Swinnerton-Dyer Conjecture: Rational points of elliptic curves link to L-series behavior."
     },
     {
-      "set": "Conjecture",
+      "set": "Chapter 1",
       "id": "Conjecture - Secret",
       "campaign": "Story",
       "title": "Apocrypha Loop",
@@ -321,7 +321,7 @@
       "example": "Secret Lemma: When harmonic sums stabilize, an unseen proof thread emerges from the void."
     },
     {
-      "set": "Level Set 2",
+      "set": "Chapter 2",
       "id": "level-06-trefoil",
       "campaign": "Story",
       "title": "Trefoil",
@@ -330,7 +330,7 @@
       "example": "Three-lobed path with symmetry"
     },
     {
-      "set": "Level Set 2",
+      "set": "Chapter 2",
       "id": "level-07-rose-curve",
       "campaign": "Story",
       "title": "Rose Curve",
@@ -339,7 +339,7 @@
       "example": "Petal pattern with multiple lobes"
     },
     {
-      "set": "Level Set 2",
+      "set": "Chapter 2",
       "id": "level-08-astroid",
       "campaign": "Story",
       "title": "Astroid",
@@ -348,7 +348,7 @@
       "example": "Four-cusped hypocycloid path"
     },
     {
-      "set": "Level Set 2",
+      "set": "Chapter 2",
       "id": "level-09-deltoid",
       "campaign": "Story",
       "title": "Deltoid",
@@ -357,7 +357,7 @@
       "example": "Three-cusped curve with sharp turns"
     },
     {
-      "set": "Level Set 2",
+      "set": "Chapter 2",
       "id": "level-10-nephroid",
       "campaign": "Story",
       "title": "Nephroid",
@@ -366,16 +366,7 @@
       "example": "Kidney-shaped path with double focus"
     },
     {
-      "set": "Corollary",
-      "id": "Corollary - Secret",
-      "campaign": "Story",
-      "title": "Shadow Integral",
-      "path": "Phase-shifted archipelago of calculus islands hidden beneath modular petals.",
-      "focus": "Resource siphons and reversal elites stack together\u2014prepare universal counters.",
-      "example": "Secret Corollary: The boundary integral of concealed paths equals interior flux you never saw."
-    },
-    {
-      "set": "Level Set 3",
+      "set": "Chapter 3",
       "campaign": "Story",
       "id": "level-11-lissajous",
       "title": "Lissajous",
@@ -384,7 +375,7 @@
       "example": "Parametric curve with harmonic oscillation"
     },
     {
-      "set": "Level Set 3",
+      "set": "Chapter 3",
       "campaign": "Story",
       "id": "level-12-epicycloid",
       "title": "Epicycloid",
@@ -393,7 +384,7 @@
       "example": "Rolling circle traced path"
     },
     {
-      "set": "Level Set 3",
+      "set": "Chapter 3",
       "campaign": "Story",
       "id": "level-13-hypocycloid",
       "title": "Hypocycloid",
@@ -402,7 +393,7 @@
       "example": "Inner rolling circle path"
     },
     {
-      "set": "Level Set 3",
+      "set": "Chapter 3",
       "campaign": "Story",
       "id": "level-14-rhodonea",
       "title": "Rhodonea",
@@ -411,7 +402,7 @@
       "example": "Rose curve with prime petals"
     },
     {
-      "set": "Level Set 3",
+      "set": "Chapter 3",
       "campaign": "Story",
       "id": "level-15-butterfly",
       "title": "Butterfly",
@@ -420,7 +411,7 @@
       "example": "Transcendental butterfly curve"
     },
     {
-      "set": "Level Set 4",
+      "set": "Chapter 4",
       "id": "level-16-double-spiral",
       "title": "Double Spiral",
       "path": "Dual spirals converging to center",
@@ -429,7 +420,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 4",
+      "set": "Chapter 4",
       "id": "level-17-conchoid",
       "title": "Conchoid",
       "path": "Shell-like curved path",
@@ -438,7 +429,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 4",
+      "set": "Chapter 4",
       "id": "level-18-cissoid",
       "title": "Cissoid",
       "path": "Ivy-leaf shaped curve",
@@ -447,7 +438,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 4",
+      "set": "Chapter 4",
       "id": "level-19-trisectrix",
       "title": "Trisectrix",
       "path": "Angle trisection curve",
@@ -456,7 +447,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 4",
+      "set": "Chapter 4",
       "id": "level-20-witch-of-agnesi",
       "title": "Witch of Agnesi",
       "path": "Bell-shaped versiera curve",
@@ -465,7 +456,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 5",
+      "set": "Chapter 5",
       "id": "level-21-serpentine",
       "title": "Serpentine",
       "path": "Snake-like oscillating path",
@@ -474,7 +465,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 5",
+      "set": "Chapter 5",
       "id": "level-22-kampyle",
       "title": "Kampyle",
       "path": "Curved euthymia path",
@@ -483,7 +474,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 5",
+      "set": "Chapter 5",
       "id": "level-23-folium",
       "title": "Folium",
       "path": "Descartes folium with loop",
@@ -492,7 +483,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 5",
+      "set": "Chapter 5",
       "id": "level-24-strophoid",
       "title": "Strophoid",
       "path": "Twisted loop path",
@@ -501,7 +492,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 5",
+      "set": "Chapter 5",
       "id": "level-25-cochleoid",
       "title": "Cochleoid",
       "path": "Spiral shell curve",
@@ -510,7 +501,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 6",
+      "set": "Chapter 6",
       "id": "level-26-tractrix",
       "title": "Tractrix",
       "path": "Pursuit curve path",
@@ -519,7 +510,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 6",
+      "set": "Chapter 6",
       "id": "level-27-catenary",
       "title": "Catenary",
       "path": "Hanging chain curve",
@@ -528,7 +519,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 6",
+      "set": "Chapter 6",
       "id": "level-28-cycloid",
       "title": "Cycloid",
       "path": "Rolling wheel traced path",
@@ -537,7 +528,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 6",
+      "set": "Chapter 6",
       "id": "level-29-involute",
       "title": "Involute",
       "path": "Unwrapping string curve",
@@ -546,7 +537,7 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 6",
+      "set": "Chapter 6",
       "id": "level-30-evolute",
       "title": "Evolute",
       "path": "Center of curvature path",

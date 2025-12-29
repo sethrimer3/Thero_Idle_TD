@@ -4,7 +4,7 @@
       "id": "achievement-conjecture-1",
       "levelId": "Conjecture - 1",
       "title": "Lemniscate Hypothesis",
-      "subtitle": "Conjecture · Conjecture - 1",
+      "subtitle": "Chapter 1 · Conjecture - 1",
       "description": "∞ loop traced from r² = cos(2θ); mirrored spawn lanes cross twice. Early E glyphs surge with divisor scouts—tempo control is vital.",
       "rewardFlux": 1
     },
@@ -12,7 +12,7 @@
       "id": "achievement-conjecture-2",
       "levelId": "Conjecture - 2",
       "title": "Collatz Cascade",
-      "subtitle": "Conjecture · Conjecture - 2",
+      "subtitle": "Chapter 1 · Conjecture - 2",
       "description": "Stepwise descent generated from the 3n + 1 map with teleport risers. Hit-count enemies appear on odd nodes; summon glyph soldiers to stall.",
       "rewardFlux": 1
     },
@@ -20,7 +20,7 @@
       "id": "achievement-conjecture-3",
       "levelId": "Conjecture - 3",
       "title": "Riemann Helix",
-      "subtitle": "Conjecture · Conjecture - 3",
+      "subtitle": "Chapter 1 · Conjecture - 3",
       "description": "Logarithmic spiral with harmonic bulges keyed to ζ(s) zero estimates. Divisor elites flank wave bosses—Ω previews excel at splash slows.",
       "rewardFlux": 1
     },
@@ -28,7 +28,7 @@
       "id": "achievement-conjecture-4",
       "levelId": "Conjecture - 4",
       "title": "Twin Prime Fork",
-      "subtitle": "Conjecture · Conjecture - 4",
+      "subtitle": "Chapter 1 · Conjecture - 4",
       "description": "Dual lattice rails linked by prime gaps; enemies swap lanes unpredictably. Prime counters demand rapid-fire towers—γ chaining resets their count.",
       "rewardFlux": 1
     },
@@ -36,7 +36,7 @@
       "id": "achievement-conjecture-5",
       "levelId": "Conjecture - 5",
       "title": "Birch Flow",
-      "subtitle": "Conjecture · Conjecture - 5",
+      "subtitle": "Chapter 1 · Conjecture - 5",
       "description": "Cardioid river influenced by elliptic curve rank gradients. Reversal sentinels join late waves—δ soldiers can flip them to your side.",
       "rewardFlux": 1
     },
@@ -44,7 +44,7 @@
       "id": "achievement-conjecture-secret",
       "levelId": "Conjecture - Secret",
       "title": "Apocrypha Loop",
-      "subtitle": "Conjecture · Conjecture - Secret",
+      "subtitle": "Chapter 1 · Conjecture - Secret",
       "description": "Hidden lemniscate mirrored through complex planes; portals bloom off-axis. Only reveals during total glyph alignment—expect mixed archetypes in waves.",
       "rewardFlux": 1
     },
@@ -52,7 +52,7 @@
       "id": "achievement-corollary-6",
       "levelId": "Corollary - 6",
       "title": "Derivative Bloom",
-      "subtitle": "Corollary · Corollary - 6",
+      "subtitle": "Chapter 2 · Corollary - 6",
       "description": "Petal loops bloom where f′(x) = 0 across mirrored cardioids and saddle petals. Flux bursts alternate with brittle shards—steady α lattices prevent overflow collapses.",
       "rewardFlux": 1
     },
@@ -60,7 +60,7 @@
       "id": "achievement-corollary-7",
       "levelId": "Corollary - 7",
       "title": "Integral Cascade",
-      "subtitle": "Corollary · Corollary - 7",
+      "subtitle": "Chapter 2 · Corollary - 7",
       "description": "Stepped integrator ramps descend in quantized slopes shaped by accumulated area. Energy leeches drift down ramps—δ summons keep Δ energy above zero.",
       "rewardFlux": 1
     },
@@ -68,7 +68,7 @@
       "id": "achievement-corollary-8",
       "levelId": "Corollary - 8",
       "title": "Fibonacci Turnabout",
-      "subtitle": "Corollary · Corollary - 8",
+      "subtitle": "Chapter 2 · Corollary - 8",
       "description": "Interleaved golden spirals shift radius on Fibonacci indices and teleport pads. Prime counters spawn on Fibonacci junctions—γ conductors reset their tally.",
       "rewardFlux": 1
     },
@@ -76,7 +76,7 @@
       "id": "achievement-corollary-9",
       "levelId": "Corollary - 9",
       "title": "Euler Bridge",
-      "subtitle": "Corollary · Corollary - 9",
+      "subtitle": "Chapter 2 · Corollary - 9",
       "description": "Bridge arcs obey planar graph constraints; parity lanes swap over Euler gaps. Divisors guard the bridges—β beams must stay coherent to pierce.",
       "rewardFlux": 1
     },
@@ -84,16 +84,8 @@
       "id": "achievement-corollary-10",
       "levelId": "Corollary - 10",
       "title": "Modular Bloom",
-      "subtitle": "Corollary · Corollary - 10",
+      "subtitle": "Chapter 2 · Corollary - 10",
       "description": "Modular roses rotate through residue-locked petals with congruence gate warps. Reversal sentinels invert on residue gates—δ rallies convert them mid-arc.",
-      "rewardFlux": 1
-    },
-    {
-      "id": "achievement-corollary-secret",
-      "levelId": "Corollary - Secret",
-      "title": "Shadow Integral",
-      "subtitle": "Corollary · Corollary - Secret",
-      "description": "Phase-shifted archipelago of calculus islands hidden beneath modular petals. Resource siphons and reversal elites stack together—prepare universal counters.",
       "rewardFlux": 1
     },
     {
