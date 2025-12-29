@@ -111,11 +111,10 @@ export function setLevelBlueprints(maps = []) {
 // Normalize and store the interactive level configurations.
 export function setLevelConfigs(levels = []) {
   levelConfigs.clear();
-  // Scale enemy movement so the prologue starts at baseline and ramps by ~5% per level.
+  // Apply a level-defined speed multiplier on top of the shared enemy speed baseline.
   const baseMapSpeedMultiplier = 1;
-  const perLevelSpeedGrowth = 1.05;
   const baseEnemySpeed = 0.05;
-  (Array.isArray(levels) ? levels : []).forEach((level, index) => {
+  (Array.isArray(levels) ? levels : []).forEach((level) => {
     if (!level || !level.id) {
       return;
     }
@@ -125,7 +124,9 @@ export function setLevelConfigs(levels = []) {
     if (typeof waves === 'string') {
       waves = parseCompactWaveString(waves);
     }
-    const mapSpeedMultiplier = baseMapSpeedMultiplier * (perLevelSpeedGrowth ** index);
+    const mapSpeedMultiplier = Number.isFinite(level.mapSpeedMultiplier)
+      ? level.mapSpeedMultiplier
+      : baseMapSpeedMultiplier;
 
     levelConfigs.set(level.id, {
       ...level,
