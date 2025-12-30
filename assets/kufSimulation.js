@@ -88,19 +88,28 @@ const SPAWN_AREA_MARGIN = GAMEPLAY_CONFIG.SPAWN_AREA_MARGIN;
 const BULLET_CULLING_MARGIN = GAMEPLAY_CONFIG.BULLET_CULLING_MARGIN;
 // Define the bottom HUD layout for the Kuf base and training toolbar.
 const KUF_HUD_LAYOUT = {
-  BASE_RADIUS: 34,
-  BASE_GLOW_RADIUS: 52,
-  BASE_TO_TOOLBAR_GAP: 18,
+  BASE_RADIUS: 44,
+  BASE_GLOW_RADIUS: 68,
+  BASE_TO_TOOLBAR_GAP: 20,
   TOOLBAR_SLOT_SIZE: 46,
   TOOLBAR_SLOT_GAP: 12,
-  TOOLBAR_BOTTOM_PADDING: 12,
+  TOOLBAR_BOTTOM_PADDING: 10,
 };
 // Define the training catalog for Kuf units, including costs and durations.
-const KUF_TRAINING_SPECS = [
-  { id: 'worker', label: 'Worker', icon: '⟁', cost: 6, duration: 2.2 },
-  { id: 'marine', label: 'Marine', icon: 'Μ', cost: 10, duration: 2.8 },
-  { id: 'sniper', label: 'Sniper', icon: 'Σ', cost: 14, duration: 3.3 },
-  { id: 'splayer', label: 'Splayer', icon: 'Ψ', cost: 18, duration: 3.8 },
+const KUF_TRAINING_CATALOG = {
+  worker: { id: 'worker', label: 'Worker', icon: '⟁', cost: 6, duration: 2.2 },
+  marine: { id: 'marine', label: 'Marine', icon: 'Μ', cost: 10, duration: 2.8 },
+  sniper: { id: 'sniper', label: 'Sniper', icon: 'Σ', cost: 14, duration: 3.3 },
+  splayer: { id: 'splayer', label: 'Splayer', icon: 'Ψ', cost: 18, duration: 3.8 },
+};
+// Define the equipable unit rotation for the customizable toolbar slots.
+const KUF_EQUIPPABLE_UNIT_IDS = ['marine', 'sniper', 'splayer'];
+// Define the fixed and customizable training slots displayed along the base toolbar.
+const KUF_TRAINING_SLOTS = [
+  { slotId: 'worker', unitId: 'worker', equipable: false },
+  { slotId: 'slot-1', unitId: 'marine', equipable: true },
+  { slotId: 'slot-2', unitId: 'sniper', equipable: true },
+  { slotId: 'slot-3', unitId: 'splayer', equipable: true },
 ];
 
 /**
@@ -149,13 +158,17 @@ export class KufBattlefieldSimulation {
     this.userRenderMode = 'auto';
     this.glowOverlaysEnabled = true;
     // Track the training toolbar slots for the Kuf base interface.
-    this.trainingSlots = KUF_TRAINING_SPECS.map((slot) => ({
+    this.trainingSlots = KUF_TRAINING_SLOTS.map((slot) => ({
       ...slot,
       isTraining: false,
       progress: 0,
     }));
     // Track the last tapped toolbar slot for double-tap training input.
     this.lastToolbarTap = { time: 0, slotIndex: null };
+    // Track deferred toolbar taps so single taps can equip slots without blocking double taps.
+    this.toolbarTapTimer = null;
+    // Track which toolbar slot is pending a single-tap equip swap.
+    this.pendingToolbarSlotIndex = null;
     // Cache the latest unit statlines for on-demand training spawns.
     this.unitStats = {
       worker: { ...DEFAULT_UNIT_STATS.MARINE },
@@ -627,6 +640,30 @@ export class KufBattlefieldSimulation {
   }
 
   /**
+   * Resolve the current unit spec for a toolbar slot.
+   * @param {object} slot - Toolbar slot payload.
+   * @returns {{ id: string, label: string, icon: string, cost: number, duration: number }} Unit spec.
+   */
+  getTrainingSpecForSlot(slot) {
+    return KUF_TRAINING_CATALOG[slot?.unitId] || KUF_TRAINING_CATALOG.worker;
+  }
+
+  /**
+   * Cycle the equipped unit for a customizable toolbar slot.
+   * @param {number} slotIndex - Index of the toolbar slot to update.
+   */
+  cycleToolbarSlotUnit(slotIndex) {
+    const slot = this.trainingSlots[slotIndex];
+    if (!slot || !slot.equipable || slot.isTraining) {
+      return;
+    }
+    const currentIndex = KUF_EQUIPPABLE_UNIT_IDS.indexOf(slot.unitId);
+    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % KUF_EQUIPPABLE_UNIT_IDS.length : 0;
+    const nextUnitId = KUF_EQUIPPABLE_UNIT_IDS[nextIndex];
+    slot.unitId = nextUnitId;
+  }
+
+  /**
    * Handle taps that land on the training toolbar.
    * @param {number} canvasX - X coordinate within the canvas.
    * @param {number} canvasY - Y coordinate within the canvas.
@@ -640,10 +677,28 @@ export class KufBattlefieldSimulation {
     const now = performance.now();
     const isDoubleTap = this.lastToolbarTap.slotIndex === slotIndex &&
       (now - this.lastToolbarTap.time) < this.doubleTapThreshold;
-    this.lastToolbarTap = { time: now, slotIndex };
     if (isDoubleTap) {
+      // Clear pending single-tap equip swaps so double-tap starts training immediately.
+      if (this.toolbarTapTimer) {
+        clearTimeout(this.toolbarTapTimer);
+        this.toolbarTapTimer = null;
+        this.pendingToolbarSlotIndex = null;
+      }
+      this.lastToolbarTap = { time: 0, slotIndex: null };
       this.tryStartTraining(slotIndex);
+      return true;
     }
+    // Schedule a single-tap equip swap after the double-tap window closes.
+    this.lastToolbarTap = { time: now, slotIndex };
+    if (this.toolbarTapTimer) {
+      clearTimeout(this.toolbarTapTimer);
+    }
+    this.pendingToolbarSlotIndex = slotIndex;
+    this.toolbarTapTimer = setTimeout(() => {
+      this.cycleToolbarSlotUnit(this.pendingToolbarSlotIndex);
+      this.toolbarTapTimer = null;
+      this.pendingToolbarSlotIndex = null;
+    }, this.doubleTapThreshold);
     return true;
   }
 
@@ -659,11 +714,13 @@ export class KufBattlefieldSimulation {
     if (!slot || slot.isTraining) {
       return;
     }
-    if (this.goldEarned < slot.cost) {
+    // Resolve the currently equipped unit for this slot before spending gold.
+    const spec = this.getTrainingSpecForSlot(slot);
+    if (this.goldEarned < spec.cost) {
       return;
     }
     // Deduct gold immediately so remaining gold is always spendable elsewhere.
-    this.goldEarned = Math.max(0, this.goldEarned - slot.cost);
+    this.goldEarned = Math.max(0, this.goldEarned - spec.cost);
     slot.isTraining = true;
     slot.progress = 0;
   }
@@ -677,11 +734,13 @@ export class KufBattlefieldSimulation {
       if (!slot.isTraining) {
         return;
       }
-      slot.progress = Math.min(slot.duration, slot.progress + delta);
-      if (slot.progress >= slot.duration) {
+      // Pull the equipped unit spec so progress and spawn timing match the icon.
+      const spec = this.getTrainingSpecForSlot(slot);
+      slot.progress = Math.min(spec.duration, slot.progress + delta);
+      if (slot.progress >= spec.duration) {
         slot.isTraining = false;
         slot.progress = 0;
-        this.spawnTrainedUnit(slot.id);
+        this.spawnTrainedUnit(spec.id);
       }
     });
   }
@@ -742,6 +801,17 @@ export class KufBattlefieldSimulation {
     this.goldEarned = 0;
     this.destroyedTurrets = 0;
     this.selectedEnemy = null;
+    // Reset any in-flight training so new simulations start with a clean toolbar.
+    this.trainingSlots.forEach((slot) => {
+      slot.isTraining = false;
+      slot.progress = 0;
+    });
+    // Clear any pending toolbar tap timers so equips don't bleed into new runs.
+    if (this.toolbarTapTimer) {
+      clearTimeout(this.toolbarTapTimer);
+      this.toolbarTapTimer = null;
+      this.pendingToolbarSlotIndex = null;
+    }
     this.drawBackground(true);
   }
 
@@ -2253,7 +2323,9 @@ export class KufBattlefieldSimulation {
     const ctx = this.ctx;
     layout.slots.forEach(({ x, y, size, slot }) => {
       ctx.save();
-      const canAfford = this.goldEarned >= slot.cost;
+      // Pull the live spec for the currently equipped unit in this slot.
+      const spec = this.getTrainingSpecForSlot(slot);
+      const canAfford = this.goldEarned >= spec.cost;
       ctx.fillStyle = 'rgba(10, 15, 35, 0.8)';
       ctx.strokeStyle = 'rgba(160, 210, 255, 0.6)';
       ctx.lineWidth = 2;
@@ -2264,7 +2336,7 @@ export class KufBattlefieldSimulation {
         // Darken the icon area while the unit is training.
         ctx.fillStyle = 'rgba(5, 10, 20, 0.6)';
         ctx.fillRect(x, y, size, size);
-        const progress = slot.duration > 0 ? slot.progress / slot.duration : 0;
+        const progress = spec.duration > 0 ? slot.progress / spec.duration : 0;
         ctx.fillStyle = 'rgba(110, 220, 255, 0.35)';
         ctx.fillRect(x, y + size * (1 - progress), size, size * progress);
       }
@@ -2273,12 +2345,12 @@ export class KufBattlefieldSimulation {
       ctx.font = '700 16px "Space Mono", monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(slot.icon, x + size / 2, y + size / 2 - 4);
+      ctx.fillText(spec.icon, x + size / 2, y + size / 2 - 4);
 
       ctx.font = '600 9px "Space Mono", monospace';
       ctx.textBaseline = 'alphabetic';
       ctx.fillStyle = canAfford ? 'rgba(180, 210, 255, 0.9)' : 'rgba(120, 140, 160, 0.7)';
-      ctx.fillText(`${slot.cost}g`, x + size / 2, y + size - 6);
+      ctx.fillText(`${spec.cost}g`, x + size / 2, y + size - 6);
       ctx.restore();
     });
   }
