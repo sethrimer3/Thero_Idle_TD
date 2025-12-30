@@ -140,21 +140,61 @@ export async function loadGameplayConfigViaXhr(primaryUrl) {
 }
 
 /**
- * Attempts to import a JSON module using dynamic import.
- * Returns null in environments that do not support JSON imports so
+ * Attempts to import the gameplay configuration using the module loader with JSON assertions.
+ * Returns null when the module lacks a default export so the caller can continue fallback attempts.
+ */
+// Cache the lazy dynamic-import constructor so unsupported browsers only incur a
+// single detection attempt per session.
+let cachedJsonModuleImporter = undefined;
+
+function getJsonModuleImporter() {
+  if (cachedJsonModuleImporter !== undefined) {
+    return cachedJsonModuleImporter;
+  }
+
+  if (typeof Function !== 'function') {
+    cachedJsonModuleImporter = null;
+    return cachedJsonModuleImporter;
+  }
+
+  try {
+    // Lazily construct the dynamic import helper so unsupported browsers
+    // (notably Safari < 17) can safely fall back without a syntax error.
+    cachedJsonModuleImporter = Function(
+      'specifier',
+      "return import(specifier, { assert: { type: 'json' } });",
+    );
+  } catch (error) {
+    cachedJsonModuleImporter = null;
+  }
+
+  return cachedJsonModuleImporter;
+}
+
+/**
+ * Attempts to import a JSON module using dynamic import assertions when
+ * available. Returns null in environments that do not understand the syntax so
  * callers can fall back to fetch-based loaders.
- * 
- * Note: Import assertions/attributes are intentionally not used here
- * because they cause syntax errors in browsers that don't support them,
- * even when wrapped in try-catch or Function constructors.
  */
 export async function importJsonModule(moduleUrl) {
   if (!moduleUrl) {
     return null;
   }
 
-  // Skip JSON module imports entirely - they're not well supported
-  // and cause syntax errors in many browsers. Instead, rely on fetch.
+  const importer = getJsonModuleImporter();
+  if (!importer) {
+    return null;
+  }
+
+  try {
+    const module = await importer(moduleUrl);
+    if (module && module.default) {
+      return module.default;
+    }
+  } catch (error) {
+    console.warn('JSON module import failed. Falling back to alternate loaders.', error);
+  }
+
   return null;
 }
 
