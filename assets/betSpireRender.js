@@ -510,6 +510,12 @@ export class BetSpireRender {
     this.particleVeerEnabled = true; // Developer toggle for subtle randomized particle veer behavior
     this.smallTierGeneratorGravityEnabled = true; // Developer toggle for extra small particle pull toward generators.
     this.mediumTierForgeGravityEnabled = true; // Developer toggle for extra medium particle pull toward the forge.
+
+    // Load the center forge sprites so the counter-rotating triangles use the authored artwork.
+    this.forgeSpriteClockwise = new Image();
+    this.forgeSpriteClockwise.src = './assets/sprites/spires/betSpire/forge.png';
+    this.forgeSpriteCounterClockwise = new Image();
+    this.forgeSpriteCounterClockwise.src = './assets/sprites/spires/betSpire/forge2.png';
     
     // Developer debug flags (only visible when developer mode is active)
     this.particleSpawningEnabled = true; // Controls whether particles can spawn
@@ -1930,30 +1936,45 @@ export class BetSpireRender {
   drawForge() {
     const ctx = this.ctx;
     const forgeSize = 20; // Size of triangles
+    const forgeSpriteSize = forgeSize * 2; // Scale sprites to match the existing triangle footprint.
+    const forgeSpriteReady = this.forgeSpriteClockwise.complete && this.forgeSpriteClockwise.naturalWidth > 0;
+    const forgeCounterSpriteReady = this.forgeSpriteCounterClockwise.complete && this.forgeSpriteCounterClockwise.naturalWidth > 0;
     
     ctx.save();
     ctx.translate(this.forge.x, this.forge.y);
     
     // Draw first triangle (pointing up, rotating clockwise)
     ctx.rotate(this.forgeRotation);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, -forgeSize);
-    ctx.lineTo(forgeSize * Math.cos(Math.PI / 6), forgeSize * Math.sin(Math.PI / 6));
-    ctx.lineTo(-forgeSize * Math.cos(Math.PI / 6), forgeSize * Math.sin(Math.PI / 6));
-    ctx.closePath();
-    ctx.stroke();
+    if (forgeSpriteReady) {
+      // Draw the clockwise forge sprite once the image has finished loading.
+      ctx.drawImage(this.forgeSpriteClockwise, -forgeSpriteSize / 2, -forgeSpriteSize / 2, forgeSpriteSize, forgeSpriteSize);
+    } else {
+      // Fallback to vector triangles if the sprite has not loaded yet.
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, -forgeSize);
+      ctx.lineTo(forgeSize * Math.cos(Math.PI / 6), forgeSize * Math.sin(Math.PI / 6));
+      ctx.lineTo(-forgeSize * Math.cos(Math.PI / 6), forgeSize * Math.sin(Math.PI / 6));
+      ctx.closePath();
+      ctx.stroke();
+    }
     
     // Draw second triangle (pointing down, rotating counter-clockwise)
     ctx.rotate(-this.forgeRotation * 2); // Reset and rotate opposite direction
-    ctx.strokeStyle = 'rgba(200, 200, 255, 0.6)';
-    ctx.beginPath();
-    ctx.moveTo(0, forgeSize);
-    ctx.lineTo(forgeSize * Math.cos(Math.PI / 6), -forgeSize * Math.sin(Math.PI / 6));
-    ctx.lineTo(-forgeSize * Math.cos(Math.PI / 6), -forgeSize * Math.sin(Math.PI / 6));
-    ctx.closePath();
-    ctx.stroke();
+    if (forgeCounterSpriteReady) {
+      // Draw the counter-clockwise forge sprite once the image has finished loading.
+      ctx.drawImage(this.forgeSpriteCounterClockwise, -forgeSpriteSize / 2, -forgeSpriteSize / 2, forgeSpriteSize, forgeSpriteSize);
+    } else {
+      // Fallback to vector triangles if the sprite has not loaded yet.
+      ctx.strokeStyle = 'rgba(200, 200, 255, 0.6)';
+      ctx.beginPath();
+      ctx.moveTo(0, forgeSize);
+      ctx.lineTo(forgeSize * Math.cos(Math.PI / 6), -forgeSize * Math.sin(Math.PI / 6));
+      ctx.lineTo(-forgeSize * Math.cos(Math.PI / 6), -forgeSize * Math.sin(Math.PI / 6));
+      ctx.closePath();
+      ctx.stroke();
+    }
     
     // Draw center glow (only if glow is enabled)
     if (this.forgeGlowEnabled) {
