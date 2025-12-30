@@ -5307,18 +5307,5 @@
       </div>
     </div>
     <script type="module" src="./assets/main.js"></script>
-    <script>
-      // Fallback: If the game hasn't loaded after 10 seconds, dismiss the startup overlay
-      // so the user can at least access developer mode or see the issue.
-      setTimeout(() => {
-        const overlay = document.getElementById('startup-overlay');
-        if (overlay && !overlay.hasAttribute('hidden')) {
-          console.warn('Startup took longer than expected - auto-dismissing overlay');
-          overlay.classList.add('startup-overlay--hidden');
-          overlay.setAttribute('hidden', '');
-          overlay.setAttribute('aria-hidden', 'true');
-        }
-      }, 10000);
-    </script>
   </body>
 </html>
