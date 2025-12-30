@@ -107,43 +107,58 @@ const graphemeDictionary = new Map(getGraphemeCharacters().map(def => [def.index
 const weaponElements = new Map();
 const pointerState = { active: false, startX: 0, startY: 0, moved: false };
 
-// Sprite sheet metadata for rendering Shin graphemes from Script.svg (vector for crisp scaling).
-const SHIN_SCRIPT_SPRITE = Object.freeze({
-  url: new URL('./sprites/spires/shinSpire/Script.svg', import.meta.url).href,
-  // Legacy PNG fallback in case SVG rendering fails on older browsers.
-  fallbackUrl: new URL('./sprites/spires/shinSpire/Script.png', import.meta.url).href,
+// Sprite sheet metadata for rendering Shin graphemes from Script.png and its JSON metadata.
+const SHIN_SCRIPT_METADATA_URL = new URL('./sprites/spires/shinSpire/Script.json', import.meta.url).href;
+const SHIN_SCRIPT_SPRITE = {
+  url: new URL('./sprites/spires/shinSpire/Script.png', import.meta.url).href,
   columns: 7,
   rows: 5,
   cellWidth: 200,
   cellHeight: 190,
   scale: 0.14,
   tint: '#d4af37',
-});
+};
 
-// Derived dimensions for scaled grapheme frames.
-const SHIN_SCALED_CELL_WIDTH = SHIN_SCRIPT_SPRITE.cellWidth * SHIN_SCRIPT_SPRITE.scale;
-const SHIN_SCALED_CELL_HEIGHT = SHIN_SCRIPT_SPRITE.cellHeight * SHIN_SCRIPT_SPRITE.scale;
-const SHIN_SCALED_SHEET_WIDTH = SHIN_SCALED_CELL_WIDTH * SHIN_SCRIPT_SPRITE.columns;
-const SHIN_SCALED_SHEET_HEIGHT = SHIN_SCALED_CELL_HEIGHT * SHIN_SCRIPT_SPRITE.rows;
+// Load sprite sheet layout metadata from the JSON manifest to keep PNG framing consistent.
+function loadShinScriptMetadata() {
+  fetch(SHIN_SCRIPT_METADATA_URL)
+    .then(response => (response.ok ? response.json() : Promise.reject(response.status)))
+    .then((metadata) => {
+      if (metadata && typeof metadata === 'object') {
+        SHIN_SCRIPT_SPRITE.columns = Number(metadata.columns) || SHIN_SCRIPT_SPRITE.columns;
+        SHIN_SCRIPT_SPRITE.rows = Number(metadata.rows) || SHIN_SCRIPT_SPRITE.rows;
+        SHIN_SCRIPT_SPRITE.cellWidth = Number(metadata.cellWidth) || SHIN_SCRIPT_SPRITE.cellWidth;
+        SHIN_SCRIPT_SPRITE.cellHeight = Number(metadata.cellHeight) || SHIN_SCRIPT_SPRITE.cellHeight;
+      }
+    })
+    .catch((error) => {
+      console.warn('Failed to load Shin Script sprite metadata JSON.', error);
+    });
+}
+
+// Compute scaled metrics for grapheme sprites from the current metadata.
+function getShinScriptScaledMetrics() {
+  const scaledCellWidth = SHIN_SCRIPT_SPRITE.cellWidth * SHIN_SCRIPT_SPRITE.scale;
+  const scaledCellHeight = SHIN_SCRIPT_SPRITE.cellHeight * SHIN_SCRIPT_SPRITE.scale;
+  return {
+    scaledCellWidth,
+    scaledCellHeight,
+    scaledSheetWidth: scaledCellWidth * SHIN_SCRIPT_SPRITE.columns,
+    scaledSheetHeight: scaledCellHeight * SHIN_SCRIPT_SPRITE.rows,
+  };
+}
 
 // Preload the script sprite sheet so canvas drops and UI icons can share it.
 const shinScriptSpriteImage = new Image();
 let shinScriptSpriteLoaded = false;
-// Guard to ensure we only attempt the PNG fallback once.
-let shinScriptSpriteFallbackAttempted = false;
 shinScriptSpriteImage.addEventListener('load', () => {
   shinScriptSpriteLoaded = true;
 });
 shinScriptSpriteImage.addEventListener('error', (error) => {
-  if (!shinScriptSpriteFallbackAttempted && SHIN_SCRIPT_SPRITE.fallbackUrl) {
-    shinScriptSpriteFallbackAttempted = true;
-    console.warn('Failed to load Shin Script SVG sheet; trying PNG fallback.', error);
-    shinScriptSpriteImage.src = SHIN_SCRIPT_SPRITE.fallbackUrl;
-    return;
-  }
   console.warn('Failed to load Shin Script sprite sheet; falling back to text glyphs.', error);
 });
 shinScriptSpriteImage.src = SHIN_SCRIPT_SPRITE.url;
+loadShinScriptMetadata();
 
 /**
  * Resolve the sprite frame for a grapheme using either explicit row/col data or the dictionary definition.
@@ -157,29 +172,30 @@ function resolveGraphemeFrame(index, rowOverride, colOverride) {
 }
 
 /**
- * Apply Script.svg sprite background positioning to the provided element.
+ * Apply Script.png sprite background positioning to the provided element.
  */
 function applyGraphemeSpriteStyles(element, frame) {
-  element.style.width = `${SHIN_SCALED_CELL_WIDTH}px`;
-  element.style.height = `${SHIN_SCALED_CELL_HEIGHT}px`;
-  // Use the SVG as a mask so we can paint collected graphemes with the golden tint while
+  const metrics = getShinScriptScaledMetrics();
+  element.style.width = `${metrics.scaledCellWidth}px`;
+  element.style.height = `${metrics.scaledCellHeight}px`;
+  // Use the PNG as a mask so we can paint collected graphemes with the golden tint while
   // still falling back to the direct background image when masking is unavailable.
   element.style.backgroundColor = SHIN_SCRIPT_SPRITE.tint;
-  element.style.backgroundSize = `${SHIN_SCALED_SHEET_WIDTH}px ${SHIN_SCALED_SHEET_HEIGHT}px`;
-  element.style.backgroundPosition = `-${frame.col * SHIN_SCALED_CELL_WIDTH}px -${frame.row * SHIN_SCALED_CELL_HEIGHT}px`;
+  element.style.backgroundSize = `${metrics.scaledSheetWidth}px ${metrics.scaledSheetHeight}px`;
+  element.style.backgroundPosition = `-${frame.col * metrics.scaledCellWidth}px -${frame.row * metrics.scaledCellHeight}px`;
   element.style.backgroundImage = `url(${SHIN_SCRIPT_SPRITE.url})`;
   element.style.maskImage = `url(${SHIN_SCRIPT_SPRITE.url})`;
   element.style.webkitMaskImage = `url(${SHIN_SCRIPT_SPRITE.url})`;
-  element.style.maskSize = `${SHIN_SCALED_SHEET_WIDTH}px ${SHIN_SCALED_SHEET_HEIGHT}px`;
-  element.style.webkitMaskSize = `${SHIN_SCALED_SHEET_WIDTH}px ${SHIN_SCALED_SHEET_HEIGHT}px`;
-  element.style.maskPosition = `-${frame.col * SHIN_SCALED_CELL_WIDTH}px -${frame.row * SHIN_SCALED_CELL_HEIGHT}px`;
-  element.style.webkitMaskPosition = `-${frame.col * SHIN_SCALED_CELL_WIDTH}px -${frame.row * SHIN_SCALED_CELL_HEIGHT}px`;
+  element.style.maskSize = `${metrics.scaledSheetWidth}px ${metrics.scaledSheetHeight}px`;
+  element.style.webkitMaskSize = `${metrics.scaledSheetWidth}px ${metrics.scaledSheetHeight}px`;
+  element.style.maskPosition = `-${frame.col * metrics.scaledCellWidth}px -${frame.row * metrics.scaledCellHeight}px`;
+  element.style.webkitMaskPosition = `-${frame.col * metrics.scaledCellWidth}px -${frame.row * metrics.scaledCellHeight}px`;
   element.style.maskRepeat = 'no-repeat';
   element.style.webkitMaskRepeat = 'no-repeat';
 }
 
 /**
- * Build a DOM element that displays a single grapheme tile from Script.svg.
+ * Build a DOM element that displays a single grapheme tile from Script.png.
  * For collectable graphemes (A-Z, indices 0-25), adds a small capital letter label in the bottom-right corner.
  */
 function createGraphemeIconElement(index, rowOverride, colOverride, className = 'shin-grapheme-icon') {
@@ -1669,7 +1685,7 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Script character rendered from Script.svg with a gold tint.
+    // Script character rendered from Script.png with a gold tint.
     const frame = resolveGraphemeFrame(drop.index, drop.row, drop.col);
     const spriteDrawn = renderGraphemeSprite(ctx, frame, dropX, dropY + floatY + 1);
 
