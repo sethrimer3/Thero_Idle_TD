@@ -150,6 +150,8 @@ export class KufBattlefieldSimulation {
     this.lastTapTime = 0;
     this.doubleTapThreshold = 300; // ms for double-tap detection
     this.attackMoveWaypoint = null; // {x, y} target for attack-move
+    // Track how close units should hold to a focus target when manually commanded.
+    this.targetHoldBuffer = 6;
     // Track runtime rendering profile so we can gracefully downshift on slower devices without losing glow aesthetics.
     this.renderProfile = isLowGraphicsModeActive() ? 'light' : 'high';
     this.smoothedFrameCost = 12;
@@ -340,11 +342,11 @@ export class KufBattlefieldSimulation {
         this.selectedUnits = [];
         this.selectionMode = 'all';
         this.attackMoveWaypoint = null;
+        // Clear targeted enemies when resetting the selection state.
+        this.selectedEnemy = null;
       } else {
-        // Single tap: set attack-move waypoint
-        const worldX = (canvasX - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x;
-        const worldY = (canvasY - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y;
-        this.setAttackMoveWaypoint(worldX, worldY);
+        // Single tap: issue a contextual command (target or move).
+        this.handleCommandTap(canvasX, canvasY);
       }
     }
     
@@ -427,12 +429,72 @@ export class KufBattlefieldSimulation {
         this.selectedUnits = [];
         this.selectionMode = 'all';
         this.attackMoveWaypoint = null;
+        // Clear targeted enemies when resetting the selection state.
+        this.selectedEnemy = null;
       } else {
-        const worldX = (canvasX - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x;
-        const worldY = (canvasY - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y;
-        this.setAttackMoveWaypoint(worldX, worldY);
+        // Single tap: issue a contextual command (target or move).
+        this.handleCommandTap(canvasX, canvasY);
       }
     }
+  }
+
+  /**
+   * Convert a canvas-space coordinate to world-space coordinates.
+   * @param {number} canvasX - X coordinate within the canvas.
+   * @param {number} canvasY - Y coordinate within the canvas.
+   * @returns {{ x: number, y: number }} World coordinates.
+   */
+  canvasToWorld(canvasX, canvasY) {
+    return {
+      x: (canvasX - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x,
+      y: (canvasY - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y,
+    };
+  }
+
+  /**
+   * Resolve a turret/enemy under the tap point in world space.
+   * @param {number} worldX - X coordinate in world space.
+   * @param {number} worldY - Y coordinate in world space.
+   * @returns {object|null} Targeted enemy or null.
+   */
+  findEnemyAtPoint(worldX, worldY) {
+    const hit = this.turrets.find((turret) => {
+      const dx = turret.x - worldX;
+      const dy = turret.y - worldY;
+      const radius = (turret.radius || TURRET_RADIUS) + 6;
+      return dx * dx + dy * dy <= radius * radius;
+    });
+    return hit || null;
+  }
+
+  /**
+   * Handle tap-based commands to target enemies or set move destinations.
+   * @param {number} canvasX - X coordinate within the canvas.
+   * @param {number} canvasY - Y coordinate within the canvas.
+   */
+  handleCommandTap(canvasX, canvasY) {
+    const { x: worldX, y: worldY } = this.canvasToWorld(canvasX, canvasY);
+    const enemy = this.findEnemyAtPoint(worldX, worldY);
+    if (enemy) {
+      this.issueTargetCommand(enemy);
+      return;
+    }
+    // Clear any enemy focus before issuing a movement command.
+    this.selectedEnemy = null;
+    this.setAttackMoveWaypoint(worldX, worldY);
+  }
+
+  /**
+   * Send a focused attack command on a tapped enemy.
+   * @param {object} enemy - Enemy unit or structure to focus.
+   */
+  issueTargetCommand(enemy) {
+    this.selectedEnemy = enemy;
+    // Clear any stored waypoints so units commit to the new focus target.
+    this.attackMoveWaypoint = null;
+    this.marines.forEach((marine) => {
+      marine.waypoint = null;
+    });
   }
 
   /**
@@ -474,6 +536,75 @@ export class KufBattlefieldSimulation {
     unitsToCommand.forEach((marine) => {
       marine.waypoint = { x: worldX, y: worldY };
     });
+  }
+
+  /**
+   * Resolve the currently focused enemy and clear invalid references.
+   * @returns {object|null} Focused enemy or null when none is active.
+   */
+  getFocusedEnemy() {
+    if (!this.selectedEnemy) {
+      return null;
+    }
+    if (this.selectedEnemy.health <= 0 || !this.turrets.includes(this.selectedEnemy)) {
+      this.selectedEnemy = null;
+      return null;
+    }
+    return this.selectedEnemy;
+  }
+
+  /**
+   * Accelerate a unit toward a target point, returning true when close enough to stop.
+   * @param {object} marine - Unit to move.
+   * @param {number} targetX - Desired x coordinate in world space.
+   * @param {number} targetY - Desired y coordinate in world space.
+   * @param {number} delta - Delta time in seconds.
+   * @returns {boolean} True when the unit is within the stopping threshold.
+   */
+  steerUnitToward(marine, targetX, targetY, delta) {
+    const dx = targetX - marine.x;
+    const dy = targetY - marine.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= 5) {
+      marine.vx = 0;
+      marine.vy = 0;
+      return true;
+    }
+    const targetVx = (dx / dist) * marine.moveSpeed;
+    const targetVy = (dy / dist) * marine.moveSpeed;
+    const acceleration = MARINE_ACCELERATION * delta;
+
+    if (marine.vx < targetVx) {
+      marine.vx = Math.min(targetVx, marine.vx + acceleration);
+    } else if (marine.vx > targetVx) {
+      marine.vx = Math.max(targetVx, marine.vx - acceleration);
+    }
+
+    if (marine.vy < targetVy) {
+      marine.vy = Math.min(targetVy, marine.vy + acceleration);
+    } else if (marine.vy > targetVy) {
+      marine.vy = Math.max(targetVy, marine.vy - acceleration);
+    }
+    return false;
+  }
+
+  /**
+   * Ease a unit's velocity back to zero.
+   * @param {object} marine - Unit to decelerate.
+   * @param {number} delta - Delta time in seconds.
+   */
+  decelerateUnit(marine, delta) {
+    const deceleration = MARINE_ACCELERATION * delta;
+    if (Math.abs(marine.vy) > deceleration) {
+      marine.vy += marine.vy > 0 ? -deceleration : deceleration;
+    } else {
+      marine.vy = 0;
+    }
+    if (Math.abs(marine.vx) > deceleration) {
+      marine.vx += marine.vx > 0 ? -deceleration : deceleration;
+    } else {
+      marine.vx = 0;
+    }
   }
 
   /**
@@ -1198,13 +1329,25 @@ export class KufBattlefieldSimulation {
   }
 
   updateMarines(delta) {
+    const focusedEnemy = this.getFocusedEnemy();
     this.marines.forEach((marine) => {
       this.updateMarineStatus(marine, delta);
       if (marine.health <= 0) {
         return;
       }
       marine.cooldown = Math.max(0, marine.cooldown - delta);
-      const target = this.findClosestTurret(marine.x, marine.y, marine.range);
+      // Prioritize the focused enemy when one is set, only firing when it is in range.
+      let target = null;
+      if (focusedEnemy) {
+        const dx = focusedEnemy.x - marine.x;
+        const dy = focusedEnemy.y - marine.y;
+        if (dx * dx + dy * dy <= marine.range * marine.range) {
+          target = focusedEnemy;
+        }
+      } else {
+        // Otherwise scan for the nearest target in range.
+        target = this.findClosestTurret(marine.x, marine.y, marine.range);
+      }
       
       // Check if unit has a waypoint and hasn't reached it yet
       const hasWaypoint = marine.waypoint && 
@@ -1212,18 +1355,8 @@ export class KufBattlefieldSimulation {
       
       // Stop and fire if enemy in range, otherwise move forward or toward waypoint
       if (target) {
-        // Decelerate to a stop
-        const deceleration = MARINE_ACCELERATION * delta;
-        if (Math.abs(marine.vy) > deceleration) {
-          marine.vy += marine.vy > 0 ? -deceleration : deceleration;
-        } else {
-          marine.vy = 0;
-        }
-        if (Math.abs(marine.vx) > deceleration) {
-          marine.vx += marine.vx > 0 ? -deceleration : deceleration;
-        } else {
-          marine.vx = 0;
-        }
+        // Decelerate to a stop before firing.
+        this.decelerateUnit(marine, delta);
         
         // Fire at target
         if (marine.cooldown <= 0) {
@@ -1264,34 +1397,29 @@ export class KufBattlefieldSimulation {
           
           marine.cooldown = 1 / marine.attackSpeed;
         }
-      } else if (hasWaypoint) {
-        // Move toward waypoint (attack-move behavior)
-        const dx = marine.waypoint.x - marine.x;
-        const dy = marine.waypoint.y - marine.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (dist > 5) {
-          const targetVx = (dx / dist) * marine.moveSpeed;
-          const targetVy = (dy / dist) * marine.moveSpeed;
-          const acceleration = MARINE_ACCELERATION * delta;
-          
-          // Accelerate toward waypoint
-          if (marine.vx < targetVx) {
-            marine.vx = Math.min(targetVx, marine.vx + acceleration);
-          } else if (marine.vx > targetVx) {
-            marine.vx = Math.max(targetVx, marine.vx - acceleration);
-          }
-          
-          if (marine.vy < targetVy) {
-            marine.vy = Math.min(targetVy, marine.vy + acceleration);
-          } else if (marine.vy > targetVy) {
-            marine.vy = Math.max(targetVy, marine.vy - acceleration);
-          }
+      } else if (focusedEnemy) {
+        // Move toward the focused enemy while holding at max firing distance.
+        const dx = focusedEnemy.x - marine.x;
+        const dy = focusedEnemy.y - marine.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const desiredDistance = Math.max(0, marine.range - this.targetHoldBuffer);
+        const deltaDistance = dist - desiredDistance;
+        const holdTolerance = this.targetHoldBuffer;
+        if (Math.abs(deltaDistance) > holdTolerance) {
+          // Navigate to the stand-off point that keeps the unit at optimal range.
+          const standOffX = focusedEnemy.x - (dx / dist) * desiredDistance;
+          const standOffY = focusedEnemy.y - (dy / dist) * desiredDistance;
+          this.steerUnitToward(marine, standOffX, standOffY, delta);
         } else {
-          // Reached waypoint - clear it and stop
+          // Hold position at max range until the target moves.
+          this.decelerateUnit(marine, delta);
+        }
+      } else if (hasWaypoint) {
+        // Move toward waypoint (attack-move behavior).
+        const reached = this.steerUnitToward(marine, marine.waypoint.x, marine.waypoint.y, delta);
+        if (reached) {
+          // Reached waypoint - clear it and stop.
           marine.waypoint = null;
-          marine.vx = 0;
-          marine.vy = 0;
         }
       } else {
         // No waypoint, default behavior: accelerate forward (negative y is up)
@@ -1913,6 +2041,12 @@ export class KufBattlefieldSimulation {
         ctx.beginPath();
         ctx.arc(marine.x, marine.y, marine.radius + 4, 0, Math.PI * 2);
         ctx.stroke();
+        // Show the selected unit's firing range as a thin halo.
+        ctx.strokeStyle = 'rgba(120, 255, 180, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(marine.x, marine.y, marine.range, 0, Math.PI * 2);
+        ctx.stroke();
       }
       
       // Different colors for different unit types
@@ -2096,6 +2230,19 @@ export class KufBattlefieldSimulation {
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(turret.x, turret.y, turret.radius + 4, 0, Math.PI * 2);
+        ctx.stroke();
+        // Add a target reticle to emphasize the focused enemy.
+        ctx.strokeStyle = 'rgba(255, 230, 120, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(turret.x - turret.radius - 8, turret.y);
+        ctx.lineTo(turret.x - turret.radius - 2, turret.y);
+        ctx.moveTo(turret.x + turret.radius + 2, turret.y);
+        ctx.lineTo(turret.x + turret.radius + 8, turret.y);
+        ctx.moveTo(turret.x, turret.y - turret.radius - 8);
+        ctx.lineTo(turret.x, turret.y - turret.radius - 2);
+        ctx.moveTo(turret.x, turret.y + turret.radius + 2);
+        ctx.lineTo(turret.x, turret.y + turret.radius + 8);
         ctx.stroke();
       }
 
